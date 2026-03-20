@@ -10,9 +10,13 @@ uniform vec4  color_tip        : source_color      = vec4(0.52, 0.80, 0.32, 1.0)
 uniform vec3  player_trail[8];
 uniform float trail_weights[8];
 uniform vec2  player_move_dir  = vec2(0.0);  // XZ velocity direction (normalised)
-uniform float player_radius    : hint_range(0.0, 8.0)  = 2.5;
-uniform float player_push      : hint_range(0.0, 2.0)  = 0.6;
+uniform float player_radius    : hint_range(0.0, 8.0)  = 1.2;
+uniform float player_push      : hint_range(0.0, 2.0)  = 0.5;
 
+// Persistent trample map
+uniform sampler2D trample_map : filter_linear;
+uniform float     trample_map_size = 200.0;  // world units covered by the map
+uniform float     trample_push     : hint_range(0.0, 1.5) = 0.8;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -56,7 +60,19 @@ void vertex() {
 	VERTEX.x += total_push.x * t;
 	VERTEX.z += total_push.y * t;
 
-
+	// ---- Persistent trample from trample map ----
+	vec2 trample_uv = root.xz / trample_map_size;
+	float trample = texture(trample_map, trample_uv).r;
+	if (trample > 0.01) {
+		// Push blade outward from its root using a hash-based random direction
+		// (each blade gets a consistent lean direction)
+		float angle = hash(root.xz * 3.17) * 6.2832;
+		vec2  lean_dir = vec2(cos(angle), sin(angle));
+		VERTEX.x += lean_dir.x * trample * trample_push * t;
+		VERTEX.z += lean_dir.y * trample * trample_push * t;
+		// Also flatten — reduce height
+		VERTEX.y *= 1.0 - trample * 0.4 * t;
+	}
 }
 
 void fragment() {

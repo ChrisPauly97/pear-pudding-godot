@@ -13,9 +13,10 @@ var _prev_pos:   Vector3        = Vector3(-9999, 0, -9999)
 
 # Persistent trample map — one pixel per tile, never fully resets
 const TRAMPLE_RES     := 100   # pixels (matches MAP_WIDTH/HEIGHT)
-const TRAMPLE_RADIUS  := 2     # pixel radius of player stamp
+const TRAMPLE_RADIUS  := 1     # pixel radius of player stamp (foot-sized)
 const TRAMPLE_DECAY   := 0.02  # per-second decay rate
 const TRAMPLE_FLOOR   := 0.3   # trampled grass never recovers past this
+const TRAMPLE_RAMP    := 1.5   # per-second ramp-up rate (takes ~0.7s to fully trample)
 var _trample_img:    Image
 var _trample_tex:    ImageTexture
 
@@ -35,6 +36,14 @@ func _ready() -> void:
 func build(world_map) -> void:
 	_mat = ShaderMaterial.new()
 	_mat.shader = load("res://assets/shaders/grass_blade.gdshader")
+
+	# Init persistent trample map
+	_trample_img = Image.create(TRAMPLE_RES, TRAMPLE_RES, false, Image.FORMAT_L8)
+	_trample_img.fill(Color(0, 0, 0))
+	_trample_tex = ImageTexture.create_from_image(_trample_img)
+	var map_world: float = world_map.MAP_WIDTH * world_map.TILE_SIZE
+	_mat.set_shader_parameter("trample_map", _trample_tex)
+	_mat.set_shader_parameter("trample_map_size", map_world)
 
 	var blade_mesh := _make_blade_mesh()
 	var rng        := RandomNumberGenerator.new()
@@ -152,6 +161,47 @@ func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 	_mat.set_shader_parameter("player_trail", _trail)
 	_mat.set_shader_parameter("trail_weights", weights)
 	_mat.set_shader_parameter("player_move_dir", move_dir)
+
+	# Stamp persistent trample map
+	if is_grounded and _trample_img:
+		_update_trample_map(pos, delta)
+
+func _update_trample_map(pos: Vector3, delta: float) -> void:
+	var tile_size: float = IsoConst.TILE_SIZE
+	var px: int = int(pos.x / tile_size)
+	var pz: int = int(pos.z / tile_size)
+
+	# Decay all pixels slightly, but never below the floor once stamped
+	# Only process a region around the player to save CPU
+	# Full decay pass every frame would be expensive — instead just decay a
+	# wide region and stamp new values
+	var decay_r: int = TRAMPLE_RADIUS + 8
+	var x0: int = max(0, px - decay_r)
+	var x1: int = min(TRAMPLE_RES - 1, px + decay_r)
+	var z0: int = max(0, pz - decay_r)
+	var z1: int = min(TRAMPLE_RES - 1, pz + decay_r)
+
+	var decay_amount: float = TRAMPLE_DECAY * delta
+
+	for z in range(z0, z1 + 1):
+		for x in range(x0, x1 + 1):
+			var v: float = _trample_img.get_pixel(x, z).r
+			if v > 0.0:
+				var new_v: float = max(TRAMPLE_FLOOR, v - decay_amount)
+				_trample_img.set_pixel(x, z, Color(new_v, new_v, new_v))
+
+	# Stamp player footprint — ramp up gradually, not instantly
+	var ramp: float = TRAMPLE_RAMP * delta
+	for z in range(max(0, pz - TRAMPLE_RADIUS), min(TRAMPLE_RES, pz + TRAMPLE_RADIUS + 1)):
+		for x in range(max(0, px - TRAMPLE_RADIUS), min(TRAMPLE_RES, px + TRAMPLE_RADIUS + 1)):
+			var dist: float = Vector2(x - px, z - pz).length()
+			if dist <= TRAMPLE_RADIUS:
+				var target: float = 1.0 - dist / (TRAMPLE_RADIUS + 1.0)
+				var cur: float = _trample_img.get_pixel(x, z).r
+				var new_v: float = min(target, cur + ramp)
+				_trample_img.set_pixel(x, z, Color(new_v, new_v, new_v))
+
+	_trample_tex.update(_trample_img)
 
 func _make_blade_mesh() -> ArrayMesh:
 	# Segmented blade: SEGMENTS quads tapering to a tip triangle.
