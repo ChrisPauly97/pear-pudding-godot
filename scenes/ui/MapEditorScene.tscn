@@ -1,0 +1,35 @@
+[gd_scene load_steps=2 format=3 uid="uid://editor_scene"]
+
+[ext_resource type="Script" path="res://scenes/ui/MapEditorScene.gd" id="1"]
+
+[node name="MapEditorScene" type="Node3D"]
+script = ExtResource("1")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+projection = 1
+size = 20.0
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 50, 80, 130)
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -0.866025, 0.5, 0, -0.5, -0.866025, 0, 20, 0)
+light_energy = 1.2
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="ModeLabel" type="Label" parent="HUD"]
+offset_right = 400.0
+offset_bottom = 30.0
+text = "Mode: Grass  H:1"
+
+[node name="MapNameLabel" type="Label" parent="HUD"]
+offset_top = 30.0
+offset_right = 300.0
+offset_bottom = 60.0
+text = "Map: main"
+
+[node name="HelpLabel" type="Label" parent="HUD"]
+offset_top = 60.0
+offset_right = 500.0
+offset_bottom = 200.0
+text = "1-8: Mode  [/]: Height  Ctrl+S: Save  Ctrl+N: New  Ctrl+O: Open
+1=Grass 2=Wall 3=Hill 4=Enemy 5=Chest 6=Door 7=Spawn 8=Erase"
