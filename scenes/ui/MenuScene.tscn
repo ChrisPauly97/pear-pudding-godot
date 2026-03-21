@@ -25,12 +25,12 @@ layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -200.0
-offset_top = 80.0
-offset_right = 200.0
-offset_bottom = 140.0
+offset_left = -400.0
+offset_top = 120.0
+offset_right = 400.0
+offset_bottom = 220.0
 grow_horizontal = 2
-theme_override_font_sizes/font_size = 36
+theme_override_font_sizes/font_size = 72
 text = "Pear Pudding TCG"
 horizontal_alignment = 1
 
@@ -41,24 +41,34 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -100.0
-offset_top = -70.0
-offset_right = 100.0
-offset_bottom = 70.0
+offset_left = -200.0
+offset_top = -210.0
+offset_right = 200.0
+offset_bottom = 210.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_constants/separation = 16
+
+[node name="ContinueButton" type="Button" parent="VBox" unique_id=112233445]
+custom_minimum_size = Vector2(400, 80)
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Continue"
 
 [node name="StartButton" type="Button" parent="VBox" unique_id=281399044]
-custom_minimum_size = Vector2(200, 50)
+custom_minimum_size = Vector2(400, 80)
 layout_mode = 2
-text = "Start Game"
+theme_override_font_sizes/font_size = 24
+text = "New Game"
 
 [node name="EditorButton" type="Button" parent="VBox" unique_id=409112854]
-custom_minimum_size = Vector2(200, 50)
+custom_minimum_size = Vector2(400, 80)
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Map Editor"
 
 [node name="QuitButton" type="Button" parent="VBox" unique_id=79237124]
-custom_minimum_size = Vector2(200, 50)
+custom_minimum_size = Vector2(400, 80)
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Quit"

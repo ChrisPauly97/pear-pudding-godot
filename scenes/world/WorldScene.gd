@@ -126,11 +126,16 @@ func _build_walls() -> void:
 					)
 					_wall_meshes.add_child(sb)
 
+func flush_save_position() -> void:
+	if _player:
+		SaveManager.update_position(map_name, _player.position.x, _player.position.z)
+
 func _spawn_player() -> void:
 	var px: float
 	var pz: float
 
 	if not target_door_id.is_empty():
+		# Spawning at a specific door (e.g. returning from a sub-map)
 		var door := world_map.find_door_by_id(target_door_id)
 		if not door.is_empty():
 			px = door["x"]
@@ -138,6 +143,10 @@ func _spawn_player() -> void:
 		else:
 			px = _get_default_px()
 			pz = _get_default_pz()
+	elif SaveManager.current_map == map_name and (SaveManager.player_x != 0.0 or SaveManager.player_z != 0.0):
+		# Resume from saved position on this map
+		px = SaveManager.player_x
+		pz = SaveManager.player_z
 	else:
 		px = _get_default_px()
 		pz = _get_default_pz()
@@ -179,11 +188,17 @@ func _create_player_node() -> CharacterBody3D:
 	return body
 
 func _spawn_entities() -> void:
-	# Enemies
+	# Enemies — skip any already defeated in this save
 	for e_data in world_map.enemies:
+		var eid: String = str(e_data.get("id", ""))
+		if SaveManager.is_enemy_defeated(eid):
+			continue
 		_spawn_enemy(e_data)
-	# Chests
+	# Chests — mark opened ones as already-opened in the world data
 	for c_data in world_map.chests:
+		var cid: String = str(c_data.get("id", ""))
+		if SaveManager.is_chest_opened(cid):
+			c_data["opened"] = true
 		_spawn_chest(c_data)
 	# Doors
 	for d_data in world_map.doors:
@@ -254,6 +269,7 @@ func _process(delta: float) -> void:
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
 	_check_interactions()
+	SaveManager.update_position(map_name, _player.position.x, _player.position.z)
 
 func _check_interactions() -> void:
 	var px := _player.position.x
@@ -293,6 +309,8 @@ func _handle_interact() -> void:
 	var chest := world_map.find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
 	if not chest.is_empty() and not chest.get("opened", false):
 		chest["opened"] = true
+		var cid: String = str(chest.get("id", ""))
+		SaveManager.mark_chest_opened(cid)
 		var node := _chest_nodes.get(chest["id"]) as Node3D
 		if node and node.has_method("mark_opened"):
 			node.mark_opened()
