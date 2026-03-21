@@ -10,7 +10,7 @@ uniform vec4  color_tip        : source_color      = vec4(0.52, 0.80, 0.32, 1.0)
 uniform vec3  player_trail[8];
 uniform float trail_weights[8];
 uniform vec2  player_move_dir  = vec2(0.0);  // XZ velocity direction (normalised)
-uniform float player_radius    : hint_range(0.0, 8.0)  = 1.2;
+uniform float player_radius    : hint_range(0.0, 2.0)  = 0.3;
 uniform float player_push      : hint_range(0.0, 2.0)  = 0.5;
 
 // Persistent trample map
