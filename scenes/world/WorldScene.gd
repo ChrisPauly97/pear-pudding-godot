@@ -133,7 +133,7 @@ func _spawn_player_infinite() -> void:
 		px = SaveManager.player_x
 		pz = SaveManager.player_z
 	_player = _create_player_node()
-	_player.position = Vector3(px, 0.5, pz)
+	_player.position = Vector3(px, get_terrain_height(px, pz) + 0.5, pz)
 	_entity_root.add_child(_player)
 	_camera.position = _player.position + Vector3(20, 20, 20)
 
@@ -150,6 +150,38 @@ func get_tile_global(wtx: int, wtz: int) -> int:
 	var lz: int = wtz - cz * IsoConst.CHUNK_SIZE
 	var chunk: RefCounted = _chunk_data_cache[key]
 	return chunk.get_tile(lx, lz)
+
+# Compute terrain height at a world position using the same smoothstep
+# algorithm as the mesh builder.  Used for entity placement and physics.
+func get_terrain_height(wx: float, wz: float) -> float:
+	var curve_r: float = HILL_RAMP_R if not infinite else 3.0
+	var peak_h: float = HILL_PEAK_H
+	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
+	var vtx: int = int(wx / IsoConst.TILE_SIZE)
+	var vtz: int = int(wz / IsoConst.TILE_SIZE)
+	var curve_r_sq: float = curve_r * curve_r
+	var min_dist_sq: float = curve_r_sq
+	for dtz in range(-tile_check, tile_check + 1):
+		for dtx in range(-tile_check, tile_check + 1):
+			var ttx: int = vtx + dtx
+			var ttz: int = vtz + dtz
+			var tile_type: int
+			if infinite:
+				tile_type = get_tile_global(ttx, ttz)
+			else:
+				tile_type = world_map.get_tile(ttx, ttz)
+			if tile_type != IsoConst.TILE_HILL:
+				continue
+			var near_x: float = clamp(wx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
+			var near_z: float = clamp(wz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
+			var ddx: float = wx - near_x
+			var ddz: float = wz - near_z
+			var dist_sq: float = ddx * ddx + ddz * ddz
+			if dist_sq < min_dist_sq:
+				min_dist_sq = dist_sq
+	var t: float = 1.0 - sqrt(min_dist_sq) / curve_r
+	t = t * t * (3.0 - 2.0 * t)
+	return peak_h * t
 
 func _update_chunks() -> void:
 	if _player == null:
@@ -458,19 +490,21 @@ func _make_terrain_material(seed: int = 0) -> ShaderMaterial:
 	mat.set_shader_parameter("uv_scale", 0.5)
 	return mat
 
-func _build_terrain_collision(_hfield: PackedFloat32Array, _nvx: int, _nvz: int, _step: float) -> void:
-	# Use a simple flat BoxShape3D floor — reliable across all Godot 4 builds.
-	var map_world_x: float = WorldMap.MAP_WIDTH  * IsoConst.TILE_SIZE
-	var map_world_z: float = WorldMap.MAP_HEIGHT * IsoConst.TILE_SIZE
-	var box := BoxShape3D.new()
-	box.size = Vector3(map_world_x, 0.1, map_world_z)
+func _build_terrain_collision(hfield: PackedFloat32Array, nvx: int, nvz: int, _step: float) -> void:
+	var hmap := HeightMapShape3D.new()
+	hmap.map_width = nvx
+	hmap.map_depth = nvz
+	hmap.map_data  = hfield
 	var col := CollisionShape3D.new()
-	col.shape = box
+	col.shape = hmap
 	var body := StaticBody3D.new()
 	body.name = "TerrainCollision"
 	body.collision_layer = 2   # terrain layer
 	body.collision_mask  = 0   # terrain doesn't need to detect others
-	body.position = Vector3(map_world_x * 0.5, -0.05, map_world_z * 0.5)
+	# HeightMapShape3D is centered on its own origin
+	var map_world_x: float = WorldMap.MAP_WIDTH  * IsoConst.TILE_SIZE
+	var map_world_z: float = WorldMap.MAP_HEIGHT * IsoConst.TILE_SIZE
+	body.position = Vector3(map_world_x * 0.5, 0.0, map_world_z * 0.5)
 	body.add_child(col)
 	add_child(body)
 
@@ -553,7 +587,7 @@ func _spawn_player() -> void:
 		pz = _get_default_pz()
 
 	_player = _create_player_node()
-	_player.position = Vector3(px, 0.5, pz)
+	_player.position = Vector3(px, get_terrain_height(px, pz) + 0.5, pz)
 	_entity_root.add_child(_player)
 	_camera.position = _player.position + Vector3(20, 20, 20)
 
@@ -586,7 +620,8 @@ func _spawn_entities() -> void:
 
 func _spawn_enemy(e_data: Dictionary) -> void:
 	var node: Node3D = _EnemyScene.instantiate()
-	node.position = Vector3(e_data["x"], 0.5, e_data["z"])
+	var ey: float = get_terrain_height(float(e_data["x"]), float(e_data["z"])) + 0.5
+	node.position = Vector3(e_data["x"], ey, e_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(e_data)
 	if node.has_method("set_player") and _player:
@@ -596,7 +631,8 @@ func _spawn_enemy(e_data: Dictionary) -> void:
 
 func _spawn_chest(c_data: Dictionary) -> void:
 	var node: Node3D = _ChestScene.instantiate()
-	node.position = Vector3(c_data["x"], 0.25, c_data["z"])
+	var cy: float = get_terrain_height(float(c_data["x"]), float(c_data["z"])) + 0.25
+	node.position = Vector3(c_data["x"], cy, c_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(c_data)
 	_entity_root.add_child(node)
@@ -604,7 +640,8 @@ func _spawn_chest(c_data: Dictionary) -> void:
 
 func _spawn_door(d_data: Dictionary) -> void:
 	var node: Node3D = _DoorScene.instantiate()
-	node.position = Vector3(d_data["x"], 0.75, d_data["z"])
+	var dy: float = get_terrain_height(float(d_data["x"]), float(d_data["z"])) + 0.75
+	node.position = Vector3(d_data["x"], dy, d_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(d_data)
 	_entity_root.add_child(node)

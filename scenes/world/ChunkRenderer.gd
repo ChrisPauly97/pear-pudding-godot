@@ -260,18 +260,22 @@ func _build_terrain(world_scene: Node3D) -> void:
 	mi.material_override = _terrain_mat
 	add_child(mi)
 
-	# Flat BoxShape3D floor — reliable across all Godot 4 builds.
-	# Hills are visual only; physics floor is flat, consistent with the named-map approach.
-	var chunk_world: float = float(CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var box := BoxShape3D.new()
-	box.size = Vector3(chunk_world, 0.1, chunk_world)
+	# HeightMapShape3D collision so the player walks on top of hills.
+	# hfield is nvx × nvz (33×33) with step=1.0 — matches HeightMapShape3D
+	# requirements (odd, equal width/depth).
+	var hmap := HeightMapShape3D.new()
+	hmap.map_width = nvx
+	hmap.map_depth = nvz
+	hmap.map_data  = hfield
 	var col_node := CollisionShape3D.new()
-	col_node.shape = box
+	col_node.shape = hmap
 	var body := StaticBody3D.new()
 	body.name = "TerrainCollision"
 	body.collision_layer = 2   # terrain layer
 	body.collision_mask  = 0   # terrain doesn't need to detect others
-	body.position = Vector3(chunk_world * 0.5, -0.05, chunk_world * 0.5)
+	# HeightMapShape3D is centered on its own origin; offset to align with mesh
+	var chunk_world: float = float(CHUNK_SIZE) * IsoConst.TILE_SIZE
+	body.position = Vector3(chunk_world * 0.5, 0.0, chunk_world * 0.5)
 	body.add_child(col_node)
 	add_child(body)
 
@@ -395,7 +399,10 @@ func _set_visibility_range(node: Node3D) -> void:
 
 func _spawn_enemy(e_data: Dictionary, entity_root: Node3D, world_scene: Node3D) -> void:
 	var node: Node3D = _EnemyScene.instantiate()
-	node.position = Vector3(e_data["x"], 0.5, e_data["z"])
+	var ey: float = 0.5
+	if world_scene.has_method("get_terrain_height"):
+		ey += world_scene.get_terrain_height(float(e_data["x"]), float(e_data["z"]))
+	node.position = Vector3(e_data["x"], ey, e_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(e_data)
 	if node.has_method("set_player"):
@@ -409,7 +416,10 @@ func _spawn_enemy(e_data: Dictionary, entity_root: Node3D, world_scene: Node3D) 
 
 func _spawn_chest(c_data: Dictionary, entity_root: Node3D, world_scene: Node3D) -> void:
 	var node: Node3D = _ChestScene.instantiate()
-	node.position = Vector3(c_data["x"], 0.25, c_data["z"])
+	var cy: float = 0.25
+	if world_scene.has_method("get_terrain_height"):
+		cy += world_scene.get_terrain_height(float(c_data["x"]), float(c_data["z"]))
+	node.position = Vector3(c_data["x"], cy, c_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(c_data)
 	_set_visibility_range(node)
