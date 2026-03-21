@@ -204,3 +204,37 @@ button.custom_minimum_size = Vector2(vh * 0.12, vh * 0.05)
 Use `get_viewport().get_visible_rect().size` — not `DisplayServer.window_get_size()` — so it respects sub-viewports and editor embeds.
 
 Re-apply sizes in `_notification(NOTIFICATION_RESIZED)` if the window can be resized at runtime.
+
+---
+
+## Godot Resource .uid Files
+
+### The problem
+Every Godot resource file (`.gdshader`, `.tres`, `.material`, etc.) needs a companion `.uid` file. The Godot editor generates these when it scans the project. Files created by Claude via code tools **skip that scan**, so they have no `.uid`. On Android exports, `load("res://path/to/file.gdshader")` can return `null` for untracked files.
+
+### The fix — three parts
+
+**1. Always create the `.uid` sidecar immediately after creating a resource file:**
+
+```
+# Format: uid:// followed by exactly 12 lowercase alphanumeric characters
+uid://a1b2c3d4e5f6
+```
+
+Generate a random 12-char string using `python3 -c "import random,string; print('uid://'+''.join(random.choices(string.ascii_lowercase+string.digits,k=12)))"`.
+
+**2. Use `preload()` not `load()` for shaders and resources in scripts:**
+
+```gdscript
+# Bad — runtime load, can return null if file untracked
+mat.shader = load("res://assets/shaders/terrain.gdshader") as Shader
+
+# Good — compile-time, guaranteed in export packs
+const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
+mat.shader = _TerrainShader
+```
+
+**3. The CI workflow already runs `godot --headless --editor --quit` before export** (line 163 of `.github/workflows/android-build.yml`). This scans the project and fills in any missing `.uid` files for the build. The `.uid` file committed to git is still needed so the local editor and the CI both use the same stable UID.
+
+### Which file types need .uid files
+`.gdshader`, `.tres`, `.material`, `.theme`, `.gdextension`, and any binary resource Godot imports (textures, audio, meshes). Plain `.gd` scripts and `.tscn` scenes manage their own UIDs inside the file itself — no separate sidecar needed.
