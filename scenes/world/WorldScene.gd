@@ -30,10 +30,12 @@ var _chunk_renderers: Dictionary = {}     # Vector2i -> ChunkRenderer
 var _active_chest_data: Dictionary = {}  # chest_id -> Dictionary
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
 var _terrain_mat: ShaderMaterial
+var _chunk_build_queue: Array[Vector2i] = []
 
-const LOAD_RADIUS:   int = 6
-const UNLOAD_RADIUS: int = 7
-const WORLD_SEED:    int = 42
+const LOAD_RADIUS:      int = 6
+const UNLOAD_RADIUS:    int = 7
+const WORLD_SEED:       int = 42
+const CHUNKS_PER_FRAME: int = 3
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _hud: CanvasLayer = $HUD
@@ -45,7 +47,7 @@ const WALL_FACE_H: float = 0.625
 # Terrain height constants
 const HILL_PEAK_H:    float = 1.5
 const HILL_RAMP_R:    float = 6.0
-const TERRAIN_VDENSITY: int = 4
+const TERRAIN_VDENSITY: int = 2
 
 func _ready() -> void:
 	_tile_meshes = Node3D.new()
@@ -141,26 +143,20 @@ func _update_chunks() -> void:
 			if not _chunk_data_cache.has(key):
 				_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk_data_only(key.x, key.y, WORLD_SEED)
 
-	# 2. Build/render chunks within LOAD_RADIUS
+	# 2. Queue new chunks — built gradually in _process to avoid frame spikes
 	for dz in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
 		for dx in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
 			var key := Vector2i(pcx + dx, pcz + dz)
-			if _chunk_renderers.has(key):
+			if _chunk_renderers.has(key) or _chunk_build_queue.has(key):
 				continue
-			# Ensure full data (with entities) exists for this chunk
-			if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].is_generated:
-				_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
-			# Register any chests in this chunk into the active set
-			var chunk: RefCounted = _chunk_data_cache[key]
-			for c_data in chunk.chests:
-				var cid: String = str(c_data.get("id", ""))
-				_active_chest_data[cid] = c_data
+			_chunk_build_queue.append(key)
 
-			var renderer: ChunkRenderer = ChunkRenderer.new()
-			renderer.name = "Chunk_%d_%d" % [key.x, key.y]
-			add_child(renderer)
-			renderer.build(chunk, key, self, _terrain_mat)
-			_chunk_renderers[key] = renderer
+	# Sort queue so nearest chunks are built first
+	_chunk_build_queue.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var da: int = (a.x - pcx) * (a.x - pcx) + (a.y - pcz) * (a.y - pcz)
+		var db: int = (b.x - pcx) * (b.x - pcx) + (b.y - pcz) * (b.y - pcz)
+		return da < db
+	)
 
 	# 3. Unload chunks beyond UNLOAD_RADIUS
 	var keys_to_remove: Array[Vector2i] = []
@@ -184,6 +180,26 @@ func _update_chunks() -> void:
 			_chest_nodes.erase(cid)
 
 	_last_player_chunk = player_chunk
+
+func _build_chunk_at(key: Vector2i) -> void:
+	if _chunk_renderers.has(key):
+		return
+	# Drop stale queue entries outside the load radius
+	var pcx: int = _last_player_chunk.x
+	var pcz: int = _last_player_chunk.y
+	if abs(key.x - pcx) > LOAD_RADIUS or abs(key.y - pcz) > LOAD_RADIUS:
+		return
+	if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].is_generated:
+		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
+	var chunk: RefCounted = _chunk_data_cache[key]
+	for c_data in chunk.chests:
+		var cid: String = str(c_data.get("id", ""))
+		_active_chest_data[cid] = c_data
+	var renderer: ChunkRenderer = ChunkRenderer.new()
+	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
+	add_child(renderer)
+	renderer.build(chunk, key, self, _terrain_mat)
+	_chunk_renderers[key] = renderer
 
 # Called by ChunkRenderer after spawning an enemy
 func register_enemy(eid: String, node: Node3D) -> void:
@@ -519,6 +535,12 @@ func _process(delta: float) -> void:
 		var pcz: int = int(floor(_player.position.z / chunk_world))
 		if Vector2i(pcx, pcz) != _last_player_chunk:
 			_update_chunks()
+		# Drain build queue at a fixed rate to avoid per-frame spikes
+		for _i in range(CHUNKS_PER_FRAME):
+			if _chunk_build_queue.is_empty():
+				break
+			var key: Vector2i = _chunk_build_queue.pop_front()
+			_build_chunk_at(key)
 		SaveManager.update_position("infinite", _player.position.x, _player.position.z)
 	else:
 		SaveManager.update_position(map_name, _player.position.x, _player.position.z)
