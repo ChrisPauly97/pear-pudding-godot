@@ -7,6 +7,12 @@ const VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
 
+# Preload entity scenes — avoids filesystem hits during spawning
+const _PlayerScene = preload("res://scenes/world/entities/Player.tscn")
+const _EnemyScene  = preload("res://scenes/world/entities/EnemyNPC.tscn")
+const _ChestScene  = preload("res://scenes/world/entities/Chest.tscn")
+const _DoorScene   = preload("res://scenes/world/entities/Door.tscn")
+
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
 @export var infinite: bool = true
@@ -32,11 +38,13 @@ var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
 var _terrain_mat: ShaderMaterial
 var _chunk_build_queue: Array[Vector2i] = []
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
+var _interact_timer: float = 0.0
 
 const LOAD_RADIUS:      int = 6
 const UNLOAD_RADIUS:    int = 7
 const WORLD_SEED:       int = 42
 const CHUNKS_PER_FRAME: int = 3
+const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _hud: CanvasLayer = $HUD
@@ -66,6 +74,11 @@ func _ready() -> void:
 		_build_grass_blades_node()
 		_spawn_player_infinite()
 		_update_chunks()
+		# Build all initial chunks synchronously so the world is ready
+		# before the first frame — avoids runtime lag spikes on startup.
+		while not _chunk_build_queue.is_empty():
+			var key: Vector2i = _chunk_build_queue.pop_front()
+			_build_chunk_at(key)
 	else:
 		world_map = WorldMap.new(map_name)
 		_build_terrain()
@@ -214,9 +227,7 @@ func register_chest(cid: String, node: Node3D, c_data: Dictionary) -> void:
 # Find nearest active chest within range
 func _find_nearby_chest_infinite(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
-	for raw_id in _active_chest_data:
-		var cid: String = raw_id
-		var d: Dictionary = _active_chest_data[cid]
+	for d: Dictionary in _active_chest_data.values():
 		if d.get("opened", false):
 			continue
 		var dx: float = float(d.get("x", 0.0)) - px
@@ -461,22 +472,7 @@ func _get_default_pz() -> float:
 	return 3.0 * IsoConst.TILE_SIZE
 
 func _create_player_node() -> CharacterBody3D:
-	var packed := load("res://scenes/world/entities/Player.tscn")
-	if packed:
-		return packed.instantiate()
-	var body := CharacterBody3D.new()
-	body.name = "Player"
-	body.set_script(load("res://scenes/world/entities/Player.gd"))
-	var mi := MeshInstance3D.new()
-	mi.mesh = BoxMesh.new()
-	mi.mesh.size = Vector3(0.5, 1.0, 0.5)
-	body.add_child(mi)
-	var col := CollisionShape3D.new()
-	col.shape = CapsuleShape3D.new()
-	col.shape.radius = 0.3
-	col.shape.height = 1.0
-	body.add_child(col)
-	return body
+	return _PlayerScene.instantiate()
 
 func _spawn_entities() -> void:
 	for e_data in world_map.enemies:
@@ -493,27 +489,17 @@ func _spawn_entities() -> void:
 		_spawn_door(d_data)
 
 func _spawn_enemy(e_data: Dictionary) -> void:
-	var packed := load("res://scenes/world/entities/EnemyNPC.tscn")
-	var node: Node3D
-	if packed:
-		node = packed.instantiate()
-	else:
-		node = _make_colored_box(Color.RED, 0.5, 1.0)
-		node.name = "Enemy_" + e_data["id"]
+	var node: Node3D = _EnemyScene.instantiate()
 	node.position = Vector3(e_data["x"], 0.5, e_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(e_data)
+	if node.has_method("set_player") and _player:
+		node.set_player(_player)
 	_entity_root.add_child(node)
 	_enemy_nodes[e_data["id"]] = node
 
 func _spawn_chest(c_data: Dictionary) -> void:
-	var packed := load("res://scenes/world/entities/Chest.tscn")
-	var node: Node3D
-	if packed:
-		node = packed.instantiate()
-	else:
-		node = _make_colored_box(Color(1.0, 0.8, 0.0), 0.6, 0.5)
-		node.name = "Chest_" + c_data["id"]
+	var node: Node3D = _ChestScene.instantiate()
 	node.position = Vector3(c_data["x"], 0.25, c_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(c_data)
@@ -521,34 +507,12 @@ func _spawn_chest(c_data: Dictionary) -> void:
 	_chest_nodes[c_data["id"]] = node
 
 func _spawn_door(d_data: Dictionary) -> void:
-	var packed := load("res://scenes/world/entities/Door.tscn")
-	var node: Node3D
-	if packed:
-		node = packed.instantiate()
-	else:
-		node = _make_colored_box(Color(0.5, 0.3, 0.1), 0.4, 1.5)
-		node.name = "Door_" + d_data["id"]
+	var node: Node3D = _DoorScene.instantiate()
 	node.position = Vector3(d_data["x"], 0.75, d_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(d_data)
 	_entity_root.add_child(node)
 	_door_nodes[d_data["id"]] = node
-
-func _make_colored_box(color: Color, width: float, height: float) -> StaticBody3D:
-	var sb := StaticBody3D.new()
-	var mi := MeshInstance3D.new()
-	var box := BoxMesh.new()
-	box.size = Vector3(width, height, width)
-	mi.mesh = box
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mi.material_override = mat
-	sb.add_child(mi)
-	var col := CollisionShape3D.new()
-	col.shape = BoxShape3D.new()
-	col.shape.size = box.size
-	sb.add_child(col)
-	return sb
 
 # ── Per-frame update ───────────────────────────────────────────────────────
 
@@ -579,7 +543,11 @@ func _process(delta: float) -> void:
 		var save_map: String = "infinite" if infinite else map_name
 		SaveManager.update_position(save_map, _player.position.x, _player.position.z)
 
-	_check_interactions()
+	# Throttle interaction checks — no need to scan every frame
+	_interact_timer += delta
+	if _interact_timer >= INTERACT_INTERVAL:
+		_interact_timer = 0.0
+		_check_interactions()
 
 func _check_interactions() -> void:
 	var px: float = _player.position.x

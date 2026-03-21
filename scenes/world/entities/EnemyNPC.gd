@@ -9,6 +9,9 @@ const AUTO_BATTLE_RANGE_SQ: float = AUTO_BATTLE_RANGE * AUTO_BATTLE_RANGE
 var _engaged: bool = false
 var _player_ref: WeakRef = WeakRef.new()
 
+func set_player(player: Node3D) -> void:
+	_player_ref = weakref(player)
+
 func init_from_data(data: Dictionary) -> void:
 	enemy_data = data
 	_alive = data.get("alive", true)
@@ -18,15 +21,9 @@ func _process(_delta: float) -> void:
 	if not _alive or _engaged:
 		return
 
-	# Cache player reference to avoid tree traversal every frame
 	var player: Node3D = _player_ref.get_ref() as Node3D
 	if player == null:
-		var world := get_parent().get_parent()
-		if world and world.has_method("get"):
-			player = world.get("_player") as Node3D
-		if player == null:
-			return
-		_player_ref = weakref(player)
+		return
 
 	# Use squared distance to skip sqrt
 	var dx: float = position.x - player.position.x

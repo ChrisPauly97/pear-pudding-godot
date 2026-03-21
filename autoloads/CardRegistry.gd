@@ -48,9 +48,10 @@ func _register_defaults() -> void:
 		"color": Color(0.8, 0.4, 0.4)
 	}
 
+## Returns the template by reference. Do NOT mutate the result — treat as read-only.
 func get_template(id: String) -> Dictionary:
 	if _templates.has(id):
-		return _templates[id].duplicate()
+		return _templates[id]
 	return {}
 
 func get_all_ids() -> Array[String]:

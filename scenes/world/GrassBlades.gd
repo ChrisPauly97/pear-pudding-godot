@@ -1,6 +1,9 @@
 extends Node3D
 
+const _GrassShader = preload("res://assets/shaders/grass_blade.gdshader")
+
 var _mat: ShaderMaterial
+var _blade_mesh: ArrayMesh  # cached — identical for every chunk
 
 const TRAIL_SIZE     := 8
 const TRAIL_INTERVAL := 0.08   # seconds between trail snapshots
@@ -8,6 +11,7 @@ const SPRINGBACK     := 0.6    # higher = faster spring-back
 
 var _trail:      Array[Vector3] = []
 var _trail_ages: Array[float]   = []
+var _trail_weights: Array[float] = []  # cached — only rebuilt when _trail_dirty
 var _snap_timer: float          = 0.0
 var _prev_pos:   Vector3        = Vector3(-9999, 0, -9999)
 var _last_move_dir: Vector2     = Vector2.ZERO
@@ -44,12 +48,14 @@ func _ready() -> void:
 	for i in TRAIL_SIZE:
 		_trail.append(far)
 		_trail_ages.append(999.0)
+		_trail_weights.append(0.0)
 
 func _init_material() -> void:
 	if _mat:
 		return
 	_mat = ShaderMaterial.new()
-	_mat.shader = load("res://assets/shaders/grass_blade.gdshader")
+	_mat.shader = _GrassShader
+	_blade_mesh = _make_blade_mesh()
 
 	# Sliding trample map — initialise centred at world origin
 	_trample_img = Image.create(TRAMPLE_RES, TRAMPLE_RES, false, Image.FORMAT_L8)
@@ -67,10 +73,8 @@ func _init_material() -> void:
 # Legacy entry point — builds all grass from a WorldMap (named-map path)
 func build(world_map) -> void:
 	_init_material()
-	var blade_mesh := _make_blade_mesh()
-	var rng        := RandomNumberGenerator.new()
+	var rng := RandomNumberGenerator.new()
 	rng.seed = 99887
-	var half:    float = IsoConst.TILE_SIZE * 0.45
 
 	# Collect grass tile centres grouped by chunk
 	var chunks: Dictionary = {}
@@ -99,20 +103,16 @@ func build(world_map) -> void:
 	for key in chunks:
 		var typed_key: Vector2i = key
 		var centres: Array = chunks[key]
-		_build_chunk_mmi(centres, typed_key, blade_mesh, rng)
+		_build_chunk_mmi(centres, typed_key, rng)
 
 # Streaming entry point — builds grass for one chunk of the infinite world
 func build_chunk(centres: Array[Vector2], chunk_key: Vector2i) -> void:
 	if _chunk_mmis.has(chunk_key):
 		return
 	_init_material()
-	var blade_mesh := _make_blade_mesh()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 99887 ^ (chunk_key.x * 73856093) ^ (chunk_key.y * 19349663)
-	var plain: Array = []
-	for c in centres:
-		plain.append(c)
-	_build_chunk_mmi(plain, chunk_key, blade_mesh, rng)
+	_build_chunk_mmi(centres, chunk_key, rng)
 
 func remove_chunk(chunk_key: Vector2i) -> void:
 	if _chunk_mmis.has(chunk_key):
@@ -120,7 +120,7 @@ func remove_chunk(chunk_key: Vector2i) -> void:
 		mmi.queue_free()
 		_chunk_mmis.erase(chunk_key)
 
-func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, blade_mesh: ArrayMesh, rng: RandomNumberGenerator) -> void:
+func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGenerator) -> void:
 	var total: int = centres.size() * BLADES_PER_TILE
 	if total == 0:
 		return
@@ -129,7 +129,7 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, blade_mesh: ArrayMesh
 	var blade_y: float = 0.01
 
 	var mm := MultiMesh.new()
-	mm.mesh = blade_mesh
+	mm.mesh = _blade_mesh
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.instance_count = total
 
@@ -200,11 +200,10 @@ func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 
 	# Only push shader params when trail data actually changed
 	if _trail_dirty:
-		var weights: Array[float] = []
 		for i in TRAIL_SIZE:
-			weights.append(exp(-_trail_ages[i] * SPRINGBACK))
+			_trail_weights[i] = exp(-_trail_ages[i] * SPRINGBACK)
 		_mat.set_shader_parameter("player_trail", _trail)
-		_mat.set_shader_parameter("trail_weights", weights)
+		_mat.set_shader_parameter("trail_weights", _trail_weights)
 		_trail_dirty = false
 
 	if move_dir != _last_move_dir:
