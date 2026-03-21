@@ -40,11 +40,21 @@ jobs:
         run: |
           TEMPLATES_DIR="$HOME/.local/share/godot/export_templates/4.6.stable"
           mkdir -p "$TEMPLATES_DIR"
-          wget -q https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_export_templates.tpz -O export_templates.tpz
-          unzip -q export_templates.tpz -d /tmp/godot_templates
-          mv /tmp/godot_templates/templates/* "$TEMPLATES_DIR/"
-          echo "--- export templates ---"
-          ls "$TEMPLATES_DIR/"
+          wget https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_export_templates.tpz -O export_templates.tpz
+          echo "tpz size: $(wc -c < export_templates.tpz) bytes"
+          echo "--- tpz contents (top 30) ---"
+          unzip -l export_templates.tpz | head -30
+          unzip export_templates.tpz -d /tmp/godot_templates
+          echo "--- extracted root ---"
+          ls /tmp/godot_templates/
+          # Handle both possible archive structures
+          if [ -d /tmp/godot_templates/templates ]; then
+            cp -r /tmp/godot_templates/templates/. "$TEMPLATES_DIR/"
+          else
+            cp -r /tmp/godot_templates/. "$TEMPLATES_DIR/"
+          fi
+          echo "--- installed templates (android) ---"
+          ls "$TEMPLATES_DIR/" | grep -i android || echo "NO ANDROID TEMPLATES FOUND"
 
       - name: Set up keystore
         run: |
