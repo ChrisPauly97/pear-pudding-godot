@@ -96,3 +96,7 @@ text = "Mana: 1/1"
 [node name="EndTurnButton" type="Button" parent="SidePanel"]
 layout_mode = 2
 text = "End Turn"
+
+[node name="MenuButton" type="Button" parent="SidePanel"]
+layout_mode = 2
+text = "Menu"

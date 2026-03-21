@@ -54,6 +54,14 @@ func _ready() -> void:
 	var joystick := VirtualJoystick.new()
 	_hud.add_child(joystick)
 
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var menu_btn := Button.new()
+	menu_btn.text = "Menu"
+	menu_btn.custom_minimum_size = Vector2(vh * 0.12, vh * 0.05)
+	menu_btn.position = Vector2(vh * 0.01, vh * 0.01)
+	menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
+	_hud.add_child(menu_btn)
+
 func _update_hud() -> void:
 	_map_label.text = "Map: %s" % map_name
 

@@ -27,6 +27,7 @@ var _drag_start_pos: Vector2 = Vector2.ZERO
 @onready var _turn_label: Label = $SidePanel/TurnLabel
 @onready var _mana_label: Label = $SidePanel/ManaLabel
 @onready var _end_turn_btn: Button = $SidePanel/EndTurnButton
+@onready var _menu_btn: Button = $SidePanel/MenuButton
 
 func _ready() -> void:
 	_vh = get_viewport().get_visible_rect().size.y
@@ -52,10 +53,15 @@ func _ready() -> void:
 		_state.players[1].draw_opening_hand(4)
 
 	_end_turn_btn.pressed.connect(_on_end_turn)
+	_menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
+	_apply_menu_btn_size()
 	GameBus.turn_ended.connect(_on_turn_ended)
 
 	_state.players[0].start_turn(1)
 	_refresh_all()
+
+func _apply_menu_btn_size() -> void:
+	_menu_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.05)
 
 func _apply_ui_sizes() -> void:
 	var hero_h: float = _vh * 0.09
