@@ -70,7 +70,7 @@ func _ready() -> void:
 	add_child(_entity_root)
 
 	if infinite:
-		_terrain_mat = _make_terrain_material()
+		_terrain_mat = _make_terrain_material(WORLD_SEED)
 		_build_grass_blades_node()
 		_spawn_player_infinite()
 		_update_chunks()
@@ -354,11 +354,12 @@ func _build_terrain_mesh(hfield: PackedFloat32Array, nvx: int, nvz: int, step: f
 	mi.material_override = _make_terrain_material()
 	_tile_meshes.add_child(mi)
 
-func _make_terrain_material() -> ShaderMaterial:
+func _make_terrain_material(seed: int = 0) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://assets/shaders/terrain.gdshader") as Shader
-	mat.set_shader_parameter("grass_texture", TextureGen.grass())
-	mat.set_shader_parameter("hill_texture",  TextureGen.hill_top())
+	mat.set_shader_parameter("grass_texture",     TextureGen.grass(seed))
+	mat.set_shader_parameter("hill_side_texture", TextureGen.hill_side(seed + 1))
+	mat.set_shader_parameter("hill_texture",      TextureGen.hill_top(seed + 2))
 	mat.set_shader_parameter("uv_scale", 0.5)
 	return mat
 
