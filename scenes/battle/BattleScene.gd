@@ -9,7 +9,14 @@ var enemy_data: Dictionary = {}
 var _state: GameState
 var _ai: BasicAI
 var _ai_thinking: bool = false
-var _dragged_card: Dictionary = {}  # {card, from_zone}
+
+# Click-to-target for board-card attacks (select attacker, then click enemy)
+var _dragged_card: Dictionary = {}  # {card: CardInstance}
+
+# Drag-to-play: hand card being dragged onto the board
+var _hand_drag_card: CardInstance = null
+var _drag_visual: Control = null
+var _drag_start_pos: Vector2 = Vector2.ZERO
 
 @onready var _enemy_board_view = $EnemyArea/EnemyBoardView
 @onready var _enemy_hero_view = $EnemyArea/EnemyHeroView
@@ -22,7 +29,19 @@ var _dragged_card: Dictionary = {}  # {card, from_zone}
 
 func _ready() -> void:
 	_state = GameState.new()
-	# Optionally use enemy_data to customize AI deck
+
+	# Player deck: use SaveManager collection if available, else default
+	var player_deck: Array[String] = []
+	if SaveManager.player_deck.size() > 0:
+		player_deck.assign(SaveManager.player_deck)
+	else:
+		player_deck = ["ghost", "skeleton", "zombie", "ghoul",
+					   "ghost", "skeleton", "zombie", "ghoul",
+					   "ghost", "skeleton", "zombie", "ghoul"]
+	_state.players[0].build_deck(player_deck)
+	_state.players[0].draw_opening_hand(4)
+
+	# Enemy deck
 	if enemy_data.has("enemy_deck"):
 		var enemy_deck: Array[String] = []
 		enemy_deck.assign(enemy_data["enemy_deck"])
@@ -34,6 +53,66 @@ func _ready() -> void:
 
 	_state.players[0].start_turn(1)
 	_refresh_all()
+
+# -------------------------------------------------------------------------
+# Drag/Drop — scene-level input catches mouse move and release globally
+# -------------------------------------------------------------------------
+
+func _input(event: InputEvent) -> void:
+	if _hand_drag_card == null:
+		return
+
+	if event is InputEventMouseMotion:
+		if _drag_visual:
+			# Centre the ghost card on the cursor
+			_drag_visual.position = get_viewport().get_mouse_position() - _drag_visual.size * 0.5
+		get_viewport().set_input_as_handled()
+
+	elif event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
+			_finish_hand_drag()
+			get_viewport().set_input_as_handled()
+		elif mb.button_index == MOUSE_BUTTON_RIGHT:
+			_cancel_hand_drag()
+			get_viewport().set_input_as_handled()
+
+func _finish_hand_drag() -> void:
+	var mouse_pos := get_viewport().get_mouse_position()
+	var board_rect := _player_board_view.get_global_rect()
+	if board_rect.has_point(mouse_pos):
+		if _state.players[0].play_card(_hand_drag_card):
+			_refresh_all()
+			_check_game_over()
+	_cancel_hand_drag()
+
+func _cancel_hand_drag() -> void:
+	if _drag_visual:
+		_drag_visual.queue_free()
+		_drag_visual = null
+	_hand_drag_card = null
+
+func _start_hand_drag(card: CardInstance, from_pos: Vector2) -> void:
+	if not _state.players[0].can_play(card):
+		return
+	_hand_drag_card = card
+	_drag_start_pos = from_pos
+	_drag_visual = _make_card_ghost(card)
+	_drag_visual.position = from_pos - _drag_visual.size * 0.5
+	_drag_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_drag_visual)
+	# Ensure ghost renders on top
+	move_child(_drag_visual, get_child_count() - 1)
+
+func _make_card_ghost(card: CardInstance) -> PanelContainer:
+	var panel := _make_card_view(card, "ghost")
+	panel.modulate.a = 0.75
+	# Fixed size already set inside _make_card_view
+	return panel
+
+# -------------------------------------------------------------------------
+# UI Refresh
+# -------------------------------------------------------------------------
 
 func _refresh_all() -> void:
 	_refresh_zone(_player_hand_view, _state.players[0].hand, "hand")
@@ -74,15 +153,26 @@ func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	var style := StyleBoxFlat.new()
 	var tmpl := CardRegistry.get_template(card.template_id)
 	style.bg_color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
+
+	# Dim unplayable hand cards; highlight selected attacker
+	if zone_id == "hand" and not _state.players[0].can_play(card):
+		style.bg_color = style.bg_color.darkened(0.5)
+	elif zone_id == "board" and not _dragged_card.is_empty() and _dragged_card.get("card") == card:
+		style.border_color = Color.YELLOW
+		style.border_width_top = 3
+		style.border_width_bottom = 3
+		style.border_width_left = 3
+		style.border_width_right = 3
+
 	style.corner_radius_top_left = 4
 	style.corner_radius_top_right = 4
 	style.corner_radius_bottom_left = 4
 	style.corner_radius_bottom_right = 4
 	panel.add_theme_stylebox_override("panel", style)
 
-	# Interaction
+	# Interactions
 	if zone_id == "hand" and _state.current_player_idx == 0:
-		panel.gui_input.connect(func(event): _on_hand_card_input(event, card))
+		panel.gui_input.connect(func(event): _on_hand_card_input(event, card, panel))
 	elif zone_id == "board" and _state.current_player_idx == 0:
 		panel.gui_input.connect(func(event): _on_board_card_input(event, card))
 	elif zone_id == "enemy_board":
@@ -104,23 +194,31 @@ func _update_status() -> void:
 	_mana_label.text = "Mana: %d/%d" % [player.hero.mana, player.hero.max_mana]
 	_end_turn_btn.disabled = _state.current_player_idx != 0 or _ai_thinking
 
-func _on_hand_card_input(event: InputEvent, card: CardInstance) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if _state.players[0].play_card(card):
-			_refresh_all()
-			_check_game_over()
+# -------------------------------------------------------------------------
+# Input handlers
+# -------------------------------------------------------------------------
+
+func _on_hand_card_input(event: InputEvent, card: CardInstance, panel: Control) -> void:
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			if _state.current_player_idx != 0 or _ai_thinking:
+				return
+			_start_hand_drag(card, panel.get_global_rect().get_center())
 
 func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if not my_card.can_attack():
 			return
-		# Attack hero if no enemy minions
 		var targets := _state.players[1].board.get_cards()
 		if targets.is_empty():
+			# No enemy minions — attack hero directly
 			_state.players[1].hero.take_damage(my_card.attack)
 			my_card.attack_count -= 1
 			my_card.health -= _state.players[1].hero.attack
+			_dragged_card.clear()
 		else:
+			# Select as attacker; player clicks an enemy card to resolve
 			_dragged_card = {"card": my_card}
 		_refresh_all()
 		_check_game_over()
@@ -146,9 +244,15 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		_refresh_all()
 		_check_game_over()
 
+# -------------------------------------------------------------------------
+# Turn / AI
+# -------------------------------------------------------------------------
+
 func _on_end_turn() -> void:
 	if _state.current_player_idx != 0 or _ai_thinking:
 		return
+	_cancel_hand_drag()
+	_dragged_card.clear()
 	_state.end_turn()
 
 func _on_turn_ended(player_idx: int) -> void:

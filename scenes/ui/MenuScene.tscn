@@ -48,10 +48,15 @@ offset_bottom = 70.0
 grow_horizontal = 2
 grow_vertical = 2
 
+[node name="ContinueButton" type="Button" parent="VBox" unique_id=112233445]
+custom_minimum_size = Vector2(200, 50)
+layout_mode = 2
+text = "Continue"
+
 [node name="StartButton" type="Button" parent="VBox" unique_id=281399044]
 custom_minimum_size = Vector2(200, 50)
 layout_mode = 2
-text = "Start Game"
+text = "New Game"
 
 [node name="EditorButton" type="Button" parent="VBox" unique_id=409112854]
 custom_minimum_size = Vector2(200, 50)
