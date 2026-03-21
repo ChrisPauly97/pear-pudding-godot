@@ -10,9 +10,11 @@ var turn_number: int = 1
 func _init() -> void:
 	var p1 := PlayerState.new(0, false)
 	var p2 := PlayerState.new(1, true)
-	var deck: Array[String] = ["ghost", "skeleton", "zombie", "ghoul",
-				 "ghost", "skeleton", "zombie", "ghoul",
-				 "ghost", "skeleton", "zombie", "ghoul"]
+	var deck: Array[String] = [
+		"ghost", "skeleton", "zombie", "ghoul",
+		"ghost", "skeleton", "zombie", "ghoul",
+		"ghost", "skeleton", "zombie", "ghoul",
+	]
 	p1.build_deck(deck)
 	p2.build_deck(deck)
 	p1.draw_opening_hand(4)

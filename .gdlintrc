@@ -1,0 +1,29 @@
+# gdlint configuration for Pear Pudding TCG
+# Install via: pip install gdtoolkit
+# Run via:     gdlint **/*.gd
+# Docs:        https://github.com/Scony/godot-gdscript-toolkit
+
+max-line-length: 120
+max-file-lines: 500
+max-public-methods: 30
+
+# Naming convention regexes matching GDScript community standard.
+#
+# snake_case with optional leading underscore (private).  Digits are allowed
+# anywhere after the first character, e.g. test_health_is_30.
+function-name: "_?[a-z][a-z0-9_]*"
+class-name: "[A-Z][a-zA-Z0-9]*"
+sub-class-name: "[A-Z][a-zA-Z0-9]*"
+signal-name: "[a-z][a-z0-9_]*"
+class-variable-name: "_?[a-z][a-z0-9_]*"
+
+# Preloaded/loaded class-scope vars may be private snake_case (_foo_bar) or
+# PascalCase constants (CardInstance).
+class-load-variable-name: "_[a-z][a-z0-9_]*|[A-Z][a-zA-Z0-9]*"
+
+function-variable-name: "_?[a-z][a-z0-9_]*"
+function-preload-variable-name: "[A-Z][a-zA-Z0-9]*"
+function-load-variable-name: "[A-Z][a-zA-Z0-9]*"
+constant-name: "[A-Z][A-Z0-9_]*"
+enum-name: "[A-Z][a-zA-Z0-9]*"
+enum-element-name: "[A-Z][A-Z0-9_]*"

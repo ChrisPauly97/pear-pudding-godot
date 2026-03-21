@@ -84,7 +84,7 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	_battle_overlay.enemy_data = enemy_data
 	get_tree().current_scene.add_child(_battle_overlay)
 
-func _on_battle_won(result: Dictionary) -> void:
+func _on_battle_won(_result: Dictionary) -> void:
 	if not _current_battle_enemy_id.is_empty():
 		SaveManager.mark_enemy_defeated(_current_battle_enemy_id)
 		_current_battle_enemy_id = ""
