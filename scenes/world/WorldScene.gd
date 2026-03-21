@@ -31,6 +31,7 @@ var _active_chest_data: Dictionary = {}  # chest_id -> Dictionary
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
 var _terrain_mat: ShaderMaterial
 var _chunk_build_queue: Array[Vector2i] = []
+var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 
 const LOAD_RADIUS:      int = 6
 const UNLOAD_RADIUS:    int = 7
@@ -370,31 +371,55 @@ func _build_walls() -> void:
 	var wall_mat := StandardMaterial3D.new()
 	wall_mat.albedo_texture = TextureGen.wall_side(true)
 
+	# Collect all wall block positions
+	var positions: Array[Vector3] = []
 	for tz in range(WorldMap.MAP_HEIGHT):
 		for tx in range(WorldMap.MAP_WIDTH):
 			var tile := world_map.get_tile(tx, tz)
 			if tile == WorldMap.TILE_WALL:
 				var h := world_map.get_height(tx, tz)
 				for level in range(h):
-					var sb := StaticBody3D.new()
-					sb.collision_layer = 4   # wall layer
-					sb.collision_mask  = 0   # walls don't need to detect others
-					var mi := MeshInstance3D.new()
-					var box := BoxMesh.new()
-					box.size = Vector3(IsoConst.TILE_SIZE, WALL_FACE_H, IsoConst.TILE_SIZE)
-					mi.mesh = box
-					mi.material_override = wall_mat
-					var col := CollisionShape3D.new()
-					col.shape = BoxShape3D.new()
-					col.shape.size = box.size
-					sb.add_child(mi)
-					sb.add_child(col)
-					sb.position = Vector3(
+					positions.append(Vector3(
 						tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
 						level * WALL_FACE_H + WALL_FACE_H * 0.5,
 						tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-					)
-					_wall_meshes.add_child(sb)
+					))
+
+	if positions.is_empty():
+		return
+
+	# Render all walls with a single MultiMeshInstance3D
+	var box_mesh := BoxMesh.new()
+	box_mesh.size = Vector3(IsoConst.TILE_SIZE, WALL_FACE_H, IsoConst.TILE_SIZE)
+
+	var mm := MultiMesh.new()
+	mm.mesh = box_mesh
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.instance_count = positions.size()
+
+	for i in positions.size():
+		mm.set_instance_transform(i, Transform3D(Basis.IDENTITY, positions[i]))
+
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = wall_mat
+	_wall_meshes.add_child(mmi)
+
+	# Single merged collision body for all walls
+	var wall_body := StaticBody3D.new()
+	wall_body.name = "WallCollision"
+	wall_body.collision_layer = 4
+	wall_body.collision_mask  = 0
+
+	for pos in positions:
+		var col := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = box_mesh.size
+		col.shape = shape
+		col.position = pos
+		wall_body.add_child(col)
+
+	_wall_meshes.add_child(wall_body)
 
 func flush_save_position() -> void:
 	if _player:
@@ -546,9 +571,13 @@ func _process(delta: float) -> void:
 				break
 			var key: Vector2i = _chunk_build_queue.pop_front()
 			_build_chunk_at(key)
-		SaveManager.update_position("infinite", _player.position.x, _player.position.z)
-	else:
-		SaveManager.update_position(map_name, _player.position.x, _player.position.z)
+
+	# Only update save position when player moves > 1 unit (not every frame)
+	var cur_pos := Vector2(_player.position.x, _player.position.z)
+	if cur_pos.distance_squared_to(_last_save_pos) > 1.0:
+		_last_save_pos = cur_pos
+		var save_map: String = "infinite" if infinite else map_name
+		SaveManager.update_position(save_map, _player.position.x, _player.position.z)
 
 	_check_interactions()
 

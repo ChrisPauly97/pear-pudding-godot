@@ -84,29 +84,32 @@ func get_hill_height_at_world(wx: float, wz: float) -> int:
 func has_player_spawn() -> bool:
 	return player_spawn_x >= 0 and player_spawn_z >= 0
 
-func find_nearby_enemy(px: float, pz: float, range: float) -> Dictionary:
+func find_nearby_enemy(px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
 	for e in enemies:
 		if e.get("alive", true):
-			var dx = e["x"] - px
-			var dz = e["z"] - pz
-			if sqrt(dx*dx + dz*dz) <= range:
+			var dx: float = e["x"] - px
+			var dz: float = e["z"] - pz
+			if dx * dx + dz * dz <= range_sq:
 				return e
 	return {}
 
-func find_nearby_chest(px: float, pz: float, range: float) -> Dictionary:
+func find_nearby_chest(px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
 	for c in chests:
 		if not c.get("opened", false):
-			var dx = c["x"] - px
-			var dz = c["z"] - pz
-			if sqrt(dx*dx + dz*dz) <= range:
+			var dx: float = c["x"] - px
+			var dz: float = c["z"] - pz
+			if dx * dx + dz * dz <= range_sq:
 				return c
 	return {}
 
-func find_nearby_door(px: float, pz: float, range: float) -> Dictionary:
+func find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
 	for d in doors:
-		var dx = d["x"] - px
-		var dz = d["z"] - pz
-		if sqrt(dx*dx + dz*dz) <= range:
+		var dx: float = d["x"] - px
+		var dz: float = d["z"] - pz
+		if dx * dx + dz * dz <= range_sq:
 			return d
 	return {}
 
