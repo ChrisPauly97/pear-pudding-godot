@@ -153,7 +153,7 @@ func _build_terrain_mesh(hfield: PackedFloat32Array, nvx: int, nvz: int, step: f
 func _build_terrain_collision(_hfield: PackedFloat32Array, _nvx: int, _nvz: int, _step: float) -> void:
 	# Use a simple flat BoxShape3D floor — reliable across all Godot 4 builds.
 	# Hills are visual only for now; the flat floor at y=0 stops the player falling.
-	var chunk_world: float = CHUNK_SIZE * IsoConst.TILE_SIZE
+	var chunk_world: float = IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE
 	var box := BoxShape3D.new()
 	box.size = Vector3(chunk_world, 0.1, chunk_world)
 	var col := CollisionShape3D.new()
