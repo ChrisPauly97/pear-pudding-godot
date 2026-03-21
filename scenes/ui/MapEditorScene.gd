@@ -21,6 +21,16 @@ var _wall_mm_inst: MultiMeshInstance3D
 var _entity_markers: Node3D
 var _highlight_mesh: MeshInstance3D
 
+# Persistent GPU resources — created once in _ready(), reused on every rebuild.
+# No MultiMesh/mesh/material allocations happen during paint.
+var _flat_mm: MultiMesh
+var _wall_mm: MultiMesh
+var _marker_mesh: SphereMesh
+var _mat_enemy: StandardMaterial3D
+var _mat_chest: StandardMaterial3D
+var _mat_door: StandardMaterial3D
+var _mat_spawn: StandardMaterial3D
+
 # Mobile toolbar
 var _toolbar: Control
 var _mode_buttons: Array[Button] = []
@@ -40,10 +50,47 @@ var _mode_colors: Array[Color] = [
 ]
 
 func _ready() -> void:
+	# --- Flat MultiMesh (grass + hill tiles) ---
+	_flat_mm = MultiMesh.new()
+	_flat_mm.transform_format = MultiMesh.TRANSFORM_3D
+	_flat_mm.use_colors = true
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(IsoConst.TILE_SIZE * 0.95, IsoConst.TILE_SIZE * 0.95)
+	plane.subdivide_width = 0
+	plane.subdivide_depth = 0
+	var flat_mat := StandardMaterial3D.new()
+	flat_mat.vertex_color_use_as_albedo = true
+	plane.material = flat_mat
+	_flat_mm.mesh = plane
 	_flat_mm_inst = MultiMeshInstance3D.new()
+	_flat_mm_inst.multimesh = _flat_mm
 	add_child(_flat_mm_inst)
+
+	# --- Wall MultiMesh ---
+	_wall_mm = MultiMesh.new()
+	_wall_mm.transform_format = MultiMesh.TRANSFORM_3D
+	var box := BoxMesh.new()
+	box.size = Vector3(IsoConst.TILE_SIZE * 0.95, 1.0, IsoConst.TILE_SIZE * 0.95)
+	var wall_mat := StandardMaterial3D.new()
+	wall_mat.albedo_color = Color(0.5, 0.4, 0.35)
+	box.material = wall_mat
+	_wall_mm.mesh = box
 	_wall_mm_inst = MultiMeshInstance3D.new()
+	_wall_mm_inst.multimesh = _wall_mm
 	add_child(_wall_mm_inst)
+
+	# --- Shared entity marker resources ---
+	_marker_mesh = SphereMesh.new()
+	_marker_mesh.radius = 0.3
+	_mat_enemy = StandardMaterial3D.new()
+	_mat_enemy.albedo_color = Color.RED
+	_mat_chest = StandardMaterial3D.new()
+	_mat_chest.albedo_color = Color(1, 0.8, 0)
+	_mat_door = StandardMaterial3D.new()
+	_mat_door.albedo_color = Color(0.5, 0.3, 0.1)
+	_mat_spawn = StandardMaterial3D.new()
+	_mat_spawn.albedo_color = Color.CYAN
+
 	_entity_markers = Node3D.new()
 	add_child(_entity_markers)
 
@@ -61,6 +108,8 @@ func _create_highlight() -> void:
 	_highlight_mesh = MeshInstance3D.new()
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(IsoConst.TILE_SIZE, IsoConst.TILE_SIZE)
+	plane.subdivide_width = 0
+	plane.subdivide_depth = 0
 	_highlight_mesh.mesh = plane
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(1, 1, 0, 0.4)
@@ -71,8 +120,9 @@ func _create_highlight() -> void:
 
 # --- MultiMesh tile rendering ---
 
-func _rebuild_tile_multimeshes() -> void:
-	# Collect positions/colors in one pass, then build both MultiMeshes
+# update_flat / update_walls let callers skip whichever half didn't change,
+# avoiding a full GPU buffer rewrite on every stroke.
+func _rebuild_tile_multimeshes(update_flat: bool = true, update_walls: bool = true) -> void:
 	var flat_positions: Array[Vector3] = []
 	var flat_colors: Array[Color] = []
 	var wall_positions: Array[Vector3] = []
@@ -84,83 +134,54 @@ func _rebuild_tile_multimeshes() -> void:
 			var wx: float = tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz: float = tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			if tile == WorldMap.TILE_WALL:
-				var h: int = _world_map.get_height(tx, tz)
-				var scale_y: float = h * IsoConst.WALL_FACE_H
-				wall_positions.append(Vector3(wx, scale_y * 0.5, wz))
-				wall_scale_ys.append(scale_y)
+				if update_walls:
+					var h: int = _world_map.get_height(tx, tz)
+					var scale_y: float = h * IsoConst.WALL_FACE_H
+					wall_positions.append(Vector3(wx, scale_y * 0.5, wz))
+					wall_scale_ys.append(scale_y)
 			else:
-				flat_positions.append(Vector3(wx, 0.01, wz))
-				flat_colors.append(Color(0.3, 0.6, 0.2) if tile == WorldMap.TILE_GRASS else Color(0.5, 0.4, 0.2))
+				if update_flat:
+					flat_positions.append(Vector3(wx, 0.01, wz))
+					flat_colors.append(Color(0.3, 0.6, 0.2) if tile == WorldMap.TILE_GRASS else Color(0.5, 0.4, 0.2))
 
-	_apply_flat_multimesh(flat_positions, flat_colors)
-	_apply_wall_multimesh(wall_positions, wall_scale_ys)
+	if update_flat:
+		_flat_mm.instance_count = flat_positions.size()
+		for i in flat_positions.size():
+			_flat_mm.set_instance_transform(i, Transform3D(Basis(), flat_positions[i]))
+			_flat_mm.set_instance_color(i, flat_colors[i])
 
-func _apply_flat_multimesh(positions: Array[Vector3], colors: Array[Color]) -> void:
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.use_colors = true
-
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(IsoConst.TILE_SIZE * 0.95, IsoConst.TILE_SIZE * 0.95)
-	var mat := StandardMaterial3D.new()
-	# vertex_color_use_as_albedo lets the MultiMesh per-instance color tint the mesh
-	mat.vertex_color_use_as_albedo = true
-	plane.material = mat
-	mm.mesh = plane
-
-	mm.instance_count = positions.size()
-	for i in positions.size():
-		mm.set_instance_transform(i, Transform3D(Basis(), positions[i]))
-		mm.set_instance_color(i, colors[i])
-
-	_flat_mm_inst.multimesh = mm
-
-func _apply_wall_multimesh(positions: Array[Vector3], scale_ys: Array[float]) -> void:
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-
-	var box := BoxMesh.new()
-	# Unit-height box — Y scale applied per-instance via transform to encode wall height
-	box.size = Vector3(IsoConst.TILE_SIZE * 0.95, 1.0, IsoConst.TILE_SIZE * 0.95)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.5, 0.4, 0.35)
-	box.material = mat
-	mm.mesh = box
-
-	mm.instance_count = positions.size()
-	for i in positions.size():
-		var basis := Basis().scaled(Vector3(1.0, scale_ys[i], 1.0))
-		mm.set_instance_transform(i, Transform3D(basis, positions[i]))
-
-	_wall_mm_inst.multimesh = mm
+	if update_walls:
+		_wall_mm.instance_count = wall_positions.size()
+		for i in wall_positions.size():
+			var basis := Basis().scaled(Vector3(1.0, wall_scale_ys[i], 1.0))
+			_wall_mm.set_instance_transform(i, Transform3D(basis, wall_positions[i]))
 
 # --- Visual update and map management ---
 
 func _rebuild_visuals() -> void:
 	_rebuild_tile_multimeshes()
+	_refresh_entity_markers()
+
+func _refresh_entity_markers() -> void:
 	for c in _entity_markers.get_children():
 		c.queue_free()
 	_add_entity_markers()
 
 func _add_entity_markers() -> void:
 	for e in _world_map.enemies:
-		_entity_markers.add_child(_make_marker(Color.RED, Vector3(e["x"], 0.5, e["z"])))
+		_entity_markers.add_child(_make_marker(_mat_enemy, Vector3(e["x"], 0.5, e["z"])))
 	for c in _world_map.chests:
-		_entity_markers.add_child(_make_marker(Color(1, 0.8, 0), Vector3(c["x"], 0.3, c["z"])))
+		_entity_markers.add_child(_make_marker(_mat_chest, Vector3(c["x"], 0.3, c["z"])))
 	for d in _world_map.doors:
-		_entity_markers.add_child(_make_marker(Color(0.5, 0.3, 0.1), Vector3(d["x"], 0.5, d["z"])))
+		_entity_markers.add_child(_make_marker(_mat_door, Vector3(d["x"], 0.5, d["z"])))
 	if _world_map.has_player_spawn():
 		var sx := _world_map.player_spawn_x * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 		var sz := _world_map.player_spawn_z * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		_entity_markers.add_child(_make_marker(Color.CYAN, Vector3(sx, 0.5, sz)))
+		_entity_markers.add_child(_make_marker(_mat_spawn, Vector3(sx, 0.5, sz)))
 
-func _make_marker(color: Color, pos: Vector3) -> MeshInstance3D:
+func _make_marker(mat: StandardMaterial3D, pos: Vector3) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.3
-	mi.mesh = sphere
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
+	mi.mesh = _marker_mesh
 	mi.material_override = mat
 	mi.position = pos
 	return mi
@@ -372,47 +393,46 @@ func _screen_to_tile(screen_pos: Vector2) -> Vector2i:
 
 func _paint_tile(tx: int, tz: int) -> void:
 	_last_painted_tile = Vector2i(tx, tz)
-	var entity_changed := false
 	match _paint_mode:
-		0:  # Grass
+		0:  # Grass — only flat tiles change; walls change only if this tile was a wall
+			var was_wall := _world_map.get_tile(tx, tz) == WorldMap.TILE_WALL
 			_world_map.set_tile(tx, tz, WorldMap.TILE_GRASS)
 			_world_map.set_height(tx, tz, 0)
-		1:  # Wall
+			_rebuild_tile_multimeshes(true, was_wall)
+		1:  # Wall — only walls change; flat changes only if this tile was flat
+			var was_flat := _world_map.get_tile(tx, tz) != WorldMap.TILE_WALL
 			_world_map.set_tile(tx, tz, WorldMap.TILE_WALL)
 			_world_map.set_height(tx, tz, _paint_height)
-		2:  # Hill
+			_rebuild_tile_multimeshes(was_flat, true)
+		2:  # Hill — only flat tiles change; walls change only if this tile was a wall
+			var was_wall := _world_map.get_tile(tx, tz) == WorldMap.TILE_WALL
 			_world_map.set_tile(tx, tz, WorldMap.TILE_HILL)
 			_world_map.set_height(tx, tz, _paint_height)
-		3:  # Enemy
+			_rebuild_tile_multimeshes(true, was_wall)
+		3:  # Enemy — no tile geometry change
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			_world_map.enemies.append({"id": "enemy_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "alive": true, "tracking": true})
-			entity_changed = true
-		4:  # Chest
+			_refresh_entity_markers()
+		4:  # Chest — no tile geometry change
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			_world_map.chests.append({"id": "chest_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "card_ids": ["ghost"], "opened": false})
-			entity_changed = true
-		5:  # Door
+			_refresh_entity_markers()
+		5:  # Door — no tile geometry change
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			_world_map.doors.append({"id": "door_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "target_map": "", "target_door_id": ""})
-			entity_changed = true
-		6:  # Spawn
+			_refresh_entity_markers()
+		6:  # Spawn — no tile geometry change
 			_world_map.player_spawn_x = tx
 			_world_map.player_spawn_z = tz
-			entity_changed = true
+			_refresh_entity_markers()
 		7:  # Erase
 			_erase_tile(tx, tz)
-			return
-
-	_rebuild_tile_multimeshes()
-	if entity_changed:
-		for c in _entity_markers.get_children():
-			c.queue_free()
-		_add_entity_markers()
 
 func _erase_tile(tx: int, tz: int) -> void:
+	var was_wall := _world_map.get_tile(tx, tz) == WorldMap.TILE_WALL
 	_world_map.set_tile(tx, tz, WorldMap.TILE_GRASS)
 	_world_map.set_height(tx, tz, 0)
 	var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
@@ -420,10 +440,8 @@ func _erase_tile(tx: int, tz: int) -> void:
 	_world_map.enemies = _world_map.enemies.filter(func(e): return abs(e["x"]-wx)>0.5 or abs(e["z"]-wz)>0.5)
 	_world_map.chests = _world_map.chests.filter(func(c): return abs(c["x"]-wx)>0.5 or abs(c["z"]-wz)>0.5)
 	_world_map.doors = _world_map.doors.filter(func(d): return abs(d["x"]-wx)>0.5 or abs(d["z"]-wz)>0.5)
-	_rebuild_tile_multimeshes()
-	for c in _entity_markers.get_children():
-		c.queue_free()
-	_add_entity_markers()
+	_rebuild_tile_multimeshes(true, was_wall)
+	_refresh_entity_markers()
 
 # --- Map management ---
 
