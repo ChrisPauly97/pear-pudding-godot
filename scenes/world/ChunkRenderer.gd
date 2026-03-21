@@ -57,26 +57,45 @@ func _build_terrain(world_scene: Node3D) -> void:
 	var chunk_origin: Vector3 = _chunk_data.origin_world()
 	var tile_check: int = int(ceil(CURVE_R / IsoConst.TILE_SIZE)) + 1  # 3
 
+	# Pre-fetch all tile types we'll need into a local grid to avoid ~53k
+	# get_tile_global() calls (each does dictionary lookups + chunk math).
+	# The grid covers the chunk tiles plus a border of tile_check around it.
+	var base_tx: int = int(chunk_origin.x / IsoConst.TILE_SIZE)
+	var base_tz: int = int(chunk_origin.z / IsoConst.TILE_SIZE)
+	var grid_min_x: int = base_tx - tile_check
+	var grid_min_z: int = base_tz - tile_check
+	var grid_w: int = CHUNK_SIZE + tile_check * 2 + 1
+	var grid_h: int = CHUNK_SIZE + tile_check * 2 + 1
+	var tile_grid := PackedInt32Array()
+	tile_grid.resize(grid_w * grid_h)
+	for gz in range(grid_h):
+		for gx in range(grid_w):
+			tile_grid[gz * grid_w + gx] = world_scene.get_tile_global(grid_min_x + gx, grid_min_z + gz)
+
+	var curve_r_sq: float = CURVE_R * CURVE_R
 	for iz in range(nvz):
 		for ix in range(nvx):
 			var gx: float = chunk_origin.x + ix * step
 			var gz: float = chunk_origin.z + iz * step
 			var vtx: int = int(gx / IsoConst.TILE_SIZE)
 			var vtz: int = int(gz / IsoConst.TILE_SIZE)
-			var min_dist: float = CURVE_R  # beyond transition = h stays 0
+			var min_dist_sq: float = curve_r_sq
 			for dtz in range(-tile_check, tile_check + 1):
 				for dtx in range(-tile_check, tile_check + 1):
 					var ttx: int = vtx + dtx
 					var ttz: int = vtz + dtz
-					if world_scene.get_tile_global(ttx, ttz) != IsoConst.TILE_HILL:
+					# Local grid lookup instead of get_tile_global
+					var li: int = (ttz - grid_min_z) * grid_w + (ttx - grid_min_x)
+					if li < 0 or li >= tile_grid.size() or tile_grid[li] != IsoConst.TILE_HILL:
 						continue
-					# Nearest point on this hill tile to the vertex
 					var near_x: float = clamp(gx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
 					var near_z: float = clamp(gz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
-					var dist: float = sqrt((gx - near_x) * (gx - near_x) + (gz - near_z) * (gz - near_z))
-					if dist < min_dist:
-						min_dist = dist
-			var t: float = 1.0 - min_dist / CURVE_R
+					var ddx: float = gx - near_x
+					var ddz: float = gz - near_z
+					var dist_sq: float = ddx * ddx + ddz * ddz
+					if dist_sq < min_dist_sq:
+						min_dist_sq = dist_sq
+			var t: float = 1.0 - sqrt(min_dist_sq) / CURVE_R
 			t = t * t * (3.0 - 2.0 * t)  # smoothstep
 			hfield[iz * nvx + ix] = PLATEAU_H * t
 
@@ -267,11 +286,20 @@ func _spawn_entities(world_scene: Node3D) -> void:
 			c_data["opened"] = true
 		_spawn_chest(c_data, entity_root, world_scene)
 
+const ENTITY_VISIBILITY_END: float = 50.0  # hide entities beyond this distance
+
+func _set_visibility_range(node: Node3D) -> void:
+	var mi: MeshInstance3D = node.find_child("MeshInstance3D", true, false) as MeshInstance3D
+	if mi:
+		mi.visibility_range_end = ENTITY_VISIBILITY_END
+		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+
 func _spawn_enemy(e_data: Dictionary, entity_root: Node3D, world_scene: Node3D) -> void:
 	var node: Node3D = _EnemyScene.instantiate()
 	node.position = Vector3(e_data["x"], 0.5, e_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(e_data)
+	_set_visibility_range(node)
 	entity_root.add_child(node)
 	if world_scene.has_method("register_enemy"):
 		world_scene.register_enemy(e_data["id"], node)
@@ -281,6 +309,7 @@ func _spawn_chest(c_data: Dictionary, entity_root: Node3D, world_scene: Node3D) 
 	node.position = Vector3(c_data["x"], 0.25, c_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(c_data)
+	_set_visibility_range(node)
 	entity_root.add_child(node)
 	if world_scene.has_method("register_chest"):
 		world_scene.register_chest(c_data["id"], node, c_data)
