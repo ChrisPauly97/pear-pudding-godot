@@ -141,21 +141,13 @@ func _build_terrain(world_scene: Node3D) -> void:
 	col_node.shape = col_shape
 	var body := StaticBody3D.new()
 	body.name = "TerrainCollision"
+	body.collision_layer = 2   # terrain layer
+	body.collision_mask  = 0   # terrain doesn't need to detect others
 	body.position = Vector3(float(nvx - 1) * step * 0.5, 0.0, float(nvz - 1) * step * 0.5)
 	body.add_child(col_node)
 	add_child(body)
 
-	# Flat BoxShape3D safety floor so the player never falls to infinity
-	var chunk_world: float = IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE
-	var floor_box := BoxShape3D.new()
-	floor_box.size = Vector3(chunk_world, 0.1, chunk_world)
-	var floor_col := CollisionShape3D.new()
-	floor_col.shape = floor_box
-	var floor_body := StaticBody3D.new()
-	floor_body.name = "FloorFallback"
-	floor_body.position = Vector3(chunk_world * 0.5, -0.05, chunk_world * 0.5)
-	floor_body.add_child(floor_col)
-	add_child(floor_body)
+	# HeightMapShape3D already covers the terrain — no fallback floor needed.
 
 # ── Walls ──────────────────────────────────────────────────────────────────
 
@@ -172,6 +164,8 @@ func _build_walls() -> void:
 			var h: int = _chunk_data.get_height(lx, lz)
 			for level in range(h):
 				var sb := StaticBody3D.new()
+				sb.collision_layer = 4   # wall layer
+				sb.collision_mask  = 0   # walls don't need to detect others
 				var mi := MeshInstance3D.new()
 				var box := BoxMesh.new()
 				box.size = Vector3(IsoConst.TILE_SIZE, WALL_FACE_H, IsoConst.TILE_SIZE)

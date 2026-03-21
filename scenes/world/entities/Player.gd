@@ -9,6 +9,8 @@ var _is_jumping: bool = false
 var _model: Node3D
 
 func _ready() -> void:
+	collision_layer = 1       # player layer
+	collision_mask  = 2 | 4   # collide with terrain (2) + walls (4)
 	_model = _build_character_model()
 	add_child(_model)
 

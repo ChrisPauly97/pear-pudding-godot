@@ -212,6 +212,7 @@ func register_chest(cid: String, node: Node3D, c_data: Dictionary) -> void:
 
 # Find nearest active chest within range
 func _find_nearby_chest_infinite(px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
 	for raw_id in _active_chest_data:
 		var cid: String = raw_id
 		var d: Dictionary = _active_chest_data[cid]
@@ -219,7 +220,7 @@ func _find_nearby_chest_infinite(px: float, pz: float, range_dist: float) -> Dic
 			continue
 		var dx: float = float(d.get("x", 0.0)) - px
 		var dz: float = float(d.get("z", 0.0)) - pz
-		if sqrt(dx * dx + dz * dz) <= range_dist:
+		if dx * dx + dz * dz <= range_sq:
 			return d
 	return {}
 
@@ -359,6 +360,8 @@ func _build_terrain_collision(_hfield: PackedFloat32Array, _nvx: int, _nvz: int,
 	col.shape = box
 	var body := StaticBody3D.new()
 	body.name = "TerrainCollision"
+	body.collision_layer = 2   # terrain layer
+	body.collision_mask  = 0   # terrain doesn't need to detect others
 	body.position = Vector3(map_world_x * 0.5, -0.05, map_world_z * 0.5)
 	body.add_child(col)
 	add_child(body)
@@ -374,6 +377,8 @@ func _build_walls() -> void:
 				var h := world_map.get_height(tx, tz)
 				for level in range(h):
 					var sb := StaticBody3D.new()
+					sb.collision_layer = 4   # wall layer
+					sb.collision_mask  = 0   # walls don't need to detect others
 					var mi := MeshInstance3D.new()
 					var box := BoxMesh.new()
 					box.size = Vector3(IsoConst.TILE_SIZE, WALL_FACE_H, IsoConst.TILE_SIZE)
