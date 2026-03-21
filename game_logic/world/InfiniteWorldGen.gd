@@ -32,7 +32,9 @@ static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 
 	var noise := FastNoiseLite.new()
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	noise.seed = _chunk_seed(p_cx, p_cz, world_seed)
+	# Use world_seed directly so the noise field is continuous across all chunks.
+	# Per-chunk seeds broke continuity, causing abrupt terrain transitions at borders.
+	noise.seed = world_seed
 	noise.frequency = NOISE_FREQ
 
 	for lz in range(CHUNK_SIZE):
