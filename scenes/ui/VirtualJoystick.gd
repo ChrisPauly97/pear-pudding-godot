@@ -1,8 +1,8 @@
 extends Control
 
-const BASE_RADIUS: float = 90.0
-const KNOB_RADIUS: float = 38.0
-const JUMP_RADIUS: float = 55.0
+const BASE_RADIUS: float = 130.0
+const KNOB_RADIUS: float = 54.0
+const JUMP_RADIUS: float = 80.0
 const DEADZONE: float = 0.25
 
 var _joy_index: int = -1
@@ -16,11 +16,11 @@ func _ready() -> void:
 	visible = OS.has_feature("android")
 
 func _get_joy_center() -> Vector2:
-	return get_viewport_rect().size - Vector2(150.0, 150.0)
+	return get_viewport_rect().size - Vector2(180.0, 180.0)
 
 func _get_jump_center() -> Vector2:
 	var s: Vector2 = get_viewport_rect().size
-	return Vector2(150.0, s.y - 150.0)
+	return Vector2(180.0, s.y - 180.0)
 
 func _draw() -> void:
 	# Joystick
