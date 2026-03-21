@@ -75,10 +75,16 @@ func _build_mobile_toolbar() -> void:
 		Color(0.5, 0.1, 0.1),     # erase dark red
 	]
 
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var btn_h: float   = vh * 0.06
+	var sq_w: float    = vh * 0.07
+	var wide_w: float  = vh * 0.09
+	var lbl_w: float   = vh * 0.045
+
 	for i in mode_names.size():
 		var btn := Button.new()
 		btn.text = mode_names[i]
-		btn.custom_minimum_size = Vector2(72, 48)
+		btn.custom_minimum_size = Vector2(wide_w, btn_h)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var idx := i
 		btn.pressed.connect(func(): _set_mode(idx))
@@ -92,20 +98,20 @@ func _build_mobile_toolbar() -> void:
 
 	var h_minus := Button.new()
 	h_minus.text = "H-"
-	h_minus.custom_minimum_size = Vector2(56, 44)
+	h_minus.custom_minimum_size = Vector2(sq_w, btn_h)
 	h_minus.pressed.connect(_height_down)
 	ctrl_row.add_child(h_minus)
 
 	_height_label = Label.new()
 	_height_label.text = "H:1"
-	_height_label.custom_minimum_size = Vector2(36, 44)
+	_height_label.custom_minimum_size = Vector2(lbl_w, btn_h)
 	_height_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_height_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	ctrl_row.add_child(_height_label)
 
 	var h_plus := Button.new()
 	h_plus.text = "H+"
-	h_plus.custom_minimum_size = Vector2(56, 44)
+	h_plus.custom_minimum_size = Vector2(sq_w, btn_h)
 	h_plus.pressed.connect(_height_up)
 	ctrl_row.add_child(h_plus)
 
@@ -115,19 +121,19 @@ func _build_mobile_toolbar() -> void:
 
 	var save_btn := Button.new()
 	save_btn.text = "Save"
-	save_btn.custom_minimum_size = Vector2(72, 44)
+	save_btn.custom_minimum_size = Vector2(wide_w, btn_h)
 	save_btn.pressed.connect(_save_map)
 	ctrl_row.add_child(save_btn)
 
 	var new_btn := Button.new()
 	new_btn.text = "New"
-	new_btn.custom_minimum_size = Vector2(72, 44)
+	new_btn.custom_minimum_size = Vector2(wide_w, btn_h)
 	new_btn.pressed.connect(_new_map_dialog)
 	ctrl_row.add_child(new_btn)
 
 	var open_btn := Button.new()
 	open_btn.text = "Open"
-	open_btn.custom_minimum_size = Vector2(72, 44)
+	open_btn.custom_minimum_size = Vector2(wide_w, btn_h)
 	open_btn.pressed.connect(_show_map_list)
 	ctrl_row.add_child(open_btn)
 

@@ -173,3 +173,34 @@ func _build_floor_collision() -> void:
 ```
 
 `WorldBoundaryShape3D` is not available in all Godot 4 builds — use `BoxShape3D` instead.
+
+---
+
+## UI Sizing: Relative to Viewport, Never Fixed Pixels
+
+### The problem
+Hard-coded pixel sizes (e.g. `custom_minimum_size = Vector2(80, 30)`) produce tiny, unusable controls on typical resolutions. Buttons in tool UIs like the map editor have been too small because of this.
+
+### The fix
+Always size UI controls as a fraction of the viewport:
+
+```gdscript
+# Bad — fixed pixels, looks tiny at 1080p+
+button.custom_minimum_size = Vector2(80, 30)
+
+# Good — relative to viewport height
+var vh: float = get_viewport().get_visible_rect().size.y
+button.custom_minimum_size = Vector2(vh * 0.12, vh * 0.05)
+```
+
+### Recommended fractions
+| Control | Width | Height |
+|---|---|---|
+| Standard button | 12–18 % vh | 5–6 % vh |
+| Icon/square button | 5–6 % vh | 5–6 % vh |
+| Panel / sidebar | 20–25 % vw | — |
+| Font size | — | 2–2.5 % vh |
+
+Use `get_viewport().get_visible_rect().size` — not `DisplayServer.window_get_size()` — so it respects sub-viewports and editor embeds.
+
+Re-apply sizes in `_notification(NOTIFICATION_RESIZED)` if the window can be resized at runtime.

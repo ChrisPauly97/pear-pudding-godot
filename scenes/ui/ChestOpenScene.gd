@@ -13,7 +13,14 @@ var _current_idx: int = 0
 
 func _ready() -> void:
 	_next_btn.pressed.connect(_on_next)
+	_apply_ui_sizes()
 	_show_card(_current_idx)
+
+func _apply_ui_sizes() -> void:
+	var vh: float = get_viewport().get_visible_rect().size.y
+	_card_panel.custom_minimum_size = Vector2(vh * 0.22, vh * 0.18)
+	_card_name.add_theme_font_size_override("font_size", int(vh * 0.022))
+	_next_btn.custom_minimum_size = Vector2(vh * 0.22, vh * 0.06)
 
 func _show_card(idx: int) -> void:
 	if idx >= card_ids.size():
