@@ -7,25 +7,37 @@ class_name TextureGen
 # Texture cache — deterministic seeds mean identical output, generate once.
 static var _cache: Dictionary = {}
 
-static func _cached(key: String, generator: Callable) -> ImageTexture:
+static func grass(seed: int = 0) -> ImageTexture:
+	var key: String = "grass_%d" % seed
 	if _cache.has(key):
 		return _cache[key]
-	var tex: ImageTexture = generator.call()
+	var tex: ImageTexture = _gen_grass(seed)
 	_cache[key] = tex
 	return tex
 
-static func grass(seed: int = 0) -> ImageTexture:
-	return _cached("grass_%d" % seed, func() -> ImageTexture: return _gen_grass(seed))
-
 static func hill_top(seed: int = 99999) -> ImageTexture:
-	return _cached("hill_%d" % seed, func() -> ImageTexture: return _gen_hill_top(seed))
+	var key: String = "hill_%d" % seed
+	if _cache.has(key):
+		return _cache[key]
+	var tex: ImageTexture = _gen_hill_top(seed)
+	_cache[key] = tex
+	return tex
 
 static func wall_side(is_left: bool) -> ImageTexture:
 	var key: String = "wall_side_%s" % str(is_left)
-	return _cached(key, func() -> ImageTexture: return _gen_wall_side(is_left))
+	if _cache.has(key):
+		return _cache[key]
+	var tex: ImageTexture = _gen_wall_side(is_left)
+	_cache[key] = tex
+	return tex
 
 static func wall_top() -> ImageTexture:
-	return _cached("wall_top", func() -> ImageTexture: return _gen_wall_top())
+	var key: String = "wall_top"
+	if _cache.has(key):
+		return _cache[key]
+	var tex: ImageTexture = _gen_wall_top()
+	_cache[key] = tex
+	return tex
 
 static func _gen_grass(seed: int = 0) -> ImageTexture:
 	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
