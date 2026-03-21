@@ -1,32 +1,32 @@
 class_name TextureGen
 
-# Generates runtime textures using Godot-native resources where possible.
-# Grass/hill use NoiseTexture2D with color ramps (C++ pipeline, instant).
-# Wall brick patterns use bulk PackedByteArray writes (no per-pixel calls).
+# Generates runtime textures synchronously so they are ready the first frame.
+# Terrain textures: FastNoiseLite.get_image() + manual gradient mapping → ImageTexture.
+# Wall brick patterns: bulk PackedByteArray writes (no per-pixel GDScript calls).
 
 static var _cache: Dictionary = {}
 
-static func grass(seed: int = 0) -> NoiseTexture2D:
+static func grass(seed: int = 0) -> ImageTexture:
 	var key: String = "grass_%d" % seed
 	if _cache.has(key):
 		return _cache[key]
-	var tex: NoiseTexture2D = _make_grass_noise(seed)
+	var tex: ImageTexture = _make_grass_tex(seed)
 	_cache[key] = tex
 	return tex
 
-static func hill_top(seed: int = 99999) -> NoiseTexture2D:
+static func hill_top(seed: int = 99999) -> ImageTexture:
 	var key: String = "hill_%d" % seed
 	if _cache.has(key):
 		return _cache[key]
-	var tex: NoiseTexture2D = _make_hill_noise(seed)
+	var tex: ImageTexture = _make_hill_tex(seed)
 	_cache[key] = tex
 	return tex
 
-static func hill_side(seed: int = 55555) -> NoiseTexture2D:
+static func hill_side(seed: int = 55555) -> ImageTexture:
 	var key: String = "hill_side_%d" % seed
 	if _cache.has(key):
 		return _cache[key]
-	var tex: NoiseTexture2D = _make_hill_side_noise(seed)
+	var tex: ImageTexture = _make_hill_side_tex(seed)
 	_cache[key] = tex
 	return tex
 
@@ -46,9 +46,24 @@ static func wall_top() -> ImageTexture:
 	_cache[key] = tex
 	return tex
 
-# ── Grass: NoiseTexture2D with green color ramp ──────────────────────────
+# ── Shared helper: noise + gradient → ImageTexture (synchronous) ─────────
+# FastNoiseLite.get_image() generates pixels synchronously on the calling
+# thread, so the texture is GPU-ready before the first frame renders.
 
-static func _make_grass_noise(seed: int) -> NoiseTexture2D:
+static func _noise_to_texture(noise: FastNoiseLite, grad: Gradient, size: int) -> ImageTexture:
+	const FMT: int = Image.FORMAT_RGBA8
+	var raw: Image = noise.get_image(size, size)   # normalised grayscale
+	var out := Image.create(size, size, false, FMT)
+	for y in range(size):
+		for x in range(size):
+			var v: float = raw.get_pixel(x, y).r   # [0..1]
+			out.set_pixel(x, y, grad.sample(v))
+	out.generate_mipmaps()
+	return ImageTexture.create_from_image(out)
+
+# ── Grass: cellular noise with green ramp ────────────────────────────────
+
+static func _make_grass_tex(seed: int) -> ImageTexture:
 	var noise := FastNoiseLite.new()
 	noise.noise_type = FastNoiseLite.TYPE_CELLULAR
 	noise.seed = seed
@@ -63,19 +78,11 @@ static func _make_grass_noise(seed: int) -> NoiseTexture2D:
 		Color8(135, 177, 87, 255),   # base grass
 		Color8(141, 183, 93, 255),   # light grass
 	])
+	return _noise_to_texture(noise, grad, 64)
 
-	var tex := NoiseTexture2D.new()
-	tex.noise = noise
-	tex.color_ramp = grad
-	tex.width = 64
-	tex.height = 64
-	tex.generate_mipmaps = true
-	tex.seamless = true
-	return tex
+# ── Hill top: simplex noise with brown-green ramp ─────────────────────────
 
-# ── Hill: NoiseTexture2D with brown-green ramp ───────────────────────────
-
-static func _make_hill_noise(seed: int) -> NoiseTexture2D:
+static func _make_hill_tex(seed: int) -> ImageTexture:
 	var noise := FastNoiseLite.new()
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	noise.seed = seed
@@ -89,19 +96,11 @@ static func _make_hill_noise(seed: int) -> NoiseTexture2D:
 		Color8(105, 158, 65, 255),   # hill grass
 		Color8(111, 164, 71, 255),   # bright hill grass
 	])
-
-	var tex := NoiseTexture2D.new()
-	tex.noise = noise
-	tex.color_ramp = grad
-	tex.width = 64
-	tex.height = 64
-	tex.generate_mipmaps = true
-	tex.seamless = true
-	return tex
+	return _noise_to_texture(noise, grad, 64)
 
 # ── Hill side: earthy brown dirt for steep slopes ────────────────────────
 
-static func _make_hill_side_noise(seed: int) -> NoiseTexture2D:
+static func _make_hill_side_tex(seed: int) -> ImageTexture:
 	var noise := FastNoiseLite.new()
 	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	noise.seed = seed
@@ -115,15 +114,7 @@ static func _make_hill_side_noise(seed: int) -> NoiseTexture2D:
 		Color8(118, 93, 52, 255),   # light earth
 		Color8(130, 105, 62, 255),  # pale earth / exposed root
 	])
-
-	var tex := NoiseTexture2D.new()
-	tex.noise = noise
-	tex.color_ramp = grad
-	tex.width = 64
-	tex.height = 64
-	tex.generate_mipmaps = true
-	tex.seamless = true
-	return tex
+	return _noise_to_texture(noise, grad, 64)
 
 # ── Walls: bulk byte-array writes (no per-pixel GDScript calls) ──────────
 
