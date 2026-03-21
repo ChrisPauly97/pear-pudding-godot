@@ -155,7 +155,10 @@ jobs:
       - name: Export APK
         run: |
           mkdir -p build
-          godot --headless --path "$GITHUB_WORKSPACE" --export-release "Android" "$GITHUB_WORKSPACE/build/PearPuddingTCG.apk"
+          # First pass: may trigger remaining imports, allowed to fail
+          godot --headless --path "$GITHUB_WORKSPACE" --export-debug "Android" "$GITHUB_WORKSPACE/build/PearPuddingTCG.apk" || true
+          # Second pass: actual export
+          godot --headless --path "$GITHUB_WORKSPACE" --export-debug "Android" "$GITHUB_WORKSPACE/build/PearPuddingTCG.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
