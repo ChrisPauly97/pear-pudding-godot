@@ -4,7 +4,30 @@ class_name TextureGen
 # Mirrors the logic in TextureGenerator.java but produces square textures
 # for 3D PlaneMesh/BoxMesh surfaces instead of isometric diamond sprites.
 
+# Texture cache — deterministic seeds mean identical output, generate once.
+static var _cache: Dictionary = {}
+
+static func _cached(key: String, generator: Callable) -> ImageTexture:
+	if _cache.has(key):
+		return _cache[key]
+	var tex: ImageTexture = generator.call()
+	_cache[key] = tex
+	return tex
+
 static func grass(seed: int = 0) -> ImageTexture:
+	return _cached("grass_%d" % seed, func() -> ImageTexture: return _gen_grass(seed))
+
+static func hill_top(seed: int = 99999) -> ImageTexture:
+	return _cached("hill_%d" % seed, func() -> ImageTexture: return _gen_hill_top(seed))
+
+static func wall_side(is_left: bool) -> ImageTexture:
+	var key: String = "wall_side_%s" % str(is_left)
+	return _cached(key, func() -> ImageTexture: return _gen_wall_side(is_left))
+
+static func wall_top() -> ImageTexture:
+	return _cached("wall_top", func() -> ImageTexture: return _gen_wall_top())
+
+static func _gen_grass(seed: int = 0) -> ImageTexture:
 	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
@@ -19,7 +42,7 @@ static func grass(seed: int = 0) -> ImageTexture:
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
-static func hill_top(seed: int = 99999) -> ImageTexture:
+static func _gen_hill_top(seed: int = 99999) -> ImageTexture:
 	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
@@ -44,7 +67,7 @@ static func hill_top(seed: int = 99999) -> ImageTexture:
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
-static func wall_side(is_left: bool) -> ImageTexture:
+static func _gen_wall_side(is_left: bool) -> ImageTexture:
 	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 11111 if is_left else 22222
@@ -67,7 +90,7 @@ static func wall_side(is_left: bool) -> ImageTexture:
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
-static func wall_top() -> ImageTexture:
+static func _gen_wall_top() -> ImageTexture:
 	var img := Image.create(64, 64, false, Image.FORMAT_RGBA8)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 12345

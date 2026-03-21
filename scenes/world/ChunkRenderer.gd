@@ -155,34 +155,57 @@ func _build_walls() -> void:
 	const CHUNK_SIZE: int = 16
 	var wall_mat := StandardMaterial3D.new()
 	wall_mat.albedo_texture = TextureGen.wall_side(true)
-	var chunk_origin: Vector3 = _chunk_data.origin_world()
 
+	# Collect wall block positions first
+	var positions: Array[Vector3] = []
 	for lz in range(CHUNK_SIZE):
 		for lx in range(CHUNK_SIZE):
 			if _chunk_data.get_tile(lx, lz) != IsoConst.TILE_WALL:
 				continue
 			var h: int = _chunk_data.get_height(lx, lz)
 			for level in range(h):
-				var sb := StaticBody3D.new()
-				sb.collision_layer = 4   # wall layer
-				sb.collision_mask  = 0   # walls don't need to detect others
-				var mi := MeshInstance3D.new()
-				var box := BoxMesh.new()
-				box.size = Vector3(IsoConst.TILE_SIZE, WALL_FACE_H, IsoConst.TILE_SIZE)
-				mi.mesh = box
-				mi.material_override = wall_mat
-				var col := CollisionShape3D.new()
-				col.shape = BoxShape3D.new()
-				col.shape.size = box.size
-				sb.add_child(mi)
-				sb.add_child(col)
-				# Position is relative to this node's origin (which is set to chunk_origin)
-				sb.position = Vector3(
+				positions.append(Vector3(
 					float(lx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
 					float(level) * WALL_FACE_H + WALL_FACE_H * 0.5,
 					float(lz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-				)
-				add_child(sb)
+				))
+
+	if positions.is_empty():
+		return
+
+	# Render all wall blocks with a single MultiMeshInstance3D
+	var box_mesh := BoxMesh.new()
+	box_mesh.size = Vector3(IsoConst.TILE_SIZE, WALL_FACE_H, IsoConst.TILE_SIZE)
+
+	var mm := MultiMesh.new()
+	mm.mesh = box_mesh
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.instance_count = positions.size()
+
+	for i in positions.size():
+		mm.set_instance_transform(i, Transform3D(Basis.IDENTITY, positions[i]))
+
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = wall_mat
+	add_child(mmi)
+
+	# Single merged collision body for all wall blocks in this chunk
+	var wall_body := StaticBody3D.new()
+	wall_body.name = "WallCollision"
+	wall_body.collision_layer = 4   # wall layer
+	wall_body.collision_mask  = 0   # walls don't need to detect others
+
+	var half := box_mesh.size * 0.5
+	for pos in positions:
+		var col := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = box_mesh.size
+		col.shape = shape
+		col.position = pos
+		wall_body.add_child(col)
+
+	add_child(wall_body)
 
 # ── Grass ──────────────────────────────────────────────────────────────────
 
