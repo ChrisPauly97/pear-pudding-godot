@@ -64,7 +64,7 @@ jobs:
             echo "KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
             echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
           else
-            echo "No keystore secrets found — generating a debug keystore"
+            echo "No keystore secrets — generating a debug keystore"
             keytool -genkey -v \
               -keystore "$GITHUB_WORKSPACE/android.keystore" \
               -alias key0 \
@@ -80,29 +80,77 @@ jobs:
             echo "KEY_ALIAS=key0" >> $GITHUB_ENV
           fi
 
-      - name: Patch export_presets.cfg with keystore paths
-        run: |
-          sed -i \
-            -e "s|KEYSTORE_PATH_PLACEHOLDER|$KEYSTORE_PATH|g" \
-            -e "s|KEYSTORE_PASSWORD_PLACEHOLDER|$KEYSTORE_PASSWORD|g" \
-            -e "s|KEY_ALIAS_PLACEHOLDER|$KEY_ALIAS|g" \
-            export_presets.cfg
-
       - name: Write Godot editor settings
         run: |
-          SETTINGS_DIR="$HOME/.config/godot"
-          mkdir -p "$SETTINGS_DIR"
-          cat > "$SETTINGS_DIR/editor_settings-4.tres" << EOF
-          [gd_resource type="EditorSettings" format=3]
+          mkdir -p "$HOME/.config/godot"
+          printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\nexport/android/debug_keystore = "%s"\nexport/android/debug_keystore_user = "%s"\nexport/android/debug_keystore_pass = "%s"\n' \
+            "$ANDROID_SDK_ROOT" \
+            "$JAVA_HOME" \
+            "$KEYSTORE_PATH" \
+            "$KEY_ALIAS" \
+            "$KEYSTORE_PASSWORD" \
+            > "$HOME/.config/godot/editor_settings-4.tres"
 
-          [resource]
-          export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
-          EOF
+      - name: Generate export_presets.cfg
+        run: |
+          cat > "$GITHUB_WORKSPACE/export_presets.cfg" << PRESETS
+          [preset.0]
+
+          name="Android"
+          platform="Android"
+          runnable=true
+          dedicated_server=false
+          custom_features=""
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter=""
+          export_path="build/PearPuddingTCG.apk"
+          encryption_include_filters=""
+          encryption_exclude_filters=""
+          encrypt_pck=false
+          encrypt_directory=false
+
+          [preset.0.options]
+
+          gradle_build/use_gradle_build=false
+          gradle_build/export_format=0
+          gradle_build/min_sdk=""
+          gradle_build/target_sdk=""
+          architectures/armeabi-v7a=false
+          architectures/arm64-v8a=true
+          architectures/x86=false
+          architectures/x86_64=false
+          keystore/debug="$KEYSTORE_PATH"
+          keystore/debug_user="$KEY_ALIAS"
+          keystore/debug_password="$KEYSTORE_PASSWORD"
+          keystore/release="$KEYSTORE_PATH"
+          keystore/release_user="$KEY_ALIAS"
+          keystore/release_password="$KEYSTORE_PASSWORD"
+          version/code=1
+          version/name="1.0"
+          package/unique_name="com.chrispauly97.pearpuddingtcg"
+          package/name="Pear Pudding TCG"
+          package/signed=true
+          package/classify_as_game=true
+          package/retain_data_on_uninstall=false
+          package/exclude_from_recents=false
+          package/show_as_launcher_icon=true
+          graphics/opengl_debug=false
+          xr_features/xr_mode=0
+          screen/immersive_mode=true
+          screen/support_small=true
+          screen/support_normal=true
+          screen/support_large=true
+          screen/support_xlarge=true
+          user_data_backup/allow=false
+          command_line/extra_args=""
+          apk_expansion/enable=false
+          PRESETS
 
       - name: Export APK
         run: |
           mkdir -p build
-          godot --headless --export-release "Android" build/PearPuddingTCG.apk
+          godot --headless --path "$GITHUB_WORKSPACE" --export-release "Android" "$GITHUB_WORKSPACE/build/PearPuddingTCG.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
