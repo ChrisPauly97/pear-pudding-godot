@@ -22,6 +22,14 @@ static func hill_top(seed: int = 99999) -> NoiseTexture2D:
 	_cache[key] = tex
 	return tex
 
+static func hill_side(seed: int = 55555) -> NoiseTexture2D:
+	var key: String = "hill_side_%d" % seed
+	if _cache.has(key):
+		return _cache[key]
+	var tex: NoiseTexture2D = _make_hill_side_noise(seed)
+	_cache[key] = tex
+	return tex
+
 static func wall_side(is_left: bool) -> ImageTexture:
 	var key: String = "wall_side_%s" % str(is_left)
 	if _cache.has(key):
@@ -80,6 +88,32 @@ static func _make_hill_noise(seed: int) -> NoiseTexture2D:
 		Color8(120, 90, 50, 255),    # dark dirt-grass transition
 		Color8(105, 158, 65, 255),   # hill grass
 		Color8(111, 164, 71, 255),   # bright hill grass
+	])
+
+	var tex := NoiseTexture2D.new()
+	tex.noise = noise
+	tex.color_ramp = grad
+	tex.width = 64
+	tex.height = 64
+	tex.generate_mipmaps = true
+	tex.seamless = true
+	return tex
+
+# ── Hill side: earthy brown dirt for steep slopes ────────────────────────
+
+static func _make_hill_side_noise(seed: int) -> NoiseTexture2D:
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	noise.seed = seed
+	noise.frequency = 0.09
+
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.3, 0.7, 1.0])
+	grad.colors = PackedColorArray([
+		Color8(68,  52, 28, 255),   # dark earth
+		Color8(98,  76, 42, 255),   # earth
+		Color8(118, 93, 52, 255),   # light earth
+		Color8(130, 105, 62, 255),  # pale earth / exposed root
 	])
 
 	var tex := NoiseTexture2D.new()

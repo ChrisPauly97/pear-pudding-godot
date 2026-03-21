@@ -1,11 +1,14 @@
 shader_type spatial;
 render_mode unshaded;
 
-// Vertex colour R channel: 0.0 = flat grass, 1.0 = hill top.
+// Vertex colour R channel: 0.0 = flat grass, 1.0 = hill plateau top.
 // Normals are computed from the height field and baked into the mesh.
 
-uniform sampler2D grass_texture  : source_color, hint_default_white;
-uniform sampler2D hill_texture   : source_color, hint_default_white;
+uniform sampler2D grass_texture     : source_color, hint_default_white;
+// Earthy dirt shown on the steep sides of hills (mid-height zone)
+uniform sampler2D hill_side_texture : source_color, hint_default_white;
+// Grassy top shown on the flat plateau of hills (high-height zone)
+uniform sampler2D hill_texture      : source_color, hint_default_white;
 
 // How many times the textures tile per world unit
 uniform float uv_scale : hint_range(0.05, 2.0) = 0.5;
@@ -15,7 +18,7 @@ uniform vec3 sun_dir                    = vec3(0.577, 0.577, 0.577);
 uniform vec4 sun_color   : source_color = vec4(1.0, 0.95, 0.8, 1.0);
 uniform vec4 ambient_col : source_color = vec4(0.3, 0.38, 0.45, 1.0);
 
-varying float v_blend;   // grass↔hill blend [0..1]
+varying float v_blend;   // height ratio [0=flat ground .. 1=hill plateau]
 varying vec3  v_normal_world;
 varying vec2  v_world_xz;
 
@@ -62,18 +65,30 @@ void fragment() {
 	// Triplanar-style UV from world position so textures don't stretch on slopes
 	vec2 uv_xz = v_world_xz * uv_scale;
 
-	vec3 grass_col = texture(grass_texture, uv_xz).rgb;
-	vec3 hill_col  = texture(hill_texture,  uv_xz).rgb;
+	vec3 grass_col = texture(grass_texture,     uv_xz).rgb;
+	vec3 side_col  = texture(hill_side_texture, uv_xz).rgb;
+	vec3 top_col   = texture(hill_texture,      uv_xz).rgb;
 
-	// Slope computed from world normal — used to blend towards rocky on steep faces
-	float up_dot  = clamp(v_normal_world.y, 0.0, 1.0);
-	float slope   = 1.0 - up_dot;           // 0 = flat, 1 = vertical
+	// slope: 0 = facing straight up (flat), 1 = vertical face
+	float slope = 1.0 - clamp(v_normal_world.y, 0.0, 1.0);
 
-	// Steeper slopes look rockier regardless of height
-	float blend = max(v_blend, smoothstep(0.4, 0.75, slope));
-	blend = smoothstep(0.15, 0.75, blend);  // soft threshold
+	// --- Three-zone blend matching the parabolic hill profile ---
+	// Zone 1: grass base (v_blend ~0) — flat ground at hill foot
+	// Zone 2: dirt slope (v_blend ~0.3-0.7) — the steep rising sides
+	// Zone 3: grassy plateau (v_blend ~0.8-1.0, slope low) — hilltop
 
-	vec3 base_col = mix(grass_col, hill_col, blend);
+	// grass → side: driven by height rising up the hill + slope boost
+	float t_side = max(
+		smoothstep(0.05, 0.55, v_blend),    // height climbing the hill
+		smoothstep(0.35, 0.70, slope)        // steep face → always dirt
+	);
+
+	// side → top: height reaching the plateau, suppressed on steep faces
+	float t_top = smoothstep(0.60, 0.92, v_blend)
+	            * (1.0 - smoothstep(0.35, 0.70, slope));
+
+	vec3 base_col = mix(grass_col, side_col, t_side);
+	base_col = mix(base_col, top_col, t_top);
 
 	// Simple directional light baked from normal
 	vec3 n  = normalize(v_normal_world);
