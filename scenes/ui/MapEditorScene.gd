@@ -223,6 +223,13 @@ func _build_mobile_toolbar() -> void:
 	mode_row.add_theme_constant_override("separation", 5)
 	vbox.add_child(mode_row)
 
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var btn_h: float  = vh * 0.06
+	var sq_w: float   = vh * 0.07
+	var wide_w: float = vh * 0.09
+	var lbl_w: float  = vh * 0.045
+
+
 	for i in mode_names.size():
 		var col: Color = _mode_colors[i]
 		var normal_style := _make_style(col.darkened(0.45), false)
@@ -232,7 +239,7 @@ func _build_mobile_toolbar() -> void:
 
 		var btn := Button.new()
 		btn.text = mode_names[i]
-		btn.custom_minimum_size = Vector2(0, 56)
+		btn.custom_minimum_size = Vector2(wide_w, btn_h)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.add_theme_stylebox_override("normal", normal_style)
 		btn.add_theme_stylebox_override("hover", _make_style(col, false))
@@ -249,15 +256,14 @@ func _build_mobile_toolbar() -> void:
 	vbox.add_child(ctrl_row)
 
 	var h_minus := Button.new()
-	h_minus.text = "H -"
-	h_minus.custom_minimum_size = Vector2(68, 50)
-	h_minus.add_theme_font_size_override("font_size", 16)
+	h_minus.text = "H-"
+	h_minus.custom_minimum_size = Vector2(sq_w, btn_h)
 	h_minus.pressed.connect(_height_down)
 	ctrl_row.add_child(h_minus)
 
 	_height_label = Label.new()
-	_height_label.text = "H: 1"
-	_height_label.custom_minimum_size = Vector2(48, 50)
+	_height_label.text = "H:1"
+	_height_label.custom_minimum_size = Vector2(lbl_w, btn_h)
 	_height_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_height_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_height_label.add_theme_color_override("font_color", Color.WHITE)
@@ -265,9 +271,8 @@ func _build_mobile_toolbar() -> void:
 	ctrl_row.add_child(_height_label)
 
 	var h_plus := Button.new()
-	h_plus.text = "H +"
-	h_plus.custom_minimum_size = Vector2(68, 50)
-	h_plus.add_theme_font_size_override("font_size", 16)
+	h_plus.text = "H+"
+	h_plus.custom_minimum_size = Vector2(sq_w, btn_h)
 	h_plus.pressed.connect(_height_up)
 	ctrl_row.add_child(h_plus)
 
@@ -275,13 +280,23 @@ func _build_mobile_toolbar() -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ctrl_row.add_child(spacer)
 
-	for pair in [["Save", _save_map], ["New", _new_map_dialog], ["Open", _show_map_list]]:
-		var btn := Button.new()
-		btn.text = pair[0]
-		btn.custom_minimum_size = Vector2(72, 50)
-		btn.add_theme_font_size_override("font_size", 16)
-		btn.pressed.connect(pair[1])
-		ctrl_row.add_child(btn)
+	var save_btn := Button.new()
+	save_btn.text = "Save"
+	save_btn.custom_minimum_size = Vector2(wide_w, btn_h)
+	save_btn.pressed.connect(_save_map)
+	ctrl_row.add_child(save_btn)
+
+	var new_btn := Button.new()
+	new_btn.text = "New"
+	new_btn.custom_minimum_size = Vector2(wide_w, btn_h)
+	new_btn.pressed.connect(_new_map_dialog)
+	ctrl_row.add_child(new_btn)
+
+	var open_btn := Button.new()
+	open_btn.text = "Open"
+	open_btn.custom_minimum_size = Vector2(wide_w, btn_h)
+	open_btn.pressed.connect(_show_map_list)
+	ctrl_row.add_child(open_btn)
 
 	_hud.add_child(_toolbar)
 	_refresh_mode_buttons()
@@ -300,12 +315,12 @@ func _refresh_mode_buttons() -> void:
 
 func _height_up() -> void:
 	_paint_height = min(_paint_height + 1, 4)
-	_height_label.text = "H: %d" % _paint_height
+	_height_label.text = "H:%d" % _paint_height
 	_update_hud()
 
 func _height_down() -> void:
 	_paint_height = max(_paint_height - 1, 1)
-	_height_label.text = "H: %d" % _paint_height
+	_height_label.text = "H:%d" % _paint_height
 	_update_hud()
 
 func _load_map(name: String) -> void:

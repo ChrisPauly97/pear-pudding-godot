@@ -12,6 +12,7 @@ var _ai_thinking: bool = false
 
 # Click-to-target for board-card attacks (select attacker, then click enemy)
 var _dragged_card: Dictionary = {}  # {card: CardInstance}
+var _vh: float = 0.0
 
 # Drag-to-play: hand card being dragged onto the board
 var _hand_drag_card: CardInstance = null
@@ -28,6 +29,8 @@ var _drag_start_pos: Vector2 = Vector2.ZERO
 @onready var _end_turn_btn: Button = $SidePanel/EndTurnButton
 
 func _ready() -> void:
+	_vh = get_viewport().get_visible_rect().size.y
+	_apply_ui_sizes()
 	_state = GameState.new()
 
 	# Player deck: use SaveManager collection if available, else default
@@ -53,6 +56,15 @@ func _ready() -> void:
 
 	_state.players[0].start_turn(1)
 	_refresh_all()
+
+func _apply_ui_sizes() -> void:
+	var hero_h: float = _vh * 0.09
+	var board_h: float = _vh * 0.18
+	_enemy_hero_view.custom_minimum_size   = Vector2(0, hero_h)
+	_enemy_board_view.custom_minimum_size  = Vector2(0, board_h)
+	_player_board_view.custom_minimum_size = Vector2(0, board_h)
+	_player_hero_view.custom_minimum_size  = Vector2(0, hero_h)
+	_player_hand_view.custom_minimum_size  = Vector2(0, board_h)
 
 # -------------------------------------------------------------------------
 # Drag/Drop — scene-level input catches mouse move and release globally
@@ -131,18 +143,18 @@ func _refresh_zone(zone_node: Node, cards: Array, zone_id: String) -> void:
 
 func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(90, 120)
+	panel.custom_minimum_size = Vector2(_vh * 0.09, _vh * 0.15)
 	var vbox := VBoxContainer.new()
 	var name_lbl := Label.new()
 	name_lbl.text = card.name
-	name_lbl.add_theme_font_size_override("font_size", 10)
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.013))
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var stats_lbl := Label.new()
 	stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
 	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var desc_lbl := Label.new()
 	desc_lbl.text = card.description
-	desc_lbl.add_theme_font_size_override("font_size", 8)
+	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.011))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(name_lbl)
 	vbox.add_child(stats_lbl)
