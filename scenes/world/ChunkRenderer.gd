@@ -5,7 +5,8 @@ const GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 
 const TERRAIN_VDENSITY: int = 2
 const WALL_FACE_H:      float = 0.625
-const PLATEAU_H:        float = 1.0   # height of hill plateau boxes
+const PLATEAU_H:        float = 1.5   # hill plateau height above ground
+const CURVE_R:          float = 3.0   # smoothstep transition radius (world units)
 
 var _chunk_data: RefCounted   # ChunkData
 var _chunk_key:  Vector2i
@@ -21,8 +22,7 @@ func build(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node3D, ter
 
 	position = chunk_data.origin_world()
 
-	_build_terrain()
-	_build_hills()
+	_build_terrain(world_scene)
 	_build_walls()
 	_build_grass(world_scene)
 	_spawn_entities(world_scene)
@@ -31,21 +31,53 @@ func teardown() -> void:
 	queue_free()
 
 # ── Terrain ────────────────────────────────────────────────────────────────
-# Terrain is always flat at y=0. Hills are separate plateau boxes (see _build_hills).
+# Each vertex height is driven by distance to the nearest HILL tile.
+# h = PLATEAU_H fully inside a hill patch, 0 on flat grass, smoothstep between.
+# TERRAIN_VDENSITY=2 with TILE_SIZE=2 gives step=1.0, so HeightMapShape3D needs
+# no scaling — vertices are already 1 world unit apart.
 
-func _build_terrain() -> void:
+func _build_terrain(world_scene: Node3D) -> void:
 	const CHUNK_SIZE: int = 16
-	var nvx: int = CHUNK_SIZE * TERRAIN_VDENSITY + 1
-	var nvz: int = CHUNK_SIZE * TERRAIN_VDENSITY + 1
-	var step: float = IsoConst.TILE_SIZE / float(TERRAIN_VDENSITY)
-	var total_verts: int = nvx * nvz
+	var nvx: int = CHUNK_SIZE * TERRAIN_VDENSITY + 1   # 33
+	var nvz: int = CHUNK_SIZE * TERRAIN_VDENSITY + 1   # 33
+	var step: float = IsoConst.TILE_SIZE / float(TERRAIN_VDENSITY)  # 1.0
 
+	# Build height field
+	var hfield := PackedFloat32Array()
+	hfield.resize(nvx * nvz)
+	var chunk_origin: Vector3 = _chunk_data.origin_world()
+	var tile_check: int = int(ceil(CURVE_R / IsoConst.TILE_SIZE)) + 1  # 3
+
+	for iz in range(nvz):
+		for ix in range(nvx):
+			var gx: float = chunk_origin.x + ix * step
+			var gz: float = chunk_origin.z + iz * step
+			var vtx: int = int(gx / IsoConst.TILE_SIZE)
+			var vtz: int = int(gz / IsoConst.TILE_SIZE)
+			var min_dist: float = CURVE_R  # beyond transition = h stays 0
+			for dtz in range(-tile_check, tile_check + 1):
+				for dtx in range(-tile_check, tile_check + 1):
+					var ttx: int = vtx + dtx
+					var ttz: int = vtz + dtz
+					if world_scene.get_tile_global(ttx, ttz) != IsoConst.TILE_HILL:
+						continue
+					# Nearest point on this hill tile to the vertex
+					var near_x: float = clamp(gx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
+					var near_z: float = clamp(gz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
+					var dist: float = sqrt((gx - near_x) * (gx - near_x) + (gz - near_z) * (gz - near_z))
+					if dist < min_dist:
+						min_dist = dist
+			var t: float = 1.0 - min_dist / CURVE_R
+			t = t * t * (3.0 - 2.0 * t)  # smoothstep
+			hfield[iz * nvx + ix] = PLATEAU_H * t
+
+	# Build terrain mesh from height field
+	var total_verts: int = nvx * nvz
 	var verts   := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var uvs     := PackedVector2Array()
 	var colors  := PackedColorArray()
 	var indices := PackedInt32Array()
-
 	verts.resize(total_verts)
 	normals.resize(total_verts)
 	uvs.resize(total_verts)
@@ -57,10 +89,23 @@ func _build_terrain() -> void:
 			var i: int = iz * nvx + ix
 			var x: float = ix * step
 			var z: float = iz * step
-			verts[i]   = Vector3(x, 0.0, z)
-			normals[i] = Vector3(0.0, 1.0, 0.0)
-			uvs[i]     = Vector2(x, z)
-			colors[i]  = Color(0.0, 0.0, 0.0, 1.0)  # blend=0 → pure grass texture
+			var h: float = hfield[i]
+			verts[i] = Vector3(x, h, z)
+			uvs[i]   = Vector2(x, z)
+			var blend: float = clamp(h / PLATEAU_H, 0.0, 1.0)
+			colors[i] = Color(blend, blend, blend, 1.0)
+
+	# Normals via finite differences
+	for iz in range(nvz):
+		for ix in range(nvx):
+			var i: int = iz * nvx + ix
+			var hL: float = hfield[iz * nvx + max(ix - 1, 0)]
+			var hR: float = hfield[iz * nvx + min(ix + 1, nvx - 1)]
+			var hD: float = hfield[max(iz - 1, 0) * nvx + ix]
+			var hU: float = hfield[min(iz + 1, nvz - 1) * nvx + ix]
+			var dx: float = (hR - hL) / (2.0 * step)
+			var dz: float = (hU - hD) / (2.0 * step)
+			normals[i] = Vector3(-dx, 1.0, -dz).normalized()
 
 	var idx: int = 0
 	for iz in range(nvz - 1):
@@ -80,55 +125,37 @@ func _build_terrain() -> void:
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	arrays[Mesh.ARRAY_COLOR]  = colors
 	arrays[Mesh.ARRAY_INDEX]  = indices
-
 	var terrain_mesh := ArrayMesh.new()
 	terrain_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-
 	var mi := MeshInstance3D.new()
 	mi.mesh = terrain_mesh
 	mi.material_override = _terrain_mat
 	add_child(mi)
 
-	# Flat floor collision for the whole chunk
-	var chunk_world: float = IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE
-	var box := BoxShape3D.new()
-	box.size = Vector3(chunk_world, 0.1, chunk_world)
-	var col := CollisionShape3D.new()
-	col.shape = box
+	# HeightMapShape3D — step=1.0, no scale needed, body centered over the chunk
+	var col_shape := HeightMapShape3D.new()
+	col_shape.map_width = nvx
+	col_shape.map_depth = nvz
+	col_shape.map_data  = hfield
+	var col_node := CollisionShape3D.new()
+	col_node.shape = col_shape
 	var body := StaticBody3D.new()
 	body.name = "TerrainCollision"
-	body.position = Vector3(chunk_world * 0.5, -0.05, chunk_world * 0.5)
-	body.add_child(col)
+	body.position = Vector3(float(nvx - 1) * step * 0.5, 0.0, float(nvz - 1) * step * 0.5)
+	body.add_child(col_node)
 	add_child(body)
 
-# ── Hills (plateau boxes) ──────────────────────────────────────────────────
-
-func _build_hills() -> void:
-	const CHUNK_SIZE: int = 16
-	var hill_mat := StandardMaterial3D.new()
-	hill_mat.albedo_texture = TextureGen.hill_top()
-
-	for lz in range(CHUNK_SIZE):
-		for lx in range(CHUNK_SIZE):
-			if _chunk_data.get_tile(lx, lz) != IsoConst.TILE_HILL:
-				continue
-			var sb := StaticBody3D.new()
-			var mi := MeshInstance3D.new()
-			var box := BoxMesh.new()
-			box.size = Vector3(IsoConst.TILE_SIZE, PLATEAU_H, IsoConst.TILE_SIZE)
-			mi.mesh = box
-			mi.material_override = hill_mat
-			var col := CollisionShape3D.new()
-			col.shape = BoxShape3D.new()
-			col.shape.size = box.size
-			sb.add_child(mi)
-			sb.add_child(col)
-			sb.position = Vector3(
-				float(lx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-				PLATEAU_H * 0.5,
-				float(lz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			)
-			add_child(sb)
+	# Flat BoxShape3D safety floor so the player never falls to infinity
+	var chunk_world: float = IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE
+	var floor_box := BoxShape3D.new()
+	floor_box.size = Vector3(chunk_world, 0.1, chunk_world)
+	var floor_col := CollisionShape3D.new()
+	floor_col.shape = floor_box
+	var floor_body := StaticBody3D.new()
+	floor_body.name = "FloorFallback"
+	floor_body.position = Vector3(chunk_world * 0.5, -0.05, chunk_world * 0.5)
+	floor_body.add_child(floor_col)
+	add_child(floor_body)
 
 # ── Walls ──────────────────────────────────────────────────────────────────
 
