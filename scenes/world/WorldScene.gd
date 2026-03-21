@@ -59,7 +59,18 @@ const HILL_PEAK_H:    float = 1.5
 const HILL_RAMP_R:    float = 6.0
 const TERRAIN_VDENSITY: int = 2
 
+func _setup_environment() -> void:
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	# Match the terrain shader's grass colour under ambient+sun lighting
+	env.background_color = Color(0.35, 0.53, 0.21)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_DISABLED
+	var we := WorldEnvironment.new()
+	we.environment = env
+	add_child(we)
+
 func _ready() -> void:
+	_setup_environment()
 	_tile_meshes = Node3D.new()
 	_tile_meshes.name = "TileGrid"
 	add_child(_tile_meshes)
@@ -342,6 +353,84 @@ func _build_terrain_mesh(hfield: PackedFloat32Array, nvx: int, nvz: int, step: f
 			indices[idx]     = a; indices[idx + 1] = c; indices[idx + 2] = b
 			indices[idx + 3] = b; indices[idx + 4] = c; indices[idx + 5] = d
 			idx += 6
+
+	# ── Edge skirts: drop border vertices below ground to hide underside ──
+	const SKIRT_Y: float = -0.5
+	var skirt_count: int = (nvx + nvz) * 2
+	var skirt_verts   := PackedVector3Array()
+	var skirt_normals := PackedVector3Array()
+	var skirt_uvs     := PackedVector2Array()
+	var skirt_colors  := PackedColorArray()
+	var skirt_indices := PackedInt32Array()
+	skirt_verts.resize(skirt_count)
+	skirt_normals.resize(skirt_count)
+	skirt_uvs.resize(skirt_count)
+	skirt_colors.resize(skirt_count)
+	var skirt_seg: int = (nvx - 1) * 2 + (nvz - 1) * 2
+	skirt_indices.resize(skirt_seg * 6)
+
+	var si: int = 0
+	var _edge_ids: Array[int] = []
+	for ixx in range(nvx):
+		for iz_edge in [0, nvz - 1]:
+			var surf_i: int = iz_edge * nvx + ixx
+			skirt_verts[si]   = Vector3(verts[surf_i].x, SKIRT_Y, verts[surf_i].z)
+			skirt_normals[si] = normals[surf_i]
+			skirt_uvs[si]     = uvs[surf_i]
+			skirt_colors[si]  = colors[surf_i]
+			_edge_ids.append(surf_i)
+			_edge_ids.append(si)
+			si += 1
+	for izz in range(1, nvz - 1):
+		for ix_edge in [0, nvx - 1]:
+			var surf_i: int = izz * nvx + ix_edge
+			skirt_verts[si]   = Vector3(verts[surf_i].x, SKIRT_Y, verts[surf_i].z)
+			skirt_normals[si] = normals[surf_i]
+			skirt_uvs[si]     = uvs[surf_i]
+			skirt_colors[si]  = colors[surf_i]
+			_edge_ids.append(surf_i)
+			_edge_ids.append(si)
+			si += 1
+
+	var skirt_map: Dictionary = {}
+	for ei in range(0, _edge_ids.size(), 2):
+		skirt_map[_edge_ids[ei]] = _edge_ids[ei + 1]
+
+	var sidx: int = 0
+	for ixx in range(nvx - 1):
+		var a: int = ixx; var b: int = ixx + 1
+		var sa: int = total_verts + int(skirt_map[a])
+		var sb: int = total_verts + int(skirt_map[b])
+		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = sa; skirt_indices[sidx+2] = b
+		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sa; skirt_indices[sidx+5] = sb
+		sidx += 6
+	for ixx in range(nvx - 1):
+		var a: int = (nvz - 1) * nvx + ixx; var b: int = (nvz - 1) * nvx + ixx + 1
+		var sa: int = total_verts + int(skirt_map[a])
+		var sb: int = total_verts + int(skirt_map[b])
+		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = b;  skirt_indices[sidx+2] = sa
+		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sb; skirt_indices[sidx+5] = sa
+		sidx += 6
+	for izz in range(nvz - 1):
+		var a: int = izz * nvx; var b: int = (izz + 1) * nvx
+		var sa: int = total_verts + int(skirt_map[a])
+		var sb: int = total_verts + int(skirt_map[b])
+		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = b;  skirt_indices[sidx+2] = sa
+		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sb; skirt_indices[sidx+5] = sa
+		sidx += 6
+	for izz in range(nvz - 1):
+		var a: int = izz * nvx + nvx - 1; var b: int = (izz + 1) * nvx + nvx - 1
+		var sa: int = total_verts + int(skirt_map[a])
+		var sb: int = total_verts + int(skirt_map[b])
+		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = sa; skirt_indices[sidx+2] = b
+		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sa; skirt_indices[sidx+5] = sb
+		sidx += 6
+
+	verts.append_array(skirt_verts)
+	normals.append_array(skirt_normals)
+	uvs.append_array(skirt_uvs)
+	colors.append_array(skirt_colors)
+	indices.append_array(skirt_indices)
 
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)

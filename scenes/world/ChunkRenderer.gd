@@ -151,6 +151,101 @@ func _build_terrain(world_scene: Node3D) -> void:
 			indices[idx + 3] = b; indices[idx + 4] = c; indices[idx + 5] = d
 			idx += 6
 
+	# ── Edge skirts: drop border vertices to y = SKIRT_Y so the camera
+	#    never sees under raised terrain from the isometric angle. ─────────
+	const SKIRT_Y: float = -0.5
+	var skirt_count: int = (nvx + nvz) * 2  # one duplicate per border vertex
+	var skirt_verts   := PackedVector3Array()
+	var skirt_normals := PackedVector3Array()
+	var skirt_uvs     := PackedVector2Array()
+	var skirt_colors  := PackedColorArray()
+	var skirt_indices := PackedInt32Array()
+	skirt_verts.resize(skirt_count)
+	skirt_normals.resize(skirt_count)
+	skirt_uvs.resize(skirt_count)
+	skirt_colors.resize(skirt_count)
+	# Each border edge produces 2 triangles (6 indices) per segment
+	var skirt_seg: int = (nvx - 1) * 2 + (nvz - 1) * 2
+	skirt_indices.resize(skirt_seg * 6)
+
+	var si: int = 0  # skirt vertex counter
+	# Helper: add a skirt vertex mirroring surface vertex i at SKIRT_Y
+	var _edge_ids: Array[int] = []  # pairs: [surface_idx, skirt_idx, ...]
+
+	# Bottom row (iz=0), Top row (iz=nvz-1)
+	for ix in range(nvx):
+		for iz_edge in [0, nvz - 1]:
+			var surf_i: int = iz_edge * nvx + ix
+			skirt_verts[si]   = Vector3(verts[surf_i].x, SKIRT_Y, verts[surf_i].z)
+			skirt_normals[si] = normals[surf_i]
+			skirt_uvs[si]     = uvs[surf_i]
+			skirt_colors[si]  = colors[surf_i]
+			_edge_ids.append(surf_i)
+			_edge_ids.append(si)
+			si += 1
+	# Left col (ix=0), Right col (ix=nvx-1) — skip corners already added
+	for iz in range(1, nvz - 1):
+		for ix_edge in [0, nvx - 1]:
+			var surf_i: int = iz * nvx + ix_edge
+			skirt_verts[si]   = Vector3(verts[surf_i].x, SKIRT_Y, verts[surf_i].z)
+			skirt_normals[si] = normals[surf_i]
+			skirt_uvs[si]     = uvs[surf_i]
+			skirt_colors[si]  = colors[surf_i]
+			_edge_ids.append(surf_i)
+			_edge_ids.append(si)
+			si += 1
+
+	# Build a lookup: surface vertex index -> skirt vertex index
+	var skirt_map: Dictionary = {}
+	for ei in range(0, _edge_ids.size(), 2):
+		skirt_map[_edge_ids[ei]] = _edge_ids[ei + 1]
+
+	# Generate skirt triangles along each border edge
+	var sidx: int = 0
+	# Bottom edge (iz=0): normals face -Z
+	for ix in range(nvx - 1):
+		var a: int = ix
+		var b: int = ix + 1
+		var sa: int = total_verts + int(skirt_map[a])
+		var sb: int = total_verts + int(skirt_map[b])
+		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = sa; skirt_indices[sidx+2] = b
+		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sa; skirt_indices[sidx+5] = sb
+		sidx += 6
+	# Top edge (iz=nvz-1): normals face +Z — wind opposite
+	for ix in range(nvx - 1):
+		var a: int = (nvz - 1) * nvx + ix
+		var b: int = (nvz - 1) * nvx + ix + 1
+		var sa: int = total_verts + int(skirt_map[a])
+		var sb: int = total_verts + int(skirt_map[b])
+		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = b;  skirt_indices[sidx+2] = sa
+		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sb; skirt_indices[sidx+5] = sa
+		sidx += 6
+	# Left edge (ix=0): normals face -X
+	for iz in range(nvz - 1):
+		var a: int = iz * nvx
+		var b: int = (iz + 1) * nvx
+		var sa: int = total_verts + int(skirt_map[a])
+		var sb: int = total_verts + int(skirt_map[b])
+		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = b;  skirt_indices[sidx+2] = sa
+		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sb; skirt_indices[sidx+5] = sa
+		sidx += 6
+	# Right edge (ix=nvx-1): normals face +X — wind opposite
+	for iz in range(nvz - 1):
+		var a: int = iz * nvx + nvx - 1
+		var b: int = (iz + 1) * nvx + nvx - 1
+		var sa: int = total_verts + int(skirt_map[a])
+		var sb: int = total_verts + int(skirt_map[b])
+		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = sa; skirt_indices[sidx+2] = b
+		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sa; skirt_indices[sidx+5] = sb
+		sidx += 6
+
+	# Merge skirt geometry into the main arrays
+	verts.append_array(skirt_verts)
+	normals.append_array(skirt_normals)
+	uvs.append_array(skirt_uvs)
+	colors.append_array(skirt_colors)
+	indices.append_array(skirt_indices)
+
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
