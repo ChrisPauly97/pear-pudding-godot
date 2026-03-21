@@ -18,15 +18,11 @@ func after_all() -> void:
 
 
 # ---------------------------------------------------------------------------
-# Map dimension constants
+# Chunk and tile size constants
 # ---------------------------------------------------------------------------
 
-func test_map_width_is_100() -> void:
-	assert_eq(IsoConstScript.MAP_WIDTH, 100)
-
-
-func test_map_height_is_100() -> void:
-	assert_eq(IsoConstScript.MAP_HEIGHT, 100)
+func test_chunk_size_is_16() -> void:
+	assert_eq(IsoConstScript.CHUNK_SIZE, 16)
 
 
 func test_tile_size_is_2() -> void:

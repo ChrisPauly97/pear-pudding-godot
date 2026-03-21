@@ -1,8 +1,9 @@
 extends Node
 
-# Tile grid dimensions
-const MAP_WIDTH: int = 100
-const MAP_HEIGHT: int = 100
+# Chunk size for infinite world streaming
+const CHUNK_SIZE: int = 16
+
+# Tile size
 const TILE_SIZE: float = 2.0  # Godot world units per tile (was 32px in Java)
 
 # Isometric display constants (kept for reference / editor use)

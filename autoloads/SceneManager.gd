@@ -68,6 +68,9 @@ func _load_world(map_name: String, target_door_id: String) -> void:
 	var world = _world_scene_packed.instantiate()
 	world.map_name = map_name
 	world.target_door_id = target_door_id
+	# Named sub-maps (dungeons, etc.) use the fixed WorldMap path, not infinite generation
+	if map_name != "infinite" and map_name != "main":
+		world.infinite = false
 	get_tree().change_scene_to_node(world)
 
 # Ask the current WorldScene to flush its player position into SaveManager.

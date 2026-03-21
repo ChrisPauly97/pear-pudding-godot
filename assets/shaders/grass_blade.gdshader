@@ -13,9 +13,11 @@ uniform vec2  player_move_dir  = vec2(0.0);  // XZ velocity direction (normalise
 uniform float player_radius    : hint_range(0.0, 2.0)  = 0.3;
 uniform float player_push      : hint_range(0.0, 2.0)  = 0.5;
 
-// Persistent trample map
+// Persistent trample map (sliding window centred near the player)
 uniform sampler2D trample_map : filter_linear;
-uniform float     trample_map_size = 200.0;  // world units covered by the map
+uniform float     trample_map_size = 128.0;  // world units covered by the window
+uniform float     trample_origin_x = -64.0;  // world-space X of the window's left edge
+uniform float     trample_origin_z = -64.0;  // world-space Z of the window's top edge
 uniform float     trample_push     : hint_range(0.0, 1.5) = 0.8;
 
 float hash(vec2 p) {
@@ -61,7 +63,7 @@ void vertex() {
 	VERTEX.z += total_push.y * t;
 
 	// ---- Persistent trample from trample map ----
-	vec2 trample_uv = root.xz / trample_map_size;
+	vec2 trample_uv = (root.xz - vec2(trample_origin_x, trample_origin_z)) / trample_map_size;
 	float trample = texture(trample_map, trample_uv).r;
 	if (trample > 0.01) {
 		// Push blade outward from its root using a hash-based random direction
