@@ -6,6 +6,7 @@ const GrassBlades     = preload("res://scenes/world/GrassBlades.gd")
 const VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
+const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 
 # Preload entity scenes — avoids filesystem hits during spawning
 const _PlayerScene = preload("res://scenes/world/entities/Player.tscn")
@@ -360,7 +361,7 @@ func _build_terrain_mesh(hfield: PackedFloat32Array, nvx: int, nvz: int, step: f
 
 func _make_terrain_material(seed: int = 0) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
-	mat.shader = load("res://assets/shaders/terrain.gdshader") as Shader
+	mat.shader = _TerrainShader
 	mat.set_shader_parameter("grass_texture",     TextureGen.grass(seed))
 	mat.set_shader_parameter("hill_side_texture", TextureGen.hill_side(seed + 1))
 	mat.set_shader_parameter("hill_texture",      TextureGen.hill_top(seed + 2))

@@ -66,37 +66,41 @@ void vertex() {
 }
 
 void fragment() {
-	// Triplanar-style UV from world position so textures don't stretch on slopes
+	// World-space XZ used for both texture sampling and procedural noise
 	vec2 uv_xz = v_world_xz * uv_scale;
 
-	vec3 grass_col = texture(grass_texture,     uv_xz).rgb;
-	vec3 side_col  = texture(hill_side_texture, uv_xz).rgb;
-	vec3 top_col   = texture(hill_texture,      uv_xz).rgb;
-
-	// slope: 0 = facing straight up (flat), 1 = vertical face
+	// slope: 0 = flat-up, 1 = vertical face
 	float slope = 1.0 - clamp(v_normal_world.y, 0.0, 1.0);
 
-	// --- Three-zone blend matching the parabolic hill profile ---
-	// Zone 1: grass base (v_blend ~0) — flat ground at hill foot
-	// Zone 2: dirt slope (v_blend ~0.3-0.7) — the steep rising sides
-	// Zone 3: grassy plateau (v_blend ~0.8-1.0, slope low) — hilltop
+	// Two independent fbm channels for micro colour variation
+	// (fbm is defined in vertex scope — visible here via the same helper)
+	float d0 = fbm(uv_xz * 3.7);
+	float d1 = fbm(uv_xz * 3.7 + vec2(7.31, 2.97));
 
-	// grass → side: driven by height rising up the hill + slope boost
+	// Zone blend factors (unchanged from before)
 	float t_side = max(
-		smoothstep(0.05, 0.55, v_blend),    // height climbing the hill
-		smoothstep(0.35, 0.70, slope)        // steep face → always dirt
+		smoothstep(0.05, 0.55, v_blend),
+		smoothstep(0.35, 0.70, slope)
 	);
-
-	// side → top: height reaching the plateau, suppressed on steep faces
 	float t_top = smoothstep(0.60, 0.92, v_blend)
 	            * (1.0 - smoothstep(0.35, 0.70, slope));
 
+	// Procedural zone colours — always visible, no external texture required.
+	// Texture uniforms are kept for future override; if loaded they multiply in.
+	vec3 grass_col = vec3(0.44 + d0 * 0.11, 0.62 + d0 * 0.09, 0.25 + d0 * 0.05);
+	vec3 side_col  = vec3(0.36 + d1 * 0.08, 0.27 + d1 * 0.04, 0.13);
+	vec3 top_col   = vec3(0.39 + d0 * 0.08, 0.58 + d0 * 0.09, 0.21 + d0 * 0.04);
+	vec3 wall_col  = vec3(0.49 + d1 * 0.07, 0.38 + d1 * 0.05, 0.18 + d1 * 0.04);
+
+	// Optional texture tint: (0.5 + tex*0.5) means white→factor=1 (no-op),
+	// coloured texture→subtle tint.  Works correctly whether textures load or not.
+	grass_col *= 0.5 + texture(grass_texture,     uv_xz).rgb * 0.5;
+	side_col  *= 0.5 + texture(hill_side_texture, uv_xz).rgb * 0.5;
+	top_col   *= 0.5 + texture(hill_texture,      uv_xz).rgb * 0.5;
+	wall_col  *= 0.5 + texture(wall_top_texture,  uv_xz).rgb * 0.5;
+
 	vec3 base_col = mix(grass_col, side_col, t_side);
 	base_col = mix(base_col, top_col, t_top);
-
-	// Hard swap to stone floor on wall tiles — step(0.5) snaps interpolated
-	// edges to a clean tile-boundary cut so grass never bleeds under walls.
-	vec3 wall_col = texture(wall_top_texture, uv_xz).rgb;
 	base_col = mix(base_col, wall_col, step(0.5, v_wall));
 
 	// Simple directional light baked from normal
