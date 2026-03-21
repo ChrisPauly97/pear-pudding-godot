@@ -333,24 +333,18 @@ func _make_terrain_material() -> ShaderMaterial:
 	mat.set_shader_parameter("uv_scale", 0.5)
 	return mat
 
-func _build_terrain_collision(hfield: PackedFloat32Array, nvx: int, nvz: int, step: float) -> void:
-	var col_shape := HeightMapShape3D.new()
-	col_shape.map_width = nvx
-	col_shape.map_depth = nvz
-	col_shape.map_data  = hfield
-
-	var col_node := CollisionShape3D.new()
-	col_node.shape = col_shape
-
+func _build_terrain_collision(_hfield: PackedFloat32Array, _nvx: int, _nvz: int, _step: float) -> void:
+	# Use a simple flat BoxShape3D floor — reliable across all Godot 4 builds.
+	var map_world_x: float = WorldMap.MAP_WIDTH  * IsoConst.TILE_SIZE
+	var map_world_z: float = WorldMap.MAP_HEIGHT * IsoConst.TILE_SIZE
+	var box := BoxShape3D.new()
+	box.size = Vector3(map_world_x, 0.1, map_world_z)
+	var col := CollisionShape3D.new()
+	col.shape = box
 	var body := StaticBody3D.new()
 	body.name = "TerrainCollision"
-	body.scale = Vector3(step, 1.0, step)
-	body.position = Vector3(
-		float(nvx - 1) * step * 0.5,
-		0.0,
-		float(nvz - 1) * step * 0.5
-	)
-	body.add_child(col_node)
+	body.position = Vector3(map_world_x * 0.5, -0.05, map_world_z * 0.5)
+	body.add_child(col)
 	add_child(body)
 
 func _build_walls() -> void:
