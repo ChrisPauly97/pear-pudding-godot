@@ -31,5 +31,4 @@ text = "Map: main"
 offset_top = 60.0
 offset_right = 500.0
 offset_bottom = 200.0
-text = "1-8: Mode  [/]: Height  Ctrl+S: Save  Ctrl+N: New  Ctrl+O: Open
-1=Grass 2=Wall 3=Hill 4=Enemy 5=Chest 6=Door 7=Spawn 8=Erase"
+text = "Tap/drag to paint  Right-click to erase  Keyboard: 1-8 mode, [/] height, Ctrl+S/N/O"

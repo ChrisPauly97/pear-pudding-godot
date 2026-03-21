@@ -16,6 +16,11 @@ var _tile_meshes: Node3D
 var _entity_markers: Node3D
 var _highlight_mesh: MeshInstance3D
 
+# Mobile toolbar
+var _toolbar: Control
+var _mode_buttons: Array[Button] = []
+var _height_label: Label
+
 func _ready() -> void:
 	_tile_meshes = Node3D.new()
 	add_child(_tile_meshes)
@@ -25,6 +30,7 @@ func _ready() -> void:
 	_create_highlight()
 	_load_map(_current_map_name)
 	_setup_camera()
+	_build_mobile_toolbar()
 	_update_hud()
 
 func _setup_camera() -> void:
@@ -42,6 +48,114 @@ func _create_highlight() -> void:
 	_highlight_mesh.material_override = mat
 	_highlight_mesh.position.y = 0.05
 	add_child(_highlight_mesh)
+
+func _build_mobile_toolbar() -> void:
+	_toolbar = PanelContainer.new()
+	_toolbar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_toolbar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 4)
+	_toolbar.add_child(vbox)
+
+	# Row 1: mode buttons
+	var mode_row := HBoxContainer.new()
+	mode_row.add_theme_constant_override("separation", 4)
+	vbox.add_child(mode_row)
+
+	var mode_names := ["Grass", "Wall", "Hill", "Enemy", "Chest", "Door", "Spawn", "Erase"]
+	var mode_colors := [
+		Color(0.3, 0.65, 0.25),   # grass green
+		Color(0.5, 0.4, 0.3),     # wall brown
+		Color(0.55, 0.45, 0.2),   # hill tan
+		Color(0.8, 0.2, 0.2),     # enemy red
+		Color(0.85, 0.7, 0.1),    # chest gold
+		Color(0.45, 0.28, 0.1),   # door brown
+		Color(0.1, 0.7, 0.85),    # spawn cyan
+		Color(0.5, 0.1, 0.1),     # erase dark red
+	]
+
+	for i in mode_names.size():
+		var btn := Button.new()
+		btn.text = mode_names[i]
+		btn.custom_minimum_size = Vector2(72, 48)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var idx := i
+		btn.pressed.connect(func(): _set_mode(idx))
+		_mode_buttons.append(btn)
+		mode_row.add_child(btn)
+
+	# Row 2: height controls + file ops
+	var ctrl_row := HBoxContainer.new()
+	ctrl_row.add_theme_constant_override("separation", 4)
+	vbox.add_child(ctrl_row)
+
+	var h_minus := Button.new()
+	h_minus.text = "H-"
+	h_minus.custom_minimum_size = Vector2(56, 44)
+	h_minus.pressed.connect(_height_down)
+	ctrl_row.add_child(h_minus)
+
+	_height_label = Label.new()
+	_height_label.text = "H:1"
+	_height_label.custom_minimum_size = Vector2(36, 44)
+	_height_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_height_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ctrl_row.add_child(_height_label)
+
+	var h_plus := Button.new()
+	h_plus.text = "H+"
+	h_plus.custom_minimum_size = Vector2(56, 44)
+	h_plus.pressed.connect(_height_up)
+	ctrl_row.add_child(h_plus)
+
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ctrl_row.add_child(spacer)
+
+	var save_btn := Button.new()
+	save_btn.text = "Save"
+	save_btn.custom_minimum_size = Vector2(72, 44)
+	save_btn.pressed.connect(_save_map)
+	ctrl_row.add_child(save_btn)
+
+	var new_btn := Button.new()
+	new_btn.text = "New"
+	new_btn.custom_minimum_size = Vector2(72, 44)
+	new_btn.pressed.connect(_new_map_dialog)
+	ctrl_row.add_child(new_btn)
+
+	var open_btn := Button.new()
+	open_btn.text = "Open"
+	open_btn.custom_minimum_size = Vector2(72, 44)
+	open_btn.pressed.connect(_show_map_list)
+	ctrl_row.add_child(open_btn)
+
+	_hud.add_child(_toolbar)
+	_refresh_mode_buttons()
+
+func _set_mode(mode: int) -> void:
+	_paint_mode = mode
+	_refresh_mode_buttons()
+	_update_hud()
+
+func _refresh_mode_buttons() -> void:
+	for i in _mode_buttons.size():
+		var btn := _mode_buttons[i]
+		if i == _paint_mode:
+			btn.modulate = Color(1.4, 1.4, 0.5)
+		else:
+			btn.modulate = Color.WHITE
+
+func _height_up() -> void:
+	_paint_height = min(_paint_height + 1, 4)
+	_height_label.text = "H:%d" % _paint_height
+	_update_hud()
+
+func _height_down() -> void:
+	_paint_height = max(_paint_height - 1, 1)
+	_height_label.text = "H:%d" % _paint_height
+	_update_hud()
 
 func _load_map(name: String) -> void:
 	_current_map_name = name
@@ -129,20 +243,19 @@ func _update_hud() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
-			KEY_1: _paint_mode = 0
-			KEY_2: _paint_mode = 1
-			KEY_3: _paint_mode = 2
-			KEY_4: _paint_mode = 3
-			KEY_5: _paint_mode = 4
-			KEY_6: _paint_mode = 5
-			KEY_7: _paint_mode = 6
-			KEY_8: _paint_mode = 7
-			KEY_BRACKETRIGHT: _paint_height = min(_paint_height + 1, 4)
-			KEY_BRACKETLEFT: _paint_height = max(_paint_height - 1, 1)
+			KEY_1: _set_mode(0)
+			KEY_2: _set_mode(1)
+			KEY_3: _set_mode(2)
+			KEY_4: _set_mode(3)
+			KEY_5: _set_mode(4)
+			KEY_6: _set_mode(5)
+			KEY_7: _set_mode(6)
+			KEY_8: _set_mode(7)
+			KEY_BRACKETRIGHT: _height_up()
+			KEY_BRACKETLEFT: _height_down()
 			KEY_S when event.ctrl_pressed: _save_map()
 			KEY_N when event.ctrl_pressed: _new_map_dialog()
 			KEY_O when event.ctrl_pressed: _show_map_list()
-		_update_hud()
 
 	if event is InputEventMouseButton and event.pressed:
 		var tile := _screen_to_tile(event.position)
@@ -160,6 +273,23 @@ func _input(event: InputEvent) -> void:
 				0.05,
 				tile.y * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			)
+
+	# Touch: tap to paint
+	if event is InputEventScreenTouch and event.pressed:
+		var tile := _screen_to_tile(event.position)
+		if tile.x >= 0:
+			_paint_tile(tile.x, tile.y)
+
+	# Touch: drag to paint continuously
+	if event is InputEventScreenDrag:
+		var tile := _screen_to_tile(event.position)
+		if tile.x >= 0:
+			_highlight_mesh.position = Vector3(
+				tile.x * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
+				0.05,
+				tile.y * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			)
+			_paint_tile(tile.x, tile.y)
 
 func _screen_to_tile(screen_pos: Vector2) -> Vector2i:
 	var from := _camera.project_ray_origin(screen_pos)
