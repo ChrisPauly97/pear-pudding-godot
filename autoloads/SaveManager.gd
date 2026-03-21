@@ -19,6 +19,24 @@ var defeated_enemies: Array[String] = []
 var opened_chests: Array[String] = []
 
 var _loaded: bool = false
+var _dirty: bool = false
+const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
+
+func _ready() -> void:
+	var timer := Timer.new()
+	timer.wait_time = SAVE_INTERVAL
+	timer.autostart = true
+	timer.timeout.connect(_flush_if_dirty)
+	add_child(timer)
+
+func _flush_if_dirty() -> void:
+	if _dirty and _loaded:
+		_dirty = false
+		save()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE:
+		_flush_if_dirty()
 
 # -------------------------------------------------------------------------
 # Public API
@@ -99,17 +117,17 @@ func sync_stacks(m_stack: Array[String], d_stack: Array[String]) -> void:
 func add_cards_to_deck(card_ids: Array) -> void:
 	for cid in card_ids:
 		player_deck.append(str(cid))
-	save()
+	_dirty = true
 
 func mark_enemy_defeated(enemy_id: String) -> void:
 	if not defeated_enemies.has(enemy_id):
 		defeated_enemies.append(enemy_id)
-	save()
+	_dirty = true
 
 func mark_chest_opened(chest_id: String) -> void:
 	if not opened_chests.has(chest_id):
 		opened_chests.append(chest_id)
-	save()
+	_dirty = true
 
 func is_enemy_defeated(enemy_id: String) -> bool:
 	return defeated_enemies.has(enemy_id)

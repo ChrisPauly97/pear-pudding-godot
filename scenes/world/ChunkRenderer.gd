@@ -293,12 +293,17 @@ func _set_visibility_range(node: Node3D) -> void:
 	if mi:
 		mi.visibility_range_end = ENTITY_VISIBILITY_END
 		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 func _spawn_enemy(e_data: Dictionary, entity_root: Node3D, world_scene: Node3D) -> void:
 	var node: Node3D = _EnemyScene.instantiate()
 	node.position = Vector3(e_data["x"], 0.5, e_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(e_data)
+	if node.has_method("set_player"):
+		var player: Node3D = world_scene.get("_player") as Node3D
+		if player:
+			node.set_player(player)
 	_set_visibility_range(node)
 	entity_root.add_child(node)
 	if world_scene.has_method("register_enemy"):

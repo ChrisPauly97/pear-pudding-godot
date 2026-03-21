@@ -11,6 +11,7 @@ const SPRINGBACK     := 0.6    # higher = faster spring-back
 
 var _trail:      Array[Vector3] = []
 var _trail_ages: Array[float]   = []
+var _trail_weights: Array[float] = []  # cached — only rebuilt when _trail_dirty
 var _snap_timer: float          = 0.0
 var _prev_pos:   Vector3        = Vector3(-9999, 0, -9999)
 var _last_move_dir: Vector2     = Vector2.ZERO
@@ -47,6 +48,7 @@ func _ready() -> void:
 	for i in TRAIL_SIZE:
 		_trail.append(far)
 		_trail_ages.append(999.0)
+		_trail_weights.append(0.0)
 
 func _init_material() -> void:
 	if _mat:
@@ -198,11 +200,10 @@ func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 
 	# Only push shader params when trail data actually changed
 	if _trail_dirty:
-		var weights: Array[float] = []
 		for i in TRAIL_SIZE:
-			weights.append(exp(-_trail_ages[i] * SPRINGBACK))
+			_trail_weights[i] = exp(-_trail_ages[i] * SPRINGBACK)
 		_mat.set_shader_parameter("player_trail", _trail)
-		_mat.set_shader_parameter("trail_weights", weights)
+		_mat.set_shader_parameter("trail_weights", _trail_weights)
 		_trail_dirty = false
 
 	if move_dir != _last_move_dir:
