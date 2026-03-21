@@ -28,7 +28,6 @@ offset_bottom = 0.0
 
 [node name="EnemyHeroView" type="PanelContainer" parent="EnemyArea"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 60)
 
 [node name="HPLabel" type="Label" parent="EnemyArea/EnemyHeroView"]
 layout_mode = 2
@@ -42,7 +41,6 @@ offset_bottom = 40.0
 
 [node name="EnemyBoardView" type="HBoxContainer" parent="EnemyArea"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 130)
 
 [node name="Divider" type="HSeparator" parent="."]
 layout_mode = 1
@@ -62,11 +60,9 @@ anchor_bottom = 1.0
 
 [node name="PlayerBoardView" type="HBoxContainer" parent="PlayerArea"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 130)
 
 [node name="PlayerHeroView" type="PanelContainer" parent="PlayerArea"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 60)
 
 [node name="HPLabel" type="Label" parent="PlayerArea/PlayerHeroView"]
 layout_mode = 2
@@ -80,7 +76,6 @@ offset_bottom = 40.0
 
 [node name="PlayerHandView" type="HBoxContainer" parent="PlayerArea"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 130)
 
 [node name="SidePanel" type="VBoxContainer" parent="."]
 layout_mode = 1

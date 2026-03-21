@@ -1,5 +1,7 @@
 extends Control
 
+@onready var _title: Label = $Title
+@onready var _vbox: VBoxContainer = $VBox
 @onready var _continue_btn: Button = $VBox/ContinueButton
 @onready var _start_btn: Button = $VBox/StartButton
 @onready var _editor_btn: Button = $VBox/EditorButton
@@ -13,6 +15,17 @@ func _ready() -> void:
 
 	# Only show Continue if a save file exists
 	_continue_btn.visible = SaveManager.has_save()
+	_apply_ui_sizes()
+
+func _apply_ui_sizes() -> void:
+	var vh: float = get_viewport().get_visible_rect().size.y
+	_title.add_theme_font_size_override("font_size", int(vh * 0.07))
+	_vbox.add_theme_constant_override("separation", int(vh * 0.018))
+	var btn_size := Vector2(vh * 0.35, vh * 0.075)
+	var btn_font: int = int(vh * 0.026)
+	for btn: Button in [_continue_btn, _start_btn, _editor_btn, _quit_btn]:
+		btn.custom_minimum_size = btn_size
+		btn.add_theme_font_size_override("font_size", btn_font)
 
 func _on_continue() -> void:
 	SceneManager.continue_game()
