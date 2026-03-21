@@ -10,6 +10,8 @@ var _trail:      Array[Vector3] = []
 var _trail_ages: Array[float]   = []
 var _snap_timer: float          = 0.0
 var _prev_pos:   Vector3        = Vector3(-9999, 0, -9999)
+var _last_move_dir: Vector2     = Vector2.ZERO
+var _trail_dirty: bool          = true
 
 # Sliding trample window: 64x64 pixel image, player-centred, shifts when
 # the player moves more than TRAMPLE_SHIFT_TILES tiles from the window centre.
@@ -24,6 +26,8 @@ var _trample_img:      Image
 var _trample_tex:      ImageTexture
 var _trample_origin_x: float = 0.0  # world-space X of pixel (0,0) in trample map
 var _trample_origin_z: float = 0.0  # world-space Z of pixel (0,0) in trample map
+var _trample_timer:    float = 0.0  # throttle trample updates
+const TRAMPLE_UPDATE_INTERVAL: float = 0.067  # ~15 Hz max
 
 const BLADES_PER_TILE := 50
 const BLADE_WIDTH      := 0.28
@@ -181,14 +185,11 @@ func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 			_trail_ages.pop_back()
 			_trail.push_front(pos)
 			_trail_ages.push_front(0.0)
+			_trail_dirty = true
 		else:
 			_trail[0] = pos
 			_trail_ages[0] = 0.0
-
-	# Compute decaying weights
-	var weights: Array[float] = []
-	for i in TRAIL_SIZE:
-		weights.append(exp(-_trail_ages[i] * SPRINGBACK))
+			_trail_dirty = true
 
 	# Movement direction
 	var move_dir := Vector2.ZERO
@@ -197,13 +198,25 @@ func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 		move_dir = Vector2(_trail[0].x - _prev_pos.x, _trail[0].z - _prev_pos.z).normalized()
 	_prev_pos = _trail[0]
 
-	_mat.set_shader_parameter("player_trail", _trail)
-	_mat.set_shader_parameter("trail_weights", weights)
-	_mat.set_shader_parameter("player_move_dir", move_dir)
+	# Only push shader params when trail data actually changed
+	if _trail_dirty:
+		var weights: Array[float] = []
+		for i in TRAIL_SIZE:
+			weights.append(exp(-_trail_ages[i] * SPRINGBACK))
+		_mat.set_shader_parameter("player_trail", _trail)
+		_mat.set_shader_parameter("trail_weights", weights)
+		_trail_dirty = false
+
+	if move_dir != _last_move_dir:
+		_mat.set_shader_parameter("player_move_dir", move_dir)
+		_last_move_dir = move_dir
 
 	if is_grounded and _trample_img:
-		_maybe_shift_trample_window(pos)
-		_update_trample_map(pos, delta)
+		_trample_timer += delta
+		if _trample_timer >= TRAMPLE_UPDATE_INTERVAL:
+			_maybe_shift_trample_window(pos)
+			_update_trample_map(pos, _trample_timer)
+			_trample_timer = 0.0
 
 # Shift the trample window when the player drifts far from the window centre
 func _maybe_shift_trample_window(pos: Vector3) -> void:
@@ -227,13 +240,15 @@ func _maybe_shift_trample_window(pos: Vector3) -> void:
 	var new_img := Image.create(TRAMPLE_RES, TRAMPLE_RES, false, Image.FORMAT_L8)
 	new_img.fill(Color(0, 0, 0))
 
-	# Copy the still-visible region of the old image into the new image
-	for z in range(TRAMPLE_RES):
-		for x in range(TRAMPLE_RES):
-			var old_x: int = x - dx
-			var old_z: int = z - dz
-			if old_x >= 0 and old_x < TRAMPLE_RES and old_z >= 0 and old_z < TRAMPLE_RES:
-				new_img.set_pixel(x, z, _trample_img.get_pixel(old_x, old_z))
+	# Use blit_rect to copy the still-visible region in one call
+	var src_x: int = max(0, -dx)
+	var src_z: int = max(0, -dz)
+	var dst_x: int = max(0, dx)
+	var dst_z: int = max(0, dz)
+	var copy_w: int = TRAMPLE_RES - abs(dx)
+	var copy_h: int = TRAMPLE_RES - abs(dz)
+	if copy_w > 0 and copy_h > 0:
+		new_img.blit_rect(_trample_img, Rect2i(src_x, src_z, copy_w, copy_h), Vector2i(dst_x, dst_z))
 
 	_trample_img = new_img
 	_trample_origin_x = new_ox
@@ -248,7 +263,7 @@ func _update_trample_map(pos: Vector3, delta: float) -> void:
 	var px: int = int((pos.x - _trample_origin_x) / tile_size)
 	var pz: int = int((pos.z - _trample_origin_z) / tile_size)
 
-	var decay_r: int = TRAMPLE_RADIUS + 8
+	var decay_r: int = TRAMPLE_RADIUS + 3
 	var x0: int = max(0, px - decay_r)
 	var x1: int = min(TRAMPLE_RES - 1, px + decay_r)
 	var z0: int = max(0, pz - decay_r)
