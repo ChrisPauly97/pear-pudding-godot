@@ -32,11 +32,13 @@ var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
 var _terrain_mat: ShaderMaterial
 var _chunk_build_queue: Array[Vector2i] = []
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
+var _interact_timer: float = 0.0
 
 const LOAD_RADIUS:      int = 6
 const UNLOAD_RADIUS:    int = 7
 const WORLD_SEED:       int = 42
 const CHUNKS_PER_FRAME: int = 3
+const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _hud: CanvasLayer = $HUD
@@ -66,6 +68,11 @@ func _ready() -> void:
 		_build_grass_blades_node()
 		_spawn_player_infinite()
 		_update_chunks()
+		# Build all initial chunks synchronously so the world is ready
+		# before the first frame — avoids runtime lag spikes on startup.
+		while not _chunk_build_queue.is_empty():
+			var key: Vector2i = _chunk_build_queue.pop_front()
+			_build_chunk_at(key)
 	else:
 		world_map = WorldMap.new(map_name)
 		_build_terrain()
@@ -579,7 +586,11 @@ func _process(delta: float) -> void:
 		var save_map: String = "infinite" if infinite else map_name
 		SaveManager.update_position(save_map, _player.position.x, _player.position.z)
 
-	_check_interactions()
+	# Throttle interaction checks — no need to scan every frame
+	_interact_timer += delta
+	if _interact_timer >= INTERACT_INTERVAL:
+		_interact_timer = 0.0
+		_check_interactions()
 
 func _check_interactions() -> void:
 	var px: float = _player.position.x
