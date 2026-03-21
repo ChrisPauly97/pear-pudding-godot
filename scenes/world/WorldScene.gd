@@ -121,7 +121,7 @@ func _spawn_player_infinite() -> void:
 		px = SaveManager.player_x
 		pz = SaveManager.player_z
 	_player = _create_player_node()
-	_player.position = Vector3(px, 0.1, pz)
+	_player.position = Vector3(px, 0.5, pz)
 	_entity_root.add_child(_player)
 	_camera.position = _player.position + Vector3(20, 20, 20)
 
@@ -457,7 +457,7 @@ func _spawn_player() -> void:
 		pz = _get_default_pz()
 
 	_player = _create_player_node()
-	_player.position = Vector3(px, 0.1, pz)
+	_player.position = Vector3(px, 0.5, pz)
 	_entity_root.add_child(_player)
 	_camera.position = _player.position + Vector3(20, 20, 20)
 

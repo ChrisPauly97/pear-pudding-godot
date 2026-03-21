@@ -160,22 +160,20 @@ func _build_terrain(world_scene: Node3D) -> void:
 	mi.material_override = _terrain_mat
 	add_child(mi)
 
-	# HeightMapShape3D — step=1.0, no scale needed, body centered over the chunk
-	var col_shape := HeightMapShape3D.new()
-	col_shape.map_width = nvx
-	col_shape.map_depth = nvz
-	col_shape.map_data  = hfield
+	# Flat BoxShape3D floor — reliable across all Godot 4 builds.
+	# Hills are visual only; physics floor is flat, consistent with the named-map approach.
+	var chunk_world: float = float(CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var box := BoxShape3D.new()
+	box.size = Vector3(chunk_world, 0.1, chunk_world)
 	var col_node := CollisionShape3D.new()
-	col_node.shape = col_shape
+	col_node.shape = box
 	var body := StaticBody3D.new()
 	body.name = "TerrainCollision"
 	body.collision_layer = 2   # terrain layer
 	body.collision_mask  = 0   # terrain doesn't need to detect others
-	body.position = Vector3(float(nvx - 1) * step * 0.5, 0.0, float(nvz - 1) * step * 0.5)
+	body.position = Vector3(chunk_world * 0.5, -0.05, chunk_world * 0.5)
 	body.add_child(col_node)
 	add_child(body)
-
-	# HeightMapShape3D already covers the terrain — no fallback floor needed.
 
 # ── Walls ──────────────────────────────────────────────────────────────────
 
