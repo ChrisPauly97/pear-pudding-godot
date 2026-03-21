@@ -6,6 +6,7 @@ var _world_map: WorldMap
 var _current_map_name: String = "main"
 var _paint_mode: int = 0  # 0=grass, 1=wall, 2=hill, 3=enemy, 4=chest, 5=door, 6=spawn, 7=erase
 var _paint_height: int = 1
+var _last_painted_tile: Vector2i = Vector2i(-1, -1)
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _hud: CanvasLayer = $HUD
@@ -16,16 +17,44 @@ var _tile_meshes: Node3D
 var _entity_markers: Node3D
 var _highlight_mesh: MeshInstance3D
 
+# Per-tile mesh lookup so we can update one tile without rebuilding all 10,000
+var _tile_mesh_map: Dictionary = {}
+
+# Shared materials created once
+var _grass_mat: StandardMaterial3D
+var _wall_mat: StandardMaterial3D
+var _hill_mat: StandardMaterial3D
+
 # Mobile toolbar
 var _toolbar: Control
 var _mode_buttons: Array[Button] = []
+var _btn_normal_styles: Array[StyleBoxFlat] = []
+var _btn_active_styles: Array[StyleBoxFlat] = []
 var _height_label: Label
+
+var _mode_colors: Array[Color] = [
+	Color(0.15, 0.5, 0.1),   # grass
+	Color(0.4, 0.32, 0.22),  # wall
+	Color(0.48, 0.38, 0.12), # hill
+	Color(0.7, 0.12, 0.12),  # enemy
+	Color(0.75, 0.6, 0.04),  # chest
+	Color(0.38, 0.22, 0.06), # door
+	Color(0.04, 0.55, 0.75), # spawn
+	Color(0.5, 0.06, 0.06),  # erase
+]
 
 func _ready() -> void:
 	_tile_meshes = Node3D.new()
 	add_child(_tile_meshes)
 	_entity_markers = Node3D.new()
 	add_child(_entity_markers)
+
+	_grass_mat = StandardMaterial3D.new()
+	_grass_mat.albedo_color = Color(0.3, 0.6, 0.2)
+	_wall_mat = StandardMaterial3D.new()
+	_wall_mat.albedo_color = Color(0.5, 0.4, 0.35)
+	_hill_mat = StandardMaterial3D.new()
+	_hill_mat.albedo_color = Color(0.5, 0.4, 0.2)
 
 	_create_highlight()
 	_load_map(_current_map_name)
@@ -49,37 +78,62 @@ func _create_highlight() -> void:
 	_highlight_mesh.position.y = 0.05
 	add_child(_highlight_mesh)
 
+func _make_style(color: Color, border: bool) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = color
+	s.set_corner_radius_all(8)
+	s.content_margin_top = 6.0
+	s.content_margin_bottom = 6.0
+	s.content_margin_left = 4.0
+	s.content_margin_right = 4.0
+	if border:
+		s.border_width_top = 3
+		s.border_width_bottom = 3
+		s.border_width_left = 3
+		s.border_width_right = 3
+		s.border_color = Color.WHITE
+	return s
+
 func _build_mobile_toolbar() -> void:
 	_toolbar = PanelContainer.new()
 	_toolbar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_toolbar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.1, 0.1, 0.1, 0.88)
+	_toolbar.add_theme_stylebox_override("panel", panel_style)
+
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 4)
+	vbox.add_theme_constant_override("separation", 6)
+	vbox.add_theme_constant_override("margin_top", 6)
+	vbox.add_theme_constant_override("margin_bottom", 6)
+	vbox.add_theme_constant_override("margin_left", 6)
+	vbox.add_theme_constant_override("margin_right", 6)
 	_toolbar.add_child(vbox)
+
+	var mode_names: Array[String] = ["Grass", "Wall", "Hill", "Enemy", "Chest", "Door", "Spawn", "Erase"]
 
 	# Row 1: mode buttons
 	var mode_row := HBoxContainer.new()
-	mode_row.add_theme_constant_override("separation", 4)
+	mode_row.add_theme_constant_override("separation", 5)
 	vbox.add_child(mode_row)
 
-	var mode_names := ["Grass", "Wall", "Hill", "Enemy", "Chest", "Door", "Spawn", "Erase"]
-	var mode_colors := [
-		Color(0.3, 0.65, 0.25),   # grass green
-		Color(0.5, 0.4, 0.3),     # wall brown
-		Color(0.55, 0.45, 0.2),   # hill tan
-		Color(0.8, 0.2, 0.2),     # enemy red
-		Color(0.85, 0.7, 0.1),    # chest gold
-		Color(0.45, 0.28, 0.1),   # door brown
-		Color(0.1, 0.7, 0.85),    # spawn cyan
-		Color(0.5, 0.1, 0.1),     # erase dark red
-	]
-
 	for i in mode_names.size():
+		var col: Color = _mode_colors[i]
+		var normal_style := _make_style(col.darkened(0.45), false)
+		var active_style := _make_style(col.lightened(0.15), true)
+		_btn_normal_styles.append(normal_style)
+		_btn_active_styles.append(active_style)
+
 		var btn := Button.new()
 		btn.text = mode_names[i]
-		btn.custom_minimum_size = Vector2(72, 48)
+		btn.custom_minimum_size = Vector2(0, 56)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.add_theme_stylebox_override("normal", normal_style)
+		btn.add_theme_stylebox_override("hover", _make_style(col, false))
+		btn.add_theme_stylebox_override("pressed", active_style)
+		btn.add_theme_color_override("font_color", Color.WHITE)
+		btn.add_theme_font_size_override("font_size", 15)
 		var idx := i
 		btn.pressed.connect(func(): _set_mode(idx))
 		_mode_buttons.append(btn)
@@ -87,25 +141,29 @@ func _build_mobile_toolbar() -> void:
 
 	# Row 2: height controls + file ops
 	var ctrl_row := HBoxContainer.new()
-	ctrl_row.add_theme_constant_override("separation", 4)
+	ctrl_row.add_theme_constant_override("separation", 5)
 	vbox.add_child(ctrl_row)
 
 	var h_minus := Button.new()
-	h_minus.text = "H-"
-	h_minus.custom_minimum_size = Vector2(56, 44)
+	h_minus.text = "H -"
+	h_minus.custom_minimum_size = Vector2(68, 50)
+	h_minus.add_theme_font_size_override("font_size", 16)
 	h_minus.pressed.connect(_height_down)
 	ctrl_row.add_child(h_minus)
 
 	_height_label = Label.new()
-	_height_label.text = "H:1"
-	_height_label.custom_minimum_size = Vector2(36, 44)
+	_height_label.text = "H: 1"
+	_height_label.custom_minimum_size = Vector2(48, 50)
 	_height_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_height_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_height_label.add_theme_color_override("font_color", Color.WHITE)
+	_height_label.add_theme_font_size_override("font_size", 18)
 	ctrl_row.add_child(_height_label)
 
 	var h_plus := Button.new()
-	h_plus.text = "H+"
-	h_plus.custom_minimum_size = Vector2(56, 44)
+	h_plus.text = "H +"
+	h_plus.custom_minimum_size = Vector2(68, 50)
+	h_plus.add_theme_font_size_override("font_size", 16)
 	h_plus.pressed.connect(_height_up)
 	ctrl_row.add_child(h_plus)
 
@@ -113,23 +171,13 @@ func _build_mobile_toolbar() -> void:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ctrl_row.add_child(spacer)
 
-	var save_btn := Button.new()
-	save_btn.text = "Save"
-	save_btn.custom_minimum_size = Vector2(72, 44)
-	save_btn.pressed.connect(_save_map)
-	ctrl_row.add_child(save_btn)
-
-	var new_btn := Button.new()
-	new_btn.text = "New"
-	new_btn.custom_minimum_size = Vector2(72, 44)
-	new_btn.pressed.connect(_new_map_dialog)
-	ctrl_row.add_child(new_btn)
-
-	var open_btn := Button.new()
-	open_btn.text = "Open"
-	open_btn.custom_minimum_size = Vector2(72, 44)
-	open_btn.pressed.connect(_show_map_list)
-	ctrl_row.add_child(open_btn)
+	for pair in [["Save", _save_map], ["New", _new_map_dialog], ["Open", _show_map_list]]:
+		var btn := Button.new()
+		btn.text = pair[0]
+		btn.custom_minimum_size = Vector2(72, 50)
+		btn.add_theme_font_size_override("font_size", 16)
+		btn.pressed.connect(pair[1])
+		ctrl_row.add_child(btn)
 
 	_hud.add_child(_toolbar)
 	_refresh_mode_buttons()
@@ -143,18 +191,18 @@ func _refresh_mode_buttons() -> void:
 	for i in _mode_buttons.size():
 		var btn := _mode_buttons[i]
 		if i == _paint_mode:
-			btn.modulate = Color(1.4, 1.4, 0.5)
+			btn.add_theme_stylebox_override("normal", _btn_active_styles[i])
 		else:
-			btn.modulate = Color.WHITE
+			btn.add_theme_stylebox_override("normal", _btn_normal_styles[i])
 
 func _height_up() -> void:
 	_paint_height = min(_paint_height + 1, 4)
-	_height_label.text = "H:%d" % _paint_height
+	_height_label.text = "H: %d" % _paint_height
 	_update_hud()
 
 func _height_down() -> void:
 	_paint_height = max(_paint_height - 1, 1)
-	_height_label.text = "H:%d" % _paint_height
+	_height_label.text = "H: %d" % _paint_height
 	_update_hud()
 
 func _load_map(name: String) -> void:
@@ -166,47 +214,51 @@ func _load_map(name: String) -> void:
 func _rebuild_visuals() -> void:
 	for c in _tile_meshes.get_children():
 		c.queue_free()
+	_tile_mesh_map.clear()
 	for c in _entity_markers.get_children():
 		c.queue_free()
 
-	var grass_mat := StandardMaterial3D.new()
-	grass_mat.albedo_color = Color(0.3, 0.6, 0.2)
-	var wall_mat := StandardMaterial3D.new()
-	wall_mat.albedo_color = Color(0.5, 0.4, 0.35)
-	var hill_mat := StandardMaterial3D.new()
-	hill_mat.albedo_color = Color(0.5, 0.4, 0.2)
-
 	for tz in range(WorldMap.MAP_HEIGHT):
 		for tx in range(WorldMap.MAP_WIDTH):
-			var tile := _world_map.get_tile(tx, tz)
-			var mi := MeshInstance3D.new()
-			var mesh: Mesh
-			if tile == WorldMap.TILE_WALL:
-				var h := _world_map.get_height(tx, tz)
-				var box := BoxMesh.new()
-				box.size = Vector3(IsoConst.TILE_SIZE * 0.95, h * 0.625, IsoConst.TILE_SIZE * 0.95)
-				mesh = box
-				mi.material_override = wall_mat
-				mi.position = Vector3(
-					tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-					h * 0.625 * 0.5,
-					tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-				)
-			else:
-				var plane := PlaneMesh.new()
-				plane.size = Vector2(IsoConst.TILE_SIZE * 0.95, IsoConst.TILE_SIZE * 0.95)
-				mesh = plane
-				mi.material_override = hill_mat if tile == WorldMap.TILE_HILL else grass_mat
-				mi.position = Vector3(
-					tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-					0.01,
-					tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-				)
-			mi.mesh = mesh
+			var mi := _make_tile_mesh(tx, tz)
 			_tile_meshes.add_child(mi)
+			_tile_mesh_map[Vector2i(tx, tz)] = mi
 
-	# Entity markers
 	_add_entity_markers()
+
+func _make_tile_mesh(tx: int, tz: int) -> MeshInstance3D:
+	var tile := _world_map.get_tile(tx, tz)
+	var mi := MeshInstance3D.new()
+	if tile == WorldMap.TILE_WALL:
+		var h := _world_map.get_height(tx, tz)
+		var box := BoxMesh.new()
+		box.size = Vector3(IsoConst.TILE_SIZE * 0.95, h * 0.625, IsoConst.TILE_SIZE * 0.95)
+		mi.mesh = box
+		mi.material_override = _wall_mat
+		mi.position = Vector3(
+			tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
+			h * 0.625 * 0.5,
+			tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		)
+	else:
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(IsoConst.TILE_SIZE * 0.95, IsoConst.TILE_SIZE * 0.95)
+		mi.mesh = plane
+		mi.material_override = _hill_mat if tile == WorldMap.TILE_HILL else _grass_mat
+		mi.position = Vector3(
+			tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
+			0.01,
+			tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		)
+	return mi
+
+func _update_tile_visual(tx: int, tz: int) -> void:
+	var key := Vector2i(tx, tz)
+	if _tile_mesh_map.has(key):
+		(_tile_mesh_map[key] as MeshInstance3D).queue_free()
+	var mi := _make_tile_mesh(tx, tz)
+	_tile_meshes.add_child(mi)
+	_tile_mesh_map[key] = mi
 
 func _add_entity_markers() -> void:
 	for e in _world_map.enemies:
@@ -240,6 +292,7 @@ func _update_hud() -> void:
 	var modes := ["Grass", "Wall", "Hill", "Enemy", "Chest", "Door", "Spawn", "Erase"]
 	_mode_label.text = "Mode: %s  H:%d" % [modes[_paint_mode], _paint_height]
 
+# Keyboard shortcuts only
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
@@ -257,10 +310,13 @@ func _input(event: InputEvent) -> void:
 			KEY_N when event.ctrl_pressed: _new_map_dialog()
 			KEY_O when event.ctrl_pressed: _show_map_list()
 
+# Touch and mouse handled here so UI buttons don't also trigger a paint
+func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		var tile := _screen_to_tile(event.position)
 		if tile.x >= 0:
 			if event.button_index == MOUSE_BUTTON_LEFT:
+				_last_painted_tile = Vector2i(-1, -1)
 				_paint_tile(tile.x, tile.y)
 			elif event.button_index == MOUSE_BUTTON_RIGHT:
 				_erase_tile(tile.x, tile.y)
@@ -268,28 +324,33 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion:
 		var tile := _screen_to_tile(event.position)
 		if tile.x >= 0:
-			_highlight_mesh.position = Vector3(
-				tile.x * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-				0.05,
-				tile.y * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			)
+			_move_highlight(tile.x, tile.y)
 
-	# Touch: tap to paint
-	if event is InputEventScreenTouch and event.pressed:
-		var tile := _screen_to_tile(event.position)
-		if tile.x >= 0:
-			_paint_tile(tile.x, tile.y)
+	# Tap to paint
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			_last_painted_tile = Vector2i(-1, -1)
+			var tile := _screen_to_tile(event.position)
+			if tile.x >= 0:
+				_paint_tile(tile.x, tile.y)
+		else:
+			# Finger lifted — reset so next drag starts fresh
+			_last_painted_tile = Vector2i(-1, -1)
 
-	# Touch: drag to paint continuously
+	# Drag to paint — skips if same tile to avoid redundant mesh rebuilds
 	if event is InputEventScreenDrag:
 		var tile := _screen_to_tile(event.position)
 		if tile.x >= 0:
-			_highlight_mesh.position = Vector3(
-				tile.x * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-				0.05,
-				tile.y * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			)
-			_paint_tile(tile.x, tile.y)
+			_move_highlight(tile.x, tile.y)
+			if tile != _last_painted_tile:
+				_paint_tile(tile.x, tile.y)
+
+func _move_highlight(tx: int, tz: int) -> void:
+	_highlight_mesh.position = Vector3(
+		tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
+		0.05,
+		tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	)
 
 func _screen_to_tile(screen_pos: Vector2) -> Vector2i:
 	var from := _camera.project_ray_origin(screen_pos)
@@ -305,16 +366,21 @@ func _screen_to_tile(screen_pos: Vector2) -> Vector2i:
 	return Vector2i(tx, tz)
 
 func _paint_tile(tx: int, tz: int) -> void:
+	_last_painted_tile = Vector2i(tx, tz)
+	var needs_entity_rebuild := false
 	match _paint_mode:
 		0:  # Grass
 			_world_map.set_tile(tx, tz, WorldMap.TILE_GRASS)
 			_world_map.set_height(tx, tz, 0)
+			_update_tile_visual(tx, tz)
 		1:  # Wall
 			_world_map.set_tile(tx, tz, WorldMap.TILE_WALL)
 			_world_map.set_height(tx, tz, _paint_height)
+			_update_tile_visual(tx, tz)
 		2:  # Hill
 			_world_map.set_tile(tx, tz, WorldMap.TILE_HILL)
 			_world_map.set_height(tx, tz, _paint_height)
+			_update_tile_visual(tx, tz)
 		3:  # Enemy
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
@@ -322,6 +388,7 @@ func _paint_tile(tx: int, tz: int) -> void:
 				"id": "enemy_%d" % Time.get_ticks_msec(),
 				"x": wx, "z": wz, "alive": true, "tracking": true
 			})
+			needs_entity_rebuild = true
 		4:  # Chest
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
@@ -329,6 +396,7 @@ func _paint_tile(tx: int, tz: int) -> void:
 				"id": "chest_%d" % Time.get_ticks_msec(),
 				"x": wx, "z": wz, "card_ids": ["ghost"], "opened": false
 			})
+			needs_entity_rebuild = true
 		5:  # Door
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
@@ -336,12 +404,18 @@ func _paint_tile(tx: int, tz: int) -> void:
 				"id": "door_%d" % Time.get_ticks_msec(),
 				"x": wx, "z": wz, "target_map": "", "target_door_id": ""
 			})
+			needs_entity_rebuild = true
 		6:  # Spawn
 			_world_map.player_spawn_x = tx
 			_world_map.player_spawn_z = tz
+			needs_entity_rebuild = true
 		7:  # Erase
 			_erase_tile(tx, tz)
-	_rebuild_visuals()
+			return
+	if needs_entity_rebuild:
+		for c in _entity_markers.get_children():
+			c.queue_free()
+		_add_entity_markers()
 
 func _erase_tile(tx: int, tz: int) -> void:
 	_world_map.set_tile(tx, tz, WorldMap.TILE_GRASS)
@@ -351,7 +425,10 @@ func _erase_tile(tx: int, tz: int) -> void:
 	_world_map.enemies = _world_map.enemies.filter(func(e): return abs(e["x"]-wx)>0.5 or abs(e["z"]-wz)>0.5)
 	_world_map.chests = _world_map.chests.filter(func(c): return abs(c["x"]-wx)>0.5 or abs(c["z"]-wz)>0.5)
 	_world_map.doors = _world_map.doors.filter(func(d): return abs(d["x"]-wx)>0.5 or abs(d["z"]-wz)>0.5)
-	_rebuild_visuals()
+	_update_tile_visual(tx, tz)
+	for c in _entity_markers.get_children():
+		c.queue_free()
+	_add_entity_markers()
 
 func _save_map() -> void:
 	var path := "user://maps/%s.txt" % _current_map_name
