@@ -79,7 +79,7 @@ func _input(event: InputEvent) -> void:
 
 func _finish_hand_drag() -> void:
 	var mouse_pos := get_viewport().get_mouse_position()
-	var board_rect := _player_board_view.get_global_rect()
+	var board_rect: Rect2 = _player_board_view.get_global_rect()
 	if board_rect.has_point(mouse_pos):
 		if _state.players[0].play_card(_hand_drag_card):
 			_refresh_all()
