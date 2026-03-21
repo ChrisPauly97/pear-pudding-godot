@@ -1,8 +1,9 @@
 extends Node3D
 
-const WorldMap    = preload("res://game_logic/world/WorldMap.gd")
-const TextureGen  = preload("res://game_logic/TextureGen.gd")
-const GrassBlades = preload("res://scenes/world/GrassBlades.gd")
+const WorldMap        = preload("res://game_logic/world/WorldMap.gd")
+const TextureGen      = preload("res://game_logic/TextureGen.gd")
+const GrassBlades     = preload("res://scenes/world/GrassBlades.gd")
+const VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -49,6 +50,9 @@ func _ready() -> void:
 	_update_hud()
 
 	_interact_label.hide()
+
+	var joystick := VirtualJoystick.new()
+	_hud.add_child(joystick)
 
 func _update_hud() -> void:
 	_map_label.text = "Map: %s" % map_name
