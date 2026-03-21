@@ -13,17 +13,13 @@ var _last_painted_tile: Vector2i = Vector2i(-1, -1)
 @onready var _mode_label: Label = $HUD/ModeLabel
 @onready var _map_name_label: Label = $HUD/MapNameLabel
 
-var _tile_meshes: Node3D
+# Two MultiMeshInstance3D nodes replace 10,000 individual MeshInstance3D nodes.
+# _flat_mm: all grass + hill tiles (per-instance color distinguishes them)
+# _wall_mm: all wall tiles (per-instance transform encodes height via Y scale)
+var _flat_mm_inst: MultiMeshInstance3D
+var _wall_mm_inst: MultiMeshInstance3D
 var _entity_markers: Node3D
 var _highlight_mesh: MeshInstance3D
-
-# Per-tile mesh lookup so we can update one tile without rebuilding all 10,000
-var _tile_mesh_map: Dictionary = {}
-
-# Shared materials created once
-var _grass_mat: StandardMaterial3D
-var _wall_mat: StandardMaterial3D
-var _hill_mat: StandardMaterial3D
 
 # Mobile toolbar
 var _toolbar: Control
@@ -44,17 +40,12 @@ var _mode_colors: Array[Color] = [
 ]
 
 func _ready() -> void:
-	_tile_meshes = Node3D.new()
-	add_child(_tile_meshes)
+	_flat_mm_inst = MultiMeshInstance3D.new()
+	add_child(_flat_mm_inst)
+	_wall_mm_inst = MultiMeshInstance3D.new()
+	add_child(_wall_mm_inst)
 	_entity_markers = Node3D.new()
 	add_child(_entity_markers)
-
-	_grass_mat = StandardMaterial3D.new()
-	_grass_mat.albedo_color = Color(0.3, 0.6, 0.2)
-	_wall_mat = StandardMaterial3D.new()
-	_wall_mat.albedo_color = Color(0.5, 0.4, 0.35)
-	_hill_mat = StandardMaterial3D.new()
-	_hill_mat.albedo_color = Color(0.5, 0.4, 0.2)
 
 	_create_highlight()
 	_load_map(_current_map_name)
@@ -77,6 +68,104 @@ func _create_highlight() -> void:
 	_highlight_mesh.material_override = mat
 	_highlight_mesh.position.y = 0.05
 	add_child(_highlight_mesh)
+
+# --- MultiMesh tile rendering ---
+
+func _rebuild_tile_multimeshes() -> void:
+	# Collect positions/colors in one pass, then build both MultiMeshes
+	var flat_positions: Array[Vector3] = []
+	var flat_colors: Array[Color] = []
+	var wall_positions: Array[Vector3] = []
+	var wall_scale_ys: Array[float] = []
+
+	for tz in range(WorldMap.MAP_HEIGHT):
+		for tx in range(WorldMap.MAP_WIDTH):
+			var tile: int = _world_map.get_tile(tx, tz)
+			var wx: float = tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wz: float = tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			if tile == WorldMap.TILE_WALL:
+				var h: int = _world_map.get_height(tx, tz)
+				var scale_y: float = h * IsoConst.WALL_FACE_H
+				wall_positions.append(Vector3(wx, scale_y * 0.5, wz))
+				wall_scale_ys.append(scale_y)
+			else:
+				flat_positions.append(Vector3(wx, 0.01, wz))
+				flat_colors.append(Color(0.3, 0.6, 0.2) if tile == WorldMap.TILE_GRASS else Color(0.5, 0.4, 0.2))
+
+	_apply_flat_multimesh(flat_positions, flat_colors)
+	_apply_wall_multimesh(wall_positions, wall_scale_ys)
+
+func _apply_flat_multimesh(positions: Array[Vector3], colors: Array[Color]) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_colors = true
+
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(IsoConst.TILE_SIZE * 0.95, IsoConst.TILE_SIZE * 0.95)
+	var mat := StandardMaterial3D.new()
+	# vertex_color_use_as_albedo lets the MultiMesh per-instance color tint the mesh
+	mat.vertex_color_use_as_albedo = true
+	plane.material = mat
+	mm.mesh = plane
+
+	mm.instance_count = positions.size()
+	for i in positions.size():
+		mm.set_instance_transform(i, Transform3D(Basis(), positions[i]))
+		mm.set_instance_color(i, colors[i])
+
+	_flat_mm_inst.multimesh = mm
+
+func _apply_wall_multimesh(positions: Array[Vector3], scale_ys: Array[float]) -> void:
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+
+	var box := BoxMesh.new()
+	# Unit-height box — Y scale applied per-instance via transform to encode wall height
+	box.size = Vector3(IsoConst.TILE_SIZE * 0.95, 1.0, IsoConst.TILE_SIZE * 0.95)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.5, 0.4, 0.35)
+	box.material = mat
+	mm.mesh = box
+
+	mm.instance_count = positions.size()
+	for i in positions.size():
+		var basis := Basis().scaled(Vector3(1.0, scale_ys[i], 1.0))
+		mm.set_instance_transform(i, Transform3D(basis, positions[i]))
+
+	_wall_mm_inst.multimesh = mm
+
+# --- Visual update and map management ---
+
+func _rebuild_visuals() -> void:
+	_rebuild_tile_multimeshes()
+	for c in _entity_markers.get_children():
+		c.queue_free()
+	_add_entity_markers()
+
+func _add_entity_markers() -> void:
+	for e in _world_map.enemies:
+		_entity_markers.add_child(_make_marker(Color.RED, Vector3(e["x"], 0.5, e["z"])))
+	for c in _world_map.chests:
+		_entity_markers.add_child(_make_marker(Color(1, 0.8, 0), Vector3(c["x"], 0.3, c["z"])))
+	for d in _world_map.doors:
+		_entity_markers.add_child(_make_marker(Color(0.5, 0.3, 0.1), Vector3(d["x"], 0.5, d["z"])))
+	if _world_map.has_player_spawn():
+		var sx := _world_map.player_spawn_x * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		var sz := _world_map.player_spawn_z * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+		_entity_markers.add_child(_make_marker(Color.CYAN, Vector3(sx, 0.5, sz)))
+
+func _make_marker(color: Color, pos: Vector3) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var sphere := SphereMesh.new()
+	sphere.radius = 0.3
+	mi.mesh = sphere
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mi.material_override = mat
+	mi.position = pos
+	return mi
+
+# --- Mobile toolbar ---
 
 func _make_style(color: Color, border: bool) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
@@ -105,15 +194,10 @@ func _build_mobile_toolbar() -> void:
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 6)
-	vbox.add_theme_constant_override("margin_top", 6)
-	vbox.add_theme_constant_override("margin_bottom", 6)
-	vbox.add_theme_constant_override("margin_left", 6)
-	vbox.add_theme_constant_override("margin_right", 6)
 	_toolbar.add_child(vbox)
 
 	var mode_names: Array[String] = ["Grass", "Wall", "Hill", "Enemy", "Chest", "Door", "Spawn", "Erase"]
 
-	# Row 1: mode buttons
 	var mode_row := HBoxContainer.new()
 	mode_row.add_theme_constant_override("separation", 5)
 	vbox.add_child(mode_row)
@@ -139,7 +223,6 @@ func _build_mobile_toolbar() -> void:
 		_mode_buttons.append(btn)
 		mode_row.add_child(btn)
 
-	# Row 2: height controls + file ops
 	var ctrl_row := HBoxContainer.new()
 	ctrl_row.add_theme_constant_override("separation", 5)
 	vbox.add_child(ctrl_row)
@@ -189,11 +272,10 @@ func _set_mode(mode: int) -> void:
 
 func _refresh_mode_buttons() -> void:
 	for i in _mode_buttons.size():
-		var btn := _mode_buttons[i]
-		if i == _paint_mode:
-			btn.add_theme_stylebox_override("normal", _btn_active_styles[i])
-		else:
-			btn.add_theme_stylebox_override("normal", _btn_normal_styles[i])
+		_mode_buttons[i].add_theme_stylebox_override(
+			"normal",
+			_btn_active_styles[i] if i == _paint_mode else _btn_normal_styles[i]
+		)
 
 func _height_up() -> void:
 	_paint_height = min(_paint_height + 1, 4)
@@ -211,88 +293,13 @@ func _load_map(name: String) -> void:
 	_rebuild_visuals()
 	_update_hud()
 
-func _rebuild_visuals() -> void:
-	for c in _tile_meshes.get_children():
-		c.queue_free()
-	_tile_mesh_map.clear()
-	for c in _entity_markers.get_children():
-		c.queue_free()
-
-	for tz in range(WorldMap.MAP_HEIGHT):
-		for tx in range(WorldMap.MAP_WIDTH):
-			var mi := _make_tile_mesh(tx, tz)
-			_tile_meshes.add_child(mi)
-			_tile_mesh_map[Vector2i(tx, tz)] = mi
-
-	_add_entity_markers()
-
-func _make_tile_mesh(tx: int, tz: int) -> MeshInstance3D:
-	var tile := _world_map.get_tile(tx, tz)
-	var mi := MeshInstance3D.new()
-	if tile == WorldMap.TILE_WALL:
-		var h := _world_map.get_height(tx, tz)
-		var box := BoxMesh.new()
-		box.size = Vector3(IsoConst.TILE_SIZE * 0.95, h * 0.625, IsoConst.TILE_SIZE * 0.95)
-		mi.mesh = box
-		mi.material_override = _wall_mat
-		mi.position = Vector3(
-			tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-			h * 0.625 * 0.5,
-			tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		)
-	else:
-		var plane := PlaneMesh.new()
-		plane.size = Vector2(IsoConst.TILE_SIZE * 0.95, IsoConst.TILE_SIZE * 0.95)
-		mi.mesh = plane
-		mi.material_override = _hill_mat if tile == WorldMap.TILE_HILL else _grass_mat
-		mi.position = Vector3(
-			tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-			0.01,
-			tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		)
-	return mi
-
-func _update_tile_visual(tx: int, tz: int) -> void:
-	var key := Vector2i(tx, tz)
-	if _tile_mesh_map.has(key):
-		(_tile_mesh_map[key] as MeshInstance3D).queue_free()
-	var mi := _make_tile_mesh(tx, tz)
-	_tile_meshes.add_child(mi)
-	_tile_mesh_map[key] = mi
-
-func _add_entity_markers() -> void:
-	for e in _world_map.enemies:
-		var m := _make_marker(Color.RED, Vector3(e["x"], 0.5, e["z"]))
-		_entity_markers.add_child(m)
-	for c in _world_map.chests:
-		var m := _make_marker(Color(1, 0.8, 0), Vector3(c["x"], 0.3, c["z"]))
-		_entity_markers.add_child(m)
-	for d in _world_map.doors:
-		var m := _make_marker(Color(0.5, 0.3, 0.1), Vector3(d["x"], 0.5, d["z"]))
-		_entity_markers.add_child(m)
-	if _world_map.has_player_spawn():
-		var sx := _world_map.player_spawn_x * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		var sz := _world_map.player_spawn_z * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-		var m := _make_marker(Color.CYAN, Vector3(sx, 0.5, sz))
-		_entity_markers.add_child(m)
-
-func _make_marker(color: Color, pos: Vector3) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.3
-	mi.mesh = sphere
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mi.material_override = mat
-	mi.position = pos
-	return mi
-
 func _update_hud() -> void:
 	_map_name_label.text = "Map: %s" % _current_map_name
 	var modes := ["Grass", "Wall", "Hill", "Enemy", "Chest", "Door", "Spawn", "Erase"]
 	_mode_label.text = "Mode: %s  H:%d" % [modes[_paint_mode], _paint_height]
 
-# Keyboard shortcuts only
+# --- Input ---
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
@@ -310,7 +317,6 @@ func _input(event: InputEvent) -> void:
 			KEY_N when event.ctrl_pressed: _new_map_dialog()
 			KEY_O when event.ctrl_pressed: _show_map_list()
 
-# Touch and mouse handled here so UI buttons don't also trigger a paint
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed:
 		var tile := _screen_to_tile(event.position)
@@ -326,7 +332,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		if tile.x >= 0:
 			_move_highlight(tile.x, tile.y)
 
-	# Tap to paint
 	if event is InputEventScreenTouch:
 		if event.pressed:
 			_last_painted_tile = Vector2i(-1, -1)
@@ -334,10 +339,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			if tile.x >= 0:
 				_paint_tile(tile.x, tile.y)
 		else:
-			# Finger lifted — reset so next drag starts fresh
 			_last_painted_tile = Vector2i(-1, -1)
 
-	# Drag to paint — skips if same tile to avoid redundant mesh rebuilds
 	if event is InputEventScreenDrag:
 		var tile := _screen_to_tile(event.position)
 		if tile.x >= 0:
@@ -365,54 +368,46 @@ func _screen_to_tile(screen_pos: Vector2) -> Vector2i:
 		return Vector2i(-1, -1)
 	return Vector2i(tx, tz)
 
+# --- Painting ---
+
 func _paint_tile(tx: int, tz: int) -> void:
 	_last_painted_tile = Vector2i(tx, tz)
-	var needs_entity_rebuild := false
+	var entity_changed := false
 	match _paint_mode:
 		0:  # Grass
 			_world_map.set_tile(tx, tz, WorldMap.TILE_GRASS)
 			_world_map.set_height(tx, tz, 0)
-			_update_tile_visual(tx, tz)
 		1:  # Wall
 			_world_map.set_tile(tx, tz, WorldMap.TILE_WALL)
 			_world_map.set_height(tx, tz, _paint_height)
-			_update_tile_visual(tx, tz)
 		2:  # Hill
 			_world_map.set_tile(tx, tz, WorldMap.TILE_HILL)
 			_world_map.set_height(tx, tz, _paint_height)
-			_update_tile_visual(tx, tz)
 		3:  # Enemy
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			_world_map.enemies.append({
-				"id": "enemy_%d" % Time.get_ticks_msec(),
-				"x": wx, "z": wz, "alive": true, "tracking": true
-			})
-			needs_entity_rebuild = true
+			_world_map.enemies.append({"id": "enemy_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "alive": true, "tracking": true})
+			entity_changed = true
 		4:  # Chest
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			_world_map.chests.append({
-				"id": "chest_%d" % Time.get_ticks_msec(),
-				"x": wx, "z": wz, "card_ids": ["ghost"], "opened": false
-			})
-			needs_entity_rebuild = true
+			_world_map.chests.append({"id": "chest_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "card_ids": ["ghost"], "opened": false})
+			entity_changed = true
 		5:  # Door
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			_world_map.doors.append({
-				"id": "door_%d" % Time.get_ticks_msec(),
-				"x": wx, "z": wz, "target_map": "", "target_door_id": ""
-			})
-			needs_entity_rebuild = true
+			_world_map.doors.append({"id": "door_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "target_map": "", "target_door_id": ""})
+			entity_changed = true
 		6:  # Spawn
 			_world_map.player_spawn_x = tx
 			_world_map.player_spawn_z = tz
-			needs_entity_rebuild = true
+			entity_changed = true
 		7:  # Erase
 			_erase_tile(tx, tz)
 			return
-	if needs_entity_rebuild:
+
+	_rebuild_tile_multimeshes()
+	if entity_changed:
 		for c in _entity_markers.get_children():
 			c.queue_free()
 		_add_entity_markers()
@@ -425,10 +420,12 @@ func _erase_tile(tx: int, tz: int) -> void:
 	_world_map.enemies = _world_map.enemies.filter(func(e): return abs(e["x"]-wx)>0.5 or abs(e["z"]-wz)>0.5)
 	_world_map.chests = _world_map.chests.filter(func(c): return abs(c["x"]-wx)>0.5 or abs(c["z"]-wz)>0.5)
 	_world_map.doors = _world_map.doors.filter(func(d): return abs(d["x"]-wx)>0.5 or abs(d["z"]-wz)>0.5)
-	_update_tile_visual(tx, tz)
+	_rebuild_tile_multimeshes()
 	for c in _entity_markers.get_children():
 		c.queue_free()
 	_add_entity_markers()
+
+# --- Map management ---
 
 func _save_map() -> void:
 	var path := "user://maps/%s.txt" % _current_map_name
