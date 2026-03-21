@@ -1,7 +1,7 @@
 class_name TextureGen
 
 # Generates runtime textures synchronously so they are ready the first frame.
-# Terrain textures: FastNoiseLite.get_image() + manual gradient mapping → ImageTexture.
+# Terrain textures: FastNoiseLite.get_noise_2d() per pixel + gradient → ImageTexture.
 # Wall brick patterns: bulk PackedByteArray writes (no per-pixel GDScript calls).
 
 static var _cache: Dictionary = {}
@@ -47,19 +47,18 @@ static func wall_top() -> ImageTexture:
 	return tex
 
 # ── Shared helper: noise + gradient → ImageTexture (synchronous) ─────────
-# FastNoiseLite.get_image() generates pixels synchronously on the calling
-# thread, so the texture is GPU-ready before the first frame renders.
+# Uses get_noise_2d() per pixel — available since Godot 4.0 on all platforms.
+# 64×64 = 4096 calls, typically < 2 ms; texture is GPU-ready before first frame.
 
 static func _noise_to_texture(noise: FastNoiseLite, grad: Gradient, size: int) -> ImageTexture:
-	const FMT: int = Image.FORMAT_RGBA8
-	var raw: Image = noise.get_image(size, size)   # normalised grayscale
-	var out := Image.create(size, size, false, FMT)
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	for y in range(size):
 		for x in range(size):
-			var v: float = raw.get_pixel(x, y).r   # [0..1]
-			out.set_pixel(x, y, grad.sample(v))
-	out.generate_mipmaps()
-	return ImageTexture.create_from_image(out)
+			# get_noise_2d returns ~[-1, 1]; remap to [0, 1] for gradient
+			var v: float = (noise.get_noise_2d(float(x), float(y)) + 1.0) * 0.5
+			img.set_pixel(x, y, grad.sample(v))
+	img.generate_mipmaps()
+	return ImageTexture.create_from_image(img)
 
 # ── Grass: cellular noise with green ramp ────────────────────────────────
 
