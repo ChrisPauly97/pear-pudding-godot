@@ -9,6 +9,8 @@ uniform sampler2D grass_texture     : source_color, hint_default_white;
 uniform sampler2D hill_side_texture : source_color, hint_default_white;
 // Grassy top shown on the flat plateau of hills (high-height zone)
 uniform sampler2D hill_texture      : source_color, hint_default_white;
+// Stone floor shown under wall tiles
+uniform sampler2D wall_top_texture  : source_color, hint_default_white;
 
 // How many times the textures tile per world unit
 uniform float uv_scale : hint_range(0.05, 2.0) = 0.5;
@@ -19,6 +21,7 @@ uniform vec4 sun_color   : source_color = vec4(1.0, 0.95, 0.8, 1.0);
 uniform vec4 ambient_col : source_color = vec4(0.3, 0.38, 0.45, 1.0);
 
 varying float v_blend;   // height ratio [0=flat ground .. 1=hill plateau]
+varying float v_wall;    // 1.0 if this vertex sits on a wall tile
 varying vec3  v_normal_world;
 varying vec2  v_world_xz;
 
@@ -48,8 +51,9 @@ float fbm(vec2 p) {
 }
 
 void vertex() {
-	// Pass blend factor and world normal to fragment
+	// Pass blend factor, wall flag, and world normal to fragment
 	v_blend = COLOR.r;
+	v_wall  = COLOR.g;
 	v_normal_world = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
 	v_world_xz     = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz;
 
@@ -89,6 +93,11 @@ void fragment() {
 
 	vec3 base_col = mix(grass_col, side_col, t_side);
 	base_col = mix(base_col, top_col, t_top);
+
+	// Hard swap to stone floor on wall tiles — step(0.5) snaps interpolated
+	// edges to a clean tile-boundary cut so grass never bleeds under walls.
+	vec3 wall_col = texture(wall_top_texture, uv_xz).rgb;
+	base_col = mix(base_col, wall_col, step(0.5, v_wall));
 
 	// Simple directional light baked from normal
 	vec3 n  = normalize(v_normal_world);
