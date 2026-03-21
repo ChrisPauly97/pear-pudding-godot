@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded;
+render_mode unshaded, cull_disabled;
 
 // Vertex colour R channel: 0.0 = flat grass, 1.0 = hill plateau top.
 // Normals are computed from the height field and baked into the mesh.
