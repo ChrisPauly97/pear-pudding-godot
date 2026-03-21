@@ -40,7 +40,7 @@ static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 			var wtx: int = p_cx * CHUNK_SIZE + lx
 			var wtz: int = p_cz * CHUNK_SIZE + lz
 			# noise returns [-1, 1] — remap to [0, 1]
-			var n: float = noise.get_noise_2d(float(wtx) * NOISE_FREQ, float(wtz) * NOISE_FREQ)
+			var n: float = noise.get_noise_2d(float(wtx), float(wtz))
 			var v: float = (n + 1.0) * 0.5
 
 			if v >= WALL_THRESHOLD:

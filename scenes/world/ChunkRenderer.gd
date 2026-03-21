@@ -4,8 +4,8 @@ const TextureGen = preload("res://game_logic/TextureGen.gd")
 const GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 
 # Terrain height constants (must match WorldScene)
-const HILL_PEAK_H:    float = 3.0
-const HILL_RAMP_R:    float = 3.0
+const HILL_PEAK_H:    float = 1.5
+const HILL_RAMP_R:    float = 6.0
 const TERRAIN_VDENSITY: int = 4
 const WALL_FACE_H:    float = 0.625
 

@@ -31,8 +31,8 @@ var _active_chest_data: Dictionary = {}  # chest_id -> Dictionary
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
 var _terrain_mat: ShaderMaterial
 
-const LOAD_RADIUS:   int = 3
-const UNLOAD_RADIUS: int = 4
+const LOAD_RADIUS:   int = 6
+const UNLOAD_RADIUS: int = 7
 const WORLD_SEED:    int = 42
 
 @onready var _camera: Camera3D = $Camera3D
@@ -43,8 +43,8 @@ const WORLD_SEED:    int = 42
 const WALL_FACE_H: float = 0.625
 
 # Terrain height constants
-const HILL_PEAK_H:    float = 3.0
-const HILL_RAMP_R:    float = 3.0
+const HILL_PEAK_H:    float = 1.5
+const HILL_RAMP_R:    float = 6.0
 const TERRAIN_VDENSITY: int = 4
 
 func _ready() -> void:
