@@ -47,16 +47,23 @@ static func wall_top() -> ImageTexture:
 	return tex
 
 # ── Shared helper: noise + gradient → ImageTexture (synchronous) ─────────
-# Uses get_noise_2d() per pixel — available since Godot 4.0 on all platforms.
-# 64×64 = 4096 calls, typically < 2 ms; texture is GPU-ready before first frame.
+# Uses the same PackedByteArray + create_from_data pattern as the wall textures,
+# which are confirmed to work. get_noise_2d() is available since Godot 4.0.
 
 static func _noise_to_texture(noise: FastNoiseLite, grad: Gradient, size: int) -> ImageTexture:
-	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	var data := PackedByteArray()
+	data.resize(size * size * 4)
 	for y in range(size):
 		for x in range(size):
 			# get_noise_2d returns ~[-1, 1]; remap to [0, 1] for gradient
 			var v: float = (noise.get_noise_2d(float(x), float(y)) + 1.0) * 0.5
-			img.set_pixel(x, y, grad.sample(v))
+			var col: Color = grad.sample(v)
+			var off: int = (y * size + x) * 4
+			data[off]     = int(col.r * 255.0)
+			data[off + 1] = int(col.g * 255.0)
+			data[off + 2] = int(col.b * 255.0)
+			data[off + 3] = 255
+	var img := Image.create_from_data(size, size, false, Image.FORMAT_RGBA8, data)
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
 
