@@ -121,7 +121,12 @@ func _build_terrain(world_scene: Node3D) -> void:
 			verts[i] = Vector3(x, h, z)
 			uvs[i]   = Vector2(x, z)
 			var blend: float = clamp(h / PLATEAU_H, 0.0, 1.0)
-			colors[i] = Color(blend, blend, blend, 1.0)
+			# Check if this vertex sits on a wall tile (COLOR.g → v_wall in shader)
+			var tx: int = int((chunk_origin.x + x) / IsoConst.TILE_SIZE)
+			var tz: int = int((chunk_origin.z + z) / IsoConst.TILE_SIZE)
+			var li: int = (tz - grid_min_z) * grid_w + (tx - grid_min_x)
+			var is_wall: float = 1.0 if (li >= 0 and li < tile_grid.size() and tile_grid[li] == IsoConst.TILE_WALL) else 0.0
+			colors[i] = Color(blend, is_wall, 0.0, 1.0)
 
 	# Normals via finite differences
 	for iz in range(nvz):

@@ -310,7 +310,11 @@ func _build_terrain_mesh(hfield: PackedFloat32Array, nvx: int, nvz: int, step: f
 			verts[i] = Vector3(x, h, z)
 			uvs[i]   = Vector2(x, z)
 			var blend: float = clamp(h / HILL_PEAK_H, 0.0, 1.0)
-			colors[i] = Color(blend, blend, blend, 1.0)
+			# Encode wall flag in COLOR.g so the terrain shader shows stone floor
+			var tx: int = int(x / IsoConst.TILE_SIZE)
+			var tz: int = int(z / IsoConst.TILE_SIZE)
+			var is_wall: float = 1.0 if world_map.get_tile(tx, tz) == WorldMap.TILE_WALL else 0.0
+			colors[i] = Color(blend, is_wall, 0.0, 1.0)
 
 	for iz in range(nvz):
 		for ix in range(nvx):
@@ -360,6 +364,7 @@ func _make_terrain_material(seed: int = 0) -> ShaderMaterial:
 	mat.set_shader_parameter("grass_texture",     TextureGen.grass(seed))
 	mat.set_shader_parameter("hill_side_texture", TextureGen.hill_side(seed + 1))
 	mat.set_shader_parameter("hill_texture",      TextureGen.hill_top(seed + 2))
+	mat.set_shader_parameter("wall_top_texture",  TextureGen.wall_top())
 	mat.set_shader_parameter("uv_scale", 0.5)
 	return mat
 
