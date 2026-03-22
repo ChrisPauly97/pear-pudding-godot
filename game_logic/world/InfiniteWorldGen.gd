@@ -80,9 +80,11 @@ static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: i
 	if grass_tiles.is_empty():
 		return
 
-	# 0–2 enemies per chunk
+	# 0–2 enemies per chunk, type scaled by Manhattan distance from origin
 	var enemy_count: int = rng.randi_range(0, 2)
 	var uid_base: String = "e_%d_%d_" % [p_cx, p_cz]
+	var chunk_dist: int = abs(p_cx) + abs(p_cz)
+	var etype: String = EnemyRegistry.type_for_chunk_dist(chunk_dist)
 	for i in range(enemy_count):
 		var idx: int = rng.randi_range(0, grass_tiles.size() - 1)
 		var tile: Vector2i = grass_tiles[idx]
@@ -91,7 +93,9 @@ static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: i
 		chunk.enemies.append({
 			"id": uid_base + str(i),
 			"x": wx, "z": wz,
-			"alive": true, "tracking": true
+			"alive": true, "tracking": true,
+			"enemy_type": etype,
+			"enemy_deck": EnemyRegistry.get_deck(etype),
 		})
 
 	# 0–1 chest per chunk

@@ -6,6 +6,7 @@ signal battle_won(result: Dictionary)
 signal battle_lost()
 signal chest_opened(card_ids: Array)
 signal map_transition_requested(map_name: String, target_door_id: String)
+signal inventory_requested
 
 # Battle signals
 signal card_played(card_id: String, zone: String, slot: int)

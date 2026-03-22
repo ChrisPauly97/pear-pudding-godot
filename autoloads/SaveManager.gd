@@ -2,7 +2,10 @@ extends Node
 
 const SAVE_PATH := "user://save.json"
 
-# Player's persistent card collection (list of card template IDs)
+# All cards ever acquired (the collection)
+var owned_cards: Array[String] = []
+
+# Cards currently in the active battle deck (curated subset of owned_cards)
 var player_deck: Array[String] = []
 
 # Current world position
@@ -46,11 +49,13 @@ func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 
 func new_game() -> void:
-	player_deck = [
+	var starter: Array[String] = [
 		"ghost", "skeleton", "zombie", "ghoul",
 		"ghost", "skeleton", "zombie", "ghoul",
 		"ghost", "skeleton", "zombie", "ghoul",
 	]
+	owned_cards.assign(starter)
+	player_deck.assign(starter)
 	current_map = "main"
 	player_x = 0.0
 	player_z = 0.0
@@ -71,6 +76,11 @@ func load_save() -> bool:
 	if not parsed is Dictionary:
 		return false
 	var data: Dictionary = parsed
+	# Migration: old saves have only player_deck; treat it as both collection and deck
+	if data.has("owned_cards"):
+		owned_cards.assign(data.get("owned_cards", []))
+	else:
+		owned_cards.assign(data.get("player_deck", []))
 	player_deck.assign(data.get("player_deck", []))
 	current_map = str(data.get("current_map", "main"))
 	player_x = float(data.get("player_x", 0.0))
@@ -87,6 +97,7 @@ func save() -> void:
 		return
 	var data := {
 		"version": 1,
+		"owned_cards": owned_cards,
 		"player_deck": player_deck,
 		"current_map": current_map,
 		"player_x": player_x,
@@ -116,8 +127,19 @@ func sync_stacks(m_stack: Array[String], d_stack: Array[String]) -> void:
 
 func add_cards_to_deck(card_ids: Array) -> void:
 	for cid in card_ids:
-		player_deck.append(str(cid))
+		owned_cards.append(str(cid))
 	_dirty = true
+
+func set_active_deck(new_deck: Array[String]) -> void:
+	player_deck.assign(new_deck)
+	_dirty = true
+
+func get_owned_counts() -> Dictionary:
+	var counts: Dictionary = {}
+	for cid in owned_cards:
+		var id: String = str(cid)
+		counts[id] = int(counts.get(id, 0)) + 1
+	return counts
 
 func mark_enemy_defeated(enemy_id: String) -> void:
 	if not defeated_enemies.has(enemy_id):

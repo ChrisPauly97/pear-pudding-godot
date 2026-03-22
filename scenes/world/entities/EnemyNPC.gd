@@ -35,8 +35,10 @@ func _process(_delta: float) -> void:
 		enemy_data["alive"] = false
 		_alive = false
 		var edata := enemy_data.duplicate()
-		edata["enemy_deck"] = ["ghost", "skeleton", "zombie", "ghoul",
-							   "ghost", "skeleton", "zombie", "ghoul"]
+		# Ensure deck is present — fall back to registry if data pre-dates this system
+		if not edata.has("enemy_deck"):
+			var etype: String = str(edata.get("enemy_type", "undead_basic"))
+			edata["enemy_deck"] = EnemyRegistry.get_deck(etype)
 		GameBus.enemy_engaged.emit(edata)
 		queue_free()
 		return

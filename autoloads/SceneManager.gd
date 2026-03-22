@@ -8,9 +8,11 @@ var _battle_scene_packed := preload("res://scenes/battle/BattleScene.tscn")
 var _menu_scene_packed := preload("res://scenes/ui/MenuScene.tscn")
 var _gameover_scene_packed := preload("res://scenes/ui/GameOverScene.tscn")
 var _chest_scene_packed := preload("res://scenes/ui/ChestOpenScene.tscn")
+var _inventory_scene_packed := preload("res://scenes/ui/InventoryScene.tscn")
 
 var _battle_overlay: Node = null
 var _chest_overlay: Node = null
+var _inventory_overlay: Node = null
 
 # Tracks which enemy triggered the current battle (for defeat marking)
 var _current_battle_enemy_id: String = ""
@@ -20,6 +22,7 @@ func _ready() -> void:
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.battle_lost.connect(_on_battle_lost)
 	GameBus.chest_opened.connect(_on_chest_opened)
+	GameBus.inventory_requested.connect(_on_inventory_requested)
 
 func go_to_menu() -> void:
 	map_stack.clear()
@@ -85,9 +88,12 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	_current_battle_enemy_id = str(enemy_data.get("id", ""))
 	_battle_overlay = _battle_scene_packed.instantiate()
 	_battle_overlay.enemy_data = enemy_data
+	_battle_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
 	get_tree().current_scene.add_child(_battle_overlay)
+	get_tree().paused = true
 
 func _on_battle_won(_result: Dictionary) -> void:
+	get_tree().paused = false
 	if not _current_battle_enemy_id.is_empty():
 		SaveManager.mark_enemy_defeated(_current_battle_enemy_id)
 		_current_battle_enemy_id = ""
@@ -96,14 +102,33 @@ func _on_battle_won(_result: Dictionary) -> void:
 		_battle_overlay = null
 
 func _on_battle_lost() -> void:
+	get_tree().paused = false
 	_current_battle_enemy_id = ""
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
 	get_tree().change_scene_to_packed(_gameover_scene_packed)
 
+func _on_inventory_requested() -> void:
+	if _inventory_overlay != null:
+		return
+	if _chest_overlay != null:
+		return
+	if _battle_overlay != null:
+		return
+	_inventory_overlay = _inventory_scene_packed.instantiate()
+	get_tree().current_scene.add_child(_inventory_overlay)
+	_inventory_overlay.closed.connect(_on_inventory_closed)
+
+func _on_inventory_closed() -> void:
+	if _inventory_overlay != null:
+		_inventory_overlay.queue_free()
+		_inventory_overlay = null
+
 func _on_chest_opened(card_ids: Array) -> void:
 	if _chest_overlay != null:
+		return
+	if _inventory_overlay != null:
 		return
 	# Grant cards to the player's persistent deck
 	SaveManager.add_cards_to_deck(card_ids)
