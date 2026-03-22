@@ -96,13 +96,13 @@ func test_get_template_ghoul_cost_is_4() -> void:
 
 func test_get_template_all_cards_have_card_class_minion() -> void:
 	for id in _registry.get_all_ids():
-		var tmpl := _registry.get_template(id)
+		var tmpl: Dictionary = _registry.get_template(id)
 		assert_eq(tmpl["card_class"], "minion", "%s should have card_class 'minion'" % id)
 
 
 func test_get_template_all_cards_have_description() -> void:
 	for id in _registry.get_all_ids():
-		var tmpl := _registry.get_template(id)
+		var tmpl: Dictionary = _registry.get_template(id)
 		assert_true(tmpl.has("description"), "%s missing description key" % id)
 
 
@@ -123,7 +123,7 @@ func test_get_template_empty_string_returns_empty_dict() -> void:
 # ---------------------------------------------------------------------------
 
 func test_modifying_returned_template_does_not_affect_registry() -> void:
-	var tmpl := _registry.get_template("ghost")
+	var tmpl: Dictionary = _registry.get_template("ghost")
 	tmpl["cost"] = 9999
-	var fresh := _registry.get_template("ghost")
+	var fresh: Dictionary = _registry.get_template("ghost")
 	assert_eq(fresh["cost"], 1, "registry should return immutable copies")

@@ -239,7 +239,7 @@ func test_start_turn_refills_mana() -> void:
 
 func test_start_turn_draws_one_card() -> void:
 	var p = _player_with_deck(4)
-	var hand_before := p.hand.size()
+	var hand_before: int = p.hand.size()
 	p.start_turn(1)
 	assert_eq(p.hand.size(), hand_before + 1)
 

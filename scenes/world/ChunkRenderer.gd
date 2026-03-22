@@ -12,6 +12,10 @@ const WALL_FACE_H:      float = 0.625
 const PLATEAU_H:        float = 1.5   # hill plateau height above ground
 const CURVE_R:          float = 3.0   # smoothstep transition radius (world units)
 
+# Tile neighbourhood radius used when building the tile_grid snapshot.
+# Must match what WorldScene._snapshot_tile_grid_for() uses.
+const TILE_CHECK: int = 3  # ceil(CURVE_R / TILE_SIZE) + 1
+
 # Shared across all chunks — created once on first use
 static var _wall_mat: StandardMaterial3D
 static var _wall_box_shape: BoxShape3D
@@ -21,58 +25,26 @@ var _chunk_data: RefCounted   # ChunkData
 var _chunk_key:  Vector2i
 var _terrain_mat: ShaderMaterial
 
-# Build all 3D content for this chunk.
-# world_scene is the parent WorldScene node — needed for cross-chunk tile lookups
-# and to parent entities to the global entity root.
-func build(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node3D, terrain_mat: ShaderMaterial) -> void:
-	_chunk_data  = chunk_data
-	_chunk_key   = chunk_key
-	_terrain_mat = terrain_mat
+# ── Thread-safe terrain prep ───────────────────────────────────────────────
+# Call this from a worker thread. Receives a pre-snapshotted tile_grid so it
+# never touches the scene tree or WorldScene state.
+# Returns a Dictionary consumed by build() to create the actual nodes.
+static func prepare_terrain(
+		chunk_data: RefCounted,
+		tile_grid: PackedInt32Array,
+		grid_min_x: int, grid_min_z: int, grid_w: int) -> Dictionary:
 
-	position = chunk_data.origin_world()
-
-	_build_terrain(world_scene)
-	_build_walls()
-	_build_grass(world_scene)
-	_spawn_entities(world_scene)
-
-func teardown() -> void:
-	queue_free()
-
-# ── Terrain ────────────────────────────────────────────────────────────────
-# Each vertex height is driven by distance to the nearest HILL tile.
-# h = PLATEAU_H fully inside a hill patch, 0 on flat grass, smoothstep between.
-# TERRAIN_VDENSITY=2 with TILE_SIZE=2 gives step=1.0, so HeightMapShape3D needs
-# no scaling — vertices are already 1 world unit apart.
-
-func _build_terrain(world_scene: Node3D) -> void:
 	const CHUNK_SIZE: int = 16
 	var nvx: int = CHUNK_SIZE * TERRAIN_VDENSITY + 1   # 33
 	var nvz: int = CHUNK_SIZE * TERRAIN_VDENSITY + 1   # 33
 	var step: float = IsoConst.TILE_SIZE / float(TERRAIN_VDENSITY)  # 1.0
 
+	var chunk_origin: Vector3 = chunk_data.origin_world()
+	var curve_r_sq: float = CURVE_R * CURVE_R
+
 	# Build height field
 	var hfield := PackedFloat32Array()
 	hfield.resize(nvx * nvz)
-	var chunk_origin: Vector3 = _chunk_data.origin_world()
-	var tile_check: int = int(ceil(CURVE_R / IsoConst.TILE_SIZE)) + 1  # 3
-
-	# Pre-fetch all tile types we'll need into a local grid to avoid ~53k
-	# get_tile_global() calls (each does dictionary lookups + chunk math).
-	# The grid covers the chunk tiles plus a border of tile_check around it.
-	var base_tx: int = int(chunk_origin.x / IsoConst.TILE_SIZE)
-	var base_tz: int = int(chunk_origin.z / IsoConst.TILE_SIZE)
-	var grid_min_x: int = base_tx - tile_check
-	var grid_min_z: int = base_tz - tile_check
-	var grid_w: int = CHUNK_SIZE + tile_check * 2 + 1
-	var grid_h: int = CHUNK_SIZE + tile_check * 2 + 1
-	var tile_grid := PackedInt32Array()
-	tile_grid.resize(grid_w * grid_h)
-	for gz in range(grid_h):
-		for gx in range(grid_w):
-			tile_grid[gz * grid_w + gx] = world_scene.get_tile_global(grid_min_x + gx, grid_min_z + gz)
-
-	var curve_r_sq: float = CURVE_R * CURVE_R
 	for iz in range(nvz):
 		for ix in range(nvx):
 			var gx: float = chunk_origin.x + ix * step
@@ -80,11 +52,10 @@ func _build_terrain(world_scene: Node3D) -> void:
 			var vtx: int = int(gx / IsoConst.TILE_SIZE)
 			var vtz: int = int(gz / IsoConst.TILE_SIZE)
 			var min_dist_sq: float = curve_r_sq
-			for dtz in range(-tile_check, tile_check + 1):
-				for dtx in range(-tile_check, tile_check + 1):
+			for dtz in range(-TILE_CHECK, TILE_CHECK + 1):
+				for dtx in range(-TILE_CHECK, TILE_CHECK + 1):
 					var ttx: int = vtx + dtx
 					var ttz: int = vtz + dtz
-					# Local grid lookup instead of get_tile_global
 					var li: int = (ttz - grid_min_z) * grid_w + (ttx - grid_min_x)
 					if li < 0 or li >= tile_grid.size() or tile_grid[li] != IsoConst.TILE_HILL:
 						continue
@@ -96,10 +67,10 @@ func _build_terrain(world_scene: Node3D) -> void:
 					if dist_sq < min_dist_sq:
 						min_dist_sq = dist_sq
 			var t: float = 1.0 - sqrt(min_dist_sq) / CURVE_R
-			t = t * t * (3.0 - 2.0 * t)  # smoothstep
+			t = t * t * (3.0 - 2.0 * t)
 			hfield[iz * nvx + ix] = PLATEAU_H * t
 
-	# Build terrain mesh from height field
+	# Build terrain mesh arrays
 	var total_verts: int = nvx * nvz
 	var verts   := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -121,7 +92,6 @@ func _build_terrain(world_scene: Node3D) -> void:
 			verts[i] = Vector3(x, h, z)
 			uvs[i]   = Vector2(x, z)
 			var blend: float = clamp(h / PLATEAU_H, 0.0, 1.0)
-			# Check if this vertex sits on a wall tile (COLOR.g → v_wall in shader)
 			var tx: int = int((chunk_origin.x + x) / IsoConst.TILE_SIZE)
 			var tz: int = int((chunk_origin.z + z) / IsoConst.TILE_SIZE)
 			var li: int = (tz - grid_min_z) * grid_w + (tx - grid_min_x)
@@ -151,10 +121,9 @@ func _build_terrain(world_scene: Node3D) -> void:
 			indices[idx + 3] = b; indices[idx + 4] = c; indices[idx + 5] = d
 			idx += 6
 
-	# ── Edge skirts: drop border vertices to y = SKIRT_Y so the camera
-	#    never sees under raised terrain from the isometric angle. ─────────
+	# Edge skirts
 	const SKIRT_Y: float = -0.5
-	var skirt_count: int = (nvx + nvz) * 2  # one duplicate per border vertex
+	var skirt_count: int = (nvx + nvz) * 2
 	var skirt_verts   := PackedVector3Array()
 	var skirt_normals := PackedVector3Array()
 	var skirt_uvs     := PackedVector2Array()
@@ -164,15 +133,11 @@ func _build_terrain(world_scene: Node3D) -> void:
 	skirt_normals.resize(skirt_count)
 	skirt_uvs.resize(skirt_count)
 	skirt_colors.resize(skirt_count)
-	# Each border edge produces 2 triangles (6 indices) per segment
 	var skirt_seg: int = (nvx - 1) * 2 + (nvz - 1) * 2
 	skirt_indices.resize(skirt_seg * 6)
 
-	var si: int = 0  # skirt vertex counter
-	# Helper: add a skirt vertex mirroring surface vertex i at SKIRT_Y
-	var _edge_ids: Array[int] = []  # pairs: [surface_idx, skirt_idx, ...]
-
-	# Bottom row (iz=0), Top row (iz=nvz-1)
+	var si: int = 0
+	var _edge_ids: Array[int] = []
 	for ix in range(nvx):
 		for iz_edge in [0, nvz - 1]:
 			var surf_i: int = iz_edge * nvx + ix
@@ -183,7 +148,6 @@ func _build_terrain(world_scene: Node3D) -> void:
 			_edge_ids.append(surf_i)
 			_edge_ids.append(si)
 			si += 1
-	# Left col (ix=0), Right col (ix=nvx-1) — skip corners already added
 	for iz in range(1, nvz - 1):
 		for ix_edge in [0, nvx - 1]:
 			var surf_i: int = iz * nvx + ix_edge
@@ -195,51 +159,40 @@ func _build_terrain(world_scene: Node3D) -> void:
 			_edge_ids.append(si)
 			si += 1
 
-	# Build a lookup: surface vertex index -> skirt vertex index
 	var skirt_map: Dictionary = {}
 	for ei in range(0, _edge_ids.size(), 2):
 		skirt_map[_edge_ids[ei]] = _edge_ids[ei + 1]
 
-	# Generate skirt triangles along each border edge
 	var sidx: int = 0
-	# Bottom edge (iz=0): normals face -Z
 	for ix in range(nvx - 1):
-		var a: int = ix
-		var b: int = ix + 1
+		var a: int = ix;            var b: int = ix + 1
 		var sa: int = total_verts + int(skirt_map[a])
 		var sb: int = total_verts + int(skirt_map[b])
 		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = sa; skirt_indices[sidx+2] = b
 		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sa; skirt_indices[sidx+5] = sb
 		sidx += 6
-	# Top edge (iz=nvz-1): normals face +Z — wind opposite
 	for ix in range(nvx - 1):
-		var a: int = (nvz - 1) * nvx + ix
-		var b: int = (nvz - 1) * nvx + ix + 1
+		var a: int = (nvz - 1) * nvx + ix;  var b: int = (nvz - 1) * nvx + ix + 1
 		var sa: int = total_verts + int(skirt_map[a])
 		var sb: int = total_verts + int(skirt_map[b])
 		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = b;  skirt_indices[sidx+2] = sa
 		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sb; skirt_indices[sidx+5] = sa
 		sidx += 6
-	# Left edge (ix=0): normals face -X
 	for iz in range(nvz - 1):
-		var a: int = iz * nvx
-		var b: int = (iz + 1) * nvx
+		var a: int = iz * nvx;           var b: int = (iz + 1) * nvx
 		var sa: int = total_verts + int(skirt_map[a])
 		var sb: int = total_verts + int(skirt_map[b])
 		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = b;  skirt_indices[sidx+2] = sa
 		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sb; skirt_indices[sidx+5] = sa
 		sidx += 6
-	# Right edge (ix=nvx-1): normals face +X — wind opposite
 	for iz in range(nvz - 1):
-		var a: int = iz * nvx + nvx - 1
-		var b: int = (iz + 1) * nvx + nvx - 1
+		var a: int = iz * nvx + nvx - 1; var b: int = (iz + 1) * nvx + nvx - 1
 		var sa: int = total_verts + int(skirt_map[a])
 		var sb: int = total_verts + int(skirt_map[b])
 		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = sa; skirt_indices[sidx+2] = b
 		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sa; skirt_indices[sidx+5] = sb
 		sidx += 6
 
-	# Merge skirt geometry into the main arrays
 	verts.append_array(skirt_verts)
 	normals.append_array(skirt_normals)
 	uvs.append_array(skirt_uvs)
@@ -255,27 +208,49 @@ func _build_terrain(world_scene: Node3D) -> void:
 	arrays[Mesh.ARRAY_INDEX]  = indices
 	var terrain_mesh := ArrayMesh.new()
 	terrain_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var mi := MeshInstance3D.new()
-	mi.mesh = terrain_mesh
-	mi.material_override = _terrain_mat
-	add_child(mi)
 
-	# HeightMapShape3D collision so the player walks on top of hills.
-	# hfield is nvx × nvz (33×33) with step=1.0 — matches HeightMapShape3D
-	# requirements (odd, equal width/depth).
 	var hmap := HeightMapShape3D.new()
 	hmap.map_width = nvx
 	hmap.map_depth = nvz
 	hmap.map_data  = hfield
+
+	return {
+		"mesh":        terrain_mesh,
+		"hmap":        hmap,
+		"chunk_world": float(CHUNK_SIZE) * IsoConst.TILE_SIZE,
+	}
+
+# ── Main entry point (main thread only) ───────────────────────────────────
+# terrain_res: pre-built by prepare_terrain(), possibly on a worker thread.
+func build(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node3D,
+		terrain_mat: ShaderMaterial, terrain_res: Dictionary) -> void:
+	_chunk_data  = chunk_data
+	_chunk_key   = chunk_key
+	_terrain_mat = terrain_mat
+	position = chunk_data.origin_world()
+
+	_apply_terrain(terrain_res)
+	_build_walls()
+	_build_grass(world_scene)
+	_spawn_entities(world_scene)
+
+func teardown() -> void:
+	queue_free()
+
+# ── Terrain node creation (main thread) ───────────────────────────────────
+func _apply_terrain(res: Dictionary) -> void:
+	var mi := MeshInstance3D.new()
+	mi.mesh = res["mesh"]
+	mi.material_override = _terrain_mat
+	add_child(mi)
+
 	var col_node := CollisionShape3D.new()
-	col_node.shape = hmap
+	col_node.shape = res["hmap"]
 	var body := StaticBody3D.new()
 	body.name = "TerrainCollision"
-	body.collision_layer = 2   # terrain layer
-	body.collision_mask  = 0   # terrain doesn't need to detect others
-	# HeightMapShape3D is centered on its own origin; offset to align with mesh
-	var chunk_world: float = float(CHUNK_SIZE) * IsoConst.TILE_SIZE
-	body.position = Vector3(chunk_world * 0.5, 0.0, chunk_world * 0.5)
+	body.collision_layer = 2
+	body.collision_mask  = 0
+	body.position = Vector3(res["chunk_world"] * 0.5, 0.0, res["chunk_world"] * 0.5)
 	body.add_child(col_node)
 	add_child(body)
 
@@ -296,7 +271,6 @@ func _build_walls() -> void:
 	const CHUNK_SIZE: int = 16
 	_ensure_wall_resources()
 
-	# Collect wall block positions first
 	var positions: Array[Vector3] = []
 	for lz in range(CHUNK_SIZE):
 		for lx in range(CHUNK_SIZE):
@@ -313,12 +287,10 @@ func _build_walls() -> void:
 	if positions.is_empty():
 		return
 
-	# Render all wall blocks with a single MultiMeshInstance3D
 	var mm := MultiMesh.new()
 	mm.mesh = _wall_box_mesh
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.instance_count = positions.size()
-
 	for i in positions.size():
 		mm.set_instance_transform(i, Transform3D(Basis.IDENTITY, positions[i]))
 
@@ -327,18 +299,15 @@ func _build_walls() -> void:
 	mmi.material_override = _wall_mat
 	add_child(mmi)
 
-	# Single merged collision body for all wall blocks in this chunk
 	var wall_body := StaticBody3D.new()
 	wall_body.name = "WallCollision"
-	wall_body.collision_layer = 4   # wall layer
-	wall_body.collision_mask  = 0   # walls don't need to detect others
-
+	wall_body.collision_layer = 4
+	wall_body.collision_mask  = 0
 	for pos in positions:
 		var col := CollisionShape3D.new()
 		col.shape = _wall_box_shape
 		col.position = pos
 		wall_body.add_child(col)
-
 	add_child(wall_body)
 
 # ── Grass ──────────────────────────────────────────────────────────────────
@@ -380,8 +349,6 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		var eid: String = str(e_data.get("id", ""))
 		if SaveManager.is_enemy_defeated(eid):
 			continue
-		if eid == SaveManager.in_battle_enemy_id:
-			continue  # being fought right now — don't spawn a duplicate
 		_spawn_enemy(e_data, entity_root, world_scene)
 
 	for c_data in _chunk_data.chests:
@@ -390,7 +357,7 @@ func _spawn_entities(world_scene: Node3D) -> void:
 			c_data["opened"] = true
 		_spawn_chest(c_data, entity_root, world_scene)
 
-const ENTITY_VISIBILITY_END: float = 50.0  # hide entities beyond this distance
+const ENTITY_VISIBILITY_END: float = 50.0
 
 func _set_visibility_range(node: Node3D) -> void:
 	var mi: MeshInstance3D = node.find_child("MeshInstance3D", true, false) as MeshInstance3D
@@ -407,10 +374,6 @@ func _spawn_enemy(e_data: Dictionary, entity_root: Node3D, world_scene: Node3D) 
 	node.position = Vector3(e_data["x"], ey, e_data["z"])
 	if node.has_method("init_from_data"):
 		node.init_from_data(e_data)
-	if node.has_method("set_player"):
-		var player: Node3D = world_scene.get("_player") as Node3D
-		if player:
-			node.set_player(player)
 	_set_visibility_range(node)
 	entity_root.add_child(node)
 	if world_scene.has_method("register_enemy"):
@@ -428,4 +391,3 @@ func _spawn_chest(c_data: Dictionary, entity_root: Node3D, world_scene: Node3D) 
 	entity_root.add_child(node)
 	if world_scene.has_method("register_chest"):
 		world_scene.register_chest(c_data["id"], node, c_data)
-

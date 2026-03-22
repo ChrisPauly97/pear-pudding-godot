@@ -2,12 +2,6 @@ extends Node3D
 
 var enemy_data: Dictionary = {}
 var _alive: bool = true
-var _tracking: bool = true
-const TRACKING_SPEED: float = 2.5
-const AUTO_BATTLE_RANGE: float = 1.5
-const AUTO_BATTLE_RANGE_SQ: float = AUTO_BATTLE_RANGE * AUTO_BATTLE_RANGE
-var _engaged: bool = false
-var _player_ref: WeakRef = WeakRef.new()
 
 func _ready() -> void:
 	var body_mat := StandardMaterial3D.new()
@@ -49,39 +43,22 @@ func _make_box(size: Vector3, mat: StandardMaterial3D) -> MeshInstance3D:
 	mi.material_override = mat
 	return mi
 
-func set_player(player: Node3D) -> void:
-	_player_ref = weakref(player)
-
 func init_from_data(data: Dictionary) -> void:
 	enemy_data = data
 	_alive = data.get("alive", true)
-	_tracking = data.get("tracking", true)
 
-func _process(_delta: float) -> void:
-	if not _alive or _engaged:
+# Called by WorldScene when player interacts with this enemy.
+func engage() -> void:
+	if not _alive:
 		return
-
-	var player: Node3D = _player_ref.get_ref() as Node3D
-	if player == null:
-		return
-
-	# Use squared distance to skip sqrt
-	var dx: float = position.x - player.position.x
-	var dz: float = position.z - player.position.z
-	var dist_sq: float = dx * dx + dz * dz
-
-	if dist_sq <= AUTO_BATTLE_RANGE_SQ:
-		_engaged = true
-		enemy_data["alive"] = false
-		_alive = false
-		var edata := enemy_data.duplicate()
-		# Ensure deck is present — fall back to registry if data pre-dates this system
-		if not edata.has("enemy_deck"):
-			var etype: String = str(edata.get("enemy_type", "undead_basic"))
-			edata["enemy_deck"] = EnemyRegistry.get_deck(etype)
-		GameBus.enemy_engaged.emit(edata)
-		queue_free()
-		return
+	_alive = false
+	enemy_data["alive"] = false
+	var edata := enemy_data.duplicate()
+	if not edata.has("enemy_deck"):
+		var etype: String = str(edata.get("enemy_type", "undead_basic"))
+		edata["enemy_deck"] = EnemyRegistry.get_deck(etype)
+	GameBus.enemy_engaged.emit(edata)
+	queue_free()
 
 func mark_defeated() -> void:
 	_alive = false

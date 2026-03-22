@@ -1,3 +1,4 @@
+class_name CardRegistry
 extends Node
 
 # Card templates keyed by ID
