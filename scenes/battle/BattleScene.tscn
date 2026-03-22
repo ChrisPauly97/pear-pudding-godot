@@ -32,16 +32,7 @@ alignment = 1
 
 [node name="EnemyHeroView" type="PanelContainer" parent="EnemyArea"]
 layout_mode = 2
-
-[node name="HPLabel" type="Label" parent="EnemyArea/EnemyHeroView"]
-layout_mode = 2
-text = "HP: 30/30"
-
-[node name="ManaLabel" type="Label" parent="EnemyArea/EnemyHeroView"]
-layout_mode = 2
-text = "Mana: 1/1"
-offset_top = 20.0
-offset_bottom = 40.0
+mouse_default_cursor_shape = 2
 
 [node name="EnemyBoardView" type="HBoxContainer" parent="EnemyArea"]
 layout_mode = 2
@@ -67,16 +58,6 @@ layout_mode = 2
 
 [node name="PlayerHeroView" type="PanelContainer" parent="PlayerArea"]
 layout_mode = 2
-
-[node name="HPLabel" type="Label" parent="PlayerArea/PlayerHeroView"]
-layout_mode = 2
-text = "HP: 30/30"
-
-[node name="ManaLabel" type="Label" parent="PlayerArea/PlayerHeroView"]
-layout_mode = 2
-text = "Mana: 1/1"
-offset_top = 20.0
-offset_bottom = 40.0
 
 [node name="PlayerHandView" type="HBoxContainer" parent="PlayerArea"]
 layout_mode = 2

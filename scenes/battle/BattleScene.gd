@@ -55,6 +55,7 @@ func _ready() -> void:
 
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
+	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
 	_apply_menu_btn_size()
 	GameBus.turn_ended.connect(_on_turn_ended)
 
@@ -139,8 +140,8 @@ func _refresh_all() -> void:
 	_refresh_zone(_enemy_board_view, _state.players[1].board.get_cards(), "enemy_board")
 	_refresh_zone(_player_board_view, _state.players[0].board.get_cards(), "board")
 	_refresh_zone(_player_hand_view, _state.players[0].hand, "hand")
-	_refresh_hero(_enemy_hero_view, _state.players[1].hero)
-	_refresh_hero(_player_hero_view, _state.players[0].hero)
+	_refresh_hero(_enemy_hero_view, _state.players[1].hero, true)
+	_refresh_hero(_player_hero_view, _state.players[0].hero, false)
 	_update_status()
 
 func _refresh_zone(zone_node: Node, cards: Array, zone_id: String) -> void:
@@ -201,13 +202,62 @@ func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 
 	return panel
 
-func _refresh_hero(hero_node: Node, hero: HeroState) -> void:
-	var hp_lbl := hero_node.find_child("HPLabel", true, false)
-	var mana_lbl := hero_node.find_child("ManaLabel", true, false)
-	if hp_lbl:
-		hp_lbl.text = "HP: %d/%d" % [hero.health, hero.max_health]
-	if mana_lbl:
-		mana_lbl.text = "Mana: %d/%d" % [hero.mana, hero.max_mana]
+func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
+	for child in hero_node.get_children():
+		child.queue_free()
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(_vh * 0.004))
+
+	var name_lbl := Label.new()
+	name_lbl.text = "ENEMY" if is_enemy else "YOU"
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_lbl.modulate = Color(1.0, 0.55, 0.55) if is_enemy else Color(0.55, 1.0, 0.75)
+
+	var hp_lbl := Label.new()
+	hp_lbl.name = "HPLabel"
+	hp_lbl.text = "HP  %d / %d" % [hero.health, hero.max_health]
+	hp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
+	hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	var bar := ProgressBar.new()
+	bar.max_value = hero.max_health
+	bar.value = hero.health
+	bar.custom_minimum_size = Vector2(0, int(_vh * 0.014))
+	bar.show_percentage = false
+
+	var mana_lbl := Label.new()
+	mana_lbl.name = "ManaLabel"
+	mana_lbl.text = "Mana  %d / %d" % [hero.mana, hero.max_mana]
+	mana_lbl.add_theme_font_size_override("font_size", int(_vh * 0.013))
+	mana_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	vbox.add_child(name_lbl)
+	vbox.add_child(hp_lbl)
+	vbox.add_child(bar)
+	if not is_enemy:
+		vbox.add_child(mana_lbl)
+	hero_node.add_child(vbox)
+
+	# Styling
+	var style := StyleBoxFlat.new()
+	style.corner_radius_top_left    = 6
+	style.corner_radius_top_right   = 6
+	style.corner_radius_bottom_left = 6
+	style.corner_radius_bottom_right = 6
+	var is_targetable: bool = is_enemy and not _dragged_card.is_empty()
+	if is_enemy:
+		style.bg_color = Color(0.45, 0.1, 0.1) if not is_targetable else Color(0.55, 0.15, 0.1)
+		if is_targetable:
+			style.border_color = Color(1.0, 0.35, 0.2)
+			style.border_width_top    = 3
+			style.border_width_bottom = 3
+			style.border_width_left   = 3
+			style.border_width_right  = 3
+	else:
+		style.bg_color = Color(0.1, 0.2, 0.4)
+	hero_node.add_theme_stylebox_override("panel", style)
 
 func _update_status() -> void:
 	var player := _state.players[0]
@@ -231,18 +281,9 @@ func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if not my_card.can_attack():
 			return
-		var targets := _state.players[1].board.get_cards()
-		if targets.is_empty():
-			# No enemy minions — attack hero directly
-			_state.players[1].hero.take_damage(my_card.attack)
-			my_card.attack_count -= 1
-			my_card.health -= _state.players[1].hero.attack
-			_dragged_card.clear()
-		else:
-			# Select as attacker; player clicks an enemy card to resolve
-			_dragged_card = {"card": my_card}
+		# Always enter selection mode — player clicks a target (minion or hero)
+		_dragged_card = {"card": my_card}
 		_refresh_all()
-		_check_game_over()
 
 func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -258,6 +299,27 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		if not target.is_alive():
 			_state.players[1].board.remove_card(target)
 			_state.players[1].discard.append(target)
+		if not attacker.is_alive():
+			_state.players[0].board.remove_card(attacker)
+			_state.players[0].discard.append(attacker)
+		_dragged_card.clear()
+		_refresh_all()
+		_check_game_over()
+
+func _on_enemy_hero_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _state.current_player_idx != 0 or _ai_thinking:
+			return
+		if _dragged_card.is_empty():
+			return
+		var attacker: CardInstance = _dragged_card["card"]
+		if not attacker.can_attack():
+			_dragged_card.clear()
+			_refresh_all()
+			return
+		_state.players[1].hero.take_damage(attacker.attack)
+		attacker.health -= _state.players[1].hero.attack
+		attacker.attack_count -= 1
 		if not attacker.is_alive():
 			_state.players[0].board.remove_card(attacker)
 			_state.players[0].discard.append(attacker)
