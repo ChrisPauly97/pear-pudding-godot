@@ -26,6 +26,10 @@ anchor_bottom = 0.45
 offset_right = 0.0
 offset_bottom = 0.0
 
+[node name="EnemyHandView" type="HBoxContainer" parent="EnemyArea"]
+layout_mode = 2
+alignment = 1
+
 [node name="EnemyHeroView" type="PanelContainer" parent="EnemyArea"]
 layout_mode = 2
 
@@ -76,6 +80,7 @@ offset_bottom = 40.0
 
 [node name="PlayerHandView" type="HBoxContainer" parent="PlayerArea"]
 layout_mode = 2
+alignment = 1
 
 [node name="SidePanel" type="VBoxContainer" parent="."]
 layout_mode = 1
