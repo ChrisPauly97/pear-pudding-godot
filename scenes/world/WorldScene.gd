@@ -42,10 +42,15 @@ var _chunk_build_queue: Array[Vector2i] = []
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 var _interact_timer: float = 0.0
 
-const LOAD_RADIUS:      int = 6
-const UNLOAD_RADIUS:    int = 7
-const WORLD_SEED:       int = 42
-const CHUNKS_PER_FRAME: int = 6
+# Threaded chunk building
+var _chunk_data_pending: Dictionary = {}    # Vector2i -> true (job in flight)
+var _chunk_build_results: Array = []        # completed terrain prep, waiting for commit
+var _chunk_build_mutex: Mutex = Mutex.new()
+
+const LOAD_RADIUS:        int = 6
+const UNLOAD_RADIUS:      int = 7
+const WORLD_SEED:         int = 42
+const MAX_CHUNK_JOBS:     int = 4   # concurrent WorkerThreadPool tasks
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
 @onready var _camera: Camera3D = $Camera3D
@@ -88,14 +93,14 @@ func _ready() -> void:
 		_spawn_player_infinite()
 		_update_chunks()
 		# Build the inner 5×5 ring synchronously for an immediate view;
-		# outer chunks stream in via _process to keep startup fast.
+		# outer chunks stream in via threaded jobs in _process.
 		var sync_cx: int = _last_player_chunk.x
 		var sync_cz: int = _last_player_chunk.y
 		var deferred: Array[Vector2i] = []
 		while not _chunk_build_queue.is_empty():
 			var key: Vector2i = _chunk_build_queue.pop_front()
 			if abs(key.x - sync_cx) <= 2 and abs(key.y - sync_cz) <= 2:
-				_build_chunk_at(key)
+				_build_chunk_sync(key)
 			else:
 				deferred.append(key)
 		_chunk_build_queue.assign(deferred)
@@ -233,16 +238,8 @@ func _update_chunks() -> void:
 	var vel_xz: Vector2 = Vector2(_player.velocity.x, _player.velocity.z)
 	var look_dir: Vector2 = vel_xz.normalized() if vel_xz.length_squared() > 0.25 else Vector2.ZERO
 
-	# 1. Generate data-only for border ring (LOAD_RADIUS + 1) so cross-chunk
-	#    terrain height lookups never miss during chunk mesh builds.
-	var border: int = LOAD_RADIUS + 1
-	for dz in range(-border, border + 1):
-		for dx in range(-border, border + 1):
-			var key := Vector2i(pcx + dx, pcz + dz)
-			if not _chunk_data_cache.has(key):
-				_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk_data_only(key.x, key.y, WORLD_SEED)
-
-	# 2. Queue chunks that are visible or in the movement lookahead cone.
+	# Queue chunks that are visible or in the movement lookahead cone.
+	# Tile data for neighbours is ensured lazily in _kick_chunk_jobs before dispatch.
 	for dz in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
 		for dx in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
 			var key := Vector2i(pcx + dx, pcz + dz)
@@ -264,13 +261,6 @@ func _update_chunks() -> void:
 				var to_chunk := Vector2(float(dx), float(dz))
 				if to_chunk.length_squared() > 0.0 and to_chunk.normalized().dot(look_dir) > 0.3:
 					_chunk_build_queue.append(key)
-
-	# Sort queue so nearest chunks are built first
-	_chunk_build_queue.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-		var da: int = (a.x - pcx) * (a.x - pcx) + (a.y - pcz) * (a.y - pcz)
-		var db: int = (b.x - pcx) * (b.x - pcx) + (b.y - pcz) * (b.y - pcz)
-		return da < db
-	)
 
 	# 3. Unload chunks beyond UNLOAD_RADIUS (distance-based, not frustum,
 	#    so chunks behind you stay loaded while you might still turn around)
@@ -296,24 +286,134 @@ func _update_chunks() -> void:
 
 	_last_player_chunk = player_chunk
 
-func _build_chunk_at(key: Vector2i) -> void:
-	if _chunk_renderers.has(key):
-		return
-	# Drop stale queue entries outside the load radius
+# ── Tile-grid snapshot helpers ─────────────────────────────────────────────
+
+# Ensure 3×3 neighbourhood of chunk key has tile-only data in the cache.
+# Fast: only noise for 16×16 tiles each, no mesh work.
+func _ensure_tile_data_around(key: Vector2i) -> void:
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			var nkey := Vector2i(key.x + dx, key.y + dz)
+			if not _chunk_data_cache.has(nkey):
+				_chunk_data_cache[nkey] = InfiniteWorldGen.generate_chunk_data_only(nkey.x, nkey.y, WORLD_SEED)
+
+# Build the packed tile-type grid needed by ChunkRenderer.prepare_terrain().
+# Returns [tile_grid, grid_min_x, grid_min_z, grid_w].
+func _snapshot_tile_grid_for(key: Vector2i) -> Array:
+	const CHUNK_SIZE: int = 16
+	const TILE_CHECK: int = ChunkRenderer.TILE_CHECK
+	var chunk_origin_x: float = float(key.x * CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var chunk_origin_z: float = float(key.y * CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var base_tx: int = int(chunk_origin_x / IsoConst.TILE_SIZE)
+	var base_tz: int = int(chunk_origin_z / IsoConst.TILE_SIZE)
+	var grid_min_x: int = base_tx - TILE_CHECK
+	var grid_min_z: int = base_tz - TILE_CHECK
+	var grid_w: int = CHUNK_SIZE + TILE_CHECK * 2 + 1
+	var grid_h: int = CHUNK_SIZE + TILE_CHECK * 2 + 1
+	var tile_grid := PackedInt32Array()
+	tile_grid.resize(grid_w * grid_h)
+	for gz in range(grid_h):
+		for gx in range(grid_w):
+			tile_grid[gz * grid_w + gx] = get_tile_global(grid_min_x + gx, grid_min_z + gz)
+	return [tile_grid, grid_min_x, grid_min_z, grid_w]
+
+# ── Threaded chunk building ────────────────────────────────────────────────
+
+# Worker-thread task: does the heavy CPU work (height field, packed arrays,
+# ArrayMesh, HeightMapShape3D) without touching the scene tree.
+func _chunk_prepare_task(key: Vector2i, chunk_data: RefCounted,
+		tile_grid: PackedInt32Array, grid_min_x: int, grid_min_z: int, grid_w: int) -> void:
+	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(
+			chunk_data, tile_grid, grid_min_x, grid_min_z, grid_w)
+	_chunk_build_mutex.lock()
+	_chunk_build_results.append({ "key": key, "chunk_data": chunk_data, "terrain_res": terrain_res })
+	_chunk_build_mutex.unlock()
+
+# Called every frame: kick off thread jobs for queued chunks up to MAX_CHUNK_JOBS.
+func _kick_chunk_jobs() -> void:
+	# Sort so nearest chunks are dispatched first (re-sort each call so
+	# direction changes are reflected without waiting for _update_chunks).
 	var pcx: int = _last_player_chunk.x
 	var pcz: int = _last_player_chunk.y
-	if abs(key.x - pcx) > LOAD_RADIUS or abs(key.y - pcz) > LOAD_RADIUS:
+	_chunk_build_queue.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var da: int = (a.x - pcx) * (a.x - pcx) + (a.y - pcz) * (a.y - pcz)
+		var db: int = (b.x - pcx) * (b.x - pcx) + (b.y - pcz) * (b.y - pcz)
+		return da < db
+	)
+
+	var i: int = 0
+	while i < _chunk_build_queue.size():
+		if _chunk_data_pending.size() >= MAX_CHUNK_JOBS:
+			break
+		var key: Vector2i = _chunk_build_queue[i]
+		if _chunk_renderers.has(key) or _chunk_data_pending.has(key):
+			_chunk_build_queue.remove_at(i)
+			continue
+		if abs(key.x - pcx) > LOAD_RADIUS or abs(key.y - pcz) > LOAD_RADIUS:
+			_chunk_build_queue.remove_at(i)
+			continue
+
+		# Ensure neighbour tile data exists (fast, sync) then snapshot for thread
+		_ensure_tile_data_around(key)
+		var snap := _snapshot_tile_grid_for(key)
+
+		# Ensure full chunk data (entities) is ready before handing to thread
+		if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
+			_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
+		var chunk_data: RefCounted = _chunk_data_cache[key]
+
+		_chunk_data_pending[key] = true
+		_chunk_build_queue.remove_at(i)
+		WorkerThreadPool.add_task(_chunk_prepare_task.bind(
+				key, chunk_data, snap[0], snap[1], snap[2], snap[3]))
+		# don't increment i — next item shifted into position
+
+# Called every frame: commit one ready result to the scene tree (cheap).
+func _commit_chunk_results() -> void:
+	_chunk_build_mutex.lock()
+	if _chunk_build_results.is_empty():
+		_chunk_build_mutex.unlock()
 		return
+	var result: Dictionary = _chunk_build_results.pop_front()
+	_chunk_build_mutex.unlock()
+
+	var key: Vector2i = result["key"]
+	_chunk_data_pending.erase(key)
+
+	# Discard if the chunk was unloaded or is now out of range
+	if _chunk_renderers.has(key):
+		return
+	if abs(key.x - _last_player_chunk.x) > LOAD_RADIUS or abs(key.y - _last_player_chunk.y) > LOAD_RADIUS:
+		return
+
+	var chunk: RefCounted = result["chunk_data"]
+	for c_data in chunk.chests:
+		var cid: String = str(c_data.get("id", ""))
+		_active_chest_data[cid] = c_data
+
+	var renderer: ChunkRenderer = ChunkRenderer.new()
+	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
+	add_child(renderer)
+	renderer.build(chunk, key, self, _terrain_mat, result["terrain_res"])
+	_chunk_renderers[key] = renderer
+
+# Synchronous build used at startup so the world is ready before first frame.
+func _build_chunk_sync(key: Vector2i) -> void:
+	if _chunk_renderers.has(key):
+		return
+	_ensure_tile_data_around(key)
+	var snap := _snapshot_tile_grid_for(key)
 	if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
 		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
 	var chunk: RefCounted = _chunk_data_cache[key]
+	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3])
 	for c_data in chunk.chests:
 		var cid: String = str(c_data.get("id", ""))
 		_active_chest_data[cid] = c_data
 	var renderer: ChunkRenderer = ChunkRenderer.new()
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
 	add_child(renderer)
-	renderer.build(chunk, key, self, _terrain_mat)
+	renderer.build(chunk, key, self, _terrain_mat, terrain_res)
 	_chunk_renderers[key] = renderer
 
 # Called by ChunkRenderer after spawning an enemy
@@ -731,12 +831,9 @@ func _process(delta: float) -> void:
 					_last_move_dir = new_dir
 		if needs_update:
 			_update_chunks()
-		# Drain build queue at a fixed rate to avoid per-frame spikes
-		for _i in range(CHUNKS_PER_FRAME):
-			if _chunk_build_queue.is_empty():
-				break
-			var key: Vector2i = _chunk_build_queue.pop_front()
-			_build_chunk_at(key)
+		# Dispatch thread jobs for queued chunks, commit completed results
+		_kick_chunk_jobs()
+		_commit_chunk_results()
 
 	# Only update save position when player moves > 1 unit (not every frame)
 	var cur_pos := Vector2(_player.position.x, _player.position.z)
