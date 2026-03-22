@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dqvdl0m4y7rar"
-path="res://.godot/imported/hill_top.png-ef0576fb424066e41ba6658197d71b43.ctex"
+uid="uid://whbdyxvr54p3"
+path="res://.godot/imported/hill_top.png-ae6f32ec264bf8b8cbd50841931a1962.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hill_top.png"
-dest_files=["res://.godot/imported/hill_top.png-ef0576fb424066e41ba6658197d71b43.ctex"]
+source_file="res://assets/textures/hill_top.png"
+dest_files=["res://.godot/imported/hill_top.png-ae6f32ec264bf8b8cbd50841931a1962.ctex"]
 
 [params]
 

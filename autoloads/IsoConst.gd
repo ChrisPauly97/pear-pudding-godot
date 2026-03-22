@@ -11,7 +11,7 @@ const ISO_TW: int = 64
 const ISO_TH: int = 32
 const ISO_HALF_W: int = 32
 const ISO_HALF_H: int = 16
-const WALL_FACE_H: float = 0.625  # 20/32 scaled — height per wall level in Godot units
+const WALL_FACE_H: float = 1.0    # world-unit height per wall level
 const WALL_FACE_TEX_H: int = 36
 
 # Tile type constants

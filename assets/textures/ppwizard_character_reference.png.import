@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cct54xpdw4eaf"
-path="res://.godot/imported/hill_right.png-464a964470b247091750b8bccc6d95de.ctex"
+uid="uid://davfy3168chu"
+path="res://.godot/imported/ppwizard_character_reference.png-f77673b6506fc965c48c725d4fb69253.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hill_right.png"
-dest_files=["res://.godot/imported/hill_right.png-464a964470b247091750b8bccc6d95de.ctex"]
+source_file="res://assets/textures/ppwizard_character_reference.png"
+dest_files=["res://.godot/imported/ppwizard_character_reference.png-f77673b6506fc965c48c725d4fb69253.ctex"]
 
 [params]
 

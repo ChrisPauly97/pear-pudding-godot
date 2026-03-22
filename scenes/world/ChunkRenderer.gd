@@ -1,6 +1,8 @@
 extends Node3D
 
-const TextureGen = preload("res://game_logic/TextureGen.gd")
+const _TexWallLeft:  Texture2D = preload("res://assets/textures/wall_side_left.png")
+const _TexWallRight: Texture2D = preload("res://assets/textures/wall_side_right.png")
+const _TexWallTop:   Texture2D = preload("res://assets/textures/wall_top.png")
 const GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 
 # Preload entity scenes once, not per-spawn
@@ -8,7 +10,7 @@ const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChestScene = preload("res://scenes/world/entities/Chest.tscn")
 
 const TERRAIN_VDENSITY: int = 2
-const WALL_FACE_H:      float = 0.625
+const WALL_LEVEL_H:     float = 1.0   # world-unit height per wall level
 const PLATEAU_H:        float = 1.5   # hill plateau height above ground
 const CURVE_R:          float = 3.0   # smoothstep transition radius (world units)
 
@@ -17,9 +19,11 @@ const CURVE_R:          float = 3.0   # smoothstep transition radius (world unit
 const TILE_CHECK: int = 3  # ceil(CURVE_R / TILE_SIZE) + 1
 
 # Shared across all chunks — created once on first use
-static var _wall_mat: StandardMaterial3D
-static var _wall_box_shape: BoxShape3D
-static var _wall_box_mesh: BoxMesh
+# left = south (+Z) face, right = east (+X) face — the only two sides visible
+# to the isometric camera which always looks from the (+X,+Y,+Z) direction.
+static var _wall_left_mat:  StandardMaterial3D
+static var _wall_right_mat: StandardMaterial3D
+static var _wall_top_mat:   StandardMaterial3D
 
 var _chunk_data: RefCounted   # ChunkData
 var _chunk_key:  Vector2i
@@ -257,57 +261,158 @@ func _apply_terrain(res: Dictionary) -> void:
 # ── Walls ──────────────────────────────────────────────────────────────────
 
 static func _ensure_wall_resources() -> void:
-	if _wall_mat == null:
-		_wall_mat = StandardMaterial3D.new()
-		_wall_mat.albedo_texture = TextureGen.wall_side(true)
-	if _wall_box_mesh == null:
-		_wall_box_mesh = BoxMesh.new()
-		_wall_box_mesh.size = Vector3(IsoConst.TILE_SIZE, WALL_FACE_H, IsoConst.TILE_SIZE)
-	if _wall_box_shape == null:
-		_wall_box_shape = BoxShape3D.new()
-		_wall_box_shape.size = Vector3(IsoConst.TILE_SIZE, WALL_FACE_H, IsoConst.TILE_SIZE)
+	if _wall_left_mat == null:
+		_wall_left_mat = StandardMaterial3D.new()
+		_wall_left_mat.albedo_texture = _TexWallLeft
+		_wall_left_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_wall_left_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	if _wall_right_mat == null:
+		_wall_right_mat = StandardMaterial3D.new()
+		_wall_right_mat.albedo_texture = _TexWallRight
+		_wall_right_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_wall_right_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	if _wall_top_mat == null:
+		_wall_top_mat = StandardMaterial3D.new()
+		_wall_top_mat.albedo_texture = _TexWallTop
+		_wall_top_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_wall_top_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+
+# Build one quad (2 triangles) for a wall side face.
+# Vertices in order: bl (bottom-left), br (bottom-right), tr (top-right), tl (top-left)
+# viewed from outside the wall.  The normal must be pre-validated as outward-facing.
+# UV: u 0→1 horizontal, v h→0 vertical so the texture tiles h times from bottom to top.
+static func _add_wall_side(
+		verts: PackedVector3Array, normals: PackedVector3Array,
+		uvs: PackedVector2Array, indices: PackedInt32Array,
+		bl: Vector3, br: Vector3, tr: Vector3, tl: Vector3,
+		normal: Vector3, h: float) -> void:
+	var i: int = verts.size()
+	verts.append_array([bl, br, tr, tl])
+	normals.append_array([normal, normal, normal, normal])
+	uvs.append_array([Vector2(0.0, h), Vector2(1.0, h), Vector2(1.0, 0.0), Vector2(0.0, 0.0)])
+	indices.append_array([i, i + 1, i + 2, i, i + 2, i + 3])
 
 func _build_walls() -> void:
 	const CHUNK_SIZE: int = 16
 	_ensure_wall_resources()
 
-	var positions: Array[Vector3] = []
-	for lz in range(CHUNK_SIZE):
-		for lx in range(CHUNK_SIZE):
-			if _chunk_data.get_tile(lx, lz) != IsoConst.TILE_WALL:
-				continue
-			var h: int = _chunk_data.get_height(lx, lz)
-			for level in range(h):
-				positions.append(Vector3(
-					float(lx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-					float(level) * WALL_FACE_H + WALL_FACE_H * 0.5,
-					float(lz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-				))
+	# South (+Z) faces — "left" side of the iso block on screen
+	var lv := PackedVector3Array()
+	var ln := PackedVector3Array()
+	var lu := PackedVector2Array()
+	var li := PackedInt32Array()
 
-	if positions.is_empty():
-		return
+	# East (+X) faces — "right" side of the iso block on screen
+	var rv := PackedVector3Array()
+	var rn := PackedVector3Array()
+	var ru := PackedVector2Array()
+	var ri := PackedInt32Array()
 
-	var mm := MultiMesh.new()
-	mm.mesh = _wall_box_mesh
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.instance_count = positions.size()
-	for i in positions.size():
-		mm.set_instance_transform(i, Transform3D(Basis.IDENTITY, positions[i]))
-
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.material_override = _wall_mat
-	add_child(mmi)
+	# Top geometry
+	var tv := PackedVector3Array()
+	var tn := PackedVector3Array()
+	var tu := PackedVector2Array()
+	var ti := PackedInt32Array()
 
 	var wall_body := StaticBody3D.new()
 	wall_body.name = "WallCollision"
 	wall_body.collision_layer = 4
 	wall_body.collision_mask  = 0
-	for pos in positions:
-		var col := CollisionShape3D.new()
-		col.shape = _wall_box_shape
-		col.position = pos
-		wall_body.add_child(col)
+
+	for lz in range(CHUNK_SIZE):
+		for lx in range(CHUNK_SIZE):
+			if _chunk_data.get_tile(lx, lz) != IsoConst.TILE_WALL:
+				continue
+			var h: int = max(1, _chunk_data.get_height(lx, lz))
+			var fh: float = float(h)
+			var top_y: float = fh * WALL_LEVEL_H
+			var x0: float = float(lx) * IsoConst.TILE_SIZE
+			var x1: float = x0 + IsoConst.TILE_SIZE
+			var z0: float = float(lz) * IsoConst.TILE_SIZE
+			var z1: float = z0 + IsoConst.TILE_SIZE
+
+			# Top face
+			var tbase: int = tv.size()
+			tv.append_array([
+				Vector3(x0, top_y, z0), Vector3(x1, top_y, z0),
+				Vector3(x1, top_y, z1), Vector3(x0, top_y, z1)
+			])
+			tn.append_array([Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP])
+			tu.append_array([Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(1.0, 1.0), Vector2(0.0, 1.0)])
+			ti.append_array([tbase, tbase + 1, tbase + 2, tbase, tbase + 2, tbase + 3])
+
+			# Only draw the two faces visible to the isometric camera (always at +X,+Y,+Z).
+			# South (+Z) = left side of block on screen.
+			var nb_h_s: int = 0
+			if _chunk_data.get_tile(lx, lz + 1) == IsoConst.TILE_WALL:
+				nb_h_s = max(1, _chunk_data.get_height(lx, lz + 1))
+			if nb_h_s < h:
+				var bot_s: float = float(nb_h_s) * WALL_LEVEL_H
+				_add_wall_side(lv, ln, lu, li,
+					Vector3(x0, bot_s, z1), Vector3(x1, bot_s, z1),
+					Vector3(x1, top_y, z1), Vector3(x0, top_y, z1),
+					Vector3(0.0, 0.0, 1.0), float(h - nb_h_s))
+
+			# East (+X) = right side of block on screen.
+			var nb_h_e: int = 0
+			if _chunk_data.get_tile(lx + 1, lz) == IsoConst.TILE_WALL:
+				nb_h_e = max(1, _chunk_data.get_height(lx + 1, lz))
+			if nb_h_e < h:
+				var bot_e: float = float(nb_h_e) * WALL_LEVEL_H
+				_add_wall_side(rv, rn, ru, ri,
+					Vector3(x1, bot_e, z1), Vector3(x1, bot_e, z0),
+					Vector3(x1, top_y, z0), Vector3(x1, top_y, z1),
+					Vector3(1.0, 0.0, 0.0), float(h - nb_h_e))
+
+			# One collision box per tile spanning full height
+			var col := CollisionShape3D.new()
+			var box := BoxShape3D.new()
+			box.size = Vector3(IsoConst.TILE_SIZE, top_y, IsoConst.TILE_SIZE)
+			col.shape = box
+			col.position = Vector3(x0 + IsoConst.TILE_SIZE * 0.5, top_y * 0.5, z0 + IsoConst.TILE_SIZE * 0.5)
+			wall_body.add_child(col)
+
+	if lv.is_empty() and rv.is_empty() and tv.is_empty():
+		return
+
+	var mesh := ArrayMesh.new()
+	if not lv.is_empty():
+		var arr: Array = []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = lv
+		arr[Mesh.ARRAY_NORMAL] = ln
+		arr[Mesh.ARRAY_TEX_UV] = lu
+		arr[Mesh.ARRAY_INDEX]  = li
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	if not rv.is_empty():
+		var arr: Array = []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = rv
+		arr[Mesh.ARRAY_NORMAL] = rn
+		arr[Mesh.ARRAY_TEX_UV] = ru
+		arr[Mesh.ARRAY_INDEX]  = ri
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+	if not tv.is_empty():
+		var arr: Array = []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = tv
+		arr[Mesh.ARRAY_NORMAL] = tn
+		arr[Mesh.ARRAY_TEX_UV] = tu
+		arr[Mesh.ARRAY_INDEX]  = ti
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	var surf: int = 0
+	if not lv.is_empty():
+		mi.set_surface_override_material(surf, _wall_left_mat)
+		surf += 1
+	if not rv.is_empty():
+		mi.set_surface_override_material(surf, _wall_right_mat)
+		surf += 1
+	if not tv.is_empty():
+		mi.set_surface_override_material(surf, _wall_top_mat)
+	add_child(mi)
 	add_child(wall_body)
 
 # ── Grass ──────────────────────────────────────────────────────────────────
@@ -364,7 +469,7 @@ func _set_visibility_range(node: Node3D) -> void:
 	if mi:
 		mi.visibility_range_end = ENTITY_VISIBILITY_END
 		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 func _spawn_enemy(e_data: Dictionary, entity_root: Node3D, world_scene: Node3D) -> void:
 	var node: Node3D = _EnemyScene.instantiate()

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://chuyxkmp8siwa"
-path="res://.godot/imported/wallbrick_left.png-f9d55820dbea78d8c3032007f899a943.ctex"
+uid="uid://rduuwodpp5tv"
+path="res://.godot/imported/grass.png-44de1b601ed5e0482c9aa195977ab90c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/wallbrick_left.png"
-dest_files=["res://.godot/imported/wallbrick_left.png-f9d55820dbea78d8c3032007f899a943.ctex"]
+source_file="res://assets/textures/grass.png"
+dest_files=["res://.godot/imported/grass.png-44de1b601ed5e0482c9aa195977ab90c.ctex"]
 
 [params]
 

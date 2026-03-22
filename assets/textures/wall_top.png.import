@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c2xvkeautcgoa"
-path="res://.godot/imported/hill_left.png-1aa9f8b4dae671fbfc1c44fc50704335.ctex"
+uid="uid://to31mlmup2yo"
+path="res://.godot/imported/wall_top.png-4e1688e583cd0a6c5b2be53f0a24ae40.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/hill_left.png"
-dest_files=["res://.godot/imported/hill_left.png-1aa9f8b4dae671fbfc1c44fc50704335.ctex"]
+source_file="res://assets/textures/wall_top.png"
+dest_files=["res://.godot/imported/wall_top.png-4e1688e583cd0a6c5b2be53f0a24ae40.ctex"]
 
 [params]
 

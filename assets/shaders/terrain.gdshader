@@ -92,12 +92,13 @@ void fragment() {
 	vec3 top_col   = vec3(0.39 + d0 * 0.08, 0.58 + d0 * 0.09, 0.21 + d0 * 0.04);
 	vec3 wall_col  = vec3(0.49 + d1 * 0.07, 0.38 + d1 * 0.05, 0.18 + d1 * 0.04);
 
-	// Optional texture tint: (0.5 + tex*0.5) means white→factor=1 (no-op),
-	// coloured texture→subtle tint.  Works correctly whether textures load or not.
-	grass_col *= 0.5 + texture(grass_texture,     uv_xz).rgb * 0.5;
-	side_col  *= 0.5 + texture(hill_side_texture, uv_xz).rgb * 0.5;
-	top_col   *= 0.5 + texture(hill_texture,      uv_xz).rgb * 0.5;
-	wall_col  *= 0.5 + texture(wall_top_texture,  uv_xz).rgb * 0.5;
+	// Blend procedural colour variation with the AI-generated texture.
+	// mix(proc, tex, 0.85) keeps 15% procedural noise for micro-variation
+	// while letting the texture's colours dominate.
+	grass_col = mix(grass_col, texture(grass_texture,     uv_xz).rgb, 0.85);
+	side_col  = mix(side_col,  texture(hill_side_texture, uv_xz).rgb, 0.85);
+	top_col   = mix(top_col,   texture(hill_texture,      uv_xz).rgb, 0.85);
+	wall_col  = mix(wall_col,  texture(wall_top_texture,  uv_xz).rgb, 0.85);
 
 	vec3 base_col = mix(grass_col, side_col, t_side);
 	base_col = mix(base_col, top_col, t_top);

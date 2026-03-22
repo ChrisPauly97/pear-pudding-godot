@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dkiv24aqmib4"
-path="res://.godot/imported/wallbrick_top.png-26ee096e34eb4eae8f0311ba9a426757.ctex"
+uid="uid://b26td78mx31gu"
+path="res://.godot/imported/hill_side.png-5396bde1765960fed23ab8406f944522.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/wallbrick_top.png"
-dest_files=["res://.godot/imported/wallbrick_top.png-26ee096e34eb4eae8f0311ba9a426757.ctex"]
+source_file="res://assets/textures/hill_side.png"
+dest_files=["res://.godot/imported/hill_side.png-5396bde1765960fed23ab8406f944522.ctex"]
 
 [params]
 
