@@ -85,9 +85,12 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	_current_battle_enemy_id = str(enemy_data.get("id", ""))
 	_battle_overlay = _battle_scene_packed.instantiate()
 	_battle_overlay.enemy_data = enemy_data
+	_battle_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
 	get_tree().current_scene.add_child(_battle_overlay)
+	get_tree().paused = true
 
 func _on_battle_won(_result: Dictionary) -> void:
+	get_tree().paused = false
 	if not _current_battle_enemy_id.is_empty():
 		SaveManager.mark_enemy_defeated(_current_battle_enemy_id)
 		_current_battle_enemy_id = ""
@@ -96,6 +99,7 @@ func _on_battle_won(_result: Dictionary) -> void:
 		_battle_overlay = null
 
 func _on_battle_lost() -> void:
+	get_tree().paused = false
 	_current_battle_enemy_id = ""
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()

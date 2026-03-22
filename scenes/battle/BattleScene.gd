@@ -289,7 +289,7 @@ func _run_ai_turn() -> void:
 
 func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	if idx >= actions.size():
-		await get_tree().create_timer(0.5).timeout
+		await get_tree().create_timer(0.5, true).timeout
 		_ai_thinking = false
 		_state.end_turn()
 		_refresh_all()
@@ -297,7 +297,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		return
 	actions[idx].call()
 	_refresh_all()
-	await get_tree().create_timer(0.6).timeout
+	await get_tree().create_timer(0.6, true).timeout
 	_execute_ai_actions(actions, idx + 1)
 
 func _check_game_over() -> void:
