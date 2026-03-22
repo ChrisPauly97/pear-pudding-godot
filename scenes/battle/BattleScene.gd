@@ -145,15 +145,38 @@ func _refresh_all() -> void:
 	_update_status()
 
 func _refresh_zone(zone_node: Node, cards: Array, zone_id: String) -> void:
-	for child in zone_node.get_children():
-		child.queue_free()
-	for card in cards:
-		var card_view := _make_card_view(card, zone_id)
-		zone_node.add_child(card_view)
+	var existing: Array[Node] = zone_node.get_children()
+	var needed: int = cards.size()
+	# Reuse existing panels where possible, update their content
+	for i in range(needed):
+		if i < existing.size():
+			_update_card_view(existing[i] as PanelContainer, cards[i], zone_id)
+		else:
+			var card_view := _make_card_view(cards[i], zone_id)
+			zone_node.add_child(card_view)
+	# Remove excess panels
+	for i in range(needed, existing.size()):
+		existing[i].queue_free()
 
-func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(_vh * 0.09, _vh * 0.15)
+func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
+	var vbox: VBoxContainer = panel.get_child(0) as VBoxContainer
+	if not vbox or vbox.get_child_count() < 3:
+		# Structure mismatch — rebuild from scratch
+		for child in panel.get_children():
+			child.queue_free()
+		var new_vbox := _build_card_vbox(card)
+		panel.add_child(new_vbox)
+	else:
+		var name_lbl: Label = vbox.get_child(0) as Label
+		var stats_lbl: Label = vbox.get_child(1) as Label
+		var desc_lbl: Label = vbox.get_child(2) as Label
+		name_lbl.text = card.name
+		stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
+		desc_lbl.text = card.description
+	_apply_card_style(panel, card, zone_id)
+	_bind_card_input(panel, card, zone_id)
+
+func _build_card_vbox(card: CardInstance) -> VBoxContainer:
 	var vbox := VBoxContainer.new()
 	var name_lbl := Label.new()
 	name_lbl.text = card.name
@@ -169,14 +192,12 @@ func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	vbox.add_child(name_lbl)
 	vbox.add_child(stats_lbl)
 	vbox.add_child(desc_lbl)
-	panel.add_child(vbox)
+	return vbox
 
-	# Style
+func _apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
 	var style := StyleBoxFlat.new()
 	var tmpl := CardRegistry.get_template(card.template_id)
 	style.bg_color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
-
-	# Dim unplayable hand cards; highlight selected attacker
 	if zone_id == "hand" and not _state.players[0].can_play(card):
 		style.bg_color = style.bg_color.darkened(0.5)
 	elif zone_id == "board" and not _dragged_card.is_empty() and _dragged_card.get("card") == card:
@@ -185,60 +206,75 @@ func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 		style.border_width_bottom = 3
 		style.border_width_left = 3
 		style.border_width_right = 3
-
 	style.corner_radius_top_left = 4
 	style.corner_radius_top_right = 4
 	style.corner_radius_bottom_left = 4
 	style.corner_radius_bottom_right = 4
 	panel.add_theme_stylebox_override("panel", style)
 
-	# Interactions
+func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
+	# Disconnect old signals before connecting new ones
+	for conn in panel.gui_input.get_connections():
+		panel.gui_input.disconnect(conn["callable"])
 	if zone_id == "hand" and _state.current_player_idx == 0:
-		panel.gui_input.connect(func(event): _on_hand_card_input(event, card, panel))
+		panel.gui_input.connect(func(event: InputEvent) -> void: _on_hand_card_input(event, card, panel))
 	elif zone_id == "board" and _state.current_player_idx == 0:
-		panel.gui_input.connect(func(event): _on_board_card_input(event, card))
+		panel.gui_input.connect(func(event: InputEvent) -> void: _on_board_card_input(event, card))
 	elif zone_id == "enemy_board":
-		panel.gui_input.connect(func(event): _on_enemy_card_input(event, card))
+		panel.gui_input.connect(func(event: InputEvent) -> void: _on_enemy_card_input(event, card))
 
+func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(_vh * 0.09, _vh * 0.15)
+	panel.add_child(_build_card_vbox(card))
+	_apply_card_style(panel, card, zone_id)
+	_bind_card_input(panel, card, zone_id)
 	return panel
 
 func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
-	for child in hero_node.get_children():
-		child.queue_free()
+	var vbox: VBoxContainer = hero_node.get_child(0) as VBoxContainer if hero_node.get_child_count() > 0 else null
+	if not vbox:
+		# First time — build the hero UI
+		vbox = VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", int(_vh * 0.004))
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.004))
+		var name_lbl := Label.new()
+		name_lbl.name = "NameLabel"
+		name_lbl.text = "ENEMY" if is_enemy else "YOU"
+		name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_lbl.modulate = Color(1.0, 0.55, 0.55) if is_enemy else Color(0.55, 1.0, 0.75)
 
-	var name_lbl := Label.new()
-	name_lbl.text = "ENEMY" if is_enemy else "YOU"
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.modulate = Color(1.0, 0.55, 0.55) if is_enemy else Color(0.55, 1.0, 0.75)
+		var hp_lbl := Label.new()
+		hp_lbl.name = "HPLabel"
+		hp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
+		hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
-	var hp_lbl := Label.new()
-	hp_lbl.name = "HPLabel"
+		var bar := ProgressBar.new()
+		bar.name = "HPBar"
+		bar.custom_minimum_size = Vector2(0, int(_vh * 0.014))
+		bar.show_percentage = false
+
+		vbox.add_child(name_lbl)
+		vbox.add_child(hp_lbl)
+		vbox.add_child(bar)
+		if not is_enemy:
+			var mana_lbl := Label.new()
+			mana_lbl.name = "ManaLabel"
+			mana_lbl.add_theme_font_size_override("font_size", int(_vh * 0.013))
+			mana_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			vbox.add_child(mana_lbl)
+		hero_node.add_child(vbox)
+
+	# Update values on existing nodes
+	var hp_lbl: Label = vbox.get_node("HPLabel") as Label
 	hp_lbl.text = "HP  %d / %d" % [hero.health, hero.max_health]
-	hp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
-	hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-
-	var bar := ProgressBar.new()
+	var bar: ProgressBar = vbox.get_node("HPBar") as ProgressBar
 	bar.max_value = hero.max_health
 	bar.value = hero.health
-	bar.custom_minimum_size = Vector2(0, int(_vh * 0.014))
-	bar.show_percentage = false
-
-	var mana_lbl := Label.new()
-	mana_lbl.name = "ManaLabel"
-	mana_lbl.text = "Mana  %d / %d" % [hero.mana, hero.max_mana]
-	mana_lbl.add_theme_font_size_override("font_size", int(_vh * 0.013))
-	mana_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-
-	vbox.add_child(name_lbl)
-	vbox.add_child(hp_lbl)
-	vbox.add_child(bar)
-	if not is_enemy:
-		vbox.add_child(mana_lbl)
-	hero_node.add_child(vbox)
+	var mana_lbl: Label = vbox.get_node_or_null("ManaLabel") as Label
+	if mana_lbl:
+		mana_lbl.text = "Mana  %d / %d" % [hero.mana, hero.max_mana]
 
 	# Styling
 	var style := StyleBoxFlat.new()

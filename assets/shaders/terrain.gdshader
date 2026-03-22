@@ -24,6 +24,8 @@ varying float v_blend;   // height ratio [0=flat ground .. 1=hill plateau]
 varying float v_wall;    // 1.0 if this vertex sits on a wall tile
 varying vec3  v_normal_world;
 varying vec2  v_world_xz;
+varying float v_d0;      // fbm noise channel 0, computed per-vertex
+varying float v_d1;      // fbm noise channel 1, computed per-vertex
 
 // -- noise for micro grass detail on flat areas --
 float hash2(vec2 p) {
@@ -40,13 +42,9 @@ float vnoise(vec2 p) {
 	);
 }
 float fbm(vec2 p) {
-	float v = 0.0;
-	float a = 0.5;
-	for (int i = 0; i < 4; i++) {
-		v += a * vnoise(p);
-		p  = p * 2.1 + vec2(1.7, 3.1);
-		a *= 0.5;
-	}
+	float v = 0.5 * vnoise(p);
+	p = p * 2.1 + vec2(1.7, 3.1);
+	v += 0.25 * vnoise(p);
 	return v;
 }
 
@@ -57,12 +55,16 @@ void vertex() {
 	v_normal_world = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
 	v_world_xz     = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz;
 
-	// Subtle micro-bump on flat grass only (same scale as old grass shader)
+	// Subtle micro-bump on flat grass — single hash instead of full FBM (cheap)
 	float flat_factor = clamp(1.0 - v_blend * 4.0, 0.0, 1.0);
 	if (flat_factor > 0.01) {
-		float bump = fbm(v_world_xz * 0.08);
-		VERTEX.y += bump * 0.12 * flat_factor;
+		VERTEX.y += hash2(v_world_xz * 0.08) * 0.12 * flat_factor;
 	}
+
+	// Pre-compute noise variation per-vertex instead of per-fragment.
+	vec2 noise_uv = v_world_xz * uv_scale * 3.7;
+	v_d0 = fbm(noise_uv);
+	v_d1 = fbm(noise_uv + vec2(7.31, 2.97));
 }
 
 void fragment() {
@@ -72,10 +74,9 @@ void fragment() {
 	// slope: 0 = flat-up, 1 = vertical face
 	float slope = 1.0 - clamp(v_normal_world.y, 0.0, 1.0);
 
-	// Two independent fbm channels for micro colour variation
-	// (fbm is defined in vertex scope — visible here via the same helper)
-	float d0 = fbm(uv_xz * 3.7);
-	float d1 = fbm(uv_xz * 3.7 + vec2(7.31, 2.97));
+	// Noise variation pre-computed per-vertex; hardware interpolates across the triangle.
+	float d0 = v_d0;
+	float d1 = v_d1;
 
 	// Zone blend factors (unchanged from before)
 	float t_side = max(
@@ -85,23 +86,33 @@ void fragment() {
 	float t_top = smoothstep(0.60, 0.92, v_blend)
 	            * (1.0 - smoothstep(0.35, 0.70, slope));
 
-	// Procedural zone colours — always visible, no external texture required.
-	// Texture uniforms are kept for future override; if loaded they multiply in.
-	vec3 grass_col = vec3(0.44 + d0 * 0.11, 0.62 + d0 * 0.09, 0.25 + d0 * 0.05);
-	vec3 side_col  = vec3(0.36 + d1 * 0.08, 0.27 + d1 * 0.04, 0.13);
-	vec3 top_col   = vec3(0.39 + d0 * 0.08, 0.58 + d0 * 0.09, 0.21 + d0 * 0.04);
-	vec3 wall_col  = vec3(0.49 + d1 * 0.07, 0.38 + d1 * 0.05, 0.18 + d1 * 0.04);
+	// Sample only the textures actually contributing to this fragment.
+	// Flat grass is the common case (~60-70% of terrain) — skip all other fetches.
+	vec3 base_col;
+	bool is_wall = v_wall > 0.5;
 
-	// Optional texture tint: (0.5 + tex*0.5) means white→factor=1 (no-op),
-	// coloured texture→subtle tint.  Works correctly whether textures load or not.
-	grass_col *= 0.5 + texture(grass_texture,     uv_xz).rgb * 0.5;
-	side_col  *= 0.5 + texture(hill_side_texture, uv_xz).rgb * 0.5;
-	top_col   *= 0.5 + texture(hill_texture,      uv_xz).rgb * 0.5;
-	wall_col  *= 0.5 + texture(wall_top_texture,  uv_xz).rgb * 0.5;
-
-	vec3 base_col = mix(grass_col, side_col, t_side);
-	base_col = mix(base_col, top_col, t_top);
-	base_col = mix(base_col, wall_col, step(0.5, v_wall));
+	if (is_wall) {
+		vec3 wall_col = vec3(0.49 + d1 * 0.07, 0.38 + d1 * 0.05, 0.18 + d1 * 0.04);
+		base_col = mix(wall_col, texture(wall_top_texture, uv_xz).rgb, 0.85);
+	} else if (t_side < 0.01 && t_top < 0.01) {
+		// Pure flat grass — most common, single texture fetch
+		vec3 grass_col = vec3(0.44 + d0 * 0.11, 0.62 + d0 * 0.09, 0.25 + d0 * 0.05);
+		base_col = mix(grass_col, texture(grass_texture, uv_xz).rgb, 0.85);
+	} else {
+		vec3 grass_col = vec3(0.44 + d0 * 0.11, 0.62 + d0 * 0.09, 0.25 + d0 * 0.05);
+		grass_col = mix(grass_col, texture(grass_texture, uv_xz).rgb, 0.85);
+		base_col = grass_col;
+		if (t_side > 0.01) {
+			vec3 side_col = vec3(0.36 + d1 * 0.08, 0.27 + d1 * 0.04, 0.13);
+			side_col = mix(side_col, texture(hill_side_texture, uv_xz).rgb, 0.85);
+			base_col = mix(base_col, side_col, t_side);
+		}
+		if (t_top > 0.01) {
+			vec3 top_col = vec3(0.39 + d0 * 0.08, 0.58 + d0 * 0.09, 0.21 + d0 * 0.04);
+			top_col = mix(top_col, texture(hill_texture, uv_xz).rgb, 0.85);
+			base_col = mix(base_col, top_col, t_top);
+		}
+	}
 
 	// Simple directional light baked from normal
 	vec3 n  = normalize(v_normal_world);

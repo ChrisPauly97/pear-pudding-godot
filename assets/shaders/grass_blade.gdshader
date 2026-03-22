@@ -1,14 +1,14 @@
 shader_type spatial;
-render_mode cull_disabled, unshaded, blend_mix, depth_draw_opaque;
+render_mode cull_disabled, unshaded;
 
 uniform vec4  color_base       : source_color      = vec4(0.18, 0.48, 0.12, 1.0);
 uniform vec4  color_mid        : source_color      = vec4(0.28, 0.62, 0.18, 1.0);
 uniform vec4  color_tip        : source_color      = vec4(0.52, 0.80, 0.32, 1.0);
 
 
-// Player trample trail — 8 snapshots, oldest have lower weight
-uniform vec3  player_trail[8];
-uniform float trail_weights[8];
+// Player trample trail — 4 snapshots (reduced from 8; older entries have negligible weight)
+uniform vec3  player_trail[4];
+uniform float trail_weights[4];
 uniform vec2  player_move_dir  = vec2(0.0);  // XZ velocity direction (normalised)
 uniform float player_radius    : hint_range(0.0, 2.0)  = 0.3;
 uniform float player_push      : hint_range(0.0, 2.0)  = 0.5;
@@ -39,7 +39,7 @@ void vertex() {
 	vec2 total_push = vec2(0.0);
 	bool has_move_dir = length(player_move_dir) > 0.1;
 
-	for (int i = 0; i < 8; i++) {
+	for (int i = 0; i < 4; i++) {
 		float w = trail_weights[i];
 		if (w < 0.01) continue;
 
@@ -85,5 +85,8 @@ void fragment() {
 		col = mix(color_mid.rgb, color_tip.rgb, (UV.y - 0.5) * 2.0);
 	}
 	ALBEDO = col;
-	ALPHA  = smoothstep(1.0, 0.6, UV.y);  // tip fades to transparent
+	// Hard alpha cutoff keeps blades in the opaque render pass — no
+	// transparency sorting needed across tens of thousands of instances.
+	ALPHA = step(UV.y, 0.92);
+	ALPHA_SCISSOR_THRESHOLD = 0.5;
 }

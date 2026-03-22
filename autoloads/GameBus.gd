@@ -4,7 +4,6 @@ extends Node
 signal enemy_engaged(enemy_data: Dictionary)
 signal battle_won(result: Dictionary)
 signal battle_lost()
-signal chest_opened(card_ids: Array)
 signal map_transition_requested(map_name: String, target_door_id: String)
 signal inventory_requested
 

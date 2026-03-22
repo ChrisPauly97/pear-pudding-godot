@@ -7,11 +7,9 @@ var _world_scene_packed := preload("res://scenes/world/WorldScene.tscn")
 var _battle_scene_packed := preload("res://scenes/battle/BattleScene.tscn")
 var _menu_scene_packed := preload("res://scenes/ui/MenuScene.tscn")
 var _gameover_scene_packed := preload("res://scenes/ui/GameOverScene.tscn")
-var _chest_scene_packed := preload("res://scenes/ui/ChestOpenScene.tscn")
 var _inventory_scene_packed := preload("res://scenes/ui/InventoryScene.tscn")
 
 var _battle_overlay: Node = null
-var _chest_overlay: Node = null
 var _inventory_overlay: Node = null
 
 # Tracks which enemy triggered the current battle (for defeat marking)
@@ -21,10 +19,12 @@ func _ready() -> void:
 	GameBus.enemy_engaged.connect(_on_enemy_engaged)
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.battle_lost.connect(_on_battle_lost)
-	GameBus.chest_opened.connect(_on_chest_opened)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 
 func go_to_menu() -> void:
+	get_tree().paused = false
+	_battle_overlay = null
+	_inventory_overlay = null
 	map_stack.clear()
 	door_stack.clear()
 	current_map = ""
@@ -116,8 +116,6 @@ func _on_battle_lost() -> void:
 func _on_inventory_requested() -> void:
 	if _inventory_overlay != null:
 		return
-	if _chest_overlay != null:
-		return
 	if _battle_overlay != null:
 		return
 	_inventory_overlay = _inventory_scene_packed.instantiate()
@@ -128,20 +126,3 @@ func _on_inventory_closed() -> void:
 	if _inventory_overlay != null:
 		_inventory_overlay.queue_free()
 		_inventory_overlay = null
-
-func _on_chest_opened(card_ids: Array) -> void:
-	if _chest_overlay != null:
-		return
-	if _inventory_overlay != null:
-		return
-	# Grant cards to the player's persistent deck
-	SaveManager.add_cards_to_deck(card_ids)
-	_chest_overlay = _chest_scene_packed.instantiate()
-	_chest_overlay.card_ids = card_ids
-	get_tree().current_scene.add_child(_chest_overlay)
-	_chest_overlay.closed.connect(_on_chest_closed)
-
-func _on_chest_closed() -> void:
-	if _chest_overlay != null:
-		_chest_overlay.queue_free()
-		_chest_overlay = null

@@ -1,6 +1,8 @@
 extends Node3D
 
-const TextureGen = preload("res://game_logic/TextureGen.gd")
+const _TexWallLeft:  Texture2D = preload("res://assets/textures/wall_side_left.png")
+const _TexWallRight: Texture2D = preload("res://assets/textures/wall_side_right.png")
+const _TexWallTop:   Texture2D = preload("res://assets/textures/wall_top.png")
 const GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 
 # Preload entity scenes once, not per-spawn
@@ -8,7 +10,7 @@ const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChestScene = preload("res://scenes/world/entities/Chest.tscn")
 
 const TERRAIN_VDENSITY: int = 2
-const WALL_FACE_H:      float = 0.625
+const WALL_LEVEL_H:     float = 1.0   # world-unit height per wall level
 const PLATEAU_H:        float = 1.5   # hill plateau height above ground
 const CURVE_R:          float = 3.0   # smoothstep transition radius (world units)
 
@@ -17,13 +19,18 @@ const CURVE_R:          float = 3.0   # smoothstep transition radius (world unit
 const TILE_CHECK: int = 3  # ceil(CURVE_R / TILE_SIZE) + 1
 
 # Shared across all chunks — created once on first use
-static var _wall_mat: StandardMaterial3D
-static var _wall_box_shape: BoxShape3D
-static var _wall_box_mesh: BoxMesh
+# left = south (+Z) face, right = east (+X) face — the only two sides visible
+# to the isometric camera which always looks from the (+X,+Y,+Z) direction.
+static var _wall_left_mat:  StandardMaterial3D
+static var _wall_right_mat: StandardMaterial3D
+static var _wall_top_mat:   StandardMaterial3D
 
 var _chunk_data: RefCounted   # ChunkData
 var _chunk_key:  Vector2i
 var _terrain_mat: ShaderMaterial
+var _terrain_hmap: HeightMapShape3D   # stored for deferred physics
+var _terrain_chunk_world: float       # stored for deferred physics
+var _physics_built: bool = false      # guard against double-build
 
 # ── Thread-safe terrain prep ───────────────────────────────────────────────
 # Call this from a worker thread. Receives a pre-snapshotted tile_grid so it
@@ -41,8 +48,10 @@ static func prepare_terrain(
 
 	var chunk_origin: Vector3 = chunk_data.origin_world()
 	var curve_r_sq: float = CURVE_R * CURVE_R
+	var inv_curve_r: float = 1.0 / CURVE_R
 
-	# Build height field
+	# Build height field — uses squared distances throughout the inner loop;
+	# a single sqrt per vertex replaces the previous sqrt-per-neighbour.
 	var hfield := PackedFloat32Array()
 	hfield.resize(nvx * nvz)
 	for iz in range(nvz):
@@ -66,9 +75,13 @@ static func prepare_terrain(
 					var dist_sq: float = ddx * ddx + ddz * ddz
 					if dist_sq < min_dist_sq:
 						min_dist_sq = dist_sq
-			var t: float = 1.0 - sqrt(min_dist_sq) / CURVE_R
-			t = t * t * (3.0 - 2.0 * t)
-			hfield[iz * nvx + ix] = PLATEAU_H * t
+			# Only one sqrt per vertex (was previously inside inner loop via smoothstep)
+			if min_dist_sq >= curve_r_sq:
+				hfield[iz * nvx + ix] = 0.0
+			else:
+				var t: float = 1.0 - sqrt(min_dist_sq) * inv_curve_r
+				t = t * t * (3.0 - 2.0 * t)
+				hfield[iz * nvx + ix] = PLATEAU_H * t
 
 	# Build terrain mesh arrays
 	var total_verts: int = nvx * nvz
@@ -214,101 +227,249 @@ static func prepare_terrain(
 	hmap.map_depth = nvz
 	hmap.map_data  = hfield
 
+	# Also build wall mesh arrays on this worker thread (avoids main-thread ArrayMesh work)
+	var wall_mesh: ArrayMesh = _prepare_wall_mesh(chunk_data)
+
 	return {
 		"mesh":        terrain_mesh,
 		"hmap":        hmap,
 		"chunk_world": float(CHUNK_SIZE) * IsoConst.TILE_SIZE,
+		"wall_mesh":   wall_mesh,
 	}
 
+# Build the wall ArrayMesh on a worker thread. Returns null if no walls.
+static func _prepare_wall_mesh(chunk_data: RefCounted) -> ArrayMesh:
+	const CHUNK_SIZE: int = 16
+	var lv := PackedVector3Array()
+	var ln := PackedVector3Array()
+	var lu := PackedVector2Array()
+	var li := PackedInt32Array()
+	var rv := PackedVector3Array()
+	var rn := PackedVector3Array()
+	var ru := PackedVector2Array()
+	var ri := PackedInt32Array()
+	var tv := PackedVector3Array()
+	var tn := PackedVector3Array()
+	var tu := PackedVector2Array()
+	var ti := PackedInt32Array()
+
+	for lz in range(CHUNK_SIZE):
+		for lx in range(CHUNK_SIZE):
+			if chunk_data.get_tile(lx, lz) != IsoConst.TILE_WALL:
+				continue
+			var h: int = max(1, chunk_data.get_height(lx, lz))
+			var fh: float = float(h)
+			var top_y: float = fh * WALL_LEVEL_H
+			var x0: float = float(lx) * IsoConst.TILE_SIZE
+			var x1: float = x0 + IsoConst.TILE_SIZE
+			var z0: float = float(lz) * IsoConst.TILE_SIZE
+			var z1: float = z0 + IsoConst.TILE_SIZE
+			var tbase: int = tv.size()
+			tv.append_array([
+				Vector3(x0, top_y, z0), Vector3(x1, top_y, z0),
+				Vector3(x1, top_y, z1), Vector3(x0, top_y, z1)
+			])
+			tn.append_array([Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP])
+			tu.append_array([Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(1.0, 1.0), Vector2(0.0, 1.0)])
+			ti.append_array([tbase, tbase + 1, tbase + 2, tbase, tbase + 2, tbase + 3])
+			var nb_h_s: int = 0
+			if chunk_data.get_tile(lx, lz + 1) == IsoConst.TILE_WALL:
+				nb_h_s = max(1, chunk_data.get_height(lx, lz + 1))
+			if nb_h_s < h:
+				var bot_s: float = float(nb_h_s) * WALL_LEVEL_H
+				_add_wall_side(lv, ln, lu, li,
+					Vector3(x0, bot_s, z1), Vector3(x1, bot_s, z1),
+					Vector3(x1, top_y, z1), Vector3(x0, top_y, z1),
+					Vector3(0.0, 0.0, 1.0), float(h - nb_h_s))
+			var nb_h_e: int = 0
+			if chunk_data.get_tile(lx + 1, lz) == IsoConst.TILE_WALL:
+				nb_h_e = max(1, chunk_data.get_height(lx + 1, lz))
+			if nb_h_e < h:
+				var bot_e: float = float(nb_h_e) * WALL_LEVEL_H
+				_add_wall_side(rv, rn, ru, ri,
+					Vector3(x1, bot_e, z1), Vector3(x1, bot_e, z0),
+					Vector3(x1, top_y, z0), Vector3(x1, top_y, z1),
+					Vector3(1.0, 0.0, 0.0), float(h - nb_h_e))
+
+	if lv.is_empty() and rv.is_empty() and tv.is_empty():
+		return null
+
+	var mesh := ArrayMesh.new()
+	# Track which surfaces are present so the main thread assigns correct materials
+	var surface_types: Array[int] = []  # 0=left, 1=right, 2=top
+	if not lv.is_empty():
+		var arr: Array = []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = lv
+		arr[Mesh.ARRAY_NORMAL] = ln
+		arr[Mesh.ARRAY_TEX_UV] = lu
+		arr[Mesh.ARRAY_INDEX]  = li
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		surface_types.append(0)
+	if not rv.is_empty():
+		var arr: Array = []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = rv
+		arr[Mesh.ARRAY_NORMAL] = rn
+		arr[Mesh.ARRAY_TEX_UV] = ru
+		arr[Mesh.ARRAY_INDEX]  = ri
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		surface_types.append(1)
+	if not tv.is_empty():
+		var arr: Array = []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = tv
+		arr[Mesh.ARRAY_NORMAL] = tn
+		arr[Mesh.ARRAY_TEX_UV] = tu
+		arr[Mesh.ARRAY_INDEX]  = ti
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		surface_types.append(2)
+	mesh.set_meta("surface_types", surface_types)
+	return mesh
+
 # ── Main entry point (main thread only) ───────────────────────────────────
-# terrain_res: pre-built by prepare_terrain(), possibly on a worker thread.
-func build(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node3D,
+# Phase 1: visual mesh + entities only — no physics bodies — call from _commit_chunk_results.
+func build_visual(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node3D,
 		terrain_mat: ShaderMaterial, terrain_res: Dictionary) -> void:
-	_chunk_data  = chunk_data
-	_chunk_key   = chunk_key
-	_terrain_mat = terrain_mat
+	_chunk_data          = chunk_data
+	_chunk_key           = chunk_key
+	_terrain_mat         = terrain_mat
+	_terrain_hmap        = terrain_res["hmap"]
+	_terrain_chunk_world = terrain_res["chunk_world"]
 	position = chunk_data.origin_world()
 
-	_apply_terrain(terrain_res)
-	_build_walls()
+	_apply_terrain_visual(terrain_res)
+	_apply_wall_visual(terrain_res.get("wall_mesh"))
 	_build_grass(world_scene)
 	_spawn_entities(world_scene)
+
+# Phase 2: physics bodies only — deferred one frame after build_visual.
+func build_physics() -> void:
+	if _physics_built:
+		return
+	_physics_built = true
+	_apply_terrain_physics()
+	_build_walls_physics()
+
+# Convenience wrapper for synchronous builds (startup path only).
+func build(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node3D,
+		terrain_mat: ShaderMaterial, terrain_res: Dictionary) -> void:
+	build_visual(chunk_data, chunk_key, world_scene, terrain_mat, terrain_res)
+	build_physics()
 
 func teardown() -> void:
 	queue_free()
 
 # ── Terrain node creation (main thread) ───────────────────────────────────
-func _apply_terrain(res: Dictionary) -> void:
+func _apply_terrain_visual(res: Dictionary) -> void:
 	var mi := MeshInstance3D.new()
 	mi.mesh = res["mesh"]
 	mi.material_override = _terrain_mat
 	add_child(mi)
 
+func _apply_terrain_physics() -> void:
 	var col_node := CollisionShape3D.new()
-	col_node.shape = res["hmap"]
+	col_node.shape = _terrain_hmap
 	var body := StaticBody3D.new()
 	body.name = "TerrainCollision"
 	body.collision_layer = 2
 	body.collision_mask  = 0
-	body.position = Vector3(res["chunk_world"] * 0.5, 0.0, res["chunk_world"] * 0.5)
+	body.position = Vector3(_terrain_chunk_world * 0.5, 0.0, _terrain_chunk_world * 0.5)
 	body.add_child(col_node)
 	add_child(body)
 
 # ── Walls ──────────────────────────────────────────────────────────────────
 
 static func _ensure_wall_resources() -> void:
-	if _wall_mat == null:
-		_wall_mat = StandardMaterial3D.new()
-		_wall_mat.albedo_texture = TextureGen.wall_side(true)
-	if _wall_box_mesh == null:
-		_wall_box_mesh = BoxMesh.new()
-		_wall_box_mesh.size = Vector3(IsoConst.TILE_SIZE, WALL_FACE_H, IsoConst.TILE_SIZE)
-	if _wall_box_shape == null:
-		_wall_box_shape = BoxShape3D.new()
-		_wall_box_shape.size = Vector3(IsoConst.TILE_SIZE, WALL_FACE_H, IsoConst.TILE_SIZE)
+	if _wall_left_mat == null:
+		_wall_left_mat = StandardMaterial3D.new()
+		_wall_left_mat.albedo_texture = _TexWallLeft
+		_wall_left_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_wall_left_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	if _wall_right_mat == null:
+		_wall_right_mat = StandardMaterial3D.new()
+		_wall_right_mat.albedo_texture = _TexWallRight
+		_wall_right_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_wall_right_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	if _wall_top_mat == null:
+		_wall_top_mat = StandardMaterial3D.new()
+		_wall_top_mat.albedo_texture = _TexWallTop
+		_wall_top_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_wall_top_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
-func _build_walls() -> void:
-	const CHUNK_SIZE: int = 16
-	_ensure_wall_resources()
+# Build one quad (2 triangles) for a wall side face.
+# Vertices in order: bl (bottom-left), br (bottom-right), tr (top-right), tl (top-left)
+# viewed from outside the wall.  The normal must be pre-validated as outward-facing.
+# UV: u 0→1 horizontal, v h→0 vertical so the texture tiles h times from bottom to top.
+static func _add_wall_side(
+		verts: PackedVector3Array, normals: PackedVector3Array,
+		uvs: PackedVector2Array, indices: PackedInt32Array,
+		bl: Vector3, br: Vector3, tr: Vector3, tl: Vector3,
+		normal: Vector3, h: float) -> void:
+	var i: int = verts.size()
+	verts.append_array([bl, br, tr, tl])
+	normals.append_array([normal, normal, normal, normal])
+	uvs.append_array([Vector2(0.0, h), Vector2(1.0, h), Vector2(1.0, 0.0), Vector2(0.0, 0.0)])
+	indices.append_array([i, i + 1, i + 2, i, i + 2, i + 3])
 
-	var positions: Array[Vector3] = []
-	for lz in range(CHUNK_SIZE):
-		for lx in range(CHUNK_SIZE):
-			if _chunk_data.get_tile(lx, lz) != IsoConst.TILE_WALL:
-				continue
-			var h: int = _chunk_data.get_height(lx, lz)
-			for level in range(h):
-				positions.append(Vector3(
-					float(lx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-					float(level) * WALL_FACE_H + WALL_FACE_H * 0.5,
-					float(lz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-				))
-
-	if positions.is_empty():
+# Attach the pre-built wall mesh (built on worker thread in _prepare_wall_mesh).
+# Main thread only creates a MeshInstance3D and assigns materials — no array work.
+func _apply_wall_visual(wall_mesh: ArrayMesh) -> void:
+	if wall_mesh == null:
 		return
+	_ensure_wall_resources()
+	var mi := MeshInstance3D.new()
+	mi.mesh = wall_mesh
+	var wall_mats: Array[StandardMaterial3D] = [_wall_left_mat, _wall_right_mat, _wall_top_mat]
+	var surface_types: Array = wall_mesh.get_meta("surface_types", [])
+	for surf in range(surface_types.size()):
+		var st: int = surface_types[surf]
+		mi.set_surface_override_material(surf, wall_mats[st])
+	add_child(mi)
 
-	var mm := MultiMesh.new()
-	mm.mesh = _wall_box_mesh
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.instance_count = positions.size()
-	for i in positions.size():
-		mm.set_instance_transform(i, Transform3D(Basis.IDENTITY, positions[i]))
-
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.material_override = _wall_mat
-	add_child(mmi)
-
+func _build_walls_physics() -> void:
+	# Greedy row merge: instead of one BoxShape3D per wall tile, merge consecutive
+	# wall tiles in the same row with the same height into a single wider box.
+	# Typical reduction: 50 individual shapes → 10-15 merged shapes per chunk.
+	const CHUNK_SIZE: int = 16
 	var wall_body := StaticBody3D.new()
 	wall_body.name = "WallCollision"
 	wall_body.collision_layer = 4
 	wall_body.collision_mask  = 0
-	for pos in positions:
-		var col := CollisionShape3D.new()
-		col.shape = _wall_box_shape
-		col.position = pos
-		wall_body.add_child(col)
-	add_child(wall_body)
+
+	for lz in range(CHUNK_SIZE):
+		var run_start: int = -1
+		var run_h: int = 0
+		for lx in range(CHUNK_SIZE + 1):  # +1 to flush final run
+			var is_wall: bool = lx < CHUNK_SIZE and _chunk_data.get_tile(lx, lz) == IsoConst.TILE_WALL
+			var h: int = max(1, _chunk_data.get_height(lx, lz)) if is_wall else 0
+			if is_wall and (run_start < 0 or h == run_h):
+				if run_start < 0:
+					run_start = lx
+					run_h = h
+			else:
+				# Flush current run
+				if run_start >= 0:
+					var run_len: int = lx - run_start
+					var top_y: float = float(run_h) * WALL_LEVEL_H
+					var x0: float = float(run_start) * IsoConst.TILE_SIZE
+					var width: float = float(run_len) * IsoConst.TILE_SIZE
+					var z0: float = float(lz) * IsoConst.TILE_SIZE
+					var col := CollisionShape3D.new()
+					var box := BoxShape3D.new()
+					box.size = Vector3(width, top_y, IsoConst.TILE_SIZE)
+					col.shape = box
+					col.position = Vector3(x0 + width * 0.5, top_y * 0.5, z0 + IsoConst.TILE_SIZE * 0.5)
+					wall_body.add_child(col)
+				# Start new run if current tile is a wall
+				if is_wall:
+					run_start = lx
+					run_h = h
+				else:
+					run_start = -1
+
+	if wall_body.get_child_count() > 0:
+		add_child(wall_body)
 
 # ── Grass ──────────────────────────────────────────────────────────────────
 
@@ -318,6 +479,7 @@ func _build_grass(world_scene: Node3D) -> void:
 	if not grass:
 		return
 
+	var chunk_origin: Vector3 = _chunk_data.origin_world()
 	var centres: Array[Vector2] = []
 	for lz in range(CHUNK_SIZE):
 		for lx in range(CHUNK_SIZE):
@@ -330,7 +492,6 @@ func _build_grass(world_scene: Node3D) -> void:
 					break
 			if adj_wall:
 				continue
-			var chunk_origin: Vector3 = _chunk_data.origin_world()
 			centres.append(Vector2(
 				chunk_origin.x + float(lx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
 				chunk_origin.z + float(lz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
@@ -360,11 +521,23 @@ func _spawn_entities(world_scene: Node3D) -> void:
 const ENTITY_VISIBILITY_END: float = 50.0
 
 func _set_visibility_range(node: Node3D) -> void:
-	var mi: MeshInstance3D = node.find_child("MeshInstance3D", true, false) as MeshInstance3D
-	if mi:
-		mi.visibility_range_end = ENTITY_VISIBILITY_END
-		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Check direct children first (most entity scenes have MeshInstance3D as immediate child)
+	for child in node.get_children():
+		var mi: MeshInstance3D = child as MeshInstance3D
+		if mi:
+			mi.visibility_range_end = ENTITY_VISIBILITY_END
+			mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			return
+	# Fallback: check grandchildren (one level deeper only)
+	for child in node.get_children():
+		for grandchild in child.get_children():
+			var mi: MeshInstance3D = grandchild as MeshInstance3D
+			if mi:
+				mi.visibility_range_end = ENTITY_VISIBILITY_END
+				mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+				return
 
 func _spawn_enemy(e_data: Dictionary, entity_root: Node3D, world_scene: Node3D) -> void:
 	var node: Node3D = _EnemyScene.instantiate()

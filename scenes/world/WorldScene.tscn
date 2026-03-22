@@ -13,6 +13,13 @@ transform = Transform3D(0.707107, -0.408248, 0.57735, 0, 0.816497, 0.57735, -0.7
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, -0.866025, 0.5, 0, -0.5, -0.866025, 0, 10, 0)
 light_energy = 1.2
+shadow_enabled = true
+directional_shadow_mode = 0
+directional_shadow_max_distance = 60.0
+
+[node name="MoonLight" type="DirectionalLight3D" parent="."]
+light_color = Color(0.6, 0.7, 1.0, 1)
+light_energy = 0.0
 shadow_enabled = false
 
 [node name="HUD" type="CanvasLayer" parent="."]
