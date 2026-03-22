@@ -26,6 +26,7 @@ GameBus="*res://autoloads/GameBus.gd"
 SaveManager="*res://autoloads/SaveManager.gd"
 SceneManager="*res://autoloads/SceneManager.gd"
 CardRegistry="*res://autoloads/CardRegistry.gd"
+EnemyRegistry="*res://autoloads/EnemyRegistry.gd"
 
 [display]
 

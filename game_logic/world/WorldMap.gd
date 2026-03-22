@@ -217,12 +217,16 @@ func load_from_file(path: String) -> void:
 			var parts := line.split(" ")
 			if parts.size() >= 3:
 				uid_counter += 1
+				# Optional 4th token is the enemy type (e.g. "undead_horde")
+				var etype: String = parts[3] if parts.size() >= 4 else "undead_basic"
 				enemies.append({
 					"id": "enemy_%d" % uid_counter,
 					"x": float(parts[1]),
 					"z": float(parts[2]),
 					"alive": true,
-					"tracking": true
+					"tracking": true,
+					"enemy_type": etype,
+					"enemy_deck": EnemyRegistry.get_deck(etype),
 				})
 
 		elif line.begins_with("CHEST "):
@@ -347,10 +351,13 @@ func _generate_entities() -> void:
 		if tz >= 1 and tz < MAP_HEIGHT - 1 and tiles[tz][tx] == TILE_GRASS:
 			var wx := float(tx) * TILE_SIZE + TILE_SIZE * 0.5
 			var wz := float(tz) * TILE_SIZE + TILE_SIZE * 0.5
+			var etype: String = EnemyRegistry.type_for_depth(depth, max_depth)
 			enemies.append({
 				"id": "enemy_%d" % enemy_count,
 				"x": wx, "z": wz,
-				"alive": true, "tracking": true
+				"alive": true, "tracking": true,
+				"enemy_type": etype,
+				"enemy_deck": EnemyRegistry.get_deck(etype),
 			})
 			enemy_count += 1
 		depth += step
