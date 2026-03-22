@@ -247,7 +247,7 @@ func _build_chunk_at(key: Vector2i) -> void:
 	var pcz: int = _last_player_chunk.y
 	if abs(key.x - pcx) > LOAD_RADIUS or abs(key.y - pcz) > LOAD_RADIUS:
 		return
-	if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].is_generated:
+	if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
 		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
 	var chunk: RefCounted = _chunk_data_cache[key]
 	for c_data in chunk.chests:
