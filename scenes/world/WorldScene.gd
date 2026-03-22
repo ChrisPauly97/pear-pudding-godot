@@ -44,7 +44,7 @@ var _interact_timer: float = 0.0
 const LOAD_RADIUS:      int = 6
 const UNLOAD_RADIUS:    int = 7
 const WORLD_SEED:       int = 42
-const CHUNKS_PER_FRAME: int = 3
+const CHUNKS_PER_FRAME: int = 6
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
 @onready var _camera: Camera3D = $Camera3D
@@ -86,11 +86,18 @@ func _ready() -> void:
 		_build_grass_blades_node()
 		_spawn_player_infinite()
 		_update_chunks()
-		# Build all initial chunks synchronously so the world is ready
-		# before the first frame — avoids runtime lag spikes on startup.
+		# Build the inner 5×5 ring synchronously for an immediate view;
+		# outer chunks stream in via _process to keep startup fast.
+		var sync_cx: int = _last_player_chunk.x
+		var sync_cz: int = _last_player_chunk.y
+		var deferred: Array[Vector2i] = []
 		while not _chunk_build_queue.is_empty():
 			var key: Vector2i = _chunk_build_queue.pop_front()
-			_build_chunk_at(key)
+			if abs(key.x - sync_cx) <= 2 and abs(key.y - sync_cz) <= 2:
+				_build_chunk_at(key)
+			else:
+				deferred.append(key)
+		_chunk_build_queue.assign(deferred)
 	else:
 		world_map = WorldMap.new(map_name)
 		_build_terrain()
@@ -100,6 +107,10 @@ func _ready() -> void:
 		_spawn_player()
 
 	_update_hud()
+
+	# Re-enter any battle that was interrupted (e.g. app quit mid-fight)
+	if not SaveManager.pending_battle_enemy_data.is_empty():
+		GameBus.enemy_engaged.emit.call_deferred(SaveManager.pending_battle_enemy_data)
 	_interact_label.hide()
 
 	var joystick := VirtualJoystick.new()
@@ -609,6 +620,8 @@ func _spawn_entities() -> void:
 		var eid: String = str(e_data.get("id", ""))
 		if SaveManager.is_enemy_defeated(eid):
 			continue
+		if eid == SaveManager.in_battle_enemy_id:
+			continue  # being fought right now — don't spawn a duplicate
 		_spawn_enemy(e_data)
 	for c_data in world_map.chests:
 		var cid: String = str(c_data.get("id", ""))

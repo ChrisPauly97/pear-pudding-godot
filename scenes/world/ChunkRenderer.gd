@@ -380,6 +380,8 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		var eid: String = str(e_data.get("id", ""))
 		if SaveManager.is_enemy_defeated(eid):
 			continue
+		if eid == SaveManager.in_battle_enemy_id:
+			continue  # being fought right now — don't spawn a duplicate
 		_spawn_enemy(e_data, entity_root, world_scene)
 
 	for c_data in _chunk_data.chests:
