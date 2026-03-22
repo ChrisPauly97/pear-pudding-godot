@@ -19,6 +19,7 @@ var _hand_drag_card: CardInstance = null
 var _drag_visual: Control = null
 var _drag_start_pos: Vector2 = Vector2.ZERO
 
+@onready var _enemy_hand_view = $EnemyArea/EnemyHandView
 @onready var _enemy_board_view = $EnemyArea/EnemyBoardView
 @onready var _enemy_hero_view = $EnemyArea/EnemyHeroView
 @onready var _player_board_view = $PlayerArea/PlayerBoardView
@@ -66,6 +67,7 @@ func _apply_menu_btn_size() -> void:
 func _apply_ui_sizes() -> void:
 	var hero_h: float = _vh * 0.09
 	var board_h: float = _vh * 0.18
+	_enemy_hand_view.custom_minimum_size   = Vector2(0, board_h)
 	_enemy_hero_view.custom_minimum_size   = Vector2(0, hero_h)
 	_enemy_board_view.custom_minimum_size  = Vector2(0, board_h)
 	_player_board_view.custom_minimum_size = Vector2(0, board_h)
@@ -133,11 +135,12 @@ func _make_card_ghost(card: CardInstance) -> PanelContainer:
 # -------------------------------------------------------------------------
 
 func _refresh_all() -> void:
-	_refresh_zone(_player_hand_view, _state.players[0].hand, "hand")
-	_refresh_zone(_player_board_view, _state.players[0].board.get_cards(), "board")
+	_refresh_zone(_enemy_hand_view, _state.players[1].hand, "enemy_hand")
 	_refresh_zone(_enemy_board_view, _state.players[1].board.get_cards(), "enemy_board")
-	_refresh_hero(_player_hero_view, _state.players[0].hero)
+	_refresh_zone(_player_board_view, _state.players[0].board.get_cards(), "board")
+	_refresh_zone(_player_hand_view, _state.players[0].hand, "hand")
 	_refresh_hero(_enemy_hero_view, _state.players[1].hero)
+	_refresh_hero(_player_hero_view, _state.players[0].hero)
 	_update_status()
 
 func _refresh_zone(zone_node: Node, cards: Array, zone_id: String) -> void:
