@@ -36,6 +36,7 @@ var _chunk_data_cache: Dictionary = {}    # Vector2i -> ChunkData (RefCounted)
 var _chunk_renderers: Dictionary = {}     # Vector2i -> ChunkRenderer
 var _active_chest_data: Dictionary = {}  # chest_id -> Dictionary
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
+var _last_move_dir: Vector2 = Vector2.ZERO
 var _terrain_mat: ShaderMaterial
 var _chunk_build_queue: Array[Vector2i] = []
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
@@ -194,6 +195,28 @@ func get_terrain_height(wx: float, wz: float) -> float:
 	t = t * t * (3.0 - 2.0 * t)
 	return peak_h * t
 
+# Returns false if the chunk AABB is definitely outside the camera frustum.
+# Uses the standard separating-plane test: if all 8 corners of the chunk's
+# bounding box are on the outside of any single frustum plane, it's culled.
+func _chunk_in_frustum(cx: int, cz: int, frustum: Array[Plane]) -> bool:
+	var ws: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var x0: float = float(cx) * ws
+	var z0: float = float(cz) * ws
+	var x1: float = x0 + ws
+	var z1: float = z0 + ws
+	# Y range: -1 (below flat ground) to 3 (above hill + wall peak)
+	for plane: Plane in frustum:
+		if (not plane.is_point_over(Vector3(x0, -1.0, z0)) and
+			not plane.is_point_over(Vector3(x1, -1.0, z0)) and
+			not plane.is_point_over(Vector3(x0, -1.0, z1)) and
+			not plane.is_point_over(Vector3(x1, -1.0, z1)) and
+			not plane.is_point_over(Vector3(x0,  3.0, z0)) and
+			not plane.is_point_over(Vector3(x1,  3.0, z0)) and
+			not plane.is_point_over(Vector3(x0,  3.0, z1)) and
+			not plane.is_point_over(Vector3(x1,  3.0, z1))):
+			return false
+	return true
+
 func _update_chunks() -> void:
 	if _player == null:
 		return
@@ -202,6 +225,13 @@ func _update_chunks() -> void:
 	var pcx: int = int(floor(_player.position.x / chunk_world))
 	var pcz: int = int(floor(_player.position.z / chunk_world))
 	var player_chunk := Vector2i(pcx, pcz)
+
+	# Camera frustum for visibility culling. Falls back to load-all if unavailable.
+	var frustum: Array[Plane] = _camera.get_frustum()
+
+	# Movement lookahead direction (XZ plane, normalised; zero when standing still).
+	var vel_xz: Vector2 = Vector2(_player.velocity.x, _player.velocity.z)
+	var look_dir: Vector2 = vel_xz.normalized() if vel_xz.length_squared() > 0.25 else Vector2.ZERO
 
 	# 1. Generate data-only for border ring (LOAD_RADIUS + 1) so cross-chunk
 	#    terrain height lookups never miss during chunk mesh builds.
@@ -212,13 +242,28 @@ func _update_chunks() -> void:
 			if not _chunk_data_cache.has(key):
 				_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk_data_only(key.x, key.y, WORLD_SEED)
 
-	# 2. Queue new chunks — built gradually in _process to avoid frame spikes
+	# 2. Queue chunks that are visible or in the movement lookahead cone.
 	for dz in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
 		for dx in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
 			var key := Vector2i(pcx + dx, pcz + dz)
 			if _chunk_renderers.has(key) or _chunk_build_queue.has(key):
 				continue
-			_chunk_build_queue.append(key)
+			# Trim square to a circle (skip far corners of the grid)
+			if dx * dx + dz * dz > LOAD_RADIUS * LOAD_RADIUS:
+				continue
+			# Always load the immediate 3×3 neighbourhood around the player
+			if abs(dx) <= 1 and abs(dz) <= 1:
+				_chunk_build_queue.append(key)
+				continue
+			# Load if visible in camera frustum (or no frustum available)
+			if frustum.is_empty() or _chunk_in_frustum(key.x, key.y, frustum):
+				_chunk_build_queue.append(key)
+				continue
+			# Load if inside the forward movement cone (~120° arc ahead)
+			if look_dir.length_squared() > 0.1:
+				var to_chunk := Vector2(float(dx), float(dz))
+				if to_chunk.length_squared() > 0.0 and to_chunk.normalized().dot(look_dir) > 0.3:
+					_chunk_build_queue.append(key)
 
 	# Sort queue so nearest chunks are built first
 	_chunk_build_queue.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
@@ -227,7 +272,8 @@ func _update_chunks() -> void:
 		return da < db
 	)
 
-	# 3. Unload chunks beyond UNLOAD_RADIUS
+	# 3. Unload chunks beyond UNLOAD_RADIUS (distance-based, not frustum,
+	#    so chunks behind you stay loaded while you might still turn around)
 	var keys_to_remove: Array[Vector2i] = []
 	for raw_key in _chunk_renderers:
 		var typed_key: Vector2i = raw_key
@@ -673,7 +719,17 @@ func _process(delta: float) -> void:
 		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 		var pcx: int = int(floor(_player.position.x / chunk_world))
 		var pcz: int = int(floor(_player.position.z / chunk_world))
-		if Vector2i(pcx, pcz) != _last_player_chunk:
+		var needs_update: bool = Vector2i(pcx, pcz) != _last_player_chunk
+		# Also re-evaluate when movement direction turns significantly —
+		# new chunks may have entered the forward cone or become visible.
+		if not needs_update:
+			var vel_xz: Vector2 = Vector2(_player.velocity.x, _player.velocity.z)
+			if vel_xz.length_squared() > 0.25:
+				var new_dir: Vector2 = vel_xz.normalized()
+				if new_dir.dot(_last_move_dir) < 0.7:  # > ~45° turn
+					needs_update = true
+					_last_move_dir = new_dir
+		if needs_update:
 			_update_chunks()
 		# Drain build queue at a fixed rate to avoid per-frame spikes
 		for _i in range(CHUNKS_PER_FRAME):
