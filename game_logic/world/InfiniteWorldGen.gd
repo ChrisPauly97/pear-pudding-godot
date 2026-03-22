@@ -18,6 +18,7 @@ static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 	var chunk := _gen_tile_data(p_cx, p_cz, world_seed)
 	_gen_entities(chunk, p_cx, p_cz, world_seed)
 	chunk.is_generated = true
+	chunk.has_entities = true
 	return chunk
 
 # Generate tile/height data only (no entities) — used for border ring

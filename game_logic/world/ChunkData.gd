@@ -9,6 +9,7 @@ var heights: Array[int] = []
 var enemies: Array = []
 var chests: Array = []
 var is_generated: bool = false
+var has_entities: bool = false
 
 func _init(p_cx: int = 0, p_cz: int = 0) -> void:
 	cx = p_cx
