@@ -21,6 +21,10 @@ var door_stack: Array[String] = []
 var defeated_enemies: Array[String] = []
 var opened_chests: Array[String] = []
 
+# Battle state: set when a fight starts, cleared on win/lose
+var pending_battle_enemy_data: Dictionary = {}
+var in_battle_enemy_id: String = ""
+
 var _loaded: bool = false
 var _dirty: bool = false
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
@@ -63,6 +67,8 @@ func new_game() -> void:
 	door_stack = []
 	defeated_enemies = []
 	opened_chests = []
+	pending_battle_enemy_data = {}
+	in_battle_enemy_id = ""
 	_loaded = true
 	save()
 
@@ -89,6 +95,9 @@ func load_save() -> bool:
 	door_stack.assign(data.get("door_stack", []))
 	defeated_enemies.assign(data.get("defeated_enemies", []))
 	opened_chests.assign(data.get("opened_chests", []))
+	var pbed = data.get("pending_battle_enemy_data", {})
+	pending_battle_enemy_data = pbed if pbed is Dictionary else {}
+	in_battle_enemy_id = str(data.get("in_battle_enemy_id", ""))
 	_loaded = true
 	return true
 
@@ -106,6 +115,8 @@ func save() -> void:
 		"door_stack": door_stack,
 		"defeated_enemies": defeated_enemies,
 		"opened_chests": opened_chests,
+		"pending_battle_enemy_data": pending_battle_enemy_data,
+		"in_battle_enemy_id": in_battle_enemy_id,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -119,7 +130,7 @@ func update_position(map_name: String, x: float, z: float) -> void:
 	current_map = map_name
 	player_x = x
 	player_z = z
-	# Position is saved on map transitions, not here (avoids per-frame writes)
+	_dirty = true  # batched by the 2-second timer, not written per-frame
 
 func sync_stacks(m_stack: Array[String], d_stack: Array[String]) -> void:
 	map_stack.assign(m_stack)
@@ -156,3 +167,13 @@ func is_enemy_defeated(enemy_id: String) -> bool:
 
 func is_chest_opened(chest_id: String) -> bool:
 	return opened_chests.has(chest_id)
+
+func set_pending_battle(enemy_data: Dictionary) -> void:
+	pending_battle_enemy_data = enemy_data.duplicate()
+	in_battle_enemy_id = str(enemy_data.get("id", ""))
+	_dirty = true
+
+func clear_pending_battle() -> void:
+	pending_battle_enemy_data = {}
+	in_battle_enemy_id = ""
+	_dirty = true
