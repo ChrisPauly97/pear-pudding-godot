@@ -55,14 +55,27 @@ var _world_env: WorldEnvironment
 var _time_of_day: float = 0.4             # 0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset
 var _day_night_timer: float = 0.0
 const DAY_NIGHT_INTERVAL: float = 0.5     # update lighting at 2 Hz
+# Cached day/night values — skip GPU writes when unchanged
+var _cached_sun_energy: float = -1.0
+var _cached_sun_color: Color = Color.BLACK
+var _cached_moon_energy: float = -1.0
+var _cached_sky_color: Color = Color.BLACK
+var _cached_ambient_color: Color = Color.BLACK
+var _cached_ambient_energy: float = -1.0
 
 # Threaded chunk building
 var _chunk_data_pending: Dictionary = {}    # Vector2i -> true (job in flight)
 var _chunk_build_results: Array = []        # completed terrain prep, waiting for commit
 var _chunk_build_mutex: Mutex = Mutex.new()
+var _chunk_task_ids: Array[int] = []        # WorkerThreadPool task IDs in flight
+var _chunk_queued: Dictionary = {}          # Vector2i -> true (O(1) queue membership)
+var _chunk_queue_dirty: bool = false       # only re-sort when new items were added
+var _pending_physics: Array = []            # ChunkRenderers awaiting physics build
+var _last_dir_update_time: float = -999.0  # throttle direction-change chunk updates
 
 const LOAD_RADIUS:        int = 6
 const UNLOAD_RADIUS:      int = 7
+const CACHE_EVICT_RADIUS: int = 10  # evict chunk data beyond this to bound memory
 const WORLD_SEED:         int = 42
 const MAX_CHUNK_JOBS:     int = 4   # concurrent WorkerThreadPool tasks
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
@@ -146,6 +159,14 @@ func _ready() -> void:
 	menu_btn.position = Vector2(vh * 0.01, vh * 0.01)
 	menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
 	_hud.add_child(menu_btn)
+
+func _exit_tree() -> void:
+	# Wait for any in-flight worker tasks before the GDScript instance is freed.
+	# Without this, WorkerThreadPool holds a Callable referencing this object and
+	# crashes on shutdown when it tries to clean up while the instance is gone.
+	for task_id: int in _chunk_task_ids:
+		WorkerThreadPool.wait_for_task_completion(task_id)
+	_chunk_task_ids.clear()
 
 func _update_hud() -> void:
 	if infinite:
@@ -280,7 +301,7 @@ func _update_chunks() -> void:
 	for dz in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
 		for dx in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
 			var key := Vector2i(pcx + dx, pcz + dz)
-			if _chunk_renderers.has(key) or _chunk_build_queue.has(key):
+			if _chunk_renderers.has(key) or _chunk_queued.has(key):
 				continue
 			# Trim square to a circle (skip far corners of the grid)
 			if dx * dx + dz * dz > LOAD_RADIUS * LOAD_RADIUS:
@@ -288,16 +309,21 @@ func _update_chunks() -> void:
 			# Always load the immediate 3×3 neighbourhood around the player
 			if abs(dx) <= 1 and abs(dz) <= 1:
 				_chunk_build_queue.append(key)
+				_chunk_queued[key] = true
 				continue
 			# Load if visible in camera frustum (or no frustum available)
 			if frustum.is_empty() or _chunk_in_frustum(key.x, key.y, frustum):
 				_chunk_build_queue.append(key)
+				_chunk_queued[key] = true
 				continue
 			# Load if inside the forward movement cone (~120° arc ahead)
 			if look_dir.length_squared() > 0.1:
 				var to_chunk := Vector2(float(dx), float(dz))
 				if to_chunk.length_squared() > 0.0 and to_chunk.normalized().dot(look_dir) > 0.3:
 					_chunk_build_queue.append(key)
+					_chunk_queued[key] = true
+
+	_chunk_queue_dirty = true  # queue contents changed — re-sort before next dispatch
 
 	# 3. Unload chunks beyond UNLOAD_RADIUS (distance-based, not frustum,
 	#    so chunks behind you stay loaded while you might still turn around)
@@ -329,6 +355,16 @@ func _update_chunks() -> void:
 			if is_instance_valid(cnode):
 				cnode.queue_free()
 			_chest_nodes.erase(cid)
+
+	# Evict chunk data cache entries far beyond the unload radius to bound memory.
+	# Keep a margin beyond UNLOAD_RADIUS so neighbour tile lookups still hit cache.
+	var cache_keys_to_remove: Array[Vector2i] = []
+	for raw_key in _chunk_data_cache:
+		var typed_key: Vector2i = raw_key
+		if abs(typed_key.x - pcx) > CACHE_EVICT_RADIUS or abs(typed_key.y - pcz) > CACHE_EVICT_RADIUS:
+			cache_keys_to_remove.append(typed_key)
+	for key in cache_keys_to_remove:
+		_chunk_data_cache.erase(key)
 
 	_last_player_chunk = player_chunk
 
@@ -377,15 +413,16 @@ func _chunk_prepare_task(key: Vector2i, chunk_data: RefCounted,
 
 # Called every frame: kick off thread jobs for queued chunks up to MAX_CHUNK_JOBS.
 func _kick_chunk_jobs() -> void:
-	# Sort so nearest chunks are dispatched first (re-sort each call so
-	# direction changes are reflected without waiting for _update_chunks).
 	var pcx: int = _last_player_chunk.x
 	var pcz: int = _last_player_chunk.y
-	_chunk_build_queue.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-		var da: int = (a.x - pcx) * (a.x - pcx) + (a.y - pcz) * (a.y - pcz)
-		var db: int = (b.x - pcx) * (b.x - pcx) + (b.y - pcz) * (b.y - pcz)
-		return da < db
-	)
+	# Only sort when new items were added — skipped every frame when idle.
+	if _chunk_queue_dirty and _chunk_build_queue.size() > 1:
+		_chunk_build_queue.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			var da: int = (a.x - pcx) * (a.x - pcx) + (a.y - pcz) * (a.y - pcz)
+			var db: int = (b.x - pcx) * (b.x - pcx) + (b.y - pcz) * (b.y - pcz)
+			return da < db
+		)
+		_chunk_queue_dirty = false
 
 	var i: int = 0
 	while i < _chunk_build_queue.size():
@@ -394,9 +431,11 @@ func _kick_chunk_jobs() -> void:
 		var key: Vector2i = _chunk_build_queue[i]
 		if _chunk_renderers.has(key) or _chunk_data_pending.has(key):
 			_chunk_build_queue.remove_at(i)
+			_chunk_queued.erase(key)
 			continue
 		if abs(key.x - pcx) > LOAD_RADIUS or abs(key.y - pcz) > LOAD_RADIUS:
 			_chunk_build_queue.remove_at(i)
+			_chunk_queued.erase(key)
 			continue
 
 		# Ensure neighbour tile data exists (fast, sync) then snapshot for thread
@@ -410,8 +449,10 @@ func _kick_chunk_jobs() -> void:
 
 		_chunk_data_pending[key] = true
 		_chunk_build_queue.remove_at(i)
-		WorkerThreadPool.add_task(_chunk_prepare_task.bind(
+		_chunk_queued.erase(key)
+		var task_id: int = WorkerThreadPool.add_task(_chunk_prepare_task.bind(
 				key, chunk_data, snap[0], snap[1], snap[2], snap[3]))
+		_chunk_task_ids.append(task_id)
 		# don't increment i — next item shifted into position
 
 # Called every frame: commit one ready result to the scene tree (cheap).
@@ -440,8 +481,10 @@ func _commit_chunk_results() -> void:
 	var renderer: ChunkRenderer = ChunkRenderer.new()
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
 	add_child(renderer)
-	renderer.build(chunk, key, self, _terrain_mat, result["terrain_res"])
+	renderer.build_visual(chunk, key, self, _terrain_mat, result["terrain_res"])
 	_chunk_renderers[key] = renderer
+	# Defer physics bodies to next frame to avoid a double-hitch (mesh + physics)
+	_pending_physics.append(renderer)
 
 # Synchronous build used at startup so the world is ready before first frame.
 func _build_chunk_sync(key: Vector2i) -> void:
@@ -459,7 +502,9 @@ func _build_chunk_sync(key: Vector2i) -> void:
 	var renderer: ChunkRenderer = ChunkRenderer.new()
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
 	add_child(renderer)
-	renderer.build(chunk, key, self, _terrain_mat, terrain_res)
+	# Sync path (startup): build visual and physics together — slowness is acceptable here.
+	renderer.build_visual(chunk, key, self, _terrain_mat, terrain_res)
+	renderer.build_physics()
 	_chunk_renderers[key] = renderer
 
 # Called by ChunkRenderer after spawning an enemy
@@ -471,27 +516,50 @@ func register_chest(cid: String, node: Node3D, c_data: Dictionary) -> void:
 	_chest_nodes[cid] = node
 	_active_chest_data[cid] = c_data
 
-# Find nearest active chest within range
+# Find nearest enemy/chest — only checks the player's chunk + 8 neighbours
+# instead of iterating every loaded entity globally.
 func _find_nearby_enemy_infinite(px: float, pz: float, range_dist: float) -> Node3D:
 	var range_sq: float = range_dist * range_dist
-	for node: Node3D in _enemy_nodes.values():
-		if not is_instance_valid(node):
-			continue
-		var dx: float = node.global_position.x - px
-		var dz: float = node.global_position.z - pz
-		if dx * dx + dz * dz <= range_sq:
-			return node
+	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var pcx: int = int(floor(px / chunk_world))
+	var pcz: int = int(floor(pz / chunk_world))
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			var key := Vector2i(pcx + dx, pcz + dz)
+			if not _chunk_data_cache.has(key):
+				continue
+			var chunk: RefCounted = _chunk_data_cache[key]
+			for e_data in chunk.enemies:
+				var eid: String = str(e_data.get("id", ""))
+				var node: Node3D = _enemy_nodes.get(eid) as Node3D
+				if not is_instance_valid(node):
+					continue
+				var ddx: float = node.global_position.x - px
+				var ddz: float = node.global_position.z - pz
+				if ddx * ddx + ddz * ddz <= range_sq:
+					return node
 	return null
 
 func _find_nearby_chest_infinite(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
-	for d: Dictionary in _active_chest_data.values():
-		if d.get("opened", false):
-			continue
-		var dx: float = float(d.get("x", 0.0)) - px
-		var dz: float = float(d.get("z", 0.0)) - pz
-		if dx * dx + dz * dz <= range_sq:
-			return d
+	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var pcx: int = int(floor(px / chunk_world))
+	var pcz: int = int(floor(pz / chunk_world))
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			var key := Vector2i(pcx + dx, pcz + dz)
+			if not _chunk_data_cache.has(key):
+				continue
+			var chunk: RefCounted = _chunk_data_cache[key]
+			for c_data in chunk.chests:
+				var cid: String = str(c_data.get("id", ""))
+				var d: Dictionary = _active_chest_data.get(cid, {})
+				if d.is_empty() or d.get("opened", false):
+					continue
+				var ddx: float = float(d.get("x", 0.0)) - px
+				var ddz: float = float(d.get("z", 0.0)) - pz
+				if ddx * ddx + ddz * ddz <= range_sq:
+					return d
 	return {}
 
 # ── Named-map (bounded) path ───────────────────────────────────────────────
@@ -516,6 +584,8 @@ func _compute_terrain_heights(nvx: int, nvz: int, step: float) -> PackedFloat32A
 	field.resize(nvx * nvz)
 
 	var tile_range: int = int(ceil(HILL_RAMP_R / IsoConst.TILE_SIZE)) + 1
+	var ramp_r_sq: float = HILL_RAMP_R * HILL_RAMP_R
+	var inv_ramp_r: float = 1.0 / HILL_RAMP_R
 
 	for iz in range(nvz):
 		for ix in range(nvx):
@@ -524,7 +594,7 @@ func _compute_terrain_heights(nvx: int, nvz: int, step: float) -> PackedFloat32A
 			var vtx: int = int(wx / IsoConst.TILE_SIZE)
 			var vtz: int = int(wz / IsoConst.TILE_SIZE)
 
-			var h: float = 0.0
+			var min_dist_sq: float = ramp_r_sq
 			for dtz in range(-tile_range, tile_range + 1):
 				for dtx in range(-tile_range, tile_range + 1):
 					var ttx: int = vtx + dtx
@@ -533,14 +603,18 @@ func _compute_terrain_heights(nvx: int, nvz: int, step: float) -> PackedFloat32A
 						continue
 					var near_x: float = clamp(wx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
 					var near_z: float = clamp(wz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
-					var dist: float = sqrt((wx - near_x) * (wx - near_x) + (wz - near_z) * (wz - near_z))
-					if dist < HILL_RAMP_R:
-						var t: float = 1.0 - dist / HILL_RAMP_R
-						t = t * t * (3.0 - 2.0 * t)
-						var contrib: float = HILL_PEAK_H * t
-						if contrib > h:
-							h = contrib
-			field[iz * nvx + ix] = h
+					var ddx: float = wx - near_x
+					var ddz: float = wz - near_z
+					var dist_sq: float = ddx * ddx + ddz * ddz
+					if dist_sq < min_dist_sq:
+						min_dist_sq = dist_sq
+			# Single sqrt per vertex instead of per-neighbour
+			if min_dist_sq >= ramp_r_sq:
+				field[iz * nvx + ix] = 0.0
+			else:
+				var t: float = 1.0 - sqrt(min_dist_sq) * inv_ramp_r
+				t = t * t * (3.0 - 2.0 * t)
+				field[iz * nvx + ix] = HILL_PEAK_H * t
 	return field
 
 func _build_terrain_mesh(hfield: PackedFloat32Array, nvx: int, nvz: int, step: float) -> void:
@@ -963,12 +1037,22 @@ func _update_day_night(delta: float) -> void:
 	var t_horizon: float = clampf(1.0 - abs(sun_h) * 5.0, 0.0, 1.0)
 
 	# Sun: warm white at midday, orange at horizon, off at night
-	_sun.light_energy = clampf(sun_h * 1.5, 0.0, 1.5)
-	_sun.light_color = Color(1.0, 0.95, 0.85).lerp(Color(1.0, 0.45, 0.1), t_horizon)
+	var sun_energy: float = clampf(sun_h * 1.5, 0.0, 1.5)
+	var sun_color: Color = Color(1.0, 0.95, 0.85).lerp(Color(1.0, 0.45, 0.1), t_horizon)
+
+	if not is_equal_approx(sun_energy, _cached_sun_energy):
+		_sun.light_energy = sun_energy
+		_cached_sun_energy = sun_energy
+	if not sun_color.is_equal_approx(_cached_sun_color):
+		_sun.light_color = sun_color
+		_cached_sun_color = sun_color
 
 	# Moon: opposite hemisphere, cool blue
 	var moon_h: float = -sun_h
-	_moon.light_energy = clampf(moon_h * 0.35, 0.0, 0.35)
+	var moon_energy: float = clampf(moon_h * 0.35, 0.0, 0.35)
+	if not is_equal_approx(moon_energy, _cached_moon_energy):
+		_moon.light_energy = moon_energy
+		_cached_moon_energy = moon_energy
 
 	# Sky colour: deep blue day → orange horizon → near-black night
 	var sky: Color
@@ -976,11 +1060,19 @@ func _update_day_night(delta: float) -> void:
 		sky = Color(0.7, 0.3, 0.1).lerp(Color(0.25, 0.5, 0.85), clampf(sun_h * 3.0, 0.0, 1.0))
 	else:
 		sky = Color(0.02, 0.02, 0.08).lerp(Color(0.7, 0.3, 0.1), clampf((sun_h + 0.3) * 5.0, 0.0, 1.0))
-	_world_env.environment.background_color = sky
+	if not sky.is_equal_approx(_cached_sky_color):
+		_world_env.environment.background_color = sky
+		_cached_sky_color = sky
 
 	# Ambient: dark blue night → soft grey day
-	_world_env.environment.ambient_light_color = Color(0.03, 0.04, 0.12).lerp(Color(0.4, 0.45, 0.5), t_day)
-	_world_env.environment.ambient_light_energy = lerpf(0.15, 0.7, t_day)
+	var ambient_color: Color = Color(0.03, 0.04, 0.12).lerp(Color(0.4, 0.45, 0.5), t_day)
+	var ambient_energy: float = lerpf(0.15, 0.7, t_day)
+	if not ambient_color.is_equal_approx(_cached_ambient_color):
+		_world_env.environment.ambient_light_color = ambient_color
+		_cached_ambient_color = ambient_color
+	if not is_equal_approx(ambient_energy, _cached_ambient_energy):
+		_world_env.environment.ambient_light_energy = ambient_energy
+		_cached_ambient_energy = ambient_energy
 
 # ── Per-frame update ───────────────────────────────────────────────────────
 
@@ -1007,13 +1099,23 @@ func _process(delta: float) -> void:
 			if vel_xz.length_squared() > 0.25:
 				var new_dir: Vector2 = vel_xz.normalized()
 				if new_dir.dot(_last_move_dir) < 0.7:  # > ~45° turn
-					needs_update = true
-					_last_move_dir = new_dir
+					# Throttle: direction changes trigger at most twice per second to avoid
+					# re-running the 169-chunk frustum scan every frame while turning.
+					var now: float = Time.get_ticks_msec() * 0.001
+					if now - _last_dir_update_time >= 0.5:
+						needs_update = true
+						_last_move_dir = new_dir
+						_last_dir_update_time = now
 		if needs_update:
 			_update_chunks()
 		# Dispatch thread jobs for queued chunks, commit completed results
 		_kick_chunk_jobs()
 		_commit_chunk_results()
+		# Build physics for one deferred chunk per frame (spreads the hitch)
+		if not _pending_physics.is_empty():
+			var r: ChunkRenderer = _pending_physics.pop_front() as ChunkRenderer
+			if is_instance_valid(r):
+				r.build_physics()
 
 	# Only update save position when player moves > 1 unit (not every frame)
 	var cur_pos := Vector2(_player.position.x, _player.position.z)

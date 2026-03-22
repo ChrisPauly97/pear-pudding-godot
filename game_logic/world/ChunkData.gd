@@ -4,8 +4,8 @@ const CHUNK_SIZE: int = 16
 
 var cx: int = 0
 var cz: int = 0
-var tiles: Array[int] = []
-var heights: Array[int] = []
+var tiles: PackedInt32Array    # contiguous memory, ~6x smaller than Array[int]
+var heights: PackedInt32Array
 var enemies: Array = []
 var chests: Array = []
 var is_generated: bool = false
@@ -14,11 +14,12 @@ var has_entities: bool = false
 func _init(p_cx: int = 0, p_cz: int = 0) -> void:
 	cx = p_cx
 	cz = p_cz
+	tiles = PackedInt32Array()
 	tiles.resize(CHUNK_SIZE * CHUNK_SIZE)
+	tiles.fill(0)  # TILE_GRASS
+	heights = PackedInt32Array()
 	heights.resize(CHUNK_SIZE * CHUNK_SIZE)
-	for i in range(CHUNK_SIZE * CHUNK_SIZE):
-		tiles[i] = 0   # TILE_GRASS
-		heights[i] = 0
+	heights.fill(0)
 
 func get_tile(lx: int, lz: int) -> int:
 	if lx < 0 or lx >= CHUNK_SIZE or lz < 0 or lz >= CHUNK_SIZE:

@@ -22,6 +22,9 @@ func _ready() -> void:
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 
 func go_to_menu() -> void:
+	get_tree().paused = false
+	_battle_overlay = null
+	_inventory_overlay = null
 	map_stack.clear()
 	door_stack.clear()
 	current_map = ""

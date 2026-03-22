@@ -10,6 +10,20 @@ const HILL_THRESHOLD: float = 0.40
 # Per-chunk noise frequency
 const NOISE_FREQ: float = 0.08
 
+# Cached noise object — same seed & frequency every call, no need to re-create
+static var _cached_noise: FastNoiseLite
+static var _cached_noise_seed: int = -1
+
+static func _get_noise(world_seed: int) -> FastNoiseLite:
+	if _cached_noise != null and _cached_noise_seed == world_seed:
+		return _cached_noise
+	_cached_noise = FastNoiseLite.new()
+	_cached_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_cached_noise.seed = world_seed
+	_cached_noise.frequency = NOISE_FREQ
+	_cached_noise_seed = world_seed
+	return _cached_noise
+
 static func _chunk_seed(p_cx: int, p_cz: int, world_seed: int) -> int:
 	return (p_cx * 73856093) ^ (p_cz * 19349663) ^ world_seed
 
@@ -31,12 +45,7 @@ static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 	const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 	var chunk: ChunkData = ChunkData.new(p_cx, p_cz)
 
-	var noise := FastNoiseLite.new()
-	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	# Use world_seed directly so the noise field is continuous across all chunks.
-	# Per-chunk seeds broke continuity, causing abrupt terrain transitions at borders.
-	noise.seed = world_seed
-	noise.frequency = NOISE_FREQ
+	var noise: FastNoiseLite = _get_noise(world_seed)
 
 	for lz in range(CHUNK_SIZE):
 		for lx in range(CHUNK_SIZE):

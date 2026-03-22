@@ -5,7 +5,7 @@ const _GrassShader = preload("res://assets/shaders/grass_blade.gdshader")
 var _mat: ShaderMaterial
 var _blade_mesh: ArrayMesh  # cached — identical for every chunk
 
-const TRAIL_SIZE     := 8
+const TRAIL_SIZE     := 4
 const TRAIL_INTERVAL := 0.08   # seconds between trail snapshots
 const SPRINGBACK     := 0.6    # higher = faster spring-back
 
@@ -28,15 +28,21 @@ const TRAMPLE_RAMP        := 1.5  # per-second ramp-up rate
 
 var _trample_img:      Image
 var _trample_tex:      ImageTexture
+var _trample_buf:      PackedFloat32Array  # CPU-side float buffer (avoids get/set_pixel)
+var _trample_bytes:    PackedByteArray     # reusable byte buffer — avoids alloc per flush
 var _trample_origin_x: float = 0.0  # world-space X of pixel (0,0) in trample map
 var _trample_origin_z: float = 0.0  # world-space Z of pixel (0,0) in trample map
 var _trample_timer:    float = 0.0  # throttle trample updates
-const TRAMPLE_UPDATE_INTERVAL: float = 0.067  # ~15 Hz max
+var _trample_dirty_x0: int = TRAMPLE_RES  # dirty rect tracking
+var _trample_dirty_z0: int = TRAMPLE_RES
+var _trample_dirty_x1: int = 0
+var _trample_dirty_z1: int = 0
+const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visible difference
 
-const BLADES_PER_TILE := 50
-const BLADE_WIDTH      := 0.28
+const BLADES_PER_TILE := 14
+const BLADE_WIDTH      := 0.34
 const BLADE_HEIGHT     := 1.1
-const SEGMENTS         := 4  # quads along the blade height
+const SEGMENTS         := 3  # quads along the blade height
 
 const CHUNK_SIZE := 16  # tiles per chunk side — one MultiMesh per chunk
 
@@ -58,6 +64,12 @@ func _init_material() -> void:
 	_blade_mesh = _make_blade_mesh()
 
 	# Sliding trample map — initialise centred at world origin
+	_trample_buf = PackedFloat32Array()
+	_trample_buf.resize(TRAMPLE_RES * TRAMPLE_RES)
+	_trample_buf.fill(0.0)
+	_trample_bytes = PackedByteArray()
+	_trample_bytes.resize(TRAMPLE_RES * TRAMPLE_RES)
+	_trample_bytes.fill(0)
 	_trample_img = Image.create(TRAMPLE_RES, TRAMPLE_RES, false, Image.FORMAT_L8)
 	_trample_img.fill(Color(0, 0, 0))
 	_trample_tex = ImageTexture.create_from_image(_trample_img)
@@ -186,15 +198,17 @@ func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 			_trail.push_front(pos)
 			_trail_ages.push_front(0.0)
 			_trail_dirty = true
-		else:
+		elif moved > 0.01:
+			# Only update trail head + mark dirty when actually moving;
+			# standing still no longer causes shader param uploads every frame.
 			_trail[0] = pos
 			_trail_ages[0] = 0.0
 			_trail_dirty = true
 
 	# Movement direction
 	var move_dir := Vector2.ZERO
-	var dp: float = _trail[0].distance_to(_prev_pos)
-	if dp > 0.05:
+	var dp_sq: float = Vector2(_trail[0].x - _prev_pos.x, _trail[0].z - _prev_pos.z).length_squared()
+	if dp_sq > 0.0025:  # 0.05 * 0.05
 		move_dir = Vector2(_trail[0].x - _prev_pos.x, _trail[0].z - _prev_pos.z).normalized()
 	_prev_pos = _trail[0]
 
@@ -228,18 +242,15 @@ func _maybe_shift_trample_window(pos: Vector3) -> void:
 	if abs(pos.x - centre_x) < shift_world and abs(pos.z - centre_z) < shift_world:
 		return
 
-	# Compute new origin (player near centre of new window)
 	var new_ox: float = pos.x - window_world * 0.5
 	var new_oz: float = pos.z - window_world * 0.5
-
-	# Pixel-level offset of old origin relative to new origin
 	var dx: int = int(round((_trample_origin_x - new_ox) / tile_size))
 	var dz: int = int(round((_trample_origin_z - new_oz) / tile_size))
 
-	var new_img := Image.create(TRAMPLE_RES, TRAMPLE_RES, false, Image.FORMAT_L8)
-	new_img.fill(Color(0, 0, 0))
-
-	# Use blit_rect to copy the still-visible region in one call
+	# Shift the float buffer — copy overlapping region into a new buffer
+	var new_buf := PackedFloat32Array()
+	new_buf.resize(TRAMPLE_RES * TRAMPLE_RES)
+	new_buf.fill(0.0)
 	var src_x: int = max(0, -dx)
 	var src_z: int = max(0, -dz)
 	var dst_x: int = max(0, dx)
@@ -247,18 +258,27 @@ func _maybe_shift_trample_window(pos: Vector3) -> void:
 	var copy_w: int = TRAMPLE_RES - abs(dx)
 	var copy_h: int = TRAMPLE_RES - abs(dz)
 	if copy_w > 0 and copy_h > 0:
-		new_img.blit_rect(_trample_img, Rect2i(src_x, src_z, copy_w, copy_h), Vector2i(dst_x, dst_z))
+		for z in range(copy_h):
+			for x in range(copy_w):
+				new_buf[(dst_z + z) * TRAMPLE_RES + dst_x + x] = _trample_buf[(src_z + z) * TRAMPLE_RES + src_x + x]
 
-	_trample_img = new_img
+	_trample_buf = new_buf
 	_trample_origin_x = new_ox
 	_trample_origin_z = new_oz
-	_trample_tex.update(_trample_img)
+	# Rebuild byte buffer from float buffer after shift
+	for i in range(_trample_buf.size()):
+		_trample_bytes[i] = int(clampf(_trample_buf[i], 0.0, 1.0) * 255.0)
+	# Mark entire buffer dirty for the full flush
+	_trample_dirty_x0 = 0
+	_trample_dirty_z0 = 0
+	_trample_dirty_x1 = TRAMPLE_RES - 1
+	_trample_dirty_z1 = TRAMPLE_RES - 1
+	_flush_trample_to_gpu()
 	_mat.set_shader_parameter("trample_origin_x", _trample_origin_x)
 	_mat.set_shader_parameter("trample_origin_z", _trample_origin_z)
 
 func _update_trample_map(pos: Vector3, delta: float) -> void:
 	var tile_size: float = IsoConst.TILE_SIZE
-	# Player position in trample-image pixel space
 	var px: int = int((pos.x - _trample_origin_x) / tile_size)
 	var pz: int = int((pos.z - _trample_origin_z) / tile_size)
 
@@ -270,24 +290,52 @@ func _update_trample_map(pos: Vector3, delta: float) -> void:
 
 	var decay_amount: float = TRAMPLE_DECAY * delta
 
+	# Decay + stamp on the float buffer — no Color allocations
 	for z in range(z0, z1 + 1):
+		var row: int = z * TRAMPLE_RES
 		for x in range(x0, x1 + 1):
-			var v: float = _trample_img.get_pixel(x, z).r
+			var v: float = _trample_buf[row + x]
 			if v > 0.0:
-				var new_v: float = max(TRAMPLE_FLOOR, v - decay_amount)
-				_trample_img.set_pixel(x, z, Color(new_v, new_v, new_v))
+				var nv: float = maxf(TRAMPLE_FLOOR, v - decay_amount)
+				_trample_buf[row + x] = nv
+				_trample_bytes[row + x] = int(clampf(nv, 0.0, 1.0) * 255.0)
 
 	var ramp: float = TRAMPLE_RAMP * delta
 	for z in range(max(0, pz - TRAMPLE_RADIUS), min(TRAMPLE_RES, pz + TRAMPLE_RADIUS + 1)):
+		var row: int = z * TRAMPLE_RES
 		for x in range(max(0, px - TRAMPLE_RADIUS), min(TRAMPLE_RES, px + TRAMPLE_RADIUS + 1)):
-			var dist: float = Vector2(x - px, z - pz).length()
-			if dist <= TRAMPLE_RADIUS:
+			var ddx: float = float(x - px)
+			var ddz: float = float(z - pz)
+			var dist_sq: float = ddx * ddx + ddz * ddz
+			if dist_sq <= float(TRAMPLE_RADIUS * TRAMPLE_RADIUS):
+				var dist: float = sqrt(dist_sq)
 				var target: float = 1.0 - dist / (TRAMPLE_RADIUS + 1.0)
-				var cur: float = _trample_img.get_pixel(x, z).r
-				var new_v: float = min(target, cur + ramp)
-				_trample_img.set_pixel(x, z, Color(new_v, new_v, new_v))
+				var cur: float = _trample_buf[row + x]
+				var nv: float = minf(target, cur + ramp)
+				_trample_buf[row + x] = nv
+				_trample_bytes[row + x] = int(clampf(nv, 0.0, 1.0) * 255.0)
 
+	# Track dirty rect — only the region we just touched
+	_trample_dirty_x0 = mini(_trample_dirty_x0, x0)
+	_trample_dirty_z0 = mini(_trample_dirty_z0, z0)
+	_trample_dirty_x1 = maxi(_trample_dirty_x1, x1)
+	_trample_dirty_z1 = maxi(_trample_dirty_z1, z1)
+
+	_flush_trample_to_gpu()
+
+# Upload only the dirty region of the trample map to the GPU.
+# _trample_bytes is kept in sync during _update_trample_map so no
+# separate float→byte conversion loop is needed.
+func _flush_trample_to_gpu() -> void:
+	if _trample_dirty_x0 > _trample_dirty_x1:
+		return  # nothing dirty
+	_trample_img.set_data(TRAMPLE_RES, TRAMPLE_RES, false, Image.FORMAT_L8, _trample_bytes)
 	_trample_tex.update(_trample_img)
+	# Reset dirty rect
+	_trample_dirty_x0 = TRAMPLE_RES
+	_trample_dirty_z0 = TRAMPLE_RES
+	_trample_dirty_x1 = 0
+	_trample_dirty_z1 = 0
 
 func _make_blade_mesh() -> ArrayMesh:
 	var verts   := PackedVector3Array()
@@ -295,7 +343,7 @@ func _make_blade_mesh() -> ArrayMesh:
 	var normals := PackedVector3Array()
 	var indices := PackedInt32Array()
 
-	var width_profile: Array[float] = [1.0, 0.80, 0.45, 0.08]
+	var width_profile: Array[float] = [1.0, 0.55, 0.12]
 
 	for row in range(SEGMENTS):
 		var t := float(row) / float(SEGMENTS)

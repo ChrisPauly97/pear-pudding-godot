@@ -155,5 +155,5 @@ func _collect() -> void:
 	if col:
 		col.disabled = true
 	var t := create_tween()
-	t.tween_property(self, "scale", Vector3.ZERO, 0.18)
+	t.tween_property(self, "scale", Vector3(0.001, 0.001, 0.001), 0.18)
 	t.tween_callback(queue_free)
