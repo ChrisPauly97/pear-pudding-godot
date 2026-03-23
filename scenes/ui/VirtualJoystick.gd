@@ -3,12 +3,15 @@ extends Control
 const BASE_RADIUS: float = 130.0
 const KNOB_RADIUS: float = 54.0
 const JUMP_RADIUS: float = 80.0
+const INTERACT_RADIUS: float = 65.0
 const DEADZONE: float = 0.25
 
 var _joy_index: int = -1
 var _knob_offset: Vector2 = Vector2.ZERO
 var _jump_index: int = -1
 var _jump_pressed: bool = false
+var _interact_index: int = -1
+var _interact_pressed: bool = false
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -22,6 +25,10 @@ func _get_jump_center() -> Vector2:
 	var s: Vector2 = get_viewport_rect().size
 	return Vector2(180.0, s.y - 180.0)
 
+func _get_interact_center() -> Vector2:
+	var s: Vector2 = get_viewport_rect().size
+	return Vector2(180.0, s.y - 365.0)
+
 func _draw() -> void:
 	# Joystick
 	var jc: Vector2 = _get_joy_center()
@@ -33,6 +40,12 @@ func _draw() -> void:
 	draw_circle(_get_jump_center(), JUMP_RADIUS, jump_col)
 	draw_arc(_get_jump_center(), JUMP_RADIUS, 0.0, TAU, 48, Color(1.0, 1.0, 1.0, 0.50), 2.5)
 	draw_string(ThemeDB.fallback_font, _get_jump_center() + Vector2(-14.0, 8.0), "jump",
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1.0, 1.0, 1.0, 0.80))
+	# Interact button
+	var interact_col: Color = Color(1.0, 1.0, 1.0, 0.55) if _interact_pressed else Color(1.0, 1.0, 1.0, 0.18)
+	draw_circle(_get_interact_center(), INTERACT_RADIUS, interact_col)
+	draw_arc(_get_interact_center(), INTERACT_RADIUS, 0.0, TAU, 48, Color(1.0, 1.0, 1.0, 0.50), 2.5)
+	draw_string(ThemeDB.fallback_font, _get_interact_center() + Vector2(-24.0, 8.0), "use",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1.0, 1.0, 1.0, 0.80))
 
 func _input(event: InputEvent) -> void:
@@ -56,6 +69,11 @@ func _handle_touch(index: int, pos: Vector2, pressed: bool) -> void:
 			_jump_pressed = true
 			Input.action_press("jump")
 			queue_redraw()
+		elif _interact_index == -1 and pos.distance_to(_get_interact_center()) <= INTERACT_RADIUS * 1.5:
+			_interact_index = index
+			_interact_pressed = true
+			Input.action_press("interact")
+			queue_redraw()
 	else:
 		if index == _joy_index:
 			_joy_index = -1
@@ -66,6 +84,11 @@ func _handle_touch(index: int, pos: Vector2, pressed: bool) -> void:
 			_jump_index = -1
 			_jump_pressed = false
 			Input.action_release("jump")
+			queue_redraw()
+		elif index == _interact_index:
+			_interact_index = -1
+			_interact_pressed = false
+			Input.action_release("interact")
 			queue_redraw()
 
 func _update_knob(touch_pos: Vector2) -> void:
