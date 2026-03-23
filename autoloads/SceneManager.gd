@@ -11,6 +11,7 @@ var _inventory_scene_packed := preload("res://scenes/ui/InventoryScene.tscn")
 
 var _battle_overlay: Node = null
 var _inventory_overlay: Node = null
+var _saved_world_scene: Node = null
 
 # Tracks which enemy triggered the current battle (for defeat marking)
 var _current_battle_enemy_id: String = ""
@@ -22,7 +23,9 @@ func _ready() -> void:
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 
 func go_to_menu() -> void:
-	get_tree().paused = false
+	if _saved_world_scene != null:
+		_saved_world_scene.queue_free()
+		_saved_world_scene = null
 	_battle_overlay = null
 	_inventory_overlay = null
 	map_stack.clear()
@@ -88,14 +91,22 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	_current_battle_enemy_id = str(enemy_data.get("id", ""))
 	SaveManager.set_pending_battle(enemy_data)
 	SaveManager.save()
+	# Detach world scene from tree so it stops rendering/processing
+	_saved_world_scene = get_tree().current_scene
+	get_tree().root.remove_child(_saved_world_scene)
+	# Promote battle to the active scene
 	_battle_overlay = _battle_scene_packed.instantiate()
 	_battle_overlay.enemy_data = enemy_data
-	_battle_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
-	get_tree().current_scene.add_child(_battle_overlay)
-	get_tree().paused = true
+	get_tree().root.add_child(_battle_overlay)
+	get_tree().current_scene = _battle_overlay
+
+func _restore_world() -> void:
+	if _saved_world_scene != null:
+		get_tree().root.add_child(_saved_world_scene)
+		get_tree().current_scene = _saved_world_scene
+		_saved_world_scene = null
 
 func _on_battle_won(_result: Dictionary) -> void:
-	get_tree().paused = false
 	if not _current_battle_enemy_id.is_empty():
 		SaveManager.mark_enemy_defeated(_current_battle_enemy_id)
 		_current_battle_enemy_id = ""
@@ -103,14 +114,17 @@ func _on_battle_won(_result: Dictionary) -> void:
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
+	_restore_world()
 
 func _on_battle_lost() -> void:
-	get_tree().paused = false
 	_current_battle_enemy_id = ""
 	SaveManager.clear_pending_battle()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
+	if _saved_world_scene != null:
+		_saved_world_scene.queue_free()
+		_saved_world_scene = null
 	get_tree().change_scene_to_packed(_gameover_scene_packed)
 
 func _on_inventory_requested() -> void:

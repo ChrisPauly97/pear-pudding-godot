@@ -153,6 +153,7 @@ func _ready() -> void:
 	if not SaveManager.pending_battle_enemy_data.is_empty():
 		GameBus.enemy_engaged.emit.call_deferred(SaveManager.pending_battle_enemy_data)
 	_interact_label.hide()
+	_interact_label.text = "[Tap] Interact" if OS.has_feature("android") else "[E] Interact"
 
 	var joystick := VirtualJoystick.new()
 	_hud.add_child(joystick)
