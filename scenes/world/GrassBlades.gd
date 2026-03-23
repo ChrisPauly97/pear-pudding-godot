@@ -21,7 +21,7 @@ var _trail_dirty: bool          = true
 # the player moves more than TRAMPLE_SHIFT_TILES tiles from the window centre.
 const TRAMPLE_RES         := 64   # pixels (tiles)
 const TRAMPLE_SHIFT_TILES := 16   # shift window after this many tiles of drift
-const TRAMPLE_RADIUS      := 1    # pixel radius of player stamp
+const TRAMPLE_RADIUS      := 0    # pixel radius of player stamp (0 = single tile footprint)
 const TRAMPLE_DECAY       := 0.02 # per-second decay rate
 const TRAMPLE_FLOOR       := 0.3  # trampled grass never recovers past this
 const TRAMPLE_RAMP        := 1.5  # per-second ramp-up rate
