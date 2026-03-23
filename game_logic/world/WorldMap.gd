@@ -15,6 +15,7 @@ var heights: Array = []   # [y][x] of int
 var enemies: Array = []   # Array of WorldEntityData dicts
 var chests: Array = []    # Array of WorldEntityData dicts
 var doors: Array = []     # Array of door dicts
+var npcs: Array = []      # Array of npc dicts
 var player_spawn_x: int = -1
 var player_spawn_z: int = -1
 
@@ -114,6 +115,15 @@ func find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
 			return d
 	return {}
 
+func find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
+	for n in npcs:
+		var dx: float = n["x"] - px
+		var dz: float = n["z"] - pz
+		if dx * dx + dz * dz <= range_sq:
+			return n
+	return {}
+
 func find_door_by_id(door_id: String) -> Dictionary:
 	for d in doors:
 		if d.get("id", "") == door_id:
@@ -184,6 +194,7 @@ func load_from_file(path: String) -> void:
 	enemies.clear()
 	chests.clear()
 	doors.clear()
+	npcs.clear()
 	player_spawn_x = -1
 	player_spawn_z = -1
 
@@ -243,6 +254,18 @@ func load_from_file(path: String) -> void:
 					"z": float(parts[2]),
 					"card_ids": card_ids_arr,
 					"opened": false
+				})
+
+		elif line.begins_with("NPC "):
+			var parts := line.split(" ", false, 3)
+			if parts.size() >= 3:
+				uid_counter += 1
+				var dialogue: String = parts[3] if parts.size() >= 4 else "..."
+				npcs.append({
+					"id": "npc_%d" % uid_counter,
+					"x": float(parts[1]),
+					"z": float(parts[2]),
+					"dialogue": dialogue,
 				})
 
 		elif line.begins_with("DOOR "):

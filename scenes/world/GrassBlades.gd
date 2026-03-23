@@ -5,23 +5,14 @@ const _GrassShader = preload("res://assets/shaders/grass_blade.gdshader")
 var _mat: ShaderMaterial
 var _blade_mesh: ArrayMesh  # cached — identical for every chunk
 
-const TRAIL_SIZE     := 4
-const TRAIL_INTERVAL := 0.08   # seconds between trail snapshots
-const SPRINGBACK     := 0.6    # higher = faster spring-back
-
-var _trail:      Array[Vector3] = []
-var _trail_ages: Array[float]   = []
-var _trail_weights: Array[float] = []  # cached — only rebuilt when _trail_dirty
-var _snap_timer: float          = 0.0
-var _prev_pos:   Vector3        = Vector3(-9999, 0, -9999)
-var _last_move_dir: Vector2     = Vector2.ZERO
-var _trail_dirty: bool          = true
+var _prev_pos:      Vector3 = Vector3(-9999, 0, -9999)
+var _last_move_dir: Vector2 = Vector2.ZERO
 
 # Sliding trample window: 64x64 pixel image, player-centred, shifts when
 # the player moves more than TRAMPLE_SHIFT_TILES tiles from the window centre.
 const TRAMPLE_RES         := 64   # pixels (tiles)
 const TRAMPLE_SHIFT_TILES := 16   # shift window after this many tiles of drift
-const TRAMPLE_RADIUS      := 1    # pixel radius of player stamp
+const TRAMPLE_RADIUS      := 0    # pixel radius of player stamp (0 = single tile footprint)
 const TRAMPLE_DECAY       := 0.02 # per-second decay rate
 const TRAMPLE_FLOOR       := 0.3  # trampled grass never recovers past this
 const TRAMPLE_RAMP        := 1.5  # per-second ramp-up rate
@@ -39,22 +30,15 @@ var _trample_dirty_x1: int = 0
 var _trample_dirty_z1: int = 0
 const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visible difference
 
-const BLADES_PER_TILE := 14
-const BLADE_WIDTH      := 0.34
-const BLADE_HEIGHT     := 1.1
-const SEGMENTS         := 3  # quads along the blade height
+const BLADES_PER_TILE := 20
+const BLADE_WIDTH      := 0.26
+const BLADE_HEIGHT     := 1.6
+const SEGMENTS         := 4  # quads along the blade height
 
 const CHUNK_SIZE := 16  # tiles per chunk side — one MultiMesh per chunk
 
 # Per-chunk MultiMeshInstance3D nodes — keyed by Vector2i(cx, cz)
 var _chunk_mmis: Dictionary = {}
-
-func _ready() -> void:
-	var far := Vector3(-9999.0, 0.0, -9999.0)
-	for i in TRAIL_SIZE:
-		_trail.append(far)
-		_trail_ages.append(999.0)
-		_trail_weights.append(0.0)
 
 func _init_material() -> void:
 	if _mat:
@@ -154,7 +138,7 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGene
 			var px: float = centre.x + rng.randf_range(-half, half)
 			var pz: float = centre.y + rng.randf_range(-half, half)
 			var rot: float = rng.randf_range(0.0, PI)
-			var sc: float  = rng.randf_range(0.4, 1.6)
+			var sc: float  = rng.randf_range(0.45, 1.75)
 			var cr: float  = cos(rot) * sc
 			var sr: float  = sin(rot) * sc
 			var off: int   = i * 12
@@ -168,7 +152,7 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGene
 	var cz: int = chunk_key.y
 	mm.custom_aabb = AABB(
 		Vector3(cx * chunk_world, -0.5, cz * chunk_world),
-		Vector3(chunk_world, BLADE_HEIGHT + 1.5, chunk_world)
+		Vector3(chunk_world, BLADE_HEIGHT + 2.0, chunk_world)
 	)
 	mm.buffer = buf
 
@@ -184,42 +168,15 @@ func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 	if not _mat:
 		return
 
-	# Age all trail entries
-	for i in TRAIL_SIZE:
-		_trail_ages[i] += delta
+	# Immediate blade push — just pass current position
+	_mat.set_shader_parameter("player_pos", pos if is_grounded else Vector3(-9999.0, 0.0, -9999.0))
 
-	if is_grounded:
-		var moved: float = Vector2(pos.x - _trail[0].x, pos.z - _trail[0].z).length()
-		_snap_timer += delta
-		if _snap_timer >= TRAIL_INTERVAL and moved > 0.1:
-			_snap_timer = 0.0
-			_trail.pop_back()
-			_trail_ages.pop_back()
-			_trail.push_front(pos)
-			_trail_ages.push_front(0.0)
-			_trail_dirty = true
-		elif moved > 0.01:
-			# Only update trail head + mark dirty when actually moving;
-			# standing still no longer causes shader param uploads every frame.
-			_trail[0] = pos
-			_trail_ages[0] = 0.0
-			_trail_dirty = true
-
-	# Movement direction
+	# Movement direction — only upload when it changes
 	var move_dir := Vector2.ZERO
-	var dp_sq: float = Vector2(_trail[0].x - _prev_pos.x, _trail[0].z - _prev_pos.z).length_squared()
-	if dp_sq > 0.0025:  # 0.05 * 0.05
-		move_dir = Vector2(_trail[0].x - _prev_pos.x, _trail[0].z - _prev_pos.z).normalized()
-	_prev_pos = _trail[0]
-
-	# Only push shader params when trail data actually changed
-	if _trail_dirty:
-		for i in TRAIL_SIZE:
-			_trail_weights[i] = exp(-_trail_ages[i] * SPRINGBACK)
-		_mat.set_shader_parameter("player_trail", _trail)
-		_mat.set_shader_parameter("trail_weights", _trail_weights)
-		_trail_dirty = false
-
+	var dp_sq: float = Vector2(pos.x - _prev_pos.x, pos.z - _prev_pos.z).length_squared()
+	if dp_sq > 0.0025:  # 0.05 units threshold
+		move_dir = Vector2(pos.x - _prev_pos.x, pos.z - _prev_pos.z).normalized()
+	_prev_pos = pos
 	if move_dir != _last_move_dir:
 		_mat.set_shader_parameter("player_move_dir", move_dir)
 		_last_move_dir = move_dir
@@ -343,7 +300,7 @@ func _make_blade_mesh() -> ArrayMesh:
 	var normals := PackedVector3Array()
 	var indices := PackedInt32Array()
 
-	var width_profile: Array[float] = [1.0, 0.55, 0.12]
+	var width_profile: Array[float] = [1.0, 0.72, 0.38, 0.10]
 
 	for row in range(SEGMENTS):
 		var t := float(row) / float(SEGMENTS)

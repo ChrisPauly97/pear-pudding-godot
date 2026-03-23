@@ -16,11 +16,12 @@ const _TexWallLeft:  Texture2D = preload("res://assets/textures/wall_side_left.p
 const _TexWallRight: Texture2D = preload("res://assets/textures/wall_side_right.png")
 
 # Preload entity scenes — avoids filesystem hits during spawning
-const _PlayerScene    = preload("res://scenes/world/entities/Player.tscn")
-const _EnemyScene     = preload("res://scenes/world/entities/EnemyNPC.tscn")
-const _ChestScene     = preload("res://scenes/world/entities/Chest.tscn")
-const _DoorScene      = preload("res://scenes/world/entities/Door.tscn")
-const _WorldItemScene = preload("res://scenes/world/entities/WorldItem.tscn")
+const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
+const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
+const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
+const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
+const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
+const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -35,6 +36,7 @@ var _grass: Node3D
 var _enemy_nodes: Dictionary = {}   # id -> Node3D
 var _chest_nodes: Dictionary = {}   # id -> Node3D
 var _door_nodes: Dictionary = {}    # id -> Node3D
+var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
@@ -87,6 +89,10 @@ const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 @onready var _map_label: Label = $HUD/MapLabel
 @onready var _sun: DirectionalLight3D = $DirectionalLight3D
 @onready var _moon: DirectionalLight3D = $MoonLight
+
+var _dialogue_label: Label
+var _dialogue_timer: float = 0.0
+const DIALOGUE_DURATION: float = 4.0
 
 # Terrain height constants — named-map path uses a wider ramp than chunks
 const HILL_PEAK_H:    float = 1.5
@@ -158,6 +164,19 @@ func _ready() -> void:
 	menu_btn.position = Vector2(vh * 0.01, vh * 0.01)
 	menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
 	_hud.add_child(menu_btn)
+
+	var vp := get_viewport().get_visible_rect().size
+	_dialogue_label = Label.new()
+	_dialogue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_dialogue_label.add_theme_color_override("font_color", Color.WHITE)
+	_dialogue_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	_dialogue_label.add_theme_constant_override("shadow_offset_x", 1)
+	_dialogue_label.add_theme_constant_override("shadow_offset_y", 1)
+	_dialogue_label.size = Vector2(vp.x * 0.6, vp.y * 0.12)
+	_dialogue_label.position = Vector2(vp.x * 0.2, vp.y * 0.78)
+	_dialogue_label.hide()
+	_hud.add_child(_dialogue_label)
 
 func _exit_tree() -> void:
 	# Wait for any in-flight worker tasks before the GDScript instance is freed.
@@ -679,6 +698,8 @@ func _spawn_entities() -> void:
 		_spawn_chest(c_data)
 	for d_data in world_map.doors:
 		_spawn_door(d_data)
+	for n_data in world_map.npcs:
+		_spawn_npc(n_data)
 
 func _spawn_enemy(e_data: Dictionary) -> void:
 	var node: Node3D = TerrainMath.spawn_entity(_EnemyScene, e_data, 0.5, _entity_root, self)
@@ -689,6 +710,15 @@ func _spawn_enemy(e_data: Dictionary) -> void:
 func _spawn_chest(c_data: Dictionary) -> void:
 	var node: Node3D = TerrainMath.spawn_entity(_ChestScene, c_data, 0.25, _entity_root, self)
 	_chest_nodes[c_data["id"]] = node
+
+func _spawn_npc(n_data: Dictionary) -> void:
+	var node: Node3D = _TownspersonScene.instantiate()
+	var ny: float = get_terrain_height(float(n_data["x"]), float(n_data["z"])) + 0.5
+	node.position = Vector3(n_data["x"], ny, n_data["z"])
+	if node.has_method("init_from_data"):
+		node.init_from_data(n_data)
+	_entity_root.add_child(node)
+	_npc_nodes[n_data["id"]] = node
 
 func _spawn_door(d_data: Dictionary) -> void:
 	var node: Node3D = TerrainMath.spawn_entity(_DoorScene, d_data, 0.75, _entity_root, self)
@@ -760,6 +790,11 @@ func _process(delta: float) -> void:
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
 
+	if _dialogue_timer > 0.0:
+		_dialogue_timer -= delta
+		if _dialogue_timer <= 0.0:
+			_dialogue_label.hide()
+
 	if infinite:
 		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 		var pcx: int = int(floor(_player.position.x / chunk_world))
@@ -818,7 +853,8 @@ func _check_interactions() -> void:
 		var door := world_map.find_nearby_door(px, pz, IsoConst.INTERACT_RANGE)
 		var enemy := world_map.find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
 		var chest := world_map.find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
-		if not door.is_empty() or not enemy.is_empty() or not chest.is_empty():
+		var npc := world_map.find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
+		if not door.is_empty() or not enemy.is_empty() or not chest.is_empty() or not npc.is_empty():
 			_interact_label.show()
 		else:
 			_interact_label.hide()
@@ -884,6 +920,18 @@ func _handle_interact() -> void:
 			node.mark_opened()
 		var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
 		_spawn_card_items(chest.get("card_ids", []), chest_pos)
+		return
+
+	var npc := world_map.find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
+	if not npc.is_empty():
+		_show_dialogue(str(npc.get("dialogue", "...")))
+
+# ── Dialogue ───────────────────────────────────────────────────────────────
+
+func _show_dialogue(text: String) -> void:
+	_dialogue_label.text = text
+	_dialogue_label.show()
+	_dialogue_timer = DIALOGUE_DURATION
 
 # ── Card item spawning ──────────────────────────────────────────────────────
 
