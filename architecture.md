@@ -18,8 +18,10 @@ pear-pudding-tcg-godot/
 │   └── BasicAI.gd              # Static AI decision logic
 ├── autoloads/
 │   ├── CardRegistry.gd         # Card template database
+│   ├── EnemyRegistry.gd        # Enemy type definitions + battle decks by depth
 │   ├── GameBus.gd              # Global signal bus
 │   ├── IsoConst.gd             # All isometric/gameplay constants
+│   ├── SaveManager.gd          # Player state persistence (deck, position, progress)
 │   └── SceneManager.gd         # Screen transitions + map stack
 ├── game_logic/
 │   ├── TerrainMath.gd          # Shared terrain height, mesh, wall, and entity spawn helpers
@@ -31,16 +33,19 @@ pear-pudding-tcg-godot/
 │   │   ├── PlayerState.gd      # Hand/board/deck for one player
 │   │   └── ZoneState.gd        # 5-slot board zone
 │   └── world/
+│       ├── ChunkData.gd        # 16×16 chunk tile/height/entity container (RefCounted)
+│       ├── InfiniteWorldGen.gd # Procedural chunk generation via noise
 │       ├── WorldEntity.gd      # Base class for world objects
 │       └── WorldMap.gd         # Tile grid + entity lists + save/load
 ├── scenes/
 │   ├── battle/
 │   │   └── BattleScene.gd/.tscn   # Turn-based battle UI overlay
 │   ├── ui/
-│   │   ├── ChestOpenScene.gd/.tscn
 │   │   ├── GameOverScene.gd/.tscn
+│   │   ├── InventoryScene.gd/.tscn  # Deck builder (collection + deck panels)
 │   │   ├── MapEditorScene.gd/.tscn
-│   │   └── MenuScene.gd/.tscn
+│   │   ├── MenuScene.gd/.tscn
+│   │   └── VirtualJoystick.gd       # Android on-screen joystick + jump button
 │   └── world/
 │       ├── WorldScene.gd/.tscn    # 3D isometric world
 │       ├── ChunkRenderer.gd       # Per-chunk terrain/wall/entity rendering
@@ -49,7 +54,14 @@ pear-pudding-tcg-godot/
 │           ├── Chest.gd/.tscn
 │           ├── Door.gd/.tscn
 │           ├── EnemyNPC.gd/.tscn
-│           └── Player.gd/.tscn
+│           ├── Player.gd/.tscn
+│           └── WorldItem.gd/.tscn   # Card drop entity (arc + auto-collect)
+├── tests/
+│   ├── framework/test_case.gd  # Base test case class
+│   ├── runner.gd               # Headless test runner (godot --headless -s tests/runner.gd)
+│   └── unit/                   # Unit tests for game logic
+├── tools/
+│   └── GenerateTextures.gd     # EditorScript: bake procedural textures to PNG
 └── assets/
     └── maps/                   # Map text files (main.txt, etc.)
 ```
@@ -86,12 +98,23 @@ Manages scene transitions and map navigation stack.
 - `start_new_game()` → enters "main" map
 - `enter_map(map_name, target_door_id)` → pushes current map to stack, loads WorldScene
 - `exit_map()` → pops parent map + return door, respawns at return door
-- Handles overlays: BattleScene (on `enemy_engaged`), ChestOpenScene (on `chest_opened`)
+- Handles overlays: BattleScene (on `enemy_engaged`)
 
 ### CardRegistry
 4 card templates: ghost (1/1/2), skeleton (2/2/2), zombie (3/2/4), ghoul (4/4/3).
 - `get_template(id) -> Dictionary`
 - `get_all_ids() -> Array[String]`
+
+### EnemyRegistry
+Enemy type definitions with battle decks. Selects enemy type by map depth or chunk distance.
+- `get_deck(enemy_type) -> Array[String]`
+- `type_for_depth(depth, max_depth) -> String`
+- `type_for_chunk_distance(dist) -> String`
+
+### SaveManager
+Persists player game state to JSON: deck, position, maps visited, defeated enemies, opened chests.
+- `save_game()` / `load_game()`
+- `is_enemy_defeated(id) -> bool` / `is_chest_opened(id) -> bool`
 
 ---
 
@@ -122,6 +145,18 @@ Manages scene transitions and map navigation stack.
 - `CardInstance` — stats + state (`summoning_sick`, `attack_count`, `out_of_play`)
 - `HeroState` — HP/mana
 
+### ChunkData
+`class_name ChunkData extends RefCounted`
+- 16×16 tile/height container using `PackedInt32Array` for memory efficiency
+- Stores per-chunk enemy and chest entity lists
+- Used by ChunkRenderer for infinite-world terrain
+
+### InfiniteWorldGen
+Static utility for procedural chunk generation.
+- Noise-based tile assignment (grass/wall/hill thresholds)
+- Height variation via noise
+- Entity spawning: 0–2 enemies, 0–1 chest per chunk based on distance from origin
+
 ### BasicAI
 `static func decide_turn(state: GameState) -> Array[Callable]`
 Returns a list of lambda actions: play all affordable cards, attack viable targets (enemy hero if no minions, else first minion).
@@ -133,12 +168,13 @@ Returns a list of lambda actions: play all affordable cards, attack viable targe
 ### WorldScene (Node3D)
 - `@export var map_name: String` — set by SceneManager before adding to tree
 - `@export var target_door_id: String` — spawn override
-- `_ready()`: builds tiles/walls/entities, spawns player
+- `_ready()`: builds terrain/walls/entities via TerrainMath, spawns player
 - `_process()`: camera follows player, checks nearby interactables
 - `_input()`: E key → `_handle_interact()` (doors/chests)
-- Tiles: `PlaneMesh` quads positioned at `(tx * TILE_SIZE, 0, tz * TILE_SIZE)`
-- Walls: stacked `BoxMesh` cubes (one per height level), `StaticBody3D` for collision
-- Entities: loaded from `.tscn` with `init_from_data(dict)` pattern
+- Terrain: `TerrainMath.build_terrain_mesh()` → ArrayMesh + HeightMapShape3D collision
+- Walls: `TerrainMath.build_wall_mesh()` → ArrayMesh with per-tile BoxShape3D collision
+- Entities: `TerrainMath.spawn_entity()` with `init_from_data(dict)` pattern
+- Supports both named maps (WorldMap) and infinite procedural chunks (ChunkRenderer)
 
 ### BattleScene (Control — overlay)
 - Added as child of current WorldScene via SceneManager
@@ -171,9 +207,7 @@ WorldScene("main")
   │   BattleScene overlay
   │   ├─ Win → remove overlay, continue
   │   └─ Lose → GameOverScene
-  ├─ Chest E → GameBus.chest_opened
-  │       ↓
-  │   ChestOpenScene overlay (sequential reveal)
+  ├─ Chest E → GameBus.chest_opened → card drops (WorldItem entities)
   └─ Door E → SceneManager.enter_map(target) or exit_map()
 ```
 

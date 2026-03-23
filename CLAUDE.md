@@ -155,27 +155,6 @@ Godot 4 **does not support geometry shaders**. Use these alternatives:
 
 ---
 
-## Floor Collision
-
-Grass tile `MeshInstance3D` nodes are visual only — no physics. Without a floor collider the player falls through due to gravity. Add a single `StaticBody3D` with a large `BoxShape3D` covering the whole map:
-
-```gdscript
-func _build_floor_collision() -> void:
-    var floor_body := StaticBody3D.new()
-    var col := CollisionShape3D.new()
-    var box := BoxShape3D.new()
-    var map_size: float = WorldMap.MAP_WIDTH * IsoConst.TILE_SIZE
-    box.size = Vector3(map_size, 0.1, map_size)
-    col.shape = box
-    floor_body.position = Vector3(map_size * 0.5, -0.05, map_size * 0.5)
-    floor_body.add_child(col)
-    add_child(floor_body)
-```
-
-`WorldBoundaryShape3D` is not available in all Godot 4 builds — use `BoxShape3D` instead.
-
----
-
 ## UI Sizing: Relative to Viewport, Never Fixed Pixels
 
 ### The problem
@@ -282,3 +261,29 @@ caused terrain rendering bugs.
 All gameplay constants live in `autoloads/IsoConst.gd`. Other files reference them via
 `IsoConst.TILE_SIZE`, etc. `WorldMap` re-exports them as aliases (`const TILE_WALL: int = IsoConst.TILE_WALL`)
 for backward compatibility — never add new copies elsewhere.
+
+---
+
+## Running Tests: Installing Godot
+
+### The problem
+Tests require the Godot 4 headless binary. If `godot` is not available in your environment,
+tests cannot run.
+
+### Installing Godot headless
+```bash
+# Download Godot 4 headless (Linux 64-bit)
+wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip -O /tmp/godot.zip
+unzip -o /tmp/godot.zip -d /tmp/godot
+cp /tmp/godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+chmod +x /usr/local/bin/godot
+rm -rf /tmp/godot /tmp/godot.zip
+```
+
+### Running tests
+```bash
+# From the project root
+godot --headless --path . -s tests/runner.gd
+```
+
+Exit code 0 means all tests passed, 1 means one or more failed.
