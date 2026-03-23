@@ -22,6 +22,8 @@ pear-pudding-tcg-godot/
 │   ├── IsoConst.gd             # All isometric/gameplay constants
 │   └── SceneManager.gd         # Screen transitions + map stack
 ├── game_logic/
+│   ├── TerrainMath.gd          # Shared terrain height, mesh, wall, and entity spawn helpers
+│   ├── TextureGen.gd           # Runtime texture generation with caching
 │   ├── battle/
 │   │   ├── CardInstance.gd     # Card runtime state
 │   │   ├── GameState.gd        # Battle state root
@@ -29,7 +31,6 @@ pear-pudding-tcg-godot/
 │   │   ├── PlayerState.gd      # Hand/board/deck for one player
 │   │   └── ZoneState.gd        # 5-slot board zone
 │   └── world/
-│       ├── ProceduralGen.gd    # Procedural map generation
 │       ├── WorldEntity.gd      # Base class for world objects
 │       └── WorldMap.gd         # Tile grid + entity lists + save/load
 ├── scenes/
@@ -42,6 +43,8 @@ pear-pudding-tcg-godot/
 │   │   └── MenuScene.gd/.tscn
 │   └── world/
 │       ├── WorldScene.gd/.tscn    # 3D isometric world
+│       ├── ChunkRenderer.gd       # Per-chunk terrain/wall/entity rendering
+│       ├── GrassBlades.gd         # Grass shader + MultiMesh per chunk
 │       └── entities/
 │           ├── Chest.gd/.tscn
 │           ├── Door.gd/.tscn
@@ -189,3 +192,22 @@ Entity scenes (EnemyNPC, Chest, Door) expose `init_from_data(data: Dictionary)` 
 
 ### Overlay Scenes
 Battle and chest screens are added as children of the current WorldScene (not replacing it). This keeps world state alive during overlays and allows seamless return to exploration.
+
+### TerrainMath — Single Source of Truth for Terrain
+All terrain height computation, mesh building, wall mesh building, and entity spawning
+are consolidated in `game_logic/TerrainMath.gd`. Both the named-map path (WorldScene)
+and the infinite-chunk path (ChunkRenderer) delegate to TerrainMath via Callable-based
+tile lookups. This avoids the previous duplication of ~400 lines of terrain code.
+
+Key static methods:
+- `get_height_at(wx, wz, tile_lookup, height_lookup, curve_r, peak_h)` — single-point height query
+- `compute_height_field(tile_lookup, ...)` — packed float array for mesh vertices
+- `build_terrain_mesh(hfield, tile_lookup, ...)` — ArrayMesh + HeightMapShape3D
+- `build_wall_mesh(get_tile_fn, get_height_fn, grid_w, grid_h)` — wall ArrayMesh with surface_types meta
+- `ensure_wall_materials(tex_left, tex_right, tex_top)` / `get_wall_materials()` — shared wall StandardMaterial3Ds
+- `spawn_entity(scene, data, y_offset, entity_root, world_scene)` — shared entity instantiation
+
+### Canonical Constants
+All tile types (`TILE_GRASS`, `TILE_WALL`, `TILE_HILL`), sizes (`TILE_SIZE`, `CHUNK_SIZE`),
+and physics constants (`WALL_FACE_H`) live in `IsoConst`. WorldMap re-exports them as
+aliases for backward compatibility. Never duplicate these values in other files.

@@ -238,3 +238,47 @@ mat.shader = _TerrainShader
 
 ### Which file types need .uid files
 `.gdshader`, `.tres`, `.material`, `.theme`, `.gdextension`, and any binary resource Godot imports (textures, audio, meshes). Plain `.gd` scripts and `.tscn` scenes manage their own UIDs inside the file itself — no separate sidecar needed.
+
+---
+
+## TerrainMath: No Duplicate Terrain Code
+
+### The problem
+Terrain height computation, mesh building, wall mesh building, and entity spawning were
+duplicated between WorldScene (named-map path) and ChunkRenderer (infinite-chunk path).
+Any bug fix or parameter change had to be applied in 2–3 places.
+
+### The fix
+All shared terrain logic lives in `game_logic/TerrainMath.gd`. Both paths delegate to it
+via `Callable`-based tile lookups:
+
+```gdscript
+# Named-map path — WorldScene passes WorldMap.get_tile directly
+var hfield := TerrainMath.compute_height_field(
+    world_map.get_tile, 0.0, 0.0, nvx, nvz, step, HILL_RAMP_R, HILL_PEAK_H)
+
+# Infinite-chunk path — ChunkRenderer passes a lambda over the packed tile grid
+var grid_tile_lookup := func(ttx: int, ttz: int) -> int:
+    var li: int = (ttz - grid_min_z) * grid_w + (ttx - grid_min_x)
+    if li < 0 or li >= tile_grid.size():
+        return IsoConst.TILE_WALL
+    return tile_grid[li]
+var hfield := TerrainMath.compute_height_field(
+    grid_tile_lookup, chunk_origin.x, chunk_origin.z, nvx, nvz, step, CURVE_R, PLATEAU_H)
+```
+
+Never duplicate terrain algorithms — add new methods to `TerrainMath` instead.
+
+---
+
+## Canonical Constants: IsoConst Is the Source of Truth
+
+### The problem
+Tile type constants (`TILE_GRASS`, `TILE_WALL`, `TILE_HILL`), `TILE_SIZE`, `CHUNK_SIZE`,
+and `WALL_FACE_H` were defined in multiple files. Changing one without updating the others
+caused terrain rendering bugs.
+
+### The fix
+All gameplay constants live in `autoloads/IsoConst.gd`. Other files reference them via
+`IsoConst.TILE_SIZE`, etc. `WorldMap` re-exports them as aliases (`const TILE_WALL: int = IsoConst.TILE_WALL`)
+for backward compatibility — never add new copies elsewhere.
