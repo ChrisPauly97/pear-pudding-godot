@@ -10,9 +10,8 @@ uniform vec4  color_tip        : source_color = vec4(0.40, 0.78, 0.38, 1.0);
 uniform float wind_strength    : hint_range(0.0, 1.0) = 0.28;
 uniform vec2  wind_direction                          = vec2(1.0, 0.35);
 
-// Player trample trail — 4 snapshots
-uniform vec3  player_trail[4];
-uniform float trail_weights[4];
+// Player position for immediate blade push
+uniform vec3  player_pos                               = vec3(-9999.0, 0.0, -9999.0);
 uniform vec2  player_move_dir  = vec2(0.0);
 uniform float player_radius    : hint_range(0.0, 2.0)  = 0.3;
 uniform float player_push      : hint_range(0.0, 2.0)  = 0.5;
@@ -53,31 +52,19 @@ void vertex() {
 	VERTEX.x += wdir.x * wind_amt;
 	VERTEX.z += wdir.y * wind_amt;
 
-	// ---- Player trample with springback and direction-aware push ----
-	vec2 total_push = vec2(0.0);
-	bool has_move_dir = length(player_move_dir) > 0.1;
-
-	for (int i = 0; i < 4; i++) {
-		float w = trail_weights[i];
-		if (w < 0.01) continue;
-
-		vec2  to_blade = root.xz - player_trail[i].xz;
-		float dist     = length(to_blade);
-		if (dist >= player_radius || dist < 0.01) continue;
-
-		float push_t  = 1.0 - dist / player_radius;
-		push_t        = push_t * push_t;
-
-		float dir_factor = 1.0;
-		if (i == 0 && has_move_dir) {
-			dir_factor = step(0.0, dot(to_blade, player_move_dir));
-		}
-
-		total_push += normalize(to_blade) * push_t * player_push * w * dir_factor;
+	// ---- Player immediate push ----
+	vec2  to_blade = root.xz - player_pos.xz;
+	float dist     = length(to_blade);
+	if (dist < player_radius && dist > 0.01) {
+		float push_t = 1.0 - dist / player_radius;
+		push_t = push_t * push_t;
+		float dir_factor = length(player_move_dir) > 0.1
+				? step(0.0, dot(to_blade, player_move_dir))
+				: 1.0;
+		vec2 push = normalize(to_blade) * push_t * player_push * dir_factor;
+		VERTEX.x += push.x * t;
+		VERTEX.z += push.y * t;
 	}
-
-	VERTEX.x += total_push.x * t;
-	VERTEX.z += total_push.y * t;
 
 	// ---- Persistent trample from trample map ----
 	vec2 trample_uv = (root.xz - vec2(trample_origin_x, trample_origin_z)) / trample_map_size;
