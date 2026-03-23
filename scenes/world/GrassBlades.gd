@@ -39,10 +39,10 @@ var _trample_dirty_x1: int = 0
 var _trample_dirty_z1: int = 0
 const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visible difference
 
-const BLADES_PER_TILE := 14
-const BLADE_WIDTH      := 0.34
-const BLADE_HEIGHT     := 1.1
-const SEGMENTS         := 3  # quads along the blade height
+const BLADES_PER_TILE := 20
+const BLADE_WIDTH      := 0.26
+const BLADE_HEIGHT     := 1.6
+const SEGMENTS         := 4  # quads along the blade height
 
 const CHUNK_SIZE := 16  # tiles per chunk side — one MultiMesh per chunk
 
@@ -154,7 +154,7 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGene
 			var px: float = centre.x + rng.randf_range(-half, half)
 			var pz: float = centre.y + rng.randf_range(-half, half)
 			var rot: float = rng.randf_range(0.0, PI)
-			var sc: float  = rng.randf_range(0.4, 1.6)
+			var sc: float  = rng.randf_range(0.45, 1.75)
 			var cr: float  = cos(rot) * sc
 			var sr: float  = sin(rot) * sc
 			var off: int   = i * 12
@@ -168,7 +168,7 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGene
 	var cz: int = chunk_key.y
 	mm.custom_aabb = AABB(
 		Vector3(cx * chunk_world, -0.5, cz * chunk_world),
-		Vector3(chunk_world, BLADE_HEIGHT + 1.5, chunk_world)
+		Vector3(chunk_world, BLADE_HEIGHT + 2.0, chunk_world)
 	)
 	mm.buffer = buf
 
@@ -343,7 +343,7 @@ func _make_blade_mesh() -> ArrayMesh:
 	var normals := PackedVector3Array()
 	var indices := PackedInt32Array()
 
-	var width_profile: Array[float] = [1.0, 0.55, 0.12]
+	var width_profile: Array[float] = [1.0, 0.72, 0.38, 0.10]
 
 	for row in range(SEGMENTS):
 		var t := float(row) / float(SEGMENTS)
