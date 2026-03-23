@@ -303,6 +303,7 @@ static func build_wall_mesh(
 			tn.append_array([Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP])
 			tu.append_array([Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(1.0, 1.0), Vector2(0.0, 1.0)])
 			ti.append_array([tbase, tbase + 1, tbase + 2, tbase, tbase + 2, tbase + 3])
+			# South face (+Z, at z1) — visible when south neighbour is lower
 			var nb_h_s: int = 0
 			if get_tile_fn.call(lx, lz + 1) == IsoConst.TILE_WALL:
 				nb_h_s = max(1, get_height_fn.call(lx, lz + 1))
@@ -312,6 +313,17 @@ static func build_wall_mesh(
 					Vector3(x0, bot_s, z1), Vector3(x1, bot_s, z1),
 					Vector3(x1, top_y, z1), Vector3(x0, top_y, z1),
 					Vector3(0.0, 0.0, 1.0), float(h - nb_h_s))
+			# North face (+Z normal at z0) — visible when north neighbour is lower
+			var nb_h_n: int = 0
+			if get_tile_fn.call(lx, lz - 1) == IsoConst.TILE_WALL:
+				nb_h_n = max(1, get_height_fn.call(lx, lz - 1))
+			if nb_h_n < h:
+				var bot_n: float = float(nb_h_n) * IsoConst.WALL_FACE_H
+				add_wall_side(lv, ln, lu, li,
+					Vector3(x0, bot_n, z0), Vector3(x1, bot_n, z0),
+					Vector3(x1, top_y, z0), Vector3(x0, top_y, z0),
+					Vector3(0.0, 0.0, 1.0), float(h - nb_h_n))
+			# East face (+X, at x1) — visible when east neighbour is lower
 			var nb_h_e: int = 0
 			if get_tile_fn.call(lx + 1, lz) == IsoConst.TILE_WALL:
 				nb_h_e = max(1, get_height_fn.call(lx + 1, lz))
@@ -321,6 +333,16 @@ static func build_wall_mesh(
 					Vector3(x1, bot_e, z1), Vector3(x1, bot_e, z0),
 					Vector3(x1, top_y, z0), Vector3(x1, top_y, z1),
 					Vector3(1.0, 0.0, 0.0), float(h - nb_h_e))
+			# West face (+X normal at x0) — visible when west neighbour is lower
+			var nb_h_w: int = 0
+			if get_tile_fn.call(lx - 1, lz) == IsoConst.TILE_WALL:
+				nb_h_w = max(1, get_height_fn.call(lx - 1, lz))
+			if nb_h_w < h:
+				var bot_w: float = float(nb_h_w) * IsoConst.WALL_FACE_H
+				add_wall_side(rv, rn, ru, ri,
+					Vector3(x0, bot_w, z1), Vector3(x0, bot_w, z0),
+					Vector3(x0, top_y, z0), Vector3(x0, top_y, z1),
+					Vector3(1.0, 0.0, 0.0), float(h - nb_h_w))
 
 	if lv.is_empty() and rv.is_empty() and tv.is_empty():
 		return null
