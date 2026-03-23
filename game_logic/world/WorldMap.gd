@@ -1,12 +1,13 @@
 class_name WorldMap
 extends RefCounted
 
-const TILE_GRASS: int = 0
-const TILE_WALL: int = 1
-const TILE_HILL: int = 2
+# Aliases for IsoConst tile types — avoids breaking existing references
+const TILE_GRASS: int = IsoConst.TILE_GRASS
+const TILE_WALL: int = IsoConst.TILE_WALL
+const TILE_HILL: int = IsoConst.TILE_HILL
 const MAP_WIDTH: int = 100
 const MAP_HEIGHT: int = 100
-const TILE_SIZE: float = 2.0
+const TILE_SIZE: float = IsoConst.TILE_SIZE
 
 var map_name: String
 var tiles: Array = []     # [y][x] of int

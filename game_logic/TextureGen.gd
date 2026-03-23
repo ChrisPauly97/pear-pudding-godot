@@ -6,45 +6,28 @@ class_name TextureGen
 
 static var _cache: Dictionary = {}
 
-static func grass(seed: int = 0) -> ImageTexture:
-	var key: String = "grass_%d" % seed
+## Lookup-or-generate helper — eliminates the repeated cache pattern.
+static func _cached(key: String, generator: Callable) -> ImageTexture:
 	if _cache.has(key):
 		return _cache[key]
-	var tex: ImageTexture = _make_grass_tex(seed)
+	var tex: ImageTexture = generator.call()
 	_cache[key] = tex
 	return tex
+
+static func grass(seed: int = 0) -> ImageTexture:
+	return _cached("grass_%d" % seed, _make_grass_tex.bind(seed))
 
 static func hill_top(seed: int = 99999) -> ImageTexture:
-	var key: String = "hill_%d" % seed
-	if _cache.has(key):
-		return _cache[key]
-	var tex: ImageTexture = _make_hill_tex(seed)
-	_cache[key] = tex
-	return tex
+	return _cached("hill_%d" % seed, _make_hill_tex.bind(seed))
 
 static func hill_side(seed: int = 55555) -> ImageTexture:
-	var key: String = "hill_side_%d" % seed
-	if _cache.has(key):
-		return _cache[key]
-	var tex: ImageTexture = _make_hill_side_tex(seed)
-	_cache[key] = tex
-	return tex
+	return _cached("hill_side_%d" % seed, _make_hill_side_tex.bind(seed))
 
 static func wall_side(is_left: bool) -> ImageTexture:
-	var key: String = "wall_side_%s" % str(is_left)
-	if _cache.has(key):
-		return _cache[key]
-	var tex: ImageTexture = _gen_wall_side(is_left)
-	_cache[key] = tex
-	return tex
+	return _cached("wall_side_%s" % str(is_left), _gen_wall_side.bind(is_left))
 
 static func wall_top() -> ImageTexture:
-	var key: String = "wall_top"
-	if _cache.has(key):
-		return _cache[key]
-	var tex: ImageTexture = _gen_wall_top()
-	_cache[key] = tex
-	return tex
+	return _cached("wall_top", _gen_wall_top)
 
 # ── Shared helper: noise + gradient → ImageTexture (synchronous) ─────────
 # Uses the same PackedByteArray + create_from_data pattern as the wall textures,

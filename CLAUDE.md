@@ -155,27 +155,6 @@ Godot 4 **does not support geometry shaders**. Use these alternatives:
 
 ---
 
-## Floor Collision
-
-Grass tile `MeshInstance3D` nodes are visual only — no physics. Without a floor collider the player falls through due to gravity. Add a single `StaticBody3D` with a large `BoxShape3D` covering the whole map:
-
-```gdscript
-func _build_floor_collision() -> void:
-    var floor_body := StaticBody3D.new()
-    var col := CollisionShape3D.new()
-    var box := BoxShape3D.new()
-    var map_size: float = WorldMap.MAP_WIDTH * IsoConst.TILE_SIZE
-    box.size = Vector3(map_size, 0.1, map_size)
-    col.shape = box
-    floor_body.position = Vector3(map_size * 0.5, -0.05, map_size * 0.5)
-    floor_body.add_child(col)
-    add_child(floor_body)
-```
-
-`WorldBoundaryShape3D` is not available in all Godot 4 builds — use `BoxShape3D` instead.
-
----
-
 ## UI Sizing: Relative to Viewport, Never Fixed Pixels
 
 ### The problem
@@ -238,3 +217,73 @@ mat.shader = _TerrainShader
 
 ### Which file types need .uid files
 `.gdshader`, `.tres`, `.material`, `.theme`, `.gdextension`, and any binary resource Godot imports (textures, audio, meshes). Plain `.gd` scripts and `.tscn` scenes manage their own UIDs inside the file itself — no separate sidecar needed.
+
+---
+
+## TerrainMath: No Duplicate Terrain Code
+
+### The problem
+Terrain height computation, mesh building, wall mesh building, and entity spawning were
+duplicated between WorldScene (named-map path) and ChunkRenderer (infinite-chunk path).
+Any bug fix or parameter change had to be applied in 2–3 places.
+
+### The fix
+All shared terrain logic lives in `game_logic/TerrainMath.gd`. Both paths delegate to it
+via `Callable`-based tile lookups:
+
+```gdscript
+# Named-map path — WorldScene passes WorldMap.get_tile directly
+var hfield := TerrainMath.compute_height_field(
+    world_map.get_tile, 0.0, 0.0, nvx, nvz, step, HILL_RAMP_R, HILL_PEAK_H)
+
+# Infinite-chunk path — ChunkRenderer passes a lambda over the packed tile grid
+var grid_tile_lookup := func(ttx: int, ttz: int) -> int:
+    var li: int = (ttz - grid_min_z) * grid_w + (ttx - grid_min_x)
+    if li < 0 or li >= tile_grid.size():
+        return IsoConst.TILE_WALL
+    return tile_grid[li]
+var hfield := TerrainMath.compute_height_field(
+    grid_tile_lookup, chunk_origin.x, chunk_origin.z, nvx, nvz, step, CURVE_R, PLATEAU_H)
+```
+
+Never duplicate terrain algorithms — add new methods to `TerrainMath` instead.
+
+---
+
+## Canonical Constants: IsoConst Is the Source of Truth
+
+### The problem
+Tile type constants (`TILE_GRASS`, `TILE_WALL`, `TILE_HILL`), `TILE_SIZE`, `CHUNK_SIZE`,
+and `WALL_FACE_H` were defined in multiple files. Changing one without updating the others
+caused terrain rendering bugs.
+
+### The fix
+All gameplay constants live in `autoloads/IsoConst.gd`. Other files reference them via
+`IsoConst.TILE_SIZE`, etc. `WorldMap` re-exports them as aliases (`const TILE_WALL: int = IsoConst.TILE_WALL`)
+for backward compatibility — never add new copies elsewhere.
+
+---
+
+## Running Tests: Installing Godot
+
+### The problem
+Tests require the Godot 4 headless binary. If `godot` is not available in your environment,
+tests cannot run.
+
+### Installing Godot headless
+```bash
+# Download Godot 4 headless (Linux 64-bit)
+wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip -O /tmp/godot.zip
+unzip -o /tmp/godot.zip -d /tmp/godot
+cp /tmp/godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+chmod +x /usr/local/bin/godot
+rm -rf /tmp/godot /tmp/godot.zip
+```
+
+### Running tests
+```bash
+# From the project root
+godot --headless --path . -s tests/runner.gd
+```
+
+Exit code 0 means all tests passed, 1 means one or more failed.

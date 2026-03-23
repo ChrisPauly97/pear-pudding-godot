@@ -5,6 +5,7 @@ const GrassBlades     = preload("res://scenes/world/GrassBlades.gd")
 const VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
+const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/grass.png")
@@ -93,9 +94,7 @@ var _dialogue_label: Label
 var _dialogue_timer: float = 0.0
 const DIALOGUE_DURATION: float = 4.0
 
-const WALL_FACE_H: float = 1.0
-
-# Terrain height constants
+# Terrain height constants — named-map path uses a wider ramp than chunks
 const HILL_PEAK_H:    float = 1.5
 const HILL_RAMP_R:    float = 6.0
 const TERRAIN_VDENSITY: int = 2
@@ -236,46 +235,12 @@ func _get_height_global(wtx: int, wtz: int) -> int:
 	var chunk: RefCounted = _chunk_data_cache[key]
 	return chunk.get_height(lx, lz)
 
-# Compute terrain height at a world position using the same smoothstep
-# algorithm as the mesh builder.  Used for entity placement and physics.
+# Compute terrain height at a world position using the shared smoothstep algorithm.
 func get_terrain_height(wx: float, wz: float) -> float:
 	var curve_r: float = HILL_RAMP_R if not infinite else 3.0
-	var peak_h: float = HILL_PEAK_H
-	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
-	var vtx: int = int(wx / IsoConst.TILE_SIZE)
-	var vtz: int = int(wz / IsoConst.TILE_SIZE)
-	var curve_r_sq: float = curve_r * curve_r
-	var min_dist_sq: float = curve_r_sq
-	for dtz in range(-tile_check, tile_check + 1):
-		for dtx in range(-tile_check, tile_check + 1):
-			var ttx: int = vtx + dtx
-			var ttz: int = vtz + dtz
-			var tile_type: int
-			if infinite:
-				tile_type = get_tile_global(ttx, ttz)
-			else:
-				tile_type = world_map.get_tile(ttx, ttz)
-			if tile_type != IsoConst.TILE_HILL:
-				continue
-			var near_x: float = clamp(wx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
-			var near_z: float = clamp(wz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
-			var ddx: float = wx - near_x
-			var ddz: float = wz - near_z
-			var dist_sq: float = ddx * ddx + ddz * ddz
-			if dist_sq < min_dist_sq:
-				min_dist_sq = dist_sq
-	var t: float = 1.0 - sqrt(min_dist_sq) / curve_r
-	t = t * t * (3.0 - 2.0 * t)
-	var base_h: float = peak_h * t
-
-	# If standing on a wall tile, add the wall block height so entities
-	# are placed on top of the block, not clipped inside it.
-	var tile_at: int = get_tile_global(vtx, vtz) if infinite else world_map.get_tile(vtx, vtz)
-	if tile_at == IsoConst.TILE_WALL:
-		var wh: int = _get_height_global(vtx, vtz) if infinite else world_map.get_height(vtx, vtz)
-		base_h += float(maxi(1, wh)) * WALL_FACE_H
-
-	return base_h
+	var tile_fn: Callable = get_tile_global if infinite else world_map.get_tile
+	var height_fn: Callable = _get_height_global if infinite else world_map.get_height
+	return TerrainMath.get_height_at(wx, wz, tile_fn, height_fn, curve_r, HILL_PEAK_H)
 
 # Returns false if the chunk AABB is definitely outside the camera frustum.
 # Uses the standard separating-plane test: if all 8 corners of the chunk's
@@ -594,198 +559,20 @@ func _build_terrain() -> void:
 	var nvz: int = WorldMap.MAP_HEIGHT * TERRAIN_VDENSITY + 1
 	var step: float = IsoConst.TILE_SIZE / float(TERRAIN_VDENSITY)
 
-	var hfield := _compute_terrain_heights(nvx, nvz, step)
-	_build_terrain_mesh(hfield, nvx, nvz, step)
-	_build_terrain_collision(hfield, nvx, nvz, step)
+	var hfield: PackedFloat32Array = TerrainMath.compute_height_field(
+			world_map.get_tile, 0.0, 0.0,
+			nvx, nvz, step, HILL_RAMP_R, HILL_PEAK_H)
 
-func _compute_terrain_heights(nvx: int, nvz: int, step: float) -> PackedFloat32Array:
-	var field := PackedFloat32Array()
-	field.resize(nvx * nvz)
-
-	var tile_range: int = int(ceil(HILL_RAMP_R / IsoConst.TILE_SIZE)) + 1
-	var ramp_r_sq: float = HILL_RAMP_R * HILL_RAMP_R
-	var inv_ramp_r: float = 1.0 / HILL_RAMP_R
-
-	for iz in range(nvz):
-		for ix in range(nvx):
-			var wx: float = ix * step
-			var wz: float = iz * step
-			var vtx: int = int(wx / IsoConst.TILE_SIZE)
-			var vtz: int = int(wz / IsoConst.TILE_SIZE)
-
-			var min_dist_sq: float = ramp_r_sq
-			for dtz in range(-tile_range, tile_range + 1):
-				for dtx in range(-tile_range, tile_range + 1):
-					var ttx: int = vtx + dtx
-					var ttz: int = vtz + dtz
-					if world_map.get_tile(ttx, ttz) != WorldMap.TILE_HILL:
-						continue
-					var near_x: float = clamp(wx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
-					var near_z: float = clamp(wz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
-					var ddx: float = wx - near_x
-					var ddz: float = wz - near_z
-					var dist_sq: float = ddx * ddx + ddz * ddz
-					if dist_sq < min_dist_sq:
-						min_dist_sq = dist_sq
-			# Single sqrt per vertex instead of per-neighbour
-			if min_dist_sq >= ramp_r_sq:
-				field[iz * nvx + ix] = 0.0
-			else:
-				var t: float = 1.0 - sqrt(min_dist_sq) * inv_ramp_r
-				t = t * t * (3.0 - 2.0 * t)
-				field[iz * nvx + ix] = HILL_PEAK_H * t
-	return field
-
-func _build_terrain_mesh(hfield: PackedFloat32Array, nvx: int, nvz: int, step: float) -> void:
-	var total_verts: int = nvx * nvz
-	var total_quads: int = (nvx - 1) * (nvz - 1)
-
-	var verts   := PackedVector3Array()
-	var normals := PackedVector3Array()
-	var uvs     := PackedVector2Array()
-	var colors  := PackedColorArray()
-	var indices := PackedInt32Array()
-
-	verts.resize(total_verts)
-	normals.resize(total_verts)
-	uvs.resize(total_verts)
-	colors.resize(total_verts)
-	indices.resize(total_quads * 6)
-
-	for iz in range(nvz):
-		for ix in range(nvx):
-			var i: int = iz * nvx + ix
-			var x: float = ix * step
-			var z: float = iz * step
-			var h: float = hfield[i]
-			verts[i] = Vector3(x, h, z)
-			uvs[i]   = Vector2(x, z)
-			var blend: float = clamp(h / HILL_PEAK_H, 0.0, 1.0)
-			# Encode wall flag in COLOR.g so the terrain shader shows stone floor
-			var tx: int = int(x / IsoConst.TILE_SIZE)
-			var tz: int = int(z / IsoConst.TILE_SIZE)
-			var is_wall: float = 1.0 if world_map.get_tile(tx, tz) == WorldMap.TILE_WALL else 0.0
-			colors[i] = Color(blend, is_wall, 0.0, 1.0)
-
-	for iz in range(nvz):
-		for ix in range(nvx):
-			var i: int = iz * nvx + ix
-			var ix_l: int = max(ix - 1, 0)
-			var ix_r: int = min(ix + 1, nvx - 1)
-			var iz_d: int = max(iz - 1, 0)
-			var iz_u: int = min(iz + 1, nvz - 1)
-			var hL: float = hfield[iz   * nvx + ix_l]
-			var hR: float = hfield[iz   * nvx + ix_r]
-			var hD: float = hfield[iz_d * nvx + ix  ]
-			var hU: float = hfield[iz_u * nvx + ix  ]
-			var dx: float = (hR - hL) / (2.0 * step)
-			var dz: float = (hU - hD) / (2.0 * step)
-			normals[i] = Vector3(-dx, 1.0, -dz).normalized()
-
-	var idx: int = 0
-	for iz in range(nvz - 1):
-		for ix in range(nvx - 1):
-			var a: int = iz * nvx + ix
-			var b: int = iz * nvx + (ix + 1)
-			var c: int = (iz + 1) * nvx + ix
-			var d: int = (iz + 1) * nvx + (ix + 1)
-			indices[idx]     = a; indices[idx + 1] = c; indices[idx + 2] = b
-			indices[idx + 3] = b; indices[idx + 4] = c; indices[idx + 5] = d
-			idx += 6
-
-	# ── Edge skirts: drop border vertices below ground to hide underside ──
-	const SKIRT_Y: float = -0.5
-	var skirt_count: int = (nvx + nvz) * 2
-	var skirt_verts   := PackedVector3Array()
-	var skirt_normals := PackedVector3Array()
-	var skirt_uvs     := PackedVector2Array()
-	var skirt_colors  := PackedColorArray()
-	var skirt_indices := PackedInt32Array()
-	skirt_verts.resize(skirt_count)
-	skirt_normals.resize(skirt_count)
-	skirt_uvs.resize(skirt_count)
-	skirt_colors.resize(skirt_count)
-	var skirt_seg: int = (nvx - 1) * 2 + (nvz - 1) * 2
-	skirt_indices.resize(skirt_seg * 6)
-
-	var si: int = 0
-	var _edge_ids: Array[int] = []
-	for ixx in range(nvx):
-		for iz_edge in [0, nvz - 1]:
-			var surf_i: int = iz_edge * nvx + ixx
-			skirt_verts[si]   = Vector3(verts[surf_i].x, SKIRT_Y, verts[surf_i].z)
-			skirt_normals[si] = normals[surf_i]
-			skirt_uvs[si]     = uvs[surf_i]
-			skirt_colors[si]  = colors[surf_i]
-			_edge_ids.append(surf_i)
-			_edge_ids.append(si)
-			si += 1
-	for izz in range(1, nvz - 1):
-		for ix_edge in [0, nvx - 1]:
-			var surf_i: int = izz * nvx + ix_edge
-			skirt_verts[si]   = Vector3(verts[surf_i].x, SKIRT_Y, verts[surf_i].z)
-			skirt_normals[si] = normals[surf_i]
-			skirt_uvs[si]     = uvs[surf_i]
-			skirt_colors[si]  = colors[surf_i]
-			_edge_ids.append(surf_i)
-			_edge_ids.append(si)
-			si += 1
-
-	var skirt_map: Dictionary = {}
-	for ei in range(0, _edge_ids.size(), 2):
-		skirt_map[_edge_ids[ei]] = _edge_ids[ei + 1]
-
-	var sidx: int = 0
-	for ixx in range(nvx - 1):
-		var a: int = ixx; var b: int = ixx + 1
-		var sa: int = total_verts + int(skirt_map[a])
-		var sb: int = total_verts + int(skirt_map[b])
-		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = sa; skirt_indices[sidx+2] = b
-		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sa; skirt_indices[sidx+5] = sb
-		sidx += 6
-	for ixx in range(nvx - 1):
-		var a: int = (nvz - 1) * nvx + ixx; var b: int = (nvz - 1) * nvx + ixx + 1
-		var sa: int = total_verts + int(skirt_map[a])
-		var sb: int = total_verts + int(skirt_map[b])
-		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = b;  skirt_indices[sidx+2] = sa
-		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sb; skirt_indices[sidx+5] = sa
-		sidx += 6
-	for izz in range(nvz - 1):
-		var a: int = izz * nvx; var b: int = (izz + 1) * nvx
-		var sa: int = total_verts + int(skirt_map[a])
-		var sb: int = total_verts + int(skirt_map[b])
-		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = b;  skirt_indices[sidx+2] = sa
-		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sb; skirt_indices[sidx+5] = sa
-		sidx += 6
-	for izz in range(nvz - 1):
-		var a: int = izz * nvx + nvx - 1; var b: int = (izz + 1) * nvx + nvx - 1
-		var sa: int = total_verts + int(skirt_map[a])
-		var sb: int = total_verts + int(skirt_map[b])
-		skirt_indices[sidx] = a;  skirt_indices[sidx+1] = sa; skirt_indices[sidx+2] = b
-		skirt_indices[sidx+3] = b; skirt_indices[sidx+4] = sa; skirt_indices[sidx+5] = sb
-		sidx += 6
-
-	verts.append_array(skirt_verts)
-	normals.append_array(skirt_normals)
-	uvs.append_array(skirt_uvs)
-	colors.append_array(skirt_colors)
-	indices.append_array(skirt_indices)
-
-	var arrays: Array = []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	arrays[Mesh.ARRAY_COLOR]  = colors
-	arrays[Mesh.ARRAY_INDEX]  = indices
-
-	var terrain_mesh := ArrayMesh.new()
-	terrain_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
+			hfield, world_map.get_tile, 0.0, 0.0,
+			nvx, nvz, step, HILL_PEAK_H)
 
 	var mi := MeshInstance3D.new()
-	mi.mesh = terrain_mesh
+	mi.mesh = terrain_res["mesh"]
 	mi.material_override = _make_terrain_material()
 	_tile_meshes.add_child(mi)
+
+	_build_terrain_collision(terrain_res["hmap"])
 
 func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
@@ -797,22 +584,7 @@ func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	mat.set_shader_parameter("uv_scale", 0.5)
 	return mat
 
-static func _add_wall_side(
-		verts: PackedVector3Array, normals: PackedVector3Array,
-		uvs: PackedVector2Array, indices: PackedInt32Array,
-		bl: Vector3, br: Vector3, tr: Vector3, tl: Vector3,
-		normal: Vector3, h: float) -> void:
-	var i: int = verts.size()
-	verts.append_array([bl, br, tr, tl])
-	normals.append_array([normal, normal, normal, normal])
-	uvs.append_array([Vector2(0.0, h), Vector2(1.0, h), Vector2(1.0, 0.0), Vector2(0.0, 0.0)])
-	indices.append_array([i, i + 1, i + 2, i, i + 2, i + 3])
-
-func _build_terrain_collision(hfield: PackedFloat32Array, nvx: int, nvz: int, _step: float) -> void:
-	var hmap := HeightMapShape3D.new()
-	hmap.map_width = nvx
-	hmap.map_depth = nvz
-	hmap.map_data  = hfield
+func _build_terrain_collision(hmap: HeightMapShape3D) -> void:
 	var col := CollisionShape3D.new()
 	col.shape = hmap
 	var body := StaticBody3D.new()
@@ -827,32 +599,12 @@ func _build_terrain_collision(hfield: PackedFloat32Array, nvx: int, nvz: int, _s
 	add_child(body)
 
 func _build_walls() -> void:
-	var left_mat := StandardMaterial3D.new()
-	left_mat.albedo_texture = _TexWallLeft
-	left_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	left_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	var right_mat := StandardMaterial3D.new()
-	right_mat.albedo_texture = _TexWallRight
-	right_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	right_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	var top_mat := StandardMaterial3D.new()
-	top_mat.albedo_texture = _TexWallTop
-	top_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	top_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	# Build wall visual mesh via shared TerrainMath
+	var wall_mesh: ArrayMesh = TerrainMath.build_wall_mesh(
+			world_map.get_tile, world_map.get_height,
+			WorldMap.MAP_WIDTH, WorldMap.MAP_HEIGHT)
 
-	var lv := PackedVector3Array()
-	var ln := PackedVector3Array()
-	var lu := PackedVector2Array()
-	var li := PackedInt32Array()
-	var rv := PackedVector3Array()
-	var rn := PackedVector3Array()
-	var ru := PackedVector2Array()
-	var ri := PackedInt32Array()
-	var tv := PackedVector3Array()
-	var tn := PackedVector3Array()
-	var tu := PackedVector2Array()
-	var ti := PackedInt32Array()
-
+	# Build wall collision (per-tile boxes for named maps)
 	var wall_body := StaticBody3D.new()
 	wall_body.name = "WallCollision"
 	wall_body.collision_layer = 4
@@ -863,44 +615,9 @@ func _build_walls() -> void:
 			if world_map.get_tile(tx, tz) != WorldMap.TILE_WALL:
 				continue
 			var h: int = max(1, world_map.get_height(tx, tz))
-			var top_y: float = float(h) * WALL_FACE_H
+			var top_y: float = float(h) * IsoConst.WALL_FACE_H
 			var x0: float = float(tx) * IsoConst.TILE_SIZE
-			var x1: float = x0 + IsoConst.TILE_SIZE
 			var z0: float = float(tz) * IsoConst.TILE_SIZE
-			var z1: float = z0 + IsoConst.TILE_SIZE
-
-			# Top face
-			var tbase: int = tv.size()
-			tv.append_array([
-				Vector3(x0, top_y, z0), Vector3(x1, top_y, z0),
-				Vector3(x1, top_y, z1), Vector3(x0, top_y, z1)
-			])
-			tn.append_array([Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP])
-			tu.append_array([Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(1.0, 1.0), Vector2(0.0, 1.0)])
-			ti.append_array([tbase, tbase + 1, tbase + 2, tbase, tbase + 2, tbase + 3])
-
-			# South (+Z) = left side of iso block — only camera-facing side faces.
-			var nb_h_s: int = 0
-			if world_map.get_tile(tx, tz + 1) == WorldMap.TILE_WALL:
-				nb_h_s = max(1, world_map.get_height(tx, tz + 1))
-			if nb_h_s < h:
-				var bot_s: float = float(nb_h_s) * WALL_FACE_H
-				_add_wall_side(lv, ln, lu, li,
-					Vector3(x0, bot_s, z1), Vector3(x1, bot_s, z1),
-					Vector3(x1, top_y, z1), Vector3(x0, top_y, z1),
-					Vector3(0.0, 0.0, 1.0), float(h - nb_h_s))
-
-			# East (+X) = right side of iso block.
-			var nb_h_e: int = 0
-			if world_map.get_tile(tx + 1, tz) == WorldMap.TILE_WALL:
-				nb_h_e = max(1, world_map.get_height(tx + 1, tz))
-			if nb_h_e < h:
-				var bot_e: float = float(nb_h_e) * WALL_FACE_H
-				_add_wall_side(rv, rn, ru, ri,
-					Vector3(x1, bot_e, z1), Vector3(x1, bot_e, z0),
-					Vector3(x1, top_y, z0), Vector3(x1, top_y, z1),
-					Vector3(1.0, 0.0, 0.0), float(h - nb_h_e))
-
 			var col := CollisionShape3D.new()
 			var box := BoxShape3D.new()
 			box.size = Vector3(IsoConst.TILE_SIZE, top_y, IsoConst.TILE_SIZE)
@@ -908,46 +625,17 @@ func _build_walls() -> void:
 			col.position = Vector3(x0 + IsoConst.TILE_SIZE * 0.5, top_y * 0.5, z0 + IsoConst.TILE_SIZE * 0.5)
 			wall_body.add_child(col)
 
-	if lv.is_empty() and rv.is_empty() and tv.is_empty():
+	if wall_mesh == null:
 		return
 
-	var mesh := ArrayMesh.new()
-	if not lv.is_empty():
-		var arr: Array = []
-		arr.resize(Mesh.ARRAY_MAX)
-		arr[Mesh.ARRAY_VERTEX] = lv
-		arr[Mesh.ARRAY_NORMAL] = ln
-		arr[Mesh.ARRAY_TEX_UV] = lu
-		arr[Mesh.ARRAY_INDEX]  = li
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-	if not rv.is_empty():
-		var arr: Array = []
-		arr.resize(Mesh.ARRAY_MAX)
-		arr[Mesh.ARRAY_VERTEX] = rv
-		arr[Mesh.ARRAY_NORMAL] = rn
-		arr[Mesh.ARRAY_TEX_UV] = ru
-		arr[Mesh.ARRAY_INDEX]  = ri
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-	if not tv.is_empty():
-		var arr: Array = []
-		arr.resize(Mesh.ARRAY_MAX)
-		arr[Mesh.ARRAY_VERTEX] = tv
-		arr[Mesh.ARRAY_NORMAL] = tn
-		arr[Mesh.ARRAY_TEX_UV] = tu
-		arr[Mesh.ARRAY_INDEX]  = ti
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-
+	TerrainMath.ensure_wall_materials(_TexWallLeft, _TexWallRight, _TexWallTop)
+	var wall_mats: Array[StandardMaterial3D] = TerrainMath.get_wall_materials()
 	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	var surf: int = 0
-	if not lv.is_empty():
-		mi.set_surface_override_material(surf, left_mat)
-		surf += 1
-	if not rv.is_empty():
-		mi.set_surface_override_material(surf, right_mat)
-		surf += 1
-	if not tv.is_empty():
-		mi.set_surface_override_material(surf, top_mat)
+	mi.mesh = wall_mesh
+	var surface_types: Array = wall_mesh.get_meta("surface_types", [])
+	for surf in range(surface_types.size()):
+		var st: int = surface_types[surf]
+		mi.set_surface_override_material(surf, wall_mats[st])
 	_wall_meshes.add_child(mi)
 	_wall_meshes.add_child(wall_body)
 
@@ -1014,23 +702,13 @@ func _spawn_entities() -> void:
 		_spawn_npc(n_data)
 
 func _spawn_enemy(e_data: Dictionary) -> void:
-	var node: Node3D = _EnemyScene.instantiate()
-	var ey: float = get_terrain_height(float(e_data["x"]), float(e_data["z"])) + 0.5
-	node.position = Vector3(e_data["x"], ey, e_data["z"])
-	if node.has_method("init_from_data"):
-		node.init_from_data(e_data)
+	var node: Node3D = TerrainMath.spawn_entity(_EnemyScene, e_data, 0.5, _entity_root, self)
 	if node.has_method("set_player") and _player:
 		node.set_player(_player)
-	_entity_root.add_child(node)
 	_enemy_nodes[e_data["id"]] = node
 
 func _spawn_chest(c_data: Dictionary) -> void:
-	var node: Node3D = _ChestScene.instantiate()
-	var cy: float = get_terrain_height(float(c_data["x"]), float(c_data["z"])) + 0.25
-	node.position = Vector3(c_data["x"], cy, c_data["z"])
-	if node.has_method("init_from_data"):
-		node.init_from_data(c_data)
-	_entity_root.add_child(node)
+	var node: Node3D = TerrainMath.spawn_entity(_ChestScene, c_data, 0.25, _entity_root, self)
 	_chest_nodes[c_data["id"]] = node
 
 func _spawn_npc(n_data: Dictionary) -> void:
@@ -1043,12 +721,7 @@ func _spawn_npc(n_data: Dictionary) -> void:
 	_npc_nodes[n_data["id"]] = node
 
 func _spawn_door(d_data: Dictionary) -> void:
-	var node: Node3D = _DoorScene.instantiate()
-	var dy: float = get_terrain_height(float(d_data["x"]), float(d_data["z"])) + 0.75
-	node.position = Vector3(d_data["x"], dy, d_data["z"])
-	if node.has_method("init_from_data"):
-		node.init_from_data(d_data)
-	_entity_root.add_child(node)
+	var node: Node3D = TerrainMath.spawn_entity(_DoorScene, d_data, 0.75, _entity_root, self)
 	_door_nodes[d_data["id"]] = node
 
 # ── Day / Night cycle ──────────────────────────────────────────────────────
