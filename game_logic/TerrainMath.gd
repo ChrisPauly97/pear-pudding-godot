@@ -6,6 +6,9 @@ extends RefCounted
 # Eliminates the three duplicate smoothstep implementations and the two
 # duplicate mesh-builder copies.
 
+# Maximum wall height in world units (walls are clamped to this)
+const WALL_MAX_H: float = 10.0
+
 # ── Height computation ────────────────────────────────────────────────────
 
 ## Compute terrain height at world position (wx, wz) using smoothstep blend.
@@ -20,42 +23,53 @@ static func get_height_at(wx: float, wz: float,
 	var vtx: int = int(wx / IsoConst.TILE_SIZE)
 	var vtz: int = int(wz / IsoConst.TILE_SIZE)
 	var curve_r_sq: float = curve_r * curve_r
-	var min_dist_sq: float = curve_r_sq
+	var min_dist_sq_hill: float = curve_r_sq
+	var min_dist_sq_wall: float = curve_r_sq
+	var nearest_wall_peak: float = 0.0
 	for dtz in range(-tile_check, tile_check + 1):
 		for dtx in range(-tile_check, tile_check + 1):
 			var ttx: int = vtx + dtx
 			var ttz: int = vtz + dtz
-			if tile_lookup.call(ttx, ttz) != IsoConst.TILE_HILL:
+			var tile_type: int = tile_lookup.call(ttx, ttz)
+			if tile_type != IsoConst.TILE_HILL and tile_type != IsoConst.TILE_WALL:
 				continue
 			var near_x: float = clamp(wx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
 			var near_z: float = clamp(wz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
 			var ddx: float = wx - near_x
 			var ddz: float = wz - near_z
 			var dist_sq: float = ddx * ddx + ddz * ddz
-			if dist_sq < min_dist_sq:
-				min_dist_sq = dist_sq
-	if min_dist_sq >= curve_r_sq:
-		return 0.0
-	var t: float = 1.0 - sqrt(min_dist_sq) / curve_r
-	t = t * t * (3.0 - 2.0 * t)
-	var base_h: float = peak_h * t
+			if tile_type == IsoConst.TILE_HILL:
+				if dist_sq < min_dist_sq_hill:
+					min_dist_sq_hill = dist_sq
+			else:  # TILE_WALL
+				if dist_sq < min_dist_sq_wall:
+					min_dist_sq_wall = dist_sq
+					var wh: int = height_lookup.call(ttx, ttz)
+					nearest_wall_peak = minf(float(maxi(1, wh)) * IsoConst.WALL_FACE_H, WALL_MAX_H)
 
-	# If standing on a wall tile, add the wall block height
-	var tile_at: int = tile_lookup.call(vtx, vtz)
-	if tile_at == IsoConst.TILE_WALL:
-		var wh: int = height_lookup.call(vtx, vtz)
-		base_h += float(maxi(1, wh)) * IsoConst.WALL_FACE_H
-
-	return base_h
+	var h: float = 0.0
+	if min_dist_sq_hill < curve_r_sq:
+		var t: float = 1.0 - sqrt(min_dist_sq_hill) / curve_r
+		t = t * t * (3.0 - 2.0 * t)
+		h = peak_h * t
+	if min_dist_sq_wall < curve_r_sq:
+		var tw: float = 1.0 - sqrt(min_dist_sq_wall) / curve_r
+		tw = tw * tw * (3.0 - 2.0 * tw)
+		var wh: float = nearest_wall_peak * tw
+		if wh > h:
+			h = wh
+	return h
 
 ## Compute a packed height field for a grid of vertices.
 ## tile_lookup: Callable(ttx: int, ttz: int) -> int — returns tile type
+## height_lookup: Callable(ttx: int, ttz: int) -> int — returns wall height
 ## origin_x, origin_z: world-space origin of the grid
 ## nvx, nvz: vertex count in each axis
 ## step: world units between vertices
 ## curve_r, peak_h: smoothstep parameters
 static func compute_height_field(
 		tile_lookup: Callable,
+		height_lookup: Callable,
 		origin_x: float, origin_z: float,
 		nvx: int, nvz: int, step: float,
 		curve_r: float, peak_h: float) -> PackedFloat32Array:
@@ -71,26 +85,42 @@ static func compute_height_field(
 			var gz: float = origin_z + iz * step
 			var vtx: int = int(gx / IsoConst.TILE_SIZE)
 			var vtz: int = int(gz / IsoConst.TILE_SIZE)
-			var min_dist_sq: float = curve_r_sq
+			var min_dist_sq_hill: float = curve_r_sq
+			var min_dist_sq_wall: float = curve_r_sq
+			var nearest_wall_peak: float = 0.0
 			for dtz in range(-tile_check, tile_check + 1):
 				for dtx in range(-tile_check, tile_check + 1):
 					var ttx: int = vtx + dtx
 					var ttz: int = vtz + dtz
-					if tile_lookup.call(ttx, ttz) != IsoConst.TILE_HILL:
+					var tile_type: int = tile_lookup.call(ttx, ttz)
+					if tile_type != IsoConst.TILE_HILL and tile_type != IsoConst.TILE_WALL:
 						continue
 					var near_x: float = clamp(gx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
 					var near_z: float = clamp(gz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
 					var ddx: float = gx - near_x
 					var ddz: float = gz - near_z
 					var dist_sq: float = ddx * ddx + ddz * ddz
-					if dist_sq < min_dist_sq:
-						min_dist_sq = dist_sq
-			if min_dist_sq >= curve_r_sq:
-				hfield[iz * nvx + ix] = 0.0
-			else:
-				var t: float = 1.0 - sqrt(min_dist_sq) * inv_curve_r
+					if tile_type == IsoConst.TILE_HILL:
+						if dist_sq < min_dist_sq_hill:
+							min_dist_sq_hill = dist_sq
+					else:  # TILE_WALL
+						if dist_sq < min_dist_sq_wall:
+							min_dist_sq_wall = dist_sq
+							var wh: int = height_lookup.call(ttx, ttz)
+							nearest_wall_peak = minf(float(maxi(1, wh)) * IsoConst.WALL_FACE_H, WALL_MAX_H)
+
+			var h: float = 0.0
+			if min_dist_sq_hill < curve_r_sq:
+				var t: float = 1.0 - sqrt(min_dist_sq_hill) * inv_curve_r
 				t = t * t * (3.0 - 2.0 * t)
-				hfield[iz * nvx + ix] = peak_h * t
+				h = peak_h * t
+			if min_dist_sq_wall < curve_r_sq:
+				var tw: float = 1.0 - sqrt(min_dist_sq_wall) * inv_curve_r
+				tw = tw * tw * (3.0 - 2.0 * tw)
+				var wh: float = nearest_wall_peak * tw
+				if wh > h:
+					h = wh
+			hfield[iz * nvx + ix] = h
 	return hfield
 
 # ── Terrain mesh building ─────────────────────────────────────────────────
@@ -249,162 +279,6 @@ static func build_terrain_mesh(
 	hmap.map_data  = hfield
 
 	return { "mesh": terrain_mesh, "hmap": hmap }
-
-# ── Wall mesh building ────────────────────────────────────────────────────
-
-## Build a quad (2 triangles) for a wall side face.
-static func add_wall_side(
-		verts: PackedVector3Array, normals: PackedVector3Array,
-		uvs: PackedVector2Array, indices: PackedInt32Array,
-		bl: Vector3, br: Vector3, tr: Vector3, tl: Vector3,
-		normal: Vector3, h: float) -> void:
-	var i: int = verts.size()
-	verts.append_array([bl, br, tr, tl])
-	normals.append_array([normal, normal, normal, normal])
-	uvs.append_array([Vector2(0.0, h), Vector2(1.0, h), Vector2(1.0, 0.0), Vector2(0.0, 0.0)])
-	indices.append_array([i, i + 1, i + 2, i, i + 2, i + 3])
-
-## Build wall ArrayMesh from tile data. Returns null if no walls.
-## get_tile_fn: Callable(lx: int, lz: int) -> int
-## get_height_fn: Callable(lx: int, lz: int) -> int
-## grid_w, grid_h: tile grid dimensions to iterate
-static func build_wall_mesh(
-		get_tile_fn: Callable, get_height_fn: Callable,
-		grid_w: int, grid_h: int) -> ArrayMesh:
-	var lv := PackedVector3Array()
-	var ln := PackedVector3Array()
-	var lu := PackedVector2Array()
-	var li := PackedInt32Array()
-	var rv := PackedVector3Array()
-	var rn := PackedVector3Array()
-	var ru := PackedVector2Array()
-	var ri := PackedInt32Array()
-	var tv := PackedVector3Array()
-	var tn := PackedVector3Array()
-	var tu := PackedVector2Array()
-	var ti := PackedInt32Array()
-
-	for lz in range(grid_h):
-		for lx in range(grid_w):
-			if get_tile_fn.call(lx, lz) != IsoConst.TILE_WALL:
-				continue
-			var h: int = max(1, get_height_fn.call(lx, lz))
-			var fh: float = float(h)
-			var top_y: float = fh * IsoConst.WALL_FACE_H
-			var x0: float = float(lx) * IsoConst.TILE_SIZE
-			var x1: float = x0 + IsoConst.TILE_SIZE
-			var z0: float = float(lz) * IsoConst.TILE_SIZE
-			var z1: float = z0 + IsoConst.TILE_SIZE
-			var tbase: int = tv.size()
-			tv.append_array([
-				Vector3(x0, top_y, z0), Vector3(x1, top_y, z0),
-				Vector3(x1, top_y, z1), Vector3(x0, top_y, z1)
-			])
-			tn.append_array([Vector3.UP, Vector3.UP, Vector3.UP, Vector3.UP])
-			tu.append_array([Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(1.0, 1.0), Vector2(0.0, 1.0)])
-			ti.append_array([tbase, tbase + 1, tbase + 2, tbase, tbase + 2, tbase + 3])
-			# South face (+Z, at z1) — visible when south neighbour is lower
-			var nb_h_s: int = 0
-			if get_tile_fn.call(lx, lz + 1) == IsoConst.TILE_WALL:
-				nb_h_s = max(1, get_height_fn.call(lx, lz + 1))
-			if nb_h_s < h:
-				var bot_s: float = float(nb_h_s) * IsoConst.WALL_FACE_H
-				add_wall_side(lv, ln, lu, li,
-					Vector3(x0, bot_s, z1), Vector3(x1, bot_s, z1),
-					Vector3(x1, top_y, z1), Vector3(x0, top_y, z1),
-					Vector3(0.0, 0.0, 1.0), float(h - nb_h_s))
-			# North face (+Z normal at z0) — visible when north neighbour is lower
-			var nb_h_n: int = 0
-			if get_tile_fn.call(lx, lz - 1) == IsoConst.TILE_WALL:
-				nb_h_n = max(1, get_height_fn.call(lx, lz - 1))
-			if nb_h_n < h:
-				var bot_n: float = float(nb_h_n) * IsoConst.WALL_FACE_H
-				add_wall_side(lv, ln, lu, li,
-					Vector3(x0, bot_n, z0), Vector3(x1, bot_n, z0),
-					Vector3(x1, top_y, z0), Vector3(x0, top_y, z0),
-					Vector3(0.0, 0.0, 1.0), float(h - nb_h_n))
-			# East face (+X, at x1) — visible when east neighbour is lower
-			var nb_h_e: int = 0
-			if get_tile_fn.call(lx + 1, lz) == IsoConst.TILE_WALL:
-				nb_h_e = max(1, get_height_fn.call(lx + 1, lz))
-			if nb_h_e < h:
-				var bot_e: float = float(nb_h_e) * IsoConst.WALL_FACE_H
-				add_wall_side(rv, rn, ru, ri,
-					Vector3(x1, bot_e, z1), Vector3(x1, bot_e, z0),
-					Vector3(x1, top_y, z0), Vector3(x1, top_y, z1),
-					Vector3(1.0, 0.0, 0.0), float(h - nb_h_e))
-			# West face (+X normal at x0) — visible when west neighbour is lower
-			var nb_h_w: int = 0
-			if get_tile_fn.call(lx - 1, lz) == IsoConst.TILE_WALL:
-				nb_h_w = max(1, get_height_fn.call(lx - 1, lz))
-			if nb_h_w < h:
-				var bot_w: float = float(nb_h_w) * IsoConst.WALL_FACE_H
-				add_wall_side(rv, rn, ru, ri,
-					Vector3(x0, bot_w, z1), Vector3(x0, bot_w, z0),
-					Vector3(x0, top_y, z0), Vector3(x0, top_y, z1),
-					Vector3(1.0, 0.0, 0.0), float(h - nb_h_w))
-
-	if lv.is_empty() and rv.is_empty() and tv.is_empty():
-		return null
-
-	var mesh := ArrayMesh.new()
-	var surface_types: Array[int] = []  # 0=left, 1=right, 2=top
-	if not lv.is_empty():
-		var arr: Array = []
-		arr.resize(Mesh.ARRAY_MAX)
-		arr[Mesh.ARRAY_VERTEX] = lv
-		arr[Mesh.ARRAY_NORMAL] = ln
-		arr[Mesh.ARRAY_TEX_UV] = lu
-		arr[Mesh.ARRAY_INDEX]  = li
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-		surface_types.append(0)
-	if not rv.is_empty():
-		var arr: Array = []
-		arr.resize(Mesh.ARRAY_MAX)
-		arr[Mesh.ARRAY_VERTEX] = rv
-		arr[Mesh.ARRAY_NORMAL] = rn
-		arr[Mesh.ARRAY_TEX_UV] = ru
-		arr[Mesh.ARRAY_INDEX]  = ri
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-		surface_types.append(1)
-	if not tv.is_empty():
-		var arr: Array = []
-		arr.resize(Mesh.ARRAY_MAX)
-		arr[Mesh.ARRAY_VERTEX] = tv
-		arr[Mesh.ARRAY_NORMAL] = tn
-		arr[Mesh.ARRAY_TEX_UV] = tu
-		arr[Mesh.ARRAY_INDEX]  = ti
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-		surface_types.append(2)
-	mesh.set_meta("surface_types", surface_types)
-	return mesh
-
-# ── Shared wall materials ─────────────────────────────────────────────────
-
-static var _wall_left_mat:  StandardMaterial3D
-static var _wall_right_mat: StandardMaterial3D
-static var _wall_top_mat:   StandardMaterial3D
-
-static func ensure_wall_materials(
-		tex_left: Texture2D, tex_right: Texture2D, tex_top: Texture2D) -> void:
-	if _wall_left_mat == null:
-		_wall_left_mat = StandardMaterial3D.new()
-		_wall_left_mat.albedo_texture = tex_left
-		_wall_left_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-		_wall_left_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	if _wall_right_mat == null:
-		_wall_right_mat = StandardMaterial3D.new()
-		_wall_right_mat.albedo_texture = tex_right
-		_wall_right_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-		_wall_right_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	if _wall_top_mat == null:
-		_wall_top_mat = StandardMaterial3D.new()
-		_wall_top_mat.albedo_texture = tex_top
-		_wall_top_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-		_wall_top_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-
-static func get_wall_materials() -> Array[StandardMaterial3D]:
-	return [_wall_left_mat, _wall_right_mat, _wall_top_mat]
 
 # ── Entity spawning ───────────────────────────────────────────────────────
 
