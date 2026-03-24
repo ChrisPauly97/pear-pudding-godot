@@ -830,6 +830,9 @@ func _process(delta: float) -> void:
 		_interact_timer = 0.0
 		_check_interactions()
 
+	if Input.is_action_just_pressed("interact"):
+		_handle_interact()
+
 func _check_interactions() -> void:
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
@@ -850,10 +853,6 @@ func _check_interactions() -> void:
 			_interact_label.show()
 		else:
 			_interact_label.hide()
-
-func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("interact"):
-		_handle_interact()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("inventory"):
