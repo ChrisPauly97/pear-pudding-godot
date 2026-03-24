@@ -9,7 +9,9 @@ uniform sampler2D grass_texture     : source_color, hint_default_white;
 uniform sampler2D hill_side_texture : source_color, hint_default_white;
 // Grassy top shown on the flat plateau of hills (high-height zone)
 uniform sampler2D hill_texture      : source_color, hint_default_white;
-// Stone floor shown under wall tiles
+// Earthy/stone texture shown on the steep slopes of walls
+uniform sampler2D wall_side_texture : source_color, hint_default_white;
+// Stone floor shown on the flat plateau of walls
 uniform sampler2D wall_top_texture  : source_color, hint_default_white;
 
 // How many times the textures tile per world unit
@@ -92,8 +94,20 @@ void fragment() {
 	bool is_wall = v_wall > 0.5;
 
 	if (is_wall) {
-		vec3 wall_col = vec3(0.49 + d1 * 0.07, 0.38 + d1 * 0.05, 0.18 + d1 * 0.04);
-		base_col = mix(wall_col, texture(wall_top_texture, uv_xz).rgb, 0.85);
+		// Same slope-based zone blending as hills, but with wall textures
+		vec3 grass_col_w = vec3(0.44 + d0 * 0.11, 0.62 + d0 * 0.09, 0.25 + d0 * 0.05);
+		grass_col_w = mix(grass_col_w, texture(grass_texture, uv_xz).rgb, 0.85);
+		base_col = grass_col_w;
+		if (t_side > 0.01) {
+			vec3 side_col = vec3(0.42 + d1 * 0.07, 0.36 + d1 * 0.05, 0.28 + d1 * 0.04);
+			side_col = mix(side_col, texture(wall_side_texture, uv_xz).rgb, 0.85);
+			base_col = mix(base_col, side_col, t_side);
+		}
+		if (t_top > 0.01) {
+			vec3 top_col = vec3(0.49 + d1 * 0.07, 0.38 + d1 * 0.05, 0.18 + d1 * 0.04);
+			top_col = mix(top_col, texture(wall_top_texture, uv_xz).rgb, 0.85);
+			base_col = mix(base_col, top_col, t_top);
+		}
 	} else if (t_side < 0.01 && t_top < 0.01) {
 		// Pure flat grass — most common, single texture fetch
 		vec3 grass_col = vec3(0.44 + d0 * 0.11, 0.62 + d0 * 0.09, 0.25 + d0 * 0.05);

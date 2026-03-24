@@ -1,8 +1,5 @@
 extends Node3D
 
-const _TexWallLeft:  Texture2D = preload("res://assets/textures/wall_side_left.png")
-const _TexWallRight: Texture2D = preload("res://assets/textures/wall_side_right.png")
-const _TexWallTop:   Texture2D = preload("res://assets/textures/wall_top.png")
 const GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath = preload("res://game_logic/TerrainMath.gd")
 
@@ -32,6 +29,7 @@ var _physics_built: bool = false      # guard against double-build
 static func prepare_terrain(
 		chunk_data: RefCounted,
 		tile_grid: PackedInt32Array,
+		height_grid: PackedInt32Array,
 		grid_min_x: int, grid_min_z: int, grid_w: int) -> Dictionary:
 
 	const CHUNK_SIZE: int = 16
@@ -48,8 +46,15 @@ static func prepare_terrain(
 			return IsoConst.TILE_WALL
 		return tile_grid[li]
 
+	# Build a height lookup that reads from the pre-snapshotted packed grid
+	var grid_height_lookup := func(ttx: int, ttz: int) -> int:
+		var li: int = (ttz - grid_min_z) * grid_w + (ttx - grid_min_x)
+		if li < 0 or li >= height_grid.size():
+			return 1
+		return height_grid[li]
+
 	var hfield: PackedFloat32Array = TerrainMath.compute_height_field(
-			grid_tile_lookup,
+			grid_tile_lookup, grid_height_lookup,
 			chunk_origin.x, chunk_origin.z,
 			nvx, nvz, step,
 			CURVE_R, PLATEAU_H)
@@ -59,16 +64,10 @@ static func prepare_terrain(
 			chunk_origin.x, chunk_origin.z,
 			nvx, nvz, step, PLATEAU_H)
 
-	# Also build wall mesh arrays on this worker thread (avoids main-thread ArrayMesh work)
-	var wall_mesh: ArrayMesh = TerrainMath.build_wall_mesh(
-			chunk_data.get_tile, chunk_data.get_height,
-			CHUNK_SIZE, CHUNK_SIZE)
-
 	return {
 		"mesh":        terrain_res["mesh"],
 		"hmap":        terrain_res["hmap"],
 		"chunk_world": float(CHUNK_SIZE) * IsoConst.TILE_SIZE,
-		"wall_mesh":   wall_mesh,
 	}
 
 # ── Main entry point (main thread only) ───────────────────────────────────
@@ -83,7 +82,6 @@ func build_visual(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node
 	position = chunk_data.origin_world()
 
 	_apply_terrain_visual(terrain_res)
-	_apply_wall_visual(terrain_res.get("wall_mesh"))
 	_build_grass(world_scene)
 	_spawn_entities(world_scene)
 
@@ -123,19 +121,6 @@ func _apply_terrain_physics() -> void:
 	add_child(body)
 
 # ── Walls ──────────────────────────────────────────────────────────────────
-
-func _apply_wall_visual(wall_mesh: ArrayMesh) -> void:
-	if wall_mesh == null:
-		return
-	TerrainMath.ensure_wall_materials(_TexWallLeft, _TexWallRight, _TexWallTop)
-	var mi := MeshInstance3D.new()
-	mi.mesh = wall_mesh
-	var wall_mats: Array[StandardMaterial3D] = TerrainMath.get_wall_materials()
-	var surface_types: Array = wall_mesh.get_meta("surface_types", [])
-	for surf in range(surface_types.size()):
-		var st: int = surface_types[surf]
-		mi.set_surface_override_material(surf, wall_mats[st])
-	add_child(mi)
 
 func _build_walls_physics() -> void:
 	# Greedy row merge: instead of one BoxShape3D per wall tile, merge consecutive

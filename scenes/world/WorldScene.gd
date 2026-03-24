@@ -12,8 +12,6 @@ const _TexGrass:     Texture2D = preload("res://assets/textures/grass.png")
 const _TexHillSide:  Texture2D = preload("res://assets/textures/hill_side.png")
 const _TexHillTop:   Texture2D = preload("res://assets/textures/hill_top.png")
 const _TexWallTop:   Texture2D = preload("res://assets/textures/wall_top.png")
-const _TexWallLeft:  Texture2D = preload("res://assets/textures/wall_side_left.png")
-const _TexWallRight: Texture2D = preload("res://assets/textures/wall_side_right.png")
 
 # Preload entity scenes — avoids filesystem hits during spawning
 const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
@@ -378,20 +376,27 @@ func _snapshot_tile_grid_for(key: Vector2i) -> Array:
 	var grid_w: int = CHUNK_SIZE + TILE_CHECK * 2 + 1
 	var grid_h: int = CHUNK_SIZE + TILE_CHECK * 2 + 1
 	var tile_grid := PackedInt32Array()
+	var height_grid := PackedInt32Array()
 	tile_grid.resize(grid_w * grid_h)
+	height_grid.resize(grid_w * grid_h)
 	for gz in range(grid_h):
 		for gx in range(grid_w):
-			tile_grid[gz * grid_w + gx] = get_tile_global(grid_min_x + gx, grid_min_z + gz)
-	return [tile_grid, grid_min_x, grid_min_z, grid_w]
+			var idx: int = gz * grid_w + gx
+			var wtx: int = grid_min_x + gx
+			var wtz: int = grid_min_z + gz
+			tile_grid[idx] = get_tile_global(wtx, wtz)
+			height_grid[idx] = _get_height_global(wtx, wtz)
+	return [tile_grid, height_grid, grid_min_x, grid_min_z, grid_w]
 
 # ── Threaded chunk building ────────────────────────────────────────────────
 
 # Worker-thread task: does the heavy CPU work (height field, packed arrays,
 # ArrayMesh, HeightMapShape3D) without touching the scene tree.
 func _chunk_prepare_task(key: Vector2i, chunk_data: RefCounted,
-		tile_grid: PackedInt32Array, grid_min_x: int, grid_min_z: int, grid_w: int) -> void:
+		tile_grid: PackedInt32Array, height_grid: PackedInt32Array,
+		grid_min_x: int, grid_min_z: int, grid_w: int) -> void:
 	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(
-			chunk_data, tile_grid, grid_min_x, grid_min_z, grid_w)
+			chunk_data, tile_grid, height_grid, grid_min_x, grid_min_z, grid_w)
 	_chunk_build_mutex.lock()
 	_chunk_build_results.append({ "key": key, "chunk_data": chunk_data, "terrain_res": terrain_res })
 	_chunk_build_mutex.unlock()
@@ -436,7 +441,7 @@ func _kick_chunk_jobs() -> void:
 		_chunk_build_queue.remove_at(i)
 		_chunk_queued.erase(key)
 		var task_id: int = WorkerThreadPool.add_task(_chunk_prepare_task.bind(
-				key, chunk_data, snap[0], snap[1], snap[2], snap[3]))
+				key, chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4]))
 		_chunk_task_ids.append(task_id)
 		# don't increment i — next item shifted into position
 
@@ -480,7 +485,7 @@ func _build_chunk_sync(key: Vector2i) -> void:
 	if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
 		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
 	var chunk: RefCounted = _chunk_data_cache[key]
-	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3])
+	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3], snap[4])
 	for c_data in chunk.chests:
 		var cid: String = str(c_data.get("id", ""))
 		_active_chest_data[cid] = c_data
@@ -561,7 +566,7 @@ func _build_terrain() -> void:
 	var step: float = IsoConst.TILE_SIZE / float(TERRAIN_VDENSITY)
 
 	var hfield: PackedFloat32Array = TerrainMath.compute_height_field(
-			world_map.get_tile, 0.0, 0.0,
+			world_map.get_tile, world_map.get_height, 0.0, 0.0,
 			nvx, nvz, step, HILL_RAMP_R, HILL_PEAK_H)
 
 	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
@@ -581,6 +586,7 @@ func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	mat.set_shader_parameter("grass_texture",     _TexGrass)
 	mat.set_shader_parameter("hill_side_texture", _TexHillSide)
 	mat.set_shader_parameter("hill_texture",      _TexHillTop)
+	mat.set_shader_parameter("wall_side_texture", _TexHillSide)
 	mat.set_shader_parameter("wall_top_texture",  _TexWallTop)
 	mat.set_shader_parameter("uv_scale", 0.5)
 	return mat
@@ -600,12 +606,8 @@ func _build_terrain_collision(hmap: HeightMapShape3D) -> void:
 	add_child(body)
 
 func _build_walls() -> void:
-	# Build wall visual mesh via shared TerrainMath
-	var wall_mesh: ArrayMesh = TerrainMath.build_wall_mesh(
-			world_map.get_tile, world_map.get_height,
-			WorldMap.MAP_WIDTH, WorldMap.MAP_HEIGHT)
-
-	# Build wall collision (per-tile boxes for named maps)
+	# Wall visuals are now part of the terrain mesh (smooth mounds like hills).
+	# Only collision boxes are needed here.
 	var wall_body := StaticBody3D.new()
 	wall_body.name = "WallCollision"
 	wall_body.collision_layer = 4
@@ -626,19 +628,8 @@ func _build_walls() -> void:
 			col.position = Vector3(x0 + IsoConst.TILE_SIZE * 0.5, top_y * 0.5, z0 + IsoConst.TILE_SIZE * 0.5)
 			wall_body.add_child(col)
 
-	if wall_mesh == null:
-		return
-
-	TerrainMath.ensure_wall_materials(_TexWallLeft, _TexWallRight, _TexWallTop)
-	var wall_mats: Array[StandardMaterial3D] = TerrainMath.get_wall_materials()
-	var mi := MeshInstance3D.new()
-	mi.mesh = wall_mesh
-	var surface_types: Array = wall_mesh.get_meta("surface_types", [])
-	for surf in range(surface_types.size()):
-		var st: int = surface_types[surf]
-		mi.set_surface_override_material(surf, wall_mats[st])
-	_wall_meshes.add_child(mi)
-	_wall_meshes.add_child(wall_body)
+	if wall_body.get_child_count() > 0:
+		_wall_meshes.add_child(wall_body)
 
 func flush_save_position() -> void:
 	if _player:
