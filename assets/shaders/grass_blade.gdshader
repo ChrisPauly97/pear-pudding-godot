@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_disabled, unshaded;
+render_mode cull_disabled;
 
 // --- Color palette ---
 // color_base owns the dark-at-root look directly; no AO multiplier needed.
@@ -79,8 +79,12 @@ void vertex() {
 }
 
 void fragment() {
-	// Three-zone gradient. color_base is set dark enough to own the base
-	// look without a separate AO pass on top.
+	// Double-sided lighting: flip normal when viewing the back face
+	if (!FRONT_FACING) {
+		NORMAL = -NORMAL;
+	}
+
+	// Three-zone gradient from root to tip
 	vec3 col;
 	if (UV.y < 0.45) {
 		col = mix(color_base.rgb, color_mid.rgb, UV.y / 0.45);
@@ -88,15 +92,9 @@ void fragment() {
 		col = mix(color_mid.rgb, color_tip.rgb, (UV.y - 0.45) / 0.55);
 	}
 
-	// Subsurface / tip glow — tips appear slightly luminous (backlit by sky)
-	float sss = pow(UV.y, 2.5) * 0.32;
-	col += vec3(sss * 0.05, sss * 0.22, sss * 0.04);
-
-	// Center-edge brightening — subtle midrib / 3D feel
-	float edge_mask = 1.0 - abs(UV.x - 0.5) * 2.0;
-	col += col * edge_mask * UV.y * 0.18;
-
 	ALBEDO = col;
+	ROUGHNESS = 1.0;
+	METALLIC = 0.0;
 	ALPHA = step(UV.y, 0.92);
 	ALPHA_SCISSOR_THRESHOLD = 0.5;
 }
