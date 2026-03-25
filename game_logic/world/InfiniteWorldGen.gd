@@ -30,6 +30,7 @@ static func _chunk_seed(p_cx: int, p_cz: int, world_seed: int) -> int:
 # Generate full chunk with entities
 static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 	var chunk := _gen_tile_data(p_cx, p_cz, world_seed)
+	_gen_ruins(chunk, p_cx, p_cz, world_seed)
 	_gen_entities(chunk, p_cx, p_cz, world_seed)
 	chunk.is_generated = true
 	chunk.has_entities = true
@@ -38,6 +39,7 @@ static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 # Generate tile/height data only (no entities) — used for border ring
 static func generate_chunk_data_only(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 	var chunk := _gen_tile_data(p_cx, p_cz, world_seed)
+	_gen_ruins(chunk, p_cx, p_cz, world_seed)
 	chunk.is_generated = true
 	return chunk
 
@@ -55,18 +57,97 @@ static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 			var n: float = noise.get_noise_2d(float(wtx), float(wtz))
 			var v: float = (n + 1.0) * 0.5
 
-			if v >= WALL_THRESHOLD:
-				chunk.set_tile(lx, lz, IsoConst.TILE_WALL)
-				var wh: int = 1 + int(v * 2.0)
-				chunk.set_height(lx, lz, wh)
-			elif v >= HILL_THRESHOLD:
+			# Walls no longer spawned from noise — ruins are stamped in _gen_ruins instead
+			if v >= HILL_THRESHOLD:
 				chunk.set_tile(lx, lz, IsoConst.TILE_HILL)
-				chunk.set_height(lx, lz, 1)
+				# Power-curve distribution: most hills short, rare tall mountains
+				# hill_factor in [0, 1) within the hill noise band
+				var hill_factor: float = (v - HILL_THRESHOLD) / (WALL_THRESHOLD - HILL_THRESHOLD)
+				var hill_h: int = 1 + int(pow(hill_factor, 2.5) * 5.0)
+				chunk.set_height(lx, lz, hill_h)
 			else:
 				chunk.set_tile(lx, lz, IsoConst.TILE_GRASS)
 				chunk.set_height(lx, lz, 0)
 
 	return chunk
+
+static func _gen_ruins(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: int) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = _chunk_seed(p_cx, p_cz, world_seed) + 2
+
+	# ~33% chance of a ruin per chunk
+	if rng.randi_range(0, 2) != 0:
+		return
+
+	# Inner size: 3x3 to 6x6 tiles; outer includes the wall ring
+	var inner_w: int = rng.randi_range(3, 6)
+	var inner_h: int = rng.randi_range(3, 6)
+	var outer_w: int = inner_w + 2
+	var outer_h: int = inner_h + 2
+
+	# Ensure the structure fits with a margin from chunk edges
+	const MARGIN: int = 2
+	if outer_w + MARGIN * 2 > CHUNK_SIZE or outer_h + MARGIN * 2 > CHUNK_SIZE:
+		return
+
+	var sx: int = rng.randi_range(MARGIN, CHUNK_SIZE - outer_w - MARGIN)
+	var sz: int = rng.randi_range(MARGIN, CHUNK_SIZE - outer_h - MARGIN)
+
+	# Wall heights: base 4–6 levels, corner towers get an extra 1–3 on top
+	var base_h: int = rng.randi_range(4, 6)
+	var corner_bonus: int = rng.randi_range(1, 3)
+
+	# Pick 1–2 door openings on the perimeter (not at corners)
+	var doors: Array[Vector2i] = []
+	var possible_doors: Array[Vector2i] = []
+	for i in range(1, outer_w - 1):
+		possible_doors.append(Vector2i(sx + i, sz))
+		possible_doors.append(Vector2i(sx + i, sz + outer_h - 1))
+	for i in range(1, outer_h - 1):
+		possible_doors.append(Vector2i(sx, sz + i))
+		possible_doors.append(Vector2i(sx + outer_w - 1, sz + i))
+	var door_count: int = rng.randi_range(1, 2)
+	for _d in range(door_count):
+		if possible_doors.is_empty():
+			break
+		var door_idx: int = rng.randi_range(0, possible_doors.size() - 1)
+		doors.append(possible_doors[door_idx])
+		possible_doors.remove_at(door_idx)
+
+	# Stamp the ruin — perimeter walls, flat interior floor
+	for lx in range(outer_w):
+		for lz in range(outer_h):
+			var tx: int = sx + lx
+			var tz: int = sz + lz
+			var on_perimeter: bool = lx == 0 or lx == outer_w - 1 or lz == 0 or lz == outer_h - 1
+
+			if not on_perimeter:
+				# Interior: clear to flat grass so the floor is walkable
+				chunk.set_tile(tx, tz, IsoConst.TILE_GRASS)
+				chunk.set_height(tx, tz, 0)
+				continue
+
+			var pos: Vector2i = Vector2i(tx, tz)
+			if pos in doors:
+				# Door opening — leave as grass
+				chunk.set_tile(tx, tz, IsoConst.TILE_GRASS)
+				chunk.set_height(tx, tz, 0)
+				continue
+
+			var is_corner: bool = (lx == 0 or lx == outer_w - 1) and (lz == 0 or lz == outer_h - 1)
+			if is_corner:
+				# Corner towers are always intact and slightly taller
+				chunk.set_tile(tx, tz, IsoConst.TILE_WALL)
+				chunk.set_height(tx, tz, base_h + corner_bonus)
+			else:
+				# 80% of wall segments remain; the rest have crumbled
+				if rng.randf() < 0.80:
+					var wall_h: int = base_h + rng.randi_range(-1, 1)
+					chunk.set_tile(tx, tz, IsoConst.TILE_WALL)
+					chunk.set_height(tx, tz, maxi(2, wall_h))
+				else:
+					chunk.set_tile(tx, tz, IsoConst.TILE_GRASS)
+					chunk.set_height(tx, tz, 0)
 
 static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: int) -> void:
 	var rng := RandomNumberGenerator.new()
