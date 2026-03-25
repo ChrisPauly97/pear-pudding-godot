@@ -103,8 +103,11 @@ func _setup_environment() -> void:
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.25, 0.5, 0.85)   # daytime sky; updated every frame
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.4, 0.45, 0.5)
-	env.ambient_light_energy = 0.7
+	env.ambient_light_color = Color(0.6, 0.65, 0.7)
+	env.ambient_light_energy = 1.0
+	# Filmic tone mapping lifts shadow detail and prevents blown highlights
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 1.0
 	# Bloom so emissive materials (items, coins) visibly glow
 	env.glow_enabled = true
 	env.glow_bloom = 0.25
@@ -119,6 +122,7 @@ func _setup_environment() -> void:
 
 func _ready() -> void:
 	_setup_environment()
+	_sun.shadow_opacity = 0.65
 	_tile_meshes = Node3D.new()
 	_tile_meshes.name = "TileGrid"
 	add_child(_tile_meshes)
@@ -785,8 +789,8 @@ func _update_day_night(delta: float) -> void:
 		_cached_sky_color = sky
 
 	# Ambient: dark blue night → soft grey day
-	var ambient_color: Color = Color(0.03, 0.04, 0.12).lerp(Color(0.4, 0.45, 0.5), t_day)
-	var ambient_energy: float = lerpf(0.15, 0.7, t_day)
+	var ambient_color: Color = Color(0.1, 0.12, 0.22).lerp(Color(0.6, 0.65, 0.7), t_day)
+	var ambient_energy: float = lerpf(0.35, 1.0, t_day)
 	if not ambient_color.is_equal_approx(_cached_ambient_color):
 		_world_env.environment.ambient_light_color = ambient_color
 		_cached_ambient_color = ambient_color
