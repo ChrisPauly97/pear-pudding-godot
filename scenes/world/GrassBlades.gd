@@ -30,10 +30,23 @@ var _trample_dirty_x1: int = 0
 var _trample_dirty_z1: int = 0
 const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visible difference
 
-const BLADES_PER_TILE := 20
-const BLADE_WIDTH      := 0.26
-const BLADE_HEIGHT     := 1.6
+const BLADES_PER_TILE := 45
+const BLADE_WIDTH      := 0.20
+const BLADE_HEIGHT     := 0.40
 const SEGMENTS         := 4  # quads along the blade height
+
+# Tall grass patches: tiles grouped into cells of TALL_PATCH_CELL world units;
+# a hash of the cell position determines if it grows tall grass (~18% of cells).
+const TALL_PATCH_CELL:    float = 6.0   # world units per patch cell (≈3 tiles)
+const TALL_PATCH_DENSITY: float = 0.18  # fraction of cells that become tall patches
+
+# Integer hash mapped to [0,1) — used for deterministic patch classification.
+static func _hash_pos(px: float, pz: float) -> float:
+	var ix: int = int(px)
+	var iz: int = int(pz)
+	var h: int = (ix * 374761393) ^ (iz * 668265263)
+	h = (h ^ (h >> 13)) * 1274126177
+	return float(abs(h) % 100000) / 100000.0
 
 const CHUNK_SIZE := 16  # tiles per chunk side — one MultiMesh per chunk
 
@@ -134,11 +147,19 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGene
 	var i: int = 0
 
 	for centre in centres:
+		# Snap tile centre to patch grid — all tiles in the same cell share a patch type
+		var patch_x: float = snapped(centre.x, TALL_PATCH_CELL)
+		var patch_z: float = snapped(centre.y, TALL_PATCH_CELL)
+		var is_tall: bool = _hash_pos(patch_x, patch_z) < TALL_PATCH_DENSITY
 		for _b in range(BLADES_PER_TILE):
 			var px: float = centre.x + rng.randf_range(-half, half)
 			var pz: float = centre.y + rng.randf_range(-half, half)
 			var rot: float = rng.randf_range(0.0, PI)
-			var sc: float  = rng.randf_range(0.45, 1.75)
+			var sc: float
+			if is_tall:
+				sc = rng.randf_range(2.2, 3.8)  # tall patch blades: ~0.88–1.52 world units
+			else:
+				sc = rng.randf_range(0.28, 0.75)  # short ground grass: ~0.11–0.30 world units
 			var cr: float  = cos(rot) * sc
 			var sr: float  = sin(rot) * sc
 			var off: int   = i * 12

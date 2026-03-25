@@ -4,8 +4,8 @@ const CHUNK_SIZE: int = 16
 const TILE_SIZE: float = 2.0
 
 # Noise thresholds: value is noise mapped to [0, 1]
-const WALL_THRESHOLD: float = 0.60
-const HILL_THRESHOLD: float = 0.56
+const WALL_THRESHOLD: float = 0.88
+const HILL_THRESHOLD: float = 0.76
 
 # Per-chunk noise frequency
 const NOISE_FREQ: float = 0.08
