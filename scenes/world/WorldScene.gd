@@ -158,12 +158,23 @@ func _ready() -> void:
 	_hud.add_child(joystick)
 
 	var vh: float = get_viewport().get_visible_rect().size.y
+	var vw: float = get_viewport().get_visible_rect().size.x
+	var btn_w: float = vh * 0.12
+	var btn_h: float = vh * 0.05
+
 	var menu_btn := Button.new()
 	menu_btn.text = "Menu"
-	menu_btn.custom_minimum_size = Vector2(vh * 0.12, vh * 0.05)
+	menu_btn.custom_minimum_size = Vector2(btn_w, btn_h)
 	menu_btn.position = Vector2(vh * 0.01, vh * 0.01)
 	menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
 	_hud.add_child(menu_btn)
+
+	var inv_btn := Button.new()
+	inv_btn.text = "Inventory"
+	inv_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
+	inv_btn.position = Vector2(vw - btn_w * 1.3 - vh * 0.01, vh * 0.01)
+	inv_btn.pressed.connect(func() -> void: GameBus.inventory_requested.emit())
+	_hud.add_child(inv_btn)
 
 	var vp := get_viewport().get_visible_rect().size
 	_dialogue_label = Label.new()

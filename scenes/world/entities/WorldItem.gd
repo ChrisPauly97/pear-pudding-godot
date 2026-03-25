@@ -180,6 +180,12 @@ func _play_arc(start_pos: Vector3, land_pos: Vector3) -> void:
 func _process(delta: float) -> void:
 	if _landed and not _collected:
 		rotation_degrees.y += delta * 60.0
+	# Input.action_press() (virtual buttons) doesn't generate InputEvents, so
+	# _unhandled_input never fires for them. Poll directly here so mobile works.
+	if _player_nearby and not _collected and not _is_coin and _rarity != "common":
+		if Input.is_action_just_pressed("interact"):
+			_collect()
+			get_viewport().set_input_as_handled()
 
 # ── Pickup logic ─────────────────────────────────────────────────────────────
 
