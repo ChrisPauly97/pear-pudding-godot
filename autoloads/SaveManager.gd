@@ -1,6 +1,11 @@
 extends Node
 
+signal coins_changed(new_amount: int)
+
 const SAVE_PATH := "user://save.json"
+
+# Currency
+var coins: int = 0
 
 # All cards ever acquired (the collection)
 var owned_cards: Array[String] = []
@@ -60,6 +65,7 @@ func new_game() -> void:
 	]
 	owned_cards.assign(starter)
 	player_deck.assign(starter)
+	coins = 0
 	current_map = "main"
 	player_x = 0.0
 	player_z = 0.0
@@ -88,6 +94,7 @@ func load_save() -> bool:
 	else:
 		owned_cards.assign(data.get("player_deck", []))
 	player_deck.assign(data.get("player_deck", []))
+	coins = int(data.get("coins", 0))
 	current_map = str(data.get("current_map", "main"))
 	player_x = float(data.get("player_x", 0.0))
 	player_z = float(data.get("player_z", 0.0))
@@ -108,6 +115,7 @@ func save() -> void:
 		"version": 1,
 		"owned_cards": owned_cards,
 		"player_deck": player_deck,
+		"coins": coins,
 		"current_map": current_map,
 		"player_x": player_x,
 		"player_z": player_z,
@@ -135,6 +143,11 @@ func update_position(map_name: String, x: float, z: float) -> void:
 func sync_stacks(m_stack: Array[String], d_stack: Array[String]) -> void:
 	map_stack.assign(m_stack)
 	door_stack.assign(d_stack)
+
+func add_coins(amount: int) -> void:
+	coins += amount
+	_dirty = true
+	coins_changed.emit(coins)
 
 func add_cards_to_deck(card_ids: Array) -> void:
 	for cid in card_ids:
