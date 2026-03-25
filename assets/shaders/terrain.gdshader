@@ -126,19 +126,15 @@ void fragment() {
 	}
 
 	// Hand the base colour to Godot's lighting pipeline.
-	// The DirectionalLight3D (sun/moon) and WorldEnvironment ambient are applied
-	// by the engine — including the shadow map already baked on the sun light.
-	if (!FRONT_FACING) {
-		// Back-face: steep hill undersides visible under iso view due to
-		// cull_disabled. Keep them very dim so they don't appear as bright
-		// orange planes, but not pure black either.
-		ALBEDO = base_col * 0.08;
-		ROUGHNESS = 1.0;
-		return;
-	}
+	// Override NORMAL from the height-field gradient (v_normal_world) so lighting
+	// is always correct regardless of GPU 2D-winding.  Steep hill triangles can
+	// have their projected winding flipped under isometric view, causing the GPU
+	// to treat them as back-faces; overriding NORMAL here fixes that without
+	// needing FRONT_FACING hacks or removing cull_disabled.
+	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(v_normal_world), 0.0)).xyz);
 	ALBEDO = base_col;
-	// Soft emission floor so cast shadows never go pitch-black.
-	// Stays below glow_hdr_threshold (0.5) so it won't trigger bloom.
+	// Soft emission floor keeps cast shadows from going pitch-black.
+	// Value is below glow_hdr_threshold (0.5) so it won't trigger bloom.
 	EMISSION = base_col * 0.15;
 	ROUGHNESS = 0.9;
 	METALLIC = 0.0;
