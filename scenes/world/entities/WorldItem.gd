@@ -58,9 +58,15 @@ func _build_visual() -> void:
 	var card_name: String = tmpl.get("name", card_id)
 
 	# Card body — thin flat box in card proportions
+	# Emission feeds the bloom post-process so the card visibly glows.
+	# (All geometry in this game is unshaded so OmniLight3D has no effect.)
+	var glow_color: Color = _get_glow_color()
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = card_color
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.emission_enabled = true
+	mat.emission = glow_color
+	mat.emission_energy_multiplier = 2.5
 
 	var bm := BoxMesh.new()
 	bm.size = Vector3(0.28, 0.40, 0.03)
@@ -69,13 +75,21 @@ func _build_visual() -> void:
 	mi.material_override = mat
 	add_child(mi)
 
-	# Rarity glow under the card — much bigger for visibility
-	var light := OmniLight3D.new()
-	light.light_color = _get_glow_color()
-	light.light_energy = 5.0
-	light.omni_range = 5.0
-	light.position = Vector3(0, -0.1, 0)
-	add_child(light)
+	# Glow halo ring — flat cylinder behind the card so the rarity colour bleeds out
+	var halo_mat := StandardMaterial3D.new()
+	halo_mat.albedo_color = glow_color
+	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	halo_mat.emission_enabled = true
+	halo_mat.emission = glow_color
+	halo_mat.emission_energy_multiplier = 3.5
+	halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	var halo_mesh := QuadMesh.new()
+	halo_mesh.size = Vector2(0.7, 0.7)
+	var halo_mi := MeshInstance3D.new()
+	halo_mi.mesh = halo_mesh
+	halo_mi.material_override = halo_mat
+	halo_mi.position = Vector3(0, 0, -0.05)
+	add_child(halo_mi)
 
 	# Card name label (billboard, always faces camera)
 	var name_lbl := Label3D.new()
@@ -110,13 +124,15 @@ func _build_visual() -> void:
 	set_process_unhandled_input(true)
 
 func _build_coin_visual() -> void:
-	# Gold coin disc — flat cylinder
+	# Gold coin disc — flat cylinder with strong emission for bloom
+	var coin_color: Color = Color(1.0, 0.82, 0.1)
+	var coin_glow: Color  = Color(1.0, 0.65, 0.0)
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(1.0, 0.82, 0.1)
+	mat.albedo_color = coin_color
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.70, 0.0)
-	mat.emission_energy_multiplier = 1.5
+	mat.emission = coin_glow
+	mat.emission_energy_multiplier = 3.0
 
 	var cm := CylinderMesh.new()
 	cm.top_radius = 0.18
@@ -130,13 +146,21 @@ func _build_coin_visual() -> void:
 	mi.rotation_degrees = Vector3(80.0, 0.0, 0.0)
 	add_child(mi)
 
-	# Big gold glow
-	var light := OmniLight3D.new()
-	light.light_color = Color(1.0, 0.78, 0.0)
-	light.light_energy = 6.0
-	light.omni_range = 6.0
-	light.position = Vector3(0, 0.0, 0)
-	add_child(light)
+	# Large billboard glow halo behind coin — same approach as cards
+	var halo_mat := StandardMaterial3D.new()
+	halo_mat.albedo_color = coin_glow
+	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	halo_mat.emission_enabled = true
+	halo_mat.emission = coin_glow
+	halo_mat.emission_energy_multiplier = 4.0
+	halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	var halo_mesh := QuadMesh.new()
+	halo_mesh.size = Vector2(0.65, 0.65)
+	var halo_mi := MeshInstance3D.new()
+	halo_mi.mesh = halo_mesh
+	halo_mi.material_override = halo_mat
+	halo_mi.position = Vector3(0, 0, -0.04)
+	add_child(halo_mi)
 
 	# Coin amount label
 	var amt_lbl := Label3D.new()

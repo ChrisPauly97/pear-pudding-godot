@@ -105,6 +105,14 @@ func _setup_environment() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.4, 0.45, 0.5)
 	env.ambient_light_energy = 0.7
+	# Bloom so emissive materials (items, coins) visibly glow
+	env.glow_enabled = true
+	env.glow_bloom = 0.25
+	env.glow_intensity = 1.5
+	env.glow_strength = 1.2
+	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+	env.glow_hdr_threshold = 0.5
+	env.glow_hdr_luminance_cap = 12.0
 	_world_env = WorldEnvironment.new()
 	_world_env.environment = env
 	add_child(_world_env)
