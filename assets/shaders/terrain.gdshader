@@ -1,5 +1,4 @@
 shader_type spatial;
-render_mode cull_disabled;
 
 // Vertex colour R channel: 0.0 = flat grass, 1.0 = hill plateau top.
 // Normals are computed from the height field and baked into the mesh.
@@ -131,7 +130,7 @@ void fragment() {
 	ALBEDO = base_col;
 	// Minimum emission so back-faces and fully-shadowed geometry never go black.
 	// Value is below glow_hdr_threshold (0.5) so it won't trigger bloom.
-	EMISSION = base_col * 0.3;
+	EMISSION = base_col * 0.15;
 	ROUGHNESS = 0.9;
 	METALLIC = 0.0;
 	SPECULAR = 0.1;
