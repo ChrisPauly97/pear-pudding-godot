@@ -219,7 +219,9 @@ static func build_terrain_mesh(
 		for iz_edge in [0, nvz - 1]:
 			var surf_i: int = iz_edge * nvx + ix
 			skirt_verts[si]   = Vector3(verts[surf_i].x, SKIRT_Y, verts[surf_i].z)
-			skirt_normals[si] = normals[surf_i]
+			# Outward-facing horizontal normal for the skirt panel:
+			# iz=0 is the near edge (faces -Z), iz=nvz-1 is the far edge (faces +Z)
+			skirt_normals[si] = Vector3(0.0, 0.0, -1.0) if iz_edge == 0 else Vector3(0.0, 0.0, 1.0)
 			skirt_uvs[si]     = uvs[surf_i]
 			skirt_colors[si]  = colors[surf_i]
 			_edge_ids.append(surf_i)
@@ -229,7 +231,8 @@ static func build_terrain_mesh(
 		for ix_edge in [0, nvx - 1]:
 			var surf_i: int = iz * nvx + ix_edge
 			skirt_verts[si]   = Vector3(verts[surf_i].x, SKIRT_Y, verts[surf_i].z)
-			skirt_normals[si] = normals[surf_i]
+			# ix=0 is the left edge (faces -X), ix=nvx-1 is the right edge (faces +X)
+			skirt_normals[si] = Vector3(-1.0, 0.0, 0.0) if ix_edge == 0 else Vector3(1.0, 0.0, 0.0)
 			skirt_uvs[si]     = uvs[surf_i]
 			skirt_colors[si]  = colors[surf_i]
 			_edge_ids.append(surf_i)
