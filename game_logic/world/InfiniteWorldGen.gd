@@ -5,7 +5,7 @@ const TILE_SIZE: float = 2.0
 
 # Noise thresholds: value is noise mapped to [0, 1]
 const WALL_THRESHOLD: float = 0.60
-const HILL_THRESHOLD: float = 0.40
+const HILL_THRESHOLD: float = 0.56
 
 # Per-chunk noise frequency
 const NOISE_FREQ: float = 0.08
@@ -61,9 +61,9 @@ static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 			if v >= HILL_THRESHOLD:
 				chunk.set_tile(lx, lz, IsoConst.TILE_HILL)
 				# Power-curve distribution: most hills short, rare tall mountains
-				# hill_factor in [0, 1) within the hill noise band
-				var hill_factor: float = (v - HILL_THRESHOLD) / (WALL_THRESHOLD - HILL_THRESHOLD)
-				var hill_h: int = 1 + int(pow(hill_factor, 2.5) * 5.0)
+				# Clamp to [0,1] — noise above WALL_THRESHOLD would overflow without this
+				var hill_factor: float = clamp((v - HILL_THRESHOLD) / (WALL_THRESHOLD - HILL_THRESHOLD), 0.0, 1.0)
+				var hill_h: int = 1 + int(pow(hill_factor, 2.5) * 4.0)
 				chunk.set_height(lx, lz, hill_h)
 			else:
 				chunk.set_tile(lx, lz, IsoConst.TILE_GRASS)
