@@ -2,10 +2,10 @@ shader_type spatial;
 render_mode cull_disabled;
 
 // --- Color palette ---
-// color_base owns the dark-at-root look directly; no AO multiplier needed.
-uniform vec4  color_base       : source_color = vec4(0.03, 0.15, 0.06, 1.0);
-uniform vec4  color_mid        : source_color = vec4(0.10, 0.42, 0.20, 1.0);
-uniform vec4  color_tip        : source_color = vec4(0.40, 0.78, 0.38, 1.0);
+// Tuned to blend with the terrain's flat-grass procedural base (~0.44, 0.62, 0.25).
+uniform vec4  color_base       : source_color = vec4(0.22, 0.32, 0.12, 1.0);
+uniform vec4  color_mid        : source_color = vec4(0.36, 0.52, 0.18, 1.0);
+uniform vec4  color_tip        : source_color = vec4(0.46, 0.64, 0.24, 1.0);
 
 // --- Wind ---
 uniform float wind_strength    : hint_range(0.0, 1.0) = 0.28;
@@ -93,6 +93,8 @@ void fragment() {
 	}
 
 	ALBEDO = col;
+	// Match terrain's emission floor so grass doesn't go pitch-black in shadow
+	EMISSION = col * 0.15;
 	ROUGHNESS = 1.0;
 	METALLIC = 0.0;
 	ALPHA = step(UV.y, 0.92);
