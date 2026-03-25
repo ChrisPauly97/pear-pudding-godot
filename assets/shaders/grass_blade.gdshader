@@ -1,11 +1,11 @@
 shader_type spatial;
-render_mode cull_disabled, unshaded;
+render_mode cull_disabled;
 
 // --- Color palette ---
-// color_base owns the dark-at-root look directly; no AO multiplier needed.
-uniform vec4  color_base       : source_color = vec4(0.03, 0.15, 0.06, 1.0);
-uniform vec4  color_mid        : source_color = vec4(0.10, 0.42, 0.20, 1.0);
-uniform vec4  color_tip        : source_color = vec4(0.40, 0.78, 0.38, 1.0);
+// Tuned to blend with the terrain's flat-grass procedural base (~0.44, 0.62, 0.25).
+uniform vec4  color_base       : source_color = vec4(0.22, 0.32, 0.12, 1.0);
+uniform vec4  color_mid        : source_color = vec4(0.36, 0.52, 0.18, 1.0);
+uniform vec4  color_tip        : source_color = vec4(0.46, 0.64, 0.24, 1.0);
 
 // --- Wind ---
 uniform float wind_strength    : hint_range(0.0, 1.0) = 0.28;
@@ -34,19 +34,23 @@ void vertex() {
 	vec3  root = MODEL_MATRIX[3].xyz;
 
 	// ---- Natural growth variation ----
-	// h1/h2 are reused below as wind phase and trample angle seeds.
+	// h1/h2 used only for static lean and trample direction below.
 	float h1 = hash(root.xz);
 	float h2 = hash(root.xz * 2.73 + vec2(19.3, 47.1));
 	VERTEX.x += (h1 - 0.5) * 0.10 * bend;
 	VERTEX.z += (h2 - 0.5) * 0.10 * bend;
 
 	// ---- Wind animation ----
-	float phase  = h1 * 6.2832;  // reuse h1 — already a stable per-blade random
-	float sway   = sin(TIME * 2.0 + phase + root.x * 0.4 + root.z * 0.25);
-	float gust   = sin(TIME * 0.65 + phase * 0.4) * 0.35 + 0.65;
-	float ripple = sin(TIME * 3.1 + phase * 0.7 + root.z * 0.6) * 0.15;
-	float wind_amt = wind_strength * (sway * gust + ripple) * bend;
-	vec2  wdir = normalize(wind_direction);
+	// Uniform breeze: all blades share the same TIME-based wave so the
+	// field moves as one. Two overlapping sines give gentle variation
+	// without per-blade randomness. Direction drifts slowly (~±20°).
+	float sway     = sin(TIME * 1.4) * 0.65 + sin(TIME * 0.38) * 0.35;
+	float wind_amt = wind_strength * sway * bend;
+	float drift    = sin(TIME * 0.07) * 0.35;
+	float cd = cos(drift); float sd = sin(drift);
+	vec2  wdir = normalize(vec2(
+		wind_direction.x * cd - wind_direction.y * sd,
+		wind_direction.x * sd + wind_direction.y * cd));
 	VERTEX.x += wdir.x * wind_amt;
 	VERTEX.z += wdir.y * wind_amt;
 
@@ -79,8 +83,12 @@ void vertex() {
 }
 
 void fragment() {
-	// Three-zone gradient. color_base is set dark enough to own the base
-	// look without a separate AO pass on top.
+	// Double-sided lighting: flip normal when viewing the back face
+	if (!FRONT_FACING) {
+		NORMAL = -NORMAL;
+	}
+
+	// Three-zone gradient from root to tip
 	vec3 col;
 	if (UV.y < 0.45) {
 		col = mix(color_base.rgb, color_mid.rgb, UV.y / 0.45);
@@ -88,15 +96,11 @@ void fragment() {
 		col = mix(color_mid.rgb, color_tip.rgb, (UV.y - 0.45) / 0.55);
 	}
 
-	// Subsurface / tip glow — tips appear slightly luminous (backlit by sky)
-	float sss = pow(UV.y, 2.5) * 0.32;
-	col += vec3(sss * 0.05, sss * 0.22, sss * 0.04);
-
-	// Center-edge brightening — subtle midrib / 3D feel
-	float edge_mask = 1.0 - abs(UV.x - 0.5) * 2.0;
-	col += col * edge_mask * UV.y * 0.18;
-
 	ALBEDO = col;
+	// Match terrain's emission floor so grass doesn't go pitch-black in shadow
+	EMISSION = col * 0.15;
+	ROUGHNESS = 1.0;
+	METALLIC = 0.0;
 	ALPHA = step(UV.y, 0.92);
 	ALPHA_SCISSOR_THRESHOLD = 0.5;
 }

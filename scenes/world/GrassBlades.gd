@@ -155,16 +155,19 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGene
 			var px: float = centre.x + rng.randf_range(-half, half)
 			var pz: float = centre.y + rng.randf_range(-half, half)
 			var rot: float = rng.randf_range(0.0, PI)
-			var sc: float
+			var sy: float  # height scale
+			var sx: float  # width scale (independent — keeps tall blades thin)
 			if is_tall:
-				sc = rng.randf_range(2.2, 3.8)  # tall patch blades: ~0.88–1.52 world units
+				sy = rng.randf_range(2.2, 3.8)   # ~0.88–1.52 world units tall
+				sx = rng.randf_range(0.22, 0.40)  # narrow — independent of height
 			else:
-				sc = rng.randf_range(0.28, 0.75)  # short ground grass: ~0.11–0.30 world units
-			var cr: float  = cos(rot) * sc
-			var sr: float  = sin(rot) * sc
+				sy = rng.randf_range(0.28, 0.75)  # short ground grass
+				sx = sy * rng.randf_range(0.6, 0.9)  # slightly narrower than tall ratio
+			var cr: float  = cos(rot) * sx
+			var sr: float  = sin(rot) * sx
 			var off: int   = i * 12
 			buf[off]     =  cr;  buf[off+1]  = 0.0; buf[off+2]  =  sr;  buf[off+3]  = px
-			buf[off+4]   = 0.0;  buf[off+5]  =  sc; buf[off+6]  = 0.0;  buf[off+7]  = blade_y
+			buf[off+4]   = 0.0;  buf[off+5]  =  sy; buf[off+6]  = 0.0;  buf[off+7]  = blade_y
 			buf[off+8]   = -sr;  buf[off+9]  = 0.0; buf[off+10] =  cr;  buf[off+11] = pz
 			i += 1
 
