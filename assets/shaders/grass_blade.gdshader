@@ -34,19 +34,23 @@ void vertex() {
 	vec3  root = MODEL_MATRIX[3].xyz;
 
 	// ---- Natural growth variation ----
-	// h1/h2 are reused below as wind phase and trample angle seeds.
+	// h1/h2 used only for static lean and trample direction below.
 	float h1 = hash(root.xz);
 	float h2 = hash(root.xz * 2.73 + vec2(19.3, 47.1));
 	VERTEX.x += (h1 - 0.5) * 0.10 * bend;
 	VERTEX.z += (h2 - 0.5) * 0.10 * bend;
 
 	// ---- Wind animation ----
-	float phase  = h1 * 6.2832;  // reuse h1 — already a stable per-blade random
-	float sway   = sin(TIME * 2.0 + phase + root.x * 0.4 + root.z * 0.25);
-	float gust   = sin(TIME * 0.65 + phase * 0.4) * 0.35 + 0.65;
-	float ripple = sin(TIME * 3.1 + phase * 0.7 + root.z * 0.6) * 0.15;
-	float wind_amt = wind_strength * (sway * gust + ripple) * bend;
-	vec2  wdir = normalize(wind_direction);
+	// Uniform breeze: all blades share the same TIME-based wave so the
+	// field moves as one. Two overlapping sines give gentle variation
+	// without per-blade randomness. Direction drifts slowly (~±20°).
+	float sway     = sin(TIME * 1.4) * 0.65 + sin(TIME * 0.38) * 0.35;
+	float wind_amt = wind_strength * sway * bend;
+	float drift    = sin(TIME * 0.07) * 0.35;
+	float cd = cos(drift); float sd = sin(drift);
+	vec2  wdir = normalize(vec2(
+		wind_direction.x * cd - wind_direction.y * sd,
+		wind_direction.x * sd + wind_direction.y * cd));
 	VERTEX.x += wdir.x * wind_amt;
 	VERTEX.z += wdir.y * wind_amt;
 
