@@ -8,12 +8,13 @@ const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChestScene = preload("res://scenes/world/entities/Chest.tscn")
 
 const TERRAIN_VDENSITY: int = 2
-const PLATEAU_H:        float = 1.5   # hill plateau height above ground
-const CURVE_R:          float = 3.0   # smoothstep transition radius (world units)
+const PLATEAU_H:        float = 1.5   # fallback hill height for tiles with no stored height
+const CURVE_R:          float = 8.0   # hill smoothstep radius (wide, gentle mountain slopes)
+const WALL_CURVE_R:     float = 3.0   # wall smoothstep radius (tight, sharp ruin faces)
 
 # Tile neighbourhood radius used when building the tile_grid snapshot.
 # Must match what WorldScene._snapshot_tile_grid_for() uses.
-const TILE_CHECK: int = 3  # ceil(CURVE_R / TILE_SIZE) + 1
+const TILE_CHECK: int = 5  # ceil(CURVE_R / TILE_SIZE) + 1 = ceil(8/2)+1 = 5
 
 var _chunk_data: RefCounted   # ChunkData
 var _chunk_key:  Vector2i
@@ -57,12 +58,12 @@ static func prepare_terrain(
 			grid_tile_lookup, grid_height_lookup,
 			chunk_origin.x, chunk_origin.z,
 			nvx, nvz, step,
-			CURVE_R, PLATEAU_H)
+			CURVE_R, PLATEAU_H, WALL_CURVE_R)
 
 	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
 			hfield, grid_tile_lookup,
 			chunk_origin.x, chunk_origin.z,
-			nvx, nvz, step, PLATEAU_H)
+			nvx, nvz, step, TerrainMath.WALL_MAX_H)
 
 	return {
 		"mesh":        terrain_res["mesh"],

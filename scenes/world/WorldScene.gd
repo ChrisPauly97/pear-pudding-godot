@@ -236,10 +236,13 @@ func _get_height_global(wtx: int, wtz: int) -> int:
 
 # Compute terrain height at a world position using the shared smoothstep algorithm.
 func get_terrain_height(wx: float, wz: float) -> float:
-	var curve_r: float = HILL_RAMP_R if not infinite else 3.0
 	var tile_fn: Callable = get_tile_global if infinite else world_map.get_tile
 	var height_fn: Callable = _get_height_global if infinite else world_map.get_height
-	return TerrainMath.get_height_at(wx, wz, tile_fn, height_fn, curve_r, HILL_PEAK_H)
+	if infinite:
+		# Use the same radii as ChunkRenderer so entity Y matches the rendered terrain
+		return TerrainMath.get_height_at(wx, wz, tile_fn, height_fn,
+				ChunkRenderer.CURVE_R, HILL_PEAK_H, ChunkRenderer.WALL_CURVE_R)
+	return TerrainMath.get_height_at(wx, wz, tile_fn, height_fn, HILL_RAMP_R, HILL_PEAK_H)
 
 # Returns false if the chunk AABB is definitely outside the camera frustum.
 # Uses the standard separating-plane test: if all 8 corners of the chunk's
@@ -250,16 +253,16 @@ func _chunk_in_frustum(cx: int, cz: int, frustum: Array[Plane]) -> bool:
 	var z0: float = float(cz) * ws
 	var x1: float = x0 + ws
 	var z1: float = z0 + ws
-	# Y range: -1 (below flat ground) to 3 (above hill + wall peak)
+	# Y range: -1 (below flat ground) to 16 (above tallest mountain/ruin peak)
 	for plane: Plane in frustum:
 		if (not plane.is_point_over(Vector3(x0, -1.0, z0)) and
 			not plane.is_point_over(Vector3(x1, -1.0, z0)) and
 			not plane.is_point_over(Vector3(x0, -1.0, z1)) and
 			not plane.is_point_over(Vector3(x1, -1.0, z1)) and
-			not plane.is_point_over(Vector3(x0,  3.0, z0)) and
-			not plane.is_point_over(Vector3(x1,  3.0, z0)) and
-			not plane.is_point_over(Vector3(x0,  3.0, z1)) and
-			not plane.is_point_over(Vector3(x1,  3.0, z1))):
+			not plane.is_point_over(Vector3(x0, 16.0, z0)) and
+			not plane.is_point_over(Vector3(x1, 16.0, z0)) and
+			not plane.is_point_over(Vector3(x0, 16.0, z1)) and
+			not plane.is_point_over(Vector3(x1, 16.0, z1))):
 			return false
 	return true
 

@@ -13,18 +13,22 @@ const WALL_MAX_H: float = 10.0
 
 ## Compute terrain height at world position (wx, wz) using smoothstep blend.
 ## tile_lookup: Callable(ttx: int, ttz: int) -> int  — returns tile type
-## height_lookup: Callable(ttx: int, ttz: int) -> int — returns wall height
-## curve_r: smoothstep transition radius (world units)
-## peak_h: plateau height above ground
+## height_lookup: Callable(ttx: int, ttz: int) -> int — returns tile height level
+## curve_r: hill smoothstep transition radius (world units)
+## peak_h: fallback hill height when height_lookup returns 0 (named-map compat)
+## wall_curve_r: wall smoothstep radius; defaults to curve_r when <= 0
 static func get_height_at(wx: float, wz: float,
 		tile_lookup: Callable, height_lookup: Callable,
-		curve_r: float, peak_h: float) -> float:
-	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
+		curve_r: float, peak_h: float, wall_curve_r: float = -1.0) -> float:
+	var _wall_r: float = wall_curve_r if wall_curve_r > 0.0 else curve_r
+	var tile_check: int = int(ceil(maxf(curve_r, _wall_r) / IsoConst.TILE_SIZE)) + 1
 	var vtx: int = int(wx / IsoConst.TILE_SIZE)
 	var vtz: int = int(wz / IsoConst.TILE_SIZE)
-	var curve_r_sq: float = curve_r * curve_r
-	var min_dist_sq_hill: float = curve_r_sq
-	var min_dist_sq_wall: float = curve_r_sq
+	var hill_r_sq: float = curve_r * curve_r
+	var wall_r_sq: float = _wall_r * _wall_r
+	var min_dist_sq_hill: float = hill_r_sq
+	var min_dist_sq_wall: float = wall_r_sq
+	var nearest_hill_peak: float = peak_h
 	var nearest_wall_peak: float = 0.0
 	for dtz in range(-tile_check, tile_check + 1):
 		for dtx in range(-tile_check, tile_check + 1):
@@ -41,6 +45,8 @@ static func get_height_at(wx: float, wz: float,
 			if tile_type == IsoConst.TILE_HILL:
 				if dist_sq < min_dist_sq_hill:
 					min_dist_sq_hill = dist_sq
+					var hh: int = height_lookup.call(ttx, ttz)
+					nearest_hill_peak = float(hh) * IsoConst.HILL_FACE_H if hh > 0 else peak_h
 			else:  # TILE_WALL
 				if dist_sq < min_dist_sq_wall:
 					min_dist_sq_wall = dist_sq
@@ -48,12 +54,12 @@ static func get_height_at(wx: float, wz: float,
 					nearest_wall_peak = minf(float(maxi(1, wh)) * IsoConst.WALL_FACE_H, WALL_MAX_H)
 
 	var h: float = 0.0
-	if min_dist_sq_hill < curve_r_sq:
+	if min_dist_sq_hill < hill_r_sq:
 		var t: float = 1.0 - sqrt(min_dist_sq_hill) / curve_r
 		t = t * t * (3.0 - 2.0 * t)
-		h = peak_h * t
-	if min_dist_sq_wall < curve_r_sq:
-		var tw: float = 1.0 - sqrt(min_dist_sq_wall) / curve_r
+		h = nearest_hill_peak * t
+	if min_dist_sq_wall < wall_r_sq:
+		var tw: float = 1.0 - sqrt(min_dist_sq_wall) / _wall_r
 		tw = tw * tw * (3.0 - 2.0 * tw)
 		var wh: float = nearest_wall_peak * tw
 		if wh > h:
@@ -62,20 +68,24 @@ static func get_height_at(wx: float, wz: float,
 
 ## Compute a packed height field for a grid of vertices.
 ## tile_lookup: Callable(ttx: int, ttz: int) -> int — returns tile type
-## height_lookup: Callable(ttx: int, ttz: int) -> int — returns wall height
+## height_lookup: Callable(ttx: int, ttz: int) -> int — returns tile height level
 ## origin_x, origin_z: world-space origin of the grid
 ## nvx, nvz: vertex count in each axis
 ## step: world units between vertices
-## curve_r, peak_h: smoothstep parameters
+## curve_r: hill smoothstep radius; peak_h: fallback hill height when stored height is 0
+## wall_curve_r: wall smoothstep radius; defaults to curve_r when <= 0
 static func compute_height_field(
 		tile_lookup: Callable,
 		height_lookup: Callable,
 		origin_x: float, origin_z: float,
 		nvx: int, nvz: int, step: float,
-		curve_r: float, peak_h: float) -> PackedFloat32Array:
-	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
-	var curve_r_sq: float = curve_r * curve_r
-	var inv_curve_r: float = 1.0 / curve_r
+		curve_r: float, peak_h: float, wall_curve_r: float = -1.0) -> PackedFloat32Array:
+	var _wall_r: float = wall_curve_r if wall_curve_r > 0.0 else curve_r
+	var tile_check: int = int(ceil(maxf(curve_r, _wall_r) / IsoConst.TILE_SIZE)) + 1
+	var hill_r_sq: float = curve_r * curve_r
+	var wall_r_sq: float = _wall_r * _wall_r
+	var inv_hill_r: float = 1.0 / curve_r
+	var inv_wall_r: float = 1.0 / _wall_r
 
 	var hfield := PackedFloat32Array()
 	hfield.resize(nvx * nvz)
@@ -85,8 +95,9 @@ static func compute_height_field(
 			var gz: float = origin_z + iz * step
 			var vtx: int = int(gx / IsoConst.TILE_SIZE)
 			var vtz: int = int(gz / IsoConst.TILE_SIZE)
-			var min_dist_sq_hill: float = curve_r_sq
-			var min_dist_sq_wall: float = curve_r_sq
+			var min_dist_sq_hill: float = hill_r_sq
+			var min_dist_sq_wall: float = wall_r_sq
+			var nearest_hill_peak: float = peak_h
 			var nearest_wall_peak: float = 0.0
 			for dtz in range(-tile_check, tile_check + 1):
 				for dtx in range(-tile_check, tile_check + 1):
@@ -103,6 +114,8 @@ static func compute_height_field(
 					if tile_type == IsoConst.TILE_HILL:
 						if dist_sq < min_dist_sq_hill:
 							min_dist_sq_hill = dist_sq
+							var hh: int = height_lookup.call(ttx, ttz)
+							nearest_hill_peak = float(hh) * IsoConst.HILL_FACE_H if hh > 0 else peak_h
 					else:  # TILE_WALL
 						if dist_sq < min_dist_sq_wall:
 							min_dist_sq_wall = dist_sq
@@ -110,12 +123,12 @@ static func compute_height_field(
 							nearest_wall_peak = minf(float(maxi(1, wh)) * IsoConst.WALL_FACE_H, WALL_MAX_H)
 
 			var h: float = 0.0
-			if min_dist_sq_hill < curve_r_sq:
-				var t: float = 1.0 - sqrt(min_dist_sq_hill) * inv_curve_r
+			if min_dist_sq_hill < hill_r_sq:
+				var t: float = 1.0 - sqrt(min_dist_sq_hill) * inv_hill_r
 				t = t * t * (3.0 - 2.0 * t)
-				h = peak_h * t
-			if min_dist_sq_wall < curve_r_sq:
-				var tw: float = 1.0 - sqrt(min_dist_sq_wall) * inv_curve_r
+				h = nearest_hill_peak * t
+			if min_dist_sq_wall < wall_r_sq:
+				var tw: float = 1.0 - sqrt(min_dist_sq_wall) * inv_wall_r
 				tw = tw * tw * (3.0 - 2.0 * tw)
 				var wh: float = nearest_wall_peak * tw
 				if wh > h:
