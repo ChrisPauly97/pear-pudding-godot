@@ -1,4 +1,5 @@
 shader_type spatial;
+render_mode cull_disabled;
 
 // Vertex colour R channel: 0.0 = flat grass, 1.0 = hill plateau top.
 // Normals are computed from the height field and baked into the mesh.
@@ -127,9 +128,17 @@ void fragment() {
 	// Hand the base colour to Godot's lighting pipeline.
 	// The DirectionalLight3D (sun/moon) and WorldEnvironment ambient are applied
 	// by the engine — including the shadow map already baked on the sun light.
+	if (!FRONT_FACING) {
+		// Back-face: steep hill undersides visible under iso view due to
+		// cull_disabled. Keep them very dim so they don't appear as bright
+		// orange planes, but not pure black either.
+		ALBEDO = base_col * 0.08;
+		ROUGHNESS = 1.0;
+		return;
+	}
 	ALBEDO = base_col;
-	// Minimum emission so back-faces and fully-shadowed geometry never go black.
-	// Value is below glow_hdr_threshold (0.5) so it won't trigger bloom.
+	// Soft emission floor so cast shadows never go pitch-black.
+	// Stays below glow_hdr_threshold (0.5) so it won't trigger bloom.
 	EMISSION = base_col * 0.15;
 	ROUGHNESS = 0.9;
 	METALLIC = 0.0;
