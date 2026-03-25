@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, cull_disabled;
+render_mode cull_disabled;
 
 // Vertex colour R channel: 0.0 = flat grass, 1.0 = hill plateau top.
 // Normals are computed from the height field and baked into the mesh.
@@ -17,14 +17,9 @@ uniform sampler2D wall_top_texture  : source_color, hint_default_white;
 // How many times the textures tile per world unit
 uniform float uv_scale : hint_range(0.05, 2.0) = 0.5;
 
-// Light direction for manual directional shading (approximate isometric sun)
-uniform vec3 sun_dir                    = vec3(0.577, 0.577, 0.577);
-uniform vec4 sun_color   : source_color = vec4(1.0, 0.95, 0.8, 1.0);
-uniform vec4 ambient_col : source_color = vec4(0.3, 0.38, 0.45, 1.0);
-
 varying float v_blend;   // height ratio [0=flat ground .. 1=hill plateau]
 varying float v_wall;    // 1.0 if this vertex sits on a wall tile
-varying vec3  v_normal_world;
+varying vec3  v_normal_world;  // world-space normal — used for slope detection only
 varying vec2  v_world_xz;
 varying float v_d0;      // fbm noise channel 0, computed per-vertex
 varying float v_d1;      // fbm noise channel 1, computed per-vertex
@@ -54,6 +49,8 @@ void vertex() {
 	// Pass blend factor, wall flag, and world normal to fragment
 	v_blend = COLOR.r;
 	v_wall  = COLOR.g;
+	// World-space normal is only used for slope detection in fragment(),
+	// not for lighting — Godot transforms NORMAL to view space automatically.
 	v_normal_world = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
 	v_world_xz     = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz;
 
@@ -128,10 +125,11 @@ void fragment() {
 		}
 	}
 
-	// Simple directional light baked from normal
-	vec3 n  = normalize(v_normal_world);
-	vec3 ld = normalize(sun_dir);
-	float diff = max(dot(n, ld), 0.0);
-
-	ALBEDO = base_col * (ambient_col.rgb + sun_color.rgb * diff);
+	// Hand the base colour to Godot's lighting pipeline.
+	// The DirectionalLight3D (sun/moon) and WorldEnvironment ambient are applied
+	// by the engine — including the shadow map already baked on the sun light.
+	ALBEDO = base_col;
+	ROUGHNESS = 0.9;
+	METALLIC = 0.0;
+	SPECULAR = 0.1;
 }
