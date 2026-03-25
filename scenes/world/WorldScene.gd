@@ -88,6 +88,7 @@ const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 @onready var _coin_label: Label = $HUD/CoinLabel
 @onready var _sun: DirectionalLight3D = $DirectionalLight3D
 @onready var _moon: DirectionalLight3D = $MoonLight
+var _fill_light: DirectionalLight3D
 
 var _dialogue_label: Label
 var _dialogue_timer: float = 0.0
@@ -119,10 +120,17 @@ func _setup_environment() -> void:
 	_world_env = WorldEnvironment.new()
 	_world_env.environment = env
 	add_child(_world_env)
+	# Fill light: soft sky-blue from above-opposite, no shadows, lifts black areas
+	_fill_light = DirectionalLight3D.new()
+	_fill_light.light_color = Color(0.55, 0.65, 0.85)
+	_fill_light.light_energy = 0.5
+	_fill_light.shadow_enabled = false
+	_fill_light.rotation_degrees = Vector3(60.0, 45.0, 0.0)
+	add_child(_fill_light)
 
 func _ready() -> void:
 	_setup_environment()
-	_sun.shadow_opacity = 0.65
+	_sun.shadow_opacity = 0.2
 	_tile_meshes = Node3D.new()
 	_tile_meshes.name = "TileGrid"
 	add_child(_tile_meshes)
