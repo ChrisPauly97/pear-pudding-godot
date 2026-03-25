@@ -12,7 +12,7 @@ const ISO_TH: int = 32
 const ISO_HALF_W: int = 32
 const ISO_HALF_H: int = 16
 const WALL_FACE_H: float = 1.0    # world-unit height per wall level
-const HILL_FACE_H: float = 2.0    # world-unit height per hill level
+const HILL_FACE_H: float = 1.2    # world-unit height per hill level
 const WALL_FACE_TEX_H: int = 36
 
 # Tile type constants
