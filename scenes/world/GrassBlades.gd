@@ -30,7 +30,8 @@ var _trample_dirty_x1: int = 0
 var _trample_dirty_z1: int = 0
 const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visible difference
 
-const BLADES_PER_TILE := 45
+const BLADES_PER_TILE      := 45   # short grass tiles
+const BLADES_TALL_PER_TILE := 160  # tall patch tiles — thin blades need high density
 const BLADE_WIDTH      := 0.20
 const BLADE_HEIGHT     := 0.40
 const SEGMENTS         := 4  # quads along the blade height
@@ -130,12 +131,23 @@ func remove_chunk(chunk_key: Vector2i) -> void:
 		_chunk_mmis.erase(chunk_key)
 
 func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGenerator) -> void:
-	var total: int = centres.size() * BLADES_PER_TILE
-	if total == 0:
+	if centres.is_empty():
 		return
 
 	var half: float = IsoConst.TILE_SIZE * 0.45
 	var blade_y: float = 0.01
+
+	# Pre-classify tiles so we know the exact blade count before allocating.
+	var tall_flags: Array[bool] = []
+	tall_flags.resize(centres.size())
+	var total: int = 0
+	for ci in range(centres.size()):
+		var centre: Vector2 = centres[ci]
+		var patch_x: float = snapped(centre.x, TALL_PATCH_CELL)
+		var patch_z: float = snapped(centre.y, TALL_PATCH_CELL)
+		var is_tall: bool = _hash_pos(patch_x, patch_z) < TALL_PATCH_DENSITY
+		tall_flags[ci] = is_tall
+		total += BLADES_TALL_PER_TILE if is_tall else BLADES_PER_TILE
 
 	var mm := MultiMesh.new()
 	mm.mesh = _blade_mesh
@@ -146,12 +158,11 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGene
 	buf.resize(total * 12)
 	var i: int = 0
 
-	for centre in centres:
-		# Snap tile centre to patch grid — all tiles in the same cell share a patch type
-		var patch_x: float = snapped(centre.x, TALL_PATCH_CELL)
-		var patch_z: float = snapped(centre.y, TALL_PATCH_CELL)
-		var is_tall: bool = _hash_pos(patch_x, patch_z) < TALL_PATCH_DENSITY
-		for _b in range(BLADES_PER_TILE):
+	for ci in range(centres.size()):
+		var centre: Vector2 = centres[ci]
+		var is_tall: bool = tall_flags[ci]
+		var blade_count: int = BLADES_TALL_PER_TILE if is_tall else BLADES_PER_TILE
+		for _b in range(blade_count):
 			var px: float = centre.x + rng.randf_range(-half, half)
 			var pz: float = centre.y + rng.randf_range(-half, half)
 			var rot: float = rng.randf_range(0.0, PI)
