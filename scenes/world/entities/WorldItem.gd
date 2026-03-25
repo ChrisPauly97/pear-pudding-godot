@@ -10,6 +10,10 @@ var _player_nearby: bool = false
 var _bob_time: float = 0.0
 var _prompt_label: Label3D = null
 
+# Coin mode
+var _is_coin: bool = false
+var _coin_amount: int = 0
+
 # ── Public setup ────────────────────────────────────────────────────────────
 
 func setup(cid: String, start_pos: Vector3, land_pos: Vector3) -> void:
@@ -17,6 +21,13 @@ func setup(cid: String, start_pos: Vector3, land_pos: Vector3) -> void:
 	_rarity = _get_rarity(cid)
 	global_position = start_pos
 	_build_visual()
+	_play_arc(start_pos, land_pos)
+
+func setup_coin(amount: int, start_pos: Vector3, land_pos: Vector3) -> void:
+	_is_coin = true
+	_coin_amount = amount
+	global_position = start_pos
+	_build_coin_visual()
 	_play_arc(start_pos, land_pos)
 
 # ── Rarity helpers ──────────────────────────────────────────────────────────
@@ -58,11 +69,11 @@ func _build_visual() -> void:
 	mi.material_override = mat
 	add_child(mi)
 
-	# Rarity glow under the card
+	# Rarity glow under the card — much bigger for visibility
 	var light := OmniLight3D.new()
 	light.light_color = _get_glow_color()
-	light.light_energy = 2.5
-	light.omni_range = 2.0
+	light.light_energy = 5.0
+	light.omni_range = 5.0
 	light.position = Vector3(0, -0.1, 0)
 	add_child(light)
 
@@ -98,6 +109,54 @@ func _build_visual() -> void:
 
 	set_process_unhandled_input(true)
 
+func _build_coin_visual() -> void:
+	# Gold coin disc — flat cylinder
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.82, 0.1)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.70, 0.0)
+	mat.emission_energy_multiplier = 1.5
+
+	var cm := CylinderMesh.new()
+	cm.top_radius = 0.18
+	cm.bottom_radius = 0.18
+	cm.height = 0.06
+	cm.radial_segments = 16
+	var mi := MeshInstance3D.new()
+	mi.mesh = cm
+	mi.material_override = mat
+	# Tilt the coin so it shows its face
+	mi.rotation_degrees = Vector3(80.0, 0.0, 0.0)
+	add_child(mi)
+
+	# Big gold glow
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.78, 0.0)
+	light.light_energy = 6.0
+	light.omni_range = 6.0
+	light.position = Vector3(0, 0.0, 0)
+	add_child(light)
+
+	# Coin amount label
+	var amt_lbl := Label3D.new()
+	amt_lbl.text = "+%d" % _coin_amount
+	amt_lbl.pixel_size = 0.005
+	amt_lbl.position = Vector3(0, 0.38, 0)
+	amt_lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	amt_lbl.modulate = Color(1.0, 0.9, 0.2)
+	add_child(amt_lbl)
+
+	# Pickup detection area (coins auto-collect)
+	var area := Area3D.new()
+	var col := CollisionShape3D.new()
+	var sphere := SphereShape3D.new()
+	sphere.radius = 1.0
+	col.shape = sphere
+	area.add_child(col)
+	area.body_entered.connect(_on_body_entered)
+	add_child(area)
+
 # ── Arc animation ───────────────────────────────────────────────────────────
 
 func _play_arc(start_pos: Vector3, land_pos: Vector3) -> void:
@@ -128,16 +187,18 @@ func _on_body_entered(body: Node3D) -> void:
 	if not body.is_in_group("player"):
 		return
 	_player_nearby = true
-	if _rarity == "common":
+	if _is_coin or _rarity == "common":
 		_collect()
 	else:
-		_prompt_label.show()
+		if _prompt_label:
+			_prompt_label.show()
 
 func _on_body_exited(body: Node3D) -> void:
 	if not body.is_in_group("player"):
 		return
 	_player_nearby = false
-	_prompt_label.hide()
+	if _prompt_label:
+		_prompt_label.hide()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _player_nearby and not _collected and event.is_action_pressed("interact"):
@@ -148,8 +209,12 @@ func _collect() -> void:
 	if _collected:
 		return
 	_collected = true
-	_prompt_label.hide()
-	SaveManager.add_cards_to_deck([card_id])
+	if _prompt_label:
+		_prompt_label.hide()
+	if _is_coin:
+		SaveManager.add_coins(_coin_amount)
+	else:
+		SaveManager.add_cards_to_deck([card_id])
 	# Disable collision before tweening — physics can't invert a zero-scale basis
 	var col := find_child("CollisionShape3D", true, false) as CollisionShape3D
 	if col:

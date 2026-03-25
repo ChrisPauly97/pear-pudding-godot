@@ -11,6 +11,7 @@ var _working_deck: Array[String] = []
 var _collection_list: VBoxContainer
 var _deck_list: VBoxContainer
 var _deck_count_label: Label
+var _coin_label: Label
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
@@ -57,6 +58,12 @@ func _build_ui() -> void:
 	col_title.add_theme_font_size_override("font_size", int(_vh * 0.026))
 	col_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	left_vbox.add_child(col_title)
+
+	_coin_label = Label.new()
+	_coin_label.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_coin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_coin_label.modulate = Color(1.0, 0.85, 0.1)
+	left_vbox.add_child(_coin_label)
 
 	var left_scroll := ScrollContainer.new()
 	left_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -121,6 +128,8 @@ func _refresh() -> void:
 		child.queue_free()
 	for child in _deck_list.get_children():
 		child.queue_free()
+
+	_coin_label.text = "Coins: %d" % SaveManager.coins
 
 	var owned: Dictionary = SaveManager.get_owned_counts()
 

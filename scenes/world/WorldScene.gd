@@ -85,6 +85,7 @@ const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 @onready var _hud: CanvasLayer = $HUD
 @onready var _interact_label: Label = $HUD/InteractPrompt
 @onready var _map_label: Label = $HUD/MapLabel
+@onready var _coin_label: Label = $HUD/CoinLabel
 @onready var _sun: DirectionalLight3D = $DirectionalLight3D
 @onready var _moon: DirectionalLight3D = $MoonLight
 
@@ -190,6 +191,8 @@ func _update_hud() -> void:
 		_map_label.text = "World: Infinite"
 	else:
 		_map_label.text = "Map: %s" % map_name
+	_coin_label.text = "Coins: %d" % SaveManager.coins
+	SaveManager.coins_changed.connect(func(n: int) -> void: _coin_label.text = "Coins: %d" % n)
 
 # ── Infinite world: chunk streaming ────────────────────────────────────────
 
@@ -883,6 +886,7 @@ func _handle_interact() -> void:
 				node.mark_opened()
 			var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
 			_spawn_card_items(chest.get("card_ids", []), chest_pos)
+			_spawn_coin_piles(chest_pos)
 		return
 
 	# Named-map path
@@ -914,6 +918,7 @@ func _handle_interact() -> void:
 			node.mark_opened()
 		var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
 		_spawn_card_items(chest.get("card_ids", []), chest_pos)
+		_spawn_coin_piles(chest_pos)
 		return
 
 	var npc := world_map.find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
@@ -940,3 +945,16 @@ func _spawn_card_items(card_ids: Array, origin: Vector3) -> void:
 		_entity_root.add_child(item)
 		if item.has_method("setup"):
 			item.setup(cid, origin, land_pos)
+
+func _spawn_coin_piles(origin: Vector3) -> void:
+	var rng := RandomNumberGenerator.new()
+	var pile_count: int = rng.randi_range(3, 5)
+	for i: int in range(pile_count):
+		var angle: float = (float(i) / float(pile_count)) * TAU + rng.randf_range(-0.5, 0.5)
+		var dist: float = rng.randf_range(0.8, 2.0)
+		var land_pos := origin + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
+		var amount: int = rng.randi_range(5, 20)
+		var item: Node3D = _WorldItemScene.instantiate()
+		_entity_root.add_child(item)
+		if item.has_method("setup_coin"):
+			item.setup_coin(amount, origin, land_pos)
