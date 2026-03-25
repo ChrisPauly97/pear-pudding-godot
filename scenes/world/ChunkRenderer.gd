@@ -8,13 +8,13 @@ const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChestScene = preload("res://scenes/world/entities/Chest.tscn")
 
 const TERRAIN_VDENSITY: int = 2
-const PLATEAU_H:        float = 1.5   # fallback hill height for tiles with no stored height
-const CURVE_R:          float = 5.0   # hill smoothstep radius (world units)
+const PLATEAU_H:        float = 0.65  # fallback hill height for tiles with no stored height
+const CURVE_R:          float = 3.5   # hill smoothstep radius (world units)
 const WALL_CURVE_R:     float = 3.0   # wall smoothstep radius (tight, sharp ruin faces)
 
 # Tile neighbourhood radius used when building the tile_grid snapshot.
 # Must match what WorldScene._snapshot_tile_grid_for() uses.
-const TILE_CHECK: int = 4  # ceil(CURVE_R / TILE_SIZE) + 1 = ceil(5/2)+1 = 4
+const TILE_CHECK: int = 3  # ceil(CURVE_R / TILE_SIZE) + 1 = ceil(3.5/2)+1 = 3
 
 var _chunk_data: RefCounted   # ChunkData
 var _chunk_key:  Vector2i
