@@ -129,6 +129,9 @@ void fragment() {
 	// The DirectionalLight3D (sun/moon) and WorldEnvironment ambient are applied
 	// by the engine — including the shadow map already baked on the sun light.
 	ALBEDO = base_col;
+	// Minimum emission so back-faces and fully-shadowed geometry never go black.
+	// Value is below glow_hdr_threshold (0.5) so it won't trigger bloom.
+	EMISSION = base_col * 0.3;
 	ROUGHNESS = 0.9;
 	METALLIC = 0.0;
 	SPECULAR = 0.1;
