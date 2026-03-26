@@ -4,8 +4,10 @@ const GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath = preload("res://game_logic/TerrainMath.gd")
 
 # Preload entity scenes once, not per-spawn
-const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
-const _ChestScene = preload("res://scenes/world/entities/Chest.tscn")
+const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
+const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
+const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
+const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
 
 const TERRAIN_VDENSITY: int = 2
 const PLATEAU_H:        float = 0.65  # fallback hill height for tiles with no stored height
@@ -219,6 +221,23 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		_set_visibility_range(node)
 		if world_scene.has_method("register_chest"):
 			world_scene.register_chest(c_data["id"], node, c_data)
+
+	for d_data in _chunk_data.doors:
+		var node: Node3D = TerrainMath.spawn_entity(_DoorScene, d_data, 0.75, entity_root, world_scene)
+		_set_visibility_range(node)
+		if world_scene.has_method("register_door"):
+			world_scene.register_door(d_data["id"], node, d_data)
+
+	for n_data in _chunk_data.npcs:
+		var node: Node3D = _TownspersonScene.instantiate()
+		var ny: float = world_scene.get_terrain_height(float(n_data["x"]), float(n_data["z"])) + 0.5
+		node.position = Vector3(n_data["x"], ny, n_data["z"])
+		if node.has_method("init_from_data"):
+			node.init_from_data(n_data)
+		entity_root.add_child(node)
+		_set_visibility_range(node)
+		if world_scene.has_method("register_npc"):
+			world_scene.register_npc(n_data["id"], node, n_data)
 
 const ENTITY_VISIBILITY_END: float = 50.0
 

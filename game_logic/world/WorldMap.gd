@@ -2,6 +2,7 @@ class_name WorldMap
 extends RefCounted
 
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 
 # Aliases for IsoConst tile types — avoids breaking existing references
 const TILE_GRASS: int = IsoConst.TILE_GRASS
@@ -296,6 +297,35 @@ func load_from_file(path: String) -> void:
 					heights[tz][tx] = h
 
 	f.close()
+
+func get_chunk_data(cx: int, cz: int) -> RefCounted:
+	const CHUNK_SIZE: int = 16
+	var cd: ChunkData = ChunkData.new(cx, cz)
+	var tx0: int = cx * CHUNK_SIZE
+	var tz0: int = cz * CHUNK_SIZE
+	for lz in range(CHUNK_SIZE):
+		for lx in range(CHUNK_SIZE):
+			cd.set_tile(lx, lz, get_tile(tx0 + lx, tz0 + lz))
+			cd.set_height(lx, lz, get_height(tx0 + lx, tz0 + lz))
+	var wx0: float = float(tx0) * TILE_SIZE
+	var wz0: float = float(tz0) * TILE_SIZE
+	var wx1: float = wx0 + float(CHUNK_SIZE) * TILE_SIZE
+	var wz1: float = wz0 + float(CHUNK_SIZE) * TILE_SIZE
+	for e in enemies:
+		if e["x"] >= wx0 and e["x"] < wx1 and e["z"] >= wz0 and e["z"] < wz1:
+			cd.enemies.append(e)
+	for c in chests:
+		if c["x"] >= wx0 and c["x"] < wx1 and c["z"] >= wz0 and c["z"] < wz1:
+			cd.chests.append(c)
+	for d in doors:
+		if d["x"] >= wx0 and d["x"] < wx1 and d["z"] >= wz0 and d["z"] < wz1:
+			cd.doors.append(d)
+	for n in npcs:
+		if n["x"] >= wx0 and n["x"] < wx1 and n["z"] >= wz0 and n["z"] < wz1:
+			cd.npcs.append(n)
+	cd.is_generated = true
+	cd.has_entities = true
+	return cd
 
 static func list_map_names() -> Array[String]:
 	var result: Array[String] = []
