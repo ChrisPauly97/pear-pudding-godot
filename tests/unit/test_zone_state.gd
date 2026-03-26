@@ -28,8 +28,8 @@ func _zone() -> ZoneState:
 	return ZoneState.new()
 
 
-func _fill_zone(zone: ZoneState) -> Array:
-	var cards := []
+func _fill_zone(zone: ZoneState) -> Array[CardInstance]:
+	var cards: Array[CardInstance] = []
 	for i in range(ZoneState.SLOT_COUNT):
 		var c = _card("card_%d" % i)
 		zone.add_card(c)
@@ -149,7 +149,7 @@ func test_remove_card_makes_zone_not_full() -> void:
 
 func test_removing_middle_card_leaves_correct_gaps() -> void:
 	var zone = _zone()
-	var cards = []
+	var cards: Array[CardInstance] = []
 	for i in range(3):
 		var c = _card("c%d" % i)
 		zone.add_card(c)

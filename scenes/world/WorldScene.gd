@@ -66,12 +66,12 @@ var _cached_ambient_energy: float = -1.0
 
 # Threaded chunk building
 var _chunk_data_pending: Dictionary = {}    # Vector2i -> true (job in flight)
-var _chunk_build_results: Array = []        # completed terrain prep, waiting for commit
+var _chunk_build_results: Array[Dictionary] = []  # completed terrain prep, waiting for commit
 var _chunk_build_mutex: Mutex = Mutex.new()
 var _chunk_task_ids: Array[int] = []        # WorkerThreadPool task IDs in flight
 var _chunk_queued: Dictionary = {}          # Vector2i -> true (O(1) queue membership)
 var _chunk_queue_dirty: bool = false       # only re-sort when new items were added
-var _pending_physics: Array = []            # ChunkRenderers awaiting physics build
+var _pending_physics: Array[Node3D] = []    # ChunkRenderers awaiting physics build
 var _last_dir_update_time: float = -999.0  # throttle direction-change chunk updates
 
 const LOAD_RADIUS:        int = 6
@@ -982,7 +982,7 @@ func _show_dialogue(text: String) -> void:
 
 # ── Card item spawning ──────────────────────────────────────────────────────
 
-func _spawn_card_items(card_ids: Array, origin: Vector3) -> void:
+func _spawn_card_items(card_ids: Array[String], origin: Vector3) -> void:
 	var rng := RandomNumberGenerator.new()
 	for i: int in range(card_ids.size()):
 		var cid: String = str(card_ids[i])

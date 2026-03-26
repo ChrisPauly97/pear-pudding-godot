@@ -149,7 +149,7 @@ func add_coins(amount: int) -> void:
 	_dirty = true
 	coins_changed.emit(coins)
 
-func add_cards_to_deck(card_ids: Array) -> void:
+func add_cards_to_deck(card_ids: Array[String]) -> void:
 	for cid in card_ids:
 		owned_cards.append(str(cid))
 	_dirty = true

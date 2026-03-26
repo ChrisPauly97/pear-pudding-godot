@@ -5,8 +5,8 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 
 const SLOT_COUNT: int = 5
 
-var slots: Array = []  # Array of CardInstance or null
-var _snapshot: Array = []
+var slots: Array[CardInstance] = []  # CardInstance or null per slot
+var _snapshot: Array[CardInstance] = []
 
 func _init() -> void:
 	slots.resize(SLOT_COUNT)

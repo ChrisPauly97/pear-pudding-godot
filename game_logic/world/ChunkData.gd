@@ -6,8 +6,8 @@ var cx: int = 0
 var cz: int = 0
 var tiles: PackedInt32Array    # contiguous memory, ~6x smaller than Array[int]
 var heights: PackedInt32Array
-var enemies: Array = []
-var chests: Array = []
+var enemies: Array[Dictionary] = []
+var chests: Array[Dictionary] = []
 var is_generated: bool = false
 var has_entities: bool = false
 

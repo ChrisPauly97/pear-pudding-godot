@@ -122,7 +122,8 @@ func build(world_map) -> void:
 
 	for key in chunks:
 		var typed_key: Vector2i = key
-		var centres: Array = chunks[key]
+		var centres: Array[Vector2] = []
+		centres.assign(chunks[key])
 		_build_chunk_mmi(centres, typed_key, rng)
 
 # Streaming entry point — builds grass for one chunk of the infinite world
@@ -144,7 +145,7 @@ func remove_chunk(chunk_key: Vector2i) -> void:
 		mmi.queue_free()
 		_cluster_mmis.erase(chunk_key)
 
-func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGenerator) -> void:
+func _build_chunk_mmi(centres: Array[Vector2], chunk_key: Vector2i, rng: RandomNumberGenerator) -> void:
 	if centres.is_empty():
 		return
 
@@ -219,7 +220,7 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGene
 	crng.seed = (chunk_key.x * 92821739) ^ (chunk_key.y * 31415927) ^ 0x5EED1234
 	_build_chunk_clusters(centres, chunk_key, crng)
 
-func _build_chunk_clusters(centres: Array, chunk_key: Vector2i, rng: RandomNumberGenerator) -> void:
+func _build_chunk_clusters(centres: Array[Vector2], chunk_key: Vector2i, rng: RandomNumberGenerator) -> void:
 	if centres.is_empty() or _cluster_mmis.has(chunk_key):
 		return
 
@@ -293,7 +294,7 @@ func _make_cluster_mesh() -> ArrayMesh:
 		Vector3(0.0, 0.0, 1.0), Vector3(0.0, 0.0, 1.0),
 	])
 	var indices := PackedInt32Array([0, 1, 2, 0, 2, 3])
-	var arrays := []
+	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_TEX_UV] = uvs
@@ -464,7 +465,7 @@ func _make_blade_mesh() -> ArrayMesh:
 	var tip  := SEGMENTS * 2
 	indices.append_array([last, last+1, tip])
 
-	var arrays := []
+	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX]  = verts
 	arrays[Mesh.ARRAY_TEX_UV]  = uvs
