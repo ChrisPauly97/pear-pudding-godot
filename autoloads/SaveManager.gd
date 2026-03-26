@@ -78,6 +78,20 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
+const CURRENT_SAVE_VERSION: int = 1
+
+# Migration table: each entry is called in order when the save version is older.
+# _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
+static func _migrate_v0_to_v1(data: Dictionary) -> void:
+	if not data.has("owned_cards"):
+		data["owned_cards"] = data.get("player_deck", [])
+	data["version"] = 1
+
+static func _apply_migrations(data: Dictionary) -> void:
+	var ver: int = int(data.get("version", 0))
+	if ver < 1:
+		_migrate_v0_to_v1(data)
+
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
 		return false
@@ -88,11 +102,8 @@ func load_save() -> bool:
 	if not parsed is Dictionary:
 		return false
 	var data: Dictionary = parsed
-	# Migration: old saves have only player_deck; treat it as both collection and deck
-	if data.has("owned_cards"):
-		owned_cards.assign(data.get("owned_cards", []))
-	else:
-		owned_cards.assign(data.get("player_deck", []))
+	_apply_migrations(data)
+	owned_cards.assign(data.get("owned_cards", []))
 	player_deck.assign(data.get("player_deck", []))
 	coins = int(data.get("coins", 0))
 	current_map = str(data.get("current_map", "main"))
@@ -112,7 +123,7 @@ func save() -> void:
 	if not _loaded:
 		return
 	var data := {
-		"version": 1,
+		"version": CURRENT_SAVE_VERSION,
 		"owned_cards": owned_cards,
 		"player_deck": player_deck,
 		"coins": coins,

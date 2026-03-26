@@ -6,7 +6,7 @@ Items are roughly ordered by priority — foundational / bug-preventing work fir
 
 - [ ] **Typed arrays everywhere** — replace all untyped `Array` literals and variables with `Array[T]`; eliminates Variant inference compile errors and the need for `assign()` workarounds documented in CLAUDE.md
 - [ ] **`preload` all cross-file dependencies** — audit every file for bare `class_name` references and replace with explicit `preload()` at the top of the file; prevents parse errors on cold project opens
-- [ ] **Versioned save schema** — add `"save_version": 1` to SaveManager JSON output and write a migration table; prevents silent save corruption when the schema changes
+- [x] **Versioned save schema** — add `"save_version": 1` to SaveManager JSON output and write a migration table; prevents silent save corruption when the schema changes
 - [ ] **Data-driven cards and enemies** — replace `CardRegistry` and `EnemyRegistry` GDScript dictionaries with `CardData.tres` / `EnemyData.tres` Resource subclasses; content additions require no GDScript changes
 - [ ] **Unified chunk render path** — collapse named-map (`WorldScene`) and infinite-chunk (`ChunkRenderer`) into one pipeline where named maps are statically-defined chunk sets; removes the dual-path complexity that required TerrainMath as a patch
 - [ ] **Reduce autoloads** — remove `CardRegistry`, `EnemyRegistry`, `SaveManager` from global autoloads and inject them explicitly into scenes that need them; only `GameBus` and `IsoConst` justify global scope
