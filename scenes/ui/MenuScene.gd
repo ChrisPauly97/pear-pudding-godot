@@ -14,7 +14,7 @@ func _ready() -> void:
 	_quit_btn.pressed.connect(_on_quit)
 
 	# Only show Continue if a save file exists
-	_continue_btn.visible = SaveManager.has_save()
+	_continue_btn.visible = SceneManager.save_manager.has_save()
 	_apply_ui_sizes()
 
 func _apply_ui_sizes() -> void:

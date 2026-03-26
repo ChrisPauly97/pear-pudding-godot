@@ -3,6 +3,7 @@ extends Control
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const BasicAI = preload("res://ai/BasicAI.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
 
 var enemy_data: Dictionary = {}
@@ -37,8 +38,8 @@ func _ready() -> void:
 
 	# Player deck: use SaveManager collection if available, else default
 	var player_deck: Array[String] = []
-	if SaveManager.player_deck.size() > 0:
-		player_deck.assign(SaveManager.player_deck)
+	if SceneManager.save_manager.player_deck.size() > 0:
+		player_deck.assign(SceneManager.save_manager.player_deck)
 	else:
 		player_deck = ["ghost", "skeleton", "zombie", "ghoul",
 					   "ghost", "skeleton", "zombie", "ghoul",

@@ -31,7 +31,7 @@ static func _ensure_loaded() -> void:
 
 ## Returns the battle deck for a type. Falls back to a minimal undead deck if unknown.
 ## Add a new enemy by dropping an EnemyData .tres in res://data/enemies/ — no code changes needed.
-func get_deck(type_id: String) -> Array[String]:
+static func get_deck(type_id: String) -> Array[String]:
 	_ensure_loaded()
 	var result: Array[String] = []
 	if _enemies.has(type_id):
@@ -41,14 +41,14 @@ func get_deck(type_id: String) -> Array[String]:
 	return result
 
 ## Returns the display name for a type, or the raw ID if unknown.
-func get_display_name(type_id: String) -> String:
+static func get_display_name(type_id: String) -> String:
 	_ensure_loaded()
 	if _enemies.has(type_id):
 		return (_enemies[type_id] as EnemyData).display_name
 	return type_id
 
 ## Selects an enemy type based on depth through a named map (0 = start, 1 = end).
-func type_for_depth(depth: int, max_depth: int) -> String:
+static func type_for_depth(depth: int, max_depth: int) -> String:
 	var pct: float = float(depth) / float(max(max_depth, 1))
 	if pct < 0.33:
 		return "undead_basic"
@@ -57,7 +57,7 @@ func type_for_depth(depth: int, max_depth: int) -> String:
 	return "ghoul_pack"
 
 ## Selects an enemy type based on Manhattan distance from the world origin chunk.
-func type_for_chunk_dist(dist: int) -> String:
+static func type_for_chunk_dist(dist: int) -> String:
 	if dist <= 3:
 		return "undead_basic"
 	elif dist <= 8:

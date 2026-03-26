@@ -1,6 +1,8 @@
 class_name WorldMap
 extends RefCounted
 
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+
 # Aliases for IsoConst tile types — avoids breaking existing references
 const TILE_GRASS: int = IsoConst.TILE_GRASS
 const TILE_WALL: int = IsoConst.TILE_WALL
