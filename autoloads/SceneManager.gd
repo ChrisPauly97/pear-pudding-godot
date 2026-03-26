@@ -8,7 +8,7 @@ enum State {
 	GAME_OVER,
 }
 
-const _SaveManagerScript = preload("res://autoloads/save_manager.gd")
+const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
@@ -45,8 +45,7 @@ func go_to_menu() -> void:
 	_state = State.MENU
 
 func start_new_game() -> void:
-	map_stack.clear()
-	door_stack.clear()
+	_exit_world_cleanup()
 	save_manager.new_game()
 	enter_map("main", "")
 
@@ -82,12 +81,12 @@ func exit_map() -> void:
 	_load_world(parent, return_door)
 
 func _load_world(map_name: String, target_door_id: String) -> void:
-	var world := _world_scene_packed.instantiate()
-	world.map_name = map_name
-	world.target_door_id = target_door_id
+	var world: Node = _world_scene_packed.instantiate()
+	world.set("map_name", map_name)
+	world.set("target_door_id", target_door_id)
 	# Named sub-maps (dungeons, etc.) use the fixed WorldMap path, not infinite generation
 	if map_name != "infinite" and map_name != "main":
-		world.infinite = false
+		world.set("infinite", false)
 	get_tree().change_scene_to_node(world)
 	_state = State.WORLD
 
