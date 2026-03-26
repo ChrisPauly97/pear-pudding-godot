@@ -244,7 +244,8 @@ func _collect() -> void:
 	if _is_coin:
 		SceneManager.save_manager.add_coins(_coin_amount)
 	else:
-		SceneManager.save_manager.add_cards_to_deck([card_id])
+		var ids: Array[String] = [card_id]
+		SceneManager.save_manager.add_cards_to_deck(ids)
 	# Disable collision before tweening — physics can't invert a zero-scale basis
 	var col := find_child("CollisionShape3D", true, false) as CollisionShape3D
 	if col:

@@ -61,9 +61,12 @@ const CHUNK_SIZE := 16  # tiles per chunk side — one MultiMesh per chunk
 var _chunk_mmis:   Dictionary = {}
 var _cluster_mmis: Dictionary = {}
 
+static var _registered_global_params: Dictionary = {}
+
 static func _ensure_global_param(name: String, type: RenderingServer.GlobalShaderParameterType, default_value: Variant) -> void:
-	if RenderingServer.global_shader_parameter_get(name) == null:
+	if not _registered_global_params.has(name):
 		RenderingServer.global_shader_parameter_add(name, type, default_value)
+		_registered_global_params[name] = true
 
 func _init_material() -> void:
 	if _mat:
