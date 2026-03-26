@@ -863,6 +863,27 @@ func _handle_interact() -> void:
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
 
+	if infinite:
+		var enemy := _find_nearby_enemy_infinite(px, pz, IsoConst.INTERACT_RANGE)
+		if enemy != null and enemy.has_method("engage"):
+			enemy.engage()
+			return
+		var chest := _find_nearby_chest_infinite(px, pz, IsoConst.INTERACT_RANGE)
+		if not chest.is_empty() and not chest.get("opened", false):
+			chest["opened"] = true
+			var cid: String = str(chest.get("id", ""))
+			SceneManager.save_manager.mark_chest_opened(cid)
+			var node := _chest_nodes.get(cid) as Node3D
+			if node and node.has_method("mark_opened"):
+				node.mark_opened()
+			var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
+			var card_ids: Array[String] = []
+			card_ids.assign(chest.get("card_ids", []))
+			_spawn_card_items(card_ids, chest_pos)
+			_spawn_coin_piles(chest_pos)
+		return
+
+	# Named-map path
 	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE)
 	if not door.is_empty():
 		var target_map: String = door.get("target_map", "")
@@ -887,7 +908,9 @@ func _handle_interact() -> void:
 		if node and node.has_method("mark_opened"):
 			node.mark_opened()
 		var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
-		_spawn_card_items(chest.get("card_ids", []), chest_pos)
+		var chest_card_ids: Array[String] = []
+		chest_card_ids.assign(chest.get("card_ids", []))
+		_spawn_card_items(chest_card_ids, chest_pos)
 		_spawn_coin_piles(chest_pos)
 		return
 
