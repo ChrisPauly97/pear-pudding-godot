@@ -36,7 +36,7 @@ const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visibl
 
 const BLADES_PER_TILE      := 65   # short grass tiles
 const BLADES_TALL_PER_TILE := 180  # tall patch tiles
-const CLUSTERS_PER_TILE    := 6    # billboard cluster quads per tile
+const CLUSTERS_PER_TILE    := 3    # billboard cluster quads per tile
 const BLADE_WIDTH      := 0.20
 const BLADE_HEIGHT     := 0.40
 const SEGMENTS         := 4  # quads along the blade height
@@ -270,6 +270,8 @@ func _build_chunk_clusters(centres: Array, chunk_key: Vector2i, rng: RandomNumbe
 	mmi.material_override = _cluster_mat
 	mmi.visibility_range_end = 70.0
 	mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	# Billboard quads cast misshapen shadows — disable to avoid diamond artifacts.
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mmi)
 	_cluster_mmis[chunk_key] = mmi
 

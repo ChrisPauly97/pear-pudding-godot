@@ -101,8 +101,9 @@ void fragment() {
 	EMISSION = col * 0.15;
 	ROUGHNESS = 1.0;
 	METALLIC = 0.0;
-	// Smooth taper toward tip instead of a hard step.  alpha_to_coverage maps
-	// this value to MSAA coverage samples so sub-pixel blades fade gracefully
-	// rather than popping in/out as wind sways them across pixel boundaries.
 	ALPHA = 1.0 - smoothstep(0.78, 1.0, UV.y);
+	// Low threshold keeps this material in Godot's opaque pass (depth writes,
+	// depth testing vs. player/terrain). alpha_to_coverage then handles MSAA
+	// coverage anti-aliasing for the remaining semi-transparent pixels.
+	ALPHA_SCISSOR_THRESHOLD = 0.01;
 }
