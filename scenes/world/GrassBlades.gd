@@ -1,9 +1,13 @@
 extends Node3D
 
-const _GrassShader = preload("res://assets/shaders/grass_blade.gdshader")
+const _GrassShader   = preload("res://assets/shaders/grass_blade.gdshader")
+const _ClusterShader = preload("res://assets/shaders/grass_cluster.gdshader")
 
 var _mat: ShaderMaterial
 var _blade_mesh: ArrayMesh  # cached — identical for every chunk
+
+var _cluster_mat:  ShaderMaterial
+var _cluster_mesh: ArrayMesh  # unit quad, billboard-rotated per instance
 
 var _prev_pos:      Vector3 = Vector3(-9999, 0, -9999)
 var _last_move_dir: Vector2 = Vector2.ZERO
@@ -30,8 +34,9 @@ var _trample_dirty_x1: int = 0
 var _trample_dirty_z1: int = 0
 const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visible difference
 
-const BLADES_PER_TILE      := 45   # short grass tiles
-const BLADES_TALL_PER_TILE := 160  # tall patch tiles — thin blades need high density
+const BLADES_PER_TILE      := 65   # short grass tiles
+const BLADES_TALL_PER_TILE := 180  # tall patch tiles
+const CLUSTERS_PER_TILE    := 6    # billboard cluster quads per tile
 const BLADE_WIDTH      := 0.20
 const BLADE_HEIGHT     := 0.40
 const SEGMENTS         := 4  # quads along the blade height
@@ -52,7 +57,8 @@ static func _hash_pos(px: float, pz: float) -> float:
 const CHUNK_SIZE := 16  # tiles per chunk side — one MultiMesh per chunk
 
 # Per-chunk MultiMeshInstance3D nodes — keyed by Vector2i(cx, cz)
-var _chunk_mmis: Dictionary = {}
+var _chunk_mmis:   Dictionary = {}
+var _cluster_mmis: Dictionary = {}
 
 func _init_material() -> void:
 	if _mat:
@@ -60,6 +66,10 @@ func _init_material() -> void:
 	_mat = ShaderMaterial.new()
 	_mat.shader = _GrassShader
 	_blade_mesh = _make_blade_mesh()
+
+	_cluster_mat = ShaderMaterial.new()
+	_cluster_mat.shader = _ClusterShader
+	_cluster_mesh = _make_cluster_mesh()
 
 	# Sliding trample map — initialise centred at world origin
 	_trample_buf = PackedFloat32Array()
@@ -129,6 +139,10 @@ func remove_chunk(chunk_key: Vector2i) -> void:
 		var mmi: MultiMeshInstance3D = _chunk_mmis[chunk_key]
 		mmi.queue_free()
 		_chunk_mmis.erase(chunk_key)
+	if _cluster_mmis.has(chunk_key):
+		var mmi: MultiMeshInstance3D = _cluster_mmis[chunk_key]
+		mmi.queue_free()
+		_cluster_mmis.erase(chunk_key)
 
 func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGenerator) -> void:
 	if centres.is_empty():
@@ -170,10 +184,10 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGene
 			var sx: float  # width scale (independent — keeps tall blades thin)
 			if is_tall:
 				sy = rng.randf_range(2.2, 3.8)   # ~0.88–1.52 world units tall
-				sx = rng.randf_range(0.22, 0.40)  # narrow — independent of height
+				sx = rng.randf_range(0.30, 0.50)  # wider than before — less hairlike, screen-safe
 			else:
-				sy = rng.randf_range(0.28, 0.75)  # short ground grass
-				sx = sy * rng.randf_range(0.6, 0.9)  # slightly narrower than tall ratio
+				sy = rng.randf_range(0.35, 0.85)  # short ground grass
+				sx = rng.randf_range(0.30, 0.55)  # decoupled from height, stays >= ~2px wide
 			var cr: float  = cos(rot) * sx
 			var sr: float  = sin(rot) * sx
 			var off: int   = i * 12
@@ -198,6 +212,94 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGene
 	mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 	add_child(mmi)
 	_chunk_mmis[chunk_key] = mmi
+
+	# Billboard clusters — seeded independently so blade count changes don't
+	# affect cluster placement.
+	var crng := RandomNumberGenerator.new()
+	crng.seed = (chunk_key.x * 92821739) ^ (chunk_key.y * 31415927) ^ 0x5EED1234
+	_build_chunk_clusters(centres, chunk_key, crng)
+
+func _build_chunk_clusters(centres: Array, chunk_key: Vector2i, rng: RandomNumberGenerator) -> void:
+	if centres.is_empty() or _cluster_mmis.has(chunk_key):
+		return
+
+	var total: int = centres.size() * CLUSTERS_PER_TILE
+	var mm := MultiMesh.new()
+	mm.mesh = _cluster_mesh
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.instance_count = total
+
+	var buf := PackedFloat32Array()
+	buf.resize(total * 12)
+	var half: float = IsoConst.TILE_SIZE * 0.45
+	var idx: int = 0
+
+	for ci in range(centres.size()):
+		var centre: Vector2 = centres[ci]
+		var patch_x: float = snapped(centre.x, TALL_PATCH_CELL)
+		var patch_z: float = snapped(centre.y, TALL_PATCH_CELL)
+		var is_tall: bool = _hash_pos(patch_x, patch_z) < TALL_PATCH_DENSITY
+		for _c in range(CLUSTERS_PER_TILE):
+			var px: float = centre.x + rng.randf_range(-half, half)
+			var pz: float = centre.y + rng.randf_range(-half, half)
+			var sx: float
+			var sy: float
+			if is_tall:
+				sx = rng.randf_range(0.45, 0.65)
+				sy = rng.randf_range(0.50, 0.85)
+			else:
+				sx = rng.randf_range(0.38, 0.55)
+				sy = rng.randf_range(0.18, 0.28)
+			var off: int = idx * 12
+			buf[off]    = sx;  buf[off+1]  = 0.0; buf[off+2]  = 0.0; buf[off+3]  = px
+			buf[off+4]  = 0.0; buf[off+5]  = sy;  buf[off+6]  = 0.0; buf[off+7]  = 0.01
+			buf[off+8]  = 0.0; buf[off+9]  = 0.0; buf[off+10] = 1.0; buf[off+11] = pz
+			idx += 1
+
+	var chunk_world: float = CHUNK_SIZE * IsoConst.TILE_SIZE
+	var cx: int = chunk_key.x
+	var cz: int = chunk_key.y
+	mm.custom_aabb = AABB(
+		Vector3(cx * chunk_world, -0.5, cz * chunk_world),
+		Vector3(chunk_world, 1.5, chunk_world)
+	)
+	mm.buffer = buf
+
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = _cluster_mat
+	mmi.visibility_range_end = 70.0
+	mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	add_child(mmi)
+	_cluster_mmis[chunk_key] = mmi
+
+func _make_cluster_mesh() -> ArrayMesh:
+	# Unit quad: X from -0.5 to 0.5, Y from 0 to 1, facing +Z.
+	# billboard_fixed_y rotates it around Y to face the camera each frame.
+	var verts := PackedVector3Array([
+		Vector3(-0.5, 0.0, 0.0),
+		Vector3( 0.5, 0.0, 0.0),
+		Vector3( 0.5, 1.0, 0.0),
+		Vector3(-0.5, 1.0, 0.0),
+	])
+	var uvs := PackedVector2Array([
+		Vector2(0.0, 0.0), Vector2(1.0, 0.0),
+		Vector2(1.0, 1.0), Vector2(0.0, 1.0),
+	])
+	var normals := PackedVector3Array([
+		Vector3(0.0, 0.0, 1.0), Vector3(0.0, 0.0, 1.0),
+		Vector3(0.0, 0.0, 1.0), Vector3(0.0, 0.0, 1.0),
+	])
+	var indices := PackedInt32Array([0, 1, 2, 0, 2, 3])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_INDEX]  = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
 
 func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 	if not _mat:
