@@ -1,63 +1,53 @@
 extends Node
 
-# Enemy type definitions — each entry has a display name and a battle deck.
-# Decks are lists of card template IDs (duplicates allowed, same as player decks).
-const _TYPES: Dictionary = {
-	"undead_basic": {
-		"name": "Undead Wanderer",
-		"deck": [
-			"ghost", "ghost", "ghost",
-			"skeleton", "skeleton", "skeleton",
-			"zombie", "zombie", "zombie",
-			"ghoul",
-		],
-	},
-	"undead_horde": {
-		"name": "Horde Shambler",
-		"deck": [
-			"ghost", "ghost", "ghost", "ghost",
-			"skeleton", "skeleton", "skeleton",
-			"zombie", "zombie",
-			"ghoul", "ghoul",
-		],
-	},
-	"ghoul_pack": {
-		"name": "Ghoul Pack Leader",
-		"deck": [
-			"ghoul", "ghoul", "ghoul", "ghoul",
-			"zombie", "zombie", "zombie", "zombie",
-			"skeleton", "skeleton", "skeleton", "skeleton",
-		],
-	},
-	"undead_elite": {
-		"name": "Undead Warlord",
-		"deck": [
-			"ghoul", "ghoul", "ghoul", "ghoul", "ghoul",
-			"zombie", "zombie", "zombie", "zombie",
-			"skeleton", "skeleton", "skeleton",
-		],
-	},
-}
+const EnemyData = preload("res://data/EnemyData.gd")
+const ENEMY_DIR := "res://data/enemies"
 
-# Returns the battle deck for a type. Falls back to undead_basic if unknown.
+static var _enemies: Dictionary = {}  # id -> EnemyData
+static var _loaded: bool = false
+
+# Fallback deck used when an unknown type is requested.
+const _FALLBACK_DECK: Array[String] = [
+	"ghost", "ghost", "skeleton", "skeleton",
+	"zombie", "zombie", "ghoul", "ghoul",
+]
+
+static func _ensure_loaded() -> void:
+	if _loaded:
+		return
+	_loaded = true
+	var dir := DirAccess.open(ENEMY_DIR)
+	if not dir:
+		return
+	dir.list_dir_begin()
+	var fname := dir.get_next()
+	while fname != "":
+		if fname.ends_with(".tres"):
+			var res := ResourceLoader.load(ENEMY_DIR + "/" + fname)
+			if res is EnemyData:
+				var enemy := res as EnemyData
+				_enemies[enemy.id] = enemy
+		fname = dir.get_next()
+
+## Returns the battle deck for a type. Falls back to a minimal undead deck if unknown.
+## Add a new enemy by dropping an EnemyData .tres in res://data/enemies/ — no code changes needed.
 func get_deck(type_id: String) -> Array[String]:
+	_ensure_loaded()
 	var result: Array[String] = []
-	if _TYPES.has(type_id):
-		var entry: Dictionary = _TYPES[type_id]
-		result.assign(entry.get("deck", []))
+	if _enemies.has(type_id):
+		result.assign((_enemies[type_id] as EnemyData).deck)
 	else:
-		result = ["ghost", "ghost", "skeleton", "skeleton",
-				  "zombie", "zombie", "ghoul", "ghoul"]
+		result = _FALLBACK_DECK.duplicate()
 	return result
 
-# Returns the display name for a type.
+## Returns the display name for a type, or the raw ID if unknown.
 func get_display_name(type_id: String) -> String:
-	if _TYPES.has(type_id):
-		var entry: Dictionary = _TYPES[type_id]
-		return str(entry.get("name", type_id))
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return (_enemies[type_id] as EnemyData).display_name
 	return type_id
 
-# Selects an enemy type based on depth through a named map (0 = start, 1 = end).
+## Selects an enemy type based on depth through a named map (0 = start, 1 = end).
 func type_for_depth(depth: int, max_depth: int) -> String:
 	var pct: float = float(depth) / float(max(max_depth, 1))
 	if pct < 0.33:
@@ -66,7 +56,7 @@ func type_for_depth(depth: int, max_depth: int) -> String:
 		return "undead_horde"
 	return "ghoul_pack"
 
-# Selects an enemy type based on Manhattan distance from the world origin chunk.
+## Selects an enemy type based on Manhattan distance from the world origin chunk.
 func type_for_chunk_dist(dist: int) -> String:
 	if dist <= 3:
 		return "undead_basic"
