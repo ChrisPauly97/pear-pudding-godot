@@ -2,6 +2,7 @@ extends Node3D
 
 const _GrassShader   = preload("res://assets/shaders/grass_blade.gdshader")
 const _ClusterShader = preload("res://assets/shaders/grass_cluster.gdshader")
+const WorldMap       = preload("res://game_logic/world/WorldMap.gd")
 
 var _mat: ShaderMaterial
 var _blade_mesh: ArrayMesh  # cached — identical for every chunk
@@ -91,7 +92,7 @@ func _init_material() -> void:
 	_mat.set_shader_parameter("trample_origin_z", _trample_origin_z)
 
 # Legacy entry point — builds all grass from a WorldMap (named-map path)
-func build(world_map) -> void:
+func build(world_map: WorldMap) -> void:
 	_init_material()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 99887

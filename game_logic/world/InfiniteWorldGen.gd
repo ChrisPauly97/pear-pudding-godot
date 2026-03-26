@@ -1,5 +1,7 @@
 extends RefCounted
 
+const ChunkData = preload("res://game_logic/world/ChunkData.gd")
+
 const CHUNK_SIZE: int = 16
 const TILE_SIZE: float = 2.0
 
@@ -44,7 +46,6 @@ static func generate_chunk_data_only(p_cx: int, p_cz: int, world_seed: int) -> R
 	return chunk
 
 static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
-	const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 	var chunk: ChunkData = ChunkData.new(p_cx, p_cz)
 
 	var noise: FastNoiseLite = _get_noise(world_seed)
