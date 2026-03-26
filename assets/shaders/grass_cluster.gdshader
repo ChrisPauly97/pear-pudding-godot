@@ -56,4 +56,7 @@ void fragment() {
 
 	ALBEDO = col;
 	ALPHA  = a;
+	// Low threshold keeps material in the opaque pass so clusters depth-test
+	// correctly against the player and terrain.
+	ALPHA_SCISSOR_THRESHOLD = 0.01;
 }
