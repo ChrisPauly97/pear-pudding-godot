@@ -806,12 +806,29 @@ func _update_day_night(delta: float) -> void:
 		_world_env.environment.ambient_light_energy = ambient_energy
 		_cached_ambient_energy = ambient_energy
 
+# ── Camera pixel-snapping ──────────────────────────────────────────────────
+# Snaps a world-space position to the nearest screen pixel along the camera's
+# screen-plane axes (right and up).  The depth axis is left unsnapped.
+# This prevents sub-pixel camera drift from causing the procedural terrain and
+# grass noise to shimmer — every world point stays on the same screen pixel
+# between frames as long as the camera hasn't moved a full pixel.
+func _snap_to_pixel(pos: Vector3) -> Vector3:
+	var vp_h: float = float(get_viewport().get_visible_rect().size.y)
+	var pixel: float = IsoConst.CAM_ORTHO_SIZE * 2.0 / vp_h
+	var right: Vector3 = _camera.global_transform.basis.x
+	var up: Vector3    = _camera.global_transform.basis.y
+	var fwd: Vector3   = _camera.global_transform.basis.z
+	var r: float = round(pos.dot(right) / pixel) * pixel
+	var u: float = round(pos.dot(up)    / pixel) * pixel
+	var d: float = pos.dot(fwd)
+	return right * r + up * u + fwd * d
+
 # ── Per-frame update ───────────────────────────────────────────────────────
 
 func _process(delta: float) -> void:
 	if _player == null:
 		return
-	_camera.position = _player.position + Vector3(20, 20, 20)
+	_camera.position = _snap_to_pixel(_player.position + Vector3(20, 20, 20))
 	_day_night_timer += delta
 	if _day_night_timer >= DAY_NIGHT_INTERVAL:
 		_update_day_night(_day_night_timer)
