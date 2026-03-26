@@ -30,8 +30,8 @@ var _trample_dirty_x1: int = 0
 var _trample_dirty_z1: int = 0
 const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visible difference
 
-const BLADES_PER_TILE      := 45   # short grass tiles
-const BLADES_TALL_PER_TILE := 160  # tall patch tiles — thin blades need high density
+const BLADES_PER_TILE      := 65   # short grass tiles
+const BLADES_TALL_PER_TILE := 180  # tall patch tiles
 const BLADE_WIDTH      := 0.20
 const BLADE_HEIGHT     := 0.40
 const SEGMENTS         := 4  # quads along the blade height
@@ -170,10 +170,10 @@ func _build_chunk_mmi(centres: Array, chunk_key: Vector2i, rng: RandomNumberGene
 			var sx: float  # width scale (independent — keeps tall blades thin)
 			if is_tall:
 				sy = rng.randf_range(2.2, 3.8)   # ~0.88–1.52 world units tall
-				sx = rng.randf_range(0.22, 0.40)  # narrow — independent of height
+				sx = rng.randf_range(0.30, 0.50)  # wider than before — less hairlike, screen-safe
 			else:
-				sy = rng.randf_range(0.28, 0.75)  # short ground grass
-				sx = sy * rng.randf_range(0.6, 0.9)  # slightly narrower than tall ratio
+				sy = rng.randf_range(0.35, 0.85)  # short ground grass
+				sx = rng.randf_range(0.30, 0.55)  # decoupled from height, stays >= ~2px wide
 			var cr: float  = cos(rot) * sx
 			var sr: float  = sin(rot) * sx
 			var off: int   = i * 12
