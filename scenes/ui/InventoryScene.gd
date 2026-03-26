@@ -2,6 +2,7 @@ extends Control
 
 signal closed
 
+const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const MAX_DECK: int = 20
 
 var _vh: float = 0.0
@@ -17,7 +18,7 @@ func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
 	_vh = get_viewport().get_visible_rect().size.y
 	_vw = get_viewport().get_visible_rect().size.x
-	_working_deck.assign(SaveManager.player_deck)
+	_working_deck.assign(SceneManager.save_manager.player_deck)
 	_build_ui()
 	_refresh()
 
@@ -129,9 +130,9 @@ func _refresh() -> void:
 	for child in _deck_list.get_children():
 		child.queue_free()
 
-	_coin_label.text = "Coins: %d" % SaveManager.coins
+	_coin_label.text = "Coins: %d" % SceneManager.save_manager.coins
 
-	var owned: Dictionary = SaveManager.get_owned_counts()
+	var owned: Dictionary = SceneManager.save_manager.get_owned_counts()
 
 	# Count cards currently in the working deck
 	var deck_counts: Dictionary = {}
@@ -257,7 +258,7 @@ func _make_deck_row(id: String, tmpl: Dictionary, index: int) -> HBoxContainer:
 func _on_add(id: String) -> void:
 	if _working_deck.size() >= MAX_DECK:
 		return
-	var owned: Dictionary = SaveManager.get_owned_counts()
+	var owned: Dictionary = SceneManager.save_manager.get_owned_counts()
 	var deck_counts: Dictionary = {}
 	for cid in _working_deck:
 		var s: String = str(cid)
@@ -276,7 +277,7 @@ func _on_remove(index: int) -> void:
 	_refresh()
 
 func _on_save() -> void:
-	SaveManager.set_active_deck(_working_deck)
+	SceneManager.save_manager.set_active_deck(_working_deck)
 	closed.emit()
 
 func _on_close() -> void:

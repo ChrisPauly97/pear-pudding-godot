@@ -204,7 +204,7 @@ func _spawn_entities(world_scene: Node3D) -> void:
 
 	for e_data in _chunk_data.enemies:
 		var eid: String = str(e_data.get("id", ""))
-		if SaveManager.is_enemy_defeated(eid):
+		if SceneManager.save_manager.is_enemy_defeated(eid):
 			continue
 		var node: Node3D = TerrainMath.spawn_entity(_EnemyScene, e_data, 0.5, entity_root, world_scene)
 		_set_visibility_range(node)
@@ -213,7 +213,7 @@ func _spawn_entities(world_scene: Node3D) -> void:
 
 	for c_data in _chunk_data.chests:
 		var cid: String = str(c_data.get("id", ""))
-		if SaveManager.is_chest_opened(cid):
+		if SceneManager.save_manager.is_chest_opened(cid):
 			c_data["opened"] = true
 		var node: Node3D = TerrainMath.spawn_entity(_ChestScene, c_data, 0.25, entity_root, world_scene)
 		_set_visibility_range(node)

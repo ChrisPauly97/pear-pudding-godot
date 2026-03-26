@@ -1,6 +1,7 @@
 extends RefCounted
 
 const ChunkData = preload("res://game_logic/world/ChunkData.gd")
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 const CHUNK_SIZE: int = 16
 const TILE_SIZE: float = 2.0

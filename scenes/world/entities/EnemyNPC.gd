@@ -1,5 +1,7 @@
 extends Node3D
 
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+
 var enemy_data: Dictionary = {}
 var _alive: bool = true
 

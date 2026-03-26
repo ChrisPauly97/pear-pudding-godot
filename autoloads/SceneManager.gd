@@ -1,5 +1,7 @@
 extends Node
 
+const _SaveManagerScript = preload("res://autoloads/save_manager.gd")
+
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
 var current_map: String = ""
@@ -16,7 +18,13 @@ var _saved_world_scene: Node = null
 # Tracks which enemy triggered the current battle (for defeat marking)
 var _current_battle_enemy_id: String = ""
 
+## SaveManager is owned here so its lifecycle is explicit rather than being a
+## magic autoload. Other systems access it via SceneManager.save_manager.
+var save_manager: Node
+
 func _ready() -> void:
+	save_manager = _SaveManagerScript.new()
+	add_child(save_manager)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged)
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.battle_lost.connect(_on_battle_lost)
@@ -36,17 +44,17 @@ func go_to_menu() -> void:
 func start_new_game() -> void:
 	map_stack.clear()
 	door_stack.clear()
-	SaveManager.new_game()
+	save_manager.new_game()
 	enter_map("main", "")
 
 func continue_game() -> void:
-	if not SaveManager.load_save():
+	if not save_manager.load_save():
 		start_new_game()
 		return
-	map_stack.assign(SaveManager.map_stack)
-	door_stack.assign(SaveManager.door_stack)
-	current_map = SaveManager.current_map
-	_load_world(SaveManager.current_map, "")
+	map_stack.assign(save_manager.map_stack)
+	door_stack.assign(save_manager.door_stack)
+	current_map = save_manager.current_map
+	_load_world(save_manager.current_map, "")
 
 func enter_map(map_name: String, target_door_id: String = "") -> void:
 	_flush_position_save()
@@ -54,8 +62,8 @@ func enter_map(map_name: String, target_door_id: String = "") -> void:
 		map_stack.push_back(current_map)
 		door_stack.push_back("")
 	current_map = map_name
-	SaveManager.sync_stacks(map_stack, door_stack)
-	SaveManager.save()
+	save_manager.sync_stacks(map_stack, door_stack)
+	save_manager.save()
 	_load_world(map_name, target_door_id)
 
 func exit_map() -> void:
@@ -66,8 +74,8 @@ func exit_map() -> void:
 	var parent: String = map_stack.pop_back()
 	var return_door: String = door_stack.pop_back()
 	current_map = parent
-	SaveManager.sync_stacks(map_stack, door_stack)
-	SaveManager.save()
+	save_manager.sync_stacks(map_stack, door_stack)
+	save_manager.save()
 	_load_world(parent, return_door)
 
 func _load_world(map_name: String, target_door_id: String) -> void:
@@ -79,7 +87,7 @@ func _load_world(map_name: String, target_door_id: String) -> void:
 		world.infinite = false
 	get_tree().change_scene_to_node(world)
 
-# Ask the current WorldScene to flush its player position into SaveManager.
+# Ask the current WorldScene to flush its player position into save_manager.
 func _flush_position_save() -> void:
 	var scene := get_tree().current_scene
 	if scene and scene.has_method("flush_save_position"):
@@ -89,8 +97,8 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	if _battle_overlay != null:
 		return
 	_current_battle_enemy_id = str(enemy_data.get("id", ""))
-	SaveManager.set_pending_battle(enemy_data)
-	SaveManager.save()
+	save_manager.set_pending_battle(enemy_data)
+	save_manager.save()
 	# Detach world scene from tree so it stops rendering/processing
 	_saved_world_scene = get_tree().current_scene
 	get_tree().root.remove_child(_saved_world_scene)
@@ -108,9 +116,9 @@ func _restore_world() -> void:
 
 func _on_battle_won(_result: Dictionary) -> void:
 	if not _current_battle_enemy_id.is_empty():
-		SaveManager.mark_enemy_defeated(_current_battle_enemy_id)
+		save_manager.mark_enemy_defeated(_current_battle_enemy_id)
 		_current_battle_enemy_id = ""
-	SaveManager.clear_pending_battle()
+	save_manager.clear_pending_battle()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
@@ -118,7 +126,7 @@ func _on_battle_won(_result: Dictionary) -> void:
 
 func _on_battle_lost() -> void:
 	_current_battle_enemy_id = ""
-	SaveManager.clear_pending_battle()
+	save_manager.clear_pending_battle()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null

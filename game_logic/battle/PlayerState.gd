@@ -2,6 +2,7 @@ class_name PlayerState
 extends RefCounted
 
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 

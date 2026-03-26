@@ -169,8 +169,8 @@ func _ready() -> void:
 	_update_hud()
 
 	# Re-enter any battle that was interrupted (e.g. app quit mid-fight)
-	if not SaveManager.pending_battle_enemy_data.is_empty():
-		GameBus.enemy_engaged.emit.call_deferred(SaveManager.pending_battle_enemy_data)
+	if not SceneManager.save_manager.pending_battle_enemy_data.is_empty():
+		GameBus.enemy_engaged.emit.call_deferred(SceneManager.save_manager.pending_battle_enemy_data)
 	_interact_label.hide()
 	_interact_label.text = "[Tap] Interact" if OS.has_feature("android") else "[E] Interact"
 
@@ -222,8 +222,8 @@ func _update_hud() -> void:
 		_map_label.text = "World: Infinite"
 	else:
 		_map_label.text = "Map: %s" % map_name
-	_coin_label.text = "Coins: %d" % SaveManager.coins
-	SaveManager.coins_changed.connect(func(n: int) -> void: _coin_label.text = "Coins: %d" % n)
+	_coin_label.text = "Coins: %d" % SceneManager.save_manager.coins
+	SceneManager.save_manager.coins_changed.connect(func(n: int) -> void: _coin_label.text = "Coins: %d" % n)
 
 # ── Infinite world: chunk streaming ────────────────────────────────────────
 
@@ -235,9 +235,9 @@ func _build_grass_blades_node() -> void:
 func _spawn_player_infinite() -> void:
 	var px: float = 3.0 * IsoConst.TILE_SIZE
 	var pz: float = 3.0 * IsoConst.TILE_SIZE
-	if SaveManager.current_map == "infinite" and (SaveManager.player_x != 0.0 or SaveManager.player_z != 0.0):
-		px = SaveManager.player_x
-		pz = SaveManager.player_z
+	if SceneManager.save_manager.current_map == "infinite" and (SceneManager.save_manager.player_x != 0.0 or SceneManager.save_manager.player_z != 0.0):
+		px = SceneManager.save_manager.player_x
+		pz = SceneManager.save_manager.player_z
 	_player = _create_player_node()
 	_player.position = Vector3(px, get_terrain_height(px, pz) + 0.5, pz)
 	_entity_root.add_child(_player)
@@ -671,7 +671,7 @@ func _build_walls() -> void:
 func flush_save_position() -> void:
 	if _player:
 		var save_map: String = "infinite" if infinite else map_name
-		SaveManager.update_position(save_map, _player.position.x, _player.position.z)
+		SceneManager.save_manager.update_position(save_map, _player.position.x, _player.position.z)
 
 func _spawn_player() -> void:
 	var px: float
@@ -685,9 +685,9 @@ func _spawn_player() -> void:
 		else:
 			px = _get_default_px()
 			pz = _get_default_pz()
-	elif SaveManager.current_map == map_name and (SaveManager.player_x != 0.0 or SaveManager.player_z != 0.0):
-		px = SaveManager.player_x
-		pz = SaveManager.player_z
+	elif SceneManager.save_manager.current_map == map_name and (SceneManager.save_manager.player_x != 0.0 or SceneManager.save_manager.player_z != 0.0):
+		px = SceneManager.save_manager.player_x
+		pz = SceneManager.save_manager.player_z
 	else:
 		px = _get_default_px()
 		pz = _get_default_pz()
@@ -715,14 +715,14 @@ func _create_player_node() -> CharacterBody3D:
 func _spawn_entities() -> void:
 	for e_data in world_map.enemies:
 		var eid: String = str(e_data.get("id", ""))
-		if SaveManager.is_enemy_defeated(eid):
+		if SceneManager.save_manager.is_enemy_defeated(eid):
 			continue
-		if eid == SaveManager.in_battle_enemy_id:
+		if eid == SceneManager.save_manager.in_battle_enemy_id:
 			continue  # being fought right now — don't spawn a duplicate
 		_spawn_enemy(e_data)
 	for c_data in world_map.chests:
 		var cid: String = str(c_data.get("id", ""))
-		if SaveManager.is_chest_opened(cid):
+		if SceneManager.save_manager.is_chest_opened(cid):
 			c_data["opened"] = true
 		_spawn_chest(c_data)
 	for d_data in world_map.doors:
@@ -876,7 +876,7 @@ func _process(delta: float) -> void:
 	if cur_pos.distance_squared_to(_last_save_pos) > 1.0:
 		_last_save_pos = cur_pos
 		var save_map: String = "infinite" if infinite else map_name
-		SaveManager.update_position(save_map, _player.position.x, _player.position.z)
+		SceneManager.save_manager.update_position(save_map, _player.position.x, _player.position.z)
 
 	# Throttle interaction checks — no need to scan every frame
 	_interact_timer += delta
@@ -928,7 +928,7 @@ func _handle_interact() -> void:
 		if not chest.is_empty() and not chest.get("opened", false):
 			chest["opened"] = true
 			var cid: String = str(chest.get("id", ""))
-			SaveManager.mark_chest_opened(cid)
+			SceneManager.save_manager.mark_chest_opened(cid)
 			var node := _chest_nodes.get(cid) as Node3D
 			if node and node.has_method("mark_opened"):
 				node.mark_opened()
@@ -960,7 +960,7 @@ func _handle_interact() -> void:
 	if not chest.is_empty() and not chest.get("opened", false):
 		chest["opened"] = true
 		var cid: String = str(chest.get("id", ""))
-		SaveManager.mark_chest_opened(cid)
+		SceneManager.save_manager.mark_chest_opened(cid)
 		var node := _chest_nodes.get(chest["id"]) as Node3D
 		if node and node.has_method("mark_opened"):
 			node.mark_opened()
