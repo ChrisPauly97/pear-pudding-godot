@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_disabled;
+render_mode cull_disabled, alpha_to_coverage;
 
 // --- Color palette ---
 // Tuned to blend with the terrain's flat-grass procedural base (~0.44, 0.62, 0.25).
@@ -101,6 +101,8 @@ void fragment() {
 	EMISSION = col * 0.15;
 	ROUGHNESS = 1.0;
 	METALLIC = 0.0;
-	ALPHA = step(UV.y, 0.92);
-	ALPHA_SCISSOR_THRESHOLD = 0.5;
+	// Smooth taper toward tip instead of a hard step.  alpha_to_coverage maps
+	// this value to MSAA coverage samples so sub-pixel blades fade gracefully
+	// rather than popping in/out as wind sways them across pixel boundaries.
+	ALPHA = 1.0 - smoothstep(0.78, 1.0, UV.y);
 }
