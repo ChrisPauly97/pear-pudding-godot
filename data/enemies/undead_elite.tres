@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://4dd3zeq76nhv"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_undead_elite"]
+
+[resource]
+script = ExtResource("1_undead_elite")
+id = "undead_elite"
+display_name = "Undead Warlord"
+deck = PackedStringArray("ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton", "skeleton")

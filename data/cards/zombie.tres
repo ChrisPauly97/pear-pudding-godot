@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://fj711l3ly44c"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_zombie"]
+
+[resource]
+script = ExtResource("1_zombie")
+id = "zombie"
+card_name = "Zombie"
+cost = 3
+attack = 2
+health = 4
+card_class = "minion"
+description = "Slow but durable."
+color = Color(0.4, 0.7, 0.4, 1)

@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://uzwfq9t6z4oq"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ghoul"]
+
+[resource]
+script = ExtResource("1_ghoul")
+id = "ghoul"
+card_name = "Ghoul"
+cost = 4
+attack = 4
+health = 3
+card_class = "minion"
+description = "Fast and hungry."
+color = Color(0.8, 0.4, 0.4, 1)

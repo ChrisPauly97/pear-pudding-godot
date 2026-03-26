@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://xz5udp37ourr"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_ghoul_pack"]
+
+[resource]
+script = ExtResource("1_ghoul_pack")
+id = "ghoul_pack"
+display_name = "Ghoul Pack Leader"
+deck = PackedStringArray("ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton", "skeleton", "skeleton")

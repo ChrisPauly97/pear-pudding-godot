@@ -1,60 +1,41 @@
 extends Node
 
-# Card templates keyed by ID
-static var _templates: Dictionary = _build_templates()
+const CardData = preload("res://data/CardData.gd")
+const CARD_DIR := "res://data/cards"
 
-static func _build_templates() -> Dictionary:
-	return {
-		"ghost": {
-			"id": "ghost",
-			"name": "Ghost",
-			"cost": 1,
-			"attack": 1,
-			"health": 2,
-			"card_class": "minion",
-			"description": "A wispy spirit.",
-			"color": Color(0.7, 0.7, 1.0)
-		},
-		"skeleton": {
-			"id": "skeleton",
-			"name": "Skeleton",
-			"cost": 2,
-			"attack": 2,
-			"health": 2,
-			"card_class": "minion",
-			"description": "Bones that won't stay down.",
-			"color": Color(0.9, 0.9, 0.8)
-		},
-		"zombie": {
-			"id": "zombie",
-			"name": "Zombie",
-			"cost": 3,
-			"attack": 2,
-			"health": 4,
-			"card_class": "minion",
-			"description": "Slow but durable.",
-			"color": Color(0.4, 0.7, 0.4)
-		},
-		"ghoul": {
-			"id": "ghoul",
-			"name": "Ghoul",
-			"cost": 4,
-			"attack": 4,
-			"health": 3,
-			"card_class": "minion",
-			"description": "Fast and hungry.",
-			"color": Color(0.8, 0.4, 0.4)
-		},
-	}
+static var _cards: Dictionary = {}  # id -> CardData
+static var _loaded: bool = false
 
-## Returns the template by reference. Do NOT mutate the result — treat as read-only.
+static func _ensure_loaded() -> void:
+	if _loaded:
+		return
+	_loaded = true
+	var dir := DirAccess.open(CARD_DIR)
+	if not dir:
+		return
+	dir.list_dir_begin()
+	var fname := dir.get_next()
+	while fname != "":
+		if fname.ends_with(".tres"):
+			var res := ResourceLoader.load(CARD_DIR + "/" + fname)
+			if res is CardData:
+				var card := res as CardData
+				_cards[card.id] = card
+		fname = dir.get_next()
+
+## Returns a template Dictionary compatible with CardInstance.from_template()
+## and all existing callers. Returns {} if the ID is unknown.
 static func get_template(id: String) -> Dictionary:
-	if _templates.has(id):
-		return _templates[id]
+	_ensure_loaded()
+	if _cards.has(id):
+		return (_cards[id] as CardData).to_template_dict()
 	return {}
 
+## Returns all known card IDs, in no guaranteed order.
+## Add a new card by dropping a CardData .tres in res://data/cards/ — no code changes needed.
 static func get_all_ids() -> Array[String]:
+	_ensure_loaded()
 	var result: Array[String] = []
-	for k in _templates.keys():
-		result.append(k)
+	for k in _cards.keys():
+		result.append(str(k))
 	return result

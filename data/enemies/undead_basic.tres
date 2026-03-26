@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://iugru6ekzfxi"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_undead_basic"]
+
+[resource]
+script = ExtResource("1_undead_basic")
+id = "undead_basic"
+display_name = "Undead Wanderer"
+deck = PackedStringArray("ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul")
