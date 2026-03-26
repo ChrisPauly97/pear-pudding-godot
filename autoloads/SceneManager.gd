@@ -40,6 +40,11 @@ func _ready() -> void:
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 
 func go_to_menu() -> void:
+	_flush_position_save()
+	var scene := get_tree().current_scene
+	if scene and scene.has_method("flush_time_of_day"):
+		scene.flush_time_of_day()
+	save_manager.save()
 	_exit_world_cleanup()
 	get_tree().change_scene_to_packed(_menu_scene_packed)
 	_state = State.MENU

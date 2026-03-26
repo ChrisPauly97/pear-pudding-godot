@@ -116,6 +116,19 @@ static func _gen_ruins(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: int)
 		doors.append(possible_doors[door_idx])
 		possible_doors.remove_at(door_idx)
 
+	# Register each wall opening as a door entity pointing to a procedural dungeon
+	for door_pos in doors:
+		var wx: float = float(p_cx * CHUNK_SIZE + door_pos.x) * TILE_SIZE + TILE_SIZE * 0.5
+		var wz: float = float(p_cz * CHUNK_SIZE + door_pos.y) * TILE_SIZE + TILE_SIZE * 0.5
+		var dungeon_seed: int = abs(_chunk_seed(p_cx, p_cz, world_seed) ^ (door_pos.x * 1000003 + door_pos.y * 999983))
+		chunk.doors.append({
+			"id": "door_%d_%d_%d_%d" % [p_cx, p_cz, door_pos.x, door_pos.y],
+			"x": wx,
+			"z": wz,
+			"target_map": "dungeon_%d" % dungeon_seed,
+			"target_door_id": "entrance",
+		})
+
 	# Stamp the ruin — perimeter walls, flat interior floor
 	for lx in range(outer_w):
 		for lz in range(outer_h):
@@ -204,4 +217,23 @@ static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: i
 			"x": wx, "z": wz,
 			"card_ids": [cid],
 			"opened": false
+		})
+
+	# 0–1 NPC per chunk (~25% chance)
+	var npc_dialogues: Array[String] = [
+		"These ruins have stood longer than anyone can remember.",
+		"Watch yourself out there. The dead don't rest easy.",
+		"I've heard the card traders pass through here sometimes.",
+		"Strange things happen when the fog rolls in.",
+		"The old magic still lingers in these stones.",
+	]
+	if rng.randi_range(0, 3) == 0 and grass_tiles.size() > 0:
+		var idx: int = rng.randi_range(0, grass_tiles.size() - 1)
+		var tile: Vector2i = grass_tiles[idx]
+		var wx: float = float(p_cx * CHUNK_SIZE + tile.x) * TILE_SIZE + TILE_SIZE * 0.5
+		var wz: float = float(p_cz * CHUNK_SIZE + tile.y) * TILE_SIZE + TILE_SIZE * 0.5
+		chunk.npcs.append({
+			"id": "n_%d_%d_0" % [p_cx, p_cz],
+			"x": wx, "z": wz,
+			"dialogue": npc_dialogues[rng.randi_range(0, npc_dialogues.size() - 1)],
 		})

@@ -13,6 +13,7 @@ var _prompt_label: Label3D = null
 # Coin mode
 var _is_coin: bool = false
 var _coin_amount: int = 0
+var _pickup_area: Area3D = null
 
 # ── Public setup ────────────────────────────────────────────────────────────
 
@@ -91,6 +92,33 @@ func _build_visual() -> void:
 	halo_mi.position = Vector3(0, 0, -0.05)
 	add_child(halo_mi)
 
+	# Light beam — tall thin quad that fades out toward the top, always faces camera
+	var beam_mat := StandardMaterial3D.new()
+	beam_mat.albedo_color = glow_color
+	beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	beam_mat.emission_enabled = true
+	beam_mat.emission = glow_color
+	beam_mat.emission_energy_multiplier = 2.0
+	beam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	beam_mat.billboard_mode = BaseMaterial3D.BILLBOARD_FIXED_Y
+	beam_mat.grow = true
+	var beam_grad := Gradient.new()
+	beam_grad.set_color(0, Color(glow_color.r, glow_color.g, glow_color.b, 0.7))
+	beam_grad.set_color(1, Color(glow_color.r, glow_color.g, glow_color.b, 0.0))
+	var beam_tex := GradientTexture2D.new()
+	beam_tex.gradient = beam_grad
+	beam_tex.fill = GradientTexture2D.FILL_LINEAR
+	beam_tex.fill_from = Vector2(0.5, 1.0)
+	beam_tex.fill_to   = Vector2(0.5, 0.0)
+	beam_mat.albedo_texture = beam_tex
+	var beam_mesh := QuadMesh.new()
+	beam_mesh.size = Vector2(0.18, 4.0)
+	var beam_mi := MeshInstance3D.new()
+	beam_mi.mesh = beam_mesh
+	beam_mi.material_override = beam_mat
+	beam_mi.position = Vector3(0, 2.25, -0.06)
+	add_child(beam_mi)
+
 	# Card name label (billboard, always faces camera)
 	var name_lbl := Label3D.new()
 	name_lbl.text = card_name
@@ -110,7 +138,7 @@ func _build_visual() -> void:
 	_prompt_label.hide()
 	add_child(_prompt_label)
 
-	# Pickup detection area
+	# Pickup detection area — monitoring disabled until arc lands
 	var area := Area3D.new()
 	var col := CollisionShape3D.new()
 	var sphere := SphereShape3D.new()
@@ -119,6 +147,8 @@ func _build_visual() -> void:
 	area.add_child(col)
 	area.body_entered.connect(_on_body_entered)
 	area.body_exited.connect(_on_body_exited)
+	area.monitoring = false
+	_pickup_area = area
 	add_child(area)
 
 	set_process_unhandled_input(true)
@@ -171,7 +201,7 @@ func _build_coin_visual() -> void:
 	amt_lbl.modulate = Color(1.0, 0.9, 0.2)
 	add_child(amt_lbl)
 
-	# Pickup detection area (coins auto-collect)
+	# Pickup detection area (coins auto-collect) — monitoring disabled until arc lands
 	var area := Area3D.new()
 	var col := CollisionShape3D.new()
 	var sphere := SphereShape3D.new()
@@ -179,6 +209,8 @@ func _build_coin_visual() -> void:
 	col.shape = sphere
 	area.add_child(col)
 	area.body_entered.connect(_on_body_entered)
+	area.monitoring = false
+	_pickup_area = area
 	add_child(area)
 
 # ── Arc animation ───────────────────────────────────────────────────────────
@@ -198,6 +230,11 @@ func _play_arc(start_pos: Vector3, land_pos: Vector3) -> void:
 	y_tween.tween_property(self, "global_position:y", peak_y, 0.25)
 	y_tween.tween_property(self, "global_position:y", land_y, 0.25)
 	y_tween.tween_callback(func() -> void: _landed = true)
+	y_tween.tween_interval(0.5)
+	y_tween.tween_callback(func() -> void:
+		if _pickup_area:
+			_pickup_area.monitoring = true
+	)
 
 # ── Per-frame spin after landing ─────────────────────────────────────────────
 

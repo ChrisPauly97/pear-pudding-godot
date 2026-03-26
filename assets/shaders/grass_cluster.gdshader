@@ -66,15 +66,18 @@ void fragment() {
 	// Smooth tip fade matching grass_blade.gdshader
 	a *= 1.0 - smoothstep(0.78, 1.0, UV.y);
 
+	// Three flat color bands — pixel art style, no gradient blending
 	vec3 col;
-	if (UV.y < 0.45) {
-		col = mix(color_base.rgb, color_mid.rgb, UV.y / 0.45);
+	if (UV.y < 0.33) {
+		col = color_base.rgb;
+	} else if (UV.y < 0.66) {
+		col = color_mid.rgb;
 	} else {
-		col = mix(color_mid.rgb, color_tip.rgb, (UV.y - 0.45) / 0.55);
+		col = color_tip.rgb;
 	}
 
 	ALBEDO = col;
-	ALPHA  = a;
+	ALPHA  = a * step(UV.y, 0.92);
 	// Low threshold keeps material in the opaque pass so clusters depth-test
 	// correctly against the player and terrain.
 	ALPHA_SCISSOR_THRESHOLD = 0.01;

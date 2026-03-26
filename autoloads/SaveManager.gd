@@ -30,6 +30,9 @@ var opened_chests: Array[String] = []
 var pending_battle_enemy_data: Dictionary = {}
 var in_battle_enemy_id: String = ""
 
+# Day/night cycle position (0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset)
+var time_of_day: float = 0.4
+
 var _loaded: bool = false
 var _dirty: bool = false
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
@@ -75,6 +78,7 @@ func new_game() -> void:
 	opened_chests = []
 	pending_battle_enemy_data = {}
 	in_battle_enemy_id = ""
+	time_of_day = 0.4
 	_loaded = true
 	save()
 
@@ -116,6 +120,7 @@ func load_save() -> bool:
 	var pbed = data.get("pending_battle_enemy_data", {})
 	pending_battle_enemy_data = pbed if pbed is Dictionary else {}
 	in_battle_enemy_id = str(data.get("in_battle_enemy_id", ""))
+	time_of_day = float(data.get("time_of_day", 0.4))
 	_loaded = true
 	return true
 
@@ -136,6 +141,7 @@ func save() -> void:
 		"opened_chests": opened_chests,
 		"pending_battle_enemy_data": pending_battle_enemy_data,
 		"in_battle_enemy_id": in_battle_enemy_id,
+		"time_of_day": time_of_day,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:

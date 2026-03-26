@@ -65,7 +65,7 @@ static func prepare_terrain(
 	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
 			hfield, grid_tile_lookup,
 			chunk_origin.x, chunk_origin.z,
-			nvx, nvz, step, TerrainMath.WALL_MAX_H)
+			nvx, nvz, step, PLATEAU_H)
 
 	return {
 		"mesh":        terrain_res["mesh"],

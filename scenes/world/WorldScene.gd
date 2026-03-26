@@ -1,6 +1,7 @@
 extends Node3D
 
 const WorldMap        = preload("res://game_logic/world/WorldMap.gd")
+const DungeonGen      = preload("res://game_logic/world/DungeonGen.gd")
 const GrassBlades     = preload("res://scenes/world/GrassBlades.gd")
 const VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
@@ -8,10 +9,11 @@ const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 
-const _TexGrass:     Texture2D = preload("res://assets/textures/grass.png")
-const _TexHillSide:  Texture2D = preload("res://assets/textures/hill_side.png")
-const _TexHillTop:   Texture2D = preload("res://assets/textures/hill_top.png")
-const _TexWallTop:   Texture2D = preload("res://assets/textures/wall_top.png")
+const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
+const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_side_pixel.png")
+const _TexHillTop:   Texture2D = preload("res://assets/textures/pixel_art/hill_top_pixel.png")
+const _TexWallSide:  Texture2D = preload("res://assets/textures/pixel_art/wall_side_pixel.png")
+const _TexWallTop:   Texture2D = preload("res://assets/textures/pixel_art/wall_top_pixel.png")
 
 # Preload entity scenes — avoids filesystem hits during spawning
 const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
@@ -57,7 +59,7 @@ var _interact_timer: float = 0.0
 # Day/night cycle
 var _world_env: WorldEnvironment
 @export var day_duration: float = 600.0   # seconds per full day
-var _time_of_day: float = 0.4             # 0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset
+var _time_of_day: float = 0.4             # loaded from save; 0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset
 var _day_night_timer: float = 0.0
 const DAY_NIGHT_INTERVAL: float = 0.5     # update lighting at 2 Hz
 # Cached day/night values — skip GPU writes when unchanged
@@ -134,6 +136,7 @@ func _setup_environment() -> void:
 
 func _ready() -> void:
 	_setup_environment()
+	_time_of_day = SceneManager.save_manager.time_of_day
 	_sun.shadow_opacity = 0.2
 	_tile_meshes = Node3D.new()
 	_tile_meshes.name = "TileGrid"
@@ -150,7 +153,11 @@ func _ready() -> void:
 	_build_grass_blades_node()
 
 	if not _is_infinite:
-		world_map = WorldMap.new(map_name)
+		if map_name.begins_with("dungeon_"):
+			var dseed: int = int(map_name.substr(8))
+			world_map = DungeonGen.generate(map_name, dseed)
+		else:
+			world_map = WorldMap.new(map_name)
 
 	_spawn_player()
 
@@ -194,13 +201,20 @@ func _ready() -> void:
 
 	var vh: float = get_viewport().get_visible_rect().size.y
 	var vw: float = get_viewport().get_visible_rect().size.x
-	var btn_w: float = vh * 0.12
-	var btn_h: float = vh * 0.05
+	var font_size: int = int(vh * 0.03)
+	var btn_w: float = vh * 0.14
+	var btn_h: float = vh * 0.07
+
+	# Apply font size to the tscn-defined labels
+	_map_label.add_theme_font_size_override("font_size", font_size)
+	_coin_label.add_theme_font_size_override("font_size", font_size)
+	_interact_label.add_theme_font_size_override("font_size", font_size)
 
 	var menu_btn := Button.new()
 	menu_btn.text = "Menu"
 	menu_btn.custom_minimum_size = Vector2(btn_w, btn_h)
 	menu_btn.position = Vector2(vh * 0.01, vh * 0.01)
+	menu_btn.add_theme_font_size_override("font_size", font_size)
 	menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
 	_hud.add_child(menu_btn)
 
@@ -208,6 +222,7 @@ func _ready() -> void:
 	inv_btn.text = "Inventory"
 	inv_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
 	inv_btn.position = Vector2(vw - btn_w * 1.3 - vh * 0.01, vh * 0.01)
+	inv_btn.add_theme_font_size_override("font_size", font_size)
 	inv_btn.pressed.connect(func() -> void: GameBus.inventory_requested.emit())
 	_hud.add_child(inv_btn)
 
@@ -215,11 +230,12 @@ func _ready() -> void:
 	_dialogue_label = Label.new()
 	_dialogue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_dialogue_label.add_theme_font_size_override("font_size", font_size)
 	_dialogue_label.add_theme_color_override("font_color", Color.WHITE)
 	_dialogue_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	_dialogue_label.add_theme_constant_override("shadow_offset_x", 1)
-	_dialogue_label.add_theme_constant_override("shadow_offset_y", 1)
-	_dialogue_label.size = Vector2(vp.x * 0.6, vp.y * 0.12)
+	_dialogue_label.add_theme_constant_override("shadow_offset_x", 2)
+	_dialogue_label.add_theme_constant_override("shadow_offset_y", 2)
+	_dialogue_label.size = Vector2(vp.x * 0.6, vp.y * 0.15)
 	_dialogue_label.position = Vector2(vp.x * 0.2, vp.y * 0.78)
 	_dialogue_label.hide()
 	_hud.add_child(_dialogue_label)
@@ -231,6 +247,9 @@ func _exit_tree() -> void:
 	for task_id: int in _chunk_task_ids:
 		WorkerThreadPool.wait_for_task_completion(task_id)
 	_chunk_task_ids.clear()
+
+func flush_time_of_day() -> void:
+	SceneManager.save_manager.time_of_day = _time_of_day
 
 func _update_hud() -> void:
 	if _is_infinite:
@@ -697,7 +716,7 @@ func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	mat.set_shader_parameter("grass_texture",     _TexGrass)
 	mat.set_shader_parameter("hill_side_texture", _TexHillSide)
 	mat.set_shader_parameter("hill_texture",      _TexHillTop)
-	mat.set_shader_parameter("wall_side_texture", _TexHillSide)
+	mat.set_shader_parameter("wall_side_texture", _TexWallSide)
 	mat.set_shader_parameter("wall_top_texture",  _TexWallTop)
 	mat.set_shader_parameter("uv_scale", 0.5)
 	return mat
@@ -863,27 +882,6 @@ func _handle_interact() -> void:
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
 
-	if infinite:
-		var enemy := _find_nearby_enemy_infinite(px, pz, IsoConst.INTERACT_RANGE)
-		if enemy != null and enemy.has_method("engage"):
-			enemy.engage()
-			return
-		var chest := _find_nearby_chest_infinite(px, pz, IsoConst.INTERACT_RANGE)
-		if not chest.is_empty() and not chest.get("opened", false):
-			chest["opened"] = true
-			var cid: String = str(chest.get("id", ""))
-			SceneManager.save_manager.mark_chest_opened(cid)
-			var node := _chest_nodes.get(cid) as Node3D
-			if node and node.has_method("mark_opened"):
-				node.mark_opened()
-			var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
-			var card_ids: Array[String] = []
-			card_ids.assign(chest.get("card_ids", []))
-			_spawn_card_items(card_ids, chest_pos)
-			_spawn_coin_piles(chest_pos)
-		return
-
-	# Named-map path
 	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE)
 	if not door.is_empty():
 		var target_map: String = door.get("target_map", "")

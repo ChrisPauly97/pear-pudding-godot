@@ -4,15 +4,15 @@ const SPEED: float = 6.0
 const JUMP_VELOCITY: float = 8.0
 const GRAVITY: float = -20.0
 
-# Individual walk frame textures (already imported by Godot editor)
-const _WalkTex1: Texture2D = preload("res://assets/textures/wizard_walk_1.png")
-const _WalkTex2: Texture2D = preload("res://assets/textures/wizard_walk_2.png")
-const _WalkTex3: Texture2D = preload("res://assets/textures/wizard_walk_3.png")
-const _WalkTex4: Texture2D = preload("res://assets/textures/wizard_walk_4.png")
+# Individual walk frame textures (pixel art versions)
+const _WalkTex1: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_1_pixel.png")
+const _WalkTex2: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_2_pixel.png")
+const _WalkTex3: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_3_pixel.png")
+const _WalkTex4: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_4_pixel.png")
 const WALK_FRAMES: int = 4
 
 const ANIM_FPS: float = 6.0        # walking animation speed
-const PIXEL_SIZE: float = 0.004    # world units per pixel — controls sprite scale
+const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite scale
 
 var _velocity_y: float = 0.0
 var _is_jumping: bool = false

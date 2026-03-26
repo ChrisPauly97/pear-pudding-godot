@@ -90,12 +90,14 @@ void fragment() {
 		NORMAL = -NORMAL;
 	}
 
-	// Three-zone gradient from root to tip
+	// Three flat color bands — pixel art style, no gradient blending
 	vec3 col;
-	if (UV.y < 0.45) {
-		col = mix(color_base.rgb, color_mid.rgb, UV.y / 0.45);
+	if (UV.y < 0.33) {
+		col = color_base.rgb;
+	} else if (UV.y < 0.66) {
+		col = color_mid.rgb;
 	} else {
-		col = mix(color_mid.rgb, color_tip.rgb, (UV.y - 0.45) / 0.55);
+		col = color_tip.rgb;
 	}
 
 	ALBEDO = col;
@@ -103,7 +105,8 @@ void fragment() {
 	EMISSION = col * 0.15;
 	ROUGHNESS = 1.0;
 	METALLIC = 0.0;
-	ALPHA = 1.0 - smoothstep(0.78, 1.0, UV.y);
+	// Hard cutoff at tip instead of smooth fade
+	ALPHA = step(UV.y, 0.92);
 	// Low threshold keeps this material in Godot's opaque pass (depth writes,
 	// depth testing vs. player/terrain). alpha_to_coverage then handles MSAA
 	// coverage anti-aliasing for the remaining semi-transparent pixels.

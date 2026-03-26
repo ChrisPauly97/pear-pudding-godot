@@ -4,15 +4,15 @@ render_mode cull_disabled;
 // Vertex colour R channel: 0.0 = flat grass, 1.0 = hill plateau top.
 // Normals are computed from the height field and baked into the mesh.
 
-uniform sampler2D grass_texture     : source_color, hint_default_white;
+uniform sampler2D grass_texture     : source_color, filter_nearest, hint_default_white;
 // Earthy dirt shown on the steep sides of hills (mid-height zone)
-uniform sampler2D hill_side_texture : source_color, hint_default_white;
+uniform sampler2D hill_side_texture : source_color, filter_nearest, hint_default_white;
 // Grassy top shown on the flat plateau of hills (high-height zone)
-uniform sampler2D hill_texture      : source_color, hint_default_white;
+uniform sampler2D hill_texture      : source_color, filter_nearest, hint_default_white;
 // Earthy/stone texture shown on the steep slopes of walls
-uniform sampler2D wall_side_texture : source_color, hint_default_white;
+uniform sampler2D wall_side_texture : source_color, filter_nearest, hint_default_white;
 // Stone floor shown on the flat plateau of walls
-uniform sampler2D wall_top_texture  : source_color, hint_default_white;
+uniform sampler2D wall_top_texture  : source_color, filter_nearest, hint_default_white;
 
 // How many times the textures tile per world unit
 uniform float uv_scale : hint_range(0.05, 2.0) = 0.5;
@@ -60,10 +60,9 @@ void vertex() {
 		VERTEX.y += hash2(v_world_xz * 0.08) * 0.12 * flat_factor;
 	}
 
-	// Pre-compute noise variation per-vertex instead of per-fragment.
-	vec2 noise_uv = v_world_xz * uv_scale * 3.7;
-	v_d0 = fbm(noise_uv);
-	v_d1 = fbm(noise_uv + vec2(7.31, 2.97));
+	// Noise variation removed — pixel art uses flat texture colors only.
+	v_d0 = 0.0;
+	v_d1 = 0.0;
 }
 
 void fragment() {
@@ -77,13 +76,11 @@ void fragment() {
 	float d0 = v_d0;
 	float d1 = v_d1;
 
-	// Zone blend factors (unchanged from before)
-	float t_side = max(
-		smoothstep(0.05, 0.55, v_blend),
-		smoothstep(0.35, 0.70, slope)
-	);
-	float t_top = smoothstep(0.60, 0.92, v_blend)
-	            * (1.0 - smoothstep(0.35, 0.70, slope));
+	// Zone blend factors — driven by height only, not slope.
+	// Slope-based blending caused dungeon floor tiles adjacent to tall walls
+	// to incorrectly show the hill-side (dirt) texture.
+	float t_side = smoothstep(0.05, 0.55, v_blend);
+	float t_top  = smoothstep(0.60, 0.92, v_blend);
 
 	// Sample only the textures actually contributing to this fragment.
 	// Flat grass is the common case (~60-70% of terrain) — skip all other fetches.
@@ -91,37 +88,23 @@ void fragment() {
 	bool is_wall = v_wall > 0.5;
 
 	if (is_wall) {
-		// Same slope-based zone blending as hills, but with wall textures
-		vec3 grass_col_w = vec3(0.44 + d0 * 0.11, 0.62 + d0 * 0.09, 0.25 + d0 * 0.05);
-		grass_col_w = mix(grass_col_w, texture(grass_texture, uv_xz).rgb, 0.85);
-		base_col = grass_col_w;
+		base_col = texture(grass_texture, uv_xz).rgb;
 		if (t_side > 0.01) {
-			vec3 side_col = vec3(0.42 + d1 * 0.07, 0.36 + d1 * 0.05, 0.28 + d1 * 0.04);
-			side_col = mix(side_col, texture(wall_side_texture, uv_xz).rgb, 0.85);
-			base_col = mix(base_col, side_col, t_side);
+			base_col = mix(base_col, texture(wall_side_texture, uv_xz).rgb, t_side);
 		}
 		if (t_top > 0.01) {
-			vec3 top_col = vec3(0.49 + d1 * 0.07, 0.38 + d1 * 0.05, 0.18 + d1 * 0.04);
-			top_col = mix(top_col, texture(wall_top_texture, uv_xz).rgb, 0.85);
-			base_col = mix(base_col, top_col, t_top);
+			base_col = mix(base_col, texture(wall_top_texture, uv_xz).rgb, t_top);
 		}
 	} else if (t_side < 0.01 && t_top < 0.01) {
-		// Pure flat grass — most common, single texture fetch
-		vec3 grass_col = vec3(0.44 + d0 * 0.11, 0.62 + d0 * 0.09, 0.25 + d0 * 0.05);
-		base_col = mix(grass_col, texture(grass_texture, uv_xz).rgb, 0.85);
+		// Pure flat grass — most common case
+		base_col = texture(grass_texture, uv_xz).rgb;
 	} else {
-		vec3 grass_col = vec3(0.44 + d0 * 0.11, 0.62 + d0 * 0.09, 0.25 + d0 * 0.05);
-		grass_col = mix(grass_col, texture(grass_texture, uv_xz).rgb, 0.85);
-		base_col = grass_col;
+		base_col = texture(grass_texture, uv_xz).rgb;
 		if (t_side > 0.01) {
-			vec3 side_col = vec3(0.36 + d1 * 0.08, 0.27 + d1 * 0.04, 0.13);
-			side_col = mix(side_col, texture(hill_side_texture, uv_xz).rgb, 0.85);
-			base_col = mix(base_col, side_col, t_side);
+			base_col = mix(base_col, texture(hill_side_texture, uv_xz).rgb, t_side);
 		}
 		if (t_top > 0.01) {
-			vec3 top_col = vec3(0.39 + d0 * 0.08, 0.58 + d0 * 0.09, 0.21 + d0 * 0.04);
-			top_col = mix(top_col, texture(hill_texture, uv_xz).rgb, 0.85);
-			base_col = mix(base_col, top_col, t_top);
+			base_col = mix(base_col, texture(hill_texture, uv_xz).rgb, t_top);
 		}
 	}
 
