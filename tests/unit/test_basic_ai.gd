@@ -43,7 +43,7 @@ func _ai_turn_state() -> GameState:
 
 
 ## Clear the hand for the given player and populate it with specific cards.
-func _set_hand(player: PlayerState, cards: Array) -> void:
+func _set_hand(player: PlayerState, cards: Array[CardInstance]) -> void:
 	player.hand.clear()
 	for c in cards:
 		player.hand.append(c)

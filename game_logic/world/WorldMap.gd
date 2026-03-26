@@ -10,12 +10,12 @@ const MAP_HEIGHT: int = 100
 const TILE_SIZE: float = IsoConst.TILE_SIZE
 
 var map_name: String
-var tiles: Array = []     # [y][x] of int
-var heights: Array = []   # [y][x] of int
-var enemies: Array = []   # Array of WorldEntityData dicts
-var chests: Array = []    # Array of WorldEntityData dicts
-var doors: Array = []     # Array of door dicts
-var npcs: Array = []      # Array of npc dicts
+var tiles: Array[Array] = []     # [y][x] of int
+var heights: Array[Array] = []   # [y][x] of int
+var enemies: Array[Dictionary] = []   # Array of WorldEntityData dicts
+var chests: Array[Dictionary] = []    # Array of WorldEntityData dicts
+var doors: Array[Dictionary] = []     # Array of door dicts
+var npcs: Array[Dictionary] = []      # Array of npc dicts
 var player_spawn_x: int = -1
 var player_spawn_z: int = -1
 
@@ -38,8 +38,8 @@ func _alloc_grids() -> void:
 	tiles = []
 	heights = []
 	for _y in range(MAP_HEIGHT):
-		var tr = []
-		var hr = []
+		var tr: Array[int] = []
+		var hr: Array[int] = []
 		for _x in range(MAP_WIDTH):
 			tr.append(TILE_GRASS)
 			hr.append(0)

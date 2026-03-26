@@ -144,7 +144,7 @@ func _refresh_all() -> void:
 	_refresh_hero(_player_hero_view, _state.players[0].hero, false)
 	_update_status()
 
-func _refresh_zone(zone_node: Node, cards: Array, zone_id: String) -> void:
+func _refresh_zone(zone_node: Node, cards: Array[CardInstance], zone_id: String) -> void:
 	var existing: Array[Node] = zone_node.get_children()
 	var needed: int = cards.size()
 	# Reuse existing panels where possible, update their content
