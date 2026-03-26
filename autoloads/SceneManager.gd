@@ -1,5 +1,13 @@
 extends Node
 
+enum State {
+	MENU,
+	WORLD,
+	BATTLE,
+	INVENTORY,
+	GAME_OVER,
+}
+
 const _SaveManagerScript = preload("res://autoloads/save_manager.gd")
 
 var map_stack: Array[String] = []
@@ -11,6 +19,7 @@ var _menu_scene_packed := preload("res://scenes/ui/MenuScene.tscn")
 var _gameover_scene_packed := preload("res://scenes/ui/GameOverScene.tscn")
 var _inventory_scene_packed := preload("res://scenes/ui/InventoryScene.tscn")
 
+var _state: State = State.MENU
 var _battle_overlay: Node = null
 var _inventory_overlay: Node = null
 var _saved_world_scene: Node = null
@@ -31,15 +40,9 @@ func _ready() -> void:
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 
 func go_to_menu() -> void:
-	if _saved_world_scene != null:
-		_saved_world_scene.queue_free()
-		_saved_world_scene = null
-	_battle_overlay = null
-	_inventory_overlay = null
-	map_stack.clear()
-	door_stack.clear()
-	current_map = ""
+	_exit_world_cleanup()
 	get_tree().change_scene_to_packed(_menu_scene_packed)
+	_state = State.MENU
 
 func start_new_game() -> void:
 	map_stack.clear()
@@ -79,13 +82,28 @@ func exit_map() -> void:
 	_load_world(parent, return_door)
 
 func _load_world(map_name: String, target_door_id: String) -> void:
-	var world = _world_scene_packed.instantiate()
+	var world := _world_scene_packed.instantiate()
 	world.map_name = map_name
 	world.target_door_id = target_door_id
 	# Named sub-maps (dungeons, etc.) use the fixed WorldMap path, not infinite generation
 	if map_name != "infinite" and map_name != "main":
 		world.infinite = false
 	get_tree().change_scene_to_node(world)
+	_state = State.WORLD
+
+func _exit_world_cleanup() -> void:
+	if _saved_world_scene != null:
+		_saved_world_scene.queue_free()
+		_saved_world_scene = null
+	if _battle_overlay != null:
+		_battle_overlay.queue_free()
+		_battle_overlay = null
+	if _inventory_overlay != null:
+		_inventory_overlay.queue_free()
+		_inventory_overlay = null
+	map_stack.clear()
+	door_stack.clear()
+	current_map = ""
 
 # Ask the current WorldScene to flush its player position into save_manager.
 func _flush_position_save() -> void:
@@ -94,7 +112,7 @@ func _flush_position_save() -> void:
 		scene.flush_save_position()
 
 func _on_enemy_engaged(enemy_data: Dictionary) -> void:
-	if _battle_overlay != null:
+	if _state != State.WORLD:
 		return
 	_current_battle_enemy_id = str(enemy_data.get("id", ""))
 	save_manager.set_pending_battle(enemy_data)
@@ -107,14 +125,18 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	_battle_overlay.enemy_data = enemy_data
 	get_tree().root.add_child(_battle_overlay)
 	get_tree().current_scene = _battle_overlay
+	_state = State.BATTLE
 
 func _restore_world() -> void:
 	if _saved_world_scene != null:
 		get_tree().root.add_child(_saved_world_scene)
 		get_tree().current_scene = _saved_world_scene
 		_saved_world_scene = null
+	_state = State.WORLD
 
 func _on_battle_won(_result: Dictionary) -> void:
+	if _state != State.BATTLE:
+		return
 	if not _current_battle_enemy_id.is_empty():
 		save_manager.mark_enemy_defeated(_current_battle_enemy_id)
 		_current_battle_enemy_id = ""
@@ -125,6 +147,8 @@ func _on_battle_won(_result: Dictionary) -> void:
 	_restore_world()
 
 func _on_battle_lost() -> void:
+	if _state != State.BATTLE:
+		return
 	_current_battle_enemy_id = ""
 	save_manager.clear_pending_battle()
 	if _battle_overlay != null:
@@ -134,17 +158,20 @@ func _on_battle_lost() -> void:
 		_saved_world_scene.queue_free()
 		_saved_world_scene = null
 	get_tree().change_scene_to_packed(_gameover_scene_packed)
+	_state = State.GAME_OVER
 
 func _on_inventory_requested() -> void:
-	if _inventory_overlay != null:
-		return
-	if _battle_overlay != null:
+	if _state != State.WORLD:
 		return
 	_inventory_overlay = _inventory_scene_packed.instantiate()
 	get_tree().current_scene.add_child(_inventory_overlay)
 	_inventory_overlay.closed.connect(_on_inventory_closed)
+	_state = State.INVENTORY
 
 func _on_inventory_closed() -> void:
+	if _state != State.INVENTORY:
+		return
 	if _inventory_overlay != null:
 		_inventory_overlay.queue_free()
 		_inventory_overlay = null
+	_state = State.WORLD
