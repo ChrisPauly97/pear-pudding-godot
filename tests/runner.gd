@@ -3,8 +3,8 @@
 ## Usage:
 ##   godot --headless --path /path/to/project -s tests/runner.gd
 ##
-## The --path flag ensures autoloads (CardRegistry, GameBus, IsoConst, etc.)
-## are initialised before any test runs, mirroring the production environment.
+## The --path flag ensures autoloads (IsoConst, GameBus, SceneManager) are
+## initialised before any test runs, mirroring the production environment.
 ##
 ## Exit codes:
 ##   0  — all tests passed
@@ -21,6 +21,9 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_iso_const.gd"),
 	preload("res://tests/unit/test_basic_ai.gd"),
 	preload("res://tests/unit/test_card_registry.gd"),
+	preload("res://tests/unit/test_chunk_data.gd"),
+	preload("res://tests/unit/test_infinite_world_gen.gd"),
+	preload("res://tests/unit/test_terrain_math.gd"),
 ]
 
 
