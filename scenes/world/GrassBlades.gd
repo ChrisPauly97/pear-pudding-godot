@@ -61,6 +61,10 @@ const CHUNK_SIZE := 16  # tiles per chunk side — one MultiMesh per chunk
 var _chunk_mmis:   Dictionary = {}
 var _cluster_mmis: Dictionary = {}
 
+static func _ensure_global_param(name: String, type: RenderingServer.GlobalShaderParameterType, default_value: Variant) -> void:
+	if RenderingServer.global_shader_parameter_get(name) == null:
+		RenderingServer.global_shader_parameter_add(name, type, default_value)
+
 func _init_material() -> void:
 	if _mat:
 		return
@@ -71,6 +75,14 @@ func _init_material() -> void:
 	_cluster_mat = ShaderMaterial.new()
 	_cluster_mat.shader = _ClusterShader
 	_cluster_mesh = _make_cluster_mesh()
+
+	# Register global shader parameters shared across all grass chunks.
+	# One set-call from update_player() reaches every chunk without per-chunk overhead.
+	_ensure_global_param("player_pos",       RenderingServer.GLOBAL_VAR_TYPE_VEC3,    Vector3(-9999, 0, -9999))
+	_ensure_global_param("player_move_dir",  RenderingServer.GLOBAL_VAR_TYPE_VEC2,    Vector2.ZERO)
+	_ensure_global_param("trample_origin_x", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,   0.0)
+	_ensure_global_param("trample_origin_z", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,   0.0)
+	_ensure_global_param("trample_map",      RenderingServer.GLOBAL_VAR_TYPE_SAMPLER2D, null)
 
 	# Sliding trample map — initialise centred at world origin
 	_trample_buf = PackedFloat32Array()
@@ -85,11 +97,11 @@ func _init_material() -> void:
 	_trample_origin_x = -(TRAMPLE_RES * IsoConst.TILE_SIZE * 0.5)
 	_trample_origin_z = -(TRAMPLE_RES * IsoConst.TILE_SIZE * 0.5)
 
-	_mat.set_shader_parameter("trample_map", _trample_tex)
+	RenderingServer.global_shader_parameter_set("trample_map",      _trample_tex)
+	RenderingServer.global_shader_parameter_set("trample_origin_x", _trample_origin_x)
+	RenderingServer.global_shader_parameter_set("trample_origin_z", _trample_origin_z)
 	var window_world: float = TRAMPLE_RES * IsoConst.TILE_SIZE
 	_mat.set_shader_parameter("trample_map_size", window_world)
-	_mat.set_shader_parameter("trample_origin_x", _trample_origin_x)
-	_mat.set_shader_parameter("trample_origin_z", _trample_origin_z)
 
 # Legacy entry point — builds all grass from a WorldMap (named-map path)
 func build(world_map: WorldMap) -> void:
@@ -309,8 +321,9 @@ func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 	if not _mat:
 		return
 
-	# Immediate blade push — just pass current position
-	_mat.set_shader_parameter("player_pos", pos if is_grounded else Vector3(-9999.0, 0.0, -9999.0))
+	# Immediate blade push — single global call reaches all chunks at once
+	RenderingServer.global_shader_parameter_set("player_pos",
+		pos if is_grounded else Vector3(-9999.0, 0.0, -9999.0))
 
 	# Movement direction — only upload when it changes
 	var move_dir := Vector2.ZERO
@@ -319,7 +332,7 @@ func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 		move_dir = Vector2(pos.x - _prev_pos.x, pos.z - _prev_pos.z).normalized()
 	_prev_pos = pos
 	if move_dir != _last_move_dir:
-		_mat.set_shader_parameter("player_move_dir", move_dir)
+		RenderingServer.global_shader_parameter_set("player_move_dir", move_dir)
 		_last_move_dir = move_dir
 
 	if is_grounded and _trample_img:
@@ -372,8 +385,8 @@ func _maybe_shift_trample_window(pos: Vector3) -> void:
 	_trample_dirty_x1 = TRAMPLE_RES - 1
 	_trample_dirty_z1 = TRAMPLE_RES - 1
 	_flush_trample_to_gpu()
-	_mat.set_shader_parameter("trample_origin_x", _trample_origin_x)
-	_mat.set_shader_parameter("trample_origin_z", _trample_origin_z)
+	RenderingServer.global_shader_parameter_set("trample_origin_x", _trample_origin_x)
+	RenderingServer.global_shader_parameter_set("trample_origin_z", _trample_origin_z)
 
 func _update_trample_map(pos: Vector3, delta: float) -> void:
 	var tile_size: float = IsoConst.TILE_SIZE
