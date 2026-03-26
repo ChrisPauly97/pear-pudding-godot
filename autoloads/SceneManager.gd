@@ -84,9 +84,6 @@ func _load_world(map_name: String, target_door_id: String) -> void:
 	var world: Node = _world_scene_packed.instantiate()
 	world.set("map_name", map_name)
 	world.set("target_door_id", target_door_id)
-	# Named sub-maps (dungeons, etc.) use the fixed WorldMap path, not infinite generation
-	if map_name != "infinite" and map_name != "main":
-		world.set("infinite", false)
 	get_tree().change_scene_to_node(world)
 	_state = State.WORLD
 

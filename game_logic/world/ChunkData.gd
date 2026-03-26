@@ -8,6 +8,8 @@ var tiles: PackedInt32Array    # contiguous memory, ~6x smaller than Array[int]
 var heights: PackedInt32Array
 var enemies: Array[Dictionary] = []
 var chests: Array[Dictionary] = []
+var doors: Array[Dictionary] = []
+var npcs: Array[Dictionary] = []
 var is_generated: bool = false
 var has_entities: bool = false
 

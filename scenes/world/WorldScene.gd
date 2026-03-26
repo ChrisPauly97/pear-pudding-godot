@@ -23,7 +23,9 @@ const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.t
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
-@export var infinite: bool = true
+
+# Computed in _ready from map_name; true for "main" and "infinite", false for named dungeon maps
+var _is_infinite: bool = false
 
 # Named-map path
 var world_map: WorldMap
@@ -39,10 +41,12 @@ var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
 
-# Infinite-world path
+# Chunk streaming (both infinite and named-map paths use ChunkRenderer)
 var _chunk_data_cache: Dictionary = {}    # Vector2i -> ChunkData (RefCounted)
 var _chunk_renderers: Dictionary = {}     # Vector2i -> ChunkRenderer
 var _active_chest_data: Dictionary = {}  # chest_id -> Dictionary
+var _active_door_data: Dictionary = {}   # door_id -> Dictionary
+var _active_npc_data: Dictionary = {}    # npc_id -> Dictionary
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
 var _last_move_dir: Vector2 = Vector2.ZERO
 var _terrain_mat: ShaderMaterial
@@ -141,10 +145,16 @@ func _ready() -> void:
 	_entity_root.name = "Entities"
 	add_child(_entity_root)
 
-	if infinite:
-		_terrain_mat = _make_terrain_material(WORLD_SEED)
-		_build_grass_blades_node()
-		_spawn_player_infinite()
+	_is_infinite = (map_name == "infinite" or map_name == "main")
+	_terrain_mat = _make_terrain_material(WORLD_SEED)
+	_build_grass_blades_node()
+
+	if not _is_infinite:
+		world_map = WorldMap.new(map_name)
+
+	_spawn_player()
+
+	if _is_infinite:
 		_update_chunks()
 		# Build the inner 5×5 ring synchronously for an immediate view;
 		# outer chunks stream in via threaded jobs in _process.
@@ -159,12 +169,17 @@ func _ready() -> void:
 				deferred.append(key)
 		_chunk_build_queue.assign(deferred)
 	else:
-		world_map = WorldMap.new(map_name)
-		_build_terrain()
-		_build_walls()
-		_build_grass_blades()
-		_spawn_entities()
-		_spawn_player()
+		# Named map: load all chunks covering the 100×100 tile map synchronously
+		const CHUNK_SIZE: int = 16
+		var max_cx: int = (WorldMap.MAP_WIDTH + CHUNK_SIZE - 1) / CHUNK_SIZE
+		var max_cz: int = (WorldMap.MAP_HEIGHT + CHUNK_SIZE - 1) / CHUNK_SIZE
+		for cz in range(max_cz):
+			for cx in range(max_cx):
+				_build_chunk_sync(Vector2i(cx, cz))
+		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
+		_last_player_chunk = Vector2i(
+			int(floor(_player.position.x / chunk_world)),
+			int(floor(_player.position.z / chunk_world)))
 
 	_update_hud()
 
@@ -218,7 +233,7 @@ func _exit_tree() -> void:
 	_chunk_task_ids.clear()
 
 func _update_hud() -> void:
-	if infinite:
+	if _is_infinite:
 		_map_label.text = "World: Infinite"
 	else:
 		_map_label.text = "Map: %s" % map_name
@@ -232,12 +247,32 @@ func _build_grass_blades_node() -> void:
 	_grass.name = "GrassBlades"
 	add_child(_grass)
 
-func _spawn_player_infinite() -> void:
+func _spawn_player() -> void:
 	var px: float = 3.0 * IsoConst.TILE_SIZE
 	var pz: float = 3.0 * IsoConst.TILE_SIZE
-	if SceneManager.save_manager.current_map == "infinite" and (SceneManager.save_manager.player_x != 0.0 or SceneManager.save_manager.player_z != 0.0):
-		px = SceneManager.save_manager.player_x
-		pz = SceneManager.save_manager.player_z
+
+	if _is_infinite:
+		if SceneManager.save_manager.current_map == map_name and \
+				(SceneManager.save_manager.player_x != 0.0 or SceneManager.save_manager.player_z != 0.0):
+			px = SceneManager.save_manager.player_x
+			pz = SceneManager.save_manager.player_z
+	else:
+		var default_px: float = (float(world_map.player_spawn_x) + 0.5) * IsoConst.TILE_SIZE \
+				if world_map.has_player_spawn() else 3.0 * IsoConst.TILE_SIZE
+		var default_pz: float = (float(world_map.player_spawn_z) + 0.5) * IsoConst.TILE_SIZE \
+				if world_map.has_player_spawn() else 3.0 * IsoConst.TILE_SIZE
+		if not target_door_id.is_empty():
+			var door := world_map.find_door_by_id(target_door_id)
+			px = door.get("x", default_px) if not door.is_empty() else default_px
+			pz = door.get("z", default_pz) if not door.is_empty() else default_pz
+		elif SceneManager.save_manager.current_map == map_name and \
+				(SceneManager.save_manager.player_x != 0.0 or SceneManager.save_manager.player_z != 0.0):
+			px = SceneManager.save_manager.player_x
+			pz = SceneManager.save_manager.player_z
+		else:
+			px = default_px
+			pz = default_pz
+
 	_player = _create_player_node()
 	_player.position = Vector3(px, get_terrain_height(px, pz) + 0.5, pz)
 	_entity_root.add_child(_player)
@@ -247,6 +282,8 @@ func _spawn_player_infinite() -> void:
 # Used by ChunkRenderer during terrain height computation so hills blend
 # seamlessly across chunk borders.
 func get_tile_global(wtx: int, wtz: int) -> int:
+	if not _is_infinite:
+		return world_map.get_tile(wtx, wtz)
 	var cx: int = int(floor(float(wtx) / float(IsoConst.CHUNK_SIZE)))
 	var cz: int = int(floor(float(wtz) / float(IsoConst.CHUNK_SIZE)))
 	var key := Vector2i(cx, cz)
@@ -258,6 +295,8 @@ func get_tile_global(wtx: int, wtz: int) -> int:
 	return chunk.get_tile(lx, lz)
 
 func _get_height_global(wtx: int, wtz: int) -> int:
+	if not _is_infinite:
+		return world_map.get_height(wtx, wtz)
 	var cx: int = int(floor(float(wtx) / float(IsoConst.CHUNK_SIZE)))
 	var cz: int = int(floor(float(wtz) / float(IsoConst.CHUNK_SIZE)))
 	var key := Vector2i(cx, cz)
@@ -270,13 +309,12 @@ func _get_height_global(wtx: int, wtz: int) -> int:
 
 # Compute terrain height at a world position using the shared smoothstep algorithm.
 func get_terrain_height(wx: float, wz: float) -> float:
-	var tile_fn: Callable = get_tile_global if infinite else world_map.get_tile
-	var height_fn: Callable = _get_height_global if infinite else world_map.get_height
-	if infinite:
+	if _is_infinite:
 		# Use the same radii as ChunkRenderer so entity Y matches the rendered terrain
-		return TerrainMath.get_height_at(wx, wz, tile_fn, height_fn,
+		return TerrainMath.get_height_at(wx, wz, get_tile_global, _get_height_global,
 				ChunkRenderer.CURVE_R, HILL_PEAK_H, ChunkRenderer.WALL_CURVE_R)
-	return TerrainMath.get_height_at(wx, wz, tile_fn, height_fn, HILL_RAMP_R, HILL_PEAK_H)
+	return TerrainMath.get_height_at(wx, wz, world_map.get_tile, world_map.get_height,
+			HILL_RAMP_R, HILL_PEAK_H)
 
 # Returns false if the chunk AABB is definitely outside the camera frustum.
 # Uses the standard separating-plane test: if all 8 corners of the chunk's
@@ -375,6 +413,20 @@ func _update_chunks() -> void:
 			if is_instance_valid(cnode):
 				cnode.queue_free()
 			_chest_nodes.erase(cid)
+		for d_data in chunk.doors:
+			var did: String = str(d_data.get("id", ""))
+			_active_door_data.erase(did)
+			var dnode: Node3D = _door_nodes.get(did) as Node3D
+			if is_instance_valid(dnode):
+				dnode.queue_free()
+			_door_nodes.erase(did)
+		for n_data in chunk.npcs:
+			var nid: String = str(n_data.get("id", ""))
+			_active_npc_data.erase(nid)
+			var nnode: Node3D = _npc_nodes.get(nid) as Node3D
+			if is_instance_valid(nnode):
+				nnode.queue_free()
+			_npc_nodes.erase(nid)
 
 	# Evict chunk data cache entries far beyond the unload radius to bound memory.
 	# Keep a margin beyond UNLOAD_RADIUS so neighbour tile lookups still hit cache.
@@ -393,6 +445,8 @@ func _update_chunks() -> void:
 # Ensure 3×3 neighbourhood of chunk key has tile-only data in the cache.
 # Fast: only noise for 16×16 tiles each, no mesh work.
 func _ensure_tile_data_around(key: Vector2i) -> void:
+	if not _is_infinite:
+		return  # named map reads tiles directly from world_map
 	for dz in range(-1, 2):
 		for dx in range(-1, 2):
 			var nkey := Vector2i(key.x + dx, key.y + dz)
@@ -471,7 +525,10 @@ func _kick_chunk_jobs() -> void:
 
 		# Ensure full chunk data (entities) is ready before handing to thread
 		if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
-			_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
+			if _is_infinite:
+				_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
+			else:
+				_chunk_data_cache[key] = world_map.get_chunk_data(key.x, key.y)
 		var chunk_data: RefCounted = _chunk_data_cache[key]
 
 		_chunk_data_pending[key] = true
@@ -504,6 +561,12 @@ func _commit_chunk_results() -> void:
 	for c_data in chunk.chests:
 		var cid: String = str(c_data.get("id", ""))
 		_active_chest_data[cid] = c_data
+	for d_data in chunk.doors:
+		var did: String = str(d_data.get("id", ""))
+		_active_door_data[did] = d_data
+	for n_data in chunk.npcs:
+		var nid: String = str(n_data.get("id", ""))
+		_active_npc_data[nid] = n_data
 
 	var renderer: ChunkRenderer = ChunkRenderer.new()
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
@@ -520,12 +583,21 @@ func _build_chunk_sync(key: Vector2i) -> void:
 	_ensure_tile_data_around(key)
 	var snap := _snapshot_tile_grid_for(key)
 	if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
-		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
+		if _is_infinite:
+			_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
+		else:
+			_chunk_data_cache[key] = world_map.get_chunk_data(key.x, key.y)
 	var chunk: RefCounted = _chunk_data_cache[key]
 	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3], snap[4])
 	for c_data in chunk.chests:
 		var cid: String = str(c_data.get("id", ""))
 		_active_chest_data[cid] = c_data
+	for d_data in chunk.doors:
+		var did: String = str(d_data.get("id", ""))
+		_active_door_data[did] = d_data
+	for n_data in chunk.npcs:
+		var nid: String = str(n_data.get("id", ""))
+		_active_npc_data[nid] = n_data
 	var renderer: ChunkRenderer = ChunkRenderer.new()
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
 	add_child(renderer)
@@ -543,9 +615,19 @@ func register_chest(cid: String, node: Node3D, c_data: Dictionary) -> void:
 	_chest_nodes[cid] = node
 	_active_chest_data[cid] = c_data
 
-# Find nearest enemy/chest — only checks the player's chunk + 8 neighbours
-# instead of iterating every loaded entity globally.
-func _find_nearby_enemy_infinite(px: float, pz: float, range_dist: float) -> Node3D:
+# Called by ChunkRenderer after spawning a door
+func register_door(did: String, node: Node3D, d_data: Dictionary) -> void:
+	_door_nodes[did] = node
+	_active_door_data[did] = d_data
+
+# Called by ChunkRenderer after spawning an NPC
+func register_npc(nid: String, node: Node3D, n_data: Dictionary) -> void:
+	_npc_nodes[nid] = node
+	_active_npc_data[nid] = n_data
+
+# Find nearest entities — checks the player's chunk + 8 neighbours for enemies/chests;
+# scans active data dicts for doors and NPCs.
+func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
 	var range_sq: float = range_dist * range_dist
 	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 	var pcx: int = int(floor(px / chunk_world))
@@ -567,7 +649,7 @@ func _find_nearby_enemy_infinite(px: float, pz: float, range_dist: float) -> Nod
 					return node
 	return null
 
-func _find_nearby_chest_infinite(px: float, pz: float, range_dist: float) -> Dictionary:
+func _find_nearby_chest(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
 	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 	var pcx: int = int(floor(px / chunk_world))
@@ -589,33 +671,25 @@ func _find_nearby_chest_infinite(px: float, pz: float, range_dist: float) -> Dic
 					return d
 	return {}
 
-# ── Named-map (bounded) path ───────────────────────────────────────────────
+func _find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
+	for did in _active_door_data:
+		var d: Dictionary = _active_door_data[did]
+		var ddx: float = float(d.get("x", 0.0)) - px
+		var ddz: float = float(d.get("z", 0.0)) - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return d
+	return {}
 
-func _build_grass_blades() -> void:
-	_grass = GrassBlades.new()
-	_grass.name = "GrassBlades"
-	add_child(_grass)
-	_grass.build(world_map)
-
-func _build_terrain() -> void:
-	var nvx: int = WorldMap.MAP_WIDTH  * TERRAIN_VDENSITY + 1
-	var nvz: int = WorldMap.MAP_HEIGHT * TERRAIN_VDENSITY + 1
-	var step: float = IsoConst.TILE_SIZE / float(TERRAIN_VDENSITY)
-
-	var hfield: PackedFloat32Array = TerrainMath.compute_height_field(
-			world_map.get_tile, world_map.get_height, 0.0, 0.0,
-			nvx, nvz, step, HILL_RAMP_R, HILL_PEAK_H)
-
-	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
-			hfield, world_map.get_tile, 0.0, 0.0,
-			nvx, nvz, step, HILL_PEAK_H)
-
-	var mi := MeshInstance3D.new()
-	mi.mesh = terrain_res["mesh"]
-	mi.material_override = _make_terrain_material()
-	_tile_meshes.add_child(mi)
-
-	_build_terrain_collision(terrain_res["hmap"])
+func _find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
+	for nid in _active_npc_data:
+		var n: Dictionary = _active_npc_data[nid]
+		var ddx: float = float(n.get("x", 0.0)) - px
+		var ddz: float = float(n.get("z", 0.0)) - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return n
+	return {}
 
 func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
@@ -628,130 +702,10 @@ func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	mat.set_shader_parameter("uv_scale", 0.5)
 	return mat
 
-func _build_terrain_collision(hmap: HeightMapShape3D) -> void:
-	var col := CollisionShape3D.new()
-	col.shape = hmap
-	var body := StaticBody3D.new()
-	body.name = "TerrainCollision"
-	body.collision_layer = 2   # terrain layer
-	body.collision_mask  = 0   # terrain doesn't need to detect others
-	# HeightMapShape3D is centered on its own origin
-	var map_world_x: float = WorldMap.MAP_WIDTH  * IsoConst.TILE_SIZE
-	var map_world_z: float = WorldMap.MAP_HEIGHT * IsoConst.TILE_SIZE
-	body.position = Vector3(map_world_x * 0.5, 0.0, map_world_z * 0.5)
-	body.add_child(col)
-	add_child(body)
-
-func _build_walls() -> void:
-	# Wall visuals are now part of the terrain mesh (smooth mounds like hills).
-	# Only collision boxes are needed here.
-	var wall_body := StaticBody3D.new()
-	wall_body.name = "WallCollision"
-	wall_body.collision_layer = 4
-	wall_body.collision_mask  = 0
-
-	for tz in range(WorldMap.MAP_HEIGHT):
-		for tx in range(WorldMap.MAP_WIDTH):
-			if world_map.get_tile(tx, tz) != WorldMap.TILE_WALL:
-				continue
-			var h: int = max(1, world_map.get_height(tx, tz))
-			var top_y: float = float(h) * IsoConst.WALL_FACE_H
-			var x0: float = float(tx) * IsoConst.TILE_SIZE
-			var z0: float = float(tz) * IsoConst.TILE_SIZE
-			var col := CollisionShape3D.new()
-			var box := BoxShape3D.new()
-			box.size = Vector3(IsoConst.TILE_SIZE, top_y, IsoConst.TILE_SIZE)
-			col.shape = box
-			col.position = Vector3(x0 + IsoConst.TILE_SIZE * 0.5, top_y * 0.5, z0 + IsoConst.TILE_SIZE * 0.5)
-			wall_body.add_child(col)
-
-	if wall_body.get_child_count() > 0:
-		_wall_meshes.add_child(wall_body)
-
-func flush_save_position() -> void:
-	if _player:
-		var save_map: String = "infinite" if infinite else map_name
-		SceneManager.save_manager.update_position(save_map, _player.position.x, _player.position.z)
-
-func _spawn_player() -> void:
-	var px: float
-	var pz: float
-
-	if not target_door_id.is_empty():
-		var door := world_map.find_door_by_id(target_door_id)
-		if not door.is_empty():
-			px = door["x"]
-			pz = door["z"]
-		else:
-			px = _get_default_px()
-			pz = _get_default_pz()
-	elif SceneManager.save_manager.current_map == map_name and (SceneManager.save_manager.player_x != 0.0 or SceneManager.save_manager.player_z != 0.0):
-		px = SceneManager.save_manager.player_x
-		pz = SceneManager.save_manager.player_z
-	else:
-		px = _get_default_px()
-		pz = _get_default_pz()
-
-	_player = _create_player_node()
-	_player.position = Vector3(px, get_terrain_height(px, pz) + 0.5, pz)
-	_entity_root.add_child(_player)
-	_camera.position = _player.position + Vector3(20, 20, 20)
-
-func _get_default_px() -> float:
-	if world_map.has_player_spawn():
-		return world_map.player_spawn_x * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-	return 3.0 * IsoConst.TILE_SIZE
-
-func _get_default_pz() -> float:
-	if world_map.has_player_spawn():
-		return world_map.player_spawn_z * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-	return 3.0 * IsoConst.TILE_SIZE
-
 func _create_player_node() -> CharacterBody3D:
 	var p: CharacterBody3D = _PlayerScene.instantiate()
 	p.add_to_group("player")
 	return p
-
-func _spawn_entities() -> void:
-	for e_data in world_map.enemies:
-		var eid: String = str(e_data.get("id", ""))
-		if SceneManager.save_manager.is_enemy_defeated(eid):
-			continue
-		if eid == SceneManager.save_manager.in_battle_enemy_id:
-			continue  # being fought right now — don't spawn a duplicate
-		_spawn_enemy(e_data)
-	for c_data in world_map.chests:
-		var cid: String = str(c_data.get("id", ""))
-		if SceneManager.save_manager.is_chest_opened(cid):
-			c_data["opened"] = true
-		_spawn_chest(c_data)
-	for d_data in world_map.doors:
-		_spawn_door(d_data)
-	for n_data in world_map.npcs:
-		_spawn_npc(n_data)
-
-func _spawn_enemy(e_data: Dictionary) -> void:
-	var node: Node3D = TerrainMath.spawn_entity(_EnemyScene, e_data, 0.5, _entity_root, self)
-	if node.has_method("set_player") and _player:
-		node.set_player(_player)
-	_enemy_nodes[e_data["id"]] = node
-
-func _spawn_chest(c_data: Dictionary) -> void:
-	var node: Node3D = TerrainMath.spawn_entity(_ChestScene, c_data, 0.25, _entity_root, self)
-	_chest_nodes[c_data["id"]] = node
-
-func _spawn_npc(n_data: Dictionary) -> void:
-	var node: Node3D = _TownspersonScene.instantiate()
-	var ny: float = get_terrain_height(float(n_data["x"]), float(n_data["z"])) + 0.5
-	node.position = Vector3(n_data["x"], ny, n_data["z"])
-	if node.has_method("init_from_data"):
-		node.init_from_data(n_data)
-	_entity_root.add_child(node)
-	_npc_nodes[n_data["id"]] = node
-
-func _spawn_door(d_data: Dictionary) -> void:
-	var node: Node3D = TerrainMath.spawn_entity(_DoorScene, d_data, 0.75, _entity_root, self)
-	_door_nodes[d_data["id"]] = node
 
 # ── Day / Night cycle ──────────────────────────────────────────────────────
 
@@ -841,7 +795,7 @@ func _process(delta: float) -> void:
 		if _dialogue_timer <= 0.0:
 			_dialogue_label.hide()
 
-	if infinite:
+	if _is_infinite:
 		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 		var pcx: int = int(floor(_player.position.x / chunk_world))
 		var pcz: int = int(floor(_player.position.z / chunk_world))
@@ -875,8 +829,7 @@ func _process(delta: float) -> void:
 	var cur_pos := Vector2(_player.position.x, _player.position.z)
 	if cur_pos.distance_squared_to(_last_save_pos) > 1.0:
 		_last_save_pos = cur_pos
-		var save_map: String = "infinite" if infinite else map_name
-		SceneManager.save_manager.update_position(save_map, _player.position.x, _player.position.z)
+		SceneManager.save_manager.update_position(map_name, _player.position.x, _player.position.z)
 
 	# Throttle interaction checks — no need to scan every frame
 	_interact_timer += delta
@@ -890,23 +843,14 @@ func _process(delta: float) -> void:
 func _check_interactions() -> void:
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
-
-	if infinite:
-		var enemy := _find_nearby_enemy_infinite(px, pz, IsoConst.INTERACT_RANGE)
-		var chest := _find_nearby_chest_infinite(px, pz, IsoConst.INTERACT_RANGE)
-		if enemy != null or not chest.is_empty():
-			_interact_label.show()
-		else:
-			_interact_label.hide()
+	var enemy := _find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
+	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
+	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE)
+	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
+	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty():
+		_interact_label.show()
 	else:
-		var door := world_map.find_nearby_door(px, pz, IsoConst.INTERACT_RANGE)
-		var enemy := world_map.find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
-		var chest := world_map.find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
-		var npc := world_map.find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
-		if not door.is_empty() or not enemy.is_empty() or not chest.is_empty() or not npc.is_empty():
-			_interact_label.show()
-		else:
-			_interact_label.hide()
+		_interact_label.hide()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("inventory"):
@@ -919,26 +863,7 @@ func _handle_interact() -> void:
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
 
-	if infinite:
-		var enemy := _find_nearby_enemy_infinite(px, pz, IsoConst.INTERACT_RANGE)
-		if enemy != null and enemy.has_method("engage"):
-			enemy.engage()
-			return
-		var chest := _find_nearby_chest_infinite(px, pz, IsoConst.INTERACT_RANGE)
-		if not chest.is_empty() and not chest.get("opened", false):
-			chest["opened"] = true
-			var cid: String = str(chest.get("id", ""))
-			SceneManager.save_manager.mark_chest_opened(cid)
-			var node := _chest_nodes.get(cid) as Node3D
-			if node and node.has_method("mark_opened"):
-				node.mark_opened()
-			var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
-			_spawn_card_items(chest.get("card_ids", []), chest_pos)
-			_spawn_coin_piles(chest_pos)
-		return
-
-	# Named-map path
-	var door := world_map.find_nearby_door(px, pz, IsoConst.INTERACT_RANGE)
+	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE)
 	if not door.is_empty():
 		var target_map: String = door.get("target_map", "")
 		var tdoor: String = door.get("target_door_id", "")
@@ -948,20 +873,17 @@ func _handle_interact() -> void:
 			SceneManager.enter_map(target_map, tdoor)
 		return
 
-	var nearby_enemy := world_map.find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
-	if not nearby_enemy.is_empty():
-		var eid: String = str(nearby_enemy.get("id", ""))
-		var enode := _enemy_nodes.get(eid) as Node3D
-		if enode and enode.has_method("engage"):
-			enode.engage()
+	var enemy := _find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
+	if enemy != null and enemy.has_method("engage"):
+		enemy.engage()
 		return
 
-	var chest := world_map.find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
+	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
 	if not chest.is_empty() and not chest.get("opened", false):
 		chest["opened"] = true
 		var cid: String = str(chest.get("id", ""))
 		SceneManager.save_manager.mark_chest_opened(cid)
-		var node := _chest_nodes.get(chest["id"]) as Node3D
+		var node := _chest_nodes.get(cid) as Node3D
 		if node and node.has_method("mark_opened"):
 			node.mark_opened()
 		var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
@@ -969,7 +891,7 @@ func _handle_interact() -> void:
 		_spawn_coin_piles(chest_pos)
 		return
 
-	var npc := world_map.find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
+	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	if not npc.is_empty():
 		_show_dialogue(str(npc.get("dialogue", "...")))
 
