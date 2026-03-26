@@ -12,4 +12,4 @@ Items are roughly ordered by priority — foundational / bug-preventing work fir
 - [ ] **Reduce autoloads** — remove `CardRegistry`, `EnemyRegistry`, `SaveManager` from global autoloads and inject them explicitly into scenes that need them; only `GameBus` and `IsoConst` justify global scope
 - [ ] **SceneManager as formal state machine** — replace the map-stack + overlay approach with defined states (`WorldState`, `BattleState`, `MenuState`) and explicit enter/exit transitions
 - [ ] **Test world generation** — make `InfiniteWorldGen`, `TerrainMath`, and `ChunkData` have zero `Node` dependencies and add unit test coverage on par with the battle system
-- [ ] **Single grass shader uniform source** — replace per-instance `set_shader_parameter` calls in `GrassBlades.gd` with Godot global shader parameters so all chunks react to world state without per-chunk updates
+- [x] **Single grass shader uniform source** — replace per-instance `set_shader_parameter` calls in `GrassBlades.gd` with Godot global shader parameters so all chunks react to world state without per-chunk updates

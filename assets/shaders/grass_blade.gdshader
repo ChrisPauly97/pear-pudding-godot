@@ -11,18 +11,20 @@ uniform vec4  color_tip        : source_color = vec4(0.46, 0.64, 0.24, 1.0);
 uniform float wind_strength    : hint_range(0.0, 1.0) = 0.28;
 uniform vec2  wind_direction                          = vec2(1.0, 0.35);
 
-// Player position for immediate blade push (only applied while moving)
-uniform vec3  player_pos                               = vec3(-9999.0, 0.0, -9999.0);
-uniform vec2  player_move_dir  = vec2(0.0);
-uniform float player_radius    : hint_range(0.0, 2.0)  = 0.3;
-uniform float player_push      : hint_range(0.0, 2.0)  = 0.5;
+// Player position for immediate blade push (only applied while moving).
+// Global so any system can update them once and all chunks see the new value.
+global uniform vec3  player_pos;
+global uniform vec2  player_move_dir;
+uniform float player_radius : hint_range(0.0, 2.0) = 0.3;
+uniform float player_push   : hint_range(0.0, 2.0) = 0.5;
 
-// Persistent trample map (sliding window centred near the player)
-uniform sampler2D trample_map : filter_linear;
-uniform float     trample_map_size = 128.0;
-uniform float     trample_origin_x = -64.0;
-uniform float     trample_origin_z = -64.0;
-uniform float     trample_push     : hint_range(0.0, 1.5) = 0.8;
+// Persistent trample map (sliding window centred near the player).
+// Global so the window-origin shift propagates to all chunks in one call.
+global uniform sampler2D trample_map;
+global uniform float     trample_origin_x;
+global uniform float     trample_origin_z;
+uniform float trample_map_size = 128.0;
+uniform float trample_push     : hint_range(0.0, 1.5) = 0.8;
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
