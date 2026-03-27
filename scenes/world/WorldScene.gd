@@ -97,6 +97,7 @@ const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 var _fill_light: DirectionalLight3D
 
 var _dialogue_label: Label
+var _coord_label: Label
 var _dialogue_timer: float = 0.0
 const DIALOGUE_DURATION: float = 4.0
 
@@ -242,6 +243,15 @@ func _ready() -> void:
 	_dialogue_label.position = Vector2(vp.x * 0.2, vp.y * 0.78)
 	_dialogue_label.hide()
 	_hud.add_child(_dialogue_label)
+
+	_coord_label = Label.new()
+	_coord_label.add_theme_font_size_override("font_size", font_size)
+	_coord_label.add_theme_color_override("font_color", Color.WHITE)
+	_coord_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	_coord_label.add_theme_constant_override("shadow_offset_x", 1)
+	_coord_label.add_theme_constant_override("shadow_offset_y", 1)
+	_coord_label.position = Vector2(vh * 0.01, vh * 0.11)
+	_hud.add_child(_coord_label)
 
 func _exit_tree() -> void:
 	# Wait for any in-flight worker tasks before the GDScript instance is freed.
@@ -809,6 +819,10 @@ func _process(delta: float) -> void:
 	if _player == null:
 		return
 	_camera.position = _snap_to_pixel(_player.position + Vector3(20, 20, 20))
+	if _coord_label:
+		var tx: int = int(_player.position.x / IsoConst.TILE_SIZE)
+		var tz: int = int(_player.position.z / IsoConst.TILE_SIZE)
+		_coord_label.text = "tile (%d, %d)" % [tx, tz]
 	_day_night_timer += delta
 	if _day_night_timer >= DAY_NIGHT_INTERVAL:
 		_update_day_night(_day_night_timer)
