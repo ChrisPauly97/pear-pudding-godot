@@ -167,4 +167,4 @@ HEIGHTS
 15,16,2
 16,16,2
 SPAWN 13 19
-DOOR 27 33 house_1 door_1
+DOOR 13 18 house_1 door_1

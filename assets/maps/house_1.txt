@@ -134,5 +134,5 @@ HEIGHTS
 13,13,2
 14,13,2
 SPAWN 10 12
-NPC 21 19 Welcome, traveller! Make yourself at home.
-DOOR 21 27 __exit__
+NPC 10 9 Welcome, traveller! Make yourself at home.
+DOOR 10 13 __exit__
