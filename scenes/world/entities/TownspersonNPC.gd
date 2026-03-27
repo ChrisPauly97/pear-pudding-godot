@@ -45,6 +45,9 @@ func _ready() -> void:
 	right_leg.position = Vector3(0.23, -0.4, 0.0)
 	add_child(right_leg)
 
+	# npc_data is set by init_from_data() before add_child(), so it's ready here
+	_add_name_label()
+
 static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
@@ -53,7 +56,6 @@ static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
 
 func init_from_data(data: Dictionary) -> void:
 	npc_data = data
-	_add_name_label()
 
 func _add_name_label() -> void:
 	var npc_name: String = _extract_name()

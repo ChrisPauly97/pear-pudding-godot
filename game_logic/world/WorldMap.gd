@@ -30,10 +30,13 @@ func _init(p_name: String = "main") -> void:
 	var user_path := "user://maps/%s.txt" % map_name
 	var res_path := "res://assets/maps/%s.txt" % map_name
 
-	if FileAccess.file_exists(user_path):
-		load_from_file(user_path)
-	elif FileAccess.file_exists(res_path):
+	# Bundled maps (res://) are authoritative — always prefer them over any
+	# user:// copy, which may be stale (e.g. saved before NPCs were added).
+	# User:// overrides only apply for custom maps with no bundled version.
+	if FileAccess.file_exists(res_path):
 		load_from_file(res_path)
+	elif FileAccess.file_exists(user_path):
+		load_from_file(user_path)
 	else:
 		_build_default_map()
 
@@ -173,6 +176,10 @@ func save_to_file(path: String) -> void:
 	for c in chests:
 		var card_str := ",".join(c.get("card_ids", []))
 		f.store_line("CHEST %d %d %s" % [int(c["x"] / TILE_SIZE), int(c["z"] / TILE_SIZE), card_str])
+
+	for n in npcs:
+		var dialogue: String = str(n.get("dialogue", "..."))
+		f.store_line("NPC %d %d %s" % [int(n["x"] / TILE_SIZE), int(n["z"] / TILE_SIZE), dialogue])
 
 	for d in doors:
 		var target: String = d.get("target_map", "")
