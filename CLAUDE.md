@@ -287,3 +287,25 @@ godot --headless --path . -s tests/runner.gd
 ```
 
 Exit code 0 means all tests passed, 1 means one or more failed.
+
+---
+
+## Documentation: docs/ Directory
+
+Feature documentation lives in `docs/`. Each file covers **Key Features**, **How It Works**, **Integrations with Other Features**, and **Asset Requirements**.
+
+When adding a new major feature or system, create a corresponding `.md` file in `docs/` and add a row to this table.
+
+| File | Feature |
+|---|---|
+| [docs/docsplan.md](docs/docsplan.md) | Documentation index and architecture overview |
+| [docs/battle-system.md](docs/battle-system.md) | TCG card battles: game state, mana, boards, AI |
+| [docs/world-generation.md](docs/world-generation.md) | Infinite chunks, 5 biomes, ruins, entity spawning |
+| [docs/named-maps-and-dungeons.md](docs/named-maps-and-dungeons.md) | Text map format, DungeonGen, map stack navigation |
+| [docs/terrain-rendering.md](docs/terrain-rendering.md) | TerrainMath mesh building, height fields, shaders, grass |
+| [docs/camera-and-player.md](docs/camera-and-player.md) | Isometric camera math, WASD movement, chunk streaming |
+| [docs/inventory-and-deck.md](docs/inventory-and-deck.md) | Card collection, deck builder UI, chest drops |
+| [docs/save-system.md](docs/save-system.md) | JSON persistence, dirty flag, field migration |
+| [docs/enemies-and-npcs.md](docs/enemies-and-npcs.md) | Enemy types, wander/track/engage AI, NPC dialogue |
+| [docs/ui-and-scene-management.md](docs/ui-and-scene-management.md) | Scene stack, battle overlay, menus, HUD, day/night |
+| [docs/signals-and-constants.md](docs/signals-and-constants.md) | GameBus signals, IsoConst values, decoupling patterns |
