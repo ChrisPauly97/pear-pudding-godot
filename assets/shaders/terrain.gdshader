@@ -88,13 +88,12 @@ void fragment() {
 	bool is_wall = v_wall > 0.5;
 
 	if (is_wall) {
-		base_col = texture(grass_texture, uv_xz).rgb;
-		if (t_side > 0.01) {
-			base_col = mix(base_col, texture(wall_side_texture, uv_xz).rgb, t_side);
-		}
-		if (t_top > 0.01) {
-			base_col = mix(base_col, texture(wall_top_texture, uv_xz).rgb, t_top);
-		}
+		// Use surface normal to pick side vs top — no grass on wall tiles.
+		// slope=0: flat top → wall_top_texture; slope=1: vertical face → wall_side_texture.
+		float wall_slope = 1.0 - clamp(v_normal_world.y, 0.0, 1.0);
+		float t_wall_side = smoothstep(0.3, 0.7, wall_slope);
+		base_col = mix(texture(wall_top_texture, uv_xz).rgb,
+		               texture(wall_side_texture, uv_xz).rgb, t_wall_side);
 	} else if (t_side < 0.01 && t_top < 0.01) {
 		// Pure flat grass — most common case
 		base_col = texture(grass_texture, uv_xz).rgb;

@@ -296,6 +296,134 @@ static func build_terrain_mesh(
 
 	return { "mesh": terrain_mesh, "hmap": hmap }
 
+# ── Wall face mesh building ───────────────────────────────────────────────
+
+## Build explicit vertical quad geometry for every exposed wall-to-non-wall
+## tile boundary within the chunk.  The resulting ArrayMesh should be rendered
+## with the terrain ShaderMaterial; the baked horizontal normals (slope = 1.0)
+## cause the shader to select wall_side_texture instead of grass.
+##
+## tile_lookup:     Callable(ttx: int, ttz: int) -> int   — global tile coords
+## height_lookup:   Callable(ttx: int, ttz: int) -> int   — global tile coords
+## origin_x, origin_z: world-space origin of the chunk
+## chunk_tiles_x, chunk_tiles_z: tile count per axis (normally 16)
+static func build_wall_face_mesh(
+		tile_lookup: Callable,
+		height_lookup: Callable,
+		origin_x: float, origin_z: float,
+		chunk_tiles_x: int, chunk_tiles_z: int) -> ArrayMesh:
+	var verts   := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs     := PackedVector2Array()
+	var colors  := PackedColorArray()
+	var indices := PackedInt32Array()
+
+	var tile_min_x: int = int(round(origin_x / IsoConst.TILE_SIZE))
+	var tile_min_z: int = int(round(origin_z / IsoConst.TILE_SIZE))
+	# wall colour: v_blend=0 (unused), v_wall=1 (is_wall flag), alpha=1
+	var wall_col := Color(0.0, 1.0, 0.0, 1.0)
+
+	for local_tz in range(chunk_tiles_z):
+		for local_tx in range(chunk_tiles_x):
+			var tx: int = tile_min_x + local_tx
+			var tz: int = tile_min_z + local_tz
+			if tile_lookup.call(tx, tz) != IsoConst.TILE_WALL:
+				continue
+			var wh: int = height_lookup.call(tx, tz)
+			var top_y: float = minf(float(maxi(1, wh)) * IsoConst.WALL_FACE_H, WALL_MAX_H)
+
+			# Local positions relative to chunk origin
+			var lx0: float = float(local_tx) * IsoConst.TILE_SIZE
+			var lx1: float = float(local_tx + 1) * IsoConst.TILE_SIZE
+			var lz0: float = float(local_tz) * IsoConst.TILE_SIZE
+			var lz1: float = float(local_tz + 1) * IsoConst.TILE_SIZE
+
+			# -X face (left): exposed when the tile to the left is not a wall
+			if tile_lookup.call(tx - 1, tz) != IsoConst.TILE_WALL:
+				var bi: int = verts.size()
+				verts.append(Vector3(lx0, 0.0,   lz0))
+				verts.append(Vector3(lx0, 0.0,   lz1))
+				verts.append(Vector3(lx0, top_y, lz0))
+				verts.append(Vector3(lx0, top_y, lz1))
+				normals.append(Vector3(-1.0, 0.0, 0.0))
+				normals.append(Vector3(-1.0, 0.0, 0.0))
+				normals.append(Vector3(-1.0, 0.0, 0.0))
+				normals.append(Vector3(-1.0, 0.0, 0.0))
+				uvs.append(Vector2(lx0, lz0)); uvs.append(Vector2(lx0, lz1))
+				uvs.append(Vector2(lx0, lz0)); uvs.append(Vector2(lx0, lz1))
+				colors.append(wall_col); colors.append(wall_col)
+				colors.append(wall_col); colors.append(wall_col)
+				indices.append(bi);     indices.append(bi + 2); indices.append(bi + 1)
+				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
+
+			# +X face (right)
+			if tile_lookup.call(tx + 1, tz) != IsoConst.TILE_WALL:
+				var bi: int = verts.size()
+				verts.append(Vector3(lx1, 0.0,   lz1))
+				verts.append(Vector3(lx1, 0.0,   lz0))
+				verts.append(Vector3(lx1, top_y, lz1))
+				verts.append(Vector3(lx1, top_y, lz0))
+				normals.append(Vector3(1.0, 0.0, 0.0))
+				normals.append(Vector3(1.0, 0.0, 0.0))
+				normals.append(Vector3(1.0, 0.0, 0.0))
+				normals.append(Vector3(1.0, 0.0, 0.0))
+				uvs.append(Vector2(lx1, lz1)); uvs.append(Vector2(lx1, lz0))
+				uvs.append(Vector2(lx1, lz1)); uvs.append(Vector2(lx1, lz0))
+				colors.append(wall_col); colors.append(wall_col)
+				colors.append(wall_col); colors.append(wall_col)
+				indices.append(bi);     indices.append(bi + 2); indices.append(bi + 1)
+				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
+
+			# -Z face (near)
+			if tile_lookup.call(tx, tz - 1) != IsoConst.TILE_WALL:
+				var bi: int = verts.size()
+				verts.append(Vector3(lx1, 0.0,   lz0))
+				verts.append(Vector3(lx0, 0.0,   lz0))
+				verts.append(Vector3(lx1, top_y, lz0))
+				verts.append(Vector3(lx0, top_y, lz0))
+				normals.append(Vector3(0.0, 0.0, -1.0))
+				normals.append(Vector3(0.0, 0.0, -1.0))
+				normals.append(Vector3(0.0, 0.0, -1.0))
+				normals.append(Vector3(0.0, 0.0, -1.0))
+				uvs.append(Vector2(lx1, lz0)); uvs.append(Vector2(lx0, lz0))
+				uvs.append(Vector2(lx1, lz0)); uvs.append(Vector2(lx0, lz0))
+				colors.append(wall_col); colors.append(wall_col)
+				colors.append(wall_col); colors.append(wall_col)
+				indices.append(bi);     indices.append(bi + 2); indices.append(bi + 1)
+				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
+
+			# +Z face (far)
+			if tile_lookup.call(tx, tz + 1) != IsoConst.TILE_WALL:
+				var bi: int = verts.size()
+				verts.append(Vector3(lx0, 0.0,   lz1))
+				verts.append(Vector3(lx1, 0.0,   lz1))
+				verts.append(Vector3(lx0, top_y, lz1))
+				verts.append(Vector3(lx1, top_y, lz1))
+				normals.append(Vector3(0.0, 0.0, 1.0))
+				normals.append(Vector3(0.0, 0.0, 1.0))
+				normals.append(Vector3(0.0, 0.0, 1.0))
+				normals.append(Vector3(0.0, 0.0, 1.0))
+				uvs.append(Vector2(lx0, lz1)); uvs.append(Vector2(lx1, lz1))
+				uvs.append(Vector2(lx0, lz1)); uvs.append(Vector2(lx1, lz1))
+				colors.append(wall_col); colors.append(wall_col)
+				colors.append(wall_col); colors.append(wall_col)
+				indices.append(bi);     indices.append(bi + 2); indices.append(bi + 1)
+				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
+
+	if verts.is_empty():
+		return ArrayMesh.new()
+
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_COLOR]  = colors
+	arrays[Mesh.ARRAY_INDEX]  = indices
+	var wall_mesh := ArrayMesh.new()
+	wall_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return wall_mesh
+
 # ── Entity spawning ───────────────────────────────────────────────────────
 
 static func spawn_entity(scene: PackedScene, data: Dictionary, y_offset: float,
