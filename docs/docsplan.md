@@ -23,6 +23,7 @@ This directory contains one Markdown file per major game feature. Each file foll
 | [enemies-and-npcs.md](enemies-and-npcs.md) | Enemy types, wander/track AI, engagement trigger, NPC dialogue |
 | [ui-and-scene-management.md](ui-and-scene-management.md) | Scene stack, battle overlay, menus, HUD, day/night, map editor |
 | [signals-and-constants.md](signals-and-constants.md) | GameBus signal hub, IsoConst values, decoupling architecture |
+| [story.md](story.md) | Story bible: characters, chapters, NPC dialogue, named map specs |
 
 ---
 
