@@ -60,7 +60,7 @@ func start_new_game_with_biome(biome_id: int) -> void:
 	save_manager.world_seed = _BIOME_SEEDS[clamp(biome_id, 0, _BIOME_SEEDS.size() - 1)]
 	save_manager.starting_biome = biome_id
 	save_manager.new_game()
-	enter_map("main", "")
+	enter_map("madrian", "")
 
 func continue_game() -> void:
 	if not save_manager.load_save():
