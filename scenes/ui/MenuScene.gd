@@ -31,7 +31,7 @@ func _on_continue() -> void:
 	SceneManager.continue_game()
 
 func _on_start() -> void:
-	SceneManager.start_new_game()
+	get_tree().change_scene_to_file("res://scenes/ui/BiomeSelectionScene.tscn")
 
 func _on_editor() -> void:
 	get_tree().change_scene_to_file("res://scenes/ui/MapEditorScene.tscn")

@@ -33,6 +33,10 @@ var in_battle_enemy_id: String = ""
 # Day/night cycle position (0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset)
 var time_of_day: float = 0.4
 
+# World generation — set when starting a new game from the biome selection screen
+var world_seed: int = 42
+var starting_biome: int = 0   # BiomeDef.GRASSLANDS
+
 var _loaded: bool = false
 var _dirty: bool = false
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
@@ -79,10 +83,12 @@ func new_game() -> void:
 	pending_battle_enemy_data = {}
 	in_battle_enemy_id = ""
 	time_of_day = 0.4
+	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
+	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 1
+const CURRENT_SAVE_VERSION: int = 2
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -91,10 +97,20 @@ static func _migrate_v0_to_v1(data: Dictionary) -> void:
 		data["owned_cards"] = data.get("player_deck", [])
 	data["version"] = 1
 
+# _migrate_v1_to_v2: backfill world_seed and starting_biome for old saves.
+static func _migrate_v1_to_v2(data: Dictionary) -> void:
+	if not data.has("world_seed"):
+		data["world_seed"] = 42
+	if not data.has("starting_biome"):
+		data["starting_biome"] = 0
+	data["version"] = 2
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
 		_migrate_v0_to_v1(data)
+	if ver < 2:
+		_migrate_v1_to_v2(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -121,6 +137,8 @@ func load_save() -> bool:
 	pending_battle_enemy_data = pbed if pbed is Dictionary else {}
 	in_battle_enemy_id = str(data.get("in_battle_enemy_id", ""))
 	time_of_day = float(data.get("time_of_day", 0.4))
+	world_seed = int(data.get("world_seed", 42))
+	starting_biome = int(data.get("starting_biome", 0))
 	_loaded = true
 	return true
 
@@ -142,6 +160,8 @@ func save() -> void:
 		"pending_battle_enemy_data": pending_battle_enemy_data,
 		"in_battle_enemy_id": in_battle_enemy_id,
 		"time_of_day": time_of_day,
+		"world_seed": world_seed,
+		"starting_biome": starting_biome,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:

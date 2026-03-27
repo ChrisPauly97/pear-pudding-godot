@@ -33,6 +33,10 @@ static func _get_noise(world_seed: int) -> FastNoiseLite:
 static var _biome_noise: FastNoiseLite
 static var _biome_noise_seed: int = -1
 
+# When >= 0, overrides the safe-zone biome so the player starts in the chosen biome.
+# Set by WorldScene._ready() from SaveManager.starting_biome before any chunks are generated.
+static var forced_start_biome: int = -1
+
 static func _get_biome_noise(world_seed: int) -> FastNoiseLite:
 	if _biome_noise != null and _biome_noise_seed == world_seed:
 		return _biome_noise
@@ -47,7 +51,8 @@ static func _get_biome_noise(world_seed: int) -> FastNoiseLite:
 static func biome_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> int:
 	var dist: int = abs(p_cx) + abs(p_cz)
 	if dist <= SAFE_ZONE_DIST:
-		return BiomeDef.GRASSLANDS
+		# Respect biome selection: use forced_start_biome if set, else default to Grasslands.
+		return forced_start_biome if forced_start_biome >= 0 else BiomeDef.GRASSLANDS
 	var n: float = _get_biome_noise(world_seed).get_noise_2d(float(p_cx), float(p_cz))
 	var v: float = (n + 1.0) * 0.5   # remap [-1,1] → [0,1]
 	return int(v * float(BiomeDef.COUNT)) % BiomeDef.COUNT

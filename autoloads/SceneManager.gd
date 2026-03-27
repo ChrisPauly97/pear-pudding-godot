@@ -49,8 +49,16 @@ func go_to_menu() -> void:
 	get_tree().change_scene_to_packed(_menu_scene_packed)
 	_state = State.MENU
 
+# Fixed world seeds — one per biome, giving each a distinct world layout.
+const _BIOME_SEEDS: Array[int] = [42, 73856135, 100033, 19349705, 294967337]
+
 func start_new_game() -> void:
+	start_new_game_with_biome(0)   # default: Grasslands
+
+func start_new_game_with_biome(biome_id: int) -> void:
 	_exit_world_cleanup()
+	save_manager.world_seed = _BIOME_SEEDS[clamp(biome_id, 0, _BIOME_SEEDS.size() - 1)]
+	save_manager.starting_biome = biome_id
 	save_manager.new_game()
 	enter_map("main", "")
 
