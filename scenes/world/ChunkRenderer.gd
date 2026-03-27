@@ -10,7 +10,7 @@ const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
 
 const TERRAIN_VDENSITY: int = 2
-const PLATEAU_H:        float = 1.8   # fallback hill height for tiles with no stored height
+const PLATEAU_H:        float = 1.5   # fallback hill height for tiles with no stored height
 const CURVE_R:          float = 3.5   # hill smoothstep radius (world units)
 const WALL_CURVE_R:     float = 0.4   # wall rise radius — sub-vertex-step so walls are near-vertical
 

@@ -101,7 +101,7 @@ var _dialogue_timer: float = 0.0
 const DIALOGUE_DURATION: float = 4.0
 
 # Terrain height constants — named-map path uses a wider ramp than chunks
-const HILL_PEAK_H:    float = 1.8
+const HILL_PEAK_H:    float = 1.5
 const HILL_RAMP_R:    float = 4.0
 const TERRAIN_VDENSITY: int = 2
 

@@ -85,7 +85,10 @@ void fragment() {
 	// Sample only the textures actually contributing to this fragment.
 	// Flat grass is the common case (~60-70% of terrain) — skip all other fetches.
 	vec3 base_col;
-	bool is_wall = v_wall > 0.5;
+	// Threshold 0.05 instead of 0.5 so the steep wall-base triangle
+	// (interpolated between is_wall=0 grass vertex and is_wall=1 wall vertex)
+	// is classified as wall and receives stone texture rather than grass/hill.
+	bool is_wall = v_wall > 0.05;
 
 	if (is_wall) {
 		// Use surface normal to pick side vs top — no grass on wall tiles.
