@@ -261,6 +261,7 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		_set_visibility_range(node)
 		if world_scene.has_method("register_npc"):
 			world_scene.register_npc(n_data["id"], node, n_data)
+		print("NPC spawned: ", n_data.get("id", "?"), " at world (", n_data["x"], ", ", n_data["z"], ")")
 
 const ENTITY_VISIBILITY_END: float = 50.0
 
