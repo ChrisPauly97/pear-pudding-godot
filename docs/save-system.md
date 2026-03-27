@@ -1,0 +1,123 @@
+# Save System
+
+## Key Features
+
+- Single JSON save file at `user://save.json` covering all player progress
+- Batched disk writes: changes are queued and flushed at most every 2 seconds (dirty flag pattern)
+- Automatic field migration: old saves missing new fields are backfilled with defaults on load
+- Tracks player deck, owned cards, position, map stack, defeated enemies, opened chests, coins, and world configuration
+- `SaveManager` is a global autoload — all systems read/write through it without touching the file directly
+
+---
+
+## How It Works
+
+### File Location and Format
+
+```
+user://save.json
+```
+
+`user://` resolves to a platform-specific user data directory (e.g. `~/.local/share/pear-pudding/` on Linux, `AppData/Roaming/` on Windows).
+
+The file is a flat JSON object:
+
+```json
+{
+  "player_deck": ["ghost", "ghost", "skeleton", "zombie"],
+  "owned_cards":  ["ghost", "ghost", "ghost", "skeleton", ...],
+  "current_map":  "main",
+  "player_x":     15.0,
+  "player_z":     22.0,
+  "map_stack":    [],
+  "defeated_enemies": ["enemy_cx2_cz1_0", "enemy_cx2_cz1_1"],
+  "opened_chests":    ["chest_cx3_cz0_0"],
+  "coins":         0,
+  "time_of_day":   0.42,
+  "world_seed":    839274,
+  "starting_biome": "grasslands"
+}
+```
+
+### Dirty Flag and Batched Writes
+
+```gdscript
+var _dirty: bool = false
+var _save_timer: float = 0.0
+const SAVE_INTERVAL: float = 2.0
+
+func mark_dirty() -> void:
+    _dirty = true
+
+func _process(delta: float) -> void:
+    if _dirty:
+        _save_timer += delta
+        if _save_timer >= SAVE_INTERVAL:
+            _flush()
+            _dirty = false
+            _save_timer = 0.0
+```
+
+Every mutating method (`add_card`, `set_player_position`, `mark_enemy_defeated`, etc.) calls `mark_dirty()`. The actual `FileAccess` write is deferred, preventing per-frame I/O.
+
+### Field Descriptions
+
+| Field | Type | Description |
+|---|---|---|
+| `player_deck` | `Array[String]` | Card IDs in the active battle deck |
+| `owned_cards` | `Array[String]` | All card IDs collected (one entry per copy) |
+| `current_map` | `String` | Name of the currently loaded map |
+| `player_x`, `player_z` | `float` | Last recorded player tile position |
+| `map_stack` | `Array[Dictionary]` | Nested map navigation history (see Named Maps doc) |
+| `defeated_enemies` | `Array[String]` | Unique IDs of enemies already beaten (prevents re-grinding) |
+| `opened_chests` | `Array[String]` | Unique IDs of opened chests |
+| `coins` | `int` | Currency balance (plumbed, not yet used in gameplay) |
+| `time_of_day` | `float` | 0–1 cycle position; restored into WorldScene on load |
+| `world_seed` | `int` | Fixes infinite world layout for this save |
+| `starting_biome` | `String` | Biome override for the player's safe starting zone |
+
+### Migration
+
+On `load()`, after parsing the JSON, `SaveManager._migrate(data)` checks for missing keys and inserts defaults:
+
+```gdscript
+func _migrate(data: Dictionary) -> void:
+    if not data.has("coins"):
+        data["coins"] = 0
+    if not data.has("time_of_day"):
+        data["time_of_day"] = 0.0
+    if not data.has("starting_biome"):
+        data["starting_biome"] = "grasslands"
+    # …add new fields here for future versions
+```
+
+This means any old save file continues to work after a game update.
+
+### New Game
+
+`SaveManager.new_game(biome: String)` resets all fields to defaults, sets `world_seed` to a fresh random integer, and sets `starting_biome`. The file is written immediately (not deferred) so the new state is committed before `WorldScene` loads.
+
+---
+
+## Integrations with Other Features
+
+| System | Direction | Details |
+|---|---|---|
+| **SceneManager** | Owner | Holds a reference to `SaveManager`; calls `save_position()` on map exit |
+| **BattleScene** | Reader | Reads `player_deck` at battle start to populate the player's draw pile |
+| **InventoryScene** | Read + Write | Reads/writes `owned_cards` and `player_deck` as the player edits their deck |
+| **WorldScene** | Reader + Writer | Reads `time_of_day`, `current_map`, `player_x/z` on load; writes position on unload |
+| **InfiniteWorldGen** | Reader | Reads `world_seed` and `starting_biome` to seed the deterministic chunk generator |
+| **Chest / EnemyNPC** | Writers | Call `mark_chest_opened(id)` / `mark_enemy_defeated(id)` to prevent respawn |
+| **MenuScene** | Trigger | "Continue" button calls `SaveManager.load()`; "New Game" calls `SaveManager.new_game()` |
+
+---
+
+## Asset Requirements
+
+| Asset | Path | Notes |
+|---|---|---|
+| `SaveManager.gd` | `autoloads/SaveManager.gd` | Autoload singleton; registered in `project.godot` |
+| Save file | `user://save.json` | Created/overwritten at runtime; not shipped with the game |
+
+No textures, shaders, or scene files are required by the save system itself.
