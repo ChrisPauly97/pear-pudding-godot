@@ -12,6 +12,7 @@ var doors: Array[Dictionary] = []
 var npcs: Array[Dictionary] = []
 var is_generated: bool = false
 var has_entities: bool = false
+var biome_id: int = 0
 
 func _init(p_cx: int = 0, p_cz: int = 0) -> void:
 	cx = p_cx
