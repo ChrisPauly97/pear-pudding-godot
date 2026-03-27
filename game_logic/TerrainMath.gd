@@ -20,17 +20,15 @@ const WALL_MAX_H: float = 10.0
 static func get_height_at(wx: float, wz: float,
 		tile_lookup: Callable, height_lookup: Callable,
 		curve_r: float, peak_h: float, wall_curve_r: float = -1.0) -> float:
-	var _wall_r: float = wall_curve_r if wall_curve_r > 0.0 else curve_r
-	var tile_check: int = int(ceil(maxf(curve_r, _wall_r) / IsoConst.TILE_SIZE)) + 1
+	# wall_curve_r is no longer used for height — walls are flat in the terrain
+	# mesh (y=0) and their vertical geometry comes from the wall face mesh.
+	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
 	var vtx: int = int(wx / IsoConst.TILE_SIZE)
 	var vtz: int = int(wz / IsoConst.TILE_SIZE)
 	var hill_r_sq: float = curve_r * curve_r
-	var wall_r_sq: float = _wall_r * _wall_r
 	var min_dist_sq_hill: float = hill_r_sq
-	var min_dist_sq_wall: float = wall_r_sq
 	var nearest_wall_sq: float = INF   # unbounded — for hill-suppression check
 	var nearest_hill_peak: float = peak_h
-	var nearest_wall_peak: float = 0.0
 	for dtz in range(-tile_check, tile_check + 1):
 		for dtx in range(-tile_check, tile_check + 1):
 			var ttx: int = vtx + dtx
@@ -51,10 +49,6 @@ static func get_height_at(wx: float, wz: float,
 			else:  # TILE_WALL
 				if dist_sq < nearest_wall_sq:
 					nearest_wall_sq = dist_sq
-				if dist_sq < min_dist_sq_wall:
-					min_dist_sq_wall = dist_sq
-					var wh: int = height_lookup.call(ttx, ttz)
-					nearest_wall_peak = minf(float(maxi(1, wh)) * IsoConst.WALL_FACE_H, WALL_MAX_H)
 
 	var h: float = 0.0
 	# Hills must not smooth into wall tiles — suppress hill contribution within
@@ -64,12 +58,6 @@ static func get_height_at(wx: float, wz: float,
 		var t: float = 1.0 - sqrt(min_dist_sq_hill) / curve_r
 		t = t * t * (3.0 - 2.0 * t)
 		h = nearest_hill_peak * t
-	if min_dist_sq_wall < wall_r_sq:
-		var tw: float = 1.0 - sqrt(min_dist_sq_wall) / _wall_r
-		tw = tw * tw * (3.0 - 2.0 * tw)
-		var wh: float = nearest_wall_peak * tw
-		if wh > h:
-			h = wh
 	return h
 
 ## Compute a packed height field for a grid of vertices.
@@ -86,12 +74,11 @@ static func compute_height_field(
 		origin_x: float, origin_z: float,
 		nvx: int, nvz: int, step: float,
 		curve_r: float, peak_h: float, wall_curve_r: float = -1.0) -> PackedFloat32Array:
-	var _wall_r: float = wall_curve_r if wall_curve_r > 0.0 else curve_r
-	var tile_check: int = int(ceil(maxf(curve_r, _wall_r) / IsoConst.TILE_SIZE)) + 1
+	# wall_curve_r is no longer used — walls are flat in the terrain mesh (y=0).
+	# Their vertical geometry and top cap come entirely from build_wall_face_mesh.
+	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
 	var hill_r_sq: float = curve_r * curve_r
-	var wall_r_sq: float = _wall_r * _wall_r
 	var inv_hill_r: float = 1.0 / curve_r
-	var inv_wall_r: float = 1.0 / _wall_r
 
 	var hfield := PackedFloat32Array()
 	hfield.resize(nvx * nvz)
@@ -102,10 +89,8 @@ static func compute_height_field(
 			var vtx: int = int(gx / IsoConst.TILE_SIZE)
 			var vtz: int = int(gz / IsoConst.TILE_SIZE)
 			var min_dist_sq_hill: float = hill_r_sq
-			var min_dist_sq_wall: float = wall_r_sq
 			var nearest_wall_sq: float = INF   # unbounded — for hill-suppression check
 			var nearest_hill_peak: float = peak_h
-			var nearest_wall_peak: float = 0.0
 			for dtz in range(-tile_check, tile_check + 1):
 				for dtx in range(-tile_check, tile_check + 1):
 					var ttx: int = vtx + dtx
@@ -126,10 +111,6 @@ static func compute_height_field(
 					else:  # TILE_WALL
 						if dist_sq < nearest_wall_sq:
 							nearest_wall_sq = dist_sq
-						if dist_sq < min_dist_sq_wall:
-							min_dist_sq_wall = dist_sq
-							var wh: int = height_lookup.call(ttx, ttz)
-							nearest_wall_peak = minf(float(maxi(1, wh)) * IsoConst.WALL_FACE_H, WALL_MAX_H)
 
 			var h: float = 0.0
 			# Suppress hill smoothing within one tile of any wall so walls always
@@ -139,12 +120,6 @@ static func compute_height_field(
 				var t: float = 1.0 - sqrt(min_dist_sq_hill) * inv_hill_r
 				t = t * t * (3.0 - 2.0 * t)
 				h = nearest_hill_peak * t
-			if min_dist_sq_wall < wall_r_sq:
-				var tw: float = 1.0 - sqrt(min_dist_sq_wall) * inv_wall_r
-				tw = tw * tw * (3.0 - 2.0 * tw)
-				var wh: float = nearest_wall_peak * tw
-				if wh > h:
-					h = wh
 			hfield[iz * nvx + ix] = h
 	return hfield
 
@@ -421,6 +396,24 @@ static func build_wall_face_mesh(
 				colors.append(wall_col); colors.append(wall_col)
 				indices.append(bi);     indices.append(bi + 2); indices.append(bi + 1)
 				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
+
+			# Top cap — flat horizontal quad at wall height, shows wall_top_texture
+			var tbi: int = verts.size()
+			verts.append(Vector3(lx0, top_y, lz0))
+			verts.append(Vector3(lx1, top_y, lz0))
+			verts.append(Vector3(lx0, top_y, lz1))
+			verts.append(Vector3(lx1, top_y, lz1))
+			normals.append(Vector3(0.0, 1.0, 0.0))
+			normals.append(Vector3(0.0, 1.0, 0.0))
+			normals.append(Vector3(0.0, 1.0, 0.0))
+			normals.append(Vector3(0.0, 1.0, 0.0))
+			uvs.append(Vector2(lx0, lz0)); uvs.append(Vector2(lx1, lz0))
+			uvs.append(Vector2(lx0, lz1)); uvs.append(Vector2(lx1, lz1))
+			colors.append(wall_col); colors.append(wall_col)
+			colors.append(wall_col); colors.append(wall_col)
+			# CCW winding from above (+Y): (0,v0),(2,v2),(1,v1) and (1,v1),(2,v2),(3,v3)
+			indices.append(tbi);     indices.append(tbi + 2); indices.append(tbi + 1)
+			indices.append(tbi + 1); indices.append(tbi + 2); indices.append(tbi + 3)
 
 	if verts.is_empty():
 		return ArrayMesh.new()

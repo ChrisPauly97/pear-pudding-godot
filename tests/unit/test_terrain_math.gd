@@ -75,7 +75,9 @@ func test_get_height_at_returns_positive_at_hill_center() -> void:
 	assert_gt(h, 0.0, "height at hill centre should be > 0")
 
 
-func test_get_height_at_returns_positive_near_wall() -> void:
+func test_get_height_at_returns_zero_on_wall_tile() -> void:
+	# Walls are flat in the terrain mesh (y=0); their height comes from the
+	# wall face mesh's side quads and top cap, not the height field.
 	var tile_size: float = IsoConst.TILE_SIZE
 	var cx: float = (5.0 + 0.5) * tile_size
 	var cz: float = (5.0 + 0.5) * tile_size
@@ -83,7 +85,7 @@ func test_get_height_at_returns_positive_near_wall() -> void:
 		cx, cz,
 		_tile_single_wall, _height_single_wall,
 		4.0, 2.0)
-	assert_gt(h, 0.0, "height at wall should be > 0")
+	assert_almost_eq(h, 0.0, 0.001, "terrain height at wall should be 0 (wall geometry is in wall face mesh)")
 
 
 # ---------------------------------------------------------------------------
@@ -125,19 +127,19 @@ func test_compute_height_field_elevated_near_hill() -> void:
 	assert_true(has_elevated, "expected at least one elevated vertex near the hill")
 
 
-func test_compute_height_field_elevated_near_wall() -> void:
+func test_compute_height_field_flat_on_wall_tiles() -> void:
+	# Wall tiles must be flat (y=0) in the terrain mesh — their geometry comes
+	# from build_wall_face_mesh (side quads + top cap), not the height field.
 	var tile_size: float = IsoConst.TILE_SIZE
 	var origin_x: float = 4.0 * tile_size
 	var origin_z: float = 4.0 * tile_size
 	var hfield: PackedFloat32Array = TerrainMath.compute_height_field(
 		_tile_single_wall, _height_single_wall,
 		origin_x, origin_z, 5, 5, tile_size, 4.0, 2.0)
-	var has_elevated := false
 	for i in range(hfield.size()):
 		if hfield[i] > 0.001:
-			has_elevated = true
-			break
-	assert_true(has_elevated, "expected at least one elevated vertex near the wall")
+			_fail("expected all-zero height field for wall-only world at index %d (got %f)" % [i, hfield[i]])
+			return
 
 
 func test_compute_height_field_values_are_non_negative() -> void:
