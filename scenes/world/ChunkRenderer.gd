@@ -67,10 +67,16 @@ static func prepare_terrain(
 			chunk_origin.x, chunk_origin.z,
 			nvx, nvz, step, PLATEAU_H)
 
+	var wall_face_mesh: ArrayMesh = TerrainMath.build_wall_face_mesh(
+			grid_tile_lookup, grid_height_lookup,
+			chunk_origin.x, chunk_origin.z,
+			CHUNK_SIZE, CHUNK_SIZE)
+
 	return {
-		"mesh":        terrain_res["mesh"],
-		"hmap":        terrain_res["hmap"],
-		"chunk_world": float(CHUNK_SIZE) * IsoConst.TILE_SIZE,
+		"mesh":           terrain_res["mesh"],
+		"hmap":           terrain_res["hmap"],
+		"chunk_world":    float(CHUNK_SIZE) * IsoConst.TILE_SIZE,
+		"wall_face_mesh": wall_face_mesh,
 	}
 
 # ── Main entry point (main thread only) ───────────────────────────────────
@@ -111,6 +117,12 @@ func _apply_terrain_visual(res: Dictionary) -> void:
 	mi.mesh = res["mesh"]
 	mi.material_override = _terrain_mat
 	add_child(mi)
+	var wall_face_mesh: ArrayMesh = res.get("wall_face_mesh") as ArrayMesh
+	if wall_face_mesh != null and wall_face_mesh.get_surface_count() > 0:
+		var wall_mi := MeshInstance3D.new()
+		wall_mi.mesh = wall_face_mesh
+		wall_mi.material_override = _terrain_mat
+		add_child(wall_mi)
 
 func _apply_terrain_physics() -> void:
 	var col_node := CollisionShape3D.new()
