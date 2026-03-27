@@ -1,6 +1,7 @@
 extends Node
 
 const EnemyData = preload("res://data/EnemyData.gd")
+const BiomeDef  = preload("res://game_logic/world/BiomeDef.gd")
 const ENEMY_DIR := "res://data/enemies"
 
 static var _enemies: Dictionary = {}  # id -> EnemyData
@@ -65,3 +66,10 @@ static func type_for_chunk_dist(dist: int) -> String:
 	elif dist <= 14:
 		return "ghoul_pack"
 	return "undead_elite"
+
+## Selects an enemy type by biome and Manhattan distance from origin.
+## The biome pool defines which enemy families appear; dist picks within the pool.
+static func type_for_biome(biome_id: int, dist: int) -> String:
+	var pool: Array = BiomeDef.ENEMY_POOLS[biome_id]
+	var idx: int = clamp(dist / 8, 0, pool.size() - 1)
+	return pool[idx]

@@ -1,19 +1,21 @@
 extends RefCounted
 
 const ChunkData = preload("res://game_logic/world/ChunkData.gd")
+const BiomeDef  = preload("res://game_logic/world/BiomeDef.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 const CHUNK_SIZE: int = 16
 const TILE_SIZE: float = 2.0
 
-# Noise thresholds: value is noise mapped to [0, 1]
-const WALL_THRESHOLD: float = 0.88
-const HILL_THRESHOLD: float = 0.76
-
-# Per-chunk noise frequency
+# Base noise frequency — biome freq_scale multiplies the sampling coordinates
 const NOISE_FREQ: float = 0.08
 
-# Cached noise object — same seed & frequency every call, no need to re-create
+# Low-frequency biome noise (large-scale regions)
+const BIOME_NOISE_FREQ: float = 0.015
+# Chunks within this Manhattan distance of origin are always Grasslands
+const SAFE_ZONE_DIST: int = 5
+
+# ── Terrain noise (cached per seed) ────────────────────────────────────────
 static var _cached_noise: FastNoiseLite
 static var _cached_noise_seed: int = -1
 
@@ -26,6 +28,29 @@ static func _get_noise(world_seed: int) -> FastNoiseLite:
 	_cached_noise.frequency = NOISE_FREQ
 	_cached_noise_seed = world_seed
 	return _cached_noise
+
+# ── Biome noise (cached per seed, separate from terrain noise) ─────────────
+static var _biome_noise: FastNoiseLite
+static var _biome_noise_seed: int = -1
+
+static func _get_biome_noise(world_seed: int) -> FastNoiseLite:
+	if _biome_noise != null and _biome_noise_seed == world_seed:
+		return _biome_noise
+	_biome_noise = FastNoiseLite.new()
+	_biome_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_biome_noise.seed = world_seed + 999983
+	_biome_noise.frequency = BIOME_NOISE_FREQ
+	_biome_noise_seed = world_seed
+	return _biome_noise
+
+# Returns the biome ID for a given chunk coordinate.
+static func biome_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> int:
+	var dist: int = abs(p_cx) + abs(p_cz)
+	if dist <= SAFE_ZONE_DIST:
+		return BiomeDef.GRASSLANDS
+	var n: float = _get_biome_noise(world_seed).get_noise_2d(float(p_cx), float(p_cz))
+	var v: float = (n + 1.0) * 0.5   # remap [-1,1] → [0,1]
+	return int(v * float(BiomeDef.COUNT)) % BiomeDef.COUNT
 
 static func _chunk_seed(p_cx: int, p_cz: int, world_seed: int) -> int:
 	return (p_cx * 73856093) ^ (p_cz * 19349663) ^ world_seed
@@ -49,23 +74,28 @@ static func generate_chunk_data_only(p_cx: int, p_cz: int, world_seed: int) -> R
 static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 	var chunk: ChunkData = ChunkData.new(p_cx, p_cz)
 
+	var biome: int = biome_for_chunk(p_cx, p_cz, world_seed)
+	chunk.biome_id = biome
+	var params: Dictionary = BiomeDef.PARAMS[biome]
+	var hill_thresh: float = params["hill_thresh"]
+	var max_hill_h: int = params["max_hill_h"]
+	var freq_scale: float = params["freq_scale"]
+
 	var noise: FastNoiseLite = _get_noise(world_seed)
 
 	for lz in range(CHUNK_SIZE):
 		for lx in range(CHUNK_SIZE):
 			var wtx: int = p_cx * CHUNK_SIZE + lx
 			var wtz: int = p_cz * CHUNK_SIZE + lz
-			# noise returns [-1, 1] — remap to [0, 1]
-			var n: float = noise.get_noise_2d(float(wtx), float(wtz))
-			var v: float = (n + 1.0) * 0.5
+			# Scale coordinates to simulate frequency variation per biome without mutating shared noise
+			var n: float = noise.get_noise_2d(float(wtx) * freq_scale, float(wtz) * freq_scale)
+			var v: float = (n + 1.0) * 0.5   # remap [-1,1] → [0,1]
 
-			# Walls no longer spawned from noise — ruins are stamped in _gen_ruins instead
-			if v >= HILL_THRESHOLD:
+			if v >= hill_thresh:
 				chunk.set_tile(lx, lz, IsoConst.TILE_HILL)
-				# Power-curve distribution: most hills short, rare tall mountains
-				# Clamp to [0,1] — noise above WALL_THRESHOLD would overflow without this
-				var hill_factor: float = clamp((v - HILL_THRESHOLD) / (WALL_THRESHOLD - HILL_THRESHOLD), 0.0, 1.0)
-				var hill_h: int = 1 + int(pow(hill_factor, 2.5) * 4.0)
+				# Power-curve: most hills short, rare tall peaks up to max_hill_h
+				var hill_factor: float = clamp((v - hill_thresh) / (1.0 - hill_thresh), 0.0, 1.0)
+				var hill_h: int = 1 + int(pow(hill_factor, 2.5) * float(max_hill_h - 1))
 				chunk.set_height(lx, lz, hill_h)
 			else:
 				chunk.set_tile(lx, lz, IsoConst.TILE_GRASS)
@@ -186,11 +216,13 @@ static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: i
 	if grass_tiles.is_empty():
 		return
 
-	# 0–2 enemies per chunk, type scaled by Manhattan distance from origin
+	var biome: int = biome_for_chunk(p_cx, p_cz, world_seed)
+	var chunk_dist: int = abs(p_cx) + abs(p_cz)
+	var etype: String = EnemyRegistry.type_for_biome(biome, chunk_dist)
+
+	# 0–2 enemies per chunk
 	var enemy_count: int = rng.randi_range(0, 2)
 	var uid_base: String = "e_%d_%d_" % [p_cx, p_cz]
-	var chunk_dist: int = abs(p_cx) + abs(p_cz)
-	var etype: String = EnemyRegistry.type_for_chunk_dist(chunk_dist)
 	for i in range(enemy_count):
 		var idx: int = rng.randi_range(0, grass_tiles.size() - 1)
 		var tile: Vector2i = grass_tiles[idx]
@@ -219,21 +251,16 @@ static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: i
 			"opened": false
 		})
 
-	# 0–1 NPC per chunk (~25% chance)
-	var npc_dialogues: Array[String] = [
-		"These ruins have stood longer than anyone can remember.",
-		"Watch yourself out there. The dead don't rest easy.",
-		"I've heard the card traders pass through here sometimes.",
-		"Strange things happen when the fog rolls in.",
-		"The old magic still lingers in these stones.",
-	]
+	# 0–1 NPC per chunk (~25% chance), dialogue chosen per biome
 	if rng.randi_range(0, 3) == 0 and grass_tiles.size() > 0:
 		var idx: int = rng.randi_range(0, grass_tiles.size() - 1)
 		var tile: Vector2i = grass_tiles[idx]
 		var wx: float = float(p_cx * CHUNK_SIZE + tile.x) * TILE_SIZE + TILE_SIZE * 0.5
 		var wz: float = float(p_cz * CHUNK_SIZE + tile.y) * TILE_SIZE + TILE_SIZE * 0.5
+		var lines: Array = BiomeDef.NPC_LINES[biome]
+		var dialogue: String = lines[rng.randi_range(0, lines.size() - 1)]
 		chunk.npcs.append({
 			"id": "n_%d_%d_0" % [p_cx, p_cz],
 			"x": wx, "z": wz,
-			"dialogue": npc_dialogues[rng.randi_range(0, npc_dialogues.size() - 1)],
+			"dialogue": dialogue,
 		})

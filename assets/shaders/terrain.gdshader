@@ -17,6 +17,12 @@ uniform sampler2D wall_top_texture  : source_color, filter_nearest, hint_default
 // How many times the textures tile per world unit
 uniform float uv_scale : hint_range(0.05, 2.0) = 0.5;
 
+// Per-chunk biome color tints — set per material instance by ChunkRenderer.
+// Default vec3(1,1,1) = no tint (original texture colors).
+uniform vec3 grass_tint = vec3(1.0, 1.0, 1.0);
+uniform vec3 hill_tint  = vec3(1.0, 1.0, 1.0);
+uniform vec3 wall_tint  = vec3(1.0, 1.0, 1.0);
+
 varying float v_blend;      // height ratio [0=flat ground .. 1=hill plateau]
 varying float v_wall;       // 1.0 if this vertex sits on a wall tile
 varying vec3  v_normal_world;  // world-space normal — used for slope detection only
@@ -126,10 +132,20 @@ void fragment() {
 	// to treat them as back-faces; overriding NORMAL here fixes that without
 	// needing FRONT_FACING hacks or removing cull_disabled.
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(v_normal_world), 0.0)).xyz);
-	ALBEDO = base_col;
+
+	// Biome color tint: walls use wall_tint, hills blend grass→hill, flat stays grass.
+	vec3 tint;
+	if (is_wall) {
+		tint = wall_tint;
+	} else {
+		tint = mix(grass_tint, hill_tint, clamp(v_blend * 2.0, 0.0, 1.0));
+	}
+	vec3 tinted_col = base_col * tint;
+
+	ALBEDO = tinted_col;
 	// Soft emission floor keeps cast shadows from going pitch-black.
 	// Value is below glow_hdr_threshold (0.5) so it won't trigger bloom.
-	EMISSION = base_col * 0.15;
+	EMISSION = tinted_col * 0.15;
 	ROUGHNESS = 0.9;
 	METALLIC = 0.0;
 	SPECULAR = 0.1;

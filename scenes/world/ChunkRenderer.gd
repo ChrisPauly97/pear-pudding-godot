@@ -1,7 +1,8 @@
 extends Node3D
 
-const GrassBlades = preload("res://scenes/world/GrassBlades.gd")
-const TerrainMath = preload("res://game_logic/TerrainMath.gd")
+const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
+const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
+const BiomeDef      = preload("res://game_logic/world/BiomeDef.gd")
 
 # Preload entity scenes once, not per-spawn
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
@@ -85,10 +86,20 @@ func build_visual(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node
 		terrain_mat: ShaderMaterial, terrain_res: Dictionary) -> void:
 	_chunk_data          = chunk_data
 	_chunk_key           = chunk_key
-	_terrain_mat         = terrain_mat
 	_terrain_hmap        = terrain_res["hmap"]
 	_terrain_chunk_world = terrain_res["chunk_world"]
 	position = chunk_data.origin_world()
+
+	# Duplicate the shared template so each chunk has independent shader parameters.
+	var biome: int = chunk_data.biome_id
+	var mat: ShaderMaterial = terrain_mat.duplicate()
+	var gt: Color = BiomeDef.GRASS_TINT[biome]
+	var ht: Color = BiomeDef.HILL_TINT[biome]
+	var wt: Color = BiomeDef.WALL_TINT[biome]
+	mat.set_shader_parameter("grass_tint", Vector3(gt.r, gt.g, gt.b))
+	mat.set_shader_parameter("hill_tint",  Vector3(ht.r, ht.g, ht.b))
+	mat.set_shader_parameter("wall_tint",  Vector3(wt.r, wt.g, wt.b))
+	_terrain_mat = mat
 
 	_apply_terrain_visual(terrain_res)
 	_build_grass(world_scene)
