@@ -18,7 +18,6 @@ const _TAGLINES: Array[String] = [
 	"Towering peaks,\nbitter cold.",
 ]
 
-# Darker card panel colors (background behind the swatch)
 const _CARD_BG: Array[Color] = [
 	Color(0.10, 0.28, 0.05),   # Grasslands
 	Color(0.05, 0.15, 0.04),   # Forest
@@ -28,60 +27,66 @@ const _CARD_BG: Array[Color] = [
 ]
 
 func _ready() -> void:
+	var vh: float = get_viewport().get_visible_rect().size.y
+
+	# Background
 	var bg := ColorRect.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.color = Color(0.06, 0.06, 0.10)
 	add_child(bg)
 
-	var vh: float = get_viewport().get_visible_rect().size.y
+	# Root VBoxContainer fills the screen and drives all layout — no manual positioning
+	var root := VBoxContainer.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_theme_constant_override("separation", 0)
+	add_child(root)
+
+	# Top padding
+	var top_pad := Control.new()
+	top_pad.custom_minimum_size = Vector2(0, int(vh * 0.04))
+	root.add_child(top_pad)
 
 	# Title
 	var title := Label.new()
-	title.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	title.offset_top = int(vh * 0.04)
-	title.offset_bottom = int(vh * 0.17)
 	title.text = "Choose Your World"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.custom_minimum_size = Vector2(0, int(vh * 0.12))
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", int(vh * 0.062))
-	add_child(title)
+	root.add_child(title)
 
-	# Cards area — a CenterContainer so the HBox stays centered regardless of count
-	var cards_area := Control.new()
-	cards_area.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cards_area.offset_top = int(vh * 0.18)
-	cards_area.offset_bottom = int(-vh * 0.12)
-	add_child(cards_area)
+	# CenterContainer holds the card row and expands to fill remaining space
+	var center := CenterContainer.new()
+	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(center)
 
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", int(vh * 0.022))
-	cards_area.add_child(hbox)
+	center.add_child(hbox)
 
 	var card_w: float = vh * 0.19
-	var card_h: float = vh * 0.60
+	var card_h: float = vh * 0.62
 
 	for i in range(BiomeDef.COUNT):
 		hbox.add_child(_make_card(i, card_w, card_h, vh))
 
-	# Center the HBox manually after adding children (layout happens after _ready,
-	# so we use a deferred call to read the final size)
-	hbox.set_deferred(&"position", Vector2(
-		(get_viewport().get_visible_rect().size.x - card_w * BiomeDef.COUNT
-			- vh * 0.022 * (BiomeDef.COUNT - 1)) * 0.5,
-		0.0
-	))
+	# Bottom bar — back button left-aligned, fixed height
+	var bottom_bar := HBoxContainer.new()
+	bottom_bar.custom_minimum_size = Vector2(0, int(vh * 0.11))
+	bottom_bar.alignment = BoxContainer.ALIGNMENT_BEGIN
+	bottom_bar.add_theme_constant_override("separation", 0)
+	root.add_child(bottom_bar)
 
-	# Back button — bottom-left
+	var left_pad := Control.new()
+	left_pad.custom_minimum_size = Vector2(int(vh * 0.03), 0)
+	bottom_bar.add_child(left_pad)
+
 	var back_btn := Button.new()
-	back_btn.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	back_btn.offset_top    = int(-vh * 0.10)
-	back_btn.offset_bottom = int(-vh * 0.02)
-	back_btn.offset_left   = int(vh * 0.03)
-	back_btn.offset_right  = int(vh * 0.03 + vh * 0.15)
 	back_btn.text = "Back"
+	back_btn.custom_minimum_size = Vector2(int(vh * 0.16), int(vh * 0.07))
 	back_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
 	back_btn.pressed.connect(_on_back)
-	add_child(back_btn)
+	bottom_bar.add_child(back_btn)
 
 func _make_card(biome_id: int, card_w: float, card_h: float, vh: float) -> PanelContainer:
 	var panel := PanelContainer.new()
@@ -100,11 +105,11 @@ func _make_card(biome_id: int, card_w: float, card_h: float, vh: float) -> Panel
 	vbox.add_theme_constant_override("separation", int(vh * 0.012))
 	panel.add_child(vbox)
 
-	# Color swatch strip at top — uses the actual grass tint from BiomeDef
+	# Color swatch strip at top
 	var swatch := ColorRect.new()
 	var gt: Color = BiomeDef.GRASS_TINT[biome_id]
 	swatch.color = Color(gt.r * 0.65, gt.g * 0.65, gt.b * 0.65)
-	swatch.custom_minimum_size = Vector2(card_w, int(vh * 0.12))
+	swatch.custom_minimum_size = Vector2(0, int(vh * 0.12))
 	vbox.add_child(swatch)
 
 	# Biome name
@@ -129,7 +134,7 @@ func _make_card(biome_id: int, card_w: float, card_h: float, vh: float) -> Panel
 	tag_lbl.add_theme_color_override("font_color", Color(0.82, 0.82, 0.82))
 	vbox.add_child(tag_lbl)
 
-	# Push button to bottom
+	# Spacer pushes button to bottom
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(spacer)
@@ -137,7 +142,8 @@ func _make_card(biome_id: int, card_w: float, card_h: float, vh: float) -> Panel
 	# "Venture Here" button
 	var btn := Button.new()
 	btn.text = "Venture Here"
-	btn.custom_minimum_size = Vector2(card_w - int(vh * 0.04), int(vh * 0.065))
+	btn.custom_minimum_size = Vector2(0, int(vh * 0.065))
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	btn.add_theme_font_size_override("font_size", int(vh * 0.024))
 	var captured_id := biome_id
 	btn.pressed.connect(func() -> void: _on_biome_chosen(captured_id))
