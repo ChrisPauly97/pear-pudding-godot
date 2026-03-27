@@ -28,6 +28,7 @@ static func get_height_at(wx: float, wz: float,
 	var wall_r_sq: float = _wall_r * _wall_r
 	var min_dist_sq_hill: float = hill_r_sq
 	var min_dist_sq_wall: float = wall_r_sq
+	var nearest_wall_sq: float = INF   # unbounded — for hill-suppression check
 	var nearest_hill_peak: float = peak_h
 	var nearest_wall_peak: float = 0.0
 	for dtz in range(-tile_check, tile_check + 1):
@@ -48,13 +49,18 @@ static func get_height_at(wx: float, wz: float,
 					var hh: int = height_lookup.call(ttx, ttz)
 					nearest_hill_peak = float(hh) * IsoConst.HILL_FACE_H if hh > 0 else peak_h
 			else:  # TILE_WALL
+				if dist_sq < nearest_wall_sq:
+					nearest_wall_sq = dist_sq
 				if dist_sq < min_dist_sq_wall:
 					min_dist_sq_wall = dist_sq
 					var wh: int = height_lookup.call(ttx, ttz)
 					nearest_wall_peak = minf(float(maxi(1, wh)) * IsoConst.WALL_FACE_H, WALL_MAX_H)
 
 	var h: float = 0.0
-	if min_dist_sq_hill < hill_r_sq:
+	# Hills must not smooth into wall tiles — suppress hill contribution within
+	# one tile of any wall so walls always meet the ground at a right angle.
+	var wall_tile_sq: float = IsoConst.TILE_SIZE * IsoConst.TILE_SIZE
+	if min_dist_sq_hill < hill_r_sq and nearest_wall_sq >= wall_tile_sq:
 		var t: float = 1.0 - sqrt(min_dist_sq_hill) / curve_r
 		t = t * t * (3.0 - 2.0 * t)
 		h = nearest_hill_peak * t
@@ -97,6 +103,7 @@ static func compute_height_field(
 			var vtz: int = int(gz / IsoConst.TILE_SIZE)
 			var min_dist_sq_hill: float = hill_r_sq
 			var min_dist_sq_wall: float = wall_r_sq
+			var nearest_wall_sq: float = INF   # unbounded — for hill-suppression check
 			var nearest_hill_peak: float = peak_h
 			var nearest_wall_peak: float = 0.0
 			for dtz in range(-tile_check, tile_check + 1):
@@ -117,13 +124,18 @@ static func compute_height_field(
 							var hh: int = height_lookup.call(ttx, ttz)
 							nearest_hill_peak = float(hh) * IsoConst.HILL_FACE_H if hh > 0 else peak_h
 					else:  # TILE_WALL
+						if dist_sq < nearest_wall_sq:
+							nearest_wall_sq = dist_sq
 						if dist_sq < min_dist_sq_wall:
 							min_dist_sq_wall = dist_sq
 							var wh: int = height_lookup.call(ttx, ttz)
 							nearest_wall_peak = minf(float(maxi(1, wh)) * IsoConst.WALL_FACE_H, WALL_MAX_H)
 
 			var h: float = 0.0
-			if min_dist_sq_hill < hill_r_sq:
+			# Suppress hill smoothing within one tile of any wall so walls always
+			# sit on flat ground and the wall face quads are fully visible.
+			var wall_tile_sq: float = IsoConst.TILE_SIZE * IsoConst.TILE_SIZE
+			if min_dist_sq_hill < hill_r_sq and nearest_wall_sq >= wall_tile_sq:
 				var t: float = 1.0 - sqrt(min_dist_sq_hill) * inv_hill_r
 				t = t * t * (3.0 - 2.0 * t)
 				h = nearest_hill_peak * t
