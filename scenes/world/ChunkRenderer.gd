@@ -12,7 +12,7 @@ const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.t
 const TERRAIN_VDENSITY: int = 2
 const PLATEAU_H:        float = 0.65  # fallback hill height for tiles with no stored height
 const CURVE_R:          float = 3.5   # hill smoothstep radius (world units)
-const WALL_CURVE_R:     float = 3.0   # wall smoothstep radius (tight, sharp ruin faces)
+const WALL_CURVE_R:     float = 0.4   # wall rise radius — sub-vertex-step so walls are near-vertical
 
 # Tile neighbourhood radius used when building the tile_grid snapshot.
 # Must match what WorldScene._snapshot_tile_grid_for() uses.
