@@ -17,12 +17,13 @@ uniform sampler2D wall_top_texture  : source_color, filter_nearest, hint_default
 // How many times the textures tile per world unit
 uniform float uv_scale : hint_range(0.05, 2.0) = 0.5;
 
-varying float v_blend;   // height ratio [0=flat ground .. 1=hill plateau]
-varying float v_wall;    // 1.0 if this vertex sits on a wall tile
+varying float v_blend;      // height ratio [0=flat ground .. 1=hill plateau]
+varying float v_wall;       // 1.0 if this vertex sits on a wall tile
 varying vec3  v_normal_world;  // world-space normal — used for slope detection only
 varying vec2  v_world_xz;
-varying float v_d0;      // fbm noise channel 0, computed per-vertex
-varying float v_d1;      // fbm noise channel 1, computed per-vertex
+varying float v_world_y;    // world Y — used for vertical tiling on wall sides
+varying float v_d0;         // fbm noise channel 0, computed per-vertex
+varying float v_d1;         // fbm noise channel 1, computed per-vertex
 
 // -- noise for micro grass detail on flat areas --
 float hash2(vec2 p) {
@@ -52,7 +53,9 @@ void vertex() {
 	// World-space normal is only used for slope detection in fragment(),
 	// not for lighting — Godot transforms NORMAL to view space automatically.
 	v_normal_world = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
-	v_world_xz     = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xz;
+	vec3 world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	v_world_xz     = world_pos.xz;
+	v_world_y      = world_pos.y;
 
 	// Subtle micro-bump on flat grass — single hash instead of full FBM (cheap)
 	float flat_factor = clamp(1.0 - v_blend * 4.0, 0.0, 1.0);
@@ -95,8 +98,14 @@ void fragment() {
 		// slope=0: flat top → wall_top_texture; slope=1: vertical face → wall_side_texture.
 		float wall_slope = 1.0 - clamp(v_normal_world.y, 0.0, 1.0);
 		float t_wall_side = smoothstep(0.3, 0.7, wall_slope);
+		// Side UV: U from the along-face horizontal axis, V from world Y so the
+		// texture tiles both horizontally and vertically on wall sides.
+		// X-facing wall (|normal.x|≈1): along-face axis is Z → U = world_Z
+		// Z-facing wall (|normal.z|≈1): along-face axis is X → U = world_X
+		float side_u = mix(v_world_xz.y, v_world_xz.x, abs(v_normal_world.z));
+		vec2 uv_side = vec2(side_u, v_world_y) * uv_scale;
 		base_col = mix(texture(wall_top_texture, uv_xz).rgb,
-		               texture(wall_side_texture, uv_xz).rgb, t_wall_side);
+		               texture(wall_side_texture, uv_side).rgb, t_wall_side);
 	} else if (t_side < 0.01 && t_top < 0.01) {
 		// Pure flat grass — most common case
 		base_col = texture(grass_texture, uv_xz).rgb;
