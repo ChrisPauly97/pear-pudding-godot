@@ -83,7 +83,7 @@ var _last_dir_update_time: float = -999.0  # throttle direction-change chunk upd
 const LOAD_RADIUS:        int = 6
 const UNLOAD_RADIUS:      int = 7
 const CACHE_EVICT_RADIUS: int = 10  # evict chunk data beyond this to bound memory
-const WORLD_SEED:         int = 42
+var WORLD_SEED:           int = 42  # overwritten in _ready() for infinite worlds
 const MAX_CHUNK_JOBS:     int = 4   # concurrent WorkerThreadPool tasks
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
@@ -149,6 +149,9 @@ func _ready() -> void:
 	add_child(_entity_root)
 
 	_is_infinite = (map_name == "infinite" or map_name == "main")
+	if _is_infinite:
+		WORLD_SEED = SceneManager.save_manager.world_seed
+		InfiniteWorldGen.forced_start_biome = SceneManager.save_manager.starting_biome
 	_terrain_mat = _make_terrain_material(WORLD_SEED)
 	_build_grass_blades_node()
 
