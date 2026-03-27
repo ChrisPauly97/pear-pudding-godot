@@ -168,11 +168,11 @@ func save_to_file(path: String) -> void:
 		f.store_line("SPAWN %d %d" % [player_spawn_x, player_spawn_z])
 
 	for e in enemies:
-		f.store_line("ENEMY %d %d" % [int(e["x"]), int(e["z"])])
+		f.store_line("ENEMY %d %d" % [int(e["x"] / TILE_SIZE), int(e["z"] / TILE_SIZE)])
 
 	for c in chests:
 		var card_str := ",".join(c.get("card_ids", []))
-		f.store_line("CHEST %d %d %s" % [int(c["x"]), int(c["z"]), card_str])
+		f.store_line("CHEST %d %d %s" % [int(c["x"] / TILE_SIZE), int(c["z"] / TILE_SIZE), card_str])
 
 	for d in doors:
 		var target: String = d.get("target_map", "")
@@ -180,9 +180,9 @@ func save_to_file(path: String) -> void:
 			target = "__exit__"
 		var tdoor: String = d.get("target_door_id", "")
 		if tdoor.is_empty():
-			f.store_line("DOOR %d %d %s" % [int(d["x"]), int(d["z"]), target])
+			f.store_line("DOOR %d %d %s" % [int(d["x"] / TILE_SIZE), int(d["z"] / TILE_SIZE), target])
 		else:
-			f.store_line("DOOR %d %d %s %s" % [int(d["x"]), int(d["z"]), target, tdoor])
+			f.store_line("DOOR %d %d %s %s" % [int(d["x"] / TILE_SIZE), int(d["z"] / TILE_SIZE), target, tdoor])
 
 	f.close()
 
@@ -236,8 +236,8 @@ func load_from_file(path: String) -> void:
 				var etype: String = parts[3] if parts.size() >= 4 else "undead_basic"
 				enemies.append({
 					"id": "enemy_%d" % uid_counter,
-					"x": float(parts[1]),
-					"z": float(parts[2]),
+					"x": float(parts[1]) * TILE_SIZE,
+					"z": float(parts[2]) * TILE_SIZE,
 					"alive": true,
 					"tracking": true,
 					"enemy_type": etype,
@@ -253,8 +253,8 @@ func load_from_file(path: String) -> void:
 					card_ids_arr.append(cid.strip_edges())
 				chests.append({
 					"id": "chest_%d" % uid_counter,
-					"x": float(parts[1]),
-					"z": float(parts[2]),
+					"x": float(parts[1]) * TILE_SIZE,
+					"z": float(parts[2]) * TILE_SIZE,
 					"card_ids": card_ids_arr,
 					"opened": false
 				})
@@ -266,8 +266,8 @@ func load_from_file(path: String) -> void:
 				var dialogue: String = parts[3] if parts.size() >= 4 else "..."
 				npcs.append({
 					"id": "npc_%d" % uid_counter,
-					"x": float(parts[1]),
-					"z": float(parts[2]),
+					"x": float(parts[1]) * TILE_SIZE,
+					"z": float(parts[2]) * TILE_SIZE,
 					"dialogue": dialogue,
 				})
 
@@ -281,8 +281,8 @@ func load_from_file(path: String) -> void:
 				var tdoor: String = parts[4] if parts.size() >= 5 else ""
 				doors.append({
 					"id": "door_%d" % uid_counter,
-					"x": float(parts[1]),
-					"z": float(parts[2]),
+					"x": float(parts[1]) * TILE_SIZE,
+					"z": float(parts[2]) * TILE_SIZE,
 					"target_map": target,
 					"target_door_id": tdoor
 				})
