@@ -33,12 +33,19 @@ func _init(p_name: String = "main") -> void:
 	# Bundled maps (res://) are authoritative — always prefer them over any
 	# user:// copy, which may be stale (e.g. saved before NPCs were added).
 	# User:// overrides only apply for custom maps with no bundled version.
-	if FileAccess.file_exists(res_path):
+	# NOTE: FileAccess.file_exists("res://...") is unreliable on Android (PCK builds)
+	# even when the file is accessible. Use open() directly instead.
+	var f_res := FileAccess.open(res_path, FileAccess.READ)
+	if f_res != null:
+		f_res.close()
 		load_from_file(res_path)
-	elif FileAccess.file_exists(user_path):
-		load_from_file(user_path)
 	else:
-		_build_default_map()
+		var f_user := FileAccess.open(user_path, FileAccess.READ)
+		if f_user != null:
+			f_user.close()
+			load_from_file(user_path)
+		else:
+			_build_default_map()
 
 func _alloc_grids() -> void:
 	tiles = []
