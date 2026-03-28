@@ -27,40 +27,36 @@ func _init(p_name: String = "main") -> void:
 	map_name = p_name
 	_alloc_grids()
 
-	# Try loading from user:// first, then res://
 	var user_path := "user://maps/%s.txt" % map_name
 	var res_path := "res://assets/maps/%s.txt" % map_name
 
 	# Bundled maps (res://) are authoritative — always prefer them over any
 	# user:// copy, which may be stale (e.g. saved before NPCs were added).
 	# User:// overrides only apply for custom maps with no bundled version.
-	# NOTE: FileAccess.open("res://...") can fail transiently on Android PCK
-	# builds. Retry up to 3 times with a short spin-wait to work around this.
-	var f_res: FileAccess = null
-	for attempt in range(3):
-		f_res = FileAccess.open(res_path, FileAccess.READ)
-		if f_res != null:
-			break
-		# Brief spin-wait before retry — OS.delay_msec is safe in _init context
-		if attempt < 2:
-			OS.delay_msec(50)
-	if f_res != null:
-		f_res.close()
-		load_from_file(res_path)
-		print("[WorldMap] Loaded '%s' from %s — %d NPCs, %d enemies, %d chests, %d doors" % [
-			map_name, res_path, npcs.size(), enemies.size(), chests.size(), doors.size()])
-	else:
-		var f_user := FileAccess.open(user_path, FileAccess.READ)
-		if f_user != null:
-			f_user.close()
-			load_from_file(user_path)
-			print("[WorldMap] Loaded '%s' from %s — %d NPCs, %d enemies, %d chests, %d doors" % [
-				map_name, user_path, npcs.size(), enemies.size(), chests.size(), doors.size()])
-		else:
+	#
+	# On Android, res:// files live inside the APK/PCK archive. The old
+	# FileAccess.open() approach can fail transiently because the PCK virtual
+	# filesystem hasn't fully mounted yet, or the OS ran out of file
+	# descriptors under load. get_file_as_string() is a single atomic call
+	# that reads the entire file in one shot — no open/read/close dance —
+	# making it far more reliable on every platform.
+	var content := FileAccess.get_file_as_string(res_path)
+	if content.is_empty() and FileAccess.get_open_error() != OK:
+		# res:// failed — try user:// (custom maps only)
+		content = FileAccess.get_file_as_string(user_path)
+		if content.is_empty() and FileAccess.get_open_error() != OK:
 			push_warning("[WorldMap] Map file not found for '%s' (tried %s and %s) — using default map" % [
 				map_name, res_path, user_path])
 			is_fallback = true
 			_build_default_map()
+			return
+		load_from_string(content)
+		print("[WorldMap] Loaded '%s' from %s — %d NPCs, %d enemies, %d chests, %d doors" % [
+			map_name, user_path, npcs.size(), enemies.size(), chests.size(), doors.size()])
+	else:
+		load_from_string(content)
+		print("[WorldMap] Loaded '%s' from %s — %d NPCs, %d enemies, %d chests, %d doors" % [
+			map_name, res_path, npcs.size(), enemies.size(), chests.size(), doors.size()])
 
 func _alloc_grids() -> void:
 	tiles = []
@@ -216,9 +212,17 @@ func save_to_file(path: String) -> void:
 	f.close()
 
 func load_from_file(path: String) -> void:
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
+	var content := FileAccess.get_file_as_string(path)
+	if content.is_empty() and FileAccess.get_open_error() != OK:
 		push_error("Cannot read map file: %s" % path)
+		_build_default_map()
+		return
+	load_from_string(content)
+
+
+func load_from_string(content: String) -> void:
+	var lines: PackedStringArray = content.split("\n")
+	if lines.is_empty():
 		_build_default_map()
 		return
 
@@ -230,20 +234,23 @@ func load_from_file(path: String) -> void:
 	player_spawn_x = -1
 	player_spawn_z = -1
 
-	# Skip first line (dimensions)
-	var _header = f.get_line()
+	var line_idx: int = 1  # skip first line (dimensions)
 
 	# Read tile rows
 	for tz in range(MAP_HEIGHT):
-		var line := f.get_line().strip_edges()
+		if line_idx >= lines.size():
+			break
+		var line := lines[line_idx].strip_edges()
+		line_idx += 1
 		for tx in range(min(line.length(), MAP_WIDTH)):
 			tiles[tz][tx] = int(line[tx])
 
 	# Parse remainder
 	var in_heights := false
 	var uid_counter := 0
-	while not f.eof_reached():
-		var line := f.get_line().strip_edges()
+	while line_idx < lines.size():
+		var line := lines[line_idx].strip_edges()
+		line_idx += 1
 		if line.is_empty():
 			continue
 
@@ -324,8 +331,6 @@ func load_from_file(path: String) -> void:
 				var h := int(parts[2])
 				if tx >= 0 and tx < MAP_WIDTH and tz >= 0 and tz < MAP_HEIGHT:
 					heights[tz][tx] = h
-
-	f.close()
 
 func get_chunk_data(cx: int, cz: int) -> RefCounted:
 	const CHUNK_SIZE: int = 16
