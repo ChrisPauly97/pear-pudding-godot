@@ -9,11 +9,16 @@
 | [GID-003](goals/GID-003--deck-builder-constraints/goal.md) | Deck Builder Constraints & Validation | pending | 0 / 2 |
 | [GID-004](goals/GID-004--audio-foundation/goal.md) | Audio Foundation | pending | 0 / 3 |
 | [GID-005](goals/GID-005--android-export-hardening/goal.md) | Android Export Hardening | pending | 0 / 2 |
+| [GID-006](goals/GID-006--fix-minimap-rotation/goal.md) | Fix Minimap Orientation for Isometric Camera Alignment | pending | 0 / 1 |
+| [GID-007](goals/GID-007--coin-economy-merchant/goal.md) | Coin Economy & Merchant NPC | pending | 0 / 2 |
+| [GID-008](goals/GID-008--card-art-visuals/goal.md) | Card Art & Battle Visuals | pending | 0 / 2 |
+| [GID-009](goals/GID-009--enemy-respawn/goal.md) | Enemy Respawn System | pending | 0 / 1 |
 
 ## Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-001](backlog/BID-001--tutorial-onboarding.md) | Tutorial / Onboarding for New Players | spec-gap | ad-hoc review |
 
 ## Resolved Backlog
 
