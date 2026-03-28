@@ -7,6 +7,7 @@ const VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
+const Minimap         = preload("res://scenes/world/Minimap.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
@@ -98,6 +99,7 @@ var _fill_light: DirectionalLight3D
 
 var _dialogue_label: Label
 var _coord_label: Label
+var _minimap: Node
 var _dialogue_timer: float = 0.0
 const DIALOGUE_DURATION: float = 4.0
 
@@ -256,6 +258,10 @@ func _ready() -> void:
 	_coord_label.add_theme_constant_override("shadow_offset_y", 1)
 	_coord_label.position = Vector2(vh * 0.01, vh * 0.11)
 	_hud.add_child(_coord_label)
+
+	_minimap = Minimap.new()
+	add_child(_minimap)
+	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
 
 func _exit_tree() -> void:
 	# Wait for any in-flight worker tasks before the GDScript instance is freed.
@@ -823,6 +829,8 @@ func _process(delta: float) -> void:
 	if _player == null:
 		return
 	_camera.position = _snap_to_pixel(_player.position + Vector3(20, 20, 20))
+	if _minimap:
+		_minimap.update()
 	if _coord_label:
 		var tx: int = int(_player.position.x / IsoConst.TILE_SIZE)
 		var tz: int = int(_player.position.z / IsoConst.TILE_SIZE)
