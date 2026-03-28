@@ -3,6 +3,7 @@ extends RefCounted
 
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const ChunkData = preload("res://game_logic/world/ChunkData.gd")
+const BundledMaps = preload("res://game_logic/world/BundledMaps.gd")
 
 # Aliases for IsoConst tile types — avoids breaking existing references
 const TILE_GRASS: int = IsoConst.TILE_GRASS
@@ -27,36 +28,33 @@ func _init(p_name: String = "main") -> void:
 	map_name = p_name
 	_alloc_grids()
 
-	var user_path := "user://maps/%s.txt" % map_name
-	var res_path := "res://assets/maps/%s.txt" % map_name
-
-	# Bundled maps (res://) are authoritative — always prefer them over any
-	# user:// copy, which may be stale (e.g. saved before NPCs were added).
-	# User:// overrides only apply for custom maps with no bundled version.
+	# Loading priority:
+	#   1. BundledMaps — map text compiled into the GDScript PCK (always works)
+	#   2. res:// .txt file — works on desktop, unreliable on Android
+	#   3. user:// .txt file — custom / editor-saved maps
+	#   4. Fallback — procedurally generated default map
 	#
-	# On Android, res:// files live inside the APK/PCK archive. The old
-	# FileAccess.open() approach can fail transiently because the PCK virtual
-	# filesystem hasn't fully mounted yet, or the OS ran out of file
-	# descriptors under load. get_file_as_string() is a single atomic call
-	# that reads the entire file in one shot — no open/read/close dance —
-	# making it far more reliable on every platform.
-	var content := FileAccess.get_file_as_string(res_path)
-	if content.is_empty() and FileAccess.get_open_error() != OK:
-		# res:// failed — try user:// (custom maps only)
-		content = FileAccess.get_file_as_string(user_path)
-		if content.is_empty() and FileAccess.get_open_error() != OK:
-			push_warning("[WorldMap] Map file not found for '%s' (tried %s and %s) — using default map" % [
-				map_name, res_path, user_path])
-			is_fallback = true
-			_build_default_map()
-			return
+	# BundledMaps is a preloaded GDScript constant, so it is guaranteed to be
+	# available on every platform including Android APK/PCK builds where plain
+	# .txt files are not exported as resources.
+	if BundledMaps.has_map(map_name):
+		load_from_string(BundledMaps.get_content(map_name))
+		print("[WorldMap] Loaded '%s' from BundledMaps — %d NPCs, %d enemies, %d chests, %d doors" % [
+			map_name, npcs.size(), enemies.size(), chests.size(), doors.size()])
+		return
+
+	# Not a bundled map — try filesystem (user-created maps from the editor)
+	var user_path := "user://maps/%s.txt" % map_name
+	var content := FileAccess.get_file_as_string(user_path)
+	if not content.is_empty():
 		load_from_string(content)
 		print("[WorldMap] Loaded '%s' from %s — %d NPCs, %d enemies, %d chests, %d doors" % [
 			map_name, user_path, npcs.size(), enemies.size(), chests.size(), doors.size()])
-	else:
-		load_from_string(content)
-		print("[WorldMap] Loaded '%s' from %s — %d NPCs, %d enemies, %d chests, %d doors" % [
-			map_name, res_path, npcs.size(), enemies.size(), chests.size(), doors.size()])
+		return
+
+	push_warning("[WorldMap] Map '%s' not found in BundledMaps or user:// — using default map" % map_name)
+	is_fallback = true
+	_build_default_map()
 
 func _alloc_grids() -> void:
 	tiles = []
@@ -365,7 +363,14 @@ static func list_map_names() -> Array[String]:
 	var result: Array[String] = []
 	var seen: Dictionary = {}
 
-	# Check res://assets/maps/
+	# 1. BundledMaps — always available, even on Android
+	for key: Variant in BundledMaps.DATA.keys():
+		var n: String = str(key)
+		if not seen.has(n):
+			result.append(n)
+			seen[n] = true
+
+	# 2. res://assets/maps/ — desktop fallback (may fail on Android)
 	var da := DirAccess.open("res://assets/maps/")
 	if da:
 		da.list_dir_begin()
@@ -378,7 +383,7 @@ static func list_map_names() -> Array[String]:
 					seen[n] = true
 			fname = da.get_next()
 
-	# Check user://maps/
+	# 3. user://maps/ — custom / editor-saved maps
 	var da2 := DirAccess.open("user://maps/")
 	if da2:
 		da2.list_dir_begin()
