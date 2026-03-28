@@ -24,6 +24,7 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_chunk_data.gd"),
 	preload("res://tests/unit/test_infinite_world_gen.gd"),
 	preload("res://tests/unit/test_terrain_math.gd"),
+	preload("res://tests/unit/test_named_map_npcs.gd"),
 ]
 
 

@@ -39,12 +39,18 @@ func _init(p_name: String = "main") -> void:
 	if f_res != null:
 		f_res.close()
 		load_from_file(res_path)
+		print("[WorldMap] Loaded '%s' from %s — %d NPCs, %d enemies, %d chests, %d doors" % [
+			map_name, res_path, npcs.size(), enemies.size(), chests.size(), doors.size()])
 	else:
 		var f_user := FileAccess.open(user_path, FileAccess.READ)
 		if f_user != null:
 			f_user.close()
 			load_from_file(user_path)
+			print("[WorldMap] Loaded '%s' from %s — %d NPCs, %d enemies, %d chests, %d doors" % [
+				map_name, user_path, npcs.size(), enemies.size(), chests.size(), doors.size()])
 		else:
+			push_warning("[WorldMap] Map file not found for '%s' (tried %s and %s) — using default map" % [
+				map_name, res_path, user_path])
 			_build_default_map()
 
 func _alloc_grids() -> void:
@@ -405,6 +411,7 @@ func _build_default_map() -> void:
 func _generate_entities() -> void:
 	enemies.clear()
 	chests.clear()
+	npcs.clear()
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 12345
@@ -452,3 +459,27 @@ func _generate_entities() -> void:
 				"opened": false
 			})
 			chest_count += 1
+
+	# Generate a few NPCs so fallback maps aren't empty of friendly characters
+	var npc_dialogues: Array[String] = [
+		"Be careful out there, traveller.",
+		"I've been wandering these lands for a long time.",
+		"The ruins hold many secrets.",
+	]
+	var npc_count := 0
+	for dlg in npc_dialogues:
+		var attempts := 0
+		while attempts < 20:
+			var tx := rng.randi_range(3, MAP_WIDTH - 4)
+			var tz := rng.randi_range(3, MAP_HEIGHT - 4)
+			if tiles[tz][tx] == TILE_GRASS:
+				var wx := float(tx) * TILE_SIZE + TILE_SIZE * 0.5
+				var wz := float(tz) * TILE_SIZE + TILE_SIZE * 0.5
+				npcs.append({
+					"id": "npc_%d" % npc_count,
+					"x": wx, "z": wz,
+					"dialogue": dlg,
+				})
+				npc_count += 1
+				break
+			attempts += 1
