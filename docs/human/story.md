@@ -1,8 +1,6 @@
 # The Tale of Saimtar — Story Bible
 
-This document captures the narrative source for the game's story mode. Each section maps directly
-to in-game content: named map files, NPC dialogue strings, encounter triggers, and story progression
-flags. All future chapters should follow the same structure.
+> **This file is human-owned.** Claude reads this to implement maps, dialogue, and story flags — but will never edit it.
 
 ---
 
@@ -14,9 +12,8 @@ flags. All future chapters should follow the same structure.
 | [The Prophecy](#the-prophecy) | Background lore driving the plot |
 | [Introduction](#introduction) | Saimtar in Madrian, meeting Maiteln |
 | [Chapter 1: Into the Wild World](#chapter-1-into-the-wild-world) | Journey to Maykalene and Blancogov |
-| [Story Progression System](#story-progression-system) | Flags, checkpoints, dialogue triggers |
+| [NPC Dialogue by Map](#npc-dialogue-by-map) | All NPC lines, positions, and flag conditions |
 | [Map Specifications](#map-specifications) | Named map layouts and entity placements |
-| [Asset Requirements](#asset-requirements) | Files needed to drive the story |
 
 ---
 
@@ -81,21 +78,6 @@ Saimtar is doing housework when an old man beckons him from outside. Maiteln off
 adventure. Saimtar agrees immediately — life in servitude is dull. They slip away before the master
 notices they are gone.
 
-### NPC Dialogue — Introduction
-
-**Maiteln (first meeting, x=45, z=36 in madrian.txt):**
-> "I am a wizard of old. If you come with me you will never have to worry about your master again
-> and I will take you on an adventure. My name is Maiteln. Will you come with me?"
-
-**Master (inside master's house, x=11, z=14):**
-> "Boy! Get back to your chores this instant or you will be punished!"
-
-### Game Map: madrian
-- **File:** `assets/maps/madrian.txt`
-- **Player Spawn:** x=40, z=36
-- **Buildings:** master's house (x=5–17, z=8–18), stable (x=20–28, z=8–14), inn (x=35–47, z=22–32)
-- **Exits:** south edge door (x=50, z=99 → `__exit__`, id=`madrian_exit`)
-
 ---
 
 ## Chapter 1: Into the Wild World
@@ -118,8 +100,6 @@ then race to reach King Eldar's temple within three days.
 | 9 | **Enter the temple** | blancogov_temple | Jewelled gates; King Eldar; Queen arrives; council assembles |
 
 ### Wilderness Encounters (Between Named Maps)
-
-These trigger in the open infinite-world terrain between fixed named maps:
 
 - **Rabbit hunting (Night 1):** First night camp after leaving Madrian. Saimtar hunts a rabbit —
   represented by a weak enemy encounter (undead_basic placeholder until a rabbit enemy type exists).
@@ -171,31 +151,6 @@ These trigger in the open infinite-world terrain between fixed named maps:
 
 ---
 
-## Story Progression System
-
-Story progression uses flags stored in `SaveManager` under a `story_flags` dictionary
-(to be added as a new saved field). Flags gate NPC dialogue so characters say different
-things before and after key events.
-
-### Planned Flags
-
-| Flag Key | Type | Set When |
-|---|---|---|
-| `story_intro_complete` | bool | Player speaks to Maiteln in Madrian |
-| `chapter1_left_madrian` | bool | Player exits Madrian map |
-| `chapter1_warned_farsyth` | bool | Player speaks to Lord Farsyth in farsyth_mansion |
-| `chapter1_received_letter` | bool | Isfig open-world encounter triggered |
-| `chapter1_reached_blancogov` | bool | Player enters blancogov map |
-| `chapter1_temple_council` | bool | Player speaks to King Eldar in blancogov_temple |
-
-### Starting Map for Story Mode
-
-To play story mode from the beginning, `SceneManager` should load `madrian` instead of `main`.
-A story-mode toggle or separate save slot is the recommended approach so the sandbox infinite
-world is preserved.
-
----
-
 ## Map Specifications
 
 ### Tile Key
@@ -225,16 +180,3 @@ DOOR x z target_map [door_id] — door linking to another map (__exit__ returns 
 | `assets/maps/farsyth_mansion.txt` | Chapter 1 | Long hall, Lord Farsyth's audience chamber |
 | `assets/maps/blancogov.txt` | Chapter 1 | Golden gate, three tower pairs, temple entrance |
 | `assets/maps/blancogov_temple.txt` | Chapter 1 | Throne hall, council seating |
-
----
-
-## Asset Requirements
-
-- **Map files:** all five `.txt` files listed above in `assets/maps/`
-- **SaveManager:** add `story_flags: Dictionary = {}` field and persist it in save/load
-- **GameBus:** add `story_flag_set(flag: String)` signal for reacting to story events
-- **TownspersonNPC:** extend `get_dialogue()` to accept an optional flag check so NPCs say
-  different lines after story events (e.g. Farsyth says something different after being warned)
-- **SceneManager:** add `start_story_mode()` that loads `madrian` as first map instead of `main`
-- **Future — branching dialogue:** when the dialogue system is extended, replace single-string NPC
-  lines with a dialogue tree keyed on story flags

@@ -329,4 +329,5 @@ When adding a new major feature or system, create a corresponding `.md` file in 
 | [docs/agent/enemies-and-npcs.md](docs/agent/enemies-and-npcs.md) | Enemy types, wander/track/engage AI, NPC dialogue |
 | [docs/agent/ui-and-scene-management.md](docs/agent/ui-and-scene-management.md) | Scene stack, battle overlay, menus, HUD, day/night |
 | [docs/agent/signals-and-constants.md](docs/agent/signals-and-constants.md) | GameBus signals, IsoConst values, decoupling patterns |
-| [docs/agent/story.md](docs/agent/story.md) | Story bible: characters, chapters, NPC dialogue, named map specs |
+| [docs/agent/story-implementation.md](docs/agent/story-implementation.md) | Story flags, dialogue gating, SaveManager fields, SceneManager entry point |
+| [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |
