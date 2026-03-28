@@ -1,6 +1,26 @@
-# Pear Pudding TCG — Godot Rewrite: Claude Notes
+# CLAUDE.md — Pear Pudding TCG
 
-Patterns and pitfalls learned during development. Read this before writing any GDScript.
+## Read Order
+
+Before any task, read in this order:
+1. `docs/human/specification.md`
+2. `docs/human/workflow.md`
+3. Relevant design docs in `docs/agent/`
+
+## Ownership
+
+- `docs/human/` — Human-owned. Never edit.
+- `docs/agent/` — Agent-owned. Keep exhaustive and current.
+- `tasks/` — Agent-managed. Follow workflow rules.
+
+## Workflow
+
+All functional code changes follow the task lifecycle in `docs/human/workflow.md`.
+
+## Commands
+
+- `/new-goal` — Research and create a goal with tasks
+- `/work-task` — Execute a single task
 
 ---
 
@@ -290,22 +310,24 @@ Exit code 0 means all tests passed, 1 means one or more failed.
 
 ---
 
-## Documentation: docs/ Directory
+## Documentation: docs/agent/ Directory
 
-Feature documentation lives in `docs/`. Each file covers **Key Features**, **How It Works**, **Integrations with Other Features**, and **Asset Requirements**.
+Agent-owned feature documentation lives in `docs/agent/`. Each file covers **Key Features**, **How It Works**, **Integrations with Other Features**, and **Asset Requirements**.
 
-When adding a new major feature or system, create a corresponding `.md` file in `docs/` and add a row to this table.
+When adding a new major feature or system, create a corresponding `.md` file in `docs/agent/` and add a row to this table.
 
 | File | Feature |
 |---|---|
-| [docs/docsplan.md](docs/docsplan.md) | Documentation index and architecture overview |
-| [docs/battle-system.md](docs/battle-system.md) | TCG card battles: game state, mana, boards, AI |
-| [docs/world-generation.md](docs/world-generation.md) | Infinite chunks, 5 biomes, ruins, entity spawning |
-| [docs/named-maps-and-dungeons.md](docs/named-maps-and-dungeons.md) | Text map format, DungeonGen, map stack navigation |
-| [docs/terrain-rendering.md](docs/terrain-rendering.md) | TerrainMath mesh building, height fields, shaders, grass |
-| [docs/camera-and-player.md](docs/camera-and-player.md) | Isometric camera math, WASD movement, chunk streaming |
-| [docs/inventory-and-deck.md](docs/inventory-and-deck.md) | Card collection, deck builder UI, chest drops |
-| [docs/save-system.md](docs/save-system.md) | JSON persistence, dirty flag, field migration |
-| [docs/enemies-and-npcs.md](docs/enemies-and-npcs.md) | Enemy types, wander/track/engage AI, NPC dialogue |
-| [docs/ui-and-scene-management.md](docs/ui-and-scene-management.md) | Scene stack, battle overlay, menus, HUD, day/night |
-| [docs/signals-and-constants.md](docs/signals-and-constants.md) | GameBus signals, IsoConst values, decoupling patterns |
+| [docs/agent/docsplan.md](docs/agent/docsplan.md) | Documentation index and architecture overview |
+| [docs/agent/battle-system.md](docs/agent/battle-system.md) | TCG card battles: game state, mana, boards, AI |
+| [docs/agent/world-generation.md](docs/agent/world-generation.md) | Infinite chunks, 5 biomes, ruins, entity spawning |
+| [docs/agent/named-maps-and-dungeons.md](docs/agent/named-maps-and-dungeons.md) | Text map format, DungeonGen, map stack navigation |
+| [docs/agent/terrain-rendering.md](docs/agent/terrain-rendering.md) | TerrainMath mesh building, height fields, shaders, grass |
+| [docs/agent/camera-and-player.md](docs/agent/camera-and-player.md) | Isometric camera math, WASD movement, chunk streaming |
+| [docs/agent/inventory-and-deck.md](docs/agent/inventory-and-deck.md) | Card collection, deck builder UI, chest drops |
+| [docs/agent/save-system.md](docs/agent/save-system.md) | JSON persistence, dirty flag, field migration |
+| [docs/agent/enemies-and-npcs.md](docs/agent/enemies-and-npcs.md) | Enemy types, wander/track/engage AI, NPC dialogue |
+| [docs/agent/ui-and-scene-management.md](docs/agent/ui-and-scene-management.md) | Scene stack, battle overlay, menus, HUD, day/night |
+| [docs/agent/signals-and-constants.md](docs/agent/signals-and-constants.md) | GameBus signals, IsoConst values, decoupling patterns |
+| [docs/agent/story-implementation.md](docs/agent/story-implementation.md) | Story flags, dialogue gating, SaveManager fields, SceneManager entry point |
+| [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |
