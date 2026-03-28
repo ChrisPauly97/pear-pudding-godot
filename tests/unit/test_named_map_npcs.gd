@@ -88,6 +88,16 @@ func test_all_named_maps_load_npcs() -> void:
 				"map '%s': chunk NPC count should match world NPC count" % mname)
 
 
+func test_madrian_is_not_fallback() -> void:
+	var wm: RefCounted = WorldMapScript.new("madrian")
+	assert_false(wm.is_fallback, "madrian should load from file, not fallback")
+
+
+func test_nonexistent_map_is_fallback() -> void:
+	var wm: RefCounted = WorldMapScript.new("nonexistent_map_12345")
+	assert_true(wm.is_fallback, "nonexistent map should use fallback")
+
+
 func test_fallback_map_generates_all_entity_types() -> void:
 	# _build_default_map calls _generate_entities which should create enemies,
 	# chests, AND NPCs so the fallback world isn't empty of any entity type.

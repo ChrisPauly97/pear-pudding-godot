@@ -21,6 +21,7 @@ var doors: Array[Dictionary] = []     # Array of door dicts
 var npcs: Array[Dictionary] = []      # Array of npc dicts
 var player_spawn_x: int = -1
 var player_spawn_z: int = -1
+var is_fallback: bool = false   # true when map file couldn't be loaded
 
 func _init(p_name: String = "main") -> void:
 	map_name = p_name
@@ -33,9 +34,16 @@ func _init(p_name: String = "main") -> void:
 	# Bundled maps (res://) are authoritative — always prefer them over any
 	# user:// copy, which may be stale (e.g. saved before NPCs were added).
 	# User:// overrides only apply for custom maps with no bundled version.
-	# NOTE: FileAccess.file_exists("res://...") is unreliable on Android (PCK builds)
-	# even when the file is accessible. Use open() directly instead.
-	var f_res := FileAccess.open(res_path, FileAccess.READ)
+	# NOTE: FileAccess.open("res://...") can fail transiently on Android PCK
+	# builds. Retry up to 3 times with a short spin-wait to work around this.
+	var f_res: FileAccess = null
+	for attempt in range(3):
+		f_res = FileAccess.open(res_path, FileAccess.READ)
+		if f_res != null:
+			break
+		# Brief spin-wait before retry — OS.delay_msec is safe in _init context
+		if attempt < 2:
+			OS.delay_msec(50)
 	if f_res != null:
 		f_res.close()
 		load_from_file(res_path)
@@ -51,6 +59,7 @@ func _init(p_name: String = "main") -> void:
 		else:
 			push_warning("[WorldMap] Map file not found for '%s' (tried %s and %s) — using default map" % [
 				map_name, res_path, user_path])
+			is_fallback = true
 			_build_default_map()
 
 func _alloc_grids() -> void:

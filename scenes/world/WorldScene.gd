@@ -162,6 +162,10 @@ func _ready() -> void:
 			world_map = DungeonGen.generate(map_name, dseed)
 		else:
 			world_map = WorldMap.new(map_name)
+			if world_map.is_fallback:
+				# Deferred so the dialogue label exists and the world is visible
+				_show_dialogue.call_deferred(
+					"Map '%s' could not be loaded — using a generated map instead." % map_name)
 
 	_spawn_player()
 
