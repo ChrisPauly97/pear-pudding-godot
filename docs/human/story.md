@@ -72,11 +72,15 @@ must warn every lord and the king before it is too late.
 
 ## Introduction
 
-**Location:** Madrian (small town, Saimtar's home)
+**Location:** Larik (Saimtar's home village), then Madrian
 
-Saimtar is doing housework when an old man beckons him from outside. Maiteln offers freedom and
-adventure. Saimtar agrees immediately — life in servitude is dull. They slip away before the master
-notices they are gone.
+Saimtar had just turned 11 years old, not an occasion he wished to celebrate anymore. He is moderately tall with long legs and gangly arms that seemingly grew further out of proportion with his body each passing day.
+
+He grew up in Larik, his entire life spent in what could only be classed as a collection of houses with aspirations of township. The kind of place where everyone knows everyone a little too well and nothing goes unnoticed. It certainly had not been missed when Saimtar's parents disappeared without a trace, on the morning of his 10th birthday.
+
+It was a morning in Larik like any other, the sun threatening to shine from behind brooding clouds; the quiet storm before the calm. It rarely rained in Larik and this day was no different. For Saimtar, this day started as most days usually do, early to head to the stables to muck and feed the horses before occupying himself with whatever young boys do in a place like Larik, mostly nothing.
+
+He returned from the stables to the house, pushed open the unlocked front door and called out "Mum! What's for lunch?". No answer. "Mum?" rang out. No answer. "Dad?" No answer. This was unusual, his mother never left the house, and she always answered him. His dad? Well, he would answer too if he's not at work. He wandered through the house, peering behind doors, under the beds, inside cupboards. Nothing.
 
 ---
 
