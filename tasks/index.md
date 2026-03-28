@@ -9,6 +9,7 @@
 | [GID-003](goals/GID-003--deck-builder-constraints/goal.md) | Deck Builder Constraints & Validation | pending | 0 / 2 |
 | [GID-004](goals/GID-004--audio-foundation/goal.md) | Audio Foundation | pending | 0 / 3 |
 | [GID-005](goals/GID-005--android-export-hardening/goal.md) | Android Export Hardening | pending | 0 / 2 |
+| [GID-006](goals/GID-006--fix-minimap-rotation/goal.md) | Fix Minimap Orientation for Isometric Camera Alignment | pending | 0 / 1 |
 
 ## Backlog
 
