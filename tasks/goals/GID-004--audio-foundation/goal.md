@@ -14,7 +14,7 @@ Godot 4 constraint: no geometry shaders, but `AudioStreamPlayer` and `AudioStrea
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-009 | Create `AudioManager` autoload with SFX playback API | agent | pending | — |
+| TID-009 | Create `AudioManager` autoload with SFX playback API | agent | done | — |
 | TID-010 | Wire battle sound effects | agent | pending | TID-009 |
 | TID-011 | Wire world exploration sound effects | agent | pending | TID-009 |
 
