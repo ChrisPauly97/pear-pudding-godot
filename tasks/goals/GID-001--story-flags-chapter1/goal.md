@@ -22,7 +22,7 @@ Without this goal the story mode is a silent collection of isolated maps with no
 | TID-001 | Add `story_flags` to SaveManager + `story_flag_set` to GameBus | agent | done | — |
 | TID-002 | Extend TownspersonNPC & WorldMap parser for flag-gated dialogue | agent | done | TID-001 |
 | TID-003 | Wire Chapter 1 NPC story triggers across all 5 maps | agent | done | TID-002 |
-| TID-004 | Verify and fix story map door connectivity | agent | pending | — |
+| TID-004 | Verify and fix story map door connectivity | agent | done | — |
 
 ## Acceptance Criteria
 

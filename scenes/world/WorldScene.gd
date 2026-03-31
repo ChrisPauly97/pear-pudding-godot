@@ -920,10 +920,10 @@ func _handle_interact() -> void:
 		var target_map: String = door.get("target_map", "")
 		var tdoor: String = door.get("target_door_id", "")
 		if target_map.is_empty():
-			if SaveManager.current_map == "madrian":
-				SaveManager.set_story_flag("chapter1_left_madrian")
 			SceneManager.exit_map()
 		else:
+			if SaveManager.current_map == "madrian" and target_map == "maykalene":
+				SaveManager.set_story_flag("chapter1_left_madrian")
 			SceneManager.enter_map(target_map, tdoor)
 		return
 
