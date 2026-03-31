@@ -96,8 +96,9 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 	_mini_cam = Camera3D.new()
 	_mini_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
 	_mini_cam.size = VIEW_RADIUS * 2.0
-	# Pitch –90° so the camera looks straight down; no yaw so +X=east, –Z=north.
-	_mini_cam.rotation_degrees = Vector3(-90.0, 0.0, 0.0)
+	# Pitch –90° so the camera looks straight down; +45° yaw aligns minimap-up
+	# with isometric screen-up (world NW = (−1,0,−1)).
+	_mini_cam.rotation_degrees = Vector3(-90.0, 45.0, 0.0)
 	_mini_cam.position = Vector3(0.0, 200.0, 0.0)
 	viewport.add_child(_mini_cam)
 
@@ -128,17 +129,8 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 	ring.position = Vector2(px, py)
 	hud.add_child(ring)
 
-	# ── "N" compass label above the disc ──────────────────────────────────────
-	var font_sz: int = int(vh * 0.018)
-	var n_lbl := Label.new()
-	n_lbl.text = "N"
-	n_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	n_lbl.add_theme_color_override("font_color", Color(0.95, 0.85, 0.45))
-	n_lbl.add_theme_font_size_override("font_size", font_sz)
-	n_lbl.size = Vector2(float(sz), float(font_sz + 4))
-	n_lbl.position = Vector2(px, py - float(font_sz + 6))
-	n_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud.add_child(n_lbl)
+	# "N" label removed — after the 45° rotation the top of the minimap is
+	# isometric screen-up (world NW), not geographic north.
 
 
 # Call every frame from WorldScene._process().
@@ -172,7 +164,12 @@ func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,
 		if not is_instance_valid(n):
 			continue
 		var off: Vector3 = n.position - origin
-		var dot := Vector2(_half + off.x * _scale, _half + off.z * _scale)
+		# Rotate +45° to match the isometric camera's −45° azimuth:
+		# iso screen-right = world NE (+x,0,−z), iso screen-up = world NW (−x,0,−z).
+		const ROT45: float = 0.7071067811865476
+		var rx: float = (off.x - off.z) * ROT45
+		var ry: float = (off.x + off.z) * ROT45
+		var dot := Vector2(_half + rx * _scale, _half + ry * _scale)
 		# Only draw dots that fall inside the circle
 		if (dot - center).length() <= _half * 0.94:
 			canvas.draw_circle(dot, radius, color)
