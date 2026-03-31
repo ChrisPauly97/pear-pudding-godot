@@ -2,7 +2,7 @@
 
 **Goal:** GID-001
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-001
 
 ## Lock
@@ -54,12 +54,16 @@ NPC dialogue in named maps is a single static string. Story NPCs (Maiteln, Lord 
 
 ## Plan
 
-_Written during Plan phase._
+1. **WorldMap parser** (`load_from_string`): when 4th token starts with `FLAG:`, extract `flag_key` and split rest on ` || ` for before/after dialogue; store both in the NPC dict. Plain NPC lines get `flag_key: ""`.
+2. **WorldMap serialiser** (`save_to_file`): when NPC dict has a non-empty `flag_key`, emit `NPC x z FLAG:key before || after`; otherwise emit the existing format.
+3. **TownspersonNPC** (`init_from_data`): pull `flag_key` and `after_dialogue` from dict into instance vars. `get_dialogue()` checks `SaveManager.get_story_flag(_flag_key)` when key is set and returns the appropriate line.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/WorldMap.gd` (`load_from_string`): Extended NPC parsing to detect `FLAG:key` prefix. Extracts `flag_key`, splits remainder on ` || ` for before/after text. Plain NPC lines store `flag_key: ""`, `after_dialogue: ""`.
+- `game_logic/world/WorldMap.gd` (`save_to_file`): When NPC has non-empty `flag_key`, serialises as `NPC x z FLAG:key before || after`. Otherwise uses the existing format.
+- `scenes/world/entities/TownspersonNPC.gd`: Added `_flag_key` and `_after_dialogue` instance vars. `init_from_data()` extracts them from the dict. `get_dialogue()` returns `_after_dialogue` when flag is set, otherwise the before-text.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes required — `docs/agent/story-implementation.md` already documents this syntax and behaviour.

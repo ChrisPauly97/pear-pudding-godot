@@ -1,6 +1,8 @@
 extends Node3D
 
 var npc_data: Dictionary = {}
+var _flag_key: String = ""
+var _after_dialogue: String = ""
 
 static var _body_mat: StandardMaterial3D
 static var _head_mat: StandardMaterial3D
@@ -56,6 +58,8 @@ static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
 
 func init_from_data(data: Dictionary) -> void:
 	npc_data = data
+	_flag_key = str(data.get("flag_key", ""))
+	_after_dialogue = str(data.get("after_dialogue", ""))
 
 func _add_name_label() -> void:
 	var npc_name: String = _extract_name()
@@ -85,4 +89,6 @@ func _extract_name() -> String:
 	return "NPC"
 
 func get_dialogue() -> String:
+	if _flag_key != "" and SaveManager.get_story_flag(_flag_key):
+		return _after_dialogue
 	return str(npc_data.get("dialogue", "..."))

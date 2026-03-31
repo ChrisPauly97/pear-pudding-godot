@@ -194,8 +194,14 @@ func save_to_file(path: String) -> void:
 		f.store_line("CHEST %d %d %s" % [int(c["x"] / TILE_SIZE), int(c["z"] / TILE_SIZE), card_str])
 
 	for n in npcs:
-		var dialogue: String = str(n.get("dialogue", "..."))
-		f.store_line("NPC %d %d %s" % [int(n["x"] / TILE_SIZE), int(n["z"] / TILE_SIZE), dialogue])
+		var fk: String = str(n.get("flag_key", ""))
+		if fk != "":
+			var before: String = str(n.get("dialogue", "..."))
+			var after: String = str(n.get("after_dialogue", ""))
+			f.store_line("NPC %d %d FLAG:%s %s || %s" % [int(n["x"] / TILE_SIZE), int(n["z"] / TILE_SIZE), fk, before, after])
+		else:
+			var dialogue: String = str(n.get("dialogue", "..."))
+			f.store_line("NPC %d %d %s" % [int(n["x"] / TILE_SIZE), int(n["z"] / TILE_SIZE), dialogue])
 
 	for d in doors:
 		var target: String = d.get("target_map", "")
@@ -297,12 +303,28 @@ func load_from_string(content: String) -> void:
 			var parts := line.split(" ", false, 3)
 			if parts.size() >= 3:
 				uid_counter += 1
-				var dialogue: String = parts[3] if parts.size() >= 4 else "..."
+				var raw: String = parts[3] if parts.size() >= 4 else "..."
+				var flag_key: String = ""
+				var after_dialogue: String = ""
+				var dialogue: String = raw
+				if raw.begins_with("FLAG:"):
+					var space_idx: int = raw.find(" ")
+					if space_idx > 0:
+						flag_key = raw.substr(5, space_idx - 5)
+						var rest: String = raw.substr(space_idx + 1)
+						var sep_idx: int = rest.find(" || ")
+						if sep_idx >= 0:
+							dialogue = rest.substr(0, sep_idx)
+							after_dialogue = rest.substr(sep_idx + 4)
+						else:
+							dialogue = rest
 				npcs.append({
 					"id": "npc_%d" % uid_counter,
 					"x": float(parts[1]) * TILE_SIZE,
 					"z": float(parts[2]) * TILE_SIZE,
 					"dialogue": dialogue,
+					"flag_key": flag_key,
+					"after_dialogue": after_dialogue,
 				})
 
 		elif line.begins_with("DOOR "):
