@@ -7,7 +7,7 @@
 | [GID-001](goals/GID-001--story-flags-chapter1/goal.md) | Story Flags & Chapter 1 Playthrough | pending | 3 / 4 |
 | [GID-002](goals/GID-002--battle-card-rewards/goal.md) | Post-Battle Card Rewards | done | 2 / 2 |
 | [GID-003](goals/GID-003--deck-builder-constraints/goal.md) | Deck Builder Constraints & Validation | pending | 0 / 2 |
-| [GID-004](goals/GID-004--audio-foundation/goal.md) | Audio Foundation | pending | 1 / 3 |
+| [GID-004](goals/GID-004--audio-foundation/goal.md) | Audio Foundation | pending | 2 / 3 |
 | [GID-005](goals/GID-005--android-export-hardening/goal.md) | Android Export Hardening | pending | 0 / 2 |
 | [GID-006](goals/GID-006--fix-minimap-rotation/goal.md) | Fix Minimap Orientation for Isometric Camera Alignment | pending | 0 / 1 |
 | [GID-007](goals/GID-007--coin-economy-merchant/goal.md) | Coin Economy & Merchant NPC | pending | 0 / 2 |

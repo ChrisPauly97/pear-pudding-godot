@@ -105,6 +105,7 @@ func _finish_hand_drag() -> void:
 	var board_rect: Rect2 = _player_board_view.get_global_rect()
 	if board_rect.has_point(mouse_pos):
 		if _state.players[0].play_card(_hand_drag_card):
+			AudioManager.play_sfx("card_play")
 			_refresh_all()
 			_check_game_over()
 	_cancel_hand_drag()
@@ -331,6 +332,7 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		if not attacker.can_attack():
 			_dragged_card.clear()
 			return
+		AudioManager.play_sfx("attack")
 		target.health -= attacker.attack
 		attacker.health -= target.attack
 		attacker.attack_count -= 1
@@ -355,6 +357,7 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 			_dragged_card.clear()
 			_refresh_all()
 			return
+		AudioManager.play_sfx("attack")
 		_state.players[1].hero.take_damage(attacker.attack)
 		attacker.health -= _state.players[1].hero.attack
 		attacker.attack_count -= 1
@@ -395,6 +398,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		_refresh_all()
 		_check_game_over()
 		return
+	AudioManager.play_sfx("attack")
 	actions[idx].call()
 	_refresh_all()
 	await get_tree().create_timer(0.6, true).timeout
@@ -404,6 +408,7 @@ func _check_game_over() -> void:
 	if _state.is_game_over():
 		var w := _state.winner()
 		if w == 0:
+			AudioManager.play_sfx("battle_win")
 			var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
 			var pool: Array[String] = EnemyRegistry.get_drop_pool(enemy_type)
 			var reward_card_id: String = ""
@@ -411,6 +416,7 @@ func _check_game_over() -> void:
 				reward_card_id = pool[randi() % pool.size()]
 			_show_victory_overlay(reward_card_id)
 		else:
+			AudioManager.play_sfx("battle_lose")
 			GameBus.battle_lost.emit()
 
 func _show_victory_overlay(reward_card_id: String) -> void:
