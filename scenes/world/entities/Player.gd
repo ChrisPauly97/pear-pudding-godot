@@ -21,6 +21,7 @@ var _anim_timer: float = 0.0
 var _anim_frame: int = 0
 var _is_moving: bool = false
 var _walk_frames: Array[Texture2D]
+var _footstep_timer: float = 0.0
 
 func _ready() -> void:
 	_walk_frames = [_WalkTex1, _WalkTex2, _WalkTex3, _WalkTex4]
@@ -76,6 +77,12 @@ func _physics_process(delta: float) -> void:
 
 	velocity.y = _velocity_y
 	move_and_slide()
+
+	# --- Footstep audio ---
+	_footstep_timer -= delta
+	if dir.length_squared() > 0.01 and _footstep_timer <= 0.0:
+		AudioManager.play_sfx("footstep")
+		_footstep_timer = 0.4
 
 	# --- Sprite animation ---
 	_is_moving = dir.length_squared() > 0.0
