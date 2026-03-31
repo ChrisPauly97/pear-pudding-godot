@@ -2,7 +2,7 @@
 
 **Goal:** GID-004
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-009
 
 ## Lock
@@ -51,12 +51,17 @@ Add `var _footstep_timer: float = 0.0` to Player. Read `Player.gd` to confirm th
 
 ## Plan
 
-_Written during Plan phase._
+1. `EnemyNPC.gd` `engage()` — add `AudioManager.play_sfx("enemy_engage")` before `GameBus.enemy_engaged.emit`.
+2. `WorldScene.gd` `_handle_interact()` — add `AudioManager.play_sfx("door_enter")` before `SceneManager.exit_map()` / `enter_map()`.
+3. `WorldScene.gd` `_handle_interact()` — add `AudioManager.play_sfx("chest_open")` when chest is opened.
+4. `Player.gd` — add `_footstep_timer` var and throttled `AudioManager.play_sfx("footstep")` call in `_physics_process`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/entities/EnemyNPC.gd`: `AudioManager.play_sfx("enemy_engage")` in `engage()`.
+- `scenes/world/WorldScene.gd`: `AudioManager.play_sfx("door_enter")` before map transition; `AudioManager.play_sfx("chest_open")` on chest open.
+- `scenes/world/entities/Player.gd`: `_footstep_timer` var + throttled `AudioManager.play_sfx("footstep")` in `_physics_process` (0.4 s interval, threshold `dir.length_squared() > 0.01`).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes required — `docs/agent/story-implementation.md` and `docs/agent/enemies-and-npcs.md` did not need updates for audio hooks.

@@ -72,6 +72,7 @@ func engage() -> void:
 	if not edata.has("enemy_deck"):
 		var etype: String = str(edata.get("enemy_type", "undead_basic"))
 		edata["enemy_deck"] = EnemyRegistry.get_deck(etype)
+	AudioManager.play_sfx("enemy_engage")
 	GameBus.enemy_engaged.emit(edata)
 	queue_free()
 

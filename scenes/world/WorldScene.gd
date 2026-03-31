@@ -919,6 +919,7 @@ func _handle_interact() -> void:
 	if not door.is_empty():
 		var target_map: String = door.get("target_map", "")
 		var tdoor: String = door.get("target_door_id", "")
+		AudioManager.play_sfx("door_enter")
 		if target_map.is_empty():
 			SceneManager.exit_map()
 		else:
@@ -935,6 +936,7 @@ func _handle_interact() -> void:
 	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
 	if not chest.is_empty() and not chest.get("opened", false):
 		chest["opened"] = true
+		AudioManager.play_sfx("chest_open")
 		var cid: String = str(chest.get("id", ""))
 		SceneManager.save_manager.mark_chest_opened(cid)
 		var node := _chest_nodes.get(cid) as Node3D
