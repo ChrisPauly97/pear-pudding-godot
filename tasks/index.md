@@ -5,7 +5,7 @@
 | Goal | Title | Status | Progress |
 |------|-------|--------|----------|
 | [GID-001](goals/GID-001--story-flags-chapter1/goal.md) | Story Flags & Chapter 1 Playthrough | pending | 1 / 4 |
-| [GID-002](goals/GID-002--battle-card-rewards/goal.md) | Post-Battle Card Rewards | pending | 0 / 2 |
+| [GID-002](goals/GID-002--battle-card-rewards/goal.md) | Post-Battle Card Rewards | pending | 1 / 2 |
 | [GID-003](goals/GID-003--deck-builder-constraints/goal.md) | Deck Builder Constraints & Validation | pending | 0 / 2 |
 | [GID-004](goals/GID-004--audio-foundation/goal.md) | Audio Foundation | pending | 0 / 3 |
 | [GID-005](goals/GID-005--android-export-hardening/goal.md) | Android Export Hardening | pending | 0 / 2 |

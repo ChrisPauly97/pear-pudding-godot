@@ -50,6 +50,17 @@ player_deck  = owned_cards.duplicate()
 
 The player starts with all 12 cards both owned and in the deck.
 
+### Battle Card Drops
+
+Each `EnemyData` resource has a `drop_pool: PackedStringArray` field listing card IDs that may be awarded on defeat. `EnemyRegistry.get_drop_pool(type_id)` returns this array (falls back to `["ghost"]` for unknown types). The post-battle reward flow (TID-006) picks one card at random and calls `SaveManager.add_card(card_id)`.
+
+| Enemy | Drop Pool |
+|---|---|
+| `undead_basic` | ghost, skeleton |
+| `undead_horde` | skeleton, zombie |
+| `ghoul_pack` | zombie, ghoul |
+| `undead_elite` | ghoul |
+
 ### Chest Card Drops
 
 When the player opens a chest (`Chest.gd` triggers `GameBus.chest_opened(card_id)`):

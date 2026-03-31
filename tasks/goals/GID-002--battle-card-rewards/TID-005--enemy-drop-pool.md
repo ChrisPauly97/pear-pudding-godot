@@ -2,7 +2,7 @@
 
 **Goal:** GID-002
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -45,12 +45,19 @@ Check the exact `.tres` serialisation format used in existing files — Godot te
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `drop_pool: PackedStringArray` export field to `data/EnemyData.gd`.
+2. Add `drop_pool = PackedStringArray(...)` to each of the four `.tres` files per the spec.
+3. Add `get_drop_pool(type_id)` static helper to `EnemyRegistry.gd` (since no `get_enemy()` exists).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/EnemyData.gd`: added `@export var drop_pool: PackedStringArray = PackedStringArray()`.
+- `data/enemies/undead_basic.tres`: `drop_pool = PackedStringArray("ghost", "skeleton")`.
+- `data/enemies/undead_horde.tres`: `drop_pool = PackedStringArray("skeleton", "zombie")`.
+- `data/enemies/ghoul_pack.tres`: `drop_pool = PackedStringArray("zombie", "ghoul")`.
+- `data/enemies/undead_elite.tres`: `drop_pool = PackedStringArray("ghoul")`.
+- `autoloads/EnemyRegistry.gd`: added `get_drop_pool(type_id)` static method; falls back to `["ghost"]` for unknown types.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/inventory-and-deck.md` to note battle card drops via `EnemyRegistry.get_drop_pool()`.
