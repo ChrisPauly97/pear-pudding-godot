@@ -12,7 +12,7 @@ The minimap camera looks straight down with no yaw (`rotation_degrees = Vector3(
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-014 | Rotate minimap camera and dot overlay to match isometric azimuth | agent | pending | — |
+| TID-014 | Rotate minimap camera and dot overlay to match isometric azimuth | agent | done | — |
 
 ## Acceptance Criteria
 

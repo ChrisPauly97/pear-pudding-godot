@@ -2,7 +2,7 @@
 
 **Goal:** GID-006
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -45,12 +45,16 @@ Remove the `"N"` label entirely — after the 45° rotation the minimap top is i
 
 ## Plan
 
-_Written during Plan phase._
+1. Set minimap camera Y rotation to +45° so its "up" direction aligns with iso screen-up (world NW).
+2. Apply the same +45° rotation matrix to all dot positions in `_draw_group`.
+3. Remove the misleading "N" compass label.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/Minimap.gd` line ~100: `_mini_cam.rotation_degrees` changed from `Vector3(-90, 0, 0)` to `Vector3(-90, 45, 0)`.
+- `scenes/world/Minimap.gd` `_draw_group`: replaced `off.x / off.z` direct mapping with `ROT45`-rotated `rx/ry` coordinates.
+- `scenes/world/Minimap.gd` `setup()`: removed the `"N"` Label node (was lines 132–141).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent docs required changes — the minimap is described under `docs/agent/ui-and-scene-management.md` but the change is mechanical (rotation fix), not architectural.
