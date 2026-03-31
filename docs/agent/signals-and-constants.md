@@ -149,5 +149,6 @@ These aliases exist only for files that were written before the constants were c
 |---|---|---|
 | `GameBus.gd` | `autoloads/GameBus.gd` | Autoload singleton; registered in `project.godot` under the name `GameBus` |
 | `IsoConst.gd` | `autoloads/IsoConst.gd` | Autoload singleton; registered under the name `IsoConst` |
+| `AudioManager.gd` | `autoloads/AudioManager.gd` | Autoload singleton; registered under the name `AudioManager` — see [audio-manager.md](audio-manager.md) |
 
 No textures, shaders, or data files are required. Both scripts contain only declarations and constants — they have no runtime cost beyond registration.

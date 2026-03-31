@@ -2,7 +2,7 @@
 
 **Goal:** GID-001
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -64,12 +64,21 @@ A door with an empty or missing `target_door_id` teleports the player to the `pl
 
 ## Plan
 
-_Written during Plan phase._
+1. Audit all DOOR lines in the 8 story map files.
+2. Verify BundledMaps contains all story maps.
+3. Fix broken doors and update WorldScene flag logic.
+4. Regenerate BundledMaps.gd.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `assets/maps/madrian.txt`: Changed `DOOR 50 99 __exit__ madrian_exit` → `DOOR 50 99 maykalene`. The `__exit__` door was the main story progression exit from Madrian, but since Madrian is the root map (empty `map_stack`), `exit_map()` would call `go_to_menu()` instead of advancing the story.
+- `scenes/world/WorldScene.gd`: Moved `chapter1_left_madrian` flag set from the `__exit__` branch to the named-map branch, firing when `current_map == "madrian"` and `target_map == "maykalene"`.
+- `game_logic/world/BundledMaps.gd`: Regenerated via `python3 scripts/bundle_maps.py` to embed the updated madrian map data.
+
+All 8 story maps were confirmed present in BundledMaps. All sub-map `__exit__` doors and SPAWNs are correctly defined.
+
+**Non-blocking finding:** `target_door_id` values like `door_masters_exit` are descriptive names that won't match auto-generated `door_N` IDs. Players land at `player_spawn` (correctly positioned near each entrance) as fallback — functionally correct.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes needed; story-implementation.md already documents the door connectivity model accurately.

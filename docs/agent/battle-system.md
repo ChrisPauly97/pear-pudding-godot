@@ -82,7 +82,8 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
 | **EnemyRegistry** | Data source | `EnemyRegistry.get_enemy(type)` returns enemy deck composition by type string |
 | **CardRegistry** | Data source | `CardRegistry.get_card(id)` resolves card template for each card in the deck |
 | **SaveManager** | Player deck | `SaveManager.player_deck` is the `Array[String]` of card IDs loaded into `PlayerState[0]` at battle start |
-| **SceneManager** | Scene routing | `GameBus.battle_won` → SceneManager restores WorldScene; `GameBus.battle_lost` → SceneManager loads GameOverScene |
+| **SceneManager** | Scene routing | `GameBus.battle_won` → SceneManager grants reward card + restores WorldScene; `GameBus.battle_lost` → SceneManager loads GameOverScene |
+| **EnemyRegistry** | Drop pool | `EnemyRegistry.get_drop_pool(enemy_type)` returns cards that may drop; BattleScene picks one at random and shows the victory overlay |
 | **Inventory / Deck** | Deck source | Player's active battle deck is built from `SaveManager.player_deck` (managed in InventoryScene) |
 | **GameBus signals** | Both | `card_played`, `card_attacked`, `turn_ended`, `battle_ended` — BattleScene listens to these to refresh the UI |
 

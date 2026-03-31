@@ -2,7 +2,7 @@
 
 **Goal:** GID-001
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-002
 
 ## Lock
@@ -45,12 +45,24 @@ With flag storage (TID-001) and flag-gated dialogue (TID-002) in place, this tas
 
 ## Plan
 
-_Written during Plan phase._
+1. **madrian.txt**: Convert Maiteln to `FLAG:story_intro_complete` syntax with before/after dialogue from story.md.
+2. **farsyth_mansion.txt**: Convert Lord Farsyth to `FLAG:chapter1_warned_farsyth` syntax.
+3. **blancogov_temple.txt**: Convert King Eldar to `FLAG:chapter1_temple_council` syntax; align Queen and Scargroth dialogue to story.md verbatim.
+4. **maykalene.txt**: Align 3 static NPC dialogue lines to story.md verbatim.
+5. **blancogov.txt**: Align 2 static NPC dialogue lines to story.md verbatim.
+6. **WorldScene.gd** NPC interact: call `node.get_dialogue()` instead of reading raw dict; call `SaveManager.set_story_flag(flag_key)` on first interaction.
+7. **WorldScene.gd** door handler: set `chapter1_left_madrian` when exiting madrian via `exit_map()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `assets/maps/madrian.txt`: Maiteln NPC converted to `FLAG:story_intro_complete` with before/after dialogue from story.md.
+- `assets/maps/farsyth_mansion.txt`: Lord Farsyth NPC converted to `FLAG:chapter1_warned_farsyth` with before/after dialogue from story.md.
+- `assets/maps/blancogov_temple.txt`: King Eldar NPC converted to `FLAG:chapter1_temple_council`; Queen and Scargroth dialogue aligned to story.md verbatim.
+- `assets/maps/maykalene.txt`: Townsperson, Innkeeper, and Mansion guard dialogue aligned to story.md verbatim.
+- `assets/maps/blancogov.txt`: Gate guard and City dweller dialogue aligned to story.md verbatim.
+- `scenes/world/WorldScene.gd` (`_handle_interact`): NPC branch now calls `node.get_dialogue()` and calls `SaveManager.set_story_flag(flag_key)` when the NPC has a flag key set.
+- `scenes/world/WorldScene.gd` (`_handle_interact`): Door branch sets `chapter1_left_madrian` via `SaveManager.set_story_flag()` when the player exits via `__exit__` from the `madrian` map.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes required — `docs/agent/story-implementation.md` already describes this wiring.

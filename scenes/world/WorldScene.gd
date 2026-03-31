@@ -922,6 +922,8 @@ func _handle_interact() -> void:
 		if target_map.is_empty():
 			SceneManager.exit_map()
 		else:
+			if SaveManager.current_map == "madrian" and target_map == "maykalene":
+				SaveManager.set_story_flag("chapter1_left_madrian")
 			SceneManager.enter_map(target_map, tdoor)
 		return
 
@@ -947,7 +949,17 @@ func _handle_interact() -> void:
 
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	if not npc.is_empty():
-		_show_dialogue(str(npc.get("dialogue", "...")))
+		var nid: String = str(npc.get("id", ""))
+		var nnode := _npc_nodes.get(nid) as Node3D
+		var dlg: String
+		if nnode != null and nnode.has_method("get_dialogue"):
+			dlg = nnode.get_dialogue()
+			var fk: String = str(npc.get("flag_key", ""))
+			if fk != "":
+				SaveManager.set_story_flag(fk)
+		else:
+			dlg = str(npc.get("dialogue", "..."))
+		_show_dialogue(dlg)
 
 # ── Dialogue ───────────────────────────────────────────────────────────────
 

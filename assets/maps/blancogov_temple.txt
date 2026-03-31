@@ -388,7 +388,7 @@ HEIGHTS
 78,92,2
 79,92,2
 SPAWN 50 88
-NPC 42 15 Maiteln! We are glad you came so swiftly. The council is assembling. The Martarquas threat must be answered together before it is too late.
-NPC 58 15 Welcome, Maiteln, and your young companion. You are most welcome here. Please, take a seat in one of the red satin oak chairs.
-NPC 50 30 The letter was urgent for good reason. The prophecy cannot be ignored. We are all summoned. All lords must be present before we act.
+NPC 42 15 FLAG:chapter1_temple_council Maiteln! We are glad you came so swiftly. The council is assembling. The Martarquas threat must be answered together. || The council has heard the prophecy. We act at dawn.
+NPC 58 15 Welcome, Maiteln, and your young companion. You are most welcome here. Please take a seat in one of the red satin oak chairs.
+NPC 50 30 The letter was urgent for good reason. The prophecy cannot be ignored. All lords must be present before we act.
 DOOR 50 92 __exit__ temple_exit

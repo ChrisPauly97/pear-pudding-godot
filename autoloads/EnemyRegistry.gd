@@ -41,6 +41,16 @@ static func get_deck(type_id: String) -> Array[String]:
 		result = _FALLBACK_DECK.duplicate()
 	return result
 
+## Returns the drop pool for a type. Falls back to a single ghost if unknown.
+static func get_drop_pool(type_id: String) -> Array[String]:
+	_ensure_loaded()
+	var result: Array[String] = []
+	if _enemies.has(type_id):
+		result.assign((_enemies[type_id] as EnemyData).drop_pool)
+	else:
+		result = ["ghost"]
+	return result
+
 ## Returns the display name for a type, or the raw ID if unknown.
 static func get_display_name(type_id: String) -> String:
 	_ensure_loaded()

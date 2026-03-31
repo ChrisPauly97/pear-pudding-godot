@@ -12,8 +12,8 @@ The spec states cards are earned "from chests and battles." Chest drops are impl
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-005 | Add `drop_pool` field to EnemyData resource | agent | pending | — |
-| TID-006 | Implement post-battle reward flow + BattleScene reward UI | agent | pending | TID-005 |
+| TID-005 | Add `drop_pool` field to EnemyData resource | agent | done | — |
+| TID-006 | Implement post-battle reward flow + BattleScene reward UI | agent | done | TID-005 |
 
 ## Acceptance Criteria
 

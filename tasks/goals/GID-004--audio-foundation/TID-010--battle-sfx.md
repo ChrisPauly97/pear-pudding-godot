@@ -2,7 +2,7 @@
 
 **Goal:** GID-004
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-009
 
 ## Lock
@@ -55,12 +55,22 @@ func _on_battle_ended(winner: int) -> void:
 
 ## Plan
 
-_Written during Plan phase._
+Add `AudioManager.play_sfx()` calls directly at the 4 battle event points in `BattleScene.gd`:
+1. `_finish_hand_drag()` — after successful `play_card()` → `"card_play"`
+2. `_on_enemy_card_input()` — before dealing damage → `"attack"`
+3. `_on_enemy_hero_input()` — before dealing damage → `"attack"`
+4. `_check_game_over()` — before showing overlay or emitting signal → `"battle_win"` / `"battle_lose"`
+5. `_execute_ai_actions()` — before each AI action → `"attack"` (AI plays and attacks all produce audio)
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - `_finish_hand_drag()`: added `AudioManager.play_sfx("card_play")` on successful card play
+  - `_on_enemy_card_input()`: added `AudioManager.play_sfx("attack")` before minion combat
+  - `_on_enemy_hero_input()`: added `AudioManager.play_sfx("attack")` before hero attack
+  - `_check_game_over()`: added `AudioManager.play_sfx("battle_win")` and `"battle_lose"` per winner
+  - `_execute_ai_actions()`: added `AudioManager.play_sfx("attack")` before each AI action
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes needed — `docs/agent/story-implementation.md` covers story; audio is documented under the AudioManager task (TID-009).

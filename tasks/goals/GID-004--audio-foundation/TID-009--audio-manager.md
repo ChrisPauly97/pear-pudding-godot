@@ -2,7 +2,7 @@
 
 **Goal:** GID-004
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -81,12 +81,18 @@ func play_sfx(name: String) -> void:
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `autoloads/AudioManager.gd` — pooled `AudioStreamPlayer` nodes, `play_sfx(name)` API
+2. Create `assets/audio/sfx/README.md` documenting expected wav files
+3. Register `AudioManager` in `project.godot` autoload section
+4. Create `docs/agent/audio-manager.md`
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `autoloads/AudioManager.gd` — 8-player pool, `play_sfx(name)`, graceful no-op on missing files
+- Created `assets/audio/sfx/README.md` — documents expected wav files
+- Updated `project.godot` — added `AudioManager="*res://autoloads/AudioManager.gd"` to `[autoload]`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/audio-manager.md` — full feature doc
+- Updated `docs/agent/signals-and-constants.md` — added AudioManager to asset requirements table

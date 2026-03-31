@@ -563,7 +563,7 @@ HEIGHTS
 79,98,2
 80,98,2
 SPAWN 50 12
-NPC 49 9 Halt! State your business at the gates of Blancogov. We have a letter from Scargroth! We are summoned to the temple!
-NPC 49 72 The great temple of King Eldar lies at the road's end. The council has been summoned — something stirs in the land.
+NPC 49 9 Halt! State your business at the gates of Blancogov. No entry without authorisation!
+NPC 49 72 The great temple of King Eldar lies at the road's end. The council has been summoned — something stirs.
 DOOR 49 98 blancogov_temple door_temple_exit
 DOOR 50 4 __exit__ blancogov_exit

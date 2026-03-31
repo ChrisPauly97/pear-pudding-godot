@@ -2,7 +2,7 @@
 
 **Goal:** GID-002
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-005
 
 ## Lock
@@ -61,12 +61,21 @@ if pool.size() > 0:
 
 ## Plan
 
-_Written during Plan phase._
+1. Preload `EnemyRegistry` in `BattleScene.gd`.
+2. Replace the immediate `battle_won` emit in `_check_game_over()` with a call to `_show_victory_overlay(reward_card_id)`.
+3. `_show_victory_overlay()` builds a full-screen overlay with a Victory label, earned-card label, and a Collect/Continue button. On press it emits `GameBus.battle_won` with `{ "card_reward": reward_card_id }`.
+4. In `SceneManager._on_battle_won()`, read `result["card_reward"]` and call `save_manager.add_cards_to_deck([reward])` when non-empty.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - Added `const EnemyRegistry` preload.
+  - `_check_game_over()`: computes `reward_card_id` from `EnemyRegistry.get_drop_pool(enemy_type)` and calls `_show_victory_overlay()` instead of emitting immediately.
+  - New `_show_victory_overlay(reward_card_id)`: full-screen `PanelContainer` overlay with Victory label, card-name label (from `CardRegistry.get_template()`), and Collect/Continue button that emits `GameBus.battle_won`.
+- `autoloads/SceneManager.gd`:
+  - `_on_battle_won(result)`: reads `result.get("card_reward", "")` and calls `save_manager.add_cards_to_deck([reward])` if non-empty.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/inventory-and-deck.md` Battle Card Drops section.
+Updated `docs/agent/battle-system.md` (see below).

@@ -2,7 +2,7 @@
 
 **Goal:** GID-001
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -51,12 +51,27 @@
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `signal story_flag_set(flag: String)` to `GameBus.gd`.
+2. Add `var story_flags: Dictionary = {}` field to `SaveManager.gd`.
+3. Bump `CURRENT_SAVE_VERSION` to `3` and add `_migrate_v2_to_v3` (backfills empty dict).
+4. Reset `story_flags = {}` in `new_game()`.
+5. Persist `story_flags` in `save()` and restore in `load_save()`.
+6. Add `set_story_flag(key, value)` and `get_story_flag(key)` public methods.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: Added `signal story_flag_set(flag: String)` under a "Story signals" comment.
+- `autoloads/SaveManager.gd`:
+  - Added `var story_flags: Dictionary = {}` field.
+  - Bumped `CURRENT_SAVE_VERSION` from `2` to `3`.
+  - Added `_migrate_v2_to_v3()` (backfills `story_flags = {}` if absent).
+  - Wired migration into `_apply_migrations()`.
+  - Reset `story_flags = {}` in `new_game()`.
+  - Persist `story_flags` in `save()` dict.
+  - Load `story_flags` in `load_save()`.
+  - Added `set_story_flag(key, value)` — sets flag, marks dirty, emits `GameBus.story_flag_set`.
+  - Added `get_story_flag(key)` — returns bool from dict with `false` default.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes required — `docs/agent/story-implementation.md` already describes this API correctly.

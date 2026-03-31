@@ -24,6 +24,7 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 IsoConst="*res://autoloads/IsoConst.gd"
 GameBus="*res://autoloads/GameBus.gd"
 SceneManager="*res://autoloads/SceneManager.gd"
+AudioManager="*res://autoloads/AudioManager.gd"
 
 [display]
 

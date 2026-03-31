@@ -748,9 +748,9 @@ HEIGHTS
 89,98,1
 90,98,1
 SPAWN 50 5
-NPC 50 65 Welcome to Maykalene! Fine white-washed houses and a warm inn await. The road leads south to Lord Farsyth's mansion.
-NPC 57 51 Best broth and cocoa in all the land! A warm meal and a soft bed within! Come in, come in!
-NPC 50 94 Ah, Maiteln! Lord Farsyth is not busy at the moment and will see you straight away if you have news of the prophecy.
+NPC 50 65 Welcome to Maykalene! Fine white-washed houses and a warm inn await you.
+NPC 57 51 Best broth and cocoa in all the land! A warm meal and soft bed within!
+NPC 50 94 Ah, Maiteln! Lord Farsyth is not busy at the moment. Go straight in if you have news of the prophecy.
 DOOR 49 98 farsyth_mansion door_mansion_exit
 DOOR 57 58 maykalene_inn door_inn_exit
 DOOR 50 99 __exit__ maykalene_exit

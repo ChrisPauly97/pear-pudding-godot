@@ -143,12 +143,15 @@ func _restore_world() -> void:
 		_saved_world_scene = null
 	_state = State.WORLD
 
-func _on_battle_won(_result: Dictionary) -> void:
+func _on_battle_won(result: Dictionary) -> void:
 	if _state != State.BATTLE:
 		return
 	if not _current_battle_enemy_id.is_empty():
 		save_manager.mark_enemy_defeated(_current_battle_enemy_id)
 		_current_battle_enemy_id = ""
+	var reward: String = str(result.get("card_reward", ""))
+	if reward != "":
+		save_manager.add_cards_to_deck([reward])
 	save_manager.clear_pending_battle()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()

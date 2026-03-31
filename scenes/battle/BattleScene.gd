@@ -4,6 +4,7 @@ const GameState = preload("res://game_logic/battle/GameState.gd")
 const BasicAI = preload("res://ai/BasicAI.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
 
 var enemy_data: Dictionary = {}
@@ -104,6 +105,7 @@ func _finish_hand_drag() -> void:
 	var board_rect: Rect2 = _player_board_view.get_global_rect()
 	if board_rect.has_point(mouse_pos):
 		if _state.players[0].play_card(_hand_drag_card):
+			AudioManager.play_sfx("card_play")
 			_refresh_all()
 			_check_game_over()
 	_cancel_hand_drag()
@@ -330,6 +332,7 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		if not attacker.can_attack():
 			_dragged_card.clear()
 			return
+		AudioManager.play_sfx("attack")
 		target.health -= attacker.attack
 		attacker.health -= target.attack
 		attacker.attack_count -= 1
@@ -354,6 +357,7 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 			_dragged_card.clear()
 			_refresh_all()
 			return
+		AudioManager.play_sfx("attack")
 		_state.players[1].hero.take_damage(attacker.attack)
 		attacker.health -= _state.players[1].hero.attack
 		attacker.attack_count -= 1
@@ -394,6 +398,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		_refresh_all()
 		_check_game_over()
 		return
+	AudioManager.play_sfx("attack")
 	actions[idx].call()
 	_refresh_all()
 	await get_tree().create_timer(0.6, true).timeout
@@ -403,6 +408,57 @@ func _check_game_over() -> void:
 	if _state.is_game_over():
 		var w := _state.winner()
 		if w == 0:
-			GameBus.battle_won.emit({"enemy_data": enemy_data})
+			AudioManager.play_sfx("battle_win")
+			var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
+			var pool: Array[String] = EnemyRegistry.get_drop_pool(enemy_type)
+			var reward_card_id: String = ""
+			if pool.size() > 0:
+				reward_card_id = pool[randi() % pool.size()]
+			_show_victory_overlay(reward_card_id)
 		else:
+			AudioManager.play_sfx("battle_lose")
 			GameBus.battle_lost.emit()
+
+func _show_victory_overlay(reward_card_id: String) -> void:
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.05, 0.1, 0.92)
+	overlay.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Victory!"
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.modulate = Color(1.0, 0.85, 0.2)
+	vbox.add_child(title_lbl)
+
+	var reward_lbl := Label.new()
+	if reward_card_id != "":
+		var tmpl: Dictionary = CardRegistry.get_template(reward_card_id)
+		var card_name: String = str(tmpl.get("name", reward_card_id))
+		reward_lbl.text = "You earned: " + card_name
+	else:
+		reward_lbl.text = "No card dropped."
+	reward_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	reward_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(reward_lbl)
+
+	var btn := Button.new()
+	btn.text = "Collect" if reward_card_id != "" else "Continue"
+	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
+	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	var final_reward := reward_card_id
+	btn.pressed.connect(func() -> void:
+		overlay.queue_free()
+		GameBus.battle_won.emit({"card_reward": final_reward})
+	)
+	vbox.add_child(btn)
+
+	overlay.add_child(vbox)
+	add_child(overlay)
