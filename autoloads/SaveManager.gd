@@ -33,6 +33,9 @@ var in_battle_enemy_id: String = ""
 # Day/night cycle position (0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset)
 var time_of_day: float = 0.4
 
+# Story progression flags
+var story_flags: Dictionary = {}
+
 # World generation — set when starting a new game from the biome selection screen
 var world_seed: int = 42
 var starting_biome: int = 0   # BiomeDef.GRASSLANDS
@@ -83,12 +86,13 @@ func new_game() -> void:
 	pending_battle_enemy_data = {}
 	in_battle_enemy_id = ""
 	time_of_day = 0.4
+	story_flags = {}
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 2
+const CURRENT_SAVE_VERSION: int = 3
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -105,12 +109,20 @@ static func _migrate_v1_to_v2(data: Dictionary) -> void:
 		data["starting_biome"] = 0
 	data["version"] = 2
 
+# _migrate_v2_to_v3: backfill story_flags for old saves.
+static func _migrate_v2_to_v3(data: Dictionary) -> void:
+	if not data.has("story_flags"):
+		data["story_flags"] = {}
+	data["version"] = 3
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
 		_migrate_v0_to_v1(data)
 	if ver < 2:
 		_migrate_v1_to_v2(data)
+	if ver < 3:
+		_migrate_v2_to_v3(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -139,6 +151,8 @@ func load_save() -> bool:
 	time_of_day = float(data.get("time_of_day", 0.4))
 	world_seed = int(data.get("world_seed", 42))
 	starting_biome = int(data.get("starting_biome", 0))
+	var sf = data.get("story_flags", {})
+	story_flags = sf if sf is Dictionary else {}
 	_loaded = true
 	return true
 
@@ -162,6 +176,7 @@ func save() -> void:
 		"time_of_day": time_of_day,
 		"world_seed": world_seed,
 		"starting_biome": starting_biome,
+		"story_flags": story_flags,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -227,3 +242,11 @@ func clear_pending_battle() -> void:
 	pending_battle_enemy_data = {}
 	in_battle_enemy_id = ""
 	_dirty = true
+
+func set_story_flag(key: String, value: bool = true) -> void:
+	story_flags[key] = value
+	_dirty = true
+	GameBus.story_flag_set.emit(key)
+
+func get_story_flag(key: String) -> bool:
+	return story_flags.get(key, false)
