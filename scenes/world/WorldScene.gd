@@ -719,13 +719,20 @@ func _find_nearby_chest(px: float, pz: float, range_dist: float) -> Dictionary:
 
 func _find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
+	var best: Dictionary = {}
+	var best_dist_sq: float = range_sq + 1.0
 	for did in _active_door_data:
 		var d: Dictionary = _active_door_data[did]
+		var fk: String = d.get("flag_key", "")
+		if fk != "" and not SaveManager.get_story_flag(fk):
+			continue
 		var ddx: float = float(d.get("x", 0.0)) - px
 		var ddz: float = float(d.get("z", 0.0)) - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return d
-	return {}
+		var dist_sq: float = ddx * ddx + ddz * ddz
+		if dist_sq <= range_sq and dist_sq < best_dist_sq:
+			best = d
+			best_dist_sq = dist_sq
+	return best
 
 func _find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
@@ -897,7 +904,7 @@ func _check_interactions() -> void:
 	var pz: float = _player.position.z
 	var enemy := _find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
 	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
-	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE)
+	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty():
 		_interact_label.show()
@@ -915,7 +922,7 @@ func _handle_interact() -> void:
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
 
-	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE)
+	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
 	if not door.is_empty():
 		var target_map: String = door.get("target_map", "")
 		var tdoor: String = door.get("target_door_id", "")
