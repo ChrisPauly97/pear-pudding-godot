@@ -24,3 +24,16 @@ func _ready() -> void:
 
 func init_from_data(data: Dictionary) -> void:
 	door_data = data
+	var target: String = str(data.get("target_map", ""))
+	if target.is_empty():
+		target = "[exit]"
+	var lbl := Label3D.new()
+	lbl.text = target
+	lbl.font_size = 32
+	lbl.pixel_size = 0.02
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.position = Vector3(0.0, 2.4, 0.0)
+	lbl.modulate = Color(1.0, 0.85, 0.2)
+	lbl.outline_modulate = Color(0.0, 0.0, 0.0, 1.0)
+	lbl.outline_size = 6
+	add_child(lbl)
