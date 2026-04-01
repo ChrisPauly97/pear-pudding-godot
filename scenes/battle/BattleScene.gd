@@ -6,6 +6,7 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
+const _CardFrameShader: Shader = preload("res://assets/shaders/card_frame.gdshader")
 
 var enemy_data: Dictionary = {}
 var _state: GameState
@@ -192,7 +193,7 @@ func _start_hand_drag(card: CardInstance, from_pos: Vector2) -> void:
 	# Ensure ghost renders on top
 	move_child(_drag_visual, get_child_count() - 1)
 
-func _make_card_ghost(card: CardInstance) -> PanelContainer:
+func _make_card_ghost(card: CardInstance) -> Control:
 	var panel := _make_card_view(card, "ghost")
 	panel.modulate.a = 0.75
 	# Fixed size already set inside _make_card_view
@@ -217,7 +218,7 @@ func _refresh_zone(zone_node: Node, cards: Array[CardInstance], zone_id: String)
 	# Reuse existing panels where possible, update their content
 	for i in range(needed):
 		if i < existing.size():
-			_update_card_view(existing[i] as PanelContainer, cards[i], zone_id)
+			_update_card_view(existing[i] as Control, cards[i], zone_id)
 		else:
 			var card_view := _make_card_view(cards[i], zone_id)
 			zone_node.add_child(card_view)
@@ -225,14 +226,14 @@ func _refresh_zone(zone_node: Node, cards: Array[CardInstance], zone_id: String)
 	for i in range(needed, existing.size()):
 		existing[i].queue_free()
 
-func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
-	var vbox: VBoxContainer = panel.get_child(0) as VBoxContainer
+func _update_card_view(root: Control, card: CardInstance, zone_id: String) -> void:
+	var margin: MarginContainer = root.get_node_or_null("ContentMargin") as MarginContainer
+	var vbox: VBoxContainer = margin.get_child(0) as VBoxContainer if margin and margin.get_child_count() > 0 else null
 	if not vbox or vbox.get_child_count() < 3:
 		# Structure mismatch — rebuild from scratch
-		for child in panel.get_children():
+		for child in root.get_children():
 			child.queue_free()
-		var new_vbox := _build_card_vbox(card)
-		panel.add_child(new_vbox)
+		_add_card_frame_children(root, card)
 	else:
 		var name_lbl: Label = vbox.get_child(0) as Label
 		var stats_lbl: Label = vbox.get_child(1) as Label
@@ -240,8 +241,8 @@ func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: Strin
 		name_lbl.text = card.name
 		stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
 		desc_lbl.text = card.description
-	_apply_card_style(panel, card, zone_id)
-	_bind_card_input(panel, card, zone_id)
+	_apply_card_style(root, card, zone_id)
+	_bind_card_input(root, card, zone_id)
 
 func _build_card_vbox(card: CardInstance) -> VBoxContainer:
 	var vbox := VBoxContainer.new()
@@ -261,25 +262,33 @@ func _build_card_vbox(card: CardInstance) -> VBoxContainer:
 	vbox.add_child(desc_lbl)
 	return vbox
 
-func _apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
-	var style := StyleBoxFlat.new()
-	var tmpl := CardRegistry.get_template(card.template_id)
-	style.bg_color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
-	if zone_id == "hand" and not _state.players[0].can_play(card):
-		style.bg_color = style.bg_color.darkened(0.5)
-	elif zone_id == "board" and not _dragged_card.is_empty() and _dragged_card.get("card") == card:
-		style.border_color = Color.YELLOW
-		style.border_width_top = 3
-		style.border_width_bottom = 3
-		style.border_width_left = 3
-		style.border_width_right = 3
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
-	panel.add_theme_stylebox_override("panel", style)
+func _apply_card_style(root: Control, card: CardInstance, zone_id: String) -> void:
+	var frame_rect: ColorRect = root.get_node_or_null("FrameRect") as ColorRect
+	if not frame_rect:
+		return
+	var mat: ShaderMaterial = frame_rect.material as ShaderMaterial
+	if not mat:
+		return
 
-func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
+	var tmpl: Dictionary = CardRegistry.get_template(card.template_id)
+	var base_col: Color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
+
+	if zone_id == "hand" and not _state.players[0].can_play(card):
+		base_col = base_col.darkened(0.5)
+
+	mat.set_shader_parameter("base_color", base_col)
+
+	var is_selected: bool = zone_id == "board" and not _dragged_card.is_empty() and _dragged_card.get("card") == card
+	mat.set_shader_parameter("selected", is_selected)
+
+	var illus: Texture2D = tmpl.get("illustration", null) as Texture2D
+	if illus:
+		mat.set_shader_parameter("illustration", illus)
+		mat.set_shader_parameter("has_illustration", true)
+	else:
+		mat.set_shader_parameter("has_illustration", false)
+
+func _bind_card_input(panel: Control, card: CardInstance, zone_id: String) -> void:
 	# Disconnect old signals before connecting new ones
 	for conn in panel.gui_input.get_connections():
 		panel.gui_input.disconnect(conn["callable"])
@@ -290,13 +299,37 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 	elif zone_id == "enemy_board":
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_enemy_card_input(event, card))
 
-func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(_vh * 0.09, _vh * 0.15)
-	panel.add_child(_build_card_vbox(card))
-	_apply_card_style(panel, card, zone_id)
-	_bind_card_input(panel, card, zone_id)
-	return panel
+func _add_card_frame_children(root: Control, card: CardInstance) -> void:
+	# Background: card frame shader fills the full control
+	var frame_rect := ColorRect.new()
+	frame_rect.name = "FrameRect"
+	frame_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var mat := ShaderMaterial.new()
+	mat.shader = _CardFrameShader
+	frame_rect.material = mat
+	root.add_child(frame_rect)
+
+	# Content: text labels with margin inset
+	var margin := MarginContainer.new()
+	margin.name = "ContentMargin"
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pad: int = int(_vh * 0.012)
+	margin.add_theme_constant_override("margin_left", pad)
+	margin.add_theme_constant_override("margin_right", pad)
+	margin.add_theme_constant_override("margin_top", pad)
+	margin.add_theme_constant_override("margin_bottom", pad)
+	margin.add_child(_build_card_vbox(card))
+	root.add_child(margin)
+
+func _make_card_view(card: CardInstance, zone_id: String) -> Control:
+	var root := Control.new()
+	root.custom_minimum_size = Vector2(_vh * 0.09, _vh * 0.15)
+	_add_card_frame_children(root, card)
+	_apply_card_style(root, card, zone_id)
+	_bind_card_input(root, card, zone_id)
+	return root
 
 func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 	var vbox: VBoxContainer = hero_node.get_child(0) as VBoxContainer if hero_node.get_child_count() > 0 else null

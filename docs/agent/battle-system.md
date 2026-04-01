@@ -79,6 +79,14 @@ Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at the
 - "End Turn" button calls `GameState.end_turn()`; AI actions fire after a short tween delay for readability
 - Listens to `GameBus` signals to refresh UI after each state change
 
+### Card Frame Rendering
+
+Each card is a plain `Control` root node with two children:
+- `FrameRect` (`ColorRect`, `MOUSE_FILTER_IGNORE`, `PRESET_FULL_RECT`) — background drawn by `card_frame.gdshader`; `base_color` uniform set from `CardData.color`; `selected` bool turns the border yellow; optional `illustration` sampler (upper 55% of card interior) enabled by `has_illustration` bool
+- `ContentMargin` (`MarginContainer`, `PRESET_FULL_RECT`) — wraps the `VBoxContainer` with name/stats/description labels
+
+The `_apply_card_style()` method updates shader parameters; `_make_card_view()` creates the node tree; `_add_card_frame_children()` can rebuild it after a structure mismatch.
+
 ---
 
 ## Integrations with Other Features
@@ -100,9 +108,10 @@ Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at the
 
 | Asset | Path | Notes |
 |---|---|---|
-| Card data resources | `data/cards/*.tres` | One `CardData` resource per card type; minion fields: id, display_name, cost, attack, health; spell fields: card_class="spell", magic_type, magic_branch, spell_effect, spell_power |
+| Card data resources | `data/cards/*.tres` | One `CardData` resource per card type; minion fields: id, display_name, cost, attack, health; spell fields: card_class="spell", magic_type, magic_branch, spell_effect, spell_power; optional `illustration: Texture2D` |
 | Enemy data resources | `data/enemies/*.tres` | `EnemyData` resource with id, display_name, deck (Array of card id strings) |
 | BattleScene scene | `scenes/battle/BattleScene.tscn` | Root scene for battle UI overlay |
-| Card slot textures | `assets/textures/` | Optional card art per id (falls back to colored panel if missing) |
+| Card frame shader | `assets/shaders/card_frame.gdshader` | `canvas_item` shader; draws border + bevel + optional illustration |
+| Card illustrations | `assets/textures/` | Optional per-card `Texture2D` assigned to `CardData.illustration`; falls back to solid color fill |
 
-No 3D geometry or shaders are required — the battle system is a 2D UI overlay.
+No 3D geometry is required — the battle system is a 2D UI overlay.

@@ -2,7 +2,7 @@
 
 **Goal:** GID-008
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -38,12 +38,21 @@ Cards in BattleScene (hand row and board slots) are plain `StyleBoxFlat` coloure
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `assets/shaders/card_frame.gdshader` — canvas_item shader with `base_color` uniform, pixel-art outer border (dark, ~6% UV) and inner bevel (light top/left, dark bottom/right). Optional illustration sampler in upper 55% of card interior, gated by `has_illustration` bool. `selected` bool flips border to yellow.
+2. Create `assets/shaders/card_frame.gdshader.uid` sidecar.
+3. Add `@export var illustration: Texture2D` to `data/CardData.gd`; add to `to_template_dict()`.
+4. Refactor BattleScene card views from `PanelContainer` to plain `Control` root with two children: `ColorRect` ("FrameRect") with ShaderMaterial, and `MarginContainer` ("ContentMargin") wrapping the VBox.
+5. Update `_apply_card_style` to set shader parameters instead of StyleBoxFlat.
+6. Update `_update_card_view` to find VBox via named nodes.
+7. Fix all type annotations (`PanelContainer` → `Control`) in `_make_card_ghost`, `_refresh_zone`, `_update_card_view`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`assets/shaders/card_frame.gdshader`** (new) — canvas_item shader with `base_color`, `selected`, `illustration`, `has_illustration` uniforms; draws dark outer border (6.5% UV), light top/left bevel, dark bottom/right bevel, optional illustration in upper 55% of interior
+- **`assets/shaders/card_frame.gdshader.uid`** (new) — UID sidecar `uid://mw4yodtyuquy`
+- **`data/CardData.gd`** — added `@export var illustration: Texture2D` and wired it into `to_template_dict()`
+- **`scenes/battle/BattleScene.gd`** — added `_CardFrameShader` preload; refactored card views from `PanelContainer` to plain `Control` with `FrameRect` (ColorRect + ShaderMaterial) and `ContentMargin` (MarginContainer) children; replaced `_apply_card_style` StyleBoxFlat logic with shader parameter updates; updated all type annotations (`PanelContainer` → `Control`); added `_add_card_frame_children` helper
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/battle-system.md`** — added "Card Frame Rendering" subsection to BattleScene UI section; updated Asset Requirements table to include shader and illustration fields

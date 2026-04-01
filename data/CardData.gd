@@ -12,6 +12,7 @@ extends Resource
 @export var magic_branch: String = ""
 @export var spell_effect: String = ""
 @export var spell_power: int = 0
+@export var illustration: Texture2D
 
 ## Converts to the Dictionary format that CardInstance.from_template() and
 ## legacy callers expect.
@@ -29,4 +30,5 @@ func to_template_dict() -> Dictionary:
 		"magic_branch": magic_branch,
 		"spell_effect": spell_effect,
 		"spell_power": spell_power,
+		"illustration": illustration,
 	}
