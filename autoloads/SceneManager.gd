@@ -10,6 +10,7 @@ enum State {
 }
 
 const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
@@ -162,6 +163,11 @@ func _on_battle_won(result: Dictionary) -> void:
 	var reward: String = str(result.get("card_reward", ""))
 	if reward != "":
 		save_manager.add_cards_to_deck([reward])
+	# Award coins based on enemy type
+	var enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
+	if enemy_type != "":
+		var coins: int = EnemyRegistry.get_coin_reward(enemy_type)
+		save_manager.add_coins(coins)
 	save_manager.clear_pending_battle()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()

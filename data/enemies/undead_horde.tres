@@ -8,3 +8,4 @@ id = "undead_horde"
 display_name = "Horde Shambler"
 deck = PackedStringArray("ghost", "ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul")
 drop_pool = PackedStringArray("skeleton", "zombie")
+coin_reward = 8
