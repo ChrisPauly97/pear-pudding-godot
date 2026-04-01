@@ -13,7 +13,7 @@ Complete the coin loop: enemies drop coins on defeat, and a merchant NPC lets th
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-015 | Award coins on enemy defeat | agent | pending | — |
-| TID-016 | Merchant NPC and shop overlay | agent | pending | TID-015 |
+| TID-016 | Merchant NPC and shop overlay | agent | done | TID-015 |
 
 ## Acceptance Criteria
 

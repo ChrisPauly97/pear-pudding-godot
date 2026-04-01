@@ -194,6 +194,9 @@ func save_to_file(path: String) -> void:
 		f.store_line("CHEST %d %d %s" % [int(c["x"] / TILE_SIZE), int(c["z"] / TILE_SIZE), card_str])
 
 	for n in npcs:
+		if str(n.get("npc_type", "")) == "merchant":
+			f.store_line("MERCHANT %d %d" % [int(n["x"] / TILE_SIZE), int(n["z"] / TILE_SIZE)])
+			continue
 		var fk: String = str(n.get("flag_key", ""))
 		if fk != "":
 			var before: String = str(n.get("dialogue", "..."))
@@ -325,6 +328,18 @@ func load_from_string(content: String) -> void:
 					"dialogue": dialogue,
 					"flag_key": flag_key,
 					"after_dialogue": after_dialogue,
+				})
+
+		elif line.begins_with("MERCHANT "):
+			var parts := line.split(" ")
+			if parts.size() >= 3:
+				uid_counter += 1
+				npcs.append({
+					"id": "merchant_%d" % uid_counter,
+					"x": float(parts[1]) * TILE_SIZE,
+					"z": float(parts[2]) * TILE_SIZE,
+					"dialogue": "Welcome, traveller! Browse my wares.",
+					"npc_type": "merchant",
 				})
 
 		elif line.begins_with("DOOR "):

@@ -28,6 +28,7 @@ BATTLE → GAME_OVER (battle_lost signal)
 GAME_OVER → MENU (return to menu button)
 WORLD ← → WORLD (map transition via map_stack)
 WORLD ← → INVENTORY (overlay, world stays in tree)
+WORLD ← → SHOP (overlay, world stays in tree)
 ```
 
 **Battle overlay pattern:**
@@ -132,6 +133,7 @@ Recommended fractions: buttons 12–18% width, 5–6% height; font 2–2.5% heig
 | **SaveManager** | State source | `map_stack`, `current_map`, `time_of_day`, `coins` read/written by SceneManager and WorldScene |
 | **BattleScene** | Overlay | Instantiated on `enemy_engaged`; removed on `battle_won` / `battle_lost` |
 | **InventoryScene** | Overlay | Instantiated on `inventory_requested`; removed on close |
+| **ShopScene** | Overlay | Instantiated on `shop_requested` (player interacts with MerchantNPC); lists all cards for 15 coins; removed on close |
 | **WorldMap / InfiniteWorldGen** | Data source | SceneManager chooses which path to use based on map name (`"infinite"` key) |
 | **Player** | Position sync | SceneManager teleports player on map transitions and door traversal |
 | **VirtualJoystick** | Mobile input | Added to HUD CanvasLayer when `DisplayServer.is_touchscreen_available()` |
@@ -146,6 +148,7 @@ Recommended fractions: buttons 12–18% width, 5–6% height; font 2–2.5% heig
 | BiomeSelectionScene | `scenes/ui/BiomeSelectionScene.tscn` | New-game biome picker |
 | GameOverScene | `scenes/ui/GameOverScene.tscn` | Death screen |
 | MapEditorScene | `scenes/ui/MapEditorScene.tscn` | Debug/editor tool |
+| ShopScene | `scenes/ui/ShopScene.tscn` | Merchant shop overlay |
 | VirtualJoystick scene | `scenes/ui/VirtualJoystick.tscn` | Mobile overlay |
 | `SceneManager.gd` | `autoloads/SceneManager.gd` | Autoload singleton |
 | UI theme / font | `assets/` | Optional custom theme `.tres`; falls back to Godot default |

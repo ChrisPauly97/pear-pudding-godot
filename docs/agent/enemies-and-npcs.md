@@ -74,6 +74,15 @@ State machine with three modes:
 - Dialogue is supplied by `BiomeDef.npc_dialogue[]` (randomly picked at spawn time)
 - Re-triggers on each new interaction; no branching or quest state
 
+### MerchantNPC Scene (`scenes/world/entities/MerchantNPC.gd`)
+
+- Static NPC with gold-coloured robe to distinguish it from regular townspeople
+- NPC data dictionary has `"npc_type": "merchant"` set in the data; `WorldScene._handle_interact()` checks this field and emits `GameBus.shop_requested` instead of showing dialogue
+- Placeable in named maps via the `MERCHANT x z` directive in `.txt` map files; `WorldMap` parser adds the merchant to the `npcs` array with `npc_type: "merchant"`
+- Spawned procedurally in infinite-world grassland and forest biomes at ~5% chance per chunk by `InfiniteWorldGen._gen_entities()`
+- `ChunkRenderer._spawn_entities()` instantiates `MerchantNPC.tscn` when `npc_type == "merchant"`, `TownspersonNPC.tscn` otherwise
+- Opening the shop: `SceneManager._on_shop_requested()` instantiates `ShopScene` as an overlay on the current world scene and tracks state `State.SHOP`
+
 ### Spawn Persistence
 
 On `WorldScene._ready()`, before placing entities:
@@ -95,6 +104,8 @@ This means defeated enemies stay gone across sessions.
 | **BattleScene** | Consumer | Reads `enemy_data["deck"]` from the engaged signal to build `PlayerState[1].draw_pile` |
 | **SaveManager** | Persistence | `mark_enemy_defeated(id)` and `defeated_enemies` set prevent respawn |
 | **BiomeDef** | Dialogue source | `BiomeDef.npc_dialogue[]` supplies TownspersonNPC dialogue lines |
+| **GameBus** | Signal | `shop_requested` emitted when player interacts with a MerchantNPC; routed to `SceneManager._on_shop_requested()` |
+| **ShopScene** | Overlay | Opened on `shop_requested`; lists all cards for 15 coins each; emits `closed` when player leaves |
 | **IsoConst** | Constants | `AUTO_BATTLE_RANGE`, `INTERACT_RANGE`, `TRACKING_RANGE` |
 
 ---

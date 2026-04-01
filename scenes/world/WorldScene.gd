@@ -955,6 +955,9 @@ func _handle_interact() -> void:
 
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	if not npc.is_empty():
+		if str(npc.get("npc_type", "")) == "merchant":
+			GameBus.shop_requested.emit()
+			return
 		var nid: String = str(npc.get("id", ""))
 		var nnode := _npc_nodes.get(nid) as Node3D
 		var dlg: String
