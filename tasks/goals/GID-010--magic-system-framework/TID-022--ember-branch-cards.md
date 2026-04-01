@@ -2,7 +2,7 @@
 
 **Goal:** GID-010
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-021
 
 ## Lock
@@ -49,7 +49,10 @@ Note: card id `"ember"` may shadow the branch name in docs — use `"ember_card"
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/cards/spark.tres` + `spark.tres.uid` — cost 1, `deal_damage_single` 1, light/ember spell
+- `data/cards/flicker.tres` + `flicker.tres.uid` — cost 2, `deal_damage_all` 1, light/ember spell
+- `data/cards/ember.tres` + `ember.tres.uid` — cost 3, `deal_damage_single` 3, light/ember spell
+- `data/cards/scorch.tres` + `scorch.tres.uid` — cost 5, `deal_damage_single` 5, light/ember spell
 
 ## Documentation Updates
 

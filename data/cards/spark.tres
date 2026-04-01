@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://mmwn1owamdiv"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_spark"]
+
+[resource]
+script = ExtResource("1_spark")
+id = "spark"
+card_name = "Spark"
+cost = 1
+attack = 0
+health = 0
+card_class = "spell"
+description = "The smallest flame is still a flame."
+color = Color(1.0, 0.7, 0.2, 1)
+magic_type = "light"
+magic_branch = "ember"
+spell_effect = "deal_damage_single"
+spell_power = 1

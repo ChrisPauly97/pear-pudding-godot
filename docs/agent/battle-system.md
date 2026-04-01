@@ -50,6 +50,13 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
 - `cost: int` — mana cost
 - `attack: int`
 - `health: int`
+- `card_class: String` — `"minion"` (default) or `"spell"`
+- `magic_type: String` — `"light"` | `"dark"` | `""` (non-magic cards)
+- `magic_branch: String` — `"ember"` | `"dawn"` | `"dusk"` | `"ash"` | `""`
+- `spell_effect: String` — canonical effect key dispatched by the battle engine (e.g. `"deal_damage_single"`, `"deal_damage_all"`, `"debuff_attack"`, `"destroy_low_hp"`, `"resurrect_last"`); `""` for minions
+- `spell_power: int` — numeric parameter for the effect (damage amount, stat reduction, etc.); `0` for minions
+
+Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at their defaults (`""` / `0`) and are unaffected.
 
 `CardRegistry` (autoload) loads all `.tres` files from `data/cards/` at startup and exposes `get_card(id)` for lookups.
 
@@ -93,7 +100,7 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
 
 | Asset | Path | Notes |
 |---|---|---|
-| Card data resources | `data/cards/*.tres` | One `CardData` resource per card type; fields: id, display_name, cost, attack, health |
+| Card data resources | `data/cards/*.tres` | One `CardData` resource per card type; minion fields: id, display_name, cost, attack, health; spell fields: card_class="spell", magic_type, magic_branch, spell_effect, spell_power |
 | Enemy data resources | `data/enemies/*.tres` | `EnemyData` resource with id, display_name, deck (Array of card id strings) |
 | BattleScene scene | `scenes/battle/BattleScene.tscn` | Root scene for battle UI overlay |
 | Card slot textures | `assets/textures/` | Optional card art per id (falls back to colored panel if missing) |
