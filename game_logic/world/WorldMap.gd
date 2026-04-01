@@ -211,10 +211,12 @@ func save_to_file(path: String) -> void:
 		if target.is_empty():
 			target = "__exit__"
 		var tdoor: String = d.get("target_door_id", "")
+		var fk: String = d.get("flag_key", "")
+		var flag_suffix: String = " FLAG:%s" % fk if fk != "" else ""
 		if tdoor.is_empty():
-			f.store_line("DOOR %d %d %s" % [int(d["x"] / TILE_SIZE), int(d["z"] / TILE_SIZE), target])
+			f.store_line("DOOR %d %d %s%s" % [int(d["x"] / TILE_SIZE), int(d["z"] / TILE_SIZE), target, flag_suffix])
 		else:
-			f.store_line("DOOR %d %d %s %s" % [int(d["x"] / TILE_SIZE), int(d["z"] / TILE_SIZE), target, tdoor])
+			f.store_line("DOOR %d %d %s %s%s" % [int(d["x"] / TILE_SIZE), int(d["z"] / TILE_SIZE), target, tdoor, flag_suffix])
 
 	f.close()
 
@@ -349,13 +351,22 @@ func load_from_string(content: String) -> void:
 				var target: String = parts[3]
 				if target == "__exit__":
 					target = ""
-				var tdoor: String = parts[4] if parts.size() >= 5 else ""
+				var tdoor: String = ""
+				var flag_key: String = ""
+				if parts.size() >= 5:
+					if parts[4].begins_with("FLAG:"):
+						flag_key = parts[4].substr(5)
+					else:
+						tdoor = parts[4]
+						if parts.size() >= 6 and parts[5].begins_with("FLAG:"):
+							flag_key = parts[5].substr(5)
 				doors.append({
 					"id": "door_%d" % uid_counter,
 					"x": float(parts[1]) * TILE_SIZE,
 					"z": float(parts[2]) * TILE_SIZE,
 					"target_map": target,
-					"target_door_id": tdoor
+					"target_door_id": tdoor,
+					"flag_key": flag_key
 				})
 
 		elif in_heights:

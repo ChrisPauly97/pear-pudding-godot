@@ -25,6 +25,7 @@ IsoConst="*res://autoloads/IsoConst.gd"
 GameBus="*res://autoloads/GameBus.gd"
 SceneManager="*res://autoloads/SceneManager.gd"
 AudioManager="*res://autoloads/AudioManager.gd"
+SaveManager="*res://autoloads/SaveManager.gd"
 
 [display]
 

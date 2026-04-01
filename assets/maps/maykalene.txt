@@ -753,4 +753,4 @@ NPC 57 51 Best broth and cocoa in all the land! A warm meal and soft bed within!
 NPC 50 94 Ah, Maiteln! Lord Farsyth is not busy at the moment. Go straight in if you have news of the prophecy.
 DOOR 49 98 farsyth_mansion door_mansion_exit
 DOOR 57 58 maykalene_inn door_inn_exit
-DOOR 50 99 __exit__ maykalene_exit
+DOOR 50 0 __exit__ maykalene_exit FLAG:chapter1_warned_farsyth
