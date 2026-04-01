@@ -46,7 +46,15 @@ var hfield := TerrainMath.compute_height_field(
 `build_terrain_mesh(hfield, nvx, nvz, step) → ArrayMesh`
 
 - One quad per 2×2 vertex block
-- Per-vertex colour: `Color(height_ratio, wall_flag, 0, 1)` — `height_ratio` (0–1 normalised) drives shader blending; `wall_flag` encodes adjacency to walls
+- Per-vertex colour encoding:
+
+| Channel | Value | Meaning |
+|---------|-------|---------|
+| R | 0.0–1.0 | height ratio (0 = flat ground, 1 = hill plateau top) |
+| G | 0.0 or 1.0 | wall flag (1 = vertex is on a TILE_WALL tile) |
+| B | 0.0 or 1.0 | path flag (1 = vertex is on a TILE_PATH tile) |
+| A | 1.0 | unused |
+
 - Normals computed from height field finite differences
 - UVs tiled at 1 unit per world unit (matched to texture scale in shader)
 
@@ -71,21 +79,24 @@ The shader reads per-vertex colour channels to decide which textures to blend:
 
 ```
 height_ratio = VERTEX_COLOR.r
-wall_adj     = VERTEX_COLOR.g
+is_wall      = VERTEX_COLOR.g > 0.05
+is_path      = VERTEX_COLOR.b > 0.05
 
-if wall_adj > 0.5:
-    albedo = mix(wall_side_tex, wall_top_tex, smoothstep(0.3, 0.7, height_ratio))
+if is_path:
+    albedo = path_tex * path_tint
+elif is_wall:
+    albedo = mix(wall_side_tex, wall_top_tex, smoothstep(0.3, 0.7, slope))
 else:
     albedo = mix(grass_tex,
              mix(hill_side_tex, hill_top_tex, smoothstep(0.4, 0.8, height_ratio)),
              smoothstep(0.1, 0.4, height_ratio))
-
-albedo *= biome_tint  // per-chunk uniform set by ChunkRenderer
+    albedo *= mix(grass_tint, hill_tint, height_ratio)
 ```
 
 Uniforms set per material instance:
-- `biome_tint: Color` — grass/hill/wall hue per biome
-- `grass_texture`, `hill_side_texture`, `hill_top_texture`, `wall_side_texture`, `wall_top_texture`
+- `grass_tint`, `hill_tint`, `wall_tint` — per-biome hue (set by ChunkRenderer from BiomeDef)
+- `path_tint` — defaults to `vec3(1,1,1)` (no biome override; paths are always brown)
+- `grass_texture`, `hill_side_texture`, `hill_top_texture`, `wall_side_texture`, `wall_top_texture`, `path_texture`
 
 ### Grass Shader (`assets/shaders/grass.gdshader`)
 
@@ -106,7 +117,7 @@ No geometry shader is used (Godot 4 does not support them). The visual density i
 | **ChunkRenderer** | Consumer (infinite) | Calls `TerrainMath` per chunk on a worker thread; replaces mesh node when done |
 | **WorldMap / InfiniteWorldGen** | Tile data source | Provide the `Callable` tile lookup that `TerrainMath` queries |
 | **Player** | Physics | `HeightMapShape3D` produced here is what the `CharacterBody3D` stands on |
-| **IsoConst** | Constants | `TILE_WALL`, `TILE_HILL`, `TILE_GRASS`, `TILE_SIZE`, `WALL_FACE_H` |
+| **IsoConst** | Constants | `TILE_GRASS`, `TILE_WALL`, `TILE_HILL`, `TILE_PATH`, `TILE_SIZE`, `WALL_FACE_H` |
 | **BiomeDef** | Tint source | `BiomeDef.grass_tint`, `hill_tint`, `wall_tint` are passed as shader uniforms by ChunkRenderer |
 
 ---
@@ -124,4 +135,5 @@ No geometry shader is used (Godot 4 does not support them). The visual density i
 | Hill top texture | `assets/textures/pixel_art/hill_top_pixel.png` | Plateau surfaces |
 | Wall side texture | `assets/textures/pixel_art/wall_side_pixel.png` | Vertical wall faces |
 | Wall top texture | `assets/textures/pixel_art/wall_top_pixel.png` | Top of walls |
+| Path texture | generated at runtime by `TextureGen.path()` | Brown packed-earth; no PNG file or .uid sidecar needed |
 | `.uid` sidecars | `assets/shaders/*.uid` | Required for Android export; must be committed alongside each shader |

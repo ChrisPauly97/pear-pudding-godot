@@ -9,6 +9,7 @@ const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const Minimap         = preload("res://scenes/world/Minimap.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
+const TextureGen = preload("res://game_logic/TextureGen.gd")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
 const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_side_pixel.png")
@@ -776,6 +777,7 @@ func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	mat.set_shader_parameter("hill_texture",      _TexHillTop)
 	mat.set_shader_parameter("wall_side_texture", _TexWallSide)
 	mat.set_shader_parameter("wall_top_texture",  _TexWallTop)
+	mat.set_shader_parameter("path_texture",      TextureGen.path())
 	mat.set_shader_parameter("uv_scale", 0.5)
 	return mat
 

@@ -19,6 +19,7 @@ const WALL_FACE_TEX_H: int = 36
 const TILE_GRASS: int = 0
 const TILE_WALL: int = 1
 const TILE_HILL: int = 2
+const TILE_PATH: int = 3
 
 # Camera settings for isometric view
 const CAM_ELEVATION_DEG: float = -35.264  # arcsin(tan(30°))

@@ -2,14 +2,12 @@
 
 **Goal:** GID-011
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-024
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+_Released._
 
 ## Context
 
@@ -83,12 +81,19 @@ Map keys expected in DATA: `"main"`, `"madrian"`, `"maykalene"`, `"madrian_inn"`
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `MERCHANT` directive to `madrian_inn.txt` and `maykalene_inn.txt`.
+2. Stamp TILE_PATH (`3`) tiles onto `madrian.txt`: vertical spine x=11 z=19..33, horizontal connector x=12..38 z=33.
+3. Stamp TILE_PATH tiles onto `maykalene.txt`: spine x=50 z=6..66, inn connector x=51..57 z=59, spine continues z=68..86 and z=88..94.
+4. Regenerate `BundledMaps.gd` entirely from all updated `.txt` files to embed the new content for Android export.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `assets/maps/madrian_inn.txt`: Added `MERCHANT 18 8` before the DOOR directive.
+- `assets/maps/maykalene_inn.txt`: Added `MERCHANT 16 8` before the DOOR directive.
+- `assets/maps/madrian.txt`: Stamped `3` tiles — vertical spine x=11 z=19..33; horizontal connector x=12..38 z=33.
+- `assets/maps/maykalene.txt`: Stamped `3` tiles — central spine x=50 z=6..66 (skip wall at z=67), z=68..86, z=88..94; inn connector x=51..57 z=59.
+- `game_logic/world/BundledMaps.gd`: Fully regenerated from all map files; all four updated maps embedded correctly.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new doc files needed — changes are map data only, building on engine support added in TID-024 (already documented in `docs/agent/terrain-rendering.md`).

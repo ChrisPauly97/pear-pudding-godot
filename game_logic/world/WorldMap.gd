@@ -9,6 +9,7 @@ const BundledMaps = preload("res://game_logic/world/BundledMaps.gd")
 const TILE_GRASS: int = IsoConst.TILE_GRASS
 const TILE_WALL: int = IsoConst.TILE_WALL
 const TILE_HILL: int = IsoConst.TILE_HILL
+const TILE_PATH: int = IsoConst.TILE_PATH
 const MAP_WIDTH: int = 100
 const MAP_HEIGHT: int = 100
 const TILE_SIZE: float = IsoConst.TILE_SIZE
