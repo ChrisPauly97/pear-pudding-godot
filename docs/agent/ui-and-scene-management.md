@@ -101,6 +101,12 @@ Labels and panels parented to a `CanvasLayer` (always on top):
 - **Map name label** — displayed for 3 seconds on map load, then fades
 - **Coin counter** — reads `SaveManager.coins` each frame (updated on coin pickup)
 - **Dialogue label** — shown above NPC; fades out after 4 seconds via `Tween`
+- **Tutorial tip label** — yellow-tinted one-shot hints; auto-hides after 5 seconds (`TIP_DURATION`). Four triggers, each shown exactly once (flag stored in `SaveManager.story_flags`):
+  - World entry → inventory button hint (`tutorial_inventory_tip`)
+  - First NPC proximity → talk hint (`tutorial_npc_tip`)
+  - First chest proximity → open hint (`tutorial_chest_tip`)
+  - First enemy proximity → battle hint (`tutorial_enemy_tip`)
+  - Android vs desktop control names chosen via `OS.has_feature("android")`
 
 ### MapEditorScene (`scenes/ui/MapEditorScene.gd`)
 
