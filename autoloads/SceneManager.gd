@@ -5,6 +5,7 @@ enum State {
 	WORLD,
 	BATTLE,
 	INVENTORY,
+	SHOP,
 	GAME_OVER,
 }
 
@@ -18,10 +19,12 @@ var _battle_scene_packed := preload("res://scenes/battle/BattleScene.tscn")
 var _menu_scene_packed := preload("res://scenes/ui/MenuScene.tscn")
 var _gameover_scene_packed := preload("res://scenes/ui/GameOverScene.tscn")
 var _inventory_scene_packed := preload("res://scenes/ui/InventoryScene.tscn")
+var _shop_scene_packed := preload("res://scenes/ui/ShopScene.tscn")
 
 var _state: State = State.MENU
 var _battle_overlay: Node = null
 var _inventory_overlay: Node = null
+var _shop_overlay: Node = null
 var _saved_world_scene: Node = null
 
 # Tracks which enemy triggered the current battle (for defeat marking)
@@ -38,6 +41,7 @@ func _ready() -> void:
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.battle_lost.connect(_on_battle_lost)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
+	GameBus.shop_requested.connect(_on_shop_requested)
 
 func go_to_menu() -> void:
 	_flush_position_save()
@@ -110,6 +114,9 @@ func _exit_world_cleanup() -> void:
 	if _inventory_overlay != null:
 		_inventory_overlay.queue_free()
 		_inventory_overlay = null
+	if _shop_overlay != null:
+		_shop_overlay.queue_free()
+		_shop_overlay = null
 	map_stack.clear()
 	door_stack.clear()
 	current_map = ""
@@ -189,4 +196,20 @@ func _on_inventory_closed() -> void:
 	if _inventory_overlay != null:
 		_inventory_overlay.queue_free()
 		_inventory_overlay = null
+	_state = State.WORLD
+
+func _on_shop_requested() -> void:
+	if _state != State.WORLD:
+		return
+	_shop_overlay = _shop_scene_packed.instantiate()
+	get_tree().current_scene.add_child(_shop_overlay)
+	_shop_overlay.closed.connect(_on_shop_closed)
+	_state = State.SHOP
+
+func _on_shop_closed() -> void:
+	if _state != State.SHOP:
+		return
+	if _shop_overlay != null:
+		_shop_overlay.queue_free()
+		_shop_overlay = null
 	_state = State.WORLD

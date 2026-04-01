@@ -269,3 +269,17 @@ static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: i
 			"x": wx, "z": wz,
 			"dialogue": dialogue,
 		})
+
+	# 0–1 Merchant per chunk (~5% chance) — grasslands and forest biomes only
+	if (biome == BiomeDef.GRASSLANDS or biome == BiomeDef.FOREST) \
+			and rng.randi_range(0, 19) == 0 and grass_tiles.size() > 0:
+		var idx: int = rng.randi_range(0, grass_tiles.size() - 1)
+		var tile: Vector2i = grass_tiles[idx]
+		var wx: float = float(p_cx * CHUNK_SIZE + tile.x) * TILE_SIZE + TILE_SIZE * 0.5
+		var wz: float = float(p_cz * CHUNK_SIZE + tile.y) * TILE_SIZE + TILE_SIZE * 0.5
+		chunk.npcs.append({
+			"id": "m_%d_%d_0" % [p_cx, p_cz],
+			"x": wx, "z": wz,
+			"dialogue": "Welcome, traveller! Browse my wares.",
+			"npc_type": "merchant",
+		})

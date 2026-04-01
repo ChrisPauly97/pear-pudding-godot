@@ -9,6 +9,7 @@ const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
 const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
+const _MerchantScene     = preload("res://scenes/world/entities/MerchantNPC.tscn")
 
 const TERRAIN_VDENSITY: int = 2
 const PLATEAU_H:        float = 1.5   # fallback hill height for tiles with no stored height
@@ -252,7 +253,8 @@ func _spawn_entities(world_scene: Node3D) -> void:
 			world_scene.register_door(d_data["id"], node, d_data)
 
 	for n_data in _chunk_data.npcs:
-		var node: Node3D = _TownspersonScene.instantiate()
+		var scene_to_use: PackedScene = _MerchantScene if str(n_data.get("npc_type", "")) == "merchant" else _TownspersonScene
+		var node: Node3D = scene_to_use.instantiate()
 		var ny: float = world_scene.get_terrain_height(float(n_data["x"]), float(n_data["z"])) + 0.5
 		node.position = Vector3(n_data["x"], ny, n_data["z"])
 		if node.has_method("init_from_data"):
@@ -261,7 +263,7 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		_set_visibility_range(node)
 		if world_scene.has_method("register_npc"):
 			world_scene.register_npc(n_data["id"], node, n_data)
-		print("NPC spawned: ", n_data.get("id", "?"), " at world (", n_data["x"], ", ", n_data["z"], ")")
+		print("NPC spawned: ", n_data.get("id", "?"), " (", n_data.get("npc_type", "townsperson"), ") at world (", n_data["x"], ", ", n_data["z"], ")")
 
 const ENTITY_VISIBILITY_END: float = 50.0
 
