@@ -147,4 +147,5 @@ HEIGHTS
 SPAWN 11 13
 NPC 8 8 Welcome to Maykalene! The port city of the eastern coast.
 NPC 14 10 Be wary of the Farsyth mansion on the hill. Strange things happen there.
+MERCHANT 16 8
 DOOR 11 14 __exit__ door_inn_exit

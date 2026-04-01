@@ -17,7 +17,7 @@ The terrain shader already uses vertex COLOR channels (R=height-blend, G=wall fl
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | [TID-024](TID-024--tile-path-engine.md) | Add TILE_PATH engine support | agent | done | — |
-| [TID-025](TID-025--update-fixed-maps.md) | Update fixed maps: path tiles + merchants | agent | pending | TID-024 |
+| [TID-025](TID-025--update-fixed-maps.md) | Update fixed maps: path tiles + merchants | agent | done | TID-024 |
 
 ## Acceptance Criteria
 

@@ -156,4 +156,5 @@ SPAWN 12 15
 NPC 8 8 Welcome to the inn! Rest your weary bones here.
 NPC 15 10 I heard strange noises coming from the temple last night.
 NPC 10 12 The ale here is the finest in all of Madrian.
+MERCHANT 18 8
 DOOR 12 16 __exit__ door_inn_exit
