@@ -10,6 +10,10 @@ var health: int
 var max_health: int
 var card_class: String
 var description: String
+var magic_type: String
+var magic_branch: String
+var spell_effect: String
+var spell_power: int
 
 var summoning_sick: bool = true
 var attack_count: int = 1
@@ -26,6 +30,10 @@ static func from_template(tmpl: Dictionary) -> CardInstance:
 	c.max_health = c.health
 	c.card_class = tmpl.get("card_class", "minion")
 	c.description = tmpl.get("description", "")
+	c.magic_type = tmpl.get("magic_type", "")
+	c.magic_branch = tmpl.get("magic_branch", "")
+	c.spell_effect = tmpl.get("spell_effect", "")
+	c.spell_power = tmpl.get("spell_power", 0)
 	return c
 
 func is_alive() -> bool:

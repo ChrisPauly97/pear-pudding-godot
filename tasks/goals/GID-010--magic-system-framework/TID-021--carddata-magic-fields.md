@@ -2,7 +2,7 @@
 
 **Goal:** GID-010
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-020
 
 ## Lock
@@ -39,8 +39,10 @@ _Written during Plan phase._
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/CardData.gd`: added four `@export` fields — `magic_type: String`, `magic_branch: String`, `spell_effect: String`, `spell_power: int` — all defaulting to `""` / `0` so existing minion `.tres` files load unchanged.
+- `data/CardData.gd`: updated `to_template_dict()` to include all four new fields.
+- `game_logic/battle/CardInstance.gd`: added matching instance variables (`magic_type`, `magic_branch`, `spell_effect`, `spell_power`) and populated them in `from_template()`. Existing attack/health access for minions is unaffected (spell cards default to 0, which is safe).
 
 ## Documentation Updates
 
-Update `docs/agent/battle-system.md` — Asset Requirements table to note spell card fields.
+- `docs/agent/battle-system.md`: expanded Card Data section with all new spell fields and their semantics; updated Asset Requirements table row for card data resources.

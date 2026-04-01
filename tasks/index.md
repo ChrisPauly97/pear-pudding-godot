@@ -13,7 +13,7 @@
 | [GID-007](goals/GID-007--coin-economy-merchant/goal.md) | Coin Economy & Merchant NPC | pending | 0 / 2 |
 | [GID-008](goals/GID-008--card-art-visuals/goal.md) | Card Art & Battle Visuals | pending | 0 / 2 |
 | [GID-009](goals/GID-009--enemy-respawn/goal.md) | Enemy Respawn System | done | 1 / 1 |
-| [GID-010](goals/GID-010--magic-system-framework/goal.md) | Magic System Framework | pending | 1 / 4 |
+| [GID-010](goals/GID-010--magic-system-framework/goal.md) | Magic System Framework | pending | 2 / 4 |
 
 ## Backlog
 
