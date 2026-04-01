@@ -8,3 +8,4 @@ id = "undead_elite"
 display_name = "Undead Warlord"
 deck = PackedStringArray("ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton", "skeleton")
 drop_pool = PackedStringArray("ghoul")
+coin_reward = 20

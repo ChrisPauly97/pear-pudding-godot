@@ -2,7 +2,7 @@
 
 **Goal:** GID-007
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -32,12 +32,21 @@ When the player wins a battle, `GameBus.battle_won` is emitted and `SceneManager
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `coin_reward: int` export field to `data/EnemyData.gd` (default 5).
+2. Set `coin_reward` in all four `.tres` files: undead_basic=5, undead_horde=8, ghoul_pack=12, undead_elite=20.
+3. Add `EnemyRegistry.get_coin_reward(type_id) -> int` static method.
+4. In `SceneManager._on_battle_won()`, read `save_manager.pending_battle_enemy_data["enemy_type"]` before clearing, look up coin reward, call `save_manager.add_coins()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/EnemyData.gd` — added `@export var coin_reward: int = 5`
+- `data/enemies/undead_basic.tres` — set `coin_reward = 5`
+- `data/enemies/undead_horde.tres` — set `coin_reward = 8`
+- `data/enemies/ghoul_pack.tres` — set `coin_reward = 12`
+- `data/enemies/undead_elite.tres` — set `coin_reward = 20`
+- `autoloads/EnemyRegistry.gd` — added `get_coin_reward(type_id) -> int` static method
+- `autoloads/SceneManager.gd` — added `EnemyRegistry` preload; in `_on_battle_won()`, reads `pending_battle_enemy_data["enemy_type"]` before clearing and calls `save_manager.add_coins(EnemyRegistry.get_coin_reward(enemy_type))`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/enemies-and-npcs.md` — added coin reward amounts to enemy type table

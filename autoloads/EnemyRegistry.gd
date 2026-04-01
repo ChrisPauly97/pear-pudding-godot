@@ -51,6 +51,13 @@ static func get_drop_pool(type_id: String) -> Array[String]:
 		result = ["ghost"]
 	return result
 
+## Returns the coin reward for defeating an enemy of this type. Falls back to 5 if unknown.
+static func get_coin_reward(type_id: String) -> int:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return (_enemies[type_id] as EnemyData).coin_reward
+	return 5
+
 ## Returns the display name for a type, or the raw ID if unknown.
 static func get_display_name(type_id: String) -> String:
 	_ensure_loaded()

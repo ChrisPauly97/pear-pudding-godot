@@ -17,12 +17,12 @@
 
 `EnemyRegistry` is an autoload that loads all `EnemyData` resources from `data/enemies/*.tres` at startup and exposes `get_enemy(type_id)` and `type_for_biome(biome, distance)`.
 
-| Type ID | Deck | Intended zone |
-|---|---|---|
-| `undead_basic` | 4× Ghost + 4× Skeleton | Early game (grasslands, close to origin) |
-| `undead_horde` | 4× Skeleton + 4× Zombie | Mid game (forest, medium distance) |
-| `ghoul_pack` | 4× Zombie + 4× Ghoul | Late game (desert, scorched, far) |
-| `undead_elite` | 8× Ghoul | End game (mountains, very far) |
+| Type ID | Deck | Coin reward | Intended zone |
+|---|---|---|---|
+| `undead_basic` | 4× Ghost + 4× Skeleton | 5 | Early game (grasslands, close to origin) |
+| `undead_horde` | 4× Skeleton + 4× Zombie | 8 | Mid game (forest, medium distance) |
+| `ghoul_pack` | 4× Zombie + 4× Ghoul | 12 | Late game (desert, scorched, far) |
+| `undead_elite` | 8× Ghoul | 20 | End game (mountains, very far) |
 
 `type_for_biome()` uses a distance threshold table per biome to return the appropriate type ID:
 
