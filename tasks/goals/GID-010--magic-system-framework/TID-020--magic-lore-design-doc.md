@@ -2,7 +2,7 @@
 
 **Goal:** GID-010
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -65,7 +65,14 @@ Create `docs/agent/magic-system.md` containing:
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `docs/agent/magic-system.md` with:
+  - Light and Dark top-level lore paragraphs
+  - All four sub-branch profiles (Ember, Dawn, Dusk, Ash) with personality, playstyle, and colour palette
+  - Full card stat tables for Ember (Spark, Flicker, Ember, Scorch) and Ash (Ash, Brittle, Char, Alight) branches
+  - Target and effect rules for each card
+  - Implementation notes for TID-021: required `CardData` schema fields (`card_type`, `magic_type`, `magic_branch`)
+  - Spell effect design patterns for TID-022/TID-023 to reference
+  - UI treatment notes and integrations table
 
 ## Documentation Updates
 

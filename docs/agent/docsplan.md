@@ -24,6 +24,7 @@ This directory contains one Markdown file per major game feature. Each file foll
 | [ui-and-scene-management.md](ui-and-scene-management.md) | Scene stack, battle overlay, menus, HUD, day/night, map editor |
 | [signals-and-constants.md](signals-and-constants.md) | GameBus signal hub, IsoConst values, decoupling architecture |
 | [story-implementation.md](story-implementation.md) | Story flags, dialogue gating, SaveManager fields, SceneManager entry point |
+| [magic-system.md](magic-system.md) | Light/Dark magic lore, Ember/Ash sub-branches, spell card stats, schema extension notes |
 
 ---
 
