@@ -2,7 +2,7 @@
 
 **Goal:** GID-011
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -120,12 +120,27 @@ PATH tiles pass through `compute_height_field` as "neither HILL nor WALL" → fl
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `TILE_PATH = 3` to `IsoConst.gd` and alias in `WorldMap.gd`
+2. Update `TerrainMath.build_terrain_mesh` to set `COLOR.b = 1.0` for path vertices
+3. Update `terrain.gdshader`: add `path_texture` / `path_tint` uniforms, `v_path` varying, fragment branch before `is_wall`; suppress micro-bump on path tiles
+4. Add `TextureGen.path()` + `_make_path_tex()` to `TextureGen.gd`
+5. Add `TextureGen` preload and `path_texture` shader param to `WorldScene._make_terrain_material()`
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/IsoConst.gd`: added `const TILE_PATH: int = 3`
+- `game_logic/world/WorldMap.gd`: added `const TILE_PATH: int = IsoConst.TILE_PATH` alias
+- `game_logic/TerrainMath.gd`: updated `build_terrain_mesh` vertex color (line 162–164) — call `tile_lookup` once into `ttype`, set `COLOR.b = is_path`
+- `assets/shaders/terrain.gdshader`:
+  - Added `path_texture` + `path_tint` uniforms
+  - Added `varying float v_path`
+  - Added `v_path = COLOR.b` in `vertex()`
+  - Suppressed micro-bump when `v_path >= 0.5` (paths stay flat)
+  - Added `is_path` bool + `if (is_path)` branch before `if (is_wall)` in `fragment()`
+  - Updated tint selection to check `is_path` first
+- `game_logic/TextureGen.gd`: added `path()` public func + `_make_path_tex()` with brown packed-earth gradient
+- `scenes/world/WorldScene.gd`: added `const TextureGen = preload(...)` and `mat.set_shader_parameter("path_texture", TextureGen.path())` in `_make_terrain_material()`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/terrain-rendering.md` with TILE_PATH vertex color channel table and path texture details.

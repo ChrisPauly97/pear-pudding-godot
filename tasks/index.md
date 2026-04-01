@@ -14,7 +14,7 @@
 | [GID-008](goals/GID-008--card-art-visuals/goal.md) | Card Art & Battle Visuals | pending | 0 / 2 |
 | [GID-009](goals/GID-009--enemy-respawn/goal.md) | Enemy Respawn System | done | 1 / 1 |
 | [GID-010](goals/GID-010--magic-system-framework/goal.md) | Magic System Framework | done | 4 / 4 |
-| [GID-011](goals/GID-011--fixed-map-polish/goal.md) | Fixed Map Polish — Path Tiles & Inn Merchants | pending | 0 / 2 |
+| [GID-011](goals/GID-011--fixed-map-polish/goal.md) | Fixed Map Polish — Path Tiles & Inn Merchants | pending | 1 / 2 |
 | [GID-012](goals/GID-012--tutorial-onboarding/goal.md) | Tutorial / Onboarding for New Players | done | 2 / 2 |
 
 ## Backlog

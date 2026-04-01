@@ -23,6 +23,9 @@ static func hill_top(seed: int = 99999) -> ImageTexture:
 static func hill_side(seed: int = 55555) -> ImageTexture:
 	return _cached("hill_side_%d" % seed, _make_hill_side_tex.bind(seed))
 
+static func path(seed: int = 77777) -> ImageTexture:
+	return _cached("path_%d" % seed, _make_path_tex.bind(seed))
+
 static func wall_side(is_left: bool) -> ImageTexture:
 	return _cached("wall_side_%s" % str(is_left), _gen_wall_side.bind(is_left))
 
@@ -102,6 +105,24 @@ static func _make_hill_side_tex(seed: int) -> ImageTexture:
 		Color8(98,  76, 42, 255),   # earth
 		Color8(118, 93, 52, 255),   # light earth
 		Color8(130, 105, 62, 255),  # pale earth / exposed root
+	])
+	return _noise_to_texture(noise, grad, 64)
+
+# ── Path: brown packed-earth for town road tiles ─────────────────────────
+
+static func _make_path_tex(seed: int) -> ImageTexture:
+	var noise := FastNoiseLite.new()
+	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	noise.seed = seed
+	noise.frequency = 0.18
+
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.3, 0.7, 1.0])
+	grad.colors = PackedColorArray([
+		Color8(105, 80,  45, 255),   # dark packed earth
+		Color8(130, 100, 58, 255),   # mid earth
+		Color8(148, 118, 68, 255),   # light earth / gravel
+		Color8(160, 130, 78, 255),   # pale sandy path
 	])
 	return _noise_to_texture(noise, grad, 64)
 

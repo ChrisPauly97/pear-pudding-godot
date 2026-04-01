@@ -13,6 +13,9 @@ uniform sampler2D hill_texture      : source_color, filter_nearest, hint_default
 uniform sampler2D wall_side_texture : source_color, filter_nearest, hint_default_white;
 // Stone floor shown on the flat plateau of walls
 uniform sampler2D wall_top_texture  : source_color, filter_nearest, hint_default_white;
+// Brown packed-earth shown on path tiles (flat, walkable, town roads)
+uniform sampler2D path_texture      : source_color, filter_nearest, hint_default_white;
+uniform vec3 path_tint = vec3(1.0, 1.0, 1.0);
 
 // How many times the textures tile per world unit
 uniform float uv_scale : hint_range(0.05, 2.0) = 0.5;
@@ -25,6 +28,7 @@ uniform vec3 wall_tint  = vec3(1.0, 1.0, 1.0);
 
 varying float v_blend;      // height ratio [0=flat ground .. 1=hill plateau]
 varying float v_wall;       // 1.0 if this vertex sits on a wall tile
+varying float v_path;       // 1.0 if this vertex sits on a path tile
 varying vec3  v_normal_world;  // world-space normal — used for slope detection only
 varying vec2  v_world_xz;
 varying float v_world_y;    // world Y — used for vertical tiling on wall sides
@@ -56,6 +60,7 @@ void vertex() {
 	// Pass blend factor, wall flag, and world normal to fragment
 	v_blend = COLOR.r;
 	v_wall  = COLOR.g;
+	v_path  = COLOR.b;
 	// World-space normal is only used for slope detection in fragment(),
 	// not for lighting — Godot transforms NORMAL to view space automatically.
 	v_normal_world = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
@@ -63,9 +68,10 @@ void vertex() {
 	v_world_xz     = world_pos.xz;
 	v_world_y      = world_pos.y;
 
-	// Subtle micro-bump on flat grass — single hash instead of full FBM (cheap)
+	// Subtle micro-bump on flat grass — single hash instead of full FBM (cheap).
+	// Suppressed on path tiles so roads stay visually flat.
 	float flat_factor = clamp(1.0 - v_blend * 4.0, 0.0, 1.0);
-	if (flat_factor > 0.01) {
+	if (flat_factor > 0.01 && v_path < 0.5) {
 		VERTEX.y += hash2(v_world_xz * 0.08) * 0.12 * flat_factor;
 	}
 
@@ -98,8 +104,11 @@ void fragment() {
 	// (interpolated between is_wall=0 grass vertex and is_wall=1 wall vertex)
 	// is classified as wall and receives stone texture rather than grass/hill.
 	bool is_wall = v_wall > 0.05;
+	bool is_path = v_path > 0.05;
 
-	if (is_wall) {
+	if (is_path) {
+		base_col = texture(path_texture, uv_xz).rgb;
+	} else if (is_wall) {
 		// Use surface normal to pick side vs top — no grass on wall tiles.
 		// slope=0: flat top → wall_top_texture; slope=1: vertical face → wall_side_texture.
 		float wall_slope = 1.0 - clamp(v_normal_world.y, 0.0, 1.0);
@@ -133,9 +142,11 @@ void fragment() {
 	// needing FRONT_FACING hacks or removing cull_disabled.
 	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(v_normal_world), 0.0)).xyz);
 
-	// Biome color tint: walls use wall_tint, hills blend grass→hill, flat stays grass.
+	// Biome color tint: walls use wall_tint, paths use path_tint, hills blend grass→hill.
 	vec3 tint;
-	if (is_wall) {
+	if (is_path) {
+		tint = path_tint;
+	} else if (is_wall) {
 		tint = wall_tint;
 	} else {
 		tint = mix(grass_tint, hill_tint, clamp(v_blend * 2.0, 0.0, 1.0));

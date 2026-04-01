@@ -159,8 +159,10 @@ static func build_terrain_mesh(
 			var blend: float = clamp(h / peak_h, 0.0, 1.0)
 			var tx: int = int((origin_x + x) / IsoConst.TILE_SIZE)
 			var tz: int = int((origin_z + z) / IsoConst.TILE_SIZE)
-			var is_wall: float = 1.0 if tile_lookup.call(tx, tz) == IsoConst.TILE_WALL else 0.0
-			colors[i] = Color(blend, is_wall, 0.0, 1.0)
+			var ttype: int = tile_lookup.call(tx, tz)
+			var is_wall: float = 1.0 if ttype == IsoConst.TILE_WALL else 0.0
+			var is_path: float = 1.0 if ttype == IsoConst.TILE_PATH else 0.0
+			colors[i] = Color(blend, is_wall, is_path, 1.0)
 
 	# Normals via finite differences
 	for iz in range(nvz):
