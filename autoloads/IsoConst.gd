@@ -38,6 +38,9 @@ const PLAYER_RADIUS: float = 0.25      # collision radius
 const DECK_MIN: int = 8
 const DECK_MAX: int = 20
 
+# Enemy respawn
+const ENEMY_RESPAWN_DAYS: int = 3      # procedural enemies respawn after this many in-game days
+
 func tile_to_world(tx: int, tz: int) -> Vector3:
 	return Vector3(tx * TILE_SIZE, 0.0, tz * TILE_SIZE)
 

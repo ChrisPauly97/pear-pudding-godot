@@ -2,7 +2,7 @@
 
 **Goal:** GID-009
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -42,12 +42,22 @@ Enemies defeated in the procedural world are tracked in `SaveManager.defeated_en
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `ENEMY_RESPAWN_DAYS: int = 3` to `autoloads/IsoConst.gd`.
+2. Add `days_elapsed` and `last_respawn_day` fields to `SaveManager`, including save/load/migration (bump to version 4).
+3. Add `SaveManager.increment_day()` that increments the counter and clears non-`map_` prefixed enemy IDs when threshold reached.
+4. In `WorldScene._update_day_night()`, detect the day wrap (`_time_of_day` drops below previous value after fmod) and call `increment_day()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/IsoConst.gd`: Added `ENEMY_RESPAWN_DAYS: int = 3`.
+- `autoloads/SaveManager.gd`:
+  - Added `days_elapsed: int = 0` and `last_respawn_day: int = 0` fields.
+  - Bumped `CURRENT_SAVE_VERSION` to 4.
+  - Added `_migrate_v3_to_v4()` to backfill both fields in old saves.
+  - Added both fields to `new_game()` reset, `load_save()`, and `save()`.
+  - Added `increment_day()` method that clears procedural enemy IDs (`chunk_` prefix) from `defeated_enemies` every `ENEMY_RESPAWN_DAYS` in-game days.
+- `scenes/world/WorldScene.gd`: In `_update_day_night()`, detect the day wrap and call `SaveManager.increment_day()`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/enemies-and-npcs.md` if applicable — no separate doc change needed; logic is self-contained and covered by save-system.md migration pattern.

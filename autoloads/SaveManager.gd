@@ -33,6 +33,10 @@ var in_battle_enemy_id: String = ""
 # Day/night cycle position (0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset)
 var time_of_day: float = 0.4
 
+# Enemy respawn day tracking
+var days_elapsed: int = 0
+var last_respawn_day: int = 0
+
 # Story progression flags
 var story_flags: Dictionary = {}
 
@@ -87,12 +91,14 @@ func new_game() -> void:
 	in_battle_enemy_id = ""
 	time_of_day = 0.4
 	story_flags = {}
+	days_elapsed = 0
+	last_respawn_day = 0
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 3
+const CURRENT_SAVE_VERSION: int = 4
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -115,6 +121,14 @@ static func _migrate_v2_to_v3(data: Dictionary) -> void:
 		data["story_flags"] = {}
 	data["version"] = 3
 
+# _migrate_v3_to_v4: backfill enemy respawn day counters for old saves.
+static func _migrate_v3_to_v4(data: Dictionary) -> void:
+	if not data.has("days_elapsed"):
+		data["days_elapsed"] = 0
+	if not data.has("last_respawn_day"):
+		data["last_respawn_day"] = 0
+	data["version"] = 4
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -123,6 +137,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v1_to_v2(data)
 	if ver < 3:
 		_migrate_v2_to_v3(data)
+	if ver < 4:
+		_migrate_v3_to_v4(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -153,6 +169,8 @@ func load_save() -> bool:
 	starting_biome = int(data.get("starting_biome", 0))
 	var sf = data.get("story_flags", {})
 	story_flags = sf if sf is Dictionary else {}
+	days_elapsed = int(data.get("days_elapsed", 0))
+	last_respawn_day = int(data.get("last_respawn_day", 0))
 	_loaded = true
 	return true
 
@@ -177,6 +195,8 @@ func save() -> void:
 		"world_seed": world_seed,
 		"starting_biome": starting_biome,
 		"story_flags": story_flags,
+		"days_elapsed": days_elapsed,
+		"last_respawn_day": last_respawn_day,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -250,3 +270,14 @@ func set_story_flag(key: String, value: bool = true) -> void:
 
 func get_story_flag(key: String) -> bool:
 	return story_flags.get(key, false)
+
+func increment_day() -> void:
+	days_elapsed += 1
+	if days_elapsed - last_respawn_day >= IsoConst.ENEMY_RESPAWN_DAYS:
+		var kept: Array[String] = []
+		for eid: String in defeated_enemies:
+			if eid.begins_with("map_"):
+				kept.append(eid)
+		defeated_enemies.assign(kept)
+		last_respawn_day = days_elapsed
+	_dirty = true
