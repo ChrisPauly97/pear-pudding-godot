@@ -12,7 +12,7 @@ CLAUDE.md explicitly calls out missing `.uid` sidecars as a known Android export
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-012 | Audit all `.gdshader` / `.tres` / `.material` files for missing `.uid` sidecars | agent | pending | — |
+| TID-012 | Audit all `.gdshader` / `.tres` / `.material` files for missing `.uid` sidecars | agent | done | — |
 | TID-013 | Validate and fix the CI workflow for headless export | agent | pending | TID-012 |
 
 ## Acceptance Criteria
