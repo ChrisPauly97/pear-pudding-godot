@@ -2,7 +2,7 @@
 
 **Goal:** GID-003
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -42,12 +42,21 @@
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `DECK_MIN = 8` and `DECK_MAX = 20` constants to `IsoConst.gd`.
+2. Remove local `MAX_DECK` constant from `InventoryScene.gd`; replace all references with `IsoConst.DECK_MAX`.
+3. Update `_refresh()` to set deck counter label color: red when `deck_sz < DECK_MIN or deck_sz > DECK_MAX`, white otherwise.
+4. In `_make_deck_row()`, disable the remove button and set tooltip when `_working_deck.size() <= IsoConst.DECK_MIN`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/IsoConst.gd`: Added `DECK_MIN: int = 8` and `DECK_MAX: int = 20` constants.
+- `scenes/ui/InventoryScene.gd`:
+  - Removed local `const MAX_DECK: int = 20`.
+  - `_refresh()`: deck counter label now shows color (red when invalid, white when valid).
+  - `_make_collection_row()`: "Add" button disabled guard uses `IsoConst.DECK_MAX`.
+  - `_make_deck_row()`: "Remove" button disabled with tooltip when at minimum.
+  - `_on_add()`: guard uses `IsoConst.DECK_MAX`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent docs required; this is a UI enforcement change with constants in IsoConst (already documented as source of truth).
