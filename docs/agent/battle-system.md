@@ -515,6 +515,10 @@ XP is NOT multiplied by gambits. `session_stats["coins_earned"]` records the pos
 
 27 tests covering: catalogue integrity, each handicap's effect on PlayerState/HeroState, serialization round-trips for `skip_next_draw` and `minion_attack_bonus`, reward math (multiplier, rarity bonus, `roll_rarity` high-tier clamp safety), and no-gambit defaults.
 
+### Card Illustration Art (TID-319)
+
+`CardData.illustration: Texture2D` (nullable) is assigned at load time by `CardRegistry._ensure_loaded()` via `TextureGen.card_illustration(id, magic_branch)`, which procedurally paints a 32×32 pixel-art image per archetype (ghost, skeleton, zombie, ghoul, spell rune) and caches it. `CardViewBuilder.build_card_vbox()` shows it as a `TextureRect` ("IllustrationRect") above the stats label whenever the template has one; cards without an illustration just show the `StyleBoxFlat` colour fill applied by `apply_card_style()`. `InventoryScene._show_instance_detail()` shows the same texture at the top of the hover/long-press detail popup (TID-018).
+
 ---
 
 ## Integrations with Other Features
@@ -561,10 +565,10 @@ Additive layer on the existing engine, fully guarded by `_pvp`:
 
 | Asset | Path | Notes |
 |---|---|---|
-| Card data resources | `data/cards/*.tres` | One `CardData` resource per card type; minion fields: id, display_name, cost, attack, health, keywords (PackedStringArray); spell fields: card_class="spell", magic_type, magic_branch, spell_effect, spell_power |
+| Card data resources | `data/cards/*.tres` | One `CardData` resource per card type; minion fields: id, display_name, cost, attack, health, keywords (PackedStringArray); spell fields: card_class="spell", magic_type, magic_branch, spell_effect, spell_power; optional `illustration: Texture2D` |
 | Enemy data resources | `data/enemies/*.tres` | `EnemyData` resource with id, display_name, deck (Array of card id strings) |
 | BattleScene scene | `scenes/battle/BattleScene.tscn` | Root scene for battle UI overlay |
-| Card slot textures | `assets/textures/` | Optional card art per id (falls back to colored panel if missing) |
+| Card illustrations | Generated in-memory by `TextureGen.card_illustration()` | Optional per-card `Texture2D` assigned to `CardData.illustration` via `CardRegistry`; falls back to solid color fill when absent |
 
 No 3D geometry or shaders are required — the battle system is a 2D UI overlay.
 

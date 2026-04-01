@@ -2,7 +2,7 @@
 
 **Goal:** GID-008
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -38,12 +38,21 @@ Cards in BattleScene (hand row and board slots) are plain `StyleBoxFlat` coloure
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `assets/shaders/card_frame.gdshader` — canvas_item shader with `base_color` uniform, pixel-art outer border (dark, ~6% UV) and inner bevel (light top/left, dark bottom/right). Optional illustration sampler in upper 55% of card interior, gated by `has_illustration` bool. `selected` bool flips border to yellow.
+2. Create `assets/shaders/card_frame.gdshader.uid` sidecar.
+3. Add `@export var illustration: Texture2D` to `data/CardData.gd`; add to `to_template_dict()`.
+4. Refactor BattleScene card views from `PanelContainer` to plain `Control` root with two children: `ColorRect` ("FrameRect") with ShaderMaterial, and `MarginContainer` ("ContentMargin") wrapping the VBox.
+5. Update `_apply_card_style` to set shader parameters instead of StyleBoxFlat.
+6. Update `_update_card_view` to find VBox via named nodes.
+7. Fix all type annotations (`PanelContainer` → `Control`) in `_make_card_ghost`, `_refresh_zone`, `_update_card_view`.
 
 ## Changes Made
 
-_Filled after Build phase._
+This task's original branch (`claude/GID-008--card-art-visuals`) built a `canvas_item` shader (`card_frame.gdshader`) that drew a pixel-art bevel/border and blended an `illustration` texture into the upper 55% of the card, wired into `BattleScene._apply_card_style`/`_add_card_frame_children`.
+
+By the time this branch was reconciled with `main`, `data/CardData.gd`'s `illustration: Texture2D` field (this task's other deliverable) had already been re-added independently and **TID-319** (`GID-089`) had already implemented card illustration rendering a different way: `TextureGen.card_illustration()` procedurally generates per-archetype art, `CardRegistry` assigns it at load time, and `CardViewBuilder.build_card_vbox()` displays it as a plain `TextureRect` alongside the existing `StyleBoxFlat`-bordered card panel (which also gained richer state rendering — targeting highlights, playability dimming, drag selection — that the shader's single `selected` bool could not express). Bringing the shader back in would have reintroduced a second, conflicting card-rendering pipeline with no functional gain, so it was **not** merged; `BattleScene.gd` keeps its current `StyleBoxFlat` + `CardViewBuilder` rendering path.
+- No shader/material files were added to the codebase.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None — `docs/agent/battle-system.md` already describes the current rendering path from TID-319; no shader-based section was added.
