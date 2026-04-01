@@ -108,6 +108,15 @@ Labels and panels parented to a `CanvasLayer` (always on top):
   - First enemy proximity → battle hint (`tutorial_enemy_tip`)
   - Android vs desktop control names chosen via `OS.has_feature("android")`
 
+### BattleScene — First-Battle Tutorial Overlay
+
+On the player's first battle (flag `tutorial_battle_tip` not set), a semi-transparent `ColorRect` overlay is shown centred on screen:
+- Text: `"Drag a card from your hand to the board to play it.\nTap an enemy minion to attack with your minion."`
+- `"Got it"` button dismisses immediately
+- Auto-dismisses after 8 seconds (`TUTORIAL_DURATION`) via `_process()`
+- Also dismissed on first successful card play in `_finish_hand_drag()`
+- On dismiss: `SaveManager.set_story_flag("tutorial_battle_tip")` — never shown again
+
 ### MapEditorScene (`scenes/ui/MapEditorScene.gd`)
 
 In-game debug tool (not accessible from the main menu in release builds):

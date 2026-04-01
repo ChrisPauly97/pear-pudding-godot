@@ -2,7 +2,7 @@
 
 **Goal:** GID-012
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -51,12 +51,25 @@ if not SaveManager.get_story_flag("tutorial_battle_tip"):
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `_tutorial_overlay: Control` member var to BattleScene.
+2. Add `_tutorial_timer: float = 0.0` and `const TUTORIAL_DURATION: float = 8.0`.
+3. In `_ready()`, after `_refresh_all()`, check `SaveManager.get_story_flag("tutorial_battle_tip")` — if not set, call `_show_battle_tutorial()`.
+4. `_show_battle_tutorial()`: build a semi-transparent `ColorRect` panel centred on screen, add a `Label` with the instructions text, add a `"Got it"` `Button` that calls `_dismiss_battle_tutorial()`. Set `_tutorial_timer = TUTORIAL_DURATION`.
+5. `_dismiss_battle_tutorial()`: if `_tutorial_overlay` is not null and valid, free it and set to null. Set `SaveManager.set_story_flag("tutorial_battle_tip")`.
+6. In `_process(delta)` (add if absent): count down `_tutorial_timer`; when it hits 0, call `_dismiss_battle_tutorial()`.
+7. In `_finish_hand_drag()`, after a successful `play_card()`, call `_dismiss_battle_tutorial()`.
+8. Use `_vh` for all sizing. Overlay: `_vh * 0.5` wide, `_vh * 0.3` tall, centred. Font: `int(_vh * 0.025)`. Button: `_vh * 0.12` wide, `_vh * 0.06` tall.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - Added `_tutorial_overlay: Control`, `_tutorial_timer: float`, `const TUTORIAL_DURATION: float = 8.0`
+  - In `_ready()`: calls `_show_battle_tutorial()` if `tutorial_battle_tip` flag not set
+  - `_show_battle_tutorial()`: builds a `ColorRect` overlay centred on screen with instruction label and "Got it" button; sets `_tutorial_timer = TUTORIAL_DURATION`
+  - `_dismiss_battle_tutorial()`: frees overlay, resets timer, sets `tutorial_battle_tip` flag
+  - `_process(delta)`: counts down `_tutorial_timer`; auto-dismisses on expiry
+  - `_finish_hand_drag()`: calls `_dismiss_battle_tutorial()` after first successful card play
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md` — added battle tutorial overlay to BattleScene section.

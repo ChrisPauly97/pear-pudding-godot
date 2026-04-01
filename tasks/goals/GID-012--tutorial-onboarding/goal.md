@@ -15,7 +15,7 @@ Tutorial state is stored in `SaveManager.story_flags` using dedicated `tutorial_
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-026 | Proximity-triggered HUD tips in WorldScene | agent | done | — |
-| TID-027 | First-battle tutorial overlay in BattleScene | agent | pending | — |
+| TID-027 | First-battle tutorial overlay in BattleScene | agent | done | — |
 
 ## Acceptance Criteria
 
