@@ -2,7 +2,7 @@
 
 **Goal:** GID-005
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -66,12 +66,39 @@ Read the actual directory listing during the task rather than assuming — new f
 
 ## Plan
 
-_Written during Plan phase._
+Audit all `.gdshader`, `.tres`, and `.material` files in the repository. For each, verify:
+1. A `.uid` sidecar exists alongside it
+2. The sidecar contains a valid `uid://[a-z0-9]{12}` string
+3. No two sidecars share the same UID
+
+No `.material` files exist. All `.gdshader` and `.tres` files already have sidecars — no new files needed.
 
 ## Changes Made
 
-_Filled after Build phase._
+Audit only — no file changes required. Results:
+
+**`.gdshader` files (4):** All have valid `.uid` sidecars.
+- `assets/shaders/grass.gdshader` → `uid://1yf6xpsq1cf6`
+- `assets/shaders/grass_blade.gdshader` → `uid://0ay5och8tpn7`
+- `assets/shaders/grass_cluster.gdshader` → `uid://8hjqisx56pm2`
+- `assets/shaders/terrain.gdshader` → `uid://304bl6hs4h90`
+
+**`.tres` files (8):** All have valid `.uid` sidecars.
+- `data/cards/ghost.tres` → `uid://yr6onn7kz1jw`
+- `data/cards/ghoul.tres` → `uid://uzwfq9t6z4oq`
+- `data/cards/skeleton.tres` → `uid://gj2baw77ck8e`
+- `data/cards/zombie.tres` → `uid://fj711l3ly44c`
+- `data/enemies/ghoul_pack.tres` → `uid://xz5udp37ourr`
+- `data/enemies/undead_basic.tres` → `uid://iugru6ekzfxi`
+- `data/enemies/undead_elite.tres` → `uid://4dd3zeq76nhv`
+- `data/enemies/undead_horde.tres` → `uid://rl5ms4ofets9`
+
+**`.material` files:** None exist in the project.
+
+**Duplicates:** None found.
+
+**Note:** Many `.gd.uid` sidecar files exist in the repo (created by the Godot editor). Per CLAUDE.md, plain `.gd` scripts embed UIDs inline and do not need sidecars. These files are harmless but unnecessary.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — CLAUDE.md already documents the `.uid` sidecar requirement and the correct format.
