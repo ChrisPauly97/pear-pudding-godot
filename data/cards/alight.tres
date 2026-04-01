@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://qn2jcuwf7mhd"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_alight"]
+
+[resource]
+script = ExtResource("1_alight")
+id = "alight"
+card_name = "Alight"
+cost = 4
+attack = 0
+health = 0
+card_class = "spell"
+description = "From ash, something stirs."
+color = Color(0.7, 0.5, 0.3, 1)
+magic_type = "dark"
+magic_branch = "ash"
+spell_effect = "resurrect_last"
+spell_power = 1

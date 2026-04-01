@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://7p5ft3bdmb4v"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ash"]
+
+[resource]
+script = ExtResource("1_ash")
+id = "ash"
+card_name = "Ash"
+cost = 1
+attack = 0
+health = 0
+card_class = "spell"
+description = "What remains when fire has finished."
+color = Color(0.5, 0.45, 0.4, 1)
+magic_type = "dark"
+magic_branch = "ash"
+spell_effect = "debuff_attack"
+spell_power = 2

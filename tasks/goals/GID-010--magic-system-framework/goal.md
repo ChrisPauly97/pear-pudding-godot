@@ -17,7 +17,7 @@ Cards in this system are **Card / Spell** type: they cost mana, have a targeted 
 | TID-020 | Magic Lore & Design Doc | agent | done | — |
 | TID-021 | Extend CardData with Magic Fields | agent | done | TID-020 |
 | TID-022 | Ember Branch Spell Cards | agent | done | TID-021 |
-| TID-023 | Ash Branch Spell Cards | agent | pending | TID-021 |
+| TID-023 | Ash Branch Spell Cards | agent | done | TID-021 |
 
 ## Acceptance Criteria
 

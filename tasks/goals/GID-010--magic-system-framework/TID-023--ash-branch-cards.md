@@ -2,7 +2,7 @@
 
 **Goal:** GID-010
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-021
 
 ## Lock
@@ -53,7 +53,10 @@ Note: `char` is a GDScript keyword. The card **id** `"char"` is just a string so
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/cards/ash.tres` + `ash.tres.uid` — cost 1, `debuff_attack` 2, dark/ash spell
+- `data/cards/brittle.tres` + `brittle.tres.uid` — cost 2, `deal_damage_single` 2, dark/ash spell
+- `data/cards/char.tres` + `char.tres.uid` — cost 3, `destroy_low_hp` threshold 3, dark/ash spell
+- `data/cards/alight.tres` + `alight.tres.uid` — cost 4, `resurrect_last` with 1 HP, dark/ash spell
 
 ## Documentation Updates
 
