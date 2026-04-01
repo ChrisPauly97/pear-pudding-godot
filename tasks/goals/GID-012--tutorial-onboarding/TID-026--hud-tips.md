@@ -2,7 +2,7 @@
 
 **Goal:** GID-012
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -88,12 +88,25 @@ func _check_interactions() -> void:
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `_tip_label: Label`, `_tip_timer: float = 0.0`, `const TIP_DURATION: float = 5.0` to WorldScene member vars (near `_dialogue_label`).
+2. In `_ready()`, after the `_dialogue_label` creation block, create `_tip_label` with the same shadow/wrap styling but yellow-tinted text (`Color(1.0,1.0,0.6)`) positioned at `y = vp.y * 0.14` (below the top-bar buttons).
+3. At the end of the `_tip_label` creation, if `tutorial_inventory_tip` is not set: call `_show_tip.call_deferred(...)` with the inventory hint and set the flag immediately.
+4. In `_process()`, after the `_dialogue_timer` countdown block, add an identical countdown for `_tip_timer`.
+5. In `_check_interactions()`, after the interact label show/hide, add one-shot proximity checks: npc → `tutorial_npc_tip`, chest → `tutorial_chest_tip`, enemy → `tutorial_enemy_tip`.
+6. Add `_show_tip(text: String)` near `_show_dialogue`.
+7. Use `SaveManager.get_story_flag` / `SaveManager.set_story_flag` (consistent with existing usage at lines 728 and 937).
+8. Respect `OS.has_feature("android")` for control names.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WorldScene.gd`:
+  - Added `_tip_label: Label`, `_tip_timer: float`, `const TIP_DURATION: float = 5.0` member vars
+  - Created `_tip_label` in `_ready()` after `_dialogue_label`: yellow-tinted (`Color(1,1,0.6)`), centred at `y = vp.y * 0.14`, same shadow/wrap styling as dialogue
+  - On first world entry, shows inventory tip via `_show_tip.call_deferred()` and sets `tutorial_inventory_tip` flag
+  - `_process()`: countdown `_tip_timer`, hide `_tip_label` on expiry
+  - `_check_interactions()`: after interact label update, checks `tutorial_npc_tip`, `tutorial_chest_tip`, `tutorial_enemy_tip` flags and shows appropriate one-shot tip on first proximity
+  - Added `_show_tip(text: String)` function
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md` — added tutorial tip system to HUD section.

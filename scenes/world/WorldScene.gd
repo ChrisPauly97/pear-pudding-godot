@@ -103,6 +103,10 @@ var _minimap: Node
 var _dialogue_timer: float = 0.0
 const DIALOGUE_DURATION: float = 4.0
 
+var _tip_label: Label
+var _tip_timer: float = 0.0
+const TIP_DURATION: float = 5.0
+
 # Terrain height constants — named-map path uses a wider ramp than chunks
 const HILL_PEAK_H:    float = 1.5
 const HILL_RAMP_R:    float = 4.0
@@ -250,6 +254,25 @@ func _ready() -> void:
 	_dialogue_label.hide()
 	_hud.add_child(_dialogue_label)
 	GameBus.hud_message_requested.connect(_show_dialogue)
+
+	_tip_label = Label.new()
+	_tip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tip_label.add_theme_font_size_override("font_size", font_size)
+	_tip_label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.6))
+	_tip_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	_tip_label.add_theme_constant_override("shadow_offset_x", 2)
+	_tip_label.add_theme_constant_override("shadow_offset_y", 2)
+	_tip_label.size = Vector2(vp.x * 0.6, vp.y * 0.12)
+	_tip_label.position = Vector2(vp.x * 0.2, vp.y * 0.14)
+	_tip_label.hide()
+	_hud.add_child(_tip_label)
+
+	if not SaveManager.get_story_flag("tutorial_inventory_tip"):
+		SaveManager.set_story_flag("tutorial_inventory_tip")
+		var inv_tip: String = "Tap the Inventory button to manage your deck." \
+			if OS.has_feature("android") else "Press I or tap Inventory to manage your deck."
+		_show_tip.call_deferred(inv_tip)
 
 	_coord_label = Label.new()
 	_coord_label.add_theme_font_size_override("font_size", font_size)
@@ -858,6 +881,11 @@ func _process(delta: float) -> void:
 		if _dialogue_timer <= 0.0:
 			_dialogue_label.hide()
 
+	if _tip_timer > 0.0:
+		_tip_timer -= delta
+		if _tip_timer <= 0.0:
+			_tip_label.hide()
+
 	if _is_infinite:
 		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 		var pcx: int = int(floor(_player.position.x / chunk_world))
@@ -914,6 +942,17 @@ func _check_interactions() -> void:
 		_interact_label.show()
 	else:
 		_interact_label.hide()
+
+	var is_android: bool = OS.has_feature("android")
+	if not npc.is_empty() and not SaveManager.get_story_flag("tutorial_npc_tip"):
+		SaveManager.set_story_flag("tutorial_npc_tip")
+		_show_tip("Tap to talk" if is_android else "Press E to talk to NPCs")
+	elif not chest.is_empty() and not SaveManager.get_story_flag("tutorial_chest_tip"):
+		SaveManager.set_story_flag("tutorial_chest_tip")
+		_show_tip("Tap to open chests" if is_android else "Press E to open chests")
+	elif enemy != null and not SaveManager.get_story_flag("tutorial_enemy_tip"):
+		SaveManager.set_story_flag("tutorial_enemy_tip")
+		_show_tip("Walk into an enemy to start a battle")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("inventory"):
@@ -983,6 +1022,11 @@ func _show_dialogue(text: String) -> void:
 	_dialogue_label.text = text
 	_dialogue_label.show()
 	_dialogue_timer = DIALOGUE_DURATION
+
+func _show_tip(text: String) -> void:
+	_tip_label.text = text
+	_tip_label.show()
+	_tip_timer = TIP_DURATION
 
 # ── Card item spawning ──────────────────────────────────────────────────────
 
