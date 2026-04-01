@@ -220,3 +220,11 @@ NPC 11 14 Boy! Get back to your chores this instant or you will be punished!
 DOOR 11 18 madrian_masters_house door_masters_exit
 DOOR 39 32 madrian_inn door_inn_exit
 DOOR 50 99 maykalene
+DOOR 60 50 main
+DOOR 65 50 house_1
+DOOR 70 50 test
+DOOR 75 50 maykalene_inn
+DOOR 80 50 farsyth_mansion
+DOOR 85 50 blancogov
+DOOR 60 56 blancogov_temple
+DOOR 65 56 infinite
