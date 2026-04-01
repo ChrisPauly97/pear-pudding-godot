@@ -12,7 +12,7 @@ Respawn procedural-world enemies after a set number of in-game days so the world
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-019 | Time-based procedural enemy respawn | agent | pending | — |
+| TID-019 | Time-based procedural enemy respawn | agent | done | — |
 
 ## Acceptance Criteria
 

@@ -757,7 +757,10 @@ func _create_player_node() -> CharacterBody3D:
 # ── Day / Night cycle ──────────────────────────────────────────────────────
 
 func _update_day_night(delta: float) -> void:
+	var prev_time: float = _time_of_day
 	_time_of_day = fmod(_time_of_day + delta / day_duration, 1.0)
+	if _time_of_day < prev_time:
+		SceneManager.save_manager.increment_day()
 
 	# sun_angle: 0 at sunrise (t=0.25), PI/2 at noon (t=0.5), PI at sunset (t=0.75)
 	var sun_angle: float = (_time_of_day - 0.25) * TAU
