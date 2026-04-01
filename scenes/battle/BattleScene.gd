@@ -21,6 +21,11 @@ var _hand_drag_card: CardInstance = null
 var _drag_visual: Control = null
 var _drag_start_pos: Vector2 = Vector2.ZERO
 
+# First-battle tutorial overlay
+var _tutorial_overlay: Control = null
+var _tutorial_timer: float = 0.0
+const TUTORIAL_DURATION: float = 8.0
+
 @onready var _enemy_hand_view = $EnemyArea/EnemyHandView
 @onready var _enemy_board_view = $EnemyArea/EnemyBoardView
 @onready var _enemy_hero_view = $EnemyArea/EnemyHeroView
@@ -64,6 +69,9 @@ func _ready() -> void:
 	_state.players[0].start_turn(1)
 	_refresh_all()
 
+	if not SaveManager.get_story_flag("tutorial_battle_tip"):
+		_show_battle_tutorial()
+
 func _apply_menu_btn_size() -> void:
 	_menu_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.05)
 
@@ -76,6 +84,61 @@ func _apply_ui_sizes() -> void:
 	_player_board_view.custom_minimum_size = Vector2(0, board_h)
 	_player_hero_view.custom_minimum_size  = Vector2(0, hero_h)
 	_player_hand_view.custom_minimum_size  = Vector2(0, board_h)
+
+# -------------------------------------------------------------------------
+# First-battle tutorial overlay
+# -------------------------------------------------------------------------
+
+func _process(delta: float) -> void:
+	if _tutorial_timer > 0.0:
+		_tutorial_timer -= delta
+		if _tutorial_timer <= 0.0:
+			_dismiss_battle_tutorial()
+
+func _show_battle_tutorial() -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var font_size: int = int(_vh * 0.025)
+	var panel_w: float = _vh * 0.5
+	var panel_h: float = _vh * 0.3
+
+	var overlay := ColorRect.new()
+	overlay.color = Color(0.0, 0.0, 0.0, 0.7)
+	overlay.size = Vector2(panel_w, panel_h)
+	overlay.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var label := Label.new()
+	label.text = "Drag a card from your hand to the board to play it.\nTap an enemy minion to attack with your minion."
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", Color.WHITE)
+	label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 2)
+	label.size = Vector2(panel_w * 0.9, panel_h * 0.6)
+	label.position = Vector2(panel_w * 0.05, panel_h * 0.08)
+	overlay.add_child(label)
+
+	var btn := Button.new()
+	btn.text = "Got it"
+	btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.06)
+	btn.position = Vector2((panel_w - _vh * 0.12) * 0.5, panel_h * 0.72)
+	btn.add_theme_font_size_override("font_size", font_size)
+	btn.pressed.connect(_dismiss_battle_tutorial)
+	overlay.add_child(btn)
+
+	add_child(overlay)
+	move_child(overlay, get_child_count() - 1)
+	_tutorial_overlay = overlay
+	_tutorial_timer = TUTORIAL_DURATION
+
+func _dismiss_battle_tutorial() -> void:
+	if _tutorial_overlay != null and is_instance_valid(_tutorial_overlay):
+		_tutorial_overlay.queue_free()
+		_tutorial_overlay = null
+	_tutorial_timer = 0.0
+	SaveManager.set_story_flag("tutorial_battle_tip")
 
 # -------------------------------------------------------------------------
 # Drag/Drop — scene-level input catches mouse move and release globally
@@ -108,6 +171,7 @@ func _finish_hand_drag() -> void:
 			AudioManager.play_sfx("card_play")
 			_refresh_all()
 			_check_game_over()
+			_dismiss_battle_tutorial()
 	_cancel_hand_drag()
 
 func _cancel_hand_drag() -> void:
