@@ -34,6 +34,10 @@ const TRACKING_SPEED: float = 2.5      # enemy movement speed (world units/sec)
 const PLAYER_SPEED: float = 6.0        # world units/sec
 const PLAYER_RADIUS: float = 0.25      # collision radius
 
+# Deck builder constraints
+const DECK_MIN: int = 8
+const DECK_MAX: int = 20
+
 func tile_to_world(tx: int, tz: int) -> Vector3:
 	return Vector3(tx * TILE_SIZE, 0.0, tz * TILE_SIZE)
 

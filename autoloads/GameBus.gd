@@ -2,6 +2,7 @@ extends Node
 
 # World signals
 signal enemy_engaged(enemy_data: Dictionary)
+signal hud_message_requested(text: String)
 signal battle_won(result: Dictionary)
 signal battle_lost()
 signal map_transition_requested(map_name: String, target_door_id: String)

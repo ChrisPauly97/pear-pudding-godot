@@ -59,6 +59,7 @@ This means `EnemyNPC` never imports `SceneManager`, and `BattleScene` never impo
 | `battle_lost` | `GameState` / `BattleScene` | `SceneManager` | _(none)_ |
 | `map_transition_requested` | `Door` entity | `SceneManager` | `map_name, target_door_id` |
 | `inventory_requested` | `WorldScene` (I key) | `SceneManager` | _(none)_ |
+| `hud_message_requested` | `SceneManager` | `WorldScene` | `text: String` |
 | `chest_opened` | `Chest` entity | `SceneManager` / `SaveManager` | `card_id: String` |
 | `card_played` | `GameState` | `BattleScene` | `player_idx, card, slot` |
 | `card_attacked` | `GameState` | `BattleScene` | `attacker, target` |
@@ -102,6 +103,13 @@ const CAM_OFFSET:        Vector3 = Vector3(20.0, 20.0, 20.0)
 const AUTO_BATTLE_RANGE: float = 1.5   # distance to trigger battle
 const INTERACT_RANGE:    float = 1.5   # distance for E-key prompt
 const TRACKING_RANGE:    float = 4.0   # enemy starts chasing player
+```
+
+#### Deck Constraints
+
+```gdscript
+const DECK_MIN: int = 8    # minimum cards required to start a battle
+const DECK_MAX: int = 20   # maximum cards allowed in a deck
 ```
 
 #### Hero Stats (defaults)

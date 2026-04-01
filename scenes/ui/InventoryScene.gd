@@ -3,7 +3,6 @@ extends Control
 signal closed
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
-const MAX_DECK: int = 20
 
 var _vh: float = 0.0
 var _vw: float = 0.0
@@ -160,7 +159,12 @@ func _refresh() -> void:
 		var row := _make_deck_row(id, tmpl, i)
 		_deck_list.add_child(row)
 
-	_deck_count_label.text = "Deck  (%d / %d)" % [_working_deck.size(), MAX_DECK]
+	var deck_sz: int = _working_deck.size()
+	_deck_count_label.text = "Deck  (%d / %d)" % [deck_sz, IsoConst.DECK_MAX]
+	if deck_sz < IsoConst.DECK_MIN or deck_sz > IsoConst.DECK_MAX:
+		_deck_count_label.modulate = Color.RED
+	else:
+		_deck_count_label.modulate = Color.WHITE
 
 # -------------------------------------------------------------------------
 # Row builders
@@ -207,7 +211,7 @@ func _make_collection_row(id: String, tmpl: Dictionary, owned_n: int, deck_n: in
 	add_btn.text = "+"
 	add_btn.custom_minimum_size = Vector2(_vh * 0.042, _vh * 0.042)
 	add_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	add_btn.disabled = (avail <= 0 or _working_deck.size() >= MAX_DECK)
+	add_btn.disabled = (avail <= 0 or _working_deck.size() >= IsoConst.DECK_MAX)
 	add_btn.pressed.connect(_on_add.bind(id))
 	row.add_child(add_btn)
 
@@ -246,6 +250,9 @@ func _make_deck_row(id: String, tmpl: Dictionary, index: int) -> HBoxContainer:
 	rm_btn.text = "−"
 	rm_btn.custom_minimum_size = Vector2(_vh * 0.042, _vh * 0.042)
 	rm_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	if _working_deck.size() <= IsoConst.DECK_MIN:
+		rm_btn.disabled = true
+		rm_btn.tooltip_text = "Minimum deck size reached"
 	rm_btn.pressed.connect(_on_remove.bind(index))
 	row.add_child(rm_btn)
 
@@ -256,7 +263,7 @@ func _make_deck_row(id: String, tmpl: Dictionary, index: int) -> HBoxContainer:
 # -------------------------------------------------------------------------
 
 func _on_add(id: String) -> void:
-	if _working_deck.size() >= MAX_DECK:
+	if _working_deck.size() >= IsoConst.DECK_MAX:
 		return
 	var owned: Dictionary = SceneManager.save_manager.get_owned_counts()
 	var deck_counts: Dictionary = {}
