@@ -103,64 +103,25 @@ jobs:
           echo "--- keystore check ---"
           ls "$KEYSTORE_PATH" || echo "MISSING keystore"
 
-      - name: Generate export_presets.cfg
+      - name: Patch keystore into export_presets.cfg
         run: |
-          cat > "$GITHUB_WORKSPACE/export_presets.cfg" << PRESETS
-          [preset.0]
-
-          name="Android"
-          platform="Android"
-          runnable=true
-          dedicated_server=false
-          custom_features=""
-          export_filter="all_resources"
-          include_filter=""
-          exclude_filter=""
-          export_path="build/PearPuddingTCG.apk"
-          encryption_include_filters=""
-          encryption_exclude_filters=""
-          encrypt_pck=false
-          encrypt_directory=false
-
-          [preset.0.options]
-
-          gradle_build/use_gradle_build=false
-          gradle_build/export_format=0
-          gradle_build/min_sdk=""
-          gradle_build/target_sdk=""
-          architectures/armeabi-v7a=false
-          architectures/arm64-v8a=true
-          architectures/x86=false
-          architectures/x86_64=false
-          keystore/debug="$KEYSTORE_PATH"
-          keystore/debug_user="$KEY_ALIAS"
-          keystore/debug_password="$KEYSTORE_PASSWORD"
-          keystore/release="$KEYSTORE_PATH"
-          keystore/release_user="$KEY_ALIAS"
-          keystore/release_password="$KEYSTORE_PASSWORD"
-          version/code=1
-          version/name="1.0"
-          package/unique_name="com.chrispauly97.pearpuddingtcg"
-          package/name="Pear Pudding TCG"
-          package/signed=true
-          package/classify_as_game=true
-          package/retain_data_on_uninstall=false
-          package/exclude_from_recents=false
-          package/show_as_launcher_icon=true
-          graphics/opengl_debug=false
-          xr_features/xr_mode=0
-          screen/immersive_mode=true
-          screen/support_small=true
-          screen/support_normal=true
-          screen/support_large=true
-          screen/support_xlarge=true
-          user_data_backup/allow=false
-          command_line/extra_args=""
-          apk_expansion/enable=false
-          PRESETS
+          # Inject keystore values from env into the committed export_presets.cfg.
+          # The committed file has empty keystore fields; sed fills them in.
+          sed -i \
+            -e "s|keystore/debug=\"\"|keystore/debug=\"$KEYSTORE_PATH\"|" \
+            -e "s|keystore/debug_user=\"\"|keystore/debug_user=\"$KEY_ALIAS\"|" \
+            -e "s|keystore/debug_password=\"\"|keystore/debug_password=\"$KEYSTORE_PASSWORD\"|" \
+            -e "s|keystore/release=\"\"|keystore/release=\"$KEYSTORE_PATH\"|" \
+            -e "s|keystore/release_user=\"\"|keystore/release_user=\"$KEY_ALIAS\"|" \
+            -e "s|keystore/release_password=\"\"|keystore/release_password=\"$KEYSTORE_PASSWORD\"|" \
+            "$GITHUB_WORKSPACE/export_presets.cfg"
+          echo "--- patched export_presets.cfg (keystore lines) ---"
+          grep keystore "$GITHUB_WORKSPACE/export_presets.cfg"
 
       - name: Import project assets
-        run: godot --headless --path "$GITHUB_WORKSPACE" --editor --quit || true
+        run: |
+          godot --headless --path "$GITHUB_WORKSPACE" --editor --quit 2>&1 || true
+          echo "--- import scan complete ---"
 
       - name: Export APK
         run: |

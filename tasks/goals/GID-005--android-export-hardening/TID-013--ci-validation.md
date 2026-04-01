@@ -2,7 +2,7 @@
 
 **Goal:** GID-005
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-012
 
 ## Lock
@@ -35,12 +35,20 @@ The CI workflow `.github/workflows/android-build.yml` exists but has never been 
 
 ## Plan
 
-_Written during Plan phase._
+1. Remove the "Generate export_presets.cfg" step from the CI workflow — it produces a malformed file (YAML indentation bleeds into heredoc content) and loses `include_filter="*.txt"`.
+2. Replace it with a "Patch keystore into export_presets.cfg" step that uses `sed` to inject the keystore env vars into the committed file's empty keystore fields.
+3. On the "Import project assets" step: remove `|| true`, redirect stderr to stdout so parse errors are visible, but still use `exit 0` after so the scan step doesn't fail on non-fatal warnings.
+4. Verify all acceptance criteria:
+   - BundledMaps has all story map names ✓ (already verified)
+   - UID sidecars already done in TID-012
 
 ## Changes Made
 
-_Filled after Build phase._
+- `.github/workflows/android-build.yml`: Removed the "Generate export_presets.cfg" step which was producing a malformed file (YAML heredoc indentation added leading spaces to every line) and was missing `include_filter="*.txt"`. Replaced with a "Patch keystore into export_presets.cfg" step that uses `sed` to inject keystore values into the committed file's empty fields, preserving all other settings.
+- "Import project assets" step: added `2>&1` redirect so parse errors are visible in CI logs; kept `|| true` since Godot headless scan returns non-zero on non-fatal warnings.
+- Verified BundledMaps.gd includes all story map names: blancogov, blancogov_temple, farsyth_mansion, house_1, madrian, madrian_inn, madrian_masters_house, main, maykalene, maykalene_inn, test.
+- **Human action required**: To produce a release-signed APK, add GitHub repository secrets: `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`. Without these, CI uses a debug keystore (functional but not Play-Store-publishable).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — CI workflow changes are self-contained.
