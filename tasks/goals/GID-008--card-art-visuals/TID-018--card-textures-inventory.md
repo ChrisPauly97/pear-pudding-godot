@@ -2,7 +2,7 @@
 
 **Goal:** GID-008
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-017
 
 ## Lock
@@ -32,12 +32,18 @@ TID-017 adds the card frame shader and `CardData.illustration` field. This task 
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/CardFrameMaterial.gd` — static helper with `make(base_color, illustration)` that creates a ShaderMaterial from `card_frame.gdshader`; preloaded by both scenes.
+2. Update `scenes/battle/BattleScene.gd` — replace inline ShaderMaterial creation in `_add_card_frame_children` with `CardFrameMaterial.make()`; remove now-redundant `_CardFrameShader` preload constant.
+3. Update `scenes/ui/InventoryScene.gd` — preload `CardFrameMaterial`; replace the plain `ColorRect swatch` in `_make_collection_row` and `_make_deck_row` with a shader-material swatch using `CardFrameMaterial.make()`.
+4. Create `assets/cards/.gitkeep` to mark the directory for future illustration PNGs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/CardFrameMaterial.gd`** (new) — static helper; `make(base_color, illustration)` preloads `card_frame.gdshader` and returns a configured `ShaderMaterial`; shared by BattleScene and InventoryScene
+- **`scenes/battle/BattleScene.gd`** — replaced inline `ShaderMaterial`/shader preload with `CardFrameMaterial.make()`; removed `_CardFrameShader` constant
+- **`scenes/ui/InventoryScene.gd`** — preloads `CardFrameMaterial`; replaced plain `ColorRect swatch` in `_make_collection_row` and `_make_deck_row` with a shader-material swatch (doubled swatch size to `_vh * 0.06` for legibility of the frame detail); reads `illustration` from card template for optional texture blending
+- **`assets/cards/.gitkeep`** (new) — marks directory as home for future per-card illustration PNGs
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/battle-system.md`** — updated "Card Frame Rendering" note to reference `CardFrameMaterial.gd` as the shared helper

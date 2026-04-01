@@ -13,7 +13,7 @@ All card rendering in BattleScene and InventoryScene uses `StyleBoxFlat` with a 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-017 | Pixel-art card frame shader and BattleScene integration | agent | done | — |
-| TID-018 | Card illustration textures in InventoryScene | agent | pending | TID-017 |
+| TID-018 | Card illustration textures in InventoryScene | agent | done | TID-017 |
 
 ## Acceptance Criteria
 

@@ -87,6 +87,8 @@ Each card is a plain `Control` root node with two children:
 
 The `_apply_card_style()` method updates shader parameters; `_make_card_view()` creates the node tree; `_add_card_frame_children()` can rebuild it after a structure mismatch.
 
+`ShaderMaterial` instances are created via `game_logic/CardFrameMaterial.gd` (`CardFrameMaterial.make(color, illustration)`) — the same helper is used by `InventoryScene` for its card swatches. Illustration PNGs belong in `assets/cards/`; cards without one fall back to the solid color-fill branch in the shader.
+
 ---
 
 ## Integrations with Other Features

@@ -3,6 +3,7 @@ extends Control
 signal closed
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const CardFrameMaterial = preload("res://game_logic/CardFrameMaterial.gd")
 
 var _vh: float = 0.0
 var _vw: float = 0.0
@@ -174,11 +175,12 @@ func _make_collection_row(id: String, tmpl: Dictionary, owned_n: int, deck_n: in
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(_vw * 0.008))
 
-	# Colour swatch
+	# Card frame swatch
 	var swatch := ColorRect.new()
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
-	swatch.color = card_color
-	swatch.custom_minimum_size = Vector2(_vh * 0.03, _vh * 0.03)
+	var illus: Texture2D = tmpl.get("illustration", null) as Texture2D
+	swatch.custom_minimum_size = Vector2(_vh * 0.06, _vh * 0.06)
+	swatch.material = CardFrameMaterial.make(card_color, illus)
 	row.add_child(swatch)
 
 	# Card name + count
@@ -221,11 +223,12 @@ func _make_deck_row(id: String, tmpl: Dictionary, index: int) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(_vw * 0.008))
 
-	# Colour swatch
+	# Card frame swatch
 	var swatch := ColorRect.new()
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
-	swatch.color = card_color
-	swatch.custom_minimum_size = Vector2(_vh * 0.03, _vh * 0.03)
+	var illus: Texture2D = tmpl.get("illustration", null) as Texture2D
+	swatch.custom_minimum_size = Vector2(_vh * 0.06, _vh * 0.06)
+	swatch.material = CardFrameMaterial.make(card_color, illus)
 	row.add_child(swatch)
 
 	# Card name

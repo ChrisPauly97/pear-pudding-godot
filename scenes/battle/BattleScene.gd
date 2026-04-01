@@ -6,7 +6,7 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
-const _CardFrameShader: Shader = preload("res://assets/shaders/card_frame.gdshader")
+const CardFrameMaterial = preload("res://game_logic/CardFrameMaterial.gd")
 
 var enemy_data: Dictionary = {}
 var _state: GameState
@@ -305,9 +305,7 @@ func _add_card_frame_children(root: Control, card: CardInstance) -> void:
 	frame_rect.name = "FrameRect"
 	frame_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	frame_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var mat := ShaderMaterial.new()
-	mat.shader = _CardFrameShader
-	frame_rect.material = mat
+	frame_rect.material = CardFrameMaterial.make(Color(0.3, 0.3, 0.3))
 	root.add_child(frame_rect)
 
 	# Content: text labels with margin inset
