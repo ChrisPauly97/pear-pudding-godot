@@ -6,7 +6,7 @@
 |------|-------|--------|----------|
 | [GID-001](goals/GID-001--story-flags-chapter1/goal.md) | Story Flags & Chapter 1 Playthrough | done | 4 / 4 |
 | [GID-002](goals/GID-002--battle-card-rewards/goal.md) | Post-Battle Card Rewards | done | 2 / 2 |
-| [GID-003](goals/GID-003--deck-builder-constraints/goal.md) | Deck Builder Constraints & Validation | pending | 1 / 2 |
+| [GID-003](goals/GID-003--deck-builder-constraints/goal.md) | Deck Builder Constraints & Validation | done | 2 / 2 |
 | [GID-004](goals/GID-004--audio-foundation/goal.md) | Audio Foundation | done | 3 / 3 |
 | [GID-005](goals/GID-005--android-export-hardening/goal.md) | Android Export Hardening | pending | 0 / 2 |
 | [GID-006](goals/GID-006--fix-minimap-rotation/goal.md) | Fix Minimap Orientation for Isometric Camera Alignment | done | 1 / 1 |

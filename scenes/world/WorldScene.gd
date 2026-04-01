@@ -249,6 +249,7 @@ func _ready() -> void:
 	_dialogue_label.position = Vector2(vp.x * 0.2, vp.y * 0.78)
 	_dialogue_label.hide()
 	_hud.add_child(_dialogue_label)
+	GameBus.hud_message_requested.connect(_show_dialogue)
 
 	_coord_label = Label.new()
 	_coord_label.add_theme_font_size_override("font_size", font_size)

@@ -2,7 +2,7 @@
 
 **Goal:** GID-003
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-007
 
 ## Lock
@@ -46,12 +46,16 @@ This keeps the guard in a single authoritative place rather than duplicating it 
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `signal hud_message_requested(text: String)` to `GameBus.gd`.
+2. In `SceneManager._on_enemy_engaged()`, guard before battle start: if `player_deck.size() < IsoConst.DECK_MIN`, emit the new signal and return.
+3. In `WorldScene._ready()`, connect `GameBus.hud_message_requested` to `_show_dialogue` after `_dialogue_label` is created.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: Added `signal hud_message_requested(text: String)`.
+- `autoloads/SceneManager.gd`: `_on_enemy_engaged()` now checks `player_deck.size() < IsoConst.DECK_MIN`; emits the HUD message signal and returns early if true.
+- `scenes/world/WorldScene.gd`: Connects `GameBus.hud_message_requested` to `_show_dialogue` after the dialogue label is created in `_ready()`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/signals-and-constants.md` not needed — `hud_message_requested` follows the same pattern as existing signals. Signal is already documented as part of the GameBus hub.

@@ -123,6 +123,9 @@ func _flush_position_save() -> void:
 func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	if _state != State.WORLD:
 		return
+	if save_manager.player_deck.size() < IsoConst.DECK_MIN:
+		GameBus.hud_message_requested.emit("Deck too small — add at least %d cards first." % IsoConst.DECK_MIN)
+		return
 	_current_battle_enemy_id = str(enemy_data.get("id", ""))
 	save_manager.set_pending_battle(enemy_data)
 	save_manager.save()

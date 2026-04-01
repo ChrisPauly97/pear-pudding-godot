@@ -15,7 +15,7 @@ Chosen constraint: **minimum 8 cards, maximum 20 cards** (matching the doc recom
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-007 | Add deck size indicator and validation feedback in InventoryScene | agent | done | — |
-| TID-008 | Block battle engagement if deck is below minimum; show HUD warning | agent | pending | TID-007 |
+| TID-008 | Block battle engagement if deck is below minimum; show HUD warning | agent | done | TID-007 |
 
 ## Acceptance Criteria
 
