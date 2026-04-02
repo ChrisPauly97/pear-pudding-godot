@@ -1,10 +1,14 @@
 extends Control
 
-const BASE_RADIUS: float = 130.0
-const KNOB_RADIUS: float = 54.0
-const JUMP_RADIUS: float = 80.0
-const INTERACT_RADIUS: float = 65.0
+# All sizing is computed from viewport height in _ready() so controls scale
+# correctly across phones, tablets, and varying DPI rather than using fixed px.
 const DEADZONE: float = 0.25
+
+var _base_r: float       # joystick outer ring radius
+var _knob_r: float       # joystick knob radius
+var _jump_r: float       # jump button radius
+var _interact_r: float   # interact button radius
+var _edge_margin: float  # distance from screen edge to button centre
 
 var _joy_index: int = -1
 var _knob_offset: Vector2 = Vector2.ZERO
@@ -18,33 +22,40 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = OS.has_feature("android")
 
+	var vh: float = get_viewport_rect().size.y
+	_base_r      = vh * 0.085   # ≈130 px at 1520 px vh (typical phone landscape)
+	_knob_r      = vh * 0.035
+	_jump_r      = vh * 0.052
+	_interact_r  = vh * 0.043
+	_edge_margin = vh * 0.118   # ≈180 px at 1520 px vh
+
 func _get_joy_center() -> Vector2:
-	return get_viewport_rect().size - Vector2(180.0, 180.0)
+	return get_viewport_rect().size - Vector2(_edge_margin, _edge_margin)
 
 func _get_jump_center() -> Vector2:
 	var s: Vector2 = get_viewport_rect().size
-	return Vector2(180.0, s.y - 180.0)
+	return Vector2(_edge_margin, s.y - _edge_margin)
 
 func _get_interact_center() -> Vector2:
 	var s: Vector2 = get_viewport_rect().size
-	return Vector2(180.0, s.y - 365.0)
+	return Vector2(_edge_margin, s.y - _edge_margin * 2.4)
 
 func _draw() -> void:
 	# Joystick
 	var jc: Vector2 = _get_joy_center()
-	draw_circle(jc, BASE_RADIUS, Color(1.0, 1.0, 1.0, 0.18))
-	draw_arc(jc, BASE_RADIUS, 0.0, TAU, 64, Color(1.0, 1.0, 1.0, 0.50), 2.5)
-	draw_circle(jc + _knob_offset, KNOB_RADIUS, Color(1.0, 1.0, 1.0, 0.55))
+	draw_circle(jc, _base_r, Color(1.0, 1.0, 1.0, 0.18))
+	draw_arc(jc, _base_r, 0.0, TAU, 64, Color(1.0, 1.0, 1.0, 0.50), 2.5)
+	draw_circle(jc + _knob_offset, _knob_r, Color(1.0, 1.0, 1.0, 0.55))
 	# Jump button
 	var jump_col: Color = Color(1.0, 1.0, 1.0, 0.55) if _jump_pressed else Color(1.0, 1.0, 1.0, 0.18)
-	draw_circle(_get_jump_center(), JUMP_RADIUS, jump_col)
-	draw_arc(_get_jump_center(), JUMP_RADIUS, 0.0, TAU, 48, Color(1.0, 1.0, 1.0, 0.50), 2.5)
+	draw_circle(_get_jump_center(), _jump_r, jump_col)
+	draw_arc(_get_jump_center(), _jump_r, 0.0, TAU, 48, Color(1.0, 1.0, 1.0, 0.50), 2.5)
 	draw_string(ThemeDB.fallback_font, _get_jump_center() + Vector2(-14.0, 8.0), "jump",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1.0, 1.0, 1.0, 0.80))
 	# Interact button
 	var interact_col: Color = Color(1.0, 1.0, 1.0, 0.55) if _interact_pressed else Color(1.0, 1.0, 1.0, 0.18)
-	draw_circle(_get_interact_center(), INTERACT_RADIUS, interact_col)
-	draw_arc(_get_interact_center(), INTERACT_RADIUS, 0.0, TAU, 48, Color(1.0, 1.0, 1.0, 0.50), 2.5)
+	draw_circle(_get_interact_center(), _interact_r, interact_col)
+	draw_arc(_get_interact_center(), _interact_r, 0.0, TAU, 48, Color(1.0, 1.0, 1.0, 0.50), 2.5)
 	draw_string(ThemeDB.fallback_font, _get_interact_center() + Vector2(-24.0, 8.0), "use",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 20, Color(1.0, 1.0, 1.0, 0.80))
 
@@ -61,15 +72,15 @@ func _input(event: InputEvent) -> void:
 
 func _handle_touch(index: int, pos: Vector2, pressed: bool) -> void:
 	if pressed:
-		if _joy_index == -1 and pos.distance_to(_get_joy_center()) <= BASE_RADIUS * 1.5:
+		if _joy_index == -1 and pos.distance_to(_get_joy_center()) <= _base_r * 1.5:
 			_joy_index = index
 			_update_knob(pos)
-		elif _jump_index == -1 and pos.distance_to(_get_jump_center()) <= JUMP_RADIUS * 1.5:
+		elif _jump_index == -1 and pos.distance_to(_get_jump_center()) <= _jump_r * 1.5:
 			_jump_index = index
 			_jump_pressed = true
 			Input.action_press("jump")
 			queue_redraw()
-		elif _interact_index == -1 and pos.distance_to(_get_interact_center()) <= INTERACT_RADIUS * 1.5:
+		elif _interact_index == -1 and pos.distance_to(_get_interact_center()) <= _interact_r * 1.5:
 			_interact_index = index
 			_interact_pressed = true
 			Input.action_press("interact")
@@ -93,10 +104,10 @@ func _handle_touch(index: int, pos: Vector2, pressed: bool) -> void:
 
 func _update_knob(touch_pos: Vector2) -> void:
 	var offset: Vector2 = touch_pos - _get_joy_center()
-	if offset.length() > BASE_RADIUS:
-		offset = offset.normalized() * BASE_RADIUS
+	if offset.length() > _base_r:
+		offset = offset.normalized() * _base_r
 	_knob_offset = offset
-	var dir: Vector2 = _knob_offset / BASE_RADIUS
+	var dir: Vector2 = _knob_offset / _base_r
 	_set_action("move_up",    dir.y < -DEADZONE)
 	_set_action("move_down",  dir.y >  DEADZONE)
 	_set_action("move_left",  dir.x < -DEADZONE)
