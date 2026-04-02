@@ -2,7 +2,7 @@
 
 **Goal:** GID-013
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -88,12 +88,21 @@ ScrollRegistry="*res://autoloads/ScrollRegistry.gd"
 
 ## Plan
 
-_Written during Plan phase._
+1. **SaveManager.gd**: add `collected_scrolls: Array[String] = []` field; bump version 5→6; add `_migrate_v5_to_v6`; update `_apply_migrations`, `new_game()`, `save()`, `load_save()`; add `mark_scroll_collected` and `is_scroll_collected` methods.
+2. **GameBus.gd**: add `story_scroll_collected(scroll_id)` and `all_scrolls_collected()` signals under `# Story signals`.
+3. **ScrollRegistry.gd**: create new autoload with 8 scroll definitions and `get_scroll`, `get_all_scrolls`, `SCROLL_COUNT` API.
+4. **project.godot**: register `ScrollRegistry` in `[autoload]` section.
+
+Note: Research notes said SaveManager was at v4; it's actually at v5 (weapon system bumped it in GID-014). Adjusting migration accordingly.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`: Added `collected_scrolls: Array[String] = []` field; bumped `CURRENT_SAVE_VERSION` 5→6; added `_migrate_v5_to_v6` (backfills `collected_scrolls = []`); updated `_apply_migrations`, `new_game()`, `save()`, `load_save()`; added `mark_scroll_collected(scroll_id)` and `is_scroll_collected(scroll_id) -> bool`.
+- `autoloads/GameBus.gd`: Added `story_scroll_collected(scroll_id: String)` and `all_scrolls_collected()` signals under `# Story signals`.
+- `autoloads/ScrollRegistry.gd`: Created new autoload with 8 scroll definitions (id, title, lore_text, audio_path) and `get_scroll`, `get_all_scrolls`, `SCROLL_COUNT` API.
+- `project.godot`: Registered `ScrollRegistry` in `[autoload]` section.
+- **Note**: Research notes assumed SaveManager was at v4; it was already at v5 (weapon system in GID-014 bumped it). Migration was adjusted to v5→v6.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — foundation-only task; agent docs will be updated in TID-033 when the full system is complete.

@@ -17,3 +17,5 @@ signal battle_ended(winner: int)  # 0 = player, 1 = enemy
 
 # Story signals
 signal story_flag_set(flag: String)
+signal story_scroll_collected(scroll_id: String)
+signal all_scrolls_collected()

@@ -40,6 +40,9 @@ var last_respawn_day: int = 0
 # Story progression flags
 var story_flags: Dictionary = {}
 
+# Collected lore scrolls
+var collected_scrolls: Array[String] = []
+
 # Currently equipped weapon id ("" = none)
 var equipped_weapon: String = ""
 
@@ -97,12 +100,13 @@ func new_game() -> void:
 	days_elapsed = 0
 	last_respawn_day = 0
 	equipped_weapon = ""
+	collected_scrolls = []
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 5
+const CURRENT_SAVE_VERSION: int = 6
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -139,6 +143,12 @@ static func _migrate_v4_to_v5(data: Dictionary) -> void:
 		data["equipped_weapon"] = ""
 	data["version"] = 5
 
+# _migrate_v5_to_v6: backfill collected_scrolls for old saves.
+static func _migrate_v5_to_v6(data: Dictionary) -> void:
+	if not data.has("collected_scrolls"):
+		data["collected_scrolls"] = []
+	data["version"] = 6
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -151,6 +161,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v3_to_v4(data)
 	if ver < 5:
 		_migrate_v4_to_v5(data)
+	if ver < 6:
+		_migrate_v5_to_v6(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -184,6 +196,7 @@ func load_save() -> bool:
 	days_elapsed = int(data.get("days_elapsed", 0))
 	last_respawn_day = int(data.get("last_respawn_day", 0))
 	equipped_weapon = str(data.get("equipped_weapon", ""))
+	collected_scrolls.assign(data.get("collected_scrolls", []))
 	_loaded = true
 	return true
 
@@ -211,6 +224,7 @@ func save() -> void:
 		"days_elapsed": days_elapsed,
 		"last_respawn_day": last_respawn_day,
 		"equipped_weapon": equipped_weapon,
+		"collected_scrolls": collected_scrolls,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -284,6 +298,14 @@ func set_story_flag(key: String, value: bool = true) -> void:
 
 func get_story_flag(key: String) -> bool:
 	return story_flags.get(key, false)
+
+func mark_scroll_collected(scroll_id: String) -> void:
+	if not collected_scrolls.has(scroll_id):
+		collected_scrolls.append(scroll_id)
+	_dirty = true
+
+func is_scroll_collected(scroll_id: String) -> bool:
+	return collected_scrolls.has(scroll_id)
 
 func increment_day() -> void:
 	days_elapsed += 1
