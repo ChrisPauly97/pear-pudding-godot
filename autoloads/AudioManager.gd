@@ -8,6 +8,7 @@ const SFX_PATHS: Dictionary = {
 	"battle_lose":  "res://assets/audio/sfx/battle_lose.wav",
 	"enemy_engage": "res://assets/audio/sfx/enemy_engage.wav",
 	"chest_open":   "res://assets/audio/sfx/chest_open.wav",
+	"scroll_pickup": "res://assets/audio/sfx/scroll_pickup.wav",
 	"door_enter":   "res://assets/audio/sfx/door_enter.wav",
 	"footstep":     "res://assets/audio/sfx/footstep.wav",
 }

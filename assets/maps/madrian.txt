@@ -305,3 +305,4 @@ DOOR 80 50 farsyth_mansion
 DOOR 85 50 blancogov
 DOOR 60 56 blancogov_temple
 DOOR 65 56 infinite
+SCROLL 8 13 scroll_larik_origins

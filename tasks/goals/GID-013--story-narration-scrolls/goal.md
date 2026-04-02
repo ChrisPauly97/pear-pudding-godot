@@ -17,7 +17,7 @@ See BID-002 for the related spec update needed ("Voice acting" currently listed 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-028 | Scroll registry, SaveManager fields, GameBus signal | agent | done | — |
-| TID-029 | StoryScroll world entity + WorldMap SCROLL directive + named map placements | agent | pending | TID-028 |
+| TID-029 | StoryScroll world entity + WorldMap SCROLL directive + named map placements | agent | done | TID-028 |
 | TID-030 | Narration audio channel (AudioManager extension + story-beat suppression) | agent | pending | TID-028 |
 | TID-031 | Journal / Codex UI overlay | agent | pending | TID-028 |
 | TID-032 | Infinite world scroll placement via InfiniteWorldGen | agent | pending | TID-029 |

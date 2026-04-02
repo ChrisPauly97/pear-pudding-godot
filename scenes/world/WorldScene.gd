@@ -25,6 +25,7 @@ const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
 const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
 const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
+const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -42,6 +43,7 @@ var _enemy_nodes: Dictionary = {}   # id -> Node3D
 var _chest_nodes: Dictionary = {}   # id -> Node3D
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
+var _scroll_nodes: Array[Node3D] = []
 var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
@@ -204,6 +206,7 @@ func _ready() -> void:
 		_last_player_chunk = Vector2i(
 			int(floor(_player.position.x / chunk_world)),
 			int(floor(_player.position.z / chunk_world)))
+		_spawn_named_map_scrolls()
 
 	_update_hud()
 
@@ -699,6 +702,32 @@ func register_npc(nid: String, node: Node3D, n_data: Dictionary) -> void:
 	_npc_nodes[nid] = node
 	_active_npc_data[nid] = n_data
 
+func _spawn_named_map_scrolls() -> void:
+	if world_map == null:
+		return
+	for entry in world_map.scrolls:
+		var wx: float = float(entry["x"])
+		var wz: float = float(entry["z"])
+		var wy: float = get_terrain_height(wx, wz) + 0.1
+		var node := _StoryScrollScene.instantiate() as Node3D
+		_entity_root.add_child(node)
+		node.position = Vector3(wx, wy, wz)
+		if node.has_method("setup"):
+			node.setup(str(entry["scroll_id"]), _player)
+		if is_instance_valid(node):
+			_scroll_nodes.append(node)
+
+func _find_nearby_scroll(px: float, pz: float, range_dist: float) -> Node3D:
+	var range_sq: float = range_dist * range_dist
+	for s in _scroll_nodes:
+		if not is_instance_valid(s):
+			continue
+		var ddx: float = s.position.x - px
+		var ddz: float = s.position.z - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return s
+	return null
+
 # Find nearest entities — checks the player's chunk + 8 neighbours for enemies/chests;
 # scans active data dicts for doors and NPCs.
 func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
@@ -943,7 +972,8 @@ func _check_interactions() -> void:
 	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
 	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
-	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty():
+	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
+	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null:
 		_interact_label.show()
 	else:
 		_interact_label.hide()
@@ -1037,6 +1067,11 @@ func _handle_interact() -> void:
 		else:
 			dlg = str(npc.get("dialogue", "..."))
 		_show_dialogue(dlg)
+		return
+
+	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
+	if scroll != null and scroll.has_method("interact"):
+		scroll.interact()
 
 # ── Dialogue ───────────────────────────────────────────────────────────────
 

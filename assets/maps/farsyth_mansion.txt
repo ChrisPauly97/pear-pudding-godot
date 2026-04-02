@@ -342,3 +342,5 @@ SPAWN 50 86
 NPC 49 78 Welcome, Maiteln! Lord Farsyth will receive you directly. He awaits word of the prophecy.
 NPC 49 20 FLAG:chapter1_warned_farsyth The Martarquas tribe rising again? By the gods, this is dire news. I shall send word to Lords Marsax, Ramtorous and Temlar at once. You must warn King Eldar in Blancogov! || Safe travels, Maiteln. Warn King Eldar swiftly.
 DOOR 50 92 __exit__ mansion_exit
+SCROLL 35 40 scroll_maiteln_order
+SCROLL 63 40 scroll_prophecy_text
