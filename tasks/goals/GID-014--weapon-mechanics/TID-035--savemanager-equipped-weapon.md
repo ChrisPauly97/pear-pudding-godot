@@ -1,6 +1,6 @@
-# TID-029: SaveManager: equipped_weapon field
+# TID-035: SaveManager: equipped_weapon field
 
-**Goal:** GID-013
+**Goal:** GID-014
 **Type:** agent
 **Status:** pending
 **Depends On:** —

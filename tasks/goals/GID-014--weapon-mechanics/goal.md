@@ -1,4 +1,4 @@
-# GID-013: Weapon Mechanics System
+# GID-014: Weapon Mechanics System
 
 ## Objective
 
@@ -12,11 +12,11 @@ The battle system currently has no hero-level equipment. Weapons give Saimtar pe
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-028 | WeaponData resource + WeaponRegistry | agent | pending | — |
-| TID-029 | SaveManager: equipped_weapon field | agent | pending | — |
-| TID-030 | Auto-resolve spell cards + dagger_throw | agent | pending | TID-028 |
-| TID-031 | BattleScene weapon effect hook | agent | pending | TID-028, TID-029, TID-030 |
-| TID-032 | Docs: inventory-and-deck.md update | agent | pending | TID-031 |
+| TID-034 | WeaponData resource + WeaponRegistry | agent | pending | — |
+| TID-035 | SaveManager: equipped_weapon field | agent | pending | — |
+| TID-036 | Auto-resolve spell cards + dagger_throw | agent | pending | TID-034 |
+| TID-037 | BattleScene weapon effect hook | agent | pending | TID-034, TID-035, TID-036 |
+| TID-038 | Docs: inventory-and-deck.md update | agent | pending | TID-037 |
 
 ## Acceptance Criteria
 

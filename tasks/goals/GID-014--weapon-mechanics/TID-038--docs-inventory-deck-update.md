@@ -1,9 +1,9 @@
-# TID-032: Docs: inventory-and-deck.md update
+# TID-038: Docs: inventory-and-deck.md update
 
-**Goal:** GID-013
+**Goal:** GID-014
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-031
+**Depends On:** TID-037
 
 ## Lock
 
