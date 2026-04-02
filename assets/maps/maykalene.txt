@@ -752,5 +752,7 @@ NPC 50 65 Welcome to Maykalene! Fine white-washed houses and a warm inn await yo
 NPC 57 51 Best broth and cocoa in all the land! A warm meal and soft bed within!
 NPC 50 94 Ah, Maiteln! Lord Farsyth is not busy at the moment. Go straight in if you have news of the prophecy.
 DOOR 49 98 farsyth_mansion door_mansion_exit
-DOOR 57 58 maykalene_inn door_inn_exit
+NPC 55 56 Welcome to Maykalene! The port city of the eastern coast.
+NPC 61 50 Be wary of the Farsyth mansion on the hill. Strange things happen there.
+MERCHANT 62 48
 DOOR 50 0 __exit__ maykalene_exit FLAG:chapter1_warned_farsyth
