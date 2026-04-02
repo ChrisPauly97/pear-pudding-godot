@@ -28,11 +28,17 @@ func _build_ui() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 
-	# Outer container centred in viewport
+	# Portrait: stack Collection above Deck; landscape: side-by-side columns.
+	var is_portrait: bool = _vw < _vh
+
+	# Outer container — pin size (custom_minimum_size alone is insufficient:
+	# PanelContainer expands to fit children, leaving ScrollContainer's
+	# SIZE_EXPAND_FILL with no finite height → scroll areas collapse).
 	var outer := PanelContainer.new()
-	var panel_w: float = _vw * 0.86
-	var panel_h: float = _vh * 0.86
+	var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
+	var panel_h: float = _vh * 0.92 if is_portrait else _vh * 0.86
 	outer.custom_minimum_size = Vector2(panel_w, panel_h)
+	outer.size = Vector2(panel_w, panel_h)
 	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
 	add_child(outer)
 
@@ -43,15 +49,29 @@ func _build_ui() -> void:
 	outer_margin.add_theme_constant_override("margin_bottom", int(_vh * 0.015))
 	outer.add_child(outer_margin)
 
-	var root_hbox := HBoxContainer.new()
-	root_hbox.add_theme_constant_override("separation", int(_vw * 0.012))
-	outer_margin.add_child(root_hbox)
+	# Root container: VBox (portrait) or HBox (landscape)
+	var root_box: BoxContainer
+	if is_portrait:
+		var vb := VBoxContainer.new()
+		vb.add_theme_constant_override("separation", int(_vh * 0.008))
+		root_box = vb
+	else:
+		var hb := HBoxContainer.new()
+		hb.add_theme_constant_override("separation", int(_vw * 0.012))
+		root_box = hb
+	outer_margin.add_child(root_box)
 
-	# ---- Left column: collection ----------------------------------------
+	# Minimum scroll height: portrait needs an explicit floor; landscape relies
+	# on the pinned panel height propagating through SIZE_EXPAND_FILL.
+	var scroll_min_h: float = _vh * 0.25 if is_portrait else 0.0
+
+	# ---- Collection panel ------------------------------------------------
 	var left_vbox := VBoxContainer.new()
 	left_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left_vbox.size_flags_stretch_ratio = 1.0
-	root_hbox.add_child(left_vbox)
+	if is_portrait:
+		left_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root_box.add_child(left_vbox)
 
 	var col_title := Label.new()
 	col_title.text = "Collection"
@@ -67,6 +87,8 @@ func _build_ui() -> void:
 
 	var left_scroll := ScrollContainer.new()
 	left_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if scroll_min_h > 0.0:
+		left_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
 	left_vbox.add_child(left_scroll)
 
 	_collection_list = VBoxContainer.new()
@@ -74,15 +96,17 @@ func _build_ui() -> void:
 	_collection_list.add_theme_constant_override("separation", int(_vh * 0.008))
 	left_scroll.add_child(_collection_list)
 
-	# ---- Separator -------------------------------------------------------
-	var sep := VSeparator.new()
-	root_hbox.add_child(sep)
+	# ---- Separator (landscape only) --------------------------------------
+	if not is_portrait:
+		root_box.add_child(VSeparator.new())
 
-	# ---- Right column: deck ----------------------------------------------
+	# ---- Deck panel ------------------------------------------------------
 	var right_vbox := VBoxContainer.new()
 	right_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_vbox.size_flags_stretch_ratio = 1.0
-	root_hbox.add_child(right_vbox)
+	if is_portrait:
+		right_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root_box.add_child(right_vbox)
 
 	_deck_count_label = Label.new()
 	_deck_count_label.add_theme_font_size_override("font_size", int(_vh * 0.026))
@@ -91,6 +115,8 @@ func _build_ui() -> void:
 
 	var right_scroll := ScrollContainer.new()
 	right_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if scroll_min_h > 0.0:
+		right_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
 	right_vbox.add_child(right_scroll)
 
 	_deck_list = VBoxContainer.new()
@@ -98,25 +124,47 @@ func _build_ui() -> void:
 	_deck_list.add_theme_constant_override("separation", int(_vh * 0.008))
 	right_scroll.add_child(_deck_list)
 
-	# ---- Button sidebar --------------------------------------------------
-	var btn_vbox := VBoxContainer.new()
-	btn_vbox.add_theme_constant_override("separation", int(_vh * 0.012))
-	btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	root_hbox.add_child(btn_vbox)
+	# ---- Buttons ---------------------------------------------------------
+	if is_portrait:
+		# Side-by-side row below the deck panel
+		var btn_hbox := HBoxContainer.new()
+		btn_hbox.add_theme_constant_override("separation", int(_vw * 0.04))
+		btn_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		root_box.add_child(btn_hbox)
 
-	var save_btn := Button.new()
-	save_btn.text = "Save Deck"
-	save_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.055)
-	save_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
-	save_btn.pressed.connect(_on_save)
-	btn_vbox.add_child(save_btn)
+		var save_btn := Button.new()
+		save_btn.text = "Save Deck"
+		save_btn.custom_minimum_size = Vector2(_vw * 0.35, _vh * 0.055)
+		save_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+		save_btn.pressed.connect(_on_save)
+		btn_hbox.add_child(save_btn)
 
-	var close_btn := Button.new()
-	close_btn.text = "Close  [I]"
-	close_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.055)
-	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
-	close_btn.pressed.connect(_on_close)
-	btn_vbox.add_child(close_btn)
+		var close_btn := Button.new()
+		close_btn.text = "Close"
+		close_btn.custom_minimum_size = Vector2(_vw * 0.35, _vh * 0.055)
+		close_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+		close_btn.pressed.connect(_on_close)
+		btn_hbox.add_child(close_btn)
+	else:
+		# Vertical sidebar (landscape)
+		var btn_vbox := VBoxContainer.new()
+		btn_vbox.add_theme_constant_override("separation", int(_vh * 0.012))
+		btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		root_box.add_child(btn_vbox)
+
+		var save_btn := Button.new()
+		save_btn.text = "Save Deck"
+		save_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.055)
+		save_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+		save_btn.pressed.connect(_on_save)
+		btn_vbox.add_child(save_btn)
+
+		var close_btn := Button.new()
+		close_btn.text = "Close  [I]"
+		close_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.055)
+		close_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+		close_btn.pressed.connect(_on_close)
+		btn_vbox.add_child(close_btn)
 
 # -------------------------------------------------------------------------
 # Refresh — rebuilds both panels from current working state
