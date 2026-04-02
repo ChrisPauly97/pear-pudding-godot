@@ -10,6 +10,7 @@
 - All controls sized relative to viewport height (not fixed pixels) for resolution independence
 - In-game `MapEditorScene` for level design and debug
 - Mobile: `VirtualJoystick` overlay added at runtime when touchscreen detected
+- M key opens `MapViewOverlay` in named maps: full 100×100 tile grid as a color-coded image with entity dots; not available in infinite world mode
 
 ---
 

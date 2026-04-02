@@ -2,7 +2,7 @@
 
 **Goal:** GID-015
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -114,12 +114,25 @@ Add action `"ui_map"` bound to `KEY_M` in `project.godot` (InputMap section). Ch
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `map_view` input action (physical_keycode=77, KEY_M) to project.godot `[input]` section.
+2. Create `scenes/ui/MapViewOverlay.gd` (extends CanvasLayer):
+   - `setup(world_map, player: CharacterBody3D, npc_nodes: Dictionary, npc_data: Dictionary, enemy_nodes: Dictionary, chest_nodes: Dictionary, door_nodes: Dictionary)` builds the 100×100 ImageTexture and stores refs for dot drawing.
+   - Full-screen dim background + centered square panel (80% of min viewport dimension).
+   - `TextureRect` fills the panel with the generated tile-color image.
+   - Inner `_DotLayer` Control drawn on top converts node world positions → panel pixel coords.
+   - Handles `_unhandled_input`: closes (emits `closed`, calls `queue_free`) on M or Escape.
+   - Title label at top of panel showing map name.
+3. Update `WorldScene.gd`:
+   - Add preload for MapViewOverlay.
+   - Add `var _map_overlay: Node = null`.
+   - In `_unhandled_input`, handle `map_view` action: toggle overlay (only when `not _is_infinite`).
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/ui/MapViewOverlay.gd` (extends CanvasLayer): generates a 100×100 `ImageTexture` from tile data, draws entity dots via inner `_DotLayer`, closes on M or Escape.
+- `scenes/world/WorldScene.gd`: added `MapViewOverlay` preload, `_map_overlay` variable, `map_view` input handling in `_unhandled_input` (named-map only).
+- `project.godot`: added `map_view` input action bound to physical KEY_M.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/ui-and-scene-management.md`: updated to note the M-key map view overlay.
