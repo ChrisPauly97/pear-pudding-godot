@@ -2,7 +2,7 @@
 
 **Goal:** GID-014
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-034
 
 ## Lock
@@ -66,12 +66,43 @@ In BattleScene's spell dispatch (where "deal_damage_single", "deal_damage_all", 
 
 ## Plan
 
-_Written during Plan phase._
+1. **CardData.gd** — add `@export var auto_resolve: bool = false`
+2. **CardInstance.gd** — add `var auto_resolve: bool = false`; copy from template in `from_template()`
+3. **PlayerState.gd**:
+   - Add `var pending_auto_spells: Array[CardInstance] = []`; clear in `build_deck()`
+   - `can_play()` — skip `board.is_full()` check for spells
+   - `play_card()` — spells go to discard, not board
+   - `draw_card()` — if `card.auto_resolve`: skip `hand.append`, add to `discard` + `pending_auto_spells`
+4. **BattleScene.gd**:
+   - Add `_resolve_spell_effect(card, caster_pid)` — handles all 6 spell effects incl. new `deal_damage_random`
+   - Add `_flush_auto_spells(player_idx)` — drains `pending_auto_spells` and resolves each
+   - `_finish_hand_drag()` — capture card before `_cancel_hand_drag`; call `_resolve_spell_effect` for spells
+   - `_ready()` — call `_flush_auto_spells(0)` after player `draw_opening_hand`
+   - `_on_turn_ended()` — call `_flush_auto_spells(0)` + `_check_game_over()` when player's turn starts
+5. **data/cards/dagger_throw.tres** + **.uid** — cost=0, spell, deal_damage_random, auto_resolve=true
+Note: AI spell effect dispatch not implemented in this task — AI decks currently contain no spell cards.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/CardData.gd` — added `@export var auto_resolve: bool = false`; added to `to_template_dict()`
+- `game_logic/battle/CardInstance.gd` — added `var auto_resolve: bool = false`; copied from template in `from_template()`
+- `game_logic/battle/PlayerState.gd`:
+  - Added `var pending_auto_spells: Array[CardInstance] = []`; cleared in `build_deck()`
+  - `can_play()` — spells skip the `board.is_full()` check
+  - `play_card()` — spells go to `discard` instead of `board`
+  - `draw_card()` — auto_resolve cards skip `hand`, go to `discard` + `pending_auto_spells`
+- `scenes/battle/BattleScene.gd`:
+  - Added `const PlayerState` preload
+  - Added `_resolve_spell_effect(card, caster_pid)` — dispatches all 6 spell effects incl. `deal_damage_random`
+  - Added `_flush_auto_spells(player_idx)` — drains pending auto spells and resolves each
+  - `_ready()` — calls `_flush_auto_spells(0)` after player opening hand
+  - `_finish_hand_drag()` — captures played card before cancel; calls `_resolve_spell_effect` for spells
+  - `_on_turn_ended()` — calls `_flush_auto_spells(0)` + `_check_game_over()` when player's turn starts
+- `data/cards/dagger_throw.tres` — new card: cost=0, spell, deal_damage_random, spell_power=2, auto_resolve=true
+- `data/cards/dagger_throw.tres.uid` — uid sidecar (uid://1m7k6jdyain4)
+
+Note: AI spell effect dispatch not implemented — AI decks contain no spell cards currently.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+_No agent doc changes — TID-038 handles docs for the full weapon system._
