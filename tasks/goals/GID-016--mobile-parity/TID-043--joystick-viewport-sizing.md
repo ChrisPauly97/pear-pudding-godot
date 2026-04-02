@@ -2,7 +2,7 @@
 
 **Goal:** GID-016
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -80,3 +80,14 @@ All `draw_circle` and `draw_arc` calls use the constant names — update to use 
 
 ### No logic changes
 Only sizing/positioning changes. All touch handling, action injection, and knob clamping logic stays identical.
+## Plan
+
+Replace the four fixed-pixel `const` values and three fixed-pixel position offsets with instance vars computed from `get_viewport_rect().size.y` in `_ready()`. Update all call sites in `_draw()`, `_handle_touch()`, and `_update_knob()`. No logic changes.
+
+## Changes Made
+
+- `scenes/ui/VirtualJoystick.gd`: removed four fixed-pixel constants (`BASE_RADIUS`, `KNOB_RADIUS`, `JUMP_RADIUS`, `INTERACT_RADIUS`). Added five `var` fields (`_base_r`, `_knob_r`, ``_jump_r`, `_interact_r`, `_edge_margin`) computed from `vh * fraction` in `_ready()`. Updated `_get_joy_center()`, `_get_jump_center()`, `_get_interact_center()` to use `_edge_margin`. Updated all `draw_circle`, `draw_arc`, and `distance_to` call sites. `_update_knob()` clamp uses `_base_r`. Logic unchanged.
+
+## Documentation Updates
+
+None — sizing approach already covered by CLAUDE.md UI Sizing section.
