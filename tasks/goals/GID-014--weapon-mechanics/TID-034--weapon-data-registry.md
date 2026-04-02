@@ -2,7 +2,7 @@
 
 **Goal:** GID-014
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -66,12 +66,22 @@ WeaponRegistry="*res://autoloads/WeaponRegistry.gd"
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `data/WeaponData.gd` — `extends Resource` with `@export` fields matching the schema. Include `to_dict()` method for BattleScene use.
+2. Create `data/WeaponData.gd.uid` sidecar.
+3. Create `autoloads/WeaponRegistry.gd` — static class mirroring CardRegistry exactly. `get_weapon(id)` returns `WeaponData` (or null). `get_all_ids()` returns `Array[String]`.
+4. Create `data/weapons/rusty_dagger.tres` — first weapon resource (deck_inject, dagger_throw × 3).
+5. Create `data/weapons/rusty_dagger.tres.uid` sidecar.
+6. WeaponRegistry is NOT registered as a global autoload — it's used via `preload()` at call sites, matching the CardRegistry pattern.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `data/WeaponData.gd` — Resource subclass with 7 @export fields (id, display_name, description, battle_effect_type, battle_effect_value, injected_card_id, injected_card_count)
+- Created `data/WeaponData.gd.uid` (uid://xd6jf242qe6z)
+- Created `autoloads/WeaponRegistry.gd` — static class mirroring CardRegistry; `get_weapon(id)` returns WeaponData or null; `get_all_ids()` returns Array[String]; lazy-scans `res://data/weapons/` on first call
+- Created `data/weapons/rusty_dagger.tres` — deck_inject weapon, injects 3 dagger_throw cards
+- Created `data/weapons/rusty_dagger.tres.uid` (uid://fe0gn9cy5fkb)
+- WeaponRegistry uses `preload()` at call sites (not a global autoload), consistent with CardRegistry pattern
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+_No agent doc changes — TID-038 handles docs for the full weapon system._

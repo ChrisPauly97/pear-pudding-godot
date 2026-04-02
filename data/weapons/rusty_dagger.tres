@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://fe0gn9cy5fkb"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_rusty_dagger"]
+
+[resource]
+script = ExtResource("1_rusty_dagger")
+id = "rusty_dagger"
+display_name = "Rusty Dagger"
+description = "A worn blade. Injects 3 Dagger Throw cards into your draw pile at the start of battle."
+battle_effect_type = "deck_inject"
+battle_effect_value = 0
+injected_card_id = "dagger_throw"
+injected_card_count = 3
