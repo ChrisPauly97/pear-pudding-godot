@@ -2,7 +2,7 @@
 
 **Goal:** GID-015
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -93,12 +93,30 @@ After completing changes, update the Asset Requirements table to remove the elim
 
 ## Plan
 
-_Written during Plan phase._
+1. Edit `assets/maps/madrian.txt`:
+   - Remove `DOOR 11 18 madrian_masters_house door_masters_exit`
+   - Remove `DOOR 39 32 madrian_inn door_inn_exit`
+   - Remove dev-test doors: `DOOR 65 50 house_1`, `DOOR 70 50 test`, `DOOR 75 50 maykalene_inn`
+   - Add master's house entities (interior x=6–16, z=9–17): NPC (10,12), NPC (14,14)
+   - Add inn entities (interior x=34–44, z=23–31): NPC (38,27), NPC (43,28), NPC (38,30), MERCHANT (44,25)
+
+2. Edit `assets/maps/maykalene.txt`:
+   - Remove `DOOR 57 58 maykalene_inn door_inn_exit`
+   - Add inn entities (interior x=51–63, z=46–57): NPC (55,56), NPC (61,50), MERCHANT (62,48)
+
+3. Delete orphaned sub-map files:
+   - `assets/maps/madrian_inn.txt`
+   - `assets/maps/madrian_masters_house.txt`
+   - `assets/maps/maykalene_inn.txt`
+   - `assets/maps/house_1.txt` (dev-only: single NPC, no story role)
+   - `assets/maps/test.txt` (dev-only: tile coords in the thousands)
 
 ## Changes Made
 
-_Filled after Build phase._
+- `assets/maps/madrian.txt`: removed `DOOR 11 18 madrian_masters_house door_masters_exit`, `DOOR 39 32 madrian_inn door_inn_exit`, and three dev-test doors (`house_1`, `test`, `maykalene_inn`). Added master's house NPCs at (10,12) and (14,14), inn NPCs at (38,27), (43,28), (38,30), and MERCHANT at (44,25).
+- `assets/maps/maykalene.txt`: removed `DOOR 57 58 maykalene_inn door_inn_exit`. Added inn NPCs at (55,56) and (61,50), MERCHANT at (62,48).
+- Deleted: `assets/maps/madrian_inn.txt`, `assets/maps/madrian_masters_house.txt`, `assets/maps/maykalene_inn.txt`, `assets/maps/house_1.txt`, `assets/maps/test.txt`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/named-maps-and-dungeons.md`: updated Asset Requirements note to clarify building interiors are embedded in parent town maps, not stored as sub-map files.
