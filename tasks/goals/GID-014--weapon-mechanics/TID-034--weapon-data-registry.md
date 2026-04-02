@@ -1,6 +1,6 @@
-# TID-028: WeaponData resource + WeaponRegistry
+# TID-034: WeaponData resource + WeaponRegistry
 
-**Goal:** GID-013
+**Goal:** GID-014
 **Type:** agent
 **Status:** pending
 **Depends On:** —

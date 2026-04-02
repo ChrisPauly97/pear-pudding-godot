@@ -1,9 +1,9 @@
-# TID-031: BattleScene weapon effect hook
+# TID-037: BattleScene weapon effect hook
 
-**Goal:** GID-013
+**Goal:** GID-014
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-028, TID-029, TID-030
+**Depends On:** TID-034, TID-035, TID-036
 
 ## Lock
 

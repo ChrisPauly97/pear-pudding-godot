@@ -16,7 +16,7 @@
 | [GID-010](goals/GID-010--magic-system-framework/goal.md) | Magic System Framework | done | 4 / 4 |
 | [GID-011](goals/GID-011--fixed-map-polish/goal.md) | Fixed Map Polish — Path Tiles & Inn Merchants | done | 2 / 2 |
 | [GID-012](goals/GID-012--tutorial-onboarding/goal.md) | Tutorial / Onboarding for New Players | done | 2 / 2 |
-| [GID-013](goals/GID-013--weapon-mechanics/goal.md) | Weapon Mechanics System | pending | 0 / 5 |
+| [GID-014](goals/GID-014--weapon-mechanics/goal.md) | Weapon Mechanics System | pending | 0 / 5 |
 
 ## Backlog
 

@@ -1,9 +1,9 @@
-# TID-030: Auto-resolve spell cards + dagger_throw
+# TID-036: Auto-resolve spell cards + dagger_throw
 
-**Goal:** GID-013
+**Goal:** GID-014
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-028
+**Depends On:** TID-034
 
 ## Lock
 
