@@ -17,7 +17,7 @@
 | [GID-011](goals/GID-011--fixed-map-polish/goal.md) | Fixed Map Polish — Path Tiles & Inn Merchants | done | 2 / 2 |
 | [GID-012](goals/GID-012--tutorial-onboarding/goal.md) | Tutorial / Onboarding for New Players | done | 2 / 2 |
 | [GID-013](goals/GID-013--story-narration-scrolls/goal.md) | Story Narration Scrolls | pending | 0 / 6 |
-| [GID-014](goals/GID-014--weapon-mechanics/goal.md) | Weapon Mechanics System | pending | 1 / 5 |
+| [GID-014](goals/GID-014--weapon-mechanics/goal.md) | Weapon Mechanics System | in-progress | 2 / 5 |
 | [GID-015](goals/GID-015--consolidate-maps-map-view/goal.md) | Consolidate Named-Map Buildings & Map View Overlay | done | 2 / 2 |
 
 ## Backlog

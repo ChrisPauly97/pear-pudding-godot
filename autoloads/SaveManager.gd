@@ -40,6 +40,9 @@ var last_respawn_day: int = 0
 # Story progression flags
 var story_flags: Dictionary = {}
 
+# Currently equipped weapon id ("" = none)
+var equipped_weapon: String = ""
+
 # World generation — set when starting a new game from the biome selection screen
 var world_seed: int = 42
 var starting_biome: int = 0   # BiomeDef.GRASSLANDS
@@ -93,12 +96,13 @@ func new_game() -> void:
 	story_flags = {}
 	days_elapsed = 0
 	last_respawn_day = 0
+	equipped_weapon = ""
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 4
+const CURRENT_SAVE_VERSION: int = 5
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -129,6 +133,12 @@ static func _migrate_v3_to_v4(data: Dictionary) -> void:
 		data["last_respawn_day"] = 0
 	data["version"] = 4
 
+# _migrate_v4_to_v5: backfill equipped_weapon for old saves.
+static func _migrate_v4_to_v5(data: Dictionary) -> void:
+	if not data.has("equipped_weapon"):
+		data["equipped_weapon"] = ""
+	data["version"] = 5
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -139,6 +149,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v2_to_v3(data)
 	if ver < 4:
 		_migrate_v3_to_v4(data)
+	if ver < 5:
+		_migrate_v4_to_v5(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -171,6 +183,7 @@ func load_save() -> bool:
 	story_flags = sf if sf is Dictionary else {}
 	days_elapsed = int(data.get("days_elapsed", 0))
 	last_respawn_day = int(data.get("last_respawn_day", 0))
+	equipped_weapon = str(data.get("equipped_weapon", ""))
 	_loaded = true
 	return true
 
@@ -197,6 +210,7 @@ func save() -> void:
 		"story_flags": story_flags,
 		"days_elapsed": days_elapsed,
 		"last_respawn_day": last_respawn_day,
+		"equipped_weapon": equipped_weapon,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
