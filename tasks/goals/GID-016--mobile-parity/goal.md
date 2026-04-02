@@ -12,7 +12,7 @@ Primary export target is Android. A codebase scan revealed five categories of pa
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-041 | Fix ShopScene portrait layout | agent | pending | — |
+| TID-041 | Fix ShopScene portrait layout | agent | done | — |
 | TID-042 | Fix InventoryScene portrait layout | agent | pending | — |
 | TID-043 | Fix VirtualJoystick viewport-relative sizing | agent | pending | — |
 | TID-044 | Add touch cancel for BattleScene card drag | agent | pending | — |

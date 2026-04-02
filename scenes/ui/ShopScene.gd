@@ -25,11 +25,15 @@ func _build_ui() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 
-	# Centred panel
+	# Centred panel — portrait-aware width so it doesn't overflow narrow screens.
+	# Both custom_minimum_size AND size must be set: PanelContainer expands to fit
+	# children unless size is pinned explicitly, which would collapse the inner
+	# ScrollContainer (SIZE_EXPAND_FILL has no finite height to expand into).
 	var outer := PanelContainer.new()
-	var panel_w: float = _vw * 0.6
+	var panel_w: float = minf(_vw * 0.90, _vh * 0.70)
 	var panel_h: float = _vh * 0.82
 	outer.custom_minimum_size = Vector2(panel_w, panel_h)
+	outer.size = Vector2(panel_w, panel_h)
 	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
 	add_child(outer)
 
@@ -58,9 +62,11 @@ func _build_ui() -> void:
 	_coin_label.modulate = Color(1.0, 0.85, 0.1)
 	root_vbox.add_child(_coin_label)
 
-	# Scrollable card list
+	# Scrollable card list — minimum height prevents collapse if layout resolution
+	# fails to distribute the panel's height to SIZE_EXPAND_FILL children.
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.custom_minimum_size = Vector2(0.0, _vh * 0.30)
 	root_vbox.add_child(scroll)
 
 	_shop_list = VBoxContainer.new()
