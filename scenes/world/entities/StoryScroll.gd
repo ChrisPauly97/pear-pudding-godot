@@ -54,4 +54,5 @@ func interact() -> void:
 	SaveManager.mark_scroll_collected(_scroll_id)
 	GameBus.story_scroll_collected.emit(_scroll_id)
 	AudioManager.play_sfx("scroll_pickup")
+	AudioManager.play_narration(_scroll_id)
 	queue_free()

@@ -16,11 +16,48 @@ const SFX_PATHS: Dictionary = {
 var _players: Array[AudioStreamPlayer] = []
 const _POOL_SIZE: int = 8
 
+var _narration_player: AudioStreamPlayer
+var _narration_suppressed: bool = false
+
 func _ready() -> void:
 	for i in _POOL_SIZE:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		_players.append(p)
+	_narration_player = AudioStreamPlayer.new()
+	_narration_player.volume_db = -3.0
+	add_child(_narration_player)
+	GameBus.dialogue_state_changed.connect(_on_dialogue_state_changed)
+
+func play_narration(scroll_id: String) -> void:
+	if _narration_suppressed:
+		return
+	var scroll: Dictionary = ScrollRegistry.get_scroll(scroll_id)
+	if scroll.is_empty():
+		return
+	var path: String = scroll.get("audio_path", "")
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return
+	var stream := load(path) as AudioStream
+	if stream == null:
+		return
+	_narration_player.stop()
+	_narration_player.stream = stream
+	_narration_player.play()
+
+func stop_narration() -> void:
+	_narration_player.stop()
+
+func is_narration_playing() -> bool:
+	return _narration_player.playing
+
+func set_narration_suppressed(suppressed: bool) -> void:
+	_narration_suppressed = suppressed
+	if suppressed:
+		_narration_player.stop()
+
+func _on_dialogue_state_changed(active: bool) -> void:
+	set_narration_suppressed(active)
 
 func play_sfx(sfx_name: String) -> void:
 	if not SFX_PATHS.has(sfx_name):

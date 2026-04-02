@@ -914,6 +914,7 @@ func _process(delta: float) -> void:
 		_dialogue_timer -= delta
 		if _dialogue_timer <= 0.0:
 			_dialogue_label.hide()
+			GameBus.dialogue_state_changed.emit(false)
 
 	if _tip_timer > 0.0:
 		_tip_timer -= delta
@@ -1079,6 +1080,7 @@ func _show_dialogue(text: String) -> void:
 	_dialogue_label.text = text
 	_dialogue_label.show()
 	_dialogue_timer = DIALOGUE_DURATION
+	GameBus.dialogue_state_changed.emit(true)
 
 func _show_tip(text: String) -> void:
 	_tip_label.text = text
