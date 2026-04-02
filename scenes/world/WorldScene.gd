@@ -710,6 +710,12 @@ func register_npc(nid: String, node: Node3D, n_data: Dictionary) -> void:
 	_npc_nodes[nid] = node
 	_active_npc_data[nid] = n_data
 
+func get_player() -> Node3D:
+	return _player
+
+func register_scroll(node: Node3D) -> void:
+	_scroll_nodes.append(node)
+
 func _spawn_named_map_scrolls() -> void:
 	if world_map == null:
 		return

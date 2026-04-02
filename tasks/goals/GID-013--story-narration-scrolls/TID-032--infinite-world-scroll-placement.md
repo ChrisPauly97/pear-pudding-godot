@@ -2,7 +2,7 @@
 
 **Goal:** GID-013
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-029
 
 ## Lock
@@ -74,12 +74,16 @@ When a chunk is unloaded and re-loaded (player circles back), the same determini
 
 ## Plan
 
-_Written during Plan phase._
+1. `InfiniteWorldGen.gd`: add `static func get_chunk_scroll_id(cx, cz, world_seed) -> String` using `_chunk_seed` + `SCROLL_CHUNK_RARITY = 200`.
+2. `ChunkRenderer.gd`: preload `_StoryScrollScene`; add scroll spawn block in `_spawn_entities()` using `InfiniteWorldGen.get_chunk_scroll_id`, tile GRASS check, `is_scroll_collected` guard, then setup/register.
+3. `WorldScene.gd`: add `func get_player() -> Node3D` and `func register_scroll(node: Node3D)` so ChunkRenderer can pass the player reference and register the scroll node for proximity detection.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/InfiniteWorldGen.gd`: Added `const SCROLL_CHUNK_RARITY: int = 200` and `static func get_chunk_scroll_id(cx, cz, world_seed) -> String` — returns `"scroll_martarquas_survivors"` for ~1/200 chunks, `""` otherwise. Reuses existing `_chunk_seed` hash.
+- `scenes/world/ChunkRenderer.gd`: Added `const _StoryScrollScene` preload and `const InfiniteWorldGen` preload. In `_spawn_entities()`, after doors/NPCs: calls `get_chunk_scroll_id`, checks tile is `TILE_GRASS`, checks `is_scroll_collected` guard, instantiates and positions StoryScroll, calls `world_scene.register_scroll()` for proximity detection.
+- `scenes/world/WorldScene.gd`: Added `func get_player() -> Node3D` and `func register_scroll(node: Node3D)` so ChunkRenderer can pass the player reference and register scroll nodes into `_scroll_nodes`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — docs update deferred to TID-033.

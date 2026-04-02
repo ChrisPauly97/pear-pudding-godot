@@ -60,6 +60,19 @@ static func biome_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> int:
 static func _chunk_seed(p_cx: int, p_cz: int, world_seed: int) -> int:
 	return (p_cx * 73856093) ^ (p_cz * 19349663) ^ world_seed
 
+# Approximately 1 in SCROLL_CHUNK_RARITY chunks gets an infinite-world scroll.
+const SCROLL_CHUNK_RARITY: int = 200
+
+# Returns the scroll_id to place in this chunk, or "" if none.
+# Deterministic: same cx/cz/world_seed always produces the same result.
+static func get_chunk_scroll_id(p_cx: int, p_cz: int, world_seed: int) -> String:
+	var h: int = _chunk_seed(p_cx, p_cz, world_seed)
+	h = h & 0x7FFFFFFF  # ensure positive
+	if h % SCROLL_CHUNK_RARITY != 0:
+		return ""
+	var eligible: Array[String] = ["scroll_martarquas_survivors"]
+	return eligible[h % eligible.size()]
+
 # Generate full chunk with entities
 static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 	var chunk := _gen_tile_data(p_cx, p_cz, world_seed)
