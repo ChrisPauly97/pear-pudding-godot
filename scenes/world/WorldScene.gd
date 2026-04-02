@@ -238,10 +238,14 @@ func _ready() -> void:
 	menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
 	_hud.add_child(menu_btn)
 
+	# Minimap: top=vh*0.01, height=vh*0.18, bottom≈vh*0.19; buttons sit below it.
+	var minimap_bottom: float = vh * 0.01 + vh * 0.18 + vh * 0.01  # ≈ vh * 0.20
+	var btn_x: float = vw - btn_w * 1.3 - vh * 0.01
+
 	var inv_btn := Button.new()
 	inv_btn.text = "Inventory"
 	inv_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	inv_btn.position = Vector2(vw - btn_w * 1.3 - vh * 0.01, vh * 0.01)
+	inv_btn.position = Vector2(btn_x, minimap_bottom)
 	inv_btn.add_theme_font_size_override("font_size", font_size)
 	inv_btn.pressed.connect(func() -> void: GameBus.inventory_requested.emit())
 	_hud.add_child(inv_btn)
@@ -249,7 +253,7 @@ func _ready() -> void:
 	var journal_btn := Button.new()
 	journal_btn.text = "Journal"
 	journal_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	journal_btn.position = Vector2(vw - btn_w * 1.3 - vh * 0.01, vh * 0.01 + btn_h + vh * 0.005)
+	journal_btn.position = Vector2(btn_x, minimap_bottom + btn_h + vh * 0.005)
 	journal_btn.add_theme_font_size_override("font_size", font_size)
 	journal_btn.pressed.connect(func() -> void: GameBus.journal_requested.emit())
 	_hud.add_child(journal_btn)

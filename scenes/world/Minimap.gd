@@ -79,9 +79,8 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 	_scale = float(sz) / (VIEW_RADIUS * 2.0)
 
 	var margin: float = vh * 0.01
-	# Sit below the inventory button (btn_h ≈ vh*0.07, starts at vh*0.01 → bottom ≈ vh*0.08)
 	var px: float = vw - float(sz) - margin
-	var py: float = vh * 0.095
+	var py: float = margin   # top-right corner
 
 	# ── Dark background ────────────────────────────────────────────────────────
 	var bg := ColorRect.new()
