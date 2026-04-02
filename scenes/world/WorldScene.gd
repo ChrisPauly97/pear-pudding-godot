@@ -289,6 +289,7 @@ func _ready() -> void:
 	_minimap = Minimap.new()
 	add_child(_minimap)
 	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
+	_minimap.tapped.connect(_open_map_view)
 
 func _exit_tree() -> void:
 	# Wait for any in-flight worker tasks before the GDScript instance is freed.
@@ -958,18 +959,23 @@ func _check_interactions() -> void:
 		SaveManager.set_story_flag("tutorial_enemy_tip")
 		_show_tip("Walk into an enemy to start a battle")
 
+func _open_map_view() -> void:
+	if _is_infinite:
+		return
+	if _map_overlay != null:
+		_map_overlay.queue_free()
+		_map_overlay = null
+		return
+	_map_overlay = MapViewOverlay.new()
+	add_child(_map_overlay)
+	_map_overlay.setup(world_map, map_name, _player,
+		_npc_nodes, _active_npc_data,
+		_enemy_nodes, _chest_nodes, _door_nodes)
+	_map_overlay.closed.connect(func() -> void: _map_overlay = null)
+
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("map_view") and not _is_infinite:
-		if _map_overlay != null:
-			_map_overlay.queue_free()
-			_map_overlay = null
-		else:
-			_map_overlay = MapViewOverlay.new()
-			add_child(_map_overlay)
-			_map_overlay.setup(world_map, map_name, _player,
-				_npc_nodes, _active_npc_data,
-				_enemy_nodes, _chest_nodes, _door_nodes)
-			_map_overlay.closed.connect(func() -> void: _map_overlay = null)
+	if event.is_action_pressed("map_view"):
+		_open_map_view()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("inventory"):
 		GameBus.inventory_requested.emit()
