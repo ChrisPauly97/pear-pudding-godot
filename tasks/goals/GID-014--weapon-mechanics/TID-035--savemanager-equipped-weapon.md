@@ -2,7 +2,7 @@
 
 **Goal:** GID-014
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -55,12 +55,25 @@ const CURRENT_SAVE_VERSION: int = 5
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `var equipped_weapon: String = ""` field after `story_flags`.
+2. Initialize to `""` in `new_game()`.
+3. Add `"equipped_weapon": equipped_weapon` to `save()` dict.
+4. Add `equipped_weapon = str(data.get("equipped_weapon", ""))` to `load_save()`.
+5. Add `_migrate_v4_to_v5()` static function.
+6. Call it in `_apply_migrations()`.
+7. Bump `CURRENT_SAVE_VERSION` to 5.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`:
+  - Added `var equipped_weapon: String = ""` field (after story_flags)
+  - Initialized to `""` in `new_game()`
+  - Added `"equipped_weapon": equipped_weapon` to `save()` dict
+  - Added `equipped_weapon = str(data.get("equipped_weapon", ""))` in `load_save()`
+  - Added `_migrate_v4_to_v5()` static function (backfills `""` for old saves)
+  - Called `_migrate_v4_to_v5()` in `_apply_migrations()` for `ver < 5`
+  - Bumped `CURRENT_SAVE_VERSION` from 4 to 5
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+_No agent doc changes — TID-038 handles docs for the full weapon system._

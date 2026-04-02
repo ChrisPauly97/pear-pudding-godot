@@ -12,6 +12,7 @@ var hand: Array[CardInstance] = []
 var board: ZoneState
 var draw_deck: Array[CardInstance] = []
 var discard: Array[CardInstance] = []
+var pending_auto_spells: Array[CardInstance] = []
 var is_ai: bool = false
 
 func _init(pid: int, ai: bool = false) -> void:
@@ -24,6 +25,7 @@ func build_deck(card_ids: Array[String]) -> void:
 	draw_deck.clear()
 	discard.clear()
 	hand.clear()
+	pending_auto_spells.clear()
 	for cid in card_ids:
 		var tmpl := CardRegistry.get_template(cid)
 		if not tmpl.is_empty():
@@ -39,7 +41,11 @@ func draw_card() -> CardInstance:
 	if draw_deck.is_empty():
 		return null
 	var card := draw_deck.pop_back() as CardInstance
-	hand.append(card)
+	if card.auto_resolve:
+		discard.append(card)
+		pending_auto_spells.append(card)
+	else:
+		hand.append(card)
 	return card
 
 func draw_opening_hand(count: int = 4) -> void:
@@ -47,6 +53,8 @@ func draw_opening_hand(count: int = 4) -> void:
 		draw_card()
 
 func can_play(card: CardInstance) -> bool:
+	if card.card_class == "spell":
+		return hero.mana >= card.cost
 	return hero.mana >= card.cost and not board.is_full()
 
 func play_card(card: CardInstance) -> bool:
@@ -54,7 +62,10 @@ func play_card(card: CardInstance) -> bool:
 		return false
 	hand.erase(card)
 	hero.spend_mana(card.cost)
-	board.add_card(card)
+	if card.card_class == "spell":
+		discard.append(card)
+	else:
+		board.add_card(card)
 	return true
 
 func start_turn(turn_number: int) -> void:

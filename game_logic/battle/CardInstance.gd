@@ -14,6 +14,7 @@ var magic_type: String
 var magic_branch: String
 var spell_effect: String
 var spell_power: int
+var auto_resolve: bool = false
 
 var summoning_sick: bool = true
 var attack_count: int = 1
@@ -34,6 +35,7 @@ static func from_template(tmpl: Dictionary) -> CardInstance:
 	c.magic_branch = tmpl.get("magic_branch", "")
 	c.spell_effect = tmpl.get("spell_effect", "")
 	c.spell_power = tmpl.get("spell_power", 0)
+	c.auto_resolve = tmpl.get("auto_resolve", false)
 	return c
 
 func is_alive() -> bool:

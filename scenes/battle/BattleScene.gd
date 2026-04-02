@@ -6,6 +6,7 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
+const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 
 var enemy_data: Dictionary = {}
 var _state: GameState
@@ -52,6 +53,7 @@ func _ready() -> void:
 					   "ghost", "skeleton", "zombie", "ghoul"]
 	_state.players[0].build_deck(player_deck)
 	_state.players[0].draw_opening_hand(4)
+	_flush_auto_spells(0)
 
 	# Enemy deck
 	if enemy_data.has("enemy_deck"):
@@ -167,8 +169,11 @@ func _finish_hand_drag() -> void:
 	var mouse_pos := get_viewport().get_mouse_position()
 	var board_rect: Rect2 = _player_board_view.get_global_rect()
 	if board_rect.has_point(mouse_pos):
-		if _state.players[0].play_card(_hand_drag_card):
+		var played_card := _hand_drag_card
+		if _state.players[0].play_card(played_card):
 			AudioManager.play_sfx("card_play")
+			if played_card.card_class == "spell":
+				_resolve_spell_effect(played_card, 0)
 			_refresh_all()
 			_check_game_over()
 			_dismiss_battle_tutorial()
@@ -445,7 +450,11 @@ func _on_end_turn() -> void:
 
 func _on_turn_ended(player_idx: int) -> void:
 	_refresh_all()
-	if player_idx == 1:
+	if player_idx == 0:
+		_flush_auto_spells(0)
+		_refresh_all()
+		_check_game_over()
+	elif player_idx == 1:
 		_run_ai_turn()
 
 func _run_ai_turn() -> void:
@@ -467,6 +476,63 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	_refresh_all()
 	await get_tree().create_timer(0.6, true).timeout
 	_execute_ai_actions(actions, idx + 1)
+
+## Resolves the effect of a spell card played by caster_pid against the opponent.
+func _resolve_spell_effect(card: CardInstance, caster_pid: int) -> void:
+	var opponent: PlayerState = _state.players[1 - caster_pid]
+	match card.spell_effect:
+		"deal_damage_single":
+			var targets := opponent.board.get_cards()
+			if targets.is_empty():
+				opponent.hero.take_damage(card.spell_power)
+			else:
+				targets[0].health -= card.spell_power
+				if not targets[0].is_alive():
+					opponent.board.remove_card(targets[0])
+					opponent.discard.append(targets[0])
+		"deal_damage_all":
+			for t in opponent.board.get_cards():
+				t.health -= card.spell_power
+			for t in opponent.board.get_cards().duplicate():
+				if not t.is_alive():
+					opponent.board.remove_card(t)
+					opponent.discard.append(t)
+		"deal_damage_random":
+			var targets := opponent.board.get_cards()
+			if targets.is_empty():
+				opponent.hero.take_damage(card.spell_power)
+			else:
+				var idx: int = randi() % targets.size()
+				targets[idx].health -= card.spell_power
+				if not targets[idx].is_alive():
+					opponent.board.remove_card(targets[idx])
+					opponent.discard.append(targets[idx])
+		"debuff_attack":
+			for t in opponent.board.get_cards():
+				t.attack = maxi(0, t.attack - card.spell_power)
+		"destroy_low_hp":
+			for t in opponent.board.get_cards().duplicate():
+				if t.health <= card.spell_power:
+					opponent.board.remove_card(t)
+					opponent.discard.append(t)
+		"resurrect_last":
+			var caster: PlayerState = _state.players[caster_pid]
+			for i in range(caster.discard.size() - 1, -1, -1):
+				var t := caster.discard[i] as CardInstance
+				if t.card_class == "minion" and not caster.board.is_full():
+					t.health = t.max_health
+					t.summoning_sick = true
+					caster.board.add_card(t)
+					caster.discard.remove_at(i)
+					break
+
+## Drains pending_auto_spells for the given player and resolves each.
+## Called after any draw event (opening hand, turn draw).
+func _flush_auto_spells(player_idx: int) -> void:
+	var player: PlayerState = _state.players[player_idx]
+	while not player.pending_auto_spells.is_empty():
+		var card: CardInstance = player.pending_auto_spells.pop_front() as CardInstance
+		_resolve_spell_effect(card, player_idx)
 
 func _check_game_over() -> void:
 	if _state.is_game_over():

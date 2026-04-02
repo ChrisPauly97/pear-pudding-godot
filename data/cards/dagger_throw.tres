@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://1m7k6jdyain4"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dagger_throw"]
+
+[resource]
+script = ExtResource("1_dagger_throw")
+id = "dagger_throw"
+card_name = "Dagger Throw"
+cost = 0
+attack = 0
+health = 0
+card_class = "spell"
+description = "Thrown automatically — deals 2 damage to a random enemy."
+color = Color(0.7, 0.3, 0.3, 1)
+magic_type = ""
+magic_branch = ""
+spell_effect = "deal_damage_random"
+spell_power = 2
+auto_resolve = true
