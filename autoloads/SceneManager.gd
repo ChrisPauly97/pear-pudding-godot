@@ -7,6 +7,7 @@ enum State {
 	INVENTORY,
 	SHOP,
 	GAME_OVER,
+	JOURNAL,
 }
 
 const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
@@ -21,11 +22,13 @@ var _menu_scene_packed := preload("res://scenes/ui/MenuScene.tscn")
 var _gameover_scene_packed := preload("res://scenes/ui/GameOverScene.tscn")
 var _inventory_scene_packed := preload("res://scenes/ui/InventoryScene.tscn")
 var _shop_scene_packed := preload("res://scenes/ui/ShopScene.tscn")
+var _journal_scene_packed := preload("res://scenes/ui/JournalScene.tscn")
 
 var _state: State = State.MENU
 var _battle_overlay: Node = null
 var _inventory_overlay: Node = null
 var _shop_overlay: Node = null
+var _journal_overlay: Node = null
 var _saved_world_scene: Node = null
 
 # Tracks which enemy triggered the current battle (for defeat marking)
@@ -43,6 +46,7 @@ func _ready() -> void:
 	GameBus.battle_lost.connect(_on_battle_lost)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 	GameBus.shop_requested.connect(_on_shop_requested)
+	GameBus.journal_requested.connect(_on_journal_requested)
 
 func go_to_menu() -> void:
 	_flush_position_save()
@@ -118,6 +122,9 @@ func _exit_world_cleanup() -> void:
 	if _shop_overlay != null:
 		_shop_overlay.queue_free()
 		_shop_overlay = null
+	if _journal_overlay != null:
+		_journal_overlay.queue_free()
+		_journal_overlay = null
 	map_stack.clear()
 	door_stack.clear()
 	current_map = ""
@@ -218,4 +225,20 @@ func _on_shop_closed() -> void:
 	if _shop_overlay != null:
 		_shop_overlay.queue_free()
 		_shop_overlay = null
+	_state = State.WORLD
+
+func _on_journal_requested() -> void:
+	if _state != State.WORLD:
+		return
+	_journal_overlay = _journal_scene_packed.instantiate()
+	get_tree().current_scene.add_child(_journal_overlay)
+	_journal_overlay.closed.connect(_on_journal_closed)
+	_state = State.JOURNAL
+
+func _on_journal_closed() -> void:
+	if _state != State.JOURNAL:
+		return
+	if _journal_overlay != null:
+		_journal_overlay.queue_free()
+		_journal_overlay = null
 	_state = State.WORLD

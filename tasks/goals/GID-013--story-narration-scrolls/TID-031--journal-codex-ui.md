@@ -2,7 +2,7 @@
 
 **Goal:** GID-013
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-028
 
 ## Lock
@@ -124,12 +124,20 @@ func _close() -> void:
 
 ## Plan
 
-_Written during Plan phase._
+1. `GameBus.gd`: add `signal journal_requested()`.
+2. `scenes/ui/JournalScene.gd`: two-panel Control overlay (portrait/landscape aware); left panel scroll list, right panel lore detail + replay; close on ESC or X button; emits `closed`.
+3. `scenes/ui/JournalScene.tscn`: minimal tscn matching InventoryScene.tscn format.
+4. `autoloads/SceneManager.gd`: add `JOURNAL` state; preload JournalScene; connect `GameBus.journal_requested`; add `_journal_overlay` + `_on_journal_requested()` + `_on_journal_closed()`.
+5. `scenes/world/WorldScene.gd`: add J key in `_unhandled_input()`; add Journal HUD button adjacent to Inventory button.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: Added `signal journal_requested()` under `# World signals`.
+- `scenes/ui/JournalScene.gd`: New two-panel Control overlay — left panel scroll list (collected scrolls only, "No lore scrolls found" empty state), right panel shows title + lore text (RichTextLabel) + Replay Narration button. Header shows "Journal — N / 8 Scrolls". ESC and X button close via `closed` signal.
+- `scenes/ui/JournalScene.tscn`: Minimal scene with embedded UID `uid://t1ahgm0fg74z`.
+- `autoloads/SceneManager.gd`: Added `JOURNAL` to State enum; preloaded `_journal_scene_packed`; added `_journal_overlay`; connected `GameBus.journal_requested`; added `_on_journal_requested()` and `_on_journal_closed()`; cleared `_journal_overlay` in go_to_menu cleanup.
+- `scenes/world/WorldScene.gd`: Added J key handler in `_unhandled_input()`; added "Journal" HUD button below Inventory button (viewport-relative positioning).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — docs update deferred to TID-033.
