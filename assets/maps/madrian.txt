@@ -293,14 +293,15 @@ HEIGHTS
 SPAWN 40 36
 NPC 45 36 FLAG:story_intro_complete I am a wizard of old. If you come with me you will never have to worry about your master again and I will take you on an adventure. My name is Maiteln. Will you come with me? || Come, we must make haste before your master notices we are gone.
 NPC 11 14 Boy! Get back to your chores this instant or you will be punished!
-DOOR 11 18 madrian_masters_house door_masters_exit
-DOOR 39 32 madrian_inn door_inn_exit
-DOOR 10 44 maykalene
-DOOR 20 44 main
-DOOR 30 44 house_1
-DOOR 40 44 test
-DOOR 50 44 maykalene_inn
-DOOR 60 44 farsyth_mansion
-DOOR 70 44 blancogov
-DOOR 80 44 blancogov_temple
-DOOR 90 44 infinite
+NPC 10 12 You dare enter my house? Get out before I call the guards!
+NPC 14 14 Shh... the master is in a foul mood today. Best stay quiet.
+NPC 38 27 Welcome to the inn! Rest your weary bones here.
+NPC 43 28 I heard strange noises coming from the temple last night.
+NPC 38 30 The ale here is the finest in all of Madrian.
+MERCHANT 44 25
+DOOR 50 99 maykalene
+DOOR 60 50 main
+DOOR 80 50 farsyth_mansion
+DOOR 85 50 blancogov
+DOOR 60 56 blancogov_temple
+DOOR 65 56 infinite

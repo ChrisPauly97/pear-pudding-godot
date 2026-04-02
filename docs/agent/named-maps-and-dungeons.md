@@ -107,7 +107,7 @@ If neither `user://` nor `res://` contains the requested map file, `WorldMap._ge
 
 | Asset | Path | Notes |
 |---|---|---|
-| Bundled map files | `assets/maps/*.txt` | At least `main.txt` required as the starting overworld map |
+| Bundled map files | `assets/maps/*.txt` | At least `main.txt` required as the starting overworld map. Building interiors (inns, houses) are embedded directly in their parent town map — no sub-map files. |
 | `WorldMap.gd` | `game_logic/world/WorldMap.gd` | Loader/saver; exposes `get_tile(x,z)` Callable |
 | `DungeonGen.gd` | `game_logic/world/DungeonGen.gd` | Procedural dungeon writer; only invoked if dungeon file absent |
 | User maps directory | `user://maps/` | Created at runtime; stores edited + generated dungeon maps |
