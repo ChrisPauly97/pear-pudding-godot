@@ -206,6 +206,26 @@ Re-apply sizes in `_notification(NOTIFICATION_RESIZED)` if the window can be res
 
 ---
 
+## Mobile / Desktop Feature Parity
+
+### The rule
+Every interactive feature must be reachable on **both** desktop (keyboard/mouse) and mobile (touch). Never ship a keyboard-only feature without a touch equivalent, and vice versa.
+
+### Pattern
+| Desktop trigger | Mobile equivalent |
+|---|---|
+| Key press (`map_view` → M) | Tap the minimap to open the map overlay |
+| Key press (`inventory` → I) | Inventory button in HUD |
+| Key press (`interact` → E) | Tap prompt on screen |
+| WASD movement | Virtual joystick overlay |
+
+### Implementation checklist
+- If you add a key binding, add a visible tap target for the same action (button, labelled icon, or existing HUD element with a `pressed` signal).
+- The minimap tap button is a `flat = true` Button layered above the minimap ring in `Minimap.gd`; its `pressed` signal emits `tapped` which WorldScene connects to `_open_map_view()`.
+- Do not rely on `_unhandled_input` alone for features users need on Android — `Button.pressed` and touch-screen equivalents are required.
+
+---
+
 ## Godot Resource .uid Files
 
 ### The problem

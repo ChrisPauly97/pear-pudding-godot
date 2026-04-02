@@ -2,7 +2,11 @@
 # WoW-style circular minimap rendered in the HUD top-right corner.
 # Uses a SubViewport sharing the main World3D so the top-down camera
 # sees the live scene without duplicating geometry.
+# Tap/click the minimap to open the full-map view overlay.
 extends Node
+
+## Emitted when the player taps or clicks the minimap.
+signal tapped
 
 ## World units from player centre to the edge of the circular view.
 const VIEW_RADIUS: float = 64.0
@@ -128,6 +132,16 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 	ring.size = Vector2(float(sz), float(sz))
 	ring.position = Vector2(px, py)
 	hud.add_child(ring)
+
+	# ── Transparent tap target (mobile + mouse) ───────────────────────────────
+	# Sits above all other minimap children so it intercepts input first.
+	var tap_btn := Button.new()
+	tap_btn.flat = true
+	tap_btn.size = Vector2(float(sz), float(sz))
+	tap_btn.position = Vector2(px, py)
+	tap_btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	tap_btn.pressed.connect(func() -> void: tapped.emit())
+	hud.add_child(tap_btn)
 
 	# "N" label removed — after the 45° rotation the top of the minimap is
 	# isometric screen-up (world NW), not geographic north.
