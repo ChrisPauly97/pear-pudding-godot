@@ -18,6 +18,7 @@
 | [GID-012](goals/GID-012--tutorial-onboarding/goal.md) | Tutorial / Onboarding for New Players | done | 2 / 2 |
 | [GID-013](goals/GID-013--story-narration-scrolls/goal.md) | Story Narration Scrolls | pending | 0 / 6 |
 | [GID-014](goals/GID-014--weapon-mechanics/goal.md) | Weapon Mechanics System | pending | 0 / 5 |
+| [GID-015](goals/GID-015--consolidate-maps-map-view/goal.md) | Consolidate Named-Map Buildings & Map View Overlay | pending | 0 / 2 |
 
 ## Backlog
 
