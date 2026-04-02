@@ -268,6 +268,7 @@ func _ready() -> void:
 	_dialogue_label.hide()
 	_hud.add_child(_dialogue_label)
 	GameBus.hud_message_requested.connect(_show_dialogue)
+	GameBus.story_scroll_collected.connect(_on_scroll_collected)
 
 	_tip_label = Label.new()
 	_tip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1103,6 +1104,13 @@ func _show_tip(text: String) -> void:
 	_tip_label.text = text
 	_tip_label.show()
 	_tip_timer = TIP_DURATION
+
+func _on_scroll_collected(scroll_id: String) -> void:
+	var scroll: Dictionary = ScrollRegistry.get_scroll(scroll_id)
+	var title: String = scroll.get("title", scroll_id) if not scroll.is_empty() else scroll_id
+	_show_tip("Lore scroll found: " + title)
+	if SaveManager.collected_scrolls.size() >= ScrollRegistry.SCROLL_COUNT:
+		GameBus.all_scrolls_collected.emit()
 
 # ── Card item spawning ──────────────────────────────────────────────────────
 

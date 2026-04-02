@@ -81,6 +81,8 @@ NPC x z FLAG:flag_key before_text || after_text
 | **WorldMap** | Parser | Parses NPC entity lines from named map `.txt` files; must pass flag data through to `TownspersonNPC` |
 | **SceneManager** | Entry point | `start_story_mode()` loads `madrian`; `load_map("madrian")` is the named-map path |
 | **Named Maps doc** | Reference | Map file format, DOOR/NPC/SPAWN syntax — see `docs/agent/named-maps-and-dungeons.md` |
+| **ScrollRegistry** | Companion | 8 lore scrolls placed in named maps via `SCROLL` directive; `collected_scrolls` in SaveManager (v6) |
+| **StoryScroll** | Entity | Interactable entity in the world; triggers narration audio + Journal entry on collection |
 
 ---
 

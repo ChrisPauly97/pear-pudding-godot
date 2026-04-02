@@ -65,6 +65,11 @@ This means `EnemyNPC` never imports `SceneManager`, and `BattleScene` never impo
 | `card_attacked` | `GameState` | `BattleScene` | `attacker, target` |
 | `turn_ended` | `GameState` | `BattleScene` | `active_player_idx` |
 | `battle_ended` | `GameState` | `BattleScene`, `SceneManager` | `winner_idx` |
+| `story_flag_set` | `SaveManager` | `WorldScene` (tutorial hints) | `flag: String` |
+| `story_scroll_collected` | `StoryScroll.interact()` | `WorldScene` (HUD toast + achievement) | `scroll_id: String` |
+| `all_scrolls_collected` | `WorldScene._on_scroll_collected` | _(future achievements system)_ | _(none)_ |
+| `journal_requested` | `WorldScene` (J key / Journal btn) | `SceneManager` | _(none)_ |
+| `dialogue_state_changed` | `WorldScene._show_dialogue()` / timer | `AudioManager` (suppress narration) | `active: bool` |
 
 ---
 

@@ -24,6 +24,20 @@ All functional code changes follow the task lifecycle in `docs/human/workflow.md
 
 ---
 
+## Map Bundling: Always Re-bundle After Editing Maps
+
+`game_logic/world/BundledMaps.gd` is auto-generated from the `.txt` files in `assets/maps/`. Godot loads maps from this bundled file at runtime (the `.txt` files are not included in Android builds).
+
+**Whenever you add, remove, or modify any file in `assets/maps/`, run:**
+
+```bash
+python3 scripts/bundle_maps.py
+```
+
+Then commit `BundledMaps.gd` alongside the map changes. Forgetting this means the editor and all builds will use stale map data.
+
+---
+
 ## GDScript: Variant Inference Errors
 
 ### The problem
@@ -350,4 +364,5 @@ When adding a new major feature or system, create a corresponding `.md` file in 
 | [docs/agent/ui-and-scene-management.md](docs/agent/ui-and-scene-management.md) | Scene stack, battle overlay, menus, HUD, day/night |
 | [docs/agent/signals-and-constants.md](docs/agent/signals-and-constants.md) | GameBus signals, IsoConst values, decoupling patterns |
 | [docs/agent/story-implementation.md](docs/agent/story-implementation.md) | Story flags, dialogue gating, SaveManager fields, SceneManager entry point |
+| [docs/agent/story-narration-scrolls.md](docs/agent/story-narration-scrolls.md) | Lore scroll entities, ScrollRegistry, narration audio, Journal UI, achievement hook |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

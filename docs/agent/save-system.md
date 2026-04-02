@@ -75,6 +75,8 @@ Every mutating method (`add_card`, `set_player_position`, `mark_enemy_defeated`,
 | `time_of_day` | `float` | 0–1 cycle position; restored into WorldScene on load |
 | `world_seed` | `int` | Fixes infinite world layout for this save |
 | `starting_biome` | `String` | Biome override for the player's safe starting zone |
+| `equipped_weapon` | `String` | ID of the currently equipped weapon (`""` = none); added v5 |
+| `collected_scrolls` | `Array[String]` | IDs of lore scrolls already collected; added v6 |
 
 ### Migration
 
@@ -109,6 +111,7 @@ This means any old save file continues to work after a game update.
 | **WorldScene** | Reader + Writer | Reads `time_of_day`, `current_map`, `player_x/z` on load; writes position on unload |
 | **InfiniteWorldGen** | Reader | Reads `world_seed` and `starting_biome` to seed the deterministic chunk generator |
 | **Chest / EnemyNPC** | Writers | Call `mark_chest_opened(id)` / `mark_enemy_defeated(id)` to prevent respawn |
+| **StoryScroll** | Writer | Calls `mark_scroll_collected(id)` / `is_scroll_collected(id)` |
 | **MenuScene** | Trigger | "Continue" button calls `SaveManager.load()`; "New Game" calls `SaveManager.new_game()` |
 
 ---
