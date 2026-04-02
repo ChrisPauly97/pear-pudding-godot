@@ -8,6 +8,7 @@ const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const Minimap         = preload("res://scenes/world/Minimap.gd")
+const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 
@@ -101,6 +102,7 @@ var _fill_light: DirectionalLight3D
 var _dialogue_label: Label
 var _coord_label: Label
 var _minimap: Node
+var _map_overlay: Node = null
 var _dialogue_timer: float = 0.0
 const DIALOGUE_DURATION: float = 4.0
 
@@ -957,7 +959,19 @@ func _check_interactions() -> void:
 		_show_tip("Walk into an enemy to start a battle")
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("inventory"):
+	if event.is_action_pressed("map_view") and not _is_infinite:
+		if _map_overlay != null:
+			_map_overlay.queue_free()
+			_map_overlay = null
+		else:
+			_map_overlay = MapViewOverlay.new()
+			add_child(_map_overlay)
+			_map_overlay.setup(world_map, map_name, _player,
+				_npc_nodes, _active_npc_data,
+				_enemy_nodes, _chest_nodes, _door_nodes)
+			_map_overlay.closed.connect(func() -> void: _map_overlay = null)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("inventory"):
 		GameBus.inventory_requested.emit()
 		get_viewport().set_input_as_handled()
 

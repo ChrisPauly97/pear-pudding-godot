@@ -15,7 +15,7 @@ The map view overlay gives the player a way to see the full layout of the named 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-039 | Embed inn/building interiors into parent named maps | agent | done | — |
-| TID-040 | M-key full-map view overlay for named maps | agent | pending | — |
+| TID-040 | M-key full-map view overlay for named maps | agent | done | — |
 
 ## Acceptance Criteria
 
