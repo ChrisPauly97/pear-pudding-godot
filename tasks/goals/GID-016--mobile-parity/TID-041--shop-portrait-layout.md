@@ -2,7 +2,7 @@
 
 **Goal:** GID-016
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -54,3 +54,16 @@ Line 72: `close_btn.text = "Leave Shop"` — no keyboard reference, this is fine
 
 ### No other changes needed
 The row layout (`_make_row`) uses viewport-relative sizes throughout and should display correctly once the scroll container has height.
+## Plan
+
+1. Replace `panel_w = _vw * 0.6` with `minf(_vw * 0.90, _vh * 0.70)` for portrait-aware width.
+2. Add `outer.size = Vector2(panel_w, panel_h)` to pin the panel height so `SIZE_EXPAND_FILL` has a finite container.
+3. Add `scroll.custom_minimum_size = Vector2(0, _vh * 0.30)` so the scroll area never collapses.
+
+## Changes Made
+
+- `scenes/ui/ShopScene.gd`: changed `panel_w` from `_vw * 0.6` to `minf(_vw * 0.90, _vh * 0.70)` for portrait-aware width. Added `outer.size = Vector2(panel_w, panel_h)` to pin the panel height. Added `scroll.custom_minimum_size = Vector2(0.0, _vh * 0.30)` so the scroll area never collapses.
+
+## Documentation Updates
+
+None — no new patterns introduced; the fix is self-contained in ShopScene.

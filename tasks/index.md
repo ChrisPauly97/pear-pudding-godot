@@ -19,7 +19,7 @@
 | [GID-013](goals/GID-013--story-narration-scrolls/goal.md) | Story Narration Scrolls | pending | 0 / 6 |
 | [GID-014](goals/GID-014--weapon-mechanics/goal.md) | Weapon Mechanics System | in-progress | 3 / 5 |
 | [GID-015](goals/GID-015--consolidate-maps-map-view/goal.md) | Consolidate Named-Map Buildings & Map View Overlay | done | 2 / 2 |
-| [GID-016](goals/GID-016--mobile-parity/goal.md) | Mobile / Desktop Feature Parity Fixes | pending | 0 / 5 |
+| [GID-016](goals/GID-016--mobile-parity/goal.md) | Mobile / Desktop Feature Parity Fixes | in-progress | 2 / 5 |
 
 ## Backlog
 

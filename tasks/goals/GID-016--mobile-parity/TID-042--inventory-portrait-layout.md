@@ -2,7 +2,7 @@
 
 **Goal:** GID-016
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -65,3 +65,20 @@ Line 254–255: `rm_btn.tooltip_text = "Minimum deck size reached"` — tooltips
 ### Relevant existing patterns
 - ShopScene (TID-041) uses the same `custom_minimum_size` pattern — apply identical `size` pin here.
 - Portrait check: `_vw < _vh` is reliable on Android; landscape games that the player rotates mid-session would require `_notification(NOTIFICATION_RESIZED)` but this game locks orientation so `_ready()` is sufficient.
+## Plan
+
+1. Add `is_portrait: bool = _vw < _vh` at top of `_build_ui()`.
+2. Set portrait-aware panel dimensions: 95%vw × 92%vh (portrait) vs 86%×86% (landscape). Pin `outer.size` to fix ScrollContainer collapse.
+3. Replace `root_hbox` with a `root_box: BoxContainer` chosen by orientation (VBoxContainer portrait, HBoxContainer landscape).
+4. Add `size_flags_vertical = SIZE_EXPAND_FILL` to left/right VBox only in portrait so they split the available height equally.
+5. Set `scroll_min_h = _vh * 0.25` in portrait as a collapse floor; 0 in landscape.
+6. Skip `VSeparator` in portrait.
+7. Portrait buttons: `HBoxContainer` row with two wide buttons below deck. Landscape: existing VBox sidebar with `[I]` hint on Close.
+
+## Changes Made
+
+- `scenes/ui/InventoryScene.gd`: replaced fixed `_build_ui()` layout with portrait-aware version. Portrait: VBoxContainer root, Collection and Deck each get `SIZE_EXPAND_FILL` vertical halves, buttons are a side-by-side HBox row, panel is 95%×92% viewport. Landscape: unchanged HBoxContainer three-column layout. Both orientations: `outer.size` pinned to fix ScrollContainer collapse; scroll areas get `custom_minimum_size` floor in portrait.
+
+## Documentation Updates
+
+None — pattern documented in CLAUDE.md (UI Sizing section) already covers this.
