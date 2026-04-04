@@ -17,7 +17,7 @@ By migrating to `.tres` resource files with typed `Resource` subclasses:
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-046 | Define MapData resource schema | agent | pending | — |
+| TID-046 | Define MapData resource schema | agent | done | — |
 | TID-047 | Convert .txt maps to .tres | agent | pending | TID-046 |
 | TID-048 | MapRegistry autoload | agent | pending | TID-047 |
 | TID-049 | Migrate WorldMap to load from MapData | agent | pending | TID-046, TID-048 |

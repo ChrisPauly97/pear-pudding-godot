@@ -2,7 +2,7 @@
 
 **Goal:** GID-017
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -40,12 +40,49 @@ The schema must encode everything the current `.txt` format stores, plus extensi
 
 ## Plan
 
-_Written during Plan phase._
+Create `game_logic/world/resources/` and write 8 `extends Resource` scripts following
+the pattern in `data/CardData.gd` / `data/EnemyData.gd`:
+
+- Each script has `class_name` (for `.tres` `script_class` annotation) + `extends Resource`
+- `@export var` for every stored field
+- No runtime state (alive, tracking, opened) — those are added at load time in TID-049
+- Entity positions stored as **tile coordinates** (`tile_x`, `tile_z`) for readability;
+  conversion to world coords (multiply by `TILE_SIZE`) happens in TID-049
+- `MapData.enemies/chests/doors/npcs/scrolls/triggers/regions` typed as `Array[Resource]`
+  (can't forward-reference typed sub-classes without `class_name` being scanned first)
+- Generate a `.uid` sidecar for every `.gd` file per CLAUDE.md requirement
+
+Files:
+1. `MapData.gd` — top-level map resource (tiles, heights, spawn, entity arrays, metadata)
+2. `MapEnemy.gd` — tile-positioned enemy entity (type string, not battle template)
+3. `MapChest.gd` — tile-positioned chest with card_ids
+4. `MapDoor.gd` — tile-positioned door with target_map / target_door_id / flag_key
+5. `MapNpc.gd` — tile-positioned NPC with dialogue, npc_type, flag_key, after_dialogue
+6. `MapScroll.gd` — tile-positioned scroll with scroll_id / flag_key
+7. `MapTrigger.gd` — new: tile-positioned event trigger (event_id, once, flag_key)
+8. `MapRegion.gd` — new: rectangular named zone (x, z, width, height, type, name)
 
 ## Changes Made
 
-_Filled after Build phase._
+Created `game_logic/world/resources/` with 8 Resource scripts + `.uid` sidecars:
+
+| File | class_name | Description |
+|------|-----------|-------------|
+| `MapData.gd` | MapData | Top-level map: tiles (PackedInt32Array), heights, spawn, entity arrays, metadata |
+| `MapEnemy.gd` | MapEnemy | entity_id, tile_x, tile_z, enemy_type |
+| `MapChest.gd` | MapChest | entity_id, tile_x, tile_z, card_ids (PackedStringArray) |
+| `MapDoor.gd` | MapDoor | entity_id, tile_x, tile_z, target_map, target_door_id, flag_key |
+| `MapNpc.gd` | MapNpc | entity_id, tile_x, tile_z, dialogue, npc_type, flag_key, after_dialogue |
+| `MapScroll.gd` | MapScroll | entity_id, tile_x, tile_z, scroll_id, flag_key |
+| `MapTrigger.gd` | MapTrigger | entity_id, tile_x, tile_z, event_id, flag_key, once |
+| `MapRegion.gd` | MapRegion | region_id, region_name, region_type, tile_x, tile_z, tile_width, tile_height |
+
+Design decisions:
+- Entity positions stored in **tile coordinates** (not world coords) — TID-049 multiplies by TILE_SIZE at load time
+- Runtime state (alive, tracking, opened) NOT stored — set as defaults in TID-049's load_from_resource()
+- `MapData.enemies/chests/...` are `Array[Resource]` (not typed sub-class arrays) to avoid forward-reference issues before Godot scans the class_names
+- `MapTrigger` and `MapRegion` are new extensibility types — empty in all existing maps initially
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes needed for this task — TID-053 updates `named-maps-and-dungeons.md` once the full migration is complete.
