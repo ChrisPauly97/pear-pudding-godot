@@ -24,17 +24,16 @@ All functional code changes follow the task lifecycle in `docs/human/workflow.md
 
 ---
 
-## Map Bundling: Always Re-bundle After Editing Maps
+## Map Storage: Native Godot .tres Resources
 
-`game_logic/world/BundledMaps.gd` is auto-generated from the `.txt` files in `assets/maps/`. Godot loads maps from this bundled file at runtime (the `.txt` files are not included in Android builds).
+Maps are stored as `.tres` resource files in `assets/maps/`. The 6 built-in maps are preloaded by `autoloads/MapRegistry.gd`, which Godot automatically includes in exports. No bundling step is needed.
 
-**Whenever you add, remove, or modify any file in `assets/maps/`, run:**
+**Whenever you add a new built-in map:**
+1. Create `assets/maps/<name>.tres` (use the in-game editor or write a converter script).
+2. Add a `const _NAME := preload("res://assets/maps/<name>.tres")` line to `MapRegistry.gd`.
+3. Add the name to the `_BUNDLED` dictionary in `MapRegistry.gd`.
 
-```bash
-python3 scripts/bundle_maps.py
-```
-
-Then commit `BundledMaps.gd` alongside the map changes. Forgetting this means the editor and all builds will use stale map data.
+Godot's export system tracks the preload dependencies and includes the `.tres` files in the APK/PCK automatically.
 
 ---
 

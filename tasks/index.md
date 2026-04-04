@@ -20,12 +20,14 @@
 | [GID-014](goals/GID-014--weapon-mechanics/goal.md) | Weapon Mechanics System | done | 5 / 5 |
 | [GID-015](goals/GID-015--consolidate-maps-map-view/goal.md) | Consolidate Named-Map Buildings & Map View Overlay | done | 2 / 2 |
 | [GID-016](goals/GID-016--mobile-parity/goal.md) | Mobile / Desktop Feature Parity Fixes | in-progress | 3 / 5 |
+| [GID-017](goals/GID-017--native-map-storage/goal.md) | Native Godot Map Storage Migration | done | 8 / 8 |
 
 ## Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
 | [BID-002](backlog/BID-002--voice-acting-spec-conflict.md) | "Voice acting" out-of-scope conflicts with narration scroll audio | spec-gap | GID-013 |
+| [BID-003](backlog/BID-003--maykalene-concatenated-door-scroll.md) | maykalene.txt DOOR+SCROLL lines were concatenated; scroll_martarquas_first_war was never spawned | code-smell | GID-017 / TID-047 |
 
 ## Resolved Backlog
 

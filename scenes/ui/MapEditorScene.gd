@@ -461,9 +461,8 @@ func _erase_tile(tx: int, tz: int) -> void:
 # --- Map management ---
 
 func _save_map() -> void:
-	var path := "user://maps/%s.txt" % _current_map_name
-	_world_map.save_to_file(path)
-	print("Saved: %s" % path)
+	_world_map.save_to_file(_current_map_name)
+	print("Saved: user://maps/%s.tres" % _current_map_name)
 
 func _new_map_dialog() -> void:
 	var dialog := AcceptDialog.new()
@@ -477,7 +476,9 @@ func _new_map_dialog() -> void:
 		var name := edit.text.strip_edges()
 		if not name.is_empty():
 			_current_map_name = name
-			_world_map = WorldMap.new(name)
+			# p_skip_load=true: create blank slate without MapRegistry lookup.
+			# Then populate with the default layout (walls, enemies, chests).
+			_world_map = WorldMap.new(name, true)
 			_world_map._build_default_map()
 			_rebuild_visuals()
 			_update_hud()
