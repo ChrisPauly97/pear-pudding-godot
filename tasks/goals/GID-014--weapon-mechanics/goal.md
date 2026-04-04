@@ -16,7 +16,7 @@ The battle system currently has no hero-level equipment. Weapons give Saimtar pe
 | TID-035 | SaveManager: equipped_weapon field | agent | done | — |
 | TID-036 | Auto-resolve spell cards + dagger_throw | agent | done | TID-034 |
 | TID-037 | BattleScene weapon effect hook | agent | done | TID-034, TID-035, TID-036 |
-| TID-038 | Docs: inventory-and-deck.md update | agent | pending | TID-037 |
+| TID-038 | Docs: inventory-and-deck.md update | agent | done | TID-037 |
 
 ## Acceptance Criteria
 
