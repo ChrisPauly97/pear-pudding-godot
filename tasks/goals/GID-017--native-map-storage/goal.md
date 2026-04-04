@@ -20,7 +20,7 @@ By migrating to `.tres` resource files with typed `Resource` subclasses:
 | TID-046 | Define MapData resource schema | agent | done | — |
 | TID-047 | Convert .txt maps to .tres | agent | done | TID-046 |
 | TID-048 | MapRegistry autoload | agent | done | TID-047 |
-| TID-049 | Migrate WorldMap to load from MapData | agent | pending | TID-046, TID-048 |
+| TID-049 | Migrate WorldMap to load from MapData | agent | done | TID-046, TID-048 |
 | TID-050 | Update DungeonGen to output .tres | agent | pending | TID-046, TID-049 |
 | TID-051 | Update Map Editor to save/load .tres | agent | pending | TID-049 |
 | TID-052 | Remove bundling pipeline | agent | pending | TID-049, TID-050, TID-051 |

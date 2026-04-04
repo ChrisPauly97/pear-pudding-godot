@@ -461,9 +461,8 @@ func _erase_tile(tx: int, tz: int) -> void:
 # --- Map management ---
 
 func _save_map() -> void:
-	var path := "user://maps/%s.txt" % _current_map_name
-	_world_map.save_to_file(path)
-	print("Saved: %s" % path)
+	_world_map.save_to_file(_current_map_name)
+	print("Saved: user://maps/%s.tres" % _current_map_name)
 
 func _new_map_dialog() -> void:
 	var dialog := AcceptDialog.new()

@@ -20,7 +20,7 @@
 | [GID-014](goals/GID-014--weapon-mechanics/goal.md) | Weapon Mechanics System | done | 5 / 5 |
 | [GID-015](goals/GID-015--consolidate-maps-map-view/goal.md) | Consolidate Named-Map Buildings & Map View Overlay | done | 2 / 2 |
 | [GID-016](goals/GID-016--mobile-parity/goal.md) | Mobile / Desktop Feature Parity Fixes | in-progress | 3 / 5 |
-| [GID-017](goals/GID-017--native-map-storage/goal.md) | Native Godot Map Storage Migration | in-progress | 3 / 8 |
+| [GID-017](goals/GID-017--native-map-storage/goal.md) | Native Godot Map Storage Migration | in-progress | 4 / 8 |
 
 ## Backlog
 

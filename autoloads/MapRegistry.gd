@@ -48,14 +48,14 @@ func get_map(map_name: String) -> Resource:
 	if ResourceLoader.exists(tres_path):
 		return ResourceLoader.load(tres_path)
 
-	# 3. Legacy .txt files in user:// (backwards compatibility).
-	#    Requires WorldMap.to_map_data() which is added in TID-049.
-	#    TODO(TID-049): uncomment once to_map_data() is implemented.
-	# var txt_path := "user://maps/%s.txt" % map_name
-	# if FileAccess.file_exists(txt_path):
-	#     const WorldMapScript = preload("res://game_logic/world/WorldMap.gd")
-	#     var wm := WorldMapScript.new(map_name)
-	#     return wm.to_map_data()
+	# 3. Legacy .txt files in user:// (backwards compatibility for old editor saves).
+	#    Pass p_skip_load=true to avoid re-entering MapRegistry from WorldMap._init().
+	var txt_path := "user://maps/%s.txt" % map_name
+	if FileAccess.file_exists(txt_path):
+		const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
+		var wm := _WorldMap.new(map_name, true)
+		wm.load_from_file(txt_path)
+		return wm.to_map_data(map_name)
 
 	return null
 

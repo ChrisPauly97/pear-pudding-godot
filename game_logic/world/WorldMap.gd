@@ -3,7 +3,12 @@ extends RefCounted
 
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const ChunkData = preload("res://game_logic/world/ChunkData.gd")
-const BundledMaps = preload("res://game_logic/world/BundledMaps.gd")
+const _MapData   = preload("res://game_logic/world/resources/MapData.gd")
+const _MapEnemy  = preload("res://game_logic/world/resources/MapEnemy.gd")
+const _MapChest  = preload("res://game_logic/world/resources/MapChest.gd")
+const _MapDoor   = preload("res://game_logic/world/resources/MapDoor.gd")
+const _MapNpc    = preload("res://game_logic/world/resources/MapNpc.gd")
+const _MapScroll = preload("res://game_logic/world/resources/MapScroll.gd")
 
 # Aliases for IsoConst tile types — avoids breaking existing references
 const TILE_GRASS: int = IsoConst.TILE_GRASS
@@ -26,35 +31,29 @@ var player_spawn_x: int = -1
 var player_spawn_z: int = -1
 var is_fallback: bool = false   # true when map file couldn't be loaded
 
-func _init(p_name: String = "main") -> void:
+## p_skip_load — if true, only allocates grids without loading from MapRegistry.
+## Used internally by MapRegistry's legacy .txt fallback to avoid recursion.
+func _init(p_name: String = "main", p_skip_load: bool = false) -> void:
 	map_name = p_name
 	_alloc_grids()
 
+	if p_skip_load:
+		return
+
 	# Loading priority:
-	#   1. BundledMaps — map text compiled into the GDScript PCK (always works)
-	#   2. res:// .txt file — works on desktop, unreliable on Android
-	#   3. user:// .txt file — custom / editor-saved maps
-	#   4. Fallback — procedurally generated default map
+	#   1. MapRegistry — returns a preloaded .tres MapData resource (always works)
+	#   2. Fallback — procedurally generated default map
 	#
-	# BundledMaps is a preloaded GDScript constant, so it is guaranteed to be
-	# available on every platform including Android APK/PCK builds where plain
-	# .txt files are not exported as resources.
-	if BundledMaps.has_map(map_name):
-		load_from_string(BundledMaps.get_content(map_name))
-		print("[WorldMap] Loaded '%s' from BundledMaps — %d NPCs, %d enemies, %d chests, %d doors, %d scrolls" % [
+	# MapRegistry const-preloads the 6 bundled maps so they're included in the
+	# Android PCK. It also runtime-loads user://maps/<name>.tres for editor/dungeon maps.
+	var data: Resource = MapRegistry.get_map(map_name)
+	if data != null:
+		load_from_resource(data)
+		print("[WorldMap] Loaded '%s' from MapRegistry — %d NPCs, %d enemies, %d chests, %d doors, %d scrolls" % [
 			map_name, npcs.size(), enemies.size(), chests.size(), doors.size(), scrolls.size()])
 		return
 
-	# Not a bundled map — try filesystem (user-created maps from the editor)
-	var user_path := "user://maps/%s.txt" % map_name
-	var content := FileAccess.get_file_as_string(user_path)
-	if not content.is_empty():
-		load_from_string(content)
-		print("[WorldMap] Loaded '%s' from %s — %d NPCs, %d enemies, %d chests, %d doors" % [
-			map_name, user_path, npcs.size(), enemies.size(), chests.size(), doors.size()])
-		return
-
-	push_warning("[WorldMap] Map '%s' not found in BundledMaps or user:// — using default map" % map_name)
+	push_warning("[WorldMap] Map '%s' not found in MapRegistry — using default map" % map_name)
 	is_fallback = true
 	_build_default_map()
 
@@ -171,70 +170,188 @@ func all_enemies_defeated() -> bool:
 
 # ── Save / Load ──────────────────────────────────────────────────────────────
 
-func save_to_file(path: String) -> void:
-	# Ensure directory exists
-	var dir_path := path.get_base_dir()
-	DirAccess.make_dir_recursive_absolute(dir_path)
+## Save the current map state to user://maps/<p_map_name>.tres.
+## The map_name parameter must be the bare name (no path, no extension).
+func save_to_file(p_map_name: String) -> void:
+	DirAccess.make_dir_recursive_absolute("user://maps")
+	var data := to_map_data(p_map_name)
+	var path := "user://maps/%s.tres" % p_map_name
+	var err := ResourceSaver.save(data, path)
+	if err != OK:
+		push_error("[WorldMap] Failed to save map '%s' to %s (error %d)" % [p_map_name, path, err])
+	else:
+		print("[WorldMap] Saved '%s' to %s" % [p_map_name, path])
 
-	var f := FileAccess.open(path, FileAccess.WRITE)
-	if f == null:
-		push_error("Cannot write map file: %s" % path)
+## Populate this WorldMap from a MapData resource.
+## Converts flat PackedInt32Array grids to 2D arrays, and Resource entities to dicts.
+func load_from_resource(data: Resource) -> void:
+	var md := data as _MapData
+	if md == null:
+		push_error("[WorldMap] load_from_resource: expected MapData resource, got %s" % str(data))
+		_build_default_map()
 		return
 
-	f.store_line("%d %d" % [MAP_WIDTH, MAP_HEIGHT])
+	_alloc_grids()
+	enemies.clear()
+	chests.clear()
+	doors.clear()
+	npcs.clear()
+	scrolls.clear()
+	player_spawn_x = md.spawn_x
+	player_spawn_z = md.spawn_z
+
+	# Flat PackedInt32Array → 2D tile/height arrays
 	for tz in range(MAP_HEIGHT):
-		var row := ""
 		for tx in range(MAP_WIDTH):
-			row += str(tiles[tz][tx])
-		f.store_line(row)
+			var idx: int = tz * MAP_WIDTH + tx
+			if idx < md.tiles.size():
+				tiles[tz][tx] = md.tiles[idx]
+			if idx < md.heights.size():
+				heights[tz][tx] = md.heights[idx]
 
-	f.store_line("HEIGHTS")
-	for tz in range(MAP_HEIGHT):
-		for tx in range(MAP_WIDTH):
-			if tiles[tz][tx] != TILE_GRASS:
-				f.store_line("%d,%d,%d" % [tx, tz, heights[tz][tx]])
-
-	if has_player_spawn():
-		f.store_line("SPAWN %d %d" % [player_spawn_x, player_spawn_z])
-
-	for e in enemies:
-		f.store_line("ENEMY %d %d" % [int(e["x"] / TILE_SIZE), int(e["z"] / TILE_SIZE)])
-
-	for c in chests:
-		var card_str := ",".join(c.get("card_ids", []))
-		f.store_line("CHEST %d %d %s" % [int(c["x"] / TILE_SIZE), int(c["z"] / TILE_SIZE), card_str])
-
-	for n in npcs:
-		if str(n.get("npc_type", "")) == "merchant":
-			f.store_line("MERCHANT %d %d" % [int(n["x"] / TILE_SIZE), int(n["z"] / TILE_SIZE)])
+	# Entity Resources → runtime dicts with world-space coordinates
+	var uid_counter: int = 0
+	for res in md.enemies:
+		var e := res as _MapEnemy
+		if e == null:
 			continue
-		var fk: String = str(n.get("flag_key", ""))
-		if fk != "":
-			var before: String = str(n.get("dialogue", "..."))
-			var after: String = str(n.get("after_dialogue", ""))
-			f.store_line("NPC %d %d FLAG:%s %s || %s" % [int(n["x"] / TILE_SIZE), int(n["z"] / TILE_SIZE), fk, before, after])
-		else:
-			var dialogue: String = str(n.get("dialogue", "..."))
-			f.store_line("NPC %d %d %s" % [int(n["x"] / TILE_SIZE), int(n["z"] / TILE_SIZE), dialogue])
+		uid_counter += 1
+		enemies.append({
+			"id": e.entity_id if e.entity_id != "" else "enemy_%d" % uid_counter,
+			"x": float(e.tile_x) * TILE_SIZE,
+			"z": float(e.tile_z) * TILE_SIZE,
+			"alive": true,
+			"tracking": true,
+			"enemy_type": e.enemy_type,
+			"enemy_deck": EnemyRegistry.get_deck(e.enemy_type),
+		})
 
-	for s in scrolls:
-		var sfk: String = s.get("flag_key", "")
-		var sflag_suffix: String = " FLAG:%s" % sfk if sfk != "" else ""
-		f.store_line("SCROLL %d %d %s%s" % [int(s["x"] / TILE_SIZE), int(s["z"] / TILE_SIZE), s["scroll_id"], sflag_suffix])
+	for res in md.chests:
+		var c := res as _MapChest
+		if c == null:
+			continue
+		uid_counter += 1
+		var card_ids_arr: Array[String] = []
+		for cid in c.card_ids:
+			card_ids_arr.append(cid)
+		chests.append({
+			"id": c.entity_id if c.entity_id != "" else "chest_%d" % uid_counter,
+			"x": float(c.tile_x) * TILE_SIZE,
+			"z": float(c.tile_z) * TILE_SIZE,
+			"card_ids": card_ids_arr,
+			"opened": false,
+		})
 
-	for d in doors:
-		var target: String = d.get("target_map", "")
-		if target.is_empty():
-			target = "__exit__"
-		var tdoor: String = d.get("target_door_id", "")
-		var fk: String = d.get("flag_key", "")
-		var flag_suffix: String = " FLAG:%s" % fk if fk != "" else ""
-		if tdoor.is_empty():
-			f.store_line("DOOR %d %d %s%s" % [int(d["x"] / TILE_SIZE), int(d["z"] / TILE_SIZE), target, flag_suffix])
-		else:
-			f.store_line("DOOR %d %d %s %s%s" % [int(d["x"] / TILE_SIZE), int(d["z"] / TILE_SIZE), target, tdoor, flag_suffix])
+	for res in md.doors:
+		var d := res as _MapDoor
+		if d == null:
+			continue
+		uid_counter += 1
+		doors.append({
+			"id": d.entity_id if d.entity_id != "" else "door_%d" % uid_counter,
+			"x": float(d.tile_x) * TILE_SIZE,
+			"z": float(d.tile_z) * TILE_SIZE,
+			"target_map": d.target_map,
+			"target_door_id": d.target_door_id,
+			"flag_key": d.flag_key,
+		})
 
-	f.close()
+	for res in md.npcs:
+		var n := res as _MapNpc
+		if n == null:
+			continue
+		uid_counter += 1
+		npcs.append({
+			"id": n.entity_id if n.entity_id != "" else "npc_%d" % uid_counter,
+			"x": float(n.tile_x) * TILE_SIZE,
+			"z": float(n.tile_z) * TILE_SIZE,
+			"dialogue": n.dialogue,
+			"npc_type": n.npc_type,
+			"flag_key": n.flag_key,
+			"after_dialogue": n.after_dialogue,
+		})
+
+	for res in md.scrolls:
+		var s := res as _MapScroll
+		if s == null:
+			continue
+		uid_counter += 1
+		scrolls.append({
+			"id": s.entity_id if s.entity_id != "" else "scroll_%d" % uid_counter,
+			"x": float(s.tile_x) * TILE_SIZE,
+			"z": float(s.tile_z) * TILE_SIZE,
+			"scroll_id": s.scroll_id,
+			"flag_key": s.flag_key,
+		})
+
+## Build a MapData resource from the current in-memory state.
+## Used by save_to_file() and by MapRegistry's legacy .txt fallback.
+func to_map_data(p_map_name: String = "") -> Resource:
+	var md := _MapData.new()
+	md.map_name = p_map_name if p_map_name != "" else map_name
+	md.width = MAP_WIDTH
+	md.height = MAP_HEIGHT
+	md.spawn_x = player_spawn_x if player_spawn_x >= 0 else 5
+	md.spawn_z = player_spawn_z if player_spawn_z >= 0 else 5
+
+	# Pack 2D tile/height arrays into flat PackedInt32Arrays
+	md.tiles = PackedInt32Array()
+	md.heights = PackedInt32Array()
+	for tz in range(MAP_HEIGHT):
+		for tx in range(MAP_WIDTH):
+			md.tiles.append(tiles[tz][tx])
+			md.heights.append(heights[tz][tx])
+
+	# Convert runtime dicts back to typed Resource entities
+	for e_dict in enemies:
+		var e := _MapEnemy.new()
+		e.entity_id = str(e_dict.get("id", ""))
+		e.tile_x = int(float(e_dict.get("x", 0.0)) / TILE_SIZE)
+		e.tile_z = int(float(e_dict.get("z", 0.0)) / TILE_SIZE)
+		e.enemy_type = str(e_dict.get("enemy_type", "undead_basic"))
+		md.enemies.append(e)
+
+	for c_dict in chests:
+		var c := _MapChest.new()
+		c.entity_id = str(c_dict.get("id", ""))
+		c.tile_x = int(float(c_dict.get("x", 0.0)) / TILE_SIZE)
+		c.tile_z = int(float(c_dict.get("z", 0.0)) / TILE_SIZE)
+		var cids: Array = c_dict.get("card_ids", [])
+		for cid in cids:
+			c.card_ids.append(str(cid))
+		md.chests.append(c)
+
+	for d_dict in doors:
+		var d := _MapDoor.new()
+		d.entity_id = str(d_dict.get("id", ""))
+		d.tile_x = int(float(d_dict.get("x", 0.0)) / TILE_SIZE)
+		d.tile_z = int(float(d_dict.get("z", 0.0)) / TILE_SIZE)
+		d.target_map = str(d_dict.get("target_map", ""))
+		d.target_door_id = str(d_dict.get("target_door_id", ""))
+		d.flag_key = str(d_dict.get("flag_key", ""))
+		md.doors.append(d)
+
+	for n_dict in npcs:
+		var n := _MapNpc.new()
+		n.entity_id = str(n_dict.get("id", ""))
+		n.tile_x = int(float(n_dict.get("x", 0.0)) / TILE_SIZE)
+		n.tile_z = int(float(n_dict.get("z", 0.0)) / TILE_SIZE)
+		n.dialogue = str(n_dict.get("dialogue", "..."))
+		n.npc_type = str(n_dict.get("npc_type", ""))
+		n.flag_key = str(n_dict.get("flag_key", ""))
+		n.after_dialogue = str(n_dict.get("after_dialogue", ""))
+		md.npcs.append(n)
+
+	for s_dict in scrolls:
+		var s := _MapScroll.new()
+		s.entity_id = str(s_dict.get("id", ""))
+		s.tile_x = int(float(s_dict.get("x", 0.0)) / TILE_SIZE)
+		s.tile_z = int(float(s_dict.get("z", 0.0)) / TILE_SIZE)
+		s.scroll_id = str(s_dict.get("scroll_id", ""))
+		s.flag_key = str(s_dict.get("flag_key", ""))
+		md.scrolls.append(s)
+
+	return md
 
 func load_from_file(path: String) -> void:
 	var content := FileAccess.get_file_as_string(path)
@@ -442,43 +559,7 @@ func get_chunk_data(cx: int, cz: int) -> RefCounted:
 	return cd
 
 static func list_map_names() -> Array[String]:
-	var result: Array[String] = []
-	var seen: Dictionary = {}
-
-	# 1. BundledMaps — always available, even on Android
-	for key: Variant in BundledMaps.DATA.keys():
-		var n: String = str(key)
-		if not seen.has(n):
-			result.append(n)
-			seen[n] = true
-
-	# 2. res://assets/maps/ — desktop fallback (may fail on Android)
-	var da := DirAccess.open("res://assets/maps/")
-	if da:
-		da.list_dir_begin()
-		var fname := da.get_next()
-		while fname != "":
-			if fname.ends_with(".txt"):
-				var n := fname.get_basename()
-				if not seen.has(n):
-					result.append(n)
-					seen[n] = true
-			fname = da.get_next()
-
-	# 3. user://maps/ — custom / editor-saved maps
-	var da2 := DirAccess.open("user://maps/")
-	if da2:
-		da2.list_dir_begin()
-		var fname2 := da2.get_next()
-		while fname2 != "":
-			if fname2.ends_with(".txt"):
-				var n := fname2.get_basename()
-				if not seen.has(n):
-					result.append(n)
-					seen[n] = true
-			fname2 = da2.get_next()
-
-	return result
+	return MapRegistry.list_map_names()
 
 # ── Default map builder ───────────────────────────────────────────────────────
 
