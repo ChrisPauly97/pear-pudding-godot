@@ -2,7 +2,7 @@
 
 **Goal:** GID-017
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-049, TID-050, TID-051
 
 ## Lock
@@ -63,12 +63,18 @@ No bundling step needed. Godot handles export inclusion automatically.
 
 ## Plan
 
-_Written during Plan phase._
+1. Delete `scripts/bundle_maps.py`, `game_logic/world/BundledMaps.gd`, and all 6 `assets/maps/*.txt` files.
+2. Replace the "Map Bundling" section in `CLAUDE.md` with the new "Map Storage" section.
+3. Verify CI, `project.godot`, and `.gitignore` have no lingering references (confirmed: none).
 
 ## Changes Made
 
-_Filled after Build phase._
+- **Deleted** `scripts/bundle_maps.py` — no longer needed.
+- **Deleted** `game_logic/world/BundledMaps.gd` — superseded by `MapRegistry.gd`.
+- **Deleted** `assets/maps/*.txt` (all 6) — `.tres` versions in `assets/maps/` are the source of truth.
+- **`CLAUDE.md`** — replaced "Map Bundling: Always Re-bundle After Editing Maps" with "Map Storage: Native Godot .tres Resources" explaining the new MapRegistry preload workflow.
+- No changes to CI, `project.godot`, or `.gitignore` — none had BundledMaps references.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`CLAUDE.md` updated (see Changes Made above).
