@@ -2,7 +2,7 @@
 
 **Goal:** GID-014
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-034, TID-035, TID-036
 
 ## Lock
@@ -75,12 +75,14 @@ func _apply_weapon_effect(player: PlayerState) -> void:
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `WeaponRegistry` and `WeaponData` preloads to BattleScene.gd.
+2. Add `_apply_weapon_effect(player)` method implementing all four effect types.
+3. Call it in `_ready()` after `build_deck()` and before `draw_opening_hand()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`: Added `WeaponRegistry` and `WeaponData` preloads; added `_apply_weapon_effect()` function; wired call between `build_deck` and `draw_opening_hand`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+TID-038 will update `docs/agent/inventory-and-deck.md`.
