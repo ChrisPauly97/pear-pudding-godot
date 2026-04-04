@@ -7,6 +7,8 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
+const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
+const WeaponData = preload("res://data/WeaponData.gd")
 
 var enemy_data: Dictionary = {}
 var _state: GameState
@@ -52,6 +54,7 @@ func _ready() -> void:
 					   "ghost", "skeleton", "zombie", "ghoul",
 					   "ghost", "skeleton", "zombie", "ghoul"]
 	_state.players[0].build_deck(player_deck)
+	_apply_weapon_effect(_state.players[0])
 	_state.players[0].draw_opening_hand(4)
 	_flush_auto_spells(0)
 
@@ -73,6 +76,29 @@ func _ready() -> void:
 
 	if not SaveManager.get_story_flag("tutorial_battle_tip"):
 		_show_battle_tutorial()
+
+func _apply_weapon_effect(player: PlayerState) -> void:
+	if SceneManager.save_manager.equipped_weapon == "":
+		return
+	var weapon: WeaponData = WeaponRegistry.get_weapon(SceneManager.save_manager.equipped_weapon)
+	if weapon == null:
+		return
+	match weapon.battle_effect_type:
+		"deck_inject":
+			for i in weapon.injected_card_count:
+				var tmpl: Dictionary = CardRegistry.get_template(weapon.injected_card_id)
+				if tmpl.is_empty():
+					continue
+				player.draw_deck.append(CardInstance.from_template(tmpl))
+			player.draw_deck.shuffle()
+		"starting_mana":
+			player.hero.mana = mini(player.hero.mana + weapon.battle_effect_value, player.hero.max_mana + weapon.battle_effect_value)
+			player.hero.max_mana += weapon.battle_effect_value
+		"starting_hp":
+			player.hero.health += weapon.battle_effect_value
+			player.hero.max_health += weapon.battle_effect_value
+		"passive_atk":
+			player.hero.attack += weapon.battle_effect_value
 
 func _apply_menu_btn_size() -> void:
 	_menu_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.05)

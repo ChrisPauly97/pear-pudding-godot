@@ -2,7 +2,7 @@
 
 **Goal:** GID-014
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-037
 
 ## Lock
@@ -35,12 +35,12 @@ Preserve all existing sections; only add new content. Follow the existing doc st
 
 ## Plan
 
-_Written during Plan phase._
+Add two new sections to `docs/agent/inventory-and-deck.md`: **Weapon System** (WeaponData schema, WeaponRegistry, SaveManager field, effect types table, mana invariant) and **Auto-Resolve Cards** (auto_resolve field, pending_auto_spells mechanic, dagger_throw). Update Integrations table and Asset Requirements table to include weapon-related entries.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `docs/agent/inventory-and-deck.md`: Added "Weapon System" and "Auto-Resolve Cards" sections; updated Integrations and Asset Requirements tables.
 
 ## Documentation Updates
 
-_This task is entirely a documentation update._
+This task is entirely a documentation update — see Changes Made above.

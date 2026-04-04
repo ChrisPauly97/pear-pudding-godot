@@ -79,13 +79,79 @@ The player presses `I` in the world view:
 
 ---
 
+## Weapon System
+
+### Overview
+
+The player carries one equipped weapon at a time. The weapon is stored as an ID string in `SaveManager.equipped_weapon: String` (empty string means no weapon). At the start of every battle, `BattleScene._apply_weapon_effect()` reads this field, resolves the weapon via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn.
+
+Mana cap invariant: max_mana never permanently exceeds 10. The `starting_mana` effect grants a one-time turn-1 burst; `PlayerState.gain_mana_for_turn(turn)` resets `max_mana = min(10, turn)` on every subsequent turn, naturally undoing the boost.
+
+### WeaponData Resource (`data/WeaponData.gd`)
+
+| Field | Type | Purpose |
+|---|---|---|
+| `id` | String | Unique identifier (matches filename without `.tres`) |
+| `display_name` | String | Human-readable weapon name |
+| `description` | String | Flavour / tooltip text |
+| `battle_effect_type` | String | One of the effect types below |
+| `battle_effect_value` | int | Numeric bonus (unused for `deck_inject`) |
+| `injected_card_id` | String | Card ID to inject (deck_inject only) |
+| `injected_card_count` | int | Copies to inject (deck_inject only) |
+
+Weapon `.tres` files live in `data/weapons/`. Each must have a companion `.uid` sidecar.
+
+### WeaponRegistry Autoload (`autoloads/WeaponRegistry.gd`)
+
+Scans `data/weapons/` on first access, loads every `.tres` as a `WeaponData`, and indexes by `id`. API:
+
+```gdscript
+WeaponRegistry.get_weapon(id: String) -> WeaponData  # null if not found
+WeaponRegistry.get_all_ids() -> Array[String]
+```
+
+### Effect Types
+
+| `battle_effect_type` | Behaviour |
+|---|---|
+| `deck_inject` | Appends `injected_card_count` copies of `injected_card_id` to the player's draw pile, then reshuffles. Injected cards may appear in the opening hand. |
+| `starting_mana` | Adds `battle_effect_value` to `hero.mana` and `hero.max_mana` on turn 1. Naturally reset by `gain_mana_for_turn()` on turn 2+. |
+| `starting_hp` | Adds `battle_effect_value` to both `hero.health` and `hero.max_health` (permanent for the battle). |
+| `passive_atk` | Adds `battle_effect_value` to `hero.attack` (permanent for the battle). |
+
+### Built-in Weapons
+
+| ID | Effect |
+|---|---|
+| `rusty_dagger` | `deck_inject` — injects 3× `dagger_throw` (cost-0 auto-resolve spell) |
+
+---
+
+## Auto-Resolve Cards
+
+`CardData` has an `auto_resolve: bool` field (default `false`). When a card with `auto_resolve = true` is drawn:
+- It is never placed in the player's hand
+- Its `spell_effect` fires immediately via `PlayerState.pending_auto_spells`
+- `BattleScene._flush_auto_spells()` drains that queue and calls `_resolve_spell_effect()` for each card
+
+This mechanism is used by weapon-injected spell cards so they fire automatically without requiring the player to spend mana or make a choice.
+
+| Card | `spell_effect` | Behaviour |
+|---|---|---|
+| `dagger_throw` | `deal_damage_random` | Hits a random enemy minion for `spell_power` damage; targets the enemy hero if the board is empty |
+
+The `dagger_throw` card has `cost = 0` and `auto_resolve = true`. It is defined in `data/cards/dagger_throw.tres`.
+
+---
+
 ## Integrations with Other Features
 
 | System | Direction | Details |
 |---|---|---|
-| **SaveManager** | Read + Write | Source of truth for `owned_cards` and `player_deck`; InventoryScene reads and writes both |
+| **SaveManager** | Read + Write | Source of truth for `owned_cards`, `player_deck`, and `equipped_weapon`; InventoryScene reads and writes both card arrays |
 | **CardRegistry** | Data source | `CardRegistry.get_card(id)` resolves name/cost/stats for display in the UI |
-| **BattleScene** | Consumer | Reads `SaveManager.player_deck` at battle start to populate `PlayerState[0].draw_pile` |
+| **BattleScene** | Consumer | Reads `SaveManager.player_deck` at battle start; calls `_apply_weapon_effect()` to apply weapon bonuses before opening hand |
+| **WeaponRegistry** | Data source | Resolves `WeaponData` by id from `data/weapons/`; used by `BattleScene._apply_weapon_effect()` |
 | **Chest entity** | Card source | `Chest.gd` calls `SaveManager.add_card()` on open; marks chest ID in `SaveManager.opened_chests` |
 | **GameBus** | Signal | `inventory_requested` opens the overlay; `chest_opened(card_id)` delivers card drops |
 | **SceneManager** | Overlay router | Instantiates and removes `InventoryScene` in response to `GameBus.inventory_requested` |
@@ -100,4 +166,7 @@ The player presses `I` in the world view:
 | `InventoryScene.gd` | `scenes/ui/InventoryScene.gd` | Script driving the collection + deck panels |
 | Card data resources | `data/cards/*.tres` | One `CardData` per card type; fields: id, display_name, cost, attack, health |
 | Card textures (optional) | `assets/textures/` | Per-card art; falls back to coloured panel if absent |
-| Save file | `user://save.json` | Written by `SaveManager`; `owned_cards` and `player_deck` arrays live here |
+| Save file | `user://save.json` | Written by `SaveManager`; `owned_cards`, `player_deck`, and `equipped_weapon` live here |
+| WeaponData script | `data/WeaponData.gd` | Resource class defining weapon fields |
+| Weapon resources | `data/weapons/*.tres` | One `WeaponData` per weapon; each needs a `.uid` sidecar |
+| `WeaponRegistry.gd` | `autoloads/WeaponRegistry.gd` | Static registry; scans and indexes weapon resources |
