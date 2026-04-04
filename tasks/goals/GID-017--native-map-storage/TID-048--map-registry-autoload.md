@@ -2,7 +2,7 @@
 
 **Goal:** GID-017
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-047
 
 ## Lock
@@ -75,12 +75,22 @@ python3 -c "import random,string; print('uid://'+''.join(random.choices(string.a
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `autoloads/MapRegistry.gd` with `.uid` sidecar:
+   - `const` preloads for all 6 bundled `.tres` maps
+   - `get_map(name) -> Resource` — returns bundled or runtime-loads from `user://maps/*.tres`
+   - `.txt` fallback left as TODO (requires `WorldMap.to_map_data()` from TID-049)
+   - `list_map_names() -> Array[String]` — bundled + user maps
+2. Create `.uid` sidecars for all 6 `.tres` map files (UIDs already in file headers).
+3. Register `MapRegistry` in `project.godot` autoload section.
+4. Commit.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/MapRegistry.gd`** — New autoload. `const` preloads for all 6 built-in maps ensure they're tracked by the export system. `get_map()` tries bundled → `user://maps/*.tres` → null. `.txt` fallback commented-out as TODO for TID-049. `list_map_names()` returns bundled + user maps.
+- **`autoloads/MapRegistry.gd.uid`** — UID sidecar `uid://5q4eakbdz9sk`.
+- **`assets/maps/*.tres.uid`** — 6 new sidecar files matching the UIDs already embedded in each `.tres` header (required for Android export UID tracking).
+- **`project.godot`** — Added `MapRegistry="*res://autoloads/MapRegistry.gd"` to `[autoload]` section.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes. TID-053 updates `named-maps-and-dungeons.md` once the full migration is complete.
