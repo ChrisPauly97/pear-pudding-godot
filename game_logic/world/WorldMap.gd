@@ -21,6 +21,7 @@ var enemies: Array[Dictionary] = []   # Array of WorldEntityData dicts
 var chests: Array[Dictionary] = []    # Array of WorldEntityData dicts
 var doors: Array[Dictionary] = []     # Array of door dicts
 var npcs: Array[Dictionary] = []      # Array of npc dicts
+var scrolls: Array[Dictionary] = []   # Array of scroll dicts
 var player_spawn_x: int = -1
 var player_spawn_z: int = -1
 var is_fallback: bool = false   # true when map file couldn't be loaded
@@ -40,8 +41,8 @@ func _init(p_name: String = "main") -> void:
 	# .txt files are not exported as resources.
 	if BundledMaps.has_map(map_name):
 		load_from_string(BundledMaps.get_content(map_name))
-		print("[WorldMap] Loaded '%s' from BundledMaps — %d NPCs, %d enemies, %d chests, %d doors" % [
-			map_name, npcs.size(), enemies.size(), chests.size(), doors.size()])
+		print("[WorldMap] Loaded '%s' from BundledMaps — %d NPCs, %d enemies, %d chests, %d doors, %d scrolls" % [
+			map_name, npcs.size(), enemies.size(), chests.size(), doors.size(), scrolls.size()])
 		return
 
 	# Not a bundled map — try filesystem (user-created maps from the editor)
@@ -147,6 +148,15 @@ func find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
 			return n
 	return {}
 
+func find_nearby_scroll(px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
+	for s in scrolls:
+		var dx: float = s["x"] - px
+		var dz: float = s["z"] - pz
+		if dx * dx + dz * dz <= range_sq:
+			return s
+	return {}
+
 func find_door_by_id(door_id: String) -> Dictionary:
 	for d in doors:
 		if d.get("id", "") == door_id:
@@ -207,6 +217,11 @@ func save_to_file(path: String) -> void:
 			var dialogue: String = str(n.get("dialogue", "..."))
 			f.store_line("NPC %d %d %s" % [int(n["x"] / TILE_SIZE), int(n["z"] / TILE_SIZE), dialogue])
 
+	for s in scrolls:
+		var sfk: String = s.get("flag_key", "")
+		var sflag_suffix: String = " FLAG:%s" % sfk if sfk != "" else ""
+		f.store_line("SCROLL %d %d %s%s" % [int(s["x"] / TILE_SIZE), int(s["z"] / TILE_SIZE), s["scroll_id"], sflag_suffix])
+
 	for d in doors:
 		var target: String = d.get("target_map", "")
 		if target.is_empty():
@@ -241,6 +256,7 @@ func load_from_string(content: String) -> void:
 	chests.clear()
 	doors.clear()
 	npcs.clear()
+	scrolls.clear()
 	player_spawn_x = -1
 	player_spawn_z = -1
 
@@ -368,6 +384,23 @@ func load_from_string(content: String) -> void:
 					"target_map": target,
 					"target_door_id": tdoor,
 					"flag_key": flag_key
+				})
+
+		elif line.begins_with("SCROLL "):
+			var parts := line.split(" ")
+			if parts.size() >= 4:
+				uid_counter += 1
+				var scroll_id: String = parts[3]
+				var flag_key: String = ""
+				for p in parts:
+					if p.begins_with("FLAG:"):
+						flag_key = p.substr(5)
+				scrolls.append({
+					"id": "scroll_%d" % uid_counter,
+					"scroll_id": scroll_id,
+					"x": float(parts[1]) * TILE_SIZE,
+					"z": float(parts[2]) * TILE_SIZE,
+					"flag_key": flag_key,
 				})
 
 		elif in_heights:

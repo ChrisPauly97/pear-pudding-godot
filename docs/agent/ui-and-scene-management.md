@@ -30,6 +30,7 @@ GAME_OVER → MENU (return to menu button)
 WORLD ← → WORLD (map transition via map_stack)
 WORLD ← → INVENTORY (overlay, world stays in tree)
 WORLD ← → SHOP (overlay, world stays in tree)
+WORLD ← → JOURNAL (overlay, world stays in tree)
 ```
 
 **Battle overlay pattern:**

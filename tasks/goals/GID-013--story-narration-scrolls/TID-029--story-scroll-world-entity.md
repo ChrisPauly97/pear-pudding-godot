@@ -2,7 +2,7 @@
 
 **Goal:** GID-013
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-028
 
 ## Lock
@@ -103,12 +103,28 @@ Positions must be read from the actual map files during the Plan phase to find g
 
 ## Plan
 
-_Written during Plan phase._
+1. `WorldMap.gd`: add `scrolls: Array[Dictionary] = []`; parse `SCROLL x z scroll_id [FLAG:key]` in `load_from_string()`; serialize in `save_to_file()`; add `find_nearby_scroll()` helper.
+2. `StoryScroll.gd` + `StoryScroll.tscn` + `.uid` sidecar: programmatic gold scroll mesh + OmniLight3D glow; `setup(scroll_id, player)`, `interact()` API.
+3. `AudioManager.gd`: add `scroll_pickup` SFX path.
+4. `WorldScene.gd`: preload `_StoryScrollScene`; add `_scroll_nodes: Array[Node3D]`; add `_spawn_named_map_scrolls()` called after named-map chunk build; add `_find_nearby_scroll()`; update `_check_interactions()` and `_handle_interact()`.
+5. Map .txt files: add `SCROLL` directives to madrian, maykalene, farsyth_mansion, blancogov, blancogov_temple.
+6. Run `python3 scripts/bundle_maps.py` to update BundledMaps.gd.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/WorldMap.gd`: Added `scrolls: Array[Dictionary]` field; `SCROLL x z scroll_id [FLAG:key]` parsing in `load_from_string()`; serialization in `save_to_file()`; `find_nearby_scroll()` helper; updated log message to include scroll count.
+- `scenes/world/entities/StoryScroll.gd`: New entity script — programmatic gold cylinder mesh + OmniLight3D glow; `setup(scroll_id, player)` auto-frees if already collected; `interact()` calls `SaveManager.mark_scroll_collected`, emits `GameBus.story_scroll_collected`, plays `scroll_pickup` SFX.
+- `scenes/world/entities/StoryScroll.tscn`: Minimal scene file with proper 12-char uid.
+- `autoloads/AudioManager.gd`: Added `scroll_pickup` SFX path (graceful no-op if file absent).
+- `scenes/world/WorldScene.gd`: Preloaded `_StoryScrollScene`; added `_scroll_nodes: Array[Node3D]`; `_spawn_named_map_scrolls()` called after named-map chunk build; `_find_nearby_scroll()` helper; updated `_check_interactions()` and `_handle_interact()`.
+- `assets/maps/madrian.txt`: `SCROLL 8 13 scroll_larik_origins` (inside orphanage).
+- `assets/maps/maykalene.txt`: `SCROLL 52 55 scroll_martarquas_first_war` (in city).
+- `assets/maps/farsyth_mansion.txt`: `SCROLL 35 40 scroll_maiteln_order` and `SCROLL 63 40 scroll_prophecy_text`.
+- `assets/maps/blancogov.txt`: `SCROLL 42 50 scroll_farsyth_lineage` and `SCROLL 58 50 scroll_blancogov_founding`.
+- `assets/maps/blancogov_temple.txt`: `SCROLL 45 50 scroll_king_eldar_coronation`.
+- `game_logic/world/BundledMaps.gd`: Rebuilt via `bundle_maps.py`.
+- **Note**: `.tscn` files embed their UID in the file header — no separate `.uid` sidecar needed (per CLAUDE.md).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required for this task — system docs will be updated in TID-033.

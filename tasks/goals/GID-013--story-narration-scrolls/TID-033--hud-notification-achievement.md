@@ -2,7 +2,7 @@
 
 **Goal:** GID-013
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-028, TID-029
 
 ## Lock
@@ -70,12 +70,25 @@ The `_tip_label` was added to `WorldScene` in TID-026 (GID-012). Read `WorldScen
 
 ## Plan
 
-_Written during Plan phase._
+1. `WorldScene.gd`: connect `GameBus.story_scroll_collected` → `_on_scroll_collected(scroll_id)`; show tip "Lore scroll found: [title]"; check `collected_scrolls.size() >= SCROLL_COUNT` → emit `all_scrolls_collected`.
+2. Create `docs/agent/story-narration-scrolls.md` — full feature doc.
+3. Update `docs/agent/signals-and-constants.md` — add 4 new signals.
+4. Update `docs/agent/save-system.md` — add `collected_scrolls` field, update version note.
+5. Update `docs/agent/audio-manager.md` — add narration channel section.
+6. Update `docs/agent/ui-and-scene-management.md` — add Journal overlay to state machine and section.
+7. Update `docs/agent/story-implementation.md` — add scroll integration row.
+8. Update `CLAUDE.md` docs table — add new doc row.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WorldScene.gd`: connected `GameBus.story_scroll_collected` → `_on_scroll_collected(scroll_id)` in `_ready()`; implemented `_on_scroll_collected` — looks up title via `ScrollRegistry.get_scroll(scroll_id)`, calls `_show_tip("Lore scroll found: " + title)`, emits `GameBus.all_scrolls_collected` when `collected_scrolls.size() >= ScrollRegistry.SCROLL_COUNT`
+- `CLAUDE.md`: added `docs/agent/story-narration-scrolls.md` row to docs table
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/story-narration-scrolls.md` — full feature doc (ScrollRegistry, StoryScroll entity, AudioManager narration channel, JournalScene, infinite-world placement, achievement hook)
+- Updated `docs/agent/signals-and-constants.md` — added `story_scroll_collected`, `all_scrolls_collected`, `journal_requested`, `dialogue_state_changed` to Signal Reference Table
+- Updated `docs/agent/save-system.md` — added `collected_scrolls: Array[String]` field (v6), StoryScroll integration row
+- Updated `docs/agent/audio-manager.md` — added narration channel section with full API docs
+- Updated `docs/agent/ui-and-scene-management.md` — added JOURNAL to state machine, added Journal overlay section
+- Updated `docs/agent/story-implementation.md` — added ScrollRegistry and StoryScroll rows to Integrations table

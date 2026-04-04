@@ -2,7 +2,7 @@
 
 **Goal:** GID-013
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-028
 
 ## Lock
@@ -122,12 +122,20 @@ func _show_dialogue(text: String) -> void:
 
 ## Plan
 
-_Written during Plan phase._
+1. `GameBus.gd`: add `signal dialogue_state_changed(active: bool)` under `# World signals`.
+2. `AudioManager.gd`: add `_narration_player: AudioStreamPlayer` + `_narration_suppressed: bool`; wire up in `_ready()`; add `play_narration`, `stop_narration`, `is_narration_playing`, `set_narration_suppressed`; connect to `GameBus.dialogue_state_changed` in `_ready()`.
+3. `WorldScene.gd`: emit `GameBus.dialogue_state_changed(true)` in `_show_dialogue()`; emit `false` when timer expires.
+4. `StoryScroll.gd`: call `AudioManager.play_narration(_scroll_id)` in `interact()` (after mark_collected).
+5. Create `assets/audio/narration/` directory placeholder (`.gitkeep`).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: Added `signal dialogue_state_changed(active: bool)` under `# World signals`.
+- `autoloads/AudioManager.gd`: Added `_narration_player: AudioStreamPlayer` (dedicated, not in pool); `_narration_suppressed: bool`; `play_narration(scroll_id)` with graceful no-op if audio absent; `stop_narration()`, `is_narration_playing()`, `set_narration_suppressed()`; `_on_dialogue_state_changed()` wired to `GameBus.dialogue_state_changed` in `_ready()`. Volume set to −3 dB.
+- `scenes/world/WorldScene.gd`: `_show_dialogue()` now emits `GameBus.dialogue_state_changed(true)`; timer-expiry branch emits `false`.
+- `scenes/world/entities/StoryScroll.gd`: `interact()` now calls `AudioManager.play_narration(_scroll_id)` after marking collected.
+- `assets/audio/narration/.gitkeep`: Created directory for narration `.ogg` files (graceful no-op until files are added).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — docs update deferred to TID-033.

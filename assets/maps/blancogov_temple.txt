@@ -392,3 +392,4 @@ NPC 42 15 FLAG:chapter1_temple_council Maiteln! We are glad you came so swiftly.
 NPC 58 15 Welcome, Maiteln, and your young companion. You are most welcome here. Please take a seat in one of the red satin oak chairs.
 NPC 50 30 The letter was urgent for good reason. The prophecy cannot be ignored. All lords must be present before we act.
 DOOR 50 92 __exit__ temple_exit
+SCROLL 45 50 scroll_king_eldar_coronation

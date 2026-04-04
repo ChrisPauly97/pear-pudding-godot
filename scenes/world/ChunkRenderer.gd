@@ -10,6 +10,8 @@ const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
 const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
 const _MerchantScene     = preload("res://scenes/world/entities/MerchantNPC.tscn")
+const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
+const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
 
 const TERRAIN_VDENSITY: int = 2
 const PLATEAU_H:        float = 1.5   # fallback hill height for tiles with no stored height
@@ -264,6 +266,34 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		if world_scene.has_method("register_npc"):
 			world_scene.register_npc(n_data["id"], node, n_data)
 		print("NPC spawned: ", n_data.get("id", "?"), " (", n_data.get("npc_type", "townsperson"), ") at world (", n_data["x"], ", ", n_data["z"], ")")
+
+	# ── Infinite-world scroll (seed-deterministic, 1 per ~200 chunks) ─────────
+	var cx: int = _chunk_key.x
+	var cz: int = _chunk_key.y
+	var world_seed: int = 42
+	if world_scene.get("WORLD_SEED") != null:
+		world_seed = int(world_scene.get("WORLD_SEED"))
+	var scroll_id: String = InfiniteWorldGen.get_chunk_scroll_id(cx, cz, world_seed)
+	if scroll_id != "" and not SceneManager.save_manager.is_scroll_collected(scroll_id):
+		var h: int = (cx * 73856093) ^ (cz * 19349663) ^ world_seed
+		h = h & 0x7FFFFFFF
+		var lx: int = (h >> 8) % IsoConst.CHUNK_SIZE
+		var lz: int = (h >> 16) % IsoConst.CHUNK_SIZE
+		if _chunk_data.get_tile(lx, lz) == IsoConst.TILE_GRASS:
+			var origin: Vector3 = _chunk_data.origin_world()
+			var wx: float = origin.x + float(lx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wz: float = origin.z + float(lz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wy: float = world_scene.get_terrain_height(wx, wz) + 0.1
+			var scroll_node: Node3D = _StoryScrollScene.instantiate() as Node3D
+			entity_root.add_child(scroll_node)
+			scroll_node.position = Vector3(wx, wy, wz)
+			var player: Node3D = null
+			if world_scene.has_method("get_player"):
+				player = world_scene.get_player() as Node3D
+			if scroll_node.has_method("setup"):
+				scroll_node.setup(scroll_id, player)
+			if is_instance_valid(scroll_node) and world_scene.has_method("register_scroll"):
+				world_scene.register_scroll(scroll_node)
 
 const ENTITY_VISIBILITY_END: float = 50.0
 

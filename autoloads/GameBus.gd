@@ -3,11 +3,13 @@ extends Node
 # World signals
 signal enemy_engaged(enemy_data: Dictionary)
 signal hud_message_requested(text: String)
+signal dialogue_state_changed(active: bool)
 signal battle_won(result: Dictionary)
 signal battle_lost()
 signal map_transition_requested(map_name: String, target_door_id: String)
 signal inventory_requested
 signal shop_requested
+signal journal_requested
 
 # Battle signals
 signal card_played(card_id: String, zone: String, slot: int)
@@ -17,3 +19,5 @@ signal battle_ended(winner: int)  # 0 = player, 1 = enemy
 
 # Story signals
 signal story_flag_set(flag: String)
+signal story_scroll_collected(scroll_id: String)
+signal all_scrolls_collected()
