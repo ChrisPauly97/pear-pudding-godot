@@ -2,7 +2,7 @@
 
 **Goal:** GID-017
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-046, TID-049
 
 ## Lock
@@ -43,12 +43,19 @@ However, if DungeonGen has its own file writing logic separate from `save_to_fil
 
 ## Plan
 
-_Written during Plan phase._
+1. In `DungeonGen.generate()`, change `_WorldMap.new(p_name)` to `_WorldMap.new(p_name, true)` to skip the default-map fallback (no wasteful `_build_default_map()` + spurious warning).
+2. Add `map.save_to_file(p_name)` at the end of `generate()` before returning, so the dungeon is persisted as `user://maps/<name>.tres`.
+3. In `WorldScene._ready()`, check `MapRegistry.get_map(map_name)` before regenerating a dungeon — if a saved .tres exists, load it via `WorldMap.new(map_name)`; otherwise call `DungeonGen.generate()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/world/DungeonGen.gd`**:
+  - Changed `_WorldMap.new(p_name)` → `_WorldMap.new(p_name, true)` to use the `p_skip_load` flag added in TID-049, preventing the fallback default-map build.
+  - Added `map.save_to_file(p_name)` before `return map`, persisting the generated dungeon to `user://maps/<name>.tres`.
+
+- **`scenes/world/WorldScene.gd`**:
+  - Updated the dungeon branch to call `MapRegistry.get_map(map_name)` first. If the .tres exists (re-entry), loads via `WorldMap.new(map_name)`. If not (first visit), calls `DungeonGen.generate()` which generates and saves.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No doc changes in this task; `docs/agent/named-maps-and-dungeons.md` will be fully rewritten in TID-053.

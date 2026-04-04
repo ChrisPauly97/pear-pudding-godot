@@ -170,7 +170,12 @@ func _ready() -> void:
 	if not _is_infinite:
 		if map_name.begins_with("dungeon_"):
 			var dseed: int = int(map_name.substr(8))
-			world_map = DungeonGen.generate(map_name, dseed)
+			# Use the saved .tres if this dungeon was already generated, otherwise
+			# generate fresh and save it (DungeonGen.generate calls save_to_file).
+			if MapRegistry.get_map(map_name) != null:
+				world_map = WorldMap.new(map_name)
+			else:
+				world_map = DungeonGen.generate(map_name, dseed)
 		else:
 			world_map = WorldMap.new(map_name)
 			if world_map.is_fallback:

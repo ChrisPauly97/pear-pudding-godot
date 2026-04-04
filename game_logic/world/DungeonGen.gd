@@ -30,7 +30,7 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = dungeon_seed
 
-	var map: _WorldMap = _WorldMap.new(p_name)
+	var map: _WorldMap = _WorldMap.new(p_name, true)  # skip_load: avoids default-map fallback
 
 	# Fill entire working area with walls
 	for tz in range(DH):
@@ -107,6 +107,10 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 		"target_map": "",
 		"target_door_id": "",
 	})
+
+	# Persist to user://maps/<p_name>.tres so MapRegistry can load it on re-entry
+	# without regenerating. WorldScene checks MapRegistry first before calling generate().
+	map.save_to_file(p_name)
 
 	return map
 
