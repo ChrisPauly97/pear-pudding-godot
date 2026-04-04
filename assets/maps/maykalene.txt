@@ -755,4 +755,5 @@ DOOR 49 98 farsyth_mansion door_mansion_exit
 NPC 55 56 Welcome to Maykalene! The port city of the eastern coast.
 NPC 61 50 Be wary of the Farsyth mansion on the hill. Strange things happen there.
 MERCHANT 62 48
-DOOR 50 0 __exit__ maykalene_exit FLAG:chapter1_warned_farsythSCROLL 52 55 scroll_martarquas_first_war
+DOOR 50 0 __exit__ maykalene_exit FLAG:chapter1_warned_farsyth
+SCROLL 52 55 scroll_martarquas_first_war

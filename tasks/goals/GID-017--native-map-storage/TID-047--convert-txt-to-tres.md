@@ -2,7 +2,7 @@
 
 **Goal:** GID-017
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-046
 
 ## Lock
@@ -75,12 +75,29 @@ This reuses `WorldMap.load_from_string()` exactly and calls `ResourceSaver.save(
 
 ## Plan
 
-_Written during Plan phase._
+Approach: Python converter (Godot headless not installed in this environment).
+
+1. Fix bug in `maykalene.txt` — DOOR and SCROLL lines were concatenated without a newline.
+2. Write `scripts/convert_maps.py` that mirrors `WorldMap.load_from_string()` logic:
+   - Stops tile grid reading when a non-tile line is hit (some maps have < 100 rows)
+   - Parses HEIGHTS, SPAWN, ENEMY, CHEST, NPC, MERCHANT, DOOR, SCROLL sections
+   - Writes Godot 4 `.tres` text format with ext_resources + sub_resources
+3. Run converter → produces 6 `.tres` files in `assets/maps/`
+4. Log bug as BID-003.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`assets/maps/maykalene.txt`** — Fixed bug: split concatenated `DOOR ... FLAG:chapter1_warned_farsythSCROLL 52 55 scroll_martarquas_first_war` into two correct lines. The scroll `scroll_martarquas_first_war` at (52,55) was previously lost.
+- **`scripts/convert_maps.py`** — New Python converter. Parses all 6 `.txt` maps (handling < 100 tile rows gracefully) and emits `.tres` files using UIDs from TID-046.
+- **`assets/maps/*.tres`** — 6 new files: blancogov, blancogov_temple, farsyth_mansion, madrian, main, maykalene. Entity counts: 41 total entities across all maps.
+- **`tasks/backlog/BID-003--maykalene-concatenated-door-scroll.md`** — New backlog item documenting the bug (marked fixed).
+- **`tasks/index.md`** — Added BID-003 to backlog table.
+
+Notable decisions:
+- Map files with < 100 tile rows (blancogov=95, blancogov_temple=96, farsyth_mansion=97, maykalene=95) — converter stops tile reading at first non-tile line; missing rows are implicitly all-grass in the resource (PackedInt32Array default 0).
+- Entity positions stored as tile coordinates in the resource (not world coordinates). Conversion: `tile_coord = world_coord / TILE_SIZE`.
+- `load_steps` in .tres header = 1 + count(ext_resource declarations).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes. TID-053 updates `named-maps-and-dungeons.md` once the full migration is complete.
