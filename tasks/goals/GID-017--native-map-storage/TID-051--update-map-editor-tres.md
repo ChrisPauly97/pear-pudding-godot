@@ -2,7 +2,7 @@
 
 **Goal:** GID-017
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-049
 
 ## Lock
@@ -38,12 +38,15 @@ The in-game Map Editor (`MapEditorScene.gd`) saves maps to `user://maps/<name>.t
 
 ## Plan
 
-_Written during Plan phase._
+1. Audit MapEditorScene.gd for any remaining `.txt`-specific code.
+2. Fix `_new_map_dialog()`: `WorldMap.new(name)` now triggers `_build_default_map()` internally for unknown names, then the dialog called it again — double build. Use `WorldMap.new(name, true)` (skip_load) so only the explicit `_build_default_map()` call runs.
+3. Confirm all other paths (`_load_map`, `_save_map`, `_show_map_list`) are correct.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/ui/MapEditorScene.gd`**: In `_new_map_dialog()`, changed `WorldMap.new(name)` → `WorldMap.new(name, true)`. This uses the `p_skip_load` flag to avoid `MapRegistry.get_map()` being called (and the fallback `_build_default_map()` running twice when the name is unknown). The explicit `_build_default_map()` call immediately after handles initialization.
+- No other changes were needed: `_save_map()` was already updated in TID-049 to call `save_to_file(_current_map_name)` (saves .tres); `_load_map()` uses `WorldMap.new()` which delegates to MapRegistry; `_show_map_list()` uses `WorldMap.list_map_names()` which delegates to MapRegistry.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required at this stage.

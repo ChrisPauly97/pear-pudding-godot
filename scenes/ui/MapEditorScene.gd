@@ -476,7 +476,9 @@ func _new_map_dialog() -> void:
 		var name := edit.text.strip_edges()
 		if not name.is_empty():
 			_current_map_name = name
-			_world_map = WorldMap.new(name)
+			# p_skip_load=true: create blank slate without MapRegistry lookup.
+			# Then populate with the default layout (walls, enemies, chests).
+			_world_map = WorldMap.new(name, true)
 			_world_map._build_default_map()
 			_rebuild_visuals()
 			_update_hud()

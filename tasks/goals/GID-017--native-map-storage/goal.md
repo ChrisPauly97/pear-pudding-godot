@@ -22,7 +22,7 @@ By migrating to `.tres` resource files with typed `Resource` subclasses:
 | TID-048 | MapRegistry autoload | agent | done | TID-047 |
 | TID-049 | Migrate WorldMap to load from MapData | agent | done | TID-046, TID-048 |
 | TID-050 | Update DungeonGen to output .tres | agent | done | TID-046, TID-049 |
-| TID-051 | Update Map Editor to save/load .tres | agent | pending | TID-049 |
+| TID-051 | Update Map Editor to save/load .tres | agent | done | TID-049 |
 | TID-052 | Remove bundling pipeline | agent | pending | TID-049, TID-050, TID-051 |
 | TID-053 | Update agent docs | agent | pending | TID-052 |
 
