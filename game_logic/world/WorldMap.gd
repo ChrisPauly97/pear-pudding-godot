@@ -184,10 +184,13 @@ func save_to_file(p_map_name: String) -> void:
 
 ## Populate this WorldMap from a MapData resource.
 ## Converts flat PackedInt32Array grids to 2D arrays, and Resource entities to dicts.
+## Uses duck-typing (.get()) throughout to avoid script-identity cast failures that
+## occur when .tres sub-resources are loaded from PCK vs directly preloaded scripts.
 func load_from_resource(data: Resource) -> void:
-	var md := data as _MapData
-	if md == null:
-		push_error("[WorldMap] load_from_resource: expected MapData resource, got %s" % str(data))
+	var raw_tiles: Variant = data.get("tiles")
+	if not (raw_tiles is PackedInt32Array):
+		push_error("[WorldMap] load_from_resource: not a valid MapData resource (%s)" % str(data))
+		is_fallback = true
 		_build_default_map()
 		return
 
@@ -197,92 +200,137 @@ func load_from_resource(data: Resource) -> void:
 	doors.clear()
 	npcs.clear()
 	scrolls.clear()
-	player_spawn_x = md.spawn_x
-	player_spawn_z = md.spawn_z
+
+	var raw_sx: Variant = data.get("spawn_x")
+	var raw_sz: Variant = data.get("spawn_z")
+	player_spawn_x = int(raw_sx) if raw_sx != null else 5
+	player_spawn_z = int(raw_sz) if raw_sz != null else 5
 
 	# Flat PackedInt32Array → 2D tile/height arrays
+	var tiles_packed: PackedInt32Array = raw_tiles
+	var raw_heights: Variant = data.get("heights")
+	var heights_packed: PackedInt32Array = raw_heights if raw_heights is PackedInt32Array else PackedInt32Array()
 	for tz in range(MAP_HEIGHT):
 		for tx in range(MAP_WIDTH):
 			var idx: int = tz * MAP_WIDTH + tx
-			if idx < md.tiles.size():
-				tiles[tz][tx] = md.tiles[idx]
-			if idx < md.heights.size():
-				heights[tz][tx] = md.heights[idx]
+			if idx < tiles_packed.size():
+				tiles[tz][tx] = tiles_packed[idx]
+			if idx < heights_packed.size():
+				heights[tz][tx] = heights_packed[idx]
 
 	# Entity Resources → runtime dicts with world-space coordinates
 	var uid_counter: int = 0
-	for res in md.enemies:
-		var e := res as _MapEnemy
-		if e == null:
-			continue
-		uid_counter += 1
-		enemies.append({
-			"id": e.entity_id if e.entity_id != "" else "enemy_%d" % uid_counter,
-			"x": float(e.tile_x) * TILE_SIZE,
-			"z": float(e.tile_z) * TILE_SIZE,
-			"alive": true,
-			"tracking": true,
-			"enemy_type": e.enemy_type,
-			"enemy_deck": EnemyRegistry.get_deck(e.enemy_type),
-		})
 
-	for res in md.chests:
-		var c := res as _MapChest
-		if c == null:
-			continue
-		uid_counter += 1
-		var card_ids_arr: Array[String] = []
-		for cid in c.card_ids:
-			card_ids_arr.append(cid)
-		chests.append({
-			"id": c.entity_id if c.entity_id != "" else "chest_%d" % uid_counter,
-			"x": float(c.tile_x) * TILE_SIZE,
-			"z": float(c.tile_z) * TILE_SIZE,
-			"card_ids": card_ids_arr,
-			"opened": false,
-		})
+	var raw_enemies: Variant = data.get("enemies")
+	if raw_enemies is Array:
+		for res in raw_enemies:
+			if not (res is Resource): continue
+			var r: Resource = res
+			var etx: Variant = r.get("tile_x")
+			var etz: Variant = r.get("tile_z")
+			if etx == null or etz == null: continue
+			uid_counter += 1
+			var eid: Variant = r.get("entity_id")
+			var etype: Variant = r.get("enemy_type")
+			var enemy_type: String = str(etype) if etype != null and str(etype) != "" else "skeleton"
+			enemies.append({
+				"id": str(eid) if eid != null and str(eid) != "" else "enemy_%d" % uid_counter,
+				"x": float(int(etx)) * TILE_SIZE,
+				"z": float(int(etz)) * TILE_SIZE,
+				"alive": true,
+				"tracking": true,
+				"enemy_type": enemy_type,
+				"enemy_deck": EnemyRegistry.get_deck(enemy_type),
+			})
 
-	for res in md.doors:
-		var d := res as _MapDoor
-		if d == null:
-			continue
-		uid_counter += 1
-		doors.append({
-			"id": d.entity_id if d.entity_id != "" else "door_%d" % uid_counter,
-			"x": float(d.tile_x) * TILE_SIZE,
-			"z": float(d.tile_z) * TILE_SIZE,
-			"target_map": d.target_map,
-			"target_door_id": d.target_door_id,
-			"flag_key": d.flag_key,
-		})
+	var raw_chests: Variant = data.get("chests")
+	if raw_chests is Array:
+		for res in raw_chests:
+			if not (res is Resource): continue
+			var r: Resource = res
+			var ctx: Variant = r.get("tile_x")
+			var ctz: Variant = r.get("tile_z")
+			if ctx == null or ctz == null: continue
+			uid_counter += 1
+			var cid: Variant = r.get("entity_id")
+			var raw_card_ids: Variant = r.get("card_ids")
+			var card_ids_arr: Array[String] = []
+			if raw_card_ids is Array:
+				for card_id in raw_card_ids:
+					card_ids_arr.append(str(card_id))
+			chests.append({
+				"id": str(cid) if cid != null and str(cid) != "" else "chest_%d" % uid_counter,
+				"x": float(int(ctx)) * TILE_SIZE,
+				"z": float(int(ctz)) * TILE_SIZE,
+				"card_ids": card_ids_arr,
+				"opened": false,
+			})
 
-	for res in md.npcs:
-		var n := res as _MapNpc
-		if n == null:
-			continue
-		uid_counter += 1
-		npcs.append({
-			"id": n.entity_id if n.entity_id != "" else "npc_%d" % uid_counter,
-			"x": float(n.tile_x) * TILE_SIZE,
-			"z": float(n.tile_z) * TILE_SIZE,
-			"dialogue": n.dialogue,
-			"npc_type": n.npc_type,
-			"flag_key": n.flag_key,
-			"after_dialogue": n.after_dialogue,
-		})
+	var raw_doors: Variant = data.get("doors")
+	if raw_doors is Array:
+		for res in raw_doors:
+			if not (res is Resource): continue
+			var r: Resource = res
+			var dtx: Variant = r.get("tile_x")
+			var dtz: Variant = r.get("tile_z")
+			if dtx == null or dtz == null: continue
+			uid_counter += 1
+			var did: Variant = r.get("entity_id")
+			var target_map: Variant = r.get("target_map")
+			var target_door_id: Variant = r.get("target_door_id")
+			var door_flag: Variant = r.get("flag_key")
+			doors.append({
+				"id": str(did) if did != null and str(did) != "" else "door_%d" % uid_counter,
+				"x": float(int(dtx)) * TILE_SIZE,
+				"z": float(int(dtz)) * TILE_SIZE,
+				"target_map": str(target_map) if target_map != null else "",
+				"target_door_id": str(target_door_id) if target_door_id != null else "",
+				"flag_key": str(door_flag) if door_flag != null else "",
+			})
 
-	for res in md.scrolls:
-		var s := res as _MapScroll
-		if s == null:
-			continue
-		uid_counter += 1
-		scrolls.append({
-			"id": s.entity_id if s.entity_id != "" else "scroll_%d" % uid_counter,
-			"x": float(s.tile_x) * TILE_SIZE,
-			"z": float(s.tile_z) * TILE_SIZE,
-			"scroll_id": s.scroll_id,
-			"flag_key": s.flag_key,
-		})
+	var raw_npcs: Variant = data.get("npcs")
+	if raw_npcs is Array:
+		for res in raw_npcs:
+			if not (res is Resource): continue
+			var r: Resource = res
+			var ntx: Variant = r.get("tile_x")
+			var ntz: Variant = r.get("tile_z")
+			if ntx == null or ntz == null: continue
+			uid_counter += 1
+			var nid: Variant = r.get("entity_id")
+			var dialogue: Variant = r.get("dialogue")
+			var npc_type: Variant = r.get("npc_type")
+			var npc_flag: Variant = r.get("flag_key")
+			var after_dlg: Variant = r.get("after_dialogue")
+			npcs.append({
+				"id": str(nid) if nid != null and str(nid) != "" else "npc_%d" % uid_counter,
+				"x": float(int(ntx)) * TILE_SIZE,
+				"z": float(int(ntz)) * TILE_SIZE,
+				"dialogue": str(dialogue) if dialogue != null else "...",
+				"npc_type": str(npc_type) if npc_type != null else "",
+				"flag_key": str(npc_flag) if npc_flag != null else "",
+				"after_dialogue": str(after_dlg) if after_dlg != null else "",
+			})
+
+	var raw_scrolls: Variant = data.get("scrolls")
+	if raw_scrolls is Array:
+		for res in raw_scrolls:
+			if not (res is Resource): continue
+			var r: Resource = res
+			var stx: Variant = r.get("tile_x")
+			var stz: Variant = r.get("tile_z")
+			if stx == null or stz == null: continue
+			uid_counter += 1
+			var sid: Variant = r.get("entity_id")
+			var scroll_id: Variant = r.get("scroll_id")
+			var scroll_flag: Variant = r.get("flag_key")
+			scrolls.append({
+				"id": str(sid) if sid != null and str(sid) != "" else "scroll_%d" % uid_counter,
+				"x": float(int(stx)) * TILE_SIZE,
+				"z": float(int(stz)) * TILE_SIZE,
+				"scroll_id": str(scroll_id) if scroll_id != null else "",
+				"flag_key": str(scroll_flag) if scroll_flag != null else "",
+			})
 
 ## Build a MapData resource from the current in-memory state.
 ## Used by save_to_file() and by MapRegistry's legacy .txt fallback.
