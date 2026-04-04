@@ -2,90 +2,135 @@
 
 ## Key Features
 
-- Hand-authored or procedurally generated 100×100 tile maps stored as plain text files
-- Text format encodes tile grid, sparse height overrides, player spawn, enemies, chests, NPCs, and doors
-- Procedural dungeon generation via `DungeonGen` (seeded by door source)
-- Map stack navigation: entering a door pushes the current map onto a stack; exiting pops back to the return door
-- Maps load from `user://maps/` first (editable user saves), falling back to bundled `res://assets/maps/`
-- Default generated map when the file is missing (border walls, interior obstacles, 8 enemies, 4 chests)
+- Hand-authored maps stored as typed Godot `.tres` resource files in `assets/maps/`
+- `MapData` resource class encodes tile grid, sparse heights, player spawn, and entity lists
+- Six built-in maps preloaded by `MapRegistry` autoload — guaranteed in Android APK/PCK
+- Procedural dungeon generation via `DungeonGen` (seeded, deterministic); persisted as `.tres` on first generation
+- Map stack navigation: entering a door pushes the current map; exiting pops back to the return door
+- Legacy `load_from_string()` shim in `WorldMap` supports old user-saved `.txt` maps during transition
+
+---
+
+## Resource Class Hierarchy
+
+All map data is stored in typed `extends Resource` classes. Each class has a `.uid` sidecar file for Android export tracking.
+
+| Class | File | Purpose |
+|---|---|---|
+| `MapData` | `game_logic/world/resources/MapData.gd` | Top-level map resource; owns tile grids and entity arrays |
+| `MapEnemy` | `game_logic/world/resources/MapEnemy.gd` | Enemy tile position + type key |
+| `MapChest` | `game_logic/world/resources/MapChest.gd` | Chest tile position + card ID list |
+| `MapDoor` | `game_logic/world/resources/MapDoor.gd` | Door tile position + destination map + flag key |
+| `MapNpc` | `game_logic/world/resources/MapNpc.gd` | NPC tile position + dialogue + npc_type + flag |
+| `MapScroll` | `game_logic/world/resources/MapScroll.gd` | Scroll tile position + scroll_id + flag key |
+| `MapTrigger` | `game_logic/world/resources/MapTrigger.gd` | Scripted trigger tile position + event_id (extensibility) |
+| `MapRegion` | `game_logic/world/resources/MapRegion.gd` | Named rectangular region (extensibility) |
+
+### `MapData` fields
+
+```gdscript
+@export var map_name: String = ""
+@export var width: int = 100
+@export var height: int = 100
+@export var tiles: PackedInt32Array = PackedInt32Array()    # row-major: tz*width+tx
+@export var heights: PackedInt32Array = PackedInt32Array()  # same indexing
+@export var spawn_x: int = 5
+@export var spawn_z: int = 5
+@export var enemies: Array[Resource] = []   # cast to MapEnemy at load time
+@export var chests: Array[Resource] = []    # cast to MapChest at load time
+@export var doors: Array[Resource] = []     # cast to MapDoor at load time
+@export var npcs: Array[Resource] = []      # cast to MapNpc at load time
+@export var scrolls: Array[Resource] = []   # cast to MapScroll at load time
+@export var triggers: Array[Resource] = []  # cast to MapTrigger at load time (future)
+@export var regions: Array[Resource] = []   # cast to MapRegion at load time (future)
+@export var music_track: String = ""
+@export var difficulty: int = 0
+@export var author: String = ""
+@export var version: int = 1
+```
+
+Entity positions in `.tres` files are stored in **tile coordinates** (`tile_x`, `tile_z`). `WorldMap.load_from_resource()` converts these to **world coordinates** (`x = float(tile_x) * TILE_SIZE`) at load time.
 
 ---
 
 ## How It Works
 
-### Map File Format
+### Loading: `MapRegistry` → `WorldMap`
 
-Files live in `assets/maps/<map_name>.txt` (or `user://maps/<map_name>.txt`).
+`MapRegistry` (`autoloads/MapRegistry.gd`) is the single source of truth for named maps.
 
-```
-100 100                        ← width height (tiles)
-0001100000...                  ← 100 rows of digit chars, no spaces
-  0 = TILE_GRASS
-  1 = TILE_WALL
-  2 = TILE_HILL
-HEIGHTS                        ← optional section header
-3,7,2.5                        ← x,z,height  (sparse overrides)
-SPAWN 5 5                      ← player start tile
-ENEMY 12 8                     ← enemy at tile (12,8), default type
-ENEMY 20 15 undead_horde       ← enemy with explicit type
-CHEST 30 10 ghost skeleton     ← chest at (30,10) containing listed cards
-NPC 5 20 The forest has eyes.  ← NPC with inline dialogue
-DOOR 45 45 dungeon_a4f2        ← door leading to named map "dungeon_a4f2"
-DOOR 10 10 main return_1       ← door to "main", targeting door id "return_1"
-```
+**Load priority in `MapRegistry.get_map(map_name)`:**
+1. **Bundled maps** — `const` preloads in `MapRegistry.gd`; always available on all platforms including Android.
+2. **`user://maps/<name>.tres`** — editor-saved or DungeonGen-saved maps.
+3. **`user://maps/<name>.txt`** — legacy shim: parses old `.txt` via `WorldMap.load_from_file()` + `to_map_data()`, converts on the fly. Write-once: next `save_to_file()` produces `.tres`.
 
-### Loading: `WorldMap.gd`
+**`WorldMap._init(p_name, p_skip_load=false)`** calls `MapRegistry.get_map()` then `load_from_resource()`. If no map is found, `_build_default_map()` generates a placeholder and sets `is_fallback = true`. Pass `p_skip_load=true` when creating a blank WorldMap for immediate in-place population (DungeonGen, New Map dialog).
 
-`WorldMap` is a `RefCounted` that parses the text file into:
-- `tiles: Array[int]` — 10 000 entries, row-major `[z * 100 + x]`
-- `heights: Dictionary` — sparse `"x,z" → float` overrides
-- `entities: Array[Dictionary]` — one dict per ENEMY / CHEST / NPC / DOOR / SPAWN line
+**`WorldMap.load_from_resource(data: Resource)`** unpacks `MapData`:
+- Flat `PackedInt32Array` tiles/heights → 2D `Array[Array]` (100×100)
+- Entity Resources (tile coords) → entity dicts (world coords); runtime state added (alive, opened, enemy_deck)
 
-`get_tile(x, z)` returns `IsoConst.TILE_WALL` for out-of-bounds queries (safe default for mesh building).
+### Saving: `WorldMap.save_to_file(map_name)`
 
-### Saving Maps
-
-`WorldMap.save(path)` serialises back to the same text format, enabling the in-game `MapEditorScene` to write edits to `user://maps/`.
+Calls `to_map_data(map_name)` then `ResourceSaver.save(data, "user://maps/<name>.tres")`. The `.tres` file is saved to `user://maps/`, not `res://assets/maps/` — built-in maps are only committed from source.
 
 ### Dungeon Generation: `DungeonGen.gd`
 
-When `SceneManager` is asked to enter a `dungeon_*` map name that has no existing file, it calls `DungeonGen.generate(seed_string)`:
+`DungeonGen.generate(p_name, dungeon_seed)`:
+1. Creates `WorldMap(p_name, true)` (blank, no MapRegistry lookup).
+2. Fills 80×60 tile area with walls, carves rooms, connects corridors.
+3. Places enemies (difficulty scales with seed-derived depth), a chest, and an exit door.
+4. Calls `map.save_to_file(p_name)` → writes `user://maps/dungeon_<seed>.tres`.
+5. Returns the WorldMap.
 
-1. Seeds an RNG from the string hash
-2. Places a rectangular room grid (3–5 rooms wide, 3–5 tall)
-3. Connects rooms with corridors (BSP / random walk)
-4. Scatters walls inside rooms (~20% fill)
-5. Places enemies by distance: easier types near the entrance, harder near the centre
-6. Adds a return DOOR pointing back to the originating map/door id
-7. Writes the result to `user://maps/dungeon_<seed>.txt` for persistence
+**`WorldScene`** checks `MapRegistry.get_map(map_name)` before entering a dungeon:
+- If `.tres` exists → `WorldMap.new(map_name)` loads from saved resource (no regeneration).
+- If not → `DungeonGen.generate()` generates, saves, and returns a fresh WorldMap.
 
 ### Map Stack Navigation
 
-`SceneManager` maintains a `map_stack: Array[Dictionary]` in `SaveManager`:
+`SceneManager` maintains `map_stack: Array[Dictionary]` in `SaveManager`:
 
 ```
 enter_map(map_name, target_door_id):
   push { current_map, current_player_pos, return_door_id } onto stack
   load new WorldMap
-  teleport player to the door tile matching target_door_id
+  teleport player to door matching target_door_id (or spawn if no id)
 
 exit_map_via_door(door):
-  if stack is empty → do nothing (already at root)
+  if stack empty → do nothing
   pop top entry
   restore previous WorldMap
-  teleport player to the saved return_door_id tile
+  teleport player to saved return_door_id tile
 ```
 
-This supports arbitrary nesting depth (overworld → ruin dungeon → inner chamber → …).
+Supports arbitrary nesting: overworld → ruin dungeon → inner chamber → …
 
-### Default Map Generation
+---
 
-If neither `user://` nor `res://` contains the requested map file, `WorldMap._generate_default()` creates:
-- Solid TILE_WALL border (1 tile thick)
-- Random interior walls (~15% of tiles)
-- 8 enemies of type `undead_basic`
-- 4 chests with random common cards
-- Player spawn at (5, 5)
+## Adding a New Built-in Map
+
+1. Create `assets/maps/<name>.tres` (use the in-game Map Editor, then copy from `user://maps/`, or write a converter script).
+2. Create `assets/maps/<name>.tres.uid` with `uid://` + 12 random lowercase alphanumeric chars.
+3. Add to `autoloads/MapRegistry.gd`:
+   ```gdscript
+   const _NAME := preload("res://assets/maps/<name>.tres")
+   ```
+   And add `"<name>": _NAME` to `_BUNDLED`.
+4. Commit both files. No bundling step needed — Godot's export system follows the `preload` dependency.
+
+---
+
+## Adding a New Entity Type
+
+1. Create `game_logic/world/resources/MapFoo.gd` (extends Resource, `@export` fields for tile_x, tile_z, and type-specific data).
+2. Create `game_logic/world/resources/MapFoo.gd.uid`.
+3. Add `@export var foos: Array[Resource] = []` to `MapData.gd`.
+4. In `WorldMap.gd`:
+   - Add `const _MapFoo = preload("res://game_logic/world/resources/MapFoo.gd")`.
+   - In `load_from_resource()`: iterate `md.foos`, cast each to `_MapFoo`, append a dict with world coords to `self.foos`.
+   - In `to_map_data()`: iterate `self.foos` dicts, create `_MapFoo` instances, append to `md.foos`.
+5. Add `var foos: Array[Dictionary] = []` to WorldMap and any `find_nearby_foo()` helpers.
 
 ---
 
@@ -93,13 +138,13 @@ If neither `user://` nor `res://` contains the requested map file, `WorldMap._ge
 
 | System | Direction | Details |
 |---|---|---|
-| **WorldScene** | Consumer | Calls `WorldMap.load()` then passes `WorldMap.get_tile` as a `Callable` to `TerrainMath` for mesh building |
+| **WorldScene** | Consumer | Calls `WorldMap.new(name)` (named maps) or `DungeonGen.generate()` (dungeons); passes `WorldMap.get_tile` as a `Callable` to `TerrainMath` |
 | **TerrainMath** | Mesh builder | Accepts `Callable` tile lookup from `WorldMap.get_tile`; builds height field + terrain mesh |
-| **SceneManager** | Orchestrator | Owns the map stack; calls `enter_map()` / `exit_map_via_door()` on DOOR interaction |
-| **SaveManager** | Persistence | `map_stack`, `current_map`, `player_x/z` are saved to `save.json` so navigation survives sessions |
-| **InfiniteWorldGen** | Parallel path | For `"infinite"` mode, `WorldScene` uses `InfiniteWorldGen` instead of `WorldMap`; both feed the same `TerrainMath` API |
-| **MapEditorScene** | Editor | Reads/writes `WorldMap` and saves to `user://maps/`; used for level design and debugging |
-| **EnemyRegistry** | Entity typing | Enemy entities with explicit type strings are resolved via `EnemyRegistry.get_enemy(type)` |
+| **MapRegistry** | Loader | Autoload; the only path through which named maps are loaded at runtime |
+| **SceneManager** | Orchestrator | Owns map stack; calls `enter_map()` / `exit_map_via_door()` on DOOR interaction |
+| **SaveManager** | Persistence | `map_stack`, `current_map`, `player_x/z` saved to `save.json` |
+| **MapEditorScene** | Editor | Calls `WorldMap.new(name)` to load, `save_to_file(name)` to save `.tres` to `user://maps/` |
+| **EnemyRegistry** | Entity typing | `WorldMap.load_from_resource()` resolves `MapEnemy.enemy_type` via `EnemyRegistry.get_deck()` |
 
 ---
 
@@ -107,8 +152,9 @@ If neither `user://` nor `res://` contains the requested map file, `WorldMap._ge
 
 | Asset | Path | Notes |
 |---|---|---|
-| Bundled map files | `assets/maps/*.txt` | At least `main.txt` required as the starting overworld map. Building interiors (inns, houses) are embedded directly in their parent town map — no sub-map files. |
-| `WorldMap.gd` | `game_logic/world/WorldMap.gd` | Loader/saver; exposes `get_tile(x,z)` Callable |
-| `DungeonGen.gd` | `game_logic/world/DungeonGen.gd` | Procedural dungeon writer; only invoked if dungeon file absent |
-| User maps directory | `user://maps/` | Created at runtime; stores edited + generated dungeon maps |
-| Terrain textures | `assets/textures/pixel_art/` | Same textures used for both named maps and infinite chunks |
+| Built-in map resources | `assets/maps/*.tres` + `*.tres.uid` | 6 maps; preloaded by MapRegistry |
+| `MapData.gd` + siblings | `game_logic/world/resources/` | Resource schema files; each needs a `.uid` sidecar |
+| `WorldMap.gd` | `game_logic/world/WorldMap.gd` | Runtime loader; exposes `get_tile(x,z)` Callable |
+| `MapRegistry.gd` | `autoloads/MapRegistry.gd` | Autoload; registered in `project.godot` |
+| `DungeonGen.gd` | `game_logic/world/DungeonGen.gd` | Procedural dungeon writer; only called if dungeon not in MapRegistry |
+| User maps directory | `user://maps/` | Created at runtime; stores editor-saved + DungeonGen `.tres` files |

@@ -2,7 +2,7 @@
 
 **Goal:** GID-017
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-052
 
 ## Lock
@@ -37,12 +37,17 @@
 
 ## Plan
 
-_Written during Plan phase._
+Rewrite `docs/agent/named-maps-and-dungeons.md` in full, replacing all `.txt`/BundledMaps references with the new `.tres`/MapRegistry system. Cover: resource class hierarchy, MapData fields, load priority, DungeonGen .tres output, Map Editor, adding built-in maps, adding new entity types, integrations table, asset requirements.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`docs/agent/named-maps-and-dungeons.md`** — full rewrite:
+  - Replaced `.txt` format description with `MapData` resource class hierarchy table and field listing.
+  - Documented load priority: bundled preloads → `user://maps/*.tres` → `user://maps/*.txt` (legacy shim) → fallback.
+  - Updated DungeonGen section: describes `save_to_file()` call and WorldScene re-entry check.
+  - Added "Adding a New Built-in Map" and "Adding a New Entity Type" step-by-step guides.
+  - Updated integrations table and asset requirements.
 
 ## Documentation Updates
 
-This task IS the documentation update task.
+`docs/agent/named-maps-and-dungeons.md` rewritten (see Changes Made).
