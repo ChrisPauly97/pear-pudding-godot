@@ -15,8 +15,8 @@ Primary export target is Android. A codebase scan revealed five categories of pa
 | TID-041 | Fix ShopScene portrait layout | agent | done | — |
 | TID-042 | Fix InventoryScene portrait layout | agent | done | — |
 | TID-043 | Fix VirtualJoystick viewport-relative sizing | agent | done | — |
-| TID-044 | Add touch cancel for BattleScene card drag | agent | pending | — |
-| TID-045 | Platform-aware UI text and inventory feedback | agent | pending | — |
+| TID-044 | Add touch cancel for BattleScene card drag | agent | done | — |
+| TID-045 | Platform-aware UI text and inventory feedback | agent | done | — |
 
 ## Acceptance Criteria
 
