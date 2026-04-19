@@ -2,7 +2,7 @@
 
 **Goal:** GID-022
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -40,12 +40,17 @@ Only starter_dagger exists. This task creates 6 new weapons covering all WeaponD
 
 ## Plan
 
-_Written during Plan phase._
+For each of the 6 weapons: generate a UID, write the `.tres` file matching the `rusty_dagger.tres` format, write the `.uid` sidecar. No registry changes needed — `WeaponRegistry.gd` auto-discovers all `.tres` files in `data/weapons/`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/weapons/dawn_staff.tres` + `.uid` — deck_inject 2× mend
+- `data/weapons/dusk_blade.tres` + `.uid` — deck_inject 2× drain
+- `data/weapons/mana_crystal.tres` + `.uid` — starting_mana +2
+- `data/weapons/iron_shield.tres` + `.uid` — starting_hp +10
+- `data/weapons/berserker_axe.tres` + `.uid` — passive_atk +3
+- `data/weapons/ember_wand.tres` + `.uid` — deck_inject 3× spark
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — weapon system docs already exist from GID-014.

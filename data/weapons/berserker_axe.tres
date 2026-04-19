@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://lvya1u1q6tmr"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_berserker_axe"]
+
+[resource]
+script = ExtResource("1_berserker_axe")
+id = "berserker_axe"
+display_name = "Berserker Axe"
+description = "A heavy war axe. Your hero's attack is increased by 3."
+battle_effect_type = "passive_atk"
+battle_effect_value = 3
+injected_card_id = ""
+injected_card_count = 0

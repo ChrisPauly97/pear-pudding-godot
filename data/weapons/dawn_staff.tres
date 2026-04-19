@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://x9lk8wiyrqwv"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_dawn_staff"]
+
+[resource]
+script = ExtResource("1_dawn_staff")
+id = "dawn_staff"
+display_name = "Dawn Staff"
+description = "A radiant staff. Injects 2 Mend spells into your draw pile at the start of battle."
+battle_effect_type = "deck_inject"
+battle_effect_value = 0
+injected_card_id = "mend"
+injected_card_count = 2
