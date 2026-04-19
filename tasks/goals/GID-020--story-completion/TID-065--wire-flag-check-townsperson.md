@@ -2,7 +2,7 @@
 
 **Goal:** GID-020
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-063, TID-064
 
 ## Lock
@@ -26,12 +26,17 @@ With MapNpc now storing flag_key and dialogue_before/after (TID-064) and the hum
 
 ## Plan
 
-_Written during Plan phase._
+Implementation was already complete before this task ran. Verified:
+- `scenes/world/entities/TownspersonNPC.gd:91–94` — `get_dialogue()` checks `SaveManager.get_story_flag(_flag_key)` and returns `_after_dialogue` when true, else `npc_data["dialogue"]`
+- `init_from_data()` at line 59 populates `_flag_key` and `_after_dialogue` from the dict passed by ChunkRenderer
+- WorldScene.gd:1085–1098 calls `get_dialogue()` before setting the flag, so first interaction always shows `dialogue_before`
+
+No code changes required.
 
 ## Changes Made
 
-_Filled after Build phase._
+None — already implemented.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required.
