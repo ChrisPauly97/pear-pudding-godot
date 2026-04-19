@@ -21,6 +21,13 @@
 | [GID-015](goals/GID-015--consolidate-maps-map-view/goal.md) | Consolidate Named-Map Buildings & Map View Overlay | done | 2 / 2 |
 | [GID-016](goals/GID-016--mobile-parity/goal.md) | Mobile / Desktop Feature Parity Fixes | done | 5 / 5 |
 | [GID-017](goals/GID-017--native-map-storage/goal.md) | Native Godot Map Storage Migration | done | 8 / 8 |
+| [GID-018](goals/GID-018--card-content-depth/goal.md) | Card Content Depth — Dawn & Dusk Branches | pending | 0 / 4 |
+| [GID-019](goals/GID-019--battle-depth/goal.md) | Battle Depth — Targeting, Intent & Status Effects | pending | 0 / 5 |
+| [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | pending | 0 / 5 |
+| [GID-021](goals/GID-021--enemy-boss-variety/goal.md) | Enemy & Boss Variety | pending | 0 / 5 |
+| [GID-022](goals/GID-022--weapon-system-content/goal.md) | Weapon System Content | pending | 0 / 4 |
+| [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | pending | 0 / 5 |
+| [GID-024](goals/GID-024--meta-progression/goal.md) | Meta-Progression | pending | 0 / 4 |
 
 ## Backlog
 
