@@ -35,8 +35,8 @@ static func decide_turn(state: GameState) -> Array[Callable]:
 			var tgt := targets[0]
 			actions.append(func():
 				if mc.can_attack():
-					tgt.health -= mc.attack
-					mc.health -= tgt.attack
+					tgt.take_damage(mc.attack)
+					mc.take_damage(tgt.attack)
 					mc.attack_count -= 1
 					if not tgt.is_alive():
 						state.opponent().board.remove_card(tgt)

@@ -2,7 +2,7 @@
 
 **Goal:** GID-018
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -44,12 +44,28 @@ The magic system framework (GID-010) defined the `spell_effect` field on CardDat
 
 ## Plan
 
-_Written during Plan phase._
+1. **`CardInstance.gd`** — Add `var armor: int = 0` field. Add `func take_damage(dmg: int) -> void` that subtracts `maxi(0, dmg - armor)` from health, flooring at 0. This makes shield_minion's armor reduction apply consistently to all damage sources.
+
+2. **`BattleScene.gd` combat damage** — Replace all `target.health -= X` / `attacker.health -= X` direct writes with calls to `target.take_damage(X)` / `attacker.take_damage(X)` so armor is respected in combat.
+
+3. **`ai/BasicAI.gd` combat damage** — Same replacement for minion-vs-minion in `decide_turn`.
+
+4. **`BattleScene.gd` `_resolve_spell_effect`** — Add 8 new `match` arms:
+   - `heal_single`: first friendly minion's health += spell_power, capped at max_health
+   - `heal_all`: same for all friendly minions
+   - `shield_minion`: first friendly minion's armor += spell_power
+   - `buff_attack`: first friendly minion's attack += spell_power
+   - `lifesteal_hit`: call `take_damage(spell_power)` on first enemy minion; heal player hero by same amount (capped at max_health); remove minion if dead
+   - `mana_drain`: opponent.hero.mana = maxi(0, opponent.hero.mana - spell_power)
+   - `curse_minion`: reduce first enemy minion's attack and health by spell_power (attack floor 0, remove minion if health ≤ 0)
+   - `draw_card`: call caster.draw_card() spell_power times
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/battle/CardInstance.gd`: Added `armor: int = 0` field and `take_damage(dmg: int)` method that reduces incoming damage by armor before applying to health.
+- `scenes/battle/BattleScene.gd`: Replaced 3 direct `health -=` combat-damage writes with `take_damage()` calls; updated `deal_damage_single`, `deal_damage_all`, `deal_damage_random` handlers to use `take_damage()`; added 8 new `match` arms in `_resolve_spell_effect`: `heal_single`, `heal_all`, `shield_minion`, `buff_attack`, `lifesteal_hit`, `mana_drain`, `curse_minion`, `draw_card`.
+- `ai/BasicAI.gd`: Replaced 2 direct `health -=` writes with `take_damage()` so minion armor applies in AI combat.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md` spell_effect table to include the 8 new effect IDs.

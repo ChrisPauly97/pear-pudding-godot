@@ -56,10 +56,10 @@ Each `EnemyData` resource has a `drop_pool: PackedStringArray` field listing car
 
 | Enemy | Drop Pool |
 |---|---|
-| `undead_basic` | ghost, skeleton |
-| `undead_horde` | skeleton, zombie |
-| `ghoul_pack` | zombie, ghoul |
-| `undead_elite` | ghoul |
+| `undead_basic` | ghost, skeleton, mend, wither |
+| `undead_horde` | skeleton, zombie, dawn_acolyte, dusk_wraith |
+| `ghoul_pack` | zombie, ghoul, dawn_paladin, dusk_vampire |
+| `undead_elite` | ghoul, restore, drain |
 
 ### Chest Card Drops
 

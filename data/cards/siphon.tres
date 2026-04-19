@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://v7fzfw2mrdyb"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_siphon"]
+
+[resource]
+script = ExtResource("1_siphon")
+id = "siphon"
+card_name = "Siphon"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Bleed your enemy's resources dry."
+color = Color(0.5, 0.2, 0.7, 1)
+magic_type = "dark"
+magic_branch = "dusk"
+spell_effect = "mana_drain"
+spell_power = 3

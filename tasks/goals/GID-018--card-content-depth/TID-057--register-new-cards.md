@@ -2,7 +2,7 @@
 
 **Goal:** GID-018
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-055, TID-056
 
 ## Lock
@@ -25,12 +25,24 @@ New Dawn and Dusk cards exist as .tres files but won't appear in the game until 
 
 ## Plan
 
-_Written during Plan phase._
+- **CardRegistry**: no changes — auto-discovers .tres files via DirAccess.
+- **ShopScene**: no changes — uses `CardRegistry.get_all_ids()`, so new cards appear automatically.
+- **Enemy drop pools**: add Dawn/Dusk cards to each enemy's `drop_pool` in their .tres files:
+  - `undead_basic`: add `mend`, `wither` (cheap accessible cards)
+  - `undead_horde`: add `dawn_acolyte`, `dusk_wraith` (minion drops)
+  - `undead_elite`: add `restore`, `drain` (mid-power drops)
+  - `ghoul_pack`: add `dawn_paladin`, `dusk_vampire` (strong minion drops)
+- **SaveManager**: add `dawn_acolyte` and `dusk_wraith` to the starter `owned_cards` only (not player_deck) so new players see one of each branch immediately.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/enemies/undead_basic.tres`: drop_pool += `mend`, `wither`
+- `data/enemies/undead_horde.tres`: drop_pool += `dawn_acolyte`, `dusk_wraith`
+- `data/enemies/undead_elite.tres`: drop_pool += `restore`, `drain`
+- `data/enemies/ghoul_pack.tres`: drop_pool += `dawn_paladin`, `dusk_vampire`
+- `autoloads/SaveManager.gd`: starter `owned_cards` gains `dawn_acolyte` and `dusk_wraith` (battle deck unchanged — still 12 undead minions)
+- No changes to CardRegistry or ShopScene — both already auto-discover cards from `data/cards/`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/inventory-and-deck.md` to note that drop pools now include Dawn/Dusk cards.

@@ -450,8 +450,8 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 			_dragged_card.clear()
 			return
 		AudioManager.play_sfx("attack")
-		target.health -= attacker.attack
-		attacker.health -= target.attack
+		target.take_damage(attacker.attack)
+		attacker.take_damage(target.attack)
 		attacker.attack_count -= 1
 		if not target.is_alive():
 			_state.players[1].board.remove_card(target)
@@ -476,7 +476,7 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 			return
 		AudioManager.play_sfx("attack")
 		_state.players[1].hero.take_damage(attacker.attack)
-		attacker.health -= _state.players[1].hero.attack
+		attacker.take_damage(_state.players[1].hero.attack)
 		attacker.attack_count -= 1
 		if not attacker.is_alive():
 			_state.players[0].board.remove_card(attacker)
@@ -534,13 +534,13 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int) -> void:
 			if targets.is_empty():
 				opponent.hero.take_damage(card.spell_power)
 			else:
-				targets[0].health -= card.spell_power
+				targets[0].take_damage(card.spell_power)
 				if not targets[0].is_alive():
 					opponent.board.remove_card(targets[0])
 					opponent.discard.append(targets[0])
 		"deal_damage_all":
 			for t in opponent.board.get_cards():
-				t.health -= card.spell_power
+				t.take_damage(card.spell_power)
 			for t in opponent.board.get_cards().duplicate():
 				if not t.is_alive():
 					opponent.board.remove_card(t)
@@ -551,7 +551,7 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int) -> void:
 				opponent.hero.take_damage(card.spell_power)
 			else:
 				var idx: int = randi() % targets.size()
-				targets[idx].health -= card.spell_power
+				targets[idx].take_damage(card.spell_power)
 				if not targets[idx].is_alive():
 					opponent.board.remove_card(targets[idx])
 					opponent.discard.append(targets[idx])
@@ -573,6 +573,50 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int) -> void:
 					caster.board.add_card(t)
 					caster.discard.remove_at(i)
 					break
+		"heal_single":
+			var caster: PlayerState = _state.players[caster_pid]
+			var friendlies := caster.board.get_cards()
+			if not friendlies.is_empty():
+				var t := friendlies[0]
+				t.health = mini(t.max_health, t.health + card.spell_power)
+		"heal_all":
+			var caster: PlayerState = _state.players[caster_pid]
+			for t in caster.board.get_cards():
+				t.health = mini(t.max_health, t.health + card.spell_power)
+		"shield_minion":
+			var caster: PlayerState = _state.players[caster_pid]
+			var friendlies := caster.board.get_cards()
+			if not friendlies.is_empty():
+				friendlies[0].armor += card.spell_power
+		"buff_attack":
+			var caster: PlayerState = _state.players[caster_pid]
+			var friendlies := caster.board.get_cards()
+			if not friendlies.is_empty():
+				friendlies[0].attack += card.spell_power
+		"lifesteal_hit":
+			var caster: PlayerState = _state.players[caster_pid]
+			var targets := opponent.board.get_cards()
+			if not targets.is_empty():
+				targets[0].take_damage(card.spell_power)
+				caster.hero.health = mini(caster.hero.max_health, caster.hero.health + card.spell_power)
+				if not targets[0].is_alive():
+					opponent.board.remove_card(targets[0])
+					opponent.discard.append(targets[0])
+		"mana_drain":
+			opponent.hero.mana = maxi(0, opponent.hero.mana - card.spell_power)
+		"curse_minion":
+			var targets := opponent.board.get_cards()
+			if not targets.is_empty():
+				var t := targets[0]
+				t.attack = maxi(0, t.attack - card.spell_power)
+				t.health -= card.spell_power
+				if not t.is_alive():
+					opponent.board.remove_card(t)
+					opponent.discard.append(t)
+		"draw_card":
+			var caster: PlayerState = _state.players[caster_pid]
+			for _i in range(card.spell_power):
+				caster.draw_card()
 
 ## Drains pending_auto_spells for the given player and resolves each.
 ## Called after any draw event (opening hand, turn draw).

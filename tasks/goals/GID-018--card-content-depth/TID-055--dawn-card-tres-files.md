@@ -2,7 +2,7 @@
 
 **Goal:** GID-018
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-054
 
 ## Lock
@@ -39,12 +39,22 @@ Dawn branch represents light/healing/restoration magic. This task creates the .t
 
 ## Plan
 
-_Written during Plan phase._
+Create 8 .tres files and 8 .uid sidecars in `data/cards/` following the ember.tres format. Use `magic_type = "light"`, `magic_branch = "dawn"`, Color(1, 0.9, 0.5, 1) (golden). For spell cards: attack=0, health=0 omitted (they default to 0). For minion cards: no spell_effect/spell_power.
 
 ## Changes Made
 
-_Filled after Build phase._
+Created 8 Dawn card .tres files and 8 .uid sidecars in `data/cards/`:
+- `dawn_acolyte.tres` — 2-cost minion (1/3), light/dawn
+- `dawn_paladin.tres` — 4-cost minion (2/5), light/dawn
+- `mend.tres` — 1-cost spell, heal_single 3
+- `restore.tres` — 3-cost spell, heal_all 2
+- `bulwark.tres` — 2-cost spell, shield_minion 2
+- `rally.tres` — 3-cost spell, buff_attack 2
+- `radiance.tres` — 4-cost spell, heal_all 4
+- `blessed_light.tres` — 2-cost spell, heal_single 5
+
+Note: `magic_type = "light"`, `magic_branch = "dawn"` (research notes had these reversed vs actual CardData schema).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No doc changes needed — battle-system.md spell_effect table was updated in TID-054.
