@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://hln62mg4ou8k"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dawn_paladin"]
+
+[resource]
+script = ExtResource("1_dawn_paladin")
+id = "dawn_paladin"
+card_name = "Dawn Paladin"
+cost = 4
+attack = 2
+health = 5
+card_class = "minion"
+description = "A champion of light and restoration."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"

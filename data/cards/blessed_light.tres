@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://bfmwv3f41j97"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_blessed_light"]
+
+[resource]
+script = ExtResource("1_blessed_light")
+id = "blessed_light"
+card_name = "Blessed Light"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "Channel the full blessing of the dawn."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "heal_single"
+spell_power = 5

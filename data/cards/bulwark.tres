@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://lzqqzndddgqa"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_bulwark"]
+
+[resource]
+script = ExtResource("1_bulwark")
+id = "bulwark"
+card_name = "Bulwark"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "Forge a shield of pure light around one minion."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "shield_minion"
+spell_power = 2
