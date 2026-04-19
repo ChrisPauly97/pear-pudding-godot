@@ -2,7 +2,7 @@
 
 **Goal:** GID-020
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -29,12 +29,17 @@ The named-map parser currently supports a simple `NPC x z dialogue text` directi
 
 ## Plan
 
-_Written during Plan phase._
+Implementation was already complete before this task ran. Verified by reading:
+- `game_logic/world/resources/MapNpc.gd` — has `flag_key` and `after_dialogue` fields
+- `game_logic/world/WorldMap.gd` lines 489–515 — parses `NPC x z FLAG:key before || after` correctly
+- `assets/maps/madrian.tres` — MapNpc_1 has `flag_key = "story_intro_complete"` and `after_dialogue` set
+
+No code changes required.
 
 ## Changes Made
 
-_Filled after Build phase._
+None — all changes were already implemented. The FLAG syntax parser in `WorldMap.gd:489–515`, the `MapNpc` resource fields, and the end-to-end `.tres` round-trip were already complete and tested by the existing NPC loading unit tests.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No doc changes needed; `docs/agent/named-maps-and-dungeons.md` already references NPC/FLAG parsing.
