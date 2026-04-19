@@ -2,7 +2,7 @@
 
 **Goal:** GID-016
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -10,6 +10,20 @@
 **Session:** none
 **Acquired:** —
 **Expires:** —
+
+## Plan
+
+Three one-line / small-block fixes: (1) MapViewOverlay hint text — ternary on `OS.has_feature("android")`; (2) InventoryScene deck row remove button — dimmed+message on android, disabled+tooltip on desktop; (3) InventoryScene landscape close button — strip `[I]` on android.
+
+## Changes Made
+
+- `scenes/ui/MapViewOverlay.gd` line 115: platform-aware close hint text.
+- `scenes/ui/InventoryScene.gd` `_make_deck_row`: dimmed button + `hud_message_requested` on android; disabled+tooltip on desktop.
+- `scenes/ui/InventoryScene.gd` landscape close button: strips `[I]` hint on android.
+
+## Documentation Updates
+
+None required.
 
 ## Context
 

@@ -160,7 +160,7 @@ func _build_ui() -> void:
 		btn_vbox.add_child(save_btn)
 
 		var close_btn := Button.new()
-		close_btn.text = "Close  [I]"
+		close_btn.text = "Close  [I]" if not OS.has_feature("android") else "Close"
 		close_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.055)
 		close_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
 		close_btn.pressed.connect(_on_close)
@@ -299,9 +299,16 @@ func _make_deck_row(id: String, tmpl: Dictionary, index: int) -> HBoxContainer:
 	rm_btn.custom_minimum_size = Vector2(_vh * 0.042, _vh * 0.042)
 	rm_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	if _working_deck.size() <= IsoConst.DECK_MIN:
-		rm_btn.disabled = true
-		rm_btn.tooltip_text = "Minimum deck size reached"
-	rm_btn.pressed.connect(_on_remove.bind(index))
+		if OS.has_feature("android"):
+			rm_btn.modulate = Color(1, 1, 1, 0.4)
+			rm_btn.pressed.connect(func() -> void:
+				GameBus.hud_message_requested.emit("Minimum deck size reached"))
+		else:
+			rm_btn.disabled = true
+			rm_btn.tooltip_text = "Minimum deck size reached"
+			rm_btn.pressed.connect(_on_remove.bind(index))
+	else:
+		rm_btn.pressed.connect(_on_remove.bind(index))
 	row.add_child(rm_btn)
 
 	return row

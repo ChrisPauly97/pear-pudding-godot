@@ -23,6 +23,7 @@ var _vh: float = 0.0
 var _hand_drag_card: CardInstance = null
 var _drag_visual: Control = null
 var _drag_start_pos: Vector2 = Vector2.ZERO
+var _cancel_btn: Button = null
 
 # First-battle tutorial overlay
 var _tutorial_overlay: Control = null
@@ -206,6 +207,7 @@ func _finish_hand_drag() -> void:
 	_cancel_hand_drag()
 
 func _cancel_hand_drag() -> void:
+	_hide_cancel_btn()
 	if _drag_visual:
 		_drag_visual.queue_free()
 		_drag_visual = null
@@ -222,6 +224,26 @@ func _start_hand_drag(card: CardInstance, from_pos: Vector2) -> void:
 	add_child(_drag_visual)
 	# Ensure ghost renders on top
 	move_child(_drag_visual, get_child_count() - 1)
+	_show_cancel_btn()
+
+func _show_cancel_btn() -> void:
+	if _cancel_btn != null:
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var vw: float = vp.x
+	_cancel_btn = Button.new()
+	_cancel_btn.text = "✕ Cancel"
+	_cancel_btn.custom_minimum_size = Vector2(vh * 0.14, vh * 0.06)
+	_cancel_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
+	_cancel_btn.position = Vector2((vw - vh * 0.14) * 0.5, vh * 0.02)
+	_cancel_btn.pressed.connect(_cancel_hand_drag)
+	add_child(_cancel_btn)
+
+func _hide_cancel_btn() -> void:
+	if _cancel_btn != null:
+		_cancel_btn.queue_free()
+		_cancel_btn = null
 
 func _make_card_ghost(card: CardInstance) -> PanelContainer:
 	var panel := _make_card_view(card, "ghost")

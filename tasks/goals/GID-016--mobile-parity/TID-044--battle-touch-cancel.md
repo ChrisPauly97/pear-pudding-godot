@@ -2,7 +2,7 @@
 
 **Goal:** GID-016
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -10,6 +10,18 @@
 **Session:** none
 **Acquired:** —
 **Expires:** —
+
+## Plan
+
+Add `_cancel_btn: Button` variable. Add `_show_cancel_btn()` / `_hide_cancel_btn()` helpers using vh-relative sizing positioned at top-centre. Call `_show_cancel_btn()` at end of `_start_hand_drag()` and `_hide_cancel_btn()` at start of `_cancel_hand_drag()`.
+
+## Changes Made
+
+- `scenes/battle/BattleScene.gd`: added `_cancel_btn` field, `_show_cancel_btn()`, `_hide_cancel_btn()` methods; called them from `_start_hand_drag()` and `_cancel_hand_drag()`.
+
+## Documentation Updates
+
+None required.
 
 ## Context
 
