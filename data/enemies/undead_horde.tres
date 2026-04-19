@@ -7,5 +7,5 @@ script = ExtResource("1_undead_horde")
 id = "undead_horde"
 display_name = "Horde Shambler"
 deck = PackedStringArray("ghost", "ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul")
-drop_pool = PackedStringArray("skeleton", "zombie")
+drop_pool = PackedStringArray("skeleton", "zombie", "dawn_acolyte", "dusk_wraith")
 coin_reward = 8

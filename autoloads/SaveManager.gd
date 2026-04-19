@@ -83,7 +83,10 @@ func new_game() -> void:
 		"ghost", "skeleton", "zombie", "ghoul",
 		"ghost", "skeleton", "zombie", "ghoul",
 	]
-	owned_cards.assign(starter)
+	var starter_owned: Array[String] = starter.duplicate()
+	starter_owned.append("dawn_acolyte")
+	starter_owned.append("dusk_wraith")
+	owned_cards.assign(starter_owned)
 	player_deck.assign(starter)
 	coins = 0
 	current_map = "main"
