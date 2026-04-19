@@ -13,7 +13,7 @@ WeaponRegistry and battle integration are complete (GID-014) but only starter_da
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-073 | Create 6 new weapon .tres files | agent | done | — |
-| TID-074 | Weapon comparison UI in InventoryScene | agent | pending | TID-073 |
+| TID-074 | Weapon comparison UI in InventoryScene | agent | done | TID-073 |
 | TID-075 | Weapons as chest and boss drop rewards | agent | pending | TID-073 |
 | TID-076 | Add weapons to ShopScene | agent | pending | TID-073 |
 
