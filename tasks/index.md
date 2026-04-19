@@ -28,6 +28,7 @@
 | [GID-022](goals/GID-022--weapon-system-content/goal.md) | Weapon System Content | pending | 0 / 4 |
 | [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | pending | 0 / 5 |
 | [GID-024](goals/GID-024--meta-progression/goal.md) | Meta-Progression | pending | 0 / 4 |
+| [GID-025](goals/GID-025--minion-keywords/goal.md) | Minion Keywords — Ward, Surge, Shroud | pending | 0 / 4 |
 | [GID-026](goals/GID-026--battle-ux-essentials/goal.md) | Battle UX Essentials | pending | 0 / 3 |
 | [GID-027](goals/GID-027--dungeon-encounter-variety/goal.md) | Dungeon Encounter Variety | pending | 0 / 4 |
 
