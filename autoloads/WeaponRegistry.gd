@@ -28,6 +28,11 @@ static func get_weapon(id: String) -> WeaponData:
 		return _weapons[id] as WeaponData
 	return null
 
+## Returns true if a weapon with the given id exists.
+static func has_weapon(id: String) -> bool:
+	_ensure_loaded()
+	return _weapons.has(id)
+
 ## Returns all known weapon IDs, in no guaranteed order.
 static func get_all_ids() -> Array[String]:
 	_ensure_loaded()

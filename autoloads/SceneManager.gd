@@ -170,6 +170,9 @@ func _on_battle_won(result: Dictionary) -> void:
 	var reward: String = str(result.get("card_reward", ""))
 	if reward != "":
 		save_manager.add_cards_to_deck([reward])
+	var weapon_reward: String = str(result.get("weapon_reward", ""))
+	if weapon_reward != "":
+		save_manager.add_weapon(weapon_reward)
 	# Award coins based on enemy type
 	var enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
 	if enemy_type != "":

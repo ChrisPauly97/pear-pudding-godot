@@ -8,3 +8,5 @@ extends Resource
 @export var drop_pool: PackedStringArray = PackedStringArray()
 ## Coins awarded to the player when this enemy is defeated.
 @export var coin_reward: int = 5
+## Whether this enemy is a boss — guarantees a weapon drop on defeat.
+@export var is_boss: bool = false
