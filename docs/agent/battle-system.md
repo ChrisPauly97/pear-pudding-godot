@@ -53,7 +53,21 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
 - `card_class: String` — `"minion"` (default) or `"spell"`
 - `magic_type: String` — `"light"` | `"dark"` | `""` (non-magic cards)
 - `magic_branch: String` — `"ember"` | `"dawn"` | `"dusk"` | `"ash"` | `""`
-- `spell_effect: String` — canonical effect key dispatched by the battle engine (e.g. `"deal_damage_single"`, `"deal_damage_all"`, `"debuff_attack"`, `"destroy_low_hp"`, `"resurrect_last"`); `""` for minions
+- `spell_effect: String` — canonical effect key dispatched by `_resolve_spell_effect` in `BattleScene.gd`; `""` for minions. Supported values:
+  - `deal_damage_single` — deal spell_power damage to first enemy minion (or hero if board empty)
+  - `deal_damage_all` — deal spell_power damage to all enemy minions
+  - `deal_damage_random` — deal spell_power damage to a random enemy minion (or hero if board empty)
+  - `debuff_attack` — reduce all enemy minion attack by spell_power (floor 0)
+  - `destroy_low_hp` — destroy all enemy minions with health ≤ spell_power
+  - `resurrect_last` — resurrect last friendly minion from discard with full HP
+  - `heal_single` — restore spell_power HP to first friendly minion (cap at max_health)
+  - `heal_all` — restore spell_power HP to all friendly minions (cap at max_health)
+  - `shield_minion` — add spell_power armor to first friendly minion (armor reduces incoming damage)
+  - `buff_attack` — increase attack of first friendly minion by spell_power
+  - `lifesteal_hit` — deal spell_power damage to first enemy minion; heal caster hero by same amount
+  - `mana_drain` — reduce enemy hero current mana by spell_power (floor 0)
+  - `curse_minion` — reduce first enemy minion attack and health by spell_power (destroy if health ≤ 0)
+  - `draw_card` — caster draws spell_power additional cards from their deck
 - `spell_power: int` — numeric parameter for the effect (damage amount, stat reduction, etc.); `0` for minions
 
 Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at their defaults (`""` / `0`) and are unaffected.

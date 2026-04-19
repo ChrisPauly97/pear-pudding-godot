@@ -12,7 +12,7 @@ The magic system framework (GID-010) defined four branches — Ember, Ash, Dawn,
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-054 | Implement new spell effect handlers | agent | pending | — |
+| TID-054 | Implement new spell effect handlers | agent | done | — |
 | TID-055 | Create Dawn branch card .tres files | agent | pending | TID-054 |
 | TID-056 | Create Dusk branch card .tres files | agent | pending | TID-054 |
 | TID-057 | Register new cards in drop pools, shop, and rewards | agent | pending | TID-055, TID-056 |
