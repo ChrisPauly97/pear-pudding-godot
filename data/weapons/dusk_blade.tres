@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://0kq4bozvi638"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_dusk_blade"]
+
+[resource]
+script = ExtResource("1_dusk_blade")
+id = "dusk_blade"
+display_name = "Dusk Blade"
+description = "A shadowed blade. Injects 2 Drain spells into your draw pile at the start of battle."
+battle_effect_type = "deck_inject"
+battle_effect_value = 0
+injected_card_id = "drain"
+injected_card_count = 2

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://ixqmt54871c4"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_mana_crystal"]
+
+[resource]
+script = ExtResource("1_mana_crystal")
+id = "mana_crystal"
+display_name = "Mana Crystal"
+description = "A humming gem. You start each battle with 2 extra mana."
+battle_effect_type = "starting_mana"
+battle_effect_value = 2
+injected_card_id = ""
+injected_card_count = 0

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://rspioo6ow1t9"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_ember_wand"]
+
+[resource]
+script = ExtResource("1_ember_wand")
+id = "ember_wand"
+display_name = "Ember Wand"
+description = "A smoldering wand. Injects 3 Spark spells into your draw pile at the start of battle."
+battle_effect_type = "deck_inject"
+battle_effect_value = 0
+injected_card_id = "spark"
+injected_card_count = 3
