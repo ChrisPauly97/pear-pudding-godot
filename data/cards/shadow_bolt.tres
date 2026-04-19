@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://1fs40231bxt7"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_shadow_bolt"]
+
+[resource]
+script = ExtResource("1_shadow_bolt")
+id = "shadow_bolt"
+card_name = "Shadow Bolt"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "A bolt of pure darkness strikes an enemy."
+color = Color(0.5, 0.2, 0.7, 1)
+magic_type = "dark"
+magic_branch = "dusk"
+spell_effect = "deal_damage_single"
+spell_power = 4
