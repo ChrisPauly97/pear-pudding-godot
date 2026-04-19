@@ -115,6 +115,45 @@ tasks/              — goal and task tracking (agent-managed)
 
 ---
 
+## Open Questions — Resolved
+
+The following questions from the initial spec have been answered by completed goals:
+
+- **Battle rewards beyond card drops:** Coins awarded via `coin_reward` in EnemyData (GID-007). No XP system planned.
+- **Enemy respawn:** Defeated enemies stay dead per save via `SaveManager.defeated_enemies` (GID-009). No time-based respawn.
+- **Deck size constraints:** Minimum 5, maximum 30 cards enforced in deck builder (GID-003).
+- **Chapter count:** Chapter 1 is the target for v1 release. Chapter 2 is out of scope.
+
+---
+
+## Chapter 1 Victory Condition
+
+> **TODO for TID-066 / TID-067:** Describe the trigger and outcome for completing Chapter 1.
+> Fill this in so the agent can implement the ending scene and flag.
+>
+> - **Trigger event:** (e.g. King Eldar dialogue interaction in blancogov_temple)
+> - **Story flag set:** (e.g. `chapter1_complete`)
+> - **Ending presentation:** (e.g. narration overlay, black screen + text, scroll)
+> - **Post-ending flow:** (e.g. return to main menu; Continue re-loads the save for future Chapter 2)
+
+---
+
+## Planned Enemy Types
+
+> **TODO for TID-068:** Define 6 new enemy types (aiming for ~2 per biome).
+> Full detail belongs in `docs/human/story.md` under "New Enemy Types".
+> Confirm the list below or replace with your own designs.
+>
+> Suggested types:
+> - **Wraith** — Grasslands, fast low-HP minion deck
+> - **Forest Shade** — Forest, evasive deck with draw effects
+> - **Sand Stalker** — Desert, aggressive rush deck
+> - **Scorched Revenant** — Scorched, burn/damage-all deck
+> - **Mountain Troll** — Mountains, high-HP slow deck
+> - **Stone Golem** — Mountains, boss-tier tank (used as mini-boss)
+
+---
+
 ## References & Inspirations
 
 - **TCG mechanics:** Hearthstone (mana curve, board zones, hero HP)

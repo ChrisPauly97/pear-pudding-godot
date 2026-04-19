@@ -112,6 +112,16 @@ then race to reach King Eldar's temple within three days.
 - **Isfig on horseback (Road to Blancogov):** Scripted NPC encounter after leaving Maykalene.
   Isfig rides up with the letter from Scargroth. Triggers `chapter1_received_letter` flag.
 
+### Chapter 1 Victory Condition
+
+> **TODO for TID-066 / TID-067:** Define what constitutes a Chapter 1 victory.
+> Fill in the details below so the agent can implement the ending scene.
+>
+> - **Trigger:** Which interaction or story flag marks the chapter as complete?
+>   (Suggested: King Eldar dialogue in blancogov_temple sets `chapter1_complete`)
+> - **Ending text/scene:** What is shown? (Narration overlay? Scroll? Black screen with text?)
+> - **After the ending:** Return to main menu? Loop for replay? Lock until Chapter 2?
+
 ---
 
 ## NPC Dialogue by Map
@@ -153,6 +163,18 @@ then race to reach King Eldar's temple within three days.
 | Queen | x=58, z=15 | Welcome, Maiteln, and your young companion. You are most welcome here. Please take a seat in one of the red satin oak chairs. |
 | Scargroth | x=50, z=30 | The letter was urgent for good reason. The prophecy cannot be ignored. All lords must be present before we act. |
 
+### Flag-Gated Dialogue States
+
+> **TODO for TID-063:** For each NPC whose dialogue changes after a story event, fill in this table.
+> Format: NPC | map | flag_key | text shown BEFORE flag is set | text shown AFTER flag is set.
+> The agent will read this to implement `TownspersonNPC.get_dialogue()` flag routing.
+> Leave Before-Flag blank if the NPC has no special pre-flag line (uses the static line above).
+
+| NPC | Map | Flag Key | Before-Flag Text | After-Flag Text |
+|---|---|---|---|---|
+| Gate guard | blancogov | chapter1_received_letter | Halt! State your business. No entry without authorisation! | Welcome back. The council awaits within — proceed. |
+| (add more rows here) | | | | |
+
 ---
 
 ## Map Specifications
@@ -184,3 +206,30 @@ DOOR x z target_map [door_id] — door linking to another map (__exit__ returns 
 | `assets/maps/farsyth_mansion.txt` | Chapter 1 | Long hall, Lord Farsyth's audience chamber |
 | `assets/maps/blancogov.txt` | Chapter 1 | Golden gate, three tower pairs, temple entrance |
 | `assets/maps/blancogov_temple.txt` | Chapter 1 | Throne hall, council seating |
+
+---
+
+## New Enemy Types
+
+> **TODO for TID-068:** Define 6 new enemy types (aiming for 2 per biome).
+> For each, provide the fields below. The agent will create .tres files from this table.
+> Deck and drop_pool values use card IDs (e.g. ghost, skeleton, spark, ash).
+
+| ID | Display Name | Biome | Coin Reward | Deck (card IDs, quantities) | Drop Pool |
+|---|---|---|---|---|---|
+| wraith | Wraith | grasslands | 8 | (fill in) | (fill in) |
+| forest_shade | Forest Shade | forest | 10 | (fill in) | (fill in) |
+| sand_stalker | Sand Stalker | desert | 9 | (fill in) | (fill in) |
+| scorched_revenant | Scorched Revenant | scorched | 12 | (fill in) | (fill in) |
+| mountain_troll | Mountain Troll | mountains | 15 | (fill in) | (fill in) |
+| stone_golem | Stone Golem | mountains | 18 | (fill in — boss tier) | (fill in) |
+
+### Boss Enemy Types
+
+> **TODO for TID-071:** Define the 2 boss encounters.
+> A boss is an enemy placed in a specific named map location that uses the boss framework from TID-070.
+
+| ID | Display Name | Map Placement | Special Mechanic | Deck | Drop Pool |
+|---|---|---|---|---|---|
+| (mid_boss) | (name) | blancogov_temple or farsyth_mansion | (e.g. phase 2 deck swap at 50% HP) | (fill in) | (fill in) |
+| (chapter1_boss) | (name) | blancogov_temple | (e.g. hero gains armor each turn) | (fill in) | (fill in) |
