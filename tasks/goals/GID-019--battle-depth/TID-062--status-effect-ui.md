@@ -2,7 +2,7 @@
 
 **Goal:** GID-019
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-060
 
 ## Lock
@@ -28,12 +28,16 @@ With statuses stored and processed, players need visual feedback showing which m
 
 ## Plan
 
-_Written during Plan phase._
+- Add `StatusRow` HBoxContainer to board card vboxes and hero panel vboxes
+- Color-coded abbreviated labels: P=poison (green), A=armor (blue), F=freeze (cyan), S=stun (yellow)
+- `_build_card_vbox(card, with_status_row)` param controls when to add the row
+- Board zones (board, enemy_board) get status rows; hand/enemy_hand do not
+- `_update_status_icons_card()` and `_update_status_icons_hero()` rebuild icons on each refresh
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`: modified `_build_card_vbox()`, `_update_card_view()`, `_make_card_view()`, `_refresh_hero()` for status rows; added `_update_status_icons_card()` and `_update_status_icons_hero()`; named all label nodes (NameLabel, StatsLabel, DescLabel)
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md`

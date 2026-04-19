@@ -53,6 +53,8 @@ func draw_opening_hand(count: int = 4) -> void:
 		draw_card()
 
 func can_play(card: CardInstance) -> bool:
+	if hero.has_status("freeze"):
+		return false
 	if card.card_class == "spell":
 		return hero.mana >= card.cost
 	return hero.mana >= card.cost and not board.is_full()

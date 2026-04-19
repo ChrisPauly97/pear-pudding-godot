@@ -2,7 +2,7 @@
 
 **Goal:** GID-019
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -31,12 +31,21 @@ No status effect system exists. This task defines the data model for poison, arm
 
 ## Plan
 
-_Written during Plan phase._
+- Add `status_effects: Dictionary` to `CardInstance` and `HeroState`
+- Add `apply_status`, `has_status`, `get_status_value`, `clear_status` helpers to both
+- Add `take_damage(dmg)` to `CardInstance` with armor absorption
+- Modify `HeroState.take_damage()` for armor absorption
+- Bridge stun: `apply_status("stun",N)` also sets `out_of_play=N`; `start_turn()` syncs dict
+- Add `has_status("freeze")` check to `CardInstance.can_attack()`
+- Add hero freeze check to `PlayerState.can_play()`
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/battle/CardInstance.gd`: added `status_effects: Dictionary`, 4 helpers, `take_damage()`, freeze in `can_attack()`, stun sync in `start_turn()`
+- `game_logic/battle/HeroState.gd`: added `status_effects: Dictionary`, 4 helpers, armor in `take_damage()`
+- `game_logic/battle/PlayerState.gd`: added hero freeze check to `can_play()`
+- `autoloads/GameBus.gd`: added `status_applied` and `status_ticked` signals
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md`

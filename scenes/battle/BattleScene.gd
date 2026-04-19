@@ -25,6 +25,14 @@ var _drag_visual: Control = null
 var _drag_start_pos: Vector2 = Vector2.ZERO
 var _cancel_btn: Button = null
 
+# Spell targeting (TID-058)
+const _TARGETED_EFFECTS: Array[String] = ["deal_damage_single"]
+var _targeting_spell: CardInstance = null
+var _targeting_active: bool = false
+
+# Enemy intent banner (TID-059)
+var _intent_panel: Control = null
+
 # First-battle tutorial overlay
 var _tutorial_overlay: Control = null
 var _tutorial_timer: float = 0.0
@@ -197,6 +205,15 @@ func _finish_hand_drag() -> void:
 	var board_rect: Rect2 = _player_board_view.get_global_rect()
 	if board_rect.has_point(mouse_pos):
 		var played_card := _hand_drag_card
+		# Targeted spells: don't play yet, enter target-selection mode
+		if played_card.card_class == "spell" and _TARGETED_EFFECTS.has(played_card.spell_effect) and _state.players[0].can_play(played_card):
+			_hand_drag_card = null
+			if _drag_visual:
+				_drag_visual.queue_free()
+				_drag_visual = null
+			_hide_cancel_btn()
+			_enter_targeting_mode(played_card)
+			return
 		if _state.players[0].play_card(played_card):
 			AudioManager.play_sfx("card_play")
 			if played_card.card_class == "spell":
@@ -224,26 +241,63 @@ func _start_hand_drag(card: CardInstance, from_pos: Vector2) -> void:
 	add_child(_drag_visual)
 	# Ensure ghost renders on top
 	move_child(_drag_visual, get_child_count() - 1)
-	_show_cancel_btn()
+	_show_cancel_btn("✕ Cancel", _cancel_hand_drag)
 
-func _show_cancel_btn() -> void:
+func _show_cancel_btn(label: String = "✕ Cancel", callback: Callable = Callable()) -> void:
 	if _cancel_btn != null:
 		return
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 	var vw: float = vp.x
 	_cancel_btn = Button.new()
-	_cancel_btn.text = "✕ Cancel"
+	_cancel_btn.text = label
 	_cancel_btn.custom_minimum_size = Vector2(vh * 0.14, vh * 0.06)
 	_cancel_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
 	_cancel_btn.position = Vector2((vw - vh * 0.14) * 0.5, vh * 0.02)
-	_cancel_btn.pressed.connect(_cancel_hand_drag)
+	var cb: Callable = callback if callback.is_valid() else _cancel_hand_drag
+	_cancel_btn.pressed.connect(cb)
 	add_child(_cancel_btn)
 
 func _hide_cancel_btn() -> void:
 	if _cancel_btn != null:
 		_cancel_btn.queue_free()
 		_cancel_btn = null
+
+func _enter_targeting_mode(card: CardInstance) -> void:
+	_targeting_spell = card
+	_targeting_active = true
+	_show_cancel_btn("✕ Cancel Spell", _cancel_targeting)
+	_refresh_all()
+
+func _cancel_targeting() -> void:
+	_targeting_active = false
+	_targeting_spell = null
+	_hide_cancel_btn()
+	_refresh_all()
+
+func _on_target_chosen_card(target: CardInstance) -> void:
+	var spell := _targeting_spell
+	_targeting_active = false
+	_targeting_spell = null
+	_hide_cancel_btn()
+	if _state.players[0].play_card(spell):
+		AudioManager.play_sfx("card_play")
+		_resolve_spell_effect(spell, 0, {"type": "minion", "card": target})
+	_refresh_all()
+	_check_game_over()
+	_dismiss_battle_tutorial()
+
+func _on_target_chosen_hero() -> void:
+	var spell := _targeting_spell
+	_targeting_active = false
+	_targeting_spell = null
+	_hide_cancel_btn()
+	if _state.players[0].play_card(spell):
+		AudioManager.play_sfx("card_play")
+		_resolve_spell_effect(spell, 0, {"type": "hero"})
+	_refresh_all()
+	_check_game_over()
+	_dismiss_battle_tutorial()
 
 func _make_card_ghost(card: CardInstance) -> PanelContainer:
 	var panel := _make_card_view(card, "ghost")
@@ -280,38 +334,56 @@ func _refresh_zone(zone_node: Node, cards: Array[CardInstance], zone_id: String)
 
 func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
 	var vbox: VBoxContainer = panel.get_child(0) as VBoxContainer
-	if not vbox or vbox.get_child_count() < 3:
-		# Structure mismatch — rebuild from scratch
+	var name_lbl: Label = vbox.get_node_or_null("NameLabel") as Label if vbox else null
+	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")
+	if not vbox or not name_lbl:
 		for child in panel.get_children():
 			child.queue_free()
-		var new_vbox := _build_card_vbox(card)
-		panel.add_child(new_vbox)
+		panel.add_child(_build_card_vbox(card, is_board_zone))
 	else:
-		var name_lbl: Label = vbox.get_child(0) as Label
-		var stats_lbl: Label = vbox.get_child(1) as Label
-		var desc_lbl: Label = vbox.get_child(2) as Label
 		name_lbl.text = card.name
-		stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
-		desc_lbl.text = card.description
+		var stats_lbl: Label = vbox.get_node_or_null("StatsLabel") as Label
+		if stats_lbl:
+			stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
+		var desc_lbl: Label = vbox.get_node_or_null("DescLabel") as Label
+		if desc_lbl:
+			desc_lbl.text = card.description
+		if is_board_zone:
+			var sr: HBoxContainer = vbox.get_node_or_null("StatusRow") as HBoxContainer
+			if sr:
+				_update_status_icons_card(sr, card)
+			else:
+				var new_sr := HBoxContainer.new()
+				new_sr.name = "StatusRow"
+				_update_status_icons_card(new_sr, card)
+				vbox.add_child(new_sr)
 	_apply_card_style(panel, card, zone_id)
 	_bind_card_input(panel, card, zone_id)
 
-func _build_card_vbox(card: CardInstance) -> VBoxContainer:
+func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxContainer:
 	var vbox := VBoxContainer.new()
 	var name_lbl := Label.new()
+	name_lbl.name = "NameLabel"
 	name_lbl.text = card.name
 	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.013))
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var stats_lbl := Label.new()
+	stats_lbl.name = "StatsLabel"
 	stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
 	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var desc_lbl := Label.new()
+	desc_lbl.name = "DescLabel"
 	desc_lbl.text = card.description
 	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.011))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(name_lbl)
 	vbox.add_child(stats_lbl)
 	vbox.add_child(desc_lbl)
+	if with_status_row:
+		var sr := HBoxContainer.new()
+		sr.name = "StatusRow"
+		_update_status_icons_card(sr, card)
+		vbox.add_child(sr)
 	return vbox
 
 func _apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
@@ -320,6 +392,12 @@ func _apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: Strin
 	style.bg_color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
 	if zone_id == "hand" and not _state.players[0].can_play(card):
 		style.bg_color = style.bg_color.darkened(0.5)
+	elif zone_id == "enemy_board" and _targeting_active:
+		style.border_color = Color.CYAN
+		style.border_width_top = 4
+		style.border_width_bottom = 4
+		style.border_width_left = 4
+		style.border_width_right = 4
 	elif zone_id == "board" and not _dragged_card.is_empty() and _dragged_card.get("card") == card:
 		style.border_color = Color.YELLOW
 		style.border_width_top = 3
@@ -346,7 +424,8 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(_vh * 0.09, _vh * 0.15)
-	panel.add_child(_build_card_vbox(card))
+	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")
+	panel.add_child(_build_card_vbox(card, is_board_zone))
 	_apply_card_style(panel, card, zone_id)
 	_bind_card_input(panel, card, zone_id)
 	return panel
@@ -384,6 +463,9 @@ func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 			mana_lbl.add_theme_font_size_override("font_size", int(_vh * 0.013))
 			mana_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			vbox.add_child(mana_lbl)
+		var hero_sr := HBoxContainer.new()
+		hero_sr.name = "StatusRow"
+		vbox.add_child(hero_sr)
 		hero_node.add_child(vbox)
 
 	# Update values on existing nodes
@@ -395,6 +477,9 @@ func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 	var mana_lbl: Label = vbox.get_node_or_null("ManaLabel") as Label
 	if mana_lbl:
 		mana_lbl.text = "Mana  %d / %d" % [hero.mana, hero.max_mana]
+	var hero_status_row: HBoxContainer = vbox.get_node_or_null("StatusRow") as HBoxContainer
+	if hero_status_row:
+		_update_status_icons_hero(hero_status_row, hero)
 
 	# Styling
 	var style := StyleBoxFlat.new()
@@ -402,15 +487,25 @@ func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 	style.corner_radius_top_right   = 6
 	style.corner_radius_bottom_left = 6
 	style.corner_radius_bottom_right = 6
-	var is_targetable: bool = is_enemy and not _dragged_card.is_empty()
+	var is_attack_targetable: bool = is_enemy and not _dragged_card.is_empty()
+	var is_spell_targetable: bool = is_enemy and _targeting_active
 	if is_enemy:
-		style.bg_color = Color(0.45, 0.1, 0.1) if not is_targetable else Color(0.55, 0.15, 0.1)
-		if is_targetable:
+		if is_spell_targetable:
+			style.bg_color = Color(0.1, 0.35, 0.45)
+			style.border_color = Color.CYAN
+			style.border_width_top    = 4
+			style.border_width_bottom = 4
+			style.border_width_left   = 4
+			style.border_width_right  = 4
+		elif is_attack_targetable:
+			style.bg_color = Color(0.55, 0.15, 0.1)
 			style.border_color = Color(1.0, 0.35, 0.2)
 			style.border_width_top    = 3
 			style.border_width_bottom = 3
 			style.border_width_left   = 3
 			style.border_width_right  = 3
+		else:
+			style.bg_color = Color(0.45, 0.1, 0.1)
 	else:
 		style.bg_color = Color(0.1, 0.2, 0.4)
 	hero_node.add_theme_stylebox_override("panel", style)
@@ -443,6 +538,9 @@ func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
 
 func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _targeting_active:
+			_on_target_chosen_card(target)
+			return
 		if _dragged_card.is_empty():
 			return
 		var attacker: CardInstance = _dragged_card["card"]
@@ -450,8 +548,8 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 			_dragged_card.clear()
 			return
 		AudioManager.play_sfx("attack")
-		target.health -= attacker.attack
-		attacker.health -= target.attack
+		target.take_damage(attacker.attack)
+		attacker.take_damage(target.attack)
 		attacker.attack_count -= 1
 		if not target.is_alive():
 			_state.players[1].board.remove_card(target)
@@ -465,6 +563,9 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 
 func _on_enemy_hero_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _targeting_active:
+			_on_target_chosen_hero()
+			return
 		if _state.current_player_idx != 0 or _ai_thinking:
 			return
 		if _dragged_card.is_empty():
@@ -476,7 +577,7 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 			return
 		AudioManager.play_sfx("attack")
 		_state.players[1].hero.take_damage(attacker.attack)
-		attacker.health -= _state.players[1].hero.attack
+		attacker.take_damage(_state.players[1].hero.attack)
 		attacker.attack_count -= 1
 		if not attacker.is_alive():
 			_state.players[0].board.remove_card(attacker)
@@ -497,22 +598,30 @@ func _on_end_turn() -> void:
 	_state.end_turn()
 
 func _on_turn_ended(player_idx: int) -> void:
+	_process_start_of_turn_statuses(player_idx)
 	_refresh_all()
 	if player_idx == 0:
-		_flush_auto_spells(0)
-		_refresh_all()
 		_check_game_over()
+		if not _state.is_game_over():
+			_flush_auto_spells(0)
+			_refresh_all()
+			_check_game_over()
 	elif player_idx == 1:
-		_run_ai_turn()
+		_check_game_over()
+		if not _state.is_game_over():
+			_run_ai_turn()
 
 func _run_ai_turn() -> void:
 	_ai_thinking = true
 	_end_turn_btn.disabled = true
 	var actions := BasicAI.decide_turn(_state)
+	_show_intent_banner(BasicAI.describe_turn(_state))
+	await get_tree().create_timer(1.5, true).timeout
 	_execute_ai_actions(actions, 0)
 
 func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	if idx >= actions.size():
+		_hide_intent_banner()
 		await get_tree().create_timer(0.5, true).timeout
 		_ai_thinking = false
 		_state.end_turn()
@@ -526,21 +635,31 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	_execute_ai_actions(actions, idx + 1)
 
 ## Resolves the effect of a spell card played by caster_pid against the opponent.
-func _resolve_spell_effect(card: CardInstance, caster_pid: int) -> void:
+## explicit_target: optional dict with "type" ("minion"/"hero") and "card" (CardInstance) for targeted spells.
+func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target: Dictionary = {}) -> void:
 	var opponent: PlayerState = _state.players[1 - caster_pid]
 	match card.spell_effect:
 		"deal_damage_single":
-			var targets := opponent.board.get_cards()
-			if targets.is_empty():
+			var target_card: CardInstance = explicit_target.get("card", null) as CardInstance
+			if target_card != null:
+				target_card.take_damage(card.spell_power)
+				if not target_card.is_alive():
+					opponent.board.remove_card(target_card)
+					opponent.discard.append(target_card)
+			elif explicit_target.get("type", "") == "hero":
 				opponent.hero.take_damage(card.spell_power)
 			else:
-				targets[0].health -= card.spell_power
-				if not targets[0].is_alive():
-					opponent.board.remove_card(targets[0])
-					opponent.discard.append(targets[0])
+				var targets := opponent.board.get_cards()
+				if targets.is_empty():
+					opponent.hero.take_damage(card.spell_power)
+				else:
+					targets[0].take_damage(card.spell_power)
+					if not targets[0].is_alive():
+						opponent.board.remove_card(targets[0])
+						opponent.discard.append(targets[0])
 		"deal_damage_all":
 			for t in opponent.board.get_cards():
-				t.health -= card.spell_power
+				t.take_damage(card.spell_power)
 			for t in opponent.board.get_cards().duplicate():
 				if not t.is_alive():
 					opponent.board.remove_card(t)
@@ -551,7 +670,7 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int) -> void:
 				opponent.hero.take_damage(card.spell_power)
 			else:
 				var idx: int = randi() % targets.size()
-				targets[idx].health -= card.spell_power
+				targets[idx].take_damage(card.spell_power)
 				if not targets[idx].is_alive():
 					opponent.board.remove_card(targets[idx])
 					opponent.discard.append(targets[idx])
@@ -640,3 +759,127 @@ func _show_victory_overlay(reward_card_id: String) -> void:
 
 	overlay.add_child(vbox)
 	add_child(overlay)
+
+# -------------------------------------------------------------------------
+# Enemy intent banner (TID-059)
+# -------------------------------------------------------------------------
+
+func _show_intent_banner(text: String) -> void:
+	_hide_intent_banner()
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.18, 0.88)
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	panel.add_theme_stylebox_override("panel", style)
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	lbl.add_theme_color_override("font_color", Color.WHITE)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	panel.add_child(lbl)
+	add_child(panel)
+	panel.reset_size()
+	var sz: Vector2 = panel.get_minimum_size()
+	panel.position = Vector2((vp.x - sz.x) * 0.5, vp.y * 0.35)
+	move_child(panel, get_child_count() - 1)
+	_intent_panel = panel
+
+func _hide_intent_banner() -> void:
+	if _intent_panel != null and is_instance_valid(_intent_panel):
+		_intent_panel.queue_free()
+	_intent_panel = null
+
+# -------------------------------------------------------------------------
+# Status effect turn processing (TID-061)
+# -------------------------------------------------------------------------
+
+func _process_start_of_turn_statuses(player_idx: int) -> void:
+	var player: PlayerState = _state.players[player_idx]
+	for card in player.board.get_cards():
+		_tick_statuses_on_card(card)
+	_tick_statuses_on_hero(player.hero, player_idx)
+
+func _tick_statuses_on_card(card: CardInstance) -> void:
+	if card.has_status("poison"):
+		var dmg: int = card.get_status_value("poison")
+		card.take_damage(dmg)
+		var nv: int = dmg - 1
+		if nv <= 0:
+			card.clear_status("poison")
+		else:
+			card.apply_status("poison", nv)
+		GameBus.status_ticked.emit(card.instance_id, "poison", maxi(nv, 0))
+	if card.has_status("freeze"):
+		var dur: int = card.get_status_value("freeze") - 1
+		if dur <= 0:
+			card.clear_status("freeze")
+		else:
+			card.apply_status("freeze", dur)
+		GameBus.status_ticked.emit(card.instance_id, "freeze", maxi(dur, 0))
+	# Stun on minions is decremented via out_of_play in CardInstance.start_turn()
+
+func _tick_statuses_on_hero(hero: HeroState, player_idx: int) -> void:
+	var hid: String = "hero_%d" % player_idx
+	if hero.has_status("poison"):
+		var dmg: int = hero.get_status_value("poison")
+		hero.take_damage(dmg)
+		var nv: int = dmg - 1
+		if nv <= 0:
+			hero.clear_status("poison")
+		else:
+			hero.apply_status("poison", nv)
+		GameBus.status_ticked.emit(hid, "poison", maxi(nv, 0))
+	if hero.has_status("freeze"):
+		var dur: int = hero.get_status_value("freeze") - 1
+		if dur <= 0:
+			hero.clear_status("freeze")
+		else:
+			hero.apply_status("freeze", dur)
+		GameBus.status_ticked.emit(hid, "freeze", maxi(dur, 0))
+	if hero.has_status("stun"):
+		var dur: int = hero.get_status_value("stun") - 1
+		if dur <= 0:
+			hero.clear_status("stun")
+		else:
+			hero.apply_status("stun", dur)
+		GameBus.status_ticked.emit(hid, "stun", maxi(dur, 0))
+
+# -------------------------------------------------------------------------
+# Status effect UI icons (TID-062)
+# -------------------------------------------------------------------------
+
+func _update_status_icons_card(hbox: HBoxContainer, card: CardInstance) -> void:
+	for child in hbox.get_children():
+		child.queue_free()
+	var effects: Array[String] = ["poison", "armor", "freeze", "stun"]
+	var colors: Array[Color] = [Color.GREEN, Color.CORNFLOWER_BLUE, Color.CYAN, Color.YELLOW]
+	var abbrevs: Array[String] = ["P", "A", "F", "S"]
+	var icon_sz: float = _vh * 0.022
+	for i in range(effects.size()):
+		if not card.has_status(effects[i]):
+			continue
+		var lbl := Label.new()
+		lbl.text = "%s%d" % [abbrevs[i], card.get_status_value(effects[i])]
+		lbl.add_theme_color_override("font_color", colors[i])
+		lbl.add_theme_font_size_override("font_size", int(icon_sz))
+		hbox.add_child(lbl)
+
+func _update_status_icons_hero(hbox: HBoxContainer, hero: HeroState) -> void:
+	for child in hbox.get_children():
+		child.queue_free()
+	var effects: Array[String] = ["poison", "armor", "freeze", "stun"]
+	var colors: Array[Color] = [Color.GREEN, Color.CORNFLOWER_BLUE, Color.CYAN, Color.YELLOW]
+	var abbrevs: Array[String] = ["P", "A", "F", "S"]
+	var icon_sz: float = _vh * 0.022
+	for i in range(effects.size()):
+		if not hero.has_status(effects[i]):
+			continue
+		var lbl := Label.new()
+		lbl.text = "%s%d" % [abbrevs[i], hero.get_status_value(effects[i])]
+		lbl.add_theme_color_override("font_color", colors[i])
+		lbl.add_theme_font_size_override("font_size", int(icon_sz))
+		hbox.add_child(lbl)

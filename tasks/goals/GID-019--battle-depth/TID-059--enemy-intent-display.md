@@ -2,7 +2,7 @@
 
 **Goal:** GID-019
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -28,12 +28,17 @@ Enemy actions are invisible until they execute, making it impossible to plan aro
 
 ## Plan
 
-_Written during Plan phase._
+- Added `BasicAI.describe_turn(state)` static method returning first planned action as string
+- Added `_intent_panel` var to BattleScene
+- Modified `_run_ai_turn()` to call `_show_intent_banner()` then await 1.5s before executing actions
+- Modified `_execute_ai_actions()` to call `_hide_intent_banner()` when done
+- Added `_show_intent_banner(text)` and `_hide_intent_banner()` helper functions
 
 ## Changes Made
 
-_Filled after Build phase._
+- `ai/BasicAI.gd`: added `describe_turn(state: GameState) -> String` static method
+- `scenes/battle/BattleScene.gd`: added `_intent_panel`, `_show_intent_banner()`, `_hide_intent_banner()`; modified `_run_ai_turn()` and `_execute_ai_actions()`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md`
