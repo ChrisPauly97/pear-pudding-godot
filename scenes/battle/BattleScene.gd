@@ -14,6 +14,10 @@ var enemy_data: Dictionary = {}
 var _state: GameState
 var _ai: BasicAI
 var _ai_thinking: bool = false
+var _boss_phase2_triggered: bool = false
+var _boss_banner: Control = null
+var _boss_banner_timer: float = 0.0
+const _BOSS_BANNER_DURATION: float = 2.5
 
 # Click-to-target for board-card attacks (select attacker, then click enemy)
 var _dragged_card: Dictionary = {}  # {card: CardInstance}
@@ -65,6 +69,14 @@ func _ready() -> void:
 		enemy_deck.assign(enemy_data["enemy_deck"])
 		_state.players[1].build_deck(enemy_deck)
 		_state.players[1].draw_opening_hand(4)
+
+	# Boss setup: override enemy hero HP and show name banner
+	if bool(enemy_data.get("is_boss", false)):
+		var bhp: int = int(enemy_data.get("boss_hp", 0))
+		if bhp > 0:
+			_state.players[1].hero.health = bhp
+			_state.players[1].hero.max_health = bhp
+		_show_boss_banner()
 
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
@@ -123,6 +135,14 @@ func _process(delta: float) -> void:
 		_tutorial_timer -= delta
 		if _tutorial_timer <= 0.0:
 			_dismiss_battle_tutorial()
+	if _boss_banner_timer > 0.0:
+		_boss_banner_timer -= delta
+		if _boss_banner != null and is_instance_valid(_boss_banner):
+			_boss_banner.modulate.a = clamp(_boss_banner_timer / 0.5, 0.0, 1.0)
+		if _boss_banner_timer <= 0.0:
+			if _boss_banner != null and is_instance_valid(_boss_banner):
+				_boss_banner.queue_free()
+			_boss_banner = null
 
 func _show_battle_tutorial() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
@@ -360,7 +380,13 @@ func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 
 		var name_lbl := Label.new()
 		name_lbl.name = "NameLabel"
-		name_lbl.text = "ENEMY" if is_enemy else "YOU"
+		if is_enemy:
+			if bool(enemy_data.get("is_boss", false)):
+				name_lbl.text = EnemyRegistry.get_display_name(str(enemy_data.get("enemy_type", "")))
+			else:
+				name_lbl.text = "ENEMY"
+		else:
+			name_lbl.text = "YOU"
 		name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
 		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_lbl.modulate = Color(1.0, 0.55, 0.55) if is_enemy else Color(0.55, 1.0, 0.75)
@@ -626,18 +652,73 @@ func _flush_auto_spells(player_idx: int) -> void:
 		var card: CardInstance = player.pending_auto_spells.pop_front() as CardInstance
 		_resolve_spell_effect(card, player_idx)
 
+func _show_boss_banner() -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var font_size: int = int(_vh * 0.045)
+	var enemy_type: String = str(enemy_data.get("enemy_type", ""))
+	var lbl := Label.new()
+	lbl.text = "* %s *" % EnemyRegistry.get_display_name(enemy_type)
+	lbl.add_theme_font_size_override("font_size", font_size)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.75, 0.0))
+	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
+	lbl.add_theme_constant_override("shadow_offset_x", 2)
+	lbl.add_theme_constant_override("shadow_offset_y", 2)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.size = Vector2(vp.x, font_size * 2)
+	lbl.position = Vector2(0.0, _vh * 0.08)
+	add_child(lbl)
+	move_child(lbl, get_child_count() - 1)
+	if _boss_banner != null and is_instance_valid(_boss_banner):
+		_boss_banner.queue_free()
+	_boss_banner = lbl
+	_boss_banner_timer = _BOSS_BANNER_DURATION
+
+func _check_boss_phase2() -> void:
+	if _boss_phase2_triggered:
+		return
+	if not bool(enemy_data.get("is_boss", false)):
+		return
+	var p2_raw: Array = enemy_data.get("phase2_deck", [])
+	if p2_raw.is_empty():
+		return
+	var enemy_hero := _state.players[1].hero
+	if enemy_hero.health > enemy_hero.max_health / 2:
+		return
+	_boss_phase2_triggered = true
+	var p2_deck: Array[String] = []
+	p2_deck.assign(p2_raw)
+	_state.players[1].build_deck(p2_deck)
+	_state.players[1].draw_opening_hand(4)
+	_refresh_all()
+	# Show phase 2 announcement banner
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var font_size: int = int(_vh * 0.04)
+	var lbl := Label.new()
+	lbl.text = "- PHASE 2 -"
+	lbl.add_theme_font_size_override("font_size", font_size)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
+	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
+	lbl.add_theme_constant_override("shadow_offset_x", 2)
+	lbl.add_theme_constant_override("shadow_offset_y", 2)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.size = Vector2(vp.x, font_size * 2)
+	lbl.position = Vector2(0.0, _vh * 0.4)
+	add_child(lbl)
+	move_child(lbl, get_child_count() - 1)
+	if _boss_banner != null and is_instance_valid(_boss_banner):
+		_boss_banner.queue_free()
+	_boss_banner = lbl
+	_boss_banner_timer = _BOSS_BANNER_DURATION
+
 func _check_game_over() -> void:
+	_check_boss_phase2()
 	if _state.is_game_over():
 		var w := _state.winner()
 		if w == 0:
 			AudioManager.play_sfx("battle_win")
 			var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
 			var pool: Array[String] = EnemyRegistry.get_drop_pool(enemy_type)
-			var reward_card_id: String = ""
-			if pool.size() > 0:
-				reward_card_id = pool[randi() % pool.size()]
-			var weapon_reward_id: String = ""
-			if EnemyRegistry.is_boss(enemy_type):
+			if bool(enemy_data.get("is_boss", false)):
 				var weapon_pool: Array[String] = []
 				for pid in pool:
 					if WeaponRegistry.has_weapon(pid):
@@ -648,9 +729,15 @@ func _check_game_over() -> void:
 					for wid in all_ids:
 						if not owned_w.has(wid):
 							weapon_pool.append(wid)
+				var weapon_reward_id: String = ""
 				if not weapon_pool.is_empty():
 					weapon_reward_id = weapon_pool[randi() % weapon_pool.size()]
-			_show_victory_overlay(reward_card_id, weapon_reward_id)
+				_show_victory_overlay_boss(pool, weapon_reward_id)
+			else:
+				var reward_card_id: String = ""
+				if pool.size() > 0:
+					reward_card_id = pool[randi() % pool.size()]
+				_show_victory_overlay(reward_card_id, "")
 		else:
 			AudioManager.play_sfx("battle_lose")
 			GameBus.battle_lost.emit()
@@ -704,6 +791,65 @@ func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = ""
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
 		GameBus.battle_won.emit({"card_reward": final_card, "weapon_reward": final_weapon})
+	)
+	vbox.add_child(btn)
+
+	overlay.add_child(vbox)
+	add_child(overlay)
+
+func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: String = "") -> void:
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.05, 0.1, 0.92)
+	overlay.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.025))
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Boss Defeated!"
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.modulate = Color(1.0, 0.75, 0.0)
+	vbox.add_child(title_lbl)
+
+	var rewards_lbl := Label.new()
+	if reward_cards.is_empty():
+		rewards_lbl.text = "No cards dropped."
+	else:
+		var names: PackedStringArray = PackedStringArray()
+		for cid in reward_cards:
+			var tmpl: Dictionary = CardRegistry.get_template(cid)
+			names.append(str(tmpl.get("name", cid)))
+		rewards_lbl.text = "Rewards: " + ", ".join(names)
+	rewards_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	rewards_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rewards_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(rewards_lbl)
+
+	if weapon_reward_id != "":
+		var weapon: WeaponData = WeaponRegistry.get_weapon(weapon_reward_id)
+		var weapon_lbl := Label.new()
+		var wname: String = weapon.display_name if weapon != null else weapon_reward_id
+		weapon_lbl.text = "Weapon found: " + wname
+		weapon_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+		weapon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		weapon_lbl.modulate = Color(0.8, 1.0, 0.5)
+		vbox.add_child(weapon_lbl)
+
+	var btn := Button.new()
+	btn.text = "Collect" if (not reward_cards.is_empty() or weapon_reward_id != "") else "Continue"
+	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
+	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	var final_rewards: Array[String] = []
+	final_rewards.assign(reward_cards)
+	var final_weapon: String = weapon_reward_id
+	btn.pressed.connect(func() -> void:
+		overlay.queue_free()
+		GameBus.battle_won.emit({"card_rewards": final_rewards, "weapon_reward": final_weapon})
 	)
 	vbox.add_child(btn)
 

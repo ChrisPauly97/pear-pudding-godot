@@ -173,6 +173,12 @@ func _on_battle_won(result: Dictionary) -> void:
 	var weapon_reward: String = str(result.get("weapon_reward", ""))
 	if weapon_reward != "":
 		save_manager.add_weapon(weapon_reward)
+	# Boss battles emit card_rewards (list of all drop_pool cards)
+	var rewards: Array = result.get("card_rewards", [])
+	for r in rewards:
+		var rs: String = str(r)
+		if rs != "":
+			save_manager.add_cards_to_deck([rs])
 	# Award coins based on enemy type
 	var enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
 	if enemy_type != "":
