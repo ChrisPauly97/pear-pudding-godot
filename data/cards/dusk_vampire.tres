@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://nwrd0l1lt9mq"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dusk_vampire"]
+
+[resource]
+script = ExtResource("1_dusk_vampire")
+id = "dusk_vampire"
+card_name = "Dusk Vampire"
+cost = 4
+attack = 3
+health = 3
+card_class = "minion"
+description = "Grows stronger with every drop of life it takes."
+color = Color(0.5, 0.2, 0.7, 1)
+magic_type = "dark"
+magic_branch = "dusk"

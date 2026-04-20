@@ -2,7 +2,7 @@
 
 **Goal:** GID-018
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-054
 
 ## Lock
@@ -36,12 +36,22 @@ Dusk branch represents dark/lifesteal/drain magic — the aggressive counterpart
 
 ## Plan
 
-_Written during Plan phase._
+Create 8 .tres files and 8 .uid sidecars in `data/cards/` following ember.tres format. Use `magic_type = "dark"`, `magic_branch = "dusk"` (research notes had these swapped vs actual CardData schema), Color(0.5, 0.2, 0.7, 1) (deep purple). For spell cards: attack=0, health=0. For minion cards: no spell_effect/spell_power.
 
 ## Changes Made
 
-_Filled after Build phase._
+Created 8 Dusk card .tres files and 8 .uid sidecars in `data/cards/`:
+- `dusk_wraith.tres` — 2-cost minion (2/2), dark/dusk
+- `dusk_vampire.tres` — 4-cost minion (3/3), dark/dusk
+- `drain.tres` — 2-cost spell, lifesteal_hit 3
+- `wither.tres` — 1-cost spell, curse_minion 1
+- `siphon.tres` — 3-cost spell, mana_drain 3
+- `shadow_bolt.tres` — 2-cost spell, deal_damage_single 4
+- `soul_rend.tres` — 4-cost spell, lifesteal_hit 5
+- `dark_pact.tres` — 3-cost spell, curse_minion 2
+
+Note: Used `magic_type = "dark"`, `magic_branch = "dusk"` (research notes had these reversed vs actual CardData schema; same correction as TID-055).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No doc changes needed.

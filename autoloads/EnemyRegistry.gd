@@ -58,12 +58,41 @@ static func get_coin_reward(type_id: String) -> int:
 		return (_enemies[type_id] as EnemyData).coin_reward
 	return 5
 
+## Returns true if the enemy type is a boss.
+static func is_boss(type_id: String) -> bool:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return (_enemies[type_id] as EnemyData).is_boss
+	return false
+
 ## Returns the display name for a type, or the raw ID if unknown.
 static func get_display_name(type_id: String) -> String:
 	_ensure_loaded()
 	if _enemies.has(type_id):
 		return (_enemies[type_id] as EnemyData).display_name
 	return type_id
+
+## Returns true if this enemy type uses boss battle presentation.
+static func get_is_boss(type_id: String) -> bool:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return (_enemies[type_id] as EnemyData).is_boss
+	return false
+
+## Returns the boss HP override (0 = use default 30).
+static func get_boss_hp(type_id: String) -> int:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return (_enemies[type_id] as EnemyData).boss_hp
+	return 0
+
+## Returns the phase 2 deck for this enemy type, or empty array if none.
+static func get_phase2_deck(type_id: String) -> Array[String]:
+	_ensure_loaded()
+	var result: Array[String] = []
+	if _enemies.has(type_id):
+		result.assign((_enemies[type_id] as EnemyData).phase2_deck)
+	return result
 
 ## Selects an enemy type based on depth through a named map (0 = start, 1 = end).
 static func type_for_depth(depth: int, max_depth: int) -> String:

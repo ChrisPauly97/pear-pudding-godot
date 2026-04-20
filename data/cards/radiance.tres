@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://5ardsxk0dcvt"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_radiance"]
+
+[resource]
+script = ExtResource("1_radiance")
+id = "radiance"
+card_name = "Radiance"
+cost = 4
+attack = 0
+health = 0
+card_class = "spell"
+description = "A wave of radiant light heals all allies."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "heal_all"
+spell_power = 4

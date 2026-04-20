@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://cxzdasbpgtvr"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dark_pact"]
+
+[resource]
+script = ExtResource("1_dark_pact")
+id = "dark_pact"
+card_name = "Dark Pact"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Bind an enemy in shadow — weakening it in body and spirit."
+color = Color(0.5, 0.2, 0.7, 1)
+magic_type = "dark"
+magic_branch = "dusk"
+spell_effect = "curse_minion"
+spell_power = 2

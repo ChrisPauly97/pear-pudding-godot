@@ -14,7 +14,7 @@ Only 4 enemy types exist (all "undead" variants) and all biomes spawn the same e
 |----|------|------|--------|------------|
 | TID-068 | Human: author new enemy decks and drop pools | human-action | pending | — |
 | TID-069 | Create 6 new enemy .tres files | agent | pending | TID-068 |
-| TID-070 | Boss encounter framework | agent | pending | — |
+| TID-070 | Boss encounter framework | agent | done | — |
 | TID-071 | Add 2 boss encounters to named maps | agent | pending | TID-068, TID-070 |
 | TID-072 | Update biome spawn tables | agent | pending | TID-069 |
 

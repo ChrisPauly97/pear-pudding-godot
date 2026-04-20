@@ -2,7 +2,7 @@
 
 **Goal:** GID-022
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-073
 
 ## Lock
@@ -29,12 +29,14 @@ InventoryScene shows cards and deck, but has no weapon management UI. Players ne
 
 ## Plan
 
-_Written during Plan phase._
+1. **SaveManager.gd**: add `owned_weapons: Array[String]`, bump save version to 7 with migration, add `add_weapon()` and `equip_weapon()` helpers.
+2. **InventoryScene.gd**: restructure `_build_ui` to insert a tab bar (Cards / Weapons) above the existing content. Cards tab = unchanged layout. Weapons tab = owned-weapon list (left/top) + comparison panel with Equipped vs Selected columns (right/bottom) + Equip button.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd` — added `owned_weapons: Array[String]`, bumped save version to 7 with `_migrate_v6_to_v7`, updated `new_game()`/`load_save()`/`save()`, added `add_weapon()`, `equip_weapon()`, `mark_dirty()` helpers
+- `scenes/ui/InventoryScene.gd` — added tab bar (Cards / Weapons), weapon list panel with scrollable owned-weapon rows, comparison panel showing Equipped vs Selected columns (display_name, description, effect summary), Equip button that calls `SaveManager.equip_weapon()`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — weapon system is covered by GID-014 docs and this is a UI extension.

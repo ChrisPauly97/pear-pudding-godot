@@ -2,7 +2,7 @@
 
 **Goal:** GID-022
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-073
 
 ## Lock
@@ -28,12 +28,12 @@ ShopScene currently only lists cards. Adding weapons to the shop gives players a
 
 ## Plan
 
-_Written during Plan phase._
+Add a "— Weapons —" section to ShopScene below the cards list. Compute price dynamically from effect type/value (no new WeaponData field needed). Filter to unowned weapons only, hide rusty_dagger. Grey price label when unaffordable. `_on_buy_weapon` deducts coins and calls `SaveManager.add_weapon()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/ui/ShopScene.gd` — added WeaponRegistry/WeaponData preloads; split `_make_row` into `_make_card_row` and `_make_weapon_row`; `_refresh()` now emits section headers and a weapons list filtered to unowned (excl. rusty_dagger); `_weapon_price()` computes 40–80 coin prices; `_on_buy_weapon()` handles purchase
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required.

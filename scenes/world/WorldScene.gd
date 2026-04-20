@@ -9,6 +9,8 @@ const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const Minimap         = preload("res://scenes/world/Minimap.gd")
 const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
+const WeaponRegistry  = preload("res://autoloads/WeaponRegistry.gd")
+const WeaponData      = preload("res://data/WeaponData.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 
@@ -1077,6 +1079,7 @@ func _handle_interact() -> void:
 		chest_card_ids.assign(chest.get("card_ids", []))
 		_spawn_card_items(chest_card_ids, chest_pos)
 		_spawn_coin_piles(chest_pos)
+		_maybe_drop_weapon_from_chest()
 		return
 
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
@@ -1147,3 +1150,20 @@ func _spawn_coin_piles(origin: Vector3) -> void:
 		_entity_root.add_child(item)
 		if item.has_method("setup_coin"):
 			item.setup_coin(amount, origin, land_pos)
+
+func _maybe_drop_weapon_from_chest() -> void:
+	if randf() >= 0.15:
+		return
+	var all_ids: Array[String] = WeaponRegistry.get_all_ids()
+	var owned_w: Array[String] = SceneManager.save_manager.owned_weapons
+	var candidates: Array[String] = []
+	for wid in all_ids:
+		if wid != "rusty_dagger" and not owned_w.has(wid):
+			candidates.append(wid)
+	if candidates.is_empty():
+		return
+	var picked: String = candidates[randi() % candidates.size()]
+	SceneManager.save_manager.add_weapon(picked)
+	var weapon: WeaponData = WeaponRegistry.get_weapon(picked)
+	if weapon != null:
+		GameBus.hud_message_requested.emit("Found: %s!" % weapon.display_name)

@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://rx35yms57rit"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dawn_acolyte"]
+
+[resource]
+script = ExtResource("1_dawn_acolyte")
+id = "dawn_acolyte"
+card_name = "Dawn Acolyte"
+cost = 2
+attack = 1
+health = 3
+card_class = "minion"
+description = "A novice of dawn's healing arts."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"

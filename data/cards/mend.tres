@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://hvj8k7w6ks5t"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_mend"]
+
+[resource]
+script = ExtResource("1_mend")
+id = "mend"
+card_name = "Mend"
+cost = 1
+attack = 0
+health = 0
+card_class = "spell"
+description = "Mend the wounds of your most weary minion."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "heal_single"
+spell_power = 3

@@ -13,8 +13,8 @@ Story flags persist correctly (GID-001) and NPC dialogue tables exist in story.m
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-063 | Human: author flag-gated dialogue per NPC per map | human-action | pending | — |
-| TID-064 | Implement FLAG map entity syntax in parser | agent | pending | — |
-| TID-065 | Wire flag-check logic into TownspersonNPC | agent | pending | TID-063, TID-064 |
+| TID-064 | Implement FLAG map entity syntax in parser | agent | done | — |
+| TID-065 | Wire flag-check logic into TownspersonNPC | agent | done | TID-063, TID-064 |
 | TID-066 | Human: define Chapter 1 victory condition | human-action | pending | — |
 | TID-067 | Implement Chapter 1 ending scene/trigger | agent | pending | TID-066 |
 

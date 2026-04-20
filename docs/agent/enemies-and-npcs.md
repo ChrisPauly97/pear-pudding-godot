@@ -8,6 +8,7 @@
 - Auto-battle trigger when the player walks within `AUTO_BATTLE_RANGE` (1.5 world units) of an enemy
 - Defeated enemies are persisted in `SaveManager` so they do not respawn on reload
 - Town-person NPCs are static, non-hostile, and display biome-flavoured dialogue on interaction
+- **Boss system**: `is_boss` flag on `EnemyData` triggers enhanced battle presentation, optional phase-2 deck swap at 50% HP, and guaranteed full drop_pool rewards
 
 ---
 
@@ -43,6 +44,25 @@ Each `data/enemies/<type>.tres` stores:
 - `id: String` — matches the type ID key above
 - `display_name: String`
 - `deck: Array` — card ID strings (converted to `Array[String]` with `assign()` on load)
+- `drop_pool: PackedStringArray` — cards that can drop on defeat
+- `coin_reward: int` — coins awarded on victory
+- `is_boss: bool` — enables boss battle presentation (default false)
+- `boss_hp: int` — override enemy hero HP (0 = default 30)
+- `phase2_deck: PackedStringArray` — if non-empty, swapped in when enemy HP ≤ 50%
+
+### Boss Battle Framework
+
+When `is_boss` is true in the engaged `enemy_data` dict, `BattleScene` applies:
+
+1. **HP override**: sets enemy hero HP to `boss_hp` (if `boss_hp > 0`)
+2. **Boss banner**: fading label showing the enemy's display name at the top of the screen for 2.5 s
+3. **Enemy name**: shows the boss's display name in the hero panel instead of "ENEMY"
+4. **Phase 2**: when enemy HP first drops to ≤ 50%, discards enemy hand, rebuilds draw deck from `phase2_deck`, draws 4 cards, shows "PHASE 2" banner
+5. **Full drop**: on victory, drops all cards in `drop_pool` (emits `{"card_rewards": [...]}` instead of `{"card_reward": "..."}`)
+
+`EnemyNPC` in the world scene: boss enemies render at 1.3× scale with gold materials to distinguish them visually.
+
+`SceneManager._on_battle_won()` handles both `"card_reward"` (single string, regular) and `"card_rewards"` (list, boss).
 
 ### EnemyNPC Scene (`scenes/world/entities/EnemyNPC.gd`)
 

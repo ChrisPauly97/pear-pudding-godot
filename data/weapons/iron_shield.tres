@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://e3kbxe7z0noj"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_iron_shield"]
+
+[resource]
+script = ExtResource("1_iron_shield")
+id = "iron_shield"
+display_name = "Iron Shield"
+description = "A sturdy buckler. Your hero starts each battle with 40 HP instead of 30."
+battle_effect_type = "starting_hp"
+battle_effect_value = 10
+injected_card_id = ""
+injected_card_count = 0

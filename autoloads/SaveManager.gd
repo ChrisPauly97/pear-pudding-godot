@@ -46,6 +46,9 @@ var collected_scrolls: Array[String] = []
 # Currently equipped weapon id ("" = none)
 var equipped_weapon: String = ""
 
+# Weapons the player has picked up
+var owned_weapons: Array[String] = []
+
 # World generation — set when starting a new game from the biome selection screen
 var world_seed: int = 42
 var starting_biome: int = 0   # BiomeDef.GRASSLANDS
@@ -83,7 +86,10 @@ func new_game() -> void:
 		"ghost", "skeleton", "zombie", "ghoul",
 		"ghost", "skeleton", "zombie", "ghoul",
 	]
-	owned_cards.assign(starter)
+	var starter_owned: Array[String] = starter.duplicate()
+	starter_owned.append("dawn_acolyte")
+	starter_owned.append("dusk_wraith")
+	owned_cards.assign(starter_owned)
 	player_deck.assign(starter)
 	coins = 0
 	current_map = "main"
@@ -100,13 +106,14 @@ func new_game() -> void:
 	days_elapsed = 0
 	last_respawn_day = 0
 	equipped_weapon = ""
+	owned_weapons = []
 	collected_scrolls = []
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 6
+const CURRENT_SAVE_VERSION: int = 7
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -149,6 +156,12 @@ static func _migrate_v5_to_v6(data: Dictionary) -> void:
 		data["collected_scrolls"] = []
 	data["version"] = 6
 
+# _migrate_v6_to_v7: backfill owned_weapons for old saves.
+static func _migrate_v6_to_v7(data: Dictionary) -> void:
+	if not data.has("owned_weapons"):
+		data["owned_weapons"] = []
+	data["version"] = 7
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -163,6 +176,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v4_to_v5(data)
 	if ver < 6:
 		_migrate_v5_to_v6(data)
+	if ver < 7:
+		_migrate_v6_to_v7(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -196,6 +211,7 @@ func load_save() -> bool:
 	days_elapsed = int(data.get("days_elapsed", 0))
 	last_respawn_day = int(data.get("last_respawn_day", 0))
 	equipped_weapon = str(data.get("equipped_weapon", ""))
+	owned_weapons.assign(data.get("owned_weapons", []))
 	collected_scrolls.assign(data.get("collected_scrolls", []))
 	_loaded = true
 	return true
@@ -224,6 +240,7 @@ func save() -> void:
 		"days_elapsed": days_elapsed,
 		"last_respawn_day": last_respawn_day,
 		"equipped_weapon": equipped_weapon,
+		"owned_weapons": owned_weapons,
 		"collected_scrolls": collected_scrolls,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -306,6 +323,18 @@ func mark_scroll_collected(scroll_id: String) -> void:
 
 func is_scroll_collected(scroll_id: String) -> bool:
 	return collected_scrolls.has(scroll_id)
+
+func add_weapon(weapon_id: String) -> void:
+	if not owned_weapons.has(weapon_id):
+		owned_weapons.append(weapon_id)
+	_dirty = true
+
+func equip_weapon(weapon_id: String) -> void:
+	equipped_weapon = weapon_id
+	_dirty = true
+
+func mark_dirty() -> void:
+	_dirty = true
 
 func increment_day() -> void:
 	days_elapsed += 1

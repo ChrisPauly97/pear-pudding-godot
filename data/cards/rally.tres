@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://78zkjxsv3qzo"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_rally"]
+
+[resource]
+script = ExtResource("1_rally")
+id = "rally"
+card_name = "Rally"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Inspire a minion with the strength of dawn."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "buff_attack"
+spell_power = 2

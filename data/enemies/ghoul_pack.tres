@@ -7,5 +7,5 @@ script = ExtResource("1_ghoul_pack")
 id = "ghoul_pack"
 display_name = "Ghoul Pack Leader"
 deck = PackedStringArray("ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton", "skeleton", "skeleton")
-drop_pool = PackedStringArray("zombie", "ghoul")
+drop_pool = PackedStringArray("zombie", "ghoul", "dawn_paladin", "dusk_vampire")
 coin_reward = 12
