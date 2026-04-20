@@ -719,17 +719,30 @@ func _check_game_over() -> void:
 			var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
 			var pool: Array[String] = EnemyRegistry.get_drop_pool(enemy_type)
 			if bool(enemy_data.get("is_boss", false)):
-				_show_victory_overlay_boss(pool)
+				var weapon_pool: Array[String] = []
+				for pid in pool:
+					if WeaponRegistry.has_weapon(pid):
+						weapon_pool.append(pid)
+				if weapon_pool.is_empty():
+					var all_ids: Array[String] = WeaponRegistry.get_all_ids()
+					var owned_w: Array[String] = SceneManager.save_manager.owned_weapons
+					for wid in all_ids:
+						if not owned_w.has(wid):
+							weapon_pool.append(wid)
+				var weapon_reward_id: String = ""
+				if not weapon_pool.is_empty():
+					weapon_reward_id = weapon_pool[randi() % weapon_pool.size()]
+				_show_victory_overlay_boss(pool, weapon_reward_id)
 			else:
 				var reward_card_id: String = ""
 				if pool.size() > 0:
 					reward_card_id = pool[randi() % pool.size()]
-				_show_victory_overlay(reward_card_id)
+				_show_victory_overlay(reward_card_id, "")
 		else:
 			AudioManager.play_sfx("battle_lose")
 			GameBus.battle_lost.emit()
 
-func _show_victory_overlay(reward_card_id: String) -> void:
+func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = "") -> void:
 	var overlay := PanelContainer.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var style := StyleBoxFlat.new()
@@ -759,21 +772,32 @@ func _show_victory_overlay(reward_card_id: String) -> void:
 	reward_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(reward_lbl)
 
+	if weapon_reward_id != "":
+		var weapon: WeaponData = WeaponRegistry.get_weapon(weapon_reward_id)
+		var weapon_lbl := Label.new()
+		var wname: String = weapon.display_name if weapon != null else weapon_reward_id
+		weapon_lbl.text = "Weapon found: " + wname
+		weapon_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+		weapon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		weapon_lbl.modulate = Color(0.8, 1.0, 0.5)
+		vbox.add_child(weapon_lbl)
+
 	var btn := Button.new()
-	btn.text = "Collect" if reward_card_id != "" else "Continue"
+	btn.text = "Collect" if (reward_card_id != "" or weapon_reward_id != "") else "Continue"
 	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
 	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
-	var final_reward := reward_card_id
+	var final_card: String = reward_card_id
+	var final_weapon: String = weapon_reward_id
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
-		GameBus.battle_won.emit({"card_reward": final_reward})
+		GameBus.battle_won.emit({"card_reward": final_card, "weapon_reward": final_weapon})
 	)
 	vbox.add_child(btn)
 
 	overlay.add_child(vbox)
 	add_child(overlay)
 
-func _show_victory_overlay_boss(reward_cards: Array[String]) -> void:
+func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: String = "") -> void:
 	var overlay := PanelContainer.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var style := StyleBoxFlat.new()
@@ -806,15 +830,26 @@ func _show_victory_overlay_boss(reward_cards: Array[String]) -> void:
 	rewards_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(rewards_lbl)
 
+	if weapon_reward_id != "":
+		var weapon: WeaponData = WeaponRegistry.get_weapon(weapon_reward_id)
+		var weapon_lbl := Label.new()
+		var wname: String = weapon.display_name if weapon != null else weapon_reward_id
+		weapon_lbl.text = "Weapon found: " + wname
+		weapon_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+		weapon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		weapon_lbl.modulate = Color(0.8, 1.0, 0.5)
+		vbox.add_child(weapon_lbl)
+
 	var btn := Button.new()
-	btn.text = "Collect" if not reward_cards.is_empty() else "Continue"
+	btn.text = "Collect" if (not reward_cards.is_empty() or weapon_reward_id != "") else "Continue"
 	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
 	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
 	var final_rewards: Array[String] = []
 	final_rewards.assign(reward_cards)
+	var final_weapon: String = weapon_reward_id
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
-		GameBus.battle_won.emit({"card_rewards": final_rewards})
+		GameBus.battle_won.emit({"card_rewards": final_rewards, "weapon_reward": final_weapon})
 	)
 	vbox.add_child(btn)
 

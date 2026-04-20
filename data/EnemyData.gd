@@ -9,7 +9,7 @@ extends Resource
 @export var drop_pool: PackedStringArray = PackedStringArray()
 ## Coins awarded to the player when this enemy is defeated.
 @export var coin_reward: int = 5
-## If true, this enemy uses the boss battle presentation (banner, higher HP, full drop pool).
+## If true, this enemy uses the boss battle presentation (banner, higher HP, full drop pool) and guarantees a weapon drop.
 @export var is_boss: bool = false
 ## Override enemy hero HP for this encounter (0 = use default 30).
 @export var boss_hp: int = 0
