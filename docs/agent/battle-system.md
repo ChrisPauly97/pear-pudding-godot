@@ -93,6 +93,7 @@ Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at the
 - **Spell targeting (TID-058):** targeted spells (`_TARGETED_EFFECTS = ["deal_damage_single"]`) show a cyan-border highlight on valid targets; player clicks to resolve; "Cancel Spell" button returns card to hand
 - **Enemy intent banner (TID-059):** before AI actions execute, a centered panel shows what the AI plans (e.g. "Enemy will play Ghost"); hides when actions complete
 - **Status effect processing (TID-061):** at start of each player's turn, poison ticks (damage = value, decrement), freeze decrements, hero stun decrements; minion stun handled by `CardInstance.start_turn()` via `out_of_play`
+- **Floating damage/heal numbers (TID-077):** a `CanvasLayer` at layer 128 holds transient Label nodes. Before each damage/healing action, `_snapshot_hp_positions()` captures the HP and screen position of every card and hero on the board. After the action, `_spawn_float_labels_from_snapshot()` compares current HP to the snapshot and spawns labels for any delta. Labels tween upward 70px and fade from opaque to transparent over 0.8s, then `queue_free()`. Red (`#FF4444`) for damage, green (`#44FF88`) for healing. Covers: player minion attacks, player spells (non-targeted and targeted), AI actions, status tick damage, and auto-spell resolution.
 - "End Turn" button calls `GameState.end_turn()`; AI actions fire after a short delay for readability
 - Listens to `GameBus` signals to refresh UI after each state change
 

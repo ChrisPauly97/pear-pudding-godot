@@ -26,7 +26,7 @@
 | [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | pending | 2 / 5 |
 | [GID-021](goals/GID-021--enemy-boss-variety/goal.md) | Enemy & Boss Variety | pending | 1 / 5 |
 | [GID-022](goals/GID-022--weapon-system-content/goal.md) | Weapon System Content | done | 4 / 4 |
-| [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | pending | 0 / 5 |
+| [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | pending | 1 / 5 |
 | [GID-024](goals/GID-024--meta-progression/goal.md) | Meta-Progression | pending | 0 / 4 |
 | [GID-025](goals/GID-025--minion-keywords/goal.md) | Minion Keywords — Ward, Surge, Shroud | pending | 0 / 4 |
 | [GID-026](goals/GID-026--battle-ux-essentials/goal.md) | Battle UX Essentials | pending | 0 / 3 |
@@ -37,13 +37,13 @@
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
 | [BID-002](backlog/BID-002--voice-acting-spec-conflict.md) | "Voice acting" out-of-scope conflicts with narration scroll audio | spec-gap | GID-013 |
-| [BID-003](backlog/BID-003--maykalene-concatenated-door-scroll.md) | maykalene.txt DOOR+SCROLL lines were concatenated; scroll_martarquas_first_war was never spawned | code-smell | GID-017 / TID-047 |
 
 ## Resolved Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
 | [BID-001](backlog/BID-001--tutorial-onboarding.md) | Tutorial / Onboarding for New Players | spec-gap | ad-hoc review → promoted to GID-012 |
+| [BID-003](archive/backlog/BID-003--maykalene-concatenated-door-scroll.md) | maykalene.txt DOOR+SCROLL lines were concatenated; scroll_martarquas_first_war was never spawned | code-smell | GID-017 / TID-047 |
 
 ## Archive
 
