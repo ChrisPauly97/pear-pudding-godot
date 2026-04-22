@@ -2,7 +2,7 @@
 
 **Goal:** GID-026
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -31,12 +31,22 @@ There is no way to pause during a battle. On mobile this is critical — phone c
 
 ## Plan
 
-_Written during Plan phase._
+- Add `_paused: bool` and `_pause_overlay: CanvasLayer` to BattleScene
+- `_add_pause_button()` — inserts "II" button at top of SidePanel, `process_mode = ALWAYS`
+- `_show_pause_overlay()` — sets `get_tree().paused = true`, creates CanvasLayer layer 200 with full-screen backdrop, panel containing Resume/Settings/Return to Menu buttons; all buttons `PROCESS_MODE_ALWAYS`
+- `_hide_pause_overlay()` — sets `get_tree().paused = false`, frees CanvasLayer
+- `_toggle_pause()` — toggle between show/hide
+- `_confirm_return_to_menu()` — inline confirm dialog inside the pause overlay
+- `_open_settings_from_pause()` — instantiates SettingsScene into pause overlay's CanvasLayer
+- `_notification()` — auto-pause on `NOTIFICATION_APPLICATION_FOCUS_OUT`
+- `_input()` — Escape key calls `_toggle_pause()` (skip if inspect overlay open)
 
 ## Changes Made
 
-_Filled after Build phase._
+- `BattleScene.gd`: added `_paused`, `_pause_overlay`, `_add_pause_button()`, `_toggle_pause()`, `_show_pause_overlay()`, `_hide_pause_overlay()`, `_open_settings_from_pause()`, `_confirm_return_to_menu()`, `_notification()` handling focus-out auto-pause; Escape key handling in `_input()`
+- Pause button added to top of SidePanel (process_mode ALWAYS so it works during AI turn)
+- SettingsScene opened inline from pause overlay
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/battle-system.md` with pause system details.

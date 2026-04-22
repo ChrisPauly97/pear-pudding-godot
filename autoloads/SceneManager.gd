@@ -71,10 +71,17 @@ func start_new_game_with_biome(biome_id: int) -> void:
 	save_manager.new_game()
 	enter_map("madrian", "")
 
+func _apply_audio_settings() -> void:
+	var mv: float = float(save_manager.get_setting("music_volume", 0.5))
+	var sv: float = float(save_manager.get_setting("sfx_volume", 1.0))
+	AudioManager.set_music_volume(mv)
+	AudioManager.set_sfx_volume(sv)
+
 func continue_game() -> void:
 	if not save_manager.load_save():
 		start_new_game()
 		return
+	_apply_audio_settings()
 	map_stack.assign(save_manager.map_stack)
 	door_stack.assign(save_manager.door_stack)
 	current_map = save_manager.current_map

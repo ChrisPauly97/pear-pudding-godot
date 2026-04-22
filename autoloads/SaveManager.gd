@@ -53,6 +53,9 @@ var owned_weapons: Array[String] = []
 var world_seed: int = 42
 var starting_biome: int = 0   # BiomeDef.GRASSLANDS
 
+# User-controlled settings (music_volume, sfx_volume — floats 0-1)
+var settings: Dictionary = {}
+
 var _loaded: bool = false
 var _dirty: bool = false
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
@@ -108,12 +111,13 @@ func new_game() -> void:
 	equipped_weapon = ""
 	owned_weapons = []
 	collected_scrolls = []
+	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 7
+const CURRENT_SAVE_VERSION: int = 8
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -162,6 +166,12 @@ static func _migrate_v6_to_v7(data: Dictionary) -> void:
 		data["owned_weapons"] = []
 	data["version"] = 7
 
+# _migrate_v7_to_v8: backfill settings for old saves.
+static func _migrate_v7_to_v8(data: Dictionary) -> void:
+	if not data.has("settings"):
+		data["settings"] = {}
+	data["version"] = 8
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -178,6 +188,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v5_to_v6(data)
 	if ver < 7:
 		_migrate_v6_to_v7(data)
+	if ver < 8:
+		_migrate_v7_to_v8(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -213,6 +225,8 @@ func load_save() -> bool:
 	equipped_weapon = str(data.get("equipped_weapon", ""))
 	owned_weapons.assign(data.get("owned_weapons", []))
 	collected_scrolls.assign(data.get("collected_scrolls", []))
+	var sv = data.get("settings", {})
+	settings = sv if sv is Dictionary else {}
 	_loaded = true
 	return true
 
@@ -242,6 +256,7 @@ func save() -> void:
 		"equipped_weapon": equipped_weapon,
 		"owned_weapons": owned_weapons,
 		"collected_scrolls": collected_scrolls,
+		"settings": settings,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -331,6 +346,13 @@ func add_weapon(weapon_id: String) -> void:
 
 func equip_weapon(weapon_id: String) -> void:
 	equipped_weapon = weapon_id
+	_dirty = true
+
+func get_setting(key: String, default_value: Variant) -> Variant:
+	return settings.get(key, default_value)
+
+func set_setting(key: String, value: Variant) -> void:
+	settings[key] = value
 	_dirty = true
 
 func mark_dirty() -> void:

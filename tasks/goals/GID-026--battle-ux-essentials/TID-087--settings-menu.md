@@ -2,7 +2,7 @@
 
 **Goal:** GID-026
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -29,12 +29,26 @@ There is no settings UI. Players cannot adjust music or SFX volume. AudioManager
 
 ## Plan
 
-_Written during Plan phase._
+- Add `settings: Dictionary` to `SaveManager`, v8 migration backfills empty dict for old saves
+- Add `get_setting(key, default)` / `set_setting(key, value)` to SaveManager
+- Add `set_music_volume(linear)`, `get_music_volume()`, `set_sfx_volume(linear)`, `get_sfx_volume()` to AudioManager
+- Apply saved settings in `SceneManager.continue_game()` via `_apply_audio_settings()`
+- Create `scenes/ui/SettingsScene.gd` — overlay (extends Control, emits `closed`)
+  - Two rows: Music Volume + SFX Volume HSlider + % label
+  - Sliders apply immediately; persist via `SaveManager.set_setting()`
+  - Close button + tap-backdrop to dismiss + Escape key
+- Add Settings button to `MenuScene.tscn` + wire in `MenuScene.gd`
+- SettingsScene is also opened from pause menu (TID-088)
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`: added `settings` field, v8 migration, `get_setting`/`set_setting`
+- `autoloads/AudioManager.gd`: added `set_music_volume`, `get_music_volume`, `set_sfx_volume`, `get_sfx_volume`
+- `autoloads/SceneManager.gd`: added `_apply_audio_settings()`, called from `continue_game()`
+- Created `scenes/ui/SettingsScene.gd` — overlay with music + SFX volume sliders
+- `scenes/ui/MenuScene.tscn`: added `SettingsButton` node to VBox
+- `scenes/ui/MenuScene.gd`: wired `_settings_btn`, added `_on_settings()` handler
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md` with SettingsScene details.

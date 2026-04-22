@@ -12,9 +12,9 @@ These are baseline expectations for any card game on mobile. Without card inspec
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-086 | Card inspect overlay (tap-to-inspect during battle) | agent | pending | — |
-| TID-087 | Settings menu with volume sliders | agent | pending | — |
-| TID-088 | Pause during battle | agent | pending | — |
+| TID-086 | Card inspect overlay (tap-to-inspect during battle) | agent | done | — |
+| TID-087 | Settings menu with volume sliders | agent | done | — |
+| TID-088 | Pause during battle | agent | done | — |
 
 ## Acceptance Criteria
 
