@@ -12,11 +12,11 @@ The battle loop is functionally complete but lacks depth. Spells auto-fire with 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-058 | Spell targeting UI | agent | pending | — |
-| TID-059 | Enemy intent display | agent | pending | — |
-| TID-060 | Status effects data model | agent | pending | — |
-| TID-061 | Status effect turn processing | agent | pending | TID-060 |
-| TID-062 | Status effect UI indicators | agent | pending | TID-060 |
+| TID-058 | Spell targeting UI | agent | done | — |
+| TID-059 | Enemy intent display | agent | done | — |
+| TID-060 | Status effects data model | agent | done | — |
+| TID-061 | Status effect turn processing | agent | done | TID-060 |
+| TID-062 | Status effect UI indicators | agent | done | TID-060 |
 
 ## Acceptance Criteria
 

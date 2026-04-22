@@ -47,3 +47,27 @@ static func decide_turn(state: GameState) -> Array[Callable]:
 			)
 
 	return actions
+
+## Returns a human-readable description of the AI's first planned action.
+static func describe_turn(state: GameState) -> String:
+	var ai := state.current_player()
+
+	# Check if any card can be played
+	for card in ai.hand:
+		var c := card as CardInstance
+		if ai.can_play(c):
+			return "Enemy will play " + c.name
+
+	# Check if any minion can attack
+	for my_card in ai.board.get_cards():
+		var mc := my_card as CardInstance
+		if not mc.can_attack():
+			continue
+		var targets := state.opponent().board.get_cards()
+		if targets.is_empty():
+			return "Enemy will attack your hero with " + mc.name
+		else:
+			var tgt := targets[0] as CardInstance
+			return "Enemy attacks " + tgt.name + " with " + mc.name
+
+	return "Enemy is thinking..."

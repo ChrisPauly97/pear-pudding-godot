@@ -2,7 +2,7 @@
 
 **Goal:** GID-019
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-060
 
 ## Lock
@@ -29,12 +29,18 @@ Once status effects are stored on ZoneState/HeroState (TID-060), they must be pr
 
 ## Plan
 
-_Written during Plan phase._
+- Add `_process_start_of_turn_statuses(player_idx)` called at start of each player's turn
+- Process poison: deal damage = value, decrement, clear at 0; emit `status_ticked`
+- Process freeze: decrement, clear at 0; emit `status_ticked`
+- Process hero stun: decrement, clear at 0; emit `status_ticked`
+- Minion stun handled by `CardInstance.start_turn()` via `out_of_play`
+- Armor is passive (handled in `take_damage()`)
+- Call `_check_game_over()` after processing (poison may kill)
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`: added `_process_start_of_turn_statuses()`, `_tick_statuses_on_card()`, `_tick_statuses_on_hero()`; modified `_on_turn_ended()` to call status processing and `_check_game_over()` before AI/player actions
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md`

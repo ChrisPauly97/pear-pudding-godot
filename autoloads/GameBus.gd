@@ -16,6 +16,8 @@ signal card_played(card_id: String, zone: String, slot: int)
 signal card_attacked(attacker_id: String, target_id: String)
 signal turn_ended(player_id: int)
 signal battle_ended(winner: int)  # 0 = player, 1 = enemy
+signal status_applied(entity_id: String, effect_id: String, value: int)
+signal status_ticked(entity_id: String, effect_id: String, remaining: int)
 
 # Story signals
 signal story_flag_set(flag: String)

@@ -2,7 +2,7 @@
 
 **Goal:** GID-019
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -27,12 +27,16 @@ Currently all spell cards resolve immediately on drop with auto-targeting. Singl
 
 ## Plan
 
-_Written during Plan phase._
+- Derive targeting from `spell_effect`: add `_TARGETED_EFFECTS` const (`["deal_damage_single"]`)
+- On drag-drop to board: if targeted spell and can_play, intercept before `play_card()`, enter targeting mode
+- Targeting mode: show cyan border on valid targets (enemy minions + hero), show "Cancel Spell" button
+- Target chosen: call `play_card()` then `_resolve_spell_effect()` with explicit target dict
+- Cancel: clear state, refresh; card stays in hand
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`: added `_TARGETED_EFFECTS`, `_targeting_spell`, `_targeting_active` vars; added `_enter_targeting_mode()`, `_cancel_targeting()`, `_on_target_chosen_card()`, `_on_target_chosen_hero()`; modified `_finish_hand_drag()` to intercept targeted spells; modified `_on_enemy_card_input()` and `_on_enemy_hero_input()` to route to target handlers; added cyan border highlight in `_apply_card_style()` and `_refresh_hero()` for targeting mode; updated `_show_cancel_btn()` to accept callback param; modified `_resolve_spell_effect()` to accept `explicit_target: Dictionary = {}`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md` with spell targeting UI details

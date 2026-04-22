@@ -87,11 +87,29 @@ Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at the
 ### BattleScene UI (`scenes/battle/BattleScene.gd`)
 
 - Renders hand as a horizontal row of card buttons
-- Renders each player's board as 5 slot panels
-- Hero panels show current/max HP and mana pips
+- Renders each player's board as 5 slot panels with status icons (P/A/F/S colored labels)
+- Hero panels show current/max HP, mana pips, and status icons
 - Drag-to-play: card dragged from hand onto an empty board slot triggers `GameState.play_card()`
-- "End Turn" button calls `GameState.end_turn()`; AI actions fire after a short tween delay for readability
+- **Spell targeting (TID-058):** targeted spells (`_TARGETED_EFFECTS = ["deal_damage_single"]`) show a cyan-border highlight on valid targets; player clicks to resolve; "Cancel Spell" button returns card to hand
+- **Enemy intent banner (TID-059):** before AI actions execute, a centered panel shows what the AI plans (e.g. "Enemy will play Ghost"); hides when actions complete
+- **Status effect processing (TID-061):** at start of each player's turn, poison ticks (damage = value, decrement), freeze decrements, hero stun decrements; minion stun handled by `CardInstance.start_turn()` via `out_of_play`
+- "End Turn" button calls `GameState.end_turn()`; AI actions fire after a short delay for readability
 - Listens to `GameBus` signals to refresh UI after each state change
+
+### Status Effects Data Model (TID-060)
+
+`CardInstance` and `HeroState` each carry a `status_effects: Dictionary` (key: effect_id, value: int duration/stacks):
+
+| Effect | Stored on | Behaviour |
+|---|---|---|
+| `poison` | CardInstance, HeroState | Deal value damage at turn start; value decrements each tick; removed at 0 |
+| `armor` | CardInstance, HeroState | Absorbs incoming damage in `take_damage()`; remaining armor updated after each hit |
+| `freeze` | CardInstance, HeroState | Minion: blocks `can_attack()`; hero: blocks `can_play()` via PlayerState; decrements at turn start |
+| `stun` | CardInstance, HeroState | Like freeze but also bridges to `CardInstance.out_of_play` for minion attack blocking; hero stun decremented in BattleScene |
+
+Helper methods on both types: `apply_status(id, val)`, `has_status(id)`, `get_status_value(id)`, `clear_status(id)`, `take_damage(dmg)`.
+
+New GameBus signals: `status_applied(entity_id, effect_id, value)`, `status_ticked(entity_id, effect_id, remaining)`.
 
 ---
 
@@ -106,7 +124,7 @@ Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at the
 | **SceneManager** | Scene routing | `GameBus.battle_won` → SceneManager grants reward card + restores WorldScene; `GameBus.battle_lost` → SceneManager loads GameOverScene |
 | **EnemyRegistry** | Drop pool | `EnemyRegistry.get_drop_pool(enemy_type)` returns cards that may drop; BattleScene picks one at random and shows the victory overlay |
 | **Inventory / Deck** | Deck source | Player's active battle deck is built from `SaveManager.player_deck` (managed in InventoryScene) |
-| **GameBus signals** | Both | `card_played`, `card_attacked`, `turn_ended`, `battle_ended` — BattleScene listens to these to refresh the UI |
+| **GameBus signals** | Both | `card_played`, `card_attacked`, `turn_ended`, `battle_ended`, `status_applied`, `status_ticked` — BattleScene listens to turn_ended to refresh the UI; status signals available for future subscribers |
 
 ---
 
