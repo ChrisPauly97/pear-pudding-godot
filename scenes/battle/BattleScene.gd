@@ -20,6 +20,7 @@ var _boss_banner_timer: float = 0.0
 const _BOSS_BANNER_DURATION: float = 2.5
 
 var _float_layer: CanvasLayer = null
+var _is_shaking: bool = false
 
 # Click-to-target for board-card attacks (select attacker, then click enemy)
 var _dragged_card: Dictionary = {}  # {card: CardInstance}
@@ -246,6 +247,7 @@ func _finish_hand_drag() -> void:
 				_resolve_spell_effect(played_card, 0)
 				_spawn_float_labels_from_snapshot(snap_fhd)
 				_flash_from_snapshot(snap_fhd)
+				_check_shake_from_snapshot(snap_fhd)
 			_refresh_all()
 			_check_game_over()
 			_dismiss_battle_tutorial()
@@ -314,6 +316,7 @@ func _on_target_chosen_card(target: CardInstance) -> void:
 		_resolve_spell_effect(spell, 0, {"type": "minion", "card": target})
 		_spawn_float_labels_from_snapshot(snap_otc)
 		_flash_from_snapshot(snap_otc)
+		_check_shake_from_snapshot(snap_otc)
 	_refresh_all()
 	_check_game_over()
 	_dismiss_battle_tutorial()
@@ -329,6 +332,7 @@ func _on_target_chosen_hero() -> void:
 		_resolve_spell_effect(spell, 0, {"type": "hero"})
 		_spawn_float_labels_from_snapshot(snap_oth)
 		_flash_from_snapshot(snap_oth)
+		_check_shake_from_snapshot(snap_oth)
 	_refresh_all()
 	_check_game_over()
 	_dismiss_battle_tutorial()
@@ -603,6 +607,7 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 			_state.players[0].board.remove_card(attacker)
 			_state.players[0].discard.append(attacker)
 		_spawn_float_labels_from_snapshot(snap_ec)
+		_check_shake_from_snapshot(snap_ec)
 		_dragged_card.clear()
 		_refresh_all()
 		_check_game_over()
@@ -633,6 +638,7 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 			_state.players[0].board.remove_card(attacker)
 			_state.players[0].discard.append(attacker)
 		_spawn_float_labels_from_snapshot(snap_eh)
+		_check_shake_from_snapshot(snap_eh)
 		_dragged_card.clear()
 		_refresh_all()
 		_check_game_over()
@@ -653,6 +659,7 @@ func _on_turn_ended(player_idx: int) -> void:
 	_process_start_of_turn_statuses(player_idx)
 	_spawn_float_labels_from_snapshot(snap_sot)
 	_flash_from_snapshot(snap_sot)
+	_check_shake_from_snapshot(snap_sot)
 	_refresh_all()
 	if player_idx == 0:
 		_check_game_over()
@@ -661,6 +668,7 @@ func _on_turn_ended(player_idx: int) -> void:
 			_flush_auto_spells(0)
 			_spawn_float_labels_from_snapshot(snap_as)
 			_flash_from_snapshot(snap_as)
+			_check_shake_from_snapshot(snap_as)
 			_refresh_all()
 			_check_game_over()
 	elif player_idx == 1:
@@ -690,6 +698,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	actions[idx].call()
 	_spawn_float_labels_from_snapshot(snap_ai)
 	_flash_from_snapshot(snap_ai)
+	_check_shake_from_snapshot(snap_ai)
 	_refresh_all()
 	await get_tree().create_timer(0.6, true).timeout
 	_execute_ai_actions(actions, idx + 1)
@@ -1247,3 +1256,45 @@ func _flash_from_snapshot(snap: Array[Dictionary]) -> void:
 							_flash_node(panel, flash_color)
 						found_panel = true
 						break
+
+# -------------------------------------------------------------------------
+# Screen shake (TID-079)
+# -------------------------------------------------------------------------
+
+func _trigger_shake(magnitude: float, duration: float) -> void:
+	if _is_shaking:
+		return
+	_is_shaking = true
+	var origin: Vector2 = position
+	var tw: Tween = create_tween()
+	var steps: int = maxi(2, int(duration / 0.05))
+	for _i in range(steps):
+		var ox: float = randf_range(-magnitude, magnitude)
+		var oy: float = randf_range(-magnitude, magnitude)
+		tw.tween_property(self, "position", origin + Vector2(ox, oy), 0.05)
+	tw.tween_property(self, "position", origin, 0.05)
+	tw.tween_callback(func() -> void: _is_shaking = false)
+
+func _check_shake_from_snapshot(snap: Array[Dictionary]) -> void:
+	var cur_hp: Dictionary = {}
+	for i in range(2):
+		cur_hp["hero_%d" % i] = _state.players[i].hero.health
+		for c: CardInstance in _state.players[i].board.get_cards():
+			cur_hp[c.instance_id] = c.health
+	var hero_died: bool = false
+	var max_dmg: int = 0
+	for entry: Dictionary in snap:
+		var eid: String = str(entry["id"])
+		var hp_before: int = int(entry["hp"])
+		var hp_after: int = 0
+		if cur_hp.has(eid):
+			hp_after = int(cur_hp[eid])
+		var dmg: int = hp_before - hp_after
+		if dmg > max_dmg:
+			max_dmg = dmg
+		if eid.begins_with("hero_") and hp_before > 0 and hp_after == 0:
+			hero_died = true
+	if hero_died:
+		_trigger_shake(10.0, 0.35)
+	elif max_dmg >= 5:
+		_trigger_shake(5.0, 0.2)
