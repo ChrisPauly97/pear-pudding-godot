@@ -465,6 +465,7 @@ func _update_chunks() -> void:
 	if new_biome != _current_biome:
 		_current_biome = new_biome
 		AudioManager.play_music(_BIOME_MUSIC[new_biome])
+		SceneManager.save_manager.visit_biome(new_biome)
 
 	# Camera frustum for visibility culling. Falls back to load-all if unavailable.
 	var frustum: Array[Plane] = _camera.get_frustum()
@@ -1093,6 +1094,7 @@ func _handle_interact() -> void:
 		AudioManager.play_sfx("chest_open")
 		var cid: String = str(chest.get("id", ""))
 		SceneManager.save_manager.mark_chest_opened(cid)
+		SceneManager.session_stats["chests_opened"] = int(SceneManager.session_stats.get("chests_opened", 0)) + 1
 		var node := _chest_nodes.get(cid) as Node3D
 		if node and node.has_method("mark_opened"):
 			node.mark_opened()

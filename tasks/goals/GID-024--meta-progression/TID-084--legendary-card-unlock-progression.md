@@ -2,7 +2,7 @@
 
 **Goal:** GID-024
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-082
 
 ## Lock
@@ -32,12 +32,19 @@ Standard cards (all existing + GID-018 Dawn/Dusk cards) remain always available 
 
 ## Plan
 
-_Written during Plan phase._
+Create 5 legendary card .tres files (ancient_guardian, soul_harvest, time_warp, phoenix_rise, void_wyrm) each with UID sidecar. Add CardRegistry.is_unlocked() that checks card_class + achievement list. Filter locked legendaries from ShopScene. Auto-grant legendary card to owned_cards in SceneManager._on_achievement_unlocked via grant_achievement_card().
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `data/cards/ancient_guardian.tres` + `.uid` — 6-cost 5/8 legendary minion
+- Created `data/cards/soul_harvest.tres` + `.uid` — 5-cost legendary dawn spell (destroy all, draw 3)
+- Created `data/cards/time_warp.tres` + `.uid` — 4-cost legendary spell (extra turn)
+- Created `data/cards/phoenix_rise.tres` + `.uid` — 5-cost 4/4 legendary dusk minion (resurrects 2/2)
+- Created `data/cards/void_wyrm.tres` + `.uid` — 7-cost 6/6 legendary minion (deals 2 AOE on entry)
+- `autoloads/CardRegistry.gd`: added is_unlocked(card_id, unlocked_achievements) static method
+- `scenes/ui/ShopScene.gd`: filtered locked legendary cards in _refresh()
+- `autoloads/SceneManager.gd`: added _on_achievement_unlocked() to grant reward card via grant_achievement_card()
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+_Updated in meta-progression doc._

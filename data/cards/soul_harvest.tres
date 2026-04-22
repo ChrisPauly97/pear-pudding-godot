@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://ob6cahwgkpgg"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_soul_harvest"]
+
+[resource]
+script = ExtResource("1_soul_harvest")
+id = "soul_harvest"
+card_name = "Soul Harvest"
+cost = 5
+attack = 0
+health = 0
+card_class = "legendary"
+description = "Destroy all minions. Draw 3 cards."
+color = Color(0.9, 0.95, 1.0, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "destroy_all_draw_3"
+spell_power = 3
+auto_resolve = true

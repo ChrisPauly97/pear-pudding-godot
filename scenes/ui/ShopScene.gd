@@ -91,9 +91,12 @@ func _refresh() -> void:
 	# ---- Cards section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Cards —"))
 
+	var unlocked_ach: Array[String] = SceneManager.save_manager.unlocked_achievements
 	for id: String in CardRegistry.get_all_ids():
 		var tmpl: Dictionary = CardRegistry.get_template(id)
 		if tmpl.is_empty():
+			continue
+		if not CardRegistry.is_unlocked(id, unlocked_ach):
 			continue
 		var row := _make_card_row(id, tmpl, coins)
 		_shop_list.add_child(row)

@@ -1,5 +1,7 @@
 extends Node
 
+const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
+
 signal coins_changed(new_amount: int)
 
 const SAVE_PATH := "user://save.json"
@@ -56,6 +58,12 @@ var starting_biome: int = 0   # BiomeDef.GRASSLANDS
 # User-controlled settings (music_volume, sfx_volume — floats 0-1)
 var settings: Dictionary = {}
 
+# Achievement tracking (persisted)
+var achievement_progress: Dictionary = {}   # achievement_id -> int count
+var unlocked_achievements: Array[String] = []
+# Which biome IDs (int) have been visited — used by biomes_visited achievement
+var visited_biomes: Array[int] = []
+
 var _loaded: bool = false
 var _dirty: bool = false
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
@@ -111,6 +119,9 @@ func new_game() -> void:
 	equipped_weapon = ""
 	owned_weapons = []
 	collected_scrolls = []
+	achievement_progress = {}
+	unlocked_achievements = []
+	visited_biomes = []
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
@@ -166,10 +177,16 @@ static func _migrate_v6_to_v7(data: Dictionary) -> void:
 		data["owned_weapons"] = []
 	data["version"] = 7
 
-# _migrate_v7_to_v8: backfill settings for old saves.
+# _migrate_v7_to_v8: backfill settings and achievement tracking fields for old saves.
 static func _migrate_v7_to_v8(data: Dictionary) -> void:
 	if not data.has("settings"):
 		data["settings"] = {}
+	if not data.has("achievement_progress"):
+		data["achievement_progress"] = {}
+	if not data.has("unlocked_achievements"):
+		data["unlocked_achievements"] = []
+	if not data.has("visited_biomes"):
+		data["visited_biomes"] = []
 	data["version"] = 8
 
 static func _apply_migrations(data: Dictionary) -> void:
@@ -227,6 +244,10 @@ func load_save() -> bool:
 	collected_scrolls.assign(data.get("collected_scrolls", []))
 	var sv = data.get("settings", {})
 	settings = sv if sv is Dictionary else {}
+	var ap = data.get("achievement_progress", {})
+	achievement_progress = ap if ap is Dictionary else {}
+	unlocked_achievements.assign(data.get("unlocked_achievements", []))
+	visited_biomes.assign(data.get("visited_biomes", []))
 	_loaded = true
 	return true
 
@@ -257,6 +278,9 @@ func save() -> void:
 		"owned_weapons": owned_weapons,
 		"collected_scrolls": collected_scrolls,
 		"settings": settings,
+		"achievement_progress": achievement_progress,
+		"unlocked_achievements": unlocked_achievements,
+		"visited_biomes": visited_biomes,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -284,6 +308,13 @@ func add_coins(amount: int) -> void:
 func add_cards_to_deck(card_ids: Array[String]) -> void:
 	for cid in card_ids:
 		owned_cards.append(str(cid))
+	if card_ids.size() > 0:
+		increment_progress("cards_earned", card_ids.size())
+	_dirty = true
+
+func grant_achievement_card(card_id: String) -> void:
+	if not owned_cards.has(card_id):
+		owned_cards.append(card_id)
 	_dirty = true
 
 func set_active_deck(new_deck: Array[String]) -> void:
@@ -305,6 +336,7 @@ func mark_enemy_defeated(enemy_id: String) -> void:
 func mark_chest_opened(chest_id: String) -> void:
 	if not opened_chests.has(chest_id):
 		opened_chests.append(chest_id)
+		increment_progress("chests_opened", 1)
 	_dirty = true
 
 func is_enemy_defeated(enemy_id: String) -> bool:
@@ -327,6 +359,8 @@ func set_story_flag(key: String, value: bool = true) -> void:
 	story_flags[key] = value
 	_dirty = true
 	GameBus.story_flag_set.emit(key)
+	if value:
+		check_flag_achievement(key)
 
 func get_story_flag(key: String) -> bool:
 	return story_flags.get(key, false)
@@ -357,6 +391,61 @@ func set_setting(key: String, value: Variant) -> void:
 
 func mark_dirty() -> void:
 	_dirty = true
+
+func visit_biome(biome_id: int) -> void:
+	if visited_biomes.has(biome_id):
+		return
+	visited_biomes.append(biome_id)
+	increment_progress("biomes_visited", 1)
+	_dirty = true
+
+func increment_progress(condition_type: String, amount: int) -> void:
+	for a: Dictionary in AchievementRegistry.get_all():
+		if a["condition_type"] != condition_type:
+			continue
+		var aid: String = str(a["id"])
+		if unlocked_achievements.has(aid):
+			continue
+		var current: int = int(achievement_progress.get(aid, 0))
+		achievement_progress[aid] = current + amount
+		_check_unlock(aid, a)
+	_dirty = true
+
+func check_flag_achievement(flag: String) -> void:
+	for a: Dictionary in AchievementRegistry.get_all():
+		if a["condition_type"] != "specific_flag":
+			continue
+		if str(a.get("flag_key", "")) != flag:
+			continue
+		var aid: String = str(a["id"])
+		if unlocked_achievements.has(aid):
+			continue
+		achievement_progress[aid] = 1
+		_check_unlock(aid, a)
+	_dirty = true
+
+func check_deck_achievements(deck: Array[String]) -> void:
+	var dawn_count: int = 0
+	var dusk_count: int = 0
+	const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+	for card_id: String in deck:
+		var tmpl: Dictionary = CardRegistry.get_template(card_id)
+		var branch: String = str(tmpl.get("magic_branch", ""))
+		if branch == "dawn":
+			dawn_count += 1
+		elif branch == "dusk":
+			dusk_count += 1
+	if dawn_count >= 5:
+		increment_progress("dawn_battle_won", 1)
+	if dusk_count >= 5:
+		increment_progress("dusk_battle_won", 1)
+
+func _check_unlock(achievement_id: String, achievement: Dictionary) -> void:
+	var target: int = int(achievement.get("target_value", 1))
+	var current: int = int(achievement_progress.get(achievement_id, 0))
+	if current >= target and not unlocked_achievements.has(achievement_id):
+		unlocked_achievements.append(achievement_id)
+		GameBus.achievement_unlocked.emit(achievement_id)
 
 func increment_day() -> void:
 	days_elapsed += 1

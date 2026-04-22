@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://s11qcyxdaqv4"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_time_warp"]
+
+[resource]
+script = ExtResource("1_time_warp")
+id = "time_warp"
+card_name = "Time Warp"
+cost = 4
+attack = 0
+health = 0
+card_class = "legendary"
+description = "Take an extra turn after this one."
+color = Color(0.6, 0.4, 1.0, 1)
+magic_type = ""
+magic_branch = ""
+spell_effect = "extra_turn"
+spell_power = 0
+auto_resolve = true

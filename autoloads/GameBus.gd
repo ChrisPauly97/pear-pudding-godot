@@ -23,3 +23,6 @@ signal status_ticked(entity_id: String, effect_id: String, remaining: int)
 signal story_flag_set(flag: String)
 signal story_scroll_collected(scroll_id: String)
 signal all_scrolls_collected()
+
+# Achievement signals
+signal achievement_unlocked(achievement_id: String)

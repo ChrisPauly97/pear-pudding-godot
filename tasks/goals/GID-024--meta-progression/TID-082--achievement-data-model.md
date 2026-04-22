@@ -2,7 +2,7 @@
 
 **Goal:** GID-024
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -42,12 +42,22 @@ No achievement system exists. This task defines the achievement list, the data m
 
 ## Plan
 
-_Written during Plan phase._
+Create AchievementRegistry.gd with 9 achievements; add achievement_progress, unlocked_achievements, visited_biomes fields to SaveManager with v8 migration; add achievement_unlocked signal to GameBus; add increment_progress, check_flag_achievement, check_deck_achievements, _check_unlock, visit_biome methods; hook into mark_chest_opened, add_cards_to_deck, set_story_flag, SceneManager._on_battle_won, WorldScene biome change.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `game_logic/AchievementRegistry.gd` with 9 achievement definitions (first_blood, veteran, explorer, treasure_hunter, card_collector, chapter1_done, undead_slayer, dawn_devotee, dusk_disciple)
+- `autoloads/GameBus.gd`: added `signal achievement_unlocked(achievement_id: String)`
+- `autoloads/SaveManager.gd`: added achievement_progress, unlocked_achievements, visited_biomes fields; v8 migration; increment_progress, check_flag_achievement, check_deck_achievements, _check_unlock, visit_biome, grant_achievement_card methods; hooked mark_chest_opened and add_cards_to_deck and set_story_flag
+- `autoloads/SceneManager.gd`: hooked _on_battle_won to call increment_progress for battles_won/enemies_defeated and check_deck_achievements
+- `scenes/world/WorldScene.gd`: added visit_biome call on biome change
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+_Updated in meta-progression doc (created with TID-085 commit)._
+
+## Lock
+
+**Session:** none
+**Acquired:** —
+**Expires:** —

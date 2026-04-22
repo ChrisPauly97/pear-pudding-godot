@@ -51,6 +51,10 @@ text = "Continue"
 layout_mode = 2
 text = "New Game"
 
+[node name="AchievementsButton" type="Button" parent="VBox"]
+layout_mode = 2
+text = "Achievements"
+
 [node name="EditorButton" type="Button" parent="VBox" unique_id=409112854]
 layout_mode = 2
 text = "Map Editor"
