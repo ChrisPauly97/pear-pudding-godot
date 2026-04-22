@@ -91,6 +91,22 @@ func _on_music_finished() -> void:
 	if not _current_music_path.is_empty() and _music_player.stream != null:
 		_music_player.play()
 
+func set_music_volume(linear: float) -> void:
+	_music_player.volume_db = linear_to_db(maxf(linear, 0.0001))
+
+func get_music_volume() -> float:
+	return db_to_linear(_music_player.volume_db)
+
+func set_sfx_volume(linear: float) -> void:
+	var db: float = linear_to_db(maxf(linear, 0.0001))
+	for p: AudioStreamPlayer in _players:
+		p.volume_db = db
+
+func get_sfx_volume() -> float:
+	if _players.is_empty():
+		return 1.0
+	return db_to_linear(_players[0].volume_db)
+
 func play_sfx(sfx_name: String) -> void:
 	if not SFX_PATHS.has(sfx_name):
 		return

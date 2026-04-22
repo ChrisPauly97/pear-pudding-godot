@@ -1,0 +1,189 @@
+extends Control
+
+signal closed
+
+const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+
+const _SPELL_EFFECT_LABELS: Dictionary = {
+	"deal_damage_single":  "Deal [power] damage to one target",
+	"deal_damage_all":     "Deal [power] damage to all enemy minions",
+	"deal_damage_random":  "Deal [power] damage to a random enemy",
+	"debuff_attack":       "Reduce all enemy minion attack by [power]",
+	"destroy_low_hp":      "Destroy all enemy minions with [power] or less HP",
+	"resurrect_last":      "Resurrect the last friendly minion that died",
+	"heal_single":         "Restore [power] HP to a friendly minion",
+	"heal_all":            "Restore [power] HP to all friendly minions",
+	"shield_minion":       "Give [power] armor to a friendly minion",
+	"buff_attack":         "Give a friendly minion +[power] attack",
+	"lifesteal_hit":       "Deal [power] damage; restore that much HP to your hero",
+	"mana_drain":          "Remove [power] mana from the enemy hero",
+	"curse_minion":        "Reduce an enemy minion's attack and HP by [power]",
+	"draw_card":           "Draw [power] card(s)",
+}
+
+var _card: CardInstance = null
+var _vh: float = 0.0
+
+func show_card(card: CardInstance) -> void:
+	_card = card
+	_build_ui()
+
+func _build_ui() -> void:
+	_vh = get_viewport().get_visible_rect().size.y
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = MOUSE_FILTER_STOP
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.72)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = MOUSE_FILTER_PASS
+	add_child(backdrop)
+
+	backdrop.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed:
+			_close()
+	)
+
+	var panel_w: float = vp.x * 0.6
+	var panel_h: float = _vh * 0.62
+	var panel := PanelContainer.new()
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.1, 0.1, 0.18, 0.98)
+	panel_style.corner_radius_top_left    = 12
+	panel_style.corner_radius_top_right   = 12
+	panel_style.corner_radius_bottom_left = 12
+	panel_style.corner_radius_bottom_right = 12
+	panel_style.border_color = Color(0.5, 0.5, 0.7, 0.8)
+	panel_style.border_width_top    = 2
+	panel_style.border_width_bottom = 2
+	panel_style.border_width_left   = 2
+	panel_style.border_width_right  = 2
+	panel.add_theme_stylebox_override("panel", panel_style)
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	panel.mouse_filter = MOUSE_FILTER_STOP
+	add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(_vh * 0.018))
+	panel.add_child(vbox)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(_vh * 0.025))
+	margin.add_theme_constant_override("margin_right",  int(_vh * 0.025))
+	margin.add_theme_constant_override("margin_top",    int(_vh * 0.025))
+	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.025))
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(margin)
+
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", int(_vh * 0.016))
+	margin.add_child(inner)
+
+	# Card color bar
+	var color_bar := ColorRect.new()
+	color_bar.custom_minimum_size = Vector2(0, _vh * 0.008)
+	if _card != null:
+		var tmpl := CardRegistry.get_template(_card.template_id)
+		color_bar.color = tmpl.get("color", Color(0.4, 0.4, 0.4)) if not tmpl.is_empty() else Color(0.4, 0.4, 0.4)
+	inner.add_child(color_bar)
+
+	# Name
+	var name_lbl := Label.new()
+	name_lbl.text = _card.name if _card != null else "?"
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.038))
+	name_lbl.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
+	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(name_lbl)
+
+	# Class / type row
+	var class_lbl := Label.new()
+	var class_text: String = ""
+	if _card != null:
+		class_text = _card.card_class.capitalize()
+		if _card.card_class == "spell":
+			var tmpl := CardRegistry.get_template(_card.template_id)
+			var mt: String = str(tmpl.get("magic_type", ""))
+			var mb_val: String = str(tmpl.get("magic_branch", ""))
+			if mt != "":
+				class_text += "  ·  " + mt.capitalize()
+			if mb_val != "":
+				class_text += " / " + mb_val.capitalize()
+	class_lbl.text = class_text
+	class_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	class_lbl.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
+	class_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(class_lbl)
+
+	# Stats row
+	var stats_lbl := Label.new()
+	if _card != null and _card.card_class == "minion":
+		stats_lbl.text = "Cost %d   ·   %d / %d" % [_card.cost, _card.attack, _card.health]
+	elif _card != null:
+		stats_lbl.text = "Cost %d" % _card.cost
+	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	stats_lbl.add_theme_color_override("font_color", Color.WHITE)
+	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	inner.add_child(stats_lbl)
+
+	# Divider
+	var sep := HSeparator.new()
+	inner.add_child(sep)
+
+	# Description
+	var desc_lbl := Label.new()
+	desc_lbl.text = _card.description if _card != null else ""
+	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	desc_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	inner.add_child(desc_lbl)
+
+	# Spell effect plain-english
+	if _card != null and _card.card_class == "spell" and _card.spell_effect != "":
+		var effect_lbl := Label.new()
+		var template_str: String = _SPELL_EFFECT_LABELS.get(_card.spell_effect, _card.spell_effect)
+		effect_lbl.text = template_str.replace("[power]", str(_card.spell_power))
+		effect_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		effect_lbl.add_theme_color_override("font_color", Color(0.6, 1.0, 0.8))
+		effect_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		effect_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		inner.add_child(effect_lbl)
+
+	# Current status effects (if any)
+	if _card != null:
+		var effects: Array[String] = ["poison", "armor", "freeze", "stun"]
+		var colors: Array[Color] = [Color.GREEN, Color.CORNFLOWER_BLUE, Color.CYAN, Color.YELLOW]
+		var labels: Array[String] = ["Poison", "Armor", "Freeze", "Stun"]
+		for i in range(effects.size()):
+			if not _card.has_status(effects[i]):
+				continue
+			var st_lbl := Label.new()
+			st_lbl.text = "%s: %d" % [labels[i], _card.get_status_value(effects[i])]
+			st_lbl.add_theme_font_size_override("font_size", int(_vh * 0.02))
+			st_lbl.add_theme_color_override("font_color", colors[i])
+			st_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			inner.add_child(st_lbl)
+
+	# Close button
+	var close_btn := Button.new()
+	close_btn.text = "Close"
+	close_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.055)
+	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	close_btn.pressed.connect(_close)
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_child(close_btn)
+	inner.add_child(btn_row)
+
+func _close() -> void:
+	closed.emit()
+	queue_free()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+		_close()
+		get_viewport().set_input_as_handled()

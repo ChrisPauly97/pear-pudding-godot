@@ -55,6 +55,10 @@ text = "New Game"
 layout_mode = 2
 text = "Map Editor"
 
+[node name="SettingsButton" type="Button" parent="VBox" unique_id=223344556]
+layout_mode = 2
+text = "Settings"
+
 [node name="QuitButton" type="Button" parent="VBox" unique_id=79237124]
 layout_mode = 2
 text = "Quit"

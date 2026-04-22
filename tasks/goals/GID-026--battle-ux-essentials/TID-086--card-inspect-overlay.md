@@ -2,7 +2,7 @@
 
 **Goal:** GID-026
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -33,12 +33,24 @@ On mobile, players cannot hover over cards to read them. Once a card is played t
 
 ## Plan
 
-_Written during Plan phase._
+- Create `scenes/battle/CardInspectOverlay.gd` (extends Control, emits `closed`)
+- Centered panel ~60% vp width, dark backdrop dismisses on tap-outside
+- Show: name, card color bar, class/type, cost/attack/health, description, spell-effect plain-English, active status effects
+- Trigger: right-click on any card in any zone (via `_bind_card_input` generic handler)
+- Mobile/touch: left-press + release without drag movement → inspect (tracked via `_drag_moved` flag)
+- Wire into BattleScene: add `_drag_moved` tracking, update `_input()` to detect tap-without-drag
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/battle/CardInspectOverlay.gd` — full-screen overlay, card detail panel
+- Modified `BattleScene.gd`:
+  - Added `const CardInspectOverlay` and `const SettingsScene` preloads
+  - Added `_drag_moved: bool`, `_inspect_overlay`, `_paused`, `_pause_overlay` vars
+  - `_start_hand_drag`: sets `_drag_moved = false`; allows unplayable cards to be tracked for tap-to-inspect
+  - `_input()`: sets `_drag_moved = true` on mouse motion; on left-release without motion → show inspect
+  - `_bind_card_input`: added generic right-click → `_show_card_inspect` for all zones
+  - Added `_show_card_inspect(card)` method
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/battle-system.md` with card inspect overlay details.

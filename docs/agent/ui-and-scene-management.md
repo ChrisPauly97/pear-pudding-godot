@@ -65,7 +65,18 @@ This keeps all world state (chunk cache, player position, NPC nodes) alive durin
 
 - **New Game** button → opens `BiomeSelectionScene` overlay
 - **Continue** button (shown only if save exists) → calls `SaveManager.load()` then loads `WorldScene`
+- **Settings** button → opens `SettingsScene` overlay (GID-026)
 - Background: static or animated title art
+
+### SettingsScene (`scenes/ui/SettingsScene.gd`)
+
+Overlay (extends Control, emits `closed`) showing volume controls. Entry points: MenuScene Settings button and BattleScene pause menu.
+
+- **Music Volume** HSlider (0–1, default 0.5) — calls `AudioManager.set_music_volume(v)` and `SaveManager.set_setting("music_volume", v)`
+- **SFX Volume** HSlider (0–1, default 1.0) — calls `AudioManager.set_sfx_volume(v)` and `SaveManager.set_setting("sfx_volume", v)`
+- Values apply immediately on slider change and persist across sessions
+- Dismissed by Close button, tapping the backdrop, or Escape key
+- Settings are loaded and applied to AudioManager in `SceneManager._apply_audio_settings()` which is called on `continue_game()`
 
 ### BiomeSelectionScene (`scenes/ui/BiomeSelectionScene.gd`)
 
@@ -149,6 +160,7 @@ Recommended fractions: buttons 12–18% width, 5–6% height; font 2–2.5% heig
 | **GameBus** | Signal source | `enemy_engaged`, `battle_won`, `battle_lost`, `map_transition_requested`, `inventory_requested` all route through SceneManager |
 | **SaveManager** | State source | `map_stack`, `current_map`, `time_of_day`, `coins` read/written by SceneManager and WorldScene |
 | **BattleScene** | Overlay | Instantiated on `enemy_engaged`; removed on `battle_won` / `battle_lost` |
+| **SettingsScene** | Overlay | Opened from MenuScene or battle pause menu; emits `closed` signal; persists volume prefs |
 | **InventoryScene** | Overlay | Instantiated on `inventory_requested`; removed on close |
 | **ShopScene** | Overlay | Instantiated on `shop_requested` (player interacts with MerchantNPC); lists all cards for 15 coins; removed on close |
 | **WorldMap / InfiniteWorldGen** | Data source | SceneManager chooses which path to use based on map name (`"infinite"` key) |
@@ -165,6 +177,7 @@ Recommended fractions: buttons 12–18% width, 5–6% height; font 2–2.5% heig
 | BiomeSelectionScene | `scenes/ui/BiomeSelectionScene.tscn` | New-game biome picker |
 | GameOverScene | `scenes/ui/GameOverScene.tscn` | Death screen |
 | MapEditorScene | `scenes/ui/MapEditorScene.tscn` | Debug/editor tool |
+| SettingsScene | `scenes/ui/SettingsScene.gd` | Volume sliders overlay (GID-026) |
 | ShopScene | `scenes/ui/ShopScene.tscn` | Merchant shop overlay |
 | VirtualJoystick scene | `scenes/ui/VirtualJoystick.tscn` | Mobile overlay |
 | `SceneManager.gd` | `autoloads/SceneManager.gd` | Autoload singleton |

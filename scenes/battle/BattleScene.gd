@@ -9,6 +9,8 @@ const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
+const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
+const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 
 var enemy_data: Dictionary = {}
 var _state: GameState
@@ -30,7 +32,15 @@ var _vh: float = 0.0
 var _hand_drag_card: CardInstance = null
 var _drag_visual: Control = null
 var _drag_start_pos: Vector2 = Vector2.ZERO
+var _drag_moved: bool = false
 var _cancel_btn: Button = null
+
+# Card inspect overlay
+var _inspect_overlay: Control = null
+
+# Battle pause
+var _paused: bool = false
+var _pause_overlay: CanvasLayer = null
 
 # Spell targeting (TID-058)
 const _TARGETED_EFFECTS: Array[String] = ["deal_damage_single"]
@@ -96,6 +106,7 @@ func _ready() -> void:
 	_menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
 	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
 	_apply_menu_btn_size()
+	_add_pause_button()
 	GameBus.turn_ended.connect(_on_turn_ended)
 
 	_state.players[0].start_turn(1)
@@ -210,19 +221,33 @@ func _dismiss_battle_tutorial() -> void:
 # -------------------------------------------------------------------------
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_ESCAPE:
+			if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
+				return  # overlay handles its own Escape
+			_toggle_pause()
+			get_viewport().set_input_as_handled()
+			return
+
 	if _hand_drag_card == null:
 		return
 
 	if event is InputEventMouseMotion:
+		_drag_moved = true
 		if _drag_visual:
-			# Centre the ghost card on the cursor
 			_drag_visual.position = get_viewport().get_mouse_position() - _drag_visual.size * 0.5
 		get_viewport().set_input_as_handled()
 
 	elif event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
-			_finish_hand_drag()
+			if not _drag_moved:
+				# Tap without drag — show inspect instead of play
+				var card_to_inspect := _hand_drag_card
+				_cancel_hand_drag()
+				_show_card_inspect(card_to_inspect)
+			else:
+				_finish_hand_drag()
 			get_viewport().set_input_as_handled()
 		elif mb.button_index == MOUSE_BUTTON_RIGHT:
 			_cancel_hand_drag()
@@ -263,15 +288,16 @@ func _cancel_hand_drag() -> void:
 	_hand_drag_card = null
 
 func _start_hand_drag(card: CardInstance, from_pos: Vector2) -> void:
-	if not _state.players[0].can_play(card):
-		return
 	_hand_drag_card = card
 	_drag_start_pos = from_pos
+	_drag_moved = false
+	if not _state.players[0].can_play(card):
+		# Still track for tap-to-inspect; don't show drag ghost for unplayable
+		return
 	_drag_visual = _make_card_ghost(card)
 	_drag_visual.position = from_pos - _drag_visual.size * 0.5
 	_drag_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_drag_visual)
-	# Ensure ghost renders on top
 	move_child(_drag_visual, get_child_count() - 1)
 	_show_cancel_btn("✕ Cancel", _cancel_hand_drag)
 
@@ -306,6 +332,202 @@ func _cancel_targeting() -> void:
 	_targeting_spell = null
 	_hide_cancel_btn()
 	_refresh_all()
+
+# -------------------------------------------------------------------------
+# Card inspect overlay (TID-086)
+# -------------------------------------------------------------------------
+
+func _show_card_inspect(card: CardInstance) -> void:
+	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
+		return
+	var overlay: CardInspectOverlay = CardInspectOverlay.new()
+	add_child(overlay)
+	move_child(overlay, get_child_count() - 1)
+	overlay.show_card(card)
+	overlay.closed.connect(func() -> void: _inspect_overlay = null)
+	_inspect_overlay = overlay
+
+# -------------------------------------------------------------------------
+# Battle pause (TID-088)
+# -------------------------------------------------------------------------
+
+func _add_pause_button() -> void:
+	var pause_btn := Button.new()
+	pause_btn.text = "II"
+	pause_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
+	pause_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	pause_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	pause_btn.pressed.connect(_toggle_pause)
+	$SidePanel.add_child(pause_btn)
+	$SidePanel.move_child(pause_btn, 0)
+
+func _toggle_pause() -> void:
+	if _paused:
+		_hide_pause_overlay()
+	else:
+		_show_pause_overlay()
+
+func _show_pause_overlay() -> void:
+	if _paused:
+		return
+	_paused = true
+	get_tree().paused = true
+
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var layer := CanvasLayer.new()
+	layer.layer = 200
+	layer.process_mode = Node.PROCESS_MODE_ALWAYS
+	add_child(layer)
+	_pause_overlay = layer
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.7)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel_w: float = vp.x * 0.55
+	var panel_h: float = _vh * 0.52
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.15, 0.97)
+	style.corner_radius_top_left    = 12
+	style.corner_radius_top_right   = 12
+	style.corner_radius_bottom_left = 12
+	style.corner_radius_bottom_right = 12
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(_vh * 0.03))
+	margin.add_theme_constant_override("margin_right",  int(_vh * 0.03))
+	margin.add_theme_constant_override("margin_top",    int(_vh * 0.03))
+	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.03))
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.025))
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Paused"
+	title.add_theme_font_size_override("font_size", int(_vh * 0.05))
+	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var resume_btn := Button.new()
+	resume_btn.text = "Resume"
+	resume_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
+	resume_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	resume_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	resume_btn.pressed.connect(_hide_pause_overlay)
+	vbox.add_child(resume_btn)
+
+	var settings_btn := Button.new()
+	settings_btn.text = "Settings"
+	settings_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
+	settings_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	settings_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	settings_btn.pressed.connect(_open_settings_from_pause)
+	vbox.add_child(settings_btn)
+
+	var menu_btn := Button.new()
+	menu_btn.text = "Return to Menu"
+	menu_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
+	menu_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	menu_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	menu_btn.pressed.connect(_confirm_return_to_menu)
+	vbox.add_child(menu_btn)
+
+func _hide_pause_overlay() -> void:
+	if not _paused:
+		return
+	_paused = false
+	get_tree().paused = false
+	if _pause_overlay != null and is_instance_valid(_pause_overlay):
+		_pause_overlay.queue_free()
+	_pause_overlay = null
+
+func _open_settings_from_pause() -> void:
+	var overlay: SettingsScene = SettingsScene.new()
+	_pause_overlay.add_child(overlay)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.closed.connect(overlay.queue_free)
+
+func _confirm_return_to_menu() -> void:
+	# Simple inline confirm dialog
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var dialog := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.12, 0.05, 0.05, 0.98)
+	style.corner_radius_top_left    = 10
+	style.corner_radius_top_right   = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	dialog.add_theme_stylebox_override("panel", style)
+	var dlg_w: float = vp.x * 0.5
+	var dlg_h: float = _vh * 0.28
+	dialog.custom_minimum_size = Vector2(dlg_w, dlg_h)
+	dialog.position = Vector2((vp.x - dlg_w) * 0.5, (vp.y - dlg_h) * 0.5)
+	dialog.mouse_filter = Control.MOUSE_FILTER_STOP
+	dialog.process_mode = Node.PROCESS_MODE_ALWAYS
+	_pause_overlay.add_child(dialog)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(_vh * 0.025))
+	margin.add_theme_constant_override("margin_right",  int(_vh * 0.025))
+	margin.add_theme_constant_override("margin_top",    int(_vh * 0.025))
+	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.025))
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dialog.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.022))
+	margin.add_child(vbox)
+
+	var lbl := Label.new()
+	lbl.text = "Your battle progress will be lost.\nReturn to menu?"
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.85))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(lbl)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(_vh * 0.03))
+	vbox.add_child(row)
+
+	var yes_btn := Button.new()
+	yes_btn.text = "Yes, leave"
+	yes_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.065)
+	yes_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	yes_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	yes_btn.pressed.connect(func() -> void:
+		get_tree().paused = false
+		SceneManager.go_to_menu()
+	)
+	row.add_child(yes_btn)
+
+	var no_btn := Button.new()
+	no_btn.text = "Cancel"
+	no_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.065)
+	no_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	no_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	no_btn.pressed.connect(dialog.queue_free)
+	row.add_child(no_btn)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		if not _paused:
+			_show_pause_overlay()
 
 func _on_target_chosen_card(target: CardInstance) -> void:
 	var spell := _targeting_spell
@@ -451,7 +673,6 @@ func _apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: Strin
 	panel.add_theme_stylebox_override("panel", style)
 
 func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
-	# Disconnect old signals before connecting new ones
 	for conn in panel.gui_input.get_connections():
 		panel.gui_input.disconnect(conn["callable"])
 	if zone_id == "hand" and _state.current_player_idx == 0:
@@ -460,6 +681,11 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_board_card_input(event, card))
 	elif zone_id == "enemy_board":
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_enemy_card_input(event, card))
+	# Right-click inspect works in all zones always
+	panel.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			_show_card_inspect(card)
+	)
 
 func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	var panel := PanelContainer.new()

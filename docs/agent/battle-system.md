@@ -143,3 +143,30 @@ New GameBus signals: `status_applied(entity_id, effect_id, value)`, `status_tick
 | Card slot textures | `assets/textures/` | Optional card art per id (falls back to colored panel if missing) |
 
 No 3D geometry or shaders are required — the battle system is a 2D UI overlay.
+
+---
+
+## Battle UX Essentials (GID-026)
+
+### Card Inspect Overlay (TID-086)
+
+`scenes/battle/CardInspectOverlay.gd` — instantiated by `BattleScene._show_card_inspect(card)`.
+
+- Full-screen dimmed backdrop (tap outside → dismiss)
+- Centered panel showing: card color bar, name, class/magic type, cost/attack/health, description, spell effect in plain English, active status effects
+- Close button + Escape key to dismiss
+- Trigger: right-click on any card panel (all zones, always active via `_bind_card_input`)
+- Mobile/touch: tap a hand card without dragging (tracked via `_drag_moved` flag in `_input()`)
+- `_SPELL_EFFECT_LABELS` dictionary maps effect IDs to human-readable strings with `[power]` substitution
+
+### Pause System (TID-088)
+
+`BattleScene` manages pause state via `_paused: bool` and `_pause_overlay: CanvasLayer`.
+
+- Pause button ("II") at top of SidePanel, `process_mode = ALWAYS`, `~5% vh` square
+- `get_tree().paused = true/false` — pauses all non-ALWAYS nodes (AI timers, process loop, tweens)
+- Pause overlay: `CanvasLayer` layer 200 with `process_mode = ALWAYS`; contains: Resume, Settings, Return to Menu
+- "Return to Menu" shows inline confirm dialog before navigating away
+- "Settings" opens `SettingsScene` inline in the pause overlay's CanvasLayer
+- Escape key toggles pause (desktop only)
+- `NOTIFICATION_APPLICATION_FOCUS_OUT` auto-pauses on app backgrounding (mobile)
