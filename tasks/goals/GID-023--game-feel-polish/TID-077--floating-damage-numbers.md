@@ -2,7 +2,7 @@
 
 **Goal:** GID-023
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -31,12 +31,27 @@ Attacks and spells currently produce no visual number feedback. Floating numbers
 
 ## Plan
 
-_Written during Plan phase._
+Snapshot-then-diff pattern: before each damage/heal action, capture the HP of all cards and heroes (plus their screen positions). After the action, compare current HP to the snapshot and spawn floating labels for any change. A `CanvasLayer` at layer 128 holds the transient labels so they render above all battle UI.
+
+Coverage points:
+1. Player minion attacks enemy minion (`_on_enemy_card_input`)
+2. Player minion attacks enemy hero (`_on_enemy_hero_input`)
+3. Player plays a non-targeted spell (`_finish_hand_drag`)
+4. Player plays a targeted spell at a minion (`_on_target_chosen_card`)
+5. Player plays a targeted spell at hero (`_on_target_chosen_hero`)
+6. AI turn actions (`_execute_ai_actions`)
+7. Status tick damage at turn start (`_on_turn_ended`)
+8. Auto-spell resolution at turn start (`_on_turn_ended`)
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - Added `_float_layer: CanvasLayer` variable; created with `layer = 128` in `_ready()`.
+  - Added `_pos_of_hero(is_enemy)`, `_snapshot_hp_positions()`, `_spawn_float_labels_from_snapshot()`, `_spawn_float_label()` methods.
+  - Added snapshot/spawn-labels calls at all 8 damage coverage points listed above.
+- `game_logic/battle/CardInstance.gd`:
+  - Removed duplicate `take_damage` method (simple version at line 45 that predated the armor-aware version); the armor-aware version is the only one retained. This was a pre-existing parse error that blocked headless tests.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md` to document the floating label system.

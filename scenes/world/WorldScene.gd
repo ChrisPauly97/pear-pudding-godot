@@ -58,6 +58,15 @@ var _active_door_data: Dictionary = {}   # door_id -> Dictionary
 var _active_npc_data: Dictionary = {}    # npc_id -> Dictionary
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
 var _last_move_dir: Vector2 = Vector2.ZERO
+var _current_biome: int = -1
+
+const _BIOME_MUSIC: Array = [
+	"res://assets/audio/music/grasslands.ogg",
+	"res://assets/audio/music/forest.ogg",
+	"res://assets/audio/music/desert.ogg",
+	"res://assets/audio/music/scorched.ogg",
+	"res://assets/audio/music/mountains.ogg",
+]
 var _terrain_mat: ShaderMaterial
 var _chunk_build_queue: Array[Vector2i] = []
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
@@ -314,6 +323,14 @@ func _ready() -> void:
 	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
 	_minimap.tapped.connect(_open_map_view)
 
+	if not _is_infinite:
+		AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
+	GameBus.battle_won.connect(func(_r: Dictionary) -> void:
+		if _is_infinite and _current_biome >= 0:
+			AudioManager.play_music(_BIOME_MUSIC[_current_biome])
+		else:
+			AudioManager.play_music("res://assets/audio/music/dungeon.ogg"))
+
 func _exit_tree() -> void:
 	# Wait for any in-flight worker tasks before the GDScript instance is freed.
 	# Without this, WorkerThreadPool holds a Callable referencing this object and
@@ -443,6 +460,11 @@ func _update_chunks() -> void:
 	var pcx: int = int(floor(_player.position.x / chunk_world))
 	var pcz: int = int(floor(_player.position.z / chunk_world))
 	var player_chunk := Vector2i(pcx, pcz)
+
+	var new_biome: int = InfiniteWorldGen.biome_for_chunk(pcx, pcz, WORLD_SEED)
+	if new_biome != _current_biome:
+		_current_biome = new_biome
+		AudioManager.play_music(_BIOME_MUSIC[new_biome])
 
 	# Camera frustum for visibility culling. Falls back to load-all if unavailable.
 	var frustum: Array[Plane] = _camera.get_frustum()

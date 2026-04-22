@@ -42,9 +42,6 @@ static func from_template(tmpl: Dictionary) -> CardInstance:
 	c.auto_resolve = tmpl.get("auto_resolve", false)
 	return c
 
-func take_damage(dmg: int) -> void:
-	health = maxi(0, health - maxi(0, dmg - armor))
-
 func is_alive() -> bool:
 	return health > 0
 

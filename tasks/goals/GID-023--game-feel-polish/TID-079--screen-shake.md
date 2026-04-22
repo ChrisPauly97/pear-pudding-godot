@@ -2,7 +2,7 @@
 
 **Goal:** GID-023
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -32,12 +32,19 @@ Heavy hits and hero death feel underpowered without camera feedback. A brief scr
 
 ## Plan
 
-_Written during Plan phase._
+- Add `_is_shaking: bool` to prevent overlapping shakes.
+- `_trigger_shake(magnitude, duration)`: captures current `position` as origin, chains `maxi(2, int(duration/0.05))` random-offset tween steps at 0.05s each on self, then returns to origin and clears `_is_shaking`.
+- `_check_shake_from_snapshot(snap)`: mirrors `_flash_from_snapshot` diff logic — finds max single-step damage across all entities; triggers hero-death shake (10px/0.35s) if a hero dropped to 0, otherwise heavy-hit shake (5px/0.2s) if max_dmg ≥ 5.
+- Call `_check_shake_from_snapshot(snap)` at all 8 existing snapshot sites alongside the float-label and flash calls.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - Added `_is_shaking: bool = false` member variable.
+  - Added `_trigger_shake(magnitude, duration)` — tweens BattleScene root `position` through random offsets then snaps back, then clears `_is_shaking`.
+  - Added `_check_shake_from_snapshot(snap)` — computes max HP loss and hero-death flag from snapshot diff; triggers shake accordingly.
+  - Added `_check_shake_from_snapshot(snap_XX)` calls at all 8 sites: player minion→minion, player minion→hero, non-targeted spell, targeted spell (card), targeted spell (hero), AI actions, status ticks, auto-spells.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md` to document the screen shake system.
