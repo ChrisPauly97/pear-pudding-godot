@@ -26,7 +26,7 @@
 | [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | pending | 2 / 5 |
 | [GID-021](goals/GID-021--enemy-boss-variety/goal.md) | Enemy & Boss Variety | pending | 1 / 5 |
 | [GID-022](goals/GID-022--weapon-system-content/goal.md) | Weapon System Content | done | 4 / 4 |
-| [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | pending | 1 / 5 |
+| [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | pending | 2 / 5 |
 | [GID-024](goals/GID-024--meta-progression/goal.md) | Meta-Progression | pending | 0 / 4 |
 | [GID-025](goals/GID-025--minion-keywords/goal.md) | Minion Keywords — Ward, Surge, Shroud | pending | 0 / 4 |
 | [GID-026](goals/GID-026--battle-ux-essentials/goal.md) | Battle UX Essentials | pending | 0 / 3 |

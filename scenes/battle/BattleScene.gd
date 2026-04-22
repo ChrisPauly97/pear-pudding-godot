@@ -245,6 +245,7 @@ func _finish_hand_drag() -> void:
 				var snap_fhd := _snapshot_hp_positions()
 				_resolve_spell_effect(played_card, 0)
 				_spawn_float_labels_from_snapshot(snap_fhd)
+				_flash_from_snapshot(snap_fhd)
 			_refresh_all()
 			_check_game_over()
 			_dismiss_battle_tutorial()
@@ -312,6 +313,7 @@ func _on_target_chosen_card(target: CardInstance) -> void:
 		var snap_otc := _snapshot_hp_positions()
 		_resolve_spell_effect(spell, 0, {"type": "minion", "card": target})
 		_spawn_float_labels_from_snapshot(snap_otc)
+		_flash_from_snapshot(snap_otc)
 	_refresh_all()
 	_check_game_over()
 	_dismiss_battle_tutorial()
@@ -326,6 +328,7 @@ func _on_target_chosen_hero() -> void:
 		var snap_oth := _snapshot_hp_positions()
 		_resolve_spell_effect(spell, 0, {"type": "hero"})
 		_spawn_float_labels_from_snapshot(snap_oth)
+		_flash_from_snapshot(snap_oth)
 	_refresh_all()
 	_check_game_over()
 	_dismiss_battle_tutorial()
@@ -585,10 +588,14 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 			_dragged_card.clear()
 			return
 		AudioManager.play_sfx("attack")
+		var target_panel_ec := _get_card_panel(target, true)
+		var attacker_panel_ec := _get_card_panel(attacker, false)
 		var snap_ec := _snapshot_hp_positions()
 		target.take_damage(attacker.attack)
 		attacker.take_damage(target.attack)
 		attacker.attack_count -= 1
+		_flash_node(target_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
+		_flash_node(attacker_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
 		if not target.is_alive():
 			_state.players[1].board.remove_card(target)
 			_state.players[1].discard.append(target)
@@ -615,10 +622,13 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 			_refresh_all()
 			return
 		AudioManager.play_sfx("attack")
+		var attacker_panel_eh := _get_card_panel(attacker, false)
 		var snap_eh := _snapshot_hp_positions()
 		_state.players[1].hero.take_damage(attacker.attack)
 		attacker.take_damage(_state.players[1].hero.attack)
 		attacker.attack_count -= 1
+		_flash_node(_enemy_hero_view, Color(1.0, 0.3, 0.3, 1.0))
+		_flash_node(attacker_panel_eh, Color(1.0, 0.3, 0.3, 1.0))
 		if not attacker.is_alive():
 			_state.players[0].board.remove_card(attacker)
 			_state.players[0].discard.append(attacker)
@@ -642,6 +652,7 @@ func _on_turn_ended(player_idx: int) -> void:
 	var snap_sot := _snapshot_hp_positions()
 	_process_start_of_turn_statuses(player_idx)
 	_spawn_float_labels_from_snapshot(snap_sot)
+	_flash_from_snapshot(snap_sot)
 	_refresh_all()
 	if player_idx == 0:
 		_check_game_over()
@@ -649,6 +660,7 @@ func _on_turn_ended(player_idx: int) -> void:
 			var snap_as := _snapshot_hp_positions()
 			_flush_auto_spells(0)
 			_spawn_float_labels_from_snapshot(snap_as)
+			_flash_from_snapshot(snap_as)
 			_refresh_all()
 			_check_game_over()
 	elif player_idx == 1:
@@ -677,6 +689,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	var snap_ai := _snapshot_hp_positions()
 	actions[idx].call()
 	_spawn_float_labels_from_snapshot(snap_ai)
+	_flash_from_snapshot(snap_ai)
 	_refresh_all()
 	await get_tree().create_timer(0.6, true).timeout
 	_execute_ai_actions(actions, idx + 1)
@@ -1179,3 +1192,58 @@ func _spawn_float_label(pos: Vector2, text: String, color: Color) -> void:
 	tw.tween_property(lbl, "position:y", pos.y - 70.0, 0.8)
 	tw.tween_property(lbl, "modulate:a", 0.0, 0.8)
 	tw.chain().tween_callback(lbl.queue_free)
+
+# -------------------------------------------------------------------------
+# Hit flash (TID-078)
+# -------------------------------------------------------------------------
+
+func _get_card_panel(card: CardInstance, is_enemy: bool) -> Control:
+	var player: PlayerState = _state.players[1] if is_enemy else _state.players[0]
+	var zv: Node = _enemy_board_view if is_enemy else _player_board_view
+	var cards: Array[CardInstance] = player.board.get_cards()
+	for j in range(cards.size()):
+		if cards[j] == card:
+			if j < zv.get_child_count():
+				return zv.get_child(j) as Control
+			break
+	return null
+
+func _flash_node(node: Control, flash_color: Color) -> void:
+	if node == null or not is_instance_valid(node):
+		return
+	var tw: Tween = node.create_tween()
+	tw.tween_property(node, "modulate", flash_color, 0.0)
+	tw.tween_property(node, "modulate", Color.WHITE, 0.25)
+
+func _flash_from_snapshot(snap: Array[Dictionary]) -> void:
+	var cur_hp: Dictionary = {}
+	for i in range(2):
+		cur_hp["hero_%d" % i] = _state.players[i].hero.health
+		for c: CardInstance in _state.players[i].board.get_cards():
+			cur_hp[c.instance_id] = c.health
+	for entry: Dictionary in snap:
+		var eid: String = str(entry["id"])
+		var hp_before: int = int(entry["hp"])
+		if not cur_hp.has(eid):
+			continue
+		var hp_after: int = int(cur_hp[eid])
+		if hp_after == hp_before:
+			continue
+		var flash_color: Color = Color(1.0, 0.3, 0.3, 1.0) if hp_after < hp_before else Color(0.3, 1.0, 0.5, 1.0)
+		if eid.begins_with("hero_"):
+			var hv: Control = _enemy_hero_view if eid == "hero_1" else _player_hero_view
+			_flash_node(hv, flash_color)
+		else:
+			var found_panel: bool = false
+			for pi in range(2):
+				if found_panel:
+					break
+				var cards: Array[CardInstance] = _state.players[pi].board.get_cards()
+				var zv: Node = _enemy_board_view if pi == 1 else _player_board_view
+				for j in range(cards.size()):
+					if cards[j].instance_id == eid:
+						var panel: Control = zv.get_child(j) as Control if j < zv.get_child_count() else null
+						if panel != null:
+							_flash_node(panel, flash_color)
+						found_panel = true
+						break

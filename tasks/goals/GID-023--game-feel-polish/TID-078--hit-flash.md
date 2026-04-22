@@ -2,7 +2,7 @@
 
 **Goal:** GID-023
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -30,12 +30,24 @@ When a minion or hero takes damage there is no visual reaction — they simply u
 
 ## Plan
 
-_Written during Plan phase._
+Two complementary strategies:
+
+**Direct attack sites** (`_on_enemy_card_input`, `_on_enemy_hero_input`): capture panel refs before damage via `_get_card_panel()`, then flash them immediately after `take_damage` but before `remove_card`. This ensures even dying minions flash briefly before their panel is freed.
+
+**Snapshot-based sites** (spells, AI actions, status ticks): `_flash_from_snapshot()` mirrors the existing `_spawn_float_labels_from_snapshot()` pattern — diffs current HP against the snapshot and flashes all surviving cards/heroes that had HP changes. Dead cards are skipped (they disappear, which is itself a visual cue).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - Added `_get_card_panel(card, is_enemy) -> Control` — finds a CardInstance's panel in the zone view by index.
+  - Added `_flash_node(node, flash_color)` — instantly tints to flash_color, tweens back to white over 0.25s.
+  - Added `_flash_from_snapshot(snap)` — flashes surviving cards and heroes based on HP diff against a snapshot.
+  - `_on_enemy_card_input`: get target/attacker panel refs before damage, flash both after damage.
+  - `_on_enemy_hero_input`: get attacker panel ref, flash enemy hero view and attacker after damage.
+  - `_finish_hand_drag`, `_on_target_chosen_card`, `_on_target_chosen_hero`: call `_flash_from_snapshot` after spell resolution.
+  - `_execute_ai_actions`: call `_flash_from_snapshot` after each AI action.
+  - `_on_turn_ended`: call `_flash_from_snapshot` after status ticks and after auto-spell resolution.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md` to document the hit flash system.

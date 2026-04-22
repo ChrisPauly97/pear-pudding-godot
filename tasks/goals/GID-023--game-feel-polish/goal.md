@@ -13,7 +13,7 @@ The battle system works correctly but feels inert — attacks and spells have no
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-077 | Floating damage and heal numbers | agent | done | — |
-| TID-078 | Hit flash on minions and heroes | agent | pending | — |
+| TID-078 | Hit flash on minions and heroes | agent | done | — |
 | TID-079 | Screen shake on heavy hits and death | agent | pending | — |
 | TID-080 | Battle sound effects | agent | pending | — |
 | TID-081 | Background music loop integration | agent | pending | — |
