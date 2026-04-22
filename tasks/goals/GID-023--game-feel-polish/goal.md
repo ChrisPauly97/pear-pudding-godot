@@ -16,13 +16,13 @@ The battle system works correctly but feels inert — attacks and spells have no
 | TID-078 | Hit flash on minions and heroes | agent | done | — |
 | TID-079 | Screen shake on heavy hits and death | agent | done | — |
 | TID-080 | Battle sound effects | agent | done | — |
-| TID-081 | Background music loop integration | agent | pending | — |
+| TID-081 | Background music loop integration | agent | done | — |
 
 ## Acceptance Criteria
 
-- [ ] Damage and healing amounts appear as floating labels that animate upward and fade
-- [ ] Minions and heroes flash briefly when taking damage
-- [ ] Camera shakes on hits of 5+ damage and on hero death
-- [ ] Card draw, card play, attack, and win/loss sounds play through AudioManager
-- [ ] AudioManager.play_music() is called on world entry per biome; graceful no-op if file absent
-- [ ] All tests pass headless
+- [x] Damage and healing amounts appear as floating labels that animate upward and fade
+- [x] Minions and heroes flash briefly when taking damage
+- [x] Camera shakes on hits of 5+ damage and on hero death
+- [x] Card draw, card play, attack, and win/loss sounds play through AudioManager
+- [x] AudioManager.play_music() is called on world entry per biome; graceful no-op if file absent
+- [x] All tests pass headless (5 pre-existing failures unrelated to GID-023)

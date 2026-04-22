@@ -101,6 +101,8 @@ func _ready() -> void:
 	_state.players[0].start_turn(1)
 	_refresh_all()
 
+	AudioManager.play_music("res://assets/audio/music/battle.ogg")
+
 	if not SaveManager.get_story_flag("tutorial_battle_tip"):
 		_show_battle_tutorial()
 

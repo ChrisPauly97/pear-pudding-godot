@@ -21,6 +21,9 @@ const _POOL_SIZE: int = 8
 var _narration_player: AudioStreamPlayer
 var _narration_suppressed: bool = false
 
+var _music_player: AudioStreamPlayer
+var _current_music_path: String = ""
+
 func _ready() -> void:
 	for i in _POOL_SIZE:
 		var p := AudioStreamPlayer.new()
@@ -29,6 +32,10 @@ func _ready() -> void:
 	_narration_player = AudioStreamPlayer.new()
 	_narration_player.volume_db = -3.0
 	add_child(_narration_player)
+	_music_player = AudioStreamPlayer.new()
+	_music_player.volume_db = linear_to_db(0.5)
+	add_child(_music_player)
+	_music_player.finished.connect(_on_music_finished)
 	GameBus.dialogue_state_changed.connect(_on_dialogue_state_changed)
 
 func play_narration(scroll_id: String) -> void:
@@ -60,6 +67,29 @@ func set_narration_suppressed(suppressed: bool) -> void:
 
 func _on_dialogue_state_changed(active: bool) -> void:
 	set_narration_suppressed(active)
+
+func play_music(path: String) -> void:
+	if path == _current_music_path and _music_player.playing:
+		return
+	_current_music_path = path
+	if path.is_empty():
+		_music_player.stop()
+		return
+	if not ResourceLoader.exists(path):
+		return
+	var stream := load(path) as AudioStream
+	if stream == null:
+		return
+	_music_player.stream = stream
+	_music_player.play()
+
+func stop_music() -> void:
+	_current_music_path = ""
+	_music_player.stop()
+
+func _on_music_finished() -> void:
+	if not _current_music_path.is_empty() and _music_player.stream != null:
+		_music_player.play()
 
 func play_sfx(sfx_name: String) -> void:
 	if not SFX_PATHS.has(sfx_name):
