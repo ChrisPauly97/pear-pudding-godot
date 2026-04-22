@@ -39,3 +39,20 @@ static func get_all_ids() -> Array[String]:
 	for k in _cards.keys():
 		result.append(str(k))
 	return result
+
+## Returns true if the card is available (not a locked legendary).
+## Legendary cards are gated behind achievements; use SceneManager.save_manager
+## to check unlocked_achievements.
+static func is_unlocked(card_id: String, unlocked_achievements: Array[String]) -> bool:
+	_ensure_loaded()
+	if not _cards.has(card_id):
+		return false
+	var card := _cards[card_id] as CardData
+	if card.card_class != "legendary":
+		return true
+	const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
+	for a: Dictionary in AchievementRegistry.get_all():
+		if str(a.get("reward_card_id", "")) == card_id:
+			return unlocked_achievements.has(str(a["id"]))
+	# Legendary with no achievement gate — always unlocked.
+	return true

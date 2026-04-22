@@ -2,7 +2,7 @@
 
 **Goal:** GID-024
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -34,12 +34,14 @@ When players return to the main menu there is no record of what they accomplishe
 
 ## Plan
 
-_Written during Plan phase._
+Create RunSummaryScene showing session stats (battles won/lost, enemies defeated, cards earned, coins earned, chests opened, time played); ephemeral session_stats Dictionary on SceneManager reset on new/continue game. go_to_menu() routes through summary when leaving from world. go_to_menu_direct() goes straight to menu (used by summary's Return button). Track chests_opened in WorldScene, battles_won/lost/enemies/coins in SceneManager.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/ui/RunSummaryScene.gd` + `.uid` + `.tscn` + `.tscn.uid` — summary screen with 7 stat rows and Return to Menu button
+- `autoloads/SceneManager.gd`: added session_stats Dictionary; _reset_session_stats(); go_to_menu() now routes through RunSummaryScene when leaving world; go_to_menu_direct() bypasses summary; _on_battle_won/_on_battle_lost track session stats; RUN_SUMMARY state added
+- `scenes/world/WorldScene.gd`: chests_opened tracked in session_stats on chest open
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+_Updated in meta-progression doc._

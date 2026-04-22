@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://y9uz47muy51c"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_phoenix_rise"]
+
+[resource]
+script = ExtResource("1_phoenix_rise")
+id = "phoenix_rise"
+card_name = "Phoenix Rise"
+cost = 5
+attack = 4
+health = 4
+card_class = "legendary"
+description = "When this minion dies, it returns with 2/2."
+color = Color(1.0, 0.45, 0.1, 1)
+magic_type = "dark"
+magic_branch = "dusk"
+spell_effect = ""
+spell_power = 0
+auto_resolve = false

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://h2lkcpvttst8"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ancient_guardian"]
+
+[resource]
+script = ExtResource("1_ancient_guardian")
+id = "ancient_guardian"
+card_name = "Ancient Guardian"
+cost = 6
+attack = 5
+health = 8
+card_class = "legendary"
+description = "A titan of old. All enemy attacks redirect to it."
+color = Color(0.85, 0.75, 0.3, 1)
+magic_type = ""
+magic_branch = ""
+spell_effect = ""
+spell_power = 0
+auto_resolve = false

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://i1ll60e2ljg3"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_void_wyrm"]
+
+[resource]
+script = ExtResource("1_void_wyrm")
+id = "void_wyrm"
+card_name = "Void Wyrm"
+cost = 7
+attack = 6
+health = 6
+card_class = "legendary"
+description = "On entry, deals 2 damage to all other entities."
+color = Color(0.2, 0.0, 0.3, 1)
+magic_type = ""
+magic_branch = ""
+spell_effect = ""
+spell_power = 0
+auto_resolve = false
