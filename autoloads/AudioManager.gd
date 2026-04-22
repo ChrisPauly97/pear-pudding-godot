@@ -2,7 +2,9 @@ extends Node
 
 # Map from SFX name → file path
 const SFX_PATHS: Dictionary = {
+	"card_draw":    "res://assets/audio/sfx/card_draw.wav",
 	"card_play":    "res://assets/audio/sfx/card_play.wav",
+	"spell_resolve": "res://assets/audio/sfx/spell_resolve.wav",
 	"attack":       "res://assets/audio/sfx/attack.wav",
 	"battle_win":   "res://assets/audio/sfx/battle_win.wav",
 	"battle_lose":  "res://assets/audio/sfx/battle_lose.wav",

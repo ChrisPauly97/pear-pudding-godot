@@ -664,6 +664,7 @@ func _on_turn_ended(player_idx: int) -> void:
 	if player_idx == 0:
 		_check_game_over()
 		if not _state.is_game_over():
+			AudioManager.play_sfx("card_draw")
 			var snap_as := _snapshot_hp_positions()
 			_flush_auto_spells(0)
 			_spawn_float_labels_from_snapshot(snap_as)
@@ -706,6 +707,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 ## Resolves the effect of a spell card played by caster_pid against the opponent.
 ## explicit_target: optional dict with "type" ("minion"/"hero") and "card" (CardInstance) for targeted spells.
 func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target: Dictionary = {}) -> void:
+	AudioManager.play_sfx("spell_resolve")
 	var opponent: PlayerState = _state.players[1 - caster_pid]
 	match card.spell_effect:
 		"deal_damage_single":
