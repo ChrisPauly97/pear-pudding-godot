@@ -2,7 +2,7 @@
 
 **Goal:** GID-025
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-094, TID-095
 
 ## Lock
@@ -39,12 +39,30 @@ The keyword system is only meaningful if cards use it. This task creates at leas
 
 ## Plan
 
-_Written during Plan phase._
+1. Change `CardData.keywords` from `Array[String]` to `PackedStringArray` so Godot can serialize it in .tres files using the established `PackedStringArray(...)` format.
+2. Create 6 `.tres` + `.uid` pairs in `data/cards/` for the planned cards.
+3. Edit the 4 affected enemy `.tres` files to add new card IDs to their `drop_pool` fields — spread by tier.
+4. CardRegistry and ShopScene auto-discover from `data/cards/` — no code changes needed there.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`data/CardData.gd`**: changed `keywords` from `Array[String]` to `PackedStringArray` so Godot can serialize it correctly in .tres files using the established `PackedStringArray(...)` syntax. `CardInstance.from_template()` uses `.assign()` so the Array[String] runtime type is unaffected.
+- **6 new card .tres + .uid pairs** created in `data/cards/`:
+  | ID | Name | Branch | Cost | ATK/HP | Keywords |
+  |---|---|---|---|---|---|
+  | iron_revenant | Iron Revenant | Ash | 3 | 1/5 | ward |
+  | surge_spirit | Surge Spirit | Ember | 2 | 3/1 | surge |
+  | shrouded_wraith | Shrouded Wraith | Dusk | 3 | 2/3 | shroud |
+  | dawn_guardian | Dawn Guardian | Dawn | 4 | 2/6 | ward |
+  | blitz_ghoul | Blitz Ghoul | Ash | 4 | 4/2 | surge |
+  | veiled_paladin | Veiled Paladin | Dawn | 5 | 3/4 | shroud, ward |
+- **Enemy drop pools updated**:
+  - `undead_basic`: + surge_spirit
+  - `undead_horde`: + shrouded_wraith
+  - `ghoul_pack`: + iron_revenant, dawn_guardian
+  - `undead_elite`: + blitz_ghoul, veiled_paladin
+- CardRegistry and ShopScene auto-discover from `data/cards/` — no code changes needed.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md` — added GID-025 keyword card catalogue table.

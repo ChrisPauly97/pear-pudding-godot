@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://5n32e022omg2"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_veiled_paladin"]
+
+[resource]
+script = ExtResource("1_veiled_paladin")
+id = "veiled_paladin"
+card_name = "Veiled Paladin"
+cost = 5
+attack = 3
+health = 4
+card_class = "minion"
+description = "Shielded by light, guarding allies from harm."
+color = Color(0.95, 0.95, 0.8, 1)
+magic_type = "light"
+magic_branch = "dawn"
+keywords = PackedStringArray("shroud", "ward")

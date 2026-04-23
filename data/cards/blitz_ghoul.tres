@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://suk2mmr9jizs"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_blitz_ghoul"]
+
+[resource]
+script = ExtResource("1_blitz_ghoul")
+id = "blitz_ghoul"
+card_name = "Blitz Ghoul"
+cost = 4
+attack = 4
+health = 2
+card_class = "minion"
+description = "Charges without hesitation — glass jaw, iron fist."
+color = Color(0.25, 0.4, 0.25, 1)
+magic_type = "dark"
+magic_branch = "ash"
+keywords = PackedStringArray("surge")

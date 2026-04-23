@@ -75,6 +75,21 @@ Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at the
 
 `CardRegistry` (autoload) loads all `.tres` files from `data/cards/` at startup and exposes `get_card(id)` for lookups.
 
+### Keyword Card Catalogue (TID-096)
+
+Six keyword-bearing minion cards added to `data/cards/`. `CardData.keywords` is `PackedStringArray`; serialize in .tres as `keywords = PackedStringArray("ward")` or `PackedStringArray("shroud", "ward")` for multiple.
+
+| ID | Name | Branch | Cost | ATK | HP | Keywords | Drop source |
+|---|---|---|---|---|---|---|---|
+| iron_revenant | Iron Revenant | Ash | 3 | 1 | 5 | ward | ghoul_pack |
+| surge_spirit | Surge Spirit | Ember | 2 | 3 | 1 | surge | undead_basic |
+| shrouded_wraith | Shrouded Wraith | Dusk | 3 | 2 | 3 | shroud | undead_horde |
+| dawn_guardian | Dawn Guardian | Dawn | 4 | 2 | 6 | ward | ghoul_pack |
+| blitz_ghoul | Blitz Ghoul | Ash | 4 | 4 | 2 | surge | undead_elite |
+| veiled_paladin | Veiled Paladin | Dawn | 5 | 3 | 4 | shroud, ward | undead_elite |
+
+All 6 appear in ShopScene automatically (CardRegistry scans `data/cards/`). None are in the starter deck.
+
 ### Keyword UI (TID-095)
 
 **Card badges** (`BattleScene._update_keyword_badges(hbox, card)`):
@@ -167,7 +182,7 @@ New GameBus signals: `status_applied(entity_id, effect_id, value)`, `status_tick
 
 | Asset | Path | Notes |
 |---|---|---|
-| Card data resources | `data/cards/*.tres` | One `CardData` resource per card type; minion fields: id, display_name, cost, attack, health; spell fields: card_class="spell", magic_type, magic_branch, spell_effect, spell_power |
+| Card data resources | `data/cards/*.tres` | One `CardData` resource per card type; minion fields: id, display_name, cost, attack, health, keywords (PackedStringArray); spell fields: card_class="spell", magic_type, magic_branch, spell_effect, spell_power |
 | Enemy data resources | `data/enemies/*.tres` | `EnemyData` resource with id, display_name, deck (Array of card id strings) |
 | BattleScene scene | `scenes/battle/BattleScene.tscn` | Root scene for battle UI overlay |
 | Card slot textures | `assets/textures/` | Optional card art per id (falls back to colored panel if missing) |
