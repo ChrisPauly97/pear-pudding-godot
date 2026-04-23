@@ -2,7 +2,7 @@
 
 **Goal:** GID-025
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-093
 
 ## Lock
@@ -33,12 +33,29 @@ Players need to see at a glance which minions have keywords. This task adds keyw
 
 ## Plan
 
-_Written during Plan phase._
+**Card badges** (`BattleScene.gd`):
+- Add `_update_keyword_badges(hbox, card)` — clears and rebuilds one colored Label per active keyword. Shroud badge omitted when `card.shroud_active == false` (consumed). Colors: Ward=dark blue, Surge=orange, Shroud=silver. Font 1.8% vh.
+- `_build_card_vbox()`: always append a "KeywordRow" HBoxContainer (centered) at the bottom, populated by `_update_keyword_badges()`. Empty for cards with no keywords (collapses to zero height).
+- `_update_card_view()`: find "KeywordRow" by name and call `_update_keyword_badges()` on it (or trigger a full rebuild if missing).
+
+**Ward visual feedback** (`BattleScene.gd`):
+- `_apply_card_style()` for `"enemy_board"`: when an attacker is selected, dim (darken) enemy minions that are not in `_get_ward_valid_targets()` (i.e. non-Ward while Ward exists). Valid targets keep their normal style (the player clicks them to attack).
+- `_refresh_hero()`: `is_attack_targetable` set false when any enemy Ward minion is alive, removing the red-border attack highlight from the hero.
+
+**Card inspect overlay** (`CardInspectOverlay.gd`):
+- Add `const Keywords = preload(...)`.
+- After the spell-effect section, if `_card.keywords` is non-empty, add a separator and one Label per keyword: "Ward — Enemy attacks must target this minion first." / "Surge — Can attack the turn it is summoned." / "Shroud — Absorbs the first hit. (Active)" or "(Consumed)". Font 2.0% vh.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/battle/BattleScene.gd`**:
+  - Added `_update_keyword_badges(hbox, card)` — typed parallel arrays for keys/labels/colors; Shroud badge omitted when `shroud_active == false`. Font 1.8% vh.
+  - `_build_card_vbox()`: always appends a centered "KeywordRow" HBoxContainer populated by `_update_keyword_badges()`.
+  - `_update_card_view()`: finds "KeywordRow" by name and refreshes it (Shroud badge disappears automatically on next refresh after `shroud_active` is cleared).
+  - `_apply_card_style()`: new `"enemy_board"` branch when `_dragged_card` non-empty — calls `_get_ward_valid_targets()` and darkens non-Ward cards by 0.45.
+  - `_refresh_hero()`: computes `ward_blocks_hero` by scanning enemy board; sets `is_attack_targetable = false` when Ward is present, removing the red attack-target highlight from the hero.
+- **`scenes/battle/CardInspectOverlay.gd`**: added `const Keywords = preload(...)`. Added keyword descriptions section (separator + one Label per keyword) before the status-effects section. Shroud label appends "(Active)" or "(Consumed)" based on `_card.shroud_active`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md` — added Keyword UI section covering badge display, Ward dimming, and inspect overlay keywords.

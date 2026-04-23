@@ -75,6 +75,22 @@ Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at the
 
 `CardRegistry` (autoload) loads all `.tres` files from `data/cards/` at startup and exposes `get_card(id)` for lookups.
 
+### Keyword UI (TID-095)
+
+**Card badges** (`BattleScene._update_keyword_badges(hbox, card)`):
+- Called from `_build_card_vbox()` (always adds "KeywordRow" HBox) and `_update_card_view()` (refreshes it each frame).
+- Shows one colored Label per active keyword: Ward = `Color(0.35, 0.5, 1.0)`, Surge = `Color(1.0, 0.6, 0.15)`, Shroud = `Color(0.8, 0.8, 0.88)`. Font 1.8% vh.
+- Shroud badge is hidden when `card.shroud_active == false` (consumed) — updates automatically on `_refresh_all()`.
+- Badges appear in hand and on-board cards. Empty KeywordRow (no keywords) collapses to zero height.
+
+**Ward visual feedback**:
+- `_apply_card_style()` darkens enemy board minions (by 0.45) that are not in `_get_ward_valid_targets()` when an attacker is selected.
+- `_refresh_hero()` sets `is_attack_targetable = false` when any enemy Ward minion is alive, removing the red border/background from the hero attack target.
+
+**Card inspect overlay** (`CardInspectOverlay.gd`):
+- After spell-effect section: separator + one Label per keyword in `_card.keywords`.
+- Format: `"Surge — Can attack the turn it is summoned."` / `"Shroud — Absorbs the first hit. (Active)"` or `"(Consumed)"`.
+
 ### Keyword Game Logic (TID-094)
 
 All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywords.gd")` — do NOT use bare string literals.
