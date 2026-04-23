@@ -29,7 +29,7 @@ GameState          — root object; owns two PlayerState instances, tracks whose
     CardInstance   — runtime card (template ref, current HP, summoning_sick flag, attacks_this_turn)
 ```
 
-`CardInstance` wraps a `CardData` resource (loaded from `data/cards/*.tres`) and tracks mutable runtime state separately from the static template data.
+`CardInstance` wraps a `CardData` resource (loaded from `data/cards/*.tres`) and tracks mutable runtime state separately from the static template data. Runtime-only keyword state: `shroud_active: bool` starts `true` for Shroud minions and is set `false` by game logic after the first hit is absorbed.
 
 ### Turn Sequence
 
@@ -53,6 +53,7 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
 - `card_class: String` — `"minion"` (default) or `"spell"`
 - `magic_type: String` — `"light"` | `"dark"` | `""` (non-magic cards)
 - `magic_branch: String` — `"ember"` | `"dawn"` | `"dusk"` | `"ash"` | `""`
+- `keywords: Array[String]` — passive keyword abilities; valid values are the constants in `game_logic/battle/Keywords.gd`: `"ward"`, `"surge"`, `"shroud"`. Defaults to `[]`; omitting from a `.tres` file is safe.
 - `spell_effect: String` — canonical effect key dispatched by `_resolve_spell_effect` in `BattleScene.gd`; `""` for minions. Supported values:
   - `deal_damage_single` — deal spell_power damage to first enemy minion (or hero if board empty)
   - `deal_damage_all` — deal spell_power damage to all enemy minions

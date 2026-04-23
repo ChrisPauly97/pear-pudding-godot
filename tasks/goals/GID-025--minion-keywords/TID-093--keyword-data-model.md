@@ -2,7 +2,7 @@
 
 **Goal:** GID-025
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -25,12 +25,18 @@ Keywords are permanent passive properties on minion cards. This task adds the da
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/battle/Keywords.gd` — defines `const WARD`, `SURGE`, `SHROUD` string constants and a `const ALL` typed array so other files can avoid magic strings.
+2. Edit `data/CardData.gd` — add `@export var keywords: Array[String] = []` and include `"keywords": keywords` in `to_template_dict()`.
+3. Edit `game_logic/battle/CardInstance.gd` — add `var keywords: Array[String] = []` and `var shroud_active: bool = false`; in `from_template()` copy `keywords` from the dict and set `shroud_active = keywords.has("shroud")`.
+
+No existing `.tres` files need changes (omitting `keywords` defaults to `[]`). No tests to update for this pure data-model change.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **Created** `game_logic/battle/Keywords.gd` — defines `const WARD = "ward"`, `SURGE = "surge"`, `SHROUD = "shroud"` and `const ALL: Array[String]` for iteration. Use `preload("res://game_logic/battle/Keywords.gd")` in files that reference these constants (class_name not globally available until Godot scans the file).
+- **Edited** `data/CardData.gd` — added `@export var keywords: Array[String] = []`; added `"keywords": keywords` to `to_template_dict()`. Existing `.tres` files omitting this field default to `[]` with no migration needed.
+- **Edited** `game_logic/battle/CardInstance.gd` — added `var keywords: Array[String] = []` and `var shroud_active: bool = false`; updated `from_template()` to `assign()` keywords from the template dict and set `shroud_active = keywords.has("shroud")`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md` — added `keywords` and `shroud_active` to the CardData and CardInstance sections; noted Keywords.gd constants.

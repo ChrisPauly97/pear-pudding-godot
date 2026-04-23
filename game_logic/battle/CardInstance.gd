@@ -16,6 +16,9 @@ var spell_effect: String
 var spell_power: int
 var auto_resolve: bool = false
 
+var keywords: Array[String] = []
+var shroud_active: bool = false  # true until the first hit is absorbed; set false by game logic after absorption
+
 var armor: int = 0
 var summoning_sick: bool = true
 var attack_count: int = 1
@@ -40,6 +43,8 @@ static func from_template(tmpl: Dictionary) -> CardInstance:
 	c.spell_effect = tmpl.get("spell_effect", "")
 	c.spell_power = tmpl.get("spell_power", 0)
 	c.auto_resolve = tmpl.get("auto_resolve", false)
+	c.keywords.assign(tmpl.get("keywords", []))
+	c.shroud_active = c.keywords.has("shroud")
 	return c
 
 func is_alive() -> bool:

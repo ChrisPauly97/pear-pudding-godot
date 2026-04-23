@@ -17,7 +17,7 @@ All minions currently behave identically beyond their stats. Keywords are perman
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-093 | Keyword data model — add keywords to CardData and CardInstance | agent | pending | — |
+| TID-093 | Keyword data model — add keywords to CardData and CardInstance | agent | done | — |
 | TID-094 | Keyword game logic — Ward attack redirection, Surge summon, Shroud absorption | agent | pending | TID-093 |
 | TID-095 | Keyword UI — display keyword badges on cards in hand and on board | agent | pending | TID-093 |
 | TID-096 | Keyword card content — new .tres card files bearing keywords | agent | pending | TID-094, TID-095 |
