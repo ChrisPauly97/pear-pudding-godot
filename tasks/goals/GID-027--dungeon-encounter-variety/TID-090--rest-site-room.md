@@ -2,7 +2,7 @@
 
 **Goal:** GID-027
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-089
 
 ## Lock
@@ -28,12 +28,22 @@ Rest sites give the player resource recovery decisions mid-dungeon: do you heal 
 
 ## Plan
 
-_Written during Plan phase._
+- Rest site NPC (npc_type = "rest_site") spawned by DungeonGen in rest rooms.
+- `WorldScene._handle_interact()` detects npc_type and calls `_show_rest_site_panel(npc_data)`.
+- Panel offers "Rest (recover 8 HP)" (disabled if HP already full) and "Cull (remove card)" (disabled if deck < 2 cards).
+- Rest choice heals `_dungeon_hero_hp` up to 30; Cull opens a scrollable card picker via `_show_cull_panel()`.
+- Room marked used via `SaveManager.mark_dungeon_room_used(room_key)` on any choice made.
+- `_dungeon_hero_hp: int = 30` session variable initialized fresh each dungeon entry.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WorldScene.gd`:
+  - Added `var _dungeon_hero_hp: int = 30` session variable.
+  - Initialised to 30 in `_ready()` when `map_name.begins_with("dungeon_")`.
+  - Added `rest_site` / `event_room` npc_type checks in `_handle_interact()`.
+  - Added `_show_rest_site_panel()`, `_show_cull_panel()`, `_show_event_panel()`, `_apply_event_outcome()`.
+- `autoloads/SaveManager.gd`: Added `visited_dungeon_rooms: Array[String]`, save version bumped to 9, migration, and `mark_dungeon_room_used` / `is_dungeon_room_used` API.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+See TID-089 docs update.

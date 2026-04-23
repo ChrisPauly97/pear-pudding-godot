@@ -1,0 +1,92 @@
+[
+	{
+		"id": "wounded_stranger",
+		"text": "A wounded traveller slumps against the wall, clutching a card. They look up at you with desperate eyes. \"Please... take this, but leave me one of yours.\"",
+		"choices": [
+			{
+				"label": "Give a card",
+				"outcome_type": "lose_card",
+				"outcome_value": 1,
+				"outcome_text": "You hand over a card. The traveller nods weakly and presses one into your hands in return."
+			},
+			{
+				"label": "Refuse and walk past",
+				"outcome_type": "nothing",
+				"outcome_value": 0,
+				"outcome_text": "You step past them. Their eyes follow you, but they say nothing."
+			}
+		]
+	},
+	{
+		"id": "ancient_altar",
+		"text": "An ancient altar glows faintly in the corner. An inscription reads: \"Offer blood, receive wisdom.\" Dried stains surround the stone.",
+		"choices": [
+			{
+				"label": "Touch the altar",
+				"outcome_type": "lose_hp_gain_card",
+				"outcome_value": 5,
+				"outcome_text": "A sharp sting runs up your arm. Something ancient stirs, and a card materialises from the glow."
+			},
+			{
+				"label": "Leave it alone",
+				"outcome_type": "nothing",
+				"outcome_value": 0,
+				"outcome_text": "You back away. Better not to disturb old things."
+			}
+		]
+	},
+	{
+		"id": "coin_pile",
+		"text": "A scattering of coins glints on the floor. But something feels wrong — the air here is stale, and a faint groaning echoes nearby.",
+		"choices": [
+			{
+				"label": "Take the coins",
+				"outcome_type": "gain_coins_lose_hp",
+				"outcome_value": 15,
+				"outcome_text": "You pocket the coins. As you straighten up, something strikes you from behind. (-3 HP)"
+			},
+			{
+				"label": "Leave them",
+				"outcome_type": "nothing",
+				"outcome_value": 0,
+				"outcome_text": "You leave the coins and move on. Smart."
+			}
+		]
+	},
+	{
+		"id": "mysterious_merchant",
+		"text": "A cloaked figure steps from the shadows, hood drawn low. \"A card for ten coins. No questions.\" They hold out an open palm.",
+		"choices": [
+			{
+				"label": "Buy (10 coins)",
+				"outcome_type": "lose_coins_gain_card",
+				"outcome_value": 10,
+				"outcome_text": "The figure snatches the coins and drops a card into your hand, then vanishes."
+			},
+			{
+				"label": "Decline",
+				"outcome_type": "nothing",
+				"outcome_value": 0,
+				"outcome_text": "You shake your head. The figure melts back into the shadows."
+			}
+		]
+	},
+	{
+		"id": "hidden_cache",
+		"text": "A loose stone in the wall catches your eye. It shifts easily — behind it, a small hollow holds a cache of coins left by some past explorer.",
+		"choices": [
+			{
+				"label": "Take the cache",
+				"outcome_type": "gain_coins",
+				"outcome_value": 20,
+				"outcome_text": "You pocket 20 coins. Not a bad find."
+			},
+			{
+				"label": "Leave it",
+				"outcome_type": "nothing",
+				"outcome_value": 0,
+				"outcome_text": "You replace the stone and walk on."
+			}
+		]
+	}
+]

@@ -30,7 +30,7 @@
 | [GID-024](goals/GID-024--meta-progression/goal.md) | Meta-Progression | done | 4 / 4 |
 | [GID-025](goals/GID-025--minion-keywords/goal.md) | Minion Keywords — Ward, Surge, Shroud | done | 4 / 4 |
 | [GID-026](goals/GID-026--battle-ux-essentials/goal.md) | Battle UX Essentials | done | 3 / 3 |
-| [GID-027](goals/GID-027--dungeon-encounter-variety/goal.md) | Dungeon Encounter Variety | pending | 0 / 4 |
+| [GID-027](goals/GID-027--dungeon-encounter-variety/goal.md) | Dungeon Encounter Variety | done | 4 / 4 |
 
 ## Backlog
 

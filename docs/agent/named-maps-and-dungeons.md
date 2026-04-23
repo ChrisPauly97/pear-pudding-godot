@@ -78,10 +78,30 @@ Calls `to_map_data(map_name)` then `ResourceSaver.save(data, "user://maps/<name>
 
 `DungeonGen.generate(p_name, dungeon_seed)`:
 1. Creates `WorldMap(p_name, true)` (blank, no MapRegistry lookup).
-2. Fills 80×60 tile area with walls, carves rooms, connects corridors.
-3. Places enemies (difficulty scales with seed-derived depth), a chest, and an exit door.
+2. Fills 80×60 tile area with walls, carves 5 rooms, connects corridors.
+3. Assigns room types (see Room Types below) and populates entities accordingly.
 4. Calls `map.save_to_file(p_name)` → writes `user://maps/dungeon_<seed>.tres`.
 5. Returns the WorldMap.
+
+### Room Types
+
+Each of the 5 dungeon rooms has a deterministic type derived from the seed:
+
+| Room index | Type | Rule |
+|---|---|---|
+| 0 | start | Always safe; player spawn, no entities |
+| 1 | combat | Always a fight (first guaranteed battle) |
+| 2–3 | random | 60 % combat, 15 % rest, 15 % treasure, 10 % event |
+| 4 | combat | End room: chest + exit door |
+
+**combat** — 1–2 enemies (count + difficulty scales with depth).  
+**rest** — NPC with `npc_type = "rest_site"`; pressing E opens the rest site panel (heal 8 HP or cull one card from deck). Room key stored in `npc["after_dialogue"]` as `<dungeon_name>_room_<idx>`.  
+**treasure** — Chest id prefix `"dtr_"` with 2 random cards; no enemy. WorldScene opens at 40 % weapon drop chance (vs 15 % for standard chests).  
+**event** — NPC with `npc_type = "event_room"`; pressing E loads a random event from `data/dungeon_events.json` (deterministic per room), shows text + 2-3 choices, applies outcome (coins, HP, cards).
+
+**visited tracking**: `SaveManager.visited_dungeon_rooms: Array[String]` (persisted, version 9). `mark_dungeon_room_used(room_key)` / `is_dungeon_room_used(room_key)` — rest and event rooms can only be used once per save.
+
+**Visual distinction on map overlay**: rest → teal dot (`_DOT_REST`), event → amber dot (`_DOT_EVENT`), treasure → yellow chest dot (existing), combat → red enemy dot (existing).
 
 **`WorldScene`** checks `MapRegistry.get_map(map_name)` before entering a dungeon:
 - If `.tres` exists → `WorldMap.new(map_name)` loads from saved resource (no regeneration).

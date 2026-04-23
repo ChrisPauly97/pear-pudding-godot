@@ -2,7 +2,7 @@
 
 **Goal:** GID-027
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -30,12 +30,18 @@ DungeonGen currently generates only combat rooms. This task adds a room type sys
 
 ## Plan
 
-_Written during Plan phase._
+- Added `room_types: Array[String]` to DungeonGen.generate() after room layout is computed.
+- Room 0 = "start", room 1 = always "combat", rooms 2-3 = 60/15/15/10 distribution (combat/rest/treasure/event), room 4 = always "combat".
+- Entity spawning loop (`for i in range(1, rooms.size()-1)`) replaced with a match statement on room type.
+- Non-combat rooms get no enemies; rest/event rooms get an NPC (npc_type "rest_site" / "event_room") at the room center; treasure rooms get a chest with 2 cards (id prefix "dtr_").
+- Room key for visited tracking encoded in npc's `after_dialogue` field as `<dungeon_name>_room_<idx>`.
+- Visual distinction via MapViewOverlay dot colours: teal for rest, amber for event, existing yellow for treasure chest.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/DungeonGen.gd`: Replaced flat middle-room enemy loop with room-type assignment block and match-based entity spawning. Added `room_types: Array[String]`, `npc_uid`, `troom_uid`, and `combat_count` counters.
+- `scenes/ui/MapViewOverlay.gd`: Added `_DOT_REST` / `_DOT_EVENT` constants; `_draw_npcs()` now matches npc_type to choose dot colour.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/named-maps-and-dungeons.md` with room type system description.

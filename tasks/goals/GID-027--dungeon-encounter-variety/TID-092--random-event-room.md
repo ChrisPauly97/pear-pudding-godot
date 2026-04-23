@@ -2,7 +2,7 @@
 
 **Goal:** GID-027
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-089
 
 ## Lock
@@ -40,12 +40,18 @@ Random event rooms present a text narrative prompt with 2–3 choices, each with
 
 ## Plan
 
-_Written during Plan phase._
+- Event room NPC (npc_type = "event_room") spawned by DungeonGen; after_dialogue stores room_key.
+- `WorldScene._show_event_panel()` loads `data/dungeon_events.json`, selects event deterministically via room_key hash, and shows Panel with event text and choice buttons.
+- `_apply_event_outcome()` handles all outcome_type values: gain_coins, lose_hp, gain_card, lose_card, lose_hp_gain_card, gain_coins_lose_hp, lose_coins_gain_card, nothing.
+- Room marked used after any choice is pressed.
+- 5 starter events matching task spec written to `data/dungeon_events.json`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/dungeon_events.json`: Created with 5 events (wounded_stranger, ancient_altar, coin_pile, mysterious_merchant, hidden_cache).
+- `scenes/world/WorldScene.gd`: Added `_show_event_panel()` and `_apply_event_outcome()`.
+- `game_logic/world/DungeonGen.gd`: "event" match arm spawns event_room NPC.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+See TID-089 docs update.
