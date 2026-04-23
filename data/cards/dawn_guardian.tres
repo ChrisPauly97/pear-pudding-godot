@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://1gl1jk2m0ltq"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dawn_guardian"]
+
+[resource]
+script = ExtResource("1_dawn_guardian")
+id = "dawn_guardian"
+card_name = "Dawn Guardian"
+cost = 4
+attack = 2
+health = 6
+card_class = "minion"
+description = "Stands firm so allies may heal undisturbed."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"
+keywords = PackedStringArray("ward")

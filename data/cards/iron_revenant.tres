@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://8kro2xgf69f4"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_iron_revenant"]
+
+[resource]
+script = ExtResource("1_iron_revenant")
+id = "iron_revenant"
+card_name = "Iron Revenant"
+cost = 3
+attack = 1
+health = 5
+card_class = "minion"
+description = "A stubborn corpse that refuses to fall first."
+color = Color(0.3, 0.35, 0.3, 1)
+magic_type = "dark"
+magic_branch = "ash"
+keywords = PackedStringArray("ward")

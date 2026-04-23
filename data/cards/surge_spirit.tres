@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://ehket6407y47"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_surge_spirit"]
+
+[resource]
+script = ExtResource("1_surge_spirit")
+id = "surge_spirit"
+card_name = "Surge Spirit"
+cost = 2
+attack = 3
+health = 1
+card_class = "minion"
+description = "Strikes before the enemy can react."
+color = Color(0.9, 0.45, 0.1, 1)
+magic_type = "light"
+magic_branch = "ember"
+keywords = PackedStringArray("surge")

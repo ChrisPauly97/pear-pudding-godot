@@ -13,6 +13,7 @@ extends Resource
 @export var spell_effect: String = ""
 @export var spell_power: int = 0
 @export var auto_resolve: bool = false
+@export var keywords: PackedStringArray = PackedStringArray()
 
 ## Converts to the Dictionary format that CardInstance.from_template() and
 ## legacy callers expect.
@@ -31,4 +32,5 @@ func to_template_dict() -> Dictionary:
 		"spell_effect": spell_effect,
 		"spell_power": spell_power,
 		"auto_resolve": auto_resolve,
+		"keywords": keywords,
 	}

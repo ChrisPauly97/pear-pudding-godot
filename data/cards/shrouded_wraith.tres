@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://7wig9xbqib58"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_shrouded_wraith"]
+
+[resource]
+script = ExtResource("1_shrouded_wraith")
+id = "shrouded_wraith"
+card_name = "Shrouded Wraith"
+cost = 3
+attack = 2
+health = 3
+card_class = "minion"
+description = "A ghost wrapped in shadow, immune to the first blow."
+color = Color(0.4, 0.2, 0.55, 1)
+magic_type = "dark"
+magic_branch = "dusk"
+keywords = PackedStringArray("shroud")

@@ -11,6 +11,7 @@ const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
+const Keywords = preload("res://game_logic/battle/Keywords.gd")
 
 var enemy_data: Dictionary = {}
 var _state: GameState
@@ -610,6 +611,9 @@ func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: Strin
 		var desc_lbl: Label = vbox.get_node_or_null("DescLabel") as Label
 		if desc_lbl:
 			desc_lbl.text = card.description
+		var kw_row: HBoxContainer = vbox.get_node_or_null("KeywordRow") as HBoxContainer
+		if kw_row:
+			_update_keyword_badges(kw_row, card)
 		if is_board_zone:
 			var sr: HBoxContainer = vbox.get_node_or_null("StatusRow") as HBoxContainer
 			if sr:
@@ -641,6 +645,11 @@ func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBox
 	vbox.add_child(name_lbl)
 	vbox.add_child(stats_lbl)
 	vbox.add_child(desc_lbl)
+	var kw_row := HBoxContainer.new()
+	kw_row.name = "KeywordRow"
+	kw_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_update_keyword_badges(kw_row, card)
+	vbox.add_child(kw_row)
 	if with_status_row:
 		var sr := HBoxContainer.new()
 		sr.name = "StatusRow"
@@ -660,6 +669,11 @@ func _apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: Strin
 		style.border_width_bottom = 4
 		style.border_width_left = 4
 		style.border_width_right = 4
+	elif zone_id == "enemy_board" and not _dragged_card.is_empty():
+		# Ward: dim minions that cannot be targeted while a Ward minion is alive
+		var valid_targets := _get_ward_valid_targets(_state.players[1].board.get_cards())
+		if not valid_targets.has(card):
+			style.bg_color = style.bg_color.darkened(0.45)
 	elif zone_id == "board" and not _dragged_card.is_empty() and _dragged_card.get("card") == card:
 		style.border_color = Color.YELLOW
 		style.border_width_top = 3
@@ -759,7 +773,13 @@ func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 	style.corner_radius_top_right   = 6
 	style.corner_radius_bottom_left = 6
 	style.corner_radius_bottom_right = 6
-	var is_attack_targetable: bool = is_enemy and not _dragged_card.is_empty()
+	var ward_blocks_hero: bool = false
+	if is_enemy and not _dragged_card.is_empty():
+		for ec: CardInstance in _state.players[1].board.get_cards():
+			if ec.keywords.has(Keywords.WARD):
+				ward_blocks_hero = true
+				break
+	var is_attack_targetable: bool = is_enemy and not _dragged_card.is_empty() and not ward_blocks_hero
 	var is_spell_targetable: bool = is_enemy and _targeting_active
 	if is_enemy:
 		if is_spell_targetable:
@@ -787,6 +807,42 @@ func _update_status() -> void:
 	_turn_label.text = "Turn %d" % _state.turn_number
 	_mana_label.text = "Mana: %d/%d" % [player.hero.mana, player.hero.max_mana]
 	_end_turn_btn.disabled = _state.current_player_idx != 0 or _ai_thinking
+
+# -------------------------------------------------------------------------
+# Ward targeting helper
+# -------------------------------------------------------------------------
+
+# Returns only Ward minions from cards if any exist, otherwise all cards.
+func _get_ward_valid_targets(cards: Array[CardInstance]) -> Array[CardInstance]:
+	var ward: Array[CardInstance] = []
+	for c: CardInstance in cards:
+		if c.keywords.has(Keywords.WARD):
+			ward.append(c)
+	return ward if not ward.is_empty() else cards
+
+# Clears hbox and adds one colored Label per active keyword. Shroud hidden when consumed.
+func _update_keyword_badges(hbox: HBoxContainer, card: CardInstance) -> void:
+	for child in hbox.get_children():
+		child.queue_free()
+	var kw_keys: Array[String]  = [Keywords.WARD, Keywords.SURGE, Keywords.SHROUD]
+	var kw_labels: Array[String] = ["Ward",        "Surge",        "Shroud"]
+	var kw_colors: Array[Color]  = [
+		Color(0.35, 0.5, 1.0),
+		Color(1.0,  0.6, 0.15),
+		Color(0.8,  0.8, 0.88),
+	]
+	var font_sz: int = int(_vh * 0.018)
+	for i in range(kw_keys.size()):
+		var kw: String = kw_keys[i]
+		if not card.keywords.has(kw):
+			continue
+		if kw == Keywords.SHROUD and not card.shroud_active:
+			continue
+		var lbl := Label.new()
+		lbl.text = kw_labels[i]
+		lbl.add_theme_font_size_override("font_size", font_sz)
+		lbl.add_theme_color_override("font_color", kw_colors[i])
+		hbox.add_child(lbl)
 
 # -------------------------------------------------------------------------
 # Input handlers
@@ -819,6 +875,10 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		if not attacker.can_attack():
 			_dragged_card.clear()
 			return
+		# Ward: if any enemy minion has Ward, only those are valid targets
+		var valid_targets := _get_ward_valid_targets(_state.players[1].board.get_cards())
+		if not valid_targets.has(target):
+			return  # keep attacker selected; player must click a Ward minion
 		AudioManager.play_sfx("attack")
 		var target_panel_ec := _get_card_panel(target, true)
 		var attacker_panel_ec := _get_card_panel(attacker, false)
@@ -854,6 +914,10 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 			_dragged_card.clear()
 			_refresh_all()
 			return
+		# Ward: cannot attack hero while any Ward minion is alive on enemy board
+		for ec: CardInstance in _state.players[1].board.get_cards():
+			if ec.keywords.has(Keywords.WARD):
+				return  # keep attacker selected; player must target the Ward minion
 		AudioManager.play_sfx("attack")
 		var attacker_panel_eh := _get_card_panel(attacker, false)
 		var snap_eh := _snapshot_hp_positions()

@@ -4,6 +4,7 @@ signal closed
 
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const Keywords = preload("res://game_logic/battle/Keywords.gd")
 
 const _SPELL_EFFECT_LABELS: Dictionary = {
 	"deal_damage_single":  "Deal [power] damage to one target",
@@ -152,6 +153,27 @@ func _build_ui() -> void:
 		effect_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		effect_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		inner.add_child(effect_lbl)
+
+	# Keyword descriptions (minion keywords only)
+	if _card != null and not _card.keywords.is_empty():
+		var kw_sep := HSeparator.new()
+		inner.add_child(kw_sep)
+		var kw_descs: Dictionary = {
+			Keywords.WARD:   "Enemy attacks must target this minion first.",
+			Keywords.SURGE:  "Can attack the turn it is summoned.",
+			Keywords.SHROUD: "Absorbs the first hit.",
+		}
+		for kw: String in _card.keywords:
+			var base_desc: String = str(kw_descs.get(kw, kw))
+			if kw == Keywords.SHROUD:
+				base_desc += " (" + ("Active" if _card.shroud_active else "Consumed") + ")"
+			var kw_lbl := Label.new()
+			kw_lbl.text = kw.capitalize() + " — " + base_desc
+			kw_lbl.add_theme_font_size_override("font_size", int(_vh * 0.02))
+			kw_lbl.add_theme_color_override("font_color", Color(0.75, 1.0, 0.8))
+			kw_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			kw_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			inner.add_child(kw_lbl)
 
 	# Current status effects (if any)
 	if _card != null:

@@ -29,7 +29,7 @@ GameState          — root object; owns two PlayerState instances, tracks whose
     CardInstance   — runtime card (template ref, current HP, summoning_sick flag, attacks_this_turn)
 ```
 
-`CardInstance` wraps a `CardData` resource (loaded from `data/cards/*.tres`) and tracks mutable runtime state separately from the static template data.
+`CardInstance` wraps a `CardData` resource (loaded from `data/cards/*.tres`) and tracks mutable runtime state separately from the static template data. Runtime-only keyword state: `shroud_active: bool` starts `true` for Shroud minions and is set `false` by game logic after the first hit is absorbed.
 
 ### Turn Sequence
 
@@ -53,6 +53,7 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
 - `card_class: String` — `"minion"` (default) or `"spell"`
 - `magic_type: String` — `"light"` | `"dark"` | `""` (non-magic cards)
 - `magic_branch: String` — `"ember"` | `"dawn"` | `"dusk"` | `"ash"` | `""`
+- `keywords: Array[String]` — passive keyword abilities; valid values are the constants in `game_logic/battle/Keywords.gd`: `"ward"`, `"surge"`, `"shroud"`. Defaults to `[]`; omitting from a `.tres` file is safe.
 - `spell_effect: String` — canonical effect key dispatched by `_resolve_spell_effect` in `BattleScene.gd`; `""` for minions. Supported values:
   - `deal_damage_single` — deal spell_power damage to first enemy minion (or hero if board empty)
   - `deal_damage_all` — deal spell_power damage to all enemy minions
@@ -73,6 +74,50 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
 Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at their defaults (`""` / `0`) and are unaffected.
 
 `CardRegistry` (autoload) loads all `.tres` files from `data/cards/` at startup and exposes `get_card(id)` for lookups.
+
+### Keyword Card Catalogue (TID-096)
+
+Six keyword-bearing minion cards added to `data/cards/`. `CardData.keywords` is `PackedStringArray`; serialize in .tres as `keywords = PackedStringArray("ward")` or `PackedStringArray("shroud", "ward")` for multiple.
+
+| ID | Name | Branch | Cost | ATK | HP | Keywords | Drop source |
+|---|---|---|---|---|---|---|---|
+| iron_revenant | Iron Revenant | Ash | 3 | 1 | 5 | ward | ghoul_pack |
+| surge_spirit | Surge Spirit | Ember | 2 | 3 | 1 | surge | undead_basic |
+| shrouded_wraith | Shrouded Wraith | Dusk | 3 | 2 | 3 | shroud | undead_horde |
+| dawn_guardian | Dawn Guardian | Dawn | 4 | 2 | 6 | ward | ghoul_pack |
+| blitz_ghoul | Blitz Ghoul | Ash | 4 | 4 | 2 | surge | undead_elite |
+| veiled_paladin | Veiled Paladin | Dawn | 5 | 3 | 4 | shroud, ward | undead_elite |
+
+All 6 appear in ShopScene automatically (CardRegistry scans `data/cards/`). None are in the starter deck.
+
+### Keyword UI (TID-095)
+
+**Card badges** (`BattleScene._update_keyword_badges(hbox, card)`):
+- Called from `_build_card_vbox()` (always adds "KeywordRow" HBox) and `_update_card_view()` (refreshes it each frame).
+- Shows one colored Label per active keyword: Ward = `Color(0.35, 0.5, 1.0)`, Surge = `Color(1.0, 0.6, 0.15)`, Shroud = `Color(0.8, 0.8, 0.88)`. Font 1.8% vh.
+- Shroud badge is hidden when `card.shroud_active == false` (consumed) — updates automatically on `_refresh_all()`.
+- Badges appear in hand and on-board cards. Empty KeywordRow (no keywords) collapses to zero height.
+
+**Ward visual feedback**:
+- `_apply_card_style()` darkens enemy board minions (by 0.45) that are not in `_get_ward_valid_targets()` when an attacker is selected.
+- `_refresh_hero()` sets `is_attack_targetable = false` when any enemy Ward minion is alive, removing the red border/background from the hero attack target.
+
+**Card inspect overlay** (`CardInspectOverlay.gd`):
+- After spell-effect section: separator + one Label per keyword in `_card.keywords`.
+- Format: `"Surge — Can attack the turn it is summoned."` / `"Shroud — Absorbs the first hit. (Active)"` or `"(Consumed)"`.
+
+### Keyword Game Logic (TID-094)
+
+All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywords.gd")` — do NOT use bare string literals.
+
+**Ward** — Targeting constraint. When any entity (player or AI) selects an attack target:
+- Among the defender's minions, only Ward minions may be targeted while any Ward minion is alive.
+- The enemy hero cannot be attacked while any Ward minion is alive on that side.
+- Implementation: `BattleScene._get_ward_valid_targets()` filters enemy minions to Ward-bearing ones when present; `_on_enemy_card_input` rejects clicks on non-Ward targets (keeps attacker selected); `_on_enemy_hero_input` early-returns when Ward minions live. `BasicAI.decide_turn/describe_turn` collect `ward_targets` and use them as the target list when non-empty.
+
+**Surge** — On placement. `PlayerState.play_card()`: after `board.add_card(card)`, if `card.keywords.has(Keywords.SURGE)`, set `card.summoning_sick = false`. No other change — `can_attack()` already checks `summoning_sick`.
+
+**Shroud** — Hit absorption. `CardInstance.take_damage()`: if `shroud_active` is true, set it false and return (entire hit absorbed, health unchanged). Runs before armor reduction. Shroud absorbs only the first hit, regardless of damage amount. Does not apply to heroes — only minions carry `shroud_active`.
 
 ### BasicAI Logic (`ai/BasicAI.gd`)
 
@@ -137,7 +182,7 @@ New GameBus signals: `status_applied(entity_id, effect_id, value)`, `status_tick
 
 | Asset | Path | Notes |
 |---|---|---|
-| Card data resources | `data/cards/*.tres` | One `CardData` resource per card type; minion fields: id, display_name, cost, attack, health; spell fields: card_class="spell", magic_type, magic_branch, spell_effect, spell_power |
+| Card data resources | `data/cards/*.tres` | One `CardData` resource per card type; minion fields: id, display_name, cost, attack, health, keywords (PackedStringArray); spell fields: card_class="spell", magic_type, magic_branch, spell_effect, spell_power |
 | Enemy data resources | `data/enemies/*.tres` | `EnemyData` resource with id, display_name, deck (Array of card id strings) |
 | BattleScene scene | `scenes/battle/BattleScene.tscn` | Root scene for battle UI overlay |
 | Card slot textures | `assets/textures/` | Optional card art per id (falls back to colored panel if missing) |
