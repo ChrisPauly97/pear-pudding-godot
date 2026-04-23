@@ -3,6 +3,7 @@ extends RefCounted
 
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const Keywords = preload("res://game_logic/battle/Keywords.gd")
 
 ## Returns a list of actions the AI wants to take (as Callables to execute on game state).
 static func decide_turn(state: GameState) -> Array[Callable]:
@@ -20,7 +21,13 @@ static func decide_turn(state: GameState) -> Array[Callable]:
 	for my_card in ai.board.get_cards():
 		if not my_card.can_attack():
 			continue
-		var targets := state.opponent().board.get_cards()
+		var all_targets := state.opponent().board.get_cards()
+		# Ward: must target Ward minions if any are alive
+		var ward_targets: Array[CardInstance] = []
+		for t: CardInstance in all_targets:
+			if t.keywords.has(Keywords.WARD):
+				ward_targets.append(t)
+		var targets := ward_targets if not ward_targets.is_empty() else all_targets
 		if targets.is_empty():
 			# Attack hero
 			var mc := my_card
@@ -30,7 +37,7 @@ static func decide_turn(state: GameState) -> Array[Callable]:
 					mc.attack_count -= 1
 			)
 		else:
-			# Attack first target
+			# Attack first valid target
 			var mc := my_card
 			var tgt := targets[0]
 			actions.append(func():
@@ -63,7 +70,12 @@ static func describe_turn(state: GameState) -> String:
 		var mc := my_card as CardInstance
 		if not mc.can_attack():
 			continue
-		var targets := state.opponent().board.get_cards()
+		var all_targets := state.opponent().board.get_cards()
+		var ward_targets: Array[CardInstance] = []
+		for t: CardInstance in all_targets:
+			if t.keywords.has(Keywords.WARD):
+				ward_targets.append(t)
+		var targets := ward_targets if not ward_targets.is_empty() else all_targets
 		if targets.is_empty():
 			return "Enemy will attack your hero with " + mc.name
 		else:

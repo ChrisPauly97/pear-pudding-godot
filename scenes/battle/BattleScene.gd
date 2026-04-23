@@ -11,6 +11,7 @@ const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
+const Keywords = preload("res://game_logic/battle/Keywords.gd")
 
 var enemy_data: Dictionary = {}
 var _state: GameState
@@ -789,6 +790,18 @@ func _update_status() -> void:
 	_end_turn_btn.disabled = _state.current_player_idx != 0 or _ai_thinking
 
 # -------------------------------------------------------------------------
+# Ward targeting helper
+# -------------------------------------------------------------------------
+
+# Returns only Ward minions from cards if any exist, otherwise all cards.
+func _get_ward_valid_targets(cards: Array[CardInstance]) -> Array[CardInstance]:
+	var ward: Array[CardInstance] = []
+	for c: CardInstance in cards:
+		if c.keywords.has(Keywords.WARD):
+			ward.append(c)
+	return ward if not ward.is_empty() else cards
+
+# -------------------------------------------------------------------------
 # Input handlers
 # -------------------------------------------------------------------------
 
@@ -819,6 +832,10 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		if not attacker.can_attack():
 			_dragged_card.clear()
 			return
+		# Ward: if any enemy minion has Ward, only those are valid targets
+		var valid_targets := _get_ward_valid_targets(_state.players[1].board.get_cards())
+		if not valid_targets.has(target):
+			return  # keep attacker selected; player must click a Ward minion
 		AudioManager.play_sfx("attack")
 		var target_panel_ec := _get_card_panel(target, true)
 		var attacker_panel_ec := _get_card_panel(attacker, false)
@@ -854,6 +871,10 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 			_dragged_card.clear()
 			_refresh_all()
 			return
+		# Ward: cannot attack hero while any Ward minion is alive on enemy board
+		for ec: CardInstance in _state.players[1].board.get_cards():
+			if ec.keywords.has(Keywords.WARD):
+				return  # keep attacker selected; player must target the Ward minion
 		AudioManager.play_sfx("attack")
 		var attacker_panel_eh := _get_card_panel(attacker, false)
 		var snap_eh := _snapshot_hp_positions()

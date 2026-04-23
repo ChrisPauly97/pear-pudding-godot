@@ -75,6 +75,19 @@ Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at the
 
 `CardRegistry` (autoload) loads all `.tres` files from `data/cards/` at startup and exposes `get_card(id)` for lookups.
 
+### Keyword Game Logic (TID-094)
+
+All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywords.gd")` — do NOT use bare string literals.
+
+**Ward** — Targeting constraint. When any entity (player or AI) selects an attack target:
+- Among the defender's minions, only Ward minions may be targeted while any Ward minion is alive.
+- The enemy hero cannot be attacked while any Ward minion is alive on that side.
+- Implementation: `BattleScene._get_ward_valid_targets()` filters enemy minions to Ward-bearing ones when present; `_on_enemy_card_input` rejects clicks on non-Ward targets (keeps attacker selected); `_on_enemy_hero_input` early-returns when Ward minions live. `BasicAI.decide_turn/describe_turn` collect `ward_targets` and use them as the target list when non-empty.
+
+**Surge** — On placement. `PlayerState.play_card()`: after `board.add_card(card)`, if `card.keywords.has(Keywords.SURGE)`, set `card.summoning_sick = false`. No other change — `can_attack()` already checks `summoning_sick`.
+
+**Shroud** — Hit absorption. `CardInstance.take_damage()`: if `shroud_active` is true, set it false and return (entire hit absorbed, health unchanged). Runs before armor reduction. Shroud absorbs only the first hit, regardless of damage amount. Does not apply to heroes — only minions carry `shroud_active`.
+
 ### BasicAI Logic (`ai/BasicAI.gd`)
 
 ```

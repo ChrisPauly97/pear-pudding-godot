@@ -5,6 +5,7 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
+const Keywords = preload("res://game_logic/battle/Keywords.gd")
 
 var player_id: int
 var hero: HeroState
@@ -68,6 +69,8 @@ func play_card(card: CardInstance) -> bool:
 		discard.append(card)
 	else:
 		board.add_card(card)
+		if card.keywords.has(Keywords.SURGE):
+			card.summoning_sick = false
 	return true
 
 func start_turn(turn_number: int) -> void:

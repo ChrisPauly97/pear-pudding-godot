@@ -53,9 +53,12 @@ func is_alive() -> bool:
 func can_attack() -> bool:
 	return not summoning_sick and attack_count > 0 and out_of_play == 0 and not has_status("freeze")
 
-# Reduces health by dmg, consuming armor first.
+# Reduces health by dmg, consuming Shroud then armor first.
 func take_damage(dmg: int) -> void:
 	if dmg <= 0:
+		return
+	if shroud_active:
+		shroud_active = false
 		return
 	if has_status("armor"):
 		var av: int = get_status_value("armor")
