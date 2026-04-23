@@ -12,10 +12,10 @@ Procedural dungeons (entered via ruins doors in the infinite world) currently ge
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-089 | Room type framework — assign room types during dungeon generation | agent | pending | — |
-| TID-090 | Rest site room — heal HP, optionally remove a card from deck | agent | pending | TID-089 |
-| TID-091 | Treasure room — guaranteed chest drop, no combat | agent | pending | TID-089 |
-| TID-092 | Random event room — text-choice with meaningful consequences | agent | pending | TID-089 |
+| TID-089 | Room type framework — assign room types during dungeon generation | agent | done | — |
+| TID-090 | Rest site room — heal HP, optionally remove a card from deck | agent | done | TID-089 |
+| TID-091 | Treasure room — guaranteed chest drop, no combat | agent | done | TID-089 |
+| TID-092 | Random event room — text-choice with meaningful consequences | agent | done | TID-089 |
 
 ## Acceptance Criteria
 

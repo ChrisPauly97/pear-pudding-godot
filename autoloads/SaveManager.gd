@@ -64,6 +64,9 @@ var unlocked_achievements: Array[String] = []
 # Which biome IDs (int) have been visited — used by biomes_visited achievement
 var visited_biomes: Array[int] = []
 
+# Dungeon room keys that have been used (rest sites and event rooms)
+var visited_dungeon_rooms: Array[String] = []
+
 var _loaded: bool = false
 var _dirty: bool = false
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
@@ -122,13 +125,14 @@ func new_game() -> void:
 	achievement_progress = {}
 	unlocked_achievements = []
 	visited_biomes = []
+	visited_dungeon_rooms = []
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 8
+const CURRENT_SAVE_VERSION: int = 9
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -189,6 +193,12 @@ static func _migrate_v7_to_v8(data: Dictionary) -> void:
 		data["visited_biomes"] = []
 	data["version"] = 8
 
+# _migrate_v8_to_v9: backfill visited_dungeon_rooms for old saves.
+static func _migrate_v8_to_v9(data: Dictionary) -> void:
+	if not data.has("visited_dungeon_rooms"):
+		data["visited_dungeon_rooms"] = []
+	data["version"] = 9
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -207,6 +217,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v6_to_v7(data)
 	if ver < 8:
 		_migrate_v7_to_v8(data)
+	if ver < 9:
+		_migrate_v8_to_v9(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -248,6 +260,7 @@ func load_save() -> bool:
 	achievement_progress = ap if ap is Dictionary else {}
 	unlocked_achievements.assign(data.get("unlocked_achievements", []))
 	visited_biomes.assign(data.get("visited_biomes", []))
+	visited_dungeon_rooms.assign(data.get("visited_dungeon_rooms", []))
 	_loaded = true
 	return true
 
@@ -281,6 +294,7 @@ func save() -> void:
 		"achievement_progress": achievement_progress,
 		"unlocked_achievements": unlocked_achievements,
 		"visited_biomes": visited_biomes,
+		"visited_dungeon_rooms": visited_dungeon_rooms,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -446,6 +460,14 @@ func _check_unlock(achievement_id: String, achievement: Dictionary) -> void:
 	if current >= target and not unlocked_achievements.has(achievement_id):
 		unlocked_achievements.append(achievement_id)
 		GameBus.achievement_unlocked.emit(achievement_id)
+
+func mark_dungeon_room_used(room_key: String) -> void:
+	if not visited_dungeon_rooms.has(room_key):
+		visited_dungeon_rooms.append(room_key)
+	_dirty = true
+
+func is_dungeon_room_used(room_key: String) -> bool:
+	return visited_dungeon_rooms.has(room_key)
 
 func increment_day() -> void:
 	days_elapsed += 1

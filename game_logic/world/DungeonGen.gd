@@ -57,40 +57,100 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 	map.player_spawn_x = start.position.x + start.size.x / 2
 	map.player_spawn_z = start.position.y + start.size.y / 2
 
-	# --- Middle rooms: enemies scaling with room index ---
+	# --- Assign room types for middle rooms ---
+	# Room 0 = start (safe spawn), Room 1 = always combat, Rooms 2..N-2 = random,
+	# Room N-1 = combat (end room with chest + exit).
+	# Distribution: 60% combat, 15% rest, 15% treasure, 10% event.
+	var room_types: Array[String] = []
+	room_types.resize(ROOM_COUNT)
+	room_types[0] = "start"
+	room_types[1] = "combat"
+	for ri in range(2, ROOM_COUNT - 1):
+		var roll: int = rng.randi() % 100
+		if roll < 60:
+			room_types[ri] = "combat"
+		elif roll < 75:
+			room_types[ri] = "rest"
+		elif roll < 90:
+			room_types[ri] = "treasure"
+		else:
+			room_types[ri] = "event"
+	room_types[ROOM_COUNT - 1] = "combat"
+
+	# --- Populate middle rooms based on type ---
 	var dist: int = int(abs(float(dungeon_seed % 10000)) / 500.0)
-	var uid: int = 0
+	var enemy_uid: int = 0
+	var npc_uid: int = 0
+	var troom_uid: int = 0   # treasure room chest counter
+	var combat_count: int = 0  # tracks how many combat rooms processed (for difficulty scaling)
+	var card_pool: Array[String] = ["ghost", "skeleton", "zombie", "ghoul"]
+	var offsets: Array[Vector2i] = [Vector2i(-2, -2), Vector2i(2, 2)]
+
 	for i in range(1, rooms.size() - 1):
 		var room: Rect2i = rooms[i]
-		# Scale enemy difficulty: early rooms = dist, late rooms = dist+2
-		var room_dist: int = dist + (i - 1)
-		var etype: String = _EnemyRegistry.type_for_chunk_dist(room_dist)
-		var deck: Array[String] = _EnemyRegistry.get_deck(etype)
+		var rcx: int = room.position.x + room.size.x / 2
+		var rcz: int = room.position.y + room.size.y / 2
+		var rtype: String = room_types[i]
 
-		# 1 enemy in first middle room, 2 in later ones
-		var enemy_count: int = 1 if i == 1 else 2
-		var offsets: Array[Vector2i] = [
-			Vector2i(-2, -2), Vector2i(2, 2)
-		]
-		for e in range(enemy_count):
-			var cx: int = room.position.x + room.size.x / 2 + offsets[e].x
-			var cz: int = room.position.y + room.size.y / 2 + offsets[e].y
-			map.enemies.append({
-				"id": "de_%d" % uid,
-				"x": float(cx) * TILE_SIZE + TILE_SIZE * 0.5,
-				"z": float(cz) * TILE_SIZE + TILE_SIZE * 0.5,
-				"alive": true, "tracking": true,
-				"enemy_type": etype,
-				"enemy_deck": deck,
-			})
-			uid += 1
+		match rtype:
+			"combat":
+				var room_dist: int = dist + combat_count
+				var etype: String = _EnemyRegistry.type_for_chunk_dist(room_dist)
+				var deck: Array[String] = _EnemyRegistry.get_deck(etype)
+				var enemy_count: int = 1 if combat_count == 0 else 2
+				for e in range(enemy_count):
+					var ecx2: int = rcx + offsets[e].x
+					var ecz2: int = rcz + offsets[e].y
+					map.enemies.append({
+						"id": "de_%d" % enemy_uid,
+						"x": float(ecx2) * TILE_SIZE + TILE_SIZE * 0.5,
+						"z": float(ecz2) * TILE_SIZE + TILE_SIZE * 0.5,
+						"alive": true, "tracking": true,
+						"enemy_type": etype,
+						"enemy_deck": deck,
+					})
+					enemy_uid += 1
+				combat_count += 1
+			"rest":
+				map.npcs.append({
+					"id": "dnpc_rest_%d" % npc_uid,
+					"x": float(rcx) * TILE_SIZE + TILE_SIZE * 0.5,
+					"z": float(rcz) * TILE_SIZE + TILE_SIZE * 0.5,
+					"dialogue": "A smouldering campfire fills this chamber with warmth. You could rest here.",
+					"npc_type": "rest_site",
+					"flag_key": "",
+					"after_dialogue": p_name + "_room_" + str(i),
+				})
+				npc_uid += 1
+			"treasure":
+				# Guaranteed 2 cards; "dtr_" prefix signals enhanced weapon drop chance in WorldScene
+				var card1: String = card_pool[rng.randi_range(0, card_pool.size() - 1)]
+				var card2: String = card_pool[rng.randi_range(0, card_pool.size() - 1)]
+				map.chests.append({
+					"id": "dtr_%d" % troom_uid,
+					"x": float(rcx) * TILE_SIZE + TILE_SIZE * 0.5,
+					"z": float(rcz) * TILE_SIZE + TILE_SIZE * 0.5,
+					"card_ids": [card1, card2],
+					"opened": false,
+				})
+				troom_uid += 1
+			"event":
+				map.npcs.append({
+					"id": "dnpc_event_%d" % npc_uid,
+					"x": float(rcx) * TILE_SIZE + TILE_SIZE * 0.5,
+					"z": float(rcz) * TILE_SIZE + TILE_SIZE * 0.5,
+					"dialogue": "Something stirs in this chamber. An unseen presence lingers.",
+					"npc_type": "event_room",
+					"flag_key": "",
+					"after_dialogue": p_name + "_room_" + str(i),
+				})
+				npc_uid += 1
 
-	# --- End room: chest + exit door ---
+	# --- End room: chest + exit door (always combat-style reward) ---
 	var end_room: Rect2i = rooms[rooms.size() - 1]
 	var ecx: int = end_room.position.x + end_room.size.x / 2
 	var ecz: int = end_room.position.y + end_room.size.y / 2
 
-	var card_pool: Array[String] = ["ghost", "skeleton", "zombie", "ghoul"]
 	map.chests.append({
 		"id": "dc_0",
 		"x": float(ecx - 2) * TILE_SIZE + TILE_SIZE * 0.5,

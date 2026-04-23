@@ -19,6 +19,8 @@ const _DOT_CHEST    := Color(1.00, 0.85, 0.10)
 const _DOT_DOOR     := Color(0.55, 0.75, 1.00)
 const _DOT_NPC      := Color(0.30, 0.95, 0.45)
 const _DOT_MERCHANT := Color(0.20, 0.90, 0.90)
+const _DOT_REST     := Color(0.35, 0.85, 0.65)   # teal-green: rest site
+const _DOT_EVENT    := Color(0.95, 0.60, 0.15)   # amber: event room
 
 var _player: CharacterBody3D
 var _npc_nodes: Dictionary
@@ -168,8 +170,13 @@ func _draw_npcs(canvas: Control) -> void:
 		if not is_instance_valid(n):
 			continue
 		var data: Dictionary = _npc_data.get(id, {})
-		var is_merchant: bool = str(data.get("npc_type", "")) == "merchant"
-		var col: Color = _DOT_MERCHANT if is_merchant else _DOT_NPC
+		var npc_type: String = str(data.get("npc_type", ""))
+		var col: Color
+		match npc_type:
+			"merchant":  col = _DOT_MERCHANT
+			"rest_site": col = _DOT_REST
+			"event_room": col = _DOT_EVENT
+			_:           col = _DOT_NPC
 		var tp: Vector2 = _world_to_panel(n.position.x, n.position.z)
 		canvas.draw_circle(tp, 4.0, col)
 
