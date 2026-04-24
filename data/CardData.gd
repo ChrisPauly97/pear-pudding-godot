@@ -1,3 +1,4 @@
+class_name CardData
 extends Resource
 
 @export var id: String = ""
