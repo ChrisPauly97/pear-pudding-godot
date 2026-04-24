@@ -115,7 +115,7 @@ func _ready() -> void:
 
 	AudioManager.play_music("res://assets/audio/music/battle.ogg")
 
-	if not SaveManager.get_story_flag("tutorial_battle_tip"):
+	if not SceneManager.save_manager.get_story_flag("tutorial_battle_tip"):
 		_show_battle_tutorial()
 
 func _apply_weapon_effect(player: PlayerState) -> void:
@@ -215,7 +215,7 @@ func _dismiss_battle_tutorial() -> void:
 		_tutorial_overlay.queue_free()
 		_tutorial_overlay = null
 	_tutorial_timer = 0.0
-	SaveManager.set_story_flag("tutorial_battle_tip")
+	SceneManager.save_manager.set_story_flag("tutorial_battle_tip")
 
 # -------------------------------------------------------------------------
 # Drag/Drop — scene-level input catches mouse move and release globally
