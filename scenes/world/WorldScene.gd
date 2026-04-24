@@ -307,8 +307,8 @@ func _ready() -> void:
 	_tip_label.hide()
 	_hud.add_child(_tip_label)
 
-	if not SaveManager.get_story_flag("tutorial_inventory_tip"):
-		SaveManager.set_story_flag("tutorial_inventory_tip")
+	if not SceneManager.save_manager.get_story_flag("tutorial_inventory_tip"):
+		SceneManager.save_manager.set_story_flag("tutorial_inventory_tip")
 		var inv_tip: String = "Tap the Inventory button to manage your deck." \
 			if OS.has_feature("android") else "Press I or tap Inventory to manage your deck."
 		_show_tip.call_deferred(inv_tip)
@@ -836,7 +836,7 @@ func _find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
 	for did in _active_door_data:
 		var d: Dictionary = _active_door_data[did]
 		var fk: String = d.get("flag_key", "")
-		if fk != "" and not SaveManager.get_story_flag(fk):
+		if fk != "" and not SceneManager.save_manager.get_story_flag(fk):
 			continue
 		var ddx: float = float(d.get("x", 0.0)) - px
 		var ddz: float = float(d.get("z", 0.0)) - pz
@@ -1035,14 +1035,14 @@ func _check_interactions() -> void:
 		_interact_label.hide()
 
 	var is_android: bool = OS.has_feature("android")
-	if not npc.is_empty() and not SaveManager.get_story_flag("tutorial_npc_tip"):
-		SaveManager.set_story_flag("tutorial_npc_tip")
+	if not npc.is_empty() and not SceneManager.save_manager.get_story_flag("tutorial_npc_tip"):
+		SceneManager.save_manager.set_story_flag("tutorial_npc_tip")
 		_show_tip("Tap to talk" if is_android else "Press E to talk to NPCs")
-	elif not chest.is_empty() and not SaveManager.get_story_flag("tutorial_chest_tip"):
-		SaveManager.set_story_flag("tutorial_chest_tip")
+	elif not chest.is_empty() and not SceneManager.save_manager.get_story_flag("tutorial_chest_tip"):
+		SceneManager.save_manager.set_story_flag("tutorial_chest_tip")
 		_show_tip("Tap to open chests" if is_android else "Press E to open chests")
-	elif enemy != null and not SaveManager.get_story_flag("tutorial_enemy_tip"):
-		SaveManager.set_story_flag("tutorial_enemy_tip")
+	elif enemy != null and not SceneManager.save_manager.get_story_flag("tutorial_enemy_tip"):
+		SceneManager.save_manager.set_story_flag("tutorial_enemy_tip")
 		_show_tip("Walk into an enemy to start a battle")
 
 func _open_map_view() -> void:
@@ -1084,8 +1084,8 @@ func _handle_interact() -> void:
 		if target_map.is_empty():
 			SceneManager.exit_map()
 		else:
-			if SaveManager.current_map == "madrian" and target_map == "maykalene":
-				SaveManager.set_story_flag("chapter1_left_madrian")
+			if SceneManager.save_manager.current_map == "madrian" and target_map == "maykalene":
+				SceneManager.save_manager.set_story_flag("chapter1_left_madrian")
 			SceneManager.enter_map(target_map, tdoor)
 		return
 
@@ -1132,7 +1132,7 @@ func _handle_interact() -> void:
 			dlg = nnode.get_dialogue()
 			var fk: String = str(npc.get("flag_key", ""))
 			if fk != "":
-				SaveManager.set_story_flag(fk)
+				SceneManager.save_manager.set_story_flag(fk)
 		else:
 			dlg = str(npc.get("dialogue", "..."))
 		_show_dialogue(dlg)
@@ -1159,7 +1159,7 @@ func _on_scroll_collected(scroll_id: String) -> void:
 	var scroll: Dictionary = ScrollRegistry.get_scroll(scroll_id)
 	var title: String = scroll.get("title", scroll_id) if not scroll.is_empty() else scroll_id
 	_show_tip("Lore scroll found: " + title)
-	if SaveManager.collected_scrolls.size() >= ScrollRegistry.SCROLL_COUNT:
+	if SceneManager.save_manager.collected_scrolls.size() >= ScrollRegistry.SCROLL_COUNT:
 		GameBus.all_scrolls_collected.emit()
 
 # ── Card item spawning ──────────────────────────────────────────────────────
@@ -1210,7 +1210,7 @@ func _maybe_drop_weapon_from_chest(chance: float = 0.15) -> void:
 
 func _show_rest_site_panel(npc_data: Dictionary) -> void:
 	var room_key: String = str(npc_data.get("after_dialogue", ""))
-	if SaveManager.is_dungeon_room_used(room_key):
+	if SceneManager.save_manager.is_dungeon_room_used(room_key):
 		_show_dialogue("This rest site has already been used.")
 		return
 
@@ -1253,7 +1253,7 @@ func _show_rest_site_panel(npc_data: Dictionary) -> void:
 	cull_btn.text = "Cull — Remove a card from deck"
 	cull_btn.custom_minimum_size = Vector2(0, btn_h)
 	cull_btn.add_theme_font_size_override("font_size", font_size)
-	cull_btn.disabled = SaveManager.player_deck.size() < 2
+	cull_btn.disabled = SceneManager.save_manager.player_deck.size() < 2
 	vbox.add_child(cull_btn)
 
 	var leave_btn := Button.new()
@@ -1264,13 +1264,13 @@ func _show_rest_site_panel(npc_data: Dictionary) -> void:
 
 	rest_btn.pressed.connect(func() -> void:
 		_dungeon_hero_hp = mini(_dungeon_hero_hp + 8, 30)
-		SaveManager.mark_dungeon_room_used(room_key)
+		SceneManager.save_manager.mark_dungeon_room_used(room_key)
 		panel.queue_free()
 		_show_dialogue("You rest and recover. Hero HP: %d / 30" % _dungeon_hero_hp)
 	)
 	cull_btn.pressed.connect(func() -> void:
 		panel.queue_free()
-		SaveManager.mark_dungeon_room_used(room_key)
+		SceneManager.save_manager.mark_dungeon_room_used(room_key)
 		_show_cull_panel()
 	)
 	leave_btn.pressed.connect(func() -> void: panel.queue_free())
@@ -1308,7 +1308,7 @@ func _show_cull_panel() -> void:
 	scroll.add_child(card_list)
 
 	var deck_copy: Array[String] = []
-	deck_copy.assign(SaveManager.player_deck)
+	deck_copy.assign(SceneManager.save_manager.player_deck)
 
 	for ci in range(deck_copy.size()):
 		var cid: String = deck_copy[ci]
@@ -1321,12 +1321,12 @@ func _show_cull_panel() -> void:
 		btn.pressed.connect(func() -> void:
 			var new_deck: Array[String] = []
 			var removed_once: bool = false
-			for deck_card: String in SaveManager.player_deck:
+			for deck_card: String in SceneManager.save_manager.player_deck:
 				if not removed_once and deck_card == cid:
 					removed_once = true
 				else:
 					new_deck.append(deck_card)
-			SaveManager.set_active_deck(new_deck)
+			SceneManager.save_manager.set_active_deck(new_deck)
 			panel.queue_free()
 			_show_dialogue("Removed %s from your deck." % cid.capitalize().replace("_", " "))
 		)
@@ -1341,7 +1341,7 @@ func _show_cull_panel() -> void:
 
 func _show_event_panel(npc_data: Dictionary) -> void:
 	var room_key: String = str(npc_data.get("after_dialogue", ""))
-	if SaveManager.is_dungeon_room_used(room_key):
+	if SceneManager.save_manager.is_dungeon_room_used(room_key):
 		_show_dialogue("The event here has already passed.")
 		return
 
@@ -1397,7 +1397,7 @@ func _show_event_panel(npc_data: Dictionary) -> void:
 		vbox.add_child(btn)
 		btn.pressed.connect(func() -> void:
 			panel.queue_free()
-			SaveManager.mark_dungeon_room_used(room_key)
+			SceneManager.save_manager.mark_dungeon_room_used(room_key)
 			_apply_event_outcome(captured)
 		)
 
@@ -1410,37 +1410,37 @@ func _apply_event_outcome(choice: Dictionary) -> void:
 
 	match outcome_type:
 		"gain_coins":
-			SaveManager.add_coins(outcome_value)
+			SceneManager.save_manager.add_coins(outcome_value)
 		"lose_hp":
 			_dungeon_hero_hp = maxi(_dungeon_hero_hp - outcome_value, 1)
 		"gain_card":
 			var picked: String = card_pool[randi() % card_pool.size()]
 			var new_cards: Array[String] = [picked]
-			SaveManager.add_cards_to_deck(new_cards)
+			SceneManager.save_manager.add_cards_to_deck(new_cards)
 			outcome_text += (" (Received: %s)" % picked) if not outcome_text.is_empty() else "Received: %s" % picked
 		"lose_card":
-			if not SaveManager.player_deck.is_empty():
-				var removed: String = SaveManager.player_deck[-1]
+			if not SceneManager.save_manager.player_deck.is_empty():
+				var removed: String = SceneManager.save_manager.player_deck[-1]
 				var trimmed: Array[String] = []
-				trimmed.assign(SaveManager.player_deck)
+				trimmed.assign(SceneManager.save_manager.player_deck)
 				trimmed.pop_back()
-				SaveManager.set_active_deck(trimmed)
+				SceneManager.save_manager.set_active_deck(trimmed)
 				outcome_text += (" (Lost: %s)" % removed) if not outcome_text.is_empty() else "Lost: %s" % removed
 		"lose_hp_gain_card":
 			_dungeon_hero_hp = maxi(_dungeon_hero_hp - outcome_value, 1)
 			var picked: String = card_pool[randi() % card_pool.size()]
 			var new_cards: Array[String] = [picked]
-			SaveManager.add_cards_to_deck(new_cards)
+			SceneManager.save_manager.add_cards_to_deck(new_cards)
 			outcome_text += (" (Received: %s)" % picked) if not outcome_text.is_empty() else "Received: %s" % picked
 		"gain_coins_lose_hp":
-			SaveManager.add_coins(outcome_value)
+			SceneManager.save_manager.add_coins(outcome_value)
 			_dungeon_hero_hp = maxi(_dungeon_hero_hp - 3, 1)
 		"lose_coins_gain_card":
-			if SaveManager.coins >= outcome_value:
-				SaveManager.add_coins(-outcome_value)
+			if SceneManager.save_manager.coins >= outcome_value:
+				SceneManager.save_manager.add_coins(-outcome_value)
 				var picked: String = card_pool[randi() % card_pool.size()]
 				var new_cards: Array[String] = [picked]
-				SaveManager.add_cards_to_deck(new_cards)
+				SceneManager.save_manager.add_cards_to_deck(new_cards)
 				outcome_text += (" (Received: %s)" % picked) if not outcome_text.is_empty() else "Received: %s" % picked
 			else:
 				outcome_text = "Not enough coins!"

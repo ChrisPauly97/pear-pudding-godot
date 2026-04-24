@@ -12,6 +12,7 @@ static func _ensure_loaded() -> void:
 	_loaded = true
 	var dir := DirAccess.open(CARD_DIR)
 	if not dir:
+		push_error("CardRegistry: failed to open card directory '%s'" % CARD_DIR)
 		return
 	dir.list_dir_begin()
 	var fname := dir.get_next()
@@ -20,8 +21,15 @@ static func _ensure_loaded() -> void:
 			var res := ResourceLoader.load(CARD_DIR + "/" + fname)
 			if res is CardData:
 				var card := res as CardData
-				_cards[card.id] = card
+				if card.id != "":
+					_cards[card.id] = card
+				else:
+					push_error("CardRegistry: card '%s' has empty id, skipped" % fname)
+			elif res != null:
+				push_error("CardRegistry: '%s' is not a CardData resource (type: %s)" % [fname, res.get_class()])
 		fname = dir.get_next()
+	if _cards.is_empty():
+		push_error("CardRegistry: no cards loaded — check '%s'" % CARD_DIR)
 
 ## Returns a template Dictionary compatible with CardInstance.from_template()
 ## and all existing callers. Returns {} if the ID is unknown.
