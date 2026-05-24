@@ -17,3 +17,4 @@ magic_branch = ""
 spell_effect = "extra_turn"
 spell_power = 0
 auto_resolve = true
+can_craft = false

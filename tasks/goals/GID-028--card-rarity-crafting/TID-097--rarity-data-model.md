@@ -2,7 +2,7 @@
 
 **Goal:** GID-028
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -65,12 +65,16 @@ No new files, no `.uid` sidecars needed.
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `RARITY_CONFIG` dictionary constant to `autoloads/IsoConst.gd`.
+2. Add `can_craft: bool = true` and `is_unique: bool = false` exported fields to `data/CardData.gd`.
+3. Add `can_craft = false` to the 5 achievement-gated legendary `.tres` files (no `.tres` changes needed for any other card since `true` is the default).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/IsoConst.gd`: added `RARITY_CONFIG` dictionary (multiplier + variance per tier) and `RARITY_ORDER: Array[String]` for sorted iteration.
+- `data/CardData.gd`: added `@export var can_craft: bool = true` and `@export var is_unique: bool = false`. Not included in `to_template_dict()` — these are collection metadata, not battle state.
+- `data/cards/ancient_guardian.tres`, `void_wyrm.tres`, `iron_revenant.tres`, `phoenix_rise.tres`, `time_warp.tres`: set `can_craft = false`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/inventory-and-deck.md` will be updated in TID-100 once the full rarity UI is in place. No doc update needed for this pure data task.
