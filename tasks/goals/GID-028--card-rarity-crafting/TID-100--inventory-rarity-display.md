@@ -32,9 +32,11 @@ After TID-098 the save stores per-instance card dicts. The InventoryScene still 
 Ghost          [R]
 Cost 2   ATK 7 (6–10)   HP 5 (4–7)
 ```
-- The `(min–max)` range annotation is read from `CardData.rare_stats.attack_min / attack_max` etc.
-- If both min and max equal the base stat (or the RarityStats field is null), omit the range annotation.
-- If the rolled value equals the max of the range, show the stat in gold/highlight colour.
+- The `(min–max)` range is computed from `IsoConst.RARITY_CONFIG[rarity]` at display time:
+  `min = round(base_stat * multiplier * (1 - variance))`, `max = round(base_stat * multiplier * (1 + variance))`
+- `base_stat` comes from `CardRegistry.get_template(instance["template_id"])["attack"]` etc.
+- If min == max (base stat rounds to the same value both ways), omit the range annotation.
+- If the rolled value equals the computed max, show the stat in gold/highlight colour.
 
 **"Add to Deck" behaviour change**: currently `_on_add_to_deck(card_id)` appends a template ID to the working deck. After TID-098, `player_deck` is a list of UIDs. The button must pass the instance UID. Each instance row needs the UID available.
 

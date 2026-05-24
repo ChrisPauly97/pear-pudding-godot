@@ -1,4 +1,4 @@
-# TID-097: Rarity Data Model — Extend CardData with Per-Rarity Stat Ranges
+# TID-097: Rarity Data Model — Global Multipliers & Variance, CardData Flags
 
 **Goal:** GID-028
 **Type:** agent
@@ -13,44 +13,55 @@
 
 ## Context
 
-Cards currently have flat stats (single `attack`, `health`, `cost` integers). This task adds rarity-tier fields to `CardData` and a new `RarityStats` sub-resource so each card can define stat ranges for common, rare, epic, and legendary tiers. It also adds `can_craft: bool` and `is_unique: bool` flags. This is a pure data-layer change; nothing in the save or UI changes yet — that follows in TID-098+.
+Cards currently have flat stats. This task introduces rarity tiers by storing a global config of (stat multiplier, variance %) per rarity tier rather than per-card ranges. A card's stats at a given rarity are derived entirely from its base stats and the global tier config — no per-card range data is needed. CardData only gains two new flags: `can_craft` and `is_unique`.
 
 ## Research Notes
 
-**CardData** (`data/CardData.gd`): currently has `id, card_name, cost, attack, health, card_class, description, color, magic_type, magic_branch, spell_effect, spell_power, auto_resolve, keywords`. The `attack`, `health`, `cost` fields become the baseline defaults (used if no rarity range is defined).
+**Design principle**: no per-card per-rarity fields. Every card's rarity stats are computed at roll time:
 
-**CardRegistry** (`autoloads/CardRegistry.gd`): scans `data/cards/*.tres`, builds `_cards: Dictionary`. `get_template()` returns a flat dict. No changes to CardRegistry needed in this task — TID-098 will extend it.
+```
+rolled_stat = round(base_stat * rarity_multiplier * uniform(1 - variance, 1 + variance))
+```
 
-**Rarity tiers**: common, rare, epic, legendary. "Unique" is not a separate rarity tier — it is a flag that means only one copy of this card can ever exist in the collection (`is_unique = true`). Unique cards will typically also be legendary.
+`base_stat` is the existing `attack` / `health` on `CardData`. Cost is never randomised — it stays at the base value regardless of rarity.
 
-**Legendary-only design**: legendary cards have no common/rare/epic stat ranges — only the legendary range applies. The `common_stats`, `rare_stats`, `epic_stats` fields will be `null` for such cards.
+**Global rarity config** — add to `autoloads/IsoConst.gd` as a typed Dictionary constant:
 
-**`can_craft: bool`**: false for unique cards and any card the designer wants to exclude from recipes. Defaults `true` for normal cards.
+```gdscript
+const RARITY_CONFIG: Dictionary = {
+    "common":    {"multiplier": 1.0, "variance": 0.10},
+    "rare":      {"multiplier": 1.3, "variance": 0.08},
+    "epic":      {"multiplier": 1.7, "variance": 0.06},
+    "legendary": {"multiplier": 2.4, "variance": 0.05},
+}
+```
 
-**RarityStats sub-resource**: a small `Resource` subclass with:
-- `attack_min: int`, `attack_max: int`
-- `health_min: int`, `health_max: int`
-- `cost_min: int`, `cost_max: int`
+These values mean:
+- A Ghost (base ATK 2, HP 3) at **rare** rolls ATK in [2, 3] and HP in [2, 3]
+- At **legendary** it rolls ATK in [4, 5] and HP in [5, 6]
+- All cards in the game automatically gain rarity depth with zero per-card data
 
-When both min and max are 0 (or the field is null), callers fall back to the base stat on CardData. This lets cards that don't need a range for a given tier leave those fields unset.
+**`CardData`** (`data/CardData.gd`) — only two new fields:
 
-**Files to create/edit**:
-- `data/RarityStats.gd` — new Resource subclass (needs `.uid` sidecar)
-- `data/CardData.gd` — add `@export var common_stats: RarityStats`, `rare_stats`, `epic_stats`, `legendary_stats`, `can_craft: bool = true`, `is_unique: bool = false`
-- Update `.tres` files for any cards that need ranges: at minimum define ranges for the 4 base minions (ghost, skeleton, zombie, ghoul) at common/rare/epic; define legendary ranges for the 5 existing legendary cards (`ancient_guardian`, `void_wyrm`, `iron_revenant`, `phoenix_rise`, `time_warp`)
+```gdscript
+@export var can_craft: bool = true
+@export var is_unique: bool = false
+```
 
-**Suggested stat ranges (starting point, tune as desired)**:
+No other changes to CardData. No new sub-resources. No `.tres` edits for stat ranges.
 
-| Rarity | Attack range | Health range | Cost range |
-|--------|-------------|--------------|------------|
-| Common | base±1 | base±1 | base (no range) |
-| Rare | base+1 to base+3 | base+1 to base+3 | base (no range) |
-| Epic | base+3 to base+5 | base+3 to base+5 | base (no range) |
-| Legendary | unique-specific | unique-specific | base (no range) |
+**Rarity tiers**: `"common"`, `"rare"`, `"epic"`, `"legendary"`. Unique is a flag (`is_unique = true`), not a separate tier. Unique cards are always legendary-tier for stat purposes.
 
-For non-minion cards (spells), apply ranges to `spell_power` instead — but to keep scope tight this task can leave spells with no ranges for now (they'll just always roll base stats).
+**Legendary-only cards**: legendary cards have no common/rare/epic versions — the drop system (TID-099) simply never rolls lower tiers for them. No flag is needed on CardData for this; the drop pool controls it.
 
-**UID sidecar rule** (CLAUDE.md): `data/RarityStats.gd` needs a `.uid` sidecar at `data/RarityStats.gd.uid` with a random 12-char UID string.
+**Which cards get `can_craft = false`**: the 5 existing achievement-gated legendaries (`ancient_guardian`, `void_wyrm`, `iron_revenant`, `phoenix_rise`, `time_warp`) and any unique cards. All other cards default `can_craft = true` (no `.tres` edit needed since `true` is the default).
+
+**Files to edit**:
+- `autoloads/IsoConst.gd` — add `RARITY_CONFIG` constant
+- `data/CardData.gd` — add `can_craft` and `is_unique` fields
+- `data/cards/ancient_guardian.tres`, `void_wyrm.tres`, `iron_revenant.tres`, `phoenix_rise.tres`, `time_warp.tres` — set `can_craft = false`
+
+No new files, no `.uid` sidecars needed.
 
 ## Plan
 
