@@ -2,7 +2,7 @@
 
 **Goal:** GID-028
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-100
 
 ## Lock
@@ -50,12 +50,18 @@ func _can_combine(template_id: String, rarity: String) -> bool:
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `combine_cards(template_id, rarity)` to SaveManager: find 3 non-deck instances, remove them, roll fresh stats at next rarity tier, create and return new instance.
+2. Add `_count_available(template_id, rarity)` helper to InventoryScene for the button enable check.
+3. In `_make_collection_row`: after the sell/scrap buttons, add a "Combine 3× → [X]" button for non-legendary, non-unique cards when 3+ available instances exist.
+4. Combine button disabled when < 3 available; resolves against working deck exclusion automatically.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/SaveManager.gd`**: Added `combine_cards(template_id, rarity)` — removes 3 non-deck instances, rolls fresh stats via `CardDropUtil.roll_stats()`, creates new instance at next rarity tier, returns new instance dict.
+- **`scenes/ui/InventoryScene.gd`**:
+  - Added `_count_available(template_id, rarity)` counting available (non-deck) instances.
+  - `_make_collection_row()`: appends "Combine 3× → [X]" button in action row for non-legendary, non-unique cards; disabled when fewer than 3 non-deck copies are available; on press calls `combine_cards()` and refreshes.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new agent docs needed.

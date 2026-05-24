@@ -609,6 +609,24 @@ func _make_collection_row(inst: Dictionary) -> VBoxContainer:
 			scrap_btn.pressed.connect(_do_scrap.bind(uid))
 		action_row.add_child(scrap_btn)
 
+		# Combine button: visible when 3+ non-deck copies of same template+rarity exist
+		# and the rarity is not legendary (no tier above it) and card is not unique
+		if rarity != "legendary":
+			var next_rarity_idx: int = IsoConst.RARITY_ORDER.find(rarity) + 1
+			var next_rarity_str: String = IsoConst.RARITY_ORDER[next_rarity_idx] if next_rarity_idx < IsoConst.RARITY_ORDER.size() else ""
+			if next_rarity_str != "":
+				var can_combine: bool = _count_available(tid, rarity) >= 3
+				var combine_btn := Button.new()
+				combine_btn.text = "Combine 3× → %s" % _rarity_badge(next_rarity_str)
+				combine_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.038)
+				combine_btn.add_theme_font_size_override("font_size", int(_vh * 0.015))
+				combine_btn.modulate = _rarity_color(next_rarity_str)
+				combine_btn.disabled = not can_combine
+				combine_btn.pressed.connect(func() -> void:
+					SceneManager.save_manager.combine_cards(tid, rarity)
+					_refresh_cards())
+				action_row.add_child(combine_btn)
+
 	return vbox
 
 func _make_deck_row(uid: String, inst: Dictionary, index: int) -> VBoxContainer:
@@ -711,6 +729,14 @@ func _show_confirm(action_row: HBoxContainer, confirm_row: HBoxContainer, label:
 		confirm_row.visible = false
 		action_row.visible = true)
 	confirm_row.add_child(no_btn)
+
+func _count_available(template_id: String, rarity: String) -> int:
+	var count: int = 0
+	for inst in SceneManager.save_manager.get_owned_instances():
+		if str(inst.get("template_id", "")) == template_id and str(inst.get("rarity", "")) == rarity:
+			if not _working_deck.has(str(inst.get("uid", ""))):
+				count += 1
+	return count
 
 func _do_sell(uid: String) -> void:
 	SceneManager.save_manager.sell_card_instance(uid)

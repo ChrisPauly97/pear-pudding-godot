@@ -455,6 +455,31 @@ func scrap_card_instance(uid: String) -> void:
 	remove_card_instance(uid)
 	_dirty = true
 
+## Combines 3 available (non-deck) instances of template_id+rarity into 1 of the next rarity tier.
+## Returns the new instance dict, or {} if insufficient non-deck copies exist.
+func combine_cards(template_id: String, rarity: String) -> Dictionary:
+	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
+	var to_remove: Array[String] = []
+	for inst: Dictionary in owned_cards:
+		if to_remove.size() >= 3:
+			break
+		if str(inst.get("template_id", "")) == template_id and str(inst.get("rarity", "")) == rarity:
+			var uid: String = str(inst.get("uid", ""))
+			if not player_deck.has(uid):
+				to_remove.append(uid)
+	if to_remove.size() < 3:
+		return {}
+	for uid: String in to_remove:
+		remove_card_instance(uid)
+	var rarity_order: Array[String] = ["common", "rare", "epic", "legendary"]
+	var src_idx: int = rarity_order.find(rarity)
+	if src_idx < 0 or src_idx >= rarity_order.size() - 1:
+		return {}
+	var next_rarity: String = rarity_order[src_idx + 1]
+	var stats: Dictionary = CardDropUtil.roll_stats(template_id, next_rarity)
+	var new_uid: String = add_card_instance(template_id, next_rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+	return get_instance_by_uid(new_uid)
+
 ## Returns all owned card instances (the full collection array).
 func get_owned_instances() -> Array[Dictionary]:
 	return owned_cards
