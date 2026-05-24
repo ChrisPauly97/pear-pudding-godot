@@ -33,6 +33,13 @@ static func effective_rarity(template_id: String, rolled: String) -> String:
 		return "legendary"
 	return rolled
 
+## Maps an enemy difficulty tier (1–4) to a rarity and returns rolled stats for that tier.
+## Tier 1 = common, 2 = rare, 3 = epic, 4 = legendary. Cost is never scaled.
+static func enemy_card_stats(template_id: String, difficulty_tier: int) -> Dictionary:
+	const _TIER_RARITIES: Array[String] = ["common", "rare", "epic", "legendary"]
+	var rarity: String = _TIER_RARITIES[clampi(difficulty_tier - 1, 0, 3)]
+	return roll_stats(template_id, rarity)
+
 ## Rolls attack and health stats for a template at the given rarity using RARITY_CONFIG.
 ## Cost is never randomised. Returns {"attack": int, "health": int, "cost": int}.
 static func roll_stats(template_id: String, rarity: String) -> Dictionary:

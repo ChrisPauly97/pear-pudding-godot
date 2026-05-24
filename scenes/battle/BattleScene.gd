@@ -88,11 +88,15 @@ func _ready() -> void:
 	_state.players[0].draw_opening_hand(4)
 	_flush_auto_spells(0)
 
-	# Enemy deck
+	# Enemy deck — scale card stats by enemy difficulty tier
+	var _enemy_type: String = str(enemy_data.get("enemy_type", ""))
+	var _enemy_tier: int = EnemyRegistry.get_difficulty_tier(_enemy_type) if _enemy_type != "" else 1
+	if bool(enemy_data.get("is_boss", false)):
+		_enemy_tier = 4
 	if enemy_data.has("enemy_deck"):
 		var enemy_deck: Array[String] = []
 		enemy_deck.assign(enemy_data["enemy_deck"])
-		_state.players[1].build_deck(enemy_deck)
+		_state.players[1].build_deck(enemy_deck, _enemy_tier)
 		_state.players[1].draw_opening_hand(4)
 
 	# Boss setup: override enemy hero HP and show name banner
@@ -1143,7 +1147,9 @@ func _check_boss_phase2() -> void:
 	_boss_phase2_triggered = true
 	var p2_deck: Array[String] = []
 	p2_deck.assign(p2_raw)
-	_state.players[1].build_deck(p2_deck)
+	var p2_enemy_type: String = str(enemy_data.get("enemy_type", ""))
+	var p2_tier: int = 4 if bool(enemy_data.get("is_boss", false)) else EnemyRegistry.get_difficulty_tier(p2_enemy_type)
+	_state.players[1].build_deck(p2_deck, p2_tier)
 	_state.players[1].draw_opening_hand(4)
 	_refresh_all()
 	# Show phase 2 announcement banner

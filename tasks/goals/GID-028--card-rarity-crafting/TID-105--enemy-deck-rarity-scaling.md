@@ -2,7 +2,7 @@
 
 **Goal:** GID-028
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-097, TID-099
 
 ## Lock
@@ -60,12 +60,16 @@ var inst := CardInstance.from_template(tmpl)
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `enemy_card_stats(template_id, difficulty_tier)` to `CardDropUtil` — maps tier 1–4 to rarity then delegates to `roll_stats()`.
+2. Add optional `difficulty_tier: int = 0` param to `PlayerState.build_deck()` — when > 0, duplicates the template dict and overrides `attack`/`health` with tier-scaled values (cost kept at base).
+3. In `BattleScene`, derive `_enemy_tier` from `EnemyRegistry.get_difficulty_tier()` (boss = 4) and pass to `build_deck()` for both the initial enemy deck and the phase 2 deck swap.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/CardDropUtil.gd`**: Added `enemy_card_stats(template_id, difficulty_tier)` — maps tier to rarity (`common/rare/epic/legendary`) and returns `roll_stats()` output.
+- **`game_logic/battle/PlayerState.gd`**: `build_deck()` gained optional `difficulty_tier: int = 0`; when positive, scales each card's attack/health via `CardDropUtil.enemy_card_stats()` before `CardInstance.from_template()`. Cost intentionally not scaled (would break AI mana).
+- **`scenes/battle/BattleScene.gd`**: Enemy deck loading now computes `_enemy_tier` from `EnemyRegistry.get_difficulty_tier()` (boss = 4) and passes it to `build_deck()`. Phase 2 deck swap also passes the tier.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new agent docs needed — extends the enemies-and-npcs.md coverage.
