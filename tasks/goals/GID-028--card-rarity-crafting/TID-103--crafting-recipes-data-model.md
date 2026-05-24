@@ -2,7 +2,7 @@
 
 **Goal:** GID-028
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-097
 
 ## Lock
@@ -55,12 +55,20 @@ Crafting lets players spend essence to create a specific card at a specific rari
 
 ## Plan
 
-_Written during Plan phase._
+Rather than creating 100+ static .tres recipe files (one per template × rarity pair), generate recipes dynamically from CardRegistry. This avoids file explosion while providing the same typed API. Costs are uniform per rarity tier, stored in IsoConst.RARITY_CONFIG.
+
+1. Add `craft_essence` (10/30/80/200) to IsoConst.RARITY_CONFIG.
+2. Add `CardRegistry.is_craftable(id)` to expose `can_craft` field without duplicating it.
+3. Create `data/CraftingRecipe.gd` — Resource with `template_id`, `rarity`, `essence_cost`.
+4. Create `autoloads/CraftingRegistry.gd` — builds recipe instances from CardRegistry on first access, filtered by `is_craftable()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/IsoConst.gd`**: Added `craft_essence` key to each rarity tier in `RARITY_CONFIG`.
+- **`autoloads/CardRegistry.gd`**: Added `is_craftable(id) -> bool` static method.
+- **`data/CraftingRecipe.gd`** (new): Resource with `template_id`, `rarity`, `essence_cost` exports.
+- **`autoloads/CraftingRegistry.gd`** (new): Generates `CraftingRecipe` instances dynamically from `CardRegistry` on first access. Exposes `get_all_recipes()`, `get_recipes_for_template()`, `get_recipe()`. No .tres recipe files needed — costs are rarity-uniform.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new agent docs needed — extends save-system.md coverage.

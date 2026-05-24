@@ -48,6 +48,14 @@ static func get_all_ids() -> Array[String]:
 		result.append(str(k))
 	return result
 
+## Returns true if this card can be crafted via the crafting system.
+## Cards with can_craft = false are excluded (achievement-gated legendaries).
+static func is_craftable(id: String) -> bool:
+	_ensure_loaded()
+	if _cards.has(id):
+		return (_cards[id] as CardData).can_craft
+	return false
+
 ## Returns true if the card is available (not a locked legendary).
 ## Legendary cards are gated behind achievements; use SceneManager.save_manager
 ## to check unlocked_achievements.

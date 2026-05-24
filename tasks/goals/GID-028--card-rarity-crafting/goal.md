@@ -18,7 +18,7 @@ Cards are currently flat templates — every copy of "Ghost" is identical. This 
 | TID-100 | Inventory rarity display & per-instance stat readout | agent | done | TID-098 |
 | TID-101 | Sell & scrap actions (gold + essence) | agent | done | TID-100 |
 | TID-102 | Card combining (3× same rarity → 1× next rarity) | agent | done | TID-100 |
-| TID-103 | Crafting recipes data model | agent | pending | TID-097 |
+| TID-103 | Crafting recipes data model | agent | done | TID-097 |
 | TID-104 | Crafting screen UI | agent | pending | TID-101, TID-103 |
 | TID-105 | Enemy deck rarity scaling by difficulty tier | agent | pending | TID-097, TID-099 |
 
