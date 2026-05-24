@@ -2,7 +2,7 @@
 
 **Goal:** GID-028
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-098
 
 ## Lock
@@ -52,12 +52,22 @@ Cost 2   ATK 7 (6–10)   HP 5 (4–7)
 
 ## Plan
 
-_Written during Plan phase._
+1. Rewrite `_refresh_cards()` to iterate `get_owned_instances()` instead of `get_owned_counts()`.
+2. Change collection panel to show one row per instance (not per template), sorted template_id alphabetically then rarity descending.
+3. Replace `_make_collection_row()` signature to take an instance dict; render two-line rows (name + badge, stats + ranges).
+4. Replace `_make_deck_row()` signature similarly; render same two-line layout.
+5. Add `_rarity_color()`, `_rarity_badge()`, `_stat_range_text()` helpers.
+6. Simplify `_on_add()` to append a uid directly (row provides the uid, no template lookup needed).
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/ui/InventoryScene.gd`**:
+  - `_refresh_cards()`: iterates `get_owned_instances()`, filters out working-deck UIDs, sorts alphabetically by template_id then rarity tier descending.
+  - `_make_collection_row(inst: Dictionary) -> VBoxContainer`: two-line row — top: colour swatch, name, rarity badge `[C]/[R]/[E]/[L]` in rarity colour, `+` button; bottom: rolled stats with `(min–max)` range from `IsoConst.RARITY_CONFIG`.
+  - `_make_deck_row(uid, inst, index) -> VBoxContainer`: same two-line layout with `−` remove button.
+  - `_on_add(uid: String)`: simplified — appends uid directly, no template lookup.
+  - Added helpers: `_rarity_color()`, `_rarity_badge()`, `_stat_range_text()`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new agent docs needed — extends existing inventory-and-deck.md coverage.

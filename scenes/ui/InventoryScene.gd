@@ -314,32 +314,33 @@ func _refresh_cards() -> void:
 
 	_coin_label.text = "Coins: %d" % SceneManager.save_manager.coins
 
-	var owned: Dictionary = SceneManager.save_manager.get_owned_counts()
+	var all_instances: Array[Dictionary] = SceneManager.save_manager.get_owned_instances()
 
-	var deck_counts: Dictionary = {}
-	for uid: String in _working_deck:
-		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(uid)
-		var tid: String = str(inst.get("template_id", uid)) if not inst.is_empty() else uid
-		deck_counts[tid] = int(deck_counts.get(tid, 0)) + 1
+	# Available = owned instances not currently in the working deck
+	var available: Array[Dictionary] = []
+	for inst in all_instances:
+		if not _working_deck.has(str(inst.get("uid", ""))):
+			available.append(inst)
 
-	for id in CardRegistry.get_all_ids():
-		var owned_n: int = int(owned.get(id, 0))
-		if owned_n == 0:
-			continue
-		var tmpl: Dictionary = CardRegistry.get_template(id)
-		if tmpl.is_empty():
-			continue
-		var deck_n: int = int(deck_counts.get(id, 0))
-		var avail: int = owned_n - deck_n
-		var row := _make_collection_row(id, tmpl, owned_n, deck_n, avail)
+	# Sort: template_id alphabetically, then rarity tier descending (legendary first)
+	available.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var ta: String = str(a.get("template_id", ""))
+		var tb: String = str(b.get("template_id", ""))
+		if ta != tb:
+			return ta < tb
+		var ra: int = IsoConst.RARITY_ORDER.find(str(a.get("rarity", "common")))
+		var rb: int = IsoConst.RARITY_ORDER.find(str(b.get("rarity", "common")))
+		return ra > rb
+	)
+
+	for inst in available:
+		var row := _make_collection_row(inst)
 		_collection_list.add_child(row)
 
 	for i in _working_deck.size():
 		var uid: String = _working_deck[i]
 		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(uid)
-		var tid: String = str(inst.get("template_id", uid)) if not inst.is_empty() else uid
-		var tmpl: Dictionary = CardRegistry.get_template(tid)
-		var row := _make_deck_row(uid, tmpl, i)
+		var row := _make_deck_row(uid, inst, i)
 		_deck_list.add_child(row)
 
 	var deck_sz: int = _working_deck.size()
@@ -442,6 +443,35 @@ func _weapon_effect_summary(weapon: WeaponData) -> String:
 # Row builders
 # -------------------------------------------------------------------------
 
+func _rarity_color(rarity: String) -> Color:
+	match rarity:
+		"common":    return Color(0.80, 0.80, 0.80)
+		"rare":      return Color(0.20, 0.50, 1.00)
+		"epic":      return Color(0.70, 0.20, 1.00)
+		"legendary": return Color(1.00, 0.75, 0.00)
+	return Color(0.80, 0.80, 0.80)
+
+func _rarity_badge(rarity: String) -> String:
+	match rarity:
+		"common":    return "[C]"
+		"rare":      return "[R]"
+		"epic":      return "[E]"
+		"legendary": return "[L]"
+	return "[?]"
+
+func _stat_range_text(rolled: int, base: int, rarity: String) -> String:
+	var disp: int = rolled if rolled >= 0 else base
+	if base <= 0:
+		return str(max(disp, 0))
+	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+	var mult: float = float(cfg.get("multiplier", 1.0))
+	var var_: float = float(cfg.get("variance", 0.10))
+	var min_val: int = roundi(float(base) * mult * (1.0 - var_))
+	var max_val: int = roundi(float(base) * mult * (1.0 + var_))
+	if min_val == max_val:
+		return str(disp)
+	return "%d (%d–%d)" % [disp, min_val, max_val]
+
 func _make_weapon_row(wid: String, weapon: WeaponData, is_equipped: bool, is_selected: bool) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(_vw * 0.008))
@@ -470,72 +500,98 @@ func _make_weapon_row(wid: String, weapon: WeaponData, is_equipped: bool, is_sel
 
 	return row
 
-func _make_collection_row(id: String, tmpl: Dictionary, owned_n: int, deck_n: int, avail: int) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+func _make_collection_row(inst: Dictionary) -> VBoxContainer:
+	var uid: String     = str(inst.get("uid", ""))
+	var tid: String     = str(inst.get("template_id", uid))
+	var rarity: String  = str(inst.get("rarity", "common"))
+	var tmpl: Dictionary = CardRegistry.get_template(tid)
+	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
+	var card_name: String = tmpl.get("name", tid)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(_vh * 0.003))
+
+	# Top row: colour swatch + name + rarity badge + add button
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", int(_vw * 0.008))
+	vbox.add_child(top_row)
 
 	var swatch := ColorRect.new()
-	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	swatch.color = card_color
 	swatch.custom_minimum_size = Vector2(_vh * 0.03, _vh * 0.03)
-	row.add_child(swatch)
+	top_row.add_child(swatch)
 
 	var name_lbl := Label.new()
-	var name_str: String = tmpl.get("name", id)
-	name_lbl.text = "%s  ×%d" % [name_str, owned_n]
+	name_lbl.text = card_name
 	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(name_lbl)
+	top_row.add_child(name_lbl)
 
-	var cost: int = tmpl.get("cost", 0)
-	var atk: int  = tmpl.get("attack", 0)
-	var hp: int   = tmpl.get("health", 0)
-	var stats_lbl := Label.new()
-	stats_lbl.text = "cost %d  %d/%d" % [cost, atk, hp]
-	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
-	row.add_child(stats_lbl)
-
-	if deck_n > 0:
-		var in_deck_lbl := Label.new()
-		in_deck_lbl.text = "(in deck: %d)" % deck_n
-		in_deck_lbl.add_theme_font_size_override("font_size", int(_vh * 0.015))
-		in_deck_lbl.modulate = Color(0.8, 0.85, 1.0)
-		row.add_child(in_deck_lbl)
+	var badge_lbl := Label.new()
+	badge_lbl.text = _rarity_badge(rarity)
+	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	badge_lbl.modulate = _rarity_color(rarity)
+	top_row.add_child(badge_lbl)
 
 	var add_btn := Button.new()
 	add_btn.text = "+"
 	add_btn.custom_minimum_size = Vector2(_vh * 0.042, _vh * 0.042)
 	add_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	add_btn.disabled = (avail <= 0 or _working_deck.size() >= IsoConst.DECK_MAX)
-	add_btn.pressed.connect(_on_add.bind(id))
-	row.add_child(add_btn)
+	add_btn.disabled = _working_deck.size() >= IsoConst.DECK_MAX
+	add_btn.pressed.connect(_on_add.bind(uid))
+	top_row.add_child(add_btn)
 
-	return row
+	# Stats row: rolled values with (min–max) range annotation
+	var rolled_atk: int  = int(inst.get("attack", -1))
+	var rolled_hp: int   = int(inst.get("health", -1))
+	var rolled_cost: int = int(inst.get("cost", -1))
+	var base_atk: int    = int(tmpl.get("attack", 0))
+	var base_hp: int     = int(tmpl.get("health", 0))
+	var base_cost: int   = int(tmpl.get("cost", 0))
+	var disp_cost: int   = rolled_cost if rolled_cost >= 0 else base_cost
 
-func _make_deck_row(id: String, tmpl: Dictionary, index: int) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var stats_lbl := Label.new()
+	stats_lbl.text = "Cost %d  ATK %s  HP %s" % [
+		disp_cost,
+		_stat_range_text(rolled_atk, base_atk, rarity),
+		_stat_range_text(rolled_hp,  base_hp,  rarity),
+	]
+	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.015))
+	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
+	vbox.add_child(stats_lbl)
+
+	return vbox
+
+func _make_deck_row(uid: String, inst: Dictionary, index: int) -> VBoxContainer:
+	var tid: String    = str(inst.get("template_id", uid)) if not inst.is_empty() else uid
+	var rarity: String = str(inst.get("rarity", "common")) if not inst.is_empty() else "common"
+	var tmpl: Dictionary = CardRegistry.get_template(tid)
+	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
+	var card_name: String = tmpl.get("name", tid)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(_vh * 0.003))
+
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", int(_vw * 0.008))
+	vbox.add_child(top_row)
 
 	var swatch := ColorRect.new()
-	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	swatch.color = card_color
 	swatch.custom_minimum_size = Vector2(_vh * 0.03, _vh * 0.03)
-	row.add_child(swatch)
+	top_row.add_child(swatch)
 
 	var name_lbl := Label.new()
-	var name_str: String = tmpl.get("name", id)
-	name_lbl.text = name_str
+	name_lbl.text = card_name
 	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(name_lbl)
+	top_row.add_child(name_lbl)
 
-	var cost: int = tmpl.get("cost", 0)
-	var atk: int  = tmpl.get("attack", 0)
-	var hp: int   = tmpl.get("health", 0)
-	var stats_lbl := Label.new()
-	stats_lbl.text = "cost %d  %d/%d" % [cost, atk, hp]
-	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
-	row.add_child(stats_lbl)
+	var badge_lbl := Label.new()
+	badge_lbl.text = _rarity_badge(rarity)
+	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	badge_lbl.modulate = _rarity_color(rarity)
+	top_row.add_child(badge_lbl)
 
 	var rm_btn := Button.new()
 	rm_btn.text = "−"
@@ -552,9 +608,28 @@ func _make_deck_row(id: String, tmpl: Dictionary, index: int) -> HBoxContainer:
 			rm_btn.pressed.connect(_on_remove.bind(index))
 	else:
 		rm_btn.pressed.connect(_on_remove.bind(index))
-	row.add_child(rm_btn)
+	top_row.add_child(rm_btn)
 
-	return row
+	# Stats row
+	var rolled_atk: int  = int(inst.get("attack", -1))  if not inst.is_empty() else -1
+	var rolled_hp: int   = int(inst.get("health", -1))  if not inst.is_empty() else -1
+	var rolled_cost: int = int(inst.get("cost", -1))    if not inst.is_empty() else -1
+	var base_atk: int    = int(tmpl.get("attack", 0))
+	var base_hp: int     = int(tmpl.get("health", 0))
+	var base_cost: int   = int(tmpl.get("cost", 0))
+	var disp_cost: int   = rolled_cost if rolled_cost >= 0 else base_cost
+
+	var stats_lbl := Label.new()
+	stats_lbl.text = "Cost %d  ATK %s  HP %s" % [
+		disp_cost,
+		_stat_range_text(rolled_atk, base_atk, rarity),
+		_stat_range_text(rolled_hp,  base_hp,  rarity),
+	]
+	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.015))
+	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
+	vbox.add_child(stats_lbl)
+
+	return vbox
 
 # -------------------------------------------------------------------------
 # Actions
@@ -579,23 +654,12 @@ func _on_equip_weapon() -> void:
 	SceneManager.save_manager.equip_weapon(_selected_weapon_id)
 	_refresh_weapons()
 
-func _on_add(id: String) -> void:
+func _on_add(uid: String) -> void:
 	if _working_deck.size() >= IsoConst.DECK_MAX:
 		return
-	var owned: Dictionary = SceneManager.save_manager.get_owned_counts()
-	var deck_counts: Dictionary = {}
-	for uid: String in _working_deck:
-		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(uid)
-		var tid: String = str(inst.get("template_id", uid)) if not inst.is_empty() else uid
-		deck_counts[tid] = int(deck_counts.get(tid, 0)) + 1
-	var owned_n: int = int(owned.get(id, 0))
-	var deck_n: int  = int(deck_counts.get(id, 0))
-	if deck_n >= owned_n:
+	if _working_deck.has(uid):
 		return
-	var new_uid: String = SceneManager.save_manager.find_available_uid_for_template(id, _working_deck)
-	if new_uid.is_empty():
-		return
-	_working_deck.append(new_uid)
+	_working_deck.append(uid)
 	_refresh_cards()
 
 func _on_remove(index: int) -> void:

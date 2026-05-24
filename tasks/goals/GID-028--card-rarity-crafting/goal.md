@@ -15,7 +15,7 @@ Cards are currently flat templates — every copy of "Ghost" is identical. This 
 | TID-097 | Rarity data model — extend CardData with per-rarity stat ranges and craftability flag | agent | done | — |
 | TID-098 | Owned card instances + save migration v9→v10 | agent | done | TID-097 |
 | TID-099 | Rarity-weighted card drops (battles & chests) | agent | done | TID-097 |
-| TID-100 | Inventory rarity display & per-instance stat readout | agent | pending | TID-098 |
+| TID-100 | Inventory rarity display & per-instance stat readout | agent | done | TID-098 |
 | TID-101 | Sell & scrap actions (gold + essence) | agent | pending | TID-100 |
 | TID-102 | Card combining (3× same rarity → 1× next rarity) | agent | pending | TID-100 |
 | TID-103 | Crafting recipes data model | agent | pending | TID-097 |

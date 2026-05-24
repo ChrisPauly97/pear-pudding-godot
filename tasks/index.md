@@ -31,7 +31,7 @@
 | [GID-025](goals/GID-025--minion-keywords/goal.md) | Minion Keywords — Ward, Surge, Shroud | done | 4 / 4 |
 | [GID-026](goals/GID-026--battle-ux-essentials/goal.md) | Battle UX Essentials | done | 3 / 3 |
 | [GID-027](goals/GID-027--dungeon-encounter-variety/goal.md) | Dungeon Encounter Variety | done | 4 / 4 |
-| [GID-028](goals/GID-028--card-rarity-crafting/goal.md) | Card Rarity, Crafting & Economy | in-progress | 3 / 9 |
+| [GID-028](goals/GID-028--card-rarity-crafting/goal.md) | Card Rarity, Crafting & Economy | in-progress | 4 / 9 |
 
 ## Backlog
 
