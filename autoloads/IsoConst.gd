@@ -46,10 +46,10 @@ const ENEMY_RESPAWN_DAYS: int = 3      # procedural enemies respawn after this m
 # rolled_stat = round(base_stat * multiplier * uniform(1 - variance, 1 + variance))
 # Cost is never randomised regardless of rarity.
 const RARITY_CONFIG: Dictionary = {
-	"common":    {"multiplier": 1.0, "variance": 0.10},
-	"rare":      {"multiplier": 1.3, "variance": 0.08},
-	"epic":      {"multiplier": 1.7, "variance": 0.06},
-	"legendary": {"multiplier": 2.4, "variance": 0.05},
+	"common":    {"multiplier": 1.0, "variance": 0.10, "sell_gold": 5,   "scrap_essence": 5},
+	"rare":      {"multiplier": 1.3, "variance": 0.08, "sell_gold": 15,  "scrap_essence": 15},
+	"epic":      {"multiplier": 1.7, "variance": 0.06, "sell_gold": 40,  "scrap_essence": 40},
+	"legendary": {"multiplier": 2.4, "variance": 0.05, "sell_gold": 100, "scrap_essence": 80},
 }
 const RARITY_ORDER: Array[String] = ["common", "rare", "epic", "legendary"]
 

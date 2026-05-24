@@ -14,6 +14,7 @@ var _collection_list: VBoxContainer
 var _deck_list: VBoxContainer
 var _deck_count_label: Label
 var _coin_label: Label
+var _essence_label: Label
 
 # Weapon UI
 var _weapon_list: VBoxContainer
@@ -121,6 +122,12 @@ func _build_ui() -> void:
 	_coin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_coin_label.modulate = Color(1.0, 0.85, 0.1)
 	left_vbox.add_child(_coin_label)
+
+	_essence_label = Label.new()
+	_essence_label.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	_essence_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_essence_label.modulate = Color(0.5, 0.85, 1.0)
+	left_vbox.add_child(_essence_label)
 
 	var left_scroll := ScrollContainer.new()
 	left_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -313,6 +320,7 @@ func _refresh_cards() -> void:
 		child.queue_free()
 
 	_coin_label.text = "Coins: %d" % SceneManager.save_manager.coins
+	_essence_label.text = "Essence: %d" % SceneManager.save_manager.essence
 
 	var all_instances: Array[Dictionary] = SceneManager.save_manager.get_owned_instances()
 
@@ -560,6 +568,47 @@ func _make_collection_row(inst: Dictionary) -> VBoxContainer:
 	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
 	vbox.add_child(stats_lbl)
 
+	# Sell / Scrap action row (hidden for unique cards)
+	var is_unique: bool = bool(tmpl.get("is_unique", false))
+	if not is_unique:
+		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+		var sell_gold: int       = int(cfg.get("sell_gold", 0))
+		var scrap_ess: int       = int(cfg.get("scrap_essence", 0))
+		var needs_confirm: bool  = rarity == "epic" or rarity == "legendary"
+
+		var action_row := HBoxContainer.new()
+		action_row.add_theme_constant_override("separation", int(_vw * 0.006))
+		vbox.add_child(action_row)
+
+		var confirm_row := HBoxContainer.new()
+		confirm_row.add_theme_constant_override("separation", int(_vw * 0.006))
+		confirm_row.visible = false
+		vbox.add_child(confirm_row)
+
+		var sell_btn := Button.new()
+		sell_btn.text = "Sell +%dg" % sell_gold
+		sell_btn.custom_minimum_size = Vector2(_vh * 0.11, _vh * 0.038)
+		sell_btn.add_theme_font_size_override("font_size", int(_vh * 0.015))
+		sell_btn.modulate = Color(1.0, 0.9, 0.3)
+		if needs_confirm:
+			sell_btn.pressed.connect(func() -> void:
+				_show_confirm(action_row, confirm_row, "Sell", func() -> void: _do_sell(uid)))
+		else:
+			sell_btn.pressed.connect(_do_sell.bind(uid))
+		action_row.add_child(sell_btn)
+
+		var scrap_btn := Button.new()
+		scrap_btn.text = "Scrap +%de" % scrap_ess
+		scrap_btn.custom_minimum_size = Vector2(_vh * 0.11, _vh * 0.038)
+		scrap_btn.add_theme_font_size_override("font_size", int(_vh * 0.015))
+		scrap_btn.modulate = Color(0.5, 0.85, 1.0)
+		if needs_confirm:
+			scrap_btn.pressed.connect(func() -> void:
+				_show_confirm(action_row, confirm_row, "Scrap", func() -> void: _do_scrap(uid)))
+		else:
+			scrap_btn.pressed.connect(_do_scrap.bind(uid))
+		action_row.add_child(scrap_btn)
+
 	return vbox
 
 func _make_deck_row(uid: String, inst: Dictionary, index: int) -> VBoxContainer:
@@ -634,6 +683,42 @@ func _make_deck_row(uid: String, inst: Dictionary, index: int) -> VBoxContainer:
 # -------------------------------------------------------------------------
 # Actions
 # -------------------------------------------------------------------------
+
+func _show_confirm(action_row: HBoxContainer, confirm_row: HBoxContainer, label: String, on_confirm: Callable) -> void:
+	action_row.visible = false
+	for child in confirm_row.get_children():
+		child.queue_free()
+	confirm_row.visible = true
+
+	var lbl := Label.new()
+	lbl.text = "%s?" % label
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.015))
+	lbl.modulate = Color(1.0, 0.6, 0.3)
+	confirm_row.add_child(lbl)
+
+	var yes_btn := Button.new()
+	yes_btn.text = "Yes"
+	yes_btn.custom_minimum_size = Vector2(_vh * 0.07, _vh * 0.038)
+	yes_btn.add_theme_font_size_override("font_size", int(_vh * 0.015))
+	yes_btn.pressed.connect(on_confirm)
+	confirm_row.add_child(yes_btn)
+
+	var no_btn := Button.new()
+	no_btn.text = "No"
+	no_btn.custom_minimum_size = Vector2(_vh * 0.07, _vh * 0.038)
+	no_btn.add_theme_font_size_override("font_size", int(_vh * 0.015))
+	no_btn.pressed.connect(func() -> void:
+		confirm_row.visible = false
+		action_row.visible = true)
+	confirm_row.add_child(no_btn)
+
+func _do_sell(uid: String) -> void:
+	SceneManager.save_manager.sell_card_instance(uid)
+	_refresh_cards()
+
+func _do_scrap(uid: String) -> void:
+	SceneManager.save_manager.scrap_card_instance(uid)
+	_refresh_cards()
 
 func _on_tab_cards() -> void:
 	_cards_panel.visible = true

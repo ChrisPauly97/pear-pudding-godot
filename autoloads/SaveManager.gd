@@ -433,6 +433,28 @@ func remove_card_instance(uid: String) -> void:
 		player_deck.remove_at(deck_idx)
 	_dirty = true
 
+## Sells a card instance for gold. No-op if uid not found or card is unique.
+func sell_card_instance(uid: String) -> void:
+	var inst: Dictionary = get_instance_by_uid(uid)
+	if inst.is_empty():
+		return
+	var rarity: String = str(inst.get("rarity", "common"))
+	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+	add_coins(int(cfg.get("sell_gold", 0)))
+	remove_card_instance(uid)
+
+## Scraps a card instance for essence. No-op if uid not found or card is unique.
+func scrap_card_instance(uid: String) -> void:
+	var inst: Dictionary = get_instance_by_uid(uid)
+	if inst.is_empty():
+		return
+	var rarity: String = str(inst.get("rarity", "common"))
+	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+	essence += int(cfg.get("scrap_essence", 0))
+	GameBus.essence_changed.emit(essence)
+	remove_card_instance(uid)
+	_dirty = true
+
 ## Returns all owned card instances (the full collection array).
 func get_owned_instances() -> Array[Dictionary]:
 	return owned_cards

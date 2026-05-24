@@ -2,7 +2,7 @@
 
 **Goal:** GID-028
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-100
 
 ## Lock
@@ -52,12 +52,24 @@ Unique cards (`is_unique = true`) cannot be sold or scrapped — the buttons are
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `sell_gold` and `scrap_essence` to each rarity tier in `IsoConst.RARITY_CONFIG`.
+2. Add `signal essence_changed(new_amount: int)` to `GameBus.gd`.
+3. Add `sell_card_instance(uid)` and `scrap_card_instance(uid)` to `SaveManager.gd`.
+4. Add `_essence_label` to `InventoryScene` and show `Essence: N` below the coin label.
+5. Add a sell/scrap action row to each collection card row; epic/legendary show an inline confirm panel before executing.
+6. Add `_show_confirm()`, `_do_sell()`, `_do_scrap()` helper methods.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/IsoConst.gd`**: Extended `RARITY_CONFIG` with `sell_gold` (5/15/40/100) and `scrap_essence` (5/15/40/80) per rarity.
+- **`autoloads/GameBus.gd`**: Added `signal essence_changed(new_amount: int)`.
+- **`autoloads/SaveManager.gd`**: Added `sell_card_instance(uid)` (removes instance, adds gold) and `scrap_card_instance(uid)` (removes instance, increments essence, emits `GameBus.essence_changed`).
+- **`scenes/ui/InventoryScene.gd`**:
+  - Added `_essence_label` member; rendered in collection panel header.
+  - `_refresh_cards()` updates essence label.
+  - `_make_collection_row()`: adds action row with Sell and Scrap buttons (gold/blue tint); unique cards skip this row; epic/legendary show inline confirm panel before acting.
+  - Added `_show_confirm()`, `_do_sell()`, `_do_scrap()`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new agent docs needed.
