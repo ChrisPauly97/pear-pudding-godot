@@ -2,9 +2,11 @@ extends Control
 
 signal closed
 
-const CardRegistry = preload("res://autoloads/CardRegistry.gd")
-const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
-const WeaponData = preload("res://data/WeaponData.gd")
+const CardRegistry     = preload("res://autoloads/CardRegistry.gd")
+const WeaponRegistry   = preload("res://autoloads/WeaponRegistry.gd")
+const WeaponData       = preload("res://data/WeaponData.gd")
+const CraftingRegistry = preload("res://autoloads/CraftingRegistry.gd")
+const _CardDropUtil    = preload("res://game_logic/CardDropUtil.gd")
 
 var _vh: float = 0.0
 var _vw: float = 0.0
@@ -26,6 +28,10 @@ var _cards_panel: Control
 var _weapons_panel: Control
 var _tab_cards_btn: Button
 var _tab_weapons_btn: Button
+var _tab_craft_btn: Button
+var _craft_panel: Control
+var _craft_list: VBoxContainer
+var _craft_essence_label: Label
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
@@ -83,6 +89,13 @@ func _build_ui() -> void:
 	_tab_weapons_btn.add_theme_font_size_override("font_size", int(_vh * 0.021))
 	_tab_weapons_btn.pressed.connect(_on_tab_weapons)
 	tab_bar.add_child(_tab_weapons_btn)
+
+	_tab_craft_btn = Button.new()
+	_tab_craft_btn.text = "Craft"
+	_tab_craft_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.05)
+	_tab_craft_btn.add_theme_font_size_override("font_size", int(_vh * 0.021))
+	_tab_craft_btn.pressed.connect(_on_tab_craft)
+	tab_bar.add_child(_tab_craft_btn)
 
 	# Scroll height floor in portrait mode
 	var scroll_min_h: float = _vh * 0.25 if is_portrait else 0.0
@@ -305,6 +318,38 @@ func _build_ui() -> void:
 	wp_close_btn.pressed.connect(_on_close)
 	wp_btn_row.add_child(wp_close_btn)
 
+	# ====================================================================
+	# CRAFT PANEL
+	# ====================================================================
+	var craft_box := VBoxContainer.new()
+	craft_box.add_theme_constant_override("separation", int(_vh * 0.008))
+	craft_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	craft_box.visible = false
+	_craft_panel = craft_box
+	wrapper.add_child(craft_box)
+
+	_craft_essence_label = Label.new()
+	_craft_essence_label.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_craft_essence_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_craft_essence_label.modulate = Color(0.5, 0.85, 1.0)
+	craft_box.add_child(_craft_essence_label)
+
+	var craft_scroll := ScrollContainer.new()
+	craft_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	craft_box.add_child(craft_scroll)
+
+	_craft_list = VBoxContainer.new()
+	_craft_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_craft_list.add_theme_constant_override("separation", int(_vh * 0.006))
+	craft_scroll.add_child(_craft_list)
+
+	var craft_close_btn := Button.new()
+	craft_close_btn.text = "Close  [I]" if not OS.has_feature("android") else "Close"
+	craft_close_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.055)
+	craft_close_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	craft_close_btn.pressed.connect(_on_close)
+	craft_box.add_child(craft_close_btn)
+
 # -------------------------------------------------------------------------
 # Refresh — rebuilds both panels from current working state
 # -------------------------------------------------------------------------
@@ -312,6 +357,8 @@ func _build_ui() -> void:
 func _refresh() -> void:
 	_refresh_cards()
 	_refresh_weapons()
+	if _craft_panel.visible:
+		_refresh_craft()
 
 func _refresh_cards() -> void:
 	for child in _collection_list.get_children():
@@ -702,6 +749,62 @@ func _make_deck_row(uid: String, inst: Dictionary, index: int) -> VBoxContainer:
 # Actions
 # -------------------------------------------------------------------------
 
+func _make_craft_row(recipe: Object, player_essence: int) -> HBoxContainer:
+	var tid: String    = str(recipe.template_id)
+	var rarity: String = str(recipe.rarity)
+	var cost: int      = int(recipe.essence_cost)
+	var tmpl: Dictionary = CardRegistry.get_template(tid)
+	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
+	var card_name: String = tmpl.get("name", tid)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(_vw * 0.008))
+
+	var swatch := ColorRect.new()
+	swatch.color = card_color
+	swatch.custom_minimum_size = Vector2(_vh * 0.028, _vh * 0.028)
+	row.add_child(swatch)
+
+	var name_lbl := Label.new()
+	name_lbl.text = card_name
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(name_lbl)
+
+	var badge_lbl := Label.new()
+	badge_lbl.text = _rarity_badge(rarity)
+	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
+	badge_lbl.modulate = _rarity_color(rarity)
+	row.add_child(badge_lbl)
+
+	var cost_lbl := Label.new()
+	cost_lbl.text = "%de" % cost
+	cost_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	cost_lbl.modulate = Color(0.5, 0.85, 1.0)
+	cost_lbl.custom_minimum_size = Vector2(_vh * 0.06, 0)
+	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(cost_lbl)
+
+	var craft_btn := Button.new()
+	craft_btn.text = "Craft"
+	craft_btn.custom_minimum_size = Vector2(_vh * 0.09, _vh * 0.038)
+	craft_btn.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	craft_btn.disabled = player_essence < cost
+	craft_btn.pressed.connect(_do_craft.bind(tid, rarity, cost))
+	row.add_child(craft_btn)
+
+	return row
+
+func _do_craft(template_id: String, rarity: String, cost: int) -> void:
+	if not SceneManager.save_manager.spend_essence(cost):
+		return
+	var stats: Dictionary = _CardDropUtil.roll_stats(template_id, rarity)
+	SceneManager.save_manager.add_card_instance(
+		template_id, rarity,
+		int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1))
+	)
+	_refresh_craft()
+
 func _show_confirm(action_row: HBoxContainer, confirm_row: HBoxContainer, label: String, on_confirm: Callable) -> void:
 	action_row.visible = false
 	for child in confirm_row.get_children():
@@ -749,11 +852,46 @@ func _do_scrap(uid: String) -> void:
 func _on_tab_cards() -> void:
 	_cards_panel.visible = true
 	_weapons_panel.visible = false
+	_craft_panel.visible = false
 
 func _on_tab_weapons() -> void:
 	_cards_panel.visible = false
 	_weapons_panel.visible = true
+	_craft_panel.visible = false
 	_refresh_weapons()
+
+func _on_tab_craft() -> void:
+	_cards_panel.visible = false
+	_weapons_panel.visible = false
+	_craft_panel.visible = true
+	_refresh_craft()
+
+func _refresh_craft() -> void:
+	for child in _craft_list.get_children():
+		child.queue_free()
+
+	_craft_essence_label.text = "Essence: %d" % SceneManager.save_manager.essence
+
+	var recipes: Array = CraftingRegistry.get_all_recipes()
+	# Sort by template name then rarity tier index
+	recipes.sort_custom(func(a, b) -> bool:
+		var ta: String = str(a.template_id)
+		var tb: String = str(b.template_id)
+		var tmpl_a: Dictionary = CardRegistry.get_template(ta)
+		var tmpl_b: Dictionary = CardRegistry.get_template(tb)
+		var na: String = str(tmpl_a.get("name", ta))
+		var nb: String = str(tmpl_b.get("name", tb))
+		if na != nb:
+			return na < nb
+		var ra: int = IsoConst.RARITY_ORDER.find(str(a.rarity))
+		var rb: int = IsoConst.RARITY_ORDER.find(str(b.rarity))
+		return ra < rb
+	)
+
+	var player_essence: int = SceneManager.save_manager.essence
+	for recipe in recipes:
+		var row := _make_craft_row(recipe, player_essence)
+		_craft_list.add_child(row)
 
 func _on_weapon_selected(wid: String) -> void:
 	_selected_weapon_id = wid

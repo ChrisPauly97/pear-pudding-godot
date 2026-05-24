@@ -2,7 +2,7 @@
 
 **Goal:** GID-028
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-101, TID-103
 
 ## Lock
@@ -54,12 +54,24 @@ func spend_essence(amount: int) -> bool:
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `spend_essence(amount) -> bool` to SaveManager.
+2. Add `_tab_craft_btn`, `_craft_panel`, `_craft_list`, `_craft_essence_label` members to InventoryScene.
+3. Build the craft panel in `_build_ui()` after the weapons panel.
+4. Add `_on_tab_craft()`, `_refresh_craft()`, `_make_craft_row()`, `_do_craft()` methods.
+5. Update existing tab handlers to hide the craft panel.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/SaveManager.gd`**: Added `spend_essence(amount) -> bool`.
+- **`scenes/ui/InventoryScene.gd`**:
+  - Preloads `CraftingRegistry` and `_CardDropUtil`.
+  - Added `_tab_craft_btn`, `_craft_panel`, `_craft_list`, `_craft_essence_label` members.
+  - `_build_ui()`: adds "Craft" tab button and builds a scrollable craft panel.
+  - `_on_tab_craft()`: shows craft panel, hides others, calls `_refresh_craft()`.
+  - `_refresh_craft()`: rebuilds recipe rows sorted by card name then rarity; shows essence balance.
+  - `_make_craft_row()`: renders colour swatch, card name, rarity badge, essence cost, Craft button (disabled if insufficient essence).
+  - `_do_craft()`: calls `spend_essence()`, rolls stats, creates instance, refreshes panel.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new agent docs needed.

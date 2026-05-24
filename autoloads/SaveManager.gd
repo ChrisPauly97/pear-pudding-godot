@@ -455,6 +455,15 @@ func scrap_card_instance(uid: String) -> void:
 	remove_card_instance(uid)
 	_dirty = true
 
+## Spends essence for crafting. Returns false without modifying anything if insufficient.
+func spend_essence(amount: int) -> bool:
+	if essence < amount:
+		return false
+	essence -= amount
+	GameBus.essence_changed.emit(essence)
+	_dirty = true
+	return true
+
 ## Combines 3 available (non-deck) instances of template_id+rarity into 1 of the next rarity tier.
 ## Returns the new instance dict, or {} if insufficient non-deck copies exist.
 func combine_cards(template_id: String, rarity: String) -> Dictionary:
