@@ -37,7 +37,7 @@ func build_deck(card_ids: Array[String], difficulty_tier: int = 0) -> void:
 			tmpl = tmpl.duplicate()
 			tmpl["attack"] = scaled.get("attack", tmpl.get("attack", 0))
 			tmpl["health"] = scaled.get("health", tmpl.get("health", 0))
-		draw_deck.append(CardInstance.from_template(tmpl))
+		draw_deck.append(CardInstance.new(tmpl))
 	draw_deck.shuffle()
 
 func draw_card() -> CardInstance:

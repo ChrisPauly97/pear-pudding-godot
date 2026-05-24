@@ -1,6 +1,8 @@
 class_name CardInstance
 extends RefCounted
 
+static var _next_id: int = 0
+
 var instance_id: String
 var template_id: String
 var name: String
@@ -27,25 +29,26 @@ var out_of_play: int = 0  # stun counter (kept for backward compat; synced with 
 # Status effects: key = effect_id ("poison","armor","freeze","stun"), value = duration/stacks int
 var status_effects: Dictionary = {}
 
-static func from_template(tmpl: Dictionary) -> CardInstance:
-	var c := CardInstance.new()
-	c.instance_id = "%s_%d" % [tmpl.get("id", "card"), Time.get_ticks_msec()]
-	c.template_id = tmpl.get("id", "")
-	c.name = tmpl.get("name", "?")
-	c.cost = tmpl.get("cost", 1)
-	c.attack = tmpl.get("attack", 1)
-	c.health = tmpl.get("health", 1)
-	c.max_health = c.health
-	c.card_class = tmpl.get("card_class", "minion")
-	c.description = tmpl.get("description", "")
-	c.magic_type = tmpl.get("magic_type", "")
-	c.magic_branch = tmpl.get("magic_branch", "")
-	c.spell_effect = tmpl.get("spell_effect", "")
-	c.spell_power = tmpl.get("spell_power", 0)
-	c.auto_resolve = tmpl.get("auto_resolve", false)
-	c.keywords.assign(tmpl.get("keywords", []))
-	c.shroud_active = c.keywords.has("shroud")
-	return c
+func _init(tmpl: Dictionary = {}) -> void:
+	if tmpl.is_empty():
+		return
+	_next_id += 1
+	instance_id = "%s_%d" % [tmpl.get("id", "card"), _next_id]
+	template_id = tmpl.get("id", "")
+	name = tmpl.get("name", "?")
+	cost = tmpl.get("cost", 1)
+	attack = tmpl.get("attack", 1)
+	health = tmpl.get("health", 1)
+	max_health = health
+	card_class = tmpl.get("card_class", "minion")
+	description = tmpl.get("description", "")
+	magic_type = tmpl.get("magic_type", "")
+	magic_branch = tmpl.get("magic_branch", "")
+	spell_effect = tmpl.get("spell_effect", "")
+	spell_power = tmpl.get("spell_power", 0)
+	auto_resolve = tmpl.get("auto_resolve", false)
+	keywords.assign(tmpl.get("keywords", []))
+	shroud_active = keywords.has("shroud")
 
 func is_alive() -> bool:
 	return health > 0

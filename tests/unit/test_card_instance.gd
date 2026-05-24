@@ -24,7 +24,7 @@ func _tmpl(id: String = "ghost", cost: int = 1, attack: int = 1, health: int = 2
 
 
 func _card(id: String = "ghost", cost: int = 1, attack: int = 1, health: int = 2) -> CardInstance:
-	return CardInstance.from_template(_tmpl(id, cost, attack, health))
+	return CardInstance.new(_tmpl(id, cost, attack, health))
 
 
 # ---------------------------------------------------------------------------

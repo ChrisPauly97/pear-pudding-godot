@@ -22,7 +22,7 @@ func _tmpl(id: String = "ghost", cost: int = 1, attack: int = 1, health: int = 2
 
 
 func _card(cost: int = 1, attack: int = 1, health: int = 2) -> CardInstance:
-	return CardInstance.from_template(_tmpl("ghost", cost, attack, health))
+	return CardInstance.new(_tmpl("ghost", cost, attack, health))
 
 
 func _player(pid: int = 0, ai: bool = false) -> PlayerState:

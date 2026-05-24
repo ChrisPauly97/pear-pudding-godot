@@ -22,8 +22,8 @@ func after_all() -> void:
 # get_all_ids
 # ---------------------------------------------------------------------------
 
-func test_get_all_ids_returns_four_default_cards() -> void:
-	assert_eq(_registry.get_all_ids().size(), 4)
+func test_get_all_ids_returns_forty_default_cards() -> void:
+	assert_eq(_registry.get_all_ids().size(), 40)
 
 
 func test_get_all_ids_contains_ghost() -> void:
@@ -94,10 +94,11 @@ func test_get_template_ghoul_cost_is_4() -> void:
 	assert_eq(_registry.get_template("ghoul")["cost"], 4)
 
 
-func test_get_template_all_cards_have_card_class_minion() -> void:
+func test_get_template_all_cards_have_valid_card_class() -> void:
+	var valid_classes: Array[String] = ["minion", "spell", "legendary"]
 	for id in _registry.get_all_ids():
 		var tmpl: Dictionary = _registry.get_template(id)
-		assert_eq(tmpl["card_class"], "minion", "%s should have card_class 'minion'" % id)
+		assert_has(valid_classes, tmpl["card_class"], "%s has invalid card_class '%s'" % [id, tmpl["card_class"]])
 
 
 func test_get_template_all_cards_have_description() -> void:
