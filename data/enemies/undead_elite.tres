@@ -9,3 +9,4 @@ display_name = "Undead Warlord"
 deck = PackedStringArray("ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton", "skeleton")
 drop_pool = PackedStringArray("ghoul", "restore", "drain", "blitz_ghoul", "veiled_paladin")
 coin_reward = 20
+difficulty_tier = 4

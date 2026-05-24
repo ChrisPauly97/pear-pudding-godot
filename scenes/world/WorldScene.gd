@@ -1107,7 +1107,13 @@ func _handle_interact() -> void:
 		var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
 		var chest_card_ids: Array[String] = []
 		chest_card_ids.assign(chest.get("card_ids", []))
-		_spawn_card_items(chest_card_ids, chest_pos)
+		# Tier: treasure rooms (dtr_) = 3, dungeon chests (dc_) = 2, world chests = 1
+		var chest_tier: int = 1
+		if cid.begins_with("dtr_"):
+			chest_tier = 3
+		elif cid.begins_with("dc_"):
+			chest_tier = 2
+		_spawn_card_items(chest_card_ids, chest_pos, chest_tier)
 		_spawn_coin_piles(chest_pos)
 		# Treasure rooms (dtr_ prefix) have a 40% weapon drop chance vs standard 15%
 		var weapon_chance: float = 0.40 if cid.begins_with("dtr_") else 0.15
@@ -1164,17 +1170,20 @@ func _on_scroll_collected(scroll_id: String) -> void:
 
 # ── Card item spawning ──────────────────────────────────────────────────────
 
-func _spawn_card_items(card_ids: Array[String], origin: Vector3) -> void:
+func _spawn_card_items(card_ids: Array[String], origin: Vector3, chest_tier: int = 1) -> void:
+	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 	var rng := RandomNumberGenerator.new()
 	for i: int in range(card_ids.size()):
 		var cid: String = str(card_ids[i])
+		var rarity: String = CardDropUtil.effective_rarity(cid, CardDropUtil.roll_rarity(chest_tier))
+		var stats: Dictionary = CardDropUtil.roll_stats(cid, rarity)
 		var angle: float = (float(i) / float(max(card_ids.size(), 1))) * TAU + rng.randf_range(-0.4, 0.4)
 		var dist: float = rng.randf_range(1.0, 1.8)
 		var land_pos := origin + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
 		var item: Node3D = _WorldItemScene.instantiate()
 		_entity_root.add_child(item)
 		if item.has_method("setup"):
-			item.setup(cid, origin, land_pos)
+			item.setup(cid, origin, land_pos, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
 
 func _spawn_coin_piles(origin: Vector3) -> void:
 	var rng := RandomNumberGenerator.new()

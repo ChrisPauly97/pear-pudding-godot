@@ -2,7 +2,7 @@
 
 **Goal:** GID-028
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-097
 
 ## Lock
@@ -50,12 +50,26 @@ When a card drops (from a battle win or a chest), the system currently just pick
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/CardDropUtil.gd` with `roll_rarity()`, `effective_rarity()`, and `roll_stats()` static helpers.
+2. Add `difficulty_tier: int` to `data/EnemyData.gd` and set values on the four existing enemy `.tres` files.
+3. Add `get_difficulty_tier()` to `EnemyRegistry.gd`.
+4. Wire rarity rolls into `SceneManager._on_battle_won()` for both single and boss drops.
+5. Wire rarity rolls into `WorldScene._spawn_card_items()` for chest drops, detecting tier from chest ID prefix.
+6. Update `WorldItem.gd` to accept and store rarity + rolled stats, pass them to `add_card_instance()` on collect.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/CardDropUtil.gd`** (new): `TIER_WEIGHTS` table, `roll_rarity(tier)`, `effective_rarity(template_id, rolled)`, `roll_stats(template_id, rarity)` — global per-rarity multiplier/variance from `IsoConst.RARITY_CONFIG`, no per-card ranges.
+- **`data/EnemyData.gd`**: added `@export var difficulty_tier: int = 1`.
+- **`autoloads/EnemyRegistry.gd`**: added `get_difficulty_tier(type_id)` static method.
+- **`data/enemies/undead_basic.tres`**: `difficulty_tier = 1`
+- **`data/enemies/undead_horde.tres`**: `difficulty_tier = 2`
+- **`data/enemies/ghoul_pack.tres`**: `difficulty_tier = 3`
+- **`data/enemies/undead_elite.tres`**: `difficulty_tier = 4`
+- **`autoloads/SceneManager.gd`**: `_on_battle_won()` now reads `enemy_type` / `is_boss`, computes `drop_tier`, rolls rarity via `CardDropUtil.roll_rarity(drop_tier)`, then calls `add_card_instance()` with rarity + rolled stats instead of `add_cards_to_deck()`.
+- **`scenes/world/WorldScene.gd`**: `_spawn_card_items()` now detects chest tier from chest ID prefix (`dtr_`=3, `dc_`=2, else 1), rolls rarity, rolls stats, passes them to `WorldItem.setup()`.
+- **`scenes/world/entities/WorldItem.gd`**: `setup()` now accepts `p_rarity`, `p_attack`, `p_health`, `p_cost`; stores them; `_collect()` passes them to `add_card_instance()`; `_get_glow_color()` updated with epic (purple) colour.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new agent docs required — behavior is an extension of the card-instances system documented in TID-098.
