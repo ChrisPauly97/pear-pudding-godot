@@ -2,7 +2,7 @@
 
 **Goal:** GID-028
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-097
 
 ## Lock
@@ -64,12 +64,29 @@ Currently `SaveManager.owned_cards: Array[String]` stores plain card IDs (e.g. `
 
 ## Plan
 
-_Written during Plan phase._
+1. SaveManager: change `owned_cards` to `Array[Dictionary]`, add `essence`, `_uid_counter`, `_gen_uid()`, `add_card_instance()`, and five new helper methods. Update `new_game()`, `grant_achievement_card()`, `get_owned_counts()`, `check_deck_achievements()`, `add_cards_to_deck()` (shim). Bump to v10 with `_migrate_v9_to_v10()`.
+2. BattleScene: use `save_manager.get_deck_template_ids()` instead of direct `player_deck` assign.
+3. WorldScene: resolve UIDs to display names in the cull popup and lose_card event outcome.
+4. InventoryScene: minimal compat — fix `deck_counts` building, deck row UID→template lookup, `_on_add()` to append UIDs via `find_available_uid_for_template()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`:
+  - Added top-level `const CardRegistry` preload; removed local one from `check_deck_achievements`.
+  - `owned_cards: Array[String]` → `Array[Dictionary]`; added `essence: int`, `_uid_counter: int`.
+  - Added `_gen_uid()`, `add_card_instance()`, `remove_card_instance()`, `get_owned_instances()`, `get_instance_by_uid()`, `get_deck_instances()`, `find_available_uid_for_template()`, `get_deck_template_ids()`.
+  - `new_game()` builds instance dicts via `add_card_instance()`, resets `essence`.
+  - `add_cards_to_deck()` is now a shim calling `add_card_instance()` at common rarity.
+  - `grant_achievement_card()` checks by template_id and creates an instance.
+  - `get_owned_counts()` counts by `template_id` field.
+  - `check_deck_achievements()` resolves UIDs to template_ids before template lookup.
+  - `CURRENT_SAVE_VERSION` bumped to 10; `_migrate_v9_to_v10()` converts string arrays to instance dicts and remaps deck to UIDs.
+  - `load_save()` loads `essence`; `save()` persists it.
+- `scenes/battle/BattleScene.gd`: player deck uses `get_deck_template_ids()` to resolve UIDs for the battle engine.
+- `scenes/world/WorldScene.gd`: cull popup resolves UID→display name; lose_card event resolves UID→name for outcome text.
+- `scenes/ui/InventoryScene.gd`: deck_counts built by resolving UIDs; deck rows look up template via `get_instance_by_uid()`; `_on_add()` appends UIDs via `find_available_uid_for_template()`.
+- Test baseline unchanged: 254 pass / 35 fail (35 failures are pre-existing).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/inventory-and-deck.md` and `docs/agent/save-system.md` will be updated in TID-100 once the full rarity UI is complete.

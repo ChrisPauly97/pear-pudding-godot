@@ -1312,8 +1312,10 @@ func _show_cull_panel() -> void:
 
 	for ci in range(deck_copy.size()):
 		var cid: String = deck_copy[ci]
+		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(cid)
+		var display_name: String = str(inst.get("template_id", cid)).capitalize().replace("_", " ") if not inst.is_empty() else cid.capitalize().replace("_", " ")
 		var btn := Button.new()
-		btn.text = cid.capitalize().replace("_", " ")
+		btn.text = display_name
 		btn.custom_minimum_size = Vector2(0, btn_h)
 		btn.add_theme_font_size_override("font_size", font_size)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1328,7 +1330,7 @@ func _show_cull_panel() -> void:
 					new_deck.append(deck_card)
 			SceneManager.save_manager.set_active_deck(new_deck)
 			panel.queue_free()
-			_show_dialogue("Removed %s from your deck." % cid.capitalize().replace("_", " "))
+			_show_dialogue("Removed %s from your deck." % display_name)
 		)
 
 	var cancel_btn := Button.new()
@@ -1420,12 +1422,14 @@ func _apply_event_outcome(choice: Dictionary) -> void:
 			outcome_text += (" (Received: %s)" % picked) if not outcome_text.is_empty() else "Received: %s" % picked
 		"lose_card":
 			if not SceneManager.save_manager.player_deck.is_empty():
-				var removed: String = SceneManager.save_manager.player_deck[-1]
+				var removed_uid: String = SceneManager.save_manager.player_deck[-1]
+				var removed_inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(removed_uid)
+				var removed_name: String = str(removed_inst.get("template_id", removed_uid)).capitalize().replace("_", " ") if not removed_inst.is_empty() else removed_uid
 				var trimmed: Array[String] = []
 				trimmed.assign(SceneManager.save_manager.player_deck)
 				trimmed.pop_back()
 				SceneManager.save_manager.set_active_deck(trimmed)
-				outcome_text += (" (Lost: %s)" % removed) if not outcome_text.is_empty() else "Lost: %s" % removed
+				outcome_text += (" (Lost: %s)" % removed_name) if not outcome_text.is_empty() else "Lost: %s" % removed_name
 		"lose_hp_gain_card":
 			_dungeon_hero_hp = maxi(_dungeon_hero_hp - outcome_value, 1)
 			var picked: String = card_pool[randi() % card_pool.size()]

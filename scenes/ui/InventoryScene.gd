@@ -317,9 +317,10 @@ func _refresh_cards() -> void:
 	var owned: Dictionary = SceneManager.save_manager.get_owned_counts()
 
 	var deck_counts: Dictionary = {}
-	for cid in _working_deck:
-		var id: String = str(cid)
-		deck_counts[id] = int(deck_counts.get(id, 0)) + 1
+	for uid: String in _working_deck:
+		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(uid)
+		var tid: String = str(inst.get("template_id", uid)) if not inst.is_empty() else uid
+		deck_counts[tid] = int(deck_counts.get(tid, 0)) + 1
 
 	for id in CardRegistry.get_all_ids():
 		var owned_n: int = int(owned.get(id, 0))
@@ -334,9 +335,11 @@ func _refresh_cards() -> void:
 		_collection_list.add_child(row)
 
 	for i in _working_deck.size():
-		var id: String = _working_deck[i]
-		var tmpl: Dictionary = CardRegistry.get_template(id)
-		var row := _make_deck_row(id, tmpl, i)
+		var uid: String = _working_deck[i]
+		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(uid)
+		var tid: String = str(inst.get("template_id", uid)) if not inst.is_empty() else uid
+		var tmpl: Dictionary = CardRegistry.get_template(tid)
+		var row := _make_deck_row(uid, tmpl, i)
 		_deck_list.add_child(row)
 
 	var deck_sz: int = _working_deck.size()
@@ -581,14 +584,18 @@ func _on_add(id: String) -> void:
 		return
 	var owned: Dictionary = SceneManager.save_manager.get_owned_counts()
 	var deck_counts: Dictionary = {}
-	for cid in _working_deck:
-		var s: String = str(cid)
-		deck_counts[s] = int(deck_counts.get(s, 0)) + 1
+	for uid: String in _working_deck:
+		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(uid)
+		var tid: String = str(inst.get("template_id", uid)) if not inst.is_empty() else uid
+		deck_counts[tid] = int(deck_counts.get(tid, 0)) + 1
 	var owned_n: int = int(owned.get(id, 0))
 	var deck_n: int  = int(deck_counts.get(id, 0))
 	if deck_n >= owned_n:
 		return
-	_working_deck.append(id)
+	var new_uid: String = SceneManager.save_manager.find_available_uid_for_template(id, _working_deck)
+	if new_uid.is_empty():
+		return
+	_working_deck.append(new_uid)
 	_refresh_cards()
 
 func _on_remove(index: int) -> void:

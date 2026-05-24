@@ -75,10 +75,10 @@ func _ready() -> void:
 	_apply_ui_sizes()
 	_state = GameState.new()
 
-	# Player deck: use SaveManager collection if available, else default
+	# Player deck: resolve instance UIDs to template IDs for the battle engine.
 	var player_deck: Array[String] = []
 	if SceneManager.save_manager.player_deck.size() > 0:
-		player_deck.assign(SceneManager.save_manager.player_deck)
+		player_deck = SceneManager.save_manager.get_deck_template_ids()
 	else:
 		player_deck = ["ghost", "skeleton", "zombie", "ghoul",
 					   "ghost", "skeleton", "zombie", "ghoul",
