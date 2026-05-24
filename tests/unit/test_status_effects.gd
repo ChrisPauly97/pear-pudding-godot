@@ -12,7 +12,7 @@ const HeroState = preload("res://game_logic/battle/HeroState.gd")
 # ---------------------------------------------------------------------------
 
 func _card() -> CardInstance:
-	return CardInstance.from_template({
+	return CardInstance.new({
 		"id": "test", "name": "Test", "cost": 1,
 		"attack": 2, "health": 5, "card_class": "minion", "description": "",
 	})

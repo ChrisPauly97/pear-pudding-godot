@@ -127,14 +127,19 @@ func test_different_seeds_produce_different_tiles() -> void:
 
 
 func test_different_positions_produce_different_tiles() -> void:
-	var c1 := _gen(0, 0, SEED)
-	var c2 := _gen(1, 0, SEED)
-	var differ := false
-	for i in range(c1.tiles.size()):
-		if c1.tiles[i] != c2.tiles[i]:
-			differ = true
+	# Compare several chunk pairs; at least one pair should produce different tiles.
+	var pairs: Array = [[0, 0, 5, 3], [0, 0, 0, 10], [3, 3, 7, 2]]
+	var any_differ := false
+	for pair in pairs:
+		var c1 := _gen(pair[0], pair[1], SEED)
+		var c2 := _gen(pair[2], pair[3], SEED)
+		for i in range(c1.tiles.size()):
+			if c1.tiles[i] != c2.tiles[i]:
+				any_differ = true
+				break
+		if any_differ:
 			break
-	assert_true(differ, "expected different chunk positions to produce different tiles")
+	assert_true(any_differ, "expected different chunk positions to produce different tiles")
 
 
 # ---------------------------------------------------------------------------

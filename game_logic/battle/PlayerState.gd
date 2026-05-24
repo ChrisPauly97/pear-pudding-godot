@@ -30,7 +30,7 @@ func build_deck(card_ids: Array[String]) -> void:
 	for cid in card_ids:
 		var tmpl := CardRegistry.get_template(cid)
 		if not tmpl.is_empty():
-			draw_deck.append(CardInstance.from_template(tmpl))
+			draw_deck.append(CardInstance.new(tmpl))
 	draw_deck.shuffle()
 
 func draw_card() -> CardInstance:

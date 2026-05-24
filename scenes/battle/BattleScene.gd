@@ -130,7 +130,7 @@ func _apply_weapon_effect(player: PlayerState) -> void:
 				var tmpl: Dictionary = CardRegistry.get_template(weapon.injected_card_id)
 				if tmpl.is_empty():
 					continue
-				player.draw_deck.append(CardInstance.from_template(tmpl))
+				player.draw_deck.append(CardInstance.new(tmpl))
 			player.draw_deck.shuffle()
 		"starting_mana":
 			player.hero.mana = mini(player.hero.mana + weapon.battle_effect_value, player.hero.max_mana + weapon.battle_effect_value)

@@ -50,12 +50,13 @@ func get_map(map_name: String) -> Resource:
 
 	# 3. Legacy .txt files in user:// (backwards compatibility for old editor saves).
 	#    Pass p_skip_load=true to avoid re-entering MapRegistry from WorldMap._init().
+	#    Use load() (not preload) to avoid a circular compile-time dependency.
 	var txt_path := "user://maps/%s.txt" % map_name
 	if FileAccess.file_exists(txt_path):
-		const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
-		var wm := _WorldMap.new(map_name, true)
-		wm.load_from_file(txt_path)
-		return wm.to_map_data(map_name)
+		var _WorldMap: GDScript = load("res://game_logic/world/WorldMap.gd") as GDScript
+		var wm: Object = _WorldMap.new(map_name, true)
+		wm.call("load_from_file", txt_path)
+		return wm.call("to_map_data", map_name) as Resource
 
 	return null
 

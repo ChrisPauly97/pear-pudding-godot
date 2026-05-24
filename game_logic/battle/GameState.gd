@@ -32,7 +32,11 @@ func end_turn() -> void:
 	current_player_idx = 1 - current_player_idx
 	turn_number += 1
 	current_player().start_turn(turn_number)
-	GameBus.turn_ended.emit(current_player_idx)
+	var _ml: MainLoop = Engine.get_main_loop()
+	if _ml != null and _ml is SceneTree:
+		var _gb: Node = (_ml as SceneTree).root.get_node_or_null("GameBus")
+		if _gb != null:
+			_gb.emit_signal("turn_ended", current_player_idx)
 
 func is_game_over() -> bool:
 	for p in players:

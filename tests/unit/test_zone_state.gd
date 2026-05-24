@@ -13,7 +13,7 @@ const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 # ---------------------------------------------------------------------------
 
 func _card(id: String = "ghost") -> CardInstance:
-	return CardInstance.from_template({
+	return CardInstance.new({
 		"id": id,
 		"name": id.capitalize(),
 		"cost": 1,

@@ -46,12 +46,21 @@ func _init(p_name: String = "main", p_skip_load: bool = false) -> void:
 	#
 	# MapRegistry const-preloads the 6 bundled maps so they're included in the
 	# Android PCK. It also runtime-loads user://maps/<name>.tres for editor/dungeon maps.
-	var data: Resource = MapRegistry.get_map(map_name)
-	if data != null:
-		load_from_resource(data)
-		print("[WorldMap] Loaded '%s' from MapRegistry — %d NPCs, %d enemies, %d chests, %d doors, %d scrolls" % [
-			map_name, npcs.size(), enemies.size(), chests.size(), doors.size(), scrolls.size()])
-		return
+	# Access MapRegistry via the SceneTree root to avoid a circular compile-time
+	# dependency: SceneManager preloads WorldScene which preloads WorldMap, and at
+	# that point MapRegistry (the last autoload) hasn't been registered as a global
+	# identifier yet.  Engine.get_main_loop() is always available and bypasses the
+	# autoload global-name lookup.
+	var _ml: MainLoop = Engine.get_main_loop()
+	if _ml != null and _ml is SceneTree:
+		var _mr: Node = (_ml as SceneTree).root.get_node_or_null("MapRegistry")
+		if _mr != null:
+			var data: Resource = _mr.call("get_map", map_name) as Resource
+			if data != null:
+				load_from_resource(data)
+				print("[WorldMap] Loaded '%s' from MapRegistry — %d NPCs, %d enemies, %d chests, %d doors, %d scrolls" % [
+					map_name, npcs.size(), enemies.size(), chests.size(), doors.size(), scrolls.size()])
+				return
 
 	push_warning("[WorldMap] Map '%s' not found in MapRegistry — using default map" % map_name)
 	is_fallback = true
@@ -607,7 +616,15 @@ func get_chunk_data(cx: int, cz: int) -> RefCounted:
 	return cd
 
 static func list_map_names() -> Array[String]:
-	return MapRegistry.list_map_names()
+	var _ml: MainLoop = Engine.get_main_loop()
+	if _ml == null or not (_ml is SceneTree):
+		return []
+	var _mr: Node = (_ml as SceneTree).root.get_node_or_null("MapRegistry")
+	if _mr == null:
+		return []
+	var result: Array[String] = []
+	result.assign(_mr.call("list_map_names"))
+	return result
 
 # ── Default map builder ───────────────────────────────────────────────────────
 
