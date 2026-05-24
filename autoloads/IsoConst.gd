@@ -42,6 +42,17 @@ const DECK_MAX: int = 20
 # Enemy respawn
 const ENEMY_RESPAWN_DAYS: int = 3      # procedural enemies respawn after this many in-game days
 
+# Card rarity tiers: stat_multiplier scales base attack/health; variance is the ± fraction applied as a random roll.
+# rolled_stat = round(base_stat * multiplier * uniform(1 - variance, 1 + variance))
+# Cost is never randomised regardless of rarity.
+const RARITY_CONFIG: Dictionary = {
+	"common":    {"multiplier": 1.0, "variance": 0.10, "sell_gold": 5,   "scrap_essence": 5,  "craft_essence": 10},
+	"rare":      {"multiplier": 1.3, "variance": 0.08, "sell_gold": 15,  "scrap_essence": 15, "craft_essence": 30},
+	"epic":      {"multiplier": 1.7, "variance": 0.06, "sell_gold": 40,  "scrap_essence": 40, "craft_essence": 80},
+	"legendary": {"multiplier": 2.4, "variance": 0.05, "sell_gold": 100, "scrap_essence": 80, "craft_essence": 200},
+}
+const RARITY_ORDER: Array[String] = ["common", "rare", "epic", "legendary"]
+
 func tile_to_world(tx: int, tz: int) -> Vector3:
 	return Vector3(tx * TILE_SIZE, 0.0, tz * TILE_SIZE)
 

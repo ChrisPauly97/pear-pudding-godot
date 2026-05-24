@@ -22,15 +22,22 @@ func _init(pid: int, ai: bool = false) -> void:
 	hero = HeroState.new(pid)
 	board = ZoneState.new()
 
-func build_deck(card_ids: Array[String]) -> void:
+func build_deck(card_ids: Array[String], difficulty_tier: int = 0) -> void:
 	draw_deck.clear()
 	discard.clear()
 	hand.clear()
 	pending_auto_spells.clear()
+	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 	for cid in card_ids:
-		var tmpl := CardRegistry.get_template(cid)
-		if not tmpl.is_empty():
-			draw_deck.append(CardInstance.new(tmpl))
+		var tmpl: Dictionary = CardRegistry.get_template(cid)
+		if tmpl.is_empty():
+			continue
+		if difficulty_tier > 0:
+			var scaled: Dictionary = CardDropUtil.enemy_card_stats(cid, difficulty_tier)
+			tmpl = tmpl.duplicate()
+			tmpl["attack"] = scaled.get("attack", tmpl.get("attack", 0))
+			tmpl["health"] = scaled.get("health", tmpl.get("health", 0))
+		draw_deck.append(CardInstance.new(tmpl))
 	draw_deck.shuffle()
 
 func draw_card() -> CardInstance:

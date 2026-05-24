@@ -1,6 +1,7 @@
 extends Node
 
 const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
+const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 signal coins_changed(new_amount: int)
 
@@ -9,11 +10,15 @@ const SAVE_PATH := "user://save.json"
 # Currency
 var coins: int = 0
 
-# All cards ever acquired (the collection)
-var owned_cards: Array[String] = []
+# All cards ever acquired (the collection). Each entry is a Dictionary:
+# { "uid": String, "template_id": String, "rarity": String, "attack": int, "health": int, "cost": int }
+var owned_cards: Array[Dictionary] = []
 
-# Cards currently in the active battle deck (curated subset of owned_cards)
+# Cards currently in the active battle deck — list of UIDs from owned_cards.
 var player_deck: Array[String] = []
+
+# Crafting resource earned by scrapping cards.
+var essence: int = 0
 
 # Current world position
 var current_map: String = ""
@@ -69,6 +74,7 @@ var visited_dungeon_rooms: Array[String] = []
 
 var _loaded: bool = false
 var _dirty: bool = false
+var _uid_counter: int = 0
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
 
 func _ready() -> void:
@@ -94,17 +100,25 @@ func _notification(what: int) -> void:
 func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 
+func _gen_uid(template_id: String) -> String:
+	_uid_counter += 1
+	return "%s_%d_%d" % [template_id, Time.get_ticks_msec(), _uid_counter]
+
 func new_game() -> void:
-	var starter: Array[String] = [
+	var deck_ids: Array[String] = [
 		"ghost", "skeleton", "zombie", "ghoul",
 		"ghost", "skeleton", "zombie", "ghoul",
 		"ghost", "skeleton", "zombie", "ghoul",
 	]
-	var starter_owned: Array[String] = starter.duplicate()
-	starter_owned.append("dawn_acolyte")
-	starter_owned.append("dusk_wraith")
-	owned_cards.assign(starter_owned)
-	player_deck.assign(starter)
+	var extra_ids: Array[String] = ["dawn_acolyte", "dusk_wraith"]
+	owned_cards.clear()
+	player_deck.clear()
+	for tid: String in deck_ids:
+		var uid: String = add_card_instance(tid, "common")
+		player_deck.append(uid)
+	for tid: String in extra_ids:
+		add_card_instance(tid, "common")
+	essence = 0
 	coins = 0
 	current_map = "main"
 	player_x = 0.0
@@ -132,7 +146,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 9
+const CURRENT_SAVE_VERSION: int = 10
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -199,6 +213,44 @@ static func _migrate_v8_to_v9(data: Dictionary) -> void:
 		data["visited_dungeon_rooms"] = []
 	data["version"] = 9
 
+# _migrate_v9_to_v10: convert owned_cards from Array[String] to Array[Dictionary] instances.
+# player_deck is remapped from template IDs to instance UIDs.
+# Adds essence field.
+static func _migrate_v9_to_v10(data: Dictionary) -> void:
+	const CardReg = preload("res://autoloads/CardRegistry.gd")
+	var old_owned: Array = data.get("owned_cards", [])
+	var old_deck: Array = data.get("player_deck", [])
+	var new_instances: Array = []
+	var counter: int = 0
+	for item in old_owned:
+		var tid: String = str(item)
+		var tmpl: Dictionary = CardReg.get_template(tid)
+		var uid: String = "%s_v10_%d" % [tid, counter]
+		counter += 1
+		new_instances.append({
+			"uid": uid,
+			"template_id": tid,
+			"rarity": "common",
+			"attack": int(tmpl.get("attack", 1)),
+			"health": int(tmpl.get("health", 1)),
+			"cost": int(tmpl.get("cost", 1)),
+		})
+	# Remap deck: match each template ID to the first unused instance UID.
+	var used_uids: Dictionary = {}
+	var new_deck: Array = []
+	for deck_item in old_deck:
+		var deck_tid: String = str(deck_item)
+		for inst: Dictionary in new_instances:
+			var iuid: String = str(inst.get("uid", ""))
+			if str(inst.get("template_id", "")) == deck_tid and not used_uids.has(iuid):
+				new_deck.append(iuid)
+				used_uids[iuid] = true
+				break
+	data["owned_cards"] = new_instances
+	data["player_deck"] = new_deck
+	data["essence"] = 0
+	data["version"] = 10
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -219,6 +271,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v7_to_v8(data)
 	if ver < 9:
 		_migrate_v8_to_v9(data)
+	if ver < 10:
+		_migrate_v9_to_v10(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -233,6 +287,7 @@ func load_save() -> bool:
 	_apply_migrations(data)
 	owned_cards.assign(data.get("owned_cards", []))
 	player_deck.assign(data.get("player_deck", []))
+	essence = int(data.get("essence", 0))
 	coins = int(data.get("coins", 0))
 	current_map = str(data.get("current_map", "main"))
 	player_x = float(data.get("player_x", 0.0))
@@ -271,6 +326,7 @@ func save() -> void:
 		"version": CURRENT_SAVE_VERSION,
 		"owned_cards": owned_cards,
 		"player_deck": player_deck,
+		"essence": essence,
 		"coins": coins,
 		"current_map": current_map,
 		"player_x": player_x,
@@ -319,17 +375,21 @@ func add_coins(amount: int) -> void:
 	_dirty = true
 	coins_changed.emit(coins)
 
+## Compatibility shim: creates a common-rarity instance from each template ID and
+## adds it to the collection. Callers that already do a rarity roll should use
+## add_card_instance() directly instead.
 func add_cards_to_deck(card_ids: Array[String]) -> void:
-	for cid in card_ids:
-		owned_cards.append(str(cid))
+	for tid: String in card_ids:
+		add_card_instance(tid, "common")
 	if card_ids.size() > 0:
 		increment_progress("cards_earned", card_ids.size())
-	_dirty = true
 
 func grant_achievement_card(card_id: String) -> void:
-	if not owned_cards.has(card_id):
-		owned_cards.append(card_id)
-	_dirty = true
+	# Only grant if the player doesn't own any copy yet.
+	for inst: Dictionary in owned_cards:
+		if str(inst.get("template_id", "")) == card_id:
+			return
+	add_card_instance(card_id, "common")
 
 func set_active_deck(new_deck: Array[String]) -> void:
 	player_deck.assign(new_deck)
@@ -337,10 +397,135 @@ func set_active_deck(new_deck: Array[String]) -> void:
 
 func get_owned_counts() -> Dictionary:
 	var counts: Dictionary = {}
-	for cid in owned_cards:
-		var id: String = str(cid)
-		counts[id] = int(counts.get(id, 0)) + 1
+	for inst: Dictionary in owned_cards:
+		var tid: String = str(inst.get("template_id", ""))
+		if tid != "":
+			counts[tid] = int(counts.get(tid, 0)) + 1
 	return counts
+
+## Creates a new card instance with the given stats and appends it to owned_cards.
+## Returns the generated UID. attack/health/cost default to the card template's base stats.
+func add_card_instance(template_id: String, rarity: String, attack: int = -1, health: int = -1, cost: int = -1) -> String:
+	var tmpl: Dictionary = CardRegistry.get_template(template_id)
+	var atk: int = attack if attack >= 0 else int(tmpl.get("attack", 0))
+	var hp: int  = health if health >= 0 else int(tmpl.get("health", 0))
+	var c: int   = cost   if cost   >= 0 else int(tmpl.get("cost", 1))
+	var uid: String = _gen_uid(template_id)
+	owned_cards.append({
+		"uid": uid,
+		"template_id": template_id,
+		"rarity": rarity,
+		"attack": atk,
+		"health": hp,
+		"cost": c,
+	})
+	_dirty = true
+	return uid
+
+## Removes a card instance by UID from owned_cards and player_deck.
+func remove_card_instance(uid: String) -> void:
+	for i in range(owned_cards.size() - 1, -1, -1):
+		if str(owned_cards[i].get("uid", "")) == uid:
+			owned_cards.remove_at(i)
+			break
+	var deck_idx: int = player_deck.find(uid)
+	if deck_idx >= 0:
+		player_deck.remove_at(deck_idx)
+	_dirty = true
+
+## Sells a card instance for gold. No-op if uid not found or card is unique.
+func sell_card_instance(uid: String) -> void:
+	var inst: Dictionary = get_instance_by_uid(uid)
+	if inst.is_empty():
+		return
+	var rarity: String = str(inst.get("rarity", "common"))
+	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+	add_coins(int(cfg.get("sell_gold", 0)))
+	remove_card_instance(uid)
+
+## Scraps a card instance for essence. No-op if uid not found or card is unique.
+func scrap_card_instance(uid: String) -> void:
+	var inst: Dictionary = get_instance_by_uid(uid)
+	if inst.is_empty():
+		return
+	var rarity: String = str(inst.get("rarity", "common"))
+	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+	essence += int(cfg.get("scrap_essence", 0))
+	GameBus.essence_changed.emit(essence)
+	remove_card_instance(uid)
+	_dirty = true
+
+## Spends essence for crafting. Returns false without modifying anything if insufficient.
+func spend_essence(amount: int) -> bool:
+	if essence < amount:
+		return false
+	essence -= amount
+	GameBus.essence_changed.emit(essence)
+	_dirty = true
+	return true
+
+## Combines 3 available (non-deck) instances of template_id+rarity into 1 of the next rarity tier.
+## Returns the new instance dict, or {} if insufficient non-deck copies exist.
+func combine_cards(template_id: String, rarity: String) -> Dictionary:
+	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
+	var to_remove: Array[String] = []
+	for inst: Dictionary in owned_cards:
+		if to_remove.size() >= 3:
+			break
+		if str(inst.get("template_id", "")) == template_id and str(inst.get("rarity", "")) == rarity:
+			var uid: String = str(inst.get("uid", ""))
+			if not player_deck.has(uid):
+				to_remove.append(uid)
+	if to_remove.size() < 3:
+		return {}
+	for uid: String in to_remove:
+		remove_card_instance(uid)
+	var rarity_order: Array[String] = ["common", "rare", "epic", "legendary"]
+	var src_idx: int = rarity_order.find(rarity)
+	if src_idx < 0 or src_idx >= rarity_order.size() - 1:
+		return {}
+	var next_rarity: String = rarity_order[src_idx + 1]
+	var stats: Dictionary = CardDropUtil.roll_stats(template_id, next_rarity)
+	var new_uid: String = add_card_instance(template_id, next_rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+	return get_instance_by_uid(new_uid)
+
+## Returns all owned card instances (the full collection array).
+func get_owned_instances() -> Array[Dictionary]:
+	return owned_cards
+
+## Returns the instance dict for a UID, or {} if not found.
+func get_instance_by_uid(uid: String) -> Dictionary:
+	for inst: Dictionary in owned_cards:
+		if str(inst.get("uid", "")) == uid:
+			return inst
+	return {}
+
+## Returns instance dicts for each UID in player_deck (skips missing UIDs).
+func get_deck_instances() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for uid: String in player_deck:
+		var inst: Dictionary = get_instance_by_uid(uid)
+		if not inst.is_empty():
+			result.append(inst)
+	return result
+
+## Returns the first owned instance UID for template_id not already in exclude_uids.
+## Returns "" if none available.
+func find_available_uid_for_template(template_id: String, exclude_uids: Array[String]) -> String:
+	for inst: Dictionary in owned_cards:
+		var uid: String = str(inst.get("uid", ""))
+		if str(inst.get("template_id", "")) == template_id and not exclude_uids.has(uid):
+			return uid
+	return ""
+
+## Resolves player_deck UIDs to template IDs for use by the battle system.
+func get_deck_template_ids() -> Array[String]:
+	var result: Array[String] = []
+	for uid: String in player_deck:
+		var inst: Dictionary = get_instance_by_uid(uid)
+		if not inst.is_empty():
+			result.append(str(inst.get("template_id", "")))
+	return result
 
 func mark_enemy_defeated(enemy_id: String) -> void:
 	if not defeated_enemies.has(enemy_id):
@@ -441,9 +626,10 @@ func check_flag_achievement(flag: String) -> void:
 func check_deck_achievements(deck: Array[String]) -> void:
 	var dawn_count: int = 0
 	var dusk_count: int = 0
-	const CardRegistry = preload("res://autoloads/CardRegistry.gd")
-	for card_id: String in deck:
-		var tmpl: Dictionary = CardRegistry.get_template(card_id)
+	for uid: String in deck:
+		var inst: Dictionary = get_instance_by_uid(uid)
+		var tid: String = str(inst.get("template_id", uid)) if not inst.is_empty() else uid
+		var tmpl: Dictionary = CardRegistry.get_template(tid)
 		var branch: String = str(tmpl.get("magic_branch", ""))
 		if branch == "dawn":
 			dawn_count += 1

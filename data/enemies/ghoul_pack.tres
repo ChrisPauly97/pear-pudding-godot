@@ -9,3 +9,4 @@ display_name = "Ghoul Pack Leader"
 deck = PackedStringArray("ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton", "skeleton", "skeleton")
 drop_pool = PackedStringArray("zombie", "ghoul", "dawn_paladin", "dusk_vampire", "iron_revenant", "dawn_guardian")
 coin_reward = 12
+difficulty_tier = 3

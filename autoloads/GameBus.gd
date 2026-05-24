@@ -26,3 +26,6 @@ signal all_scrolls_collected()
 
 # Achievement signals
 signal achievement_unlocked(achievement_id: String)
+
+# Economy signals
+signal essence_changed(new_amount: int)

@@ -9,3 +9,4 @@ display_name = "Undead Wanderer"
 deck = PackedStringArray("ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul")
 drop_pool = PackedStringArray("ghost", "skeleton", "mend", "wither", "surge_spirit")
 coin_reward = 5
+difficulty_tier = 1

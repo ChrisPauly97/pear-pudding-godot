@@ -15,6 +15,8 @@ extends Resource
 @export var spell_power: int = 0
 @export var auto_resolve: bool = false
 @export var keywords: PackedStringArray = PackedStringArray()
+@export var can_craft: bool = true
+@export var is_unique: bool = false
 
 ## Converts to the Dictionary format that CardInstance.from_template() and
 ## legacy callers expect.

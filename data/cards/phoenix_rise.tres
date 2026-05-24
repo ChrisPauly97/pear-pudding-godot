@@ -17,3 +17,4 @@ magic_branch = "dusk"
 spell_effect = ""
 spell_power = 0
 auto_resolve = false
+can_craft = false
