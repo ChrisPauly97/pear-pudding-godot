@@ -4,6 +4,9 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 var card_id: String = ""
 var _rarity: String = "common"
+var _rolled_attack: int = -1
+var _rolled_health: int = -1
+var _rolled_cost: int = -1
 var _collected: bool = false
 var _landed: bool = false
 var _player_nearby: bool = false
@@ -17,9 +20,12 @@ var _pickup_area: Area3D = null
 
 # ── Public setup ────────────────────────────────────────────────────────────
 
-func setup(cid: String, start_pos: Vector3, land_pos: Vector3) -> void:
+func setup(cid: String, start_pos: Vector3, land_pos: Vector3, p_rarity: String = "common", p_attack: int = -1, p_health: int = -1, p_cost: int = -1) -> void:
 	card_id = cid
-	_rarity = _get_rarity(cid)
+	_rarity = p_rarity
+	_rolled_attack = p_attack
+	_rolled_health = p_health
+	_rolled_cost = p_cost
 	global_position = start_pos
 	_build_visual()
 	_play_arc(start_pos, land_pos)
@@ -33,23 +39,18 @@ func setup_coin(amount: int, start_pos: Vector3, land_pos: Vector3) -> void:
 
 # ── Rarity helpers ──────────────────────────────────────────────────────────
 
-static func _get_rarity(cid: String) -> String:
-	match cid:
-		"ghost", "skeleton":
-			return "common"
-		"ghoul":
-			return "legendary"
-		_:
-			return "rare"
-
 func _get_glow_color() -> Color:
 	match _rarity:
 		"common":
 			return Color(0.85, 0.85, 0.85)
+		"rare":
+			return Color(0.25, 0.45, 1.0)
+		"epic":
+			return Color(0.7, 0.2, 1.0)
 		"legendary":
 			return Color(1.0, 0.80, 0.0)
 		_:
-			return Color(0.25, 0.45, 1.0)
+			return Color(0.85, 0.85, 0.85)
 
 # ── Visual construction ─────────────────────────────────────────────────────
 
@@ -281,8 +282,7 @@ func _collect() -> void:
 	if _is_coin:
 		SceneManager.save_manager.add_coins(_coin_amount)
 	else:
-		var ids: Array[String] = [card_id]
-		SceneManager.save_manager.add_cards_to_deck(ids)
+		SceneManager.save_manager.add_card_instance(card_id, _rarity, _rolled_attack, _rolled_health, _rolled_cost)
 	# Disable collision before tweening — physics can't invert a zero-scale basis
 	var col := find_child("CollisionShape3D", true, false) as CollisionShape3D
 	if col:

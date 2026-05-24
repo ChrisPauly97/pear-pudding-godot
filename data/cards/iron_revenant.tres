@@ -15,3 +15,4 @@ color = Color(0.3, 0.35, 0.3, 1)
 magic_type = "dark"
 magic_branch = "ash"
 keywords = PackedStringArray("ward")
+can_craft = false

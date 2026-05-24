@@ -103,6 +103,13 @@ static func type_for_depth(depth: int, max_depth: int) -> String:
 		return "undead_horde"
 	return "ghoul_pack"
 
+## Returns the difficulty tier (1–4) for an enemy type. Falls back to 1 if unknown.
+static func get_difficulty_tier(type_id: String) -> int:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return (_enemies[type_id] as EnemyData).difficulty_tier
+	return 1
+
 ## Selects an enemy type based on Manhattan distance from the world origin chunk.
 static func type_for_chunk_dist(dist: int) -> String:
 	if dist <= 3:

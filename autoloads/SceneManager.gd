@@ -234,6 +234,13 @@ func _restore_world() -> void:
 func _on_battle_won(result: Dictionary) -> void:
 	if _state != State.BATTLE:
 		return
+	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
+	# Read enemy context before clearing pending_battle.
+	var enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
+	var is_boss: bool = bool(save_manager.pending_battle_enemy_data.get("is_boss", false))
+	var drop_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
+	if is_boss:
+		drop_tier = 4
 	if not _current_battle_enemy_id.is_empty():
 		save_manager.mark_enemy_defeated(_current_battle_enemy_id)
 		save_manager.increment_progress("enemies_defeated", 1)
@@ -244,7 +251,9 @@ func _on_battle_won(result: Dictionary) -> void:
 	session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
 	var reward: String = str(result.get("card_reward", ""))
 	if reward != "":
-		save_manager.add_cards_to_deck([reward])
+		var rarity: String = CardDropUtil.effective_rarity(reward, CardDropUtil.roll_rarity(drop_tier))
+		var stats: Dictionary = CardDropUtil.roll_stats(reward, rarity)
+		save_manager.add_card_instance(reward, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
 		session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	var weapon_reward: String = str(result.get("weapon_reward", ""))
 	if weapon_reward != "":
@@ -254,10 +263,11 @@ func _on_battle_won(result: Dictionary) -> void:
 	for r in rewards:
 		var rs: String = str(r)
 		if rs != "":
-			save_manager.add_cards_to_deck([rs])
+			var r_rarity: String = CardDropUtil.effective_rarity(rs, CardDropUtil.roll_rarity(drop_tier))
+			var r_stats: Dictionary = CardDropUtil.roll_stats(rs, r_rarity)
+			save_manager.add_card_instance(rs, r_rarity, int(r_stats.get("attack", -1)), int(r_stats.get("health", -1)), int(r_stats.get("cost", -1)))
 			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	# Award coins based on enemy type
-	var enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
 	if enemy_type != "":
 		var coins: int = EnemyRegistry.get_coin_reward(enemy_type)
 		save_manager.add_coins(coins)

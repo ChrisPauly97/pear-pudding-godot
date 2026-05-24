@@ -15,3 +15,5 @@ extends Resource
 @export var boss_hp: int = 0
 ## When non-empty and enemy HP drops to 50% or below, swap to this deck (phase 2).
 @export var phase2_deck: PackedStringArray = PackedStringArray()
+## Difficulty tier (1–4) used to weight rarity on card drops. Higher = rarer drops.
+@export var difficulty_tier: int = 1
