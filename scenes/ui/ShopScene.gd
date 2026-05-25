@@ -125,6 +125,64 @@ func _refresh() -> void:
 		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_shop_list.add_child(none_lbl)
 
+	# ---- Armor section ---------------------------------------------------
+	_shop_list.add_child(_make_section_header("— Armor —"))
+	_add_equipment_section("armor", SceneManager.save_manager.owned_armor, coins)
+
+	# ---- Rings section ---------------------------------------------------
+	_shop_list.add_child(_make_section_header("— Rings —"))
+	_add_equipment_section("ring", SceneManager.save_manager.owned_rings, coins)
+
+	# ---- Trinkets section ------------------------------------------------
+	_shop_list.add_child(_make_section_header("— Trinkets —"))
+	_add_equipment_section("trinket", SceneManager.save_manager.owned_trinkets, coins)
+
+func _add_equipment_section(slot: String, owned: Array[String], coins: int) -> void:
+	var any_item := false
+	for eid: String in WeaponRegistry.get_by_slot(slot):
+		if owned.has(eid):
+			continue
+		var weapon: WeaponData = WeaponRegistry.get_weapon(eid)
+		if weapon == null:
+			continue
+		var price: int = _weapon_price(weapon)
+		var row := _make_equipment_row(eid, weapon, price, coins)
+		_shop_list.add_child(row)
+		any_item = true
+	if not any_item:
+		var none_lbl := Label.new()
+		none_lbl.text = "No %s available." % slot
+		none_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+		none_lbl.modulate = Color(0.6, 0.6, 0.6)
+		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_shop_list.add_child(none_lbl)
+
+func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(_vw * 0.008))
+
+	var info_lbl := Label.new()
+	info_lbl.text = "%s  —  %s" % [weapon.display_name, _weapon_effect_summary(weapon)]
+	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info_lbl)
+
+	var price_lbl := Label.new()
+	price_lbl.text = "%d coins" % price
+	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
+	row.add_child(price_lbl)
+
+	var buy_btn := Button.new()
+	buy_btn.text = "Buy"
+	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.05)
+	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	buy_btn.disabled = coins < price
+	buy_btn.pressed.connect(_on_buy_equipment.bind(eid, weapon.slot, price))
+	row.add_child(buy_btn)
+
+	return row
+
 func _make_section_header(text: String) -> Label:
 	var lbl := Label.new()
 	lbl.text = text
@@ -241,6 +299,14 @@ func _on_buy_weapon(weapon_id: String, price: int) -> void:
 		return
 	sm.add_coins(-price)
 	sm.add_weapon(weapon_id)
+	_refresh()
+
+func _on_buy_equipment(item_id: String, slot: String, price: int) -> void:
+	var sm := SceneManager.save_manager
+	if sm.coins < price:
+		return
+	sm.add_coins(-price)
+	sm.add_equipment(item_id, slot)
 	_refresh()
 
 func _on_close() -> void:

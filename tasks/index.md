@@ -32,7 +32,7 @@
 | [GID-026](goals/GID-026--battle-ux-essentials/goal.md) | Battle UX Essentials | done | 3 / 3 |
 | [GID-027](goals/GID-027--dungeon-encounter-variety/goal.md) | Dungeon Encounter Variety | done | 4 / 4 |
 | [GID-028](goals/GID-028--card-rarity-crafting/goal.md) | Card Rarity, Crafting & Economy | done | 9 / 9 |
-| [GID-029](goals/GID-029--character-equipment/goal.md) | Character Screen & Multi-Slot Equipment | pending | 3 / 4 |
+| [GID-029](goals/GID-029--character-equipment/goal.md) | Character Screen & Multi-Slot Equipment | done | 4 / 4 |
 | [GID-030](goals/GID-030--skill-tree-xp/goal.md) | Skill Tree & XP System | pending | 0 / 6 |
 
 ## Backlog

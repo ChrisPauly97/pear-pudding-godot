@@ -1128,7 +1128,7 @@ func _handle_interact() -> void:
 		_spawn_coin_piles(chest_pos)
 		# Treasure rooms (dtr_ prefix) have a 40% weapon drop chance vs standard 15%
 		var weapon_chance: float = 0.40 if cid.begins_with("dtr_") else 0.15
-		_maybe_drop_weapon_from_chest(weapon_chance)
+		_maybe_drop_equipment_from_chest(weapon_chance)
 		return
 
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
@@ -1209,22 +1209,44 @@ func _spawn_coin_piles(origin: Vector3) -> void:
 		if item.has_method("setup_coin"):
 			item.setup_coin(amount, origin, land_pos)
 
-func _maybe_drop_weapon_from_chest(chance: float = 0.15) -> void:
+func _maybe_drop_equipment_from_chest(chance: float = 0.15) -> void:
 	if randf() >= chance:
 		return
-	var all_ids: Array[String] = WeaponRegistry.get_all_ids()
-	var owned_w: Array[String] = SceneManager.save_manager.owned_weapons
+	var sm := SceneManager.save_manager
 	var candidates: Array[String] = []
-	for wid in all_ids:
+
+	var owned_w: Array[String] = sm.owned_weapons
+	for wid: String in WeaponRegistry.get_by_slot("weapon"):
 		if wid != "rusty_dagger" and not owned_w.has(wid):
 			candidates.append(wid)
+
+	var owned_a: Array[String] = sm.owned_armor
+	for eid: String in WeaponRegistry.get_by_slot("armor"):
+		if not owned_a.has(eid):
+			candidates.append(eid)
+
+	var owned_r: Array[String] = sm.owned_rings
+	for eid: String in WeaponRegistry.get_by_slot("ring"):
+		if not owned_r.has(eid):
+			candidates.append(eid)
+
+	var owned_t: Array[String] = sm.owned_trinkets
+	for eid: String in WeaponRegistry.get_by_slot("trinket"):
+		if not owned_t.has(eid):
+			candidates.append(eid)
+
 	if candidates.is_empty():
 		return
 	var picked: String = candidates[randi() % candidates.size()]
-	SceneManager.save_manager.add_weapon(picked)
 	var weapon: WeaponData = WeaponRegistry.get_weapon(picked)
-	if weapon != null:
-		GameBus.hud_message_requested.emit("Found: %s!" % weapon.display_name)
+	if weapon == null:
+		return
+	if weapon.slot == "weapon":
+		sm.add_weapon(picked)
+	else:
+		sm.add_equipment(picked, weapon.slot)
+	GameBus.hud_message_requested.emit("Found: %s!" % weapon.display_name)
+	GameBus.equipment_dropped.emit(picked)
 
 # ── Dungeon room overlays (TID-090/091/092) ────────────────────────────────
 

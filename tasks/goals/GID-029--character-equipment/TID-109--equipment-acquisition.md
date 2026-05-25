@@ -2,7 +2,7 @@
 
 **Goal:** GID-029
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-106, TID-107
 
 ## Lock
@@ -55,12 +55,17 @@ grep -rn "chest_opened\|add_card\|chest" scenes/ autoloads/ --include="*.gd" | g
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `signal equipment_dropped(equip_id: String)` to GameBus.gd.
+2. Replace `_maybe_drop_weapon_from_chest` in WorldScene.gd with `_maybe_drop_equipment_from_chest` that pools all 4 equipment slots (weapons excluding rusty_dagger, plus unowned armor/ring/trinket).
+3. Add Armor, Rings, Trinkets sections to ShopScene._refresh() via `_add_equipment_section()` helper.
+4. Add `_make_equipment_row()` and `_on_buy_equipment()` to ShopScene.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: added `signal equipment_dropped(equip_id: String)`
+- `scenes/world/WorldScene.gd`: renamed `_maybe_drop_weapon_from_chest` → `_maybe_drop_equipment_from_chest`; new impl builds candidate pool from all 4 slots (weapons filtered to non-starter, unowned armor/ring/trinket); calls `sm.add_weapon()` for weapons and `sm.add_equipment(id, slot)` for others; emits `GameBus.equipment_dropped` after drop
+- `scenes/ui/ShopScene.gd`: `_refresh()` now appends Armor, Rings, Trinkets sections via `_add_equipment_section(slot, owned, coins)`; added `_add_equipment_section()`, `_make_equipment_row()`, `_on_buy_equipment(item_id, slot, price)` — buy calls `sm.add_equipment(item_id, slot)` and deducts coins
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new agent docs needed; existing equipment system doc in `docs/agent/inventory-and-deck.md` covers the acquisition pattern.

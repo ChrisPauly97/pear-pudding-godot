@@ -30,3 +30,4 @@ signal achievement_unlocked(achievement_id: String)
 
 # Economy signals
 signal essence_changed(new_amount: int)
+signal equipment_dropped(equip_id: String)
