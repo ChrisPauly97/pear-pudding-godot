@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://caygx0xgq04d"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_flash_draw"]
+
+[resource]
+script = ExtResource("1_flash_draw")
+id = "flash_draw"
+display_name = "Flash Draw"
+description = "Draw 2 cards immediately. (Once per battle)"
+skill_type = "active"
+effect_type = "active_draw"
+effect_value = 2
+prerequisites = ["keen_mind"]
+tree_row = 2
+tree_col = 2

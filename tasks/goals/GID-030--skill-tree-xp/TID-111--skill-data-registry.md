@@ -2,7 +2,7 @@
 
 **Goal:** GID-030
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-110
 
 ## Lock
@@ -84,12 +84,16 @@ Run once per `.tres` file and once per `.tres.uid` file.
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `data/SkillData.gd` + `.gd.uid` sidecar.
+2. Create `autoloads/SkillRegistry.gd` + `.gd.uid` — static class, same pattern as WeaponRegistry (no autoload entry needed).
+3. Create `data/skills/` directory with 10 skill `.tres` files and `.tres.uid` sidecars.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/SkillData.gd` + `data/SkillData.gd.uid`: new Resource subclass with id, display_name, description, skill_type, effect_type, effect_value, prerequisites, tree_row, tree_col
+- `autoloads/SkillRegistry.gd` + `autoloads/SkillRegistry.gd.uid`: static lazy-loading registry scanning `data/skills/`; API: `get_skill(id)`, `get_all_ids()`, `get_by_type(skill_type)`
+- `data/skills/`: 10 skill `.tres` files with `.uid` sidecars — 6 passives (tough_skin, keen_mind, battle_focus, iron_will, swift_hand, arcane_surge) and 4 actives (battle_cry, healing_touch, flash_draw, mana_surge)
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No separate agent doc created; skill system documented inline in task and will be referenced by TID-112/113/114.

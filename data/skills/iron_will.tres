@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://5q3ub8ryy4qy"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_iron_will"]
+
+[resource]
+script = ExtResource("1_iron_will")
+id = "iron_will"
+display_name = "Iron Will"
+description = "Your hero starts each battle with +15 max HP."
+skill_type = "passive"
+effect_type = "passive_hp"
+effect_value = 15
+prerequisites = ["tough_skin"]
+tree_row = 1
+tree_col = 0

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://5tcehh8ffogk"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_healing_touch"]
+
+[resource]
+script = ExtResource("1_healing_touch")
+id = "healing_touch"
+display_name = "Healing Touch"
+description = "Restore 6 HP to your hero. (Once per battle)"
+skill_type = "active"
+effect_type = "active_heal"
+effect_value = 6
+prerequisites = ["tough_skin"]
+tree_row = 2
+tree_col = 1
