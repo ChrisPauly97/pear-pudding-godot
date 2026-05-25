@@ -2,7 +2,7 @@
 
 **Goal:** GID-030
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-111
 
 ## Lock
@@ -86,12 +86,16 @@ _hero_power_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `_hero_power_btn: Button` and `_hero_power_used: bool` vars to BattleScene.
+2. Add `_add_hero_power_button()` call in `_ready()` after `_add_pause_button()`.
+3. Implement `_add_hero_power_button()` — creates Button in SidePanel if an active skill is unlocked.
+4. Implement `_get_active_skill()` — iterates `unlocked_skills`, returns last active skill.
+5. Implement `_use_hero_power()` — guards double-use, dispatches on `effect_type`, calls `_refresh_all()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`: added `_hero_power_btn` and `_hero_power_used` vars; added `_add_hero_power_button()` call in `_ready()`; added `_add_hero_power_button()` (creates button in SidePanel with display_name label, hidden when no active skill), `_get_active_skill()` (returns last active in unlocked_skills), `_use_hero_power()` (guards re-use, dispatches active_damage_all/active_heal/active_draw/active_mana, calls `_refresh_all()`)
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No separate doc update; battle-system.md will be updated in TID-114 when the Skill Tree Scene is added.

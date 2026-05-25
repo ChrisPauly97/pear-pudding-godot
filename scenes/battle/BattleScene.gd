@@ -20,6 +20,8 @@ var _state: GameState
 var _ai: BasicAI
 var _ai_thinking: bool = false
 var _boss_phase2_triggered: bool = false
+var _hero_power_btn: Button = null
+var _hero_power_used: bool = false
 var _boss_banner: Control = null
 var _boss_banner_timer: float = 0.0
 const _BOSS_BANNER_DURATION: float = 2.5
@@ -117,6 +119,7 @@ func _ready() -> void:
 	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
 	_apply_menu_btn_size()
 	_add_pause_button()
+	_add_hero_power_button()
 	GameBus.turn_ended.connect(_on_turn_ended)
 
 	_state.players[0].start_turn(1)
@@ -405,6 +408,56 @@ func _toggle_pause() -> void:
 		_hide_pause_overlay()
 	else:
 		_show_pause_overlay()
+
+func _add_hero_power_button() -> void:
+	var active_skill: SkillData = _get_active_skill()
+	if active_skill == null:
+		return
+	_hero_power_btn = Button.new()
+	_hero_power_btn.text = active_skill.display_name
+	_hero_power_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.05)
+	_hero_power_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	_hero_power_btn.pressed.connect(_use_hero_power)
+	$SidePanel.add_child(_hero_power_btn)
+
+func _get_active_skill() -> SkillData:
+	var result: SkillData = null
+	for skill_id: String in SceneManager.save_manager.unlocked_skills:
+		var sk: SkillData = SkillRegistry.get_skill(skill_id)
+		if sk != null and sk.skill_type == "active":
+			result = sk
+	return result
+
+func _use_hero_power() -> void:
+	if _hero_power_used:
+		return
+	var active_skill: SkillData = _get_active_skill()
+	if active_skill == null:
+		return
+	_hero_power_used = true
+	if _hero_power_btn != null:
+		_hero_power_btn.disabled = true
+	var player: PlayerState = _state.players[0]
+	var enemy: PlayerState = _state.players[1]
+	match active_skill.effect_type:
+		"active_damage_all":
+			for card: CardInstance in enemy.board.get_cards().duplicate():
+				card.health -= active_skill.effect_value
+				if card.health <= 0:
+					enemy.board.remove_card(card)
+		"active_heal":
+			player.hero.health = mini(
+				player.hero.health + active_skill.effect_value,
+				player.hero.max_health)
+		"active_draw":
+			for _i in active_skill.effect_value:
+				player.draw_card()
+			_flush_auto_spells(0)
+		"active_mana":
+			player.hero.mana = mini(
+				player.hero.mana + active_skill.effect_value,
+				player.hero.max_mana)
+	_refresh_all()
 
 func _show_pause_overlay() -> void:
 	if _paused:
