@@ -34,3 +34,4 @@ signal equipment_dropped(equip_id: String)
 
 # Progression signals
 signal level_up(new_level: int)
+signal skill_tree_requested

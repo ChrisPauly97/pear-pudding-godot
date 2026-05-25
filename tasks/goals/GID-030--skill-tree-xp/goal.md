@@ -16,7 +16,7 @@ The spec open question "what are rewards for winning battles beyond card drops?"
 | TID-111 | SkillData resource + SkillRegistry autoload + 10 skill `.tres` files with `.uid` sidecars | agent | done | TID-110 |
 | TID-112 | Passive skill application — `unlocked_skills` in SaveManager, BattleScene applies unlocked passives at battle start | agent | done | TID-111 |
 | TID-113 | Active hero power in BattleScene — once-per-battle button, 4 active effect types | agent | done | TID-111 |
-| TID-114 | Skill Tree Scene UI — node grid overlay, tap-to-unlock with prerequisite enforcement, S key + HUD button, SceneManager routing | agent | pending | TID-112, TID-113 |
+| TID-114 | Skill Tree Scene UI — node grid overlay, tap-to-unlock with prerequisite enforcement, S key + HUD button, SceneManager routing | agent | done | TID-112, TID-113 |
 | TID-115 | HUD XP bar — level number + XP progress bar in world HUD, updates on `level_up` signal, mobile-safe sizing | agent | pending | TID-110 |
 
 ## Acceptance Criteria

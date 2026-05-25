@@ -2,7 +2,7 @@
 
 **Goal:** GID-030
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-112, TID-113
 
 ## Lock
@@ -96,12 +96,22 @@ node_panel.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.15)
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `signal skill_tree_requested` to GameBus.
+2. Add `skill_tree` input action mapped to KEY_K (75) in project.godot — S (83) is taken by move_down.
+3. Add `SKILL_TREE` state, preload, overlay var, signal connection, handler pair, and cleanup to SceneManager.
+4. Add Skills HUD button (4th below minimap) and `skill_tree` key branch in WorldScene.
+5. Create SkillTreeScene.gd: full-screen overlay, 3×5 GridContainer, per-skill panels with unlock/locked/available tinting and Unlock button.
+6. Create SkillTreeScene.tscn + .tscn.uid + .gd.uid sidecars.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: added `signal skill_tree_requested`
+- `project.godot`: added `skill_tree` input action mapped to physical_keycode 75 (K)
+- `autoloads/SceneManager.gd`: added `SKILL_TREE` to State enum; `_skill_tree_scene_packed` preload; `_skill_tree_overlay` var; signal connect; `_on_skill_tree_requested` / `_on_skill_tree_closed` handlers; overlay cleanup in `_exit_world_cleanup`
+- `scenes/world/WorldScene.gd`: added "Skills" HUD button (4th below minimap); added `skill_tree` branch to `_unhandled_input`
+- `scenes/ui/SkillTreeScene.gd`: new full-screen overlay — dark backdrop, panel with header (title + skill points counter + close), 3×5 GridContainer. Each skill node shows display_name, type badge, description, and Unlock button. Unlocked = green tint; locked prereqs = grey. Closes on K or ui_cancel.
+- `scenes/ui/SkillTreeScene.tscn` + `.tscn.uid` + `SkillTreeScene.gd.uid`: new scene files
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md` to be done in TID-115 alongside XP bar doc update.
