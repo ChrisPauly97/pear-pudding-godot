@@ -11,6 +11,7 @@ const Minimap         = preload("res://scenes/world/Minimap.gd")
 const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
 const WeaponRegistry  = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData      = preload("res://data/WeaponData.gd")
+const SaveManager     = preload("res://autoloads/SaveManager.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 
@@ -115,6 +116,8 @@ var _fill_light: DirectionalLight3D
 var _dialogue_label: Label
 var _coord_label: Label
 var _minimap: Node
+var _level_label: Label
+var _xp_bar: ProgressBar
 var _map_overlay: Node = null
 var _dialogue_timer: float = 0.0
 const DIALOGUE_DURATION: float = 4.0
@@ -278,6 +281,22 @@ func _ready() -> void:
 	journal_btn.pressed.connect(func() -> void: GameBus.journal_requested.emit())
 	_hud.add_child(journal_btn)
 
+	var char_btn := Button.new()
+	char_btn.text = "Character"
+	char_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
+	char_btn.position = Vector2(btn_x, minimap_bottom + (btn_h + vh * 0.005) * 2)
+	char_btn.add_theme_font_size_override("font_size", font_size)
+	char_btn.pressed.connect(func() -> void: GameBus.character_requested.emit())
+	_hud.add_child(char_btn)
+
+	var skill_btn := Button.new()
+	skill_btn.text = "Skills"
+	skill_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
+	skill_btn.position = Vector2(btn_x, minimap_bottom + (btn_h + vh * 0.005) * 3)
+	skill_btn.add_theme_font_size_override("font_size", font_size)
+	skill_btn.pressed.connect(func() -> void: GameBus.skill_tree_requested.emit())
+	_hud.add_child(skill_btn)
+
 	var vp := get_viewport().get_visible_rect().size
 	_dialogue_label = Label.new()
 	_dialogue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -355,6 +374,50 @@ func _update_hud() -> void:
 		_map_label.text = "Map: %s" % map_name
 	_coin_label.text = "Coins: %d" % SceneManager.save_manager.coins
 	SceneManager.save_manager.coins_changed.connect(func(n: int) -> void: _coin_label.text = "Coins: %d" % n)
+
+	# XP bar — bottom-left of screen
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var xp_row := HBoxContainer.new()
+	xp_row.position = Vector2(vh * 0.01, vh * 0.88)
+	xp_row.add_theme_constant_override("separation", int(vh * 0.008))
+	_hud.add_child(xp_row)
+
+	_level_label = Label.new()
+	_level_label.add_theme_font_size_override("font_size", int(vh * 0.02))
+	_level_label.custom_minimum_size = Vector2(vh * 0.06, 0)
+	xp_row.add_child(_level_label)
+
+	_xp_bar = ProgressBar.new()
+	_xp_bar.custom_minimum_size = Vector2(vh * 0.22, vh * 0.025)
+	_xp_bar.show_percentage = false
+	xp_row.add_child(_xp_bar)
+
+	var xp_lbl := Label.new()
+	xp_lbl.add_theme_font_size_override("font_size", int(vh * 0.018))
+	xp_row.add_child(xp_lbl)
+
+	GameBus.xp_changed.connect(func(_x: int, _l: int) -> void:
+		_refresh_xp_bar()
+		xp_lbl.text = "%d / %d XP" % [
+			SceneManager.save_manager.xp - SaveManager.xp_for_level(SceneManager.save_manager.level - 1),
+			SaveManager.xp_for_level(SceneManager.save_manager.level) - SaveManager.xp_for_level(SceneManager.save_manager.level - 1)])
+
+	_refresh_xp_bar()
+	var sm := SceneManager.save_manager
+	xp_lbl.text = "%d / %d XP" % [
+		sm.xp - SaveManager.xp_for_level(sm.level - 1),
+		SaveManager.xp_for_level(sm.level) - SaveManager.xp_for_level(sm.level - 1)]
+
+func _refresh_xp_bar() -> void:
+	if _level_label == null or _xp_bar == null:
+		return
+	var sm := SceneManager.save_manager
+	var lvl: int = sm.level
+	var xp_prev: int = SaveManager.xp_for_level(lvl - 1)
+	var xp_next: int = SaveManager.xp_for_level(lvl)
+	_level_label.text = "Lv.%d" % lvl
+	_xp_bar.max_value = xp_next - xp_prev
+	_xp_bar.value = sm.xp - xp_prev
 
 # ── Infinite world: chunk streaming ────────────────────────────────────────
 
@@ -1069,6 +1132,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_J:
 		GameBus.journal_requested.emit()
 		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("character"):
+		GameBus.character_requested.emit()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("skill_tree"):
+		GameBus.skill_tree_requested.emit()
+		get_viewport().set_input_as_handled()
 
 func _handle_interact() -> void:
 	if _player == null:
@@ -1117,7 +1186,7 @@ func _handle_interact() -> void:
 		_spawn_coin_piles(chest_pos)
 		# Treasure rooms (dtr_ prefix) have a 40% weapon drop chance vs standard 15%
 		var weapon_chance: float = 0.40 if cid.begins_with("dtr_") else 0.15
-		_maybe_drop_weapon_from_chest(weapon_chance)
+		_maybe_drop_equipment_from_chest(weapon_chance)
 		return
 
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
@@ -1198,22 +1267,44 @@ func _spawn_coin_piles(origin: Vector3) -> void:
 		if item.has_method("setup_coin"):
 			item.setup_coin(amount, origin, land_pos)
 
-func _maybe_drop_weapon_from_chest(chance: float = 0.15) -> void:
+func _maybe_drop_equipment_from_chest(chance: float = 0.15) -> void:
 	if randf() >= chance:
 		return
-	var all_ids: Array[String] = WeaponRegistry.get_all_ids()
-	var owned_w: Array[String] = SceneManager.save_manager.owned_weapons
+	var sm := SceneManager.save_manager
 	var candidates: Array[String] = []
-	for wid in all_ids:
+
+	var owned_w: Array[String] = sm.owned_weapons
+	for wid: String in WeaponRegistry.get_by_slot("weapon"):
 		if wid != "rusty_dagger" and not owned_w.has(wid):
 			candidates.append(wid)
+
+	var owned_a: Array[String] = sm.owned_armor
+	for eid: String in WeaponRegistry.get_by_slot("armor"):
+		if not owned_a.has(eid):
+			candidates.append(eid)
+
+	var owned_r: Array[String] = sm.owned_rings
+	for eid: String in WeaponRegistry.get_by_slot("ring"):
+		if not owned_r.has(eid):
+			candidates.append(eid)
+
+	var owned_t: Array[String] = sm.owned_trinkets
+	for eid: String in WeaponRegistry.get_by_slot("trinket"):
+		if not owned_t.has(eid):
+			candidates.append(eid)
+
 	if candidates.is_empty():
 		return
 	var picked: String = candidates[randi() % candidates.size()]
-	SceneManager.save_manager.add_weapon(picked)
 	var weapon: WeaponData = WeaponRegistry.get_weapon(picked)
-	if weapon != null:
-		GameBus.hud_message_requested.emit("Found: %s!" % weapon.display_name)
+	if weapon == null:
+		return
+	if weapon.slot == "weapon":
+		sm.add_weapon(picked)
+	else:
+		sm.add_equipment(picked, weapon.slot)
+	GameBus.hud_message_requested.emit("Found: %s!" % weapon.display_name)
+	GameBus.equipment_dropped.emit(picked)
 
 # ── Dungeon room overlays (TID-090/091/092) ────────────────────────────────
 

@@ -56,6 +56,14 @@ var equipped_weapon: String = ""
 # Weapons the player has picked up
 var owned_weapons: Array[String] = []
 
+# Non-weapon equipment slots
+var equipped_armor: String = ""
+var equipped_ring: String = ""
+var equipped_trinket: String = ""
+var owned_armor: Array[String] = []
+var owned_rings: Array[String] = []
+var owned_trinkets: Array[String] = []
+
 # World generation — set when starting a new game from the biome selection screen
 var world_seed: int = 42
 var starting_biome: int = 0   # BiomeDef.GRASSLANDS
@@ -71,6 +79,12 @@ var visited_biomes: Array[int] = []
 
 # Dungeon room keys that have been used (rest sites and event rooms)
 var visited_dungeon_rooms: Array[String] = []
+
+# XP & levelling
+var xp: int = 0
+var level: int = 1
+var skill_points: int = 0
+var unlocked_skills: Array[String] = []
 
 var _loaded: bool = false
 var _dirty: bool = false
@@ -135,18 +149,28 @@ func new_game() -> void:
 	last_respawn_day = 0
 	equipped_weapon = ""
 	owned_weapons = []
+	equipped_armor = ""
+	equipped_ring = ""
+	equipped_trinket = ""
+	owned_armor = []
+	owned_rings = []
+	owned_trinkets = []
 	collected_scrolls = []
 	achievement_progress = {}
 	unlocked_achievements = []
 	visited_biomes = []
 	visited_dungeon_rooms = []
+	xp = 0
+	level = 1
+	skill_points = 0
+	unlocked_skills = []
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 10
+const CURRENT_SAVE_VERSION: int = 12
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -251,6 +275,24 @@ static func _migrate_v9_to_v10(data: Dictionary) -> void:
 	data["essence"] = 0
 	data["version"] = 10
 
+# _migrate_v10_to_v11: backfill non-weapon equipment slots.
+static func _migrate_v10_to_v11(data: Dictionary) -> void:
+	if not data.has("equipped_armor"):   data["equipped_armor"] = ""
+	if not data.has("equipped_ring"):    data["equipped_ring"] = ""
+	if not data.has("equipped_trinket"): data["equipped_trinket"] = ""
+	if not data.has("owned_armor"):      data["owned_armor"] = []
+	if not data.has("owned_rings"):      data["owned_rings"] = []
+	if not data.has("owned_trinkets"):   data["owned_trinkets"] = []
+	data["version"] = 11
+
+# _migrate_v11_to_v12: backfill XP, level, skill_points for old saves.
+static func _migrate_v11_to_v12(data: Dictionary) -> void:
+	if not data.has("xp"):              data["xp"] = 0
+	if not data.has("level"):           data["level"] = 1
+	if not data.has("skill_points"):    data["skill_points"] = 0
+	if not data.has("unlocked_skills"): data["unlocked_skills"] = []
+	data["version"] = 12
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -273,6 +315,10 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v8_to_v9(data)
 	if ver < 10:
 		_migrate_v9_to_v10(data)
+	if ver < 11:
+		_migrate_v10_to_v11(data)
+	if ver < 12:
+		_migrate_v11_to_v12(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -308,6 +354,12 @@ func load_save() -> bool:
 	last_respawn_day = int(data.get("last_respawn_day", 0))
 	equipped_weapon = str(data.get("equipped_weapon", ""))
 	owned_weapons.assign(data.get("owned_weapons", []))
+	equipped_armor = str(data.get("equipped_armor", ""))
+	equipped_ring = str(data.get("equipped_ring", ""))
+	equipped_trinket = str(data.get("equipped_trinket", ""))
+	owned_armor.assign(data.get("owned_armor", []))
+	owned_rings.assign(data.get("owned_rings", []))
+	owned_trinkets.assign(data.get("owned_trinkets", []))
 	collected_scrolls.assign(data.get("collected_scrolls", []))
 	var sv = data.get("settings", {})
 	settings = sv if sv is Dictionary else {}
@@ -316,6 +368,10 @@ func load_save() -> bool:
 	unlocked_achievements.assign(data.get("unlocked_achievements", []))
 	visited_biomes.assign(data.get("visited_biomes", []))
 	visited_dungeon_rooms.assign(data.get("visited_dungeon_rooms", []))
+	xp = int(data.get("xp", 0))
+	level = int(data.get("level", 1))
+	skill_points = int(data.get("skill_points", 0))
+	unlocked_skills.assign(data.get("unlocked_skills", []))
 	_loaded = true
 	return true
 
@@ -345,12 +401,22 @@ func save() -> void:
 		"last_respawn_day": last_respawn_day,
 		"equipped_weapon": equipped_weapon,
 		"owned_weapons": owned_weapons,
+		"equipped_armor": equipped_armor,
+		"equipped_ring": equipped_ring,
+		"equipped_trinket": equipped_trinket,
+		"owned_armor": owned_armor,
+		"owned_rings": owned_rings,
+		"owned_trinkets": owned_trinkets,
 		"collected_scrolls": collected_scrolls,
 		"settings": settings,
 		"achievement_progress": achievement_progress,
 		"unlocked_achievements": unlocked_achievements,
 		"visited_biomes": visited_biomes,
 		"visited_dungeon_rooms": visited_dungeon_rooms,
+		"xp": xp,
+		"level": level,
+		"skill_points": skill_points,
+		"unlocked_skills": unlocked_skills,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -579,6 +645,80 @@ func add_weapon(weapon_id: String) -> void:
 
 func equip_weapon(weapon_id: String) -> void:
 	equipped_weapon = weapon_id
+	_dirty = true
+
+## Adds an equipment item to the appropriate owned array based on its slot.
+## slot must be "weapon", "armor", "ring", or "trinket".
+func add_equipment(item_id: String, slot: String) -> void:
+	match slot:
+		"weapon":
+			if not owned_weapons.has(item_id):
+				owned_weapons.append(item_id)
+		"armor":
+			if not owned_armor.has(item_id):
+				owned_armor.append(item_id)
+		"ring":
+			if not owned_rings.has(item_id):
+				owned_rings.append(item_id)
+		"trinket":
+			if not owned_trinkets.has(item_id):
+				owned_trinkets.append(item_id)
+	_dirty = true
+
+## Equips an item into its slot. Pass "" to unequip.
+func equip_item(item_id: String, slot: String) -> void:
+	match slot:
+		"weapon":   equipped_weapon  = item_id
+		"armor":    equipped_armor   = item_id
+		"ring":     equipped_ring    = item_id
+		"trinket":  equipped_trinket = item_id
+	_dirty = true
+
+## Returns the owned array for the given slot.
+func get_owned_by_slot(slot: String) -> Array[String]:
+	match slot:
+		"weapon":  return owned_weapons
+		"armor":   return owned_armor
+		"ring":    return owned_rings
+		"trinket": return owned_trinkets
+	return []
+
+## Returns the currently equipped item id for the given slot ("" if none).
+func get_equipped_by_slot(slot: String) -> String:
+	match slot:
+		"weapon":  return equipped_weapon
+		"armor":   return equipped_armor
+		"ring":    return equipped_ring
+		"trinket": return equipped_trinket
+	return ""
+
+static func xp_for_level(lvl: int) -> int:
+	return lvl * lvl * 50  # 1→2: 50xp, 2→3: 200xp, 3→4: 450xp
+
+static func _compute_level(current_xp: int) -> int:
+	var lvl: int = 1
+	while current_xp >= xp_for_level(lvl):
+		lvl += 1
+	return lvl - 1
+
+func has_skill(id: String) -> bool:
+	return unlocked_skills.has(id)
+
+func unlock_skill(id: String) -> void:
+	if unlocked_skills.has(id):
+		return
+	unlocked_skills.append(id)
+	skill_points = max(0, skill_points - 1)
+	_dirty = true
+
+func add_xp(amount: int) -> void:
+	xp += amount
+	var new_level: int = _compute_level(xp)
+	if new_level > level:
+		skill_points += new_level - level
+		level = new_level
+		GameBus.level_up.emit(level)
+	GameBus.xp_changed.emit(xp, level)
 	_dirty = true
 
 func get_setting(key: String, default_value: Variant) -> Variant:

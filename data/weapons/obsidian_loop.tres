@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://qihj5cu7x8x6"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_obsidian_loop"]
+
+[resource]
+script = ExtResource("1_obsidian_loop")
+id = "obsidian_loop"
+display_name = "Obsidian Loop"
+description = "A ring carved from volcanic glass. Your hero's attack is increased by 2."
+slot = "ring"
+battle_effect_type = "passive_atk"
+battle_effect_value = 2
+injected_card_id = ""
+injected_card_count = 0

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://n3tn9oj8r70r"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_insight"]
+
+[resource]
+script = ExtResource("1_insight")
+id = "insight"
+card_name = "Insight"
+cost = 0
+attack = 0
+health = 0
+card_class = "spell"
+description = "Drawn automatically — draw 1 card."
+color = Color(0.3, 0.6, 0.9, 1)
+magic_type = ""
+magic_branch = ""
+spell_effect = "draw_card"
+spell_power = 1
+auto_resolve = true

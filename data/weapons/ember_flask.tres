@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://stjbjjpl0ocy"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_ember_flask"]
+
+[resource]
+script = ExtResource("1_ember_flask")
+id = "ember_flask"
+display_name = "Ember Flask"
+description = "A vial of bottled flame. Adds 3 Dagger Throw cards to your deck each battle."
+slot = "trinket"
+battle_effect_type = "deck_inject"
+battle_effect_value = 0
+injected_card_id = "dagger_throw"
+injected_card_count = 3

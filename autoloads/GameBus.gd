@@ -10,6 +10,7 @@ signal map_transition_requested(map_name: String, target_door_id: String)
 signal inventory_requested
 signal shop_requested
 signal journal_requested
+signal character_requested
 
 # Battle signals
 signal card_played(card_id: String, zone: String, slot: int)
@@ -29,3 +30,9 @@ signal achievement_unlocked(achievement_id: String)
 
 # Economy signals
 signal essence_changed(new_amount: int)
+signal equipment_dropped(equip_id: String)
+
+# Progression signals
+signal level_up(new_level: int)
+signal xp_changed(new_xp: int, new_level: int)
+signal skill_tree_requested

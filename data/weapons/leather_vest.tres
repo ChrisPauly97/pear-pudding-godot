@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://wlzfyxp7eveh"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_leather_vest"]
+
+[resource]
+script = ExtResource("1_leather_vest")
+id = "leather_vest"
+display_name = "Leather Vest"
+description = "A worn but reliable vest. Your hero starts with 6 extra HP."
+slot = "armor"
+battle_effect_type = "starting_hp"
+battle_effect_value = 6
+injected_card_id = ""
+injected_card_count = 0

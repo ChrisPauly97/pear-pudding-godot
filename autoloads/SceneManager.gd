@@ -10,6 +10,8 @@ enum State {
 	JOURNAL,
 	ACHIEVEMENTS,
 	RUN_SUMMARY,
+	CHARACTER,
+	SKILL_TREE,
 }
 
 const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
@@ -25,6 +27,8 @@ var _menu_scene_packed := preload("res://scenes/ui/MenuScene.tscn")
 var _gameover_scene_packed := preload("res://scenes/ui/GameOverScene.tscn")
 var _inventory_scene_packed := preload("res://scenes/ui/InventoryScene.tscn")
 var _shop_scene_packed := preload("res://scenes/ui/ShopScene.tscn")
+var _character_scene_packed := preload("res://scenes/ui/CharacterScene.tscn")
+var _skill_tree_scene_packed := preload("res://scenes/ui/SkillTreeScene.tscn")
 var _journal_scene_packed := preload("res://scenes/ui/JournalScene.tscn")
 var _achievements_scene_packed := preload("res://scenes/ui/AchievementsScene.tscn")
 var _run_summary_scene_packed := preload("res://scenes/ui/RunSummaryScene.tscn")
@@ -35,6 +39,8 @@ var _inventory_overlay: Node = null
 var _shop_overlay: Node = null
 var _journal_overlay: Node = null
 var _achievements_overlay: Node = null
+var _character_overlay: Node = null
+var _skill_tree_overlay: Node = null
 var _saved_world_scene: Node = null
 
 # Ephemeral session statistics — reset on new/continue game, not persisted.
@@ -68,7 +74,10 @@ func _ready() -> void:
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 	GameBus.shop_requested.connect(_on_shop_requested)
 	GameBus.journal_requested.connect(_on_journal_requested)
+	GameBus.character_requested.connect(_on_character_requested)
+	GameBus.skill_tree_requested.connect(_on_skill_tree_requested)
 	GameBus.achievement_unlocked.connect(_on_achievement_unlocked)
+	GameBus.level_up.connect(_on_level_up)
 
 func go_to_menu() -> void:
 	_flush_position_save()
@@ -195,6 +204,12 @@ func _exit_world_cleanup() -> void:
 	if _journal_overlay != null:
 		_journal_overlay.queue_free()
 		_journal_overlay = null
+	if _character_overlay != null:
+		_character_overlay.queue_free()
+		_character_overlay = null
+	if _skill_tree_overlay != null:
+		_skill_tree_overlay.queue_free()
+		_skill_tree_overlay = null
 	map_stack.clear()
 	door_stack.clear()
 	current_map = ""
@@ -272,6 +287,15 @@ func _on_battle_won(result: Dictionary) -> void:
 		var coins: int = EnemyRegistry.get_coin_reward(enemy_type)
 		save_manager.add_coins(coins)
 		session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + coins
+	# Award XP based on enemy type
+	const _XP_TABLE: Dictionary = {
+		"undead_basic": 20, "undead_horde": 35, "ghoul_pack": 50, "undead_elite": 80,
+	}
+	var xp_amount: int = int(_XP_TABLE.get(enemy_type, 25)) if enemy_type != "" else 25
+	if is_boss:
+		xp_amount = int(xp_amount * 2)
+	save_manager.add_xp(xp_amount)
+	session_stats["xp_earned"] = int(session_stats.get("xp_earned", 0)) + xp_amount
 	save_manager.clear_pending_battle()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
@@ -341,9 +365,44 @@ func _on_journal_closed() -> void:
 		_journal_overlay = null
 	_state = State.WORLD
 
+func _on_character_requested() -> void:
+	if _state != State.WORLD:
+		return
+	_character_overlay = _character_scene_packed.instantiate()
+	get_tree().current_scene.add_child(_character_overlay)
+	_character_overlay.closed.connect(_on_character_closed)
+	_state = State.CHARACTER
+
+func _on_character_closed() -> void:
+	if _state != State.CHARACTER:
+		return
+	if _character_overlay != null:
+		_character_overlay.queue_free()
+		_character_overlay = null
+	_state = State.WORLD
+
+func _on_skill_tree_requested() -> void:
+	if _state != State.WORLD:
+		return
+	_skill_tree_overlay = _skill_tree_scene_packed.instantiate()
+	get_tree().current_scene.add_child(_skill_tree_overlay)
+	_skill_tree_overlay.closed.connect(_on_skill_tree_closed)
+	_state = State.SKILL_TREE
+
+func _on_skill_tree_closed() -> void:
+	if _state != State.SKILL_TREE:
+		return
+	if _skill_tree_overlay != null:
+		_skill_tree_overlay.queue_free()
+		_skill_tree_overlay = null
+	_state = State.WORLD
+
 func _on_achievement_unlocked(achievement_id: String) -> void:
 	const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
 	var a: Dictionary = AchievementRegistry.get_achievement(achievement_id)
 	var reward_card: String = str(a.get("reward_card_id", ""))
 	if reward_card != "":
 		save_manager.grant_achievement_card(reward_card)
+
+func _on_level_up(new_level: int) -> void:
+	_toast.show_text("Level Up!", "You are now level %d" % new_level)

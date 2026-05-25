@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://lk1nhsb6f9jp"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_chainmail"]
+
+[resource]
+script = ExtResource("1_chainmail")
+id = "chainmail"
+display_name = "Chainmail"
+description = "Interlocked rings of steel. Your hero starts with 12 extra HP."
+slot = "armor"
+battle_effect_type = "starting_hp"
+battle_effect_value = 12
+injected_card_id = ""
+injected_card_count = 0

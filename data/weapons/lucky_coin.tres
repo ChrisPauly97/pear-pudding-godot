@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://gib8ik1ctp4s"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_lucky_coin"]
+
+[resource]
+script = ExtResource("1_lucky_coin")
+id = "lucky_coin"
+display_name = "Lucky Coin"
+description = "A battered coin that always lands heads. Gain 2 extra mana on the first turn."
+slot = "trinket"
+battle_effect_type = "starting_mana"
+battle_effect_value = 2
+injected_card_id = ""
+injected_card_count = 0

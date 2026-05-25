@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://88lhbzgi905z"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_keen_mind"]
+
+[resource]
+script = ExtResource("1_keen_mind")
+id = "keen_mind"
+display_name = "Keen Mind"
+description = "Draw 1 extra card in your opening hand."
+skill_type = "passive"
+effect_type = "passive_draw"
+effect_value = 1
+prerequisites = []
+tree_row = 0
+tree_col = 2
