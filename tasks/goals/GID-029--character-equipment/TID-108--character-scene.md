@@ -2,7 +2,7 @@
 
 **Goal:** GID-029
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-106
 
 ## Lock
@@ -82,12 +82,24 @@ slot_btn.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.06)
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `character_requested` signal to GameBus.
+2. Add `CHARACTER` state, preload, overlay var, signal connect, and handler pair to SceneManager.
+3. Add `character` input action (KEY_C) to project.godot.
+4. Add Character HUD button and `_unhandled_input` handler to WorldScene.
+5. Create CharacterScene.gd: full-screen overlay with avatar placeholder, 4 slot buttons, inline item picker (right panel), equip/unequip logic.
+6. Create CharacterScene.tscn + .tscn.uid + .gd.uid sidecars.
+7. Remove weapons tab from InventoryScene: strip WeaponRegistry/WeaponData imports, var declarations, build section, refresh/column/summary/row methods, tab handler, weapon event handlers.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: added `signal character_requested`
+- `autoloads/SceneManager.gd`: added `CHARACTER` to State enum; `_character_scene_packed` preload; `_character_overlay` var; signal connection in `_ready()`; `_on_character_requested()` / `_on_character_closed()` handlers; `_character_overlay` cleanup in `_exit_world_cleanup()`
+- `project.godot`: added `character` input action mapped to KEY_C (physical_keycode 67)
+- `scenes/world/WorldScene.gd`: added Character HUD button (position: 3rd button below minimap); added `event.is_action_pressed("character")` branch to `_unhandled_input`
+- `scenes/ui/CharacterScene.gd`: new full-screen overlay — dark backdrop, panel with header + close button, left column (avatar placeholder + 4 slot buttons with live labels), right column (picker title + scrollable item list + Unequip button). Slot tap populates picker with owned items for that slot, each showing effect summary and Equip button. Input action `character` / `ui_cancel` closes.
+- `scenes/ui/CharacterScene.tscn` + `.tscn.uid` + `CharacterScene.gd.uid`: new scene files
+- `scenes/ui/InventoryScene.gd`: removed Weapons tab entirely — `WeaponRegistry`/`WeaponData` imports, all weapon UI var declarations, WEAPONS PANEL build section, `_refresh_weapons()`, `_refresh_comparison()`, `_fill_weapon_column()`, `_weapon_effect_summary()`, `_make_weapon_row()`, `_on_tab_weapons()`, `_on_weapon_selected()`, `_on_equip_weapon()`; tab visibility handlers simplified to Cards/Craft only
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/inventory-and-deck.md` and `docs/agent/ui-and-scene-management.md` to reflect CharacterScene addition and InventoryScene weapons tab removal.

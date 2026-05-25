@@ -14,7 +14,7 @@ The weapon system (GID-014, GID-022) established a clean pattern: `WeaponData` r
 |----|------|------|--------|------------|
 | TID-106 | Data model — slot field, 3 new SaveManager fields, save v11 migration, BattleScene applies all 4 slots | agent | done | — |
 | TID-107 | New equipment content — 2-3 armor, ring, and trinket `.tres` items with `.uid` sidecars | agent | done | TID-106 |
-| TID-108 | CharacterScene UI — player avatar, 4 slot buttons, per-slot item picker, stats panel, C key + HUD button | agent | pending | TID-106 |
+| TID-108 | CharacterScene UI — player avatar, 4 slot buttons, per-slot item picker, stats panel, C key + HUD button | agent | done | TID-106 |
 | TID-109 | Equipment acquisition — chest drops occasionally grant equipment; ShopScene gains equipment rows | agent | pending | TID-106, TID-107 |
 
 ## Acceptance Criteria

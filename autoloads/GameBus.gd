@@ -10,6 +10,7 @@ signal map_transition_requested(map_name: String, target_door_id: String)
 signal inventory_requested
 signal shop_requested
 signal journal_requested
+signal character_requested
 
 # Battle signals
 signal card_played(card_id: String, zone: String, slot: int)

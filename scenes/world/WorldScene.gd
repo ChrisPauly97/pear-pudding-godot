@@ -278,6 +278,14 @@ func _ready() -> void:
 	journal_btn.pressed.connect(func() -> void: GameBus.journal_requested.emit())
 	_hud.add_child(journal_btn)
 
+	var char_btn := Button.new()
+	char_btn.text = "Character"
+	char_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
+	char_btn.position = Vector2(btn_x, minimap_bottom + (btn_h + vh * 0.005) * 2)
+	char_btn.add_theme_font_size_override("font_size", font_size)
+	char_btn.pressed.connect(func() -> void: GameBus.character_requested.emit())
+	_hud.add_child(char_btn)
+
 	var vp := get_viewport().get_visible_rect().size
 	_dialogue_label = Label.new()
 	_dialogue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1068,6 +1076,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_J:
 		GameBus.journal_requested.emit()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("character"):
+		GameBus.character_requested.emit()
 		get_viewport().set_input_as_handled()
 
 func _handle_interact() -> void:

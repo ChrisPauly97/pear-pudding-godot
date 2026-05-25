@@ -10,6 +10,7 @@ enum State {
 	JOURNAL,
 	ACHIEVEMENTS,
 	RUN_SUMMARY,
+	CHARACTER,
 }
 
 const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
@@ -25,6 +26,7 @@ var _menu_scene_packed := preload("res://scenes/ui/MenuScene.tscn")
 var _gameover_scene_packed := preload("res://scenes/ui/GameOverScene.tscn")
 var _inventory_scene_packed := preload("res://scenes/ui/InventoryScene.tscn")
 var _shop_scene_packed := preload("res://scenes/ui/ShopScene.tscn")
+var _character_scene_packed := preload("res://scenes/ui/CharacterScene.tscn")
 var _journal_scene_packed := preload("res://scenes/ui/JournalScene.tscn")
 var _achievements_scene_packed := preload("res://scenes/ui/AchievementsScene.tscn")
 var _run_summary_scene_packed := preload("res://scenes/ui/RunSummaryScene.tscn")
@@ -35,6 +37,7 @@ var _inventory_overlay: Node = null
 var _shop_overlay: Node = null
 var _journal_overlay: Node = null
 var _achievements_overlay: Node = null
+var _character_overlay: Node = null
 var _saved_world_scene: Node = null
 
 # Ephemeral session statistics — reset on new/continue game, not persisted.
@@ -68,6 +71,7 @@ func _ready() -> void:
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 	GameBus.shop_requested.connect(_on_shop_requested)
 	GameBus.journal_requested.connect(_on_journal_requested)
+	GameBus.character_requested.connect(_on_character_requested)
 	GameBus.achievement_unlocked.connect(_on_achievement_unlocked)
 
 func go_to_menu() -> void:
@@ -195,6 +199,9 @@ func _exit_world_cleanup() -> void:
 	if _journal_overlay != null:
 		_journal_overlay.queue_free()
 		_journal_overlay = null
+	if _character_overlay != null:
+		_character_overlay.queue_free()
+		_character_overlay = null
 	map_stack.clear()
 	door_stack.clear()
 	current_map = ""
@@ -339,6 +346,22 @@ func _on_journal_closed() -> void:
 	if _journal_overlay != null:
 		_journal_overlay.queue_free()
 		_journal_overlay = null
+	_state = State.WORLD
+
+func _on_character_requested() -> void:
+	if _state != State.WORLD:
+		return
+	_character_overlay = _character_scene_packed.instantiate()
+	get_tree().current_scene.add_child(_character_overlay)
+	_character_overlay.closed.connect(_on_character_closed)
+	_state = State.CHARACTER
+
+func _on_character_closed() -> void:
+	if _state != State.CHARACTER:
+		return
+	if _character_overlay != null:
+		_character_overlay.queue_free()
+		_character_overlay = null
 	_state = State.WORLD
 
 func _on_achievement_unlocked(achievement_id: String) -> void:

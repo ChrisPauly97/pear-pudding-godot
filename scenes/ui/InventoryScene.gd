@@ -3,8 +3,6 @@ extends Control
 signal closed
 
 const CardRegistry     = preload("res://autoloads/CardRegistry.gd")
-const WeaponRegistry   = preload("res://autoloads/WeaponRegistry.gd")
-const WeaponData       = preload("res://data/WeaponData.gd")
 const CraftingRegistry = preload("res://autoloads/CraftingRegistry.gd")
 const _CardDropUtil    = preload("res://game_logic/CardDropUtil.gd")
 
@@ -18,16 +16,8 @@ var _deck_count_label: Label
 var _coin_label: Label
 var _essence_label: Label
 
-# Weapon UI
-var _weapon_list: VBoxContainer
-var _equipped_col: VBoxContainer
-var _selected_col: VBoxContainer
-var _equip_btn: Button
-var _selected_weapon_id: String = ""
 var _cards_panel: Control
-var _weapons_panel: Control
 var _tab_cards_btn: Button
-var _tab_weapons_btn: Button
 var _tab_craft_btn: Button
 var _craft_panel: Control
 var _craft_list: VBoxContainer
@@ -82,13 +72,6 @@ func _build_ui() -> void:
 	_tab_cards_btn.add_theme_font_size_override("font_size", int(_vh * 0.021))
 	_tab_cards_btn.pressed.connect(_on_tab_cards)
 	tab_bar.add_child(_tab_cards_btn)
-
-	_tab_weapons_btn = Button.new()
-	_tab_weapons_btn.text = "Weapons"
-	_tab_weapons_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.05)
-	_tab_weapons_btn.add_theme_font_size_override("font_size", int(_vh * 0.021))
-	_tab_weapons_btn.pressed.connect(_on_tab_weapons)
-	tab_bar.add_child(_tab_weapons_btn)
 
 	_tab_craft_btn = Button.new()
 	_tab_craft_btn.text = "Craft"
@@ -221,104 +204,6 @@ func _build_ui() -> void:
 		btn_vbox.add_child(close_btn)
 
 	# ====================================================================
-	# WEAPONS PANEL
-	# ====================================================================
-	var wp_box: BoxContainer
-	if is_portrait:
-		var vb := VBoxContainer.new()
-		vb.add_theme_constant_override("separation", int(_vh * 0.008))
-		wp_box = vb
-	else:
-		var hb := HBoxContainer.new()
-		hb.add_theme_constant_override("separation", int(_vw * 0.012))
-		wp_box = hb
-	wp_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wp_box.visible = false
-	_weapons_panel = wp_box
-	wrapper.add_child(wp_box)
-
-	# ---- Weapon list column ----------------------------------------------
-	var wlist_vbox := VBoxContainer.new()
-	wlist_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	wlist_vbox.size_flags_stretch_ratio = 1.0
-	if is_portrait:
-		wlist_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wp_box.add_child(wlist_vbox)
-
-	var wlist_title := Label.new()
-	wlist_title.text = "Owned Weapons"
-	wlist_title.add_theme_font_size_override("font_size", int(_vh * 0.026))
-	wlist_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	wlist_vbox.add_child(wlist_title)
-
-	var wlist_scroll := ScrollContainer.new()
-	wlist_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	if scroll_min_h > 0.0:
-		wlist_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
-	wlist_vbox.add_child(wlist_scroll)
-
-	_weapon_list = VBoxContainer.new()
-	_weapon_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_weapon_list.add_theme_constant_override("separation", int(_vh * 0.008))
-	wlist_scroll.add_child(_weapon_list)
-
-	if not is_portrait:
-		wp_box.add_child(VSeparator.new())
-
-	# ---- Comparison column -----------------------------------------------
-	var cmp_vbox := VBoxContainer.new()
-	cmp_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cmp_vbox.size_flags_stretch_ratio = 1.5
-	if is_portrait:
-		cmp_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	wp_box.add_child(cmp_vbox)
-
-	var cmp_title := Label.new()
-	cmp_title.text = "Compare"
-	cmp_title.add_theme_font_size_override("font_size", int(_vh * 0.026))
-	cmp_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cmp_vbox.add_child(cmp_title)
-
-	# Two side-by-side columns: Equipped | Selected
-	var col_hbox := HBoxContainer.new()
-	col_hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col_hbox.add_theme_constant_override("separation", int(_vw * 0.01))
-	cmp_vbox.add_child(col_hbox)
-
-	_equipped_col = VBoxContainer.new()
-	_equipped_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_equipped_col.add_theme_constant_override("separation", int(_vh * 0.006))
-	col_hbox.add_child(_equipped_col)
-
-	col_hbox.add_child(VSeparator.new())
-
-	_selected_col = VBoxContainer.new()
-	_selected_col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_selected_col.add_theme_constant_override("separation", int(_vh * 0.006))
-	col_hbox.add_child(_selected_col)
-
-	# Equip + Close buttons row
-	var wp_btn_row := HBoxContainer.new()
-	wp_btn_row.add_theme_constant_override("separation", int(_vw * 0.02))
-	wp_btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	cmp_vbox.add_child(wp_btn_row)
-
-	_equip_btn = Button.new()
-	_equip_btn.text = "Equip"
-	_equip_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.055)
-	_equip_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	_equip_btn.disabled = true
-	_equip_btn.pressed.connect(_on_equip_weapon)
-	wp_btn_row.add_child(_equip_btn)
-
-	var wp_close_btn := Button.new()
-	wp_close_btn.text = "Close  [I]" if not OS.has_feature("android") else "Close"
-	wp_close_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.055)
-	wp_close_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
-	wp_close_btn.pressed.connect(_on_close)
-	wp_btn_row.add_child(wp_close_btn)
-
-	# ====================================================================
 	# CRAFT PANEL
 	# ====================================================================
 	var craft_box := VBoxContainer.new()
@@ -356,7 +241,6 @@ func _build_ui() -> void:
 
 func _refresh() -> void:
 	_refresh_cards()
-	_refresh_weapons()
 	if _craft_panel.visible:
 		_refresh_craft()
 
@@ -405,95 +289,6 @@ func _refresh_cards() -> void:
 	else:
 		_deck_count_label.modulate = Color.WHITE
 
-func _refresh_weapons() -> void:
-	for child in _weapon_list.get_children():
-		child.queue_free()
-
-	var owned_w: Array[String] = SceneManager.save_manager.owned_weapons
-	var equipped_id: String = SceneManager.save_manager.equipped_weapon
-
-	if owned_w.is_empty():
-		var empty_lbl := Label.new()
-		empty_lbl.text = "No weapons found yet."
-		empty_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
-		empty_lbl.modulate = Color(0.7, 0.7, 0.7)
-		_weapon_list.add_child(empty_lbl)
-	else:
-		for wid in owned_w:
-			var weapon: WeaponData = WeaponRegistry.get_weapon(wid)
-			if weapon == null:
-				continue
-			var row := _make_weapon_row(wid, weapon, wid == equipped_id, wid == _selected_weapon_id)
-			_weapon_list.add_child(row)
-
-	_refresh_comparison()
-
-func _refresh_comparison() -> void:
-	for child in _equipped_col.get_children():
-		child.queue_free()
-	for child in _selected_col.get_children():
-		child.queue_free()
-
-	var equipped_id: String = SceneManager.save_manager.equipped_weapon
-
-	_fill_weapon_column(_equipped_col, "Equipped", equipped_id)
-	_fill_weapon_column(_selected_col, "Selected", _selected_weapon_id)
-
-	_equip_btn.disabled = _selected_weapon_id.is_empty() or _selected_weapon_id == equipped_id
-
-func _fill_weapon_column(col: VBoxContainer, header: String, weapon_id: String) -> void:
-	var header_lbl := Label.new()
-	header_lbl.text = header
-	header_lbl.add_theme_font_size_override("font_size", int(_vh * 0.02))
-	header_lbl.modulate = Color(0.75, 0.85, 1.0)
-	col.add_child(header_lbl)
-
-	if weapon_id.is_empty():
-		var none_lbl := Label.new()
-		none_lbl.text = "(none)"
-		none_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
-		none_lbl.modulate = Color(0.5, 0.5, 0.5)
-		col.add_child(none_lbl)
-		return
-
-	var weapon: WeaponData = WeaponRegistry.get_weapon(weapon_id)
-	if weapon == null:
-		var err_lbl := Label.new()
-		err_lbl.text = "(unknown)"
-		err_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
-		col.add_child(err_lbl)
-		return
-
-	var name_lbl := Label.new()
-	name_lbl.text = weapon.display_name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	col.add_child(name_lbl)
-
-	var desc_lbl := Label.new()
-	desc_lbl.text = weapon.description
-	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
-	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc_lbl.modulate = Color(0.85, 0.85, 0.85)
-	col.add_child(desc_lbl)
-
-	var effect_lbl := Label.new()
-	effect_lbl.text = _weapon_effect_summary(weapon)
-	effect_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
-	effect_lbl.modulate = Color(0.9, 1.0, 0.7)
-	col.add_child(effect_lbl)
-
-func _weapon_effect_summary(weapon: WeaponData) -> String:
-	match weapon.battle_effect_type:
-		"deck_inject":
-			return "Inject %d× %s" % [weapon.injected_card_count, weapon.injected_card_id]
-		"starting_mana":
-			return "+%d starting mana" % weapon.battle_effect_value
-		"starting_hp":
-			return "+%d starting HP" % weapon.battle_effect_value
-		"passive_atk":
-			return "+%d hero ATK" % weapon.battle_effect_value
-	return weapon.battle_effect_type
-
 # -------------------------------------------------------------------------
 # Row builders
 # -------------------------------------------------------------------------
@@ -526,34 +321,6 @@ func _stat_range_text(rolled: int, base: int, rarity: String) -> String:
 	if min_val == max_val:
 		return str(disp)
 	return "%d (%d–%d)" % [disp, min_val, max_val]
-
-func _make_weapon_row(wid: String, weapon: WeaponData, is_equipped: bool, is_selected: bool) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
-
-	var name_lbl := Label.new()
-	name_lbl.text = weapon.display_name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if is_selected:
-		name_lbl.modulate = Color(1.0, 1.0, 0.5)
-	row.add_child(name_lbl)
-
-	if is_equipped:
-		var eq_lbl := Label.new()
-		eq_lbl.text = "[E]"
-		eq_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
-		eq_lbl.modulate = Color(0.4, 1.0, 0.5)
-		row.add_child(eq_lbl)
-
-	var sel_btn := Button.new()
-	sel_btn.text = "Select"
-	sel_btn.custom_minimum_size = Vector2(_vh * 0.1, _vh * 0.04)
-	sel_btn.add_theme_font_size_override("font_size", int(_vh * 0.017))
-	sel_btn.pressed.connect(_on_weapon_selected.bind(wid))
-	row.add_child(sel_btn)
-
-	return row
 
 func _make_collection_row(inst: Dictionary) -> VBoxContainer:
 	var uid: String     = str(inst.get("uid", ""))
@@ -851,18 +618,10 @@ func _do_scrap(uid: String) -> void:
 
 func _on_tab_cards() -> void:
 	_cards_panel.visible = true
-	_weapons_panel.visible = false
 	_craft_panel.visible = false
-
-func _on_tab_weapons() -> void:
-	_cards_panel.visible = false
-	_weapons_panel.visible = true
-	_craft_panel.visible = false
-	_refresh_weapons()
 
 func _on_tab_craft() -> void:
 	_cards_panel.visible = false
-	_weapons_panel.visible = false
 	_craft_panel.visible = true
 	_refresh_craft()
 
@@ -892,16 +651,6 @@ func _refresh_craft() -> void:
 	for recipe in recipes:
 		var row := _make_craft_row(recipe, player_essence)
 		_craft_list.add_child(row)
-
-func _on_weapon_selected(wid: String) -> void:
-	_selected_weapon_id = wid
-	_refresh_weapons()
-
-func _on_equip_weapon() -> void:
-	if _selected_weapon_id.is_empty():
-		return
-	SceneManager.save_manager.equip_weapon(_selected_weapon_id)
-	_refresh_weapons()
 
 func _on_add(uid: String) -> void:
 	if _working_deck.size() >= IsoConst.DECK_MAX:
