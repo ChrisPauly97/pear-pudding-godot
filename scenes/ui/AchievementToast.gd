@@ -3,6 +3,7 @@ extends CanvasLayer
 const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
 
 var _queue: Array[String] = []
+var _text_queue: Array = []  # Array of [title, desc] pairs for non-achievement messages
 var _panel: Control = null
 var _label_title: Label = null
 var _label_desc: Label = null
@@ -63,20 +64,30 @@ func _build_panel() -> void:
 	_label_desc.text = ""
 	vbox.add_child(_label_desc)
 
+func show_text(title: String, desc: String) -> void:
+	_text_queue.append([title, desc])
+	if not _busy:
+		_show_next()
+
 func _on_achievement_unlocked(achievement_id: String) -> void:
 	_queue.append(achievement_id)
 	if not _busy:
 		_show_next()
 
 func _show_next() -> void:
-	if _queue.is_empty():
+	if _text_queue.is_empty() and _queue.is_empty():
 		_busy = false
 		return
 	_busy = true
-	var aid: String = _queue.pop_front()
-	var a: Dictionary = AchievementRegistry.get_achievement(aid)
-	_label_title.text = str(a.get("name", aid))
-	_label_desc.text = str(a.get("description", ""))
+	if not _text_queue.is_empty():
+		var entry: Array = _text_queue.pop_front()
+		_label_title.text = str(entry[0])
+		_label_desc.text = str(entry[1])
+	else:
+		var aid: String = _queue.pop_front()
+		var a: Dictionary = AchievementRegistry.get_achievement(aid)
+		_label_title.text = str(a.get("name", aid))
+		_label_desc.text = str(a.get("description", ""))
 
 	var panel_w: float = _vw * 0.32
 	var margin: float = _vh * 0.02

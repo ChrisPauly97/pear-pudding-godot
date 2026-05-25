@@ -2,7 +2,7 @@
 
 **Goal:** GID-030
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -69,12 +69,19 @@ signal level_up(new_level: int)
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `xp`, `level`, `skill_points` vars to SaveManager; bump to v12; add migration, new_game, load, save entries; add `xp_for_level`, `_compute_level`, `add_xp` methods.
+2. Add `signal level_up(new_level: int)` to GameBus.
+3. Add `show_text(title, desc)` to AchievementToast and update `_show_next` to drain it.
+4. Connect `GameBus.level_up` in SceneManager `_ready()`; add `_on_level_up` handler that calls `_toast.show_text`.
+5. Award XP in SceneManager `_on_battle_won` using a fixed enemy-type table.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`: added `xp`, `level`, `skill_points` vars; bumped `CURRENT_SAVE_VERSION` to 12; added `_migrate_v11_to_v12` (backfills 0/1/0 defaults); added migration call to `_apply_migrations`; added fields to `new_game()`, `load_save()`, `save()`; added `xp_for_level(lvl)` (quadratic 50×lvl²), `_compute_level(xp)`, and `add_xp(amount)` which computes new level, grants skill points for each level gained, and emits `GameBus.level_up`
+- `autoloads/GameBus.gd`: added `signal level_up(new_level: int)`
+- `scenes/ui/AchievementToast.gd`: added `_text_queue: Array` for raw messages; added `show_text(title, desc)` public method; updated `_show_next` to drain `_text_queue` before `_queue`
+- `autoloads/SceneManager.gd`: connected `GameBus.level_up` in `_ready()`; added `_on_level_up(new_level)` which calls `_toast.show_text("Level Up!", ...)`; added XP award block in `_on_battle_won` using `_XP_TABLE` dict (20–80 XP by enemy type, doubled for bosses)
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new agent doc needed; save-system.md and signals-and-constants.md will be updated in TID-115 when the HUD XP bar is added.

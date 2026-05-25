@@ -73,6 +73,7 @@ func _ready() -> void:
 	GameBus.journal_requested.connect(_on_journal_requested)
 	GameBus.character_requested.connect(_on_character_requested)
 	GameBus.achievement_unlocked.connect(_on_achievement_unlocked)
+	GameBus.level_up.connect(_on_level_up)
 
 func go_to_menu() -> void:
 	_flush_position_save()
@@ -279,6 +280,15 @@ func _on_battle_won(result: Dictionary) -> void:
 		var coins: int = EnemyRegistry.get_coin_reward(enemy_type)
 		save_manager.add_coins(coins)
 		session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + coins
+	# Award XP based on enemy type
+	const _XP_TABLE: Dictionary = {
+		"undead_basic": 20, "undead_horde": 35, "ghoul_pack": 50, "undead_elite": 80,
+	}
+	var xp_amount: int = int(_XP_TABLE.get(enemy_type, 25)) if enemy_type != "" else 25
+	if is_boss:
+		xp_amount = int(xp_amount * 2)
+	save_manager.add_xp(xp_amount)
+	session_stats["xp_earned"] = int(session_stats.get("xp_earned", 0)) + xp_amount
 	save_manager.clear_pending_battle()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
@@ -370,3 +380,6 @@ func _on_achievement_unlocked(achievement_id: String) -> void:
 	var reward_card: String = str(a.get("reward_card_id", ""))
 	if reward_card != "":
 		save_manager.grant_achievement_card(reward_card)
+
+func _on_level_up(new_level: int) -> void:
+	_toast.show_text("Level Up!", "You are now level %d" % new_level)

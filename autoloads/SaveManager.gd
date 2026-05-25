@@ -80,6 +80,11 @@ var visited_biomes: Array[int] = []
 # Dungeon room keys that have been used (rest sites and event rooms)
 var visited_dungeon_rooms: Array[String] = []
 
+# XP & levelling
+var xp: int = 0
+var level: int = 1
+var skill_points: int = 0
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -154,13 +159,16 @@ func new_game() -> void:
 	unlocked_achievements = []
 	visited_biomes = []
 	visited_dungeon_rooms = []
+	xp = 0
+	level = 1
+	skill_points = 0
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 11
+const CURRENT_SAVE_VERSION: int = 12
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -275,6 +283,13 @@ static func _migrate_v10_to_v11(data: Dictionary) -> void:
 	if not data.has("owned_trinkets"):   data["owned_trinkets"] = []
 	data["version"] = 11
 
+# _migrate_v11_to_v12: backfill XP, level, skill_points for old saves.
+static func _migrate_v11_to_v12(data: Dictionary) -> void:
+	if not data.has("xp"):           data["xp"] = 0
+	if not data.has("level"):        data["level"] = 1
+	if not data.has("skill_points"): data["skill_points"] = 0
+	data["version"] = 12
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -299,6 +314,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v9_to_v10(data)
 	if ver < 11:
 		_migrate_v10_to_v11(data)
+	if ver < 12:
+		_migrate_v11_to_v12(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -348,6 +365,9 @@ func load_save() -> bool:
 	unlocked_achievements.assign(data.get("unlocked_achievements", []))
 	visited_biomes.assign(data.get("visited_biomes", []))
 	visited_dungeon_rooms.assign(data.get("visited_dungeon_rooms", []))
+	xp = int(data.get("xp", 0))
+	level = int(data.get("level", 1))
+	skill_points = int(data.get("skill_points", 0))
 	_loaded = true
 	return true
 
@@ -389,6 +409,9 @@ func save() -> void:
 		"unlocked_achievements": unlocked_achievements,
 		"visited_biomes": visited_biomes,
 		"visited_dungeon_rooms": visited_dungeon_rooms,
+		"xp": xp,
+		"level": level,
+		"skill_points": skill_points,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -663,6 +686,24 @@ func get_equipped_by_slot(slot: String) -> String:
 		"ring":    return equipped_ring
 		"trinket": return equipped_trinket
 	return ""
+
+static func xp_for_level(lvl: int) -> int:
+	return lvl * lvl * 50  # 1→2: 50xp, 2→3: 200xp, 3→4: 450xp
+
+static func _compute_level(current_xp: int) -> int:
+	var lvl: int = 1
+	while current_xp >= xp_for_level(lvl):
+		lvl += 1
+	return lvl - 1
+
+func add_xp(amount: int) -> void:
+	xp += amount
+	var new_level: int = _compute_level(xp)
+	if new_level > level:
+		skill_points += new_level - level
+		level = new_level
+		GameBus.level_up.emit(level)
+	_dirty = true
 
 func get_setting(key: String, default_value: Variant) -> Variant:
 	return settings.get(key, default_value)
