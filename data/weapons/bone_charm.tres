@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://02thkwhqf8rk"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_bone_charm"]
+
+[resource]
+script = ExtResource("1_bone_charm")
+id = "bone_charm"
+display_name = "Bone Charm"
+description = "A carved fragment of an ancient creature. Your hero's attack is increased by 1."
+slot = "trinket"
+battle_effect_type = "passive_atk"
+battle_effect_value = 1
+injected_card_id = ""
+injected_card_count = 0

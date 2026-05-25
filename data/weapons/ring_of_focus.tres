@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://g1z5bu1dzfvx"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_ring_of_focus"]
+
+[resource]
+script = ExtResource("1_ring_of_focus")
+id = "ring_of_focus"
+display_name = "Ring of Focus"
+description = "A simple band that sharpens the mind. Gain 1 extra mana on the first turn."
+slot = "ring"
+battle_effect_type = "starting_mana"
+battle_effect_value = 1
+injected_card_id = ""
+injected_card_count = 0

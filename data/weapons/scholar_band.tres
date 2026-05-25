@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=2 format=3 uid="uid://xafx3bbgpjn0"]
+
+[ext_resource type="Script" path="res://data/WeaponData.gd" id="1_scholar_band"]
+
+[resource]
+script = ExtResource("1_scholar_band")
+id = "scholar_band"
+display_name = "Scholar's Band"
+description = "An engraved ring of learning. Adds 2 Insight cards to your deck each battle."
+slot = "ring"
+battle_effect_type = "deck_inject"
+battle_effect_value = 0
+injected_card_id = "insight"
+injected_card_count = 2

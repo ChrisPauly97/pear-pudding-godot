@@ -2,7 +2,7 @@
 
 **Goal:** GID-029
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-106
 
 ## Lock
@@ -78,12 +78,30 @@ python3 -c "import random,string; print('uid://'+''.join(random.choices(string.a
 
 ## Plan
 
-_Written during Plan phase._
+1. Confirm `.tres` format from existing weapon files (`type="Resource"`, `script_class="WeaponData"`).
+2. Confirm `draw_card` spell_effect exists in BattleScene (it does, line 1113).
+3. Generate unique UIDs for all 10 new files.
+4. Create 3 armor, 3 ring, 3 trinket `.tres` + `.uid` pairs in `data/weapons/`.
+5. Create `insight` card `.tres` + `.uid` in `data/cards/` (needed by scholar_band).
 
 ## Changes Made
 
-_Filled after Build phase._
+**`data/weapons/` — 9 new equipment items (18 files total including .uid sidecars):**
+
+| ID | Slot | Effect |
+|---|---|---|
+| leather_vest | armor | starting_hp +6 |
+| chainmail | armor | starting_hp +12 |
+| warded_cloak | armor | starting_hp +4 |
+| ring_of_focus | ring | starting_mana +1 |
+| scholar_band | ring | deck_inject 2× insight |
+| obsidian_loop | ring | passive_atk +2 |
+| lucky_coin | trinket | starting_mana +2 |
+| bone_charm | trinket | passive_atk +1 |
+| ember_flask | trinket | deck_inject 3× dagger_throw |
+
+**`data/cards/insight.tres` + `.uid`** — new auto-resolve spell (cost 0, `draw_card` effect, spell_power 1). Used by scholar_band.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No doc changes needed — TID-106 already updated inventory-and-deck.md with the equipment system. The built-in items table in that doc will be updated as part of TID-108/109 when the full system is wired.
