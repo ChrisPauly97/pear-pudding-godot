@@ -9,6 +9,8 @@ const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
+const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
+const SkillData = preload("res://data/SkillData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
@@ -85,7 +87,10 @@ func _ready() -> void:
 					   "ghost", "skeleton", "zombie", "ghoul"]
 	_state.players[0].build_deck(player_deck)
 	_apply_equipment_effects(_state.players[0])
+	_apply_passive_skills(_state.players[0])
 	_state.players[0].draw_opening_hand(4)
+	for _i in _state.players[0].bonus_draw:
+		_state.players[0].draw_card()
 	_flush_auto_spells(0)
 
 	# Enemy deck — scale card stats by enemy difficulty tier
@@ -155,6 +160,24 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 				player.hero.attack += weapon.battle_effect_value
 	if injected_any:
 		player.draw_deck.shuffle()
+
+func _apply_passive_skills(player: PlayerState) -> void:
+	for skill_id: String in SceneManager.save_manager.unlocked_skills:
+		var skill: SkillData = SkillRegistry.get_skill(skill_id)
+		if skill == null or skill.skill_type != "passive":
+			continue
+		match skill.effect_type:
+			"passive_hp":
+				player.hero.health += skill.effect_value
+				player.hero.max_health += skill.effect_value
+			"passive_mana":
+				player.hero.mana = mini(player.hero.mana + skill.effect_value,
+										player.hero.max_mana + skill.effect_value)
+				player.hero.max_mana += skill.effect_value
+			"passive_atk":
+				player.hero.attack += skill.effect_value
+			"passive_draw":
+				player.bonus_draw += skill.effect_value
 
 func _apply_menu_btn_size() -> void:
 	_menu_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.05)

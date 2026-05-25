@@ -15,6 +15,7 @@ var draw_deck: Array[CardInstance] = []
 var discard: Array[CardInstance] = []
 var pending_auto_spells: Array[CardInstance] = []
 var is_ai: bool = false
+var bonus_draw: int = 0
 
 func _init(pid: int, ai: bool = false) -> void:
 	player_id = pid

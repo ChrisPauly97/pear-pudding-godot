@@ -2,7 +2,7 @@
 
 **Goal:** GID-030
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-111
 
 ## Lock
@@ -65,12 +65,17 @@ func _apply_passive_skills(player: PlayerState) -> void:
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `unlocked_skills`, `unlock_skill()`, `has_skill()` to SaveManager; fold `unlocked_skills` into v12 migration.
+2. Add `bonus_draw: int = 0` to PlayerState.
+3. Add SkillRegistry/SkillData preloads to BattleScene; call `_apply_passive_skills` after `_apply_equipment_effects`; draw `bonus_draw` extra cards after `draw_opening_hand`.
+4. Implement `_apply_passive_skills` in BattleScene.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`: added `unlocked_skills: Array[String]`; added to `new_game()`, `load_save()`, `save()`, v12 migration; added `has_skill(id)` and `unlock_skill(id)` helpers (unlock decrements skill_points, guards against double-unlock)
+- `game_logic/battle/PlayerState.gd`: added `var bonus_draw: int = 0`
+- `scenes/battle/BattleScene.gd`: added `SkillRegistry` and `SkillData` preloads; inserted `_apply_passive_skills` call and `bonus_draw` extra-draw loop after opening hand; added `_apply_passive_skills(player)` implementing passive_hp, passive_mana, passive_atk, passive_draw
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No separate doc update needed; passive skill semantics match what TID-111 spec defined.
