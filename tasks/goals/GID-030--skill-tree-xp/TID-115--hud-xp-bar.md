@@ -2,7 +2,7 @@
 
 **Goal:** GID-030
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-110
 
 ## Lock
@@ -68,12 +68,18 @@ Note: `SaveManager.xp_for_level()` is a static method added in TID-110. Call it 
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `signal xp_changed(new_xp, new_level)` to GameBus; emit from SaveManager.add_xp().
+2. Add `SaveManager` preload to WorldScene for static `xp_for_level()` calls.
+3. Add `_level_label` and `_xp_bar` vars to WorldScene.
+4. In `_update_hud()`: build HBoxContainer at bottom-left (vh*0.88) with level label, ProgressBar, XP text label; connect `GameBus.xp_changed` to refresh both.
+5. Add `_refresh_xp_bar()` to update bar value and level label.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: added `signal xp_changed(new_xp: int, new_level: int)`
+- `autoloads/SaveManager.gd`: `add_xp()` now emits `GameBus.xp_changed(xp, level)` after every XP gain
+- `scenes/world/WorldScene.gd`: added `SaveManager` preload for static method access; added `_level_label: Label` and `_xp_bar: ProgressBar` vars; `_update_hud()` builds HBoxContainer at `y=vh*0.88` with "Lv.X" label + ProgressBar + "XP/XP" text; `GameBus.xp_changed` lambda refreshes bar and text on every gain; added `_refresh_xp_bar()` computing XP within current level using `xp_for_level()`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No separate doc update needed; XP and skill tree systems are self-contained.

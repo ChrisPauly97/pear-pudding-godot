@@ -718,6 +718,7 @@ func add_xp(amount: int) -> void:
 		skill_points += new_level - level
 		level = new_level
 		GameBus.level_up.emit(level)
+	GameBus.xp_changed.emit(xp, level)
 	_dirty = true
 
 func get_setting(key: String, default_value: Variant) -> Variant:
