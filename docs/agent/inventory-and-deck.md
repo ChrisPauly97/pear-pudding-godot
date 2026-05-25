@@ -79,45 +79,75 @@ The player presses `I` in the world view:
 
 ---
 
-## Weapon System
+## Equipment System
 
 ### Overview
 
-The player carries one equipped weapon at a time. The weapon is stored as an ID string in `SaveManager.equipped_weapon: String` (empty string means no weapon). At the start of every battle, `BattleScene._apply_weapon_effect()` reads this field, resolves the weapon via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn.
+The player can equip items across four slots: **weapon**, **armor**, **ring**, and **trinket**. Each slot holds one item ID (empty string = nothing equipped). At battle start `BattleScene._apply_equipment_effects()` loops over all four slots, resolves each item via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn. All four slot types use the same `WeaponData` resource and registry — the `slot` field distinguishes them.
 
 Mana cap invariant: max_mana never permanently exceeds 10. The `starting_mana` effect grants a one-time turn-1 burst; `PlayerState.gain_mana_for_turn(turn)` resets `max_mana = min(10, turn)` on every subsequent turn, naturally undoing the boost.
 
+If multiple equipped items inject cards, all injections happen first and the deck is shuffled once at the end.
+
 ### WeaponData Resource (`data/WeaponData.gd`)
+
+All equipment types share this resource class.
 
 | Field | Type | Purpose |
 |---|---|---|
 | `id` | String | Unique identifier (matches filename without `.tres`) |
-| `display_name` | String | Human-readable weapon name |
+| `display_name` | String | Human-readable item name |
 | `description` | String | Flavour / tooltip text |
+| `slot` | String | `"weapon"` \| `"armor"` \| `"ring"` \| `"trinket"` (default `"weapon"`) |
 | `battle_effect_type` | String | One of the effect types below |
 | `battle_effect_value` | int | Numeric bonus (unused for `deck_inject`) |
 | `injected_card_id` | String | Card ID to inject (deck_inject only) |
 | `injected_card_count` | int | Copies to inject (deck_inject only) |
 
-Weapon `.tres` files live in `data/weapons/`. Each must have a companion `.uid` sidecar.
+Equipment `.tres` files live in `data/weapons/`. Each must have a companion `.uid` sidecar.
 
 ### WeaponRegistry Autoload (`autoloads/WeaponRegistry.gd`)
 
 Scans `data/weapons/` on first access, loads every `.tres` as a `WeaponData`, and indexes by `id`. API:
 
 ```gdscript
-WeaponRegistry.get_weapon(id: String) -> WeaponData  # null if not found
+WeaponRegistry.get_weapon(id: String) -> WeaponData      # null if not found
+WeaponRegistry.has_weapon(id: String) -> bool
 WeaponRegistry.get_all_ids() -> Array[String]
+WeaponRegistry.get_by_slot(slot: String) -> Array[String] # filter by slot field
 ```
 
 ### Effect Types
 
 | `battle_effect_type` | Behaviour |
 |---|---|
-| `deck_inject` | Appends `injected_card_count` copies of `injected_card_id` to the player's draw pile, then reshuffles. Injected cards may appear in the opening hand. |
+| `deck_inject` | Appends `injected_card_count` copies of `injected_card_id` to the player's draw pile. Deck is shuffled once after all slots are processed. |
 | `starting_mana` | Adds `battle_effect_value` to `hero.mana` and `hero.max_mana` on turn 1. Naturally reset by `gain_mana_for_turn()` on turn 2+. |
 | `starting_hp` | Adds `battle_effect_value` to both `hero.health` and `hero.max_health` (permanent for the battle). |
 | `passive_atk` | Adds `battle_effect_value` to `hero.attack` (permanent for the battle). |
+
+### SaveManager Equipment Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `equipped_weapon` | String | ID of currently equipped weapon (`""` = none) |
+| `equipped_armor` | String | ID of currently equipped armor |
+| `equipped_ring` | String | ID of currently equipped ring |
+| `equipped_trinket` | String | ID of currently equipped trinket |
+| `owned_weapons` | Array[String] | All weapon IDs owned |
+| `owned_armor` | Array[String] | All armor IDs owned |
+| `owned_rings` | Array[String] | All ring IDs owned |
+| `owned_trinkets` | Array[String] | All trinket IDs owned |
+
+Helper API:
+```gdscript
+SaveManager.add_equipment(item_id, slot)          # routes to correct owned array
+SaveManager.equip_item(item_id, slot)             # sets correct equipped field
+SaveManager.get_owned_by_slot(slot) -> Array[String]
+SaveManager.get_equipped_by_slot(slot) -> String
+```
+
+`equip_weapon(id)` is kept for backward compatibility (used by InventoryScene weapons tab). New code should use `equip_item(id, slot)`.
 
 ### Built-in Weapons
 
@@ -148,10 +178,10 @@ The `dagger_throw` card has `cost = 0` and `auto_resolve = true`. It is defined 
 
 | System | Direction | Details |
 |---|---|---|
-| **SaveManager** | Read + Write | Source of truth for `owned_cards`, `player_deck`, and `equipped_weapon`; InventoryScene reads and writes both card arrays |
+| **SaveManager** | Read + Write | Source of truth for `owned_cards`, `player_deck`, all four `equipped_*` and `owned_*` equipment arrays; InventoryScene reads and writes card arrays; CharacterScene reads and writes equipment |
 | **CardRegistry** | Data source | `CardRegistry.get_card(id)` resolves name/cost/stats for display in the UI |
-| **BattleScene** | Consumer | Reads `SaveManager.player_deck` at battle start; calls `_apply_weapon_effect()` to apply weapon bonuses before opening hand |
-| **WeaponRegistry** | Data source | Resolves `WeaponData` by id from `data/weapons/`; used by `BattleScene._apply_weapon_effect()` |
+| **BattleScene** | Consumer | Reads `SaveManager.player_deck` at battle start; calls `_apply_equipment_effects()` to apply all four slot bonuses before opening hand |
+| **WeaponRegistry** | Data source | Resolves `WeaponData` by id from `data/weapons/`; used by `BattleScene._apply_equipment_effects()`; `get_by_slot()` filters by slot for CharacterScene pickers |
 | **Chest entity** | Card source | `Chest.gd` calls `SaveManager.add_card()` on open; marks chest ID in `SaveManager.opened_chests` |
 | **GameBus** | Signal | `inventory_requested` opens the overlay; `chest_opened(card_id)` delivers card drops |
 | **SceneManager** | Overlay router | Instantiates and removes `InventoryScene` in response to `GameBus.inventory_requested` |
@@ -166,7 +196,7 @@ The `dagger_throw` card has `cost = 0` and `auto_resolve = true`. It is defined 
 | `InventoryScene.gd` | `scenes/ui/InventoryScene.gd` | Script driving the collection + deck panels |
 | Card data resources | `data/cards/*.tres` | One `CardData` per card type; fields: id, display_name, cost, attack, health |
 | Card textures (optional) | `assets/textures/` | Per-card art; falls back to coloured panel if absent |
-| Save file | `user://save.json` | Written by `SaveManager`; `owned_cards`, `player_deck`, and `equipped_weapon` live here |
-| WeaponData script | `data/WeaponData.gd` | Resource class defining weapon fields |
-| Weapon resources | `data/weapons/*.tres` | One `WeaponData` per weapon; each needs a `.uid` sidecar |
-| `WeaponRegistry.gd` | `autoloads/WeaponRegistry.gd` | Static registry; scans and indexes weapon resources |
+| Save file | `user://save.json` | Written by `SaveManager`; v11 format adds all four equipment slot fields |
+| WeaponData script | `data/WeaponData.gd` | Resource class for all equipment types; `slot` field distinguishes them |
+| Equipment resources | `data/weapons/*.tres` | One `WeaponData` per item (all slots); each needs a `.uid` sidecar |
+| `WeaponRegistry.gd` | `autoloads/WeaponRegistry.gd` | Static registry; scans and indexes all equipment resources |

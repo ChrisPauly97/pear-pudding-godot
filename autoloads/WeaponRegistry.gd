@@ -40,3 +40,13 @@ static func get_all_ids() -> Array[String]:
 	for k in _weapons.keys():
 		result.append(str(k))
 	return result
+
+## Returns all equipment IDs matching the given slot ("weapon", "armor", "ring", "trinket").
+static func get_by_slot(slot: String) -> Array[String]:
+	_ensure_loaded()
+	var result: Array[String] = []
+	for k in _weapons.keys():
+		var w: WeaponData = _weapons[k] as WeaponData
+		if w != null and w.slot == slot:
+			result.append(str(k))
+	return result

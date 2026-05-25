@@ -56,6 +56,14 @@ var equipped_weapon: String = ""
 # Weapons the player has picked up
 var owned_weapons: Array[String] = []
 
+# Non-weapon equipment slots
+var equipped_armor: String = ""
+var equipped_ring: String = ""
+var equipped_trinket: String = ""
+var owned_armor: Array[String] = []
+var owned_rings: Array[String] = []
+var owned_trinkets: Array[String] = []
+
 # World generation — set when starting a new game from the biome selection screen
 var world_seed: int = 42
 var starting_biome: int = 0   # BiomeDef.GRASSLANDS
@@ -135,6 +143,12 @@ func new_game() -> void:
 	last_respawn_day = 0
 	equipped_weapon = ""
 	owned_weapons = []
+	equipped_armor = ""
+	equipped_ring = ""
+	equipped_trinket = ""
+	owned_armor = []
+	owned_rings = []
+	owned_trinkets = []
 	collected_scrolls = []
 	achievement_progress = {}
 	unlocked_achievements = []
@@ -146,7 +160,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 10
+const CURRENT_SAVE_VERSION: int = 11
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -251,6 +265,16 @@ static func _migrate_v9_to_v10(data: Dictionary) -> void:
 	data["essence"] = 0
 	data["version"] = 10
 
+# _migrate_v10_to_v11: backfill non-weapon equipment slots.
+static func _migrate_v10_to_v11(data: Dictionary) -> void:
+	if not data.has("equipped_armor"):   data["equipped_armor"] = ""
+	if not data.has("equipped_ring"):    data["equipped_ring"] = ""
+	if not data.has("equipped_trinket"): data["equipped_trinket"] = ""
+	if not data.has("owned_armor"):      data["owned_armor"] = []
+	if not data.has("owned_rings"):      data["owned_rings"] = []
+	if not data.has("owned_trinkets"):   data["owned_trinkets"] = []
+	data["version"] = 11
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -273,6 +297,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v8_to_v9(data)
 	if ver < 10:
 		_migrate_v9_to_v10(data)
+	if ver < 11:
+		_migrate_v10_to_v11(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -308,6 +334,12 @@ func load_save() -> bool:
 	last_respawn_day = int(data.get("last_respawn_day", 0))
 	equipped_weapon = str(data.get("equipped_weapon", ""))
 	owned_weapons.assign(data.get("owned_weapons", []))
+	equipped_armor = str(data.get("equipped_armor", ""))
+	equipped_ring = str(data.get("equipped_ring", ""))
+	equipped_trinket = str(data.get("equipped_trinket", ""))
+	owned_armor.assign(data.get("owned_armor", []))
+	owned_rings.assign(data.get("owned_rings", []))
+	owned_trinkets.assign(data.get("owned_trinkets", []))
 	collected_scrolls.assign(data.get("collected_scrolls", []))
 	var sv = data.get("settings", {})
 	settings = sv if sv is Dictionary else {}
@@ -345,6 +377,12 @@ func save() -> void:
 		"last_respawn_day": last_respawn_day,
 		"equipped_weapon": equipped_weapon,
 		"owned_weapons": owned_weapons,
+		"equipped_armor": equipped_armor,
+		"equipped_ring": equipped_ring,
+		"equipped_trinket": equipped_trinket,
+		"owned_armor": owned_armor,
+		"owned_rings": owned_rings,
+		"owned_trinkets": owned_trinkets,
 		"collected_scrolls": collected_scrolls,
 		"settings": settings,
 		"achievement_progress": achievement_progress,
@@ -580,6 +618,51 @@ func add_weapon(weapon_id: String) -> void:
 func equip_weapon(weapon_id: String) -> void:
 	equipped_weapon = weapon_id
 	_dirty = true
+
+## Adds an equipment item to the appropriate owned array based on its slot.
+## slot must be "weapon", "armor", "ring", or "trinket".
+func add_equipment(item_id: String, slot: String) -> void:
+	match slot:
+		"weapon":
+			if not owned_weapons.has(item_id):
+				owned_weapons.append(item_id)
+		"armor":
+			if not owned_armor.has(item_id):
+				owned_armor.append(item_id)
+		"ring":
+			if not owned_rings.has(item_id):
+				owned_rings.append(item_id)
+		"trinket":
+			if not owned_trinkets.has(item_id):
+				owned_trinkets.append(item_id)
+	_dirty = true
+
+## Equips an item into its slot. Pass "" to unequip.
+func equip_item(item_id: String, slot: String) -> void:
+	match slot:
+		"weapon":   equipped_weapon  = item_id
+		"armor":    equipped_armor   = item_id
+		"ring":     equipped_ring    = item_id
+		"trinket":  equipped_trinket = item_id
+	_dirty = true
+
+## Returns the owned array for the given slot.
+func get_owned_by_slot(slot: String) -> Array[String]:
+	match slot:
+		"weapon":  return owned_weapons
+		"armor":   return owned_armor
+		"ring":    return owned_rings
+		"trinket": return owned_trinkets
+	return []
+
+## Returns the currently equipped item id for the given slot ("" if none).
+func get_equipped_by_slot(slot: String) -> String:
+	match slot:
+		"weapon":  return equipped_weapon
+		"armor":   return equipped_armor
+		"ring":    return equipped_ring
+		"trinket": return equipped_trinket
+	return ""
 
 func get_setting(key: String, default_value: Variant) -> Variant:
 	return settings.get(key, default_value)

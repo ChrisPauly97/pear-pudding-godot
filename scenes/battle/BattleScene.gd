@@ -84,7 +84,7 @@ func _ready() -> void:
 					   "ghost", "skeleton", "zombie", "ghoul",
 					   "ghost", "skeleton", "zombie", "ghoul"]
 	_state.players[0].build_deck(player_deck)
-	_apply_weapon_effect(_state.players[0])
+	_apply_equipment_effects(_state.players[0])
 	_state.players[0].draw_opening_hand(4)
 	_flush_auto_spells(0)
 
@@ -122,28 +122,39 @@ func _ready() -> void:
 	if not SceneManager.save_manager.get_story_flag("tutorial_battle_tip"):
 		_show_battle_tutorial()
 
-func _apply_weapon_effect(player: PlayerState) -> void:
-	if SceneManager.save_manager.equipped_weapon == "":
-		return
-	var weapon: WeaponData = WeaponRegistry.get_weapon(SceneManager.save_manager.equipped_weapon)
-	if weapon == null:
-		return
-	match weapon.battle_effect_type:
-		"deck_inject":
-			for i in weapon.injected_card_count:
-				var tmpl: Dictionary = CardRegistry.get_template(weapon.injected_card_id)
-				if tmpl.is_empty():
-					continue
-				player.draw_deck.append(CardInstance.new(tmpl))
-			player.draw_deck.shuffle()
-		"starting_mana":
-			player.hero.mana = mini(player.hero.mana + weapon.battle_effect_value, player.hero.max_mana + weapon.battle_effect_value)
-			player.hero.max_mana += weapon.battle_effect_value
-		"starting_hp":
-			player.hero.health += weapon.battle_effect_value
-			player.hero.max_health += weapon.battle_effect_value
-		"passive_atk":
-			player.hero.attack += weapon.battle_effect_value
+func _apply_equipment_effects(player: PlayerState) -> void:
+	var sm := SceneManager.save_manager
+	var slot_ids: Array[String] = [
+		sm.equipped_weapon,
+		sm.equipped_armor,
+		sm.equipped_ring,
+		sm.equipped_trinket,
+	]
+	var injected_any: bool = false
+	for item_id in slot_ids:
+		if item_id == "":
+			continue
+		var weapon: WeaponData = WeaponRegistry.get_weapon(item_id)
+		if weapon == null:
+			continue
+		match weapon.battle_effect_type:
+			"deck_inject":
+				for i in weapon.injected_card_count:
+					var tmpl: Dictionary = CardRegistry.get_template(weapon.injected_card_id)
+					if tmpl.is_empty():
+						continue
+					player.draw_deck.append(CardInstance.new(tmpl))
+				injected_any = true
+			"starting_mana":
+				player.hero.mana = mini(player.hero.mana + weapon.battle_effect_value, player.hero.max_mana + weapon.battle_effect_value)
+				player.hero.max_mana += weapon.battle_effect_value
+			"starting_hp":
+				player.hero.health += weapon.battle_effect_value
+				player.hero.max_health += weapon.battle_effect_value
+			"passive_atk":
+				player.hero.attack += weapon.battle_effect_value
+	if injected_any:
+		player.draw_deck.shuffle()
 
 func _apply_menu_btn_size() -> void:
 	_menu_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.05)

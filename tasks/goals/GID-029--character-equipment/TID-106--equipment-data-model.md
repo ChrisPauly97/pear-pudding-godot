@@ -2,7 +2,7 @@
 
 **Goal:** GID-029
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -68,12 +68,23 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `slot: String = "weapon"` to `data/WeaponData.gd` — existing `.tres` files omit the field and receive the default, staying backwards-compatible.
+2. Add `get_by_slot()` to `WeaponRegistry.gd`.
+3. Extend `SaveManager.gd`: 6 new fields, `new_game()` init, `load_save()` read, `save()` write, `_migrate_v10_to_v11()`, `_apply_migrations()` entry, `add_equipment()`, `equip_item()`, `get_owned_by_slot()`, `get_equipped_by_slot()` helpers. Bump `CURRENT_SAVE_VERSION` to 11.
+4. Rename `BattleScene._apply_weapon_effect()` → `_apply_equipment_effects()`, generalising it to loop over all 4 slot IDs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/WeaponData.gd`: added `@export var slot: String = "weapon"` — all 7 existing weapon `.tres` files are unaffected (they omit the field; Godot uses the default).
+- `autoloads/WeaponRegistry.gd`: added `get_by_slot(slot) -> Array[String]`.
+- `autoloads/SaveManager.gd`:
+  - `CURRENT_SAVE_VERSION` bumped 10 → 11.
+  - 6 new vars: `equipped_armor`, `equipped_ring`, `equipped_trinket`, `owned_armor`, `owned_rings`, `owned_trinkets`.
+  - `new_game()`, `load_save()`, `save()` all updated for the new fields.
+  - `_migrate_v10_to_v11()` added; registered in `_apply_migrations()`.
+  - New public API: `add_equipment(id, slot)`, `equip_item(id, slot)`, `get_owned_by_slot(slot)`, `get_equipped_by_slot(slot)`.
+- `scenes/battle/BattleScene.gd`: `_apply_weapon_effect()` renamed to `_apply_equipment_effects()`; now loops over all 4 equipped slot IDs. Deck shuffle deferred until after all slots are processed (single shuffle at end). Call site updated.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/inventory-and-deck.md` — Weapon System section extended to document the new `slot` field, the four equipment slot fields in SaveManager, the generalised `_apply_equipment_effects()` in BattleScene, and the new helper API.
