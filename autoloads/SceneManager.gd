@@ -17,6 +17,8 @@ enum State {
 const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
+const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
+const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
@@ -78,6 +80,7 @@ func _ready() -> void:
 	GameBus.skill_tree_requested.connect(_on_skill_tree_requested)
 	GameBus.achievement_unlocked.connect(_on_achievement_unlocked)
 	GameBus.level_up.connect(_on_level_up)
+	GameBus.tutorial_popup_requested.connect(_on_tutorial_popup_requested)
 
 func go_to_menu() -> void:
 	_flush_position_save()
@@ -406,3 +409,17 @@ func _on_achievement_unlocked(achievement_id: String) -> void:
 
 func _on_level_up(new_level: int) -> void:
 	_toast.show_text("Level Up!", "You are now level %d" % new_level)
+
+func _on_tutorial_popup_requested(popup_id: String) -> void:
+	var flag: String = "seen_tutorial_" + popup_id
+	if save_manager.get_story_flag(flag):
+		return
+	var entry: Dictionary = TutorialRegistry.get_entry(popup_id)
+	if entry.is_empty():
+		return
+	save_manager.set_story_flag(flag)
+	var popup := _TutorialPopupScript.new()
+	popup.setup(str(entry.get("title", "")), str(entry.get("body", "")))
+	popup.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_tree().root.add_child(popup)
+	popup.closed.connect(func() -> void: popup.queue_free())

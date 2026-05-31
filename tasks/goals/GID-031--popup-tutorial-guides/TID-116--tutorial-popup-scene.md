@@ -2,7 +2,7 @@
 
 **Goal:** GID-031
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -45,12 +45,18 @@ signal tutorial_popup_requested(popup_id: String)
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `tutorial_popup_requested(popup_id: String)` signal to `GameBus.gd`.
+2. Create `scenes/ui/TutorialPopup.gd` — pure-code Control with backdrop, panel, title/body labels, "Got it" button, keyboard dismiss.
+3. Create stub `game_logic/TutorialRegistry.gd` (content filled in TID-117).
+4. In `SceneManager.gd`: preload both scripts, connect signal in `_ready()`, implement `_on_tutorial_popup_requested()` which checks the seen flag, looks up the registry, sets the flag, and adds the popup to root.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: added `signal tutorial_popup_requested(popup_id: String)`
+- `scenes/ui/TutorialPopup.gd`: new file — reusable modal overlay (backdrop + panel + title + body + "Got it" button); emits `closed`; dismisses on button press or ui_cancel/ui_accept
+- `game_logic/TutorialRegistry.gd`: new stub file with empty `_DATA` dict and `get_entry()` static func (populated in TID-117)
+- `autoloads/SceneManager.gd`: preloads `TutorialPopup` and `TutorialRegistry`; connects `GameBus.tutorial_popup_requested` in `_ready()`; implements `_on_tutorial_popup_requested()` with flag dedup, registry lookup, and popup lifecycle
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md` with TutorialPopup system details.
