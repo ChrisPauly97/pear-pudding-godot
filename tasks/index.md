@@ -34,6 +34,7 @@
 | [GID-028](goals/GID-028--card-rarity-crafting/goal.md) | Card Rarity, Crafting & Economy | done | 9 / 9 |
 | [GID-029](goals/GID-029--character-equipment/goal.md) | Character Screen & Multi-Slot Equipment | done | 4 / 4 |
 | [GID-030](goals/GID-030--skill-tree-xp/goal.md) | Skill Tree & XP System | done | 6 / 6 |
+| [GID-031](goals/GID-031--multiple-skill-trees/goal.md) | Multiple Skill Trees per Magic Branch | pending | 0 / 6 |
 
 ## Backlog
 
