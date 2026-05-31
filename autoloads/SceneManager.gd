@@ -230,6 +230,7 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 		GameBus.hud_message_requested.emit("Deck too small — add at least %d cards first." % IsoConst.DECK_MIN)
 		return
 	_current_battle_enemy_id = str(enemy_data.get("id", ""))
+	GameBus.tutorial_popup_requested.emit("mana")
 	save_manager.set_pending_battle(enemy_data)
 	save_manager.save()
 	# Detach world scene from tree so it stops rendering/processing
@@ -387,6 +388,7 @@ func _on_character_closed() -> void:
 func _on_skill_tree_requested() -> void:
 	if _state != State.WORLD:
 		return
+	GameBus.tutorial_popup_requested.emit("skill_tree")
 	_skill_tree_overlay = _skill_tree_scene_packed.instantiate()
 	get_tree().current_scene.add_child(_skill_tree_overlay)
 	_skill_tree_overlay.closed.connect(_on_skill_tree_closed)

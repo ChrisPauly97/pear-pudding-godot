@@ -2,7 +2,7 @@
 
 **Goal:** GID-031
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-117
 
 ## Lock
@@ -44,12 +44,19 @@ SceneManager (from TID-116) already handles the flag-setting and deduplication, 
 
 ## Plan
 
-_Written during Plan phase._
+Emit `GameBus.tutorial_popup_requested` at five trigger points. SceneManager's handler (from TID-116) does all dedup/flag work, so trigger sites just emit.
+
+1. `SceneManager._on_skill_tree_requested()` — emit `"skill_tree"` before opening overlay
+2. `SceneManager._on_enemy_engaged()` — emit `"mana"` at battle start
+3. `SaveManager.add_coins()` — emit `"coins"` when `coins == 0 and amount > 0`
+4. `SaveManager.scrap_card_instance()` — emit `"essence"` when `essence == 0` before scrapping
+5. `SaveManager.add_card_instance()` — emit `"card_rarity"` when rarity is not "common"
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SceneManager.gd`: emit `"skill_tree"` in `_on_skill_tree_requested()`; emit `"mana"` in `_on_enemy_engaged()`
+- `autoloads/SaveManager.gd`: emit `"coins"` in `add_coins()` when coins==0; emit `"essence"` in `scrap_card_instance()` when essence==0; emit `"card_rarity"` in `add_card_instance()` when rarity != "common"
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None — trigger pattern is self-evident from the registry and signal docs.
