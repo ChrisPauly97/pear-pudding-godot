@@ -17,7 +17,7 @@ Earn logic for corruption/redemption points is stubbed (SaveManager methods + Ga
 | TID-116 | Extend SkillData + SaveManager data model | agent | done | — |
 | TID-117 | Create 24 branch-specific skill .tres files | agent | done | TID-116 |
 | TID-118 | Player magic type selection flow | agent | done | TID-116 |
-| TID-119 | Update SkillTreeScene: home tabs + cross-magic tab | agent | pending | TID-116, TID-117, TID-118 |
+| TID-119 | Update SkillTreeScene: home tabs + cross-magic tab | agent | done | TID-116, TID-117, TID-118 |
 | TID-120 | Stub corruption/redemption earn hooks | agent | pending | TID-116 |
 | TID-121 | Update agent documentation | agent | pending | TID-119, TID-120 |
 

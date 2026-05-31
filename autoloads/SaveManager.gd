@@ -739,6 +739,20 @@ func unlock_skill(id: String) -> void:
 	skill_points = max(0, skill_points - 1)
 	_dirty = true
 
+func unlock_cross_skill(id: String, cost: int, currency: String) -> void:
+	if unlocked_skills.has(id):
+		return
+	if currency == "corruption":
+		if corruption_points < cost:
+			return
+		corruption_points -= cost
+	else:
+		if redemption_points < cost:
+			return
+		redemption_points -= cost
+	unlocked_skills.append(id)
+	_dirty = true
+
 func add_xp(amount: int) -> void:
 	xp += amount
 	var new_level: int = _compute_level(xp)
