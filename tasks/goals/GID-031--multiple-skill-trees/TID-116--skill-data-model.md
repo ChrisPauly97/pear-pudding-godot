@@ -2,7 +2,7 @@
 
 **Goal:** GID-031
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -58,12 +58,32 @@ var redemption_points: int = 0
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `magic_branch` and `alt_cost` export vars to `data/SkillData.gd`.
+2. Add `get_by_branch(branch)` static func to `autoloads/SkillRegistry.gd`.
+3. In `autoloads/SaveManager.gd`:
+   a. Add `magic_type`, `corruption_points`, `redemption_points` vars after `unlocked_skills`.
+   b. Bump `CURRENT_SAVE_VERSION` to 13.
+   c. Add static `_migrate_v12_to_v13()`.
+   d. Call it in `_apply_migrations()`.
+   e. Set defaults in `new_game()`.
+   f. Load from dict in `load_save()`.
+   g. Persist in `save()` / `_to_dict`.
+   h. Add `set_magic_type(t)` mutator.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/SkillData.gd`: added `@export var magic_branch: String = ""` and `@export var alt_cost: int = 0` after `tree_col`.
+- `autoloads/SkillRegistry.gd`: added `get_by_branch(branch: String) -> Array[String]` static func between `get_all_ids` and `get_by_type`.
+- `autoloads/SaveManager.gd`:
+  - Added `magic_type: String`, `corruption_points: int`, `redemption_points: int` vars after `unlocked_skills`.
+  - Bumped `CURRENT_SAVE_VERSION` to 13.
+  - Added `_migrate_v12_to_v13()` static func; backfills `magic_type = ""`, `corruption_points = 0`, `redemption_points = 0`.
+  - Added migration call `if ver < 13: _migrate_v12_to_v13(data)` in `_apply_migrations()`.
+  - Set all three new fields to defaults in `new_game()`.
+  - Load all three fields in `load_save()` with safe defaults.
+  - Persist all three fields in `save()` dict.
+  - Added `set_magic_type(t: String)` mutator.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent docs updated in this task — TID-121 covers documentation for the full goal.
