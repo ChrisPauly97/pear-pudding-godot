@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://x771sasayc33"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_ember_searing_focus"]
+
+[resource]
+script = ExtResource("1_ember_searing_focus")
+id = "ember_searing_focus"
+display_name = "Searing Focus"
+description = "Your hero deals +1 attack damage with every ember spell."
+skill_type = "passive"
+effect_type = "passive_atk"
+effect_value = 1
+prerequisites = []
+tree_row = 0
+tree_col = 0
+magic_branch = "ember"
+alt_cost = 0

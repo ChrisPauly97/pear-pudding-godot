@@ -2,7 +2,7 @@
 
 **Goal:** GID-031
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-116
 
 ## Lock
@@ -88,12 +88,19 @@ python3 -c "import random,string; print('uid://'+''.join(random.choices(string.a
 
 ## Plan
 
-_Written during Plan phase._
+1. Delete 10 old generic `.tres` + `.uid` files from `data/skills/`.
+2. Write 24 new `.tres` files and 24 `.uid` sidecars via a Python script using the roster from Research Notes.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Deleted `data/skills/` old files: `tough_skin`, `battle_focus`, `keen_mind`, `iron_will`, `swift_hand`, `arcane_surge`, `battle_cry`, `healing_touch`, `flash_draw`, `mana_surge` (10 × .tres + .uid = 20 files removed).
+- Created 24 `.tres` + 24 `.tres.uid` files in `data/skills/`:
+  - **Ember** (4 passive + 2 active): `ember_searing_focus`, `ember_torch_bearer`, `ember_inferno_surge`, `ember_flame_tempo`, `ember_pyroblast` (alt_cost=2), `ember_blazing_draw`
+  - **Dawn** (4 passive + 2 active): `dawn_inner_light`, `dawn_wellspring`, `dawn_radiant_shield`, `dawn_clarity`, `dawn_restoration` (alt_cost=2), `dawn_arcane_clarity` (alt_cost=2)
+  - **Dusk** (4 passive + 2 active): `dusk_dark_pact`, `dusk_shadow_well`, `dusk_lifetap`, `dusk_void_tempo`, `dusk_soul_siphon` (alt_cost=2), `dusk_mana_drain`
+  - **Ash** (4 passive + 2 active): `ash_cinderheart`, `ash_entropy`, `ash_bone_armour`, `ash_brittle_edge`, `ash_brittle_curse` (alt_cost=2), `ash_grave_call`
+- All files include `magic_branch` and `alt_cost` fields; prerequisites correctly reference branch-prefixed IDs.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent docs updated in this task — TID-121 covers documentation for the full goal.

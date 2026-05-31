@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://n7i38aihfa5f"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_ash_grave_call"]
+
+[resource]
+script = ExtResource("1_ash_grave_call")
+id = "ash_grave_call"
+display_name = "Grave Call"
+description = "Once per battle: beckon from the grave and draw 2 cards."
+skill_type = "active"
+effect_type = "active_draw"
+effect_value = 2
+prerequisites = ["ash_bone_armour"]
+tree_row = 2
+tree_col = 0
+magic_branch = "ash"
+alt_cost = 0

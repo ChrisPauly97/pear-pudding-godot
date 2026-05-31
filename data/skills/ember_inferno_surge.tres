@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://wxjtkxyttc2u"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_ember_inferno_surge"]
+
+[resource]
+script = ExtResource("1_ember_inferno_surge")
+id = "ember_inferno_surge"
+display_name = "Inferno Surge"
+description = "Your hero's attack power grows by +2 as the fire spreads."
+skill_type = "passive"
+effect_type = "passive_atk"
+effect_value = 2
+prerequisites = ["ember_searing_focus"]
+tree_row = 1
+tree_col = 0
+magic_branch = "ember"
+alt_cost = 0

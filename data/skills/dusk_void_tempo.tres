@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://xw8vigvvaw1u"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_dusk_void_tempo"]
+
+[resource]
+script = ExtResource("1_dusk_void_tempo")
+id = "dusk_void_tempo"
+display_name = "Void Tempo"
+description = "The rhythm of the void quickens your hand. Draw 1 extra card."
+skill_type = "passive"
+effect_type = "passive_draw"
+effect_value = 1
+prerequisites = ["dusk_shadow_well"]
+tree_row = 1
+tree_col = 3
+magic_branch = "dusk"
+alt_cost = 0
