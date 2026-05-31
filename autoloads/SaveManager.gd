@@ -753,6 +753,16 @@ func unlock_cross_skill(id: String, cost: int, currency: String) -> void:
 	unlocked_skills.append(id)
 	_dirty = true
 
+func add_corruption_points(amount: int) -> void:
+	corruption_points += amount
+	_dirty = true
+	GameBus.corruption_points_changed.emit(corruption_points)
+
+func add_redemption_points(amount: int) -> void:
+	redemption_points += amount
+	_dirty = true
+	GameBus.redemption_points_changed.emit(redemption_points)
+
 func add_xp(amount: int) -> void:
 	xp += amount
 	var new_level: int = _compute_level(xp)

@@ -2,7 +2,7 @@
 
 **Goal:** GID-031
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-116
 
 ## Lock
@@ -46,12 +46,14 @@ signal redemption_points_changed(new_amount: int)
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `signal corruption_points_changed(new_amount: int)` and `signal redemption_points_changed(new_amount: int)` to GameBus.
+2. Add `add_corruption_points(amount)` and `add_redemption_points(amount)` to SaveManager.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: added `corruption_points_changed` and `redemption_points_changed` signals under the Progression section.
+- `autoloads/SaveManager.gd`: added `add_corruption_points(amount)` and `add_redemption_points(amount)` — each increments the field, sets `_dirty`, and emits the corresponding GameBus signal.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent docs updated in this task — TID-121 covers documentation for the full goal.

@@ -36,3 +36,5 @@ signal equipment_dropped(equip_id: String)
 signal level_up(new_level: int)
 signal xp_changed(new_xp: int, new_level: int)
 signal skill_tree_requested
+signal corruption_points_changed(new_amount: int)
+signal redemption_points_changed(new_amount: int)
