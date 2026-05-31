@@ -2,7 +2,7 @@
 
 **Goal:** GID-031
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-116
 
 ## Lock
@@ -58,12 +58,18 @@ func _opposing_magic(mt: String) -> String:
 
 ## Plan
 
-_Written during Plan phase._
+1. `set_magic_type()` already exists in SaveManager from TID-116 — no SaveManager change needed.
+2. Rewrite `SkillTreeScene.gd`:
+   - Add `MAGIC_BRANCHES` const and `_opposing_magic()` helper (needed by TID-119 too).
+   - Gate `_ready()`: if `magic_type == ""` call `_build_magic_choice()`, else call `_build_ui()` + `_refresh()` as before.
+   - Add `_build_magic_choice()` — full-screen overlay with two column choices.
+   - Add `_make_choice_column()` helper to avoid duplication between Light/Dark columns.
+   - Add `_on_magic_chosen(choice)` — saves type, clears children, calls `_build_ui()` + `_refresh()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/ui/SkillTreeScene.gd`: added `MAGIC_BRANCHES` const; added `_opposing_magic()` helper; modified `_ready()` to gate on `magic_type`; added `_build_magic_choice()`, `_make_choice_column()`, and `_on_magic_chosen()`. All existing `_build_ui()`, `_refresh()`, `_make_skill_node()`, etc. unchanged.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent docs updated in this task — TID-121 covers documentation for the full goal.

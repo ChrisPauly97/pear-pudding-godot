@@ -10,16 +10,131 @@ var _vw: float = 0.0
 var _points_label: Label
 var _grid: GridContainer
 
-# Grid dimensions matching tree_row/tree_col ranges
 const _ROWS: int = 3
 const _COLS: int = 5
+
+const MAGIC_BRANCHES: Dictionary = {
+	"light": ["ember", "dawn"],
+	"dark":  ["dusk",  "ash"],
+}
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
 	_vh = get_viewport().get_visible_rect().size.y
 	_vw = get_viewport().get_visible_rect().size.x
+	if SceneManager.save_manager.magic_type == "":
+		_build_magic_choice()
+	else:
+		_build_ui()
+		_refresh()
+
+# -------------------------------------------------------------------------
+# Magic type selection modal (shown once if magic_type is unset)
+# -------------------------------------------------------------------------
+
+func _build_magic_choice() -> void:
+	var bg := ColorRect.new()
+	bg.color = Color(0.0, 0.0, 0.0, 0.88)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
+
+	var panel_w: float = _vw * 0.82
+	var panel_h: float = _vh * 0.72
+
+	var outer := PanelContainer.new()
+	outer.custom_minimum_size = Vector2(panel_w, panel_h)
+	outer.size = Vector2(panel_w, panel_h)
+	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
+	add_child(outer)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(_vw * 0.04))
+	margin.add_theme_constant_override("margin_right",  int(_vw * 0.04))
+	margin.add_theme_constant_override("margin_top",    int(_vh * 0.04))
+	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.04))
+	outer.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(_vh * 0.025))
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Choose Your Path"
+	title.add_theme_font_size_override("font_size", int(_vh * 0.045))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var sub := Label.new()
+	sub.text = "This choice is permanent. Your skill trees will be drawn from the magic type you select."
+	sub.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	sub.modulate = Color(0.72, 0.72, 0.72)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(sub)
+
+	var hbox := HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", int(_vw * 0.05))
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(hbox)
+
+	hbox.add_child(_make_choice_column(
+		"Light", Color(1.0, 1.0, 0.55),
+		"Ember & Dawn\nFire, healing, and clarity",
+		"Choose Light", "light"))
+	hbox.add_child(_make_choice_column(
+		"Dark", Color(0.75, 0.5, 1.0),
+		"Dusk & Ash\nShadow, drain, and disruption",
+		"Choose Dark", "dark"))
+
+func _make_choice_column(header: String, header_color: Color, desc: String,
+		btn_label: String, choice: String) -> VBoxContainer:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", int(_vh * 0.014))
+
+	var lbl := Label.new()
+	lbl.text = header
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.034))
+	lbl.modulate = header_color
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(lbl)
+
+	var desc_lbl := Label.new()
+	desc_lbl.text = desc
+	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	desc_lbl.modulate = Color(0.8, 0.8, 0.8)
+	desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_lbl.custom_minimum_size = Vector2(_vw * 0.28, 0)
+	col.add_child(desc_lbl)
+
+	var btn := Button.new()
+	btn.text = btn_label
+	btn.custom_minimum_size = Vector2(_vw * 0.28, _vh * 0.07)
+	btn.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	btn.modulate = header_color
+	btn.pressed.connect(_on_magic_chosen.bind(choice))
+	col.add_child(btn)
+
+	return col
+
+func _on_magic_chosen(choice: String) -> void:
+	SceneManager.save_manager.set_magic_type(choice)
+	for child in get_children():
+		child.queue_free()
 	_build_ui()
 	_refresh()
+
+# -------------------------------------------------------------------------
+# Helpers (used by both this task and TID-119 tab UI)
+# -------------------------------------------------------------------------
+
+func _opposing_magic(mt: String) -> String:
+	return "dark" if mt == "light" else "light"
+
+# -------------------------------------------------------------------------
+# Main skill tree UI
+# -------------------------------------------------------------------------
 
 func _build_ui() -> void:
 	var bg := ColorRect.new()
