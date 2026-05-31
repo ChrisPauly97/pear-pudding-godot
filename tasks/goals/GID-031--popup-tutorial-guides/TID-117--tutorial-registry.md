@@ -2,7 +2,7 @@
 
 **Goal:** GID-031
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-116
 
 ## Lock
@@ -36,12 +36,12 @@ All popup guide content lives in one place so adding a new popup never requires 
 
 ## Plan
 
-_Written during Plan phase._
+Populate `game_logic/TutorialRegistry.gd` (stub created in TID-116) with all 5 initial entries. No other files need changing.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/TutorialRegistry.gd`: filled `_DATA` with entries for `skill_tree`, `coins`, `essence`, `mana`, `card_rarity`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None — TID-116 already documented the registry in the agent docs.

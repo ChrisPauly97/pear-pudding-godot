@@ -13,7 +13,7 @@ The game already has one-shot HUD tip labels and a first-battle overlay (GID-012
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-116 | TutorialPopup scene — reusable overlay | agent | done | — |
-| TID-117 | TutorialRegistry — data store for popup content | agent | pending | TID-116 |
+| TID-117 | TutorialRegistry — data store for popup content | agent | done | TID-116 |
 | TID-118 | Wire first-time triggers (skill tree, coins, essence, mana, card rarity) | agent | pending | TID-117 |
 
 ## Acceptance Criteria
