@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://hm5cx47fn9p9"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_ember_blazing_draw"]
+
+[resource]
+script = ExtResource("1_ember_blazing_draw")
+id = "ember_blazing_draw"
+display_name = "Blazing Draw"
+description = "Once per battle: the rush of flame lets you draw 3 cards instantly."
+skill_type = "active"
+effect_type = "active_draw"
+effect_value = 3
+prerequisites = ["ember_flame_tempo"]
+tree_row = 2
+tree_col = 3
+magic_branch = "ember"
+alt_cost = 0

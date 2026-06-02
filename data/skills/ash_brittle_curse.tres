@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://kayg7empr23e"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_ash_brittle_curse"]
+
+[resource]
+script = ExtResource("1_ash_brittle_curse")
+id = "ash_brittle_curse"
+display_name = "Brittle Curse"
+description = "Once per battle: curse the battlefield with ash, dealing 2 damage to all enemies."
+skill_type = "active"
+effect_type = "active_damage_all"
+effect_value = 2
+prerequisites = ["ash_brittle_edge"]
+tree_row = 2
+tree_col = 3
+magic_branch = "ash"
+alt_cost = 2

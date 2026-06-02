@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://u4kc3hya4vbp"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_dusk_mana_drain"]
+
+[resource]
+script = ExtResource("1_dusk_mana_drain")
+id = "dusk_mana_drain"
+display_name = "Mana Drain"
+description = "Once per battle: siphon 3 mana from your opponent."
+skill_type = "active"
+effect_type = "active_mana"
+effect_value = 3
+prerequisites = ["dusk_void_tempo"]
+tree_row = 2
+tree_col = 3
+magic_branch = "dusk"
+alt_cost = 0

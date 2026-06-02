@@ -35,6 +35,7 @@
 | [GID-029](goals/GID-029--character-equipment/goal.md) | Character Screen & Multi-Slot Equipment | done | 4 / 4 |
 | [GID-030](goals/GID-030--skill-tree-xp/goal.md) | Skill Tree & XP System | done | 6 / 6 |
 | [GID-031](goals/GID-031--popup-tutorial-guides/goal.md) | Popup Tutorial Guide System | done | 3 / 3 |
+| [GID-032](goals/GID-032--multiple-skill-trees/goal.md) | Multiple Skill Trees per Magic Branch | done | 6 / 6 |
 
 ## Backlog
 

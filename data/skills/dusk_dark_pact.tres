@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://e427w71pvjwz"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_dusk_dark_pact"]
+
+[resource]
+script = ExtResource("1_dusk_dark_pact")
+id = "dusk_dark_pact"
+display_name = "Dark Pact"
+description = "A pact with shadow sharpens your edge. +1 attack."
+skill_type = "passive"
+effect_type = "passive_atk"
+effect_value = 1
+prerequisites = []
+tree_row = 0
+tree_col = 0
+magic_branch = "dusk"
+alt_cost = 0

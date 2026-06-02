@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://rzr7zd4oe101"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_dusk_lifetap"]
+
+[resource]
+script = ExtResource("1_dusk_lifetap")
+id = "dusk_lifetap"
+display_name = "Lifetap"
+description = "Each stolen life force bolsters you. +10 max HP."
+skill_type = "passive"
+effect_type = "passive_hp"
+effect_value = 10
+prerequisites = ["dusk_dark_pact"]
+tree_row = 1
+tree_col = 0
+magic_branch = "dusk"
+alt_cost = 0

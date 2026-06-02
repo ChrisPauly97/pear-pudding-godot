@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://hosl6x4dvmld"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_dawn_restoration"]
+
+[resource]
+script = ExtResource("1_dawn_restoration")
+id = "dawn_restoration"
+display_name = "Restoration"
+description = "Once per battle: channel dawn energy to restore 8 hero HP."
+skill_type = "active"
+effect_type = "active_heal"
+effect_value = 8
+prerequisites = ["dawn_radiant_shield"]
+tree_row = 2
+tree_col = 0
+magic_branch = "dawn"
+alt_cost = 2

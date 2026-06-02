@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://sl0gcpbemekg"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_ash_bone_armour"]
+
+[resource]
+script = ExtResource("1_ash_bone_armour")
+id = "ash_bone_armour"
+display_name = "Bone Armour"
+description = "Risen bones clad your flesh. +15 max HP."
+skill_type = "passive"
+effect_type = "passive_hp"
+effect_value = 15
+prerequisites = ["ash_cinderheart"]
+tree_row = 1
+tree_col = 0
+magic_branch = "ash"
+alt_cost = 0

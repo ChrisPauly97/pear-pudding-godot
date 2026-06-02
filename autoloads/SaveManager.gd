@@ -86,6 +86,12 @@ var level: int = 1
 var skill_points: int = 0
 var unlocked_skills: Array[String] = []
 
+# Magic progression
+## "light", "dark", or "" (not yet chosen)
+var magic_type: String = ""
+var corruption_points: int = 0
+var redemption_points: int = 0
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -164,13 +170,16 @@ func new_game() -> void:
 	level = 1
 	skill_points = 0
 	unlocked_skills = []
+	magic_type = ""
+	corruption_points = 0
+	redemption_points = 0
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 12
+const CURRENT_SAVE_VERSION: int = 13
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -293,6 +302,13 @@ static func _migrate_v11_to_v12(data: Dictionary) -> void:
 	if not data.has("unlocked_skills"): data["unlocked_skills"] = []
 	data["version"] = 12
 
+# _migrate_v12_to_v13: backfill magic type and cross-magic currency for old saves.
+static func _migrate_v12_to_v13(data: Dictionary) -> void:
+	if not data.has("magic_type"):          data["magic_type"] = ""
+	if not data.has("corruption_points"):   data["corruption_points"] = 0
+	if not data.has("redemption_points"):   data["redemption_points"] = 0
+	data["version"] = 13
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -319,6 +335,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v10_to_v11(data)
 	if ver < 12:
 		_migrate_v11_to_v12(data)
+	if ver < 13:
+		_migrate_v12_to_v13(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -372,6 +390,9 @@ func load_save() -> bool:
 	level = int(data.get("level", 1))
 	skill_points = int(data.get("skill_points", 0))
 	unlocked_skills.assign(data.get("unlocked_skills", []))
+	magic_type = str(data.get("magic_type", ""))
+	corruption_points = int(data.get("corruption_points", 0))
+	redemption_points = int(data.get("redemption_points", 0))
 	_loaded = true
 	return true
 
@@ -417,6 +438,9 @@ func save() -> void:
 		"level": level,
 		"skill_points": skill_points,
 		"unlocked_skills": unlocked_skills,
+		"magic_type": magic_type,
+		"corruption_points": corruption_points,
+		"redemption_points": redemption_points,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -707,6 +731,10 @@ static func _compute_level(current_xp: int) -> int:
 		lvl += 1
 	return lvl - 1
 
+func set_magic_type(t: String) -> void:
+	magic_type = t
+	_dirty = true
+
 func has_skill(id: String) -> bool:
 	return unlocked_skills.has(id)
 
@@ -716,6 +744,30 @@ func unlock_skill(id: String) -> void:
 	unlocked_skills.append(id)
 	skill_points = max(0, skill_points - 1)
 	_dirty = true
+
+func unlock_cross_skill(id: String, cost: int, currency: String) -> void:
+	if unlocked_skills.has(id):
+		return
+	if currency == "corruption":
+		if corruption_points < cost:
+			return
+		corruption_points -= cost
+	else:
+		if redemption_points < cost:
+			return
+		redemption_points -= cost
+	unlocked_skills.append(id)
+	_dirty = true
+
+func add_corruption_points(amount: int) -> void:
+	corruption_points += amount
+	_dirty = true
+	GameBus.corruption_points_changed.emit(corruption_points)
+
+func add_redemption_points(amount: int) -> void:
+	redemption_points += amount
+	_dirty = true
+	GameBus.redemption_points_changed.emit(redemption_points)
 
 func add_xp(amount: int) -> void:
 	xp += amount

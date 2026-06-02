@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://wm1m20yoailg"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_ember_pyroblast"]
+
+[resource]
+script = ExtResource("1_ember_pyroblast")
+id = "ember_pyroblast"
+display_name = "Pyroblast"
+description = "Once per battle: unleash a fireball that deals 3 damage to all enemies."
+skill_type = "active"
+effect_type = "active_damage_all"
+effect_value = 3
+prerequisites = ["ember_inferno_surge"]
+tree_row = 2
+tree_col = 0
+magic_branch = "ember"
+alt_cost = 2

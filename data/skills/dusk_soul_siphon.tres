@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://pjk49el1fr11"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_dusk_soul_siphon"]
+
+[resource]
+script = ExtResource("1_dusk_soul_siphon")
+id = "dusk_soul_siphon"
+display_name = "Soul Siphon"
+description = "Once per battle: drain life from your enemies, restoring 6 hero HP."
+skill_type = "active"
+effect_type = "active_heal"
+effect_value = 6
+prerequisites = ["dusk_lifetap"]
+tree_row = 2
+tree_col = 0
+magic_branch = "dusk"
+alt_cost = 2

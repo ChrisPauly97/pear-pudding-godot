@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://exhu07otu6is"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_dawn_inner_light"]
+
+[resource]
+script = ExtResource("1_dawn_inner_light")
+id = "dawn_inner_light"
+display_name = "Inner Light"
+description = "The light within fortifies your body. +8 max HP."
+skill_type = "passive"
+effect_type = "passive_hp"
+effect_value = 8
+prerequisites = []
+tree_row = 0
+tree_col = 0
+magic_branch = "dawn"
+alt_cost = 0

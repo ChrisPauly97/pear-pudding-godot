@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://58dyrioj6mp0"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_ember_flame_tempo"]
+
+[resource]
+script = ExtResource("1_ember_flame_tempo")
+id = "ember_flame_tempo"
+display_name = "Flame Tempo"
+description = "The heat of battle sharpens your reflexes. Draw 1 extra card."
+skill_type = "passive"
+effect_type = "passive_draw"
+effect_value = 1
+prerequisites = ["ember_torch_bearer"]
+tree_row = 1
+tree_col = 3
+magic_branch = "ember"
+alt_cost = 0

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://lbwp3v5er7xe"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_dawn_radiant_shield"]
+
+[resource]
+script = ExtResource("1_dawn_radiant_shield")
+id = "dawn_radiant_shield"
+display_name = "Radiant Shield"
+description = "Your faith hardens into armour. +15 max HP."
+skill_type = "passive"
+effect_type = "passive_hp"
+effect_value = 15
+prerequisites = ["dawn_inner_light"]
+tree_row = 1
+tree_col = 0
+magic_branch = "dawn"
+alt_cost = 0
