@@ -121,6 +121,23 @@ Labels and panels parented to a `CanvasLayer` (always on top):
   - First enemy proximity → battle hint (`tutorial_enemy_tip`)
   - Android vs desktop control names chosen via `OS.has_feature("android")`
 
+### TutorialPopup (`scenes/ui/TutorialPopup.gd`)
+
+Reusable modal overlay for in-game tutorial guides. Any system can trigger one by emitting `GameBus.tutorial_popup_requested(popup_id)`.
+
+**Flow:**
+1. Emitter calls `GameBus.tutorial_popup_requested.emit("skill_tree")` (or any registered ID).
+2. `SceneManager._on_tutorial_popup_requested()` checks `SaveManager.get_story_flag("seen_tutorial_" + popup_id)` — skips if already seen.
+3. Looks up content in `TutorialRegistry.get_entry(popup_id)` — skips if ID unknown.
+4. Sets the seen flag immediately, instantiates `TutorialPopup`, calls `popup.setup(title, body)`, adds to `get_tree().root`.
+5. On `closed` signal: popup is freed.
+
+**Layout:** full-screen dark backdrop (alpha 0.65) → centered `PanelContainer` (70% vw × 50% vh) → `VBoxContainer` with title label (3.5% vh), separator, autowrap body label, "Got it" button (5.5% vh tall).
+
+**Dismiss:** "Got it" button press OR `ui_cancel` / `ui_accept` key.
+
+**Adding a new popup:** add one entry to `game_logic/TutorialRegistry.gd`'s `_DATA` dict — no UI code changes needed.
+
 ### BattleScene — First-Battle Tutorial Overlay
 
 On the player's first battle (flag `tutorial_battle_tip` not set), a semi-transparent `ColorRect` overlay is shown centred on screen:
@@ -180,6 +197,8 @@ Recommended fractions: buttons 12–18% width, 5–6% height; font 2–2.5% heig
 | SettingsScene | `scenes/ui/SettingsScene.gd` | Volume sliders overlay (GID-026) |
 | ShopScene | `scenes/ui/ShopScene.tscn` | Merchant shop overlay |
 | VirtualJoystick scene | `scenes/ui/VirtualJoystick.tscn` | Mobile overlay |
+| TutorialPopup | `scenes/ui/TutorialPopup.gd` | Pure-code modal overlay; no .tscn needed |
+| TutorialRegistry | `game_logic/TutorialRegistry.gd` | Static data store for popup content |
 | `SceneManager.gd` | `autoloads/SceneManager.gd` | Autoload singleton |
 | UI theme / font | `assets/` | Optional custom theme `.tres`; falls back to Godot default |
 | Title art | `assets/textures/` | Background for MenuScene (optional) |

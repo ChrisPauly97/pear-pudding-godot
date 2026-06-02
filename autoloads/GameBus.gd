@@ -36,3 +36,6 @@ signal equipment_dropped(equip_id: String)
 signal level_up(new_level: int)
 signal xp_changed(new_xp: int, new_level: int)
 signal skill_tree_requested
+
+# Tutorial signals
+signal tutorial_popup_requested(popup_id: String)
