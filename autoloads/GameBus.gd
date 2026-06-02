@@ -38,3 +38,6 @@ signal xp_changed(new_xp: int, new_level: int)
 signal skill_tree_requested
 signal corruption_points_changed(new_amount: int)
 signal redemption_points_changed(new_amount: int)
+
+# Tutorial signals
+signal tutorial_popup_requested(popup_id: String)

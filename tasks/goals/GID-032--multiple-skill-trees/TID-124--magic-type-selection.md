@@ -1,9 +1,9 @@
-# TID-118: Player Magic Type Selection Flow
+# TID-124: Player Magic Type Selection Flow
 
-**Goal:** GID-031
+**Goal:** GID-032
 **Type:** agent
 **Status:** done
-**Depends On:** TID-116
+**Depends On:** TID-122
 
 ## Lock
 
@@ -37,7 +37,7 @@ func set_magic_type(t: String) -> void:
 ```
 (No signal needed — this fires once, and SkillTreeScene reads the value synchronously after.)
 
-**Magic type → branch mapping** (used by TID-119 UI):
+**Magic type → branch mapping** (used by TID-125 UI):
 ```gdscript
 const MAGIC_BRANCHES: Dictionary = {
     "light": ["ember", "dawn"],
@@ -46,7 +46,7 @@ const MAGIC_BRANCHES: Dictionary = {
 ```
 Define this const inside `SkillTreeScene` — no need to add it to IsoConst.
 
-**Opposing magic** (used for cross-magic tab in TID-119):
+**Opposing magic** (used for cross-magic tab in TID-125):
 ```gdscript
 func _opposing_magic(mt: String) -> String:
     return "dark" if mt == "light" else "light"
@@ -58,9 +58,9 @@ func _opposing_magic(mt: String) -> String:
 
 ## Plan
 
-1. `set_magic_type()` already exists in SaveManager from TID-116 — no SaveManager change needed.
+1. `set_magic_type()` already exists in SaveManager from TID-122 — no SaveManager change needed.
 2. Rewrite `SkillTreeScene.gd`:
-   - Add `MAGIC_BRANCHES` const and `_opposing_magic()` helper (needed by TID-119 too).
+   - Add `MAGIC_BRANCHES` const and `_opposing_magic()` helper (needed by TID-125 too).
    - Gate `_ready()`: if `magic_type == ""` call `_build_magic_choice()`, else call `_build_ui()` + `_refresh()` as before.
    - Add `_build_magic_choice()` — full-screen overlay with two column choices.
    - Add `_make_choice_column()` helper to avoid duplication between Light/Dark columns.
@@ -72,4 +72,4 @@ func _opposing_magic(mt: String) -> String:
 
 ## Documentation Updates
 
-No agent docs updated in this task — TID-121 covers documentation for the full goal.
+No agent docs updated in this task — TID-127 covers documentation for the full goal.

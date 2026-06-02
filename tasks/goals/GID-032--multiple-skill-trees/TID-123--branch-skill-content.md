@@ -1,9 +1,9 @@
-# TID-117: Create 24 Branch-Specific Skill .tres Files
+# TID-123: Create 24 Branch-Specific Skill .tres Files
 
-**Goal:** GID-031
+**Goal:** GID-032
 **Type:** agent
 **Status:** done
-**Depends On:** TID-116
+**Depends On:** TID-122
 
 ## Lock
 
@@ -103,4 +103,4 @@ python3 -c "import random,string; print('uid://'+''.join(random.choices(string.a
 
 ## Documentation Updates
 
-No agent docs updated in this task — TID-121 covers documentation for the full goal.
+No agent docs updated in this task — TID-127 covers documentation for the full goal.

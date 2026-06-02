@@ -1,9 +1,9 @@
-# TID-121: Update Agent Documentation
+# TID-127: Update Agent Documentation
 
-**Goal:** GID-031
+**Goal:** GID-032
 **Type:** agent
 **Status:** done
-**Depends On:** TID-119, TID-120
+**Depends On:** TID-125, TID-126
 
 ## Lock
 
@@ -13,7 +13,7 @@
 
 ## Context
 
-GID-031 significantly changes the skill system: single tree → 4 branch trees, new currencies, new save fields, new UI flow. Agent docs must reflect the final state so future tasks can orient quickly.
+GID-032 significantly changes the skill system: single tree → 4 branch trees, new currencies, new save fields, new UI flow. Agent docs must reflect the final state so future tasks can orient quickly.
 
 ## Research Notes
 

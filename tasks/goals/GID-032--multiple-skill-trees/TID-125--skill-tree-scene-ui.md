@@ -1,9 +1,9 @@
-# TID-119: Update SkillTreeScene — Home Tabs + Cross-Magic Tab
+# TID-125: Update SkillTreeScene — Home Tabs + Cross-Magic Tab
 
-**Goal:** GID-031
+**Goal:** GID-032
 **Type:** agent
 **Status:** done
-**Depends On:** TID-116, TID-117, TID-118
+**Depends On:** TID-122, TID-123, TID-124
 
 ## Lock
 
@@ -123,8 +123,8 @@ func _cross_currency() -> String:
 ## Changes Made
 
 - `autoloads/SaveManager.gd`: added `unlock_cross_skill(id, cost, currency)` — checks the relevant currency balance, decrements it, appends id to `unlocked_skills`, sets `_dirty`. Does not touch `skill_points`.
-- `scenes/ui/SkillTreeScene.gd`: full rewrite preserving magic choice modal from TID-118; added `_active_tab: int`, `_tab_buttons: Array[Button]`; added `_branch_for_tab()`, `_tab_label()`, `_tab_color()`, `_cross_magic_ids()`, `_cross_currency()` helpers; `_build_ui()` now inserts a 3-button tab bar between header and grid; `_set_tab()` updates active tab highlight and calls `_refresh()`; `_refresh()` filters skill IDs by active tab and passes `is_cross` to node builder; `_make_skill_node()` shows currency cost ("Unlock (2 CP)"/"Unlock (2 RP)") for cross-magic skills and skips prerequisite checks for them; `_on_cross_unlock_pressed()` delegates to `SaveManager.unlock_cross_skill()`; header now shows "SP: X  |  CP: X  |  RP: X".
+- `scenes/ui/SkillTreeScene.gd`: full rewrite preserving magic choice modal from TID-124; added `_active_tab: int`, `_tab_buttons: Array[Button]`; added `_branch_for_tab()`, `_tab_label()`, `_tab_color()`, `_cross_magic_ids()`, `_cross_currency()` helpers; `_build_ui()` now inserts a 3-button tab bar between header and grid; `_set_tab()` updates active tab highlight and calls `_refresh()`; `_refresh()` filters skill IDs by active tab and passes `is_cross` to node builder; `_make_skill_node()` shows currency cost ("Unlock (2 CP)"/"Unlock (2 RP)") for cross-magic skills and skips prerequisite checks for them; `_on_cross_unlock_pressed()` delegates to `SaveManager.unlock_cross_skill()`; header now shows "SP: X  |  CP: X  |  RP: X".
 
 ## Documentation Updates
 
-No agent docs updated in this task — TID-121 covers documentation for the full goal.
+No agent docs updated in this task — TID-127 covers documentation for the full goal.

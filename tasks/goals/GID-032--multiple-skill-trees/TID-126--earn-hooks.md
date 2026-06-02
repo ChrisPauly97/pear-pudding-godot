@@ -1,9 +1,9 @@
-# TID-120: Stub Corruption/Redemption Earn Hooks
+# TID-126: Stub Corruption/Redemption Earn Hooks
 
-**Goal:** GID-031
+**Goal:** GID-032
 **Type:** agent
 **Status:** done
-**Depends On:** TID-116
+**Depends On:** TID-122
 
 ## Lock
 
@@ -36,7 +36,7 @@ signal corruption_points_changed(new_amount: int)
 signal redemption_points_changed(new_amount: int)
 ```
 
-**Design note on earning:** Dark dialogue choices earn corruption points; light dialogue choices earn redemption points. This is symmetric and player-agnostic — both currencies are available to any player. The currency that matters for cross-magic purchasing depends on the player's home magic type (see TID-119 research notes).
+**Design note on earning:** Dark dialogue choices earn corruption points; light dialogue choices earn redemption points. This is symmetric and player-agnostic — both currencies are available to any player. The currency that matters for cross-magic purchasing depends on the player's home magic type (see TID-125 research notes).
 
 **No callers yet.** These methods are only called by dialogue scripts in a future goal. No wiring to existing dialogue scenes in this task.
 
@@ -56,4 +56,4 @@ signal redemption_points_changed(new_amount: int)
 
 ## Documentation Updates
 
-No agent docs updated in this task — TID-121 covers documentation for the full goal.
+No agent docs updated in this task — TID-127 covers documentation for the full goal.

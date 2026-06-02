@@ -1,6 +1,6 @@
-# TID-116: Extend SkillData + SaveManager Data Model
+# TID-122: Extend SkillData + SaveManager Data Model
 
-**Goal:** GID-031
+**Goal:** GID-032
 **Type:** agent
 **Status:** done
 **Depends On:** —
@@ -49,7 +49,7 @@ var redemption_points: int = 0
 - Add `_migrate_v12_to_v13()`: backfill `magic_type = ""`, `corruption_points = 0`, `redemption_points = 0`.
 - Add to `new_game()`, `_load()`, and `_to_dict()`.
 
-**No GameBus signals in this task** — those are added in TID-120 alongside the earn methods.
+**No GameBus signals in this task** — those are added in TID-126 alongside the earn methods.
 
 **Files to modify:**
 - `data/SkillData.gd`
@@ -86,4 +86,4 @@ var redemption_points: int = 0
 
 ## Documentation Updates
 
-No agent docs updated in this task — TID-121 covers documentation for the full goal.
+No agent docs updated in this task — TID-127 covers documentation for the full goal.

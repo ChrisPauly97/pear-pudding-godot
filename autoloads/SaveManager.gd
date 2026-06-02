@@ -461,6 +461,8 @@ func sync_stacks(m_stack: Array[String], d_stack: Array[String]) -> void:
 	door_stack.assign(d_stack)
 
 func add_coins(amount: int) -> void:
+	if coins == 0 and amount > 0:
+		GameBus.tutorial_popup_requested.emit("coins")
 	coins += amount
 	_dirty = true
 	coins_changed.emit(coins)
@@ -509,6 +511,8 @@ func add_card_instance(template_id: String, rarity: String, attack: int = -1, he
 		"health": hp,
 		"cost": c,
 	})
+	if rarity != "common":
+		GameBus.tutorial_popup_requested.emit("card_rarity")
 	_dirty = true
 	return uid
 
@@ -540,6 +544,8 @@ func scrap_card_instance(uid: String) -> void:
 		return
 	var rarity: String = str(inst.get("rarity", "common"))
 	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+	if essence == 0:
+		GameBus.tutorial_popup_requested.emit("essence")
 	essence += int(cfg.get("scrap_essence", 0))
 	GameBus.essence_changed.emit(essence)
 	remove_card_instance(uid)

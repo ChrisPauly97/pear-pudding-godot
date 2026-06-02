@@ -1,4 +1,4 @@
-# GID-031: Multiple Skill Trees per Magic Branch
+# GID-032: Multiple Skill Trees per Magic Branch
 
 ## Objective
 
@@ -14,12 +14,12 @@ Earn logic for corruption/redemption points is stubbed (SaveManager methods + Ga
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-116 | Extend SkillData + SaveManager data model | agent | done | — |
-| TID-117 | Create 24 branch-specific skill .tres files | agent | done | TID-116 |
-| TID-118 | Player magic type selection flow | agent | done | TID-116 |
-| TID-119 | Update SkillTreeScene: home tabs + cross-magic tab | agent | done | TID-116, TID-117, TID-118 |
-| TID-120 | Stub corruption/redemption earn hooks | agent | done | TID-116 |
-| TID-121 | Update agent documentation | agent | done | TID-119, TID-120 |
+| TID-122 | Extend SkillData + SaveManager data model | agent | done | — |
+| TID-123 | Create 24 branch-specific skill .tres files | agent | done | TID-122 |
+| TID-124 | Player magic type selection flow | agent | done | TID-122 |
+| TID-125 | Update SkillTreeScene: home tabs + cross-magic tab | agent | done | TID-122, TID-123, TID-124 |
+| TID-126 | Stub corruption/redemption earn hooks | agent | done | TID-122 |
+| TID-127 | Update agent documentation | agent | done | TID-125, TID-126 |
 
 ## Acceptance Criteria
 
