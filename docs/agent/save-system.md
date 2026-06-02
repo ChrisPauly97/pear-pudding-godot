@@ -77,6 +77,31 @@ Every mutating method (`add_card`, `set_player_position`, `mark_enemy_defeated`,
 | `starting_biome` | `String` | Biome override for the player's safe starting zone |
 | `equipped_weapon` | `String` | ID of the currently equipped weapon (`""` = none); added v5 |
 | `collected_scrolls` | `Array[String]` | IDs of lore scrolls already collected; added v6 |
+| `xp` | `int` | Total XP earned; added v12 |
+| `level` | `int` | Current level (derived from XP); added v12 |
+| `skill_points` | `int` | Unspent skill points from level-ups; added v12 |
+| `unlocked_skills` | `Array[String]` | Skill IDs that have been purchased; added v12 |
+| `magic_type` | `String` | Player's home magic type: `"light"`, `"dark"`, or `""` (not yet chosen); added v13 |
+| `corruption_points` | `int` | Currency earned via dark dialogue choices, spent on cross-magic light skills; added v13 |
+| `redemption_points` | `int` | Currency earned via light dialogue choices, spent on cross-magic dark skills; added v13 |
+
+### Migration History
+
+| Version | Added fields |
+|---|---|
+| v1 | `owned_cards` |
+| v2 | `world_seed`, `starting_biome` |
+| v3 | `story_flags` |
+| v4 | `days_elapsed`, `last_respawn_day` |
+| v5 | `equipped_weapon` |
+| v6 | `collected_scrolls` |
+| v7 | `owned_weapons` |
+| v8 | `settings`, `achievement_progress`, `unlocked_achievements`, `visited_biomes` |
+| v9 | `visited_dungeon_rooms` |
+| v10 | `owned_cards` converted to `Array[Dictionary]` instances; `essence` added |
+| v11 | `equipped_armor`, `equipped_ring`, `equipped_trinket`, `owned_armor`, `owned_rings`, `owned_trinkets` |
+| v12 | `xp`, `level`, `skill_points`, `unlocked_skills` |
+| v13 | `magic_type`, `corruption_points`, `redemption_points` |
 
 ### Migration
 

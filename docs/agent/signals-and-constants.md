@@ -70,6 +70,10 @@ This means `EnemyNPC` never imports `SceneManager`, and `BattleScene` never impo
 | `all_scrolls_collected` | `WorldScene._on_scroll_collected` | _(future achievements system)_ | _(none)_ |
 | `journal_requested` | `WorldScene` (J key / Journal btn) | `SceneManager` | _(none)_ |
 | `dialogue_state_changed` | `WorldScene._show_dialogue()` / timer | `AudioManager` (suppress narration) | `active: bool` |
+| `level_up` | `SaveManager.add_xp()` | `SceneManager` (toast) | `new_level: int` |
+| `xp_changed` | `SaveManager.add_xp()` | HUD XP bar | `new_xp: int, new_level: int` |
+| `corruption_points_changed` | `SaveManager.add_corruption_points()` | _(future UI listeners)_ | `new_amount: int` |
+| `redemption_points_changed` | `SaveManager.add_redemption_points()` | _(future UI listeners)_ | `new_amount: int` |
 
 ---
 
