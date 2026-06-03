@@ -13,7 +13,7 @@ var _active_tab: int = 0
 var _tab_buttons: Array[Button] = []
 
 const _ROWS: int = 3
-const _COLS: int = 5
+const _COLS: int = 4
 
 const MAGIC_BRANCHES: Dictionary = {
 	"light": ["ember", "dawn"],
@@ -184,8 +184,8 @@ func _build_ui() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 
-	var panel_w: float = _vw * 0.94
-	var panel_h: float = _vh * 0.90
+	var panel_w: float = _vw * 0.96
+	var panel_h: float = _vh * 0.92
 
 	var outer := PanelContainer.new()
 	outer.custom_minimum_size = Vector2(panel_w, panel_h)
@@ -194,64 +194,70 @@ func _build_ui() -> void:
 	add_child(outer)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.015))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.015))
+	margin.add_theme_constant_override("margin_left",   int(_vw * 0.03))
+	margin.add_theme_constant_override("margin_right",  int(_vw * 0.03))
 	margin.add_theme_constant_override("margin_top",    int(_vh * 0.015))
 	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.015))
 	outer.add_child(margin)
 
 	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_vh * 0.012))
+	root_vbox.add_theme_constant_override("separation", int(_vh * 0.010))
 	margin.add_child(root_vbox)
 
-	# Header row
+	# ── Header: title + stats on the left, big X close on the right ──
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", int(_vw * 0.02))
 	root_vbox.add_child(header)
 
+	var title_stack := VBoxContainer.new()
+	title_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title_stack.add_theme_constant_override("separation", int(_vh * 0.004))
+	header.add_child(title_stack)
+
 	var title_lbl := Label.new()
 	title_lbl.text = "Skill Tree"
-	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.035))
-	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title_lbl)
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.032))
+	title_stack.add_child(title_lbl)
 
 	_points_label = Label.new()
-	_points_label.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	_points_label.add_theme_font_size_override("font_size", int(_vh * 0.018))
 	_points_label.modulate = Color(1.0, 0.85, 0.2)
-	header.add_child(_points_label)
+	title_stack.add_child(_points_label)
 
 	var close_btn := Button.new()
-	close_btn.text = "Close"
-	close_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.05)
-	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	close_btn.text = "X"
+	var close_size: float = _vw * 0.13
+	close_btn.custom_minimum_size = Vector2(close_size, close_size)
+	close_btn.add_theme_font_size_override("font_size", int(close_size * 0.45))
 	close_btn.pressed.connect(func() -> void: closed.emit())
 	header.add_child(close_btn)
 
-	# Tab bar
+	# ── Tab bar ──
 	var tab_bar := HBoxContainer.new()
-	tab_bar.add_theme_constant_override("separation", int(_vw * 0.01))
+	tab_bar.add_theme_constant_override("separation", int(_vw * 0.015))
 	root_vbox.add_child(tab_bar)
 
 	_tab_buttons.clear()
+	var tab_w: float = (_vw * 0.90 - _vw * 0.015 * 2) / 3.0
 	for i in 3:
 		var tb := Button.new()
 		tb.text = _tab_label(i)
-		tb.custom_minimum_size = Vector2(_vw * 0.20, _vh * 0.05)
+		tb.custom_minimum_size = Vector2(tab_w, _vh * 0.055)
 		tb.add_theme_font_size_override("font_size", int(_vh * 0.021))
 		tb.modulate = _tab_color(i) if i == _active_tab else Color(0.5, 0.5, 0.5)
 		tb.pressed.connect(_set_tab.bind(i))
 		tab_bar.add_child(tb)
 		_tab_buttons.append(tb)
 
-	# Skill grid
+	# ── Skill grid ──
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_vbox.add_child(scroll)
 
 	_grid = GridContainer.new()
 	_grid.columns = _COLS
-	_grid.add_theme_constant_override("h_separation", int(_vw * 0.01))
-	_grid.add_theme_constant_override("v_separation", int(_vh * 0.015))
+	_grid.add_theme_constant_override("h_separation", int(_vw * 0.015))
+	_grid.add_theme_constant_override("v_separation", int(_vh * 0.012))
 	scroll.add_child(_grid)
 
 func _set_tab(tab: int) -> void:
@@ -281,8 +287,8 @@ func _refresh() -> void:
 		if sk != null:
 			skill_map["%d,%d" % [sk.tree_row, sk.tree_col]] = sk
 
-	var node_w: float = _vh * 0.18
-	var node_h: float = _vh * 0.20
+	var node_w: float = (_vw * 0.90 - _vw * 0.015 * 3) / 4.0
+	var node_h: float = _vh * 0.19
 
 	for r in _ROWS:
 		for c in _COLS:
