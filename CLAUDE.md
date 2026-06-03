@@ -273,6 +273,45 @@ mat.shader = _TerrainShader
 
 ---
 
+## Android: Always preload() .tres Files — Never Use ResourceLoader.load()
+
+### The rule
+**Never use `ResourceLoader.load()` or `DirAccess` to load `.tres` files at runtime on Android.**
+
+`DirAccess.open("res://...")` directory scanning is unreliable inside an Android APK/PCK. More critically, `ResourceLoader.load()` with a dynamic string path is invisible to Godot's export dependency scanner — the files will not be packaged in the APK and will silently fail to load.
+
+### The fix
+Always use `preload()` constants. This creates a compile-time dependency chain that Godot's scanner follows, guaranteeing the files are in the APK.
+
+```gdscript
+# Bad — dynamic string load, files missing from Android APK
+var dir := DirAccess.open("res://data/skills")
+var res := ResourceLoader.load("res://data/skills/" + fname)
+
+# Good — explicit preloads, always packaged
+const _SKILL_A := preload("res://data/skills/ember_searing_focus.tres")
+const _SKILL_B := preload("res://data/skills/dawn_clarity.tres")
+# …one const per file; add a new line whenever a new .tres is created
+```
+
+For registries that load many `.tres` files (e.g. `SkillRegistry.gd`), declare all resources as `const` preloads at the top, then iterate them in `_ensure_loaded()`:
+
+```gdscript
+const _S_EMBER_SEARING_FOCUS := preload("res://data/skills/ember_searing_focus.tres")
+# …
+
+static func _ensure_loaded() -> void:
+    var all: Array = [_S_EMBER_SEARING_FOCUS, ...]
+    for res in all:
+        var skill: SkillData = res as SkillData
+        if skill != null:
+            _skills[skill.id] = skill
+```
+
+The dependency chain only works if the registry script itself is preloaded (directly or transitively) from a scene or autoload that Godot's scanner starts from.
+
+---
+
 ## TerrainMath: No Duplicate Terrain Code
 
 ### The problem
