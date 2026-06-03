@@ -125,7 +125,7 @@ func _on_magic_chosen(choice: String) -> void:
 	_active_tab = 0
 	_tab_buttons.clear()
 	for child in get_children():
-		child.queue_free()
+		child.free()
 	_build_ui()
 	_refresh()
 
