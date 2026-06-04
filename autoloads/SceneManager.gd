@@ -423,5 +423,8 @@ func _on_tutorial_popup_requested(popup_id: String) -> void:
 	var popup := _TutorialPopupScript.new()
 	popup.setup(str(entry.get("title", "")), str(entry.get("body", "")))
 	popup.set_anchors_preset(Control.PRESET_FULL_RECT)
-	get_tree().root.add_child(popup)
-	popup.closed.connect(func() -> void: popup.queue_free())
+	var layer := CanvasLayer.new()
+	layer.layer = 999
+	get_tree().root.add_child(layer)
+	layer.add_child(popup)
+	popup.closed.connect(func() -> void: layer.queue_free())
