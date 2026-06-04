@@ -35,8 +35,8 @@ func test_initial_max_mana_is_1() -> void:
 	assert_eq(_hero().max_mana, 1)
 
 
-func test_initial_attack_is_2() -> void:
-	assert_eq(_hero().attack, 2)
+func test_initial_attack_is_0() -> void:
+	assert_eq(_hero().attack, 0)
 
 
 func test_player_id_set_correctly() -> void:

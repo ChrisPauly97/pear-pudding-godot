@@ -6,7 +6,7 @@ var health: int = 30
 var max_health: int = 30
 var mana: int = 1
 var max_mana: int = 1
-var attack: int = 2
+var attack: int = 0
 
 # Status effects: key = effect_id ("poison","armor","freeze","stun"), value = duration/stacks int
 var status_effects: Dictionary = {}
