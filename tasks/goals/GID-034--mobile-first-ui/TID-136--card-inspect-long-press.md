@@ -1,9 +1,9 @@
-# TID-131: Card Inspect on Long Press (Battle, Inventory, Shop)
+# TID-136: Card Inspect on Long Press (Battle, Inventory, Shop)
 
 **Goal:** GID-034
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-130
+**Depends On:** TID-135
 
 ## Lock
 
@@ -13,7 +13,7 @@
 
 ## Context
 
-`CardInspectOverlay.gd` already exists but is surfaced only via a small "?" icon button inside the card node. Players on mobile cannot easily hit that button. This task wires `LongPressDetector` (TID-130) onto every card surface in the three places cards appear — battle hand, inventory card grid, and shop — so a 500 ms hold opens the inspect overlay.
+`CardInspectOverlay.gd` already exists but is surfaced only via a small "?" icon button inside the card node. Players on mobile cannot easily hit that button. This task wires `LongPressDetector` (TID-135) onto every card surface in the three places cards appear — battle hand, inventory card grid, and shop — so a 500 ms hold opens the inspect overlay.
 
 ## Research Notes
 

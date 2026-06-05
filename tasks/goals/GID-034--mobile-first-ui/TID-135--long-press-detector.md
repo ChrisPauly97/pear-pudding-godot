@@ -1,4 +1,4 @@
-# TID-130: Tap-and-Hold Long Press Detector Component
+# TID-135: Tap-and-Hold Long Press Detector Component
 
 **Goal:** GID-034
 **Type:** agent
@@ -13,7 +13,7 @@
 
 ## Context
 
-No long-press mechanic exists anywhere in the game. This task creates a small reusable helper node (`LongPressDetector`) that any Control can add as a child to gain 500 ms hold detection, working identically on both touch (Android) and mouse (desktop). Subsequent tasks (TID-131, TID-132) depend on this component.
+No long-press mechanic exists anywhere in the game. This task creates a small reusable helper node (`LongPressDetector`) that any Control can add as a child to gain 500 ms hold detection, working identically on both touch (Android) and mouse (desktop). Subsequent tasks (TID-136, TID-137) depend on this component.
 
 ## Research Notes
 
@@ -64,7 +64,7 @@ var _start_pos: Vector2 = Vector2.ZERO
 
 If `event.position.distance_to(_start_pos) > SLOP_PX`, cancel. This prevents accidental triggers on slow drag gestures.
 
-### Usage by callers (TID-131)
+### Usage by callers (TID-136)
 
 ```gdscript
 # In card node _ready():

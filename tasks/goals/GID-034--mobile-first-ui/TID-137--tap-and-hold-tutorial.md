@@ -1,9 +1,9 @@
-# TID-132: Tap-and-Hold Onboarding Tutorial
+# TID-137: Tap-and-Hold Onboarding Tutorial
 
 **Goal:** GID-034
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-130, TID-131
+**Depends On:** TID-135, TID-136
 
 ## Lock
 
@@ -13,7 +13,7 @@
 
 ## Context
 
-Long-press inspection (TID-131) is a hidden mechanic — players have no way to discover it. This task adds a one-shot tutorial popup on first battle entry that teaches the gesture. It reuses the existing `TutorialRegistry` / `TutorialPopup` system so no new UI infrastructure is needed.
+Long-press inspection (TID-136) is a hidden mechanic — players have no way to discover it. This task adds a one-shot tutorial popup on first battle entry that teaches the gesture. It reuses the existing `TutorialRegistry` / `TutorialPopup` system so no new UI infrastructure is needed.
 
 ## Research Notes
 

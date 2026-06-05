@@ -1,9 +1,9 @@
-# TID-134: World HUD & Navigation Mobile Polish
+# TID-139: World HUD & Navigation Mobile Polish
 
 **Goal:** GID-034
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-129
+**Depends On:** TID-134
 
 ## Lock
 

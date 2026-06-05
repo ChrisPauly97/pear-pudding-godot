@@ -17,12 +17,12 @@ Relevant CLAUDE.md guidance:
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-129 | UI Scale Audit & Global Size Increase | agent | pending | — |
-| TID-130 | Tap-and-Hold Long Press Detector Component | agent | pending | — |
-| TID-131 | Card Inspect on Long Press (Battle, Inventory, Shop) | agent | pending | TID-130 |
-| TID-132 | Tap-and-Hold Onboarding Tutorial | agent | pending | TID-130, TID-131 |
-| TID-133 | Simplified Battle UI Layout | agent | pending | TID-129 |
-| TID-134 | World HUD & Navigation Mobile Polish | agent | pending | TID-129 |
+| TID-134 | UI Scale Audit & Global Size Increase | agent | pending | — |
+| TID-135 | Tap-and-Hold Long Press Detector Component | agent | pending | — |
+| TID-136 | Card Inspect on Long Press (Battle, Inventory, Shop) | agent | pending | TID-135 |
+| TID-137 | Tap-and-Hold Onboarding Tutorial | agent | pending | TID-135, TID-136 |
+| TID-138 | Simplified Battle UI Layout | agent | pending | TID-134 |
+| TID-139 | World HUD & Navigation Mobile Polish | agent | pending | TID-134 |
 
 ## Acceptance Criteria
 

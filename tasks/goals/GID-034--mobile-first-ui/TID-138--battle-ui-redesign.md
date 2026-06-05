@@ -1,9 +1,9 @@
-# TID-133: Simplified Battle UI Layout
+# TID-138: Simplified Battle UI Layout
 
 **Goal:** GID-034
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-129
+**Depends On:** TID-134
 
 ## Lock
 
@@ -58,7 +58,7 @@ Current measured fractions:
 ### Do NOT change
 
 - Game logic, card play validation, AI behaviour.
-- `CardInspectOverlay.gd` (touched by TID-131).
+- `CardInspectOverlay.gd` (touched by TID-136).
 - End Turn / Menu button sizing — already large enough.
 
 ## Plan
