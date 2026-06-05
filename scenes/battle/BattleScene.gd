@@ -47,10 +47,12 @@ var _inspect_overlay: Control = null
 var _paused: bool = false
 var _pause_overlay: CanvasLayer = null
 
-# Spell targeting (TID-058)
-const _TARGETED_EFFECTS: Array[String] = ["deal_damage_single"]
+# Spell targeting (TID-058, extended TID-141)
+const _ENEMY_TARGETED_EFFECTS: Array[String] = ["deal_damage_single", "curse_minion", "lifesteal_hit"]
+const _FRIENDLY_TARGETED_EFFECTS: Array[String] = ["heal_single", "shield_minion", "buff_attack"]
 var _targeting_spell: CardInstance = null
 var _targeting_active: bool = false
+var _targeting_friendly: bool = false
 
 # Inline ability text on card faces (TID-140). Mirrors CardInspectOverlay._SPELL_EFFECT_LABELS.
 const _SPELL_EFFECT_LABELS: Dictionary = {
@@ -350,14 +352,22 @@ func _finish_hand_drag() -> void:
 	if board_rect.has_point(mouse_pos):
 		var played_card := _hand_drag_card
 		# Targeted spells: don't play yet, enter target-selection mode
-		if played_card.card_class == "spell" and _TARGETED_EFFECTS.has(played_card.spell_effect) and _state.players[0].can_play(played_card):
-			_hand_drag_card = null
-			if _drag_visual:
-				_drag_visual.queue_free()
-				_drag_visual = null
-			_hide_cancel_btn()
-			_enter_targeting_mode(played_card)
-			return
+		var is_enemy_targeted: bool = _ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
+		var is_friendly_targeted: bool = _FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
+		if played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted) and _state.players[0].can_play(played_card):
+			var skip_targeting: bool = false
+			if is_friendly_targeted and _state.players[0].board.get_cards().is_empty():
+				skip_targeting = true  # no friendly minions to target, fall through to auto-resolve
+			elif is_enemy_targeted and played_card.spell_effect != "deal_damage_single" and _state.players[1].board.get_cards().is_empty():
+				skip_targeting = true  # curse/lifesteal need a minion target; board empty, auto-resolve
+			if not skip_targeting:
+				_hand_drag_card = null
+				if _drag_visual:
+					_drag_visual.queue_free()
+					_drag_visual = null
+				_hide_cancel_btn()
+				_enter_targeting_mode(played_card, is_friendly_targeted)
+				return
 		if _state.players[0].play_card(played_card):
 			AudioManager.play_sfx("card_play")
 			if played_card.card_class == "spell":
@@ -412,14 +422,16 @@ func _hide_cancel_btn() -> void:
 		_cancel_btn.queue_free()
 		_cancel_btn = null
 
-func _enter_targeting_mode(card: CardInstance) -> void:
+func _enter_targeting_mode(card: CardInstance, friendly: bool = false) -> void:
 	_targeting_spell = card
 	_targeting_active = true
+	_targeting_friendly = friendly
 	_show_cancel_btn("✕ Cancel Spell", _cancel_targeting)
 	_refresh_all()
 
 func _cancel_targeting() -> void:
 	_targeting_active = false
+	_targeting_friendly = false
 	_targeting_spell = null
 	_hide_cancel_btn()
 	_refresh_all()
@@ -678,6 +690,7 @@ func _notification(what: int) -> void:
 func _on_target_chosen_card(target: CardInstance) -> void:
 	var spell := _targeting_spell
 	_targeting_active = false
+	_targeting_friendly = false
 	_targeting_spell = null
 	_hide_cancel_btn()
 	if _state.players[0].play_card(spell):
@@ -694,6 +707,7 @@ func _on_target_chosen_card(target: CardInstance) -> void:
 func _on_target_chosen_hero() -> void:
 	var spell := _targeting_spell
 	_targeting_active = false
+	_targeting_friendly = false
 	_targeting_spell = null
 	_hide_cancel_btn()
 	if _state.players[0].play_card(spell):
@@ -831,7 +845,13 @@ func _apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: Strin
 	style.bg_color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
 	if zone_id == "hand" and not _state.players[0].can_play(card):
 		style.bg_color = style.bg_color.darkened(0.5)
-	elif zone_id == "enemy_board" and _targeting_active:
+	elif zone_id == "enemy_board" and _targeting_active and not _targeting_friendly:
+		style.border_color = Color.CYAN
+		style.border_width_top = 4
+		style.border_width_bottom = 4
+		style.border_width_left = 4
+		style.border_width_right = 4
+	elif zone_id == "board" and _targeting_active and _targeting_friendly:
 		style.border_color = Color.CYAN
 		style.border_width_top = 4
 		style.border_width_bottom = 4
@@ -948,7 +968,7 @@ func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 				ward_blocks_hero = true
 				break
 	var is_attack_targetable: bool = is_enemy and not _dragged_card.is_empty() and not ward_blocks_hero
-	var is_spell_targetable: bool = is_enemy and _targeting_active
+	var is_spell_targetable: bool = is_enemy and _targeting_active and not _targeting_friendly
 	if is_enemy:
 		if is_spell_targetable:
 			style.bg_color = Color(0.1, 0.35, 0.45)
@@ -1026,6 +1046,9 @@ func _on_hand_card_input(event: InputEvent, card: CardInstance, panel: Control) 
 
 func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		if _targeting_active and _targeting_friendly:
+			_on_target_chosen_card(my_card)
+			return
 		if not my_card.can_attack():
 			return
 		# Always enter selection mode — player clicks a target (minion or hero)
@@ -1034,7 +1057,7 @@ func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
 
 func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if _targeting_active:
+		if _targeting_active and not _targeting_friendly:
 			_on_target_chosen_card(target)
 			return
 		if _dragged_card.is_empty():
@@ -1070,7 +1093,7 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 
 func _on_enemy_hero_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if _targeting_active:
+		if _targeting_active and not _targeting_friendly:
 			_on_target_chosen_hero()
 			return
 		if _state.current_player_idx != 0 or _ai_thinking:
@@ -1225,9 +1248,12 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target:
 					break
 		"heal_single":
 			var caster: PlayerState = _state.players[caster_pid]
-			var friendlies := caster.board.get_cards()
-			if not friendlies.is_empty():
-				var t := friendlies[0]
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var friendlies := caster.board.get_cards()
+				if not friendlies.is_empty():
+					t = friendlies[0]
+			if t != null:
 				t.health = mini(t.max_health, t.health + card.spell_power)
 		"heal_all":
 			var caster: PlayerState = _state.players[caster_pid]
@@ -1235,29 +1261,44 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target:
 				t.health = mini(t.max_health, t.health + card.spell_power)
 		"shield_minion":
 			var caster: PlayerState = _state.players[caster_pid]
-			var friendlies := caster.board.get_cards()
-			if not friendlies.is_empty():
-				friendlies[0].armor += card.spell_power
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var friendlies := caster.board.get_cards()
+				if not friendlies.is_empty():
+					t = friendlies[0]
+			if t != null:
+				t.apply_status("armor", t.get_status_value("armor") + card.spell_power)
 		"buff_attack":
 			var caster: PlayerState = _state.players[caster_pid]
-			var friendlies := caster.board.get_cards()
-			if not friendlies.is_empty():
-				friendlies[0].attack += card.spell_power
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var friendlies := caster.board.get_cards()
+				if not friendlies.is_empty():
+					t = friendlies[0]
+			if t != null:
+				t.attack += card.spell_power
 		"lifesteal_hit":
 			var caster: PlayerState = _state.players[caster_pid]
-			var targets := opponent.board.get_cards()
-			if not targets.is_empty():
-				targets[0].take_damage(card.spell_power)
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var targets := opponent.board.get_cards()
+				if not targets.is_empty():
+					t = targets[0]
+			if t != null:
+				t.take_damage(card.spell_power)
 				caster.hero.health = mini(caster.hero.max_health, caster.hero.health + card.spell_power)
-				if not targets[0].is_alive():
-					opponent.board.remove_card(targets[0])
-					opponent.discard.append(targets[0])
+				if not t.is_alive():
+					opponent.board.remove_card(t)
+					opponent.discard.append(t)
 		"mana_drain":
 			opponent.hero.mana = maxi(0, opponent.hero.mana - card.spell_power)
 		"curse_minion":
-			var targets := opponent.board.get_cards()
-			if not targets.is_empty():
-				var t := targets[0]
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var targets := opponent.board.get_cards()
+				if not targets.is_empty():
+					t = targets[0]
+			if t != null:
 				t.attack = maxi(0, t.attack - card.spell_power)
 				t.health -= card.spell_power
 				if not t.is_alive():

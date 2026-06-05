@@ -38,7 +38,7 @@
 | [GID-032](goals/GID-032--multiple-skill-trees/goal.md) | Multiple Skill Trees per Magic Branch | done | 6 / 6 |
 | [GID-033](goals/GID-033--skill-tree-hierarchy/goal.md) | Skill Tree Hierarchy Visualization | done | 1 / 1 |
 | [GID-034](goals/GID-034--battle-state-pause-resume/goal.md) | Battle State Pause/Resume Persistence | done | 5 / 5 |
-| [GID-035](goals/GID-035--card-effects-ability-text/goal.md) | Card Effects & Ability Text | pending | 1 / 3 |
+| [GID-035](goals/GID-035--card-effects-ability-text/goal.md) | Card Effects & Ability Text | pending | 2 / 3 |
 
 ## Backlog
 
