@@ -215,3 +215,35 @@ No 3D geometry or shaders are required — the battle system is a 2D UI overlay.
 - "Settings" opens `SettingsScene` inline in the pause overlay's CanvasLayer
 - Escape key toggles pause (desktop only)
 - `NOTIFICATION_APPLICATION_FOCUS_OUT` auto-pauses on app backgrounding (mobile)
+
+### Mid-Battle State Persistence (GID-034)
+
+When a player leaves a battle mid-fight (via "Return to Menu" confirm or app background kill), the full `GameState` is serialized and stored in `SaveManager.pending_battle_state`. On re-entry the battle is restored exactly.
+
+**Serialization:** every battle state class has `to_dict()` / `from_dict()`:
+- `GameState.to_dict()` — root entry point; captures `current_player_idx`, `turn_number`, and both `PlayerState` dicts
+- `PlayerState.to_dict()` — hero, board, hand, draw_deck, discard, pending_auto_spells, bonus_draw
+- `HeroState.to_dict()` — health, max_health, mana, max_mana, attack, status_effects
+- `ZoneState.to_dict()` — Array[5] of CardInstance dicts or null
+- `CardInstance.to_dict()` — all 21 fields including summoning_sick, attack_count, shroud_active, out_of_play, status_effects
+
+`CardInstance.from_dict()` calls `new()` (the empty-dict no-op path of `_init`) then sets fields directly, preserving `instance_id` for cross-reference equality.
+
+**Save triggers:**
+- "Yes, leave" confirm in pause menu: `_state.to_dict()` → `SaveManager.set_pending_battle_state()` → `save_manager.save()` → `go_to_menu()`
+- `NOTIFICATION_APPLICATION_FOCUS_OUT`: same save before auto-pausing
+
+**Restore path (BattleScene._ready):**
+```gdscript
+var saved = SceneManager.save_manager.pending_battle_state
+if not saved.is_empty():
+    _state = GameState.from_dict(saved)
+    SceneManager.save_manager.clear_pending_battle_state()
+else:
+    _state = GameState.new()
+    # … normal deck build + start_turn(1)
+```
+
+**Cleared on:** `SceneManager._on_battle_won()` and `_on_battle_lost()` both call `save_manager.clear_pending_battle_state()` alongside `clear_pending_battle()`.
+
+**Note:** `_hero_power_used` is not persisted — the player always gets their hero power back on resume, which is acceptable.

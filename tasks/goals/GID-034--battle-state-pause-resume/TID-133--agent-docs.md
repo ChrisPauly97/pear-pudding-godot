@@ -2,7 +2,7 @@
 
 **Goal:** GID-034
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-132
 
 ## Lock
@@ -33,12 +33,15 @@ Two agent docs need to reflect the new mid-battle persistence system introduced 
 
 ## Plan
 
-_Written during Plan phase._
+1. Append "Mid-Battle State Persistence (GID-034)" section to the Pause System section in battle-system.md.
+2. Add `pending_battle_state` row to the field table in save-system.md.
+3. Add v14 row to the migration history table.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `docs/agent/battle-system.md`: added "Mid-Battle State Persistence (GID-034)" section after the Pause System section, covering the full serialize/save/restore/clear flow with code examples.
+- `docs/agent/save-system.md`: added `pending_battle_state` field row; added v14 row to migration history.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+This task is itself the documentation update.
