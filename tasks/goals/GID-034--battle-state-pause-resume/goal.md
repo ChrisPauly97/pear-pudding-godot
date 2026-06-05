@@ -17,7 +17,7 @@ The existing `ZoneState.snapshot()` / `restore_snapshot()` stubs hint at a plann
 | TID-129 | Serialize GameState to/from Dictionary | agent | done | — |
 | TID-130 | Add pending_battle_state field to SaveManager | agent | done | TID-129 |
 | TID-131 | Save battle state on exit and app background | agent | done | TID-130 |
-| TID-132 | Restore saved battle state on battle re-entry | agent | pending | TID-131 |
+| TID-132 | Restore saved battle state on battle re-entry | agent | done | TID-131 |
 | TID-133 | Update agent docs (battle-system, save-system) | agent | pending | TID-132 |
 
 ## Acceptance Criteria

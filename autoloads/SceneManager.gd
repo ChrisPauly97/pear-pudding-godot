@@ -301,6 +301,7 @@ func _on_battle_won(result: Dictionary) -> void:
 	save_manager.add_xp(xp_amount)
 	session_stats["xp_earned"] = int(session_stats.get("xp_earned", 0)) + xp_amount
 	save_manager.clear_pending_battle()
+	save_manager.clear_pending_battle_state()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
@@ -312,6 +313,7 @@ func _on_battle_lost() -> void:
 	_current_battle_enemy_id = ""
 	session_stats["battles_lost"] = int(session_stats.get("battles_lost", 0)) + 1
 	save_manager.clear_pending_battle()
+	save_manager.clear_pending_battle_state()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null

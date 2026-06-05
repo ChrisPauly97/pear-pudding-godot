@@ -77,42 +77,49 @@ func _ready() -> void:
 	add_child(_float_layer)
 	_vh = get_viewport().get_visible_rect().size.y
 	_apply_ui_sizes()
-	_state = GameState.new()
-
-	# Player deck: resolve instance UIDs to template IDs for the battle engine.
-	var player_deck: Array[String] = []
-	if SceneManager.save_manager.player_deck.size() > 0:
-		player_deck = SceneManager.save_manager.get_deck_template_ids()
+	var _saved_battle: Dictionary = SceneManager.save_manager.pending_battle_state
+	if not _saved_battle.is_empty():
+		_state = GameState.from_dict(_saved_battle)
+		SceneManager.save_manager.clear_pending_battle_state()
 	else:
-		player_deck = ["ghost", "skeleton", "zombie", "ghoul",
-					   "ghost", "skeleton", "zombie", "ghoul",
-					   "ghost", "skeleton", "zombie", "ghoul"]
-	_state.players[0].build_deck(player_deck)
-	_apply_equipment_effects(_state.players[0])
-	_apply_passive_skills(_state.players[0])
-	_state.players[0].draw_opening_hand(4)
-	for _i in _state.players[0].bonus_draw:
-		_state.players[0].draw_card()
-	_flush_auto_spells(0)
+		_state = GameState.new()
 
-	# Enemy deck — scale card stats by enemy difficulty tier
-	var _enemy_type: String = str(enemy_data.get("enemy_type", ""))
-	var _enemy_tier: int = EnemyRegistry.get_difficulty_tier(_enemy_type) if _enemy_type != "" else 1
-	if bool(enemy_data.get("is_boss", false)):
-		_enemy_tier = 4
-	if enemy_data.has("enemy_deck"):
-		var enemy_deck: Array[String] = []
-		enemy_deck.assign(enemy_data["enemy_deck"])
-		_state.players[1].build_deck(enemy_deck, _enemy_tier)
-		_state.players[1].draw_opening_hand(4)
+		# Player deck: resolve instance UIDs to template IDs for the battle engine.
+		var player_deck: Array[String] = []
+		if SceneManager.save_manager.player_deck.size() > 0:
+			player_deck = SceneManager.save_manager.get_deck_template_ids()
+		else:
+			player_deck = ["ghost", "skeleton", "zombie", "ghoul",
+						   "ghost", "skeleton", "zombie", "ghoul",
+						   "ghost", "skeleton", "zombie", "ghoul"]
+		_state.players[0].build_deck(player_deck)
+		_apply_equipment_effects(_state.players[0])
+		_apply_passive_skills(_state.players[0])
+		_state.players[0].draw_opening_hand(4)
+		for _i in _state.players[0].bonus_draw:
+			_state.players[0].draw_card()
+		_flush_auto_spells(0)
 
-	# Boss setup: override enemy hero HP and show name banner
-	if bool(enemy_data.get("is_boss", false)):
-		var bhp: int = int(enemy_data.get("boss_hp", 0))
-		if bhp > 0:
-			_state.players[1].hero.health = bhp
-			_state.players[1].hero.max_health = bhp
-		_show_boss_banner()
+		# Enemy deck — scale card stats by enemy difficulty tier
+		var _enemy_type: String = str(enemy_data.get("enemy_type", ""))
+		var _enemy_tier: int = EnemyRegistry.get_difficulty_tier(_enemy_type) if _enemy_type != "" else 1
+		if bool(enemy_data.get("is_boss", false)):
+			_enemy_tier = 4
+		if enemy_data.has("enemy_deck"):
+			var enemy_deck: Array[String] = []
+			enemy_deck.assign(enemy_data["enemy_deck"])
+			_state.players[1].build_deck(enemy_deck, _enemy_tier)
+			_state.players[1].draw_opening_hand(4)
+
+		# Boss setup: override enemy hero HP and show name banner
+		if bool(enemy_data.get("is_boss", false)):
+			var bhp: int = int(enemy_data.get("boss_hp", 0))
+			if bhp > 0:
+				_state.players[1].hero.health = bhp
+				_state.players[1].hero.max_health = bhp
+			_show_boss_banner()
+
+		_state.players[0].start_turn(1)
 
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
@@ -121,7 +128,6 @@ func _ready() -> void:
 	_add_hero_power_button()
 	GameBus.turn_ended.connect(_on_turn_ended)
 
-	_state.players[0].start_turn(1)
 	_refresh_all()
 
 	AudioManager.play_music("res://assets/audio/music/battle.ogg")
