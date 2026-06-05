@@ -85,3 +85,53 @@ func start_turn(turn_number: int) -> void:
 	hero.gain_mana_for_turn(turn_number)
 	board.start_turn()
 	draw_card()
+
+func to_dict() -> Dictionary:
+	var hand_arr: Array = []
+	for c: CardInstance in hand:
+		hand_arr.append(c.to_dict())
+	var deck_arr: Array = []
+	for c: CardInstance in draw_deck:
+		deck_arr.append(c.to_dict())
+	var discard_arr: Array = []
+	for c: CardInstance in discard:
+		discard_arr.append(c.to_dict())
+	var auto_arr: Array = []
+	for c: CardInstance in pending_auto_spells:
+		auto_arr.append(c.to_dict())
+	return {
+		"player_id": player_id,
+		"is_ai": is_ai,
+		"bonus_draw": bonus_draw,
+		"hero": hero.to_dict(),
+		"board": board.to_dict(),
+		"hand": hand_arr,
+		"draw_deck": deck_arr,
+		"discard": discard_arr,
+		"pending_auto_spells": auto_arr,
+	}
+
+static func from_dict(d: Dictionary) -> PlayerState:
+	var pid: int = int(d.get("player_id", 0))
+	var ai: bool = bool(d.get("is_ai", false))
+	var ps := PlayerState.new(pid, ai)
+	ps.bonus_draw = int(d.get("bonus_draw", 0))
+	ps.hero = HeroState.from_dict(d.get("hero", {}))
+	ps.board = ZoneState.from_dict(d.get("board", []))
+	ps.hand.clear()
+	for cd in d.get("hand", []):
+		if cd is Dictionary:
+			ps.hand.append(CardInstance.from_dict(cd))
+	ps.draw_deck.clear()
+	for cd in d.get("draw_deck", []):
+		if cd is Dictionary:
+			ps.draw_deck.append(CardInstance.from_dict(cd))
+	ps.discard.clear()
+	for cd in d.get("discard", []):
+		if cd is Dictionary:
+			ps.discard.append(CardInstance.from_dict(cd))
+	ps.pending_auto_spells.clear()
+	for cd in d.get("pending_auto_spells", []):
+		if cd is Dictionary:
+			ps.pending_auto_spells.append(CardInstance.from_dict(cd))
+	return ps
