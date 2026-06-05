@@ -68,7 +68,7 @@ func _build_magic_choice() -> void:
 
 	var sub := Label.new()
 	sub.text = "This choice is permanent. Your skill trees will be drawn from the magic type you select."
-	sub.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	sub.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	sub.modulate = Color(0.72, 0.72, 0.72)
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -102,7 +102,7 @@ func _make_choice_column(header: String, header_color: Color, desc: String,
 
 	var desc_lbl := Label.new()
 	desc_lbl.text = desc
-	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	desc_lbl.modulate = Color(0.8, 0.8, 0.8)
 	desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

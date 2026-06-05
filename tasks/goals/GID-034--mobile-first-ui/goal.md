@@ -17,7 +17,7 @@ Relevant CLAUDE.md guidance:
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-134 | UI Scale Audit & Global Size Increase | agent | pending | — |
+| TID-134 | UI Scale Audit & Global Size Increase | agent | done | — |
 | TID-135 | Tap-and-Hold Long Press Detector Component | agent | pending | — |
 | TID-136 | Card Inspect on Long Press (Battle, Inventory, Shop) | agent | pending | TID-135 |
 | TID-137 | Tap-and-Hold Onboarding Tutorial | agent | pending | TID-135, TID-136 |

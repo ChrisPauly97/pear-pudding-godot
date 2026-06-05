@@ -63,7 +63,7 @@ func _ready() -> void:
 
 	var btn := Button.new()
 	btn.text = "Got it"
-	btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.055)
+	btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.065)
 	btn.add_theme_font_size_override("font_size", int(vh * 0.022))
 	btn.pressed.connect(_dismiss)
 	btn_row.add_child(btn)

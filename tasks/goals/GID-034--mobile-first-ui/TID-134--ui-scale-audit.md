@@ -2,7 +2,7 @@
 
 **Goal:** GID-034
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -79,12 +79,33 @@ _interact_r = vh * 0.055  # was 0.043
 
 ## Plan
 
-_Written during Plan phase._
+Mechanical size-raise pass across 7 files. No logic changes.
+
+| File | Violations |
+|------|-----------|
+| InventoryScene.gd | Tab btns h=0.05→0.065; +/− btns h=0.042→0.065; Sell/Scrap/Combine/Craft/Confirm btns h=0.038→0.065; Save/Close btns h=0.055→0.065; name/badge/stats/craft fonts 0.015–0.021→0.022; essence label 0.020→0.022 |
+| ShopScene.gd | Close btn h=0.055→0.065; all Buy btns h=0.05→0.065; all 0.019 info/price fonts→0.022; close font 0.02→0.022 |
+| CharacterScene.gd | Close btn h=0.05→0.065; slot btns h=0.058→0.065; unequip btn h=0.052→0.065; equip btn h=0.048→0.065; all 0.016–0.021 fonts→0.022 |
+| AchievementsScene.gd | Close X h=0.055→0.065; desc/progress/reward labels 0.016–0.017→0.022 |
+| TutorialPopup.gd | "Got it" btn h=0.055→0.065 |
+| SkillTreeScene.gd | Sub/desc labels 0.018–0.019→0.022 |
+| VirtualJoystick.gd | _jump_r 0.052→0.060; _interact_r 0.043→0.055 |
+
+Files with no violations: MenuScene.gd (0.075 h, 0.026 font), BiomeSelectionScene.gd, SettingsScene.gd, JournalScene.gd (mostly OK), RunSummaryScene.gd.
 
 ## Changes Made
 
-_Filled after Build phase._
+Raised all touch targets and label fonts to mobile minimums across 7 files:
+
+- **VirtualJoystick.gd**: `_jump_r` 0.052→0.060, `_interact_r` 0.043→0.055
+- **TutorialPopup.gd**: "Got it" button height 0.055→0.065
+- **AchievementsScene.gd**: Close X h=0.055→0.065; desc/progress/reward label fonts 0.016–0.017→0.022
+- **SkillTreeScene.gd**: sub/desc label fonts 0.018–0.019→0.022
+- **ShopScene.gd**: Close btn h=0.055→0.065; all Buy btns h=0.05→0.065; all info/price/none label fonts 0.019→0.022; close font 0.02→0.022
+- **CharacterScene.gd**: Close btn h=0.05→0.065; slot btns h=0.058→0.065; unequip btn h=0.052→0.065; equip btn h=0.048→0.065; all fonts below 0.022 raised to 0.022
+- **InventoryScene.gd**: Tab btns h=0.05→0.065; +/− btns 0.042→0.065; Sell/Scrap/Combine/Craft/Confirm btns h=0.038→0.065; Save/Close btns h=0.055→0.065; all fonts below 0.022 raised to 0.022; essence label 0.020→0.022
+- **WorldScene.gd + Minimap.gd** (covered by TID-139): map/level/XP label font increases; minimap sz 0.18→0.20; Android USE button added
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+CLAUDE.md already documents the mobile size minimums. No new agent docs needed for a mechanical size-raise pass.
