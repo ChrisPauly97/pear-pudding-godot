@@ -14,6 +14,8 @@ extends Resource
 @export var spell_effect: String = ""
 @export var spell_power: int = 0
 @export var auto_resolve: bool = false
+@export var emergence_effect: String = ""
+@export var emergence_power: int = 0
 @export var keywords: PackedStringArray = PackedStringArray()
 @export var can_craft: bool = true
 @export var is_unique: bool = false
@@ -36,4 +38,6 @@ func to_template_dict() -> Dictionary:
 		"spell_power": spell_power,
 		"auto_resolve": auto_resolve,
 		"keywords": keywords,
+		"emergence_effect": emergence_effect,
+		"emergence_power": emergence_power,
 	}

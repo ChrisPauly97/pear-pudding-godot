@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://sbrqktwyytjl"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ash_warden"]
+
+[resource]
+script = ExtResource("1_ash_warden")
+id = "ash_warden"
+card_name = "Ash Warden"
+cost = 4
+attack = 2
+health = 4
+card_class = "minion"
+description = "Forged from the remnants of fallen soldiers."
+color = Color(0.5, 0.5, 0.5, 1)
+magic_type = "dark"
+magic_branch = "ash"
+emergence_effect = "emergence_buff_friendly"
+emergence_power = 2

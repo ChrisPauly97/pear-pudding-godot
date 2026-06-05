@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://npg3lh564962"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_void_creeper"]
+
+[resource]
+script = ExtResource("1_void_creeper")
+id = "void_creeper"
+card_name = "Void Creeper"
+cost = 2
+attack = 1
+health = 3
+card_class = "minion"
+description = "It leaves a trail of wrongness behind it."
+color = Color(0.4, 0.1, 0.55, 1)
+magic_type = "dark"
+magic_branch = "dusk"
+emergence_effect = "emergence_apply_poison"
+emergence_power = 2

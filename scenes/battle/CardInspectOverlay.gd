@@ -6,6 +6,7 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 
+# Mirrors BattleScene._SPELL_EFFECT_LABELS and _EMERGENCE_LABELS (TID-140, TID-142). Keep both in sync.
 const _SPELL_EFFECT_LABELS: Dictionary = {
 	"deal_damage_single":  "Deal [power] damage to one target",
 	"deal_damage_all":     "Deal [power] damage to all enemy minions",
@@ -21,6 +22,14 @@ const _SPELL_EFFECT_LABELS: Dictionary = {
 	"mana_drain":          "Remove [power] mana from the enemy hero",
 	"curse_minion":        "Reduce an enemy minion's attack and HP by [power]",
 	"draw_card":           "Draw [power] card(s)",
+}
+
+const _EMERGENCE_LABELS: Dictionary = {
+	"emergence_deal_damage":   "Emergence: Deal [power] damage to the enemy hero",
+	"emergence_heal_hero":     "Emergence: Restore [power] HP to your hero",
+	"emergence_draw":          "Emergence: Draw [power] card(s)",
+	"emergence_buff_friendly": "Emergence: Give a friendly minion +[power] attack",
+	"emergence_apply_poison":  "Emergence: Poison a random enemy minion for [power]",
 }
 
 var _card: CardInstance = null
@@ -174,6 +183,19 @@ func _build_ui() -> void:
 			kw_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			kw_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			inner.add_child(kw_lbl)
+
+	# Emergence effect (minion on-play ability)
+	if _card != null and _card.emergence_effect != "":
+		var em_sep := HSeparator.new()
+		inner.add_child(em_sep)
+		var em_lbl := Label.new()
+		var em_tmpl: String = str(_EMERGENCE_LABELS.get(_card.emergence_effect, _card.emergence_effect))
+		em_lbl.text = em_tmpl.replace("[power]", str(_card.emergence_power))
+		em_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		em_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+		em_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		em_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		inner.add_child(em_lbl)
 
 	# Current status effects (if any)
 	if _card != null:

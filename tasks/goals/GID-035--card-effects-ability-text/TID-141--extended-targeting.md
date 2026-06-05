@@ -2,7 +2,7 @@
 
 **Goal:** GID-035
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-140
 
 ## Lock
@@ -46,12 +46,29 @@ Currently only `deal_damage_single` has a targeting UI. Six other single-target 
 
 ## Plan
 
-_Written during Plan phase._
+1. Replace `_TARGETED_EFFECTS` with `_ENEMY_TARGETED_EFFECTS` and `_FRIENDLY_TARGETED_EFFECTS` constants.
+2. Add `_targeting_friendly: bool = false` flag.
+3. Update `_finish_hand_drag()` — check both lists; skip targeting mode if no valid targets exist (friendly board empty / enemy board empty for non-hero spells); pass `friendly` bool to `_enter_targeting_mode()`.
+4. Update `_enter_targeting_mode()` to accept `friendly` parameter and set `_targeting_friendly`.
+5. Reset `_targeting_friendly` in `_cancel_targeting()`, `_on_target_chosen_card()`, `_on_target_chosen_hero()`.
+6. Update `_apply_card_style()`: cyan border on `enemy_board` only when `not _targeting_friendly`; cyan border on `board` when `_targeting_friendly`.
+7. Update `_on_board_card_input()`: resolve spell when `_targeting_active and _targeting_friendly`.
+8. Update `_on_enemy_card_input()` and `_on_enemy_hero_input()`: guard with `not _targeting_friendly`.
+9. Update `_refresh_hero()`: `is_spell_targetable` only true when `not _targeting_friendly`.
+10. Update `_resolve_spell_effect()`: `heal_single`, `shield_minion`, `buff_attack` use `explicit_target` card when provided; `curse_minion`, `lifesteal_hit` use `explicit_target` card when provided.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - Replaced `_TARGETED_EFFECTS` with `_ENEMY_TARGETED_EFFECTS` (`deal_damage_single`, `curse_minion`, `lifesteal_hit`) and `_FRIENDLY_TARGETED_EFFECTS` (`heal_single`, `shield_minion`, `buff_attack`).
+  - Added `_targeting_friendly: bool` flag; set in `_enter_targeting_mode(friendly)`, cleared in cancel/resolve handlers.
+  - `_finish_hand_drag()`: checks both lists; skips targeting mode if no valid targets exist (friendly board empty, or enemy board empty for non-hero spells), falling through to auto-resolve.
+  - `_apply_card_style()`: cyan border on `enemy_board` only when `not _targeting_friendly`; cyan border on `board` when `_targeting_friendly`.
+  - `_on_board_card_input()`: resolves friendly spell on click when `_targeting_active and _targeting_friendly`.
+  - `_on_enemy_card_input()` and `_on_enemy_hero_input()`: guarded with `not _targeting_friendly`.
+  - `_refresh_hero()`: `is_spell_targetable` only true when `not _targeting_friendly`.
+  - `_resolve_spell_effect()`: `heal_single`, `shield_minion`, `buff_attack` now use `explicit_target.get("card")` with slot-0 fallback; `lifesteal_hit` and `curse_minion` same. Also fixed `shield_minion` to write armor via `apply_status()` instead of the stale `self.armor` field (original was broken — `take_damage()` reads from `status_effects["armor"]`, not `self.armor`).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/battle-system.md` — extended targeting section under BattleScene UI.

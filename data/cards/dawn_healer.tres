@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://scf451dnyuss"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dawn_healer"]
+
+[resource]
+script = ExtResource("1_dawn_healer")
+id = "dawn_healer"
+card_name = "Dawn Healer"
+cost = 3
+attack = 1
+health = 3
+card_class = "minion"
+description = "The first light mends what darkness breaks."
+color = Color(1.0, 0.9, 0.4, 1)
+magic_type = "light"
+magic_branch = "dawn"
+emergence_effect = "emergence_heal_hero"
+emergence_power = 2
