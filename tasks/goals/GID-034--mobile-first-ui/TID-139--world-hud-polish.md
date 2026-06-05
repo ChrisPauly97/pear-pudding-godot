@@ -2,7 +2,7 @@
 
 **Goal:** GID-034
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-134
 
 ## Lock
@@ -86,12 +86,47 @@ func _on_interact_pressed() -> void:
 
 ## Plan
 
-_Written during Plan phase._
+### Actual current values (from reading source)
+
+| Element | Actual current | Change |
+|---------|---------------|--------|
+| Most HUD labels (coin, map, interact, dialogue, tip) | `vh * 0.03` | Already fine — no change |
+| `_map_label` | `vh * 0.03` (via `font_size`) | Bump to `vh * 0.032` |
+| `_level_label` | `vh * 0.02` | → `vh * 0.028` |
+| `xp_lbl` (XP fraction text) | `vh * 0.018` | → `vh * 0.025` |
+| `_xp_bar` height | `vh * 0.025` | → `vh * 0.032` |
+| Minimap diameter | `vh * 0.18` | → `vh * 0.20` |
+| Android interact prompt | Label only, "[Tap] Interact" | Add tappable `Button` |
+
+### WorldScene.gd
+
+1. Add `var _interact_btn: Button = null` near `_interact_label` declarations.
+2. In `_ready()`, after joystick creation: if Android, create `_interact_btn` (18% vh wide × 8% vh tall, font 3.2% vh), position center-bottom, connect `.pressed` → `_handle_interact()`, hide initially. Also hide `_interact_label` immediately (button replaces it on Android).
+3. In `_check_interactions()`, show/hide `_interact_btn` in sync with `_interact_label`.
+4. Set `_map_label` font to `int(vh * 0.032)` instead of `font_size`.
+5. Set `_level_label` font to `int(vh * 0.028)`.
+6. Set `xp_lbl` font to `int(vh * 0.025)`.
+7. Set `_xp_bar` height to `vh * 0.032`.
+
+### Minimap.gd
+
+Change `int(vh * 0.18)` → `int(vh * 0.20)`. All layout uses `sz` derived from this so it scales automatically.
 
 ## Changes Made
 
-_Filled after Build phase._
+### `scenes/world/WorldScene.gd`
+- Added `var _interact_btn: Button = null` field.
+- On Android: creates a `Button` ("USE", `vh * 0.18 × vh * 0.08`, font `vh * 0.032`) centred horizontally at `vh * 0.80`. Its `pressed` signal calls `_handle_interact()` directly. Hidden initially.
+- `_check_interactions()`: on Android shows `_interact_btn` instead of `_interact_label`; always hides both on no nearby interactable.
+- `_map_label` font raised from `vh * 0.03` to `vh * 0.032`.
+- `_level_label` font raised from `vh * 0.02` to `vh * 0.028`; min-width from `vh * 0.06` to `vh * 0.08`.
+- `_xp_bar` height raised from `vh * 0.025` to `vh * 0.032`.
+- XP fraction label font raised from `vh * 0.018` to `vh * 0.025`.
+- `minimap_bottom` offset updated from `vh * 0.18` to `vh * 0.20` to match new minimap diameter.
+
+### `scenes/world/Minimap.gd`
+- Minimap diameter changed from `int(vh * 0.18)` to `int(vh * 0.20)`. All layout (position, tap button size, entity overlay) derives from `sz` so scales automatically.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/ui-and-scene-management.md`: updated HUD section to reflect `_interact_btn` on Android, new font fractions, and minimap diameter.

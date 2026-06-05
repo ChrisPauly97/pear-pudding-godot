@@ -110,16 +110,20 @@ if _cycle_update_timer >= 0.5:
 ### HUD (`WorldScene.gd`)
 
 Labels and panels parented to a `CanvasLayer` (always on top):
-- **Interact prompt** (`"Press E"`) — visible when player is within `INTERACT_RANGE` of a door, chest, or NPC; hidden otherwise
-- **Map name label** — displayed for 3 seconds on map load, then fades
-- **Coin counter** — reads `SaveManager.coins` each frame (updated on coin pickup)
-- **Dialogue label** — shown above NPC; fades out after 4 seconds via `Tween`
-- **Tutorial tip label** — yellow-tinted one-shot hints; auto-hides after 5 seconds (`TIP_DURATION`). Four triggers, each shown exactly once (flag stored in `SaveManager.story_flags`):
+- **Interact prompt** — on desktop: `_interact_label` Label (`"[E] Interact"`); on Android: `_interact_btn` Button (`"USE"`, `vh * 0.18 × vh * 0.08`) positioned center-bottom at `vh * 0.80`. Both are hidden until the player is within `INTERACT_RANGE` of a door, chest, NPC, or scroll. On Android the button calls `_handle_interact()` directly when tapped.
+- **Map name label** — displayed for 3 seconds on map load, then fades. Font `vh * 0.032`.
+- **Coin counter** — reads `SaveManager.coins` each frame. Font `vh * 0.03`.
+- **Level label** — `"Lv.X"` bottom-left, font `vh * 0.028`.
+- **XP bar** — `ProgressBar` beside level label, height `vh * 0.032`.
+- **XP fraction label** — `"current / next XP"` beside bar, font `vh * 0.025`.
+- **Dialogue label** — shown above NPC; fades out after 4 seconds. Font `vh * 0.03`.
+- **Tutorial tip label** — yellow-tinted one-shot hints; auto-hides after 5 seconds (`TIP_DURATION`). Font `vh * 0.03`. Four triggers, each shown exactly once (flag stored in `SaveManager.story_flags`):
   - World entry → inventory button hint (`tutorial_inventory_tip`)
   - First NPC proximity → talk hint (`tutorial_npc_tip`)
   - First chest proximity → open hint (`tutorial_chest_tip`)
   - First enemy proximity → battle hint (`tutorial_enemy_tip`)
   - Android vs desktop control names chosen via `OS.has_feature("android")`
+- **Minimap** — circular, diameter `vh * 0.20` (top-right corner). See Minimap section.
 
 ### TutorialPopup (`scenes/ui/TutorialPopup.gd`)
 
