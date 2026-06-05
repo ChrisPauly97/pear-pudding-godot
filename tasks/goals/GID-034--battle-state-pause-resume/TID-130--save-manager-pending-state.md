@@ -2,7 +2,7 @@
 
 **Goal:** GID-034
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-129
 
 ## Lock
@@ -77,12 +77,26 @@ var in_battle_enemy_id: String = ""
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `pending_battle_state: Dictionary = {}` field after `in_battle_enemy_id`.
+2. Clear it in `new_game()`.
+3. Bump `CURRENT_SAVE_VERSION` to 14; add `_migrate_v13_to_v14` and call it in `_apply_migrations`.
+4. Load it in `load_save()` after `in_battle_enemy_id`.
+5. Save it in `save()` after `in_battle_enemy_id`.
+6. Add `set_pending_battle_state()` and `clear_pending_battle_state()` helpers near existing `set_pending_battle`/`clear_pending_battle`, using `_dirty = true` inline (project pattern).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`:
+  - Added `var pending_battle_state: Dictionary = {}` field.
+  - Cleared in `new_game()`.
+  - Bumped `CURRENT_SAVE_VERSION` from 13 to 14.
+  - Added `_migrate_v13_to_v14()` that backfills `pending_battle_state: {}`.
+  - Added call in `_apply_migrations()`.
+  - Added to `load_save()` with `pbs is Dictionary` guard.
+  - Added to `save()` data dict.
+  - Added `set_pending_battle_state(state_dict)` and `clear_pending_battle_state()` helpers.
+- Tests: 283 passed / 6 failed (same as TID-129 — no regression).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None — agent docs updated in TID-133.
