@@ -2,7 +2,7 @@
 
 **Goal:** GID-034
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-130
 
 ## Lock
@@ -70,12 +70,18 @@ func _notification(what: int) -> void:
 
 ## Plan
 
-_Written during Plan phase._
+1. Update the confirmation dialog label from "Your battle progress will be lost" to "Your battle will be saved."
+2. In the "Yes, leave" lambda, call `set_pending_battle_state(_state.to_dict())` + `save()` before `go_to_menu()`.
+3. In `_notification(NOTIFICATION_APPLICATION_FOCUS_OUT)`, save state before auto-pausing.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - Confirmation dialog label updated to "Return to menu?\nYour battle will be saved."
+  - "Yes, leave" lambda now calls `SceneManager.save_manager.set_pending_battle_state(_state.to_dict())` and `SceneManager.save_manager.save()` before `go_to_menu()`.
+  - `_notification(NOTIFICATION_APPLICATION_FOCUS_OUT)` now saves state when `_state != null` before auto-pausing.
+- Tests: 283 passed / 6 failed (no regression).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None — agent docs updated in TID-133.

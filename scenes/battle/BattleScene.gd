@@ -610,7 +610,7 @@ func _confirm_return_to_menu() -> void:
 	margin.add_child(vbox)
 
 	var lbl := Label.new()
-	lbl.text = "Your battle progress will be lost.\nReturn to menu?"
+	lbl.text = "Return to menu?\nYour battle will be saved."
 	lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
 	lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.85))
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -628,6 +628,8 @@ func _confirm_return_to_menu() -> void:
 	yes_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
 	yes_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	yes_btn.pressed.connect(func() -> void:
+		SceneManager.save_manager.set_pending_battle_state(_state.to_dict())
+		SceneManager.save_manager.save()
 		get_tree().paused = false
 		SceneManager.go_to_menu()
 	)
@@ -643,6 +645,9 @@ func _confirm_return_to_menu() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		if _state != null:
+			SceneManager.save_manager.set_pending_battle_state(_state.to_dict())
+			SceneManager.save_manager.save()
 		if not _paused:
 			_show_pause_overlay()
 
