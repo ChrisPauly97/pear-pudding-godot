@@ -2,7 +2,7 @@
 
 **Goal:** GID-033
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -159,8 +159,12 @@ All references to `_grid` in `_build_ui()` and `_refresh()` must use `_skill_con
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/ui/SkillTreeScene.gd`:
+  - Removed `_grid: GridContainer` and `_COLS` constant; replaced with `_skill_container: Control`.
+  - `_build_ui()`: replaced `GridContainer` instantiation with a plain `Control` child of `ScrollContainer`.
+  - `_refresh()`: home-branch path now builds an absolute-positioned layout — computes `(node_w, node_h, col_gap, row_gap, connector_w)`, maps `tree_col` values 0/3 to left/right x positions, adds `ColorRect` connector bars (branch color at full alpha when parent unlocked, 25% alpha when locked) before placing skill `PanelContainer` nodes at their `(tree_row, tree_col)` coordinates. Sets `_skill_container.custom_minimum_size` so the `ScrollContainer` scrolls correctly.
+  - Added `_refresh_cross_magic()`: adds a 2-column `GridContainer` child to `_skill_container` with the existing cross-magic skill nodes. No connectors.
 
 ## Documentation Updates
 
-_Update `docs/agent/skill-trees.md` — "SkillTreeScene" section: replace GridContainer description with absolute-positioned Control + ColorRect connector bars; note that cross-magic tab still uses GridContainer child._
+- `docs/agent/skill-trees.md`: updated "SkillTreeScene" section with full description of the tree layout (absolute positioning, connector bar dimensions and colors, cross-magic tab wrapper pattern).

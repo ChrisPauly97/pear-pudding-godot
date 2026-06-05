@@ -16,7 +16,7 @@ Each branch has two parallel chains using columns 0 and 3:
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-128 | Tree layout with connector lines | agent | pending | — |
+| TID-128 | Tree layout with connector lines | agent | done | — |
 
 ## Acceptance Criteria
 
