@@ -2,7 +2,7 @@
 
 **Goal:** GID-034
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-134
 
 ## Lock
@@ -63,12 +63,16 @@ Current measured fractions:
 
 ## Plan
 
-_Written during Plan phase._
+Increase zone heights, card panel size, card/hero label fonts in BattleScene.gd. No logic changes.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/battle/BattleScene.gd`**:
+  - `_apply_ui_sizes()`: hero_h 0.09→0.10, board_h 0.18→0.20; added font overrides for _turn_label and _mana_label (0.022).
+  - `_make_card_view()`: card panel 0.09×0.15 → 0.10×0.19.
+  - `_build_card_vbox()`: name font 0.013→0.018; stats font added at 0.016; desc font 0.011→0.014.
+  - `_refresh_hero()`: hero name 0.018→0.022; HP label 0.016→0.025; HP bar height 0.014→0.020; mana label 0.013→0.022.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes needed.

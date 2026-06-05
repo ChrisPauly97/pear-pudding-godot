@@ -21,6 +21,10 @@ const _DATA: Dictionary = {
 		"title": "Card Rarity",
 		"body": "Cards come in four rarities: Common (grey), Uncommon (green), Rare (blue), and Legendary (gold). Rarer cards have stronger effects and are harder to obtain — but you can craft any card using Essence in the Inventory.",
 	},
+	"tap_and_hold": {
+		"title": "Inspect Cards",
+		"body": "Hold any card for half a second to see its full details — stats, description, and abilities.\n\nWorks in battle, your inventory, and the shop.",
+	},
 }
 
 static func get_entry(popup_id: String) -> Dictionary:

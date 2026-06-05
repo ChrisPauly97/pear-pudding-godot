@@ -2,7 +2,7 @@
 
 **Goal:** GID-034
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-135, TID-136
 
 ## Lock
@@ -71,12 +71,14 @@ Find the method in BattleScene that runs once when the scene loads / battle begi
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `"tap_and_hold"` entry to TutorialRegistry._DATA.
+2. Emit `GameBus.tutorial_popup_requested.emit("tap_and_hold")` in BattleScene._ready() after the existing battle tutorial check. SceneManager automatically gates it by `"seen_tutorial_tap_and_hold"` flag.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/TutorialRegistry.gd`**: Added `"tap_and_hold"` entry with title "Inspect Cards" and body explaining the hold gesture.
+- **`scenes/battle/BattleScene.gd`**: Added emit at end of _ready() battle start block.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes needed.
