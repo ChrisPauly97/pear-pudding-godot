@@ -36,6 +36,7 @@ var opened_chests: Array[String] = []
 # Battle state: set when a fight starts, cleared on win/lose
 var pending_battle_enemy_data: Dictionary = {}
 var in_battle_enemy_id: String = ""
+var pending_battle_state: Dictionary = {}
 
 # Day/night cycle position (0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset)
 var time_of_day: float = 0.4
@@ -149,6 +150,7 @@ func new_game() -> void:
 	opened_chests = []
 	pending_battle_enemy_data = {}
 	in_battle_enemy_id = ""
+	pending_battle_state = {}
 	time_of_day = 0.4
 	story_flags = {}
 	days_elapsed = 0
@@ -179,7 +181,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 13
+const CURRENT_SAVE_VERSION: int = 14
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -309,6 +311,12 @@ static func _migrate_v12_to_v13(data: Dictionary) -> void:
 	if not data.has("redemption_points"):   data["redemption_points"] = 0
 	data["version"] = 13
 
+# _migrate_v13_to_v14: backfill mid-battle state snapshot for old saves.
+static func _migrate_v13_to_v14(data: Dictionary) -> void:
+	if not data.has("pending_battle_state"):
+		data["pending_battle_state"] = {}
+	data["version"] = 14
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -337,6 +345,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v11_to_v12(data)
 	if ver < 13:
 		_migrate_v12_to_v13(data)
+	if ver < 14:
+		_migrate_v13_to_v14(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -363,6 +373,8 @@ func load_save() -> bool:
 	var pbed = data.get("pending_battle_enemy_data", {})
 	pending_battle_enemy_data = pbed if pbed is Dictionary else {}
 	in_battle_enemy_id = str(data.get("in_battle_enemy_id", ""))
+	var pbs = data.get("pending_battle_state", {})
+	pending_battle_state = pbs if pbs is Dictionary else {}
 	time_of_day = float(data.get("time_of_day", 0.4))
 	world_seed = int(data.get("world_seed", 42))
 	starting_biome = int(data.get("starting_biome", 0))
@@ -414,6 +426,7 @@ func save() -> void:
 		"opened_chests": opened_chests,
 		"pending_battle_enemy_data": pending_battle_enemy_data,
 		"in_battle_enemy_id": in_battle_enemy_id,
+		"pending_battle_state": pending_battle_state,
 		"time_of_day": time_of_day,
 		"world_seed": world_seed,
 		"starting_biome": starting_biome,
@@ -648,6 +661,14 @@ func set_pending_battle(enemy_data: Dictionary) -> void:
 func clear_pending_battle() -> void:
 	pending_battle_enemy_data = {}
 	in_battle_enemy_id = ""
+	_dirty = true
+
+func set_pending_battle_state(state_dict: Dictionary) -> void:
+	pending_battle_state = state_dict
+	_dirty = true
+
+func clear_pending_battle_state() -> void:
+	pending_battle_state = {}
 	_dirty = true
 
 func set_story_flag(key: String, value: bool = true) -> void:

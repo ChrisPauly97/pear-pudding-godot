@@ -1,6 +1,6 @@
 # TID-134: UI Scale Audit & Global Size Increase
 
-**Goal:** GID-034
+**Goal:** GID-036
 **Type:** agent
 **Status:** done
 **Depends On:** —

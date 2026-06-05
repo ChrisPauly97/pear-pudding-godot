@@ -1,6 +1,6 @@
 # TID-138: Simplified Battle UI Layout
 
-**Goal:** GID-034
+**Goal:** GID-036
 **Type:** agent
 **Status:** done
 **Depends On:** TID-134

@@ -1,6 +1,6 @@
 # TID-137: Tap-and-Hold Onboarding Tutorial
 
-**Goal:** GID-034
+**Goal:** GID-036
 **Type:** agent
 **Status:** done
 **Depends On:** TID-135, TID-136

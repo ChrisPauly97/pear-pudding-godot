@@ -117,5 +117,44 @@ func to_dict() -> Dictionary:
 		"attack": attack,
 		"health": health,
 		"max_health": max_health,
-		"can_attack": can_attack()
+		"card_class": card_class,
+		"description": description,
+		"magic_type": magic_type,
+		"magic_branch": magic_branch,
+		"spell_effect": spell_effect,
+		"spell_power": spell_power,
+		"auto_resolve": auto_resolve,
+		"keywords": keywords.duplicate(),
+		"shroud_active": shroud_active,
+		"armor": armor,
+		"summoning_sick": summoning_sick,
+		"attack_count": attack_count,
+		"out_of_play": out_of_play,
+		"status_effects": status_effects.duplicate(),
 	}
+
+static func from_dict(d: Dictionary) -> CardInstance:
+	var c := CardInstance.new()
+	c.instance_id = str(d.get("instance_id", ""))
+	c.template_id = str(d.get("template_id", ""))
+	c.name = str(d.get("name", "?"))
+	c.cost = int(d.get("cost", 1))
+	c.attack = int(d.get("attack", 1))
+	c.health = int(d.get("health", 1))
+	c.max_health = int(d.get("max_health", 1))
+	c.card_class = str(d.get("card_class", "minion"))
+	c.description = str(d.get("description", ""))
+	c.magic_type = str(d.get("magic_type", ""))
+	c.magic_branch = str(d.get("magic_branch", ""))
+	c.spell_effect = str(d.get("spell_effect", ""))
+	c.spell_power = int(d.get("spell_power", 0))
+	c.auto_resolve = bool(d.get("auto_resolve", false))
+	c.keywords.assign(d.get("keywords", []))
+	c.shroud_active = bool(d.get("shroud_active", false))
+	c.armor = int(d.get("armor", 0))
+	c.summoning_sick = bool(d.get("summoning_sick", true))
+	c.attack_count = int(d.get("attack_count", 1))
+	c.out_of_play = int(d.get("out_of_play", 0))
+	var se = d.get("status_effects", {})
+	c.status_effects = se if se is Dictionary else {}
+	return c

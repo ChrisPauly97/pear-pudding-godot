@@ -1,4 +1,4 @@
-# GID-034: Mobile-First UI Redesign
+# GID-036: Mobile-First UI Redesign
 
 ## Objective
 

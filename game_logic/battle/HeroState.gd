@@ -59,3 +59,25 @@ func get_status_value(effect_id: String) -> int:
 
 func clear_status(effect_id: String) -> void:
 	status_effects.erase(effect_id)
+
+func to_dict() -> Dictionary:
+	return {
+		"player_id": player_id,
+		"health": health,
+		"max_health": max_health,
+		"mana": mana,
+		"max_mana": max_mana,
+		"attack": attack,
+		"status_effects": status_effects.duplicate(),
+	}
+
+static func from_dict(d: Dictionary) -> HeroState:
+	var h := HeroState.new(int(d.get("player_id", 0)))
+	h.health = int(d.get("health", 30))
+	h.max_health = int(d.get("max_health", 30))
+	h.mana = int(d.get("mana", 1))
+	h.max_mana = int(d.get("max_mana", 1))
+	h.attack = int(d.get("attack", 0))
+	var se = d.get("status_effects", {})
+	h.status_effects = se if se is Dictionary else {}
+	return h

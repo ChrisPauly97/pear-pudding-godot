@@ -1,6 +1,6 @@
 # TID-135: Tap-and-Hold Long Press Detector Component
 
-**Goal:** GID-034
+**Goal:** GID-036
 **Type:** agent
 **Status:** done
 **Depends On:** —

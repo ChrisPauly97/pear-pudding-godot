@@ -84,6 +84,7 @@ Every mutating method (`add_card`, `set_player_position`, `mark_enemy_defeated`,
 | `magic_type` | `String` | Player's home magic type: `"light"`, `"dark"`, or `""` (not yet chosen); added v13 |
 | `corruption_points` | `int` | Currency earned via dark dialogue choices, spent on cross-magic light skills; added v13 |
 | `redemption_points` | `int` | Currency earned via light dialogue choices, spent on cross-magic dark skills; added v13 |
+| `pending_battle_state` | `Dictionary` | Serialized `GameState` snapshot of an in-progress battle; `{}` when not in a battle. Set by `set_pending_battle_state()`, cleared by `clear_pending_battle_state()` on win/loss; added v14 |
 
 ### Migration History
 
@@ -102,6 +103,7 @@ Every mutating method (`add_card`, `set_player_position`, `mark_enemy_defeated`,
 | v11 | `equipped_armor`, `equipped_ring`, `equipped_trinket`, `owned_armor`, `owned_rings`, `owned_trinkets` |
 | v12 | `xp`, `level`, `skill_points`, `unlocked_skills` |
 | v13 | `magic_type`, `corruption_points`, `redemption_points` |
+| v14 | `pending_battle_state` |
 
 ### Migration
 
