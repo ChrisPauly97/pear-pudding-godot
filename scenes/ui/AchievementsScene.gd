@@ -51,7 +51,7 @@ func _build_ui() -> void:
 
 	var close_btn := Button.new()
 	close_btn.text = "X"
-	close_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
+	close_btn.custom_minimum_size = Vector2(_vh * 0.065, _vh * 0.065)
 	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.024))
 	close_btn.pressed.connect(_on_close)
 	header_row.add_child(close_btn)
@@ -111,7 +111,7 @@ func _make_row(a: Dictionary, is_unlocked: bool, current: int) -> Control:
 
 	var desc_lbl := Label.new()
 	desc_lbl.text = str(a.get("description", ""))
-	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	desc_lbl.modulate = Color(0.65, 0.65, 0.65)
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	text_vbox.add_child(desc_lbl)
@@ -121,7 +121,7 @@ func _make_row(a: Dictionary, is_unlocked: bool, current: int) -> Control:
 	if target > 1 and not is_unlocked:
 		var prog_lbl := Label.new()
 		prog_lbl.text = "%d / %d" % [mini(current, target), target]
-		prog_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
+		prog_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		prog_lbl.modulate = Color(0.7, 0.85, 1.0)
 		text_vbox.add_child(prog_lbl)
 
@@ -130,7 +130,7 @@ func _make_row(a: Dictionary, is_unlocked: bool, current: int) -> Control:
 	if reward_id != "":
 		var reward_lbl := Label.new()
 		reward_lbl.text = "Reward: Legendary card"
-		reward_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
+		reward_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		reward_lbl.modulate = Color(1.0, 0.8, 0.2) if is_unlocked else Color(0.5, 0.4, 0.1)
 		text_vbox.add_child(reward_lbl)
 
