@@ -5,6 +5,9 @@ signal closed
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
+const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
+const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 
 const CARD_PRICE: int = 15
 
@@ -12,6 +15,7 @@ var _vh: float = 0.0
 var _vw: float = 0.0
 var _coin_label: Label
 var _shop_list: VBoxContainer
+var _inspect_overlay: Control = null
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
@@ -74,8 +78,8 @@ func _build_ui() -> void:
 	# Close button
 	var close_btn := Button.new()
 	close_btn.text = "Leave Shop"
-	close_btn.custom_minimum_size = Vector2(_vw * 0.12, _vh * 0.055)
-	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	close_btn.custom_minimum_size = Vector2(_vw * 0.12, _vh * 0.065)
+	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	close_btn.pressed.connect(_on_close)
 	var btn_wrapper := CenterContainer.new()
 	btn_wrapper.add_child(close_btn)
@@ -120,7 +124,7 @@ func _refresh() -> void:
 	if not any_weapon:
 		var none_lbl := Label.new()
 		none_lbl.text = "No weapons available."
-		none_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+		none_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		none_lbl.modulate = Color(0.6, 0.6, 0.6)
 		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_shop_list.add_child(none_lbl)
@@ -152,7 +156,7 @@ func _add_equipment_section(slot: String, owned: Array[String], coins: int) -> v
 	if not any_item:
 		var none_lbl := Label.new()
 		none_lbl.text = "No %s available." % slot
-		none_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+		none_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		none_lbl.modulate = Color(0.6, 0.6, 0.6)
 		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_shop_list.add_child(none_lbl)
@@ -163,20 +167,20 @@ func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int
 
 	var info_lbl := Label.new()
 	info_lbl.text = "%s  —  %s" % [weapon.display_name, _weapon_effect_summary(weapon)]
-	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info_lbl)
 
 	var price_lbl := Label.new()
 	price_lbl.text = "%d coins" % price
-	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
 	row.add_child(price_lbl)
 
 	var buy_btn := Button.new()
 	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.05)
-	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	buy_btn.disabled = coins < price
 	buy_btn.pressed.connect(_on_buy_equipment.bind(eid, weapon.slot, price))
 	row.add_child(buy_btn)
@@ -221,25 +225,29 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int) -> HBoxContainer:
 	var hp: int   = tmpl.get("health", 0)
 	var info_lbl := Label.new()
 	info_lbl.text = "%s   cost %d  %d/%d" % [name_str, cost, atk, hp]
-	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info_lbl)
 
 	# Price label
 	var price_lbl := Label.new()
 	price_lbl.text = "%d coins" % CARD_PRICE
-	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= CARD_PRICE else Color(0.9, 0.3, 0.3)
 	row.add_child(price_lbl)
 
 	# Buy button
 	var buy_btn := Button.new()
 	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.05)
-	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	buy_btn.disabled = coins < CARD_PRICE
 	buy_btn.pressed.connect(_on_buy_card.bind(id))
 	row.add_child(buy_btn)
+
+	var lpd := LongPressDetector.new()
+	row.add_child(lpd)
+	lpd.long_pressed.connect(func() -> void: _show_inspect(id))
 
 	return row
 
@@ -250,22 +258,22 @@ func _make_weapon_row(wid: String, weapon: WeaponData, price: int, coins: int) -
 	# Name + effect
 	var info_lbl := Label.new()
 	info_lbl.text = "%s  —  %s" % [weapon.display_name, _weapon_effect_summary(weapon)]
-	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info_lbl)
 
 	# Price label
 	var price_lbl := Label.new()
 	price_lbl.text = "%d coins" % price
-	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
 	row.add_child(price_lbl)
 
 	# Buy button
 	var buy_btn := Button.new()
 	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.05)
-	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	buy_btn.disabled = coins < price
 	buy_btn.pressed.connect(_on_buy_weapon.bind(wid, price))
 	row.add_child(buy_btn)
@@ -308,6 +316,20 @@ func _on_buy_equipment(item_id: String, slot: String, price: int) -> void:
 	sm.add_coins(-price)
 	sm.add_equipment(item_id, slot)
 	_refresh()
+
+func _show_inspect(card_id: String) -> void:
+	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
+		return
+	var tmpl: Dictionary = CardRegistry.get_template(card_id)
+	if tmpl.is_empty():
+		return
+	var card: CardInstance = CardInstance.new(tmpl)
+	var overlay := CardInspectOverlay.new()
+	add_child(overlay)
+	move_child(overlay, get_child_count() - 1)
+	overlay.show_card(card)
+	overlay.closed.connect(func() -> void: _inspect_overlay = null)
+	_inspect_overlay = overlay
 
 func _on_close() -> void:
 	closed.emit()

@@ -74,7 +74,7 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 	var vp_size: Vector2 = world.get_viewport().get_visible_rect().size
 	var vw: float = vp_size.x
 	var vh: float = vp_size.y
-	var sz: int = int(vh * 0.18)          # minimap diameter in pixels
+	var sz: int = int(vh * 0.20)          # minimap diameter in pixels
 	_half  = float(sz) * 0.5
 	_scale = float(sz) / (VIEW_RADIUS * 2.0)
 

@@ -69,8 +69,8 @@ func _build_ui() -> void:
 
 	var close_btn := Button.new()
 	close_btn.text = "Close  [C]" if not OS.has_feature("android") else "Close"
-	close_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.05)
-	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.021))
+	close_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.065)
+	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	close_btn.pressed.connect(_on_close)
 	header.add_child(close_btn)
 
@@ -105,7 +105,7 @@ func _build_ui() -> void:
 	var avatar_lbl := Label.new()
 	avatar_lbl.text = "Saimtar"
 	avatar_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	avatar_lbl.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	avatar_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	avatar_lbl.modulate = Color(0.8, 0.8, 0.8)
 	left_vbox.add_child(avatar_lbl)
 
@@ -117,8 +117,8 @@ func _build_ui() -> void:
 
 	for slot in _SLOTS:
 		var btn := Button.new()
-		btn.custom_minimum_size = Vector2(0, _vh * 0.058)
-		btn.add_theme_font_size_override("font_size", int(_vh * 0.019))
+		btn.custom_minimum_size = Vector2(0, _vh * 0.065)
+		btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		btn.pressed.connect(_on_slot_pressed.bind(slot))
 		left_vbox.add_child(btn)
@@ -153,8 +153,8 @@ func _build_ui() -> void:
 
 	_unequip_btn = Button.new()
 	_unequip_btn.text = "Unequip"
-	_unequip_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.052)
-	_unequip_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	_unequip_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.065)
+	_unequip_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	_unequip_btn.disabled = true
 	_unequip_btn.pressed.connect(_on_unequip)
 	right_vbox.add_child(_unequip_btn)
@@ -199,7 +199,7 @@ func _refresh_picker() -> void:
 	if owned.is_empty():
 		var none_lbl := Label.new()
 		none_lbl.text = "No %s items owned yet." % label_name.to_lower()
-		none_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+		none_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		none_lbl.modulate = Color(0.6, 0.6, 0.6)
 		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_picker_list.add_child(none_lbl)
@@ -226,28 +226,28 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 
 	var name_lbl := Label.new()
 	name_lbl.text = w.display_name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(name_lbl)
 
 	if is_equipped:
 		var eq_lbl := Label.new()
 		eq_lbl.text = "[E]"
-		eq_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
+		eq_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		eq_lbl.modulate = Color(0.4, 1.0, 0.5)
 		name_row.add_child(eq_lbl)
 
 	var effect_lbl := Label.new()
 	effect_lbl.text = _effect_summary(w)
-	effect_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
+	effect_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	effect_lbl.modulate = Color(0.9, 1.0, 0.7)
 	info_vbox.add_child(effect_lbl)
 
 	var equip_btn := Button.new()
 	equip_btn.text = "Equipped" if is_equipped else "Equip"
 	equip_btn.disabled = is_equipped
-	equip_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.048)
-	equip_btn.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	equip_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.065)
+	equip_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	equip_btn.pressed.connect(_on_equip.bind(item_id))
 	row.add_child(equip_btn)
 

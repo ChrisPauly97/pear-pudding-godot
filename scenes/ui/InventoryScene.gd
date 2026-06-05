@@ -2,9 +2,12 @@ extends Control
 
 signal closed
 
-const CardRegistry     = preload("res://autoloads/CardRegistry.gd")
-const CraftingRegistry = preload("res://autoloads/CraftingRegistry.gd")
-const _CardDropUtil    = preload("res://game_logic/CardDropUtil.gd")
+const CardRegistry      = preload("res://autoloads/CardRegistry.gd")
+const CraftingRegistry  = preload("res://autoloads/CraftingRegistry.gd")
+const _CardDropUtil     = preload("res://game_logic/CardDropUtil.gd")
+const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
+const CardInstance      = preload("res://game_logic/battle/CardInstance.gd")
+const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 
 var _vh: float = 0.0
 var _vw: float = 0.0
@@ -22,6 +25,7 @@ var _tab_craft_btn: Button
 var _craft_panel: Control
 var _craft_list: VBoxContainer
 var _craft_essence_label: Label
+var _inspect_overlay: Control = null
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
@@ -68,15 +72,15 @@ func _build_ui() -> void:
 
 	_tab_cards_btn = Button.new()
 	_tab_cards_btn.text = "Cards"
-	_tab_cards_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.05)
-	_tab_cards_btn.add_theme_font_size_override("font_size", int(_vh * 0.021))
+	_tab_cards_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.065)
+	_tab_cards_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	_tab_cards_btn.pressed.connect(_on_tab_cards)
 	tab_bar.add_child(_tab_cards_btn)
 
 	_tab_craft_btn = Button.new()
 	_tab_craft_btn.text = "Craft"
-	_tab_craft_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.05)
-	_tab_craft_btn.add_theme_font_size_override("font_size", int(_vh * 0.021))
+	_tab_craft_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.065)
+	_tab_craft_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	_tab_craft_btn.pressed.connect(_on_tab_craft)
 	tab_bar.add_child(_tab_craft_btn)
 
@@ -120,7 +124,7 @@ func _build_ui() -> void:
 	left_vbox.add_child(_coin_label)
 
 	_essence_label = Label.new()
-	_essence_label.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	_essence_label.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	_essence_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_essence_label.modulate = Color(0.5, 0.85, 1.0)
 	left_vbox.add_child(_essence_label)
@@ -172,15 +176,15 @@ func _build_ui() -> void:
 
 		var save_btn := Button.new()
 		save_btn.text = "Save Deck"
-		save_btn.custom_minimum_size = Vector2(_vw * 0.35, _vh * 0.055)
-		save_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+		save_btn.custom_minimum_size = Vector2(_vw * 0.35, _vh * 0.065)
+		save_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		save_btn.pressed.connect(_on_save)
 		btn_hbox.add_child(save_btn)
 
 		var close_btn := Button.new()
 		close_btn.text = "Close"
-		close_btn.custom_minimum_size = Vector2(_vw * 0.35, _vh * 0.055)
-		close_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+		close_btn.custom_minimum_size = Vector2(_vw * 0.35, _vh * 0.065)
+		close_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		close_btn.pressed.connect(_on_close)
 		btn_hbox.add_child(close_btn)
 	else:
@@ -191,15 +195,15 @@ func _build_ui() -> void:
 
 		var save_btn := Button.new()
 		save_btn.text = "Save Deck"
-		save_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.055)
-		save_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+		save_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.065)
+		save_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		save_btn.pressed.connect(_on_save)
 		btn_vbox.add_child(save_btn)
 
 		var close_btn := Button.new()
 		close_btn.text = "Close  [I]" if not OS.has_feature("android") else "Close"
-		close_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.055)
-		close_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+		close_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.065)
+		close_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		close_btn.pressed.connect(_on_close)
 		btn_vbox.add_child(close_btn)
 
@@ -230,8 +234,8 @@ func _build_ui() -> void:
 
 	var craft_close_btn := Button.new()
 	craft_close_btn.text = "Close  [I]" if not OS.has_feature("android") else "Close"
-	craft_close_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.055)
-	craft_close_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	craft_close_btn.custom_minimum_size = Vector2(_vw * 0.1, _vh * 0.065)
+	craft_close_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	craft_close_btn.pressed.connect(_on_close)
 	craft_box.add_child(craft_close_btn)
 
@@ -345,20 +349,20 @@ func _make_collection_row(inst: Dictionary) -> VBoxContainer:
 
 	var name_lbl := Label.new()
 	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(name_lbl)
 
 	var badge_lbl := Label.new()
 	badge_lbl.text = _rarity_badge(rarity)
-	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	badge_lbl.modulate = _rarity_color(rarity)
 	top_row.add_child(badge_lbl)
 
 	var add_btn := Button.new()
 	add_btn.text = "+"
-	add_btn.custom_minimum_size = Vector2(_vh * 0.042, _vh * 0.042)
-	add_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	add_btn.custom_minimum_size = Vector2(_vh * 0.065, _vh * 0.065)
+	add_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
 	add_btn.disabled = _working_deck.size() >= IsoConst.DECK_MAX
 	add_btn.pressed.connect(_on_add.bind(uid))
 	top_row.add_child(add_btn)
@@ -378,9 +382,13 @@ func _make_collection_row(inst: Dictionary) -> VBoxContainer:
 		_stat_range_text(rolled_atk, base_atk, rarity),
 		_stat_range_text(rolled_hp,  base_hp,  rarity),
 	]
-	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.015))
+	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
 	vbox.add_child(stats_lbl)
+
+	var lpd_col := LongPressDetector.new()
+	vbox.add_child(lpd_col)
+	lpd_col.long_pressed.connect(func() -> void: _show_inspect(tid))
 
 	# Sell / Scrap action row (hidden for unique cards)
 	var is_unique: bool = bool(tmpl.get("is_unique", false))
@@ -401,8 +409,8 @@ func _make_collection_row(inst: Dictionary) -> VBoxContainer:
 
 		var sell_btn := Button.new()
 		sell_btn.text = "Sell +%dg" % sell_gold
-		sell_btn.custom_minimum_size = Vector2(_vh * 0.11, _vh * 0.038)
-		sell_btn.add_theme_font_size_override("font_size", int(_vh * 0.015))
+		sell_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.065)
+		sell_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		sell_btn.modulate = Color(1.0, 0.9, 0.3)
 		if needs_confirm:
 			sell_btn.pressed.connect(func() -> void:
@@ -413,8 +421,8 @@ func _make_collection_row(inst: Dictionary) -> VBoxContainer:
 
 		var scrap_btn := Button.new()
 		scrap_btn.text = "Scrap +%de" % scrap_ess
-		scrap_btn.custom_minimum_size = Vector2(_vh * 0.11, _vh * 0.038)
-		scrap_btn.add_theme_font_size_override("font_size", int(_vh * 0.015))
+		scrap_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.065)
+		scrap_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		scrap_btn.modulate = Color(0.5, 0.85, 1.0)
 		if needs_confirm:
 			scrap_btn.pressed.connect(func() -> void:
@@ -432,8 +440,8 @@ func _make_collection_row(inst: Dictionary) -> VBoxContainer:
 				var can_combine: bool = _count_available(tid, rarity) >= 3
 				var combine_btn := Button.new()
 				combine_btn.text = "Combine 3× → %s" % _rarity_badge(next_rarity_str)
-				combine_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.038)
-				combine_btn.add_theme_font_size_override("font_size", int(_vh * 0.015))
+				combine_btn.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.065)
+				combine_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 				combine_btn.modulate = _rarity_color(next_rarity_str)
 				combine_btn.disabled = not can_combine
 				combine_btn.pressed.connect(func() -> void:
@@ -464,19 +472,19 @@ func _make_deck_row(uid: String, inst: Dictionary, index: int) -> VBoxContainer:
 
 	var name_lbl := Label.new()
 	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(name_lbl)
 
 	var badge_lbl := Label.new()
 	badge_lbl.text = _rarity_badge(rarity)
-	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	badge_lbl.modulate = _rarity_color(rarity)
 	top_row.add_child(badge_lbl)
 
 	var rm_btn := Button.new()
 	rm_btn.text = "−"
-	rm_btn.custom_minimum_size = Vector2(_vh * 0.042, _vh * 0.042)
+	rm_btn.custom_minimum_size = Vector2(_vh * 0.065, _vh * 0.065)
 	rm_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	if _working_deck.size() <= IsoConst.DECK_MIN:
 		if OS.has_feature("android"):
@@ -506,9 +514,13 @@ func _make_deck_row(uid: String, inst: Dictionary, index: int) -> VBoxContainer:
 		_stat_range_text(rolled_atk, base_atk, rarity),
 		_stat_range_text(rolled_hp,  base_hp,  rarity),
 	]
-	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.015))
+	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
 	vbox.add_child(stats_lbl)
+
+	var lpd_deck := LongPressDetector.new()
+	vbox.add_child(lpd_deck)
+	lpd_deck.long_pressed.connect(func() -> void: _show_inspect(tid))
 
 	return vbox
 
@@ -534,19 +546,19 @@ func _make_craft_row(recipe: Object, player_essence: int) -> HBoxContainer:
 
 	var name_lbl := Label.new()
 	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(name_lbl)
 
 	var badge_lbl := Label.new()
 	badge_lbl.text = _rarity_badge(rarity)
-	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
+	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	badge_lbl.modulate = _rarity_color(rarity)
 	row.add_child(badge_lbl)
 
 	var cost_lbl := Label.new()
 	cost_lbl.text = "%de" % cost
-	cost_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	cost_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	cost_lbl.modulate = Color(0.5, 0.85, 1.0)
 	cost_lbl.custom_minimum_size = Vector2(_vh * 0.06, 0)
 	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -554,8 +566,8 @@ func _make_craft_row(recipe: Object, player_essence: int) -> HBoxContainer:
 
 	var craft_btn := Button.new()
 	craft_btn.text = "Craft"
-	craft_btn.custom_minimum_size = Vector2(_vh * 0.09, _vh * 0.038)
-	craft_btn.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	craft_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.065)
+	craft_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	craft_btn.disabled = player_essence < cost
 	craft_btn.pressed.connect(_do_craft.bind(tid, rarity, cost))
 	row.add_child(craft_btn)
@@ -580,21 +592,21 @@ func _show_confirm(action_row: HBoxContainer, confirm_row: HBoxContainer, label:
 
 	var lbl := Label.new()
 	lbl.text = "%s?" % label
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.015))
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	lbl.modulate = Color(1.0, 0.6, 0.3)
 	confirm_row.add_child(lbl)
 
 	var yes_btn := Button.new()
 	yes_btn.text = "Yes"
-	yes_btn.custom_minimum_size = Vector2(_vh * 0.07, _vh * 0.038)
-	yes_btn.add_theme_font_size_override("font_size", int(_vh * 0.015))
+	yes_btn.custom_minimum_size = Vector2(_vh * 0.10, _vh * 0.065)
+	yes_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	yes_btn.pressed.connect(on_confirm)
 	confirm_row.add_child(yes_btn)
 
 	var no_btn := Button.new()
 	no_btn.text = "No"
-	no_btn.custom_minimum_size = Vector2(_vh * 0.07, _vh * 0.038)
-	no_btn.add_theme_font_size_override("font_size", int(_vh * 0.015))
+	no_btn.custom_minimum_size = Vector2(_vh * 0.10, _vh * 0.065)
+	no_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	no_btn.pressed.connect(func() -> void:
 		confirm_row.visible = false
 		action_row.visible = true)
@@ -651,6 +663,20 @@ func _refresh_craft() -> void:
 	for recipe in recipes:
 		var row := _make_craft_row(recipe, player_essence)
 		_craft_list.add_child(row)
+
+func _show_inspect(card_id: String) -> void:
+	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
+		return
+	var tmpl: Dictionary = CardRegistry.get_template(card_id)
+	if tmpl.is_empty():
+		return
+	var card: CardInstance = CardInstance.new(tmpl)
+	var overlay := CardInspectOverlay.new()
+	add_child(overlay)
+	move_child(overlay, get_child_count() - 1)
+	overlay.show_card(card)
+	overlay.closed.connect(func() -> void: _inspect_overlay = null)
+	_inspect_overlay = overlay
 
 func _on_add(uid: String) -> void:
 	if _working_deck.size() >= IsoConst.DECK_MAX:

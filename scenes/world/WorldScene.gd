@@ -119,6 +119,7 @@ var _minimap: Node
 var _level_label: Label
 var _xp_bar: ProgressBar
 var _map_overlay: Node = null
+var _interact_btn: Button = null
 var _dialogue_timer: float = 0.0
 const DIALOGUE_DURATION: float = 4.0
 
@@ -249,7 +250,7 @@ func _ready() -> void:
 	var btn_h: float = vh * 0.07
 
 	# Apply font size to the tscn-defined labels
-	_map_label.add_theme_font_size_override("font_size", font_size)
+	_map_label.add_theme_font_size_override("font_size", int(vh * 0.032))
 	_coin_label.add_theme_font_size_override("font_size", font_size)
 	_interact_label.add_theme_font_size_override("font_size", font_size)
 
@@ -261,8 +262,8 @@ func _ready() -> void:
 	menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
 	_hud.add_child(menu_btn)
 
-	# Minimap: top=vh*0.01, height=vh*0.18, bottom≈vh*0.19; buttons sit below it.
-	var minimap_bottom: float = vh * 0.01 + vh * 0.18 + vh * 0.01  # ≈ vh * 0.20
+	# Minimap: top=vh*0.01, height=vh*0.20, bottom≈vh*0.21; buttons sit below it.
+	var minimap_bottom: float = vh * 0.01 + vh * 0.20 + vh * 0.01  # ≈ vh * 0.22
 	var btn_x: float = vw - btn_w * 1.3 - vh * 0.01
 
 	var inv_btn := Button.new()
@@ -296,6 +297,16 @@ func _ready() -> void:
 	skill_btn.add_theme_font_size_override("font_size", font_size)
 	skill_btn.pressed.connect(func() -> void: GameBus.skill_tree_requested.emit())
 	_hud.add_child(skill_btn)
+
+	if OS.has_feature("android"):
+		_interact_btn = Button.new()
+		_interact_btn.text = "USE"
+		_interact_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.08)
+		_interact_btn.add_theme_font_size_override("font_size", int(vh * 0.032))
+		_interact_btn.position = Vector2(vw * 0.5 - vh * 0.09, vh * 0.80)
+		_interact_btn.pressed.connect(_handle_interact)
+		_interact_btn.hide()
+		_hud.add_child(_interact_btn)
 
 	var vp := get_viewport().get_visible_rect().size
 	_dialogue_label = Label.new()
@@ -383,17 +394,17 @@ func _update_hud() -> void:
 	_hud.add_child(xp_row)
 
 	_level_label = Label.new()
-	_level_label.add_theme_font_size_override("font_size", int(vh * 0.02))
-	_level_label.custom_minimum_size = Vector2(vh * 0.06, 0)
+	_level_label.add_theme_font_size_override("font_size", int(vh * 0.028))
+	_level_label.custom_minimum_size = Vector2(vh * 0.08, 0)
 	xp_row.add_child(_level_label)
 
 	_xp_bar = ProgressBar.new()
-	_xp_bar.custom_minimum_size = Vector2(vh * 0.22, vh * 0.025)
+	_xp_bar.custom_minimum_size = Vector2(vh * 0.22, vh * 0.032)
 	_xp_bar.show_percentage = false
 	xp_row.add_child(_xp_bar)
 
 	var xp_lbl := Label.new()
-	xp_lbl.add_theme_font_size_override("font_size", int(vh * 0.018))
+	xp_lbl.add_theme_font_size_override("font_size", int(vh * 0.025))
 	xp_row.add_child(xp_lbl)
 
 	GameBus.xp_changed.connect(func(_x: int, _l: int) -> void:
@@ -1093,9 +1104,14 @@ func _check_interactions() -> void:
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
 	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null:
-		_interact_label.show()
+		if _interact_btn != null:
+			_interact_btn.show()
+		else:
+			_interact_label.show()
 	else:
 		_interact_label.hide()
+		if _interact_btn != null:
+			_interact_btn.hide()
 
 	var is_android: bool = OS.has_feature("android")
 	if not npc.is_empty() and not SceneManager.save_manager.get_story_flag("tutorial_npc_tip"):

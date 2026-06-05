@@ -25,8 +25,8 @@ func _ready() -> void:
 	var vh: float = get_viewport_rect().size.y
 	_base_r      = vh * 0.085   # ≈130 px at 1520 px vh (typical phone landscape)
 	_knob_r      = vh * 0.035
-	_jump_r      = vh * 0.052
-	_interact_r  = vh * 0.043
+	_jump_r      = vh * 0.060
+	_interact_r  = vh * 0.055
 	_edge_margin = vh * 0.118   # ≈180 px at 1520 px vh
 
 func _get_joy_center() -> Vector2:

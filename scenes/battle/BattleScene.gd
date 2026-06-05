@@ -12,6 +12,7 @@ const WeaponData = preload("res://data/WeaponData.gd")
 const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
+const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 
@@ -163,6 +164,8 @@ func _ready() -> void:
 	if not SceneManager.save_manager.get_story_flag("tutorial_battle_tip"):
 		_show_battle_tutorial()
 
+	GameBus.tutorial_popup_requested.emit("tap_and_hold")
+
 func _apply_equipment_effects(player: PlayerState) -> void:
 	var sm := SceneManager.save_manager
 	var slot_ids: Array[String] = [
@@ -216,8 +219,8 @@ func _apply_passive_skills(player: PlayerState) -> void:
 				player.bonus_draw += skill.effect_value
 
 func _apply_ui_sizes() -> void:
-	var hero_h: float = _vh * 0.09
-	var board_h: float = _vh * 0.18
+	var hero_h: float = _vh * 0.10
+	var board_h: float = _vh * 0.20
 	_enemy_hand_view.custom_minimum_size   = Vector2(0, board_h)
 	_enemy_hero_view.custom_minimum_size   = Vector2(0, hero_h)
 	_enemy_board_view.custom_minimum_size  = Vector2(0, board_h)
@@ -229,6 +232,8 @@ func _apply_ui_sizes() -> void:
 	_end_turn_btn.add_theme_font_size_override("font_size", int(_vh * 0.035))
 	_menu_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.07)
 	_menu_btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	_turn_label.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_mana_label.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	($SidePanel as VBoxContainer).add_theme_constant_override("separation", int(_vh * 0.025))
 
 # -------------------------------------------------------------------------
@@ -827,7 +832,7 @@ func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBox
 	var name_lbl := Label.new()
 	name_lbl.name = "NameLabel"
 	name_lbl.text = card.name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.013))
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var stats_lbl := Label.new()
 	stats_lbl.name = "StatsLabel"
@@ -835,6 +840,7 @@ func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBox
 		stats_lbl.text = "(%d)" % card.cost
 	else:
 		stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
+	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
 	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var desc_lbl := Label.new()
 	desc_lbl.name = "DescLabel"
@@ -844,7 +850,7 @@ func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBox
 		desc_lbl.add_theme_color_override("font_color", _get_card_ability_color(card))
 	else:
 		desc_lbl.text = card.description
-	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.011))
+	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.014))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(name_lbl)
 	vbox.add_child(stats_lbl)
@@ -910,10 +916,17 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			_show_card_inspect(card)
 	)
+	# Long-press inspect (mobile) — replace any existing detector from a previous refresh
+	for child in panel.get_children():
+		if child.get_script() == LongPressDetector:
+			child.queue_free()
+	var lpd := LongPressDetector.new()
+	panel.add_child(lpd)
+	lpd.long_pressed.connect(func() -> void: _show_card_inspect(card))
 
 func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(_vh * 0.09, _vh * 0.15)
+	panel.custom_minimum_size = Vector2(_vh * 0.10, _vh * 0.19)
 	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")
 	panel.add_child(_build_card_vbox(card, is_board_zone))
 	_apply_card_style(panel, card, zone_id)
@@ -936,18 +949,18 @@ func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 				name_lbl.text = "ENEMY"
 		else:
 			name_lbl.text = "YOU"
-		name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+		name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_lbl.modulate = Color(1.0, 0.55, 0.55) if is_enemy else Color(0.55, 1.0, 0.75)
 
 		var hp_lbl := Label.new()
 		hp_lbl.name = "HPLabel"
-		hp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
+		hp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.025))
 		hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 		var bar := ProgressBar.new()
 		bar.name = "HPBar"
-		bar.custom_minimum_size = Vector2(0, int(_vh * 0.014))
+		bar.custom_minimum_size = Vector2(0, int(_vh * 0.020))
 		bar.show_percentage = false
 
 		vbox.add_child(name_lbl)
@@ -956,7 +969,7 @@ func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 		if not is_enemy:
 			var mana_lbl := Label.new()
 			mana_lbl.name = "ManaLabel"
-			mana_lbl.add_theme_font_size_override("font_size", int(_vh * 0.013))
+			mana_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 			mana_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			vbox.add_child(mana_lbl)
 		var hero_sr := HBoxContainer.new()
