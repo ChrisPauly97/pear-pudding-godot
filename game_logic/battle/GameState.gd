@@ -49,3 +49,23 @@ func winner() -> int:
 		if not p.hero.is_alive():
 			return 1 - p.player_id
 	return -1
+
+func to_dict() -> Dictionary:
+	var player_arr: Array = []
+	for p: PlayerState in players:
+		player_arr.append(p.to_dict())
+	return {
+		"current_player_idx": current_player_idx,
+		"turn_number": turn_number,
+		"players": player_arr,
+	}
+
+static func from_dict(d: Dictionary) -> GameState:
+	var gs := GameState.new()
+	gs.current_player_idx = int(d.get("current_player_idx", 0))
+	gs.turn_number = int(d.get("turn_number", 1))
+	gs.players.clear()
+	for pd in d.get("players", []):
+		if pd is Dictionary:
+			gs.players.append(PlayerState.from_dict(pd))
+	return gs

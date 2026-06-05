@@ -53,3 +53,23 @@ func start_turn() -> void:
 	for s in slots:
 		if s != null:
 			s.start_turn()
+
+func to_dict() -> Array:
+	var result: Array = []
+	for i in range(SLOT_COUNT):
+		var s: CardInstance = slots[i]
+		if s == null:
+			result.append(null)
+		else:
+			result.append(s.to_dict())
+	return result
+
+static func from_dict(slots_arr: Array) -> ZoneState:
+	var z := ZoneState.new()
+	for i in range(mini(slots_arr.size(), SLOT_COUNT)):
+		var entry = slots_arr[i]
+		if entry == null or not entry is Dictionary:
+			z.slots[i] = null
+		else:
+			z.slots[i] = CardInstance.from_dict(entry)
+	return z
