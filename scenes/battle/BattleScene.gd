@@ -56,7 +56,7 @@ var _targeting_active: bool = false
 var _intent_panel: Control = null
 
 # First-battle tutorial overlay
-var _tutorial_overlay: Control = null
+var _tutorial_overlay: Node = null
 var _tutorial_timer: float = 0.0
 const TUTORIAL_DURATION: float = 8.0
 
@@ -117,7 +117,6 @@ func _ready() -> void:
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
 	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
-	_apply_menu_btn_size()
 	_add_pause_button()
 	_add_hero_power_button()
 	GameBus.turn_ended.connect(_on_turn_ended)
@@ -182,9 +181,6 @@ func _apply_passive_skills(player: PlayerState) -> void:
 			"passive_draw":
 				player.bonus_draw += skill.effect_value
 
-func _apply_menu_btn_size() -> void:
-	_menu_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.05)
-
 func _apply_ui_sizes() -> void:
 	var hero_h: float = _vh * 0.09
 	var board_h: float = _vh * 0.18
@@ -194,6 +190,12 @@ func _apply_ui_sizes() -> void:
 	_player_board_view.custom_minimum_size = Vector2(0, board_h)
 	_player_hero_view.custom_minimum_size  = Vector2(0, hero_h)
 	_player_hand_view.custom_minimum_size  = Vector2(0, board_h)
+	# Side panel buttons — large, easy to tap on mobile
+	_end_turn_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.10)
+	_end_turn_btn.add_theme_font_size_override("font_size", int(_vh * 0.035))
+	_menu_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.07)
+	_menu_btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	($SidePanel as VBoxContainer).add_theme_constant_override("separation", int(_vh * 0.025))
 
 # -------------------------------------------------------------------------
 # First-battle tutorial overlay
@@ -216,14 +218,45 @@ func _process(delta: float) -> void:
 func _show_battle_tutorial() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var font_size: int = int(_vh * 0.025)
-	var panel_w: float = _vh * 0.5
-	var panel_h: float = _vh * 0.3
+	var panel_w: float = vp.x * 0.65
+	var panel_h: float = _vh * 0.32
 
-	var overlay := ColorRect.new()
-	overlay.color = Color(0.0, 0.0, 0.0, 0.7)
-	overlay.size = Vector2(panel_w, panel_h)
-	overlay.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	var layer := CanvasLayer.new()
+	layer.layer = 150
+	add_child(layer)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.18, 0.95)
+	style.corner_radius_top_left = 10
+	style.corner_radius_top_right = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.size = Vector2(panel_w, panel_h)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(panel_w * 0.06))
+	margin.add_theme_constant_override("margin_right",  int(panel_w * 0.06))
+	margin.add_theme_constant_override("margin_top",    int(panel_h * 0.08))
+	margin.add_theme_constant_override("margin_bottom", int(panel_h * 0.08))
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.02))
+	margin.add_child(vbox)
 
 	var label := Label.new()
 	label.text = "Drag a card from your hand to the board to play it.\nTap an enemy minion to attack with your minion."
@@ -231,24 +264,16 @@ func _show_battle_tutorial() -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", Color.WHITE)
-	label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	label.add_theme_constant_override("shadow_offset_x", 2)
-	label.add_theme_constant_override("shadow_offset_y", 2)
-	label.size = Vector2(panel_w * 0.9, panel_h * 0.6)
-	label.position = Vector2(panel_w * 0.05, panel_h * 0.08)
-	overlay.add_child(label)
+	vbox.add_child(label)
 
 	var btn := Button.new()
 	btn.text = "Got it"
-	btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.06)
-	btn.position = Vector2((panel_w - _vh * 0.12) * 0.5, panel_h * 0.72)
+	btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.06)
 	btn.add_theme_font_size_override("font_size", font_size)
 	btn.pressed.connect(_dismiss_battle_tutorial)
-	overlay.add_child(btn)
+	vbox.add_child(btn)
 
-	add_child(overlay)
-	move_child(overlay, get_child_count() - 1)
-	_tutorial_overlay = overlay
+	_tutorial_overlay = layer
 	_tutorial_timer = TUTORIAL_DURATION
 
 func _dismiss_battle_tutorial() -> void:
