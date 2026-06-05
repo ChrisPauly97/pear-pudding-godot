@@ -12,6 +12,7 @@ const WeaponData = preload("res://data/WeaponData.gd")
 const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
+const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 
@@ -816,6 +817,13 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			_show_card_inspect(card)
 	)
+	# Long-press inspect (mobile) — replace any existing detector from a previous refresh
+	for child in panel.get_children():
+		if child.get_script() == LongPressDetector:
+			child.queue_free()
+	var lpd := LongPressDetector.new()
+	panel.add_child(lpd)
+	lpd.long_pressed.connect(func() -> void: _show_card_inspect(card))
 
 func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	var panel := PanelContainer.new()

@@ -2,7 +2,7 @@
 
 **Goal:** GID-034
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-135
 
 ## Lock
@@ -80,12 +80,19 @@ func _make_hand_card(card_id: String) -> PanelContainer:
 
 ## Plan
 
-_Written during Plan phase._
+1. Fix LongPressDetector to check parent rect before activating (prevents all-cards-fire-together bug).
+2. Add `_show_inspect(card_id)` helper to InventoryScene and ShopScene — creates CardInstance from template, instantiates overlay as last child.
+3. Add LongPressDetector to `_make_collection_row` and `_make_deck_row` in InventoryScene.
+4. Add LongPressDetector to `_make_card_row` in ShopScene.
+5. Add LongPressDetector to all card panels in BattleScene via `_bind_card_input`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/ui/LongPressDetector.gd`**: Added parent-rect guard — detector only activates when the initial press is within its parent Control's global rect.
+- **`scenes/ui/InventoryScene.gd`**: Added `CardInspectOverlay`, `CardInstance`, `LongPressDetector` preloads; `_inspect_overlay` field; `_show_inspect(card_id)` helper; LongPressDetector in `_make_collection_row` and `_make_deck_row`.
+- **`scenes/ui/ShopScene.gd`**: Same additions; LongPressDetector in `_make_card_row`.
+- **`scenes/battle/BattleScene.gd`**: Added `LongPressDetector` preload; `_bind_card_input` now attaches a LongPressDetector to every card panel (cleaning up old ones via `get_script()` check + `queue_free`).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes needed — pattern is self-contained in code.

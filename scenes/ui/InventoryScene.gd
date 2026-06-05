@@ -2,9 +2,12 @@ extends Control
 
 signal closed
 
-const CardRegistry     = preload("res://autoloads/CardRegistry.gd")
-const CraftingRegistry = preload("res://autoloads/CraftingRegistry.gd")
-const _CardDropUtil    = preload("res://game_logic/CardDropUtil.gd")
+const CardRegistry      = preload("res://autoloads/CardRegistry.gd")
+const CraftingRegistry  = preload("res://autoloads/CraftingRegistry.gd")
+const _CardDropUtil     = preload("res://game_logic/CardDropUtil.gd")
+const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
+const CardInstance      = preload("res://game_logic/battle/CardInstance.gd")
+const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 
 var _vh: float = 0.0
 var _vw: float = 0.0
@@ -22,6 +25,7 @@ var _tab_craft_btn: Button
 var _craft_panel: Control
 var _craft_list: VBoxContainer
 var _craft_essence_label: Label
+var _inspect_overlay: Control = null
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
@@ -382,6 +386,10 @@ func _make_collection_row(inst: Dictionary) -> VBoxContainer:
 	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
 	vbox.add_child(stats_lbl)
 
+	var lpd_col := LongPressDetector.new()
+	vbox.add_child(lpd_col)
+	lpd_col.long_pressed.connect(func() -> void: _show_inspect(tid))
+
 	# Sell / Scrap action row (hidden for unique cards)
 	var is_unique: bool = bool(tmpl.get("is_unique", false))
 	if not is_unique:
@@ -509,6 +517,10 @@ func _make_deck_row(uid: String, inst: Dictionary, index: int) -> VBoxContainer:
 	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
 	vbox.add_child(stats_lbl)
+
+	var lpd_deck := LongPressDetector.new()
+	vbox.add_child(lpd_deck)
+	lpd_deck.long_pressed.connect(func() -> void: _show_inspect(tid))
 
 	return vbox
 
@@ -651,6 +663,20 @@ func _refresh_craft() -> void:
 	for recipe in recipes:
 		var row := _make_craft_row(recipe, player_essence)
 		_craft_list.add_child(row)
+
+func _show_inspect(card_id: String) -> void:
+	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
+		return
+	var tmpl: Dictionary = CardRegistry.get_template(card_id)
+	if tmpl.is_empty():
+		return
+	var card: CardInstance = CardInstance.new(tmpl)
+	var overlay := CardInspectOverlay.new()
+	add_child(overlay)
+	move_child(overlay, get_child_count() - 1)
+	overlay.show_card(card)
+	overlay.closed.connect(func() -> void: _inspect_overlay = null)
+	_inspect_overlay = overlay
 
 func _on_add(uid: String) -> void:
 	if _working_deck.size() >= IsoConst.DECK_MAX:

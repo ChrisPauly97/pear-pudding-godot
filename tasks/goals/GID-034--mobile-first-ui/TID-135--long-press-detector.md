@@ -2,7 +2,7 @@
 
 **Goal:** GID-034
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -80,12 +80,12 @@ Plain `.gd` scripts do not need `.uid` sidecars (confirmed in CLAUDE.md).
 
 ## Plan
 
-_Written during Plan phase._
+Create `scenes/ui/LongPressDetector.gd` — a single Node script with no .tscn. Emits `long_pressed` after 500 ms of stationary hold. Handles both touch (`InputEventScreenTouch`, `InputEventScreenDrag`) and mouse (`InputEventMouseButton`, `InputEventMouseMotion`). Does not consume events.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/ui/LongPressDetector.gd`: reusable Node component; 500 ms threshold; 12 px slop cancel; handles touch + mouse; emits `long_pressed` signal; does not consume events.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent doc changes needed — component is self-contained and documented in code. TID-136 will reference it.

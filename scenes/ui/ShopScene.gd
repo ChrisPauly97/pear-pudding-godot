@@ -5,6 +5,9 @@ signal closed
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
+const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
+const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 
 const CARD_PRICE: int = 15
 
@@ -12,6 +15,7 @@ var _vh: float = 0.0
 var _vw: float = 0.0
 var _coin_label: Label
 var _shop_list: VBoxContainer
+var _inspect_overlay: Control = null
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
@@ -241,6 +245,10 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int) -> HBoxContainer:
 	buy_btn.pressed.connect(_on_buy_card.bind(id))
 	row.add_child(buy_btn)
 
+	var lpd := LongPressDetector.new()
+	row.add_child(lpd)
+	lpd.long_pressed.connect(func() -> void: _show_inspect(id))
+
 	return row
 
 func _make_weapon_row(wid: String, weapon: WeaponData, price: int, coins: int) -> HBoxContainer:
@@ -308,6 +316,20 @@ func _on_buy_equipment(item_id: String, slot: String, price: int) -> void:
 	sm.add_coins(-price)
 	sm.add_equipment(item_id, slot)
 	_refresh()
+
+func _show_inspect(card_id: String) -> void:
+	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
+		return
+	var tmpl: Dictionary = CardRegistry.get_template(card_id)
+	if tmpl.is_empty():
+		return
+	var card: CardInstance = CardInstance.new(tmpl)
+	var overlay := CardInspectOverlay.new()
+	add_child(overlay)
+	move_child(overlay, get_child_count() - 1)
+	overlay.show_card(card)
+	overlay.closed.connect(func() -> void: _inspect_overlay = null)
+	_inspect_overlay = overlay
 
 func _on_close() -> void:
 	closed.emit()
