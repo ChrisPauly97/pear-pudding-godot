@@ -1,9 +1,9 @@
-# TID-135: Extended Targeting for Single-Target Spells
+# TID-141: Extended Targeting for Single-Target Spells
 
 **Goal:** GID-035
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-134
+**Depends On:** TID-140
 
 ## Lock
 

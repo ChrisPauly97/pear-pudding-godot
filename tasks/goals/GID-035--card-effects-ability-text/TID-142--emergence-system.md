@@ -1,9 +1,9 @@
-# TID-136: Minion Emergence System + New Cards
+# TID-142: Minion Emergence System + New Cards
 
 **Goal:** GID-035
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-134
+**Depends On:** TID-140
 
 ## Lock
 
@@ -64,14 +64,14 @@ func _resolve_emergence(card: CardInstance, caster_pid: int) -> void:
     GameBus.emit_signal("card_played")  # trigger refresh
 ```
 
-**Ability text display (TID-134 hook):**
+**Ability text display (TID-140 hook):**
 - `_EMERGENCE_LABELS: Dictionary` in `BattleScene.gd`:
   - `"emergence_deal_damage"` → "Emergence: Deal [power] damage to the enemy hero"
   - `"emergence_heal_hero"` → "Emergence: Restore [power] HP to your hero"
   - `"emergence_draw"` → "Emergence: Draw [power] card(s)"
   - `"emergence_buff_friendly"` → "Emergence: Give a friendly minion +[power] attack"
   - `"emergence_apply_poison"` → "Emergence: Poison a random enemy minion for [power]"
-- TID-134 reads this dict from `_build_card_vbox()` and adds the label when `emergence_effect != ""`.
+- TID-140 reads this dict from `_build_card_vbox()` and adds the label when `emergence_effect != ""`.
 
 **New minion cards (5 cards, one per branch):**
 
