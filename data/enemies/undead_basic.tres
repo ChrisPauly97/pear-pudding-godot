@@ -7,6 +7,6 @@ script = ExtResource("1_undead_basic")
 id = "undead_basic"
 display_name = "Undead Wanderer"
 deck = PackedStringArray("ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul")
-drop_pool = PackedStringArray("ghost", "skeleton", "mend", "wither", "surge_spirit")
+drop_pool = PackedStringArray("ghost", "skeleton", "mend", "wither", "surge_spirit", "ember_imp")
 coin_reward = 5
 difficulty_tier = 1

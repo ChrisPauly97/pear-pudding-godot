@@ -17,6 +17,8 @@ var magic_branch: String
 var spell_effect: String
 var spell_power: int
 var auto_resolve: bool = false
+var emergence_effect: String = ""
+var emergence_power: int = 0
 
 var keywords: Array[String] = []
 var shroud_active: bool = false  # true until the first hit is absorbed; set false by game logic after absorption
@@ -47,6 +49,8 @@ func _init(tmpl: Dictionary = {}) -> void:
 	spell_effect = tmpl.get("spell_effect", "")
 	spell_power = tmpl.get("spell_power", 0)
 	auto_resolve = tmpl.get("auto_resolve", false)
+	emergence_effect = str(tmpl.get("emergence_effect", ""))
+	emergence_power = int(tmpl.get("emergence_power", 0))
 	keywords.assign(tmpl.get("keywords", []))
 	shroud_active = keywords.has("shroud")
 
@@ -124,6 +128,8 @@ func to_dict() -> Dictionary:
 		"spell_effect": spell_effect,
 		"spell_power": spell_power,
 		"auto_resolve": auto_resolve,
+		"emergence_effect": emergence_effect,
+		"emergence_power": emergence_power,
 		"keywords": keywords.duplicate(),
 		"shroud_active": shroud_active,
 		"armor": armor,
@@ -149,6 +155,8 @@ static func from_dict(d: Dictionary) -> CardInstance:
 	c.spell_effect = str(d.get("spell_effect", ""))
 	c.spell_power = int(d.get("spell_power", 0))
 	c.auto_resolve = bool(d.get("auto_resolve", false))
+	c.emergence_effect = str(d.get("emergence_effect", ""))
+	c.emergence_power = int(d.get("emergence_power", 0))
 	c.keywords.assign(d.get("keywords", []))
 	c.shroud_active = bool(d.get("shroud_active", false))
 	c.armor = int(d.get("armor", 0))

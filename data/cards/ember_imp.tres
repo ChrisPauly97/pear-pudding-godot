@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://7x37zxoibuf8"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ember_imp"]
+
+[resource]
+script = ExtResource("1_ember_imp")
+id = "ember_imp"
+card_name = "Ember Imp"
+cost = 2
+attack = 2
+health = 1
+card_class = "minion"
+description = "A mischievous spark given form."
+color = Color(1.0, 0.55, 0.1, 1)
+magic_type = "light"
+magic_branch = "ember"
+emergence_effect = "emergence_deal_damage"
+emergence_power = 1

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://6jwnzh93ac8t"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dusk_seer"]
+
+[resource]
+script = ExtResource("1_dusk_seer")
+id = "dusk_seer"
+card_name = "Dusk Seer"
+cost = 3
+attack = 1
+health = 2
+card_class = "minion"
+description = "It reads the shadows before they fall."
+color = Color(0.55, 0.2, 0.75, 1)
+magic_type = "dark"
+magic_branch = "dusk"
+emergence_effect = "emergence_draw"
+emergence_power = 1

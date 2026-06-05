@@ -71,7 +71,13 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
   - `draw_card` — caster draws spell_power additional cards from their deck
 - `spell_power: int` — numeric parameter for the effect (damage amount, stat reduction, etc.); `0` for minions
 
-Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the four spell fields at their defaults (`""` / `0`) and are unaffected.
+Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the spell fields at their defaults (`""` / `0`) and are unaffected.
+
+**Emergence fields** (TID-142):
+- `emergence_effect: String` — key dispatched by `_resolve_emergence` in `BattleScene.gd`; `""` for most cards. Valid values: `emergence_deal_damage`, `emergence_heal_hero`, `emergence_draw`, `emergence_buff_friendly`, `emergence_apply_poison`.
+- `emergence_power: int` — numeric parameter for the effect; `0` for cards without emergence.
+
+`_resolve_emergence(card, caster_pid)` fires immediately after a minion is placed on the board (both player and AI paths). No targeting UI — all emergence effects resolve automatically.
 
 `CardRegistry` (autoload) loads all `.tres` files from `data/cards/` at startup and exposes `get_card(id)` for lookups.
 
@@ -135,6 +141,7 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
 - Renders each player's board as 5 slot panels with status icons (P/A/F/S colored labels)
 - Hero panels show current/max HP, mana pips, and status icons
 - Drag-to-play: card dragged from hand onto an empty board slot triggers `GameState.play_card()`
+- **Emergence (TID-142):** `_resolve_emergence(card, caster_pid)` fires after any minion is placed on board. 5 effects: `emergence_deal_damage` (damage enemy hero), `emergence_heal_hero` (heal caster hero), `emergence_draw` (draw cards), `emergence_buff_friendly` (buff random other friendly), `emergence_apply_poison` (poison random enemy). Emergence text shown on card face in amber. 5 new minion cards: Ember Imp (Ember), Dawn Healer (Dawn), Dusk Seer (Dusk), Ash Warden (Ash), Void Creeper (Dusk).
 - **Inline ability text (TID-140):** `_SPELL_EFFECT_LABELS` constant in BattleScene maps each `spell_effect` key to a human-readable string with `[power]` placeholder. `_get_card_ability_text(card)` resolves it for a given CardInstance. Spell cards show the resolved text in green on the card face (replacing the flavor description); spell StatsLabel shows `"(cost)"` only (not `"0/0 (cost)"`). Minion cards keep their description. `CardInspectOverlay._SPELL_EFFECT_LABELS` mirrors this dict — keep both in sync.
 - **Spell targeting (TID-058, TID-141):** `_ENEMY_TARGETED_EFFECTS = ["deal_damage_single", "curse_minion", "lifesteal_hit"]` and `_FRIENDLY_TARGETED_EFFECTS = ["heal_single", "shield_minion", "buff_attack"]`. Dragging one of these spells to the board enters targeting mode: enemy effects cyan-highlight the enemy board (and hero for `deal_damage_single`); friendly effects cyan-highlight the player's own board. `_targeting_friendly` flag distinguishes the two modes. If no valid targets exist (friendly board empty, or enemy board empty for non-hero spells) targeting is skipped and the spell auto-resolves. All six spells honour the `explicit_target` dict in `_resolve_spell_effect()`; slot-0 fallback kept for AI auto-resolve path.
 - **Enemy intent banner (TID-059):** before AI actions execute, a centered panel shows what the AI plans (e.g. "Enemy will play Ghost"); hides when actions complete

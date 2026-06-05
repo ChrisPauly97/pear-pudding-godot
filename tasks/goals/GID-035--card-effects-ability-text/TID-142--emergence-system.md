@@ -2,7 +2,7 @@
 
 **Goal:** GID-035
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-140
 
 ## Lock
@@ -94,12 +94,29 @@ Run `python3 -c "import random,string; print('uid://'+''.join(random.choices(str
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `emergence_effect: String` and `emergence_power: int` to `CardData.gd` and `CardInstance.gd` (fields, `_init`, `to_dict`, `from_dict`).
+2. Add `_EMERGENCE_LABELS` constant and `_get_card_ability_color()` helper to `BattleScene.gd`; update `_get_card_ability_text()` to return emergence text.
+3. Add `_resolve_emergence()` function; hook into player play path and AI action loop.
+4. Update `CardInspectOverlay.gd` with `_EMERGENCE_LABELS` and amber section.
+5. Create 5 `.tres` + `.uid` card files; register in `CardRegistry.gd`; add to enemy drop pools.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/CardData.gd`: added `emergence_effect` and `emergence_power` exports; added to `to_template_dict()`.
+- `game_logic/battle/CardInstance.gd`: added fields; read in `_init()`, serialized in `to_dict()` / `from_dict()`.
+- `scenes/battle/BattleScene.gd`:
+  - Added `_EMERGENCE_LABELS` constant (5 entries).
+  - Added `_get_card_ability_color()` — amber for emergence, green for spells.
+  - Updated `_get_card_ability_text()` to return emergence text for minions with `emergence_effect`.
+  - Updated `_build_card_vbox()` and `_update_card_view()` to use `_get_card_ability_color()`.
+  - Added `_resolve_emergence(card, caster_pid)` — handles 5 emergence effects using existing status/board APIs.
+  - `_finish_hand_drag()`: calls `_resolve_emergence()` after player minion placement when `emergence_effect != ""`.
+  - `_execute_ai_actions()`: snapshots AI board before action, finds new minions after, calls `_resolve_emergence()`.
+- `scenes/battle/CardInspectOverlay.gd`: added `_EMERGENCE_LABELS` constant; added amber emergence section in `_build_ui()`.
+- `autoloads/CardRegistry.gd`: added 5 new `const` preloads and registered in `_ensure_loaded()` all-array.
+- New card files (`.tres` + `.uid`): `ember_imp`, `dawn_healer`, `dusk_seer`, `ash_warden`, `void_creeper`.
+- Enemy drop pools updated: `undead_basic` (+ember_imp), `ghoul_pack` (+dawn_healer), `undead_horde` (+dusk_seer, +void_creeper), `undead_elite` (+ash_warden).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/battle-system.md` — added Emergence mechanic section under Card Data and BattleScene UI.

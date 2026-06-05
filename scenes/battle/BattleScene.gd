@@ -54,7 +54,7 @@ var _targeting_spell: CardInstance = null
 var _targeting_active: bool = false
 var _targeting_friendly: bool = false
 
-# Inline ability text on card faces (TID-140). Mirrors CardInspectOverlay._SPELL_EFFECT_LABELS.
+# Inline ability text on card faces (TID-140, TID-142). Mirrors CardInspectOverlay dicts.
 const _SPELL_EFFECT_LABELS: Dictionary = {
 	"deal_damage_single":  "Deal [power] damage to a target",
 	"deal_damage_all":     "Deal [power] damage to all enemy minions",
@@ -70,6 +70,14 @@ const _SPELL_EFFECT_LABELS: Dictionary = {
 	"mana_drain":          "Remove [power] mana from the enemy hero",
 	"curse_minion":        "Reduce an enemy minion's attack and HP by [power]",
 	"draw_card":           "Draw [power] card(s)",
+}
+
+const _EMERGENCE_LABELS: Dictionary = {
+	"emergence_deal_damage":   "Emergence: Deal [power] damage to the enemy hero",
+	"emergence_heal_hero":     "Emergence: Restore [power] HP to your hero",
+	"emergence_draw":          "Emergence: Draw [power] card(s)",
+	"emergence_buff_friendly": "Emergence: Give a friendly minion +[power] attack",
+	"emergence_apply_poison":  "Emergence: Poison a random enemy minion for [power]",
 }
 
 # Enemy intent banner (TID-059)
@@ -376,6 +384,12 @@ func _finish_hand_drag() -> void:
 				_spawn_float_labels_from_snapshot(snap_fhd)
 				_flash_from_snapshot(snap_fhd)
 				_check_shake_from_snapshot(snap_fhd)
+			elif played_card.emergence_effect != "":
+				var snap_em := _snapshot_hp_positions()
+				_resolve_emergence(played_card, 0)
+				_spawn_float_labels_from_snapshot(snap_em)
+				_flash_from_snapshot(snap_em)
+				_check_shake_from_snapshot(snap_em)
 			_refresh_all()
 			_check_game_over()
 			_dismiss_battle_tutorial()
@@ -775,7 +789,7 @@ func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: Strin
 			var ability_text: String = _get_card_ability_text(card)
 			if ability_text != "":
 				desc_lbl.text = ability_text
-				desc_lbl.add_theme_color_override("font_color", Color(0.6, 1.0, 0.8))
+				desc_lbl.add_theme_color_override("font_color", _get_card_ability_color(card))
 			else:
 				desc_lbl.text = card.description
 				desc_lbl.remove_theme_color_override("font_color")
@@ -798,7 +812,15 @@ func _get_card_ability_text(card: CardInstance) -> String:
 	if card.card_class == "spell" and card.spell_effect != "":
 		var tmpl: String = str(_SPELL_EFFECT_LABELS.get(card.spell_effect, card.spell_effect))
 		return tmpl.replace("[power]", str(card.spell_power))
+	if card.emergence_effect != "":
+		var tmpl: String = str(_EMERGENCE_LABELS.get(card.emergence_effect, card.emergence_effect))
+		return tmpl.replace("[power]", str(card.emergence_power))
 	return ""
+
+func _get_card_ability_color(card: CardInstance) -> Color:
+	if card.emergence_effect != "":
+		return Color(1.0, 0.85, 0.4)  # amber for Emergence
+	return Color(0.6, 1.0, 0.8)  # green for spells
 
 func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxContainer:
 	var vbox := VBoxContainer.new()
@@ -819,7 +841,7 @@ func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBox
 	var ability_text: String = _get_card_ability_text(card)
 	if ability_text != "":
 		desc_lbl.text = ability_text
-		desc_lbl.add_theme_color_override("font_color", Color(0.6, 1.0, 0.8))
+		desc_lbl.add_theme_color_override("font_color", _get_card_ability_color(card))
 	else:
 		desc_lbl.text = card.description
 	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.011))
@@ -1179,13 +1201,44 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		return
 	AudioManager.play_sfx("attack")
 	var snap_ai := _snapshot_hp_positions()
+	var ai_board_before: Array[CardInstance] = _state.players[1].board.get_cards().duplicate()
 	actions[idx].call()
+	for c: CardInstance in _state.players[1].board.get_cards():
+		if not ai_board_before.has(c):
+			_resolve_emergence(c, 1)
 	_spawn_float_labels_from_snapshot(snap_ai)
 	_flash_from_snapshot(snap_ai)
 	_check_shake_from_snapshot(snap_ai)
 	_refresh_all()
 	await get_tree().create_timer(0.6, true).timeout
 	_execute_ai_actions(actions, idx + 1)
+
+## Fires when a minion with an emergence_effect is placed on the board.
+func _resolve_emergence(card: CardInstance, caster_pid: int) -> void:
+	if card.emergence_effect == "":
+		return
+	AudioManager.play_sfx("spell_resolve")
+	var opponent: PlayerState = _state.players[1 - caster_pid]
+	var caster: PlayerState = _state.players[caster_pid]
+	match card.emergence_effect:
+		"emergence_deal_damage":
+			opponent.hero.take_damage(card.emergence_power)
+		"emergence_heal_hero":
+			caster.hero.health = mini(caster.hero.max_health, caster.hero.health + card.emergence_power)
+		"emergence_draw":
+			for _i in range(card.emergence_power):
+				caster.draw_card()
+		"emergence_buff_friendly":
+			var others: Array[CardInstance] = []
+			for c: CardInstance in caster.board.get_cards():
+				if c != card:
+					others.append(c)
+			if not others.is_empty():
+				others[randi() % others.size()].attack += card.emergence_power
+		"emergence_apply_poison":
+			var enemies := opponent.board.get_cards()
+			if not enemies.is_empty():
+				enemies[randi() % enemies.size()].apply_status("poison", card.emergence_power)
 
 ## Resolves the effect of a spell card played by caster_pid against the opponent.
 ## explicit_target: optional dict with "type" ("minion"/"hero") and "card" (CardInstance) for targeted spells.

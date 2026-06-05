@@ -7,6 +7,6 @@ script = ExtResource("1_undead_elite")
 id = "undead_elite"
 display_name = "Undead Warlord"
 deck = PackedStringArray("ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton", "skeleton")
-drop_pool = PackedStringArray("ghoul", "restore", "drain", "blitz_ghoul", "veiled_paladin")
+drop_pool = PackedStringArray("ghoul", "restore", "drain", "blitz_ghoul", "veiled_paladin", "ash_warden")
 coin_reward = 20
 difficulty_tier = 4

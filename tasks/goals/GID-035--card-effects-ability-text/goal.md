@@ -14,7 +14,7 @@ Players currently can't see what a spell card does without right-clicking to ope
 |----|------|------|--------|------------|
 | TID-140 | Inline ability text on card panels | agent | done | — |
 | TID-141 | Extended targeting for single-target spells | agent | done | TID-140 |
-| TID-142 | Minion Emergence system + new cards | agent | pending | TID-140 |
+| TID-142 | Minion Emergence system + new cards | agent | done | TID-140 |
 
 ## Acceptance Criteria
 
