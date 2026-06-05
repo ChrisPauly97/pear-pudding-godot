@@ -68,12 +68,26 @@ Opened via S key or HUD button. Flow:
 4. **Home-branch unlock:** costs 1 skill point; prerequisite chain enforced
 5. **Cross-magic unlock:** costs `alt_cost` corruption/redemption points; no prerequisites required
 
+**Home-branch layout (tree view):**
+
+Each home-branch tab renders skills in a top-down tree layout using absolute positioning inside a plain `Control` (stored as `_skill_container`) inside a `ScrollContainer`. The layout places skills at coordinates derived from `(tree_row, tree_col)`:
+- Two visible columns: `tree_col = 0` on the left, `tree_col = 3` on the right
+- `node_w = (_vw * 0.90 - _vw * 0.04) / 2.0`; `node_h = _vh * 0.19`
+- Row gap (connector space): `_vh * 0.06`; column gap: `_vw * 0.04`
+
+Between each vertically-linked pair (parent → child in same column), a `ColorRect` connector bar is drawn:
+- Width: `_vw * 0.012`; height: `row_gap`; centred horizontally on the column
+- Color: full branch color if the parent is unlocked; 25% alpha if locked
+
+**Cross-magic tab:** wraps a 2-column `GridContainer` child inside `_skill_container`. No connector bars — cross-magic skills have no prerequisite relationships in this view.
+
 **Constants in SkillTreeScene:**
 ```gdscript
 const MAGIC_BRANCHES: Dictionary = {
     "light": ["ember", "dawn"],
     "dark":  ["dusk",  "ash"],
 }
+const _ROWS: int = 3
 ```
 
 **Cross-currency mapping:**

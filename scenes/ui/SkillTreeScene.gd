@@ -8,12 +8,11 @@ const SkillData = preload("res://data/SkillData.gd")
 var _vh: float = 0.0
 var _vw: float = 0.0
 var _points_label: Label
-var _grid: GridContainer
+var _skill_container: Control
 var _active_tab: int = 0
 var _tab_buttons: Array[Button] = []
 
 const _ROWS: int = 3
-const _COLS: int = 4
 
 const MAGIC_BRANCHES: Dictionary = {
 	"light": ["ember", "dawn"],
@@ -249,16 +248,13 @@ func _build_ui() -> void:
 		tab_bar.add_child(tb)
 		_tab_buttons.append(tb)
 
-	# ── Skill grid ──
+	# ── Skill area ──
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_vbox.add_child(scroll)
 
-	_grid = GridContainer.new()
-	_grid.columns = _COLS
-	_grid.add_theme_constant_override("h_separation", int(_vw * 0.015))
-	_grid.add_theme_constant_override("v_separation", int(_vh * 0.012))
-	scroll.add_child(_grid)
+	_skill_container = Control.new()
+	scroll.add_child(_skill_container)
 
 func _set_tab(tab: int) -> void:
 	_active_tab = tab
@@ -271,15 +267,14 @@ func _refresh() -> void:
 	_points_label.text = "SP: %d  |  CP: %d  |  RP: %d" % [
 		sm.skill_points, sm.corruption_points, sm.redemption_points]
 
-	for child in _grid.get_children():
+	for child in _skill_container.get_children():
 		child.queue_free()
 
-	var is_cross: bool = _active_tab == 2
-	var ids: Array[String]
-	if is_cross:
-		ids = _cross_magic_ids()
-	else:
-		ids = SkillRegistry.get_by_branch(_branch_for_tab(_active_tab))
+	if _active_tab == 2:
+		_refresh_cross_magic()
+		return
+
+	var ids: Array[String] = SkillRegistry.get_by_branch(_branch_for_tab(_active_tab))
 
 	var skill_map: Dictionary = {}
 	for sid: String in ids:
@@ -287,19 +282,65 @@ func _refresh() -> void:
 		if sk != null:
 			skill_map["%d,%d" % [sk.tree_row, sk.tree_col]] = sk
 
+	var node_w: float = (_vw * 0.90 - _vw * 0.04) / 2.0
+	var node_h: float = _vh * 0.19
+	var col_gap: float = _vw * 0.04
+	var row_gap: float = _vh * 0.06
+	var connector_w: float = _vw * 0.012
+
+	var col_x: Dictionary = {0: 0.0, 3: node_w + col_gap}
+
+	# Connector bars (behind skill nodes)
+	var branch_color: Color = _tab_color(_active_tab)
+	for r in range(_ROWS - 1):
+		for col in [0, 3]:
+			var parent_key: String = "%d,%d" % [r, col]
+			var child_key: String = "%d,%d" % [r + 1, col]
+			if not (skill_map.has(parent_key) and skill_map.has(child_key)):
+				continue
+			var parent_sk: SkillData = skill_map[parent_key] as SkillData
+			var child_sk: SkillData = skill_map[child_key] as SkillData
+			if not (parent_sk.id in child_sk.prerequisites):
+				continue
+			var parent_unlocked: bool = sm.has_skill(parent_sk.id)
+			var bar := ColorRect.new()
+			var col_x_val: float = col_x[col]
+			bar.color = branch_color if parent_unlocked else Color(branch_color.r, branch_color.g, branch_color.b, 0.25)
+			bar.position = Vector2(col_x_val + (node_w - connector_w) * 0.5, float(r) * (node_h + row_gap) + node_h)
+			bar.size = Vector2(connector_w, row_gap)
+			_skill_container.add_child(bar)
+
+	# Skill nodes (on top of connectors)
+	for r in _ROWS:
+		for col in [0, 3]:
+			var key: String = "%d,%d" % [r, col]
+			if not skill_map.has(key):
+				continue
+			var sk: SkillData = skill_map[key] as SkillData
+			var node := _make_skill_node(sk, node_w, node_h, false)
+			var col_x_val: float = col_x[col]
+			node.position = Vector2(col_x_val, float(r) * (node_h + row_gap))
+			_skill_container.add_child(node)
+
+	var total_h: float = float(_ROWS) * node_h + float(_ROWS - 1) * row_gap
+	_skill_container.custom_minimum_size = Vector2(node_w * 2.0 + col_gap, total_h)
+
+func _refresh_cross_magic() -> void:
+	var ids: Array[String] = _cross_magic_ids()
 	var node_w: float = (_vw * 0.90 - _vw * 0.015 * 3) / 4.0
 	var node_h: float = _vh * 0.19
 
-	for r in _ROWS:
-		for c in _COLS:
-			var key: String = "%d,%d" % [r, c]
-			if skill_map.has(key):
-				var sk: SkillData = skill_map[key] as SkillData
-				_grid.add_child(_make_skill_node(sk, node_w, node_h, is_cross))
-			else:
-				var spacer := Control.new()
-				spacer.custom_minimum_size = Vector2(node_w, node_h)
-				_grid.add_child(spacer)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", int(_vw * 0.04))
+	grid.add_theme_constant_override("v_separation", int(_vh * 0.012))
+	_skill_container.add_child(grid)
+	_skill_container.custom_minimum_size = Vector2(0, 0)
+
+	for sid: String in ids:
+		var sk: SkillData = SkillRegistry.get_skill(sid)
+		if sk != null:
+			grid.add_child(_make_skill_node(sk, node_w, node_h, true))
 
 func _make_skill_node(sk: SkillData, w: float, h: float, is_cross: bool = false) -> PanelContainer:
 	var sm := SceneManager.save_manager
