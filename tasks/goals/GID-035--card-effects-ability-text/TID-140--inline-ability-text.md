@@ -2,7 +2,7 @@
 
 **Goal:** GID-035
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -39,12 +39,25 @@ Card panels in hand and on-board show only flavor description text (e.g. "A wisp
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `_SPELL_EFFECT_LABELS` constant to `BattleScene.gd` (after `_TARGETED_EFFECTS`).
+2. Add `_get_card_ability_text(card)` helper that returns the resolved spell label or `""`.
+3. Modify `_build_card_vbox()`:
+   - Fix StatsLabel: spells show `"(%d)" % cost` only; minions keep `"atk/hp  (cost)"`.
+   - Set DescLabel text via `_get_card_ability_text()` for spells (green tint); description for minions (default).
+4. Modify `_update_card_view()`:
+   - Fix StatsLabel refresh to be class-aware.
+   - Fix DescLabel refresh to use `_get_card_ability_text()`.
+5. Add a comment in `CardInspectOverlay.gd` noting its `_SPELL_EFFECT_LABELS` mirrors BattleScene.gd.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - Added `_SPELL_EFFECT_LABELS` constant (14 effect → human-readable mappings).
+  - Added `_get_card_ability_text(card)` helper — returns resolved spell label or `""`.
+  - `_build_card_vbox()`: spell cards now show `"(cost)"` in StatsLabel (not `"0/0 (cost)"`); DescLabel shows green ability text for spells, description for minions.
+  - `_update_card_view()`: StatsLabel and DescLabel refreshes updated to match the same logic, including color override removal for minions.
+- `scenes/battle/CardInspectOverlay.gd`: added comment noting its `_SPELL_EFFECT_LABELS` mirrors BattleScene.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/battle-system.md` — added inline ability text section under BattleScene UI.

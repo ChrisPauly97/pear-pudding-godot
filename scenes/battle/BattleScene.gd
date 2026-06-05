@@ -52,6 +52,24 @@ const _TARGETED_EFFECTS: Array[String] = ["deal_damage_single"]
 var _targeting_spell: CardInstance = null
 var _targeting_active: bool = false
 
+# Inline ability text on card faces (TID-140). Mirrors CardInspectOverlay._SPELL_EFFECT_LABELS.
+const _SPELL_EFFECT_LABELS: Dictionary = {
+	"deal_damage_single":  "Deal [power] damage to a target",
+	"deal_damage_all":     "Deal [power] damage to all enemy minions",
+	"deal_damage_random":  "Deal [power] damage to a random enemy",
+	"debuff_attack":       "Reduce all enemy minion attack by [power]",
+	"destroy_low_hp":      "Destroy all enemy minions with [power] or less HP",
+	"resurrect_last":      "Resurrect the last friendly minion that died",
+	"heal_single":         "Restore [power] HP to a friendly minion",
+	"heal_all":            "Restore [power] HP to all friendly minions",
+	"shield_minion":       "Give [power] armor to a friendly minion",
+	"buff_attack":         "Give a friendly minion +[power] attack",
+	"lifesteal_hit":       "Deal [power] damage; restore that much HP to your hero",
+	"mana_drain":          "Remove [power] mana from the enemy hero",
+	"curse_minion":        "Reduce an enemy minion's attack and HP by [power]",
+	"draw_card":           "Draw [power] card(s)",
+}
+
 # Enemy intent banner (TID-059)
 var _intent_panel: Control = null
 
@@ -734,10 +752,19 @@ func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: Strin
 		name_lbl.text = card.name
 		var stats_lbl: Label = vbox.get_node_or_null("StatsLabel") as Label
 		if stats_lbl:
-			stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
+			if card.card_class == "spell":
+				stats_lbl.text = "(%d)" % card.cost
+			else:
+				stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
 		var desc_lbl: Label = vbox.get_node_or_null("DescLabel") as Label
 		if desc_lbl:
-			desc_lbl.text = card.description
+			var ability_text: String = _get_card_ability_text(card)
+			if ability_text != "":
+				desc_lbl.text = ability_text
+				desc_lbl.add_theme_color_override("font_color", Color(0.6, 1.0, 0.8))
+			else:
+				desc_lbl.text = card.description
+				desc_lbl.remove_theme_color_override("font_color")
 		var kw_row: HBoxContainer = vbox.get_node_or_null("KeywordRow") as HBoxContainer
 		if kw_row:
 			_update_keyword_badges(kw_row, card)
@@ -753,6 +780,12 @@ func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: Strin
 	_apply_card_style(panel, card, zone_id)
 	_bind_card_input(panel, card, zone_id)
 
+func _get_card_ability_text(card: CardInstance) -> String:
+	if card.card_class == "spell" and card.spell_effect != "":
+		var tmpl: String = str(_SPELL_EFFECT_LABELS.get(card.spell_effect, card.spell_effect))
+		return tmpl.replace("[power]", str(card.spell_power))
+	return ""
+
 func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxContainer:
 	var vbox := VBoxContainer.new()
 	var name_lbl := Label.new()
@@ -762,11 +795,19 @@ func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBox
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var stats_lbl := Label.new()
 	stats_lbl.name = "StatsLabel"
-	stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
+	if card.card_class == "spell":
+		stats_lbl.text = "(%d)" % card.cost
+	else:
+		stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
 	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var desc_lbl := Label.new()
 	desc_lbl.name = "DescLabel"
-	desc_lbl.text = card.description
+	var ability_text: String = _get_card_ability_text(card)
+	if ability_text != "":
+		desc_lbl.text = ability_text
+		desc_lbl.add_theme_color_override("font_color", Color(0.6, 1.0, 0.8))
+	else:
+		desc_lbl.text = card.description
 	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.011))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(name_lbl)
