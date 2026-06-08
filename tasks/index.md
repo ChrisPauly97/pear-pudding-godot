@@ -40,6 +40,7 @@
 | [GID-034](goals/GID-034--battle-state-pause-resume/goal.md) | Battle State Pause/Resume Persistence | done | 5 / 5 |
 | [GID-035](goals/GID-035--card-effects-ability-text/goal.md) | Card Effects & Ability Text | done | 3 / 3 |
 | [GID-036](goals/GID-036--mobile-first-ui/goal.md) | Mobile-First UI Redesign | done | 6 / 6 |
+| [GID-037](goals/GID-037--combat-deck-fatigue-bugs/goal.md) | Combat Deck & Fatigue Bugs | pending | 0 / 2 |
 
 ## Backlog
 
