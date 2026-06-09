@@ -40,6 +40,11 @@
 | [GID-034](goals/GID-034--battle-state-pause-resume/goal.md) | Battle State Pause/Resume Persistence | done | 5 / 5 |
 | [GID-035](goals/GID-035--card-effects-ability-text/goal.md) | Card Effects & Ability Text | done | 3 / 3 |
 | [GID-036](goals/GID-036--mobile-first-ui/goal.md) | Mobile-First UI Redesign | done | 6 / 6 |
+| [GID-037](goals/GID-037--tavern-duels/goal.md) | Tavern Duels & Champion Ladder | pending | 0 / 3 |
+| [GID-038](goals/GID-038--endless-spire/goal.md) | The Endless Spire — Roguelike Draft Mode | pending | 0 / 5 |
+| [GID-039](goals/GID-039--living-world-events/goal.md) | Living World Events | pending | 0 / 4 |
+| [GID-040](goals/GID-040--puzzle-battles/goal.md) | Puzzle Battle Shrines | pending | 0 / 4 |
+| [GID-041](goals/GID-041--battle-companions/goal.md) | Battle Companions | pending | 0 / 2 |
 
 ## Backlog
 
