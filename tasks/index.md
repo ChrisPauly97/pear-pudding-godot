@@ -62,6 +62,7 @@
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
 | [BID-002](backlog/BID-002--voice-acting-spec-conflict.md) | "Voice acting" out-of-scope conflicts with narration scroll audio | spec-gap | GID-013 |
+| [BID-004](backlog/BID-004--orphaned-chestopenscene-uid.md) | Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen) | code-smell | GID-050 research |
 
 ## Resolved Backlog
 
