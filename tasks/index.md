@@ -72,6 +72,7 @@
 | [GID-066](goals/GID-066--creeping-blight/goal.md) | The Creeping Blight — Corruption Territory & Cleansing | pending | 0 / 3 |
 | [GID-067](goals/GID-067--ancient-colossi/goal.md) | Ancient Colossi — Discoverable Mega-Landmarks | pending | 0 / 3 |
 | [GID-068](goals/GID-068--ley-lines/goal.md) | Ley Lines — Visible Currents of Magic | pending | 0 / 3 |
+| [GID-069](goals/GID-069--core-loop-retention/goal.md) | Core Loop Retention & Ease-of-Use | pending | 0 / 5 |
 
 ## Backlog
 
