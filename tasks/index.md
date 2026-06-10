@@ -62,6 +62,11 @@
 | [GID-056](goals/GID-056--home-garden-potions/goal.md) | Home Garden & Potion Brewing | pending | 0 / 4 |
 | [GID-057](goals/GID-057--dungeon-secrets/goal.md) | Dungeon Secrets & Mimics | pending | 0 / 3 |
 | [GID-058](goals/GID-058--deck-loadouts/goal.md) | Deck Loadouts | pending | 0 / 2 |
+| [GID-059](goals/GID-059--battlefield-resonance/goal.md) | Battlefield Resonance — Where You Fight Matters | pending | 0 / 3 |
+| [GID-060](goals/GID-060--veteran-cards/goal.md) | Veteran Cards — Cards That Remember | pending | 0 / 3 |
+| [GID-061](goals/GID-061--soulbinding/goal.md) | Soulbinding — Every Enemy Is a Card | pending | 0 / 3 |
+| [GID-062](goals/GID-062--dual-faced-cards/goal.md) | Dual-Faced Corruption Cards | pending | 0 / 3 |
+| [GID-063](goals/GID-063--gambits/goal.md) | Gambits — Pre-Battle Wagers | pending | 0 / 2 |
 
 ## Backlog
 
@@ -69,6 +74,10 @@
 |----|---------|----------|-------------------|
 | [BID-002](backlog/BID-002--voice-acting-spec-conflict.md) | "Voice acting" out-of-scope conflicts with narration scroll audio | spec-gap | GID-013 |
 | [BID-004](backlog/BID-004--orphaned-chestopenscene-uid.md) | Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen) | code-smell | GID-050 research |
+| [BID-005](backlog/BID-005--rolled-stats-not-used-in-battle.md) | Player's per-instance rolled card stats never applied in battle | design-inconsistency | GID-060 research |
+| [BID-006](backlog/BID-006--gamebus-battle-signals-never-emitted.md) | GameBus card_played / card_attacked / battle_ended declared but never emitted | code-smell | GID-060/061 research |
+| [BID-007](backlog/BID-007--card-registry-test-count-stale.md) | test_card_registry asserts 40 cards but registry preloads 46 | code-smell | GID-062 research |
+| [BID-008](backlog/BID-008--is-unique-dropped-from-template-dict.md) | CardData.to_template_dict() omits is_unique; sell/scrap guard never triggers | code-smell | GID-061 research |
 
 ## Resolved Backlog
 
