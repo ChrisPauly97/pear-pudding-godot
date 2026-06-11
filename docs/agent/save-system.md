@@ -85,6 +85,7 @@ Every mutating method (`add_card`, `set_player_position`, `mark_enemy_defeated`,
 | `corruption_points` | `int` | Currency earned via dark dialogue choices, spent on cross-magic light skills; added v13 |
 | `redemption_points` | `int` | Currency earned via light dialogue choices, spent on cross-magic dark skills; added v13 |
 | `pending_battle_state` | `Dictionary` | Serialized `GameState` snapshot of an in-progress battle; `{}` when not in a battle. Set by `set_pending_battle_state()`, cleared by `clear_pending_battle_state()` on win/loss; added v14 |
+| `spire_run` | `Dictionary` | Active Endless Spire run record. Keys: `active` (bool), `floor` (int, 1-based), `draft_deck` (Array of card ID strings), `hero_hp` (int), `seed` (int), `enemies_defeated` (int), `cards_drafted` (int). Default `{"active": false}` means no run in progress; added v16 |
 
 ### Migration History
 
@@ -104,6 +105,8 @@ Every mutating method (`add_card`, `set_player_position`, `mark_enemy_defeated`,
 | v12 | `xp`, `level`, `skill_points`, `unlocked_skills` |
 | v13 | `magic_type`, `corruption_points`, `redemption_points` |
 | v14 | `pending_battle_state` |
+| v15 | `defeated_duelists` |
+| v16 | `spire_run` |
 
 ### Migration
 

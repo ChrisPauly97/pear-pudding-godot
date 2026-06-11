@@ -2,7 +2,7 @@
 
 **Goal:** GID-038
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -36,12 +36,27 @@ The foundation of the Spire: a persisted run record so a climb survives app rest
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `spire_run: Dictionary = {}` member var to `SaveManager.gd`.
+2. Add migration v15→v16: backfill `spire_run` as `{"active": false}` for old saves; bump `CURRENT_SAVE_VERSION` to 16.
+3. Load `spire_run` from JSON in `load_save()`; write it back in `save()`.
+4. Reset `spire_run = {"active": false}` in `new_game()`.
+5. Add helper functions on `SaveManager`:
+   - `start_spire_run(seed: int)` — initialise all fields, mark dirty
+   - `advance_spire_floor()` — increment `floor` and `enemies_defeated`, mark dirty
+   - `add_drafted_card(card_id: String)` — append to `draft_deck`, increment `cards_drafted`, mark dirty
+   - `end_spire_run() -> Dictionary` — return stats snapshot, set `active = false`, mark dirty
+   - `get_spire_run() -> Dictionary` — read-only accessor
+   - `is_spire_active() -> bool` — convenience predicate
+6. Write `tests/unit/test_spire_run.gd` covering migration and lifecycle.
+7. Register the new test in `tests/runner.gd`.
+8. Update `docs/agent/save-system.md` with the new field and migration entry.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`: added `spire_run: Dictionary` member var; bumped `CURRENT_SAVE_VERSION` to 16; added `_migrate_v15_to_v16` static func and wired it into `_apply_migrations`; added `spire_run` to `load_save()`, `save()`, and `new_game()` reset; added helper functions `is_spire_active`, `get_spire_run`, `start_spire_run`, `advance_spire_floor`, `add_drafted_card`, `set_spire_hero_hp`, `end_spire_run`.
+- `tests/unit/test_spire_run.gd`: 30 unit tests covering migration (v15→v16), default state, and full start/advance/draft/hp/end lifecycle.
+- `tests/runner.gd`: registered `test_spire_run.gd` in the SUITES array.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/save-system.md`: added `spire_run` field to the Field Descriptions table; added v15 and v16 entries to the Migration History table.

@@ -94,6 +94,11 @@ var magic_type: String = ""
 var corruption_points: int = 0
 var redemption_points: int = 0
 
+# Active Endless Spire run (persisted so runs survive app restarts).
+# Fields: active, floor, draft_deck, hero_hp, seed, enemies_defeated, cards_drafted.
+# Default {"active": false} means no run in progress.
+var spire_run: Dictionary = {"active": false}
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -177,13 +182,14 @@ func new_game() -> void:
 	magic_type = ""
 	corruption_points = 0
 	redemption_points = 0
+	spire_run = {"active": false}
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 15
+const CURRENT_SAVE_VERSION: int = 16
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -325,6 +331,12 @@ static func _migrate_v14_to_v15(data: Dictionary) -> void:
 		data["defeated_duelists"] = []
 	data["version"] = 15
 
+# _migrate_v15_to_v16: backfill spire_run for old saves.
+static func _migrate_v15_to_v16(data: Dictionary) -> void:
+	if not data.has("spire_run"):
+		data["spire_run"] = {"active": false}
+	data["version"] = 16
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -357,6 +369,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v13_to_v14(data)
 	if ver < 15:
 		_migrate_v14_to_v15(data)
+	if ver < 16:
+		_migrate_v15_to_v16(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -416,6 +430,8 @@ func load_save() -> bool:
 	magic_type = str(data.get("magic_type", ""))
 	corruption_points = int(data.get("corruption_points", 0))
 	redemption_points = int(data.get("redemption_points", 0))
+	var sr = data.get("spire_run", {"active": false})
+	spire_run = sr if sr is Dictionary else {"active": false}
 	_loaded = true
 	return true
 
@@ -466,6 +482,7 @@ func save() -> void:
 		"magic_type": magic_type,
 		"corruption_points": corruption_points,
 		"redemption_points": redemption_points,
+		"spire_run": spire_run,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -890,6 +907,63 @@ func mark_dungeon_room_used(room_key: String) -> void:
 
 func is_dungeon_room_used(room_key: String) -> bool:
 	return visited_dungeon_rooms.has(room_key)
+
+# -------------------------------------------------------------------------
+# Endless Spire run helpers
+# -------------------------------------------------------------------------
+
+func is_spire_active() -> bool:
+	return bool(spire_run.get("active", false))
+
+func get_spire_run() -> Dictionary:
+	return spire_run
+
+func start_spire_run(seed: int) -> void:
+	spire_run = {
+		"active": true,
+		"floor": 1,
+		"draft_deck": [],
+		"hero_hp": 30,
+		"seed": seed,
+		"enemies_defeated": 0,
+		"cards_drafted": 0,
+	}
+	_dirty = true
+
+func advance_spire_floor() -> void:
+	if not is_spire_active():
+		return
+	spire_run["floor"] = int(spire_run.get("floor", 1)) + 1
+	spire_run["enemies_defeated"] = int(spire_run.get("enemies_defeated", 0)) + 1
+	_dirty = true
+
+func add_drafted_card(card_id: String) -> void:
+	if not is_spire_active():
+		return
+	var deck: Array = spire_run.get("draft_deck", [])
+	deck.append(card_id)
+	spire_run["draft_deck"] = deck
+	spire_run["cards_drafted"] = int(spire_run.get("cards_drafted", 0)) + 1
+	_dirty = true
+
+## Ends the current spire run and returns the final stats dictionary.
+## The returned dict contains: floors_cleared, enemies_defeated, cards_drafted, seed.
+func end_spire_run() -> Dictionary:
+	var stats: Dictionary = {
+		"floors_cleared": int(spire_run.get("floor", 1)) - 1,
+		"enemies_defeated": int(spire_run.get("enemies_defeated", 0)),
+		"cards_drafted": int(spire_run.get("cards_drafted", 0)),
+		"seed": int(spire_run.get("seed", 0)),
+	}
+	spire_run = {"active": false}
+	_dirty = true
+	return stats
+
+func set_spire_hero_hp(hp: int) -> void:
+	if not is_spire_active():
+		return
+	spire_run["hero_hp"] = hp
+	_dirty = true
 
 func increment_day() -> void:
 	days_elapsed += 1
