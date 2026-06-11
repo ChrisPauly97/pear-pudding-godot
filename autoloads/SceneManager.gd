@@ -62,6 +62,8 @@ var _toast: CanvasLayer = null
 var _current_battle_enemy_id: String = ""
 # Tracks which duelist NPC triggered the current duel (for defeat tracking)
 var _current_duel_npc_id: String = ""
+# Legendary card to award on first champion duel win ("" = none)
+var _current_champion_reward: String = ""
 
 ## SaveManager is owned here so its lifecycle is explicit rather than being a
 ## magic autoload. Other systems access it via SceneManager.save_manager.
@@ -255,6 +257,7 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 		GameBus.hud_message_requested.emit("Deck too small — add at least %d cards first." % IsoConst.DECK_MIN)
 		return
 	_current_duel_npc_id = str(enemy_data.get("duel_npc_id", ""))
+	_current_champion_reward = str(enemy_data.get("champion_reward_card", ""))
 	_saved_world_scene = get_tree().current_scene
 	get_tree().root.remove_child(_saved_world_scene)
 	_battle_overlay = _battle_scene_packed.instantiate()
@@ -267,6 +270,15 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 func _on_duel_won() -> void:
 	if _state != State.BATTLE:
 		return
+	# Champion first-win: award legendary before marking defeated (so the "first win" check is accurate).
+	var grant_card: String = ""
+	if not _current_champion_reward.is_empty() and not _current_duel_npc_id.is_empty():
+		if not save_manager.defeated_duelists.has(_current_duel_npc_id):
+			grant_card = _current_champion_reward
+			save_manager.add_card_instance(grant_card, "legendary")
+			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+			save_manager.set_story_flag("champion_blancogov_defeated")
+	_current_champion_reward = ""
 	if not _current_duel_npc_id.is_empty():
 		save_manager.mark_duelist_defeated(_current_duel_npc_id)
 		_current_duel_npc_id = ""
@@ -276,11 +288,14 @@ func _on_duel_won() -> void:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
 	_restore_world()
+	if grant_card != "":
+		GameBus.hud_message_requested.emit("Champion defeated! %s added to your collection." % grant_card)
 
 func _on_duel_lost() -> void:
 	if _state != State.BATTLE:
 		return
 	_current_duel_npc_id = ""
+	_current_champion_reward = ""
 	save_manager.clear_pending_battle_state()
 	save_manager.save()
 	if _battle_overlay != null:

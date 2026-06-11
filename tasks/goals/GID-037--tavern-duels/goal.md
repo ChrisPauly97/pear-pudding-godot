@@ -14,7 +14,7 @@ Currently only EnemyNPC entities trigger battles — towns are quest dispensers,
 |----|------|------|--------|------------|
 | TID-143 | Friendly duel battle flow (GameState flag, GameBus signal, wager resolution) | agent | done | — |
 | TID-144 | Duelist TownspersonNPC wiring + save tracking | agent | done | TID-143 |
-| TID-145 | Regional champion NPC + legendary reward | agent | pending | TID-144 |
+| TID-145 | Regional champion NPC + legendary reward | agent | done | TID-144 |
 
 ## Acceptance Criteria
 

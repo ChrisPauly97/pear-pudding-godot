@@ -1253,8 +1253,18 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 	var wager: int = int(npc.get("wager_coins", 10))
 	var is_rematch: bool = SceneManager.save_manager.defeated_duelists.has(npc_id)
 	var player_coins: int = SceneManager.save_manager.coins
+	var champion_reward: String = str(npc.get("champion_reward_card", ""))
 	if is_rematch:
 		wager = max(1, wager / 2)
+
+	# Champion gate: count required duelists not yet beaten.
+	var req_ids: Variant = npc.get("required_duelist_ids")
+	var gate_remaining: int = 0
+	if req_ids is PackedStringArray:
+		var defeated: Array[String] = SceneManager.save_manager.defeated_duelists
+		for rid: String in (req_ids as PackedStringArray):
+			if not defeated.has(rid):
+				gate_remaining += 1
 
 	var layer := CanvasLayer.new()
 	layer.layer = 50
@@ -1295,7 +1305,9 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 	margin.add_child(vbox)
 
 	var offer_lbl := Label.new()
-	if player_coins < wager:
+	if gate_remaining > 0:
+		offer_lbl.text = "I only duel proven players. Beat the others in town first. (%d more to go.)" % gate_remaining
+	elif player_coins < wager:
 		offer_lbl.text = "Come back when you can cover the wager."
 	elif is_rematch:
 		offer_lbl.text = "A rematch? Wager: %d coins." % wager
@@ -1312,7 +1324,7 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 	row.add_theme_constant_override("separation", int(vh * 0.03))
 	vbox.add_child(row)
 
-	if player_coins >= wager:
+	if gate_remaining == 0 and player_coins >= wager:
 		var duel_btn := Button.new()
 		duel_btn.text = "Duel!"
 		duel_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.07)
@@ -1324,6 +1336,7 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 				"enemy_type": enemy_id,
 				"enemy_deck": enemy_deck,
 				"duel_npc_id": npc_id,
+				"champion_reward_card": champion_reward,
 			}
 			GameBus.duel_requested.emit(enemy_data_dict, wager)
 		)

@@ -98,23 +98,30 @@ State machine with three modes:
 
 Duelists are regular TownspersonNPCs that have `npc_type = "duelist"` in their `MapNpc` resource. They are wired entirely in data — no separate scene is needed.
 
-**MapNpc fields added by TID-144:**
+**MapNpc duelist fields:**
 - `duelist_enemy_id: String` — key into `EnemyRegistry` (e.g. `"duelist_novice"`)
 - `wager_coins: int` — coins at stake per duel
+- `required_duelist_ids: PackedStringArray` — `entity_id`s that must appear in `SaveManager.defeated_duelists` before this NPC will accept a duel (champion gate)
+- `champion_reward_card: String` — card ID awarded once on first defeat (leave empty for regular duelists)
 
 **Interact flow (`WorldScene._show_duel_offer_panel`):**
-1. If the player has fewer coins than the wager → shows "Come back when you can cover the wager."
-2. If the NPC's `entity_id` is in `SaveManager.defeated_duelists` → rematch: wager is halved, prompt changes to "A rematch?".
-3. Otherwise → "Care for a friendly duel? Wager: N coins."
-4. **Duel** button: builds `enemy_data` dict (deck from `EnemyRegistry`, `duel_npc_id` set) and emits `GameBus.duel_requested(enemy_data, wager)`.
-5. **Decline** button: dismisses the panel.
+1. **Champion gate**: if `required_duelist_ids` is non-empty and any listed ID is not in `defeated_duelists` → shows "I only duel proven players. Beat the others in town first. (N more to go.)" — only Decline button shown.
+2. If the player has fewer coins than the wager → shows "Come back when you can cover the wager."
+3. If the NPC's `entity_id` is in `SaveManager.defeated_duelists` → rematch: wager is halved, prompt changes to "A rematch?".
+4. Otherwise → "Care for a friendly duel? Wager: N coins."
+5. **Duel** button: builds `enemy_data` dict (deck from `EnemyRegistry`, `duel_npc_id`, `champion_reward_card`) and emits `GameBus.duel_requested(enemy_data, wager)`.
+6. **Decline** button: dismisses the panel.
 
 Buttons are sized relative to viewport height (18 % × 7 %) for mobile parity.
 
 **Save tracking:**
 - `SaveManager.defeated_duelists: Array[String]` — list of `entity_id` strings for beaten duelists.
 - Populated by `SaveManager.mark_duelist_defeated(npc_id)`, called from `SceneManager._on_duel_won()`.
-- Used by TID-145 champion gate: champion refuses to duel until all regional duelists are in this set.
+
+**Champion legendary reward (`SceneManager._on_duel_won`):**
+- If `champion_reward_card` is set and the NPC's `entity_id` is NOT already in `defeated_duelists` (first win), `add_card_instance(card_id, "legendary")` is called.
+- Story flag `"champion_blancogov_defeated"` is set, which triggers the `regional_champion` achievement.
+- A HUD message confirms the legendary award.
 
 **Duelist enemy resources (placed in `data/enemies/`):**
 
@@ -122,6 +129,7 @@ Buttons are sized relative to viewport height (18 % × 7 %) for mobile parity.
 |---|---|---|---|
 | `duelist_novice` | Ghost×3, Skeleton×3, Zombie×2, Ghoul, Mend | 15 | madrian (tile 30,20) |
 | `duelist_adept` | Ghost×2, Skeleton×2, Zombie×2, Ghoul×2, Mend, Wither, SurgeSpirit, EmberImp | 25 | blancogov (tile 35,50) |
+| `duelist_champion` | Ghoul×2, BlitzGhoul×2, ShroudedWraith, VoidWyrm, Wither×2, SoulRend, DarkPact | 50 | blancogov (tile 55,50) — gated behind adept |
 
 ### MerchantNPC Scene (`scenes/world/entities/MerchantNPC.gd`)
 

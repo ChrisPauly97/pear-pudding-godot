@@ -18,3 +18,7 @@ extends Resource
 @export var duelist_enemy_id: String = ""
 ## For duelist NPCs: the coin wager amount.
 @export var wager_coins: int = 0
+## Champion gate: entity_ids that must appear in SaveManager.defeated_duelists before this NPC will accept a duel.
+@export var required_duelist_ids: PackedStringArray = []
+## One-time legendary card awarded to the player on first defeat (champion NPCs only).
+@export var champion_reward_card: String = ""

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://k2o105s7uyz6"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_duelist_champion"]
+
+[resource]
+script = ExtResource("1_duelist_champion")
+id = "duelist_champion"
+display_name = "Champion of Blancogov"
+deck = PackedStringArray("ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "shrouded_wraith", "void_wyrm", "wither", "wither", "soul_rend", "dark_pact")
+drop_pool = PackedStringArray()
+coin_reward = 0
+difficulty_tier = 3
