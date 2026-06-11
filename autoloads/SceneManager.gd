@@ -528,6 +528,19 @@ func _on_tutorial_popup_requested(popup_id: String) -> void:
 
 # ── Endless Spire helpers ───────────────────────────────────────────────────
 
+## Starts or resumes an Endless Spire run from the entrance door in a town map.
+func enter_spire() -> void:
+	if save_manager.is_spire_active():
+		var run: Dictionary = save_manager.get_spire_run()
+		var floor: int = int(run.get("floor", 1))
+		var run_seed: int = int(run.get("seed", 0))
+		enter_map("spire_floor_%d_%d" % [floor, run_seed], "")
+	else:
+		var seed: int = randi()
+		save_manager.start_spire_run(seed)
+		GameBus.tutorial_popup_requested.emit("spire_intro")
+		enter_map("spire_floor_1_%d" % seed, "")
+
 func _show_spire_draft(floor: int) -> void:
 	_spire_draft_overlay = _spire_draft_scene_packed.instantiate()
 	get_tree().current_scene.add_child(_spire_draft_overlay)

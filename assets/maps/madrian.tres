@@ -59,6 +59,15 @@ target_map = "infinite"
 target_door_id = ""
 flag_key = ""
 
+[sub_resource type="Resource" id="MapDoor_7"]
+script = ExtResource("2_mapdoor")
+entity_id = "spire_entrance"
+tile_x = 70
+tile_z = 36
+target_map = "spire"
+target_door_id = ""
+flag_key = ""
+
 [sub_resource type="Resource" id="MapNpc_1"]
 script = ExtResource("3_mapnpc")
 entity_id = "npc_1"
@@ -170,7 +179,7 @@ spawn_x = 40
 spawn_z = 36
 enemies = []
 chests = []
-doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2"), SubResource("MapDoor_3"), SubResource("MapDoor_4"), SubResource("MapDoor_5"), SubResource("MapDoor_6")]
+doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2"), SubResource("MapDoor_3"), SubResource("MapDoor_4"), SubResource("MapDoor_5"), SubResource("MapDoor_6"), SubResource("MapDoor_7")]
 npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7"), SubResource("MapNpc_8"), SubResource("MapNpc_9")]
 scrolls = [SubResource("MapScroll_1")]
 triggers = []

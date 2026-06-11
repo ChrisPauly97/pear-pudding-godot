@@ -1180,7 +1180,9 @@ func _handle_interact() -> void:
 		var target_map: String = door.get("target_map", "")
 		var tdoor: String = door.get("target_door_id", "")
 		AudioManager.play_sfx("door_enter")
-		if target_map.is_empty():
+		if target_map == "spire":
+			_show_spire_entrance_panel()
+		elif target_map.is_empty():
 			SceneManager.exit_map()
 		else:
 			if SceneManager.save_manager.current_map == "madrian" and target_map == "maykalene":
@@ -1249,6 +1251,95 @@ func _handle_interact() -> void:
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
 	if scroll != null and scroll.has_method("interact"):
 		scroll.interact()
+
+# ── Spire entrance ─────────────────────────────────────────────────────────
+
+func _show_spire_entrance_panel() -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var is_active: bool = SceneManager.save_manager.is_spire_active()
+	var curr_floor: int = 1
+	if is_active:
+		curr_floor = int(SceneManager.save_manager.get_spire_run().get("floor", 1))
+
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	_hud.add_child(layer)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel_w: float = vp.x * 0.64
+	var panel_h: float = vh * 0.40
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.04, 0.14, 0.96)
+	style.corner_radius_top_left    = 10
+	style.corner_radius_top_right   = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
+	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
+	margin.add_theme_constant_override("margin_top",    int(vh * 0.03))
+	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(vh * 0.022))
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "The Endless Spire"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", int(vh * 0.038))
+	title.modulate = Color(0.85, 0.50, 1.0)
+	vbox.add_child(title)
+
+	var desc := Label.new()
+	if is_active:
+		desc.text = "A run is in progress — Floor %d.\nResume your climb?" % curr_floor
+	else:
+		desc.text = "Your deck stays behind.\nDraft new cards as you climb — or fall."
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.add_theme_font_size_override("font_size", int(vh * 0.026))
+	desc.modulate = Color(0.85, 0.85, 0.85)
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(desc)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(vh * 0.03))
+	vbox.add_child(row)
+
+	var enter_btn := Button.new()
+	enter_btn.text = "Resume (Floor %d)" % curr_floor if is_active else "Enter"
+	enter_btn.custom_minimum_size = Vector2(vh * 0.20, vh * 0.07)
+	enter_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
+	enter_btn.modulate = Color(0.85, 0.50, 1.0)
+	enter_btn.pressed.connect(func() -> void:
+		layer.queue_free()
+		SceneManager.enter_spire()
+	)
+	row.add_child(enter_btn)
+
+	var leave_btn := Button.new()
+	leave_btn.text = "Leave"
+	leave_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.07)
+	leave_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
+	leave_btn.pressed.connect(func() -> void: layer.queue_free())
+	row.add_child(leave_btn)
 
 # ── Dialogue ───────────────────────────────────────────────────────────────
 
