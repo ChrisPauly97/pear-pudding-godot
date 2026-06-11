@@ -10,6 +10,7 @@ const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const Minimap         = preload("res://scenes/world/Minimap.gd")
 const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
 const WeaponRegistry  = preload("res://autoloads/WeaponRegistry.gd")
+const EnemyRegistry   = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponData      = preload("res://data/WeaponData.gd")
 const SaveManager     = preload("res://autoloads/SaveManager.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
@@ -1210,6 +1211,9 @@ func _handle_interact() -> void:
 		if str(npc.get("npc_type", "")) == "merchant":
 			GameBus.shop_requested.emit()
 			return
+		if str(npc.get("npc_type", "")) == "duelist":
+			_show_duel_offer_panel(npc)
+			return
 		if str(npc.get("npc_type", "")) == "rest_site":
 			_show_rest_site_panel(npc)
 			return
@@ -1240,6 +1244,97 @@ func _show_dialogue(text: String) -> void:
 	_dialogue_label.show()
 	_dialogue_timer = DIALOGUE_DURATION
 	GameBus.dialogue_state_changed.emit(true)
+
+func _show_duel_offer_panel(npc: Dictionary) -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var npc_id: String = str(npc.get("id", ""))
+	var enemy_id: String = str(npc.get("duelist_enemy_id", "duelist_novice"))
+	var wager: int = int(npc.get("wager_coins", 10))
+	var is_rematch: bool = SceneManager.save_manager.defeated_duelists.has(npc_id)
+	var player_coins: int = SceneManager.save_manager.coins
+	if is_rematch:
+		wager = max(1, wager / 2)
+
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	_hud.add_child(layer)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.5)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel_w: float = vp.x * 0.6
+	var panel_h: float = vh * 0.38
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.18, 0.96)
+	style.corner_radius_top_left    = 10
+	style.corner_radius_top_right   = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
+	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
+	margin.add_theme_constant_override("margin_top",    int(vh * 0.03))
+	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(vh * 0.022))
+	margin.add_child(vbox)
+
+	var offer_lbl := Label.new()
+	if player_coins < wager:
+		offer_lbl.text = "Come back when you can cover the wager."
+	elif is_rematch:
+		offer_lbl.text = "A rematch? Wager: %d coins." % wager
+	else:
+		offer_lbl.text = "Care for a friendly duel?\nWager: %d coins." % wager
+	offer_lbl.add_theme_font_size_override("font_size", int(vh * 0.028))
+	offer_lbl.add_theme_color_override("font_color", Color.WHITE)
+	offer_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	offer_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(offer_lbl)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(vh * 0.03))
+	vbox.add_child(row)
+
+	if player_coins >= wager:
+		var duel_btn := Button.new()
+		duel_btn.text = "Duel!"
+		duel_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.07)
+		duel_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
+		duel_btn.pressed.connect(func() -> void:
+			layer.queue_free()
+			var enemy_deck: Array[String] = EnemyRegistry.get_deck(enemy_id)
+			var enemy_data_dict: Dictionary = {
+				"enemy_type": enemy_id,
+				"enemy_deck": enemy_deck,
+				"duel_npc_id": npc_id,
+			}
+			GameBus.duel_requested.emit(enemy_data_dict, wager)
+		)
+		row.add_child(duel_btn)
+
+	var decline_btn := Button.new()
+	decline_btn.text = "Decline"
+	decline_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.07)
+	decline_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
+	decline_btn.pressed.connect(func() -> void: layer.queue_free())
+	row.add_child(decline_btn)
 
 func _show_tip(text: String) -> void:
 	_tip_label.text = text

@@ -94,6 +94,35 @@ State machine with three modes:
 - Dialogue is supplied by `BiomeDef.npc_dialogue[]` (randomly picked at spawn time)
 - Re-triggers on each new interaction; no branching or quest state
 
+### Duelist NPC (MapNpc variant)
+
+Duelists are regular TownspersonNPCs that have `npc_type = "duelist"` in their `MapNpc` resource. They are wired entirely in data — no separate scene is needed.
+
+**MapNpc fields added by TID-144:**
+- `duelist_enemy_id: String` — key into `EnemyRegistry` (e.g. `"duelist_novice"`)
+- `wager_coins: int` — coins at stake per duel
+
+**Interact flow (`WorldScene._show_duel_offer_panel`):**
+1. If the player has fewer coins than the wager → shows "Come back when you can cover the wager."
+2. If the NPC's `entity_id` is in `SaveManager.defeated_duelists` → rematch: wager is halved, prompt changes to "A rematch?".
+3. Otherwise → "Care for a friendly duel? Wager: N coins."
+4. **Duel** button: builds `enemy_data` dict (deck from `EnemyRegistry`, `duel_npc_id` set) and emits `GameBus.duel_requested(enemy_data, wager)`.
+5. **Decline** button: dismisses the panel.
+
+Buttons are sized relative to viewport height (18 % × 7 %) for mobile parity.
+
+**Save tracking:**
+- `SaveManager.defeated_duelists: Array[String]` — list of `entity_id` strings for beaten duelists.
+- Populated by `SaveManager.mark_duelist_defeated(npc_id)`, called from `SceneManager._on_duel_won()`.
+- Used by TID-145 champion gate: champion refuses to duel until all regional duelists are in this set.
+
+**Duelist enemy resources (placed in `data/enemies/`):**
+
+| ID | Deck | Wager | Placed in |
+|---|---|---|---|
+| `duelist_novice` | Ghost×3, Skeleton×3, Zombie×2, Ghoul, Mend | 15 | madrian (tile 30,20) |
+| `duelist_adept` | Ghost×2, Skeleton×2, Zombie×2, Ghoul×2, Mend, Wither, SurgeSpirit, EmberImp | 25 | blancogov (tile 35,50) |
+
 ### MerchantNPC Scene (`scenes/world/entities/MerchantNPC.gd`)
 
 - Static NPC with gold-coloured robe to distinguish it from regular townspeople
@@ -125,6 +154,7 @@ This means defeated enemies stay gone across sessions.
 | **SaveManager** | Persistence | `mark_enemy_defeated(id)` and `defeated_enemies` set prevent respawn |
 | **BiomeDef** | Dialogue source | `BiomeDef.npc_dialogue[]` supplies TownspersonNPC dialogue lines |
 | **GameBus** | Signal | `shop_requested` emitted when player interacts with a MerchantNPC; routed to `SceneManager._on_shop_requested()` |
+| **GameBus** | Signal | `duel_requested(enemy_data, wager)` emitted from duel offer panel; `duel_won` / `duel_lost` resolve wager and update `SaveManager.defeated_duelists` |
 | **ShopScene** | Overlay | Opened on `shop_requested`; lists all cards for 15 coins each; emits `closed` when player leaves |
 | **IsoConst** | Constants | `AUTO_BATTLE_RANGE`, `INTERACT_RANGE`, `TRACKING_RANGE` |
 

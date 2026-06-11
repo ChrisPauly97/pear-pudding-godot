@@ -60,6 +60,8 @@ var _toast: CanvasLayer = null
 
 # Tracks which enemy triggered the current battle (for defeat marking)
 var _current_battle_enemy_id: String = ""
+# Tracks which duelist NPC triggered the current duel (for defeat tracking)
+var _current_duel_npc_id: String = ""
 
 ## SaveManager is owned here so its lifecycle is explicit rather than being a
 ## magic autoload. Other systems access it via SceneManager.save_manager.
@@ -252,6 +254,7 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 	if save_manager.player_deck.size() < IsoConst.DECK_MIN:
 		GameBus.hud_message_requested.emit("Deck too small — add at least %d cards first." % IsoConst.DECK_MIN)
 		return
+	_current_duel_npc_id = str(enemy_data.get("duel_npc_id", ""))
 	_saved_world_scene = get_tree().current_scene
 	get_tree().root.remove_child(_saved_world_scene)
 	_battle_overlay = _battle_scene_packed.instantiate()
@@ -264,7 +267,11 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 func _on_duel_won() -> void:
 	if _state != State.BATTLE:
 		return
+	if not _current_duel_npc_id.is_empty():
+		save_manager.mark_duelist_defeated(_current_duel_npc_id)
+		_current_duel_npc_id = ""
 	save_manager.clear_pending_battle_state()
+	save_manager.save()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
@@ -273,7 +280,9 @@ func _on_duel_won() -> void:
 func _on_duel_lost() -> void:
 	if _state != State.BATTLE:
 		return
+	_current_duel_npc_id = ""
 	save_manager.clear_pending_battle_state()
+	save_manager.save()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null

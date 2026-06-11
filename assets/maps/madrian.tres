@@ -139,6 +139,18 @@ npc_type = "merchant"
 flag_key = ""
 after_dialogue = ""
 
+[sub_resource type="Resource" id="MapNpc_9"]
+script = ExtResource("3_mapnpc")
+entity_id = "duelist_1"
+tile_x = 30
+tile_z = 20
+dialogue = "I have bested many a traveller in a duel. Do you dare face me?"
+npc_type = "duelist"
+flag_key = ""
+after_dialogue = ""
+duelist_enemy_id = "duelist_novice"
+wager_coins = 15
+
 [sub_resource type="Resource" id="MapScroll_1"]
 script = ExtResource("4_mapscroll")
 entity_id = "scroll_15"
@@ -159,7 +171,7 @@ spawn_z = 36
 enemies = []
 chests = []
 doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2"), SubResource("MapDoor_3"), SubResource("MapDoor_4"), SubResource("MapDoor_5"), SubResource("MapDoor_6")]
-npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7"), SubResource("MapNpc_8")]
+npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7"), SubResource("MapNpc_8"), SubResource("MapNpc_9")]
 scrolls = [SubResource("MapScroll_1")]
 triggers = []
 regions = []
