@@ -2,7 +2,7 @@
 
 **Goal:** GID-038
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-146
 
 ## Lock
@@ -31,12 +31,23 @@ Each Spire floor is a small arena: a compact room with one enemy between the pla
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/spire/SpireFloorGen.gd` — static funcs:
+   - `map_name_for(floor, run_seed)`, `cleared_flag_for(floor, run_seed)` — pure string helpers
+   - `pick_enemy_type(floor)` — tier ladder: floors 1-3 undead_basic, 4-6 undead_horde, 7-9 ghoul_pack, 10+ undead_elite; every 7th floor is boss
+   - `is_boss_floor(floor)` — floor % 7 == 0
+   - `generate(floor, run_seed)` — fills 100×100 WorldMap with walls, carves 12×8 arena in centre, places enemy + flag-gated exit door, saves to user://maps/
+2. Modify `scenes/world/WorldScene.gd` — add `spire_floor_` map-name branch in `_ready()` (mirror of dungeon_ branch); update map label.
+3. Modify `scenes/battle/BattleScene.gd` — apply `spire_run.hero_hp` as starting HP after opening hand; include `"hero_hp"` in `battle_won` result dict.
+4. Modify `autoloads/SceneManager.gd` — Spire battle won: save hero HP, set cleared flag, show SpireDraftScene overlay; Spire battle lost: end run; `exit_map()` Spire branch: advance floor.
+5. Update `docs/agent/named-maps-and-dungeons.md` with Spire floor section.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/spire/SpireFloorGen.gd`** (new) — static helpers: `map_name_for`, `cleared_flag_for`, `pick_enemy_type`, `is_boss_floor`; `generate(floor, run_seed)` builds a 12×8 arena WorldMap, places enemy + flag-gated exit door, saves to user://maps/.
+- **`scenes/world/WorldScene.gd`** — added `const SpireFloorGen` preload; `spire_floor_` branch in `_ready()` (mirrors dungeon_ branch); updated map label.
+- **`scenes/battle/BattleScene.gd`** — applies `spire_run.hero_hp` after opening hand; includes `"hero_hp"` in both `battle_won` result dicts (normal + boss).
+- **`autoloads/SceneManager.gd`** — `_spire_draft_scene_packed` preload; `_spire_draft_overlay` member; Spire branch in `_on_battle_won()` (save HP, set cleared flag, show draft overlay); `end_spire_run()` in `_on_battle_lost()`; `exit_map()` Spire branch → `_advance_spire_floor()`; new methods: `_show_spire_draft()`, `_on_spire_draft_picked()`, `_advance_spire_floor()`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/named-maps-and-dungeons.md`** — added "Endless Spire Floors" section covering map naming, WorldScene integration, floor contents, enemy ladder, exit door flow, draft integration, and hero HP carry-over.

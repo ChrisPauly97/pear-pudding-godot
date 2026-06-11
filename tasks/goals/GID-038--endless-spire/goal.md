@@ -14,7 +14,7 @@ The game has deep systems but no repeatable content loop beyond wandering the in
 |----|------|------|--------|------------|
 | TID-146 | Spire run state model + SaveManager migration | agent | done | — |
 | TID-147 | Card draft logic + draft pick UI | agent | done | TID-146 |
-| TID-148 | Spire floor scene + enemy difficulty scaling | agent | pending | TID-146 |
+| TID-148 | Spire floor scene + enemy difficulty scaling | agent | done | TID-146 |
 | TID-149 | Spire entrance door + SceneManager routing | agent | pending | TID-148 |
 | TID-150 | Death/exit flow + run summary integration | agent | pending | TID-147, TID-148 |
 

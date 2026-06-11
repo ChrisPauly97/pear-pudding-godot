@@ -34,6 +34,7 @@ var _skill_tree_scene_packed := preload("res://scenes/ui/SkillTreeScene.tscn")
 var _journal_scene_packed := preload("res://scenes/ui/JournalScene.tscn")
 var _achievements_scene_packed := preload("res://scenes/ui/AchievementsScene.tscn")
 var _run_summary_scene_packed := preload("res://scenes/ui/RunSummaryScene.tscn")
+var _spire_draft_scene_packed := preload("res://scenes/ui/SpireDraftScene.tscn")
 
 var _state: State = State.MENU
 var _battle_overlay: Node = null
@@ -43,6 +44,7 @@ var _journal_overlay: Node = null
 var _achievements_overlay: Node = null
 var _character_overlay: Node = null
 var _skill_tree_overlay: Node = null
+var _spire_draft_overlay: Node = null
 var _saved_world_scene: Node = null
 
 # Ephemeral session statistics — reset on new/continue game, not persisted.
@@ -181,6 +183,10 @@ func enter_map(map_name: String, target_door_id: String = "") -> void:
 
 func exit_map() -> void:
 	_flush_position_save()
+	# Spire: exiting a floor loads the next floor rather than popping the map stack.
+	if save_manager.is_spire_active() and current_map.begins_with("spire_floor_"):
+		_advance_spire_floor()
+		return
 	if map_stack.is_empty():
 		go_to_menu()
 		return
@@ -220,6 +226,9 @@ func _exit_world_cleanup() -> void:
 	if _skill_tree_overlay != null:
 		_skill_tree_overlay.queue_free()
 		_skill_tree_overlay = null
+	if _spire_draft_overlay != null:
+		_spire_draft_overlay.queue_free()
+		_spire_draft_overlay = null
 	map_stack.clear()
 	door_stack.clear()
 	current_map = ""
@@ -313,6 +322,30 @@ func _restore_world() -> void:
 func _on_battle_won(result: Dictionary) -> void:
 	if _state != State.BATTLE:
 		return
+	# Spire run: skip standard card/coin rewards; save hero HP; show draft overlay.
+	if save_manager.is_spire_active():
+		var hero_hp: int = int(result.get("hero_hp", 30))
+		save_manager.set_spire_hero_hp(hero_hp)
+		var spire_run: Dictionary = save_manager.get_spire_run()
+		var curr_floor: int = int(spire_run.get("floor", 1))
+		var run_seed: int = int(spire_run.get("seed", 0))
+		save_manager.set_story_flag("spire_floor_%d_%d_cleared" % [curr_floor, run_seed])
+		if not _current_battle_enemy_id.is_empty():
+			save_manager.mark_enemy_defeated(_current_battle_enemy_id)
+			save_manager.increment_progress("enemies_defeated", 1)
+			session_stats["enemies_defeated"] = int(session_stats.get("enemies_defeated", 0)) + 1
+			_current_battle_enemy_id = ""
+		save_manager.increment_progress("battles_won", 1)
+		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
+		save_manager.clear_pending_battle()
+		save_manager.clear_pending_battle_state()
+		save_manager.save()
+		if _battle_overlay != null:
+			_battle_overlay.queue_free()
+			_battle_overlay = null
+		_restore_world()
+		_show_spire_draft(curr_floor)
+		return
 	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 	# Read enemy context before clearing pending_battle.
 	var enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
@@ -372,6 +405,8 @@ func _on_battle_lost() -> void:
 		return
 	_current_battle_enemy_id = ""
 	session_stats["battles_lost"] = int(session_stats.get("battles_lost", 0)) + 1
+	if save_manager.is_spire_active():
+		save_manager.end_spire_run()
 	save_manager.clear_pending_battle()
 	save_manager.clear_pending_battle_state()
 	if _battle_overlay != null:
@@ -490,3 +525,25 @@ func _on_tutorial_popup_requested(popup_id: String) -> void:
 	get_tree().root.add_child(layer)
 	layer.add_child(popup)
 	popup.closed.connect(func() -> void: layer.queue_free())
+
+# ── Endless Spire helpers ───────────────────────────────────────────────────
+
+func _show_spire_draft(floor: int) -> void:
+	_spire_draft_overlay = _spire_draft_scene_packed.instantiate()
+	get_tree().current_scene.add_child(_spire_draft_overlay)
+	_spire_draft_overlay.setup(floor)
+	_spire_draft_overlay.picked.connect(_on_spire_draft_picked)
+
+func _on_spire_draft_picked(_card_id: String) -> void:
+	_spire_draft_overlay = null  # SpireDraftScene.queue_free()s itself in _on_pick
+
+func _advance_spire_floor() -> void:
+	save_manager.advance_spire_floor()
+	var run: Dictionary = save_manager.get_spire_run()
+	var next_floor: int = int(run.get("floor", 1))
+	var run_seed: int = int(run.get("seed", 0))
+	var next_map: String = "spire_floor_%d_%d" % [next_floor, run_seed]
+	current_map = next_map
+	save_manager.sync_stacks(map_stack, door_stack)
+	save_manager.save()
+	_load_world(next_map, "")

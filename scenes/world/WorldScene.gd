@@ -2,6 +2,7 @@ extends Node3D
 
 const WorldMap        = preload("res://game_logic/world/WorldMap.gd")
 const DungeonGen      = preload("res://game_logic/world/DungeonGen.gd")
+const SpireFloorGen   = preload("res://game_logic/spire/SpireFloorGen.gd")
 const GrassBlades     = preload("res://scenes/world/GrassBlades.gd")
 const VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
@@ -196,6 +197,14 @@ func _ready() -> void:
 				world_map = WorldMap.new(map_name)
 			else:
 				world_map = DungeonGen.generate(map_name, dseed)
+		elif map_name.begins_with("spire_floor_"):
+			if MapRegistry.get_map(map_name) != null:
+				world_map = WorldMap.new(map_name)
+			else:
+				var parts: PackedStringArray = map_name.split("_")
+				var sp_floor: int = int(parts[2]) if parts.size() > 2 else 1
+				var sp_seed: int  = int(parts[3]) if parts.size() > 3 else 0
+				world_map = SpireFloorGen.generate(sp_floor, sp_seed)
 		else:
 			world_map = WorldMap.new(map_name)
 			if world_map.is_fallback:
@@ -382,6 +391,10 @@ func flush_time_of_day() -> void:
 func _update_hud() -> void:
 	if _is_infinite:
 		_map_label.text = "World: Infinite"
+	elif map_name.begins_with("spire_floor_"):
+		var _parts: PackedStringArray = map_name.split("_")
+		var _sf: int = int(_parts[2]) if _parts.size() > 2 else 1
+		_map_label.text = "Spire — Floor %d" % _sf
 	else:
 		_map_label.text = "Map: %s" % map_name
 	_coin_label.text = "Coins: %d" % SceneManager.save_manager.coins
