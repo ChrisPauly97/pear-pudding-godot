@@ -114,9 +114,17 @@ func _ready() -> void:
 	else:
 		_state = GameState.new()
 
-		# Player deck: resolve instance UIDs to template IDs for the battle engine.
+		# Player deck: spire run uses its run-local draft deck; otherwise use the
+		# persistent player deck. Floor 1 starter gives 8 basics before any pick.
 		var player_deck: Array[String] = []
-		if SceneManager.save_manager.player_deck.size() > 0:
+		if SceneManager.save_manager.is_spire_active():
+			var draft: Array = SceneManager.save_manager.get_spire_run().get("draft_deck", [])
+			if draft.size() > 0:
+				player_deck.assign(draft)
+			else:
+				player_deck = ["ghost", "ghost", "skeleton", "skeleton",
+							   "zombie", "zombie", "ghoul", "ghoul"]
+		elif SceneManager.save_manager.player_deck.size() > 0:
 			player_deck = SceneManager.save_manager.get_deck_template_ids()
 		else:
 			player_deck = ["ghost", "skeleton", "zombie", "ghoul",

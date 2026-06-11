@@ -27,6 +27,7 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_named_map_npcs.gd"),
 	preload("res://tests/unit/test_status_effects.gd"),
 	preload("res://tests/unit/test_spire_run.gd"),
+	preload("res://tests/unit/test_spire_draft.gd"),
 ]
 
 
