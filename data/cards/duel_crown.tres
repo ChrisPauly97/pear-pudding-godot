@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://lxcf6a9onlzl"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_duel_crown"]
+
+[resource]
+script = ExtResource("1_duel_crown")
+id = "duel_crown"
+card_name = "Duel Crown"
+cost = 5
+attack = 4
+health = 5
+card_class = "legendary"
+description = "The crown of champions — surges into battle on entry."
+color = Color(0.85, 0.6, 0.1, 1)
+magic_type = ""
+magic_branch = ""
+spell_effect = ""
+spell_power = 0
+auto_resolve = false
+can_craft = false

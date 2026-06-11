@@ -79,6 +79,15 @@ const ACHIEVEMENTS: Array = [
 		"target_value": 1,
 		"reward_card_id": "phoenix_rise",
 	},
+	{
+		"id": "regional_champion",
+		"name": "Regional Champion",
+		"description": "Defeat the Champion of Blancogov in a friendly duel.",
+		"condition_type": "specific_flag",
+		"target_value": 1,
+		"reward_card_id": "",
+		"flag_key": "champion_blancogov_defeated",
+	},
 ]
 
 static func get_all() -> Array:

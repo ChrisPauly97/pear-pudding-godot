@@ -2,10 +2,13 @@ extends Node
 
 # World signals
 signal enemy_engaged(enemy_data: Dictionary)
+signal duel_requested(enemy_data: Dictionary, wager: int)
 signal hud_message_requested(text: String)
 signal dialogue_state_changed(active: bool)
 signal battle_won(result: Dictionary)
 signal battle_lost()
+signal duel_won()
+signal duel_lost()
 signal map_transition_requested(map_name: String, target_door_id: String)
 signal inventory_requested
 signal shop_requested

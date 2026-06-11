@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://qbrxxx7ua6vl"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_duelist_novice"]
+
+[resource]
+script = ExtResource("1_duelist_novice")
+id = "duelist_novice"
+display_name = "Novice Duelist"
+deck = PackedStringArray("ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "mend")
+drop_pool = PackedStringArray()
+coin_reward = 0
+difficulty_tier = 1

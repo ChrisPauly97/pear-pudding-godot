@@ -13,6 +13,7 @@ const _C_BULWARK          := preload("res://data/cards/bulwark.tres")
 const _C_CHAR             := preload("res://data/cards/char.tres")
 const _C_DAGGER_THROW     := preload("res://data/cards/dagger_throw.tres")
 const _C_DARK_PACT        := preload("res://data/cards/dark_pact.tres")
+const _C_DUEL_CROWN       := preload("res://data/cards/duel_crown.tres")
 const _C_DAWN_ACOLYTE     := preload("res://data/cards/dawn_acolyte.tres")
 const _C_DAWN_GUARDIAN    := preload("res://data/cards/dawn_guardian.tres")
 const _C_DAWN_HEALER      := preload("res://data/cards/dawn_healer.tres")
@@ -58,7 +59,7 @@ static func _ensure_loaded() -> void:
 	_loaded = true
 	var all: Array = [
 		_C_ALIGHT, _C_ANCIENT_GUARDIAN, _C_ASH, _C_ASH_WARDEN, _C_BLESSED_LIGHT, _C_BLITZ_GHOUL,
-		_C_BRITTLE, _C_BULWARK, _C_CHAR, _C_DAGGER_THROW, _C_DARK_PACT,
+		_C_BRITTLE, _C_BULWARK, _C_CHAR, _C_DAGGER_THROW, _C_DARK_PACT, _C_DUEL_CROWN,
 		_C_DAWN_ACOLYTE, _C_DAWN_GUARDIAN, _C_DAWN_HEALER, _C_DAWN_PALADIN, _C_DRAIN,
 		_C_DUSK_SEER, _C_DUSK_VAMPIRE, _C_DUSK_WRAITH, _C_EMBER, _C_EMBER_IMP, _C_FLICKER,
 		_C_GHOST, _C_GHOUL, _C_INSIGHT, _C_IRON_REVENANT, _C_MEND, _C_PHOENIX_RISE,

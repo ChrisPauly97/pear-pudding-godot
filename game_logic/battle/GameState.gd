@@ -6,6 +6,8 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 var players: Array[PlayerState] = []
 var current_player_idx: int = 0
 var turn_number: int = 1
+var friendly_duel: bool = false
+var wager_coins: int = 0
 
 func _init() -> void:
 	var p1 := PlayerState.new(0, false)
@@ -58,12 +60,16 @@ func to_dict() -> Dictionary:
 		"current_player_idx": current_player_idx,
 		"turn_number": turn_number,
 		"players": player_arr,
+		"friendly_duel": friendly_duel,
+		"wager_coins": wager_coins,
 	}
 
 static func from_dict(d: Dictionary) -> GameState:
 	var gs := GameState.new()
 	gs.current_player_idx = int(d.get("current_player_idx", 0))
 	gs.turn_number = int(d.get("turn_number", 1))
+	gs.friendly_duel = bool(d.get("friendly_duel", false))
+	gs.wager_coins = int(d.get("wager_coins", 0))
 	gs.players.clear()
 	for pd in d.get("players", []):
 		if pd is Dictionary:

@@ -2,7 +2,7 @@
 
 **Goal:** GID-037
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -27,12 +27,22 @@ Battles currently assume the opponent is a hostile enemy: winning sets defeat fl
 
 ## Plan
 
-_Written during Plan phase._
+1. `GameBus.gd` — add `duel_requested(enemy_data, wager)`, `duel_won()`, `duel_lost()` signals.
+2. `GameState.gd` — add `friendly_duel: bool` and `wager_coins: int`; update `to_dict`/`from_dict`.
+3. `BattleScene.gd` — add `duel_wager: int` property; branch in `_check_game_over()` so duel wins show a wager-gain overlay (emits `duel_won`) and duel losses show a wager-loss overlay (emits `duel_lost`) — skipping the normal GameOver flow.
+4. `SceneManager.gd` — handle `duel_requested` (launches battle with duel flag, no pending_battle save, no deck tutorial), `duel_won` and `duel_lost` (restore world only, no rewards/GameOver).
+5. Create `data/enemies/duelist_novice.tres` and `duelist_adept.tres` (+ uid sidecars).
+6. Update `docs/agent/battle-system.md`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd` — added `duel_requested`, `duel_won`, `duel_lost` signals.
+- `game_logic/battle/GameState.gd` — added `friendly_duel: bool` and `wager_coins: int`; updated `to_dict`/`from_dict`.
+- `scenes/battle/BattleScene.gd` — added `duel_wager: int` property; `_ready()` copies it to state; `_check_game_over()` branches into `_show_duel_victory_overlay` / `_show_duel_loss_overlay` when `_state.friendly_duel`; both overlays handle coin transfer before emitting signals.
+- `autoloads/SceneManager.gd` — wired `duel_requested` / `duel_won` / `duel_lost` signals; added `_on_duel_requested`, `_on_duel_won`, `_on_duel_lost` handlers (world restore, no rewards, no GameOver).
+- `data/enemies/duelist_novice.tres` + `.uid` — Novice Duelist, tier 1, 10-card deck.
+- `data/enemies/duelist_adept.tres` + `.uid` — Adept Duelist, tier 2, 12-card deck.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md` — added "Friendly Duel Mode (TID-143)" section covering signals, GameState fields, end-of-battle branching, and duelist enemy types.

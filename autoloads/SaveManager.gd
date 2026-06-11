@@ -32,6 +32,7 @@ var door_stack: Array[String] = []
 # Defeated / opened state
 var defeated_enemies: Array[String] = []
 var opened_chests: Array[String] = []
+var defeated_duelists: Array[String] = []
 
 # Battle state: set when a fight starts, cleared on win/lose
 var pending_battle_enemy_data: Dictionary = {}
@@ -148,6 +149,7 @@ func new_game() -> void:
 	door_stack = []
 	defeated_enemies = []
 	opened_chests = []
+	defeated_duelists = []
 	pending_battle_enemy_data = {}
 	in_battle_enemy_id = ""
 	pending_battle_state = {}
@@ -181,7 +183,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 14
+const CURRENT_SAVE_VERSION: int = 15
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -317,6 +319,12 @@ static func _migrate_v13_to_v14(data: Dictionary) -> void:
 		data["pending_battle_state"] = {}
 	data["version"] = 14
 
+# _migrate_v14_to_v15: backfill defeated_duelists for old saves.
+static func _migrate_v14_to_v15(data: Dictionary) -> void:
+	if not data.has("defeated_duelists"):
+		data["defeated_duelists"] = []
+	data["version"] = 15
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -347,6 +355,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v12_to_v13(data)
 	if ver < 14:
 		_migrate_v13_to_v14(data)
+	if ver < 15:
+		_migrate_v14_to_v15(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -370,6 +380,7 @@ func load_save() -> bool:
 	door_stack.assign(data.get("door_stack", []))
 	defeated_enemies.assign(data.get("defeated_enemies", []))
 	opened_chests.assign(data.get("opened_chests", []))
+	defeated_duelists.assign(data.get("defeated_duelists", []))
 	var pbed = data.get("pending_battle_enemy_data", {})
 	pending_battle_enemy_data = pbed if pbed is Dictionary else {}
 	in_battle_enemy_id = str(data.get("in_battle_enemy_id", ""))
@@ -424,6 +435,7 @@ func save() -> void:
 		"door_stack": door_stack,
 		"defeated_enemies": defeated_enemies,
 		"opened_chests": opened_chests,
+		"defeated_duelists": defeated_duelists,
 		"pending_battle_enemy_data": pending_battle_enemy_data,
 		"in_battle_enemy_id": in_battle_enemy_id,
 		"pending_battle_state": pending_battle_state,
@@ -639,6 +651,11 @@ func get_deck_template_ids() -> Array[String]:
 func mark_enemy_defeated(enemy_id: String) -> void:
 	if not defeated_enemies.has(enemy_id):
 		defeated_enemies.append(enemy_id)
+	_dirty = true
+
+func mark_duelist_defeated(npc_id: String) -> void:
+	if not defeated_duelists.has(npc_id):
+		defeated_duelists.append(npc_id)
 	_dirty = true
 
 func mark_chest_opened(chest_id: String) -> void:

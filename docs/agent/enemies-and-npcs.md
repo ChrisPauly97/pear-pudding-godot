@@ -94,6 +94,43 @@ State machine with three modes:
 - Dialogue is supplied by `BiomeDef.npc_dialogue[]` (randomly picked at spawn time)
 - Re-triggers on each new interaction; no branching or quest state
 
+### Duelist NPC (MapNpc variant)
+
+Duelists are regular TownspersonNPCs that have `npc_type = "duelist"` in their `MapNpc` resource. They are wired entirely in data — no separate scene is needed.
+
+**MapNpc duelist fields:**
+- `duelist_enemy_id: String` — key into `EnemyRegistry` (e.g. `"duelist_novice"`)
+- `wager_coins: int` — coins at stake per duel
+- `required_duelist_ids: PackedStringArray` — `entity_id`s that must appear in `SaveManager.defeated_duelists` before this NPC will accept a duel (champion gate)
+- `champion_reward_card: String` — card ID awarded once on first defeat (leave empty for regular duelists)
+
+**Interact flow (`WorldScene._show_duel_offer_panel`):**
+1. **Champion gate**: if `required_duelist_ids` is non-empty and any listed ID is not in `defeated_duelists` → shows "I only duel proven players. Beat the others in town first. (N more to go.)" — only Decline button shown.
+2. If the player has fewer coins than the wager → shows "Come back when you can cover the wager."
+3. If the NPC's `entity_id` is in `SaveManager.defeated_duelists` → rematch: wager is halved, prompt changes to "A rematch?".
+4. Otherwise → "Care for a friendly duel? Wager: N coins."
+5. **Duel** button: builds `enemy_data` dict (deck from `EnemyRegistry`, `duel_npc_id`, `champion_reward_card`) and emits `GameBus.duel_requested(enemy_data, wager)`.
+6. **Decline** button: dismisses the panel.
+
+Buttons are sized relative to viewport height (18 % × 7 %) for mobile parity.
+
+**Save tracking:**
+- `SaveManager.defeated_duelists: Array[String]` — list of `entity_id` strings for beaten duelists.
+- Populated by `SaveManager.mark_duelist_defeated(npc_id)`, called from `SceneManager._on_duel_won()`.
+
+**Champion legendary reward (`SceneManager._on_duel_won`):**
+- If `champion_reward_card` is set and the NPC's `entity_id` is NOT already in `defeated_duelists` (first win), `add_card_instance(card_id, "legendary")` is called.
+- Story flag `"champion_blancogov_defeated"` is set, which triggers the `regional_champion` achievement.
+- A HUD message confirms the legendary award.
+
+**Duelist enemy resources (placed in `data/enemies/`):**
+
+| ID | Deck | Wager | Placed in |
+|---|---|---|---|
+| `duelist_novice` | Ghost×3, Skeleton×3, Zombie×2, Ghoul, Mend | 15 | madrian (tile 30,20) |
+| `duelist_adept` | Ghost×2, Skeleton×2, Zombie×2, Ghoul×2, Mend, Wither, SurgeSpirit, EmberImp | 25 | blancogov (tile 35,50) |
+| `duelist_champion` | Ghoul×2, BlitzGhoul×2, ShroudedWraith, VoidWyrm, Wither×2, SoulRend, DarkPact | 50 | blancogov (tile 55,50) — gated behind adept |
+
 ### MerchantNPC Scene (`scenes/world/entities/MerchantNPC.gd`)
 
 - Static NPC with gold-coloured robe to distinguish it from regular townspeople
@@ -125,6 +162,7 @@ This means defeated enemies stay gone across sessions.
 | **SaveManager** | Persistence | `mark_enemy_defeated(id)` and `defeated_enemies` set prevent respawn |
 | **BiomeDef** | Dialogue source | `BiomeDef.npc_dialogue[]` supplies TownspersonNPC dialogue lines |
 | **GameBus** | Signal | `shop_requested` emitted when player interacts with a MerchantNPC; routed to `SceneManager._on_shop_requested()` |
+| **GameBus** | Signal | `duel_requested(enemy_data, wager)` emitted from duel offer panel; `duel_won` / `duel_lost` resolve wager and update `SaveManager.defeated_duelists` |
 | **ShopScene** | Overlay | Opened on `shop_requested`; lists all cards for 15 coins each; emits `closed` when player leaves |
 | **IsoConst** | Constants | `AUTO_BATTLE_RANGE`, `INTERACT_RANGE`, `TRACKING_RANGE` |
 

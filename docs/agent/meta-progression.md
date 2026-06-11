@@ -2,17 +2,17 @@
 
 ## Key Features
 
-- **Achievement system**: 9 milestone achievements tracked in SaveManager, emitting `GameBus.achievement_unlocked` on completion
+- **Achievement system**: 10 milestone achievements tracked in SaveManager, emitting `GameBus.achievement_unlocked` on completion
 - **Toast notifications**: Slide-in panel (CanvasLayer layer 200) shows achievement name and description for 3 seconds
 - **Achievement list screen**: Accessible from main menu; shows all achievements with progress bars and lock icons
-- **Legendary cards**: 5 exclusive cards (ancient_guardian, soul_harvest, time_warp, phoenix_rise, void_wyrm) gated behind specific achievements; auto-granted to owned_cards on achievement unlock; never appear in shop until unlocked
+- **Legendary cards**: 5 exclusive cards (ancient_guardian, soul_harvest, time_warp, phoenix_rise, void_wyrm) gated behind specific achievements; auto-granted to owned_cards on achievement unlock; never appear in shop until unlocked. The `duel_crown` legendary is awarded directly on first champion duel win (not via achievement card reward)
 - **Run summary screen**: Shows session stats (battles, enemies, cards, coins, chests, time) when player returns to menu from the world
 
 ## How It Works
 
 ### Achievement Registry (`game_logic/AchievementRegistry.gd`)
 
-Static registry defining all 9 achievements as plain Dictionaries with fields:
+Static registry defining all 10 achievements as plain Dictionaries with fields:
 - `id`, `name`, `description`, `condition_type`, `target_value`, `reward_card_id`
 - `flag_key` (only for `specific_flag` type achievements)
 
