@@ -1,6 +1,6 @@
-# TID-240: Full Reward Presentation — Coins, XP, Rarity & Level-Up Prompt
+# TID-252: Full Reward Presentation — Coins, XP, Rarity & Level-Up Prompt
 
-**Goal:** GID-065
+**Goal:** GID-069
 **Type:** agent
 **Status:** pending
 **Depends On:** —

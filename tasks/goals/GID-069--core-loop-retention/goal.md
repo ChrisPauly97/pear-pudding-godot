@@ -1,4 +1,4 @@
-# GID-065: Core Loop Retention & Ease-of-Use
+# GID-069: Core Loop Retention & Ease-of-Use
 
 ## Objective
 
@@ -20,11 +20,11 @@ Deliberately excluded (already pending goals): tap-to-move (GID-047), wayfinding
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-238 | Defeat recovery: keep world alive on loss; defeat screen with Retry and Respawn | agent | pending | — |
-| TID-239 | Enemy difficulty pips in world + Flee option in battle pause menu | agent | pending | TID-238 |
-| TID-240 | Full reward presentation: coins/XP/rarity on victory screen; level-up prompt links to skill tree | agent | pending | — |
-| TID-241 | Deck builder QoL: type/cost/rarity filters + auto-fill deck button | agent | pending | — |
-| TID-242 | Battle speed setting: fast-mode toggle halving AI/animation delays, persisted | agent | pending | — |
+| TID-250 | Defeat recovery: keep world alive on loss; defeat screen with Retry and Respawn | agent | pending | — |
+| TID-251 | Enemy difficulty pips in world + Flee option in battle pause menu | agent | pending | TID-250 |
+| TID-252 | Full reward presentation: coins/XP/rarity on victory screen; level-up prompt links to skill tree | agent | pending | — |
+| TID-253 | Deck builder QoL: type/cost/rarity filters + auto-fill deck button | agent | pending | — |
+| TID-254 | Battle speed setting: fast-mode toggle halving AI/animation delays, persisted | agent | pending | — |
 
 ## Acceptance Criteria
 

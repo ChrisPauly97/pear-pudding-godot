@@ -1,6 +1,6 @@
-# TID-241: Deck Builder QoL — Filters & Auto-Fill
+# TID-253: Deck Builder QoL — Filters & Auto-Fill
 
-**Goal:** GID-065
+**Goal:** GID-069
 **Type:** agent
 **Status:** pending
 **Depends On:** —

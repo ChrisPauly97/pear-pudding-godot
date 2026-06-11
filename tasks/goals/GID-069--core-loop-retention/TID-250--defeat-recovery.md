@@ -1,6 +1,6 @@
-# TID-238: Defeat Recovery — Retry Battle & Respawn-in-World
+# TID-250: Defeat Recovery — Retry Battle & Respawn-in-World
 
-**Goal:** GID-065
+**Goal:** GID-069
 **Type:** agent
 **Status:** pending
 **Depends On:** —
@@ -21,7 +21,7 @@ Losing a battle currently destroys the play session: `SceneManager._on_battle_lo
 - **Win path for contrast:** `_on_battle_won()` (SceneManager.gd:253) frees the battle overlay then calls `_restore_world()` (SceneManager.gd:246) which re-adds `_saved_world_scene` to the root and sets it as current scene. Respawn should reuse `_restore_world()`.
 - **Battle start:** `_on_enemy_engaged(enemy_data)` (SceneManager.gd:226) — guards deck size ≥ `IsoConst.DECK_MIN`, stores `_current_battle_enemy_id`, calls `save_manager.set_pending_battle(enemy_data)`, detaches the world scene, instantiates `_battle_scene_packed` with `enemy_data`, promotes it to current scene. **Retry** = re-run the instantiate-battle portion with the same `enemy_data` (keep `pending_battle_enemy_data` alive on loss instead of clearing it — currently `_on_battle_lost` calls `clear_pending_battle()`).
 - **GameOverScene:** `scenes/ui/GameOverScene.gd` — 17 lines, label + one button calling `SceneManager.go_to_menu()`. The defeat screen can stay an overlay instead of a full scene change so the world node reference survives (a full `change_scene_to_packed` while holding a detached world node is what forces the free today). Consider: keep `_state = State.GAME_OVER` but present the defeat UI as a CanvasLayer overlay like the battle pause overlay (`BattleScene.gd:473-490`).
-- **Respawn semantics:** restore world at current player position. The defeated enemy NPC is still alive in the world and may instantly re-engage — TID-239 adds the grace mechanic; for this task, on respawn move the enemy's wander target away or apply a short engage cooldown on the specific `EnemyNPC` (engage path: `scenes/world/entities/EnemyNPC.gd:73` `engage()` → `GameBus.enemy_engaged.emit(edata)`). A simple `engage_cooldown: float` on EnemyNPC ticked in `_process` is enough.
+- **Respawn semantics:** restore world at current player position. The defeated enemy NPC is still alive in the world and may instantly re-engage — TID-251 adds the grace mechanic; for this task, on respawn move the enemy's wander target away or apply a short engage cooldown on the specific `EnemyNPC` (engage path: `scenes/world/entities/EnemyNPC.gd:73` `engage()` → `GameBus.enemy_engaged.emit(edata)`). A simple `engage_cooldown: float` on EnemyNPC ticked in `_process` is enough.
 - **Battle pause/resume persistence (GID-034):** `save_manager.clear_pending_battle_state()` is called on both win and loss — keep clearing battle *state* on loss (retry starts a fresh battle), but retain `pending_battle_enemy_data` until the player chooses Menu/Respawn.
 - **Session stats:** `session_stats["battles_lost"]` increment stays as-is.
 - **Mobile parity:** buttons sized via viewport-relative fractions (CLAUDE.md), all touch-operable.

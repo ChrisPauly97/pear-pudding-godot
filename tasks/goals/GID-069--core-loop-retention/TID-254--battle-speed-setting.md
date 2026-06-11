@@ -1,6 +1,6 @@
-# TID-242: Battle Speed Setting — Fast Mode Toggle
+# TID-254: Battle Speed Setting — Fast Mode Toggle
 
-**Goal:** GID-065
+**Goal:** GID-069
 **Type:** agent
 **Status:** pending
 **Depends On:** —
