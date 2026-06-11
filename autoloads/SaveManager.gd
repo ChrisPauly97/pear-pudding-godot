@@ -99,6 +99,9 @@ var redemption_points: int = 0
 # Default {"active": false} means no run in progress.
 var spire_run: Dictionary = {"active": false}
 
+# Best floor reached across all Spire runs (meta-progression, never resets).
+var spire_best_floor: int = 0
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -189,7 +192,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 16
+const CURRENT_SAVE_VERSION: int = 17
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -337,6 +340,12 @@ static func _migrate_v15_to_v16(data: Dictionary) -> void:
 		data["spire_run"] = {"active": false}
 	data["version"] = 16
 
+# _migrate_v16_to_v17: backfill spire_best_floor for old saves.
+static func _migrate_v16_to_v17(data: Dictionary) -> void:
+	if not data.has("spire_best_floor"):
+		data["spire_best_floor"] = 0
+	data["version"] = 17
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -371,6 +380,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v14_to_v15(data)
 	if ver < 16:
 		_migrate_v15_to_v16(data)
+	if ver < 17:
+		_migrate_v16_to_v17(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -432,6 +443,7 @@ func load_save() -> bool:
 	redemption_points = int(data.get("redemption_points", 0))
 	var sr = data.get("spire_run", {"active": false})
 	spire_run = sr if sr is Dictionary else {"active": false}
+	spire_best_floor = int(data.get("spire_best_floor", 0))
 	_loaded = true
 	return true
 
@@ -483,6 +495,7 @@ func save() -> void:
 		"corruption_points": corruption_points,
 		"redemption_points": redemption_points,
 		"spire_run": spire_run,
+		"spire_best_floor": spire_best_floor,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -947,16 +960,43 @@ func add_drafted_card(card_id: String) -> void:
 	_dirty = true
 
 ## Ends the current spire run and returns the final stats dictionary.
-## The returned dict contains: floors_cleared, enemies_defeated, cards_drafted, seed.
+## Awards floor*5 coins, updates spire_best_floor, sets achievement flags.
+## Returned dict: floors_cleared, enemies_defeated, cards_drafted, seed,
+##                coins_earned, is_new_record, best_floor, draft_deck_ids.
 func end_spire_run() -> Dictionary:
+	var floors_cleared: int = int(spire_run.get("floor", 1)) - 1
+	var enemies_defeated: int = int(spire_run.get("enemies_defeated", 0))
+	var cards_drafted: int = int(spire_run.get("cards_drafted", 0))
+	var run_seed: int = int(spire_run.get("seed", 0))
+	var draft_deck_ids: Array = spire_run.get("draft_deck", [])
+
+	var coin_reward: int = floors_cleared * 5
+	coins += coin_reward
+	coins_changed.emit(coins)
+
+	var is_record: bool = floors_cleared > spire_best_floor
+	if is_record:
+		spire_best_floor = floors_cleared
+
 	var stats: Dictionary = {
-		"floors_cleared": int(spire_run.get("floor", 1)) - 1,
-		"enemies_defeated": int(spire_run.get("enemies_defeated", 0)),
-		"cards_drafted": int(spire_run.get("cards_drafted", 0)),
-		"seed": int(spire_run.get("seed", 0)),
+		"floors_cleared": floors_cleared,
+		"enemies_defeated": enemies_defeated,
+		"cards_drafted": cards_drafted,
+		"seed": run_seed,
+		"coins_earned": coin_reward,
+		"is_new_record": is_record,
+		"best_floor": spire_best_floor,
+		"draft_deck_ids": draft_deck_ids.duplicate(),
 	}
+
 	spire_run = {"active": false}
 	_dirty = true
+
+	if floors_cleared >= 5 and not story_flags.get("spire_reached_floor_5", false):
+		set_story_flag("spire_reached_floor_5")
+	if floors_cleared >= 10 and not story_flags.get("spire_reached_floor_10", false):
+		set_story_flag("spire_reached_floor_10")
+
 	return stats
 
 func set_spire_hero_hp(hp: int) -> void:

@@ -96,8 +96,20 @@ func go_to_menu() -> void:
 	var scene := get_tree().current_scene
 	if scene and scene.has_method("flush_time_of_day"):
 		scene.flush_time_of_day()
+	# Spire retreat: restore entry point, end run, show Spire summary.
+	if _state == State.WORLD and save_manager.is_spire_active():
+		_restore_spire_entry_point()
+		var stats: Dictionary = save_manager.end_spire_run()
+		GameBus.spire_run_ended.emit(stats)
+		save_manager.save()
+		_exit_world_cleanup()
+		var spire_summary: Node = _run_summary_scene_packed.instantiate()
+		spire_summary.set("spire_stats", stats)
+		get_tree().change_scene_to_node(spire_summary)
+		_state = State.RUN_SUMMARY
+		return
 	save_manager.save()
-	# Show run summary only when leaving the world (not after game over or from menu).
+	# Show session run summary only when leaving the world.
 	if _state == State.WORLD:
 		_exit_world_cleanup()
 		var summary: Node = _run_summary_scene_packed.instantiate()
@@ -406,7 +418,24 @@ func _on_battle_lost() -> void:
 	_current_battle_enemy_id = ""
 	session_stats["battles_lost"] = int(session_stats.get("battles_lost", 0)) + 1
 	if save_manager.is_spire_active():
-		save_manager.end_spire_run()
+		_restore_spire_entry_point()
+		var stats: Dictionary = save_manager.end_spire_run()
+		GameBus.spire_run_ended.emit(stats)
+		save_manager.clear_pending_battle()
+		save_manager.clear_pending_battle_state()
+		save_manager.save()
+		if _battle_overlay != null:
+			_battle_overlay.queue_free()
+			_battle_overlay = null
+		if _saved_world_scene != null:
+			_saved_world_scene.queue_free()
+			_saved_world_scene = null
+		_exit_world_cleanup()
+		var summary: Node = _run_summary_scene_packed.instantiate()
+		summary.set("spire_stats", stats)
+		get_tree().change_scene_to_node(summary)
+		_state = State.RUN_SUMMARY
+		return
 	save_manager.clear_pending_battle()
 	save_manager.clear_pending_battle_state()
 	if _battle_overlay != null:
@@ -560,3 +589,17 @@ func _advance_spire_floor() -> void:
 	save_manager.sync_stacks(map_stack, door_stack)
 	save_manager.save()
 	_load_world(next_map, "")
+
+## Restores map position to the pre-Spire entry point (e.g. madrian) before ending
+## a run, so that continuing after death/retreat loads the entrance map, not a spire floor.
+func _restore_spire_entry_point() -> void:
+	if not map_stack.is_empty():
+		var entry_map: String = map_stack.pop_back()
+		if not door_stack.is_empty():
+			door_stack.pop_back()
+		current_map = entry_map
+		save_manager.current_map = entry_map
+	else:
+		current_map = "madrian"
+		save_manager.current_map = "madrian"
+	save_manager.sync_stacks(map_stack, door_stack)

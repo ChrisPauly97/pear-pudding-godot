@@ -45,7 +45,11 @@ SPIRE_FLOOR → SPIRE_FLOOR (SceneManager.exit_map detects spire_ prefix → _ad
 
 `_on_battle_won()` — Spire branch: saves `hero_hp`, sets cleared flag for the exit door, shows `SpireDraftScene` overlay, skips standard card/coin rewards.
 
-`_on_battle_lost()` — Spire branch: calls `save_manager.end_spire_run()` before game over.
+`_on_battle_lost()` — Spire branch: calls `_restore_spire_entry_point()` then `save_manager.end_spire_run()`, emits `GameBus.spire_run_ended`, shows `RunSummaryScene` with `spire_stats` set. Does NOT route to `GameOverScene`.
+
+`go_to_menu()` — Spire retreat branch: same flow as death when `is_spire_active()` and state is WORLD. Player retreats voluntarily, run ends, Spire summary shown.
+
+`_restore_spire_entry_point()` — pops the pre-Spire map from `map_stack` and sets `save_manager.current_map` so that continue-after-run-end loads the entrance town (madrian), not a floor.
 
 Madrian entrance door: `entity_id = "spire_entrance"`, tile (70, 36), `target_map = "spire"`. WorldScene intercepts this and calls `_show_spire_entrance_panel()` instead of `enter_map()`.
 

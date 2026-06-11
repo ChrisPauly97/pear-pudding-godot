@@ -41,11 +41,12 @@ func test_migration_does_not_overwrite_existing_spire_run() -> void:
 	assert_true(bool(data["spire_run"].get("active", false)), "existing active run must be preserved")
 	assert_eq(data["spire_run"].get("floor", 0), 3)
 
-func test_apply_migrations_reaches_v16_from_v15() -> void:
+func test_apply_migrations_reaches_current_from_v15() -> void:
 	var data: Dictionary = {"version": 15}
 	SaveManagerScript._apply_migrations(data)
-	assert_eq(data.get("version", 0), 16)
+	assert_eq(data.get("version", 0), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("spire_run"))
+	assert_true(data.has("spire_best_floor"))
 
 # ---------------------------------------------------------------------------
 # is_spire_active / get_spire_run defaults
@@ -189,3 +190,134 @@ func test_end_fresh_run_floors_cleared_zero() -> void:
 	_sm.start_spire_run(1)
 	var stats: Dictionary = _sm.end_spire_run()
 	assert_eq(int(stats.get("floors_cleared", -1)), 0)
+
+# ---------------------------------------------------------------------------
+# Migration v16 → v17
+# ---------------------------------------------------------------------------
+
+func test_migration_v16_v17_adds_spire_best_floor() -> void:
+	var data: Dictionary = {"version": 16, "spire_run": {"active": false}}
+	SaveManagerScript._migrate_v16_to_v17(data)
+	assert_true(data.has("spire_best_floor"))
+
+func test_migration_v16_v17_default_best_floor_is_zero() -> void:
+	var data: Dictionary = {"version": 16, "spire_run": {"active": false}}
+	SaveManagerScript._migrate_v16_to_v17(data)
+	assert_eq(int(data.get("spire_best_floor", -1)), 0)
+
+func test_migration_v16_v17_bumps_version() -> void:
+	var data: Dictionary = {"version": 16}
+	SaveManagerScript._migrate_v16_to_v17(data)
+	assert_eq(data["version"], 17)
+
+func test_apply_migrations_reaches_v17_from_v16() -> void:
+	var data: Dictionary = {"version": 16, "spire_run": {"active": false}}
+	SaveManagerScript._apply_migrations(data)
+	assert_eq(int(data.get("version", 0)), 17)
+	assert_true(data.has("spire_best_floor"))
+
+# ---------------------------------------------------------------------------
+# end_spire_run — coins reward
+# ---------------------------------------------------------------------------
+
+func test_end_awards_coins_per_floor_cleared() -> void:
+	_sm.start_spire_run(1)
+	_sm.advance_spire_floor()
+	_sm.advance_spire_floor()  # 2 floors cleared
+	_sm.end_spire_run()
+	assert_eq(_sm.coins, 10)  # 2 * 5
+
+func test_end_returns_coins_earned_in_stats() -> void:
+	_sm.start_spire_run(1)
+	_sm.advance_spire_floor()  # 1 floor cleared
+	var stats: Dictionary = _sm.end_spire_run()
+	assert_eq(int(stats.get("coins_earned", -1)), 5)
+
+func test_end_awards_zero_coins_for_no_floors_cleared() -> void:
+	_sm.start_spire_run(1)
+	_sm.end_spire_run()
+	assert_eq(_sm.coins, 0)
+
+# ---------------------------------------------------------------------------
+# end_spire_run — best floor tracking
+# ---------------------------------------------------------------------------
+
+func test_end_updates_spire_best_floor_on_new_record() -> void:
+	_sm.start_spire_run(1)
+	_sm.advance_spire_floor()
+	_sm.advance_spire_floor()
+	_sm.advance_spire_floor()  # 3 floors cleared
+	_sm.end_spire_run()
+	assert_eq(_sm.spire_best_floor, 3)
+
+func test_end_does_not_lower_spire_best_floor() -> void:
+	_sm.spire_best_floor = 10
+	_sm.start_spire_run(1)
+	_sm.advance_spire_floor()  # only 1 cleared
+	_sm.end_spire_run()
+	assert_eq(_sm.spire_best_floor, 10)
+
+func test_end_is_new_record_true_when_best_beaten() -> void:
+	_sm.spire_best_floor = 1
+	_sm.start_spire_run(1)
+	_sm.advance_spire_floor()
+	_sm.advance_spire_floor()  # 2 > 1
+	var stats: Dictionary = _sm.end_spire_run()
+	assert_true(bool(stats.get("is_new_record", false)))
+
+func test_end_is_new_record_false_when_not_beaten() -> void:
+	_sm.spire_best_floor = 5
+	_sm.start_spire_run(1)
+	_sm.advance_spire_floor()  # 1 < 5
+	var stats: Dictionary = _sm.end_spire_run()
+	assert_false(bool(stats.get("is_new_record", true)))
+
+func test_end_stats_include_best_floor_field() -> void:
+	_sm.spire_best_floor = 0
+	_sm.start_spire_run(1)
+	_sm.advance_spire_floor()
+	_sm.advance_spire_floor()  # 2 cleared → new best = 2
+	var stats: Dictionary = _sm.end_spire_run()
+	assert_eq(int(stats.get("best_floor", -1)), 2)
+
+func test_end_returns_draft_deck_ids_in_stats() -> void:
+	_sm.start_spire_run(1)
+	_sm.add_drafted_card("ghost")
+	_sm.add_drafted_card("zombie")
+	var stats: Dictionary = _sm.end_spire_run()
+	var ids: Array = stats.get("draft_deck_ids", [])
+	assert_eq(ids.size(), 2)
+	assert_has(ids, "ghost")
+	assert_has(ids, "zombie")
+
+# ---------------------------------------------------------------------------
+# end_spire_run — achievement flags
+# ---------------------------------------------------------------------------
+
+func test_end_sets_spire_floor5_flag_at_threshold() -> void:
+	_sm.start_spire_run(1)
+	for _i: int in range(5):
+		_sm.advance_spire_floor()  # 5 floors cleared
+	_sm.end_spire_run()
+	assert_true(_sm.get_story_flag("spire_reached_floor_5"))
+
+func test_end_does_not_set_spire_floor5_flag_below_threshold() -> void:
+	_sm.start_spire_run(1)
+	for _i: int in range(4):
+		_sm.advance_spire_floor()  # 4 floors cleared
+	_sm.end_spire_run()
+	assert_false(_sm.get_story_flag("spire_reached_floor_5"))
+
+func test_end_sets_spire_floor10_flag_at_threshold() -> void:
+	_sm.start_spire_run(1)
+	for _i: int in range(10):
+		_sm.advance_spire_floor()  # 10 floors cleared
+	_sm.end_spire_run()
+	assert_true(_sm.get_story_flag("spire_reached_floor_10"))
+
+func test_end_does_not_set_spire_floor10_flag_below_threshold() -> void:
+	_sm.start_spire_run(1)
+	for _i: int in range(9):
+		_sm.advance_spire_floor()  # 9 floors cleared
+	_sm.end_spire_run()
+	assert_false(_sm.get_story_flag("spire_reached_floor_10"))
