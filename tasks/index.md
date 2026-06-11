@@ -73,6 +73,7 @@
 | [GID-067](goals/GID-067--ancient-colossi/goal.md) | Ancient Colossi — Discoverable Mega-Landmarks | pending | 0 / 3 |
 | [GID-068](goals/GID-068--ley-lines/goal.md) | Ley Lines — Visible Currents of Magic | pending | 0 / 3 |
 | [GID-069](goals/GID-069--core-loop-retention/goal.md) | Core Loop Retention & Ease-of-Use | pending | 0 / 5 |
+| [GID-070](goals/GID-070--aaa-presentation-polish/goal.md) | AAA Presentation & Platform Polish | pending | 0 / 7 |
 
 ## Backlog
 
@@ -90,6 +91,7 @@
 | [BID-012](backlog/BID-012--battle-integration-test-gaps.md) | No BattleScene-level tests for keywords/AI paths; unreachable hero freeze/stun ticks | doc-gap | GID-064 audit |
 | [BID-013](backlog/BID-013--godot-version-drift.md) | CI builds on Godot 4.6 but CLAUDE.md/spec say 4.4.1 | doc-gap | GID-064 audit |
 | [BID-014](backlog/BID-014--camera-follow-stutter.md) | Camera follows physics body from _process without interpolation (stutter at 90/120 Hz) | code-smell | GID-064 audit |
+| [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded | spec-gap | GID-070 research |
 
 ## Resolved Backlog
 
