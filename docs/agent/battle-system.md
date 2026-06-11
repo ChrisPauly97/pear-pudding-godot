@@ -171,6 +171,35 @@ New GameBus signals: `status_applied(entity_id, effect_id, value)`, `status_tick
 
 ---
 
+## Friendly Duel Mode (TID-143)
+
+Duels are battles with coin wagers that do not award cards, XP, or mark enemies as defeated.
+
+### How to start a duel
+Emit `GameBus.duel_requested(enemy_data, wager)` from any NPC interaction. `SceneManager` handles the signal: it launches `BattleScene` with `duel_wager` set, exactly like a normal battle launch except no `pending_battle` is saved and enemy defeat is not tracked.
+
+### GameState fields
+- `friendly_duel: bool` — set `true` when `BattleScene.duel_wager > 0`. Persisted in `to_dict`/`from_dict` so mid-duel save/restore works.
+- `wager_coins: int` — coin amount at stake; copied from `duel_wager`.
+
+### End-of-battle branching (BattleScene._check_game_over)
+When `_state.friendly_duel` is true the normal `battle_won`/`battle_lost` paths are bypassed:
+- **Player wins** → `_show_duel_victory_overlay`: adds `wager_coins` to `SaveManager.coins`, then emits `GameBus.duel_won`.
+- **Player loses** → `_show_duel_loss_overlay`: deducts `wager_coins` (floor 0), then emits `GameBus.duel_lost`.
+
+`SceneManager` listens to `duel_won` and `duel_lost` and simply restores the world scene — no `GameOverScene`, no card/weapon/XP rewards.
+
+### Duelist enemy types
+Two duelist `EnemyData` resources in `data/enemies/`:
+| ID | Display Name | Tier | Deck |
+|---|---|---|---|
+| `duelist_novice` | Novice Duelist | 1 | ghost×3, skeleton×3, zombie×2, ghoul, mend |
+| `duelist_adept` | Adept Duelist | 2 | ghost×2, skeleton×2, zombie×2, ghoul×2, mend, wither, surge_spirit, ember_imp |
+
+Both have empty `drop_pool` and `coin_reward = 0` (wager is handled outside the normal reward path).
+
+---
+
 ## Integrations with Other Features
 
 | System | Direction | Details |

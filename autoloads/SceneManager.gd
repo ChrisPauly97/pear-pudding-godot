@@ -71,8 +71,11 @@ func _ready() -> void:
 	_toast = _AchievementToastScript.new()
 	add_child(_toast)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged)
+	GameBus.duel_requested.connect(_on_duel_requested)
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.battle_lost.connect(_on_battle_lost)
+	GameBus.duel_won.connect(_on_duel_won)
+	GameBus.duel_lost.connect(_on_duel_lost)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 	GameBus.shop_requested.connect(_on_shop_requested)
 	GameBus.journal_requested.connect(_on_journal_requested)
@@ -242,6 +245,39 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	get_tree().root.add_child(_battle_overlay)
 	get_tree().current_scene = _battle_overlay
 	_state = State.BATTLE
+
+func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
+	if _state != State.WORLD:
+		return
+	if save_manager.player_deck.size() < IsoConst.DECK_MIN:
+		GameBus.hud_message_requested.emit("Deck too small — add at least %d cards first." % IsoConst.DECK_MIN)
+		return
+	_saved_world_scene = get_tree().current_scene
+	get_tree().root.remove_child(_saved_world_scene)
+	_battle_overlay = _battle_scene_packed.instantiate()
+	_battle_overlay.enemy_data = enemy_data
+	_battle_overlay.duel_wager = wager
+	get_tree().root.add_child(_battle_overlay)
+	get_tree().current_scene = _battle_overlay
+	_state = State.BATTLE
+
+func _on_duel_won() -> void:
+	if _state != State.BATTLE:
+		return
+	save_manager.clear_pending_battle_state()
+	if _battle_overlay != null:
+		_battle_overlay.queue_free()
+		_battle_overlay = null
+	_restore_world()
+
+func _on_duel_lost() -> void:
+	if _state != State.BATTLE:
+		return
+	save_manager.clear_pending_battle_state()
+	if _battle_overlay != null:
+		_battle_overlay.queue_free()
+		_battle_overlay = null
+	_restore_world()
 
 func _restore_world() -> void:
 	if _saved_world_scene != null:

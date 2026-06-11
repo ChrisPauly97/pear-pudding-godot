@@ -17,6 +17,7 @@ const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 
 var enemy_data: Dictionary = {}
+var duel_wager: int = 0
 var _state: GameState
 var _ai: BasicAI
 var _ai_thinking: bool = false
@@ -149,6 +150,9 @@ func _ready() -> void:
 			_show_boss_banner()
 
 		_state.players[0].start_turn(1)
+		if duel_wager > 0:
+			_state.friendly_duel = true
+			_state.wager_coins = duel_wager
 
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
@@ -1447,6 +1451,14 @@ func _check_game_over() -> void:
 	_check_boss_phase2()
 	if _state.is_game_over():
 		var w := _state.winner()
+		if _state.friendly_duel:
+			if w == 0:
+				AudioManager.play_sfx("battle_win")
+				_show_duel_victory_overlay(_state.wager_coins)
+			else:
+				AudioManager.play_sfx("battle_lose")
+				_show_duel_loss_overlay(_state.wager_coins)
+			return
 		if w == 0:
 			AudioManager.play_sfx("battle_win")
 			var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
@@ -1583,6 +1595,89 @@ func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: S
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
 		GameBus.battle_won.emit({"card_rewards": final_rewards, "weapon_reward": final_weapon})
+	)
+	vbox.add_child(btn)
+
+	overlay.add_child(vbox)
+	add_child(overlay)
+
+func _show_duel_victory_overlay(wager: int) -> void:
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.1, 0.05, 0.92)
+	overlay.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Duel Won!"
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.modulate = Color(0.4, 1.0, 0.4)
+	vbox.add_child(title_lbl)
+
+	var coins_lbl := Label.new()
+	coins_lbl.text = "+%d coins" % wager if wager > 0 else "Wager was free!"
+	coins_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	coins_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	coins_lbl.modulate = Color(1.0, 0.85, 0.2)
+	vbox.add_child(coins_lbl)
+
+	var btn := Button.new()
+	btn.text = "Collect"
+	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
+	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	btn.pressed.connect(func() -> void:
+		overlay.queue_free()
+		if wager > 0:
+			SceneManager.save_manager.add_coins(wager)
+		GameBus.duel_won.emit()
+	)
+	vbox.add_child(btn)
+
+	overlay.add_child(vbox)
+	add_child(overlay)
+
+func _show_duel_loss_overlay(wager: int) -> void:
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.05, 0.05, 0.92)
+	overlay.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Duel Lost"
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.modulate = Color(1.0, 0.4, 0.4)
+	vbox.add_child(title_lbl)
+
+	var coins_lbl := Label.new()
+	coins_lbl.text = "-%d coins" % wager if wager > 0 else "No wager."
+	coins_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	coins_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	coins_lbl.modulate = Color(1.0, 0.6, 0.6)
+	vbox.add_child(coins_lbl)
+
+	var btn := Button.new()
+	btn.text = "Continue"
+	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
+	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	btn.pressed.connect(func() -> void:
+		overlay.queue_free()
+		if wager > 0:
+			SceneManager.save_manager.coins = maxi(0, SceneManager.save_manager.coins - wager)
+			SceneManager.save_manager.save()
+		GameBus.duel_lost.emit()
 	)
 	vbox.add_child(btn)
 

@@ -40,7 +40,7 @@
 | [GID-034](goals/GID-034--battle-state-pause-resume/goal.md) | Battle State Pause/Resume Persistence | done | 5 / 5 |
 | [GID-035](goals/GID-035--card-effects-ability-text/goal.md) | Card Effects & Ability Text | done | 3 / 3 |
 | [GID-036](goals/GID-036--mobile-first-ui/goal.md) | Mobile-First UI Redesign | done | 6 / 6 |
-| [GID-037](goals/GID-037--tavern-duels/goal.md) | Tavern Duels & Champion Ladder | pending | 0 / 3 |
+| [GID-037](goals/GID-037--tavern-duels/goal.md) | Tavern Duels & Champion Ladder | pending | 1 / 3 |
 | [GID-038](goals/GID-038--endless-spire/goal.md) | The Endless Spire — Roguelike Draft Mode | pending | 0 / 5 |
 | [GID-039](goals/GID-039--living-world-events/goal.md) | Living World Events | pending | 0 / 4 |
 | [GID-040](goals/GID-040--puzzle-battles/goal.md) | Puzzle Battle Shrines | pending | 0 / 4 |
@@ -92,6 +92,7 @@
 | [BID-013](backlog/BID-013--godot-version-drift.md) | CI builds on Godot 4.6 but CLAUDE.md/spec say 4.4.1 | doc-gap | GID-064 audit |
 | [BID-014](backlog/BID-014--camera-follow-stutter.md) | Camera follows physics body from _process without interpolation (stutter at 90/120 Hz) | code-smell | GID-064 audit |
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded | spec-gap | GID-070 research |
+| [BID-016](backlog/BID-016--flag-gated-dialogue-content.md) | Flag-gated NPC dialogue content not yet authored; TownspersonNPC logic ready but table mostly empty | human-action-deferred | GID-020 / TID-063 |
 
 ## Resolved Backlog
 
