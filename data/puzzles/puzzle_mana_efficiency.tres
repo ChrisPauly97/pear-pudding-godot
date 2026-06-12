@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PuzzleData" load_steps=2 format=3 uid="uid://acqdoo5fh4js"]
+
+[ext_resource type="Script" path="res://game_logic/battle/PuzzleData.gd" id="1_puzzledata"]
+
+[resource]
+script = ExtResource("1_puzzledata")
+puzzle_id = "puzzle_mana_efficiency"
+title = "The Final Reckoning"
+hint_text = "Five crystals of power — spend them well. Only one path through these cards reaches the end."
+player_hand = ["surge_spirit", "blitz_ghoul", "spark", "wither"]
+player_board = []
+player_mana = 5
+player_hero_hp = 30
+enemy_board = ["skeleton"]
+enemy_hero_hp = 5
+enemy_board_buffs = []
+reward_card_id = "shrouded_wraith"

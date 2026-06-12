@@ -2,7 +2,7 @@
 
 **Goal:** GID-040
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -34,12 +34,24 @@ The data layer for puzzle battles: a Resource schema describing a frozen board s
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/battle/PuzzleData.gd` with @export fields and `validate()`.
+2. Create `data/puzzles/` directory and `puzzle_test.tres` + `.uid`.
+3. Create `autoloads/PuzzleRegistry.gd` with static preloads and lookup methods.
+4. Register in `project.godot` autoloads section.
+5. Add `puzzle_requested`/`puzzle_solved` signals to `GameBus.gd`.
+6. Add `solved_puzzles` field + migration to `SaveManager.gd`.
+7. Write `tests/unit/test_puzzle_registry.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `game_logic/battle/PuzzleData.gd` — Resource with all fields + `validate()` method.
+- Created `data/puzzles/puzzle_test.tres` + `.uid` (uid://se32kv8oqk8n) — test fixture with ghost/surge_spirit cards.
+- Created `autoloads/PuzzleRegistry.gd` — static preloads for all 6 puzzle files, `get_puzzle()`, `all_ids()`.
+- Modified `project.godot` — added `PuzzleRegistry="*res://autoloads/PuzzleRegistry.gd"` to [autoload].
+- Modified `autoloads/GameBus.gd` — added `puzzle_requested(puzzle_id: String)` and `puzzle_solved(puzzle_id: String)` signals.
+- Modified `autoloads/SaveManager.gd` — added `solved_puzzles: Array[String]`, v17→v18 migration, `mark_puzzle_solved()`, `is_puzzle_solved()` methods.
+- Created `tests/unit/test_puzzle_registry.gd` + `.uid` — 14 tests for registry lookups and PuzzleData field validation.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md` — added Puzzle Battle Mode section with schema table, puzzle catalogue, state flow, and SaveManager fields.

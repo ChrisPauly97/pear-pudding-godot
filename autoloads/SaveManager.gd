@@ -102,6 +102,9 @@ var spire_run: Dictionary = {"active": false}
 # Best floor reached across all Spire runs (meta-progression, never resets).
 var spire_best_floor: int = 0
 
+# Puzzle shrine IDs the player has solved (rewards awarded once per id).
+var solved_puzzles: Array[String] = []
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -186,13 +189,14 @@ func new_game() -> void:
 	corruption_points = 0
 	redemption_points = 0
 	spire_run = {"active": false}
+	solved_puzzles = []
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 17
+const CURRENT_SAVE_VERSION: int = 18
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -346,6 +350,12 @@ static func _migrate_v16_to_v17(data: Dictionary) -> void:
 		data["spire_best_floor"] = 0
 	data["version"] = 17
 
+# _migrate_v17_to_v18: backfill solved_puzzles for old saves.
+static func _migrate_v17_to_v18(data: Dictionary) -> void:
+	if not data.has("solved_puzzles"):
+		data["solved_puzzles"] = []
+	data["version"] = 18
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -382,6 +392,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v15_to_v16(data)
 	if ver < 17:
 		_migrate_v16_to_v17(data)
+	if ver < 18:
+		_migrate_v17_to_v18(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -444,6 +456,7 @@ func load_save() -> bool:
 	var sr = data.get("spire_run", {"active": false})
 	spire_run = sr if sr is Dictionary else {"active": false}
 	spire_best_floor = int(data.get("spire_best_floor", 0))
+	solved_puzzles.assign(data.get("solved_puzzles", []))
 	_loaded = true
 	return true
 
@@ -496,6 +509,7 @@ func save() -> void:
 		"redemption_points": redemption_points,
 		"spire_run": spire_run,
 		"spire_best_floor": spire_best_floor,
+		"solved_puzzles": solved_puzzles,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -1004,6 +1018,14 @@ func set_spire_hero_hp(hp: int) -> void:
 		return
 	spire_run["hero_hp"] = hp
 	_dirty = true
+
+func mark_puzzle_solved(puzzle_id: String) -> void:
+	if not solved_puzzles.has(puzzle_id):
+		solved_puzzles.append(puzzle_id)
+	_dirty = true
+
+func is_puzzle_solved(puzzle_id: String) -> bool:
+	return solved_puzzles.has(puzzle_id)
 
 func increment_day() -> void:
 	days_elapsed += 1

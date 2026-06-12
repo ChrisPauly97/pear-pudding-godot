@@ -48,3 +48,7 @@ signal tutorial_popup_requested(popup_id: String)
 # Endless Spire signals
 signal spire_card_drafted(card_id: String)
 signal spire_run_ended(stats: Dictionary)
+
+# Puzzle signals
+signal puzzle_requested(puzzle_id: String)
+signal puzzle_solved(puzzle_id: String)

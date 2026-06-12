@@ -284,3 +284,98 @@ else:
 **Cleared on:** `SceneManager._on_battle_won()` and `_on_battle_lost()` both call `save_manager.clear_pending_battle_state()` alongside `clear_pending_battle()`.
 
 **Note:** `_hero_power_used` is not persisted — the player always gets their hero power back on resume, which is acceptable.
+
+---
+
+## Puzzle Battle Mode (GID-040)
+
+Handcrafted "win-this-turn" puzzles found at glowing shrines in named maps. Each puzzle teaches a keyword interaction and rewards a rare card on first solve.
+
+### Data Resources
+
+**`game_logic/battle/PuzzleData.gd`** — `extends Resource`
+
+| Field | Type | Description |
+|---|---|---|
+| `puzzle_id` | String | Unique key (matches PuzzleRegistry and SaveManager.solved_puzzles) |
+| `title` | String | Display name |
+| `hint_text` | String | Shown after a failed attempt |
+| `player_hand` | Array[String] | Card IDs in the player's starting hand |
+| `player_board` | Array[String] | Card IDs pre-placed on the player's board (no summoning sickness) |
+| `player_mana` | int | Starting mana for the player |
+| `player_hero_hp` | int | Player hero HP |
+| `enemy_board` | Array[String] | Enemy board card IDs (no summoning sickness) |
+| `enemy_hero_hp` | int | Enemy hero HP |
+| `enemy_board_buffs` | Array[String] | Keyword buffs in `"slot_idx:keyword"` format |
+| `reward_card_id` | String | Card awarded on first solve |
+
+**`autoloads/PuzzleRegistry.gd`** — autoloaded node + static methods
+
+- `get_puzzle(id: String) -> PuzzleData` — looks up by `puzzle_id`
+- `all_ids() -> Array[String]` — returns all registered IDs
+- All `.tres` files are const-preloaded (Android export safety)
+
+### Puzzle Catalogue
+
+| Puzzle ID | Map | Mechanic | Solution hint |
+|---|---|---|---|
+| `puzzle_surge_lethal` | madrian | Surge — attack immediately | Play Surge Spirit (2 mana), attack hero directly |
+| `puzzle_ward_bypass` | maykalene | Ward — must kill Ward minion first | Skeleton kills Ward Ghost (2≥1HP), then Ghost attacks hero |
+| `puzzle_shroud_timing` | farsyth_mansion | Shroud — absorbs first hit | Wraith attacks skeleton (Shroud absorbs 2 ATK, wraith lives), Ghost kills hero |
+| `puzzle_attack_order` | blancogov | Attack sequencing | Ghost kills Ward Surge Spirit (both die), Skeleton kills hero |
+| `puzzle_mana_efficiency` | blancogov_temple | Optimal mana spend | Blitz Ghoul (4 mana, Surge) + Spark spell (1 mana) = exactly 5 damage on hero |
+
+### State Flow
+
+```
+GameBus.puzzle_requested(puzzle_id)
+  └─ SceneManager._on_puzzle_requested()
+       ├─ PuzzleRegistry.get_puzzle(id) → PuzzleData
+       ├─ BattleScene instantiated with puzzle_data set
+       └─ _state = GameState.load_puzzle(puzzle_data)
+
+BattleScene._on_end_turn() [puzzle_mode]
+  └─ game not won → _show_puzzle_fail()  [resets board, shows hint]
+
+BattleScene._check_game_over() [puzzle_mode, winner == 0]
+  └─ _show_puzzle_victory()
+       └─ GameBus.puzzle_solved.emit(puzzle_data_id)
+            └─ SceneManager._on_puzzle_solved()
+                 ├─ Award reward_card_id as "rare" (first solve only)
+                 ├─ SaveManager.mark_puzzle_solved(id)
+                 └─ Restore world scene
+
+BattleScene._on_puzzle_give_up()
+  └─ SceneManager.return_from_puzzle()  [no reward]
+```
+
+### `GameState.load_puzzle(pdata)`
+
+Static constructor that seeds a battle state from PuzzleData:
+- Sets `puzzle_mode = true`, `puzzle_data_id`
+- Clears default decks; no draw pile
+- Populates player hand (no summoning sickness)
+- Populates player/enemy boards (no summoning sickness, `attack_count = 1` so can attack immediately)
+- Applies `enemy_board_buffs` keywords after board population
+- Sets current_player_idx = 0 (always player's turn)
+- Not persisted via `set_pending_battle_state` — no mid-puzzle save/restore
+
+### Puzzle-Mode BattleScene Modifications
+
+- "End Turn" button relabeled "Check" — pressing without lethal shows `_show_puzzle_fail()` overlay
+- "Give Up" button added to SidePanel — calls `SceneManager.return_from_puzzle()` with no reward
+- AI turn entirely skipped when `_state.puzzle_mode` is true
+- `_show_puzzle_fail()`: reloads puzzle state via `GameState.load_puzzle(_puzzle_data_ref)`, shows hint text overlay
+- `_show_puzzle_victory()`: green overlay, then `SceneManager.return_from_puzzle()` via Continue button
+
+### World Integration
+
+`game_logic/world/resources/MapPuzzleShrine.gd` — tile-positioned resource entity with `puzzle_id`.
+`scenes/world/entities/PuzzleShrine.gd/.tscn` — glowing blue prism mesh with point light; dims when puzzle already solved.
+`WorldScene._spawn_named_map_shrines()` — mirrors `_spawn_named_map_scrolls()`; interact via `_handle_interact()`.
+`MapData.shrines: Array[Resource]` — serialized alongside scrolls, enemies, etc.
+`WorldMap.shrines: Array[Dictionary]` — runtime list of `{id, x, z, puzzle_id}` dicts.
+
+### SaveManager Fields (version 18)
+
+`solved_puzzles: Array[String]` — list of solved puzzle IDs. Migrated from v17 via `_migrate_v17_to_v18` (backfills `[]`).
