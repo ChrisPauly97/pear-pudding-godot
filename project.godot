@@ -28,6 +28,7 @@ AudioManager="*res://autoloads/AudioManager.gd"
 SaveManager="*res://autoloads/SaveManager.gd"
 ScrollRegistry="*res://autoloads/ScrollRegistry.gd"
 MapRegistry="*res://autoloads/MapRegistry.gd"
+PuzzleRegistry="*res://autoloads/PuzzleRegistry.gd"
 
 [display]
 

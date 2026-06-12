@@ -12,10 +12,10 @@ The keyword system (Ward, Surge, Shroud from GID-025) and status effects (GID-01
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-155 | PuzzleData resource + PuzzleRegistry autoload | agent | pending | — |
-| TID-156 | Puzzle mode in GameState + BattleScene (seeding, win/fail/reset) | agent | pending | TID-155 |
-| TID-157 | PuzzleShrine world entity + interaction flow | agent | pending | TID-156 |
-| TID-158 | Author 5 puzzles + place shrines in named maps | agent | pending | TID-157 |
+| TID-155 | PuzzleData resource + PuzzleRegistry autoload | agent | done | — |
+| TID-156 | Puzzle mode in GameState + BattleScene (seeding, win/fail/reset) | agent | done | TID-155 |
+| TID-157 | PuzzleShrine world entity + interaction flow | agent | done | TID-156 |
+| TID-158 | Author 5 puzzles + place shrines in named maps | agent | done | TID-157 |
 
 ## Acceptance Criteria
 

@@ -2,7 +2,7 @@
 
 **Goal:** GID-040
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-157
 
 ## Lock
@@ -32,12 +32,33 @@ The content pass: five hand-authored puzzles, each teaching one mechanic, placed
 
 ## Plan
 
-_Written during Plan phase._
+1. Design 5 solvable puzzles using existing card IDs.
+2. Create `data/puzzles/*.tres` + `.uid` for each.
+3. Update `PuzzleRegistry.gd` with const preloads.
+4. Add `shrines` sub-resources to the 5 named map `.tres` files.
+5. Document in `docs/agent/battle-system.md`.
+6. Write tests in `tests/unit/test_puzzle_registry.gd` and `test_puzzle_mode.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+**Puzzle .tres files created** (all in `data/puzzles/`):
+- `puzzle_surge_lethal.tres` (uid://7i5ezjpexsvu) — hand: [surge_spirit], mana: 2, enemy_hp: 3. Solution: play Surge Spirit, attack hero immediately.
+- `puzzle_ward_bypass.tres` (uid://qpoqa6v5nw1k) — board: [skeleton, ghost], enemy_board: [ghost] with ward buff, enemy_hp: 1. Solution: skeleton kills Ward ghost (2≥1HP), ghost attacks hero.
+- `puzzle_shroud_timing.tres` (uid://ih1d1gxhl1iy) — board: [shrouded_wraith, ghost], enemy_board: [skeleton], enemy_hp: 1. Solution: wraith attacks skeleton (Shroud absorbs 2 ATK, wraith survives), ghost attacks hero.
+- `puzzle_attack_order.tres` (uid://ogxprala0s95) — board: [ghost, skeleton], enemy_board: [surge_spirit] with ward buff (3ATK/1HP), enemy_hp: 2. Solution: ghost kills Ward surge_spirit (both die from mutual 3 ATK), skeleton attacks hero.
+- `puzzle_mana_efficiency.tres` (uid://acqdoo5fh4js) — hand: [surge_spirit, blitz_ghoul, spark, wither], mana: 5, enemy_board: [skeleton], enemy_hp: 5. Solution: Blitz Ghoul (4 mana, Surge) + Spark (1 mana, deal 1 dmg to hero) = exactly 5 damage, lethal.
+
+**Updated `autoloads/PuzzleRegistry.gd`** — const preloads for all 5 new puzzles + fixture.
+
+**Updated 5 map `.tres` files** — added `MapPuzzleShrine` ext_resource, sub_resource, and `shrines = [...]` array:
+- `assets/maps/madrian.tres` — shrine at tile (40, 36), puzzle_surge_lethal
+- `assets/maps/maykalene.tres` — shrine at tile (35, 30), puzzle_ward_bypass
+- `assets/maps/farsyth_mansion.tres` — shrine at tile (30, 30), puzzle_shroud_timing
+- `assets/maps/blancogov.tres` — shrine at tile (35, 35), puzzle_attack_order
+- `assets/maps/blancogov_temple.tres` — shrine at tile (30, 30), puzzle_mana_efficiency
+
+**Tests:** `tests/unit/test_puzzle_registry.gd` + `test_puzzle_mode.gd` cover all 5 puzzles and GameState.load_puzzle behavior. Added both to `tests/runner.gd`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md` — Puzzle Catalogue table with all 5 puzzles, mechanics, and solution hints.

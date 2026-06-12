@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PuzzleData" load_steps=2 format=3 uid="uid://qpoqa6v5nw1k"]
+
+[ext_resource type="Script" path="res://game_logic/battle/PuzzleData.gd" id="1_puzzledata"]
+
+[resource]
+script = ExtResource("1_puzzledata")
+puzzle_id = "puzzle_ward_bypass"
+title = "The Warden's Door"
+hint_text = "The guardian will not let you pass — remove it first, then strike."
+player_hand = []
+player_board = ["skeleton", "ghost"]
+player_mana = 0
+player_hero_hp = 30
+enemy_board = ["ghost"]
+enemy_hero_hp = 1
+enemy_board_buffs = ["0:ward"]
+reward_card_id = "dawn_guardian"

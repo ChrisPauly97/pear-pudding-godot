@@ -1,9 +1,10 @@
-[gd_resource type="Resource" script_class="MapData" load_steps=5 format=3 uid="uid://mox3abb3uun3"]
+[gd_resource type="Resource" script_class="MapData" load_steps=6 format=3 uid="uid://mox3abb3uun3"]
 
 [ext_resource type="Script" uid="uid://fycqebooc6ig" path="res://game_logic/world/resources/MapData.gd" id="1_mapdata"]
 [ext_resource type="Script" uid="uid://r18om43tz40b" path="res://game_logic/world/resources/MapDoor.gd" id="2_mapdoor"]
 [ext_resource type="Script" uid="uid://pz39p9z9yzt7" path="res://game_logic/world/resources/MapNpc.gd" id="3_mapnpc"]
 [ext_resource type="Script" uid="uid://l2exioez3eml" path="res://game_logic/world/resources/MapScroll.gd" id="4_mapscroll"]
+[ext_resource type="Script" uid="uid://1haf0mx3gfjs" path="res://game_logic/world/resources/MapPuzzleShrine.gd" id="5_mapshrine"]
 
 [sub_resource type="Resource" id="MapDoor_1"]
 script = ExtResource("2_mapdoor")
@@ -104,7 +105,16 @@ enemies = []
 chests = []
 doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2")]
 npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6")]
+
+[sub_resource type="Resource" id="MapPuzzleShrine_1"]
+script = ExtResource("5_mapshrine")
+entity_id = "shrine_maykalene_1"
+tile_x = 35
+tile_z = 30
+puzzle_id = "puzzle_ward_bypass"
+
 scrolls = [SubResource("MapScroll_1")]
+shrines = [SubResource("MapPuzzleShrine_1")]
 triggers = []
 regions = []
 music_track = ""

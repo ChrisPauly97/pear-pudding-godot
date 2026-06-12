@@ -2,7 +2,7 @@
 
 **Goal:** GID-040
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-155
 
 ## Lock
@@ -34,12 +34,34 @@ The battle-logic half: seed a GameState from a PuzzleData, detect the lethal (wi
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `puzzle_mode: bool` and `puzzle_data_id: String` to `GameState`.
+2. Implement `GameState.load_puzzle(p: Resource) -> GameState`.
+3. Update `GameState.to_dict()`/`from_dict()` for the new fields.
+4. Modify `BattleScene._ready()` to check `puzzle_data` var and call `load_puzzle`.
+5. Add "Check" label and "Give Up" button in puzzle mode.
+6. Gate AI turn in `_on_turn_ended()`.
+7. Add fail path in `_on_end_turn()`.
+8. Add victory path in `_check_game_over()`.
+9. Guard save hooks with `not _state.puzzle_mode`.
+10. Implement `_show_puzzle_fail()`, `_show_puzzle_victory()`, `_on_puzzle_give_up()`.
+11. Wire `SceneManager` handlers for `puzzle_requested`/`puzzle_solved`/`return_from_puzzle`.
+12. Write `tests/unit/test_puzzle_mode.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Modified `game_logic/battle/GameState.gd` — added `puzzle_mode`, `puzzle_data_id`, `load_puzzle()` static constructor, updated `to_dict()`/`from_dict()`.
+- Modified `scenes/battle/BattleScene.gd`:
+  - Added `puzzle_data: Resource`, `_puzzle_data_ref`, `_give_up_btn` vars.
+  - `_ready()`: if puzzle_data set → call `GameState.load_puzzle(puzzle_data)`.
+  - Renamed "End Turn" to "Check" in puzzle mode; added "Give Up" button.
+  - `_on_end_turn()`: fail path if puzzle_mode and not game over.
+  - `_on_turn_ended()`: skip AI turn in puzzle_mode.
+  - `_check_game_over()`: `_show_puzzle_victory()` path for puzzle_mode win.
+  - Save hooks guarded with `not _state.puzzle_mode`.
+  - Added `_show_puzzle_fail()`, `_show_puzzle_victory()`, `_on_puzzle_give_up()`.
+- Modified `autoloads/SceneManager.gd` — added `_on_puzzle_requested()`, `_on_puzzle_solved()`, `return_from_puzzle()`.
+- Created `tests/unit/test_puzzle_mode.gd` + `.uid` — 14 tests covering load_puzzle, board setup, buffs, and dict round-trip.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md` — Puzzle Battle Mode state flow, `load_puzzle()` description, BattleScene modifications, puzzle-mode save/restore note.

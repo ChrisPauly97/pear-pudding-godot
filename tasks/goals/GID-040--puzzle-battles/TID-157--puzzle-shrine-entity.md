@@ -2,7 +2,7 @@
 
 **Goal:** GID-040
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-156
 
 ## Lock
@@ -29,12 +29,34 @@ The world-facing half: a glowing shrine the player finds in named maps. Approach
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/world/resources/MapPuzzleShrine.gd` with `entity_id`, `tile_x`, `tile_z`, `puzzle_id`.
+2. Add `.uid` sidecar for MapPuzzleShrine.gd.
+3. Add `shrines: Array[Resource]` to `MapData.gd`.
+4. Update `WorldMap.gd` — add `shrines` var, const, parse, find_nearby_shrine, serialize.
+5. Create `scenes/world/entities/PuzzleShrine.gd` — glowing prism mesh, dims when solved.
+6. Create `scenes/world/entities/PuzzleShrine.tscn`.
+7. Update `WorldScene.gd` — preload shrine scene, `_shrine_nodes`, spawn, find, interact, check_interactions.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `game_logic/world/resources/MapPuzzleShrine.gd` + `.uid` (uid://1haf0mx3gfjs).
+- Modified `game_logic/world/resources/MapData.gd` — added `shrines: Array[Resource]`.
+- Modified `game_logic/world/WorldMap.gd`:
+  - Added `const _MapPuzzleShrine = preload(...)`.
+  - Added `shrines: Array[Dictionary]` var.
+  - `load_from_resource()`: clear + parse shrines from `data.get("shrines")`.
+  - Added `find_nearby_shrine()`.
+  - `to_map_data()`: serialize shrines back to MapPuzzleShrine resources.
+- Created `scenes/world/entities/PuzzleShrine.gd` + `.uid` (uid://v80ugqi2vj2v) — blue prism with OmniLight3D; `_dim_solved()` for already-solved puzzles; `interact()` emits `GameBus.puzzle_requested`.
+- Created `scenes/world/entities/PuzzleShrine.tscn` (uid://x71thz31jfno).
+- Modified `scenes/world/WorldScene.gd`:
+  - Added `_PuzzleShrineScene` const preload.
+  - Added `_shrine_nodes: Array[Node3D]`.
+  - Added `_spawn_named_map_shrines()` called alongside `_spawn_named_map_scrolls()`.
+  - Added `_find_nearby_shrine()`.
+  - `_check_interactions()`: includes shrine in proximity check.
+  - `_handle_interact()`: calls `shrine.interact()` after scroll check.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md` — World Integration section added under Puzzle Battle Mode.

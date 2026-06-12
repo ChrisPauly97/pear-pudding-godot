@@ -18,6 +18,9 @@ const Keywords = preload("res://game_logic/battle/Keywords.gd")
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
+var puzzle_data: Resource = null  # PuzzleData set by SceneManager before _ready
+var _puzzle_data_ref: Resource = null  # retained for reset
+var _give_up_btn: Button = null
 var _state: GameState
 var _ai: BasicAI
 var _ai_thinking: bool = false
@@ -108,7 +111,10 @@ func _ready() -> void:
 	_vh = get_viewport().get_visible_rect().size.y
 	_apply_ui_sizes()
 	var _saved_battle: Dictionary = SceneManager.save_manager.pending_battle_state
-	if not _saved_battle.is_empty():
+	if puzzle_data != null:
+		_puzzle_data_ref = puzzle_data
+		_state = GameState.load_puzzle(puzzle_data)
+	elif not _saved_battle.is_empty():
 		_state = GameState.from_dict(_saved_battle)
 		SceneManager.save_manager.clear_pending_battle_state()
 	else:
@@ -172,6 +178,15 @@ func _ready() -> void:
 	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
 	_add_pause_button()
 	_add_hero_power_button()
+
+	if _state.puzzle_mode:
+		_end_turn_btn.text = "Check"
+		_give_up_btn = Button.new()
+		_give_up_btn.text = "Give Up"
+		_give_up_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.07)
+		_give_up_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+		_give_up_btn.pressed.connect(_on_puzzle_give_up)
+		$SidePanel.add_child(_give_up_btn)
 	GameBus.turn_ended.connect(_on_turn_ended)
 
 	_refresh_all()
@@ -700,7 +715,8 @@ func _confirm_return_to_menu() -> void:
 	yes_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
 	yes_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	yes_btn.pressed.connect(func() -> void:
-		SceneManager.save_manager.set_pending_battle_state(_state.to_dict())
+		if not _state.puzzle_mode:
+			SceneManager.save_manager.set_pending_battle_state(_state.to_dict())
 		SceneManager.save_manager.save()
 		get_tree().paused = false
 		SceneManager.go_to_menu()
@@ -717,7 +733,7 @@ func _confirm_return_to_menu() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
-		if _state != null:
+		if _state != null and not _state.puzzle_mode:
 			SceneManager.save_manager.set_pending_battle_state(_state.to_dict())
 			SceneManager.save_manager.save()
 		if not _paused:
@@ -1187,6 +1203,10 @@ func _on_end_turn() -> void:
 		return
 	_cancel_hand_drag()
 	_dragged_card.clear()
+	if _state.puzzle_mode:
+		if not _state.is_game_over():
+			_show_puzzle_fail()
+		return
 	_state.end_turn()
 
 func _on_turn_ended(player_idx: int) -> void:
@@ -1209,7 +1229,7 @@ func _on_turn_ended(player_idx: int) -> void:
 			_check_game_over()
 	elif player_idx == 1:
 		_check_game_over()
-		if not _state.is_game_over():
+		if not _state.is_game_over() and not _state.puzzle_mode:
 			_run_ai_turn()
 
 func _run_ai_turn() -> void:
@@ -1464,6 +1484,11 @@ func _check_game_over() -> void:
 	_check_boss_phase2()
 	if _state.is_game_over():
 		var w := _state.winner()
+		if _state.puzzle_mode:
+			if w == 0:
+				AudioManager.play_sfx("battle_win")
+				_show_puzzle_victory()
+			return
 		if _state.friendly_duel:
 			if w == 0:
 				AudioManager.play_sfx("battle_win")
@@ -1704,6 +1729,101 @@ func _show_duel_loss_overlay(wager: int) -> void:
 
 	overlay.add_child(vbox)
 	add_child(overlay)
+
+# -------------------------------------------------------------------------
+# Puzzle overlays
+# -------------------------------------------------------------------------
+
+func _show_puzzle_fail() -> void:
+	const GameState = preload("res://game_logic/battle/GameState.gd")
+	_state = GameState.load_puzzle(_puzzle_data_ref)
+	_refresh_all()
+
+	var overlay := PanelContainer.new()
+	overlay.name = "PuzzleFailOverlay"
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.1, 0.05, 0.05, 0.88)
+	overlay.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+
+	var lbl := Label.new()
+	lbl.text = "Not quite — try again!"
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.05))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.modulate = Color(1.0, 0.5, 0.3)
+	vbox.add_child(lbl)
+
+	var hint_lbl := Label.new()
+	var pd: Resource = _puzzle_data_ref
+	hint_lbl.text = pd.get("hint_text") if pd != null else ""
+	hint_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint_lbl.modulate = Color(0.85, 0.85, 0.85)
+	hint_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint_lbl.custom_minimum_size = Vector2(_vh * 0.5, 0)
+	vbox.add_child(hint_lbl)
+
+	var btn := Button.new()
+	btn.text = "Try Again"
+	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
+	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	btn.pressed.connect(func() -> void: overlay.queue_free())
+	vbox.add_child(btn)
+
+	overlay.add_child(vbox)
+	add_child(overlay)
+
+
+func _show_puzzle_victory() -> void:
+	GameBus.puzzle_solved.emit(_state.puzzle_data_id)
+
+	var overlay := PanelContainer.new()
+	overlay.name = "PuzzleVictoryOverlay"
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.04, 0.10, 0.04, 0.92)
+	overlay.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Puzzle Solved!"
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.modulate = Color(0.4, 1.0, 0.5)
+	vbox.add_child(title_lbl)
+
+	var sub_lbl := Label.new()
+	sub_lbl.text = "Reward delivered to your collection."
+	sub_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub_lbl.modulate = Color(0.8, 1.0, 0.8)
+	vbox.add_child(sub_lbl)
+
+	var btn := Button.new()
+	btn.text = "Continue"
+	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
+	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	btn.pressed.connect(func() -> void:
+		overlay.queue_free()
+		SceneManager.return_from_puzzle()
+	)
+	vbox.add_child(btn)
+
+	overlay.add_child(vbox)
+	add_child(overlay)
+
+
+func _on_puzzle_give_up() -> void:
+	SceneManager.return_from_puzzle()
 
 # -------------------------------------------------------------------------
 # Enemy intent banner (TID-059)

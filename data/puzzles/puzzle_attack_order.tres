@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PuzzleData" load_steps=2 format=3 uid="uid://ogxprala0s95"]
+
+[ext_resource type="Script" path="res://game_logic/battle/PuzzleData.gd" id="1_puzzledata"]
+
+[resource]
+script = ExtResource("1_puzzledata")
+puzzle_id = "puzzle_attack_order"
+title = "Order of Battle"
+hint_text = "One must fall so the other can finish what it started — choose wisely who faces the guardian."
+player_hand = []
+player_board = ["ghost", "skeleton"]
+player_mana = 0
+player_hero_hp = 30
+enemy_board = ["surge_spirit"]
+enemy_hero_hp = 2
+enemy_board_buffs = ["0:ward"]
+reward_card_id = "iron_revenant"

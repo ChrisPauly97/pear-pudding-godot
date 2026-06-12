@@ -31,6 +31,7 @@ const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
 const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
+const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -49,6 +50,7 @@ var _chest_nodes: Dictionary = {}   # id -> Node3D
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
+var _shrine_nodes: Array[Node3D] = []
 var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
@@ -241,6 +243,7 @@ func _ready() -> void:
 			int(floor(_player.position.x / chunk_world)),
 			int(floor(_player.position.z / chunk_world)))
 		_spawn_named_map_scrolls()
+		_spawn_named_map_shrines()
 
 	_update_hud()
 
@@ -871,6 +874,32 @@ func _find_nearby_scroll(px: float, pz: float, range_dist: float) -> Node3D:
 			return s
 	return null
 
+func _spawn_named_map_shrines() -> void:
+	if world_map == null:
+		return
+	for entry in world_map.shrines:
+		var wx: float = float(entry["x"])
+		var wz: float = float(entry["z"])
+		var wy: float = get_terrain_height(wx, wz) + 0.1
+		var node := _PuzzleShrineScene.instantiate() as Node3D
+		_entity_root.add_child(node)
+		node.position = Vector3(wx, wy, wz)
+		if node.has_method("setup"):
+			node.setup(str(entry["puzzle_id"]), _player)
+		if is_instance_valid(node):
+			_shrine_nodes.append(node)
+
+func _find_nearby_shrine(px: float, pz: float, range_dist: float) -> Node3D:
+	var range_sq: float = range_dist * range_dist
+	for sh in _shrine_nodes:
+		if not is_instance_valid(sh):
+			continue
+		var ddx: float = sh.position.x - px
+		var ddz: float = sh.position.z - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return sh
+	return null
+
 # Find nearest entities — checks the player's chunk + 8 neighbours for enemies/chests;
 # scans active data dicts for doors and NPCs.
 func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
@@ -1117,7 +1146,8 @@ func _check_interactions() -> void:
 	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
-	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null:
+	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
+	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null:
 		if _interact_btn != null:
 			_interact_btn.show()
 		else:
@@ -1251,6 +1281,11 @@ func _handle_interact() -> void:
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
 	if scroll != null and scroll.has_method("interact"):
 		scroll.interact()
+		return
+
+	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
+	if shrine != null and shrine.has_method("interact"):
+		shrine.interact()
 
 # ── Spire entrance ─────────────────────────────────────────────────────────
 

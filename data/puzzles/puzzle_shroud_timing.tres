@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PuzzleData" load_steps=2 format=3 uid="uid://ih1d1gxhl1iy"]
+
+[ext_resource type="Script" path="res://game_logic/battle/PuzzleData.gd" id="1_puzzledata"]
+
+[resource]
+script = ExtResource("1_puzzledata")
+puzzle_id = "puzzle_shroud_timing"
+title = "The Shadow Trade"
+hint_text = "The shrouded one absorbs the first blow — let it take the hit so another can deliver the final stroke."
+player_hand = []
+player_board = ["shrouded_wraith", "ghost"]
+player_mana = 0
+player_hero_hp = 30
+enemy_board = ["skeleton"]
+enemy_hero_hp = 1
+enemy_board_buffs = []
+reward_card_id = "veiled_paladin"

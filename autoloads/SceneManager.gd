@@ -90,6 +90,8 @@ func _ready() -> void:
 	GameBus.achievement_unlocked.connect(_on_achievement_unlocked)
 	GameBus.level_up.connect(_on_level_up)
 	GameBus.tutorial_popup_requested.connect(_on_tutorial_popup_requested)
+	GameBus.puzzle_requested.connect(_on_puzzle_requested)
+	GameBus.puzzle_solved.connect(_on_puzzle_solved)
 
 func go_to_menu() -> void:
 	_flush_position_save()
@@ -330,6 +332,45 @@ func _restore_world() -> void:
 		get_tree().current_scene = _saved_world_scene
 		_saved_world_scene = null
 	_state = State.WORLD
+
+func _on_puzzle_requested(puzzle_id: String) -> void:
+	const PuzzleRegistry_cls = preload("res://autoloads/PuzzleRegistry.gd")
+	var pdata: Resource = PuzzleRegistry_cls.get_puzzle(puzzle_id)
+	if pdata == null:
+		push_error("SceneManager: puzzle not found: " + puzzle_id)
+		return
+	_flush_position_save()
+	if get_tree().current_scene != null:
+		_saved_world_scene = get_tree().current_scene
+		get_tree().root.remove_child(_saved_world_scene)
+	_battle_overlay = _battle_scene_packed.instantiate()
+	_battle_overlay.puzzle_data = pdata
+	get_tree().root.add_child(_battle_overlay)
+	get_tree().current_scene = _battle_overlay
+	_state = State.BATTLE
+
+func _on_puzzle_solved(puzzle_id: String) -> void:
+	if _state != State.BATTLE:
+		return
+	const PD = preload("res://game_logic/battle/PuzzleData.gd")
+	if not save_manager.is_puzzle_solved(puzzle_id):
+		var pdata: PD = PuzzleRegistry.get_puzzle(puzzle_id) as PD
+		if pdata != null and not pdata.reward_card_id.is_empty():
+			save_manager.add_card_instance(pdata.reward_card_id, "rare")
+			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+		save_manager.mark_puzzle_solved(puzzle_id)
+	save_manager.save()
+	if _battle_overlay != null:
+		_battle_overlay.queue_free()
+		_battle_overlay = null
+	_restore_world()
+
+func return_from_puzzle() -> void:
+	save_manager.save()
+	if _battle_overlay != null:
+		_battle_overlay.queue_free()
+		_battle_overlay = null
+	_restore_world()
 
 func _on_battle_won(result: Dictionary) -> void:
 	if _state != State.BATTLE:

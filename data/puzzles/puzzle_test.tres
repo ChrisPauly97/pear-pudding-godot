@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="PuzzleData" load_steps=2 format=3 uid="uid://se32kv8oqk8n"]
+
+[ext_resource type="Script" path="res://game_logic/battle/PuzzleData.gd" id="1_puzzledata"]
+
+[resource]
+script = ExtResource("1_puzzledata")
+puzzle_id = "puzzle_test"
+title = "Test Puzzle"
+hint_text = "A development fixture for testing the puzzle system."
+player_hand = ["surge_spirit"]
+player_board = []
+player_mana = 2
+player_hero_hp = 30
+enemy_board = []
+enemy_hero_hp = 3
+enemy_board_buffs = []
+reward_card_id = "ghost"
