@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://j5assjjju07a"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_roaming_terror"]
+
+[resource]
+script = ExtResource("1_roaming_terror")
+id = "roaming_terror"
+display_name = "Roaming Terror"
+deck = PackedStringArray("ghoul", "ghoul", "ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "soul_harvest", "soul_harvest", "drain", "drain", "void_creeper", "void_creeper", "dusk_wraith", "dusk_wraith", "wither", "wither")
+drop_pool = PackedStringArray("blitz_ghoul", "soul_harvest", "void_wyrm", "dusk_vampire", "dark_pact", "shrouded_wraith", "iron_revenant")
+coin_reward = 40
+is_boss = true
+boss_hp = 50
+phase2_deck = PackedStringArray("void_wyrm", "void_wyrm", "soul_rend", "soul_rend", "dusk_vampire", "dusk_vampire", "drain", "wither", "dark_pact", "blitz_ghoul", "blitz_ghoul", "ghoul", "ghoul", "ghoul", "void_creeper", "void_creeper")
+difficulty_tier = 4

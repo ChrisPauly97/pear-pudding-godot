@@ -22,8 +22,9 @@ class _EventReg extends RefCounted:
 
 const _InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 
-var _events: Dictionary = {}        # String -> _EventReg
-var _active_event_id: String = ""   # "" = none active
+var _events: Dictionary = {}           # String -> _EventReg
+var _active_event_id: String = ""     # "" = none active
+var _event_positions: Dictionary = {} # String -> Vector3
 var _in_battle: bool = false
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
@@ -110,6 +111,7 @@ func end_event(id: String) -> void:
 	reg.cleanup.call()
 	if _active_event_id == id:
 		_active_event_id = ""
+	_event_positions.erase(id)
 	if _game_bus != null:
 		_game_bus.emit_signal("world_event_ended", id)
 	_persist_events()
@@ -121,6 +123,14 @@ func is_event_active() -> bool:
 ## Returns the id of the currently active event, or "" if none.
 func get_active_event_id() -> String:
 	return _active_event_id
+
+## Store the world-space spawn position for the active event (called from spawn_fn).
+func set_event_position(id: String, pos: Vector3) -> void:
+	_event_positions[id] = pos
+
+## Retrieve the world-space spawn position for an event, or Vector3.ZERO if not set.
+func get_event_position(id: String) -> Vector3:
+	return _event_positions.get(id, Vector3.ZERO) as Vector3
 
 func _get_save_manager() -> Node:
 	if _scene_mgr == null:

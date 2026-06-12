@@ -440,6 +440,7 @@ func _on_battle_won(result: Dictionary) -> void:
 	# Award XP based on enemy type
 	const _XP_TABLE: Dictionary = {
 		"undead_basic": 20, "undead_horde": 35, "ghoul_pack": 50, "undead_elite": 80,
+		"roaming_terror": 150,
 	}
 	var xp_amount: int = int(_XP_TABLE.get(enemy_type, 25)) if enemy_type != "" else 25
 	if is_boss:
@@ -451,6 +452,11 @@ func _on_battle_won(result: Dictionary) -> void:
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
+	# End the roaming boss world event if the defeated enemy was the roaming terror.
+	if enemy_type == "roaming_terror":
+		var wem: Node = get_node_or_null("/root/WorldEventManager")
+		if wem != null:
+			wem.end_event("roaming_boss")
 	_restore_world()
 
 func _on_battle_lost() -> void:

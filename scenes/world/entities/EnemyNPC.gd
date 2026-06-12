@@ -5,6 +5,7 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 var enemy_data: Dictionary = {}
 var _alive: bool = true
 var _is_boss: bool = false
+var _is_roaming_boss: bool = false
 
 # Shared across all enemy instances — created once
 static var _body_mat: StandardMaterial3D
@@ -53,7 +54,9 @@ func _ready() -> void:
 	right_leg.position = Vector3(0.15, -0.25, 0.0)
 	add_child(right_leg)
 
-	if _is_boss:
+	if _is_roaming_boss:
+		_apply_roaming_boss_visual()
+	elif _is_boss:
 		_apply_boss_visual()
 
 static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
@@ -65,6 +68,7 @@ static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
 func init_from_data(data: Dictionary) -> void:
 	enemy_data = data
 	_alive = data.get("alive", true)
+	_is_roaming_boss = bool(data.get("is_roaming_boss", false))
 	var etype: String = str(data.get("enemy_type", ""))
 	if etype != "":
 		_is_boss = EnemyRegistry.get_is_boss(etype)
@@ -89,6 +93,22 @@ func engage() -> void:
 func mark_defeated() -> void:
 	_alive = false
 	queue_free()
+
+func _apply_roaming_boss_visual() -> void:
+	scale = Vector3(1.5, 1.5, 1.5)
+	var crimson_mat := StandardMaterial3D.new()
+	crimson_mat.albedo_color = Color(0.70, 0.05, 0.05)
+	crimson_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var dark_crimson_mat := StandardMaterial3D.new()
+	dark_crimson_mat.albedo_color = Color(0.40, 0.02, 0.02)
+	dark_crimson_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	for child in get_children():
+		var mi := child as MeshInstance3D
+		if mi:
+			mi.material_override = crimson_mat
+	var body: MeshInstance3D = find_child("MeshInstance3D", true, false) as MeshInstance3D
+	if body:
+		body.material_override = dark_crimson_mat
 
 func _apply_boss_visual() -> void:
 	scale = Vector3(1.3, 1.3, 1.3)

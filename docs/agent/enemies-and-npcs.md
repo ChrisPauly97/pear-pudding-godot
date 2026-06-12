@@ -60,7 +60,24 @@ When `is_boss` is true in the engaged `enemy_data` dict, `BattleScene` applies:
 4. **Phase 2**: when enemy HP first drops to ≤ 50%, discards enemy hand, rebuilds draw deck from `phase2_deck`, draws 4 cards, shows "PHASE 2" banner
 5. **Full drop**: on victory, drops all cards in `drop_pool` (emits `{"card_rewards": [...]}` instead of `{"card_reward": "..."}`)
 
-`EnemyNPC` in the world scene: boss enemies render at 1.3× scale with gold materials to distinguish them visually.
+`EnemyNPC` in the world scene: boss enemies render at 1.3× scale with gold materials to distinguish them visually. Roaming boss enemies (type `roaming_terror`) render at 1.5× scale with crimson materials; see **Roaming Boss** below.
+
+### Roaming Boss (`roaming_terror`)
+
+Spawned by `WorldEventManager` via `game_logic/WorldEvents.gd` on a 15–25 minute randomised interval of overworld play. Only one event fires at a time (WorldEventManager single-active rule).
+
+**Spawn:** `WorldEvents._spawn_roaming_boss()` calls `WorldEventManager.find_spawn_tile()` to find a walkable grass tile 20–40 world-units from the player, instantiates `EnemyNPC.tscn` with `is_roaming_boss=true` (crimson 1.5× visual), registers it in `WorldScene._enemy_nodes` under the ID `"roaming_boss"`, and emits a HUD toast "A powerful presence approaches…".
+
+**Minimap:** The boss appears as a bright-red dot (radius 7, vs. 4 for regular enemies). When the boss is outside the minimap radius, a faded edge indicator points toward it.
+
+**Despawn conditions (whichever comes first):**
+- Player defeats it in battle → `SceneManager._on_battle_won()` calls `WorldEventManager.end_event("roaming_boss")`
+- Player moves >160 world units (~80 tiles) away → `WorldScene._tick_roaming_boss()` calls `end_event`
+- 5 minutes (300 s) elapse → same despawn path
+
+**Rewards:** `is_boss=true` → BattleScene applies 50 HP override, phase-2 deck swap at 50% HP, and drops all cards from `drop_pool` (7 rare/unique cards). Coin reward: 40. XP: 150.
+
+**Not persisted as defeated:** the roaming boss has no fixed entity ID in `SaveManager.defeated_enemies`, so it can respawn after its cooldown expires.
 
 `SceneManager._on_battle_won()` handles both `"card_reward"` (single string, regular) and `"card_rewards"` (list, boss).
 
@@ -172,7 +189,7 @@ This means defeated enemies stay gone across sessions.
 
 | Asset | Path | Notes |
 |---|---|---|
-| Enemy data resources | `data/enemies/*.tres` | One per enemy type: `undead_basic.tres`, `undead_horde.tres`, `ghoul_pack.tres`, `undead_elite.tres` |
+| Enemy data resources | `data/enemies/*.tres` | One per enemy type: `undead_basic.tres`, `undead_horde.tres`, `ghoul_pack.tres`, `undead_elite.tres`, `roaming_terror.tres` |
 | `EnemyRegistry.gd` | `autoloads/EnemyRegistry.gd` | Autoload singleton; registered in `project.godot` |
 | EnemyNPC scene | `scenes/world/entities/EnemyNPC.tscn` | `CharacterBody3D` + `Sprite3D` + `CollisionShape3D` |
 | TownspersonNPC scene | `scenes/world/entities/TownspersonNPC.tscn` | Static NPC with dialogue label |
