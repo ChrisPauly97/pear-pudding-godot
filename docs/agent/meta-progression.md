@@ -7,24 +7,31 @@
 - **Achievement list screen**: Accessible from main menu; shows all achievements with progress bars and lock icons
 - **Legendary cards**: 5 exclusive cards (ancient_guardian, soul_harvest, time_warp, phoenix_rise, void_wyrm) gated behind specific achievements; auto-granted to owned_cards on achievement unlock; never appear in shop until unlocked. The `duel_crown` legendary is awarded directly on first champion duel win (not via achievement card reward)
 - **Run summary screen**: Shows session stats (battles, enemies, cards, coins, chests, time) when player returns to menu from the world
+- **Spire run summary**: When a Spire run ends (death or voluntary retreat), RunSummaryScene shows a Spire-specific layout: floors cleared, enemies defeated, cards drafted, coins earned, "New Record!" badge, and the draft deck card names. Coin reward is `floors_cleared × 5`
+- **Spire best-floor record**: `SaveManager.spire_best_floor` persists the best floor cleared across all runs; never resets on new game; migration v16→v17 backfills it as 0
 
 ## How It Works
 
 ### Achievement Registry (`game_logic/AchievementRegistry.gd`)
 
-Static registry defining all 10 achievements as plain Dictionaries with fields:
+Static registry defining all 12 achievements as plain Dictionaries with fields:
 - `id`, `name`, `description`, `condition_type`, `target_value`, `reward_card_id`
 - `flag_key` (only for `specific_flag` type achievements)
 
 `condition_type` values: `battles_won`, `enemies_defeated`, `cards_earned`, `biomes_visited`, `chests_opened`, `specific_flag`, `dawn_battle_won`, `dusk_battle_won`
 
-### SaveManager fields (v8 save format)
+Spire achievements use `specific_flag` condition type with flag keys set by `SaveManager.end_spire_run()`:
+- `spire_floor_5` ("Spire Ascendant") — flag `spire_reached_floor_5`, no card reward
+- `spire_floor_10` ("Spire Master") — flag `spire_reached_floor_10`, no card reward
+
+### SaveManager fields (v17 save format)
 
 | Field | Type | Description |
 |---|---|---|
 | `achievement_progress` | Dictionary | achievement_id → int count |
 | `unlocked_achievements` | Array[String] | IDs of completed achievements |
 | `visited_biomes` | Array[int] | biome IDs seen (for biomes_visited achievement) |
+| `spire_best_floor` | int | best floor cleared in a single Spire run (never resets) |
 
 ### Key SaveManager methods
 
@@ -59,6 +66,15 @@ Static registry defining all 10 achievements as plain Dictionaries with fields:
 ### Run Summary Flow
 
 When `SceneManager.go_to_menu()` is called from world state, it routes to `RunSummaryScene` instead of `MenuScene` directly. `RunSummaryScene` reads `SceneManager.session_stats`, computes elapsed time, and its "Return to Menu" button calls `SceneManager.go_to_menu_direct()`.
+
+**Spire Run Summary Flow:**
+When `go_to_menu()` is called from a Spire floor, or when the player dies in a Spire battle:
+1. `SceneManager._restore_spire_entry_point()` — pops the pre-Spire map (e.g. madrian) from the stack and sets `save_manager.current_map`. Ensures continue-after-death loads the entrance town, not a floor.
+2. `save_manager.end_spire_run()` — awards `floors_cleared × 5` coins, updates `spire_best_floor`, sets `spire_reached_floor_5` / `spire_reached_floor_10` flags, returns stats dict.
+3. `GameBus.spire_run_ended.emit(stats)` — emitted for other systems to observe.
+4. `RunSummaryScene` is instantiated with `spire_stats` set before it enters the tree; `_ready()` detects this and calls `_build_spire_ui()` instead of the session stats layout.
+
+On death, `RunSummaryScene` is shown instead of `GameOverScene`. The player clicks "Return to Menu" → `go_to_menu_direct()` → `MenuScene`. "Continue" then resumes at the Spire entrance town.
 
 ## Integrations with Other Features
 

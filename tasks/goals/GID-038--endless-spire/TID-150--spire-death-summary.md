@@ -2,7 +2,7 @@
 
 **Goal:** GID-038
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-147, TID-148
 
 ## Lock
@@ -29,12 +29,25 @@ The run's ending is its payoff: death (or voluntary retreat) ends the climb, dis
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `spire_run_ended(stats)` signal to GameBus.
+2. Add `spire_best_floor` to SaveManager (v16→v17 migration). Extend `end_spire_run()` to award floor×5 coins, update best floor, set achievement flags, and return enriched stats dict.
+3. Add "Spire Ascendant" (floor 5) and "Spire Master" (floor 10) achievements to AchievementRegistry using `specific_flag` condition type with `spire_reached_floor_5` / `spire_reached_floor_10`.
+4. Add `spire_stats: Dictionary` field + `_build_spire_ui()` to RunSummaryScene — shows title, floors, enemies, cards, coins, new-record badge, and a draft deck card name list.
+5. Update `SceneManager._on_battle_lost()` — Spire branch restores entry point map, ends run, emits signal, shows Spire summary instead of GameOverScene.
+6. Update `SceneManager.go_to_menu()` — Spire retreat branch mirrors death flow.
+7. Add `SceneManager._restore_spire_entry_point()` — pops entry map from stack so continuing after a run ends resumes at the Spire entrance (madrian), not inside a floor.
+8. Extend `tests/unit/test_spire_run.gd` with v16→v17 migration tests, coins reward tests, best-floor tracking tests, is_new_record tests, and achievement flag tests.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/GameBus.gd`** — added `signal spire_run_ended(stats: Dictionary)`.
+- **`autoloads/SaveManager.gd`** — added `var spire_best_floor: int = 0`; bumped `CURRENT_SAVE_VERSION` to 17; added `_migrate_v16_to_v17()` backfilling `spire_best_floor`; updated `_apply_migrations()`, `load_save()`, and `save()` for the new field; extended `end_spire_run()` to award `floors_cleared * 5` coins, update `spire_best_floor`, set achievement story flags, and return `coins_earned`, `is_new_record`, `best_floor`, `draft_deck_ids` in stats.
+- **`game_logic/AchievementRegistry.gd`** — added `spire_floor_5` ("Spire Ascendant") and `spire_floor_10` ("Spire Master") achievements using `specific_flag` type.
+- **`scenes/ui/RunSummaryScene.gd`** — added `const CardRegistry` preload; added `var spire_stats: Dictionary = {}`; `_ready()` branches to `_build_spire_ui()` when `spire_stats` is non-empty; added `_build_spire_ui()` rendering Spire-specific layout (purple title, floors/enemies/cards/coins grid, "New Record!" badge, draft deck card names list).
+- **`autoloads/SceneManager.gd`** — updated `go_to_menu()` to check `is_spire_active()` before regular session summary: restores entry point, ends run, emits `spire_run_ended`, shows Spire summary; updated `_on_battle_lost()` Spire branch to route death to Spire summary instead of GameOverScene; added `_restore_spire_entry_point()` helper that pops the pre-Spire map from the stack and sets `save_manager.current_map` so continue-after-death loads madrian.
+- **`tests/unit/test_spire_run.gd`** — added 25 new tests covering v16→v17 migration, coin rewards, `spire_best_floor` updates, `is_new_record` flag, `draft_deck_ids` in stats, and achievement flag thresholds. Fixed `test_apply_migrations_reaches_v16_from_v15` → `test_apply_migrations_reaches_current_from_v15` to reflect v17.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/meta-progression.md`** — updated to document the Spire summary variant, `spire_best_floor` field, coin reward formula, achievement entries, and `spire_run_ended` signal.
+- **`docs/agent/ui-and-scene-management.md`** — updated `_on_battle_lost()` Spire branch and `go_to_menu()` Spire retreat branch descriptions.

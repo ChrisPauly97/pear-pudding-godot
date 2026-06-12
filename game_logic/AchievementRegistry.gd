@@ -88,6 +88,24 @@ const ACHIEVEMENTS: Array = [
 		"reward_card_id": "",
 		"flag_key": "champion_blancogov_defeated",
 	},
+	{
+		"id": "spire_floor_5",
+		"name": "Spire Ascendant",
+		"description": "Clear 5 floors of the Endless Spire in a single run.",
+		"condition_type": "specific_flag",
+		"target_value": 1,
+		"reward_card_id": "",
+		"flag_key": "spire_reached_floor_5",
+	},
+	{
+		"id": "spire_floor_10",
+		"name": "Spire Master",
+		"description": "Clear 10 floors of the Endless Spire in a single run.",
+		"condition_type": "specific_flag",
+		"target_value": 1,
+		"reward_card_id": "",
+		"flag_key": "spire_reached_floor_10",
+	},
 ]
 
 static func get_all() -> Array:

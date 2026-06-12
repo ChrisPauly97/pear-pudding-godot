@@ -2,7 +2,7 @@
 
 **Goal:** GID-038
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-148
 
 ## Lock
@@ -29,12 +29,21 @@ The Spire needs a front door in the world and clean routing: entering starts (or
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `MapDoor_7` to `assets/maps/madrian.tres` at tile (70, 36) with `target_map = "spire"`.
+2. Update `scenes/world/entities/Door.gd` — Spire door gets purple tint and "The Endless Spire" label.
+3. Add `_show_spire_entrance_panel()` to `WorldScene`; intercept `target_map == "spire"` in `_handle_interact()`.
+4. Add `enter_spire()` to `SceneManager` — starts new run or resumes active one.
+5. Add `"spire_intro"` entry to `TutorialRegistry.gd`.
+6. Update `docs/agent/ui-and-scene-management.md` with Spire routing.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`assets/maps/madrian.tres`** — added `MapDoor_7` (`spire_entrance`) at tile (70, 36) with `target_map = "spire"`.
+- **`scenes/world/entities/Door.gd`** — `init_from_data()` now shows "The Endless Spire" with purple color for Spire door; changes door mesh material to purple.
+- **`scenes/world/WorldScene.gd`** — intercepts `target_map == "spire"` in `_handle_interact()` to show `_show_spire_entrance_panel()`; panel shows "Enter" (new run) or "Resume Floor N" (active run) with "Leave" button.
+- **`autoloads/SceneManager.gd`** — added `enter_spire()`: if run active resumes current floor via `enter_map()`; else calls `start_spire_run(randi())` + `enter_map(spire_floor_1_<seed>)` and emits `spire_intro` tutorial.
+- **`game_logic/TutorialRegistry.gd`** — added `"spire_intro"` popup entry.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/ui-and-scene-management.md`** — added Spire routing to the state machine diagram and added "Spire routing" section documenting `enter_spire()`, `exit_map()` Spire branch, `_on_battle_won()` Spire branch, and the madrian entrance door.

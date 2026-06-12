@@ -25,6 +25,10 @@ const _DATA: Dictionary = {
 		"title": "Inspect Cards",
 		"body": "Hold any card for half a second to see its full details — stats, description, and abilities.\n\nWorks in battle, your inventory, and the shop.",
 	},
+	"spire_intro": {
+		"title": "The Endless Spire",
+		"body": "Each floor holds one enemy. Defeat it and choose one of three cards to add to your run deck — your permanent collection stays untouched.\n\nHigher floors offer rarer cards. How far can you climb?",
+	},
 }
 
 static func get_entry(popup_id: String) -> Dictionary:

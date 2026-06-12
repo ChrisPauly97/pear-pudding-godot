@@ -2,7 +2,7 @@
 
 **Goal:** GID-038
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-146
 
 ## Lock
@@ -30,12 +30,29 @@ The draft is the heart of the Spire loop: after each floor victory, the player p
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `signal spire_card_drafted(card_id: String)` to `GameBus.gd`.
+2. Create `game_logic/spire/SpireDraft.gd` — pure static logic:
+   - `card_tier(card_id)` assigns each card a tier 0–3 based on card_class + cost.
+   - `tier_weights(floor)` returns [t0,t1,t2,t3] weights for a given floor bucket.
+   - `generate_picks(floor, rng) -> Array[String]` returns 3 distinct IDs, rarity-weighted.
+3. Create `scenes/ui/SpireDraftScene.gd` + minimal `.tscn` — modal with 3 card panels.
+   - `setup(floor: int)` called by the floor scene to configure and display picks.
+   - On pick: `SceneManager.save_manager.add_drafted_card(id)`, `GameBus.spire_card_drafted.emit(id)`, emit local `picked(id)`.
+4. Update `scenes/battle/BattleScene.gd`: when `SceneManager.save_manager.is_spire_active()`, use `spire_run.draft_deck` as the player deck (fall back to 8-card starter when empty).
+5. Create `tests/unit/test_spire_draft.gd` — determinism (same seed+floor → same 3 picks) and tier weight bounds.
+6. Register new test in `tests/runner.gd`.
+7. Update `docs/agent/inventory-and-deck.md` with run-local deck isolation section.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/GameBus.gd`** — added `signal spire_card_drafted(card_id: String)`.
+- **`game_logic/spire/SpireDraft.gd`** (new) — `card_tier_from_template(tmpl)`, `card_tier(id)`, `tier_weights(floor)`, `generate_picks(floor, rng, pool_templates)`, `_pick_one(...)`. Accepts `pool_templates: Dictionary` from caller so logic stays pure/testable without autoload access.
+- **`scenes/ui/SpireDraftScene.gd`** (new) — modal draft overlay; `setup(floor)` builds pool from `CardRegistry`, shows 3 card panels, emits `picked(card_id)` on selection and calls `SaveManager.add_drafted_card` + `GameBus.spire_card_drafted`.
+- **`scenes/ui/SpireDraftScene.tscn`** (new) — minimal scene file.
+- **`scenes/battle/BattleScene.gd`** — added Spire deck isolation: when `is_spire_active()`, use `draft_deck` (fall back to 8-card starter when empty).
+- **`tests/unit/test_spire_draft.gd`** (new) — 37 tests covering `generate_picks` (shape, uniqueness, pool membership, determinism), `card_tier_from_template` (all tier boundaries), `tier_weights` (floor buckets), and tier distribution.
+- **`tests/runner.gd`** — registered `test_spire_draft` suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/inventory-and-deck.md`** — added "Endless Spire: Run-Local Deck Isolation" section covering deck isolation in battle, draft pick flow, tier system, floor-weight table, and `spire_card_drafted` signal.

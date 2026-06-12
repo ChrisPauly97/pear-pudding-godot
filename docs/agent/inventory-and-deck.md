@@ -188,6 +188,55 @@ The `dagger_throw` card has `cost = 0` and `auto_resolve = true`. It is defined 
 
 ---
 
+## Endless Spire: Run-Local Deck Isolation
+
+During an Endless Spire run the player's battle deck is separate from their persistent `player_deck`. It is built up by drafting cards after each floor victory.
+
+### How it works
+
+- `SaveManager.spire_run.draft_deck` is a plain `Array` of card IDs accumulated via `add_drafted_card(id)`.
+- `BattleScene._ready()` checks `SaveManager.is_spire_active()` first:
+  - If active and `draft_deck` is non-empty → build deck from `draft_deck`.
+  - If active and `draft_deck` is empty (floor 1, before first draft) → use an 8-card starter (`ghost×2, skeleton×2, zombie×2, ghoul×2`).
+  - If not active → fall through to the normal `player_deck` path.
+- The persistent `player_deck` is never modified during a Spire run.
+
+### Draft pick flow
+
+After each floor victory the floor scene instantiates `SpireDraftScene`:
+
+```gdscript
+var draft := preload("res://scenes/ui/SpireDraftScene.tscn").instantiate()
+add_child(draft)
+draft.setup(floor_number)
+draft.picked.connect(_on_draft_picked)
+```
+
+`SpireDraftScene` calls `SpireDraft.generate_picks(floor, rng, pool_templates)` where `pool_templates` is a `{card_id: template_dict}` Dictionary built from `CardRegistry.get_all_ids()`. This design keeps `SpireDraft` pure and testable without an autoload dependency.
+
+### SpireDraft tier system
+
+| Tier | Card class | Cost range |
+|---|---|---|
+| 0 — Basic | minion | 1–2 |
+| 1 — Standard | minion / spell | 3–4 / 1–2 |
+| 2 — Premium | minion / spell | 5+ / 3+ |
+| 3 — Legendary | legendary | any |
+
+Floor-weighted distribution:
+
+| Floors | T0 | T1 | T2 | T3 |
+|---|---|---|---|---|
+| 1–3 | 60 | 30 | 10 | 0 |
+| 4–6 | 35 | 40 | 20 | 5 |
+| 7+ | 15 | 35 | 35 | 15 |
+
+### Signals
+
+`GameBus.spire_card_drafted(card_id: String)` — emitted by `SpireDraftScene._on_pick()` after each pick so other systems can react (achievements, analytics, etc.).
+
+---
+
 ## Asset Requirements
 
 | Asset | Path | Notes |

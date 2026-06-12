@@ -31,7 +31,27 @@ WORLD ← → WORLD (map transition via map_stack)
 WORLD ← → INVENTORY (overlay, world stays in tree)
 WORLD ← → SHOP (overlay, world stays in tree)
 WORLD ← → JOURNAL (overlay, world stays in tree)
+WORLD → SPIRE_FLOOR (SceneManager.enter_spire via entrance panel in WorldScene)
+SPIRE_FLOOR → SPIRE_FLOOR (SceneManager.exit_map detects spire_ prefix → _advance_spire_floor)
 ```
+
+**Spire routing:**
+
+`enter_spire()` — called from the Spire entrance panel in madrian (door `target_map = "spire"`):
+- If `save_manager.is_spire_active()` → resumes at `spire_floor_<floor>_<seed>` via `enter_map()`.
+- Else → `start_spire_run(randi())`, pushes `spire_floor_1_<seed>` via `enter_map()`.
+
+`exit_map()` — if `current_map.begins_with("spire_floor_")` and spire is active → calls `_advance_spire_floor()` (increments floor counter, loads next floor) instead of popping the map stack.
+
+`_on_battle_won()` — Spire branch: saves `hero_hp`, sets cleared flag for the exit door, shows `SpireDraftScene` overlay, skips standard card/coin rewards.
+
+`_on_battle_lost()` — Spire branch: calls `_restore_spire_entry_point()` then `save_manager.end_spire_run()`, emits `GameBus.spire_run_ended`, shows `RunSummaryScene` with `spire_stats` set. Does NOT route to `GameOverScene`.
+
+`go_to_menu()` — Spire retreat branch: same flow as death when `is_spire_active()` and state is WORLD. Player retreats voluntarily, run ends, Spire summary shown.
+
+`_restore_spire_entry_point()` — pops the pre-Spire map from `map_stack` and sets `save_manager.current_map` so that continue-after-run-end loads the entrance town (madrian), not a floor.
+
+Madrian entrance door: `entity_id = "spire_entrance"`, tile (70, 36), `target_map = "spire"`. WorldScene intercepts this and calls `_show_spire_entrance_panel()` instead of `enter_map()`.
 
 **Battle overlay pattern:**
 ```gdscript

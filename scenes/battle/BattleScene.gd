@@ -114,9 +114,17 @@ func _ready() -> void:
 	else:
 		_state = GameState.new()
 
-		# Player deck: resolve instance UIDs to template IDs for the battle engine.
+		# Player deck: spire run uses its run-local draft deck; otherwise use the
+		# persistent player deck. Floor 1 starter gives 8 basics before any pick.
 		var player_deck: Array[String] = []
-		if SceneManager.save_manager.player_deck.size() > 0:
+		if SceneManager.save_manager.is_spire_active():
+			var draft: Array = SceneManager.save_manager.get_spire_run().get("draft_deck", [])
+			if draft.size() > 0:
+				player_deck.assign(draft)
+			else:
+				player_deck = ["ghost", "ghost", "skeleton", "skeleton",
+							   "zombie", "zombie", "ghoul", "ghoul"]
+		elif SceneManager.save_manager.player_deck.size() > 0:
 			player_deck = SceneManager.save_manager.get_deck_template_ids()
 		else:
 			player_deck = ["ghost", "skeleton", "zombie", "ghoul",
@@ -129,6 +137,11 @@ func _ready() -> void:
 		for _i in _state.players[0].bonus_draw:
 			_state.players[0].draw_card()
 		_flush_auto_spells(0)
+		# Spire run: hero HP persists across floors (damage carries over).
+		if SceneManager.save_manager.is_spire_active():
+			var _spire_hp: int = int(SceneManager.save_manager.get_spire_run().get("hero_hp", 30))
+			if _spire_hp > 0:
+				_state.players[0].hero.health = mini(_spire_hp, _state.players[0].hero.max_health)
 
 		# Enemy deck — scale card stats by enemy difficulty tier
 		var _enemy_type: String = str(enemy_data.get("enemy_type", ""))
@@ -1535,7 +1548,11 @@ func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = ""
 	var final_weapon: String = weapon_reward_id
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
-		GameBus.battle_won.emit({"card_reward": final_card, "weapon_reward": final_weapon})
+		GameBus.battle_won.emit({
+			"card_reward": final_card,
+			"weapon_reward": final_weapon,
+			"hero_hp": _state.players[0].hero.health,
+		})
 	)
 	vbox.add_child(btn)
 
@@ -1594,7 +1611,11 @@ func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: S
 	var final_weapon: String = weapon_reward_id
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
-		GameBus.battle_won.emit({"card_rewards": final_rewards, "weapon_reward": final_weapon})
+		GameBus.battle_won.emit({
+			"card_rewards": final_rewards,
+			"weapon_reward": final_weapon,
+			"hero_hp": _state.players[0].hero.health,
+		})
 	)
 	vbox.add_child(btn)
 
