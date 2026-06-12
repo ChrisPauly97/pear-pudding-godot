@@ -42,7 +42,7 @@
 | [GID-036](goals/GID-036--mobile-first-ui/goal.md) | Mobile-First UI Redesign | done | 6 / 6 |
 | [GID-037](goals/GID-037--tavern-duels/goal.md) | Tavern Duels & Champion Ladder | done | 3 / 3 |
 | [GID-038](goals/GID-038--endless-spire/goal.md) | The Endless Spire — Roguelike Draft Mode | done | 5 / 5 |
-| [GID-039](goals/GID-039--living-world-events/goal.md) | Living World Events | pending | 0 / 4 |
+| [GID-039](goals/GID-039--living-world-events/goal.md) | Living World Events | done | 4 / 4 |
 | [GID-040](goals/GID-040--puzzle-battles/goal.md) | Puzzle Battle Shrines | done | 4 / 4 |
 | [GID-041](goals/GID-041--battle-companions/goal.md) | Battle Companions | pending | 0 / 2 |
 | [GID-042](goals/GID-042--weather-atmosphere/goal.md) | Weather & Biome Atmosphere | pending | 0 / 3 |

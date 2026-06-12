@@ -52,3 +52,7 @@ signal spire_run_ended(stats: Dictionary)
 # Puzzle signals
 signal puzzle_requested(puzzle_id: String)
 signal puzzle_solved(puzzle_id: String)
+
+# World event signals
+signal world_event_started(event_id: String)
+signal world_event_ended(event_id: String)

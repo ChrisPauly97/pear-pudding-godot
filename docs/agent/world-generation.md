@@ -89,6 +89,52 @@ Lightweight container holding:
 
 ---
 
+## Living World Events
+
+### WorldEventManager (`autoloads/WorldEventManager.gd`)
+
+A lightweight scheduler that fires timed world events (roaming boss, traveling merchant,
+card shower) while the player is in the infinite world. At most **one event is active at
+a time** — the scheduler blocks further firing until the active event ends.
+
+#### API
+
+```gdscript
+# Register a named event with a cooldown range (seconds).
+WorldEventManager.register_event(
+    "roaming_boss", 180.0, 360.0, spawn_callable, cleanup_callable)
+
+# End the active event (called from the event's own logic, e.g. on defeat/despawn).
+WorldEventManager.end_event("roaming_boss")
+
+# Query state
+WorldEventManager.is_event_active()         # → bool
+WorldEventManager.get_active_event_id()     # → String
+
+# Utility: find a walkable TILE_GRASS position between min_dist and max_dist
+# world-units from player_pos. Pass the current save's world_seed.
+var pos := WorldEventManager.find_spawn_tile(player_pos, 20.0, 50.0, world_seed)
+```
+
+#### Scheduling rules
+
+- Timers only advance while `SceneManager.current_map == "main"` (infinite world) and
+  outside battles (`enemy_engaged` / `battle_won` / `battle_lost` toggle `_in_battle`).
+- Cooldown state is persisted in `SaveManager.world_events` (migration v17→v18) so
+  cooldowns survive restarts. An event that was `active` at save time restarts its
+  cooldown on load (v1; no mid-event respawn).
+- Concrete events (TID-152 roaming boss, TID-153 merchant, TID-154 card shower) are
+  registered from a `WorldEvents.gd` init script preloaded by WorldScene.
+
+#### GameBus signals
+
+| Signal | Payload | Description |
+|---|---|---|
+| `world_event_started` | `event_id: String` | Emitted when an event fires |
+| `world_event_ended` | `event_id: String` | Emitted when `end_event()` is called |
+
+---
+
 ## Integrations with Other Features
 
 | System | Direction | Details |

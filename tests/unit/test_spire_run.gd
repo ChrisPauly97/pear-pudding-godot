@@ -210,10 +210,10 @@ func test_migration_v16_v17_bumps_version() -> void:
 	SaveManagerScript._migrate_v16_to_v17(data)
 	assert_eq(data["version"], 17)
 
-func test_apply_migrations_reaches_v17_from_v16() -> void:
+func test_apply_migrations_reaches_current_from_v16() -> void:
 	var data: Dictionary = {"version": 16, "spire_run": {"active": false}}
 	SaveManagerScript._apply_migrations(data)
-	assert_eq(int(data.get("version", 0)), 17)
+	assert_eq(int(data.get("version", 0)), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("spire_best_floor"))
 
 # ---------------------------------------------------------------------------

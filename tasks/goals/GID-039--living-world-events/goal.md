@@ -12,7 +12,7 @@ The infinite world is scenery between battles; nothing happens without player ac
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-151 | WorldEventManager autoload + save fields + GameBus signals | agent | pending | — |
+| TID-151 | WorldEventManager autoload + save fields + GameBus signals | agent | done | — |
 | TID-152 | Roaming boss event + minimap marker | agent | pending | TID-151 |
 | TID-153 | Traveling merchant event with rotating rare stock | agent | pending | TID-151 |
 | TID-154 | Card shower event with particle burst | agent | pending | TID-151 |
