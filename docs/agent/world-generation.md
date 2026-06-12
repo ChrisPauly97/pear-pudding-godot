@@ -132,6 +132,7 @@ var pos := WorldEventManager.find_spawn_tile(player_pos, 20.0, 50.0, world_seed)
 |---|---|---|
 | `roaming_boss` | 15–25 min | Spawns `roaming_terror` EnemyNPC at 1.5× scale with crimson materials 20–40 units away; minimap edge indicator; despawns on defeat or after 5 min or at >160 units |
 | `traveling_merchant` | 10–20 min | Spawns violet `MerchantNPC` with `is_traveling=true` at 15–30 units away; 3 cards from 18-card premium pool at 30 coins each; no minimap marker; despawns after 5 min |
+| `card_shower` | 8–15 min | Scatters 5–10 common WorldItem pickups at random walkable tiles 2–10 units from the player; one-shot yellow GPUParticles3D sparkle burst; plays `chest_open` SFX; items auto-despawn after 60 s; event ends when all items are collected or despawned |
 
 #### GameBus signals
 

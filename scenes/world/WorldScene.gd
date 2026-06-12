@@ -79,6 +79,7 @@ var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 var _interact_timer: float = 0.0
 var _roaming_boss_timer: float = 0.0
 var _traveling_merchant_timer: float = 0.0
+var _card_shower_items: Array[Node3D] = []
 
 # Day/night cycle
 var _world_env: WorldEnvironment
@@ -858,6 +859,18 @@ func _tick_roaming_boss(delta: float) -> void:
 		if wem != null:
 			wem.end_event("roaming_boss")
 
+func _tick_card_shower() -> void:
+	if _card_shower_items.is_empty():
+		return
+	for item: Node3D in _card_shower_items:
+		if is_instance_valid(item):
+			return
+	# All items gone — end the event
+	var wem: Node = get_node_or_null("/root/WorldEventManager")
+	if wem != null:
+		wem.call("end_event", "card_shower")
+	_card_shower_items.clear()
+
 # Called by ChunkRenderer after spawning a chest
 func register_chest(cid: String, node: Node3D, c_data: Dictionary) -> void:
 	_chest_nodes[cid] = node
@@ -1127,6 +1140,7 @@ func _process(delta: float) -> void:
 	if _is_infinite:
 		_tick_roaming_boss(delta)
 		_tick_traveling_merchant(delta)
+		_tick_card_shower()
 		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 		var pcx: int = int(floor(_player.position.x / chunk_world))
 		var pcz: int = int(floor(_player.position.z / chunk_world))
