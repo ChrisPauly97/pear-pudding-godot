@@ -78,6 +78,7 @@ var _chunk_build_queue: Array[Vector2i] = []
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 var _interact_timer: float = 0.0
 var _roaming_boss_timer: float = 0.0
+var _traveling_merchant_timer: float = 0.0
 
 # Day/night cycle
 var _world_env: WorldEnvironment
@@ -835,6 +836,15 @@ func register_enemy(eid: String, node: Node3D) -> void:
 func get_entity_root() -> Node3D:
 	return _entity_root
 
+func _tick_traveling_merchant(delta: float) -> void:
+	if not _active_npc_data.has("traveling_merchant"):
+		return
+	_traveling_merchant_timer += delta
+	if _traveling_merchant_timer >= 300.0:
+		var wem: Node = get_node_or_null("/root/WorldEventManager")
+		if wem != null:
+			wem.end_event("traveling_merchant")
+
 func _tick_roaming_boss(delta: float) -> void:
 	if not _enemy_nodes.has("roaming_boss"):
 		return
@@ -1116,6 +1126,7 @@ func _process(delta: float) -> void:
 
 	if _is_infinite:
 		_tick_roaming_boss(delta)
+		_tick_traveling_merchant(delta)
 		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 		var pcx: int = int(floor(_player.position.x / chunk_world))
 		var pcz: int = int(floor(_player.position.z / chunk_world))
@@ -1275,6 +1286,13 @@ func _handle_interact() -> void:
 
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	if not npc.is_empty():
+		if str(npc.get("npc_type", "")) == "traveling_merchant":
+			var stock: Array[String] = []
+			var raw: Variant = npc.get("merchant_stock", [])
+			if raw is Array:
+				stock.assign(raw as Array)
+			GameBus.traveling_shop_requested.emit(stock, 30)
+			return
 		if str(npc.get("npc_type", "")) == "merchant":
 			GameBus.shop_requested.emit()
 			return

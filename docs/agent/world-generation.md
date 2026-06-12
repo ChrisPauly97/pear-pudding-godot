@@ -126,12 +126,20 @@ var pos := WorldEventManager.find_spawn_tile(player_pos, 20.0, 50.0, world_seed)
 - Concrete events (TID-152 roaming boss, TID-153 merchant, TID-154 card shower) are
   registered from a `WorldEvents.gd` init script preloaded by WorldScene.
 
+#### Registered events (`game_logic/WorldEvents.gd`)
+
+| Event ID | Interval | Description |
+|---|---|---|
+| `roaming_boss` | 15–25 min | Spawns `roaming_terror` EnemyNPC at 1.5× scale with crimson materials 20–40 units away; minimap edge indicator; despawns on defeat or after 5 min or at >160 units |
+| `traveling_merchant` | 10–20 min | Spawns violet `MerchantNPC` with `is_traveling=true` at 15–30 units away; 3 cards from 18-card premium pool at 30 coins each; no minimap marker; despawns after 5 min |
+
 #### GameBus signals
 
 | Signal | Payload | Description |
 |---|---|---|
 | `world_event_started` | `event_id: String` | Emitted when an event fires |
 | `world_event_ended` | `event_id: String` | Emitted when `end_event()` is called |
+| `traveling_shop_requested` | `stock: Array[String], price: int` | Emitted by WorldScene on merchant interact; opens ShopScene with custom stock |
 
 ---
 

@@ -148,6 +148,28 @@ Buttons are sized relative to viewport height (18 % × 7 %) for mobile parity.
 | `duelist_adept` | Ghost×2, Skeleton×2, Zombie×2, Ghoul×2, Mend, Wither, SurgeSpirit, EmberImp | 25 | blancogov (tile 35,50) |
 | `duelist_champion` | Ghoul×2, BlitzGhoul×2, ShroudedWraith, VoidWyrm, Wither×2, SoulRend, DarkPact | 50 | blancogov (tile 55,50) — gated behind adept |
 
+### Traveling Merchant Event
+
+Spawned by `WorldEventManager` via `game_logic/WorldEvents.gd` on a 10–20 minute randomised interval of overworld play. Only fires when no other world event is active.
+
+**Spawn:** `WorldEvents._spawn_traveling_merchant()` calls `WorldEventManager.find_spawn_tile()` to find a walkable grass tile 15–30 world-units from the player. The merchant's stock of 3 cards is seeded from `hash(Time.get_unix_time_from_system())` at spawn time, picked without replacement from `_MERCHANT_CARD_POOL` (18 rare/high-impact cards). The NPC is instantiated with `is_traveling=true` so it renders with a violet robe and "Traveling Merchant" label in purple.
+
+**Interaction flow:**
+1. Player presses E / taps interact prompt within `INTERACT_RANGE`
+2. `WorldScene._handle_interact()` detects `npc_type == "traveling_merchant"` (checked before the base `"merchant"` case)
+3. Emits `GameBus.traveling_shop_requested(stock, 30)` (30 coins per card)
+4. `SceneManager._on_traveling_shop_requested()` opens `ShopScene` with `_custom_stock`, `_custom_price = 30`, `_custom_title = "Traveling Merchant's Rare Wares"` set before `add_child()`
+5. `ShopScene._refresh()` branches on non-empty `_custom_stock` — shows only those cards at the custom price, no weapons/armor
+
+**Despawn:** after 5 minutes (300 s) of overworld time, `WorldScene._tick_traveling_merchant()` calls `WorldEventManager.end_event("traveling_merchant")`. The cleanup callable removes the NPC from `_npc_nodes` and `_active_npc_data` and calls `queue_free()`.
+
+**HUD toast on spawn:** "You hear distant wagon wheels…" (no minimap marker — discovery by chance is intentional).
+
+**Premium card pool** (18 cards, 3 selected per event):  
+`void_wyrm`, `iron_revenant`, `phoenix_rise`, `ancient_guardian`, `dusk_vampire`, `soul_harvest`, `time_warp`, `dark_pact`, `soul_rend`, `shrouded_wraith`, `veiled_paladin`, `ash_warden`, `duel_crown`, `surge_spirit`, `dawn_guardian`, `dawn_paladin`, `blitz_ghoul`, `void_creeper`
+
+**No persistence as defeated** — the merchant has no fixed entity ID in `SaveManager`; it can reappear after its cooldown.
+
 ### MerchantNPC Scene (`scenes/world/entities/MerchantNPC.gd`)
 
 - Static NPC with gold-coloured robe to distinguish it from regular townspeople
