@@ -18,38 +18,38 @@ func after_each() -> void:
 	_sm.free()
 
 # ---------------------------------------------------------------------------
-# Migration v18 → v19
+# Migration v19 → v20
 # ---------------------------------------------------------------------------
 
 func test_migration_adds_treasure_fields() -> void:
-	var data: Dictionary = {"version": 18}
-	SaveManagerScript._migrate_v18_to_v19(data)
+	var data: Dictionary = {"version": 19}
+	SaveManagerScript._migrate_v19_to_v20(data)
 	assert_true(data.has("treasure_fragments"), "treasure_fragments key must be added")
 	assert_true(data.has("active_treasure"), "active_treasure key must be added")
 	assert_true(data.has("treasures_completed"), "treasures_completed key must be added")
 
 func test_migration_default_fragment_count_is_zero() -> void:
-	var data: Dictionary = {"version": 18}
-	SaveManagerScript._migrate_v18_to_v19(data)
+	var data: Dictionary = {"version": 19}
+	SaveManagerScript._migrate_v19_to_v20(data)
 	assert_eq(data["treasure_fragments"], 0)
 
 func test_migration_default_active_treasure_is_empty() -> void:
-	var data: Dictionary = {"version": 18}
-	SaveManagerScript._migrate_v18_to_v19(data)
+	var data: Dictionary = {"version": 19}
+	SaveManagerScript._migrate_v19_to_v20(data)
 	assert_true(data["active_treasure"].is_empty())
 
-func test_migration_bumps_version_to_19() -> void:
-	var data: Dictionary = {"version": 18}
-	SaveManagerScript._migrate_v18_to_v19(data)
-	assert_eq(data["version"], 19)
+func test_migration_bumps_version_to_20() -> void:
+	var data: Dictionary = {"version": 19}
+	SaveManagerScript._migrate_v19_to_v20(data)
+	assert_eq(data["version"], 20)
 
 func test_migration_does_not_overwrite_existing_fragments() -> void:
-	var data: Dictionary = {"version": 18, "treasure_fragments": 2}
-	SaveManagerScript._migrate_v18_to_v19(data)
+	var data: Dictionary = {"version": 19, "treasure_fragments": 2}
+	SaveManagerScript._migrate_v19_to_v20(data)
 	assert_eq(data["treasure_fragments"], 2)
 
-func test_apply_migrations_reaches_current_from_v18() -> void:
-	var data: Dictionary = {"version": 18}
+func test_apply_migrations_reaches_current_from_v19() -> void:
+	var data: Dictionary = {"version": 19}
 	SaveManagerScript._apply_migrations(data)
 	assert_eq(data.get("version", 0), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("treasure_fragments"))

@@ -2,7 +2,7 @@
 
 **Goal:** GID-042  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** —
 
 ## Lock
@@ -38,12 +38,23 @@ The scheduler that drives biome weather systems. A single autoload tracks per-we
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `weather_changed(weather_id, duration)` signal to `GameBus.gd`
+2. Add `weather: Dictionary` field to `SaveManager.gd`, bump version to 19, add migration, update load/save
+3. Create `autoloads/WeatherManager.gd` — `_process` ticks only when `SaveManager.current_map == "main"`; `on_world_entered()` restores from save; `set_biome()` resets timer; `_pick_weather()` uses per-biome RNG
+4. Register WeatherManager in `project.godot` after SaveManager
+5. Write `tests/unit/test_weather_manager.gd` — interval, biome switch, save round-trip, world-only tests
+6. Add suite to `tests/runner.gd`
+7. Update `docs/agent/signals-and-constants.md`
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: Added `weather_changed(weather_id: String, duration: float)` signal
+- `autoloads/SaveManager.gd`: Added `weather: Dictionary` field; bumped save version to 19; added `_migrate_v18_to_v19()` migration; updated `load_save()`, `save()`, and `new_game()` to handle the field
+- `autoloads/WeatherManager.gd` (new): Per-biome weighted weather tables; `on_world_entered()` restores from save; `set_biome()` resets timer on biome change; `_process()` ticks only when `current_map == "main"`; `_pick_weather()` uses seeded per-biome RNG; `_change_weather()` emits `GameBus.weather_changed`; `_sync_to_save()` writes to `SaveManager.weather`
+- `project.godot`: Registered `WeatherManager` autoload after `SaveManager`
+- `tests/unit/test_weather_manager.gd` (new): Tests for `_pick_weather`, `_change_weather` signal, `set_biome`, save round-trip, and world-only gating
+- `tests/runner.gd`: Added `test_weather_manager.gd` suite
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/signals-and-constants.md`: Added `weather_changed` row to the Signal Reference Table

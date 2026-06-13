@@ -45,7 +45,7 @@
 | [GID-039](goals/GID-039--living-world-events/goal.md) | Living World Events | done | 4 / 4 |
 | [GID-040](goals/GID-040--puzzle-battles/goal.md) | Puzzle Battle Shrines | done | 4 / 4 |
 | [GID-041](goals/GID-041--battle-companions/goal.md) | Battle Companions | pending | 0 / 2 |
-| [GID-042](goals/GID-042--weather-atmosphere/goal.md) | Weather & Biome Atmosphere | pending | 0 / 3 |
+| [GID-042](goals/GID-042--weather-atmosphere/goal.md) | Weather & Biome Atmosphere | done | 3 / 3 |
 | [GID-043](goals/GID-043--treasure-maps/goal.md) | Treasure Maps & Buried Caches | done | 3 / 3 |
 | [GID-044](goals/GID-044--waystone-fast-travel/goal.md) | Waystone Fast Travel Network | pending | 0 / 3 |
 | [GID-045](goals/GID-045--bestiary-codex/goal.md) | Bestiary Codex | pending | 0 / 3 |

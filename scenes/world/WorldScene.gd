@@ -14,7 +14,8 @@ const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
 const WeaponRegistry  = preload("res://autoloads/WeaponRegistry.gd")
 const EnemyRegistry   = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponData      = preload("res://data/WeaponData.gd")
-const SaveManager     = preload("res://autoloads/SaveManager.gd")
+const SaveManager        = preload("res://autoloads/SaveManager.gd")
+const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 
@@ -95,6 +96,13 @@ var _cached_moon_energy: float = -1.0
 var _cached_sky_color: Color = Color.BLACK
 var _cached_ambient_color: Color = Color.BLACK
 var _cached_ambient_energy: float = -1.0
+
+# Weather visuals
+var _active_weather_particles: Node3D = null
+var _weather_tint: Color = Color(1.0, 1.0, 1.0)
+var _weather_tint_target: Color = Color(1.0, 1.0, 1.0)
+var _weather_tint_lerp_t: float = 1.0
+const _WEATHER_TINT_SPEED: float = 2.0  # tint blends in 0.5s
 
 # Threaded chunk building
 var _chunk_data_pending: Dictionary = {}    # Vector2i -> true (job in flight)
@@ -377,6 +385,8 @@ func _ready() -> void:
 
 	if _is_infinite:
 		WorldEvents.register_all(self)
+		WeatherManager.on_world_entered()
+		GameBus.weather_changed.connect(_on_weather_changed)
 
 	if not _is_infinite:
 		AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
@@ -395,6 +405,9 @@ func _exit_tree() -> void:
 	for task_id: int in _chunk_task_ids:
 		WorkerThreadPool.wait_for_task_completion(task_id)
 	_chunk_task_ids.clear()
+	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
+		_active_weather_particles.queue_free()
+	_active_weather_particles = null
 
 func flush_time_of_day() -> void:
 	SceneManager.save_manager.time_of_day = _time_of_day
@@ -571,6 +584,7 @@ func _update_chunks() -> void:
 		_current_biome = new_biome
 		AudioManager.play_music(_BIOME_MUSIC[new_biome])
 		SceneManager.save_manager.visit_biome(new_biome)
+		WeatherManager.set_biome(new_biome)
 
 	# Camera frustum for visibility culling. Falls back to load-all if unavailable.
 	var frustum: Array[Plane] = _camera.get_frustum()
@@ -1094,8 +1108,11 @@ func _update_day_night(delta: float) -> void:
 		_world_env.environment.background_color = sky
 		_cached_sky_color = sky
 
-	# Ambient: dark blue night → soft grey day
-	var ambient_color: Color = Color(0.1, 0.12, 0.22).lerp(Color(0.6, 0.65, 0.7), t_day)
+	# Ambient: dark blue night → soft grey day, multiplied by weather tint
+	var base_ambient: Color = Color(0.1, 0.12, 0.22).lerp(Color(0.6, 0.65, 0.7), t_day)
+	var ambient_color: Color = Color(base_ambient.r * _weather_tint.r,
+		base_ambient.g * _weather_tint.g,
+		base_ambient.b * _weather_tint.b)
 	var ambient_energy: float = lerpf(0.35, 1.0, t_day)
 	if not ambient_color.is_equal_approx(_cached_ambient_color):
 		_world_env.environment.ambient_light_color = ambient_color
@@ -1139,6 +1156,16 @@ func _process(delta: float) -> void:
 		_day_night_timer = 0.0
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
+
+	# Lerp weather tint toward target and invalidate ambient cache to force GPU write
+	if _weather_tint_lerp_t < 1.0:
+		_weather_tint_lerp_t = minf(_weather_tint_lerp_t + delta * _WEATHER_TINT_SPEED, 1.0)
+		_weather_tint = _weather_tint.lerp(_weather_tint_target, delta * _WEATHER_TINT_SPEED)
+		_cached_ambient_color = Color.BLACK  # force re-write next lighting tick
+
+	# Keep particle rig centred on the player
+	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
+		_active_weather_particles.position = _player.position + Vector3(0.0, 12.0, 0.0)
 
 	if _dialogue_timer > 0.0:
 		_dialogue_timer -= delta
@@ -1893,3 +1920,29 @@ func _apply_event_outcome(choice: Dictionary) -> void:
 
 	if not outcome_text.is_empty():
 		_show_dialogue(outcome_text)
+
+# ── Weather visuals ────────────────────────────────────────────────────────
+
+func _on_weather_changed(weather_id: String, _duration: float) -> void:
+	# Swap particle rig
+	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
+		_active_weather_particles.queue_free()
+	_active_weather_particles = null
+
+	if weather_id != "":
+		var particles: GPUParticles3D = WeatherParticles.make(weather_id) as GPUParticles3D
+		if particles != null:
+			_entity_root.add_child(particles)
+			if _player != null:
+				particles.position = _player.position + Vector3(0.0, 12.0, 0.0)
+			_active_weather_particles = particles
+
+	# Begin tint transition
+	_weather_tint_target = WeatherParticles.get_screen_tint(weather_id)
+	_weather_tint_lerp_t = 0.0
+
+	# Update grass wind direction
+	if _grass != null:
+		var grass_node: GrassBlades = _grass as GrassBlades
+		if grass_node != null:
+			grass_node.set_wind_direction(WeatherParticles.get_wind_direction(weather_id))

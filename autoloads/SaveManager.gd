@@ -108,6 +108,9 @@ var solved_puzzles: Array[String] = []
 # Living world event cooldown state: event_id -> { elapsed: float, active: bool }
 var world_events: Dictionary = {}
 
+# Current weather state: { "id": String, "duration": float, "biome_id": int }
+var weather: Dictionary = {}
+
 # Treasure map system
 var treasure_fragments: int = 0          # 0–2 collected fragments; resets to 0 on assembly
 var active_treasure: Dictionary = {}     # { "site_x": int, "site_z": int, "completed": bool } or {}
@@ -199,6 +202,7 @@ func new_game() -> void:
 	spire_run = {"active": false}
 	solved_puzzles = []
 	world_events = {}
+	weather = {}
 	treasure_fragments = 0
 	active_treasure = {}
 	treasures_completed = 0
@@ -208,7 +212,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 19
+const CURRENT_SAVE_VERSION: int = 20
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -370,15 +374,21 @@ static func _migrate_v17_to_v18(data: Dictionary) -> void:
 		data["world_events"] = {}
 	data["version"] = 18
 
-# _migrate_v18_to_v19: backfill treasure map fields for old saves.
+# _migrate_v18_to_v19: backfill weather state for old saves.
 static func _migrate_v18_to_v19(data: Dictionary) -> void:
+	if not data.has("weather"):
+		data["weather"] = {"id": "", "duration": 0.0, "biome_id": 0}
+	data["version"] = 19
+
+# _migrate_v19_to_v20: backfill treasure map fields for old saves.
+static func _migrate_v19_to_v20(data: Dictionary) -> void:
 	if not data.has("treasure_fragments"):
 		data["treasure_fragments"] = 0
 	if not data.has("active_treasure"):
 		data["active_treasure"] = {}
 	if not data.has("treasures_completed"):
 		data["treasures_completed"] = 0
-	data["version"] = 19
+	data["version"] = 20
 
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
@@ -420,6 +430,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v17_to_v18(data)
 	if ver < 19:
 		_migrate_v18_to_v19(data)
+	if ver < 20:
+		_migrate_v19_to_v20(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -485,6 +497,8 @@ func load_save() -> bool:
 	solved_puzzles.assign(data.get("solved_puzzles", []))
 	var we = data.get("world_events", {})
 	world_events = we if we is Dictionary else {}
+	var wd = data.get("weather", {"id": "", "duration": 0.0, "biome_id": 0})
+	weather = wd if wd is Dictionary else {"id": "", "duration": 0.0, "biome_id": 0}
 	treasure_fragments = int(data.get("treasure_fragments", 0))
 	var at = data.get("active_treasure", {})
 	active_treasure = at if at is Dictionary else {}
@@ -543,6 +557,7 @@ func save() -> void:
 		"spire_best_floor": spire_best_floor,
 		"solved_puzzles": solved_puzzles,
 		"world_events": world_events,
+		"weather": weather,
 		"treasure_fragments": treasure_fragments,
 		"active_treasure": active_treasure,
 		"treasures_completed": treasures_completed,
