@@ -2,7 +2,7 @@
 
 **Goal:** GID-042  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** TID-161
 
 ## Lock
@@ -50,12 +50,24 @@ Makes weather mechanical: battles started during rain, sandstorms, or snow have 
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/battle/WeatherBanner.gd` — a Control that shows weather name + modifier text; shown at battle start if weather is active; sized relative to viewport
+2. Update `BattleScene.gd`:
+   - Determine `_battle_weather` at init (only non-empty when `SaveManager.current_map == "main"`)
+   - Instantiate WeatherBanner in `_ready()` if weather is active
+   - Apply ash_fall: enemy hero +2 poison at battle init
+   - Apply rain/heavy_rain: ghost cards get +1/+2 health when summoned (in `_finish_hand_drag` and AI path)
+   - Apply sandstorm: all summoned minions take -1 attack during turn 1 and 2
+   - Apply snow/blizzard: first card each turn costs 1 less mana via `_snow_discount_used` array
+3. Create `tests/unit/test_weather_battle.gd`
+4. Add to `tests/runner.gd`
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/WeatherBanner.gd` (new): `Control` that builds a viewport-relative panel+label showing weather name and modifier description; `setup(weather_id)` hides for empty/unknown weather; static `modifier_text()` for headless tests
+- `scenes/battle/BattleScene.gd`: Added `WeatherBanner` preload, `_battle_weather` and `_snow_discount_used` fields; `_apply_weather_battle_init()` applies ash_fall/volcanic poison and resets snow discount; `_apply_weather_to_summoned()` applies rain ghost health bonus and sandstorm attack debuff on summon; `_do_play_card()` wraps `play_card()` with snow first-card cost discount; `_on_turn_ended()` resets snow discount and applies blizzard freeze on turns 1–2; WeatherBanner instantiated in `_ready()` when weather is active
+- `tests/unit/test_weather_battle.gd` (new): Tests for `WeatherBanner.modifier_text()`, rain/heavy-rain ghost health bonus, sandstorm attack floor, ash_fall hero poison, snow cost discount, blizzard freeze application, and map-guard logic
+- `tests/runner.gd`: Added `test_weather_battle.gd` suite
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- No new agent docs file required; the weather system is self-contained and documented in task files.

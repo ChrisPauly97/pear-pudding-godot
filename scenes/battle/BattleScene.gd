@@ -15,10 +15,15 @@ const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
+const WeatherBanner = preload("res://scenes/battle/WeatherBanner.gd")
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
 var puzzle_data: Resource = null  # PuzzleData set by SceneManager before _ready
+
+# Weather modifier state — determined once at battle start
+var _battle_weather: String = ""  # "" if no infinite-world weather applies
+var _snow_discount_used: Array[bool] = [false, false]  # per-player first-card discount
 var _puzzle_data_ref: Resource = null  # retained for reset
 var _give_up_btn: Button = null
 var _state: GameState
@@ -173,6 +178,10 @@ func _ready() -> void:
 			_state.friendly_duel = true
 			_state.wager_coins = duel_wager
 
+		# Apply weather modifiers (only in infinite world)
+		_battle_weather = WeatherManager.current_weather if SceneManager.save_manager.current_map == "main" else ""
+		_apply_weather_battle_init()
+
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
 	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
@@ -190,6 +199,12 @@ func _ready() -> void:
 	GameBus.turn_ended.connect(_on_turn_ended)
 
 	_refresh_all()
+
+	# Show weather banner if a modifier is active
+	if _battle_weather != "" and not _state.puzzle_mode:
+		var banner: WeatherBanner = WeatherBanner.new()
+		add_child(banner)
+		banner.setup(_battle_weather)
 
 	AudioManager.play_music("res://assets/audio/music/battle.ogg")
 
@@ -249,6 +264,45 @@ func _apply_passive_skills(player: PlayerState) -> void:
 				player.hero.attack += skill.effect_value
 			"passive_draw":
 				player.bonus_draw += skill.effect_value
+
+## Apply init-time weather modifiers (ash_fall poison) and reset snow discount tracking.
+func _apply_weather_battle_init() -> void:
+	_snow_discount_used = [false, false]
+	match _battle_weather:
+		"ash_fall", "volcanic":
+			_state.players[1].hero.apply_status("poison", 2)
+
+## Apply weather modifier to a newly summoned card (rain ghost bonus, sandstorm debuff).
+func _apply_weather_to_summoned(card: CardInstance, _player_idx: int) -> void:
+	match _battle_weather:
+		"rain":
+			if card.template_id == "ghost":
+				card.health += 1
+				card.max_health += 1
+		"heavy_rain":
+			if card.template_id == "ghost":
+				card.health += 2
+				card.max_health += 2
+		"sandstorm", "dust_devil":
+			if _state.turn_number <= 2:
+				card.attack = maxi(0, card.attack - 1)
+
+## Wraps player.play_card() with snow first-card cost discount.
+## Returns true if the card was played.
+func _do_play_card(card: CardInstance, player_idx: int) -> bool:
+	var apply_discount: bool = (
+		(_battle_weather == "snow" or _battle_weather == "blizzard") and
+		not _snow_discount_used[player_idx]
+	)
+	if apply_discount:
+		var saved_cost: int = card.cost
+		card.cost = maxi(0, card.cost - 1)
+		var ok: bool = _state.players[player_idx].play_card(card)
+		card.cost = saved_cost
+		if ok:
+			_snow_discount_used[player_idx] = true
+		return ok
+	return _state.players[player_idx].play_card(card)
 
 func _apply_ui_sizes() -> void:
 	var hero_h: float = _vh * 0.10
@@ -413,7 +467,7 @@ func _finish_hand_drag() -> void:
 				_hide_cancel_btn()
 				_enter_targeting_mode(played_card, is_friendly_targeted)
 				return
-		if _state.players[0].play_card(played_card):
+		if _do_play_card(played_card, 0):
 			AudioManager.play_sfx("card_play")
 			if played_card.card_class == "spell":
 				var snap_fhd := _snapshot_hp_positions()
@@ -427,6 +481,8 @@ func _finish_hand_drag() -> void:
 				_spawn_float_labels_from_snapshot(snap_em)
 				_flash_from_snapshot(snap_em)
 				_check_shake_from_snapshot(snap_em)
+			else:
+				_apply_weather_to_summoned(played_card, 0)
 			_refresh_all()
 			_check_game_over()
 			_dismiss_battle_tutorial()
@@ -745,7 +801,7 @@ func _on_target_chosen_card(target: CardInstance) -> void:
 	_targeting_friendly = false
 	_targeting_spell = null
 	_hide_cancel_btn()
-	if _state.players[0].play_card(spell):
+	if _do_play_card(spell, 0):
 		AudioManager.play_sfx("card_play")
 		var snap_otc := _snapshot_hp_positions()
 		_resolve_spell_effect(spell, 0, {"type": "minion", "card": target})
@@ -762,7 +818,7 @@ func _on_target_chosen_hero() -> void:
 	_targeting_friendly = false
 	_targeting_spell = null
 	_hide_cancel_btn()
-	if _state.players[0].play_card(spell):
+	if _do_play_card(spell, 0):
 		AudioManager.play_sfx("card_play")
 		var snap_oth := _snapshot_hp_positions()
 		_resolve_spell_effect(spell, 0, {"type": "hero"})
@@ -1212,6 +1268,10 @@ func _on_end_turn() -> void:
 func _on_turn_ended(player_idx: int) -> void:
 	var snap_sot := _snapshot_hp_positions()
 	_process_start_of_turn_statuses(player_idx)
+	_snow_discount_used[player_idx] = false
+	if _battle_weather == "blizzard" and _state.turn_number <= 2:
+		for card: CardInstance in _state.players[player_idx].board.get_cards():
+			card.apply_status("freeze", 1)
 	_spawn_float_labels_from_snapshot(snap_sot)
 	_flash_from_snapshot(snap_sot)
 	_check_shake_from_snapshot(snap_sot)
@@ -1256,6 +1316,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	for c: CardInstance in _state.players[1].board.get_cards():
 		if not ai_board_before.has(c):
 			_resolve_emergence(c, 1)
+			_apply_weather_to_summoned(c, 1)
 	_spawn_float_labels_from_snapshot(snap_ai)
 	_flash_from_snapshot(snap_ai)
 	_check_shake_from_snapshot(snap_ai)
