@@ -74,6 +74,11 @@
 | [GID-068](goals/GID-068--ley-lines/goal.md) | Ley Lines — Visible Currents of Magic | pending | 0 / 3 |
 | [GID-069](goals/GID-069--core-loop-retention/goal.md) | Core Loop Retention & Ease-of-Use | pending | 0 / 5 |
 | [GID-070](goals/GID-070--aaa-presentation-polish/goal.md) | AAA Presentation & Platform Polish | pending | 0 / 7 |
+| [GID-071](goals/GID-071--battle-scene-decomposition/goal.md) | Battle Layer Decomposition | pending | 0 / 4 |
+| [GID-072](goals/GID-072--world-scene-decomposition/goal.md) | World Layer Decomposition | pending | 0 / 4 |
+| [GID-073](goals/GID-073--ui-overlay-framework/goal.md) | UI Overlay Framework & Shared Theme | pending | 0 / 3 |
+| [GID-074](goals/GID-074--autoload-persistence-simplification/goal.md) | Autoload & Persistence Simplification | pending | 0 / 3 |
+| [GID-075](goals/GID-075--dead-code-constants-hygiene/goal.md) | Dead Code, Constants & Test Hygiene | pending | 0 / 3 |
 
 ## Backlog
 
@@ -93,6 +98,7 @@
 | [BID-014](backlog/BID-014--camera-follow-stutter.md) | Camera follows physics body from _process without interpolation (stutter at 90/120 Hz) | code-smell | GID-064 audit |
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded | spec-gap | GID-070 research |
 | [BID-016](backlog/BID-016--flag-gated-dialogue-content.md) | Flag-gated NPC dialogue content not yet authored; TownspersonNPC logic ready but table mostly empty | human-action-deferred | GID-020 / TID-063 |
+| [BID-017](backlog/BID-017--corruption-redemption-points-never-accrue.md) | add_corruption_points / add_redemption_points never called — currencies may never accrue | design-inconsistency | GID-074 research |
 
 ## Resolved Backlog
 
