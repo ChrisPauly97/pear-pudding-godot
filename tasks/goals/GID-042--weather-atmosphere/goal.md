@@ -12,9 +12,9 @@ The world has a day/night cycle but the sky never does anything. Weather reuses 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-161 | WeatherManager autoload + per-biome weather tables + save persistence | agent | pending | — |
-| TID-162 | Visual effects: GPUParticles3D precipitation, screen tint, grass wind hookup | agent | pending | TID-161 |
-| TID-163 | Weather battle modifiers + battle HUD banner | agent | pending | TID-161 |
+| TID-161 | WeatherManager autoload + per-biome weather tables + save persistence | agent | done | — |
+| TID-162 | Visual effects: GPUParticles3D precipitation, screen tint, grass wind hookup | agent | done | TID-161 |
+| TID-163 | Weather battle modifiers + battle HUD banner | agent | done | TID-161 |
 
 ## Acceptance Criteria
 

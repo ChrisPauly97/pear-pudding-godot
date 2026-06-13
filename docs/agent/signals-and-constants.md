@@ -77,6 +77,7 @@ This means `EnemyNPC` never imports `SceneManager`, and `BattleScene` never impo
 | `world_event_started` | `WorldEventManager._fire_event()` | minimap marker, HUD toast (TID-152..154) | `event_id: String` |
 | `world_event_ended` | `WorldEventManager.end_event()` | cleanup listeners (TID-152..154) | `event_id: String` |
 | `traveling_shop_requested` | `WorldScene._handle_interact()` | `SceneManager._on_traveling_shop_requested()` | `stock: Array[String], price: int` |
+| `weather_changed` | `WeatherManager._change_weather()` | `WorldScene` (visuals), `BattleScene` (banner) | `weather_id: String, duration: float` |
 
 ---
 

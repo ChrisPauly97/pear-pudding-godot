@@ -108,6 +108,9 @@ var solved_puzzles: Array[String] = []
 # Living world event cooldown state: event_id -> { elapsed: float, active: bool }
 var world_events: Dictionary = {}
 
+# Current weather state: { "id": String, "duration": float, "biome_id": int }
+var weather: Dictionary = {}
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -194,13 +197,14 @@ func new_game() -> void:
 	spire_run = {"active": false}
 	solved_puzzles = []
 	world_events = {}
+	weather = {}
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 18
+const CURRENT_SAVE_VERSION: int = 19
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -362,6 +366,12 @@ static func _migrate_v17_to_v18(data: Dictionary) -> void:
 		data["world_events"] = {}
 	data["version"] = 18
 
+# _migrate_v18_to_v19: backfill weather state for old saves.
+static func _migrate_v18_to_v19(data: Dictionary) -> void:
+	if not data.has("weather"):
+		data["weather"] = {"id": "", "duration": 0.0, "biome_id": 0}
+	data["version"] = 19
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -400,6 +410,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v16_to_v17(data)
 	if ver < 18:
 		_migrate_v17_to_v18(data)
+	if ver < 19:
+		_migrate_v18_to_v19(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -465,6 +477,8 @@ func load_save() -> bool:
 	solved_puzzles.assign(data.get("solved_puzzles", []))
 	var we = data.get("world_events", {})
 	world_events = we if we is Dictionary else {}
+	var wd = data.get("weather", {"id": "", "duration": 0.0, "biome_id": 0})
+	weather = wd if wd is Dictionary else {"id": "", "duration": 0.0, "biome_id": 0}
 	_loaded = true
 	return true
 
@@ -519,6 +533,7 @@ func save() -> void:
 		"spire_best_floor": spire_best_floor,
 		"solved_puzzles": solved_puzzles,
 		"world_events": world_events,
+		"weather": weather,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:

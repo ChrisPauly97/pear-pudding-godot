@@ -320,6 +320,12 @@ func _make_cluster_mesh() -> ArrayMesh:
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
 
+func set_wind_direction(dir: Vector2) -> void:
+	if _mat:
+		_mat.set_shader_parameter("wind_direction", dir)
+	if _cluster_mat:
+		_cluster_mat.set_shader_parameter("wind_direction", dir)
+
 func update_player(pos: Vector3, delta: float, is_grounded: bool) -> void:
 	if not _mat:
 		return
