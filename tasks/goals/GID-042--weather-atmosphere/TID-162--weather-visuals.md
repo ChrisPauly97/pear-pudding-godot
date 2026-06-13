@@ -2,7 +2,7 @@
 
 **Goal:** GID-042  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** TID-161
 
 ## Lock
@@ -58,12 +58,27 @@ Makes weather systems visible and immersive. Precipitation particles follow the 
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/world/WeatherParticles.gd` — static factory that constructs GPUParticles3D nodes programmatically for each weather type (no .tscn files needed)
+2. Add `set_wind_direction(dir: Vector2)` to `GrassBlades.gd` — sets `wind_direction` on the shared shader material
+3. Update `WorldScene.gd`:
+   - Add `_weather_tint: Color`, `_weather_tint_target: Color`, and `_active_weather_particles: Node3D` fields
+   - Connect to `GameBus.weather_changed` in `_ready()`
+   - Implement `_on_weather_changed(weather_id, duration)` to swap particles and set tint target
+   - Multiply weather tint into ambient color in `_update_day_night()`
+   - Update GrassBlades wind_direction on weather change
+   - Free particles on `_exit_tree()`
+   - Call `WeatherManager.on_world_entered()` and `WeatherManager.set_biome()` from infinite world path
+4. Create `tests/unit/test_weather_visuals.gd`
+5. Add to `tests/runner.gd`
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WeatherParticles.gd` (new): Static factory with `make(weather_id)` returning a configured `GPUParticles3D`; `get_wind_direction(weather_id)` returning per-weather `Vector2`; `get_screen_tint(weather_id)` returning per-weather `Color`. Supports rain, heavy_rain, sandstorm, dust_devil, ash_fall, volcanic, snow, blizzard.
+- `scenes/world/GrassBlades.gd`: Added `set_wind_direction(dir: Vector2)` that sets `wind_direction` shader parameter on both `_mat` and `_cluster_mat`
+- `scenes/world/WorldScene.gd`: Added `_active_weather_particles`, `_weather_tint`, `_weather_tint_target`, `_weather_tint_lerp_t` fields; connected `GameBus.weather_changed` in infinite-world `_ready()`; called `WeatherManager.on_world_entered()` and `WeatherManager.set_biome()` on biome change; multiplied weather tint into ambient color in `_update_day_night()`; lerped tint toward target in `_process()`; freed particles on `_exit_tree()`; added `_on_weather_changed()` handler
+- `tests/unit/test_weather_visuals.gd` (new): Tests for `WeatherParticles.make()`, `get_wind_direction()`, `get_screen_tint()`
+- `tests/runner.gd`: Added `test_weather_visuals.gd` suite
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- No new agent docs file required; changes captured in task file and inline code.
