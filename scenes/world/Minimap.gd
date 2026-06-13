@@ -163,16 +163,24 @@ func _on_draw(canvas: Control) -> void:
 	# White dot at centre = player
 	canvas.draw_circle(center, 5.0, Color(1.0, 1.0, 1.0))
 
-	_draw_group(canvas, _enemy_nodes, origin, Color(0.95, 0.20, 0.20), 4.0)  # red
-	_draw_group(canvas, _chest_nodes, origin, Color(1.00, 0.85, 0.10), 4.0)  # gold
-	_draw_group(canvas, _door_nodes,  origin, Color(0.55, 0.75, 1.00), 4.0)  # blue
-	_draw_group(canvas, _npc_nodes,   origin, Color(0.30, 0.95, 0.45), 4.0)  # green
+	_draw_group(canvas, _enemy_nodes, origin, Color(0.95, 0.20, 0.20), 4.0, "roaming_boss")
+	_draw_group(canvas, _chest_nodes, origin, Color(1.00, 0.85, 0.10), 4.0)
+	_draw_group(canvas, _door_nodes,  origin, Color(0.55, 0.75, 1.00), 4.0)
+	_draw_group(canvas, _npc_nodes,   origin, Color(0.30, 0.95, 0.45), 4.0)
+
+	# Roaming boss: larger dot in range, edge indicator when outside
+	if _enemy_nodes.has("roaming_boss"):
+		var boss: Node3D = _enemy_nodes["roaming_boss"] as Node3D
+		if boss != null and is_instance_valid(boss):
+			_draw_boss_dot(canvas, boss.position, origin, center)
 
 
 func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,
-		color: Color, radius: float) -> void:
+		color: Color, radius: float, skip_id: String = "") -> void:
 	var center := Vector2(_half, _half)
 	for id in nodes:
+		if str(id) == skip_id:
+			continue
 		var n: Node3D = nodes[id]
 		if not is_instance_valid(n):
 			continue
@@ -186,3 +194,19 @@ func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,
 		# Only draw dots that fall inside the circle
 		if (dot - center).length() <= _half * 0.94:
 			canvas.draw_circle(dot, radius, color)
+
+func _draw_boss_dot(canvas: Control, boss_pos: Vector3, origin: Vector3,
+		center: Vector2) -> void:
+	const ROT45: float = 0.7071067811865476
+	const BOSS_COLOR: Color = Color(1.0, 0.08, 0.08)
+	var off: Vector3 = boss_pos - origin
+	var rx: float = (off.x - off.z) * ROT45
+	var ry: float = (off.x + off.z) * ROT45
+	var dot := Vector2(_half + rx * _scale, _half + ry * _scale)
+	var from_center: Vector2 = dot - center
+	if from_center.length() <= _half * 0.94:
+		canvas.draw_circle(dot, 7.0, BOSS_COLOR)
+	else:
+		# Edge indicator: clamp to minimap border, slightly faded
+		var edge: Vector2 = center + from_center.normalized() * (_half * 0.88)
+		canvas.draw_circle(edge, 5.0, Color(BOSS_COLOR.r, BOSS_COLOR.g, BOSS_COLOR.b, 0.65))

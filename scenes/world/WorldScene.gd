@@ -1,5 +1,6 @@
 extends Node3D
 
+const WorldEvents     = preload("res://game_logic/WorldEvents.gd")
 const WorldMap        = preload("res://game_logic/world/WorldMap.gd")
 const DungeonGen      = preload("res://game_logic/world/DungeonGen.gd")
 const SpireFloorGen   = preload("res://game_logic/spire/SpireFloorGen.gd")
@@ -76,6 +77,9 @@ var _terrain_mat: ShaderMaterial
 var _chunk_build_queue: Array[Vector2i] = []
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 var _interact_timer: float = 0.0
+var _roaming_boss_timer: float = 0.0
+var _traveling_merchant_timer: float = 0.0
+var _card_shower_items: Array[Node3D] = []
 
 # Day/night cycle
 var _world_env: WorldEnvironment
@@ -369,6 +373,9 @@ func _ready() -> void:
 	add_child(_minimap)
 	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
 	_minimap.tapped.connect(_open_map_view)
+
+	if _is_infinite:
+		WorldEvents.register_all(self)
 
 	if not _is_infinite:
 		AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
@@ -827,6 +834,43 @@ func _build_chunk_sync(key: Vector2i) -> void:
 func register_enemy(eid: String, node: Node3D) -> void:
 	_enemy_nodes[eid] = node
 
+func get_entity_root() -> Node3D:
+	return _entity_root
+
+func _tick_traveling_merchant(delta: float) -> void:
+	if not _active_npc_data.has("traveling_merchant"):
+		return
+	_traveling_merchant_timer += delta
+	if _traveling_merchant_timer >= 300.0:
+		var wem: Node = get_node_or_null("/root/WorldEventManager")
+		if wem != null:
+			wem.end_event("traveling_merchant")
+
+func _tick_roaming_boss(delta: float) -> void:
+	if not _enemy_nodes.has("roaming_boss"):
+		return
+	_roaming_boss_timer += delta
+	var boss: Node3D = _enemy_nodes.get("roaming_boss") as Node3D
+	var expired: bool = _roaming_boss_timer >= 300.0
+	var fled: bool = boss == null or not is_instance_valid(boss) or \
+		_player.position.distance_to(boss.position) > 160.0
+	if expired or fled:
+		var wem: Node = get_node_or_null("/root/WorldEventManager")
+		if wem != null:
+			wem.end_event("roaming_boss")
+
+func _tick_card_shower() -> void:
+	if _card_shower_items.is_empty():
+		return
+	for item: Node3D in _card_shower_items:
+		if is_instance_valid(item):
+			return
+	# All items gone — end the event
+	var wem: Node = get_node_or_null("/root/WorldEventManager")
+	if wem != null:
+		wem.call("end_event", "card_shower")
+	_card_shower_items.clear()
+
 # Called by ChunkRenderer after spawning a chest
 func register_chest(cid: String, node: Node3D, c_data: Dictionary) -> void:
 	_chest_nodes[cid] = node
@@ -1094,6 +1138,9 @@ func _process(delta: float) -> void:
 			_tip_label.hide()
 
 	if _is_infinite:
+		_tick_roaming_boss(delta)
+		_tick_traveling_merchant(delta)
+		_tick_card_shower()
 		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 		var pcx: int = int(floor(_player.position.x / chunk_world))
 		var pcz: int = int(floor(_player.position.z / chunk_world))
@@ -1253,6 +1300,13 @@ func _handle_interact() -> void:
 
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	if not npc.is_empty():
+		if str(npc.get("npc_type", "")) == "traveling_merchant":
+			var stock: Array[String] = []
+			var raw: Variant = npc.get("merchant_stock", [])
+			if raw is Array:
+				stock.assign(raw as Array)
+			GameBus.traveling_shop_requested.emit(stock, 30)
+			return
 		if str(npc.get("npc_type", "")) == "merchant":
 			GameBus.shop_requested.emit()
 			return

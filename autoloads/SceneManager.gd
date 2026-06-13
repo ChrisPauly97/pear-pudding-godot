@@ -84,6 +84,7 @@ func _ready() -> void:
 	GameBus.duel_lost.connect(_on_duel_lost)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 	GameBus.shop_requested.connect(_on_shop_requested)
+	GameBus.traveling_shop_requested.connect(_on_traveling_shop_requested)
 	GameBus.journal_requested.connect(_on_journal_requested)
 	GameBus.character_requested.connect(_on_character_requested)
 	GameBus.skill_tree_requested.connect(_on_skill_tree_requested)
@@ -440,6 +441,7 @@ func _on_battle_won(result: Dictionary) -> void:
 	# Award XP based on enemy type
 	const _XP_TABLE: Dictionary = {
 		"undead_basic": 20, "undead_horde": 35, "ghoul_pack": 50, "undead_elite": 80,
+		"roaming_terror": 150,
 	}
 	var xp_amount: int = int(_XP_TABLE.get(enemy_type, 25)) if enemy_type != "" else 25
 	if is_boss:
@@ -451,6 +453,11 @@ func _on_battle_won(result: Dictionary) -> void:
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
+	# End the roaming boss world event if the defeated enemy was the roaming terror.
+	if enemy_type == "roaming_terror":
+		var wem: Node = get_node_or_null("/root/WorldEventManager")
+		if wem != null:
+			wem.end_event("roaming_boss")
 	_restore_world()
 
 func _on_battle_lost() -> void:
@@ -508,6 +515,17 @@ func _on_shop_requested() -> void:
 	if _state != State.WORLD:
 		return
 	_shop_overlay = _shop_scene_packed.instantiate()
+	get_tree().current_scene.add_child(_shop_overlay)
+	_shop_overlay.closed.connect(_on_shop_closed)
+	_state = State.SHOP
+
+func _on_traveling_shop_requested(stock: Array[String], price: int) -> void:
+	if _state != State.WORLD:
+		return
+	_shop_overlay = _shop_scene_packed.instantiate()
+	_shop_overlay.set("_custom_stock", stock)
+	_shop_overlay.set("_custom_price", price)
+	_shop_overlay.set("_custom_title", "Traveling Merchant's Rare Wares")
 	get_tree().current_scene.add_child(_shop_overlay)
 	_shop_overlay.closed.connect(_on_shop_closed)
 	_state = State.SHOP

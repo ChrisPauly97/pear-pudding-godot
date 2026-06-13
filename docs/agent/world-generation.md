@@ -89,6 +89,61 @@ Lightweight container holding:
 
 ---
 
+## Living World Events
+
+### WorldEventManager (`autoloads/WorldEventManager.gd`)
+
+A lightweight scheduler that fires timed world events (roaming boss, traveling merchant,
+card shower) while the player is in the infinite world. At most **one event is active at
+a time** — the scheduler blocks further firing until the active event ends.
+
+#### API
+
+```gdscript
+# Register a named event with a cooldown range (seconds).
+WorldEventManager.register_event(
+    "roaming_boss", 180.0, 360.0, spawn_callable, cleanup_callable)
+
+# End the active event (called from the event's own logic, e.g. on defeat/despawn).
+WorldEventManager.end_event("roaming_boss")
+
+# Query state
+WorldEventManager.is_event_active()         # → bool
+WorldEventManager.get_active_event_id()     # → String
+
+# Utility: find a walkable TILE_GRASS position between min_dist and max_dist
+# world-units from player_pos. Pass the current save's world_seed.
+var pos := WorldEventManager.find_spawn_tile(player_pos, 20.0, 50.0, world_seed)
+```
+
+#### Scheduling rules
+
+- Timers only advance while `SceneManager.current_map == "main"` (infinite world) and
+  outside battles (`enemy_engaged` / `battle_won` / `battle_lost` toggle `_in_battle`).
+- Cooldown state is persisted in `SaveManager.world_events` (migration v17→v18) so
+  cooldowns survive restarts. An event that was `active` at save time restarts its
+  cooldown on load (v1; no mid-event respawn).
+- Concrete events (TID-152 roaming boss, TID-153 merchant, TID-154 card shower) are
+  registered from a `WorldEvents.gd` init script preloaded by WorldScene.
+
+#### Registered events (`game_logic/WorldEvents.gd`)
+
+| Event ID | Interval | Description |
+|---|---|---|
+| `roaming_boss` | 15–25 min | Spawns `roaming_terror` EnemyNPC at 1.5× scale with crimson materials 20–40 units away; minimap edge indicator; despawns on defeat or after 5 min or at >160 units |
+| `traveling_merchant` | 10–20 min | Spawns violet `MerchantNPC` with `is_traveling=true` at 15–30 units away; 3 cards from 18-card premium pool at 30 coins each; no minimap marker; despawns after 5 min |
+| `card_shower` | 8–15 min | Scatters 5–10 common WorldItem pickups at random walkable tiles 2–10 units from the player; one-shot yellow GPUParticles3D sparkle burst; plays `chest_open` SFX; items auto-despawn after 60 s; event ends when all items are collected or despawned |
+
+#### GameBus signals
+
+| Signal | Payload | Description |
+|---|---|---|
+| `world_event_started` | `event_id: String` | Emitted when an event fires |
+| `world_event_ended` | `event_id: String` | Emitted when `end_event()` is called |
+| `traveling_shop_requested` | `stock: Array[String], price: int` | Emitted by WorldScene on merchant interact; opens ShopScene with custom stock |
+
+---
+
 ## Integrations with Other Features
 
 | System | Direction | Details |

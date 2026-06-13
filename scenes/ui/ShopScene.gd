@@ -11,9 +11,15 @@ const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 
 const CARD_PRICE: int = 15
 
+# Traveling merchant mode — set before add_child() via .set() in SceneManager.
+var _custom_stock: Array[String] = []   # if non-empty, only show these cards
+var _custom_price: int = 0              # 0 = use CARD_PRICE
+var _custom_title: String = ""          # "" = use default title
+
 var _vh: float = 0.0
 var _vw: float = 0.0
 var _coin_label: Label
+var _title_lbl: Label
 var _shop_list: VBoxContainer
 var _inspect_overlay: Control = null
 
@@ -51,11 +57,11 @@ func _build_ui() -> void:
 	margin.add_child(root_vbox)
 
 	# Title
-	var title := Label.new()
-	title.text = "Merchant's Wares"
-	title.add_theme_font_size_override("font_size", int(_vh * 0.032))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	root_vbox.add_child(title)
+	_title_lbl = Label.new()
+	_title_lbl.text = _custom_title if _custom_title != "" else "Merchant's Wares"
+	_title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.032))
+	_title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	root_vbox.add_child(_title_lbl)
 
 	# Coin display
 	_coin_label = Label.new()
@@ -91,6 +97,18 @@ func _refresh() -> void:
 
 	var coins: int = SceneManager.save_manager.coins
 	_coin_label.text = "Your coins: %d" % coins
+
+	# Traveling merchant: show only custom stock at premium price, no weapons.
+	if not _custom_stock.is_empty():
+		var price: int = _custom_price if _custom_price > 0 else CARD_PRICE
+		_shop_list.add_child(_make_section_header("— Rare Wares —"))
+		for id: String in _custom_stock:
+			var tmpl: Dictionary = CardRegistry.get_template(id)
+			if tmpl.is_empty():
+				continue
+			var row := _make_card_row(id, tmpl, coins, price)
+			_shop_list.add_child(row)
+		return
 
 	# ---- Cards section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Cards —"))
@@ -207,7 +225,8 @@ func _weapon_price(weapon: WeaponData) -> int:
 			return weapon.battle_effect_value * 25
 	return 50
 
-func _make_card_row(id: String, tmpl: Dictionary, coins: int) -> HBoxContainer:
+func _make_card_row(id: String, tmpl: Dictionary, coins: int,
+		price: int = CARD_PRICE) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(_vw * 0.008))
 
@@ -231,9 +250,9 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int) -> HBoxContainer:
 
 	# Price label
 	var price_lbl := Label.new()
-	price_lbl.text = "%d coins" % CARD_PRICE
+	price_lbl.text = "%d coins" % price
 	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= CARD_PRICE else Color(0.9, 0.3, 0.3)
+	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
 	row.add_child(price_lbl)
 
 	# Buy button
@@ -241,8 +260,8 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int) -> HBoxContainer:
 	buy_btn.text = "Buy"
 	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.065)
 	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	buy_btn.disabled = coins < CARD_PRICE
-	buy_btn.pressed.connect(_on_buy_card.bind(id))
+	buy_btn.disabled = coins < price
+	buy_btn.pressed.connect(_on_buy_card.bind(id, price))
 	row.add_child(buy_btn)
 
 	var lpd := LongPressDetector.new()
@@ -292,11 +311,11 @@ func _weapon_effect_summary(weapon: WeaponData) -> String:
 			return "+%d ATK" % weapon.battle_effect_value
 	return weapon.battle_effect_type
 
-func _on_buy_card(card_id: String) -> void:
+func _on_buy_card(card_id: String, price: int = CARD_PRICE) -> void:
 	var sm := SceneManager.save_manager
-	if sm.coins < CARD_PRICE:
+	if sm.coins < price:
 		return
-	sm.add_coins(-CARD_PRICE)
+	sm.add_coins(-price)
 	var ids: Array[String] = [card_id]
 	sm.add_cards_to_deck(ids)
 	_refresh()

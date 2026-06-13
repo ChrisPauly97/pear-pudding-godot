@@ -2,7 +2,7 @@
 
 **Goal:** GID-039
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-151
 
 ## Lock
@@ -30,12 +30,16 @@ The lightest event: a sparkle burst scatters 5–10 collectible card pickups aro
 
 ## Plan
 
-_Written during Plan phase._
+1. Add card shower constants + `_spawn_card_shower` + `_cleanup_card_shower` to `game_logic/WorldEvents.gd`. Scatter 5–10 common WorldItem pickups at `find_spawn_tile(pos, 2, 10, seed+i)`. Each item gets a 60 s `SceneTreeTimer` (via `world_scene.get_tree().create_timer(60.0)`) that calls `queue_free` on timeout. Fire a one-shot `GPUParticles3D` sparkle burst at the player. Play `chest_open` SFX. HUD toast "Cards are falling from the sky!".
+2. Add `var _card_shower_items: Array[Node3D] = []` to `WorldScene.gd`. Populate it from `_spawn_card_shower` via `world_scene.set("_card_shower_items", items)`. Add `_tick_card_shower()` called from `_process()` when `_is_infinite`: when all items in the array are no longer `is_instance_valid`, call `wem.end_event("card_shower")` and clear the array.
+3. Register event in `WorldEvents.register_all`: 8–15 min interval.
+4. Update `docs/agent/world-generation.md` registered-events table.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/WorldEvents.gd` — added `_WorldItemScene`, `_CardRegistry`, `_CardDropUtil` preloads; added `_SHOWER_*` constants and 31-card `_SHOWER_CARD_POOL` (no legendaries); registered `card_shower` event (8–15 min) in `register_all`; added `_spawn_card_shower()` (scatters 5–10 WorldItems at `find_spawn_tile(pos, 2, 10)`, attaches 60 s `SceneTreeTimer` per item, fires GPUParticles3D sparkle burst, plays `chest_open` SFX, shows HUD toast); added `_cleanup_card_shower()` (force-frees remaining items); added `_spawn_sparkle_burst()` helper (40-particle one-shot yellow burst, auto-freed after 2 s)
+- `scenes/world/WorldScene.gd` — added `var _card_shower_items: Array[Node3D] = []`; added `_tick_card_shower()` that polls item validity and calls `wem.end_event("card_shower")` when all items are gone; wired `_tick_card_shower()` into the `_is_infinite` process block
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/world-generation.md` — added `card_shower` row to the Registered Events table

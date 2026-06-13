@@ -60,7 +60,24 @@ When `is_boss` is true in the engaged `enemy_data` dict, `BattleScene` applies:
 4. **Phase 2**: when enemy HP first drops to ≤ 50%, discards enemy hand, rebuilds draw deck from `phase2_deck`, draws 4 cards, shows "PHASE 2" banner
 5. **Full drop**: on victory, drops all cards in `drop_pool` (emits `{"card_rewards": [...]}` instead of `{"card_reward": "..."}`)
 
-`EnemyNPC` in the world scene: boss enemies render at 1.3× scale with gold materials to distinguish them visually.
+`EnemyNPC` in the world scene: boss enemies render at 1.3× scale with gold materials to distinguish them visually. Roaming boss enemies (type `roaming_terror`) render at 1.5× scale with crimson materials; see **Roaming Boss** below.
+
+### Roaming Boss (`roaming_terror`)
+
+Spawned by `WorldEventManager` via `game_logic/WorldEvents.gd` on a 15–25 minute randomised interval of overworld play. Only one event fires at a time (WorldEventManager single-active rule).
+
+**Spawn:** `WorldEvents._spawn_roaming_boss()` calls `WorldEventManager.find_spawn_tile()` to find a walkable grass tile 20–40 world-units from the player, instantiates `EnemyNPC.tscn` with `is_roaming_boss=true` (crimson 1.5× visual), registers it in `WorldScene._enemy_nodes` under the ID `"roaming_boss"`, and emits a HUD toast "A powerful presence approaches…".
+
+**Minimap:** The boss appears as a bright-red dot (radius 7, vs. 4 for regular enemies). When the boss is outside the minimap radius, a faded edge indicator points toward it.
+
+**Despawn conditions (whichever comes first):**
+- Player defeats it in battle → `SceneManager._on_battle_won()` calls `WorldEventManager.end_event("roaming_boss")`
+- Player moves >160 world units (~80 tiles) away → `WorldScene._tick_roaming_boss()` calls `end_event`
+- 5 minutes (300 s) elapse → same despawn path
+
+**Rewards:** `is_boss=true` → BattleScene applies 50 HP override, phase-2 deck swap at 50% HP, and drops all cards from `drop_pool` (7 rare/unique cards). Coin reward: 40. XP: 150.
+
+**Not persisted as defeated:** the roaming boss has no fixed entity ID in `SaveManager.defeated_enemies`, so it can respawn after its cooldown expires.
 
 `SceneManager._on_battle_won()` handles both `"card_reward"` (single string, regular) and `"card_rewards"` (list, boss).
 
@@ -131,6 +148,28 @@ Buttons are sized relative to viewport height (18 % × 7 %) for mobile parity.
 | `duelist_adept` | Ghost×2, Skeleton×2, Zombie×2, Ghoul×2, Mend, Wither, SurgeSpirit, EmberImp | 25 | blancogov (tile 35,50) |
 | `duelist_champion` | Ghoul×2, BlitzGhoul×2, ShroudedWraith, VoidWyrm, Wither×2, SoulRend, DarkPact | 50 | blancogov (tile 55,50) — gated behind adept |
 
+### Traveling Merchant Event
+
+Spawned by `WorldEventManager` via `game_logic/WorldEvents.gd` on a 10–20 minute randomised interval of overworld play. Only fires when no other world event is active.
+
+**Spawn:** `WorldEvents._spawn_traveling_merchant()` calls `WorldEventManager.find_spawn_tile()` to find a walkable grass tile 15–30 world-units from the player. The merchant's stock of 3 cards is seeded from `hash(Time.get_unix_time_from_system())` at spawn time, picked without replacement from `_MERCHANT_CARD_POOL` (18 rare/high-impact cards). The NPC is instantiated with `is_traveling=true` so it renders with a violet robe and "Traveling Merchant" label in purple.
+
+**Interaction flow:**
+1. Player presses E / taps interact prompt within `INTERACT_RANGE`
+2. `WorldScene._handle_interact()` detects `npc_type == "traveling_merchant"` (checked before the base `"merchant"` case)
+3. Emits `GameBus.traveling_shop_requested(stock, 30)` (30 coins per card)
+4. `SceneManager._on_traveling_shop_requested()` opens `ShopScene` with `_custom_stock`, `_custom_price = 30`, `_custom_title = "Traveling Merchant's Rare Wares"` set before `add_child()`
+5. `ShopScene._refresh()` branches on non-empty `_custom_stock` — shows only those cards at the custom price, no weapons/armor
+
+**Despawn:** after 5 minutes (300 s) of overworld time, `WorldScene._tick_traveling_merchant()` calls `WorldEventManager.end_event("traveling_merchant")`. The cleanup callable removes the NPC from `_npc_nodes` and `_active_npc_data` and calls `queue_free()`.
+
+**HUD toast on spawn:** "You hear distant wagon wheels…" (no minimap marker — discovery by chance is intentional).
+
+**Premium card pool** (18 cards, 3 selected per event):  
+`void_wyrm`, `iron_revenant`, `phoenix_rise`, `ancient_guardian`, `dusk_vampire`, `soul_harvest`, `time_warp`, `dark_pact`, `soul_rend`, `shrouded_wraith`, `veiled_paladin`, `ash_warden`, `duel_crown`, `surge_spirit`, `dawn_guardian`, `dawn_paladin`, `blitz_ghoul`, `void_creeper`
+
+**No persistence as defeated** — the merchant has no fixed entity ID in `SaveManager`; it can reappear after its cooldown.
+
 ### MerchantNPC Scene (`scenes/world/entities/MerchantNPC.gd`)
 
 - Static NPC with gold-coloured robe to distinguish it from regular townspeople
@@ -172,7 +211,7 @@ This means defeated enemies stay gone across sessions.
 
 | Asset | Path | Notes |
 |---|---|---|
-| Enemy data resources | `data/enemies/*.tres` | One per enemy type: `undead_basic.tres`, `undead_horde.tres`, `ghoul_pack.tres`, `undead_elite.tres` |
+| Enemy data resources | `data/enemies/*.tres` | One per enemy type: `undead_basic.tres`, `undead_horde.tres`, `ghoul_pack.tres`, `undead_elite.tres`, `roaming_terror.tres` |
 | `EnemyRegistry.gd` | `autoloads/EnemyRegistry.gd` | Autoload singleton; registered in `project.godot` |
 | EnemyNPC scene | `scenes/world/entities/EnemyNPC.tscn` | `CharacterBody3D` + `Sprite3D` + `CollisionShape3D` |
 | TownspersonNPC scene | `scenes/world/entities/TownspersonNPC.tscn` | Static NPC with dialogue label |

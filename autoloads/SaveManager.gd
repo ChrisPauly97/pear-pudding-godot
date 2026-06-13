@@ -105,6 +105,9 @@ var spire_best_floor: int = 0
 # Puzzle shrine IDs the player has solved (rewards awarded once per id).
 var solved_puzzles: Array[String] = []
 
+# Living world event cooldown state: event_id -> { elapsed: float, active: bool }
+var world_events: Dictionary = {}
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -190,6 +193,7 @@ func new_game() -> void:
 	redemption_points = 0
 	spire_run = {"active": false}
 	solved_puzzles = []
+	world_events = {}
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
@@ -350,10 +354,12 @@ static func _migrate_v16_to_v17(data: Dictionary) -> void:
 		data["spire_best_floor"] = 0
 	data["version"] = 17
 
-# _migrate_v17_to_v18: backfill solved_puzzles for old saves.
+# _migrate_v17_to_v18: backfill solved_puzzles and world_events for old saves.
 static func _migrate_v17_to_v18(data: Dictionary) -> void:
 	if not data.has("solved_puzzles"):
 		data["solved_puzzles"] = []
+	if not data.has("world_events"):
+		data["world_events"] = {}
 	data["version"] = 18
 
 static func _apply_migrations(data: Dictionary) -> void:
@@ -457,6 +463,8 @@ func load_save() -> bool:
 	spire_run = sr if sr is Dictionary else {"active": false}
 	spire_best_floor = int(data.get("spire_best_floor", 0))
 	solved_puzzles.assign(data.get("solved_puzzles", []))
+	var we = data.get("world_events", {})
+	world_events = we if we is Dictionary else {}
 	_loaded = true
 	return true
 
@@ -510,6 +518,7 @@ func save() -> void:
 		"spire_run": spire_run,
 		"spire_best_floor": spire_best_floor,
 		"solved_puzzles": solved_puzzles,
+		"world_events": world_events,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
