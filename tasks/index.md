@@ -79,6 +79,7 @@
 | [GID-073](goals/GID-073--ui-overlay-framework/goal.md) | UI Overlay Framework & Shared Theme | pending | 0 / 3 |
 | [GID-074](goals/GID-074--autoload-persistence-simplification/goal.md) | Autoload & Persistence Simplification | pending | 0 / 3 |
 | [GID-075](goals/GID-075--dead-code-constants-hygiene/goal.md) | Dead Code, Constants & Test Hygiene | pending | 0 / 3 |
+| [GID-076](goals/GID-076--magic-subtypes-spells/goal.md) | Magic Subtypes — 40 Spell Cards | pending | 0 / 7 |
 
 ## Backlog
 
