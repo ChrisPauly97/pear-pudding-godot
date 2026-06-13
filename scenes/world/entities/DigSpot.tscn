@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://nq9w4zcg2tgk"]
+
+[ext_resource type="Script" path="res://scenes/world/entities/DigSpot.gd" id="1_digspot"]
+
+[node name="DigSpot" type="Node3D"]
+script = ExtResource("1_digspot")

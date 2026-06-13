@@ -12,9 +12,9 @@ Chests currently give cards/coins directly. Fragments that assemble into a treas
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-164 | Map-fragment item model, chest drop source, save fields | agent | pending | — |
-| TID-165 | Seeded dig-site placement + DigSpot world entity with interaction | agent | pending | TID-164 |
-| TID-166 | Map view overlay dig-site marker + fragment display in journal | agent | pending | TID-165 |
+| TID-164 | Map-fragment item model, chest drop source, save fields | agent | done | — |
+| TID-165 | Seeded dig-site placement + DigSpot world entity with interaction | agent | done | TID-164 |
+| TID-166 | Map view overlay dig-site marker + fragment display in journal | agent | done | TID-165 |
 
 ## Acceptance Criteria
 

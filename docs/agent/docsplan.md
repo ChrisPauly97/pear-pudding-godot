@@ -26,6 +26,7 @@ This directory contains one Markdown file per major game feature. Each file foll
 | [story-implementation.md](story-implementation.md) | Story flags, dialogue gating, SaveManager fields, SceneManager entry point |
 | [magic-system.md](magic-system.md) | Light/Dark magic lore, Ember/Ash sub-branches, spell card stats, schema extension notes |
 | [meta-progression.md](meta-progression.md) | Achievements, legendary card unlock gate, run summary screen, session stats |
+| [treasure-maps.md](treasure-maps.md) | Treasure map fragments, deterministic dig sites, DigSpot entity, map overlay marker |
 
 ---
 

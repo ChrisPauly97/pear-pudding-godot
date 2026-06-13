@@ -60,3 +60,8 @@ signal traveling_shop_requested(stock: Array[String], price: int)
 
 # Weather signals
 signal weather_changed(weather_id: String, duration: float)
+
+# Treasure map signals
+signal fragment_collected()
+signal treasure_map_assembled()
+signal treasure_excavated(coins: int, card_id: String)

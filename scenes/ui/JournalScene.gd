@@ -11,6 +11,7 @@ var _title_label: Label
 var _lore_label: RichTextLabel
 var _replay_btn: Button
 var _header_label: Label
+var _treasure_label: Label
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
@@ -18,6 +19,7 @@ func _ready() -> void:
 	_vw = get_viewport().get_visible_rect().size.x
 	_build_ui()
 	_populate_scroll_list()
+	_refresh_treasure_panel()
 
 func _build_ui() -> void:
 	var bg := ColorRect.new()
@@ -61,6 +63,13 @@ func _build_ui() -> void:
 	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
 	close_btn.pressed.connect(_close)
 	header_row.add_child(close_btn)
+
+	# ── Treasure status row ───────────────────────────────────────────────────
+	_treasure_label = Label.new()
+	_treasure_label.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	_treasure_label.add_theme_color_override("font_color", Color(1.0, 0.82, 0.35))
+	_treasure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	root_vbox.add_child(_treasure_label)
 
 	# ── Two-panel row ─────────────────────────────────────────────────────────
 	var panels_box: BoxContainer
@@ -127,6 +136,20 @@ func _build_ui() -> void:
 	detail_vbox.add_child(_replay_btn)
 
 	_show_empty_state()
+
+func _refresh_treasure_panel() -> void:
+	if _treasure_label == null:
+		return
+	var sm := SaveManager
+	var at: Dictionary = sm.active_treasure
+	if not at.is_empty() and bool(at.get("completed", false)):
+		_treasure_label.text = "Treasure: Excavated!"
+	elif not at.is_empty():
+		_treasure_label.text = "Treasure: Active dig site at (%d, %d)" % [int(at.get("site_x", 0)), int(at.get("site_z", 0))]
+	elif sm.treasure_fragments > 0:
+		_treasure_label.text = "Map Fragments: %d / 3" % sm.treasure_fragments
+	else:
+		_treasure_label.text = "Map Fragments: 0 / 3 — Collect 3 to form a treasure map."
 
 func _show_empty_state() -> void:
 	var found: int = SaveManager.collected_scrolls.size()

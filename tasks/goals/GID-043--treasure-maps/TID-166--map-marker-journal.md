@@ -2,7 +2,7 @@
 
 **Goal:** GID-043
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-165
 
 ## Lock
@@ -39,12 +39,14 @@ Surface the treasure hunt in the UI so players know where to dig. Display dig-si
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `_DOT_DIGSITE` color constant and `_draw_digsite()` helper to MapViewOverlay; call from `_on_draw()`.
+2. Add `_treasure_label` to JournalScene; insert above two-panel row in `_build_ui()`; add `_refresh_treasure_panel()` reading SaveManager treasure state.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/ui/MapViewOverlay.gd`: `_DOT_DIGSITE` amber constant; `_draw_digsite()` draws arc + X cross at dig site tile position.
+- `scenes/ui/JournalScene.gd`: `_treasure_label` field; treasure status row in UI; `_refresh_treasure_panel()` showing fragment count, active site coords, or completion status.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/treasure-maps.md`: documents overlay marker and journal display.
