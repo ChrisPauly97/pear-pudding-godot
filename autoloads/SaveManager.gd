@@ -108,6 +108,11 @@ var solved_puzzles: Array[String] = []
 # Living world event cooldown state: event_id -> { elapsed: float, active: bool }
 var world_events: Dictionary = {}
 
+# Treasure map system
+var treasure_fragments: int = 0          # 0–2 collected fragments; resets to 0 on assembly
+var active_treasure: Dictionary = {}     # { "site_x": int, "site_z": int, "completed": bool } or {}
+var treasures_completed: int = 0         # total maps excavated; used as salt for next dig site
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -194,13 +199,16 @@ func new_game() -> void:
 	spire_run = {"active": false}
 	solved_puzzles = []
 	world_events = {}
+	treasure_fragments = 0
+	active_treasure = {}
+	treasures_completed = 0
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 18
+const CURRENT_SAVE_VERSION: int = 19
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -362,6 +370,16 @@ static func _migrate_v17_to_v18(data: Dictionary) -> void:
 		data["world_events"] = {}
 	data["version"] = 18
 
+# _migrate_v18_to_v19: backfill treasure map fields for old saves.
+static func _migrate_v18_to_v19(data: Dictionary) -> void:
+	if not data.has("treasure_fragments"):
+		data["treasure_fragments"] = 0
+	if not data.has("active_treasure"):
+		data["active_treasure"] = {}
+	if not data.has("treasures_completed"):
+		data["treasures_completed"] = 0
+	data["version"] = 19
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -400,6 +418,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v16_to_v17(data)
 	if ver < 18:
 		_migrate_v17_to_v18(data)
+	if ver < 19:
+		_migrate_v18_to_v19(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -465,6 +485,10 @@ func load_save() -> bool:
 	solved_puzzles.assign(data.get("solved_puzzles", []))
 	var we = data.get("world_events", {})
 	world_events = we if we is Dictionary else {}
+	treasure_fragments = int(data.get("treasure_fragments", 0))
+	var at = data.get("active_treasure", {})
+	active_treasure = at if at is Dictionary else {}
+	treasures_completed = int(data.get("treasures_completed", 0))
 	_loaded = true
 	return true
 
@@ -519,6 +543,9 @@ func save() -> void:
 		"spire_best_floor": spire_best_floor,
 		"solved_puzzles": solved_puzzles,
 		"world_events": world_events,
+		"treasure_fragments": treasure_fragments,
+		"active_treasure": active_treasure,
+		"treasures_completed": treasures_completed,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -1035,6 +1062,29 @@ func mark_puzzle_solved(puzzle_id: String) -> void:
 
 func is_puzzle_solved(puzzle_id: String) -> bool:
 	return solved_puzzles.has(puzzle_id)
+
+func collect_treasure_fragment() -> void:
+	treasure_fragments += 1
+	_dirty = true
+	GameBus.fragment_collected.emit()
+	if treasure_fragments >= 3:
+		_assemble_treasure_map()
+
+func _assemble_treasure_map() -> void:
+	const TreasureGen = preload("res://game_logic/world/TreasureGen.gd")
+	treasure_fragments = 0
+	var site: Vector2i = TreasureGen.get_dig_site(world_seed, treasures_completed)
+	active_treasure = {"site_x": site.x, "site_z": site.y, "completed": false}
+	_dirty = true
+	GameBus.treasure_map_assembled.emit()
+
+func complete_treasure(coins: int, card_id: String) -> void:
+	if active_treasure.is_empty():
+		return
+	active_treasure["completed"] = true
+	treasures_completed += 1
+	_dirty = true
+	GameBus.treasure_excavated.emit(coins, card_id)
 
 func increment_day() -> void:
 	days_elapsed += 1

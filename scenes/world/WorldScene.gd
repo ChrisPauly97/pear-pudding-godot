@@ -62,6 +62,7 @@ var _chunk_renderers: Dictionary = {}     # Vector2i -> ChunkRenderer
 var _active_chest_data: Dictionary = {}  # chest_id -> Dictionary
 var _active_door_data: Dictionary = {}   # door_id -> Dictionary
 var _active_npc_data: Dictionary = {}    # npc_id -> Dictionary
+var _digspot_node: Node3D = null         # the one active DigSpot entity (nil if none loaded)
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
 var _last_move_dir: Vector2 = Vector2.ZERO
 var _current_biome: int = -1
@@ -889,6 +890,9 @@ func register_npc(nid: String, node: Node3D, n_data: Dictionary) -> void:
 func get_player() -> Node3D:
 	return _player
 
+func register_digspot(node: Node3D) -> void:
+	_digspot_node = node
+
 func register_scroll(node: Node3D) -> void:
 	_scroll_nodes.append(node)
 
@@ -1006,6 +1010,16 @@ func _find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
 			best = d
 			best_dist_sq = dist_sq
 	return best
+
+func _find_nearby_digspot(px: float, pz: float, range_dist: float) -> Node3D:
+	if _digspot_node == null or not is_instance_valid(_digspot_node):
+		_digspot_node = null
+		return null
+	var ddx: float = _digspot_node.position.x - px
+	var ddz: float = _digspot_node.position.z - pz
+	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
+		return _digspot_node
+	return null
 
 func _find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
@@ -1194,7 +1208,8 @@ func _check_interactions() -> void:
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
-	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null:
+	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
+	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null:
 		if _interact_btn != null:
 			_interact_btn.show()
 		else:
@@ -1291,11 +1306,16 @@ func _handle_interact() -> void:
 			chest_tier = 3
 		elif cid.begins_with("dc_"):
 			chest_tier = 2
-		_spawn_card_items(chest_card_ids, chest_pos, chest_tier)
-		_spawn_coin_piles(chest_pos)
-		# Treasure rooms (dtr_ prefix) have a 40% weapon drop chance vs standard 15%
-		var weapon_chance: float = 0.40 if cid.begins_with("dtr_") else 0.15
-		_maybe_drop_equipment_from_chest(weapon_chance)
+		# 20% chance to drop a map fragment instead of normal loot (only if no active map)
+		var sm := SceneManager.save_manager
+		if _is_infinite and sm.active_treasure.is_empty() and randf() < 0.20:
+			sm.collect_treasure_fragment()
+		else:
+			_spawn_card_items(chest_card_ids, chest_pos, chest_tier)
+			_spawn_coin_piles(chest_pos)
+			# Treasure rooms (dtr_ prefix) have a 40% weapon drop chance vs standard 15%
+			var weapon_chance: float = 0.40 if cid.begins_with("dtr_") else 0.15
+			_maybe_drop_equipment_from_chest(weapon_chance)
 		return
 
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
@@ -1340,6 +1360,11 @@ func _handle_interact() -> void:
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
 	if shrine != null and shrine.has_method("interact"):
 		shrine.interact()
+		return
+
+	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
+	if digspot != null and digspot.has_method("dig"):
+		digspot.dig()
 
 # ── Spire entrance ─────────────────────────────────────────────────────────
 

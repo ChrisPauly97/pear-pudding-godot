@@ -77,6 +77,9 @@ This means `EnemyNPC` never imports `SceneManager`, and `BattleScene` never impo
 | `world_event_started` | `WorldEventManager._fire_event()` | minimap marker, HUD toast (TID-152..154) | `event_id: String` |
 | `world_event_ended` | `WorldEventManager.end_event()` | cleanup listeners (TID-152..154) | `event_id: String` |
 | `traveling_shop_requested` | `WorldScene._handle_interact()` | `SceneManager._on_traveling_shop_requested()` | `stock: Array[String], price: int` |
+| `fragment_collected` | `SaveManager.collect_treasure_fragment()` | `SceneManager` (toast) | _(none)_ |
+| `treasure_map_assembled` | `SaveManager._assemble_treasure_map()` | `SceneManager` (toast) | _(none)_ |
+| `treasure_excavated` | `SaveManager.complete_treasure()` | `SceneManager` (toast) | `coins: int, card_id: String` |
 
 ---
 

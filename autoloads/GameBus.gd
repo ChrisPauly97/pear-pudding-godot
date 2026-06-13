@@ -57,3 +57,8 @@ signal puzzle_solved(puzzle_id: String)
 signal world_event_started(event_id: String)
 signal world_event_ended(event_id: String)
 signal traveling_shop_requested(stock: Array[String], price: int)
+
+# Treasure map signals
+signal fragment_collected()
+signal treasure_map_assembled()
+signal treasure_excavated(coins: int, card_id: String)

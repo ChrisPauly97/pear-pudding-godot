@@ -93,6 +93,9 @@ func _ready() -> void:
 	GameBus.tutorial_popup_requested.connect(_on_tutorial_popup_requested)
 	GameBus.puzzle_requested.connect(_on_puzzle_requested)
 	GameBus.puzzle_solved.connect(_on_puzzle_solved)
+	GameBus.fragment_collected.connect(_on_fragment_collected)
+	GameBus.treasure_map_assembled.connect(_on_treasure_map_assembled)
+	GameBus.treasure_excavated.connect(_on_treasure_excavated)
 
 func go_to_menu() -> void:
 	_flush_position_save()
@@ -596,6 +599,15 @@ func _on_achievement_unlocked(achievement_id: String) -> void:
 
 func _on_level_up(new_level: int) -> void:
 	_toast.show_text("Level Up!", "You are now level %d" % new_level)
+
+func _on_fragment_collected() -> void:
+	_toast.show_text("Fragment Found!", "You have %d/3 fragments" % save_manager.treasure_fragments)
+
+func _on_treasure_map_assembled() -> void:
+	_toast.show_text("Map Complete!", "A dig site has been revealed!")
+
+func _on_treasure_excavated(coins: int, card_id: String) -> void:
+	_toast.show_text("Treasure Excavated!", "+%d coins + %s" % [coins, card_id])
 
 func _on_tutorial_popup_requested(popup_id: String) -> void:
 	var flag: String = "seen_tutorial_" + popup_id

@@ -2,7 +2,7 @@
 
 **Goal:** GID-043
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -35,12 +35,25 @@ Fragments are the loot path for treasures. Define the data model, wire drops int
 
 ## Plan
 
-_Written during Plan phase._
+1. Bump SaveManager to version 19; add `treasure_fragments`, `active_treasure`, `treasures_completed` fields with migration, load_save, save(), and new_game() reset.
+2. Add `fragment_collected`, `treasure_map_assembled`, `treasure_excavated` signals to GameBus.
+3. Add `collect_treasure_fragment()`, `_assemble_treasure_map()`, `complete_treasure()` mutators to SaveManager (assembly preloads TreasureGen).
+4. Connect signals in SceneManager._ready() to AchievementToast.show_text() handlers.
+5. Add 20% fragment drop gate in WorldScene._handle_interact() chest section (infinite world only, no active map).
+6. Write headless tests in tests/unit/test_treasure_system.gd.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`: version 19, new treasure fields, migration, load/save, new_game reset, `collect_treasure_fragment()`, `_assemble_treasure_map()`, `complete_treasure()`.
+- `autoloads/GameBus.gd`: added `fragment_collected`, `treasure_map_assembled`, `treasure_excavated` signals.
+- `autoloads/SceneManager.gd`: connected treasure signals to toast handlers `_on_fragment_collected`, `_on_treasure_map_assembled`, `_on_treasure_excavated`.
+- `scenes/world/WorldScene.gd`: 20% fragment drop in chest interaction (infinite world, no active map).
+- `tests/unit/test_treasure_system.gd`: 20+ tests covering migration, fragment lifecycle, TreasureGen determinism.
+- `tests/runner.gd`: registered new test suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/treasure-maps.md`: new doc covering full system.
+- `docs/agent/signals-and-constants.md`: added treasure signal rows.
+- `docs/agent/docsplan.md`: added treasure-maps entry.
+- `CLAUDE.md`: added treasure-maps row to doc table.

@@ -11,6 +11,7 @@ const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
 const _MerchantScene     = preload("res://scenes/world/entities/MerchantNPC.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
+const _DigSpotScene      = preload("res://scenes/world/entities/DigSpot.tscn")
 const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
 
 const TERRAIN_VDENSITY: int = 2
@@ -266,6 +267,27 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		if world_scene.has_method("register_npc"):
 			world_scene.register_npc(n_data["id"], node, n_data)
 		print("NPC spawned: ", n_data.get("id", "?"), " (", n_data.get("npc_type", "townsperson"), ") at world (", n_data["x"], ", ", n_data["z"], ")")
+
+	# ── Active treasure dig site ───────────────────────────────────────────────
+	var sm := SceneManager.save_manager
+	if not sm.active_treasure.is_empty() and not bool(sm.active_treasure.get("completed", false)):
+		var site_tx: int = int(sm.active_treasure.get("site_x", 0))
+		var site_tz: int = int(sm.active_treasure.get("site_z", 0))
+		var dig_cx: int = int(floor(float(site_tx) / float(IsoConst.CHUNK_SIZE)))
+		var dig_cz: int = int(floor(float(site_tz) / float(IsoConst.CHUNK_SIZE)))
+		if _chunk_key.x == dig_cx and _chunk_key.y == dig_cz:
+			var dig_node: Node3D = _DigSpotScene.instantiate() as Node3D
+			entity_root.add_child(dig_node)
+			if dig_node.has_method("init_from_data"):
+				dig_node.init_from_data(sm.active_treasure)
+			var wx: float = float(site_tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wz: float = float(site_tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wy: float = 0.0
+			if world_scene.has_method("get_terrain_height"):
+				wy = world_scene.get_terrain_height(wx, wz)
+			dig_node.position = Vector3(wx, wy, wz)
+			if world_scene.has_method("register_digspot"):
+				world_scene.register_digspot(dig_node)
 
 	# ── Infinite-world scroll (seed-deterministic, 1 per ~200 chunks) ─────────
 	var cx: int = _chunk_key.x

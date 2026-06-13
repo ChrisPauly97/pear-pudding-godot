@@ -21,6 +21,7 @@ const _DOT_NPC      := Color(0.30, 0.95, 0.45)
 const _DOT_MERCHANT := Color(0.20, 0.90, 0.90)
 const _DOT_REST     := Color(0.35, 0.85, 0.65)   # teal-green: rest site
 const _DOT_EVENT    := Color(0.95, 0.60, 0.15)   # amber: event room
+const _DOT_DIGSITE  := Color(1.00, 0.65, 0.15)   # gold: active treasure dig site
 
 var _player: CharacterBody3D
 var _npc_nodes: Dictionary
@@ -148,10 +149,23 @@ func _on_draw(canvas: Control) -> void:
 	_draw_group(canvas, _chest_nodes, _DOT_CHEST, 4.0, false)
 	_draw_group(canvas, _door_nodes,  _DOT_DOOR,  4.0, false)
 	_draw_npcs(canvas)
+	_draw_digsite(canvas)
 	# Player last so it's on top
 	if is_instance_valid(_player):
 		var tp: Vector2 = _world_to_panel(_player.position.x, _player.position.z)
 		canvas.draw_circle(tp, 6.0, _DOT_PLAYER)
+
+
+func _draw_digsite(canvas: Control) -> void:
+	var at: Dictionary = SceneManager.save_manager.active_treasure
+	if at.is_empty() or bool(at.get("completed", false)):
+		return
+	var wx: float = float(int(at.get("site_x", 0))) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var wz: float = float(int(at.get("site_z", 0))) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var tp: Vector2 = _world_to_panel(wx, wz)
+	canvas.draw_arc(tp, 8.0, 0.0, TAU, 16, _DOT_DIGSITE, 2.0)
+	canvas.draw_line(tp + Vector2(-6.0, -6.0), tp + Vector2(6.0, 6.0), _DOT_DIGSITE, 2.0)
+	canvas.draw_line(tp + Vector2(6.0, -6.0),  tp + Vector2(-6.0, 6.0), _DOT_DIGSITE, 2.0)
 
 
 func _draw_group(canvas: Control, nodes: Dictionary, color: Color,

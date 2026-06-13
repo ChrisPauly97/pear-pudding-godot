@@ -2,7 +2,7 @@
 
 **Goal:** GID-043
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-164
 
 ## Lock
@@ -48,12 +48,20 @@ Convert the assembled map's abstract coordinates into a concrete, deterministic 
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/world/TreasureGen.gd` with static `get_dig_site()` using hash → angle+radius → TILE_GRASS nudge.
+2. Create `scenes/world/entities/DigSpot.gd` with `_ready()` (procedural mesh), `init_from_data()`, `dig()` method.
+3. Create `scenes/world/entities/DigSpot.tscn` + `.uid` sidecar.
+4. Modify `ChunkRenderer._spawn_entities()` to spawn DigSpot when chunk matches active dig site.
+5. Add `_digspot_node`, `register_digspot()`, `_find_nearby_digspot()`, dig interaction to WorldScene.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/TreasureGen.gd`: new static utility for deterministic dig site derivation.
+- `scenes/world/entities/DigSpot.gd`: procedural-mesh entity with `dig()` awarding coins + card via SaveManager.
+- `scenes/world/entities/DigSpot.tscn` + `.tscn.uid`: scene and UID sidecar.
+- `scenes/world/ChunkRenderer.gd`: preloads `_DigSpotScene`; spawns DigSpot when chunk contains active (non-completed) dig site.
+- `scenes/world/WorldScene.gd`: `_digspot_node` field; `register_digspot()`; `_find_nearby_digspot()`; dig interaction in `_handle_interact()`; digspot included in `_check_interactions()`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/treasure-maps.md`: covers TreasureGen algorithm and DigSpot entity.
