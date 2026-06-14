@@ -13,3 +13,4 @@ is_boss = true
 boss_hp = 50
 phase2_deck = PackedStringArray("void_wyrm", "void_wyrm", "soul_rend", "soul_rend", "dusk_vampire", "dusk_vampire", "drain", "wither", "dark_pact", "blitz_ghoul", "blitz_ghoul", "ghoul", "ghoul", "ghoul", "void_creeper", "void_creeper")
 difficulty_tier = 4
+lore_text = "An ancient horror that drifts the borderlands, drawn by conflict and chaos. When the Martarquas surge, this creature follows in their wake — and grows more dangerous as it is wounded."

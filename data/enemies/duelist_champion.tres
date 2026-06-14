@@ -10,3 +10,4 @@ deck = PackedStringArray("ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "shroud
 drop_pool = PackedStringArray()
 coin_reward = 0
 difficulty_tier = 3
+lore_text = "The undefeated champion of the Blancogov card tournament. Years of dedicated study and thousands of matches have honed their deck to a razor's edge — they have not lost in three seasons."

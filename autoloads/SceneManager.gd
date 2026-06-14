@@ -264,6 +264,9 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 		GameBus.hud_message_requested.emit("Deck too small — add at least %d cards first." % IsoConst.DECK_MIN)
 		return
 	_current_battle_enemy_id = str(enemy_data.get("id", ""))
+	var engaged_enemy_type: String = str(enemy_data.get("enemy_type", ""))
+	if engaged_enemy_type != "":
+		save_manager.record_enemy_seen(engaged_enemy_type)
 	GameBus.tutorial_popup_requested.emit("mana")
 	save_manager.set_pending_battle(enemy_data)
 	save_manager.save()
@@ -387,11 +390,14 @@ func _on_battle_won(result: Dictionary) -> void:
 		var curr_floor: int = int(spire_run.get("floor", 1))
 		var run_seed: int = int(spire_run.get("seed", 0))
 		save_manager.set_story_flag("spire_floor_%d_%d_cleared" % [curr_floor, run_seed])
+		var spire_enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
 		if not _current_battle_enemy_id.is_empty():
 			save_manager.mark_enemy_defeated(_current_battle_enemy_id)
 			save_manager.increment_progress("enemies_defeated", 1)
 			session_stats["enemies_defeated"] = int(session_stats.get("enemies_defeated", 0)) + 1
 			_current_battle_enemy_id = ""
+		if spire_enemy_type != "":
+			save_manager.record_enemy_defeated(spire_enemy_type)
 		save_manager.increment_progress("battles_won", 1)
 		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
 		save_manager.clear_pending_battle()
@@ -415,6 +421,8 @@ func _on_battle_won(result: Dictionary) -> void:
 		save_manager.increment_progress("enemies_defeated", 1)
 		session_stats["enemies_defeated"] = int(session_stats.get("enemies_defeated", 0)) + 1
 		_current_battle_enemy_id = ""
+	if enemy_type != "":
+		save_manager.record_enemy_defeated(enemy_type)
 	save_manager.increment_progress("battles_won", 1)
 	save_manager.check_deck_achievements(save_manager.player_deck)
 	session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1

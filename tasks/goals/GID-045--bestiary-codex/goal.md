@@ -12,9 +12,9 @@ GID-021 is adding enemy variety, but nothing records what you've fought. Staged 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-170 | Bestiary data: lore fields on EnemyData + encounter/defeat tracking in SaveManager | agent | pending | — |
-| TID-171 | Bestiary tab in JournalScene with reveal tiers | agent | pending | TID-170 |
-| TID-172 | Completion rewards + achievement hookup | agent | pending | TID-171 |
+| TID-170 | Bestiary data: lore fields on EnemyData + encounter/defeat tracking in SaveManager | agent | done | — |
+| TID-171 | Bestiary tab in JournalScene with reveal tiers | agent | done | TID-170 |
+| TID-172 | Completion rewards + achievement hookup | agent | done | TID-171 |
 
 ## Acceptance Criteria
 

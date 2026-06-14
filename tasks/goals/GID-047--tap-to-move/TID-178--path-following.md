@@ -2,7 +2,7 @@
 
 **Goal:** GID-047
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-176
 
 ## Lock
@@ -60,12 +60,18 @@ Integrates pathfinding into the Player movement loop, advancing through waypoint
 
 ## Plan
 
-_Written during Plan phase._
+Implemented during build phase (no separate plan step needed — research notes were sufficient).
 
 ## Changes Made
 
-_Filled after Build phase._
+- Updated `scenes/world/entities/Player.gd`:
+  - Added path-following state: `_path_waypoints: Array[Vector2i]`, `_path_wp_index: int`, `_has_active_path: bool`, `_WP_ARRIVE_DIST_SQ: float = 0.09`.
+  - `_ready()`: connects `GameBus.enemy_engaged` to call `cancel_path()`.
+  - `set_destination_path(waypoints: Array[Vector2i]) -> void`: stores waypoints and activates path-following.
+  - `cancel_path() -> void`: clears all path state; safe to call idempotently.
+  - `_physics_process()` modification: if manual input dir is nonzero → `cancel_path()` (manual always wins); else if `_has_active_path`, steer toward the current waypoint tile centre; advance `_path_wp_index` when within `_WP_ARRIVE_DIST_SQ`; call `cancel_path()` when last waypoint reached.
+  - Waypoint world position: `Vector3((wp.x + 0.5) * IsoConst.TILE_SIZE, position.y, (wp.y + 0.5) * IsoConst.TILE_SIZE)` — keeps Y at player height so gravity handling is unchanged.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Covered in `docs/agent/tap-to-move.md`.

@@ -20,6 +20,7 @@ const TrophyRegistry     = preload("res://game_logic/TrophyRegistry.gd")
 const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
+const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
 const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_side_pixel.png")
@@ -150,6 +151,14 @@ var _tip_label: Label
 var _tip_timer: float = 0.0
 const TIP_DURATION: float = 5.0
 
+# Tap-to-move
+var _dest_marker: Node3D = null
+var _dest_tween: Tween = null
+var _joystick_ref: Node = null
+var _tap_start_screen: Vector2 = Vector2.ZERO
+var _tap_touch_index: int = -2  # -2 = no tracked tap; -1 reserved for mouse
+const _TAP_DRAG_THRESHOLD: float = 30.0  # screen pixels; beyond this is a drag, not a tap
+
 # Dungeon session hero HP — tracks HP across rooms; reset fresh each dungeon entry.
 # Not saved to SaveManager (dying resets the session).
 var _dungeon_hero_hp: int = 30
@@ -277,6 +286,7 @@ func _ready() -> void:
 
 	var joystick := VirtualJoystick.new()
 	_hud.add_child(joystick)
+	_joystick_ref = joystick
 
 	var vh: float = get_viewport().get_visible_rect().size.y
 	var vw: float = get_viewport().get_visible_rect().size.x
@@ -429,6 +439,12 @@ func _ready() -> void:
 		var sm_ready := SceneManager.save_manager
 		if sm_ready.active_mount != "" and not sm_ready.is_mounted:
 			sm_ready.summon_mount(sm_ready.active_mount)
+
+	# Cancel tap-to-move path when battle or menu interrupts movement.
+	GameBus.enemy_engaged.connect(func(_d: Dictionary) -> void: _clear_dest_marker())
+	GameBus.inventory_requested.connect(func() -> void: _clear_dest_marker())
+	GameBus.journal_requested.connect(func() -> void: _clear_dest_marker())
+	GameBus.map_transition_requested.connect(func(_m: String, _d: String) -> void: _clear_dest_marker())
 
 func _exit_tree() -> void:
 	# Wait for any in-flight worker tasks before the GDScript instance is freed.
@@ -1337,6 +1353,16 @@ func _process(delta: float) -> void:
 		_interact_timer = 0.0
 		_check_interactions()
 
+	# Hide dest marker once the player's path is complete.
+	if _dest_marker != null and _dest_marker.visible:
+		if _player != null and _player.has_method("cancel_path"):
+			var active: bool = _player.get("_has_active_path")
+			if not active:
+				if _dest_tween != null and _dest_tween.is_valid():
+					_dest_tween.kill()
+				_dest_tween = null
+				_dest_marker.hide()
+
 	if Input.is_action_just_pressed("interact"):
 		_handle_interact()
 
@@ -1391,20 +1417,56 @@ func _open_map_view() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("map_view"):
+		_clear_dest_marker()
 		_open_map_view()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("inventory"):
+		_clear_dest_marker()
 		GameBus.inventory_requested.emit()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_J:
+		_clear_dest_marker()
 		GameBus.journal_requested.emit()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("character"):
+		_clear_dest_marker()
 		GameBus.character_requested.emit()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("skill_tree"):
+		_clear_dest_marker()
 		GameBus.skill_tree_requested.emit()
 		get_viewport().set_input_as_handled()
+	elif event is InputEventScreenTouch:
+		_on_screen_touch(event as InputEventScreenTouch)
+	elif event is InputEventScreenDrag:
+		var drag: InputEventScreenDrag = event as InputEventScreenDrag
+		if drag.index == _tap_touch_index:
+			if drag.position.distance_to(_tap_start_screen) >= _TAP_DRAG_THRESHOLD:
+				_tap_touch_index = -2  # too much movement — treat as a joystick drag, not a tap
+	elif event is InputEventMouseButton:
+		var mb: InputEventMouseButton = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			_handle_tap_to_move(mb.position)
+			get_viewport().set_input_as_handled()
+
+func _on_screen_touch(touch: InputEventScreenTouch) -> void:
+	if touch.pressed:
+		if _tap_touch_index != -2:
+			return  # already tracking another finger
+		# Reject taps in the virtual joystick interactive areas.
+		if _joystick_ref != null and _joystick_ref.has_method("is_touch_in_control_area"):
+			if _joystick_ref.call("is_touch_in_control_area", touch.position):
+				return
+		_tap_start_screen = touch.position
+		_tap_touch_index = touch.index
+	else:
+		if touch.index != _tap_touch_index:
+			return
+		var drag_dist: float = touch.position.distance_to(_tap_start_screen)
+		_tap_touch_index = -2
+		if drag_dist < _TAP_DRAG_THRESHOLD:
+			_handle_tap_to_move(touch.position)
+			get_viewport().set_input_as_handled()
 
 func _handle_interact() -> void:
 	if _player == null:
@@ -2390,3 +2452,91 @@ func _on_weather_changed(weather_id: String, _duration: float) -> void:
 		var grass_node: GrassBlades = _grass as GrassBlades
 		if grass_node != null:
 			grass_node.set_wind_direction(WeatherParticles.get_wind_direction(weather_id))
+
+# ── Tap-to-move ────────────────────────────────────────────────────────────
+
+# Entry point called by both touch and mouse input after basic validation.
+func _handle_tap_to_move(screen_pos: Vector2) -> void:
+	if _player == null or _camera == null:
+		return
+	var tile: Vector2i = _screen_to_tile(screen_pos)
+	var tile_type: int = get_tile_global(tile.x, tile.y)
+	var is_walkable: bool = (tile_type == IsoConst.TILE_GRASS
+		or tile_type == IsoConst.TILE_HILL
+		or tile_type == IsoConst.TILE_PATH)
+	if not is_walkable:
+		_show_tip("Can't go there")
+		return
+	var player_tile: Vector2i = IsoConst.world_to_tile(_player.position.x, _player.position.z)
+	var path: Array[Vector2i] = Pathfinder.find_path(
+		Callable(self, "get_tile_global"), player_tile, tile, 64)
+	if path.is_empty():
+		_show_tip("Can't reach that tile")
+		return
+	_place_dest_marker(tile)
+	if _player.has_method("set_destination_path"):
+		_player.call("set_destination_path", path)
+
+# Convert a screen position to the nearest tile coordinate via analytic
+# ray–plane intersection with the y=0 tile plane.
+func _screen_to_tile(screen_pos: Vector2) -> Vector2i:
+	var ray_origin: Vector3 = _camera.project_ray_origin(screen_pos)
+	var ray_dir: Vector3 = _camera.project_ray_normal(screen_pos)
+	# Solve: ray_origin.y + t * ray_dir.y = 0 → t = -ray_origin.y / ray_dir.y
+	if abs(ray_dir.y) < 0.0001:
+		return IsoConst.world_to_tile(_player.position.x, _player.position.z)
+	var t: float = -ray_origin.y / ray_dir.y
+	var world_pos: Vector3 = ray_origin + t * ray_dir
+	return IsoConst.world_to_tile(world_pos.x, world_pos.z)
+
+# Place or move the destination marker to the centre of the given tile.
+func _place_dest_marker(tile: Vector2i) -> void:
+	var wx: float = (float(tile.x) + 0.5) * IsoConst.TILE_SIZE
+	var wz: float = (float(tile.y) + 0.5) * IsoConst.TILE_SIZE
+	var wy: float = 0.08  # just above the tile surface
+
+	if _dest_marker == null or not is_instance_valid(_dest_marker):
+		_dest_marker = _make_dest_marker()
+		add_child(_dest_marker)
+
+	_dest_marker.position = Vector3(wx, wy, wz)
+	_dest_marker.show()
+
+	if _dest_tween != null and _dest_tween.is_valid():
+		_dest_tween.kill()
+	_dest_tween = create_tween().set_loops()
+	_dest_tween.tween_property(_dest_marker, "scale",
+		Vector3(1.2, 1.0, 1.2), 0.45).set_trans(Tween.TRANS_SINE)
+	_dest_tween.tween_property(_dest_marker, "scale",
+		Vector3(0.85, 1.0, 0.85), 0.45).set_trans(Tween.TRANS_SINE)
+
+func _make_dest_marker() -> Node3D:
+	var root := Node3D.new()
+	root.name = "DestMarker"
+	var mesh_inst := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.50
+	torus.outer_radius = 0.72
+	torus.rings = 12
+	torus.ring_segments = 16
+	mesh_inst.mesh = torus
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.25, 1.0, 0.55, 0.90)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.emission_enabled = true
+	mat.emission = Color(0.25, 1.0, 0.55)
+	mat.emission_energy_multiplier = 1.8
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh_inst.material_override = mat
+	root.add_child(mesh_inst)
+	return root
+
+func _clear_dest_marker() -> void:
+	if _dest_tween != null and _dest_tween.is_valid():
+		_dest_tween.kill()
+	_dest_tween = null
+	if _dest_marker != null and is_instance_valid(_dest_marker):
+		_dest_marker.hide()
+	if _player != null and _player.has_method("cancel_path"):
+		_player.call("cancel_path")

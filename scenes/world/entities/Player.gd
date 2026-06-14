@@ -28,6 +28,12 @@ var _is_moving: bool = false
 var _walk_frames: Array[Texture2D]
 var _footstep_timer: float = 0.0
 
+# Path-following state (tap-to-move)
+var _path_waypoints: Array[Vector2i] = []
+var _path_wp_index: int = 0
+var _has_active_path: bool = false
+const _WP_ARRIVE_DIST_SQ: float = 0.3 * 0.3  # arrive when within 0.3 world units
+
 func _ready() -> void:
 	_walk_frames = [_WalkTex1, _WalkTex2, _WalkTex3, _WalkTex4]
 	collision_layer = 1       # player layer
@@ -35,6 +41,7 @@ func _ready() -> void:
 	_build_sprite()
 	GameBus.mount_state_changed.connect(_on_mount_state_changed)
 	_update_mount_visuals(SaveManager.is_mounted)
+	GameBus.enemy_engaged.connect(func(_d: Dictionary) -> void: cancel_path())
 
 func _get_move_speed() -> float:
 	if SaveManager.is_mounted and SaveManager.current_map == "main" and SaveManager.active_mount != "":
@@ -42,6 +49,20 @@ func _get_move_speed() -> float:
 		if not mount.is_empty():
 			return SPEED * float(mount.get("speed_multiplier", 1.0))
 	return SPEED
+
+# Called by WorldScene after a tap-to-move path is found.
+func set_destination_path(waypoints: Array[Vector2i]) -> void:
+	if waypoints.is_empty():
+		return
+	_path_waypoints = waypoints
+	_path_wp_index = 0
+	_has_active_path = true
+
+# Cancels the active tap-to-move path (called on manual input or interrupts).
+func cancel_path() -> void:
+	_has_active_path = false
+	_path_waypoints.clear()
+	_path_wp_index = 0
 
 func _build_sprite() -> void:
 	_sprite = Sprite3D.new()
@@ -111,7 +132,25 @@ func _physics_process(delta: float) -> void:
 		dir.x += 1; dir.z -= 1
 
 	if dir.length_squared() > 0.0:
+		# Manual input always wins — cancel any active path.
 		dir = dir.normalized()
+		cancel_path()
+	elif _has_active_path:
+		# Steer toward the current waypoint centre.
+		var wp: Vector2i = _path_waypoints[_path_wp_index]
+		var wp_world := Vector3(
+			(float(wp.x) + 0.5) * IsoConst.TILE_SIZE,
+			position.y,
+			(float(wp.y) + 0.5) * IsoConst.TILE_SIZE)
+		var delta_v: Vector3 = wp_world - position
+		delta_v.y = 0.0
+		var dist_sq: float = delta_v.x * delta_v.x + delta_v.z * delta_v.z
+		if dist_sq <= _WP_ARRIVE_DIST_SQ:
+			_path_wp_index += 1
+			if _path_wp_index >= _path_waypoints.size():
+				cancel_path()
+		else:
+			dir = delta_v.normalized()
 
 	var move_speed: float = _get_move_speed()
 	velocity.x = dir.x * move_speed

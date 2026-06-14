@@ -2,6 +2,7 @@ extends Node
 
 const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 signal coins_changed(new_amount: int)
 
@@ -119,6 +120,10 @@ var treasures_completed: int = 0         # total maps excavated; used as salt fo
 # Waystone fast travel
 var activated_waystones: Array[String] = []
 
+# Bestiary: per-enemy-type encounter and defeat tracking
+var bestiary: Dictionary = {}           # type_id -> {seen: int, defeated: int}
+var bestiary_complete_rewarded: bool = false
+
 # Player home
 var home_owned: bool = false
 
@@ -223,6 +228,8 @@ func new_game() -> void:
 	active_treasure = {}
 	treasures_completed = 0
 	activated_waystones = []
+	bestiary = {}
+	bestiary_complete_rewarded = false
 	home_owned = false
 	respawn_map = ""
 	respawn_x = 0.0
@@ -420,8 +427,12 @@ static func _migrate_v20_to_v21(data: Dictionary) -> void:
 		data["activated_waystones"] = []
 	data["version"] = 21
 
-# _migrate_v21_to_v22: backfill player home ownership flag for old saves.
+# _migrate_v21_to_v22: backfill bestiary tracking and player home ownership for old saves.
 static func _migrate_v21_to_v22(data: Dictionary) -> void:
+	if not data.has("bestiary"):
+		data["bestiary"] = {}
+	if not data.has("bestiary_complete_rewarded"):
+		data["bestiary_complete_rewarded"] = false
 	if not data.has("home_owned"):
 		data["home_owned"] = false
 	data["version"] = 22
@@ -568,6 +579,9 @@ func load_save() -> bool:
 	active_treasure = at if at is Dictionary else {}
 	treasures_completed = int(data.get("treasures_completed", 0))
 	activated_waystones.assign(data.get("activated_waystones", []))
+	var bst = data.get("bestiary", {})
+	bestiary = bst if bst is Dictionary else {}
+	bestiary_complete_rewarded = bool(data.get("bestiary_complete_rewarded", false))
 	home_owned = bool(data.get("home_owned", false))
 	respawn_map = str(data.get("respawn_map", ""))
 	respawn_x = float(data.get("respawn_x", 0.0))
@@ -634,6 +648,8 @@ func save() -> void:
 		"active_treasure": active_treasure,
 		"treasures_completed": treasures_completed,
 		"activated_waystones": activated_waystones,
+		"bestiary": bestiary,
+		"bestiary_complete_rewarded": bestiary_complete_rewarded,
 		"home_owned": home_owned,
 		"respawn_map": respawn_map,
 		"respawn_x": respawn_x,
@@ -1210,6 +1226,42 @@ func activate_waystone(waystone_id: String) -> void:
 
 func is_waystone_activated(waystone_id: String) -> bool:
 	return activated_waystones.has(waystone_id)
+
+func record_enemy_seen(type_id: String) -> void:
+	if not bestiary.has(type_id):
+		bestiary[type_id] = {"seen": 0, "defeated": 0}
+	bestiary[type_id]["seen"] = int(bestiary[type_id]["seen"]) + 1
+	mark_dirty()
+
+func record_enemy_defeated(type_id: String) -> void:
+	if not bestiary.has(type_id):
+		bestiary[type_id] = {"seen": 0, "defeated": 0}
+	bestiary[type_id]["defeated"] = int(bestiary[type_id]["defeated"]) + 1
+	mark_dirty()
+	_check_bestiary_complete()
+
+func get_bestiary_entry(type_id: String) -> Dictionary:
+	return bestiary.get(type_id, {"seen": 0, "defeated": 0})
+
+func is_bestiary_complete() -> bool:
+	var all_ids: Array[String] = _EnemyRegistry.get_all_enemy_ids()
+	if all_ids.is_empty():
+		return false
+	for type_id: String in all_ids:
+		var entry: Dictionary = bestiary.get(type_id, {"seen": 0, "defeated": 0})
+		if int(entry.get("defeated", 0)) < 1:
+			return false
+	return true
+
+func _check_bestiary_complete() -> void:
+	if bestiary_complete_rewarded:
+		return
+	if not is_bestiary_complete():
+		return
+	bestiary_complete_rewarded = true
+	add_coins(500)
+	add_card_instance("soul_harvest", "legendary")
+	set_story_flag("bestiary_complete")
 
 func set_respawn_point(map: String, x: float, z: float) -> void:
 	respawn_map = map

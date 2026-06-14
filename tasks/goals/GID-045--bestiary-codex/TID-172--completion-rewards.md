@@ -2,7 +2,7 @@
 
 **Goal:** GID-045
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-171
 
 ## Lock
@@ -57,12 +57,19 @@ The reward layer. When the player defeats every bundled enemy type at least once
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `monster_scholar` achievement to `AchievementRegistry.ACHIEVEMENTS` with `condition_type: "specific_flag"` and `flag_key: "bestiary_complete"`
+2. `SaveManager._check_bestiary_complete()`: guard with `bestiary_complete_rewarded`; call `is_bestiary_complete()`; grant 500 coins, legendary `soul_harvest` card; call `set_story_flag("bestiary_complete")` (which fires `check_flag_achievement` → achievement unlock → toast)
+3. `SaveManager.record_enemy_defeated()` calls `_check_bestiary_complete()` after updating counter
+4. Add completion banner ("★ All enemies defeated!") in bestiary header via `_update_bestiary_header()` in JournalScene when `SaveManager.bestiary_complete_rewarded` is true
+5. Write `tests/unit/test_bestiary_completion.gd` + .uid sidecar
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/AchievementRegistry.gd`: added `monster_scholar` achievement (`condition_type: "specific_flag"`, `flag_key: "bestiary_complete"`)
+- `autoloads/SaveManager.gd` (via TID-170): `_check_bestiary_complete()` grants 500 coins + legendary `soul_harvest` card, sets story flag `"bestiary_complete"` (which triggers `check_flag_achievement()` → `monster_scholar` unlock → existing AchievementToast auto-displays)
+- `scenes/ui/JournalScene.gd` (via TID-171): `_update_bestiary_header()` shows "★ All enemies defeated!" banner when `bestiary_complete_rewarded` is true
+- `tests/unit/test_bestiary_completion.gd` + `.uid`: 16 tests covering completion detection, one-time guard, coin/card/achievement rewards; all pass
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/bestiary-codex.md` covers reward layer
