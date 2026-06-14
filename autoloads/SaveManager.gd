@@ -124,6 +124,14 @@ var activated_waystones: Array[String] = []
 var bestiary: Dictionary = {}           # type_id -> {seen: int, defeated: int}
 var bestiary_complete_rewarded: bool = false
 
+# Player home
+var home_owned: bool = false
+
+# Respawn point (set when resting at the bed in player_home)
+var respawn_map: String = ""
+var respawn_x: float = 0.0
+var respawn_z: float = 0.0
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -217,13 +225,17 @@ func new_game() -> void:
 	activated_waystones = []
 	bestiary = {}
 	bestiary_complete_rewarded = false
+	home_owned = false
+	respawn_map = ""
+	respawn_x = 0.0
+	respawn_z = 0.0
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 22
+const CURRENT_SAVE_VERSION: int = 23
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -407,13 +419,26 @@ static func _migrate_v20_to_v21(data: Dictionary) -> void:
 		data["activated_waystones"] = []
 	data["version"] = 21
 
-# _migrate_v21_to_v22: backfill bestiary tracking for old saves.
+# _migrate_v21_to_v22: backfill bestiary tracking and player home ownership for old saves.
 static func _migrate_v21_to_v22(data: Dictionary) -> void:
 	if not data.has("bestiary"):
 		data["bestiary"] = {}
 	if not data.has("bestiary_complete_rewarded"):
 		data["bestiary_complete_rewarded"] = false
+	if not data.has("home_owned"):
+		data["home_owned"] = false
 	data["version"] = 22
+
+# _migrate_v22_to_v23: backfill respawn point fields for old saves.
+static func _migrate_v22_to_v23(data: Dictionary) -> void:
+	if not data.has("respawn_map"):
+		data["respawn_map"] = ""
+	if not data.has("respawn_x"):
+		data["respawn_x"] = 0.0
+	if not data.has("respawn_z"):
+		data["respawn_z"] = 0.0
+	data["version"] = 23
+
 
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
@@ -461,6 +486,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v20_to_v21(data)
 	if ver < 22:
 		_migrate_v21_to_v22(data)
+	if ver < 23:
+		_migrate_v22_to_v23(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -536,6 +563,10 @@ func load_save() -> bool:
 	var bst = data.get("bestiary", {})
 	bestiary = bst if bst is Dictionary else {}
 	bestiary_complete_rewarded = bool(data.get("bestiary_complete_rewarded", false))
+	home_owned = bool(data.get("home_owned", false))
+	respawn_map = str(data.get("respawn_map", ""))
+	respawn_x = float(data.get("respawn_x", 0.0))
+	respawn_z = float(data.get("respawn_z", 0.0))
 	_loaded = true
 	return true
 
@@ -597,6 +628,10 @@ func save() -> void:
 		"activated_waystones": activated_waystones,
 		"bestiary": bestiary,
 		"bestiary_complete_rewarded": bestiary_complete_rewarded,
+		"home_owned": home_owned,
+		"respawn_map": respawn_map,
+		"respawn_x": respawn_x,
+		"respawn_z": respawn_z,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -1180,6 +1215,15 @@ func _check_bestiary_complete() -> void:
 	add_coins(500)
 	add_card_instance("soul_harvest", "legendary")
 	set_story_flag("bestiary_complete")
+
+func set_respawn_point(map: String, x: float, z: float) -> void:
+	respawn_map = map
+	respawn_x = x
+	respawn_z = z
+	_dirty = true
+
+func has_respawn_point() -> bool:
+	return respawn_map != "" and home_owned
 
 func increment_day() -> void:
 	days_elapsed += 1

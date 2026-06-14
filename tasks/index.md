@@ -49,7 +49,7 @@
 | [GID-043](goals/GID-043--treasure-maps/goal.md) | Treasure Maps & Buried Caches | done | 3 / 3 |
 | [GID-044](goals/GID-044--waystone-fast-travel/goal.md) | Waystone Fast Travel Network | done | 3 / 3 |
 | [GID-045](goals/GID-045--bestiary-codex/goal.md) | Bestiary Codex | done | 3 / 3 |
-| [GID-046](goals/GID-046--player-home-trophy-hall/goal.md) | Player Home & Trophy Hall | pending | 0 / 3 |
+| [GID-046](goals/GID-046--player-home-trophy-hall/goal.md) | Player Home & Trophy Hall | done | 3 / 3 |
 | [GID-047](goals/GID-047--tap-to-move/goal.md) | Tap-to-Move Pathfinding | pending | 0 / 3 |
 | [GID-048](goals/GID-048--rideable-mounts/goal.md) | Rideable Mounts | pending | 0 / 3 |
 | [GID-049](goals/GID-049--compass-wayfinding/goal.md) | Compass, Waypoints & Objective Wayfinding | pending | 0 / 3 |

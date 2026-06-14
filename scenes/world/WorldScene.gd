@@ -15,6 +15,7 @@ const WeaponRegistry  = preload("res://autoloads/WeaponRegistry.gd")
 const EnemyRegistry   = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponData      = preload("res://data/WeaponData.gd")
 const SaveManager        = preload("res://autoloads/SaveManager.gd")
+const TrophyRegistry     = preload("res://game_logic/TrophyRegistry.gd")
 const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
@@ -261,6 +262,8 @@ func _ready() -> void:
 		_spawn_named_map_scrolls()
 		_spawn_named_map_shrines()
 		_spawn_named_map_waystones()
+		if map_name == "player_home":
+			_spawn_player_home_trophies()
 
 	_update_hud()
 
@@ -1384,6 +1387,10 @@ func _handle_interact() -> void:
 
 	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
 	if not door.is_empty():
+		var door_id: String = str(door.get("id", ""))
+		if door_id == "house_door":
+			_show_house_door_panel()
+			return
 		var target_map: String = door.get("target_map", "")
 		var tdoor: String = door.get("target_door_id", "")
 		AudioManager.play_sfx("door_enter")
@@ -1453,6 +1460,12 @@ func _handle_interact() -> void:
 			return
 		if str(npc.get("npc_type", "")) == "event_room":
 			_show_event_panel(npc)
+			return
+		if str(npc.get("npc_type", "")) == "bed":
+			_handle_bed_interaction()
+			return
+		if str(npc.get("npc_type", "")) == "trophy_pedestal":
+			_show_trophy_info(npc)
 			return
 		var nid: String = str(npc.get("id", ""))
 		var nnode := _npc_nodes.get(nid) as Node3D
@@ -1577,6 +1590,174 @@ func _show_spire_entrance_panel() -> void:
 	leave_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
 	leave_btn.pressed.connect(func() -> void: layer.queue_free())
 	row.add_child(leave_btn)
+
+# ── Player Home ────────────────────────────────────────────────────────────
+
+const _HOUSE_PRICE: int = 500
+
+func _show_house_door_panel() -> void:
+	var sm := SceneManager.save_manager
+	if sm.home_owned:
+		AudioManager.play_sfx("door_enter")
+		SceneManager.enter_map("player_home", "exit_door")
+		return
+
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	_hud.add_child(layer)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel_w: float = vp.x * 0.60
+	var panel_h: float = vh * 0.32
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.04, 0.14, 0.96)
+	style.corner_radius_top_left    = 10
+	style.corner_radius_top_right   = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
+	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
+	margin.add_theme_constant_override("margin_top",    int(vh * 0.02))
+	margin.add_theme_constant_override("margin_bottom", int(vh * 0.02))
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vh * 0.015))
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "House For Sale"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", int(vh * 0.035))
+	vbox.add_child(title)
+
+	var desc := Label.new()
+	desc.text = "Purchase this cozy home for %d coins.\nCurrent balance: %d coins." % [_HOUSE_PRICE, sm.coins]
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc.add_theme_font_size_override("font_size", int(vh * 0.027))
+	vbox.add_child(desc)
+
+	var hbox := HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", int(vh * 0.02))
+	vbox.add_child(hbox)
+
+	var buy_btn := Button.new()
+	buy_btn.text = "Buy (%d coins)" % _HOUSE_PRICE
+	buy_btn.custom_minimum_size = Vector2(vh * 0.26, vh * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
+	buy_btn.disabled = sm.coins < _HOUSE_PRICE
+	hbox.add_child(buy_btn)
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.065)
+	cancel_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
+	hbox.add_child(cancel_btn)
+
+	cancel_btn.pressed.connect(func() -> void: layer.queue_free())
+	buy_btn.pressed.connect(func() -> void:
+		sm.add_coins(-_HOUSE_PRICE)
+		sm.home_owned = true
+		sm.mark_dirty()
+		layer.queue_free()
+		AudioManager.play_sfx("door_enter")
+		SceneManager.enter_map("player_home", "exit_door")
+	)
+
+func _handle_bed_interaction() -> void:
+	var sm := SceneManager.save_manager
+	sm.set_respawn_point("player_home", float(50) * IsoConst.TILE_SIZE, float(53) * IsoConst.TILE_SIZE)
+	sm.time_of_day = 0.25
+	_show_dialogue("You rest peacefully at home. Respawn point set!")
+
+func _spawn_player_home_trophies() -> void:
+	var sm := SceneManager.save_manager
+	var trophy_ids: Array[String] = ["champion", "spire_7", "first_boss"]
+	var tile_positions: Array[Vector2i] = [
+		Vector2i(44, 49),
+		Vector2i(47, 49),
+		Vector2i(50, 49),
+	]
+	for i: int in range(trophy_ids.size()):
+		var tid: String = trophy_ids[i]
+		var trophy: Dictionary = TrophyRegistry.get_trophy(tid)
+		if trophy.is_empty():
+			continue
+		var earned: bool = TrophyRegistry.is_earned(tid, sm)
+		var tp: Vector2i = tile_positions[i]
+		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
+		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
+		var terrain_y: float = get_terrain_height(wx, wz)
+		var npc_data: Dictionary = {
+			"id": "trophy_" + tid,
+			"x": wx,
+			"z": wz,
+			"npc_type": "trophy_pedestal",
+			"trophy_id": tid,
+			"trophy_earned": earned,
+			"dialogue": trophy.get("display_name", tid) + (": " + trophy.get("description", "") if earned else " (not yet earned)"),
+			"flag_key": "",
+		}
+		var pedestal := _make_trophy_pedestal(earned, trophy.get("display_name", tid))
+		pedestal.position = Vector3(wx, terrain_y, wz)
+		_entity_root.add_child(pedestal)
+		register_npc("trophy_" + tid, pedestal, npc_data)
+
+func _make_trophy_pedestal(earned: bool, display_name: String) -> Node3D:
+	var root := Node3D.new()
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.8, 0.65, 0.2) if earned else Color(0.4, 0.4, 0.4)
+
+	var base_mesh := BoxMesh.new()
+	base_mesh.size = Vector3(0.9, 0.5, 0.9)
+	var base := MeshInstance3D.new()
+	base.mesh = base_mesh
+	base.material_override = mat
+	base.position = Vector3(0.0, 0.25, 0.0)
+	root.add_child(base)
+
+	var top_mesh := BoxMesh.new()
+	top_mesh.size = Vector3(0.5, 0.5, 0.5)
+	var top := MeshInstance3D.new()
+	top.mesh = top_mesh
+	top.material_override = mat
+	top.position = Vector3(0.0, 0.75, 0.0)
+	root.add_child(top)
+
+	var lbl := Label3D.new()
+	lbl.text = display_name if earned else "???"
+	lbl.font_size = 28
+	lbl.pixel_size = 0.022
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.no_depth_test = true
+	lbl.position = Vector3(0.0, 1.4, 0.0)
+	lbl.modulate = Color(1.0, 0.9, 0.3) if earned else Color(0.5, 0.5, 0.5)
+	root.add_child(lbl)
+
+	return root
+
+func _show_trophy_info(npc: Dictionary) -> void:
+	var dlg: String = str(npc.get("dialogue", "A mysterious trophy."))
+	_show_dialogue(dlg)
 
 # ── Dialogue ───────────────────────────────────────────────────────────────
 

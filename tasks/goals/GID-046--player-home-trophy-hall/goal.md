@@ -12,9 +12,9 @@ Coins accumulate with few large sinks. A house gives the economy a big-ticket go
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-173 | House purchase flow + interior map + door gating | agent | pending | — |
-| TID-174 | Trophy framework: feats from save data rendered as pedestal entities | agent | pending | TID-173 |
-| TID-175 | Bed rest: heal + set respawn point used by game-over flow | agent | pending | TID-173 |
+| TID-173 | House purchase flow + interior map + door gating | agent | done | — |
+| TID-174 | Trophy framework: feats from save data rendered as pedestal entities | agent | done | TID-173 |
+| TID-175 | Bed rest: heal + set respawn point used by game-over flow | agent | done | TID-173 |
 
 ## Acceptance Criteria
 
