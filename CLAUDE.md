@@ -406,4 +406,5 @@ When adding a new major feature or system, create a corresponding `.md` file in 
 | [docs/agent/skill-trees.md](docs/agent/skill-trees.md) | Branch skill trees, magic type selection, corruption/redemption currencies, cross-magic unlock |
 | [docs/agent/treasure-maps.md](docs/agent/treasure-maps.md) | Treasure map fragments, deterministic dig sites, DigSpot entity, map overlay marker |
 | [docs/agent/waystone-fast-travel.md](docs/agent/waystone-fast-travel.md) | Waystone entities, ID scheme, save tracking, placement, fast-travel UI, teleport routing |
+| [docs/agent/bestiary-codex.md](docs/agent/bestiary-codex.md) | Bestiary system: lore fields, encounter/defeat tracking, JournalScene tab, completion rewards |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

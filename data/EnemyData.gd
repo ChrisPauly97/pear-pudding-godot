@@ -17,3 +17,5 @@ extends Resource
 @export var phase2_deck: PackedStringArray = PackedStringArray()
 ## Difficulty tier (1–4) used to weight rarity on card drops. Higher = rarer drops.
 @export var difficulty_tier: int = 1
+## Short lore blurb revealed in the Bestiary after defeating this enemy 3 times.
+@export var lore_text: String = ""

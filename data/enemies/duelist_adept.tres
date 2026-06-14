@@ -10,3 +10,4 @@ deck = PackedStringArray("ghost", "ghost", "skeleton", "skeleton", "zombie", "zo
 drop_pool = PackedStringArray()
 coin_reward = 0
 difficulty_tier = 2
+lore_text = "A seasoned competitor with dozens of tournament wins behind them. They read the board well and know how to manage resources to outlast less patient opponents."

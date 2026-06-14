@@ -1,10 +1,14 @@
 extends Control
 
+const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+
 signal closed
 
 var _vh: float = 0.0
 var _vw: float = 0.0
 var _selected_id: String = ""
+var _active_tab: String = "scrolls"
+var _bestiary_selected_id: String = ""
 
 var _scroll_list: VBoxContainer
 var _title_label: Label
@@ -12,6 +16,8 @@ var _lore_label: RichTextLabel
 var _replay_btn: Button
 var _header_label: Label
 var _treasure_label: Label
+var _tab_scrolls_btn: Button
+var _tab_bestiary_btn: Button
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
@@ -63,6 +69,29 @@ func _build_ui() -> void:
 	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
 	close_btn.pressed.connect(_close)
 	header_row.add_child(close_btn)
+
+	# ── Tab bar ───────────────────────────────────────────────────────────────
+	var tab_bar := HBoxContainer.new()
+	tab_bar.add_theme_constant_override("separation", 0)
+	root_vbox.add_child(tab_bar)
+
+	_tab_scrolls_btn = Button.new()
+	_tab_scrolls_btn.text = "Scrolls"
+	_tab_scrolls_btn.flat = true
+	_tab_scrolls_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_scrolls_btn.custom_minimum_size = Vector2(0, _vh * 0.05)
+	_tab_scrolls_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_tab_scrolls_btn.pressed.connect(_on_tab_selected.bind("scrolls"))
+	tab_bar.add_child(_tab_scrolls_btn)
+
+	_tab_bestiary_btn = Button.new()
+	_tab_bestiary_btn.text = "Bestiary"
+	_tab_bestiary_btn.flat = true
+	_tab_bestiary_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_bestiary_btn.custom_minimum_size = Vector2(0, _vh * 0.05)
+	_tab_bestiary_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_tab_bestiary_btn.pressed.connect(_on_tab_selected.bind("bestiary"))
+	tab_bar.add_child(_tab_bestiary_btn)
 
 	# ── Treasure status row ───────────────────────────────────────────────────
 	_treasure_label = Label.new()
@@ -152,9 +181,14 @@ func _refresh_treasure_panel() -> void:
 		_treasure_label.text = "Map Fragments: 0 / 3 — Collect 3 to form a treasure map."
 
 func _show_empty_state() -> void:
-	var found: int = SaveManager.collected_scrolls.size()
-	_header_label.text = "Journal — %d / %d Scrolls" % [found, ScrollRegistry.SCROLL_COUNT]
-	_title_label.text = "No scroll selected"
+	if _active_tab == "bestiary":
+		_update_bestiary_header()
+		_title_label.text = "Select an entry"
+	else:
+		var found: int = SaveManager.collected_scrolls.size()
+		_header_label.text = "Journal — %d / %d Scrolls" % [found, ScrollRegistry.SCROLL_COUNT]
+		_title_label.text = "No scroll selected"
+	_title_label.modulate = Color(1, 1, 1)
 	_lore_label.text = ""
 	_replay_btn.hide()
 
@@ -198,6 +232,90 @@ func _on_scroll_selected(scroll_id: String) -> void:
 func _on_replay_pressed() -> void:
 	if _selected_id != "":
 		AudioManager.play_narration(_selected_id)
+
+func _on_tab_selected(tab: String) -> void:
+	_active_tab = tab
+	_show_empty_state()
+	if tab == "scrolls":
+		_populate_scroll_list()
+	else:
+		_populate_bestiary_list()
+
+func _get_bestiary_tier(type_id: String) -> int:
+	var entry: Dictionary = SaveManager.get_bestiary_entry(type_id)
+	var seen: int = int(entry.get("seen", 0))
+	var defeated: int = int(entry.get("defeated", 0))
+	if seen == 0:
+		return 0
+	if defeated >= 3:
+		return 2
+	return 1
+
+func _update_bestiary_header() -> void:
+	var all_ids: Array[String] = _EnemyRegistry.get_all_enemy_ids()
+	var total: int = all_ids.size()
+	var revealed: int = 0
+	for tid: String in all_ids:
+		if _get_bestiary_tier(tid) >= 1:
+			revealed += 1
+	var complete_banner: String = ""
+	if SaveManager.bestiary_complete_rewarded:
+		complete_banner = "  ★ All enemies defeated!"
+	_header_label.text = "Bestiary — %d / %d Revealed%s" % [revealed, total, complete_banner]
+
+func _populate_bestiary_list() -> void:
+	for child in _scroll_list.get_children():
+		child.queue_free()
+	var all_ids: Array[String] = _EnemyRegistry.get_all_enemy_ids()
+	for type_id: String in all_ids:
+		var tier: int = _get_bestiary_tier(type_id)
+		var btn := Button.new()
+		btn.flat = true
+		btn.custom_minimum_size = Vector2(_vw * 0.22, _vh * 0.055)
+		btn.add_theme_font_size_override("font_size", int(_vh * 0.020))
+		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		match tier:
+			0:
+				btn.text = "???"
+				btn.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5))
+			1:
+				btn.text = _EnemyRegistry.get_display_name(type_id)
+			2:
+				btn.text = _EnemyRegistry.get_display_name(type_id)
+				btn.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+		btn.pressed.connect(_on_bestiary_enemy_selected.bind(type_id))
+		_scroll_list.add_child(btn)
+
+func _on_bestiary_enemy_selected(type_id: String) -> void:
+	_bestiary_selected_id = type_id
+	_show_bestiary_detail(type_id)
+
+func _show_bestiary_detail(type_id: String) -> void:
+	var tier: int = _get_bestiary_tier(type_id)
+	_replay_btn.hide()
+	match tier:
+		0:
+			_title_label.text = "???"
+			_title_label.modulate = Color(0.4, 0.4, 0.4)
+			_lore_label.text = "Encounter this enemy to reveal more."
+		1:
+			_title_label.text = _EnemyRegistry.get_display_name(type_id)
+			_title_label.modulate = Color(1, 1, 1)
+			var entry: Dictionary = SaveManager.get_bestiary_entry(type_id)
+			var defeated: int = int(entry.get("defeated", 0))
+			var deck: Array[String] = _EnemyRegistry.get_deck(type_id)
+			var diff: int = _EnemyRegistry.get_difficulty_tier(type_id)
+			var coins: int = _EnemyRegistry.get_coin_reward(type_id)
+			var remaining: int = max(0, 3 - defeated)
+			_lore_label.text = "Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n[Defeat %d more time(s) to reveal lore]" % [deck.size(), diff, coins, remaining]
+		2:
+			_title_label.text = _EnemyRegistry.get_display_name(type_id)
+			_title_label.modulate = Color(1, 1, 1)
+			var deck2: Array[String] = _EnemyRegistry.get_deck(type_id)
+			var diff2: int = _EnemyRegistry.get_difficulty_tier(type_id)
+			var coins2: int = _EnemyRegistry.get_coin_reward(type_id)
+			var lore: String = _EnemyRegistry.get_lore_text(type_id)
+			_lore_label.text = "Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n%s" % [deck2.size(), diff2, coins2, lore]
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):

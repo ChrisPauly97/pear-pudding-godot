@@ -106,6 +106,15 @@ const ACHIEVEMENTS: Array = [
 		"reward_card_id": "",
 		"flag_key": "spire_reached_floor_10",
 	},
+	{
+		"id": "monster_scholar",
+		"name": "Monster Scholar",
+		"description": "Defeat every enemy type at least once.",
+		"condition_type": "specific_flag",
+		"target_value": 1,
+		"reward_card_id": "",
+		"flag_key": "bestiary_complete",
+	},
 ]
 
 static func get_all() -> Array:
