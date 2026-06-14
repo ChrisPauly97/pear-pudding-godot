@@ -12,9 +12,11 @@ enum State {
 	RUN_SUMMARY,
 	CHARACTER,
 	SKILL_TREE,
+	PACK_OPEN,
 }
 
 const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
+const _PackOpenSceneScript = preload("res://scenes/ui/PackOpenScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
 const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
@@ -45,6 +47,7 @@ var _achievements_overlay: Node = null
 var _character_overlay: Node = null
 var _skill_tree_overlay: Node = null
 var _spire_draft_overlay: Node = null
+var _pack_open_overlay: Node = null
 var _saved_world_scene: Node = null
 
 # Ephemeral session statistics — reset on new/continue game, not persisted.
@@ -96,6 +99,7 @@ func _ready() -> void:
 	GameBus.fragment_collected.connect(_on_fragment_collected)
 	GameBus.treasure_map_assembled.connect(_on_treasure_map_assembled)
 	GameBus.treasure_excavated.connect(_on_treasure_excavated)
+	GameBus.pack_purchased.connect(_on_pack_purchased)
 
 func go_to_menu() -> void:
 	_flush_position_save()
@@ -247,6 +251,9 @@ func _exit_world_cleanup() -> void:
 	if _spire_draft_overlay != null:
 		_spire_draft_overlay.queue_free()
 		_spire_draft_overlay = null
+	if _pack_open_overlay != null:
+		_pack_open_overlay.queue_free()
+		_pack_open_overlay = null
 	map_stack.clear()
 	door_stack.clear()
 	current_map = ""
@@ -657,6 +664,25 @@ func _show_spire_draft(floor: int) -> void:
 
 func _on_spire_draft_picked(_card_id: String) -> void:
 	_spire_draft_overlay = null  # SpireDraftScene.queue_free()s itself in _on_pick
+
+func _on_pack_purchased(pack_id: String, rolled_cards: Array[Dictionary]) -> void:
+	if _state != State.SHOP:
+		return
+	# Close the shop overlay before showing the opening ceremony.
+	if _shop_overlay != null:
+		_shop_overlay.queue_free()
+		_shop_overlay = null
+	_pack_open_overlay = _PackOpenSceneScript.new()
+	_pack_open_overlay.set("_rolled_cards", rolled_cards)
+	_pack_open_overlay.closed.connect(_on_pack_open_closed)
+	get_tree().current_scene.add_child(_pack_open_overlay)
+	_state = State.PACK_OPEN
+
+func _on_pack_open_closed() -> void:
+	if _pack_open_overlay != null:
+		_pack_open_overlay.queue_free()
+		_pack_open_overlay = null
+	_state = State.WORLD
 
 func _advance_spire_floor() -> void:
 	save_manager.advance_spire_floor()

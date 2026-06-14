@@ -2,7 +2,7 @@
 
 **Goal:** GID-050
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-185
 
 ## Lock
@@ -35,12 +35,31 @@ Guarantee a legendary card within N packs (20) to prevent long drought streaks. 
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `packs_since_legendary: int = 0` field to SaveManager.
+2. Add `increment_pity()` and `reset_pity()` methods to SaveManager.
+3. Add migration `_migrate_v24_to_v25()` (actual version was 24 at implementation time, not 14).
+4. Add pity check to `PackDefs.roll_pack()` via `current_pity` parameter.
+5. Wire up `_on_buy_pack()` in ShopScene to increment before rolling, reset after if legendary.
+6. Add pity hint label in `_make_pack_row()`.
+7. Add pity reset in `PackOpenScene._populate_face()` when rarity is legendary.
+8. Write unit tests for all pity counter behaviour.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/SaveManager.gd`**:
+  - Added `var packs_since_legendary: int = 0` field.
+  - `CURRENT_SAVE_VERSION` bumped from 24 → 25.
+  - Added `static func _migrate_v24_to_v25(data: Dictionary) -> void` — adds `packs_since_legendary: 0` if absent, bumps version to 25.
+  - Added `if ver < 25: _migrate_v24_to_v25(data)` to `_apply_migrations()`.
+  - Added `packs_since_legendary = int(data.get("packs_since_legendary", 0))` to `load_save()`.
+  - Added `"packs_since_legendary": packs_since_legendary` to `save()` dict.
+  - Added `packs_since_legendary = 0` to `new_game()`.
+  - Added `increment_pity()` and `reset_pity()` public methods.
+- **`game_logic/PackDefs.gd`**: `roll_pack()` accepts `current_pity: int` parameter; forces last slot to legendary when `current_pity >= PITY_THRESHOLD`.
+- **`scenes/ui/ShopScene.gd`**: `_make_pack_row()` shows pity hint label when `packs_since_legendary > 0`; `_on_buy_pack()` calls `increment_pity()` before rolling and `reset_pity()` if threshold reached.
+- **`scenes/ui/PackOpenScene.gd`**: `_populate_face()` calls `reset_pity()` when revealed card rarity is legendary.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Covered in `docs/agent/card-packs.md` (see TID-185 docs update).
+- `docs/agent/save-system.md` should be updated to note the packs_since_legendary field and v24→v25 migration (covered in card-packs.md).

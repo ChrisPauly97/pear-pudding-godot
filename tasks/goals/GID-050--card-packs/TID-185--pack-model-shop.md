@@ -2,7 +2,7 @@
 
 **Goal:** GID-050
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -43,12 +43,22 @@ Pack definitions, rarity tier mapping, roll logic, and merchant shop UI integrat
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/PackDefs.gd` with PACKS table, `get_pack()`, `get_all_pack_ids()`, and `roll_pack()`.
+2. Add `pack_purchased` signal to `autoloads/GameBus.gd`.
+3. Add "— Packs —" section to `scenes/ui/ShopScene.gd` with `_make_pack_row()` and `_on_buy_pack()`.
+4. Add SceneManager routing for `pack_purchased` signal → `PackOpenScene` overlay.
+5. Write unit tests in `tests/unit/test_card_packs.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/PackDefs.gd`** (new): Static pack definitions (standard_pack at 120 coins tier-1, premium_pack at 300 coins tier-2 with guaranteed_min_rarity:"rare"), `PITY_THRESHOLD = 20`, `get_pack()`, `get_all_pack_ids()`, `roll_pack(pack_id, current_pity)`. Builds craftable-card pool from CardRegistry, rolls via CardDropUtil, applies guaranteed_min_rarity to slot 1, applies pity force to last slot.
+- **`autoloads/GameBus.gd`**: Added `signal pack_purchased(pack_id: String, rolled_cards: Array[Dictionary])`.
+- **`scenes/ui/ShopScene.gd`**: Added `const PackDefs = preload(...)`, "— Packs —" section in `_refresh()`, `_make_pack_row()` helper (shows pack name, price, buy button, pity hint label), `_on_buy_pack()` handler.
+- **`autoloads/SceneManager.gd`**: Added `PACK_OPEN` State enum value, `_PackOpenSceneScript` preload, `_pack_open_overlay` field, `_on_pack_purchased()` and `_on_pack_open_closed()` handlers, connected signal in `_ready()`, cleanup in `_exit_world_cleanup()`.
+- **`tests/unit/test_card_packs.gd`** (new): 31 unit tests covering pack table shape, roll counts, template validity, rarity validity, pity logic, SaveManager helpers, and migration.
+- **`tests/runner.gd`**: Added `test_card_packs` suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/card-packs.md` covering pack system design, roll logic, pity counter, SceneManager routing, and shop integration.
+- Updated `docs/agent/signals-and-constants.md` GameBus signal table to include `pack_purchased`.

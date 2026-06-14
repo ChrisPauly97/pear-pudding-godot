@@ -83,6 +83,7 @@ This means `EnemyNPC` never imports `SceneManager`, and `BattleScene` never impo
 | `treasure_excavated` | `SaveManager.complete_treasure()` | `SceneManager` (toast) | `coins: int, card_id: String` |
 | `waystone_activated` | `Waystone.mark_activated()` | `WorldScene` (toast + visual update) | `waystone_id: String` |
 | `mount_state_changed` | `SaveManager.summon_mount()` / `dismiss_mount()` | HUD mount button (TID-180), `WorldScene` visuals (TID-181) | `mounted: bool, mount_id: String` |
+| `pack_purchased` | `ShopScene._on_buy_pack()` | `SceneManager._on_pack_purchased()` | `pack_id: String, rolled_cards: Array[Dictionary]` |
 
 ---
 

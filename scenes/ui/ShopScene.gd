@@ -4,6 +4,7 @@ signal closed
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
+const PackDefs = preload("res://game_logic/PackDefs.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
@@ -109,6 +110,14 @@ func _refresh() -> void:
 			var row := _make_card_row(id, tmpl, coins, price)
 			_shop_list.add_child(row)
 		return
+
+	# ---- Packs section ---------------------------------------------------
+	_shop_list.add_child(_make_section_header("— Packs —"))
+	for pack_id: String in PackDefs.get_all_pack_ids():
+		var pack_def: Dictionary = PackDefs.get_pack(pack_id)
+		if pack_def.is_empty():
+			continue
+		_shop_list.add_child(_make_pack_row(pack_id, pack_def, coins))
 
 	# ---- Cards section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Cards —"))
@@ -349,6 +358,65 @@ func _show_inspect(card_id: String) -> void:
 	overlay.show_card(card)
 	overlay.closed.connect(func() -> void: _inspect_overlay = null)
 	_inspect_overlay = overlay
+
+func _make_pack_row(pack_id: String, pack_def: Dictionary, coins: int) -> VBoxContainer:
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", int(_vh * 0.004))
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(_vw * 0.008))
+
+	var pack_name: String = str(pack_def.get("name", pack_id))
+	var price: int = int(pack_def.get("price", 0))
+
+	var info_lbl := Label.new()
+	info_lbl.text = "%s  — 3 cards" % pack_name
+	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info_lbl)
+
+	var price_lbl := Label.new()
+	price_lbl.text = "%d coins" % price
+	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
+	row.add_child(price_lbl)
+
+	var buy_btn := Button.new()
+	buy_btn.text = "Buy"
+	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	buy_btn.disabled = coins < price
+	buy_btn.pressed.connect(_on_buy_pack.bind(pack_id, price))
+	row.add_child(buy_btn)
+
+	outer.add_child(row)
+
+	# Pity hint below the row.
+	var pity: int = SceneManager.save_manager.packs_since_legendary
+	if pity > 0:
+		var remaining: int = PackDefs.PITY_THRESHOLD - pity
+		var pity_lbl := Label.new()
+		if remaining > 0:
+			pity_lbl.text = "Legendary guaranteed in %d more packs" % remaining
+		else:
+			pity_lbl.text = "Pity active — next pack guaranteed legendary!"
+		pity_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+		pity_lbl.modulate = Color(0.7, 0.7, 0.7)
+		pity_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		outer.add_child(pity_lbl)
+
+	return outer
+
+func _on_buy_pack(pack_id: String, price: int) -> void:
+	var sm := SceneManager.save_manager
+	if sm.coins < price:
+		return
+	sm.add_coins(-price)
+	sm.increment_pity()
+	var rolled: Array[Dictionary] = PackDefs.roll_pack(pack_id, sm.packs_since_legendary)
+	if sm.packs_since_legendary >= PackDefs.PITY_THRESHOLD:
+		sm.reset_pity()
+	GameBus.pack_purchased.emit(pack_id, rolled)
 
 func _on_close() -> void:
 	closed.emit()
