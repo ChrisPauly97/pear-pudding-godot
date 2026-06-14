@@ -125,3 +125,17 @@ func _release_move() -> void:
 	Input.action_release("move_down")
 	Input.action_release("move_left")
 	Input.action_release("move_right")
+
+# Returns true if pos falls within any of the virtual-joystick interactive circles.
+# Used by WorldScene to prevent tap-to-move from firing when the player touches
+# the joystick pad, jump button, or interact button.
+func is_touch_in_control_area(pos: Vector2) -> bool:
+	if not visible:
+		return false
+	if pos.distance_to(_get_joy_center()) <= _base_r * 1.5:
+		return true
+	if pos.distance_to(_get_jump_center()) <= _jump_r * 1.5:
+		return true
+	if pos.distance_to(_get_interact_center()) <= _interact_r * 1.5:
+		return true
+	return false

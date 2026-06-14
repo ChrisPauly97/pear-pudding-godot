@@ -12,9 +12,9 @@ The single biggest mobile navigation win. Movement today is joystick/WASD only. 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-176 | A* pathfinding over walkable tiles (Callable tile lookup, named maps + loaded chunks) | agent | pending | — |
-| TID-177 | Tap/click destination input: screen→tile raycast, destination marker, cancel rules | agent | pending | TID-176 |
-| TID-178 | Path-following in Player + edge cases (unreachable, interrupts, chunk bounds) | agent | pending | TID-176 |
+| TID-176 | A* pathfinding over walkable tiles (Callable tile lookup, named maps + loaded chunks) | agent | done | — |
+| TID-177 | Tap/click destination input: screen→tile raycast, destination marker, cancel rules | agent | done | TID-176 |
+| TID-178 | Path-following in Player + edge cases (unreachable, interrupts, chunk bounds) | agent | done | TID-176 |
 
 ## Acceptance Criteria
 
