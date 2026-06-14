@@ -10,3 +10,4 @@ deck = PackedStringArray("ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", 
 drop_pool = PackedStringArray("ghoul", "restore", "drain", "blitz_ghoul", "veiled_paladin", "ash_warden")
 coin_reward = 20
 difficulty_tier = 4
+lore_text = "A champion re-risen by Martarquas sorcery, the Undead Warlord retains fragments of its battle tactics. It fights with brutal efficiency — a grim echo of the soldier it once was."

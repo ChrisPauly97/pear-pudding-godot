@@ -10,3 +10,4 @@ deck = PackedStringArray("ghost", "ghost", "ghost", "ghost", "skeleton", "skelet
 drop_pool = PackedStringArray("skeleton", "zombie", "dawn_acolyte", "dusk_wraith", "shrouded_wraith", "dusk_seer", "void_creeper")
 coin_reward = 8
 difficulty_tier = 2
+lore_text = "Where one undead wanders, a horde is never far behind. These pack hunters press forward in relentless waves, making up in numbers what they lack in cunning."

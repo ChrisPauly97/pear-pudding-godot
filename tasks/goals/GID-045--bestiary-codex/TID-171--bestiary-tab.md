@@ -2,7 +2,7 @@
 
 **Goal:** GID-045
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-170
 
 ## Lock
@@ -44,12 +44,20 @@ The UI layer for the bestiary. Extends `JournalScene` with a second tab for view
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `const _EnemyRegistry`, `_active_tab`, `_bestiary_selected_id`, `_tab_scrolls_btn`, `_tab_bestiary_btn` to `JournalScene.gd`
+2. Insert tab bar (HBoxContainer with 2 flat buttons) in `_build_ui()` between header row and treasure label
+3. Update `_show_empty_state()` to branch on `_active_tab` for header text and empty title
+4. Add methods: `_on_tab_selected()`, `_get_bestiary_tier()`, `_update_bestiary_header()`, `_populate_bestiary_list()`, `_on_bestiary_enemy_selected()`, `_show_bestiary_detail()`
+5. Bestiary list: rows sorted by `EnemyRegistry.get_all_enemy_ids()`, styled by tier (grey "???", white name, gold name)
+6. Detail panel: tier 0 = "???" dimmed + message; tier 1 = stats + countdown; tier 2 = stats + lore_text
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/ui/JournalScene.gd`: added `const _EnemyRegistry` preload; added vars `_active_tab`, `_bestiary_selected_id`, `_tab_scrolls_btn`, `_tab_bestiary_btn`; inserted tab bar (HBoxContainer with 2 flat viewport-relative buttons) in `_build_ui()` between header and treasure label; updated `_show_empty_state()` to branch on `_active_tab`; added `_on_tab_selected()`, `_get_bestiary_tier()`, `_update_bestiary_header()`, `_populate_bestiary_list()`, `_on_bestiary_enemy_selected()`, `_show_bestiary_detail()` methods
+- Bestiary list uses grey "???" for tier 0, white name for tier 1, gold name for tier 2
+- Detail panel shows encounter prompt (tier 0), stats + countdown (tier 1), stats + lore_text (tier 2)
+- Header shows "Bestiary — N / M Revealed" with "★ All enemies defeated!" banner on completion
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/bestiary-codex.md` (created as part of TID-170)

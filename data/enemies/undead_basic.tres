@@ -10,3 +10,4 @@ deck = PackedStringArray("ghost", "ghost", "ghost", "skeleton", "skeleton", "ske
 drop_pool = PackedStringArray("ghost", "skeleton", "mend", "wither", "surge_spirit", "ember_imp")
 coin_reward = 5
 difficulty_tier = 1
+lore_text = "Drawn forth by ancient dark rites, these shambling dead roam the wilds seeking the warmth of the living. They are slow but relentless, overwhelming lone travelers with sheer numbers."

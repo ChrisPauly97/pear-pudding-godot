@@ -126,3 +126,25 @@ static func type_for_biome(biome_id: int, dist: int) -> String:
 	var pool: Array = BiomeDef.ENEMY_POOLS[biome_id]
 	var idx: int = clamp(dist / 8, 0, pool.size() - 1)
 	return pool[idx]
+
+## Returns all known enemy type IDs sorted by difficulty_tier then id.
+static func get_all_enemy_ids() -> Array[String]:
+	_ensure_loaded()
+	var result: Array[String] = []
+	for k: String in _enemies.keys():
+		result.append(k)
+	result.sort_custom(func(a: String, b: String) -> bool:
+		var ta: int = (_enemies[a] as EnemyData).difficulty_tier
+		var tb: int = (_enemies[b] as EnemyData).difficulty_tier
+		if ta != tb:
+			return ta < tb
+		return a < b
+	)
+	return result
+
+## Returns the lore text for a type, or "" if unknown or not yet written.
+static func get_lore_text(type_id: String) -> String:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return (_enemies[type_id] as EnemyData).lore_text
+	return ""

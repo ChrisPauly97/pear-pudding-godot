@@ -10,3 +10,4 @@ deck = PackedStringArray("ghost", "ghost", "ghost", "skeleton", "skeleton", "ske
 drop_pool = PackedStringArray()
 coin_reward = 0
 difficulty_tier = 1
+lore_text = "A young card duelist eager to prove themselves on the Blancogov tournament circuit. Their deck is simple, but they fight with an enthusiasm that belies their rank."

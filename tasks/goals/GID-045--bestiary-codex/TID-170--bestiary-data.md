@@ -2,7 +2,7 @@
 
 **Goal:** GID-045
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -54,12 +54,25 @@ The data layer for the bestiary system. Extends `EnemyData` resource format with
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `@export var lore_text: String = ""` to `data/EnemyData.gd`
+2. Write lore blurbs into all 8 bundled enemy `.tres` files
+3. Add `bestiary: Dictionary` and `bestiary_complete_rewarded: bool` vars to `SaveManager`
+4. Bump `CURRENT_SAVE_VERSION` to 22; add `_migrate_v21_to_v22()`; wire into `_apply_migrations()`, `load_save()`, `save()`
+5. Add `record_enemy_seen()`, `record_enemy_defeated()`, `get_bestiary_entry()`, `is_bestiary_complete()`, `_check_bestiary_complete()` to SaveManager
+6. Add `get_all_enemy_ids()` and `get_lore_text()` to EnemyRegistry
+7. Hook `record_enemy_seen` in `SceneManager._on_enemy_engaged()`; hook `record_enemy_defeated` in `SceneManager._on_battle_won()` (both regular and Spire paths)
+8. Add `const _EnemyRegistry = preload(...)` to SaveManager for `is_bestiary_complete()` call
+9. Write `tests/unit/test_bestiary_data.gd` + .uid sidecar
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/EnemyData.gd`: added `@export var lore_text: String = ""`
+- `data/enemies/undead_basic.tres`, `undead_horde.tres`, `ghoul_pack.tres`, `undead_elite.tres`, `duelist_novice.tres`, `duelist_adept.tres`, `duelist_champion.tres`, `roaming_terror.tres`: added `lore_text` field with 1–2 sentence lore blurb for each
+- `autoloads/EnemyRegistry.gd`: added `get_all_enemy_ids()` (sorted by difficulty_tier then id) and `get_lore_text()` static methods
+- `autoloads/SaveManager.gd`: added `const _EnemyRegistry` preload; added `bestiary: Dictionary` and `bestiary_complete_rewarded: bool` instance vars; bumped `CURRENT_SAVE_VERSION` to 22; added `_migrate_v21_to_v22()`; wired migration into `_apply_migrations()`, `load_save()`, `save()`, and `new_game()` reset; added `record_enemy_seen()`, `record_enemy_defeated()`, `get_bestiary_entry()`, `is_bestiary_complete()`, `_check_bestiary_complete()` methods
+- `autoloads/SceneManager.gd`: `_on_enemy_engaged()` now calls `save_manager.record_enemy_seen(enemy_type)`; `_on_battle_won()` now calls `save_manager.record_enemy_defeated(enemy_type)` in both regular and Spire paths
+- `tests/unit/test_bestiary_data.gd` + `.uid`: 19 tests covering seen/defeated counters, entry reads, migration, and lore_text presence; all pass
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/bestiary-codex.md` with full feature overview
