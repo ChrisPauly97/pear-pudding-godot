@@ -15,6 +15,7 @@ const WeaponRegistry  = preload("res://autoloads/WeaponRegistry.gd")
 const EnemyRegistry   = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponData      = preload("res://data/WeaponData.gd")
 const SaveManager        = preload("res://autoloads/SaveManager.gd")
+const MountRegistry      = preload("res://game_logic/MountRegistry.gd")
 const TrophyRegistry     = preload("res://game_logic/TrophyRegistry.gd")
 const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
@@ -141,6 +142,7 @@ var _level_label: Label
 var _xp_bar: ProgressBar
 var _map_overlay: Node = null
 var _interact_btn: Button = null
+var _mount_btn: Button = null
 var _dialogue_timer: float = 0.0
 const DIALOGUE_DURATION: float = 4.0
 
@@ -330,6 +332,17 @@ func _ready() -> void:
 	skill_btn.add_theme_font_size_override("font_size", font_size)
 	skill_btn.pressed.connect(func() -> void: GameBus.skill_tree_requested.emit())
 	_hud.add_child(skill_btn)
+
+	_mount_btn = Button.new()
+	_mount_btn.text = "Mount"
+	_mount_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
+	_mount_btn.position = Vector2(btn_x, minimap_bottom + (btn_h + vh * 0.005) * 4)
+	_mount_btn.add_theme_font_size_override("font_size", font_size)
+	_mount_btn.flat = true
+	_mount_btn.pressed.connect(_toggle_mount)
+	_mount_btn.hide()
+	_hud.add_child(_mount_btn)
+	GameBus.mount_state_changed.connect(_on_mount_state_changed)
 
 	if OS.has_feature("android"):
 		_interact_btn = Button.new()
@@ -1316,6 +1329,9 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("interact"):
 		_handle_interact()
 
+	if Input.is_action_just_pressed("mount"):
+		_toggle_mount()
+
 func _check_interactions() -> void:
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
@@ -1451,6 +1467,9 @@ func _handle_interact() -> void:
 			return
 		if str(npc.get("npc_type", "")) == "merchant":
 			GameBus.shop_requested.emit()
+			return
+		if str(npc.get("npc_type", "")) == "stable":
+			_show_stable_panel()
 			return
 		if str(npc.get("npc_type", "")) == "duelist":
 			_show_duel_offer_panel(npc)
@@ -1680,6 +1699,136 @@ func _show_house_door_panel() -> void:
 		layer.queue_free()
 		AudioManager.play_sfx("door_enter")
 		SceneManager.enter_map("player_home", "exit_door")
+	)
+
+const MOUNT_PRICE: int = 750
+const MOUNT_LEVEL_REQ: int = 10
+
+func _toggle_mount() -> void:
+	var sm := SceneManager.save_manager
+	if sm.current_map != "main":
+		return
+	if sm.owned_mounts.size() == 0:
+		return
+	if sm.is_mounted:
+		sm.dismiss_mount()
+	else:
+		sm.summon_mount(str(sm.owned_mounts[0]))
+
+func _update_mount_btn() -> void:
+	if _mount_btn == null:
+		return
+	var sm := SceneManager.save_manager
+	var show: bool = sm.owned_mounts.size() > 0 and sm.current_map == "main"
+	_mount_btn.visible = show
+	_mount_btn.text = "Dismount" if sm.is_mounted else "Mount"
+
+func _on_mount_state_changed(_mounted: bool, _mount_id: String) -> void:
+	_update_mount_btn()
+
+func _show_stable_panel() -> void:
+	var sm := SceneManager.save_manager
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+
+	if sm.owned_mounts.has("stable_horse"):
+		_show_dialogue("You already own a Stable Horse!")
+		return
+
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	_hud.add_child(layer)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel_w: float = vp.x * 0.60
+	var panel_h: float = vh * 0.36
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.06, 0.04, 0.14, 0.96)
+	style.corner_radius_top_left    = 10
+	style.corner_radius_top_right   = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
+	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
+	margin.add_theme_constant_override("margin_top",    int(vh * 0.02))
+	margin.add_theme_constant_override("margin_bottom", int(vh * 0.02))
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vh * 0.015))
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Madrian Stables"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", int(vh * 0.035))
+	vbox.add_child(title)
+
+	var mount: Dictionary = MountRegistry.get_mount("stable_horse")
+	var desc := Label.new()
+	desc.text = "%s\n  Speed: ×%.1f   Price: %d coins" % [
+		str(mount.get("display_name", "Stable Horse")),
+		float(mount.get("speed_multiplier", 2.0)),
+		MOUNT_PRICE,
+	]
+	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	desc.add_theme_font_size_override("font_size", int(vh * 0.027))
+	vbox.add_child(desc)
+
+	var level_lbl := Label.new()
+	var level_ok: bool = sm.level >= MOUNT_LEVEL_REQ
+	var coins_ok: bool = sm.coins >= MOUNT_PRICE
+	if not level_ok:
+		level_lbl.text = "Requires level %d (you are level %d)" % [MOUNT_LEVEL_REQ, sm.level]
+		level_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+	elif not coins_ok:
+		level_lbl.text = "Insufficient coins (need %d, have %d)" % [MOUNT_PRICE, sm.coins]
+		level_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
+	else:
+		level_lbl.text = "Balance: %d coins" % sm.coins
+	level_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	level_lbl.add_theme_font_size_override("font_size", int(vh * 0.025))
+	vbox.add_child(level_lbl)
+
+	var hbox := HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", int(vh * 0.02))
+	vbox.add_child(hbox)
+
+	var buy_btn := Button.new()
+	buy_btn.text = "Buy (%d coins)" % MOUNT_PRICE
+	buy_btn.custom_minimum_size = Vector2(vh * 0.28, vh * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
+	buy_btn.disabled = not level_ok or not coins_ok
+	hbox.add_child(buy_btn)
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.065)
+	cancel_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
+	hbox.add_child(cancel_btn)
+
+	cancel_btn.pressed.connect(func() -> void: layer.queue_free())
+	buy_btn.pressed.connect(func() -> void:
+		sm.add_coins(-MOUNT_PRICE)
+		sm.owned_mounts.append("stable_horse")
+		sm.summon_mount("stable_horse")
+		layer.queue_free()
+		_update_mount_btn()
+		_show_dialogue("You purchased a Stable Horse! Press T or tap Mount to ride.")
 	)
 
 func _handle_bed_interaction() -> void:

@@ -2,7 +2,7 @@
 
 **Goal:** GID-048
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-179
 
 ## Lock
@@ -66,12 +66,20 @@ The sales entry point: a stable NPC merchant in madrian that enforces a level 10
 
 ## Plan
 
-_Written during Plan phase._
+1. `project.godot` — add `mount` input action (T key, physical_keycode 84).
+2. `assets/maps/madrian.tres` — add `stable_master` sub_resource (npc_type="stable", tile 75,42) and append to npcs array.
+3. `scenes/world/WorldScene.gd` — add MountRegistry preload, `_mount_btn` member var, mount HUD button below Skills, `_update_mount_btn()`, `_toggle_mount()`, `stable` npc_type routing, `_show_stable_panel()`, mount key press in `_process()`, connect `GameBus.mount_state_changed`.
+4. `tests/unit/test_mount_purchase_hud.gd` — pure-logic tests for can_buy conditions and HUD visibility predicates (no UI rendering).
+5. `tests/runner.gd` — register new suite.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`project.godot`**: Added `mount` input action (T key, physical_keycode 84).
+- **`assets/maps/madrian.tres`**: Added `MapNpc_10` sub_resource — stable_master NPC at tile (75, 42), npc_type="stable"; appended to npcs array (now 10 NPCs).
+- **`scenes/world/WorldScene.gd`**: Added `MountRegistry` preload; `_mount_btn: Button` member variable; mount HUD button below Skills (position `* 4`, flat=true, hidden by default); `_toggle_mount()`, `_update_mount_btn()`, `_on_mount_state_changed()`, `_show_stable_panel()` helper methods; `stable` npc_type routing in `_handle_interact()`; mount key-press check in `_process()`; `GameBus.mount_state_changed` signal connection; `MOUNT_PRICE = 750` and `MOUNT_LEVEL_REQ = 10` constants.
+- **`tests/unit/test_mount_purchase_hud.gd`** (new): 24 tests covering can_buy predicate (level gate + coin gate), purchase state transitions, HUD visibility conditions, button text toggling, and toggle logic. All pass.
+- **`tests/runner.gd`**: Registered new suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required beyond task tracking. The stable NPC and HUD button pattern follows existing WorldScene conventions documented in `docs/agent/ui-and-scene-management.md`.
