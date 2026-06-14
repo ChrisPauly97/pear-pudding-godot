@@ -2,7 +2,7 @@
 
 **Goal:** GID-044  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** TID-167
 
 ## Lock
@@ -49,12 +49,14 @@ Placing waystones in the world: one per town in named maps (via entity data), an
 
 ## Plan
 
-_Written during Plan phase._
+1. Named maps: `.tres` files are large binary-text blobs that cannot be reliably edited by script without Godot editor parsing them. Instead, inject one waystone per named map in `WorldScene._spawn_named_map_waystones()` using a static ID/label dict — falls back to a procedural near-spawn placement when the `world_map.waystones` array is empty.
+2. Infinite world: add waystone seeding at end of `InfiniteWorldGen._gen_entities()` using a separate `RandomNumberGenerator` seeded with `_chunk_seed(cx, cz, world_seed) + 7` — 1-in-40 probability, placed on a random grass tile from the collected `grass_tiles` list.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/world/InfiniteWorldGen.gd`**: Added waystone block at end of `_gen_entities()`. Uses `waystone_rng` (seed offset +7 from other placement RNGs) with 2.5% per-chunk probability. Picks a random grass tile and appends `{ id: "world:TX:TZ", x, z, label, active: false }` to `chunk.waystones`.
+- **`scenes/world/WorldScene.gd`**: Added `_NAMED_MAP_WAYSTONE_LABELS` constant dict mapping map names to friendly labels. `_spawn_named_map_waystones()` uses `world_map.waystones` if populated; otherwise injects one waystone near the player spawn using the label dict. Covers all 6 bundled maps and arbitrary named maps.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/waystone-fast-travel.md` with placement section.

@@ -10,6 +10,7 @@ const _MapDoor   = preload("res://game_logic/world/resources/MapDoor.gd")
 const _MapNpc    = preload("res://game_logic/world/resources/MapNpc.gd")
 const _MapScroll = preload("res://game_logic/world/resources/MapScroll.gd")
 const _MapPuzzleShrine = preload("res://game_logic/world/resources/MapPuzzleShrine.gd")
+const _MapWaystone = preload("res://game_logic/world/resources/MapWaystone.gd")
 
 # Aliases for IsoConst tile types — avoids breaking existing references
 const TILE_GRASS: int = IsoConst.TILE_GRASS
@@ -29,6 +30,7 @@ var doors: Array[Dictionary] = []     # Array of door dicts
 var npcs: Array[Dictionary] = []      # Array of npc dicts
 var scrolls: Array[Dictionary] = []   # Array of scroll dicts
 var shrines: Array[Dictionary] = []   # Array of puzzle shrine dicts
+var waystones: Array[Dictionary] = [] # Array of waystone dicts
 var player_spawn_x: int = -1
 var player_spawn_z: int = -1
 var is_fallback: bool = false   # true when map file couldn't be loaded
@@ -60,8 +62,8 @@ func _init(p_name: String = "main", p_skip_load: bool = false) -> void:
 			var data: Resource = _mr.call("get_map", map_name) as Resource
 			if data != null:
 				load_from_resource(data)
-				print("[WorldMap] Loaded '%s' from MapRegistry — %d NPCs, %d enemies, %d chests, %d doors, %d scrolls, %d shrines" % [
-					map_name, npcs.size(), enemies.size(), chests.size(), doors.size(), scrolls.size(), shrines.size()])
+				print("[WorldMap] Loaded '%s' from MapRegistry — %d NPCs, %d enemies, %d chests, %d doors, %d scrolls, %d shrines, %d waystones" % [
+					map_name, npcs.size(), enemies.size(), chests.size(), doors.size(), scrolls.size(), shrines.size(), waystones.size()])
 				return
 
 	push_warning("[WorldMap] Map '%s' not found in MapRegistry — using default map" % map_name)
@@ -221,6 +223,7 @@ func load_from_resource(data: Resource) -> void:
 	npcs.clear()
 	scrolls.clear()
 	shrines.clear()
+	waystones.clear()
 
 	var raw_sx: Variant = data.get("spawn_x")
 	var raw_sz: Variant = data.get("spawn_z")
@@ -379,6 +382,25 @@ func load_from_resource(data: Resource) -> void:
 				"puzzle_id": str(puzzle_id) if puzzle_id != null else "",
 			})
 
+	var raw_waystones: Variant = data.get("waystones")
+	if raw_waystones is Array:
+		for res in raw_waystones:
+			if not (res is Resource): continue
+			var r: Resource = res
+			var wtx: Variant = r.get("tile_x")
+			var wtz: Variant = r.get("tile_z")
+			if wtx == null or wtz == null: continue
+			uid_counter += 1
+			var wid: Variant = r.get("entity_id")
+			var wlabel: Variant = r.get("label")
+			waystones.append({
+				"id": str(wid) if wid != null and str(wid) != "" else "waystone_%d" % uid_counter,
+				"x": float(int(wtx)) * TILE_SIZE,
+				"z": float(int(wtz)) * TILE_SIZE,
+				"label": str(wlabel) if wlabel != null else "",
+				"active": false,
+			})
+
 ## Build a MapData resource from the current in-memory state.
 ## Used by save_to_file() and by MapRegistry's legacy .txt fallback.
 func to_map_data(p_map_name: String = "") -> Resource:
@@ -458,6 +480,14 @@ func to_map_data(p_map_name: String = "") -> Resource:
 		sh.tile_z = int(float(sh_dict.get("z", 0.0)) / TILE_SIZE)
 		sh.puzzle_id = str(sh_dict.get("puzzle_id", ""))
 		md.shrines.append(sh)
+
+	for w_dict in waystones:
+		var w := _MapWaystone.new()
+		w.entity_id = str(w_dict.get("id", ""))
+		w.tile_x = int(float(w_dict.get("x", 0.0)) / TILE_SIZE)
+		w.tile_z = int(float(w_dict.get("z", 0.0)) / TILE_SIZE)
+		w.label = str(w_dict.get("label", ""))
+		md.waystones.append(w)
 
 	return md
 
@@ -662,6 +692,9 @@ func get_chunk_data(cx: int, cz: int) -> RefCounted:
 	for n in npcs:
 		if n["x"] >= wx0 and n["x"] < wx1 and n["z"] >= wz0 and n["z"] < wz1:
 			cd.npcs.append(n)
+	for w in waystones:
+		if w["x"] >= wx0 and w["x"] < wx1 and w["z"] >= wz0 and w["z"] < wz1:
+			cd.waystones.append(w)
 	cd.is_generated = true
 	cd.has_entities = true
 	return cd

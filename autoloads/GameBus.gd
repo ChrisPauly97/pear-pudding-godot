@@ -65,3 +65,6 @@ signal weather_changed(weather_id: String, duration: float)
 signal fragment_collected()
 signal treasure_map_assembled()
 signal treasure_excavated(coins: int, card_id: String)
+
+# Waystone signals
+signal waystone_activated(waystone_id: String)

@@ -30,6 +30,7 @@ extends Resource
 @export var npcs: Array[Resource] = []
 @export var scrolls: Array[Resource] = []
 @export var shrines: Array[Resource] = []
+@export var waystones: Array[Resource] = []
 
 ## Extensibility: scripted triggers and named rectangular regions.
 @export var triggers: Array[Resource] = []

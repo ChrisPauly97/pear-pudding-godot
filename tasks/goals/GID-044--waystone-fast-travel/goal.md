@@ -12,9 +12,9 @@ The world keeps growing (Spire entrance, shrines, towns, events) but the only wa
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-167 | Waystone entity + activation flow + save tracking | agent | pending | — |
-| TID-168 | Waystone placement: named-map entities + rare seeded infinite-chunk spawns | agent | pending | TID-167 |
-| TID-169 | Fast travel UI in MapViewOverlay + SceneManager teleport routing | agent | pending | TID-167 |
+| TID-167 | Waystone entity + activation flow + save tracking | agent | done | — |
+| TID-168 | Waystone placement: named-map entities + rare seeded infinite-chunk spawns | agent | done | TID-167 |
+| TID-169 | Fast travel UI in MapViewOverlay + SceneManager teleport routing | agent | done | TID-167 |
 
 ## Acceptance Criteria
 

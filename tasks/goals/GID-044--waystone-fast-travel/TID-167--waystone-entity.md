@@ -2,7 +2,7 @@
 
 **Goal:** GID-044  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** —
 
 ## Lock
@@ -69,12 +69,33 @@ The interactive waystone entity that sits in the world, can be activated by the 
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `signal waystone_activated(waystone_id: String)` to `GameBus.gd`.
+2. Add `activated_waystones: Array[String]` to `SaveManager.gd` with save/load/migration (bump version to 21) and `activate_waystone()` / `is_waystone_activated()` helpers.
+3. Create `MapWaystone.gd` resource class and `MapWaystone.gd.uid` sidecar.
+4. Add `waystones: Array[Resource]` to `MapData.gd`.
+5. Add `waystones: Array[Dictionary]` to `WorldMap.gd`; process in `load_from_resource()`, `to_map_data()`, and `get_chunk_data()`.
+6. Add `waystones: Array[Dictionary]` to `ChunkData.gd`.
+7. Create `Waystone.gd` + `Waystone.tscn` entity scene with dormant/active visuals.
+8. Add `show_toast()` and `teleport_to_waystone()` helpers to `SceneManager.gd`.
+9. Update `WorldScene.gd` with `_waystone_nodes`, registration, interaction checks, and `_spawn_named_map_waystones()`.
+10. Update `ChunkRenderer.gd` to spawn waystone nodes from chunk data.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/GameBus.gd`**: Added `signal waystone_activated(waystone_id: String)`.
+- **`autoloads/SaveManager.gd`**: Added `activated_waystones: Array[String]`, bumped `CURRENT_SAVE_VERSION` to 21, added migration `_migrate_v20_to_v21()`, added `activate_waystone()` and `is_waystone_activated()` helpers. Wired into `new_game()`, `load_save()`, and `save()`.
+- **`autoloads/SceneManager.gd`**: Added `show_toast(title, desc)` helper and `teleport_to_waystone(waystone_id)` routing method (named-map and world branches).
+- **`game_logic/world/ChunkData.gd`**: Added `var waystones: Array[Dictionary] = []`.
+- **`game_logic/world/resources/MapWaystone.gd`** (new): Resource class with `entity_id`, `tile_x`, `tile_z`, `label` exports.
+- **`game_logic/world/resources/MapWaystone.gd.uid`** (new): UID sidecar.
+- **`game_logic/world/resources/MapData.gd`**: Added `@export var waystones: Array[Resource] = []`.
+- **`game_logic/world/WorldMap.gd`**: Added `var waystones: Array[Dictionary]`, full load/save/chunk-routing logic.
+- **`scenes/world/entities/Waystone.gd`** (new): `Node3D` entity with shared static materials/mesh, `init_from_data()`, `mark_activated()`, `_set_active_visual()`.
+- **`scenes/world/entities/Waystone.tscn`** (new): Minimal scene containing `Node3D` root + `MeshInstance3D` child.
+- **`scenes/world/ChunkRenderer.gd`**: Added `_WaystoneScene` preload and waystone spawning block in `_spawn_entities()`.
+- **`scenes/world/WorldScene.gd`**: Added `_waystone_nodes`, `_active_waystone_data`, `_spawn_named_map_waystones()`, `register_waystone()`, `_find_nearby_waystone()`, `_on_waystone_activated()`, interaction checks and map-view forwarding.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/signals-and-constants.md`: Added `waystone_activated` to signal reference table.
+- Created `docs/agent/waystone-fast-travel.md` covering entity structure, ID scheme, save tracking, placement, fast-travel UI, and teleport routing.

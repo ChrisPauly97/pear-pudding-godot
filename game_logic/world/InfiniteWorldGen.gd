@@ -296,3 +296,20 @@ static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: i
 			"dialogue": "Welcome, traveller! Browse my wares.",
 			"npc_type": "merchant",
 		})
+
+	# 0–1 Waystone per ~40 chunks (2.5% chance) on a walkable grass tile
+	var waystone_rng := RandomNumberGenerator.new()
+	waystone_rng.seed = _chunk_seed(p_cx, p_cz, world_seed) + 7
+	if waystone_rng.randi_range(0, 39) == 0 and grass_tiles.size() > 0:
+		var idx: int = waystone_rng.randi_range(0, grass_tiles.size() - 1)
+		var tile: Vector2i = grass_tiles[idx]
+		var wtx: int = p_cx * CHUNK_SIZE + tile.x
+		var wtz: int = p_cz * CHUNK_SIZE + tile.y
+		var wx: float = float(wtx) * TILE_SIZE + TILE_SIZE * 0.5
+		var wz: float = float(wtz) * TILE_SIZE + TILE_SIZE * 0.5
+		chunk.waystones.append({
+			"id": "world:%d:%d" % [wtx, wtz],
+			"x": wx, "z": wz,
+			"label": "Waystone (%d, %d)" % [wtx, wtz],
+			"active": false,
+		})
