@@ -2,7 +2,7 @@
 
 **Goal:** GID-048
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -49,12 +49,23 @@ Foundation for mounted travel: MountData registry with one starter mount, owned/
 
 ## Plan
 
-_Written during Plan phase._
+1. `game_logic/MountRegistry.gd` — static const dict with `stable_horse`; `get_mount(id)` getter.
+2. `autoloads/SaveManager.gd` — add `owned_mounts`, `active_mount`, `is_mounted` fields; bump CURRENT_SAVE_VERSION 23→24; add `_migrate_v23_to_v24`; update `_apply_migrations`, `new_game`, `load_save`, `save`; add `summon_mount` and `dismiss_mount` mutators.
+3. `autoloads/GameBus.gd` — add `mount_state_changed(mounted: bool, mount_id: String)` signal.
+4. `scenes/world/entities/Player.gd` — add `_get_move_speed() -> float` helper; replace bare `SPEED` in velocity with `_get_move_speed()`.
+5. `tests/unit/test_mount_framework.gd` — migration, summon/dismiss, speed multiplier, apply_migrations round-trip.
+6. `tests/runner.gd` — preload and register new suite.
+7. `docs/agent/signals-and-constants.md` — add row for `mount_state_changed`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/MountRegistry.gd`** (new): Static registry with `stable_horse` (id, display_name, speed_multiplier: 2.0, price: 750). `get_mount(id)` and `get_all()` static getters.
+- **`autoloads/SaveManager.gd`**: Added `owned_mounts: Array[String]`, `active_mount: String`, `is_mounted: bool` fields; bumped `CURRENT_SAVE_VERSION` 23→24; added `_migrate_v23_to_v24()`; updated `_apply_migrations`, `new_game`, `load_save`, `save`; added `summon_mount(mount_id)` and `dismiss_mount()` mutators that emit `mount_state_changed`.
+- **`autoloads/GameBus.gd`**: Added `signal mount_state_changed(mounted: bool, mount_id: String)`.
+- **`scenes/world/entities/Player.gd`**: Added `const MountRegistry` preload; added `_get_move_speed() -> float` (returns `SPEED * multiplier` when mounted in overworld, else `SPEED`); used in `_physics_process` in place of bare `SPEED`.
+- **`tests/unit/test_mount_framework.gd`** (new): 23 tests covering MountRegistry data, v23→v24 migration, apply_migrations round-trip, SaveManager defaults, summon/dismiss logic, and speed multiplier arithmetic. All pass.
+- **`tests/runner.gd`**: Registered new suite; added graceful `can_instantiate()` guard to prevent crash on suites with compile errors (pre-existing issue affecting weather/spire suites).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/signals-and-constants.md`**: Added row for `mount_state_changed` to the signal reference table.

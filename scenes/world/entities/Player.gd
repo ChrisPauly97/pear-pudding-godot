@@ -1,5 +1,7 @@
 extends CharacterBody3D
 
+const MountRegistry = preload("res://game_logic/MountRegistry.gd")
+
 const SPEED: float = 6.0
 const JUMP_VELOCITY: float = 8.0
 const GRAVITY: float = -20.0
@@ -28,6 +30,13 @@ func _ready() -> void:
 	collision_layer = 1       # player layer
 	collision_mask  = 2 | 4   # collide with terrain (2) + walls (4)
 	_build_sprite()
+
+func _get_move_speed() -> float:
+	if SaveManager.is_mounted and SaveManager.current_map == "main" and SaveManager.active_mount != "":
+		var mount: Dictionary = MountRegistry.get_mount(SaveManager.active_mount)
+		if not mount.is_empty():
+			return SPEED * float(mount.get("speed_multiplier", 1.0))
+	return SPEED
 
 func _build_sprite() -> void:
 	_sprite = Sprite3D.new()
@@ -62,8 +71,9 @@ func _physics_process(delta: float) -> void:
 	if dir.length_squared() > 0.0:
 		dir = dir.normalized()
 
-	velocity.x = dir.x * SPEED
-	velocity.z = dir.z * SPEED
+	var move_speed: float = _get_move_speed()
+	velocity.x = dir.x * move_speed
+	velocity.z = dir.z * move_speed
 
 	if not is_on_floor():
 		_velocity_y += GRAVITY * delta
