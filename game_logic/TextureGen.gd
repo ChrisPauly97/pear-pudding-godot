@@ -32,6 +32,9 @@ static func wall_side(is_left: bool) -> ImageTexture:
 static func wall_top() -> ImageTexture:
 	return _cached("wall_top", _gen_wall_top)
 
+static func mount_horse() -> ImageTexture:
+	return _cached("mount_horse", _gen_mount_horse)
+
 # ── Shared helper: noise + gradient → ImageTexture (synchronous) ─────────
 # Uses the same PackedByteArray + create_from_data pattern as the wall textures,
 # which are confirmed to work. get_noise_2d() is available since Godot 4.0.
@@ -207,3 +210,38 @@ static func _gen_wall_top() -> ImageTexture:
 	var img := Image.create_from_data(SIZE, SIZE, false, Image.FORMAT_RGBA8, data)
 	img.generate_mipmaps()
 	return ImageTexture.create_from_image(img)
+
+# ── Mount horse: simple 48×24 brown silhouette ───────────────────────────
+
+static func _gen_mount_horse() -> ImageTexture:
+	const W: int = 48
+	const H: int = 24
+	const BR: int = 139; const BG: int = 90;  const BB: int = 43   # saddle brown body
+	const MR: int = 80;  const MG: int = 45;  const MB: int = 20   # dark mane/tail
+	const LR: int = 100; const LG: int = 60;  const LB: int = 25   # darker legs
+
+	var hdata := PackedByteArray()
+	hdata.resize(W * H * 4)
+
+	for y in range(H):
+		for x in range(W):
+			var off: int = (y * W + x) * 4
+			var in_body: bool = (y >= 2  and y <= 17 and x >= 4  and x <= 43)
+			var in_head: bool = (y >= 2  and y <= 12 and x >= 36 and x <= 47)
+			var in_mane: bool = (y >= 2  and y <= 8  and x >= 30 and x <= 37)
+			var in_leg1: bool = (y >= 17 and y <= 23 and x >= 6  and x <= 11)
+			var in_leg2: bool = (y >= 17 and y <= 23 and x >= 14 and x <= 19)
+			var in_leg3: bool = (y >= 17 and y <= 23 and x >= 28 and x <= 33)
+			var in_leg4: bool = (y >= 17 and y <= 23 and x >= 36 and x <= 41)
+			var in_tail: bool = (y >= 4  and y <= 14 and x >= 0  and x <= 5)
+			if in_mane or in_tail:
+				hdata[off] = MR; hdata[off+1] = MG; hdata[off+2] = MB; hdata[off+3] = 255
+			elif in_leg1 or in_leg2 or in_leg3 or in_leg4:
+				hdata[off] = LR; hdata[off+1] = LG; hdata[off+2] = LB; hdata[off+3] = 255
+			elif in_head or in_body:
+				hdata[off] = BR; hdata[off+1] = BG; hdata[off+2] = BB; hdata[off+3] = 255
+			else:
+				hdata[off] = 0; hdata[off+1] = 0; hdata[off+2] = 0; hdata[off+3] = 0
+
+	var himg := Image.create_from_data(W, H, false, Image.FORMAT_RGBA8, hdata)
+	return ImageTexture.create_from_image(himg)

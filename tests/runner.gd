@@ -39,6 +39,9 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_bestiary_completion.gd"),
 	preload("res://tests/unit/test_player_home.gd"),
 	preload("res://tests/unit/test_pathfinder.gd"),
+	preload("res://tests/unit/test_mount_framework.gd"),
+	preload("res://tests/unit/test_mount_purchase_hud.gd"),
+	preload("res://tests/unit/test_mount_dismount_visuals.gd"),
 ]
 
 
@@ -50,6 +53,10 @@ func _initialize() -> void:
 	print("\n===== Pear Pudding TCG — Unit Tests =====\n")
 
 	for suite_script in SUITES:
+		if suite_script == null or not suite_script.can_instantiate():
+			print("  [SKIP] suite failed to load (compile error or missing dependency)")
+			total_fail += 1
+			continue
 		var suite = suite_script.new()
 		var suite_name: String = suite.get_suite_name()
 		print("  Suite: %s" % suite_name)

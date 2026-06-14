@@ -12,9 +12,9 @@ The infinite world is big and walk speed is fixed. A mount is both a movement up
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-179 | Mount framework: MountData, owned/active mount in SaveManager, mounted state + speed multiplier in Player | agent | pending | — |
-| TID-180 | Stable NPC purchase flow (level 10 gate) + summon/dismiss HUD button (mobile parity) | agent | pending | TID-179 |
-| TID-181 | Auto-dismount rules (battle, interiors, dungeons) + mounted sprite/dust visuals | agent | pending | TID-179 |
+| TID-179 | Mount framework: MountData, owned/active mount in SaveManager, mounted state + speed multiplier in Player | agent | done | — |
+| TID-180 | Stable NPC purchase flow (level 10 gate) + summon/dismiss HUD button (mobile parity) | agent | done | TID-179 |
+| TID-181 | Auto-dismount rules (battle, interiors, dungeons) + mounted sprite/dust visuals | agent | done | TID-179 |
 
 ## Acceptance Criteria
 

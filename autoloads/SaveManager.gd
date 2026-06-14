@@ -132,6 +132,11 @@ var respawn_map: String = ""
 var respawn_x: float = 0.0
 var respawn_z: float = 0.0
 
+# Mount system
+var owned_mounts: Array[String] = []
+var active_mount: String = ""
+var is_mounted: bool = false
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -229,13 +234,16 @@ func new_game() -> void:
 	respawn_map = ""
 	respawn_x = 0.0
 	respawn_z = 0.0
+	owned_mounts = []
+	active_mount = ""
+	is_mounted = false
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 23
+const CURRENT_SAVE_VERSION: int = 24
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -439,6 +447,15 @@ static func _migrate_v22_to_v23(data: Dictionary) -> void:
 		data["respawn_z"] = 0.0
 	data["version"] = 23
 
+# _migrate_v23_to_v24: backfill mount system fields for old saves.
+static func _migrate_v23_to_v24(data: Dictionary) -> void:
+	if not data.has("owned_mounts"):
+		data["owned_mounts"] = []
+	if not data.has("active_mount"):
+		data["active_mount"] = ""
+	if not data.has("is_mounted"):
+		data["is_mounted"] = false
+	data["version"] = 24
 
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
@@ -488,6 +505,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v21_to_v22(data)
 	if ver < 23:
 		_migrate_v22_to_v23(data)
+	if ver < 24:
+		_migrate_v23_to_v24(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -567,6 +586,9 @@ func load_save() -> bool:
 	respawn_map = str(data.get("respawn_map", ""))
 	respawn_x = float(data.get("respawn_x", 0.0))
 	respawn_z = float(data.get("respawn_z", 0.0))
+	owned_mounts.assign(data.get("owned_mounts", []))
+	active_mount = str(data.get("active_mount", ""))
+	is_mounted = bool(data.get("is_mounted", false))
 	_loaded = true
 	return true
 
@@ -632,6 +654,9 @@ func save() -> void:
 		"respawn_map": respawn_map,
 		"respawn_x": respawn_x,
 		"respawn_z": respawn_z,
+		"owned_mounts": owned_mounts,
+		"active_mount": active_mount,
+		"is_mounted": is_mounted,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -989,6 +1014,28 @@ func get_setting(key: String, default_value: Variant) -> Variant:
 func set_setting(key: String, value: Variant) -> void:
 	settings[key] = value
 	_dirty = true
+
+func summon_mount(mount_id: String) -> void:
+	if not owned_mounts.has(mount_id):
+		return
+	active_mount = mount_id
+	is_mounted = true
+	_dirty = true
+	GameBus.mount_state_changed.emit(true, mount_id)
+
+func dismiss_mount() -> void:
+	var prev_id: String = active_mount
+	active_mount = ""
+	is_mounted = false
+	_dirty = true
+	GameBus.mount_state_changed.emit(false, prev_id)
+
+func auto_dismiss_mount() -> void:
+	# Used for battle/map-entry auto-dismount. Preserves active_mount so remount
+	# can happen automatically when returning to the overworld.
+	is_mounted = false
+	_dirty = true
+	GameBus.mount_state_changed.emit(false, active_mount)
 
 func mark_dirty() -> void:
 	_dirty = true

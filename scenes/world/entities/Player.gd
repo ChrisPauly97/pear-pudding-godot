@@ -1,5 +1,8 @@
 extends CharacterBody3D
 
+const MountRegistry = preload("res://game_logic/MountRegistry.gd")
+const TextureGen    = preload("res://game_logic/TextureGen.gd")
+
 const SPEED: float = 6.0
 const JUMP_VELOCITY: float = 8.0
 const GRAVITY: float = -20.0
@@ -17,6 +20,8 @@ const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite 
 var _velocity_y: float = 0.0
 var _is_jumping: bool = false
 var _sprite: Sprite3D
+var _mount_sprite: Sprite3D
+var _dust_particles: GPUParticles3D
 var _anim_timer: float = 0.0
 var _anim_frame: int = 0
 var _is_moving: bool = false
@@ -34,7 +39,16 @@ func _ready() -> void:
 	collision_layer = 1       # player layer
 	collision_mask  = 2 | 4   # collide with terrain (2) + walls (4)
 	_build_sprite()
+	GameBus.mount_state_changed.connect(_on_mount_state_changed)
+	_update_mount_visuals(SaveManager.is_mounted)
 	GameBus.enemy_engaged.connect(func(_d: Dictionary) -> void: cancel_path())
+
+func _get_move_speed() -> float:
+	if SaveManager.is_mounted and SaveManager.current_map == "main" and SaveManager.active_mount != "":
+		var mount: Dictionary = MountRegistry.get_mount(SaveManager.active_mount)
+		if not mount.is_empty():
+			return SPEED * float(mount.get("speed_multiplier", 1.0))
+	return SPEED
 
 # Called by WorldScene after a tap-to-move path is found.
 func set_destination_path(waypoints: Array[Vector2i]) -> void:
@@ -67,6 +81,43 @@ func _build_sprite() -> void:
 	_sprite.position = Vector3(0.0, frame_h * 0.5, 0.0)
 
 	add_child(_sprite)
+
+	# Mount sprite: sits below player sprite, only visible while mounted
+	_mount_sprite = Sprite3D.new()
+	_mount_sprite.texture = TextureGen.mount_horse()
+	_mount_sprite.pixel_size = PIXEL_SIZE
+	_mount_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_mount_sprite.shaded = false
+	_mount_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+	_mount_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	_mount_sprite.no_depth_test = false
+	_mount_sprite.double_sided = true
+	_mount_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# 24px tall at PIXEL_SIZE=0.05 → 1.2 world units; half = 0.6; sits just below the player
+	_mount_sprite.position = Vector3(0.0, 0.6, 0.01)
+	_mount_sprite.visible = false
+	add_child(_mount_sprite)
+
+	# Dust particles: emit from feet while mounted and moving
+	_dust_particles = GPUParticles3D.new()
+	_dust_particles.amount = 20
+	_dust_particles.lifetime = 0.6
+	_dust_particles.one_shot = false
+	_dust_particles.emitting = false
+	_dust_particles.position = Vector3(0.0, 0.05, 0.0)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = 0.4
+	pm.direction = Vector3(0.0, 1.0, 0.0)
+	pm.spread = 60.0
+	pm.initial_velocity_min = 0.5
+	pm.initial_velocity_max = 1.5
+	pm.gravity = Vector3(0.0, -3.0, 0.0)
+	pm.scale_min = 0.04
+	pm.scale_max = 0.10
+	pm.color = Color(0.72, 0.60, 0.42, 0.75)
+	_dust_particles.process_material = pm
+	add_child(_dust_particles)
 
 func _physics_process(delta: float) -> void:
 	var dir := Vector3.ZERO
@@ -101,8 +152,9 @@ func _physics_process(delta: float) -> void:
 		else:
 			dir = delta_v.normalized()
 
-	velocity.x = dir.x * SPEED
-	velocity.z = dir.z * SPEED
+	var move_speed: float = _get_move_speed()
+	velocity.x = dir.x * move_speed
+	velocity.z = dir.z * move_speed
 
 	if not is_on_floor():
 		_velocity_y += GRAVITY * delta
@@ -143,3 +195,16 @@ func _physics_process(delta: float) -> void:
 		if _anim_frame != 0:
 			_anim_frame = 0
 			_sprite.texture = _walk_frames[0]
+
+	# Dust particles: emit only when mounted and moving
+	if _dust_particles != null:
+		_dust_particles.emitting = SaveManager.is_mounted and _is_moving
+
+func _update_mount_visuals(mounted: bool) -> void:
+	if _mount_sprite != null:
+		_mount_sprite.visible = mounted
+	if _dust_particles != null and not mounted:
+		_dust_particles.emitting = false
+
+func _on_mount_state_changed(mounted: bool, _mount_id: String) -> void:
+	_update_mount_visuals(mounted)
