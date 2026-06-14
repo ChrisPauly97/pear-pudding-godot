@@ -1014,6 +1014,13 @@ func dismiss_mount() -> void:
 	_dirty = true
 	GameBus.mount_state_changed.emit(false, prev_id)
 
+func auto_dismiss_mount() -> void:
+	# Used for battle/map-entry auto-dismount. Preserves active_mount so remount
+	# can happen automatically when returning to the overworld.
+	is_mounted = false
+	_dirty = true
+	GameBus.mount_state_changed.emit(false, active_mount)
+
 func mark_dirty() -> void:
 	_dirty = true
 

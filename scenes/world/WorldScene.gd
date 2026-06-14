@@ -417,7 +417,18 @@ func _ready() -> void:
 		if _is_infinite and _current_biome >= 0:
 			AudioManager.play_music(_BIOME_MUSIC[_current_biome])
 		else:
-			AudioManager.play_music("res://assets/audio/music/dungeon.ogg"))
+			AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
+		# Remount after battle if player had an active mount
+		var sm_bw := SceneManager.save_manager
+		if sm_bw.active_mount != "" and sm_bw.current_map == "main":
+			sm_bw.summon_mount(sm_bw.active_mount))
+	GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)
+
+	# Auto-remount when returning to the overworld from a named map
+	if map_name == "main":
+		var sm_ready := SceneManager.save_manager
+		if sm_ready.active_mount != "" and not sm_ready.is_mounted:
+			sm_ready.summon_mount(sm_ready.active_mount)
 
 func _exit_tree() -> void:
 	# Wait for any in-flight worker tasks before the GDScript instance is freed.
@@ -1410,6 +1421,9 @@ func _handle_interact() -> void:
 		var target_map: String = door.get("target_map", "")
 		var tdoor: String = door.get("target_door_id", "")
 		AudioManager.play_sfx("door_enter")
+		# Auto-dismount when leaving the overworld for any named map
+		if SceneManager.save_manager.is_mounted and target_map != "main" and not target_map.is_empty():
+			SceneManager.save_manager.auto_dismiss_mount()
 		if target_map == "spire":
 			_show_spire_entrance_panel()
 		elif target_map.is_empty():
@@ -1725,6 +1739,10 @@ func _update_mount_btn() -> void:
 
 func _on_mount_state_changed(_mounted: bool, _mount_id: String) -> void:
 	_update_mount_btn()
+
+func _on_enemy_engaged_for_mount(_enemy_data: Dictionary) -> void:
+	if SceneManager.save_manager.is_mounted:
+		SceneManager.save_manager.auto_dismiss_mount()
 
 func _show_stable_panel() -> void:
 	var sm := SceneManager.save_manager

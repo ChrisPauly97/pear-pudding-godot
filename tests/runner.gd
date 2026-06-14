@@ -38,6 +38,7 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_player_home.gd"),
 	preload("res://tests/unit/test_mount_framework.gd"),
 	preload("res://tests/unit/test_mount_purchase_hud.gd"),
+	preload("res://tests/unit/test_mount_dismount_visuals.gd"),
 ]
 
 

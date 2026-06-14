@@ -2,7 +2,7 @@
 
 **Goal:** GID-048
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-179
 
 ## Lock
@@ -65,12 +65,33 @@ Mounted travel only makes sense in the open world. Entering battles, named-map i
 
 ## Plan
 
-_Written during Plan phase._
+1. **WorldScene.gd** — add `GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)` in `_ready()`; add handler to dismiss mount; extend `battle_won` callback to remount on return; dismount before `SceneManager.enter_map()` in `_handle_interact()`; auto-remount in `_ready()` when map_name == "main" and active_mount is set.
+2. **Player.gd** — add `_mount_sprite: Sprite3D` and `_dust_particles: GPUParticles3D` members; build them in `_build_sprite()`; connect `GameBus.mount_state_changed` in `_ready()`; update emission in `_physics_process()`.
+3. **TextureGen.gd** — add `mount_horse()` static method generating a 48×24 brownish silhouette.
+4. **tests/unit/test_mount_dismount_visuals.gd** — tests for auto-dismount on enemy_engaged, remount on map return, sprite/particle visibility predicates.
+5. **tests/runner.gd** — register new suite.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/SaveManager.gd`**: Added `auto_dismiss_mount()` — sets `is_mounted = false` without clearing `active_mount`, allowing auto-remount on return to overworld. Manual HUD dismiss still uses `dismiss_mount()` which clears `active_mount`.
+- **`autoloads/GameBus.gd`**: Already had `mount_state_changed` signal from TID-179.
+- **`game_logic/TextureGen.gd`**: Added `mount_horse()` public method and `_gen_mount_horse()` private generator — produces a cached 48×24 RGBA8 ImageTexture with a simple brown horse silhouette (body, mane/tail, four legs).
+- **`scenes/world/WorldScene.gd`**:
+  - Extended `battle_won.connect` callback to call `summon_mount(active_mount)` on return to "main" if `active_mount != ""`.
+  - Added `GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)` in `_ready()`.
+  - Added auto-remount in `_ready()` when `map_name == "main"` and `active_mount != ""`.
+  - Added `_on_enemy_engaged_for_mount()` — calls `auto_dismiss_mount()` if currently mounted.
+  - Added auto-dismount guard in `_handle_interact()` door path: calls `auto_dismiss_mount()` before `SceneManager.enter_map()` when entering a non-main map.
+- **`scenes/world/entities/Player.gd`**:
+  - Added `TextureGen` preload.
+  - Added `_mount_sprite: Sprite3D` and `_dust_particles: GPUParticles3D` members.
+  - `_build_sprite()` extended to also create the mount sprite (48×24 TextureGen horse, `PIXEL_SIZE=0.05`, positioned at y=0.6 below player) and dust `GPUParticles3D` (20 particles, 0.6s lifetime, brownish dust colour, sphere emission radius 0.4).
+  - `_ready()` connects `GameBus.mount_state_changed` and calls `_update_mount_visuals()` with current state.
+  - `_physics_process()` extended to set `_dust_particles.emitting = is_mounted and _is_moving`.
+  - Added `_update_mount_visuals(mounted)` and `_on_mount_state_changed(mounted, mount_id)`.
+- **`tests/unit/test_mount_dismount_visuals.gd`** (new): 21 tests covering auto-dismount on battle start (`auto_dismiss_mount`), active_mount preservation, remount after battle win, named-map entry dismount, dungeon entry dismount, auto-remount on map return, sprite/dust visibility predicates, and TextureGen.mount_horse() caching. All 21 pass.
+- **`tests/runner.gd`**: Registered new suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/` mount system doc section below.
