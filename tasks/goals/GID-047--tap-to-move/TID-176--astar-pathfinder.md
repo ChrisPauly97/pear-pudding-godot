@@ -2,7 +2,7 @@
 
 **Goal:** GID-047
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -41,12 +41,25 @@ The core search algorithm that finds tile-by-tile paths from player to destinati
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/Pathfinder.gd` — pure static class (no state), exports `find_path(tile_lookup, from, to, max_radius)`.
+2. Algorithm: hand-rolled A* with `Dictionary[Vector2i, float]` open-set keyed by tile, `Dictionary[Vector2i, Vector2i]` came_from, `Dictionary[Vector2i, bool]` closed set. Pop minimum f-cost tile each iteration. 4-directional neighbours. Manhattan heuristic.
+3. Walkability: `TILE_GRASS`, `TILE_HILL`, `TILE_PATH` are walkable; `TILE_WALL` is not.
+4. Max-radius bound: if `(abs(nx - from.x) + abs(nz - from.y)) > max_radius`, skip tile.
+5. Identity: `from == to` returns `[from]` immediately.
+6. Returns empty `Array[Vector2i]` if unreachable.
+7. Create `tests/unit/test_pathfinder.gd` covering: straight path, path around wall, unreachable, max-radius, identity.
+8. Register test suite in `tests/runner.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `game_logic/Pathfinder.gd` — pure static A* over a `Callable(tx, tz) -> int` tile lookup.
+  - `find_path(tile_lookup, from, to, max_radius) -> Array[Vector2i]`: returns ordered tile path or empty if unreachable.
+  - 4-directional movement (N/S/E/W), Manhattan heuristic with h-cost tie-breaking.
+  - `_is_walkable()` static method (not a const) to reference IsoConst at runtime — avoids GDScript const-initializer autoload parse error.
+  - Identity case (`from == to`) returns `[from]` immediately; wall destination rejected before search.
+- Created `tests/unit/test_pathfinder.gd` — 12 headless tests: identity, straight path endpoints/length, around-wall detour, unreachable wall dest, unreachable surrounded, max_radius blocking/allowing, adjacency.
+- Updated `tests/runner.gd`: added `test_pathfinder` to the `SUITES` array.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/tap-to-move.md` covering key features, algorithm design, integration, and asset requirements for the full tap-to-move system.

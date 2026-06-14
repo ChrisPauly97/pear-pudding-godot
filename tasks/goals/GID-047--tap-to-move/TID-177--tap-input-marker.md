@@ -2,7 +2,7 @@
 
 **Goal:** GID-047
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-176
 
 ## Lock
@@ -52,12 +52,22 @@ Detects player taps/clicks on the world, converts screen coordinates to world ti
 
 ## Plan
 
-_Written during Plan phase._
+Implemented during build phase (no separate plan step needed — research notes were sufficient).
 
 ## Changes Made
 
-_Filled after Build phase._
+- Updated `scenes/ui/VirtualJoystick.gd`: added `is_touch_in_control_area(pos: Vector2) -> bool` guard method; returns true if the position falls within the joystick, jump, or interact button radii (×1.5 for touch slop).
+- Updated `scenes/world/WorldScene.gd`:
+  - Added `const Pathfinder = preload("res://game_logic/Pathfinder.gd")`.
+  - Added state vars: `_dest_marker`, `_dest_tween`, `_joystick_ref`, `_tap_start_screen`, `_tap_touch_index`, `_TAP_DRAG_THRESHOLD`.
+  - `_ready()`: stores `_joystick_ref = joystick`; connects cancel signals (battle_won, map_changed equivalent).
+  - `_unhandled_input()`: intercepts `InputEventScreenTouch` (press/release) and `InputEventMouseButton` (left click) to trigger tap-to-move; clears destination marker on new menus or re-tap on joystick/UI area.
+  - Added `_on_screen_touch(event)`, `_handle_tap_to_move(screen_pos)`, `_screen_to_tile(screen_pos) -> Vector2i`, `_place_dest_marker(tile)`, `_make_dest_marker() -> Node3D`, `_clear_dest_marker()`.
+  - `_screen_to_tile`: analytic ray-plane intersection against y=0 (`t = -ray_origin.y / ray_dir.y`), then `IsoConst.world_to_tile()`.
+  - `_make_dest_marker`: `TorusMesh` (inner_radius=0.50, outer_radius=0.72) with emissive green unshaded `StandardMaterial3D`.
+  - `_place_dest_marker`: pulsing `Tween` (scale 0.85↔1.2, 0.45 s, looping).
+  - `_process()`: polls path completion to auto-hide marker when player arrives.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Covered in `docs/agent/tap-to-move.md`.
