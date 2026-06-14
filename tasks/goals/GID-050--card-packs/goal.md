@@ -12,9 +12,9 @@ The shop sells single known cards; packs add the gambling thrill that makes TCG 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-185 | Pack data model (tiers, prices, rarity weights via CardDropUtil) + shop integration | agent | pending | — |
-| TID-186 | Pack opening ceremony UI: tap-to-flip reveals with rarity flair | agent | pending | TID-185 |
-| TID-187 | Legendary pity counter (guaranteed within N packs), persisted with migration | agent | pending | TID-185 |
+| TID-185 | Pack data model (tiers, prices, rarity weights via CardDropUtil) + shop integration | agent | done | — |
+| TID-186 | Pack opening ceremony UI: tap-to-flip reveals with rarity flair | agent | done | TID-185 |
+| TID-187 | Legendary pity counter (guaranteed within N packs), persisted with migration | agent | done | TID-185 |
 
 ## Acceptance Criteria
 

@@ -71,3 +71,6 @@ signal waystone_activated(waystone_id: String)
 
 # Mount signals
 signal mount_state_changed(mounted: bool, mount_id: String)
+
+# Card pack signals
+signal pack_purchased(pack_id: String, rolled_cards: Array[Dictionary])

@@ -2,7 +2,7 @@
 
 **Goal:** GID-050
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-185
 
 ## Lock
@@ -37,12 +37,17 @@ The reveal ceremony: 3 face-down card backs, tap-to-flip animations with rarity-
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/ui/PackOpenScene.gd` built entirely in code (no .tscn needed — built programmatically to avoid .uid issues).
+2. Scene structure: dark backdrop + title + 3 card slots (back/face layered) + Reveal All / Done buttons.
+3. Card slot: tap button triggers scale-x tween 1→0→(swap face)→1.
+4. On flip complete: call `SaveManager.add_card_instance()` to persist the card.
+5. "Reveal All" instantly flips all remaining cards.
+6. After all revealed, show Done button; on press, emit `closed` signal.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/ui/PackOpenScene.gd`** (new): Full-screen overlay built in code. `_rolled_cards: Array[Dictionary]` set before `add_child()`. Displays 3 card slots with grey back ColorRect (150×220 vh-relative). Tap any unflipped card to animate: `scale:x` 1→0 (0.15s) → populate face content → `scale:x` 0→1 (0.15s). Face shows rarity-tinted background, card name, cost, ATK/HP. On flip complete: calls `SceneManager.save_manager.add_card_instance()` to create the owned card instance, and resets pity if legendary. "Reveal All" button instantly reveals remaining cards. "Done" button emits `closed` signal once all cards are revealed.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Covered in `docs/agent/card-packs.md` (see TID-185 docs update).
