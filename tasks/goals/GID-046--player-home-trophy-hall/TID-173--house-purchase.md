@@ -2,7 +2,7 @@
 
 **Goal:** GID-046  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** —
 
 ## Lock
@@ -35,12 +35,24 @@ The entry point to the trophy hall: a house door placed in madrian that costs co
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `home_owned: bool` to SaveManager with v21→v22 migration (CURRENT_SAVE_VERSION → 22).
+2. Create `assets/maps/player_home.tres` — small room 19×10 tiles, spawn at (50,53), exit door entity, bed NPC entity — plus `.uid` sidecar.
+3. Register `player_home` in MapRegistry (preload constant + _BUNDLED entry).
+4. Add `house_door` MapDoor sub_resource to `madrian.tres` at tile (40,50).
+5. In WorldScene `_handle_interact()`: intercept `door_id == "house_door"` and call `_show_house_door_panel()`.
+6. Implement `_show_house_door_panel()`: if owned → enter map; if not → CanvasLayer panel with price label, Buy button (disabled if insufficient funds), Cancel button.
+7. Add unit tests for home_owned migration in `tests/unit/test_player_home.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/SaveManager.gd`**: Added `var home_owned: bool = false`; added `_migrate_v21_to_v22()` (sets `home_owned = false`, bumps version to 22); added reset in `new_game()`; updated `_apply_migrations()`, `load_save()`, and `save()`. CURRENT_SAVE_VERSION now 22 (raised further to 23 by TID-175).
+- **`assets/maps/player_home.tres`** (new): 100×100 MapData resource, room interior tiles (41–59 × 45–54) set to GRASS, rest WALL. Spawn at (50,53). Two entities: exit door (`entity_id="exit_door"`, tile 50,44, pops map stack) and bed NPC (`npc_type="bed"`, tile 57,50).
+- **`assets/maps/player_home.tres.uid`** (new): `uid://kzlgwy1e8b9o`
+- **`autoloads/MapRegistry.gd`**: Added `const _PLAYER_HOME := preload("res://assets/maps/player_home.tres")` and `"player_home": _PLAYER_HOME` to `_BUNDLED`.
+- **`assets/maps/madrian.tres`**: Added `MapDoor_8` sub_resource with `entity_id="house_door"`, `tile_x=40`, `tile_z=50`, `target_map="player_home"`, `target_door_id="exit_door"`. Updated `doors` array.
+- **`scenes/world/WorldScene.gd`**: Added door-id branch intercepting `"house_door"` in `_handle_interact()`; added `_show_house_door_panel()` with inline CanvasLayer purchase UI (Buy/Cancel buttons, coin balance display, `add_coins(-500)` on confirm).
+- **`tests/unit/test_player_home.gd`** (new, shared across all three TIDs): Contains v21→v22 migration tests (home_owned key added, default false, version bumped, existing value preserved).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/player-home.md` (new) created — covers all three TIDs.

@@ -119,6 +119,14 @@ var treasures_completed: int = 0         # total maps excavated; used as salt fo
 # Waystone fast travel
 var activated_waystones: Array[String] = []
 
+# Player home
+var home_owned: bool = false
+
+# Respawn point (set when resting at the bed in player_home)
+var respawn_map: String = ""
+var respawn_x: float = 0.0
+var respawn_z: float = 0.0
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -210,13 +218,17 @@ func new_game() -> void:
 	active_treasure = {}
 	treasures_completed = 0
 	activated_waystones = []
+	home_owned = false
+	respawn_map = ""
+	respawn_x = 0.0
+	respawn_z = 0.0
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 21
+const CURRENT_SAVE_VERSION: int = 23
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -400,6 +412,22 @@ static func _migrate_v20_to_v21(data: Dictionary) -> void:
 		data["activated_waystones"] = []
 	data["version"] = 21
 
+# _migrate_v21_to_v22: backfill player home ownership flag for old saves.
+static func _migrate_v21_to_v22(data: Dictionary) -> void:
+	if not data.has("home_owned"):
+		data["home_owned"] = false
+	data["version"] = 22
+
+# _migrate_v22_to_v23: backfill respawn point fields for old saves.
+static func _migrate_v22_to_v23(data: Dictionary) -> void:
+	if not data.has("respawn_map"):
+		data["respawn_map"] = ""
+	if not data.has("respawn_x"):
+		data["respawn_x"] = 0.0
+	if not data.has("respawn_z"):
+		data["respawn_z"] = 0.0
+	data["version"] = 23
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -444,6 +472,10 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v19_to_v20(data)
 	if ver < 21:
 		_migrate_v20_to_v21(data)
+	if ver < 22:
+		_migrate_v21_to_v22(data)
+	if ver < 23:
+		_migrate_v22_to_v23(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -516,6 +548,10 @@ func load_save() -> bool:
 	active_treasure = at if at is Dictionary else {}
 	treasures_completed = int(data.get("treasures_completed", 0))
 	activated_waystones.assign(data.get("activated_waystones", []))
+	home_owned = bool(data.get("home_owned", false))
+	respawn_map = str(data.get("respawn_map", ""))
+	respawn_x = float(data.get("respawn_x", 0.0))
+	respawn_z = float(data.get("respawn_z", 0.0))
 	_loaded = true
 	return true
 
@@ -575,6 +611,10 @@ func save() -> void:
 		"active_treasure": active_treasure,
 		"treasures_completed": treasures_completed,
 		"activated_waystones": activated_waystones,
+		"home_owned": home_owned,
+		"respawn_map": respawn_map,
+		"respawn_x": respawn_x,
+		"respawn_z": respawn_z,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -1122,6 +1162,15 @@ func activate_waystone(waystone_id: String) -> void:
 
 func is_waystone_activated(waystone_id: String) -> bool:
 	return activated_waystones.has(waystone_id)
+
+func set_respawn_point(map: String, x: float, z: float) -> void:
+	respawn_map = map
+	respawn_x = x
+	respawn_z = z
+	_dirty = true
+
+func has_respawn_point() -> bool:
+	return respawn_map != "" and home_owned
 
 func increment_day() -> void:
 	days_elapsed += 1

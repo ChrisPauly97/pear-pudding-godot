@@ -22,6 +22,7 @@ const _FARSYTH_MANSION  := preload("res://assets/maps/farsyth_mansion.tres")
 const _MADRIAN          := preload("res://assets/maps/madrian.tres")
 const _MAIN             := preload("res://assets/maps/main.tres")
 const _MAYKALENE        := preload("res://assets/maps/maykalene.tres")
+const _PLAYER_HOME      := preload("res://assets/maps/player_home.tres")
 
 const _BUNDLED: Dictionary = {
 	"blancogov":        _BLANCOGOV,
@@ -30,6 +31,7 @@ const _BUNDLED: Dictionary = {
 	"madrian":          _MADRIAN,
 	"main":             _MAIN,
 	"maykalene":        _MAYKALENE,
+	"player_home":      _PLAYER_HOME,
 }
 
 # ---------------------------------------------------------------------------

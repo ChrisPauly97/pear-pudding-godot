@@ -2,7 +2,7 @@
 
 **Goal:** GID-046  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** TID-173
 
 ## Lock
@@ -50,12 +50,19 @@ A bed in the player home that heals the player and sets a persistent respawn poi
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `respawn_map`, `respawn_x`, `respawn_z` to SaveManager with v22→v23 migration. Increment CURRENT_SAVE_VERSION to 23.
+2. Add `set_respawn_point(map, x, z)` and `has_respawn_point()` API methods to SaveManager.
+3. In WorldScene `_handle_interact()`: branch on `npc_type == "bed"` → `_handle_bed_interaction()` which calls `set_respawn_point()` and shows a dialogue.
+4. In GameOverScene `_on_menu()`: call `_apply_respawn_if_available()` before `SceneManager.go_to_menu()` to set `current_map/player_x/player_z` from respawn fields when `has_respawn_point()` is true.
+5. Add unit tests for respawn migration, set_respawn_point, has_respawn_point, and game-over routing.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/SaveManager.gd`**: Added `var respawn_map: String = ""`, `var respawn_x: float = 0.0`, `var respawn_z: float = 0.0`; added `_migrate_v22_to_v23()` backfilling all three to defaults, bumping version to 23; CURRENT_SAVE_VERSION → 23; updated `new_game()`, `load_save()`, `save()`; added `set_respawn_point()` and `has_respawn_point()` methods.
+- **`scenes/world/WorldScene.gd`**: Added `_handle_bed_interaction()` which calls `sm.set_respawn_point("player_home", 100.0, 106.0)` (tile 50,53 × TILE_SIZE=2.0), sets `sm.time_of_day = 0.25`, and shows a dialogue.
+- **`scenes/ui/GameOverScene.gd`**: Added `_apply_respawn_if_available()` that checks `has_respawn_point()` via dynamic call; if true, updates `current_map`, `player_x`, `player_z` and calls `sync_stacks` + `mark_dirty` before `go_to_menu()` saves to disk.
+- **`tests/unit/test_player_home.gd`**: Contains v22→v23 migration tests, `set_respawn_point` stores values, `has_respawn_point` logic (requires both respawn_map and home_owned), `_apply_migrations` chain from v21 reaches v23.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/player-home.md` (new) — covers respawn fields, bed interaction, game-over routing.

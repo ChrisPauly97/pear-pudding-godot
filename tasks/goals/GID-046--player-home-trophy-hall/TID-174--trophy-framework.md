@@ -2,7 +2,7 @@
 
 **Goal:** GID-046  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** TID-173
 
 ## Lock
@@ -93,12 +93,19 @@ A data-driven trophy system that reads save state predicates and spawns visual p
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/TrophyRegistry.gd` as a static class with `_DATA: Array[Dictionary]` defining 3 trophies (champion, spire_7, first_boss) each with id, display_name, description, predicate_key.
+2. Implement `get_all()`, `get_trophy()`, `is_earned()` static methods; predicates check `defeated_duelists`, `spire_best_floor`, `defeated_enemies` + EnemyRegistry.is_boss().
+3. In WorldScene, after loading player_home map, call `_spawn_player_home_trophies()` which iterates trophy ids, checks `TrophyRegistry.is_earned()`, and spawns `_make_trophy_pedestal()` Node3D at fixed tile positions registered with `register_npc()`.
+4. In `_handle_interact()` NPC dispatch: branch on `npc_type == "trophy_pedestal"` → `_show_trophy_info(npc)`.
+5. Add TrophyRegistry unit tests (get_all size, get_trophy per id, is_earned predicates for each trophy type).
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/TrophyRegistry.gd`** (new): Static registry with 3 trophy definitions. `is_earned()` dispatches to `_check_champion()` (defeated_duelists.size() > 0), `_check_spire_7()` (spire_best_floor >= 7), `_check_first_boss()` (any defeated_enemy matches EnemyRegistry.is_boss()). Unknown trophy IDs and missing save fields return false gracefully.
+- **`game_logic/TrophyRegistry.gd.uid`** (new): `uid://wzsfpzs80b2z`
+- **`scenes/world/WorldScene.gd`**: Added `const TrophyRegistry = preload("res://game_logic/TrophyRegistry.gd")`; added `_spawn_player_home_trophies()` called when loading player_home; added `_make_trophy_pedestal(earned, display_name)` creating a Node3D with BoxMesh base+top and Label3D; added `trophy_pedestal` branch in NPC interact dispatch; added `_show_trophy_info(npc)` delegating to `_show_dialogue()`.
+- **`tests/unit/test_player_home.gd`**: Contains TrophyRegistry tests: get_all returns 3, get_trophy for each id, get_trophy("nonexistent") empty, is_earned for champion/spire_7/first_boss/unknown.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/player-home.md` (new) — covers trophy data schema and pedestal spawning.
