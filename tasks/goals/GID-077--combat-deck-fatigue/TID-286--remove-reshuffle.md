@@ -1,6 +1,6 @@
-# TID-279: Remove Discard Reshuffle from draw_card()
+# TID-286: Remove Discard Reshuffle from draw_card()
 
-**Goal:** GID-076
+**Goal:** GID-077
 **Type:** agent
 **Status:** pending
 **Depends On:** —

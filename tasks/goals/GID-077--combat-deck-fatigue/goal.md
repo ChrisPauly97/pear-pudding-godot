@@ -1,4 +1,4 @@
-# GID-076: Combat Deck Fatigue
+# GID-077: Combat Deck Fatigue
 
 ## Objective
 
@@ -12,8 +12,8 @@ Currently `PlayerState.draw_card()` shuffles the discard pile back into the draw
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-279 | Remove discard reshuffle from draw_card() | agent | pending | — |
-| TID-280 | Fatigue damage system — escalating hero damage on empty draw | agent | pending | TID-279 |
+| TID-286 | Remove discard reshuffle from draw_card() | agent | pending | — |
+| TID-287 | Fatigue damage system — escalating hero damage on empty draw | agent | pending | TID-286 |
 
 ## Acceptance Criteria
 

@@ -1,9 +1,9 @@
-# TID-280: Fatigue Damage System
+# TID-287: Fatigue Damage System
 
-**Goal:** GID-076
+**Goal:** GID-077
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-279
+**Depends On:** TID-286
 
 ## Lock
 
@@ -13,14 +13,14 @@
 
 ## Context
 
-With reshuffle removed (TID-279), `draw_card()` returns `null` whenever the draw deck is empty. This task turns that empty-draw into escalating fatigue damage: the first failed draw deals 1 damage to the drawing player's hero, the second deals 2, the third 3, and so on. This mirrors Hearthstone's fatigue system and gives both sides a reason to play aggressively once decks thin out.
+With reshuffle removed (TID-286), `draw_card()` returns `null` whenever the draw deck is empty. This task turns that empty-draw into escalating fatigue damage: the first failed draw deals 1 damage to the drawing player's hero, the second deals 2, the third 3, and so on. This mirrors Hearthstone's fatigue system and gives both sides a reason to play aggressively once decks thin out.
 
 ## Research Notes
 
 ### Where fatigue lives
 
 - **`game_logic/battle/PlayerState.gd`** — add `var fatigue_counter: int = 0`. The counter is per-player so each side accumulates independently.
-- **`draw_card()` (currently after TID-279)**:
+- **`draw_card()` (currently after TID-286)**:
   ```gdscript
   func draw_card() -> CardInstance:
       if draw_deck.is_empty():
@@ -105,7 +105,7 @@ Puzzle battles have no draw deck. `draw_card()` is never called during a puzzle,
    - Connect `GameBus.fatigue_damage` in `_ready()`.
    - Add `_on_fatigue_damage(player_id, dmg)` handler: show a short-lived "Fatigue! −N" label near the affected hero panel, then call `_check_game_over()`.
 4. Add a unit test in `tests/unit/test_battle_fatigue.gd` covering the scenarios above.
-5. Update `docs/agent/battle-system.md` — add a "Deck Fatigue (GID-076)" section under "How It Works".
+5. Update `docs/agent/battle-system.md` — add a "Deck Fatigue (GID-077)" section under "How It Works".
 
 ## Changes Made
 
