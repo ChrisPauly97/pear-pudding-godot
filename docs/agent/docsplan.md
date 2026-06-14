@@ -27,6 +27,7 @@ This directory contains one Markdown file per major game feature. Each file foll
 | [magic-system.md](magic-system.md) | Light/Dark magic lore, Ember/Ash sub-branches, spell card stats, schema extension notes |
 | [meta-progression.md](meta-progression.md) | Achievements, legendary card unlock gate, run summary screen, session stats |
 | [treasure-maps.md](treasure-maps.md) | Treasure map fragments, deterministic dig sites, DigSpot entity, map overlay marker |
+| [waystone-fast-travel.md](waystone-fast-travel.md) | Waystone entities, ID scheme, save tracking, placement (named maps + seeded chunks), fast-travel UI, teleport routing |
 
 ---
 

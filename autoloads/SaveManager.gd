@@ -116,6 +116,9 @@ var treasure_fragments: int = 0          # 0–2 collected fragments; resets to 
 var active_treasure: Dictionary = {}     # { "site_x": int, "site_z": int, "completed": bool } or {}
 var treasures_completed: int = 0         # total maps excavated; used as salt for next dig site
 
+# Waystone fast travel
+var activated_waystones: Array[String] = []
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -206,13 +209,14 @@ func new_game() -> void:
 	treasure_fragments = 0
 	active_treasure = {}
 	treasures_completed = 0
+	activated_waystones = []
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 20
+const CURRENT_SAVE_VERSION: int = 21
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -390,6 +394,12 @@ static func _migrate_v19_to_v20(data: Dictionary) -> void:
 		data["treasures_completed"] = 0
 	data["version"] = 20
 
+# _migrate_v20_to_v21: backfill waystone fast travel tracking for old saves.
+static func _migrate_v20_to_v21(data: Dictionary) -> void:
+	if not data.has("activated_waystones"):
+		data["activated_waystones"] = []
+	data["version"] = 21
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -432,6 +442,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v18_to_v19(data)
 	if ver < 20:
 		_migrate_v19_to_v20(data)
+	if ver < 21:
+		_migrate_v20_to_v21(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -503,6 +515,7 @@ func load_save() -> bool:
 	var at = data.get("active_treasure", {})
 	active_treasure = at if at is Dictionary else {}
 	treasures_completed = int(data.get("treasures_completed", 0))
+	activated_waystones.assign(data.get("activated_waystones", []))
 	_loaded = true
 	return true
 
@@ -561,6 +574,7 @@ func save() -> void:
 		"treasure_fragments": treasure_fragments,
 		"active_treasure": active_treasure,
 		"treasures_completed": treasures_completed,
+		"activated_waystones": activated_waystones,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -1100,6 +1114,14 @@ func complete_treasure(coins: int, card_id: String) -> void:
 	treasures_completed += 1
 	_dirty = true
 	GameBus.treasure_excavated.emit(coins, card_id)
+
+func activate_waystone(waystone_id: String) -> void:
+	if not activated_waystones.has(waystone_id):
+		activated_waystones.append(waystone_id)
+	_dirty = true
+
+func is_waystone_activated(waystone_id: String) -> bool:
+	return activated_waystones.has(waystone_id)
 
 func increment_day() -> void:
 	days_elapsed += 1

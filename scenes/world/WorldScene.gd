@@ -34,6 +34,7 @@ const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
 const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
+const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -53,6 +54,8 @@ var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
 var _shrine_nodes: Array[Node3D] = []
+var _waystone_nodes: Dictionary = {}    # id -> Node3D
+var _active_waystone_data: Dictionary = {}  # id -> Dictionary
 var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
@@ -257,6 +260,7 @@ func _ready() -> void:
 			int(floor(_player.position.z / chunk_world)))
 		_spawn_named_map_scrolls()
 		_spawn_named_map_shrines()
+		_spawn_named_map_waystones()
 
 	_update_hud()
 
@@ -349,6 +353,7 @@ func _ready() -> void:
 	_hud.add_child(_dialogue_label)
 	GameBus.hud_message_requested.connect(_show_dialogue)
 	GameBus.story_scroll_collected.connect(_on_scroll_collected)
+	GameBus.waystone_activated.connect(_on_waystone_activated)
 
 	_tip_label = Label.new()
 	_tip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -666,6 +671,13 @@ func _update_chunks() -> void:
 			if is_instance_valid(nnode):
 				nnode.queue_free()
 			_npc_nodes.erase(nid)
+		for w_data in chunk.waystones:
+			var wid: String = str(w_data.get("id", ""))
+			_active_waystone_data.erase(wid)
+			var wnode: Node3D = _waystone_nodes.get(wid) as Node3D
+			if is_instance_valid(wnode):
+				wnode.queue_free()
+			_waystone_nodes.erase(wid)
 
 	# Evict chunk data cache entries far beyond the unload radius to bound memory.
 	# Keep a margin beyond UNLOAD_RADIUS so neighbour tile lookups still hit cache.
@@ -806,6 +818,9 @@ func _commit_chunk_results() -> void:
 	for n_data in chunk.npcs:
 		var nid: String = str(n_data.get("id", ""))
 		_active_npc_data[nid] = n_data
+	for w_data in chunk.waystones:
+		var wid: String = str(w_data.get("id", ""))
+		_active_waystone_data[wid] = w_data
 
 	var renderer: ChunkRenderer = ChunkRenderer.new()
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
@@ -837,6 +852,9 @@ func _build_chunk_sync(key: Vector2i) -> void:
 	for n_data in chunk.npcs:
 		var nid: String = str(n_data.get("id", ""))
 		_active_npc_data[nid] = n_data
+	for w_data in chunk.waystones:
+		var wid: String = str(w_data.get("id", ""))
+		_active_waystone_data[wid] = w_data
 	var renderer: ChunkRenderer = ChunkRenderer.new()
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
 	add_child(renderer)
@@ -961,6 +979,75 @@ func _find_nearby_shrine(px: float, pz: float, range_dist: float) -> Node3D:
 		if ddx * ddx + ddz * ddz <= range_sq:
 			return sh
 	return null
+
+# Named-map waystone positions (near spawn, one per town map).
+# Used when the map's .tres data has no waystones array populated.
+const _NAMED_MAP_WAYSTONE_LABELS: Dictionary = {
+	"main": "Main Outpost",
+	"madrian": "Madrian",
+	"maykalene": "Maykalene",
+	"blancogov": "Blancogov",
+	"farsyth_mansion": "Farsyth Mansion",
+	"blancogov_temple": "Temple of Blancogov",
+}
+
+func _spawn_named_map_waystones() -> void:
+	if world_map == null:
+		return
+	var source_list: Array[Dictionary] = []
+	if not world_map.waystones.is_empty():
+		source_list = world_map.waystones
+	elif _NAMED_MAP_WAYSTONE_LABELS.has(map_name):
+		# Inject a waystone near the map spawn when none defined in .tres
+		var tx: int = world_map.player_spawn_x + 3 if world_map.has_player_spawn() else 8
+		var tz: int = world_map.player_spawn_z if world_map.has_player_spawn() else 8
+		tx = clamp(tx, 1, WorldMap.MAP_WIDTH - 2)
+		tz = clamp(tz, 1, WorldMap.MAP_HEIGHT - 2)
+		var w_id: String = "map:%s" % map_name
+		var label: String = str(_NAMED_MAP_WAYSTONE_LABELS[map_name])
+		source_list = [{
+			"id": w_id,
+			"x": float(tx) * WorldMap.TILE_SIZE,
+			"z": float(tz) * WorldMap.TILE_SIZE,
+			"label": label,
+			"active": SceneManager.save_manager.is_waystone_activated(w_id),
+		}]
+	for entry in source_list:
+		var wx: float = float(entry["x"])
+		var wz: float = float(entry["z"])
+		var wy: float = get_terrain_height(wx, wz) + 0.75
+		var wid: String = str(entry.get("id", "map:%s" % map_name))
+		var is_active: bool = SceneManager.save_manager.is_waystone_activated(wid)
+		var w_dict: Dictionary = entry.duplicate()
+		w_dict["active"] = is_active
+		var node := _WaystoneScene.instantiate() as Node3D
+		_entity_root.add_child(node)
+		node.position = Vector3(wx, wy, wz)
+		if node.has_method("init_from_data"):
+			node.init_from_data(w_dict)
+		_waystone_nodes[wid] = node
+		_active_waystone_data[wid] = w_dict
+
+func register_waystone(wid: String, node: Node3D, w_data: Dictionary) -> void:
+	_waystone_nodes[wid] = node
+	_active_waystone_data[wid] = w_data
+
+func _find_nearby_waystone(px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
+	for wid in _active_waystone_data:
+		var w: Dictionary = _active_waystone_data[wid]
+		if bool(w.get("active", false)):
+			continue
+		var ddx: float = float(w.get("x", 0.0)) - px
+		var ddz: float = float(w.get("z", 0.0)) - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return w
+	return {}
+
+func _on_waystone_activated(waystone_id: String) -> void:
+	var w_data: Dictionary = _active_waystone_data.get(waystone_id, {})
+	var label: String = str(w_data.get("label", "Unknown"))
+	SceneManager.show_toast("Waystone Activated", label)
 
 # Find nearest entities — checks the player's chunk + 8 neighbours for enemies/chests;
 # scans active data dicts for doors and NPCs.
@@ -1236,7 +1323,8 @@ func _check_interactions() -> void:
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
 	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
-	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null:
+	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
+	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty():
 		if _interact_btn != null:
 			_interact_btn.show()
 		else:
@@ -1268,7 +1356,7 @@ func _open_map_view() -> void:
 	add_child(_map_overlay)
 	_map_overlay.setup(world_map, map_name, _player,
 		_npc_nodes, _active_npc_data,
-		_enemy_nodes, _chest_nodes, _door_nodes)
+		_enemy_nodes, _chest_nodes, _door_nodes, _waystone_nodes)
 	_map_overlay.closed.connect(func() -> void: _map_overlay = null)
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -1392,6 +1480,14 @@ func _handle_interact() -> void:
 	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
 	if digspot != null and digspot.has_method("dig"):
 		digspot.dig()
+		return
+
+	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
+	if not waystone.is_empty():
+		var wid: String = str(waystone.get("id", ""))
+		var wnode := _waystone_nodes.get(wid) as Node3D
+		if wnode != null and wnode.has_method("mark_activated"):
+			wnode.mark_activated()
 
 # ── Spire entrance ─────────────────────────────────────────────────────────
 

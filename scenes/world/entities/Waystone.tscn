@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://6lpbiw1c091h"]
+
+[ext_resource type="Script" path="res://scenes/world/entities/Waystone.gd" id="1"]
+
+[node name="Waystone" type="Node3D"]
+script = ExtResource("1")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]

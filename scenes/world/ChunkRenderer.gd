@@ -12,6 +12,7 @@ const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.t
 const _MerchantScene     = preload("res://scenes/world/entities/MerchantNPC.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
 const _DigSpotScene      = preload("res://scenes/world/entities/DigSpot.tscn")
+const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
 
 const TERRAIN_VDENSITY: int = 2
@@ -267,6 +268,17 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		if world_scene.has_method("register_npc"):
 			world_scene.register_npc(n_data["id"], node, n_data)
 		print("NPC spawned: ", n_data.get("id", "?"), " (", n_data.get("npc_type", "townsperson"), ") at world (", n_data["x"], ", ", n_data["z"], ")")
+
+	# ── Waystones ─────────────────────────────────────────────────────────────
+	for w_data in _chunk_data.waystones:
+		var wid: String = str(w_data.get("id", ""))
+		var is_active: bool = SceneManager.save_manager.is_waystone_activated(wid)
+		var w_dict: Dictionary = w_data.duplicate()
+		w_dict["active"] = is_active
+		var node: Node3D = TerrainMath.spawn_entity(_WaystoneScene, w_dict, 0.75, entity_root, world_scene)
+		_set_visibility_range(node)
+		if world_scene.has_method("register_waystone"):
+			world_scene.register_waystone(wid, node, w_dict)
 
 	# ── Active treasure dig site ───────────────────────────────────────────────
 	var sm := SceneManager.save_manager

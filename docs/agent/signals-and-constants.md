@@ -81,6 +81,7 @@ This means `EnemyNPC` never imports `SceneManager`, and `BattleScene` never impo
 | `fragment_collected` | `SaveManager.collect_treasure_fragment()` | `SceneManager` (toast) | _(none)_ |
 | `treasure_map_assembled` | `SaveManager._assemble_treasure_map()` | `SceneManager` (toast) | _(none)_ |
 | `treasure_excavated` | `SaveManager.complete_treasure()` | `SceneManager` (toast) | `coins: int, card_id: String` |
+| `waystone_activated` | `Waystone.mark_activated()` | `WorldScene` (toast + visual update) | `waystone_id: String` |
 
 ---
 

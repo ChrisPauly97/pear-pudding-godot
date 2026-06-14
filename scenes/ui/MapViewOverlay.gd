@@ -22,6 +22,7 @@ const _DOT_MERCHANT := Color(0.20, 0.90, 0.90)
 const _DOT_REST     := Color(0.35, 0.85, 0.65)   # teal-green: rest site
 const _DOT_EVENT    := Color(0.95, 0.60, 0.15)   # amber: event room
 const _DOT_DIGSITE  := Color(1.00, 0.65, 0.15)   # gold: active treasure dig site
+const _DOT_WAYSTONE := Color(0.40, 0.90, 1.00)   # cyan: waystone (dormant or active)
 
 var _player: CharacterBody3D
 var _npc_nodes: Dictionary
@@ -29,10 +30,12 @@ var _npc_data: Dictionary
 var _enemy_nodes: Dictionary
 var _chest_nodes: Dictionary
 var _door_nodes: Dictionary
+var _waystone_nodes: Dictionary
 
 var _panel_pos: Vector2
 var _panel_size: float
 var _dot_layer: _DotLayer
+var _travel_panel: ScrollContainer
 
 
 # ── Inner dot-drawing layer ───────────────────────────────────────────────────
@@ -52,13 +55,14 @@ class _DotLayer extends Control:
 func setup(world_map, map_name: String, player: CharacterBody3D,
 		npc_nodes: Dictionary, npc_data: Dictionary,
 		enemy_nodes: Dictionary, chest_nodes: Dictionary,
-		door_nodes: Dictionary) -> void:
-	_player      = player
-	_npc_nodes   = npc_nodes
-	_npc_data    = npc_data
-	_enemy_nodes = enemy_nodes
-	_chest_nodes = chest_nodes
-	_door_nodes  = door_nodes
+		door_nodes: Dictionary, waystone_nodes: Dictionary = {}) -> void:
+	_player         = player
+	_npc_nodes      = npc_nodes
+	_npc_data       = npc_data
+	_enemy_nodes    = enemy_nodes
+	_chest_nodes    = chest_nodes
+	_door_nodes     = door_nodes
+	_waystone_nodes = waystone_nodes
 
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
@@ -123,6 +127,9 @@ func setup(world_map, map_name: String, player: CharacterBody3D,
 	hint.position = Vector2(_panel_pos.x, _panel_pos.y + _panel_size + int(vh * 0.008))
 	add_child(hint)
 
+	# ── Fast travel panel ─────────────────────────────────────────────────────
+	_build_fast_travel_panel(vp, vh)
+
 
 func _build_map_texture(world_map) -> ImageTexture:
 	var img := Image.create(100, 100, false, Image.FORMAT_RGB8)
@@ -145,9 +152,10 @@ func _tile_color(tile: int) -> Color:
 # Called by _DotLayer._draw()
 func _on_draw(canvas: Control) -> void:
 	# Entity nodes carry world positions; convert to tile coords then panel pixels.
-	_draw_group(canvas, _enemy_nodes, _DOT_ENEMY, 4.0, false)
-	_draw_group(canvas, _chest_nodes, _DOT_CHEST, 4.0, false)
-	_draw_group(canvas, _door_nodes,  _DOT_DOOR,  4.0, false)
+	_draw_group(canvas, _enemy_nodes,   _DOT_ENEMY,    4.0, false)
+	_draw_group(canvas, _chest_nodes,   _DOT_CHEST,    4.0, false)
+	_draw_group(canvas, _door_nodes,    _DOT_DOOR,     4.0, false)
+	_draw_group(canvas, _waystone_nodes, _DOT_WAYSTONE, 5.0, false)
 	_draw_npcs(canvas)
 	_draw_digsite(canvas)
 	# Player last so it's on top
@@ -201,6 +209,95 @@ func _world_to_panel(wx: float, wz: float) -> Vector2:
 	var px: float = _panel_pos.x + (tx / 100.0) * _panel_size
 	var pz: float = _panel_pos.y + (tz / 100.0) * _panel_size
 	return Vector2(px, pz)
+
+
+func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
+	var panel_w: float = vh * 0.22
+	var panel_h: float = _panel_size
+	var px: float = _panel_pos.x + _panel_size + vh * 0.02
+	var py: float = _panel_pos.y
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.05, 0.05, 0.08, 0.90)
+	bg.size = Vector2(panel_w, panel_h)
+	bg.position = Vector2(px, py)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(bg)
+
+	var font_size: int = int(vh * 0.022)
+	var title_lbl := Label.new()
+	title_lbl.text = "Fast Travel"
+	title_lbl.add_theme_font_size_override("font_size", int(vh * 0.025))
+	title_lbl.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.size = Vector2(panel_w, int(vh * 0.038))
+	title_lbl.position = Vector2(px, py + vh * 0.01)
+	add_child(title_lbl)
+
+	var is_blocked: bool = SceneManager._state != SceneManager.State.WORLD or \
+		SceneManager.current_map.begins_with("dungeon_")
+
+	_travel_panel = ScrollContainer.new()
+	_travel_panel.size = Vector2(panel_w - vh * 0.02, panel_h - vh * 0.055)
+	_travel_panel.position = Vector2(px + vh * 0.01, py + vh * 0.048)
+	add_child(_travel_panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_travel_panel.add_child(vbox)
+
+	var activated: Array[String] = SceneManager.save_manager.activated_waystones
+	if activated.is_empty():
+		var empty_lbl := Label.new()
+		empty_lbl.text = "No waystones activated yet."
+		empty_lbl.add_theme_font_size_override("font_size", font_size)
+		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		empty_lbl.custom_minimum_size = Vector2(panel_w - vh * 0.04, 0)
+		vbox.add_child(empty_lbl)
+	else:
+		var btn_h: float = vh * 0.055
+		var btn_w: float = panel_w - vh * 0.04
+		for wid: String in activated:
+			var label: String = _friendly_label(wid)
+			var btn := Button.new()
+			btn.text = label
+			btn.custom_minimum_size = Vector2(btn_w, btn_h)
+			btn.add_theme_font_size_override("font_size", font_size)
+			if is_blocked:
+				btn.disabled = true
+				btn.modulate = Color(0.5, 0.5, 0.5)
+			else:
+				var captured_id: String = wid
+				btn.pressed.connect(func() -> void: _teleport_to_waystone(captured_id))
+			vbox.add_child(btn)
+
+	if is_blocked:
+		var block_lbl := Label.new()
+		block_lbl.text = "Travel unavailable\nduring battles\nor in dungeons."
+		block_lbl.add_theme_font_size_override("font_size", int(vh * 0.019))
+		block_lbl.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+		block_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		block_lbl.position = Vector2(px, py + panel_h - vh * 0.09)
+		block_lbl.size = Vector2(panel_w, vh * 0.09)
+		add_child(block_lbl)
+
+
+func _friendly_label(waystone_id: String) -> String:
+	if waystone_id.begins_with("map:"):
+		var map_name_part: String = waystone_id.substr(4)
+		return map_name_part.capitalize().replace("_", " ")
+	elif waystone_id.begins_with("world:"):
+		var parts: PackedStringArray = waystone_id.split(":")
+		if parts.size() >= 3:
+			return "Waystone (%s, %s)" % [parts[1], parts[2]]
+	return waystone_id
+
+
+func _teleport_to_waystone(waystone_id: String) -> void:
+	closed.emit()
+	queue_free()
+	SceneManager.teleport_to_waystone(waystone_id)
 
 
 func _unhandled_input(event: InputEvent) -> void:

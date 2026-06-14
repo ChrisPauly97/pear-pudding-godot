@@ -661,6 +661,35 @@ func _advance_spire_floor() -> void:
 	save_manager.save()
 	_load_world(next_map, "")
 
+func show_toast(title: String, desc: String) -> void:
+	_toast.show_text(title, desc)
+
+## Teleports the player to an activated waystone.
+## Named-map waystone (id = "map:mapname"): enters the named map.
+## World waystone (id = "world:tx:tz"): sets player position and reloads infinite world.
+func teleport_to_waystone(waystone_id: String) -> void:
+	if _state != State.WORLD:
+		return
+	if waystone_id.begins_with("map:"):
+		var target_map: String = waystone_id.substr(4)
+		enter_map(target_map, "")
+	elif waystone_id.begins_with("world:"):
+		var parts: PackedStringArray = waystone_id.split(":")
+		if parts.size() >= 3:
+			var tx: int = int(parts[1])
+			var tz: int = int(parts[2])
+			var wx: float = float(tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			var wz: float = float(tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			save_manager.player_x = wx
+			save_manager.player_z = wz
+			save_manager.current_map = "main"
+			map_stack.clear()
+			door_stack.clear()
+			current_map = "main"
+			save_manager.sync_stacks(map_stack, door_stack)
+			save_manager.save()
+			_load_world("main", "")
+
 ## Restores map position to the pre-Spire entry point (e.g. madrian) before ending
 ## a run, so that continuing after death/retreat loads the entrance map, not a spire floor.
 func _restore_spire_entry_point() -> void:

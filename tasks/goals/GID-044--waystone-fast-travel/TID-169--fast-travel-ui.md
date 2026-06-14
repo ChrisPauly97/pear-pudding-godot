@@ -2,7 +2,7 @@
 
 **Goal:** GID-044  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** TID-167
 
 ## Lock
@@ -71,12 +71,20 @@ The UI overlay that lists activated waystones and handles teleportation, with co
 
 ## Plan
 
-_Written during Plan phase._
+1. Extend `MapViewOverlay.setup()` to accept a 9th `waystone_nodes: Dictionary` parameter.
+2. In `_build_fast_travel_panel()`, populate a `ScrollContainer` with one `Button` per activated waystone from `SceneManager.save_manager.activated_waystones`. Place panel to the right of the map panel.
+3. Add `_friendly_label(waystone_id)` helper: parse `"map:X"` → map name, `"world:X:Z"` → coord string.
+4. Add `_teleport_to_waystone(waystone_id)` handler: dismiss overlay, call `SceneManager.teleport_to_waystone()`.
+5. Add `_DOT_WAYSTONE` color dot rendering in `_on_draw()` for waystone positions on the minimap.
+6. Block panel when `current_map` is a dungeon or during battle state.
+7. `SceneManager.teleport_to_waystone()`: named-map branch calls `enter_map()`; world branch sets player pos and clears/reloads stack.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/ui/MapViewOverlay.gd`**: Added `_waystone_nodes: Dictionary` member, `_travel_panel: ScrollContainer`, `_DOT_WAYSTONE` color constant, `_build_fast_travel_panel()`, `_friendly_label()`, `_teleport_to_waystone()`. Extended `setup()` with optional 9th `waystone_nodes` arg. Updated `_on_draw()` to render cyan waystone dots. Panel is blocked when `current_map` starts with "dungeon" or `SceneManager._state != State.WORLD`.
+- **`autoloads/SceneManager.gd`**: Added `show_toast(title, desc)` and `teleport_to_waystone(waystone_id)`. Named-map branch calls `enter_map()`; world branch saves player coords, clears map/door stacks, and calls `_load_world("main", "")`.
+- **`scenes/world/WorldScene.gd`**: Updated `_open_map_view()` to pass `_waystone_nodes` as 9th arg to `MapViewOverlay.setup()`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/waystone-fast-travel.md` with fast-travel UI and teleport routing sections.
