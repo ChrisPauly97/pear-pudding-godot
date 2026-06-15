@@ -2,7 +2,7 @@
 
 **Goal:** GID-049
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-182
 
 ## Lock
@@ -99,12 +99,22 @@ Derive the current story objective from Chapter 1 flags (no new flags) and show 
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/ObjectiveTracker.gd` — static `current_objective(flags)` returns `{label, map, tx, tz}` or `{}` based on Chapter 1 flag progression (most-advanced flag checked first).
+2. In `scenes/world/WorldScene.gd` — add `const ObjectiveTracker` preload; after the waypoint marker, add a gold objective marker that reads `ObjectiveTracker.current_objective()` per frame. Off-map or wildcard (tx==-1) returns null (hidden).
+3. In `scenes/ui/MapViewOverlay.gd` — add `const ObjectiveTracker` preload; add an objective label above the close hint showing current objective label text (empty if no objective).
+4. Create `tests/unit/test_objective_tracker.gd` — test all 8 flag states: no flags, each progressive flag, and chapter1_complete.
+5. Update `docs/agent/story-implementation.md` with Objective Tracking subsection.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `game_logic/ObjectiveTracker.gd` — static `current_objective(flags)` returning the next Chapter 1 objective based on most-advanced flag set
+- Created `game_logic/ObjectiveTracker.gd.uid` sidecar
+- `scenes/world/WorldScene.gd` — added `const ObjectiveTracker` preload; added gold "objective" marker to compass ribbon after waypoint marker
+- `scenes/ui/MapViewOverlay.gd` — added `const _ObjectiveTracker` preload; added gold objective label above close hint (visible only when an objective is active)
+- Created `tests/unit/test_objective_tracker.gd` — 9 tests covering all flag progression states and robustness cases
+- Created `tests/unit/test_objective_tracker.gd.uid` sidecar
+- `tests/runner.gd` — registered new test suite
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/story-implementation.md` — added "Objective Tracking" subsection with flag→objective table, wildcard note, and CompassRibbon/MapViewOverlay integration descriptions
