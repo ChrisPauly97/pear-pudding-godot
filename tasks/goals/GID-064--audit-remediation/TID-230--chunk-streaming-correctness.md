@@ -2,7 +2,7 @@
 
 **Goal:** GID-064
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -69,12 +69,21 @@ test suite.
 
 ## Plan
 
-_Written during Plan phase._
+Fix all 4 verified bugs + 2 latent items in order. Bug 1: erase `_chunk_queued[key]` in `_build_chunk_sync`. Bug 2: add `_chunk_task_id_map` to reap completed WorkerThreadPool tasks. Bug 3: use `ChunkRenderer.CURVE_R` in named-map branch of `get_terrain_height`. Bug 4: iterate all `GeometryInstance3D` descendants in `_set_visibility_range`. Latent 5: explicit ttx/ttz bounds in snapshot lookups. Latent 6: `floori()` in TerrainMath for correct tile index in negative quadrant.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/world/WorldScene.gd`**:
+  - Added `var _chunk_task_id_map: Dictionary` (key→task_id).
+  - `_build_chunk_sync()`: added `_chunk_queued.erase(key)` after registering renderer, so returning players can re-queue spawn-area chunks.
+  - `_kick_chunk_jobs()`: stores `_chunk_task_id_map[key] = task_id` alongside existing `_chunk_task_ids.append`.
+  - `_commit_chunk_results()`: calls `wait_for_task_completion(done_id)` and erases from both tracking structures when committing a result.
+  - `get_terrain_height()`: named-map branch now uses `ChunkRenderer.CURVE_R` instead of `HILL_RAMP_R` (was 4.0, now 3.5 — matching the renderer).
+- **`scenes/world/ChunkRenderer.gd`**:
+  - `prepare_terrain()`: snapshot grid lookups now check `ttx`/`ttz` against column/row bounds before computing flat index, preventing cross-row wrap.
+  - `_set_visibility_range()`: replaced first-match-then-return logic with `find_children("*", "GeometryInstance3D", true, false)` so all meshes (head, legs, labels) get the range.
+- **`game_logic/TerrainMath.gd`**: Replaced 4 `int(x / TILE_SIZE)` → `floori(x / TILE_SIZE)` in `get_height_at`, `compute_height_field`, and `build_terrain_mesh` for correct tile index in the −X/−Z quadrant.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required.

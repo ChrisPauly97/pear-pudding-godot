@@ -115,6 +115,7 @@ var _chunk_data_pending: Dictionary = {}    # Vector2i -> true (job in flight)
 var _chunk_build_results: Array[Dictionary] = []  # completed terrain prep, waiting for commit
 var _chunk_build_mutex: Mutex = Mutex.new()
 var _chunk_task_ids: Array[int] = []        # WorkerThreadPool task IDs in flight
+var _chunk_task_id_map: Dictionary = {}     # Vector2i -> task_id for reaping
 var _chunk_queued: Dictionary = {}          # Vector2i -> true (O(1) queue membership)
 var _chunk_queue_dirty: bool = false       # only re-sort when new items were added
 var _pending_physics: Array[Node3D] = []    # ChunkRenderers awaiting physics build
@@ -141,6 +142,7 @@ var _coord_label: Label
 var _minimap: Node
 var _level_label: Label
 var _xp_bar: ProgressBar
+var _xp_label: Label
 var _map_overlay: Node = null
 var _interact_btn: Button = null
 var _mount_btn: Button = null
@@ -423,15 +425,7 @@ func _ready() -> void:
 		AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
 		if map_name.begins_with("dungeon_"):
 			_dungeon_hero_hp = 30
-	GameBus.battle_won.connect(func(_r: Dictionary) -> void:
-		if _is_infinite and _current_biome >= 0:
-			AudioManager.play_music(_BIOME_MUSIC[_current_biome])
-		else:
-			AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
-		# Remount after battle if player had an active mount
-		var sm_bw := SceneManager.save_manager
-		if sm_bw.active_mount != "" and sm_bw.current_map == "main":
-			sm_bw.summon_mount(sm_bw.active_mount))
+	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)
 
 	# Auto-remount when returning to the overworld from a named map
@@ -441,10 +435,10 @@ func _ready() -> void:
 			sm_ready.summon_mount(sm_ready.active_mount)
 
 	# Cancel tap-to-move path when battle or menu interrupts movement.
-	GameBus.enemy_engaged.connect(func(_d: Dictionary) -> void: _clear_dest_marker())
-	GameBus.inventory_requested.connect(func() -> void: _clear_dest_marker())
-	GameBus.journal_requested.connect(func() -> void: _clear_dest_marker())
-	GameBus.map_transition_requested.connect(func(_m: String, _d: String) -> void: _clear_dest_marker())
+	GameBus.enemy_engaged.connect(_clear_dest_marker)
+	GameBus.inventory_requested.connect(_clear_dest_marker)
+	GameBus.journal_requested.connect(_clear_dest_marker)
+	GameBus.map_transition_requested.connect(_clear_dest_marker)
 
 func _exit_tree() -> void:
 	# Wait for any in-flight worker tasks before the GDScript instance is freed.
@@ -470,7 +464,7 @@ func _update_hud() -> void:
 	else:
 		_map_label.text = "Map: %s" % map_name
 	_coin_label.text = "Coins: %d" % SceneManager.save_manager.coins
-	SceneManager.save_manager.coins_changed.connect(func(n: int) -> void: _coin_label.text = "Coins: %d" % n)
+	SceneManager.save_manager.coins_changed.connect(_on_coins_changed)
 
 	# XP bar — bottom-left of screen
 	var vh: float = get_viewport().get_visible_rect().size.y
@@ -489,19 +483,15 @@ func _update_hud() -> void:
 	_xp_bar.show_percentage = false
 	xp_row.add_child(_xp_bar)
 
-	var xp_lbl := Label.new()
-	xp_lbl.add_theme_font_size_override("font_size", int(vh * 0.025))
-	xp_row.add_child(xp_lbl)
+	_xp_label = Label.new()
+	_xp_label.add_theme_font_size_override("font_size", int(vh * 0.025))
+	xp_row.add_child(_xp_label)
 
-	GameBus.xp_changed.connect(func(_x: int, _l: int) -> void:
-		_refresh_xp_bar()
-		xp_lbl.text = "%d / %d XP" % [
-			SceneManager.save_manager.xp - SaveManager.xp_for_level(SceneManager.save_manager.level - 1),
-			SaveManager.xp_for_level(SceneManager.save_manager.level) - SaveManager.xp_for_level(SceneManager.save_manager.level - 1)])
+	GameBus.xp_changed.connect(_on_xp_changed)
 
 	_refresh_xp_bar()
 	var sm := SceneManager.save_manager
-	xp_lbl.text = "%d / %d XP" % [
+	_xp_label.text = "%d / %d XP" % [
 		sm.xp - SaveManager.xp_for_level(sm.level - 1),
 		SaveManager.xp_for_level(sm.level) - SaveManager.xp_for_level(sm.level - 1)]
 
@@ -594,7 +584,7 @@ func get_terrain_height(wx: float, wz: float) -> float:
 		return TerrainMath.get_height_at(wx, wz, get_tile_global, _get_height_global,
 				ChunkRenderer.CURVE_R, HILL_PEAK_H, ChunkRenderer.WALL_CURVE_R)
 	return TerrainMath.get_height_at(wx, wz, world_map.get_tile, world_map.get_height,
-			HILL_RAMP_R, HILL_PEAK_H)
+			ChunkRenderer.CURVE_R, HILL_PEAK_H)
 
 # Returns false if the chunk AABB is definitely outside the camera frustum.
 # Uses the standard separating-plane test: if all 8 corners of the chunk's
@@ -831,6 +821,7 @@ func _kick_chunk_jobs() -> void:
 		var task_id: int = WorkerThreadPool.add_task(_chunk_prepare_task.bind(
 				key, chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4]))
 		_chunk_task_ids.append(task_id)
+		_chunk_task_id_map[key] = task_id
 		# don't increment i — next item shifted into position
 
 # Called every frame: commit one ready result to the scene tree (cheap).
@@ -844,6 +835,12 @@ func _commit_chunk_results() -> void:
 
 	var key: Vector2i = result["key"]
 	_chunk_data_pending.erase(key)
+	# Reap the WorkerThreadPool task so the pool can reclaim its slot.
+	if _chunk_task_id_map.has(key):
+		var done_id: int = _chunk_task_id_map[key]
+		WorkerThreadPool.wait_for_task_completion(done_id)
+		_chunk_task_ids.erase(done_id)
+		_chunk_task_id_map.erase(key)
 
 	# Discard if the chunk was unloaded or is now out of range
 	if _chunk_renderers.has(key):
@@ -905,6 +902,7 @@ func _build_chunk_sync(key: Vector2i) -> void:
 	renderer.build_visual(chunk, key, self, _terrain_mat, terrain_res)
 	renderer.build_physics()
 	_chunk_renderers[key] = renderer
+	_chunk_queued.erase(key)
 
 # Called by ChunkRenderer after spawning an enemy
 func register_enemy(eid: String, node: Node3D) -> void:
@@ -1805,6 +1803,27 @@ func _on_mount_state_changed(_mounted: bool, _mount_id: String) -> void:
 func _on_enemy_engaged_for_mount(_enemy_data: Dictionary) -> void:
 	if SceneManager.save_manager.is_mounted:
 		SceneManager.save_manager.auto_dismiss_mount()
+
+func _on_battle_won(_result: Dictionary) -> void:
+	if _is_infinite and _current_biome >= 0:
+		AudioManager.play_music(_BIOME_MUSIC[_current_biome])
+	else:
+		AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
+	var sm := SceneManager.save_manager
+	if sm.active_mount != "" and sm.current_map == "main":
+		sm.summon_mount(sm.active_mount)
+
+func _on_coins_changed(n: int) -> void:
+	_coin_label.text = "Coins: %d" % n
+
+func _on_xp_changed(_xp: int, _level: int) -> void:
+	_refresh_xp_bar()
+	if _xp_label == null:
+		return
+	var sm := SceneManager.save_manager
+	_xp_label.text = "%d / %d XP" % [
+		sm.xp - SaveManager.xp_for_level(sm.level - 1),
+		SaveManager.xp_for_level(sm.level) - SaveManager.xp_for_level(sm.level - 1)]
 
 func _show_stable_panel() -> void:
 	var sm := SceneManager.save_manager

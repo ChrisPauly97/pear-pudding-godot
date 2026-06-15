@@ -2,7 +2,7 @@
 
 **Goal:** GID-064
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -60,12 +60,15 @@ Run the full test suite after the change.
 
 ## Plan
 
-_Written during Plan phase._
+1. Move `SaveManager` before `SceneManager` in `project.godot` autoload list so SaveManager initializes first and is present in the tree when SceneManager._ready() runs.
+2. In `SceneManager.gd`: delete `const _SaveManagerScript` preload, change `save_manager = _SaveManagerScript.new(); add_child(save_manager)` to `save_manager = SaveManager`.
+3. No changes to the three "wrong" callers (StoryScroll, JournalScene, TownspersonNPC) — they already use `SaveManager` (the autoload global), which is now the same instance as `SceneManager.save_manager`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`project.godot`**: Moved `SaveManager` autoload entry before `SceneManager` (was line 28, now line 25). Ensures SaveManager is in-tree when SceneManager._ready() fires.
+- **`autoloads/SceneManager.gd`**: Removed `const _SaveManagerScript = preload(...)`. Changed `_ready()` to `save_manager = SaveManager` (one line) instead of `.new()` + `add_child()`. SaveManager is now the single autoload instance; all callers (via `SceneManager.save_manager` or `SaveManager.` directly) share the same initialized object.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — the split-brain was an implementation bug, not a documented design.

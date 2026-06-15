@@ -126,7 +126,6 @@ func _add_slider_row(parent: VBoxContainer, vh: float, label_text: String, initi
 
 func _close() -> void:
 	closed.emit()
-	queue_free()
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:

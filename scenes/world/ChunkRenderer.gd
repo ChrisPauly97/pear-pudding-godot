@@ -49,7 +49,10 @@ static func prepare_terrain(
 	var chunk_origin: Vector3 = chunk_data.origin_world()
 
 	# Build a tile lookup that reads from the pre-snapshotted packed grid
+	# (grid is square: grid_w == grid_h)
 	var grid_tile_lookup := func(ttx: int, ttz: int) -> int:
+		if ttx < grid_min_x or ttx >= grid_min_x + grid_w or ttz < grid_min_z or ttz >= grid_min_z + grid_w:
+			return IsoConst.TILE_WALL
 		var li: int = (ttz - grid_min_z) * grid_w + (ttx - grid_min_x)
 		if li < 0 or li >= tile_grid.size():
 			return IsoConst.TILE_WALL
@@ -57,6 +60,8 @@ static func prepare_terrain(
 
 	# Build a height lookup that reads from the pre-snapshotted packed grid
 	var grid_height_lookup := func(ttx: int, ttz: int) -> int:
+		if ttx < grid_min_x or ttx >= grid_min_x + grid_w or ttz < grid_min_z or ttz >= grid_min_z + grid_w:
+			return 1
 		var li: int = (ttz - grid_min_z) * grid_w + (ttx - grid_min_x)
 		if li < 0 or li >= height_grid.size():
 			return 1
@@ -332,20 +337,12 @@ func _spawn_entities(world_scene: Node3D) -> void:
 const ENTITY_VISIBILITY_END: float = 50.0
 
 func _set_visibility_range(node: Node3D) -> void:
-	# Check direct children first (most entity scenes have MeshInstance3D as immediate child)
-	for child in node.get_children():
-		var mi: MeshInstance3D = child as MeshInstance3D
-		if mi:
-			mi.visibility_range_end = ENTITY_VISIBILITY_END
-			mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-			return
-	# Fallback: check grandchildren (one level deeper only)
-	for child in node.get_children():
-		for grandchild in child.get_children():
-			var mi: MeshInstance3D = grandchild as MeshInstance3D
-			if mi:
-				mi.visibility_range_end = ENTITY_VISIBILITY_END
-				mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
-				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-				return
+	# Apply to all GeometryInstance3D descendants so that multi-mesh entities
+	# (head, legs, label, etc.) all cull together — not just the first mesh found.
+	for child in node.find_children("*", "GeometryInstance3D", true, false):
+		var gi: GeometryInstance3D = child as GeometryInstance3D
+		if gi:
+			gi.visibility_range_end = ENTITY_VISIBILITY_END
+			gi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+			if gi is MeshInstance3D:
+				(gi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON

@@ -23,9 +23,9 @@ config/features=PackedStringArray("4.6", "Forward Plus")
 
 IsoConst="*res://autoloads/IsoConst.gd"
 GameBus="*res://autoloads/GameBus.gd"
+SaveManager="*res://autoloads/SaveManager.gd"
 SceneManager="*res://autoloads/SceneManager.gd"
 AudioManager="*res://autoloads/AudioManager.gd"
-SaveManager="*res://autoloads/SaveManager.gd"
 WeatherManager="*res://autoloads/WeatherManager.gd"
 WorldEventManager="*res://autoloads/WorldEventManager.gd"
 ScrollRegistry="*res://autoloads/ScrollRegistry.gd"

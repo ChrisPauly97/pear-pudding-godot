@@ -2,7 +2,7 @@
 
 **Goal:** GID-064
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -52,12 +52,20 @@ this; a manual headless repro script is acceptable.
 
 ## Plan
 
-_Written during Plan phase._
+Convert the 3 leaking lambda connects on long-lived singleton signals to bound methods (auto-disconnected when WorldScene is freed). Also convert the 4 tap-cancel lambda connects to direct `_clear_dest_marker` connects (GDScript 4 drops excess signal args for callables with fewer params). Remove self-free from JournalScene and SettingsScene `_close()` — SceneManager/MenuScene already queue_free them via the `closed` signal.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/world/WorldScene.gd`**:
+  - Added `var _xp_label: Label` instance variable.
+  - Converted `GameBus.battle_won` lambda → `_on_battle_won(_result: Dictionary)` bound method.
+  - Converted 4 lambda `_clear_dest_marker` connects → direct `_clear_dest_marker` connects (Godot 4 discards extra signal args for shorter-arity callables).
+  - Converted `SceneManager.save_manager.coins_changed` lambda → `_on_coins_changed(n: int)`.
+  - Converted `GameBus.xp_changed` lambda (which captured local `xp_lbl`) → `_on_xp_changed(_xp: int, _level: int)`; promoted `xp_lbl` to `_xp_label` instance var.
+  - Added `_on_battle_won`, `_on_coins_changed`, `_on_xp_changed` methods.
+- **`scenes/ui/SettingsScene.gd`**: Removed `queue_free()` from `_close()` — MenuScene is the owner and already calls it via `closed.connect(overlay.queue_free)`.
+- **`scenes/ui/JournalScene.gd`**: Removed `queue_free()` from `_close()` — SceneManager is the owner and calls it in `_on_journal_closed()`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required.

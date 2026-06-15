@@ -15,7 +15,6 @@ enum State {
 	PACK_OPEN,
 }
 
-const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const _PackOpenSceneScript = preload("res://scenes/ui/PackOpenScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
@@ -70,13 +69,12 @@ var _current_duel_npc_id: String = ""
 # Legendary card to award on first champion duel win ("" = none)
 var _current_champion_reward: String = ""
 
-## SaveManager is owned here so its lifecycle is explicit rather than being a
-## magic autoload. Other systems access it via SceneManager.save_manager.
+## Points at the SaveManager autoload so all systems share one instance.
+## The autoload is registered before SceneManager in project.godot.
 var save_manager: Node
 
 func _ready() -> void:
-	save_manager = _SaveManagerScript.new()
-	add_child(save_manager)
+	save_manager = SaveManager
 	_toast = _AchievementToastScript.new()
 	add_child(_toast)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged)

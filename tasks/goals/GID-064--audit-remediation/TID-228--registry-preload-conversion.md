@@ -2,7 +2,7 @@
 
 **Goal:** GID-064
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -46,12 +46,13 @@ weapon/armor/ring/trinket lookups return null — silent because of the fallback
 
 ## Plan
 
-_Written during Plan phase._
+Replace `DirAccess`+`ResourceLoader.load()` in both registries with explicit `const` preloads following CardRegistry's pattern. Keep public API identical. Alias `get_is_boss` → `is_boss` (both called externally). Add `push_warning` in `get_deck` fallback path.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/EnemyRegistry.gd`**: Replaced `DirAccess`/`ResourceLoader.load()` in `_ensure_loaded()` with 8 explicit `const _E_* := preload(...)` consts iterated in an array. `get_is_boss()` now delegates to `is_boss()`. Added `push_warning` in `get_deck()` fallback path. Added `push_error` if registry ends up empty.
+- **`autoloads/WeaponRegistry.gd`**: Same pattern — 16 explicit `const _W_* := preload(...)` consts. Added `push_error` if registry ends up empty.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required.
