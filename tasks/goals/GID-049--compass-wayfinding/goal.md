@@ -12,7 +12,7 @@ A compass ribbon in the HUD showing cardinal directions, a player-placed waypoin
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-182 | Compass ribbon HUD with marker infrastructure (iso-camera-relative bearings) | agent | pending | — |
+| TID-182 | Compass ribbon HUD with marker infrastructure (iso-camera-relative bearings) | agent | done | — |
 | TID-183 | Custom waypoint: long-press/click on MapViewOverlay sets a pin shown on compass + minimap, persisted | agent | pending | TID-182 |
 | TID-184 | Story objective markers derived from Chapter 1 story flags | agent | pending | TID-182 |
 

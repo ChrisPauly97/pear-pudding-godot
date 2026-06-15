@@ -10,6 +10,7 @@ const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const Minimap         = preload("res://scenes/world/Minimap.gd")
+const CompassRibbon   = preload("res://scenes/ui/CompassRibbon.gd")
 const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
 const WeaponRegistry  = preload("res://autoloads/WeaponRegistry.gd")
 const EnemyRegistry   = preload("res://autoloads/EnemyRegistry.gd")
@@ -140,6 +141,7 @@ var _fill_light: DirectionalLight3D
 var _dialogue_label: Label
 var _coord_label: Label
 var _minimap: Node
+var _compass: Node = null
 var _level_label: Label
 var _xp_bar: ProgressBar
 var _xp_label: Label
@@ -415,6 +417,15 @@ func _ready() -> void:
 	add_child(_minimap)
 	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
 	_minimap.tapped.connect(_open_map_view)
+
+	var compass := CompassRibbon.new()
+	compass.position = Vector2((vw - vw * 0.40) * 0.5, vh * 0.01)
+	compass.size = Vector2(vw * 0.40, vh * 0.04)
+	compass.custom_minimum_size = compass.size
+	_hud.add_child(compass)
+	compass.setup(_player)
+	compass.set_current_map(map_name)
+	_compass = compass
 
 	if _is_infinite:
 		WorldEvents.register_all(self)
