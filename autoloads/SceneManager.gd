@@ -407,6 +407,7 @@ func _on_battle_won(result: Dictionary) -> void:
 			_current_battle_enemy_id = ""
 		if spire_enemy_type != "":
 			save_manager.record_enemy_defeated(spire_enemy_type)
+			save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": spire_enemy_type})
 		save_manager.increment_progress("battles_won", 1)
 		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
 		save_manager.clear_pending_battle()
@@ -432,6 +433,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		_current_battle_enemy_id = ""
 	if enemy_type != "":
 		save_manager.record_enemy_defeated(enemy_type)
+		save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": enemy_type})
 	save_manager.increment_progress("battles_won", 1)
 	save_manager.check_deck_achievements(save_manager.player_deck)
 	session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1

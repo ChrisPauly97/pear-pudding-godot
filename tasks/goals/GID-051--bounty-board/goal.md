@@ -14,7 +14,7 @@ Coins come from wandering and fighting whatever appears. Daily bounties give dir
 |----|------|------|--------|------------|
 | TID-188 | Bounty model + seeded daily generation + save fields | agent | done | — |
 | TID-189 | Bounty board entity in towns + accept/track/claim UI | agent | done | TID-188 |
-| TID-190 | Progress tracking via existing GameBus signals + HUD tracker + coin payout | agent | pending | TID-188 |
+| TID-190 | Progress tracking via existing GameBus signals + HUD tracker + coin payout | agent | done | TID-188 |
 
 ## Acceptance Criteria
 

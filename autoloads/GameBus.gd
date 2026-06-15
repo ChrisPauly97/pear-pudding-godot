@@ -78,3 +78,7 @@ signal mount_state_changed(mounted: bool, mount_id: String)
 
 # Card pack signals
 signal pack_purchased(pack_id: String, rolled_cards: Array[Dictionary])
+
+# Bounty signals
+signal bounty_progress_changed(bounty_id: String, progress: int, count: int)
+signal bounty_completed(bounty_id: String)

@@ -2,7 +2,7 @@
 
 **Goal:** GID-051
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-188
 
 ## Lock
@@ -68,12 +68,28 @@ The live tracking layer. Progress increments are driven by existing GameBus sign
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `bounty_progress_changed` and `bounty_completed` signals to `GameBus.gd`.
+2. Add `increment_bounty_progress(bounty_type, match_data)` to `SaveManager.gd` — iterates active bounties, matches type + target, increments progress, sets `completed`, emits both new signals.
+3. Call `increment_bounty_progress("defeat_enemy_type", ...)` in `SceneManager._on_battle_won()` (both spire and normal paths) after `record_enemy_defeated`.
+4. Call `increment_bounty_progress("defeat_in_biome", ...)` in `WorldScene._on_battle_won()` using `_current_biome` + `BountyGen.BIOME_NAMES`.
+5. Call `increment_bounty_progress("open_chests", {})` in `WorldScene._handle_interact()` after `mark_chest_opened`.
+6. Add bounty tracker HUD to `WorldScene`: `_build_bounty_tracker()`, `_refresh_bounty_tracker()`, `_bounty_short_label()`, and handlers for the two new GameBus signals.
+7. Create `tests/unit/test_bounty_progress.gd` with 13 tests; register in `runner.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **Updated `autoloads/GameBus.gd`**: added `bounty_progress_changed(bounty_id, progress, count)` and `bounty_completed(bounty_id)` signals.
+- **Updated `autoloads/SaveManager.gd`**: added `increment_bounty_progress(bounty_type, match_data)` — matches type + target for all three bounty types, increments progress on matching active bounties, sets `completed: true` and emits `bounty_completed` when progress reaches count, emits `bounty_progress_changed`, marks dirty.
+- **Updated `autoloads/SceneManager.gd`**: calls `save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": ...})` in both the spire-path and normal-path of `_on_battle_won()`.
+- **Updated `scenes/world/WorldScene.gd`**: 
+  - Added `var _bounty_tracker: VBoxContainer` field.
+  - `_on_battle_won()` now calls `increment_bounty_progress("defeat_in_biome", ...)` using `_current_biome` + `BountyGen.BIOME_NAMES` for infinite-world battles.
+  - Chest opening now calls `increment_bounty_progress("open_chests", {})`.
+  - Added `_build_bounty_tracker()`, `_refresh_bounty_tracker()`, `_bounty_short_label()`, `_on_bounty_progress_changed()`, `_on_bounty_completed()` — live HUD panel at top-left showing "Target N/M" lines for each active non-claimed bounty, green when complete.
+  - Connected `GameBus.bounty_progress_changed` and `GameBus.bounty_completed` to tracker refresh.
+- **Created `tests/unit/test_bounty_progress.gd`**: 13 tests covering enemy-type matching, biome matching, chest tracking, completion flag, no-progress-while-not-accepted, double-claim guard, coin payout. All pass.
+- **Updated `tests/runner.gd`**: registered `test_bounty_progress.gd`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/bounty-board.md` with progress tracking API, HUD tracker, signal details.

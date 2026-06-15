@@ -1421,6 +1421,39 @@ func accept_bounty(bounty_id: String) -> bool:
 
 ## Claims a completed bounty by id. Pays out coins and marks it as claimed.
 ## Returns the coin reward if successful, or 0 if not found / not yet complete / already claimed.
+## Increments progress for all active bounties that match the given type and data.
+## bounty_type: "defeat_enemy_type" | "defeat_in_biome" | "open_chests"
+## match_data: {"enemy_type": String} | {"biome_name": String} | {}
+func increment_bounty_progress(bounty_type: String, match_data: Dictionary) -> void:
+	var changed: bool = false
+	for i: int in range(active_bounties.size()):
+		var b: Dictionary = active_bounties[i]
+		if bool(b.get("claimed", false)) or bool(b.get("completed", false)):
+			continue
+		if str(b.get("type", "")) != bounty_type:
+			continue
+		var matches: bool = false
+		match bounty_type:
+			"defeat_enemy_type":
+				matches = str(b.get("target", "")) == str(match_data.get("enemy_type", ""))
+			"defeat_in_biome":
+				matches = str(b.get("target", "")) == str(match_data.get("biome_name", ""))
+			"open_chests":
+				matches = true
+		if not matches:
+			continue
+		active_bounties[i]["progress"] = int(b.get("progress", 0)) + 1
+		var new_progress: int = int(active_bounties[i]["progress"])
+		var needed: int = int(b.get("count", 1))
+		var bid: String = str(b.get("id", ""))
+		if new_progress >= needed:
+			active_bounties[i]["completed"] = true
+			GameBus.bounty_completed.emit(bid)
+		GameBus.bounty_progress_changed.emit(bid, new_progress, needed)
+		changed = true
+	if changed:
+		_dirty = true
+
 func claim_bounty(bounty_id: String) -> int:
 	for i: int in range(active_bounties.size()):
 		var b: Dictionary = active_bounties[i]
