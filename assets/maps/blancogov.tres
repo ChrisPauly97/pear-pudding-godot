@@ -70,6 +70,16 @@ wager_coins = 50
 required_duelist_ids = PackedStringArray("duelist_2")
 champion_reward_card = "duel_crown"
 
+[sub_resource type="Resource" id="MapNpc_5"]
+script = ExtResource("3_mapnpc")
+entity_id = "bounty_board_blancogov"
+tile_x = 47
+tile_z = 56
+dialogue = "Contracts are posted daily. Check back each morning."
+npc_type = "bounty_board"
+flag_key = ""
+after_dialogue = ""
+
 [sub_resource type="Resource" id="MapScroll_1"]
 script = ExtResource("4_mapscroll")
 entity_id = "scroll_5"
@@ -114,4 +124,4 @@ spawn_z = 12
 enemies = []
 chests = []
 doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2")]
-npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4")]
+npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5")]

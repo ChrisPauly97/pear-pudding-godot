@@ -1574,6 +1574,9 @@ func _handle_interact() -> void:
 		if str(npc.get("npc_type", "")) == "merchant":
 			GameBus.shop_requested.emit()
 			return
+		if str(npc.get("npc_type", "")) == "bounty_board":
+			GameBus.bounty_board_requested.emit()
+			return
 		if str(npc.get("npc_type", "")) == "stable":
 			_show_stable_panel()
 			return

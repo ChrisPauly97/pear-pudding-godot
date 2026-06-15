@@ -1397,3 +1397,44 @@ func get_offered_bounties() -> Array[Dictionary]:
 ## Returns active (accepted, in-progress) bounties.
 func get_active_bounties() -> Array[Dictionary]:
 	return active_bounties
+
+## Accepts a bounty by id. Moves it from offered_bounties to active_bounties.
+## Returns false if bounty not found in offered or 3 bounties are already active.
+func accept_bounty(bounty_id: String) -> bool:
+	if active_bounties.size() >= 3:
+		return false
+	var found_idx: int = -1
+	for i: int in range(offered_bounties.size()):
+		if str(offered_bounties[i].get("id", "")) == bounty_id:
+			found_idx = i
+			break
+	if found_idx < 0:
+		return false
+	var entry: Dictionary = offered_bounties[found_idx].duplicate()
+	entry["accepted_at_day"] = days_elapsed
+	entry["progress"] = 0
+	entry["claimed"] = false
+	active_bounties.append(entry)
+	offered_bounties.remove_at(found_idx)
+	_dirty = true
+	return true
+
+## Claims a completed bounty by id. Pays out coins and marks it as claimed.
+## Returns the coin reward if successful, or 0 if not found / not yet complete / already claimed.
+func claim_bounty(bounty_id: String) -> int:
+	for i: int in range(active_bounties.size()):
+		var b: Dictionary = active_bounties[i]
+		if str(b.get("id", "")) != bounty_id:
+			continue
+		if bool(b.get("claimed", false)):
+			return 0
+		var needed: int = int(b.get("count", 0))
+		var done: int = int(b.get("progress", 0))
+		if done < needed:
+			return 0
+		active_bounties[i]["claimed"] = true
+		var reward: int = int(b.get("reward", 0))
+		add_coins(reward)
+		_dirty = true
+		return reward
+	return 0

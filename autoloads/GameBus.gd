@@ -12,6 +12,7 @@ signal duel_lost()
 signal map_transition_requested(map_name: String, target_door_id: String)
 signal inventory_requested
 signal shop_requested
+signal bounty_board_requested
 signal journal_requested
 signal character_requested
 

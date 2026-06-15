@@ -10,6 +10,7 @@ const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
 const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
 const _MerchantScene     = preload("res://scenes/world/entities/MerchantNPC.tscn")
+const _BountyBoardScene  = preload("res://scenes/world/entities/BountyBoardNPC.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
 const _DigSpotScene      = preload("res://scenes/world/entities/DigSpot.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
@@ -262,7 +263,14 @@ func _spawn_entities(world_scene: Node3D) -> void:
 			world_scene.register_door(d_data["id"], node, d_data)
 
 	for n_data in _chunk_data.npcs:
-		var scene_to_use: PackedScene = _MerchantScene if str(n_data.get("npc_type", "")) == "merchant" else _TownspersonScene
+		var _npc_type_str: String = str(n_data.get("npc_type", ""))
+		var scene_to_use: PackedScene
+		if _npc_type_str == "merchant":
+			scene_to_use = _MerchantScene
+		elif _npc_type_str == "bounty_board":
+			scene_to_use = _BountyBoardScene
+		else:
+			scene_to_use = _TownspersonScene
 		var node: Node3D = scene_to_use.instantiate()
 		var ny: float = world_scene.get_terrain_height(float(n_data["x"]), float(n_data["z"])) + 0.5
 		node.position = Vector3(n_data["x"], ny, n_data["z"])

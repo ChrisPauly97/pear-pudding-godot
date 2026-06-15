@@ -84,6 +84,16 @@ npc_type = "merchant"
 flag_key = ""
 after_dialogue = ""
 
+[sub_resource type="Resource" id="MapNpc_7"]
+script = ExtResource("3_mapnpc")
+entity_id = "bounty_board_maykalene"
+tile_x = 60
+tile_z = 52
+dialogue = "Contracts are posted daily. Check back each morning."
+npc_type = "bounty_board"
+flag_key = ""
+after_dialogue = ""
+
 [sub_resource type="Resource" id="MapScroll_1"]
 script = ExtResource("4_mapscroll")
 entity_id = "scroll_9"
@@ -120,4 +130,4 @@ spawn_z = 5
 enemies = []
 chests = []
 doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2")]
-npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6")]
+npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7")]
