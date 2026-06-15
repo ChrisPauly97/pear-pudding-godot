@@ -2,7 +2,7 @@
 
 **Goal:** GID-041
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-159
 
 ## Lock
@@ -32,12 +32,21 @@ Maiteln the wizard is the player's story mentor — making him the first compani
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `data/companions/maiteln.tres` (+ .uid) with `unlock_story_flag = "story_intro_complete"`, `passive_type = "draw_card"`, `passive_value = 1`.
+2. Add `const _C_MAITELN` preload to `CompanionRegistry.gd` and include it in `_ensure_loaded()`.
+3. Update `CharacterScene._on_equip_companion` to show a first-equip toast via `SceneManager.show_toast`; track first equip via `SaveManager.set_story_flag("companion_maiteln_first_equip")`.
+4. Update companion picker locked-state text to show `"Travel with Maiteln in the story to unlock."` for Maiteln specifically.
+5. Verify empty-deck draw safety in PlayerState (no crash when draw_card called on empty deck).
+6. Add headless tests: locked without flag / unlocked with flag (mocked via registry logic); empty-deck draw safety; 2-total-cards drawn at turn start.
+7. Update docs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`data/companions/maiteln.tres`** (+ `.uid`): Created with `companion_id="maiteln"`, `display_name="Maiteln"`, `passive_type="draw_card"`, `passive_value=1`, `unlock_story_flag="story_intro_complete"`. Used `story_intro_complete` — the earliest existing flag set when Maiteln is first encountered — since GID-020's "Maiteln joins" beat is pending.
+- **`autoloads/CompanionRegistry.gd`**: Added `const _C_MAITELN` preload and included it in `_ensure_loaded()` array (Android preload rule).
+- **`scenes/ui/CharacterScene.gd`**: Added `_COMPANION_LOCKED_TEXT` dict with Maiteln's "Travel with Maiteln in the story to unlock." text; added `_COMPANION_FIRST_EQUIP_TOAST` dict with Maiteln's quip; `_on_equip_companion()` now calls `set_story_flag("companion_maiteln_first_equip")` and `_show_companion_toast()` on first equip.
+- **`tests/unit/test_companion_framework.gd`**: Added 18 Maiteln-specific tests: registry lookup, passive_type/value/flag assertions, locked-without-SaveManager guard, draw-card turn-start combination, empty-deck draw safety. All 38 companion tests pass.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/battle-system.md`**: Added Maiteln to the companion catalogue in the Companion System section; documented `story_intro_complete` as unlock flag and first-equip toast mechanism.

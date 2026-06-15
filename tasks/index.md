@@ -44,7 +44,7 @@
 | [GID-038](goals/GID-038--endless-spire/goal.md) | The Endless Spire — Roguelike Draft Mode | done | 5 / 5 |
 | [GID-039](goals/GID-039--living-world-events/goal.md) | Living World Events | done | 4 / 4 |
 | [GID-040](goals/GID-040--puzzle-battles/goal.md) | Puzzle Battle Shrines | done | 4 / 4 |
-| [GID-041](goals/GID-041--battle-companions/goal.md) | Battle Companions | pending | 1 / 2 |
+| [GID-041](goals/GID-041--battle-companions/goal.md) | Battle Companions | done | 2 / 2 |
 | [GID-042](goals/GID-042--weather-atmosphere/goal.md) | Weather & Biome Atmosphere | done | 3 / 3 |
 | [GID-043](goals/GID-043--treasure-maps/goal.md) | Treasure Maps & Buried Caches | done | 3 / 3 |
 | [GID-044](goals/GID-044--waystone-fast-travel/goal.md) | Waystone Fast Travel Network | done | 3 / 3 |

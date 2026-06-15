@@ -419,6 +419,18 @@ One equipped companion grants a single passive battle effect. Excluded from puzz
 
 Below the equipment slots, a "Companion" section shows a slot button. Tapping opens a picker listing all registered companions (locked ones greyed with their flag name). Uses `SaveManager.equip_companion(id)` / `unequip_companion()`.
 
+### Companion Catalogue (GID-041, TID-160)
+
+| id | display_name | passive_type | passive_value | unlock_story_flag |
+|----|--------------|--------------|---------------|-------------------|
+| `maiteln` | Maiteln | `draw_card` | 1 | `story_intro_complete` |
+
+Maiteln's locked-state text in the picker: "Travel with Maiteln in the story to unlock."
+
+First-equip: on first equip, `set_story_flag("companion_maiteln_first_equip")` is set and `SceneManager.show_toast("Maiteln", "Maiteln chuckles. 'Try to keep up, boy.'")` fires.
+
+`story_intro_complete` is the earliest story flag set when Maiteln is encountered (GID-001). If GID-020 adds a "Maiteln joins" flag later, update `maiteln.tres` to use that flag.
+
 ### SaveManager Fields (version 26)
 
 `active_companion: String` — currently equipped companion id, default `""`. Migrated from v25 via `_migrate_v25_to_v26` (backfills `""`). Mutators: `equip_companion(id)` and `unequip_companion()`.

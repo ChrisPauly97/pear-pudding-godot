@@ -2,8 +2,7 @@ extends Node
 
 const CompanionData = preload("res://data/CompanionData.gd")
 
-# Add one const preload per companion .tres file (TID-160 onwards).
-# Example: const _C_MAITELN := preload("res://data/companions/maiteln.tres")
+const _C_MAITELN := preload("res://data/companions/maiteln.tres")
 
 static var _companions: Dictionary = {}
 static var _loaded: bool = false
@@ -13,7 +12,7 @@ static func _ensure_loaded() -> void:
 		return
 	_loaded = true
 	var all: Array = [
-		# Populated as companions are added (TID-160+).
+		_C_MAITELN,
 	]
 	for res in all:
 		var c: CompanionData = res as CompanionData

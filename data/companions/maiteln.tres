@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="CompanionData" load_steps=2 format=3 uid="uid://uxlwwyrwrn54"]
+
+[ext_resource type="Script" path="res://data/CompanionData.gd" id="1_maiteln"]
+
+[resource]
+script = ExtResource("1_maiteln")
+companion_id = "maiteln"
+display_name = "Maiteln"
+description = "The old wizard shares his insight: draw an extra card at the start of each turn."
+passive_type = "draw_card"
+passive_value = 1
+unlock_story_flag = "story_intro_complete"

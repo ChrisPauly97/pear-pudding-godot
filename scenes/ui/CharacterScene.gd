@@ -299,7 +299,7 @@ func _make_companion_row(c: CompanionData, is_active: bool) -> HBoxContainer:
 		desc_lbl.text = c.description
 		desc_lbl.modulate = Color(0.9, 1.0, 0.7)
 	else:
-		desc_lbl.text = "Locked — requires: %s" % c.unlock_story_flag
+		desc_lbl.text = _companion_locked_text(c)
 		desc_lbl.modulate = Color(0.55, 0.55, 0.55)
 	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -314,6 +314,15 @@ func _make_companion_row(c: CompanionData, is_active: bool) -> HBoxContainer:
 	row.add_child(equip_btn)
 
 	return row
+
+const _COMPANION_LOCKED_TEXT: Dictionary = {
+	"maiteln": "Travel with Maiteln in the story to unlock.",
+}
+
+func _companion_locked_text(c: CompanionData) -> String:
+	if _COMPANION_LOCKED_TEXT.has(c.companion_id):
+		return str(_COMPANION_LOCKED_TEXT[c.companion_id])
+	return "Locked — complete story objectives to unlock."
 
 func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBoxContainer:
 	var row := HBoxContainer.new()
@@ -379,9 +388,26 @@ func _on_equip(item_id: String) -> void:
 	_refresh_picker()
 
 func _on_equip_companion(companion_id: String) -> void:
+	var first_equip_flag: String = "companion_%s_first_equip" % companion_id
+	var is_first: bool = not SceneManager.save_manager.get_story_flag(first_equip_flag)
 	SceneManager.save_manager.equip_companion(companion_id)
+	if is_first:
+		SceneManager.save_manager.set_story_flag(first_equip_flag)
+		_show_companion_toast(companion_id)
 	_refresh_slot_buttons()
 	_refresh_picker()
+
+const _COMPANION_FIRST_EQUIP_TOAST: Dictionary = {
+	"maiteln": "Maiteln chuckles. 'Try to keep up, boy.'",
+}
+
+func _show_companion_toast(companion_id: String) -> void:
+	var c: CompanionData = CompanionRegistry.get_companion(companion_id)
+	if c == null:
+		return
+	var msg: String = str(_COMPANION_FIRST_EQUIP_TOAST.get(companion_id,
+		"%s joins you as a companion." % c.display_name))
+	SceneManager.show_toast(c.display_name, msg)
 
 func _on_unequip() -> void:
 	if _selected_slot == "companion":
