@@ -11,6 +11,8 @@ const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
+const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
+const CompanionData = preload("res://data/CompanionData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
@@ -26,6 +28,7 @@ var _battle_weather: String = ""  # "" if no infinite-world weather applies
 var _snow_discount_used: Array[bool] = [false, false]  # per-player first-card discount
 var _puzzle_data_ref: Resource = null  # retained for reset
 var _give_up_btn: Button = null
+var _companion_hud: Control = null
 var _state: GameState
 var _ai: BasicAI
 var _ai_thinking: bool = false
@@ -182,11 +185,17 @@ func _ready() -> void:
 		_battle_weather = WeatherManager.current_weather if SceneManager.save_manager.current_map == "main" else ""
 		_apply_weather_battle_init()
 
+		# Companion passive: battle-start effects (extra_mana, hero_armor) and
+		# first turn-start draw (draw_card). Excluded in puzzle and duel modes.
+		_apply_companion_battle_start(_state.players[0])
+		_apply_companion_turn_start()
+
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
 	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
 	_add_pause_button()
 	_add_hero_power_button()
+	_add_companion_hud()
 
 	if _state.puzzle_mode:
 		_end_turn_btn.text = "Check"
@@ -264,6 +273,84 @@ func _apply_passive_skills(player: PlayerState) -> void:
 				player.hero.attack += skill.effect_value
 			"passive_draw":
 				player.bonus_draw += skill.effect_value
+
+## Apply once-per-battle companion passives (extra_mana, hero_armor).
+## Call after start_turn(1) so the base mana is already established.
+## Excluded in puzzle_mode and friendly_duel.
+func _apply_companion_battle_start(player: PlayerState) -> void:
+	if _state.puzzle_mode or _state.friendly_duel:
+		return
+	var companion_id: String = SceneManager.save_manager.active_companion
+	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
+		return
+	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
+	if companion == null:
+		return
+	match companion.passive_type:
+		"extra_mana":
+			player.hero.mana = mini(player.hero.mana + companion.passive_value, 10)
+		"hero_armor":
+			player.hero.apply_status("armor", companion.passive_value)
+
+## Draw extra card(s) from the companion's draw_card passive.
+## Called at the start of every player turn (initial setup + each subsequent player turn).
+## No-op in puzzle_mode, friendly_duel, or when no draw_card companion is active.
+func _apply_companion_turn_start() -> void:
+	if _state.puzzle_mode or _state.friendly_duel:
+		return
+	var companion_id: String = SceneManager.save_manager.active_companion
+	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
+		return
+	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
+	if companion == null or companion.passive_type != "draw_card":
+		return
+	for _i in range(companion.passive_value):
+		_state.players[0].draw_card()
+
+## Add a compact companion display to SidePanel (name + passive description).
+## No-op if no companion is equipped or the companion is not unlocked.
+func _add_companion_hud() -> void:
+	if _state.puzzle_mode:
+		return
+	var companion_id: String = SceneManager.save_manager.active_companion
+	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
+		return
+	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
+	if companion == null:
+		return
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(_vh * 0.003))
+	$SidePanel.add_child(vbox)
+	_companion_hud = vbox
+
+	var portrait_row := HBoxContainer.new()
+	portrait_row.add_theme_constant_override("separation", int(_vh * 0.005))
+	vbox.add_child(portrait_row)
+
+	if companion.portrait != null:
+		var tex := TextureRect.new()
+		tex.texture = companion.portrait
+		tex.custom_minimum_size = Vector2(_vh * 0.045, _vh * 0.045)
+		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait_row.add_child(tex)
+	else:
+		var placeholder := ColorRect.new()
+		placeholder.color = Color(0.4, 0.6, 0.8)
+		placeholder.custom_minimum_size = Vector2(_vh * 0.045, _vh * 0.045)
+		portrait_row.add_child(placeholder)
+
+	var name_lbl := Label.new()
+	name_lbl.text = companion.display_name
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	portrait_row.add_child(name_lbl)
+
+	var passive_lbl := Label.new()
+	passive_lbl.text = companion.description
+	passive_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	passive_lbl.modulate = Color(0.85, 1.0, 0.85)
+	passive_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(passive_lbl)
 
 ## Apply init-time weather modifiers (ash_fall poison) and reset snow discount tracking.
 func _apply_weather_battle_init() -> void:
@@ -1280,6 +1367,7 @@ func _on_turn_ended(player_idx: int) -> void:
 		_check_game_over()
 		if not _state.is_game_over():
 			AudioManager.play_sfx("card_draw")
+			_apply_companion_turn_start()
 			var snap_as := _snapshot_hp_positions()
 			_flush_auto_spells(0)
 			_spawn_float_labels_from_snapshot(snap_as)

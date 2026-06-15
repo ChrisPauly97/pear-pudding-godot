@@ -4,12 +4,15 @@ signal closed
 
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
+const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
+const CompanionData = preload("res://data/CompanionData.gd")
 
 var _vh: float = 0.0
 var _vw: float = 0.0
 
 var _selected_slot: String = ""
 var _slot_btns: Dictionary = {}   # slot -> Button
+var _companion_btn: Button = null
 var _picker_title: Label
 var _picker_list: VBoxContainer
 var _unequip_btn: Button
@@ -124,6 +127,19 @@ func _build_ui() -> void:
 		left_vbox.add_child(btn)
 		_slot_btns[slot] = btn
 
+	var companion_hdr := Label.new()
+	companion_hdr.text = "Companion"
+	companion_hdr.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	companion_hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	left_vbox.add_child(companion_hdr)
+
+	_companion_btn = Button.new()
+	_companion_btn.custom_minimum_size = Vector2(0, _vh * 0.065)
+	_companion_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_companion_btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_companion_btn.pressed.connect(_on_slot_pressed.bind("companion"))
+	left_vbox.add_child(_companion_btn)
+
 	if not is_portrait:
 		content.add_child(VSeparator.new())
 
@@ -179,12 +195,29 @@ func _refresh_slot_buttons() -> void:
 			btn.modulate = Color(1.0, 1.0, 1.0)
 		if slot == _selected_slot:
 			btn.modulate = Color(1.0, 1.0, 0.5)
+	# Companion slot button
+	if _companion_btn != null:
+		var cid: String = sm.active_companion
+		if cid == "":
+			_companion_btn.text = "  Companion:  (none)"
+			_companion_btn.modulate = Color(0.7, 0.7, 0.7)
+		else:
+			var c: CompanionData = CompanionRegistry.get_companion(cid)
+			var display: String = c.display_name if c != null else cid
+			_companion_btn.text = "  Companion:  %s" % display
+			_companion_btn.modulate = Color(1.0, 1.0, 1.0)
+		if _selected_slot == "companion":
+			_companion_btn.modulate = Color(1.0, 1.0, 0.5)
 
 func _refresh_picker() -> void:
 	for child in _picker_list.get_children():
 		child.queue_free()
 
 	if _selected_slot == "":
+		return
+
+	if _selected_slot == "companion":
+		_refresh_companion_picker()
 		return
 
 	var sm := SceneManager.save_manager
@@ -211,6 +244,76 @@ func _refresh_picker() -> void:
 			continue
 		var row := _make_picker_row(item_id, w, item_id == equipped_id)
 		_picker_list.add_child(row)
+
+func _refresh_companion_picker() -> void:
+	_picker_title.text = "Companions"
+	_picker_title.modulate = Color(1.0, 1.0, 1.0)
+	var active_id: String = SceneManager.save_manager.active_companion
+	_unequip_btn.disabled = active_id == ""
+	var all_ids: Array[String] = CompanionRegistry.all_ids()
+	if all_ids.is_empty():
+		var none_lbl := Label.new()
+		none_lbl.text = "No companions available yet."
+		none_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		none_lbl.modulate = Color(0.6, 0.6, 0.6)
+		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_picker_list.add_child(none_lbl)
+		return
+	for cid in all_ids:
+		var c: CompanionData = CompanionRegistry.get_companion(cid)
+		if c == null:
+			continue
+		var row := _make_companion_row(c, cid == active_id)
+		_picker_list.add_child(row)
+
+func _make_companion_row(c: CompanionData, is_active: bool) -> HBoxContainer:
+	var unlocked: bool = CompanionRegistry.is_unlocked(c.companion_id)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(_vw * 0.008))
+
+	var info_vbox := VBoxContainer.new()
+	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_vbox.add_theme_constant_override("separation", int(_vh * 0.002))
+	row.add_child(info_vbox)
+
+	var name_row := HBoxContainer.new()
+	info_vbox.add_child(name_row)
+
+	var name_lbl := Label.new()
+	name_lbl.text = c.display_name
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if not unlocked:
+		name_lbl.modulate = Color(0.5, 0.5, 0.5)
+	name_row.add_child(name_lbl)
+
+	if is_active:
+		var eq_lbl := Label.new()
+		eq_lbl.text = "[A]"
+		eq_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		eq_lbl.modulate = Color(0.4, 1.0, 0.5)
+		name_row.add_child(eq_lbl)
+
+	var desc_lbl := Label.new()
+	if unlocked:
+		desc_lbl.text = c.description
+		desc_lbl.modulate = Color(0.9, 1.0, 0.7)
+	else:
+		desc_lbl.text = "Locked — requires: %s" % c.unlock_story_flag
+		desc_lbl.modulate = Color(0.55, 0.55, 0.55)
+	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info_vbox.add_child(desc_lbl)
+
+	var equip_btn := Button.new()
+	equip_btn.text = "Active" if is_active else "Equip"
+	equip_btn.disabled = is_active or not unlocked
+	equip_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.065)
+	equip_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	equip_btn.pressed.connect(_on_equip_companion.bind(c.companion_id))
+	row.add_child(equip_btn)
+
+	return row
 
 func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBoxContainer:
 	var row := HBoxContainer.new()
@@ -275,8 +378,16 @@ func _on_equip(item_id: String) -> void:
 	_refresh_slot_buttons()
 	_refresh_picker()
 
+func _on_equip_companion(companion_id: String) -> void:
+	SceneManager.save_manager.equip_companion(companion_id)
+	_refresh_slot_buttons()
+	_refresh_picker()
+
 func _on_unequip() -> void:
-	SceneManager.save_manager.equip_item("", _selected_slot)
+	if _selected_slot == "companion":
+		SceneManager.save_manager.unequip_companion()
+	else:
+		SceneManager.save_manager.equip_item("", _selected_slot)
 	_refresh_slot_buttons()
 	_refresh_picker()
 
