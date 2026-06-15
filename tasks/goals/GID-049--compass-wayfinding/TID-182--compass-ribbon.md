@@ -2,7 +2,7 @@
 
 **Goal:** GID-049
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -39,12 +39,28 @@ The static ribbon that renders bearing markers. A fixed isometric camera means t
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/ui/CompassRibbon.gd` extending Control with:
+   - `setup(player)` stores the player reference (size set by caller)
+   - Static `bearing_to_ribbon_x(bearing_rad, ribbon_center, ribbon_width)` — linear wrap formula
+   - Static `compute_marker_ribbon_x(player_pos, target_pos, ribbon_center, ribbon_width, off_map)` — testable
+   - `add_marker(id, color, get_pos, map)` / `remove_marker(id)` / `set_current_map(name)`
+   - `_draw()` renders background, N/E/S/W tick marks, center line, and marker dots
+   - `_process(delta)` calls `queue_redraw()`
+2. Wire into `WorldScene.gd`: preload const, instantiate after player spawn, position top-center.
+3. Create `tests/unit/test_compass_bearing.gd` testing the two static functions.
+4. Update `docs/agent/ui-and-scene-management.md` with Compass Ribbon subsection.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/ui/CompassRibbon.gd` — Control node with:
+  - Static `bearing_to_ribbon_x()` and `compute_marker_ribbon_x()` helpers (pure, testable)
+  - `add_marker(id, color, get_pos, map)` / `remove_marker(id)` / `set_current_map(name)` API
+  - `_draw()` renders dark background, N/E/S/W tick marks, center reference line, and marker dots
+  - `_process()` calls `queue_redraw()` each frame
+- Wired into `WorldScene.gd`: added `const CompassRibbon` preload, `_compass` member, and instantiation in `_ready()` (positioned top-center, after minimap setup)
+- Created `tests/unit/test_compass_bearing.gd` — 12 tests covering cardinal directions, equal spacing, marker positioning, and off-map clamping; all pass
+- Added test to `tests/runner.gd`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Added "Compass Ribbon" subsection in `docs/agent/ui-and-scene-management.md` (after HUD section, before TutorialPopup) covering bearing math, sizing, marker API, and integration pattern

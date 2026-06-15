@@ -145,6 +145,43 @@ Labels and panels parented to a `CanvasLayer` (always on top):
   - Android vs desktop control names chosen via `OS.has_feature("android")`
 - **Minimap** — circular, diameter `vh * 0.20` (top-right corner). See Minimap section.
 
+### Compass Ribbon (`scenes/ui/CompassRibbon.gd`)
+
+Horizontal 360° bearing ribbon rendered at the top-center of the HUD.  The isometric camera is fixed, so the ribbon itself never rotates — only marker dots slide left/right as the player moves relative to targets.
+
+**Bearing convention**
+
+`atan2(target.z - player.z, target.x - player.x)` gives the world bearing (`0` = East/+X, `−π/2` = North/−Z).  The ribbon maps this linearly so that N/E/S/W land at equal intervals (each `ribbon_width/4` apart):
+
+| Direction | World | ribbon_x offset from center |
+|---|---|---|
+| W | −X | −3 × width/8 |
+| N | −Z | −1 × width/8 |
+| **NE** (iso screen-right) | +X, −Z | **0 (center)** |
+| E | +X | +1 × width/8 |
+| S | +Z | +3 × width/8 |
+| SW | −X, +Z | ±width/2 (edges, wrapping) |
+
+Static formula: `bearing_to_ribbon_x(bearing_rad, ribbon_center, ribbon_width)`.
+
+**Sizing** — set by `WorldScene._ready()` before calling `setup()`:
+- Width = `vw × 0.40`, height = `vh × 0.04`
+- Position: X = `(vw − width) / 2`, Y = `vh × 0.01` (top-center, clears the Menu button)
+
+**Marker API**
+
+```gdscript
+compass.add_marker("waypoint", Color.YELLOW, func() -> Vector3: return waypoint_pos)
+compass.add_marker("enemy",    Color.RED,    func() -> Vector3: return enemy.position, "maykalene")
+compass.remove_marker("waypoint")
+compass.set_current_map("madrian")  # call on every map transition
+```
+
+- `get_pos: Callable` is called every frame and must return a `Vector3` (or `null` to hide).
+- If `map` is non-empty and doesn't match `_current_map`, the marker clamps to the ribbon edge (left or right, based on direction) to indicate an off-screen target.
+
+**Integration** — `WorldScene._ready()` instantiates the ribbon after `_spawn_player()`, stores it in `_compass`, and calls `compass.set_current_map(map_name)`.  Future tasks (TID-183 waypoint, TID-184 story objective) call `add_marker()` to register their markers.
+
 ### TutorialPopup (`scenes/ui/TutorialPopup.gd`)
 
 Reusable modal overlay for in-game tutorial guides. Any system can trigger one by emitting `GameBus.tutorial_popup_requested(popup_id)`.
