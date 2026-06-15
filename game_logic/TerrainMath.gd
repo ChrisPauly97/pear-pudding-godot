@@ -23,8 +23,8 @@ static func get_height_at(wx: float, wz: float,
 	# wall_curve_r is no longer used for height — walls are flat in the terrain
 	# mesh (y=0) and their vertical geometry comes from the wall face mesh.
 	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
-	var vtx: int = int(wx / IsoConst.TILE_SIZE)
-	var vtz: int = int(wz / IsoConst.TILE_SIZE)
+	var vtx: int = floori(wx / IsoConst.TILE_SIZE)
+	var vtz: int = floori(wz / IsoConst.TILE_SIZE)
 	var hill_r_sq: float = curve_r * curve_r
 	var min_dist_sq_hill: float = hill_r_sq
 	var nearest_wall_sq: float = INF   # unbounded — for hill-suppression check
@@ -86,8 +86,8 @@ static func compute_height_field(
 		for ix in range(nvx):
 			var gx: float = origin_x + ix * step
 			var gz: float = origin_z + iz * step
-			var vtx: int = int(gx / IsoConst.TILE_SIZE)
-			var vtz: int = int(gz / IsoConst.TILE_SIZE)
+			var vtx: int = floori(gx / IsoConst.TILE_SIZE)
+			var vtz: int = floori(gz / IsoConst.TILE_SIZE)
 			var min_dist_sq_hill: float = hill_r_sq
 			var nearest_wall_sq: float = INF   # unbounded — for hill-suppression check
 			var nearest_hill_peak: float = peak_h
@@ -157,8 +157,8 @@ static func build_terrain_mesh(
 			verts[i] = Vector3(x, h, z)
 			uvs[i]   = Vector2(x, z)
 			var blend: float = clamp(h / peak_h, 0.0, 1.0)
-			var tx: int = int((origin_x + x) / IsoConst.TILE_SIZE)
-			var tz: int = int((origin_z + z) / IsoConst.TILE_SIZE)
+			var tx: int = floori((origin_x + x) / IsoConst.TILE_SIZE)
+			var tz: int = floori((origin_z + z) / IsoConst.TILE_SIZE)
 			var ttype: int = tile_lookup.call(tx, tz)
 			var is_wall: float = 1.0 if ttype == IsoConst.TILE_WALL else 0.0
 			var is_path: float = 1.0 if ttype == IsoConst.TILE_PATH else 0.0

@@ -324,4 +324,3 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _close() -> void:
 	closed.emit()
-	queue_free()
