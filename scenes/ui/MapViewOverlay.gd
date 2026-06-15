@@ -48,6 +48,7 @@ const _LP_SLOP_PX: float = 12.0
 
 
 const _Transforms = preload("res://scenes/ui/MapViewTransforms.gd")
+const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 
 # ── Inner dot-drawing layer ───────────────────────────────────────────────────
 class _DotLayer extends Control:
@@ -142,6 +143,23 @@ func setup(world_map, map_name: String, player: CharacterBody3D,
 	hint.size = Vector2(_panel_size, int(vh * 0.030))
 	hint.position = Vector2(_panel_pos.x, _panel_pos.y + _panel_size + int(vh * 0.008))
 	add_child(hint)
+
+	# ── Objective label ───────────────────────────────────────────────────────
+	var obj: Dictionary = _ObjectiveTracker.current_objective(
+		SceneManager.save_manager.story_flags)
+	if not obj.is_empty():
+		var obj_label := Label.new()
+		obj_label.text = "Objective: " + str(obj.get("label", ""))
+		obj_label.add_theme_font_size_override("font_size", int(vh * 0.020))
+		obj_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+		obj_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+		obj_label.add_theme_constant_override("shadow_offset_x", 1)
+		obj_label.add_theme_constant_override("shadow_offset_y", 1)
+		obj_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		obj_label.size = Vector2(_panel_size, int(vh * 0.030))
+		obj_label.position = Vector2(_panel_pos.x,
+			_panel_pos.y + _panel_size - int(vh * 0.030))
+		add_child(obj_label)
 
 	# ── Clear-waypoint button ─────────────────────────────────────────────────
 	var clr_btn := Button.new()

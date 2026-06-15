@@ -69,6 +69,34 @@ NPC x z FLAG:flag_key before_text || after_text
 
 `SceneManager.start_story_mode()` loads `madrian` as the first map instead of the infinite-world `main`. Recommended implementation: a separate story save slot so the sandbox world is untouched.
 
+### Objective Tracking
+
+`game_logic/ObjectiveTracker.gd` provides a single static function:
+
+```gdscript
+static func current_objective(flags: Dictionary) -> Dictionary:
+    # Returns {label: String, map: String, tx: int, tz: int} or {} if done/unknown
+```
+
+It checks flags in reverse-progression order (most-advanced first) and returns the *next* objective the player should pursue.
+
+| Flags state (most advanced) | Label | Map | Coords |
+|---|---|---|---|
+| _(none)_ | Speak to Maiteln | madrian | (45, 36) |
+| `story_intro_complete` | Leave Madrian | madrian | (50, 50) |
+| `chapter1_left_madrian` | Find Lord Farsyth | farsyth_mansion | (49, 20) |
+| `chapter1_warned_farsyth` | Encounter Isfig | main | (−1, −1) wildcard |
+| `chapter1_received_letter` | Reach Blancogov | blancogov | (49, 9) |
+| `chapter1_reached_blancogov` | Enter the Temple | blancogov_temple | (42, 15) |
+| `chapter1_temple_council` | _(empty — chapter ending)_ | — | — |
+| `chapter1_complete` | _(empty)_ | — | — |
+
+**Wildcard objectives** (`tx == -1, tz == -1`) are open-world events with no fixed tile (e.g., the Isfig roadside encounter). The compass ribbon hides them (returns null from get_pos); the map overlay label still shows the objective text.
+
+**CompassRibbon integration** (`WorldScene.gd`): A gold marker (`Color(1.0, 0.8, 0.0)`) is added with id `"objective"`. Its `get_pos` lambda calls `current_objective()` every frame and returns null when: the objective is for a different map, or coordinates are wildcard.
+
+**MapViewOverlay integration**: When the overlay opens, it calls `current_objective()` once and shows `"Objective: <label>"` in gold above the close hint if an objective is active.
+
 ---
 
 ## Integrations with Other Features

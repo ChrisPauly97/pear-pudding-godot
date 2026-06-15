@@ -22,6 +22,7 @@ const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
 const CompassRibbon = preload("res://scenes/ui/CompassRibbon.gd")
+const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
 const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_side_pixel.png")
@@ -431,6 +432,20 @@ func _ready() -> void:
 		var tx: int = int(wp.get("tx", 0))
 		var tz: int = int(wp.get("tz", 0))
 		return Vector3(float(tx) * IsoConst.TILE_SIZE, 0.0, float(tz) * IsoConst.TILE_SIZE)
+	)
+	_cr.add_marker("objective", Color(1.0, 0.8, 0.0), func() -> Variant:
+		var obj: Dictionary = ObjectiveTracker.current_objective(
+			SceneManager.save_manager.story_flags)
+		if obj.is_empty():
+			return null
+		var obj_map: String = str(obj.get("map", ""))
+		var obj_tx: int = int(obj.get("tx", -1))
+		var obj_tz: int = int(obj.get("tz", -1))
+		if obj_map != captured_map:
+			return null
+		if obj_tx == -1 or obj_tz == -1:
+			return null
+		return Vector3(float(obj_tx) * IsoConst.TILE_SIZE, 0.0, float(obj_tz) * IsoConst.TILE_SIZE)
 	)
 
 	if _is_infinite:
