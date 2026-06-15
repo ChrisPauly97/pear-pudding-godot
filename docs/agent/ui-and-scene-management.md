@@ -144,6 +144,42 @@ Labels and panels parented to a `CanvasLayer` (always on top):
   - First enemy proximity → battle hint (`tutorial_enemy_tip`)
   - Android vs desktop control names chosen via `OS.has_feature("android")`
 - **Minimap** — circular, diameter `vh * 0.20` (top-right corner). See Minimap section.
+- **Compass ribbon** — `vh * 0.04` tall, `vw * 0.40` wide, centred at the top of the screen (`vh * 0.01` from top). See Compass Ribbon section below.
+
+### Compass Ribbon (`scenes/ui/CompassRibbon.gd`)
+
+A horizontal `Control` node parented to the HUD `CanvasLayer`. It shows cardinal-direction tick marks (W/S/E/N) and coloured dot markers registered by other systems.
+
+**Bearing math:**
+The isometric camera faces NE (azimuth −45°), so NE is permanently at the ribbon centre. The mapping from world bearing `θ` (radians, `atan2(dz, dx)`) to ribbon local X:
+```
+ribbon_x = ribbon_width/2 + (deg(θ) + 45) / 360 * ribbon_width
+```
+Clamped to `[0, ribbon_width]`. Cardinal positions (ribbon_width = W):
+| Direction | Bearing | ribbon_x |
+|-----------|---------|----------|
+| West  | −π   | W × 0.125 |
+| South | −π/2 | W × 0.375 |
+| NE ↑  | −π/4 | W × 0.500 (centre) |
+| East  | 0    | W × 0.625 |
+| North | +π/2 | W × 0.875 |
+
+Bearings > 135° (SW/behind the camera) clamp to the right edge.
+
+**Marker API:**
+```gdscript
+compass.add_marker("waypoint", Color.YELLOW, func() -> Variant: return world_pos)
+compass.remove_marker("waypoint")
+compass.set_current_map("maykalene")  # call on every map transition
+```
+`get_pos` is a Callable returning `Vector3` (world pos) or `null` (hidden).
+
+**Integration:**
+`WorldScene` instantiates one `CompassRibbon` in `_ready()`, passes `_player`, and calls `set_current_map(map_name)`. Other systems call `add_marker` / `remove_marker` on the compass node.
+
+**Static helpers (testable):**
+- `CompassRibbon.bearing_to_ribbon_x(bearing_rad, ribbon_width) → float`
+- `CompassRibbon.compute_bearing(fx, fz, tx, tz) → float`
 
 ### TutorialPopup (`scenes/ui/TutorialPopup.gd`)
 

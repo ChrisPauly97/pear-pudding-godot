@@ -21,6 +21,7 @@ const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
+const CompassRibbon = preload("res://scenes/ui/CompassRibbon.gd")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
 const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_side_pixel.png")
@@ -144,6 +145,7 @@ var _level_label: Label
 var _xp_bar: ProgressBar
 var _xp_label: Label
 var _map_overlay: Node = null
+var _compass: Node = null
 var _interact_btn: Button = null
 var _mount_btn: Button = null
 var _dialogue_timer: float = 0.0
@@ -415,6 +417,12 @@ func _ready() -> void:
 	add_child(_minimap)
 	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
 	_minimap.tapped.connect(_open_map_view)
+
+	_compass = CompassRibbon.new()
+	_hud.add_child(_compass)
+	var _cr := _compass as CompassRibbon
+	_cr.setup(_player)
+	_cr.set_current_map(map_name)
 
 	if _is_infinite:
 		WorldEvents.register_all(self)
