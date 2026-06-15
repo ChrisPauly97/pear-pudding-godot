@@ -13,6 +13,7 @@ enum State {
 	CHARACTER,
 	SKILL_TREE,
 	PACK_OPEN,
+	BOUNTY_BOARD,
 }
 
 const _PackOpenSceneScript = preload("res://scenes/ui/PackOpenScene.gd")
@@ -36,6 +37,7 @@ var _journal_scene_packed := preload("res://scenes/ui/JournalScene.tscn")
 var _achievements_scene_packed := preload("res://scenes/ui/AchievementsScene.tscn")
 var _run_summary_scene_packed := preload("res://scenes/ui/RunSummaryScene.tscn")
 var _spire_draft_scene_packed := preload("res://scenes/ui/SpireDraftScene.tscn")
+var _bounty_board_scene_packed := preload("res://scenes/ui/BountyBoardScene.tscn")
 
 var _state: State = State.MENU
 var _battle_overlay: Node = null
@@ -47,6 +49,7 @@ var _character_overlay: Node = null
 var _skill_tree_overlay: Node = null
 var _spire_draft_overlay: Node = null
 var _pack_open_overlay: Node = null
+var _bounty_board_overlay: Node = null
 var _saved_world_scene: Node = null
 
 # Ephemeral session statistics — reset on new/continue game, not persisted.
@@ -85,6 +88,7 @@ func _ready() -> void:
 	GameBus.duel_lost.connect(_on_duel_lost)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 	GameBus.shop_requested.connect(_on_shop_requested)
+	GameBus.bounty_board_requested.connect(_on_bounty_board_requested)
 	GameBus.traveling_shop_requested.connect(_on_traveling_shop_requested)
 	GameBus.journal_requested.connect(_on_journal_requested)
 	GameBus.character_requested.connect(_on_character_requested)
@@ -403,6 +407,7 @@ func _on_battle_won(result: Dictionary) -> void:
 			_current_battle_enemy_id = ""
 		if spire_enemy_type != "":
 			save_manager.record_enemy_defeated(spire_enemy_type)
+			save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": spire_enemy_type})
 		save_manager.increment_progress("battles_won", 1)
 		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
 		save_manager.clear_pending_battle()
@@ -428,6 +433,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		_current_battle_enemy_id = ""
 	if enemy_type != "":
 		save_manager.record_enemy_defeated(enemy_type)
+		save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": enemy_type})
 	save_manager.increment_progress("battles_won", 1)
 	save_manager.check_deck_achievements(save_manager.player_deck)
 	session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
@@ -552,6 +558,22 @@ func _on_shop_closed() -> void:
 	if _shop_overlay != null:
 		_shop_overlay.queue_free()
 		_shop_overlay = null
+	_state = State.WORLD
+
+func _on_bounty_board_requested() -> void:
+	if _state != State.WORLD:
+		return
+	_bounty_board_overlay = _bounty_board_scene_packed.instantiate()
+	get_tree().current_scene.add_child(_bounty_board_overlay)
+	_bounty_board_overlay.closed.connect(_on_bounty_board_closed)
+	_state = State.BOUNTY_BOARD
+
+func _on_bounty_board_closed() -> void:
+	if _state != State.BOUNTY_BOARD:
+		return
+	if _bounty_board_overlay != null:
+		_bounty_board_overlay.queue_free()
+		_bounty_board_overlay = null
 	_state = State.WORLD
 
 func _on_journal_requested() -> void:

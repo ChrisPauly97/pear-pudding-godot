@@ -2,7 +2,7 @@
 
 **Goal:** GID-051
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-188
 
 ## Lock
@@ -66,12 +66,32 @@ The in-world bounty board entity that players approach in towns, and the overlay
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `BountyBoardNPC.gd` / `.tscn` — brown-board Node3D with "Bounty Board" label; follows MerchantNPC pattern.
+2. Update `ChunkRenderer.gd` — preload BountyBoardNPC, add `npc_type == "bounty_board"` to scene selection.
+3. Add `bounty_board_requested` signal to `GameBus.gd`.
+4. Update `WorldScene._handle_interact()` — emit `bounty_board_requested` for `npc_type == "bounty_board"`.
+5. Update `SceneManager.gd` — add `BOUNTY_BOARD` state, overlay var, preload, connect signal, open/close handlers.
+6. Add `accept_bounty(id)` and `claim_bounty(id)` to `SaveManager.gd`.
+7. Create `BountyBoardScene.gd` + `.tscn` — overlay with three rows, button-state machine (Accept / In Progress / Claim), tap-backdrop-to-close, viewport-relative sizing.
+8. Add `MapNpc` sub-resources to `madrian.tres` (tile 46,30), `maykalene.tres` (tile 60,52), `blancogov.tres` (tile 42,50).
+9. Create `tests/unit/test_bounty_board.gd` — SaveManager accept/claim/max-3 logic tests; register in `runner.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **Created `scenes/world/entities/BountyBoardNPC.gd` / `.tscn`**: brown post-and-board Node3D with "Bounty Board" label; follows MerchantNPC pattern exactly (static shared meshes/materials, `init_from_data()`, `get_dialogue()`).
+- **Updated `scenes/world/ChunkRenderer.gd`**: preloads `BountyBoardNPC.tscn`, adds `npc_type == "bounty_board"` branch to NPC scene-selection.
+- **Updated `autoloads/GameBus.gd`**: added `bounty_board_requested` signal.
+- **Updated `scenes/world/WorldScene.gd`**: added `npc_type == "bounty_board"` case in `_handle_interact()` that emits `GameBus.bounty_board_requested`.
+- **Updated `autoloads/SceneManager.gd`**: added `BOUNTY_BOARD` state to enum; `_bounty_board_scene_packed` preload; `_bounty_board_overlay` var; connected `bounty_board_requested`; added `_on_bounty_board_requested()` / `_on_bounty_board_closed()`.
+- **Updated `autoloads/SaveManager.gd`**: added `accept_bounty(id) -> bool` (moves from offered→active, enforces max-3 cap) and `claim_bounty(id) -> int` (pays coins, marks claimed).
+- **Created `scenes/ui/BountyBoardScene.gd` / `.tscn`**: full overlay with dark backdrop (tap-to-close), three bounty rows, button-state machine (Accept / In Progress / Claim / Claimed greyed), viewport-relative sizing, show_toast feedback.
+- **Updated `assets/maps/madrian.tres`**: added `MapNpc_11` bounty board at tile (46, 30).
+- **Updated `assets/maps/maykalene.tres`**: added `MapNpc_7` bounty board at tile (60, 52).
+- **Updated `assets/maps/blancogov.tres`**: added `MapNpc_5` bounty board at tile (47, 56).
+- **Updated `tests/unit/test_named_map_npcs.gd`**: updated madrian NPC count assertion from 10 → 11.
+- **Created `tests/unit/test_bounty_board.gd`**: 18 tests covering accept flow, max-3 gate, claim flow, coin payout, already-claimed guard, incomplete guard, double-accept guard. All pass.
+- **Updated `tests/runner.gd`**: registered `test_bounty_board.gd` suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/bounty-board.md` with BountyBoardScene layout, accept/claim API, and map placement details.

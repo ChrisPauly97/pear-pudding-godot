@@ -149,6 +149,7 @@ var _map_overlay: Node = null
 var _compass: Node = null
 var _interact_btn: Button = null
 var _mount_btn: Button = null
+var _bounty_tracker: VBoxContainer = null
 var _dialogue_timer: float = 0.0
 const DIALOGUE_DURATION: float = 4.0
 
@@ -459,6 +460,9 @@ func _ready() -> void:
 			_dungeon_hero_hp = 30
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)
+	_build_bounty_tracker()
+	GameBus.bounty_progress_changed.connect(_on_bounty_progress_changed)
+	GameBus.bounty_completed.connect(_on_bounty_completed)
 
 	# Auto-remount when returning to the overworld from a named map
 	if map_name == "main":
@@ -1537,6 +1541,7 @@ func _handle_interact() -> void:
 		AudioManager.play_sfx("chest_open")
 		var cid: String = str(chest.get("id", ""))
 		SceneManager.save_manager.mark_chest_opened(cid)
+		SceneManager.save_manager.increment_bounty_progress("open_chests", {})
 		SceneManager.session_stats["chests_opened"] = int(SceneManager.session_stats.get("chests_opened", 0)) + 1
 		var node := _chest_nodes.get(cid) as Node3D
 		if node and node.has_method("mark_opened"):
@@ -1573,6 +1578,9 @@ func _handle_interact() -> void:
 			return
 		if str(npc.get("npc_type", "")) == "merchant":
 			GameBus.shop_requested.emit()
+			return
+		if str(npc.get("npc_type", "")) == "bounty_board":
+			GameBus.bounty_board_requested.emit()
 			return
 		if str(npc.get("npc_type", "")) == "stable":
 			_show_stable_panel()
@@ -1839,6 +1847,10 @@ func _on_enemy_engaged_for_mount(_enemy_data: Dictionary) -> void:
 func _on_battle_won(_result: Dictionary) -> void:
 	if _is_infinite and _current_biome >= 0:
 		AudioManager.play_music(_BIOME_MUSIC[_current_biome])
+		const BountyGen_cls = preload("res://game_logic/BountyGen.gd")
+		if _current_biome < BountyGen_cls.BIOME_NAMES.size():
+			var biome_name: String = BountyGen_cls.BIOME_NAMES[_current_biome]
+			SceneManager.save_manager.increment_bounty_progress("defeat_in_biome", {"biome_name": biome_name})
 	else:
 		AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
 	var sm := SceneManager.save_manager
@@ -1847,6 +1859,58 @@ func _on_battle_won(_result: Dictionary) -> void:
 
 func _on_coins_changed(n: int) -> void:
 	_coin_label.text = "Coins: %d" % n
+
+func _build_bounty_tracker() -> void:
+	var vh: float = get_viewport().get_visible_rect().size.y
+	_bounty_tracker = VBoxContainer.new()
+	_bounty_tracker.position = Vector2(vh * 0.01, vh * 0.07)
+	_hud.add_child(_bounty_tracker)
+	_refresh_bounty_tracker()
+
+func _refresh_bounty_tracker() -> void:
+	if _bounty_tracker == null:
+		return
+	for child in _bounty_tracker.get_children():
+		child.queue_free()
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var font_size: int = int(vh * 0.02)
+	var active: Array[Dictionary] = SceneManager.save_manager.get_active_bounties()
+	for b: Dictionary in active:
+		if bool(b.get("claimed", false)):
+			continue
+		var progress: int = int(b.get("progress", 0))
+		var count: int = int(b.get("count", 1))
+		var label := Label.new()
+		label.add_theme_font_size_override("font_size", font_size)
+		label.add_theme_color_override("font_shadow_color", Color.BLACK)
+		label.add_theme_constant_override("shadow_offset_x", 1)
+		label.add_theme_constant_override("shadow_offset_y", 1)
+		var completed: bool = bool(b.get("completed", false)) or progress >= count
+		if completed:
+			label.add_theme_color_override("font_color", Color(0.4, 1.0, 0.4))
+			label.text = "%s %d/%d (Claim at board)" % [_bounty_short_label(b), progress, count]
+		else:
+			label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.7))
+			label.text = "%s %d/%d" % [_bounty_short_label(b), progress, count]
+		_bounty_tracker.add_child(label)
+
+func _bounty_short_label(b: Dictionary) -> String:
+	var btype: String = str(b.get("type", ""))
+	var target: String = str(b.get("target", ""))
+	match btype:
+		"defeat_enemy_type":
+			return target.replace("_", " ").capitalize()
+		"defeat_in_biome":
+			return target.capitalize() + " kills"
+		"open_chests":
+			return "Open chests"
+	return "Bounty"
+
+func _on_bounty_progress_changed(_bounty_id: String, _progress: int, _count: int) -> void:
+	_refresh_bounty_tracker()
+
+func _on_bounty_completed(_bounty_id: String) -> void:
+	_refresh_bounty_tracker()
 
 func _on_xp_changed(_xp: int, _level: int) -> void:
 	_refresh_xp_bar()

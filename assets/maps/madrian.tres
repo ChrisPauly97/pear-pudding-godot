@@ -180,6 +180,16 @@ npc_type = "stable"
 flag_key = ""
 after_dialogue = ""
 
+[sub_resource type="Resource" id="MapNpc_11"]
+script = ExtResource("3_mapnpc")
+entity_id = "bounty_board_madrian"
+tile_x = 46
+tile_z = 30
+dialogue = "Contracts are posted daily. Check back each morning."
+npc_type = "bounty_board"
+flag_key = ""
+after_dialogue = ""
+
 [sub_resource type="Resource" id="MapScroll_1"]
 script = ExtResource("4_mapscroll")
 entity_id = "scroll_15"
@@ -216,4 +226,4 @@ spawn_z = 36
 enemies = []
 chests = []
 doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2"), SubResource("MapDoor_3"), SubResource("MapDoor_4"), SubResource("MapDoor_5"), SubResource("MapDoor_6"), SubResource("MapDoor_7"), SubResource("MapDoor_8")]
-npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7"), SubResource("MapNpc_8"), SubResource("MapNpc_9"), SubResource("MapNpc_10")]
+npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7"), SubResource("MapNpc_8"), SubResource("MapNpc_9"), SubResource("MapNpc_10"), SubResource("MapNpc_11")]

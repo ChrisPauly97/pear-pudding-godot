@@ -146,6 +146,11 @@ var active_companion: String = ""
 # Player-placed waypoint: {map: String, tx: int, tz: int} or {} when cleared
 var waypoint: Dictionary = {}
 
+# Bounty system
+var bounty_day: int = 0
+var offered_bounties: Array[Dictionary] = []
+var active_bounties: Array[Dictionary] = []
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -249,13 +254,16 @@ func new_game() -> void:
 	packs_since_legendary = 0
 	active_companion = ""
 	waypoint = {}
+	bounty_day = 0
+	offered_bounties = []
+	active_bounties = []
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 27
+const CURRENT_SAVE_VERSION: int = 28
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -487,6 +495,16 @@ static func _migrate_v26_to_v27(data: Dictionary) -> void:
 		data["waypoint"] = {}
 	data["version"] = 27
 
+# _migrate_v27_to_v28: backfill bounty system fields for old saves.
+static func _migrate_v27_to_v28(data: Dictionary) -> void:
+	if not data.has("bounty_day"):
+		data["bounty_day"] = 0
+	if not data.has("offered_bounties"):
+		data["offered_bounties"] = []
+	if not data.has("active_bounties"):
+		data["active_bounties"] = []
+	data["version"] = 28
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -543,6 +561,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v25_to_v26(data)
 	if ver < 27:
 		_migrate_v26_to_v27(data)
+	if ver < 28:
+		_migrate_v27_to_v28(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -629,6 +649,9 @@ func load_save() -> bool:
 	active_companion = str(data.get("active_companion", ""))
 	var wp = data.get("waypoint", {})
 	waypoint = wp if wp is Dictionary else {}
+	bounty_day = int(data.get("bounty_day", 0))
+	offered_bounties.assign(data.get("offered_bounties", []))
+	active_bounties.assign(data.get("active_bounties", []))
 	_loaded = true
 	return true
 
@@ -700,6 +723,9 @@ func save() -> void:
 		"packs_since_legendary": packs_since_legendary,
 		"active_companion": active_companion,
 		"waypoint": waypoint,
+		"bounty_day": bounty_day,
+		"offered_bounties": offered_bounties,
+		"active_bounties": active_bounties,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -1345,4 +1371,103 @@ func increment_day() -> void:
 				kept.append(eid)
 		defeated_enemies.assign(kept)
 		last_respawn_day = days_elapsed
+	_refresh_bounties()
 	_dirty = true
+
+func _refresh_bounties() -> void:
+	if days_elapsed == bounty_day and not offered_bounties.is_empty():
+		return
+	if days_elapsed < bounty_day:
+		return
+	const BountyGen = preload("res://game_logic/BountyGen.gd")
+	offered_bounties.clear()
+	var daily: Array[Dictionary] = BountyGen.generate_daily(world_seed, days_elapsed)
+	for b: Dictionary in daily:
+		var entry: Dictionary = b.duplicate()
+		entry["offered_at_day"] = days_elapsed
+		offered_bounties.append(entry)
+	bounty_day = days_elapsed
+	_dirty = true
+
+## Returns today's offered bounties, refreshing if the day has rolled over.
+func get_offered_bounties() -> Array[Dictionary]:
+	_refresh_bounties()
+	return offered_bounties
+
+## Returns active (accepted, in-progress) bounties.
+func get_active_bounties() -> Array[Dictionary]:
+	return active_bounties
+
+## Accepts a bounty by id. Moves it from offered_bounties to active_bounties.
+## Returns false if bounty not found in offered or 3 bounties are already active.
+func accept_bounty(bounty_id: String) -> bool:
+	if active_bounties.size() >= 3:
+		return false
+	var found_idx: int = -1
+	for i: int in range(offered_bounties.size()):
+		if str(offered_bounties[i].get("id", "")) == bounty_id:
+			found_idx = i
+			break
+	if found_idx < 0:
+		return false
+	var entry: Dictionary = offered_bounties[found_idx].duplicate()
+	entry["accepted_at_day"] = days_elapsed
+	entry["progress"] = 0
+	entry["claimed"] = false
+	active_bounties.append(entry)
+	offered_bounties.remove_at(found_idx)
+	_dirty = true
+	return true
+
+## Claims a completed bounty by id. Pays out coins and marks it as claimed.
+## Returns the coin reward if successful, or 0 if not found / not yet complete / already claimed.
+## Increments progress for all active bounties that match the given type and data.
+## bounty_type: "defeat_enemy_type" | "defeat_in_biome" | "open_chests"
+## match_data: {"enemy_type": String} | {"biome_name": String} | {}
+func increment_bounty_progress(bounty_type: String, match_data: Dictionary) -> void:
+	var changed: bool = false
+	for i: int in range(active_bounties.size()):
+		var b: Dictionary = active_bounties[i]
+		if bool(b.get("claimed", false)) or bool(b.get("completed", false)):
+			continue
+		if str(b.get("type", "")) != bounty_type:
+			continue
+		var matches: bool = false
+		match bounty_type:
+			"defeat_enemy_type":
+				matches = str(b.get("target", "")) == str(match_data.get("enemy_type", ""))
+			"defeat_in_biome":
+				matches = str(b.get("target", "")) == str(match_data.get("biome_name", ""))
+			"open_chests":
+				matches = true
+		if not matches:
+			continue
+		active_bounties[i]["progress"] = int(b.get("progress", 0)) + 1
+		var new_progress: int = int(active_bounties[i]["progress"])
+		var needed: int = int(b.get("count", 1))
+		var bid: String = str(b.get("id", ""))
+		if new_progress >= needed:
+			active_bounties[i]["completed"] = true
+			GameBus.bounty_completed.emit(bid)
+		GameBus.bounty_progress_changed.emit(bid, new_progress, needed)
+		changed = true
+	if changed:
+		_dirty = true
+
+func claim_bounty(bounty_id: String) -> int:
+	for i: int in range(active_bounties.size()):
+		var b: Dictionary = active_bounties[i]
+		if str(b.get("id", "")) != bounty_id:
+			continue
+		if bool(b.get("claimed", false)):
+			return 0
+		var needed: int = int(b.get("count", 0))
+		var done: int = int(b.get("progress", 0))
+		if done < needed:
+			return 0
+		active_bounties[i]["claimed"] = true
+		var reward: int = int(b.get("reward", 0))
+		add_coins(reward)
+		_dirty = true
+		return reward
+	return 0

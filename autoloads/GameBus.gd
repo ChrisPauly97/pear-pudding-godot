@@ -12,6 +12,7 @@ signal duel_lost()
 signal map_transition_requested(map_name: String, target_door_id: String)
 signal inventory_requested
 signal shop_requested
+signal bounty_board_requested
 signal journal_requested
 signal character_requested
 
@@ -77,3 +78,7 @@ signal mount_state_changed(mounted: bool, mount_id: String)
 
 # Card pack signals
 signal pack_purchased(pack_id: String, rolled_cards: Array[Dictionary])
+
+# Bounty signals
+signal bounty_progress_changed(bounty_id: String, progress: int, count: int)
+signal bounty_completed(bounty_id: String)
