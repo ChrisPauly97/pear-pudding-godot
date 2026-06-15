@@ -411,4 +411,5 @@ When adding a new major feature or system, create a corresponding `.md` file in 
 | [docs/agent/tap-to-move.md](docs/agent/tap-to-move.md) | Tap/click pathfinding: A* Pathfinder, screen-to-tile raycast, destination marker, path following |
 | [docs/agent/rideable-mounts.md](docs/agent/rideable-mounts.md) | Mount purchase flow, speed multiplier, HUD button, auto-dismount/remount rules, sprite + dust visuals |
 | [docs/agent/card-packs.md](docs/agent/card-packs.md) | Card Packs & Pack Opening | Pack tiers, roll logic, pity counter, tap-to-flip ceremony UI, SceneManager routing |
+| [docs/agent/bounty-board.md](docs/agent/bounty-board.md) | Bounty Board Contracts | BountyGen, daily seeded generation, SaveManager fields, rollover logic |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

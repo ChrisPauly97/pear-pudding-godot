@@ -2,7 +2,7 @@
 
 **Goal:** GID-051
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -43,12 +43,22 @@ The data structure and deterministic generation engine. Bounties are pure static
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/BountyGen.gd` — static-only RefCounted with `generate_daily()` that produces 3 deterministic bounties (one per type) from world_seed + day_index using the TreasureGen seed pattern.
+2. Add `bounty_day`, `offered_bounties`, `active_bounties` fields to `SaveManager.gd`; reset in `new_game()`; persist in `save()` / `load_save()`.
+3. Add `_migrate_v27_to_v28()` + entry in `_apply_migrations()`; bump `CURRENT_SAVE_VERSION` to 28.
+4. Add `_refresh_bounties()` private method that regenerates `offered_bounties` when `days_elapsed > bounty_day`; call it from `increment_day()` and expose `get_offered_bounties()` / `get_active_bounties()` for TID-189.
+5. Create `tests/unit/test_bounty_gen.gd` covering: determinism, day differentiation, seed differentiation, required fields, valid types, reward ranges, migration, rollover logic.
+6. Register test suite in `tests/runner.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **Created `game_logic/BountyGen.gd`**: static RefCounted with `generate_daily(world_seed, day_index) -> Array[Dictionary]`. Produces exactly 3 bounties (one `defeat_enemy_type`, one `defeat_in_biome`, one `open_chests`). Seeded via `(world_seed ^ (day_index * 2654435761)) & 0x7FFFFFFF` matching the TreasureGen pattern. Reward formulas: enemy = 40 + count*15 + tier*10; biome = 50 + count*12 + biome_idx*15; chests = count*30.
+- **Updated `autoloads/SaveManager.gd`**: added `bounty_day`, `offered_bounties`, `active_bounties` fields; reset in `new_game()`; persisted in `save()` and `load_save()`; migration `_migrate_v27_to_v28()` with entry in `_apply_migrations()`; bumped `CURRENT_SAVE_VERSION` to 28.
+- **Added `_refresh_bounties()`**: private method that regenerates `offered_bounties` when `days_elapsed != bounty_day` or list is empty. Called from `increment_day()` (midnight rollover) and exposed via `get_offered_bounties()` for TID-189's board entity.
+- **Added `get_offered_bounties()` and `get_active_bounties()`**: public accessors for TID-189.
+- **Created `tests/unit/test_bounty_gen.gd`**: 32 tests covering determinism, day/seed differentiation, required fields, valid types/targets, count ranges, reward properties, migration v27→v28, and rollover logic. All pass.
+- **Updated `tests/runner.gd`**: registered `test_bounty_gen.gd` suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/bounty-board.md` — see below (inline for this task; full doc created).

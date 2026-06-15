@@ -47,6 +47,7 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_compass_bearing.gd"),
 	preload("res://tests/unit/test_waypoint_transforms.gd"),
 	preload("res://tests/unit/test_objective_tracker.gd"),
+	preload("res://tests/unit/test_bounty_gen.gd"),
 ]
 
 
