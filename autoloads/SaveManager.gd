@@ -140,6 +140,9 @@ var is_mounted: bool = false
 # Card pack pity counter: increments each pack purchase, resets when a legendary is obtained.
 var packs_since_legendary: int = 0
 
+# Currently equipped companion id ("" = none)
+var active_companion: String = ""
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -241,13 +244,14 @@ func new_game() -> void:
 	active_mount = ""
 	is_mounted = false
 	packs_since_legendary = 0
+	active_companion = ""
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 25
+const CURRENT_SAVE_VERSION: int = 26
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -467,6 +471,12 @@ static func _migrate_v24_to_v25(data: Dictionary) -> void:
 		data["packs_since_legendary"] = 0
 	data["version"] = 25
 
+# _migrate_v25_to_v26: backfill active_companion for old saves.
+static func _migrate_v25_to_v26(data: Dictionary) -> void:
+	if not data.has("active_companion"):
+		data["active_companion"] = ""
+	data["version"] = 26
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -519,6 +529,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v23_to_v24(data)
 	if ver < 25:
 		_migrate_v24_to_v25(data)
+	if ver < 26:
+		_migrate_v25_to_v26(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -602,6 +614,7 @@ func load_save() -> bool:
 	active_mount = str(data.get("active_mount", ""))
 	is_mounted = bool(data.get("is_mounted", false))
 	packs_since_legendary = int(data.get("packs_since_legendary", 0))
+	active_companion = str(data.get("active_companion", ""))
 	_loaded = true
 	return true
 
@@ -671,6 +684,7 @@ func save() -> void:
 		"active_mount": active_mount,
 		"is_mounted": is_mounted,
 		"packs_since_legendary": packs_since_legendary,
+		"active_companion": active_companion,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -1293,6 +1307,14 @@ func set_respawn_point(map: String, x: float, z: float) -> void:
 
 func has_respawn_point() -> bool:
 	return respawn_map != "" and home_owned
+
+func equip_companion(companion_id: String) -> void:
+	active_companion = companion_id
+	_dirty = true
+
+func unequip_companion() -> void:
+	active_companion = ""
+	_dirty = true
 
 func increment_day() -> void:
 	days_elapsed += 1

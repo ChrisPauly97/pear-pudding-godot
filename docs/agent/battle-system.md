@@ -379,3 +379,58 @@ Static constructor that seeds a battle state from PuzzleData:
 ### SaveManager Fields (version 18)
 
 `solved_puzzles: Array[String]` — list of solved puzzle IDs. Migrated from v17 via `_migrate_v17_to_v18` (backfills `[]`).
+
+---
+
+## Companion System (GID-041, TID-159)
+
+One equipped companion grants a single passive battle effect. Excluded from puzzle battles and friendly duels; allowed in Spire runs.
+
+### Data
+
+`data/CompanionData.gd` — Resource with:
+- `companion_id: String`, `display_name: String`, `description: String`
+- `passive_type: String` — `"extra_mana"`, `"draw_card"`, or `"hero_armor"`
+- `passive_value: int` — magnitude of the effect
+- `unlock_story_flag: String` — story flag that must be set to unlock; `""` = always available
+- `portrait: Texture2D` — optional portrait (falls back to a blue placeholder)
+
+### Registry
+
+`autoloads/CompanionRegistry.gd` (extends Node, registered as autoload) — static preload pattern matching `PuzzleRegistry`. Methods:
+- `get_companion(id) -> CompanionData`
+- `all_ids() -> Array[String]`
+- `is_unlocked(id) -> bool` — checks unlock_story_flag against SaveManager; always true when flag is empty
+
+### Passive Application
+
+**Battle-start effects** (called once after `start_turn(1)` in `BattleScene._ready`):
+- `"extra_mana"` — adds to `player.hero.mana`, capped at 10 (turn-1 mana boost only; does not change max_mana growth)
+- `"hero_armor"` — calls `player.hero.apply_status("armor", value)`
+
+**Turn-start effects** (called in `BattleScene._ready` for turn 1 AND in `_on_turn_ended(0)` for every subsequent player turn):
+- `"draw_card"` — calls `player.draw_card()` × `passive_value`
+
+### HUD
+
+`BattleScene._add_companion_hud()` — adds a VBox to SidePanel showing companion portrait (or blue placeholder) + name + passive description. Called after `_add_hero_power_button()`. No-op if no companion is equipped or companion is not unlocked.
+
+### CharacterScene Slot
+
+Below the equipment slots, a "Companion" section shows a slot button. Tapping opens a picker listing all registered companions (locked ones greyed with their flag name). Uses `SaveManager.equip_companion(id)` / `unequip_companion()`.
+
+### Companion Catalogue (GID-041, TID-160)
+
+| id | display_name | passive_type | passive_value | unlock_story_flag |
+|----|--------------|--------------|---------------|-------------------|
+| `maiteln` | Maiteln | `draw_card` | 1 | `story_intro_complete` |
+
+Maiteln's locked-state text in the picker: "Travel with Maiteln in the story to unlock."
+
+First-equip: on first equip, `set_story_flag("companion_maiteln_first_equip")` is set and `SceneManager.show_toast("Maiteln", "Maiteln chuckles. 'Try to keep up, boy.'")` fires.
+
+`story_intro_complete` is the earliest story flag set when Maiteln is encountered (GID-001). If GID-020 adds a "Maiteln joins" flag later, update `maiteln.tres` to use that flag.
+
+### SaveManager Fields (version 26)
+
+`active_companion: String` — currently equipped companion id, default `""`. Migrated from v25 via `_migrate_v25_to_v26` (backfills `""`). Mutators: `equip_companion(id)` and `unequip_companion()`.

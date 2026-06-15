@@ -12,8 +12,8 @@ Maiteln, the story's mentor, currently exists only in dialogue. A companion slot
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-159 | Companion framework (CompanionData, registry, PlayerState passive, CharacterScene slot) | agent | pending | — |
-| TID-160 | Maiteln companion content, story-flag gated | agent | pending | TID-159 |
+| TID-159 | Companion framework (CompanionData, registry, PlayerState passive, CharacterScene slot) | agent | done | — |
+| TID-160 | Maiteln companion content, story-flag gated | agent | done | TID-159 |
 
 ## Acceptance Criteria
 

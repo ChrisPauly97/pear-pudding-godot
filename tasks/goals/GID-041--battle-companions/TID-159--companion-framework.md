@@ -2,7 +2,7 @@
 
 **Goal:** GID-041
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -37,12 +37,28 @@ A minimal companion system: one equipped companion, one passive battle effect, v
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `data/CompanionData.gd` (+ .uid) — Resource with id, display_name, description, passive_type, passive_value, unlock_story_flag.
+2. Create `autoloads/CompanionRegistry.gd` — static registry with `get_companion(id)`, `is_unlocked(id)`, `all_ids()`; no preloads yet (companions added in TID-160).
+3. Update `autoloads/SaveManager.gd` — add `active_companion: String`, migration v25→v26, `equip_companion`/`unequip_companion` mutators.
+4. Update `scenes/battle/BattleScene.gd`:
+   - `_apply_companion_battle_start(player)` — handles extra_mana and hero_armor (called once after start_turn(1)).
+   - `_apply_companion_turn_start()` — handles draw_card (called at turn-1 init after start_turn AND in `_on_turn_ended(0)`).
+   - Small companion HUD (TextureRect + Label for passive text) near player hero.
+5. Update `scenes/ui/CharacterScene.gd` — companion section below equipment; button opens picker; locked companions greyed with unlock requirement.
+6. Register `CompanionRegistry` in `project.godot`.
+7. Create `tests/unit/test_companion_framework.gd` (+ .uid) — tests for each passive type, puzzle-mode exclusion, locked-companion check.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/CompanionData.gd` (+ .uid) — new Resource with companion_id, display_name, description, passive_type, passive_value, unlock_story_flag, portrait fields
+- `autoloads/CompanionRegistry.gd` (+ .uid) — static registry (extends Node, autoloaded) with get_companion, all_ids, is_unlocked; empty preload list ready for TID-160
+- `project.godot` — registered CompanionRegistry as autoload
+- `autoloads/SaveManager.gd` — added active_companion field, migration v25→v26, equip_companion / unequip_companion mutators; CURRENT_SAVE_VERSION bumped to 26
+- `scenes/battle/BattleScene.gd` — added _apply_companion_battle_start (extra_mana, hero_armor), _apply_companion_turn_start (draw_card), _add_companion_hud; wired into _ready and _on_turn_ended(0)
+- `scenes/ui/CharacterScene.gd` — added companion section (button + picker) below equipment slots; locked companions shown greyed with unlock requirement
+- `tests/unit/test_companion_framework.gd` (+ .uid) — 20 unit tests: field defaults, registry API, each passive type, puzzle/duel exclusions
+- `tests/runner.gd` — added test_companion_framework to SUITES
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md` — added Companion System section covering data model, registry, passive application, HUD, CharacterScene slot, and SaveManager fields

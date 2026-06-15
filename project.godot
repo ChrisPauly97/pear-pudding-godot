@@ -31,6 +31,7 @@ WorldEventManager="*res://autoloads/WorldEventManager.gd"
 ScrollRegistry="*res://autoloads/ScrollRegistry.gd"
 MapRegistry="*res://autoloads/MapRegistry.gd"
 PuzzleRegistry="*res://autoloads/PuzzleRegistry.gd"
+CompanionRegistry="*res://autoloads/CompanionRegistry.gd"
 
 [display]
 
