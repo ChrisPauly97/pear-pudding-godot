@@ -22,7 +22,8 @@ const _DOT_MERCHANT := Color(0.20, 0.90, 0.90)
 const _DOT_REST     := Color(0.35, 0.85, 0.65)   # teal-green: rest site
 const _DOT_EVENT    := Color(0.95, 0.60, 0.15)   # amber: event room
 const _DOT_DIGSITE  := Color(1.00, 0.65, 0.15)   # gold: active treasure dig site
-const _DOT_WAYSTONE := Color(0.40, 0.90, 1.00)   # cyan: waystone (dormant or active)
+const _DOT_WAYSTONE  := Color(0.40, 0.90, 1.00)   # cyan: waystone (dormant or active)
+const _DOT_WAYPOINT  := Color(0.20, 0.80, 1.00)   # bright cyan: custom player waypoint
 
 var _player: CharacterBody3D
 var _npc_nodes: Dictionary
@@ -36,7 +37,17 @@ var _panel_pos: Vector2
 var _panel_size: float
 var _dot_layer: _DotLayer
 var _travel_panel: ScrollContainer
+var _map_name: String = ""
 
+# Long-press state (mobile waypoint placement)
+var _lp_active: bool = false
+var _lp_pos: Vector2 = Vector2.ZERO
+var _lp_elapsed: float = 0.0
+const _LP_THRESHOLD: float = 0.5
+const _LP_SLOP_PX: float = 12.0
+
+
+const _Transforms = preload("res://scenes/ui/MapViewTransforms.gd")
 
 # ── Inner dot-drawing layer ───────────────────────────────────────────────────
 class _DotLayer extends Control:
@@ -52,10 +63,15 @@ class _DotLayer extends Control:
 
 # ─────────────────────────────────────────────────────────────────────────────
 
+func _is_in_panel(pos: Vector2) -> bool:
+	return Rect2(_panel_pos, Vector2(_panel_size, _panel_size)).has_point(pos)
+
+
 func setup(world_map, map_name: String, player: CharacterBody3D,
 		npc_nodes: Dictionary, npc_data: Dictionary,
 		enemy_nodes: Dictionary, chest_nodes: Dictionary,
 		door_nodes: Dictionary, waystone_nodes: Dictionary = {}) -> void:
+	_map_name       = map_name
 	_player         = player
 	_npc_nodes      = npc_nodes
 	_npc_data       = npc_data
@@ -127,6 +143,16 @@ func setup(world_map, map_name: String, player: CharacterBody3D,
 	hint.position = Vector2(_panel_pos.x, _panel_pos.y + _panel_size + int(vh * 0.008))
 	add_child(hint)
 
+	# ── Clear-waypoint button ─────────────────────────────────────────────────
+	var clr_btn := Button.new()
+	clr_btn.text = "Clear Waypoint"
+	clr_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.05)
+	clr_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+	clr_btn.position = Vector2(_panel_pos.x + _panel_size - vh * 0.17,
+		_panel_pos.y + _panel_size + int(vh * 0.008))
+	clr_btn.pressed.connect(_clear_waypoint)
+	add_child(clr_btn)
+
 	# ── Fast travel panel ─────────────────────────────────────────────────────
 	_build_fast_travel_panel(vp, vh)
 
@@ -158,6 +184,7 @@ func _on_draw(canvas: Control) -> void:
 	_draw_group(canvas, _waystone_nodes, _DOT_WAYSTONE, 5.0, false)
 	_draw_npcs(canvas)
 	_draw_digsite(canvas)
+	_draw_waypoint(canvas)
 	# Player last so it's on top
 	if is_instance_valid(_player):
 		var tp: Vector2 = _world_to_panel(_player.position.x, _player.position.z)
@@ -174,6 +201,36 @@ func _draw_digsite(canvas: Control) -> void:
 	canvas.draw_arc(tp, 8.0, 0.0, TAU, 16, _DOT_DIGSITE, 2.0)
 	canvas.draw_line(tp + Vector2(-6.0, -6.0), tp + Vector2(6.0, 6.0), _DOT_DIGSITE, 2.0)
 	canvas.draw_line(tp + Vector2(6.0, -6.0),  tp + Vector2(-6.0, 6.0), _DOT_DIGSITE, 2.0)
+
+
+func _draw_waypoint(canvas: Control) -> void:
+	var wp: Dictionary = SceneManager.save_manager.waypoint
+	if wp.is_empty() or str(wp.get("map", "")) != _map_name:
+		return
+	var tx: int = int(wp.get("tx", 0))
+	var tz: int = int(wp.get("tz", 0))
+	var wx: float = float(tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var wz: float = float(tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var tp: Vector2 = _world_to_panel(wx, wz)
+	# Filled circle + crosshair lines for a pin-style marker
+	canvas.draw_circle(tp, 7.0, _DOT_WAYPOINT)
+	canvas.draw_line(tp + Vector2(0.0, -9.0), tp + Vector2(0.0, 9.0), _DOT_WAYPOINT, 1.5)
+	canvas.draw_line(tp + Vector2(-9.0, 0.0), tp + Vector2(9.0, 0.0), _DOT_WAYPOINT, 1.5)
+
+
+func _set_waypoint_at(screen_pos: Vector2) -> void:
+	var world_pos: Vector3 = _Transforms.panel_to_world_coords(
+		screen_pos.x, screen_pos.y,
+		_panel_pos.x, _panel_pos.y, _panel_size, IsoConst.TILE_SIZE)
+	var tx: int = clampi(int(world_pos.x / IsoConst.TILE_SIZE), 0, 99)
+	var tz: int = clampi(int(world_pos.z / IsoConst.TILE_SIZE), 0, 99)
+	SceneManager.save_manager.set_waypoint({"map": _map_name, "tx": tx, "tz": tz})
+	_dot_layer.queue_redraw()
+
+
+func _clear_waypoint() -> void:
+	SceneManager.save_manager.set_waypoint({})
+	_dot_layer.queue_redraw()
 
 
 func _draw_group(canvas: Control, nodes: Dictionary, color: Color,
@@ -300,8 +357,41 @@ func _teleport_to_waystone(waystone_id: String) -> void:
 	SceneManager.teleport_to_waystone(waystone_id)
 
 
+func _process(delta: float) -> void:
+	if _lp_active:
+		_lp_elapsed += delta
+		if _lp_elapsed >= _LP_THRESHOLD:
+			_lp_active = false
+			_set_waypoint_at(_lp_pos)
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("map_view") or event.is_action_pressed("ui_cancel"):
 		get_viewport().set_input_as_handled()
 		closed.emit()
 		queue_free()
+		return
+
+	# Right-click (desktop): immediate waypoint set
+	if event is InputEventMouseButton:
+		var e := event as InputEventMouseButton
+		if e.button_index == MOUSE_BUTTON_RIGHT and e.pressed and _is_in_panel(e.position):
+			_set_waypoint_at(e.position)
+			get_viewport().set_input_as_handled()
+			return
+
+	# Long-press (mobile): track touch, fire after threshold
+	if event is InputEventScreenTouch:
+		var e := event as InputEventScreenTouch
+		if e.pressed:
+			if _is_in_panel(e.position):
+				_lp_active = true
+				_lp_elapsed = 0.0
+				_lp_pos = e.position
+		else:
+			_lp_active = false
+
+	if event is InputEventScreenDrag:
+		var e := event as InputEventScreenDrag
+		if _lp_active and e.position.distance_to(_lp_pos) > _LP_SLOP_PX:
+			_lp_active = false

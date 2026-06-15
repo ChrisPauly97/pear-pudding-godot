@@ -423,6 +423,15 @@ func _ready() -> void:
 	var _cr := _compass as CompassRibbon
 	_cr.setup(_player)
 	_cr.set_current_map(map_name)
+	var captured_map: String = map_name
+	_cr.add_marker("waypoint", Color(0.20, 0.80, 1.00), func():
+		var wp: Dictionary = SceneManager.save_manager.waypoint
+		if wp.is_empty() or str(wp.get("map", "")) != captured_map:
+			return null
+		var tx: int = int(wp.get("tx", 0))
+		var tz: int = int(wp.get("tz", 0))
+		return Vector3(float(tx) * IsoConst.TILE_SIZE, 0.0, float(tz) * IsoConst.TILE_SIZE)
+	)
 
 	if _is_infinite:
 		WorldEvents.register_all(self)

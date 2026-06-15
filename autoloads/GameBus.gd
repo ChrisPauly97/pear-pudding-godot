@@ -69,6 +69,9 @@ signal treasure_excavated(coins: int, card_id: String)
 # Waystone signals
 signal waystone_activated(waystone_id: String)
 
+# Waypoint signals
+signal waypoint_changed(waypoint: Dictionary)
+
 # Mount signals
 signal mount_state_changed(mounted: bool, mount_id: String)
 

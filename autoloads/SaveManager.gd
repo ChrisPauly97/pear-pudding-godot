@@ -143,6 +143,9 @@ var packs_since_legendary: int = 0
 # Currently equipped companion id ("" = none)
 var active_companion: String = ""
 
+# Player-placed waypoint: {map: String, tx: int, tz: int} or {} when cleared
+var waypoint: Dictionary = {}
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -245,13 +248,14 @@ func new_game() -> void:
 	is_mounted = false
 	packs_since_legendary = 0
 	active_companion = ""
+	waypoint = {}
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 26
+const CURRENT_SAVE_VERSION: int = 27
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -477,6 +481,12 @@ static func _migrate_v25_to_v26(data: Dictionary) -> void:
 		data["active_companion"] = ""
 	data["version"] = 26
 
+# _migrate_v26_to_v27: backfill player waypoint for old saves.
+static func _migrate_v26_to_v27(data: Dictionary) -> void:
+	if not data.has("waypoint"):
+		data["waypoint"] = {}
+	data["version"] = 27
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -531,6 +541,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v24_to_v25(data)
 	if ver < 26:
 		_migrate_v25_to_v26(data)
+	if ver < 27:
+		_migrate_v26_to_v27(data)
 
 func load_save() -> bool:
 	if not FileAccess.file_exists(SAVE_PATH):
@@ -615,6 +627,8 @@ func load_save() -> bool:
 	is_mounted = bool(data.get("is_mounted", false))
 	packs_since_legendary = int(data.get("packs_since_legendary", 0))
 	active_companion = str(data.get("active_companion", ""))
+	var wp = data.get("waypoint", {})
+	waypoint = wp if wp is Dictionary else {}
 	_loaded = true
 	return true
 
@@ -685,6 +699,7 @@ func save() -> void:
 		"is_mounted": is_mounted,
 		"packs_since_legendary": packs_since_legendary,
 		"active_companion": active_companion,
+		"waypoint": waypoint,
 	}
 	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if file:
@@ -710,6 +725,11 @@ func add_coins(amount: int) -> void:
 	coins += amount
 	_dirty = true
 	coins_changed.emit(coins)
+
+func set_waypoint(wp: Dictionary) -> void:
+	waypoint = wp
+	_dirty = true
+	GameBus.waypoint_changed.emit(wp)
 
 func increment_pity() -> void:
 	packs_since_legendary += 1
