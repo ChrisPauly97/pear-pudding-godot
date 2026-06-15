@@ -45,6 +45,7 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_card_packs.gd"),
 	preload("res://tests/unit/test_companion_framework.gd"),
 	preload("res://tests/unit/test_compass_bearing.gd"),
+	preload("res://tests/unit/test_waypoint_transforms.gd"),
 ]
 
 

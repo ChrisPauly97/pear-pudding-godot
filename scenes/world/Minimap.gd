@@ -167,12 +167,38 @@ func _on_draw(canvas: Control) -> void:
 	_draw_group(canvas, _chest_nodes, origin, Color(1.00, 0.85, 0.10), 4.0)
 	_draw_group(canvas, _door_nodes,  origin, Color(0.55, 0.75, 1.00), 4.0)
 	_draw_group(canvas, _npc_nodes,   origin, Color(0.30, 0.95, 0.45), 4.0)
+	_draw_waypoint(canvas, origin)
 
 	# Roaming boss: larger dot in range, edge indicator when outside
 	if _enemy_nodes.has("roaming_boss"):
 		var boss: Node3D = _enemy_nodes["roaming_boss"] as Node3D
 		if boss != null and is_instance_valid(boss):
 			_draw_boss_dot(canvas, boss.position, origin, center)
+
+
+func _draw_waypoint(canvas: Control, origin: Vector3) -> void:
+	var wp: Dictionary = SceneManager.save_manager.waypoint
+	if wp.is_empty():
+		return
+	var wp_map: String = str(wp.get("map", ""))
+	if wp_map != SceneManager.save_manager.current_map:
+		return
+	var tx: int = int(wp.get("tx", 0))
+	var tz: int = int(wp.get("tz", 0))
+	var wx: float = float(tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var wz: float = float(tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+	var off: Vector3 = Vector3(wx, 0.0, wz) - origin
+	const ROT45: float = 0.7071067811865476
+	var rx: float = (off.x - off.z) * ROT45
+	var ry: float = (off.x + off.z) * ROT45
+	var center := Vector2(_half, _half)
+	var dot := Vector2(_half + rx * _scale, _half + ry * _scale)
+	# Clamp to minimap circle edge if outside
+	var from_center: Vector2 = dot - center
+	if from_center.length() > _half * 0.94:
+		dot = center + from_center.normalized() * (_half * 0.88)
+	canvas.draw_circle(dot, 5.0, Color(0.20, 0.80, 1.00))
+	canvas.draw_arc(dot, 7.0, 0.0, TAU, 12, Color(0.20, 0.80, 1.00, 0.70), 1.5)
 
 
 func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,

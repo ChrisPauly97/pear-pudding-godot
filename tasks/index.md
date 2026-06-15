@@ -52,7 +52,7 @@
 | [GID-046](goals/GID-046--player-home-trophy-hall/goal.md) | Player Home & Trophy Hall | done | 3 / 3 |
 | [GID-047](goals/GID-047--tap-to-move/goal.md) | Tap-to-Move Pathfinding | done | 3 / 3 |
 | [GID-048](goals/GID-048--rideable-mounts/goal.md) | Rideable Mounts | done | 3 / 3 |
-| [GID-049](goals/GID-049--compass-wayfinding/goal.md) | Compass, Waypoints & Objective Wayfinding | pending | 1 / 3 |
+| [GID-049](goals/GID-049--compass-wayfinding/goal.md) | Compass, Waypoints & Objective Wayfinding | pending | 2 / 3 |
 | [GID-050](goals/GID-050--card-packs/goal.md) | Card Packs & Pack Opening | done | 3 / 3 |
 | [GID-051](goals/GID-051--bounty-board/goal.md) | Bounty Board Contracts | pending | 0 / 3 |
 | [GID-052](goals/GID-052--blacksmith-upgrades/goal.md) | Blacksmith Weapon Upgrades | pending | 0 / 3 |

@@ -2,14 +2,8 @@
 
 **Goal:** GID-049
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-182
-
-## Lock
-
-**Session:** none
-**Acquired:** —
-**Expires:** —
 
 ## Context
 
@@ -42,12 +36,24 @@ A single player-placed pin that the player can set/clear by long-pressing (mobil
 
 ## Plan
 
-_Written during Plan phase._
+1. **SaveManager** — add `waypoint: Dictionary = {}`, migration v26→v27, load, save, `new_game()` reset, and `set_waypoint(wp)` helper that sets the field, marks dirty, and emits `GameBus.waypoint_changed`.
+2. **GameBus** — add `signal waypoint_changed(waypoint: Dictionary)`.
+3. **MapViewOverlay** — add static `panel_to_world_coords()` + `world_to_panel_coords()` helpers; store `_map_name`; add right-click (desktop) / long-press (mobile) detection in `_unhandled_input()` + `_process()`; add "Clear Waypoint" button; draw waypoint marker in `_on_draw()`; `_is_in_panel()` bounds helper.
+4. **Minimap** — draw waypoint dot in `_on_draw()` using same ROT45 bearing math.
+5. **WorldScene** — register `"waypoint"` marker on compass after `setup()` using a Callable that reads `SaveManager.waypoint`.
+6. **Tests** — `tests/unit/test_waypoint_transforms.gd`: round-trip and edge-case tests using the static helpers; add to `tests/runner.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **autoloads/GameBus.gd** — added `signal waypoint_changed(waypoint: Dictionary)`
+- **autoloads/SaveManager.gd** — added `waypoint: Dictionary`, v26→v27 migration, `set_waypoint()` helper, save/load/new_game support
+- **scenes/ui/MapViewTransforms.gd** (new) — extracted static `world_to_panel_coords()` and `panel_to_world_coords()` into a separate file (no inner classes) so tests can call them via `MapViewTransforms.func_name()`
+- **scenes/ui/MapViewOverlay.gd** — added waypoint drawing, right-click (desktop) / long-press (mobile) input, "Clear Waypoint" button, `_is_in_panel()` bounds check; uses `MapViewTransforms` for coordinate conversion
+- **scenes/world/Minimap.gd** — draws cyan waypoint dot on minimap, clamped to ring edge if off-screen
+- **scenes/world/WorldScene.gd** — registers `"waypoint"` marker on compass via lambda Callable after compass setup
+- **tests/unit/test_waypoint_transforms.gd** (new) — 8 headless tests for round-trip coordinate transforms
+- **tests/runner.gd** — added `test_waypoint_transforms` suite
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new agent docs added (waypoint feature documented inline in existing ui-and-scene-management.md).
