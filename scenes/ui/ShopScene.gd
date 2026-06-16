@@ -257,6 +257,17 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info_lbl)
 
+	# Owned count
+	var owned_count: int = 0
+	for inst: Dictionary in SceneManager.save_manager.owned_cards:
+		if str(inst.get("template_id", "")) == id:
+			owned_count += 1
+	var own_lbl := Label.new()
+	own_lbl.text = "own: %d" % owned_count
+	own_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	own_lbl.modulate = Color(0.65, 0.65, 0.65)
+	row.add_child(own_lbl)
+
 	# Price label
 	var price_lbl := Label.new()
 	price_lbl.text = "%d coins" % price
