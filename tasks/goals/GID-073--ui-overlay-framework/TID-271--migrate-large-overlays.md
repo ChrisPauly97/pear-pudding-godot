@@ -7,9 +7,9 @@
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/GID-073--ui-overlay-framework
+**Acquired:** 2026-06-16T20:15:00Z
+**Expires:** 2026-06-16T20:45:00Z
 
 ## Context
 

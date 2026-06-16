@@ -7,9 +7,9 @@
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/GID-073--ui-overlay-framework
+**Acquired:** 2026-06-16T20:10:00Z
+**Expires:** 2026-06-16T20:40:00Z
 
 ## Context
 
@@ -51,7 +51,10 @@ Foundation task — build the shared pieces that the migration tasks consume. No
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/ui/BaseOverlay.gd` — extends Control; declares `signal closed` and `_vh`/`_vw` vars; provides `_build_backdrop()`, `_build_centered_panel()`, `_build_margin_vbox()` helpers; `_close()` that emits closed; and `_input()` that handles `ui_cancel` → `_close()`.
+2. Create `scenes/ui/UiUtil.gd` — static helper file; provides `rarity_color(rarity)`, `effect_summary(weapon)`, `make_title_label(text, vh)`, `make_body_label(text, vh)`, `make_separator()`, `make_close_button(vh, on_pressed)`.
+3. Create `assets/ui_theme.tres` + `.uid` sidecar — minimal Theme resource with PanelContainer StyleBoxFlat defaults (bg_color, border, corners), Label font-color defaults.
+4. Migrate SettingsScene to extend BaseOverlay (pilot to validate the design).
 
 ## Changes Made
 
