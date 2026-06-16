@@ -73,7 +73,7 @@
 | [GID-067](goals/GID-067--ancient-colossi/goal.md) | Ancient Colossi — Discoverable Mega-Landmarks | pending | 0 / 3 |
 | [GID-068](goals/GID-068--ley-lines/goal.md) | Ley Lines — Visible Currents of Magic | pending | 0 / 3 |
 | [GID-069](goals/GID-069--core-loop-retention/goal.md) | Core Loop Retention & Ease-of-Use | pending | 0 / 5 |
-| [GID-070](goals/GID-070--aaa-presentation-polish/goal.md) | AAA Presentation & Platform Polish | pending | 0 / 7 |
+| [GID-070](goals/GID-070--aaa-presentation-polish/goal.md) | AAA Presentation & Platform Polish | done | 7 / 7 |
 | [GID-071](goals/GID-071--battle-scene-decomposition/goal.md) | Battle Layer Decomposition | pending | 0 / 4 |
 | [GID-072](goals/GID-072--world-scene-decomposition/goal.md) | World Layer Decomposition | pending | 0 / 4 |
 | [GID-073](goals/GID-073--ui-overlay-framework/goal.md) | UI Overlay Framework & Shared Theme | pending | 0 / 3 |

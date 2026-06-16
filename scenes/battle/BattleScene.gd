@@ -561,6 +561,7 @@ func _finish_hand_drag() -> void:
 				return
 		if _do_play_card(played_card, 0):
 			AudioManager.play_sfx("card_play")
+			_haptic(20)
 			if played_card.card_class == "spell":
 				var snap_fhd := _snapshot_hp_positions()
 				_resolve_spell_effect(played_card, 0)
@@ -935,6 +936,7 @@ func _on_target_chosen_card(target: CardInstance) -> void:
 	_hide_cancel_btn()
 	if _do_play_card(spell, 0):
 		AudioManager.play_sfx("card_play")
+		_haptic(20)
 		var snap_otc := _snapshot_hp_positions()
 		_resolve_spell_effect(spell, 0, {"type": "minion", "card": target})
 		_spawn_float_labels_from_snapshot(snap_otc)
@@ -952,6 +954,7 @@ func _on_target_chosen_hero() -> void:
 	_hide_cancel_btn()
 	if _do_play_card(spell, 0):
 		AudioManager.play_sfx("card_play")
+		_haptic(20)
 		var snap_oth := _snapshot_hp_positions()
 		_resolve_spell_effect(spell, 0, {"type": "hero"})
 		_spawn_float_labels_from_snapshot(snap_oth)
@@ -1753,18 +1756,22 @@ func _check_game_over() -> void:
 		if _state.puzzle_mode:
 			if w == 0:
 				AudioManager.play_sfx("battle_win")
+				_haptic(120)
 				_show_puzzle_victory()
 			return
 		if _state.friendly_duel:
 			if w == 0:
 				AudioManager.play_sfx("battle_win")
+				_haptic(120)
 				_show_duel_victory_overlay(_state.wager_coins)
 			else:
 				AudioManager.play_sfx("battle_lose")
+				_haptic(80)
 				_show_duel_loss_overlay(_state.wager_coins)
 			return
 		if w == 0:
 			AudioManager.play_sfx("battle_win")
+			_haptic(120)
 			var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
 			var pool: Array[String] = EnemyRegistry.get_drop_pool(enemy_type)
 			if bool(enemy_data.get("is_boss", false)):
@@ -1789,6 +1796,7 @@ func _check_game_over() -> void:
 				_show_victory_overlay(reward_card_id, "")
 		else:
 			AudioManager.play_sfx("battle_lose")
+			_haptic(80)
 			GameBus.battle_lost.emit()
 
 func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = "") -> void:
@@ -2342,7 +2350,15 @@ func _flash_from_snapshot(snap: Array[Dictionary]) -> void:
 # Screen shake (TID-079)
 # -------------------------------------------------------------------------
 
+func _haptic(duration_ms: int) -> void:
+	if not OS.has_feature("mobile"):
+		return
+	if bool(SceneManager.save_manager.get_setting("haptics", true)):
+		Input.vibrate_handheld(duration_ms)
+
 func _trigger_shake(magnitude: float, duration: float) -> void:
+	if not bool(SceneManager.save_manager.get_setting("screen_shake", true)):
+		return
 	if _is_shaking:
 		return
 	_is_shaking = true

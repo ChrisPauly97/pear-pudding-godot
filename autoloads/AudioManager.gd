@@ -1,5 +1,16 @@
 extends Node
 
+# Ambient sound paths per biome (index matches IsoConst biome IDs / InfiniteWorldGen biomes).
+# Placeholder paths: gracefully skipped if the file doesn't exist.
+const AMBIENCE_PATHS: Array[String] = [
+	"res://assets/audio/ambience/grasslands.ogg",  # 0 Grasslands
+	"res://assets/audio/ambience/forest.ogg",      # 1 Forest
+	"res://assets/audio/ambience/desert.ogg",      # 2 Desert
+	"res://assets/audio/ambience/scorched.ogg",    # 3 Scorched
+	"res://assets/audio/ambience/mountains.ogg",   # 4 Mountains
+]
+const AMBIENCE_CROSSFADE: float = 2.0
+
 # Map from SFX name → file path
 const SFX_PATHS: Dictionary = {
 	"card_draw":    "res://assets/audio/sfx/card_draw.wav",
@@ -25,6 +36,11 @@ var _narration_suppressed: bool = false
 var _music_player: AudioStreamPlayer
 var _current_music_path: String = ""
 
+# Ambience: two players crossfade between them
+var _amb_players: Array[AudioStreamPlayer] = []
+var _amb_active: int = 0   # which player is currently fading in
+var _amb_biome: int = -1   # currently playing biome id (-1 = none)
+
 func _ready() -> void:
 	for key: String in SFX_PATHS:
 		var path: String = SFX_PATHS[key]
@@ -43,6 +59,12 @@ func _ready() -> void:
 	_music_player.volume_db = linear_to_db(0.5)
 	add_child(_music_player)
 	_music_player.finished.connect(_on_music_finished)
+	# Ambience crossfade pair
+	for _i in 2:
+		var ap := AudioStreamPlayer.new()
+		ap.volume_db = linear_to_db(0.0001)  # effectively silent
+		add_child(ap)
+		_amb_players.append(ap)
 	GameBus.dialogue_state_changed.connect(_on_dialogue_state_changed)
 
 func play_narration(scroll_id: String) -> void:
@@ -114,6 +136,13 @@ func get_sfx_volume() -> float:
 		return 1.0
 	return db_to_linear(_players[0].volume_db)
 
+func _process(_delta: float) -> void:
+	# Loop the active ambience player when it finishes
+	if _amb_biome >= 0 and _amb_biome < AMBIENCE_PATHS.size():
+		var p: AudioStreamPlayer = _amb_players[_amb_active]
+		if p.stream != null and not p.playing:
+			p.play()
+
 func play_sfx(sfx_name: String) -> void:
 	var stream: AudioStream = _sfx_cache.get(sfx_name, null) as AudioStream
 	if stream == null:
@@ -125,3 +154,33 @@ func play_sfx(sfx_name: String) -> void:
 			return
 	_players[0].stream = stream
 	_players[0].play()
+
+## Switch biome ambience with a crossfade. biome_id=-1 fades out without starting a new loop.
+func set_ambience(biome_id: int) -> void:
+	if biome_id == _amb_biome:
+		return
+	_amb_biome = biome_id
+	var old_idx: int = _amb_active
+	var new_idx: int = 1 - _amb_active
+	_amb_active = new_idx
+	# Fade out old player
+	var old_p: AudioStreamPlayer = _amb_players[old_idx]
+	var new_p: AudioStreamPlayer = _amb_players[new_idx]
+	var sfx_vol: float = get_sfx_volume()
+	if old_p.playing:
+		var tw_out: Tween = create_tween()
+		tw_out.tween_property(old_p, "volume_db", linear_to_db(0.0001), AMBIENCE_CROSSFADE)
+		tw_out.finished.connect(func() -> void: old_p.stop())
+	if biome_id < 0 or biome_id >= AMBIENCE_PATHS.size():
+		return
+	var path: String = AMBIENCE_PATHS[biome_id]
+	if not ResourceLoader.exists(path):
+		return
+	var stream: AudioStream = load(path) as AudioStream
+	if stream == null:
+		return
+	new_p.stream = stream
+	new_p.volume_db = linear_to_db(0.0001)
+	new_p.play()
+	var tw_in: Tween = create_tween()
+	tw_in.tween_property(new_p, "volume_db", linear_to_db(sfx_vol * 0.4), AMBIENCE_CROSSFADE)

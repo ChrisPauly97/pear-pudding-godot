@@ -81,27 +81,62 @@ This keeps all world state (chunk cache, player position, NPC nodes) alive durin
 2. Restore previous `WorldMap`
 3. Teleport player to the saved return door tile
 
+### TransitionManager (`autoloads/TransitionManager.gd`)
+
+Global CanvasLayer (layer 100, `PROCESS_MODE_ALWAYS`) that provides fade-to-black transitions between scenes.
+
+- Full-screen black `ColorRect` starts fully transparent with `MOUSE_FILTER_IGNORE`
+- `transition(change_fn: Callable)` — fire-and-forget coroutine: fades to black (0.2s), calls `change_fn`, awaits one process frame, fades back in (0.2s)
+- Both tweens use `TWEEN_PAUSE_PROCESS` so they work when `get_tree().paused = true`
+- `_transitioning` guard prevents overlapping transitions; if one is already running, `change_fn` is called immediately without a new fade
+- All `SceneManager` scene swaps are wrapped in `TransitionManager.transition(func() -> void: ...)` lambdas
+
 ### MenuScene (`scenes/ui/MenuScene.gd`)
 
-- **New Game** button → opens `BiomeSelectionScene` overlay
-- **Continue** button (shown only if save exists) → calls `SaveManager.load()` then loads `WorldScene`
-- **Settings** button → opens `SettingsScene` overlay (GID-026)
-- Background: static or animated title art
+- **New Game** and **Continue** buttons both → `SceneManager.go_to_slot_select()` (slot select screens handles the distinction)
+- **Settings** button → opens `SettingsScene` overlay
+- Animated title: scale 0.85→1.0 + alpha 0→1 on load (0.5s tween), then idle scale-breathe loop 1.0→1.02→1.0 (3s period)
+- Version label bottom-left: reads `ProjectSettings.get_setting("application/config/version")`
+
+### SlotSelectScene (`scenes/ui/SlotSelectScene.gd`)
+
+- Shows 3 save slots with per-slot metadata (current map, coins, last_saved timestamp)
+- Occupied slot: **Continue** (loads that slot) + **Delete** (requires confirm dialog)
+- Empty slot: **New Game** (routes to `BiomeSelectionScene`)
+- Back button returns to `MenuScene`
+- Calls `SaveManager.set_active_slot(n)` before any navigation
+
+### OverworldPauseOverlay (`scenes/ui/OverworldPauseOverlay.gd`)
+
+CanvasLayer (layer 200, `PROCESS_MODE_ALWAYS`) that pauses the game tree.
+
+- Sets `get_tree().paused = true` in `_ready()`; restores on close
+- Signals: `resumed`, `quit_to_menu`
+- **Resume** button / `pause` action in `_input()`: unpauses and emits `resumed`
+- **Settings** button: adds `SettingsScene` as a child overlay
+- **Save & Quit**: calls `SaveManager.save()` then `SceneManager.go_to_menu_direct()`, emits `quit_to_menu`
+- Triggered from `WorldScene._open_pause()` (HUD "II" button or `pause` input action)
 
 ### SettingsScene (`scenes/ui/SettingsScene.gd`)
 
-Overlay (extends Control, emits `closed`) showing volume controls. Entry points: MenuScene Settings button and BattleScene pause menu.
+Overlay (extends Control, emits `closed`) showing volume and accessibility controls. Entry points: MenuScene Settings button, OverworldPauseOverlay, and BattleScene pause menu.
 
+**Audio section:**
 - **Music Volume** HSlider (0–1, default 0.5) — calls `AudioManager.set_music_volume(v)` and `SaveManager.set_setting("music_volume", v)`
 - **SFX Volume** HSlider (0–1, default 1.0) — calls `AudioManager.set_sfx_volume(v)` and `SaveManager.set_setting("sfx_volume", v)`
-- Values apply immediately on slider change and persist across sessions
-- Dismissed by Close button, tapping the backdrop, or Escape key
-- Settings are loaded and applied to AudioManager in `SceneManager._apply_audio_settings()` which is called on `continue_game()`
+
+**Accessibility & Comfort section:**
+- **Screen Shake** `CheckButton` — persists `"screen_shake"` (default `true`); `BattleScene._trigger_shake()` checks this before shaking
+- **Text Scale** `OptionButton` (Small=0.85 / Normal=1.0 / Large=1.25) — persists `"text_scale"` (default `1.0`)
+- **Haptics** `CheckButton` (shown only on `OS.has_feature("mobile")`) — persists `"haptics"` (default `true`); `BattleScene._haptic(ms)` checks before calling `Input.vibrate_handheld(ms)`
+
+Values apply immediately on change and persist across sessions. Dismissed by Close button, tapping the backdrop, or Escape key.
 
 ### BiomeSelectionScene (`scenes/ui/BiomeSelectionScene.gd`)
 
 - Displays one button per biome (Grasslands, Forest, Desert, Scorched, Mountains)
-- On selection: calls `SaveManager.new_game(biome)` then transitions to `WorldScene`
+- On selection: calls `SceneManager.start_new_game_with_biome(biome_id)` then transitions to `WorldScene`
+- Back button → `SlotSelectScene` (not MenuScene directly)
 - UI scales buttons by viewport height
 
 ### GameOverScene (`scenes/ui/GameOverScene.gd`)

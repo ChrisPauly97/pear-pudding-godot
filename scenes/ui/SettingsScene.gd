@@ -21,7 +21,7 @@ func _ready() -> void:
 	)
 
 	var panel_w: float = vp.x * 0.7
-	var panel_h: float = vh * 0.52
+	var panel_h: float = vh * 0.75
 	var panel := PanelContainer.new()
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.08, 0.08, 0.14, 0.98)
@@ -49,7 +49,7 @@ func _ready() -> void:
 	panel.add_child(margin)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.03))
+	vbox.add_theme_constant_override("separation", int(vh * 0.025))
 	margin.add_child(vbox)
 
 	var title := Label.new()
@@ -62,6 +62,13 @@ func _ready() -> void:
 	var sep := HSeparator.new()
 	vbox.add_child(sep)
 
+	# — Audio —
+	var audio_lbl := Label.new()
+	audio_lbl.text = "Audio"
+	audio_lbl.add_theme_font_size_override("font_size", int(vh * 0.03))
+	audio_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+	vbox.add_child(audio_lbl)
+
 	var music_vol: float = float(SceneManager.save_manager.get_setting("music_volume", 0.5))
 	_add_slider_row(vbox, vh, "Music Volume", music_vol, func(v: float) -> void:
 		SceneManager.save_manager.set_setting("music_volume", v)
@@ -73,6 +80,35 @@ func _ready() -> void:
 		SceneManager.save_manager.set_setting("sfx_volume", v)
 		AudioManager.set_sfx_volume(v)
 	)
+
+	var sep2 := HSeparator.new()
+	vbox.add_child(sep2)
+
+	# — Accessibility & Comfort —
+	var access_lbl := Label.new()
+	access_lbl.text = "Accessibility & Comfort"
+	access_lbl.add_theme_font_size_override("font_size", int(vh * 0.03))
+	access_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+	vbox.add_child(access_lbl)
+
+	var shake_on: bool = bool(SceneManager.save_manager.get_setting("screen_shake", true))
+	_add_toggle_row(vbox, vh, "Screen Shake", shake_on, func(v: bool) -> void:
+		SceneManager.save_manager.set_setting("screen_shake", v)
+	)
+
+	var text_scale: float = float(SceneManager.save_manager.get_setting("text_scale", 1.0))
+	_add_option_row(vbox, vh, "Text Size", ["Small (85%)", "Normal (100%)", "Large (125%)"],
+		_scale_to_index(text_scale), func(idx: int) -> void:
+			var scales: Array[float] = [0.85, 1.0, 1.25]
+			var s: float = scales[clamp(idx, 0, 2)]
+			SceneManager.save_manager.set_setting("text_scale", s)
+	)
+
+	if OS.has_feature("mobile") or OS.has_feature("android"):
+		var haptics_on: bool = bool(SceneManager.save_manager.get_setting("haptics", true))
+		_add_toggle_row(vbox, vh, "Haptics", haptics_on, func(v: bool) -> void:
+			SceneManager.save_manager.set_setting("haptics", v)
+		)
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -87,6 +123,13 @@ func _ready() -> void:
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	btn_row.add_child(close_btn)
 	vbox.add_child(btn_row)
+
+func _scale_to_index(scale: float) -> int:
+	if scale < 0.95:
+		return 0
+	elif scale > 1.1:
+		return 2
+	return 1
 
 func _add_slider_row(parent: VBoxContainer, vh: float, label_text: String, initial: float, on_change: Callable) -> void:
 	var row := VBoxContainer.new()
@@ -123,6 +166,45 @@ func _add_slider_row(parent: VBoxContainer, vh: float, label_text: String, initi
 		val_lbl.text = "%d%%" % int(v * 100)
 		on_change.call(v)
 	)
+
+func _add_toggle_row(parent: VBoxContainer, vh: float, label_text: String, initial: bool, on_change: Callable) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(vh * 0.02))
+	parent.add_child(row)
+
+	var lbl := Label.new()
+	lbl.text = label_text
+	lbl.add_theme_font_size_override("font_size", int(vh * 0.028))
+	lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(lbl)
+
+	var chk := CheckButton.new()
+	chk.button_pressed = initial
+	chk.add_theme_font_size_override("font_size", int(vh * 0.026))
+	chk.toggled.connect(func(v: bool) -> void: on_change.call(v))
+	row.add_child(chk)
+
+func _add_option_row(parent: VBoxContainer, vh: float, label_text: String, options: Array, initial_idx: int, on_change: Callable) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(vh * 0.02))
+	parent.add_child(row)
+
+	var lbl := Label.new()
+	lbl.text = label_text
+	lbl.add_theme_font_size_override("font_size", int(vh * 0.028))
+	lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(lbl)
+
+	var opt := OptionButton.new()
+	opt.add_theme_font_size_override("font_size", int(vh * 0.024))
+	opt.custom_minimum_size = Vector2(vh * 0.22, vh * 0.055)
+	for item: String in options:
+		opt.add_item(item)
+	opt.selected = clamp(initial_idx, 0, options.size() - 1)
+	opt.item_selected.connect(func(idx: int) -> void: on_change.call(idx))
+	row.add_child(opt)
 
 func _close() -> void:
 	closed.emit()

@@ -2,7 +2,7 @@
 
 **Goal:** GID-070
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-257
 
 ## Lock
@@ -30,12 +30,13 @@ The main menu (`scenes/ui/MenuScene.gd` / `.tscn`) is a static "Pear Pudding TCG
 
 ## Plan
 
-_Written during Plan phase._
+Enhance `MenuScene.gd`: animated title (tween scale 0.85→1.0 + alpha 0→1 on load, then idle scale-breathe loop 1.0→1.02→1.0), version label bottom-left reading from `ProjectSettings`. Add `config/version = "0.1.0"` to `project.godot`. Route Continue/New Game through `go_to_slot_select()`. No shader or binary asset added — keep it procedural.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **MODIFIED `project.godot`**: Added `config/version="0.1.0"` under `[application]`.
+- **MODIFIED `scenes/ui/MenuScene.gd`**: Both Continue and New Game call `SceneManager.go_to_slot_select()`. Added `_animate_title()`: tweens title label scale from 0.85 to 1.0 and alpha from 0 to 1 over 0.5s, then calls `_idle_title_breathe()`. Added `_idle_title_breathe()`: loops scale 1.0→1.02→1.0 every 3s indefinitely. Added `_add_version_label()`: reads `ProjectSettings.get_setting("application/config/version")`, creates a small label at bottom-left of screen.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md` — MenuScene section updated with animated title and version label.

@@ -121,14 +121,12 @@ func _build_sprite() -> void:
 func _physics_process(delta: float) -> void:
 	var dir := Vector3.ZERO
 
-	if Input.is_action_pressed("move_up"):
-		dir.x -= 1; dir.z -= 1
-	if Input.is_action_pressed("move_down"):
-		dir.x += 1; dir.z += 1
-	if Input.is_action_pressed("move_left"):
-		dir.x -= 1; dir.z += 1
-	if Input.is_action_pressed("move_right"):
-		dir.x += 1; dir.z -= 1
+	# get_vector supports analog gamepad axes (deadzone-corrected) and digital keys.
+	# Isometric remap: inp.x = right-left, inp.y = down-up
+	var inp: Vector2 = Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	if inp.length_squared() > 0.01:
+		dir.x = inp.y + inp.x
+		dir.z = inp.y - inp.x
 
 	if dir.length_squared() > 0.0:
 		# Manual input always wins — cancel any active path.

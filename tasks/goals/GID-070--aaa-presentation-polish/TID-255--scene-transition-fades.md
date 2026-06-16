@@ -2,7 +2,7 @@
 
 **Goal:** GID-070
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -29,12 +29,14 @@ Every scene change is currently a hard cut: `SceneManager` calls `get_tree().cha
 
 ## Plan
 
-_Written during Plan phase._
+New `autoloads/TransitionManager.gd` CanvasLayer (layer 100, `PROCESS_MODE_ALWAYS`) with a full-screen black `ColorRect`. Exposes `transition(change_fn: Callable)` that fades out, calls `change_fn`, awaits one process frame, then fades in. Tweens use `TWEEN_PAUSE_PROCESS` so they survive `get_tree().paused = true`. Wrap every `change_scene_to_*` call in `SceneManager.gd` inside a transition lambda. Register in `project.godot` `[autoload]`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **NEW `autoloads/TransitionManager.gd`**: CanvasLayer at layer 100 with `PROCESS_MODE_ALWAYS`. `ColorRect` covers full screen, starts fully transparent, `MOUSE_FILTER_IGNORE`. `transition(change_fn)` fire-and-forget: fades to black (0.2s), calls change_fn, awaits process frame, fades back in. `_transitioning` guard prevents overlapping transitions. Both tweens set to `TWEEN_PAUSE_PROCESS`.
+- **MODIFIED `autoloads/SceneManager.gd`**: All scene-swap calls (go_to_menu, go_to_menu_direct, _load_world, _restore_world, _on_enemy_engaged, _on_duel_requested, _on_battle_lost, _on_puzzle_requested) wrapped in `TransitionManager.transition(func() -> void: ...)` lambdas. State assignments (e.g. `_state = State.WORLD`) moved inside lambdas to avoid race conditions where state said WORLD before the world was active. Achievement unlock adds haptic call on Android.
+- **MODIFIED `project.godot`**: Added `TransitionManager="*res://autoloads/TransitionManager.gd"` to `[autoload]`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md` — TransitionManager section added.

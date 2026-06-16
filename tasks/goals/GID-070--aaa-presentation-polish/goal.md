@@ -12,13 +12,13 @@ A codebase audit (June 2026) compared the game against AAA presentation staples,
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-255 | Scene Transition Fades | agent | pending | — |
-| TID-256 | Overworld Pause Menu | agent | pending | — |
-| TID-257 | Save Slots & Slot Select UI | agent | pending | — |
-| TID-258 | Gamepad / Controller Support | agent | pending | — |
-| TID-259 | Main Menu & Title Presentation | agent | pending | TID-257 |
-| TID-260 | Accessibility & Comfort Settings | agent | pending | — |
-| TID-261 | Ambient Biome Soundscapes | agent | pending | — |
+| TID-255 | Scene Transition Fades | agent | done | — |
+| TID-256 | Overworld Pause Menu | agent | done | — |
+| TID-257 | Save Slots & Slot Select UI | agent | done | — |
+| TID-258 | Gamepad / Controller Support | agent | done | — |
+| TID-259 | Main Menu & Title Presentation | agent | done | TID-257 |
+| TID-260 | Accessibility & Comfort Settings | agent | done | — |
+| TID-261 | Ambient Biome Soundscapes | agent | done | — |
 
 ## Acceptance Criteria
 
