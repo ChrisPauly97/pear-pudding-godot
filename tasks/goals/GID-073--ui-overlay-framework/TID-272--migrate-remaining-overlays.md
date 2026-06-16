@@ -2,7 +2,7 @@
 
 **Goal:** GID-073
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-270
 
 ## Lock
@@ -45,12 +45,17 @@ The smaller overlays plus the battle-side inspect overlay; finish the close/clea
 
 ## Plan
 
-_Written during Plan phase._
+Migrate JournalScene, AchievementsScene, TutorialPopup, CardInspectOverlay to BaseOverlay in parallel with TID-271. BiomeSelectionScene excluded — it is a full-screen scene with no `signal closed`, not a modal overlay pattern.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **JournalScene.gd**: extends BaseOverlay; removed `signal closed`/`_vh`/`_vw`; replaced outer backdrop+panel+margin+vbox block with BaseOverlay helpers; overrides `_close()` to add `queue_free()` after emitting `closed`; removed `_unhandled_input` (BaseOverlay handles `ui_cancel`).
+- **AchievementsScene.gd**: same base changes; close button now calls `_close()`; removed `_on_close()` and `_unhandled_input`.
+- **TutorialPopup.gd**: same base changes; replaced local `vh`/`vw` vars with `_vh`/`_vw` from BaseOverlay; removed `_dismiss()`, close button calls `_close()` directly; `_unhandled_input` kept only for `ui_accept`.
+- **CardInspectOverlay.gd** (scenes/battle): same base changes; removed local `var _vh`; backdrop built with `_build_backdrop(0.72, true)` (close-on-tap); panel uses `_build_centered_panel()` + `_make_dark_glass_style()`; overrides `_close()` to add `queue_free()`.
+- **BiomeSelectionScene.gd**: intentionally not migrated — full-screen new-game scene, not a modal overlay, has no `signal closed`.
+- Moved `tasks/backlog/BID-009` to `tasks/archive/backlog/`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated docs/agent/ui-and-scene-management.md with BaseOverlay/UiUtil section.

@@ -76,7 +76,7 @@
 | [GID-070](goals/GID-070--aaa-presentation-polish/goal.md) | AAA Presentation & Platform Polish | done | 7 / 7 |
 | [GID-071](goals/GID-071--battle-scene-decomposition/goal.md) | Battle Layer Decomposition | pending | 0 / 4 |
 | [GID-072](goals/GID-072--world-scene-decomposition/goal.md) | World Layer Decomposition | pending | 0 / 4 |
-| [GID-073](goals/GID-073--ui-overlay-framework/goal.md) | UI Overlay Framework & Shared Theme | pending | 0 / 3 |
+| [GID-073](goals/GID-073--ui-overlay-framework/goal.md) | UI Overlay Framework & Shared Theme | done | 3 / 3 |
 | [GID-074](goals/GID-074--autoload-persistence-simplification/goal.md) | Autoload & Persistence Simplification | pending | 0 / 3 |
 | [GID-075](goals/GID-075--dead-code-constants-hygiene/goal.md) | Dead Code, Constants & Test Hygiene | pending | 0 / 3 |
 | [GID-076](goals/GID-076--magic-subtypes-spells/goal.md) | Magic Subtypes — 40 Spell Cards | pending | 0 / 7 |
@@ -92,7 +92,7 @@
 | [BID-006](backlog/BID-006--gamebus-battle-signals-never-emitted.md) | GameBus card_played / card_attacked / battle_ended declared but never emitted | code-smell | GID-060/061 research |
 | [BID-007](backlog/BID-007--card-registry-test-count-stale.md) | test_card_registry asserts 40 cards but registry preloads 46 | code-smell | GID-062 research |
 | [BID-008](backlog/BID-008--is-unique-dropped-from-template-dict.md) | CardData.to_template_dict() omits is_unique; sell/scrap guard never triggers | code-smell | GID-061 research |
-| [BID-009](backlog/BID-009--shared-theme-overlay-dedup.md) | No shared Theme; overlay boilerplate copy-pasted across 8 UI scenes | code-smell | GID-064 audit |
+| ~~[BID-009](archive/backlog/BID-009--shared-theme-overlay-dedup.md)~~ | ~~No shared Theme; overlay boilerplate copy-pasted across 8 UI scenes~~ | ~~code-smell~~ | Resolved by GID-073 |
 | [BID-010](backlog/BID-010--native-drag-drop-gamebus-coupling.md) | Hand-rolled battle drag-to-play; GameState reaches into SceneTree for GameBus | code-smell | GID-064 audit |
 | [BID-011](backlog/BID-011--persistence-test-coverage.md) | No test coverage for SaveManager migrations/flush or SceneManager state machine | doc-gap | GID-064 audit |
 | [BID-012](backlog/BID-012--battle-integration-test-gaps.md) | No BattleScene-level tests for keywords/AI paths; unreachable hero freeze/stun ticks | doc-gap | GID-064 audit |

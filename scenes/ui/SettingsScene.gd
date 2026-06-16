@@ -1,103 +1,59 @@
-extends Control
+extends "res://scenes/ui/BaseOverlay.gd"
 
-signal closed
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 func _ready() -> void:
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var vp: Vector2 = get_viewport().get_visible_rect().size
+	super._ready()
+	_build_ui()
 
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = MOUSE_FILTER_STOP
+func _build_ui() -> void:
+	_build_backdrop(0.72)
 
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.72)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = MOUSE_FILTER_PASS
-	add_child(backdrop)
+	var panel_w: float = _vw * 0.7
+	var panel_h: float = _vh * 0.75
+	var panel := _build_centered_panel(panel_w, panel_h)
+	panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
 
-	backdrop.gui_input.connect(func(ev: InputEvent) -> void:
-		if ev is InputEventMouseButton and ev.pressed:
-			_close()
-	)
+	var vbox := _build_margin_vbox(panel, 0.04, 0.03)
 
-	var panel_w: float = vp.x * 0.7
-	var panel_h: float = vh * 0.75
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.14, 0.98)
-	style.corner_radius_top_left    = 12
-	style.corner_radius_top_right   = 12
-	style.corner_radius_bottom_left = 12
-	style.corner_radius_bottom_right = 12
-	style.border_color = Color(0.4, 0.4, 0.6, 0.7)
-	style.border_width_top    = 2
-	style.border_width_bottom = 2
-	style.border_width_left   = 2
-	style.border_width_right  = 2
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = MOUSE_FILTER_STOP
-	add_child(panel)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.04))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.04))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.04))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.025))
-	margin.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "Settings"
-	title.add_theme_font_size_override("font_size", int(vh * 0.045))
-	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
-
-	var sep := HSeparator.new()
-	vbox.add_child(sep)
+	vbox.add_child(_UiUtil.make_title_label("Settings", _vh))
+	vbox.add_child(_UiUtil.make_separator())
 
 	# — Audio —
 	var audio_lbl := Label.new()
 	audio_lbl.text = "Audio"
-	audio_lbl.add_theme_font_size_override("font_size", int(vh * 0.03))
+	audio_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
 	audio_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
 	vbox.add_child(audio_lbl)
 
 	var music_vol: float = float(SceneManager.save_manager.get_setting("music_volume", 0.5))
-	_add_slider_row(vbox, vh, "Music Volume", music_vol, func(v: float) -> void:
+	_add_slider_row(vbox, "Music Volume", music_vol, func(v: float) -> void:
 		SceneManager.save_manager.set_setting("music_volume", v)
 		AudioManager.set_music_volume(v)
 	)
 
 	var sfx_vol: float = float(SceneManager.save_manager.get_setting("sfx_volume", 1.0))
-	_add_slider_row(vbox, vh, "SFX Volume", sfx_vol, func(v: float) -> void:
+	_add_slider_row(vbox, "SFX Volume", sfx_vol, func(v: float) -> void:
 		SceneManager.save_manager.set_setting("sfx_volume", v)
 		AudioManager.set_sfx_volume(v)
 	)
 
-	var sep2 := HSeparator.new()
-	vbox.add_child(sep2)
+	vbox.add_child(_UiUtil.make_separator())
 
 	# — Accessibility & Comfort —
 	var access_lbl := Label.new()
 	access_lbl.text = "Accessibility & Comfort"
-	access_lbl.add_theme_font_size_override("font_size", int(vh * 0.03))
+	access_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
 	access_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
 	vbox.add_child(access_lbl)
 
 	var shake_on: bool = bool(SceneManager.save_manager.get_setting("screen_shake", true))
-	_add_toggle_row(vbox, vh, "Screen Shake", shake_on, func(v: bool) -> void:
+	_add_toggle_row(vbox, "Screen Shake", shake_on, func(v: bool) -> void:
 		SceneManager.save_manager.set_setting("screen_shake", v)
 	)
 
 	var text_scale: float = float(SceneManager.save_manager.get_setting("text_scale", 1.0))
-	_add_option_row(vbox, vh, "Text Size", ["Small (85%)", "Normal (100%)", "Large (125%)"],
+	_add_option_row(vbox, "Text Size", ["Small (85%)", "Normal (100%)", "Large (125%)"],
 		_scale_to_index(text_scale), func(idx: int) -> void:
 			var scales: Array[float] = [0.85, 1.0, 1.25]
 			var s: float = scales[clamp(idx, 0, 2)]
@@ -106,7 +62,7 @@ func _ready() -> void:
 
 	if OS.has_feature("mobile") or OS.has_feature("android"):
 		var haptics_on: bool = bool(SceneManager.save_manager.get_setting("haptics", true))
-		_add_toggle_row(vbox, vh, "Haptics", haptics_on, func(v: bool) -> void:
+		_add_toggle_row(vbox, "Haptics", haptics_on, func(v: bool) -> void:
 			SceneManager.save_manager.set_setting("haptics", v)
 		)
 
@@ -114,14 +70,9 @@ func _ready() -> void:
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(spacer)
 
-	var close_btn := Button.new()
-	close_btn.text = "Close"
-	close_btn.custom_minimum_size = Vector2(vh * 0.22, vh * 0.065)
-	close_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
-	close_btn.pressed.connect(_close)
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.add_child(close_btn)
+	btn_row.add_child(_UiUtil.make_close_button(_vh, _close))
 	vbox.add_child(btn_row)
 
 func _scale_to_index(scale: float) -> int:
@@ -131,19 +82,17 @@ func _scale_to_index(scale: float) -> int:
 		return 2
 	return 1
 
-func _add_slider_row(parent: VBoxContainer, vh: float, label_text: String, initial: float, on_change: Callable) -> void:
+func _add_slider_row(parent: VBoxContainer, label_text: String, initial: float, on_change: Callable) -> void:
 	var row := VBoxContainer.new()
-	row.add_theme_constant_override("separation", int(vh * 0.008))
+	row.add_theme_constant_override("separation", int(_vh * 0.008))
 	parent.add_child(row)
 
-	var lbl := Label.new()
-	lbl.text = label_text
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.028))
-	lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
+	var lbl := _UiUtil.make_body_label(label_text, _vh)
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
 	row.add_child(lbl)
 
 	var slider_row := HBoxContainer.new()
-	slider_row.add_theme_constant_override("separation", int(vh * 0.02))
+	slider_row.add_theme_constant_override("separation", int(_vh * 0.02))
 	row.add_child(slider_row)
 
 	var slider := HSlider.new()
@@ -151,15 +100,15 @@ func _add_slider_row(parent: VBoxContainer, vh: float, label_text: String, initi
 	slider.max_value = 1.0
 	slider.step = 0.05
 	slider.value = initial
-	slider.custom_minimum_size = Vector2(get_viewport().get_visible_rect().size.x * 0.5, int(vh * 0.05))
+	slider.custom_minimum_size = Vector2(_vw * 0.5, int(_vh * 0.05))
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	slider_row.add_child(slider)
 
 	var val_lbl := Label.new()
 	val_lbl.text = "%d%%" % int(initial * 100)
-	val_lbl.add_theme_font_size_override("font_size", int(vh * 0.026))
+	val_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
 	val_lbl.add_theme_color_override("font_color", Color(0.7, 0.9, 1.0))
-	val_lbl.custom_minimum_size = Vector2(vh * 0.07, 0)
+	val_lbl.custom_minimum_size = Vector2(_vh * 0.07, 0)
 	slider_row.add_child(val_lbl)
 
 	slider.value_changed.connect(func(v: float) -> void:
@@ -167,49 +116,41 @@ func _add_slider_row(parent: VBoxContainer, vh: float, label_text: String, initi
 		on_change.call(v)
 	)
 
-func _add_toggle_row(parent: VBoxContainer, vh: float, label_text: String, initial: bool, on_change: Callable) -> void:
+func _add_toggle_row(parent: VBoxContainer, label_text: String, initial: bool, on_change: Callable) -> void:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(vh * 0.02))
+	row.add_theme_constant_override("separation", int(_vh * 0.02))
 	parent.add_child(row)
 
 	var lbl := Label.new()
 	lbl.text = label_text
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.028))
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
 	lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(lbl)
 
 	var chk := CheckButton.new()
 	chk.button_pressed = initial
-	chk.add_theme_font_size_override("font_size", int(vh * 0.026))
+	chk.add_theme_font_size_override("font_size", int(_vh * 0.026))
 	chk.toggled.connect(func(v: bool) -> void: on_change.call(v))
 	row.add_child(chk)
 
-func _add_option_row(parent: VBoxContainer, vh: float, label_text: String, options: Array, initial_idx: int, on_change: Callable) -> void:
+func _add_option_row(parent: VBoxContainer, label_text: String, options: Array, initial_idx: int, on_change: Callable) -> void:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(vh * 0.02))
+	row.add_theme_constant_override("separation", int(_vh * 0.02))
 	parent.add_child(row)
 
 	var lbl := Label.new()
 	lbl.text = label_text
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.028))
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
 	lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(lbl)
 
 	var opt := OptionButton.new()
-	opt.add_theme_font_size_override("font_size", int(vh * 0.024))
-	opt.custom_minimum_size = Vector2(vh * 0.22, vh * 0.055)
+	opt.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	opt.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.055)
 	for item: String in options:
 		opt.add_item(item)
 	opt.selected = clamp(initial_idx, 0, options.size() - 1)
 	opt.item_selected.connect(func(idx: int) -> void: on_change.call(idx))
 	row.add_child(opt)
-
-func _close() -> void:
-	closed.emit()
-
-func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		_close()
-		get_viewport().set_input_as_handled()
