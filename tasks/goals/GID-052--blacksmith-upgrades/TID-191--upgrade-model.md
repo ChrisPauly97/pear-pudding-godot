@@ -2,14 +2,14 @@
 
 **Goal:** GID-052
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/work-task-gid-052-0nhmq8
+**Acquired:** 2026-06-16T10:30:00Z
+**Expires:** 2026-06-16T11:00:00Z
 
 ## Context
 
@@ -64,12 +64,32 @@ Owned weapons are currently flat strings (weapon IDs) in `SaveManager.owned_weap
 
 ## Plan
 
-_Written during Plan phase._
+- Create `game_logic/UpgradeDefs.gd` with cost arrays, `effective_stat()`, `effective_inject_count()`, `get_display_string()`, `can_afford_upgrade()`.
+- Convert `SaveManager.owned_weapons: Array[String]` → `Array[Dictionary]` (`{weapon_id, upgrade_level}`), bump save version to 30, add `_migrate_v29_to_v30`.
+- Add `get_owned_weapon_by_id()`, `upgrade_weapon()`, `salvage_weapon()` to SaveManager.
+- Patch `BattleScene._apply_equipment_effects()` to use UpgradeDefs scaling.
+- Fix direct `owned_weapons` access in ShopScene, BattleScene, WorldScene to use `get_owned_by_slot("weapon")`.
+- Add `weapon_upgraded`, `weapon_salvaged`, `blacksmith_requested` signals to GameBus.
+- Tests: `tests/unit/test_weapon_upgrades.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/UpgradeDefs.gd`** — new file; cost arrays `[100,200,300,400,500]` coins / `[5,10,15,20,25]` essence; `effective_stat(weapon, level)` = `base * (1.0 + 0.10 * level)`; `effective_inject_count` = `base_count + level`; `get_display_string`; `can_afford_upgrade`.
+- **`autoloads/SaveManager.gd`** — `owned_weapons` changed to `Array[Dictionary]`; version bumped to 30; `_migrate_v29_to_v30` added; `add_weapon`, `add_equipment("weapon")` updated; `get_owned_by_slot("weapon")` now extracts IDs; `_has_weapon_id`, `get_owned_weapon_by_id`, `upgrade_weapon`, `salvage_weapon` added.
+- **`autoloads/GameBus.gd`** — added `blacksmith_requested`, `weapon_upgraded`, `weapon_salvaged` signals.
+- **`scenes/battle/BattleScene.gd`** — `_apply_equipment_effects` now uses `UpgradeDefs.effective_stat` / `effective_inject_count`; boss drop line updated to `get_owned_by_slot("weapon")`.
+- **`scenes/ui/ShopScene.gd`** — replaced direct `owned_weapons` with `get_owned_by_slot("weapon")`.
+- **`scenes/world/WorldScene.gd`** — replaced direct `owned_weapons` with `get_owned_by_slot("weapon")`; added `blacksmith` NPC type handling.
+- **`tests/unit/test_weapon_upgrades.gd`** — 41 tests; all pass.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/signals-and-constants.md` — added blacksmith_requested, weapon_upgraded, weapon_salvaged rows.
+- `docs/agent/inventory-and-deck.md` — updated owned_weapons type description.
+- `docs/agent/save-system.md` — added v7 note and v30 migration row.
+
+## Lock
+
+**Session:** none
+**Acquired:** —
+**Expires:** —

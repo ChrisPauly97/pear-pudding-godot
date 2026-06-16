@@ -6,6 +6,7 @@ const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
 const CompanionData = preload("res://data/CompanionData.gd")
+const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 
 var _vh: float = 0.0
 var _vw: float = 0.0
@@ -191,6 +192,11 @@ func _refresh_slot_buttons() -> void:
 		else:
 			var w: WeaponData = WeaponRegistry.get_weapon(equipped_id)
 			var display: String = w.display_name if w != null else equipped_id
+			if slot == "weapon":
+				var inst: Dictionary = SceneManager.save_manager.get_owned_weapon_by_id(equipped_id)
+				var lvl: int = int(inst.get("upgrade_level", 0))
+				if lvl > 0:
+					display += " +%d" % lvl
 			btn.text = "  %s:  %s" % [label_name, display]
 			btn.modulate = Color(1.0, 1.0, 1.0)
 		if slot == _selected_slot:
@@ -337,7 +343,13 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 	info_vbox.add_child(name_row)
 
 	var name_lbl := Label.new()
-	name_lbl.text = w.display_name
+	var disp_name: String = w.display_name
+	if w.slot == "weapon":
+		var win: Dictionary = SceneManager.save_manager.get_owned_weapon_by_id(item_id)
+		var wlvl: int = int(win.get("upgrade_level", 0))
+		if wlvl > 0:
+			disp_name += " +%d" % wlvl
+	name_lbl.text = disp_name
 	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(name_lbl)
@@ -350,7 +362,12 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 		name_row.add_child(eq_lbl)
 
 	var effect_lbl := Label.new()
-	effect_lbl.text = _effect_summary(w)
+	var sm := SceneManager.save_manager
+	var upgrade_level: int = 0
+	if w.slot == "weapon":
+		var winst: Dictionary = sm.get_owned_weapon_by_id(item_id)
+		upgrade_level = int(winst.get("upgrade_level", 0))
+	effect_lbl.text = UpgradeDefs.get_display_string(w, upgrade_level)
 	effect_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	effect_lbl.modulate = Color(0.9, 1.0, 0.7)
 	info_vbox.add_child(effect_lbl)

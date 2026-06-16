@@ -12,9 +12,9 @@ Weapons (GID-014/022/029) are static once found, and essence from GID-028 only f
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-191 | Weapon upgrade levels: data model, coin+essence cost curve, stat scaling, save fields | agent | pending | — |
-| TID-192 | Blacksmith NPC + upgrade screen UI | agent | pending | TID-191 |
-| TID-193 | Salvage duplicate weapons + upgraded-stat display in CharacterScene | agent | pending | TID-191, TID-192 |
+| TID-191 | Weapon upgrade levels: data model, coin+essence cost curve, stat scaling, save fields | agent | done | — |
+| TID-192 | Blacksmith NPC + upgrade screen UI | agent | done | TID-191 |
+| TID-193 | Salvage duplicate weapons + upgraded-stat display in CharacterScene | agent | done | TID-191, TID-192 |
 
 ## Acceptance Criteria
 

@@ -14,6 +14,7 @@ enum State {
 	SKILL_TREE,
 	PACK_OPEN,
 	BOUNTY_BOARD,
+	BLACKSMITH,
 }
 
 const _PackOpenSceneScript = preload("res://scenes/ui/PackOpenScene.gd")
@@ -38,6 +39,7 @@ var _achievements_scene_packed := preload("res://scenes/ui/AchievementsScene.tsc
 var _run_summary_scene_packed := preload("res://scenes/ui/RunSummaryScene.tscn")
 var _spire_draft_scene_packed := preload("res://scenes/ui/SpireDraftScene.tscn")
 var _bounty_board_scene_packed := preload("res://scenes/ui/BountyBoardScene.tscn")
+var _blacksmith_scene_packed := preload("res://scenes/ui/BlacksmithScene.tscn")
 
 var _state: State = State.MENU
 var _battle_overlay: Node = null
@@ -50,6 +52,7 @@ var _skill_tree_overlay: Node = null
 var _spire_draft_overlay: Node = null
 var _pack_open_overlay: Node = null
 var _bounty_board_overlay: Node = null
+var _blacksmith_overlay: Node = null
 var _saved_world_scene: Node = null
 
 # Ephemeral session statistics — reset on new/continue game, not persisted.
@@ -97,6 +100,7 @@ func _ready() -> void:
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 	GameBus.shop_requested.connect(_on_shop_requested)
 	GameBus.bounty_board_requested.connect(_on_bounty_board_requested)
+	GameBus.blacksmith_requested.connect(_on_blacksmith_requested)
 	GameBus.traveling_shop_requested.connect(_on_traveling_shop_requested)
 	GameBus.journal_requested.connect(_on_journal_requested)
 	GameBus.character_requested.connect(_on_character_requested)
@@ -588,6 +592,22 @@ func _on_bounty_board_closed() -> void:
 	if _bounty_board_overlay != null:
 		_bounty_board_overlay.queue_free()
 		_bounty_board_overlay = null
+	_state = State.WORLD
+
+func _on_blacksmith_requested() -> void:
+	if _state != State.WORLD:
+		return
+	_blacksmith_overlay = _blacksmith_scene_packed.instantiate()
+	get_tree().current_scene.add_child(_blacksmith_overlay)
+	_blacksmith_overlay.closed.connect(_on_blacksmith_closed)
+	_state = State.BLACKSMITH
+
+func _on_blacksmith_closed() -> void:
+	if _state != State.BLACKSMITH:
+		return
+	if _blacksmith_overlay != null:
+		_blacksmith_overlay.queue_free()
+		_blacksmith_overlay = null
 	_state = State.WORLD
 
 func _on_journal_requested() -> void:

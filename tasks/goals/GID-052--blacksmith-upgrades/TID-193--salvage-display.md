@@ -1,14 +1,15 @@
 # TID-193: Salvage Duplicate Weapons & Upgraded-Stat Display
 
 **Goal:** GID-052
-**Type:** Status | pending
+**Type:** agent
+**Status:** done
 **Depends On:** TID-191, TID-192
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/work-task-gid-052-0nhmq8
+**Acquired:** 2026-06-16T10:30:00Z
+**Expires:** 2026-06-16T11:00:00Z
 
 ## Context
 
@@ -57,12 +58,24 @@ Weapons drop as duplicates (same ID, level 0 on pickup). Salvage converts unwant
 
 ## Plan
 
-_Written during Plan phase._
+- `SaveManager.salvage_weapon(weapon_id)` — removes first unequipped instance, returns `{coins, essence}`, checks all 4 equipped slots.
+- `BlacksmithScene` Salvage button — disabled for equipped items, shows toast with `+coins/+essence`.
+- `CharacterScene` — slot buttons show `+N` suffix for equipped weapon; picker rows show `+N` name and scaled stats via `UpgradeDefs.get_display_string`.
+- Tests: `tests/unit/test_weapon_salvage.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/SaveManager.gd`** — `salvage_weapon(weapon_id)` implemented; flat `SALVAGE_COINS=30 / SALVAGE_ESSENCE=3` return; equipped-weapon guard checks all 4 slots; emits `GameBus.weapon_salvaged`.
+- **`scenes/ui/BlacksmithScene.gd`** — Salvage button per row (greyed when equipped); `_on_salvage_weapon` calls `SaveManager.salvage_weapon` and shows toast.
+- **`scenes/ui/CharacterScene.gd`** — `_refresh_slot_buttons` appends ` +N` suffix for equipped weapon slot; `_make_picker_row` shows upgrade level in name and uses `UpgradeDefs.get_display_string` for effect line. Added `UpgradeDefs` preload.
+- **`tests/unit/test_weapon_salvage.gd`** — 27 tests; all pass.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/signals-and-constants.md` (weapon_salvaged signal row).
+
+## Lock
+
+**Session:** none
+**Acquired:** —
+**Expires:** —

@@ -59,8 +59,9 @@ var collected_scrolls: Array[String] = []
 # Currently equipped weapon id ("" = none)
 var equipped_weapon: String = ""
 
-# Weapons the player has picked up
-var owned_weapons: Array[String] = []
+# Weapons the player has picked up.
+# Each entry: {weapon_id: String, upgrade_level: int}
+var owned_weapons: Array[Dictionary] = []
 
 # Non-weapon equipment slots
 var equipped_armor: String = ""
@@ -274,7 +275,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 29
+const CURRENT_SAVE_VERSION: int = 30
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -522,6 +523,20 @@ static func _migrate_v28_to_v29(data: Dictionary) -> void:
 		data["bag_size"] = IsoConst.BAG_SIZE_DEFAULT
 	data["version"] = 29
 
+# _migrate_v29_to_v30: convert owned_weapons from Array[String] to Array[Dictionary].
+# Each string weapon_id becomes {weapon_id: String, upgrade_level: 0}.
+static func _migrate_v29_to_v30(data: Dictionary) -> void:
+	if data.has("owned_weapons"):
+		var old_weapons: Array = data["owned_weapons"]
+		var new_weapons: Array = []
+		for item in old_weapons:
+			if item is Dictionary:
+				new_weapons.append(item)
+			else:
+				new_weapons.append({"weapon_id": str(item), "upgrade_level": 0})
+		data["owned_weapons"] = new_weapons
+	data["version"] = 30
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -582,6 +597,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v27_to_v28(data)
 	if ver < 29:
 		_migrate_v28_to_v29(data)
+	if ver < 30:
+		_migrate_v29_to_v30(data)
 
 func _read_save_json(path: String):
 	if not FileAccess.file_exists(path):
@@ -1052,9 +1069,15 @@ func is_scroll_collected(scroll_id: String) -> bool:
 	return collected_scrolls.has(scroll_id)
 
 func add_weapon(weapon_id: String) -> void:
-	if not owned_weapons.has(weapon_id):
-		owned_weapons.append(weapon_id)
+	if not _has_weapon_id(weapon_id):
+		owned_weapons.append({"weapon_id": weapon_id, "upgrade_level": 0})
 	_dirty = true
+
+func _has_weapon_id(weapon_id: String) -> bool:
+	for inst: Dictionary in owned_weapons:
+		if str(inst.get("weapon_id", "")) == weapon_id:
+			return true
+	return false
 
 func equip_weapon(weapon_id: String) -> void:
 	equipped_weapon = weapon_id
@@ -1065,8 +1088,8 @@ func equip_weapon(weapon_id: String) -> void:
 func add_equipment(item_id: String, slot: String) -> void:
 	match slot:
 		"weapon":
-			if not owned_weapons.has(item_id):
-				owned_weapons.append(item_id)
+			if not _has_weapon_id(item_id):
+				owned_weapons.append({"weapon_id": item_id, "upgrade_level": 0})
 		"armor":
 			if not owned_armor.has(item_id):
 				owned_armor.append(item_id)
@@ -1088,13 +1111,67 @@ func equip_item(item_id: String, slot: String) -> void:
 	_dirty = true
 
 ## Returns the owned array for the given slot.
+## For "weapon", extracts weapon_id strings from the dict instances.
 func get_owned_by_slot(slot: String) -> Array[String]:
 	match slot:
-		"weapon":  return owned_weapons
+		"weapon":
+			var ids: Array[String] = []
+			for inst: Dictionary in owned_weapons:
+				ids.append(str(inst.get("weapon_id", "")))
+			return ids
 		"armor":   return owned_armor
 		"ring":    return owned_rings
 		"trinket": return owned_trinkets
 	return []
+
+## Returns the owned_weapons instance dict for weapon_id, or a default level-0 dict if absent.
+func get_owned_weapon_by_id(weapon_id: String) -> Dictionary:
+	for inst: Dictionary in owned_weapons:
+		if str(inst.get("weapon_id", "")) == weapon_id:
+			return inst
+	return {"weapon_id": weapon_id, "upgrade_level": 0}
+
+## Upgrades the first matching weapon instance by one level.
+## Deducts coins and essence; returns false if already at max or insufficient funds.
+func upgrade_weapon(weapon_id: String) -> bool:
+	const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
+	for i: int in range(owned_weapons.size()):
+		if str(owned_weapons[i].get("weapon_id", "")) != weapon_id:
+			continue
+		var current_level: int = int(owned_weapons[i].get("upgrade_level", 0))
+		if current_level >= UpgradeDefs.MAX_LEVEL:
+			return false
+		if not UpgradeDefs.can_afford_upgrade(current_level, coins, essence):
+			return false
+		add_coins(-UpgradeDefs.cost_coins(current_level))
+		essence -= UpgradeDefs.cost_essence(current_level)
+		GameBus.essence_changed.emit(essence)
+		owned_weapons[i]["upgrade_level"] = current_level + 1
+		_dirty = true
+		GameBus.weapon_upgraded.emit(weapon_id, current_level + 1)
+		return true
+	return false
+
+## Salvages the first unequipped instance of weapon_id.
+## Returns {coins, essence} earned, or {} if refused (equipped or not found).
+func salvage_weapon(weapon_id: String) -> Dictionary:
+	const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
+	if equipped_weapon == weapon_id or equipped_armor == weapon_id \
+			or equipped_ring == weapon_id or equipped_trinket == weapon_id:
+		return {}
+	for i: int in range(owned_weapons.size()):
+		if str(owned_weapons[i].get("weapon_id", "")) != weapon_id:
+			continue
+		owned_weapons.remove_at(i)
+		var coins_earned: int = UpgradeDefs.SALVAGE_COINS
+		var essence_earned: int = UpgradeDefs.SALVAGE_ESSENCE
+		add_coins(coins_earned)
+		essence += essence_earned
+		GameBus.essence_changed.emit(essence)
+		GameBus.weapon_salvaged.emit(weapon_id, coins_earned, essence_earned)
+		_dirty = true
+		return {"coins": coins_earned, "essence": essence_earned}
+	return {}
 
 ## Returns the currently equipped item id for the given slot ("" if none).
 func get_equipped_by_slot(slot: String) -> String:

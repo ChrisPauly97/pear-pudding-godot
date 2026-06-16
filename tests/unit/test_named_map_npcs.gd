@@ -13,9 +13,9 @@ const CHUNK_SIZE: int = 16
 # madrian map — 2 NPCs defined in file
 # ---------------------------------------------------------------------------
 
-func test_madrian_loads_eleven_npcs() -> void:
+func test_madrian_loads_twelve_npcs() -> void:
 	var wm: RefCounted = WorldMapScript.new("madrian")
-	assert_eq(wm.npcs.size(), 11, "madrian should define 11 NPCs (inc. bounty board)")
+	assert_eq(wm.npcs.size(), 12, "madrian should define 12 NPCs (inc. bounty board + blacksmith)")
 
 
 func test_madrian_npc_ids_are_unique() -> void:

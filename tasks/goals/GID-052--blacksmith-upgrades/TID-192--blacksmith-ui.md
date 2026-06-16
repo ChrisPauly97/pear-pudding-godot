@@ -2,14 +2,14 @@
 
 **Goal:** GID-052
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-191
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/work-task-gid-052-0nhmq8
+**Acquired:** 2026-06-16T10:30:00Z
+**Expires:** 2026-06-16T11:00:00Z
 
 ## Context
 
@@ -51,12 +51,27 @@ The blacksmith is an NPC in the world who opens a dedicated UI for upgrading own
 
 ## Plan
 
-_Written during Plan phase._
+- Create `scenes/ui/BlacksmithScene.gd` / `.tscn` mirroring ShopScene layout.
+- Each weapon row: name+level, current stats (UpgradeDefs.get_display_string), next-level preview, cost, Upgrade + Salvage buttons.
+- Add blacksmith NPC (tile 50,25) to `assets/maps/madrian.tres`.
+- Wire `GameBus.blacksmith_requested` → `SceneManager.BLACKSMITH` state → overlay open/close.
+- Handle `npc_type == "blacksmith"` in `WorldScene._handle_interact()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/ui/BlacksmithScene.gd`** — new scene; dark overlay, scrollable weapon list, viewport-relative sizing; per-row Upgrade button (disabled if max or insufficient funds) and Salvage button (disabled if equipped); toast feedback via `SceneManager.show_toast`; `ui_cancel` closes.
+- **`scenes/ui/BlacksmithScene.tscn`** — thin wrapper scene (uid://ewcr7vo2fkww).
+- **`assets/maps/madrian.tres`** — added MapNpc_12 (entity_id `blacksmith_madrian`, tile 50/25, npc_type `blacksmith`); npcs array updated; load_steps bumped to 7.
+- **`autoloads/SceneManager.gd`** — added `BLACKSMITH` enum state, `_blacksmith_overlay`, `_blacksmith_scene_packed` preload, `_on_blacksmith_requested` / `_on_blacksmith_closed` handlers, `GameBus.blacksmith_requested` connection.
+- **`scenes/world/WorldScene.gd`** — emit `GameBus.blacksmith_requested` for `npc_type == "blacksmith"`.
+- **`tests/unit/test_named_map_npcs.gd`** — updated count assertion from 11 to 12.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/signals-and-constants.md`.
+
+## Lock
+
+**Session:** none
+**Acquired:** —
+**Expires:** —

@@ -138,7 +138,7 @@ func _refresh() -> void:
 	# ---- Weapons section -------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Weapons —"))
 
-	var owned_w: Array[String] = SceneManager.save_manager.owned_weapons
+	var owned_w: Array[String] = SceneManager.save_manager.get_owned_by_slot("weapon")
 	var any_weapon := false
 	for wid: String in WeaponRegistry.get_all_ids():
 		if wid == "rusty_dagger" or owned_w.has(wid):
