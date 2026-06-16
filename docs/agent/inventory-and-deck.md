@@ -134,7 +134,7 @@ WeaponRegistry.get_by_slot(slot: String) -> Array[String] # filter by slot field
 | `equipped_armor` | String | ID of currently equipped armor |
 | `equipped_ring` | String | ID of currently equipped ring |
 | `equipped_trinket` | String | ID of currently equipped trinket |
-| `owned_weapons` | Array[String] | All weapon IDs owned |
+| `owned_weapons` | Array[Dictionary] | Weapon instances: `{weapon_id: String, upgrade_level: int}` (GID-052) |
 | `owned_armor` | Array[String] | All armor IDs owned |
 | `owned_rings` | Array[String] | All ring IDs owned |
 | `owned_trinkets` | Array[String] | All trinket IDs owned |

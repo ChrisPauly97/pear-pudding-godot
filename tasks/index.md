@@ -55,7 +55,7 @@
 | [GID-049](goals/GID-049--compass-wayfinding/goal.md) | Compass, Waypoints & Objective Wayfinding | done | 3 / 3 |
 | [GID-050](goals/GID-050--card-packs/goal.md) | Card Packs & Pack Opening | done | 3 / 3 |
 | [GID-051](goals/GID-051--bounty-board/goal.md) | Bounty Board Contracts | done | 3 / 3 |
-| [GID-052](goals/GID-052--blacksmith-upgrades/goal.md) | Blacksmith Weapon Upgrades | pending | 0 / 3 |
+| [GID-052](goals/GID-052--blacksmith-upgrades/goal.md) | Blacksmith Weapon Upgrades | done | 3 / 3 |
 | [GID-053](goals/GID-053--rival-isfig/goal.md) | The Rival — Isfig's Shadow | pending | 0 / 3 |
 | [GID-054](goals/GID-054--town-siege/goal.md) | Town Siege Defense | pending | 0 / 3 |
 | [GID-055](goals/GID-055--night-hunts/goal.md) | Night Hunts | pending | 0 / 3 |

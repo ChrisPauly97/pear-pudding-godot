@@ -81,3 +81,8 @@ signal pack_purchased(pack_id: String, rolled_cards: Array[Dictionary])
 # Bounty signals
 signal bounty_progress_changed(bounty_id: String, progress: int, count: int)
 signal bounty_completed(bounty_id: String)
+
+# Blacksmith signals
+signal blacksmith_requested
+signal weapon_upgraded(weapon_id: String, new_level: int)
+signal weapon_salvaged(weapon_id: String, coins: int, essence: int)

@@ -84,6 +84,9 @@ This means `EnemyNPC` never imports `SceneManager`, and `BattleScene` never impo
 | `waystone_activated` | `Waystone.mark_activated()` | `WorldScene` (toast + visual update) | `waystone_id: String` |
 | `mount_state_changed` | `SaveManager.summon_mount()` / `dismiss_mount()` | HUD mount button (TID-180), `WorldScene` visuals (TID-181) | `mounted: bool, mount_id: String` |
 | `pack_purchased` | `ShopScene._on_buy_pack()` | `SceneManager._on_pack_purchased()` | `pack_id: String, rolled_cards: Array[Dictionary]` |
+| `blacksmith_requested` | `WorldScene._handle_interact()` | `SceneManager._on_blacksmith_requested()` | _(none)_ |
+| `weapon_upgraded` | `SaveManager.upgrade_weapon()` | _(listeners: future HUD)_ | `weapon_id: String, new_level: int` |
+| `weapon_salvaged` | `SaveManager.salvage_weapon()` | _(listeners: future HUD)_ | `weapon_id: String, coins: int, essence: int` |
 
 ---
 

@@ -18,6 +18,7 @@ const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const WeatherBanner = preload("res://scenes/battle/WeatherBanner.gd")
+const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
@@ -244,21 +245,27 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 		var weapon: WeaponData = WeaponRegistry.get_weapon(item_id)
 		if weapon == null:
 			continue
+		var level: int = 0
+		if weapon.slot == "weapon":
+			var inst: Dictionary = sm.get_owned_weapon_by_id(item_id)
+			level = int(inst.get("upgrade_level", 0))
 		match weapon.battle_effect_type:
 			"deck_inject":
-				for i in weapon.injected_card_count:
+				var count: int = UpgradeDefs.effective_inject_count(weapon, level)
+				for i in count:
 					var tmpl: Dictionary = CardRegistry.get_template(weapon.injected_card_id)
 					if tmpl.is_empty():
 						continue
 					player.draw_deck.append(CardInstance.new(tmpl))
 				injected_any = true
 			"starting_mana":
-				player.hero.bonus_mana += weapon.battle_effect_value
+				player.hero.bonus_mana += UpgradeDefs.effective_stat(weapon, level)
 			"starting_hp":
-				player.hero.health += weapon.battle_effect_value
-				player.hero.max_health += weapon.battle_effect_value
+				var hp_bonus: int = UpgradeDefs.effective_stat(weapon, level)
+				player.hero.health += hp_bonus
+				player.hero.max_health += hp_bonus
 			"passive_atk":
-				player.hero.attack += weapon.battle_effect_value
+				player.hero.attack += UpgradeDefs.effective_stat(weapon, level)
 	if injected_any:
 		player.draw_deck.shuffle()
 
@@ -1760,7 +1767,7 @@ func _check_game_over() -> void:
 						weapon_pool.append(pid)
 				if weapon_pool.is_empty():
 					var all_ids: Array[String] = WeaponRegistry.get_all_ids()
-					var owned_w: Array[String] = SceneManager.save_manager.owned_weapons
+					var owned_w: Array[String] = SceneManager.save_manager.get_owned_by_slot("weapon")
 					for wid in all_ids:
 						if not owned_w.has(wid):
 							weapon_pool.append(wid)

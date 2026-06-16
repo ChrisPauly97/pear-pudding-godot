@@ -97,7 +97,7 @@ Every mutating method (`add_card`, `set_player_position`, `mark_enemy_defeated`,
 | v4 | `days_elapsed`, `last_respawn_day` |
 | v5 | `equipped_weapon` |
 | v6 | `collected_scrolls` |
-| v7 | `owned_weapons` |
+| v7 | `owned_weapons` (Array[String] initially) |
 | v8 | `settings`, `achievement_progress`, `unlocked_achievements`, `visited_biomes` |
 | v9 | `visited_dungeon_rooms` |
 | v10 | `owned_cards` converted to `Array[Dictionary]` instances; `essence` added |
@@ -107,6 +107,7 @@ Every mutating method (`add_card`, `set_player_position`, `mark_enemy_defeated`,
 | v14 | `pending_battle_state` |
 | v15 | `defeated_duelists` |
 | v16 | `spire_run` |
+| v30 | `owned_weapons` converted from `Array[String]` to `Array[Dictionary]` `{weapon_id, upgrade_level}` (GID-052) |
 
 ### Migration
 

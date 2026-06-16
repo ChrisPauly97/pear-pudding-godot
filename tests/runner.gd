@@ -50,6 +50,8 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_bounty_gen.gd"),
 	preload("res://tests/unit/test_bounty_board.gd"),
 	preload("res://tests/unit/test_bounty_progress.gd"),
+	preload("res://tests/unit/test_weapon_upgrades.gd"),
+	preload("res://tests/unit/test_weapon_salvage.gd"),
 ]
 
 

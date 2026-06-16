@@ -1570,6 +1570,9 @@ func _handle_interact() -> void:
 		if str(npc.get("npc_type", "")) == "merchant":
 			GameBus.shop_requested.emit()
 			return
+		if str(npc.get("npc_type", "")) == "blacksmith":
+			GameBus.blacksmith_requested.emit()
+			return
 		if str(npc.get("npc_type", "")) == "bounty_board":
 			GameBus.bounty_board_requested.emit()
 			return
@@ -2267,7 +2270,7 @@ func _maybe_drop_equipment_from_chest(chance: float = 0.15) -> void:
 	var sm := SceneManager.save_manager
 	var candidates: Array[String] = []
 
-	var owned_w: Array[String] = sm.owned_weapons
+	var owned_w: Array[String] = sm.get_owned_by_slot("weapon")
 	for wid: String in WeaponRegistry.get_by_slot("weapon"):
 		if wid != "rusty_dagger" and not owned_w.has(wid):
 			candidates.append(wid)
