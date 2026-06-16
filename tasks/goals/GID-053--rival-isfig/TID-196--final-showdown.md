@@ -2,7 +2,7 @@
 
 **Goal:** GID-053
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-195
 
 ## Lock
@@ -74,12 +74,22 @@ The climactic rival encounter and its unique trophy. Isfig yields a non-craftabl
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `data/cards/isfig_shadow_echo.tres` (legendary, ward, can_craft=false, is_unique=true) + `.uid`
+2. Add preload const + array entry to `CardRegistry.gd`
+3. Add `scroll_isfig_shadow` to `ScrollRegistry.gd`, bump SCROLL_COUNT to 9
+4. In `SceneManager._on_battle_won()` rival block: when `rival_isfig_3` wins and `not rival_defeated`, call `set_rival_defeated()`, grant card, collect scroll, emit `story_scroll_collected`
+5. Create `tests/unit/test_rival_finale.gd` + register in runner
+6. Update `docs/agent/enemies-and-npcs.md` with rival defeat-persistence note
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/cards/isfig_shadow_echo.tres` + `.uid` — legendary ward minion (cost 5, atk 3, hp 5, can_craft=false, is_unique=true)
+- `autoloads/CardRegistry.gd` — added `_C_ISFIG_SHADOW_ECHO` preload const and entry in `_ensure_loaded()` all-array
+- `autoloads/ScrollRegistry.gd` — added `scroll_isfig_shadow` entry ("Isfig's Shadow"), SCROLL_COUNT bumped to 9
+- `autoloads/SceneManager.gd` — expanded rival_isfig_3 win branch: `if not save_manager.rival_defeated` guard; grants card via `add_card_instance("isfig_shadow_echo", "legendary")`; marks scroll via `mark_scroll_collected("scroll_isfig_shadow")`; emits `GameBus.story_scroll_collected`
+- `tests/unit/test_rival_finale.gd` — 12 tests covering .tres loading, can_craft/is_unique/ward, scroll registration/count, single-grant guard, scroll collection idempotency
+- `tests/runner.gd` — registered `test_rival_finale.gd`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/enemies-and-npcs.md` — added "Rival defeat persistence" paragraph explaining the `not is_rival` guard on `mark_enemy_defeated`, how retry works on loss, and re-spawn behavior on next map entry

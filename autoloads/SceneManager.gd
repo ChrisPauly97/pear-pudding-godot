@@ -526,7 +526,11 @@ func _on_battle_won(result: Dictionary) -> void:
 	# Rival encounter win: don't count as standard kill; update rival progress instead.
 	if is_rival:
 		if enemy_type == "rival_isfig_3":
-			save_manager.set_rival_defeated()
+			if not save_manager.rival_defeated:
+				save_manager.set_rival_defeated()
+				save_manager.add_card_instance("isfig_shadow_echo", "legendary")
+				save_manager.mark_scroll_collected("scroll_isfig_shadow")
+				GameBus.story_scroll_collected.emit("scroll_isfig_shadow")
 		else:
 			save_manager.record_rival_win()
 			if captured_enemy_id == "rival_enc2":
