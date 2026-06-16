@@ -18,7 +18,6 @@ const ANIM_FPS: float = 6.0        # walking animation speed
 const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite scale
 
 var _velocity_y: float = 0.0
-var _is_jumping: bool = false
 var _sprite: Sprite3D
 var _mount_sprite: Sprite3D
 var _dust_particles: GPUParticles3D
@@ -160,11 +159,9 @@ func _physics_process(delta: float) -> void:
 		_velocity_y += GRAVITY * delta
 	else:
 		_velocity_y = 0.0
-		_is_jumping = false
 
 	if Input.is_action_just_pressed("jump") and is_on_floor():
 		_velocity_y = JUMP_VELOCITY
-		_is_jumping = true
 
 	velocity.y = _velocity_y
 	move_and_slide()

@@ -2,7 +2,7 @@
 
 **Goal:** GID-064
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-232
 
 ## Lock
@@ -65,12 +65,27 @@ works on player cards only. Run full suite.
 
 ## Plan
 
-_Written during Plan phase._
+1. In `_make_card_view`: detect `zone_id == "enemy_hand"` and render a face-down back (no stats/name visible); skip inspect binding for that zone.
+2. In `_refresh_zone`: skip children with `is_queued_for_deletion()`.
+3. Move input binding and LongPressDetector creation into `_make_card_view` (not refresh).
+4. Cache StyleBoxFlat on the panel node as metadata; mutate only `bg_color` on refresh.
+5. Replace `_process` tutorial/banner polling with `SceneTreeTimer` + `Tween`.
+6. When victory/loss overlay shows: hide `_float_layer`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - `_make_card_view`: for `zone_id == "enemy_hand"`, returns a dark-purple card back panel (no text, no input); for other zones, creates StyleBoxFlat once and stores as `set_meta("card_style", ...)` to avoid per-refresh allocation.
+  - `_update_card_view`: skips update when `panel.get_meta("is_card_back")` is true.
+  - `_apply_card_style`: retrieves cached StyleBoxFlat, resets borders, mutates in place — no new allocation per refresh.
+  - `_bind_card_input`: skips right-click inspect and LongPressDetector for enemy_hand; reuses existing LPD node (by name `"_lpd"`) instead of queue_free + new.
+  - `_refresh_zone`: filters `get_children()` to exclude `is_queued_for_deletion()` nodes.
+  - Removed `_process` entirely; removed `_tutorial_timer` and `_boss_banner_timer` vars.
+  - `_show_battle_tutorial`: uses `get_tree().create_timer(TUTORIAL_DURATION, false).timeout` signal.
+  - `_show_boss_banner` / `_check_boss_phase2`: extracted `_start_banner_fade(banner)` that creates a Tween for the fade-out.
+  - `_show_pause_overlay` / `_hide_pause_overlay`: hide/show `_float_layer`.
+  - `_show_victory_overlay`, `_show_victory_overlay_boss`, `_show_duel_victory_overlay`, `_show_duel_loss_overlay`: hide `_float_layer` at top.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Performance improvements documented in `docs/agent/battle-system.md` (TID-285 pattern).

@@ -65,6 +65,14 @@ var session_stats: Dictionary = {
 
 var _toast: CanvasLayer = null
 
+# Blocks proximity engagement for 2 s after returning from battle so the
+# player isn't immediately chain-engaged by a nearby enemy on world re-entry.
+var _proximity_engage_blocked: bool = false
+
+## Returns true if tracking enemies may auto-engage the player on proximity.
+func can_proximity_engage() -> bool:
+	return _state == State.WORLD and not _proximity_engage_blocked
+
 # Tracks which enemy triggered the current battle (for defeat marking)
 var _current_battle_enemy_id: String = ""
 # Tracks which duelist NPC triggered the current duel (for defeat tracking)
@@ -164,6 +172,7 @@ func start_new_game_with_biome(biome_id: int) -> void:
 	save_manager.world_seed = _BIOME_SEEDS[clamp(biome_id, 0, _BIOME_SEEDS.size() - 1)]
 	save_manager.starting_biome = biome_id
 	save_manager.new_game()
+	_apply_audio_settings()
 	_reset_session_stats()
 	enter_map("madrian", "")
 
@@ -348,6 +357,9 @@ func _restore_world() -> void:
 		get_tree().current_scene = _saved_world_scene
 		_saved_world_scene = null
 	_state = State.WORLD
+	_proximity_engage_blocked = true
+	get_tree().create_timer(2.0, false).timeout.connect(
+		func() -> void: _proximity_engage_blocked = false)
 
 func _on_puzzle_requested(puzzle_id: String) -> void:
 	const PuzzleRegistry_cls = preload("res://autoloads/PuzzleRegistry.gd")

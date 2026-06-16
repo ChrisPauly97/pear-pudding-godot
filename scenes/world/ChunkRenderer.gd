@@ -19,7 +19,6 @@ const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const TERRAIN_VDENSITY: int = 2
 const PLATEAU_H:        float = 1.5   # fallback hill height for tiles with no stored height
 const CURVE_R:          float = 3.5   # hill smoothstep radius (world units)
-const WALL_CURVE_R:     float = 0.4   # wall rise radius — sub-vertex-step so walls are near-vertical
 
 # Tile neighbourhood radius used when building the tile_grid snapshot.
 # Must match what WorldScene._snapshot_tile_grid_for() uses.
@@ -31,6 +30,25 @@ var _terrain_mat: ShaderMaterial
 var _terrain_hmap: HeightMapShape3D   # stored for deferred physics
 var _terrain_chunk_world: float       # stored for deferred physics
 var _physics_built: bool = false      # guard against double-build
+
+# Cache one ShaderMaterial per biome so we never duplicate the template more
+# than 5 times total (5 biomes × 2 mesh instances = 10 unique materials in flight
+# instead of 120+). The cache is keyed by biome int.
+static var _biome_mat_cache: Dictionary = {}
+
+static func _get_biome_mat(template: ShaderMaterial, biome: int) -> ShaderMaterial:
+	var key: Array = [template.get_rid(), biome]
+	if _biome_mat_cache.has(key):
+		return _biome_mat_cache[key]
+	var mat: ShaderMaterial = template.duplicate()
+	var gt: Color = BiomeDef.GRASS_TINT[biome]
+	var ht: Color = BiomeDef.HILL_TINT[biome]
+	var wt: Color = BiomeDef.WALL_TINT[biome]
+	mat.set_shader_parameter("grass_tint", Vector3(gt.r, gt.g, gt.b))
+	mat.set_shader_parameter("hill_tint",  Vector3(ht.r, ht.g, ht.b))
+	mat.set_shader_parameter("wall_tint",  Vector3(wt.r, wt.g, wt.b))
+	_biome_mat_cache[key] = mat
+	return mat
 
 # ── Thread-safe terrain prep ───────────────────────────────────────────────
 # Call this from a worker thread. Receives a pre-snapshotted tile_grid so it
@@ -72,7 +90,7 @@ static func prepare_terrain(
 			grid_tile_lookup, grid_height_lookup,
 			chunk_origin.x, chunk_origin.z,
 			nvx, nvz, step,
-			CURVE_R, PLATEAU_H, WALL_CURVE_R)
+			CURVE_R, PLATEAU_H)
 
 	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
 			hfield, grid_tile_lookup,
@@ -84,11 +102,16 @@ static func prepare_terrain(
 			chunk_origin.x, chunk_origin.z,
 			CHUNK_SIZE, CHUNK_SIZE)
 
+	# Build grass buffers on the worker thread — pure math, no scene-tree access.
+	var grass_centres: Array[Vector2] = GrassBlades.compute_centres(chunk_data, chunk_origin)
+	var grass_data: Dictionary = GrassBlades.prepare_buffers(grass_centres, Vector2i(chunk_data.cx, chunk_data.cz))
+
 	return {
 		"mesh":           terrain_res["mesh"],
 		"hmap":           terrain_res["hmap"],
 		"chunk_world":    float(CHUNK_SIZE) * IsoConst.TILE_SIZE,
 		"wall_face_mesh": wall_face_mesh,
+		"grass":          grass_data,
 	}
 
 # ── Main entry point (main thread only) ───────────────────────────────────
@@ -101,19 +124,11 @@ func build_visual(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node
 	_terrain_chunk_world = terrain_res["chunk_world"]
 	position = chunk_data.origin_world()
 
-	# Duplicate the shared template so each chunk has independent shader parameters.
 	var biome: int = chunk_data.biome_id
-	var mat: ShaderMaterial = terrain_mat.duplicate()
-	var gt: Color = BiomeDef.GRASS_TINT[biome]
-	var ht: Color = BiomeDef.HILL_TINT[biome]
-	var wt: Color = BiomeDef.WALL_TINT[biome]
-	mat.set_shader_parameter("grass_tint", Vector3(gt.r, gt.g, gt.b))
-	mat.set_shader_parameter("hill_tint",  Vector3(ht.r, ht.g, ht.b))
-	mat.set_shader_parameter("wall_tint",  Vector3(wt.r, wt.g, wt.b))
-	_terrain_mat = mat
+	_terrain_mat = _get_biome_mat(terrain_mat, biome)
 
 	_apply_terrain_visual(terrain_res)
-	_build_grass(world_scene)
+	_build_grass(world_scene, terrain_res.get("grass", {}) as Dictionary)
 	_spawn_entities(world_scene)
 
 # Phase 2: physics bodies only — deferred one frame after build_visual.
@@ -205,31 +220,12 @@ func _build_walls_physics() -> void:
 
 # ── Grass ──────────────────────────────────────────────────────────────────
 
-func _build_grass(world_scene: Node3D) -> void:
-	const CHUNK_SIZE: int = 16
+func _build_grass(world_scene: Node3D, grass_data: Dictionary) -> void:
 	var grass: GrassBlades = world_scene.get_node_or_null("GrassBlades") as GrassBlades
 	if not grass:
 		return
-
-	var chunk_origin: Vector3 = _chunk_data.origin_world()
-	var centres: Array[Vector2] = []
-	for lz in range(CHUNK_SIZE):
-		for lx in range(CHUNK_SIZE):
-			if _chunk_data.get_tile(lx, lz) != IsoConst.TILE_GRASS:
-				continue
-			var adj_wall := false
-			for nb in [Vector2i(lx+1, lz), Vector2i(lx-1, lz), Vector2i(lx, lz+1), Vector2i(lx, lz-1)]:
-				if _chunk_data.get_tile(nb.x, nb.y) == IsoConst.TILE_WALL:
-					adj_wall = true
-					break
-			if adj_wall:
-				continue
-			centres.append(Vector2(
-				chunk_origin.x + float(lx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-				chunk_origin.z + float(lz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			))
-
-	grass.build_chunk(centres, _chunk_key)
+	# Buffers were pre-built on the worker thread; just commit them to the scene tree.
+	grass.commit_grass_buffers(grass_data, _chunk_key)
 
 # ── Entities ───────────────────────────────────────────────────────────────
 
@@ -280,7 +276,6 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		_set_visibility_range(node)
 		if world_scene.has_method("register_npc"):
 			world_scene.register_npc(n_data["id"], node, n_data)
-		print("NPC spawned: ", n_data.get("id", "?"), " (", n_data.get("npc_type", "townsperson"), ") at world (", n_data["x"], ", ", n_data["z"], ")")
 
 	# ── Waystones ─────────────────────────────────────────────────────────────
 	for w_data in _chunk_data.waystones:

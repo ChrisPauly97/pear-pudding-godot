@@ -29,10 +29,6 @@ var _trample_bytes:    PackedByteArray     # reusable byte buffer — avoids all
 var _trample_origin_x: float = 0.0  # world-space X of pixel (0,0) in trample map
 var _trample_origin_z: float = 0.0  # world-space Z of pixel (0,0) in trample map
 var _trample_timer:    float = 0.0  # throttle trample updates
-var _trample_dirty_x0: int = TRAMPLE_RES  # dirty rect tracking
-var _trample_dirty_z0: int = TRAMPLE_RES
-var _trample_dirty_x1: int = 0
-var _trample_dirty_z1: int = 0
 const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visible difference
 
 const BLADES_PER_TILE      := 65   # short grass tiles
@@ -106,41 +102,164 @@ func _init_material() -> void:
 	var window_world: float = TRAMPLE_RES * IsoConst.TILE_SIZE
 	_mat.set_shader_parameter("trample_map_size", window_world)
 
-# Legacy entry point — builds all grass from a WorldMap (named-map path)
-func build(world_map: WorldMap) -> void:
-	_init_material()
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 99887
+# ── Static helpers: pure math, safe on worker threads ─────────────────────
 
-	# Collect grass tile centres grouped by chunk
-	var chunks: Dictionary = {}
-
-	for tz in range(world_map.MAP_HEIGHT):
-		for tx in range(world_map.MAP_WIDTH):
-			if world_map.get_tile(tx, tz) != world_map.TILE_GRASS:
+# Compute grass tile centres from chunk data — no scene tree access.
+static func compute_centres(chunk_data: RefCounted, chunk_origin: Vector3) -> Array[Vector2]:
+	const CHUNK_SIZE: int = 16
+	const TILE_GRASS_ID: int = 0  # IsoConst.TILE_GRASS — literal avoids autoload in static
+	const TILE_WALL_ID:  int = 1  # IsoConst.TILE_WALL
+	var ts: float = IsoConst.TILE_SIZE
+	var centres: Array[Vector2] = []
+	for lz in range(CHUNK_SIZE):
+		for lx in range(CHUNK_SIZE):
+			if chunk_data.get_tile(lx, lz) != TILE_GRASS_ID:
 				continue
-			var next_to_wall := false
-			for n in [Vector2i(tx+1,tz), Vector2i(tx-1,tz), Vector2i(tx,tz+1), Vector2i(tx,tz-1)]:
-				if world_map.get_tile(n.x, n.y) == world_map.TILE_WALL:
-					next_to_wall = true
+			var adj_wall := false
+			for nb: Vector2i in [Vector2i(lx+1, lz), Vector2i(lx-1, lz), Vector2i(lx, lz+1), Vector2i(lx, lz-1)]:
+				if chunk_data.get_tile(nb.x, nb.y) == TILE_WALL_ID:
+					adj_wall = true
 					break
-			if next_to_wall:
+			if adj_wall:
 				continue
-			var cx: int = tx / CHUNK_SIZE
-			var cz: int = tz / CHUNK_SIZE
-			var key := Vector2i(cx, cz)
-			if not chunks.has(key):
-				chunks[key] = []
-			chunks[key].append(Vector2(
-				tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5,
-				tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
+			centres.append(Vector2(
+				chunk_origin.x + float(lx) * ts + ts * 0.5,
+				chunk_origin.z + float(lz) * ts + ts * 0.5
 			))
+	return centres
 
-	for key in chunks:
-		var typed_key: Vector2i = key
-		var centres: Array[Vector2] = []
-		centres.assign(chunks[key])
-		_build_chunk_mmi(centres, typed_key, rng)
+# Build blade and cluster PackedFloat32Array buffers — no scene tree or GPU calls.
+# Returns {} if centres is empty, otherwise returns the data needed by commit_grass_buffers.
+static func prepare_buffers(centres: Array[Vector2], chunk_key: Vector2i) -> Dictionary:
+	if centres.is_empty():
+		return {}
+
+	var half: float = IsoConst.TILE_SIZE * 0.45
+	var blade_y: float = 0.01
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 99887 ^ (chunk_key.x * 73856093) ^ (chunk_key.y * 19349663)
+
+	# Pre-classify tiles
+	var tall_flags: Array[bool] = []
+	tall_flags.resize(centres.size())
+	var total: int = 0
+	for ci in range(centres.size()):
+		var centre: Vector2 = centres[ci]
+		var patch_x: float = snapped(centre.x, TALL_PATCH_CELL)
+		var patch_z: float = snapped(centre.y, TALL_PATCH_CELL)
+		var is_tall: bool = _hash_pos(patch_x, patch_z) < TALL_PATCH_DENSITY
+		tall_flags[ci] = is_tall
+		total += BLADES_TALL_PER_TILE if is_tall else BLADES_PER_TILE
+
+	var blade_buf := PackedFloat32Array()
+	blade_buf.resize(total * 12)
+	var i: int = 0
+	for ci in range(centres.size()):
+		var centre: Vector2 = centres[ci]
+		var is_tall: bool = tall_flags[ci]
+		var blade_count: int = BLADES_TALL_PER_TILE if is_tall else BLADES_PER_TILE
+		for _b in range(blade_count):
+			var px: float = centre.x + rng.randf_range(-half, half)
+			var pz: float = centre.y + rng.randf_range(-half, half)
+			var rot: float = rng.randf_range(0.0, PI)
+			var sy: float
+			var sx: float
+			if is_tall:
+				sy = rng.randf_range(2.2, 3.8)
+				sx = rng.randf_range(0.30, 0.50)
+			else:
+				sy = rng.randf_range(0.35, 0.85)
+				sx = rng.randf_range(0.30, 0.55)
+			var cr: float = cos(rot) * sx
+			var sr: float = sin(rot) * sx
+			var off: int  = i * 12
+			blade_buf[off]    =  cr;  blade_buf[off+1]  = 0.0; blade_buf[off+2]  =  sr;  blade_buf[off+3]  = px
+			blade_buf[off+4]  = 0.0;  blade_buf[off+5]  =  sy; blade_buf[off+6]  = 0.0;  blade_buf[off+7]  = blade_y
+			blade_buf[off+8]  = -sr;  blade_buf[off+9]  = 0.0; blade_buf[off+10] =  cr;  blade_buf[off+11] = pz
+			i += 1
+
+	# Cluster buffers — separate seeded RNG so blade count changes don't shift clusters
+	var crng := RandomNumberGenerator.new()
+	crng.seed = (chunk_key.x * 92821739) ^ (chunk_key.y * 31415927) ^ 0x5EED1234
+	var ctotal: int = centres.size() * CLUSTERS_PER_TILE
+	var cluster_buf := PackedFloat32Array()
+	cluster_buf.resize(ctotal * 12)
+	var idx: int = 0
+	for ci in range(centres.size()):
+		var centre: Vector2 = centres[ci]
+		var patch_x: float = snapped(centre.x, TALL_PATCH_CELL)
+		var patch_z: float = snapped(centre.y, TALL_PATCH_CELL)
+		var is_tall: bool = _hash_pos(patch_x, patch_z) < TALL_PATCH_DENSITY
+		for _c in range(CLUSTERS_PER_TILE):
+			var px: float = centre.x + crng.randf_range(-half, half)
+			var pz: float = centre.y + crng.randf_range(-half, half)
+			var sx: float
+			var sy: float
+			if is_tall:
+				sx = crng.randf_range(0.45, 0.65)
+				sy = crng.randf_range(0.50, 0.85)
+			else:
+				sx = crng.randf_range(0.38, 0.55)
+				sy = crng.randf_range(0.18, 0.28)
+			var off: int = idx * 12
+			cluster_buf[off]    = sx;  cluster_buf[off+1]  = 0.0; cluster_buf[off+2]  = 0.0; cluster_buf[off+3]  = px
+			cluster_buf[off+4]  = 0.0; cluster_buf[off+5]  = sy;  cluster_buf[off+6]  = 0.0; cluster_buf[off+7]  = 0.01
+			cluster_buf[off+8]  = 0.0; cluster_buf[off+9]  = 0.0; cluster_buf[off+10] = 1.0; cluster_buf[off+11] = pz
+			idx += 1
+
+	return {
+		"blade_buf":     blade_buf,
+		"blade_count":   total,
+		"cluster_buf":   cluster_buf,
+		"cluster_count": ctotal,
+	}
+
+# Main-thread commit: create MultiMesh + MMI from pre-built buffers.
+func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i) -> void:
+	if grass_data.is_empty() or _chunk_mmis.has(chunk_key):
+		return
+	_init_material()
+	const CHUNK_SIZE: int = 16
+	var chunk_world: float = CHUNK_SIZE * IsoConst.TILE_SIZE
+	var cx: int = chunk_key.x
+	var cz: int = chunk_key.y
+
+	var blade_count: int = grass_data["blade_count"]
+	var mm := MultiMesh.new()
+	mm.mesh = _blade_mesh
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.instance_count = blade_count
+	mm.custom_aabb = AABB(
+		Vector3(cx * chunk_world, -0.5, cz * chunk_world),
+		Vector3(chunk_world, BLADE_HEIGHT + 2.0, chunk_world)
+	)
+	mm.buffer = grass_data["blade_buf"]
+	var mmi := MultiMeshInstance3D.new()
+	mmi.multimesh = mm
+	mmi.material_override = _mat
+	mmi.visibility_range_end = 70.0
+	mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	add_child(mmi)
+	_chunk_mmis[chunk_key] = mmi
+
+	var cluster_count: int = grass_data["cluster_count"]
+	var cmm := MultiMesh.new()
+	cmm.mesh = _cluster_mesh
+	cmm.transform_format = MultiMesh.TRANSFORM_3D
+	cmm.instance_count = cluster_count
+	cmm.custom_aabb = AABB(
+		Vector3(cx * chunk_world, -0.5, cz * chunk_world),
+		Vector3(chunk_world, 1.5, chunk_world)
+	)
+	cmm.buffer = grass_data["cluster_buf"]
+	var cmmi := MultiMeshInstance3D.new()
+	cmmi.multimesh = cmm
+	cmmi.material_override = _cluster_mat
+	cmmi.visibility_range_end = 70.0
+	cmmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	add_child(cmmi)
+	_cluster_mmis[chunk_key] = cmmi
 
 # Streaming entry point — builds grass for one chunk of the infinite world
 func build_chunk(centres: Array[Vector2], chunk_key: Vector2i) -> void:
@@ -388,11 +507,6 @@ func _maybe_shift_trample_window(pos: Vector3) -> void:
 	# Rebuild byte buffer from float buffer after shift
 	for i in range(_trample_buf.size()):
 		_trample_bytes[i] = int(clampf(_trample_buf[i], 0.0, 1.0) * 255.0)
-	# Mark entire buffer dirty for the full flush
-	_trample_dirty_x0 = 0
-	_trample_dirty_z0 = 0
-	_trample_dirty_x1 = TRAMPLE_RES - 1
-	_trample_dirty_z1 = TRAMPLE_RES - 1
 	_flush_trample_to_gpu()
 	RenderingServer.global_shader_parameter_set("trample_origin_x", _trample_origin_x)
 	RenderingServer.global_shader_parameter_set("trample_origin_z", _trample_origin_z)
@@ -435,27 +549,14 @@ func _update_trample_map(pos: Vector3, delta: float) -> void:
 				_trample_buf[row + x] = nv
 				_trample_bytes[row + x] = int(clampf(nv, 0.0, 1.0) * 255.0)
 
-	# Track dirty rect — only the region we just touched
-	_trample_dirty_x0 = mini(_trample_dirty_x0, x0)
-	_trample_dirty_z0 = mini(_trample_dirty_z0, z0)
-	_trample_dirty_x1 = maxi(_trample_dirty_x1, x1)
-	_trample_dirty_z1 = maxi(_trample_dirty_z1, z1)
-
 	_flush_trample_to_gpu()
 
 # Upload only the dirty region of the trample map to the GPU.
 # _trample_bytes is kept in sync during _update_trample_map so no
 # separate float→byte conversion loop is needed.
 func _flush_trample_to_gpu() -> void:
-	if _trample_dirty_x0 > _trample_dirty_x1:
-		return  # nothing dirty
 	_trample_img.set_data(TRAMPLE_RES, TRAMPLE_RES, false, Image.FORMAT_L8, _trample_bytes)
 	_trample_tex.update(_trample_img)
-	# Reset dirty rect
-	_trample_dirty_x0 = TRAMPLE_RES
-	_trample_dirty_z0 = TRAMPLE_RES
-	_trample_dirty_x1 = 0
-	_trample_dirty_z1 = 0
 
 func _make_blade_mesh() -> ArrayMesh:
 	var verts   := PackedVector3Array()

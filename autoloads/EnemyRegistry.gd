@@ -223,6 +223,11 @@ static func get_all_enemy_ids() -> Array[String]:
 	)
 	return result
 
+## Returns true if enemies of this type engage the player on proximity.
+## false = interact-only (wanderers). true = aggressive (attack on sight).
+static func is_tracking(type_id: String) -> bool:
+	return type_id == "undead_elite" or type_id == "ghoul_pack" or type_id == "roaming_terror"
+
 ## Returns the lore text for a type, or "" if unknown or not yet written.
 static func get_lore_text(type_id: String) -> String:
 	_ensure_loaded()

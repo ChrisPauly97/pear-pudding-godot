@@ -2,7 +2,7 @@
 
 **Goal:** GID-064
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-232
 
 ## Lock
@@ -67,12 +67,25 @@ hold, and exactly one battle_lost fires on lethal. Run full suite.
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `_make_battle_save()` helper to bundle `_state.to_dict()` with `_boss_phase2` and `_hero_power_used` keys.
+2. In `_notification(FOCUS_OUT)` and pause-menu "Yes, leave": use `_make_battle_save()` and skip when `is_game_over()`.
+3. In `_ready()` after `GameState.from_dict(_saved_battle)`: restore `_boss_phase2_triggered` and `_hero_power_used` from dict; call `_bump_card_next_id()`.
+4. Add `_bump_card_next_id(state)` helper to scan all cards in all zones and bump `CardInstance._next_id`.
+5. In `_ready()` end: if resumed mid-AI-turn, call `_run_ai_turn.call_deferred()`.
+6. Fix AI timer `process_always=false` so AI doesn't act under pause.
+7. Make `_check_game_over()` idempotent via `_game_over_handled` flag.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - Added `_make_battle_save()` helper — wraps `_state.to_dict()` with `_boss_phase2` and `_hero_power_used` flags.
+  - Fixed `_notification(FOCUS_OUT)` and pause "Yes, leave" to use `_make_battle_save()` and skip when `is_game_over()`.
+  - In `_ready()` resume path: restored `_boss_phase2_triggered` and `_hero_power_used` from saved dict; called `_bump_card_next_id()`.
+  - Added `_bump_card_next_id(state)`: scans all card zones (hand, board, draw_deck, discard) of both players and bumps `CardInstance._next_id` past max restored numeric id.
+  - Deferred `_run_ai_turn()` in `_ready()` when resuming mid-AI-turn.
+  - AI timers changed to `process_always=false`.
+  - `_check_game_over()` made idempotent via `_game_over_handled` flag.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Battle save/resume behavior documented in `docs/agent/battle-system.md` (TID-285 pattern).

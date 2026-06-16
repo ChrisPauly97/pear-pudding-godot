@@ -4,6 +4,8 @@ const CardRegistry    = preload("res://autoloads/CardRegistry.gd")
 const CraftingRecipe  = preload("res://data/CraftingRecipe.gd")
 
 static var _recipes: Array = []
+static var _recipe_index: Dictionary = {}   # "tid|rarity" -> CraftingRecipe
+static var _template_index: Dictionary = {} # tid -> Array of CraftingRecipe
 static var _loaded: bool = false
 
 static func _ensure_loaded() -> void:
@@ -20,6 +22,10 @@ static func _ensure_loaded() -> void:
 			recipe.rarity = rarity
 			recipe.essence_cost = int(cfg.get("craft_essence", 0))
 			_recipes.append(recipe)
+			_recipe_index[tid + "|" + rarity] = recipe
+			if not _template_index.has(tid):
+				_template_index[tid] = []
+			(_template_index[tid] as Array).append(recipe)
 
 ## Returns all craftable recipes (one per craftable template × rarity tier).
 static func get_all_recipes() -> Array:
@@ -29,17 +35,9 @@ static func get_all_recipes() -> Array:
 ## Returns all recipes for a specific template_id.
 static func get_recipes_for_template(template_id: String) -> Array:
 	_ensure_loaded()
-	var result: Array = []
-	for r in _recipes:
-		if (r as CraftingRecipe).template_id == template_id:
-			result.append(r)
-	return result
+	return _template_index.get(template_id, [])
 
 ## Returns the recipe for a (template_id, rarity) pair, or null if not found.
 static func get_recipe(template_id: String, rarity: String) -> CraftingRecipe:
 	_ensure_loaded()
-	for r in _recipes:
-		var rec := r as CraftingRecipe
-		if rec.template_id == template_id and rec.rarity == rarity:
-			return rec
-	return null
+	return _recipe_index.get(template_id + "|" + rarity, null) as CraftingRecipe

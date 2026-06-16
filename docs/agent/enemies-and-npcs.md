@@ -2,10 +2,10 @@
 
 ## Key Features
 
-- Four enemy types with escalating difficulty, each carrying a specific deck composition
+- Four overworld enemy types with escalating difficulty, each carrying a specific deck composition
 - Enemy type selection driven by biome and distance from the world origin
-- Enemies wander the map and begin tracking the player when in range
-- Auto-battle trigger when the player walks within `AUTO_BATTLE_RANGE` (1.5 world units) of an enemy
+- Mixed engagement: aggressive enemies (`undead_elite`, `ghoul_pack`, `roaming_terror`) attack on proximity via Area3D; wanderers (`undead_basic`, `undead_horde`) wait for player interaction
+- Interact-to-engage works on all enemies via E key / interact button regardless of tracking mode
 - Defeated enemies are persisted in `SaveManager` so they do not respawn on reload
 - Town-person NPCs are static, non-hostile, and display biome-flavoured dialogue on interaction
 - **Boss system**: `is_boss` flag on `EnemyData` triggers enhanced battle presentation, optional phase-2 deck swap at 50% HP, and guaranteed full drop_pool rewards
@@ -83,26 +83,29 @@ Spawned by `WorldEventManager` via `game_logic/WorldEvents.gd` on a 15–25 minu
 
 ### EnemyNPC Scene (`scenes/world/entities/EnemyNPC.gd`)
 
-State machine with three modes:
+Static entity — no movement AI. Engagement happens in two ways:
 
-**Wander:**
-- Picks a random tile within 3 tiles of spawn point
-- Moves toward it at `WANDER_SPEED` (0.8 units/s)
-- Waits 1–3 s then picks a new target
-- Transitions to **Track** when `player.position.distance_to(position) < TRACKING_RANGE` (4.0 units)
+**Interact-to-engage (all enemies):**
+Player presses E / taps interact button within `INTERACT_RANGE` (1.5 units). `WorldScene._handle_interact()` calls `enemy.engage()`. Works on every enemy type.
 
-**Track:**
-- Each frame: `velocity = (player.position - position).normalized() * TRACKING_SPEED` (2.5 units/s)
-- Transitions to **Engage** when `distance < AUTO_BATTLE_RANGE` (1.5 units)
-- Returns to **Wander** if player moves beyond `TRACKING_RANGE * 1.5` (de-aggro)
+**Proximity-engage (tracking enemies only):**
+Enemies with `tracking: true` in their spawn data have an `Area3D` (sphere, radius = `AUTO_BATTLE_RANGE` = 1.5 units) added at `_ready()`. When the player's `CharacterBody3D` (layer 1) enters the sphere, `_on_body_entered()` fires and calls `engage()` with the following guards:
+- `_alive` must be true (prevents double-trigger)
+- `SceneManager.can_proximity_engage()` must be true — returns false while `_state != State.WORLD` or `_proximity_engage_blocked` is set (2 s immunity window after returning from battle)
+- `SaveManager.is_enemy_defeated(id)` must be false (already-defeated enemies with stale Area3D state)
 
-**Engage:**
-- Calls `GameBus.emit_signal("enemy_engaged", { "type": type_id, "enemy_node": self })`
-- Freezes movement until battle resolves
-- On `GameBus.battle_won`: enemy node queues free; `SaveManager.mark_enemy_defeated(unique_id)` called
-- On `GameBus.battle_lost`: enemy returns to **Wander**
+**Tracking split (per enemy type):**
+`EnemyRegistry.is_tracking(type_id)` encodes the aggressiveness split:
+- Aggressive (tracking = true): `undead_elite`, `ghoul_pack`, `roaming_terror`
+- Wanderer (tracking = false, interact-only): `undead_basic`, `undead_horde`, duelists
 
-`EnemyNPC` is placed as a child of the relevant `ChunkRenderer` node (infinite world) or directly under `WorldScene` (named maps). A unique ID is generated from chunk coordinates + spawn index: `"enemy_cx{cx}_cz{cz}_{i}"`.
+Dungeon, spire, and depth-placed named-map enemies always have `tracking: true`.
+
+**Post-battle immunity:** `SceneManager._restore_world()` sets `_proximity_engage_blocked = true` and creates a 2 s `SceneTreeTimer` to clear it. This prevents chain-engagement immediately after respawning near an enemy.
+
+**`engage()` method:** Sets `_alive = false`, deduplicates the enemy data dict, resolves deck / boss flags from `EnemyRegistry`, plays `enemy_engage` SFX, emits `GameBus.enemy_engaged(data)`, and calls `queue_free()`.
+
+`EnemyNPC` is placed by `TerrainMath.spawn_entity()` (called from `ChunkRenderer` for infinite world, or via the chunk-data system for named maps). `init_from_data(data)` is always called before `add_child()`, so `_tracking` is set before `_ready()` runs.
 
 ### TownspersonNPC Scene (`scenes/world/entities/TownspersonNPC.gd`)
 
@@ -203,7 +206,8 @@ This means defeated enemies stay gone across sessions.
 | **GameBus** | Signal | `shop_requested` emitted when player interacts with a MerchantNPC; routed to `SceneManager._on_shop_requested()` |
 | **GameBus** | Signal | `duel_requested(enemy_data, wager)` emitted from duel offer panel; `duel_won` / `duel_lost` resolve wager and update `SaveManager.defeated_duelists` |
 | **ShopScene** | Overlay | Opened on `shop_requested`; lists all cards for 15 coins each; emits `closed` when player leaves |
-| **IsoConst** | Constants | `AUTO_BATTLE_RANGE`, `INTERACT_RANGE`, `TRACKING_RANGE` |
+| **IsoConst** | Constants | `AUTO_BATTLE_RANGE` (1.5 — proximity sphere radius), `INTERACT_RANGE` (1.5 — E-key range), `TRACKING_SPEED` (2.5 — reserved for future movement AI) |
+| **SceneManager** | Guard | `can_proximity_engage()` returns false during battle or 2 s post-battle immunity window |
 
 ---
 

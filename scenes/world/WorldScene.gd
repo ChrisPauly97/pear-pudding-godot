@@ -150,11 +150,11 @@ var _compass: Node = null
 var _interact_btn: Button = null
 var _mount_btn: Button = null
 var _bounty_tracker: VBoxContainer = null
-var _dialogue_timer: float = 0.0
+var _dialogue_id: int = 0
 const DIALOGUE_DURATION: float = 4.0
 
 var _tip_label: Label
-var _tip_timer: float = 0.0
+var _tip_id: int = 0
 const TIP_DURATION: float = 5.0
 
 # Tap-to-move
@@ -618,7 +618,7 @@ func get_terrain_height(wx: float, wz: float) -> float:
 	if _is_infinite:
 		# Use the same radii as ChunkRenderer so entity Y matches the rendered terrain
 		return TerrainMath.get_height_at(wx, wz, get_tile_global, _get_height_global,
-				ChunkRenderer.CURVE_R, HILL_PEAK_H, ChunkRenderer.WALL_CURVE_R)
+				ChunkRenderer.CURVE_R, HILL_PEAK_H)
 	return TerrainMath.get_height_at(wx, wz, world_map.get_tile, world_map.get_height,
 			ChunkRenderer.CURVE_R, HILL_PEAK_H)
 
@@ -1331,17 +1331,6 @@ func _process(delta: float) -> void:
 	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
 		_active_weather_particles.position = _player.position + Vector3(0.0, 12.0, 0.0)
 
-	if _dialogue_timer > 0.0:
-		_dialogue_timer -= delta
-		if _dialogue_timer <= 0.0:
-			_dialogue_label.hide()
-			GameBus.dialogue_state_changed.emit(false)
-
-	if _tip_timer > 0.0:
-		_tip_timer -= delta
-		if _tip_timer <= 0.0:
-			_tip_label.hide()
-
 	if _is_infinite:
 		_tick_roaming_boss(delta)
 		_tick_traveling_merchant(delta)
@@ -1380,6 +1369,7 @@ func _process(delta: float) -> void:
 	if cur_pos.distance_squared_to(_last_save_pos) > 1.0:
 		_last_save_pos = cur_pos
 		SceneManager.save_manager.update_position(map_name, _player.position.x, _player.position.z)
+		SceneManager.save_manager.time_of_day = _time_of_day
 
 	# Throttle interaction checks — no need to scan every frame
 	_interact_timer += delta
@@ -1433,7 +1423,8 @@ func _check_interactions() -> void:
 		_show_tip("Tap to open chests" if is_android else "Press E to open chests")
 	elif enemy != null and not SceneManager.save_manager.get_story_flag("tutorial_enemy_tip"):
 		SceneManager.save_manager.set_story_flag("tutorial_enemy_tip")
-		_show_tip("Walk into an enemy to start a battle")
+		var interact_key: String = "Tap" if OS.has_feature("android") else "Press E"
+		_show_tip("Some enemies attack on sight — others wait. %s to challenge any enemy." % interact_key)
 
 func _open_map_view() -> void:
 	if _is_infinite:
@@ -2108,8 +2099,15 @@ func _show_trophy_info(npc: Dictionary) -> void:
 func _show_dialogue(text: String) -> void:
 	_dialogue_label.text = text
 	_dialogue_label.show()
-	_dialogue_timer = DIALOGUE_DURATION
 	GameBus.dialogue_state_changed.emit(true)
+	_dialogue_id += 1
+	var my_id := _dialogue_id
+	get_tree().create_timer(DIALOGUE_DURATION, false).timeout.connect(
+		func() -> void:
+			if _dialogue_id == my_id:
+				_dialogue_label.hide()
+				GameBus.dialogue_state_changed.emit(false)
+	)
 
 func _show_duel_offer_panel(npc: Dictionary) -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
@@ -2218,7 +2216,13 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 func _show_tip(text: String) -> void:
 	_tip_label.text = text
 	_tip_label.show()
-	_tip_timer = TIP_DURATION
+	_tip_id += 1
+	var my_id := _tip_id
+	get_tree().create_timer(TIP_DURATION, false).timeout.connect(
+		func() -> void:
+			if _tip_id == my_id:
+				_tip_label.hide()
+	)
 
 func _on_scroll_collected(scroll_id: String) -> void:
 	var scroll: Dictionary = ScrollRegistry.get_scroll(scroll_id)

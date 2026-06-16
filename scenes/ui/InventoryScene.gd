@@ -15,6 +15,8 @@ var _working_deck: Array[String] = []
 
 var _collection_list: VBoxContainer
 var _deck_list: VBoxContainer
+var _collection_scroll: ScrollContainer
+var _deck_scroll: ScrollContainer
 var _deck_count_label: Label
 var _coin_label: Label
 var _essence_label: Label
@@ -129,7 +131,8 @@ func _build_ui() -> void:
 	_essence_label.modulate = Color(0.5, 0.85, 1.0)
 	left_vbox.add_child(_essence_label)
 
-	var left_scroll := ScrollContainer.new()
+	_collection_scroll = ScrollContainer.new()
+	var left_scroll: ScrollContainer = _collection_scroll
 	left_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	if scroll_min_h > 0.0:
 		left_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
@@ -156,7 +159,8 @@ func _build_ui() -> void:
 	_deck_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	right_vbox.add_child(_deck_count_label)
 
-	var right_scroll := ScrollContainer.new()
+	_deck_scroll = ScrollContainer.new()
+	var right_scroll: ScrollContainer = _deck_scroll
 	right_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	if scroll_min_h > 0.0:
 		right_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
@@ -249,6 +253,8 @@ func _refresh() -> void:
 		_refresh_craft()
 
 func _refresh_cards() -> void:
+	var col_scroll: int = _collection_scroll.scroll_vertical if _collection_scroll else 0
+	var deck_scroll: int = _deck_scroll.scroll_vertical if _deck_scroll else 0
 	for child in _collection_list.get_children():
 		child.queue_free()
 	for child in _deck_list.get_children():
@@ -292,6 +298,11 @@ func _refresh_cards() -> void:
 		_deck_count_label.modulate = Color.RED
 	else:
 		_deck_count_label.modulate = Color.WHITE
+	# Restore scroll positions after rebuild (deferred so layout has settled)
+	if _collection_scroll and col_scroll > 0:
+		_collection_scroll.scroll_vertical = col_scroll
+	if _deck_scroll and deck_scroll > 0:
+		_deck_scroll.scroll_vertical = deck_scroll
 
 # -------------------------------------------------------------------------
 # Row builders
@@ -494,7 +505,6 @@ func _make_deck_row(uid: String, inst: Dictionary, index: int) -> VBoxContainer:
 		else:
 			rm_btn.disabled = true
 			rm_btn.tooltip_text = "Minimum deck size reached"
-			rm_btn.pressed.connect(_on_remove.bind(index))
 	else:
 		rm_btn.pressed.connect(_on_remove.bind(index))
 	top_row.add_child(rm_btn)
@@ -631,6 +641,7 @@ func _do_scrap(uid: String) -> void:
 func _on_tab_cards() -> void:
 	_cards_panel.visible = true
 	_craft_panel.visible = false
+	_refresh_cards()
 
 func _on_tab_craft() -> void:
 	_cards_panel.visible = false

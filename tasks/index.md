@@ -67,7 +67,7 @@
 | [GID-061](goals/GID-061--soulbinding/goal.md) | Soulbinding — Every Enemy Is a Card | pending | 0 / 3 |
 | [GID-062](goals/GID-062--dual-faced-cards/goal.md) | Dual-Faced Corruption Cards | pending | 0 / 3 |
 | [GID-063](goals/GID-063--gambits/goal.md) | Gambits — Pre-Battle Wagers | pending | 0 / 2 |
-| [GID-064](goals/GID-064--audit-remediation/goal.md) | Codebase Audit Remediation — Performance, Native Patterns & Bug Fixes | pending | 4 / 12 |
+| [GID-064](goals/GID-064--audit-remediation/goal.md) | Codebase Audit Remediation — Performance, Native Patterns & Bug Fixes | done | 12 / 12 |
 | [GID-065](goals/GID-065--card-cantrips/goal.md) | Card Cantrips — Your Deck Shapes the World | pending | 0 / 3 |
 | [GID-066](goals/GID-066--creeping-blight/goal.md) | The Creeping Blight — Corruption Territory & Cleansing | pending | 0 / 3 |
 | [GID-067](goals/GID-067--ancient-colossi/goal.md) | Ancient Colossi — Discoverable Mega-Landmarks | pending | 0 / 3 |

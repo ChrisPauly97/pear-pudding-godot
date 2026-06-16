@@ -124,9 +124,9 @@ func _on_magic_chosen(choice: String) -> void:
 	_active_tab = 0
 	_tab_buttons.clear()
 	for child in get_children():
-		child.free()
-	_build_ui()
-	_refresh()
+		child.queue_free()
+	_build_ui.call_deferred()
+	_refresh.call_deferred()
 
 # -------------------------------------------------------------------------
 # Helpers
@@ -225,7 +225,7 @@ func _build_ui() -> void:
 
 	var close_btn := Button.new()
 	close_btn.text = "X"
-	var close_size: float = _vw * 0.13
+	var close_size: float = _vh * 0.065
 	close_btn.custom_minimum_size = Vector2(close_size, close_size)
 	close_btn.add_theme_font_size_override("font_size", int(close_size * 0.45))
 	close_btn.pressed.connect(func() -> void: closed.emit())

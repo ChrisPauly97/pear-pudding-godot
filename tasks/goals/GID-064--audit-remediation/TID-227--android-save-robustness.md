@@ -2,7 +2,7 @@
 
 **Goal:** GID-064
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-226
 
 ## Lock
@@ -64,12 +64,17 @@ Constraints:
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `NOTIFICATION_APPLICATION_PAUSED` + `NOTIFICATION_APPLICATION_FOCUS_OUT` to `_notification` flush.
+2. Atomic write: write `save.json.tmp`, copy old `save.json` → `save.json.bak`, rename tmp → save.json.
+3. `load_save()`: helper `_read_save_json(path)` tries primary then `.bak`; returns false only if both fail.
+4. WorldScene: set `save_manager.time_of_day = _time_of_day` alongside each `update_position` call.
+5. `sync_stacks()`: add `_dirty = true`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`: added `SAVE_TMP_PATH`/`SAVE_BAK_PATH` constants; updated `_notification` to flush on PAUSED and FOCUS_OUT; `save()` now atomic (write tmp, copy bak, rename); `load_save()` refactored via `_read_save_json` with `.bak` fallback; `sync_stacks()` now sets `_dirty = true`.
+- `scenes/world/WorldScene.gd`: sets `save_manager.time_of_day` alongside every `update_position` call.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None needed — save-system doc already describes the dirty-flag pattern; the new robustness behaviour is implementation detail.

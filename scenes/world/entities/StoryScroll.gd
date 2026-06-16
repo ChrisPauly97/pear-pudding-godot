@@ -2,7 +2,6 @@ extends Node3D
 
 var _scroll_id: String = ""
 var _player: Node3D = null
-var _near_player: bool = false
 
 # Shared resources — created once across all instances
 static var _scroll_mat: StandardMaterial3D
@@ -29,24 +28,11 @@ func _ready() -> void:
 	body.position = Vector3(0.0, 0.4, 0.0)
 	add_child(body)
 
-	var glow := OmniLight3D.new()
-	glow.light_color = Color(1.0, 0.85, 0.4)
-	glow.light_energy = 0.6
-	glow.omni_range = 2.0
-	glow.position = Vector3(0.0, 0.5, 0.0)
-	add_child(glow)
-
 func setup(scroll_id: String, player_node: Node3D) -> void:
 	_scroll_id = scroll_id
 	_player = player_node
 	if SaveManager.is_scroll_collected(_scroll_id):
 		queue_free()
-
-func _process(_delta: float) -> void:
-	if _player == null:
-		return
-	var dist: float = position.distance_to(_player.position)
-	_near_player = dist <= IsoConst.INTERACT_RANGE
 
 func interact() -> void:
 	if SaveManager.is_scroll_collected(_scroll_id):

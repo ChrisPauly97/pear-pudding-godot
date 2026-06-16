@@ -7,6 +7,8 @@ const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 signal coins_changed(new_amount: int)
 
 const SAVE_PATH := "user://save.json"
+const SAVE_TMP_PATH := "user://save.json.tmp"
+const SAVE_BAK_PATH := "user://save.json.bak"
 
 # Currency
 var coins: int = 0
@@ -14,6 +16,7 @@ var coins: int = 0
 # All cards ever acquired (the collection). Each entry is a Dictionary:
 # { "uid": String, "template_id": String, "rarity": String, "attack": int, "health": int, "cost": int }
 var owned_cards: Array[Dictionary] = []
+var _uid_index: Dictionary = {}  # uid -> Dictionary reference for O(1) lookups
 
 # Cards currently in the active battle deck — list of UIDs from owned_cards.
 var player_deck: Array[String] = []
@@ -169,7 +172,10 @@ func _flush_if_dirty() -> void:
 		save()
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_EXIT_TREE:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST \
+			or what == NOTIFICATION_EXIT_TREE \
+			or what == NOTIFICATION_APPLICATION_PAUSED \
+			or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_flush_if_dirty()
 
 # -------------------------------------------------------------------------
@@ -191,6 +197,7 @@ func new_game() -> void:
 	]
 	var extra_ids: Array[String] = ["dawn_acolyte", "dusk_wraith"]
 	owned_cards.clear()
+	_uid_index.clear()
 	player_deck.clear()
 	for tid: String in deck_ids:
 		var uid: String = add_card_instance(tid, "common")
@@ -564,18 +571,31 @@ static func _apply_migrations(data: Dictionary) -> void:
 	if ver < 28:
 		_migrate_v27_to_v28(data)
 
-func load_save() -> bool:
-	if not FileAccess.file_exists(SAVE_PATH):
-		return false
-	var file := FileAccess.open(SAVE_PATH, FileAccess.READ)
+func _read_save_json(path: String):
+	if not FileAccess.file_exists(path):
+		return null
+	var file := FileAccess.open(path, FileAccess.READ)
 	if not file:
-		return false
+		return null
 	var parsed = JSON.parse_string(file.get_as_text())
 	if not parsed is Dictionary:
+		return null
+	return parsed
+
+func load_save() -> bool:
+	var parsed = _read_save_json(SAVE_PATH)
+	if parsed == null:
+		parsed = _read_save_json(SAVE_BAK_PATH)
+	if parsed == null:
 		return false
 	var data: Dictionary = parsed
 	_apply_migrations(data)
 	owned_cards.assign(data.get("owned_cards", []))
+	_uid_index.clear()
+	for _card: Dictionary in owned_cards:
+		var _uid: String = str(_card.get("uid", ""))
+		if _uid != "":
+			_uid_index[_uid] = _card
 	player_deck.assign(data.get("player_deck", []))
 	essence = int(data.get("essence", 0))
 	coins = int(data.get("coins", 0))
@@ -727,9 +747,14 @@ func save() -> void:
 		"offered_bounties": offered_bounties,
 		"active_bounties": active_bounties,
 	}
-	var file := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(data, "\t"))
+	var tmp := FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
+	if not tmp:
+		return
+	tmp.store_string(JSON.stringify(data, "\t"))
+	tmp = null  # flush + close before rename
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.copy_absolute(SAVE_PATH, SAVE_BAK_PATH)
+	DirAccess.rename_absolute(SAVE_TMP_PATH, SAVE_PATH)
 
 # -------------------------------------------------------------------------
 # State mutators (each auto-saves)
@@ -744,6 +769,7 @@ func update_position(map_name: String, x: float, z: float) -> void:
 func sync_stacks(m_stack: Array[String], d_stack: Array[String]) -> void:
 	map_stack.assign(m_stack)
 	door_stack.assign(d_stack)
+	_dirty = true
 
 func add_coins(amount: int) -> void:
 	if coins == 0 and amount > 0:
@@ -801,14 +827,16 @@ func add_card_instance(template_id: String, rarity: String, attack: int = -1, he
 	var hp: int  = health if health >= 0 else int(tmpl.get("health", 0))
 	var c: int   = cost   if cost   >= 0 else int(tmpl.get("cost", 1))
 	var uid: String = _gen_uid(template_id)
-	owned_cards.append({
+	var inst_dict := {
 		"uid": uid,
 		"template_id": template_id,
 		"rarity": rarity,
 		"attack": atk,
 		"health": hp,
 		"cost": c,
-	})
+	}
+	owned_cards.append(inst_dict)
+	_uid_index[uid] = inst_dict
 	if rarity != "common":
 		GameBus.tutorial_popup_requested.emit("card_rarity")
 	_dirty = true
@@ -816,6 +844,7 @@ func add_card_instance(template_id: String, rarity: String, attack: int = -1, he
 
 ## Removes a card instance by UID from owned_cards and player_deck.
 func remove_card_instance(uid: String) -> void:
+	_uid_index.erase(uid)
 	for i in range(owned_cards.size() - 1, -1, -1):
 		if str(owned_cards[i].get("uid", "")) == uid:
 			owned_cards.remove_at(i)
@@ -874,11 +903,10 @@ func combine_cards(template_id: String, rarity: String) -> Dictionary:
 		return {}
 	for uid: String in to_remove:
 		remove_card_instance(uid)
-	var rarity_order: Array[String] = ["common", "rare", "epic", "legendary"]
-	var src_idx: int = rarity_order.find(rarity)
-	if src_idx < 0 or src_idx >= rarity_order.size() - 1:
+	var src_idx: int = IsoConst.RARITY_ORDER.find(rarity)
+	if src_idx < 0 or src_idx >= IsoConst.RARITY_ORDER.size() - 1:
 		return {}
-	var next_rarity: String = rarity_order[src_idx + 1]
+	var next_rarity: String = IsoConst.RARITY_ORDER[src_idx + 1]
 	var stats: Dictionary = CardDropUtil.roll_stats(template_id, next_rarity)
 	var new_uid: String = add_card_instance(template_id, next_rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
 	return get_instance_by_uid(new_uid)
@@ -889,9 +917,9 @@ func get_owned_instances() -> Array[Dictionary]:
 
 ## Returns the instance dict for a UID, or {} if not found.
 func get_instance_by_uid(uid: String) -> Dictionary:
-	for inst: Dictionary in owned_cards:
-		if str(inst.get("uid", "")) == uid:
-			return inst
+	var hit: Variant = _uid_index.get(uid, null)
+	if hit is Dictionary:
+		return hit as Dictionary
 	return {}
 
 ## Returns instance dicts for each UID in player_deck (skips missing UIDs).
@@ -1052,8 +1080,10 @@ func has_skill(id: String) -> bool:
 func unlock_skill(id: String) -> void:
 	if unlocked_skills.has(id):
 		return
+	if skill_points <= 0:
+		return
 	unlocked_skills.append(id)
-	skill_points = max(0, skill_points - 1)
+	skill_points -= 1
 	_dirty = true
 
 func unlock_cross_skill(id: String, cost: int, currency: String) -> void:

@@ -17,6 +17,7 @@ const SFX_PATHS: Dictionary = {
 
 var _players: Array[AudioStreamPlayer] = []
 const _POOL_SIZE: int = 8
+var _sfx_cache: Dictionary = {}
 
 var _narration_player: AudioStreamPlayer
 var _narration_suppressed: bool = false
@@ -25,6 +26,12 @@ var _music_player: AudioStreamPlayer
 var _current_music_path: String = ""
 
 func _ready() -> void:
+	for key: String in SFX_PATHS:
+		var path: String = SFX_PATHS[key]
+		if ResourceLoader.exists(path):
+			var stream := load(path) as AudioStream
+			if stream != null:
+				_sfx_cache[key] = stream
 	for i in _POOL_SIZE:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -108,20 +115,13 @@ func get_sfx_volume() -> float:
 	return db_to_linear(_players[0].volume_db)
 
 func play_sfx(sfx_name: String) -> void:
-	if not SFX_PATHS.has(sfx_name):
-		return
-	var path: String = SFX_PATHS[sfx_name]
-	if not ResourceLoader.exists(path):
-		return  # graceful no-op — file not yet added
-	var stream := load(path) as AudioStream
+	var stream: AudioStream = _sfx_cache.get(sfx_name, null) as AudioStream
 	if stream == null:
 		return
-	# Find a free player
 	for p in _players:
 		if not p.playing:
 			p.stream = stream
 			p.play()
 			return
-	# All busy — use player 0 (oldest sound cut off)
 	_players[0].stream = stream
 	_players[0].play()

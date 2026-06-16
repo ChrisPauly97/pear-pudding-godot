@@ -23,7 +23,6 @@ var emergence_power: int = 0
 var keywords: Array[String] = []
 var shroud_active: bool = false  # true until the first hit is absorbed; set false by game logic after absorption
 
-var armor: int = 0
 var summoning_sick: bool = true
 var attack_count: int = 1
 var out_of_play: int = 0  # stun counter (kept for backward compat; synced with status_effects["stun"])
@@ -132,7 +131,6 @@ func to_dict() -> Dictionary:
 		"emergence_power": emergence_power,
 		"keywords": keywords.duplicate(),
 		"shroud_active": shroud_active,
-		"armor": armor,
 		"summoning_sick": summoning_sick,
 		"attack_count": attack_count,
 		"out_of_play": out_of_play,
@@ -159,7 +157,7 @@ static func from_dict(d: Dictionary) -> CardInstance:
 	c.emergence_power = int(d.get("emergence_power", 0))
 	c.keywords.assign(d.get("keywords", []))
 	c.shroud_active = bool(d.get("shroud_active", false))
-	c.armor = int(d.get("armor", 0))
+	# "armor" key tolerated from old saves but field is removed — armor lives in status_effects
 	c.summoning_sick = bool(d.get("summoning_sick", true))
 	c.attack_count = int(d.get("attack_count", 1))
 	c.out_of_play = int(d.get("out_of_play", 0))

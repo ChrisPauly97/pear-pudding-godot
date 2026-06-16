@@ -89,13 +89,14 @@ func _show_next() -> void:
 		_label_title.text = str(a.get("name", aid))
 		_label_desc.text = str(a.get("description", ""))
 
-	var panel_w: float = _vw * 0.32
-	var margin: float = _vh * 0.02
-	var target_x: float = _vw - panel_w - margin
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var panel_w: float = vp.x * 0.32
+	var margin: float = vp.y * 0.02
+	var target_x: float = vp.x - panel_w - margin
 
 	if _tween:
 		_tween.kill()
-	_panel.position.x = _vw + 10.0
+	_panel.position.x = vp.x + 10.0
 	_panel.position.y = margin
 
 	_tween = create_tween()

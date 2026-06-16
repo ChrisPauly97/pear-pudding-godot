@@ -38,6 +38,9 @@ var _btn_normal_styles: Array[StyleBoxFlat] = []
 var _btn_active_styles: Array[StyleBoxFlat] = []
 var _height_label: Label
 
+var _dirty_flat: bool = false
+var _dirty_walls: bool = false
+
 var _mode_colors: Array[Color] = [
 	Color(0.15, 0.5, 0.1),   # grass
 	Color(0.4, 0.32, 0.22),  # wall
@@ -159,8 +162,16 @@ func _rebuild_tile_multimeshes(update_flat: bool = true, update_walls: bool = tr
 # --- Visual update and map management ---
 
 func _rebuild_visuals() -> void:
+	_dirty_flat = false
+	_dirty_walls = false
 	_rebuild_tile_multimeshes()
 	_refresh_entity_markers()
+
+func _process(_delta: float) -> void:
+	if _dirty_flat or _dirty_walls:
+		_rebuild_tile_multimeshes(_dirty_flat, _dirty_walls)
+		_dirty_flat = false
+		_dirty_walls = false
 
 func _refresh_entity_markers() -> void:
 	for c in _entity_markers.get_children():
@@ -413,17 +424,23 @@ func _paint_tile(tx: int, tz: int) -> void:
 			var was_wall := _world_map.get_tile(tx, tz) == WorldMap.TILE_WALL
 			_world_map.set_tile(tx, tz, WorldMap.TILE_GRASS)
 			_world_map.set_height(tx, tz, 0)
-			_rebuild_tile_multimeshes(true, was_wall)
+			_dirty_flat = true
+			if was_wall:
+				_dirty_walls = true
 		1:  # Wall — only walls change; flat changes only if this tile was flat
 			var was_flat := _world_map.get_tile(tx, tz) != WorldMap.TILE_WALL
 			_world_map.set_tile(tx, tz, WorldMap.TILE_WALL)
 			_world_map.set_height(tx, tz, _paint_height)
-			_rebuild_tile_multimeshes(was_flat, true)
+			if was_flat:
+				_dirty_flat = true
+			_dirty_walls = true
 		2:  # Hill — only flat tiles change; walls change only if this tile was a wall
 			var was_wall := _world_map.get_tile(tx, tz) == WorldMap.TILE_WALL
 			_world_map.set_tile(tx, tz, WorldMap.TILE_HILL)
 			_world_map.set_height(tx, tz, _paint_height)
-			_rebuild_tile_multimeshes(true, was_wall)
+			_dirty_flat = true
+			if was_wall:
+				_dirty_walls = true
 		3:  # Enemy — no tile geometry change
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
@@ -455,7 +472,9 @@ func _erase_tile(tx: int, tz: int) -> void:
 	_world_map.enemies = _world_map.enemies.filter(func(e): return abs(e["x"]-wx)>0.5 or abs(e["z"]-wz)>0.5)
 	_world_map.chests = _world_map.chests.filter(func(c): return abs(c["x"]-wx)>0.5 or abs(c["z"]-wz)>0.5)
 	_world_map.doors = _world_map.doors.filter(func(d): return abs(d["x"]-wx)>0.5 or abs(d["z"]-wz)>0.5)
-	_rebuild_tile_multimeshes(true, was_wall)
+	_dirty_flat = true
+	if was_wall:
+		_dirty_walls = true
 	_refresh_entity_markers()
 
 # --- Map management ---
@@ -484,6 +503,8 @@ func _new_map_dialog() -> void:
 			_update_hud()
 		dialog.queue_free()
 	)
+	dialog.canceled.connect(dialog.queue_free)
+	dialog.close_requested.connect(dialog.queue_free)
 
 func _show_map_list() -> void:
 	var names := WorldMap.list_map_names()
@@ -501,3 +522,5 @@ func _show_map_list() -> void:
 	dialog.add_child(vbox)
 	add_child(dialog)
 	dialog.popup_centered_ratio(0.3)
+	dialog.canceled.connect(dialog.queue_free)
+	dialog.close_requested.connect(dialog.queue_free)
