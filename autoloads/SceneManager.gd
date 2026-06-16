@@ -22,6 +22,7 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
 const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
 const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
+const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
@@ -461,7 +462,6 @@ func _on_battle_won(result: Dictionary) -> void:
 	# Siege gauntlet: skip standard rewards; chain stages or apply siege victory.
 	var _siege: Dictionary = save_manager.get_active_siege()
 	if not _siege.is_empty():
-		const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 		var _siege_hero_hp: int = int(result.get("hero_hp", 30))
 		save_manager.set_siege_hero_hp(_siege_hero_hp)
 		var _siege_stage: int = int(_siege.get("stage", 0))
@@ -755,7 +755,6 @@ func _apply_siege_victory_rewards(town: String) -> void:
 
 ## Shows a brief overlay between gauntlet stages, then chains the next battle after 2 s.
 func _show_siege_interstitial(next_stage: int, hero_hp: int) -> void:
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 	var layer := CanvasLayer.new()
 	layer.layer = 200
 	get_tree().root.add_child(layer)
