@@ -39,6 +39,9 @@ const PLAYER_RADIUS: float = 0.25      # collision radius
 const DECK_MIN: int = 8
 const DECK_MAX: int = 20
 
+# Bag (inventory) starting capacity. Common cards stack (1 slot per type); rare+ each take 1 slot.
+const BAG_SIZE_DEFAULT: int = 12
+
 # Enemy respawn
 const ENEMY_RESPAWN_DAYS: int = 3      # procedural enemies respawn after this many in-game days
 
@@ -46,7 +49,7 @@ const ENEMY_RESPAWN_DAYS: int = 3      # procedural enemies respawn after this m
 # rolled_stat = round(base_stat * multiplier * uniform(1 - variance, 1 + variance))
 # Cost is never randomised regardless of rarity.
 const RARITY_CONFIG: Dictionary = {
-	"common":    {"multiplier": 1.0, "variance": 0.10, "sell_gold": 5,   "scrap_essence": 5,  "craft_essence": 10},
+	"common":    {"multiplier": 1.0, "variance": 0.0,  "sell_gold": 5,   "scrap_essence": 5,  "craft_essence": 10},
 	"rare":      {"multiplier": 1.3, "variance": 0.08, "sell_gold": 15,  "scrap_essence": 15, "craft_essence": 30},
 	"epic":      {"multiplier": 1.7, "variance": 0.06, "sell_gold": 40,  "scrap_essence": 40, "craft_essence": 80},
 	"legendary": {"multiplier": 2.4, "variance": 0.05, "sell_gold": 100, "scrap_essence": 80, "craft_essence": 200},

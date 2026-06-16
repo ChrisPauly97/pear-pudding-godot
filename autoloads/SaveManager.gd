@@ -143,6 +143,9 @@ var is_mounted: bool = false
 # Card pack pity counter: increments each pack purchase, resets when a legendary is obtained.
 var packs_since_legendary: int = 0
 
+# Bag capacity: max card slots (common cards share one slot per template; rare+ each take one slot).
+var bag_size: int = IsoConst.BAG_SIZE_DEFAULT
+
 # Currently equipped companion id ("" = none)
 var active_companion: String = ""
 
@@ -264,13 +267,14 @@ func new_game() -> void:
 	bounty_day = 0
 	offered_bounties = []
 	active_bounties = []
+	bag_size = IsoConst.BAG_SIZE_DEFAULT
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 28
+const CURRENT_SAVE_VERSION: int = 29
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -512,6 +516,12 @@ static func _migrate_v27_to_v28(data: Dictionary) -> void:
 		data["active_bounties"] = []
 	data["version"] = 28
 
+# _migrate_v28_to_v29: backfill bag_size for old saves.
+static func _migrate_v28_to_v29(data: Dictionary) -> void:
+	if not data.has("bag_size"):
+		data["bag_size"] = IsoConst.BAG_SIZE_DEFAULT
+	data["version"] = 29
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -570,6 +580,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v26_to_v27(data)
 	if ver < 28:
 		_migrate_v27_to_v28(data)
+	if ver < 29:
+		_migrate_v28_to_v29(data)
 
 func _read_save_json(path: String):
 	if not FileAccess.file_exists(path):
@@ -672,6 +684,7 @@ func load_save() -> bool:
 	bounty_day = int(data.get("bounty_day", 0))
 	offered_bounties.assign(data.get("offered_bounties", []))
 	active_bounties.assign(data.get("active_bounties", []))
+	bag_size = int(data.get("bag_size", IsoConst.BAG_SIZE_DEFAULT))
 	_loaded = true
 	return true
 
@@ -746,6 +759,7 @@ func save() -> void:
 		"bounty_day": bounty_day,
 		"offered_bounties": offered_bounties,
 		"active_bounties": active_bounties,
+		"bag_size": bag_size,
 	}
 	var tmp := FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
 	if not tmp:
@@ -819,9 +833,39 @@ func get_owned_counts() -> Dictionary:
 			counts[tid] = int(counts.get(tid, 0)) + 1
 	return counts
 
+## Counts slots used: 1 per unique common template + 1 per rare/epic/legendary instance.
+func get_slot_count() -> int:
+	var common_templates: Dictionary = {}
+	var rare_plus: int = 0
+	for inst: Dictionary in owned_cards:
+		var rarity: String = str(inst.get("rarity", "common"))
+		var tid: String = str(inst.get("template_id", ""))
+		if rarity == "common":
+			common_templates[tid] = true
+		else:
+			rare_plus += 1
+	return common_templates.size() + rare_plus
+
+func is_bag_full() -> bool:
+	return get_slot_count() >= bag_size
+
+## Returns true if adding (template_id, rarity) would consume a NEW slot.
+## Commons share a slot per template; rare+ always need a new slot.
+func _would_fill_slot(template_id: String, rarity: String) -> bool:
+	if rarity != "common":
+		return true
+	for inst: Dictionary in owned_cards:
+		if str(inst.get("template_id", "")) == template_id and str(inst.get("rarity", "")) == "common":
+			return false
+	return true
+
 ## Creates a new card instance with the given stats and appends it to owned_cards.
-## Returns the generated UID. attack/health/cost default to the card template's base stats.
+## Returns the generated UID, or "" if the bag is full (emits GameBus.bag_full).
+## attack/health/cost default to the card template's base stats.
 func add_card_instance(template_id: String, rarity: String, attack: int = -1, health: int = -1, cost: int = -1) -> String:
+	if _would_fill_slot(template_id, rarity) and is_bag_full():
+		GameBus.bag_full.emit()
+		return ""
 	var tmpl: Dictionary = CardRegistry.get_template(template_id)
 	var atk: int = attack if attack >= 0 else int(tmpl.get("attack", 0))
 	var hp: int  = health if health >= 0 else int(tmpl.get("health", 0))
