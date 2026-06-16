@@ -110,6 +110,8 @@ func _ready() -> void:
 	GameBus.treasure_map_assembled.connect(_on_treasure_map_assembled)
 	GameBus.treasure_excavated.connect(_on_treasure_excavated)
 	GameBus.pack_purchased.connect(_on_pack_purchased)
+	GameBus.bag_full.connect(func() -> void:
+		GameBus.hud_message_requested.emit("Bag full! Sell or scrap cards to make room."))
 
 func go_to_menu() -> void:
 	_flush_position_save()

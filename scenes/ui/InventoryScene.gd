@@ -20,6 +20,7 @@ var _deck_scroll: ScrollContainer
 var _deck_count_label: Label
 var _coin_label: Label
 var _essence_label: Label
+var _slot_label: Label
 
 var _cards_panel: Control
 var _tab_cards_btn: Button
@@ -101,7 +102,7 @@ func _build_ui() -> void:
 	_cards_panel = root_box
 	wrapper.add_child(root_box)
 
-	# ---- Collection panel ----
+	# ---- Collection panel (left) ----
 	var left_vbox := VBoxContainer.new()
 	left_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left_vbox.size_flags_stretch_ratio = 1.0
@@ -114,6 +115,12 @@ func _build_ui() -> void:
 	col_title.add_theme_font_size_override("font_size", int(_vh * 0.026))
 	col_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	left_vbox.add_child(col_title)
+
+	_slot_label = Label.new()
+	_slot_label.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	_slot_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_slot_label.modulate = Color(0.8, 0.8, 0.8)
+	left_vbox.add_child(_slot_label)
 
 	_coin_label = Label.new()
 	_coin_label.add_theme_font_size_override("font_size", int(_vh * 0.022))
@@ -142,7 +149,7 @@ func _build_ui() -> void:
 	if not is_portrait:
 		root_box.add_child(VSeparator.new())
 
-	# ---- Deck panel ----
+	# ---- Deck panel (right) ----
 	var right_vbox := VBoxContainer.new()
 	right_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_vbox.size_flags_stretch_ratio = 1.0
@@ -256,14 +263,23 @@ func _refresh_cards() -> void:
 	for child in _deck_list.get_children():
 		child.queue_free()
 
-	_coin_label.text = "Coins: %d" % SceneManager.save_manager.coins
-	_essence_label.text = "Essence: %d" % SceneManager.save_manager.essence
+	var sm := SceneManager.save_manager
 
-	var all_instances: Array[Dictionary] = SceneManager.save_manager.get_owned_instances()
+	_coin_label.text    = "Coins: %d" % sm.coins
+	_essence_label.text = "Essence: %d" % sm.essence
 
-	# Group by template_id + rarity into available (not in deck) and deck counts.
-	var avail_groups: Dictionary = {}
-	var deck_groups: Dictionary = {}
+	var used: int   = sm.get_slot_count()
+	var cap: int    = sm.bag_size
+	_slot_label.text    = "Bag: %d / %d" % [used, cap]
+	_slot_label.modulate = Color(1.0, 0.35, 0.35) if used >= cap else Color(0.80, 0.80, 0.80)
+
+	var all_instances: Array[Dictionary] = sm.get_owned_instances()
+
+	# Separate into available (not in deck) vs in-deck, and common vs rare+.
+	var common_avail: Dictionary   = {}   # tid -> count
+	var rare_avail: Array[Dictionary] = []
+	var common_deck: Dictionary    = {}   # tid -> count
+	var rare_deck: Array[Dictionary]  = []
 
 	for inst: Dictionary in all_instances:
 		var uid: String    = str(inst.get("uid", ""))
@@ -271,49 +287,57 @@ func _refresh_cards() -> void:
 		var rarity: String = str(inst.get("rarity", "common"))
 		if tid == "":
 			continue
-		var key: String = tid + "|" + rarity
 		if _working_deck.has(uid):
-			if not deck_groups.has(key):
-				deck_groups[key] = {"tid": tid, "rarity": rarity, "count": 0}
-			deck_groups[key]["count"] = int(deck_groups[key]["count"]) + 1
+			if rarity == "common":
+				common_deck[tid] = int(common_deck.get(tid, 0)) + 1
+			else:
+				rare_deck.append(inst)
 		else:
-			if not avail_groups.has(key):
-				avail_groups[key] = {"tid": tid, "rarity": rarity, "count": 0}
-			avail_groups[key]["count"] = int(avail_groups[key]["count"]) + 1
+			if rarity == "common":
+				common_avail[tid] = int(common_avail.get(tid, 0)) + 1
+			else:
+				rare_avail.append(inst)
 
-	# Sort available groups: template id alphabetically, then rarity tier descending
-	var avail_keys: Array = avail_groups.keys()
-	avail_keys.sort_custom(func(a: String, b: String) -> bool:
-		var ga: Dictionary = avail_groups[a]
-		var gb: Dictionary = avail_groups[b]
-		var ta: String = str(ga["tid"])
-		var tb: String = str(gb["tid"])
-		if ta != tb:
-			return ta < tb
-		var ra: int = IsoConst.RARITY_ORDER.find(str(ga["rarity"]))
-		var rb: int = IsoConst.RARITY_ORDER.find(str(gb["rarity"]))
-		return ra > rb
-	)
+	# ---- Collection list ----
+	if not common_avail.is_empty():
+		_collection_list.add_child(_make_section_label("Common"))
+		var keys: Array = common_avail.keys()
+		keys.sort()
+		for tid: String in keys:
+			_collection_list.add_child(_make_collection_row_stacked(tid, int(common_avail[tid])))
 
-	for key: String in avail_keys:
-		var g: Dictionary = avail_groups[key]
-		_collection_list.add_child(_make_collection_row(str(g["tid"]), str(g["rarity"]), int(g["count"])))
+	if not rare_avail.is_empty():
+		_collection_list.add_child(_make_section_label("Rare & Above"))
+		rare_avail.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			var ta: String = str(a.get("template_id", ""))
+			var tb: String = str(b.get("template_id", ""))
+			if ta != tb:
+				return ta < tb
+			var ra: int = IsoConst.RARITY_ORDER.find(str(a.get("rarity", "common")))
+			var rb: int = IsoConst.RARITY_ORDER.find(str(b.get("rarity", "common")))
+			return ra > rb
+		)
+		for inst: Dictionary in rare_avail:
+			_collection_list.add_child(_make_collection_row_instance(inst))
 
-	# Sort deck groups similarly
-	var deck_keys: Array = deck_groups.keys()
-	deck_keys.sort_custom(func(a: String, b: String) -> bool:
-		var ga: Dictionary = deck_groups[a]
-		var gb: Dictionary = deck_groups[b]
-		var ta: String = str(ga["tid"])
-		var tb: String = str(gb["tid"])
-		if ta != tb:
-			return ta < tb
-		return IsoConst.RARITY_ORDER.find(str(ga["rarity"])) > IsoConst.RARITY_ORDER.find(str(gb["rarity"]))
-	)
+	# ---- Deck list ----
+	if not common_deck.is_empty():
+		var dkeys: Array = common_deck.keys()
+		dkeys.sort()
+		for tid: String in dkeys:
+			_deck_list.add_child(_make_deck_row_stacked(tid, int(common_deck[tid])))
 
-	for key: String in deck_keys:
-		var g: Dictionary = deck_groups[key]
-		_deck_list.add_child(_make_deck_row(str(g["tid"]), str(g["rarity"]), int(g["count"])))
+	if not rare_deck.is_empty():
+		rare_deck.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			var ta: String = str(a.get("template_id", ""))
+			var tb: String = str(b.get("template_id", ""))
+			if ta != tb:
+				return ta < tb
+			return IsoConst.RARITY_ORDER.find(str(a.get("rarity", "common"))) > \
+			       IsoConst.RARITY_ORDER.find(str(b.get("rarity", "common")))
+		)
+		for inst: Dictionary in rare_deck:
+			_deck_list.add_child(_make_deck_row_instance(str(inst.get("uid", "")), inst))
 
 	var deck_sz: int = _working_deck.size()
 	_deck_count_label.text = "Deck  (%d / %d)" % [deck_sz, IsoConst.DECK_MAX]
@@ -321,14 +345,13 @@ func _refresh_cards() -> void:
 		_deck_count_label.modulate = Color.RED
 	else:
 		_deck_count_label.modulate = Color.WHITE
-	# Restore scroll positions after rebuild (deferred so layout has settled)
 	if _collection_scroll and col_scroll > 0:
 		_collection_scroll.scroll_vertical = col_scroll
 	if _deck_scroll and deck_scroll > 0:
 		_deck_scroll.scroll_vertical = deck_scroll
 
 # -------------------------------------------------------------------------
-# Row builders
+# Row helpers
 # -------------------------------------------------------------------------
 
 func _rarity_color(rarity: String) -> Color:
@@ -353,18 +376,128 @@ func _stat_range_text(rolled: int, base: int, rarity: String) -> String:
 		return str(max(disp, 0))
 	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
 	var mult: float = float(cfg.get("multiplier", 1.0))
-	var var_: float = float(cfg.get("variance", 0.10))
+	var var_: float = float(cfg.get("variance", 0.0))
 	var min_val: int = roundi(float(base) * mult * (1.0 - var_))
 	var max_val: int = roundi(float(base) * mult * (1.0 + var_))
 	if min_val == max_val:
 		return str(disp)
 	return "%d (%d–%d)" % [disp, min_val, max_val]
 
-# Grouped collection row — one row per (template_id, rarity) with ×count badge.
-func _make_collection_row(tid: String, rarity: String, count: int) -> VBoxContainer:
+func _make_section_label(text: String) -> Label:
+	var lbl := Label.new()
+	lbl.text = "— %s —" % text
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.modulate = Color(0.60, 0.72, 0.92)
+	return lbl
+
+# Stacked row for common cards (all copies identical — variance = 0).
+func _make_collection_row_stacked(tid: String, count: int) -> VBoxContainer:
 	var tmpl: Dictionary  = CardRegistry.get_template(tid)
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	var card_name: String = tmpl.get("name", tid)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(_vh * 0.003))
+
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", int(_vw * 0.008))
+	vbox.add_child(top_row)
+
+	var swatch := ColorRect.new()
+	swatch.color = card_color
+	swatch.custom_minimum_size = Vector2(_vh * 0.03, _vh * 0.03)
+	top_row.add_child(swatch)
+
+	var name_lbl := Label.new()
+	name_lbl.text = card_name
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_row.add_child(name_lbl)
+
+	var count_lbl := Label.new()
+	count_lbl.text = "×%d" % count
+	count_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	count_lbl.modulate = Color(0.85, 0.85, 0.85)
+	top_row.add_child(count_lbl)
+
+	var add_btn := Button.new()
+	add_btn.text = "+"
+	add_btn.custom_minimum_size = Vector2(_vh * 0.065, _vh * 0.065)
+	add_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	add_btn.disabled = _working_deck.size() >= IsoConst.DECK_MAX
+	add_btn.pressed.connect(_on_add_by_type.bind(tid, "common"))
+	top_row.add_child(add_btn)
+
+	var base_atk: int  = int(tmpl.get("attack", 0))
+	var base_hp: int   = int(tmpl.get("health", 0))
+	var base_cost: int = int(tmpl.get("cost", 0))
+	var stats_lbl := Label.new()
+	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [base_cost, base_atk, base_hp]
+	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
+	vbox.add_child(stats_lbl)
+
+	var lpd := LongPressDetector.new()
+	vbox.add_child(lpd)
+	lpd.long_pressed.connect(func() -> void: _show_inspect(tid))
+
+	# Sell / Scrap / Combine
+	var is_unique: bool = bool(tmpl.get("is_unique", false))
+	if not is_unique:
+		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get("common", {})
+		var sell_gold: int  = int(cfg.get("sell_gold", 0))
+		var scrap_ess: int  = int(cfg.get("scrap_essence", 0))
+
+		var action_row := HBoxContainer.new()
+		action_row.add_theme_constant_override("separation", int(_vw * 0.006))
+		vbox.add_child(action_row)
+
+		var sell_btn := Button.new()
+		sell_btn.text = "Sell +%dg" % sell_gold
+		sell_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.065)
+		sell_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		sell_btn.modulate = Color(1.0, 0.9, 0.3)
+		sell_btn.pressed.connect(_do_sell_by_type.bind(tid, "common"))
+		action_row.add_child(sell_btn)
+
+		var scrap_btn := Button.new()
+		scrap_btn.text = "Scrap +%de" % scrap_ess
+		scrap_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.065)
+		scrap_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		scrap_btn.modulate = Color(0.5, 0.85, 1.0)
+		scrap_btn.pressed.connect(_do_scrap_by_type.bind(tid, "common"))
+		action_row.add_child(scrap_btn)
+
+		# Combine 3× common → 1× rare
+		var next_idx: int = IsoConst.RARITY_ORDER.find("common") + 1
+		if next_idx < IsoConst.RARITY_ORDER.size():
+			var next_rarity: String = IsoConst.RARITY_ORDER[next_idx]
+			var combine_btn := Button.new()
+			combine_btn.text = "Combine 3× → %s" % _rarity_badge(next_rarity)
+			combine_btn.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.065)
+			combine_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+			combine_btn.modulate = _rarity_color(next_rarity)
+			combine_btn.disabled = count < 3
+			combine_btn.pressed.connect(func() -> void:
+				SceneManager.save_manager.combine_cards(tid, "common")
+				_refresh_cards())
+			action_row.add_child(combine_btn)
+
+	return vbox
+
+# Individual slot for a rare/epic/legendary card — shows its specific rolled stats.
+func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
+	var uid: String    = str(inst.get("uid", ""))
+	var tid: String    = str(inst.get("template_id", ""))
+	var rarity: String = str(inst.get("rarity", "common"))
+	var tmpl: Dictionary  = CardRegistry.get_template(tid)
+	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
+	var card_name: String = tmpl.get("name", tid)
+
+	var rolled_atk: int  = int(inst.get("attack", int(tmpl.get("attack", 0))))
+	var rolled_hp: int   = int(inst.get("health", int(tmpl.get("health", 0))))
+	var rolled_cost: int = int(inst.get("cost",   int(tmpl.get("cost",   0))))
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", int(_vh * 0.003))
@@ -390,44 +523,30 @@ func _make_collection_row(tid: String, rarity: String, count: int) -> VBoxContai
 	badge_lbl.modulate = _rarity_color(rarity)
 	top_row.add_child(badge_lbl)
 
-	var count_lbl := Label.new()
-	count_lbl.text = "×%d" % count
-	count_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	count_lbl.modulate = Color(0.85, 0.85, 0.85)
-	top_row.add_child(count_lbl)
-
 	var add_btn := Button.new()
 	add_btn.text = "+"
 	add_btn.custom_minimum_size = Vector2(_vh * 0.065, _vh * 0.065)
 	add_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
 	add_btn.disabled = _working_deck.size() >= IsoConst.DECK_MAX
-	add_btn.pressed.connect(_on_add_by_type.bind(tid, rarity))
+	add_btn.pressed.connect(_on_add_by_uid.bind(uid))
 	top_row.add_child(add_btn)
 
-	var base_atk: int  = int(tmpl.get("attack", 0))
-	var base_hp: int   = int(tmpl.get("health", 0))
-	var base_cost: int = int(tmpl.get("cost", 0))
-
+	# Rolled stats (specific to this instance)
 	var stats_lbl := Label.new()
-	stats_lbl.text = "Cost %d  ATK %s  HP %s" % [
-		base_cost,
-		_stat_range_text(-1, base_atk, rarity),
-		_stat_range_text(-1, base_hp,  rarity),
-	]
+	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp]
 	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
+	stats_lbl.modulate = _rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55)
 	vbox.add_child(stats_lbl)
 
-	var lpd_col := LongPressDetector.new()
-	vbox.add_child(lpd_col)
-	lpd_col.long_pressed.connect(func() -> void: _show_inspect(tid))
+	var lpd := LongPressDetector.new()
+	vbox.add_child(lpd)
+	lpd.long_pressed.connect(func() -> void: _show_inspect(tid))
 
 	var is_unique: bool = bool(tmpl.get("is_unique", false))
 	if not is_unique:
-		var cfg: Dictionary     = IsoConst.RARITY_CONFIG.get(rarity, {})
-		var sell_gold: int      = int(cfg.get("sell_gold", 0))
-		var scrap_ess: int      = int(cfg.get("scrap_essence", 0))
-		var needs_confirm: bool = rarity == "epic" or rarity == "legendary"
+		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+		var sell_gold: int  = int(cfg.get("sell_gold", 0))
+		var scrap_ess: int  = int(cfg.get("scrap_essence", 0))
 
 		var action_row := HBoxContainer.new()
 		action_row.add_theme_constant_override("separation", int(_vw * 0.006))
@@ -443,11 +562,10 @@ func _make_collection_row(tid: String, rarity: String, count: int) -> VBoxContai
 		sell_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.065)
 		sell_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		sell_btn.modulate = Color(1.0, 0.9, 0.3)
-		if needs_confirm:
-			sell_btn.pressed.connect(func() -> void:
-				_show_confirm(action_row, confirm_row, "Sell", func() -> void: _do_sell_by_type(tid, rarity)))
-		else:
-			sell_btn.pressed.connect(_do_sell_by_type.bind(tid, rarity))
+		sell_btn.pressed.connect(func() -> void:
+			_show_confirm(action_row, confirm_row, "Sell", func() -> void:
+				SceneManager.save_manager.sell_card_instance(uid)
+				_refresh_cards()))
 		action_row.add_child(sell_btn)
 
 		var scrap_btn := Button.new()
@@ -455,32 +573,16 @@ func _make_collection_row(tid: String, rarity: String, count: int) -> VBoxContai
 		scrap_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.065)
 		scrap_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 		scrap_btn.modulate = Color(0.5, 0.85, 1.0)
-		if needs_confirm:
-			scrap_btn.pressed.connect(func() -> void:
-				_show_confirm(action_row, confirm_row, "Scrap", func() -> void: _do_scrap_by_type(tid, rarity)))
-		else:
-			scrap_btn.pressed.connect(_do_scrap_by_type.bind(tid, rarity))
+		scrap_btn.pressed.connect(func() -> void:
+			_show_confirm(action_row, confirm_row, "Scrap", func() -> void:
+				SceneManager.save_manager.scrap_card_instance(uid)
+				_refresh_cards()))
 		action_row.add_child(scrap_btn)
-
-		if rarity != "legendary":
-			var next_rarity_idx: int = IsoConst.RARITY_ORDER.find(rarity) + 1
-			var next_rarity_str: String = IsoConst.RARITY_ORDER[next_rarity_idx] if next_rarity_idx < IsoConst.RARITY_ORDER.size() else ""
-			if next_rarity_str != "":
-				var combine_btn := Button.new()
-				combine_btn.text = "Combine 3× → %s" % _rarity_badge(next_rarity_str)
-				combine_btn.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.065)
-				combine_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
-				combine_btn.modulate = _rarity_color(next_rarity_str)
-				combine_btn.disabled = count < 3
-				combine_btn.pressed.connect(func() -> void:
-					SceneManager.save_manager.combine_cards(tid, rarity)
-					_refresh_cards())
-				action_row.add_child(combine_btn)
 
 	return vbox
 
-# Grouped deck row — one row per (template_id, rarity) with ×count badge.
-func _make_deck_row(tid: String, rarity: String, count: int) -> VBoxContainer:
+# Stacked deck row for common cards.
+func _make_deck_row_stacked(tid: String, count: int) -> VBoxContainer:
 	var tmpl: Dictionary  = CardRegistry.get_template(tid)
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	var card_name: String = tmpl.get("name", tid)
@@ -502,12 +604,6 @@ func _make_deck_row(tid: String, rarity: String, count: int) -> VBoxContainer:
 	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(name_lbl)
-
-	var badge_lbl := Label.new()
-	badge_lbl.text = _rarity_badge(rarity)
-	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	badge_lbl.modulate = _rarity_color(rarity)
-	top_row.add_child(badge_lbl)
 
 	var count_lbl := Label.new()
 	count_lbl.text = "×%d" % count
@@ -528,26 +624,85 @@ func _make_deck_row(tid: String, rarity: String, count: int) -> VBoxContainer:
 			rm_btn.disabled = true
 			rm_btn.tooltip_text = "Minimum deck size reached"
 	else:
-		rm_btn.pressed.connect(_on_remove_by_type.bind(tid, rarity))
+		rm_btn.pressed.connect(_on_remove_by_type.bind(tid, "common"))
 	top_row.add_child(rm_btn)
 
 	var base_atk: int  = int(tmpl.get("attack", 0))
 	var base_hp: int   = int(tmpl.get("health", 0))
 	var base_cost: int = int(tmpl.get("cost", 0))
-
 	var stats_lbl := Label.new()
-	stats_lbl.text = "Cost %d  ATK %s  HP %s" % [
-		base_cost,
-		_stat_range_text(-1, base_atk, rarity),
-		_stat_range_text(-1, base_hp,  rarity),
-	]
+	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [base_cost, base_atk, base_hp]
 	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
 	vbox.add_child(stats_lbl)
 
-	var lpd_deck := LongPressDetector.new()
-	vbox.add_child(lpd_deck)
-	lpd_deck.long_pressed.connect(func() -> void: _show_inspect(tid))
+	var lpd := LongPressDetector.new()
+	vbox.add_child(lpd)
+	lpd.long_pressed.connect(func() -> void: _show_inspect(tid))
+
+	return vbox
+
+# Individual deck slot for a rare/epic/legendary card — shows its rolled stats.
+func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
+	var tid: String    = str(inst.get("template_id", uid))
+	var rarity: String = str(inst.get("rarity", "common"))
+	var tmpl: Dictionary  = CardRegistry.get_template(tid)
+	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
+	var card_name: String = tmpl.get("name", tid)
+
+	var rolled_atk: int  = int(inst.get("attack", int(tmpl.get("attack", 0))))
+	var rolled_hp: int   = int(inst.get("health", int(tmpl.get("health", 0))))
+	var rolled_cost: int = int(inst.get("cost",   int(tmpl.get("cost",   0))))
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(_vh * 0.003))
+
+	var top_row := HBoxContainer.new()
+	top_row.add_theme_constant_override("separation", int(_vw * 0.008))
+	vbox.add_child(top_row)
+
+	var swatch := ColorRect.new()
+	swatch.color = card_color
+	swatch.custom_minimum_size = Vector2(_vh * 0.03, _vh * 0.03)
+	top_row.add_child(swatch)
+
+	var name_lbl := Label.new()
+	name_lbl.text = card_name
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_row.add_child(name_lbl)
+
+	var badge_lbl := Label.new()
+	badge_lbl.text = _rarity_badge(rarity)
+	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	badge_lbl.modulate = _rarity_color(rarity)
+	top_row.add_child(badge_lbl)
+
+	var rm_btn := Button.new()
+	rm_btn.text = "−"
+	rm_btn.custom_minimum_size = Vector2(_vh * 0.065, _vh * 0.065)
+	rm_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	if _working_deck.size() <= IsoConst.DECK_MIN:
+		if OS.has_feature("android"):
+			rm_btn.modulate = Color(1, 1, 1, 0.4)
+			rm_btn.pressed.connect(func() -> void:
+				GameBus.hud_message_requested.emit("Minimum deck size reached"))
+		else:
+			rm_btn.disabled = true
+			rm_btn.tooltip_text = "Minimum deck size reached"
+	else:
+		rm_btn.pressed.connect(_on_remove_by_uid.bind(uid))
+	top_row.add_child(rm_btn)
+
+	var stats_lbl := Label.new()
+	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp]
+	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	stats_lbl.modulate = _rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55)
+	vbox.add_child(stats_lbl)
+
+	var lpd := LongPressDetector.new()
+	vbox.add_child(lpd)
+	lpd.long_pressed.connect(func() -> void: _show_inspect(tid))
 
 	return vbox
 
@@ -559,7 +714,7 @@ func _make_craft_row(recipe: Object, player_essence: int) -> HBoxContainer:
 	var tid: String    = str(recipe.template_id)
 	var rarity: String = str(recipe.rarity)
 	var cost: int      = int(recipe.essence_cost)
-	var tmpl: Dictionary = CardRegistry.get_template(tid)
+	var tmpl: Dictionary  = CardRegistry.get_template(tid)
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	var card_name: String = tmpl.get("name", tid)
 
@@ -640,10 +795,10 @@ func _show_confirm(action_row: HBoxContainer, confirm_row: HBoxContainer, label:
 	confirm_row.add_child(no_btn)
 
 # -------------------------------------------------------------------------
-# Actions
+# Deck mutation actions
 # -------------------------------------------------------------------------
 
-# Add one copy of (tid, rarity) from the collection into the working deck.
+# Add one common copy of tid to the working deck.
 func _on_add_by_type(tid: String, rarity: String) -> void:
 	if _working_deck.size() >= IsoConst.DECK_MAX:
 		return
@@ -655,7 +810,14 @@ func _on_add_by_type(tid: String, rarity: String) -> void:
 				_refresh_cards()
 				return
 
-# Remove one copy of (tid, rarity) from the working deck back to the collection.
+# Add a specific rare/epic/legendary instance by UID.
+func _on_add_by_uid(uid: String) -> void:
+	if _working_deck.size() >= IsoConst.DECK_MAX or _working_deck.has(uid):
+		return
+	_working_deck.append(uid)
+	_refresh_cards()
+
+# Remove one common copy of tid from the working deck.
 func _on_remove_by_type(tid: String, rarity: String) -> void:
 	for uid: String in _working_deck:
 		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(uid)
@@ -664,7 +826,12 @@ func _on_remove_by_type(tid: String, rarity: String) -> void:
 			_refresh_cards()
 			return
 
-# Returns the first available (non-deck) UID for (tid, rarity), or "" if none.
+# Remove a specific rare/epic/legendary instance by UID.
+func _on_remove_by_uid(uid: String) -> void:
+	_working_deck.erase(uid)
+	_refresh_cards()
+
+# Returns the first non-deck copy UID for (tid, rarity), or "".
 func _find_available_uid(tid: String, rarity: String) -> String:
 	for inst: Dictionary in SceneManager.save_manager.get_owned_instances():
 		if str(inst.get("template_id", "")) == tid and str(inst.get("rarity", "")) == rarity:
@@ -686,6 +853,10 @@ func _do_scrap_by_type(tid: String, rarity: String) -> void:
 		return
 	SceneManager.save_manager.scrap_card_instance(uid)
 	_refresh_cards()
+
+# -------------------------------------------------------------------------
+# Tab + craft
+# -------------------------------------------------------------------------
 
 func _on_tab_cards() -> void:
 	_cards_panel.visible = true
@@ -720,8 +891,7 @@ func _refresh_craft() -> void:
 
 	var player_essence: int = SceneManager.save_manager.essence
 	for recipe in recipes:
-		var row := _make_craft_row(recipe, player_essence)
-		_craft_list.add_child(row)
+		_craft_list.add_child(_make_craft_row(recipe, player_essence))
 
 func _show_inspect(card_id: String) -> void:
 	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
