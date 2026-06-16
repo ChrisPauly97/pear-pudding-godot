@@ -13,7 +13,7 @@ Isfig already exists in the Chapter 1 flag sequence (as the open-world encounter
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-194 | Rival framework: encounter tiers keyed to story flags + player level, deck definitions, save fields | agent | done | — |
-| TID-195 | Rival encounters: spawn/dialogue/battle wiring at three story beats in named maps | agent | pending | TID-194 |
+| TID-195 | Rival encounters: spawn/dialogue/battle wiring at three story beats in named maps | agent | done | TID-194 |
 | TID-196 | Final showdown + unique card reward + journal entry | agent | pending | TID-195 |
 
 ## Acceptance Criteria

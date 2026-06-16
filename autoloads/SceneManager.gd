@@ -473,15 +473,18 @@ func _on_battle_won(result: Dictionary) -> void:
 	# Read enemy context before clearing pending_battle.
 	var enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
 	var is_boss: bool = bool(save_manager.pending_battle_enemy_data.get("is_boss", false))
+	var is_rival: bool = enemy_type.begins_with("rival_")
+	var captured_enemy_id: String = _current_battle_enemy_id
 	var drop_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
 	if is_boss:
 		drop_tier = 4
 	if not _current_battle_enemy_id.is_empty():
-		save_manager.mark_enemy_defeated(_current_battle_enemy_id)
-		save_manager.increment_progress("enemies_defeated", 1)
-		session_stats["enemies_defeated"] = int(session_stats.get("enemies_defeated", 0)) + 1
+		if not is_rival:
+			save_manager.mark_enemy_defeated(_current_battle_enemy_id)
+			save_manager.increment_progress("enemies_defeated", 1)
+			session_stats["enemies_defeated"] = int(session_stats.get("enemies_defeated", 0)) + 1
 		_current_battle_enemy_id = ""
-	if enemy_type != "":
+	if enemy_type != "" and not is_rival:
 		save_manager.record_enemy_defeated(enemy_type)
 		save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": enemy_type})
 	save_manager.increment_progress("battles_won", 1)
@@ -520,6 +523,15 @@ func _on_battle_won(result: Dictionary) -> void:
 		xp_amount = int(xp_amount * 2)
 	save_manager.add_xp(xp_amount)
 	session_stats["xp_earned"] = int(session_stats.get("xp_earned", 0)) + xp_amount
+	# Rival encounter win: don't count as standard kill; update rival progress instead.
+	if is_rival:
+		if enemy_type == "rival_isfig_3":
+			save_manager.set_rival_defeated()
+		else:
+			save_manager.record_rival_win()
+			if captured_enemy_id == "rival_enc2":
+				save_manager.set_story_flag("chapter1_received_letter")
+		GameBus.rival_encounter_won.emit(save_manager.rival_encounters_won)
 	save_manager.clear_pending_battle()
 	save_manager.clear_pending_battle_state()
 	if _battle_overlay != null:

@@ -58,6 +58,7 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_siege_timeout.gd"),
 	preload("res://tests/unit/test_siege_defeat.gd"),
 	preload("res://tests/unit/test_rival.gd"),
+	preload("res://tests/unit/test_rival_encounters.gd"),
 ]
 
 
