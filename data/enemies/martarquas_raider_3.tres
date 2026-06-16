@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://ebapu6cjbjw2"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_raider3"]
+
+[resource]
+script = ExtResource("1_raider3")
+id = "martarquas_raider_3"
+display_name = "Martarquas Warlord"
+deck = PackedStringArray("ghost", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul")
+drop_pool = PackedStringArray()
+coin_reward = 0
+difficulty_tier = 3
+lore_text = "The siege commander — where lesser raiders hesitated, this one drove them forward. Defeat the Warlord and the siege collapses. The town will owe you a debt it cannot easily repay."

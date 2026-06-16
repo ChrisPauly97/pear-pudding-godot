@@ -86,3 +86,7 @@ signal bounty_completed(bounty_id: String)
 signal blacksmith_requested
 signal weapon_upgraded(weapon_id: String, new_level: int)
 signal weapon_salvaged(weapon_id: String, coins: int, essence: int)
+
+# Siege signals
+signal siege_victory
+signal siege_defeated(coins_lost: int)

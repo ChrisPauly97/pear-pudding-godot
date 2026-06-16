@@ -3,14 +3,17 @@ extends Node
 const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
 
 # Keep preloads so the export scanner packages these .tres files in the APK.
-const _E_DUELIST_ADEPT    := preload("res://data/enemies/duelist_adept.tres")
-const _E_DUELIST_CHAMPION := preload("res://data/enemies/duelist_champion.tres")
-const _E_DUELIST_NOVICE   := preload("res://data/enemies/duelist_novice.tres")
-const _E_GHOUL_PACK       := preload("res://data/enemies/ghoul_pack.tres")
-const _E_ROAMING_TERROR   := preload("res://data/enemies/roaming_terror.tres")
-const _E_UNDEAD_BASIC     := preload("res://data/enemies/undead_basic.tres")
-const _E_UNDEAD_ELITE     := preload("res://data/enemies/undead_elite.tres")
-const _E_UNDEAD_HORDE     := preload("res://data/enemies/undead_horde.tres")
+const _E_DUELIST_ADEPT        := preload("res://data/enemies/duelist_adept.tres")
+const _E_DUELIST_CHAMPION     := preload("res://data/enemies/duelist_champion.tres")
+const _E_DUELIST_NOVICE       := preload("res://data/enemies/duelist_novice.tres")
+const _E_GHOUL_PACK           := preload("res://data/enemies/ghoul_pack.tres")
+const _E_ROAMING_TERROR       := preload("res://data/enemies/roaming_terror.tres")
+const _E_UNDEAD_BASIC         := preload("res://data/enemies/undead_basic.tres")
+const _E_UNDEAD_ELITE         := preload("res://data/enemies/undead_elite.tres")
+const _E_UNDEAD_HORDE         := preload("res://data/enemies/undead_horde.tres")
+const _E_MARTARQUAS_RAIDER_1  := preload("res://data/enemies/martarquas_raider_1.tres")
+const _E_MARTARQUAS_RAIDER_2  := preload("res://data/enemies/martarquas_raider_2.tres")
+const _E_MARTARQUAS_RAIDER_3  := preload("res://data/enemies/martarquas_raider_3.tres")
 
 static var _enemies: Dictionary = {}
 static var _loaded: bool = false
@@ -112,6 +115,39 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": ["void_wyrm", "void_wyrm", "soul_rend", "soul_rend", "dusk_vampire", "dusk_vampire", "drain", "wither", "dark_pact", "blitz_ghoul", "blitz_ghoul", "ghoul", "ghoul", "ghoul", "void_creeper", "void_creeper"],
 			"difficulty_tier": 4,
 			"lore_text": "An ancient horror that drifts the borderlands, drawn by conflict and chaos. When the Martarquas surge, this creature follows in their wake — and grows more dangerous as it is wounded.",
+		},
+		"martarquas_raider_1": {
+			"display_name": "Martarquas Raider",
+			"deck": ["ghost", "ghost", "zombie", "zombie", "ghoul"],
+			"drop_pool": [],
+			"coin_reward": 0,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 1,
+			"lore_text": "A Martarquas footsoldier, freshly blooded on raids through the border villages. Their early confidence hides a lack of experience — overcome them and the tribe's advance falters.",
+		},
+		"martarquas_raider_2": {
+			"display_name": "Martarquas Veteran",
+			"deck": ["ghost", "skeleton", "zombie", "zombie", "ghoul", "ghoul"],
+			"drop_pool": [],
+			"coin_reward": 0,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 2,
+			"lore_text": "A veteran of many raids, this Martarquas warrior fights with practiced brutality. The town guard has already fallen back — it falls to you to hold the gate.",
+		},
+		"martarquas_raider_3": {
+			"display_name": "Martarquas Warlord",
+			"deck": ["ghost", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul"],
+			"drop_pool": [],
+			"coin_reward": 0,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 3,
+			"lore_text": "The siege commander — where lesser raiders hesitated, this one drove them forward. Defeat the Warlord and the siege collapses. The town will owe you a debt it cannot easily repay.",
 		},
 	}
 

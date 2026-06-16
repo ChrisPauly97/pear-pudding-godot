@@ -12,9 +12,9 @@ The Martarquas tribe is the story's rising threat but never does anything. Siege
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-197 | Siege model: trigger conditions, 3-battle gauntlet state with carry-over hero HP, save fields | agent | pending | — |
-| TID-198 | Siege presentation: raider entities at the town gate, start/retreat flow, siege banner HUD state | agent | pending | TID-197 |
-| TID-199 | Victory rewards + town gratitude shop discount + defeat consequence | agent | pending | TID-197 |
+| TID-197 | Siege model: trigger conditions, 3-battle gauntlet state with carry-over hero HP, save fields | agent | done | — |
+| TID-198 | Siege presentation: raider entities at the town gate, start/retreat flow, siege banner HUD state | agent | done | TID-197 |
+| TID-199 | Victory rewards + town gratitude shop discount + defeat consequence | agent | done | TID-197 |
 
 ## Acceptance Criteria
 

@@ -159,6 +159,13 @@ func _ready() -> void:
 			var _spire_hp: int = int(SceneManager.save_manager.get_spire_run().get("hero_hp", 30))
 			if _spire_hp > 0:
 				_state.players[0].hero.health = mini(_spire_hp, _state.players[0].hero.max_health)
+		# Siege gauntlet: hero HP carries over from the previous stage.
+		var _siege_state: Dictionary = SceneManager.save_manager.get_active_siege()
+		if not _siege_state.is_empty():
+			var _siege_hp: int = int(_siege_state.get("hero_hp", 30))
+			if _siege_hp > 0:
+				_state.players[0].hero.health = _siege_hp
+				_state.players[0].hero.max_health = _siege_hp
 
 		# Enemy deck — scale card stats by enemy difficulty tier
 		var _enemy_type: String = str(enemy_data.get("enemy_type", ""))
