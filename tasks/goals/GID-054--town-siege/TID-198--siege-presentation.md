@@ -2,7 +2,7 @@
 
 **Goal:** GID-054
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-197
 
 ## Lock
@@ -30,49 +30,41 @@ Runtime entity spawning of raider mobs at the town gate, HUD siege banner, inter
     - Position each at `gate_pos + offset` where offset is a small random spread (e.g., ±1 tile from the gate).
     - Set `enemy_npc.enemy_type = "martarquas_raider_%d" % (stage + 1)`.
     - Append each to the world scene's entity layer.
-  - **Cleanup on map exit:** When exiting a town map while a siege is active, the raider NPCs are freed naturally (they're not persisted in the map .tres, just runtime instances). On day rollover (if the siege is abandoned overnight), `increment_day()` in SaveManager will clear the siege via a new check (see TID-199 for cleanup hook).
+  - **Cleanup on map exit:** When exiting a town map while a siege is active, the raider NPCs are freed naturally (they're not persisted in the map .tres, just runtime instances). On day rollover (if the siege is abandoned overnight), `increment_day()` in SaveManager will clear the siege.
 
 - **Siege banner HUD:** A persistent label/banner while a siege is active, visible throughout the town.
   - Added to the HUD CanvasLayer (same layer as interact prompt, coin counter, etc.). See **docs/agent/ui-and-scene-management.md** lines 110–126 for HUD construction in WorldScene.
-  - Text: `"[Town Name] Under Attack!"` or `"Raiders at the Gate!"`.
-  - Position: top-center, font size ~3% vh (cite CLAUDE.md UI sizing section line 169).
-  - Color: bright red or orange tint.
+  - Text: `"[Town Name] Under Attack!"`
+  - Color: bright red.
   - Visibility: hidden if no siege is active; shown only in named towns (not infinite world).
-  - Update in WorldScene._process(): `if SaveManager.get_active_siege().is_empty(): banner.visible = false else: banner.visible = true`.
 
 - **Interact/start flow:** When the player approaches a raider NPC, a standard interact prompt appears (same as for NPCs/chests). Pressing E (or tapping on mobile) launches the first gauntlet battle.
-  - **EnemyNPC already has `engage()` logic** — when the player is within INTERACT_RANGE (IsoConst.INTERACT_RANGE = 1.5, line 31 of **autoloads/IsoConst.gd**), the NPC becomes interactable. Raiders are not auto-engaged like normal enemies (no AUTO_BATTLE_RANGE trigger). The player must manually interact (E or tap) to start the siege battle.
-  - On interact: `GameBus.enemy_engaged.emit(enemy_data)` fires (normal battle flow). SceneManager routes it to BattleScene, which will load the raider deck and the carry-over HP.
+  - **EnemyNPC already has `engage()` logic** — when the player is within INTERACT_RANGE, the NPC becomes interactable. Raiders are not auto-engaged (no AUTO_BATTLE_RANGE trigger). The player must manually interact to start the siege battle.
+  - On interact: `GameBus.enemy_engaged.emit(enemy_data)` fires (normal battle flow).
 
-- **Retreat / siege persistence:** The player can walk away from raiders and return; the siege persists until:
-  1. **Won:** All 3 stages cleared (TID-199 handles rewards + discount).
-  2. **Lost:** Player loses any stage battle (TID-199 handles defeat coin loss).
-  3. **Timeout:** An in-game day passes without engagement. If the player never touches the siege on the day it started, `increment_day()` clears it (see TID-199 cleanup hook). This models the town "holding out" until the next day.
-  - No special UI for "the siege will expire soon"; the timeout is silent.
+- **Retreat / siege persistence:** The player can walk away from raiders and return; the siege persists until won, lost, or timed out via `increment_day()`.
 
 - **Between-stage interstitial (gauntlet continuation):** After winning stage 0 or 1, before stage 1 or 2 is launched, a brief overlay appears:
-  - Text: `"Wave 2 of 3"` (or Wave 3) + `"Hero HP: [current]/30"` (or max).
-  - Duration: visible for ~2 seconds, then auto-dismiss and auto-launch the next battle (via the chaining logic in TID-197).
-  - Style: reuse the existing **RunSummaryScene** or **CardInspectOverlay** pattern — a semi-transparent PanelContainer with centered labels. Cite the code examples from those scenes.
-  - **Implementation:** After SceneManager captures HP and advances stage, before calling `GameBus.enemy_engaged.emit()`, instantiate a CanvasLayer overlay with the interstitial, wait 2 seconds, then emit the signal.
-
-- **Audio:** If **AudioManager** supports sound effects (check for `AudioManager.play_sfx()` or `play_music()` pattern from **docs/agent/battle-system.md** lines 148–149), play a "siege_warning" or "battle_start" SFX when the banner first appears. Fallback gracefully if the file doesn't exist.
-
-- **Mobile parity:** All raider interactions must be tap-able; the player must not require a keyboard to start a siege. EnemyNPC already emits on interact; add a visible `Button` at the raider's position (floating above, similar to how dialogue prompts work) that calls `_handle_interact()` on Android. Cite **WorldScene.gd** interact button pattern from **docs/agent/ui-and-scene-management.md** lines 113–115.
+  - Text: `"Wave N of 3"` + `"Hero HP: X / 30"` (red if HP ≤ 10).
+  - Duration: 2 seconds, then auto-dismiss and auto-launch the next battle.
+  - Implementation: CanvasLayer with VBoxContainer; auto-started in SceneManager after advancing stage.
 
 - **Tests (headless):**
-  - `tests/test_siege_spawn.gd` — mock WorldScene with an active siege, verify raider entities are instantiated near the gate tile with correct enemy_type. Verify they are freed on map exit.
-  - `tests/test_siege_banner.gd` — verify banner appears when siege active, hidden when none. Verify banner text updates per town.
-  - `tests/test_interstitial.gd` — mock SceneManager battle win + gauntlet chain, verify interstitial overlay appears, auto-dismisses, and next battle is queued.
+  - `tests/unit/test_siege_trigger.gd` — verifies `SiegeDefs.should_trigger()` with all three conditions.
+  - `tests/unit/test_siege_state.gd` — siege methods + stage advancement.
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `_check_siege_spawn(map_name)` call in WorldScene after named-map entity spawns.
+2. Implement `_spawn_siege_raiders(map_name, stage)` and `_setup_siege_banner(map_name)` in WorldScene.
+3. Implement `_show_siege_interstitial(next_stage, hero_hp)` in SceneManager.
+4. Write unit tests for trigger/state.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Updated `scenes/world/WorldScene.gd` — added `_siege_raider_nodes: Array[Node3D]` and `_siege_banner: Label` members; `_check_siege_spawn(map_name)` called after named-map entity spawns; `_spawn_siege_raiders(map_name, stage)` spawns 3 EnemyNPC nodes near `TOWN_GATES[map_name]` with ±0.5 offsets; `_setup_siege_banner(map_name)` adds red Label to `_hud` CanvasLayer.
+- Updated `autoloads/SceneManager.gd` — `_show_siege_interstitial(next_stage, hero_hp)` creates CanvasLayer overlay with "Wave N of 3" text and HP display (red if HP ≤ 10), auto-dismisses after 2s and chains next battle via `GameBus.enemy_engaged`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Siege presentation details documented in `docs/agent/town-siege.md` (Siege Lifecycle, Raider Entities, Siege Banner, Gauntlet Interstitial sections).

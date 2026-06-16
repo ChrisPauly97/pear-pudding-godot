@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://kv17w0a15hxg"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_raider2"]
+
+[resource]
+script = ExtResource("1_raider2")
+id = "martarquas_raider_2"
+display_name = "Martarquas Veteran"
+deck = PackedStringArray("ghost", "skeleton", "zombie", "zombie", "ghoul", "ghoul")
+drop_pool = PackedStringArray()
+coin_reward = 0
+difficulty_tier = 2
+lore_text = "A veteran of many raids, this Martarquas warrior fights with practiced brutality. The town guard has already fallen back — it falls to you to hold the gate."

@@ -57,7 +57,7 @@
 | [GID-051](goals/GID-051--bounty-board/goal.md) | Bounty Board Contracts | done | 3 / 3 |
 | [GID-052](goals/GID-052--blacksmith-upgrades/goal.md) | Blacksmith Weapon Upgrades | done | 3 / 3 |
 | [GID-053](goals/GID-053--rival-isfig/goal.md) | The Rival — Isfig's Shadow | pending | 0 / 3 |
-| [GID-054](goals/GID-054--town-siege/goal.md) | Town Siege Defense | pending | 0 / 3 |
+| [GID-054](goals/GID-054--town-siege/goal.md) | Town Siege Defense | done | 3 / 3 |
 | [GID-055](goals/GID-055--night-hunts/goal.md) | Night Hunts | pending | 0 / 3 |
 | [GID-056](goals/GID-056--home-garden-potions/goal.md) | Home Garden & Potion Brewing | pending | 0 / 4 |
 | [GID-057](goals/GID-057--dungeon-secrets/goal.md) | Dungeon Secrets & Mimics | pending | 0 / 3 |

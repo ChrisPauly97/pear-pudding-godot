@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://0i2e393oih8e"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_raider1"]
+
+[resource]
+script = ExtResource("1_raider1")
+id = "martarquas_raider_1"
+display_name = "Martarquas Raider"
+deck = PackedStringArray("ghost", "ghost", "zombie", "zombie", "ghoul")
+drop_pool = PackedStringArray()
+coin_reward = 0
+difficulty_tier = 1
+lore_text = "A Martarquas footsoldier, freshly blooded on raids through the border villages. Their early confidence hides a lack of experience — overcome them and the tribe's advance falters."

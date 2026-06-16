@@ -17,6 +17,9 @@ var _custom_stock: Array[String] = []   # if non-empty, only show these cards
 var _custom_price: int = 0              # 0 = use CARD_PRICE
 var _custom_title: String = ""          # "" = use default title
 
+# Town gratitude discount: set by SceneManager from current_map before add_child().
+var town_name: String = ""
+
 var _vh: float = 0.0
 var _vw: float = 0.0
 var _coin_label: Label
@@ -102,6 +105,8 @@ func _refresh() -> void:
 	var coins: int = SceneManager.save_manager.coins
 	_coin_label.text = "Your coins: %d" % coins
 
+	var discounted: bool = town_name != "" and SceneManager.save_manager.is_town_discounted(town_name)
+
 	# Traveling merchant: show only custom stock at premium price, no weapons.
 	if not _custom_stock.is_empty():
 		var price: int = _custom_price if _custom_price > 0 else CARD_PRICE
@@ -123,8 +128,10 @@ func _refresh() -> void:
 		_shop_list.add_child(_make_pack_row(pack_id, pack_def, coins))
 
 	# ---- Cards section ---------------------------------------------------
-	_shop_list.add_child(_make_section_header("— Cards —"))
+	var card_header: String = "— Cards (20% off — Town Discount) —" if discounted else "— Cards —"
+	_shop_list.add_child(_make_section_header(card_header))
 
+	var effective_card_price: int = int(CARD_PRICE * 0.8) if discounted else CARD_PRICE
 	var unlocked_ach: Array[String] = SceneManager.save_manager.unlocked_achievements
 	for id: String in CardRegistry.get_all_ids():
 		var tmpl: Dictionary = CardRegistry.get_template(id)
@@ -132,11 +139,12 @@ func _refresh() -> void:
 			continue
 		if not CardRegistry.is_unlocked(id, unlocked_ach):
 			continue
-		var row := _make_card_row(id, tmpl, coins)
+		var row := _make_card_row(id, tmpl, coins, effective_card_price)
 		_shop_list.add_child(row)
 
 	# ---- Weapons section -------------------------------------------------
-	_shop_list.add_child(_make_section_header("— Weapons —"))
+	var weapon_header: String = "— Weapons (20% off) —" if discounted else "— Weapons —"
+	_shop_list.add_child(_make_section_header(weapon_header))
 
 	var owned_w: Array[String] = SceneManager.save_manager.get_owned_by_slot("weapon")
 	var any_weapon := false
@@ -147,6 +155,8 @@ func _refresh() -> void:
 		if weapon == null:
 			continue
 		var price: int = _weapon_price(weapon)
+		if discounted:
+			price = int(price * 0.8)
 		var row := _make_weapon_row(wid, weapon, price, coins)
 		_shop_list.add_child(row)
 		any_weapon = true
@@ -161,19 +171,19 @@ func _refresh() -> void:
 
 	# ---- Armor section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Armor —"))
-	_add_equipment_section("armor", SceneManager.save_manager.owned_armor, coins)
+	_add_equipment_section("armor", SceneManager.save_manager.owned_armor, coins, discounted)
 
 	# ---- Rings section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Rings —"))
-	_add_equipment_section("ring", SceneManager.save_manager.owned_rings, coins)
+	_add_equipment_section("ring", SceneManager.save_manager.owned_rings, coins, discounted)
 
 	# ---- Trinkets section ------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Trinkets —"))
-	_add_equipment_section("trinket", SceneManager.save_manager.owned_trinkets, coins)
+	_add_equipment_section("trinket", SceneManager.save_manager.owned_trinkets, coins, discounted)
 	if _shop_scroll and saved_scroll > 0:
 		_shop_scroll.scroll_vertical = saved_scroll
 
-func _add_equipment_section(slot: String, owned: Array[String], coins: int) -> void:
+func _add_equipment_section(slot: String, owned: Array[String], coins: int, discounted: bool = false) -> void:
 	var any_item := false
 	for eid: String in WeaponRegistry.get_by_slot(slot):
 		if owned.has(eid):
@@ -182,6 +192,8 @@ func _add_equipment_section(slot: String, owned: Array[String], coins: int) -> v
 		if weapon == null:
 			continue
 		var price: int = _weapon_price(weapon)
+		if discounted:
+			price = int(price * 0.8)
 		var row := _make_equipment_row(eid, weapon, price, coins)
 		_shop_list.add_child(row)
 		any_item = true

@@ -2,7 +2,7 @@
 
 **Goal:** GID-054
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -38,66 +38,48 @@ The pure data model and logic for siege triggering, gauntlet progression, hero H
   - `siege: Dictionary = {}` — active siege state; structure: `{ town: String, stage: int, hero_hp: int, day_started: int }`. Empty dict `{}` means no active siege.
   - `last_siege_day: int = 0` — the `days_elapsed` value when the last siege ended (win or loss); used in cooldown check.
   - Add both to `_migrate()` (e.g., after line 121 in **autoloads/SaveManager.gd**) with defaults: `siege = {}`, `last_siege_day = 0`.
-  - **Migration version:** Next version is 15 (current is 14, line 106 of SaveManager.gd). Add comment `# v15: siege, last_siege_day` in the migration history table (insert new row after line 106).
+  - **Migration version:** Next version is 31 (current was 30). Added `_migrate_v30_to_v31()`.
   - Methods:
     - `start_siege(town: String) -> void` — sets `siege = { town, stage: 0, hero_hp: 30, day_started: days_elapsed }` and marks dirty.
     - `get_active_siege() -> Dictionary` — returns `siege` (or empty dict if none).
     - `advance_siege_stage() -> void` — increments `stage` from 0 to 1 to 2 and marks dirty.
     - `set_siege_hero_hp(hp: int) -> void` — updates `siege["hero_hp"]` = hp.
-    - `end_siege_victory() -> void` — sets `last_siege_day = days_elapsed`, clears `siege = {}`, marks dirty.
-    - `end_siege_defeat() -> void` — same as victory; both are identical except they may trigger different outcome logic in WorldScene/SceneManager.
+    - `end_siege_victory() -> void` — sets `last_siege_day = days_elapsed`, calls `apply_town_discount(town)`, clears `siege = {}`, marks dirty.
+    - `end_siege_defeat() -> void` — sets `last_siege_day = days_elapsed`, clears `siege = {}`, marks dirty (no discount).
 
-- **Carry-over HP injection:** The player's hero HP must be read from `siege["hero_hp"]` when building the gauntlet battle if one is active, instead of the default 30.
-  - **BattleScene.gd _ready() path:** After checking `pending_battle_state` (around line 248 per **docs/agent/battle-system.md** line 246), check `save_manager.get_active_siege()`. If a siege is active:
-    ```gdscript
-    var siege_state = save_manager.get_active_siege()
-    if not siege_state.is_empty():
-        _state.players[0].hero.health = siege_state.get("hero_hp", 30)
-        _state.players[0].hero.max_health = siege_state.get("hero_hp", 30)
-    ```
-    This ensures the player's hero starts with the carry-over HP value instead of max HP.
-  - **HeroState initialization:** `HeroState.new(pid)` initializes health/max_health to 30 (lines 5–6 of **game_logic/battle/HeroState.gd**). This is the baseline; the override in BattleScene._ready() after construction is the cleanest path.
+- **Carry-over HP injection:** `BattleScene._ready()` checks `get_active_siege()` after building the fresh battle state. If active, sets `_state.players[0].hero.health` and `max_health` to `siege["hero_hp"]`.
 
-- **Gauntlet chaining via SceneManager:** When `_on_battle_won()` is called (line 253 of **autoloads/SceneManager.gd**), add a check after the standard battle rewards (after line 302) and before `clear_pending_battle()` (line 303):
-  ```gdscript
-  var siege = save_manager.get_active_siege()
-  if not siege.is_empty():
-      # Capture hero HP before clearing battle
-      var hero_hp = _state.players[0].hero.health
-      save_manager.set_siege_hero_hp(hero_hp)
-      # Check if there are more stages
-      if siege.get("stage", 0) < 2:  # stages 0, 1, 2 → more after 0 and 1
-          save_manager.advance_siege_stage()
-          save_manager.save()
-          # Immediately re-engage the next raider
-          var next_enemy_type = "martarquas_raider_%d" % (siege.get("stage", 1) + 1)
-          var next_enemy = EnemyRegistry.get_enemy(next_enemy_type)
-          GameBus.enemy_engaged.emit(next_enemy)
-          return
-      else:
-          # All 3 stages won → TID-199 handles rewards
-          # DO NOT clear the siege yet; TID-199 will call end_siege_victory()
-          pass
-  ```
-  Cite **autoloads/SceneManager.gd** lines 253–308 as the context for this insertion.
+- **Gauntlet chaining via SceneManager:** `_on_battle_won()` checks active siege. If stage < 2: advance stage, save, show interstitial, chain next raider. If stage == 2: apply victory rewards, end_siege_victory.
 
 - **Tests (headless):**
-  - `tests/test_siege_trigger.gd` — verify `should_trigger()` with all three conditions (flag, cooldown, determinism). Test that:
-    - False when chapter1_warned_farsyth is unset.
-    - False when cooldown not satisfied (days_elapsed - last_siege_day < 4).
-    - True when all three met, at a deterministic percentage.
-    - Same world_seed + day always yields same trigger result (determinism).
-  - `tests/test_siege_state.gd` — SaveManager round-trip: start siege, advance stage, set HP, serialize, deserialize, verify all fields. Test migration from v14 to v15.
-  - `tests/test_gauntlet_chain.gd` — mock SceneManager._on_battle_won() with active siege, verify HP captured, stage incremented, and game state not cleared until final stage.
+  - `tests/unit/test_siege_trigger.gd` — SiegeDefs.should_trigger with all three conditions.
+  - `tests/unit/test_siege_state.gd` — SaveManager siege methods + v30→v31 migration.
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/SiegeDefs.gd` with static helpers.
+2. Create 3 enemy .tres + .uid files and register in EnemyRegistry.
+3. Add siege/last_siege_day/town_discounts fields to SaveManager (version 31 migration).
+4. Add SaveManager siege methods and increment_day cleanup.
+5. Inject carry-over HP in BattleScene._ready().
+6. Add gauntlet chaining in SceneManager._on_battle_won() and defeat in _on_battle_lost().
+7. Write test_siege_trigger.gd and test_siege_state.gd.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `game_logic/SiegeDefs.gd` — pure static helpers: `is_siege_town`, `should_trigger`, `get_raider_deck_ids`, `get_stage_name`, `TOWN_GATES`, `SIEGE_SPAWN_CHANCE`.
+- Created `data/enemies/martarquas_raider_1.tres` + `.tres.uid` (uid://0i2e393oih8e).
+- Created `data/enemies/martarquas_raider_2.tres` + `.tres.uid` (uid://kv17w0a15hxg).
+- Created `data/enemies/martarquas_raider_3.tres` + `.tres.uid` (uid://ebapu6cjbjw2).
+- Updated `autoloads/EnemyRegistry.gd` — 3 preload consts + 3 dict entries in `_ensure_loaded()`.
+- Updated `autoloads/GameBus.gd` — added `signal siege_victory` and `signal siege_defeated(coins_lost: int)`.
+- Updated `autoloads/SaveManager.gd` — version 31, new fields (`siege`, `last_siege_day`, `town_discounts`), `_migrate_v30_to_v31()`, all siege/discount methods, `increment_day()` siege timeout and discount cleanup.
+- Updated `scenes/battle/BattleScene.gd` — siege HP injection in `_ready()` after Spire HP injection.
+- Updated `autoloads/SceneManager.gd` — gauntlet chaining in `_on_battle_won()`, defeat consequence in `_on_battle_lost()`, `_apply_siege_victory_rewards()`, `_show_siege_interstitial()`, `town_name` passed to ShopScene.
+- Created `tests/unit/test_siege_trigger.gd` + `.uid`.
+- Created `tests/unit/test_siege_state.gd` + `.uid`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/town-siege.md` covering all siege systems.
+- Updated `tests/runner.gd` to include 5 new siege test suites.

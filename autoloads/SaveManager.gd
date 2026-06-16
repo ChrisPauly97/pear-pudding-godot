@@ -158,6 +158,13 @@ var bounty_day: int = 0
 var offered_bounties: Array[Dictionary] = []
 var active_bounties: Array[Dictionary] = []
 
+# Siege system
+# Active siege: {town: String, stage: int, hero_hp: int, day_started: int} or {} when none.
+var siege: Dictionary = {}
+var last_siege_day: int = 0
+# Town gratitude discounts: {town_name: expiry_day} — discount active when expiry_day >= days_elapsed.
+var town_discounts: Dictionary = {}
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -268,6 +275,9 @@ func new_game() -> void:
 	bounty_day = 0
 	offered_bounties = []
 	active_bounties = []
+	siege = {}
+	last_siege_day = 0
+	town_discounts = {}
 	bag_size = IsoConst.BAG_SIZE_DEFAULT
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
@@ -275,7 +285,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 30
+const CURRENT_SAVE_VERSION: int = 31
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -537,6 +547,16 @@ static func _migrate_v29_to_v30(data: Dictionary) -> void:
 		data["owned_weapons"] = new_weapons
 	data["version"] = 30
 
+# _migrate_v30_to_v31: backfill siege state and town discount fields for old saves.
+static func _migrate_v30_to_v31(data: Dictionary) -> void:
+	if not data.has("siege"):
+		data["siege"] = {}
+	if not data.has("last_siege_day"):
+		data["last_siege_day"] = 0
+	if not data.has("town_discounts"):
+		data["town_discounts"] = {}
+	data["version"] = 31
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -599,6 +619,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v28_to_v29(data)
 	if ver < 30:
 		_migrate_v29_to_v30(data)
+	if ver < 31:
+		_migrate_v30_to_v31(data)
 
 func _read_save_json(path: String):
 	if not FileAccess.file_exists(path):
@@ -702,6 +724,11 @@ func load_save() -> bool:
 	offered_bounties.assign(data.get("offered_bounties", []))
 	active_bounties.assign(data.get("active_bounties", []))
 	bag_size = int(data.get("bag_size", IsoConst.BAG_SIZE_DEFAULT))
+	var sg = data.get("siege", {})
+	siege = sg if sg is Dictionary else {}
+	last_siege_day = int(data.get("last_siege_day", 0))
+	var td = data.get("town_discounts", {})
+	town_discounts = td if td is Dictionary else {}
 	_loaded = true
 	return true
 
@@ -777,6 +804,9 @@ func save() -> void:
 		"offered_bounties": offered_bounties,
 		"active_bounties": active_bounties,
 		"bag_size": bag_size,
+		"siege": siege,
+		"last_siege_day": last_siege_day,
+		"town_discounts": town_discounts,
 	}
 	var tmp := FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
 	if not tmp:
@@ -1513,6 +1543,53 @@ func unequip_companion() -> void:
 	active_companion = ""
 	_dirty = true
 
+## Starts a new siege for the given town. Initialises stage 0, hero_hp 30.
+func start_siege(town: String) -> void:
+	siege = {"town": town, "stage": 0, "hero_hp": 30, "day_started": days_elapsed}
+	_dirty = true
+
+## Returns the active siege dict, or {} when no siege is in progress.
+func get_active_siege() -> Dictionary:
+	return siege
+
+## Advances the siege stage by 1 (0 → 1 → 2). No-op if siege is empty.
+func advance_siege_stage() -> void:
+	if siege.is_empty():
+		return
+	siege["stage"] = int(siege.get("stage", 0)) + 1
+	_dirty = true
+
+## Stores the player's hero HP so it carries over to the next gauntlet stage.
+func set_siege_hero_hp(hp: int) -> void:
+	if siege.is_empty():
+		return
+	siege["hero_hp"] = hp
+	_dirty = true
+
+## Records a siege win: updates last_siege_day, applies town discount, clears active siege.
+func end_siege_victory() -> void:
+	var town: String = str(siege.get("town", ""))
+	last_siege_day = days_elapsed
+	if town != "":
+		apply_town_discount(town)
+	siege = {}
+	_dirty = true
+
+## Records a siege loss: updates last_siege_day, clears active siege (no discount).
+func end_siege_defeat() -> void:
+	last_siege_day = days_elapsed
+	siege = {}
+	_dirty = true
+
+## Applies a 3-day gratitude discount to the named town.
+func apply_town_discount(town: String) -> void:
+	town_discounts[town] = days_elapsed + 3
+	_dirty = true
+
+## Returns true if the named town currently has an active gratitude discount.
+func is_town_discounted(town: String) -> bool:
+	return int(town_discounts.get(town, -1)) >= days_elapsed
+
 func increment_day() -> void:
 	days_elapsed += 1
 	if days_elapsed - last_respawn_day >= IsoConst.ENEMY_RESPAWN_DAYS:
@@ -1522,6 +1599,18 @@ func increment_day() -> void:
 				kept.append(eid)
 		defeated_enemies.assign(kept)
 		last_respawn_day = days_elapsed
+	# Siege timeout: clear any siege that has not been engaged for 1 full day.
+	if not siege.is_empty():
+		var age: int = days_elapsed - int(siege.get("day_started", 0))
+		if age >= 1:
+			end_siege_defeat()   # town held out; no coin penalty
+	# Clean up expired town discounts.
+	var expired_towns: Array[String] = []
+	for town_key: String in town_discounts.keys():
+		if int(town_discounts[town_key]) < days_elapsed:
+			expired_towns.append(town_key)
+	for town_key: String in expired_towns:
+		town_discounts.erase(town_key)
 	_refresh_bounties()
 	_dirty = true
 

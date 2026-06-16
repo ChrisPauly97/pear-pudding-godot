@@ -59,6 +59,8 @@ var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
 var _shrine_nodes: Array[Node3D] = []
+var _siege_raider_nodes: Array[Node3D] = []
+var _siege_banner: Label = null
 var _waystone_nodes: Dictionary = {}    # id -> Node3D
 var _active_waystone_data: Dictionary = {}  # id -> Dictionary
 var _tile_meshes: Node3D
@@ -281,6 +283,7 @@ func _ready() -> void:
 		_spawn_named_map_waystones()
 		if map_name == "player_home":
 			_spawn_player_home_trophies()
+		_check_siege_spawn(map_name)
 
 	_update_hud()
 
@@ -1104,6 +1107,54 @@ func _spawn_named_map_waystones() -> void:
 			node.init_from_data(w_dict)
 		_waystone_nodes[wid] = node
 		_active_waystone_data[wid] = w_dict
+
+## Checks if a siege is active for this named map and spawns raiders + siege banner if so.
+func _check_siege_spawn(p_map_name: String) -> void:
+	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
+	if not _SiegeDefs.is_siege_town(p_map_name):
+		return
+	var active_siege: Dictionary = SceneManager.save_manager.get_active_siege()
+	if active_siege.is_empty() or str(active_siege.get("town", "")) != p_map_name:
+		return
+	var siege_stage: int = int(active_siege.get("stage", 0))
+	_spawn_siege_raiders(p_map_name, siege_stage)
+	_setup_siege_banner(p_map_name)
+
+## Instantiates 3 raider EnemyNPC nodes near the town gate.
+func _spawn_siege_raiders(p_map_name: String, stage: int) -> void:
+	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
+	if not _SiegeDefs.TOWN_GATES.has(p_map_name):
+		return
+	var gate_pos: Vector3 = _SiegeDefs.TOWN_GATES[p_map_name]
+	var enemy_type: String = "martarquas_raider_%d" % (stage + 1)
+	var offsets: Array[Vector2] = [Vector2(0.0, 0.0), Vector2(2.0, 1.0), Vector2(-2.0, 1.0)]
+	for i: int in range(offsets.size()):
+		var off: Vector2 = offsets[i]
+		var node: Node3D = _EnemyScene.instantiate() as Node3D
+		if node == null:
+			continue
+		var world_y: float = get_terrain_height(gate_pos.x + off.x, gate_pos.z + off.y) + 0.5
+		node.position = Vector3(gate_pos.x + off.x, world_y, gate_pos.z + off.y)
+		node.set("enemy_type", enemy_type)
+		_entity_root.add_child(node)
+		var raider_id: String = "siege_raider_%d_%d" % [stage, i]
+		_enemy_nodes[raider_id] = node
+		_siege_raider_nodes.append(node)
+
+## Creates the siege banner label in the HUD (visible while siege is active).
+func _setup_siege_banner(p_map_name: String) -> void:
+	if _hud == null:
+		return
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var vw: float = get_viewport().get_visible_rect().size.x
+	_siege_banner = Label.new()
+	_siege_banner.text = "%s Under Attack!" % p_map_name.capitalize().replace("_", " ")
+	_siege_banner.add_theme_font_size_override("font_size", int(vh * 0.03))
+	_siege_banner.modulate = Color(1.0, 0.3, 0.1)
+	_siege_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_siege_banner.position = Vector2((vw - vh * 0.6) * 0.5, vh * 0.005)
+	_siege_banner.custom_minimum_size = Vector2(vh * 0.6, int(vh * 0.04))
+	_hud.add_child(_siege_banner)
 
 func register_waystone(wid: String, node: Node3D, w_data: Dictionary) -> void:
 	_waystone_nodes[wid] = node

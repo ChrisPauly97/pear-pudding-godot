@@ -116,6 +116,8 @@ func _ready() -> void:
 	GameBus.pack_purchased.connect(_on_pack_purchased)
 	GameBus.bag_full.connect(func() -> void:
 		GameBus.hud_message_requested.emit("Bag full! Sell or scrap cards to make room."))
+	GameBus.siege_defeated.connect(func(coins_lost: int) -> void:
+		show_toast("Siege Lost", "The town fell. Lost %d coins." % coins_lost))
 
 func go_to_menu() -> void:
 	_flush_position_save()
@@ -437,6 +439,36 @@ func _on_battle_won(result: Dictionary) -> void:
 		_restore_world()
 		_show_spire_draft(curr_floor)
 		return
+	# Siege gauntlet: skip standard rewards; chain stages or apply siege victory.
+	var _siege: Dictionary = save_manager.get_active_siege()
+	if not _siege.is_empty():
+		const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
+		var _siege_hero_hp: int = int(result.get("hero_hp", 30))
+		save_manager.set_siege_hero_hp(_siege_hero_hp)
+		var _siege_stage: int = int(_siege.get("stage", 0))
+		save_manager.increment_progress("battles_won", 1)
+		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
+		_current_battle_enemy_id = ""
+		save_manager.clear_pending_battle()
+		save_manager.clear_pending_battle_state()
+		if _siege_stage < 2:
+			save_manager.advance_siege_stage()
+			save_manager.save()
+			if _battle_overlay != null:
+				_battle_overlay.queue_free()
+				_battle_overlay = null
+			_restore_world()
+			_show_siege_interstitial(_siege_stage + 1, _siege_hero_hp)
+			return
+		else:
+			_apply_siege_victory_rewards(str(_siege.get("town", "")))
+			save_manager.end_siege_victory()
+			save_manager.save()
+			if _battle_overlay != null:
+				_battle_overlay.queue_free()
+				_battle_overlay = null
+			_restore_world()
+			return
 	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 	# Read enemy context before clearing pending_battle.
 	var enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
@@ -505,6 +537,14 @@ func _on_battle_lost() -> void:
 		return
 	_current_battle_enemy_id = ""
 	session_stats["battles_lost"] = int(session_stats.get("battles_lost", 0)) + 1
+	# Siege defeat: apply coin penalty, end siege, then show game over.
+	var _siege_on_lost: Dictionary = save_manager.get_active_siege()
+	if not _siege_on_lost.is_empty():
+		var _loss_coins: int = int(save_manager.coins * 0.10)
+		if _loss_coins > 0:
+			save_manager.add_coins(-_loss_coins)
+		save_manager.end_siege_defeat()
+		GameBus.siege_defeated.emit(_loss_coins)
 	if save_manager.is_spire_active():
 		_restore_spire_entry_point()
 		var stats: Dictionary = save_manager.end_spire_run()
@@ -555,6 +595,7 @@ func _on_shop_requested() -> void:
 	if _state != State.WORLD:
 		return
 	_shop_overlay = _shop_scene_packed.instantiate()
+	_shop_overlay.set("town_name", current_map)
 	get_tree().current_scene.add_child(_shop_overlay)
 	_shop_overlay.closed.connect(_on_shop_closed)
 	_state = State.SHOP
@@ -658,6 +699,68 @@ func _on_skill_tree_closed() -> void:
 		_skill_tree_overlay.queue_free()
 		_skill_tree_overlay = null
 	_state = State.WORLD
+
+## Applies siege victory rewards: 150 coins + a rare-or-better card.
+func _apply_siege_victory_rewards(town: String) -> void:
+	const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
+	const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
+	const SIEGE_VICTORY_COINS: int = 150
+	save_manager.add_coins(SIEGE_VICTORY_COINS)
+	session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + SIEGE_VICTORY_COINS
+	var all_ids: Array[String] = _CardRegistry.get_all_ids()
+	if not all_ids.is_empty():
+		var reward_id: String = all_ids[randi() % all_ids.size()]
+		var rarity: String = _CardDropUtil.roll_rarity(3)   # tier 3 = rare-or-better weighted
+		var stats: Dictionary = _CardDropUtil.roll_stats(reward_id, rarity)
+		save_manager.add_card_instance(reward_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+		session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+	GameBus.siege_victory.emit()
+	show_toast("Siege Defeated!", "%s thanks you! +%d coins + rare card" % [town.capitalize(), SIEGE_VICTORY_COINS])
+
+## Shows a brief overlay between gauntlet stages, then chains the next battle after 2 s.
+func _show_siege_interstitial(next_stage: int, hero_hp: int) -> void:
+	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
+	var layer := CanvasLayer.new()
+	layer.layer = 200
+	get_tree().root.add_child(layer)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	layer.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 12)
+	panel.add_child(vbox)
+
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var title_lbl := Label.new()
+	title_lbl.text = _SiegeDefs.get_stage_name(next_stage)
+	title_lbl.add_theme_font_size_override("font_size", int(vh * 0.04))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title_lbl)
+
+	var hp_lbl := Label.new()
+	hp_lbl.text = "Hero HP: %d / 30" % hero_hp
+	hp_lbl.add_theme_font_size_override("font_size", int(vh * 0.03))
+	hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hp_lbl.modulate = Color(0.9, 0.3, 0.3) if hero_hp <= 10 else Color(1.0, 1.0, 1.0)
+	vbox.add_child(hp_lbl)
+
+	# Dismiss automatically and chain the next raider battle.
+	get_tree().create_timer(2.0, false).timeout.connect(func() -> void:
+		layer.queue_free()
+		var next_type: String = "martarquas_raider_%d" % (next_stage + 1)
+		var deck_ids: Array[String] = _SiegeDefs.get_raider_deck_ids(next_stage)
+		var enemy_dict: Dictionary = {
+			"enemy_type": next_type,
+			"enemy_deck": deck_ids,
+			"display_name": EnemyRegistry.get_display_name(next_type),
+			"is_boss": false,
+			"boss_hp": 0,
+			"drop_pool": [],
+			"coin_reward": 0,
+		}
+		GameBus.enemy_engaged.emit(enemy_dict))
 
 func _on_achievement_unlocked(achievement_id: String) -> void:
 	const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
