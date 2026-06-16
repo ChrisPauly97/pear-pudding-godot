@@ -14,6 +14,9 @@ const _E_UNDEAD_HORDE         := preload("res://data/enemies/undead_horde.tres")
 const _E_MARTARQUAS_RAIDER_1  := preload("res://data/enemies/martarquas_raider_1.tres")
 const _E_MARTARQUAS_RAIDER_2  := preload("res://data/enemies/martarquas_raider_2.tres")
 const _E_MARTARQUAS_RAIDER_3  := preload("res://data/enemies/martarquas_raider_3.tres")
+const _E_RIVAL_ISFIG_1        := preload("res://data/enemies/rival_isfig_1.tres")
+const _E_RIVAL_ISFIG_2        := preload("res://data/enemies/rival_isfig_2.tres")
+const _E_RIVAL_ISFIG_3        := preload("res://data/enemies/rival_isfig_3.tres")
 
 static var _enemies: Dictionary = {}
 static var _loaded: bool = false
@@ -148,6 +151,39 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 3,
 			"lore_text": "The siege commander — where lesser raiders hesitated, this one drove them forward. Defeat the Warlord and the siege collapses. The town will owe you a debt it cannot easily repay.",
+		},
+		"rival_isfig_1": {
+			"display_name": "Isfig",
+			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "mend", "wither"],
+			"drop_pool": [],
+			"coin_reward": 10,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 1,
+			"lore_text": "A sharp-eyed young man who seems to know more about Saimtar's journey than he lets on. He smiles as he challenges you to a duel — not out of malice, but to measure you.",
+		},
+		"rival_isfig_2": {
+			"display_name": "Isfig the Pursuing",
+			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghost", "mend", "wither", "surge_spirit"],
+			"drop_pool": [],
+			"coin_reward": 15,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 2,
+			"lore_text": "He has followed you across the wilds, watching and adapting. The easy smile is gone; this time he means to stop you — or find out once and for all what you carry that Scargroth's letter warned him about.",
+		},
+		"rival_isfig_3": {
+			"display_name": "Isfig, Maiteln's Shadow",
+			"deck": ["zombie", "zombie", "zombie", "ghoul", "ghoul", "blitz_ghoul", "drain", "wither", "soul_rend", "dusk_wraith"],
+			"drop_pool": [],
+			"coin_reward": 25,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 3,
+			"lore_text": "Standing in the shadow of the temple, Isfig speaks Maiteln's name with a cold familiarity that turns your blood to ice. Whatever he once was, he has chosen his side — and it is not yours.",
 		},
 	}
 

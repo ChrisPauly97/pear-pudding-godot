@@ -165,6 +165,10 @@ var last_siege_day: int = 0
 # Town gratitude discounts: {town_name: expiry_day} — discount active when expiry_day >= days_elapsed.
 var town_discounts: Dictionary = {}
 
+# Rival (Isfig) encounter progression
+var rival_encounters_won: int = 0   # 0, 1, or 2 before the final showdown
+var rival_defeated: bool = false    # true after the final showdown; guards the unique card reward
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -279,13 +283,15 @@ func new_game() -> void:
 	last_siege_day = 0
 	town_discounts = {}
 	bag_size = IsoConst.BAG_SIZE_DEFAULT
+	rival_encounters_won = 0
+	rival_defeated = false
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 31
+const CURRENT_SAVE_VERSION: int = 32
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -557,6 +563,14 @@ static func _migrate_v30_to_v31(data: Dictionary) -> void:
 		data["town_discounts"] = {}
 	data["version"] = 31
 
+# _migrate_v31_to_v32: backfill rival encounter progression fields for old saves.
+static func _migrate_v31_to_v32(data: Dictionary) -> void:
+	if not data.has("rival_encounters_won"):
+		data["rival_encounters_won"] = 0
+	if not data.has("rival_defeated"):
+		data["rival_defeated"] = false
+	data["version"] = 32
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -621,6 +635,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v29_to_v30(data)
 	if ver < 31:
 		_migrate_v30_to_v31(data)
+	if ver < 32:
+		_migrate_v31_to_v32(data)
 
 func _read_save_json(path: String):
 	if not FileAccess.file_exists(path):
@@ -729,6 +745,8 @@ func load_save() -> bool:
 	last_siege_day = int(data.get("last_siege_day", 0))
 	var td = data.get("town_discounts", {})
 	town_discounts = td if td is Dictionary else {}
+	rival_encounters_won = int(data.get("rival_encounters_won", 0))
+	rival_defeated = bool(data.get("rival_defeated", false))
 	_loaded = true
 	return true
 
@@ -807,6 +825,8 @@ func save() -> void:
 		"siege": siege,
 		"last_siege_day": last_siege_day,
 		"town_discounts": town_discounts,
+		"rival_encounters_won": rival_encounters_won,
+		"rival_defeated": rival_defeated,
 	}
 	var tmp := FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
 	if not tmp:
@@ -1589,6 +1609,15 @@ func apply_town_discount(town: String) -> void:
 ## Returns true if the named town currently has an active gratitude discount.
 func is_town_discounted(town: String) -> bool:
 	return int(town_discounts.get(town, -1)) >= days_elapsed
+
+func record_rival_win() -> void:
+	rival_encounters_won = mini(rival_encounters_won + 1, 2)
+	_dirty = true
+
+func set_rival_defeated() -> void:
+	rival_defeated = true
+	_dirty = true
+
 
 func increment_day() -> void:
 	days_elapsed += 1

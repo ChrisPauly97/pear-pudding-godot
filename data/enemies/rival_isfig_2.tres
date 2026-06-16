@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://bqnrb2kfsjk1"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_rival_isfig_2"]
+
+[resource]
+script = ExtResource("1_rival_isfig_2")
+id = "rival_isfig_2"
+display_name = "Isfig the Pursuing"
+deck = PackedStringArray("skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghost", "mend", "wither", "surge_spirit")
+drop_pool = PackedStringArray()
+coin_reward = 15
+difficulty_tier = 2
+lore_text = "He has followed you across the wilds, watching and adapting. The easy smile is gone; this time he means to stop you — or find out once and for all what you carry that Scargroth's letter warned him about."

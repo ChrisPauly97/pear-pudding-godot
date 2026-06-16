@@ -2,7 +2,7 @@
 
 **Goal:** GID-053
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-194
 
 ## Lock
@@ -67,12 +67,34 @@ Wires the three rival framework decks into the story's named maps at the correct
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `const RivalSystem` preload to `WorldScene.gd`
+2. Add `_spawn_named_map_rivals()` — checks flags, spawns rival_enc1 in maykalene and rival_enc3 in blancogov_temple
+3. Add `_spawn_open_world_rival_enc2()` — spawns rival in infinite world when chapter1_warned_farsyth set and chapter1_received_letter not set
+4. Add `_spawn_rival()` and `_spawn_rival_at()` helpers (instantiate EnemyNPC, register in `_enemy_nodes`)
+5. Call `_spawn_named_map_rivals()` from named-map branch of `_ready()` and `_spawn_open_world_rival_enc2()` from infinite branch
+6. Set `chapter1_reached_blancogov` on entry to blancogov/blancogov_temple in `_ready()`
+7. Modify `_handle_interact()` to show `pre_battle_dialogue` from enemy_data before calling `engage()`
+8. In `SceneManager._on_battle_won()`: add `is_rival` guard to skip `mark_enemy_defeated` + add rival win tracking
+9. Create `tests/unit/test_rival_encounters.gd` (21 tests)
+10. Register new test suite in `tests/runner.gd`
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WorldScene.gd`:
+  - Added `const RivalSystem = preload("res://game_logic/RivalSystem.gd")`
+  - Added `_spawn_named_map_rivals()` — flag-gated spawn of rival_enc1 in maykalene (rival_isfig_1, after `chapter1_left_madrian`, wins==0) and rival_enc3 in blancogov_temple (rival_isfig_3, after `chapter1_temple_council`, wins>=2, not defeated)
+  - Added `_spawn_open_world_rival_enc2()` — spawns rival near player in infinite world when `chapter1_warned_farsyth` set and `chapter1_received_letter` NOT set
+  - Added `_spawn_rival()` and `_spawn_rival_at()` helpers
+  - Called `_spawn_named_map_rivals()` from named-map `_ready()` path (after waystones)
+  - Called `_spawn_open_world_rival_enc2()` from infinite-world `_ready()` path (after sync inner chunks)
+  - Added `chapter1_reached_blancogov` flag set on entry to blancogov/blancogov_temple
+  - Modified `_handle_interact()` to show `pre_battle_dialogue` from enemy_data before `engage()` for rival enemy types
+- `autoloads/SceneManager.gd`:
+  - In `_on_battle_won()`: `is_rival` bool from `enemy_type.begins_with("rival_")`; rivals skip `mark_enemy_defeated`, skip `record_enemy_defeated`/bounty; capture `captured_enemy_id` before clearing
+  - After coins/XP: rival win block — enc3 calls `set_rival_defeated()`, others call `record_rival_win()`; enc2 (captured_enemy_id=="rival_enc2") sets `chapter1_received_letter`; emits `GameBus.rival_encounter_won`
+- Created `tests/unit/test_rival_encounters.gd` — 21 tests covering flag gate conditions, win transitions, defeat immunity, tier selection
+- `tests/runner.gd` — registered `test_rival_encounters.gd`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new agent docs needed — rival system is covered in existing enemies-and-npcs.md and story-implementation.md context. TID-196 will add journal entry documentation.

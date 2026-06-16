@@ -2,7 +2,7 @@
 
 **Goal:** GID-053
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -59,12 +59,28 @@ The foundational layer for the rival system. Three EnemyData resources define Is
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `data/enemies/rival_isfig_1.tres` + `.uid` (Tier 1, 8 cards, difficulty 1)
+2. Create `data/enemies/rival_isfig_2.tres` + `.uid` (Tier 2, 10 cards, difficulty 2)
+3. Create `data/enemies/rival_isfig_3.tres` + `.uid` (Tier 3, 10 cards, difficulty 3)
+4. Add three `const _E_RIVAL_ISFIG_*` preloads + dict entries to `autoloads/EnemyRegistry.gd`
+5. Create `game_logic/RivalSystem.gd` with `get_rival_type(encounters_won, player_level) -> String`
+6. Add `rival_encounters_won: int` and `rival_defeated: bool` to `SaveManager.gd` with migration v30 and load/save/new_game wiring
+7. Add optional `rival_encounter_won(encounter_num: int)` signal to `GameBus.gd`
+8. Create `tests/unit/test_rival.gd` (pure-function and migration tests)
+9. Register test suite in `tests/runner.gd`
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `data/enemies/rival_isfig_1.tres` + `.uid` — Tier 1 Isfig deck (8 cards, difficulty 1, "Isfig")
+- Created `data/enemies/rival_isfig_2.tres` + `.uid` — Tier 2 deck (10 cards, difficulty 2, "Isfig the Pursuing")
+- Created `data/enemies/rival_isfig_3.tres` + `.uid` — Tier 3 deck (10 cards, difficulty 3, "Isfig, Maiteln's Shadow")
+- `autoloads/EnemyRegistry.gd`: added 3 preload constants for APK packaging; added rival entries to `_enemies` dict in `_ensure_loaded()`
+- Created `game_logic/RivalSystem.gd`: static `get_rival_type(encounters_won, player_level)` with level-nudge logic
+- `autoloads/SaveManager.gd`: added `rival_encounters_won: int` and `rival_defeated: bool` fields; bumped CURRENT_SAVE_VERSION to 30; added `_migrate_v29_to_v30`; wired fields into `new_game()`, `load_save()`, `save()`; added `record_rival_win()` and `set_rival_defeated()` helpers
+- `autoloads/GameBus.gd`: added `rival_encounter_won(encounter_num: int)` signal
+- Created `tests/unit/test_rival.gd`: 20 tests covering `get_rival_type`, SaveManager fields, migration, and EnemyRegistry registration
+- `tests/runner.gd`: registered `test_rival.gd` in SUITES
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Save-system doc (`docs/agent/save-system.md`) is significantly out of date (last updated to v16; actual version is now 30). Updated below with the rival fields entry. Full migration history catch-up is deferred to GID-075 (dead code / docs hygiene).

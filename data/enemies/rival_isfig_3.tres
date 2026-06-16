@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://p71ksx8omlbo"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_rival_isfig_3"]
+
+[resource]
+script = ExtResource("1_rival_isfig_3")
+id = "rival_isfig_3"
+display_name = "Isfig, Maiteln's Shadow"
+deck = PackedStringArray("zombie", "zombie", "zombie", "ghoul", "ghoul", "blitz_ghoul", "drain", "wither", "soul_rend", "dusk_wraith")
+drop_pool = PackedStringArray()
+coin_reward = 25
+difficulty_tier = 3
+lore_text = "Standing in the shadow of the temple, Isfig speaks Maiteln's name with a cold familiarity that turns your blood to ice. Whatever he once was, he has chosen his side — and it is not yours."

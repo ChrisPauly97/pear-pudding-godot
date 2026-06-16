@@ -1,6 +1,6 @@
 extends Node
 
-const SCROLL_COUNT: int = 8
+const SCROLL_COUNT: int = 9
 
 const _SCROLLS: Array = [
 	{
@@ -50,6 +50,12 @@ const _SCROLLS: Array = [
 		"title": "The Surviving Tribes",
 		"lore_text": "After the war, the surviving Martarquas scattered into the deep wilderness. Generations passed. The alliance relaxed. It is the nature of alliances to relax when the threat they were built against has not been seen for a long time. This is not wisdom. It is forgetting dressed up as peace.",
 		"audio_path": "res://assets/audio/narration/scroll_martarquas_survivors.ogg",
+	},
+	{
+		"id": "scroll_isfig_shadow",
+		"title": "Isfig's Shadow",
+		"lore_text": "Maiteln's shadow stood against you three times, and three times you prevailed. When the final blow was struck, Isfig smiled — not in defeat, but in recognition. He had seen something in you that even Maiteln had missed. Without a word, he walked east. No one saw him again. But some say the shadow he left behind fights on — in you.",
+		"audio_path": "res://assets/audio/narration/scroll_isfig_shadow.ogg",
 	},
 ]
 

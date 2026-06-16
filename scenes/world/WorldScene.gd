@@ -23,6 +23,7 @@ const TextureGen = preload("res://game_logic/TextureGen.gd")
 const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
 const CompassRibbon = preload("res://scenes/ui/CompassRibbon.gd")
 const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
+const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
 const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_side_pixel.png")
@@ -266,6 +267,7 @@ func _ready() -> void:
 			else:
 				deferred.append(key)
 		_chunk_build_queue.assign(deferred)
+		_spawn_open_world_rival_enc2()
 	else:
 		# Named map: load all chunks covering the 100×100 tile map synchronously
 		const CHUNK_SIZE: int = 16
@@ -281,9 +283,13 @@ func _ready() -> void:
 		_spawn_named_map_scrolls()
 		_spawn_named_map_shrines()
 		_spawn_named_map_waystones()
+		_spawn_named_map_rivals()
 		if map_name == "player_home":
 			_spawn_player_home_trophies()
 		_check_siege_spawn(map_name)
+		# Set chapter1_reached_blancogov when the player enters blancogov
+		if map_name == "blancogov" or map_name == "blancogov_temple":
+			SceneManager.save_manager.set_story_flag("chapter1_reached_blancogov")
 
 	_update_hud()
 
@@ -1177,6 +1183,61 @@ func _on_waystone_activated(waystone_id: String) -> void:
 	var label: String = str(w_data.get("label", "Unknown"))
 	SceneManager.show_toast("Waystone Activated", label)
 
+# ── Rival Encounter Spawning ───────────────────────────────────────────────────
+
+func _spawn_named_map_rivals() -> void:
+	if world_map == null:
+		return
+	var sm := SceneManager.save_manager
+	if map_name == "maykalene" and sm.get_story_flag("chapter1_left_madrian") and sm.rival_encounters_won == 0:
+		_spawn_rival("rival_enc1", 50, 40, "rival_isfig_1",
+			"You again? Let's see if you're worth the effort, wee warrior.")
+	elif map_name == "blancogov_temple" and sm.get_story_flag("chapter1_temple_council") \
+			and sm.rival_encounters_won >= 2 and not sm.rival_defeated:
+		_spawn_rival("rival_enc3", 50, 80, "rival_isfig_3",
+			"Maiteln warned me you'd come far. Perhaps it's time I stood beside him, not against.")
+
+func _spawn_open_world_rival_enc2() -> void:
+	var sm := SceneManager.save_manager
+	if not sm.get_story_flag("chapter1_warned_farsyth"):
+		return
+	if sm.get_story_flag("chapter1_received_letter"):
+		return
+	if sm.rival_encounters_won >= 2:
+		return
+	var rival_type: String = RivalSystem.get_rival_type(sm.rival_encounters_won, sm.level)
+	var wx: float = _player.position.x + 3.0 * IsoConst.TILE_SIZE
+	var wz: float = _player.position.z + 5.0 * IsoConst.TILE_SIZE
+	_spawn_rival_at("rival_enc2", wx, wz, rival_type,
+		"Maiteln's sent word of the Martarquas. I aim to warn him you're no mere apprentice.")
+
+func _spawn_rival(rival_id: String, tile_x: int, tile_z: int, enemy_type: String, pre_battle_dialogue: String) -> void:
+	var wx: float = float(tile_x) * IsoConst.TILE_SIZE
+	var wz: float = float(tile_z) * IsoConst.TILE_SIZE
+	_spawn_rival_at(rival_id, wx, wz, enemy_type, pre_battle_dialogue)
+
+func _spawn_rival_at(rival_id: String, wx: float, wz: float, enemy_type: String, pre_battle_dialogue: String) -> void:
+	if _enemy_nodes.has(rival_id):
+		return
+	var wy: float = get_terrain_height(wx, wz) + 0.5
+	var edata: Dictionary = {
+		"id": rival_id,
+		"x": wx,
+		"z": wz,
+		"alive": true,
+		"tracking": false,
+		"enemy_type": enemy_type,
+		"enemy_deck": EnemyRegistry.get_deck(enemy_type),
+		"pre_battle_dialogue": pre_battle_dialogue,
+	}
+	var node := _EnemyScene.instantiate() as Node3D
+	_entity_root.add_child(node)
+	node.position = Vector3(wx, wy, wz)
+	if node.has_method("init_from_data"):
+		node.init_from_data(edata)
+	_enemy_nodes[rival_id] = node
+
+
 # Find nearest entities — checks the player's chunk + 8 neighbours for enemies/chests;
 # scans active data dicts for doors and NPCs.
 func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
@@ -1574,6 +1635,12 @@ func _handle_interact() -> void:
 
 	var enemy := _find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
 	if enemy != null and enemy.has_method("engage"):
+		if enemy.get("enemy_data") != null:
+			var etype: String = str(enemy.enemy_data.get("enemy_type", ""))
+			if etype.begins_with("rival_"):
+				var dlg: String = str(enemy.enemy_data.get("pre_battle_dialogue", ""))
+				if dlg != "":
+					_show_dialogue(dlg)
 		enemy.engage()
 		return
 

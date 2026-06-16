@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://72cvtan5lh5l"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_isfig_shadow_echo"]
+
+[resource]
+script = ExtResource("1_isfig_shadow_echo")
+id = "isfig_shadow_echo"
+card_name = "Shadow Echo"
+cost = 5
+attack = 3
+health = 5
+card_class = "minion"
+description = "Rival-forged. Ward."
+color = Color(0.35, 0.2, 0.55, 1)
+magic_type = ""
+magic_branch = ""
+keywords = PackedStringArray("ward")
+can_craft = false
+is_unique = true

@@ -103,6 +103,8 @@ Dungeon, spire, and depth-placed named-map enemies always have `tracking: true`.
 
 **Post-battle immunity:** `SceneManager._restore_world()` sets `_proximity_engage_blocked = true` and creates a 2 s `SceneTreeTimer` to clear it. This prevents chain-engagement immediately after respawning near an enemy.
 
+**Rival defeat persistence:** Rival enemies (enemy_type starting with `"rival_"`) are never added to `SaveManager.defeated_enemies`. In `SceneManager._on_battle_won()`, the `mark_enemy_defeated()` call is guarded by `if not is_rival`. This allows the player to retry after a loss (the rival EnemyNPC has already `queue_free()`'d itself on engage, but the spawn condition in `WorldScene._spawn_named_map_rivals()` checks `rival_encounters_won` not `defeated_enemies`). On the next map entry the rival re-spawns if the encounter hasn't been won yet.
+
 **`engage()` method:** Sets `_alive = false`, deduplicates the enemy data dict, resolves deck / boss flags from `EnemyRegistry`, plays `enemy_engage` SFX, emits `GameBus.enemy_engaged(data)`, and calls `queue_free()`.
 
 `EnemyNPC` is placed by `TerrainMath.spawn_entity()` (called from `ChunkRenderer` for infinite world, or via the chunk-data system for named maps). `init_from_data(data)` is always called before `add_child()`, so `_tracking` is set before `_ready()` runs.

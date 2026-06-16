@@ -49,6 +49,7 @@ const _C_VOID_CREEPER     := preload("res://data/cards/void_creeper.tres")
 const _C_VOID_WYRM        := preload("res://data/cards/void_wyrm.tres")
 const _C_WITHER           := preload("res://data/cards/wither.tres")
 const _C_ZOMBIE           := preload("res://data/cards/zombie.tres")
+const _C_ISFIG_SHADOW_ECHO := preload("res://data/cards/isfig_shadow_echo.tres")
 
 static var _cards: Dictionary = {}  # id -> CardData
 static var _loaded: bool = false
@@ -67,6 +68,7 @@ static func _ensure_loaded() -> void:
 		_C_SHROUDED_WRAITH, _C_SIPHON, _C_SKELETON, _C_SOUL_HARVEST, _C_SOUL_REND,
 		_C_SPARK, _C_SURGE_SPIRIT, _C_TIME_WARP, _C_VEILED_PALADIN,
 		_C_VOID_CREEPER, _C_VOID_WYRM, _C_WITHER, _C_ZOMBIE,
+		_C_ISFIG_SHADOW_ECHO,
 	]
 	for res in all:
 		var card := res as CardData
