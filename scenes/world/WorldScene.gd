@@ -32,6 +32,7 @@ const _TexWallSide:  Texture2D = preload("res://assets/textures/pixel_art/wall_s
 const _TexWallTop:   Texture2D = preload("res://assets/textures/pixel_art/wall_top_pixel.png")
 
 # Preload entity scenes — avoids filesystem hits during spawning
+const _OverworldPauseOverlay = preload("res://scenes/ui/OverworldPauseOverlay.gd")
 const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
@@ -142,6 +143,7 @@ const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 @onready var _moon: DirectionalLight3D = $MoonLight
 var _fill_light: DirectionalLight3D
 
+var _pause_overlay: Node = null
 var _dialogue_label: Label
 var _coord_label: Label
 var _minimap: Node
@@ -322,6 +324,14 @@ func _ready() -> void:
 	menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
 	_hud.add_child(menu_btn)
 
+	var pause_btn := Button.new()
+	pause_btn.text = "II"
+	pause_btn.custom_minimum_size = Vector2(btn_h, btn_h)
+	pause_btn.position = Vector2(vh * 0.01 + btn_w + vh * 0.005, vh * 0.01)
+	pause_btn.add_theme_font_size_override("font_size", font_size)
+	pause_btn.pressed.connect(_open_pause)
+	_hud.add_child(pause_btn)
+
 	# Minimap: top=vh*0.01, height=vh*0.20, bottom≈vh*0.21; buttons sit below it.
 	var minimap_bottom: float = vh * 0.01 + vh * 0.20 + vh * 0.01  # ≈ vh * 0.22
 	var btn_x: float = vw - btn_w * 1.3 - vh * 0.01
@@ -465,6 +475,8 @@ func _ready() -> void:
 
 	if not _is_infinite:
 		AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
+		AudioManager.set_ambience(-1)  # -1 = named map / no biome ambience
+		GameBus.entered_named_map.emit(map_name)
 		if map_name.begins_with("dungeon_"):
 			_dungeon_hero_hp = 30
 	GameBus.battle_won.connect(_on_battle_won)
@@ -666,8 +678,10 @@ func _update_chunks() -> void:
 	if new_biome != _current_biome:
 		_current_biome = new_biome
 		AudioManager.play_music(_BIOME_MUSIC[new_biome])
+		AudioManager.set_ambience(new_biome)
 		SceneManager.save_manager.visit_biome(new_biome)
 		WeatherManager.set_biome(new_biome)
+		GameBus.biome_changed.emit(new_biome)
 
 	# Camera frustum for visibility culling. Falls back to load-all if unavailable.
 	var frustum: Array[Plane] = _camera.get_frustum()
@@ -1552,7 +1566,20 @@ func _open_map_view() -> void:
 		_enemy_nodes, _chest_nodes, _door_nodes, _waystone_nodes)
 	_map_overlay.closed.connect(func() -> void: _map_overlay = null)
 
+func _open_pause() -> void:
+	if _pause_overlay != null:
+		return
+	_pause_overlay = _OverworldPauseOverlay.new()
+	_pause_overlay.resumed.connect(func() -> void: _pause_overlay = null)
+	_pause_overlay.quit_to_menu.connect(func() -> void: _pause_overlay = null)
+	add_child(_pause_overlay)
+
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("pause"):
+		if _pause_overlay == null:
+			_open_pause()
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("map_view"):
 		_clear_dest_marker()
 		_open_map_view()
@@ -1648,6 +1675,8 @@ func _handle_interact() -> void:
 	if not chest.is_empty() and not chest.get("opened", false):
 		chest["opened"] = true
 		AudioManager.play_sfx("chest_open")
+		if OS.has_feature("mobile") and bool(SceneManager.save_manager.get_setting("haptics", true)):
+			Input.vibrate_handheld(40)
 		var cid: String = str(chest.get("id", ""))
 		SceneManager.save_manager.mark_chest_opened(cid)
 		SceneManager.save_manager.increment_bounty_progress("open_chests", {})
@@ -1959,6 +1988,7 @@ func _on_enemy_engaged_for_mount(_enemy_data: Dictionary) -> void:
 func _on_battle_won(_result: Dictionary) -> void:
 	if _is_infinite and _current_biome >= 0:
 		AudioManager.play_music(_BIOME_MUSIC[_current_biome])
+		AudioManager.set_ambience(_current_biome)
 		const BountyGen_cls = preload("res://game_logic/BountyGen.gd")
 		if _current_biome < BountyGen_cls.BIOME_NAMES.size():
 			var biome_name: String = BountyGen_cls.BIOME_NAMES[_current_biome]

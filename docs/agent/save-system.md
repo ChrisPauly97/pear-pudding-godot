@@ -2,7 +2,8 @@
 
 ## Key Features
 
-- Single JSON save file at `user://save.json` covering all player progress
+- **3 save slots**: `user://save_slot_1.json`, `save_slot_2.json`, `save_slot_3.json`; active slot set via `SaveManager.set_active_slot(n)` before load/save
+- Legacy migration: if `user://save.json` exists and no slot files exist, it is automatically copied to slot 1 on first launch after update
 - Batched disk writes: changes are queued and flushed at most every 2 seconds (dirty flag pattern)
 - Automatic field migration: old saves missing new fields are backfilled with defaults on load
 - Tracks player deck, owned cards, position, map stack, defeated enemies, opened chests, coins, and world configuration
@@ -15,10 +16,19 @@
 ### File Location and Format
 
 ```
-user://save.json
+user://save_slot_1.json   # slot 1 (default)
+user://save_slot_2.json
+user://save_slot_3.json
+user://save.json           # legacy single-save (migrated to slot 1 on first run)
 ```
 
 `user://` resolves to a platform-specific user data directory (e.g. `~/.local/share/pear-pudding/` on Linux, `AppData/Roaming/` on Windows).
+
+**Slot API:**
+- `SaveManager.set_active_slot(n)` — set which slot subsequent `save()` and `load_save()` calls target
+- `SaveManager.has_save_slot(n) -> bool` — check if slot n has a save file
+- `SaveManager.get_slot_metadata(n) -> Dictionary` — returns `{current_map, coins, last_saved}` without full load
+- `SaveManager.delete_save_slot(n)` — removes the slot file and backups
 
 The file is a flat JSON object:
 

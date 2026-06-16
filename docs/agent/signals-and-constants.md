@@ -87,6 +87,9 @@ This means `EnemyNPC` never imports `SceneManager`, and `BattleScene` never impo
 | `blacksmith_requested` | `WorldScene._handle_interact()` | `SceneManager._on_blacksmith_requested()` | _(none)_ |
 | `weapon_upgraded` | `SaveManager.upgrade_weapon()` | _(listeners: future HUD)_ | `weapon_id: String, new_level: int` |
 | `weapon_salvaged` | `SaveManager.salvage_weapon()` | _(listeners: future HUD)_ | `weapon_id: String, coins: int, essence: int` |
+| `biome_changed` | `WorldScene` (on biome transition) | `AudioManager.set_ambience()` | `biome_id: int` |
+| `entered_named_map` | `WorldScene` (on map load) | `AudioManager.set_ambience(-1)` | `map_name: String` |
+| `exited_to_world` | `WorldScene` (on pop to infinite world) | _(future listeners)_ | _(none)_ |
 
 ---
 

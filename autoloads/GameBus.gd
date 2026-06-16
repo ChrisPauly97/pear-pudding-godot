@@ -93,3 +93,8 @@ signal siege_defeated(coins_lost: int)
 
 # Rival signals
 signal rival_encounter_won(encounter_num: int)
+
+# Ambient audio signals
+signal biome_changed(biome_id: int)
+signal entered_named_map(map_name: String)
+signal exited_to_world

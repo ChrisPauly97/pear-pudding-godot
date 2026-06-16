@@ -2,7 +2,7 @@
 
 **Goal:** GID-070
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -28,12 +28,14 @@ Outside of discrete SFX (footsteps, chests, battle sounds from GID-004/GID-023),
 
 ## Plan
 
-_Written during Plan phase._
+Add an ambience crossfade system to `AudioManager.gd`: two `AudioStreamPlayer` nodes paired for crossfading, `set_ambience(biome_id: int)` fades old player out and new player in over 2s. Use biome integer IDs matching `IsoConst`. Add `AMBIENCE_PATHS` array keyed by biome ID. Emit `GameBus.biome_changed` from `WorldScene` on biome transitions and listen in `AudioManager`. Use `biome_id = -1` for named maps (no ambience). Loop via `_process()` poll instead of signal closures to avoid connection leaks. Ambience volume follows SFX volume × 0.4 to sit under action sounds.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **MODIFIED `autoloads/AudioManager.gd`**: Added `AMBIENCE_PATHS: Array[String]` with 5 placeholder OGG paths (gracefully skipped if files don't exist). Added `AMBIENCE_CROSSFADE = 2.0`. Added `_amb_players` pair, `_amb_active`, `_amb_biome`. `_ready()` creates 2 silent `AudioStreamPlayer` nodes. `_process()` loops active ambience player when it finishes (avoids connection leaks from signal lambdas). `set_ambience(biome_id)` crossfades old→new: tweens old player volume to silence and stops it, loads new stream, tweens new player to `sfx_vol * 0.4`. `biome_id = -1` fades out without starting new ambience.
+- **MODIFIED `autoloads/GameBus.gd`**: Added signals `biome_changed(biome_id: int)`, `entered_named_map(map_name: String)`, `exited_to_world`.
+- **MODIFIED `scenes/world/WorldScene.gd`**: Calls `AudioManager.set_ambience(new_biome)` and emits `GameBus.biome_changed` on biome transitions. Calls `AudioManager.set_ambience(-1)` and emits `GameBus.entered_named_map` when entering a named map. Restores ambience (`set_ambience(_current_biome)`) on battle return.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md` — ambient soundscapes section added. Updated `docs/agent/signals-and-constants.md` — new GameBus signals documented.

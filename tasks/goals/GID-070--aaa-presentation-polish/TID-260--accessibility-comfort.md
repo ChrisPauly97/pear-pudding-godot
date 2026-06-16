@@ -2,7 +2,7 @@
 
 **Goal:** GID-070
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -26,12 +26,14 @@ The settings screen offers only music and SFX volume. There are no accessibility
 
 ## Plan
 
-_Written during Plan phase._
+Extend `SettingsScene.gd` with three new controls: screen-shake toggle (`CheckButton`), text scale option (`OptionButton` Small/Normal/Large), haptics toggle (Android-only `CheckButton`). Persist all three via existing `SaveManager.get_setting/set_setting` pattern with defaults (shake on, scale 1.0, haptics on). Gate `BattleScene` camera shake on the setting. Add `_haptic(ms)` helper to `BattleScene` that calls `Input.vibrate_handheld(ms)` on Android when haptics enabled. Add haptic calls for card_play, battle_win, battle_lose, and chest open.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **MODIFIED `scenes/ui/SettingsScene.gd`**: Expanded panel height to 0.75vh. Added "Audio" and "Accessibility & Comfort" section headers. Added `_add_toggle_row(label, key, default)` and `_add_option_row(label, key, options, scale_map)` helpers. Screen-shake `CheckButton` persists to `"screen_shake"` setting. Text scale `OptionButton` (Small=0.85/Normal=1.0/Large=1.25) persists to `"text_scale"`. Haptics `CheckButton` shown only when `OS.has_feature("mobile")`, persists to `"haptics"`.
+- **MODIFIED `scenes/battle/BattleScene.gd`**: Added `_haptic(duration_ms: int)` — calls `Input.vibrate_handheld(duration_ms)` gated on `OS.has_feature("mobile") and SaveManager.get_setting("haptics", true)`. `_trigger_shake()` now gates on `SaveManager.get_setting("screen_shake", true)`. `_haptic(20)` after each `play_sfx("card_play")` (3 sites). `_haptic(120)` on battle_win. `_haptic(80)` on battle_lose.
+- **MODIFIED `scenes/world/WorldScene.gd`**: Chest open emits `Input.vibrate_handheld(40)` on Android when haptics enabled.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md` — SettingsScene section updated with new accessibility controls.

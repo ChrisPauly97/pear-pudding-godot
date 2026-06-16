@@ -133,7 +133,8 @@ func go_to_menu() -> void:
 		_exit_world_cleanup()
 		var spire_summary: Node = _run_summary_scene_packed.instantiate()
 		spire_summary.set("spire_stats", stats)
-		get_tree().change_scene_to_node(spire_summary)
+		TransitionManager.transition(func() -> void:
+			get_tree().change_scene_to_node(spire_summary))
 		_state = State.RUN_SUMMARY
 		return
 	save_manager.save()
@@ -141,16 +142,19 @@ func go_to_menu() -> void:
 	if _state == State.WORLD:
 		_exit_world_cleanup()
 		var summary: Node = _run_summary_scene_packed.instantiate()
-		get_tree().change_scene_to_node(summary)
+		TransitionManager.transition(func() -> void:
+			get_tree().change_scene_to_node(summary))
 		_state = State.RUN_SUMMARY
 		return
 	_exit_world_cleanup()
-	get_tree().change_scene_to_packed(_menu_scene_packed)
+	TransitionManager.transition(func() -> void:
+		get_tree().change_scene_to_packed(_menu_scene_packed))
 	_state = State.MENU
 
 func go_to_menu_direct() -> void:
 	_exit_world_cleanup()
-	get_tree().change_scene_to_packed(_menu_scene_packed)
+	TransitionManager.transition(func() -> void:
+		get_tree().change_scene_to_packed(_menu_scene_packed))
 	_state = State.MENU
 
 func go_to_achievements() -> void:
@@ -238,12 +242,19 @@ func exit_map() -> void:
 	save_manager.save()
 	_load_world(parent, return_door)
 
+func go_to_slot_select() -> void:
+	_exit_world_cleanup()
+	TransitionManager.transition(func() -> void:
+		get_tree().change_scene_to_file("res://scenes/ui/SlotSelectScene.tscn"))
+	_state = State.MENU
+
 func _load_world(map_name: String, target_door_id: String) -> void:
 	var world: Node = _world_scene_packed.instantiate()
 	world.set("map_name", map_name)
 	world.set("target_door_id", target_door_id)
-	get_tree().change_scene_to_node(world)
-	_state = State.WORLD
+	TransitionManager.transition(func() -> void:
+		get_tree().change_scene_to_node(world)
+		_state = State.WORLD)
 
 func _exit_world_cleanup() -> void:
 	if _saved_world_scene != null:
@@ -296,14 +307,16 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	GameBus.tutorial_popup_requested.emit("mana")
 	save_manager.set_pending_battle(enemy_data)
 	save_manager.save()
-	# Detach world scene from tree so it stops rendering/processing
-	_saved_world_scene = get_tree().current_scene
-	get_tree().root.remove_child(_saved_world_scene)
-	# Promote battle to the active scene
-	_battle_overlay = _battle_scene_packed.instantiate()
-	_battle_overlay.enemy_data = enemy_data
-	get_tree().root.add_child(_battle_overlay)
-	get_tree().current_scene = _battle_overlay
+	var captured_enemy_data: Dictionary = enemy_data
+	TransitionManager.transition(func() -> void:
+		# Detach world scene from tree so it stops rendering/processing
+		_saved_world_scene = get_tree().current_scene
+		get_tree().root.remove_child(_saved_world_scene)
+		# Promote battle to the active scene
+		_battle_overlay = _battle_scene_packed.instantiate()
+		_battle_overlay.enemy_data = captured_enemy_data
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
 
 func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
@@ -314,13 +327,16 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 		return
 	_current_duel_npc_id = str(enemy_data.get("duel_npc_id", ""))
 	_current_champion_reward = str(enemy_data.get("champion_reward_card", ""))
-	_saved_world_scene = get_tree().current_scene
-	get_tree().root.remove_child(_saved_world_scene)
-	_battle_overlay = _battle_scene_packed.instantiate()
-	_battle_overlay.enemy_data = enemy_data
-	_battle_overlay.duel_wager = wager
-	get_tree().root.add_child(_battle_overlay)
-	get_tree().current_scene = _battle_overlay
+	var captured_duel_data: Dictionary = enemy_data
+	var captured_wager: int = wager
+	TransitionManager.transition(func() -> void:
+		_saved_world_scene = get_tree().current_scene
+		get_tree().root.remove_child(_saved_world_scene)
+		_battle_overlay = _battle_scene_packed.instantiate()
+		_battle_overlay.enemy_data = captured_duel_data
+		_battle_overlay.duel_wager = captured_wager
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
 
 func _on_duel_won() -> void:
@@ -360,14 +376,15 @@ func _on_duel_lost() -> void:
 	_restore_world()
 
 func _restore_world() -> void:
-	if _saved_world_scene != null:
-		get_tree().root.add_child(_saved_world_scene)
-		get_tree().current_scene = _saved_world_scene
-		_saved_world_scene = null
-	_state = State.WORLD
 	_proximity_engage_blocked = true
 	get_tree().create_timer(2.0, false).timeout.connect(
 		func() -> void: _proximity_engage_blocked = false)
+	TransitionManager.transition(func() -> void:
+		if _saved_world_scene != null:
+			get_tree().root.add_child(_saved_world_scene)
+			get_tree().current_scene = _saved_world_scene
+			_saved_world_scene = null
+		_state = State.WORLD)
 
 func _on_puzzle_requested(puzzle_id: String) -> void:
 	const PuzzleRegistry_cls = preload("res://autoloads/PuzzleRegistry.gd")
@@ -376,13 +393,15 @@ func _on_puzzle_requested(puzzle_id: String) -> void:
 		push_error("SceneManager: puzzle not found: " + puzzle_id)
 		return
 	_flush_position_save()
-	if get_tree().current_scene != null:
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-	_battle_overlay = _battle_scene_packed.instantiate()
-	_battle_overlay.puzzle_data = pdata
-	get_tree().root.add_child(_battle_overlay)
-	get_tree().current_scene = _battle_overlay
+	var captured_pdata: Resource = pdata
+	TransitionManager.transition(func() -> void:
+		if get_tree().current_scene != null:
+			_saved_world_scene = get_tree().current_scene
+			get_tree().root.remove_child(_saved_world_scene)
+		_battle_overlay = _battle_scene_packed.instantiate()
+		_battle_overlay.puzzle_data = captured_pdata
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
 
 func _on_puzzle_solved(puzzle_id: String) -> void:
@@ -588,7 +607,8 @@ func _on_battle_lost() -> void:
 	if _saved_world_scene != null:
 		_saved_world_scene.queue_free()
 		_saved_world_scene = null
-	get_tree().change_scene_to_packed(_gameover_scene_packed)
+	TransitionManager.transition(func() -> void:
+		get_tree().change_scene_to_packed(_gameover_scene_packed))
 	_state = State.GAME_OVER
 
 func _on_inventory_requested() -> void:
@@ -784,6 +804,8 @@ func _on_achievement_unlocked(achievement_id: String) -> void:
 	var reward_card: String = str(a.get("reward_card_id", ""))
 	if reward_card != "":
 		save_manager.grant_achievement_card(reward_card)
+	if OS.has_feature("mobile") and bool(save_manager.get_setting("haptics", true)):
+		Input.vibrate_handheld(60)
 
 func _on_level_up(new_level: int) -> void:
 	_toast.show_text("Level Up!", "You are now level %d" % new_level)

@@ -2,7 +2,7 @@
 
 **Goal:** GID-070
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -28,12 +28,17 @@ The game has exactly one save: `autoloads/SaveManager.gd` hardcodes `SAVE_PATH =
 
 ## Plan
 
-_Written during Plan phase._
+Change `SaveManager` to use `user://save_slot_%d.json` paths keyed by `active_slot`. Keep `LEGACY_SAVE_PATH` for migration: on `_ready()`, if `save.json` exists and no slot files do, copy it to slot 1. Add `set_active_slot`, `has_save_slot`, `get_slot_metadata`, `delete_save_slot`. Add `last_saved` timestamp field. New `SlotSelectScene` shows 3 slots with Continue/Delete or New Game. Back navigation and biome select `_on_back()` route through slot select. Settings stay per-slot (simpler; revisit in future if needed).
 
 ## Changes Made
 
-_Filled after Build phase._
+- **MODIFIED `autoloads/SaveManager.gd`**: Removed hardcoded `SAVE_PATH/TMP/BAK`. Added `LEGACY_SAVE_PATH = "user://save.json"`, `NUM_SAVE_SLOTS = 3`, `active_slot: int = 1`, `last_saved: String`. Added `_get_slot_path/tmp/bak` functions. `_ready()` copies legacy save to slot 1 if no slot files exist. New API: `set_active_slot`, `has_save_slot`, `get_slot_metadata` (returns dict with map/coins/last_saved), `delete_save_slot`. `has_save()` scans all slots. `save()` writes `last_saved` timestamp. `load_save()` reads it back.
+- **MODIFIED `autoloads/SceneManager.gd`**: Added `go_to_slot_select()` that changes to `SlotSelectScene.tscn`.
+- **NEW `scenes/ui/SlotSelectScene.gd`**: Shows 3 save slots with per-slot metadata. Continue + Delete buttons for occupied slots, New Game for empty. Delete requires confirm dialog. `_on_load_slot` sets active slot then calls `SceneManager.continue_game()`. `_on_new_game_slot` sets active slot then navigates to `BiomeSelectionScene`.
+- **NEW `scenes/ui/SlotSelectScene.tscn`**: Minimal tscn with uid `uid://1xaneli9gd9u`.
+- **MODIFIED `scenes/ui/MenuScene.gd`**: Continue and New Game now both call `SceneManager.go_to_slot_select()`.
+- **MODIFIED `scenes/ui/BiomeSelectionScene.gd`**: `_on_back()` now navigates to `SlotSelectScene.tscn` instead of `MenuScene.tscn`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/save-system.md` — multi-slot section, legacy migration, metadata API.

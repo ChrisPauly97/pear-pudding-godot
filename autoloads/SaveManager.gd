@@ -6,9 +6,19 @@ const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
 signal coins_changed(new_amount: int)
 
-const SAVE_PATH := "user://save.json"
-const SAVE_TMP_PATH := "user://save.json.tmp"
-const SAVE_BAK_PATH := "user://save.json.bak"
+const LEGACY_SAVE_PATH := "user://save.json"
+const NUM_SAVE_SLOTS: int = 3
+
+var active_slot: int = 1
+
+func _get_slot_path(slot: int) -> String:
+	return "user://save_slot_%d.json" % slot
+
+func _get_slot_tmp_path(slot: int) -> String:
+	return "user://save_slot_%d.json.tmp" % slot
+
+func _get_slot_bak_path(slot: int) -> String:
+	return "user://save_slot_%d.json.bak" % slot
 
 # Currency
 var coins: int = 0
@@ -169,6 +179,8 @@ var town_discounts: Dictionary = {}
 var rival_encounters_won: int = 0   # 0, 1, or 2 before the final showdown
 var rival_defeated: bool = false    # true after the final showdown; guards the unique card reward
 
+var last_saved: String = ""
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -180,6 +192,45 @@ func _ready() -> void:
 	timer.autostart = true
 	timer.timeout.connect(_flush_if_dirty)
 	add_child(timer)
+	# Migrate legacy save.json → slot 1 if no slot files exist yet
+	if FileAccess.file_exists(LEGACY_SAVE_PATH):
+		var any_exists: bool = false
+		for s: int in range(1, NUM_SAVE_SLOTS + 1):
+			if FileAccess.file_exists(_get_slot_path(s)):
+				any_exists = true
+				break
+		if not any_exists:
+			DirAccess.copy_absolute(LEGACY_SAVE_PATH, _get_slot_path(1))
+
+# -------------------------------------------------------------------------
+# Save slot API
+# -------------------------------------------------------------------------
+
+func set_active_slot(slot: int) -> void:
+	active_slot = clamp(slot, 1, NUM_SAVE_SLOTS)
+
+func has_save_slot(slot: int) -> bool:
+	return FileAccess.file_exists(_get_slot_path(slot))
+
+func get_slot_metadata(slot: int) -> Dictionary:
+	var parsed = _read_save_json(_get_slot_path(slot))
+	if not parsed is Dictionary:
+		return {}
+	var data: Dictionary = parsed
+	return {
+		"current_map": str(data.get("current_map", "?")),
+		"coins": int(data.get("coins", 0)),
+		"level": int(data.get("level", 1)),
+		"last_saved": str(data.get("last_saved", "")),
+	}
+
+func delete_save_slot(slot: int) -> void:
+	var path: String = _get_slot_path(slot)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	var bak: String = _get_slot_bak_path(slot)
+	if FileAccess.file_exists(bak):
+		DirAccess.remove_absolute(bak)
 
 func _flush_if_dirty() -> void:
 	if _dirty and _loaded:
@@ -198,7 +249,10 @@ func _notification(what: int) -> void:
 # -------------------------------------------------------------------------
 
 func has_save() -> bool:
-	return FileAccess.file_exists(SAVE_PATH)
+	for slot: int in range(1, NUM_SAVE_SLOTS + 1):
+		if has_save_slot(slot):
+			return true
+	return false
 
 func _gen_uid(template_id: String) -> String:
 	_uid_counter += 1
@@ -650,9 +704,9 @@ func _read_save_json(path: String):
 	return parsed
 
 func load_save() -> bool:
-	var parsed = _read_save_json(SAVE_PATH)
+	var parsed = _read_save_json(_get_slot_path(active_slot))
 	if parsed == null:
-		parsed = _read_save_json(SAVE_BAK_PATH)
+		parsed = _read_save_json(_get_slot_bak_path(active_slot))
 	if parsed == null:
 		return false
 	var data: Dictionary = parsed
@@ -747,6 +801,7 @@ func load_save() -> bool:
 	town_discounts = td if td is Dictionary else {}
 	rival_encounters_won = int(data.get("rival_encounters_won", 0))
 	rival_defeated = bool(data.get("rival_defeated", false))
+	last_saved = str(data.get("last_saved", ""))
 	_loaded = true
 	return true
 
@@ -827,15 +882,20 @@ func save() -> void:
 		"town_discounts": town_discounts,
 		"rival_encounters_won": rival_encounters_won,
 		"rival_defeated": rival_defeated,
+		"last_saved": Time.get_datetime_string_from_system(false, true),
 	}
-	var tmp := FileAccess.open(SAVE_TMP_PATH, FileAccess.WRITE)
+	var save_path: String = _get_slot_path(active_slot)
+	var tmp_path: String = _get_slot_tmp_path(active_slot)
+	var bak_path: String = _get_slot_bak_path(active_slot)
+	var tmp := FileAccess.open(tmp_path, FileAccess.WRITE)
 	if not tmp:
 		return
 	tmp.store_string(JSON.stringify(data, "\t"))
 	tmp = null  # flush + close before rename
-	if FileAccess.file_exists(SAVE_PATH):
-		DirAccess.copy_absolute(SAVE_PATH, SAVE_BAK_PATH)
-	DirAccess.rename_absolute(SAVE_TMP_PATH, SAVE_PATH)
+	if FileAccess.file_exists(save_path):
+		DirAccess.copy_absolute(save_path, bak_path)
+	DirAccess.rename_absolute(tmp_path, save_path)
+	last_saved = str(data.get("last_saved", ""))
 
 # -------------------------------------------------------------------------
 # State mutators (each auto-saves)

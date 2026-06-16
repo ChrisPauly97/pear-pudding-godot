@@ -2,7 +2,7 @@
 
 **Goal:** GID-070
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -27,12 +27,14 @@ Battles have a pause overlay (Resume / Settings / Return to Menu) but the overwo
 
 ## Plan
 
-_Written during Plan phase._
+New `scenes/ui/OverworldPauseOverlay.gd` (CanvasLayer, layer 200, `PROCESS_MODE_ALWAYS`) that pauses the tree on `_ready()` and emits `resumed` / `quit_to_menu` signals. Three buttons: Resume, Settings (adds SettingsScene child), Save & Quit. `_input()` handles the `pause` action. Add a pause action to `project.godot` (ESC + joypad START). In `WorldScene.gd` add a "II" pause HUD button and `_open_pause()`. `save()` is called explicitly before `go_to_menu_direct()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **NEW `scenes/ui/OverworldPauseOverlay.gd`**: CanvasLayer at layer 200 with `PROCESS_MODE_ALWAYS`. Sets `get_tree().paused = true` in `_ready()`. Builds a centred semi-transparent panel with Resume / Settings / Save & Quit buttons (viewport-relative sizing). Settings button instantiates `SettingsScene` overlay as a child. Save & Quit calls `SaveManager.save()` then `SceneManager.go_to_menu_direct()` and emits `quit_to_menu`. Resume button and `pause` action in `_input()` unpause tree and emit `resumed`.
+- **MODIFIED `scenes/world/WorldScene.gd`**: Preloads `OverworldPauseOverlay`. Adds "II" pause HUD button. Adds `_open_pause()` guard-gated on `_pause_overlay == null`. `_unhandled_input()` routes `pause` action to `_open_pause()`. Emits `GameBus.biome_changed` / `entered_named_map` and calls `AudioManager.set_ambience()` on map transitions and battle return.
+- **MODIFIED `project.godot`**: Added `pause` action with `KEY_ESCAPE` (4194305) and `JoypadButton` 6 (START).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md` — OverworldPauseOverlay section added.

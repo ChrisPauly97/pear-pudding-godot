@@ -2,7 +2,7 @@
 
 **Goal:** GID-070
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -26,12 +26,13 @@ The input map in `project.godot` contains only keyboard bindings (WASD movement,
 
 ## Plan
 
-_Written during Plan phase._
+Add `InputEventJoypadButton` and `InputEventJoypadMotion` events to all existing actions in `project.godot`. Upgrade `Player.gd` movement to `Input.get_vector()` for analog stick support with deadzone. Left stick + D-pad → movement, A (button 0) → interact, Y (button 3) → inventory, X (button 2) → map_view, B (button 1) → character, RB (button 5) → skill_tree, Y (button 3) → mount, START (button 6) → pause.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **MODIFIED `project.godot`**: Added joypad bindings to all actions: `move_left/right/up/down` get left-stick axes (threshold 0.5) plus D-pad buttons; `interact` gets button 0 (A/Cross); `inventory` gets button 3 (Y/Triangle); `map_view` gets button 2 (X/Square); `character` gets button 1 (B/Circle); `skill_tree` gets button 5 (RB/R1); `mount` gets button 3 (Y); `pause` gets button 6 (START). Keyboard bindings unchanged.
+- **MODIFIED `scenes/world/entities/Player.gd`**: Replaced 4 separate `Input.is_action_pressed()` WASD checks with `Input.get_vector("move_left", "move_right", "move_up", "move_down")`. Applied isometric remap: `dir.x = inp.y + inp.x`, `dir.z = inp.y - inp.x`. Works for both keyboard and analog stick with built-in deadzone handling.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/camera-and-player.md` — gamepad input section noted.
