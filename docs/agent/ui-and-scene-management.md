@@ -11,6 +11,53 @@
 - In-game `MapEditorScene` for level design and debug
 - Mobile: `VirtualJoystick` overlay added at runtime when touchscreen detected
 - M key opens `MapViewOverlay` in named maps: full 100×100 tile grid as a color-coded image with entity dots; not available in infinite world mode
+- All modal overlay scenes extend `BaseOverlay` (GID-073); shared builder helpers in `UiUtil`
+
+---
+
+## Overlay Framework (GID-073)
+
+### BaseOverlay (`scenes/ui/BaseOverlay.gd`)
+
+All modal overlay scenes extend `"res://scenes/ui/BaseOverlay.gd"` using a string-path extends (not class_name). The base class provides:
+
+| Member | Description |
+|---|---|
+| `signal closed` | Emitted when the overlay should close |
+| `_vh`, `_vw` | Viewport height/width, set in `_ready()` |
+| `_build_backdrop(alpha, close_on_tap)` | Full-screen dark ColorRect; optional tap-to-close |
+| `_build_centered_panel(w, h)` | Centered PanelContainer (no custom style applied) |
+| `_build_margin_vbox(parent, margin_frac, sep_frac)` | MarginContainer + VBoxContainer inside parent |
+| `_make_dark_glass_style()` static | StyleBoxFlat with dark-blue glass look (for SettingsScene, CardInspectOverlay) |
+| `_close()` | Emits `closed`; scenes that also need `queue_free()` override this |
+| `_input(event)` | Handles `ui_cancel` → `_close()` |
+
+Overlays that additionally need `queue_free()` on close override `_close()`:
+```gdscript
+func _close() -> void:
+    closed.emit()
+    queue_free()
+```
+
+### UiUtil (`scenes/ui/UiUtil.gd`)
+
+Static helper file (preload with `const _UiUtil = preload("res://scenes/ui/UiUtil.gd")`):
+
+| Static method | Description |
+|---|---|
+| `rarity_color(rarity)` | Returns Color for common/rare/epic/legendary |
+| `rarity_badge(rarity)` | Returns `[C]`/`[R]`/`[E]`/`[L]` badge string |
+| `effect_summary(type, value, count, card_id)` | Human-readable weapon effect text |
+| `make_title_label(text, vh)` | Gold-colored, center-aligned label at `vh*0.038` |
+| `make_body_label(text, vh)` | Light gray label at `vh*0.022` |
+| `make_separator()` | HSeparator |
+| `make_close_button(vh, on_pressed)` | Standard Close button |
+
+### Migrated Overlays
+
+All 9 modal overlays extend BaseOverlay (as of GID-073): `InventoryScene`, `ShopScene`, `SkillTreeScene`, `CharacterScene`, `JournalScene`, `AchievementsScene`, `SettingsScene`, `TutorialPopup`, `CardInspectOverlay` (scenes/battle).
+
+`BiomeSelectionScene` is a full-screen new-game scene (not a modal), so it does not extend BaseOverlay.
 
 ---
 

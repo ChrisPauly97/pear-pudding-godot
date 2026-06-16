@@ -1,43 +1,20 @@
-extends Control
+extends "res://scenes/ui/BaseOverlay.gd"
 
 const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
 
-signal closed
-
-var _vh: float = 0.0
-var _vw: float = 0.0
-
 func _ready() -> void:
-	mouse_filter = MOUSE_FILTER_STOP
-	_vh = get_viewport().get_visible_rect().size.y
-	_vw = get_viewport().get_visible_rect().size.x
+	super._ready()
 	_build_ui()
 
 func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.82)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	_build_backdrop(0.82)
 
 	var panel_w: float = minf(_vw * 0.92, _vh * 0.75)
 	var panel_h: float = _vh * 0.88
 
-	var outer := PanelContainer.new()
-	outer.custom_minimum_size = Vector2(panel_w, panel_h)
-	outer.size = Vector2(panel_w, panel_h)
-	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
-	add_child(outer)
+	var outer := _build_centered_panel(panel_w, panel_h)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.015))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.015))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.015))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.015))
-	outer.add_child(margin)
-
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_vh * 0.012))
-	margin.add_child(root_vbox)
+	var root_vbox := _build_margin_vbox(outer, 0.015, 0.012)
 
 	# Title + close row
 	var header_row := HBoxContainer.new()
@@ -53,7 +30,7 @@ func _build_ui() -> void:
 	close_btn.text = "X"
 	close_btn.custom_minimum_size = Vector2(_vh * 0.065, _vh * 0.065)
 	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.024))
-	close_btn.pressed.connect(_on_close)
+	close_btn.pressed.connect(_close)
 	header_row.add_child(close_btn)
 
 	# Scrollable list
@@ -136,10 +113,3 @@ func _make_row(a: Dictionary, is_unlocked: bool, current: int) -> Control:
 
 	return row
 
-func _on_close() -> void:
-	closed.emit()
-
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
-		_on_close()
-		get_viewport().set_input_as_handled()

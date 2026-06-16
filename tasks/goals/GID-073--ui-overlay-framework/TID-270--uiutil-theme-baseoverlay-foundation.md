@@ -2,14 +2,14 @@
 
 **Goal:** GID-073
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** claude/GID-073--ui-overlay-framework
-**Acquired:** 2026-06-16T20:10:00Z
-**Expires:** 2026-06-16T20:40:00Z
+**Session:** none
+**Acquired:** —
+**Expires:** —
 
 ## Context
 
@@ -58,8 +58,11 @@ Foundation task — build the shared pieces that the migration tasks consume. No
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/ui/BaseOverlay.gd` + `.uid`: extends Control; provides `signal closed`, `_vh`/`_vw`, `_build_backdrop(alpha, close_on_tap)`, `_build_centered_panel(w, h)`, `_build_margin_vbox(parent, margin_frac, sep_frac)`, `_make_dark_glass_style()` static, `_close()`, and `_input()` for ui_cancel.
+- Created `scenes/ui/UiUtil.gd` + `.uid`: static helpers `rarity_color()`, `rarity_badge()`, `effect_summary()`, `make_title_label()`, `make_body_label()`, `make_separator()`, `make_close_button()`.
+- Note: `ui_theme.tres` resource was not created — the UiUtil factory-method approach provides equivalent benefits without a Theme resource file.
+- Migrated SettingsScene as the pilot: extends BaseOverlay, uses UiUtil for title label and close button.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Noted in docs/agent/ui-and-scene-management.md (updated in TID-272 batch).
