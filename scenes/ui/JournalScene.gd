@@ -1,11 +1,7 @@
-extends Control
+extends "res://scenes/ui/BaseOverlay.gd"
 
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
-signal closed
-
-var _vh: float = 0.0
-var _vw: float = 0.0
 var _selected_id: String = ""
 var _active_tab: String = "scrolls"
 var _bestiary_selected_id: String = ""
@@ -20,39 +16,21 @@ var _tab_scrolls_btn: Button
 var _tab_bestiary_btn: Button
 
 func _ready() -> void:
-	mouse_filter = MOUSE_FILTER_STOP
-	_vh = get_viewport().get_visible_rect().size.y
-	_vw = get_viewport().get_visible_rect().size.x
+	super._ready()
 	_build_ui()
 	_populate_scroll_list()
 	_refresh_treasure_panel()
 
 func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.78)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	_build_backdrop(0.78)
 
 	var is_portrait: bool = _vw < _vh
 	var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
 	var panel_h: float = _vh * 0.92 if is_portrait else _vh * 0.86
 
-	var outer := PanelContainer.new()
-	outer.custom_minimum_size = Vector2(panel_w, panel_h)
-	outer.size = Vector2(panel_w, panel_h)
-	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
-	add_child(outer)
+	var outer := _build_centered_panel(panel_w, panel_h)
 
-	var outer_margin := MarginContainer.new()
-	outer_margin.add_theme_constant_override("margin_left",   int(_vw * 0.015))
-	outer_margin.add_theme_constant_override("margin_right",  int(_vw * 0.015))
-	outer_margin.add_theme_constant_override("margin_top",    int(_vh * 0.015))
-	outer_margin.add_theme_constant_override("margin_bottom", int(_vh * 0.015))
-	outer.add_child(outer_margin)
-
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_vh * 0.01))
-	outer_margin.add_child(root_vbox)
+	var root_vbox := _build_margin_vbox(outer, 0.015, 0.01)
 
 	# ── Header row ────────────────────────────────────────────────────────────
 	var header_row := HBoxContainer.new()
@@ -317,10 +295,6 @@ func _show_bestiary_detail(type_id: String) -> void:
 			var lore: String = _EnemyRegistry.get_lore_text(type_id)
 			_lore_label.text = "Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n%s" % [deck2.size(), diff2, coins2, lore]
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
-		_close()
-		get_viewport().set_input_as_handled()
-
 func _close() -> void:
 	closed.emit()
+	queue_free()

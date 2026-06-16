@@ -1,12 +1,8 @@
-extends Control
-
-signal closed
+extends "res://scenes/ui/BaseOverlay.gd"
 
 const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
 
-var _vh: float = 0.0
-var _vw: float = 0.0
 var _points_label: Label
 var _skill_container: Control
 var _active_tab: int = 0
@@ -20,9 +16,7 @@ const MAGIC_BRANCHES: Dictionary = {
 }
 
 func _ready() -> void:
-	mouse_filter = MOUSE_FILTER_STOP
-	_vh = get_viewport().get_visible_rect().size.y
-	_vw = get_viewport().get_visible_rect().size.x
+	super._ready()
 	if SceneManager.save_manager.magic_type == "":
 		_build_magic_choice()
 	else:
@@ -34,31 +28,12 @@ func _ready() -> void:
 # -------------------------------------------------------------------------
 
 func _build_magic_choice() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.88)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-
+	_build_backdrop(0.88)
 	var panel_w: float = _vw * 0.82
 	var panel_h: float = _vh * 0.72
-
-	var outer := PanelContainer.new()
-	outer.custom_minimum_size = Vector2(panel_w, panel_h)
-	outer.size = Vector2(panel_w, panel_h)
-	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
-	add_child(outer)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.04))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.04))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.04))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.04))
-	outer.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.025))
+	var outer := _build_centered_panel(panel_w, panel_h)
+	var vbox := _build_margin_vbox(outer, 0.04, 0.025)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	margin.add_child(vbox)
 
 	var title := Label.new()
 	title.text = "Choose Your Path"
@@ -178,30 +153,11 @@ func _cross_currency() -> String:
 # -------------------------------------------------------------------------
 
 func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.78)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-
+	_build_backdrop(0.78)
 	var panel_w: float = _vw * 0.96
 	var panel_h: float = _vh * 0.92
-
-	var outer := PanelContainer.new()
-	outer.custom_minimum_size = Vector2(panel_w, panel_h)
-	outer.size = Vector2(panel_w, panel_h)
-	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
-	add_child(outer)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.015))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.015))
-	outer.add_child(margin)
-
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_vh * 0.010))
-	margin.add_child(root_vbox)
+	var outer := _build_centered_panel(panel_w, panel_h)
+	var root_vbox := _build_margin_vbox(outer, 0.03, 0.010)
 
 	# ── Header: title + stats on the left, big X close on the right ──
 	var header := HBoxContainer.new()
@@ -437,6 +393,6 @@ func _on_cross_unlock_pressed(skill_id: String, cost: int, currency: String) -> 
 	_refresh()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("skill_tree") or event.is_action_pressed("ui_cancel"):
+	if event.is_action_pressed("skill_tree"):
 		closed.emit()
 		get_viewport().set_input_as_handled()

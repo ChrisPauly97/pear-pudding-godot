@@ -2,7 +2,7 @@
 
 **Goal:** GID-073
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-270
 
 ## Lock
@@ -40,12 +40,15 @@ InventoryScene (705 lines, ~60 override calls), SkillTreeScene (442 lines, ~37),
 
 ## Plan
 
-_Written during Plan phase._
+Extend all 4 scenes from `"res://scenes/ui/BaseOverlay.gd"`. Call `super._ready()`, remove `signal closed`/`_vh`/`_vw` declarations, replace backdrop+panel+margin+vbox blocks with BaseOverlay helpers, route duplicate helpers through UiUtil.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **InventoryScene.gd**: extends BaseOverlay; removed `signal closed`, `_vh`, `_vw`; replaced 15-line backdrop+panel+margin+vbox block with 4-line BaseOverlay calls; replaced `_rarity_color`/`_rarity_badge` with `_UiUtil.rarity_color`/`_UiUtil.rarity_badge` (9 call sites); deleted both local methods; trimmed `_input` to only handle `inventory` action (BaseOverlay handles `ui_cancel`).
+- **ShopScene.gd**: same base changes; replaced `_weapon_effect_summary` with `_UiUtil.effect_summary` at 2 call sites; deleted local method; removed `_unhandled_input` (BaseOverlay handles `ui_cancel`).
+- **CharacterScene.gd**: same base changes; deleted dead `_effect_summary` method; trimmed `_input` to only handle `character` action.
+- **SkillTreeScene.gd**: same base changes; replaced backdrop+panel+margin+vbox in both `_build_magic_choice()` and `_build_ui()`; removed `ui_cancel` from `_unhandled_input`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated in docs/agent/ui-and-scene-management.md.

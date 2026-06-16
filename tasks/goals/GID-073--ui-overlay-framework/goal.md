@@ -14,9 +14,9 @@ Related work: Coordinate with GID-064 TID-229 (lambda signal-connection leaks & 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-270 | Create UiUtil, UiTheme resource, and BaseOverlay foundation | agent | pending | — |
-| TID-271 | Migrate the four largest overlays | agent | pending | TID-270 |
-| TID-272 | Migrate remaining overlays and standardize close/cleanup | agent | pending | TID-270 |
+| TID-270 | Create UiUtil, UiTheme resource, and BaseOverlay foundation | agent | done | — |
+| TID-271 | Migrate the four largest overlays | agent | done | TID-270 |
+| TID-272 | Migrate remaining overlays and standardize close/cleanup | agent | done | TID-270 |
 
 ## Acceptance Criteria
 

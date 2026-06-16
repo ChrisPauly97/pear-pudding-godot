@@ -1,6 +1,4 @@
-extends Control
-
-signal closed
+extends "res://scenes/ui/BaseOverlay.gd"
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
@@ -9,6 +7,7 @@ const WeaponData = preload("res://data/WeaponData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const CARD_PRICE: int = 15
 
@@ -20,8 +19,6 @@ var _custom_title: String = ""          # "" = use default title
 # Town gratitude discount: set by SceneManager from current_map before add_child().
 var town_name: String = ""
 
-var _vh: float = 0.0
-var _vw: float = 0.0
 var _coin_label: Label
 var _title_lbl: Label
 var _shop_list: VBoxContainer
@@ -29,37 +26,16 @@ var _shop_scroll: ScrollContainer
 var _inspect_overlay: Control = null
 
 func _ready() -> void:
-	mouse_filter = MOUSE_FILTER_STOP
-	_vh = get_viewport().get_visible_rect().size.y
-	_vw = get_viewport().get_visible_rect().size.x
+	super._ready()
 	_build_ui()
 	_refresh()
 
 func _build_ui() -> void:
-	# Dark backdrop
-	var bg := ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.78)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-
-	var outer := PanelContainer.new()
+	_build_backdrop(0.78)
 	var panel_w: float = minf(_vw * 0.90, _vh * 0.70)
 	var panel_h: float = _vh * 0.82
-	outer.custom_minimum_size = Vector2(panel_w, panel_h)
-	outer.size = Vector2(panel_w, panel_h)
-	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
-	add_child(outer)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.015))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.015))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.015))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.015))
-	outer.add_child(margin)
-
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_vh * 0.012))
-	margin.add_child(root_vbox)
+	var outer := _build_centered_panel(panel_w, panel_h)
+	var root_vbox := _build_margin_vbox(outer, 0.015, 0.012)
 
 	# Title
 	_title_lbl = Label.new()
@@ -210,7 +186,7 @@ func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int
 	row.add_theme_constant_override("separation", int(_vw * 0.008))
 
 	var info_lbl := Label.new()
-	info_lbl.text = "%s  —  %s" % [weapon.display_name, _weapon_effect_summary(weapon)]
+	info_lbl.text = "%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)]
 	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info_lbl)
@@ -313,7 +289,7 @@ func _make_weapon_row(wid: String, weapon: WeaponData, price: int, coins: int) -
 
 	# Name + effect
 	var info_lbl := Label.new()
-	info_lbl.text = "%s  —  %s" % [weapon.display_name, _weapon_effect_summary(weapon)]
+	info_lbl.text = "%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)]
 	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info_lbl)
@@ -335,18 +311,6 @@ func _make_weapon_row(wid: String, weapon: WeaponData, price: int, coins: int) -
 	row.add_child(buy_btn)
 
 	return row
-
-func _weapon_effect_summary(weapon: WeaponData) -> String:
-	match weapon.battle_effect_type:
-		"deck_inject":
-			return "Inject %d× %s" % [weapon.injected_card_count, weapon.injected_card_id]
-		"starting_mana":
-			return "+%d mana" % weapon.battle_effect_value
-		"starting_hp":
-			return "+%d HP" % weapon.battle_effect_value
-		"passive_atk":
-			return "+%d ATK" % weapon.battle_effect_value
-	return weapon.battle_effect_type
 
 func _on_buy_card(card_id: String, price: int = CARD_PRICE) -> void:
 	var sm := SceneManager.save_manager
@@ -448,8 +412,3 @@ func _on_buy_pack(pack_id: String, price: int) -> void:
 
 func _on_close() -> void:
 	closed.emit()
-
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
-		_on_close()
-		get_viewport().set_input_as_handled()

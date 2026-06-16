@@ -1,6 +1,4 @@
-extends Control
-
-signal closed
+extends "res://scenes/ui/BaseOverlay.gd"
 
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -33,65 +31,23 @@ const _EMERGENCE_LABELS: Dictionary = {
 }
 
 var _card: CardInstance = null
-var _vh: float = 0.0
+
+func _ready() -> void:
+	super._ready()
 
 func show_card(card: CardInstance) -> void:
 	_card = card
 	_build_ui()
 
 func _build_ui() -> void:
-	_vh = get_viewport().get_visible_rect().size.y
-	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_build_backdrop(0.72, true)
 
-	set_anchors_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = MOUSE_FILTER_STOP
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.72)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = MOUSE_FILTER_PASS
-	add_child(backdrop)
-
-	backdrop.gui_input.connect(func(ev: InputEvent) -> void:
-		if ev is InputEventMouseButton and ev.pressed:
-			_close()
-	)
-
-	var panel_w: float = vp.x * 0.6
+	var panel_w: float = _vw * 0.6
 	var panel_h: float = _vh * 0.62
-	var panel := PanelContainer.new()
-	var panel_style := StyleBoxFlat.new()
-	panel_style.bg_color = Color(0.1, 0.1, 0.18, 0.98)
-	panel_style.corner_radius_top_left    = 12
-	panel_style.corner_radius_top_right   = 12
-	panel_style.corner_radius_bottom_left = 12
-	panel_style.corner_radius_bottom_right = 12
-	panel_style.border_color = Color(0.5, 0.5, 0.7, 0.8)
-	panel_style.border_width_top    = 2
-	panel_style.border_width_bottom = 2
-	panel_style.border_width_left   = 2
-	panel_style.border_width_right  = 2
-	panel.add_theme_stylebox_override("panel", panel_style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = MOUSE_FILTER_STOP
-	add_child(panel)
+	var panel := _build_centered_panel(panel_w, panel_h)
+	panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.018))
-	panel.add_child(vbox)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.025))
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
-
-	var inner := VBoxContainer.new()
-	inner.add_theme_constant_override("separation", int(_vh * 0.016))
-	margin.add_child(inner)
+	var inner := _build_margin_vbox(panel, 0.025, 0.016)
 
 	# Card color bar
 	var color_bar := ColorRect.new()
@@ -226,8 +182,3 @@ func _build_ui() -> void:
 func _close() -> void:
 	closed.emit()
 	queue_free()
-
-func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
-		_close()
-		get_viewport().set_input_as_handled()

@@ -1,6 +1,4 @@
-extends Control
-
-signal closed
+extends "res://scenes/ui/BaseOverlay.gd"
 
 const CardRegistry      = preload("res://autoloads/CardRegistry.gd")
 const CraftingRegistry  = preload("res://autoloads/CraftingRegistry.gd")
@@ -8,9 +6,8 @@ const _CardDropUtil     = preload("res://game_logic/CardDropUtil.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const CardInstance      = preload("res://game_logic/battle/CardInstance.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
+const _UiUtil           = preload("res://scenes/ui/UiUtil.gd")
 
-var _vh: float = 0.0
-var _vw: float = 0.0
 var _working_deck: Array[String] = []
 
 var _collection_list: VBoxContainer
@@ -31,39 +28,19 @@ var _craft_essence_label: Label
 var _inspect_overlay: Control = null
 
 func _ready() -> void:
-	mouse_filter = MOUSE_FILTER_STOP
-	_vh = get_viewport().get_visible_rect().size.y
-	_vw = get_viewport().get_visible_rect().size.x
+	super._ready()
 	_working_deck.assign(SceneManager.save_manager.player_deck)
 	_build_ui()
 	_refresh()
 
 func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.0, 0.0, 0.0, 0.78)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+	_build_backdrop(0.78)
 
 	var is_portrait: bool = _vw < _vh
-
-	var outer := PanelContainer.new()
 	var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
 	var panel_h: float = _vh * 0.92 if is_portrait else _vh * 0.86
-	outer.custom_minimum_size = Vector2(panel_w, panel_h)
-	outer.size = Vector2(panel_w, panel_h)
-	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
-	add_child(outer)
-
-	var outer_margin := MarginContainer.new()
-	outer_margin.add_theme_constant_override("margin_left",   int(_vw * 0.015))
-	outer_margin.add_theme_constant_override("margin_right",  int(_vw * 0.015))
-	outer_margin.add_theme_constant_override("margin_top",    int(_vh * 0.015))
-	outer_margin.add_theme_constant_override("margin_bottom", int(_vh * 0.015))
-	outer.add_child(outer_margin)
-
-	var wrapper := VBoxContainer.new()
-	wrapper.add_theme_constant_override("separation", int(_vh * 0.008))
-	outer_margin.add_child(wrapper)
+	var outer := _build_centered_panel(panel_w, panel_h)
+	var wrapper := _build_margin_vbox(outer, 0.015, 0.008)
 
 	# ---- Tab bar ----
 	var tab_bar := HBoxContainer.new()
@@ -354,22 +331,6 @@ func _refresh_cards() -> void:
 # Row helpers
 # -------------------------------------------------------------------------
 
-func _rarity_color(rarity: String) -> Color:
-	match rarity:
-		"common":    return Color(0.80, 0.80, 0.80)
-		"rare":      return Color(0.20, 0.50, 1.00)
-		"epic":      return Color(0.70, 0.20, 1.00)
-		"legendary": return Color(1.00, 0.75, 0.00)
-	return Color(0.80, 0.80, 0.80)
-
-func _rarity_badge(rarity: String) -> String:
-	match rarity:
-		"common":    return "[C]"
-		"rare":      return "[R]"
-		"epic":      return "[E]"
-		"legendary": return "[L]"
-	return "[?]"
-
 func _stat_range_text(rolled: int, base: int, rarity: String) -> String:
 	var disp: int = rolled if rolled >= 0 else base
 	if base <= 0:
@@ -474,10 +435,10 @@ func _make_collection_row_stacked(tid: String, count: int) -> VBoxContainer:
 		if next_idx < IsoConst.RARITY_ORDER.size():
 			var next_rarity: String = IsoConst.RARITY_ORDER[next_idx]
 			var combine_btn := Button.new()
-			combine_btn.text = "Combine 3× → %s" % _rarity_badge(next_rarity)
+			combine_btn.text = "Combine 3× → %s" % _UiUtil.rarity_badge(next_rarity)
 			combine_btn.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.065)
 			combine_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
-			combine_btn.modulate = _rarity_color(next_rarity)
+			combine_btn.modulate = _UiUtil.rarity_color(next_rarity)
 			combine_btn.disabled = count < 3
 			combine_btn.pressed.connect(func() -> void:
 				SceneManager.save_manager.combine_cards(tid, "common")
@@ -518,9 +479,9 @@ func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
 	top_row.add_child(name_lbl)
 
 	var badge_lbl := Label.new()
-	badge_lbl.text = _rarity_badge(rarity)
+	badge_lbl.text = _UiUtil.rarity_badge(rarity)
 	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	badge_lbl.modulate = _rarity_color(rarity)
+	badge_lbl.modulate = _UiUtil.rarity_color(rarity)
 	top_row.add_child(badge_lbl)
 
 	var add_btn := Button.new()
@@ -535,7 +496,7 @@ func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
 	var stats_lbl := Label.new()
 	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp]
 	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	stats_lbl.modulate = _rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55)
+	stats_lbl.modulate = _UiUtil.rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55)
 	vbox.add_child(stats_lbl)
 
 	var lpd := LongPressDetector.new()
@@ -673,9 +634,9 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 	top_row.add_child(name_lbl)
 
 	var badge_lbl := Label.new()
-	badge_lbl.text = _rarity_badge(rarity)
+	badge_lbl.text = _UiUtil.rarity_badge(rarity)
 	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	badge_lbl.modulate = _rarity_color(rarity)
+	badge_lbl.modulate = _UiUtil.rarity_color(rarity)
 	top_row.add_child(badge_lbl)
 
 	var rm_btn := Button.new()
@@ -697,7 +658,7 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 	var stats_lbl := Label.new()
 	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp]
 	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	stats_lbl.modulate = _rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55)
+	stats_lbl.modulate = _UiUtil.rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55)
 	vbox.add_child(stats_lbl)
 
 	var lpd := LongPressDetector.new()
@@ -733,9 +694,9 @@ func _make_craft_row(recipe: Object, player_essence: int) -> HBoxContainer:
 	row.add_child(name_lbl)
 
 	var badge_lbl := Label.new()
-	badge_lbl.text = _rarity_badge(rarity)
+	badge_lbl.text = _UiUtil.rarity_badge(rarity)
 	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	badge_lbl.modulate = _rarity_color(rarity)
+	badge_lbl.modulate = _UiUtil.rarity_color(rarity)
 	row.add_child(badge_lbl)
 
 	var cost_lbl := Label.new()
@@ -915,6 +876,6 @@ func _on_close() -> void:
 	closed.emit()
 
 func _input(event: InputEvent) -> void:
-	if event.is_action_pressed("inventory") or event.is_action_pressed("ui_cancel"):
+	if event.is_action_pressed("inventory"):
 		get_viewport().set_input_as_handled()
 		_on_close()
