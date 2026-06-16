@@ -90,3 +90,6 @@ signal weapon_salvaged(weapon_id: String, coins: int, essence: int)
 # Siege signals
 signal siege_victory
 signal siege_defeated(coins_lost: int)
+
+# Rival signals
+signal rival_encounter_won(encounter_num: int)
