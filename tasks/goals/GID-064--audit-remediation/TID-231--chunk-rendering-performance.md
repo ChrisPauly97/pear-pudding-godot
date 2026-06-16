@@ -2,7 +2,7 @@
 
 **Goal:** GID-064
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-230
 
 ## Lock
@@ -72,12 +72,20 @@ a headless run); confirm named-map load no longer stalls; full test suite green.
 
 ## Plan
 
-_Written during Plan phase._
+1. Fix 1 (grass buffers): Add `GrassBlades.compute_centres()` and `GrassBlades.prepare_buffers()` static functions; call from `ChunkRenderer.prepare_terrain` (worker thread); add `GrassBlades.commit_grass_buffers()` for main-thread MMI creation; update `_build_grass` to use pre-built data.
+2. Fix 5 (material cache): Add `ChunkRenderer._biome_mat_cache` static Dict; replace per-chunk `duplicate()` with cached material keyed by `[template.get_rid(), biome]`.
+3. Fix 6 (minimap): Switch SubViewport to `UPDATE_DISABLED`; add frame counter in `update()` to call `UPDATE_ONCE` every 4th frame.
+4. Fix 7 (StoryScroll): Remove `OmniLight3D` and dead `_process` / `_near_player`.
+
+Skipped: fixes 2/3/4 (TerrainMath Callable hot path, main-thread tile gen, named-map sync build) — higher risk of regression; deferred to backlog.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/GrassBlades.gd`: Added `compute_centres()`, `prepare_buffers()`, `commit_grass_buffers()` static/instance functions for threaded grass buffer building.
+- `scenes/world/ChunkRenderer.gd`: `prepare_terrain` now builds grass buffers on the worker thread and includes them in terrain_res; `_build_grass` uses `commit_grass_buffers`; added `_biome_mat_cache` static Dict (5 materials instead of 120+).
+- `scenes/world/Minimap.gd`: SubViewport uses `UPDATE_DISABLED`; `update()` triggers `UPDATE_ONCE` every 4 frames.
+- `scenes/world/entities/StoryScroll.gd`: Removed `OmniLight3D` glow (unshaded world ignores it); removed dead `_process`/`_near_player`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None needed — terrain-rendering doc already notes the threaded pipeline.

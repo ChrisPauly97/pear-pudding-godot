@@ -2,7 +2,7 @@
 
 **Goal:** GID-064
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -90,12 +90,29 @@ covers Ward/Surge/Shroud at BattleScene level (out of scope here; noted in BID-0
 
 ## Plan
 
-_Written during Plan phase._
+1. HeroState: add `bonus_mana`; include in `gain_mana_for_turn`; serialize.
+2. BattleScene: change `starting_mana`/`passive_mana` to set `hero.bonus_mana` instead of overwriting `hero.mana`/`hero.max_mana`.
+3. PlayerState.start_turn: loop `bonus_draw` extra `draw_card()` calls.
+4. GameState: add per-player turn counters (`player_turn_numbers`); pass correct per-player counter in `end_turn`; serialize.
+5. BasicAI: rewrite `decide_turn` to decide plays and attacks at execution time (fixes stale planning + double-discard).
+6. BattleScene: add `"extra_turn"` and `"destroy_all_draw_3"` cases to `_resolve_spell_effect`.
+7. BattleScene: fix `active_damage_all` hero power to use `take_damage()` and append killed cards to `discard`.
+8. BattleScene: add `_game_over_handled` flag to make `_check_game_over` idempotent.
+9. BattleScene: add `_extra_turn_granted` flag; skip AI turn in `_on_turn_ended` when set.
+10. BattleScene: refuse empty-board targeted spell drops (return to hand instead of auto-resolving with no effect).
+11. BattleScene: fix `_execute_ai_actions`/`_run_ai_turn` timers to `process_always=false`; add early exit on game over; flush AI auto-spells after each action; add `_fleet_of_dead` var removed.
+12. CardInstance: remove dead `armor` field and serialization (keep from_dict tolerance).
+13. BattleScene: remove dead `var _ai: BasicAI`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/battle/HeroState.gd`: added `bonus_mana`; updated `gain_mana_for_turn` to include it; added to to_dict/from_dict.
+- `game_logic/battle/GameState.gd`: added `player_turn_numbers`; updated `end_turn` to pass per-player counter; serialize in to_dict/from_dict with old-save fallback.
+- `game_logic/battle/PlayerState.gd`: `start_turn` now draws `bonus_draw` extra cards each turn.
+- `game_logic/battle/CardInstance.gd`: removed dead `armor` field and its to_dict entry; kept from_dict tolerance.
+- `ai/BasicAI.gd`: rewrote `decide_turn` to decide plays/attacks at execution time (fixes double-discard and stale planning); AI hero-attack now takes hero.attack retaliation.
+- `scenes/battle/BattleScene.gd`: bonus_mana fix; legendary spell handlers; hero power damage pipeline fix; game-over idempotency; extra-turn flag; empty-board targeted spell refusal; AI timer process_always=false; AI game-over check between actions; AI auto-spell flush; removed dead `_ai` var.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/battle-system.md` will be done in a follow-up doc task (TID-285 pattern).

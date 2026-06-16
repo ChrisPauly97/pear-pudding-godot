@@ -95,6 +95,7 @@ static func _spawn_roaming_boss(world_scene: Node, wem: Node) -> void:
 		"enemy_type": _BOSS_ENEMY_TYPE,
 		"is_roaming_boss": true,
 		"alive": true,
+		"tracking": true,
 	})
 	boss.position = spawn_pos
 

@@ -12,6 +12,7 @@ signal tapped
 const VIEW_RADIUS: float = 64.0
 
 var _mini_cam: Camera3D
+var _mini_viewport: SubViewport
 var _dot_layer: _DotLayer
 var _player: CharacterBody3D
 var _enemy_nodes: Dictionary
@@ -93,8 +94,9 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 	# ── SubViewport that shares the main scene's World3D ──────────────────────
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(sz, sz)
-	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	viewport.own_world_3d = false   # share the live World3D — sees the same geometry
+	_mini_viewport = viewport
 
 	_mini_cam = Camera3D.new()
 	_mini_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
@@ -146,11 +148,19 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 	# isometric screen-up (world NW), not geographic north.
 
 
+const _MINIMAP_UPDATE_EVERY: int = 4   # render every 4th frame (~15 Hz at 60 fps)
+var _minimap_frame_counter: int = 0
+
 # Call every frame from WorldScene._process().
 func update() -> void:
 	if _player == null or _mini_cam == null:
 		return
 	_mini_cam.position = Vector3(_player.position.x, 200.0, _player.position.z)
+	_minimap_frame_counter += 1
+	if _minimap_frame_counter >= _MINIMAP_UPDATE_EVERY:
+		_minimap_frame_counter = 0
+		if _mini_viewport:
+			_mini_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 	if _dot_layer:
 		_dot_layer.queue_redraw()
 

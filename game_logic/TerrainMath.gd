@@ -16,12 +16,9 @@ const WALL_MAX_H: float = 10.0
 ## height_lookup: Callable(ttx: int, ttz: int) -> int — returns tile height level
 ## curve_r: hill smoothstep transition radius (world units)
 ## peak_h: fallback hill height when height_lookup returns 0 (named-map compat)
-## wall_curve_r: wall smoothstep radius; defaults to curve_r when <= 0
 static func get_height_at(wx: float, wz: float,
 		tile_lookup: Callable, height_lookup: Callable,
-		curve_r: float, peak_h: float, wall_curve_r: float = -1.0) -> float:
-	# wall_curve_r is no longer used for height — walls are flat in the terrain
-	# mesh (y=0) and their vertical geometry comes from the wall face mesh.
+		curve_r: float, peak_h: float) -> float:
 	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
 	var vtx: int = floori(wx / IsoConst.TILE_SIZE)
 	var vtz: int = floori(wz / IsoConst.TILE_SIZE)
@@ -67,15 +64,12 @@ static func get_height_at(wx: float, wz: float,
 ## nvx, nvz: vertex count in each axis
 ## step: world units between vertices
 ## curve_r: hill smoothstep radius; peak_h: fallback hill height when stored height is 0
-## wall_curve_r: wall smoothstep radius; defaults to curve_r when <= 0
 static func compute_height_field(
 		tile_lookup: Callable,
 		height_lookup: Callable,
 		origin_x: float, origin_z: float,
 		nvx: int, nvz: int, step: float,
-		curve_r: float, peak_h: float, wall_curve_r: float = -1.0) -> PackedFloat32Array:
-	# wall_curve_r is no longer used — walls are flat in the terrain mesh (y=0).
-	# Their vertical geometry and top cap come entirely from build_wall_face_mesh.
+		curve_r: float, peak_h: float) -> PackedFloat32Array:
 	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
 	var hill_r_sq: float = curve_r * curve_r
 	var inv_hill_r: float = 1.0 / curve_r

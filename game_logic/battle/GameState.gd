@@ -6,6 +6,9 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 var players: Array[PlayerState] = []
 var current_player_idx: int = 0
 var turn_number: int = 1
+# Per-player turn counters so each player ramps mana independently.
+# p0 starts at 1 (set by BattleScene); p1 starts at 0 and becomes 1 on first end_turn.
+var player_turn_numbers: Array[int] = [1, 0]
 var friendly_duel: bool = false
 var wager_coins: int = 0
 var puzzle_mode: bool = false
@@ -35,7 +38,8 @@ func opponent() -> PlayerState:
 func end_turn() -> void:
 	current_player_idx = 1 - current_player_idx
 	turn_number += 1
-	current_player().start_turn(turn_number)
+	player_turn_numbers[current_player_idx] += 1
+	current_player().start_turn(player_turn_numbers[current_player_idx])
 	var _ml: MainLoop = Engine.get_main_loop()
 	if _ml != null and _ml is SceneTree:
 		var _gb: Node = (_ml as SceneTree).root.get_node_or_null("GameBus")
@@ -141,6 +145,7 @@ func to_dict() -> Dictionary:
 	return {
 		"current_player_idx": current_player_idx,
 		"turn_number": turn_number,
+		"player_turn_numbers": [player_turn_numbers[0], player_turn_numbers[1]],
 		"players": player_arr,
 		"friendly_duel": friendly_duel,
 		"wager_coins": wager_coins,
@@ -152,6 +157,14 @@ static func from_dict(d: Dictionary) -> GameState:
 	var gs := GameState.new()
 	gs.current_player_idx = int(d.get("current_player_idx", 0))
 	gs.turn_number = int(d.get("turn_number", 1))
+	var ptn = d.get("player_turn_numbers", [gs.turn_number, gs.turn_number - 1])
+	if ptn is Array and ptn.size() >= 2:
+		gs.player_turn_numbers[0] = int(ptn[0])
+		gs.player_turn_numbers[1] = int(ptn[1])
+	else:
+		# Old save: derive from shared turn_number as a best-effort fallback
+		gs.player_turn_numbers[0] = int(ceil(float(gs.turn_number) / 2.0))
+		gs.player_turn_numbers[1] = int(floor(float(gs.turn_number) / 2.0))
 	gs.friendly_duel = bool(d.get("friendly_duel", false))
 	gs.wager_coins = int(d.get("wager_coins", 0))
 	gs.puzzle_mode = bool(d.get("puzzle_mode", false))

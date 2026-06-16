@@ -262,7 +262,7 @@ func load_from_resource(data: Resource) -> void:
 				"x": float(int(etx)) * TILE_SIZE,
 				"z": float(int(etz)) * TILE_SIZE,
 				"alive": true,
-				"tracking": true,
+				"tracking": EnemyRegistry.is_tracking(enemy_type),
 				"enemy_type": enemy_type,
 				"enemy_deck": EnemyRegistry.get_deck(enemy_type),
 			})
@@ -556,7 +556,7 @@ func load_from_string(content: String) -> void:
 					"x": float(parts[1]) * TILE_SIZE,
 					"z": float(parts[2]) * TILE_SIZE,
 					"alive": true,
-					"tracking": true,
+					"tracking": EnemyRegistry.is_tracking(etype),
 					"enemy_type": etype,
 					"enemy_deck": EnemyRegistry.get_deck(etype),
 				})

@@ -38,11 +38,11 @@ User decisions captured at goal creation:
 | TID-230 | Chunk streaming correctness | agent | done | — |
 | TID-231 | Chunk streaming & rendering performance | agent | pending | TID-230 |
 | TID-232 | Battle rules fixes | agent | pending | — |
-| TID-233 | Battle save/resume fixes | agent | pending | TID-232 |
-| TID-234 | Battle UI performance & enemy hand concealment | agent | pending | TID-232 |
-| TID-235 | UI scene fixes | agent | pending | — |
-| TID-236 | Dead code & config cleanup sweep | agent | pending | — |
-| TID-237 | Proximity battle engagement for tracking enemies | agent | pending | TID-236 |
+| TID-233 | Battle save/resume fixes | agent | done | TID-232 |
+| TID-234 | Battle UI performance & enemy hand concealment | agent | done | TID-232 |
+| TID-235 | UI scene fixes | agent | done | — |
+| TID-236 | Dead code & config cleanup sweep | agent | done | — |
+| TID-237 | Proximity battle engagement for tracking enemies | agent | done | TID-236 |
 
 ## Acceptance Criteria
 

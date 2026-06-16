@@ -85,6 +85,8 @@ func start_turn(turn_number: int) -> void:
 	hero.gain_mana_for_turn(turn_number)
 	board.start_turn()
 	draw_card()
+	for _i in range(bonus_draw):
+		draw_card()
 
 func to_dict() -> Dictionary:
 	var hand_arr: Array = []

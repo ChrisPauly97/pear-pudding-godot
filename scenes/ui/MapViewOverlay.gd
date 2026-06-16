@@ -57,6 +57,9 @@ class _DotLayer extends Control:
 	func _ready() -> void:
 		mouse_filter = MOUSE_FILTER_IGNORE
 
+	func _process(_delta: float) -> void:
+		queue_redraw()
+
 	func _draw() -> void:
 		if overlay:
 			overlay._on_draw(self)

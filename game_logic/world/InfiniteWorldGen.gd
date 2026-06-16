@@ -249,7 +249,7 @@ static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: i
 		chunk.enemies.append({
 			"id": uid_base + str(i),
 			"x": wx, "z": wz,
-			"alive": true, "tracking": true,
+			"alive": true, "tracking": EnemyRegistry.is_tracking(etype),
 			"enemy_type": etype,
 			"enemy_deck": EnemyRegistry.get_deck(etype),
 		})

@@ -6,6 +6,7 @@ var health: int = 30
 var max_health: int = 30
 var mana: int = 1
 var max_mana: int = 1
+var bonus_mana: int = 0  # permanent per-game mana bonus from skills/equipment
 var attack: int = 0
 
 # Status effects: key = effect_id ("poison","armor","freeze","stun"), value = duration/stacks int
@@ -33,7 +34,7 @@ func take_damage(dmg: int) -> void:
 	health = max(0, health - dmg)
 
 func gain_mana_for_turn(turn: int) -> void:
-	max_mana = min(10, turn)
+	max_mana = mini(10, turn + bonus_mana)
 	mana = max_mana
 
 func spend_mana(amount: int) -> bool:
@@ -67,6 +68,7 @@ func to_dict() -> Dictionary:
 		"max_health": max_health,
 		"mana": mana,
 		"max_mana": max_mana,
+		"bonus_mana": bonus_mana,
 		"attack": attack,
 		"status_effects": status_effects.duplicate(),
 	}
@@ -77,6 +79,7 @@ static func from_dict(d: Dictionary) -> HeroState:
 	h.max_health = int(d.get("max_health", 30))
 	h.mana = int(d.get("mana", 1))
 	h.max_mana = int(d.get("max_mana", 1))
+	h.bonus_mana = int(d.get("bonus_mana", 0))
 	h.attack = int(d.get("attack", 0))
 	var se = d.get("status_effects", {})
 	h.status_effects = se if se is Dictionary else {}

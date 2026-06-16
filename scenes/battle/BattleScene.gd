@@ -30,13 +30,13 @@ var _puzzle_data_ref: Resource = null  # retained for reset
 var _give_up_btn: Button = null
 var _companion_hud: Control = null
 var _state: GameState
-var _ai: BasicAI
 var _ai_thinking: bool = false
+var _extra_turn_granted: bool = false
+var _game_over_handled: bool = false
 var _boss_phase2_triggered: bool = false
 var _hero_power_btn: Button = null
 var _hero_power_used: bool = false
 var _boss_banner: Control = null
-var _boss_banner_timer: float = 0.0
 const _BOSS_BANNER_DURATION: float = 2.5
 
 var _float_layer: CanvasLayer = null
@@ -98,7 +98,6 @@ var _intent_panel: Control = null
 
 # First-battle tutorial overlay
 var _tutorial_overlay: Node = null
-var _tutorial_timer: float = 0.0
 const TUTORIAL_DURATION: float = 8.0
 
 @onready var _enemy_hand_view = $EnemyArea/EnemyHandView
@@ -124,6 +123,9 @@ func _ready() -> void:
 		_state = GameState.load_puzzle(puzzle_data)
 	elif not _saved_battle.is_empty():
 		_state = GameState.from_dict(_saved_battle)
+		_boss_phase2_triggered = bool(_saved_battle.get("_boss_phase2", false))
+		_hero_power_used = bool(_saved_battle.get("_hero_power_used", false))
+		_bump_card_next_id(_state)
 		SceneManager.save_manager.clear_pending_battle_state()
 	else:
 		_state = GameState.new()
@@ -209,6 +211,11 @@ func _ready() -> void:
 
 	_refresh_all()
 
+	# If we resumed a battle mid-AI-turn, restart the AI (deferred so UI is ready).
+	if not _saved_battle.is_empty() and _state.current_player_idx == 1 and not _state.is_game_over():
+		_check_game_over.call_deferred()
+		_run_ai_turn.call_deferred()
+
 	# Show weather banner if a modifier is active
 	if _battle_weather != "" and not _state.puzzle_mode:
 		var banner: WeatherBanner = WeatherBanner.new()
@@ -246,8 +253,7 @@ func _apply_equipment_effects(player: PlayerState) -> void:
 					player.draw_deck.append(CardInstance.new(tmpl))
 				injected_any = true
 			"starting_mana":
-				player.hero.mana = mini(player.hero.mana + weapon.battle_effect_value, player.hero.max_mana + weapon.battle_effect_value)
-				player.hero.max_mana += weapon.battle_effect_value
+				player.hero.bonus_mana += weapon.battle_effect_value
 			"starting_hp":
 				player.hero.health += weapon.battle_effect_value
 				player.hero.max_health += weapon.battle_effect_value
@@ -266,9 +272,7 @@ func _apply_passive_skills(player: PlayerState) -> void:
 				player.hero.health += skill.effect_value
 				player.hero.max_health += skill.effect_value
 			"passive_mana":
-				player.hero.mana = mini(player.hero.mana + skill.effect_value,
-										player.hero.max_mana + skill.effect_value)
-				player.hero.max_mana += skill.effect_value
+				player.hero.bonus_mana += skill.effect_value
 			"passive_atk":
 				player.hero.attack += skill.effect_value
 			"passive_draw":
@@ -413,20 +417,6 @@ func _apply_ui_sizes() -> void:
 # First-battle tutorial overlay
 # -------------------------------------------------------------------------
 
-func _process(delta: float) -> void:
-	if _tutorial_timer > 0.0:
-		_tutorial_timer -= delta
-		if _tutorial_timer <= 0.0:
-			_dismiss_battle_tutorial()
-	if _boss_banner_timer > 0.0:
-		_boss_banner_timer -= delta
-		if _boss_banner != null and is_instance_valid(_boss_banner):
-			_boss_banner.modulate.a = clamp(_boss_banner_timer / 0.5, 0.0, 1.0)
-		if _boss_banner_timer <= 0.0:
-			if _boss_banner != null and is_instance_valid(_boss_banner):
-				_boss_banner.queue_free()
-			_boss_banner = null
-
 func _show_battle_tutorial() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var font_size: int = int(_vh * 0.025)
@@ -486,13 +476,12 @@ func _show_battle_tutorial() -> void:
 	vbox.add_child(btn)
 
 	_tutorial_overlay = layer
-	_tutorial_timer = TUTORIAL_DURATION
+	get_tree().create_timer(TUTORIAL_DURATION, false).timeout.connect(_dismiss_battle_tutorial)
 
 func _dismiss_battle_tutorial() -> void:
 	if _tutorial_overlay != null and is_instance_valid(_tutorial_overlay):
 		_tutorial_overlay.queue_free()
 		_tutorial_overlay = null
-	_tutorial_timer = 0.0
 	SceneManager.save_manager.set_story_flag("tutorial_battle_tip")
 
 # -------------------------------------------------------------------------
@@ -541,12 +530,14 @@ func _finish_hand_drag() -> void:
 		var is_enemy_targeted: bool = _ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
 		var is_friendly_targeted: bool = _FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
 		if played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted) and _state.players[0].can_play(played_card):
-			var skip_targeting: bool = false
+			# Refuse targeted spells when there are no valid targets — return to hand.
 			if is_friendly_targeted and _state.players[0].board.get_cards().is_empty():
-				skip_targeting = true  # no friendly minions to target, fall through to auto-resolve
+				_cancel_hand_drag()
+				return
 			elif is_enemy_targeted and played_card.spell_effect != "deal_damage_single" and _state.players[1].board.get_cards().is_empty():
-				skip_targeting = true  # curse/lifesteal need a minion target; board empty, auto-resolve
-			if not skip_targeting:
+				_cancel_hand_drag()
+				return
+			else:
 				_hand_drag_card = null
 				if _drag_visual:
 					_drag_visual.queue_free()
@@ -697,9 +688,10 @@ func _use_hero_power() -> void:
 	match active_skill.effect_type:
 		"active_damage_all":
 			for card: CardInstance in enemy.board.get_cards().duplicate():
-				card.health -= active_skill.effect_value
-				if card.health <= 0:
+				card.take_damage(active_skill.effect_value)
+				if not card.is_alive():
 					enemy.board.remove_card(card)
+					enemy.discard.append(card)
 		"active_heal":
 			player.hero.health = mini(
 				player.hero.health + active_skill.effect_value,
@@ -719,6 +711,8 @@ func _show_pause_overlay() -> void:
 		return
 	_paused = true
 	get_tree().paused = true
+	if _float_layer:
+		_float_layer.hide()
 
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var layer := CanvasLayer.new()
@@ -800,6 +794,8 @@ func _hide_pause_overlay() -> void:
 	if _pause_overlay != null and is_instance_valid(_pause_overlay):
 		_pause_overlay.queue_free()
 	_pause_overlay = null
+	if _float_layer:
+		_float_layer.show()
 
 func _open_settings_from_pause() -> void:
 	var overlay: SettingsScene = SettingsScene.new()
@@ -858,8 +854,8 @@ func _confirm_return_to_menu() -> void:
 	yes_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
 	yes_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	yes_btn.pressed.connect(func() -> void:
-		if not _state.puzzle_mode:
-			SceneManager.save_manager.set_pending_battle_state(_state.to_dict())
+		if not _state.puzzle_mode and not _state.is_game_over():
+			SceneManager.save_manager.set_pending_battle_state(_make_battle_save())
 		SceneManager.save_manager.save()
 		get_tree().paused = false
 		SceneManager.go_to_menu()
@@ -874,10 +870,45 @@ func _confirm_return_to_menu() -> void:
 	no_btn.pressed.connect(dialog.queue_free)
 	row.add_child(no_btn)
 
+func _make_battle_save() -> Dictionary:
+	var d: Dictionary = _state.to_dict()
+	d["_boss_phase2"] = _boss_phase2_triggered
+	d["_hero_power_used"] = _hero_power_used
+	return d
+
+func _bump_card_next_id(state: GameState) -> void:
+	var max_id: int = CardInstance._next_id
+	for p: PlayerState in state.players:
+		for c: CardInstance in p.hand:
+			var parts := c.instance_id.split("_")
+			if parts.size() >= 2:
+				var n: int = int(parts[-1])
+				if n > max_id:
+					max_id = n
+		for c: CardInstance in p.board.get_cards():
+			var parts := c.instance_id.split("_")
+			if parts.size() >= 2:
+				var n: int = int(parts[-1])
+				if n > max_id:
+					max_id = n
+		for c: CardInstance in p.draw_deck:
+			var parts := c.instance_id.split("_")
+			if parts.size() >= 2:
+				var n: int = int(parts[-1])
+				if n > max_id:
+					max_id = n
+		for c: CardInstance in p.discard:
+			var parts := c.instance_id.split("_")
+			if parts.size() >= 2:
+				var n: int = int(parts[-1])
+				if n > max_id:
+					max_id = n
+	CardInstance._next_id = max_id
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
-		if _state != null and not _state.puzzle_mode:
-			SceneManager.save_manager.set_pending_battle_state(_state.to_dict())
+		if _state != null and not _state.puzzle_mode and not _state.is_game_over():
+			SceneManager.save_manager.set_pending_battle_state(_make_battle_save())
 			SceneManager.save_manager.save()
 		if not _paused:
 			_show_pause_overlay()
@@ -936,7 +967,10 @@ func _refresh_all() -> void:
 	_update_status()
 
 func _refresh_zone(zone_node: Node, cards: Array[CardInstance], zone_id: String) -> void:
-	var existing: Array[Node] = zone_node.get_children()
+	var existing: Array[Node] = []
+	for child in zone_node.get_children():
+		if not child.is_queued_for_deletion():
+			existing.append(child)
 	var needed: int = cards.size()
 	# Reuse existing panels where possible, update their content
 	for i in range(needed):
@@ -950,6 +984,8 @@ func _refresh_zone(zone_node: Node, cards: Array[CardInstance], zone_id: String)
 		existing[i].queue_free()
 
 func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
+	if bool(panel.get_meta("is_card_back", false)):
+		return
 	var vbox: VBoxContainer = panel.get_child(0) as VBoxContainer
 	var name_lbl: Label = vbox.get_node_or_null("NameLabel") as Label if vbox else null
 	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")
@@ -1044,7 +1080,19 @@ func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBox
 	return vbox
 
 func _apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
-	var style := StyleBoxFlat.new()
+	var style: StyleBoxFlat = panel.get_meta("card_style", null) as StyleBoxFlat
+	if style == null:
+		style = StyleBoxFlat.new()
+		style.corner_radius_top_left = 4
+		style.corner_radius_top_right = 4
+		style.corner_radius_bottom_left = 4
+		style.corner_radius_bottom_right = 4
+		panel.add_theme_stylebox_override("panel", style)
+		panel.set_meta("card_style", style)
+	style.border_width_top = 0
+	style.border_width_bottom = 0
+	style.border_width_left = 0
+	style.border_width_right = 0
 	var tmpl := CardRegistry.get_template(card.template_id)
 	style.bg_color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
 	if zone_id == "hand" and not _state.players[0].can_play(card):
@@ -1072,11 +1120,6 @@ func _apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: Strin
 		style.border_width_bottom = 3
 		style.border_width_left = 3
 		style.border_width_right = 3
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
-	panel.add_theme_stylebox_override("panel", style)
 
 func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
 	for conn in panel.gui_input.get_connections():
@@ -1087,24 +1130,45 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_board_card_input(event, card))
 	elif zone_id == "enemy_board":
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_enemy_card_input(event, card))
-	# Right-click inspect works in all zones always
-	panel.gui_input.connect(func(event: InputEvent) -> void:
-		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			_show_card_inspect(card)
-	)
-	# Long-press inspect (mobile) — replace any existing detector from a previous refresh
-	for child in panel.get_children():
-		if child.get_script() == LongPressDetector:
-			child.queue_free()
-	var lpd := LongPressDetector.new()
-	panel.add_child(lpd)
-	lpd.long_pressed.connect(func() -> void: _show_card_inspect(card))
+	# Right-click inspect — not on enemy hand (hidden information)
+	if zone_id != "enemy_hand":
+		panel.gui_input.connect(func(event: InputEvent) -> void:
+			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+				_show_card_inspect(card)
+		)
+		# Long-press inspect (mobile) — reuse existing detector to avoid node churn
+		var lpd: LongPressDetector = panel.get_node_or_null("_lpd") as LongPressDetector
+		if lpd == null:
+			lpd = LongPressDetector.new()
+			lpd.name = "_lpd"
+			panel.add_child(lpd)
+		else:
+			for conn in lpd.long_pressed.get_connections():
+				lpd.long_pressed.disconnect(conn["callable"])
+		lpd.long_pressed.connect(func() -> void: _show_card_inspect(card))
 
 func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(_vh * 0.10, _vh * 0.19)
+	if zone_id == "enemy_hand":
+		var back_style := StyleBoxFlat.new()
+		back_style.bg_color = Color(0.15, 0.10, 0.28)
+		back_style.corner_radius_top_left = 4
+		back_style.corner_radius_top_right = 4
+		back_style.corner_radius_bottom_left = 4
+		back_style.corner_radius_bottom_right = 4
+		panel.add_theme_stylebox_override("panel", back_style)
+		panel.set_meta("is_card_back", true)
+		return panel
 	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")
 	panel.add_child(_build_card_vbox(card, is_board_zone))
+	var style := StyleBoxFlat.new()
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	panel.add_theme_stylebox_override("panel", style)
+	panel.set_meta("card_style", style)
 	_apply_card_style(panel, card, zone_id)
 	_bind_card_input(panel, card, zone_id)
 	return panel
@@ -1378,20 +1442,29 @@ func _on_turn_ended(player_idx: int) -> void:
 	elif player_idx == 1:
 		_check_game_over()
 		if not _state.is_game_over() and not _state.puzzle_mode:
-			_run_ai_turn()
+			if _extra_turn_granted:
+				_extra_turn_granted = false
+				_state.end_turn()
+			else:
+				_run_ai_turn()
 
 func _run_ai_turn() -> void:
 	_ai_thinking = true
 	_end_turn_btn.disabled = true
 	var actions := BasicAI.decide_turn(_state)
 	_show_intent_banner(BasicAI.describe_turn(_state))
-	await get_tree().create_timer(1.5, true).timeout
+	await get_tree().create_timer(1.5, false).timeout
 	_execute_ai_actions(actions, 0)
 
 func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
+	if _state.is_game_over():
+		_hide_intent_banner()
+		_ai_thinking = false
+		_check_game_over()
+		return
 	if idx >= actions.size():
 		_hide_intent_banner()
-		await get_tree().create_timer(0.5, true).timeout
+		await get_tree().create_timer(0.5, false).timeout
 		_ai_thinking = false
 		_state.end_turn()
 		_refresh_all()
@@ -1401,6 +1474,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	var snap_ai := _snapshot_hp_positions()
 	var ai_board_before: Array[CardInstance] = _state.players[1].board.get_cards().duplicate()
 	actions[idx].call()
+	_flush_auto_spells(1)
 	for c: CardInstance in _state.players[1].board.get_cards():
 		if not ai_board_before.has(c):
 			_resolve_emergence(c, 1)
@@ -1409,7 +1483,10 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	_flash_from_snapshot(snap_ai)
 	_check_shake_from_snapshot(snap_ai)
 	_refresh_all()
-	await get_tree().create_timer(0.6, true).timeout
+	if _state.is_game_over():
+		_check_game_over()
+		return
+	await get_tree().create_timer(0.6, false).timeout
 	_execute_ai_actions(actions, idx + 1)
 
 ## Fires when a minion with an emergence_effect is placed on the board.
@@ -1560,6 +1637,18 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target:
 			var caster: PlayerState = _state.players[caster_pid]
 			for _i in range(card.spell_power):
 				caster.draw_card()
+		"extra_turn":
+			_extra_turn_granted = true
+		"destroy_all_draw_3":
+			var caster: PlayerState = _state.players[caster_pid]
+			for t in _state.players[0].board.get_cards().duplicate():
+				_state.players[0].board.remove_card(t)
+				_state.players[0].discard.append(t)
+			for t in _state.players[1].board.get_cards().duplicate():
+				_state.players[1].board.remove_card(t)
+				_state.players[1].discard.append(t)
+			for _i in range(3):
+				caster.draw_card()
 
 ## Drains pending_auto_spells for the given player and resolves each.
 ## Called after any draw event (opening hand, turn draw).
@@ -1588,7 +1677,18 @@ func _show_boss_banner() -> void:
 	if _boss_banner != null and is_instance_valid(_boss_banner):
 		_boss_banner.queue_free()
 	_boss_banner = lbl
-	_boss_banner_timer = _BOSS_BANNER_DURATION
+	_start_banner_fade(lbl)
+
+func _start_banner_fade(banner: Control) -> void:
+	var tween := create_tween()
+	tween.tween_interval(_BOSS_BANNER_DURATION - 0.5)
+	tween.tween_property(banner, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(banner):
+			banner.queue_free()
+		if _boss_banner == banner:
+			_boss_banner = null
+	)
 
 func _check_boss_phase2() -> void:
 	if _boss_phase2_triggered:
@@ -1627,11 +1727,14 @@ func _check_boss_phase2() -> void:
 	if _boss_banner != null and is_instance_valid(_boss_banner):
 		_boss_banner.queue_free()
 	_boss_banner = lbl
-	_boss_banner_timer = _BOSS_BANNER_DURATION
+	_start_banner_fade(lbl)
 
 func _check_game_over() -> void:
 	_check_boss_phase2()
+	if _game_over_handled:
+		return
 	if _state.is_game_over():
+		_game_over_handled = true
 		var w := _state.winner()
 		if _state.puzzle_mode:
 			if w == 0:
@@ -1675,6 +1778,8 @@ func _check_game_over() -> void:
 			GameBus.battle_lost.emit()
 
 func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = "") -> void:
+	if _float_layer:
+		_float_layer.hide()
 	var overlay := PanelContainer.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var style := StyleBoxFlat.new()
@@ -1734,6 +1839,8 @@ func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = ""
 	add_child(overlay)
 
 func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: String = "") -> void:
+	if _float_layer:
+		_float_layer.hide()
 	var overlay := PanelContainer.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var style := StyleBoxFlat.new()
@@ -1797,6 +1904,8 @@ func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: S
 	add_child(overlay)
 
 func _show_duel_victory_overlay(wager: int) -> void:
+	if _float_layer:
+		_float_layer.hide()
 	var overlay := PanelContainer.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var style := StyleBoxFlat.new()
@@ -1838,6 +1947,8 @@ func _show_duel_victory_overlay(wager: int) -> void:
 	add_child(overlay)
 
 func _show_duel_loss_overlay(wager: int) -> void:
+	if _float_layer:
+		_float_layer.hide()
 	var overlay := PanelContainer.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var style := StyleBoxFlat.new()

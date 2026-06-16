@@ -6,6 +6,7 @@ var enemy_data: Dictionary = {}
 var _alive: bool = true
 var _is_boss: bool = false
 var _is_roaming_boss: bool = false
+var _tracking: bool = false
 
 # Shared across all enemy instances — created once
 static var _body_mat: StandardMaterial3D
@@ -59,6 +60,9 @@ func _ready() -> void:
 	elif _is_boss:
 		_apply_boss_visual()
 
+	if _tracking:
+		_setup_proximity_area()
+
 static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
@@ -69,6 +73,7 @@ func init_from_data(data: Dictionary) -> void:
 	enemy_data = data
 	_alive = data.get("alive", true)
 	_is_roaming_boss = bool(data.get("is_roaming_boss", false))
+	_tracking = bool(data.get("tracking", false))
 	var etype: String = str(data.get("enemy_type", ""))
 	if etype != "":
 		_is_boss = EnemyRegistry.get_is_boss(etype)
@@ -93,6 +98,32 @@ func engage() -> void:
 func mark_defeated() -> void:
 	_alive = false
 	queue_free()
+
+func _setup_proximity_area() -> void:
+	var area := Area3D.new()
+	area.collision_layer = 0
+	area.collision_mask = 1
+	area.monitoring = true
+	area.monitorable = false
+	var shape := CollisionShape3D.new()
+	var sphere := SphereShape3D.new()
+	sphere.radius = IsoConst.AUTO_BATTLE_RANGE
+	shape.shape = sphere
+	area.add_child(shape)
+	area.body_entered.connect(_on_body_entered)
+	add_child(area)
+
+func _on_body_entered(body: Node3D) -> void:
+	if not _alive or not _tracking:
+		return
+	if not body is CharacterBody3D:
+		return
+	if not SceneManager.can_proximity_engage():
+		return
+	var eid: String = str(enemy_data.get("id", ""))
+	if eid != "" and SceneManager.save_manager.is_enemy_defeated(eid):
+		return
+	engage()
 
 func _apply_roaming_boss_visual() -> void:
 	scale = Vector3(1.5, 1.5, 1.5)

@@ -22,6 +22,7 @@ var _vw: float = 0.0
 var _coin_label: Label
 var _title_lbl: Label
 var _shop_list: VBoxContainer
+var _shop_scroll: ScrollContainer
 var _inspect_overlay: Control = null
 
 func _ready() -> void:
@@ -72,7 +73,8 @@ func _build_ui() -> void:
 	root_vbox.add_child(_coin_label)
 
 	# Scrollable list
-	var scroll := ScrollContainer.new()
+	_shop_scroll = ScrollContainer.new()
+	var scroll: ScrollContainer = _shop_scroll
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.custom_minimum_size = Vector2(0.0, _vh * 0.30)
 	root_vbox.add_child(scroll)
@@ -93,6 +95,7 @@ func _build_ui() -> void:
 	root_vbox.add_child(btn_wrapper)
 
 func _refresh() -> void:
+	var saved_scroll: int = _shop_scroll.scroll_vertical if _shop_scroll else 0
 	for child in _shop_list.get_children():
 		child.queue_free()
 
@@ -167,6 +170,8 @@ func _refresh() -> void:
 	# ---- Trinkets section ------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Trinkets —"))
 	_add_equipment_section("trinket", SceneManager.save_manager.owned_trinkets, coins)
+	if _shop_scroll and saved_scroll > 0:
+		_shop_scroll.scroll_vertical = saved_scroll
 
 func _add_equipment_section(slot: String, owned: Array[String], coins: int) -> void:
 	var any_item := false
