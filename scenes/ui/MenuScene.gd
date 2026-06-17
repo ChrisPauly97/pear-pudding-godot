@@ -3,14 +3,17 @@ extends Control
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
 
-@onready var _title: Label = $Title
-@onready var _vbox: VBoxContainer = $VBox
-@onready var _continue_btn: Button = $VBox/ContinueButton
-@onready var _start_btn: Button = $VBox/StartButton
-@onready var _achievements_btn: Button = $VBox/AchievementsButton
-@onready var _editor_btn: Button = $VBox/EditorButton
-@onready var _settings_btn: Button = $VBox/SettingsButton
-@onready var _quit_btn: Button = $VBox/QuitButton
+@onready var _outer: MarginContainer = $Outer
+@onready var _inner_vbox: VBoxContainer = $Outer/InnerVBox
+@onready var _title: Label = $Outer/InnerVBox/Title
+@onready var _scroll: ScrollContainer = $Outer/InnerVBox/Scroll
+@onready var _vbox: VBoxContainer = $Outer/InnerVBox/Scroll/VBox
+@onready var _continue_btn: Button = $Outer/InnerVBox/Scroll/VBox/ContinueButton
+@onready var _start_btn: Button = $Outer/InnerVBox/Scroll/VBox/StartButton
+@onready var _achievements_btn: Button = $Outer/InnerVBox/Scroll/VBox/AchievementsButton
+@onready var _editor_btn: Button = $Outer/InnerVBox/Scroll/VBox/EditorButton
+@onready var _settings_btn: Button = $Outer/InnerVBox/Scroll/VBox/SettingsButton
+@onready var _quit_btn: Button = $Outer/InnerVBox/Scroll/VBox/QuitButton
 
 func _ready() -> void:
 	_continue_btn.pressed.connect(_on_continue)
@@ -26,6 +29,10 @@ func _ready() -> void:
 	_animate_title()
 	_add_version_label()
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED and is_node_ready():
+		_apply_ui_sizes()
+
 func _add_diagnostics_button() -> void:
 	var diag_btn := Button.new()
 	diag_btn.text = "Diagnostics"
@@ -34,11 +41,23 @@ func _add_diagnostics_button() -> void:
 	_vbox.move_child(diag_btn, _quit_btn.get_index())
 
 func _apply_ui_sizes() -> void:
-	var vh: float = get_viewport().get_visible_rect().size.y
-	_title.add_theme_font_size_override("font_size", int(vh * 0.07))
-	_vbox.add_theme_constant_override("separation", int(vh * 0.018))
-	var btn_size := Vector2(vh * 0.35, vh * 0.075)
-	var btn_font: int = int(vh * 0.026)
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	# Use shorter dimension so portrait screens don't produce oversized elements.
+	var ref: float = min(vh, vp.x)
+
+	var margin: int = int(ref * 0.04)
+	_outer.add_theme_constant_override("margin_left", margin)
+	_outer.add_theme_constant_override("margin_right", margin)
+	_outer.add_theme_constant_override("margin_top", int(ref * 0.06))
+	_outer.add_theme_constant_override("margin_bottom", int(ref * 0.03))
+
+	_title.add_theme_font_size_override("font_size", int(ref * 0.07))
+	_inner_vbox.add_theme_constant_override("separation", int(ref * 0.04))
+	_vbox.add_theme_constant_override("separation", int(ref * 0.018))
+
+	var btn_size := Vector2(ref * 0.35, ref * 0.075)
+	var btn_font: int = int(ref * 0.026)
 	for btn: Button in _vbox.get_children().filter(func(n: Node) -> bool: return n is Button):
 		btn.custom_minimum_size = btn_size
 		btn.add_theme_font_size_override("font_size", btn_font)
@@ -62,13 +81,13 @@ func _add_version_label() -> void:
 	var version: String = str(ProjectSettings.get_setting("application/config/version", ""))
 	if version.is_empty():
 		return
-	var vh: float = get_viewport().get_visible_rect().size.y
 	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var ref: float = min(vp.y, vp.x)
 	var ver_lbl := Label.new()
 	ver_lbl.text = "v" + version
-	ver_lbl.add_theme_font_size_override("font_size", int(vh * 0.022))
+	ver_lbl.add_theme_font_size_override("font_size", int(ref * 0.022))
 	ver_lbl.add_theme_color_override("font_color", Color(0.55, 0.55, 0.65))
-	ver_lbl.position = Vector2(vh * 0.015, vp.y - vh * 0.045)
+	ver_lbl.position = Vector2(ref * 0.015, vp.y - ref * 0.045)
 	add_child(ver_lbl)
 
 func _on_continue() -> void:
