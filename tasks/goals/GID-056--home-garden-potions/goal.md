@@ -13,7 +13,7 @@ The GID-046 house is static once bought. A garden gives a reason to come home (g
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-203 | Garden model: seed/plant types, growth via days_elapsed, plot save fields | agent | done | — |
-| TID-204 | Garden plot entities at the player home: plant/harvest interactions, growth-stage sprites | agent | pending | TID-203 (+ GID-046 TID-173) |
+| TID-204 | Garden plot entities at the player home: plant/harvest interactions, growth-stage sprites | agent | done | TID-203 (+ GID-046 TID-173) |
 | TID-205 | Seeds in merchant stock + plant inventory + potion recipes in the crafting screen | agent | pending | TID-203 |
 | TID-206 | Potion use in battle: one-per-battle HUD button, three potion effects | agent | pending | TID-205 |
 

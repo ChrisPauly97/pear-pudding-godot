@@ -42,6 +42,8 @@ const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.t
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
+const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
+const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -65,6 +67,7 @@ var _siege_raider_nodes: Array[Node3D] = []
 var _siege_banner: Label = null
 var _waystone_nodes: Dictionary = {}    # id -> Node3D
 var _active_waystone_data: Dictionary = {}  # id -> Dictionary
+var _garden_plot_nodes: Array[Node3D] = []  # ordered by plot_idx
 var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
@@ -298,6 +301,7 @@ func _ready() -> void:
 		_spawn_named_map_rivals()
 		if map_name == "player_home":
 			_spawn_player_home_trophies()
+			_spawn_player_home_garden()
 		_check_siege_spawn(map_name)
 		# Set chapter1_reached_blancogov when the player enters blancogov
 		if map_name == "blancogov" or map_name == "blancogov_temple":
@@ -1809,7 +1813,8 @@ func _check_interactions() -> void:
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
 	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
 	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
-	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty():
+	var garden_plot := _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
+	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null:
 		if _interact_btn != null:
 			_interact_btn.show()
 		else:
@@ -2058,6 +2063,11 @@ func _handle_interact() -> void:
 			var wnode := _waystone_nodes.get(wid) as Node3D
 			if wnode != null and wnode.has_method("mark_activated"):
 				wnode.mark_activated()
+		return
+
+	var garden_plot := _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
+	if garden_plot != null:
+		_show_garden_plot_panel(garden_plot)
 
 # ── Spire entrance ─────────────────────────────────────────────────────────
 
@@ -2527,6 +2537,156 @@ func _make_trophy_pedestal(earned: bool, display_name: String) -> Node3D:
 func _show_trophy_info(npc: Dictionary) -> void:
 	var dlg: String = str(npc.get("dialogue", "A mysterious trophy."))
 	_show_dialogue(dlg)
+
+# ── Garden plots ────────────────────────────────────────────────────────────
+
+func _spawn_player_home_garden() -> void:
+	_garden_plot_nodes.clear()
+	var tile_positions: Array[Vector2i] = [
+		Vector2i(52, 54),
+		Vector2i(55, 54),
+		Vector2i(58, 54),
+	]
+	for i: int in range(tile_positions.size()):
+		var tp: Vector2i = tile_positions[i]
+		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
+		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
+		var terrain_y: float = get_terrain_height(wx, wz)
+		var plot: Node3D = _GardenPlotScript.new()
+		plot.init_from_data({"plot_idx": i})
+		plot.position = Vector3(wx, terrain_y, wz)
+		_entity_root.add_child(plot)
+		_garden_plot_nodes.append(plot)
+
+func _find_nearby_garden_plot(px: float, pz: float, range_dist: float) -> Node3D:
+	var range_sq: float = range_dist * range_dist
+	for plot in _garden_plot_nodes:
+		if not is_instance_valid(plot):
+			continue
+		var ddx: float = plot.position.x - px
+		var ddz: float = plot.position.z - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return plot
+	return null
+
+func _show_garden_plot_panel(plot: Node3D) -> void:
+	var sm := SceneManager.save_manager
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var vw: float = get_viewport().get_visible_rect().size.x
+	var font_size: int = int(vh * 0.03)
+	var btn_h: float = vh * 0.07
+
+	var panel := PanelContainer.new()
+	panel.position = Vector2(vw * 0.15, vh * 0.2)
+	panel.custom_minimum_size = Vector2(vw * 0.7, vh * 0.5)
+	_hud.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vh * 0.012))
+	panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Garden Plot %d" % (int(plot.plot_idx) + 1)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", int(vh * 0.045))
+	vbox.add_child(title)
+
+	var plot_data: Dictionary = plot.get_plot_data()
+	var stage: int = plot.get_growth_stage() if not plot_data.is_empty() else 0
+
+	if plot_data.is_empty():
+		# Empty plot — seed picker
+		var info := Label.new()
+		info.text = "Choose a seed to plant:"
+		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		info.add_theme_font_size_override("font_size", font_size)
+		vbox.add_child(info)
+
+		var has_any_seed: bool = false
+		for seed_id in GardenDefs.SEEDS:
+			var seed_count: int = int(sm.seeds.get(seed_id, 0))
+			var sdata: Dictionary = GardenDefs.SEEDS[seed_id]
+			var sname: String = str(sdata.get("display_name", seed_id))
+			var days: int = int(sdata.get("growth_days", 2))
+			var row := HBoxContainer.new()
+			vbox.add_child(row)
+			var lbl := Label.new()
+			lbl.text = "%s — %d days  (owned: %d)" % [sname, days, seed_count]
+			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			lbl.add_theme_font_size_override("font_size", font_size)
+			row.add_child(lbl)
+			var plant_btn := Button.new()
+			plant_btn.text = "Plant"
+			plant_btn.custom_minimum_size = Vector2(vh * 0.14, btn_h)
+			plant_btn.add_theme_font_size_override("font_size", font_size)
+			plant_btn.disabled = seed_count <= 0
+			var captured_seed_id: String = seed_id
+			var captured_sname: String = sname
+			plant_btn.pressed.connect(func() -> void:
+				if sm.remove_seeds(captured_seed_id, 1):
+					sm.set_plot(plot.plot_idx, captured_seed_id, sm.days_elapsed)
+					plot.refresh_visual()
+					SceneManager.show_toast("Planted!", captured_sname + " planted.")
+					panel.queue_free()
+			)
+			row.add_child(plant_btn)
+			if seed_count > 0:
+				has_any_seed = true
+
+		if not has_any_seed:
+			var hint := Label.new()
+			hint.text = "No seeds — buy some from a merchant."
+			hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			hint.add_theme_font_size_override("font_size", font_size)
+			vbox.add_child(hint)
+
+	elif stage < 3:
+		# Growing — show info
+		var seed_id: String = str(plot_data.get("seed_id", ""))
+		var sdata: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
+		var sname: String = str(sdata.get("display_name", seed_id))
+		var growth_days: int = int(sdata.get("growth_days", 2))
+		var planted_day: int = int(plot_data.get("planted_day", 0))
+		var days_left: int = max(0, planted_day + growth_days - sm.days_elapsed)
+		var info := Label.new()
+		info.text = "%s growing — ready in %d day(s)" % [sname, days_left]
+		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		info.add_theme_font_size_override("font_size", font_size)
+		vbox.add_child(info)
+
+	else:
+		# Mature — show harvest button
+		var seed_id: String = str(plot_data.get("seed_id", ""))
+		var sdata: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
+		var sname: String = str(sdata.get("display_name", seed_id))
+		var plant_id: String = str(sdata.get("plant_id", ""))
+		var yield_count: int = int(sdata.get("yield", 1))
+		var info := Label.new()
+		info.text = "%s is ready to harvest!" % sname
+		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		info.add_theme_font_size_override("font_size", font_size)
+		vbox.add_child(info)
+
+		var harvest_btn := Button.new()
+		harvest_btn.text = "Harvest (%d× %s)" % [yield_count, sname]
+		harvest_btn.custom_minimum_size = Vector2(0, btn_h)
+		harvest_btn.add_theme_font_size_override("font_size", font_size)
+		harvest_btn.pressed.connect(func() -> void:
+			sm.add_plants(plant_id, yield_count)
+			sm.clear_plot(plot.plot_idx)
+			GameBus.plant_harvested.emit(plot.plot_idx, yield_count)
+			SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
+			panel.queue_free()
+		)
+		vbox.add_child(harvest_btn)
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Close"
+	cancel_btn.custom_minimum_size = Vector2(0, btn_h)
+	cancel_btn.add_theme_font_size_override("font_size", font_size)
+	cancel_btn.pressed.connect(func() -> void: panel.queue_free())
+	vbox.add_child(cancel_btn)
 
 # ── Dialogue ───────────────────────────────────────────────────────────────
 

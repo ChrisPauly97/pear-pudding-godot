@@ -62,6 +62,7 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_rival_finale.gd"),
 	preload("res://tests/unit/test_night_hunts.gd"),
 	preload("res://tests/unit/test_garden_model.gd"),
+	preload("res://tests/unit/test_garden_plot.gd"),
 ]
 
 
