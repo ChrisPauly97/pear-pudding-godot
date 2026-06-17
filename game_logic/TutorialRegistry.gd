@@ -29,6 +29,10 @@ const _DATA: Dictionary = {
 		"title": "The Endless Spire",
 		"body": "Each floor holds one enemy. Defeat it and choose one of three cards to add to your run deck — your permanent collection stays untouched.\n\nHigher floors offer rarer cards. How far can you climb?",
 	},
+	"night_hunts": {
+		"title": "Night Hunts",
+		"body": "Spectral enemies roam the world after sunset. They drop better loot — but are far more dangerous. Fight them for rare cards, or retreat to town before dawn.",
+	},
 }
 
 static func get_entry(popup_id: String) -> Dictionary:

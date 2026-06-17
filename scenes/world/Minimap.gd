@@ -173,7 +173,7 @@ func _on_draw(canvas: Control) -> void:
 	# White dot at centre = player
 	canvas.draw_circle(center, 5.0, Color(1.0, 1.0, 1.0))
 
-	_draw_group(canvas, _enemy_nodes, origin, Color(0.95, 0.20, 0.20), 4.0, "roaming_boss")
+	_draw_enemy_nodes(canvas, origin)
 	_draw_group(canvas, _chest_nodes, origin, Color(1.00, 0.85, 0.10), 4.0)
 	_draw_group(canvas, _door_nodes,  origin, Color(0.55, 0.75, 1.00), 4.0)
 	_draw_group(canvas, _npc_nodes,   origin, Color(0.30, 0.95, 0.45), 4.0)
@@ -230,6 +230,25 @@ func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,
 		# Only draw dots that fall inside the circle
 		if (dot - center).length() <= _half * 0.94:
 			canvas.draw_circle(dot, radius, color)
+
+func _draw_enemy_nodes(canvas: Control, origin: Vector3) -> void:
+	var center := Vector2(_half, _half)
+	const ROT45: float = 0.7071067811865476
+	const ENEMY_COLOR: Color = Color(0.95, 0.20, 0.20)
+	const SPECTRE_COLOR: Color = Color(0.55, 0.75, 1.00)
+	for id in _enemy_nodes:
+		if str(id) == "roaming_boss":
+			continue
+		var n: Node3D = _enemy_nodes[id]
+		if not is_instance_valid(n):
+			continue
+		var off: Vector3 = n.position - origin
+		var rx: float = (off.x - off.z) * ROT45
+		var ry: float = (off.x + off.z) * ROT45
+		var dot := Vector2(_half + rx * _scale, _half + ry * _scale)
+		if (dot - center).length() <= _half * 0.94:
+			var color: Color = SPECTRE_COLOR if n.get_meta("is_nocturnal", false) else ENEMY_COLOR
+			canvas.draw_circle(dot, 4.0, color)
 
 func _draw_boss_dot(canvas: Control, boss_pos: Vector3, origin: Vector3,
 		center: Vector2) -> void:

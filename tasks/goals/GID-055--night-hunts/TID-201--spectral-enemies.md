@@ -2,7 +2,7 @@
 
 **Goal:** GID-055
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -48,12 +48,13 @@ Three new spectral `EnemyData` resources define night-exclusive enemy types with
 
 ## Plan
 
-_Written during Plan phase._
+Add three spectral enemy entries inline in `EnemyRegistry._ensure_loaded()` (matching existing pattern for all enemies). Add `night_drop_boost: true` field to each spectre entry. Add `get_night_drop_boost()` static method. In `SceneManager._on_battle_won()`, apply the tier boost before rolling drop rarity. Spectral enemies bypass `defeated_enemies` tracking.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/EnemyRegistry.gd`**: Added `spectre_wisp` (tier 1, coin 8), `spectre_haunt` (tier 2, coin 12), `spectre_dread` (tier 3, coin 18) entries to `_ensure_loaded()` dict. Each has `night_drop_boost: true`, `is_tracking: true` (via `is_tracking()` method update), 10–14 card decks from existing card pool, 6–7 card drop pools. Added `get_night_drop_boost(type_id)` static method. Updated `is_tracking()` to include the three spectre types.
+- **`autoloads/SceneManager.gd`**: In `_on_battle_won()`, reads `EnemyRegistry.get_night_drop_boost(enemy_type)` and applies `drop_tier = mini(drop_tier + 1, 4)` before rolling card rarity. Spectral enemies (`enemy_type.begins_with("spectre_")`) skip `mark_enemy_defeated()` and `record_enemy_defeated()`. Added XP rewards for all three spectre types to `_XP_TABLE`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/night-hunts.md` (created by TID-200).

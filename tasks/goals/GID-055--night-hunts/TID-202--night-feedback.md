@@ -2,7 +2,7 @@
 
 **Goal:** GID-055
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-200, TID-201
 
 ## Lock
@@ -42,12 +42,16 @@ Player feedback on night hunts: minimap shows spectres in a distinct color, a so
 
 ## Plan
 
-_Written during Plan phase._
+Minimap: replace single `_draw_group()` call for enemies with a dedicated `_draw_enemy_nodes()` method that checks `is_nocturnal` metadata and selects pale blue for spectres. Audio: add `"nightfall_ambient"` key to `AudioManager.SFX_PATHS`; play it from `WorldScene._update_day_night()` on entering night. Tutorial: add `"night_hunts"` entry to `TutorialRegistry._DATA`; emit `tutorial_popup_requested` on first spectre spawn per session.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/world/Minimap.gd`**: Replaced `_draw_group(canvas, _enemy_nodes, ...)` call in `_on_draw()` with a new `_draw_enemy_nodes(canvas, origin)` method that iterates `_enemy_nodes`, skips `"roaming_boss"`, checks `n.get_meta("is_nocturnal", false)`, and draws spectres in `Color(0.55, 0.75, 1.00)` vs normal red `Color(0.95, 0.20, 0.20)`.
+- **`autoloads/AudioManager.gd`**: Added `"nightfall_ambient": "res://assets/audio/sfx/nightfall.wav"` to `SFX_PATHS`. Gracefully no-ops if file doesn't exist.
+- **`game_logic/TutorialRegistry.gd`**: Added `"night_hunts"` entry with title "Night Hunts" and body explaining spectral enemies and loot boost.
+- **`tests/unit/test_night_hunts.gd`**: 26 tests covering `_is_night()` math, spectral enemy data (tier, coin reward, tracking, deck not empty, drop boost flag), drop tier capping math, and `TutorialRegistry` entry. All pass headless.
+- **`tests/runner.gd`**: Added `test_night_hunts.gd` to SUITES array.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/night-hunts.md`.
