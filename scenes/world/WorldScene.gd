@@ -160,6 +160,7 @@ var _level_label: Label
 var _xp_bar: ProgressBar
 var _xp_label: Label
 var _map_overlay: Node = null
+var _fast_travel_layer: CanvasLayer = null
 var _compass: Node = null
 var _interact_btn: Button = null
 var _mount_btn: Button = null
@@ -1328,8 +1329,6 @@ func _find_nearby_waystone(px: float, pz: float, range_dist: float) -> Dictionar
 	var range_sq: float = range_dist * range_dist
 	for wid in _active_waystone_data:
 		var w: Dictionary = _active_waystone_data[wid]
-		if bool(w.get("active", false)):
-			continue
 		var ddx: float = float(w.get("x", 0.0)) - px
 		var ddz: float = float(w.get("z", 0.0)) - pz
 		if ddx * ddx + ddz * ddz <= range_sq:
@@ -1340,6 +1339,127 @@ func _on_waystone_activated(waystone_id: String) -> void:
 	var w_data: Dictionary = _active_waystone_data.get(waystone_id, {})
 	var label: String = str(w_data.get("label", "Unknown"))
 	SceneManager.show_toast("Waystone Activated", label)
+
+func _waystone_friendly_label(wid: String) -> String:
+	if wid.begins_with("map:"):
+		return wid.substr(4).capitalize().replace("_", " ")
+	elif wid.begins_with("world:"):
+		var parts: PackedStringArray = wid.split(":")
+		if parts.size() >= 3:
+			return "Waystone (%s, %s)" % [parts[1], parts[2]]
+	return wid
+
+func _open_fast_travel_panel() -> void:
+	if _fast_travel_layer != null:
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	_hud.add_child(layer)
+	_fast_travel_layer = layer
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel_w: float = vp.x * 0.55
+	var panel_h: float = vh * 0.62
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.05, 0.10, 0.96)
+	style.corner_radius_top_left    = 10
+	style.corner_radius_top_right   = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
+	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
+	margin.add_theme_constant_override("margin_top",    int(vh * 0.03))
+	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vh * 0.018))
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Fast Travel"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", int(vh * 0.035))
+	title.add_theme_color_override("font_color", Color(0.40, 0.90, 1.00))
+	vbox.add_child(title)
+
+	var is_blocked: bool = SceneManager.current_map.begins_with("dungeon_")
+	var activated: Array[String] = SceneManager.save_manager.activated_waystones
+	if activated.is_empty():
+		var empty_lbl := Label.new()
+		empty_lbl.text = "No waystones activated yet.\nFind and interact with a waystone pillar to unlock fast travel."
+		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_lbl.add_theme_font_size_override("font_size", int(vh * 0.022))
+		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
+		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(empty_lbl)
+	elif is_blocked:
+		var block_lbl := Label.new()
+		block_lbl.text = "Fast travel is unavailable inside dungeons."
+		block_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		block_lbl.add_theme_font_size_override("font_size", int(vh * 0.022))
+		block_lbl.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
+		block_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(block_lbl)
+	else:
+		var scroll := ScrollContainer.new()
+		scroll.custom_minimum_size = Vector2(0, panel_h * 0.62)
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		vbox.add_child(scroll)
+
+		var btn_vbox := VBoxContainer.new()
+		btn_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn_vbox.add_theme_constant_override("separation", int(vh * 0.010))
+		scroll.add_child(btn_vbox)
+
+		var btn_h: float = vh * 0.060
+		for wid: String in activated:
+			var btn := Button.new()
+			btn.text = _waystone_friendly_label(wid)
+			btn.custom_minimum_size = Vector2(0, btn_h)
+			btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var captured_id: String = wid
+			btn.pressed.connect(func() -> void:
+				_fast_travel_layer = null
+				layer.queue_free()
+				SceneManager.teleport_to_waystone(captured_id)
+			)
+			btn_vbox.add_child(btn)
+
+	var close_btn := Button.new()
+	close_btn.text = "Close  [Esc]" if not OS.has_feature("android") else "Close"
+	close_btn.custom_minimum_size = Vector2(vh * 0.20, vh * 0.06)
+	close_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close_btn.pressed.connect(func() -> void:
+		_fast_travel_layer = null
+		layer.queue_free()
+	)
+	vbox.add_child(close_btn)
+
+	backdrop.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventKey and (event as InputEventKey).keycode == KEY_ESCAPE and event.pressed:
+			_fast_travel_layer = null
+			layer.queue_free()
+	)
 
 # ── Rival Encounter Spawning ───────────────────────────────────────────────────
 
@@ -1713,6 +1833,7 @@ func _check_interactions() -> void:
 
 func _open_map_view() -> void:
 	if _is_infinite:
+		_open_fast_travel_panel()
 		return
 	if _map_overlay != null:
 		_map_overlay.queue_free()
@@ -1931,9 +2052,12 @@ func _handle_interact() -> void:
 	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
 	if not waystone.is_empty():
 		var wid: String = str(waystone.get("id", ""))
-		var wnode := _waystone_nodes.get(wid) as Node3D
-		if wnode != null and wnode.has_method("mark_activated"):
-			wnode.mark_activated()
+		if bool(waystone.get("active", false)):
+			_open_fast_travel_panel()
+		else:
+			var wnode := _waystone_nodes.get(wid) as Node3D
+			if wnode != null and wnode.has_method("mark_activated"):
+				wnode.mark_activated()
 
 # ── Spire entrance ─────────────────────────────────────────────────────────
 
