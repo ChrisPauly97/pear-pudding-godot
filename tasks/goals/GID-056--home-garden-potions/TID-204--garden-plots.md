@@ -2,7 +2,7 @@
 
 **Goal:** GID-056  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** TID-203 (+ GID-046 TID-173)
 
 ## Lock
@@ -72,12 +72,43 @@ Garden plot entities spawned in the player home interior map (created by GID-046
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/world/entities/GardenPlot.gd`:
+   - `extends Node3D` with `plot_idx: int`
+   - `init_from_data(data: Dictionary)` sets plot_idx
+   - `MeshInstance3D` visual swapped per growth stage (0=empty brown box, 1=small green, 2=medium green, 3=tall green+yellow top)
+   - `refresh_visual()` reads stage from SaveManager and updates mesh
+   - Connects `GameBus.plant_harvested` to refresh visual
+
+2. Create `scenes/world/entities/GardenPlot.gd.uid`.
+
+3. Update `scenes/world/WorldScene.gd`:
+   - Preload GardenPlot script as `_GardenPlotScript`
+   - Add `_garden_plot_nodes: Array[Node3D] = []` field
+   - Add `_spawn_player_home_garden()` placing 3 plots at tiles (52,54), (55,54), (58,54)
+   - Call `_spawn_player_home_garden()` in the `if map_name == "player_home"` block (after `_spawn_player_home_trophies()`)
+   - Add `_find_nearby_garden_plot(px, pz, r) -> Node3D` 
+   - In `_check_interactions()`: include garden plot in "show interact label" check
+   - In `_handle_interact()`: call `_show_garden_plot_panel(plot_node)` when near a plot
+   - Add `_show_garden_plot_panel(plot_node: Node3D)`:
+     - Stage 0: seed picker (VBox with "Plant [Seed] (N owned)" buttons per seed)
+     - Stage 1-2: info dialog "Growing — ready in N days"
+     - Stage 3: harvest button (adds plants to inventory, clears plot, toasts)
+
+4. Create `tests/unit/test_garden_plot.gd` + UID:
+   - Test init_from_data sets plot_idx
+   - Test growth stage reading via SaveManager
+   - Test harvest: plants inventory increases, plot cleared
+   - Test seed plant: seeds decremented, plot_idx set in garden_plots
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/world/entities/GardenPlot.gd`** (new): Node3D entity for a garden plot. `init_from_data({plot_idx})` sets the index. Visual renders a brown soil trough plus a coloured box that grows across 4 stages (0=empty, 1=sprout, 2=growing, 3=mature+flower). `refresh_visual()` reads the stage from `SaveManager.get_plot_growth_stage(plot_idx)` and redraws only when stage changes. `GameBus.plant_harvested` signal connected for auto-refresh after harvest.
+- **`scenes/world/entities/GardenPlot.gd.uid`** (new): UID sidecar `uid://wwit6h0rybue`.
+- **`scenes/world/WorldScene.gd`**: Added `_GardenPlotScript` and `GardenDefs` preloads; `_garden_plot_nodes: Array[Node3D]` tracking field; `_spawn_player_home_garden()` placing 3 plots at tile coords (52,54), (55,54), (58,54) (south-east area of home interior, mirroring trophy north-side layout); call to `_spawn_player_home_garden()` in the `player_home` map branch (after `_spawn_player_home_trophies()`); `_find_nearby_garden_plot()` proximity helper; garden plot check added to `_check_interactions()` and `_handle_interact()`; `_show_garden_plot_panel()` presenting stage-appropriate UI (seed picker for empty plots, growth info for stages 1–2, harvest button for stage 3), sized viewport-relative per CLAUDE.md.
+- **`tests/unit/test_garden_plot.gd`** (new): 21 tests covering `init_from_data` field assignment, `set_plot`/`clear_plot`/`add_seeds`/`remove_seeds`/`add_plants` helpers, harvest yield for all three seeds, `get_plot_growth_stage` boundaries for sunpetal and moonroot, and planted-day offset correctness.
+- **`tests/unit/test_garden_plot.gd.uid`** (new): UID sidecar `uid://k5dlmdmxbj53`.
+- **`tests/runner.gd`**: registered `test_garden_plot` suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Agent docs for the home-garden system will be written after TID-206 completes the full feature (per TID-203 decision).
