@@ -497,13 +497,16 @@ func _on_battle_won(result: Dictionary) -> void:
 	var drop_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
 	if is_boss:
 		drop_tier = 4
+	elif EnemyRegistry.get_night_drop_boost(enemy_type):
+		drop_tier = mini(drop_tier + 1, 4)
+	var is_nocturnal: bool = enemy_type.begins_with("spectre_")
 	if not _current_battle_enemy_id.is_empty():
-		if not is_rival:
+		if not is_rival and not is_nocturnal:
 			save_manager.mark_enemy_defeated(_current_battle_enemy_id)
-			save_manager.increment_progress("enemies_defeated", 1)
-			session_stats["enemies_defeated"] = int(session_stats.get("enemies_defeated", 0)) + 1
+		save_manager.increment_progress("enemies_defeated", 1)
+		session_stats["enemies_defeated"] = int(session_stats.get("enemies_defeated", 0)) + 1
 		_current_battle_enemy_id = ""
-	if enemy_type != "" and not is_rival:
+	if enemy_type != "" and not is_rival and not is_nocturnal:
 		save_manager.record_enemy_defeated(enemy_type)
 		save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": enemy_type})
 	save_manager.increment_progress("battles_won", 1)
@@ -536,6 +539,7 @@ func _on_battle_won(result: Dictionary) -> void:
 	const _XP_TABLE: Dictionary = {
 		"undead_basic": 20, "undead_horde": 35, "ghoul_pack": 50, "undead_elite": 80,
 		"roaming_terror": 150,
+		"spectre_wisp": 25, "spectre_haunt": 40, "spectre_dread": 60,
 	}
 	var xp_amount: int = int(_XP_TABLE.get(enemy_type, 25)) if enemy_type != "" else 25
 	if is_boss:

@@ -2,7 +2,7 @@
 
 **Goal:** GID-055
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -39,12 +39,12 @@ Spectral enemies spawn only when night falls in the infinite world, fade at dawn
 
 ## Plan
 
-_Written during Plan phase._
+Inline nocturnal spawning logic in `WorldScene.gd` with clear method boundaries. Track spectral enemies in a separate `_nocturnal_enemies` dict (not `_enemy_nodes`) so they bypass `SaveManager.defeated_enemies`. Spawn on a timer that only counts down during night in the infinite world. Despawn with a tween fade at dawn, evict immediately on chunk unload.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/world/WorldScene.gd`**: Added `_nocturnal_enemies`, `_nocturnal_spawn_timer`, `_nocturnal_spawn_interval`, `_nocturnal_prev_was_night`, `_night_cue_played`, `_night_hunt_tutorial_shown_session`, `_nocturnal_id_counter` instance vars (lines 99–105). Added static `_is_night(time_of_day: float) -> bool` helper. Added `_update_nocturnal_spawns(delta)`, `_find_nocturnal_spawn_pos()`, `_despawn_nocturnal_enemies(fade)`, `_evict_nocturnal_enemies_in_chunk(chunk_key)` methods. Wired `_update_nocturnal_spawns(delta)` into `_process()` (infinite world branch) and day/night transition logic into `_update_day_night()`. Wired chunk eviction into `_update_chunks()`. Spectral enemy nodes get `set_meta("is_nocturnal", true)` for Minimap coloring. Global cap of 12 alive nocturnal enemies. Spectre tier selected by chunk Manhattan distance from origin (wisp ≤3, haunt ≤7, dread >7). Tutorial popup emitted once per session on first spawn.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Created `docs/agent/night-hunts.md`.

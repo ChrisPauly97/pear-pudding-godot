@@ -12,9 +12,9 @@ Day/night currently changes only the lighting. Night-only spectres with boosted 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-200 | Nocturnal spawn layer: spectral variants spawn at night in the infinite world, fade at dawn | agent | pending | — |
-| TID-201 | Spectral enemy data: decks, boosted rarity drops, distinct visual treatment | agent | pending | — |
-| TID-202 | Night-hunt feedback: minimap distinction, ambient audio cue, tutorial popup | agent | pending | TID-200, TID-201 |
+| TID-200 | Nocturnal spawn layer: spectral variants spawn at night in the infinite world, fade at dawn | agent | done | — |
+| TID-201 | Spectral enemy data: decks, boosted rarity drops, distinct visual treatment | agent | done | — |
+| TID-202 | Night-hunt feedback: minimap distinction, ambient audio cue, tutorial popup | agent | done | TID-200, TID-201 |
 
 ## Acceptance Criteria
 

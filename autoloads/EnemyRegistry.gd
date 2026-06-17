@@ -185,6 +185,42 @@ static func _ensure_loaded() -> void:
 			"difficulty_tier": 3,
 			"lore_text": "Standing in the shadow of the temple, Isfig speaks Maiteln's name with a cold familiarity that turns your blood to ice. Whatever he once was, he has chosen his side — and it is not yours.",
 		},
+		"spectre_wisp": {
+			"display_name": "Wisp",
+			"deck": ["ghost", "ghost", "ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "wither", "surge_spirit", "void_creeper"],
+			"drop_pool": ["ghost", "shadow_bolt", "soul_rend", "wither", "dusk_wraith", "void_creeper"],
+			"coin_reward": 8,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 1,
+			"night_drop_boost": true,
+			"lore_text": "A lost soul drawn out by darkness, trailing cold light through the night mist. Where one wisp drifts, the veil between worlds has grown thin.",
+		},
+		"spectre_haunt": {
+			"display_name": "Phantom",
+			"deck": ["ghost", "ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "soul_rend", "wither", "wither", "dusk_wraith", "void_creeper", "void_creeper"],
+			"drop_pool": ["shadow_bolt", "soul_rend", "dusk_wraith", "shrouded_wraith", "void_creeper", "dark_pact"],
+			"coin_reward": 12,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 2,
+			"night_drop_boost": true,
+			"lore_text": "A vengeful spirit anchored to the mortal world by unfinished purpose, the Phantom strikes with cold malice and retreats into shadow before the blow can be answered.",
+		},
+		"spectre_dread": {
+			"display_name": "Wraith",
+			"deck": ["ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "soul_rend", "soul_harvest", "soul_harvest", "dusk_wraith", "dusk_wraith", "void_creeper", "void_creeper", "dark_pact", "wither"],
+			"drop_pool": ["soul_rend", "soul_harvest", "dusk_wraith", "shrouded_wraith", "void_wyrm", "dark_pact", "dusk_vampire"],
+			"coin_reward": 18,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 3,
+			"night_drop_boost": true,
+			"lore_text": "A Wraith of apex terror, born when sorrow and power collapse into a single point. It hunts not for sustenance but for the sheer extinguishing of light — it is drawn to those who carry hope.",
+		},
 	}
 
 ## Returns the battle deck for a type. Falls back to a minimal undead deck if unknown.
@@ -298,7 +334,15 @@ static func get_all_enemy_ids() -> Array[String]:
 ## Returns true if enemies of this type engage the player on proximity.
 ## false = interact-only (wanderers). true = aggressive (attack on sight).
 static func is_tracking(type_id: String) -> bool:
-	return type_id == "undead_elite" or type_id == "ghoul_pack" or type_id == "roaming_terror"
+	return type_id == "undead_elite" or type_id == "ghoul_pack" or type_id == "roaming_terror" \
+		or type_id == "spectre_wisp" or type_id == "spectre_haunt" or type_id == "spectre_dread"
+
+## Returns true if this enemy type boosts card drop rarity by one tier on defeat.
+static func get_night_drop_boost(type_id: String) -> bool:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return bool(_enemies[type_id].get("night_drop_boost", false))
+	return false
 
 ## Returns the lore text for a type, or "" if unknown or not yet written.
 static func get_lore_text(type_id: String) -> String:

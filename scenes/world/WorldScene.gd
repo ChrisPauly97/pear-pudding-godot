@@ -95,6 +95,15 @@ var _roaming_boss_timer: float = 0.0
 var _traveling_merchant_timer: float = 0.0
 var _card_shower_items: Array[Node3D] = []
 
+# Nocturnal spawn system (GID-055 Night Hunts)
+var _nocturnal_enemies: Dictionary = {}        # spawn_id -> {"node": Node3D, "chunk": Vector2i}
+var _nocturnal_spawn_timer: float = 0.0
+var _nocturnal_spawn_interval: float = 45.0   # randomised each spawn
+var _nocturnal_prev_was_night: bool = false
+var _night_cue_played: bool = false
+var _night_hunt_tutorial_shown_session: bool = false
+var _nocturnal_id_counter: int = 0
+
 # Day/night cycle
 var _world_env: WorldEnvironment
 @export var day_duration: float = 600.0   # seconds per full day
@@ -734,6 +743,8 @@ func _update_chunks() -> void:
 		var grass_node: GrassBlades = _grass as GrassBlades
 		if grass_node:
 			grass_node.remove_chunk(key)
+		# Evict nocturnal enemies in this chunk immediately
+		_evict_nocturnal_enemies_in_chunk(key)
 		# Remove entities belonging to this chunk from the active sets
 		var chunk: RefCounted = _chunk_data_cache[key]
 		for e_data in chunk.enemies:
@@ -1003,6 +1014,139 @@ func _tick_card_shower() -> void:
 	if wem != null:
 		wem.call("end_event", "card_shower")
 	_card_shower_items.clear()
+
+# ── Nocturnal spawn system (GID-055 Night Hunts) ──────────────────────────────
+
+static func _is_night(time_of_day: float) -> bool:
+	return sin((time_of_day - 0.25) * TAU) < 0.0
+
+func _update_nocturnal_spawns(delta: float) -> void:
+	if not _is_infinite:
+		return
+	var currently_night: bool = _is_night(_time_of_day)
+	if not currently_night:
+		_nocturnal_spawn_timer = 0.0
+		return
+
+	_nocturnal_spawn_timer -= delta
+	if _nocturnal_spawn_timer > 0.0:
+		return
+	_nocturnal_spawn_timer = randf_range(30.0, 60.0)
+
+	# Cap total nocturnal enemies globally to 12
+	var alive_count: int = 0
+	for sid: String in _nocturnal_enemies.keys():
+		var entry: Dictionary = _nocturnal_enemies[sid]
+		var n: Node3D = entry.get("node") as Node3D
+		if not is_instance_valid(n):
+			_nocturnal_enemies.erase(sid)
+		else:
+			alive_count += 1
+	if alive_count >= 12:
+		return
+
+	# Find a walkable grass tile 6–12 world units from the player
+	var spawn_pos: Vector3 = _find_nocturnal_spawn_pos()
+	if spawn_pos == Vector3.ZERO:
+		return
+
+	# Pick spectre tier based on world distance from origin
+	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var dist: int = int(Vector2(_player.position.x, _player.position.z).length() / chunk_world)
+	var enemy_type: String = "spectre_wisp"
+	if dist >= 8:
+		enemy_type = "spectre_dread"
+	elif dist >= 3:
+		enemy_type = "spectre_haunt"
+
+	var node: Node3D = _EnemyScene.instantiate() as Node3D
+	if node == null:
+		return
+	_nocturnal_id_counter += 1
+	var spawn_id: String = "nocturnal_%d" % _nocturnal_id_counter
+	var data: Dictionary = {
+		"id": spawn_id,
+		"enemy_type": enemy_type,
+		"tracking": true,
+		"nocturnal": true,
+	}
+	node.set_meta("is_nocturnal", true)
+	node.call("init_from_data", data)
+	node.position = spawn_pos
+	node.modulate = Color(0.7, 0.85, 1.0, 0.85)
+	_entity_root.add_child(node)
+
+	var pcx: int = int(floor(spawn_pos.x / chunk_world))
+	var pcz: int = int(floor(spawn_pos.z / chunk_world))
+	_nocturnal_enemies[spawn_id] = {"node": node, "chunk": Vector2i(pcx, pcz)}
+	_enemy_nodes[spawn_id] = node
+
+	# Tutorial popup — once per session on first night spawn
+	if not _night_hunt_tutorial_shown_session:
+		_night_hunt_tutorial_shown_session = true
+		if not SceneManager.save_manager.get_story_flag("seen_tutorial_night_hunts"):
+			SceneManager.save_manager.set_story_flag("seen_tutorial_night_hunts")
+			GameBus.tutorial_popup_requested.emit("night_hunts")
+
+func _find_nocturnal_spawn_pos() -> Vector3:
+	var min_dist: float = 6.0
+	var max_dist: float = 14.0
+	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
+	rng.randomize()
+	for _try: int in range(20):
+		var angle: float = rng.randf() * TAU
+		var dist: float = rng.randf_range(min_dist, max_dist)
+		var tx: float = _player.position.x + cos(angle) * dist
+		var tz: float = _player.position.z + sin(angle) * dist
+		var cx: int = int(floor(tx / chunk_world))
+		var cz: int = int(floor(tz / chunk_world))
+		var key := Vector2i(cx, cz)
+		if not _chunk_data_cache.has(key):
+			continue
+		var chunk: RefCounted = _chunk_data_cache[key]
+		var tile_x: int = int(tx / IsoConst.TILE_SIZE) - cx * IsoConst.CHUNK_SIZE
+		var tile_z: int = int(tz / IsoConst.TILE_SIZE) - cz * IsoConst.CHUNK_SIZE
+		tile_x = clampi(tile_x, 0, IsoConst.CHUNK_SIZE - 1)
+		tile_z = clampi(tile_z, 0, IsoConst.CHUNK_SIZE - 1)
+		var li: int = tile_z * IsoConst.CHUNK_SIZE + tile_x
+		if li < 0 or li >= chunk.tile_grid.size():
+			continue
+		var tile_type: int = chunk.tile_grid[li]
+		if tile_type != IsoConst.TILE_GRASS:
+			continue
+		var world_y: float = get_terrain_height(tx, tz) + 0.5
+		return Vector3(tx, world_y, tz)
+	return Vector3.ZERO
+
+func _despawn_nocturnal_enemies(fade: bool) -> void:
+	for sid: String in _nocturnal_enemies.keys():
+		var entry: Dictionary = _nocturnal_enemies[sid]
+		var n: Node3D = entry.get("node") as Node3D
+		if not is_instance_valid(n):
+			_enemy_nodes.erase(sid)
+			continue
+		_enemy_nodes.erase(sid)
+		if fade:
+			var tw: Tween = create_tween()
+			tw.tween_property(n, "modulate:a", 0.0, 1.0)
+			tw.tween_callback(n.queue_free)
+		else:
+			n.queue_free()
+	_nocturnal_enemies.clear()
+
+func _evict_nocturnal_enemies_in_chunk(chunk_key: Vector2i) -> void:
+	var to_erase: Array[String] = []
+	for sid: String in _nocturnal_enemies.keys():
+		var entry: Dictionary = _nocturnal_enemies[sid]
+		if entry.get("chunk") == chunk_key:
+			var n: Node3D = entry.get("node") as Node3D
+			if is_instance_valid(n):
+				n.queue_free()
+			_enemy_nodes.erase(sid)
+			to_erase.append(sid)
+	for sid: String in to_erase:
+		_nocturnal_enemies.erase(sid)
 
 # Called by ChunkRenderer after spawning a chest
 func register_chest(cid: String, node: Node3D, c_data: Dictionary) -> void:
@@ -1360,6 +1504,20 @@ func _update_day_night(delta: float) -> void:
 	if _time_of_day < prev_time:
 		SceneManager.save_manager.increment_day()
 
+	# Night-hunt transition detection
+	if _is_infinite:
+		var now_night: bool = _is_night(_time_of_day)
+		if now_night and not _nocturnal_prev_was_night:
+			# Sunset → night: play ambient cue once per night
+			if not _night_cue_played:
+				_night_cue_played = true
+				AudioManager.play_sfx("nightfall_ambient")
+		elif not now_night and _nocturnal_prev_was_night:
+			# Dawn: fade out all spectres
+			_despawn_nocturnal_enemies(true)
+			_night_cue_played = false
+		_nocturnal_prev_was_night = now_night
+
 	# sun_angle: 0 at sunrise (t=0.25), PI/2 at noon (t=0.5), PI at sunset (t=0.75)
 	var sun_angle: float = (_time_of_day - 0.25) * TAU
 	_sun.rotation = Vector3(-sun_angle, 0.0, 0.0)
@@ -1461,6 +1619,7 @@ func _process(delta: float) -> void:
 		_tick_roaming_boss(delta)
 		_tick_traveling_merchant(delta)
 		_tick_card_shower()
+		_update_nocturnal_spawns(delta)
 		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 		var pcx: int = int(floor(_player.position.x / chunk_world))
 		var pcz: int = int(floor(_player.position.z / chunk_world))

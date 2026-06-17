@@ -23,7 +23,8 @@ const SFX_PATHS: Dictionary = {
 	"chest_open":   "res://assets/audio/sfx/chest_open.wav",
 	"scroll_pickup": "res://assets/audio/sfx/scroll_pickup.wav",
 	"door_enter":   "res://assets/audio/sfx/door_enter.wav",
-	"footstep":     "res://assets/audio/sfx/footstep.wav",
+	"footstep":       "res://assets/audio/sfx/footstep.wav",
+	"nightfall_ambient": "res://assets/audio/sfx/nightfall.wav",
 }
 
 var _players: Array[AudioStreamPlayer] = []
