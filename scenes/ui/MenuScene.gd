@@ -4,8 +4,8 @@ const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
 
 var _title: Label
-var _vbox: VBoxContainer
 var _continue_btn: Button
+var _buttons: Array[Button] = []
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -16,16 +16,13 @@ func _ready() -> void:
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_title)
 
-	_vbox = VBoxContainer.new()
-	add_child(_vbox)
-
-	_continue_btn = _make_btn("Continue", _on_continue)
-	_make_btn("New Game", _on_start)
-	_make_btn("Achievements", _on_achievements)
-	_make_btn("Map Editor", _on_editor)
-	_make_btn("Settings", _on_settings)
-	_make_btn("Diagnostics", _on_diagnostics)
-	_make_btn("Quit", _on_quit)
+	_continue_btn = _add_btn("Continue", _on_continue)
+	_add_btn("New Game", _on_start)
+	_add_btn("Achievements", _on_achievements)
+	_add_btn("Map Editor", _on_editor)
+	_add_btn("Settings", _on_settings)
+	_add_btn("Diagnostics", _on_diagnostics)
+	_add_btn("Quit", _on_quit)
 
 	_continue_btn.visible = SceneManager.save_manager.has_save()
 
@@ -33,11 +30,12 @@ func _ready() -> void:
 	_animate_title()
 	_add_version_label()
 
-func _make_btn(label: String, cb: Callable) -> Button:
+func _add_btn(label: String, cb: Callable) -> Button:
 	var btn := Button.new()
 	btn.text = label
 	btn.pressed.connect(cb)
-	_vbox.add_child(btn)
+	add_child(btn)
+	_buttons.append(btn)
 	return btn
 
 func _notification(what: int) -> void:
@@ -55,27 +53,27 @@ func _layout() -> void:
 	var btn_w: float = ref * 0.38
 	var btn_h: float = ref * 0.075
 	var sep: float = ref * 0.018
-	_vbox.add_theme_constant_override("separation", int(sep))
+	var btn_font: int = int(ref * 0.026)
+	var btn_x: float = (vp.x - btn_w) * 0.5
 
-	# Avoid .filter() on typed array — it returns untyped Array which fails strict-mode
-	# typed for loops. Iterate get_children() directly.
-	for child: Node in _vbox.get_children():
-		if child is Button:
-			var btn: Button = child as Button
-			btn.custom_minimum_size = Vector2(btn_w, btn_h)
-			btn.add_theme_font_size_override("font_size", int(ref * 0.026))
+	# Collect visible buttons and apply font size
+	var vis_btns: Array[Button] = []
+	for btn: Button in _buttons:
+		btn.add_theme_font_size_override("font_size", btn_font)
+		if btn.visible:
+			vis_btns.append(btn)
 
-	var vis: int = 0
-	for c: Node in _vbox.get_children():
-		if c is Button and (c as Button).visible:
-			vis += 1
-
-	var total_h: float = float(vis) * btn_h + maxf(0.0, float(vis - 1)) * sep
+	var n: int = vis_btns.size()
+	var total_h: float = float(n) * btn_h + maxf(0.0, float(n - 1)) * sep
 	var title_end: float = ref * 0.22  # 0.06 title_y + 0.12 title_h + 0.04 gap
 	var remaining: float = vp.y - title_end - ref * 0.03
-	var vbox_y: float = title_end + maxf(0.0, (remaining - total_h) * 0.5)
+	var start_y: float = title_end + maxf(0.0, (remaining - total_h) * 0.5)
 
-	_vbox.position = Vector2((vp.x - btn_w) * 0.5, vbox_y)
+	# Set explicit size+position on each button — no Container layout pass needed.
+	for i: int in range(n):
+		var btn: Button = vis_btns[i]
+		btn.size = Vector2(btn_w, btn_h)
+		btn.position = Vector2(btn_x, start_y + float(i) * (btn_h + sep))
 
 func _animate_title() -> void:
 	_title.modulate.a = 0.0
