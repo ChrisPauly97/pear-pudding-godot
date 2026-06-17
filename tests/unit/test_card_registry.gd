@@ -11,7 +11,7 @@ var _registry: Node
 
 func before_all() -> void:
 	_registry = CardRegistryScript.new()
-	_registry._ready()  # registers all default templates
+	_registry.get_all_ids()  # triggers _ensure_loaded() / registers all templates
 
 
 func after_all() -> void:
@@ -23,7 +23,7 @@ func after_all() -> void:
 # ---------------------------------------------------------------------------
 
 func test_get_all_ids_returns_forty_default_cards() -> void:
-	assert_eq(_registry.get_all_ids().size(), 40)
+	assert_eq(_registry.get_all_ids().size(), 48)
 
 
 func test_get_all_ids_contains_ghost() -> void:

@@ -60,7 +60,7 @@ func winner() -> int:
 
 ## Builds a GameState seeded from a PuzzleData resource.
 ## Board minions have no summoning sickness. No deck; no enemy turn.
-static func load_puzzle(p: Resource) -> GameState:
+func load_puzzle(p: Resource) -> void:
 	const PD = preload("res://game_logic/battle/PuzzleData.gd")
 	const CR = preload("res://autoloads/CardRegistry.gd")
 	const CI = preload("res://game_logic/battle/CardInstance.gd")
@@ -68,19 +68,18 @@ static func load_puzzle(p: Resource) -> GameState:
 	var pdata: PD = p as PD
 	if pdata == null:
 		push_error("GameState.load_puzzle: invalid PuzzleData resource")
-		return GameState.new()
+		return
 
-	var gs := GameState.new()
-	gs.puzzle_mode = true
-	gs.puzzle_data_id = pdata.puzzle_id
+	puzzle_mode = true
+	puzzle_data_id = pdata.puzzle_id
 
 	# --- Player (pid 0) ---
-	gs.players[0].draw_deck.clear()
-	gs.players[0].hand.clear()
-	gs.players[0].hero.health = pdata.player_hero_hp
-	gs.players[0].hero.max_health = pdata.player_hero_hp
-	gs.players[0].hero.mana = pdata.player_mana
-	gs.players[0].hero.max_mana = pdata.player_mana
+	players[0].draw_deck.clear()
+	players[0].hand.clear()
+	players[0].hero.health = pdata.player_hero_hp
+	players[0].hero.max_health = pdata.player_hero_hp
+	players[0].hero.mana = pdata.player_mana
+	players[0].hero.max_mana = pdata.player_mana
 
 	for cid: String in pdata.player_hand:
 		if cid.is_empty():
@@ -90,7 +89,7 @@ static func load_puzzle(p: Resource) -> GameState:
 			continue
 		var ci := CI.new(tmpl)
 		ci.summoning_sick = false
-		gs.players[0].hand.append(ci)
+		players[0].hand.append(ci)
 
 	for i in range(mini(pdata.player_board.size(), 5)):
 		var cid: String = pdata.player_board[i]
@@ -102,13 +101,13 @@ static func load_puzzle(p: Resource) -> GameState:
 		var ci := CI.new(tmpl)
 		ci.summoning_sick = false
 		ci.attack_count = 1
-		gs.players[0].board.slots[i] = ci
+		players[0].board.slots[i] = ci
 
 	# --- Enemy (pid 1) ---
-	gs.players[1].draw_deck.clear()
-	gs.players[1].hand.clear()
-	gs.players[1].hero.health = pdata.enemy_hero_hp
-	gs.players[1].hero.max_health = pdata.enemy_hero_hp
+	players[1].draw_deck.clear()
+	players[1].hand.clear()
+	players[1].hero.health = pdata.enemy_hero_hp
+	players[1].hero.max_health = pdata.enemy_hero_hp
 
 	for i in range(mini(pdata.enemy_board.size(), 5)):
 		var cid: String = pdata.enemy_board[i]
@@ -120,7 +119,7 @@ static func load_puzzle(p: Resource) -> GameState:
 		var ci := CI.new(tmpl)
 		ci.summoning_sick = false
 		ci.attack_count = 1
-		gs.players[1].board.slots[i] = ci
+		players[1].board.slots[i] = ci
 
 	# Apply keyword buffs to enemy board slots: format "slot_idx:keyword"
 	for buff: String in pdata.enemy_board_buffs:
@@ -130,13 +129,12 @@ static func load_puzzle(p: Resource) -> GameState:
 		var slot_i: int = int(parts[0])
 		if slot_i < 0 or slot_i >= 5:
 			continue
-		var bcard: CI = gs.players[1].board.slots[slot_i]
+		var bcard: CI = players[1].board.slots[slot_i]
 		if bcard != null and not bcard.keywords.has(str(parts[1])):
 			bcard.keywords.append(str(parts[1]))
 
-	gs.current_player_idx = 0
-	gs.turn_number = 1
-	return gs
+	current_player_idx = 0
+	turn_number = 1
 
 func to_dict() -> Dictionary:
 	var player_arr: Array = []
@@ -153,24 +151,26 @@ func to_dict() -> Dictionary:
 		"puzzle_data_id": puzzle_data_id,
 	}
 
-static func from_dict(d: Dictionary) -> GameState:
-	var gs := GameState.new()
-	gs.current_player_idx = int(d.get("current_player_idx", 0))
-	gs.turn_number = int(d.get("turn_number", 1))
-	var ptn = d.get("player_turn_numbers", [gs.turn_number, gs.turn_number - 1])
+func from_dict(d: Dictionary) -> void:
+	current_player_idx = int(d.get("current_player_idx", 0))
+	turn_number = int(d.get("turn_number", 1))
+	var ptn = d.get("player_turn_numbers", [turn_number, turn_number - 1])
 	if ptn is Array and ptn.size() >= 2:
-		gs.player_turn_numbers[0] = int(ptn[0])
-		gs.player_turn_numbers[1] = int(ptn[1])
+		player_turn_numbers[0] = int(ptn[0])
+		player_turn_numbers[1] = int(ptn[1])
 	else:
 		# Old save: derive from shared turn_number as a best-effort fallback
-		gs.player_turn_numbers[0] = int(ceil(float(gs.turn_number) / 2.0))
-		gs.player_turn_numbers[1] = int(floor(float(gs.turn_number) / 2.0))
-	gs.friendly_duel = bool(d.get("friendly_duel", false))
-	gs.wager_coins = int(d.get("wager_coins", 0))
-	gs.puzzle_mode = bool(d.get("puzzle_mode", false))
-	gs.puzzle_data_id = str(d.get("puzzle_data_id", ""))
-	gs.players.clear()
+		player_turn_numbers[0] = int(ceil(float(turn_number) / 2.0))
+		player_turn_numbers[1] = int(floor(float(turn_number) / 2.0))
+	friendly_duel = bool(d.get("friendly_duel", false))
+	wager_coins = int(d.get("wager_coins", 0))
+	puzzle_mode = bool(d.get("puzzle_mode", false))
+	puzzle_data_id = str(d.get("puzzle_data_id", ""))
+	players.clear()
 	for pd in d.get("players", []):
 		if pd is Dictionary:
-			gs.players.append(PlayerState.from_dict(pd))
-	return gs
+			var pid: int = int(pd.get("player_id", 0))
+			var ai: bool = bool(pd.get("is_ai", false))
+			var ps := PlayerState.new(pid, ai)
+			ps.from_dict(pd)
+			players.append(ps)

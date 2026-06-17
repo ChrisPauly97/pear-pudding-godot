@@ -113,27 +113,36 @@ func to_dict() -> Dictionary:
 		"pending_auto_spells": auto_arr,
 	}
 
-static func from_dict(d: Dictionary) -> PlayerState:
-	var pid: int = int(d.get("player_id", 0))
-	var ai: bool = bool(d.get("is_ai", false))
-	var ps := PlayerState.new(pid, ai)
-	ps.bonus_draw = int(d.get("bonus_draw", 0))
-	ps.hero = HeroState.from_dict(d.get("hero", {}))
-	ps.board = ZoneState.from_dict(d.get("board", []))
-	ps.hand.clear()
+func from_dict(d: Dictionary) -> void:
+	is_ai = bool(d.get("is_ai", false))
+	bonus_draw = int(d.get("bonus_draw", 0))
+	var raw_hero = d.get("hero", {})
+	if raw_hero is Dictionary:
+		hero.from_dict(raw_hero)
+	var raw_board = d.get("board", [])
+	if raw_board is Array:
+		board.from_dict(raw_board)
+	hand.clear()
 	for cd in d.get("hand", []):
 		if cd is Dictionary:
-			ps.hand.append(CardInstance.from_dict(cd))
-	ps.draw_deck.clear()
+			var ci := CardInstance.new()
+			ci.from_dict(cd)
+			hand.append(ci)
+	draw_deck.clear()
 	for cd in d.get("draw_deck", []):
 		if cd is Dictionary:
-			ps.draw_deck.append(CardInstance.from_dict(cd))
-	ps.discard.clear()
+			var ci := CardInstance.new()
+			ci.from_dict(cd)
+			draw_deck.append(ci)
+	discard.clear()
 	for cd in d.get("discard", []):
 		if cd is Dictionary:
-			ps.discard.append(CardInstance.from_dict(cd))
-	ps.pending_auto_spells.clear()
+			var ci := CardInstance.new()
+			ci.from_dict(cd)
+			discard.append(ci)
+	pending_auto_spells.clear()
 	for cd in d.get("pending_auto_spells", []):
 		if cd is Dictionary:
-			ps.pending_auto_spells.append(CardInstance.from_dict(cd))
-	return ps
+			var ci := CardInstance.new()
+			ci.from_dict(cd)
+			pending_auto_spells.append(ci)

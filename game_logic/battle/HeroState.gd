@@ -73,14 +73,13 @@ func to_dict() -> Dictionary:
 		"status_effects": status_effects.duplicate(),
 	}
 
-static func from_dict(d: Dictionary) -> HeroState:
-	var h := HeroState.new(int(d.get("player_id", 0)))
-	h.health = int(d.get("health", 30))
-	h.max_health = int(d.get("max_health", 30))
-	h.mana = int(d.get("mana", 1))
-	h.max_mana = int(d.get("max_mana", 1))
-	h.bonus_mana = int(d.get("bonus_mana", 0))
-	h.attack = int(d.get("attack", 0))
+func from_dict(d: Dictionary) -> void:
+	player_id = int(d.get("player_id", player_id))
+	health = int(d.get("health", 30))
+	max_health = int(d.get("max_health", 30))
+	mana = int(d.get("mana", 1))
+	max_mana = int(d.get("max_mana", 1))
+	bonus_mana = int(d.get("bonus_mana", 0))
+	attack = int(d.get("attack", 0))
 	var se = d.get("status_effects", {})
-	h.status_effects = se if se is Dictionary else {}
-	return h
+	status_effects = se if se is Dictionary else {}
