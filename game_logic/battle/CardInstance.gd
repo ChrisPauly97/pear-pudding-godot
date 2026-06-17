@@ -137,30 +137,28 @@ func to_dict() -> Dictionary:
 		"status_effects": status_effects.duplicate(),
 	}
 
-static func from_dict(d: Dictionary) -> CardInstance:
-	var c := CardInstance.new()
-	c.instance_id = str(d.get("instance_id", ""))
-	c.template_id = str(d.get("template_id", ""))
-	c.name = str(d.get("name", "?"))
-	c.cost = int(d.get("cost", 1))
-	c.attack = int(d.get("attack", 1))
-	c.health = int(d.get("health", 1))
-	c.max_health = int(d.get("max_health", 1))
-	c.card_class = str(d.get("card_class", "minion"))
-	c.description = str(d.get("description", ""))
-	c.magic_type = str(d.get("magic_type", ""))
-	c.magic_branch = str(d.get("magic_branch", ""))
-	c.spell_effect = str(d.get("spell_effect", ""))
-	c.spell_power = int(d.get("spell_power", 0))
-	c.auto_resolve = bool(d.get("auto_resolve", false))
-	c.emergence_effect = str(d.get("emergence_effect", ""))
-	c.emergence_power = int(d.get("emergence_power", 0))
-	c.keywords.assign(d.get("keywords", []))
-	c.shroud_active = bool(d.get("shroud_active", false))
+func from_dict(d: Dictionary) -> void:
+	instance_id = str(d.get("instance_id", ""))
+	template_id = str(d.get("template_id", ""))
+	name = str(d.get("name", "?"))
+	cost = int(d.get("cost", 1))
+	attack = int(d.get("attack", 1))
+	health = int(d.get("health", 1))
+	max_health = int(d.get("max_health", 1))
+	card_class = str(d.get("card_class", "minion"))
+	description = str(d.get("description", ""))
+	magic_type = str(d.get("magic_type", ""))
+	magic_branch = str(d.get("magic_branch", ""))
+	spell_effect = str(d.get("spell_effect", ""))
+	spell_power = int(d.get("spell_power", 0))
+	auto_resolve = bool(d.get("auto_resolve", false))
+	emergence_effect = str(d.get("emergence_effect", ""))
+	emergence_power = int(d.get("emergence_power", 0))
+	keywords.assign(d.get("keywords", []))
+	shroud_active = bool(d.get("shroud_active", false))
 	# "armor" key tolerated from old saves but field is removed — armor lives in status_effects
-	c.summoning_sick = bool(d.get("summoning_sick", true))
-	c.attack_count = int(d.get("attack_count", 1))
-	c.out_of_play = int(d.get("out_of_play", 0))
+	summoning_sick = bool(d.get("summoning_sick", true))
+	attack_count = int(d.get("attack_count", 1))
+	out_of_play = int(d.get("out_of_play", 0))
 	var se = d.get("status_effects", {})
-	c.status_effects = se if se is Dictionary else {}
-	return c
+	status_effects = se if se is Dictionary else {}

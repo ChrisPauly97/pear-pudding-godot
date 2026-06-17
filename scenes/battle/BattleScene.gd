@@ -121,9 +121,11 @@ func _ready() -> void:
 	var _saved_battle: Dictionary = SceneManager.save_manager.pending_battle_state
 	if puzzle_data != null:
 		_puzzle_data_ref = puzzle_data
-		_state = GameState.load_puzzle(puzzle_data)
+		_state = GameState.new()
+		_state.load_puzzle(puzzle_data)
 	elif not _saved_battle.is_empty():
-		_state = GameState.from_dict(_saved_battle)
+		_state = GameState.new()
+		_state.from_dict(_saved_battle)
 		_boss_phase2_triggered = bool(_saved_battle.get("_boss_phase2", false))
 		_hero_power_used = bool(_saved_battle.get("_hero_power_used", false))
 		_bump_card_next_id(_state)
@@ -2018,7 +2020,8 @@ func _show_duel_loss_overlay(wager: int) -> void:
 
 func _show_puzzle_fail() -> void:
 	const GameState = preload("res://game_logic/battle/GameState.gd")
-	_state = GameState.load_puzzle(_puzzle_data_ref)
+	_state = GameState.new()
+	_state.load_puzzle(_puzzle_data_ref)
 	_refresh_all()
 
 	var overlay := PanelContainer.new()

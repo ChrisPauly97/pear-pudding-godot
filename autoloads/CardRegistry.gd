@@ -70,12 +70,22 @@ static func _ensure_loaded() -> void:
 		_C_VOID_CREEPER, _C_VOID_WYRM, _C_WITHER, _C_ZOMBIE,
 		_C_ISFIG_SHADOW_ECHO,
 	]
-	for res in all:
-		var card := res as CardData
-		if card == null:
+	for preloaded in all:
+		if preloaded == null:
 			continue
-		if card.id != "":
-			_cards[card.id] = card
+		# preload() caches a Resource without a live GDScript instance in headless/runtime mode.
+		# Re-load bypassing the cache so the resource loader creates a proper script instance.
+		# The preload const above guarantees the file is included in Android APKs.
+		var path: String = preloaded.resource_path
+		if path == "":
+			continue
+		var res: Resource = ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE)
+		if res == null:
+			continue
+		var id_val = res.get("id")
+		var card_id: String = str(id_val) if id_val != null else ""
+		if card_id != "":
+			_cards[card_id] = res
 		else:
 			push_error("CardRegistry: a preloaded card has empty id, skipped")
 	if _cards.is_empty():
@@ -86,7 +96,9 @@ static func _ensure_loaded() -> void:
 static func get_template(id: String) -> Dictionary:
 	_ensure_loaded()
 	if _cards.has(id):
-		return (_cards[id] as CardData).to_template_dict()
+		var res: Resource = _cards[id] as Resource
+		if res != null and res.has_method("to_template_dict"):
+			return res.call("to_template_dict")
 	return {}
 
 ## Returns all known card IDs, in no guaranteed order.
@@ -102,7 +114,8 @@ static func get_all_ids() -> Array[String]:
 static func is_craftable(id: String) -> bool:
 	_ensure_loaded()
 	if _cards.has(id):
-		return (_cards[id] as CardData).can_craft
+		var val = _cards[id].get("can_craft")
+		return val == null or bool(val)
 	return false
 
 ## Returns true if the card is available (not a locked legendary).
@@ -112,8 +125,8 @@ static func is_unlocked(card_id: String, unlocked_achievements: Array[String]) -
 	_ensure_loaded()
 	if not _cards.has(card_id):
 		return false
-	var card := _cards[card_id] as CardData
-	if card.card_class != "legendary":
+	var card_class_val: String = str(_cards[card_id].get("card_class", ""))
+	if card_class_val != "legendary":
 		return true
 	const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
 	for a: Dictionary in AchievementRegistry.get_all():

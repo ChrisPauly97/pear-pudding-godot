@@ -64,12 +64,12 @@ func to_dict() -> Array:
 			result.append(s.to_dict())
 	return result
 
-static func from_dict(slots_arr: Array) -> ZoneState:
-	var z := ZoneState.new()
+func from_dict(slots_arr: Array) -> void:
 	for i in range(mini(slots_arr.size(), SLOT_COUNT)):
 		var entry = slots_arr[i]
 		if entry == null or not entry is Dictionary:
-			z.slots[i] = null
+			slots[i] = null
 		else:
-			z.slots[i] = CardInstance.from_dict(entry)
-	return z
+			var ci := CardInstance.new()
+			ci.from_dict(entry)
+			slots[i] = ci
