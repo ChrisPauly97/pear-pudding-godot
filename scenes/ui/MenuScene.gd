@@ -3,67 +3,82 @@ extends Control
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
 
-@onready var _outer: MarginContainer = $Outer
-@onready var _inner_vbox: VBoxContainer = $Outer/InnerVBox
-@onready var _title: Label = $Outer/InnerVBox/Title
-@onready var _scroll: ScrollContainer = $Outer/InnerVBox/Scroll
-@onready var _vbox: VBoxContainer = $Outer/InnerVBox/Scroll/VBox
-@onready var _continue_btn: Button = $Outer/InnerVBox/Scroll/VBox/ContinueButton
-@onready var _start_btn: Button = $Outer/InnerVBox/Scroll/VBox/StartButton
-@onready var _achievements_btn: Button = $Outer/InnerVBox/Scroll/VBox/AchievementsButton
-@onready var _editor_btn: Button = $Outer/InnerVBox/Scroll/VBox/EditorButton
-@onready var _settings_btn: Button = $Outer/InnerVBox/Scroll/VBox/SettingsButton
-@onready var _quit_btn: Button = $Outer/InnerVBox/Scroll/VBox/QuitButton
+var _title: Label
+var _vbox: VBoxContainer
+var _continue_btn: Button
 
 func _ready() -> void:
-	_continue_btn.pressed.connect(_on_continue)
-	_start_btn.pressed.connect(_on_start)
-	_achievements_btn.pressed.connect(_on_achievements)
-	_editor_btn.pressed.connect(_on_editor)
-	_settings_btn.pressed.connect(_on_settings)
-	_quit_btn.pressed.connect(_on_quit)
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+
+	var bg := ColorRect.new()
+	bg.color = Color(0.08, 0.08, 0.12, 1)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
+
+	_title = Label.new()
+	_title.text = "Pear Pudding TCG"
+	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_title)
+
+	_vbox = VBoxContainer.new()
+	add_child(_vbox)
+
+	_continue_btn = _make_btn("Continue", _on_continue)
+	_make_btn("New Game", _on_start)
+	_make_btn("Achievements", _on_achievements)
+	_make_btn("Map Editor", _on_editor)
+	_make_btn("Settings", _on_settings)
+	_make_btn("Diagnostics", _on_diagnostics)
+	_make_btn("Quit", _on_quit)
 
 	_continue_btn.visible = SceneManager.save_manager.has_save()
-	_add_diagnostics_button()
-	_apply_ui_sizes()
+
+	_layout()
 	_animate_title()
 	_add_version_label()
 
+func _make_btn(label: String, cb: Callable) -> Button:
+	var btn := Button.new()
+	btn.text = label
+	btn.pressed.connect(cb)
+	_vbox.add_child(btn)
+	return btn
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_node_ready():
-		_apply_ui_sizes()
+		_layout()
 
-func _add_diagnostics_button() -> void:
-	var diag_btn := Button.new()
-	diag_btn.text = "Diagnostics"
-	diag_btn.pressed.connect(_on_diagnostics)
-	_vbox.add_child(diag_btn)
-	_vbox.move_child(diag_btn, _quit_btn.get_index())
-
-func _apply_ui_sizes() -> void:
+func _layout() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
 	# Use shorter dimension so portrait screens don't produce oversized elements.
-	var ref: float = min(vh, vp.x)
-
-	# Large horizontal margins center a ~38 % ref-wide column; never less than 3 % padding.
-	var col_w: float = ref * 0.38
-	var margin_h: int = int(max((vp.x - col_w) * 0.5, ref * 0.03))
-	_outer.add_theme_constant_override("margin_left", margin_h)
-	_outer.add_theme_constant_override("margin_right", margin_h)
-	_outer.add_theme_constant_override("margin_top", int(ref * 0.06))
-	_outer.add_theme_constant_override("margin_bottom", int(ref * 0.03))
+	var ref: float = min(vp.y, vp.x)
 
 	_title.add_theme_font_size_override("font_size", int(ref * 0.07))
-	_inner_vbox.add_theme_constant_override("separation", int(ref * 0.04))
-	_vbox.add_theme_constant_override("separation", int(ref * 0.018))
+	_title.size = Vector2(vp.x, ref * 0.12)
+	_title.position = Vector2(0.0, ref * 0.06)
 
-	# Height only — width fills the centered column so buttons don't overflow it.
+	var btn_w: float = ref * 0.38
 	var btn_h: float = ref * 0.075
-	var btn_font: int = int(ref * 0.026)
+	var sep: float = ref * 0.018
+	_vbox.add_theme_constant_override("separation", int(sep))
+
 	for btn: Button in _vbox.get_children().filter(func(n: Node) -> bool: return n is Button):
-		btn.custom_minimum_size = Vector2(0, btn_h)
-		btn.add_theme_font_size_override("font_size", btn_font)
+		btn.custom_minimum_size = Vector2(btn_w, btn_h)
+		btn.add_theme_font_size_override("font_size", int(ref * 0.026))
+
+	var vis: int = 0
+	for c: Node in _vbox.get_children():
+		if c is Button and (c as Button).visible:
+			vis += 1
+
+	var total_h: float = float(vis) * btn_h + maxf(0.0, float(vis - 1)) * sep
+	var title_end: float = ref * 0.06 + ref * 0.12 + ref * 0.04
+	var remaining: float = vp.y - title_end - ref * 0.03
+	var vbox_y: float = title_end + maxf(0.0, (remaining - total_h) * 0.5)
+
+	_vbox.position = Vector2((vp.x - btn_w) * 0.5, vbox_y)
 
 func _animate_title() -> void:
 	_title.modulate.a = 0.0
@@ -88,6 +103,7 @@ func _add_version_label() -> void:
 	var ref: float = min(vp.y, vp.x)
 	var ver_lbl := Label.new()
 	ver_lbl.text = "v" + version
+	ver_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ver_lbl.add_theme_font_size_override("font_size", int(ref * 0.022))
 	ver_lbl.add_theme_color_override("font_color", Color(0.55, 0.55, 0.65))
 	ver_lbl.position = Vector2(ref * 0.015, vp.y - ref * 0.045)
