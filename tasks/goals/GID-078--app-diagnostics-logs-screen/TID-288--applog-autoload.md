@@ -2,7 +2,7 @@
 
 **Goal:** GID-078
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -38,12 +38,20 @@ Godot's `print()` cannot be intercepted from GDScript. We introduce an `AppLog` 
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `autoloads/AppLog.gd` — extends Node, registered as autoload.
+   - `const MAX_ENTRIES: int = 200`
+   - `var _entries: Array[Dictionary] = []` — each dict `{ts, level, msg}`
+   - `func info(msg: String)` / `warn` / `error` — push to buffer + call print/push_warning/push_error
+   - `func get_entries() -> Array[Dictionary]` — returns copy of buffer
+   - `func clear()` — empties buffer
+   - `_ready()` connects to GameBus signals: enemy_engaged, battle_won, battle_lost, hud_message_requested, achievement_unlocked, level_up, story_flag_set, story_scroll_collected, entered_named_map, world_event_started, world_event_ended, bounty_completed, siege_victory, siege_defeated, rival_encounter_won, weather_changed
+2. Register `AppLog="*res://autoloads/AppLog.gd"` in `project.godot` after `GameBus` line.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `autoloads/AppLog.gd` — ring buffer (200 entries), `info/warn/error()` methods, `get_entries()`/`clear()`, auto-connects to 17 GameBus signals in `_ready()`.
+- Registered `AppLog` in `project.godot` `[autoload]` section after `GameBus`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None needed for this task — agent docs for the diagnostics system will be created in TID-290.

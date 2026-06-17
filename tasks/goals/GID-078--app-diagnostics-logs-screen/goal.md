@@ -12,9 +12,9 @@ Android doesn't expose logcat to the user at runtime. To diagnose issues in the 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-288 | AppLog autoload — ring buffer & log methods | agent | pending | — |
-| TID-289 | DiagnosticsScene overlay — scrollable log viewer | agent | pending | TID-288 |
-| TID-290 | Wire entry points — pause menu & menu scene buttons | agent | pending | TID-289 |
+| TID-288 | AppLog autoload — ring buffer & log methods | agent | done | — |
+| TID-289 | DiagnosticsScene overlay — scrollable log viewer | agent | done | TID-288 |
+| TID-290 | Wire entry points — pause menu & menu scene buttons | agent | done | TID-289 |
 
 ## Acceptance Criteria
 

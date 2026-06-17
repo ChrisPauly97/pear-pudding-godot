@@ -1,6 +1,7 @@
 extends Control
 
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
+const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
 
 @onready var _title: Label = $Title
 @onready var _vbox: VBoxContainer = $VBox
@@ -20,9 +21,17 @@ func _ready() -> void:
 	_quit_btn.pressed.connect(_on_quit)
 
 	_continue_btn.visible = SceneManager.save_manager.has_save()
+	_add_diagnostics_button()
 	_apply_ui_sizes()
 	_animate_title()
 	_add_version_label()
+
+func _add_diagnostics_button() -> void:
+	var diag_btn := Button.new()
+	diag_btn.text = "Diagnostics"
+	diag_btn.pressed.connect(_on_diagnostics)
+	_vbox.add_child(diag_btn)
+	_vbox.move_child(diag_btn, _quit_btn.get_index())
 
 func _apply_ui_sizes() -> void:
 	var vh: float = get_viewport().get_visible_rect().size.y
@@ -30,7 +39,7 @@ func _apply_ui_sizes() -> void:
 	_vbox.add_theme_constant_override("separation", int(vh * 0.018))
 	var btn_size := Vector2(vh * 0.35, vh * 0.075)
 	var btn_font: int = int(vh * 0.026)
-	for btn: Button in [_continue_btn, _start_btn, _achievements_btn, _editor_btn, _settings_btn, _quit_btn]:
+	for btn: Button in _vbox.get_children().filter(func(n: Node) -> bool: return n is Button):
 		btn.custom_minimum_size = btn_size
 		btn.add_theme_font_size_override("font_size", btn_font)
 
@@ -76,6 +85,11 @@ func _on_editor() -> void:
 
 func _on_settings() -> void:
 	var overlay: SettingsScene = SettingsScene.new()
+	add_child(overlay)
+	overlay.closed.connect(overlay.queue_free)
+
+func _on_diagnostics() -> void:
+	var overlay: DiagnosticsScene = DiagnosticsScene.new()
 	add_child(overlay)
 	overlay.closed.connect(overlay.queue_free)
 
