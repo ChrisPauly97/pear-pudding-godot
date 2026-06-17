@@ -10,12 +10,6 @@ var _continue_btn: Button
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
-	var bg := ColorRect.new()
-	bg.color = Color(0.08, 0.08, 0.12, 1)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-
 	_title = Label.new()
 	_title.text = "Pear Pudding TCG"
 	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -52,8 +46,7 @@ func _notification(what: int) -> void:
 
 func _layout() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
-	# Use shorter dimension so portrait screens don't produce oversized elements.
-	var ref: float = min(vp.y, vp.x)
+	var ref: float = minf(vp.y, vp.x)
 
 	_title.add_theme_font_size_override("font_size", int(ref * 0.07))
 	_title.size = Vector2(vp.x, ref * 0.12)
@@ -64,9 +57,13 @@ func _layout() -> void:
 	var sep: float = ref * 0.018
 	_vbox.add_theme_constant_override("separation", int(sep))
 
-	for btn: Button in _vbox.get_children().filter(func(n: Node) -> bool: return n is Button):
-		btn.custom_minimum_size = Vector2(btn_w, btn_h)
-		btn.add_theme_font_size_override("font_size", int(ref * 0.026))
+	# Avoid .filter() on typed array — it returns untyped Array which fails strict-mode
+	# typed for loops. Iterate get_children() directly.
+	for child: Node in _vbox.get_children():
+		if child is Button:
+			var btn: Button = child as Button
+			btn.custom_minimum_size = Vector2(btn_w, btn_h)
+			btn.add_theme_font_size_override("font_size", int(ref * 0.026))
 
 	var vis: int = 0
 	for c: Node in _vbox.get_children():
@@ -74,7 +71,7 @@ func _layout() -> void:
 			vis += 1
 
 	var total_h: float = float(vis) * btn_h + maxf(0.0, float(vis - 1)) * sep
-	var title_end: float = ref * 0.06 + ref * 0.12 + ref * 0.04
+	var title_end: float = ref * 0.22  # 0.06 title_y + 0.12 title_h + 0.04 gap
 	var remaining: float = vp.y - title_end - ref * 0.03
 	var vbox_y: float = title_end + maxf(0.0, (remaining - total_h) * 0.5)
 
@@ -100,7 +97,7 @@ func _add_version_label() -> void:
 	if version.is_empty():
 		return
 	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var ref: float = min(vp.y, vp.x)
+	var ref: float = minf(vp.y, vp.x)
 	var ver_lbl := Label.new()
 	ver_lbl.text = "v" + version
 	ver_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
