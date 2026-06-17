@@ -46,9 +46,11 @@ func _apply_ui_sizes() -> void:
 	# Use shorter dimension so portrait screens don't produce oversized elements.
 	var ref: float = min(vh, vp.x)
 
-	var margin: int = int(ref * 0.04)
-	_outer.add_theme_constant_override("margin_left", margin)
-	_outer.add_theme_constant_override("margin_right", margin)
+	# Large horizontal margins center a ~38 % ref-wide column; never less than 3 % padding.
+	var col_w: float = ref * 0.38
+	var margin_h: int = int(max((vp.x - col_w) * 0.5, ref * 0.03))
+	_outer.add_theme_constant_override("margin_left", margin_h)
+	_outer.add_theme_constant_override("margin_right", margin_h)
 	_outer.add_theme_constant_override("margin_top", int(ref * 0.06))
 	_outer.add_theme_constant_override("margin_bottom", int(ref * 0.03))
 
@@ -56,10 +58,11 @@ func _apply_ui_sizes() -> void:
 	_inner_vbox.add_theme_constant_override("separation", int(ref * 0.04))
 	_vbox.add_theme_constant_override("separation", int(ref * 0.018))
 
-	var btn_size := Vector2(ref * 0.35, ref * 0.075)
+	# Height only — width fills the centered column so buttons don't overflow it.
+	var btn_h: float = ref * 0.075
 	var btn_font: int = int(ref * 0.026)
 	for btn: Button in _vbox.get_children().filter(func(n: Node) -> bool: return n is Button):
-		btn.custom_minimum_size = btn_size
+		btn.custom_minimum_size = Vector2(0, btn_h)
 		btn.add_theme_font_size_override("font_size", btn_font)
 
 func _animate_title() -> void:
