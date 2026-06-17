@@ -45,7 +45,7 @@ horizontal_scroll_mode = 0
 
 [node name="VBox" type="VBoxContainer" parent="Outer/InnerVBox/Scroll" unique_id=357795914]
 layout_mode = 2
-size_flags_horizontal = 4
+size_flags_horizontal = 3
 
 [node name="ContinueButton" type="Button" parent="Outer/InnerVBox/Scroll/VBox" unique_id=112233445]
 layout_mode = 2
