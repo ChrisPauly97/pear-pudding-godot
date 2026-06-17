@@ -18,7 +18,7 @@ func _ready() -> void:
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_theme_constant_override("separation", int(ref * 0.035))
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	vbox.custom_minimum_size = Vector2(vp.x * 0.7, ref * 0.85)
 	vbox.position = Vector2((vp.x - vp.x * 0.7) * 0.5, (vh - ref * 0.85) * 0.5)
 	add_child(vbox)
