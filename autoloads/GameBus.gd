@@ -97,6 +97,7 @@ signal rival_encounter_won(encounter_num: int)
 # Garden signals
 signal plant_harvested(plot_idx: int, plants_count: int)
 signal inventory_changed
+signal potion_crafted(potion_id: String)
 
 # Ambient audio signals
 signal biome_changed(biome_id: int)
