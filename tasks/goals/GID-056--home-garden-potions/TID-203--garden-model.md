@@ -2,7 +2,7 @@
 
 **Goal:** GID-056  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** —
 
 ## Lock
@@ -74,12 +74,23 @@ The data layer for the garden system: seed and plant type constants, growth calc
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/GardenDefs.gd` with SEEDS / PLANTS / POTIONS const dicts and `growth_stage()` static function.
+2. Add `plant_harvested` and `inventory_changed` signals to `GameBus.gd`.
+3. Add four new vars to `SaveManager.gd`, initialize in `new_game()`, add v32→v33 migration, update load/save, add plot/seed/plant/potion helper methods.
+4. Create `tests/unit/test_garden_model.gd` covering growth_stage boundaries, migration, and all SaveManager helpers.
+5. Register the new test suite in `tests/runner.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/GardenDefs.gd`** (new): static class with `SEEDS`, `PLANTS`, `POTIONS` dicts and `growth_stage(planted_day, growth_days, current_days_elapsed) -> int` returning 1–3.
+- **`game_logic/GardenDefs.gd.uid`** (new): UID sidecar.
+- **`autoloads/GameBus.gd`**: added `plant_harvested(plot_idx, plants_count)` and `inventory_changed` signals.
+- **`autoloads/SaveManager.gd`**: added `garden_plots: Array[Dictionary]`, `seeds`, `plants`, `potions` vars; defaults in `new_game()`; `_migrate_v32_to_v33` and call in `_apply_migrations`; load/save entries; helper methods `set_plot`, `clear_plot`, `add_seeds`, `remove_seeds`, `add_plants`, `remove_plants`, `add_potions`, `remove_potions`, `get_plot_growth_stage`; version bumped to 33.
+- **`tests/unit/test_garden_model.gd`** (new): 50+ tests covering seed defs, growth_stage boundaries for all three seed types, migration v32→v33, new_game defaults, plot/count helpers, and get_plot_growth_stage integration.
+- **`tests/unit/test_garden_model.gd.uid`** (new): UID sidecar.
+- **`tests/runner.gd`**: registered `test_garden_model` suite.
+- **`tests/unit/test_rival.gd`**: updated hardcoded version assertion `32` → `SaveManagerScript.CURRENT_SAVE_VERSION` to survive future version bumps.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Created `docs/agent/home-garden-potions.md` — not needed yet; the full system spans TID-204/205/206. Will create after TID-206 completes the feature.
