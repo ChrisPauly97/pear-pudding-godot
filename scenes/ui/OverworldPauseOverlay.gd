@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
+const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
 
 signal resumed
 signal quit_to_menu
@@ -75,6 +76,14 @@ func _build_ui() -> void:
 	settings_btn.pressed.connect(_on_settings)
 	vbox.add_child(settings_btn)
 
+	var diag_btn := Button.new()
+	diag_btn.text = "Diagnostics"
+	diag_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
+	diag_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	diag_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	diag_btn.pressed.connect(_on_diagnostics)
+	vbox.add_child(diag_btn)
+
 	var save_quit_btn := Button.new()
 	save_quit_btn.text = "Save & Quit"
 	save_quit_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
@@ -90,6 +99,12 @@ func _on_resume() -> void:
 
 func _on_settings() -> void:
 	var overlay: SettingsScene = SettingsScene.new()
+	add_child(overlay)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.closed.connect(overlay.queue_free)
+
+func _on_diagnostics() -> void:
+	var overlay: DiagnosticsScene = DiagnosticsScene.new()
 	add_child(overlay)
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.closed.connect(overlay.queue_free)
