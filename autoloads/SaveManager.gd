@@ -179,6 +179,13 @@ var town_discounts: Dictionary = {}
 var rival_encounters_won: int = 0   # 0, 1, or 2 before the final showdown
 var rival_defeated: bool = false    # true after the final showdown; guards the unique card reward
 
+# Garden system (GID-056)
+# Each plot dict: {seed_id: String, planted_day: int} or {} when empty.
+var garden_plots: Array[Dictionary] = []
+var seeds: Dictionary = {}    # seed_id -> count
+var plants: Dictionary = {}   # plant_id -> count
+var potions: Dictionary = {}  # potion_id -> count
+
 var last_saved: String = ""
 
 var _loaded: bool = false
@@ -339,13 +346,17 @@ func new_game() -> void:
 	bag_size = IsoConst.BAG_SIZE_DEFAULT
 	rival_encounters_won = 0
 	rival_defeated = false
+	garden_plots.assign([{}, {}, {}])
+	seeds = {}
+	plants = {}
+	potions = {}
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 32
+const CURRENT_SAVE_VERSION: int = 33
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -625,6 +636,18 @@ static func _migrate_v31_to_v32(data: Dictionary) -> void:
 		data["rival_defeated"] = false
 	data["version"] = 32
 
+# _migrate_v32_to_v33: backfill garden system fields for old saves.
+static func _migrate_v32_to_v33(data: Dictionary) -> void:
+	if not data.has("garden_plots"):
+		data["garden_plots"] = [{}, {}, {}]
+	if not data.has("seeds"):
+		data["seeds"] = {}
+	if not data.has("plants"):
+		data["plants"] = {}
+	if not data.has("potions"):
+		data["potions"] = {}
+	data["version"] = 33
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -691,6 +714,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v30_to_v31(data)
 	if ver < 32:
 		_migrate_v31_to_v32(data)
+	if ver < 33:
+		_migrate_v32_to_v33(data)
 
 func _read_save_json(path: String):
 	if not FileAccess.file_exists(path):
@@ -801,6 +826,10 @@ func load_save() -> bool:
 	town_discounts = td if td is Dictionary else {}
 	rival_encounters_won = int(data.get("rival_encounters_won", 0))
 	rival_defeated = bool(data.get("rival_defeated", false))
+	garden_plots.assign(data.get("garden_plots", [{}, {}, {}]))
+	var gsd = data.get("seeds", {}); seeds = gsd if gsd is Dictionary else {}
+	var gpd = data.get("plants", {}); plants = gpd if gpd is Dictionary else {}
+	var gpotd = data.get("potions", {}); potions = gpotd if gpotd is Dictionary else {}
 	last_saved = str(data.get("last_saved", ""))
 	_loaded = true
 	return true
@@ -882,6 +911,10 @@ func save() -> void:
 		"town_discounts": town_discounts,
 		"rival_encounters_won": rival_encounters_won,
 		"rival_defeated": rival_defeated,
+		"garden_plots": garden_plots,
+		"seeds": seeds,
+		"plants": plants,
+		"potions": potions,
 		"last_saved": Time.get_datetime_string_from_system(false, true),
 	}
 	var save_path: String = _get_slot_path(active_slot)
@@ -1678,6 +1711,73 @@ func set_rival_defeated() -> void:
 	rival_defeated = true
 	_dirty = true
 
+# -------------------------------------------------------------------------
+# Garden helpers (GID-056)
+# -------------------------------------------------------------------------
+
+func set_plot(plot_idx: int, seed_id: String, planted_day: int) -> void:
+	if plot_idx < 0 or plot_idx >= garden_plots.size():
+		return
+	garden_plots[plot_idx] = {"seed_id": seed_id, "planted_day": planted_day}
+	_dirty = true
+
+func clear_plot(plot_idx: int) -> void:
+	if plot_idx < 0 or plot_idx >= garden_plots.size():
+		return
+	garden_plots[plot_idx] = {}
+	_dirty = true
+
+func add_seeds(seed_id: String, count: int) -> void:
+	seeds[seed_id] = int(seeds.get(seed_id, 0)) + count
+	_dirty = true
+	GameBus.inventory_changed.emit()
+
+func remove_seeds(seed_id: String, count: int) -> bool:
+	var current: int = int(seeds.get(seed_id, 0))
+	if current < count:
+		return false
+	seeds[seed_id] = current - count
+	_dirty = true
+	return true
+
+func add_plants(plant_id: String, count: int) -> void:
+	plants[plant_id] = int(plants.get(plant_id, 0)) + count
+	_dirty = true
+
+func remove_plants(plant_id: String, count: int) -> bool:
+	var current: int = int(plants.get(plant_id, 0))
+	if current < count:
+		return false
+	plants[plant_id] = current - count
+	_dirty = true
+	return true
+
+func add_potions(potion_id: String, count: int) -> void:
+	potions[potion_id] = int(potions.get(potion_id, 0)) + count
+	_dirty = true
+
+func remove_potions(potion_id: String, count: int) -> bool:
+	var current: int = int(potions.get(potion_id, 0))
+	if current < count:
+		return false
+	potions[potion_id] = current - count
+	_dirty = true
+	return true
+
+func get_plot_growth_stage(plot_idx: int) -> int:
+	if plot_idx < 0 or plot_idx >= garden_plots.size():
+		return 0
+	var plot: Dictionary = garden_plots[plot_idx]
+	if plot.is_empty() or not plot.has("seed_id"):
+		return 0
+	const GardenDefs = preload("res://game_logic/GardenDefs.gd")
+	var seed_id: String = str(plot.get("seed_id", ""))
+	var seed_def: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
+	if seed_def.is_empty():
+		return 0
+	var growth_days: int = int(seed_def.get("growth_days", 1))
+	var planted_day: int = int(plot.get("planted_day", 0))
+	return GardenDefs.growth_stage(planted_day, growth_days, days_elapsed)
 
 func increment_day() -> void:
 	days_elapsed += 1

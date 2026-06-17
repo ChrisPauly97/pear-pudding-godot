@@ -76,7 +76,7 @@ func test_migration_backfills_rival_fields() -> void:
 	SaveManagerScript._apply_migrations(data)
 	assert_eq(int(data.get("rival_encounters_won", -1)), 0)
 	assert_false(bool(data.get("rival_defeated", true)))
-	assert_eq(int(data.get("version", 0)), 32)
+	assert_eq(int(data.get("version", 0)), SaveManagerScript.CURRENT_SAVE_VERSION)
 
 # ---------------------------------------------------------------------------
 # EnemyRegistry rival deck registration
