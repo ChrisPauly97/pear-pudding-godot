@@ -19,6 +19,7 @@ const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const WeatherBanner = preload("res://scenes/battle/WeatherBanner.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
+const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
@@ -37,6 +38,8 @@ var _game_over_handled: bool = false
 var _boss_phase2_triggered: bool = false
 var _hero_power_btn: Button = null
 var _hero_power_used: bool = false
+var _potion_btn: Button = null
+var _used_potion_this_battle: bool = false
 var _boss_banner: Control = null
 const _BOSS_BANNER_DURATION: float = 2.5
 
@@ -208,6 +211,7 @@ func _ready() -> void:
 	_add_pause_button()
 	_add_hero_power_button()
 	_add_companion_hud()
+	_add_potion_button()
 
 	if _state.puzzle_mode:
 		_end_turn_btn.text = "Check"
@@ -220,6 +224,7 @@ func _ready() -> void:
 	GameBus.turn_ended.connect(_on_turn_ended)
 
 	_refresh_all()
+	_refresh_potion_button()
 
 	# If we resumed a battle mid-AI-turn, restart the AI (deferred so UI is ready).
 	if not _saved_battle.is_empty() and _state.current_player_idx == 1 and not _state.is_game_over():
@@ -682,6 +687,140 @@ func _add_hero_power_button() -> void:
 	_hero_power_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
 	_hero_power_btn.pressed.connect(_use_hero_power)
 	$SidePanel.add_child(_hero_power_btn)
+
+func _add_potion_button() -> void:
+	if _state.puzzle_mode:
+		return
+	var has_any: bool = false
+	for potion_id: String in SceneManager.save_manager.potions:
+		if int(SceneManager.save_manager.potions[potion_id]) > 0:
+			has_any = true
+			break
+	if not has_any:
+		return
+	_potion_btn = Button.new()
+	_potion_btn.text = "Potion"
+	_potion_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.05)
+	_potion_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	_potion_btn.pressed.connect(_on_potion_button_pressed)
+	$SidePanel.add_child(_potion_btn)
+
+func _refresh_potion_button() -> void:
+	if _potion_btn == null:
+		return
+	var has_potions: bool = false
+	for potion_id: String in SceneManager.save_manager.potions:
+		if int(SceneManager.save_manager.potions[potion_id]) > 0:
+			has_potions = true
+			break
+	_potion_btn.disabled = _used_potion_this_battle or not has_potions or _state.current_player_idx != 0
+	_potion_btn.visible = has_potions
+
+func _on_potion_button_pressed() -> void:
+	if _used_potion_this_battle or _state.current_player_idx != 0:
+		return
+	_show_potion_picker()
+
+func _show_potion_picker() -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var layer := CanvasLayer.new()
+	layer.layer = 160
+	add_child(layer)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.6)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel_w: float = minf(vp.x * 0.7, _vh * 0.55)
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.18, 0.97)
+	style.corner_radius_top_left = 10
+	style.corner_radius_top_right = 10
+	style.corner_radius_bottom_left = 10
+	style.corner_radius_bottom_right = 10
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(panel_w, 0)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, vp.y * 0.3)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(_vh * 0.025))
+	margin.add_theme_constant_override("margin_right",  int(_vh * 0.025))
+	margin.add_theme_constant_override("margin_top",    int(_vh * 0.025))
+	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.025))
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(_vh * 0.015))
+	margin.add_child(vbox)
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Use a Potion"
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title_lbl)
+
+	var sm := SceneManager.save_manager
+	for potion_id: String in GardenDefs.POTIONS:
+		var count: int = int(sm.potions.get(potion_id, 0))
+		if count <= 0:
+			continue
+		var potion_data: Dictionary = GardenDefs.POTIONS[potion_id]
+		var display_name: String = str(potion_data.get("display_name", potion_id))
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", int(_vh * 0.012))
+		var lbl := Label.new()
+		lbl.text = "%s  ×%d" % [display_name, count]
+		lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(lbl)
+		var use_btn := Button.new()
+		use_btn.text = "Use"
+		use_btn.custom_minimum_size = Vector2(_vh * 0.1, _vh * 0.055)
+		use_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		var pid: String = potion_id
+		use_btn.pressed.connect(func() -> void:
+			layer.queue_free()
+			_apply_potion_effect(pid)
+		)
+		row.add_child(use_btn)
+		vbox.add_child(row)
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(panel_w * 0.5, _vh * 0.055)
+	cancel_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	cancel_btn.pressed.connect(layer.queue_free)
+	var center := CenterContainer.new()
+	center.add_child(cancel_btn)
+	vbox.add_child(center)
+
+func _apply_potion_effect(potion_id: String) -> void:
+	var sm := SceneManager.save_manager
+	if not sm.remove_potions(potion_id, 1):
+		return
+	_used_potion_this_battle = true
+	var player: PlayerState = _state.players[0]
+	var snap_pot := _snapshot_hp_positions()
+	match potion_id:
+		"healing_draught":
+			player.hero.health = mini(player.hero.health + 8, player.hero.max_health)
+			_spawn_float_labels_from_snapshot(snap_pot)
+			_spawn_float_label(_pos_of_hero(false), "+8 HP", Color(0.267, 1.0, 0.533))
+		"clarity_brew":
+			player.draw_card()
+			player.draw_card()
+		"ember_tonic":
+			player.hero.mana = mini(player.hero.mana + 1, player.hero.max_mana)
+			_spawn_float_label(_pos_of_hero(false), "+1 Mana", Color(0.4, 0.8, 1.0))
+	GameBus.potion_used.emit(potion_id)
+	_refresh_all()
+	_refresh_potion_button()
 
 func _get_active_skill() -> SkillData:
 	var result: SkillData = null
@@ -1447,6 +1586,7 @@ func _on_turn_ended(player_idx: int) -> void:
 	_check_shake_from_snapshot(snap_sot)
 	_refresh_all()
 	if player_idx == 0:
+		_refresh_potion_button()
 		_check_game_over()
 		if not _state.is_game_over():
 			AudioManager.play_sfx("card_draw")
@@ -1459,6 +1599,8 @@ func _on_turn_ended(player_idx: int) -> void:
 			_refresh_all()
 			_check_game_over()
 	elif player_idx == 1:
+		if _potion_btn != null:
+			_potion_btn.disabled = true
 		_check_game_over()
 		if not _state.is_game_over() and not _state.puzzle_mode:
 			if _extra_turn_granted:
