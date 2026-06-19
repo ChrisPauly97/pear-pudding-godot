@@ -2,14 +2,14 @@
 
 **Goal:** GID-057
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-207
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/next-gid-filtering-xan993
+**Acquired:** 2026-06-19T01:00:00Z
+**Expires:** 2026-06-19T01:30:00Z
 
 ## Context
 
@@ -85,12 +85,22 @@ Cracked walls must be visually distinct so observant players notice them, and in
 
 ## Plan
 
-_Written during Plan phase._
+1. **terrain.gdshader**: Add `varying float v_cracked;` + set from `COLOR.a` in vertex(); darken cracked wall tint in fragment().
+2. **TerrainMath.gd `build_wall_face_mesh()`**: Detect TILE_CRACKED per-tile in the loop and use `Color(0.0, 1.0, 0.0, 0.3)` (alpha < 0.5 → cracked) for those vertices; regular walls keep `Color(0.0, 1.0, 0.0, 1.0)`.
+3. **ChunkRenderer.gd**: Add `rebuild_terrain(snap: Array) -> void` method that removes existing terrain children and rebuilds meshes + physics without re-spawning entities.
+4. **WorldScene.gd**: Add cracked wall interact check in `_handle_interact()` after chest block; add `_break_cracked_wall(tx, tz)` (set tile, play SFX, show toast, rebuild, save); add `_rebuild_terrain_around_tile(tx, tz)` (rebuilds tile's chunk + 8 neighbours).
+5. **Tests**: `tests/unit/test_cracked_wall_interact.gd` covering tile swap and persistence.
+6. Add to `tests/runner.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **assets/shaders/terrain.gdshader**: Added `varying float v_cracked;`; set from `COLOR.a < 0.5` in `vertex()`; in `fragment()` darkens cracked wall pixels (`r*0.80+0.06, g*0.65, b*0.60`) for a warm brownish visual tell.
+- **game_logic/TerrainMath.gd**: Added `cracked_col := Color(0.0, 1.0, 0.0, 0.3)` alongside `wall_col`; inside `build_wall_face_mesh()` loop, selects `face_col = cracked_col if TILE_CRACKED else wall_col` and uses `face_col` for all vertex color appends for that tile — encoding alpha < 0.5 as the cracked flag the shader reads.
+- **scenes/world/ChunkRenderer.gd**: Added `rebuild_terrain(snap: Array) -> void` — removes all ChunkRenderer children (terrain meshes and collision only; entities live in entity_root), then calls `prepare_terrain()` and rebuilds visual + physics. Used by WorldScene on wall break without re-spawning entities.
+- **scenes/world/WorldScene.gd**: Added cracked wall check in `_handle_interact()` (after chest block, before NPC block) — calls `world_map.find_nearby_cracked_wall()` and `_break_cracked_wall(tx, tz)` if found. Added `_break_cracked_wall(tx, tz)` (set tile to TILE_GRASS, play SFX, show toast, rebuild, save). Added `_rebuild_terrain_around_tile(tx, tz)` (rebuilds tile's chunk + 8 neighbours to update exposed wall faces correctly).
+- **tests/unit/test_cracked_wall_interact.gd** + **.uid**: New test suite — 9 tests; all pass.
+- **tests/runner.gd**: Added `test_cracked_wall_interact` preload.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/named-maps-and-dungeons.md` updated with cracked-wall visual tell (vertex color alpha encoding), break-open interaction flow, terrain rebuild, and persistence mechanism.

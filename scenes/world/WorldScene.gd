@@ -1601,6 +1601,25 @@ func _find_nearby_digspot(px: float, pz: float, range_dist: float) -> Node3D:
 		return _digspot_node
 	return null
 
+func _break_cracked_wall(tx: int, tz: int) -> void:
+	world_map.set_tile(tx, tz, IsoConst.TILE_GRASS)
+	AudioManager.play_sfx("chest_open")
+	SceneManager.show_toast("Secret passage!", "A hidden room is revealed.")
+	_rebuild_terrain_around_tile(tx, tz)
+	world_map.save_to_file(SceneManager.save_manager.current_map)
+
+func _rebuild_terrain_around_tile(tx: int, tz: int) -> void:
+	var cx: int = int(floor(float(tx) / float(IsoConst.CHUNK_SIZE)))
+	var cz: int = int(floor(float(tz) / float(IsoConst.CHUNK_SIZE)))
+	for dz in range(-1, 2):
+		for dx in range(-1, 2):
+			var key := Vector2i(cx + dx, cz + dz)
+			var renderer: ChunkRenderer = _chunk_renderers.get(key) as ChunkRenderer
+			if renderer == null:
+				continue
+			var snap := _snapshot_tile_grid_for(key)
+			renderer.rebuild_terrain(snap)
+
 func _find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
 	for nid in _active_npc_data:
@@ -2012,6 +2031,12 @@ func _handle_interact() -> void:
 			var weapon_chance: float = 0.40 if cid.begins_with("dtr_") else 0.15
 			_maybe_drop_equipment_from_chest(weapon_chance)
 		return
+
+	if not _is_infinite and world_map != null:
+		var cracked := world_map.find_nearby_cracked_wall(px, pz, IsoConst.INTERACT_RANGE)
+		if cracked != Vector2i(-1, -1):
+			_break_cracked_wall(cracked.x, cracked.y)
+			return
 
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	if not npc.is_empty():

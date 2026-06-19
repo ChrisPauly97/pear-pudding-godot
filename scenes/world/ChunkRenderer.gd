@@ -148,6 +148,20 @@ func build(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node3D,
 func teardown() -> void:
 	queue_free()
 
+# Rebuild terrain meshes and physics in-place without re-spawning entities.
+# snap is the Array returned by WorldScene._snapshot_tile_grid_for(key).
+func rebuild_terrain(snap: Array) -> void:
+	for child in get_children():
+		child.queue_free()
+	_physics_built = false
+	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(
+		_chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4])
+	_terrain_hmap = terrain_res["hmap"]
+	_terrain_chunk_world = terrain_res["chunk_world"]
+	_apply_terrain_visual(terrain_res)
+	_apply_terrain_physics()
+	_build_walls_physics()
+
 # ── Terrain node creation (main thread) ───────────────────────────────────
 func _apply_terrain_visual(res: Dictionary) -> void:
 	var mi := MeshInstance3D.new()

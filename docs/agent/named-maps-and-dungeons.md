@@ -110,11 +110,17 @@ After entity population, `DungeonGen.generate()` rolls a **30% chance** (seeded)
 5. Adds a bonus chest with id prefix `"dsr_"` and 2 random cards at the room centre.
 
 **`TILE_CRACKED = 4`** (defined in `autoloads/IsoConst.gd`). The tile:
-- Renders as a wall face (same quads as TILE_WALL; visual texture distinction is TID-208).
+- Renders as a wall face (same quads as TILE_WALL) **with a subtle brownish/dark tint** — cracked wall quads use vertex color alpha=0.3 (vs 1.0 for regular walls). The terrain shader reads `COLOR.a < 0.5 → v_cracked = 1.0` and applies `tinted_col = vec3(r*0.80+0.06, g*0.65, b*0.60)` to darken and warm-shift the wall color, making it visually distinct while remaining easy to miss.
 - Blocks movement via `WorldMap.is_wall_at_world()` and `ChunkRenderer` box-collider merging.
 - Does NOT break dungeon main-path connectivity — all rooms and the exit are accessible without passing through the cracked wall.
 
-Secret room chest opens normally (no mimic roll). The cracked wall break interaction is implemented in TID-208.
+Secret room chest opens normally (no mimic roll).
+
+**Break-open interaction**: `WorldScene._handle_interact()` checks `world_map.find_nearby_cracked_wall(px, pz, INTERACT_RANGE)` after the chest block. When a cracked wall is in range:
+1. `world_map.set_tile(tx, tz, TILE_GRASS)` — converts the tile in memory.
+2. `AudioManager.play_sfx("chest_open")` + `SceneManager.show_toast("Secret passage!", ...)`.
+3. `_rebuild_terrain_around_tile(tx, tz)` — calls `ChunkRenderer.rebuild_terrain(snap)` on the tile's chunk and its 8 neighbours to update wall face meshes and physics colliders. Entity nodes in `entity_root` are untouched (only terrain children of ChunkRenderer are removed and rebuilt).
+4. `world_map.save_to_file(current_map)` — persists the tile change to `user://maps/<dungeon>.tres`. On re-entry, the .tres is reloaded with TILE_GRASS in place of TILE_CRACKED, so the wall stays broken permanently for that save.
 
 ### Mimic Chests
 
