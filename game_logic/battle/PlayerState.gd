@@ -6,6 +6,7 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
+const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 
 var player_id: int
 var hero: HeroState
@@ -17,6 +18,11 @@ var pending_auto_spells: Array[CardInstance] = []
 var is_ai: bool = false
 var bonus_draw: int = 0
 var fatigue_counter: int = 0
+
+# Battlefield Resonance context (GID-059) — set by GameState.set_battlefield_context().
+var battlefield_biome: int = -1
+var is_night: bool = false
+var grasslands_card_played: bool = false  # resets at start_turn(); tracks first-card discount
 
 func _init(pid: int, ai: bool = false) -> void:
 	player_id = pid
@@ -67,27 +73,38 @@ func draw_opening_hand(count: int = 4) -> void:
 	for _i in range(count):
 		draw_card()
 
+## Returns the effective mana cost of a card, applying biome and time-of-day rules.
+func effective_cost(card: CardInstance) -> int:
+	return BattlefieldRules.effective_cost(
+		card.cost, card.magic_branch, battlefield_biome, is_night, grasslands_card_played)
+
 func can_play(card: CardInstance) -> bool:
 	if hero.has_status("freeze"):
 		return false
+	var cost: int = effective_cost(card)
 	if card.card_class == "spell":
-		return hero.mana >= card.cost
-	return hero.mana >= card.cost and not board.is_full()
+		return hero.mana >= cost
+	return hero.mana >= cost and not board.is_full()
 
 func play_card(card: CardInstance) -> bool:
 	if not can_play(card):
 		return false
+	var cost: int = effective_cost(card)
 	hand.erase(card)
-	hero.spend_mana(card.cost)
+	hero.spend_mana(cost)
 	if card.card_class == "spell":
 		discard.append(card)
 	else:
 		board.add_card(card)
+		var slot_idx: int = board.slots.find(card)
+		BattlefieldRules.apply_slot_rule(card, slot_idx, battlefield_biome)
 		if card.keywords.has(Keywords.SURGE):
 			card.summoning_sick = false
+	grasslands_card_played = true
 	return true
 
 func start_turn(turn_number: int) -> void:
+	grasslands_card_played = false
 	hero.gain_mana_for_turn(turn_number)
 	board.start_turn()
 	draw_card()
@@ -118,12 +135,18 @@ func to_dict() -> Dictionary:
 		"draw_deck": deck_arr,
 		"discard": discard_arr,
 		"pending_auto_spells": auto_arr,
+		"battlefield_biome": battlefield_biome,
+		"is_night": is_night,
+		"grasslands_card_played": grasslands_card_played,
 	}
 
 func from_dict(d: Dictionary) -> void:
 	is_ai = bool(d.get("is_ai", false))
 	bonus_draw = int(d.get("bonus_draw", 0))
 	fatigue_counter = int(d.get("fatigue_counter", 0))
+	battlefield_biome = int(d.get("battlefield_biome", -1))
+	is_night = bool(d.get("is_night", false))
+	grasslands_card_played = bool(d.get("grasslands_card_played", false))
 	var raw_hero = d.get("hero", {})
 	if raw_hero is Dictionary:
 		hero.from_dict(raw_hero)

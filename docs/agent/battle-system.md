@@ -450,3 +450,67 @@ First-equip: on first equip, `set_story_flag("companion_maiteln_first_equip")` i
 ### SaveManager Fields (version 26)
 
 `active_companion: String` — currently equipped companion id, default `""`. Migrated from v25 via `_migrate_v25_to_v26` (backfills `""`). Mutators: `equip_companion(id)` and `unequip_companion()`.
+
+---
+
+## Battlefield Resonance (GID-059)
+
+Battles inherit the biome and time-of-day context from where the encounter happens. Context is captured once at engagement and frozen for the battle's lifetime.
+
+### Context Capture
+
+`SceneManager._on_enemy_engaged()` stamps two fields into `enemy_data` before saving:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `battlefield_biome` | `int` | Biome id (−1 = dungeon / named map, 0–4 = BiomeDef constants) |
+| `battlefield_is_night` | `bool` | Night predicate at engagement time |
+
+These fields survive mid-battle save/resume via `SaveManager.pending_battle_enemy_data`. On resume `GameState.from_dict()` restores `battlefield_biome` and `is_night`; `PlayerState.from_dict()` restores per-player copies plus `grasslands_card_played`.
+
+### Rules Table (`game_logic/battle/BattlefieldRules.gd`)
+
+| Biome | id | Rule Key | Rule |
+|-------|----|----------|------|
+| Dungeon / named map | −1 | `none` | No battlefield rule |
+| Grasslands | 0 | `grasslands` | First card played each turn costs 1 less (min 0) |
+| Forest | 1 | `forest` | Minions placed in edge slots (0 and 4) gain Shroud |
+| Desert | 2 | `desert` | At turn start (daytime only), leftmost minion on each board takes 1 damage |
+| Scorched | 3 | `scorched` | All combat and spell damage is increased by 1 |
+| Mountains | 4 | `mountains` | Minion placed in center slot (2) gains Ward |
+
+Static helpers: `modify_damage(base, biome)`, `effective_cost(card_cost, branch, biome, is_night, grasslands_played)`, `apply_slot_rule(card, slot_idx, biome)`, `compute_is_night(time_of_day)`.
+
+### Cost Calculation (`PlayerState.effective_cost(card)`)
+
+Stacking order (applied to `card.cost`, floor 0):
+
+1. Branch discount: at night, dusk-branch cards −1; during day, dawn-branch cards −1.
+2. Grasslands first-card discount: −1 if `grasslands_card_played == false`.
+
+`PlayerState.can_play()` and `play_card()` both use `effective_cost()`. BasicAI's `can_play()` call goes through the same method, so AI affordability is automatically correct. `grasslands_card_played` resets to `false` in `start_turn()` each turn.
+
+### Scorched +1 Damage Scope
+
+Applies to: minion-to-minion combat, hero hits, spell damage (deal_damage_*, lifesteal_hit, curse_minion HP reduction, emergence_deal_damage).
+
+Does NOT apply to: poison ticks, freeze, Desert scorch tick, fatigue.
+
+### Slot-Based Keywords
+
+`BattlefieldRules.apply_slot_rule(card, slot_idx, biome)` is called from `PlayerState.play_card()` immediately after `board.add_card()`. Keywords granted this way are serialised in `CardInstance.to_dict()` and survive mid-battle resume.
+
+### Desert Scorch Timing
+
+Applied in `BattleScene._apply_desert_scorch()` called from `_on_turn_ended()` if `battlefield_biome == BIOME_DESERT and not is_night`. Damages the lowest non-null slot index on each board by 1 (not affected by Scorched modifier).
+
+### BattleScene UI
+
+- **Battlefield banner**: transient at battle start (3 s); shows biome name + day/night + rule text. Deferred so it doesn't conflict with boss banner.
+- **SidePanel info label**: permanent compact label showing `"BiomeName ☀/☽"`.
+- **Slot highlights**: translucent teal overlay panels on affected slots (Forest 0 & 4, Mountains 2), on both boards.
+- **Discounted card cost**: cost displayed in green in hand; green border on hand cards with active discount.
+
+### Test Coverage
+
+`tests/unit/test_battlefield_rules.gd` — 55 tests covering: rules table integrity, all 5 biome rules, both time-of-day cost modifiers, floor-0 clamp, stacking, mid-battle persistence (round-trip), and the neutral dungeon path.

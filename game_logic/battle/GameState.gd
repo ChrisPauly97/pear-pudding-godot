@@ -14,6 +14,11 @@ var wager_coins: int = 0
 var puzzle_mode: bool = false
 var puzzle_data_id: String = ""
 
+# Battlefield Resonance context (GID-059).
+# battlefield_biome: -1 = dungeon/named map (no rule), 0..4 = biome id.
+var battlefield_biome: int = -1
+var is_night: bool = false
+
 func _init() -> void:
 	var p1 := PlayerState.new(0, false)
 	var p2 := PlayerState.new(1, true)
@@ -136,6 +141,15 @@ func load_puzzle(p: Resource) -> void:
 	current_player_idx = 0
 	turn_number = 1
 
+## Sets battlefield context on this GameState and propagates to both PlayerStates.
+## Call once after building a new GameState for a non-resumed battle.
+func set_battlefield_context(biome: int, night: bool) -> void:
+	battlefield_biome = biome
+	is_night = night
+	for p: PlayerState in players:
+		p.battlefield_biome = biome
+		p.is_night = night
+
 func to_dict() -> Dictionary:
 	var player_arr: Array = []
 	for p: PlayerState in players:
@@ -149,6 +163,8 @@ func to_dict() -> Dictionary:
 		"wager_coins": wager_coins,
 		"puzzle_mode": puzzle_mode,
 		"puzzle_data_id": puzzle_data_id,
+		"battlefield_biome": battlefield_biome,
+		"is_night": is_night,
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -166,6 +182,8 @@ func from_dict(d: Dictionary) -> void:
 	wager_coins = int(d.get("wager_coins", 0))
 	puzzle_mode = bool(d.get("puzzle_mode", false))
 	puzzle_data_id = str(d.get("puzzle_data_id", ""))
+	battlefield_biome = int(d.get("battlefield_biome", -1))
+	is_night = bool(d.get("is_night", false))
 	players.clear()
 	for pd in d.get("players", []):
 		if pd is Dictionary:

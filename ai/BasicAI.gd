@@ -4,6 +4,7 @@ extends RefCounted
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
+const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 
 ## Returns a list of actions the AI wants to take (as Callables to execute on game state).
 ## Decisions are deferred to execution time so plays and attacks use current state,
@@ -37,16 +38,16 @@ static func decide_turn(state: GameState) -> Array[Callable]:
 			var targets := ward_targets if not ward_targets.is_empty() else all_targets
 			if targets.is_empty():
 				# Attack hero — take retaliation (passive_atk symmetry fix)
-				state.opponent().hero.take_damage(mc.attack)
-				mc.take_damage(state.opponent().hero.attack)
+				state.opponent().hero.take_damage(BattlefieldRules.modify_damage(mc.attack, state.battlefield_biome))
+				mc.take_damage(BattlefieldRules.modify_damage(state.opponent().hero.attack, state.battlefield_biome))
 				mc.attack_count -= 1
 				if not mc.is_alive():
 					ai.board.remove_card(mc)
 					ai.discard.append(mc)
 			else:
 				var tgt := targets[0] as CardInstance
-				tgt.take_damage(mc.attack)
-				mc.take_damage(tgt.attack)
+				tgt.take_damage(BattlefieldRules.modify_damage(mc.attack, state.battlefield_biome))
+				mc.take_damage(BattlefieldRules.modify_damage(tgt.attack, state.battlefield_biome))
 				mc.attack_count -= 1
 				if not tgt.is_alive():
 					state.opponent().board.remove_card(tgt)
