@@ -21,6 +21,7 @@ signal card_attacked(attacker_id: String, target_id: String)
 signal turn_ended(player_id: int)
 signal battle_ended(winner: int)  # 0 = player, 1 = enemy
 signal status_ticked(entity_id: String, effect_id: String, remaining: int)
+signal fatigue_damage(player_id: int, damage: int)
 
 # Story signals
 signal story_flag_set(flag: String)

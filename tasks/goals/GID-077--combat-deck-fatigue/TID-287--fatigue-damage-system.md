@@ -2,7 +2,7 @@
 
 **Goal:** GID-077
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-286
 
 ## Lock
@@ -109,8 +109,13 @@ Puzzle battles have no draw deck. `draw_card()` is never called during a puzzle,
 
 ## Changes Made
 
-_(fill in after implementation)_
+- `game_logic/battle/PlayerState.gd`: added `fatigue_counter`, replaced empty-draw `return null` with fatigue block, added `_emit_fatigue()`, updated `to_dict()`/`from_dict()`.
+- `autoloads/GameBus.gd`: added `signal fatigue_damage(player_id: int, damage: int)`.
+- `scenes/battle/BattleScene.gd`: connected `GameBus.fatigue_damage` in `_ready()`; added `_on_fatigue_damage()` handler with orange toast label.
+- `tests/unit/test_battle_fatigue.gd`: new test suite — escalating damage, no reshuffle, counter serialization.
+- `tests/runner.gd`: added `test_battle_fatigue.gd` to SUITES.
+- `tests/unit/test_player_state.gd`: replaced stale reshuffle test with fatigue-damage assertion.
 
 ## Documentation Updates
 
-- `docs/agent/battle-system.md` — add Deck Fatigue section: counter per player, escalating damage formula, serialization note, no reshuffle.
+- `docs/agent/battle-system.md`: added Deck Fatigue section; updated turn-sequence draw step description.

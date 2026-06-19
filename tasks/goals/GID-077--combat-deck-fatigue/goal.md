@@ -12,8 +12,8 @@ Currently `PlayerState.draw_card()` shuffles the discard pile back into the draw
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-286 | Remove discard reshuffle from draw_card() | agent | pending | — |
-| TID-287 | Fatigue damage system — escalating hero damage on empty draw | agent | pending | TID-286 |
+| TID-286 | Remove discard reshuffle from draw_card() | agent | done | — |
+| TID-287 | Fatigue damage system — escalating hero damage on empty draw | agent | done | TID-286 |
 
 ## Acceptance Criteria
 

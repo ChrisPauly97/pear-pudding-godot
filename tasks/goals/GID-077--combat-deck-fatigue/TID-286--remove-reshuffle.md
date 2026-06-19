@@ -2,7 +2,7 @@
 
 **Goal:** GID-077
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -46,7 +46,7 @@
 
 ## Changes Made
 
-_(fill in after implementation)_
+- `game_logic/battle/PlayerState.gd`: removed the 4-line reshuffle block inside `draw_card()`; the second `is_empty` guard is now the fatigue hook (replaced in TID-287).
 
 ## Documentation Updates
 
