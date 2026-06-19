@@ -237,6 +237,67 @@ Floor-weighted distribution:
 
 ---
 
+## Deck Loadouts (GID-058)
+
+The player can maintain up to **5 named deck loadouts** instead of a single deck.
+
+### Data model (`SaveManager`)
+
+| Field | Type | Notes |
+|---|---|---|
+| `loadouts` | `Array[Dictionary]` | Up to `MAX_LOADOUTS` (5) entries, each `{name: String, cards: Array[String]}` |
+| `active_loadout` | `int` | Index into `loadouts`; 0-based |
+| `player_deck` | `Array[String]` | Always mirrors `loadouts[active_loadout].cards` — kept in sync |
+| `MAX_LOADOUTS` | `const int = 5` | Maximum named loadouts |
+
+`player_deck` is the canonical active deck as before — all existing call sites (BattleScene, InventoryScene, SceneManager) continue reading/writing it unchanged. After any change that modifies `player_deck`, the active loadout's cards array is synced. When the active loadout changes, `player_deck` is synced from it.
+
+### Save migration
+
+Version 33 → 34: `_migrate_v33_to_v34()` wraps the existing `player_deck` into `loadouts = [{"name": "Deck 1", "cards": existing_deck}]` with `active_loadout = 0`. Old saves load cleanly with no data loss.
+
+### Pruning on card removal
+
+`remove_card_instance(uid)` now iterates all loadout cards arrays and removes the uid from each, not just from `player_deck`. This means selling/scrapping/combining a card removes it from every loadout that referenced it.
+
+### Validation
+
+`is_loadout_valid(index)` returns true iff `loadouts[index].cards.size()` is in `[DECK_MIN, DECK_MAX]`. An invalid active loadout blocks battle engagement via the existing SceneManager size check (which reads `player_deck.size()`).
+
+### Loadout CRUD API
+
+```gdscript
+SaveManager.set_active_loadout(index: int) -> bool    # switches and syncs player_deck
+SaveManager.add_loadout(name: String) -> int          # returns new index, or -1 if at cap
+SaveManager.rename_loadout(index: int, new_name: String) -> void
+SaveManager.duplicate_loadout(index: int) -> int      # returns new index, or -1 if at cap
+SaveManager.delete_loadout(index: int) -> bool        # false if last loadout
+SaveManager.get_loadout_names() -> Array[String]
+SaveManager.is_loadout_valid(index: int) -> bool
+```
+
+### Loadout UI (`InventoryScene.gd`)
+
+A **loadout tab row** and **action row** sit above the `_deck_count_label` in the deck panel.
+
+**Tab row** (`_loadout_tab_row: HBoxContainer`):
+- One flat `Button` per loadout, rebuilt on every `_refresh_cards()` call via `_rebuild_loadout_bar()`.
+- Active tab: `modulate = Color.WHITE`; inactive: `Color(0.7, 0.7, 0.7)`.
+- Invalid loadout (< DECK_MIN or > DECK_MAX): red tint (`Color(1.0, 0.35, 0.35)` active, darker for inactive). The active tab uses `_working_deck.size()` so it reflects in-flight edits immediately.
+- "+" button appended after the tabs; `disabled = true` when at `MAX_LOADOUTS` (5).
+
+**Action row** (`_loadout_action_row: HBoxContainer`): Rename / Copy / Delete buttons always visible.
+- Delete: `modulate = Color(1.0, 0.4, 0.4)`, `disabled = true` when only one loadout remains.
+- Copy: `disabled = true` when at cap.
+
+**Tab switching** (`_on_loadout_tab(index)`): auto-saves the current `_working_deck` to the active loadout via `sm.set_active_deck()` before switching, so in-progress edits are preserved.
+
+**Rename popup** (`_on_rename_loadout()`): `PopupPanel` with a `LineEdit` (max 20 chars), positioned in the top half of the screen (`position.y = viewport_h * 0.08`) so the Android virtual keyboard doesn't cover it. `grab_focus()` is called to trigger the keyboard on Android.
+
+**Delete popup** (`_on_del_loadout()`): `PopupPanel` confirmation with "Yes, Delete" / "Cancel". Guard: function returns early if only one loadout remains (button is also `disabled`), so the last loadout can never be deleted.
+
+---
+
 ## Asset Requirements
 
 | Asset | Path | Notes |

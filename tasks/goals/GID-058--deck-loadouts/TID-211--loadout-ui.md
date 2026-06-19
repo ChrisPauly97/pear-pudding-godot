@@ -2,7 +2,7 @@
 
 **Goal:** GID-058
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-210
 
 ## Lock
@@ -77,12 +77,20 @@ The user-facing UI: loadout tabs in the deck builder, actions to create/rename/d
 
 ## Plan
 
-_Written during Plan phase._
+1. Add member vars to `InventoryScene.gd`: `_loadout_tab_row: HBoxContainer`, `_loadout_action_row: HBoxContainer`, `_rename_btn: Button`, `_dup_btn: Button`, `_del_btn: Button`.
+2. In `_build_ui()`, insert loadout tab row and action row into `right_vbox` before `_deck_count_label`.
+3. Add `_rebuild_loadout_bar()`: clears/repopulates `_loadout_tab_row` with one flat button per loadout (white modulate if active, gray if inactive; red tint if invalid); adds "+" button (disabled at cap); updates Rename/Copy/Delete enabled state.
+4. Call `_rebuild_loadout_bar()` at the top of `_refresh_cards()`.
+5. `_on_loadout_tab(index)`: flush `_working_deck` via `sm.set_active_deck()`, switch via `sm.set_active_loadout(index)`, reload `_working_deck` from `sm.player_deck`, refresh.
+6. `_on_new_loadout()`: add loadout named "Deck N", switch to it.
+7. `_on_rename_loadout()`: show `PopupPanel` with `LineEdit` in top half; OK → `sm.rename_loadout()`; `grab_focus()` for Android keyboard.
+8. `_on_dup_loadout()`: `sm.set_active_deck()` then `sm.duplicate_loadout()`, switch to copy.
+9. `_on_del_loadout()`: show confirmation popup; on Yes, `sm.delete_loadout()`, sync `_working_deck` to new active.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/ui/InventoryScene.gd`**: Added five member vars (`_loadout_tab_row`, `_loadout_action_row`, `_rename_btn`, `_dup_btn`, `_del_btn`). In `_build_ui()`, inserted loadout tab row and action row (Rename/Copy/Delete buttons) into `right_vbox` before `_deck_count_label`. Added `_rebuild_loadout_bar()` — called at the top of `_refresh_cards()` — which repopulates `_loadout_tab_row` with one flat button per loadout (white when active, gray when inactive; red tint when invalid) and a "+" new-loadout button (disabled at cap); also updates Delete/Copy enabled state. Added handlers: `_on_loadout_tab(index)` (flush-then-switch), `_on_new_loadout()`, `_on_rename_loadout()` (PopupPanel with LineEdit in top half for Android keyboard), `_on_dup_loadout()`, `_on_del_loadout()` (PopupPanel confirmation). Validity badge on active tab uses `_working_deck.size()` so it reflects in-flight edits.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/inventory-and-deck.md` — added loadout UI subsection under "Deck Loadouts (GID-058)" describing the tab bar, action row, rename/delete popups, and tab-switch auto-save behaviour.

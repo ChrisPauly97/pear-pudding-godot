@@ -70,6 +70,7 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_dungeon_secrets.gd"),
 	preload("res://tests/unit/test_mimic_chests.gd"),
 	preload("res://tests/unit/test_cracked_wall_interact.gd"),
+	preload("res://tests/unit/test_loadout_model.gd"),
 ]
 
 

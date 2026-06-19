@@ -28,6 +28,12 @@ var _craft_list: VBoxContainer
 var _craft_essence_label: Label
 var _inspect_overlay: Control = null
 
+var _loadout_tab_row: HBoxContainer
+var _loadout_action_row: HBoxContainer
+var _rename_btn: Button
+var _dup_btn: Button
+var _del_btn: Button
+
 func _ready() -> void:
 	super._ready()
 	_working_deck.assign(SceneManager.save_manager.player_deck)
@@ -135,6 +141,38 @@ func _build_ui() -> void:
 		right_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_box.add_child(right_vbox)
 
+	# ---- Loadout tab row ----
+	_loadout_tab_row = HBoxContainer.new()
+	_loadout_tab_row.add_theme_constant_override("separation", int(_ref * 0.005))
+	right_vbox.add_child(_loadout_tab_row)
+
+	# ---- Loadout action row (Rename / Copy / Delete) ----
+	_loadout_action_row = HBoxContainer.new()
+	_loadout_action_row.add_theme_constant_override("separation", int(_ref * 0.006))
+	right_vbox.add_child(_loadout_action_row)
+
+	_rename_btn = Button.new()
+	_rename_btn.text = "Rename"
+	_rename_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.055)
+	_rename_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+	_rename_btn.pressed.connect(_on_rename_loadout)
+	_loadout_action_row.add_child(_rename_btn)
+
+	_dup_btn = Button.new()
+	_dup_btn.text = "Copy"
+	_dup_btn.custom_minimum_size = Vector2(_ref * 0.10, _ref * 0.055)
+	_dup_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+	_dup_btn.pressed.connect(_on_dup_loadout)
+	_loadout_action_row.add_child(_dup_btn)
+
+	_del_btn = Button.new()
+	_del_btn.text = "Delete"
+	_del_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.055)
+	_del_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+	_del_btn.modulate = Color(1.0, 0.4, 0.4)
+	_del_btn.pressed.connect(_on_del_loadout)
+	_loadout_action_row.add_child(_del_btn)
+
 	_deck_count_label = Label.new()
 	_deck_count_label.add_theme_font_size_override("font_size", int(_ref * 0.026))
 	_deck_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -233,7 +271,46 @@ func _refresh() -> void:
 	if _craft_panel.visible:
 		_refresh_craft()
 
+func _rebuild_loadout_bar() -> void:
+	var sm := SceneManager.save_manager
+	for child in _loadout_tab_row.get_children():
+		child.queue_free()
+
+	var names: Array[String] = sm.get_loadout_names()
+	var active_idx: int = sm.active_loadout
+	var at_cap: bool = names.size() >= sm.MAX_LOADOUTS
+
+	for i in range(names.size()):
+		var tab_btn := Button.new()
+		tab_btn.text = names[i]
+		tab_btn.flat = true
+		tab_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.055)
+		tab_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		var is_valid: bool
+		if i == active_idx:
+			is_valid = _working_deck.size() >= IsoConst.DECK_MIN and _working_deck.size() <= IsoConst.DECK_MAX
+		else:
+			is_valid = sm.is_loadout_valid(i)
+		if i == active_idx:
+			tab_btn.modulate = Color.WHITE if is_valid else Color(1.0, 0.35, 0.35)
+		else:
+			tab_btn.modulate = Color(0.7, 0.7, 0.7) if is_valid else Color(0.75, 0.28, 0.28)
+		tab_btn.pressed.connect(_on_loadout_tab.bind(i))
+		_loadout_tab_row.add_child(tab_btn)
+
+	var new_btn := Button.new()
+	new_btn.text = "+"
+	new_btn.custom_minimum_size = Vector2(_ref * 0.055, _ref * 0.055)
+	new_btn.add_theme_font_size_override("font_size", int(_ref * 0.025))
+	new_btn.disabled = at_cap
+	new_btn.pressed.connect(_on_new_loadout)
+	_loadout_tab_row.add_child(new_btn)
+
+	_del_btn.disabled = names.size() <= 1
+	_dup_btn.disabled = at_cap
+
 func _refresh_cards() -> void:
+	_rebuild_loadout_bar()
 	var col_scroll: int = _collection_scroll.scroll_vertical if _collection_scroll else 0
 	var deck_scroll: int = _deck_scroll.scroll_vertical if _deck_scroll else 0
 	for child in _collection_list.get_children():
@@ -946,6 +1023,141 @@ func _on_save() -> void:
 
 func _on_close() -> void:
 	closed.emit()
+
+# -------------------------------------------------------------------------
+# Loadout handlers
+# -------------------------------------------------------------------------
+
+func _on_loadout_tab(index: int) -> void:
+	var sm := SceneManager.save_manager
+	sm.set_active_deck(_working_deck)
+	sm.set_active_loadout(index)
+	_working_deck.assign(sm.player_deck)
+	_refresh_cards()
+
+func _on_new_loadout() -> void:
+	var sm := SceneManager.save_manager
+	sm.set_active_deck(_working_deck)
+	var new_idx: int = sm.add_loadout("Deck %d" % (sm.loadouts.size() + 1))
+	if new_idx < 0:
+		return
+	sm.set_active_loadout(new_idx)
+	_working_deck.assign(sm.player_deck)
+	_refresh_cards()
+
+func _on_rename_loadout() -> void:
+	var sm := SceneManager.save_manager
+	if sm.active_loadout < 0 or sm.active_loadout >= sm.loadouts.size():
+		return
+	var current_name: String = str(sm.loadouts[sm.active_loadout].get("name", ""))
+
+	var popup := PopupPanel.new()
+	add_child(popup)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", int(_ref * 0.012))
+	vb.custom_minimum_size = Vector2(_ref * 0.5, 0)
+	popup.add_child(vb)
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Rename Loadout"
+	title_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(title_lbl)
+
+	var edit := LineEdit.new()
+	edit.text = current_name
+	edit.max_length = 20
+	edit.add_theme_font_size_override("font_size", int(_ref * 0.024))
+	edit.custom_minimum_size = Vector2(0, _ref * 0.065)
+	vb.add_child(edit)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", int(_ref * 0.012))
+	vb.add_child(btn_row)
+
+	var ok_btn := Button.new()
+	ok_btn.text = "OK"
+	ok_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.065)
+	ok_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	ok_btn.pressed.connect(func() -> void:
+		var new_name: String = edit.text.strip_edges()
+		if new_name.length() > 0:
+			sm.rename_loadout(sm.active_loadout, new_name)
+			_refresh_cards()
+		popup.queue_free())
+	btn_row.add_child(ok_btn)
+
+	var cancel_btn := Button.new()
+	cancel_btn.text = "Cancel"
+	cancel_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.065)
+	cancel_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	cancel_btn.pressed.connect(func() -> void: popup.queue_free())
+	btn_row.add_child(cancel_btn)
+
+	popup.popup_centered()
+	# Shift to top half so the Android keyboard doesn't cover the input field.
+	popup.position.y = int(get_viewport_rect().size.y * 0.08)
+	edit.grab_focus()
+	edit.select_all()
+
+func _on_dup_loadout() -> void:
+	var sm := SceneManager.save_manager
+	sm.set_active_deck(_working_deck)
+	var new_idx: int = sm.duplicate_loadout(sm.active_loadout)
+	if new_idx < 0:
+		return
+	sm.set_active_loadout(new_idx)
+	_working_deck.assign(sm.player_deck)
+	_refresh_cards()
+
+func _on_del_loadout() -> void:
+	var sm := SceneManager.save_manager
+	if sm.loadouts.size() <= 1:
+		return
+	var loadout_name: String = str(sm.loadouts[sm.active_loadout].get("name", "this loadout"))
+
+	var popup := PopupPanel.new()
+	add_child(popup)
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", int(_ref * 0.012))
+	vb.custom_minimum_size = Vector2(_ref * 0.5, 0)
+	popup.add_child(vb)
+
+	var lbl := Label.new()
+	lbl.text = "Delete '%s'?\nThis cannot be undone." % loadout_name
+	lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(lbl)
+
+	var btn_row := HBoxContainer.new()
+	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	btn_row.add_theme_constant_override("separation", int(_ref * 0.012))
+	vb.add_child(btn_row)
+
+	var yes_btn := Button.new()
+	yes_btn.text = "Yes, Delete"
+	yes_btn.custom_minimum_size = Vector2(_ref * 0.16, _ref * 0.065)
+	yes_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	yes_btn.modulate = Color(1.0, 0.4, 0.4)
+	yes_btn.pressed.connect(func() -> void:
+		popup.queue_free()
+		sm.delete_loadout(sm.active_loadout)
+		_working_deck.assign(sm.player_deck)
+		_refresh_cards())
+	btn_row.add_child(yes_btn)
+
+	var no_btn := Button.new()
+	no_btn.text = "Cancel"
+	no_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
+	no_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	no_btn.pressed.connect(func() -> void: popup.queue_free())
+	btn_row.add_child(no_btn)
+
+	popup.popup_centered()
 
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("inventory"):

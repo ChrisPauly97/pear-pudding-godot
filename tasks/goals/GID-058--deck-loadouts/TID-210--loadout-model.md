@@ -2,7 +2,7 @@
 
 **Goal:** GID-058
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -82,12 +82,23 @@ The persistence and lifecycle layer: multiple named loadouts stored in SaveManag
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `const MAX_LOADOUTS: int = 5`, `var loadouts: Array[Dictionary] = []`, `var active_loadout: int = 0` to SaveManager.
+2. Add migration `_migrate_v33_to_v34()`: wrap existing `player_deck` into `loadouts = [{"name": "Deck 1", "cards": existing_deck}]`, `active_loadout = 0`; bump `CURRENT_SAVE_VERSION` to 34.
+3. In `load_save()`: load `loadouts` and `active_loadout` from JSON; sync `player_deck` from `loadouts[active_loadout].cards` after loading.
+4. In `save()`: before serialising, write `player_deck` back to `loadouts[active_loadout]["cards"]`; include `loadouts` and `active_loadout` in the data dict.
+5. Update `new_game()` to initialise `loadouts = [{"name": "Deck 1", "cards": []}]`, `active_loadout = 0`, and sync after building the starting deck.
+6. Update `set_active_deck()` to mirror changes into `loadouts[active_loadout]["cards"]`.
+7. Update `remove_card_instance()` to prune the UID from every loadout's cards array (not just `player_deck`).
+8. Add helpers: `is_loadout_valid(index)`, `get_loadout_names()`, `add_loadout(name)`, `rename_loadout(index, name)`, `duplicate_loadout(index)`, `delete_loadout(index)`, `set_active_loadout(index)`.
+9. Write `tests/unit/test_loadout_model.gd` with tests covering migration, prune-all-loadouts, accessor sync, `is_loadout_valid`, and last-loadout delete guard; register in `tests/runner.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/SaveManager.gd`**: Added `MAX_LOADOUTS: int = 5`, `var loadouts: Array[Dictionary] = []`, `var active_loadout: int = 0` fields. Bumped `CURRENT_SAVE_VERSION` to 34. Added `_migrate_v33_to_v34()` (wraps existing `player_deck` into `loadouts = [{"name": "Deck 1", "cards": existing_deck}]`). Updated `_apply_migrations()` chain. Updated `new_game()` to initialise `loadouts` from the starting deck. Updated `load_save()` to deserialise `loadouts` and `active_loadout`, and sync `player_deck` from the active loadout. Updated `save()` to sync `loadouts[active_loadout].cards` from `player_deck` before serialising and include `loadouts`/`active_loadout` in the data dict. Updated `set_active_deck()` to mirror changes into `loadouts[active_loadout].cards`. Updated `remove_card_instance()` to prune the removed UID from every loadout's cards array. Added helpers: `is_loadout_valid()`, `get_loadout_names()`, `set_active_loadout()`, `add_loadout()`, `rename_loadout()`, `duplicate_loadout()`, `delete_loadout()`.
+- **`tests/unit/test_loadout_model.gd`** (new): 30 tests covering migration v33→v34, prune-all-loadouts, set_active_loadout sync, is_loadout_valid boundaries, add/rename/duplicate/delete guards. Uses `_set_loadouts()` helper to avoid typed-array assignment errors.
+- **`tests/unit/test_loadout_model.gd.uid`** (new): UID sidecar.
+- **`tests/runner.gd`**: Registered `test_loadout_model` suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/inventory-and-deck.md`**: Added "Deck Loadouts (GID-058)" section documenting the data model, save migration, pruning behaviour, validation, and full CRUD API.
