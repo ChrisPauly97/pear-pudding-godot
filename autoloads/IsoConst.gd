@@ -20,6 +20,7 @@ const TILE_GRASS: int = 0
 const TILE_WALL: int = 1
 const TILE_HILL: int = 2
 const TILE_PATH: int = 3
+const TILE_CRACKED: int = 4  # breakable wall used for dungeon secret room entrances
 
 # Camera settings for isometric view
 const CAM_ELEVATION_DEG: float = -35.264  # arcsin(tan(30°))

@@ -505,6 +505,47 @@ func _on_battle_won(result: Dictionary) -> void:
 	var is_boss: bool = bool(save_manager.pending_battle_enemy_data.get("is_boss", false))
 	var is_rival: bool = enemy_type.begins_with("rival_")
 	var captured_enemy_id: String = _current_battle_enemy_id
+	# Mimic chest victory: open the chest, grant loot directly to inventory, restore world.
+	if enemy_type == "mimic" and not captured_enemy_id.is_empty():
+		var mimic_chest_id: String = captured_enemy_id
+		var wmap_node: Variant = _saved_world_scene.get("world_map") if _saved_world_scene != null else null
+		if wmap_node != null:
+			var mimic_chest: Dictionary = wmap_node.find_chest_by_id(mimic_chest_id)
+			if not mimic_chest.is_empty():
+				mimic_chest["opened"] = true
+				var chest_cards: Array[String] = []
+				chest_cards.assign(mimic_chest.get("card_ids", []))
+				for card_id: String in chest_cards:
+					var rarity: String = CardDropUtil.effective_rarity(card_id, CardDropUtil.roll_rarity(3))
+					var stats: Dictionary = CardDropUtil.roll_stats(card_id, rarity)
+					save_manager.add_card_instance(card_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+					session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+		var mimic_drop_pool: Array[String] = EnemyRegistry.get_drop_pool("mimic")
+		if not mimic_drop_pool.is_empty():
+			var bonus_card: String = mimic_drop_pool[randi() % mimic_drop_pool.size()]
+			var b_rarity: String = CardDropUtil.effective_rarity(bonus_card, CardDropUtil.roll_rarity(2))
+			var b_stats: Dictionary = CardDropUtil.roll_stats(bonus_card, b_rarity)
+			save_manager.add_card_instance(bonus_card, b_rarity, int(b_stats.get("attack", -1)), int(b_stats.get("health", -1)), int(b_stats.get("cost", -1)))
+			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+		var mimic_coins: int = EnemyRegistry.get_coin_reward("mimic")
+		save_manager.add_coins(mimic_coins)
+		session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + mimic_coins
+		save_manager.mark_chest_opened(mimic_chest_id)
+		save_manager.record_enemy_defeated("mimic")
+		save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": "mimic"})
+		save_manager.increment_progress("enemies_defeated", 1)
+		session_stats["enemies_defeated"] = int(session_stats.get("enemies_defeated", 0)) + 1
+		save_manager.increment_progress("battles_won", 1)
+		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
+		_current_battle_enemy_id = ""
+		save_manager.clear_pending_battle()
+		save_manager.clear_pending_battle_state()
+		save_manager.save()
+		if _battle_overlay != null:
+			_battle_overlay.queue_free()
+			_battle_overlay = null
+		_restore_world()
+		return
 	var drop_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
 	if is_boss:
 		drop_tier = 4

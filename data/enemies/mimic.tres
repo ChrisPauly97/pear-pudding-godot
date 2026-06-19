@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://28abtlq516p0"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_mimic"]
+
+[resource]
+script = ExtResource("1_mimic")
+id = "mimic"
+display_name = "Mimic"
+deck = PackedStringArray("ghost", "skeleton", "zombie", "ghoul", "ghost", "skeleton", "zombie", "ghoul")
+drop_pool = PackedStringArray("ghost", "skeleton", "zombie", "ghoul")
+coin_reward = 25
+difficulty_tier = 2
+lore_text = "Not every treasure chest holds gold. Some hold teeth. The Mimic waits in perfect stillness, indistinguishable from its surroundings — until you reach inside."

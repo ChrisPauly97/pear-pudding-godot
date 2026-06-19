@@ -126,13 +126,16 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 				# Guaranteed 2 cards; "dtr_" prefix signals enhanced weapon drop chance in WorldScene
 				var card1: String = card_pool[rng.randi_range(0, card_pool.size() - 1)]
 				var card2: String = card_pool[rng.randi_range(0, card_pool.size() - 1)]
-				map.chests.append({
+				var troom_chest: Dictionary = {
 					"id": "dtr_%d" % troom_uid,
 					"x": float(rcx) * TILE_SIZE + TILE_SIZE * 0.5,
 					"z": float(rcz) * TILE_SIZE + TILE_SIZE * 0.5,
 					"card_ids": [card1, card2],
 					"opened": false,
-				})
+				}
+				if rng.randi() % 100 < 15:
+					troom_chest["is_mimic"] = true
+				map.chests.append(troom_chest)
 				troom_uid += 1
 			"event":
 				map.npcs.append({
@@ -151,13 +154,16 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 	var ecx: int = end_room.position.x + end_room.size.x / 2
 	var ecz: int = end_room.position.y + end_room.size.y / 2
 
-	map.chests.append({
+	var end_chest: Dictionary = {
 		"id": "dc_0",
 		"x": float(ecx - 2) * TILE_SIZE + TILE_SIZE * 0.5,
 		"z": float(ecz) * TILE_SIZE + TILE_SIZE * 0.5,
 		"card_ids": [card_pool[rng.randi_range(0, card_pool.size() - 1)]],
 		"opened": false,
-	})
+	}
+	if rng.randi() % 100 < 15:
+		end_chest["is_mimic"] = true
+	map.chests.append(end_chest)
 
 	# Exit door — empty target_map triggers exit_map(), returning to overworld
 	map.doors.append({
@@ -167,6 +173,10 @@ static func generate(p_name: String, dungeon_seed: int) -> _WorldMap:
 		"target_map": "",
 		"target_door_id": "",
 	})
+
+	# 30% chance to add a secret room branching off a corridor or room wall
+	if rng.randi() % 100 < 30:
+		_try_gen_secret_room(map, rng, card_pool)
 
 	# Persist to user://maps/<p_name>.tres so MapRegistry can load it on re-entry
 	# without regenerating. WorldScene checks MapRegistry first before calling generate().
@@ -232,3 +242,70 @@ static func _connect(map: _WorldMap, a: Rect2i, b: Rect2i) -> void:
 			if tx >= 0 and tx < DW:
 				map.set_tile(tx, tz, IsoConst.TILE_GRASS)
 				map.set_height(tx, tz, 0)
+
+
+# Try to carve one secret room branching off any TILE_GRASS tile in the dungeon.
+# Returns true if a room was placed.  The connecting wall tile becomes TILE_CRACKED.
+static func _try_gen_secret_room(map: _WorldMap, rng: RandomNumberGenerator, card_pool: Array[String]) -> bool:
+	# Collect candidates: [cracked_x, cracked_z, room_cx, room_cz]
+	var candidates: Array[Array] = []
+
+	const DIRS: Array = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	for tz in range(2, DH - 3):
+		for tx in range(2, DW - 3):
+			if map.get_tile(tx, tz) != IsoConst.TILE_GRASS:
+				continue
+			for dir_v in DIRS:
+				var dir: Vector2i = dir_v as Vector2i
+				var wx: int = tx + dir.x
+				var wz: int = tz + dir.y
+				if map.get_tile(wx, wz) != IsoConst.TILE_WALL:
+					continue
+				# Check that a 3×3 area centered one step beyond the wall is all TILE_WALL
+				var rcx: int = wx + dir.x
+				var rcz: int = wz + dir.y
+				if rcx < 1 or rcx >= DW - 1 or rcz < 1 or rcz >= DH - 1:
+					continue
+				var fits: bool = true
+				for ddz in range(-1, 2):
+					for ddx in range(-1, 2):
+						if map.get_tile(rcx + ddx, rcz + ddz) != IsoConst.TILE_WALL:
+							fits = false
+							break
+					if not fits:
+						break
+				if fits:
+					candidates.append([wx, wz, rcx, rcz])
+
+	if candidates.is_empty():
+		return false
+
+	var pick: Array = candidates[rng.randi() % candidates.size()]
+	var cw_x: int = int(pick[0])
+	var cw_z: int = int(pick[1])
+	var rc_x: int = int(pick[2])
+	var rc_z: int = int(pick[3])
+
+	# Carve the 3×3 secret room first — the wall tile (cw_x,cw_z) is one step from the
+	# room centre so it falls inside the carve area and would get set to TILE_GRASS.
+	# Setting TILE_CRACKED afterwards preserves it.
+	for ddz in range(-1, 2):
+		for ddx in range(-1, 2):
+			map.set_tile(rc_x + ddx, rc_z + ddz, IsoConst.TILE_GRASS)
+			map.set_height(rc_x + ddx, rc_z + ddz, 0)
+
+	# Set the entrance wall to TILE_CRACKED after the carve so it isn't overwritten.
+	map.set_tile(cw_x, cw_z, IsoConst.TILE_CRACKED)
+	map.set_height(cw_x, cw_z, WALL_H)
+
+	# Place a bonus chest in the room centre
+	var card1: String = card_pool[rng.randi() % card_pool.size()]
+	var card2: String = card_pool[rng.randi() % card_pool.size()]
+	map.chests.append({
+		"id": "dsr_0",
+		"x": float(rc_x) * TILE_SIZE + TILE_SIZE * 0.5,
+		"z": float(rc_z) * TILE_SIZE + TILE_SIZE * 0.5,
+		"card_ids": [card1, card2],
+		"opened": false,
+	})
+	return true

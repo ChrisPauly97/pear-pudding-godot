@@ -29,6 +29,7 @@ uniform vec3 wall_tint  = vec3(1.0, 1.0, 1.0);
 varying float v_blend;      // height ratio [0=flat ground .. 1=hill plateau]
 varying float v_wall;       // 1.0 if this vertex sits on a wall tile
 varying float v_path;       // 1.0 if this vertex sits on a path tile
+varying float v_cracked;    // 1.0 if this wall vertex is a TILE_CRACKED (cracked wall)
 varying vec3  v_normal_world;  // world-space normal — used for slope detection only
 varying vec2  v_world_xz;
 varying float v_world_y;    // world Y — used for vertical tiling on wall sides
@@ -58,9 +59,11 @@ float fbm(vec2 p) {
 
 void vertex() {
 	// Pass blend factor, wall flag, and world normal to fragment
-	v_blend = COLOR.r;
-	v_wall  = COLOR.g;
-	v_path  = COLOR.b;
+	v_blend   = COLOR.r;
+	v_wall    = COLOR.g;
+	v_path    = COLOR.b;
+	// Alpha < 0.5 encodes TILE_CRACKED (cracked wall); regular walls have alpha = 1.0
+	v_cracked = COLOR.a < 0.5 ? 1.0 : 0.0;
 	// World-space normal is only used for slope detection in fragment(),
 	// not for lighting — Godot transforms NORMAL to view space automatically.
 	v_normal_world = (MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz;
@@ -152,6 +155,11 @@ void fragment() {
 		tint = mix(grass_tint, hill_tint, clamp(v_blend * 2.0, 0.0, 1.0));
 	}
 	vec3 tinted_col = base_col * tint;
+
+	// Cracked walls: darker with a warm brownish shift to distinguish them subtly
+	if (is_wall && v_cracked > 0.5) {
+		tinted_col = vec3(tinted_col.r * 0.80 + 0.06, tinted_col.g * 0.65, tinted_col.b * 0.60);
+	}
 
 	ALBEDO = tinted_col;
 	// Soft emission floor keeps cast shadows from going pitch-black.
