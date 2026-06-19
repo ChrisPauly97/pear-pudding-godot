@@ -25,7 +25,8 @@ func _get_slot_bak_path(slot: int) -> String:
 var coins: int = 0
 
 # All cards ever acquired (the collection). Each entry is a Dictionary:
-# { "uid": String, "template_id": String, "rarity": String, "attack": int, "health": int, "cost": int }
+# { "uid": String, "template_id": String, "rarity": String, "attack": int, "health": int, "cost": int,
+#   "kills": int, "battles_survived": int, "custom_name": String }
 var owned_cards: Array[Dictionary] = []
 var _uid_index: Dictionary = {}  # uid -> Dictionary reference for O(1) lookups
 
@@ -367,7 +368,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 34
+const CURRENT_SAVE_VERSION: int = 35
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -659,6 +660,21 @@ static func _migrate_v32_to_v33(data: Dictionary) -> void:
 		data["potions"] = {}
 	data["version"] = 33
 
+# _migrate_v34_to_v35: backfill veterancy fields on every owned_cards entry.
+static func _migrate_v34_to_v35(data: Dictionary) -> void:
+	var cards: Array = data.get("owned_cards", [])
+	for i: int in range(cards.size()):
+		if not cards[i] is Dictionary:
+			continue
+		var card: Dictionary = cards[i]
+		if not card.has("kills"):
+			card["kills"] = 0
+		if not card.has("battles_survived"):
+			card["battles_survived"] = 0
+		if not card.has("custom_name"):
+			card["custom_name"] = ""
+	data["version"] = 35
+
 # _migrate_v33_to_v34: wrap existing player_deck into a named loadout array.
 static func _migrate_v33_to_v34(data: Dictionary) -> void:
 	if not data.has("loadouts"):
@@ -738,6 +754,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v32_to_v33(data)
 	if ver < 34:
 		_migrate_v33_to_v34(data)
+	if ver < 35:
+		_migrate_v34_to_v35(data)
 
 static func _sign(payload: String) -> String:
 	var crypto := Crypto.new()
@@ -1104,6 +1122,9 @@ func add_card_instance(template_id: String, rarity: String, attack: int = -1, he
 		"attack": atk,
 		"health": hp,
 		"cost": c,
+		"kills": 0,
+		"battles_survived": 0,
+		"custom_name": "",
 	}
 	owned_cards.append(inst_dict)
 	_uid_index[uid] = inst_dict

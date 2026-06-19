@@ -2,7 +2,7 @@
 
 **Goal:** GID-060
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -47,12 +47,37 @@ GID-060 extends GID-028's per-instance card model into battle memory: per-instan
 
 ## Plan
 
-_Written during Plan phase._
+1. **IsoConst.gd** — Add `VETERANCY_RANKS` array constant. Each element is a Dictionary:
+   `{kills_threshold, battles_threshold, hp_bonus, atk_bonus, title}`. Ranks are 0-indexed so
+   `VETERANCY_RANKS[0]` = rank 1 requirements. Four entries (ranks 1–3; rank 0 = no rank).
+   Thresholds (OR-based): rank 1 at 5 kills or 10 battles, rank 2 at 15/25, rank 3 at 40/60.
+   Stat bonus per rank: +1 HP (not cumulative — rank tells total bonus, not incremental).
+
+2. **game_logic/VeterancyUtil.gd** — Pure static helpers (no class_name, no autoload deps):
+   - `rank_for(kills: int, battles_survived: int) -> int` (0–3)
+   - `title_for(rank: int) -> String`
+   - `hp_bonus_for(rank: int) -> int`
+   - `atk_bonus_for(rank: int) -> int`
+   - `display_name(inst: Dictionary, base_name: String) -> String`
+     → `custom_name` if non-empty; else `base_name + " the " + title` when rank ≥ 1; else base_name.
+
+3. **SaveManager.gd** — Version bump from 34 → 35; add `_migrate_v34_to_v35` that backfills
+   `kills: 0`, `battles_survived: 0`, `custom_name: ""` on every dict in `data["owned_cards"]`.
+   Update `add_card_instance()` to include the three new fields in `inst_dict`.
+   Update `_apply_migrations` chain.
+
+4. **tests/unit/test_veterancy_util.gd** — GUT test covering: `rank_for` thresholds (0,1,2,3),
+   OR logic (kills alone, battles alone), `title_for` returns non-empty strings, `hp_bonus_for`
+   returns expected values, `display_name` precedences.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/IsoConst.gd`**: Added `VETERANCY_RANKS` array constant with 3 rank entries (kills/battles thresholds, hp/atk bonuses, title strings).
+- **`game_logic/VeterancyUtil.gd`** (new): Pure static helpers — `rank_for`, `title_for`, `hp_bonus_for`, `atk_bonus_for`, `display_name`. No class_name, no autoload deps; callers preload directly.
+- **`autoloads/SaveManager.gd`**: Bumped `CURRENT_SAVE_VERSION` to 35; added `_migrate_v34_to_v35` backfilling `kills: 0`, `battles_survived: 0`, `custom_name: ""` on all `owned_cards` entries; updated `add_card_instance` to initialise the three new fields; wired migration into `_apply_migrations`; updated `owned_cards` doc comment.
+- **`tests/unit/test_veterancy_util.gd`** (new): 17 tests covering `rank_for` thresholds (0–3), OR logic (kills path, battles path), `title_for`, `hp_bonus_for`, `atk_bonus_for`, and all three `display_name` precedences. All 17 pass headless.
+- **`tests/runner.gd`**: Added `test_veterancy_util.gd` to `SUITES`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/inventory-and-deck.md`**: Added "Veterancy System (GID-060)" section documenting the new instance fields, `VETERANCY_RANKS` table, `VeterancyUtil` API, and attribution note for TID-216.
