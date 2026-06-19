@@ -98,14 +98,11 @@ func test_draw_card_returns_null_when_no_cards() -> void:
 	assert_null(c)
 
 
-func test_draw_card_shuffles_discard_into_deck_when_empty() -> void:
+func test_draw_card_on_empty_deck_deals_fatigue_damage() -> void:
 	var p = _player()
-	var discarded = _card()
-	p.discard.append(discarded)
-	p.draw_card()
-	# Either the card was drawn into hand or remains accessible
-	assert_true(p.hand.size() == 1 or p.draw_deck.size() >= 0)
-	assert_eq(p.discard.size(), 0, "discard should be cleared after shuffle")
+	p.draw_card()  # fatigue_counter becomes 1, hero takes 1 damage
+	assert_eq(p.hero.health, 29, "first fatigue draw should deal 1 damage")
+	assert_eq(p.fatigue_counter, 1)
 
 
 func test_draw_card_multiple_times_empties_deck_into_hand() -> void:

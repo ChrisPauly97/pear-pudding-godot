@@ -16,6 +16,7 @@ var discard: Array[CardInstance] = []
 var pending_auto_spells: Array[CardInstance] = []
 var is_ai: bool = false
 var bonus_draw: int = 0
+var fatigue_counter: int = 0
 
 func _init(pid: int, ai: bool = false) -> void:
 	player_id = pid
@@ -43,11 +44,9 @@ func build_deck(card_ids: Array[String], difficulty_tier: int = 0) -> void:
 
 func draw_card() -> CardInstance:
 	if draw_deck.is_empty():
-		# Shuffle discard back
-		draw_deck.append_array(discard)
-		discard.clear()
-		draw_deck.shuffle()
-	if draw_deck.is_empty():
+		fatigue_counter += 1
+		hero.take_damage(fatigue_counter)
+		_emit_fatigue(fatigue_counter)
 		return null
 	var card := draw_deck.pop_back() as CardInstance
 	if card.auto_resolve:
@@ -56,6 +55,13 @@ func draw_card() -> CardInstance:
 	else:
 		hand.append(card)
 	return card
+
+func _emit_fatigue(dmg: int) -> void:
+	var ml: MainLoop = Engine.get_main_loop()
+	if ml is SceneTree:
+		var gb: Node = (ml as SceneTree).root.get_node_or_null("GameBus")
+		if gb != null:
+			gb.emit_signal("fatigue_damage", player_id, dmg)
 
 func draw_opening_hand(count: int = 4) -> void:
 	for _i in range(count):
@@ -105,6 +111,7 @@ func to_dict() -> Dictionary:
 		"player_id": player_id,
 		"is_ai": is_ai,
 		"bonus_draw": bonus_draw,
+		"fatigue_counter": fatigue_counter,
 		"hero": hero.to_dict(),
 		"board": board.to_dict(),
 		"hand": hand_arr,
@@ -116,6 +123,7 @@ func to_dict() -> Dictionary:
 func from_dict(d: Dictionary) -> void:
 	is_ai = bool(d.get("is_ai", false))
 	bonus_draw = int(d.get("bonus_draw", 0))
+	fatigue_counter = int(d.get("fatigue_counter", 0))
 	var raw_hero = d.get("hero", {})
 	if raw_hero is Dictionary:
 		hero.from_dict(raw_hero)

@@ -34,13 +34,29 @@ GameState          — root object; owns two PlayerState instances, tracks whose
 ### Turn Sequence
 
 1. **Turn start** — active player's max mana increments (min 1, max 10); current mana refills to max; all minion `attacks_this_turn` reset to 0; all `summoning_sick` flags cleared.
-2. **Draw** — active player draws one card from their draw pile (shuffles discard into draw if empty).
+2. **Draw** — active player draws one card from their draw pile. If the draw pile is empty, fatigue damage fires instead (see below).
 3. **Action phase** — active player plays cards and/or attacks until they press "End Turn":
    - *Play card*: costs mana equal to `CardData.cost`; card moves from hand to an empty board slot; new `CardInstance` is created with `summoning_sick = true`.
    - *Attack with minion*: target is any enemy minion or the enemy hero; damage is applied to both combatants; destroyed minions move to discard.
    - *Attack hero directly*: if no enemy minions block, or player targets hero explicitly.
 4. **AI turn** — `BasicAI` evaluates board state, plays affordable cards greedily (lowest cost first), then attacks with every available minion (targets minions before hero).
 5. **Win check** — after any damage event, if either hero drops to 0 HP `GameState` emits `battle_ended` with the result.
+
+### Deck Fatigue (GID-077)
+
+When a player's draw deck is empty, each draw attempt instead deals escalating damage to that player's hero:
+
+- First failed draw: **1 damage**
+- Second failed draw: **2 damage**
+- Third failed draw: **3 damage**, and so on
+
+The discard pile is **never** reshuffled back into the draw deck. Fatigue applies identically to the human player and the AI.
+
+**Implementation:**
+- `PlayerState.fatigue_counter: int` tracks how many empty draws have occurred for that player (starts at 0, never resets within a battle).
+- `PlayerState.draw_card()` increments the counter and calls `hero.take_damage(fatigue_counter)` before returning `null`.
+- `GameBus.fatigue_damage(player_id, damage)` is emitted so `BattleScene` can show an orange "Fatigue! −N" toast near the affected hero panel.
+- `fatigue_counter` is serialised in `PlayerState.to_dict()` / `from_dict()` so mid-battle saves restore the correct count.
 
 ### Card Data
 

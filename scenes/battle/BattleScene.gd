@@ -222,6 +222,7 @@ func _ready() -> void:
 		_give_up_btn.pressed.connect(_on_puzzle_give_up)
 		$SidePanel.add_child(_give_up_btn)
 	GameBus.turn_ended.connect(_on_turn_ended)
+	GameBus.fatigue_damage.connect(_on_fatigue_damage)
 
 	_refresh_all()
 	_refresh_potion_button()
@@ -1608,6 +1609,27 @@ func _on_turn_ended(player_idx: int) -> void:
 				_state.end_turn()
 			else:
 				_run_ai_turn()
+
+func _on_fatigue_damage(pid: int, dmg: int) -> void:
+	var is_enemy: bool = (pid == 1)
+	var pos: Vector2 = _pos_of_hero(is_enemy)
+	var lbl := Label.new()
+	lbl.text = "Fatigue! -%d" % dmg
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.55, 0.0))
+	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
+	lbl.add_theme_constant_override("shadow_offset_x", 2)
+	lbl.add_theme_constant_override("shadow_offset_y", 2)
+	lbl.position = pos - Vector2(40.0, 10.0)
+	if _float_layer != null and is_instance_valid(_float_layer):
+		_float_layer.add_child(lbl)
+		var tw: Tween = lbl.create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(lbl, "position:y", pos.y - 60.0, 1.5)
+		tw.tween_property(lbl, "modulate:a", 0.0, 1.5)
+		tw.chain().tween_callback(lbl.queue_free)
+	_refresh_all()
+	_check_game_over()
 
 func _run_ai_turn() -> void:
 	_ai_thinking = true
