@@ -83,6 +83,7 @@
 | [GID-077](goals/GID-077--combat-deck-fatigue/goal.md) | Combat Deck Fatigue | done | 2 / 2 |
 | [GID-078](goals/GID-078--app-diagnostics-logs-screen/goal.md) | App Diagnostics Log Screen | done | 3 / 3 |
 | [GID-079](goals/GID-079--card-slot-battle-placement/goal.md) | Card Slot Battle Placement | done | 4 / 4 |
+| [GID-080](goals/GID-080--landscape-rotation-direction/goal.md) | Landscape Rotation Direction | done | 1 / 1 |
 
 ## Backlog
 
