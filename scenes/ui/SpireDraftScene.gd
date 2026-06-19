@@ -14,6 +14,7 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 var _vh: float = 0.0
 var _vw: float = 0.0
+var _ref: float = 0.0
 var _card_panels: HBoxContainer = null
 var _floor_number: int = 1
 var _draft_logic: RefCounted = null
@@ -23,6 +24,7 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	_vh = get_viewport().get_visible_rect().size.y
 	_vw = get_viewport().get_visible_rect().size.x
+	_ref = minf(_vh, _vw)
 
 ## Call after instantiation. Generates the picks and builds the UI.
 func setup(floor: int) -> void:
@@ -54,19 +56,19 @@ func _build_ui(picks: Array[String]) -> void:
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left",   int(_vw * 0.02))
 	margin.add_theme_constant_override("margin_right",  int(_vw * 0.02))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.02))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.02))
+	margin.add_theme_constant_override("margin_top",    int(_ref * 0.02))
+	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.02))
 	outer.add_child(margin)
 
 	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_vh * 0.018))
+	root_vbox.add_theme_constant_override("separation", int(_ref * 0.018))
 	margin.add_child(root_vbox)
 
 	# Title
 	var title := Label.new()
 	title.text = "Floor %d — Choose a Card" % _floor_number
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(_vh * 0.038))
+	title.add_theme_font_size_override("font_size", int(_ref * 0.038))
 	title.modulate = Color(1.0, 0.88, 0.4)
 	root_vbox.add_child(title)
 
@@ -78,7 +80,7 @@ func _build_ui(picks: Array[String]) -> void:
 	var cards_container: BoxContainer
 	if is_portrait:
 		var vb := VBoxContainer.new()
-		vb.add_theme_constant_override("separation", int(_vh * 0.012))
+		vb.add_theme_constant_override("separation", int(_ref * 0.012))
 		cards_container = vb
 	else:
 		var hb := HBoxContainer.new()
@@ -116,12 +118,12 @@ func _make_card_panel(card_id: String) -> Control:
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left",   int(_vw * 0.012))
 	margin.add_theme_constant_override("margin_right",  int(_vw * 0.012))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.012))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.012))
+	margin.add_theme_constant_override("margin_top",    int(_ref * 0.012))
+	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.012))
 	outer_panel.add_child(margin)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.008))
+	vbox.add_theme_constant_override("separation", int(_ref * 0.008))
 	margin.add_child(vbox)
 
 	# Colour swatch + name row
@@ -131,12 +133,12 @@ func _make_card_panel(card_id: String) -> Control:
 
 	var swatch := ColorRect.new()
 	swatch.color = card_color
-	swatch.custom_minimum_size = Vector2(_vh * 0.035, _vh * 0.035)
+	swatch.custom_minimum_size = Vector2(_ref * 0.035, _ref * 0.035)
 	name_row.add_child(swatch)
 
 	var name_lbl := Label.new()
 	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.026))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_row.add_child(name_lbl)
 
@@ -144,7 +146,7 @@ func _make_card_panel(card_id: String) -> Control:
 	var tier_lbl := Label.new()
 	tier_lbl.text = _tier_label(tier)
 	tier_lbl.modulate = tier_color
-	tier_lbl.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	tier_lbl.add_theme_font_size_override("font_size", int(_ref * 0.02))
 	vbox.add_child(tier_lbl)
 
 	# Stats row
@@ -153,7 +155,7 @@ func _make_card_panel(card_id: String) -> Control:
 		stats_lbl.text = "Cost %d  |  %d/%d" % [cost, attack, health]
 	else:
 		stats_lbl.text = "Cost %d  |  Spell" % cost
-	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	stats_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	stats_lbl.modulate = Color(0.85, 0.85, 0.85)
 	vbox.add_child(stats_lbl)
 
@@ -161,7 +163,7 @@ func _make_card_panel(card_id: String) -> Control:
 	if desc != "":
 		var desc_lbl := Label.new()
 		desc_lbl.text = desc
-		desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+		desc_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
 		desc_lbl.modulate = Color(0.70, 0.70, 0.70)
 		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc_lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -174,8 +176,8 @@ func _make_card_panel(card_id: String) -> Control:
 	# Pick button
 	var pick_btn := Button.new()
 	pick_btn.text = "Pick"
-	pick_btn.custom_minimum_size = Vector2(0.0, _vh * 0.055)
-	pick_btn.add_theme_font_size_override("font_size", int(_vh * 0.023))
+	pick_btn.custom_minimum_size = Vector2(0.0, _ref * 0.055)
+	pick_btn.add_theme_font_size_override("font_size", int(_ref * 0.023))
 	pick_btn.modulate = tier_color
 	pick_btn.pressed.connect(_on_pick.bind(card_id))
 	vbox.add_child(pick_btn)

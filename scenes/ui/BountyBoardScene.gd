@@ -4,6 +4,7 @@ signal closed
 
 var _vh: float = 0.0
 var _vw: float = 0.0
+var _ref: float = 0.0
 var _rows_container: VBoxContainer
 var _row_nodes: Array[Control] = []
 
@@ -11,6 +12,7 @@ func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
 	_vh = get_viewport().get_visible_rect().size.y
 	_vw = get_viewport().get_visible_rect().size.x
+	_ref = minf(_vh, _vw)
 	_build_ui()
 
 func _build_ui() -> void:
@@ -30,7 +32,7 @@ func _build_ui() -> void:
 	add_child(outer)
 
 	var margin := MarginContainer.new()
-	var pad: int = int(_vh * 0.018)
+	var pad: int = int(_ref * 0.018)
 	margin.add_theme_constant_override("margin_left",   pad)
 	margin.add_theme_constant_override("margin_right",  pad)
 	margin.add_theme_constant_override("margin_top",    pad)
@@ -38,14 +40,14 @@ func _build_ui() -> void:
 	outer.add_child(margin)
 
 	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_vh * 0.015))
+	root_vbox.add_theme_constant_override("separation", int(_ref * 0.015))
 	margin.add_child(root_vbox)
 
 	# Header
 	var title := Label.new()
 	title.text = "Daily Bounties"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var title_font_size: int = int(_vh * 0.028)
+	var title_font_size: int = int(_ref * 0.028)
 	title.add_theme_font_size_override("font_size", title_font_size)
 	root_vbox.add_child(title)
 
@@ -55,7 +57,7 @@ func _build_ui() -> void:
 
 	# Bounty rows
 	_rows_container = VBoxContainer.new()
-	_rows_container.add_theme_constant_override("separation", int(_vh * 0.012))
+	_rows_container.add_theme_constant_override("separation", int(_ref * 0.012))
 	root_vbox.add_child(_rows_container)
 
 	_populate_rows()
@@ -68,7 +70,7 @@ func _build_ui() -> void:
 	# Close button
 	var close_btn := Button.new()
 	close_btn.text = "Close"
-	close_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.05)
+	close_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.05)
 	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	close_btn.pressed.connect(_close)
 	root_vbox.add_child(close_btn)
@@ -115,30 +117,30 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 	var reward: int = int(bounty.get("reward", 0))
 
 	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(_vh * 0.01))
+	hbox.add_theme_constant_override("separation", int(_ref * 0.01))
 
 	# Description label
 	var desc := Label.new()
 	desc.text = _format_bounty_desc(btype, target, count)
 	desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	desc.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	desc.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hbox.add_child(desc)
 
 	# Reward / progress in center
 	var mid_vbox := VBoxContainer.new()
-	mid_vbox.custom_minimum_size = Vector2(_vh * 0.10, 0.0)
+	mid_vbox.custom_minimum_size = Vector2(_ref * 0.10, 0.0)
 
 	var reward_lbl := Label.new()
 	reward_lbl.text = "+%d coins" % reward
-	reward_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	reward_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
 	reward_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mid_vbox.add_child(reward_lbl)
 
 	hbox.add_child(mid_vbox)
 
 	# Button area
-	var btn_size := Vector2(_vh * 0.14, _vh * 0.05)
+	var btn_size := Vector2(_ref * 0.14, _ref * 0.05)
 	var state: String = _get_state(bid, active_entry, count)
 
 	match state:
@@ -158,7 +160,7 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 			var progress: int = int(active_entry.get("progress", 0))
 			var prog_lbl := Label.new()
 			prog_lbl.text = "In Progress\n%d / %d" % [progress, count]
-			prog_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+			prog_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
 			prog_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			prog_lbl.modulate = Color(0.7, 0.7, 0.7)
 			prog_lbl.custom_minimum_size = btn_size
@@ -174,7 +176,7 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 		"claimed":
 			var done_lbl := Label.new()
 			done_lbl.text = "Claimed"
-			done_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+			done_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
 			done_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			done_lbl.modulate = Color(0.5, 0.5, 0.5)
 			done_lbl.custom_minimum_size = btn_size

@@ -27,7 +27,9 @@ const _CARD_BG: Array[Color] = [
 ]
 
 func _ready() -> void:
-	var vh: float = get_viewport().get_visible_rect().size.y
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var ref: float = minf(vh, vp.x)
 
 	# Background
 	var bg := ColorRect.new()
@@ -43,16 +45,16 @@ func _ready() -> void:
 
 	# Top padding
 	var top_pad := Control.new()
-	top_pad.custom_minimum_size = Vector2(0, int(vh * 0.04))
+	top_pad.custom_minimum_size = Vector2(0, int(ref * 0.04))
 	root.add_child(top_pad)
 
 	# Title
 	var title := Label.new()
 	title.text = "Choose Your World"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.custom_minimum_size = Vector2(0, int(vh * 0.12))
+	title.custom_minimum_size = Vector2(0, int(ref * 0.12))
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.062))
+	title.add_theme_font_size_override("font_size", int(ref * 0.062))
 	root.add_child(title)
 
 	# CenterContainer holds the card row and expands to fill remaining space
@@ -61,34 +63,34 @@ func _ready() -> void:
 	root.add_child(center)
 
 	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(vh * 0.022))
+	hbox.add_theme_constant_override("separation", int(ref * 0.022))
 	center.add_child(hbox)
 
-	var card_w: float = vh * 0.19
-	var card_h: float = vh * 0.62
+	var card_w: float = ref * 0.19
+	var card_h: float = ref * 0.62
 
 	for i in range(BiomeDef.COUNT):
-		hbox.add_child(_make_card(i, card_w, card_h, vh))
+		hbox.add_child(_make_card(i, card_w, card_h, ref))
 
 	# Bottom bar — back button left-aligned, fixed height
 	var bottom_bar := HBoxContainer.new()
-	bottom_bar.custom_minimum_size = Vector2(0, int(vh * 0.11))
+	bottom_bar.custom_minimum_size = Vector2(0, int(ref * 0.11))
 	bottom_bar.alignment = BoxContainer.ALIGNMENT_BEGIN
 	bottom_bar.add_theme_constant_override("separation", 0)
 	root.add_child(bottom_bar)
 
 	var left_pad := Control.new()
-	left_pad.custom_minimum_size = Vector2(int(vh * 0.03), 0)
+	left_pad.custom_minimum_size = Vector2(int(ref * 0.03), 0)
 	bottom_bar.add_child(left_pad)
 
 	var back_btn := Button.new()
 	back_btn.text = "Back"
-	back_btn.custom_minimum_size = Vector2(int(vh * 0.16), int(vh * 0.07))
-	back_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
+	back_btn.custom_minimum_size = Vector2(int(ref * 0.16), int(ref * 0.07))
+	back_btn.add_theme_font_size_override("font_size", int(ref * 0.028))
 	back_btn.pressed.connect(_on_back)
 	bottom_bar.add_child(back_btn)
 
-func _make_card(biome_id: int, card_w: float, card_h: float, vh: float) -> PanelContainer:
+func _make_card(biome_id: int, card_w: float, card_h: float, ref: float) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(card_w, card_h)
 
@@ -102,21 +104,21 @@ func _make_card(biome_id: int, card_w: float, card_h: float, vh: float) -> Panel
 	panel.add_theme_stylebox_override("panel", style)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.012))
+	vbox.add_theme_constant_override("separation", int(ref * 0.012))
 	panel.add_child(vbox)
 
 	# Color swatch strip at top
 	var swatch := ColorRect.new()
 	var gt: Color = BiomeDef.GRASS_TINT[biome_id]
 	swatch.color = Color(gt.r * 0.65, gt.g * 0.65, gt.b * 0.65)
-	swatch.custom_minimum_size = Vector2(0, int(vh * 0.12))
+	swatch.custom_minimum_size = Vector2(0, int(ref * 0.12))
 	vbox.add_child(swatch)
 
 	# Biome name
 	var name_lbl := Label.new()
 	name_lbl.text = _NAMES[biome_id]
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.add_theme_font_size_override("font_size", int(vh * 0.030))
+	name_lbl.add_theme_font_size_override("font_size", int(ref * 0.030))
 	name_lbl.add_theme_color_override("font_color", Color.WHITE)
 	vbox.add_child(name_lbl)
 
@@ -130,7 +132,7 @@ func _make_card(biome_id: int, card_w: float, card_h: float, vh: float) -> Panel
 	tag_lbl.text = _TAGLINES[biome_id]
 	tag_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	tag_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tag_lbl.add_theme_font_size_override("font_size", int(vh * 0.022))
+	tag_lbl.add_theme_font_size_override("font_size", int(ref * 0.022))
 	tag_lbl.add_theme_color_override("font_color", Color(0.82, 0.82, 0.82))
 	vbox.add_child(tag_lbl)
 
@@ -142,16 +144,16 @@ func _make_card(biome_id: int, card_w: float, card_h: float, vh: float) -> Panel
 	# "Venture Here" button
 	var btn := Button.new()
 	btn.text = "Venture Here"
-	btn.custom_minimum_size = Vector2(0, int(vh * 0.065))
+	btn.custom_minimum_size = Vector2(0, int(ref * 0.065))
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	btn.add_theme_font_size_override("font_size", int(ref * 0.024))
 	var captured_id := biome_id
 	btn.pressed.connect(func() -> void: _on_biome_chosen(captured_id))
 	vbox.add_child(btn)
 
 	# Bottom padding
 	var pad := Control.new()
-	pad.custom_minimum_size = Vector2(0, int(vh * 0.015))
+	pad.custom_minimum_size = Vector2(0, int(ref * 0.015))
 	vbox.add_child(pad)
 
 	return panel
