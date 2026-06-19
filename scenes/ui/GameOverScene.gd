@@ -9,9 +9,11 @@ func _ready() -> void:
 	_apply_ui_sizes()
 
 func _apply_ui_sizes() -> void:
-	var vh: float = get_viewport().get_visible_rect().size.y
-	_msg_label.add_theme_font_size_override("font_size", int(vh * 0.04))
-	_menu_btn.custom_minimum_size = Vector2(vh * 0.22, vh * 0.07)
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var ref: float = minf(vh, vp.x)
+	_msg_label.add_theme_font_size_override("font_size", int(ref * 0.04))
+	_menu_btn.custom_minimum_size = Vector2(ref * 0.22, ref * 0.07)
 
 func _on_menu() -> void:
 	_apply_respawn_if_available()

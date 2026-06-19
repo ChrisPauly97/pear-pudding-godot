@@ -42,13 +42,13 @@ func _build_ui() -> void:
 	# Title
 	_title_lbl = Label.new()
 	_title_lbl.text = _custom_title if _custom_title != "" else "Merchant's Wares"
-	_title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.032))
+	_title_lbl.add_theme_font_size_override("font_size", int(_ref * 0.032))
 	_title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root_vbox.add_child(_title_lbl)
 
 	# Coin display
 	_coin_label = Label.new()
-	_coin_label.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	_coin_label.add_theme_font_size_override("font_size", int(_ref * 0.024))
 	_coin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_coin_label.modulate = Color(1.0, 0.85, 0.1)
 	root_vbox.add_child(_coin_label)
@@ -57,19 +57,19 @@ func _build_ui() -> void:
 	_shop_scroll = ScrollContainer.new()
 	var scroll: ScrollContainer = _shop_scroll
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.custom_minimum_size = Vector2(0.0, _vh * 0.30)
+	scroll.custom_minimum_size = Vector2(0.0, _ref * 0.30)
 	root_vbox.add_child(scroll)
 
 	_shop_list = VBoxContainer.new()
 	_shop_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_shop_list.add_theme_constant_override("separation", int(_vh * 0.008))
+	_shop_list.add_theme_constant_override("separation", int(_ref * 0.008))
 	scroll.add_child(_shop_list)
 
 	# Close button
 	var close_btn := Button.new()
 	close_btn.text = "Leave Shop"
-	close_btn.custom_minimum_size = Vector2(_vw * 0.12, _vh * 0.065)
-	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	close_btn.custom_minimum_size = Vector2(_vw * 0.12, _ref * 0.065)
+	close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	close_btn.pressed.connect(_on_close)
 	var btn_wrapper := CenterContainer.new()
 	btn_wrapper.add_child(close_btn)
@@ -142,7 +142,7 @@ func _refresh() -> void:
 	if not any_weapon:
 		var none_lbl := Label.new()
 		none_lbl.text = "No weapons available."
-		none_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		none_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 		none_lbl.modulate = Color(0.6, 0.6, 0.6)
 		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_shop_list.add_child(none_lbl)
@@ -186,7 +186,7 @@ func _add_equipment_section(slot: String, owned: Array[String], coins: int, disc
 	if not any_item:
 		var none_lbl := Label.new()
 		none_lbl.text = "No %s available." % slot
-		none_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		none_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 		none_lbl.modulate = Color(0.6, 0.6, 0.6)
 		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_shop_list.add_child(none_lbl)
@@ -197,20 +197,20 @@ func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int
 
 	var info_lbl := Label.new()
 	info_lbl.text = "%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)]
-	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	info_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info_lbl)
 
 	var price_lbl := Label.new()
 	price_lbl.text = "%d coins" % price
-	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	price_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
 	row.add_child(price_lbl)
 
 	var buy_btn := Button.new()
 	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	buy_btn.disabled = coins < price
 	buy_btn.pressed.connect(_on_buy_equipment.bind(eid, weapon.slot, price))
 	row.add_child(buy_btn)
@@ -220,7 +220,7 @@ func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int
 func _make_section_header(text: String) -> Label:
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.modulate = Color(0.75, 0.85, 1.0)
 	return lbl
@@ -246,7 +246,7 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 	var swatch := ColorRect.new()
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	swatch.color = card_color
-	swatch.custom_minimum_size = Vector2(_vh * 0.03, _vh * 0.03)
+	swatch.custom_minimum_size = Vector2(_ref * 0.03, _ref * 0.03)
 	row.add_child(swatch)
 
 	# Card name + stats
@@ -256,7 +256,7 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 	var hp: int   = tmpl.get("health", 0)
 	var info_lbl := Label.new()
 	info_lbl.text = "%s   cost %d  %d/%d" % [name_str, cost, atk, hp]
-	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	info_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info_lbl)
 
@@ -267,22 +267,22 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 			owned_count += 1
 	var own_lbl := Label.new()
 	own_lbl.text = "own: %d" % owned_count
-	own_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	own_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
 	own_lbl.modulate = Color(0.65, 0.65, 0.65)
 	row.add_child(own_lbl)
 
 	# Price label
 	var price_lbl := Label.new()
 	price_lbl.text = "%d coins" % price
-	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	price_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
 	row.add_child(price_lbl)
 
 	# Buy button
 	var buy_btn := Button.new()
 	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	buy_btn.disabled = coins < price
 	buy_btn.pressed.connect(_on_buy_card.bind(id, price))
 	row.add_child(buy_btn)
@@ -300,22 +300,22 @@ func _make_weapon_row(wid: String, weapon: WeaponData, price: int, coins: int) -
 	# Name + effect
 	var info_lbl := Label.new()
 	info_lbl.text = "%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)]
-	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	info_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info_lbl)
 
 	# Price label
 	var price_lbl := Label.new()
 	price_lbl.text = "%d coins" % price
-	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	price_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
 	row.add_child(price_lbl)
 
 	# Buy button
 	var buy_btn := Button.new()
 	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	buy_btn.disabled = coins < price
 	buy_btn.pressed.connect(_on_buy_weapon.bind(wid, price))
 	row.add_child(buy_btn)
@@ -363,7 +363,7 @@ func _show_inspect(card_id: String) -> void:
 
 func _make_pack_row(pack_id: String, pack_def: Dictionary, coins: int) -> VBoxContainer:
 	var outer := VBoxContainer.new()
-	outer.add_theme_constant_override("separation", int(_vh * 0.004))
+	outer.add_theme_constant_override("separation", int(_ref * 0.004))
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(_vw * 0.008))
@@ -373,20 +373,20 @@ func _make_pack_row(pack_id: String, pack_def: Dictionary, coins: int) -> VBoxCo
 
 	var info_lbl := Label.new()
 	info_lbl.text = "%s  — 3 cards" % pack_name
-	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	info_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info_lbl)
 
 	var price_lbl := Label.new()
 	price_lbl.text = "%d coins" % price
-	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	price_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
 	row.add_child(price_lbl)
 
 	var buy_btn := Button.new()
 	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	buy_btn.disabled = coins < price
 	buy_btn.pressed.connect(_on_buy_pack.bind(pack_id, price))
 	row.add_child(buy_btn)
@@ -402,7 +402,7 @@ func _make_pack_row(pack_id: String, pack_def: Dictionary, coins: int) -> VBoxCo
 			pity_lbl.text = "Legendary guaranteed in %d more packs" % remaining
 		else:
 			pity_lbl.text = "Pity active — next pack guaranteed legendary!"
-		pity_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+		pity_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
 		pity_lbl.modulate = Color(0.7, 0.7, 0.7)
 		pity_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		outer.add_child(pity_lbl)
@@ -429,20 +429,20 @@ func _make_seed_row(seed_id: String, seed_data: Dictionary, coins: int) -> HBoxC
 
 	var info_lbl := Label.new()
 	info_lbl.text = "%s  —  own: %d" % [str(seed_data.get("display_name", seed_id)), owned_count]
-	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	info_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(info_lbl)
 
 	var price_lbl := Label.new()
 	price_lbl.text = "%d coins" % SEED_PRICE
-	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	price_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= SEED_PRICE else Color(0.9, 0.3, 0.3)
 	row.add_child(price_lbl)
 
 	var buy_btn := Button.new()
 	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	buy_btn.disabled = coins < SEED_PRICE
 	buy_btn.pressed.connect(_on_buy_seed.bind(seed_id))
 	row.add_child(buy_btn)

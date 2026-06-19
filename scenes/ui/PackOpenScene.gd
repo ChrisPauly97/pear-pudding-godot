@@ -9,6 +9,7 @@ var _rolled_cards: Array[Dictionary] = []
 
 var _vh: float = 0.0
 var _vw: float = 0.0
+var _ref: float = 0.0
 
 # Per-slot state.
 var _flipped: Array[bool] = []
@@ -27,6 +28,7 @@ func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
 	_vh = get_viewport().get_visible_rect().size.y
 	_vw = get_viewport().get_visible_rect().size.x
+	_ref = minf(_vh, _vw)
 
 	for _i in range(_rolled_cards.size()):
 		_flipped.append(false)
@@ -42,18 +44,18 @@ func _build_ui() -> void:
 	var root := VBoxContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.alignment = BoxContainer.ALIGNMENT_CENTER
-	root.add_theme_constant_override("separation", int(_vh * 0.025))
+	root.add_theme_constant_override("separation", int(_ref * 0.025))
 	add_child(root)
 
 	var title := Label.new()
 	title.text = "Pack Opening"
-	title.add_theme_font_size_override("font_size", int(_vh * 0.04))
+	title.add_theme_font_size_override("font_size", int(_ref * 0.04))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root.add_child(title)
 
 	var sub := Label.new()
 	sub.text = "Tap each card to reveal"
-	sub.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	sub.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	sub.modulate = Color(0.7, 0.7, 0.7)
 	root.add_child(sub)
@@ -63,7 +65,7 @@ func _build_ui() -> void:
 	cards_row.add_theme_constant_override("separation", int(_vw * 0.03))
 	root.add_child(cards_row)
 
-	var card_h: float = _vh * 0.30
+	var card_h: float = _ref * 0.30
 	var card_w: float = card_h * 0.65
 
 	for i: int in range(_rolled_cards.size()):
@@ -77,15 +79,15 @@ func _build_ui() -> void:
 
 	_reveal_all_btn = Button.new()
 	_reveal_all_btn.text = "Reveal All"
-	_reveal_all_btn.custom_minimum_size = Vector2(_vw * 0.18, _vh * 0.065)
-	_reveal_all_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_reveal_all_btn.custom_minimum_size = Vector2(_vw * 0.18, _ref * 0.065)
+	_reveal_all_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	_reveal_all_btn.pressed.connect(_on_reveal_all)
 	btn_row.add_child(_reveal_all_btn)
 
 	_done_btn = Button.new()
 	_done_btn.text = "Done"
-	_done_btn.custom_minimum_size = Vector2(_vw * 0.18, _vh * 0.065)
-	_done_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_done_btn.custom_minimum_size = Vector2(_vw * 0.18, _ref * 0.065)
+	_done_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	_done_btn.pressed.connect(_on_done)
 	_done_btn.visible = false
 	btn_row.add_child(_done_btn)
@@ -194,27 +196,27 @@ func _populate_face(idx: int) -> void:
 
 	var rarity_lbl := Label.new()
 	rarity_lbl.text = rarity.to_upper()
-	rarity_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	rarity_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
 	rarity_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rarity_lbl.modulate = rc
 	face.add_child(rarity_lbl)
 
 	var name_lbl := Label.new()
 	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	face.add_child(name_lbl)
 
 	var cost_lbl := Label.new()
 	cost_lbl.text = "Cost: %d" % cost
-	cost_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	cost_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
 	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	face.add_child(cost_lbl)
 
 	var stats_lbl := Label.new()
 	stats_lbl.text = "%d / %d" % [atk, hp]
-	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	stats_lbl.add_theme_font_size_override("font_size", int(_ref * 0.025))
 	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	face.add_child(stats_lbl)
 

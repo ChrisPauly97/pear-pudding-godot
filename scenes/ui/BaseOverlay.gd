@@ -5,12 +5,14 @@ signal closed
 
 var _vh: float = 0.0
 var _vw: float = 0.0
+var _ref: float = 0.0   # min(_vh, _vw) — prevents oversizing on portrait phones
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_STOP
 	_vh = get_viewport().get_visible_rect().size.y
 	_vw = get_viewport().get_visible_rect().size.x
+	_ref = minf(_vh, _vw)
 
 # Returns a full-screen dark backdrop. Optionally closes overlay on tap when
 # close_on_tap is true.
@@ -58,14 +60,14 @@ static func _make_dark_glass_style() -> StyleBoxFlat:
 # Adds a MarginContainer + VBoxContainer inside parent and returns the VBox.
 func _build_margin_vbox(parent: Control, margin_frac: float = 0.015, sep_frac: float = 0.012) -> VBoxContainer:
 	var margin := MarginContainer.new()
-	var m: int = int(_vh * margin_frac)
+	var m: int = int(_ref * margin_frac)
 	margin.add_theme_constant_override("margin_left",   m)
 	margin.add_theme_constant_override("margin_right",  m)
 	margin.add_theme_constant_override("margin_top",    m)
 	margin.add_theme_constant_override("margin_bottom", m)
 	parent.add_child(margin)
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * sep_frac))
+	vbox.add_theme_constant_override("separation", int(_ref * sep_frac))
 	margin.add_child(vbox)
 	return vbox
 

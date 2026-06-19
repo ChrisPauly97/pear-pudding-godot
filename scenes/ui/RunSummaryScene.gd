@@ -7,10 +7,12 @@ var spire_stats: Dictionary = {}
 
 var _vh: float = 0.0
 var _vw: float = 0.0
+var _ref: float = 0.0
 
 func _ready() -> void:
 	_vh = get_viewport().get_visible_rect().size.y
 	_vw = get_viewport().get_visible_rect().size.x
+	_ref = minf(_vh, _vw)
 	if not spire_stats.is_empty():
 		_build_spire_ui()
 	else:
@@ -34,19 +36,19 @@ func _build_ui() -> void:
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left",   int(_vw * 0.025))
 	margin.add_theme_constant_override("margin_right",  int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.025))
+	margin.add_theme_constant_override("margin_top",    int(_ref * 0.025))
+	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
 	outer.add_child(margin)
 
 	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_vh * 0.018))
+	root_vbox.add_theme_constant_override("separation", int(_ref * 0.018))
 	margin.add_child(root_vbox)
 
 	# Title
 	var title := Label.new()
 	title.text = "Session Summary"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(_vh * 0.045))
+	title.add_theme_font_size_override("font_size", int(_ref * 0.045))
 	title.modulate = Color(1.0, 0.88, 0.4)
 	root_vbox.add_child(title)
 
@@ -74,19 +76,19 @@ func _build_ui() -> void:
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", int(_vw * 0.04))
-	grid.add_theme_constant_override("v_separation", int(_vh * 0.012))
+	grid.add_theme_constant_override("v_separation", int(_ref * 0.012))
 	root_vbox.add_child(grid)
 
 	for row: Array in stat_rows:
 		var key_lbl := Label.new()
 		key_lbl.text = str(row[0])
-		key_lbl.add_theme_font_size_override("font_size", int(_vh * 0.024))
+		key_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
 		key_lbl.modulate = Color(0.75, 0.75, 0.75)
 		grid.add_child(key_lbl)
 
 		var val_lbl := Label.new()
 		val_lbl.text = str(row[1])
-		val_lbl.add_theme_font_size_override("font_size", int(_vh * 0.024))
+		val_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
 		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		grid.add_child(val_lbl)
 
@@ -105,8 +107,8 @@ func _build_ui() -> void:
 
 	var menu_btn := Button.new()
 	menu_btn.text = "Return to Menu"
-	menu_btn.custom_minimum_size = Vector2(_vh * 0.32, _vh * 0.07)
-	menu_btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	menu_btn.custom_minimum_size = Vector2(_ref * 0.32, _ref * 0.07)
+	menu_btn.add_theme_font_size_override("font_size", int(_ref * 0.028))
 	menu_btn.pressed.connect(_on_menu)
 	btn_wrap.add_child(menu_btn)
 
@@ -131,12 +133,12 @@ func _build_spire_ui() -> void:
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left",   int(_vw * 0.025))
 	margin.add_theme_constant_override("margin_right",  int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.025))
+	margin.add_theme_constant_override("margin_top",    int(_ref * 0.025))
+	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
 	outer.add_child(margin)
 
 	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_vh * 0.016))
+	root_vbox.add_theme_constant_override("separation", int(_ref * 0.016))
 	margin.add_child(root_vbox)
 
 	var floors_cleared: int = int(spire_stats.get("floors_cleared", 0))
@@ -145,14 +147,14 @@ func _build_spire_ui() -> void:
 	var title := Label.new()
 	title.text = "Endless Spire"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(_vh * 0.048))
+	title.add_theme_font_size_override("font_size", int(_ref * 0.048))
 	title.modulate = Color(0.75, 0.5, 1.0)
 	root_vbox.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "Floor %d" % floors_cleared if floors_cleared > 0 else "Fallen before the first floor"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	subtitle.add_theme_font_size_override("font_size", int(_ref * 0.028))
 	subtitle.modulate = Color(0.85, 0.85, 0.85)
 	root_vbox.add_child(subtitle)
 
@@ -161,7 +163,7 @@ func _build_spire_ui() -> void:
 		var record_lbl := Label.new()
 		record_lbl.text = "New Record!"
 		record_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		record_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+		record_lbl.add_theme_font_size_override("font_size", int(_ref * 0.026))
 		record_lbl.modulate = Color(1.0, 0.85, 0.2)
 		root_vbox.add_child(record_lbl)
 
@@ -180,19 +182,19 @@ func _build_spire_ui() -> void:
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", int(_vw * 0.04))
-	grid.add_theme_constant_override("v_separation", int(_vh * 0.012))
+	grid.add_theme_constant_override("v_separation", int(_ref * 0.012))
 	root_vbox.add_child(grid)
 
 	for row: Array in stat_rows:
 		var key_lbl := Label.new()
 		key_lbl.text = str(row[0])
-		key_lbl.add_theme_font_size_override("font_size", int(_vh * 0.024))
+		key_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
 		key_lbl.modulate = Color(0.75, 0.75, 0.75)
 		grid.add_child(key_lbl)
 
 		var val_lbl := Label.new()
 		val_lbl.text = str(row[1])
-		val_lbl.add_theme_font_size_override("font_size", int(_vh * 0.024))
+		val_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
 		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		grid.add_child(val_lbl)
 
@@ -202,12 +204,12 @@ func _build_spire_ui() -> void:
 		root_vbox.add_child(HSeparator.new())
 		var deck_header := Label.new()
 		deck_header.text = "Cards Drafted"
-		deck_header.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		deck_header.add_theme_font_size_override("font_size", int(_ref * 0.022))
 		deck_header.modulate = Color(0.75, 0.75, 0.75)
 		root_vbox.add_child(deck_header)
 
 		var names_vbox := VBoxContainer.new()
-		names_vbox.add_theme_constant_override("separation", int(_vh * 0.006))
+		names_vbox.add_theme_constant_override("separation", int(_ref * 0.006))
 		root_vbox.add_child(names_vbox)
 
 		var show_count: int = mini(draft_ids.size(), 8)
@@ -217,12 +219,12 @@ func _build_spire_ui() -> void:
 			var card_name: String = str(tmpl.get("name", cid)) if not tmpl.is_empty() else cid
 			var card_lbl := Label.new()
 			card_lbl.text = "  • %s" % card_name
-			card_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
+			card_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
 			names_vbox.add_child(card_lbl)
 		if draft_ids.size() > 8:
 			var more_lbl := Label.new()
 			more_lbl.text = "  + %d more" % (draft_ids.size() - 8)
-			more_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
+			more_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
 			more_lbl.modulate = Color(0.65, 0.65, 0.65)
 			names_vbox.add_child(more_lbl)
 
@@ -237,7 +239,7 @@ func _build_spire_ui() -> void:
 
 	var menu_btn := Button.new()
 	menu_btn.text = "Return to Menu"
-	menu_btn.custom_minimum_size = Vector2(_vh * 0.32, _vh * 0.07)
-	menu_btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	menu_btn.custom_minimum_size = Vector2(_ref * 0.32, _ref * 0.07)
+	menu_btn.add_theme_font_size_override("font_size", int(_ref * 0.028))
 	menu_btn.pressed.connect(_on_menu)
 	btn_wrap.add_child(menu_btn)
