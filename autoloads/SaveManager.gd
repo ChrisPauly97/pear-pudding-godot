@@ -281,7 +281,7 @@ func new_game() -> void:
 	for tid: String in extra_ids:
 		add_card_instance(tid, "common")
 	essence = 0
-	coins = 0
+	coins = 3000
 	current_map = "main"
 	player_x = 0.0
 	player_z = 0.0
@@ -310,9 +310,9 @@ func new_game() -> void:
 	unlocked_achievements = []
 	visited_biomes = []
 	visited_dungeon_rooms = []
-	xp = 0
-	level = 1
-	skill_points = 0
+	xp = 11250
+	level = 15
+	skill_points = 14
 	unlocked_skills = []
 	magic_type = ""
 	corruption_points = 0
