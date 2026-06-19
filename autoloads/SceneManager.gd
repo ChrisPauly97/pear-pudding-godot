@@ -305,6 +305,17 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	var engaged_enemy_type: String = str(enemy_data.get("enemy_type", ""))
 	if engaged_enemy_type != "":
 		save_manager.record_enemy_seen(engaged_enemy_type)
+	# Stamp battlefield context (GID-059): biome + time-of-day at engagement.
+	# Skip if already present (resumed battle already has context in pending_battle_enemy_data).
+	if not enemy_data.has("battlefield_biome"):
+		var scene := get_tree().current_scene
+		if scene != null and scene.has_method("get_battlefield_context"):
+			var ctx: Dictionary = scene.get_battlefield_context()
+			enemy_data["battlefield_biome"] = ctx.get("biome", -1)
+			enemy_data["battlefield_is_night"] = ctx.get("is_night", false)
+		else:
+			enemy_data["battlefield_biome"] = -1
+			enemy_data["battlefield_is_night"] = false
 	GameBus.tutorial_popup_requested.emit("mana")
 	save_manager.set_pending_battle(enemy_data)
 	save_manager.save()

@@ -2,7 +2,7 @@
 
 **Goal:** GID-059
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-213
 
 ## Lock
@@ -49,12 +49,19 @@ With the rules (TID-212) and UI (TID-213) in place, this task locks the system d
 
 ## Plan
 
-_Written during Plan phase._
+Implemented as part of TID-212/213 build.
+
+**Balance decisions:**
+- Desert: 1-HP minions in leftmost slot die — acceptable positioning tax. AI always plays to first_empty_slot so it will feed minions; noted as known limitation but not changed since this is the intended tension.
+- Scorched: spell damage scoped to deal_damage_*, lifesteal, curse_minion HP only. Excludes poison/scorch ticks to keep status effects predictable.
+- Grasslands + branch discount: stack, floor 0. Two discounts on the same card possible (e.g. dusk card at night in Grasslands costs 2 less, min 0).
+- Mountains Ward in slot 2: if card already has Ward, `apply_slot_rule` checks for duplicates — no crash, no double-ward.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **NEW** `tests/unit/test_battlefield_rules.gd` — 55 tests covering all 9 categories: rules table integrity (10 tests), Grasslands (7), Forest (4), Desert (4), Scorched (5), Mountains (3), time-of-day (11), persistence (6), neutral path (5).
+- **MOD** `tests/runner.gd` — registered new suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Covered in TID-212 docs update.

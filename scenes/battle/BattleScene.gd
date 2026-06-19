@@ -20,6 +20,7 @@ const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const WeatherBanner = preload("res://scenes/battle/WeatherBanner.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
+const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
@@ -42,6 +43,12 @@ var _potion_btn: Button = null
 var _used_potion_this_battle: bool = false
 var _boss_banner: Control = null
 const _BOSS_BANNER_DURATION: float = 2.5
+
+# Battlefield Resonance UI (GID-059)
+var _battlefield_banner: Control = null
+const _BATTLEFIELD_BANNER_DURATION: float = 3.0
+var _battlefield_info_label: Label = null  # persistent day/night + biome label in SidePanel
+var _slot_highlight_panels: Array[Control] = []  # overlay panels on affected slots
 
 var _float_layer: CanvasLayer = null
 var _is_shaking: bool = false
@@ -200,6 +207,11 @@ func _ready() -> void:
 		_battle_weather = WeatherManager.current_weather if SceneManager.save_manager.current_map == "main" else ""
 		_apply_weather_battle_init()
 
+		# Battlefield Resonance context (GID-059): stamp biome + is_night into GameState.
+		var _bf_biome: int = int(enemy_data.get("battlefield_biome", -1))
+		var _bf_night: bool = bool(enemy_data.get("battlefield_is_night", false))
+		_state.set_battlefield_context(_bf_biome, _bf_night)
+
 		# Companion passive: battle-start effects (extra_mana, hero_armor) and
 		# first turn-start draw (draw_card). Excluded in puzzle and duel modes.
 		_apply_companion_battle_start(_state.players[0])
@@ -244,6 +256,12 @@ func _ready() -> void:
 		var banner: WeatherBanner = WeatherBanner.new()
 		add_child(banner)
 		banner.setup(_battle_weather)
+
+	# Battlefield Resonance UI (GID-059)
+	if not _state.puzzle_mode:
+		_add_battlefield_info_label()
+		_add_slot_highlights()
+		_show_battlefield_banner.call_deferred()
 
 	AudioManager.play_music("res://assets/audio/music/battle.ogg")
 
@@ -1163,10 +1181,15 @@ func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: Strin
 		name_lbl.text = card.name
 		var stats_lbl: Label = vbox.get_node_or_null("StatsLabel") as Label
 		if stats_lbl:
+			var _eff_cost: int = _state.players[0].effective_cost(card) if zone_id == "hand" else card.cost
 			if card.card_class == "spell":
-				stats_lbl.text = "(%d)" % card.cost
+				stats_lbl.text = "(%d)" % _eff_cost
 			else:
-				stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
+				stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, _eff_cost]
+			if zone_id == "hand" and _eff_cost < card.cost:
+				stats_lbl.add_theme_color_override("font_color", Color(0.3, 1.0, 0.5))
+			else:
+				stats_lbl.remove_theme_color_override("font_color")
 		var desc_lbl: Label = vbox.get_node_or_null("DescLabel") as Label
 		if desc_lbl:
 			var ability_text: String = _get_card_ability_text(card)
@@ -1220,6 +1243,7 @@ func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBox
 		stats_lbl.text = "%d/%d  (%d)" % [card.attack, card.health, card.cost]
 	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
 	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Cost tinting is applied later by _update_card_view on refresh
 	var desc_lbl := Label.new()
 	desc_lbl.name = "DescLabel"
 	var ability_text: String = _get_card_ability_text(card)
@@ -1263,6 +1287,12 @@ func _apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: Strin
 	style.bg_color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
 	if zone_id == "hand" and not _state.players[0].can_play(card):
 		style.bg_color = style.bg_color.darkened(0.5)
+	elif zone_id == "hand" and _state.players[0].effective_cost(card) < card.cost:
+		style.border_color = Color(0.3, 1.0, 0.5, 0.8)
+		style.border_width_top = 2
+		style.border_width_bottom = 2
+		style.border_width_left = 2
+		style.border_width_right = 2
 	elif zone_id == "enemy_board" and _targeting_active and not _targeting_friendly:
 		style.border_color = Color.CYAN
 		style.border_width_top = 4
@@ -1515,8 +1545,8 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		var target_panel_ec := _get_card_panel(target, true)
 		var attacker_panel_ec := _get_card_panel(attacker, false)
 		var snap_ec := _snapshot_hp_positions()
-		target.take_damage(attacker.attack)
-		attacker.take_damage(target.attack)
+		target.take_damage(BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome))
+		attacker.take_damage(BattlefieldRules.modify_damage(target.attack, _state.battlefield_biome))
 		attacker.attack_count -= 1
 		_flash_node(target_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
 		_flash_node(attacker_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
@@ -1553,8 +1583,8 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 		AudioManager.play_sfx("attack")
 		var attacker_panel_eh := _get_card_panel(attacker, false)
 		var snap_eh := _snapshot_hp_positions()
-		_state.players[1].hero.take_damage(attacker.attack)
-		attacker.take_damage(_state.players[1].hero.attack)
+		_state.players[1].hero.take_damage(BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome))
+		attacker.take_damage(BattlefieldRules.modify_damage(_state.players[1].hero.attack, _state.battlefield_biome))
 		attacker.attack_count -= 1
 		_flash_node(_enemy_hero_view, Color(1.0, 0.3, 0.3, 1.0))
 		_flash_node(attacker_panel_eh, Color(1.0, 0.3, 0.3, 1.0))
@@ -1585,6 +1615,9 @@ func _on_end_turn() -> void:
 func _on_turn_ended(player_idx: int) -> void:
 	var snap_sot := _snapshot_hp_positions()
 	_process_start_of_turn_statuses(player_idx)
+	# Desert biome rule: leftmost minion on each board takes 1 damage at turn start (daytime only).
+	if _state.battlefield_biome == BattlefieldRules.BIOME_DESERT and not _state.is_night:
+		_apply_desert_scorch()
 	_snow_discount_used[player_idx] = false
 	if _battle_weather == "blizzard" and _state.turn_number <= 2:
 		for card: CardInstance in _state.players[player_idx].board.get_cards():
@@ -1688,7 +1721,7 @@ func _resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 	var caster: PlayerState = _state.players[caster_pid]
 	match card.emergence_effect:
 		"emergence_deal_damage":
-			opponent.hero.take_damage(card.emergence_power)
+			opponent.hero.take_damage(BattlefieldRules.modify_damage(card.emergence_power, _state.battlefield_biome))
 		"emergence_heal_hero":
 			caster.hero.health = mini(caster.hero.max_health, caster.hero.health + card.emergence_power)
 		"emergence_draw":
@@ -1711,28 +1744,29 @@ func _resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target: Dictionary = {}) -> void:
 	AudioManager.play_sfx("spell_resolve")
 	var opponent: PlayerState = _state.players[1 - caster_pid]
+	var _spell_dmg: int = BattlefieldRules.modify_damage(card.spell_power, _state.battlefield_biome)
 	match card.spell_effect:
 		"deal_damage_single":
 			var target_card: CardInstance = explicit_target.get("card", null) as CardInstance
 			if target_card != null:
-				target_card.take_damage(card.spell_power)
+				target_card.take_damage(_spell_dmg)
 				if not target_card.is_alive():
 					opponent.board.remove_card(target_card)
 					opponent.discard.append(target_card)
 			elif explicit_target.get("type", "") == "hero":
-				opponent.hero.take_damage(card.spell_power)
+				opponent.hero.take_damage(_spell_dmg)
 			else:
 				var targets := opponent.board.get_cards()
 				if targets.is_empty():
-					opponent.hero.take_damage(card.spell_power)
+					opponent.hero.take_damage(_spell_dmg)
 				else:
-					targets[0].take_damage(card.spell_power)
+					targets[0].take_damage(_spell_dmg)
 					if not targets[0].is_alive():
 						opponent.board.remove_card(targets[0])
 						opponent.discard.append(targets[0])
 		"deal_damage_all":
 			for t in opponent.board.get_cards():
-				t.take_damage(card.spell_power)
+				t.take_damage(_spell_dmg)
 			for t in opponent.board.get_cards().duplicate():
 				if not t.is_alive():
 					opponent.board.remove_card(t)
@@ -1740,10 +1774,10 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target:
 		"deal_damage_random":
 			var targets := opponent.board.get_cards()
 			if targets.is_empty():
-				opponent.hero.take_damage(card.spell_power)
+				opponent.hero.take_damage(_spell_dmg)
 			else:
 				var idx: int = randi() % targets.size()
-				targets[idx].take_damage(card.spell_power)
+				targets[idx].take_damage(_spell_dmg)
 				if not targets[idx].is_alive():
 					opponent.board.remove_card(targets[idx])
 					opponent.discard.append(targets[idx])
@@ -1804,8 +1838,8 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target:
 				if not targets.is_empty():
 					t = targets[0]
 			if t != null:
-				t.take_damage(card.spell_power)
-				caster.hero.health = mini(caster.hero.max_health, caster.hero.health + card.spell_power)
+				t.take_damage(_spell_dmg)
+				caster.hero.health = mini(caster.hero.max_health, caster.hero.health + _spell_dmg)
 				if not t.is_alive():
 					opponent.board.remove_card(t)
 					opponent.discard.append(t)
@@ -1819,7 +1853,7 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target:
 					t = targets[0]
 			if t != null:
 				t.attack = maxi(0, t.attack - card.spell_power)
-				t.health -= card.spell_power
+				t.health -= _spell_dmg
 				if not t.is_alive():
 					opponent.board.remove_card(t)
 					opponent.discard.append(t)
@@ -2569,3 +2603,106 @@ func _check_shake_from_snapshot(snap: Array[Dictionary]) -> void:
 		_trigger_shake(10.0, 0.35)
 	elif max_dmg >= 5:
 		_trigger_shake(5.0, 0.2)
+
+# -------------------------------------------------------------------------
+# Battlefield Resonance (GID-059)
+# -------------------------------------------------------------------------
+
+## Desert biome rule: damage the leftmost minion on each board at turn start.
+## Does NOT use the Scorched modifier — this is a separate status tick.
+func _apply_desert_scorch() -> void:
+	for pid in range(2):
+		for si in range(5):
+			var c: CardInstance = _state.players[pid].board.slots[si]
+			if c != null:
+				c.take_damage(1)
+				if not c.is_alive():
+					_state.players[pid].board.remove_card(c)
+					_state.players[pid].discard.append(c)
+				break
+
+## Adds a persistent compact label in SidePanel showing biome name and day/night indicator.
+func _add_battlefield_info_label() -> void:
+	var biome: int = _state.battlefield_biome
+	if biome == -1:
+		return
+	var night: bool = _state.is_night
+	var sun_moon: String = "☽" if night else "☀"
+	var info_lbl := Label.new()
+	info_lbl.text = "%s %s" % [BattlefieldRules.get_biome_name(biome), sun_moon]
+	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	info_lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.6))
+	info_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	$SidePanel.add_child(info_lbl)
+	_battlefield_info_label = info_lbl
+
+## Adds coloured overlay panels on affected board slots (Forest 0/4, Mountains 2).
+func _add_slot_highlights() -> void:
+	var highlights: Array[int] = BattlefieldRules.get_slot_highlights(_state.battlefield_biome)
+	if highlights.is_empty():
+		return
+	var tint: Color = Color(0.4, 0.9, 1.0, 0.18)  # distinct from cyan spell-target and yellow attack
+	for board_view in [_player_board_view, _enemy_board_view]:
+		for si in highlights:
+			var overlay := ColorRect.new()
+			overlay.color = tint
+			overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var slot_lbl := Label.new()
+			slot_lbl.text = "★"
+			slot_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+			slot_lbl.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0, 0.7))
+			slot_lbl.set_meta("bf_slot_idx", si)
+			board_view.add_child(overlay)
+			board_view.add_child(slot_lbl)
+			_slot_highlight_panels.append(overlay)
+			_slot_highlight_panels.append(slot_lbl)
+
+## Shows a transient banner at battle start with the biome rule text.
+## Deferred so the scene is fully set up before showing.
+func _show_battlefield_banner() -> void:
+	var biome: int = _state.battlefield_biome
+	if biome == -1:
+		return
+	var night: bool = _state.is_night
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.08, 0.16, 0.88)
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	style.border_color = Color(0.4, 0.9, 1.0, 0.6)
+	style.border_width_top = 2
+	style.border_width_bottom = 2
+	style.border_width_left = 2
+	style.border_width_right = 2
+	panel.add_theme_stylebox_override("panel", style)
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	var title_lbl := Label.new()
+	var time_str: String = "Night" if night else "Day"
+	title_lbl.text = "%s — %s" % [BattlefieldRules.get_biome_name(biome), time_str]
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	title_lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.6))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var rule_lbl := Label.new()
+	rule_lbl.text = BattlefieldRules.get_rule_text(biome)
+	rule_lbl.add_theme_font_size_override("font_size", int(_vh * 0.021))
+	rule_lbl.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0))
+	rule_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rule_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(title_lbl)
+	vbox.add_child(rule_lbl)
+	panel.add_child(vbox)
+	panel.custom_minimum_size = Vector2(vp.x * 0.55, _vh * 0.12)
+	panel.position = Vector2((vp.x - panel.custom_minimum_size.x) * 0.5, _vh * 0.3)
+	if _float_layer != null:
+		_float_layer.add_child(panel)
+	else:
+		add_child(panel)
+	_battlefield_banner = panel
+	var tw: Tween = panel.create_tween()
+	tw.tween_interval(_BATTLEFIELD_BANNER_DURATION)
+	tw.tween_callback(panel.queue_free)
+	tw.tween_callback(func() -> void: _battlefield_banner = null)

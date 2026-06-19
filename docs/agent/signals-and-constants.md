@@ -54,7 +54,7 @@ This means `EnemyNPC` never imports `SceneManager`, and `BattleScene` never impo
 
 | Signal | Emitted by | Listened to by | Payload |
 |---|---|---|---|
-| `enemy_engaged` | `EnemyNPC` | `SceneManager` | `{ type, enemy_node }` |
+| `enemy_engaged` | `EnemyNPC` | `SceneManager` | `{ id, enemy_type, enemy_deck, is_boss, boss_hp, phase2_deck, battlefield_biome, battlefield_is_night }` (biome/night stamped by SceneManager._on_enemy_engaged from WorldScene.get_battlefield_context — GID-059) |
 | `battle_won` | `GameState` / `BattleScene` | `SceneManager`, `EnemyNPC` | `{ winner_idx }` |
 | `battle_lost` | `GameState` / `BattleScene` | `SceneManager` | _(none)_ |
 | `map_transition_requested` | `Door` entity | `SceneManager` | `map_name, target_door_id` |

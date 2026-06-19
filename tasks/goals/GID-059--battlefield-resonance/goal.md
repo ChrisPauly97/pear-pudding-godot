@@ -26,9 +26,9 @@ Rules are data-driven — a const rules table (or `BattlefieldRules` resource) i
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-212 | Battlefield rules data model + capture biome/time at enemy_engaged | agent | pending | — |
-| TID-213 | BattleScene UI: battlefield banner, rule text, affected-slot highlights | agent | pending | TID-212 |
-| TID-214 | Balance pass + headless tests for all biome/time rules | agent | pending | TID-213 |
+| TID-212 | Battlefield rules data model + capture biome/time at enemy_engaged | agent | done | — |
+| TID-213 | BattleScene UI: battlefield banner, rule text, affected-slot highlights | agent | done | TID-212 |
+| TID-214 | Balance pass + headless tests for all biome/time rules | agent | done | TID-213 |
 
 ## Acceptance Criteria
 

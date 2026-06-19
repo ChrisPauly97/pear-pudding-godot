@@ -2,7 +2,7 @@
 
 **Goal:** GID-059
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-212
 
 ## Lock
@@ -49,12 +49,17 @@ TID-212 makes biome and time-of-day mechanically affect battles, but invisible r
 
 ## Plan
 
-_Written during Plan phase._
+Implemented as part of TID-212 build (all three tasks implemented together).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `BattleScene._ready()`: after weather banner, calls `_add_battlefield_info_label()`, `_add_slot_highlights()`, `_show_battlefield_banner.call_deferred()` (skipped in puzzle_mode).
+- `_show_battlefield_banner()`: deferred transient panel (3 s) on float_layer showing biome name + Day/Night + rule text from BattlefieldRules.get_rule_text().
+- `_add_battlefield_info_label()`: compact persistent Label in SidePanel showing `"BiomeName ☀/☽"`.
+- `_add_slot_highlights()`: translucent teal ColorRect overlays on affected slots on both boards (Forest 0 & 4, Mountains 2) from BattlefieldRules.get_slot_highlights().
+- Hand card cost display: `_update_card_view()` shows `effective_cost(card)` for zone "hand" with green font color when discounted; `_apply_card_style()` adds a green border to discounted hand cards.
+- Dungeon (biome −1): banner and info label are skipped entirely.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Covered in TID-212 docs update.

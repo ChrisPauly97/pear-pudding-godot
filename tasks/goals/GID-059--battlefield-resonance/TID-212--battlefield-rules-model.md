@@ -2,7 +2,7 @@
 
 **Goal:** GID-059
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -61,12 +61,32 @@ Named maps / dungeons (no biome) use a neutral "dungeon" ruleset or no rule — 
 
 ## Plan
 
-_Written during Plan phase._
+**Design decisions:**
+- Named maps / dungeons (biome -1): neutral "Dungeon" rule — no effect, banner skipped entirely.
+- Scorched +1 scope: combat damage (minion-to-minion and hero hits) and spell damage only. Status ticks (poison, Desert scorch, fatigue, freeze) excluded.
+- Grasslands + branch discount stacking: branch discount applied first to card.cost, then Grasslands -1. Both clamp to floor 0.
+- Stamping point: `SceneManager._on_enemy_engaged()` stamps `battlefield_biome` and `battlefield_is_night` into enemy_data before saving (covers EnemyNPC, mimics, and sieges). Checks `enemy_data.has("battlefield_biome")` to skip re-stamping on resumed battles.
+
+**Files:**
+1. NEW `game_logic/battle/BattlefieldRules.gd` — const RULES table + static helpers: modify_damage, effective_cost, apply_slot_rule, compute_is_night.
+2. MOD `game_logic/battle/GameState.gd` — add battlefield_biome/is_night fields, set_battlefield_context(), serialize/deserialize.
+3. MOD `game_logic/battle/PlayerState.gd` — add battlefield_biome/is_night/grasslands_card_played, effective_cost(), update can_play/play_card/start_turn.
+4. MOD `ai/BasicAI.gd` — wrap combat damage calls with BattlefieldRules.modify_damage.
+5. MOD `scenes/world/WorldScene.gd` — add get_battlefield_context().
+6. MOD `autoloads/SceneManager.gd` — stamp context in _on_enemy_engaged.
+7. MOD `scenes/battle/BattleScene.gd` — context init, Desert scorch, Scorched damage modifier in combat/spells, slot keyword grants in hand-play path, battlefield banner, slot highlights, effective cost display, day/night label.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **NEW** `game_logic/battle/BattlefieldRules.gd` — const RULES table (biome −1..4) + static helpers: `modify_damage`, `effective_cost`, `apply_slot_rule`, `compute_is_night`, `get_biome_name`, `get_rule_key`, `get_rule_text`, `get_slot_highlights`.
+- **MOD** `game_logic/battle/GameState.gd` — added `battlefield_biome: int = -1`, `is_night: bool = false`, `set_battlefield_context(biome, night)` (propagates to both PlayerStates); serialized in `to_dict`/`from_dict`.
+- **MOD** `game_logic/battle/PlayerState.gd` — added `battlefield_biome`, `is_night`, `grasslands_card_played` fields; added `effective_cost(card)` using BattlefieldRules; updated `can_play()` and `play_card()` to use effective_cost and call `apply_slot_rule` after board placement; `start_turn()` resets `grasslands_card_played = false`; all fields serialized.
+- **MOD** `ai/BasicAI.gd` — preloaded BattlefieldRules; all combat damage calls wrapped with `BattlefieldRules.modify_damage(dmg, state.battlefield_biome)`.
+- **MOD** `scenes/world/WorldScene.gd` — added `get_battlefield_context()` returning `{biome, is_night}`.
+- **MOD** `autoloads/SceneManager.gd` — `_on_enemy_engaged()` stamps `battlefield_biome` and `battlefield_is_night` into `enemy_data` via `WorldScene.get_battlefield_context()` before saving (skips re-stamping on resumed battles).
+- **MOD** `scenes/battle/BattleScene.gd` — preloaded BattlefieldRules; stamped context into GameState from `enemy_data` in new-battle path; `_on_turn_ended()` calls `_apply_desert_scorch()` for BIOME_DESERT + daytime; all minion/hero combat damage uses `BattlefieldRules.modify_damage`; spell damage uses a pre-computed `_spell_dmg` variable; emergence damage uses `modify_damage`; hand card cost display uses `effective_cost` with green tinting when discounted; added `_apply_desert_scorch()`, `_show_battlefield_banner()`, `_add_battlefield_info_label()`, `_add_slot_highlights()`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md` — added Battlefield Resonance section covering context capture, rules table, cost calculation, Scorched scope, slot keywords, UI, and test coverage.
+- `docs/agent/signals-and-constants.md` — updated `enemy_engaged` payload to document new `battlefield_biome` and `battlefield_is_night` fields.

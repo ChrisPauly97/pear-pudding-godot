@@ -525,6 +525,14 @@ func _exit_tree() -> void:
 func flush_time_of_day() -> void:
 	SceneManager.save_manager.time_of_day = _time_of_day
 
+## Returns the biome and time context at the moment of engagement (GID-059).
+## Called by SceneManager._on_enemy_engaged() to stamp context into enemy_data.
+func get_battlefield_context() -> Dictionary:
+	return {
+		"biome": _current_biome if _is_infinite else -1,
+		"is_night": _is_night(_time_of_day),
+	}
+
 func _update_hud() -> void:
 	if _is_infinite:
 		_map_label.text = "World: Infinite"
