@@ -85,6 +85,8 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
   - `mana_drain` — reduce enemy hero current mana by spell_power (floor 0)
   - `curse_minion` — reduce first enemy minion attack and health by spell_power (destroy if health ≤ 0)
   - `draw_card` — caster draws spell_power additional cards from their deck
+  - `bless_slot` — apply `atk_bonus` enhancement (value = spell_power) to a target empty board slot; next minion placed there gains +spell_power ATK. Requires slot targeting UI (player picks slot).
+  - `ward_slot` — apply `shroud` enhancement to a target empty board slot; next minion placed there gains the Shroud keyword. Requires slot targeting UI.
 - `spell_power: int` — numeric parameter for the effect (damage amount, stat reduction, etc.); `0` for minions
 
 Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the spell fields at their defaults (`""` / `0`) and are unaffected.
@@ -150,6 +152,46 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
    a. If enemy has minions → attack the weakest (lowest HP) minion
    b. Otherwise → attack enemy hero directly
 ```
+
+### Slot Enhancement System (GID-079)
+
+`ZoneState` carries a `slot_enhancements: Array[Dictionary]` of length `SLOT_COUNT`. Each entry is either `{}` (no enhancement) or `{"type": String, "value": int}`.
+
+**Enhancement types:**
+
+| type | Effect |
+|---|---|
+| `"atk_bonus"` | Minion placed in this slot gains +value ATK immediately on play (consumed on placement) |
+| `"shroud"` | Minion placed in this slot gets the Shroud keyword (consumed on placement) |
+
+**ZoneState API additions:**
+- `add_card_at_slot(card, idx) -> bool` — place card at specific slot index (false if occupied or out-of-range)
+- `enhance_slot(idx, type, value)` — write enhancement to slot
+- `consume_slot_enhancement(idx) -> Dictionary` — read and clear enhancement at slot
+- `get_slot_enhancement(idx) -> Dictionary` — read without clearing
+- `enhancements_to_dict() -> Array` — serialise all 5 enhancements
+- `enhancements_from_dict(arr)` — deserialise (backward-compatible: missing key → empty enhancements)
+
+**PlayerState API additions:**
+- `play_card_at_slot(card, slot_idx) -> bool` — explicit slot placement; consumes slot enhancement on success
+- `_apply_enhancement_to_card(card, enh)` — internal; applies atk_bonus or shroud to card
+
+**Serialisation:** `PlayerState.to_dict()` includes `"board_enhancements": board.enhancements_to_dict()` as a parallel key alongside `"board"`. Old saves that lack this key receive empty enhancements on load.
+
+**Slot-targeting UI mode (BattleScene):**
+- `_SLOT_TARGETED_EFFECTS: Array[String] = ["bless_slot", "ward_slot"]`
+- Dragging a `bless_slot` / `ward_slot` spell to the board enters `_enter_slot_targeting_mode()`: highlights empty player slots with cyan border; player taps a slot to call `_resolve_slot_spell()`.
+- `_exit_slot_targeting_mode()` clears state and calls `_refresh_all()`.
+- AI auto-resolve path in `_resolve_spell_effect()` applies enhancement to the first empty slot automatically.
+
+**New spell cards:**
+
+| ID | Name | Cost | Branch | Effect |
+|---|---|---|---|---|
+| `arcane_seal` | Arcane Seal | 2 | Dawn | `bless_slot` — next minion placed in target slot gains +2 ATK |
+| `shadow_ward` | Shadow Ward | 1 | Dusk | `ward_slot` — next minion placed in target slot gains Shroud |
+
+**Board UI:** `_refresh_board_zone(zone_node, zone_state, zone_id)` maintains exactly `SLOT_COUNT` slot panels (using `slot_idx` meta as stable identity). Empty slots show a dimmed numbered outline; enhanced slots show an orange border (`atk_bonus`) or pale-blue border (`shroud`). Board views are centred via `BoxContainer.ALIGNMENT_CENTER`. Enhancement borders skip application if a targeting border is already set.
 
 ### BattleScene UI (`scenes/battle/BattleScene.gd`)
 

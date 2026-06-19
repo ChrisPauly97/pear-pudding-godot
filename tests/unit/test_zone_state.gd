@@ -241,3 +241,94 @@ func test_start_turn_restores_attack_count() -> void:
 	zone.add_card(c)
 	zone.start_turn()
 	assert_eq(c.attack_count, 1)
+
+
+# ---------------------------------------------------------------------------
+# add_card_at_slot
+# ---------------------------------------------------------------------------
+
+func test_add_card_at_slot_returns_true_for_empty_slot() -> void:
+	var zone = _zone()
+	var c = _card()
+	assert_true(zone.add_card_at_slot(c, 2))
+
+
+func test_add_card_at_slot_places_card_at_index() -> void:
+	var zone = _zone()
+	var c = _card()
+	zone.add_card_at_slot(c, 3)
+	assert_eq(zone.slots[3], c)
+
+
+func test_add_card_at_slot_returns_false_when_occupied() -> void:
+	var zone = _zone()
+	var c1 = _card()
+	var c2 = _card()
+	zone.add_card_at_slot(c1, 1)
+	assert_false(zone.add_card_at_slot(c2, 1))
+
+
+func test_add_card_at_slot_returns_false_out_of_range() -> void:
+	var zone = _zone()
+	assert_false(zone.add_card_at_slot(_card(), -1))
+	assert_false(zone.add_card_at_slot(_card(), ZoneState.SLOT_COUNT))
+
+
+# ---------------------------------------------------------------------------
+# enhance_slot / get_slot_enhancement / consume_slot_enhancement
+# ---------------------------------------------------------------------------
+
+func test_enhance_slot_stores_enhancement() -> void:
+	var zone = _zone()
+	zone.enhance_slot(2, "atk_bonus", 3)
+	var enh: Dictionary = zone.get_slot_enhancement(2)
+	assert_eq(str(enh.get("type", "")), "atk_bonus")
+	assert_eq(int(enh.get("value", 0)), 3)
+
+
+func test_get_slot_enhancement_returns_empty_when_none() -> void:
+	var zone = _zone()
+	assert_true(zone.get_slot_enhancement(0).is_empty())
+
+
+func test_consume_slot_enhancement_returns_enhancement() -> void:
+	var zone = _zone()
+	zone.enhance_slot(1, "shroud", 1)
+	var enh: Dictionary = zone.consume_slot_enhancement(1)
+	assert_eq(str(enh.get("type", "")), "shroud")
+
+
+func test_consume_slot_enhancement_clears_slot() -> void:
+	var zone = _zone()
+	zone.enhance_slot(1, "atk_bonus", 2)
+	zone.consume_slot_enhancement(1)
+	assert_true(zone.get_slot_enhancement(1).is_empty())
+
+
+func test_consume_slot_enhancement_out_of_range_returns_empty() -> void:
+	var zone = _zone()
+	assert_true(zone.consume_slot_enhancement(-1).is_empty())
+	assert_true(zone.consume_slot_enhancement(ZoneState.SLOT_COUNT).is_empty())
+
+
+# ---------------------------------------------------------------------------
+# enhancements serialisation
+# ---------------------------------------------------------------------------
+
+func test_enhancements_to_dict_returns_slot_count_entries() -> void:
+	var zone = _zone()
+	assert_eq(zone.enhancements_to_dict().size(), ZoneState.SLOT_COUNT)
+
+
+func test_enhancements_round_trip() -> void:
+	var zone = _zone()
+	zone.enhance_slot(0, "atk_bonus", 2)
+	zone.enhance_slot(4, "shroud", 1)
+	var arr: Array = zone.enhancements_to_dict()
+	var zone2 = _zone()
+	zone2.enhancements_from_dict(arr)
+	var e0: Dictionary = zone2.get_slot_enhancement(0)
+	assert_eq(str(e0.get("type", "")), "atk_bonus")
+	var e4: Dictionary = zone2.get_slot_enhancement(4)
+	assert_eq(str(e4.get("type", "")), "shroud")
+	assert_true(zone2.get_slot_enhancement(1).is_empty())

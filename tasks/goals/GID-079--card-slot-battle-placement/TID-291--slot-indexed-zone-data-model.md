@@ -2,7 +2,7 @@
 
 **Goal:** GID-079
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -97,12 +97,19 @@ This is fully backward-compatible (old saves that lack `board_enhancements` just
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `slot_enhancements: Array[Dictionary]` to `ZoneState._init()` (length SLOT_COUNT, all `{}`).
+2. Add `add_card_at_slot(card, idx)`, `enhance_slot(idx, type, value)`, `consume_slot_enhancement(idx)`, `get_slot_enhancement(idx)`, `enhancements_to_dict()`, `enhancements_from_dict(arr)` to `ZoneState`.
+3. Add `play_card_at_slot(card, slot_idx)` and `_apply_enhancement_to_card(card, enh)` to `PlayerState`. Update `play_card()` to also call `consume_slot_enhancement` + `_apply_enhancement_to_card` after auto-slot placement.
+4. Extend `PlayerState.to_dict()` with `"board_enhancements": board.enhancements_to_dict()` and `from_dict()` to call `board.enhancements_from_dict()` when key present (backward-compatible).
+5. Add unit tests covering all new ZoneState and PlayerState APIs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/battle/ZoneState.gd`**: Added `slot_enhancements: Array[Dictionary]` field; initialised in `_init()`. Added `add_card_at_slot`, `enhance_slot`, `consume_slot_enhancement`, `get_slot_enhancement`, `enhancements_to_dict`, `enhancements_from_dict`.
+- **`game_logic/battle/PlayerState.gd`**: Added `play_card_at_slot(card, slot_idx)` and `_apply_enhancement_to_card(card, enh)`. Updated `play_card()` to apply/consume slot enhancement after `board.add_card()`. Updated `to_dict()` and `from_dict()` for `board_enhancements`.
+- **`tests/unit/test_zone_state.gd`**: Added `add_card_at_slot`, `enhance_slot`, `consume_slot_enhancement`, `get_slot_enhancement`, `enhancements_to_dict`, `enhancements_from_dict` test sections.
+- **`tests/unit/test_player_state.gd`**: Added `play_card_at_slot` and enhancement round-trip test sections.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/battle-system.md` with slot enhancement types, new spell effects, and slot UI system details.

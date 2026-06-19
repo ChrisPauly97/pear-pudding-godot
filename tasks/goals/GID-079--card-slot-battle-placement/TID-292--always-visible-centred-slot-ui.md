@@ -2,7 +2,7 @@
 
 **Goal:** GID-079
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-291
 
 ## Lock
@@ -113,12 +113,16 @@ Hand zones still use the old pattern (they don't have fixed slots): factor the h
 
 ## Plan
 
-_Written during Plan phase._
+1. In `_apply_ui_sizes()`, set `alignment = BoxContainer.ALIGNMENT_CENTER` on both board view containers.
+2. Rename `_refresh_zone` → `_refresh_board_zone(zone_node, zone_state, zone_id)` accepting a `ZoneState` instead of a card array; update all call sites in `_refresh_all()`.
+3. `_refresh_board_zone` maintains exactly `SLOT_COUNT` children with `slot_idx` meta; filters existing children with `has_meta("slot_idx")` to skip battlefield highlights. Transitions panels between occupied and empty states.
+4. New helpers: `_slot_size()`, `_make_empty_slot_panel(slot_idx)`, `_setup_empty_slot_panel(panel, slot_idx)`, `_apply_empty_slot_style(panel)`, `_apply_slot_enhancement_border(panel, enh)`.
+5. Update `_get_card_panel()`, `_snapshot_hp_positions()`, `_flash_from_snapshot()` to use `slot_idx` meta for lookups.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/battle/BattleScene.gd`**: Added `const ZoneState = preload(...)`. Implemented `_refresh_board_zone` with 5-slot panel management, slot_idx meta tracking, and empty/occupied transitions. Added `_slot_size()`, `_make_empty_slot_panel()`, `_setup_empty_slot_panel()`, `_apply_empty_slot_style()`, `_apply_slot_enhancement_border()`. Updated `_apply_ui_sizes()` to centre board views. Updated `_get_card_panel()`, `_snapshot_hp_positions()`, `_flash_from_snapshot()` to work with slot-indexed panels. Enhancement borders (orange for `atk_bonus`, pale blue for `shroud`) applied to occupied and empty enhanced slots.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/battle-system.md` BattleScene UI section with slot panel system details.

@@ -3,6 +3,7 @@ extends Control
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const BasicAI = preload("res://ai/BasicAI.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
@@ -74,9 +75,16 @@ var _pause_overlay: CanvasLayer = null
 # Spell targeting (TID-058, extended TID-141)
 const _ENEMY_TARGETED_EFFECTS: Array[String] = ["deal_damage_single", "curse_minion", "lifesteal_hit"]
 const _FRIENDLY_TARGETED_EFFECTS: Array[String] = ["heal_single", "shield_minion", "buff_attack"]
+const _SLOT_TARGETED_EFFECTS: Array[String] = ["bless_slot", "ward_slot"]
 var _targeting_spell: CardInstance = null
 var _targeting_active: bool = false
 var _targeting_friendly: bool = false
+
+# Slot targeting (TID-294)
+var _slot_targeting_spell: CardInstance = null
+
+# Mobile tap-to-slot placement (TID-293)
+var _slot_select_card: CardInstance = null
 
 # Inline ability text on card faces (TID-140, TID-142). Mirrors CardInspectOverlay dicts.
 const _SPELL_EFFECT_LABELS: Dictionary = {
@@ -94,6 +102,8 @@ const _SPELL_EFFECT_LABELS: Dictionary = {
 	"mana_drain":          "Remove [power] mana from the enemy hero",
 	"curse_minion":        "Reduce an enemy minion's attack and HP by [power]",
 	"draw_card":           "Draw [power] card(s)",
+	"bless_slot":          "Bless a board slot — the next minion placed there gains +[power] ATK",
+	"ward_slot":           "Ward a board slot — the next minion placed there gains Shroud",
 }
 
 const _EMERGENCE_LABELS: Dictionary = {
@@ -451,6 +461,11 @@ func _apply_ui_sizes() -> void:
 	_player_board_view.custom_minimum_size = Vector2(0, board_h)
 	_player_hero_view.custom_minimum_size  = Vector2(0, hero_h)
 	_player_hand_view.custom_minimum_size  = Vector2(0, board_h)
+	# Centre the board slots horizontally
+	if _enemy_board_view is BoxContainer:
+		(_enemy_board_view as BoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER
+	if _player_board_view is BoxContainer:
+		(_player_board_view as BoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER
 	# Side panel buttons — large, easy to tap on mobile
 	_end_turn_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.10)
 	_end_turn_btn.add_theme_font_size_override("font_size", int(_vh * 0.035))
@@ -557,10 +572,10 @@ func _input(event: InputEvent) -> void:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
 			if not _drag_moved:
-				# Tap without drag — show inspect instead of play
-				var card_to_inspect := _hand_drag_card
+				# Tap without drag — enter slot-select or inspect
+				var card_tapped := _hand_drag_card
 				_cancel_hand_drag()
-				_show_card_inspect(card_to_inspect)
+				_on_hand_card_tap(card_tapped)
 			else:
 				_finish_hand_drag()
 			get_viewport().set_input_as_handled()
@@ -573,9 +588,18 @@ func _finish_hand_drag() -> void:
 	var board_rect: Rect2 = _player_board_view.get_global_rect()
 	if board_rect.has_point(mouse_pos):
 		var played_card := _hand_drag_card
-		# Targeted spells: don't play yet, enter target-selection mode
+		# Targeted spells: enter appropriate targeting mode
 		var is_enemy_targeted: bool = _ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
 		var is_friendly_targeted: bool = _FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
+		var is_slot_targeted: bool = _SLOT_TARGETED_EFFECTS.has(played_card.spell_effect)
+		if played_card.card_class == "spell" and is_slot_targeted and _state.players[0].can_play(played_card):
+			_hand_drag_card = null
+			if _drag_visual:
+				_drag_visual.queue_free()
+				_drag_visual = null
+			_hide_cancel_btn()
+			_enter_slot_targeting_mode(played_card)
+			return
 		if played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted) and _state.players[0].can_play(played_card):
 			# Refuse targeted spells when there are no valid targets — return to hand.
 			if is_friendly_targeted and _state.players[0].board.get_cards().is_empty():
@@ -592,26 +616,39 @@ func _finish_hand_drag() -> void:
 				_hide_cancel_btn()
 				_enter_targeting_mode(played_card, is_friendly_targeted)
 				return
-		if _do_play_card(played_card, 0):
-			AudioManager.play_sfx("card_play")
-			_haptic(20)
-			if played_card.card_class == "spell":
+		# Minions: find which slot the mouse is over
+		if played_card.card_class != "spell":
+			var target_slot_idx: int = _slot_idx_at_point(mouse_pos, _player_board_view)
+			if target_slot_idx == -1 or _state.players[0].board.slots[target_slot_idx] != null:
+				_cancel_hand_drag()
+				return
+			if _do_play_card_at_slot(played_card, 0, target_slot_idx):
+				AudioManager.play_sfx("card_play")
+				_haptic(20)
+				if played_card.emergence_effect != "":
+					var snap_em := _snapshot_hp_positions()
+					_resolve_emergence(played_card, 0)
+					_spawn_float_labels_from_snapshot(snap_em)
+					_flash_from_snapshot(snap_em)
+					_check_shake_from_snapshot(snap_em)
+				else:
+					_apply_weather_to_summoned(played_card, 0)
+				_refresh_all()
+				_check_game_over()
+				_dismiss_battle_tutorial()
+		else:
+			# Non-targeted spells: slot doesn't matter
+			if _do_play_card(played_card, 0):
+				AudioManager.play_sfx("card_play")
+				_haptic(20)
 				var snap_fhd := _snapshot_hp_positions()
 				_resolve_spell_effect(played_card, 0)
 				_spawn_float_labels_from_snapshot(snap_fhd)
 				_flash_from_snapshot(snap_fhd)
 				_check_shake_from_snapshot(snap_fhd)
-			elif played_card.emergence_effect != "":
-				var snap_em := _snapshot_hp_positions()
-				_resolve_emergence(played_card, 0)
-				_spawn_float_labels_from_snapshot(snap_em)
-				_flash_from_snapshot(snap_em)
-				_check_shake_from_snapshot(snap_em)
-			else:
-				_apply_weather_to_summoned(played_card, 0)
-			_refresh_all()
-			_check_game_over()
-			_dismiss_battle_tutorial()
+				_refresh_all()
+				_check_game_over()
+				_dismiss_battle_tutorial()
 	_cancel_hand_drag()
 
 func _cancel_hand_drag() -> void:
@@ -620,6 +657,7 @@ func _cancel_hand_drag() -> void:
 		_drag_visual.queue_free()
 		_drag_visual = null
 	_hand_drag_card = null
+	_refresh_board_zone(_player_board_view, _state.players[0].board, "board")
 
 func _start_hand_drag(card: CardInstance, from_pos: Vector2) -> void:
 	_hand_drag_card = card
@@ -634,6 +672,8 @@ func _start_hand_drag(card: CardInstance, from_pos: Vector2) -> void:
 	add_child(_drag_visual)
 	move_child(_drag_visual, get_child_count() - 1)
 	_show_cancel_btn("✕ Cancel", _cancel_hand_drag)
+	# Trigger board refresh so slot panels update to highlight state
+	_refresh_board_zone(_player_board_view, _state.players[0].board, "board")
 
 func _show_cancel_btn(label: String = "✕ Cancel", callback: Callable = Callable()) -> void:
 	if _cancel_btn != null:
@@ -668,6 +708,95 @@ func _cancel_targeting() -> void:
 	_targeting_spell = null
 	_hide_cancel_btn()
 	_refresh_all()
+
+func _slot_idx_at_point(point: Vector2, board_view: Node) -> int:
+	for child in board_view.get_children():
+		if child is Control:
+			var ctrl := child as Control
+			if ctrl.get_global_rect().has_point(point):
+				var idx: int = int(ctrl.get_meta("slot_idx", -1))
+				if idx >= 0:
+					return idx
+	return -1
+
+func _do_play_card_at_slot(card: CardInstance, player_idx: int, slot_idx: int) -> bool:
+	var apply_discount: bool = (
+		(_battle_weather == "snow" or _battle_weather == "blizzard") and
+		not _snow_discount_used[player_idx]
+	)
+	if apply_discount:
+		var saved_cost: int = card.cost
+		card.cost = maxi(0, card.cost - 1)
+		var ok: bool = _state.players[player_idx].play_card_at_slot(card, slot_idx)
+		card.cost = saved_cost
+		if ok:
+			_snow_discount_used[player_idx] = true
+		return ok
+	return _state.players[player_idx].play_card_at_slot(card, slot_idx)
+
+func _enter_slot_select_mode(card: CardInstance) -> void:
+	_slot_select_card = card
+	_show_cancel_btn("✕ Cancel", _exit_slot_select_mode)
+	_refresh_board_zone(_player_board_view, _state.players[0].board, "board")
+
+func _exit_slot_select_mode() -> void:
+	_slot_select_card = null
+	_hide_cancel_btn()
+	_refresh_board_zone(_player_board_view, _state.players[0].board, "board")
+
+func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			if _slot_targeting_spell != null:
+				var spell := _slot_targeting_spell
+				_exit_slot_targeting_mode()
+				_resolve_slot_spell(spell, slot_idx)
+				return
+			if _slot_select_card != null:
+				var card := _slot_select_card
+				_exit_slot_select_mode()
+				if _do_play_card_at_slot(card, 0, slot_idx):
+					AudioManager.play_sfx("card_play")
+					_haptic(20)
+					if card.emergence_effect != "":
+						var snap_se := _snapshot_hp_positions()
+						_resolve_emergence(card, 0)
+						_spawn_float_labels_from_snapshot(snap_se)
+						_flash_from_snapshot(snap_se)
+						_check_shake_from_snapshot(snap_se)
+					else:
+						_apply_weather_to_summoned(card, 0)
+					_refresh_all()
+					_check_game_over()
+					_dismiss_battle_tutorial()
+				return
+
+func _enter_slot_targeting_mode(spell: CardInstance) -> void:
+	_slot_targeting_spell = spell
+	_targeting_active = true
+	_show_cancel_btn("✕ Cancel Spell", _exit_slot_targeting_mode)
+	_refresh_board_zone(_player_board_view, _state.players[0].board, "board")
+
+func _exit_slot_targeting_mode() -> void:
+	_slot_targeting_spell = null
+	_targeting_active = false
+	_hide_cancel_btn()
+	_refresh_board_zone(_player_board_view, _state.players[0].board, "board")
+
+func _resolve_slot_spell(spell: CardInstance, slot_idx: int) -> void:
+	if not _state.players[0].can_play(spell):
+		return
+	_do_play_card(spell, 0)
+	AudioManager.play_sfx("spell_resolve")
+	_haptic(20)
+	match spell.spell_effect:
+		"bless_slot":
+			_state.players[0].board.enhance_slot(slot_idx, "atk_bonus", spell.spell_power)
+		"ward_slot":
+			_state.players[0].board.enhance_slot(slot_idx, "shroud", 1)
+	_refresh_all()
+	_check_game_over()
 
 # -------------------------------------------------------------------------
 # Card inspect overlay (TID-086)
@@ -1143,8 +1272,8 @@ func _make_card_ghost(card: CardInstance) -> PanelContainer:
 
 func _refresh_all() -> void:
 	_refresh_zone(_enemy_hand_view, _state.players[1].hand, "enemy_hand")
-	_refresh_zone(_enemy_board_view, _state.players[1].board.get_cards(), "enemy_board")
-	_refresh_zone(_player_board_view, _state.players[0].board.get_cards(), "board")
+	_refresh_board_zone(_enemy_board_view, _state.players[1].board, "enemy_board")
+	_refresh_board_zone(_player_board_view, _state.players[0].board, "board")
 	_refresh_zone(_player_hand_view, _state.players[0].hand, "hand")
 	_refresh_hero(_enemy_hero_view, _state.players[1].hero, true)
 	_refresh_hero(_player_hero_view, _state.players[0].hero, false)
@@ -1166,6 +1295,142 @@ func _refresh_zone(zone_node: Node, cards: Array[CardInstance], zone_id: String)
 	# Remove excess panels
 	for i in range(needed, existing.size()):
 		existing[i].queue_free()
+
+func _refresh_board_zone(zone_node: Node, zone_state: ZoneState, zone_id: String) -> void:
+	# Gather only slot panels (have "slot_idx" meta); skip battlefield highlights
+	var existing: Array[Node] = []
+	for child in zone_node.get_children():
+		if not child.is_queued_for_deletion() and child.has_meta("slot_idx"):
+			existing.append(child)
+	# Ensure exactly SLOT_COUNT slot panels
+	while existing.size() < ZoneState.SLOT_COUNT:
+		var panel := _make_empty_slot_panel(existing.size(), zone_id)
+		zone_node.add_child(panel)
+		existing.append(panel)
+	while existing.size() > ZoneState.SLOT_COUNT:
+		(existing.back() as Node).queue_free()
+		existing.resize(existing.size() - 1)
+	# Update each slot panel
+	for i in range(ZoneState.SLOT_COUNT):
+		var panel := existing[i] as Control
+		if panel == null:
+			continue
+		var card: CardInstance = zone_state.slots[i]
+		var enh: Dictionary = zone_state.get_slot_enhancement(i)
+		panel.set_meta("slot_idx", i)
+		if card != null:
+			# Occupied slot — render as card
+			if bool(panel.get_meta("is_empty_slot", false)):
+				# Was empty panel, rebuild as card panel
+				for ch in panel.get_children():
+					ch.queue_free()
+				panel.remove_meta("is_empty_slot")
+				if not bool(panel.get_meta("is_card_back", false)):
+					var is_board_zone: bool = true
+					panel.add_child(_build_card_vbox(card, is_board_zone))
+					var style := StyleBoxFlat.new()
+					style.corner_radius_top_left = 4
+					style.corner_radius_top_right = 4
+					style.corner_radius_bottom_left = 4
+					style.corner_radius_bottom_right = 4
+					panel.add_theme_stylebox_override("panel", style)
+					panel.set_meta("card_style", style)
+				panel.custom_minimum_size = Vector2(_vh * 0.10, _vh * 0.19)
+			_update_card_view(panel as PanelContainer, card, zone_id)
+			_apply_slot_enhancement_border(panel, enh)
+		else:
+			# Empty slot
+			if not bool(panel.get_meta("is_empty_slot", false)):
+				# Was card panel, rebuild as empty slot panel
+				for ch in panel.get_children():
+					ch.queue_free()
+				if panel.has_meta("card_style"):
+					panel.remove_meta("card_style")
+				_setup_empty_slot_panel(panel as PanelContainer, i, zone_id)
+			else:
+				# Refresh empty slot style (enhancement may have changed)
+				_apply_empty_slot_style(panel as PanelContainer, i, zone_id, enh)
+
+func _slot_size() -> Vector2:
+	return Vector2(_vh * 0.10, _vh * 0.19)
+
+func _make_empty_slot_panel(slot_idx: int, zone_id: String) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.set_meta("slot_idx", slot_idx)
+	panel.set_meta("is_empty_slot", true)
+	panel.custom_minimum_size = _slot_size()
+	_setup_empty_slot_panel(panel, slot_idx, zone_id)
+	return panel
+
+func _setup_empty_slot_panel(panel: PanelContainer, slot_idx: int, zone_id: String) -> void:
+	panel.set_meta("is_empty_slot", true)
+	panel.custom_minimum_size = _slot_size()
+	for ch in panel.get_children():
+		if not ch is LongPressDetector:
+			ch.queue_free()
+	var style := StyleBoxFlat.new()
+	var is_enemy: bool = (zone_id == "enemy_board")
+	style.bg_color = Color(0.12, 0.12, 0.16, 0.4) if is_enemy else Color(0.15, 0.15, 0.2, 0.6)
+	style.border_color = Color(0.35, 0.35, 0.42, 0.7) if is_enemy else Color(0.4, 0.4, 0.5, 0.8)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(4)
+	panel.add_theme_stylebox_override("panel", style)
+	panel.set_meta("card_style", style)
+	var lbl := Label.new()
+	lbl.text = str(slot_idx + 1)
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	lbl.modulate = Color(0.45, 0.45, 0.55, 0.8) if is_enemy else Color(0.5, 0.5, 0.6)
+	panel.add_child(lbl)
+	# Wire input for player board empty slots
+	for conn in panel.gui_input.get_connections():
+		panel.gui_input.disconnect(conn["callable"])
+	if not is_enemy:
+		var idx: int = slot_idx
+		panel.gui_input.connect(func(ev: InputEvent) -> void: _on_empty_slot_input(ev, idx))
+
+func _apply_empty_slot_style(panel: PanelContainer, slot_idx: int, zone_id: String, enh: Dictionary) -> void:
+	var style: StyleBoxFlat = panel.get_meta("card_style", null) as StyleBoxFlat
+	if style == null:
+		return
+	var is_enemy: bool = (zone_id == "enemy_board")
+	style.bg_color = Color(0.12, 0.12, 0.16, 0.4) if is_enemy else Color(0.15, 0.15, 0.2, 0.6)
+	style.set_border_width_all(2)
+	# Enhancement color override
+	var enh_type: String = str(enh.get("type", ""))
+	if enh_type == "atk_bonus":
+		style.border_color = Color(1.0, 0.65, 0.1)
+	elif enh_type == "shroud":
+		style.border_color = Color(0.6, 0.6, 1.0)
+	elif _slot_targeting_spell != null and not is_enemy:
+		style.border_color = Color.CYAN
+		style.set_border_width_all(4)
+	elif _hand_drag_card != null and not is_enemy and _state.players[0].can_play(_hand_drag_card):
+		style.border_color = Color(0.3, 1.0, 0.5, 1.0)
+		style.set_border_width_all(3)
+	elif _slot_select_card != null and not is_enemy:
+		style.border_color = Color(0.3, 1.0, 0.5, 1.0)
+		style.set_border_width_all(3)
+	else:
+		style.border_color = Color(0.35, 0.35, 0.42, 0.7) if is_enemy else Color(0.4, 0.4, 0.5, 0.8)
+
+func _apply_slot_enhancement_border(panel: Control, enh: Dictionary) -> void:
+	var style: StyleBoxFlat = panel.get_meta("card_style", null) as StyleBoxFlat
+	if style == null:
+		return
+	# Don't override targeting/attack highlight borders already set by _apply_card_style
+	if style.border_width_top > 0:
+		return
+	var enh_type: String = str(enh.get("type", ""))
+	if enh_type == "atk_bonus":
+		style.border_color = Color(1.0, 0.65, 0.1)
+		style.set_border_width_all(3)
+	elif enh_type == "shroud":
+		style.border_color = Color(0.6, 0.6, 1.0)
+		style.set_border_width_all(3)
 
 func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
 	if bool(panel.get_meta("is_card_back", false)):
@@ -1515,6 +1780,16 @@ func _on_hand_card_input(event: InputEvent, card: CardInstance, panel: Control) 
 				return
 			_start_hand_drag(card, panel.get_global_rect().get_center())
 
+func _on_hand_card_tap(card: CardInstance) -> void:
+	if _state.current_player_idx != 0 or _ai_thinking:
+		return
+	if card.card_class != "spell" and _state.players[0].can_play(card):
+		_enter_slot_select_mode(card)
+	elif _SLOT_TARGETED_EFFECTS.has(card.spell_effect) and _state.players[0].can_play(card):
+		_enter_slot_targeting_mode(card)
+	else:
+		_show_card_inspect(card)
+
 func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if _targeting_active and _targeting_friendly:
@@ -1861,6 +2136,16 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target:
 			var caster: PlayerState = _state.players[caster_pid]
 			for _i in range(card.spell_power):
 				caster.draw_card()
+		"bless_slot":
+			var caster: PlayerState = _state.players[caster_pid]
+			var slot: int = caster.board.first_empty_slot()
+			if slot >= 0:
+				caster.board.enhance_slot(slot, "atk_bonus", card.spell_power)
+		"ward_slot":
+			var caster: PlayerState = _state.players[caster_pid]
+			var slot: int = caster.board.first_empty_slot()
+			if slot >= 0:
+				caster.board.enhance_slot(slot, "shroud", 1)
 		"extra_turn":
 			_extra_turn_granted = true
 		"destroy_all_draw_3":
@@ -2452,13 +2737,18 @@ func _snapshot_hp_positions() -> Array[Dictionary]:
 	for i in range(2):
 		var hero := _state.players[i].hero
 		result.append({"id": "hero_%d" % i, "hp": hero.health, "pos": _pos_of_hero(i == 1)})
-		var cards: Array[CardInstance] = _state.players[i].board.get_cards()
 		var zv: Node = _enemy_board_view if i == 1 else _player_board_view
-		for j in range(cards.size()):
-			var panel: Control = zv.get_child(j) as Control if j < zv.get_child_count() else null
-			var fallback: Vector2 = get_viewport().get_visible_rect().size * 0.5
-			var pos: Vector2 = panel.get_global_rect().get_center() if panel != null else fallback
-			result.append({"id": cards[j].instance_id, "hp": cards[j].health, "pos": pos})
+		var fallback: Vector2 = get_viewport().get_visible_rect().size * 0.5
+		for si in range(ZoneState.SLOT_COUNT):
+			var card: CardInstance = _state.players[i].board.slots[si]
+			if card == null:
+				continue
+			var panel_pos: Vector2 = fallback
+			for child in zv.get_children():
+				if child is Control and int(child.get_meta("slot_idx", -1)) == si:
+					panel_pos = (child as Control).get_global_rect().get_center()
+					break
+			result.append({"id": card.instance_id, "hp": card.health, "pos": panel_pos})
 	return result
 
 func _spawn_float_labels_from_snapshot(snap: Array[Dictionary]) -> void:
@@ -2506,12 +2796,12 @@ func _spawn_float_label(pos: Vector2, text: String, color: Color) -> void:
 func _get_card_panel(card: CardInstance, is_enemy: bool) -> Control:
 	var player: PlayerState = _state.players[1] if is_enemy else _state.players[0]
 	var zv: Node = _enemy_board_view if is_enemy else _player_board_view
-	var cards: Array[CardInstance] = player.board.get_cards()
-	for j in range(cards.size()):
-		if cards[j] == card:
-			if j < zv.get_child_count():
-				return zv.get_child(j) as Control
-			break
+	var slot_idx: int = player.board.slots.find(card)
+	if slot_idx == -1:
+		return null
+	for child in zv.get_children():
+		if child is Control and int(child.get_meta("slot_idx", -1)) == slot_idx:
+			return child as Control
 	return null
 
 func _flash_node(node: Control, flash_color: Color) -> void:
@@ -2544,13 +2834,14 @@ func _flash_from_snapshot(snap: Array[Dictionary]) -> void:
 			for pi in range(2):
 				if found_panel:
 					break
-				var cards: Array[CardInstance] = _state.players[pi].board.get_cards()
 				var zv: Node = _enemy_board_view if pi == 1 else _player_board_view
-				for j in range(cards.size()):
-					if cards[j].instance_id == eid:
-						var panel: Control = zv.get_child(j) as Control if j < zv.get_child_count() else null
-						if panel != null:
-							_flash_node(panel, flash_color)
+				for si in range(ZoneState.SLOT_COUNT):
+					var card: CardInstance = _state.players[pi].board.slots[si]
+					if card != null and card.instance_id == eid:
+						for child in zv.get_children():
+							if child is Control and int(child.get_meta("slot_idx", -1)) == si:
+								_flash_node(child as Control, flash_color)
+								break
 						found_panel = true
 						break
 

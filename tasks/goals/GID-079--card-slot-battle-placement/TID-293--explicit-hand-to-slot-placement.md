@@ -2,7 +2,7 @@
 
 **Goal:** GID-079
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-292
 
 ## Lock
@@ -164,12 +164,17 @@ func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `_slot_idx_at_point(point, board_view)` helper that scans board_view children for `slot_idx` meta matching the given point.
+2. Add `_do_play_card_at_slot(card, player_idx, slot_idx)` wrapper mirroring `_do_play_card` (handles snow weather discount).
+3. Update `_finish_hand_drag()`: slot-targeted spells route to `_enter_slot_targeting_mode`; minions use `_slot_idx_at_point` + `_do_play_card_at_slot`; spells continue with existing auto-play path.
+4. Add `_slot_select_card` variable and `_enter_slot_select_mode / _exit_slot_select_mode / _on_empty_slot_input` for mobile tap-to-place flow.
+5. Update `_input()` tap handler to call `_on_hand_card_tap()` which enters slot selection mode if the card is playable.
+6. Call `_refresh_board_zone` in `_start_hand_drag` / `_cancel_hand_drag` for drag-over highlight updates.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/battle/BattleScene.gd`**: Added `_slot_select_card` variable. Added `_slot_idx_at_point()`, `_do_play_card_at_slot()`, `_enter_slot_select_mode()`, `_exit_slot_select_mode()`, `_on_empty_slot_input()`, `_on_hand_card_tap()`. Updated `_finish_hand_drag()` to route minion drops to specific slot via `_do_play_card_at_slot`. Updated `_input()` tap handler to call `_on_hand_card_tap()`. Updated `_start_hand_drag()` and `_cancel_hand_drag()` to call `_refresh_board_zone` for highlight state. BasicAI path unchanged.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/battle-system.md` BattleScene UI section.
