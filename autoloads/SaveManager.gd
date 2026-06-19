@@ -8,6 +8,7 @@ signal coins_changed(new_amount: int)
 
 const LEGACY_SAVE_PATH := "user://save.json"
 const NUM_SAVE_SLOTS: int = 3
+const _HMAC_SECRET: String = "7e3f91c4b8d20a5e6f19c7b3d4e8f201"
 
 var active_slot: int = 1
 
@@ -227,7 +228,7 @@ func get_slot_metadata(slot: int) -> Dictionary:
 	return {
 		"current_map": str(data.get("current_map", "?")),
 		"coins": int(data.get("coins", 0)),
-		"level": int(data.get("level", 1)),
+		"level": max(1, _compute_level(int(data.get("xp", 0)))),
 		"last_saved": str(data.get("last_saved", "")),
 	}
 
@@ -717,16 +718,30 @@ static func _apply_migrations(data: Dictionary) -> void:
 	if ver < 33:
 		_migrate_v32_to_v33(data)
 
+static func _sign(payload: String) -> String:
+	var crypto := Crypto.new()
+	return crypto.hmac_digest(HashingContext.HASH_SHA256, _HMAC_SECRET.to_utf8_buffer(), payload.to_utf8_buffer()).hex_encode()
+
 func _read_save_json(path: String):
 	if not FileAccess.file_exists(path):
 		return null
 	var file := FileAccess.open(path, FileAccess.READ)
 	if not file:
 		return null
-	var parsed = JSON.parse_string(file.get_as_text())
-	if not parsed is Dictionary:
+	var outer = JSON.parse_string(file.get_as_text())
+	if not outer is Dictionary:
 		return null
-	return parsed
+	if outer.has("payload"):
+		var stored_hmac: String = str(outer.get("hmac", ""))
+		var payload: String = str(outer.get("payload", ""))
+		if stored_hmac != _sign(payload):
+			push_warning("SaveManager: integrity check failed for %s" % path)
+			return null
+		var inner = JSON.parse_string(payload)
+		if not inner is Dictionary:
+			return null
+		return inner
+	return outer
 
 func load_save() -> bool:
 	var parsed = _read_save_json(_get_slot_path(active_slot))
@@ -782,8 +797,8 @@ func load_save() -> bool:
 	visited_biomes.assign(data.get("visited_biomes", []))
 	visited_dungeon_rooms.assign(data.get("visited_dungeon_rooms", []))
 	xp = int(data.get("xp", 0))
-	level = int(data.get("level", 1))
-	skill_points = int(data.get("skill_points", 0))
+	level = max(1, _compute_level(xp))
+	skill_points = min(int(data.get("skill_points", 0)), max(0, level - 1))
 	unlocked_skills.assign(data.get("unlocked_skills", []))
 	magic_type = str(data.get("magic_type", ""))
 	corruption_points = int(data.get("corruption_points", 0))
@@ -923,7 +938,8 @@ func save() -> void:
 	var tmp := FileAccess.open(tmp_path, FileAccess.WRITE)
 	if not tmp:
 		return
-	tmp.store_string(JSON.stringify(data, "\t"))
+	var inner_json: String = JSON.stringify(data, "\t")
+	tmp.store_string(JSON.stringify({"hmac": _sign(inner_json), "payload": inner_json}))
 	tmp = null  # flush + close before rename
 	if FileAccess.file_exists(save_path):
 		DirAccess.copy_absolute(save_path, bak_path)
