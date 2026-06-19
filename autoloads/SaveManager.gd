@@ -1505,6 +1505,17 @@ func auto_dismiss_mount() -> void:
 	_dirty = true
 	GameBus.mount_state_changed.emit(false, active_mount)
 
+## Records kills and (optionally) a battles_survived increment for a collection instance.
+## No-op if the uid is not found in owned_cards.
+func record_veterancy(uid: String, kills: int, survived: bool) -> void:
+	var inst: Dictionary = get_instance_by_uid(uid)
+	if inst.is_empty():
+		return
+	inst["kills"] = int(inst.get("kills", 0)) + kills
+	if survived:
+		inst["battles_survived"] = int(inst.get("battles_survived", 0)) + 1
+	_dirty = true
+
 func mark_dirty() -> void:
 	_dirty = true
 

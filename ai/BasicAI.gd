@@ -53,6 +53,7 @@ static func decide_turn(state: GameState) -> Array[Callable]:
 					state.opponent().board.remove_card(tgt)
 					state.opponent().discard.append(tgt)
 				if not mc.is_alive():
+					tgt.battle_kills += 1  # player card killed ai card via counterattack
 					ai.board.remove_card(mc)
 					ai.discard.append(mc)
 		)

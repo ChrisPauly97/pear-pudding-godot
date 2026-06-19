@@ -164,12 +164,14 @@ func _ready() -> void:
 				player_deck = ["ghost", "ghost", "skeleton", "skeleton",
 							   "zombie", "zombie", "ghoul", "ghoul"]
 		elif SceneManager.save_manager.player_deck.size() > 0:
-			player_deck = SceneManager.save_manager.get_deck_template_ids()
+			# Use per-instance build so rolled stats and rank bonuses apply (GID-060).
+			_state.players[0].build_deck_from_instances(SceneManager.save_manager.get_deck_instances())
 		else:
 			player_deck = ["ghost", "skeleton", "zombie", "ghoul",
 						   "ghost", "skeleton", "zombie", "ghoul",
 						   "ghost", "skeleton", "zombie", "ghoul"]
-		_state.players[0].build_deck(player_deck)
+		if not player_deck.is_empty():
+			_state.players[0].build_deck(player_deck)
 		_apply_equipment_effects(_state.players[0])
 		_apply_passive_skills(_state.players[0])
 		_state.players[0].draw_opening_hand(4)
@@ -1826,6 +1828,7 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		_flash_node(target_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
 		_flash_node(attacker_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
 		if not target.is_alive():
+			attacker.battle_kills += 1
 			_state.players[1].board.remove_card(target)
 			_state.players[1].discard.append(target)
 		if not attacker.is_alive():
@@ -2291,6 +2294,24 @@ func _check_game_over() -> void:
 			_haptic(80)
 			GameBus.battle_lost.emit()
 
+func _collect_veterancy_data() -> Dictionary:
+	var data: Dictionary = {}
+	var player: PlayerState = _state.players[0]
+	var all_cards: Array[CardInstance] = []
+	all_cards.append_array(player.hand)
+	all_cards.append_array(player.board.get_cards())
+	all_cards.append_array(player.draw_deck)
+	all_cards.append_array(player.discard)
+	all_cards.append_array(player.pending_auto_spells)
+	for card: CardInstance in all_cards:
+		if card.collection_uid == "":
+			continue
+		var uid: String = card.collection_uid
+		if not data.has(uid):
+			data[uid] = {"kills": 0, "survived": true}
+		data[uid]["kills"] = int(data[uid]["kills"]) + card.battle_kills
+	return data
+
 func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = "") -> void:
 	if _float_layer:
 		_float_layer.hide()
@@ -2339,12 +2360,14 @@ func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = ""
 	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
 	var final_card: String = reward_card_id
 	var final_weapon: String = weapon_reward_id
+	var veterancy_data: Dictionary = _collect_veterancy_data()
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
 		GameBus.battle_won.emit({
 			"card_reward": final_card,
 			"weapon_reward": final_weapon,
 			"hero_hp": _state.players[0].hero.health,
+			"veterancy": veterancy_data,
 		})
 	)
 	vbox.add_child(btn)
@@ -2404,12 +2427,14 @@ func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: S
 	var final_rewards: Array[String] = []
 	final_rewards.assign(reward_cards)
 	var final_weapon: String = weapon_reward_id
+	var veterancy_data_boss: Dictionary = _collect_veterancy_data()
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
 		GameBus.battle_won.emit({
 			"card_rewards": final_rewards,
 			"weapon_reward": final_weapon,
 			"hero_hp": _state.players[0].hero.health,
+			"veterancy": veterancy_data_boss,
 		})
 	)
 	vbox.add_child(btn)
