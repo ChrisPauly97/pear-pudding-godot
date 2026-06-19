@@ -206,7 +206,7 @@ func _ready() -> void:
 		_apply_companion_turn_start()
 
 	_end_turn_btn.pressed.connect(_on_end_turn)
-	_menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
+	_menu_btn.pressed.connect(_confirm_return_to_menu)
 	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
 	_add_pause_button()
 	_add_hero_power_button()
