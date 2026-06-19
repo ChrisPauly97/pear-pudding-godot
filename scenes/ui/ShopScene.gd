@@ -3,6 +3,7 @@ extends "res://scenes/ui/BaseOverlay.gd"
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const PackDefs = preload("res://game_logic/PackDefs.gd")
+const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
@@ -10,6 +11,7 @@ const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const CARD_PRICE: int = 15
+const SEED_PRICE: int = 30
 
 # Traveling merchant mode — set before add_child() via .set() in SceneManager.
 var _custom_stock: Array[String] = []   # if non-empty, only show these cards
@@ -156,6 +158,14 @@ func _refresh() -> void:
 	# ---- Trinkets section ------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Trinkets —"))
 	_add_equipment_section("trinket", SceneManager.save_manager.owned_trinkets, coins, discounted)
+
+	# ---- Seeds section ---------------------------------------------------
+	_shop_list.add_child(_make_section_header("— Seeds —"))
+	for seed_id: String in GardenDefs.SEEDS:
+		var seed_data: Dictionary = GardenDefs.SEEDS[seed_id]
+		var row := _make_seed_row(seed_id, seed_data, coins)
+		_shop_list.add_child(row)
+
 	if _shop_scroll and saved_scroll > 0:
 		_shop_scroll.scroll_vertical = saved_scroll
 
@@ -409,6 +419,43 @@ func _on_buy_pack(pack_id: String, price: int) -> void:
 	if sm.packs_since_legendary >= PackDefs.PITY_THRESHOLD:
 		sm.reset_pity()
 	GameBus.pack_purchased.emit(pack_id, rolled)
+
+func _make_seed_row(seed_id: String, seed_data: Dictionary, coins: int) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(_vw * 0.008))
+
+	var sm := SceneManager.save_manager
+	var owned_count: int = int(sm.seeds.get(seed_id, 0))
+
+	var info_lbl := Label.new()
+	info_lbl.text = "%s  —  own: %d" % [str(seed_data.get("display_name", seed_id)), owned_count]
+	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info_lbl)
+
+	var price_lbl := Label.new()
+	price_lbl.text = "%d coins" % SEED_PRICE
+	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= SEED_PRICE else Color(0.9, 0.3, 0.3)
+	row.add_child(price_lbl)
+
+	var buy_btn := Button.new()
+	buy_btn.text = "Buy"
+	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _vh * 0.065)
+	buy_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	buy_btn.disabled = coins < SEED_PRICE
+	buy_btn.pressed.connect(_on_buy_seed.bind(seed_id))
+	row.add_child(buy_btn)
+
+	return row
+
+func _on_buy_seed(seed_id: String) -> void:
+	var sm := SceneManager.save_manager
+	if sm.coins < SEED_PRICE:
+		return
+	sm.add_coins(-SEED_PRICE)
+	sm.add_seeds(seed_id, 1)
+	_refresh()
 
 func _on_close() -> void:
 	closed.emit()

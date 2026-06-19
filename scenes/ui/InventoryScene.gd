@@ -2,6 +2,7 @@ extends "res://scenes/ui/BaseOverlay.gd"
 
 const CardRegistry      = preload("res://autoloads/CardRegistry.gd")
 const CraftingRegistry  = preload("res://autoloads/CraftingRegistry.gd")
+const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
 const _CardDropUtil     = preload("res://game_logic/CardDropUtil.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const CardInstance      = preload("res://game_logic/battle/CardInstance.gd")
@@ -727,6 +728,64 @@ func _do_craft(template_id: String, rarity: String, cost: int) -> void:
 	)
 	_refresh_craft()
 
+func _make_potion_craft_row(potion_id: String, recipe_data: Dictionary, player_essence: int) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(_vw * 0.008))
+
+	var sm := SceneManager.save_manager
+	var display_name: String = str(recipe_data.get("display_name", potion_id))
+	var essence_cost: int = int(recipe_data.get("essence_cost", 0))
+	var ingredients: Dictionary = recipe_data.get("ingredients", {})
+
+	var parts: Array[String] = []
+	var can_afford_ingredients: bool = true
+	for ingredient_id: String in ingredients:
+		var required: int = int(ingredients[ingredient_id])
+		var owned: int = int(sm.plants.get(ingredient_id, 0))
+		var plant_name: String = str(GardenDefs.PLANTS.get(ingredient_id, {}).get("display_name", ingredient_id))
+		parts.append("%d× %s" % [required, plant_name])
+		if owned < required:
+			can_afford_ingredients = false
+
+	var info_lbl := Label.new()
+	info_lbl.text = "%s  (%s)" % [display_name, ", ".join(parts)]
+	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(info_lbl)
+
+	var cost_lbl := Label.new()
+	cost_lbl.text = "%de" % essence_cost
+	cost_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	cost_lbl.modulate = Color(0.5, 0.85, 1.0)
+	cost_lbl.custom_minimum_size = Vector2(_vh * 0.06, 0)
+	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(cost_lbl)
+
+	var can_craft: bool = can_afford_ingredients and player_essence >= essence_cost
+	var craft_btn := Button.new()
+	craft_btn.text = "Craft"
+	craft_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.065)
+	craft_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	craft_btn.disabled = not can_craft
+	craft_btn.pressed.connect(_do_craft_potion.bind(potion_id, essence_cost, ingredients))
+	row.add_child(craft_btn)
+
+	return row
+
+func _do_craft_potion(potion_id: String, essence_cost: int, ingredients: Dictionary) -> void:
+	var sm := SceneManager.save_manager
+	for ingredient_id: String in ingredients:
+		var required: int = int(ingredients[ingredient_id])
+		if not sm.remove_plants(ingredient_id, required):
+			return
+	if not sm.spend_essence(essence_cost):
+		for ingredient_id: String in ingredients:
+			sm.add_plants(ingredient_id, int(ingredients[ingredient_id]))
+		return
+	sm.add_potions(potion_id, 1)
+	GameBus.potion_crafted.emit(potion_id)
+	_refresh_craft()
+
 func _show_confirm(action_row: HBoxContainer, confirm_row: HBoxContainer, label: String, on_confirm: Callable) -> void:
 	action_row.visible = false
 	for child in confirm_row.get_children():
@@ -853,6 +912,19 @@ func _refresh_craft() -> void:
 	var player_essence: int = SceneManager.save_manager.essence
 	for recipe in recipes:
 		_craft_list.add_child(_make_craft_row(recipe, player_essence))
+
+	# Potions section
+	var potion_header := Label.new()
+	potion_header.text = "— Potions —"
+	potion_header.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	potion_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	potion_header.modulate = Color(0.75, 0.85, 1.0)
+	_craft_list.add_child(potion_header)
+
+	var potion_recipes: Dictionary = GardenDefs.POTION_RECIPES
+	for potion_id: String in potion_recipes:
+		var recipe_data: Dictionary = potion_recipes[potion_id]
+		_craft_list.add_child(_make_potion_craft_row(potion_id, recipe_data, player_essence))
 
 func _show_inspect(card_id: String) -> void:
 	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):

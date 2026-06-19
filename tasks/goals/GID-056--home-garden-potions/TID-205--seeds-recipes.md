@@ -2,7 +2,7 @@
 
 **Goal:** GID-056  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** TID-203
 
 ## Lock
@@ -73,12 +73,24 @@ Seeds are sold by merchants; plants are crafted into potions via the existing cr
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `POTION_RECIPES` dict to `game_logic/GardenDefs.gd` (three recipes with plant ingredients + essence cost).
+2. Add `get_potion_recipes()` static method to `autoloads/CraftingRegistry.gd`.
+3. Add `signal potion_crafted(potion_id: String)` to `autoloads/GameBus.gd`.
+4. Add Seeds section to `scenes/ui/ShopScene.gd`: `_make_seed_row()` and `_on_buy_seed()`.
+5. Extend `_refresh_craft()` in `scenes/ui/InventoryScene.gd` to show a "— Potions —" section after card recipes, with `_make_potion_craft_row()` and `_do_craft_potion()`.
+6. Write tests in `tests/unit/test_potion_recipes.gd` and register in `tests/runner.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/GardenDefs.gd`**: Added `POTION_RECIPES` dict with three recipes (healing_draught → 2 sunpetal_plant + 5e, clarity_brew → 2 moonroot_plant + 5e, ember_tonic → 2 embercap_plant + 5e).
+- **`autoloads/CraftingRegistry.gd`**: Added `GardenDefs` preload and `get_potion_recipes() -> Dictionary` static method.
+- **`autoloads/GameBus.gd`**: Added `signal potion_crafted(potion_id: String)`.
+- **`scenes/ui/ShopScene.gd`**: Added `GardenDefs` preload, `SEED_PRICE = 30` constant, Seeds section in `_refresh()` after Trinkets, `_make_seed_row()` and `_on_buy_seed()` methods.
+- **`scenes/ui/InventoryScene.gd`**: Added `GardenDefs` preload; extended `_refresh_craft()` to append a "— Potions —" section after card recipes; added `_make_potion_craft_row()` and `_do_craft_potion()` methods (with safe rollback if essence spend fails after plants removed).
+- **`tests/unit/test_potion_recipes.gd`** (new): 27 tests covering POTION_RECIPES data integrity, plant consumption, essence spending, potion inventory accumulation, and CraftingRegistry round-trip.
+- **`tests/unit/test_potion_recipes.gd.uid`** (new): UID sidecar.
+- **`tests/runner.gd`**: Registered `test_potion_recipes` suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent docs created yet — full garden system doc will be written after TID-206 completes the feature (per TID-203 plan note).

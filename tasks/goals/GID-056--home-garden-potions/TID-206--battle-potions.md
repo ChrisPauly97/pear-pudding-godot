@@ -2,7 +2,7 @@
 
 **Goal:** GID-056  
 **Type:** agent  
-**Status:** pending  
+**Status:** done  
 **Depends On:** TID-205
 
 ## Lock
@@ -88,12 +88,23 @@ Potion consumable UI in the battle HUD, one-per-battle limit, three effects: hea
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `_potion_btn: Button` and `_used_potion_this_battle: bool` fields to `BattleScene.gd`.
+2. Add `_add_potion_button()` called from `_ready()` after `_add_companion_hud()`.
+3. Add `_refresh_potion_button()` checking owner-has-potions and used-flag; called in `_ready()` and after effects.
+4. Add `_show_potion_picker()` — CanvasLayer overlay listing owned potions, calls `_apply_potion_effect()`.
+5. Add `_apply_potion_effect(potion_id)` with healing, draw, and mana branches; calls `_refresh_all()`.
+6. Guard potion button in `_on_turn_ended()`: disable on player_idx==1, re-enable on player_idx==0.
+7. Add `signal potion_used(potion_id: String)` to `GameBus.gd`.
+8. Write headless tests in `tests/unit/test_battle_potions.gd`; register in runner.gd.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/GameBus.gd`**: Added `signal potion_used(potion_id: String)`.
+- **`scenes/battle/BattleScene.gd`**: Added `GardenDefs` preload; `_potion_btn: Button` and `_used_potion_this_battle: bool` fields; `_add_potion_button()` (shows button only when potions are owned, skipped in puzzle mode); `_refresh_potion_button()` (disabled when used or no potions or enemy turn); `_on_potion_button_pressed()` guard; `_show_potion_picker()` (CanvasLayer overlay listing owned potions with Use/Cancel); `_apply_potion_effect()` (healing_draught +8 HP capped at max, clarity_brew draws 2 cards, ember_tonic +1 mana capped at max_mana); calls `_refresh_all()` and `_refresh_potion_button()` after each use; enemy-turn disable in `_on_turn_ended(player_idx==1)`, re-enable in `_on_turn_ended(player_idx==0)`.
+- **`tests/unit/test_battle_potions.gd`** (new): 17 tests covering HP cap math, mana cap math, inventory decrement, one-per-battle flag, and has-potions guard.
+- **`tests/unit/test_battle_potions.gd.uid`** (new): UID sidecar.
+- **`tests/runner.gd`**: Registered `test_battle_potions` suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Full garden system doc deferred to after TID-204 completes (per TID-203 plan note).

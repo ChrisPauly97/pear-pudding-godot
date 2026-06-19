@@ -2,6 +2,7 @@ extends Node
 
 const CardRegistry    = preload("res://autoloads/CardRegistry.gd")
 const CraftingRecipe  = preload("res://data/CraftingRecipe.gd")
+const GardenDefs      = preload("res://game_logic/GardenDefs.gd")
 
 static var _recipes: Array = []
 static var _recipe_index: Dictionary = {}   # "tid|rarity" -> CraftingRecipe
@@ -41,3 +42,7 @@ static func get_recipes_for_template(template_id: String) -> Array:
 static func get_recipe(template_id: String, rarity: String) -> CraftingRecipe:
 	_ensure_loaded()
 	return _recipe_index.get(template_id + "|" + rarity, null) as CraftingRecipe
+
+## Returns potion recipe dicts keyed by potion_id. Each dict has display_name, essence_cost, ingredients.
+static func get_potion_recipes() -> Dictionary:
+	return GardenDefs.POTION_RECIPES

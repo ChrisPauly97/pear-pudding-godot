@@ -35,6 +35,24 @@ const POTIONS: Dictionary = {
 	"ember_tonic":     {"display_name": "Ember Tonic",     "essence_cost": 0},
 }
 
+const POTION_RECIPES: Dictionary = {
+	"healing_draught": {
+		"display_name": "Healing Draught",
+		"essence_cost": 5,
+		"ingredients": {"sunpetal_plant": 2},
+	},
+	"clarity_brew": {
+		"display_name": "Clarity Brew",
+		"essence_cost": 5,
+		"ingredients": {"moonroot_plant": 2},
+	},
+	"ember_tonic": {
+		"display_name": "Ember Tonic",
+		"essence_cost": 5,
+		"ingredients": {"embercap_plant": 2},
+	},
+}
+
 ## Returns the growth stage for a planted plot.
 ## 0 is never returned here — callers should check plot emptiness before calling.
 ## 1 = early growth, 2 = mid growth, 3 = mature (ready to harvest).
