@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://67nvfgaq1s9f"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_arcane_seal"]
+
+[resource]
+script = ExtResource("1_arcane_seal")
+id = "arcane_seal"
+card_name = "Arcane Seal"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "Bless a board slot. The next minion placed there gains +2 ATK."
+color = Color(1.0, 0.75, 0.25, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "bless_slot"
+spell_power = 2

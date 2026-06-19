@@ -2,7 +2,7 @@
 
 **Goal:** GID-079
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-291
 
 ## Lock
@@ -167,12 +167,23 @@ func _resolve_slot_spell(spell: CardInstance, slot_idx: int) -> void:
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `data/cards/arcane_seal.tres` (bless_slot, cost 2, dawn) + `.uid` sidecar.
+2. Create `data/cards/shadow_ward.tres` (ward_slot, cost 1, dusk) + `.uid` sidecar.
+3. Add preload consts to `CardRegistry.gd` and include in `_ensure_loaded()`.
+4. Add `_SLOT_TARGETED_EFFECTS: Array[String] = ["bless_slot", "ward_slot"]` to `BattleScene`.
+5. Add `_slot_targeting_spell` variable; implement `_enter_slot_targeting_mode()`, `_exit_slot_targeting_mode()`, `_resolve_slot_spell()`.
+6. Update `_finish_hand_drag()` to check `_SLOT_TARGETED_EFFECTS` and enter slot-targeting mode.
+7. Update `_resolve_spell_effect()` to handle `bless_slot` and `ward_slot` on AI auto-resolve path (enhances first empty slot).
+8. Add `bless_slot` / `ward_slot` to `_SPELL_EFFECT_LABELS`. Update card count in `test_card_registry.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`data/cards/arcane_seal.tres`** + **`.uid`**: New card resource (spell, cost 2, bless_slot, dawn branch, +2 ATK bonus).
+- **`data/cards/shadow_ward.tres`** + **`.uid`**: New card resource (spell, cost 1, ward_slot, dusk branch, shroud).
+- **`autoloads/CardRegistry.gd`**: Added `_C_ARCANE_SEAL` and `_C_SHADOW_WARD` preload consts; included in `_ensure_loaded()` `all` array.
+- **`scenes/battle/BattleScene.gd`**: Added `_SLOT_TARGETED_EFFECTS`, `_slot_targeting_spell` variable, `_enter_slot_targeting_mode()`, `_exit_slot_targeting_mode()`, `_resolve_slot_spell()`. Updated `_finish_hand_drag()` and `_resolve_spell_effect()`. Added `bless_slot`/`ward_slot` to `_SPELL_EFFECT_LABELS`.
+- **`tests/unit/test_card_registry.gd`**: Updated expected card count from 48 to 50.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/battle-system.md` with new spell effects (`bless_slot`, `ward_slot`), enhancement types (`atk_bonus`, `shroud`), and slot-targeting UI mode.

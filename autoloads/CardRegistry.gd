@@ -2,6 +2,7 @@ extends Node
 
 const CardData = preload("res://data/CardData.gd")
 
+const _C_ARCANE_SEAL      := preload("res://data/cards/arcane_seal.tres")
 const _C_ALIGHT           := preload("res://data/cards/alight.tres")
 const _C_ANCIENT_GUARDIAN := preload("res://data/cards/ancient_guardian.tres")
 const _C_ASH              := preload("res://data/cards/ash.tres")
@@ -49,6 +50,7 @@ const _C_VOID_CREEPER     := preload("res://data/cards/void_creeper.tres")
 const _C_VOID_WYRM        := preload("res://data/cards/void_wyrm.tres")
 const _C_WITHER           := preload("res://data/cards/wither.tres")
 const _C_ZOMBIE           := preload("res://data/cards/zombie.tres")
+const _C_SHADOW_WARD       := preload("res://data/cards/shadow_ward.tres")
 const _C_ISFIG_SHADOW_ECHO := preload("res://data/cards/isfig_shadow_echo.tres")
 
 static var _cards: Dictionary = {}  # id -> CardData
@@ -59,12 +61,14 @@ static func _ensure_loaded() -> void:
 		return
 	_loaded = true
 	var all: Array = [
+		_C_ARCANE_SEAL,
 		_C_ALIGHT, _C_ANCIENT_GUARDIAN, _C_ASH, _C_ASH_WARDEN, _C_BLESSED_LIGHT, _C_BLITZ_GHOUL,
 		_C_BRITTLE, _C_BULWARK, _C_CHAR, _C_DAGGER_THROW, _C_DARK_PACT, _C_DUEL_CROWN,
 		_C_DAWN_ACOLYTE, _C_DAWN_GUARDIAN, _C_DAWN_HEALER, _C_DAWN_PALADIN, _C_DRAIN,
 		_C_DUSK_SEER, _C_DUSK_VAMPIRE, _C_DUSK_WRAITH, _C_EMBER, _C_EMBER_IMP, _C_FLICKER,
 		_C_GHOST, _C_GHOUL, _C_INSIGHT, _C_IRON_REVENANT, _C_MEND, _C_PHOENIX_RISE,
 		_C_RADIANCE, _C_RALLY, _C_RESTORE, _C_SCORCH, _C_SHADOW_BOLT,
+		_C_SHADOW_WARD,
 		_C_SHROUDED_WRAITH, _C_SIPHON, _C_SKELETON, _C_SOUL_HARVEST, _C_SOUL_REND,
 		_C_SPARK, _C_SURGE_SPIRIT, _C_TIME_WARP, _C_VEILED_PALADIN,
 		_C_VOID_CREEPER, _C_VOID_WYRM, _C_WITHER, _C_ZOMBIE,

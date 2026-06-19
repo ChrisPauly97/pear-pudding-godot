@@ -247,3 +247,82 @@ func test_start_turn_clears_summoning_sickness_on_board() -> void:
 	p.board.add_card(c)
 	p.start_turn(1)
 	assert_false(c.summoning_sick)
+
+
+# ---------------------------------------------------------------------------
+# play_card_at_slot
+# ---------------------------------------------------------------------------
+
+func test_play_card_at_slot_places_card_in_target_slot() -> void:
+	var p = _player()
+	p.hero.gain_mana_for_turn(5)
+	var c = _card(1)
+	p.hand.append(c)
+	p.play_card_at_slot(c, 3)
+	assert_eq(p.board.slots[3], c)
+
+
+func test_play_card_at_slot_removes_from_hand() -> void:
+	var p = _player()
+	p.hero.gain_mana_for_turn(5)
+	var c = _card(1)
+	p.hand.append(c)
+	p.play_card_at_slot(c, 0)
+	assert_false(p.hand.has(c))
+
+
+func test_play_card_at_slot_returns_false_when_occupied() -> void:
+	var p = _player()
+	p.hero.gain_mana_for_turn(5)
+	var c1 = _card(1)
+	var c2 = _card(1)
+	p.hand.append(c1)
+	p.hand.append(c2)
+	p.play_card_at_slot(c1, 2)
+	assert_false(p.play_card_at_slot(c2, 2))
+
+
+func test_play_card_at_slot_consumes_enhancement_atk_bonus() -> void:
+	var p = _player()
+	p.hero.gain_mana_for_turn(5)
+	p.board.enhance_slot(1, "atk_bonus", 3)
+	var c = _card(1, 2, 3)
+	p.hand.append(c)
+	p.play_card_at_slot(c, 1)
+	assert_eq(c.attack, 5)  # 2 base + 3 bonus
+
+
+func test_play_card_at_slot_consumes_enhancement_shroud() -> void:
+	var p = _player()
+	p.hero.gain_mana_for_turn(5)
+	p.board.enhance_slot(0, "shroud", 1)
+	var c = _card(1)
+	p.hand.append(c)
+	p.play_card_at_slot(c, 0)
+	assert_true(c.shroud_active)
+
+
+func test_play_card_at_slot_clears_enhancement_after_use() -> void:
+	var p = _player()
+	p.hero.gain_mana_for_turn(5)
+	p.board.enhance_slot(2, "atk_bonus", 2)
+	var c = _card(1)
+	p.hand.append(c)
+	p.play_card_at_slot(c, 2)
+	assert_true(p.board.get_slot_enhancement(2).is_empty())
+
+
+# ---------------------------------------------------------------------------
+# enhancements round-trip via to_dict/from_dict
+# ---------------------------------------------------------------------------
+
+func test_board_enhancements_survive_round_trip() -> void:
+	var p = _player()
+	p.hero.gain_mana_for_turn(5)
+	p.board.enhance_slot(1, "atk_bonus", 2)
+	var d: Dictionary = p.to_dict()
+	var p2 = _player()
+	p2.from_dict(d)
+	var enh: Dictionary = p2.board.get_slot_enhancement(1)
+	assert_eq(str(enh.get("type", "")), "atk_bonus")
+

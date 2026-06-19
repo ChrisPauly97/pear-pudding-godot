@@ -23,7 +23,7 @@ func after_all() -> void:
 # ---------------------------------------------------------------------------
 
 func test_get_all_ids_returns_forty_default_cards() -> void:
-	assert_eq(_registry.get_all_ids().size(), 48)
+	assert_eq(_registry.get_all_ids().size(), 50)
 
 
 func test_get_all_ids_contains_ghost() -> void:

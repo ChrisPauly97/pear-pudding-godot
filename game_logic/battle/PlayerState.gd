@@ -97,11 +97,40 @@ func play_card(card: CardInstance) -> bool:
 	else:
 		board.add_card(card)
 		var slot_idx: int = board.slots.find(card)
+		var enh: Dictionary = board.consume_slot_enhancement(slot_idx)
+		_apply_enhancement_to_card(card, enh)
 		BattlefieldRules.apply_slot_rule(card, slot_idx, battlefield_biome)
 		if card.keywords.has(Keywords.SURGE):
 			card.summoning_sick = false
 	grasslands_card_played = true
 	return true
+
+func play_card_at_slot(card: CardInstance, slot_idx: int) -> bool:
+	if not can_play(card):
+		return false
+	if not board.add_card_at_slot(card, slot_idx):
+		return false
+	var cost: int = effective_cost(card)
+	hand.erase(card)
+	hero.spend_mana(cost)
+	if card.card_class == "spell":
+		discard.append(card)
+	else:
+		var enh: Dictionary = board.consume_slot_enhancement(slot_idx)
+		_apply_enhancement_to_card(card, enh)
+		BattlefieldRules.apply_slot_rule(card, slot_idx, battlefield_biome)
+		card.summoning_sick = true
+		if card.keywords.has(Keywords.SURGE):
+			card.summoning_sick = false
+	grasslands_card_played = true
+	return true
+
+func _apply_enhancement_to_card(card: CardInstance, enh: Dictionary) -> void:
+	match enh.get("type", ""):
+		"atk_bonus":
+			card.attack += int(enh.get("value", 0))
+		"shroud":
+			card.shroud_active = true
 
 func start_turn(turn_number: int) -> void:
 	grasslands_card_played = false
@@ -131,6 +160,7 @@ func to_dict() -> Dictionary:
 		"fatigue_counter": fatigue_counter,
 		"hero": hero.to_dict(),
 		"board": board.to_dict(),
+		"board_enhancements": board.enhancements_to_dict(),
 		"hand": hand_arr,
 		"draw_deck": deck_arr,
 		"discard": discard_arr,
@@ -153,6 +183,9 @@ func from_dict(d: Dictionary) -> void:
 	var raw_board = d.get("board", [])
 	if raw_board is Array:
 		board.from_dict(raw_board)
+	var raw_enhancements = d.get("board_enhancements", [])
+	if raw_enhancements is Array:
+		board.enhancements_from_dict(raw_enhancements)
 	hand.clear()
 	for cd in d.get("hand", []):
 		if cd is Dictionary:

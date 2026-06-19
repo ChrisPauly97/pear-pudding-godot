@@ -12,10 +12,10 @@ The current board renders only occupied cards in a plain HBoxContainer — empty
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-291 | Slot-indexed zone data model | agent | pending | — |
-| TID-292 | Always-visible centred slot UI | agent | pending | TID-291 |
-| TID-293 | Explicit hand-to-slot placement | agent | pending | TID-292 |
-| TID-294 | Slot enhancement system | agent | pending | TID-291 |
+| TID-291 | Slot-indexed zone data model | agent | done | — |
+| TID-292 | Always-visible centred slot UI | agent | done | TID-291 |
+| TID-293 | Explicit hand-to-slot placement | agent | done | TID-292 |
+| TID-294 | Slot enhancement system | agent | done | TID-291 |
 
 ## Acceptance Criteria
 
