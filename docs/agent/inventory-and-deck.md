@@ -237,6 +237,47 @@ Floor-weighted distribution:
 
 ---
 
+## Deck Loadouts (GID-058)
+
+The player can maintain up to **5 named deck loadouts** instead of a single deck.
+
+### Data model (`SaveManager`)
+
+| Field | Type | Notes |
+|---|---|---|
+| `loadouts` | `Array[Dictionary]` | Up to `MAX_LOADOUTS` (5) entries, each `{name: String, cards: Array[String]}` |
+| `active_loadout` | `int` | Index into `loadouts`; 0-based |
+| `player_deck` | `Array[String]` | Always mirrors `loadouts[active_loadout].cards` — kept in sync |
+| `MAX_LOADOUTS` | `const int = 5` | Maximum named loadouts |
+
+`player_deck` is the canonical active deck as before — all existing call sites (BattleScene, InventoryScene, SceneManager) continue reading/writing it unchanged. After any change that modifies `player_deck`, the active loadout's cards array is synced. When the active loadout changes, `player_deck` is synced from it.
+
+### Save migration
+
+Version 33 → 34: `_migrate_v33_to_v34()` wraps the existing `player_deck` into `loadouts = [{"name": "Deck 1", "cards": existing_deck}]` with `active_loadout = 0`. Old saves load cleanly with no data loss.
+
+### Pruning on card removal
+
+`remove_card_instance(uid)` now iterates all loadout cards arrays and removes the uid from each, not just from `player_deck`. This means selling/scrapping/combining a card removes it from every loadout that referenced it.
+
+### Validation
+
+`is_loadout_valid(index)` returns true iff `loadouts[index].cards.size()` is in `[DECK_MIN, DECK_MAX]`. An invalid active loadout blocks battle engagement via the existing SceneManager size check (which reads `player_deck.size()`).
+
+### Loadout CRUD API
+
+```gdscript
+SaveManager.set_active_loadout(index: int) -> bool    # switches and syncs player_deck
+SaveManager.add_loadout(name: String) -> int          # returns new index, or -1 if at cap
+SaveManager.rename_loadout(index: int, new_name: String) -> void
+SaveManager.duplicate_loadout(index: int) -> int      # returns new index, or -1 if at cap
+SaveManager.delete_loadout(index: int) -> bool        # false if last loadout
+SaveManager.get_loadout_names() -> Array[String]
+SaveManager.is_loadout_valid(index: int) -> bool
+```
+
+---
+
 ## Asset Requirements
 
 | Asset | Path | Notes |

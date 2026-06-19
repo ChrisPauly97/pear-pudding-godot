@@ -30,7 +30,13 @@ var owned_cards: Array[Dictionary] = []
 var _uid_index: Dictionary = {}  # uid -> Dictionary reference for O(1) lookups
 
 # Cards currently in the active battle deck — list of UIDs from owned_cards.
+# This mirrors loadouts[active_loadout].cards and is kept in sync at all times.
 var player_deck: Array[String] = []
+
+# Named deck loadouts (up to MAX_LOADOUTS). Each entry: {name: String, cards: Array[String]}.
+const MAX_LOADOUTS: int = 5
+var loadouts: Array[Dictionary] = []
+var active_loadout: int = 0
 
 # Crafting resource earned by scrapping cards.
 var essence: int = 0
@@ -351,13 +357,17 @@ func new_game() -> void:
 	seeds = {}
 	plants = {}
 	potions = {}
+	var starting_deck_copy: Array[String] = []
+	starting_deck_copy.assign(player_deck)
+	loadouts = [{"name": "Deck 1", "cards": starting_deck_copy}]
+	active_loadout = 0
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 33
+const CURRENT_SAVE_VERSION: int = 34
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -649,6 +659,15 @@ static func _migrate_v32_to_v33(data: Dictionary) -> void:
 		data["potions"] = {}
 	data["version"] = 33
 
+# _migrate_v33_to_v34: wrap existing player_deck into a named loadout array.
+static func _migrate_v33_to_v34(data: Dictionary) -> void:
+	if not data.has("loadouts"):
+		var existing_deck: Array = data.get("player_deck", [])
+		var deck_copy: Array = existing_deck.duplicate()
+		data["loadouts"] = [{"name": "Deck 1", "cards": deck_copy}]
+		data["active_loadout"] = 0
+	data["version"] = 34
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -717,6 +736,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v31_to_v32(data)
 	if ver < 33:
 		_migrate_v32_to_v33(data)
+	if ver < 34:
+		_migrate_v33_to_v34(data)
 
 static func _sign(payload: String) -> String:
 	var crypto := Crypto.new()
@@ -758,6 +779,24 @@ func load_save() -> bool:
 		if _uid != "":
 			_uid_index[_uid] = _card
 	player_deck.assign(data.get("player_deck", []))
+	# Load loadouts; fall back to wrapping player_deck if absent.
+	var raw_loadouts: Array = data.get("loadouts", [])
+	loadouts = []
+	for _lo: Variant in raw_loadouts:
+		if not _lo is Dictionary:
+			continue
+		var lo: Dictionary = _lo as Dictionary
+		var lo_cards: Array[String] = []
+		lo_cards.assign(lo.get("cards", []))
+		loadouts.append({"name": str(lo.get("name", "Deck")), "cards": lo_cards})
+	if loadouts.is_empty():
+		var fallback: Array[String] = []
+		fallback.assign(player_deck)
+		loadouts = [{"name": "Deck 1", "cards": fallback}]
+	active_loadout = int(data.get("active_loadout", 0))
+	active_loadout = clampi(active_loadout, 0, loadouts.size() - 1)
+	# Keep player_deck in sync with the active loadout.
+	player_deck.assign(loadouts[active_loadout].get("cards", []))
 	essence = int(data.get("essence", 0))
 	coins = int(data.get("coins", 0))
 	current_map = str(data.get("current_map", "main"))
@@ -852,10 +891,17 @@ func load_save() -> bool:
 func save() -> void:
 	if not _loaded:
 		return
+	# Sync active loadout from player_deck before serialising.
+	if active_loadout >= 0 and active_loadout < loadouts.size():
+		var synced: Array[String] = []
+		synced.assign(player_deck)
+		loadouts[active_loadout]["cards"] = synced
 	var data := {
 		"version": CURRENT_SAVE_VERSION,
 		"owned_cards": owned_cards,
 		"player_deck": player_deck,
+		"loadouts": loadouts,
+		"active_loadout": active_loadout,
 		"essence": essence,
 		"coins": coins,
 		"current_map": current_map,
@@ -999,6 +1045,10 @@ func grant_achievement_card(card_id: String) -> void:
 
 func set_active_deck(new_deck: Array[String]) -> void:
 	player_deck.assign(new_deck)
+	if active_loadout >= 0 and active_loadout < loadouts.size():
+		var synced: Array[String] = []
+		synced.assign(player_deck)
+		loadouts[active_loadout]["cards"] = synced
 	_dirty = true
 
 func get_owned_counts() -> Dictionary:
@@ -1062,7 +1112,7 @@ func add_card_instance(template_id: String, rarity: String, attack: int = -1, he
 	_dirty = true
 	return uid
 
-## Removes a card instance by UID from owned_cards and player_deck.
+## Removes a card instance by UID from owned_cards, player_deck, and all loadouts.
 func remove_card_instance(uid: String) -> void:
 	_uid_index.erase(uid)
 	for i in range(owned_cards.size() - 1, -1, -1):
@@ -1072,6 +1122,11 @@ func remove_card_instance(uid: String) -> void:
 	var deck_idx: int = player_deck.find(uid)
 	if deck_idx >= 0:
 		player_deck.remove_at(deck_idx)
+	for i in range(loadouts.size()):
+		var lo_cards: Array = loadouts[i].get("cards", [])
+		var lo_idx: int = lo_cards.find(uid)
+		if lo_idx >= 0:
+			lo_cards.remove_at(lo_idx)
 	_dirty = true
 
 ## Sells a card instance for gold. No-op if uid not found or card is unique.
@@ -1916,3 +1971,77 @@ func claim_bounty(bounty_id: String) -> int:
 		_dirty = true
 		return reward
 	return 0
+
+# -------------------------------------------------------------------------
+# Loadout helpers (GID-058)
+# -------------------------------------------------------------------------
+
+## Returns true if the loadout at index has a card count within [DECK_MIN, DECK_MAX].
+func is_loadout_valid(index: int) -> bool:
+	if index < 0 or index >= loadouts.size():
+		return false
+	var cards: Array = loadouts[index].get("cards", [])
+	return cards.size() >= IsoConst.DECK_MIN and cards.size() <= IsoConst.DECK_MAX
+
+## Returns the list of loadout names in order.
+func get_loadout_names() -> Array[String]:
+	var names: Array[String] = []
+	for lo: Dictionary in loadouts:
+		names.append(str(lo.get("name", "Deck")))
+	return names
+
+## Switches the active loadout; syncs player_deck to the new loadout's cards.
+## Returns false if the index is out of range.
+func set_active_loadout(index: int) -> bool:
+	if index < 0 or index >= loadouts.size():
+		return false
+	active_loadout = index
+	player_deck.assign(loadouts[active_loadout].get("cards", []))
+	_dirty = true
+	return true
+
+## Creates a new empty loadout with the given name (max MAX_LOADOUTS).
+## Returns the new index, or -1 if the limit is reached.
+func add_loadout(name: String) -> int:
+	if loadouts.size() >= MAX_LOADOUTS:
+		return -1
+	loadouts.append({"name": name, "cards": []})
+	_dirty = true
+	return loadouts.size() - 1
+
+## Renames the loadout at index. No-op if out of range.
+func rename_loadout(index: int, new_name: String) -> void:
+	if index < 0 or index >= loadouts.size():
+		return
+	loadouts[index]["name"] = new_name
+	_dirty = true
+
+## Duplicates the loadout at index and appends it (max MAX_LOADOUTS).
+## Returns the new index, or -1 if the limit is reached.
+func duplicate_loadout(index: int) -> int:
+	if index < 0 or index >= loadouts.size():
+		return -1
+	if loadouts.size() >= MAX_LOADOUTS:
+		return -1
+	var src: Dictionary = loadouts[index]
+	var copy_cards: Array[String] = []
+	copy_cards.assign(src.get("cards", []))
+	var copy_name: String = str(src.get("name", "Deck")) + " (Copy)"
+	loadouts.append({"name": copy_name, "cards": copy_cards})
+	_dirty = true
+	return loadouts.size() - 1
+
+## Deletes the loadout at index. The last remaining loadout cannot be deleted.
+## If deleting the active loadout, switches to the nearest valid index.
+## Returns false if refused (last loadout or out of range).
+func delete_loadout(index: int) -> bool:
+	if loadouts.size() <= 1:
+		return false
+	if index < 0 or index >= loadouts.size():
+		return false
+	loadouts.remove_at(index)
+	if active_loadout >= loadouts.size():
+		active_loadout = loadouts.size() - 1
+	player_deck.assign(loadouts[active_loadout].get("cards", []))
+	_dirty = true
+	return true

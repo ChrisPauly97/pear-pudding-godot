@@ -12,7 +12,7 @@ With 50+ goals of card content (rarities, keywords, effects, dawn/dusk branches)
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-210 | Loadout model: named deck lists in SaveManager, active index, migration from single deck, prune-on-sale | agent | pending | — |
+| TID-210 | Loadout model: named deck lists in SaveManager, active index, migration from single deck, prune-on-sale | agent | done | — |
 | TID-211 | Deck builder loadout UI: selector, new/rename/duplicate/delete, validation per loadout | agent | pending | TID-210 |
 
 ## Acceptance Criteria
