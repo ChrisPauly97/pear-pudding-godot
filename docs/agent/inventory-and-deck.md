@@ -276,6 +276,26 @@ SaveManager.get_loadout_names() -> Array[String]
 SaveManager.is_loadout_valid(index: int) -> bool
 ```
 
+### Loadout UI (`InventoryScene.gd`)
+
+A **loadout tab row** and **action row** sit above the `_deck_count_label` in the deck panel.
+
+**Tab row** (`_loadout_tab_row: HBoxContainer`):
+- One flat `Button` per loadout, rebuilt on every `_refresh_cards()` call via `_rebuild_loadout_bar()`.
+- Active tab: `modulate = Color.WHITE`; inactive: `Color(0.7, 0.7, 0.7)`.
+- Invalid loadout (< DECK_MIN or > DECK_MAX): red tint (`Color(1.0, 0.35, 0.35)` active, darker for inactive). The active tab uses `_working_deck.size()` so it reflects in-flight edits immediately.
+- "+" button appended after the tabs; `disabled = true` when at `MAX_LOADOUTS` (5).
+
+**Action row** (`_loadout_action_row: HBoxContainer`): Rename / Copy / Delete buttons always visible.
+- Delete: `modulate = Color(1.0, 0.4, 0.4)`, `disabled = true` when only one loadout remains.
+- Copy: `disabled = true` when at cap.
+
+**Tab switching** (`_on_loadout_tab(index)`): auto-saves the current `_working_deck` to the active loadout via `sm.set_active_deck()` before switching, so in-progress edits are preserved.
+
+**Rename popup** (`_on_rename_loadout()`): `PopupPanel` with a `LineEdit` (max 20 chars), positioned in the top half of the screen (`position.y = viewport_h * 0.08`) so the Android virtual keyboard doesn't cover it. `grab_focus()` is called to trigger the keyboard on Android.
+
+**Delete popup** (`_on_del_loadout()`): `PopupPanel` confirmation with "Yes, Delete" / "Cancel". Guard: function returns early if only one loadout remains (button is also `disabled`), so the last loadout can never be deleted.
+
 ---
 
 ## Asset Requirements

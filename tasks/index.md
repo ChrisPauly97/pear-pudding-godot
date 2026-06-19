@@ -61,7 +61,7 @@
 | [GID-055](goals/GID-055--night-hunts/goal.md) | Night Hunts | done | 3 / 3 |
 | [GID-056](goals/GID-056--home-garden-potions/goal.md) | Home Garden & Potion Brewing | done | 4 / 4 |
 | [GID-057](goals/GID-057--dungeon-secrets/goal.md) | Dungeon Secrets & Mimics | done | 3 / 3 |
-| [GID-058](goals/GID-058--deck-loadouts/goal.md) | Deck Loadouts | pending | 1 / 2 |
+| [GID-058](goals/GID-058--deck-loadouts/goal.md) | Deck Loadouts | done | 2 / 2 |
 | [GID-059](goals/GID-059--battlefield-resonance/goal.md) | Battlefield Resonance — Where You Fight Matters | done | 3 / 3 |
 | [GID-060](goals/GID-060--veteran-cards/goal.md) | Veteran Cards — Cards That Remember | pending | 0 / 3 |
 | [GID-061](goals/GID-061--soulbinding/goal.md) | Soulbinding — Every Enemy Is a Card | pending | 0 / 3 |
