@@ -156,9 +156,6 @@ func _ready() -> void:
 		_apply_equipment_effects(_state.players[0])
 		_apply_passive_skills(_state.players[0])
 		_state.players[0].draw_opening_hand(4)
-		for _i in _state.players[0].bonus_draw:
-			_state.players[0].draw_card()
-		_flush_auto_spells(0)
 		# Spire run: hero HP persists across floors (damage carries over).
 		if SceneManager.save_manager.is_spire_active():
 			var _spire_hp: int = int(SceneManager.save_manager.get_spire_run().get("hero_hp", 30))
@@ -191,6 +188,9 @@ func _ready() -> void:
 				_state.players[1].hero.max_health = bhp
 			_show_boss_banner()
 
+		# start_turn draws 1 card + bonus_draw (from passive_draw skills/equipment).
+		# bonus_mana (from passive_mana skills) was set above, so gain_mana_for_turn
+		# already uses it: max_mana = mini(10, 1 + bonus_mana).
 		_state.players[0].start_turn(1)
 		if duel_wager > 0:
 			_state.friendly_duel = true
@@ -204,6 +204,9 @@ func _ready() -> void:
 		# first turn-start draw (draw_card). Excluded in puzzle and duel modes.
 		_apply_companion_battle_start(_state.players[0])
 		_apply_companion_turn_start()
+		# Flush auto-resolve spells collected from opening hand + turn-1 draw.
+		# Must run after enemy deck is built so spells target the real enemy.
+		_flush_auto_spells(0)
 
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
@@ -226,6 +229,10 @@ func _ready() -> void:
 
 	_refresh_all()
 	_refresh_potion_button()
+
+	# Catch any hero deaths that occurred during setup (e.g., fatigue on very small
+	# Spire decks, or auto-resolve spells dealing damage before game-over was wired).
+	_check_game_over()
 
 	# If we resumed a battle mid-AI-turn, restart the AI (deferred so UI is ready).
 	if not _saved_battle.is_empty() and _state.current_player_idx == 1 and not _state.is_game_over():
