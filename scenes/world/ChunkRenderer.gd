@@ -188,7 +188,8 @@ func _build_walls_physics() -> void:
 		var run_start: int = -1
 		var run_h: int = 0
 		for lx in range(CHUNK_SIZE + 1):  # +1 to flush final run
-			var is_wall: bool = lx < CHUNK_SIZE and _chunk_data.get_tile(lx, lz) == IsoConst.TILE_WALL
+			var _ct: int = _chunk_data.get_tile(lx, lz) if lx < CHUNK_SIZE else IsoConst.TILE_GRASS
+			var is_wall: bool = _ct == IsoConst.TILE_WALL or _ct == IsoConst.TILE_CRACKED
 			var h: int = max(1, _chunk_data.get_height(lx, lz)) if is_wall else 0
 			if is_wall and (run_start < 0 or h == run_h):
 				if run_start < 0:

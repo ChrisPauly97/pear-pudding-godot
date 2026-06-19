@@ -67,6 +67,8 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_battle_potions.gd"),
 	preload("res://tests/unit/test_battle_fatigue.gd"),
 	preload("res://tests/unit/test_battlefield_rules.gd"),
+	preload("res://tests/unit/test_dungeon_secrets.gd"),
+	preload("res://tests/unit/test_mimic_chests.gd"),
 ]
 
 

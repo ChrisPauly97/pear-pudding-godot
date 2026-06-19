@@ -31,7 +31,8 @@ static func get_height_at(wx: float, wz: float,
 			var ttx: int = vtx + dtx
 			var ttz: int = vtz + dtz
 			var tile_type: int = tile_lookup.call(ttx, ttz)
-			if tile_type != IsoConst.TILE_HILL and tile_type != IsoConst.TILE_WALL:
+			var is_wall_type: bool = tile_type == IsoConst.TILE_WALL or tile_type == IsoConst.TILE_CRACKED
+			if tile_type != IsoConst.TILE_HILL and not is_wall_type:
 				continue
 			var near_x: float = clamp(wx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
 			var near_z: float = clamp(wz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
@@ -43,7 +44,7 @@ static func get_height_at(wx: float, wz: float,
 					min_dist_sq_hill = dist_sq
 					var hh: int = height_lookup.call(ttx, ttz)
 					nearest_hill_peak = float(hh) * IsoConst.HILL_FACE_H if hh > 0 else peak_h
-			else:  # TILE_WALL
+			else:  # TILE_WALL or TILE_CRACKED
 				if dist_sq < nearest_wall_sq:
 					nearest_wall_sq = dist_sq
 
@@ -90,7 +91,8 @@ static func compute_height_field(
 					var ttx: int = vtx + dtx
 					var ttz: int = vtz + dtz
 					var tile_type: int = tile_lookup.call(ttx, ttz)
-					if tile_type != IsoConst.TILE_HILL and tile_type != IsoConst.TILE_WALL:
+					var is_wall_type2: bool = tile_type == IsoConst.TILE_WALL or tile_type == IsoConst.TILE_CRACKED
+					if tile_type != IsoConst.TILE_HILL and not is_wall_type2:
 						continue
 					var near_x: float = clamp(gx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
 					var near_z: float = clamp(gz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
@@ -102,7 +104,7 @@ static func compute_height_field(
 							min_dist_sq_hill = dist_sq
 							var hh: int = height_lookup.call(ttx, ttz)
 							nearest_hill_peak = float(hh) * IsoConst.HILL_FACE_H if hh > 0 else peak_h
-					else:  # TILE_WALL
+					else:  # TILE_WALL or TILE_CRACKED
 						if dist_sq < nearest_wall_sq:
 							nearest_wall_sq = dist_sq
 
@@ -310,7 +312,8 @@ static func build_wall_face_mesh(
 		for local_tx in range(chunk_tiles_x):
 			var tx: int = tile_min_x + local_tx
 			var tz: int = tile_min_z + local_tz
-			if tile_lookup.call(tx, tz) != IsoConst.TILE_WALL:
+			var this_tile: int = tile_lookup.call(tx, tz)
+			if this_tile != IsoConst.TILE_WALL and this_tile != IsoConst.TILE_CRACKED:
 				continue
 			var wh: int = height_lookup.call(tx, tz)
 			var top_y: float = minf(float(maxi(1, wh)) * IsoConst.WALL_FACE_H, WALL_MAX_H)
@@ -321,8 +324,9 @@ static func build_wall_face_mesh(
 			var lz0: float = float(local_tz) * IsoConst.TILE_SIZE
 			var lz1: float = float(local_tz + 1) * IsoConst.TILE_SIZE
 
-			# -X face (left): exposed when the tile to the left is not a wall
-			if tile_lookup.call(tx - 1, tz) != IsoConst.TILE_WALL:
+			# -X face (left): exposed when the tile to the left is not a wall-type
+			var nb_left: int = tile_lookup.call(tx - 1, tz)
+			if nb_left != IsoConst.TILE_WALL and nb_left != IsoConst.TILE_CRACKED:
 				var bi: int = verts.size()
 				verts.append(Vector3(lx0, 0.0,   lz0))
 				verts.append(Vector3(lx0, 0.0,   lz1))
@@ -340,7 +344,8 @@ static func build_wall_face_mesh(
 				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
 
 			# +X face (right)
-			if tile_lookup.call(tx + 1, tz) != IsoConst.TILE_WALL:
+			var nb_right: int = tile_lookup.call(tx + 1, tz)
+			if nb_right != IsoConst.TILE_WALL and nb_right != IsoConst.TILE_CRACKED:
 				var bi: int = verts.size()
 				verts.append(Vector3(lx1, 0.0,   lz1))
 				verts.append(Vector3(lx1, 0.0,   lz0))
@@ -358,7 +363,8 @@ static func build_wall_face_mesh(
 				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
 
 			# -Z face (near)
-			if tile_lookup.call(tx, tz - 1) != IsoConst.TILE_WALL:
+			var nb_near: int = tile_lookup.call(tx, tz - 1)
+			if nb_near != IsoConst.TILE_WALL and nb_near != IsoConst.TILE_CRACKED:
 				var bi: int = verts.size()
 				verts.append(Vector3(lx1, 0.0,   lz0))
 				verts.append(Vector3(lx0, 0.0,   lz0))
@@ -376,7 +382,8 @@ static func build_wall_face_mesh(
 				indices.append(bi + 1); indices.append(bi + 2); indices.append(bi + 3)
 
 			# +Z face (far)
-			if tile_lookup.call(tx, tz + 1) != IsoConst.TILE_WALL:
+			var nb_far: int = tile_lookup.call(tx, tz + 1)
+			if nb_far != IsoConst.TILE_WALL and nb_far != IsoConst.TILE_CRACKED:
 				var bi: int = verts.size()
 				verts.append(Vector3(lx0, 0.0,   lz1))
 				verts.append(Vector3(lx1, 0.0,   lz1))

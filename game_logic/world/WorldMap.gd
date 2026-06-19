@@ -17,6 +17,7 @@ const TILE_GRASS: int = IsoConst.TILE_GRASS
 const TILE_WALL: int = IsoConst.TILE_WALL
 const TILE_HILL: int = IsoConst.TILE_HILL
 const TILE_PATH: int = IsoConst.TILE_PATH
+const TILE_CRACKED: int = IsoConst.TILE_CRACKED
 const MAP_WIDTH: int = 100
 const MAP_HEIGHT: int = 100
 const TILE_SIZE: float = IsoConst.TILE_SIZE
@@ -103,7 +104,8 @@ func set_height(tx: int, tz: int, h: int) -> void:
 func is_wall_at_world(wx: float, wz: float) -> bool:
 	var tx := int(wx / TILE_SIZE)
 	var tz := int(wz / TILE_SIZE)
-	return get_tile(tx, tz) == TILE_WALL
+	var t: int = get_tile(tx, tz)
+	return t == TILE_WALL or t == TILE_CRACKED
 
 func get_wall_height_at_world(wx: float, wz: float) -> int:
 	var tx := int(wx / TILE_SIZE)
@@ -177,6 +179,34 @@ func find_nearby_shrine(px: float, pz: float, range_dist: float) -> Dictionary:
 		if dx * dx + dz * dz <= range_sq:
 			return sh
 	return {}
+
+func find_chest_by_id(chest_id: String) -> Dictionary:
+	for c in chests:
+		if c.get("id", "") == chest_id:
+			return c
+	return {}
+
+func find_nearby_cracked_wall(px: float, pz: float, range_dist: float) -> Vector2i:
+	var tx: int = int(px / TILE_SIZE)
+	var tz: int = int(pz / TILE_SIZE)
+	var tile_r: int = int(ceil(range_dist / TILE_SIZE)) + 1
+	var best_dist_sq: float = (range_dist + TILE_SIZE) * (range_dist + TILE_SIZE)
+	var best: Vector2i = Vector2i(-1, -1)
+	for dtz in range(-tile_r, tile_r + 1):
+		for dtx in range(-tile_r, tile_r + 1):
+			var ttx: int = tx + dtx
+			var ttz: int = tz + dtz
+			if get_tile(ttx, ttz) != TILE_CRACKED:
+				continue
+			var cx: float = (float(ttx) + 0.5) * TILE_SIZE
+			var cz: float = (float(ttz) + 0.5) * TILE_SIZE
+			var ddx: float = cx - px
+			var ddz: float = cz - pz
+			var d_sq: float = ddx * ddx + ddz * ddz
+			if d_sq <= best_dist_sq:
+				best_dist_sq = d_sq
+				best = Vector2i(ttx, ttz)
+	return best
 
 func find_door_by_id(door_id: String) -> Dictionary:
 	for d in doors:

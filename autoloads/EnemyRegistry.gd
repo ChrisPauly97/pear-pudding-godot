@@ -17,6 +17,7 @@ const _E_MARTARQUAS_RAIDER_3  := preload("res://data/enemies/martarquas_raider_3
 const _E_RIVAL_ISFIG_1        := preload("res://data/enemies/rival_isfig_1.tres")
 const _E_RIVAL_ISFIG_2        := preload("res://data/enemies/rival_isfig_2.tres")
 const _E_RIVAL_ISFIG_3        := preload("res://data/enemies/rival_isfig_3.tres")
+const _E_MIMIC                := preload("res://data/enemies/mimic.tres")
 
 static var _enemies: Dictionary = {}
 static var _loaded: bool = false
@@ -220,6 +221,17 @@ static func _ensure_loaded() -> void:
 			"difficulty_tier": 3,
 			"night_drop_boost": true,
 			"lore_text": "A Wraith of apex terror, born when sorrow and power collapse into a single point. It hunts not for sustenance but for the sheer extinguishing of light — it is drawn to those who carry hope.",
+		},
+		"mimic": {
+			"display_name": "Mimic",
+			"deck": ["ghost", "skeleton", "zombie", "ghoul", "ghost", "skeleton", "zombie", "ghoul"],
+			"drop_pool": ["ghost", "skeleton", "zombie", "ghoul"],
+			"coin_reward": 25,
+			"is_boss": false,
+			"boss_hp": 0,
+			"phase2_deck": [],
+			"difficulty_tier": 2,
+			"lore_text": "Not every treasure chest holds gold. Some hold teeth. The Mimic waits in perfect stillness, indistinguishable from its surroundings — until you reach inside.",
 		},
 	}
 

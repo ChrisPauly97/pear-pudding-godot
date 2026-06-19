@@ -1966,6 +1966,21 @@ func _handle_interact() -> void:
 
 	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
 	if not chest.is_empty() and not chest.get("opened", false):
+		if chest.get("is_mimic", false):
+			AudioManager.play_sfx("enemy_alert")
+			SceneManager.show_toast("It's a Mimic!", "Prepare for battle!")
+			var mimic_deck: Array[String] = []
+			mimic_deck.assign(EnemyRegistry.get_deck("mimic"))
+			var mimic_data: Dictionary = {
+				"id": str(chest.get("id", "mimic_0")),
+				"x": chest.get("x", px),
+				"z": chest.get("z", pz),
+				"alive": true, "tracking": false,
+				"enemy_type": "mimic",
+				"enemy_deck": mimic_deck,
+			}
+			GameBus.enemy_engaged.emit(mimic_data)
+			return
 		chest["opened"] = true
 		AudioManager.play_sfx("chest_open")
 		if OS.has_feature("mobile") and bool(SceneManager.save_manager.get_setting("haptics", true)):

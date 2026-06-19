@@ -2,14 +2,14 @@
 
 **Goal:** GID-057
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/GID-057--dungeon-secrets
+**Acquired:** 2026-06-19T00:00:00Z
+**Expires:** 2026-06-19T00:30:00Z
 
 ## Context
 
@@ -60,12 +60,24 @@ Secret rooms are rare, deterministic chambers hidden behind cracked walls in dun
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `TILE_CRACKED = 4` to `autoloads/IsoConst.gd` and alias in `WorldMap.gd`.
+2. Update `WorldMap.is_wall_at_world()` to treat TILE_CRACKED as a wall.
+3. Update `TerrainMath.get_height_at()`, `compute_height_field()`, and `build_wall_face_mesh()` to handle TILE_CRACKED identically to TILE_WALL.
+4. Update `ChunkRenderer._build_walls_physics()` to include TILE_CRACKED in wall collision.
+5. Add `_try_gen_secret_room()` static to `DungeonGen.gd`; call it from `generate()` behind a 30% RNG gate.
+6. Write tests in `tests/unit/test_dungeon_secrets.gd`.
+7. Add to `tests/runner.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **autoloads/IsoConst.gd**: Added `const TILE_CRACKED: int = 4`.
+- **game_logic/world/WorldMap.gd**: Added `TILE_CRACKED` alias; updated `is_wall_at_world()` to include it; added `find_chest_by_id()`; added `find_nearby_cracked_wall()`.
+- **game_logic/TerrainMath.gd**: Extended tile type checks in `get_height_at()`, `compute_height_field()`, and `build_wall_face_mesh()` to treat TILE_CRACKED as a wall.
+- **scenes/world/ChunkRenderer.gd**: Extended `_build_walls_physics()` wall detection to include TILE_CRACKED.
+- **game_logic/world/DungeonGen.gd**: Added 30% secret room gate and `_try_gen_secret_room()` static method. Fixed bug: 3×3 carve was overwriting the TILE_CRACKED entrance tile — carve now runs before setting TILE_CRACKED.
+- **tests/unit/test_dungeon_secrets.gd** + **.uid**: New test suite (10 tests; all pass).
+- **tests/runner.gd**: Added `test_dungeon_secrets` preload.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/named-maps-and-dungeons.md` updated with TILE_CRACKED, secret room algorithm, and chest placement.

@@ -12,9 +12,9 @@ Dungeons are corridors with an exit — nothing rewards looking closely. Secret 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-207 | DungeonGen secret rooms: seeded hidden room behind a cracked-wall tile (~30% of dungeons) | agent | pending | — |
+| TID-207 | DungeonGen secret rooms: seeded hidden room behind a cracked-wall tile (~30% of dungeons) | agent | done | — |
 | TID-208 | Cracked-wall visual tell + break-open interaction + reveal | agent | pending | TID-207 |
-| TID-209 | Mimic chests: seeded chance a chest is a battle in disguise, boosted loot on victory | agent | pending | — |
+| TID-209 | Mimic chests: seeded chance a chest is a battle in disguise, boosted loot on victory | agent | done | — |
 
 ## Acceptance Criteria
 

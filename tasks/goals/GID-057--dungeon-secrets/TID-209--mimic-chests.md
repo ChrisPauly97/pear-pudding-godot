@@ -2,14 +2,14 @@
 
 **Goal:** GID-057
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/next-gid-filtering-xan993
+**Acquired:** 2026-06-19T00:00:00Z
+**Expires:** 2026-06-19T00:30:00Z
 
 ## Context
 
@@ -116,12 +116,24 @@ Mimic chests are rare, seeded variants of normal dungeon chests that trigger a b
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `is_mimic` roll (15%) to each dungeon chest in `DungeonGen.generate()`.
+2. Create `data/enemies/mimic.tres` EnemyData resource and register in `EnemyRegistry`.
+3. Branch on `is_mimic` in `WorldScene._handle_interact()` — play alert SFX, show toast, emit `GameBus.enemy_engaged`.
+4. Add mimic victory early-return in `SceneManager._on_battle_won()` — grant chest cards at tier 3 + bonus card from drop_pool + coins, mark chest opened.
+5. Add `WorldMap.find_chest_by_id()` helper.
+6. Write tests in `tests/unit/test_mimic_chests.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **game_logic/world/DungeonGen.gd**: Added 15% mimic rolls for treasure-room chests and the end-room chest. `"is_mimic": true` is stored in the chest dict.
+- **data/enemies/mimic.tres** + **.uid**: New EnemyData resource (deck 8 cards, coin_reward=25, difficulty_tier=2).
+- **autoloads/EnemyRegistry.gd**: Added `const _E_MIMIC := preload("res://data/enemies/mimic.tres")` and `"mimic"` entry in `_enemies` dict.
+- **game_logic/world/WorldMap.gd**: Added `find_chest_by_id(chest_id: String) -> Dictionary` helper.
+- **scenes/world/WorldScene.gd**: Added mimic branch in `_handle_interact()` before `chest["opened"] = true` — plays `enemy_alert` SFX, shows toast, emits `GameBus.enemy_engaged` with mimic data, returns early.
+- **autoloads/SceneManager.gd**: Added mimic victory early-return in `_on_battle_won()` — finds chest via `find_chest_by_id`, grants loot directly to inventory at tier 3, adds bonus card from drop_pool, coins, marks chest opened.
+- **tests/unit/test_mimic_chests.gd** + **.uid**: New test suite (12 tests; all pass).
+- **tests/runner.gd**: Added `test_mimic_chests` preload.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/named-maps-and-dungeons.md` updated with mimic chest system and EnemyRegistry integration.

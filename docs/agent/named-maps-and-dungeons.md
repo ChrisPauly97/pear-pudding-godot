@@ -99,6 +99,44 @@ Each of the 5 dungeon rooms has a deterministic type derived from the seed:
 **treasure** — Chest id prefix `"dtr_"` with 2 random cards; no enemy. WorldScene opens at 40 % weapon drop chance (vs 15 % for standard chests).  
 **event** — NPC with `npc_type = "event_room"`; pressing E loads a random event from `data/dungeon_events.json` (deterministic per room), shows text + 2-3 choices, applies outcome (coins, HP, cards).
 
+### Secret Rooms (TILE_CRACKED)
+
+After entity population, `DungeonGen.generate()` rolls a **30% chance** (seeded) to generate one secret room:
+
+1. Scans all TILE_GRASS perimeter tiles for candidates — positions adjacent to a TILE_WALL tile where the 3×3 area two steps beyond the wall is entirely TILE_WALL.
+2. Picks one candidate at random (seeded).
+3. **Carves** a 3×3 TILE_GRASS room at the candidate location.
+4. Sets the connecting wall tile to **`TILE_CRACKED`** (after the carve, to prevent the carve from overwriting it).
+5. Adds a bonus chest with id prefix `"dsr_"` and 2 random cards at the room centre.
+
+**`TILE_CRACKED = 4`** (defined in `autoloads/IsoConst.gd`). The tile:
+- Renders as a wall face (same quads as TILE_WALL; visual texture distinction is TID-208).
+- Blocks movement via `WorldMap.is_wall_at_world()` and `ChunkRenderer` box-collider merging.
+- Does NOT break dungeon main-path connectivity — all rooms and the exit are accessible without passing through the cracked wall.
+
+Secret room chest opens normally (no mimic roll). The cracked wall break interaction is implemented in TID-208.
+
+### Mimic Chests
+
+Each dungeon chest (treasure room `"dtr_"` and end room `"dc_"`) has a **15% seeded chance** of being a mimic. The chest dict gains `"is_mimic": true`.
+
+**Encounter flow:**
+1. Player interacts with a mimic chest in `WorldScene._handle_interact()`.
+2. `enemy_alert` SFX plays; toast "It's a Mimic!" shown.
+3. `GameBus.enemy_engaged` emitted with `enemy_type: "mimic"`, chest `id` as enemy `id`.
+4. Standard battle flow launches.
+
+**Victory:**
+- `SceneManager._on_battle_won()` detects `enemy_type == "mimic"`.
+- Looks up the chest via `world_map.find_chest_by_id(chest_id)`.
+- Grants chest `card_ids` to inventory at tier 3 rarity + one bonus card from mimic drop_pool.
+- Adds `EnemyRegistry.get_coin_reward("mimic")` = 25 coins.
+- Marks chest opened; records bestiary/bounty progress.
+
+**Defeat:** Chest stays closed and `is_mimic` persists — the mimic is re-fightable on re-entry (determined by the dungeon's seeded `.tres` file).
+
+**EnemyData**: `data/enemies/mimic.tres` — deck of 8 mixed basic cards, `difficulty_tier = 2`, `coin_reward = 25`. Registered in `EnemyRegistry` under `"mimic"` key.
+
 **visited tracking**: `SaveManager.visited_dungeon_rooms: Array[String]` (persisted, version 9). `mark_dungeon_room_used(room_key)` / `is_dungeon_room_used(room_key)` — rest and event rooms can only be used once per save.
 
 **Visual distinction on map overlay**: rest → teal dot (`_DOT_REST`), event → amber dot (`_DOT_EVENT`), treasure → yellow chest dot (existing), combat → red enemy dot (existing).
