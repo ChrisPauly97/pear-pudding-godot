@@ -355,6 +355,17 @@ static func get_all_enemy_ids() -> Array[String]:
 	)
 	return result
 
+## The 8 core enemy types that count toward bestiary completion.
+## Story/siege/special enemies (martarquas, rival, mimic, spectre) are excluded.
+const _BESTIARY_ELIGIBLE: Array[String] = [
+	"undead_basic", "undead_horde", "undead_elite", "ghoul_pack",
+	"duelist_novice", "duelist_adept", "duelist_champion", "roaming_terror",
+]
+
+## Returns the IDs of the enemy types that count toward bestiary completion.
+static func get_bestiary_enemy_ids() -> Array[String]:
+	return _BESTIARY_ELIGIBLE.duplicate()
+
 ## Returns true if enemies of this type engage the player on proximity.
 ## false = interact-only (wanderers). true = aggressive (attack on sight).
 static func is_tracking(type_id: String) -> bool:
