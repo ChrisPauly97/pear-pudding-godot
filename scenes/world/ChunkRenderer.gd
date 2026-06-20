@@ -14,6 +14,7 @@ const _BountyBoardScene  = preload("res://scenes/world/entities/BountyBoardNPC.t
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
 const _DigSpotScene      = preload("res://scenes/world/entities/DigSpot.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
+const _BurialMoundScene  = preload("res://scenes/world/entities/BurialMound.tscn")
 const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
 
 const TERRAIN_VDENSITY: int = 2
@@ -302,6 +303,16 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		_set_visibility_range(node)
 		if world_scene.has_method("register_waystone"):
 			world_scene.register_waystone(wid, node, w_dict)
+
+	# ── Burial mounds (skeleton dig cantrip) ──────────────────────────────────
+	for m_data in _chunk_data.burial_mounds:
+		var mid: String = str(m_data.get("id", ""))
+		if SceneManager.save_manager.dug_mounds.has(mid):
+			continue  # already dug — don't spawn a visible node
+		var node: Node3D = TerrainMath.spawn_entity(_BurialMoundScene, m_data, 0.0, entity_root, world_scene)
+		_set_visibility_range(node)
+		if world_scene.has_method("register_burial_mound"):
+			world_scene.register_burial_mound(mid, node)
 
 	# ── Active treasure dig site ───────────────────────────────────────────────
 	var sm := SceneManager.save_manager

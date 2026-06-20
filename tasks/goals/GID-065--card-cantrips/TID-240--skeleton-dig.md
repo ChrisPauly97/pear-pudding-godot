@@ -2,7 +2,7 @@
 
 **Goal:** GID-065
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-238
 
 ## Lock
@@ -78,12 +78,18 @@ Skeleton Dig is the second cantrip — it lets players dig at burial mounds spaw
 
 ## Plan
 
-_Written during Plan phase._
+Spawning in InfiniteWorldGen (+13 seed offset, 10% chance), ChunkData field, BurialMound entity (seeded rewards), ChunkRenderer spawn, WorldScene registration/teardown/interaction.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/ChunkData.gd` — added `burial_mounds: Array[Dictionary]`
+- `game_logic/world/InfiniteWorldGen.gd` — added ~10% burial mound spawn in `_gen_entities()` (seed+13)
+- `scenes/world/entities/BurialMound.gd` + `.uid` + `BurialMound.tscn` — entity with `init_from_data`, `interact()` (cantrip check, seeded rewards, persistence)
+- `scenes/world/ChunkRenderer.gd` — added `_BurialMoundScene` preload, spawns mounds, calls `register_burial_mound()`
+- `scenes/world/WorldScene.gd` — `_burial_mound_nodes: Dictionary`, `register_burial_mound()`, `_find_nearby_burial_mound()`, `_activate_skeleton_dig()`, added to `_check_interactions()` + `_handle_interact()`, chunk teardown cleanup
+- `autoloads/SaveManager.gd` — `dug_mounds: Array[String]` (already covered in TID-238 migrations)
+- `tests/unit/test_burial_mound_gen.gd` — 5 tests covering density, determinism, ID format, bounds
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/card-cantrips.md` — Skeleton Dig section
