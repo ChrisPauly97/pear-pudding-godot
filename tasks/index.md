@@ -85,6 +85,7 @@
 | [GID-079](goals/GID-079--card-slot-battle-placement/goal.md) | Card Slot Battle Placement | done | 4 / 4 |
 | [GID-080](goals/GID-080--landscape-rotation-direction/goal.md) | Landscape Rotation Direction | done | 1 / 1 |
 | [GID-081](goals/GID-081--hud-coherent-navigation/goal.md) | Coherent HUD & Unified In-Game Navigation | pending | 0 / 4 |
+| [GID-082](goals/GID-082--direct-path-movement/goal.md) | Direct-Path Tap-to-Move Movement | pending | 0 / 2 |
 
 ## Backlog
 
