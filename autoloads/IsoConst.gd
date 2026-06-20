@@ -27,6 +27,12 @@ const CAM_ELEVATION_DEG: float = -35.264  # arcsin(tan(30°))
 const CAM_AZIMUTH_DEG: float = -45.0
 const CAM_ORTHO_SIZE: float = 15.0  # viewport height in world units
 
+# Terrain rendering constants (shared by WorldScene named-map path and ChunkRenderer infinite-chunk path)
+const HILL_PEAK_H: float = 1.5        # peak height for hill tiles (world units)
+const HILL_CURVE_R: float = 3.5       # hill smoothstep radius (world units)
+const TERRAIN_VDENSITY: int = 2       # mesh vertices per tile side
+const ENTITY_VISIBILITY_END: float = 50.0  # LOD visibility range for world entities
+
 # Entity interaction ranges (in Godot world units)
 const AUTO_BATTLE_RANGE: float = 1.5   # enemy engages player at this distance
 const INTERACT_RANGE: float = 1.5      # E key interaction range

@@ -21,13 +21,9 @@ const _BlightHeartScene  = preload("res://scenes/world/entities/BlightHeart.tscn
 const _ManaWellScene     = preload("res://scenes/world/entities/ManaWell.tscn")
 const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
 
-const TERRAIN_VDENSITY: int = 2
-const PLATEAU_H:        float = 1.5   # fallback hill height for tiles with no stored height
-const CURVE_R:          float = 3.5   # hill smoothstep radius (world units)
-
 # Tile neighbourhood radius used when building the tile_grid snapshot.
 # Must match what WorldScene._snapshot_tile_grid_for() uses.
-const TILE_CHECK: int = 3  # ceil(CURVE_R / TILE_SIZE) + 1 = ceil(3.5/2)+1 = 3
+const TILE_CHECK: int = 3  # ceil(IsoConst.HILL_CURVE_R / IsoConst.TILE_SIZE) + 1 = ceil(3.5/2)+1 = 3
 
 var _chunk_data: RefCounted   # ChunkData
 var _chunk_key:  Vector2i
@@ -69,10 +65,9 @@ static func prepare_terrain(
 		grid_min_x: int, grid_min_z: int, grid_w: int,
 		world_seed: int = 42) -> Dictionary:
 
-	const CHUNK_SIZE: int = 16
-	var nvx: int = CHUNK_SIZE * TERRAIN_VDENSITY + 1   # 33
-	var nvz: int = CHUNK_SIZE * TERRAIN_VDENSITY + 1   # 33
-	var step: float = IsoConst.TILE_SIZE / float(TERRAIN_VDENSITY)  # 1.0
+	var nvx: int = IsoConst.CHUNK_SIZE * IsoConst.TERRAIN_VDENSITY + 1   # 33
+	var nvz: int = IsoConst.CHUNK_SIZE * IsoConst.TERRAIN_VDENSITY + 1   # 33
+	var step: float = IsoConst.TILE_SIZE / float(IsoConst.TERRAIN_VDENSITY)  # 1.0
 
 	var chunk_origin: Vector3 = chunk_data.origin_world()
 
@@ -99,7 +94,7 @@ static func prepare_terrain(
 			grid_tile_lookup, grid_height_lookup,
 			chunk_origin.x, chunk_origin.z,
 			nvx, nvz, step,
-			CURVE_R, PLATEAU_H)
+			IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
 
 	# Bake per-vertex ley intensity (UV2.x) so the shader can render glow without
 	# runtime noise in GLSL — guarantees visual/gameplay agreement on same seed.
@@ -114,12 +109,12 @@ static func prepare_terrain(
 	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
 			hfield, grid_tile_lookup,
 			chunk_origin.x, chunk_origin.z,
-			nvx, nvz, step, PLATEAU_H, ley_field)
+			nvx, nvz, step, IsoConst.HILL_PEAK_H, ley_field)
 
 	var wall_face_mesh: ArrayMesh = TerrainMath.build_wall_face_mesh(
 			grid_tile_lookup, grid_height_lookup,
 			chunk_origin.x, chunk_origin.z,
-			CHUNK_SIZE, CHUNK_SIZE)
+			IsoConst.CHUNK_SIZE, IsoConst.CHUNK_SIZE)
 
 	# Build grass buffers on the worker thread — pure math, no scene-tree access.
 	var grass_centres: Array[Vector2] = GrassBlades.compute_centres(chunk_data, chunk_origin)
@@ -128,7 +123,7 @@ static func prepare_terrain(
 	return {
 		"mesh":           terrain_res["mesh"],
 		"hmap":           terrain_res["hmap"],
-		"chunk_world":    float(CHUNK_SIZE) * IsoConst.TILE_SIZE,
+		"chunk_world":    float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE,
 		"wall_face_mesh": wall_face_mesh,
 		"grass":          grass_data,
 	}
@@ -228,17 +223,16 @@ func _build_walls_physics() -> void:
 	# Greedy row merge: instead of one BoxShape3D per wall tile, merge consecutive
 	# wall tiles in the same row with the same height into a single wider box.
 	# Typical reduction: 50 individual shapes → 10-15 merged shapes per chunk.
-	const CHUNK_SIZE: int = 16
 	var wall_body := StaticBody3D.new()
 	wall_body.name = "WallCollision"
 	wall_body.collision_layer = 4
 	wall_body.collision_mask  = 0
 
-	for lz in range(CHUNK_SIZE):
+	for lz in range(IsoConst.CHUNK_SIZE):
 		var run_start: int = -1
 		var run_h: int = 0
-		for lx in range(CHUNK_SIZE + 1):  # +1 to flush final run
-			var _ct: int = _chunk_data.get_tile(lx, lz) if lx < CHUNK_SIZE else IsoConst.TILE_GRASS
+		for lx in range(IsoConst.CHUNK_SIZE + 1):  # +1 to flush final run
+			var _ct: int = _chunk_data.get_tile(lx, lz) if lx < IsoConst.CHUNK_SIZE else IsoConst.TILE_GRASS
 			var is_wall: bool = _ct == IsoConst.TILE_WALL or _ct == IsoConst.TILE_CRACKED
 			var h: int = max(1, _chunk_data.get_height(lx, lz)) if is_wall else 0
 			if is_wall and (run_start < 0 or h == run_h):
@@ -461,7 +455,6 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		if world_scene.has_method("register_landmark"):
 			world_scene.register_landmark(lid, l_data)
 
-const ENTITY_VISIBILITY_END: float = 50.0
 
 func _set_visibility_range(node: Node3D) -> void:
 	# Apply to all GeometryInstance3D descendants so that multi-mesh entities
@@ -469,7 +462,7 @@ func _set_visibility_range(node: Node3D) -> void:
 	for child in node.find_children("*", "GeometryInstance3D", true, false):
 		var gi: GeometryInstance3D = child as GeometryInstance3D
 		if gi:
-			gi.visibility_range_end = ENTITY_VISIBILITY_END
+			gi.visibility_range_end = IsoConst.ENTITY_VISIBILITY_END
 			gi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 			if gi is MeshInstance3D:
 				(gi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON

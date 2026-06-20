@@ -107,69 +107,8 @@ func is_wall_at_world(wx: float, wz: float) -> bool:
 	var t: int = get_tile(tx, tz)
 	return t == TILE_WALL or t == TILE_CRACKED
 
-func get_wall_height_at_world(wx: float, wz: float) -> int:
-	var tx := int(wx / TILE_SIZE)
-	var tz := int(wz / TILE_SIZE)
-	if get_tile(tx, tz) == TILE_WALL:
-		return get_height(tx, tz)
-	return 0
-
-func get_hill_height_at_world(wx: float, wz: float) -> int:
-	var tx := int(wx / TILE_SIZE)
-	var tz := int(wz / TILE_SIZE)
-	if get_tile(tx, tz) == TILE_HILL:
-		return get_height(tx, tz)
-	return 0
-
 func has_player_spawn() -> bool:
 	return player_spawn_x >= 0 and player_spawn_z >= 0
-
-func find_nearby_enemy(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for e in enemies:
-		if e.get("alive", true):
-			var dx: float = e["x"] - px
-			var dz: float = e["z"] - pz
-			if dx * dx + dz * dz <= range_sq:
-				return e
-	return {}
-
-func find_nearby_chest(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for c in chests:
-		if not c.get("opened", false):
-			var dx: float = c["x"] - px
-			var dz: float = c["z"] - pz
-			if dx * dx + dz * dz <= range_sq:
-				return c
-	return {}
-
-func find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for d in doors:
-		var dx: float = d["x"] - px
-		var dz: float = d["z"] - pz
-		if dx * dx + dz * dz <= range_sq:
-			return d
-	return {}
-
-func find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for n in npcs:
-		var dx: float = n["x"] - px
-		var dz: float = n["z"] - pz
-		if dx * dx + dz * dz <= range_sq:
-			return n
-	return {}
-
-func find_nearby_scroll(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for s in scrolls:
-		var dx: float = s["x"] - px
-		var dz: float = s["z"] - pz
-		if dx * dx + dz * dz <= range_sq:
-			return s
-	return {}
 
 func find_nearby_shrine(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
@@ -213,12 +152,6 @@ func find_door_by_id(door_id: String) -> Dictionary:
 		if d.get("id", "") == door_id:
 			return d
 	return {}
-
-func all_enemies_defeated() -> bool:
-	for e in enemies:
-		if e.get("alive", true):
-			return false
-	return true
 
 # ── Save / Load ──────────────────────────────────────────────────────────────
 
@@ -698,12 +631,11 @@ func load_from_string(content: String) -> void:
 					heights[tz][tx] = h
 
 func get_chunk_data(cx: int, cz: int) -> RefCounted:
-	const CHUNK_SIZE: int = 16
 	var cd: ChunkData = ChunkData.new(cx, cz)
-	var tx0: int = cx * CHUNK_SIZE
-	var tz0: int = cz * CHUNK_SIZE
-	for lz in range(CHUNK_SIZE):
-		for lx in range(CHUNK_SIZE):
+	var tx0: int = cx * IsoConst.CHUNK_SIZE
+	var tz0: int = cz * IsoConst.CHUNK_SIZE
+	for lz in range(IsoConst.CHUNK_SIZE):
+		for lx in range(IsoConst.CHUNK_SIZE):
 			cd.set_tile(lx, lz, get_tile(tx0 + lx, tz0 + lz))
 			cd.set_height(lx, lz, get_height(tx0 + lx, tz0 + lz))
 	var wx0: float = float(tx0) * TILE_SIZE

@@ -2,7 +2,7 @@
 
 **Goal:** GID-075
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -31,12 +31,13 @@ The card-registry test asserts a hardcoded count that drifted as cards were adde
 
 ## Plan
 
-_Written during Plan phase._
+1. Rename `test_get_all_ids_returns_forty_default_cards` → `test_get_all_ids_returns_all_cards`; count assertion already updated to 60 in a previous pass.
+2. Sweep other test files for stale hardcoded registry counts — none found; other count assertions are logic-specific (board sizes, counters) or use `assert_gt(size, 0)` floor assertions.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **MODIFIED `tests/unit/test_card_registry.gd`**: Renamed `test_get_all_ids_returns_forty_default_cards` → `test_get_all_ids_returns_all_cards`. The `assert_eq(..., 60)` count was already correct. Resolves BID-007.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent docs update needed.

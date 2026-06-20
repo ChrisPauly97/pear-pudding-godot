@@ -78,7 +78,7 @@
 | [GID-072](goals/GID-072--world-scene-decomposition/goal.md) | World Layer Decomposition | pending | 0 / 4 |
 | [GID-073](goals/GID-073--ui-overlay-framework/goal.md) | UI Overlay Framework & Shared Theme | done | 3 / 3 |
 | [GID-074](goals/GID-074--autoload-persistence-simplification/goal.md) | Autoload & Persistence Simplification | pending | 0 / 3 |
-| [GID-075](goals/GID-075--dead-code-constants-hygiene/goal.md) | Dead Code, Constants & Test Hygiene | pending | 0 / 3 |
+| [GID-075](goals/GID-075--dead-code-constants-hygiene/goal.md) | Dead Code, Constants & Test Hygiene | done | 3 / 3 |
 | [GID-076](goals/GID-076--magic-subtypes-spells/goal.md) | Magic Subtypes — 40 Spell Cards | pending | 0 / 7 |
 | [GID-077](goals/GID-077--combat-deck-fatigue/goal.md) | Combat Deck Fatigue | done | 2 / 2 |
 | [GID-078](goals/GID-078--app-diagnostics-logs-screen/goal.md) | App Diagnostics Log Screen | done | 3 / 3 |
@@ -91,10 +91,10 @@
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
 | [BID-002](backlog/BID-002--voice-acting-spec-conflict.md) | "Voice acting" out-of-scope conflicts with narration scroll audio | spec-gap | GID-013 |
-| [BID-004](backlog/BID-004--orphaned-chestopenscene-uid.md) | Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen) | code-smell | GID-050 research |
+| ~~[BID-004](archive/backlog/BID-004--orphaned-chestopenscene-uid.md)~~ | ~~Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen)~~ | ~~code-smell~~ | Resolved by GID-075 |
 | [BID-005](backlog/BID-005--rolled-stats-not-used-in-battle.md) | Player's per-instance rolled card stats never applied in battle | design-inconsistency | GID-060 research |
 | [BID-006](backlog/BID-006--gamebus-battle-signals-never-emitted.md) | GameBus card_played / card_attacked / battle_ended declared but never emitted | code-smell | GID-060/061 research |
-| [BID-007](backlog/BID-007--card-registry-test-count-stale.md) | test_card_registry asserts 40 cards but registry preloads 46 | code-smell | GID-062 research |
+| ~~[BID-007](archive/backlog/BID-007--card-registry-test-count-stale.md)~~ | ~~test_card_registry asserts 40 cards but registry preloads 46~~ | ~~code-smell~~ | Resolved by GID-075 |
 | [BID-008](backlog/BID-008--is-unique-dropped-from-template-dict.md) | CardData.to_template_dict() omits is_unique; sell/scrap guard never triggers | code-smell | GID-061 research |
 | ~~[BID-009](archive/backlog/BID-009--shared-theme-overlay-dedup.md)~~ | ~~No shared Theme; overlay boilerplate copy-pasted across 8 UI scenes~~ | ~~code-smell~~ | Resolved by GID-073 |
 | [BID-010](backlog/BID-010--native-drag-drop-gamebus-coupling.md) | Hand-rolled battle drag-to-play; GameState reaches into SceneTree for GameBus | code-smell | GID-064 audit |
@@ -113,6 +113,8 @@
 |----|---------|----------|-------------------|
 | [BID-001](backlog/BID-001--tutorial-onboarding.md) | Tutorial / Onboarding for New Players | spec-gap | ad-hoc review → promoted to GID-012 |
 | [BID-003](archive/backlog/BID-003--maykalene-concatenated-door-scroll.md) | maykalene.txt DOOR+SCROLL lines were concatenated; scroll_martarquas_first_war was never spawned | code-smell | GID-017 / TID-047 |
+| [BID-004](archive/backlog/BID-004--orphaned-chestopenscene-uid.md) | Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen) | code-smell | Resolved by GID-075 |
+| [BID-007](archive/backlog/BID-007--card-registry-test-count-stale.md) | test_card_registry asserts 40 cards but registry preloads 46 | code-smell | Resolved by GID-075 |
 
 ## Archive
 
