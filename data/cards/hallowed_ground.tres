@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://otrc5wbzfuuc"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_hallowed_ground"]
+
+[resource]
+script = ExtResource("1_hallowed_ground")
+id = "hallowed_ground"
+card_name = "Hallowed Ground"
+cost = 4
+attack = 0
+health = 0
+card_class = "spell"
+description = "Sacred earth calls a fallen ally back to the fight."
+color = Color(0.95, 0.9, 0.55, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "resurrect_last"
+spell_power = 1
+is_dual_face = true
+dark_card_name = "Desecration"
+dark_cost = 4
+dark_attack = 0
+dark_health = 0
+dark_card_class = "spell"
+dark_description = "Taint the battlefield and destroy the weakest survivors."
+dark_color = Color(0.35, 0.1, 0.5, 1)
+dark_magic_type = "dark"
+dark_spell_effect = "destroy_low_hp"
+dark_spell_power = 3

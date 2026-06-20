@@ -2,7 +2,7 @@
 
 **Goal:** GID-062
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-221
 
 ## Lock
@@ -114,12 +114,18 @@ re-derive alignment in the UI.
 
 ## Plan
 
-_Written during Plan phase._
+Implemented during TID-221/222/223 combined build:
+- BattleScene: track flipped card ids in `_flipped_dual_ids`; trigger `_trigger_dual_face_flip(panel)` on first hand reveal of any dual card.
+- CardInspectOverlay: full rewrite with `_build_dual_face_ui()` / `_build_face_panel()` / `_build_face_body()` helpers; side-by-side Light/Dark panels with green active border.
+- InventoryScene: `◑` badge on all 4 card-row builders for dual cards; templates resolved via `get_template_for_face`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`: added `_flipped_dual_ids: Dictionary`; flip trigger in `_make_card_view()`; `_trigger_dual_face_flip(panel)` (scale.x tween 0.01→1.0, 0.28s TRANS_BACK EASE_OUT).
+- `scenes/battle/CardInspectOverlay.gd`: complete rewrite adding `_build_dual_face_ui()`, `_build_face_panel()`, and `_build_face_body(container, tmpl, card, show_status)` — shared content builder for single and dual paths; active face highlighted with green border.
+- `scenes/ui/InventoryScene.gd`: all 4 card-row builders updated to use `get_template_for_face` and add `◑` badge for dual cards.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md`: flip animation and CardInspectOverlay dual-face layout documented in the Dual-Faced Corruption Cards section.
+- `docs/agent/inventory-and-deck.md`: added "Dual-Faced Card Indicator" section.

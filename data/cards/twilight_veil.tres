@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://pn62dgf1jcrd"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_twilight_veil"]
+
+[resource]
+script = ExtResource("1_twilight_veil")
+id = "twilight_veil"
+card_name = "Twilight Veil"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "Wrap an ally in dusk-light, absorbing the next blow."
+color = Color(0.5, 0.35, 0.75, 1)
+magic_type = "light"
+magic_branch = "dusk"
+spell_effect = "shield_minion"
+spell_power = 3
+is_dual_face = true
+dark_card_name = "Shadow Curse"
+dark_cost = 2
+dark_attack = 0
+dark_health = 0
+dark_card_class = "spell"
+dark_description = "Weaken a foe with shadow, sapping attack and resolve."
+dark_color = Color(0.25, 0.1, 0.45, 1)
+dark_magic_type = "dark"
+dark_spell_effect = "curse_minion"
+dark_spell_power = 2

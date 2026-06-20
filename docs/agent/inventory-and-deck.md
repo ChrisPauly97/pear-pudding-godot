@@ -362,6 +362,16 @@ Veterancy is visible in `InventoryScene` for rare/epic/legendary cards (per-inst
 
 ---
 
+## Dual-Faced Card Indicator (GID-062)
+
+`InventoryScene` resolves each card's display face using `CardRegistry.is_dark_aligned()` (same helper used at battle start). For dual-faced cards the collection and deck rows show the face matching current alignment, plus a `◑` badge in blue-teal (`Color(0.6, 0.85, 1.0)`) in the top-right of the card name row.
+
+- The `◑` badge is added to `top_row` by all four card-row builders (`_make_collection_row_stacked`, `_make_collection_row_instance`, `_make_deck_row_stacked`, `_make_deck_row_instance`) when `str(tmpl.get("dual_card_id", "")) != ""`.
+- Templates are fetched via `CardRegistry.get_template_for_face(tid, face)` (replaces the old `get_template(tid)` call in these four builders).
+- Rank chevrons and the `◑` badge coexist in the top row: chevrons first, then the dual badge.
+
+---
+
 ## Asset Requirements
 
 | Asset | Path | Notes |
