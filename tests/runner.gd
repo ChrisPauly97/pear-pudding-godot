@@ -73,6 +73,7 @@ const SUITES: Array = [
 	preload("res://tests/unit/test_loadout_model.gd"),
 	preload("res://tests/unit/test_veterancy_util.gd"),
 	preload("res://tests/unit/test_veterancy_attribution.gd"),
+	preload("res://tests/unit/test_gambits.gd"),
 ]
 
 

@@ -19,6 +19,8 @@ var pending_auto_spells: Array[CardInstance] = []
 var is_ai: bool = false
 var bonus_draw: int = 0
 var fatigue_counter: int = 0
+var skip_next_draw: bool = false
+var minion_attack_bonus: int = 0
 
 # Battlefield Resonance context (GID-059) — set by GameState.set_battlefield_context().
 var battlefield_biome: int = -1
@@ -48,6 +50,10 @@ func build_deck(card_ids: Array[String], difficulty_tier: int = 0) -> void:
 			tmpl["health"] = scaled.get("health", tmpl.get("health", 0))
 		draw_deck.append(CardInstance.new(tmpl))
 	draw_deck.shuffle()
+	if minion_attack_bonus > 0:
+		for c: CardInstance in draw_deck:
+			if c.card_class == "minion":
+				c.attack += minion_attack_bonus
 
 ## Builds the player draw deck from collection instances (GID-060).
 ## Applies per-instance rolled stats and veterancy rank HP/ATK bonuses.
@@ -167,7 +173,10 @@ func start_turn(turn_number: int) -> void:
 	grasslands_card_played = false
 	hero.gain_mana_for_turn(turn_number)
 	board.start_turn()
-	draw_card()
+	if skip_next_draw:
+		skip_next_draw = false
+	else:
+		draw_card()
 	for _i in range(bonus_draw):
 		draw_card()
 
@@ -189,6 +198,8 @@ func to_dict() -> Dictionary:
 		"is_ai": is_ai,
 		"bonus_draw": bonus_draw,
 		"fatigue_counter": fatigue_counter,
+		"skip_next_draw": skip_next_draw,
+		"minion_attack_bonus": minion_attack_bonus,
 		"hero": hero.to_dict(),
 		"board": board.to_dict(),
 		"board_enhancements": board.enhancements_to_dict(),
@@ -205,6 +216,8 @@ func from_dict(d: Dictionary) -> void:
 	is_ai = bool(d.get("is_ai", false))
 	bonus_draw = int(d.get("bonus_draw", 0))
 	fatigue_counter = int(d.get("fatigue_counter", 0))
+	skip_next_draw = bool(d.get("skip_next_draw", false))
+	minion_attack_bonus = int(d.get("minion_attack_bonus", 0))
 	battlefield_biome = int(d.get("battlefield_biome", -1))
 	is_night = bool(d.get("is_night", false))
 	grasslands_card_played = bool(d.get("grasslands_card_played", false))

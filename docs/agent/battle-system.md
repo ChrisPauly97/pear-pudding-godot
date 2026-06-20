@@ -284,17 +284,91 @@ Enemy deck keeps the existing `build_deck(template_ids)` path; enemy `CardInstan
 
 ---
 
+## Gambits — Pre-Battle Wagers (GID-063)
+
+Before each battle the player optionally picks a **gambit**: a self-imposed handicap in exchange for multiplied coin rewards and boosted drop rarity.
+
+### Gambit Catalogue (`game_logic/battle/Gambits.gd`)
+
+| ID | Name | Handicap | Reward Multiplier | Rarity Tier Bonus |
+|----|------|----------|-------------------|-------------------|
+| `wounded_pride` | Wounded Pride | Player starts at 25 HP | ×1.5 | +1 tier |
+| `slow_start` | Slow Start | Skip first turn-1 card draw | ×1.5 | +1 tier |
+| `emboldened_foe` | Emboldened Foe | All enemy minions gain +1 ATK | ×2.0 | +2 tiers |
+| `iron_veil` | Iron Veil | Enemy hero starts with 5 armor | ×2.0 | +2 tiers |
+
+Static helpers: `get_gambit(id) -> Dictionary`, `get_multiplier(id) -> float` (1.0 for missing/`""`), `get_rarity_tier_bonus(id) -> int` (0 for missing), `apply_reward_multiplier(base_coins, gambit_id) -> int`.
+
+Callers must `const Gambits = preload("res://game_logic/battle/Gambits.gd")` — never use class_name.
+
+### Pre-Battle Picker (`scenes/battle/GambitPickerOverlay.gd`)
+
+Inserted by `SceneManager._on_enemy_engaged()` before calling `_start_battle()`. Shown as a `CanvasLayer` (layer 200) with one button per gambit + "No Gambit" + "Don't ask again" checkbox.
+
+**Picker is skipped when:**
+- `SaveManager.pending_battle_enemy_data` is non-empty (battle resume from a prior session).
+- `SaveManager.get_setting("auto_skip_gambits", false)` is `true` (user ticked "Don't ask again").
+
+Checking "Don't ask again" calls `SaveManager.set_setting("auto_skip_gambits", true)` and saves immediately. Escape key on desktop = No Gambit.
+
+### Handicap Application (BattleScene, fresh-battle branch only)
+
+The active `gambit_id` is stored as `enemy_data["gambit_id"]` and passed through `SaveManager.pending_battle_enemy_data`, so it survives mid-battle save/resume. The handicap is NOT re-applied on restore (it is already baked into the serialized `GameState`).
+
+| Gambit | Where applied | Code |
+|--------|---------------|------|
+| `wounded_pride` | After player deck + opening hand | `players[0].hero.health = 25; hero.max_health = 25` |
+| `slow_start` | Before `start_turn(1)` | `players[0].skip_next_draw = true` (consumed in `PlayerState.start_turn()`) |
+| `emboldened_foe` | Before enemy `build_deck()` | `players[1].minion_attack_bonus = 1` (applied inside `build_deck()` to all minions; persists for boss phase-2 rebuild) |
+| `iron_veil` | After enemy deck + opening hand | `players[1].hero.apply_status("armor", 5)` |
+
+`BattleScene._apply_gambit_handicaps(gambit_id)` is called in `_ready()` after all deck and HP setup, just before `start_turn(1)`. Emboldened Foe is set earlier (before enemy `build_deck`) via the inline `_gambit_id` read in the fresh-battle branch.
+
+### New PlayerState Fields
+
+| Field | Type | Serialized | Purpose |
+|-------|------|------------|---------|
+| `skip_next_draw` | `bool` | ✓ | Consumed in `start_turn()`: skips draw_card(), then clears itself |
+| `minion_attack_bonus` | `int` | ✓ | Applied inside `build_deck()` to all `card_class == "minion"` in `draw_deck` |
+
+Both fields survive `to_dict()` / `from_dict()` round-trips.
+
+### In-Battle Badge
+
+`BattleScene._add_gambit_badge()` — called after `_add_potion_button()` in `_ready()`. Adds a `PanelContainer` with a yellow `Label` to `$SidePanel` showing `"Gambit: <name>"`. No-op when no gambit is active.
+
+### Reward Application (SceneManager._on_battle_won)
+
+Read before `clear_pending_battle()`:
+```gdscript
+var gambit_id: String = str(save_manager.pending_battle_enemy_data.get("gambit_id", ""))
+```
+
+Then:
+- **Coins:** `Gambits.apply_reward_multiplier(EnemyRegistry.get_coin_reward(enemy_type), gambit_id)` — rounds to nearest int.
+- **Drop rarity:** `drop_tier = mini(drop_tier + Gambits.get_rarity_tier_bonus(gambit_id), 4)` — applied after boss/night-boost adjustments, before rarity roll.
+
+XP is NOT multiplied by gambits. `session_stats["coins_earned"]` records the post-multiplier amount.
+
+### Tests (`tests/unit/test_gambits.gd`)
+
+27 tests covering: catalogue integrity, each handicap's effect on PlayerState/HeroState, serialization round-trips for `skip_next_draw` and `minion_attack_bonus`, reward math (multiplier, rarity bonus, `roll_rarity` high-tier clamp safety), and no-gambit defaults.
+
+---
+
 ## Integrations with Other Features
 
 | System | Direction | Details |
 |---|---|---|
 | **World / Enemies** | Trigger → Battle | `GameBus.enemy_engaged(enemy_data)` fires when the player walks into an enemy; `enemy_data["enemy_deck"]` carries the enemy's card list |
 | **EnemyRegistry** | Data source | `EnemyRegistry.get_enemy(type)` returns enemy deck composition by type string |
+| **EnemyRegistry** | Coin rewards | `EnemyRegistry.get_coin_reward(enemy_type)` — multiplied by active gambit factor in `SceneManager._on_battle_won` |
 | **CardRegistry** | Data source | `CardRegistry.get_card(id)` resolves card template for each card in the deck |
 | **SaveManager** | Player deck | `SaveManager.player_deck` is the `Array[String]` of card IDs loaded into `PlayerState[0]` at battle start |
 | **SceneManager** | Scene routing | `GameBus.battle_won` → SceneManager grants reward card + restores WorldScene; `GameBus.battle_lost` → SceneManager loads GameOverScene |
 | **EnemyRegistry** | Drop pool | `EnemyRegistry.get_drop_pool(enemy_type)` returns cards that may drop; BattleScene picks one at random and shows the victory overlay |
 | **Inventory / Deck** | Deck source | Player's active battle deck is built from `SaveManager.player_deck` (managed in InventoryScene) |
+| **Gambits** | Pre-battle | `Gambits.gd` catalogue + `GambitPickerOverlay.gd` picker shown before each battle (GID-063); gambit_id stored in `enemy_data` |
 | **GameBus signals** | Both | `card_played`, `card_attacked`, `turn_ended`, `battle_ended`, `status_applied`, `status_ticked` — BattleScene listens to turn_ended to refresh the UI; status signals available for future subscribers |
 | **Veterancy (GID-060)** | Post-battle | `battle_won` result carries `"veterancy"` dict; SceneManager applies it via `SaveManager.record_veterancy`; see Veterancy Kill Attribution section above |
 

@@ -24,8 +24,8 @@ Design:
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-224 | Gambit definitions, pre-battle picker UI, rule application in GameState | agent | pending | — |
-| TID-225 | Reward multipliers + headless tests | agent | pending | TID-224 |
+| TID-224 | Gambit definitions, pre-battle picker UI, rule application in GameState | agent | done | — |
+| TID-225 | Reward multipliers + headless tests | agent | done | TID-224 |
 
 ## Acceptance Criteria
 

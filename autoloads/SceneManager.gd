@@ -23,6 +23,8 @@ const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
 const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
 const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
+const Gambits = preload("res://game_logic/battle/Gambits.gd")
+const _GambitPickerOverlay = preload("res://scenes/battle/GambitPickerOverlay.gd")
 
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
@@ -317,6 +319,27 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 			enemy_data["battlefield_biome"] = -1
 			enemy_data["battlefield_is_night"] = false
 	GameBus.tutorial_popup_requested.emit("mana")
+	# Skip picker on resume (pending_battle_enemy_data already set from a prior session)
+	# or when the player has enabled auto-skip via the "Don't ask again" checkbox.
+	var is_resume: bool = not save_manager.pending_battle_enemy_data.is_empty()
+	var auto_skip: bool = bool(save_manager.get_setting("auto_skip_gambits", false))
+	if is_resume or auto_skip:
+		_start_battle(enemy_data)
+		return
+	# Show gambit picker; battle starts once the player makes a choice.
+	var picker := _GambitPickerOverlay.new()
+	var layer := CanvasLayer.new()
+	layer.layer = 200
+	get_tree().root.add_child(layer)
+	layer.add_child(picker)
+	var captured: Dictionary = enemy_data
+	picker.gambit_chosen.connect(func(gambit_id: String) -> void:
+		layer.queue_free()
+		if not gambit_id.is_empty():
+			captured["gambit_id"] = gambit_id
+		_start_battle(captured))
+
+func _start_battle(enemy_data: Dictionary) -> void:
 	save_manager.set_pending_battle(enemy_data)
 	save_manager.save()
 	var captured_enemy_data: Dictionary = enemy_data
@@ -503,6 +526,7 @@ func _on_battle_won(result: Dictionary) -> void:
 	# Read enemy context before clearing pending_battle.
 	var enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
 	var is_boss: bool = bool(save_manager.pending_battle_enemy_data.get("is_boss", false))
+	var gambit_id: String = str(save_manager.pending_battle_enemy_data.get("gambit_id", ""))
 	var is_rival: bool = enemy_type.begins_with("rival_")
 	var captured_enemy_id: String = _current_battle_enemy_id
 	# Mimic chest victory: open the chest, grant loot directly to inventory, restore world.
@@ -551,6 +575,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		drop_tier = 4
 	elif EnemyRegistry.get_night_drop_boost(enemy_type):
 		drop_tier = mini(drop_tier + 1, 4)
+	drop_tier = mini(drop_tier + Gambits.get_rarity_tier_bonus(gambit_id), 4)
 	var is_nocturnal: bool = enemy_type.begins_with("spectre_")
 	if not _current_battle_enemy_id.is_empty():
 		if not is_rival and not is_nocturnal:
@@ -582,9 +607,9 @@ func _on_battle_won(result: Dictionary) -> void:
 			var r_stats: Dictionary = CardDropUtil.roll_stats(rs, r_rarity)
 			save_manager.add_card_instance(rs, r_rarity, int(r_stats.get("attack", -1)), int(r_stats.get("health", -1)), int(r_stats.get("cost", -1)))
 			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
-	# Award coins based on enemy type
+	# Award coins based on enemy type, multiplied by active gambit reward factor.
 	if enemy_type != "":
-		var coins: int = EnemyRegistry.get_coin_reward(enemy_type)
+		var coins: int = Gambits.apply_reward_multiplier(EnemyRegistry.get_coin_reward(enemy_type), gambit_id)
 		save_manager.add_coins(coins)
 		session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + coins
 	# Award XP based on enemy type
