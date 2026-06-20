@@ -70,6 +70,8 @@ var session_stats: Dictionary = {
 }
 
 var _toast: CanvasLayer = null
+var _defeat_overlay: Node = null
+var _defeat_pending_enemy_data: Dictionary = {}
 
 # Blocks proximity engagement for 2 s after returning from battle so the
 # player isn't immediately chain-engaged by a nearby enemy on world re-entry.
@@ -98,6 +100,7 @@ func _ready() -> void:
 	GameBus.duel_requested.connect(_on_duel_requested)
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.battle_lost.connect(_on_battle_lost)
+	GameBus.battle_fled.connect(_on_battle_fled)
 	GameBus.duel_won.connect(_on_duel_won)
 	GameBus.duel_lost.connect(_on_duel_lost)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
@@ -260,6 +263,10 @@ func _load_world(map_name: String, target_door_id: String) -> void:
 		_state = State.WORLD)
 
 func _exit_world_cleanup() -> void:
+	if _defeat_overlay != null:
+		_defeat_overlay.queue_free()
+		_defeat_overlay = null
+	_defeat_pending_enemy_data = {}
 	if _saved_world_scene != null:
 		_saved_world_scene.queue_free()
 		_saved_world_scene = null
@@ -595,8 +602,15 @@ func _on_battle_won(result: Dictionary) -> void:
 	session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
 	var reward: String = str(result.get("card_reward", ""))
 	if reward != "":
-		var rarity: String = CardDropUtil.effective_rarity(reward, CardDropUtil.roll_rarity(drop_tier))
-		var stats: Dictionary = CardDropUtil.roll_stats(reward, rarity)
+		# Use pre-rolled rarity/stats from BattleScene if present; otherwise roll now.
+		var rarity: String
+		var stats: Dictionary
+		if result.has("reward_rarity"):
+			rarity = str(result["reward_rarity"])
+			stats = result.get("reward_stats", {})
+		else:
+			rarity = CardDropUtil.effective_rarity(reward, CardDropUtil.roll_rarity(drop_tier))
+			stats = CardDropUtil.roll_stats(reward, rarity)
 		save_manager.add_card_instance(reward, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
 		session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	var weapon_reward: String = str(result.get("weapon_reward", ""))
@@ -611,11 +625,19 @@ func _on_battle_won(result: Dictionary) -> void:
 		session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	# Boss battles emit card_rewards (list of all drop_pool cards)
 	var rewards: Array = result.get("card_rewards", [])
-	for r in rewards:
-		var rs: String = str(r)
+	var pre_rolled: Array = result.get("reward_rarities", [])
+	var pre_stats: Array = result.get("reward_stats_list", [])
+	for ri in range(rewards.size()):
+		var rs: String = str(rewards[ri])
 		if rs != "":
-			var r_rarity: String = CardDropUtil.effective_rarity(rs, CardDropUtil.roll_rarity(drop_tier))
-			var r_stats: Dictionary = CardDropUtil.roll_stats(rs, r_rarity)
+			var r_rarity: String
+			var r_stats: Dictionary
+			if ri < pre_rolled.size():
+				r_rarity = str(pre_rolled[ri])
+				r_stats = pre_stats[ri] if ri < pre_stats.size() else {}
+			else:
+				r_rarity = CardDropUtil.effective_rarity(rs, CardDropUtil.roll_rarity(drop_tier))
+				r_stats = CardDropUtil.roll_stats(rs, r_rarity)
 			save_manager.add_card_instance(rs, r_rarity, int(r_stats.get("attack", -1)), int(r_stats.get("health", -1)), int(r_stats.get("cost", -1)))
 			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	# Award coins based on enemy type, multiplied by active gambit reward factor.
@@ -623,15 +645,8 @@ func _on_battle_won(result: Dictionary) -> void:
 		var coins: int = Gambits.apply_reward_multiplier(EnemyRegistry.get_coin_reward(enemy_type), gambit_id)
 		save_manager.add_coins(coins)
 		session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + coins
-	# Award XP based on enemy type
-	const _XP_TABLE: Dictionary = {
-		"undead_basic": 20, "undead_horde": 35, "ghoul_pack": 50, "undead_elite": 80,
-		"roaming_terror": 150,
-		"spectre_wisp": 25, "spectre_haunt": 40, "spectre_dread": 60,
-	}
-	var xp_amount: int = int(_XP_TABLE.get(enemy_type, 25)) if enemy_type != "" else 25
-	if is_boss:
-		xp_amount = int(xp_amount * 2)
+	# Award XP based on enemy type (table lives in EnemyRegistry).
+	var xp_amount: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss)
 	save_manager.add_xp(xp_amount)
 	session_stats["xp_earned"] = int(session_stats.get("xp_earned", 0)) + xp_amount
 	# Rival encounter win: don't count as standard kill; update rival progress instead.
@@ -676,7 +691,7 @@ func _on_battle_lost() -> void:
 		return
 	_current_battle_enemy_id = ""
 	session_stats["battles_lost"] = int(session_stats.get("battles_lost", 0)) + 1
-	# Siege defeat: apply coin penalty, end siege, then show game over.
+	# Siege defeat: apply coin penalty, end siege, then show standard game over.
 	var _siege_on_lost: Dictionary = save_manager.get_active_siege()
 	if not _siege_on_lost.is_empty():
 		var _loss_coins: int = int(save_manager.coins * 0.10)
@@ -703,17 +718,132 @@ func _on_battle_lost() -> void:
 		get_tree().change_scene_to_node(summary)
 		_state = State.RUN_SUMMARY
 		return
-	save_manager.clear_pending_battle()
+	# Regular battle loss: keep world alive and show defeat overlay with Retry/Respawn/Menu.
+	_defeat_pending_enemy_data = save_manager.pending_battle_enemy_data.duplicate()
 	save_manager.clear_pending_battle_state()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
-	if _saved_world_scene != null:
-		_saved_world_scene.queue_free()
-		_saved_world_scene = null
+	# Restore world to tree without clearing pending_battle (needed for Retry).
 	TransitionManager.transition(func() -> void:
-		get_tree().change_scene_to_packed(_gameover_scene_packed))
+		if _saved_world_scene != null:
+			get_tree().root.add_child(_saved_world_scene)
+			get_tree().current_scene = _saved_world_scene
+			_saved_world_scene = null
+		_show_defeat_overlay())
 	_state = State.GAME_OVER
+
+func _show_defeat_overlay() -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var layer := CanvasLayer.new()
+	layer.layer = 190
+	get_tree().root.add_child(layer)
+	_defeat_overlay = layer
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.72)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel_w: float = vp.x * 0.58
+	var panel_h: float = vh * 0.50
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.08, 0.04, 0.04, 0.97)
+	style.corner_radius_top_left    = 12
+	style.corner_radius_top_right   = 12
+	style.corner_radius_bottom_left = 12
+	style.corner_radius_bottom_right = 12
+	panel.add_theme_stylebox_override("panel", style)
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
+	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
+	margin.add_theme_constant_override("margin_top",    int(vh * 0.03))
+	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.add_child(margin)
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(vh * 0.028))
+	margin.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Defeated"
+	title.add_theme_font_size_override("font_size", int(vh * 0.055))
+	title.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var has_retry: bool = not _defeat_pending_enemy_data.is_empty()
+	if has_retry:
+		var retry_btn := Button.new()
+		retry_btn.text = "Retry Battle"
+		retry_btn.custom_minimum_size = Vector2(vh * 0.32, vh * 0.07)
+		retry_btn.add_theme_font_size_override("font_size", int(vh * 0.03))
+		retry_btn.pressed.connect(_on_defeat_retry)
+		vbox.add_child(retry_btn)
+
+	var respawn_btn := Button.new()
+	respawn_btn.text = "Respawn in World"
+	respawn_btn.custom_minimum_size = Vector2(vh * 0.32, vh * 0.07)
+	respawn_btn.add_theme_font_size_override("font_size", int(vh * 0.03))
+	respawn_btn.pressed.connect(_on_defeat_respawn)
+	vbox.add_child(respawn_btn)
+
+	var menu_btn := Button.new()
+	menu_btn.text = "Return to Menu"
+	menu_btn.custom_minimum_size = Vector2(vh * 0.32, vh * 0.07)
+	menu_btn.add_theme_font_size_override("font_size", int(vh * 0.03))
+	menu_btn.pressed.connect(_on_defeat_menu)
+	vbox.add_child(menu_btn)
+
+func _on_defeat_retry() -> void:
+	if _defeat_overlay != null:
+		_defeat_overlay.queue_free()
+		_defeat_overlay = null
+	var enemy_data: Dictionary = _defeat_pending_enemy_data.duplicate()
+	_defeat_pending_enemy_data = {}
+	_state = State.WORLD
+	_start_battle(enemy_data)
+
+func _on_defeat_respawn() -> void:
+	if _defeat_overlay != null:
+		_defeat_overlay.queue_free()
+		_defeat_overlay = null
+	_defeat_pending_enemy_data = {}
+	save_manager.clear_pending_battle()
+	save_manager.save()
+	_proximity_engage_blocked = true
+	get_tree().create_timer(2.0, false).timeout.connect(
+		func() -> void: _proximity_engage_blocked = false)
+	_state = State.WORLD
+
+func _on_defeat_menu() -> void:
+	if _defeat_overlay != null:
+		_defeat_overlay.queue_free()
+		_defeat_overlay = null
+	_defeat_pending_enemy_data = {}
+	save_manager.clear_pending_battle()
+	go_to_menu()
+
+func _on_battle_fled() -> void:
+	if _state != State.BATTLE:
+		return
+	save_manager.clear_pending_battle()
+	save_manager.clear_pending_battle_state()
+	save_manager.save()
+	if _battle_overlay != null:
+		_battle_overlay.queue_free()
+		_battle_overlay = null
+	_restore_world()
 
 func _on_inventory_requested() -> void:
 	if _state != State.WORLD:
@@ -911,7 +1041,9 @@ func _on_achievement_unlocked(achievement_id: String) -> void:
 		Input.vibrate_handheld(60)
 
 func _on_level_up(new_level: int) -> void:
-	_toast.show_text("Level Up!", "You are now level %d" % new_level)
+	var pts: int = save_manager.skill_points
+	_toast.show_text("Level Up!", "Level %d — %d skill point%s to spend!" % [new_level, pts, "s" if pts != 1 else ""])
+	GameBus.hud_message_requested.emit("Level %d! Open the Skill Tree to spend %d skill point%s." % [new_level, pts, "s" if pts != 1 else ""])
 
 func _on_fragment_collected() -> void:
 	_toast.show_text("Fragment Found!", "You have %d/3 fragments" % save_manager.treasure_fragments)

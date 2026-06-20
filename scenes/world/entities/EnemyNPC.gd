@@ -7,6 +7,7 @@ var _alive: bool = true
 var _is_boss: bool = false
 var _is_roaming_boss: bool = false
 var _tracking: bool = false
+var engage_cooldown: float = 0.0
 
 # Shared across all enemy instances — created once
 static var _body_mat: StandardMaterial3D
@@ -69,6 +70,10 @@ static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
 	mi.material_override = mat
 	return mi
 
+func _process(delta: float) -> void:
+	if engage_cooldown > 0.0:
+		engage_cooldown -= delta
+
 func init_from_data(data: Dictionary) -> void:
 	enemy_data = data
 	_alive = data.get("alive", true)
@@ -77,6 +82,7 @@ func init_from_data(data: Dictionary) -> void:
 	var etype: String = str(data.get("enemy_type", ""))
 	if etype != "":
 		_is_boss = EnemyRegistry.get_is_boss(etype)
+	_add_difficulty_pip(etype)
 
 # Called by WorldScene when player interacts with this enemy.
 func engage() -> void:
@@ -118,12 +124,37 @@ func _on_body_entered(body: Node3D) -> void:
 		return
 	if not body is CharacterBody3D:
 		return
+	if engage_cooldown > 0.0:
+		return
 	if not SceneManager.can_proximity_engage():
 		return
 	var eid: String = str(enemy_data.get("id", ""))
 	if eid != "" and SceneManager.save_manager.is_enemy_defeated(eid):
 		return
 	engage()
+
+func _add_difficulty_pip(enemy_type: String) -> void:
+	if enemy_type == "":
+		return
+	var tier: int = EnemyRegistry.get_difficulty_tier(enemy_type)
+	var lbl := Label3D.new()
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.no_depth_test = true
+	var pip_char: String = "◆"
+	if _is_boss or _is_roaming_boss:
+		lbl.text = "★ BOSS"
+		lbl.modulate = Color(1.0, 0.6, 0.0)
+	else:
+		lbl.text = pip_char.repeat(tier)
+		match tier:
+			1: lbl.modulate = Color(0.5, 1.0, 0.5)
+			2: lbl.modulate = Color(1.0, 1.0, 0.4)
+			3: lbl.modulate = Color(1.0, 0.5, 0.2)
+			_: lbl.modulate = Color(1.0, 0.2, 0.2)
+	lbl.font_size = 24
+	lbl.pixel_size = 0.004
+	lbl.position = Vector3(0.0, 1.4, 0.0)
+	add_child(lbl)
 
 func _apply_roaming_boss_visual() -> void:
 	scale = Vector3(1.5, 1.5, 1.5)

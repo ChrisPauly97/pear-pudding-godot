@@ -10,6 +10,8 @@ const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _UiUtil           = preload("res://scenes/ui/UiUtil.gd")
 const VeterancyUtil     = preload("res://game_logic/VeterancyUtil.gd")
 
+const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
+
 var _working_deck: Array[String] = []
 
 var _collection_list: VBoxContainer
@@ -20,6 +22,12 @@ var _deck_count_label: Label
 var _coin_label: Label
 var _essence_label: Label
 var _slot_label: Label
+
+# Collection filters (session-only state)
+var _filter_class: String = ""    # "" = all, "minion", "spell"
+var _filter_cost: String = ""     # "" = all, "low" (0-2), "mid" (3-5), "high" (6+)
+var _filter_rarity: String = ""   # "" = all, "common", "rare", "epic", "legendary"
+var _filter_btns: Array[Button] = []
 
 var _cards_panel: Control
 var _tab_cards_btn: Button
@@ -119,6 +127,12 @@ func _build_ui() -> void:
 	_essence_label.modulate = Color(0.5, 0.85, 1.0)
 	left_vbox.add_child(_essence_label)
 
+	# ---- Filter row ----
+	var filter_row := HBoxContainer.new()
+	filter_row.add_theme_constant_override("separation", int(_ref * 0.005))
+	left_vbox.add_child(filter_row)
+	_build_filter_buttons(filter_row)
+
 	_collection_scroll = ScrollContainer.new()
 	var left_scroll: ScrollContainer = _collection_scroll
 	left_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -178,6 +192,13 @@ func _build_ui() -> void:
 	_deck_count_label.add_theme_font_size_override("font_size", int(_ref * 0.026))
 	_deck_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	right_vbox.add_child(_deck_count_label)
+
+	var autofill_btn := Button.new()
+	autofill_btn.text = "Auto-Fill"
+	autofill_btn.custom_minimum_size = Vector2(_ref * 0.18, _ref * 0.055)
+	autofill_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+	autofill_btn.pressed.connect(_on_auto_fill)
+	right_vbox.add_child(autofill_btn)
 
 	_deck_scroll = ScrollContainer.new()
 	var right_scroll: ScrollContainer = _deck_scroll
@@ -349,6 +370,8 @@ func _refresh_cards() -> void:
 			else:
 				rare_deck.append(inst)
 		else:
+			if not _passes_filter(tid, rarity):
+				continue
 			if rarity == "common":
 				common_avail[tid] = int(common_avail.get(tid, 0)) + 1
 			else:
@@ -405,6 +428,94 @@ func _refresh_cards() -> void:
 		_collection_scroll.scroll_vertical = col_scroll
 	if _deck_scroll and deck_scroll > 0:
 		_deck_scroll.scroll_vertical = deck_scroll
+
+# -------------------------------------------------------------------------
+# Filter helpers
+# -------------------------------------------------------------------------
+
+func _build_filter_buttons(row: HBoxContainer) -> void:
+	_filter_btns.clear()
+	var btn_h: float = _ref * 0.048
+	var btn_fs: int = int(_ref * 0.018)
+	var specs: Array = [
+		["All", "class", ""],
+		["Minion", "class", "minion"],
+		["Spell", "class", "spell"],
+		["0-2", "cost", "low"],
+		["3-5", "cost", "mid"],
+		["6+", "cost", "high"],
+		["C", "rarity", "common"],
+		["R", "rarity", "rare"],
+		["E", "rarity", "epic"],
+		["L", "rarity", "legendary"],
+	]
+	for spec in specs:
+		var lbl_text: String = str(spec[0])
+		var kind: String = str(spec[1])
+		var val: String = str(spec[2])
+		var btn := Button.new()
+		btn.text = lbl_text
+		btn.custom_minimum_size = Vector2(0.0, btn_h)
+		btn.add_theme_font_size_override("font_size", btn_fs)
+		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		btn.pressed.connect(_on_filter_btn.bind(kind, val, btn))
+		row.add_child(btn)
+		_filter_btns.append(btn)
+	_update_filter_visuals()
+
+func _on_filter_btn(kind: String, val: String, btn: Button) -> void:
+	match kind:
+		"class":
+			_filter_class = "" if _filter_class == val else val
+		"cost":
+			_filter_cost = "" if _filter_cost == val else val
+		"rarity":
+			_filter_rarity = "" if _filter_rarity == val else val
+	_update_filter_visuals()
+	_refresh()
+
+func _update_filter_visuals() -> void:
+	var specs: Array = [
+		["class", ""], ["class", "minion"], ["class", "spell"],
+		["cost", "low"], ["cost", "mid"], ["cost", "high"],
+		["rarity", "common"], ["rarity", "rare"], ["rarity", "epic"], ["rarity", "legendary"],
+	]
+	for i in range(mini(specs.size(), _filter_btns.size())):
+		var kind: String = str(specs[i][0])
+		var val: String = str(specs[i][1])
+		var active: bool
+		match kind:
+			"class":  active = (_filter_class == val)
+			"cost":   active = (_filter_cost == val)
+			_:        active = (_filter_rarity == val)
+		_filter_btns[i].modulate = Color(1.0, 0.85, 0.3) if active else Color.WHITE
+
+func _passes_filter(tid: String, rarity: String) -> bool:
+	if _filter_rarity != "" and rarity != _filter_rarity:
+		return false
+	var tmpl: Dictionary = CardRegistry.get_template(tid)
+	if _filter_class != "" and str(tmpl.get("card_class", "minion")) != _filter_class:
+		return false
+	if _filter_cost != "":
+		var cost: int = int(tmpl.get("cost", 0))
+		match _filter_cost:
+			"low":  if cost > 2: return false
+			"mid":  if cost < 3 or cost > 5: return false
+			"high": if cost < 6: return false
+	return true
+
+func _on_auto_fill() -> void:
+	var sm := SceneManager.save_manager
+	var all_instances: Array[Dictionary] = sm.get_owned_instances()
+	var available: Array[Dictionary] = []
+	for inst: Dictionary in all_instances:
+		var uid: String = str(inst.get("uid", ""))
+		if uid != "" and not _working_deck.has(uid):
+			available.append(inst)
+	var target: int = maxi(IsoConst.DECK_MIN, _working_deck.size())
+	target = mini(target, IsoConst.DECK_MAX)
+	_working_deck = DeckAutoFill.fill(_working_deck, available, target)
+	_refresh()
 
 # -------------------------------------------------------------------------
 # Row helpers

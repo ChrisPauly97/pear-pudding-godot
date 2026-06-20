@@ -2,7 +2,7 @@
 
 **Goal:** GID-069
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -32,12 +32,20 @@ The collection now spans 46+ card templates with rarities, per-instance rolled s
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/DeckAutoFill.gd` with `fill(working_deck, available, target_size)` — pure static logic using rarity + mana-curve heuristic.
+2. In `InventoryScene`: add filter state vars (`_filter_class`, `_filter_cost`, `_filter_rarity`).
+3. Add `_build_filter_buttons(row)` building 10 toggle buttons (All/Minion/Spell, 0-2/3-5/6+, C/R/E/L).
+4. `_passes_filter(tid, rarity)` checks all active filters against template data.
+5. Apply filter in `_refresh_cards()` collection population loop (deck side always shows all).
+6. Add Auto-Fill button in deck panel header calling `_on_auto_fill()` → DeckAutoFill.fill().
+7. Unit tests in `test_deck_autofill.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/DeckAutoFill.gd`: new file with `fill()` static method; rarity-first, balanced-mana-curve heuristic.
+- `scenes/ui/InventoryScene.gd`: added `DeckAutoFill` const; filter state vars; `_build_filter_buttons()`, `_on_filter_btn()`, `_update_filter_visuals()`, `_passes_filter()`, `_on_auto_fill()` methods; filter row in collection panel; Auto-Fill button in deck panel; filter applied in `_refresh_cards()`.
+- `tests/unit/test_deck_autofill.gd`: 7 tests covering fill-to-min, no-exceeds-target, no-duplicates, skips-existing, rarity-preference, already-at-target, empty-available.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated docs/agent/inventory-and-deck.md (part of final doc pass).

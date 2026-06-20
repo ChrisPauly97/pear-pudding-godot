@@ -107,6 +107,16 @@ Dungeon, spire, and depth-placed named-map enemies always have `tracking: true`.
 
 **`engage()` method:** Sets `_alive = false`, deduplicates the enemy data dict, resolves deck / boss flags from `EnemyRegistry`, plays `enemy_engage` SFX, emits `GameBus.enemy_engaged(data)`, and calls `queue_free()`.
 
+**Engage cooldown (GID-069):** `EnemyNPC.engage_cooldown: float` prevents re-engagement immediately after a flee or respawn. Ticked down in `_process(delta)`; `_on_body_entered()` exits early while `engage_cooldown > 0`. SceneManager sets it to 3.0 s after flee/respawn. Also clears when the player leaves engage range.
+
+**Difficulty pips (GID-069):** `init_from_data()` calls `_add_difficulty_pip(etype)` which places a billboard `Label3D` above each enemy:
+- Tier 1 (green) → `"◆"`
+- Tier 2 (yellow) → `"◆◆"`
+- Tier 3 (orange) → `"◆◆◆"`
+- Tier 4 / boss (red/gold) → `"◆◆◆◆"` or `"★ BOSS"`
+
+Pips are positioned at `Vector3(0, 1.4, 0)` above the sprite (above the Sprite3D floor-clip point) with `billboard = BILLBOARD_ENABLED`.
+
 `EnemyNPC` is placed by `TerrainMath.spawn_entity()` (called from `ChunkRenderer` for infinite world, or via the chunk-data system for named maps). `init_from_data(data)` is always called before `add_child()`, so `_tracking` is set before `_ready()` runs.
 
 ### TownspersonNPC Scene (`scenes/world/entities/TownspersonNPC.gd`)

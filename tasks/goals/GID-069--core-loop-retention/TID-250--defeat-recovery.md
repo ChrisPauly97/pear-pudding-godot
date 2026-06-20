@@ -2,7 +2,7 @@
 
 **Goal:** GID-069
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -29,12 +29,19 @@ Losing a battle currently destroys the play session: `SceneManager._on_battle_lo
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `_defeat_pending_enemy_data` and `_defeat_overlay` fields to SceneManager.
+2. In `_on_battle_lost()` (non-siege, non-spire): copy pending enemy data, call `clear_pending_battle_state()`, free battle overlay, then re-add world scene to tree via TransitionManager and call `_show_defeat_overlay()`.
+3. `_show_defeat_overlay()`: CanvasLayer on top of world with Retry / Respawn / Menu buttons.
+4. `_on_defeat_retry()`: free overlay, call `_start_battle()` with saved enemy data.
+5. `_on_defeat_respawn()`: free overlay, call `clear_pending_battle()`, apply engage cooldown.
+6. `_on_defeat_menu()`: free overlay, call `clear_pending_battle()`, then `go_to_menu()`.
+7. `EnemyNPC`: add `engage_cooldown` float field, tick it in `_process`, check in `_on_body_entered`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SceneManager.gd`: added `_defeat_pending_enemy_data` and `_defeat_overlay` fields; connected `battle_fled`; modified `_on_battle_lost()` to keep world alive and show defeat overlay for regular battles; added `_show_defeat_overlay()`, `_on_defeat_retry()`, `_on_defeat_respawn()`, `_on_defeat_menu()`, `_on_battle_fled()` methods; updated `_exit_world_cleanup()` to free defeat overlay.
+- `scenes/world/entities/EnemyNPC.gd`: added `engage_cooldown` field; `_process()` to tick it down; check in `_on_body_entered()`; added `_add_difficulty_pip()` call in `init_from_data()` (serves TID-251).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated docs/agent/ui-and-scene-management.md (part of final doc pass).

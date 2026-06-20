@@ -16,6 +16,7 @@ signal journal_requested
 signal character_requested
 
 # Battle signals
+signal battle_fled
 signal card_played(card_id: String, zone: String, slot: int)
 signal card_attacked(attacker_id: String, target_id: String)
 signal turn_ended(player_id: int)

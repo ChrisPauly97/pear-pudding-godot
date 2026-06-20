@@ -24,6 +24,7 @@ const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const CaptureTracker = preload("res://game_logic/battle/CaptureTracker.gd")
+const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
@@ -70,6 +71,9 @@ var _cancel_btn: Button = null
 
 # Card inspect overlay
 var _inspect_overlay: Control = null
+
+# Battle speed (TID-254): 1.0 = normal, 0.45 = fast
+var _speed_scale: float = 1.0
 
 # Battle pause
 var _paused: bool = false
@@ -146,6 +150,8 @@ func _ready() -> void:
 	_float_layer.layer = 128
 	add_child(_float_layer)
 	_vh = get_viewport().get_visible_rect().size.y
+	var _bs: String = str(SceneManager.save_manager.get_setting("battle_speed", "normal"))
+	_speed_scale = 0.45 if _bs == "fast" else 1.0
 	_apply_ui_sizes()
 	var _saved_battle: Dictionary = SceneManager.save_manager.pending_battle_state
 	if puzzle_data != null:
@@ -1155,6 +1161,14 @@ func _show_pause_overlay() -> void:
 	settings_btn.pressed.connect(_open_settings_from_pause)
 	vbox.add_child(settings_btn)
 
+	var flee_btn := Button.new()
+	flee_btn.text = "Flee Battle"
+	flee_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
+	flee_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	flee_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	flee_btn.pressed.connect(_on_flee_pressed)
+	vbox.add_child(flee_btn)
+
 	var menu_btn := Button.new()
 	menu_btn.text = "Return to Menu"
 	menu_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
@@ -1162,6 +1176,14 @@ func _show_pause_overlay() -> void:
 	menu_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	menu_btn.pressed.connect(_confirm_return_to_menu)
 	vbox.add_child(menu_btn)
+
+func _on_flee_pressed() -> void:
+	get_tree().paused = false
+	_paused = false
+	if _pause_overlay != null and is_instance_valid(_pause_overlay):
+		_pause_overlay.queue_free()
+	_pause_overlay = null
+	GameBus.battle_fled.emit()
 
 func _hide_pause_overlay() -> void:
 	if not _paused:
@@ -2025,12 +2047,15 @@ func _on_fatigue_damage(pid: int, dmg: int) -> void:
 	_refresh_all()
 	_check_game_over()
 
+func _battle_delay(base: float) -> void:
+	await get_tree().create_timer(base * _speed_scale, false).timeout
+
 func _run_ai_turn() -> void:
 	_ai_thinking = true
 	_end_turn_btn.disabled = true
 	var actions := BasicAI.decide_turn(_state)
 	_show_intent_banner(BasicAI.describe_turn(_state))
-	await get_tree().create_timer(1.5, false).timeout
+	await _battle_delay(1.5)
 	_execute_ai_actions(actions, 0)
 
 func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
@@ -2041,7 +2066,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		return
 	if idx >= actions.size():
 		_hide_intent_banner()
-		await get_tree().create_timer(0.5, false).timeout
+		await _battle_delay(0.5)
 		_ai_thinking = false
 		_state.end_turn()
 		_refresh_all()
@@ -2063,7 +2088,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	if _state.is_game_over():
 		_check_game_over()
 		return
-	await get_tree().create_timer(0.6, false).timeout
+	await _battle_delay(0.6)
 	_execute_ai_actions(actions, idx + 1)
 
 ## Fires when a minion with an emergence_effect is placed on the board.
@@ -2349,8 +2374,19 @@ func _check_game_over() -> void:
 			AudioManager.play_sfx("battle_win")
 			_haptic(120)
 			var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
+			var is_boss_win: bool = bool(enemy_data.get("is_boss", false))
+			var gambit_id_win: String = str(enemy_data.get("gambit_id", ""))
 			var pool: Array[String] = EnemyRegistry.get_drop_pool(enemy_type)
-			if bool(enemy_data.get("is_boss", false)):
+			# Compute drop tier here so the overlay can display the rolled rarity.
+			var drop_tier_win: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
+			if is_boss_win:
+				drop_tier_win = 4
+			elif EnemyRegistry.get_night_drop_boost(enemy_type):
+				drop_tier_win = mini(drop_tier_win + 1, 4)
+			drop_tier_win = mini(drop_tier_win + Gambits.get_rarity_tier_bonus(gambit_id_win), 4)
+			var coins_win: int = EnemyRegistry.get_coin_reward(enemy_type) if enemy_type != "" else 0
+			var xp_win: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss_win)
+			if is_boss_win:
 				var weapon_pool: Array[String] = []
 				for pid in pool:
 					if WeaponRegistry.has_weapon(pid):
@@ -2364,11 +2400,24 @@ func _check_game_over() -> void:
 				var weapon_reward_id: String = ""
 				if not weapon_pool.is_empty():
 					weapon_reward_id = weapon_pool[randi() % weapon_pool.size()]
-				_show_victory_overlay_boss(pool, weapon_reward_id)
+				# Pre-roll rarities for all boss reward cards.
+				var boss_rarities: Array[String] = []
+				var boss_stats_list: Array[Dictionary] = []
+				for cid: String in pool:
+					var br: String = CardDropUtil.effective_rarity(cid, CardDropUtil.roll_rarity(drop_tier_win))
+					boss_rarities.append(br)
+					boss_stats_list.append(CardDropUtil.roll_stats(cid, br))
+				_show_victory_overlay_boss(pool, weapon_reward_id, boss_rarities, boss_stats_list, coins_win, xp_win)
 			else:
 				var reward_card_id: String = ""
 				if pool.size() > 0:
 					reward_card_id = pool[randi() % pool.size()]
+				# Pre-roll rarity for the card reward.
+				var rolled_rarity: String = ""
+				var rolled_stats: Dictionary = {}
+				if reward_card_id != "":
+					rolled_rarity = CardDropUtil.effective_rarity(reward_card_id, CardDropUtil.roll_rarity(drop_tier_win))
+					rolled_stats = CardDropUtil.roll_stats(reward_card_id, rolled_rarity)
 				# Check soulbind capture condition.
 				var _ct_sig: String = EnemyRegistry.get_signature_card(enemy_type)
 				var _ct_captured: bool = SceneManager.save_manager.is_signature_captured(_ct_sig)
@@ -2377,9 +2426,9 @@ func _check_game_over() -> void:
 					_show_soulbind_overlay(reward_card_id, _ct_sig, _capture_tracker.condition_text())
 				elif not _ct_sig.is_empty() and not _ct_captured:
 					var _ct_text: String = _capture_tracker.condition_text() if _capture_tracker != null else ""
-					_show_victory_overlay(reward_card_id, "", _ct_sig, _ct_text, false)
+					_show_victory_overlay(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats, coins_win, xp_win)
 				else:
-					_show_victory_overlay(reward_card_id, "")
+					_show_victory_overlay(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win)
 		else:
 			AudioManager.play_sfx("battle_lose")
 			_haptic(80)
@@ -2404,7 +2453,9 @@ func _collect_veterancy_data() -> Dictionary:
 	return data
 
 func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = "",
-		sig_card_id: String = "", condition_text_arg: String = "", condition_met: bool = false) -> void:
+		sig_card_id: String = "", condition_text_arg: String = "", condition_met: bool = false,
+		reward_rarity: String = "", reward_stats: Dictionary = {},
+		coins_earned: int = 0, xp_earned: int = 0) -> void:
 	if _float_layer:
 		_float_layer.hide()
 	var overlay := PanelContainer.new()
@@ -2429,12 +2480,31 @@ func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = ""
 	if reward_card_id != "":
 		var tmpl: Dictionary = CardRegistry.get_template(reward_card_id)
 		var card_name: String = str(tmpl.get("name", reward_card_id))
-		reward_lbl.text = "You earned: " + card_name
+		var rarity_suffix: String = " [%s]" % reward_rarity.capitalize() if reward_rarity != "" else ""
+		reward_lbl.text = "You earned: " + card_name + rarity_suffix
+		if reward_rarity != "":
+			reward_lbl.modulate = _rarity_color(reward_rarity)
 	else:
 		reward_lbl.text = "No card dropped."
 	reward_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
 	reward_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(reward_lbl)
+
+	if coins_earned > 0:
+		var coins_lbl := Label.new()
+		coins_lbl.text = "+ %d Coins" % coins_earned
+		coins_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+		coins_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		coins_lbl.modulate = Color(1.0, 0.85, 0.3)
+		vbox.add_child(coins_lbl)
+
+	if xp_earned > 0:
+		var xp_lbl := Label.new()
+		xp_lbl.text = "+ %d XP" % xp_earned
+		xp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+		xp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		xp_lbl.modulate = Color(0.5, 1.0, 0.7)
+		vbox.add_child(xp_lbl)
 
 	if weapon_reward_id != "":
 		var weapon: WeaponData = WeaponRegistry.get_weapon(weapon_reward_id)
@@ -2462,6 +2532,8 @@ func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = ""
 	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
 	var final_card: String = reward_card_id
 	var final_weapon: String = weapon_reward_id
+	var final_rarity: String = reward_rarity
+	var final_stats: Dictionary = reward_stats
 	var veterancy_data: Dictionary = _collect_veterancy_data()
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
@@ -2470,12 +2542,22 @@ func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = ""
 			"weapon_reward": final_weapon,
 			"hero_hp": _state.players[0].hero.health,
 			"veterancy": veterancy_data,
+			"reward_rarity": final_rarity,
+			"reward_stats": final_stats,
 		})
 	)
 	vbox.add_child(btn)
 
 	overlay.add_child(vbox)
 	add_child(overlay)
+
+func _rarity_color(rarity: String) -> Color:
+	match rarity:
+		"common":    return Color(0.85, 0.85, 0.85)
+		"rare":      return Color(0.3, 0.6, 1.0)
+		"epic":      return Color(0.8, 0.3, 1.0)
+		"legendary": return Color(1.0, 0.65, 0.1)
+	return Color.WHITE
 
 func _show_soulbind_overlay(reward_card_id: String, sig_card_id: String, condition_text_arg: String) -> void:
 	if _float_layer:
@@ -2549,7 +2631,9 @@ func _show_soulbind_overlay(reward_card_id: String, sig_card_id: String, conditi
 	overlay.add_child(vbox)
 	add_child(overlay)
 
-func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: String = "") -> void:
+func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: String = "",
+		rarities: Array[String] = [], stats_list: Array[Dictionary] = [],
+		coins_earned: int = 0, xp_earned: int = 0) -> void:
 	if _float_layer:
 		_float_layer.hide()
 	var overlay := PanelContainer.new()
@@ -2570,19 +2654,41 @@ func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: S
 	title_lbl.modulate = Color(1.0, 0.75, 0.0)
 	vbox.add_child(title_lbl)
 
-	var rewards_lbl := Label.new()
 	if reward_cards.is_empty():
-		rewards_lbl.text = "No cards dropped."
+		var no_drop_lbl := Label.new()
+		no_drop_lbl.text = "No cards dropped."
+		no_drop_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+		no_drop_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(no_drop_lbl)
 	else:
-		var names: PackedStringArray = PackedStringArray()
-		for cid in reward_cards:
+		for ri in range(reward_cards.size()):
+			var cid: String = reward_cards[ri]
 			var tmpl: Dictionary = CardRegistry.get_template(cid)
-			names.append(str(tmpl.get("name", cid)))
-		rewards_lbl.text = "Rewards: " + ", ".join(names)
-	rewards_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
-	rewards_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rewards_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(rewards_lbl)
+			var card_name: String = str(tmpl.get("name", cid))
+			var rarity: String = rarities[ri] if ri < rarities.size() else ""
+			var rlbl := Label.new()
+			rlbl.text = card_name + (" [%s]" % rarity.capitalize() if rarity != "" else "")
+			if rarity != "":
+				rlbl.modulate = _rarity_color(rarity)
+			rlbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+			rlbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			vbox.add_child(rlbl)
+
+	if coins_earned > 0:
+		var coins_lbl := Label.new()
+		coins_lbl.text = "+ %d Coins" % coins_earned
+		coins_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+		coins_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		coins_lbl.modulate = Color(1.0, 0.85, 0.3)
+		vbox.add_child(coins_lbl)
+
+	if xp_earned > 0:
+		var xp_lbl := Label.new()
+		xp_lbl.text = "+ %d XP" % xp_earned
+		xp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+		xp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		xp_lbl.modulate = Color(0.5, 1.0, 0.7)
+		vbox.add_child(xp_lbl)
 
 	if weapon_reward_id != "":
 		var weapon: WeaponData = WeaponRegistry.get_weapon(weapon_reward_id)
@@ -2601,6 +2707,9 @@ func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: S
 	var final_rewards: Array[String] = []
 	final_rewards.assign(reward_cards)
 	var final_weapon: String = weapon_reward_id
+	var final_rarities: Array[String] = []
+	final_rarities.assign(rarities)
+	var final_stats_list: Array[Dictionary] = stats_list.duplicate()
 	var veterancy_data_boss: Dictionary = _collect_veterancy_data()
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
@@ -2609,6 +2718,8 @@ func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: S
 			"weapon_reward": final_weapon,
 			"hero_hp": _state.players[0].hero.health,
 			"veterancy": veterancy_data_boss,
+			"reward_rarities": final_rarities,
+			"reward_stats_list": final_stats_list,
 		})
 	)
 	vbox.add_child(btn)

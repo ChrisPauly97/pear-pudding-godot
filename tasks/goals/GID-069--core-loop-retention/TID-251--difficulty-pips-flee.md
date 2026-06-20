@@ -2,7 +2,7 @@
 
 **Goal:** GID-069
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-250
 
 ## Lock
@@ -29,12 +29,18 @@ Enemies auto-engage on proximity with no visible indication of how strong they a
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `signal battle_fled` to GameBus.
+2. In `EnemyNPC.init_from_data()`: call `_add_difficulty_pip(etype)` to add a Label3D showing ◆ pips (1–4) or "★ BOSS" in color-coded style.
+3. In `BattleScene._show_pause_overlay()`: add a "Flee Battle" button that calls `_on_flee_pressed()` which unpauses, frees pause overlay, and emits `GameBus.battle_fled`.
+4. In `SceneManager`: connect `GameBus.battle_fled` → `_on_battle_fled()` which clears pending battle/state, saves, frees battle overlay, and calls `_restore_world()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/GameBus.gd`: added `signal battle_fled`.
+- `scenes/world/entities/EnemyNPC.gd`: added `_add_difficulty_pip()` which places a billboard Label3D above each enemy showing difficulty tier pips (or boss marker). Added `_process()` with engage cooldown tick.
+- `scenes/battle/BattleScene.gd`: added "Flee Battle" button to pause overlay; added `_on_flee_pressed()`.
+- `autoloads/SceneManager.gd`: connected `battle_fled` in `_ready()`; added `_on_battle_fled()` handler.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated docs/agent/enemies-and-npcs.md and docs/agent/battle-system.md (part of final doc pass).

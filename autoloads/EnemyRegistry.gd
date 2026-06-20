@@ -418,6 +418,16 @@ static func get_capture_param(type_id: String) -> int:
 		return int(_enemies[type_id].get("capture_param", 0))
 	return 0
 
+## Returns XP rewarded for defeating this enemy type. Bosses are 2×.
+static func get_xp_reward(type_id: String, is_boss: bool = false) -> int:
+	const XP_TABLE: Dictionary = {
+		"undead_basic": 20, "undead_horde": 35, "ghoul_pack": 50, "undead_elite": 80,
+		"roaming_terror": 150,
+		"spectre_wisp": 25, "spectre_haunt": 40, "spectre_dread": 60,
+	}
+	var base: int = int(XP_TABLE.get(type_id, 25))
+	return base * 2 if is_boss else base
+
 ## Returns all unique signature card ids across all known enemy types.
 static func get_all_signature_card_ids() -> Array[String]:
 	_ensure_loaded()
