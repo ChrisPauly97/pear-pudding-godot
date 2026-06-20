@@ -26,6 +26,10 @@ uniform vec3 grass_tint = vec3(1.0, 1.0, 1.0);
 uniform vec3 hill_tint  = vec3(1.0, 1.0, 1.0);
 uniform vec3 wall_tint  = vec3(1.0, 1.0, 1.0);
 
+// Per-chunk blight intensity [0=clean, 1=fully blighted].
+// Set via MeshInstance3D.set_instance_shader_parameter() — no material duplication needed.
+instance uniform float blight_amount : hint_range(0.0, 1.0) = 0.0;
+
 varying float v_blend;      // height ratio [0=flat ground .. 1=hill plateau]
 varying float v_wall;       // 1.0 if this vertex sits on a wall tile
 varying float v_path;       // 1.0 if this vertex sits on a path tile
@@ -159,6 +163,13 @@ void fragment() {
 	// Cracked walls: darker with a warm brownish shift to distinguish them subtly
 	if (is_wall && v_cracked > 0.5) {
 		tinted_col = vec3(tinted_col.r * 0.80 + 0.06, tinted_col.g * 0.65, tinted_col.b * 0.60);
+	}
+
+	// Blight tint: lerp toward a dark desaturated purple as blight_amount increases.
+	if (blight_amount > 0.0) {
+		float lum = dot(tinted_col, vec3(0.299, 0.587, 0.114));
+		vec3 blight_col = vec3(lum * 0.35 + 0.05, lum * 0.15, lum * 0.30);
+		tinted_col = mix(tinted_col, blight_col, blight_amount * 0.75);
 	}
 
 	ALBEDO = tinted_col;

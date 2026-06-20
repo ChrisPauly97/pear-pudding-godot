@@ -7,6 +7,7 @@ const SpireFloorGen   = preload("res://game_logic/spire/SpireFloorGen.gd")
 const GrassBlades     = preload("res://scenes/world/GrassBlades.gd")
 const VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const BlightField      = preload("res://game_logic/world/BlightField.gd")
 const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const Minimap         = preload("res://scenes/world/Minimap.gd")
@@ -82,6 +83,7 @@ var _active_door_data: Dictionary = {}   # door_id -> Dictionary
 var _active_npc_data: Dictionary = {}    # npc_id -> Dictionary
 var _digspot_node: Node3D = null         # the one active DigSpot entity (nil if none loaded)
 var _burial_mound_nodes: Dictionary = {} # mound_id -> Node3D
+var _blight_heart_nodes: Dictionary = {} # heart_id -> Node3D
 var _ghost_phase_active: bool = false    # true while ghost-phase tween runs
 var _ghost_tween: Tween = null
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
@@ -522,6 +524,7 @@ func _ready() -> void:
 			_dungeon_hero_hp = 30
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)
+	GameBus.blight_changed.connect(_refresh_blight_tints)
 	_build_bounty_tracker()
 	GameBus.bounty_progress_changed.connect(_on_bounty_progress_changed)
 	GameBus.bounty_completed.connect(_on_bounty_completed)
@@ -555,9 +558,17 @@ func flush_time_of_day() -> void:
 ## Returns the biome and time context at the moment of engagement (GID-059).
 ## Called by SceneManager._on_enemy_engaged() to stamp context into enemy_data.
 func get_battlefield_context() -> Dictionary:
+	var sm := SceneManager.save_manager
+	var px: float = _player.position.x if _player != null else 0.0
+	var pz: float = _player.position.z if _player != null else 0.0
+	var cx: int = int(floor(px / (float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE)))
+	var cz: int = int(floor(pz / (float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE)))
+	var blighted: bool = _is_infinite and BlightField.is_blighted(
+		cx, cz, WORLD_SEED, sm.days_elapsed, sm.blight_cleansed_hearts)
 	return {
 		"biome": _current_biome if _is_infinite else -1,
 		"is_night": _is_night(_time_of_day),
+		"is_blighted": blighted,
 	}
 
 func _update_hud() -> void:
@@ -1373,6 +1384,31 @@ func register_waystone(wid: String, node: Node3D, w_data: Dictionary) -> void:
 func register_burial_mound(mid: String, node: Node3D) -> void:
 	_burial_mound_nodes[mid] = node
 
+func register_blight_heart(heart_id: String, node: Node3D) -> void:
+	_blight_heart_nodes[heart_id] = node
+
+func _find_nearby_blight_heart(px: float, pz: float, range_dist: float) -> Node3D:
+	var range_sq: float = range_dist * range_dist
+	for hid: String in _blight_heart_nodes:
+		var hnode: Node3D = _blight_heart_nodes[hid] as Node3D
+		if not is_instance_valid(hnode):
+			continue
+		var ddx: float = hnode.position.x - px
+		var ddz: float = hnode.position.z - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return hnode
+	return null
+
+func _refresh_blight_tints() -> void:
+	var sm := SceneManager.save_manager
+	for key: Vector2i in _chunk_renderers:
+		var cr: ChunkRenderer = _chunk_renderers[key] as ChunkRenderer
+		if cr == null:
+			continue
+		var intensity: float = BlightField.blight_intensity(
+			key.x, key.y, WORLD_SEED, sm.days_elapsed, sm.blight_cleansed_hearts)
+		cr.set_blight_amount(intensity)
+
 func _find_nearby_burial_mound(px: float, pz: float, range_dist: float) -> Node3D:
 	var range_sq: float = range_dist * range_dist
 	for mid in _burial_mound_nodes:
@@ -1702,6 +1738,7 @@ func _update_day_night(delta: float) -> void:
 	_time_of_day = fmod(_time_of_day + delta / day_duration, 1.0)
 	if _time_of_day < prev_time:
 		SceneManager.save_manager.increment_day()
+		GameBus.blight_changed.emit()
 
 	# Night-hunt transition detection
 	if _is_infinite:
@@ -1890,7 +1927,8 @@ func _check_interactions() -> void:
 	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
 	var garden_plot := _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
 	var burial_mound := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
-	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null:
+	var blight_heart := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
+	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null:
 		if _interact_btn != null:
 			_interact_btn.show()
 		else:
@@ -2258,6 +2296,11 @@ func _handle_interact() -> void:
 	var burial_mound_node := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
 	if burial_mound_node != null and burial_mound_node.has_method("interact"):
 		burial_mound_node.interact()
+		return
+
+	var blight_heart_node := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
+	if blight_heart_node != null and blight_heart_node.has_method("engage"):
+		blight_heart_node.engage()
 		return
 
 	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)

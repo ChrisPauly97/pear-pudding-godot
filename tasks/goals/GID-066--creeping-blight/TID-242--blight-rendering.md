@@ -2,7 +2,7 @@
 
 **Goal:** GID-066
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-241
 
 ## Lock
@@ -45,12 +45,20 @@ Blight must be readable at a glance and mechanically meaningful before the clean
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `instance uniform float blight_amount` to `assets/shaders/terrain.gdshader`; fragment blends toward dark desaturated purple at full blight.
+2. In `ChunkRenderer.gd`: cache `_terrain_mi` and `_wall_face_mi` MeshInstance3D refs; add `set_blight_amount(intensity)` using `set_instance_shader_parameter()`; apply initial tint in `build_visual()` after entity spawn.
+3. In `WorldScene.gd`: preload `BlightField`; add `_blight_heart_nodes` dict; connect `GameBus.blight_changed` → `_refresh_blight_tints()` (iterates chunk renderers); emit `blight_changed` on day rollover; stamp `is_blighted` into `get_battlefield_context()`.
+4. In `SceneManager._on_enemy_engaged`: stamp `enemy_data["is_blighted"]` from `get_battlefield_context()`.
+5. In `BattleScene`: after boss HP override, if `is_blighted == true` and not a `blight_heart_id`, add +5 HP to enemy hero and emit HUD message.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`assets/shaders/terrain.gdshader`**: Added `instance uniform float blight_amount : hint_range(0.0, 1.0) = 0.0;`. Fragment: if `blight_amount > 0`, desaturate toward dark purple with `blight_amount * 0.75` blend factor.
+- **`scenes/world/ChunkRenderer.gd`**: Added `_terrain_mi: MeshInstance3D` and `_wall_face_mi: MeshInstance3D` instance vars; saved in `_apply_terrain_visual()`; added `set_blight_amount(intensity: float)` using `set_instance_shader_parameter`; in `build_visual()`, apply initial blight tint from `BlightField.blight_intensity()` after `_spawn_entities()`.
+- **`scenes/world/WorldScene.gd`**: Added `BlightField` preload; added `_blight_heart_nodes: Dictionary`; `get_battlefield_context()` now includes `"is_blighted"`; connected `GameBus.blight_changed → _refresh_blight_tints()`; added `_refresh_blight_tints()` iterating `_chunk_renderers`; emits `GameBus.blight_changed` on day rollover in `_update_day_night()`.
+- **`autoloads/SceneManager.gd`**: In `_on_enemy_engaged`, stamps `enemy_data["is_blighted"]` from `get_battlefield_context()`.
+- **`scenes/battle/BattleScene.gd`**: After boss HP override, blighted-zone buff: `+5 HP` to enemy hero when `enemy_data.is_blighted == true` and no `blight_heart_id`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/blight-system.md` created.

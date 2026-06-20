@@ -12,9 +12,9 @@ The infinite map currently feels static and timeless. The Creeping Blight makes 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-241 | Blight State Model — Seeded Hearts, Day-Tick Spread, Persistence | agent | pending | — |
-| TID-242 | Blight Rendering — Terrain Tint, Ambience, Enemy Buff | agent | pending | TID-241 |
-| TID-243 | Blight Heart Entity — Cleanse Battle, Purification, Rewards | agent | pending | TID-242 |
+| TID-241 | Blight State Model — Seeded Hearts, Day-Tick Spread, Persistence | agent | done | — |
+| TID-242 | Blight Rendering — Terrain Tint, Ambience, Enemy Buff | agent | done | TID-241 |
+| TID-243 | Blight Heart Entity — Cleanse Battle, Purification, Rewards | agent | done | TID-242 |
 
 ## Acceptance Criteria
 

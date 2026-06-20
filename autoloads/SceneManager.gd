@@ -315,9 +315,11 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 			var ctx: Dictionary = scene.get_battlefield_context()
 			enemy_data["battlefield_biome"] = ctx.get("biome", -1)
 			enemy_data["battlefield_is_night"] = ctx.get("is_night", false)
+			enemy_data["is_blighted"] = ctx.get("is_blighted", false)
 		else:
 			enemy_data["battlefield_biome"] = -1
 			enemy_data["battlefield_is_night"] = false
+			enemy_data["is_blighted"] = false
 	GameBus.tutorial_popup_requested.emit("mana")
 	# Skip picker on resume (pending_battle_enemy_data already set from a prior session)
 	# or when the player has enabled auto-skip via the "Don't ask again" checkbox.
@@ -648,6 +650,13 @@ func _on_battle_won(result: Dictionary) -> void:
 	for vet_uid: String in veterancy.keys():
 		var vdata: Dictionary = veterancy[vet_uid]
 		save_manager.record_veterancy(vet_uid, int(vdata.get("kills", 0)), bool(vdata.get("survived", true)))
+	# Blight Heart cleansing (GID-066): mark the heart purified and award redemption points.
+	var blight_heart_id: String = str(save_manager.pending_battle_enemy_data.get("blight_heart_id", ""))
+	if blight_heart_id != "":
+		save_manager.mark_heart_cleansed(blight_heart_id)
+		save_manager.add_redemption_points(10)
+		GameBus.blight_changed.emit()
+		GameBus.hud_message_requested.emit("The blight recedes… +10 Redemption Points.")
 	save_manager.clear_pending_battle()
 	save_manager.clear_pending_battle_state()
 	if _battle_overlay != null:

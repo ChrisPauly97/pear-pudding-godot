@@ -222,6 +222,12 @@ func _ready() -> void:
 				_state.players[1].hero.max_health = bhp
 			_show_boss_banner()
 
+		# Blighted zone buff: non-blight-heart enemies get +5 HP in blighted chunks.
+		if bool(enemy_data.get("is_blighted", false)) and not enemy_data.has("blight_heart_id"):
+			_state.players[1].hero.health += 5
+			_state.players[1].hero.max_health += 5
+			GameBus.hud_message_requested.emit("The blight empowers your foe…")
+
 		# Apply remaining gambit handicaps now that all decks and HP are set.
 		_apply_gambit_handicaps(_gambit_id)
 

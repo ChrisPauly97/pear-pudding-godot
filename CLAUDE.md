@@ -415,4 +415,5 @@ When adding a new major feature or system, create a corresponding `.md` file in 
 | [docs/agent/bounty-board.md](docs/agent/bounty-board.md) | Bounty Board Contracts | BountyGen, daily seeded generation, SaveManager fields, rollover logic |
 | [docs/agent/night-hunts.md](docs/agent/night-hunts.md) | Night Hunts | Spectral enemy spawning, nocturnal system, drop boost, minimap coloring, tutorial |
 | [docs/agent/card-cantrips.md](docs/agent/card-cantrips.md) | Card Cantrips | Ghost Phase, Skeleton Dig, CantripManager, burial mound spawning, cooldown persistence |
+| [docs/agent/blight-system.md](docs/agent/blight-system.md) | Creeping Blight | BlightField pure logic, terrain shader tint, enemy buff, BlightHeart entity, cleansing, Redemption Points |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |
