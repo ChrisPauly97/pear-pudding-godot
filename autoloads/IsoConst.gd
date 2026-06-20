@@ -57,6 +57,15 @@ const RARITY_CONFIG: Dictionary = {
 }
 const RARITY_ORDER: Array[String] = ["common", "rare", "epic", "legendary"]
 
+# Veterancy rank thresholds. Index 0 = rank 1, index 1 = rank 2, index 2 = rank 3.
+# Rank is OR-based: earned when kills >= kills_threshold OR battles_survived >= battles_threshold.
+# hp_bonus and atk_bonus are cumulative totals granted at that rank (not per-rank increments).
+const VETERANCY_RANKS: Array = [
+	{"kills_threshold": 5,  "battles_threshold": 10, "hp_bonus": 1, "atk_bonus": 0, "title": "the Seasoned"},
+	{"kills_threshold": 15, "battles_threshold": 25, "hp_bonus": 2, "atk_bonus": 1, "title": "the Veteran"},
+	{"kills_threshold": 40, "battles_threshold": 60, "hp_bonus": 3, "atk_bonus": 2, "title": "the Legendary"},
+]
+
 func tile_to_world(tx: int, tz: int) -> Vector3:
 	return Vector3(tx * TILE_SIZE, 0.0, tz * TILE_SIZE)
 

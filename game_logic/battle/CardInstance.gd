@@ -23,6 +23,11 @@ var emergence_power: int = 0
 var keywords: Array[String] = []
 var shroud_active: bool = false  # true until the first hit is absorbed; set false by game logic after absorption
 
+# Veterancy attribution (GID-060): collection UID links this battle card back to SaveManager;
+# battle_kills counts enemy minions this card kills in the current battle.
+var collection_uid: String = ""
+var battle_kills: int = 0
+
 var summoning_sick: bool = true
 var attack_count: int = 1
 var out_of_play: int = 0  # stun counter (kept for backward compat; synced with status_effects["stun"])
@@ -135,6 +140,8 @@ func to_dict() -> Dictionary:
 		"attack_count": attack_count,
 		"out_of_play": out_of_play,
 		"status_effects": status_effects.duplicate(),
+		"collection_uid": collection_uid,
+		"battle_kills": battle_kills,
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -162,3 +169,5 @@ func from_dict(d: Dictionary) -> void:
 	out_of_play = int(d.get("out_of_play", 0))
 	var se = d.get("status_effects", {})
 	status_effects = se if se is Dictionary else {}
+	collection_uid = str(d.get("collection_uid", ""))
+	battle_kills = int(d.get("battle_kills", 0))

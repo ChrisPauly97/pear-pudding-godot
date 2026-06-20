@@ -2,14 +2,12 @@
 
 **Goal:** GID-060
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-215
 
 ## Lock
 
 **Session:** none
-**Acquired:** —
-**Expires:** —
 
 ## Context
 
@@ -50,12 +48,31 @@ The emotional core of GID-060: a card that fights remembers. After each battle, 
 
 ## Plan
 
-_Written during Plan phase._
+1. **`CardInstance.gd`** — Add `collection_uid: String = ""` and `battle_kills: int = 0`; extend `to_dict`/`from_dict` for mid-battle save round-trip.
+
+2. **`PlayerState.gd`** — Add `build_deck_from_instances(insts: Array[Dictionary])`: creates CardInstance with per-instance rolled stats + VeterancyUtil rank HP/ATK bonuses, sets `collection_uid`. Enemy deck keeps existing `build_deck(template_ids)` path.
+
+3. **`BattleScene.gd`** — (a) Replace normal-path deck build (`get_deck_template_ids` + `build_deck`) with `build_deck_from_instances(save_manager.get_deck_instances())`; Spire/fallback paths unchanged. (b) In `_on_enemy_card_input`, add `attacker.battle_kills += 1` when target is killed. (c) Add `_collect_veterancy_data()` helper that walks all player-0 zones and gathers per-uid `{kills, survived: true}` for cards with non-empty `collection_uid`. (d) In both `_show_victory_overlay` and `_show_victory_overlay_boss`, capture veterancy before the closure and add `"veterancy"` key to `battle_won` emit.
+
+4. **`BasicAI.gd`** — In the attack-minion Callable, add `tgt.battle_kills += 1` when `not mc.is_alive()` (player card's counterattack killed the AI card). Scoped out: AI kills player cards, spell kills, hero-power kills, poison ticks.
+
+5. **`SaveManager.gd`** — Add `record_veterancy(uid: String, kills: int, survived: bool)` that mutates the live instance dict and marks dirty.
+
+6. **`SceneManager.gd`** — In `_on_battle_won`, after the normal-path reward grants, read `result.get("veterancy", {})` and call `save_manager.record_veterancy` for each uid.
+
+7. **Tests** — Extend `test_card_instance.gd` for new fields. Add `tests/unit/test_veterancy_attribution.gd` covering: `build_deck_from_instances` applies per-instance stats, applies rank HP/ATK bonus, sets `collection_uid`; `record_veterancy` accumulates kills and increments battles_survived.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/battle/CardInstance.gd`** — Added `collection_uid: String = ""` and `battle_kills: int = 0`; both fields round-trip through `to_dict()`/`from_dict()`.
+- **`game_logic/battle/PlayerState.gd`** — Added `build_deck_from_instances(insts: Array[Dictionary])`: applies per-instance rolled stats, VeterancyUtil rank bonuses, and sets `collection_uid` on each `CardInstance`.
+- **`scenes/battle/BattleScene.gd`** — Swapped normal-path deck build to `build_deck_from_instances`; added `attacker.battle_kills += 1` kill credit in `_on_enemy_card_input`; added `_collect_veterancy_data()` helper; included `"veterancy"` key in both `battle_won` emits.
+- **`ai/BasicAI.gd`** — Added `tgt.battle_kills += 1` when AI minion dies to player counterattack.
+- **`autoloads/SaveManager.gd`** — Added `record_veterancy(uid, kills, survived)` method.
+- **`autoloads/SceneManager.gd`** — In `_on_battle_won`, reads `result["veterancy"]` and calls `save_manager.record_veterancy` for each uid.
+- **`tests/unit/test_veterancy_attribution.gd`** — 20 new tests covering `build_deck_from_instances` stats/rank/uid and `record_veterancy` accumulation/survived/noop; all pass.
+- **`tests/runner.gd`** — Registered new test suite.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/battle-system.md`** — Added "Veterancy Kill Attribution" section under Status Effects; added veterancy row to Integrations table.

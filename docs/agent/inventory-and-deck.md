@@ -298,6 +298,70 @@ A **loadout tab row** and **action row** sit above the `_deck_count_label` in th
 
 ---
 
+## Veterancy System (GID-060)
+
+Each owned card instance tracks battle memory: `kills`, `battles_survived`, and `custom_name` are persisted alongside the existing instance fields in `SaveManager.owned_cards`.
+
+### Data model
+
+New fields on every `owned_cards` Dictionary entry (save version 35):
+
+| Field | Type | Description |
+|---|---|---|
+| `kills` | int | Total enemy minions this card has killed in battle |
+| `battles_survived` | int | Battles this card has participated in and survived |
+| `custom_name` | String | Player-set rename (`""` = none) |
+
+`_migrate_v34_to_v35()` backfills all three fields with defaults (`0`, `0`, `""`) on old saves. `add_card_instance()` initialises them to those defaults on new cards.
+
+### Rank thresholds (`IsoConst.VETERANCY_RANKS`)
+
+Rank is OR-based: earned when `kills >= kills_threshold` **or** `battles_survived >= battles_threshold`. Stat bonuses are cumulative totals at that rank.
+
+| Rank | Kills | Battles | HP Bonus | ATK Bonus | Title |
+|---|---|---|---|---|---|
+| 1 | 5 | 10 | +1 | +0 | "the Seasoned" |
+| 2 | 15 | 25 | +2 | +1 | "the Veteran" |
+| 3 | 40 | 60 | +3 | +2 | "the Legendary" |
+
+### VeterancyUtil (`game_logic/VeterancyUtil.gd`)
+
+Pure static helper (no class_name, no autoload deps). Preload directly at call sites:
+
+```gdscript
+const VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
+
+var rank: int = VeterancyUtil.rank_for(kills, battles_survived)       # 0–3
+var title: String = VeterancyUtil.title_for(rank)                     # "" if rank 0
+var hp_bonus: int = VeterancyUtil.hp_bonus_for(rank)
+var atk_bonus: int = VeterancyUtil.atk_bonus_for(rank)
+var name: String = VeterancyUtil.display_name(inst, base_name)
+```
+
+`display_name` precedence: `custom_name` (if non-empty) → `"base_name the Title"` (rank ≥ 1) → `base_name`.
+
+`rank_chevrons(rank)` returns `""`, `"▲"`, `"▲▲"`, or `"▲▲▲"` for use in UI labels.
+
+`SaveManager.set_card_custom_name(uid, name)` — stores a player rename on the live instance dict (strips edge whitespace, caps at 24 chars, marks dirty). Empty string clears the custom name.
+
+### Attribution (TID-216)
+
+After a won battle, `kills` made by each player deck card and `battles_survived` are written back to the matching collection instance via its `collection_uid`. Lost battles grant nothing. The `collection_uid` field is threaded through `CardInstance` so mid-battle save/resume (GID-034) does not lose attribution.
+
+### Inventory UI (TID-217)
+
+Veterancy is visible in `InventoryScene` for rare/epic/legendary cards (per-instance rows):
+
+- **Display name** — `_make_collection_row_instance` and `_make_deck_row_instance` show `VeterancyUtil.display_name(inst, card_name)` in the name Label instead of the raw template name, so custom renames and earned titles appear immediately.
+- **Rank chevrons** — if `rank > 0`, a golden `▲`/`▲▲`/`▲▲▲` Label appears after the name in the top row.
+- **Rename button** — `"✏ Rename"` Button in the action row (collection rows only) toggles an inline rename panel containing a `LineEdit` (pre-filled with current custom_name, max 24 chars), Save, and ✕ Cancel. Tapping Save calls `set_card_custom_name` then `_refresh_cards()`.
+
+### Battle card name (TID-217)
+
+`PlayerState.build_deck_from_instances` sets `ci.name = VeterancyUtil.display_name(inst, tmpl_name)` on each CardInstance before adding it to the deck. The `name` field round-trips through `CardInstance.to_dict()`/`from_dict()`, so the titled/custom name appears in the battle card face (`NameLabel`) and persists through mid-battle save/resume without any change to `BattleScene`.
+
+---
+
 ## Asset Requirements
 
 | Asset | Path | Notes |

@@ -611,6 +611,11 @@ func _on_battle_won(result: Dictionary) -> void:
 			if captured_enemy_id == "rival_enc2":
 				save_manager.set_story_flag("chapter1_received_letter")
 		GameBus.rival_encounter_won.emit(save_manager.rival_encounters_won)
+	# Apply veterancy: attribute kills/survival to collection instances (GID-060).
+	var veterancy: Dictionary = result.get("veterancy", {})
+	for vet_uid: String in veterancy.keys():
+		var vdata: Dictionary = veterancy[vet_uid]
+		save_manager.record_veterancy(vet_uid, int(vdata.get("kills", 0)), bool(vdata.get("survived", true)))
 	save_manager.clear_pending_battle()
 	save_manager.clear_pending_battle_state()
 	if _battle_overlay != null:

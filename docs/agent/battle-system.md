@@ -256,6 +256,32 @@ Two duelist `EnemyData` resources in `data/enemies/`:
 
 Both have empty `drop_pool` and `coin_reward = 0` (wager is handled outside the normal reward path).
 
+### Veterancy Kill Attribution (GID-060 TID-216)
+
+Cards in the player's deck accumulate kills and battle survivals across battles. This requires threading collection UIDs from `SaveManager.owned_cards` through the battle engine and writing results back on victory.
+
+**Deck build path (normal battle):**
+`BattleScene._ready()` calls `PlayerState.build_deck_from_instances(save_manager.get_deck_instances())` instead of the old template-ID path. This method:
+- Sets `CardInstance.collection_uid` from the instance's `uid` field.
+- Applies per-instance rolled stats (`attack`/`health`/`cost`) instead of template defaults.
+- Applies `VeterancyUtil.rank_for(kills, battles_survived)` HP/ATK bonuses on top.
+Enemy deck keeps the existing `build_deck(template_ids)` path; enemy `CardInstance`s have `collection_uid == ""`.
+
+**Kill tracking:**
+- `CardInstance.battle_kills: int` accumulates per-card kills during the battle.
+- Player minion kills an enemy minion: `_on_enemy_card_input` (BattleScene) sets `attacker.battle_kills += 1`.
+- Player minion kills AI minion via counterattack: `BasicAI.decide_turn` Callable sets `tgt.battle_kills += 1` (where `tgt` is the player's card).
+- Scoped out: spell kills, hero-power kills, poison-tick kills.
+
+**Victory write-back:**
+`BattleScene._collect_veterancy_data()` walks all zones of `players[0]` (hand + board + draw_deck + discard + pending_auto_spells), building `{uid: {"kills": n, "survived": true}}` for all cards with non-empty `collection_uid`. This dict is included as `"veterancy"` in the `GameBus.battle_won` emit. `SceneManager._on_battle_won` reads it and calls `SaveManager.record_veterancy(uid, kills, survived)` for each entry.
+
+**`SaveManager.record_veterancy(uid, kills, survived)`:** Looks up the live instance dict via `_uid_index`, increments `kills` by the battle total, increments `battles_survived` by 1 if `survived=true`, marks dirty.
+
+**Mid-battle save/resume:** `CardInstance.to_dict()`/`from_dict()` include `collection_uid` and `battle_kills` so GID-034 saves restore kill progress correctly.
+
+**Survival definition:** "card was in a won battle" — all player-0 cards get `survived=true` regardless of whether they ended in discard or on the board.
+
 ---
 
 ## Integrations with Other Features
@@ -270,6 +296,7 @@ Both have empty `drop_pool` and `coin_reward = 0` (wager is handled outside the 
 | **EnemyRegistry** | Drop pool | `EnemyRegistry.get_drop_pool(enemy_type)` returns cards that may drop; BattleScene picks one at random and shows the victory overlay |
 | **Inventory / Deck** | Deck source | Player's active battle deck is built from `SaveManager.player_deck` (managed in InventoryScene) |
 | **GameBus signals** | Both | `card_played`, `card_attacked`, `turn_ended`, `battle_ended`, `status_applied`, `status_ticked` — BattleScene listens to turn_ended to refresh the UI; status signals available for future subscribers |
+| **Veterancy (GID-060)** | Post-battle | `battle_won` result carries `"veterancy"` dict; SceneManager applies it via `SaveManager.record_veterancy`; see Veterancy Kill Attribution section above |
 
 ---
 

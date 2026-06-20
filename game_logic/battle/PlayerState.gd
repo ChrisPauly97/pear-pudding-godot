@@ -3,6 +3,7 @@ extends RefCounted
 
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const VeterancyUtil = preload("res://game_logic/VeterancyUtil.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
@@ -46,6 +47,36 @@ func build_deck(card_ids: Array[String], difficulty_tier: int = 0) -> void:
 			tmpl["attack"] = scaled.get("attack", tmpl.get("attack", 0))
 			tmpl["health"] = scaled.get("health", tmpl.get("health", 0))
 		draw_deck.append(CardInstance.new(tmpl))
+	draw_deck.shuffle()
+
+## Builds the player draw deck from collection instances (GID-060).
+## Applies per-instance rolled stats and veterancy rank HP/ATK bonuses.
+## Sets collection_uid on each CardInstance for post-battle attribution.
+func build_deck_from_instances(insts: Array[Dictionary]) -> void:
+	draw_deck.clear()
+	discard.clear()
+	hand.clear()
+	pending_auto_spells.clear()
+	for inst: Dictionary in insts:
+		var tid: String = str(inst.get("template_id", ""))
+		if tid == "":
+			continue
+		var tmpl: Dictionary = CardRegistry.get_template(tid)
+		if tmpl.is_empty():
+			continue
+		tmpl = tmpl.duplicate()
+		tmpl["attack"] = int(inst.get("attack", tmpl.get("attack", 0)))
+		tmpl["health"] = int(inst.get("health", tmpl.get("health", 0)))
+		tmpl["cost"]   = int(inst.get("cost",   tmpl.get("cost",   1)))
+		var kills: int = int(inst.get("kills", 0))
+		var survived: int = int(inst.get("battles_survived", 0))
+		var rank: int = VeterancyUtil.rank_for(kills, survived)
+		tmpl["attack"] += VeterancyUtil.atk_bonus_for(rank)
+		tmpl["health"] += VeterancyUtil.hp_bonus_for(rank)
+		var ci := CardInstance.new(tmpl)
+		ci.collection_uid = str(inst.get("uid", ""))
+		ci.name = VeterancyUtil.display_name(inst, str(tmpl.get("name", tid)))
+		draw_deck.append(ci)
 	draw_deck.shuffle()
 
 func draw_card() -> CardInstance:
