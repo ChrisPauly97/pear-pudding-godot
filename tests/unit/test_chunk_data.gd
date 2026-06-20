@@ -32,11 +32,11 @@ func test_negative_coords_stored() -> void:
 
 
 func test_tiles_have_correct_size() -> void:
-	assert_eq(_chunk().tiles.size(), ChunkData.CHUNK_SIZE * ChunkData.CHUNK_SIZE)
+	assert_eq(_chunk().tiles.size(), IsoConst.CHUNK_SIZE * IsoConst.CHUNK_SIZE)
 
 
 func test_heights_have_correct_size() -> void:
-	assert_eq(_chunk().heights.size(), ChunkData.CHUNK_SIZE * ChunkData.CHUNK_SIZE)
+	assert_eq(_chunk().heights.size(), IsoConst.CHUNK_SIZE * IsoConst.CHUNK_SIZE)
 
 
 func test_all_tiles_initialised_to_grass() -> void:
@@ -101,19 +101,19 @@ func test_get_tile_returns_grass_for_negative_z() -> void:
 
 
 func test_get_tile_returns_grass_for_x_out_of_bounds() -> void:
-	assert_eq(_chunk().get_tile(ChunkData.CHUNK_SIZE, 0), IsoConst.TILE_GRASS)
+	assert_eq(_chunk().get_tile(IsoConst.CHUNK_SIZE, 0), IsoConst.TILE_GRASS)
 
 
 func test_get_tile_returns_grass_for_z_out_of_bounds() -> void:
-	assert_eq(_chunk().get_tile(0, ChunkData.CHUNK_SIZE), IsoConst.TILE_GRASS)
+	assert_eq(_chunk().get_tile(0, IsoConst.CHUNK_SIZE), IsoConst.TILE_GRASS)
 
 
 func test_set_tile_ignores_out_of_bounds_without_crash() -> void:
 	var c := _chunk()
 	c.set_tile(-1, 0, IsoConst.TILE_WALL)   # must not crash
 	c.set_tile(0, -1, IsoConst.TILE_WALL)
-	c.set_tile(ChunkData.CHUNK_SIZE, 0, IsoConst.TILE_WALL)
-	c.set_tile(0, ChunkData.CHUNK_SIZE, IsoConst.TILE_WALL)
+	c.set_tile(IsoConst.CHUNK_SIZE, 0, IsoConst.TILE_WALL)
+	c.set_tile(0, IsoConst.CHUNK_SIZE, IsoConst.TILE_WALL)
 	assert_eq(c.get_tile(0, 0), IsoConst.TILE_GRASS)  # unchanged
 
 
@@ -126,7 +126,7 @@ func test_get_height_returns_one_for_out_of_bounds_negative() -> void:
 
 
 func test_get_height_returns_one_for_out_of_bounds_positive() -> void:
-	assert_eq(_chunk().get_height(ChunkData.CHUNK_SIZE, 0), 1)
+	assert_eq(_chunk().get_height(IsoConst.CHUNK_SIZE, 0), 1)
 
 
 func test_set_and_get_height_round_trip() -> void:
@@ -145,7 +145,7 @@ func test_set_height_does_not_affect_adjacent_cells() -> void:
 func test_set_height_ignores_out_of_bounds_without_crash() -> void:
 	var c := _chunk()
 	c.set_height(-1, 0, 3)  # must not crash
-	c.set_height(0, ChunkData.CHUNK_SIZE, 3)
+	c.set_height(0, IsoConst.CHUNK_SIZE, 3)
 	assert_eq(c.get_height(0, 0), 0)  # unchanged
 
 
@@ -161,20 +161,20 @@ func test_origin_world_at_0_0() -> void:
 
 
 func test_origin_world_at_1_0() -> void:
-	var expected_x: float = float(ChunkData.CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var expected_x: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 	var o: Vector3 = _chunk(1, 0).origin_world()
 	assert_almost_eq(o.x, expected_x)
 	assert_almost_eq(o.z, 0.0)
 
 
 func test_origin_world_at_0_1() -> void:
-	var expected_z: float = float(ChunkData.CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var expected_z: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 	var o: Vector3 = _chunk(0, 1).origin_world()
 	assert_almost_eq(o.x, 0.0)
 	assert_almost_eq(o.z, expected_z)
 
 
 func test_origin_world_negative_chunk() -> void:
-	var expected_x: float = -float(ChunkData.CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var expected_x: float = -float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 	var o: Vector3 = _chunk(-1, 0).origin_world()
 	assert_almost_eq(o.x, expected_x)

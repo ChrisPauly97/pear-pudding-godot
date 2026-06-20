@@ -84,8 +84,8 @@ func test_hill_tiles_have_nonzero_height() -> void:
 	for cx in range(-2, 3):
 		for cz in range(-2, 3):
 			var c := _gen(cx, cz)
-			for lz in range(ChunkData.CHUNK_SIZE):
-				for lx in range(ChunkData.CHUNK_SIZE):
+			for lz in range(IsoConst.CHUNK_SIZE):
+				for lx in range(IsoConst.CHUNK_SIZE):
 					if c.get_tile(lx, lz) == IsoConst.TILE_HILL:
 						assert_gt(c.get_height(lx, lz), 0,
 							"hill tile at (%d,%d) has zero height" % [lx, lz])
@@ -93,8 +93,8 @@ func test_hill_tiles_have_nonzero_height() -> void:
 
 func test_grass_tiles_have_zero_height() -> void:
 	var c := _gen()
-	for lz in range(ChunkData.CHUNK_SIZE):
-		for lx in range(ChunkData.CHUNK_SIZE):
+	for lz in range(IsoConst.CHUNK_SIZE):
+		for lx in range(IsoConst.CHUNK_SIZE):
 			if c.get_tile(lx, lz) == IsoConst.TILE_GRASS:
 				assert_eq(c.get_height(lx, lz), 0,
 					"grass tile at (%d,%d) has non-zero height" % [lx, lz])

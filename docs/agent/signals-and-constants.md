@@ -113,6 +113,15 @@ const CHUNK_SIZE:   int   = 16    # tiles per chunk side
 const WALL_FACE_H:  float = 2.0   # height of vertical wall faces (world units)
 ```
 
+#### Terrain Rendering (shared by named-map and infinite-chunk paths)
+
+```gdscript
+const HILL_PEAK_H:          float = 1.5   # peak height for hill tiles (world units)
+const HILL_CURVE_R:         float = 3.5   # hill smoothstep radius (world units)
+const TERRAIN_VDENSITY:     int   = 2     # mesh vertices per tile side
+const ENTITY_VISIBILITY_END: float = 50.0  # LOD range for world entities
+```
+
 #### Camera
 
 ```gdscript

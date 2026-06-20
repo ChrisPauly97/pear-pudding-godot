@@ -22,7 +22,7 @@ func after_all() -> void:
 # get_all_ids
 # ---------------------------------------------------------------------------
 
-func test_get_all_ids_returns_forty_default_cards() -> void:
+func test_get_all_ids_returns_all_cards() -> void:
 	assert_eq(_registry.get_all_ids().size(), 60)
 
 

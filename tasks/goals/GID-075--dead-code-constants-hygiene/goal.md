@@ -12,9 +12,9 @@ The June 2026 simplification sweep found 8 orphaned .uid sidecars, ~11 never-cal
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-276 | Orphaned files and dead functions | agent | pending | — |
-| TID-277 | Constants consolidation | agent | pending | — |
-| TID-278 | Stale test fixes | agent | pending | — |
+| TID-276 | Orphaned files and dead functions | agent | done | — |
+| TID-277 | Constants consolidation | agent | done | — |
+| TID-278 | Stale test fixes | agent | done | — |
 
 ## Acceptance Criteria
 

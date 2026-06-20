@@ -7,8 +7,6 @@ extends "res://tests/framework/test_case.gd"
 const WorldMapScript = preload("res://game_logic/world/WorldMap.gd")
 const ChunkDataScript = preload("res://game_logic/world/ChunkData.gd")
 
-const CHUNK_SIZE: int = 16
-
 # ---------------------------------------------------------------------------
 # madrian map — 2 NPCs defined in file
 # ---------------------------------------------------------------------------
@@ -43,8 +41,8 @@ func test_madrian_npc_world_positions_are_valid() -> void:
 
 func test_madrian_npcs_distributed_to_chunks() -> void:
 	var wm: RefCounted = WorldMapScript.new("madrian")
-	var max_cx: int = (WorldMapScript.MAP_WIDTH + CHUNK_SIZE - 1) / CHUNK_SIZE
-	var max_cz: int = (WorldMapScript.MAP_HEIGHT + CHUNK_SIZE - 1) / CHUNK_SIZE
+	var max_cx: int = (WorldMapScript.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
+	var max_cz: int = (WorldMapScript.MAP_HEIGHT + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
 	var total: int = 0
 	for cz in range(max_cz):
 		for cx in range(max_cx):
@@ -78,8 +76,8 @@ func test_all_named_maps_load_npcs() -> void:
 		# Every story map should have at least one NPC
 		if wm.npcs.size() > 0:
 			# Verify NPCs survive chunk distribution
-			var max_cx: int = (WorldMapScript.MAP_WIDTH + CHUNK_SIZE - 1) / CHUNK_SIZE
-			var max_cz: int = (WorldMapScript.MAP_HEIGHT + CHUNK_SIZE - 1) / CHUNK_SIZE
+			var max_cx: int = (WorldMapScript.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
+			var max_cz: int = (WorldMapScript.MAP_HEIGHT + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
 			var total: int = 0
 			for cz in range(max_cz):
 				for cx in range(max_cx):

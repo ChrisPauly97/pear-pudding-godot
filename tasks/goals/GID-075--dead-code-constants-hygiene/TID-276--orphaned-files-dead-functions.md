@@ -2,7 +2,7 @@
 
 **Goal:** GID-075
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -50,12 +50,16 @@ Pure deletion task; resolves BID-004 (extended — the sweep found 5 more orphan
 
 ## Plan
 
-_Written during Plan phase._
+1. Delete `game_logic/world/BundledMaps.gd.uid` and `ProceduralGen.gd.uid` (no corresponding .gd files).
+2. For 10 card `.uid` files that use wrong naming format (no `.tres.`): read UID from each, create `<name>.tres.uid` with same content, delete old `<name>.uid`. Cards affected: ash_arbiter, dawn_healer, dusk_seer, ember_covenant, ember_imp, hallowed_ground, pyre_warden, sacred_light, twilight_veil, void_creeper.
+3. Delete 8 dead functions from `game_logic/world/WorldMap.gd`: `get_wall_height_at_world`, `get_hill_height_at_world`, `find_nearby_enemy`, `find_nearby_chest`, `find_nearby_door`, `find_nearby_npc`, `find_nearby_scroll`, `all_enemies_defeated`. Keep `is_wall_at_world` (used in test_cracked_wall_interact.gd). Keep WorldScene.flush_time_of_day (called by SceneManager via has_method).
 
 ## Changes Made
 
-_Filled after Build phase._
+- **DELETED `game_logic/world/BundledMaps.gd.uid`** and **`game_logic/world/ProceduralGen.gd.uid`**: orphaned `.uid` sidecars with no corresponding `.gd` files (leftovers from GID-017 map migration). Resolves BID-004.
+- **RENAMED 10 card `.uid` files → `.tres.uid`**: `ash_arbiter`, `dawn_healer`, `dusk_seer`, `ember_covenant`, `ember_imp`, `hallowed_ground`, `pyre_warden`, `sacred_light`, `twilight_veil`, `void_creeper` — all had wrong-format sidecars (`<name>.uid` instead of `<name>.tres.uid`). Created correct-format `.tres.uid` files with same UID content and deleted old `.uid` files.
+- **MODIFIED `game_logic/world/WorldMap.gd`**: Removed 8 dead functions — `get_wall_height_at_world`, `get_hill_height_at_world`, `find_nearby_enemy`, `find_nearby_chest`, `find_nearby_door`, `find_nearby_npc`, `find_nearby_scroll`, `all_enemies_defeated`. Kept `is_wall_at_world` (used by `test_cracked_wall_interact.gd`).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent docs update needed — deletion-only changes.

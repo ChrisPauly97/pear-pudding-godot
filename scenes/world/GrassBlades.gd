@@ -51,7 +51,6 @@ static func _hash_pos(px: float, pz: float) -> float:
 	h = (h ^ (h >> 13)) * 1274126177
 	return float(abs(h) % 100000) / 100000.0
 
-const CHUNK_SIZE := 16  # tiles per chunk side — one MultiMesh per chunk
 
 # Per-chunk MultiMeshInstance3D nodes — keyed by Vector2i(cx, cz)
 var _chunk_mmis:   Dictionary = {}
@@ -106,13 +105,12 @@ func _init_material() -> void:
 
 # Compute grass tile centres from chunk data — no scene tree access.
 static func compute_centres(chunk_data: RefCounted, chunk_origin: Vector3) -> Array[Vector2]:
-	const CHUNK_SIZE: int = 16
 	const TILE_GRASS_ID: int = 0  # IsoConst.TILE_GRASS — literal avoids autoload in static
 	const TILE_WALL_ID:  int = 1  # IsoConst.TILE_WALL
 	var ts: float = IsoConst.TILE_SIZE
 	var centres: Array[Vector2] = []
-	for lz in range(CHUNK_SIZE):
-		for lx in range(CHUNK_SIZE):
+	for lz in range(IsoConst.CHUNK_SIZE):
+		for lx in range(IsoConst.CHUNK_SIZE):
 			if chunk_data.get_tile(lx, lz) != TILE_GRASS_ID:
 				continue
 			var adj_wall := false
@@ -220,8 +218,7 @@ func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i) -> void:
 	if grass_data.is_empty() or _chunk_mmis.has(chunk_key):
 		return
 	_init_material()
-	const CHUNK_SIZE: int = 16
-	var chunk_world: float = CHUNK_SIZE * IsoConst.TILE_SIZE
+	var chunk_world: float = IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE
 	var cx: int = chunk_key.x
 	var cz: int = chunk_key.y
 
@@ -332,7 +329,7 @@ func _build_chunk_mmi(centres: Array[Vector2], chunk_key: Vector2i, rng: RandomN
 			buf[off+8]   = -sr;  buf[off+9]  = 0.0; buf[off+10] =  cr;  buf[off+11] = pz
 			i += 1
 
-	var chunk_world: float = CHUNK_SIZE * IsoConst.TILE_SIZE
+	var chunk_world: float = IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE
 	var cx: int = chunk_key.x
 	var cz: int = chunk_key.y
 	mm.custom_aabb = AABB(
@@ -392,7 +389,7 @@ func _build_chunk_clusters(centres: Array[Vector2], chunk_key: Vector2i, rng: Ra
 			buf[off+8]  = 0.0; buf[off+9]  = 0.0; buf[off+10] = 1.0; buf[off+11] = pz
 			idx += 1
 
-	var chunk_world: float = CHUNK_SIZE * IsoConst.TILE_SIZE
+	var chunk_world: float = IsoConst.CHUNK_SIZE * IsoConst.TILE_SIZE
 	var cx: int = chunk_key.x
 	var cz: int = chunk_key.y
 	mm.custom_aabb = AABB(

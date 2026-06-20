@@ -199,9 +199,6 @@ const _TAP_DRAG_THRESHOLD: float = 30.0  # screen pixels; beyond this is a drag,
 var _dungeon_hero_hp: int = 30
 
 # Terrain height constants — named-map path uses a wider ramp than chunks
-const HILL_PEAK_H:    float = 1.5
-const HILL_RAMP_R:    float = 4.0
-const TERRAIN_VDENSITY: int = 2
 
 func _setup_environment() -> void:
 	var env := Environment.new()
@@ -296,9 +293,8 @@ func _ready() -> void:
 		_spawn_open_world_rival_enc2()
 	else:
 		# Named map: load all chunks covering the 100×100 tile map synchronously
-		const CHUNK_SIZE: int = 16
-		var max_cx: int = (WorldMap.MAP_WIDTH + CHUNK_SIZE - 1) / CHUNK_SIZE
-		var max_cz: int = (WorldMap.MAP_HEIGHT + CHUNK_SIZE - 1) / CHUNK_SIZE
+		var max_cx: int = (WorldMap.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
+		var max_cz: int = (WorldMap.MAP_HEIGHT + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
 		for cz in range(max_cz):
 			for cx in range(max_cx):
 				_build_chunk_sync(Vector2i(cx, cz))
@@ -719,9 +715,9 @@ func get_terrain_height(wx: float, wz: float) -> float:
 	if _is_infinite:
 		# Use the same radii as ChunkRenderer so entity Y matches the rendered terrain
 		return TerrainMath.get_height_at(wx, wz, get_tile_global, _get_height_global,
-				ChunkRenderer.CURVE_R, HILL_PEAK_H)
+				IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
 	return TerrainMath.get_height_at(wx, wz, world_map.get_tile, world_map.get_height,
-			ChunkRenderer.CURVE_R, HILL_PEAK_H)
+			IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
 
 # Returns false if the chunk AABB is definitely outside the camera frustum.
 # Uses the standard separating-plane test: if all 8 corners of the chunk's
@@ -896,16 +892,15 @@ func _ensure_tile_data_around(key: Vector2i) -> void:
 # Build the packed tile-type grid needed by ChunkRenderer.prepare_terrain().
 # Returns [tile_grid, grid_min_x, grid_min_z, grid_w].
 func _snapshot_tile_grid_for(key: Vector2i) -> Array:
-	const CHUNK_SIZE: int = 16
 	const TILE_CHECK: int = ChunkRenderer.TILE_CHECK
-	var chunk_origin_x: float = float(key.x * CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var chunk_origin_z: float = float(key.y * CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var chunk_origin_x: float = float(key.x * IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
+	var chunk_origin_z: float = float(key.y * IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 	var base_tx: int = int(chunk_origin_x / IsoConst.TILE_SIZE)
 	var base_tz: int = int(chunk_origin_z / IsoConst.TILE_SIZE)
 	var grid_min_x: int = base_tx - TILE_CHECK
 	var grid_min_z: int = base_tz - TILE_CHECK
-	var grid_w: int = CHUNK_SIZE + TILE_CHECK * 2 + 1
-	var grid_h: int = CHUNK_SIZE + TILE_CHECK * 2 + 1
+	var grid_w: int = IsoConst.CHUNK_SIZE + TILE_CHECK * 2 + 1
+	var grid_h: int = IsoConst.CHUNK_SIZE + TILE_CHECK * 2 + 1
 	var tile_grid := PackedInt32Array()
 	var height_grid := PackedInt32Array()
 	tile_grid.resize(grid_w * grid_h)
