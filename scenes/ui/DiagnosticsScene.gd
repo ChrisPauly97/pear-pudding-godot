@@ -1,4 +1,4 @@
-extends BaseOverlay
+extends "res://scenes/ui/BaseOverlay.gd"
 
 const _LEVEL_COLORS: Dictionary = {
 	"INFO":  "green",

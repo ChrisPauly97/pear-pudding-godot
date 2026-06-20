@@ -676,7 +676,16 @@ static func _migrate_v32_to_v33(data: Dictionary) -> void:
 		data["potions"] = {}
 	data["version"] = 33
 
-# _migrate_v34_to_v35: backfill veterancy fields on every owned_cards entry.
+# _migrate_v33_to_v34: wrap existing player_deck into a named loadout array.
+static func _migrate_v33_to_v34(data: Dictionary) -> void:
+	if not data.has("loadouts"):
+		var existing_deck: Array = data.get("player_deck", [])
+		var deck_copy: Array = existing_deck.duplicate()
+		data["loadouts"] = [{"name": "Deck 1", "cards": deck_copy}]
+		data["active_loadout"] = 0
+	data["version"] = 34
+
+# _migrate_v34_to_v35: backfill veterancy fields on owned_cards and captured_signatures.
 static func _migrate_v34_to_v35(data: Dictionary) -> void:
 	var cards: Array = data.get("owned_cards", [])
 	for i: int in range(cards.size()):
@@ -689,19 +698,6 @@ static func _migrate_v34_to_v35(data: Dictionary) -> void:
 			card["battles_survived"] = 0
 		if not card.has("custom_name"):
 			card["custom_name"] = ""
-	data["version"] = 35
-
-# _migrate_v33_to_v34: wrap existing player_deck into a named loadout array.
-static func _migrate_v33_to_v34(data: Dictionary) -> void:
-	if not data.has("loadouts"):
-		var existing_deck: Array = data.get("player_deck", [])
-		var deck_copy: Array = existing_deck.duplicate()
-		data["loadouts"] = [{"name": "Deck 1", "cards": deck_copy}]
-		data["active_loadout"] = 0
-	data["version"] = 34
-
-# _migrate_v34_to_v35: backfill captured_signatures for old saves.
-static func _migrate_v34_to_v35(data: Dictionary) -> void:
 	if not data.has("captured_signatures"):
 		data["captured_signatures"] = []
 	data["version"] = 35
@@ -1794,10 +1790,10 @@ func get_bestiary_entry(type_id: String) -> Dictionary:
 	return bestiary.get(type_id, {"seen": 0, "defeated": 0})
 
 func is_bestiary_complete() -> bool:
-	var all_ids: Array[String] = _EnemyRegistry.get_all_enemy_ids()
-	if all_ids.is_empty():
+	var eligible: Array[String] = _EnemyRegistry.get_bestiary_enemy_ids()
+	if eligible.is_empty():
 		return false
-	for type_id: String in all_ids:
+	for type_id: String in eligible:
 		var entry: Dictionary = bestiary.get(type_id, {"seen": 0, "defeated": 0})
 		if int(entry.get("defeated", 0)) < 1:
 			return false

@@ -32,12 +32,12 @@ User decisions captured at goal creation:
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-226 | Unify the split-brain SaveManager instances | agent | done | — |
-| TID-227 | Android save robustness | agent | pending | TID-226 |
+| TID-227 | Android save robustness | agent | done | TID-226 |
 | TID-228 | Convert EnemyRegistry & WeaponRegistry to preload consts | agent | done | — |
 | TID-229 | Fix lambda signal-connection leaks & overlay ownership | agent | done | — |
 | TID-230 | Chunk streaming correctness | agent | done | — |
-| TID-231 | Chunk streaming & rendering performance | agent | pending | TID-230 |
-| TID-232 | Battle rules fixes | agent | pending | — |
+| TID-231 | Chunk streaming & rendering performance | agent | done | TID-230 |
+| TID-232 | Battle rules fixes | agent | done | — |
 | TID-233 | Battle save/resume fixes | agent | done | TID-232 |
 | TID-234 | Battle UI performance & enemy hand concealment | agent | done | TID-232 |
 | TID-235 | UI scene fixes | agent | done | — |
