@@ -24,6 +24,8 @@ const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
 const CompassRibbon = preload("res://scenes/ui/CompassRibbon.gd")
 const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
+const CantripManager = preload("res://game_logic/world/CantripManager.gd")
+const _BurialMoundScene = preload("res://scenes/world/entities/BurialMound.tscn")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
 const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_side_pixel.png")
@@ -79,6 +81,9 @@ var _active_chest_data: Dictionary = {}  # chest_id -> Dictionary
 var _active_door_data: Dictionary = {}   # door_id -> Dictionary
 var _active_npc_data: Dictionary = {}    # npc_id -> Dictionary
 var _digspot_node: Node3D = null         # the one active DigSpot entity (nil if none loaded)
+var _burial_mound_nodes: Dictionary = {} # mound_id -> Node3D
+var _ghost_phase_active: bool = false    # true while ghost-phase tween runs
+var _ghost_tween: Tween = null
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
 var _last_move_dir: Vector2 = Vector2.ZERO
 var _current_biome: int = -1
@@ -392,6 +397,28 @@ func _ready() -> void:
 	_mount_btn.hide()
 	_hud.add_child(_mount_btn)
 	GameBus.mount_state_changed.connect(_on_mount_state_changed)
+
+	# Cantrip buttons — always visible, left side below coord label
+	var cantrip_btn_w: float = vh * 0.12
+	var cantrip_btn_h: float = vh * 0.055
+	var cantrip_x: float = vh * 0.01
+	var cantrip_y: float = vh * 0.17
+
+	var ghost_btn := Button.new()
+	ghost_btn.text = "[G] Phase"
+	ghost_btn.custom_minimum_size = Vector2(cantrip_btn_w, cantrip_btn_h)
+	ghost_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
+	ghost_btn.position = Vector2(cantrip_x, cantrip_y)
+	ghost_btn.pressed.connect(_activate_ghost_phase)
+	_hud.add_child(ghost_btn)
+
+	var dig_btn := Button.new()
+	dig_btn.text = "[D] Dig"
+	dig_btn.custom_minimum_size = Vector2(cantrip_btn_w, cantrip_btn_h)
+	dig_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
+	dig_btn.position = Vector2(cantrip_x, cantrip_y + cantrip_btn_h + vh * 0.005)
+	dig_btn.pressed.connect(_activate_skeleton_dig)
+	_hud.add_child(dig_btn)
 
 	if OS.has_feature("android"):
 		_interact_btn = Button.new()
@@ -794,6 +821,12 @@ func _update_chunks() -> void:
 			if is_instance_valid(wnode):
 				wnode.queue_free()
 			_waystone_nodes.erase(wid)
+		for m_data in chunk.burial_mounds:
+			var mid: String = str(m_data.get("id", ""))
+			var mnode: Node3D = _burial_mound_nodes.get(mid) as Node3D
+			if is_instance_valid(mnode):
+				mnode.queue_free()
+			_burial_mound_nodes.erase(mid)
 
 	# Evict chunk data cache entries far beyond the unload radius to bound memory.
 	# Keep a margin beyond UNLOAD_RADIUS so neighbour tile lookups still hit cache.
@@ -1337,6 +1370,21 @@ func register_waystone(wid: String, node: Node3D, w_data: Dictionary) -> void:
 	_waystone_nodes[wid] = node
 	_active_waystone_data[wid] = w_data
 
+func register_burial_mound(mid: String, node: Node3D) -> void:
+	_burial_mound_nodes[mid] = node
+
+func _find_nearby_burial_mound(px: float, pz: float, range_dist: float) -> Node3D:
+	var range_sq: float = range_dist * range_dist
+	for mid in _burial_mound_nodes:
+		var mnode: Node3D = _burial_mound_nodes[mid] as Node3D
+		if not is_instance_valid(mnode) or not mnode.visible:
+			continue
+		var ddx: float = mnode.position.x - px
+		var ddz: float = mnode.position.z - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return mnode
+	return null
+
 func _find_nearby_waystone(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
 	for wid in _active_waystone_data:
@@ -1841,7 +1889,8 @@ func _check_interactions() -> void:
 	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
 	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
 	var garden_plot := _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
-	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null:
+	var burial_mound := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
+	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null:
 		if _interact_btn != null:
 			_interact_btn.show()
 		else:
@@ -1886,6 +1935,104 @@ func _open_pause() -> void:
 	_pause_overlay.quit_to_menu.connect(func() -> void: _pause_overlay = null)
 	add_child(_pause_overlay)
 
+# ── Cantrip activation (GID-065) ───────────────────────────────────────────
+
+func _activate_ghost_phase() -> void:
+	if _player == null or _ghost_phase_active:
+		return
+	var sm := SceneManager.save_manager
+	var template_ids: Array[String] = sm.get_deck_template_ids()
+	if not CantripManager.is_available("ghost_phase", template_ids):
+		GameBus.hud_message_requested.emit("Ghost Phase requires 4+ Ghost-family cards in your deck.")
+		return
+	var current_time: float = Time.get_unix_time_from_system()
+	if CantripManager.is_on_cooldown("ghost_phase", sm.cantrip_cooldowns, current_time):
+		var remaining: int = CantripManager.cooldown_remaining("ghost_phase", sm.cantrip_cooldowns, current_time)
+		GameBus.hud_message_requested.emit("Ghost Phase on cooldown (%ds)." % remaining)
+		return
+	if not _do_ghost_phase():
+		GameBus.hud_message_requested.emit("No wall to phase through in this direction.")
+		return
+	sm.cantrip_cooldowns["ghost_phase"] = current_time + CantripManager.get_cooldown("ghost_phase")
+	sm.mark_dirty()
+	GameBus.cantrip_used.emit("ghost_phase")
+
+func _do_ghost_phase() -> bool:
+	var px: float = _player.position.x
+	var pz: float = _player.position.z
+	var tile_size: float = IsoConst.TILE_SIZE
+	var wtx: int = int(floor(px / tile_size))
+	var wtz: int = int(floor(pz / tile_size))
+
+	# Build ordered list of directions to try: facing first, then all 4 cardinals
+	var dirs: Array[Vector2i] = []
+	if _last_move_dir.length_squared() > 0.01:
+		var primary: Vector2i
+		if abs(_last_move_dir.x) >= abs(_last_move_dir.y):
+			primary = Vector2i(1 if _last_move_dir.x > 0 else -1, 0)
+		else:
+			primary = Vector2i(0, 1 if _last_move_dir.y > 0 else -1)
+		dirs.append(primary)
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		if not dirs.has(d):
+			dirs.append(d)
+
+	for d: Vector2i in dirs:
+		var wall_tx: int = wtx + d.x
+		var wall_tz: int = wtz + d.y
+		var beyond_tx: int = wtx + d.x * 2
+		var beyond_tz: int = wtz + d.y * 2
+		if get_tile_global(wall_tx, wall_tz) != IsoConst.TILE_WALL:
+			continue
+		if get_tile_global(beyond_tx, beyond_tz) == IsoConst.TILE_WALL:
+			continue  # two walls — too thick to phase through
+		var target_x: float = float(beyond_tx) * tile_size + tile_size * 0.5
+		var target_z: float = float(beyond_tz) * tile_size + tile_size * 0.5
+		var target_y: float = get_terrain_height(target_x, target_z) + 0.5
+		_start_ghost_phase_tween(Vector3(target_x, target_y, target_z))
+		return true
+	return false
+
+func _start_ghost_phase_tween(target: Vector3) -> void:
+	_ghost_phase_active = true
+	_player.collision_layer = 0
+	_player.collision_mask = 0
+	_set_player_alpha(0.5)
+	if _ghost_tween != null and _ghost_tween.is_valid():
+		_ghost_tween.kill()
+	_ghost_tween = create_tween()
+	_ghost_tween.tween_property(_player, "position", target, 0.3)
+	_ghost_tween.tween_callback(_on_ghost_phase_done)
+
+func _on_ghost_phase_done() -> void:
+	_player.collision_layer = 1
+	_player.collision_mask = 2 | 4
+	_set_player_alpha(1.0)
+	_ghost_phase_active = false
+
+func _set_player_alpha(alpha: float) -> void:
+	if _player == null:
+		return
+	var sprites: Array[Node] = _player.find_children("*", "Sprite3D", true, false)
+	for s: Node in sprites:
+		var sp: Sprite3D = s as Sprite3D
+		if sp != null:
+			var c: Color = sp.modulate
+			c.a = alpha
+			sp.modulate = c
+
+func _activate_skeleton_dig() -> void:
+	if _player == null:
+		return
+	var px: float = _player.position.x
+	var pz: float = _player.position.z
+	var mound := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
+	if mound == null:
+		GameBus.hud_message_requested.emit("No burial mound nearby to dig.")
+		return
+	if mound.has_method("interact"):
+		mound.interact()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):
 		if _pause_overlay == null:
@@ -1911,6 +2058,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("skill_tree"):
 		_clear_dest_marker()
 		GameBus.skill_tree_requested.emit()
+		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_G:
+		_activate_ghost_phase()
+		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed and event.keycode == KEY_D:
+		_activate_skeleton_dig()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventScreenTouch:
 		_on_screen_touch(event as InputEventScreenTouch)
@@ -2100,6 +2253,11 @@ func _handle_interact() -> void:
 	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
 	if digspot != null and digspot.has_method("dig"):
 		digspot.dig()
+		return
+
+	var burial_mound_node := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
+	if burial_mound_node != null and burial_mound_node.has_method("interact"):
+		burial_mound_node.interact()
 		return
 
 	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)

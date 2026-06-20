@@ -190,6 +190,12 @@ var rival_defeated: bool = false    # true after the final showdown; guards the 
 # Soulbind capture tracking (GID-061)
 var captured_signatures: Array[String] = []
 
+# Cantrip cooldowns (GID-065): cantrip_id -> Unix expiry timestamp (float)
+var cantrip_cooldowns: Dictionary = {}
+
+# Burial mounds that have been dug (GID-065 Skeleton Dig)
+var dug_mounds: Array[String] = []
+
 # Garden system (GID-056)
 # Each plot dict: {seed_id: String, planted_day: int} or {} when empty.
 var garden_plots: Array[Dictionary] = []
@@ -362,6 +368,8 @@ func new_game() -> void:
 	plants = {}
 	potions = {}
 	captured_signatures = []
+	cantrip_cooldowns = {}
+	dug_mounds = []
 	var starting_deck_copy: Array[String] = []
 	starting_deck_copy.assign(player_deck)
 	loadouts = [{"name": "Deck 1", "cards": starting_deck_copy}]
@@ -372,7 +380,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 35
+const CURRENT_SAVE_VERSION: int = 37
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -694,6 +702,18 @@ static func _migrate_v34_to_v35(data: Dictionary) -> void:
 		data["captured_signatures"] = []
 	data["version"] = 35
 
+# _migrate_v35_to_v36: backfill cantrip cooldowns for old saves.
+static func _migrate_v35_to_v36(data: Dictionary) -> void:
+	if not data.has("cantrip_cooldowns"):
+		data["cantrip_cooldowns"] = {}
+	data["version"] = 36
+
+# _migrate_v36_to_v37: backfill dug_mounds for old saves.
+static func _migrate_v36_to_v37(data: Dictionary) -> void:
+	if not data.has("dug_mounds"):
+		data["dug_mounds"] = []
+	data["version"] = 37
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -766,6 +786,10 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v33_to_v34(data)
 	if ver < 35:
 		_migrate_v34_to_v35(data)
+	if ver < 36:
+		_migrate_v35_to_v36(data)
+	if ver < 37:
+		_migrate_v36_to_v37(data)
 
 static func _sign(payload: String) -> String:
 	var crypto := Crypto.new()
@@ -913,6 +937,8 @@ func load_save() -> bool:
 	var gpd = data.get("plants", {}); plants = gpd if gpd is Dictionary else {}
 	var gpotd = data.get("potions", {}); potions = gpotd if gpotd is Dictionary else {}
 	captured_signatures.assign(data.get("captured_signatures", []))
+	var cc = data.get("cantrip_cooldowns", {}); cantrip_cooldowns = cc if cc is Dictionary else {}
+	dug_mounds.assign(data.get("dug_mounds", []))
 	last_saved = str(data.get("last_saved", ""))
 	_loaded = true
 	return true
@@ -1006,6 +1032,8 @@ func save() -> void:
 		"plants": plants,
 		"potions": potions,
 		"captured_signatures": captured_signatures,
+		"cantrip_cooldowns": cantrip_cooldowns,
+		"dug_mounds": dug_mounds,
 		"last_saved": Time.get_datetime_string_from_system(false, true),
 	}
 	var save_path: String = _get_slot_path(active_slot)

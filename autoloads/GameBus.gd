@@ -101,6 +101,9 @@ signal inventory_changed
 signal potion_crafted(potion_id: String)
 signal potion_used(potion_id: String)
 
+# Cantrip signals
+signal cantrip_used(cantrip_id: String)
+
 # Ambient audio signals
 signal biome_changed(biome_id: int)
 signal entered_named_map(map_name: String)

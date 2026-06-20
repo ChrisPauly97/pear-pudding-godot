@@ -12,9 +12,9 @@ The game's unique identity is TCG-meets-overworld, but currently the deck only m
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-238 | Cantrip Framework — Deck-Derived Abilities, HUD Button + Key Binding | agent | pending | — |
-| TID-239 | Ghost Phase — One-Tile Wall Pass | agent | pending | TID-238 |
-| TID-240 | Skeleton Dig — Burial Mounds + Dig Rewards | agent | pending | TID-238 |
+| TID-238 | Cantrip Framework — Deck-Derived Abilities, HUD Button + Key Binding | agent | done | — |
+| TID-239 | Ghost Phase — One-Tile Wall Pass | agent | done | TID-238 |
+| TID-240 | Skeleton Dig — Burial Mounds + Dig Rewards | agent | done | TID-238 |
 
 ## Acceptance Criteria
 

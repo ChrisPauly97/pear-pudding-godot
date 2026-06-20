@@ -2,7 +2,7 @@
 
 **Goal:** GID-065
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-238
 
 ## Lock
@@ -58,12 +58,12 @@ Ghost Phase is the first concrete cantrip — it lets the player phase through a
 
 ## Plan
 
-_Written during Plan phase._
+Implemented as WorldScene methods `_activate_ghost_phase`, `_do_ghost_phase`, `_start_ghost_phase_tween`, `_on_ghost_phase_done`, `_set_player_alpha`. Tile check via `get_tile_global`. Tween with collision disable/restore. Camera untouched (position only).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WorldScene.gd` — `_ghost_phase_active: bool`, `_ghost_tween: Tween` state vars; `_activate_ghost_phase()` (availability + cooldown check); `_do_ghost_phase()` (tile scan + tween start); `_start_ghost_phase_tween()` (collision disable, alpha fade, 0.3s position tween); `_on_ghost_phase_done()` (restore collision + alpha); `_set_player_alpha()` (finds Sprite3D children)
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/card-cantrips.md` — Ghost Phase section

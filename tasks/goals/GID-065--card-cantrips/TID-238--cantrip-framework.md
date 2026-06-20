@@ -2,7 +2,7 @@
 
 **Goal:** GID-065
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -74,12 +74,17 @@ The framework must map card families to cantrip thresholds (e.g., "if player dec
 
 ## Plan
 
-_Written during Plan phase._
+Created CantripManager.gd (pure static utility), added GameBus signal, SaveManager fields + migrations, WorldScene HUD buttons + key bindings (G/D).
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `game_logic/world/CantripManager.gd` + `.uid` — static methods: `is_available`, `available_cantrips`, `get_threshold`, `get_cooldown`, `is_on_cooldown`, `cooldown_remaining`
+- `autoloads/GameBus.gd` — added `signal cantrip_used(cantrip_id: String)`
+- `autoloads/SaveManager.gd` — added `cantrip_cooldowns: Dictionary` and `dug_mounds: Array[String]`; migrations v35→v36 and v36→v37; CURRENT_SAVE_VERSION=37
+- `scenes/world/WorldScene.gd` — added CantripManager preload, `[G] Phase` / `[D] Dig` HUD buttons, G/D key handling in `_unhandled_input()`, ghost phase and skeleton dig activation methods
+- `tests/unit/test_cantrip_manager.gd` — 20 unit tests covering availability, thresholds, cooldowns
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/card-cantrips.md`
+- Updated `docs/agent/docsplan.md` to add the new doc

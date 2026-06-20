@@ -297,6 +297,19 @@ static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: i
 			"npc_type": "merchant",
 		})
 
+	# 0–1 Burial mound per chunk (~10% chance) — skeleton dig cantrip target
+	var mound_rng := RandomNumberGenerator.new()
+	mound_rng.seed = _chunk_seed(p_cx, p_cz, world_seed) + 13
+	if mound_rng.randi_range(0, 9) == 0 and grass_tiles.size() > 0:
+		var idx: int = mound_rng.randi_range(0, grass_tiles.size() - 1)
+		var tile: Vector2i = grass_tiles[idx]
+		var wx: float = float(p_cx * CHUNK_SIZE + tile.x) * TILE_SIZE + TILE_SIZE * 0.5
+		var wz: float = float(p_cz * CHUNK_SIZE + tile.y) * TILE_SIZE + TILE_SIZE * 0.5
+		chunk.burial_mounds.append({
+			"id": "mound_%d_%d_0" % [p_cx, p_cz],
+			"x": wx, "z": wz,
+		})
+
 	# 0–1 Waystone per ~40 chunks (2.5% chance) on a walkable grass tile
 	var waystone_rng := RandomNumberGenerator.new()
 	waystone_rng.seed = _chunk_seed(p_cx, p_cz, world_seed) + 7
