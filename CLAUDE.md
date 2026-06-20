@@ -408,6 +408,7 @@ When adding a new major feature or system, create a corresponding `.md` file in 
 | [docs/agent/waystone-fast-travel.md](docs/agent/waystone-fast-travel.md) | Waystone entities, ID scheme, save tracking, placement, fast-travel UI, teleport routing |
 | [docs/agent/bestiary-codex.md](docs/agent/bestiary-codex.md) | Bestiary system: lore fields, encounter/defeat tracking, JournalScene tab, completion rewards |
 | [docs/agent/player-home.md](docs/agent/player-home.md) | Player home purchase, interior map, trophy pedestals, bed respawn, game-over routing |
+| [docs/agent/home-garden-potions.md](docs/agent/home-garden-potions.md) | Home garden plots, seed growth via days_elapsed, plant harvest, potion crafting, one-per-battle potion use |
 | [docs/agent/tap-to-move.md](docs/agent/tap-to-move.md) | Tap/click pathfinding: A* Pathfinder, screen-to-tile raycast, destination marker, path following |
 | [docs/agent/rideable-mounts.md](docs/agent/rideable-mounts.md) | Mount purchase flow, speed multiplier, HUD button, auto-dismount/remount rules, sprite + dust visuals |
 | [docs/agent/card-packs.md](docs/agent/card-packs.md) | Card Packs & Pack Opening | Pack tiers, roll logic, pity counter, tap-to-flip ceremony UI, SceneManager routing |
