@@ -39,6 +39,7 @@ varying vec2  v_world_xz;
 varying float v_world_y;    // world Y — used for vertical tiling on wall sides
 varying float v_d0;         // fbm noise channel 0, computed per-vertex
 varying float v_d1;         // fbm noise channel 1, computed per-vertex
+varying float v_ley;        // ley line intensity [0..1], baked into UV2.x per vertex
 
 // -- noise for micro grass detail on flat areas --
 float hash2(vec2 p) {
@@ -85,6 +86,8 @@ void vertex() {
 	// Noise variation removed — pixel art uses flat texture colors only.
 	v_d0 = 0.0;
 	v_d1 = 0.0;
+	// Ley intensity baked per vertex into UV2.x by ChunkRenderer.
+	v_ley = UV2.x;
 }
 
 void fragment() {
@@ -173,9 +176,15 @@ void fragment() {
 	}
 
 	ALBEDO = tinted_col;
+
 	// Soft emission floor keeps cast shadows from going pitch-black.
-	// Value is below glow_hdr_threshold (0.5) so it won't trigger bloom.
-	EMISSION = tinted_col * 0.15;
+	vec3 base_emission = tinted_col * 0.15;
+	// Ley line glow: cyan emissive pulse on non-wall ground.
+	if (v_ley > 0.01 && !is_wall) {
+		float pulse = 0.8 + 0.2 * sin(TIME * 0.8);
+		base_emission += v_ley * pulse * 0.45 * vec3(0.05, 0.85, 0.90);
+	}
+	EMISSION = base_emission;
 	ROUGHNESS = 0.9;
 	METALLIC = 0.0;
 	SPECULAR = 0.1;

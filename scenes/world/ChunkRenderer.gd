@@ -18,6 +18,7 @@ const _DigSpotScene      = preload("res://scenes/world/entities/DigSpot.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _BurialMoundScene  = preload("res://scenes/world/entities/BurialMound.tscn")
 const _BlightHeartScene  = preload("res://scenes/world/entities/BlightHeart.tscn")
+const _ManaWellScene     = preload("res://scenes/world/entities/ManaWell.tscn")
 const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
 
 const TERRAIN_VDENSITY: int = 2
@@ -65,7 +66,8 @@ static func prepare_terrain(
 		chunk_data: RefCounted,
 		tile_grid: PackedInt32Array,
 		height_grid: PackedInt32Array,
-		grid_min_x: int, grid_min_z: int, grid_w: int) -> Dictionary:
+		grid_min_x: int, grid_min_z: int, grid_w: int,
+		world_seed: int = 42) -> Dictionary:
 
 	const CHUNK_SIZE: int = 16
 	var nvx: int = CHUNK_SIZE * TERRAIN_VDENSITY + 1   # 33
@@ -99,10 +101,20 @@ static func prepare_terrain(
 			nvx, nvz, step,
 			CURVE_R, PLATEAU_H)
 
+	# Bake per-vertex ley intensity (UV2.x) so the shader can render glow without
+	# runtime noise in GLSL — guarantees visual/gameplay agreement on same seed.
+	var ley_field := PackedFloat32Array()
+	ley_field.resize(nvx * nvz)
+	for iz2 in range(nvz):
+		for ix2 in range(nvx):
+			var gx2: float = chunk_origin.x + float(ix2) * step
+			var gz2: float = chunk_origin.z + float(iz2) * step
+			ley_field[iz2 * nvx + ix2] = TerrainMath.ley_intensity(gx2, gz2, world_seed)
+
 	var terrain_res: Dictionary = TerrainMath.build_terrain_mesh(
 			hfield, grid_tile_lookup,
 			chunk_origin.x, chunk_origin.z,
-			nvx, nvz, step, PLATEAU_H)
+			nvx, nvz, step, PLATEAU_H, ley_field)
 
 	var wall_face_mesh: ArrayMesh = TerrainMath.build_wall_face_mesh(
 			grid_tile_lookup, grid_height_lookup,
@@ -164,12 +176,12 @@ func teardown() -> void:
 
 # Rebuild terrain meshes and physics in-place without re-spawning entities.
 # snap is the Array returned by WorldScene._snapshot_tile_grid_for(key).
-func rebuild_terrain(snap: Array) -> void:
+func rebuild_terrain(snap: Array, world_seed: int = 42) -> void:
 	for child in get_children():
 		child.queue_free()
 	_physics_built = false
 	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(
-		_chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4])
+		_chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4], world_seed)
 	_terrain_hmap = terrain_res["hmap"]
 	_terrain_chunk_world = terrain_res["chunk_world"]
 	_apply_terrain_visual(terrain_res)
@@ -336,6 +348,16 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		_set_visibility_range(node)
 		if world_scene.has_method("register_burial_mound"):
 			world_scene.register_burial_mound(mid, node)
+
+	# ── Mana Wells (ley line intersections) ───────────────────────────────────
+	for w_data in _chunk_data.mana_wells:
+		var wid: String = str(w_data.get("id", ""))
+		if SceneManager.save_manager.is_mana_well_collected(wid):
+			continue
+		var wnode: Node3D = TerrainMath.spawn_entity(_ManaWellScene, w_data, 0.0, entity_root, world_scene)
+		_set_visibility_range(wnode)
+		if world_scene.has_method("register_mana_well"):
+			world_scene.register_mana_well(wid, wnode)
 
 	# ── Active treasure dig site ───────────────────────────────────────────────
 	var sm := SceneManager.save_manager

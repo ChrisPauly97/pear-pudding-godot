@@ -417,4 +417,5 @@ When adding a new major feature or system, create a corresponding `.md` file in 
 | [docs/agent/card-cantrips.md](docs/agent/card-cantrips.md) | Card Cantrips | Ghost Phase, Skeleton Dig, CantripManager, burial mound spawning, cooldown persistence |
 | [docs/agent/blight-system.md](docs/agent/blight-system.md) | Creeping Blight | BlightField pure logic, terrain shader tint, enemy buff, BlightHeart entity, cleansing, Redemption Points |
 | [docs/agent/ancient-colossi.md](docs/agent/ancient-colossi.md) | Ancient Colossi | Landmark placement, 5 biome variants, CPU ArrayMesh structures, name generator, discovery system, Journal tab |
+| [docs/agent/ley-lines.md](docs/agent/ley-lines.md) | Ley Lines | Simplex noise bands, UV2 terrain glow, speed boost, Attuned battle buff, Mana Wells |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

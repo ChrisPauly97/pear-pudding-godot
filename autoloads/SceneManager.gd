@@ -316,10 +316,12 @@ func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 			enemy_data["battlefield_biome"] = ctx.get("biome", -1)
 			enemy_data["battlefield_is_night"] = ctx.get("is_night", false)
 			enemy_data["is_blighted"] = ctx.get("is_blighted", false)
+			enemy_data["player_attuned"] = ctx.get("is_player_attuned", false)
 		else:
 			enemy_data["battlefield_biome"] = -1
 			enemy_data["battlefield_is_night"] = false
 			enemy_data["is_blighted"] = false
+			enemy_data["player_attuned"] = false
 	GameBus.tutorial_popup_requested.emit("mana")
 	# Skip picker on resume (pending_battle_enemy_data already set from a prior session)
 	# or when the player has enabled auto-skip via the "Don't ask again" checkbox.

@@ -86,6 +86,8 @@ var _digspot_node: Node3D = null         # the one active DigSpot entity (nil if
 var _burial_mound_nodes: Dictionary = {} # mound_id -> Node3D
 var _blight_heart_nodes: Dictionary = {} # heart_id -> Node3D
 var _active_landmark_data: Dictionary = {} # landmark_id -> Dictionary
+var _mana_well_nodes: Dictionary = {}    # well_id -> Node3D
+var _ley_indicator: Label = null         # HUD label shown while on a ley line
 var _ghost_phase_active: bool = false    # true while ghost-phase tween runs
 var _ghost_tween: Tween = null
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
@@ -567,10 +569,12 @@ func get_battlefield_context() -> Dictionary:
 	var cz: int = int(floor(pz / (float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE)))
 	var blighted: bool = _is_infinite and BlightField.is_blighted(
 		cx, cz, WORLD_SEED, sm.days_elapsed, sm.blight_cleansed_hearts)
+	var attuned: bool = _is_infinite and TerrainMath.is_on_ley_line(px, pz, WORLD_SEED)
 	return {
 		"biome": _current_biome if _is_infinite else -1,
 		"is_night": _is_night(_time_of_day),
 		"is_blighted": blighted,
+		"is_player_attuned": attuned,
 	}
 
 func _update_hud() -> void:
@@ -607,6 +611,20 @@ func _update_hud() -> void:
 	xp_row.add_child(_xp_label)
 
 	GameBus.xp_changed.connect(_on_xp_changed)
+
+	# Attuned indicator — shown while player stands on a ley line (infinite world only).
+	if _is_infinite:
+		_ley_indicator = Label.new()
+		_ley_indicator.text = "~ Attuned ~"
+		_ley_indicator.add_theme_font_size_override("font_size", int(vh * 0.025))
+		_ley_indicator.add_theme_color_override("font_color", Color(0.1, 0.95, 1.0))
+		_ley_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_ley_indicator.set_anchor_and_offset(SIDE_LEFT, 0.5, -vh * 0.12)
+		_ley_indicator.set_anchor_and_offset(SIDE_RIGHT, 0.5, vh * 0.12)
+		_ley_indicator.set_anchor_and_offset(SIDE_TOP, 0.0, vh * 0.015)
+		_ley_indicator.set_anchor_and_offset(SIDE_BOTTOM, 0.0, vh * 0.055)
+		_ley_indicator.visible = false
+		_hud.add_child(_ley_indicator)
 
 	_refresh_xp_bar()
 	var sm := SceneManager.save_manager
@@ -843,6 +861,12 @@ func _update_chunks() -> void:
 		for l_data: Dictionary in chunk.landmarks:
 			var lid: String = str(l_data.get("id", ""))
 			_active_landmark_data.erase(lid)
+		for w_data in chunk.mana_wells:
+			var wid: String = str(w_data.get("id", ""))
+			var wnode: Node3D = _mana_well_nodes.get(wid) as Node3D
+			if is_instance_valid(wnode):
+				wnode.queue_free()
+			_mana_well_nodes.erase(wid)
 
 	# Evict chunk data cache entries far beyond the unload radius to bound memory.
 	# Keep a margin beyond UNLOAD_RADIUS so neighbour tile lookups still hit cache.
@@ -901,9 +925,9 @@ func _snapshot_tile_grid_for(key: Vector2i) -> Array:
 # ArrayMesh, HeightMapShape3D) without touching the scene tree.
 func _chunk_prepare_task(key: Vector2i, chunk_data: RefCounted,
 		tile_grid: PackedInt32Array, height_grid: PackedInt32Array,
-		grid_min_x: int, grid_min_z: int, grid_w: int) -> void:
+		grid_min_x: int, grid_min_z: int, grid_w: int, p_world_seed: int) -> void:
 	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(
-			chunk_data, tile_grid, height_grid, grid_min_x, grid_min_z, grid_w)
+			chunk_data, tile_grid, height_grid, grid_min_x, grid_min_z, grid_w, p_world_seed)
 	_chunk_build_mutex.lock()
 	_chunk_build_results.append({ "key": key, "chunk_data": chunk_data, "terrain_res": terrain_res })
 	_chunk_build_mutex.unlock()
@@ -951,7 +975,7 @@ func _kick_chunk_jobs() -> void:
 		_chunk_build_queue.remove_at(i)
 		_chunk_queued.erase(key)
 		var task_id: int = WorkerThreadPool.add_task(_chunk_prepare_task.bind(
-				key, chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4]))
+				key, chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4], WORLD_SEED))
 		_chunk_task_ids.append(task_id)
 		_chunk_task_id_map[key] = task_id
 		# don't increment i — next item shifted into position
@@ -1017,7 +1041,7 @@ func _build_chunk_sync(key: Vector2i) -> void:
 		else:
 			_chunk_data_cache[key] = world_map.get_chunk_data(key.x, key.y)
 	var chunk: RefCounted = _chunk_data_cache[key]
-	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3], snap[4])
+	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3], snap[4], WORLD_SEED)
 	for c_data in chunk.chests:
 		var cid: String = str(c_data.get("id", ""))
 		_active_chest_data[cid] = c_data
@@ -1401,6 +1425,21 @@ func register_blight_heart(heart_id: String, node: Node3D) -> void:
 func register_landmark(landmark_id: String, l_data: Dictionary) -> void:
 	_active_landmark_data[landmark_id] = l_data
 
+func register_mana_well(wid: String, node: Node3D) -> void:
+	_mana_well_nodes[wid] = node
+
+func _find_nearby_mana_well(px: float, pz: float, range_dist: float) -> Node3D:
+	var range_sq: float = range_dist * range_dist
+	for wid: String in _mana_well_nodes:
+		var wnode: Node3D = _mana_well_nodes[wid] as Node3D
+		if not is_instance_valid(wnode):
+			continue
+		var ddx: float = wnode.position.x - px
+		var ddz: float = wnode.position.z - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return wnode
+	return null
+
 func _find_nearby_blight_heart(px: float, pz: float, range_dist: float) -> Node3D:
 	var range_sq: float = range_dist * range_dist
 	for hid: String in _blight_heart_nodes:
@@ -1750,7 +1789,7 @@ func _rebuild_terrain_around_tile(tx: int, tz: int) -> void:
 			if renderer == null:
 				continue
 			var snap := _snapshot_tile_grid_for(key)
-			renderer.rebuild_terrain(snap)
+			renderer.rebuild_terrain(snap, WORLD_SEED)
 
 func _find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
@@ -1900,6 +1939,9 @@ func _process(delta: float) -> void:
 		_active_weather_particles.position = _player.position + Vector3(0.0, 12.0, 0.0)
 
 	if _is_infinite:
+		if _ley_indicator != null:
+			_ley_indicator.visible = TerrainMath.is_on_ley_line(
+				_player.position.x, _player.position.z, WORLD_SEED)
 		_tick_roaming_boss(delta)
 		_tick_traveling_merchant(delta)
 		_tick_card_shower()
@@ -1978,7 +2020,8 @@ func _check_interactions() -> void:
 	var blight_heart := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
 	# Landmarks auto-trigger on approach (no button press needed)
 	_check_nearby_landmark(px, pz)
-	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null:
+	var mana_well := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
+	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null:
 		if _interact_btn != null:
 			_interact_btn.show()
 		else:
@@ -2351,6 +2394,19 @@ func _handle_interact() -> void:
 	var blight_heart_node := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
 	if blight_heart_node != null and blight_heart_node.has_method("engage"):
 		blight_heart_node.engage()
+		return
+
+	var mana_well_node := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
+	if mana_well_node != null:
+		var wid: String = str(mana_well_node.get_meta("well_id", ""))
+		if wid != "" and not SceneManager.save_manager.is_mana_well_collected(wid):
+			SceneManager.save_manager.mark_mana_well_collected(wid)
+			GameBus.essence_changed.emit(15)
+			SceneManager.save_manager.essence += 15
+			AudioManager.play_sfx("chest_open")
+			mana_well_node.queue_free()
+			_mana_well_nodes.erase(wid)
+			GameBus.hud_message_requested.emit("Mana Well absorbed: +15 essence.")
 		return
 
 	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)

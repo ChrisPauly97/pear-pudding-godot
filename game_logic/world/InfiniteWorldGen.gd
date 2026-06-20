@@ -3,6 +3,7 @@ extends RefCounted
 const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 const BiomeDef  = preload("res://game_logic/world/BiomeDef.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const TerrainMath = preload("res://game_logic/TerrainMath.gd")
 
 const CHUNK_SIZE: int = 16
 const TILE_SIZE: float = 2.0
@@ -398,4 +399,33 @@ static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: i
 			"x": wx, "z": wz,
 			"label": "Waystone (%d, %d)" % [wtx, wtz],
 			"active": false,
+		})
+
+	# 0–1 Mana Well per chunk at ley line intersections on TILE_GRASS.
+	# Sample every 2nd tile (8×8 = 64 samples) to keep build time short.
+	var best_strength: float = 0.0
+	var best_wtx: int = -1
+	var best_wtz: int = -1
+	for lz2 in range(0, CHUNK_SIZE, 2):
+		for lx2 in range(0, CHUNK_SIZE, 2):
+			if chunk.get_tile(lx2, lz2) != IsoConst.TILE_GRASS:
+				continue
+			var wtx2: int = p_cx * CHUNK_SIZE + lx2
+			var wtz2: int = p_cz * CHUNK_SIZE + lz2
+			var wx2: float = float(wtx2) * TILE_SIZE + TILE_SIZE * 0.5
+			var wz2: float = float(wtz2) * TILE_SIZE + TILE_SIZE * 0.5
+			var s: float = TerrainMath.ley_intersection_strength(wx2, wz2, world_seed)
+			if s > best_strength:
+				best_strength = s
+				best_wtx = wtx2
+				best_wtz = wtz2
+	if best_strength > 0.0 and best_wtx >= 0:
+		var well_wx: float = float(best_wtx) * TILE_SIZE + TILE_SIZE * 0.5
+		var well_wz: float = float(best_wtz) * TILE_SIZE + TILE_SIZE * 0.5
+		chunk.mana_wells.append({
+			"id": "well_%d_%d" % [p_cx, p_cz],
+			"tx": best_wtx,
+			"tz": best_wtz,
+			"x": well_wx,
+			"z": well_wz,
 		})
