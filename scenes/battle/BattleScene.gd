@@ -25,6 +25,9 @@ const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const CaptureTracker = preload("res://game_logic/battle/CaptureTracker.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
+const BattleFx = preload("res://scenes/battle/BattleFx.gd")
+
+var _fx: BattleFx
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
@@ -56,7 +59,6 @@ var _battlefield_info_label: Label = null  # persistent day/night + biome label 
 var _slot_highlight_panels: Array[Control] = []  # overlay panels on affected slots
 
 var _float_layer: CanvasLayer = null
-var _is_shaking: bool = false
 
 # Click-to-target for board-card attacks (select attacker, then click enemy)
 var _dragged_card: Dictionary = {}  # {card: CardInstance}
@@ -124,9 +126,6 @@ const _EMERGENCE_LABELS: Dictionary = {
 # Soulbind capture tracker (GID-061)
 var _capture_tracker: CaptureTracker = null
 
-# Enemy intent banner (TID-059)
-var _intent_panel: Control = null
-
 # First-battle tutorial overlay
 var _tutorial_overlay: Node = null
 const TUTORIAL_DURATION: float = 8.0
@@ -150,6 +149,11 @@ func _ready() -> void:
 	_float_layer.layer = 128
 	add_child(_float_layer)
 	_vh = get_viewport().get_visible_rect().size.y
+	_fx = BattleFx.new()
+	_fx.setup(_vh, _float_layer,
+		_enemy_hero_view, _player_hero_view,
+		_enemy_board_view, _player_board_view,
+		self)
 	var _bs: String = str(SceneManager.save_manager.get_setting("battle_speed", "normal"))
 	_speed_scale = 0.45 if _bs == "fast" else 1.0
 	_apply_ui_sizes()
@@ -265,6 +269,8 @@ func _ready() -> void:
 		# Flush auto-resolve spells collected from opening hand + turn-1 draw.
 		# Must run after enemy deck is built so spells target the real enemy.
 		_flush_auto_spells(0)
+
+	_fx.set_game_state(_state)
 
 	# Initialise capture tracker for the current enemy (no-op for puzzles/duels).
 	if not _state.puzzle_mode and not _state.friendly_duel:
@@ -668,13 +674,11 @@ func _finish_hand_drag() -> void:
 				return
 			if _do_play_card_at_slot(played_card, 0, target_slot_idx):
 				AudioManager.play_sfx("card_play")
-				_haptic(20)
+				_fx.haptic(20)
 				if played_card.emergence_effect != "":
-					var snap_em := _snapshot_hp_positions()
+					var snap_em := _fx.snapshot()
 					_resolve_emergence(played_card, 0)
-					_spawn_float_labels_from_snapshot(snap_em)
-					_flash_from_snapshot(snap_em)
-					_check_shake_from_snapshot(snap_em)
+					_fx.trigger_fx(snap_em)
 				else:
 					_apply_weather_to_summoned(played_card, 0)
 				_refresh_all()
@@ -684,12 +688,10 @@ func _finish_hand_drag() -> void:
 			# Non-targeted spells: slot doesn't matter
 			if _do_play_card(played_card, 0):
 				AudioManager.play_sfx("card_play")
-				_haptic(20)
-				var snap_fhd := _snapshot_hp_positions()
+				_fx.haptic(20)
+				var snap_fhd := _fx.snapshot()
 				_resolve_spell_effect(played_card, 0)
-				_spawn_float_labels_from_snapshot(snap_fhd)
-				_flash_from_snapshot(snap_fhd)
-				_check_shake_from_snapshot(snap_fhd)
+				_fx.trigger_fx(snap_fhd)
 				_refresh_all()
 				_check_game_over()
 				_dismiss_battle_tutorial()
@@ -802,13 +804,11 @@ func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 				_exit_slot_select_mode()
 				if _do_play_card_at_slot(card, 0, slot_idx):
 					AudioManager.play_sfx("card_play")
-					_haptic(20)
+					_fx.haptic(20)
 					if card.emergence_effect != "":
-						var snap_se := _snapshot_hp_positions()
+						var snap_se := _fx.snapshot()
 						_resolve_emergence(card, 0)
-						_spawn_float_labels_from_snapshot(snap_se)
-						_flash_from_snapshot(snap_se)
-						_check_shake_from_snapshot(snap_se)
+						_fx.trigger_fx(snap_se)
 					else:
 						_apply_weather_to_summoned(card, 0)
 					_refresh_all()
@@ -833,7 +833,7 @@ func _resolve_slot_spell(spell: CardInstance, slot_idx: int) -> void:
 		return
 	_do_play_card(spell, 0)
 	AudioManager.play_sfx("spell_resolve")
-	_haptic(20)
+	_fx.haptic(20)
 	match spell.spell_effect:
 		"bless_slot":
 			_state.players[0].board.enhance_slot(slot_idx, "atk_bonus", spell.spell_power)
@@ -1033,18 +1033,18 @@ func _apply_potion_effect(potion_id: String) -> void:
 		return
 	_used_potion_this_battle = true
 	var player: PlayerState = _state.players[0]
-	var snap_pot := _snapshot_hp_positions()
+	var snap_pot := _fx.snapshot()
 	match potion_id:
 		"healing_draught":
 			player.hero.health = mini(player.hero.health + 8, player.hero.max_health)
-			_spawn_float_labels_from_snapshot(snap_pot)
-			_spawn_float_label(_pos_of_hero(false), "+8 HP", Color(0.267, 1.0, 0.533))
+			_fx.spawn_float_labels(snap_pot)
+			_fx.spawn_float_label(_fx.pos_of_hero(false), "+8 HP", Color(0.267, 1.0, 0.533))
 		"clarity_brew":
 			player.draw_card()
 			player.draw_card()
 		"ember_tonic":
 			player.hero.mana = mini(player.hero.mana + 1, player.hero.max_mana)
-			_spawn_float_label(_pos_of_hero(false), "+1 Mana", Color(0.4, 0.8, 1.0))
+			_fx.spawn_float_label(_fx.pos_of_hero(false), "+1 Mana", Color(0.4, 0.8, 1.0))
 	GameBus.potion_used.emit(potion_id)
 	_refresh_all()
 	_refresh_potion_button()
@@ -1320,12 +1320,10 @@ func _on_target_chosen_card(target: CardInstance) -> void:
 	_hide_cancel_btn()
 	if _do_play_card(spell, 0):
 		AudioManager.play_sfx("card_play")
-		_haptic(20)
-		var snap_otc := _snapshot_hp_positions()
+		_fx.haptic(20)
+		var snap_otc := _fx.snapshot()
 		_resolve_spell_effect(spell, 0, {"type": "minion", "card": target})
-		_spawn_float_labels_from_snapshot(snap_otc)
-		_flash_from_snapshot(snap_otc)
-		_check_shake_from_snapshot(snap_otc)
+		_fx.trigger_fx(snap_otc)
 	_refresh_all()
 	_check_game_over()
 	_dismiss_battle_tutorial()
@@ -1338,12 +1336,10 @@ func _on_target_chosen_hero() -> void:
 	_hide_cancel_btn()
 	if _do_play_card(spell, 0):
 		AudioManager.play_sfx("card_play")
-		_haptic(20)
-		var snap_oth := _snapshot_hp_positions()
+		_fx.haptic(20)
+		var snap_oth := _fx.snapshot()
 		_resolve_spell_effect(spell, 0, {"type": "hero"})
-		_spawn_float_labels_from_snapshot(snap_oth)
-		_flash_from_snapshot(snap_oth)
-		_check_shake_from_snapshot(snap_oth)
+		_fx.trigger_fx(snap_oth)
 	_refresh_all()
 	_check_game_over()
 	_dismiss_battle_tutorial()
@@ -1558,11 +1554,11 @@ func _update_card_view(panel: PanelContainer, card: CardInstance, zone_id: Strin
 		if is_board_zone:
 			var sr: HBoxContainer = vbox.get_node_or_null("StatusRow") as HBoxContainer
 			if sr:
-				_update_status_icons_card(sr, card)
+				_fx.update_status_icons_card(sr, card)
 			else:
 				var new_sr := HBoxContainer.new()
 				new_sr.name = "StatusRow"
-				_update_status_icons_card(new_sr, card)
+				_fx.update_status_icons_card(new_sr, card)
 				vbox.add_child(new_sr)
 	_apply_card_style(panel, card, zone_id)
 	_bind_card_input(panel, card, zone_id)
@@ -1618,7 +1614,7 @@ func _build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBox
 	if with_status_row:
 		var sr := HBoxContainer.new()
 		sr.name = "StatusRow"
-		_update_status_icons_card(sr, card)
+		_fx.update_status_icons_card(sr, card)
 		vbox.add_child(sr)
 	return vbox
 
@@ -1787,7 +1783,7 @@ func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 		mana_lbl.text = "Mana  %d / %d" % [hero.mana, hero.max_mana]
 	var hero_status_row: HBoxContainer = vbox.get_node_or_null("StatusRow") as HBoxContainer
 	if hero_status_row:
-		_update_status_icons_hero(hero_status_row, hero)
+		_fx.update_status_icons_hero(hero_status_row, hero)
 
 	# Styling
 	var style := StyleBoxFlat.new()
@@ -1915,14 +1911,14 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		if not valid_targets.has(target):
 			return  # keep attacker selected; player must click a Ward minion
 		AudioManager.play_sfx("attack")
-		var target_panel_ec := _get_card_panel(target, true)
-		var attacker_panel_ec := _get_card_panel(attacker, false)
-		var snap_ec := _snapshot_hp_positions()
+		var target_panel_ec := _fx.get_card_panel(target, true)
+		var attacker_panel_ec := _fx.get_card_panel(attacker, false)
+		var snap_ec := _fx.snapshot()
 		target.take_damage(BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome))
 		attacker.take_damage(BattlefieldRules.modify_damage(target.attack, _state.battlefield_biome))
 		attacker.attack_count -= 1
-		_flash_node(target_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
-		_flash_node(attacker_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
+		_fx.flash_node(target_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
+		_fx.flash_node(attacker_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
 		if not target.is_alive():
 			attacker.battle_kills += 1
 			_state.players[1].board.remove_card(target)
@@ -1930,8 +1926,8 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		if not attacker.is_alive():
 			_state.players[0].board.remove_card(attacker)
 			_state.players[0].discard.append(attacker)
-		_spawn_float_labels_from_snapshot(snap_ec)
-		_check_shake_from_snapshot(snap_ec)
+		_fx.spawn_float_labels(snap_ec)
+		_fx.check_shake(snap_ec)
 		_dragged_card.clear()
 		_refresh_all()
 		_check_game_over()
@@ -1957,18 +1953,18 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 		AudioManager.play_sfx("attack")
 		if _capture_tracker != null:
 			_capture_tracker.note_minion_attacked_hero(0)
-		var attacker_panel_eh := _get_card_panel(attacker, false)
-		var snap_eh := _snapshot_hp_positions()
+		var attacker_panel_eh := _fx.get_card_panel(attacker, false)
+		var snap_eh := _fx.snapshot()
 		_state.players[1].hero.take_damage(BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome))
 		attacker.take_damage(BattlefieldRules.modify_damage(_state.players[1].hero.attack, _state.battlefield_biome))
 		attacker.attack_count -= 1
-		_flash_node(_enemy_hero_view, Color(1.0, 0.3, 0.3, 1.0))
-		_flash_node(attacker_panel_eh, Color(1.0, 0.3, 0.3, 1.0))
+		_fx.flash_node(_enemy_hero_view, Color(1.0, 0.3, 0.3, 1.0))
+		_fx.flash_node(attacker_panel_eh, Color(1.0, 0.3, 0.3, 1.0))
 		if not attacker.is_alive():
 			_state.players[0].board.remove_card(attacker)
 			_state.players[0].discard.append(attacker)
-		_spawn_float_labels_from_snapshot(snap_eh)
-		_check_shake_from_snapshot(snap_eh)
+		_fx.spawn_float_labels(snap_eh)
+		_fx.check_shake(snap_eh)
 		_dragged_card.clear()
 		_refresh_all()
 		_check_game_over()
@@ -1989,8 +1985,8 @@ func _on_end_turn() -> void:
 	_state.end_turn()
 
 func _on_turn_ended(player_idx: int) -> void:
-	var snap_sot := _snapshot_hp_positions()
-	_process_start_of_turn_statuses(player_idx)
+	var snap_sot := _fx.snapshot()
+	_fx.process_start_of_turn_statuses(player_idx)
 	# Desert biome rule: leftmost minion on each board takes 1 damage at turn start (daytime only).
 	if _state.battlefield_biome == BattlefieldRules.BIOME_DESERT and not _state.is_night:
 		_apply_desert_scorch()
@@ -1998,9 +1994,7 @@ func _on_turn_ended(player_idx: int) -> void:
 	if _battle_weather == "blizzard" and _state.turn_number <= 2:
 		for card: CardInstance in _state.players[player_idx].board.get_cards():
 			card.apply_status("freeze", 1)
-	_spawn_float_labels_from_snapshot(snap_sot)
-	_flash_from_snapshot(snap_sot)
-	_check_shake_from_snapshot(snap_sot)
+	_fx.trigger_fx(snap_sot)
 	_refresh_all()
 	if player_idx == 0:
 		_refresh_potion_button()
@@ -2008,11 +2002,9 @@ func _on_turn_ended(player_idx: int) -> void:
 		if not _state.is_game_over():
 			AudioManager.play_sfx("card_draw")
 			_apply_companion_turn_start()
-			var snap_as := _snapshot_hp_positions()
+			var snap_as := _fx.snapshot()
 			_flush_auto_spells(0)
-			_spawn_float_labels_from_snapshot(snap_as)
-			_flash_from_snapshot(snap_as)
-			_check_shake_from_snapshot(snap_as)
+			_fx.trigger_fx(snap_as)
 			_refresh_all()
 			_check_game_over()
 	elif player_idx == 1:
@@ -2028,7 +2020,7 @@ func _on_turn_ended(player_idx: int) -> void:
 
 func _on_fatigue_damage(pid: int, dmg: int) -> void:
 	var is_enemy: bool = (pid == 1)
-	var pos: Vector2 = _pos_of_hero(is_enemy)
+	var pos: Vector2 = _fx.pos_of_hero(is_enemy)
 	var lbl := Label.new()
 	lbl.text = "Fatigue! -%d" % dmg
 	lbl.add_theme_font_size_override("font_size", int(_vh * 0.025))
@@ -2054,18 +2046,18 @@ func _run_ai_turn() -> void:
 	_ai_thinking = true
 	_end_turn_btn.disabled = true
 	var actions := BasicAI.decide_turn(_state)
-	_show_intent_banner(BasicAI.describe_turn(_state))
+	_fx.show_intent_banner(BasicAI.describe_turn(_state))
 	await _battle_delay(1.5)
 	_execute_ai_actions(actions, 0)
 
 func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	if _state.is_game_over():
-		_hide_intent_banner()
+		_fx.hide_intent_banner()
 		_ai_thinking = false
 		_check_game_over()
 		return
 	if idx >= actions.size():
-		_hide_intent_banner()
+		_fx.hide_intent_banner()
 		await _battle_delay(0.5)
 		_ai_thinking = false
 		_state.end_turn()
@@ -2073,7 +2065,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		_check_game_over()
 		return
 	AudioManager.play_sfx("attack")
-	var snap_ai := _snapshot_hp_positions()
+	var snap_ai := _fx.snapshot()
 	var ai_board_before: Array[CardInstance] = _state.players[1].board.get_cards().duplicate()
 	actions[idx].call()
 	_flush_auto_spells(1)
@@ -2081,9 +2073,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		if not ai_board_before.has(c):
 			_resolve_emergence(c, 1)
 			_apply_weather_to_summoned(c, 1)
-	_spawn_float_labels_from_snapshot(snap_ai)
-	_flash_from_snapshot(snap_ai)
-	_check_shake_from_snapshot(snap_ai)
+	_fx.trigger_fx(snap_ai)
 	_refresh_all()
 	if _state.is_game_over():
 		_check_game_over()
@@ -2357,22 +2347,22 @@ func _check_game_over() -> void:
 		if _state.puzzle_mode:
 			if w == 0:
 				AudioManager.play_sfx("battle_win")
-				_haptic(120)
+				_fx.haptic(120)
 				_show_puzzle_victory()
 			return
 		if _state.friendly_duel:
 			if w == 0:
 				AudioManager.play_sfx("battle_win")
-				_haptic(120)
+				_fx.haptic(120)
 				_show_duel_victory_overlay(_state.wager_coins)
 			else:
 				AudioManager.play_sfx("battle_lose")
-				_haptic(80)
+				_fx.haptic(80)
 				_show_duel_loss_overlay(_state.wager_coins)
 			return
 		if w == 0:
 			AudioManager.play_sfx("battle_win")
-			_haptic(120)
+			_fx.haptic(120)
 			var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
 			var is_boss_win: bool = bool(enemy_data.get("is_boss", false))
 			var gambit_id_win: String = str(enemy_data.get("gambit_id", ""))
@@ -2431,7 +2421,7 @@ func _check_game_over() -> void:
 					_show_victory_overlay(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win)
 		else:
 			AudioManager.play_sfx("battle_lose")
-			_haptic(80)
+			_fx.haptic(80)
 			GameBus.battle_lost.emit()
 
 func _collect_veterancy_data() -> Dictionary:
@@ -2909,301 +2899,6 @@ func _show_puzzle_victory() -> void:
 
 func _on_puzzle_give_up() -> void:
 	SceneManager.return_from_puzzle()
-
-# -------------------------------------------------------------------------
-# Enemy intent banner (TID-059)
-# -------------------------------------------------------------------------
-
-func _show_intent_banner(text: String) -> void:
-	_hide_intent_banner()
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.18, 0.88)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	panel.add_theme_stylebox_override("panel", style)
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	lbl.add_theme_color_override("font_color", Color.WHITE)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	panel.add_child(lbl)
-	add_child(panel)
-	panel.reset_size()
-	var sz: Vector2 = panel.get_minimum_size()
-	panel.position = Vector2((vp.x - sz.x) * 0.5, vp.y * 0.35)
-	move_child(panel, get_child_count() - 1)
-	_intent_panel = panel
-
-func _hide_intent_banner() -> void:
-	if _intent_panel != null and is_instance_valid(_intent_panel):
-		_intent_panel.queue_free()
-	_intent_panel = null
-
-# -------------------------------------------------------------------------
-# Status effect turn processing (TID-061)
-# -------------------------------------------------------------------------
-
-func _process_start_of_turn_statuses(player_idx: int) -> void:
-	var player: PlayerState = _state.players[player_idx]
-	for card in player.board.get_cards():
-		_tick_statuses_on_card(card)
-	_tick_statuses_on_hero(player.hero, player_idx)
-
-func _tick_statuses_on_card(card: CardInstance) -> void:
-	if card.has_status("poison"):
-		var dmg: int = card.get_status_value("poison")
-		card.take_damage(dmg)
-		var nv: int = dmg - 1
-		if nv <= 0:
-			card.clear_status("poison")
-		else:
-			card.apply_status("poison", nv)
-		GameBus.status_ticked.emit(card.instance_id, "poison", maxi(nv, 0))
-	if card.has_status("freeze"):
-		var dur: int = card.get_status_value("freeze") - 1
-		if dur <= 0:
-			card.clear_status("freeze")
-		else:
-			card.apply_status("freeze", dur)
-		GameBus.status_ticked.emit(card.instance_id, "freeze", maxi(dur, 0))
-	# Stun on minions is decremented via out_of_play in CardInstance.start_turn()
-
-func _tick_statuses_on_hero(hero: HeroState, player_idx: int) -> void:
-	var hid: String = "hero_%d" % player_idx
-	if hero.has_status("poison"):
-		var dmg: int = hero.get_status_value("poison")
-		hero.take_damage(dmg)
-		var nv: int = dmg - 1
-		if nv <= 0:
-			hero.clear_status("poison")
-		else:
-			hero.apply_status("poison", nv)
-		GameBus.status_ticked.emit(hid, "poison", maxi(nv, 0))
-	if hero.has_status("freeze"):
-		var dur: int = hero.get_status_value("freeze") - 1
-		if dur <= 0:
-			hero.clear_status("freeze")
-		else:
-			hero.apply_status("freeze", dur)
-		GameBus.status_ticked.emit(hid, "freeze", maxi(dur, 0))
-	if hero.has_status("stun"):
-		var dur: int = hero.get_status_value("stun") - 1
-		if dur <= 0:
-			hero.clear_status("stun")
-		else:
-			hero.apply_status("stun", dur)
-		GameBus.status_ticked.emit(hid, "stun", maxi(dur, 0))
-
-# -------------------------------------------------------------------------
-# Status effect UI icons (TID-062)
-# -------------------------------------------------------------------------
-
-func _update_status_icons_card(hbox: HBoxContainer, card: CardInstance) -> void:
-	for child in hbox.get_children():
-		child.queue_free()
-	var effects: Array[String] = ["poison", "armor", "freeze", "stun"]
-	var colors: Array[Color] = [Color.GREEN, Color.CORNFLOWER_BLUE, Color.CYAN, Color.YELLOW]
-	var abbrevs: Array[String] = ["P", "A", "F", "S"]
-	var icon_sz: float = _vh * 0.022
-	for i in range(effects.size()):
-		if not card.has_status(effects[i]):
-			continue
-		var lbl := Label.new()
-		lbl.text = "%s%d" % [abbrevs[i], card.get_status_value(effects[i])]
-		lbl.add_theme_color_override("font_color", colors[i])
-		lbl.add_theme_font_size_override("font_size", int(icon_sz))
-		hbox.add_child(lbl)
-
-func _update_status_icons_hero(hbox: HBoxContainer, hero: HeroState) -> void:
-	for child in hbox.get_children():
-		child.queue_free()
-	var effects: Array[String] = ["poison", "armor", "freeze", "stun"]
-	var colors: Array[Color] = [Color.GREEN, Color.CORNFLOWER_BLUE, Color.CYAN, Color.YELLOW]
-	var abbrevs: Array[String] = ["P", "A", "F", "S"]
-	var icon_sz: float = _vh * 0.022
-	for i in range(effects.size()):
-		if not hero.has_status(effects[i]):
-			continue
-		var lbl := Label.new()
-		lbl.text = "%s%d" % [abbrevs[i], hero.get_status_value(effects[i])]
-		lbl.add_theme_color_override("font_color", colors[i])
-		lbl.add_theme_font_size_override("font_size", int(icon_sz))
-		hbox.add_child(lbl)
-
-# -------------------------------------------------------------------------
-# Floating damage / heal numbers (TID-077)
-# -------------------------------------------------------------------------
-
-func _pos_of_hero(is_enemy: bool) -> Vector2:
-	var hv: Control = _enemy_hero_view if is_enemy else _player_hero_view
-	return hv.get_global_rect().get_center()
-
-func _snapshot_hp_positions() -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for i in range(2):
-		var hero := _state.players[i].hero
-		result.append({"id": "hero_%d" % i, "hp": hero.health, "pos": _pos_of_hero(i == 1)})
-		var zv: Node = _enemy_board_view if i == 1 else _player_board_view
-		var fallback: Vector2 = get_viewport().get_visible_rect().size * 0.5
-		for si in range(ZoneState.SLOT_COUNT):
-			var card: CardInstance = _state.players[i].board.slots[si]
-			if card == null:
-				continue
-			var panel_pos: Vector2 = fallback
-			for child in zv.get_children():
-				if child is Control and int(child.get_meta("slot_idx", -1)) == si:
-					panel_pos = (child as Control).get_global_rect().get_center()
-					break
-			result.append({"id": card.instance_id, "hp": card.health, "pos": panel_pos})
-	return result
-
-func _spawn_float_labels_from_snapshot(snap: Array[Dictionary]) -> void:
-	var cur_hp: Dictionary = {}
-	for i in range(2):
-		cur_hp["hero_%d" % i] = _state.players[i].hero.health
-		for c: CardInstance in _state.players[i].board.get_cards():
-			cur_hp[c.instance_id] = c.health
-	for entry: Dictionary in snap:
-		var eid: String = str(entry["id"])
-		var hp_before: int = int(entry["hp"])
-		var pos: Vector2 = entry["pos"] as Vector2
-		var hp_after: int = 0
-		if cur_hp.has(eid):
-			hp_after = int(cur_hp[eid])
-		var diff: int = hp_after - hp_before
-		if diff < 0:
-			_spawn_float_label(pos, str(diff), Color(1.0, 0.267, 0.267))
-		elif diff > 0:
-			_spawn_float_label(pos, "+%d" % diff, Color(0.267, 1.0, 0.533))
-
-func _spawn_float_label(pos: Vector2, text: String, color: Color) -> void:
-	if _float_layer == null or not is_instance_valid(_float_layer):
-		return
-	var font_sz: int = int(_vh * 0.035) if _vh > 0.0 else 18
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", font_sz)
-	lbl.add_theme_color_override("font_color", color)
-	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
-	lbl.add_theme_constant_override("shadow_offset_x", 2)
-	lbl.add_theme_constant_override("shadow_offset_y", 2)
-	lbl.position = pos - Vector2(15.0, 10.0)
-	_float_layer.add_child(lbl)
-	var tw: Tween = lbl.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(lbl, "position:y", pos.y - 70.0, 0.8)
-	tw.tween_property(lbl, "modulate:a", 0.0, 0.8)
-	tw.chain().tween_callback(lbl.queue_free)
-
-# -------------------------------------------------------------------------
-# Hit flash (TID-078)
-# -------------------------------------------------------------------------
-
-func _get_card_panel(card: CardInstance, is_enemy: bool) -> Control:
-	var player: PlayerState = _state.players[1] if is_enemy else _state.players[0]
-	var zv: Node = _enemy_board_view if is_enemy else _player_board_view
-	var slot_idx: int = player.board.slots.find(card)
-	if slot_idx == -1:
-		return null
-	for child in zv.get_children():
-		if child is Control and int(child.get_meta("slot_idx", -1)) == slot_idx:
-			return child as Control
-	return null
-
-func _flash_node(node: Control, flash_color: Color) -> void:
-	if node == null or not is_instance_valid(node):
-		return
-	var tw: Tween = node.create_tween()
-	tw.tween_property(node, "modulate", flash_color, 0.0)
-	tw.tween_property(node, "modulate", Color.WHITE, 0.25)
-
-func _flash_from_snapshot(snap: Array[Dictionary]) -> void:
-	var cur_hp: Dictionary = {}
-	for i in range(2):
-		cur_hp["hero_%d" % i] = _state.players[i].hero.health
-		for c: CardInstance in _state.players[i].board.get_cards():
-			cur_hp[c.instance_id] = c.health
-	for entry: Dictionary in snap:
-		var eid: String = str(entry["id"])
-		var hp_before: int = int(entry["hp"])
-		if not cur_hp.has(eid):
-			continue
-		var hp_after: int = int(cur_hp[eid])
-		if hp_after == hp_before:
-			continue
-		var flash_color: Color = Color(1.0, 0.3, 0.3, 1.0) if hp_after < hp_before else Color(0.3, 1.0, 0.5, 1.0)
-		if eid.begins_with("hero_"):
-			var hv: Control = _enemy_hero_view if eid == "hero_1" else _player_hero_view
-			_flash_node(hv, flash_color)
-		else:
-			var found_panel: bool = false
-			for pi in range(2):
-				if found_panel:
-					break
-				var zv: Node = _enemy_board_view if pi == 1 else _player_board_view
-				for si in range(ZoneState.SLOT_COUNT):
-					var card: CardInstance = _state.players[pi].board.slots[si]
-					if card != null and card.instance_id == eid:
-						for child in zv.get_children():
-							if child is Control and int(child.get_meta("slot_idx", -1)) == si:
-								_flash_node(child as Control, flash_color)
-								break
-						found_panel = true
-						break
-
-# -------------------------------------------------------------------------
-# Screen shake (TID-079)
-# -------------------------------------------------------------------------
-
-func _haptic(duration_ms: int) -> void:
-	if not OS.has_feature("mobile"):
-		return
-	if bool(SceneManager.save_manager.get_setting("haptics", true)):
-		Input.vibrate_handheld(duration_ms)
-
-func _trigger_shake(magnitude: float, duration: float) -> void:
-	if not bool(SceneManager.save_manager.get_setting("screen_shake", true)):
-		return
-	if _is_shaking:
-		return
-	_is_shaking = true
-	var origin: Vector2 = position
-	var tw: Tween = create_tween()
-	var steps: int = maxi(2, int(duration / 0.05))
-	for _i in range(steps):
-		var ox: float = randf_range(-magnitude, magnitude)
-		var oy: float = randf_range(-magnitude, magnitude)
-		tw.tween_property(self, "position", origin + Vector2(ox, oy), 0.05)
-	tw.tween_property(self, "position", origin, 0.05)
-	tw.tween_callback(func() -> void: _is_shaking = false)
-
-func _check_shake_from_snapshot(snap: Array[Dictionary]) -> void:
-	var cur_hp: Dictionary = {}
-	for i in range(2):
-		cur_hp["hero_%d" % i] = _state.players[i].hero.health
-		for c: CardInstance in _state.players[i].board.get_cards():
-			cur_hp[c.instance_id] = c.health
-	var hero_died: bool = false
-	var max_dmg: int = 0
-	for entry: Dictionary in snap:
-		var eid: String = str(entry["id"])
-		var hp_before: int = int(entry["hp"])
-		var hp_after: int = 0
-		if cur_hp.has(eid):
-			hp_after = int(cur_hp[eid])
-		var dmg: int = hp_before - hp_after
-		if dmg > max_dmg:
-			max_dmg = dmg
-		if eid.begins_with("hero_") and hp_before > 0 and hp_after == 0:
-			hero_died = true
-	if hero_died:
-		_trigger_shake(10.0, 0.35)
-	elif max_dmg >= 5:
-		_trigger_shake(5.0, 0.2)
 
 # -------------------------------------------------------------------------
 # Battlefield Resonance (GID-059)

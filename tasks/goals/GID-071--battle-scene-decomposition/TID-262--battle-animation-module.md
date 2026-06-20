@@ -2,7 +2,7 @@
 
 **Goal:** GID-071
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -43,12 +43,33 @@ This pattern is the canonical way to trigger feedback after any card action. Ext
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/battle/BattleFx.gd` (RefCounted) with:
+   - `setup(vh, float_layer, enemy_hero, player_hero, enemy_board, player_board, root)` + `set_game_state(state)`
+   - Intent banner: `show_intent_banner`, `hide_intent_banner`
+   - Status processing: `process_start_of_turn_statuses`, private `_tick_statuses_on_card/hero`
+   - Status icons: `update_status_icons_card` / `update_status_icons_hero` both delegating to unified `_update_status_icons_impl`
+   - Float labels: `snapshot`, `spawn_float_labels`, `spawn_float_label`, `pos_of_hero`
+   - Card panel helper: `get_card_panel`
+   - Flash: `flash_node`, `flash_from_snapshot`
+   - Haptic + shake: `haptic`, `trigger_shake`, `check_shake`
+   - Convenience: `trigger_fx(snap)` = spawn_float_labels + flash_from_snapshot + check_shake
+2. Create `scenes/battle/BattleFx.gd.uid` sidecar
+3. Modify `BattleScene.gd`:
+   - Add `const BattleFx = preload(...)`, `var _fx: BattleFx`
+   - Remove `var _is_shaking`, `var _intent_panel` (moved to BattleFx)
+   - In `_ready()`: create `_fx`, call `setup()`, call `set_game_state(_state)` after state is determined
+   - Replace all call sites with `_fx.*` equivalents
+   - Replace triple snapshot pattern with `_fx.trigger_fx(snap)` at all 9 sites
+   - Remove all 16 extracted function definitions
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/battle/BattleFx.gd` (RefCounted, ~270 lines): holds all visual feedback logic extracted from BattleScene — intent banner, status ticking/icons, floating damage numbers, hit flash, screen shake, haptic, card panel helper, and the `trigger_fx(snap)` convenience that replaces the 3-line snapshot pattern.
+- Created `scenes/battle/BattleFx.gd.uid` sidecar.
+- Modified `scenes/battle/BattleScene.gd` (3309 → 3004 lines): added `const BattleFx` preload and `var _fx: BattleFx`, wired up `_fx.setup()` and `_fx.set_game_state()` in `_ready()`, removed `_is_shaking` and `_intent_panel` local vars, replaced 30+ call sites with `_fx.*` equivalents, removed 16 extracted function definitions.
+- Unified `_update_status_icons_card`/`_update_status_icons_hero` into `_update_status_icons_impl(hbox, entity)` with untyped `entity` duck-typing.
+- Replaced 8 occurrences of the 3-line snapshot pattern with `_fx.trigger_fx(snap)`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- No doc-level changes needed; `docs/agent/battle-system.md` describes the battle system at a feature level and does not need to enumerate internal implementation files.
