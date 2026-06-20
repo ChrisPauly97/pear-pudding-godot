@@ -1,4 +1,5 @@
 const SkillData = preload("res://data/SkillData.gd")
+const RegistryUtil = preload("res://game_logic/RegistryUtil.gd")
 
 # Explicit preloads create a compile-time dependency chain so Godot's export
 # scanner includes these files in the Android APK. Add a line here whenever a
@@ -35,7 +36,7 @@ static func _ensure_loaded() -> void:
 	if _loaded:
 		return
 	_loaded = true
-	var all: Array = [
+	_skills = RegistryUtil.build_id_dict([
 		_S_ASH_BONE_ARMOUR, _S_ASH_BRITTLE_CURSE, _S_ASH_BRITTLE_EDGE,
 		_S_ASH_CINDERHEART, _S_ASH_ENTROPY, _S_ASH_GRAVE_CALL,
 		_S_DAWN_ARCANE_CLARITY, _S_DAWN_CLARITY, _S_DAWN_INNER_LIGHT,
@@ -44,11 +45,7 @@ static func _ensure_loaded() -> void:
 		_S_DUSK_SHADOW_WELL, _S_DUSK_SOUL_SIPHON, _S_DUSK_VOID_TEMPO,
 		_S_EMBER_BLAZING_DRAW, _S_EMBER_FLAME_TEMPO, _S_EMBER_INFERNO_SURGE,
 		_S_EMBER_PYROBLAST, _S_EMBER_SEARING_FOCUS, _S_EMBER_TORCH_BEARER,
-	]
-	for res in all:
-		var skill: SkillData = res as SkillData
-		if skill != null:
-			_skills[skill.id] = skill
+	], "SkillRegistry")
 
 static func get_skill(id: String) -> SkillData:
 	_ensure_loaded()
@@ -58,10 +55,7 @@ static func get_skill(id: String) -> SkillData:
 
 static func get_all_ids() -> Array[String]:
 	_ensure_loaded()
-	var result: Array[String] = []
-	for k in _skills.keys():
-		result.append(str(k))
-	return result
+	return RegistryUtil.get_all_ids(_skills)
 
 static func get_by_branch(branch: String) -> Array[String]:
 	_ensure_loaded()

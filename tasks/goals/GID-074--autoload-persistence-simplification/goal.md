@@ -20,9 +20,9 @@ All three tasks are independent of each other.
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-273 | Registry pattern consolidation | agent | pending | — |
-| TID-274 | SaveManager simplification | agent | pending | — |
-| TID-275 | SceneManager overlay plumbing dedup | agent | pending | — |
+| TID-273 | Registry pattern consolidation | agent | done | — |
+| TID-274 | SaveManager simplification | agent | done | — |
+| TID-275 | SceneManager overlay plumbing dedup | agent | done | — |
 
 ## Acceptance Criteria
 

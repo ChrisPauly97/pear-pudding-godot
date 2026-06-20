@@ -77,7 +77,7 @@
 | [GID-071](goals/GID-071--battle-scene-decomposition/goal.md) | Battle Layer Decomposition | pending | 0 / 4 |
 | [GID-072](goals/GID-072--world-scene-decomposition/goal.md) | World Layer Decomposition | pending | 0 / 4 |
 | [GID-073](goals/GID-073--ui-overlay-framework/goal.md) | UI Overlay Framework & Shared Theme | done | 3 / 3 |
-| [GID-074](goals/GID-074--autoload-persistence-simplification/goal.md) | Autoload & Persistence Simplification | pending | 0 / 3 |
+| [GID-074](goals/GID-074--autoload-persistence-simplification/goal.md) | Autoload & Persistence Simplification | done | 3 / 3 |
 | [GID-075](goals/GID-075--dead-code-constants-hygiene/goal.md) | Dead Code, Constants & Test Hygiene | done | 3 / 3 |
 | [GID-076](goals/GID-076--magic-subtypes-spells/goal.md) | Magic Subtypes — 40 Spell Cards | pending | 0 / 7 |
 | [GID-077](goals/GID-077--combat-deck-fatigue/goal.md) | Combat Deck Fatigue | done | 2 / 2 |

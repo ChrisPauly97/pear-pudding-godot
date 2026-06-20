@@ -2,14 +2,8 @@
 
 **Goal:** GID-074
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
-
-## Lock
-
-**Session:** none
-**Acquired:** —
-**Expires:** —
 
 ## Context
 
@@ -25,12 +19,17 @@ SaveManager.gd (autoloads/SaveManager.gd, 903 lines) is the second-largest file 
 
 ## Plan
 
-_Written during Plan phase._
+Replace 40 individual migration functions + flat if-chain in `_apply_migrations` with a single table-driven `_apply_migrations`. Delete confirmed dead code. Skip equipment consolidation (too many external callers across production and test code).
 
 ## Changes Made
 
-_Filled after Build phase._
+- **Replaced** `_migrate_v0_to_v1` … `_migrate_v39_to_v40` (40 static functions) + old `_apply_migrations` (~430 lines) with a single table-driven `_apply_migrations` (~110 lines). Simple backfill migrations become `[target_version, {field: default}]` dict entries; complex ones (v1, v10, v30, v34, v35) become inline Callables.
+- **Deleted** `get_owned_counts()` — confirmed zero call sites.
+- **Deleted** `find_available_uid_for_template()` — confirmed zero call sites.
+- **Kept** `get_deck_instances()` — active, called at `scenes/battle/BattleScene.gd:183`.
+- **Kept** `add_corruption_points()` and `add_redemption_points()` — suspected gap tracked in BID-017.
+- **Skipped** equipment-slot consolidation — 25+ direct field mutations in test files and 10+ in production scenes would require a risky wide refactor outside this task's scope.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/save-system.md` already covers the migration pattern at a conceptual level; no structural change needed.

@@ -2,14 +2,8 @@
 
 **Goal:** GID-074
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
-
-## Lock
-
-**Session:** none
-**Acquired:** —
-**Expires:** —
 
 ## Context
 
@@ -28,12 +22,15 @@ Five static registries duplicate the same `_loaded` guard + `_ensure_loaded()` +
 
 ## Plan
 
-_Written during Plan phase._
+Created `game_logic/RegistryUtil.gd` with `build_id_dict()` and `get_all_ids()` static helpers. Migrated SkillRegistry and WeaponRegistry to use it. CardRegistry (CACHE_MODE_IGNORE trick), EnemyRegistry (inline dict), and CraftingRegistry (builds from CardRegistry) deliberately excluded.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **Created** `game_logic/RegistryUtil.gd`: `build_id_dict(all: Array, registry_name: String) -> Dictionary` iterates preloaded resources, reads `id` field, inserts into output dict with error logging. `get_all_ids(dict: Dictionary) -> Array[String]` returns sorted-by-insertion key list.
+- **Modified** `autoloads/SkillRegistry.gd`: added `const RegistryUtil` preload; replaced manual `_ensure_loaded()` loop and `get_all_ids()` body with RegistryUtil calls.
+- **Modified** `autoloads/WeaponRegistry.gd`: same pattern as SkillRegistry.
+- CardRegistry, EnemyRegistry, CraftingRegistry untouched (special loading behavior incompatible with RegistryUtil).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No new doc file needed; RegistryUtil is a small utility. CLAUDE.md already documents the preload pattern.
