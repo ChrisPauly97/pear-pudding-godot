@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://f6svk3gkwd7d"]
+
+[ext_resource type="Script" path="res://scenes/world/entities/ManaWell.gd" id="1"]
+
+[node name="ManaWell" type="Node3D"]
+script = ExtResource("1")

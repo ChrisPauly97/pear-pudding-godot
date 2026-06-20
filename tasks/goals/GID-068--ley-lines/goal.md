@@ -12,9 +12,9 @@ The overworld and the card game share a magic fiction but no mechanical bridge: 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-247 | Ley Line Field Math — Deterministic Position → Intensity Function | agent | pending | — |
-| TID-248 | Ley Line Rendering — Terrain Shader Overlay + Minimap Hint | agent | pending | TID-247 |
-| TID-249 | Ley Gameplay — Speed Boost, Attuned Battle Buff, Mana Wells | agent | pending | TID-247 |
+| TID-247 | Ley Line Field Math — Deterministic Position → Intensity Function | agent | done | — |
+| TID-248 | Ley Line Rendering — Terrain Shader Overlay + Minimap Hint | agent | done | TID-247 |
+| TID-249 | Ley Gameplay — Speed Boost, Attuned Battle Buff, Mana Wells | agent | done | TID-247 |
 
 ## Acceptance Criteria
 

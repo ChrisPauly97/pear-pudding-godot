@@ -202,6 +202,9 @@ var blight_cleansed_hearts: Array[String] = []
 # Landmark discovery system (GID-067): IDs of landmarks the player has discovered.
 var discovered_landmarks: Array[String] = []
 
+# Ley line system (GID-068): IDs of Mana Wells the player has collected.
+var collected_mana_wells: Array[String] = []
+
 # Garden system (GID-056)
 # Each plot dict: {seed_id: String, planted_day: int} or {} when empty.
 var garden_plots: Array[Dictionary] = []
@@ -378,6 +381,7 @@ func new_game() -> void:
 	dug_mounds = []
 	blight_cleansed_hearts = []
 	discovered_landmarks = []
+	collected_mana_wells = []
 	var starting_deck_copy: Array[String] = []
 	starting_deck_copy.assign(player_deck)
 	loadouts = [{"name": "Deck 1", "cards": starting_deck_copy}]
@@ -388,7 +392,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 39
+const CURRENT_SAVE_VERSION: int = 40
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -730,6 +734,12 @@ static func _migrate_v38_to_v39(data: Dictionary) -> void:
 		data["discovered_landmarks"] = []
 	data["version"] = 39
 
+# _migrate_v39_to_v40: backfill collected_mana_wells for old saves.
+static func _migrate_v39_to_v40(data: Dictionary) -> void:
+	if not data.has("collected_mana_wells"):
+		data["collected_mana_wells"] = []
+	data["version"] = 40
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -810,6 +820,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v37_to_v38(data)
 	if ver < 39:
 		_migrate_v38_to_v39(data)
+	if ver < 40:
+		_migrate_v39_to_v40(data)
 
 static func _sign(payload: String) -> String:
 	var crypto := Crypto.new()
@@ -961,6 +973,7 @@ func load_save() -> bool:
 	dug_mounds.assign(data.get("dug_mounds", []))
 	blight_cleansed_hearts.assign(data.get("blight_cleansed_hearts", []))
 	discovered_landmarks.assign(data.get("discovered_landmarks", []))
+	collected_mana_wells.assign(data.get("collected_mana_wells", []))
 	last_saved = str(data.get("last_saved", ""))
 	_loaded = true
 	return true
@@ -1058,6 +1071,7 @@ func save() -> void:
 		"dug_mounds": dug_mounds,
 		"blight_cleansed_hearts": blight_cleansed_hearts,
 		"discovered_landmarks": discovered_landmarks,
+		"collected_mana_wells": collected_mana_wells,
 		"last_saved": Time.get_datetime_string_from_system(false, true),
 	}
 	var save_path: String = _get_slot_path(active_slot)
@@ -2182,3 +2196,11 @@ func mark_landmark_discovered(landmark_id: String) -> void:
 
 func is_landmark_discovered(landmark_id: String) -> bool:
 	return discovered_landmarks.has(landmark_id)
+
+func mark_mana_well_collected(well_id: String) -> void:
+	if not collected_mana_wells.has(well_id):
+		collected_mana_wells.append(well_id)
+	_dirty = true
+
+func is_mana_well_collected(well_id: String) -> bool:
+	return collected_mana_wells.has(well_id)

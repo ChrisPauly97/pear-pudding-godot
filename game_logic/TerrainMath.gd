@@ -9,6 +9,59 @@ extends RefCounted
 # Maximum wall height in world units (walls are clamped to this)
 const WALL_MAX_H: float = 10.0
 
+# ── Ley line constants (shared by GDScript and referenced by ChunkRenderer) ──
+# All consumers must use these names so TID-248 shader values stay in sync.
+const LEY_FREQUENCY: float    = 0.008    # primary channel world-space frequency
+const LEY_FREQUENCY_B: float  = 0.011    # secondary channel (slightly different → rare intersections)
+const LEY_THRESHOLD: float    = 0.05     # |noise| < threshold → on the line
+const LEY_SEED_OFFSET_A: int  = 424243   # primary channel seed offset
+const LEY_SEED_OFFSET_B: int  = 868687   # secondary channel seed offset
+
+static var _ley_noise_a: FastNoiseLite = null
+static var _ley_noise_a_seed: int = -1
+static var _ley_noise_b: FastNoiseLite = null
+static var _ley_noise_b_seed: int = -1
+
+static func _get_ley_noise_a(world_seed: int) -> FastNoiseLite:
+	if _ley_noise_a != null and _ley_noise_a_seed == world_seed:
+		return _ley_noise_a
+	_ley_noise_a = FastNoiseLite.new()
+	_ley_noise_a.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_ley_noise_a.seed = world_seed + LEY_SEED_OFFSET_A
+	_ley_noise_a.frequency = LEY_FREQUENCY
+	_ley_noise_a_seed = world_seed
+	return _ley_noise_a
+
+static func _get_ley_noise_b(world_seed: int) -> FastNoiseLite:
+	if _ley_noise_b != null and _ley_noise_b_seed == world_seed:
+		return _ley_noise_b
+	_ley_noise_b = FastNoiseLite.new()
+	_ley_noise_b.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+	_ley_noise_b.seed = world_seed + LEY_SEED_OFFSET_B
+	_ley_noise_b.frequency = LEY_FREQUENCY_B
+	_ley_noise_b_seed = world_seed
+	return _ley_noise_b
+
+## Returns ley line intensity at world position (wx, wz) for the primary channel.
+## 0.0 = not on a line; 1.0 = line centre. Cheap: one noise sample per call.
+static func ley_intensity(wx: float, wz: float, world_seed: int) -> float:
+	var raw: float = _get_ley_noise_a(world_seed).get_noise_2d(wx, wz)
+	var v: float = clamp(1.0 - abs(raw) / LEY_THRESHOLD, 0.0, 1.0)
+	return v
+
+## Returns true when the position is on a ley line (intensity > 0).
+static func is_on_ley_line(wx: float, wz: float, world_seed: int) -> bool:
+	return ley_intensity(wx, wz, world_seed) > 0.0
+
+## Returns the intersection strength: > 0 only where BOTH channels are active.
+## Used to place Mana Wells deterministically at line crossings.
+static func ley_intersection_strength(wx: float, wz: float, world_seed: int) -> float:
+	var raw_a: float = _get_ley_noise_a(world_seed).get_noise_2d(wx, wz)
+	var raw_b: float = _get_ley_noise_b(world_seed).get_noise_2d(wx, wz)
+	var ia: float = clamp(1.0 - abs(raw_a) / LEY_THRESHOLD, 0.0, 1.0)
+	var ib: float = clamp(1.0 - abs(raw_b) / LEY_THRESHOLD, 0.0, 1.0)
+	return minf(ia, ib)
+
 # ── Height computation ────────────────────────────────────────────────────
 
 ## Compute terrain height at world position (wx, wz) using smoothstep blend.
@@ -124,23 +177,28 @@ static func compute_height_field(
 ## Build terrain ArrayMesh + HeightMapShape3D from a height field.
 ## tile_lookup: Callable(ttx: int, ttz: int) -> int — for wall flag in vertex color
 ## origin_x, origin_z: world-space origin (0 for named maps, chunk origin for chunks)
+## ley_field: optional per-vertex ley intensity (UV2.x); empty = no ley glow
 ## Returns { "mesh": ArrayMesh, "hmap": HeightMapShape3D }
 static func build_terrain_mesh(
 		hfield: PackedFloat32Array,
 		tile_lookup: Callable,
 		origin_x: float, origin_z: float,
 		nvx: int, nvz: int, step: float,
-		peak_h: float) -> Dictionary:
+		peak_h: float,
+		ley_field: PackedFloat32Array = PackedFloat32Array()) -> Dictionary:
 	var total_verts: int = nvx * nvz
+	var has_ley: bool = ley_field.size() == total_verts
 
 	var verts   := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var uvs     := PackedVector2Array()
+	var uv2s    := PackedVector2Array()
 	var colors  := PackedColorArray()
 	var indices := PackedInt32Array()
 	verts.resize(total_verts)
 	normals.resize(total_verts)
 	uvs.resize(total_verts)
+	uv2s.resize(total_verts)
 	colors.resize(total_verts)
 	indices.resize((nvx - 1) * (nvz - 1) * 6)
 
@@ -159,6 +217,7 @@ static func build_terrain_mesh(
 			var is_wall: float = 1.0 if ttype == IsoConst.TILE_WALL else 0.0
 			var is_path: float = 1.0 if ttype == IsoConst.TILE_PATH else 0.0
 			colors[i] = Color(blend, is_wall, is_path, 1.0)
+			uv2s[i] = Vector2(ley_field[i] if has_ley else 0.0, 0.0)
 
 	# Normals via finite differences
 	for iz in range(nvz):
@@ -189,11 +248,13 @@ static func build_terrain_mesh(
 	var skirt_verts   := PackedVector3Array()
 	var skirt_normals := PackedVector3Array()
 	var skirt_uvs     := PackedVector2Array()
+	var skirt_uv2s    := PackedVector2Array()
 	var skirt_colors  := PackedColorArray()
 	var skirt_indices := PackedInt32Array()
 	skirt_verts.resize(skirt_count)
 	skirt_normals.resize(skirt_count)
 	skirt_uvs.resize(skirt_count)
+	skirt_uv2s.resize(skirt_count)  # skirt has no ley glow (below ground)
 	skirt_colors.resize(skirt_count)
 	var skirt_seg: int = (nvx - 1) * 2 + (nvz - 1) * 2
 	skirt_indices.resize(skirt_seg * 6)
@@ -261,16 +322,18 @@ static func build_terrain_mesh(
 	verts.append_array(skirt_verts)
 	normals.append_array(skirt_normals)
 	uvs.append_array(skirt_uvs)
+	uv2s.append_array(skirt_uv2s)
 	colors.append_array(skirt_colors)
 	indices.append_array(skirt_indices)
 
 	var arrays: Array = []
 	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	arrays[Mesh.ARRAY_COLOR]  = colors
-	arrays[Mesh.ARRAY_INDEX]  = indices
+	arrays[Mesh.ARRAY_VERTEX]   = verts
+	arrays[Mesh.ARRAY_NORMAL]   = normals
+	arrays[Mesh.ARRAY_TEX_UV]   = uvs
+	arrays[Mesh.ARRAY_TEX_UV2]  = uv2s
+	arrays[Mesh.ARRAY_COLOR]    = colors
+	arrays[Mesh.ARRAY_INDEX]    = indices
 	var terrain_mesh := ArrayMesh.new()
 	terrain_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 

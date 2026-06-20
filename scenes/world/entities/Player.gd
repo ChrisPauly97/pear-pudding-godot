@@ -2,6 +2,7 @@ extends CharacterBody3D
 
 const MountRegistry = preload("res://game_logic/MountRegistry.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
+const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 
 const SPEED: float = 6.0
 const JUMP_VELOCITY: float = 8.0
@@ -43,11 +44,15 @@ func _ready() -> void:
 	GameBus.enemy_engaged.connect(func(_d: Dictionary) -> void: cancel_path())
 
 func _get_move_speed() -> float:
+	var speed: float = SPEED
 	if SaveManager.is_mounted and SaveManager.current_map == "main" and SaveManager.active_mount != "":
 		var mount: Dictionary = MountRegistry.get_mount(SaveManager.active_mount)
 		if not mount.is_empty():
-			return SPEED * float(mount.get("speed_multiplier", 1.0))
-	return SPEED
+			speed = SPEED * float(mount.get("speed_multiplier", 1.0))
+	if SaveManager.current_map == "main" and TerrainMath.is_on_ley_line(
+			global_position.x, global_position.z, SaveManager.world_seed):
+		speed *= 1.15
+	return speed
 
 # Called by WorldScene after a tap-to-move path is found.
 func set_destination_path(waypoints: Array[Vector2i]) -> void:

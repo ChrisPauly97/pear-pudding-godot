@@ -235,6 +235,10 @@ func _ready() -> void:
 		# bonus_mana (from passive_mana skills) was set above, so gain_mana_for_turn
 		# already uses it: max_mana = mini(10, 1 + bonus_mana).
 		_state.players[0].start_turn(1)
+		# Attuned buff (GID-068): +1 mana on turn 1 when engaged on a ley line.
+		if bool(enemy_data.get("player_attuned", false)):
+			_state.players[0].hero.mana = mini(10, _state.players[0].hero.mana + 1)
+			GameBus.hud_message_requested.emit("Attuned: +1 mana this turn.")
 		if duel_wager > 0:
 			_state.friendly_duel = true
 			_state.wager_coins = duel_wager
