@@ -2,7 +2,7 @@
 
 **Goal:** GID-069
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -27,12 +27,17 @@ Enemy turns and battle animations run on fixed `await` timer delays. After a few
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `var _speed_scale: float = 1.0` field to BattleScene; read `battle_speed` setting in `_ready()` and set `_speed_scale = 0.45` when `"fast"`.
+2. Add `func _battle_delay(base: float) -> void` helper that awaits `create_timer(base * _speed_scale, false).timeout`.
+3. Replace the three raw `await create_timer(...)` calls in the AI-turn path (1.5 s, 0.5 s, 0.6 s) with `await _battle_delay(...)`.
+4. In `SettingsScene._ready()`: add a "Battle Speed" option row with Normal / Fast toggles, reading current value from `SaveManager.get_setting("battle_speed", "normal")` and writing on change via `set_setting("battle_speed", ...)`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`: added `_speed_scale` field (line 76); reads `battle_speed` setting in `_ready()` (lines 153–154); added `_battle_delay()` helper (lines 2046–2047); replaced `create_timer(1.5)`, `create_timer(0.5)`, `create_timer(0.6)` with `_battle_delay()` calls (lines 2054, 2065, 2087).
+- `scenes/ui/SettingsScene.gd`: added Battle Speed option row with Normal/Fast toggle buttons; reads current setting on open and writes on change (lines 78–82).
+- `tests/unit/test_xp_reward.gd`: added `test_battle_speed_*` round-trip tests verifying SaveManager stores and retrieves the `battle_speed` key correctly (covers the persisted setting used by BattleScene).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated docs/agent/battle-system.md (part of final doc pass).

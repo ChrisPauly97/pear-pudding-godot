@@ -72,7 +72,7 @@
 | [GID-066](goals/GID-066--creeping-blight/goal.md) | The Creeping Blight — Corruption Territory & Cleansing | done | 3 / 3 |
 | [GID-067](goals/GID-067--ancient-colossi/goal.md) | Ancient Colossi — Discoverable Mega-Landmarks | done | 3 / 3 |
 | [GID-068](goals/GID-068--ley-lines/goal.md) | Ley Lines — Visible Currents of Magic | done | 3 / 3 |
-| [GID-069](goals/GID-069--core-loop-retention/goal.md) | Core Loop Retention & Ease-of-Use | pending | 0 / 5 |
+| [GID-069](goals/GID-069--core-loop-retention/goal.md) | Core Loop Retention & Ease-of-Use | done | 5 / 5 |
 | [GID-070](goals/GID-070--aaa-presentation-polish/goal.md) | AAA Presentation & Platform Polish | done | 7 / 7 |
 | [GID-071](goals/GID-071--battle-scene-decomposition/goal.md) | Battle Layer Decomposition | pending | 0 / 4 |
 | [GID-072](goals/GID-072--world-scene-decomposition/goal.md) | World Layer Decomposition | pending | 0 / 4 |

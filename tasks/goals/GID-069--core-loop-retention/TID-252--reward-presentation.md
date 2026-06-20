@@ -2,7 +2,7 @@
 
 **Goal:** GID-069
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -29,12 +29,21 @@ Winning a battle awards a card, coins, and XP — but the victory overlay only s
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `EnemyRegistry.get_xp_reward(type_id, is_boss)` (canonical table; removes duplicate from SceneManager).
+2. Add `const CardDropUtil` to BattleScene; compute `drop_tier`, roll rarity+stats in `_check_game_over()` before showing overlay.
+3. Extend `_show_victory_overlay()` and `_show_victory_overlay_boss()` with rarity (color-coded), coins, XP labels.
+4. Pass `reward_rarity` / `reward_stats` / `reward_rarities` / `reward_stats_list` through `battle_won` result dict.
+5. SceneManager `_on_battle_won()`: use pre-rolled values from result dict if present; fall back to rolling if missing (backward compat).
+6. Replace `_XP_TABLE` inline in SceneManager with `EnemyRegistry.get_xp_reward()` call.
+7. Update `_on_level_up()` to mention unspent skill points count.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/EnemyRegistry.gd`: added `get_xp_reward(type_id, is_boss)` static method.
+- `scenes/battle/BattleScene.gd`: added `CardDropUtil` const; pre-rolls rarity/stats in `_check_game_over()` win path; extended both victory overlay functions with rarity color, coins, XP labels; passes pre-rolled values through result dict; added `_rarity_color()` helper.
+- `autoloads/SceneManager.gd`: replaced inline `_XP_TABLE` with `EnemyRegistry.get_xp_reward()`; updated `_on_battle_won()` to use pre-rolled rarity/stats from result if present; updated `_on_level_up()` to show skill-points count in toast+HUD.
+- `tests/unit/test_xp_reward.gd`: new test file covering `get_xp_reward()` and `battle_speed` setting round-trip.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated docs/agent/battle-system.md (part of final doc pass).

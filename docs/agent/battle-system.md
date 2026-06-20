@@ -723,3 +723,82 @@ Applied in `BattleScene._apply_desert_scorch()` called from `_on_turn_ended()` i
 ### Test Coverage
 
 `tests/unit/test_battlefield_rules.gd` — 55 tests covering: rules table integrity, all 5 biome rules, both time-of-day cost modifiers, floor-0 clamp, stacking, mid-battle persistence (round-trip), and the neutral dungeon path.
+
+---
+
+## Battle Speed Setting (GID-069 TID-254)
+
+A persisted **Normal / Fast** toggle that scales AI-turn and animation delays by `_speed_scale`.
+
+### Settings storage
+
+`SaveManager.get_setting("battle_speed", "normal")` / `set_setting("battle_speed", "fast"|"normal")`. No migration needed — missing keys fall back to `"normal"`.
+
+### BattleScene integration
+
+`BattleScene._ready()` reads the setting once into `_speed_scale: float` (1.0 for Normal, 0.45 for Fast). All timed AI-turn waits use `await _battle_delay(base)`:
+
+```gdscript
+func _battle_delay(base: float) -> void:
+    await get_tree().create_timer(base * _speed_scale, false).timeout
+```
+
+Replaced raw timer sites: AI turn start delay (1.5 s), between-play delay (0.5 s), attack delay (0.6 s). Boss banner duration is fixed (informational, shown once per battle).
+
+### Settings UI
+
+`SettingsScene` has a "Battle Speed" row with Normal / Fast toggle buttons. Change is written immediately via `SaveManager.set_setting()`; BattleScene reads the value fresh in `_ready()` so mid-session changes take effect on the next battle.
+
+---
+
+## Victory Reward Presentation (GID-069 TID-252)
+
+The victory overlay now shows the full reward: card name with color-coded rarity, coins earned, and XP earned.
+
+### Rarity pre-roll
+
+Previously, rarity/stats were rolled by `SceneManager._on_battle_won()` *after* the overlay closed. Now:
+1. `BattleScene._check_game_over()` rolls rarity and stats via `CardDropUtil.roll_rarity(drop_tier)` / `roll_stats()` before calling `_show_victory_overlay()`.
+2. The rolled values are passed through the `battle_won` result dict (`reward_rarity`, `reward_stats`; `reward_rarities` / `reward_stats_list` for boss multi-card).
+3. `SceneManager._on_battle_won()` uses the pre-rolled values if present; falls back to rolling if missing (backward compatibility).
+
+### Overlay content
+
+`_show_victory_overlay()` and `_show_victory_overlay_boss()` now display:
+- Card name in rarity color (via `_rarity_color(rarity) -> Color`)
+- `"Rarity: <rarity>"` label in the same color
+- `"+N coins"` label
+- `"+N XP"` label
+- Weapon line if any (unchanged)
+
+### XP canonical table
+
+`EnemyRegistry.get_xp_reward(type_id: String, is_boss: bool = false) -> int` — single source of truth for XP rewards; replaces the inline `_XP_TABLE` that was embedded in `SceneManager._on_battle_won()`. Known entries: undead_basic=20, undead_horde=35, ghoul_pack=50, undead_elite=80, roaming_terror=150; default=25; bosses ×2.
+
+### Level-up prompt
+
+`SceneManager._on_level_up()` updated to include the unspent skill-point count in the toast message.
+
+---
+
+## Flee Battle (GID-069 TID-251)
+
+Players can leave a battle without rewards via the pause menu.
+
+### Signal
+
+`GameBus.battle_fled` — emitted by `BattleScene._on_flee_pressed()`.
+
+### BattleScene
+
+A "Flee Battle" button is added to the pause overlay alongside Resume / Settings / Return to Menu. `_on_flee_pressed()` unpauses, frees the pause overlay, and emits `GameBus.battle_fled`. Bosses are flee-able (can be locked later per-fight if needed).
+
+### SceneManager
+
+`SceneManager._on_battle_fled()` (connected in `_ready()`):
+1. Calls `save_manager.clear_pending_battle_state()`.
+2. Calls `save_manager.clear_pending_battle()`.
+3. Frees `_battle_overlay`.
+4. Calls `_restore_world()` — returns the world scene without any rewards or enemy defeat mark.
+
+The fled enemy survives and will attempt to re-engage; `EnemyNPC.engage_cooldown` (set by SceneManager or TID-250 respawn path) prevents immediate re-engagement.

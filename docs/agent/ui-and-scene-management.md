@@ -188,6 +188,9 @@ Overlay (extends Control, emits `closed`) showing volume and accessibility contr
 - **Text Scale** `OptionButton` (Small=0.85 / Normal=1.0 / Large=1.25) — persists `"text_scale"` (default `1.0`)
 - **Haptics** `CheckButton` (shown only on `OS.has_feature("mobile")`) — persists `"haptics"` (default `true`); `BattleScene._haptic(ms)` checks before calling `Input.vibrate_handheld(ms)`
 
+**Battle section (GID-069 TID-254):**
+- **Battle Speed** toggle row (Normal / Fast) — persists `"battle_speed"` (`"normal"` / `"fast"`); `BattleScene._ready()` reads this and sets `_speed_scale = 0.45` for fast mode. Default `"normal"` requires no migration.
+
 Values apply immediately on change and persist across sessions. Dismissed by Close button, tapping the backdrop, or Escape key.
 
 ### BiomeSelectionScene (`scenes/ui/BiomeSelectionScene.gd`)
@@ -199,9 +202,27 @@ Values apply immediately on change and persist across sessions. Dismissed by Clo
 
 ### GameOverScene (`scenes/ui/GameOverScene.gd`)
 
-- Shown after `GameBus.battle_lost`
+- Shown after `GameBus.battle_lost` for **spire** and **siege** losses only
 - "Return to Menu" button frees the game-over scene and loads `MenuScene`
 - Does **not** delete the save file; player can continue from the last save
+
+### Defeat Overlay (GID-069 TID-250)
+
+Regular (non-spire, non-siege) battle losses no longer route to `GameOverScene`. Instead:
+
+1. `SceneManager._on_battle_lost()` copies the enemy data into `_defeat_pending_enemy_data`, calls `clear_pending_battle_state()`, frees `_battle_overlay`, and re-adds the world scene via `TransitionManager.transition()`.
+2. `_show_defeat_overlay()` adds a `CanvasLayer` (layer 200) on top of the restored world with three buttons: **Retry Battle**, **Respawn**, **Return to Menu**.
+
+**Button behaviours:**
+- **Retry Battle** (`_on_defeat_retry()`): frees the overlay, calls `_start_battle(_defeat_pending_enemy_data)` — starts a fresh battle against the same enemy.
+- **Respawn** (`_on_defeat_respawn()`): frees the overlay, calls `save_manager.clear_pending_battle()`, sets a 3 s `engage_cooldown` on the nearest EnemyNPC to prevent instant re-engagement.
+- **Return to Menu** (`_on_defeat_menu()`): frees the overlay, calls `clear_pending_battle()`, then `go_to_menu()`.
+
+**SceneManager fields:**
+- `_defeat_overlay: Node` — reference to the overlay CanvasLayer (freed on any choice).
+- `_defeat_pending_enemy_data: Dictionary` — enemy data saved at loss time; cleared after Retry or Menu.
+
+**`_exit_world_cleanup()`** frees `_defeat_overlay` if it exists when the player exits the world (e.g. go_to_menu from inside the overlay).
 
 ### Day/Night Cycle
 

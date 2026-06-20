@@ -362,6 +362,51 @@ Veterancy is visible in `InventoryScene` for rare/epic/legendary cards (per-inst
 
 ---
 
+## Deck Builder QoL: Filters & Auto-Fill (GID-069 TID-253)
+
+### Collection filters
+
+A horizontal row of toggle buttons above the collection scroll lets the player narrow the card list. Filters are session-only state; no SaveManager field is needed.
+
+**Filter dimensions (AND across groups, OR within):**
+
+| Group | Buttons | State var | Discriminator |
+|---|---|---|---|
+| Card class | All / Minion / Spell | `_filter_class: String` | `CardData.card_class` (`""` = spell via `spell_effect != ""`) |
+| Mana cost | All / 0-2 / 3-5 / 6+ | `_filter_cost: String` | `CardData.cost` |
+| Rarity | All / C / R / E / L | `_filter_rarity: String` | Instance rarity or template rarity |
+
+`_passes_filter(tid, rarity) -> bool` checks all three active filters against the card template returned by `CardRegistry.get_template(tid)`. An empty string value means "All" (no filter).
+
+Pressing the already-active button toggles it off (`_filter_x = "" if _filter_x == val else val`), allowing quick deselection.
+
+### Auto-Fill button
+
+An **Auto-Fill** button sits below the deck count label in the deck panel. It calls `DeckAutoFill.fill(working_deck, available, target)` and writes the result back to `_working_deck` then to `SaveManager.set_active_deck()`.
+
+**Disabled when:** `available` cards can't bring the deck to `IsoConst.DECK_MIN`.
+
+### DeckAutoFill (`game_logic/DeckAutoFill.gd`)
+
+Pure static file. No class_name, no autoload deps. Preload at call sites:
+```gdscript
+const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
+```
+
+`fill(working_deck: Array[String], available: Array[Dictionary], target_size: int) -> Array[String]`:
+- Returns a new working deck extended up to `target_size` (capped at `DECK_MAX`).
+- Does not modify inputs — returns a copy.
+- Heuristic: rarity-first (legendary > epic > rare > common), then mana-curve balancing: among equal-rarity candidates, pick the card whose cost bucket (low/mid/high) is most under-represented in the current deck.
+- Respects ownership: never adds more copies of an instance than exist in `available`.
+- Skips instances already in `working_deck`.
+- Deterministic for a given sorted input (no RNG).
+
+**Mana buckets:** `"low"` = cost 0–2, `"mid"` = 3–5, `"high"` = 6+. Instance cost falls back to template cost when `cost == -1`.
+
+**Tests:** `tests/unit/test_deck_autofill.gd` — 7 tests covering fill-to-min, no-exceeds-target, no-duplicates, skips-existing, rarity-preference, already-at-target, empty-available.
+
+---
+
 ## Dual-Faced Card Indicator (GID-062)
 
 `InventoryScene` resolves each card's display face using `CardRegistry.is_dark_aligned()` (same helper used at battle start). For dual-faced cards the collection and deck rows show the face matching current alignment, plus a `◑` badge in blue-teal (`Color(0.6, 0.85, 1.0)`) in the top-right of the card name row.

@@ -66,6 +66,22 @@ func _build_ui() -> void:
 			SceneManager.save_manager.set_setting("haptics", v)
 		)
 
+	vbox.add_child(_UiUtil.make_separator())
+
+	# — Battle —
+	var battle_lbl := Label.new()
+	battle_lbl.text = "Battle"
+	battle_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	battle_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+	vbox.add_child(battle_lbl)
+
+	var speed_is_fast: bool = str(SceneManager.save_manager.get_setting("battle_speed", "normal")) == "fast"
+	_add_option_row(vbox, "Battle Speed", ["Normal", "Fast"],
+		1 if speed_is_fast else 0,
+		func(idx: int) -> void:
+			SceneManager.save_manager.set_setting("battle_speed", "fast" if idx == 1 else "normal")
+	)
+
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(spacer)
