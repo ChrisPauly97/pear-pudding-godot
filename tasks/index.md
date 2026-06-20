@@ -84,6 +84,7 @@
 | [GID-078](goals/GID-078--app-diagnostics-logs-screen/goal.md) | App Diagnostics Log Screen | done | 3 / 3 |
 | [GID-079](goals/GID-079--card-slot-battle-placement/goal.md) | Card Slot Battle Placement | done | 4 / 4 |
 | [GID-080](goals/GID-080--landscape-rotation-direction/goal.md) | Landscape Rotation Direction | done | 1 / 1 |
+| [GID-081](goals/GID-081--hud-coherent-navigation/goal.md) | Coherent HUD & Unified In-Game Navigation | pending | 0 / 4 |
 
 ## Backlog
 
@@ -104,6 +105,7 @@
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded | spec-gap | GID-070 research |
 | [BID-016](backlog/BID-016--flag-gated-dialogue-content.md) | Flag-gated NPC dialogue content not yet authored; TownspersonNPC logic ready but table mostly empty | human-action-deferred | GID-020 / TID-063 |
 | [BID-017](backlog/BID-017--corruption-redemption-points-never-accrue.md) | add_corruption_points / add_redemption_points never called — currencies may never accrue | design-inconsistency | GID-074 research |
+| [BID-020](backlog/BID-020--always-visible-cantrip-buttons.md) | Cantrip HUD buttons always built regardless of unlock state | code-smell | GID-081 / TID-298 research |
 
 ## Resolved Backlog
 
