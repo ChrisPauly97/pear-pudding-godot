@@ -2,7 +2,7 @@
 
 **Goal:** GID-082
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -61,12 +61,23 @@ Tests that need updating for 8-dir:
 
 ## Plan
 
-_Written during Plan phase._
+1. `game_logic/Pathfinder.gd`:
+   - Add `const _SQRT2: float = 1.4142136`.
+   - Expand `_DIRS` to include 4 diagonal directions.
+   - In the neighbour loop, add corner-cutting guard: if the step is diagonal, reject it when either cardinal neighbour tile (in x or z direction) is not walkable.
+   - Change edge cost to `_SQRT2` for diagonal steps, `1.0` for cardinal.
+   - Replace `_heuristic` with Octile formula: `max(dx, dz) + (√2 − 1) × min(dx, dz)`.
+2. `tests/unit/test_pathfinder.gd`:
+   - `test_diagonal_path_optimal_length`: change expected size from 9 to 5 (4 diagonal steps).
+   - `test_open_path_steps_are_adjacent`: change Manhattan dist == 1 to Chebyshev dist == 1.
+   - `test_detour_path_steps_are_adjacent`: same Chebyshev change.
+   - No other tests need changes (straight path, wall avoidance, unreachable, max-radius all remain valid).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/Pathfinder.gd`: added `const _SQRT2: float = 1.4142136`; expanded `_DIRS` with 4 diagonal directions; added corner-cutting guard for diagonal steps; diagonal edge cost = `_SQRT2`, cardinal = `1.0`; replaced Manhattan heuristic with Octile (`max(dx,dz) + (√2-1)×min(dx,dz)`).
+- `tests/unit/test_pathfinder.gd`: updated `test_diagonal_path_optimal_length` assertion from 9 to 5; updated `test_open_path_steps_are_adjacent` and `test_detour_path_steps_are_adjacent` from Manhattan dist == 1 to Chebyshev dist == 1 via `maxi()`.
 
 ## Documentation Updates
 
-_None for this task — docs update is in TID-297._
+_None for this task — docs update is in TID-301._

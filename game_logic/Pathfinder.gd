@@ -5,11 +5,17 @@ extends RefCounted
 # Matches the TerrainMath pattern so it works for both named maps and
 # the infinite world without any dependency on scene nodes.
 
+const _SQRT2: float = 1.4142136
+
 const _DIRS: Array[Vector2i] = [
 	Vector2i(1, 0),
 	Vector2i(-1, 0),
 	Vector2i(0, 1),
 	Vector2i(0, -1),
+	Vector2i(1, 1),
+	Vector2i(1, -1),
+	Vector2i(-1, 1),
+	Vector2i(-1, -1),
 ]
 
 # Find a tile-coordinate path from `from` to `to`.
@@ -75,11 +81,21 @@ static func find_path(
 			if abs(nb.x - from.x) + abs(nb.y - from.y) > max_radius:
 				continue
 
+			# Corner-cutting guard: a diagonal step is only legal if both
+			# adjacent cardinal tiles are walkable, preventing passage through
+			# the gap between two diagonally-touching wall tiles.
+			if d.x != 0 and d.y != 0:
+				var tx: int = tile_lookup.call(current.x + d.x, current.y)
+				var tz: int = tile_lookup.call(current.x, current.y + d.y)
+				if not _is_walkable(tx) or not _is_walkable(tz):
+					continue
+
 			var tile_type: int = tile_lookup.call(nb.x, nb.y)
 			if not _is_walkable(tile_type):
 				continue
 
-			var tentative_g: float = g_cost.get(current, INF) + 1.0
+			var step_cost: float = _SQRT2 if (d.x != 0 and d.y != 0) else 1.0
+			var tentative_g: float = g_cost.get(current, INF) + step_cost
 			if tentative_g < g_cost.get(nb, INF):
 				came_from[nb] = current
 				g_cost[nb] = tentative_g
@@ -97,7 +113,11 @@ static func _is_walkable(tile_type: int) -> bool:
 
 
 static func _heuristic(a: Vector2i, b: Vector2i) -> float:
-	return float(abs(a.x - b.x) + abs(a.y - b.y))
+	var dx: int = abs(a.x - b.x)
+	var dz: int = abs(a.y - b.y)
+	var hi: int = dx if dx > dz else dz
+	var lo: int = dz if dx > dz else dx
+	return float(hi) + (_SQRT2 - 1.0) * float(lo)
 
 
 static func _reconstruct(came_from: Dictionary, current: Vector2i) -> Array[Vector2i]:
