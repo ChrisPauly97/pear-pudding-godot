@@ -340,9 +340,25 @@ var name: String = VeterancyUtil.display_name(inst, base_name)
 
 `display_name` precedence: `custom_name` (if non-empty) → `"base_name the Title"` (rank ≥ 1) → `base_name`.
 
+`rank_chevrons(rank)` returns `""`, `"▲"`, `"▲▲"`, or `"▲▲▲"` for use in UI labels.
+
+`SaveManager.set_card_custom_name(uid, name)` — stores a player rename on the live instance dict (strips edge whitespace, caps at 24 chars, marks dirty). Empty string clears the custom name.
+
 ### Attribution (TID-216)
 
 After a won battle, `kills` made by each player deck card and `battles_survived` are written back to the matching collection instance via its `collection_uid`. Lost battles grant nothing. The `collection_uid` field is threaded through `CardInstance` so mid-battle save/resume (GID-034) does not lose attribution.
+
+### Inventory UI (TID-217)
+
+Veterancy is visible in `InventoryScene` for rare/epic/legendary cards (per-instance rows):
+
+- **Display name** — `_make_collection_row_instance` and `_make_deck_row_instance` show `VeterancyUtil.display_name(inst, card_name)` in the name Label instead of the raw template name, so custom renames and earned titles appear immediately.
+- **Rank chevrons** — if `rank > 0`, a golden `▲`/`▲▲`/`▲▲▲` Label appears after the name in the top row.
+- **Rename button** — `"✏ Rename"` Button in the action row (collection rows only) toggles an inline rename panel containing a `LineEdit` (pre-filled with current custom_name, max 24 chars), Save, and ✕ Cancel. Tapping Save calls `set_card_custom_name` then `_refresh_cards()`.
+
+### Battle card name (TID-217)
+
+`PlayerState.build_deck_from_instances` sets `ci.name = VeterancyUtil.display_name(inst, tmpl_name)` on each CardInstance before adding it to the deck. The `name` field round-trips through `CardInstance.to_dict()`/`from_dict()`, so the titled/custom name appears in the battle card face (`NameLabel`) and persists through mid-battle save/resume without any change to `BattleScene`.
 
 ---
 

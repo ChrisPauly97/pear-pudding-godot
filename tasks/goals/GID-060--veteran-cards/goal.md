@@ -21,7 +21,7 @@ GID-028 made every owned card a unique per-instance entry (`SaveManager.owned_ca
 |----|------|------|--------|------------|
 | TID-215 | Veterancy data model, rank thresholds, SaveManager persistence | agent | done | — |
 | TID-216 | Battle hooks: attribute kills/survival to collection instances post-battle | agent | done | TID-215 |
-| TID-217 | UI: rank chevrons + title on card face, rename dialog in Inventory | agent | pending | TID-216 |
+| TID-217 | UI: rank chevrons + title on card face, rename dialog in Inventory | agent | done | TID-216 |
 
 ## Acceptance Criteria
 

@@ -110,3 +110,22 @@ func test_display_name_custom_name_overrides_title_even_at_high_rank() -> void:
 func test_display_name_missing_fields_treated_as_zeros() -> void:
 	var inst: Dictionary = {}
 	assert_eq(VeterancyUtil.display_name(inst, "Ghoul"), "Ghoul")
+
+# ---------------------------------------------------------------------------
+# rank_chevrons
+# ---------------------------------------------------------------------------
+
+func test_rank_chevrons_rank_zero_is_empty() -> void:
+	assert_eq(VeterancyUtil.rank_chevrons(0), "")
+
+func test_rank_chevrons_rank_one_is_single() -> void:
+	assert_eq(VeterancyUtil.rank_chevrons(1), "▲")
+
+func test_rank_chevrons_rank_two_is_double() -> void:
+	assert_eq(VeterancyUtil.rank_chevrons(2), "▲▲")
+
+func test_rank_chevrons_rank_three_is_triple() -> void:
+	assert_eq(VeterancyUtil.rank_chevrons(3), "▲▲▲")
+
+func test_rank_chevrons_negative_rank_is_empty() -> void:
+	assert_eq(VeterancyUtil.rank_chevrons(-1), "")

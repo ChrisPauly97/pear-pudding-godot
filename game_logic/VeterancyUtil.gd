@@ -49,3 +49,12 @@ static func display_name(inst: Dictionary, base_name: String) -> String:
 	if rank >= 1:
 		return base_name + " " + title_for(rank)
 	return base_name
+
+## Returns a chevron string for a given rank (empty string for rank 0).
+static func rank_chevrons(rank: int) -> String:
+	if rank <= 0:
+		return ""
+	var s: String = ""
+	for _i: int in range(rank):
+		s += "▲"
+	return s

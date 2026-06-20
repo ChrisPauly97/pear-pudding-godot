@@ -1516,6 +1516,15 @@ func record_veterancy(uid: String, kills: int, survived: bool) -> void:
 		inst["battles_survived"] = int(inst.get("battles_survived", 0)) + 1
 	_dirty = true
 
+## Sets a custom display name on a collection instance. Empty string clears the custom name.
+## No-op if the uid is not found.
+func set_card_custom_name(uid: String, custom_name: String) -> void:
+	var inst: Dictionary = get_instance_by_uid(uid)
+	if inst.is_empty():
+		return
+	inst["custom_name"] = custom_name.strip_edges().left(24)
+	_dirty = true
+
 func mark_dirty() -> void:
 	_dirty = true
 

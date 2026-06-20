@@ -8,6 +8,7 @@ const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const CardInstance      = preload("res://game_logic/battle/CardInstance.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _UiUtil           = preload("res://scenes/ui/UiUtil.gd")
+const VeterancyUtil     = preload("res://game_logic/VeterancyUtil.gd")
 
 var _working_deck: Array[String] = []
 
@@ -534,6 +535,11 @@ func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	var card_name: String = tmpl.get("name", tid)
 
+	var kills: int    = int(inst.get("kills", 0))
+	var survived: int = int(inst.get("battles_survived", 0))
+	var rank: int     = VeterancyUtil.rank_for(kills, survived)
+	var disp_name: String = VeterancyUtil.display_name(inst, card_name)
+
 	var rolled_atk: int  = int(inst.get("attack", int(tmpl.get("attack", 0))))
 	var rolled_hp: int   = int(inst.get("health", int(tmpl.get("health", 0))))
 	var rolled_cost: int = int(inst.get("cost",   int(tmpl.get("cost",   0))))
@@ -551,10 +557,17 @@ func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
 	top_row.add_child(swatch)
 
 	var name_lbl := Label.new()
-	name_lbl.text = card_name
+	name_lbl.text = disp_name
 	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(name_lbl)
+
+	if rank > 0:
+		var chev_lbl := Label.new()
+		chev_lbl.text = VeterancyUtil.rank_chevrons(rank)
+		chev_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
+		chev_lbl.modulate = Color(1.0, 0.82, 0.2)
+		top_row.add_child(chev_lbl)
 
 	var badge_lbl := Label.new()
 	badge_lbl.text = _UiUtil.rarity_badge(rarity)
@@ -581,6 +594,37 @@ func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
 	vbox.add_child(lpd)
 	lpd.long_pressed.connect(func() -> void: _show_inspect(tid))
 
+	# Inline rename panel (hidden until Rename button pressed)
+	var rename_row := HBoxContainer.new()
+	rename_row.add_theme_constant_override("separation", int(_vw * 0.006))
+	rename_row.visible = false
+	vbox.add_child(rename_row)
+
+	var rename_edit := LineEdit.new()
+	rename_edit.text = str(inst.get("custom_name", ""))
+	rename_edit.placeholder_text = disp_name
+	rename_edit.max_length = 24
+	rename_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rename_edit.custom_minimum_size = Vector2(0, _ref * 0.065)
+	rename_edit.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	rename_row.add_child(rename_edit)
+
+	var save_rename_btn := Button.new()
+	save_rename_btn.text = "Save"
+	save_rename_btn.custom_minimum_size = Vector2(_ref * 0.1, _ref * 0.065)
+	save_rename_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	save_rename_btn.pressed.connect(func() -> void:
+		SceneManager.save_manager.set_card_custom_name(uid, rename_edit.text)
+		_refresh_cards())
+	rename_row.add_child(save_rename_btn)
+
+	var cancel_rename_btn := Button.new()
+	cancel_rename_btn.text = "✕"
+	cancel_rename_btn.custom_minimum_size = Vector2(_ref * 0.065, _ref * 0.065)
+	cancel_rename_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	cancel_rename_btn.pressed.connect(func() -> void: rename_row.visible = false)
+	rename_row.add_child(cancel_rename_btn)
+
 	var is_unique: bool = bool(tmpl.get("is_unique", false))
 	if not is_unique:
 		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
@@ -595,6 +639,14 @@ func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
 		confirm_row.add_theme_constant_override("separation", int(_vw * 0.006))
 		confirm_row.visible = false
 		vbox.add_child(confirm_row)
+
+		var rename_btn := Button.new()
+		rename_btn.text = "✏ Rename"
+		rename_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
+		rename_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		rename_btn.pressed.connect(func() -> void:
+			rename_row.visible = not rename_row.visible)
+		action_row.add_child(rename_btn)
 
 		var sell_btn := Button.new()
 		sell_btn.text = "Sell +%dg" % sell_gold
@@ -689,6 +741,11 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	var card_name: String = tmpl.get("name", tid)
 
+	var kills: int    = int(inst.get("kills", 0))
+	var survived: int = int(inst.get("battles_survived", 0))
+	var rank: int     = VeterancyUtil.rank_for(kills, survived)
+	var disp_name: String = VeterancyUtil.display_name(inst, card_name)
+
 	var rolled_atk: int  = int(inst.get("attack", int(tmpl.get("attack", 0))))
 	var rolled_hp: int   = int(inst.get("health", int(tmpl.get("health", 0))))
 	var rolled_cost: int = int(inst.get("cost",   int(tmpl.get("cost",   0))))
@@ -706,10 +763,17 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 	top_row.add_child(swatch)
 
 	var name_lbl := Label.new()
-	name_lbl.text = card_name
+	name_lbl.text = disp_name
 	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(name_lbl)
+
+	if rank > 0:
+		var chev_lbl := Label.new()
+		chev_lbl.text = VeterancyUtil.rank_chevrons(rank)
+		chev_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
+		chev_lbl.modulate = Color(1.0, 0.82, 0.2)
+		top_row.add_child(chev_lbl)
 
 	var badge_lbl := Label.new()
 	badge_lbl.text = _UiUtil.rarity_badge(rarity)

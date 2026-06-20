@@ -2,14 +2,12 @@
 
 **Goal:** GID-060
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-216
 
 ## Lock
 
 **Session:** none
-**Acquired:** —
-**Expires:** —
 
 ## Context
 
@@ -44,12 +42,21 @@ Makes veterancy visible and personal: rank chevrons and the earned title (e.g. "
 
 ## Plan
 
-_Written during Plan phase._
+1. **`VeterancyUtil.gd`** — Add `rank_chevrons(rank) -> String` ("", "▲", "▲▲", "▲▲▲").
+2. **`SaveManager.gd`** — Add `set_card_custom_name(uid, name)`: strips whitespace, caps at 24 chars, marks dirty.
+3. **`PlayerState.gd`** (`build_deck_from_instances`) — Set `ci.name = VeterancyUtil.display_name(inst, tmpl_name)` so titled/custom names appear in battle without touching BattleScene.
+4. **`InventoryScene.gd`** — Preload VeterancyUtil; in `_make_collection_row_instance` show display_name, rank chevrons, and add inline rename panel (LineEdit + Save/Cancel); in `_make_deck_row_instance` show display_name and rank chevrons.
+5. **Tests** — Add `rank_chevrons` tests to `test_veterancy_util.gd`; add `display_name`-in-battle and `set_card_custom_name` tests to `test_veterancy_attribution.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/VeterancyUtil.gd`** — Added `rank_chevrons(rank: int) -> String`.
+- **`autoloads/SaveManager.gd`** — Added `set_card_custom_name(uid, name)`.
+- **`game_logic/battle/PlayerState.gd`** — `build_deck_from_instances` now sets `ci.name` to the resolved display name.
+- **`scenes/ui/InventoryScene.gd`** — Preloaded `VeterancyUtil`; `_make_collection_row_instance` shows display name, golden rank chevrons, and inline rename panel (✏ Rename button + LineEdit + Save + ✕); `_make_deck_row_instance` shows display name and chevrons.
+- **`tests/unit/test_veterancy_util.gd`** — 5 new `rank_chevrons` tests.
+- **`tests/unit/test_veterancy_attribution.gd`** — 8 new tests: display_name-in-battle, `set_card_custom_name` (stores, trims, truncates, clears, noop, dirty).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/inventory-and-deck.md`** — Extended Veterancy System section with `rank_chevrons`, `set_card_custom_name`, Inventory UI description, and battle card name note.

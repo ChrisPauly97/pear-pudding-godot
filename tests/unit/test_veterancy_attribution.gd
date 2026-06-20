@@ -112,6 +112,23 @@ func test_build_deck_sets_collection_uid() -> void:
 	var ci: CardInstance = p.draw_deck[0]
 	assert_eq(ci.collection_uid, "myuid-xyz")
 
+func test_build_deck_sets_display_name_from_custom_name() -> void:
+	var p: PlayerState = _player()
+	var inst: Dictionary = _ghost_inst("u-dn")
+	inst["custom_name"] = "Sir Specter"
+	var insts: Array[Dictionary] = [inst]
+	p.build_deck_from_instances(insts)
+	assert_eq(p.draw_deck[0].name, "Sir Specter")
+
+func test_build_deck_sets_titled_name_at_rank1() -> void:
+	var p: PlayerState = _player()
+	# kills=5 → rank 1 → "Ghost the Seasoned"
+	var insts: Array[Dictionary] = [_ghost_inst("u-titled", 1, 2, 1, 5, 0)]
+	p.build_deck_from_instances(insts)
+	var ci: CardInstance = p.draw_deck[0]
+	assert_true(ci.name.begins_with("Ghost "), "titled name should start with base name")
+	assert_true(ci.name.length() > "Ghost ".length(), "title should be appended")
+
 func test_build_deck_battle_kills_initialised_zero() -> void:
 	var p: PlayerState = _player()
 	var insts: Array[Dictionary] = [_ghost_inst("uid5")]
@@ -203,5 +220,51 @@ func test_record_veterancy_marks_dirty_on_hit() -> void:
 	var inst: Dictionary = _ghost_inst("d-uid")
 	var sm: Node = _sm_with_inst("d-uid", inst)
 	sm.record_veterancy("d-uid", 1, true)
+	assert_true(sm._dirty)
+	sm.free()
+
+# ---------------------------------------------------------------------------
+# set_card_custom_name
+# ---------------------------------------------------------------------------
+
+func test_set_card_custom_name_stores_name() -> void:
+	var inst: Dictionary = _ghost_inst("cn-uid")
+	var sm: Node = _sm_with_inst("cn-uid", inst)
+	sm.set_card_custom_name("cn-uid", "Sir Bones")
+	assert_eq(str(inst.get("custom_name", "")), "Sir Bones")
+	sm.free()
+
+func test_set_card_custom_name_trims_whitespace() -> void:
+	var inst: Dictionary = _ghost_inst("cn-uid2")
+	var sm: Node = _sm_with_inst("cn-uid2", inst)
+	sm.set_card_custom_name("cn-uid2", "  Spooky  ")
+	assert_eq(str(inst.get("custom_name", "")), "Spooky")
+	sm.free()
+
+func test_set_card_custom_name_truncates_at_24() -> void:
+	var inst: Dictionary = _ghost_inst("cn-uid3")
+	var sm: Node = _sm_with_inst("cn-uid3", inst)
+	sm.set_card_custom_name("cn-uid3", "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	assert_eq(str(inst.get("custom_name", "")).length(), 24)
+	sm.free()
+
+func test_set_card_custom_name_empty_clears() -> void:
+	var inst: Dictionary = _ghost_inst("cn-uid4")
+	inst["custom_name"] = "Old Name"
+	var sm: Node = _sm_with_inst("cn-uid4", inst)
+	sm.set_card_custom_name("cn-uid4", "")
+	assert_eq(str(inst.get("custom_name", "")), "")
+	sm.free()
+
+func test_set_card_custom_name_noop_for_unknown_uid() -> void:
+	var sm: Node = SaveManagerScript.new()
+	sm.set_card_custom_name("nope", "Ghost")
+	assert_eq(sm.owned_cards.size(), 0)
+	sm.free()
+
+func test_set_card_custom_name_marks_dirty() -> void:
+	var inst: Dictionary = _ghost_inst("cn-uid5")
+	var sm: Node = _sm_with_inst("cn-uid5", inst)
+	sm.set_card_custom_name("cn-uid5", "Named")
 	assert_true(sm._dirty)
 	sm.free()
