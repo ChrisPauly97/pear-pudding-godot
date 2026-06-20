@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://x9d5ve97zbkp"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_sig_wanderer"]
+
+[resource]
+script = ExtResource("1_sig_wanderer")
+id = "sig_wanderer"
+card_name = "Restless Runner"
+cost = 2
+attack = 2
+health = 1
+card_class = "minion"
+description = "Born of ceaseless wandering, it strikes before the living can react."
+color = Color(0.55, 0.6, 0.9, 1)
+keywords = PackedStringArray("surge")
+can_craft = false
+is_unique = true

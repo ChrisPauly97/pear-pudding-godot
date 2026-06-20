@@ -19,3 +19,9 @@ extends Resource
 @export var difficulty_tier: int = 1
 ## Short lore blurb revealed in the Bestiary after defeating this enemy 3 times.
 @export var lore_text: String = ""
+## ID of the signature card that can be captured from this enemy. "" = no signature.
+@export var signature_card: String = ""
+## Condition key that must hold for the capture to trigger. "" = no condition.
+@export var capture_condition: String = ""
+## Numeric parameter for conditions like win_by_turn or hero_hp_at_most.
+@export var capture_param: int = 0

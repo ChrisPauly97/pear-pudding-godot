@@ -2,7 +2,7 @@
 
 **Goal:** GID-061
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -67,12 +67,23 @@ The data and logic layer for Soulbinding. Extends the `EnemyData` resource with 
 
 ## Plan
 
-_Written during Plan phase._
+Implemented in a single pass alongside TID-219 and TID-220:
+1. Added 3 `@export` fields to `data/EnemyData.gd` (`signature_card`, `capture_condition`, `capture_param`).
+2. Added 4 static accessors to `autoloads/EnemyRegistry.gd` (`get_signature_card`, `get_capture_condition`, `get_capture_param`, `get_all_signature_card_ids`).
+3. Created `game_logic/battle/CaptureTracker.gd` as a pure `RefCounted` with `note_minion_attacked_hero`, `note_spell_resolved`, `is_satisfied`, and `condition_text` methods.
+4. Instrumented `BattleScene._ready()`, `_on_enemy_hero_input`, `_resolve_spell_effect`, and `_check_game_over` with tracker calls.
+5. Decided NOT to emit the long-undeclared GameBus `card_played`/`card_attacked`/`battle_ended` signals — BattleScene calls tracker methods directly (less coupling, no observer chain needed for a single consumer).
+6. Tracker flags are NOT persisted across battle flee/resume (same precedent as `_hero_power_used`).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/EnemyData.gd`: Added `@export var signature_card: String = ""`, `@export var capture_condition: String = ""`, `@export var capture_param: int = 0`.
+- `autoloads/EnemyRegistry.gd`: Added signature-related data to the 4 enemy dict entries; added `get_signature_card`, `get_capture_condition`, `get_capture_param`, `get_all_signature_card_ids` static methods.
+- `game_logic/battle/CaptureTracker.gd`: New file. Supports 4 conditions: `spell_final_blow`, `no_minion_hero_attacks`, `hero_hp_at_most`, `win_by_turn`.
+- `scenes/battle/BattleScene.gd`: Added `CaptureTracker` preload and `_capture_tracker` var; tracker constructed in `_ready()` for non-puzzle non-duel battles; `note_minion_attacked_hero(0)` called in `_on_enemy_hero_input`; board-count snapshot + `note_spell_resolved` called around `_resolve_spell_effect`; `is_satisfied` queried in `_check_game_over` winner-0 path.
+- `tests/unit/test_capture_tracker.gd`: New test suite (53 tests) covering all condition paths.
+- `tests/runner.gd`: Added `test_capture_tracker` to SUITES.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/soulbinding.md` covering the full system design, condition vocabulary, data layer, victory flow, save persistence, shop exclusion, and asset requirements.

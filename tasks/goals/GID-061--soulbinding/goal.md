@@ -23,9 +23,9 @@ Complementary: the pending GID-045 bestiary goal tracks seen/defeated enemies in
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-218 | Capture-condition fields on EnemyData + in-battle condition tracking | agent | pending | — |
-| TID-219 | Soulbind victory flow, captured-signature save tracking, overlay UI | agent | pending | TID-218 |
-| TID-220 | Content: signature cards + conditions for the 4 existing enemy types | agent | pending | TID-219 |
+| TID-218 | Capture-condition fields on EnemyData + in-battle condition tracking | agent | done | — |
+| TID-219 | Soulbind victory flow, captured-signature save tracking, overlay UI | agent | done | TID-218 |
+| TID-220 | Content: signature cards + conditions for the 4 existing enemy types | agent | done | TID-219 |
 
 ## Acceptance Criteria
 

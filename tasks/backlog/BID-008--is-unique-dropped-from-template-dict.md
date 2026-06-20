@@ -2,6 +2,7 @@
 
 **Category:** code-smell
 **Discovered During:** GID-061 research
+**Resolved In:** GID-061 / TID-219
 
 ## Description
 

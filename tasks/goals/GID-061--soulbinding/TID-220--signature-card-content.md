@@ -2,7 +2,7 @@
 
 **Goal:** GID-061
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-219
 
 ## Lock
@@ -80,12 +80,22 @@ Each of the 4 enemy files gets `signature_card = "<card_id>"`, `capture_conditio
 
 ## Plan
 
-_Written during Plan phase._
+Implemented alongside TID-218 and TID-219:
+1. Create 4 signature card `.tres` files with `.tres.uid` sidecars.
+2. Register all 4 in `CardRegistry` via `const _C_SIG_*` preloads.
+3. Add `signature_card`, `capture_condition`, `capture_param` fields to the 4 enemy entries in `EnemyRegistry`.
+4. Write tests verifying all 4 enemies have non-empty conditions and all 4 sig card IDs resolve via `CardRegistry`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/cards/sig_wanderer.tres` + `.tres.uid`: Restless Runner, 2-mana 2/1 surge, `undead_basic` signature, condition `win_by_turn` ≤9.
+- `data/cards/sig_shambler.tres` + `.tres.uid`: Shambling Vanguard, 3-mana 3/3, Emergence: deal 2 to enemy hero, `undead_horde` signature, condition `spell_final_blow`.
+- `data/cards/sig_pack_leader.tres` + `.tres.uid`: Pack Alpha, 4-mana 2/5 ward, `ghoul_pack` signature, condition `no_minion_hero_attacks`.
+- `data/cards/sig_warlord.tres` + `.tres.uid`: Death Commander, 5-mana 4/4 shroud, `undead_elite` signature, condition `hero_hp_at_most` ≤10.
+- `autoloads/CardRegistry.gd`: Added 4 `const _C_SIG_*` preloads and added all 4 to the `all` array in `_ensure_loaded()`.
+- `autoloads/EnemyRegistry.gd`: Added `signature_card`, `capture_condition`, `capture_param` to all 4 enemy entries.
+- `tests/unit/test_card_registry.gd`: Updated expected card count from 50 to 54.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Covered in `docs/agent/soulbinding.md` — "The 4 Signature Cards" table and "Asset Requirements" section.

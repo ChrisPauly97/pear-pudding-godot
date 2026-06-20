@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://04tfk9s60rzz"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_sig_pack_leader"]
+
+[resource]
+script = ExtResource("1_sig_pack_leader")
+id = "sig_pack_leader"
+card_name = "Pack Alpha"
+cost = 4
+attack = 2
+health = 5
+card_class = "minion"
+description = "The pack defers to it. While it stands, the others are shielded."
+color = Color(0.3, 0.5, 0.3, 1)
+keywords = PackedStringArray("ward")
+can_craft = false
+is_unique = true

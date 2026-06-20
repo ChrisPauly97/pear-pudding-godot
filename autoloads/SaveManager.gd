@@ -187,6 +187,9 @@ var town_discounts: Dictionary = {}
 var rival_encounters_won: int = 0   # 0, 1, or 2 before the final showdown
 var rival_defeated: bool = false    # true after the final showdown; guards the unique card reward
 
+# Soulbind capture tracking (GID-061)
+var captured_signatures: Array[String] = []
+
 # Garden system (GID-056)
 # Each plot dict: {seed_id: String, planted_day: int} or {} when empty.
 var garden_plots: Array[Dictionary] = []
@@ -358,6 +361,7 @@ func new_game() -> void:
 	seeds = {}
 	plants = {}
 	potions = {}
+	captured_signatures = []
 	var starting_deck_copy: Array[String] = []
 	starting_deck_copy.assign(player_deck)
 	loadouts = [{"name": "Deck 1", "cards": starting_deck_copy}]
@@ -684,6 +688,12 @@ static func _migrate_v33_to_v34(data: Dictionary) -> void:
 		data["active_loadout"] = 0
 	data["version"] = 34
 
+# _migrate_v34_to_v35: backfill captured_signatures for old saves.
+static func _migrate_v34_to_v35(data: Dictionary) -> void:
+	if not data.has("captured_signatures"):
+		data["captured_signatures"] = []
+	data["version"] = 35
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -902,6 +912,7 @@ func load_save() -> bool:
 	var gsd = data.get("seeds", {}); seeds = gsd if gsd is Dictionary else {}
 	var gpd = data.get("plants", {}); plants = gpd if gpd is Dictionary else {}
 	var gpotd = data.get("potions", {}); potions = gpotd if gpotd is Dictionary else {}
+	captured_signatures.assign(data.get("captured_signatures", []))
 	last_saved = str(data.get("last_saved", ""))
 	_loaded = true
 	return true
@@ -994,6 +1005,7 @@ func save() -> void:
 		"seeds": seeds,
 		"plants": plants,
 		"potions": potions,
+		"captured_signatures": captured_signatures,
 		"last_saved": Time.get_datetime_string_from_system(false, true),
 	}
 	var save_path: String = _get_slot_path(active_slot)
@@ -1302,6 +1314,14 @@ func mark_scroll_collected(scroll_id: String) -> void:
 
 func is_scroll_collected(scroll_id: String) -> bool:
 	return collected_scrolls.has(scroll_id)
+
+func mark_signature_captured(card_id: String) -> void:
+	if card_id != "" and not captured_signatures.has(card_id):
+		captured_signatures.append(card_id)
+	_dirty = true
+
+func is_signature_captured(card_id: String) -> bool:
+	return card_id != "" and captured_signatures.has(card_id)
 
 func add_weapon(weapon_id: String) -> void:
 	if not _has_weapon_id(weapon_id):
