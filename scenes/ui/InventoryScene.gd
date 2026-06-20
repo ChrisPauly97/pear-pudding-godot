@@ -433,9 +433,11 @@ func _make_section_label(text: String) -> Label:
 
 # Stacked row for common cards (all copies identical — variance = 0).
 func _make_collection_row_stacked(tid: String, count: int) -> VBoxContainer:
-	var tmpl: Dictionary  = CardRegistry.get_template(tid)
+	var _face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
+	var tmpl: Dictionary  = CardRegistry.get_template_for_face(tid, _face)
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	var card_name: String = tmpl.get("name", tid)
+	var is_dual: bool = str(tmpl.get("dual_card_id", "")) != ""
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", int(_ref * 0.003))
@@ -454,6 +456,14 @@ func _make_collection_row_stacked(tid: String, count: int) -> VBoxContainer:
 	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(name_lbl)
+
+	if is_dual:
+		var dual_badge := Label.new()
+		dual_badge.text = "◑"
+		dual_badge.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		dual_badge.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
+		dual_badge.tooltip_text = "Dual-faced card"
+		top_row.add_child(dual_badge)
 
 	var count_lbl := Label.new()
 	count_lbl.text = "×%d" % count
@@ -531,9 +541,11 @@ func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
 	var uid: String    = str(inst.get("uid", ""))
 	var tid: String    = str(inst.get("template_id", ""))
 	var rarity: String = str(inst.get("rarity", "common"))
-	var tmpl: Dictionary  = CardRegistry.get_template(tid)
+	var _face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
+	var tmpl: Dictionary  = CardRegistry.get_template_for_face(tid, _face)
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	var card_name: String = tmpl.get("name", tid)
+	var is_dual: bool = str(tmpl.get("dual_card_id", "")) != ""
 
 	var kills: int    = int(inst.get("kills", 0))
 	var survived: int = int(inst.get("battles_survived", 0))
@@ -568,6 +580,13 @@ func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
 		chev_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
 		chev_lbl.modulate = Color(1.0, 0.82, 0.2)
 		top_row.add_child(chev_lbl)
+	if is_dual:
+		var dual_badge := Label.new()
+		dual_badge.text = "◑"
+		dual_badge.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		dual_badge.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
+		dual_badge.tooltip_text = "Dual-faced card"
+		top_row.add_child(dual_badge)
 
 	var badge_lbl := Label.new()
 	badge_lbl.text = _UiUtil.rarity_badge(rarity)
@@ -674,9 +693,11 @@ func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
 
 # Stacked deck row for common cards.
 func _make_deck_row_stacked(tid: String, count: int) -> VBoxContainer:
-	var tmpl: Dictionary  = CardRegistry.get_template(tid)
+	var _face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
+	var tmpl: Dictionary  = CardRegistry.get_template_for_face(tid, _face)
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	var card_name: String = tmpl.get("name", tid)
+	var is_dual: bool = str(tmpl.get("dual_card_id", "")) != ""
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", int(_ref * 0.003))
@@ -695,6 +716,14 @@ func _make_deck_row_stacked(tid: String, count: int) -> VBoxContainer:
 	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_child(name_lbl)
+
+	if is_dual:
+		var dual_badge := Label.new()
+		dual_badge.text = "◑"
+		dual_badge.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		dual_badge.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
+		dual_badge.tooltip_text = "Dual-faced card"
+		top_row.add_child(dual_badge)
 
 	var count_lbl := Label.new()
 	count_lbl.text = "×%d" % count
@@ -737,9 +766,11 @@ func _make_deck_row_stacked(tid: String, count: int) -> VBoxContainer:
 func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 	var tid: String    = str(inst.get("template_id", uid))
 	var rarity: String = str(inst.get("rarity", "common"))
-	var tmpl: Dictionary  = CardRegistry.get_template(tid)
+	var _face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
+	var tmpl: Dictionary  = CardRegistry.get_template_for_face(tid, _face)
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	var card_name: String = tmpl.get("name", tid)
+	var is_dual: bool = str(tmpl.get("dual_card_id", "")) != ""
 
 	var kills: int    = int(inst.get("kills", 0))
 	var survived: int = int(inst.get("battles_survived", 0))
@@ -774,6 +805,13 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 		chev_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
 		chev_lbl.modulate = Color(1.0, 0.82, 0.2)
 		top_row.add_child(chev_lbl)
+	if is_dual:
+		var dual_badge := Label.new()
+		dual_badge.text = "◑"
+		dual_badge.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		dual_badge.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
+		dual_badge.tooltip_text = "Dual-faced card"
+		top_row.add_child(dual_badge)
 
 	var badge_lbl := Label.new()
 	badge_lbl.text = _UiUtil.rarity_badge(rarity)

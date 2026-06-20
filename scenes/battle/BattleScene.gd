@@ -123,6 +123,9 @@ var _intent_panel: Control = null
 var _tutorial_overlay: Node = null
 const TUTORIAL_DURATION: float = 8.0
 
+# Dual-face flip tracking (GID-062): instance_ids already flipped this battle.
+var _flipped_dual_ids: Dictionary = {}
+
 @onready var _enemy_hand_view = $EnemyArea/EnemyHandView
 @onready var _enemy_board_view = $EnemyArea/EnemyBoardView
 @onready var _enemy_hero_view = $EnemyArea/EnemyHeroView
@@ -173,7 +176,8 @@ func _ready() -> void:
 						   "ghost", "skeleton", "zombie", "ghoul",
 						   "ghost", "skeleton", "zombie", "ghoul"]
 		if not player_deck.is_empty():
-			_state.players[0].build_deck(player_deck)
+			var _dark_aligned: bool = CardRegistry.is_dark_aligned()
+			_state.players[0].build_deck(player_deck, 0, _dark_aligned)
 		_apply_equipment_effects(_state.players[0])
 		_apply_passive_skills(_state.players[0])
 		_state.players[0].draw_opening_hand(4)
@@ -1589,7 +1593,7 @@ func _apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: Strin
 	style.border_width_bottom = 0
 	style.border_width_left = 0
 	style.border_width_right = 0
-	var tmpl := CardRegistry.get_template(card.template_id)
+	var tmpl := CardRegistry.get_template_for_face(card.template_id, card.active_face)
 	style.bg_color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
 	if zone_id == "hand" and not _state.players[0].can_play(card):
 		style.bg_color = style.bg_color.darkened(0.5)
@@ -1673,7 +1677,17 @@ func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	panel.set_meta("card_style", style)
 	_apply_card_style(panel, card, zone_id)
 	_bind_card_input(panel, card, zone_id)
+	# Flip animation on first reveal of a dual-faced card in the player's hand
+	if zone_id == "hand" and card.dual_card_id != "" and not _flipped_dual_ids.has(card.instance_id):
+		_flipped_dual_ids[card.instance_id] = true
+		_trigger_dual_face_flip(panel)
 	return panel
+
+func _trigger_dual_face_flip(panel: PanelContainer) -> void:
+	panel.pivot_offset = Vector2(panel.custom_minimum_size.x * 0.5, panel.custom_minimum_size.y * 0.5)
+	panel.scale = Vector2(0.01, 1.0)
+	var tween := panel.create_tween()
+	tween.tween_property(panel, "scale", Vector2(1.0, 1.0), 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 	var vbox: VBoxContainer = hero_node.get_child(0) as VBoxContainer if hero_node.get_child_count() > 0 else null

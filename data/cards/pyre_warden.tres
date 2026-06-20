@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://no5p3we34dol"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_pyre_warden"]
+
+[resource]
+script = ExtResource("1_pyre_warden")
+id = "pyre_warden"
+card_name = "Pyre Warden"
+cost = 3
+attack = 1
+health = 5
+card_class = "minion"
+description = "A steadfast guardian who shields allies from harm."
+color = Color(1.0, 0.45, 0.05, 1)
+magic_type = "light"
+magic_branch = "ember"
+keywords = PackedStringArray("ward")
+is_dual_face = true
+dark_card_name = "Flame Striker"
+dark_cost = 3
+dark_attack = 4
+dark_health = 2
+dark_card_class = "minion"
+dark_description = "Strikes first and burns bright before fading fast."
+dark_color = Color(1.0, 0.15, 0.0, 1)
+dark_magic_type = "dark"
+dark_keywords = PackedStringArray("surge")

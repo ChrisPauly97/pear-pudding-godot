@@ -33,14 +33,15 @@ func _init(pid: int, ai: bool = false) -> void:
 	hero = HeroState.new(pid)
 	board = ZoneState.new()
 
-func build_deck(card_ids: Array[String], difficulty_tier: int = 0) -> void:
+func build_deck(card_ids: Array[String], difficulty_tier: int = 0, dark_aligned: bool = false) -> void:
 	draw_deck.clear()
 	discard.clear()
 	hand.clear()
 	pending_auto_spells.clear()
 	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
+	var face: String = "dark" if dark_aligned else "light"
 	for cid in card_ids:
-		var tmpl: Dictionary = CardRegistry.get_template(cid)
+		var tmpl: Dictionary = CardRegistry.get_template_for_face(cid, face)
 		if tmpl.is_empty():
 			continue
 		if difficulty_tier > 0:

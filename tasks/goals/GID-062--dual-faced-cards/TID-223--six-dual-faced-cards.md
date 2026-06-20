@@ -2,7 +2,7 @@
 
 **Goal:** GID-062
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-221
 
 ## Lock
@@ -128,12 +128,19 @@ the registered count change.
 
 ## Plan
 
-_Written during Plan phase._
+Created 6 dual-faced `.tres` cards using embedded dark_* fields (model b from TID-221), covering all 4 branches with meaningfully different Light/Dark effects. Registered all 6 in CardRegistry.gd with const preloads. Created .uid sidecars for all 6. Updated test count to 56 and added 8 dual-face tests.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/cards/ember_covenant.tres` + `.uid` (uid://eke9lt9dt6lt): Ember spell — Light: heal_all(2), Dark: deal_damage_all(2)
+- `data/cards/pyre_warden.tres` + `.uid` (uid://no5p3we34dol): Ember minion — Light: 1/5 Ward, Dark: 4/2 Surge
+- `data/cards/sacred_light.tres` + `.uid` (uid://a88m0tgwpufw): Dawn spell — Light: heal_single(4), Dark: lifesteal_hit(2)
+- `data/cards/hallowed_ground.tres` + `.uid` (uid://otrc5wbzfuuc): Dawn spell — Light: resurrect_last, Dark: destroy_low_hp(3)
+- `data/cards/twilight_veil.tres` + `.uid` (uid://pn62dgf1jcrd): Dusk spell — Light: shield_minion(3), Dark: curse_minion(2)
+- `data/cards/ash_arbiter.tres` + `.uid` (uid://v4qre7z8dvcs): Ash minion — Light: 2/4 Ward+emergence_heal_hero(2), Dark: 3/3 Surge+emergence_deal_damage(2)
+- `autoloads/CardRegistry.gd`: 6 new const preloads + added to `_ensure_loaded()` array
+- `tests/unit/test_card_registry.gd`: updated count to 56; added 8 dual-face tests for `get_template_for_face`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md`: Dual-Faced Card Catalogue table in the Dual-Faced Corruption Cards section.

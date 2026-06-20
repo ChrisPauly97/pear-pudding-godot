@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://v4qre7z8dvcs"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ash_arbiter"]
+
+[resource]
+script = ExtResource("1_ash_arbiter")
+id = "ash_arbiter"
+card_name = "Ash Arbiter"
+cost = 4
+attack = 2
+health = 4
+card_class = "minion"
+description = "Judges from the ruins; absorbs blows meant for others."
+color = Color(0.55, 0.5, 0.5, 1)
+magic_type = "light"
+magic_branch = "ash"
+keywords = PackedStringArray("ward")
+emergence_effect = "emergence_heal_hero"
+emergence_power = 2
+is_dual_face = true
+dark_card_name = "Ash Marauder"
+dark_cost = 4
+dark_attack = 3
+dark_health = 3
+dark_card_class = "minion"
+dark_description = "A ruthless raider who strikes the moment it rises."
+dark_color = Color(0.3, 0.25, 0.25, 1)
+dark_magic_type = "dark"
+dark_keywords = PackedStringArray("surge")
+dark_emergence_effect = "emergence_deal_damage"
+dark_emergence_power = 2

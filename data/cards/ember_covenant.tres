@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://eke9lt9dt6lt"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ember_covenant"]
+
+[resource]
+script = ExtResource("1_ember_covenant")
+id = "ember_covenant"
+card_name = "Ember Covenant"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Share the warmth; restore all who still fight."
+color = Color(1.0, 0.4, 0.05, 1)
+magic_type = "light"
+magic_branch = "ember"
+spell_effect = "heal_all"
+spell_power = 2
+is_dual_face = true
+dark_card_name = "Scorch Pact"
+dark_cost = 3
+dark_attack = 0
+dark_health = 0
+dark_card_class = "spell"
+dark_description = "Consume all in righteous flame."
+dark_color = Color(1.0, 0.2, 0.0, 1)
+dark_magic_type = "dark"
+dark_spell_effect = "deal_damage_all"
+dark_spell_power = 2

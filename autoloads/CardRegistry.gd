@@ -52,6 +52,12 @@ const _C_WITHER           := preload("res://data/cards/wither.tres")
 const _C_ZOMBIE           := preload("res://data/cards/zombie.tres")
 const _C_SHADOW_WARD       := preload("res://data/cards/shadow_ward.tres")
 const _C_ISFIG_SHADOW_ECHO := preload("res://data/cards/isfig_shadow_echo.tres")
+const _C_EMBER_COVENANT    := preload("res://data/cards/ember_covenant.tres")
+const _C_PYRE_WARDEN       := preload("res://data/cards/pyre_warden.tres")
+const _C_SACRED_LIGHT      := preload("res://data/cards/sacred_light.tres")
+const _C_HALLOWED_GROUND   := preload("res://data/cards/hallowed_ground.tres")
+const _C_TWILIGHT_VEIL     := preload("res://data/cards/twilight_veil.tres")
+const _C_ASH_ARBITER       := preload("res://data/cards/ash_arbiter.tres")
 
 static var _cards: Dictionary = {}  # id -> CardData
 static var _loaded: bool = false
@@ -73,6 +79,8 @@ static func _ensure_loaded() -> void:
 		_C_SPARK, _C_SURGE_SPIRIT, _C_TIME_WARP, _C_VEILED_PALADIN,
 		_C_VOID_CREEPER, _C_VOID_WYRM, _C_WITHER, _C_ZOMBIE,
 		_C_ISFIG_SHADOW_ECHO,
+		_C_EMBER_COVENANT, _C_PYRE_WARDEN, _C_SACRED_LIGHT,
+		_C_HALLOWED_GROUND, _C_TWILIGHT_VEIL, _C_ASH_ARBITER,
 	]
 	for preloaded in all:
 		if preloaded == null:
@@ -103,6 +111,28 @@ static func get_template(id: String) -> Dictionary:
 		var res: Resource = _cards[id] as Resource
 		if res != null and res.has_method("to_template_dict"):
 			return res.call("to_template_dict")
+	return {}
+
+## Returns true when the player has more corruption_points than redemption_points.
+## Requires the SaveManager autoload to be active; returns false if not available.
+static func is_dark_aligned() -> bool:
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return false
+	var sm: Node = tree.root.get_node_or_null("SaveManager")
+	if sm == null:
+		return false
+	return int(sm.get("corruption_points")) > int(sm.get("redemption_points"))
+
+## Returns a template dict for the given id resolved to the specified face.
+## face = "dark" returns the Dark face for dual-faced cards; anything else returns Light.
+## For non-dual cards the face parameter is ignored.
+static func get_template_for_face(id: String, face: String) -> Dictionary:
+	_ensure_loaded()
+	if _cards.has(id):
+		var res: Resource = _cards[id] as Resource
+		if res != null and res.has_method("to_template_dict"):
+			return res.call("to_template_dict", face)
 	return {}
 
 ## Returns all known card IDs, in no guaranteed order.

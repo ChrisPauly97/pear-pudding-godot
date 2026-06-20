@@ -23,10 +23,10 @@ var emergence_power: int = 0
 var keywords: Array[String] = []
 var shroud_active: bool = false  # true until the first hit is absorbed; set false by game logic after absorption
 
-# Veterancy attribution (GID-060): collection UID links this battle card back to SaveManager;
-# battle_kills counts enemy minions this card kills in the current battle.
 var collection_uid: String = ""
 var battle_kills: int = 0
+var dual_card_id: String = ""
+var active_face: String = ""
 
 var summoning_sick: bool = true
 var attack_count: int = 1
@@ -57,6 +57,8 @@ func _init(tmpl: Dictionary = {}) -> void:
 	emergence_power = int(tmpl.get("emergence_power", 0))
 	keywords.assign(tmpl.get("keywords", []))
 	shroud_active = keywords.has("shroud")
+	dual_card_id = str(tmpl.get("dual_card_id", ""))
+	active_face = str(tmpl.get("active_face", ""))
 
 func is_alive() -> bool:
 	return health > 0
@@ -136,6 +138,8 @@ func to_dict() -> Dictionary:
 		"emergence_power": emergence_power,
 		"keywords": keywords.duplicate(),
 		"shroud_active": shroud_active,
+		"dual_card_id": dual_card_id,
+		"active_face": active_face,
 		"summoning_sick": summoning_sick,
 		"attack_count": attack_count,
 		"out_of_play": out_of_play,
@@ -163,6 +167,8 @@ func from_dict(d: Dictionary) -> void:
 	emergence_power = int(d.get("emergence_power", 0))
 	keywords.assign(d.get("keywords", []))
 	shroud_active = bool(d.get("shroud_active", false))
+	dual_card_id = str(d.get("dual_card_id", ""))
+	active_face = str(d.get("active_face", ""))
 	# "armor" key tolerated from old saves but field is removed — armor lives in status_effects
 	summoning_sick = bool(d.get("summoning_sick", true))
 	attack_count = int(d.get("attack_count", 1))

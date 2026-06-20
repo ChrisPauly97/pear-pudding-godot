@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://a88m0tgwpufw"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_sacred_light"]
+
+[resource]
+script = ExtResource("1_sacred_light")
+id = "sacred_light"
+card_name = "Sacred Light"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "A gentle radiance mends wounds and lifts spirits."
+color = Color(1.0, 0.95, 0.45, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "heal_single"
+spell_power = 4
+is_dual_face = true
+dark_card_name = "Draining Touch"
+dark_cost = 2
+dark_attack = 0
+dark_health = 0
+dark_card_class = "spell"
+dark_description = "Siphon the life force of the wounded to restore your own."
+dark_color = Color(0.5, 0.1, 0.7, 1)
+dark_magic_type = "dark"
+dark_spell_effect = "lifesteal_hit"
+dark_spell_power = 2

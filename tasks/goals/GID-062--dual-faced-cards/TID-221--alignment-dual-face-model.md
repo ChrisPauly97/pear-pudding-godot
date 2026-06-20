@@ -2,7 +2,7 @@
 
 **Goal:** GID-062
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -142,12 +142,32 @@ CardInstance fields (e.g. `active_face`) must be added to both `to_dict()` and
 
 ## Plan
 
-_Written during Plan phase._
+**Face model chosen: (b) embedded fields.**
+Rationale: 1 .tres per dual card (vs 3 for linked model), no hiding logic needed, all existing machinery reuses cleanly. ~12 new dark_* fields on CardData is acceptable; to_template_dict() takes an optional `face` parameter.
+
+**Tie rule:** corruption == redemption → Light face. A fresh save (0/0) defaults to Light, which is the natural "good" default for new players.
+
+**Enemy deck dual cards:** if a dual card ever appears in an enemy deck, it always resolves to Light face. Enemies are alignment-neutral.
+
+**Implementation steps:**
+1. `CardData.gd`: add `is_dual_face: bool = false` + 12 `dark_*` fields (dark_card_name, dark_cost, dark_attack, dark_health, dark_card_class, dark_description, dark_color, dark_magic_type, dark_spell_effect, dark_spell_power, dark_emergence_effect, dark_emergence_power, dark_keywords). Update `to_template_dict(face: String = "light")` to return dark fields when `is_dual_face and face == "dark"`, plus `dual_card_id` and `active_face` keys.
+2. `CardRegistry.gd`: add `is_dark_aligned() -> bool` (reads SaveManager via Engine.get_main_loop()); add `get_template_for_face(id, face) -> Dictionary` (calls `to_template_dict(face)`).
+3. `CardInstance.gd`: add `dual_card_id: String = ""` and `active_face: String = ""` fields; wire in `_init()`, `to_dict()`, `from_dict()`.
+4. `PlayerState.gd`: add `dark_aligned: bool = false` param to `build_deck()`; call `CardRegistry.get_template_for_face(cid, "dark" if dark_aligned else "light")` per id.
+5. `BattleScene.gd`: in fresh-battle path, call `CardRegistry.is_dark_aligned()` and pass `dark_aligned` to `players[0].build_deck()`; enemy build always passes `false`.
+
+**Seam for UI (TID-222):** `CardInstance.dual_card_id` (non-empty = dual-faced) and `CardInstance.active_face` ("light" or "dark") let the UI know which face is active without re-reading alignment.
+
+**Mid-battle resume:** face is baked into serialised CardInstance fields (name/cost/etc.); the two new fields (dual_card_id, active_face) are added to to_dict/from_dict for UI use.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/CardData.gd`: added `is_dual_face: bool = false` and 13 `dark_*` exported fields; updated `to_template_dict()` to accept optional `face: String = "light"` parameter; dark face path returns dark fields plus `dual_card_id` / `active_face` keys; light face also includes those keys (empty for non-dual cards, populated for dual cards).
+- `autoloads/CardRegistry.gd`: added `is_dark_aligned() -> bool` (reads SaveManager via Engine.get_main_loop); added `get_template_for_face(id, face) -> Dictionary` (calls `to_template_dict(face)` on the resource).
+- `game_logic/battle/CardInstance.gd`: added `dual_card_id: String = ""` and `active_face: String = ""` fields; wired into `_init()`, `to_dict()`, `from_dict()`.
+- `game_logic/battle/PlayerState.gd`: added `dark_aligned: bool = false` parameter to `build_deck()`; calls `CardRegistry.get_template_for_face(cid, face)` instead of `get_template(cid)`.
+- `scenes/battle/BattleScene.gd`: added `_flipped_dual_ids: Dictionary`; alignment resolution before `build_deck(players[0])`; updated `_apply_card_style()` color lookup to use `get_template_for_face`; added flip trigger in `_make_card_view()` for dual cards; added `_trigger_dual_face_flip(panel)`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md`: added "Dual-Faced Corruption Cards" section covering data model, alignment resolution, card catalogue, flip animation, and CardInspectOverlay dual-face layout.

@@ -19,9 +19,9 @@ Design:
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-221 | Alignment resolution + dual-face CardData model, face chosen at battle start | agent | pending | — |
-| TID-222 | UI: face-flip visual, inspect overlay shows both faces | agent | pending | TID-221 |
-| TID-223 | Content: 6 dual-faced cards spanning the four branches | agent | pending | TID-221 |
+| TID-221 | Alignment resolution + dual-face CardData model, face chosen at battle start | agent | done | — |
+| TID-222 | UI: face-flip visual, inspect overlay shows both faces | agent | done | TID-221 |
+| TID-223 | Content: 6 dual-faced cards spanning the four branches | agent | done | TID-221 |
 
 ## Acceptance Criteria
 

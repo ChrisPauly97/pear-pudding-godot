@@ -596,6 +596,72 @@ First-equip: on first equip, `set_story_flag("companion_maiteln_first_equip")` i
 
 ---
 
+## Dual-Faced Corruption Cards (GID-062)
+
+Dual-faced cards resolve as either their Light or Dark face at battle start, depending on the player's corruption/redemption alignment. The chosen face is fixed for the entire battle, including mid-battle save/resume.
+
+### Data Model
+
+`CardData` (embedded fields, option b) carries all dark-face data in `dark_*` mirror fields on the same `.tres` resource:
+
+| Field | Type | Notes |
+|---|---|---|
+| `is_dual_face` | `bool` | `false` for all existing cards (backward-compatible default) |
+| `dark_card_name` | `String` | Dark face display name |
+| `dark_cost` | `int` | Dark face mana cost |
+| `dark_attack` | `int` | Dark face attack (minions) |
+| `dark_health` | `int` | Dark face health (minions) |
+| `dark_card_class` | `String` | `""` means same as light face |
+| `dark_description` | `String` | Dark face flavor text |
+| `dark_color` | `Color` | Dark face tint |
+| `dark_magic_type` | `String` | Always `"dark"` for dual cards |
+| `dark_spell_effect` | `String` | Dark face spell effect key |
+| `dark_spell_power` | `int` | Dark face spell power |
+| `dark_emergence_effect` | `String` | Dark face emergence effect key |
+| `dark_emergence_power` | `int` | Dark face emergence power |
+| `dark_keywords` | `PackedStringArray` | Dark face keywords |
+
+`CardData.to_template_dict(face: String = "light") -> Dictionary` accepts an optional `face` parameter. When `is_dual_face and face == "dark"`, it returns dark-field values. Both light and dark templates include `dual_card_id` (set to `id`) and `active_face` keys.
+
+`CardInstance` carries two new serialized fields: `dual_card_id: String` (non-empty = dual-faced) and `active_face: String` ("light" or "dark"). These are populated from the template dict in `_init()` and round-trip through `to_dict()` / `from_dict()`.
+
+### Alignment Resolution
+
+`CardRegistry.is_dark_aligned() -> bool` reads `SaveManager.corruption_points` and `redemption_points` via `Engine.get_main_loop()`. Returns `true` when `corruption_points > redemption_points`. Tie (0 == 0 on a fresh save) → `false` → Light face. Enemies always resolve dual cards as Light face.
+
+`CardRegistry.get_template_for_face(id, face) -> Dictionary` calls `to_template_dict(face)` on the loaded resource.
+
+`PlayerState.build_deck(card_ids, difficulty_tier, dark_aligned)` — new `dark_aligned: bool = false` parameter; calls `get_template_for_face` instead of `get_template`.
+
+In `BattleScene._ready()` (fresh-battle path only):
+```gdscript
+var _dark_aligned: bool = CardRegistry.is_dark_aligned()
+_state.players[0].build_deck(player_deck, 0, _dark_aligned)
+```
+
+### Dual-Faced Card Catalogue
+
+| ID | Name (Light) | Name (Dark) | Branch | Cost | Light Effect | Dark Effect |
+|---|---|---|---|---|---|---|
+| `ember_covenant` | Ember Covenant | Scorch Pact | Ember | 3 | `heal_all` (2) | `deal_damage_all` (2) |
+| `pyre_warden` | Pyre Warden | Flame Striker | Ember | 3 | 1/5 Ward | 4/2 Surge |
+| `sacred_light` | Sacred Light | Draining Touch | Dawn | 2 | `heal_single` (4) | `lifesteal_hit` (2) |
+| `hallowed_ground` | Hallowed Ground | Desecration | Dawn | 4 | `resurrect_last` | `destroy_low_hp` (3) |
+| `twilight_veil` | Twilight Veil | Shadow Curse | Dusk | 2 | `shield_minion` (3) | `curse_minion` (2) |
+| `ash_arbiter` | Ash Arbiter | Ash Marauder | Ash | 4 | 2/4 Ward + `emergence_heal_hero` (2) | 3/3 Surge + `emergence_deal_damage` (2) |
+
+All 6 appear in ShopScene and crafting automatically. None are in the starter deck.
+
+### Flip Animation
+
+When a dual-faced card first appears in the player's hand, `_trigger_dual_face_flip(panel)` plays a scale-x unfold tween (0.01 → 1.0, 0.28 s, TRANS_BACK/EASE_OUT). `BattleScene._flipped_dual_ids: Dictionary` tracks which `instance_id`s have been flipped so the animation only fires once per card per battle.
+
+### CardInspectOverlay — Dual-Face Layout
+
+When `card.dual_card_id != ""`, the overlay expands to a wider panel and shows Light and Dark faces side by side. The active face has a green border; inactive face shows all stats but no runtime status. `CardRegistry.get_template_for_face(id, "light"/"dark")` supplies each face's template dict.
+
+---
+
 ## Battlefield Resonance (GID-059)
 
 Battles inherit the biome and time-of-day context from where the encounter happens. Context is captured once at engagement and frozen for the battle's lifetime.

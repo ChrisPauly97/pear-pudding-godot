@@ -23,7 +23,7 @@ func after_all() -> void:
 # ---------------------------------------------------------------------------
 
 func test_get_all_ids_returns_forty_default_cards() -> void:
-	assert_eq(_registry.get_all_ids().size(), 50)
+	assert_eq(_registry.get_all_ids().size(), 56)
 
 
 func test_get_all_ids_contains_ghost() -> void:
@@ -128,3 +128,47 @@ func test_modifying_returned_template_does_not_affect_registry() -> void:
 	tmpl["cost"] = 9999
 	var fresh: Dictionary = _registry.get_template("ghost")
 	assert_eq(fresh["cost"], 1, "registry should return immutable copies")
+
+
+# ---------------------------------------------------------------------------
+# get_template_for_face — dual-faced cards
+# ---------------------------------------------------------------------------
+
+func test_get_template_for_face_light_returns_light_name() -> void:
+	var tmpl: Dictionary = _registry.get_template_for_face("ember_covenant", "light")
+	assert_eq(tmpl.get("name", ""), "Ember Covenant")
+
+
+func test_get_template_for_face_dark_returns_dark_name() -> void:
+	var tmpl: Dictionary = _registry.get_template_for_face("ember_covenant", "dark")
+	assert_eq(tmpl.get("name", ""), "Scorch Pact")
+
+
+func test_get_template_for_face_light_sets_active_face_light() -> void:
+	var tmpl: Dictionary = _registry.get_template_for_face("ember_covenant", "light")
+	assert_eq(tmpl.get("active_face", ""), "light")
+
+
+func test_get_template_for_face_dark_sets_active_face_dark() -> void:
+	var tmpl: Dictionary = _registry.get_template_for_face("ember_covenant", "dark")
+	assert_eq(tmpl.get("active_face", ""), "dark")
+
+
+func test_get_template_for_face_dual_card_id_populated() -> void:
+	var tmpl: Dictionary = _registry.get_template_for_face("ember_covenant", "light")
+	assert_eq(tmpl.get("dual_card_id", ""), "ember_covenant")
+
+
+func test_get_template_for_face_non_dual_card_has_empty_dual_card_id() -> void:
+	var tmpl: Dictionary = _registry.get_template_for_face("ghost", "light")
+	assert_eq(tmpl.get("dual_card_id", ""), "")
+
+
+func test_get_template_for_face_dark_spell_effect_correct() -> void:
+	var tmpl: Dictionary = _registry.get_template_for_face("ember_covenant", "dark")
+	assert_eq(tmpl.get("spell_effect", ""), "deal_damage_all")
+
+
+func test_get_template_for_face_light_spell_effect_correct() -> void:
+	var tmpl: Dictionary = _registry.get_template_for_face("ember_covenant", "light")
+	assert_eq(tmpl.get("spell_effect", ""), "heal_all")
