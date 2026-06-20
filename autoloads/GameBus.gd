@@ -104,6 +104,9 @@ signal potion_used(potion_id: String)
 # Cantrip signals
 signal cantrip_used(cantrip_id: String)
 
+# Landmark discovery signals (GID-067)
+signal landmark_discovered(landmark_id: String, display_name: String)
+
 # Blight signals (GID-066)
 signal blight_changed()
 

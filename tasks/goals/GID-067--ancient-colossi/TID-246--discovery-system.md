@@ -2,12 +2,12 @@
 
 **Goal:** GID-067
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-244
 
 ## Lock
 
-**Session:** none
+**Session:** —
 **Acquired:** —
 **Expires:** —
 
@@ -44,12 +44,23 @@ The emotional payoff of landmarks: walking up to one for the first time names it
 
 ## Plan
 
-_Written during Plan phase._
+- Create `game_logic/world/LandmarkNames.gd` with `get_name(cx, cz, world_seed) -> String` and `name_from_id(id, world_seed) -> String`
+- Add `discovered_landmarks: Array[String]` to `SaveManager` with migration v38→v39, `mark_landmark_discovered()`, `is_landmark_discovered()` API
+- Add `landmark_discovered` signal to `GameBus.gd`
+- Add `_active_landmark_data: Dictionary` to `WorldScene`, populate in chunk load/eviction, call `_check_nearby_landmark()` from `_check_interactions()`
+- Add `_discover_landmark()` in WorldScene: mark, emit signal, toast, grant 50 coins + rare card, emit hud_message
+- Add "Discoveries" tab to `JournalScene.gd` listing landmark names on demand
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/world/LandmarkNames.gd`** (NEW): Deterministic name generator; `_EPITHETS`, `_NOUNS_BY_VARIANT`, `_PLACES_BY_BIOME` word pools; format `"The <epithet> <noun> of <place>"`; `get_name()` and `name_from_id()` static functions
+- **`game_logic/world/LandmarkNames.gd.uid`** (NEW): `uid://wmxy2sahmehc`
+- **`autoloads/GameBus.gd`**: Added `signal landmark_discovered(landmark_id: String, display_name: String)`
+- **`autoloads/SaveManager.gd`**: Added `discovered_landmarks: Array[String]`, version bump 38→39, migration `_migrate_v38_to_v39()`, `mark_landmark_discovered()`, `is_landmark_discovered()` API, load/save round-trip
+- **`scenes/world/WorldScene.gd`**: Added `LandmarkNames` preload, `_active_landmark_data`, `register_landmark()`, `LANDMARK_DISCOVERY_RANGE=9.0`, `_check_nearby_landmark()`, `_discover_landmark()` (toast + 50 coins + rare card + hud_message)
+- **`scenes/ui/JournalScene.gd`**: Added "Discoveries" tab button, `_populate_discoveries_list()` listing known landmarks, `_on_discovery_selected()` detail view
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/ancient-colossi.md` covering the full system
+- Added row to CLAUDE.md docs table

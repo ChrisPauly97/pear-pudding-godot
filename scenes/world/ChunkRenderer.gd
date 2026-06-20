@@ -4,6 +4,7 @@ const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 const BiomeDef      = preload("res://game_logic/world/BiomeDef.gd")
 const BlightField   = preload("res://game_logic/world/BlightField.gd")
+const LandmarkMesh  = preload("res://game_logic/world/LandmarkMesh.gd")
 
 # Preload entity scenes once, not per-spawn
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
@@ -397,6 +398,46 @@ func _spawn_entities(world_scene: Node3D) -> void:
 			_set_visibility_range(heart_node)
 			if world_scene.has_method("register_blight_heart"):
 				world_scene.register_blight_heart(hid, heart_node)
+
+	# ── Landmarks (GID-067) ───────────────────────────────────────────────────
+	for l_data: Dictionary in _chunk_data.landmarks:
+		var lid: String = str(l_data.get("id", ""))
+		var variant: String = str(l_data.get("variant", "obelisk_ring"))
+		var biome: int = int(l_data.get("biome", 0))
+		var wx: float = float(l_data.get("x", 0.0))
+		var wz: float = float(l_data.get("z", 0.0))
+		var wy: float = 0.0
+		if world_scene.has_method("get_terrain_height"):
+			wy = world_scene.get_terrain_height(wx, wz)
+		var landmark_root := Node3D.new()
+		landmark_root.name = "Landmark_" + lid
+		# Mesh
+		var mi := MeshInstance3D.new()
+		mi.mesh = LandmarkMesh.build(variant, biome)
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = LandmarkMesh._stone_color(biome)
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mi.material_override = mat
+		landmark_root.add_child(mi)
+		# Collision (approximation around structure base)
+		var col_size: Vector3 = LandmarkMesh.collision_size(variant)
+		var body := StaticBody3D.new()
+		body.collision_layer = 4
+		body.collision_mask = 0
+		var col_shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = col_size
+		col_shape.shape = box
+		col_shape.position = Vector3(0.0, col_size.y * 0.5, 0.0)
+		body.add_child(col_shape)
+		landmark_root.add_child(body)
+		landmark_root.position = Vector3(wx, wy, wz)
+		entity_root.add_child(landmark_root)
+		# High visibility end so landmark is visible from far away
+		mi.visibility_range_end = 200.0
+		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		if world_scene.has_method("register_landmark"):
+			world_scene.register_landmark(lid, l_data)
 
 const ENTITY_VISIBILITY_END: float = 50.0
 

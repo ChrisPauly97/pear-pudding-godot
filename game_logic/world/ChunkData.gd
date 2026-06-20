@@ -12,6 +12,7 @@ var doors: Array[Dictionary] = []
 var npcs: Array[Dictionary] = []
 var waystones: Array[Dictionary] = []
 var burial_mounds: Array[Dictionary] = []
+var landmarks: Array[Dictionary] = []
 var is_generated: bool = false
 var has_entities: bool = false
 var biome_id: int = 0

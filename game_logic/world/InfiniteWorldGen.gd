@@ -60,6 +60,77 @@ static func biome_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> int:
 static func _chunk_seed(p_cx: int, p_cz: int, world_seed: int) -> int:
 	return (p_cx * 73856093) ^ (p_cz * 19349663) ^ world_seed
 
+# ── Landmark placement ─────────────────────────────────────────────────────
+# ~1 in LANDMARK_RARITY chunks hosts a mega-landmark (colossus, spire, etc.)
+const LANDMARK_RARITY: int = 50
+# Skip landmark placement within this Manhattan radius of origin (safe zone)
+const LANDMARK_SAFE_DIST: int = 3
+# Footprint half-size (tiles): landmark reserves a (2*FP+1) × (2*FP+1) area
+const LANDMARK_FP: int = 2
+
+# Biome → variant name (one per biome; deterministic from biome id)
+const LANDMARK_VARIANTS: Array[String] = [
+	"obelisk_ring",       # GRASSLANDS
+	"stone_head",         # FOREST
+	"kneeling_colossus",  # DESERT
+	"shattered_spire",    # SCORCHED
+	"broken_arch",        # MOUNTAINS
+]
+
+# Returns the landmark data dict for this chunk, or {} if none.
+# Pure function — identical inputs always produce identical output.
+static func landmark_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> Dictionary:
+	# Skip safe zone
+	var dist: int = abs(p_cx) + abs(p_cz)
+	if dist <= LANDMARK_SAFE_DIST:
+		return {}
+	# Independent hash so we never disturb existing RNG streams
+	var h: int = (p_cx * 16769023) ^ (p_cz * 6972593) ^ world_seed
+	h = h & 0x7FFFFFFF
+	# Rarity gate
+	if h % LANDMARK_RARITY != 7:
+		return {}
+	# Skip ruin chunks — replicate _gen_ruins RNG check (mask to 31-bit for portability)
+	var ruin_rng := RandomNumberGenerator.new()
+	ruin_rng.seed = (_chunk_seed(p_cx, p_cz, world_seed) + 2) & 0x7FFFFFFF
+	if ruin_rng.randi_range(0, 2) == 0:
+		return {}
+	# Determine variant from biome
+	var biome: int = biome_for_chunk(p_cx, p_cz, world_seed)
+	var variant: String = LANDMARK_VARIANTS[biome % LANDMARK_VARIANTS.size()]
+	var lid: String = "landmark_%d_%d" % [p_cx, p_cz]
+	# Centre tile of chunk
+	var tx: int = CHUNK_SIZE / 2
+	var tz: int = CHUNK_SIZE / 2
+	var wx: float = float(p_cx * CHUNK_SIZE + tx) * TILE_SIZE + TILE_SIZE * 0.5
+	var wz: float = float(p_cz * CHUNK_SIZE + tz) * TILE_SIZE + TILE_SIZE * 0.5
+	return {
+		"id": lid,
+		"variant": variant,
+		"biome": biome,
+		"tx": tx,
+		"tz": tz,
+		"x": wx,
+		"z": wz,
+		"cx": p_cx,
+		"cz": p_cz,
+	}
+
+static func _gen_landmarks(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: int) -> void:
+	var data: Dictionary = landmark_for_chunk(p_cx, p_cz, world_seed)
+	if data.is_empty():
+		return
+	var tx: int = int(data["tx"])
+	var tz: int = int(data["tz"])
+	# Stamp footprint tiles to TILE_GRASS so terrain is flat under the structure
+	for dz: int in range(-LANDMARK_FP, LANDMARK_FP + 1):
+		for dx: int in range(-LANDMARK_FP, LANDMARK_FP + 1):
+			var ltx: int = tx + dx
+			var ltz: int = tz + dz
+			chunk.set_tile(ltx, ltz, IsoConst.TILE_GRASS)
+			chunk.set_height(ltx, ltz, 0)
+	chunk.landmarks.append(data)
+
 # Approximately 1 in SCROLL_CHUNK_RARITY chunks gets an infinite-world scroll.
 const SCROLL_CHUNK_RARITY: int = 200
 
@@ -77,6 +148,7 @@ static func get_chunk_scroll_id(p_cx: int, p_cz: int, world_seed: int) -> String
 static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 	var chunk := _gen_tile_data(p_cx, p_cz, world_seed)
 	_gen_ruins(chunk, p_cx, p_cz, world_seed)
+	_gen_landmarks(chunk, p_cx, p_cz, world_seed)
 	_gen_entities(chunk, p_cx, p_cz, world_seed)
 	chunk.is_generated = true
 	chunk.has_entities = true
@@ -86,6 +158,7 @@ static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 static func generate_chunk_data_only(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 	var chunk := _gen_tile_data(p_cx, p_cz, world_seed)
 	_gen_ruins(chunk, p_cx, p_cz, world_seed)
+	_gen_landmarks(chunk, p_cx, p_cz, world_seed)
 	chunk.is_generated = true
 	return chunk
 

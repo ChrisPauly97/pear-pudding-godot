@@ -2,12 +2,12 @@
 
 **Goal:** GID-067
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-244
 
 ## Lock
 
-**Session:** none
+**Session:** —
 **Acquired:** —
 **Expires:** —
 
@@ -44,12 +44,18 @@ Landmarks must be physically imposing — tall enough to read as "something is o
 
 ## Plan
 
-_Written during Plan phase._
+- Create `game_logic/world/LandmarkMesh.gd` with static `build(variant, biome) -> ArrayMesh` and `collision_size(variant) -> Vector3`
+- Implement `_build_obelisk_ring`, `_build_stone_head`, `_build_kneeling_colossus`, `_build_shattered_spire`, `_build_broken_arch` builders using SurfaceTool + `_add_box` / `_add_tapered_box` helpers
+- Create `game_logic/world/LandmarkMesh.gd.uid` sidecar
+- Hook into `ChunkRenderer.gd` `_spawn_entities()`: detect `chunk.landmarks`, build MeshInstance3D + StaticBody3D, set `visibility_range_end=200.0`, call `world_scene.register_landmark()`
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/world/LandmarkMesh.gd`** (NEW): Pure static utility; builds CPU ArrayMesh for each of 5 landmark variants using SurfaceTool. Functions: `build()`, `collision_size()`, `_stone_color()`, `_add_box()`, `_add_tapered_box()`, `_add_quad()`, and one builder per variant
+- **`game_logic/world/LandmarkMesh.gd.uid`** (NEW): `uid://s2m6nwfeutzu`
+- **`scenes/world/ChunkRenderer.gd`**: Added `const LandmarkMesh = preload(...)`, spawning block in `_spawn_entities()` that creates `Node3D > MeshInstance3D + StaticBody3D` per landmark with `visibility_range_end=200.0` and calls `world_scene.register_landmark()`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/ancient-colossi.md` covering the full system
+- Added row to CLAUDE.md docs table

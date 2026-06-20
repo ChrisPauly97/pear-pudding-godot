@@ -26,6 +26,7 @@ const CompassRibbon = preload("res://scenes/ui/CompassRibbon.gd")
 const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 const CantripManager = preload("res://game_logic/world/CantripManager.gd")
+const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
 const _BurialMoundScene = preload("res://scenes/world/entities/BurialMound.tscn")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
@@ -84,6 +85,7 @@ var _active_npc_data: Dictionary = {}    # npc_id -> Dictionary
 var _digspot_node: Node3D = null         # the one active DigSpot entity (nil if none loaded)
 var _burial_mound_nodes: Dictionary = {} # mound_id -> Node3D
 var _blight_heart_nodes: Dictionary = {} # heart_id -> Node3D
+var _active_landmark_data: Dictionary = {} # landmark_id -> Dictionary
 var _ghost_phase_active: bool = false    # true while ghost-phase tween runs
 var _ghost_tween: Tween = null
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
@@ -838,6 +840,9 @@ func _update_chunks() -> void:
 			if is_instance_valid(mnode):
 				mnode.queue_free()
 			_burial_mound_nodes.erase(mid)
+		for l_data: Dictionary in chunk.landmarks:
+			var lid: String = str(l_data.get("id", ""))
+			_active_landmark_data.erase(lid)
 
 	# Evict chunk data cache entries far beyond the unload radius to bound memory.
 	# Keep a margin beyond UNLOAD_RADIUS so neighbour tile lookups still hit cache.
@@ -988,6 +993,9 @@ func _commit_chunk_results() -> void:
 	for w_data in chunk.waystones:
 		var wid: String = str(w_data.get("id", ""))
 		_active_waystone_data[wid] = w_data
+	for l_data: Dictionary in chunk.landmarks:
+		var lid: String = str(l_data.get("id", ""))
+		_active_landmark_data[lid] = l_data
 
 	var renderer: ChunkRenderer = ChunkRenderer.new()
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
@@ -1022,6 +1030,9 @@ func _build_chunk_sync(key: Vector2i) -> void:
 	for w_data in chunk.waystones:
 		var wid: String = str(w_data.get("id", ""))
 		_active_waystone_data[wid] = w_data
+	for l_data: Dictionary in chunk.landmarks:
+		var lid: String = str(l_data.get("id", ""))
+		_active_landmark_data[lid] = l_data
 	var renderer: ChunkRenderer = ChunkRenderer.new()
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
 	add_child(renderer)
@@ -1387,6 +1398,9 @@ func register_burial_mound(mid: String, node: Node3D) -> void:
 func register_blight_heart(heart_id: String, node: Node3D) -> void:
 	_blight_heart_nodes[heart_id] = node
 
+func register_landmark(landmark_id: String, l_data: Dictionary) -> void:
+	_active_landmark_data[landmark_id] = l_data
+
 func _find_nearby_blight_heart(px: float, pz: float, range_dist: float) -> Node3D:
 	var range_sq: float = range_dist * range_dist
 	for hid: String in _blight_heart_nodes:
@@ -1398,6 +1412,40 @@ func _find_nearby_blight_heart(px: float, pz: float, range_dist: float) -> Node3
 		if ddx * ddx + ddz * ddz <= range_sq:
 			return hnode
 	return null
+
+const LANDMARK_DISCOVERY_RANGE: float = 9.0
+
+func _check_nearby_landmark(px: float, pz: float) -> void:
+	if not _is_infinite:
+		return
+	var range_sq: float = LANDMARK_DISCOVERY_RANGE * LANDMARK_DISCOVERY_RANGE
+	var sm := SceneManager.save_manager
+	for lid: String in _active_landmark_data:
+		if sm.is_landmark_discovered(lid):
+			continue
+		var l: Dictionary = _active_landmark_data[lid]
+		var ddx: float = float(l.get("x", 0.0)) - px
+		var ddz: float = float(l.get("z", 0.0)) - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			_discover_landmark(lid, l)
+
+func _discover_landmark(lid: String, l_data: Dictionary) -> void:
+	var sm := SceneManager.save_manager
+	sm.mark_landmark_discovered(lid)
+	var cx: int = int(l_data.get("cx", 0))
+	var cz: int = int(l_data.get("cz", 0))
+	var display_name: String = LandmarkNames.get_name(cx, cz, WORLD_SEED)
+	GameBus.landmark_discovered.emit(lid, display_name)
+	SceneManager.show_toast("Discovery!", display_name)
+	# One-time reward: coins + random card
+	sm.add_coins(50)
+	var card_ids: Array[String] = ["ghost", "skeleton", "zombie", "ghoul"]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = (cx * 73856093) ^ (cz * 19349663) ^ WORLD_SEED
+	rng.seed = rng.seed & 0x7FFFFFFF
+	var card_id: String = card_ids[rng.randi_range(0, card_ids.size() - 1)]
+	sm.add_card_instance(card_id, "rare")
+	GameBus.hud_message_requested.emit("You discovered %s! +50 coins, +1 card." % display_name)
 
 func _refresh_blight_tints() -> void:
 	var sm := SceneManager.save_manager
@@ -1928,6 +1976,8 @@ func _check_interactions() -> void:
 	var garden_plot := _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
 	var burial_mound := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
 	var blight_heart := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
+	# Landmarks auto-trigger on approach (no button press needed)
+	_check_nearby_landmark(px, pz)
 	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null:
 		if _interact_btn != null:
 			_interact_btn.show()

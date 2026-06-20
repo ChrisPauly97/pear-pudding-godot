@@ -2,12 +2,12 @@
 
 **Goal:** GID-067
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** none
+**Session:** —
 **Acquired:** —
 **Expires:** —
 
@@ -48,12 +48,24 @@ Foundation task: decides which chunks host landmarks and which variant each gets
 
 ## Plan
 
-_Written during Plan phase._
+- Add `landmarks: Array[Dictionary] = []` field to `ChunkData.gd`
+- Add constants to `InfiniteWorldGen.gd`: `LANDMARK_RARITY=50`, `LANDMARK_SAFE_DIST=3`, `LANDMARK_FP=2`, `LANDMARK_VARIANTS` array
+- Add `landmark_for_chunk(cx, cz, world_seed) -> Dictionary` static pure function with independent hash stream
+- Add `_gen_landmarks()` private helper that stamps TILE_GRASS footprint and appends to `chunk.landmarks`
+- Call `_gen_landmarks()` from both `generate_chunk()` and `generate_chunk_data_only()` after `_gen_ruins()`
+- Write headless tests in `tests/unit/test_landmark_system.gd`
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/world/ChunkData.gd`**: Added `var landmarks: Array[Dictionary] = []` field after `burial_mounds`
+- **`game_logic/world/InfiniteWorldGen.gd`**:
+  - Added `LANDMARK_RARITY=50`, `LANDMARK_SAFE_DIST=3`, `LANDMARK_FP=2`, `LANDMARK_VARIANTS` constants
+  - Added `landmark_for_chunk()` static pure function (independent hash `(cx*16769023)^(cz*6972593)^seed`, safe-zone guard, ruin-chunk skip with 31-bit mask)
+  - Added `_gen_landmarks()` that stamps 5×5 TILE_GRASS footprint and appends landmark dict to `chunk.landmarks`
+  - Both `generate_chunk()` and `generate_chunk_data_only()` call `_gen_landmarks()` after `_gen_ruins()`
+- **`tests/unit/test_landmark_system.gd`**: New test file with 21 tests covering density, safe zone, determinism, biome matching, required fields, ruin exclusion, ChunkData population, footprint tiles
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/ancient-colossi.md` covering the full system
+- Added row to CLAUDE.md docs table

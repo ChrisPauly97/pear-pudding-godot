@@ -12,15 +12,15 @@ Infinite procedural worlds blur together — every chunk is locally interesting 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-244 | Landmark Placement — Deterministic Rarity Roll, Biome Variants, Chunk Integration | agent | pending | — |
-| TID-245 | Landmark Meshes — CPU ArrayMesh Structures | agent | pending | TID-244 |
-| TID-246 | Discovery System — Name Generator, Journal Tab, Toast, Reward | agent | pending | TID-244 |
+| TID-244 | Landmark Placement — Deterministic Rarity Roll, Biome Variants, Chunk Integration | agent | done | — |
+| TID-245 | Landmark Meshes — CPU ArrayMesh Structures | agent | done | TID-244 |
+| TID-246 | Discovery System — Name Generator, Journal Tab, Toast, Reward | agent | done | TID-244 |
 
 ## Acceptance Criteria
 
-- [ ] Roughly 1 in 60 chunks hosts a landmark, decided deterministically from (world_seed, cx, cz); same seed always yields the same landmarks.
-- [ ] Landmark variant is biome-appropriate (at least 3 distinct variants across the 5 biomes).
-- [ ] Landmark structures are tall/large enough to be visible several chunks away in the orthographic isometric view, with collision.
-- [ ] Walking up to an undiscovered landmark fires a toast with its procedurally generated name, logs it in a Journal "Discoveries" section, and grants a one-time reward.
-- [ ] Discovered landmark ids persist in the save; re-visits do not re-reward.
-- [ ] All tests pass headless.
+- [x] Roughly 1 in 60 chunks hosts a landmark, decided deterministically from (world_seed, cx, cz); same seed always yields the same landmarks.
+- [x] Landmark variant is biome-appropriate (at least 3 distinct variants across the 5 biomes).
+- [x] Landmark structures are tall/large enough to be visible several chunks away in the orthographic isometric view, with collision.
+- [x] Walking up to an undiscovered landmark fires a toast with its procedurally generated name, logs it in a Journal "Discoveries" section, and grants a one-time reward.
+- [x] Discovered landmark ids persist in the save; re-visits do not re-reward.
+- [x] All tests pass headless.
