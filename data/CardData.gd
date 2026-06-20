@@ -81,4 +81,6 @@ func to_template_dict(face: String = "light") -> Dictionary:
 		"emergence_power": emergence_power,
 		"dual_card_id": id if is_dual_face else "",
 		"active_face": "light" if is_dual_face else "",
+		"is_unique": is_unique,
+		"can_craft": can_craft,
 	}

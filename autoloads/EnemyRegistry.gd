@@ -42,6 +42,9 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 1,
 			"lore_text": "Drawn forth by ancient dark rites, these shambling dead roam the wilds seeking the warmth of the living. They are slow but relentless, overwhelming lone travelers with sheer numbers.",
+			"signature_card": "sig_wanderer",
+			"capture_condition": "win_by_turn",
+			"capture_param": 9,
 		},
 		"undead_horde": {
 			"display_name": "Horde Shambler",
@@ -53,6 +56,9 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 2,
 			"lore_text": "Where one undead wanders, a horde is never far behind. These pack hunters press forward in relentless waves, making up in numbers what they lack in cunning.",
+			"signature_card": "sig_shambler",
+			"capture_condition": "spell_final_blow",
+			"capture_param": 0,
 		},
 		"undead_elite": {
 			"display_name": "Undead Warlord",
@@ -64,6 +70,9 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 4,
 			"lore_text": "A champion re-risen by Martarquas sorcery, the Undead Warlord retains fragments of its battle tactics. It fights with brutal efficiency — a grim echo of the soldier it once was.",
+			"signature_card": "sig_warlord",
+			"capture_condition": "hero_hp_at_most",
+			"capture_param": 10,
 		},
 		"ghoul_pack": {
 			"display_name": "Ghoul Pack Leader",
@@ -75,6 +84,9 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 3,
 			"lore_text": "Once a fierce warrior in life, the Ghoul Pack Leader still commands through primal instinct, driving its kin with savage coordination. Its bite carries a rot that weakens even the stoutest heart.",
+			"signature_card": "sig_pack_leader",
+			"capture_condition": "no_minion_hero_attacks",
+			"capture_param": 0,
 		},
 		"duelist_novice": {
 			"display_name": "Novice Duelist",
@@ -362,3 +374,34 @@ static func get_lore_text(type_id: String) -> String:
 	if _enemies.has(type_id):
 		return str(_enemies[type_id]["lore_text"])
 	return ""
+
+## Returns the signature card id for this enemy type, or "" if none.
+static func get_signature_card(type_id: String) -> String:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return str(_enemies[type_id].get("signature_card", ""))
+	return ""
+
+## Returns the capture condition key for this enemy type, or "" if none.
+static func get_capture_condition(type_id: String) -> String:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return str(_enemies[type_id].get("capture_condition", ""))
+	return ""
+
+## Returns the numeric capture param for this enemy type (0 if none or unknown).
+static func get_capture_param(type_id: String) -> int:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return int(_enemies[type_id].get("capture_param", 0))
+	return 0
+
+## Returns all unique signature card ids across all known enemy types.
+static func get_all_signature_card_ids() -> Array[String]:
+	_ensure_loaded()
+	var result: Array[String] = []
+	for key: String in _enemies.keys():
+		var sig: String = str(_enemies[key].get("signature_card", ""))
+		if sig != "" and not result.has(sig):
+			result.append(sig)
+	return result

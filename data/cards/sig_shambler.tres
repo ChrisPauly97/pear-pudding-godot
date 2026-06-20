@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://lb75siir5q62"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_sig_shambler"]
+
+[resource]
+script = ExtResource("1_sig_shambler")
+id = "sig_shambler"
+card_name = "Shambling Vanguard"
+cost = 3
+attack = 3
+health = 3
+card_class = "minion"
+description = "When this rises, the horde surges behind it."
+color = Color(0.75, 0.75, 0.8, 1)
+emergence_effect = "emergence_deal_damage"
+emergence_power = 2
+can_craft = false
+is_unique = true

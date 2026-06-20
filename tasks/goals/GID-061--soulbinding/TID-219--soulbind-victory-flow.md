@@ -2,7 +2,7 @@
 
 **Goal:** GID-061
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-218
 
 ## Lock
@@ -56,12 +56,23 @@ Wires the TID-218 `CaptureTracker` verdict into the victory flow: a Soulbind rit
 
 ## Plan
 
-_Written during Plan phase._
+Implemented alongside TID-218 and TID-220:
+1. Add `SaveManager.captured_signatures` field, `mark_signature_captured` / `is_signature_captured` methods, save/load/new-game/migration.
+2. Update `_check_game_over` winner-0 path with three-outcome dispatch.
+3. Update `_show_victory_overlay` signature to accept optional hunt-status params.
+4. Add `_show_soulbind_overlay` for the capture path (violet accent, extra sig card display).
+5. Update `SceneManager._on_battle_won` to handle `signature_capture` key.
+6. Exclude signatures from ShopScene via `EnemyRegistry.get_all_signature_card_ids()`.
+7. Fix `CardData.to_template_dict()` to expose `is_unique` and `can_craft` so InventoryScene sell/scrap guard works.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`: Added `captured_signatures: Array[String]`, `mark_signature_captured`, `is_signature_captured`; persisted in save dict; loaded; reset in `new_game()`; v34→v35 migration backfills empty array; `CURRENT_SAVE_VERSION` bumped to 35.
+- `scenes/battle/BattleScene.gd`: `_check_game_over` winner-0 path dispatches to `_show_soulbind_overlay` (condition met + uncaptured), `_show_victory_overlay` with hunt-status (uncaptured + not met), or plain `_show_victory_overlay` (no signature / already captured). `_show_victory_overlay` now accepts optional `sig_card_id`, `condition_text_arg`, `condition_met` params. Added `_show_soulbind_overlay` emitting `battle_won` with `"signature_capture": sig_id`.
+- `autoloads/SceneManager.gd`: `_on_battle_won` handles `result.get("signature_capture", "")` — rolls stats, calls `add_card_instance` + `mark_signature_captured`.
+- `scenes/ui/ShopScene.gd`: Added `const EnemyRegistry` preload; filters out signature card IDs from shop listings.
+- `data/CardData.gd`: `to_template_dict()` now includes `"is_unique": is_unique` and `"can_craft": can_craft`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Covered in `docs/agent/soulbinding.md` (created as part of this task group).

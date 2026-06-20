@@ -64,7 +64,7 @@
 | [GID-058](goals/GID-058--deck-loadouts/goal.md) | Deck Loadouts | done | 2 / 2 |
 | [GID-059](goals/GID-059--battlefield-resonance/goal.md) | Battlefield Resonance — Where You Fight Matters | done | 3 / 3 |
 | [GID-060](goals/GID-060--veteran-cards/goal.md) | Veteran Cards — Cards That Remember | done | 3 / 3 |
-| [GID-061](goals/GID-061--soulbinding/goal.md) | Soulbinding — Every Enemy Is a Card | pending | 0 / 3 |
+| [GID-061](goals/GID-061--soulbinding/goal.md) | Soulbinding — Every Enemy Is a Card | done | 3 / 3 |
 | [GID-062](goals/GID-062--dual-faced-cards/goal.md) | Dual-Faced Corruption Cards | done | 3 / 3 |
 | [GID-063](goals/GID-063--gambits/goal.md) | Gambits — Pre-Battle Wagers | done | 2 / 2 |
 | [GID-064](goals/GID-064--audit-remediation/goal.md) | Codebase Audit Remediation — Performance, Native Patterns & Bug Fixes | done | 12 / 12 |

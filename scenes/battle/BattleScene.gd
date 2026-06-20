@@ -23,6 +23,7 @@ const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
+const CaptureTracker = preload("res://game_logic/battle/CaptureTracker.gd")
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
@@ -115,6 +116,9 @@ const _EMERGENCE_LABELS: Dictionary = {
 	"emergence_buff_friendly": "Emergence: Give a friendly minion +[power] attack",
 	"emergence_apply_poison":  "Emergence: Poison a random enemy minion for [power]",
 }
+
+# Soulbind capture tracker (GID-061)
+var _capture_tracker: CaptureTracker = null
 
 # Enemy intent banner (TID-059)
 var _intent_panel: Control = null
@@ -245,6 +249,13 @@ func _ready() -> void:
 		# Flush auto-resolve spells collected from opening hand + turn-1 draw.
 		# Must run after enemy deck is built so spells target the real enemy.
 		_flush_auto_spells(0)
+
+	# Initialise capture tracker for the current enemy (no-op for puzzles/duels).
+	if not _state.puzzle_mode and not _state.friendly_duel:
+		var _ct_enemy_type: String = str(enemy_data.get("enemy_type", ""))
+		var _ct_condition: String = EnemyRegistry.get_capture_condition(_ct_enemy_type)
+		var _ct_param: int = EnemyRegistry.get_capture_param(_ct_enemy_type)
+		_capture_tracker = CaptureTracker.new(_ct_condition, _ct_param)
 
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(_confirm_return_to_menu)
@@ -1912,6 +1923,8 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 			if ec.keywords.has(Keywords.WARD):
 				return  # keep attacker selected; player must target the Ward minion
 		AudioManager.play_sfx("attack")
+		if _capture_tracker != null:
+			_capture_tracker.note_minion_attacked_hero(0)
 		var attacker_panel_eh := _get_card_panel(attacker, false)
 		var snap_eh := _snapshot_hp_positions()
 		_state.players[1].hero.take_damage(BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome))
@@ -2074,6 +2087,7 @@ func _resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 ## explicit_target: optional dict with "type" ("minion"/"hero") and "card" (CardInstance) for targeted spells.
 func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target: Dictionary = {}) -> void:
 	AudioManager.play_sfx("spell_resolve")
+	var _ct_board_before: int = _state.players[1 - caster_pid].board.get_cards().size() if caster_pid == 0 else 0
 	var opponent: PlayerState = _state.players[1 - caster_pid]
 	var _spell_dmg: int = BattlefieldRules.modify_damage(card.spell_power, _state.battlefield_biome)
 	match card.spell_effect:
@@ -2214,6 +2228,10 @@ func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target:
 				_state.players[1].discard.append(t)
 			for _i in range(3):
 				caster.draw_card()
+	# Note board change for spell_final_blow tracking (only player spells on the enemy board).
+	if _capture_tracker != null and caster_pid == 0:
+		var _ct_board_after: int = _state.players[1].board.get_cards().size()
+		_capture_tracker.note_spell_resolved(0, _ct_board_before, _ct_board_after)
 
 ## Drains pending_auto_spells for the given player and resolves each.
 ## Called after any draw event (opening hand, turn draw).
@@ -2341,7 +2359,17 @@ func _check_game_over() -> void:
 				var reward_card_id: String = ""
 				if pool.size() > 0:
 					reward_card_id = pool[randi() % pool.size()]
-				_show_victory_overlay(reward_card_id, "")
+				# Check soulbind capture condition.
+				var _ct_sig: String = EnemyRegistry.get_signature_card(enemy_type)
+				var _ct_captured: bool = SceneManager.save_manager.is_signature_captured(_ct_sig)
+				var _ct_met: bool = _capture_tracker != null and not _ct_sig.is_empty() and _capture_tracker.is_satisfied(_state)
+				if not _ct_sig.is_empty() and not _ct_captured and _ct_met:
+					_show_soulbind_overlay(reward_card_id, _ct_sig, _capture_tracker.condition_text())
+				elif not _ct_sig.is_empty() and not _ct_captured:
+					var _ct_text: String = _capture_tracker.condition_text() if _capture_tracker != null else ""
+					_show_victory_overlay(reward_card_id, "", _ct_sig, _ct_text, false)
+				else:
+					_show_victory_overlay(reward_card_id, "")
 		else:
 			AudioManager.play_sfx("battle_lose")
 			_haptic(80)
@@ -2365,7 +2393,8 @@ func _collect_veterancy_data() -> Dictionary:
 		data[uid]["kills"] = int(data[uid]["kills"]) + card.battle_kills
 	return data
 
-func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = "") -> void:
+func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = "",
+		sig_card_id: String = "", condition_text_arg: String = "", condition_met: bool = false) -> void:
 	if _float_layer:
 		_float_layer.hide()
 	var overlay := PanelContainer.new()
@@ -2407,6 +2436,16 @@ func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = ""
 		weapon_lbl.modulate = Color(0.8, 1.0, 0.5)
 		vbox.add_child(weapon_lbl)
 
+	# Hunt-status line: show when a signature is available but condition was not met.
+	if sig_card_id != "" and condition_text_arg != "":
+		var hunt_lbl := Label.new()
+		hunt_lbl.text = "Soulbind: %s — %s" % [condition_text_arg, "MET" if condition_met else "not met"]
+		hunt_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		hunt_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		hunt_lbl.modulate = Color(0.7, 0.5, 1.0)
+		hunt_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		vbox.add_child(hunt_lbl)
+
 	var btn := Button.new()
 	btn.text = "Collect" if (reward_card_id != "" or weapon_reward_id != "") else "Continue"
 	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
@@ -2421,6 +2460,78 @@ func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = ""
 			"weapon_reward": final_weapon,
 			"hero_hp": _state.players[0].hero.health,
 			"veterancy": veterancy_data,
+		})
+	)
+	vbox.add_child(btn)
+
+	overlay.add_child(vbox)
+	add_child(overlay)
+
+func _show_soulbind_overlay(reward_card_id: String, sig_card_id: String, condition_text_arg: String) -> void:
+	if _float_layer:
+		_float_layer.hide()
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.02, 0.12, 0.95)
+	overlay.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.028))
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Victory!"
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.modulate = Color(1.0, 0.85, 0.2)
+	vbox.add_child(title_lbl)
+
+	var soul_lbl := Label.new()
+	soul_lbl.text = "Soulbind Achieved!"
+	soul_lbl.add_theme_font_size_override("font_size", int(_vh * 0.04))
+	soul_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	soul_lbl.modulate = Color(0.8, 0.4, 1.0)
+	vbox.add_child(soul_lbl)
+
+	var cond_lbl := Label.new()
+	cond_lbl.text = condition_text_arg
+	cond_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	cond_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cond_lbl.modulate = Color(0.75, 0.6, 1.0)
+	cond_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(cond_lbl)
+
+	if reward_card_id != "":
+		var rtmpl: Dictionary = CardRegistry.get_template(reward_card_id)
+		var reward_lbl := Label.new()
+		reward_lbl.text = "You earned: " + str(rtmpl.get("name", reward_card_id))
+		reward_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+		reward_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(reward_lbl)
+
+	var stmpl: Dictionary = CardRegistry.get_template(sig_card_id)
+	var sig_lbl := Label.new()
+	sig_lbl.text = "Signature captured: " + str(stmpl.get("name", sig_card_id))
+	sig_lbl.add_theme_font_size_override("font_size", int(_vh * 0.032))
+	sig_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sig_lbl.modulate = Color(0.9, 0.5, 1.0)
+	vbox.add_child(sig_lbl)
+
+	var btn := Button.new()
+	btn.text = "Collect All"
+	btn.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.065)
+	btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	var fc: String = reward_card_id
+	var sc: String = sig_card_id
+	btn.pressed.connect(func() -> void:
+		overlay.queue_free()
+		GameBus.battle_won.emit({
+			"card_reward": fc,
+			"weapon_reward": "",
+			"hero_hp": _state.players[0].hero.health,
+			"signature_capture": sc,
 		})
 	)
 	vbox.add_child(btn)

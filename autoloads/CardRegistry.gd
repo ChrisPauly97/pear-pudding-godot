@@ -51,6 +51,10 @@ const _C_VOID_WYRM        := preload("res://data/cards/void_wyrm.tres")
 const _C_WITHER           := preload("res://data/cards/wither.tres")
 const _C_ZOMBIE           := preload("res://data/cards/zombie.tres")
 const _C_SHADOW_WARD       := preload("res://data/cards/shadow_ward.tres")
+const _C_SIG_PACK_LEADER   := preload("res://data/cards/sig_pack_leader.tres")
+const _C_SIG_SHAMBLER      := preload("res://data/cards/sig_shambler.tres")
+const _C_SIG_WANDERER      := preload("res://data/cards/sig_wanderer.tres")
+const _C_SIG_WARLORD       := preload("res://data/cards/sig_warlord.tres")
 const _C_ISFIG_SHADOW_ECHO := preload("res://data/cards/isfig_shadow_echo.tres")
 const _C_EMBER_COVENANT    := preload("res://data/cards/ember_covenant.tres")
 const _C_PYRE_WARDEN       := preload("res://data/cards/pyre_warden.tres")
@@ -75,6 +79,7 @@ static func _ensure_loaded() -> void:
 		_C_GHOST, _C_GHOUL, _C_INSIGHT, _C_IRON_REVENANT, _C_MEND, _C_PHOENIX_RISE,
 		_C_RADIANCE, _C_RALLY, _C_RESTORE, _C_SCORCH, _C_SHADOW_BOLT,
 		_C_SHADOW_WARD,
+		_C_SIG_PACK_LEADER, _C_SIG_SHAMBLER, _C_SIG_WANDERER, _C_SIG_WARLORD,
 		_C_SHROUDED_WRAITH, _C_SIPHON, _C_SKELETON, _C_SOUL_HARVEST, _C_SOUL_REND,
 		_C_SPARK, _C_SURGE_SPIRIT, _C_TIME_WARP, _C_VEILED_PALADIN,
 		_C_VOID_CREEPER, _C_VOID_WYRM, _C_WITHER, _C_ZOMBIE,

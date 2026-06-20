@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://e7pvfolp57s3"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_sig_warlord"]
+
+[resource]
+script = ExtResource("1_sig_warlord")
+id = "sig_warlord"
+card_name = "Death Commander"
+cost = 5
+attack = 4
+health = 4
+card_class = "minion"
+description = "A general reborn in darkness. Those who face it rarely survive to speak of it."
+color = Color(0.65, 0.1, 0.15, 1)
+keywords = PackedStringArray("shroud")
+can_craft = false
+is_unique = true

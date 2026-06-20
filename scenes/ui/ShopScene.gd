@@ -1,6 +1,7 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const PackDefs = preload("res://game_logic/PackDefs.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
@@ -111,7 +112,10 @@ func _refresh() -> void:
 
 	var effective_card_price: int = int(CARD_PRICE * 0.8) if discounted else CARD_PRICE
 	var unlocked_ach: Array[String] = SceneManager.save_manager.unlocked_achievements
+	var _sig_ids: Array[String] = EnemyRegistry.get_all_signature_card_ids()
 	for id: String in CardRegistry.get_all_ids():
+		if _sig_ids.has(id):
+			continue
 		var tmpl: Dictionary = CardRegistry.get_template(id)
 		if tmpl.is_empty():
 			continue
