@@ -188,7 +188,7 @@ func test_captured_signatures_migration_v34_to_v35() -> void:
 	var data: Dictionary = {"version": 34, "loadouts": [], "active_loadout": 0}
 	SaveManagerScript._apply_migrations(data)
 	assert_true(data.has("captured_signatures"))
-	assert_eq(int(data["version"]), 35)
+	assert_eq(int(data["version"]), SaveManagerScript.CURRENT_SAVE_VERSION)
 
 func test_captured_signatures_present_v35_unchanged() -> void:
 	var data: Dictionary = {"version": 35, "captured_signatures": ["sig_warlord"]}

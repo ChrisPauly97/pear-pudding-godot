@@ -1,6 +1,7 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
 
 var _selected_id: String = ""
 var _active_tab: String = "scrolls"
@@ -14,6 +15,7 @@ var _header_label: Label
 var _treasure_label: Label
 var _tab_scrolls_btn: Button
 var _tab_bestiary_btn: Button
+var _tab_discoveries_btn: Button
 
 func _ready() -> void:
 	super._ready()
@@ -70,6 +72,15 @@ func _build_ui() -> void:
 	_tab_bestiary_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	_tab_bestiary_btn.pressed.connect(_on_tab_selected.bind("bestiary"))
 	tab_bar.add_child(_tab_bestiary_btn)
+
+	_tab_discoveries_btn = Button.new()
+	_tab_discoveries_btn.text = "Discoveries"
+	_tab_discoveries_btn.flat = true
+	_tab_discoveries_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tab_discoveries_btn.custom_minimum_size = Vector2(0, _vh * 0.05)
+	_tab_discoveries_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_tab_discoveries_btn.pressed.connect(_on_tab_selected.bind("discoveries"))
+	tab_bar.add_child(_tab_discoveries_btn)
 
 	# ── Treasure status row ───────────────────────────────────────────────────
 	_treasure_label = Label.new()
@@ -162,6 +173,10 @@ func _show_empty_state() -> void:
 	if _active_tab == "bestiary":
 		_update_bestiary_header()
 		_title_label.text = "Select an entry"
+	elif _active_tab == "discoveries":
+		var found: int = SaveManager.discovered_landmarks.size()
+		_header_label.text = "Discoveries — %d Landmarks Found" % found
+		_title_label.text = "Select a landmark"
 	else:
 		var found: int = SaveManager.collected_scrolls.size()
 		_header_label.text = "Journal — %d / %d Scrolls" % [found, ScrollRegistry.SCROLL_COUNT]
@@ -216,8 +231,53 @@ func _on_tab_selected(tab: String) -> void:
 	_show_empty_state()
 	if tab == "scrolls":
 		_populate_scroll_list()
-	else:
+	elif tab == "bestiary":
 		_populate_bestiary_list()
+	else:
+		_populate_discoveries_list()
+
+func _populate_discoveries_list() -> void:
+	for child in _scroll_list.get_children():
+		child.queue_free()
+	var discovered: Array[String] = SaveManager.discovered_landmarks
+	if discovered.is_empty():
+		var empty_lbl := Label.new()
+		empty_lbl.text = "No landmarks discovered yet.\nExplore the world to find ancient colossi and ruins."
+		empty_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_scroll_list.add_child(empty_lbl)
+		return
+	var world_seed: int = SaveManager.world_seed
+	for lid: String in discovered:
+		var display_name: String = LandmarkNames.name_from_id(lid, world_seed)
+		var btn := Button.new()
+		btn.text = display_name
+		btn.flat = true
+		btn.custom_minimum_size = Vector2(_vw * 0.22, _vh * 0.06)
+		btn.add_theme_font_size_override("font_size", int(_vh * 0.020))
+		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		btn.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
+		btn.pressed.connect(_on_discovery_selected.bind(lid))
+		_scroll_list.add_child(btn)
+
+func _on_discovery_selected(landmark_id: String) -> void:
+	var world_seed: int = SaveManager.world_seed
+	var display_name: String = LandmarkNames.name_from_id(landmark_id, world_seed)
+	var parts: PackedStringArray = landmark_id.split("_")
+	var biome_name: String = ""
+	if parts.size() >= 3:
+		var cx: int = int(parts[1])
+		var cz: int = int(parts[2])
+		const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+		const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
+		var l_data: Dictionary = InfiniteWorldGen.landmark_for_chunk(cx, cz, world_seed)
+		var biome: int = int(l_data.get("biome", 0))
+		var biome_names: Array[String] = ["Grasslands", "Forest", "Desert", "Scorched", "Mountains"]
+		biome_name = biome_names[biome % biome_names.size()]
+	_title_label.text = display_name
+	_title_label.modulate = Color(1.0, 0.85, 0.4)
+	_lore_label.text = "[color=gray]Biome:[/color] %s\n\n[i]A great ruin of an ancient age, standing witness to the passage of time.[/i]" % biome_name
+	_replay_btn.hide()
 
 func _get_bestiary_tier(type_id: String) -> int:
 	var entry: Dictionary = SaveManager.get_bestiary_entry(type_id)
