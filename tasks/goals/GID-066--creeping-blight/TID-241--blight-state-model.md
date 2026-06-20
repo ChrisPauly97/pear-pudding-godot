@@ -2,7 +2,7 @@
 
 **Goal:** GID-066
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -70,12 +70,21 @@ This is the foundation task for the blight system. It defines the pure logic: wh
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/world/BlightField.gd` — pure static module with heart placement hash, spread radius, intensity, and blight query functions.
+2. Create `game_logic/world/BlightField.gd.uid` sidecar.
+3. Add `blight_cleansed_hearts: Array[String]` to SaveManager (field, migration v37→v38, new_game, load, save, mark_heart_cleansed, is_heart_cleansed).
+4. Add `blight_changed()` signal to GameBus.
+5. Add headless unit tests in `tests/unit/test_blight_field.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/world/BlightField.gd`** (new): Pure static module. `SUPER_SIZE=12`, `HEART_DENSITY=3` (~33%), `INITIAL_RADIUS=2.0`, `SPREAD_RATE=0.5`, `MAX_RADIUS=10.0`, `SAFE_CHUNK_RADIUS=6`. Functions: `get_heart_for_super`, `get_heart_at_chunk`, `blighted_radius`, `is_blighted`, `blight_intensity`, `get_nearest_heart`.
+- **`game_logic/world/BlightField.gd.uid`** (new): `uid://l6x3ppwccatj`
+- **`autoloads/SaveManager.gd`**: Added `blight_cleansed_hearts: Array[String] = []`; bumped `CURRENT_SAVE_VERSION` 37→38; migration `_migrate_v37_to_v38`; `new_game`, `load_save`, `save` updated; `mark_heart_cleansed(heart_id)` and `is_heart_cleansed(heart_id)` methods added.
+- **`autoloads/GameBus.gd`**: Added `signal blight_changed()`.
+- **`tests/unit/test_blight_field.gd`** (new): 8 tests covering density, determinism, safe zone, spread, capping, cleansing, and `is_blighted` / intensity mirroring.
+- **`tests/unit/test_blight_field.gd.uid`** (new): `uid://qtgdmxuyohdh`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Added `docs/agent/blight-system.md` covering architecture, BlightField API, shader uniform, entity, rewards, and integration points.

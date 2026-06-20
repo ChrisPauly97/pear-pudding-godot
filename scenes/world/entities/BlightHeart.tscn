@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://9y1t7xri1t8y"]
+
+[ext_resource type="Script" uid="uid://7hk5nm8rnf6v" path="res://scenes/world/entities/BlightHeart.gd" id="1"]
+
+[node name="BlightHeart" type="Node3D"]
+script = ExtResource("1")

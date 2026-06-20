@@ -196,6 +196,9 @@ var cantrip_cooldowns: Dictionary = {}
 # Burial mounds that have been dug (GID-065 Skeleton Dig)
 var dug_mounds: Array[String] = []
 
+# Blight system (GID-066): IDs of Blight Hearts the player has cleansed.
+var blight_cleansed_hearts: Array[String] = []
+
 # Garden system (GID-056)
 # Each plot dict: {seed_id: String, planted_day: int} or {} when empty.
 var garden_plots: Array[Dictionary] = []
@@ -370,6 +373,7 @@ func new_game() -> void:
 	captured_signatures = []
 	cantrip_cooldowns = {}
 	dug_mounds = []
+	blight_cleansed_hearts = []
 	var starting_deck_copy: Array[String] = []
 	starting_deck_copy.assign(player_deck)
 	loadouts = [{"name": "Deck 1", "cards": starting_deck_copy}]
@@ -380,7 +384,7 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
-const CURRENT_SAVE_VERSION: int = 37
+const CURRENT_SAVE_VERSION: int = 38
 
 # Migration table: each entry is called in order when the save version is older.
 # _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
@@ -714,6 +718,12 @@ static func _migrate_v36_to_v37(data: Dictionary) -> void:
 		data["dug_mounds"] = []
 	data["version"] = 37
 
+# _migrate_v37_to_v38: backfill blight_cleansed_hearts for old saves.
+static func _migrate_v37_to_v38(data: Dictionary) -> void:
+	if not data.has("blight_cleansed_hearts"):
+		data["blight_cleansed_hearts"] = []
+	data["version"] = 38
+
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
 	if ver < 1:
@@ -790,6 +800,8 @@ static func _apply_migrations(data: Dictionary) -> void:
 		_migrate_v35_to_v36(data)
 	if ver < 37:
 		_migrate_v36_to_v37(data)
+	if ver < 38:
+		_migrate_v37_to_v38(data)
 
 static func _sign(payload: String) -> String:
 	var crypto := Crypto.new()
@@ -939,6 +951,7 @@ func load_save() -> bool:
 	captured_signatures.assign(data.get("captured_signatures", []))
 	var cc = data.get("cantrip_cooldowns", {}); cantrip_cooldowns = cc if cc is Dictionary else {}
 	dug_mounds.assign(data.get("dug_mounds", []))
+	blight_cleansed_hearts.assign(data.get("blight_cleansed_hearts", []))
 	last_saved = str(data.get("last_saved", ""))
 	_loaded = true
 	return true
@@ -1034,6 +1047,7 @@ func save() -> void:
 		"captured_signatures": captured_signatures,
 		"cantrip_cooldowns": cantrip_cooldowns,
 		"dug_mounds": dug_mounds,
+		"blight_cleansed_hearts": blight_cleansed_hearts,
 		"last_saved": Time.get_datetime_string_from_system(false, true),
 	}
 	var save_path: String = _get_slot_path(active_slot)
@@ -2134,3 +2148,15 @@ func delete_loadout(index: int) -> bool:
 	player_deck.assign(loadouts[active_loadout].get("cards", []))
 	_dirty = true
 	return true
+
+# -------------------------------------------------------------------------
+# Blight system (GID-066)
+# -------------------------------------------------------------------------
+
+func mark_heart_cleansed(heart_id: String) -> void:
+	if not blight_cleansed_hearts.has(heart_id):
+		blight_cleansed_hearts.append(heart_id)
+	_dirty = true
+
+func is_heart_cleansed(heart_id: String) -> bool:
+	return blight_cleansed_hearts.has(heart_id)

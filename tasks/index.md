@@ -69,7 +69,7 @@
 | [GID-063](goals/GID-063--gambits/goal.md) | Gambits — Pre-Battle Wagers | done | 2 / 2 |
 | [GID-064](goals/GID-064--audit-remediation/goal.md) | Codebase Audit Remediation — Performance, Native Patterns & Bug Fixes | done | 12 / 12 |
 | [GID-065](goals/GID-065--card-cantrips/goal.md) | Card Cantrips — Your Deck Shapes the World | done | 3 / 3 |
-| [GID-066](goals/GID-066--creeping-blight/goal.md) | The Creeping Blight — Corruption Territory & Cleansing | pending | 0 / 3 |
+| [GID-066](goals/GID-066--creeping-blight/goal.md) | The Creeping Blight — Corruption Territory & Cleansing | done | 3 / 3 |
 | [GID-067](goals/GID-067--ancient-colossi/goal.md) | Ancient Colossi — Discoverable Mega-Landmarks | pending | 0 / 3 |
 | [GID-068](goals/GID-068--ley-lines/goal.md) | Ley Lines — Visible Currents of Magic | pending | 0 / 3 |
 | [GID-069](goals/GID-069--core-loop-retention/goal.md) | Core Loop Retention & Ease-of-Use | pending | 0 / 5 |

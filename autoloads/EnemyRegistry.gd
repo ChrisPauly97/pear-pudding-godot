@@ -245,6 +245,17 @@ static func _ensure_loaded() -> void:
 			"difficulty_tier": 2,
 			"lore_text": "Not every treasure chest holds gold. Some hold teeth. The Mimic waits in perfect stillness, indistinguishable from its surroundings — until you reach inside.",
 		},
+		"blight_heart": {
+			"display_name": "The Blight Heart",
+			"deck": ["void_creeper", "void_creeper", "void_creeper", "soul_harvest", "soul_harvest", "soul_harvest", "dusk_wraith", "dusk_wraith", "wither", "wither", "dark_pact", "dark_pact", "drain", "drain", "void_wyrm", "void_wyrm"],
+			"drop_pool": ["void_creeper", "soul_harvest", "dark_pact", "void_wyrm", "dusk_vampire"],
+			"coin_reward": 30,
+			"is_boss": true,
+			"boss_hp": 40,
+			"phase2_deck": [],
+			"difficulty_tier": 4,
+			"lore_text": "A pulsing node of corrupted essence, the Blight Heart anchors the spreading darkness to this land. Destroy it and the corruption will slowly recede — but it will not yield without a fierce fight.",
+		},
 	}
 
 ## Returns the battle deck for a type. Falls back to a minimal undead deck if unknown.

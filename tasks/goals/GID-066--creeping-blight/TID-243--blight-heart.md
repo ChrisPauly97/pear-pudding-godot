@@ -2,7 +2,7 @@
 
 **Goal:** GID-066
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-242
 
 ## Lock
@@ -48,12 +48,25 @@ The payoff loop of the blight system: the player tracks corruption to its source
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/world/entities/BlightHeart.gd` — pulsing sphere visual, `init_from_data()`, `engage()` emitting `GameBus.enemy_engaged` with `blight_heart_id` tag.
+2. Create `scenes/world/entities/BlightHeart.tscn` + `.uid` sidecars.
+3. Add `"blight_heart"` entry to `EnemyRegistry._enemies` (boss deck, `is_boss=true`, `boss_hp=40`, `coin_reward=30`).
+4. Spawn BlightHeart in `ChunkRenderer._spawn_entities()` using `BlightField.get_heart_at_chunk()`.
+5. Register heart nodes in `WorldScene` via `register_blight_heart()` + `_find_nearby_blight_heart()`.
+6. Wire `_check_interactions()` and `_handle_interact()` in WorldScene.
+7. In `SceneManager._on_battle_won()`: detect `blight_heart_id`, call `mark_heart_cleansed`, `add_redemption_points(10)`, emit `blight_changed`, HUD message.
+8. Enemy buff in BattleScene skips blight_heart fights via `enemy_data.has("blight_heart_id")` check.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/world/entities/BlightHeart.gd`** (new): Pulsing dark-purple sphere with transparent aura. `init_from_data(data)` stores `_heart_id`. `engage()` emits `GameBus.enemy_engaged` with boss deck from `EnemyRegistry`, `is_boss=true`, `boss_hp=40`, `blight_heart_id=_heart_id`; then `queue_free()`.
+- **`scenes/world/entities/BlightHeart.gd.uid`** (new): `uid://7hk5nm8rnf6v`
+- **`scenes/world/entities/BlightHeart.tscn`** (new): Simple 2-node scene format, `uid://9y1t7xri1t8y`.
+- **`autoloads/EnemyRegistry.gd`**: Added `"blight_heart"` entry with 16-card dark void deck, `is_boss=true`, `boss_hp=40`, `coin_reward=30`, difficulty_tier 4, lore text.
+- **`scenes/world/ChunkRenderer.gd`**: In `_spawn_entities()`, added BlightHeart spawn block after story scroll — calls `BlightField.get_heart_at_chunk(cx, cz, world_seed)`, skips cleansed hearts, instantiates `_BlightHeartScene`, calls `init_from_data()`, `register_blight_heart()`.
+- **`scenes/world/WorldScene.gd`**: Added `register_blight_heart(heart_id, node)`, `_find_nearby_blight_heart(px, pz, range)`. `_check_interactions()` checks `_find_nearby_blight_heart`. `_handle_interact()` calls `blight_heart_node.engage()`.
+- **`autoloads/SceneManager.gd`**: In `_on_battle_won()`, after veterancy block: checks `blight_heart_id` in `pending_battle_enemy_data`; calls `mark_heart_cleansed`, `add_redemption_points(10)`, `blight_changed.emit()`, HUD message.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/blight-system.md` documents full system including entity, rewards, and spawn flow.

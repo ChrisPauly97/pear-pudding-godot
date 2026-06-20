@@ -3,6 +3,7 @@ extends Node3D
 const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 const BiomeDef      = preload("res://game_logic/world/BiomeDef.gd")
+const BlightField   = preload("res://game_logic/world/BlightField.gd")
 
 # Preload entity scenes once, not per-spawn
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
@@ -15,6 +16,7 @@ const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn
 const _DigSpotScene      = preload("res://scenes/world/entities/DigSpot.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _BurialMoundScene  = preload("res://scenes/world/entities/BurialMound.tscn")
+const _BlightHeartScene  = preload("res://scenes/world/entities/BlightHeart.tscn")
 const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
 
 const TERRAIN_VDENSITY: int = 2
@@ -31,6 +33,9 @@ var _terrain_mat: ShaderMaterial
 var _terrain_hmap: HeightMapShape3D   # stored for deferred physics
 var _terrain_chunk_world: float       # stored for deferred physics
 var _physics_built: bool = false      # guard against double-build
+# Terrain MeshInstance3D refs for per-chunk blight tinting via instance uniforms.
+var _terrain_mi: MeshInstance3D = null
+var _wall_face_mi: MeshInstance3D = null
 
 # Cache one ShaderMaterial per biome so we never duplicate the template more
 # than 5 times total (5 biomes × 2 mesh instances = 10 unique materials in flight
@@ -131,6 +136,13 @@ func build_visual(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node
 	_apply_terrain_visual(terrain_res)
 	_build_grass(world_scene, terrain_res.get("grass", {}) as Dictionary)
 	_spawn_entities(world_scene)
+	# Apply initial blight tint for this chunk based on current world state.
+	if world_scene.get("WORLD_SEED") != null:
+		var ws: int = int(world_scene.get("WORLD_SEED"))
+		var sm := SceneManager.save_manager
+		var intensity: float = BlightField.blight_intensity(
+			_chunk_key.x, _chunk_key.y, ws, sm.days_elapsed, sm.blight_cleansed_hearts)
+		set_blight_amount(intensity)
 
 # Phase 2: physics bodies only — deferred one frame after build_visual.
 func build_physics() -> void:
@@ -169,12 +181,22 @@ func _apply_terrain_visual(res: Dictionary) -> void:
 	mi.mesh = res["mesh"]
 	mi.material_override = _terrain_mat
 	add_child(mi)
+	_terrain_mi = mi
 	var wall_face_mesh: ArrayMesh = res.get("wall_face_mesh") as ArrayMesh
 	if wall_face_mesh != null and wall_face_mesh.get_surface_count() > 0:
 		var wall_mi := MeshInstance3D.new()
 		wall_mi.mesh = wall_face_mesh
 		wall_mi.material_override = _terrain_mat
 		add_child(wall_mi)
+		_wall_face_mi = wall_mi
+
+## Sets the blight_amount instance uniform on both terrain mesh instances.
+## Call this after build_visual(); it is also called by WorldScene on day tick or cleanse.
+func set_blight_amount(intensity: float) -> void:
+	if _terrain_mi != null:
+		_terrain_mi.set_instance_shader_parameter("blight_amount", intensity)
+	if _wall_face_mi != null:
+		_wall_face_mi.set_instance_shader_parameter("blight_amount", intensity)
 
 func _apply_terrain_physics() -> void:
 	var col_node := CollisionShape3D.new()
@@ -362,6 +384,19 @@ func _spawn_entities(world_scene: Node3D) -> void:
 				scroll_node.setup(scroll_id, player)
 			if is_instance_valid(scroll_node) and world_scene.has_method("register_scroll"):
 				world_scene.register_scroll(scroll_node)
+
+	# ── Blight Heart (GID-066) ────────────────────────────────────────────────
+	var heart_data: Dictionary = BlightField.get_heart_at_chunk(cx, cz, world_seed)
+	if not heart_data.is_empty():
+		var hid: String = str(heart_data.get("id", ""))
+		if not SceneManager.save_manager.is_heart_cleansed(hid):
+			var heart_node: Node3D = _BlightHeartScene.instantiate() as Node3D
+			entity_root.add_child(heart_node)
+			if heart_node.has_method("init_from_data"):
+				heart_node.init_from_data(heart_data)
+			_set_visibility_range(heart_node)
+			if world_scene.has_method("register_blight_heart"):
+				world_scene.register_blight_heart(hid, heart_node)
 
 const ENTITY_VISIBILITY_END: float = 50.0
 

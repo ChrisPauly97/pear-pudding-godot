@@ -104,6 +104,9 @@ signal potion_used(potion_id: String)
 # Cantrip signals
 signal cantrip_used(cantrip_id: String)
 
+# Blight signals (GID-066)
+signal blight_changed()
+
 # Ambient audio signals
 signal biome_changed(biome_id: int)
 signal entered_named_map(map_name: String)
