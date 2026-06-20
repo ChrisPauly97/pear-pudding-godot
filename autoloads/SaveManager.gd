@@ -394,434 +394,134 @@ func new_game() -> void:
 
 const CURRENT_SAVE_VERSION: int = 40
 
-# Migration table: each entry is called in order when the save version is older.
-# _migrate_v0_to_v1: old saves had only "player_deck"; backfill "owned_cards".
-static func _migrate_v0_to_v1(data: Dictionary) -> void:
-	if not data.has("owned_cards"):
-		data["owned_cards"] = data.get("player_deck", [])
-	data["version"] = 1
-
-# _migrate_v1_to_v2: backfill world_seed and starting_biome for old saves.
-static func _migrate_v1_to_v2(data: Dictionary) -> void:
-	if not data.has("world_seed"):
-		data["world_seed"] = 42
-	if not data.has("starting_biome"):
-		data["starting_biome"] = 0
-	data["version"] = 2
-
-# _migrate_v2_to_v3: backfill story_flags for old saves.
-static func _migrate_v2_to_v3(data: Dictionary) -> void:
-	if not data.has("story_flags"):
-		data["story_flags"] = {}
-	data["version"] = 3
-
-# _migrate_v3_to_v4: backfill enemy respawn day counters for old saves.
-static func _migrate_v3_to_v4(data: Dictionary) -> void:
-	if not data.has("days_elapsed"):
-		data["days_elapsed"] = 0
-	if not data.has("last_respawn_day"):
-		data["last_respawn_day"] = 0
-	data["version"] = 4
-
-# _migrate_v4_to_v5: backfill equipped_weapon for old saves.
-static func _migrate_v4_to_v5(data: Dictionary) -> void:
-	if not data.has("equipped_weapon"):
-		data["equipped_weapon"] = ""
-	data["version"] = 5
-
-# _migrate_v5_to_v6: backfill collected_scrolls for old saves.
-static func _migrate_v5_to_v6(data: Dictionary) -> void:
-	if not data.has("collected_scrolls"):
-		data["collected_scrolls"] = []
-	data["version"] = 6
-
-# _migrate_v6_to_v7: backfill owned_weapons for old saves.
-static func _migrate_v6_to_v7(data: Dictionary) -> void:
-	if not data.has("owned_weapons"):
-		data["owned_weapons"] = []
-	data["version"] = 7
-
-# _migrate_v7_to_v8: backfill settings and achievement tracking fields for old saves.
-static func _migrate_v7_to_v8(data: Dictionary) -> void:
-	if not data.has("settings"):
-		data["settings"] = {}
-	if not data.has("achievement_progress"):
-		data["achievement_progress"] = {}
-	if not data.has("unlocked_achievements"):
-		data["unlocked_achievements"] = []
-	if not data.has("visited_biomes"):
-		data["visited_biomes"] = []
-	data["version"] = 8
-
-# _migrate_v8_to_v9: backfill visited_dungeon_rooms for old saves.
-static func _migrate_v8_to_v9(data: Dictionary) -> void:
-	if not data.has("visited_dungeon_rooms"):
-		data["visited_dungeon_rooms"] = []
-	data["version"] = 9
-
-# _migrate_v9_to_v10: convert owned_cards from Array[String] to Array[Dictionary] instances.
-# player_deck is remapped from template IDs to instance UIDs.
-# Adds essence field.
-static func _migrate_v9_to_v10(data: Dictionary) -> void:
-	const CardReg = preload("res://autoloads/CardRegistry.gd")
-	var old_owned: Array = data.get("owned_cards", [])
-	var old_deck: Array = data.get("player_deck", [])
-	var new_instances: Array = []
-	var counter: int = 0
-	for item in old_owned:
-		var tid: String = str(item)
-		var tmpl: Dictionary = CardReg.get_template(tid)
-		var uid: String = "%s_v10_%d" % [tid, counter]
-		counter += 1
-		new_instances.append({
-			"uid": uid,
-			"template_id": tid,
-			"rarity": "common",
-			"attack": int(tmpl.get("attack", 1)),
-			"health": int(tmpl.get("health", 1)),
-			"cost": int(tmpl.get("cost", 1)),
-		})
-	# Remap deck: match each template ID to the first unused instance UID.
-	var used_uids: Dictionary = {}
-	var new_deck: Array = []
-	for deck_item in old_deck:
-		var deck_tid: String = str(deck_item)
-		for inst: Dictionary in new_instances:
-			var iuid: String = str(inst.get("uid", ""))
-			if str(inst.get("template_id", "")) == deck_tid and not used_uids.has(iuid):
-				new_deck.append(iuid)
-				used_uids[iuid] = true
-				break
-	data["owned_cards"] = new_instances
-	data["player_deck"] = new_deck
-	data["essence"] = 0
-	data["version"] = 10
-
-# _migrate_v10_to_v11: backfill non-weapon equipment slots.
-static func _migrate_v10_to_v11(data: Dictionary) -> void:
-	if not data.has("equipped_armor"):   data["equipped_armor"] = ""
-	if not data.has("equipped_ring"):    data["equipped_ring"] = ""
-	if not data.has("equipped_trinket"): data["equipped_trinket"] = ""
-	if not data.has("owned_armor"):      data["owned_armor"] = []
-	if not data.has("owned_rings"):      data["owned_rings"] = []
-	if not data.has("owned_trinkets"):   data["owned_trinkets"] = []
-	data["version"] = 11
-
-# _migrate_v11_to_v12: backfill XP, level, skill_points for old saves.
-static func _migrate_v11_to_v12(data: Dictionary) -> void:
-	if not data.has("xp"):              data["xp"] = 0
-	if not data.has("level"):           data["level"] = 1
-	if not data.has("skill_points"):    data["skill_points"] = 0
-	if not data.has("unlocked_skills"): data["unlocked_skills"] = []
-	data["version"] = 12
-
-# _migrate_v12_to_v13: backfill magic type and cross-magic currency for old saves.
-static func _migrate_v12_to_v13(data: Dictionary) -> void:
-	if not data.has("magic_type"):          data["magic_type"] = ""
-	if not data.has("corruption_points"):   data["corruption_points"] = 0
-	if not data.has("redemption_points"):   data["redemption_points"] = 0
-	data["version"] = 13
-
-# _migrate_v13_to_v14: backfill mid-battle state snapshot for old saves.
-static func _migrate_v13_to_v14(data: Dictionary) -> void:
-	if not data.has("pending_battle_state"):
-		data["pending_battle_state"] = {}
-	data["version"] = 14
-
-# _migrate_v14_to_v15: backfill defeated_duelists for old saves.
-static func _migrate_v14_to_v15(data: Dictionary) -> void:
-	if not data.has("defeated_duelists"):
-		data["defeated_duelists"] = []
-	data["version"] = 15
-
-# _migrate_v15_to_v16: backfill spire_run for old saves.
-static func _migrate_v15_to_v16(data: Dictionary) -> void:
-	if not data.has("spire_run"):
-		data["spire_run"] = {"active": false}
-	data["version"] = 16
-
-# _migrate_v16_to_v17: backfill spire_best_floor for old saves.
-static func _migrate_v16_to_v17(data: Dictionary) -> void:
-	if not data.has("spire_best_floor"):
-		data["spire_best_floor"] = 0
-	data["version"] = 17
-
-# _migrate_v17_to_v18: backfill solved_puzzles and world_events for old saves.
-static func _migrate_v17_to_v18(data: Dictionary) -> void:
-	if not data.has("solved_puzzles"):
-		data["solved_puzzles"] = []
-	if not data.has("world_events"):
-		data["world_events"] = {}
-	data["version"] = 18
-
-# _migrate_v18_to_v19: backfill weather state for old saves.
-static func _migrate_v18_to_v19(data: Dictionary) -> void:
-	if not data.has("weather"):
-		data["weather"] = {"id": "", "duration": 0.0, "biome_id": 0}
-	data["version"] = 19
-
-# _migrate_v19_to_v20: backfill treasure map fields for old saves.
-static func _migrate_v19_to_v20(data: Dictionary) -> void:
-	if not data.has("treasure_fragments"):
-		data["treasure_fragments"] = 0
-	if not data.has("active_treasure"):
-		data["active_treasure"] = {}
-	if not data.has("treasures_completed"):
-		data["treasures_completed"] = 0
-	data["version"] = 20
-
-# _migrate_v20_to_v21: backfill waystone fast travel tracking for old saves.
-static func _migrate_v20_to_v21(data: Dictionary) -> void:
-	if not data.has("activated_waystones"):
-		data["activated_waystones"] = []
-	data["version"] = 21
-
-# _migrate_v21_to_v22: backfill bestiary tracking and player home ownership for old saves.
-static func _migrate_v21_to_v22(data: Dictionary) -> void:
-	if not data.has("bestiary"):
-		data["bestiary"] = {}
-	if not data.has("bestiary_complete_rewarded"):
-		data["bestiary_complete_rewarded"] = false
-	if not data.has("home_owned"):
-		data["home_owned"] = false
-	data["version"] = 22
-
-# _migrate_v22_to_v23: backfill respawn point fields for old saves.
-static func _migrate_v22_to_v23(data: Dictionary) -> void:
-	if not data.has("respawn_map"):
-		data["respawn_map"] = ""
-	if not data.has("respawn_x"):
-		data["respawn_x"] = 0.0
-	if not data.has("respawn_z"):
-		data["respawn_z"] = 0.0
-	data["version"] = 23
-
-# _migrate_v23_to_v24: backfill mount system fields for old saves.
-static func _migrate_v23_to_v24(data: Dictionary) -> void:
-	if not data.has("owned_mounts"):
-		data["owned_mounts"] = []
-	if not data.has("active_mount"):
-		data["active_mount"] = ""
-	if not data.has("is_mounted"):
-		data["is_mounted"] = false
-	data["version"] = 24
-
-# _migrate_v24_to_v25: backfill card pack pity counter for old saves.
-static func _migrate_v24_to_v25(data: Dictionary) -> void:
-	if not data.has("packs_since_legendary"):
-		data["packs_since_legendary"] = 0
-	data["version"] = 25
-
-# _migrate_v25_to_v26: backfill active_companion for old saves.
-static func _migrate_v25_to_v26(data: Dictionary) -> void:
-	if not data.has("active_companion"):
-		data["active_companion"] = ""
-	data["version"] = 26
-
-# _migrate_v26_to_v27: backfill player waypoint for old saves.
-static func _migrate_v26_to_v27(data: Dictionary) -> void:
-	if not data.has("waypoint"):
-		data["waypoint"] = {}
-	data["version"] = 27
-
-# _migrate_v27_to_v28: backfill bounty system fields for old saves.
-static func _migrate_v27_to_v28(data: Dictionary) -> void:
-	if not data.has("bounty_day"):
-		data["bounty_day"] = 0
-	if not data.has("offered_bounties"):
-		data["offered_bounties"] = []
-	if not data.has("active_bounties"):
-		data["active_bounties"] = []
-	data["version"] = 28
-
-# _migrate_v28_to_v29: backfill bag_size for old saves.
-static func _migrate_v28_to_v29(data: Dictionary) -> void:
-	if not data.has("bag_size"):
-		data["bag_size"] = IsoConst.BAG_SIZE_DEFAULT
-	data["version"] = 29
-
-# _migrate_v29_to_v30: convert owned_weapons from Array[String] to Array[Dictionary].
-# Each string weapon_id becomes {weapon_id: String, upgrade_level: 0}.
-static func _migrate_v29_to_v30(data: Dictionary) -> void:
-	if data.has("owned_weapons"):
-		var old_weapons: Array = data["owned_weapons"]
-		var new_weapons: Array = []
-		for item in old_weapons:
-			if item is Dictionary:
-				new_weapons.append(item)
-			else:
-				new_weapons.append({"weapon_id": str(item), "upgrade_level": 0})
-		data["owned_weapons"] = new_weapons
-	data["version"] = 30
-
-# _migrate_v30_to_v31: backfill siege state and town discount fields for old saves.
-static func _migrate_v30_to_v31(data: Dictionary) -> void:
-	if not data.has("siege"):
-		data["siege"] = {}
-	if not data.has("last_siege_day"):
-		data["last_siege_day"] = 0
-	if not data.has("town_discounts"):
-		data["town_discounts"] = {}
-	data["version"] = 31
-
-# _migrate_v31_to_v32: backfill rival encounter progression fields for old saves.
-static func _migrate_v31_to_v32(data: Dictionary) -> void:
-	if not data.has("rival_encounters_won"):
-		data["rival_encounters_won"] = 0
-	if not data.has("rival_defeated"):
-		data["rival_defeated"] = false
-	data["version"] = 32
-
-# _migrate_v32_to_v33: backfill garden system fields for old saves.
-static func _migrate_v32_to_v33(data: Dictionary) -> void:
-	if not data.has("garden_plots"):
-		data["garden_plots"] = [{}, {}, {}]
-	if not data.has("seeds"):
-		data["seeds"] = {}
-	if not data.has("plants"):
-		data["plants"] = {}
-	if not data.has("potions"):
-		data["potions"] = {}
-	data["version"] = 33
-
-# _migrate_v33_to_v34: wrap existing player_deck into a named loadout array.
-static func _migrate_v33_to_v34(data: Dictionary) -> void:
-	if not data.has("loadouts"):
-		var existing_deck: Array = data.get("player_deck", [])
-		var deck_copy: Array = existing_deck.duplicate()
-		data["loadouts"] = [{"name": "Deck 1", "cards": deck_copy}]
-		data["active_loadout"] = 0
-	data["version"] = 34
-
-# _migrate_v34_to_v35: backfill veterancy fields on owned_cards and captured_signatures.
-static func _migrate_v34_to_v35(data: Dictionary) -> void:
-	var cards: Array = data.get("owned_cards", [])
-	for i: int in range(cards.size()):
-		if not cards[i] is Dictionary:
-			continue
-		var card: Dictionary = cards[i]
-		if not card.has("kills"):
-			card["kills"] = 0
-		if not card.has("battles_survived"):
-			card["battles_survived"] = 0
-		if not card.has("custom_name"):
-			card["custom_name"] = ""
-	if not data.has("captured_signatures"):
-		data["captured_signatures"] = []
-	data["version"] = 35
-
-# _migrate_v35_to_v36: backfill cantrip cooldowns for old saves.
-static func _migrate_v35_to_v36(data: Dictionary) -> void:
-	if not data.has("cantrip_cooldowns"):
-		data["cantrip_cooldowns"] = {}
-	data["version"] = 36
-
-# _migrate_v36_to_v37: backfill dug_mounds for old saves.
-static func _migrate_v36_to_v37(data: Dictionary) -> void:
-	if not data.has("dug_mounds"):
-		data["dug_mounds"] = []
-	data["version"] = 37
-
-# _migrate_v37_to_v38: backfill blight_cleansed_hearts for old saves.
-static func _migrate_v37_to_v38(data: Dictionary) -> void:
-	if not data.has("blight_cleansed_hearts"):
-		data["blight_cleansed_hearts"] = []
-	data["version"] = 38
-
-# _migrate_v38_to_v39: backfill discovered_landmarks for old saves.
-static func _migrate_v38_to_v39(data: Dictionary) -> void:
-	if not data.has("discovered_landmarks"):
-		data["discovered_landmarks"] = []
-	data["version"] = 39
-
-# _migrate_v39_to_v40: backfill collected_mana_wells for old saves.
-static func _migrate_v39_to_v40(data: Dictionary) -> void:
-	if not data.has("collected_mana_wells"):
-		data["collected_mana_wells"] = []
-	data["version"] = 40
-
+# Each entry is [target_version, payload] where payload is either:
+#   Dictionary — {field: default} backfill applied when ver < target
+#   Callable   — func(data: Dictionary) for non-trivial format changes (must bump data["version"])
+# Entries are in ascending version order; ver is read once so all needed migrations
+# run in a single pass even when multiple versions are skipped.
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
-	if ver < 1:
-		_migrate_v0_to_v1(data)
-	if ver < 2:
-		_migrate_v1_to_v2(data)
-	if ver < 3:
-		_migrate_v2_to_v3(data)
-	if ver < 4:
-		_migrate_v3_to_v4(data)
-	if ver < 5:
-		_migrate_v4_to_v5(data)
-	if ver < 6:
-		_migrate_v5_to_v6(data)
-	if ver < 7:
-		_migrate_v6_to_v7(data)
-	if ver < 8:
-		_migrate_v7_to_v8(data)
-	if ver < 9:
-		_migrate_v8_to_v9(data)
-	if ver < 10:
-		_migrate_v9_to_v10(data)
-	if ver < 11:
-		_migrate_v10_to_v11(data)
-	if ver < 12:
-		_migrate_v11_to_v12(data)
-	if ver < 13:
-		_migrate_v12_to_v13(data)
-	if ver < 14:
-		_migrate_v13_to_v14(data)
-	if ver < 15:
-		_migrate_v14_to_v15(data)
-	if ver < 16:
-		_migrate_v15_to_v16(data)
-	if ver < 17:
-		_migrate_v16_to_v17(data)
-	if ver < 18:
-		_migrate_v17_to_v18(data)
-	if ver < 19:
-		_migrate_v18_to_v19(data)
-	if ver < 20:
-		_migrate_v19_to_v20(data)
-	if ver < 21:
-		_migrate_v20_to_v21(data)
-	if ver < 22:
-		_migrate_v21_to_v22(data)
-	if ver < 23:
-		_migrate_v22_to_v23(data)
-	if ver < 24:
-		_migrate_v23_to_v24(data)
-	if ver < 25:
-		_migrate_v24_to_v25(data)
-	if ver < 26:
-		_migrate_v25_to_v26(data)
-	if ver < 27:
-		_migrate_v26_to_v27(data)
-	if ver < 28:
-		_migrate_v27_to_v28(data)
-	if ver < 29:
-		_migrate_v28_to_v29(data)
-	if ver < 30:
-		_migrate_v29_to_v30(data)
-	if ver < 31:
-		_migrate_v30_to_v31(data)
-	if ver < 32:
-		_migrate_v31_to_v32(data)
-	if ver < 33:
-		_migrate_v32_to_v33(data)
-	if ver < 34:
-		_migrate_v33_to_v34(data)
-	if ver < 35:
-		_migrate_v34_to_v35(data)
-	if ver < 36:
-		_migrate_v35_to_v36(data)
-	if ver < 37:
-		_migrate_v36_to_v37(data)
-	if ver < 38:
-		_migrate_v37_to_v38(data)
-	if ver < 39:
-		_migrate_v38_to_v39(data)
-	if ver < 40:
-		_migrate_v39_to_v40(data)
+
+	var _m1: Callable = func(d: Dictionary) -> void:
+		if not d.has("owned_cards"):
+			d["owned_cards"] = d.get("player_deck", [])
+		d["version"] = 1
+
+	var _m10: Callable = func(d: Dictionary) -> void:
+		const CardReg = preload("res://autoloads/CardRegistry.gd")
+		var old_owned: Array = d.get("owned_cards", [])
+		var old_deck: Array = d.get("player_deck", [])
+		var new_instances: Array = []
+		var counter: int = 0
+		for item in old_owned:
+			var tid: String = str(item)
+			var tmpl: Dictionary = CardReg.get_template(tid)
+			var uid: String = "%s_v10_%d" % [tid, counter]
+			counter += 1
+			new_instances.append({"uid": uid, "template_id": tid, "rarity": "common",
+				"attack": int(tmpl.get("attack", 1)), "health": int(tmpl.get("health", 1)),
+				"cost": int(tmpl.get("cost", 1))})
+		var used_uids: Dictionary = {}
+		var new_deck: Array = []
+		for deck_item in old_deck:
+			var deck_tid: String = str(deck_item)
+			for inst: Dictionary in new_instances:
+				var iuid: String = str(inst.get("uid", ""))
+				if str(inst.get("template_id", "")) == deck_tid and not used_uids.has(iuid):
+					new_deck.append(iuid)
+					used_uids[iuid] = true
+					break
+		d["owned_cards"] = new_instances
+		d["player_deck"] = new_deck
+		d["essence"] = 0
+		d["version"] = 10
+
+	var _m30: Callable = func(d: Dictionary) -> void:
+		if d.has("owned_weapons"):
+			var old_weapons: Array = d["owned_weapons"]
+			var new_weapons: Array = []
+			for item in old_weapons:
+				if item is Dictionary:
+					new_weapons.append(item)
+				else:
+					new_weapons.append({"weapon_id": str(item), "upgrade_level": 0})
+			d["owned_weapons"] = new_weapons
+		d["version"] = 30
+
+	var _m34: Callable = func(d: Dictionary) -> void:
+		if not d.has("loadouts"):
+			var existing_deck: Array = d.get("player_deck", [])
+			d["loadouts"] = [{"name": "Deck 1", "cards": existing_deck.duplicate()}]
+			d["active_loadout"] = 0
+		d["version"] = 34
+
+	var _m35: Callable = func(d: Dictionary) -> void:
+		var cards: Array = d.get("owned_cards", [])
+		for i: int in range(cards.size()):
+			if not cards[i] is Dictionary:
+				continue
+			var card: Dictionary = cards[i]
+			if not card.has("kills"):            card["kills"] = 0
+			if not card.has("battles_survived"): card["battles_survived"] = 0
+			if not card.has("custom_name"):      card["custom_name"] = ""
+		if not d.has("captured_signatures"):
+			d["captured_signatures"] = []
+		d["version"] = 35
+
+	var table: Array = [
+		[1,  _m1],
+		[2,  {"world_seed": 42, "starting_biome": 0}],
+		[3,  {"story_flags": {}}],
+		[4,  {"days_elapsed": 0, "last_respawn_day": 0}],
+		[5,  {"equipped_weapon": ""}],
+		[6,  {"collected_scrolls": []}],
+		[7,  {"owned_weapons": []}],
+		[8,  {"settings": {}, "achievement_progress": {}, "unlocked_achievements": [], "visited_biomes": []}],
+		[9,  {"visited_dungeon_rooms": []}],
+		[10, _m10],
+		[11, {"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "",
+			  "owned_armor": [], "owned_rings": [], "owned_trinkets": []}],
+		[12, {"xp": 0, "level": 1, "skill_points": 0, "unlocked_skills": []}],
+		[13, {"magic_type": "", "corruption_points": 0, "redemption_points": 0}],
+		[14, {"pending_battle_state": {}}],
+		[15, {"defeated_duelists": []}],
+		[16, {"spire_run": {"active": false}}],
+		[17, {"spire_best_floor": 0}],
+		[18, {"solved_puzzles": [], "world_events": {}}],
+		[19, {"weather": {"id": "", "duration": 0.0, "biome_id": 0}}],
+		[20, {"treasure_fragments": 0, "active_treasure": {}, "treasures_completed": 0}],
+		[21, {"activated_waystones": []}],
+		[22, {"bestiary": {}, "bestiary_complete_rewarded": false, "home_owned": false}],
+		[23, {"respawn_map": "", "respawn_x": 0.0, "respawn_z": 0.0}],
+		[24, {"owned_mounts": [], "active_mount": "", "is_mounted": false}],
+		[25, {"packs_since_legendary": 0}],
+		[26, {"active_companion": ""}],
+		[27, {"waypoint": {}}],
+		[28, {"bounty_day": 0, "offered_bounties": [], "active_bounties": []}],
+		[29, {"bag_size": IsoConst.BAG_SIZE_DEFAULT}],
+		[30, _m30],
+		[31, {"siege": {}, "last_siege_day": 0, "town_discounts": {}}],
+		[32, {"rival_encounters_won": 0, "rival_defeated": false}],
+		[33, {"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {}}],
+		[34, _m34],
+		[35, _m35],
+		[36, {"cantrip_cooldowns": {}}],
+		[37, {"dug_mounds": []}],
+		[38, {"blight_cleansed_hearts": []}],
+		[39, {"discovered_landmarks": []}],
+		[40, {"collected_mana_wells": []}],
+	]
+	for entry: Array in table:
+		var target: int = entry[0]
+		var payload: Variant = entry[1]
+		if ver < target:
+			if payload is Dictionary:
+				for k: String in (payload as Dictionary).keys():
+					if not data.has(k):
+						data[k] = (payload as Dictionary)[k]
+				data["version"] = target
+			elif payload is Callable:
+				(payload as Callable).call(data)
 
 static func _sign(payload: String) -> String:
 	var crypto := Crypto.new()
@@ -1147,14 +847,6 @@ func set_active_deck(new_deck: Array[String]) -> void:
 		loadouts[active_loadout]["cards"] = synced
 	_dirty = true
 
-func get_owned_counts() -> Dictionary:
-	var counts: Dictionary = {}
-	for inst: Dictionary in owned_cards:
-		var tid: String = str(inst.get("template_id", ""))
-		if tid != "":
-			counts[tid] = int(counts.get(tid, 0)) + 1
-	return counts
-
 ## Counts slots used: 1 per unique common template + 1 per rare/epic/legendary instance.
 func get_slot_count() -> int:
 	var common_templates: Dictionary = {}
@@ -1304,15 +996,6 @@ func get_deck_instances() -> Array[Dictionary]:
 		if not inst.is_empty():
 			result.append(inst)
 	return result
-
-## Returns the first owned instance UID for template_id not already in exclude_uids.
-## Returns "" if none available.
-func find_available_uid_for_template(template_id: String, exclude_uids: Array[String]) -> String:
-	for inst: Dictionary in owned_cards:
-		var uid: String = str(inst.get("uid", ""))
-		if str(inst.get("template_id", "")) == template_id and not exclude_uids.has(uid):
-			return uid
-	return ""
 
 ## Resolves player_deck UIDs to template IDs for use by the battle system.
 func get_deck_template_ids() -> Array[String]:

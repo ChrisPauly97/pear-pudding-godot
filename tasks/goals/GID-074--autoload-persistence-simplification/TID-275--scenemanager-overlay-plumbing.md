@@ -2,14 +2,8 @@
 
 **Goal:** GID-074
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
-
-## Lock
-
-**Session:** none
-**Acquired:** —
-**Expires:** —
 
 ## Context
 
@@ -24,12 +18,18 @@ SceneManager.gd (autoloads/SceneManager.gd, 492 lines) repeats identical overlay
 
 ## Plan
 
-_Written during Plan phase._
+Add `_overlays: Dictionary` (State → Node) to track the 7 WORLD-state overlays. Add `_open_overlay()` and `_close_overlay()` generic helpers. Replace 7 open/close handler pairs and the 5-field null-check block in `_exit_world_cleanup` with the new pattern. Keep `_achievements_overlay` (MENU state), `_battle_overlay`, `_pack_open_overlay`, `_spire_draft_overlay`, and `_defeat_overlay` as named vars (each has non-standard lifecycle).
 
 ## Changes Made
 
-_Filled after Build phase._
+- **Removed** 7 named overlay vars (`_inventory_overlay`, `_shop_overlay`, `_journal_overlay`, `_character_overlay`, `_skill_tree_overlay`, `_bounty_board_overlay`, `_blacksmith_overlay`).
+- **Added** `var _overlays: Dictionary = {}` tracking all WORLD-state overlays by State key.
+- **Added** `_open_overlay(packed_scene, overlay_state, setup: Callable = Callable()) -> void`: guards WORLD state, instantiates, runs optional setup Callable, adds to current_scene, connects `closed` → `_close_overlay`, stores in `_overlays`, sets state.
+- **Added** `_close_overlay(overlay_state: State) -> void`: guards state match, queue_frees, erases from `_overlays`, returns to WORLD.
+- **Replaced** 7 open/close function pairs (~75 lines) with 7 one-or-two-line callers of `_open_overlay`.
+- **Simplified** `_exit_world_cleanup`: 5-field null-check block replaced with `for overlay in _overlays.values(): overlay.queue_free(); _overlays.clear()`. `_spire_draft_overlay` and `_pack_open_overlay` cleanup blocks retained.
+- **Updated** `_on_pack_purchased` to use `_overlays.get(State.SHOP)` instead of `_shop_overlay`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/ui-and-scene-management.md` may need a note about the `_overlays` dict pattern if updated in a follow-up; not critical for a refactor.

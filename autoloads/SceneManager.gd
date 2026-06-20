@@ -46,16 +46,10 @@ var _blacksmith_scene_packed := preload("res://scenes/ui/BlacksmithScene.tscn")
 
 var _state: State = State.MENU
 var _battle_overlay: Node = null
-var _inventory_overlay: Node = null
-var _shop_overlay: Node = null
-var _journal_overlay: Node = null
+var _overlays: Dictionary = {}  # State -> Node, for WORLD-state overlays
 var _achievements_overlay: Node = null
-var _character_overlay: Node = null
-var _skill_tree_overlay: Node = null
 var _spire_draft_overlay: Node = null
 var _pack_open_overlay: Node = null
-var _bounty_board_overlay: Node = null
-var _blacksmith_overlay: Node = null
 var _saved_world_scene: Node = null
 
 # Ephemeral session statistics — reset on new/continue game, not persisted.
@@ -273,21 +267,10 @@ func _exit_world_cleanup() -> void:
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
-	if _inventory_overlay != null:
-		_inventory_overlay.queue_free()
-		_inventory_overlay = null
-	if _shop_overlay != null:
-		_shop_overlay.queue_free()
-		_shop_overlay = null
-	if _journal_overlay != null:
-		_journal_overlay.queue_free()
-		_journal_overlay = null
-	if _character_overlay != null:
-		_character_overlay.queue_free()
-		_character_overlay = null
-	if _skill_tree_overlay != null:
-		_skill_tree_overlay.queue_free()
-		_skill_tree_overlay = null
+	for overlay: Node in _overlays.values():
+		if overlay != null:
+			overlay.queue_free()
+	_overlays.clear()
 	if _spire_draft_overlay != null:
 		_spire_draft_overlay.queue_free()
 		_spire_draft_overlay = null
@@ -845,130 +828,54 @@ func _on_battle_fled() -> void:
 		_battle_overlay = null
 	_restore_world()
 
-func _on_inventory_requested() -> void:
+func _open_overlay(packed_scene: PackedScene, overlay_state: State, setup: Callable = Callable()) -> void:
 	if _state != State.WORLD:
 		return
-	_inventory_overlay = _inventory_scene_packed.instantiate()
-	get_tree().current_scene.add_child(_inventory_overlay)
-	_inventory_overlay.closed.connect(_on_inventory_closed)
-	_state = State.INVENTORY
+	var overlay: Node = packed_scene.instantiate()
+	if setup.is_valid():
+		setup.call(overlay)
+	get_tree().current_scene.add_child(overlay)
+	overlay.closed.connect(_close_overlay.bind(overlay_state))
+	_overlays[overlay_state] = overlay
+	_state = overlay_state
 
-func _on_inventory_closed() -> void:
-	if _state != State.INVENTORY:
+func _close_overlay(overlay_state: State) -> void:
+	if _state != overlay_state:
 		return
-	if _inventory_overlay != null:
-		_inventory_overlay.queue_free()
-		_inventory_overlay = null
+	var overlay: Node = _overlays.get(overlay_state, null)
+	if overlay != null:
+		overlay.queue_free()
+		_overlays.erase(overlay_state)
 	_state = State.WORLD
+
+func _on_inventory_requested() -> void:
+	_open_overlay(_inventory_scene_packed, State.INVENTORY)
 
 func _on_shop_requested() -> void:
-	if _state != State.WORLD:
-		return
-	_shop_overlay = _shop_scene_packed.instantiate()
-	_shop_overlay.set("town_name", current_map)
-	get_tree().current_scene.add_child(_shop_overlay)
-	_shop_overlay.closed.connect(_on_shop_closed)
-	_state = State.SHOP
+	_open_overlay(_shop_scene_packed, State.SHOP, func(o: Node) -> void:
+		o.set("town_name", current_map))
 
 func _on_traveling_shop_requested(stock: Array[String], price: int) -> void:
-	if _state != State.WORLD:
-		return
-	_shop_overlay = _shop_scene_packed.instantiate()
-	_shop_overlay.set("_custom_stock", stock)
-	_shop_overlay.set("_custom_price", price)
-	_shop_overlay.set("_custom_title", "Traveling Merchant's Rare Wares")
-	get_tree().current_scene.add_child(_shop_overlay)
-	_shop_overlay.closed.connect(_on_shop_closed)
-	_state = State.SHOP
-
-func _on_shop_closed() -> void:
-	if _state != State.SHOP:
-		return
-	if _shop_overlay != null:
-		_shop_overlay.queue_free()
-		_shop_overlay = null
-	_state = State.WORLD
+	_open_overlay(_shop_scene_packed, State.SHOP, func(o: Node) -> void:
+		o.set("_custom_stock", stock)
+		o.set("_custom_price", price)
+		o.set("_custom_title", "Traveling Merchant's Rare Wares"))
 
 func _on_bounty_board_requested() -> void:
-	if _state != State.WORLD:
-		return
-	_bounty_board_overlay = _bounty_board_scene_packed.instantiate()
-	get_tree().current_scene.add_child(_bounty_board_overlay)
-	_bounty_board_overlay.closed.connect(_on_bounty_board_closed)
-	_state = State.BOUNTY_BOARD
-
-func _on_bounty_board_closed() -> void:
-	if _state != State.BOUNTY_BOARD:
-		return
-	if _bounty_board_overlay != null:
-		_bounty_board_overlay.queue_free()
-		_bounty_board_overlay = null
-	_state = State.WORLD
+	_open_overlay(_bounty_board_scene_packed, State.BOUNTY_BOARD)
 
 func _on_blacksmith_requested() -> void:
-	if _state != State.WORLD:
-		return
-	_blacksmith_overlay = _blacksmith_scene_packed.instantiate()
-	get_tree().current_scene.add_child(_blacksmith_overlay)
-	_blacksmith_overlay.closed.connect(_on_blacksmith_closed)
-	_state = State.BLACKSMITH
-
-func _on_blacksmith_closed() -> void:
-	if _state != State.BLACKSMITH:
-		return
-	if _blacksmith_overlay != null:
-		_blacksmith_overlay.queue_free()
-		_blacksmith_overlay = null
-	_state = State.WORLD
+	_open_overlay(_blacksmith_scene_packed, State.BLACKSMITH)
 
 func _on_journal_requested() -> void:
-	if _state != State.WORLD:
-		return
-	_journal_overlay = _journal_scene_packed.instantiate()
-	get_tree().current_scene.add_child(_journal_overlay)
-	_journal_overlay.closed.connect(_on_journal_closed)
-	_state = State.JOURNAL
-
-func _on_journal_closed() -> void:
-	if _state != State.JOURNAL:
-		return
-	if _journal_overlay != null:
-		_journal_overlay.queue_free()
-		_journal_overlay = null
-	_state = State.WORLD
+	_open_overlay(_journal_scene_packed, State.JOURNAL)
 
 func _on_character_requested() -> void:
-	if _state != State.WORLD:
-		return
-	_character_overlay = _character_scene_packed.instantiate()
-	get_tree().current_scene.add_child(_character_overlay)
-	_character_overlay.closed.connect(_on_character_closed)
-	_state = State.CHARACTER
-
-func _on_character_closed() -> void:
-	if _state != State.CHARACTER:
-		return
-	if _character_overlay != null:
-		_character_overlay.queue_free()
-		_character_overlay = null
-	_state = State.WORLD
+	_open_overlay(_character_scene_packed, State.CHARACTER)
 
 func _on_skill_tree_requested() -> void:
-	if _state != State.WORLD:
-		return
 	GameBus.tutorial_popup_requested.emit("skill_tree")
-	_skill_tree_overlay = _skill_tree_scene_packed.instantiate()
-	get_tree().current_scene.add_child(_skill_tree_overlay)
-	_skill_tree_overlay.closed.connect(_on_skill_tree_closed)
-	_state = State.SKILL_TREE
-
-func _on_skill_tree_closed() -> void:
-	if _state != State.SKILL_TREE:
-		return
-	if _skill_tree_overlay != null:
-		_skill_tree_overlay.queue_free()
-		_skill_tree_overlay = null
-	_state = State.WORLD
+	_open_overlay(_skill_tree_scene_packed, State.SKILL_TREE)
 
 ## Applies siege victory rewards: 150 coins + a rare-or-better card.
 func _apply_siege_victory_rewards(town: String) -> void:
@@ -1099,9 +1006,10 @@ func _on_pack_purchased(pack_id: String, rolled_cards: Array[Dictionary]) -> voi
 	if _state != State.SHOP:
 		return
 	# Close the shop overlay before showing the opening ceremony.
-	if _shop_overlay != null:
-		_shop_overlay.queue_free()
-		_shop_overlay = null
+	var shop_overlay: Node = _overlays.get(State.SHOP, null)
+	if shop_overlay != null:
+		shop_overlay.queue_free()
+		_overlays.erase(State.SHOP)
 	_pack_open_overlay = _PackOpenSceneScript.new()
 	_pack_open_overlay.set("_rolled_cards", rolled_cards)
 	_pack_open_overlay.closed.connect(_on_pack_open_closed)
