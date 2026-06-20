@@ -2,7 +2,7 @@
 
 **Goal:** GID-063
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-224
 
 ## Lock
@@ -71,12 +71,18 @@ Design (from goal):
 
 ## Plan
 
-_Written during Plan phase._
+1. Modify `autoloads/SceneManager.gd` `_on_battle_won` — after reading `enemy_type`, also read `gambit_id = str(save_manager.pending_battle_enemy_data.get("gambit_id", ""))`; multiply coin reward by `Gambits.get_multiplier(gambit_id)` using `int(round(...))`; bump `drop_tier` by `Gambits.get_rarity_tier_bonus(gambit_id)` clamped to 4.
+2. Create `tests/unit/test_gambits.gd` — suite covering: catalogue integrity, each handicap effect on GameState/PlayerState/HeroState, serialization round-trip for new fields, reward math, no-gambit defaults.
+3. Create `tests/unit/test_gambits.gd.uid` sidecar.
+4. Modify `tests/runner.gd` — add preload of `test_gambits.gd` to SUITES.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Modified `autoloads/SceneManager.gd` `_on_battle_won()` — reads `gambit_id` from `pending_battle_enemy_data` alongside `enemy_type`; coins multiplied via `Gambits.apply_reward_multiplier()`; drop tier bumped by `Gambits.get_rarity_tier_bonus(gambit_id)` clamped to 4.
+- Created `tests/unit/test_gambits.gd` — 27 tests covering catalogue integrity, each handicap effect, serialization round-trips for `skip_next_draw`/`minion_attack_bonus`, reward math, and no-gambit defaults.
+- Created `tests/unit/test_gambits.gd.uid` sidecar.
+- Modified `tests/runner.gd` — registered `test_gambits.gd` in SUITES; all 27 tests pass.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md` — Gambits section covers reward multiplier and drop-tier boost logic; Integrations table row added for Gambits.

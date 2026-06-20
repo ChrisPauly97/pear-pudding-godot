@@ -70,7 +70,7 @@ The central scene router. It is an autoload and the only node that calls `get_tr
 **State machine:**
 ```
 MENU → WORLD (new game or continue)
-WORLD → BATTLE (enemy_engaged signal)
+WORLD → [GAMBIT PICKER] → BATTLE (enemy_engaged signal; picker skipped on resume or auto-skip)
 BATTLE → WORLD (battle_won signal)
 BATTLE → GAME_OVER (battle_lost signal)
 GAME_OVER → MENU (return to menu button)
@@ -81,6 +81,17 @@ WORLD ← → JOURNAL (overlay, world stays in tree)
 WORLD → SPIRE_FLOOR (SceneManager.enter_spire via entrance panel in WorldScene)
 SPIRE_FLOOR → SPIRE_FLOOR (SceneManager.exit_map detects spire_ prefix → _advance_spire_floor)
 ```
+
+**Gambit picker flow (GID-063):**
+
+`SceneManager._on_enemy_engaged()` is split into two phases:
+1. Guards + context stamping (as before).
+2. If `save_manager.pending_battle_enemy_data` is non-empty (resume) OR `get_setting("auto_skip_gambits")` is `true` → call `_start_battle(enemy_data)` directly.
+3. Otherwise → show `GambitPickerOverlay` in a `CanvasLayer` (layer 200). On `gambit_chosen(id)`, write `enemy_data["gambit_id"] = id` (if non-empty) and call `_start_battle(enemy_data)`.
+
+`_start_battle(enemy_data)` contains the original `set_pending_battle` / `TransitionManager.transition` / world-detach logic. Keeping picker and battle start separate prevents the `CanvasLayer` from racing with the transition.
+
+`GambitPickerOverlay` (`scenes/battle/GambitPickerOverlay.gd`) extends `BaseOverlay`. Signal: `gambit_chosen(gambit_id: String)` (empty = no gambit). Includes "Don't ask again" checkbox; checking it saves `set_setting("auto_skip_gambits", true)`. Escape key emits no-gambit on desktop.
 
 **Spire routing:**
 

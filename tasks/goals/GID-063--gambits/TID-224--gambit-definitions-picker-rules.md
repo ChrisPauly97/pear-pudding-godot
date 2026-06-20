@@ -2,7 +2,7 @@
 
 **Goal:** GID-063
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -80,12 +80,23 @@ Per-handicap application:
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/battle/Gambits.gd` — const catalogue dict `ALL` with 4 gambits (id, name, desc, multiplier, rarity_tier_bonus); static helpers `get_gambit`, `get_multiplier`, `get_rarity_tier_bonus`, `apply_reward_multiplier`.
+2. Create `game_logic/battle/Gambits.gd.uid` sidecar.
+3. Modify `game_logic/battle/PlayerState.gd` — add `skip_next_draw: bool` and `minion_attack_bonus: int` vars; update `build_deck` to apply minion_attack_bonus after building the deck; update `start_turn` to consume `skip_next_draw`; update `to_dict`/`from_dict` for both fields.
+4. Create `scenes/battle/GambitPickerOverlay.gd` — extends BaseOverlay, exposes `signal gambit_chosen(gambit_id: String)`, builds UI with one button per gambit + "No Gambit" + "Don't ask again" checkbox; persists auto-skip via SaveManager.
+5. Modify `autoloads/SceneManager.gd` — split `_on_enemy_engaged` into guard/context logic and a new `_start_battle(enemy_data)` method; check for resume (`pending_battle_enemy_data` non-empty) or auto-skip (`get_setting("auto_skip_gambits")`); if either, call `_start_battle` directly; otherwise show GambitPickerOverlay in a CanvasLayer.
+6. Modify `scenes/battle/BattleScene.gd` — in fresh-battle branch of `_ready()`, read `gambit_id` from `enemy_data`, call `_apply_gambit_handicaps(gambit_id)` which: sets player hero HP to 25 for wounded_pride; sets `skip_next_draw = true` on player for slow_start; sets `minion_attack_bonus = 1` on enemy PlayerState BEFORE `build_deck` for emboldened_foe; calls `apply_status("armor", 5)` on enemy hero AFTER enemy deck build for iron_veil. Add `_add_gambit_badge()` called in `_ready()` after `_add_pause_button()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `game_logic/battle/Gambits.gd` — const catalogue `ALL` with 4 gambits; static helpers `get_gambit`, `get_multiplier`, `get_rarity_tier_bonus`, `apply_reward_multiplier`.
+- Created `game_logic/battle/Gambits.gd.uid` sidecar.
+- Modified `game_logic/battle/PlayerState.gd` — added `skip_next_draw: bool` and `minion_attack_bonus: int`; updated `build_deck()` to apply minion_attack_bonus, `start_turn()` to consume skip_next_draw, `to_dict()`/`from_dict()` for both fields.
+- Created `scenes/battle/GambitPickerOverlay.gd` — extends BaseOverlay, emits `gambit_chosen(gambit_id: String)`, builds viewport-relative UI with gambit buttons + "No Gambit" + "Don't ask again" checkbox.
+- Modified `autoloads/SceneManager.gd` — added Gambits and GambitPickerOverlay preloads; split `_on_enemy_engaged()` into guard/context logic + picker show; added `_start_battle(enemy_data: Dictionary)`.
+- Modified `scenes/battle/BattleScene.gd` — added Gambits preload; added `_gambit_badge` var; in fresh-battle branch, sets `minion_attack_bonus = 1` before enemy `build_deck` for emboldened_foe, calls `_apply_gambit_handicaps(gambit_id)` after setup; added `_apply_gambit_handicaps()` and `_add_gambit_badge()` functions; calls `_add_gambit_badge()` in `_ready()`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md` — added "Gambits — Pre-Battle Wagers" section covering catalogue, picker flow, handicap application, new PlayerState fields, badge, integrations table updated.
+- `docs/agent/ui-and-scene-management.md` — updated state machine diagram to show gambit picker step, added "Gambit picker flow (GID-063)" paragraph.

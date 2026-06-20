@@ -22,6 +22,7 @@ const WeatherBanner = preload("res://scenes/battle/WeatherBanner.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
+const Gambits = preload("res://game_logic/battle/Gambits.gd")
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
@@ -44,6 +45,7 @@ var _potion_btn: Button = null
 var _used_potion_this_battle: bool = false
 var _boss_banner: Control = null
 const _BOSS_BANNER_DURATION: float = 2.5
+var _gambit_badge: Control = null
 
 # Battlefield Resonance UI (GID-059)
 var _battlefield_banner: Control = null
@@ -193,6 +195,11 @@ func _ready() -> void:
 		var _enemy_tier: int = EnemyRegistry.get_difficulty_tier(_enemy_type) if _enemy_type != "" else 1
 		if bool(enemy_data.get("is_boss", false)):
 			_enemy_tier = 4
+		# Emboldened Foe gambit: set bonus before build_deck so it is applied to the draw_deck
+		# and persists for boss phase-2 rebuild via PlayerState.minion_attack_bonus.
+		var _gambit_id: String = str(enemy_data.get("gambit_id", ""))
+		if _gambit_id == "emboldened_foe":
+			_state.players[1].minion_attack_bonus = 1
 		if enemy_data.has("enemy_deck"):
 			var enemy_deck: Array[String] = []
 			enemy_deck.assign(enemy_data["enemy_deck"])
@@ -206,6 +213,9 @@ func _ready() -> void:
 				_state.players[1].hero.health = bhp
 				_state.players[1].hero.max_health = bhp
 			_show_boss_banner()
+
+		# Apply remaining gambit handicaps now that all decks and HP are set.
+		_apply_gambit_handicaps(_gambit_id)
 
 		# start_turn draws 1 card + bonus_draw (from passive_draw skills/equipment).
 		# bonus_mana (from passive_mana skills) was set above, so gain_mana_for_turn
@@ -239,6 +249,7 @@ func _ready() -> void:
 	_add_hero_power_button()
 	_add_companion_hud()
 	_add_potion_button()
+	_add_gambit_badge()
 
 	if _state.puzzle_mode:
 		_end_turn_btn.text = "Check"
@@ -861,6 +872,34 @@ func _add_potion_button() -> void:
 	_potion_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
 	_potion_btn.pressed.connect(_on_potion_button_pressed)
 	$SidePanel.add_child(_potion_btn)
+
+func _apply_gambit_handicaps(gambit_id: String) -> void:
+	if gambit_id.is_empty():
+		return
+	match gambit_id:
+		"wounded_pride":
+			_state.players[0].hero.health = 25
+			_state.players[0].hero.max_health = 25
+		"slow_start":
+			_state.players[0].skip_next_draw = true
+		"iron_veil":
+			_state.players[1].hero.apply_status("armor", 5)
+		# "emboldened_foe" is handled before build_deck via minion_attack_bonus.
+
+func _add_gambit_badge() -> void:
+	var gambit_id: String = str(enemy_data.get("gambit_id", ""))
+	if gambit_id.is_empty():
+		return
+	var gdata: Dictionary = Gambits.get_gambit(gambit_id)
+	if gdata.is_empty():
+		return
+	_gambit_badge = PanelContainer.new()
+	var badge_lbl := Label.new()
+	badge_lbl.text = "Gambit: %s" % str(gdata.get("name", gambit_id))
+	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	badge_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+	_gambit_badge.add_child(badge_lbl)
+	$SidePanel.add_child(_gambit_badge)
 
 func _refresh_potion_button() -> void:
 	if _potion_btn == null:
