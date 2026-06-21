@@ -14,10 +14,10 @@ WorldScene.gd (scenes/world/WorldScene.gd) carries 9 responsibility clusters per
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-266 | Extract ChunkStreamingManager | agent | pending | — |
-| TID-267 | Extract DungeonSessionUI and WorldHUD | agent | pending | TID-266 |
-| TID-268 | Extract DayNightCycle and interaction handling | agent | pending | TID-267 |
-| TID-269 | Unify entity spawning and add WorldEntity base class | agent | pending | TID-266 |
+| TID-266 | Extract ChunkStreamingManager | agent | done | — |
+| TID-267 | Extract DungeonSessionUI and WorldHUD | agent | done | TID-266 |
+| TID-268 | Extract DayNightCycle and interaction handling | agent | done | TID-267 |
+| TID-269 | Unify entity spawning and add WorldEntity base class | agent | done | TID-266 |
 
 ## Acceptance Criteria
 

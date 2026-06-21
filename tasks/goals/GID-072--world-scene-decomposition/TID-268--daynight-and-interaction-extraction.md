@@ -2,7 +2,7 @@
 
 **Goal:** GID-072
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-267
 
 ## Lock
@@ -25,12 +25,19 @@ Day/night (~100 lines) and entity proximity/interaction (~300 lines combined) ar
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/world/DayNightCycle.gd` — all lighting state, time advancement, and night/dawn signals.
+2. Wire WorldScene to use DayNightCycle: remove old state vars, replace `_update_day_night()` calls with `_dnc.tick()`, connect signals for day-passed/night-started/dawn-arrived.
+3. Remove `_update_day_night()`, `_is_night()` static, and all cached vars from WorldScene.
+4. Dead code (`flush_time_of_day()`) was already removed before this task.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/world/DayNightCycle.gd` + `.uid` — encapsulates time-of-day advancement, sun/moon rotation, sky/ambient lighting with caching, and `_prev_was_night` tracking.
+- DayNightCycle signals: `day_passed`, `night_started`, `dawn_arrived`.
+- Removed from WorldScene: `_time_of_day`, `_day_night_timer`, `DAY_NIGHT_INTERVAL`, `_nocturnal_prev_was_night`, `_night_cue_played` (stays, but connected to `night_started`/`dawn_arrived`), all `_cached_*` vars, `_is_night()` static method, `_update_day_night()`.
+- WorldScene `_process()` now calls `_dnc.tick(delta, _weather_tint)` and `_dnc.invalidate_ambient_cache()`.
+- WorldScene line count reduced from ~2681 to ~2615.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — existing docs cover day/night at a high level.

@@ -7,6 +7,10 @@ const SpireFloorGen   = preload("res://game_logic/spire/SpireFloorGen.gd")
 const GrassBlades     = preload("res://scenes/world/GrassBlades.gd")
 const VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const ChunkStreamingManager = preload("res://scenes/world/ChunkStreamingManager.gd")
+const DungeonSessionUI  = preload("res://scenes/world/DungeonSessionUI.gd")
+const WorldHUD          = preload("res://scenes/world/WorldHUD.gd")
+const DayNightCycle     = preload("res://scenes/world/DayNightCycle.gd")
 const BlightField      = preload("res://game_logic/world/BlightField.gd")
 const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
@@ -22,8 +26,6 @@ const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
-const CompassRibbon = preload("res://scenes/ui/CompassRibbon.gd")
-const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 const CantripManager = preload("res://game_logic/world/CantripManager.gd")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
@@ -42,7 +44,6 @@ const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
 const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
-const _TownspersonScene  = preload("res://scenes/world/entities/TownspersonNPC.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
@@ -76,9 +77,9 @@ var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
 
-# Chunk streaming (both infinite and named-map paths use ChunkRenderer)
-var _chunk_data_cache: Dictionary = {}    # Vector2i -> ChunkData (RefCounted)
-var _chunk_renderers: Dictionary = {}     # Vector2i -> ChunkRenderer
+# Chunk streaming delegated to ChunkStreamingManager (_csm)
+var _csm: ChunkStreamingManager = null
+
 var _active_chest_data: Dictionary = {}  # chest_id -> Dictionary
 var _active_door_data: Dictionary = {}   # door_id -> Dictionary
 var _active_npc_data: Dictionary = {}    # npc_id -> Dictionary
@@ -87,11 +88,8 @@ var _burial_mound_nodes: Dictionary = {} # mound_id -> Node3D
 var _blight_heart_nodes: Dictionary = {} # heart_id -> Node3D
 var _active_landmark_data: Dictionary = {} # landmark_id -> Dictionary
 var _mana_well_nodes: Dictionary = {}    # well_id -> Node3D
-var _ley_indicator: Label = null         # HUD label shown while on a ley line
 var _ghost_phase_active: bool = false    # true while ghost-phase tween runs
 var _ghost_tween: Tween = null
-var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
-var _last_move_dir: Vector2 = Vector2.ZERO
 var _current_biome: int = -1
 
 const _BIOME_MUSIC: Array = [
@@ -102,7 +100,6 @@ const _BIOME_MUSIC: Array = [
 	"res://assets/audio/music/mountains.ogg",
 ]
 var _terrain_mat: ShaderMaterial
-var _chunk_build_queue: Array[Vector2i] = []
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 var _interact_timer: float = 0.0
 var _roaming_boss_timer: float = 0.0
@@ -113,24 +110,14 @@ var _card_shower_items: Array[Node3D] = []
 var _nocturnal_enemies: Dictionary = {}        # spawn_id -> {"node": Node3D, "chunk": Vector2i}
 var _nocturnal_spawn_timer: float = 0.0
 var _nocturnal_spawn_interval: float = 45.0   # randomised each spawn
-var _nocturnal_prev_was_night: bool = false
 var _night_cue_played: bool = false
 var _night_hunt_tutorial_shown_session: bool = false
 var _nocturnal_id_counter: int = 0
 
-# Day/night cycle
+# Day/night cycle — delegated to DayNightCycle component
 var _world_env: WorldEnvironment
 @export var day_duration: float = 600.0   # seconds per full day
-var _time_of_day: float = 0.4             # loaded from save; 0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset
-var _day_night_timer: float = 0.0
-const DAY_NIGHT_INTERVAL: float = 0.5     # update lighting at 2 Hz
-# Cached day/night values — skip GPU writes when unchanged
-var _cached_sun_energy: float = -1.0
-var _cached_sun_color: Color = Color.BLACK
-var _cached_moon_energy: float = -1.0
-var _cached_sky_color: Color = Color.BLACK
-var _cached_ambient_color: Color = Color.BLACK
-var _cached_ambient_energy: float = -1.0
+var _dnc: DayNightCycle = null
 
 # Weather visuals
 var _active_weather_particles: Node3D = null
@@ -139,22 +126,7 @@ var _weather_tint_target: Color = Color(1.0, 1.0, 1.0)
 var _weather_tint_lerp_t: float = 1.0
 const _WEATHER_TINT_SPEED: float = 2.0  # tint blends in 0.5s
 
-# Threaded chunk building
-var _chunk_data_pending: Dictionary = {}    # Vector2i -> true (job in flight)
-var _chunk_build_results: Array[Dictionary] = []  # completed terrain prep, waiting for commit
-var _chunk_build_mutex: Mutex = Mutex.new()
-var _chunk_task_ids: Array[int] = []        # WorkerThreadPool task IDs in flight
-var _chunk_task_id_map: Dictionary = {}     # Vector2i -> task_id for reaping
-var _chunk_queued: Dictionary = {}          # Vector2i -> true (O(1) queue membership)
-var _chunk_queue_dirty: bool = false       # only re-sort when new items were added
-var _pending_physics: Array[Node3D] = []    # ChunkRenderers awaiting physics build
-var _last_dir_update_time: float = -999.0  # throttle direction-change chunk updates
-
-const LOAD_RADIUS:        int = 6
-const UNLOAD_RADIUS:      int = 7
-const CACHE_EVICT_RADIUS: int = 10  # evict chunk data beyond this to bound memory
-var WORLD_SEED:           int = 42  # overwritten in _ready() for infinite worlds
-const MAX_CHUNK_JOBS:     int = 4   # concurrent WorkerThreadPool tasks
+var WORLD_SEED: int = 42  # overwritten in _ready() for infinite worlds
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
 @onready var _camera: Camera3D = $Camera3D
@@ -167,24 +139,11 @@ const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 var _fill_light: DirectionalLight3D
 
 var _pause_overlay: Node = null
-var _dialogue_label: Label
-var _coord_label: Label
+var _world_hud: WorldHUD = null
+var _dungeon_session_ui: DungeonSessionUI = null
 var _minimap: Node
-var _level_label: Label
-var _xp_bar: ProgressBar
-var _xp_label: Label
 var _map_overlay: Node = null
 var _fast_travel_layer: CanvasLayer = null
-var _compass: Node = null
-var _interact_btn: Button = null
-var _mount_btn: Button = null
-var _bounty_tracker: VBoxContainer = null
-var _dialogue_id: int = 0
-const DIALOGUE_DURATION: float = 4.0
-
-var _tip_label: Label
-var _tip_id: int = 0
-const TIP_DURATION: float = 5.0
 
 # Tap-to-move
 var _dest_marker: Node3D = null
@@ -193,10 +152,6 @@ var _joystick_ref: Node = null
 var _tap_start_screen: Vector2 = Vector2.ZERO
 var _tap_touch_index: int = -2  # -2 = no tracked tap; -1 reserved for mouse
 const _TAP_DRAG_THRESHOLD: float = 30.0  # screen pixels; beyond this is a drag, not a tap
-
-# Dungeon session hero HP — tracks HP across rooms; reset fresh each dungeon entry.
-# Not saved to SaveManager (dying resets the session).
-var _dungeon_hero_hp: int = 30
 
 # Terrain height constants — named-map path uses a wider ramp than chunks
 
@@ -231,7 +186,6 @@ func _setup_environment() -> void:
 
 func _ready() -> void:
 	_setup_environment()
-	_time_of_day = SceneManager.save_manager.time_of_day
 	_sun.shadow_opacity = 0.2
 	_tile_meshes = Node3D.new()
 	_tile_meshes.name = "TileGrid"
@@ -274,34 +228,26 @@ func _ready() -> void:
 				_show_dialogue.call_deferred(
 					"Map '%s' could not be loaded — using a generated map instead." % map_name)
 
+	# ChunkStreamingManager owns all chunk lifecycle state and thread work.
+	# Created after world_map is ready so it receives the correct reference.
+	_csm = ChunkStreamingManager.new()
+	_csm.name = "ChunkStreamingManager"
+	add_child(_csm)
+	_csm.setup(WORLD_SEED, _is_infinite, world_map, _terrain_mat, self)
+	_csm.player_chunk_changed.connect(_on_player_chunk_changed)
+	_csm.chunk_committed.connect(_on_chunk_committed)
+	_csm.chunk_unloading.connect(_on_chunk_unloading)
+
 	_spawn_player()
 
 	if _is_infinite:
-		_update_chunks()
-		# Build the inner 5×5 ring synchronously for an immediate view;
-		# outer chunks stream in via threaded jobs in _process.
-		var sync_cx: int = _last_player_chunk.x
-		var sync_cz: int = _last_player_chunk.y
-		var deferred: Array[Vector2i] = []
-		while not _chunk_build_queue.is_empty():
-			var key: Vector2i = _chunk_build_queue.pop_front()
-			if abs(key.x - sync_cx) <= 2 and abs(key.y - sync_cz) <= 2:
-				_build_chunk_sync(key)
-			else:
-				deferred.append(key)
-		_chunk_build_queue.assign(deferred)
+		_csm.build_initial_infinite(_player.position)
 		_spawn_open_world_rival_enc2()
 	else:
 		# Named map: load all chunks covering the 100×100 tile map synchronously
 		var max_cx: int = (WorldMap.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
 		var max_cz: int = (WorldMap.MAP_HEIGHT + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
-		for cz in range(max_cz):
-			for cx in range(max_cx):
-				_build_chunk_sync(Vector2i(cx, cz))
-		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-		_last_player_chunk = Vector2i(
-			int(floor(_player.position.x / chunk_world)),
-			int(floor(_player.position.z / chunk_world)))
+		_csm.build_all_named_map(max_cx, max_cz, _player.position)
 		_spawn_named_map_scrolls()
 		_spawn_named_map_shrines()
 		_spawn_named_map_waystones()
@@ -327,189 +273,58 @@ func _ready() -> void:
 	_joystick_ref = joystick
 
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var vw: float = get_viewport().get_visible_rect().size.x
-	var font_size: int = int(vh * 0.03)
-	var btn_w: float = vh * 0.14
-	var btn_h: float = vh * 0.07
-
-	# Apply font size to the tscn-defined labels
 	_map_label.add_theme_font_size_override("font_size", int(vh * 0.032))
-	_coin_label.add_theme_font_size_override("font_size", font_size)
-	_interact_label.add_theme_font_size_override("font_size", font_size)
+	_coin_label.add_theme_font_size_override("font_size", int(vh * 0.03))
+	_interact_label.add_theme_font_size_override("font_size", int(vh * 0.03))
 
-	var menu_btn := Button.new()
-	menu_btn.text = "Menu"
-	menu_btn.custom_minimum_size = Vector2(btn_w, btn_h)
-	menu_btn.position = Vector2(vh * 0.01, vh * 0.01)
-	menu_btn.add_theme_font_size_override("font_size", font_size)
-	menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
-	_hud.add_child(menu_btn)
-
-	var pause_btn := Button.new()
-	pause_btn.text = "II"
-	pause_btn.custom_minimum_size = Vector2(btn_h, btn_h)
-	pause_btn.position = Vector2(vh * 0.01 + btn_w + vh * 0.005, vh * 0.01)
-	pause_btn.add_theme_font_size_override("font_size", font_size)
-	pause_btn.pressed.connect(_open_pause)
-	_hud.add_child(pause_btn)
-
-	# Minimap: top=vh*0.01, height=vh*0.20, bottom≈vh*0.21; buttons sit below it.
-	var minimap_bottom: float = vh * 0.01 + vh * 0.20 + vh * 0.01  # ≈ vh * 0.22
-	var btn_x: float = vw - btn_w * 1.3 - vh * 0.01
-
-	var inv_btn := Button.new()
-	inv_btn.text = "Inventory"
-	inv_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	inv_btn.position = Vector2(btn_x, minimap_bottom)
-	inv_btn.add_theme_font_size_override("font_size", font_size)
-	inv_btn.pressed.connect(func() -> void: GameBus.inventory_requested.emit())
-	_hud.add_child(inv_btn)
-
-	var journal_btn := Button.new()
-	journal_btn.text = "Journal"
-	journal_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	journal_btn.position = Vector2(btn_x, minimap_bottom + btn_h + vh * 0.005)
-	journal_btn.add_theme_font_size_override("font_size", font_size)
-	journal_btn.pressed.connect(func() -> void: GameBus.journal_requested.emit())
-	_hud.add_child(journal_btn)
-
-	var char_btn := Button.new()
-	char_btn.text = "Character"
-	char_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	char_btn.position = Vector2(btn_x, minimap_bottom + (btn_h + vh * 0.005) * 2)
-	char_btn.add_theme_font_size_override("font_size", font_size)
-	char_btn.pressed.connect(func() -> void: GameBus.character_requested.emit())
-	_hud.add_child(char_btn)
-
-	var skill_btn := Button.new()
-	skill_btn.text = "Skills"
-	skill_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	skill_btn.position = Vector2(btn_x, minimap_bottom + (btn_h + vh * 0.005) * 3)
-	skill_btn.add_theme_font_size_override("font_size", font_size)
-	skill_btn.pressed.connect(func() -> void: GameBus.skill_tree_requested.emit())
-	_hud.add_child(skill_btn)
-
-	_mount_btn = Button.new()
-	_mount_btn.text = "Mount"
-	_mount_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	_mount_btn.position = Vector2(btn_x, minimap_bottom + (btn_h + vh * 0.005) * 4)
-	_mount_btn.add_theme_font_size_override("font_size", font_size)
-	_mount_btn.flat = true
-	_mount_btn.pressed.connect(_toggle_mount)
-	_mount_btn.hide()
-	_hud.add_child(_mount_btn)
-	GameBus.mount_state_changed.connect(_on_mount_state_changed)
-
-	# Cantrip buttons — always visible, left side below coord label
-	var cantrip_btn_w: float = vh * 0.12
-	var cantrip_btn_h: float = vh * 0.055
-	var cantrip_x: float = vh * 0.01
-	var cantrip_y: float = vh * 0.17
-
-	var ghost_btn := Button.new()
-	ghost_btn.text = "[G] Phase"
-	ghost_btn.custom_minimum_size = Vector2(cantrip_btn_w, cantrip_btn_h)
-	ghost_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
-	ghost_btn.position = Vector2(cantrip_x, cantrip_y)
-	ghost_btn.pressed.connect(_activate_ghost_phase)
-	_hud.add_child(ghost_btn)
-
-	var dig_btn := Button.new()
-	dig_btn.text = "[D] Dig"
-	dig_btn.custom_minimum_size = Vector2(cantrip_btn_w, cantrip_btn_h)
-	dig_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
-	dig_btn.position = Vector2(cantrip_x, cantrip_y + cantrip_btn_h + vh * 0.005)
-	dig_btn.pressed.connect(_activate_skeleton_dig)
-	_hud.add_child(dig_btn)
-
-	if OS.has_feature("android"):
-		_interact_btn = Button.new()
-		_interact_btn.text = "USE"
-		_interact_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.08)
-		_interact_btn.add_theme_font_size_override("font_size", int(vh * 0.032))
-		_interact_btn.position = Vector2(vw * 0.5 - vh * 0.09, vh * 0.80)
-		_interact_btn.pressed.connect(_handle_interact)
-		_interact_btn.hide()
-		_hud.add_child(_interact_btn)
-
-	var vp := get_viewport().get_visible_rect().size
-	_dialogue_label = Label.new()
-	_dialogue_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_dialogue_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_dialogue_label.add_theme_font_size_override("font_size", font_size)
-	_dialogue_label.add_theme_color_override("font_color", Color.WHITE)
-	_dialogue_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	_dialogue_label.add_theme_constant_override("shadow_offset_x", 2)
-	_dialogue_label.add_theme_constant_override("shadow_offset_y", 2)
-	_dialogue_label.size = Vector2(vp.x * 0.6, vp.y * 0.15)
-	_dialogue_label.position = Vector2(vp.x * 0.2, vp.y * 0.78)
-	_dialogue_label.hide()
-	_hud.add_child(_dialogue_label)
-	GameBus.hud_message_requested.connect(_show_dialogue)
-	GameBus.story_scroll_collected.connect(_on_scroll_collected)
-	GameBus.waystone_activated.connect(_on_waystone_activated)
-
-	_tip_label = Label.new()
-	_tip_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_tip_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_tip_label.add_theme_font_size_override("font_size", font_size)
-	_tip_label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.6))
-	_tip_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	_tip_label.add_theme_constant_override("shadow_offset_x", 2)
-	_tip_label.add_theme_constant_override("shadow_offset_y", 2)
-	_tip_label.size = Vector2(vp.x * 0.6, vp.y * 0.12)
-	_tip_label.position = Vector2(vp.x * 0.2, vp.y * 0.14)
-	_tip_label.hide()
-	_hud.add_child(_tip_label)
+	# WorldHUD owns all dynamically-created buttons, labels, and display state.
+	_world_hud = WorldHUD.new()
+	_world_hud.name = "WorldHUD"
+	add_child(_world_hud)
+	_world_hud.setup(_hud, _is_infinite, map_name, _interact_label, self)
+	_world_hud.build_bounty_tracker()
 
 	if not SceneManager.save_manager.get_story_flag("tutorial_inventory_tip"):
 		SceneManager.save_manager.set_story_flag("tutorial_inventory_tip")
 		var inv_tip: String = "Tap the Inventory button to manage your deck." \
 			if OS.has_feature("android") else "Press I or tap Inventory to manage your deck."
-		_show_tip.call_deferred(inv_tip)
-
-	_coord_label = Label.new()
-	_coord_label.add_theme_font_size_override("font_size", font_size)
-	_coord_label.add_theme_color_override("font_color", Color.WHITE)
-	_coord_label.add_theme_color_override("font_shadow_color", Color.BLACK)
-	_coord_label.add_theme_constant_override("shadow_offset_x", 1)
-	_coord_label.add_theme_constant_override("shadow_offset_y", 1)
-	_coord_label.position = Vector2(vh * 0.01, vh * 0.11)
-	_hud.add_child(_coord_label)
+		_world_hud.show_tip.call_deferred(inv_tip)
 
 	_minimap = Minimap.new()
 	add_child(_minimap)
 	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
 	_minimap.tapped.connect(_open_map_view)
 
-	_compass = CompassRibbon.new()
-	_hud.add_child(_compass)
-	var _cr := _compass as CompassRibbon
-	_cr.setup(_player)
-	_cr.set_current_map(map_name)
-	var captured_map: String = map_name
-	_cr.add_marker("waypoint", Color(0.20, 0.80, 1.00), func():
-		var wp: Dictionary = SceneManager.save_manager.waypoint
-		if wp.is_empty() or str(wp.get("map", "")) != captured_map:
-			return null
-		var tx: int = int(wp.get("tx", 0))
-		var tz: int = int(wp.get("tz", 0))
-		return Vector3(float(tx) * IsoConst.TILE_SIZE, 0.0, float(tz) * IsoConst.TILE_SIZE)
+	GameBus.hud_message_requested.connect(func(text: String) -> void: _world_hud.show_dialogue(text))
+	GameBus.story_scroll_collected.connect(_on_scroll_collected)
+	GameBus.waystone_activated.connect(_on_waystone_activated)
+
+	# DungeonSessionUI owns dungeon room overlay panels and hero HP tracking.
+	_dungeon_session_ui = DungeonSessionUI.new()
+	_dungeon_session_ui.name = "DungeonSessionUI"
+	add_child(_dungeon_session_ui)
+	_dungeon_session_ui.setup(_hud, func(text: String) -> void: _world_hud.show_dialogue(text))
+
+	# DayNightCycle owns time-of-day advancement, sun/moon lighting, and sky color.
+	_dnc = DayNightCycle.new()
+	_dnc.name = "DayNightCycle"
+	add_child(_dnc)
+	_dnc.setup(_sun, _moon, _world_env, _is_infinite, day_duration,
+		SceneManager.save_manager.time_of_day)
+	_dnc.day_passed.connect(func() -> void:
+		SceneManager.save_manager.increment_day()
+		GameBus.blight_changed.emit()
 	)
-	_cr.add_marker("objective", Color(1.0, 0.8, 0.0), func() -> Variant:
-		var obj: Dictionary = ObjectiveTracker.current_objective(
-			SceneManager.save_manager.story_flags)
-		if obj.is_empty():
-			return null
-		var obj_map: String = str(obj.get("map", ""))
-		var obj_tx: int = int(obj.get("tx", -1))
-		var obj_tz: int = int(obj.get("tz", -1))
-		if obj_map != captured_map:
-			return null
-		if obj_tx == -1 or obj_tz == -1:
-			return null
-		return Vector3(float(obj_tx) * IsoConst.TILE_SIZE, 0.0, float(obj_tz) * IsoConst.TILE_SIZE)
-	)
+	if _is_infinite:
+		_dnc.night_started.connect(func() -> void:
+			if not _night_cue_played:
+				_night_cue_played = true
+				AudioManager.play_sfx("nightfall_ambient")
+		)
+		_dnc.dawn_arrived.connect(func() -> void:
+			_despawn_nocturnal_enemies(true)
+			_night_cue_played = false
+		)
 
 	if _is_infinite:
 		WorldEvents.register_all(self)
@@ -521,13 +336,10 @@ func _ready() -> void:
 		AudioManager.set_ambience(-1)  # -1 = named map / no biome ambience
 		GameBus.entered_named_map.emit(map_name)
 		if map_name.begins_with("dungeon_"):
-			_dungeon_hero_hp = 30
+			_dungeon_session_ui.reset_hero_hp()
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)
 	GameBus.blight_changed.connect(_refresh_blight_tints)
-	_build_bounty_tracker()
-	GameBus.bounty_progress_changed.connect(_on_bounty_progress_changed)
-	GameBus.bounty_completed.connect(_on_bounty_completed)
 
 	# Auto-remount when returning to the overworld from a named map
 	if map_name == "main":
@@ -542,18 +354,11 @@ func _ready() -> void:
 	GameBus.map_transition_requested.connect(_clear_dest_marker)
 
 func _exit_tree() -> void:
-	# Wait for any in-flight worker tasks before the GDScript instance is freed.
-	# Without this, WorkerThreadPool holds a Callable referencing this object and
-	# crashes on shutdown when it tries to clean up while the instance is gone.
-	for task_id: int in _chunk_task_ids:
-		WorkerThreadPool.wait_for_task_completion(task_id)
-	_chunk_task_ids.clear()
+	if _csm != null:
+		_csm.exit_cleanup()
 	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
 		_active_weather_particles.queue_free()
 	_active_weather_particles = null
-
-func flush_time_of_day() -> void:
-	SceneManager.save_manager.time_of_day = _time_of_day
 
 ## Returns the biome and time context at the moment of engagement (GID-059).
 ## Called by SceneManager._on_enemy_engaged() to stamp context into enemy_data.
@@ -568,7 +373,7 @@ func get_battlefield_context() -> Dictionary:
 	var attuned: bool = _is_infinite and TerrainMath.is_on_ley_line(px, pz, WORLD_SEED)
 	return {
 		"biome": _current_biome if _is_infinite else -1,
-		"is_night": _is_night(_time_of_day),
+		"is_night": _dnc != null and _dnc.is_night_now(),
 		"is_blighted": blighted,
 		"is_player_attuned": attuned,
 	}
@@ -584,60 +389,11 @@ func _update_hud() -> void:
 		_map_label.text = "Map: %s" % map_name
 	_coin_label.text = "Coins: %d" % SceneManager.save_manager.coins
 	SceneManager.save_manager.coins_changed.connect(_on_coins_changed)
-
-	# XP bar — bottom-left of screen
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var xp_row := HBoxContainer.new()
-	xp_row.position = Vector2(vh * 0.01, vh * 0.88)
-	xp_row.add_theme_constant_override("separation", int(vh * 0.008))
-	_hud.add_child(xp_row)
-
-	_level_label = Label.new()
-	_level_label.add_theme_font_size_override("font_size", int(vh * 0.028))
-	_level_label.custom_minimum_size = Vector2(vh * 0.08, 0)
-	xp_row.add_child(_level_label)
-
-	_xp_bar = ProgressBar.new()
-	_xp_bar.custom_minimum_size = Vector2(vh * 0.22, vh * 0.032)
-	_xp_bar.show_percentage = false
-	xp_row.add_child(_xp_bar)
-
-	_xp_label = Label.new()
-	_xp_label.add_theme_font_size_override("font_size", int(vh * 0.025))
-	xp_row.add_child(_xp_label)
-
-	GameBus.xp_changed.connect(_on_xp_changed)
-
-	# Attuned indicator — shown while player stands on a ley line (infinite world only).
-	if _is_infinite:
-		_ley_indicator = Label.new()
-		_ley_indicator.text = "~ Attuned ~"
-		_ley_indicator.add_theme_font_size_override("font_size", int(vh * 0.025))
-		_ley_indicator.add_theme_color_override("font_color", Color(0.1, 0.95, 1.0))
-		_ley_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_ley_indicator.set_anchor_and_offset(SIDE_LEFT, 0.5, -vh * 0.12)
-		_ley_indicator.set_anchor_and_offset(SIDE_RIGHT, 0.5, vh * 0.12)
-		_ley_indicator.set_anchor_and_offset(SIDE_TOP, 0.0, vh * 0.015)
-		_ley_indicator.set_anchor_and_offset(SIDE_BOTTOM, 0.0, vh * 0.055)
-		_ley_indicator.visible = false
-		_hud.add_child(_ley_indicator)
-
-	_refresh_xp_bar()
-	var sm := SceneManager.save_manager
-	_xp_label.text = "%d / %d XP" % [
-		sm.xp - SaveManager.xp_for_level(sm.level - 1),
-		SaveManager.xp_for_level(sm.level) - SaveManager.xp_for_level(sm.level - 1)]
+	_world_hud.refresh_xp_bar()
+	_world_hud.update_xp_label()
 
 func _refresh_xp_bar() -> void:
-	if _level_label == null or _xp_bar == null:
-		return
-	var sm := SceneManager.save_manager
-	var lvl: int = sm.level
-	var xp_prev: int = SaveManager.xp_for_level(lvl - 1)
-	var xp_next: int = SaveManager.xp_for_level(lvl)
-	_level_label.text = "Lv.%d" % lvl
-	_xp_bar.max_value = xp_next - xp_prev
-	_xp_bar.value = sm.xp - xp_prev
+	_world_hud.refresh_xp_bar()
 
 # ── Infinite world: chunk streaming ────────────────────────────────────────
 
@@ -685,381 +441,87 @@ func _spawn_player() -> void:
 # Used by ChunkRenderer during terrain height computation so hills blend
 # seamlessly across chunk borders.
 func get_tile_global(wtx: int, wtz: int) -> int:
-	if not _is_infinite:
-		return world_map.get_tile(wtx, wtz)
-	var cx: int = int(floor(float(wtx) / float(IsoConst.CHUNK_SIZE)))
-	var cz: int = int(floor(float(wtz) / float(IsoConst.CHUNK_SIZE)))
-	var key := Vector2i(cx, cz)
-	if not _chunk_data_cache.has(key):
-		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk_data_only(cx, cz, WORLD_SEED)
-	var lx: int = wtx - cx * IsoConst.CHUNK_SIZE
-	var lz: int = wtz - cz * IsoConst.CHUNK_SIZE
-	var chunk: RefCounted = _chunk_data_cache[key]
-	return chunk.get_tile(lx, lz)
+	return _csm.get_tile_global(wtx, wtz)
 
 func _get_height_global(wtx: int, wtz: int) -> int:
-	if not _is_infinite:
-		return world_map.get_height(wtx, wtz)
-	var cx: int = int(floor(float(wtx) / float(IsoConst.CHUNK_SIZE)))
-	var cz: int = int(floor(float(wtz) / float(IsoConst.CHUNK_SIZE)))
-	var key := Vector2i(cx, cz)
-	if not _chunk_data_cache.has(key):
-		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk_data_only(cx, cz, WORLD_SEED)
-	var lx: int = wtx - cx * IsoConst.CHUNK_SIZE
-	var lz: int = wtz - cz * IsoConst.CHUNK_SIZE
-	var chunk: RefCounted = _chunk_data_cache[key]
-	return chunk.get_height(lx, lz)
+	return _csm.get_height_global(wtx, wtz)
 
 # Compute terrain height at a world position using the shared smoothstep algorithm.
 func get_terrain_height(wx: float, wz: float) -> float:
 	if _is_infinite:
-		# Use the same radii as ChunkRenderer so entity Y matches the rendered terrain
 		return TerrainMath.get_height_at(wx, wz, get_tile_global, _get_height_global,
 				IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
 	return TerrainMath.get_height_at(wx, wz, world_map.get_tile, world_map.get_height,
 			IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
 
-# Returns false if the chunk AABB is definitely outside the camera frustum.
-# Uses the standard separating-plane test: if all 8 corners of the chunk's
-# bounding box are on the outside of any single frustum plane, it's culled.
-func _chunk_in_frustum(cx: int, cz: int, frustum: Array[Plane]) -> bool:
-	var ws: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var x0: float = float(cx) * ws
-	var z0: float = float(cz) * ws
-	var x1: float = x0 + ws
-	var z1: float = z0 + ws
-	# Y range: -1 (below flat ground) to 16 (above tallest mountain/ruin peak)
-	for plane: Plane in frustum:
-		if (not plane.is_point_over(Vector3(x0, -1.0, z0)) and
-			not plane.is_point_over(Vector3(x1, -1.0, z0)) and
-			not plane.is_point_over(Vector3(x0, -1.0, z1)) and
-			not plane.is_point_over(Vector3(x1, -1.0, z1)) and
-			not plane.is_point_over(Vector3(x0, 16.0, z0)) and
-			not plane.is_point_over(Vector3(x1, 16.0, z0)) and
-			not plane.is_point_over(Vector3(x0, 16.0, z1)) and
-			not plane.is_point_over(Vector3(x1, 16.0, z1))):
-			return false
-	return true
+# ── ChunkStreamingManager signal handlers ─────────────────────────────────────
 
-func _update_chunks() -> void:
-	if _player == null:
-		return
+func _on_player_chunk_changed(_chunk: Vector2i, biome_id: int) -> void:
+	_current_biome = biome_id
+	AudioManager.play_music(_BIOME_MUSIC[biome_id])
+	AudioManager.set_ambience(biome_id)
+	SceneManager.save_manager.visit_biome(biome_id)
+	WeatherManager.set_biome(biome_id)
+	GameBus.biome_changed.emit(biome_id)
 
-	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var pcx: int = int(floor(_player.position.x / chunk_world))
-	var pcz: int = int(floor(_player.position.z / chunk_world))
-	var player_chunk := Vector2i(pcx, pcz)
-
-	var new_biome: int = InfiniteWorldGen.biome_for_chunk(pcx, pcz, WORLD_SEED)
-	if new_biome != _current_biome:
-		_current_biome = new_biome
-		AudioManager.play_music(_BIOME_MUSIC[new_biome])
-		AudioManager.set_ambience(new_biome)
-		SceneManager.save_manager.visit_biome(new_biome)
-		WeatherManager.set_biome(new_biome)
-		GameBus.biome_changed.emit(new_biome)
-
-	# Camera frustum for visibility culling. Falls back to load-all if unavailable.
-	var frustum: Array[Plane] = _camera.get_frustum()
-
-	# Movement lookahead direction (XZ plane, normalised; zero when standing still).
-	var vel_xz: Vector2 = Vector2(_player.velocity.x, _player.velocity.z)
-	var look_dir: Vector2 = vel_xz.normalized() if vel_xz.length_squared() > 0.25 else Vector2.ZERO
-
-	# Queue chunks that are visible or in the movement lookahead cone.
-	# Tile data for neighbours is ensured lazily in _kick_chunk_jobs before dispatch.
-	for dz in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
-		for dx in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
-			var key := Vector2i(pcx + dx, pcz + dz)
-			if _chunk_renderers.has(key) or _chunk_queued.has(key):
-				continue
-			# Trim square to a circle (skip far corners of the grid)
-			if dx * dx + dz * dz > LOAD_RADIUS * LOAD_RADIUS:
-				continue
-			# Always load the immediate 3×3 neighbourhood around the player
-			if abs(dx) <= 1 and abs(dz) <= 1:
-				_chunk_build_queue.append(key)
-				_chunk_queued[key] = true
-				continue
-			# Load if visible in camera frustum (or no frustum available)
-			if frustum.is_empty() or _chunk_in_frustum(key.x, key.y, frustum):
-				_chunk_build_queue.append(key)
-				_chunk_queued[key] = true
-				continue
-			# Load if inside the forward movement cone (~120° arc ahead)
-			if look_dir.length_squared() > 0.1:
-				var to_chunk := Vector2(float(dx), float(dz))
-				if to_chunk.length_squared() > 0.0 and to_chunk.normalized().dot(look_dir) > 0.3:
-					_chunk_build_queue.append(key)
-					_chunk_queued[key] = true
-
-	_chunk_queue_dirty = true  # queue contents changed — re-sort before next dispatch
-
-	# 3. Unload chunks beyond UNLOAD_RADIUS (distance-based, not frustum,
-	#    so chunks behind you stay loaded while you might still turn around)
-	var keys_to_remove: Array[Vector2i] = []
-	for raw_key in _chunk_renderers:
-		var typed_key: Vector2i = raw_key
-		if abs(typed_key.x - pcx) > UNLOAD_RADIUS or abs(typed_key.y - pcz) > UNLOAD_RADIUS:
-			keys_to_remove.append(typed_key)
-
-	for key in keys_to_remove:
-		var renderer: ChunkRenderer = _chunk_renderers[key]
-		renderer.teardown()
-		_chunk_renderers.erase(key)
-		var grass_node: GrassBlades = _grass as GrassBlades
-		if grass_node:
-			grass_node.remove_chunk(key)
-		# Evict nocturnal enemies in this chunk immediately
-		_evict_nocturnal_enemies_in_chunk(key)
-		# Remove entities belonging to this chunk from the active sets
-		var chunk: RefCounted = _chunk_data_cache[key]
-		for e_data in chunk.enemies:
-			var eid: String = str(e_data.get("id", ""))
-			var enode: Node3D = _enemy_nodes.get(eid) as Node3D
-			if is_instance_valid(enode):
-				enode.queue_free()
-			_enemy_nodes.erase(eid)
-		for c_data in chunk.chests:
-			var cid: String = str(c_data.get("id", ""))
-			_active_chest_data.erase(cid)
-			var cnode: Node3D = _chest_nodes.get(cid) as Node3D
-			if is_instance_valid(cnode):
-				cnode.queue_free()
-			_chest_nodes.erase(cid)
-		for d_data in chunk.doors:
-			var did: String = str(d_data.get("id", ""))
-			_active_door_data.erase(did)
-			var dnode: Node3D = _door_nodes.get(did) as Node3D
-			if is_instance_valid(dnode):
-				dnode.queue_free()
-			_door_nodes.erase(did)
-		for n_data in chunk.npcs:
-			var nid: String = str(n_data.get("id", ""))
-			_active_npc_data.erase(nid)
-			var nnode: Node3D = _npc_nodes.get(nid) as Node3D
-			if is_instance_valid(nnode):
-				nnode.queue_free()
-			_npc_nodes.erase(nid)
-		for w_data in chunk.waystones:
-			var wid: String = str(w_data.get("id", ""))
-			_active_waystone_data.erase(wid)
-			var wnode: Node3D = _waystone_nodes.get(wid) as Node3D
-			if is_instance_valid(wnode):
-				wnode.queue_free()
-			_waystone_nodes.erase(wid)
-		for m_data in chunk.burial_mounds:
-			var mid: String = str(m_data.get("id", ""))
-			var mnode: Node3D = _burial_mound_nodes.get(mid) as Node3D
-			if is_instance_valid(mnode):
-				mnode.queue_free()
-			_burial_mound_nodes.erase(mid)
-		for l_data: Dictionary in chunk.landmarks:
-			var lid: String = str(l_data.get("id", ""))
-			_active_landmark_data.erase(lid)
-		for w_data in chunk.mana_wells:
-			var wid: String = str(w_data.get("id", ""))
-			var wnode: Node3D = _mana_well_nodes.get(wid) as Node3D
-			if is_instance_valid(wnode):
-				wnode.queue_free()
-			_mana_well_nodes.erase(wid)
-
-	# Evict chunk data cache entries far beyond the unload radius to bound memory.
-	# Keep a margin beyond UNLOAD_RADIUS so neighbour tile lookups still hit cache.
-	var cache_keys_to_remove: Array[Vector2i] = []
-	for raw_key in _chunk_data_cache:
-		var typed_key: Vector2i = raw_key
-		if abs(typed_key.x - pcx) > CACHE_EVICT_RADIUS or abs(typed_key.y - pcz) > CACHE_EVICT_RADIUS:
-			cache_keys_to_remove.append(typed_key)
-	for key in cache_keys_to_remove:
-		_chunk_data_cache.erase(key)
-
-	_last_player_chunk = player_chunk
-
-# ── Tile-grid snapshot helpers ─────────────────────────────────────────────
-
-# Ensure 3×3 neighbourhood of chunk key has tile-only data in the cache.
-# Fast: only noise for 16×16 tiles each, no mesh work.
-func _ensure_tile_data_around(key: Vector2i) -> void:
-	if not _is_infinite:
-		return  # named map reads tiles directly from world_map
-	for dz in range(-1, 2):
-		for dx in range(-1, 2):
-			var nkey := Vector2i(key.x + dx, key.y + dz)
-			if not _chunk_data_cache.has(nkey):
-				_chunk_data_cache[nkey] = InfiniteWorldGen.generate_chunk_data_only(nkey.x, nkey.y, WORLD_SEED)
-
-# Build the packed tile-type grid needed by ChunkRenderer.prepare_terrain().
-# Returns [tile_grid, grid_min_x, grid_min_z, grid_w].
-func _snapshot_tile_grid_for(key: Vector2i) -> Array:
-	const TILE_CHECK: int = ChunkRenderer.TILE_CHECK
-	var chunk_origin_x: float = float(key.x * IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var chunk_origin_z: float = float(key.y * IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var base_tx: int = int(chunk_origin_x / IsoConst.TILE_SIZE)
-	var base_tz: int = int(chunk_origin_z / IsoConst.TILE_SIZE)
-	var grid_min_x: int = base_tx - TILE_CHECK
-	var grid_min_z: int = base_tz - TILE_CHECK
-	var grid_w: int = IsoConst.CHUNK_SIZE + TILE_CHECK * 2 + 1
-	var grid_h: int = IsoConst.CHUNK_SIZE + TILE_CHECK * 2 + 1
-	var tile_grid := PackedInt32Array()
-	var height_grid := PackedInt32Array()
-	tile_grid.resize(grid_w * grid_h)
-	height_grid.resize(grid_w * grid_h)
-	for gz in range(grid_h):
-		for gx in range(grid_w):
-			var idx: int = gz * grid_w + gx
-			var wtx: int = grid_min_x + gx
-			var wtz: int = grid_min_z + gz
-			tile_grid[idx] = get_tile_global(wtx, wtz)
-			height_grid[idx] = _get_height_global(wtx, wtz)
-	return [tile_grid, height_grid, grid_min_x, grid_min_z, grid_w]
-
-# ── Threaded chunk building ────────────────────────────────────────────────
-
-# Worker-thread task: does the heavy CPU work (height field, packed arrays,
-# ArrayMesh, HeightMapShape3D) without touching the scene tree.
-func _chunk_prepare_task(key: Vector2i, chunk_data: RefCounted,
-		tile_grid: PackedInt32Array, height_grid: PackedInt32Array,
-		grid_min_x: int, grid_min_z: int, grid_w: int, p_world_seed: int) -> void:
-	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(
-			chunk_data, tile_grid, height_grid, grid_min_x, grid_min_z, grid_w, p_world_seed)
-	_chunk_build_mutex.lock()
-	_chunk_build_results.append({ "key": key, "chunk_data": chunk_data, "terrain_res": terrain_res })
-	_chunk_build_mutex.unlock()
-
-# Called every frame: kick off thread jobs for queued chunks up to MAX_CHUNK_JOBS.
-func _kick_chunk_jobs() -> void:
-	var pcx: int = _last_player_chunk.x
-	var pcz: int = _last_player_chunk.y
-	# Only sort when new items were added — skipped every frame when idle.
-	if _chunk_queue_dirty and _chunk_build_queue.size() > 1:
-		_chunk_build_queue.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-			var da: int = (a.x - pcx) * (a.x - pcx) + (a.y - pcz) * (a.y - pcz)
-			var db: int = (b.x - pcx) * (b.x - pcx) + (b.y - pcz) * (b.y - pcz)
-			return da < db
-		)
-		_chunk_queue_dirty = false
-
-	var i: int = 0
-	while i < _chunk_build_queue.size():
-		if _chunk_data_pending.size() >= MAX_CHUNK_JOBS:
-			break
-		var key: Vector2i = _chunk_build_queue[i]
-		if _chunk_renderers.has(key) or _chunk_data_pending.has(key):
-			_chunk_build_queue.remove_at(i)
-			_chunk_queued.erase(key)
-			continue
-		if abs(key.x - pcx) > LOAD_RADIUS or abs(key.y - pcz) > LOAD_RADIUS:
-			_chunk_build_queue.remove_at(i)
-			_chunk_queued.erase(key)
-			continue
-
-		# Ensure neighbour tile data exists (fast, sync) then snapshot for thread
-		_ensure_tile_data_around(key)
-		var snap := _snapshot_tile_grid_for(key)
-
-		# Ensure full chunk data (entities) is ready before handing to thread
-		if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
-			if _is_infinite:
-				_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
-			else:
-				_chunk_data_cache[key] = world_map.get_chunk_data(key.x, key.y)
-		var chunk_data: RefCounted = _chunk_data_cache[key]
-
-		_chunk_data_pending[key] = true
-		_chunk_build_queue.remove_at(i)
-		_chunk_queued.erase(key)
-		var task_id: int = WorkerThreadPool.add_task(_chunk_prepare_task.bind(
-				key, chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4], WORLD_SEED))
-		_chunk_task_ids.append(task_id)
-		_chunk_task_id_map[key] = task_id
-		# don't increment i — next item shifted into position
-
-# Called every frame: commit one ready result to the scene tree (cheap).
-func _commit_chunk_results() -> void:
-	_chunk_build_mutex.lock()
-	if _chunk_build_results.is_empty():
-		_chunk_build_mutex.unlock()
-		return
-	var result: Dictionary = _chunk_build_results.pop_front()
-	_chunk_build_mutex.unlock()
-
-	var key: Vector2i = result["key"]
-	_chunk_data_pending.erase(key)
-	# Reap the WorkerThreadPool task so the pool can reclaim its slot.
-	if _chunk_task_id_map.has(key):
-		var done_id: int = _chunk_task_id_map[key]
-		WorkerThreadPool.wait_for_task_completion(done_id)
-		_chunk_task_ids.erase(done_id)
-		_chunk_task_id_map.erase(key)
-
-	# Discard if the chunk was unloaded or is now out of range
-	if _chunk_renderers.has(key):
-		return
-	if abs(key.x - _last_player_chunk.x) > LOAD_RADIUS or abs(key.y - _last_player_chunk.y) > LOAD_RADIUS:
-		return
-
-	var chunk: RefCounted = result["chunk_data"]
-	for c_data in chunk.chests:
-		var cid: String = str(c_data.get("id", ""))
-		_active_chest_data[cid] = c_data
-	for d_data in chunk.doors:
-		var did: String = str(d_data.get("id", ""))
-		_active_door_data[did] = d_data
-	for n_data in chunk.npcs:
-		var nid: String = str(n_data.get("id", ""))
-		_active_npc_data[nid] = n_data
-	for w_data in chunk.waystones:
-		var wid: String = str(w_data.get("id", ""))
-		_active_waystone_data[wid] = w_data
-	for l_data: Dictionary in chunk.landmarks:
+func _on_chunk_committed(_key: Vector2i, chunk_data: RefCounted) -> void:
+	for l_data: Dictionary in chunk_data.landmarks:
 		var lid: String = str(l_data.get("id", ""))
 		_active_landmark_data[lid] = l_data
 
-	var renderer: ChunkRenderer = ChunkRenderer.new()
-	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
-	add_child(renderer)
-	renderer.build_visual(chunk, key, self, _terrain_mat, result["terrain_res"])
-	_chunk_renderers[key] = renderer
-	# Defer physics bodies to next frame to avoid a double-hitch (mesh + physics)
-	_pending_physics.append(renderer)
-
-# Synchronous build used at startup so the world is ready before first frame.
-func _build_chunk_sync(key: Vector2i) -> void:
-	if _chunk_renderers.has(key):
-		return
-	_ensure_tile_data_around(key)
-	var snap := _snapshot_tile_grid_for(key)
-	if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
-		if _is_infinite:
-			_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
-		else:
-			_chunk_data_cache[key] = world_map.get_chunk_data(key.x, key.y)
-	var chunk: RefCounted = _chunk_data_cache[key]
-	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3], snap[4], WORLD_SEED)
-	for c_data in chunk.chests:
+func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: RefCounted) -> void:
+	for e_data in chunk_data.enemies:
+		var eid: String = str(e_data.get("id", ""))
+		var enode: Node3D = _enemy_nodes.get(eid) as Node3D
+		if is_instance_valid(enode):
+			enode.queue_free()
+		_enemy_nodes.erase(eid)
+	for c_data in chunk_data.chests:
 		var cid: String = str(c_data.get("id", ""))
-		_active_chest_data[cid] = c_data
-	for d_data in chunk.doors:
+		_active_chest_data.erase(cid)
+		var cnode: Node3D = _chest_nodes.get(cid) as Node3D
+		if is_instance_valid(cnode):
+			cnode.queue_free()
+		_chest_nodes.erase(cid)
+	for d_data in chunk_data.doors:
 		var did: String = str(d_data.get("id", ""))
-		_active_door_data[did] = d_data
-	for n_data in chunk.npcs:
+		_active_door_data.erase(did)
+		var dnode: Node3D = _door_nodes.get(did) as Node3D
+		if is_instance_valid(dnode):
+			dnode.queue_free()
+		_door_nodes.erase(did)
+	for n_data in chunk_data.npcs:
 		var nid: String = str(n_data.get("id", ""))
-		_active_npc_data[nid] = n_data
-	for w_data in chunk.waystones:
+		_active_npc_data.erase(nid)
+		var nnode: Node3D = _npc_nodes.get(nid) as Node3D
+		if is_instance_valid(nnode):
+			nnode.queue_free()
+		_npc_nodes.erase(nid)
+	for w_data in chunk_data.waystones:
 		var wid: String = str(w_data.get("id", ""))
-		_active_waystone_data[wid] = w_data
-	for l_data: Dictionary in chunk.landmarks:
+		_active_waystone_data.erase(wid)
+		var wnode: Node3D = _waystone_nodes.get(wid) as Node3D
+		if is_instance_valid(wnode):
+			wnode.queue_free()
+		_waystone_nodes.erase(wid)
+	for m_data in chunk_data.burial_mounds:
+		var mid: String = str(m_data.get("id", ""))
+		var mnode: Node3D = _burial_mound_nodes.get(mid) as Node3D
+		if is_instance_valid(mnode):
+			mnode.queue_free()
+		_burial_mound_nodes.erase(mid)
+	for l_data: Dictionary in chunk_data.landmarks:
 		var lid: String = str(l_data.get("id", ""))
-		_active_landmark_data[lid] = l_data
-	var renderer: ChunkRenderer = ChunkRenderer.new()
-	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
-	add_child(renderer)
-	# Sync path (startup): build visual and physics together — slowness is acceptable here.
-	renderer.build_visual(chunk, key, self, _terrain_mat, terrain_res)
-	renderer.build_physics()
-	_chunk_renderers[key] = renderer
-	_chunk_queued.erase(key)
+		_active_landmark_data.erase(lid)
+	for w_data in chunk_data.mana_wells:
+		var wid: String = str(w_data.get("id", ""))
+		var wnode: Node3D = _mana_well_nodes.get(wid) as Node3D
+		if is_instance_valid(wnode):
+			wnode.queue_free()
+		_mana_well_nodes.erase(wid)
+	_evict_nocturnal_enemies_in_chunk(chunk_key)
+
+# ── ChunkRenderer registration callbacks (called via duck typing) ──────────────
 
 # Called by ChunkRenderer after spawning an enemy
 func register_enemy(eid: String, node: Node3D) -> void:
@@ -1104,13 +566,10 @@ func _tick_card_shower() -> void:
 
 # ── Nocturnal spawn system (GID-055 Night Hunts) ──────────────────────────────
 
-static func _is_night(time_of_day: float) -> bool:
-	return sin((time_of_day - 0.25) * TAU) < 0.0
-
 func _update_nocturnal_spawns(delta: float) -> void:
 	if not _is_infinite:
 		return
-	var currently_night: bool = _is_night(_time_of_day)
+	var currently_night: bool = _dnc != null and _dnc.is_night_now()
 	if not currently_night:
 		_nocturnal_spawn_timer = 0.0
 		return
@@ -1189,17 +648,17 @@ func _find_nocturnal_spawn_pos() -> Vector3:
 		var cx: int = int(floor(tx / chunk_world))
 		var cz: int = int(floor(tz / chunk_world))
 		var key := Vector2i(cx, cz)
-		if not _chunk_data_cache.has(key):
+		if not _csm.has_chunk_data(key):
 			continue
-		var chunk: RefCounted = _chunk_data_cache[key]
+		var chunk: RefCounted = _csm.get_chunk_data(key)
 		var tile_x: int = int(tx / IsoConst.TILE_SIZE) - cx * IsoConst.CHUNK_SIZE
 		var tile_z: int = int(tz / IsoConst.TILE_SIZE) - cz * IsoConst.CHUNK_SIZE
 		tile_x = clampi(tile_x, 0, IsoConst.CHUNK_SIZE - 1)
 		tile_z = clampi(tile_z, 0, IsoConst.CHUNK_SIZE - 1)
 		var li: int = tile_z * IsoConst.CHUNK_SIZE + tile_x
-		if li < 0 or li >= chunk.tile_grid.size():
+		if li < 0 or li >= chunk.tiles.size():
 			continue
-		var tile_type: int = chunk.tile_grid[li]
+		var tile_type: int = chunk.tiles[li]
 		if tile_type != IsoConst.TILE_GRASS:
 			continue
 		var world_y: float = get_terrain_height(tx, tz) + 0.5
@@ -1483,13 +942,11 @@ func _discover_landmark(lid: String, l_data: Dictionary) -> void:
 
 func _refresh_blight_tints() -> void:
 	var sm := SceneManager.save_manager
-	for key: Vector2i in _chunk_renderers:
-		var cr: ChunkRenderer = _chunk_renderers[key] as ChunkRenderer
-		if cr == null:
-			continue
+	_csm.for_each_renderer(func(key: Vector2i, cr: ChunkRenderer) -> void:
 		var intensity: float = BlightField.blight_intensity(
 			key.x, key.y, WORLD_SEED, sm.days_elapsed, sm.blight_cleansed_hearts)
 		cr.set_blight_amount(intensity)
+	)
 
 func _find_nearby_burial_mound(px: float, pz: float, range_dist: float) -> Node3D:
 	var range_sq: float = range_dist * range_dist
@@ -1704,9 +1161,9 @@ func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
 	for dz in range(-1, 2):
 		for dx in range(-1, 2):
 			var key := Vector2i(pcx + dx, pcz + dz)
-			if not _chunk_data_cache.has(key):
+			if not _csm.has_chunk_data(key):
 				continue
-			var chunk: RefCounted = _chunk_data_cache[key]
+			var chunk: RefCounted = _csm.get_chunk_data(key)
 			for e_data in chunk.enemies:
 				var eid: String = str(e_data.get("id", ""))
 				var node: Node3D = _enemy_nodes.get(eid) as Node3D
@@ -1726,9 +1183,9 @@ func _find_nearby_chest(px: float, pz: float, range_dist: float) -> Dictionary:
 	for dz in range(-1, 2):
 		for dx in range(-1, 2):
 			var key := Vector2i(pcx + dx, pcz + dz)
-			if not _chunk_data_cache.has(key):
+			if not _csm.has_chunk_data(key):
 				continue
-			var chunk: RefCounted = _chunk_data_cache[key]
+			var chunk: RefCounted = _csm.get_chunk_data(key)
 			for c_data in chunk.chests:
 				var cid: String = str(c_data.get("id", ""))
 				var d: Dictionary = _active_chest_data.get(cid, {})
@@ -1775,16 +1232,7 @@ func _break_cracked_wall(tx: int, tz: int) -> void:
 	world_map.save_to_file(SceneManager.save_manager.current_map)
 
 func _rebuild_terrain_around_tile(tx: int, tz: int) -> void:
-	var cx: int = int(floor(float(tx) / float(IsoConst.CHUNK_SIZE)))
-	var cz: int = int(floor(float(tz) / float(IsoConst.CHUNK_SIZE)))
-	for dz in range(-1, 2):
-		for dx in range(-1, 2):
-			var key := Vector2i(cx + dx, cz + dz)
-			var renderer: ChunkRenderer = _chunk_renderers.get(key) as ChunkRenderer
-			if renderer == null:
-				continue
-			var snap := _snapshot_tile_grid_for(key)
-			renderer.rebuild_terrain(snap, WORLD_SEED)
+	_csm.rebuild_terrain_around_tile(tx, tz)
 
 func _find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
@@ -1813,80 +1261,6 @@ func _create_player_node() -> CharacterBody3D:
 	p.add_to_group("player")
 	return p
 
-# ── Day / Night cycle ──────────────────────────────────────────────────────
-
-func _update_day_night(delta: float) -> void:
-	var prev_time: float = _time_of_day
-	_time_of_day = fmod(_time_of_day + delta / day_duration, 1.0)
-	if _time_of_day < prev_time:
-		SceneManager.save_manager.increment_day()
-		GameBus.blight_changed.emit()
-
-	# Night-hunt transition detection
-	if _is_infinite:
-		var now_night: bool = _is_night(_time_of_day)
-		if now_night and not _nocturnal_prev_was_night:
-			# Sunset → night: play ambient cue once per night
-			if not _night_cue_played:
-				_night_cue_played = true
-				AudioManager.play_sfx("nightfall_ambient")
-		elif not now_night and _nocturnal_prev_was_night:
-			# Dawn: fade out all spectres
-			_despawn_nocturnal_enemies(true)
-			_night_cue_played = false
-		_nocturnal_prev_was_night = now_night
-
-	# sun_angle: 0 at sunrise (t=0.25), PI/2 at noon (t=0.5), PI at sunset (t=0.75)
-	var sun_angle: float = (_time_of_day - 0.25) * TAU
-	_sun.rotation = Vector3(-sun_angle, 0.0, 0.0)
-	_moon.rotation = Vector3(-(sun_angle + PI), 0.0, 0.0)
-
-	# sin: 0 at horizons, 1 at noon, -1 at midnight
-	var sun_h: float = sin(sun_angle)
-	var t_day: float = clampf(sun_h * 2.0 + 0.1, 0.0, 1.0)
-	var t_horizon: float = clampf(1.0 - abs(sun_h) * 5.0, 0.0, 1.0)
-
-	# Sun: warm white at midday, orange at horizon, off at night
-	var sun_energy: float = clampf(sun_h * 1.5, 0.0, 1.5)
-	var sun_color: Color = Color(1.0, 0.95, 0.85).lerp(Color(1.0, 0.45, 0.1), t_horizon)
-
-	if not is_equal_approx(sun_energy, _cached_sun_energy):
-		_sun.light_energy = sun_energy
-		_cached_sun_energy = sun_energy
-	if not sun_color.is_equal_approx(_cached_sun_color):
-		_sun.light_color = sun_color
-		_cached_sun_color = sun_color
-
-	# Moon: opposite hemisphere, cool blue
-	var moon_h: float = -sun_h
-	var moon_energy: float = clampf(moon_h * 0.35, 0.0, 0.35)
-	if not is_equal_approx(moon_energy, _cached_moon_energy):
-		_moon.light_energy = moon_energy
-		_cached_moon_energy = moon_energy
-
-	# Sky colour: deep blue day → orange horizon → near-black night
-	var sky: Color
-	if sun_h >= 0.0:
-		sky = Color(0.7, 0.3, 0.1).lerp(Color(0.25, 0.5, 0.85), clampf(sun_h * 3.0, 0.0, 1.0))
-	else:
-		sky = Color(0.02, 0.02, 0.08).lerp(Color(0.7, 0.3, 0.1), clampf((sun_h + 0.3) * 5.0, 0.0, 1.0))
-	if not sky.is_equal_approx(_cached_sky_color):
-		_world_env.environment.background_color = sky
-		_cached_sky_color = sky
-
-	# Ambient: dark blue night → soft grey day, multiplied by weather tint
-	var base_ambient: Color = Color(0.1, 0.12, 0.22).lerp(Color(0.6, 0.65, 0.7), t_day)
-	var ambient_color: Color = Color(base_ambient.r * _weather_tint.r,
-		base_ambient.g * _weather_tint.g,
-		base_ambient.b * _weather_tint.b)
-	var ambient_energy: float = lerpf(0.35, 1.0, t_day)
-	if not ambient_color.is_equal_approx(_cached_ambient_color):
-		_world_env.environment.ambient_light_color = ambient_color
-		_cached_ambient_color = ambient_color
-	if not is_equal_approx(ambient_energy, _cached_ambient_energy):
-		_world_env.environment.ambient_light_energy = ambient_energy
-		_cached_ambient_energy = ambient_energy
-
 # ── Camera pixel-snapping ──────────────────────────────────────────────────
 # Snaps a world-space position to the nearest screen pixel along the camera's
 # screen-plane axes (right and up).  The depth axis is left unsnapped.
@@ -1912,14 +1286,12 @@ func _process(delta: float) -> void:
 	_camera.position = _snap_to_pixel(_player.position + Vector3(20, 20, 20))
 	if _minimap:
 		_minimap.update()
-	if _coord_label:
+	if _world_hud:
 		var tx: int = int(_player.position.x / IsoConst.TILE_SIZE)
 		var tz: int = int(_player.position.z / IsoConst.TILE_SIZE)
-		_coord_label.text = "tile (%d, %d)" % [tx, tz]
-	_day_night_timer += delta
-	if _day_night_timer >= DAY_NIGHT_INTERVAL:
-		_update_day_night(_day_night_timer)
-		_day_night_timer = 0.0
+		_world_hud.update_coords(tx, tz)
+	if _dnc:
+		_dnc.tick(delta, _weather_tint)
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
 
@@ -1927,55 +1299,30 @@ func _process(delta: float) -> void:
 	if _weather_tint_lerp_t < 1.0:
 		_weather_tint_lerp_t = minf(_weather_tint_lerp_t + delta * _WEATHER_TINT_SPEED, 1.0)
 		_weather_tint = _weather_tint.lerp(_weather_tint_target, delta * _WEATHER_TINT_SPEED)
-		_cached_ambient_color = Color.BLACK  # force re-write next lighting tick
+		if _dnc:
+			_dnc.invalidate_ambient_cache()
 
 	# Keep particle rig centred on the player
 	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
 		_active_weather_particles.position = _player.position + Vector3(0.0, 12.0, 0.0)
 
 	if _is_infinite:
-		if _ley_indicator != null:
-			_ley_indicator.visible = TerrainMath.is_on_ley_line(
-				_player.position.x, _player.position.z, WORLD_SEED)
+		if _world_hud != null:
+			_world_hud.set_ley_indicator_visible(TerrainMath.is_on_ley_line(
+				_player.position.x, _player.position.z, WORLD_SEED))
 		_tick_roaming_boss(delta)
 		_tick_traveling_merchant(delta)
 		_tick_card_shower()
 		_update_nocturnal_spawns(delta)
-		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-		var pcx: int = int(floor(_player.position.x / chunk_world))
-		var pcz: int = int(floor(_player.position.z / chunk_world))
-		var needs_update: bool = Vector2i(pcx, pcz) != _last_player_chunk
-		# Also re-evaluate when movement direction turns significantly —
-		# new chunks may have entered the forward cone or become visible.
-		if not needs_update:
-			var vel_xz: Vector2 = Vector2(_player.velocity.x, _player.velocity.z)
-			if vel_xz.length_squared() > 0.25:
-				var new_dir: Vector2 = vel_xz.normalized()
-				if new_dir.dot(_last_move_dir) < 0.7:  # > ~45° turn
-					# Throttle: direction changes trigger at most twice per second to avoid
-					# re-running the 169-chunk frustum scan every frame while turning.
-					var now: float = Time.get_ticks_msec() * 0.001
-					if now - _last_dir_update_time >= 0.5:
-						needs_update = true
-						_last_move_dir = new_dir
-						_last_dir_update_time = now
-		if needs_update:
-			_update_chunks()
-		# Dispatch thread jobs for queued chunks, commit completed results
-		_kick_chunk_jobs()
-		_commit_chunk_results()
-		# Build physics for one deferred chunk per frame (spreads the hitch)
-		if not _pending_physics.is_empty():
-			var r: ChunkRenderer = _pending_physics.pop_front() as ChunkRenderer
-			if is_instance_valid(r):
-				r.build_physics()
+		_csm.process_streaming(_player.position, _player.velocity, _camera.get_frustum())
 
 	# Only update save position when player moves > 1 unit (not every frame)
 	var cur_pos := Vector2(_player.position.x, _player.position.z)
 	if cur_pos.distance_squared_to(_last_save_pos) > 1.0:
 		_last_save_pos = cur_pos
 		SceneManager.save_manager.update_position(map_name, _player.position.x, _player.position.z)
-		SceneManager.save_manager.time_of_day = _time_of_day
+		if _dnc:
+			SceneManager.save_manager.time_of_day = _dnc.get_time_of_day()
 
 	# Throttle interaction checks — no need to scan every frame
 	_interact_timer += delta
@@ -2016,15 +1363,8 @@ func _check_interactions() -> void:
 	# Landmarks auto-trigger on approach (no button press needed)
 	_check_nearby_landmark(px, pz)
 	var mana_well := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
-	if enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null:
-		if _interact_btn != null:
-			_interact_btn.show()
-		else:
-			_interact_label.show()
-	else:
-		_interact_label.hide()
-		if _interact_btn != null:
-			_interact_btn.hide()
+	var has_entity: bool = enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
+	_world_hud.show_interact_prompt(has_entity)
 
 	var is_android: bool = OS.has_feature("android")
 	if not npc.is_empty() and not SceneManager.save_manager.get_story_flag("tutorial_npc_tip"):
@@ -2092,6 +1432,7 @@ func _do_ghost_phase() -> bool:
 
 	# Build ordered list of directions to try: facing first, then all 4 cardinals
 	var dirs: Array[Vector2i] = []
+	var _last_move_dir: Vector2 = _csm.get_last_move_dir() if _csm != null else Vector2.ZERO
 	if _last_move_dir.length_squared() > 0.01:
 		var primary: Vector2i
 		if abs(_last_move_dir.x) >= abs(_last_move_dir.y):
@@ -2342,10 +1683,10 @@ func _handle_interact() -> void:
 			_show_duel_offer_panel(npc)
 			return
 		if str(npc.get("npc_type", "")) == "rest_site":
-			_show_rest_site_panel(npc)
+			_dungeon_session_ui.show_rest_site_panel(npc)
 			return
 		if str(npc.get("npc_type", "")) == "event_room":
-			_show_event_panel(npc)
+			_dungeon_session_ui.show_event_panel(npc)
 			return
 		if str(npc.get("npc_type", "")) == "bed":
 			_handle_bed_interaction()
@@ -2613,17 +1954,6 @@ func _toggle_mount() -> void:
 	else:
 		sm.summon_mount(str(sm.owned_mounts[0]))
 
-func _update_mount_btn() -> void:
-	if _mount_btn == null:
-		return
-	var sm := SceneManager.save_manager
-	var show: bool = sm.owned_mounts.size() > 0 and sm.current_map == "main"
-	_mount_btn.visible = show
-	_mount_btn.text = "Dismount" if sm.is_mounted else "Mount"
-
-func _on_mount_state_changed(_mounted: bool, _mount_id: String) -> void:
-	_update_mount_btn()
-
 func _on_enemy_engaged_for_mount(_enemy_data: Dictionary) -> void:
 	if SceneManager.save_manager.is_mounted:
 		SceneManager.save_manager.auto_dismiss_mount()
@@ -2645,66 +1975,9 @@ func _on_battle_won(_result: Dictionary) -> void:
 func _on_coins_changed(n: int) -> void:
 	_coin_label.text = "Coins: %d" % n
 
-func _build_bounty_tracker() -> void:
-	var vh: float = get_viewport().get_visible_rect().size.y
-	_bounty_tracker = VBoxContainer.new()
-	_bounty_tracker.position = Vector2(vh * 0.01, vh * 0.07)
-	_hud.add_child(_bounty_tracker)
-	_refresh_bounty_tracker()
-
-func _refresh_bounty_tracker() -> void:
-	if _bounty_tracker == null:
-		return
-	for child in _bounty_tracker.get_children():
-		child.queue_free()
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var font_size: int = int(vh * 0.02)
-	var active: Array[Dictionary] = SceneManager.save_manager.get_active_bounties()
-	for b: Dictionary in active:
-		if bool(b.get("claimed", false)):
-			continue
-		var progress: int = int(b.get("progress", 0))
-		var count: int = int(b.get("count", 1))
-		var label := Label.new()
-		label.add_theme_font_size_override("font_size", font_size)
-		label.add_theme_color_override("font_shadow_color", Color.BLACK)
-		label.add_theme_constant_override("shadow_offset_x", 1)
-		label.add_theme_constant_override("shadow_offset_y", 1)
-		var completed: bool = bool(b.get("completed", false)) or progress >= count
-		if completed:
-			label.add_theme_color_override("font_color", Color(0.4, 1.0, 0.4))
-			label.text = "%s %d/%d (Claim at board)" % [_bounty_short_label(b), progress, count]
-		else:
-			label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.7))
-			label.text = "%s %d/%d" % [_bounty_short_label(b), progress, count]
-		_bounty_tracker.add_child(label)
-
-func _bounty_short_label(b: Dictionary) -> String:
-	var btype: String = str(b.get("type", ""))
-	var target: String = str(b.get("target", ""))
-	match btype:
-		"defeat_enemy_type":
-			return target.replace("_", " ").capitalize()
-		"defeat_in_biome":
-			return target.capitalize() + " kills"
-		"open_chests":
-			return "Open chests"
-	return "Bounty"
-
-func _on_bounty_progress_changed(_bounty_id: String, _progress: int, _count: int) -> void:
-	_refresh_bounty_tracker()
-
-func _on_bounty_completed(_bounty_id: String) -> void:
-	_refresh_bounty_tracker()
-
 func _on_xp_changed(_xp: int, _level: int) -> void:
-	_refresh_xp_bar()
-	if _xp_label == null:
-		return
-	var sm := SceneManager.save_manager
-	_xp_label.text = "%d / %d XP" % [
-		sm.xp - SaveManager.xp_for_level(sm.level - 1),
-		SaveManager.xp_for_level(sm.level) - SaveManager.xp_for_level(sm.level - 1)]
+	_world_hud.refresh_xp_bar()
+	_world_hud.update_xp_label()
 
 func _show_stable_panel() -> void:
 	var sm := SceneManager.save_manager
@@ -2807,7 +2080,7 @@ func _show_stable_panel() -> void:
 		sm.owned_mounts.append("stable_horse")
 		sm.summon_mount("stable_horse")
 		layer.queue_free()
-		_update_mount_btn()
+		_world_hud.update_mount_btn()
 		_show_dialogue("You purchased a Stable Horse! Press T or tap Mount to ride.")
 	)
 
@@ -3041,17 +2314,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 # ── Dialogue ───────────────────────────────────────────────────────────────
 
 func _show_dialogue(text: String) -> void:
-	_dialogue_label.text = text
-	_dialogue_label.show()
-	GameBus.dialogue_state_changed.emit(true)
-	_dialogue_id += 1
-	var my_id := _dialogue_id
-	get_tree().create_timer(DIALOGUE_DURATION, false).timeout.connect(
-		func() -> void:
-			if _dialogue_id == my_id:
-				_dialogue_label.hide()
-				GameBus.dialogue_state_changed.emit(false)
-	)
+	_world_hud.show_dialogue(text)
 
 func _show_duel_offer_panel(npc: Dictionary) -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
@@ -3158,15 +2421,7 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 	row.add_child(decline_btn)
 
 func _show_tip(text: String) -> void:
-	_tip_label.text = text
-	_tip_label.show()
-	_tip_id += 1
-	var my_id := _tip_id
-	get_tree().create_timer(TIP_DURATION, false).timeout.connect(
-		func() -> void:
-			if _tip_id == my_id:
-				_tip_label.hide()
-	)
+	_world_hud.show_tip(text)
 
 func _on_scroll_collected(scroll_id: String) -> void:
 	var scroll: Dictionary = ScrollRegistry.get_scroll(scroll_id)
@@ -3243,252 +2498,6 @@ func _maybe_drop_equipment_from_chest(chance: float = 0.15) -> void:
 		sm.add_equipment(picked, weapon.slot)
 	GameBus.hud_message_requested.emit("Found: %s!" % weapon.display_name)
 	GameBus.equipment_dropped.emit(picked)
-
-# ── Dungeon room overlays (TID-090/091/092) ────────────────────────────────
-
-func _show_rest_site_panel(npc_data: Dictionary) -> void:
-	var room_key: String = str(npc_data.get("after_dialogue", ""))
-	if SceneManager.save_manager.is_dungeon_room_used(room_key):
-		_show_dialogue("This rest site has already been used.")
-		return
-
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var vw: float = get_viewport().get_visible_rect().size.x
-	var font_size: int = int(vh * 0.03)
-	var btn_h: float = vh * 0.07
-
-	var panel := PanelContainer.new()
-	panel.position = Vector2(vw * 0.2, vh * 0.2)
-	panel.custom_minimum_size = Vector2(vw * 0.6, vh * 0.5)
-	_hud.add_child(panel)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.015))
-	panel.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "Rest Site"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.05))
-	vbox.add_child(title)
-
-	var hp_label := Label.new()
-	hp_label.text = "Hero HP: %d / 30" % _dungeon_hero_hp
-	hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hp_label.add_theme_font_size_override("font_size", font_size)
-	vbox.add_child(hp_label)
-
-	var rest_btn := Button.new()
-	rest_btn.text = "Rest — Recover 8 HP"
-	rest_btn.custom_minimum_size = Vector2(0, btn_h)
-	rest_btn.add_theme_font_size_override("font_size", font_size)
-	rest_btn.disabled = _dungeon_hero_hp >= 30
-	if rest_btn.disabled:
-		rest_btn.tooltip_text = "Already at full health"
-	vbox.add_child(rest_btn)
-
-	var cull_btn := Button.new()
-	cull_btn.text = "Cull — Remove a card from deck"
-	cull_btn.custom_minimum_size = Vector2(0, btn_h)
-	cull_btn.add_theme_font_size_override("font_size", font_size)
-	cull_btn.disabled = SceneManager.save_manager.player_deck.size() < 2
-	vbox.add_child(cull_btn)
-
-	var leave_btn := Button.new()
-	leave_btn.text = "Leave"
-	leave_btn.custom_minimum_size = Vector2(0, btn_h)
-	leave_btn.add_theme_font_size_override("font_size", font_size)
-	vbox.add_child(leave_btn)
-
-	rest_btn.pressed.connect(func() -> void:
-		_dungeon_hero_hp = mini(_dungeon_hero_hp + 8, 30)
-		SceneManager.save_manager.mark_dungeon_room_used(room_key)
-		panel.queue_free()
-		_show_dialogue("You rest and recover. Hero HP: %d / 30" % _dungeon_hero_hp)
-	)
-	cull_btn.pressed.connect(func() -> void:
-		panel.queue_free()
-		SceneManager.save_manager.mark_dungeon_room_used(room_key)
-		_show_cull_panel()
-	)
-	leave_btn.pressed.connect(func() -> void: panel.queue_free())
-
-
-func _show_cull_panel() -> void:
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var vw: float = get_viewport().get_visible_rect().size.x
-	var font_size: int = int(vh * 0.03)
-	var btn_h: float = vh * 0.065
-
-	var panel := PanelContainer.new()
-	panel.position = Vector2(vw * 0.1, vh * 0.1)
-	panel.custom_minimum_size = Vector2(vw * 0.8, vh * 0.75)
-	_hud.add_child(panel)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.01))
-	panel.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "Choose a card to remove from your deck:"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	title.add_theme_font_size_override("font_size", font_size)
-	vbox.add_child(title)
-
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size = Vector2(0, vh * 0.55)
-	vbox.add_child(scroll)
-
-	var card_list := VBoxContainer.new()
-	card_list.add_theme_constant_override("separation", int(vh * 0.008))
-	card_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(card_list)
-
-	var deck_copy: Array[String] = []
-	deck_copy.assign(SceneManager.save_manager.player_deck)
-
-	for ci in range(deck_copy.size()):
-		var cid: String = deck_copy[ci]
-		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(cid)
-		var display_name: String = str(inst.get("template_id", cid)).capitalize().replace("_", " ") if not inst.is_empty() else cid.capitalize().replace("_", " ")
-		var btn := Button.new()
-		btn.text = display_name
-		btn.custom_minimum_size = Vector2(0, btn_h)
-		btn.add_theme_font_size_override("font_size", font_size)
-		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card_list.add_child(btn)
-		btn.pressed.connect(func() -> void:
-			var new_deck: Array[String] = []
-			var removed_once: bool = false
-			for deck_card: String in SceneManager.save_manager.player_deck:
-				if not removed_once and deck_card == cid:
-					removed_once = true
-				else:
-					new_deck.append(deck_card)
-			SceneManager.save_manager.set_active_deck(new_deck)
-			panel.queue_free()
-			_show_dialogue("Removed %s from your deck." % display_name)
-		)
-
-	var cancel_btn := Button.new()
-	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(0, btn_h)
-	cancel_btn.add_theme_font_size_override("font_size", font_size)
-	vbox.add_child(cancel_btn)
-	cancel_btn.pressed.connect(func() -> void: panel.queue_free())
-
-
-func _show_event_panel(npc_data: Dictionary) -> void:
-	var room_key: String = str(npc_data.get("after_dialogue", ""))
-	if SceneManager.save_manager.is_dungeon_room_used(room_key):
-		_show_dialogue("The event here has already passed.")
-		return
-
-	var file := FileAccess.open("res://data/dungeon_events.json", FileAccess.READ)
-	if not file:
-		_show_dialogue("Nothing of interest here.")
-		return
-	var parsed: Variant = JSON.parse_string(file.get_as_text())
-	file.close()
-	if not (parsed is Array):
-		_show_dialogue("Nothing of interest here.")
-		return
-	var events: Array = parsed
-	if events.is_empty():
-		_show_dialogue("Nothing of interest here.")
-		return
-
-	var event_rng := RandomNumberGenerator.new()
-	event_rng.seed = room_key.hash()
-	var event_idx: int = event_rng.randi() % events.size()
-	var event: Dictionary = events[event_idx]
-
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var vw: float = get_viewport().get_visible_rect().size.x
-	var font_size: int = int(vh * 0.03)
-	var btn_h: float = vh * 0.07
-
-	var panel := PanelContainer.new()
-	panel.position = Vector2(vw * 0.1, vh * 0.15)
-	panel.custom_minimum_size = Vector2(vw * 0.8, vh * 0.65)
-	_hud.add_child(panel)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.015))
-	panel.add_child(vbox)
-
-	var event_text := Label.new()
-	event_text.text = str(event.get("text", "Something happens."))
-	event_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	event_text.add_theme_font_size_override("font_size", font_size)
-	vbox.add_child(event_text)
-
-	var choices: Array = event.get("choices", [])
-	for choice_idx in range(choices.size()):
-		var choice: Dictionary = choices[choice_idx]
-		if not (choice is Dictionary):
-			continue
-		var captured: Dictionary = choice
-		var btn := Button.new()
-		btn.text = str(captured.get("label", "Choose"))
-		btn.custom_minimum_size = Vector2(0, btn_h)
-		btn.add_theme_font_size_override("font_size", font_size)
-		vbox.add_child(btn)
-		btn.pressed.connect(func() -> void:
-			panel.queue_free()
-			SceneManager.save_manager.mark_dungeon_room_used(room_key)
-			_apply_event_outcome(captured)
-		)
-
-
-func _apply_event_outcome(choice: Dictionary) -> void:
-	var outcome_type: String = str(choice.get("outcome_type", "nothing"))
-	var outcome_value: int = int(choice.get("outcome_value", 0))
-	var outcome_text: String = str(choice.get("outcome_text", ""))
-	var card_pool: Array[String] = ["ghost", "skeleton", "zombie", "ghoul"]
-
-	match outcome_type:
-		"gain_coins":
-			SceneManager.save_manager.add_coins(outcome_value)
-		"lose_hp":
-			_dungeon_hero_hp = maxi(_dungeon_hero_hp - outcome_value, 1)
-		"gain_card":
-			var picked: String = card_pool[randi() % card_pool.size()]
-			var new_cards: Array[String] = [picked]
-			SceneManager.save_manager.add_cards_to_deck(new_cards)
-			outcome_text += (" (Received: %s)" % picked) if not outcome_text.is_empty() else "Received: %s" % picked
-		"lose_card":
-			if not SceneManager.save_manager.player_deck.is_empty():
-				var removed_uid: String = SceneManager.save_manager.player_deck[-1]
-				var removed_inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(removed_uid)
-				var removed_name: String = str(removed_inst.get("template_id", removed_uid)).capitalize().replace("_", " ") if not removed_inst.is_empty() else removed_uid
-				var trimmed: Array[String] = []
-				trimmed.assign(SceneManager.save_manager.player_deck)
-				trimmed.pop_back()
-				SceneManager.save_manager.set_active_deck(trimmed)
-				outcome_text += (" (Lost: %s)" % removed_name) if not outcome_text.is_empty() else "Lost: %s" % removed_name
-		"lose_hp_gain_card":
-			_dungeon_hero_hp = maxi(_dungeon_hero_hp - outcome_value, 1)
-			var picked: String = card_pool[randi() % card_pool.size()]
-			var new_cards: Array[String] = [picked]
-			SceneManager.save_manager.add_cards_to_deck(new_cards)
-			outcome_text += (" (Received: %s)" % picked) if not outcome_text.is_empty() else "Received: %s" % picked
-		"gain_coins_lose_hp":
-			SceneManager.save_manager.add_coins(outcome_value)
-			_dungeon_hero_hp = maxi(_dungeon_hero_hp - 3, 1)
-		"lose_coins_gain_card":
-			if SceneManager.save_manager.coins >= outcome_value:
-				SceneManager.save_manager.add_coins(-outcome_value)
-				var picked: String = card_pool[randi() % card_pool.size()]
-				var new_cards: Array[String] = [picked]
-				SceneManager.save_manager.add_cards_to_deck(new_cards)
-				outcome_text += (" (Received: %s)" % picked) if not outcome_text.is_empty() else "Received: %s" % picked
-			else:
-				outcome_text = "Not enough coins!"
-
-	if not outcome_text.is_empty():
-		_show_dialogue(outcome_text)
 
 # ── Weather visuals ────────────────────────────────────────────────────────
 

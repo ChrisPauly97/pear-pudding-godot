@@ -1,4 +1,4 @@
-extends Node3D
+extends "res://scenes/world/entities/WorldEntityBase.gd"
 
 var npc_data: Dictionary = {}
 var _flag_key: String = ""
@@ -49,12 +49,6 @@ func _ready() -> void:
 
 	# npc_data is set by init_from_data() before add_child(), so it's ready here
 	_add_name_label()
-
-static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	mi.material_override = mat
-	return mi
 
 func init_from_data(data: Dictionary) -> void:
 	npc_data = data

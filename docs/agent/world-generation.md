@@ -75,16 +75,53 @@ Defines each biome as a resource with:
 
 ### ChunkData (`game_logic/world/ChunkData.gd`)
 
-Lightweight container holding:
-- `tile_grid: Array[int]` — 256 entries, row-major `[tz * 16 + tx]`
-- `height_grid: Array[float]` — per-tile peak height (used by TerrainMath)
-- `entities: Array[Dictionary]` — spawned enemies, chests, NPCs, doors
+Lightweight RefCounted container holding:
+- `tiles: PackedInt32Array` — 256 entries, row-major `[tz * 16 + tx]`
+- `heights: PackedInt32Array` — per-tile peak height value (used by TerrainMath)
+- `enemies`, `chests`, `doors`, `npcs`, `waystones`, `burial_mounds`, `landmarks`,
+  `mana_wells` — `Array[Dictionary]` of spawned entity descriptors
+- `biome_id: int`, `has_entities: bool`
+
+### ChunkStreamingManager (`scenes/world/ChunkStreamingManager.gd`)
+
+`Node3D` child added to WorldScene at `_ready()`. Owns all chunk lifecycle state and logic:
+
+**State** (removed from WorldScene):
+- `_chunk_data_cache: Dictionary` — `Vector2i(cx,cz)` → `ChunkData`
+- `_chunk_renderers: Dictionary` — `Vector2i` → `ChunkRenderer` node
+- Thread pool state: `_chunk_data_pending`, `_chunk_build_results`, `_chunk_build_mutex`,
+  `_chunk_task_ids`, `_chunk_task_id_map`, `_chunk_build_queue`, `_chunk_queued`
+- `_last_player_chunk`, `_last_move_dir`, `_last_dir_update_time`
+
+**Public API:**
+```gdscript
+_csm.setup(world_seed, is_infinite, world_map, terrain_mat, world_scene)
+_csm.build_initial_infinite(player_pos)      # infinite-world startup
+_csm.build_all_named_map(max_cx, max_cz, player_pos)  # named-map startup
+_csm.process_streaming(player_pos, player_vel, camera_frustum)  # per-frame tick
+_csm.has_chunk_data(key: Vector2i) -> bool
+_csm.get_chunk_data(key: Vector2i) -> RefCounted   # ChunkData or null
+_csm.get_tile_global(wtx, wtz) -> int
+_csm.get_height_global(wtx, wtz) -> int
+_csm.get_last_player_chunk() -> Vector2i
+_csm.get_last_move_dir() -> Vector2
+_csm.rebuild_terrain_around_tile(tx, tz)
+_csm.for_each_renderer(callback: Callable)   # iterates _chunk_renderers
+_csm.exit_cleanup()                          # waits for WorkerThreadPool tasks
+```
+
+**Signals** (WorldScene connects to these):
+```gdscript
+signal player_chunk_changed(chunk: Vector2i, biome_id: int)
+signal chunk_committed(key: Vector2i, chunk_data: RefCounted)
+signal chunk_unloading(key: Vector2i, chunk_data: RefCounted)
+```
 
 ### Caching Strategy
 
 - Chunks within load radius (6) are built and rendered
 - Chunks beyond eviction radius (10) are removed from the cache
-- The `_chunk_data_cache: Dictionary` in `WorldScene` maps `Vector2i(cx, cz)` → `ChunkData`
+- Cache managed entirely by `ChunkStreamingManager`
 - Building runs on `WorkerThreadPool` (up to 4 concurrent tasks) to avoid frame stalls
 
 ---
@@ -154,7 +191,8 @@ var pos := WorldEventManager.find_spawn_tile(player_pos, 20.0, 50.0, world_seed)
 | **SaveManager** | Seed source | `SaveManager.world_seed` seeds `InfiniteWorldGen`; `SaveManager.starting_biome` sets the safe-zone biome |
 | **IsoConst** | Constants | `CHUNK_SIZE`, `TILE_SIZE`, tile type constants (`TILE_GRASS`, `TILE_HILL`, `TILE_WALL`) |
 | **Named Maps / Dungeons** | Doors | Door entities generated inside ruins point to `dungeon_<seed>` named maps |
-| **WorldScene** | Orchestrator | Calls `InfiniteWorldGen.get_chunk(cx, cz)` and manages the cache and thread pool |
+| **ChunkStreamingManager** | Orchestrator | Owns cache, thread pool, and all chunk lifecycle; child of WorldScene |
+| **WorldScene** | Host | Creates CSM, connects its signals; delegates tile/height queries and streaming to CSM |
 
 ---
 
@@ -165,6 +203,7 @@ var pos := WorldEventManager.find_spawn_tile(player_pos, 20.0, 50.0, world_seed)
 | `InfiniteWorldGen.gd` | `game_logic/world/InfiniteWorldGen.gd` | Core generation script |
 | `BiomeDef.gd` | `game_logic/world/BiomeDef.gd` | Biome parameter resource class |
 | `ChunkData.gd` | `game_logic/world/ChunkData.gd` | Chunk container class |
+| `ChunkStreamingManager.gd` | `scenes/world/ChunkStreamingManager.gd` | Chunk lifecycle orchestrator (extracted from WorldScene) |
 | Terrain shaders | `assets/shaders/terrain.gdshader` | Receives per-biome tint uniforms from ChunkRenderer |
 | Grass shaders | `assets/shaders/grass.gdshader` | Applied to grass tile layer |
 | Terrain textures | `assets/textures/pixel_art/grass_pixel.png`, `hill_*.png`, `wall_*.png` | Sampled inside terrain shader |

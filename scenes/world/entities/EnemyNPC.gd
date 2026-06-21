@@ -1,4 +1,4 @@
-extends Node3D
+extends "res://scenes/world/entities/WorldEntityBase.gd"
 
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 
@@ -63,12 +63,6 @@ func _ready() -> void:
 
 	if _tracking:
 		_setup_proximity_area()
-
-static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	mi.material_override = mat
-	return mi
 
 func _process(delta: float) -> void:
 	if engage_cooldown > 0.0:
