@@ -1,7 +1,10 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
-const _InventoryScenePacked := preload("res://scenes/ui/InventoryScene.tscn")
+const _InventoryScenePacked  := preload("res://scenes/ui/InventoryScene.tscn")
+const _CharacterScenePacked  := preload("res://scenes/ui/CharacterScene.tscn")
+const _SkillTreeScenePacked  := preload("res://scenes/ui/SkillTreeScene.tscn")
+const _JournalScenePacked    := preload("res://scenes/ui/JournalScene.tscn")
 
 const _TABS: Array[String] = ["deck", "character", "skills", "journal"]
 const _TAB_LABELS: Dictionary = {
@@ -91,20 +94,46 @@ func _load_tab_content(tab_id: String) -> void:
 			inv.set("hub_mode", true)
 			_content_area.add_child(inv)
 			_active_page = inv
-		_:
-			var lbl := Label.new()
-			lbl.text = _TAB_LABELS.get(tab_id, tab_id) + "\n\nFull integration coming soon."
-			lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-			lbl.add_theme_font_size_override("font_size", int(_ref * 0.028))
-			_content_area.add_child(lbl)
-			_active_page = lbl
+		"character":
+			var ch: Node = _CharacterScenePacked.instantiate()
+			ch.set("hub_mode", true)
+			_content_area.add_child(ch)
+			_active_page = ch
+		"skills":
+			GameBus.tutorial_popup_requested.emit("skill_tree")
+			var sk: Node = _SkillTreeScenePacked.instantiate()
+			sk.set("hub_mode", true)
+			_content_area.add_child(sk)
+			_active_page = sk
+		"journal":
+			var jn: Node = _JournalScenePacked.instantiate()
+			jn.set("hub_mode", true)
+			_content_area.add_child(jn)
+			_active_page = jn
 
 func _update_tab_highlights() -> void:
 	for tab_id: String in _tab_buttons:
 		var btn: Button = _tab_buttons[tab_id]
 		btn.disabled = (tab_id == _current_tab)
+
+func _input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		_close()
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.physical_keycode:
+			KEY_BRACKETLEFT:
+				_cycle_tab(-1)
+				get_viewport().set_input_as_handled()
+			KEY_BRACKETRIGHT:
+				_cycle_tab(1)
+				get_viewport().set_input_as_handled()
+
+func _cycle_tab(direction: int) -> void:
+	var idx: int = _TABS.find(_current_tab)
+	idx = (idx + direction + _TABS.size()) % _TABS.size()
+	show_tab(_TABS[idx])
 
 func _close() -> void:
 	closed.emit()

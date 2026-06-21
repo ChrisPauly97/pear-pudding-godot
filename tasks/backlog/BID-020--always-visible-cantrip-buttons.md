@@ -1,7 +1,8 @@
 # BID-020: Cantrip HUD buttons are always built regardless of unlock state
 
-**Category:** code-smell
+**Category:** code-smell (resolved)
 **Discovered During:** GID-081 / TID-298 research
+**Resolved In:** GID-081 / TID-298
 
 ## Description
 

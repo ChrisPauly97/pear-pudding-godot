@@ -853,6 +853,11 @@ func _close_overlay(overlay_state: State) -> void:
 ## Opens the unified Menu Hub overlay on the specified tab.
 ## Replaces the four separate INVENTORY / CHARACTER / SKILL_TREE / JOURNAL overlays.
 func open_menu_hub(tab: String = "deck") -> void:
+	if _state == State.MENU_HUB:
+		var existing: Node = _overlays.get(State.MENU_HUB, null)
+		if existing != null and is_instance_valid(existing):
+			existing.call("show_tab", tab)
+		return
 	if _state != State.WORLD:
 		return
 	var hub: Node = _MenuHubScript.new()

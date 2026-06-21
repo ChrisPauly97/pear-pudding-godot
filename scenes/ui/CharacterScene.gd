@@ -6,6 +6,8 @@ const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
 const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 
+var hub_mode: bool = false
+
 var _selected_slot: String = ""
 var _slot_btns: Dictionary = {}   # slot -> Button
 var _companion_btn: Button = null
@@ -28,12 +30,26 @@ func _ready() -> void:
 	_refresh_slot_buttons()
 
 func _build_ui() -> void:
-	_build_backdrop(0.78)
 	var is_portrait: bool = _vw < _vh
-	var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
-	var panel_h: float = _vh * 0.92 if is_portrait else _vh * 0.86
-	var outer := _build_centered_panel(panel_w, panel_h)
-	var root_vbox := _build_margin_vbox(outer, 0.015, 0.012)
+	var root_vbox: VBoxContainer
+	if hub_mode:
+		var margin := MarginContainer.new()
+		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var m: int = int(_ref * 0.012)
+		margin.add_theme_constant_override("margin_left", m)
+		margin.add_theme_constant_override("margin_right", m)
+		margin.add_theme_constant_override("margin_top", m)
+		margin.add_theme_constant_override("margin_bottom", m)
+		add_child(margin)
+		root_vbox = VBoxContainer.new()
+		root_vbox.add_theme_constant_override("separation", int(_ref * 0.012))
+		margin.add_child(root_vbox)
+	else:
+		_build_backdrop(0.78)
+		var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
+		var panel_h: float = _vh * 0.92 if is_portrait else _vh * 0.86
+		var outer := _build_centered_panel(panel_w, panel_h)
+		root_vbox = _build_margin_vbox(outer, 0.015, 0.012)
 
 	# ---- Header bar ----------------------------------------------------------
 	var header := HBoxContainer.new()
@@ -45,12 +61,13 @@ func _build_ui() -> void:
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title_lbl)
 
-	var close_btn := Button.new()
-	close_btn.text = "Close  [C]" if not OS.has_feature("android") else "Close"
-	close_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-	close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	close_btn.pressed.connect(_on_close)
-	header.add_child(close_btn)
+	if not hub_mode:
+		var close_btn := Button.new()
+		close_btn.text = "Close  [C]" if not OS.has_feature("android") else "Close"
+		close_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
+		close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		close_btn.pressed.connect(_on_close)
+		header.add_child(close_btn)
 
 	# ---- Main content --------------------------------------------------------
 	var content: BoxContainer
@@ -404,6 +421,8 @@ func _on_close() -> void:
 	closed.emit()
 
 func _input(event: InputEvent) -> void:
+	if hub_mode:
+		return
 	if event.is_action_pressed("character"):
 		get_viewport().set_input_as_handled()
 		_on_close()

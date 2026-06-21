@@ -2,7 +2,7 @@
 
 **Goal:** GID-081
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-296
 
 ## Lock
@@ -51,12 +51,20 @@ The overworld HUD has buttons in every corner. Now that the Menu Hub (TID-296) p
 
 ## Plan
 
-_Written during Plan phase._
+Implemented per research notes.
 
 ## Changes Made
 
-_Filled after Build phase._
+**Modified:**
+- `scenes/world/WorldHUD.gd`:
+  - Added `const CantripManager = preload("res://game_logic/world/CantripManager.gd")`.
+  - Added `var _ghost_btn: Button`, `var _dig_btn: Button` instance vars.
+  - `_create_nav_buttons()`: replaced Menu + II pair with single II/pause button top-left; replaced four-button right column (Inventory/Journal/Character/Skills) with single "Menu" button → `SceneManager.open_menu_hub("deck")`; kept Mount button below Menu.
+  - `_create_cantrip_buttons()`: buttons now created as `_ghost_btn`/`_dig_btn` with initial visibility gated on `CantripManager.is_available()`.
+  - Added `refresh_action_cluster()`: re-checks cantrip availability and updates visibility; connected to `GameBus.inventory_changed` in `setup()`.
+
+Resolves BID-020 (cantrip buttons always visible regardless of unlock).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md`: rewrote HUD section to describe new layout (single system/pause button, single Menu/Bag entry, action cluster with gated cantrip buttons).

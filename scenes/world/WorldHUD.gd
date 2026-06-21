@@ -7,6 +7,7 @@ extends Node
 const CompassRibbon    = preload("res://scenes/ui/CompassRibbon.gd")
 const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const SaveManager      = preload("res://autoloads/SaveManager.gd")
+const CantripManager   = preload("res://game_logic/world/CantripManager.gd")
 
 var _hud: CanvasLayer
 var _world_scene: Node3D
@@ -23,6 +24,8 @@ var _xp_bar: ProgressBar
 var _xp_label: Label
 var _ley_indicator: Label = null
 var _mount_btn: Button = null
+var _ghost_btn: Button = null
+var _dig_btn: Button = null
 var _bounty_tracker: VBoxContainer = null
 var _interact_btn: Button = null   # Android-only tap button
 var _compass: Node = null
@@ -73,91 +76,77 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 	GameBus.mount_state_changed.connect(_on_mount_state_changed)
 	GameBus.bounty_progress_changed.connect(func(_id, _p, _c): refresh_bounty_tracker())
 	GameBus.bounty_completed.connect(func(_id): refresh_bounty_tracker())
+	GameBus.inventory_changed.connect(refresh_action_cluster)
 
 func _create_nav_buttons(vh: float, vw: float, font_size: int,
 		btn_w: float, btn_h: float) -> void:
-	var menu_btn := Button.new()
-	menu_btn.text = "Menu"
-	menu_btn.custom_minimum_size = Vector2(btn_w, btn_h)
-	menu_btn.position = Vector2(vh * 0.01, vh * 0.01)
-	menu_btn.add_theme_font_size_override("font_size", font_size)
-	menu_btn.pressed.connect(func() -> void: SceneManager.go_to_menu())
-	_hud.add_child(menu_btn)
-
+	# Single system/pause control replaces the Menu + II pair.
 	var pause_btn := Button.new()
 	pause_btn.text = "II"
 	pause_btn.custom_minimum_size = Vector2(btn_h, btn_h)
-	pause_btn.position = Vector2(vh * 0.01 + btn_w + vh * 0.005, vh * 0.01)
+	pause_btn.position = Vector2(vh * 0.01, vh * 0.01)
 	pause_btn.add_theme_font_size_override("font_size", font_size)
 	pause_btn.pressed.connect(func() -> void: _world_scene.call("_open_pause"))
 	_hud.add_child(pause_btn)
 
+	# Single Menu/Bag entry replaces the four-button right column.
 	var minimap_bottom: float = vh * 0.01 + vh * 0.20 + vh * 0.01
 	var btn_x: float = vw - btn_w * 1.3 - vh * 0.01
 
-	var inv_btn := Button.new()
-	inv_btn.text = "Inventory"
-	inv_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	inv_btn.position = Vector2(btn_x, minimap_bottom)
-	inv_btn.add_theme_font_size_override("font_size", font_size)
-	inv_btn.pressed.connect(func() -> void: GameBus.inventory_requested.emit())
-	_hud.add_child(inv_btn)
-
-	var journal_btn := Button.new()
-	journal_btn.text = "Journal"
-	journal_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	journal_btn.position = Vector2(btn_x, minimap_bottom + btn_h + vh * 0.005)
-	journal_btn.add_theme_font_size_override("font_size", font_size)
-	journal_btn.pressed.connect(func() -> void: GameBus.journal_requested.emit())
-	_hud.add_child(journal_btn)
-
-	var char_btn := Button.new()
-	char_btn.text = "Character"
-	char_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	char_btn.position = Vector2(btn_x, minimap_bottom + (btn_h + vh * 0.005) * 2)
-	char_btn.add_theme_font_size_override("font_size", font_size)
-	char_btn.pressed.connect(func() -> void: GameBus.character_requested.emit())
-	_hud.add_child(char_btn)
-
-	var skill_btn := Button.new()
-	skill_btn.text = "Skills"
-	skill_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	skill_btn.position = Vector2(btn_x, minimap_bottom + (btn_h + vh * 0.005) * 3)
-	skill_btn.add_theme_font_size_override("font_size", font_size)
-	skill_btn.pressed.connect(func() -> void: GameBus.skill_tree_requested.emit())
-	_hud.add_child(skill_btn)
+	var hub_btn := Button.new()
+	hub_btn.text = "Menu"
+	hub_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
+	hub_btn.position = Vector2(btn_x, minimap_bottom)
+	hub_btn.add_theme_font_size_override("font_size", font_size)
+	hub_btn.pressed.connect(func() -> void: SceneManager.open_menu_hub("deck"))
+	_hud.add_child(hub_btn)
 
 	_mount_btn = Button.new()
 	_mount_btn.text = "Mount"
 	_mount_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	_mount_btn.position = Vector2(btn_x, minimap_bottom + (btn_h + vh * 0.005) * 4)
+	_mount_btn.position = Vector2(btn_x, minimap_bottom + btn_h + vh * 0.005)
 	_mount_btn.add_theme_font_size_override("font_size", font_size)
 	_mount_btn.flat = true
 	_mount_btn.pressed.connect(func() -> void: _world_scene.call("_toggle_mount"))
 	_mount_btn.hide()
 	_hud.add_child(_mount_btn)
 
-func _create_cantrip_buttons(vh: float, font_size: int) -> void:
+func _create_cantrip_buttons(vh: float, _font_size: int) -> void:
 	var cantrip_btn_w: float = vh * 0.12
 	var cantrip_btn_h: float = vh * 0.055
 	var cantrip_x: float = vh * 0.01
 	var cantrip_y: float = vh * 0.17
 
-	var ghost_btn := Button.new()
-	ghost_btn.text = "[G] Phase"
-	ghost_btn.custom_minimum_size = Vector2(cantrip_btn_w, cantrip_btn_h)
-	ghost_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
-	ghost_btn.position = Vector2(cantrip_x, cantrip_y)
-	ghost_btn.pressed.connect(func() -> void: _world_scene.call("_activate_ghost_phase"))
-	_hud.add_child(ghost_btn)
+	var sm := SceneManager.save_manager
+	var deck_ids: Array[String] = sm.get_deck_template_ids() if sm != null else []
 
-	var dig_btn := Button.new()
-	dig_btn.text = "[D] Dig"
-	dig_btn.custom_minimum_size = Vector2(cantrip_btn_w, cantrip_btn_h)
-	dig_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
-	dig_btn.position = Vector2(cantrip_x, cantrip_y + cantrip_btn_h + vh * 0.005)
-	dig_btn.pressed.connect(func() -> void: _world_scene.call("_activate_skeleton_dig"))
-	_hud.add_child(dig_btn)
+	_ghost_btn = Button.new()
+	_ghost_btn.text = "[G] Phase"
+	_ghost_btn.custom_minimum_size = Vector2(cantrip_btn_w, cantrip_btn_h)
+	_ghost_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
+	_ghost_btn.position = Vector2(cantrip_x, cantrip_y)
+	_ghost_btn.pressed.connect(func() -> void: _world_scene.call("_activate_ghost_phase"))
+	_ghost_btn.visible = CantripManager.is_available("ghost_phase", deck_ids)
+	_hud.add_child(_ghost_btn)
+
+	_dig_btn = Button.new()
+	_dig_btn.text = "[D] Dig"
+	_dig_btn.custom_minimum_size = Vector2(cantrip_btn_w, cantrip_btn_h)
+	_dig_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
+	_dig_btn.position = Vector2(cantrip_x, cantrip_y + cantrip_btn_h + vh * 0.005)
+	_dig_btn.pressed.connect(func() -> void: _world_scene.call("_activate_skeleton_dig"))
+	_dig_btn.visible = CantripManager.is_available("skeleton_dig", deck_ids)
+	_hud.add_child(_dig_btn)
+
+func refresh_action_cluster() -> void:
+	var sm := SceneManager.save_manager
+	if sm == null:
+		return
+	var deck_ids: Array[String] = sm.get_deck_template_ids()
+	if _ghost_btn != null:
+		_ghost_btn.visible = CantripManager.is_available("ghost_phase", deck_ids)
+	if _dig_btn != null:
+		_dig_btn.visible = CantripManager.is_available("skeleton_dig", deck_ids)
 
 func _create_dialogue_label(vp: Vector2, font_size: int) -> void:
 	_dialogue_label = Label.new()
