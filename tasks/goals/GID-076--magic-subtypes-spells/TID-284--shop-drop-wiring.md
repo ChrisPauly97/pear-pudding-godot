@@ -2,7 +2,7 @@
 
 **Goal:** GID-076
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-280, TID-281, TID-282, TID-283
 
 ## Lock
@@ -44,12 +44,17 @@ If `CardRegistry` uses explicit preloads (not a scan), all 40 new `.tres` files 
 
 ## Plan
 
-_Written during Plan phase._
+Shop is automatic (CardRegistry.get_all_ids() covers all registered cards). Update 5 enemy drop pools by magic affinity.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/enemies/undead_basic.tres`: added ember_brand, dawn_soothing_touch, dusk_shadow_whisper, ash_rot
+- `data/enemies/undead_horde.tres`: added ember_heat_wave, ember_wildfire, dusk_hex, dusk_corrupt, ash_plague, ash_bone_spear
+- `data/enemies/ghoul_pack.tres`: added ember_rush, dawn_beacon, dawn_aegis, dusk_vampiric_touch, ash_raise_dead, ash_bone_wall
+- `data/enemies/undead_elite.tres`: added ember_fury, ember_molten_fury, dawn_guardian_vow, dusk_shadow_bind, ash_defile, ash_wither_away
+- `data/enemies/roaming_terror.tres`: added ember_solar_flare, dawn_salvation, dusk_eclipse, dusk_soul_eater, ash_annihilate
+- Test count already at 100 (done in TID-283)
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None (deferred to TID-285).
