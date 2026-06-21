@@ -6,7 +6,17 @@ const _C_ARCANE_SEAL      := preload("res://data/cards/arcane_seal.tres")
 const _C_ALIGHT           := preload("res://data/cards/alight.tres")
 const _C_ANCIENT_GUARDIAN := preload("res://data/cards/ancient_guardian.tres")
 const _C_ASH              := preload("res://data/cards/ash.tres")
+const _C_ASH_ANNIHILATE   := preload("res://data/cards/ash_annihilate.tres")
+const _C_ASH_BONE_SPEAR   := preload("res://data/cards/ash_bone_spear.tres")
+const _C_ASH_BONE_WALL    := preload("res://data/cards/ash_bone_wall.tres")
+const _C_ASH_DEFILE       := preload("res://data/cards/ash_defile.tres")
+const _C_ASH_DESECRATE    := preload("res://data/cards/ash_desecrate.tres")
+const _C_ASH_MASS_DECAY   := preload("res://data/cards/ash_mass_decay.tres")
+const _C_ASH_PLAGUE       := preload("res://data/cards/ash_plague.tres")
+const _C_ASH_RAISE_DEAD   := preload("res://data/cards/ash_raise_dead.tres")
+const _C_ASH_ROT          := preload("res://data/cards/ash_rot.tres")
 const _C_ASH_WARDEN       := preload("res://data/cards/ash_warden.tres")
+const _C_ASH_WITHER_AWAY  := preload("res://data/cards/ash_wither_away.tres")
 const _C_BLESSED_LIGHT    := preload("res://data/cards/blessed_light.tres")
 const _C_BLITZ_GHOUL      := preload("res://data/cards/blitz_ghoul.tres")
 const _C_BRITTLE          := preload("res://data/cards/brittle.tres")
@@ -129,6 +139,9 @@ static func _ensure_loaded() -> void:
 		_C_ISFIG_SHADOW_ECHO,
 		_C_EMBER_COVENANT, _C_PYRE_WARDEN, _C_SACRED_LIGHT,
 		_C_HALLOWED_GROUND, _C_TWILIGHT_VEIL, _C_ASH_ARBITER,
+		_C_ASH_ANNIHILATE, _C_ASH_BONE_SPEAR, _C_ASH_BONE_WALL,
+		_C_ASH_DEFILE, _C_ASH_DESECRATE, _C_ASH_MASS_DECAY,
+		_C_ASH_PLAGUE, _C_ASH_RAISE_DEAD, _C_ASH_ROT, _C_ASH_WITHER_AWAY,
 	]
 	for preloaded in all:
 		if preloaded == null:

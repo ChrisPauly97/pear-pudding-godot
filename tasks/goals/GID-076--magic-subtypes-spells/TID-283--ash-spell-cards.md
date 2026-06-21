@@ -2,7 +2,7 @@
 
 **Goal:** GID-076
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-279
 
 ## Lock
@@ -40,12 +40,24 @@ Same `.tres` template with `magic_type = "dark"` and `magic_branch = "ash"`.
 
 ## Plan
 
-_Written during Plan phase._
+Create 10 `.tres` files and `.uid` sidecars for Ash-branch spells, register all in `CardRegistry.gd` preloads and `_ensure_loaded()`, update test count.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `data/cards/ash_rot.tres` + `.uid`
+- Created `data/cards/ash_desecrate.tres` + `.uid`
+- Created `data/cards/ash_plague.tres` + `.uid`
+- Created `data/cards/ash_bone_spear.tres` + `.uid`
+- Created `data/cards/ash_raise_dead.tres` + `.uid`
+- Created `data/cards/ash_wither_away.tres` + `.uid`
+- Created `data/cards/ash_defile.tres` + `.uid`
+- Created `data/cards/ash_bone_wall.tres` + `.uid`
+- Created `data/cards/ash_mass_decay.tres` + `.uid`
+- Created `data/cards/ash_annihilate.tres` + `.uid`
+- Added all 10 as `const _C_ASH_*` preloads in `CardRegistry.gd`
+- Added all 10 to `_ensure_loaded()` array in `CardRegistry.gd`
+- Updated `test_card_registry.gd` count assertion from 90 → 100
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No doc changes needed; battle-system.md updated in TID-285.

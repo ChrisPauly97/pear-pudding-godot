@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://y1lxi9nxxpxz"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ash_bone_spear"]
+
+[resource]
+script = ExtResource("1_ash_bone_spear")
+id = "ash_bone_spear"
+card_name = "Bone Spear"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "A shard of bone pierces a single target for 4."
+color = Color(0.45, 0.4, 0.35, 1)
+magic_type = "dark"
+magic_branch = "ash"
+spell_effect = "deal_damage_single"
+spell_power = 4
