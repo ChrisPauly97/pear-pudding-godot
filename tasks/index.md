@@ -79,7 +79,7 @@
 | [GID-073](goals/GID-073--ui-overlay-framework/goal.md) | UI Overlay Framework & Shared Theme | done | 3 / 3 |
 | [GID-074](goals/GID-074--autoload-persistence-simplification/goal.md) | Autoload & Persistence Simplification | done | 3 / 3 |
 | [GID-075](goals/GID-075--dead-code-constants-hygiene/goal.md) | Dead Code, Constants & Test Hygiene | done | 3 / 3 |
-| [GID-076](goals/GID-076--magic-subtypes-spells/goal.md) | Magic Subtypes — 40 Spell Cards | pending | 1 / 7 |
+| [GID-076](goals/GID-076--magic-subtypes-spells/goal.md) | Magic Subtypes — 40 Spell Cards | pending | 2 / 7 |
 | [GID-077](goals/GID-077--combat-deck-fatigue/goal.md) | Combat Deck Fatigue | done | 2 / 2 |
 | [GID-078](goals/GID-078--app-diagnostics-logs-screen/goal.md) | App Diagnostics Log Screen | done | 3 / 3 |
 | [GID-079](goals/GID-079--card-slot-battle-placement/goal.md) | Card Slot Battle Placement | done | 4 / 4 |

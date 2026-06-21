@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://hmaccufqf6k9"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ember_wildfire"]
+
+[resource]
+script = ExtResource("1_ember_wildfire")
+id = "ember_wildfire"
+card_name = "Wildfire"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Uncontrolled fire strikes a random enemy for 4."
+color = Color(1.0, 0.45, 0.05, 1)
+magic_type = "light"
+magic_branch = "ember"
+spell_effect = "deal_damage_random"
+spell_power = 4

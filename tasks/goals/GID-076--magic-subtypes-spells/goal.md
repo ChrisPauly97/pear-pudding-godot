@@ -13,7 +13,7 @@ The TCG currently has 4–6 spells per branch — the existing set covers basics
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-279 | New spell effect engine — 20 new effect keys | agent | done | — |
-| TID-280 | Ember spell cards — 10 `.tres` files | agent | pending | TID-279 |
+| TID-280 | Ember spell cards — 10 `.tres` files | agent | done | TID-279 |
 | TID-281 | Dawn spell cards — 10 `.tres` files | agent | pending | TID-279 |
 | TID-282 | Dusk spell cards — 10 `.tres` files | agent | pending | TID-279 |
 | TID-283 | Ash spell cards — 10 `.tres` files | agent | pending | TID-279 |

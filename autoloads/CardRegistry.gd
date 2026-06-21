@@ -24,7 +24,17 @@ const _C_DUSK_SEER        := preload("res://data/cards/dusk_seer.tres")
 const _C_DUSK_VAMPIRE     := preload("res://data/cards/dusk_vampire.tres")
 const _C_DUSK_WRAITH      := preload("res://data/cards/dusk_wraith.tres")
 const _C_EMBER            := preload("res://data/cards/ember.tres")
+const _C_EMBER_BACKDRAFT  := preload("res://data/cards/ember_backdraft.tres")
+const _C_EMBER_BRAND      := preload("res://data/cards/ember_brand.tres")
+const _C_EMBER_CINDER     := preload("res://data/cards/ember_cinder.tres")
+const _C_EMBER_FLAME_LANCE := preload("res://data/cards/ember_flame_lance.tres")
+const _C_EMBER_FURY       := preload("res://data/cards/ember_fury.tres")
+const _C_EMBER_HEAT_WAVE  := preload("res://data/cards/ember_heat_wave.tres")
 const _C_EMBER_IMP        := preload("res://data/cards/ember_imp.tres")
+const _C_EMBER_MOLTEN_FURY := preload("res://data/cards/ember_molten_fury.tres")
+const _C_EMBER_RUSH       := preload("res://data/cards/ember_rush.tres")
+const _C_EMBER_SOLAR_FLARE := preload("res://data/cards/ember_solar_flare.tres")
+const _C_EMBER_WILDFIRE   := preload("res://data/cards/ember_wildfire.tres")
 const _C_FLICKER          := preload("res://data/cards/flicker.tres")
 const _C_GHOST            := preload("res://data/cards/ghost.tres")
 const _C_GHOUL            := preload("res://data/cards/ghoul.tres")
@@ -75,7 +85,12 @@ static func _ensure_loaded() -> void:
 		_C_ALIGHT, _C_ANCIENT_GUARDIAN, _C_ASH, _C_ASH_WARDEN, _C_BLESSED_LIGHT, _C_BLITZ_GHOUL,
 		_C_BRITTLE, _C_BULWARK, _C_CHAR, _C_DAGGER_THROW, _C_DARK_PACT, _C_DUEL_CROWN,
 		_C_DAWN_ACOLYTE, _C_DAWN_GUARDIAN, _C_DAWN_HEALER, _C_DAWN_PALADIN, _C_DRAIN,
-		_C_DUSK_SEER, _C_DUSK_VAMPIRE, _C_DUSK_WRAITH, _C_EMBER, _C_EMBER_IMP, _C_FLICKER,
+		_C_DUSK_SEER, _C_DUSK_VAMPIRE, _C_DUSK_WRAITH,
+		_C_EMBER, _C_EMBER_BACKDRAFT, _C_EMBER_BRAND, _C_EMBER_CINDER,
+		_C_EMBER_FLAME_LANCE, _C_EMBER_FURY, _C_EMBER_HEAT_WAVE,
+		_C_EMBER_IMP, _C_EMBER_MOLTEN_FURY, _C_EMBER_RUSH,
+		_C_EMBER_SOLAR_FLARE, _C_EMBER_WILDFIRE,
+		_C_FLICKER,
 		_C_GHOST, _C_GHOUL, _C_INSIGHT, _C_IRON_REVENANT, _C_MEND, _C_PHOENIX_RISE,
 		_C_RADIANCE, _C_RALLY, _C_RESTORE, _C_SCORCH, _C_SHADOW_BOLT,
 		_C_SHADOW_WARD,

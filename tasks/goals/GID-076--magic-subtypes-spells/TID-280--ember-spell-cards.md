@@ -2,7 +2,7 @@
 
 **Goal:** GID-076
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-279
 
 ## Lock
@@ -63,12 +63,15 @@ spell_power = <N>
 
 ## Plan
 
-_Written during Plan phase._
+Create 10 .tres files + .uid sidecars in data/cards/, add preload consts to CardRegistry.gd (alphabetically sorted), add to _ensure_loaded() array, update test count 60→70.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created 10 Ember spell .tres files: ember_backdraft, ember_brand, ember_cinder, ember_flame_lance, ember_fury, ember_heat_wave, ember_molten_fury, ember_rush, ember_solar_flare, ember_wildfire
+- Created matching .uid sidecar files for each
+- `autoloads/CardRegistry.gd`: added 10 new _C_EMBER_* preload consts and registered them in _ensure_loaded()
+- `tests/unit/test_card_registry.gd`: updated card count assertion from 60 → 70
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None needed (TID-285 covers docs update).
