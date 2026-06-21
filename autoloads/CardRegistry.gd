@@ -30,8 +30,18 @@ const _C_DAWN_SALVATION   := preload("res://data/cards/dawn_salvation.tres")
 const _C_DAWN_SANCTUARY   := preload("res://data/cards/dawn_sanctuary.tres")
 const _C_DAWN_SOOTHING_TOUCH := preload("res://data/cards/dawn_soothing_touch.tres")
 const _C_DRAIN            := preload("res://data/cards/drain.tres")
+const _C_DUSK_CORRUPT     := preload("res://data/cards/dusk_corrupt.tres")
+const _C_DUSK_DRAIN_ESSENCE := preload("res://data/cards/dusk_drain_essence.tres")
+const _C_DUSK_ECLIPSE     := preload("res://data/cards/dusk_eclipse.tres")
+const _C_DUSK_HEX         := preload("res://data/cards/dusk_hex.tres")
+const _C_DUSK_MIND_ROT    := preload("res://data/cards/dusk_mind_rot.tres")
+const _C_DUSK_NIGHTCHILL  := preload("res://data/cards/dusk_nightchill.tres")
 const _C_DUSK_SEER        := preload("res://data/cards/dusk_seer.tres")
+const _C_DUSK_SHADOW_BIND := preload("res://data/cards/dusk_shadow_bind.tres")
+const _C_DUSK_SHADOW_WHISPER := preload("res://data/cards/dusk_shadow_whisper.tres")
+const _C_DUSK_SOUL_EATER  := preload("res://data/cards/dusk_soul_eater.tres")
 const _C_DUSK_VAMPIRE     := preload("res://data/cards/dusk_vampire.tres")
+const _C_DUSK_VAMPIRIC_TOUCH := preload("res://data/cards/dusk_vampiric_touch.tres")
 const _C_DUSK_WRAITH      := preload("res://data/cards/dusk_wraith.tres")
 const _C_EMBER            := preload("res://data/cards/ember.tres")
 const _C_EMBER_BACKDRAFT  := preload("res://data/cards/ember_backdraft.tres")
@@ -100,7 +110,10 @@ static func _ensure_loaded() -> void:
 		_C_DAWN_LAY_ON_HANDS, _C_DAWN_PALADIN,
 		_C_DAWN_SALVATION, _C_DAWN_SANCTUARY, _C_DAWN_SOOTHING_TOUCH,
 		_C_DRAIN,
-		_C_DUSK_SEER, _C_DUSK_VAMPIRE, _C_DUSK_WRAITH,
+		_C_DUSK_CORRUPT, _C_DUSK_DRAIN_ESSENCE, _C_DUSK_ECLIPSE, _C_DUSK_HEX,
+		_C_DUSK_MIND_ROT, _C_DUSK_NIGHTCHILL,
+		_C_DUSK_SEER, _C_DUSK_SHADOW_BIND, _C_DUSK_SHADOW_WHISPER,
+		_C_DUSK_SOUL_EATER, _C_DUSK_VAMPIRE, _C_DUSK_VAMPIRIC_TOUCH, _C_DUSK_WRAITH,
 		_C_EMBER, _C_EMBER_BACKDRAFT, _C_EMBER_BRAND, _C_EMBER_CINDER,
 		_C_EMBER_FLAME_LANCE, _C_EMBER_FURY, _C_EMBER_HEAT_WAVE,
 		_C_EMBER_IMP, _C_EMBER_MOLTEN_FURY, _C_EMBER_RUSH,

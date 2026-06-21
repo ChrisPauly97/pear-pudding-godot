@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://jwsfj90v2jls"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dusk_mind_rot"]
+
+[resource]
+script = ExtResource("1_dusk_mind_rot")
+id = "dusk_mind_rot"
+card_name = "Mind Rot"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Rot corrupts the enemy's hand — they discard 2 cards."
+color = Color(0.5, 0.2, 0.7, 1)
+magic_type = "dark"
+magic_branch = "dusk"
+spell_effect = "enemy_discard"
+spell_power = 2
