@@ -2,7 +2,7 @@
 
 **Goal:** GID-076
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-279
 
 ## Lock
@@ -40,12 +40,15 @@ Same `.tres` template as TID-280 but with `magic_type = "light"` and `magic_bran
 
 ## Plan
 
-_Written during Plan phase._
+Create 10 .tres + .uid files in data/cards/, add preloads to CardRegistry.gd, update test count 70→80.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created 10 Dawn spell .tres files: dawn_aegis, dawn_aegis_of_all, dawn_beacon, dawn_bind, dawn_blessing, dawn_guardian_vow, dawn_lay_on_hands, dawn_salvation, dawn_sanctuary, dawn_soothing_touch
+- Created matching .uid sidecar files for each
+- `autoloads/CardRegistry.gd`: added 10 _C_DAWN_* preload consts and registered them in _ensure_loaded()
+- `tests/unit/test_card_registry.gd`: updated card count assertion from 70 → 80
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None (deferred to TID-285).

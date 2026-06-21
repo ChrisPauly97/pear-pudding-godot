@@ -16,9 +16,19 @@ const _C_DAGGER_THROW     := preload("res://data/cards/dagger_throw.tres")
 const _C_DARK_PACT        := preload("res://data/cards/dark_pact.tres")
 const _C_DUEL_CROWN       := preload("res://data/cards/duel_crown.tres")
 const _C_DAWN_ACOLYTE     := preload("res://data/cards/dawn_acolyte.tres")
+const _C_DAWN_AEGIS       := preload("res://data/cards/dawn_aegis.tres")
+const _C_DAWN_AEGIS_OF_ALL := preload("res://data/cards/dawn_aegis_of_all.tres")
+const _C_DAWN_BEACON      := preload("res://data/cards/dawn_beacon.tres")
+const _C_DAWN_BIND        := preload("res://data/cards/dawn_bind.tres")
+const _C_DAWN_BLESSING    := preload("res://data/cards/dawn_blessing.tres")
 const _C_DAWN_GUARDIAN    := preload("res://data/cards/dawn_guardian.tres")
+const _C_DAWN_GUARDIAN_VOW := preload("res://data/cards/dawn_guardian_vow.tres")
 const _C_DAWN_HEALER      := preload("res://data/cards/dawn_healer.tres")
+const _C_DAWN_LAY_ON_HANDS := preload("res://data/cards/dawn_lay_on_hands.tres")
 const _C_DAWN_PALADIN     := preload("res://data/cards/dawn_paladin.tres")
+const _C_DAWN_SALVATION   := preload("res://data/cards/dawn_salvation.tres")
+const _C_DAWN_SANCTUARY   := preload("res://data/cards/dawn_sanctuary.tres")
+const _C_DAWN_SOOTHING_TOUCH := preload("res://data/cards/dawn_soothing_touch.tres")
 const _C_DRAIN            := preload("res://data/cards/drain.tres")
 const _C_DUSK_SEER        := preload("res://data/cards/dusk_seer.tres")
 const _C_DUSK_VAMPIRE     := preload("res://data/cards/dusk_vampire.tres")
@@ -84,7 +94,12 @@ static func _ensure_loaded() -> void:
 		_C_ARCANE_SEAL,
 		_C_ALIGHT, _C_ANCIENT_GUARDIAN, _C_ASH, _C_ASH_WARDEN, _C_BLESSED_LIGHT, _C_BLITZ_GHOUL,
 		_C_BRITTLE, _C_BULWARK, _C_CHAR, _C_DAGGER_THROW, _C_DARK_PACT, _C_DUEL_CROWN,
-		_C_DAWN_ACOLYTE, _C_DAWN_GUARDIAN, _C_DAWN_HEALER, _C_DAWN_PALADIN, _C_DRAIN,
+		_C_DAWN_ACOLYTE, _C_DAWN_AEGIS, _C_DAWN_AEGIS_OF_ALL, _C_DAWN_BEACON,
+		_C_DAWN_BIND, _C_DAWN_BLESSING,
+		_C_DAWN_GUARDIAN, _C_DAWN_GUARDIAN_VOW, _C_DAWN_HEALER,
+		_C_DAWN_LAY_ON_HANDS, _C_DAWN_PALADIN,
+		_C_DAWN_SALVATION, _C_DAWN_SANCTUARY, _C_DAWN_SOOTHING_TOUCH,
+		_C_DRAIN,
 		_C_DUSK_SEER, _C_DUSK_VAMPIRE, _C_DUSK_WRAITH,
 		_C_EMBER, _C_EMBER_BACKDRAFT, _C_EMBER_BRAND, _C_EMBER_CINDER,
 		_C_EMBER_FLAME_LANCE, _C_EMBER_FURY, _C_EMBER_HEAT_WAVE,

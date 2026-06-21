@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://puat70pozicu"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dawn_guardian_vow"]
+
+[resource]
+script = ExtResource("1_dawn_guardian_vow")
+id = "dawn_guardian_vow"
+card_name = "Guardian's Vow"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "Anoint a minion with Ward — enemies must face it first."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "grant_ward"
+spell_power = 0

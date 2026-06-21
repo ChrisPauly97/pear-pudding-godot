@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://9ix5ri0bj8wk"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dawn_salvation"]
+
+[resource]
+script = ExtResource("1_dawn_salvation")
+id = "dawn_salvation"
+card_name = "Salvation"
+cost = 6
+attack = 0
+health = 0
+card_class = "spell"
+description = "A miracle of light restores 12 HP to your hero."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "heal_hero"
+spell_power = 12
