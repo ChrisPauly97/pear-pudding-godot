@@ -35,12 +35,17 @@ A full-screen overlay that reads from `AppLog`'s ring buffer and renders all ent
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/ui/DiagnosticsScene.gd` — script-only, extends `BaseOverlay`.
+2. In `_ready()`: call `super._ready()`, `_build_backdrop()`, `_build_centered_panel(vw*0.88, vh*0.82)` with dark glass style.
+3. Inside a MarginContainer VBox: title label, then a `ScrollContainer` (EXPAND_FILL) containing a `RichTextLabel` with `bbcode_enabled = true`.
+4. Populate in `_populate()`: iterate `AppLog.get_entries()`, format each line as `[color=#888888][{ts:.1f}s][/color] [color={col}][{level}][/color] {msg}\n` where col is green/yellow/red per level.
+5. Row of buttons at the bottom: "Clear" (calls `AppLog.clear()` + `_populate()`) and "Close" (calls `_close()` inherited from BaseOverlay).
+6. Call `_populate()` at the end of `_ready()` so entries are shown immediately on open.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/ui/DiagnosticsScene.gd`: script-only `BaseOverlay` subclass with an 88%×82% viewport-relative panel, BBCode colour-coded `RichTextLabel` in a `ScrollContainer`, and Clear/Close button row. Reads `AppLog.get_entries()` on open; re-renders after Clear is pressed.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None in this task — agent docs for the diagnostics system are created in TID-290.
