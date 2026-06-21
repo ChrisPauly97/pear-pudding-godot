@@ -232,6 +232,44 @@ All pure view-building logic lives in `CardViewBuilder` (extends RefCounted). Ba
 
 **BattleScene retains:** `_bind_card_input`, `_make_card_view`, `_trigger_dual_face_flip`, `_update_status`, `_refresh_all`, `_refresh_player_board`.
 
+### BattlePauseUI (`scenes/battle/BattlePauseUI.gd`, TID-265)
+
+All pause-menu UI lives in `BattlePauseUI` (extends RefCounted). BattleScene creates it in `_ready()` immediately after instantiating the resolver, then calls `setup()` before the game state branches.
+
+**API:**
+- `setup(parent, vh, float_layer, make_save_fn, puzzle_mode_fn)` — wires parent node, sizing, float layer, and save/puzzle callables
+- `add_pause_button(side_panel)` — creates the "II" button and prepends it to the given VBox
+- `is_paused() -> bool` — queried by BattleScene's `_notification` (focus-out autpause)
+- `toggle()` — called from `_input` on Escape key; delegates to `show_pause()`/`hide_pause()`
+- `show_pause()` / `hide_pause()` — create/destroy the pause CanvasLayer (layer 200); `show_pause()` pauses the SceneTree
+- `confirm_return_to_menu()` — inline confirm dialog; skips save when `puzzle_mode_fn` returns true
+
+**Menu buttons:** Resume → `hide_pause()`; Settings → `open_settings()` (creates a SettingsScene child of the pause overlay); Flee Battle → emits `GameBus.battle_fled`; Return to Menu → calls `confirm_return_to_menu()`.
+
+**BattleScene wires:** `_menu_btn.pressed` → `_pause_ui.confirm_return_to_menu`; Escape key → `_pause_ui.toggle()`; focus-out → `if not _pause_ui.is_paused(): _pause_ui.show_pause()`.
+
+### BattleResultUI (`scenes/battle/BattleResultUI.gd`, TID-265)
+
+All victory, defeat, and puzzle overlays live in `BattleResultUI` (extends RefCounted). BattleScene creates it alongside BattlePauseUI.
+
+**API:**
+- `setup(parent, vh, float_layer, collect_veterancy_fn)` — wires parent node, sizing, float layer, and veterancy callable
+- `show_boss_banner(enemy_data)` — floating label with boss name; tweens to fade after 2.5 s
+- `show_phase2_banner()` — "- PHASE 2 -" label variant; same fade tween
+- `start_banner_fade(banner)` — internal tween helper; tracked via `_current_banner` to avoid double-free
+- `show_victory(reward_card_id, weapon_reward_id, sig_card_id, condition_text, condition_met, rarity, stats, coins, xp, hero_hp)` — standard victory overlay; emits `GameBus.battle_won`
+- `show_soulbind(reward_card_id, sig_card_id, condition_text, hero_hp)` — soulbind capture overlay; emits `GameBus.battle_won` with `signature_capture`
+- `show_victory_boss(reward_cards, weapon_reward_id, rarities, stats_list, coins, xp, hero_hp)` — boss multi-card victory overlay; emits `GameBus.battle_won`
+- `show_duel_victory(wager)` / `show_duel_loss(wager)` — duel-mode overlays; deduct/add coins, emit `GameBus.duel_won` / `GameBus.duel_lost`
+- `show_puzzle_fail_overlay(hint_text)` — "Not quite" overlay with hint; overlay dismiss resets nothing (state reset done in BattleScene before this is called)
+- `show_puzzle_victory_overlay()` — "Puzzle Solved!" overlay; Continue button calls `SceneManager.return_from_puzzle()`
+
+**Rarity colours** delegated to `UiUtil.rarity_color(rarity)` (common/rare/epic/legendary).
+
+**hero_hp parameter:** `show_victory`, `show_soulbind`, `show_victory_boss` each accept `hero_hp: int = 0`. BattleScene passes `_state.players[0].hero.health` so Spire-run HP persistence works correctly.
+
+**Stale-state fix in puzzle reset:** BattleScene's `_show_puzzle_fail()` now calls `_resolver.setup(_state)` and `_view.set_battle_state(_state, enemy_data)` after creating the new GameState, then delegates the overlay to `show_puzzle_fail_overlay()`. This prevents `_resolver._state` and `_view._state` from pointing to the old (discarded) GameState.
+
 ### BattleScene UI (`scenes/battle/BattleScene.gd`)
 
 - Renders hand as a horizontal row of card buttons

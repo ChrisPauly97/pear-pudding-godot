@@ -2,7 +2,7 @@
 
 **Goal:** GID-071
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-264
 
 ## Lock
@@ -46,12 +46,30 @@ Preload both, don't rely on class_name.
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/battle/BattlePauseUI.gd` — owns pause button, pause menu CanvasLayer, Resume/Settings/Flee/Return buttons, nested SettingsScene drawer, confirm-return dialog. API: `setup(parent, vh, float_layer, make_save_fn)`, `add_pause_button(side_panel)`, `is_paused()`, `toggle()`, `show_pause()`, `hide_pause()`.
+2. Create `scenes/battle/BattleResultUI.gd` — owns boss banner, phase-2 banner, and all victory/defeat overlays. Delegates rarity color to `UiUtil.rarity_color()`. API: `setup(parent, vh, float_layer, collect_veterancy_fn)`, `show_boss_banner(enemy_data)`, `show_phase2_banner()`, `start_banner_fade(banner)`, `show_victory(...)`, `show_victory_boss(...)`, `show_soulbind(...)`, `show_duel_victory(wager)`, `show_duel_loss(wager)`, `show_puzzle_fail_overlay(hint_text)`, `show_puzzle_victory_overlay()`.
+3. Update `BattleScene.gd` — preload both modules; initialize in `_ready()`; replace all extracted method calls with delegating calls; fix stale-state bug in `_show_puzzle_fail()` (call `_resolver.setup(_state)` + `_view.set_battle_state(_state, enemy_data)` after reset); remove all extracted methods.
+4. Create .uid sidecars for both new files.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **NEW** `scenes/battle/BattlePauseUI.gd` — manages pause button, pause CanvasLayer overlay, Resume/Settings/Flee/Return buttons, SettingsScene drawer, confirm-return dialog
+- **NEW** `scenes/battle/BattlePauseUI.gd.uid` — sidecar UID
+- **NEW** `scenes/battle/BattleResultUI.gd` — manages boss banner, phase-2 banner, all victory/defeat/puzzle overlays; delegates rarity color to `UiUtil.rarity_color()`; accepts `hero_hp` param for Spire run HP persistence
+- **NEW** `scenes/battle/BattleResultUI.gd.uid` — sidecar UID
+- **MODIFIED** `scenes/battle/BattleScene.gd`:
+  - Added preloads for BattlePauseUI and BattleResultUI; removed SettingsScene preload
+  - Removed member vars `_paused`, `_pause_overlay`, `_boss_banner`, `_BOSS_BANNER_DURATION`
+  - Added `_pause_ui: BattlePauseUI` and `_result_ui: BattleResultUI` member vars
+  - `_ready()`: instantiate and setup both managers right after resolver creation; wire `_menu_btn` → `_pause_ui.confirm_return_to_menu`; call `_pause_ui.add_pause_button($SidePanel)` instead of `_add_pause_button()`; replace `_show_boss_banner()` → `_result_ui.show_boss_banner(enemy_data)`
+  - `_input`: `_toggle_pause()` → `_pause_ui.toggle()`
+  - `_notification`: `_show_pause_overlay()` → `_pause_ui.show_pause()`; checks `_pause_ui.is_paused()` guard
+  - `_check_boss_phase2`: phase-2 banner inline removed → `_result_ui.show_phase2_banner()`
+  - `_check_game_over`: all overlay calls delegated to `_result_ui.*`; `hero_hp_win` captured for Spire HP
+  - `_show_puzzle_fail`: state reset + `_resolver.setup(_state)` + `_view.set_battle_state(...)` retained; overlay delegated to `_result_ui.show_puzzle_fail_overlay(hint_text)`
+  - `_show_puzzle_victory`: kept `GameBus.puzzle_solved.emit(...)`; overlay delegated to `_result_ui.show_puzzle_victory_overlay()`
+  - Removed methods: `_add_pause_button`, `_toggle_pause`, `_show_pause_overlay`, `_on_flee_pressed`, `_hide_pause_overlay`, `_open_settings_from_pause`, `_confirm_return_to_menu`, `_show_boss_banner`, `_start_banner_fade`, `_show_victory_overlay`, `_rarity_color`, `_show_soulbind_overlay`, `_show_victory_overlay_boss`, `_show_duel_victory_overlay`, `_show_duel_loss_overlay`
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/battle-system.md`: added BattlePauseUI and BattleResultUI subsections before "BattleScene UI"; documented all public APIs, wiring, stale-state fix for puzzle reset, hero_hp parameter rationale

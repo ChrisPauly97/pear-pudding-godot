@@ -74,7 +74,7 @@
 | [GID-068](goals/GID-068--ley-lines/goal.md) | Ley Lines — Visible Currents of Magic | done | 3 / 3 |
 | [GID-069](goals/GID-069--core-loop-retention/goal.md) | Core Loop Retention & Ease-of-Use | done | 5 / 5 |
 | [GID-070](goals/GID-070--aaa-presentation-polish/goal.md) | AAA Presentation & Platform Polish | done | 7 / 7 |
-| [GID-071](goals/GID-071--battle-scene-decomposition/goal.md) | Battle Layer Decomposition | pending | 3 / 4 |
+| [GID-071](goals/GID-071--battle-scene-decomposition/goal.md) | Battle Layer Decomposition | done | 4 / 4 |
 | [GID-072](goals/GID-072--world-scene-decomposition/goal.md) | World Layer Decomposition | done | 4 / 4 |
 | [GID-073](goals/GID-073--ui-overlay-framework/goal.md) | UI Overlay Framework & Shared Theme | done | 3 / 3 |
 | [GID-074](goals/GID-074--autoload-persistence-simplification/goal.md) | Autoload & Persistence Simplification | done | 3 / 3 |
