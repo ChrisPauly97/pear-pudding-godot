@@ -66,7 +66,8 @@ static func find_path(
 				current = tile
 
 		if current == to:
-			return _reconstruct(came_from, current)
+			var raw: Array[Vector2i] = _reconstruct(came_from, current)
+			return _smooth_path(tile_lookup, raw)
 
 		open_set.erase(current)
 		closed_set[current] = true
@@ -118,6 +119,45 @@ static func _heuristic(a: Vector2i, b: Vector2i) -> float:
 	var hi: int = dx if dx > dz else dz
 	var lo: int = dz if dx > dz else dx
 	return float(hi) + (_SQRT2 - 1.0) * float(lo)
+
+
+static func _has_line_of_sight(tile_lookup: Callable, from: Vector2i, to: Vector2i) -> bool:
+	var x: int = from.x
+	var z: int = from.y
+	var dx: int = abs(to.x - from.x)
+	var dz: int = abs(to.y - from.y)
+	var sx: int = 1 if to.x > from.x else -1
+	var sz: int = 1 if to.y > from.y else -1
+	var err: int = dx - dz
+	while x != to.x or z != to.y:
+		if not _is_walkable(tile_lookup.call(x, z)):
+			return false
+		var e2: int = 2 * err
+		if e2 > -dz:
+			err -= dz
+			x += sx
+		if e2 < dx:
+			err += dx
+			z += sz
+	return true
+
+
+# Collapses the A* path to only the minimum turn-point waypoints using a
+# greedy forward raycast. Open terrain produces [start, dest]; wall detours
+# produce a small number of corner waypoints.
+static func _smooth_path(tile_lookup: Callable, path: Array[Vector2i]) -> Array[Vector2i]:
+	if path.size() <= 2:
+		return path
+	var result: Array[Vector2i] = [path[0]]
+	var anchor_idx: int = 0
+	var i: int = 2
+	while i < path.size():
+		if not _has_line_of_sight(tile_lookup, path[anchor_idx], path[i]):
+			result.append(path[i - 1])
+			anchor_idx = i - 1
+		i += 1
+	result.append(path[path.size() - 1])
+	return result
 
 
 static func _reconstruct(came_from: Dictionary, current: Vector2i) -> Array[Vector2i]:

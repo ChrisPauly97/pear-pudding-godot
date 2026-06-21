@@ -2,7 +2,7 @@
 
 **Goal:** GID-082
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-300
 
 ## Lock
@@ -105,12 +105,24 @@ Update test table rows for changed/added tests.
 
 ## Plan
 
-_Written during Plan phase._
+1. `game_logic/Pathfinder.gd`:
+   - Add `_has_line_of_sight(tile_lookup, from, to) -> bool` — Bresenham walk, returns false if any traversed tile is non-walkable.
+   - Add `_smooth_path(tile_lookup, path) -> Array[Vector2i]` — greedy forward raycast collapsing path to minimal waypoints.
+   - In `find_path()`, replace `return _reconstruct(came_from, current)` with smoothed version.
+2. `tests/unit/test_pathfinder.gd`:
+   - `test_straight_path_optimal_length`: update from 5 to 2.
+   - `test_diagonal_path_optimal_length`: update from 5 to 2.
+   - Add `test_open_diagonal_path_is_direct`: (0,0)→(4,4) open → 2 nodes.
+   - Add `test_smoothed_path_around_wall_reaches_dest`: wall_partial detour reaches dest, no wall waypoints.
+   - Replace `test_open_path_steps_are_adjacent` body: check endpoints + no wall tile.
+   - Replace `test_detour_path_steps_are_adjacent` body: check endpoints + no wall tile.
+3. `docs/agent/tap-to-move.md`: rewrite Pathfinder algorithm section to describe 8-dir A* and string-pull; update tests table.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/Pathfinder.gd`: Added `_has_line_of_sight(tile_lookup, from, to) -> bool` (Bresenham walk); added `_smooth_path(tile_lookup, path) -> Array[Vector2i]` (greedy forward raycast); replaced bare `_reconstruct()` return in `find_path()` with `_smooth_path(tile_lookup, raw)`. Open terrain now returns `[start, dest]`; wall detours return minimal corner waypoints.
+- `tests/unit/test_pathfinder.gd`: Updated `test_straight_path_optimal_length` (5→2); updated `test_diagonal_path_optimal_length` (5→2); replaced `test_open_path_steps_are_adjacent` body (endpoints + no wall tile); replaced `test_detour_path_steps_are_adjacent` body (endpoints + no wall tile); added `test_open_diagonal_path_is_direct`; added `test_smoothed_path_around_wall_reaches_dest`. All 14 pathfinder tests pass headless.
 
 ## Documentation Updates
 
-`docs/agent/tap-to-move.md` — algorithm section rewrite.
+`docs/agent/tap-to-move.md` — rewrote Pathfinder algorithm section to describe 8-dir A* (Octile heuristic, corner-cutting guard) and string-pull smoothing (`_has_line_of_sight` + `_smooth_path`); updated tests table to reflect new test names and 14-test count.

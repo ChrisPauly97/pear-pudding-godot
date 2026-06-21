@@ -20,15 +20,30 @@ Pathfinder.find_path(
     from: Vector2i,          # start tile
     to: Vector2i,            # destination tile
     max_radius: int          # max Manhattan radius from start before giving up
-) -> Array[Vector2i]         # ordered path start..dest, or [] if unreachable
+) -> Array[Vector2i]         # smoothed path start..dest, or [] if unreachable
 ```
 
-Algorithm: hand-rolled A* with typed dictionaries (`Dictionary[Vector2i, float]`).
-- 4-directional movement only (N/S/E/W). No diagonal — prevents corner-cutting through walls.
-- Heuristic: Manhattan distance (admissible for 4-dir).
+Algorithm: hand-rolled A* with typed dictionaries (`Dictionary[Vector2i, float]`), followed by string-pull smoothing.
+
+**8-directional A* with Octile heuristic:**
+- 8-directional movement: N/S/E/W plus NE/NW/SE/SW diagonals.
+- Corner-cutting guard: a diagonal step is rejected if either of the two adjacent cardinal tiles is a wall, preventing passage through the gap between two diagonally-touching walls.
+- Edge cost: `1.0` for cardinal steps, `√2 ≈ 1.4142` for diagonal steps.
+- Heuristic: Octile distance — `max(|dx|,|dz|) + (√2−1)×min(|dx|,|dz|)` — admissible for 8-dir.
 - Tie-breaking: lowest h-cost wins when f-costs equal (steers toward goal faster).
-- Max-radius bound: skips any neighbour where `|nb.x - from.x| + |nb.y - from.y| > max_radius`. Prevents runaway searches on isolated wall clusters. Recommended: 64 tiles.
+- Max-radius bound: skips any neighbour where `|nb.x−from.x| + |nb.y−from.y| > max_radius`. Prevents runaway searches on isolated wall clusters. Recommended: 64 tiles.
 - `_is_walkable()` is a static method (not a const) to allow runtime reference to `IsoConst` autoload values without triggering the GDScript const-initializer parse error.
+
+**String-pull smoothing (`_smooth_path`):**
+After A* returns the fine-grained per-tile path, a greedy forward raycast collapses it to only the minimum turn-point waypoints:
+1. Start with `anchor = path[0]`.
+2. Advance probe index `i` forward; call `_has_line_of_sight(anchor, path[i])`.
+3. When LOS fails at `path[i]`, record `path[i-1]` as a turn waypoint and set it as the new anchor.
+4. Always append `path[last]` as the final waypoint.
+
+`_has_line_of_sight` uses a Bresenham line walk; it returns false if any traversed tile is non-walkable.
+
+Result: open terrain produces a 2-waypoint path `[start, dest]`, giving pixel-perfect straight-line movement. A wall detour produces the minimum corner waypoints needed to navigate around the obstacle.
 
 Walkable tiles: `TILE_GRASS`, `TILE_HILL`, `TILE_PATH`. `TILE_WALL` blocks movement.
 
@@ -113,19 +128,21 @@ No new art assets needed. The destination marker is a procedural `TorusMesh` wit
 
 ## Tests
 
-`tests/unit/test_pathfinder.gd` — 12 headless tests registered in `tests/runner.gd`:
+`tests/unit/test_pathfinder.gd` — headless tests auto-discovered by `tests/runner.gd`:
 
 | Test | Checks |
 |---|---|
-| test_identity | `from == to` → `[from]` |
-| test_straight_path_endpoints | First/last element match from/to |
-| test_straight_path_length | 9-tile straight path returns length 9 |
-| test_diagonal_path_length | Diagonal requires more steps than straight |
-| test_around_wall_reaches_dest | Wall column with gap: detour finds dest |
-| test_around_wall_avoids_blocked | Path does not pass through wall column |
-| test_unreachable_wall_dest | Wall destination → empty result |
-| test_unreachable_surrounded | Tile surrounded by walls → empty result |
-| test_max_radius_blocks | Radius smaller than distance → empty |
-| test_max_radius_allows | Radius ≥ distance → finds path |
-| test_adjacent_tiles | Adjacent walkable tiles → 2-element path |
-| test_adjacent_tiles_from_equals_to | Same tile both ends → single element |
+| test_identity_returns_single_element | `from == to` → `[from]` |
+| test_straight_path_has_correct_endpoints | First/last element match from/to |
+| test_straight_path_optimal_length | Open straight path → 2 nodes after smoothing |
+| test_diagonal_path_optimal_length | Open diagonal path → 2 nodes after smoothing |
+| test_path_around_wall_reaches_destination | Wall column with gap: detour finds dest |
+| test_path_around_wall_avoids_blocked_tiles | Path does not pass through wall column |
+| test_unreachable_wall_destination | Wall destination → empty result |
+| test_unreachable_surrounded_by_walls | Tile surrounded by walls → empty result |
+| test_max_radius_blocks_far_goal | Radius smaller than distance → empty |
+| test_max_radius_allows_near_goal | Radius ≥ distance → finds path |
+| test_open_path_steps_are_adjacent | Endpoints match; no waypoint is a wall tile |
+| test_detour_path_steps_are_adjacent | Endpoints match; no waypoint on wall column |
+| test_open_diagonal_path_is_direct | Open (0,0)→(4,4) → exactly 2 waypoints |
+| test_smoothed_path_around_wall_reaches_dest | Detour endpoints correct; no wall waypoints |
