@@ -86,27 +86,33 @@
 | [GID-080](goals/GID-080--landscape-rotation-direction/goal.md) | Landscape Rotation Direction | done | 1 / 1 |
 | [GID-081](goals/GID-081--hud-coherent-navigation/goal.md) | Coherent HUD & Unified In-Game Navigation | done | 4 / 4 |
 | [GID-082](goals/GID-082--direct-path-movement/goal.md) | Direct-Path Tap-to-Move Movement | done | 2 / 2 |
+| [GID-083](goals/GID-083--instance-battle-stats/goal.md) | Instance-Level Battle Stats | pending | 0 / 1 |
+| [GID-084](goals/GID-084--camera-smoothing/goal.md) | Camera Smoothing & Walk Animation | pending | 0 / 2 |
+| [GID-085](goals/GID-085--test-coverage/goal.md) | Test Coverage Expansion | pending | 0 / 3 |
+| [GID-086](goals/GID-086--corruption-redemption-accrual/goal.md) | Corruption & Redemption Points Accrual | pending | 0 / 2 |
+| [GID-087](goals/GID-087--godot-version-spec-alignment/goal.md) | Godot Version & Spec Alignment | pending | 0 / 2 |
+| [GID-088](goals/GID-088--battle-code-quality/goal.md) | Battle Code Quality — GameState Decoupling & Native Drag | pending | 0 / 2 |
 
 ## Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
-| [BID-002](backlog/BID-002--voice-acting-spec-conflict.md) | "Voice acting" out-of-scope conflicts with narration scroll audio | spec-gap | GID-013 |
+| ~~[BID-002](backlog/BID-002--voice-acting-spec-conflict.md)~~ | ~~"Voice acting" out-of-scope conflicts with narration scroll audio~~ | ~~spec-gap~~ | Promoted to GID-087 / TID-311 |
 | ~~[BID-004](archive/backlog/BID-004--orphaned-chestopenscene-uid.md)~~ | ~~Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen)~~ | ~~code-smell~~ | Resolved by GID-075 |
-| [BID-005](backlog/BID-005--rolled-stats-not-used-in-battle.md) | Player's per-instance rolled card stats never applied in battle | design-inconsistency | GID-060 research |
+| ~~[BID-005](backlog/BID-005--rolled-stats-not-used-in-battle.md)~~ | ~~Player's per-instance rolled card stats never applied in battle~~ | ~~design-inconsistency~~ | Promoted to GID-083 / TID-302 |
 | [BID-006](backlog/BID-006--gamebus-battle-signals-never-emitted.md) | GameBus card_played / card_attacked / battle_ended declared but never emitted | code-smell | GID-060/061 research |
 | ~~[BID-007](archive/backlog/BID-007--card-registry-test-count-stale.md)~~ | ~~test_card_registry asserts 40 cards but registry preloads 46~~ | ~~code-smell~~ | Resolved by GID-075 |
-| [BID-008](backlog/BID-008--is-unique-dropped-from-template-dict.md) | CardData.to_template_dict() omits is_unique; sell/scrap guard never triggers | code-smell | GID-061 research |
+| ~~[BID-008](backlog/BID-008--is-unique-dropped-from-template-dict.md)~~ | ~~CardData.to_template_dict() omits is_unique; sell/scrap guard never triggers~~ | ~~code-smell~~ | Resolved by GID-061 / TID-219 |
 | ~~[BID-009](archive/backlog/BID-009--shared-theme-overlay-dedup.md)~~ | ~~No shared Theme; overlay boilerplate copy-pasted across 8 UI scenes~~ | ~~code-smell~~ | Resolved by GID-073 |
-| [BID-010](backlog/BID-010--native-drag-drop-gamebus-coupling.md) | Hand-rolled battle drag-to-play; GameState reaches into SceneTree for GameBus | code-smell | GID-064 audit |
-| [BID-011](backlog/BID-011--persistence-test-coverage.md) | No test coverage for SaveManager migrations/flush or SceneManager state machine | doc-gap | GID-064 audit |
-| [BID-012](backlog/BID-012--battle-integration-test-gaps.md) | No BattleScene-level tests for keywords/AI paths; unreachable hero freeze/stun ticks | doc-gap | GID-064 audit |
-| [BID-013](backlog/BID-013--godot-version-drift.md) | CI builds on Godot 4.6 but CLAUDE.md/spec say 4.4.1 | doc-gap | GID-064 audit |
-| [BID-014](backlog/BID-014--camera-follow-stutter.md) | Camera follows physics body from _process without interpolation (stutter at 90/120 Hz) | code-smell | GID-064 audit |
-| [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded | spec-gap | GID-070 research |
+| ~~[BID-010](backlog/BID-010--native-drag-drop-gamebus-coupling.md)~~ | ~~Hand-rolled battle drag-to-play; GameState reaches into SceneTree for GameBus~~ | ~~code-smell~~ | Promoted to GID-088 / TID-312, TID-313 |
+| ~~[BID-011](backlog/BID-011--persistence-test-coverage.md)~~ | ~~No test coverage for SaveManager migrations/flush or SceneManager state machine~~ | ~~doc-gap~~ | Promoted to GID-085 / TID-305, TID-306 |
+| ~~[BID-012](backlog/BID-012--battle-integration-test-gaps.md)~~ | ~~No BattleScene-level tests for keywords/AI paths; unreachable hero freeze/stun ticks~~ | ~~doc-gap~~ | Promoted to GID-085 / TID-307 |
+| ~~[BID-013](backlog/BID-013--godot-version-drift.md)~~ | ~~CI builds on Godot 4.6 but CLAUDE.md/spec say 4.4.1~~ | ~~doc-gap~~ | Promoted to GID-087 / TID-310 |
+| ~~[BID-014](backlog/BID-014--camera-follow-stutter.md)~~ | ~~Camera follows physics body from _process without interpolation (stutter at 90/120 Hz)~~ | ~~code-smell~~ | Promoted to GID-084 / TID-303, TID-304 |
+| [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded — **out of scope for v1** | spec-gap | GID-070 research |
 | [BID-016](backlog/BID-016--flag-gated-dialogue-content.md) | Flag-gated NPC dialogue content not yet authored; TownspersonNPC logic ready but table mostly empty | human-action-deferred | GID-020 / TID-063 |
-| [BID-017](backlog/BID-017--corruption-redemption-points-never-accrue.md) | add_corruption_points / add_redemption_points never called — currencies may never accrue | design-inconsistency | GID-074 research |
-| [BID-020](backlog/BID-020--always-visible-cantrip-buttons.md) | Cantrip HUD buttons always built regardless of unlock state | code-smell | GID-081 / TID-298 research |
+| ~~[BID-017](backlog/BID-017--corruption-redemption-points-never-accrue.md)~~ | ~~add_corruption_points / add_redemption_points never called — currencies may never accrue~~ | ~~design-inconsistency~~ | Promoted to GID-086 / TID-308, TID-309 |
+| ~~[BID-020](backlog/BID-020--always-visible-cantrip-buttons.md)~~ | ~~Cantrip HUD buttons always built regardless of unlock state~~ | ~~code-smell~~ | Resolved by GID-081 / TID-298 |
 
 ## Resolved Backlog
 
