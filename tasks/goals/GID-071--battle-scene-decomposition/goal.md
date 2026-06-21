@@ -14,8 +14,8 @@ BattleScene.gd (scenes/battle/BattleScene.gd, 1,966 lines) carries approximately
 |----|------|------|--------|------------|
 | TID-262 | Extract battle animation & feedback module | agent | done | — |
 | TID-263 | Extract card & hero view builders | agent | done | TID-262 |
-| TID-264 | Extract spell resolver; decouple GameState; wire GameBus signals | agent | pending | TID-263 |
-| TID-265 | Extract pause & victory overlay managers | agent | pending | TID-264 |
+| TID-264 | Extract spell resolver; decouple GameState; wire GameBus signals | agent | done | TID-263 |
+| TID-265 | Extract pause & victory overlay managers | agent | done | TID-264 |
 
 ## Acceptance Criteria
 

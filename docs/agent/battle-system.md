@@ -70,7 +70,7 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
 - `magic_type: String` — `"light"` | `"dark"` | `""` (non-magic cards)
 - `magic_branch: String` — `"ember"` | `"dawn"` | `"dusk"` | `"ash"` | `""`
 - `keywords: Array[String]` — passive keyword abilities; valid values are the constants in `game_logic/battle/Keywords.gd`: `"ward"`, `"surge"`, `"shroud"`. Defaults to `[]`; omitting from a `.tres` file is safe.
-- `spell_effect: String` — canonical effect key dispatched by `_resolve_spell_effect` in `BattleScene.gd`; `""` for minions. Supported values:
+- `spell_effect: String` — canonical effect key dispatched by `SpellEffectResolver.resolve_spell`; `""` for minions. Supported values:
   - `deal_damage_single` — deal spell_power damage to first enemy minion (or hero if board empty)
   - `deal_damage_all` — deal spell_power damage to all enemy minions
   - `deal_damage_random` — deal spell_power damage to a random enemy minion (or hero if board empty)
@@ -92,10 +92,10 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
 Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the spell fields at their defaults (`""` / `0`) and are unaffected.
 
 **Emergence fields** (TID-142):
-- `emergence_effect: String` — key dispatched by `_resolve_emergence` in `BattleScene.gd`; `""` for most cards. Valid values: `emergence_deal_damage`, `emergence_heal_hero`, `emergence_draw`, `emergence_buff_friendly`, `emergence_apply_poison`.
+- `emergence_effect: String` — key dispatched by `SpellEffectResolver.resolve_emergence`; `""` for most cards. Valid values: `emergence_deal_damage`, `emergence_heal_hero`, `emergence_draw`, `emergence_buff_friendly`, `emergence_apply_poison`.
 - `emergence_power: int` — numeric parameter for the effect; `0` for cards without emergence.
 
-`_resolve_emergence(card, caster_pid)` fires immediately after a minion is placed on the board (both player and AI paths). No targeting UI — all emergence effects resolve automatically.
+`SpellEffectResolver.resolve_emergence(card, caster_pid)` fires immediately after a minion is placed on the board (both player and AI paths). No targeting UI — all emergence effects resolve automatically.
 
 `CardRegistry` (autoload) loads all `.tres` files from `data/cards/` at startup and exposes `get_card(id)` for lookups.
 
@@ -179,10 +179,10 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
 **Serialisation:** `PlayerState.to_dict()` includes `"board_enhancements": board.enhancements_to_dict()` as a parallel key alongside `"board"`. Old saves that lack this key receive empty enhancements on load.
 
 **Slot-targeting UI mode (BattleScene):**
-- `_SLOT_TARGETED_EFFECTS: Array[String] = ["bless_slot", "ward_slot"]`
+- `SpellEffectResolver.SLOT_TARGETED_EFFECTS: Array[String] = ["bless_slot", "ward_slot"]`
 - Dragging a `bless_slot` / `ward_slot` spell to the board enters `_enter_slot_targeting_mode()`: highlights empty player slots with cyan border; player taps a slot to call `_resolve_slot_spell()`.
 - `_exit_slot_targeting_mode()` clears state and calls `_refresh_all()`.
-- AI auto-resolve path in `_resolve_spell_effect()` applies enhancement to the first empty slot automatically.
+- AI auto-resolve path in `SpellEffectResolver.resolve_spell()` applies enhancement to the first empty slot automatically.
 
 **New spell cards:**
 
@@ -192,6 +192,25 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
 | `shadow_ward` | Shadow Ward | 1 | Dusk | `ward_slot` — next minion placed in target slot gains Shroud |
 
 **Board UI:** `CardViewBuilder.refresh_board_zone(zone_node, zone_state, zone_id)` maintains exactly `SLOT_COUNT` slot panels (using `slot_idx` meta as stable identity). Empty slots show a dimmed numbered outline; enhanced slots show an orange border (`atk_bonus`) or pale-blue border (`shroud`). Board views are centred via `BoxContainer.ALIGNMENT_CENTER`. Enhancement borders skip application if a targeting border is already set.
+
+### SpellEffectResolver (`scenes/battle/SpellEffectResolver.gd`, TID-264)
+
+All spell and emergence resolution logic lives in `SpellEffectResolver` (extends RefCounted). BattleScene creates it in `_ready()`, calls `setup(_state)`, and delegates all spell resolution to it.
+
+**Constants (co-located with resolver so targeting UI and match arms stay in sync):**
+- `ENEMY_TARGETED_EFFECTS: Array[String]` — `["deal_damage_single", "curse_minion", "lifesteal_hit"]`
+- `FRIENDLY_TARGETED_EFFECTS: Array[String]` — `["heal_single", "shield_minion", "buff_attack"]`
+- `SLOT_TARGETED_EFFECTS: Array[String]` — `["bless_slot", "ward_slot"]`
+
+**API:**
+- `setup(state: GameState)` — wires the GameState reference; must be called before any resolve method
+- `resolve_spell(card, caster_pid, explicit_target)` — resolves the spell_effect match arm for `card`
+- `resolve_emergence(card, caster_pid)` — resolves the emergence_effect for a minion on placement
+- `flush_auto_spells(player_idx)` — drains and resolves `pending_auto_spells` for the given player
+
+**Properties:**
+- `extra_turn_granted: bool` — set `true` inside the `"extra_turn"` match arm; BattleScene checks and resets this in `_on_turn_ended()`
+- `capture_tracker: CaptureTracker` — optional; set by BattleScene after tracker init; used to note spell-kill captures
 
 ### CardViewBuilder (`scenes/battle/CardViewBuilder.gd`, TID-263)
 
@@ -213,15 +232,53 @@ All pure view-building logic lives in `CardViewBuilder` (extends RefCounted). Ba
 
 **BattleScene retains:** `_bind_card_input`, `_make_card_view`, `_trigger_dual_face_flip`, `_update_status`, `_refresh_all`, `_refresh_player_board`.
 
+### BattlePauseUI (`scenes/battle/BattlePauseUI.gd`, TID-265)
+
+All pause-menu UI lives in `BattlePauseUI` (extends RefCounted). BattleScene creates it in `_ready()` immediately after instantiating the resolver, then calls `setup()` before the game state branches.
+
+**API:**
+- `setup(parent, vh, float_layer, make_save_fn, puzzle_mode_fn)` — wires parent node, sizing, float layer, and save/puzzle callables
+- `add_pause_button(side_panel)` — creates the "II" button and prepends it to the given VBox
+- `is_paused() -> bool` — queried by BattleScene's `_notification` (focus-out autpause)
+- `toggle()` — called from `_input` on Escape key; delegates to `show_pause()`/`hide_pause()`
+- `show_pause()` / `hide_pause()` — create/destroy the pause CanvasLayer (layer 200); `show_pause()` pauses the SceneTree
+- `confirm_return_to_menu()` — inline confirm dialog; skips save when `puzzle_mode_fn` returns true
+
+**Menu buttons:** Resume → `hide_pause()`; Settings → `open_settings()` (creates a SettingsScene child of the pause overlay); Flee Battle → emits `GameBus.battle_fled`; Return to Menu → calls `confirm_return_to_menu()`.
+
+**BattleScene wires:** `_menu_btn.pressed` → `_pause_ui.confirm_return_to_menu`; Escape key → `_pause_ui.toggle()`; focus-out → `if not _pause_ui.is_paused(): _pause_ui.show_pause()`.
+
+### BattleResultUI (`scenes/battle/BattleResultUI.gd`, TID-265)
+
+All victory, defeat, and puzzle overlays live in `BattleResultUI` (extends RefCounted). BattleScene creates it alongside BattlePauseUI.
+
+**API:**
+- `setup(parent, vh, float_layer, collect_veterancy_fn)` — wires parent node, sizing, float layer, and veterancy callable
+- `show_boss_banner(enemy_data)` — floating label with boss name; tweens to fade after 2.5 s
+- `show_phase2_banner()` — "- PHASE 2 -" label variant; same fade tween
+- `start_banner_fade(banner)` — internal tween helper; tracked via `_current_banner` to avoid double-free
+- `show_victory(reward_card_id, weapon_reward_id, sig_card_id, condition_text, condition_met, rarity, stats, coins, xp, hero_hp)` — standard victory overlay; emits `GameBus.battle_won`
+- `show_soulbind(reward_card_id, sig_card_id, condition_text, hero_hp)` — soulbind capture overlay; emits `GameBus.battle_won` with `signature_capture`
+- `show_victory_boss(reward_cards, weapon_reward_id, rarities, stats_list, coins, xp, hero_hp)` — boss multi-card victory overlay; emits `GameBus.battle_won`
+- `show_duel_victory(wager)` / `show_duel_loss(wager)` — duel-mode overlays; deduct/add coins, emit `GameBus.duel_won` / `GameBus.duel_lost`
+- `show_puzzle_fail_overlay(hint_text)` — "Not quite" overlay with hint; overlay dismiss resets nothing (state reset done in BattleScene before this is called)
+- `show_puzzle_victory_overlay()` — "Puzzle Solved!" overlay; Continue button calls `SceneManager.return_from_puzzle()`
+
+**Rarity colours** delegated to `UiUtil.rarity_color(rarity)` (common/rare/epic/legendary).
+
+**hero_hp parameter:** `show_victory`, `show_soulbind`, `show_victory_boss` each accept `hero_hp: int = 0`. BattleScene passes `_state.players[0].hero.health` so Spire-run HP persistence works correctly.
+
+**Stale-state fix in puzzle reset:** BattleScene's `_show_puzzle_fail()` now calls `_resolver.setup(_state)` and `_view.set_battle_state(_state, enemy_data)` after creating the new GameState, then delegates the overlay to `show_puzzle_fail_overlay()`. This prevents `_resolver._state` and `_view._state` from pointing to the old (discarded) GameState.
+
 ### BattleScene UI (`scenes/battle/BattleScene.gd`)
 
 - Renders hand as a horizontal row of card buttons
 - Renders each player's board as 5 slot panels with status icons (P/A/F/S colored labels)
 - Hero panels show current/max HP, mana pips, and status icons
 - Drag-to-play: card dragged from hand onto an empty board slot triggers `GameState.play_card()`
-- **Emergence (TID-142):** `_resolve_emergence(card, caster_pid)` fires after any minion is placed on board. 5 effects: `emergence_deal_damage` (damage enemy hero), `emergence_heal_hero` (heal caster hero), `emergence_draw` (draw cards), `emergence_buff_friendly` (buff random other friendly), `emergence_apply_poison` (poison random enemy). Emergence text shown on card face in amber. 5 new minion cards: Ember Imp (Ember), Dawn Healer (Dawn), Dusk Seer (Dusk), Ash Warden (Ash), Void Creeper (Dusk).
+- **Emergence (TID-142):** `SpellEffectResolver.resolve_emergence(card, caster_pid)` fires after any minion is placed on board. 5 effects: `emergence_deal_damage` (damage enemy hero), `emergence_heal_hero` (heal caster hero), `emergence_draw` (draw cards), `emergence_buff_friendly` (buff random other friendly), `emergence_apply_poison` (poison random enemy). Emergence text shown on card face in amber. 5 new minion cards: Ember Imp (Ember), Dawn Healer (Dawn), Dusk Seer (Dusk), Ash Warden (Ash), Void Creeper (Dusk).
 - **Inline ability text (TID-140):** `CardViewBuilder.SPELL_EFFECT_LABELS` maps each `spell_effect` key to a human-readable string with `[power]` placeholder. `CardViewBuilder.get_card_ability_text(card)` resolves it for a given CardInstance. Spell cards show the resolved text in green on the card face (replacing the flavor description); spell StatsLabel shows `"(cost)"` only (not `"0/0 (cost)"`). Minion cards keep their description. `CardInspectOverlay._SPELL_EFFECT_LABELS` mirrors this dict — keep both in sync.
-- **Spell targeting (TID-058, TID-141):** `_ENEMY_TARGETED_EFFECTS = ["deal_damage_single", "curse_minion", "lifesteal_hit"]` and `_FRIENDLY_TARGETED_EFFECTS = ["heal_single", "shield_minion", "buff_attack"]`. Dragging one of these spells to the board enters targeting mode: enemy effects cyan-highlight the enemy board (and hero for `deal_damage_single`); friendly effects cyan-highlight the player's own board. `_targeting_friendly` flag distinguishes the two modes. If no valid targets exist (friendly board empty, or enemy board empty for non-hero spells) targeting is skipped and the spell auto-resolves. All six spells honour the `explicit_target` dict in `_resolve_spell_effect()`; slot-0 fallback kept for AI auto-resolve path.
+- **Spell targeting (TID-058, TID-141):** `SpellEffectResolver.ENEMY_TARGETED_EFFECTS = ["deal_damage_single", "curse_minion", "lifesteal_hit"]` and `SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS = ["heal_single", "shield_minion", "buff_attack"]`. These constants are co-located with the resolver so targeting UI and match arms stay in sync. Dragging one of these spells to the board enters targeting mode: enemy effects cyan-highlight the enemy board (and hero for `deal_damage_single`); friendly effects cyan-highlight the player's own board. `_targeting_friendly` flag distinguishes the two modes. If no valid targets exist (friendly board empty, or enemy board empty for non-hero spells) targeting is skipped and the spell auto-resolves. All six spells honour the `explicit_target` dict in `SpellEffectResolver.resolve_spell()`; slot-0 fallback kept for AI auto-resolve path.
 - **Enemy intent banner (TID-059):** before AI actions execute, a centered panel shows what the AI plans (e.g. "Enemy will play Ghost"); hides when actions complete
 - **Battle SFX (TID-080):** Full coverage — `card_draw` plays at player turn start (after game-over check in `_on_turn_ended(0)`); `card_play` plays on card drop; `spell_resolve` plays at the top of `_resolve_spell_effect` (covers player, AI, and auto-resolved spells); `attack` plays on all minion attacks; `battle_win`/`battle_lose` play at game end. All SFX are registered in `AudioManager.SFX_PATHS`; AudioManager silently no-ops if the wav file is absent.
 - **Background music (TID-081):** `AudioManager.play_music(path)` loads an OGG file, plays it at −6 dB (≈0.5 linear), and loops via `finished` signal reconnect; same-track guard prevents restarts; graceful no-op if file absent. `BattleScene._ready()` calls `AudioManager.play_music("res://assets/audio/music/battle.ogg")`. `WorldScene` detects biome changes in `_update_chunks()` via `InfiniteWorldGen.biome_for_chunk()` and plays the matching track from `_BIOME_MUSIC` (grasslands / forest / desert / scorched / mountains). Named-map worlds play `dungeon.ogg`. On `GameBus.battle_won`, WorldScene resumes the correct world track (biome or dungeon). All music files are under `assets/audio/music/*.ogg`; absent files are silently skipped.
@@ -389,7 +446,7 @@ XP is NOT multiplied by gambits. `session_stats["coins_earned"]` records the pos
 | **EnemyRegistry** | Drop pool | `EnemyRegistry.get_drop_pool(enemy_type)` returns cards that may drop; BattleScene picks one at random and shows the victory overlay |
 | **Inventory / Deck** | Deck source | Player's active battle deck is built from `SaveManager.player_deck` (managed in InventoryScene) |
 | **Gambits** | Pre-battle | `Gambits.gd` catalogue + `GambitPickerOverlay.gd` picker shown before each battle (GID-063); gambit_id stored in `enemy_data` |
-| **GameBus signals** | Both | `card_played`, `card_attacked`, `turn_ended`, `battle_ended`, `status_applied`, `status_ticked` — BattleScene listens to turn_ended to refresh the UI; status signals available for future subscribers |
+| **GameBus signals** | Both | `card_played(card_id, type, slot_idx)` — emitted by `BattleScene._do_play_card()` (type="spell") and `_do_play_card_at_slot()` (type="board") on successful play. `card_attacked(attacker_id, target_id_or_"hero")` — emitted by `BattleScene._execute_attack()` on every attack. `battle_ended(winner_id)` — emitted by `BattleScene._check_game_over()` when a hero dies. `turn_ended(player_id)` — `GameState` emits its own `turn_ended` signal; `BattleScene._on_turn_ended()` relays it to `GameBus.turn_ended` for external subscribers. `status_applied`, `status_ticked` — available for future subscribers. |
 | **Veterancy (GID-060)** | Post-battle | `battle_won` result carries `"veterancy"` dict; SceneManager applies it via `SaveManager.record_veterancy`; see Veterancy Kill Attribution section above |
 
 ---

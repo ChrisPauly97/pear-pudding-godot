@@ -15,7 +15,6 @@ const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
 const CompanionData = preload("res://data/CompanionData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
-const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const WeatherBanner = preload("res://scenes/battle/WeatherBanner.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
@@ -26,9 +25,15 @@ const CaptureTracker = preload("res://game_logic/battle/CaptureTracker.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const BattleFx = preload("res://scenes/battle/BattleFx.gd")
 const CardViewBuilder = preload("res://scenes/battle/CardViewBuilder.gd")
+const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
+const BattlePauseUI = preload("res://scenes/battle/BattlePauseUI.gd")
+const BattleResultUI = preload("res://scenes/battle/BattleResultUI.gd")
 
 var _fx: BattleFx
 var _view: CardViewBuilder
+var _resolver: SpellEffectResolver
+var _pause_ui: BattlePauseUI
+var _result_ui: BattleResultUI
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
@@ -42,15 +47,12 @@ var _give_up_btn: Button = null
 var _companion_hud: Control = null
 var _state: GameState
 var _ai_thinking: bool = false
-var _extra_turn_granted: bool = false
 var _game_over_handled: bool = false
 var _boss_phase2_triggered: bool = false
 var _hero_power_btn: Button = null
 var _hero_power_used: bool = false
 var _potion_btn: Button = null
 var _used_potion_this_battle: bool = false
-var _boss_banner: Control = null
-const _BOSS_BANNER_DURATION: float = 2.5
 var _gambit_badge: Control = null
 
 # Battlefield Resonance UI (GID-059)
@@ -78,14 +80,7 @@ var _inspect_overlay: Control = null
 # Battle speed (TID-254): 1.0 = normal, 0.45 = fast
 var _speed_scale: float = 1.0
 
-# Battle pause
-var _paused: bool = false
-var _pause_overlay: CanvasLayer = null
-
 # Spell targeting (TID-058, extended TID-141)
-const _ENEMY_TARGETED_EFFECTS: Array[String] = ["deal_damage_single", "curse_minion", "lifesteal_hit"]
-const _FRIENDLY_TARGETED_EFFECTS: Array[String] = ["heal_single", "shield_minion", "buff_attack"]
-const _SLOT_TARGETED_EFFECTS: Array[String] = ["bless_slot", "ward_slot"]
 var _targeting_spell: CardInstance = null
 var _targeting_active: bool = false
 var _targeting_friendly: bool = false
@@ -132,13 +127,21 @@ func _ready() -> void:
 	var _bs: String = str(SceneManager.save_manager.get_setting("battle_speed", "normal"))
 	_speed_scale = 0.45 if _bs == "fast" else 1.0
 	_apply_ui_sizes()
+	_resolver = SpellEffectResolver.new()
+	_pause_ui = BattlePauseUI.new()
+	_result_ui = BattleResultUI.new()
+	_pause_ui.setup(self, _vh, _float_layer, _make_battle_save,
+		func() -> bool: return _state.puzzle_mode)
+	_result_ui.setup(self, _vh, _float_layer, _collect_veterancy_data)
 	var _saved_battle: Dictionary = SceneManager.save_manager.pending_battle_state
 	if puzzle_data != null:
 		_puzzle_data_ref = puzzle_data
 		_state = GameState.new()
+		_resolver.setup(_state)
 		_state.load_puzzle(puzzle_data)
 	elif not _saved_battle.is_empty():
 		_state = GameState.new()
+		_resolver.setup(_state)
 		_state.from_dict(_saved_battle)
 		_boss_phase2_triggered = bool(_saved_battle.get("_boss_phase2", false))
 		_hero_power_used = bool(_saved_battle.get("_hero_power_used", false))
@@ -146,6 +149,7 @@ func _ready() -> void:
 		SceneManager.save_manager.clear_pending_battle_state()
 	else:
 		_state = GameState.new()
+		_resolver.setup(_state)
 
 		# Player deck: spire run uses its run-local draft deck; otherwise use the
 		# persistent player deck. Floor 1 starter gives 8 basics before any pick.
@@ -205,7 +209,7 @@ func _ready() -> void:
 			if bhp > 0:
 				_state.players[1].hero.health = bhp
 				_state.players[1].hero.max_health = bhp
-			_show_boss_banner()
+			_result_ui.show_boss_banner(enemy_data)
 
 		# Blighted zone buff: non-blight-heart enemies get +5 HP in blighted chunks.
 		if bool(enemy_data.get("is_blighted", false)) and not enemy_data.has("blight_heart_id"):
@@ -243,7 +247,7 @@ func _ready() -> void:
 		_apply_companion_turn_start()
 		# Flush auto-resolve spells collected from opening hand + turn-1 draw.
 		# Must run after enemy deck is built so spells target the real enemy.
-		_flush_auto_spells(0)
+		_resolver.flush_auto_spells(0)
 
 	_fx.set_game_state(_state)
 	_view.set_battle_state(_state, enemy_data)
@@ -254,11 +258,12 @@ func _ready() -> void:
 		var _ct_condition: String = EnemyRegistry.get_capture_condition(_ct_enemy_type)
 		var _ct_param: int = EnemyRegistry.get_capture_param(_ct_enemy_type)
 		_capture_tracker = CaptureTracker.new(_ct_condition, _ct_param)
+		_resolver.capture_tracker = _capture_tracker
 
 	_end_turn_btn.pressed.connect(_on_end_turn)
-	_menu_btn.pressed.connect(_confirm_return_to_menu)
+	_menu_btn.pressed.connect(_pause_ui.confirm_return_to_menu)
 	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
-	_add_pause_button()
+	_pause_ui.add_pause_button($SidePanel)
 	_add_hero_power_button()
 	_add_companion_hud()
 	_add_potion_button()
@@ -272,7 +277,7 @@ func _ready() -> void:
 		_give_up_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
 		_give_up_btn.pressed.connect(_on_puzzle_give_up)
 		$SidePanel.add_child(_give_up_btn)
-	GameBus.turn_ended.connect(_on_turn_ended)
+	_state.turn_ended.connect(_on_turn_ended)
 	GameBus.fatigue_damage.connect(_on_fatigue_damage)
 
 	_refresh_all()
@@ -468,15 +473,19 @@ func _do_play_card(card: CardInstance, player_idx: int) -> bool:
 		(_battle_weather == "snow" or _battle_weather == "blizzard") and
 		not _snow_discount_used[player_idx]
 	)
+	var ok: bool
 	if apply_discount:
 		var saved_cost: int = card.cost
 		card.cost = maxi(0, card.cost - 1)
-		var ok: bool = _state.players[player_idx].play_card(card)
+		ok = _state.players[player_idx].play_card(card)
 		card.cost = saved_cost
 		if ok:
 			_snow_discount_used[player_idx] = true
-		return ok
-	return _state.players[player_idx].play_card(card)
+	else:
+		ok = _state.players[player_idx].play_card(card)
+	if ok:
+		GameBus.card_played.emit(card.card_id, "spell", -1)
+	return ok
 
 func _apply_ui_sizes() -> void:
 	var hero_h: float = _vh * 0.10
@@ -581,7 +590,7 @@ func _input(event: InputEvent) -> void:
 		if event.keycode == KEY_ESCAPE:
 			if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
 				return  # overlay handles its own Escape
-			_toggle_pause()
+			_pause_ui.toggle()
 			get_viewport().set_input_as_handled()
 			return
 
@@ -615,9 +624,9 @@ func _finish_hand_drag() -> void:
 	if board_rect.has_point(mouse_pos):
 		var played_card := _hand_drag_card
 		# Targeted spells: enter appropriate targeting mode
-		var is_enemy_targeted: bool = _ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
-		var is_friendly_targeted: bool = _FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
-		var is_slot_targeted: bool = _SLOT_TARGETED_EFFECTS.has(played_card.spell_effect)
+		var is_enemy_targeted: bool = SpellEffectResolver.ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
+		var is_friendly_targeted: bool = SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
+		var is_slot_targeted: bool = SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(played_card.spell_effect)
 		if played_card.card_class == "spell" and is_slot_targeted and _state.players[0].can_play(played_card):
 			_hand_drag_card = null
 			if _drag_visual:
@@ -653,7 +662,7 @@ func _finish_hand_drag() -> void:
 				_fx.haptic(20)
 				if played_card.emergence_effect != "":
 					var snap_em := _fx.snapshot()
-					_resolve_emergence(played_card, 0)
+					_resolver.resolve_emergence(played_card, 0)
 					_fx.trigger_fx(snap_em)
 				else:
 					_apply_weather_to_summoned(played_card, 0)
@@ -666,7 +675,7 @@ func _finish_hand_drag() -> void:
 				AudioManager.play_sfx("card_play")
 				_fx.haptic(20)
 				var snap_fhd := _fx.snapshot()
-				_resolve_spell_effect(played_card, 0)
+				_resolver.resolve_spell(played_card, 0)
 				_fx.trigger_fx(snap_fhd)
 				_refresh_all()
 				_check_game_over()
@@ -746,15 +755,19 @@ func _do_play_card_at_slot(card: CardInstance, player_idx: int, slot_idx: int) -
 		(_battle_weather == "snow" or _battle_weather == "blizzard") and
 		not _snow_discount_used[player_idx]
 	)
+	var ok: bool
 	if apply_discount:
 		var saved_cost: int = card.cost
 		card.cost = maxi(0, card.cost - 1)
-		var ok: bool = _state.players[player_idx].play_card_at_slot(card, slot_idx)
+		ok = _state.players[player_idx].play_card_at_slot(card, slot_idx)
 		card.cost = saved_cost
 		if ok:
 			_snow_discount_used[player_idx] = true
-		return ok
-	return _state.players[player_idx].play_card_at_slot(card, slot_idx)
+	else:
+		ok = _state.players[player_idx].play_card_at_slot(card, slot_idx)
+	if ok:
+		GameBus.card_played.emit(card.card_id, "board", slot_idx)
+	return ok
 
 func _enter_slot_select_mode(card: CardInstance) -> void:
 	_slot_select_card = card
@@ -783,7 +796,7 @@ func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 					_fx.haptic(20)
 					if card.emergence_effect != "":
 						var snap_se := _fx.snapshot()
-						_resolve_emergence(card, 0)
+						_resolver.resolve_emergence(card, 0)
 						_fx.trigger_fx(snap_se)
 					else:
 						_apply_weather_to_summoned(card, 0)
@@ -835,22 +848,6 @@ func _show_card_inspect(card: CardInstance) -> void:
 # -------------------------------------------------------------------------
 # Battle pause (TID-088)
 # -------------------------------------------------------------------------
-
-func _add_pause_button() -> void:
-	var pause_btn := Button.new()
-	pause_btn.text = "II"
-	pause_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
-	pause_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	pause_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	pause_btn.pressed.connect(_toggle_pause)
-	$SidePanel.add_child(pause_btn)
-	$SidePanel.move_child(pause_btn, 0)
-
-func _toggle_pause() -> void:
-	if _paused:
-		_hide_pause_overlay()
-	else:
-		_show_pause_overlay()
 
 func _add_hero_power_button() -> void:
 	var active_skill: SkillData = _get_active_skill()
@@ -1058,192 +1055,12 @@ func _use_hero_power() -> void:
 		"active_draw":
 			for _i in active_skill.effect_value:
 				player.draw_card()
-			_flush_auto_spells(0)
+			_resolver.flush_auto_spells(0)
 		"active_mana":
 			player.hero.mana = mini(
 				player.hero.mana + active_skill.effect_value,
 				player.hero.max_mana)
 	_refresh_all()
-
-func _show_pause_overlay() -> void:
-	if _paused:
-		return
-	_paused = true
-	get_tree().paused = true
-	if _float_layer:
-		_float_layer.hide()
-
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var layer := CanvasLayer.new()
-	layer.layer = 200
-	layer.process_mode = Node.PROCESS_MODE_ALWAYS
-	add_child(layer)
-	_pause_overlay = layer
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.7)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = vp.x * 0.55
-	var panel_h: float = _vh * 0.52
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.15, 0.97)
-	style.corner_radius_top_left    = 12
-	style.corner_radius_top_right   = 12
-	style.corner_radius_bottom_left = 12
-	style.corner_radius_bottom_right = 12
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(_vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.03))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.03))
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.025))
-	margin.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "Paused"
-	title.add_theme_font_size_override("font_size", int(_vh * 0.05))
-	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
-
-	var resume_btn := Button.new()
-	resume_btn.text = "Resume"
-	resume_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
-	resume_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
-	resume_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	resume_btn.pressed.connect(_hide_pause_overlay)
-	vbox.add_child(resume_btn)
-
-	var settings_btn := Button.new()
-	settings_btn.text = "Settings"
-	settings_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
-	settings_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
-	settings_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	settings_btn.pressed.connect(_open_settings_from_pause)
-	vbox.add_child(settings_btn)
-
-	var flee_btn := Button.new()
-	flee_btn.text = "Flee Battle"
-	flee_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
-	flee_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
-	flee_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	flee_btn.pressed.connect(_on_flee_pressed)
-	vbox.add_child(flee_btn)
-
-	var menu_btn := Button.new()
-	menu_btn.text = "Return to Menu"
-	menu_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
-	menu_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
-	menu_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	menu_btn.pressed.connect(_confirm_return_to_menu)
-	vbox.add_child(menu_btn)
-
-func _on_flee_pressed() -> void:
-	get_tree().paused = false
-	_paused = false
-	if _pause_overlay != null and is_instance_valid(_pause_overlay):
-		_pause_overlay.queue_free()
-	_pause_overlay = null
-	GameBus.battle_fled.emit()
-
-func _hide_pause_overlay() -> void:
-	if not _paused:
-		return
-	_paused = false
-	get_tree().paused = false
-	if _pause_overlay != null and is_instance_valid(_pause_overlay):
-		_pause_overlay.queue_free()
-	_pause_overlay = null
-	if _float_layer:
-		_float_layer.show()
-
-func _open_settings_from_pause() -> void:
-	var overlay: SettingsScene = SettingsScene.new()
-	_pause_overlay.add_child(overlay)
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.closed.connect(overlay.queue_free)
-
-func _confirm_return_to_menu() -> void:
-	# Simple inline confirm dialog
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var dialog := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.12, 0.05, 0.05, 0.98)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
-	dialog.add_theme_stylebox_override("panel", style)
-	var dlg_w: float = vp.x * 0.5
-	var dlg_h: float = _vh * 0.28
-	dialog.custom_minimum_size = Vector2(dlg_w, dlg_h)
-	dialog.position = Vector2((vp.x - dlg_w) * 0.5, (vp.y - dlg_h) * 0.5)
-	dialog.mouse_filter = Control.MOUSE_FILTER_STOP
-	dialog.process_mode = Node.PROCESS_MODE_ALWAYS
-	_pause_overlay.add_child(dialog)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.025))
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	dialog.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.022))
-	margin.add_child(vbox)
-
-	var lbl := Label.new()
-	lbl.text = "Return to menu?\nYour battle will be saved."
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
-	lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.85))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(lbl)
-
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(_vh * 0.03))
-	vbox.add_child(row)
-
-	var yes_btn := Button.new()
-	yes_btn.text = "Yes, leave"
-	yes_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.065)
-	yes_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
-	yes_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	yes_btn.pressed.connect(func() -> void:
-		if not _state.puzzle_mode and not _state.is_game_over():
-			SceneManager.save_manager.set_pending_battle_state(_make_battle_save())
-		SceneManager.save_manager.save()
-		get_tree().paused = false
-		SceneManager.go_to_menu()
-	)
-	row.add_child(yes_btn)
-
-	var no_btn := Button.new()
-	no_btn.text = "Cancel"
-	no_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.065)
-	no_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
-	no_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	no_btn.pressed.connect(dialog.queue_free)
-	row.add_child(no_btn)
 
 func _make_battle_save() -> Dictionary:
 	var d: Dictionary = _state.to_dict()
@@ -1285,8 +1102,8 @@ func _notification(what: int) -> void:
 		if _state != null and not _state.puzzle_mode and not _state.is_game_over():
 			SceneManager.save_manager.set_pending_battle_state(_make_battle_save())
 			SceneManager.save_manager.save()
-		if not _paused:
-			_show_pause_overlay()
+		if _pause_ui != null and not _pause_ui.is_paused():
+			_pause_ui.show_pause()
 
 func _on_target_chosen_card(target: CardInstance) -> void:
 	var spell := _targeting_spell
@@ -1298,7 +1115,7 @@ func _on_target_chosen_card(target: CardInstance) -> void:
 		AudioManager.play_sfx("card_play")
 		_fx.haptic(20)
 		var snap_otc := _fx.snapshot()
-		_resolve_spell_effect(spell, 0, {"type": "minion", "card": target})
+		_resolver.resolve_spell(spell, 0, {"type": "minion", "card": target})
 		_fx.trigger_fx(snap_otc)
 	_refresh_all()
 	_check_game_over()
@@ -1314,7 +1131,7 @@ func _on_target_chosen_hero() -> void:
 		AudioManager.play_sfx("card_play")
 		_fx.haptic(20)
 		var snap_oth := _fx.snapshot()
-		_resolve_spell_effect(spell, 0, {"type": "hero"})
+		_resolver.resolve_spell(spell, 0, {"type": "hero"})
 		_fx.trigger_fx(snap_oth)
 	_refresh_all()
 	_check_game_over()
@@ -1436,7 +1253,7 @@ func _on_hand_card_tap(card: CardInstance) -> void:
 		return
 	if card.card_class != "spell" and _state.players[0].can_play(card):
 		_enter_slot_select_mode(card)
-	elif _SLOT_TARGETED_EFFECTS.has(card.spell_effect) and _state.players[0].can_play(card):
+	elif SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(card.spell_effect) and _state.players[0].can_play(card):
 		_enter_slot_targeting_mode(card)
 	else:
 		_show_card_inspect(card)
@@ -1467,27 +1284,7 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		var valid_targets: Array[CardInstance] = _view.get_ward_valid_targets(_state.players[1].board.get_cards())
 		if not valid_targets.has(target):
 			return  # keep attacker selected; player must click a Ward minion
-		AudioManager.play_sfx("attack")
-		var target_panel_ec := _fx.get_card_panel(target, true)
-		var attacker_panel_ec := _fx.get_card_panel(attacker, false)
-		var snap_ec := _fx.snapshot()
-		target.take_damage(BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome))
-		attacker.take_damage(BattlefieldRules.modify_damage(target.attack, _state.battlefield_biome))
-		attacker.attack_count -= 1
-		_fx.flash_node(target_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
-		_fx.flash_node(attacker_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
-		if not target.is_alive():
-			attacker.battle_kills += 1
-			_state.players[1].board.remove_card(target)
-			_state.players[1].discard.append(target)
-		if not attacker.is_alive():
-			_state.players[0].board.remove_card(attacker)
-			_state.players[0].discard.append(attacker)
-		_fx.spawn_float_labels(snap_ec)
-		_fx.check_shake(snap_ec)
-		_dragged_card.clear()
-		_refresh_all()
-		_check_game_over()
+		_execute_attack(attacker, target)
 
 func _on_enemy_hero_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -1507,24 +1304,46 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 		for ec: CardInstance in _state.players[1].board.get_cards():
 			if ec.keywords.has(Keywords.WARD):
 				return  # keep attacker selected; player must target the Ward minion
-		AudioManager.play_sfx("attack")
+		_execute_attack(attacker, null)
+
+## Resolves a player minion attack against target (CardInstance) or the enemy hero (null).
+## Handles damage, counterattack, death removal, FX, and the card_attacked signal.
+func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
+	AudioManager.play_sfx("attack")
+	var attacker_panel := _fx.get_card_panel(attacker, false)
+	var snap := _fx.snapshot()
+	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome)
+	if target != null:
+		var target_dmg: int = BattlefieldRules.modify_damage(target.attack, _state.battlefield_biome)
+		target.take_damage(attacker_dmg)
+		attacker.take_damage(target_dmg)
+		attacker.attack_count -= 1
+		var target_panel := _fx.get_card_panel(target, true)
+		_fx.flash_node(target_panel, Color(1.0, 0.3, 0.3, 1.0))
+		_fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
+		if not target.is_alive():
+			attacker.battle_kills += 1
+			_state.players[1].board.remove_card(target)
+			_state.players[1].discard.append(target)
+		GameBus.card_attacked.emit(attacker.card_id, target.card_id)
+	else:
 		if _capture_tracker != null:
 			_capture_tracker.note_minion_attacked_hero(0)
-		var attacker_panel_eh := _fx.get_card_panel(attacker, false)
-		var snap_eh := _fx.snapshot()
-		_state.players[1].hero.take_damage(BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome))
-		attacker.take_damage(BattlefieldRules.modify_damage(_state.players[1].hero.attack, _state.battlefield_biome))
+		var hero := _state.players[1].hero
+		hero.take_damage(attacker_dmg)
+		attacker.take_damage(BattlefieldRules.modify_damage(hero.attack, _state.battlefield_biome))
 		attacker.attack_count -= 1
 		_fx.flash_node(_enemy_hero_view, Color(1.0, 0.3, 0.3, 1.0))
-		_fx.flash_node(attacker_panel_eh, Color(1.0, 0.3, 0.3, 1.0))
-		if not attacker.is_alive():
-			_state.players[0].board.remove_card(attacker)
-			_state.players[0].discard.append(attacker)
-		_fx.spawn_float_labels(snap_eh)
-		_fx.check_shake(snap_eh)
-		_dragged_card.clear()
-		_refresh_all()
-		_check_game_over()
+		_fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
+		GameBus.card_attacked.emit(attacker.card_id, "hero")
+	if not attacker.is_alive():
+		_state.players[0].board.remove_card(attacker)
+		_state.players[0].discard.append(attacker)
+	_fx.spawn_float_labels(snap)
+	_fx.check_shake(snap)
+	_dragged_card.clear()
+	_refresh_all()
+	_check_game_over()
 
 # -------------------------------------------------------------------------
 # Turn / AI
@@ -1542,6 +1361,7 @@ func _on_end_turn() -> void:
 	_state.end_turn()
 
 func _on_turn_ended(player_idx: int) -> void:
+	GameBus.turn_ended.emit(player_idx)
 	var snap_sot := _fx.snapshot()
 	_fx.process_start_of_turn_statuses(player_idx)
 	# Desert biome rule: leftmost minion on each board takes 1 damage at turn start (daytime only).
@@ -1560,7 +1380,7 @@ func _on_turn_ended(player_idx: int) -> void:
 			AudioManager.play_sfx("card_draw")
 			_apply_companion_turn_start()
 			var snap_as := _fx.snapshot()
-			_flush_auto_spells(0)
+			_resolver.flush_auto_spells(0)
 			_fx.trigger_fx(snap_as)
 			_refresh_all()
 			_check_game_over()
@@ -1569,8 +1389,8 @@ func _on_turn_ended(player_idx: int) -> void:
 			_potion_btn.disabled = true
 		_check_game_over()
 		if not _state.is_game_over() and not _state.puzzle_mode:
-			if _extra_turn_granted:
-				_extra_turn_granted = false
+			if _resolver.extra_turn_granted:
+				_resolver.extra_turn_granted = false
 				_state.end_turn()
 			else:
 				_run_ai_turn()
@@ -1625,10 +1445,10 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	var snap_ai := _fx.snapshot()
 	var ai_board_before: Array[CardInstance] = _state.players[1].board.get_cards().duplicate()
 	actions[idx].call()
-	_flush_auto_spells(1)
+	_resolver.flush_auto_spells(1)
 	for c: CardInstance in _state.players[1].board.get_cards():
 		if not ai_board_before.has(c):
-			_resolve_emergence(c, 1)
+			_resolver.resolve_emergence(c, 1)
 			_apply_weather_to_summoned(c, 1)
 	_fx.trigger_fx(snap_ai)
 	_refresh_all()
@@ -1637,223 +1457,6 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		return
 	await _battle_delay(0.6)
 	_execute_ai_actions(actions, idx + 1)
-
-## Fires when a minion with an emergence_effect is placed on the board.
-func _resolve_emergence(card: CardInstance, caster_pid: int) -> void:
-	if card.emergence_effect == "":
-		return
-	AudioManager.play_sfx("spell_resolve")
-	var opponent: PlayerState = _state.players[1 - caster_pid]
-	var caster: PlayerState = _state.players[caster_pid]
-	match card.emergence_effect:
-		"emergence_deal_damage":
-			opponent.hero.take_damage(BattlefieldRules.modify_damage(card.emergence_power, _state.battlefield_biome))
-		"emergence_heal_hero":
-			caster.hero.health = mini(caster.hero.max_health, caster.hero.health + card.emergence_power)
-		"emergence_draw":
-			for _i in range(card.emergence_power):
-				caster.draw_card()
-		"emergence_buff_friendly":
-			var others: Array[CardInstance] = []
-			for c: CardInstance in caster.board.get_cards():
-				if c != card:
-					others.append(c)
-			if not others.is_empty():
-				others[randi() % others.size()].attack += card.emergence_power
-		"emergence_apply_poison":
-			var enemies := opponent.board.get_cards()
-			if not enemies.is_empty():
-				enemies[randi() % enemies.size()].apply_status("poison", card.emergence_power)
-
-## Resolves the effect of a spell card played by caster_pid against the opponent.
-## explicit_target: optional dict with "type" ("minion"/"hero") and "card" (CardInstance) for targeted spells.
-func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target: Dictionary = {}) -> void:
-	AudioManager.play_sfx("spell_resolve")
-	var _ct_board_before: int = _state.players[1 - caster_pid].board.get_cards().size() if caster_pid == 0 else 0
-	var opponent: PlayerState = _state.players[1 - caster_pid]
-	var _spell_dmg: int = BattlefieldRules.modify_damage(card.spell_power, _state.battlefield_biome)
-	match card.spell_effect:
-		"deal_damage_single":
-			var target_card: CardInstance = explicit_target.get("card", null) as CardInstance
-			if target_card != null:
-				target_card.take_damage(_spell_dmg)
-				if not target_card.is_alive():
-					opponent.board.remove_card(target_card)
-					opponent.discard.append(target_card)
-			elif explicit_target.get("type", "") == "hero":
-				opponent.hero.take_damage(_spell_dmg)
-			else:
-				var targets := opponent.board.get_cards()
-				if targets.is_empty():
-					opponent.hero.take_damage(_spell_dmg)
-				else:
-					targets[0].take_damage(_spell_dmg)
-					if not targets[0].is_alive():
-						opponent.board.remove_card(targets[0])
-						opponent.discard.append(targets[0])
-		"deal_damage_all":
-			for t in opponent.board.get_cards():
-				t.take_damage(_spell_dmg)
-			for t in opponent.board.get_cards().duplicate():
-				if not t.is_alive():
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
-		"deal_damage_random":
-			var targets := opponent.board.get_cards()
-			if targets.is_empty():
-				opponent.hero.take_damage(_spell_dmg)
-			else:
-				var idx: int = randi() % targets.size()
-				targets[idx].take_damage(_spell_dmg)
-				if not targets[idx].is_alive():
-					opponent.board.remove_card(targets[idx])
-					opponent.discard.append(targets[idx])
-		"debuff_attack":
-			for t in opponent.board.get_cards():
-				t.attack = maxi(0, t.attack - card.spell_power)
-		"destroy_low_hp":
-			for t in opponent.board.get_cards().duplicate():
-				if t.health <= card.spell_power:
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
-		"resurrect_last":
-			var caster: PlayerState = _state.players[caster_pid]
-			for i in range(caster.discard.size() - 1, -1, -1):
-				var t := caster.discard[i] as CardInstance
-				if t.card_class == "minion" and not caster.board.is_full():
-					t.health = t.max_health
-					t.summoning_sick = true
-					caster.board.add_card(t)
-					caster.discard.remove_at(i)
-					break
-		"heal_single":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				t.health = mini(t.max_health, t.health + card.spell_power)
-		"heal_all":
-			var caster: PlayerState = _state.players[caster_pid]
-			for t in caster.board.get_cards():
-				t.health = mini(t.max_health, t.health + card.spell_power)
-		"shield_minion":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				t.apply_status("armor", t.get_status_value("armor") + card.spell_power)
-		"buff_attack":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				t.attack += card.spell_power
-		"lifesteal_hit":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var targets := opponent.board.get_cards()
-				if not targets.is_empty():
-					t = targets[0]
-			if t != null:
-				t.take_damage(_spell_dmg)
-				caster.hero.health = mini(caster.hero.max_health, caster.hero.health + _spell_dmg)
-				if not t.is_alive():
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
-		"mana_drain":
-			opponent.hero.mana = maxi(0, opponent.hero.mana - card.spell_power)
-		"curse_minion":
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var targets := opponent.board.get_cards()
-				if not targets.is_empty():
-					t = targets[0]
-			if t != null:
-				t.attack = maxi(0, t.attack - card.spell_power)
-				t.health -= _spell_dmg
-				if not t.is_alive():
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
-		"draw_card":
-			var caster: PlayerState = _state.players[caster_pid]
-			for _i in range(card.spell_power):
-				caster.draw_card()
-		"bless_slot":
-			var caster: PlayerState = _state.players[caster_pid]
-			var slot: int = caster.board.first_empty_slot()
-			if slot >= 0:
-				caster.board.enhance_slot(slot, "atk_bonus", card.spell_power)
-		"ward_slot":
-			var caster: PlayerState = _state.players[caster_pid]
-			var slot: int = caster.board.first_empty_slot()
-			if slot >= 0:
-				caster.board.enhance_slot(slot, "shroud", 1)
-		"extra_turn":
-			_extra_turn_granted = true
-		"destroy_all_draw_3":
-			var caster: PlayerState = _state.players[caster_pid]
-			for t in _state.players[0].board.get_cards().duplicate():
-				_state.players[0].board.remove_card(t)
-				_state.players[0].discard.append(t)
-			for t in _state.players[1].board.get_cards().duplicate():
-				_state.players[1].board.remove_card(t)
-				_state.players[1].discard.append(t)
-			for _i in range(3):
-				caster.draw_card()
-	# Note board change for spell_final_blow tracking (only player spells on the enemy board).
-	if _capture_tracker != null and caster_pid == 0:
-		var _ct_board_after: int = _state.players[1].board.get_cards().size()
-		_capture_tracker.note_spell_resolved(0, _ct_board_before, _ct_board_after)
-
-## Drains pending_auto_spells for the given player and resolves each.
-## Called after any draw event (opening hand, turn draw).
-func _flush_auto_spells(player_idx: int) -> void:
-	var player: PlayerState = _state.players[player_idx]
-	while not player.pending_auto_spells.is_empty():
-		var card: CardInstance = player.pending_auto_spells.pop_front() as CardInstance
-		_resolve_spell_effect(card, player_idx)
-
-func _show_boss_banner() -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var font_size: int = int(_vh * 0.045)
-	var enemy_type: String = str(enemy_data.get("enemy_type", ""))
-	var lbl := Label.new()
-	lbl.text = "* %s *" % EnemyRegistry.get_display_name(enemy_type)
-	lbl.add_theme_font_size_override("font_size", font_size)
-	lbl.add_theme_color_override("font_color", Color(1.0, 0.75, 0.0))
-	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
-	lbl.add_theme_constant_override("shadow_offset_x", 2)
-	lbl.add_theme_constant_override("shadow_offset_y", 2)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.size = Vector2(vp.x, font_size * 2)
-	lbl.position = Vector2(0.0, _vh * 0.08)
-	add_child(lbl)
-	move_child(lbl, get_child_count() - 1)
-	if _boss_banner != null and is_instance_valid(_boss_banner):
-		_boss_banner.queue_free()
-	_boss_banner = lbl
-	_start_banner_fade(lbl)
-
-func _start_banner_fade(banner: Control) -> void:
-	var tween := create_tween()
-	tween.tween_interval(_BOSS_BANNER_DURATION - 0.5)
-	tween.tween_property(banner, "modulate:a", 0.0, 0.5)
-	tween.tween_callback(func() -> void:
-		if is_instance_valid(banner):
-			banner.queue_free()
-		if _boss_banner == banner:
-			_boss_banner = null
-	)
 
 func _check_boss_phase2() -> void:
 	if _boss_phase2_triggered:
@@ -1874,25 +1477,7 @@ func _check_boss_phase2() -> void:
 	_state.players[1].build_deck(p2_deck, p2_tier)
 	_state.players[1].draw_opening_hand(4)
 	_refresh_all()
-	# Show phase 2 announcement banner
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var font_size: int = int(_vh * 0.04)
-	var lbl := Label.new()
-	lbl.text = "- PHASE 2 -"
-	lbl.add_theme_font_size_override("font_size", font_size)
-	lbl.add_theme_color_override("font_color", Color(1.0, 0.2, 0.2))
-	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
-	lbl.add_theme_constant_override("shadow_offset_x", 2)
-	lbl.add_theme_constant_override("shadow_offset_y", 2)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.size = Vector2(vp.x, font_size * 2)
-	lbl.position = Vector2(0.0, _vh * 0.4)
-	add_child(lbl)
-	move_child(lbl, get_child_count() - 1)
-	if _boss_banner != null and is_instance_valid(_boss_banner):
-		_boss_banner.queue_free()
-	_boss_banner = lbl
-	_start_banner_fade(lbl)
+	_result_ui.show_phase2_banner()
 
 func _check_game_over() -> void:
 	_check_boss_phase2()
@@ -1907,15 +1492,16 @@ func _check_game_over() -> void:
 				_fx.haptic(120)
 				_show_puzzle_victory()
 			return
+		GameBus.battle_ended.emit(w)
 		if _state.friendly_duel:
 			if w == 0:
 				AudioManager.play_sfx("battle_win")
 				_fx.haptic(120)
-				_show_duel_victory_overlay(_state.wager_coins)
+				_result_ui.show_duel_victory(_state.wager_coins)
 			else:
 				AudioManager.play_sfx("battle_lose")
 				_fx.haptic(80)
-				_show_duel_loss_overlay(_state.wager_coins)
+				_result_ui.show_duel_loss(_state.wager_coins)
 			return
 		if w == 0:
 			AudioManager.play_sfx("battle_win")
@@ -1933,6 +1519,7 @@ func _check_game_over() -> void:
 			drop_tier_win = mini(drop_tier_win + Gambits.get_rarity_tier_bonus(gambit_id_win), 4)
 			var coins_win: int = EnemyRegistry.get_coin_reward(enemy_type) if enemy_type != "" else 0
 			var xp_win: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss_win)
+			var hero_hp_win: int = _state.players[0].hero.health
 			if is_boss_win:
 				var weapon_pool: Array[String] = []
 				for pid in pool:
@@ -1954,7 +1541,7 @@ func _check_game_over() -> void:
 					var br: String = CardDropUtil.effective_rarity(cid, CardDropUtil.roll_rarity(drop_tier_win))
 					boss_rarities.append(br)
 					boss_stats_list.append(CardDropUtil.roll_stats(cid, br))
-				_show_victory_overlay_boss(pool, weapon_reward_id, boss_rarities, boss_stats_list, coins_win, xp_win)
+				_result_ui.show_victory_boss(pool, weapon_reward_id, boss_rarities, boss_stats_list, coins_win, xp_win, hero_hp_win)
 			else:
 				var reward_card_id: String = ""
 				if pool.size() > 0:
@@ -1970,12 +1557,12 @@ func _check_game_over() -> void:
 				var _ct_captured: bool = SceneManager.save_manager.is_signature_captured(_ct_sig)
 				var _ct_met: bool = _capture_tracker != null and not _ct_sig.is_empty() and _capture_tracker.is_satisfied(_state)
 				if not _ct_sig.is_empty() and not _ct_captured and _ct_met:
-					_show_soulbind_overlay(reward_card_id, _ct_sig, _capture_tracker.condition_text())
+					_result_ui.show_soulbind(reward_card_id, _ct_sig, _capture_tracker.condition_text(), hero_hp_win)
 				elif not _ct_sig.is_empty() and not _ct_captured:
 					var _ct_text: String = _capture_tracker.condition_text() if _capture_tracker != null else ""
-					_show_victory_overlay(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats, coins_win, xp_win)
+					_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win)
 				else:
-					_show_victory_overlay(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win)
+					_result_ui.show_victory(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win)
 		else:
 			AudioManager.play_sfx("battle_lose")
 			_fx.haptic(80)
@@ -1999,459 +1586,24 @@ func _collect_veterancy_data() -> Dictionary:
 		data[uid]["kills"] = int(data[uid]["kills"]) + card.battle_kills
 	return data
 
-func _show_victory_overlay(reward_card_id: String, weapon_reward_id: String = "",
-		sig_card_id: String = "", condition_text_arg: String = "", condition_met: bool = false,
-		reward_rarity: String = "", reward_stats: Dictionary = {},
-		coins_earned: int = 0, xp_earned: int = 0) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.1, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
-
-	var title_lbl := Label.new()
-	title_lbl.text = "Victory!"
-	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_lbl.modulate = Color(1.0, 0.85, 0.2)
-	vbox.add_child(title_lbl)
-
-	var reward_lbl := Label.new()
-	if reward_card_id != "":
-		var tmpl: Dictionary = CardRegistry.get_template(reward_card_id)
-		var card_name: String = str(tmpl.get("name", reward_card_id))
-		var rarity_suffix: String = " [%s]" % reward_rarity.capitalize() if reward_rarity != "" else ""
-		reward_lbl.text = "You earned: " + card_name + rarity_suffix
-		if reward_rarity != "":
-			reward_lbl.modulate = _rarity_color(reward_rarity)
-	else:
-		reward_lbl.text = "No card dropped."
-	reward_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
-	reward_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(reward_lbl)
-
-	if coins_earned > 0:
-		var coins_lbl := Label.new()
-		coins_lbl.text = "+ %d Coins" % coins_earned
-		coins_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
-		coins_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		coins_lbl.modulate = Color(1.0, 0.85, 0.3)
-		vbox.add_child(coins_lbl)
-
-	if xp_earned > 0:
-		var xp_lbl := Label.new()
-		xp_lbl.text = "+ %d XP" % xp_earned
-		xp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
-		xp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		xp_lbl.modulate = Color(0.5, 1.0, 0.7)
-		vbox.add_child(xp_lbl)
-
-	if weapon_reward_id != "":
-		var weapon: WeaponData = WeaponRegistry.get_weapon(weapon_reward_id)
-		var weapon_lbl := Label.new()
-		var wname: String = weapon.display_name if weapon != null else weapon_reward_id
-		weapon_lbl.text = "Weapon found: " + wname
-		weapon_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
-		weapon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		weapon_lbl.modulate = Color(0.8, 1.0, 0.5)
-		vbox.add_child(weapon_lbl)
-
-	# Hunt-status line: show when a signature is available but condition was not met.
-	if sig_card_id != "" and condition_text_arg != "":
-		var hunt_lbl := Label.new()
-		hunt_lbl.text = "Soulbind: %s — %s" % [condition_text_arg, "MET" if condition_met else "not met"]
-		hunt_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-		hunt_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		hunt_lbl.modulate = Color(0.7, 0.5, 1.0)
-		hunt_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		vbox.add_child(hunt_lbl)
-
-	var btn := Button.new()
-	btn.text = "Collect" if (reward_card_id != "" or weapon_reward_id != "") else "Continue"
-	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
-	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
-	var final_card: String = reward_card_id
-	var final_weapon: String = weapon_reward_id
-	var final_rarity: String = reward_rarity
-	var final_stats: Dictionary = reward_stats
-	var veterancy_data: Dictionary = _collect_veterancy_data()
-	btn.pressed.connect(func() -> void:
-		overlay.queue_free()
-		GameBus.battle_won.emit({
-			"card_reward": final_card,
-			"weapon_reward": final_weapon,
-			"hero_hp": _state.players[0].hero.health,
-			"veterancy": veterancy_data,
-			"reward_rarity": final_rarity,
-			"reward_stats": final_stats,
-		})
-	)
-	vbox.add_child(btn)
-
-	overlay.add_child(vbox)
-	add_child(overlay)
-
-func _rarity_color(rarity: String) -> Color:
-	match rarity:
-		"common":    return Color(0.85, 0.85, 0.85)
-		"rare":      return Color(0.3, 0.6, 1.0)
-		"epic":      return Color(0.8, 0.3, 1.0)
-		"legendary": return Color(1.0, 0.65, 0.1)
-	return Color.WHITE
-
-func _show_soulbind_overlay(reward_card_id: String, sig_card_id: String, condition_text_arg: String) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.02, 0.12, 0.95)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.028))
-
-	var title_lbl := Label.new()
-	title_lbl.text = "Victory!"
-	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_lbl.modulate = Color(1.0, 0.85, 0.2)
-	vbox.add_child(title_lbl)
-
-	var soul_lbl := Label.new()
-	soul_lbl.text = "Soulbind Achieved!"
-	soul_lbl.add_theme_font_size_override("font_size", int(_vh * 0.04))
-	soul_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	soul_lbl.modulate = Color(0.8, 0.4, 1.0)
-	vbox.add_child(soul_lbl)
-
-	var cond_lbl := Label.new()
-	cond_lbl.text = condition_text_arg
-	cond_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	cond_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cond_lbl.modulate = Color(0.75, 0.6, 1.0)
-	cond_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(cond_lbl)
-
-	if reward_card_id != "":
-		var rtmpl: Dictionary = CardRegistry.get_template(reward_card_id)
-		var reward_lbl := Label.new()
-		reward_lbl.text = "You earned: " + str(rtmpl.get("name", reward_card_id))
-		reward_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
-		reward_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		vbox.add_child(reward_lbl)
-
-	var stmpl: Dictionary = CardRegistry.get_template(sig_card_id)
-	var sig_lbl := Label.new()
-	sig_lbl.text = "Signature captured: " + str(stmpl.get("name", sig_card_id))
-	sig_lbl.add_theme_font_size_override("font_size", int(_vh * 0.032))
-	sig_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sig_lbl.modulate = Color(0.9, 0.5, 1.0)
-	vbox.add_child(sig_lbl)
-
-	var btn := Button.new()
-	btn.text = "Collect All"
-	btn.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.065)
-	btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
-	var fc: String = reward_card_id
-	var sc: String = sig_card_id
-	btn.pressed.connect(func() -> void:
-		overlay.queue_free()
-		GameBus.battle_won.emit({
-			"card_reward": fc,
-			"weapon_reward": "",
-			"hero_hp": _state.players[0].hero.health,
-			"signature_capture": sc,
-		})
-	)
-	vbox.add_child(btn)
-
-	overlay.add_child(vbox)
-	add_child(overlay)
-
-func _show_victory_overlay_boss(reward_cards: Array[String], weapon_reward_id: String = "",
-		rarities: Array[String] = [], stats_list: Array[Dictionary] = [],
-		coins_earned: int = 0, xp_earned: int = 0) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.1, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.025))
-
-	var title_lbl := Label.new()
-	title_lbl.text = "Boss Defeated!"
-	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_lbl.modulate = Color(1.0, 0.75, 0.0)
-	vbox.add_child(title_lbl)
-
-	if reward_cards.is_empty():
-		var no_drop_lbl := Label.new()
-		no_drop_lbl.text = "No cards dropped."
-		no_drop_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
-		no_drop_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		vbox.add_child(no_drop_lbl)
-	else:
-		for ri in range(reward_cards.size()):
-			var cid: String = reward_cards[ri]
-			var tmpl: Dictionary = CardRegistry.get_template(cid)
-			var card_name: String = str(tmpl.get("name", cid))
-			var rarity: String = rarities[ri] if ri < rarities.size() else ""
-			var rlbl := Label.new()
-			rlbl.text = card_name + (" [%s]" % rarity.capitalize() if rarity != "" else "")
-			if rarity != "":
-				rlbl.modulate = _rarity_color(rarity)
-			rlbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
-			rlbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			vbox.add_child(rlbl)
-
-	if coins_earned > 0:
-		var coins_lbl := Label.new()
-		coins_lbl.text = "+ %d Coins" % coins_earned
-		coins_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
-		coins_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		coins_lbl.modulate = Color(1.0, 0.85, 0.3)
-		vbox.add_child(coins_lbl)
-
-	if xp_earned > 0:
-		var xp_lbl := Label.new()
-		xp_lbl.text = "+ %d XP" % xp_earned
-		xp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
-		xp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		xp_lbl.modulate = Color(0.5, 1.0, 0.7)
-		vbox.add_child(xp_lbl)
-
-	if weapon_reward_id != "":
-		var weapon: WeaponData = WeaponRegistry.get_weapon(weapon_reward_id)
-		var weapon_lbl := Label.new()
-		var wname: String = weapon.display_name if weapon != null else weapon_reward_id
-		weapon_lbl.text = "Weapon found: " + wname
-		weapon_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
-		weapon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		weapon_lbl.modulate = Color(0.8, 1.0, 0.5)
-		vbox.add_child(weapon_lbl)
-
-	var btn := Button.new()
-	btn.text = "Collect" if (not reward_cards.is_empty() or weapon_reward_id != "") else "Continue"
-	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
-	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
-	var final_rewards: Array[String] = []
-	final_rewards.assign(reward_cards)
-	var final_weapon: String = weapon_reward_id
-	var final_rarities: Array[String] = []
-	final_rarities.assign(rarities)
-	var final_stats_list: Array[Dictionary] = stats_list.duplicate()
-	var veterancy_data_boss: Dictionary = _collect_veterancy_data()
-	btn.pressed.connect(func() -> void:
-		overlay.queue_free()
-		GameBus.battle_won.emit({
-			"card_rewards": final_rewards,
-			"weapon_reward": final_weapon,
-			"hero_hp": _state.players[0].hero.health,
-			"veterancy": veterancy_data_boss,
-			"reward_rarities": final_rarities,
-			"reward_stats_list": final_stats_list,
-		})
-	)
-	vbox.add_child(btn)
-
-	overlay.add_child(vbox)
-	add_child(overlay)
-
-func _show_duel_victory_overlay(wager: int) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.1, 0.05, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
-
-	var title_lbl := Label.new()
-	title_lbl.text = "Duel Won!"
-	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_lbl.modulate = Color(0.4, 1.0, 0.4)
-	vbox.add_child(title_lbl)
-
-	var coins_lbl := Label.new()
-	coins_lbl.text = "+%d coins" % wager if wager > 0 else "Wager was free!"
-	coins_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
-	coins_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	coins_lbl.modulate = Color(1.0, 0.85, 0.2)
-	vbox.add_child(coins_lbl)
-
-	var btn := Button.new()
-	btn.text = "Collect"
-	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
-	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
-	btn.pressed.connect(func() -> void:
-		overlay.queue_free()
-		if wager > 0:
-			SceneManager.save_manager.add_coins(wager)
-		GameBus.duel_won.emit()
-	)
-	vbox.add_child(btn)
-
-	overlay.add_child(vbox)
-	add_child(overlay)
-
-func _show_duel_loss_overlay(wager: int) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.05, 0.05, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
-
-	var title_lbl := Label.new()
-	title_lbl.text = "Duel Lost"
-	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_lbl.modulate = Color(1.0, 0.4, 0.4)
-	vbox.add_child(title_lbl)
-
-	var coins_lbl := Label.new()
-	coins_lbl.text = "-%d coins" % wager if wager > 0 else "No wager."
-	coins_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
-	coins_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	coins_lbl.modulate = Color(1.0, 0.6, 0.6)
-	vbox.add_child(coins_lbl)
-
-	var btn := Button.new()
-	btn.text = "Continue"
-	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
-	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
-	btn.pressed.connect(func() -> void:
-		overlay.queue_free()
-		if wager > 0:
-			SceneManager.save_manager.coins = maxi(0, SceneManager.save_manager.coins - wager)
-			SceneManager.save_manager.save()
-		GameBus.duel_lost.emit()
-	)
-	vbox.add_child(btn)
-
-	overlay.add_child(vbox)
-	add_child(overlay)
-
 # -------------------------------------------------------------------------
 # Puzzle overlays
 # -------------------------------------------------------------------------
 
 func _show_puzzle_fail() -> void:
-	const GameState = preload("res://game_logic/battle/GameState.gd")
 	_state = GameState.new()
 	_state.load_puzzle(_puzzle_data_ref)
+	_resolver.setup(_state)
+	_view.set_battle_state(_state, enemy_data)
 	_refresh_all()
-
-	var overlay := PanelContainer.new()
-	overlay.name = "PuzzleFailOverlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.05, 0.05, 0.88)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
-
-	var lbl := Label.new()
-	lbl.text = "Not quite — try again!"
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.05))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.modulate = Color(1.0, 0.5, 0.3)
-	vbox.add_child(lbl)
-
-	var hint_lbl := Label.new()
 	var pd: Resource = _puzzle_data_ref
-	hint_lbl.text = pd.get("hint_text") if pd != null else ""
-	hint_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
-	hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint_lbl.modulate = Color(0.85, 0.85, 0.85)
-	hint_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint_lbl.custom_minimum_size = Vector2(_vh * 0.5, 0)
-	vbox.add_child(hint_lbl)
-
-	var btn := Button.new()
-	btn.text = "Try Again"
-	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
-	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
-	btn.pressed.connect(func() -> void: overlay.queue_free())
-	vbox.add_child(btn)
-
-	overlay.add_child(vbox)
-	add_child(overlay)
+	var hint_text: String = pd.get("hint_text") if pd != null else ""
+	_result_ui.show_puzzle_fail_overlay(hint_text)
 
 
 func _show_puzzle_victory() -> void:
 	GameBus.puzzle_solved.emit(_state.puzzle_data_id)
-
-	var overlay := PanelContainer.new()
-	overlay.name = "PuzzleVictoryOverlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.10, 0.04, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
-
-	var title_lbl := Label.new()
-	title_lbl.text = "Puzzle Solved!"
-	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_lbl.modulate = Color(0.4, 1.0, 0.5)
-	vbox.add_child(title_lbl)
-
-	var sub_lbl := Label.new()
-	sub_lbl.text = "Reward delivered to your collection."
-	sub_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
-	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub_lbl.modulate = Color(0.8, 1.0, 0.8)
-	vbox.add_child(sub_lbl)
-
-	var btn := Button.new()
-	btn.text = "Continue"
-	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
-	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
-	btn.pressed.connect(func() -> void:
-		overlay.queue_free()
-		SceneManager.return_from_puzzle()
-	)
-	vbox.add_child(btn)
-
-	overlay.add_child(vbox)
-	add_child(overlay)
+	_result_ui.show_puzzle_victory_overlay()
 
 
 func _on_puzzle_give_up() -> void:
