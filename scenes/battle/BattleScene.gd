@@ -26,9 +26,11 @@ const CaptureTracker = preload("res://game_logic/battle/CaptureTracker.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const BattleFx = preload("res://scenes/battle/BattleFx.gd")
 const CardViewBuilder = preload("res://scenes/battle/CardViewBuilder.gd")
+const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
 
 var _fx: BattleFx
 var _view: CardViewBuilder
+var _resolver: SpellEffectResolver
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
@@ -42,7 +44,6 @@ var _give_up_btn: Button = null
 var _companion_hud: Control = null
 var _state: GameState
 var _ai_thinking: bool = false
-var _extra_turn_granted: bool = false
 var _game_over_handled: bool = false
 var _boss_phase2_triggered: bool = false
 var _hero_power_btn: Button = null
@@ -83,9 +84,6 @@ var _paused: bool = false
 var _pause_overlay: CanvasLayer = null
 
 # Spell targeting (TID-058, extended TID-141)
-const _ENEMY_TARGETED_EFFECTS: Array[String] = ["deal_damage_single", "curse_minion", "lifesteal_hit"]
-const _FRIENDLY_TARGETED_EFFECTS: Array[String] = ["heal_single", "shield_minion", "buff_attack"]
-const _SLOT_TARGETED_EFFECTS: Array[String] = ["bless_slot", "ward_slot"]
 var _targeting_spell: CardInstance = null
 var _targeting_active: bool = false
 var _targeting_friendly: bool = false
@@ -132,13 +130,16 @@ func _ready() -> void:
 	var _bs: String = str(SceneManager.save_manager.get_setting("battle_speed", "normal"))
 	_speed_scale = 0.45 if _bs == "fast" else 1.0
 	_apply_ui_sizes()
+	_resolver = SpellEffectResolver.new()
 	var _saved_battle: Dictionary = SceneManager.save_manager.pending_battle_state
 	if puzzle_data != null:
 		_puzzle_data_ref = puzzle_data
 		_state = GameState.new()
+		_resolver.setup(_state)
 		_state.load_puzzle(puzzle_data)
 	elif not _saved_battle.is_empty():
 		_state = GameState.new()
+		_resolver.setup(_state)
 		_state.from_dict(_saved_battle)
 		_boss_phase2_triggered = bool(_saved_battle.get("_boss_phase2", false))
 		_hero_power_used = bool(_saved_battle.get("_hero_power_used", false))
@@ -146,6 +147,7 @@ func _ready() -> void:
 		SceneManager.save_manager.clear_pending_battle_state()
 	else:
 		_state = GameState.new()
+		_resolver.setup(_state)
 
 		# Player deck: spire run uses its run-local draft deck; otherwise use the
 		# persistent player deck. Floor 1 starter gives 8 basics before any pick.
@@ -243,7 +245,7 @@ func _ready() -> void:
 		_apply_companion_turn_start()
 		# Flush auto-resolve spells collected from opening hand + turn-1 draw.
 		# Must run after enemy deck is built so spells target the real enemy.
-		_flush_auto_spells(0)
+		_resolver.flush_auto_spells(0)
 
 	_fx.set_game_state(_state)
 	_view.set_battle_state(_state, enemy_data)
@@ -254,6 +256,7 @@ func _ready() -> void:
 		var _ct_condition: String = EnemyRegistry.get_capture_condition(_ct_enemy_type)
 		var _ct_param: int = EnemyRegistry.get_capture_param(_ct_enemy_type)
 		_capture_tracker = CaptureTracker.new(_ct_condition, _ct_param)
+		_resolver.capture_tracker = _capture_tracker
 
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(_confirm_return_to_menu)
@@ -272,7 +275,7 @@ func _ready() -> void:
 		_give_up_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
 		_give_up_btn.pressed.connect(_on_puzzle_give_up)
 		$SidePanel.add_child(_give_up_btn)
-	GameBus.turn_ended.connect(_on_turn_ended)
+	_state.turn_ended.connect(_on_turn_ended)
 	GameBus.fatigue_damage.connect(_on_fatigue_damage)
 
 	_refresh_all()
@@ -468,15 +471,19 @@ func _do_play_card(card: CardInstance, player_idx: int) -> bool:
 		(_battle_weather == "snow" or _battle_weather == "blizzard") and
 		not _snow_discount_used[player_idx]
 	)
+	var ok: bool
 	if apply_discount:
 		var saved_cost: int = card.cost
 		card.cost = maxi(0, card.cost - 1)
-		var ok: bool = _state.players[player_idx].play_card(card)
+		ok = _state.players[player_idx].play_card(card)
 		card.cost = saved_cost
 		if ok:
 			_snow_discount_used[player_idx] = true
-		return ok
-	return _state.players[player_idx].play_card(card)
+	else:
+		ok = _state.players[player_idx].play_card(card)
+	if ok:
+		GameBus.card_played.emit(card.card_id, "spell", -1)
+	return ok
 
 func _apply_ui_sizes() -> void:
 	var hero_h: float = _vh * 0.10
@@ -615,9 +622,9 @@ func _finish_hand_drag() -> void:
 	if board_rect.has_point(mouse_pos):
 		var played_card := _hand_drag_card
 		# Targeted spells: enter appropriate targeting mode
-		var is_enemy_targeted: bool = _ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
-		var is_friendly_targeted: bool = _FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
-		var is_slot_targeted: bool = _SLOT_TARGETED_EFFECTS.has(played_card.spell_effect)
+		var is_enemy_targeted: bool = SpellEffectResolver.ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
+		var is_friendly_targeted: bool = SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
+		var is_slot_targeted: bool = SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(played_card.spell_effect)
 		if played_card.card_class == "spell" and is_slot_targeted and _state.players[0].can_play(played_card):
 			_hand_drag_card = null
 			if _drag_visual:
@@ -653,7 +660,7 @@ func _finish_hand_drag() -> void:
 				_fx.haptic(20)
 				if played_card.emergence_effect != "":
 					var snap_em := _fx.snapshot()
-					_resolve_emergence(played_card, 0)
+					_resolver.resolve_emergence(played_card, 0)
 					_fx.trigger_fx(snap_em)
 				else:
 					_apply_weather_to_summoned(played_card, 0)
@@ -666,7 +673,7 @@ func _finish_hand_drag() -> void:
 				AudioManager.play_sfx("card_play")
 				_fx.haptic(20)
 				var snap_fhd := _fx.snapshot()
-				_resolve_spell_effect(played_card, 0)
+				_resolver.resolve_spell(played_card, 0)
 				_fx.trigger_fx(snap_fhd)
 				_refresh_all()
 				_check_game_over()
@@ -746,15 +753,19 @@ func _do_play_card_at_slot(card: CardInstance, player_idx: int, slot_idx: int) -
 		(_battle_weather == "snow" or _battle_weather == "blizzard") and
 		not _snow_discount_used[player_idx]
 	)
+	var ok: bool
 	if apply_discount:
 		var saved_cost: int = card.cost
 		card.cost = maxi(0, card.cost - 1)
-		var ok: bool = _state.players[player_idx].play_card_at_slot(card, slot_idx)
+		ok = _state.players[player_idx].play_card_at_slot(card, slot_idx)
 		card.cost = saved_cost
 		if ok:
 			_snow_discount_used[player_idx] = true
-		return ok
-	return _state.players[player_idx].play_card_at_slot(card, slot_idx)
+	else:
+		ok = _state.players[player_idx].play_card_at_slot(card, slot_idx)
+	if ok:
+		GameBus.card_played.emit(card.card_id, "board", slot_idx)
+	return ok
 
 func _enter_slot_select_mode(card: CardInstance) -> void:
 	_slot_select_card = card
@@ -783,7 +794,7 @@ func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 					_fx.haptic(20)
 					if card.emergence_effect != "":
 						var snap_se := _fx.snapshot()
-						_resolve_emergence(card, 0)
+						_resolver.resolve_emergence(card, 0)
 						_fx.trigger_fx(snap_se)
 					else:
 						_apply_weather_to_summoned(card, 0)
@@ -1058,7 +1069,7 @@ func _use_hero_power() -> void:
 		"active_draw":
 			for _i in active_skill.effect_value:
 				player.draw_card()
-			_flush_auto_spells(0)
+			_resolver.flush_auto_spells(0)
 		"active_mana":
 			player.hero.mana = mini(
 				player.hero.mana + active_skill.effect_value,
@@ -1298,7 +1309,7 @@ func _on_target_chosen_card(target: CardInstance) -> void:
 		AudioManager.play_sfx("card_play")
 		_fx.haptic(20)
 		var snap_otc := _fx.snapshot()
-		_resolve_spell_effect(spell, 0, {"type": "minion", "card": target})
+		_resolver.resolve_spell(spell, 0, {"type": "minion", "card": target})
 		_fx.trigger_fx(snap_otc)
 	_refresh_all()
 	_check_game_over()
@@ -1314,7 +1325,7 @@ func _on_target_chosen_hero() -> void:
 		AudioManager.play_sfx("card_play")
 		_fx.haptic(20)
 		var snap_oth := _fx.snapshot()
-		_resolve_spell_effect(spell, 0, {"type": "hero"})
+		_resolver.resolve_spell(spell, 0, {"type": "hero"})
 		_fx.trigger_fx(snap_oth)
 	_refresh_all()
 	_check_game_over()
@@ -1436,7 +1447,7 @@ func _on_hand_card_tap(card: CardInstance) -> void:
 		return
 	if card.card_class != "spell" and _state.players[0].can_play(card):
 		_enter_slot_select_mode(card)
-	elif _SLOT_TARGETED_EFFECTS.has(card.spell_effect) and _state.players[0].can_play(card):
+	elif SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(card.spell_effect) and _state.players[0].can_play(card):
 		_enter_slot_targeting_mode(card)
 	else:
 		_show_card_inspect(card)
@@ -1467,27 +1478,7 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		var valid_targets: Array[CardInstance] = _view.get_ward_valid_targets(_state.players[1].board.get_cards())
 		if not valid_targets.has(target):
 			return  # keep attacker selected; player must click a Ward minion
-		AudioManager.play_sfx("attack")
-		var target_panel_ec := _fx.get_card_panel(target, true)
-		var attacker_panel_ec := _fx.get_card_panel(attacker, false)
-		var snap_ec := _fx.snapshot()
-		target.take_damage(BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome))
-		attacker.take_damage(BattlefieldRules.modify_damage(target.attack, _state.battlefield_biome))
-		attacker.attack_count -= 1
-		_fx.flash_node(target_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
-		_fx.flash_node(attacker_panel_ec, Color(1.0, 0.3, 0.3, 1.0))
-		if not target.is_alive():
-			attacker.battle_kills += 1
-			_state.players[1].board.remove_card(target)
-			_state.players[1].discard.append(target)
-		if not attacker.is_alive():
-			_state.players[0].board.remove_card(attacker)
-			_state.players[0].discard.append(attacker)
-		_fx.spawn_float_labels(snap_ec)
-		_fx.check_shake(snap_ec)
-		_dragged_card.clear()
-		_refresh_all()
-		_check_game_over()
+		_execute_attack(attacker, target)
 
 func _on_enemy_hero_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
@@ -1507,24 +1498,46 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 		for ec: CardInstance in _state.players[1].board.get_cards():
 			if ec.keywords.has(Keywords.WARD):
 				return  # keep attacker selected; player must target the Ward minion
-		AudioManager.play_sfx("attack")
+		_execute_attack(attacker, null)
+
+## Resolves a player minion attack against target (CardInstance) or the enemy hero (null).
+## Handles damage, counterattack, death removal, FX, and the card_attacked signal.
+func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
+	AudioManager.play_sfx("attack")
+	var attacker_panel := _fx.get_card_panel(attacker, false)
+	var snap := _fx.snapshot()
+	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome)
+	if target != null:
+		var target_dmg: int = BattlefieldRules.modify_damage(target.attack, _state.battlefield_biome)
+		target.take_damage(attacker_dmg)
+		attacker.take_damage(target_dmg)
+		attacker.attack_count -= 1
+		var target_panel := _fx.get_card_panel(target, true)
+		_fx.flash_node(target_panel, Color(1.0, 0.3, 0.3, 1.0))
+		_fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
+		if not target.is_alive():
+			attacker.battle_kills += 1
+			_state.players[1].board.remove_card(target)
+			_state.players[1].discard.append(target)
+		GameBus.card_attacked.emit(attacker.card_id, target.card_id)
+	else:
 		if _capture_tracker != null:
 			_capture_tracker.note_minion_attacked_hero(0)
-		var attacker_panel_eh := _fx.get_card_panel(attacker, false)
-		var snap_eh := _fx.snapshot()
-		_state.players[1].hero.take_damage(BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome))
-		attacker.take_damage(BattlefieldRules.modify_damage(_state.players[1].hero.attack, _state.battlefield_biome))
+		var hero := _state.players[1].hero
+		hero.take_damage(attacker_dmg)
+		attacker.take_damage(BattlefieldRules.modify_damage(hero.attack, _state.battlefield_biome))
 		attacker.attack_count -= 1
 		_fx.flash_node(_enemy_hero_view, Color(1.0, 0.3, 0.3, 1.0))
-		_fx.flash_node(attacker_panel_eh, Color(1.0, 0.3, 0.3, 1.0))
-		if not attacker.is_alive():
-			_state.players[0].board.remove_card(attacker)
-			_state.players[0].discard.append(attacker)
-		_fx.spawn_float_labels(snap_eh)
-		_fx.check_shake(snap_eh)
-		_dragged_card.clear()
-		_refresh_all()
-		_check_game_over()
+		_fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
+		GameBus.card_attacked.emit(attacker.card_id, "hero")
+	if not attacker.is_alive():
+		_state.players[0].board.remove_card(attacker)
+		_state.players[0].discard.append(attacker)
+	_fx.spawn_float_labels(snap)
+	_fx.check_shake(snap)
+	_dragged_card.clear()
+	_refresh_all()
+	_check_game_over()
 
 # -------------------------------------------------------------------------
 # Turn / AI
@@ -1542,6 +1555,7 @@ func _on_end_turn() -> void:
 	_state.end_turn()
 
 func _on_turn_ended(player_idx: int) -> void:
+	GameBus.turn_ended.emit(player_idx)
 	var snap_sot := _fx.snapshot()
 	_fx.process_start_of_turn_statuses(player_idx)
 	# Desert biome rule: leftmost minion on each board takes 1 damage at turn start (daytime only).
@@ -1560,7 +1574,7 @@ func _on_turn_ended(player_idx: int) -> void:
 			AudioManager.play_sfx("card_draw")
 			_apply_companion_turn_start()
 			var snap_as := _fx.snapshot()
-			_flush_auto_spells(0)
+			_resolver.flush_auto_spells(0)
 			_fx.trigger_fx(snap_as)
 			_refresh_all()
 			_check_game_over()
@@ -1569,8 +1583,8 @@ func _on_turn_ended(player_idx: int) -> void:
 			_potion_btn.disabled = true
 		_check_game_over()
 		if not _state.is_game_over() and not _state.puzzle_mode:
-			if _extra_turn_granted:
-				_extra_turn_granted = false
+			if _resolver.extra_turn_granted:
+				_resolver.extra_turn_granted = false
 				_state.end_turn()
 			else:
 				_run_ai_turn()
@@ -1625,10 +1639,10 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	var snap_ai := _fx.snapshot()
 	var ai_board_before: Array[CardInstance] = _state.players[1].board.get_cards().duplicate()
 	actions[idx].call()
-	_flush_auto_spells(1)
+	_resolver.flush_auto_spells(1)
 	for c: CardInstance in _state.players[1].board.get_cards():
 		if not ai_board_before.has(c):
-			_resolve_emergence(c, 1)
+			_resolver.resolve_emergence(c, 1)
 			_apply_weather_to_summoned(c, 1)
 	_fx.trigger_fx(snap_ai)
 	_refresh_all()
@@ -1637,191 +1651,6 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		return
 	await _battle_delay(0.6)
 	_execute_ai_actions(actions, idx + 1)
-
-## Fires when a minion with an emergence_effect is placed on the board.
-func _resolve_emergence(card: CardInstance, caster_pid: int) -> void:
-	if card.emergence_effect == "":
-		return
-	AudioManager.play_sfx("spell_resolve")
-	var opponent: PlayerState = _state.players[1 - caster_pid]
-	var caster: PlayerState = _state.players[caster_pid]
-	match card.emergence_effect:
-		"emergence_deal_damage":
-			opponent.hero.take_damage(BattlefieldRules.modify_damage(card.emergence_power, _state.battlefield_biome))
-		"emergence_heal_hero":
-			caster.hero.health = mini(caster.hero.max_health, caster.hero.health + card.emergence_power)
-		"emergence_draw":
-			for _i in range(card.emergence_power):
-				caster.draw_card()
-		"emergence_buff_friendly":
-			var others: Array[CardInstance] = []
-			for c: CardInstance in caster.board.get_cards():
-				if c != card:
-					others.append(c)
-			if not others.is_empty():
-				others[randi() % others.size()].attack += card.emergence_power
-		"emergence_apply_poison":
-			var enemies := opponent.board.get_cards()
-			if not enemies.is_empty():
-				enemies[randi() % enemies.size()].apply_status("poison", card.emergence_power)
-
-## Resolves the effect of a spell card played by caster_pid against the opponent.
-## explicit_target: optional dict with "type" ("minion"/"hero") and "card" (CardInstance) for targeted spells.
-func _resolve_spell_effect(card: CardInstance, caster_pid: int, explicit_target: Dictionary = {}) -> void:
-	AudioManager.play_sfx("spell_resolve")
-	var _ct_board_before: int = _state.players[1 - caster_pid].board.get_cards().size() if caster_pid == 0 else 0
-	var opponent: PlayerState = _state.players[1 - caster_pid]
-	var _spell_dmg: int = BattlefieldRules.modify_damage(card.spell_power, _state.battlefield_biome)
-	match card.spell_effect:
-		"deal_damage_single":
-			var target_card: CardInstance = explicit_target.get("card", null) as CardInstance
-			if target_card != null:
-				target_card.take_damage(_spell_dmg)
-				if not target_card.is_alive():
-					opponent.board.remove_card(target_card)
-					opponent.discard.append(target_card)
-			elif explicit_target.get("type", "") == "hero":
-				opponent.hero.take_damage(_spell_dmg)
-			else:
-				var targets := opponent.board.get_cards()
-				if targets.is_empty():
-					opponent.hero.take_damage(_spell_dmg)
-				else:
-					targets[0].take_damage(_spell_dmg)
-					if not targets[0].is_alive():
-						opponent.board.remove_card(targets[0])
-						opponent.discard.append(targets[0])
-		"deal_damage_all":
-			for t in opponent.board.get_cards():
-				t.take_damage(_spell_dmg)
-			for t in opponent.board.get_cards().duplicate():
-				if not t.is_alive():
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
-		"deal_damage_random":
-			var targets := opponent.board.get_cards()
-			if targets.is_empty():
-				opponent.hero.take_damage(_spell_dmg)
-			else:
-				var idx: int = randi() % targets.size()
-				targets[idx].take_damage(_spell_dmg)
-				if not targets[idx].is_alive():
-					opponent.board.remove_card(targets[idx])
-					opponent.discard.append(targets[idx])
-		"debuff_attack":
-			for t in opponent.board.get_cards():
-				t.attack = maxi(0, t.attack - card.spell_power)
-		"destroy_low_hp":
-			for t in opponent.board.get_cards().duplicate():
-				if t.health <= card.spell_power:
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
-		"resurrect_last":
-			var caster: PlayerState = _state.players[caster_pid]
-			for i in range(caster.discard.size() - 1, -1, -1):
-				var t := caster.discard[i] as CardInstance
-				if t.card_class == "minion" and not caster.board.is_full():
-					t.health = t.max_health
-					t.summoning_sick = true
-					caster.board.add_card(t)
-					caster.discard.remove_at(i)
-					break
-		"heal_single":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				t.health = mini(t.max_health, t.health + card.spell_power)
-		"heal_all":
-			var caster: PlayerState = _state.players[caster_pid]
-			for t in caster.board.get_cards():
-				t.health = mini(t.max_health, t.health + card.spell_power)
-		"shield_minion":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				t.apply_status("armor", t.get_status_value("armor") + card.spell_power)
-		"buff_attack":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				t.attack += card.spell_power
-		"lifesteal_hit":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var targets := opponent.board.get_cards()
-				if not targets.is_empty():
-					t = targets[0]
-			if t != null:
-				t.take_damage(_spell_dmg)
-				caster.hero.health = mini(caster.hero.max_health, caster.hero.health + _spell_dmg)
-				if not t.is_alive():
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
-		"mana_drain":
-			opponent.hero.mana = maxi(0, opponent.hero.mana - card.spell_power)
-		"curse_minion":
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var targets := opponent.board.get_cards()
-				if not targets.is_empty():
-					t = targets[0]
-			if t != null:
-				t.attack = maxi(0, t.attack - card.spell_power)
-				t.health -= _spell_dmg
-				if not t.is_alive():
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
-		"draw_card":
-			var caster: PlayerState = _state.players[caster_pid]
-			for _i in range(card.spell_power):
-				caster.draw_card()
-		"bless_slot":
-			var caster: PlayerState = _state.players[caster_pid]
-			var slot: int = caster.board.first_empty_slot()
-			if slot >= 0:
-				caster.board.enhance_slot(slot, "atk_bonus", card.spell_power)
-		"ward_slot":
-			var caster: PlayerState = _state.players[caster_pid]
-			var slot: int = caster.board.first_empty_slot()
-			if slot >= 0:
-				caster.board.enhance_slot(slot, "shroud", 1)
-		"extra_turn":
-			_extra_turn_granted = true
-		"destroy_all_draw_3":
-			var caster: PlayerState = _state.players[caster_pid]
-			for t in _state.players[0].board.get_cards().duplicate():
-				_state.players[0].board.remove_card(t)
-				_state.players[0].discard.append(t)
-			for t in _state.players[1].board.get_cards().duplicate():
-				_state.players[1].board.remove_card(t)
-				_state.players[1].discard.append(t)
-			for _i in range(3):
-				caster.draw_card()
-	# Note board change for spell_final_blow tracking (only player spells on the enemy board).
-	if _capture_tracker != null and caster_pid == 0:
-		var _ct_board_after: int = _state.players[1].board.get_cards().size()
-		_capture_tracker.note_spell_resolved(0, _ct_board_before, _ct_board_after)
-
-## Drains pending_auto_spells for the given player and resolves each.
-## Called after any draw event (opening hand, turn draw).
-func _flush_auto_spells(player_idx: int) -> void:
-	var player: PlayerState = _state.players[player_idx]
-	while not player.pending_auto_spells.is_empty():
-		var card: CardInstance = player.pending_auto_spells.pop_front() as CardInstance
-		_resolve_spell_effect(card, player_idx)
 
 func _show_boss_banner() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
@@ -1907,6 +1736,7 @@ func _check_game_over() -> void:
 				_fx.haptic(120)
 				_show_puzzle_victory()
 			return
+		GameBus.battle_ended.emit(w)
 		if _state.friendly_duel:
 			if w == 0:
 				AudioManager.play_sfx("battle_win")

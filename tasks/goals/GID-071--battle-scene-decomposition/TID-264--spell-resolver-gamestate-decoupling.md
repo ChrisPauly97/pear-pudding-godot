@@ -2,7 +2,7 @@
 
 **Goal:** GID-071
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-263
 
 ## Lock
@@ -58,12 +58,36 @@ Update docs/agent/battle-system.md integrations table to document these signals'
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/battle/SpellEffectResolver.gd` — holds targeting-effect constants, `extra_turn_granted` flag, `capture_tracker` property, and `setup/resolve_spell/resolve_emergence/flush_auto_spells` methods.
+2. Fix `GameState.end_turn()` — add `signal turn_ended(player_id: int)` and replace Engine.get_main_loop() block with `turn_ended.emit(current_player_idx)`.
+3. Update `BattleScene.gd`:
+   - Preload and instantiate `SpellEffectResolver`, wire `_state.turn_ended` directly.
+   - Replace targeting-array constants and all resolver method calls.
+   - Remove extracted methods and `_extra_turn_granted` field.
+   - Add `_execute_attack(attacker, target)` helper; refactor `_on_enemy_card_input`/`_on_enemy_hero_input`.
+   - Emit `GameBus.card_played`, `GameBus.card_attacked`, `GameBus.battle_ended` at real action sites.
+   - Relay `GameBus.turn_ended` from `_on_turn_ended` for any external subscribers.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **Created `scenes/battle/SpellEffectResolver.gd`** (+ `.uid` sidecar): extracted `_resolve_spell_effect`, `_resolve_emergence`, and `_flush_auto_spells` from BattleScene into a RefCounted class. Co-located targeting-effect constants (`ENEMY_TARGETED_EFFECTS`, `FRIENDLY_TARGETED_EFFECTS`, `SLOT_TARGETED_EFFECTS`). Holds `extra_turn_granted` flag and `capture_tracker` property.
+- **Fixed `game_logic/battle/GameState.gd`**: added `signal turn_ended(player_id: int)`; replaced `end_turn()` block that called `Engine.get_main_loop()` / `root.get_node_or_null("GameBus")` with `turn_ended.emit(current_player_idx)`. Eliminates the last SceneTree access in `game_logic/`.
+- **Updated `scenes/battle/BattleScene.gd`**:
+  - Preloads and instantiates `SpellEffectResolver`; wires `_state.turn_ended` directly; relays to `GameBus.turn_ended` in `_on_turn_ended()` for external subscribers.
+  - Removed `_extra_turn_granted` field and three extracted methods; replaced all call sites with resolver delegates.
+  - Replaced targeting-array constants with `SpellEffectResolver.ENEMY_TARGETED_EFFECTS` etc.
+  - Added `_execute_attack(attacker, target)` helper; refactored `_on_enemy_card_input` / `_on_enemy_hero_input` to use it (eliminates ~35 lines of duplication).
+  - Emits `GameBus.card_played` on `_do_play_card` / `_do_play_card_at_slot` success (BID-006).
+  - Emits `GameBus.card_attacked` inside `_execute_attack` (BID-006).
+  - Emits `GameBus.battle_ended` inside `_check_game_over` (BID-006).
+  - BattleScene reduced from 2,561 → 2,391 lines.
+- **Resolved BID-006**: moved `tasks/backlog/BID-006--gamebus-battle-signals-never-emitted.md` to `tasks/archive/backlog/`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/battle-system.md`:
+  - Added **SpellEffectResolver** subsection documenting API, constants, and properties.
+  - Updated Card Data section: spell_effect/emergence_effect references point to SpellEffectResolver methods instead of BattleScene methods.
+  - Updated Slot Enhancement section: `_SLOT_TARGETED_EFFECTS` → `SpellEffectResolver.SLOT_TARGETED_EFFECTS`; resolver reference corrected.
+  - Updated BattleScene UI section: targeting constants and resolve calls reference SpellEffectResolver.
+  - Updated Integrations table: GameBus signals row now documents emission sites for `card_played`, `card_attacked`, `battle_ended`, and the `GameState→GameBus` relay for `turn_ended`.
