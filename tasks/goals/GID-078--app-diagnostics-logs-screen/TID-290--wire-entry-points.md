@@ -28,12 +28,16 @@ Per the mobile/desktop parity rule, every interactive feature must be reachable 
 
 ## Plan
 
-_Written during Plan phase._
+1. In `OverworldPauseOverlay.gd`: add `const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")`. Add a "Diagnostics" button after Settings and before Save & Quit with same sizing (`Vector2(_vh*0.3, _vh*0.07)`). `_on_diagnostics()` instantiates, adds as child, sets full-rect anchors, connects `closed` to `queue_free`.
+2. In `MenuScene.gd`: same `const DiagnosticsScene` preload. Call `_add_btn("Diagnostics", _on_diagnostics)` before Quit. `_on_diagnostics()` uses the same open pattern (`add_child`, `set_anchors_preset`, connect `closed`).
+3. Create `docs/agent/app-diagnostics.md` covering Key Features, How It Works, Integrations.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/ui/OverworldPauseOverlay.gd`: added `const DiagnosticsScene` preload; added a "Diagnostics" `Button` between Settings and Save & Quit; added `_on_diagnostics()` that instantiates and shows the overlay as a child node.
+- `scenes/ui/MenuScene.gd`: added `const DiagnosticsScene` preload; injected a "Diagnostics" button via `_add_btn()` before Quit in the main menu; added matching `_on_diagnostics()` handler.
+- Created `docs/agent/app-diagnostics.md` with full feature documentation.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Created `docs/agent/app-diagnostics.md`.
