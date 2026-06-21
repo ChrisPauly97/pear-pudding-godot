@@ -18,7 +18,7 @@ The TCG currently has 4–6 spells per branch — the existing set covers basics
 | TID-282 | Dusk spell cards — 10 `.tres` files | agent | done | TID-279 |
 | TID-283 | Ash spell cards — 10 `.tres` files | agent | done | TID-279 |
 | TID-284 | Shop/drop pool wiring + test count fix | agent | done | TID-280, TID-281, TID-282, TID-283 |
-| TID-285 | Agent docs update (battle-system.md) | agent | pending | TID-284 |
+| TID-285 | Agent docs update (battle-system.md) | agent | done | TID-284 |
 
 ## Acceptance Criteria
 

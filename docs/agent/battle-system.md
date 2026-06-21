@@ -87,6 +87,26 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
   - `draw_card` — caster draws spell_power additional cards from their deck
   - `bless_slot` — apply `atk_bonus` enhancement (value = spell_power) to a target empty board slot; next minion placed there gains +spell_power ATK. Requires slot targeting UI (player picks slot).
   - `ward_slot` — apply `shroud` enhancement to a target empty board slot; next minion placed there gains the Shroud keyword. Requires slot targeting UI.
+  - `deal_damage_hero` — deal spell_power damage directly to the enemy hero
+  - `armor_hero` — grant caster hero spell_power armor points
+  - `drain_hero` — deal spell_power damage to enemy hero and restore that amount to caster hero
+  - `heal_hero` — restore spell_power HP to the caster's hero (cap at max_health)
+  - `grant_surge` — grant Surge keyword to a target friendly minion (it may attack immediately)
+  - `grant_ward` — grant Ward keyword to a target friendly minion (enemies must attack it first)
+  - `grant_ward_all` — grant Ward to all friendly minions
+  - `grant_shroud` — grant Shroud to a target friendly minion (absorbs the first hit)
+  - `double_attack` — let a target friendly minion attack again this turn (clears its attack-used state)
+  - `buff_attack_all` — increase all friendly minions' attack by spell_power
+  - `buff_health_all` — increase all friendly minions' health by spell_power
+  - `apply_poison_single` — apply poison (spell_power damage/turn) to a target enemy minion
+  - `apply_poison_all` — apply poison (spell_power damage/turn) to all enemy minions
+  - `freeze_single` — freeze a target enemy minion for 1 turn (cannot attack)
+  - `freeze_all` — freeze all enemy minions for 1 turn
+  - `bind_minion` — clear all keywords from a target enemy minion
+  - `stun_single` — stun a target enemy minion for spell_power turns (cannot attack; out_of_play)
+  - `enemy_discard` — force the enemy to discard spell_power random cards from their hand
+  - `deal_damage_all_full` — deal spell_power damage to all enemy minions AND the enemy hero
+  - `summon_token` — summon spell_power 1/1 Skeleton tokens to empty friendly board slots
 - `spell_power: int` — numeric parameter for the effect (damage amount, stat reduction, etc.); `0` for minions
 
 Minion cards (Ghost, Skeleton, Zombie, Ghoul) leave the spell fields at their defaults (`""` / `0`) and are unaffected.
@@ -198,8 +218,8 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
 All spell and emergence resolution logic lives in `SpellEffectResolver` (extends RefCounted). BattleScene creates it in `_ready()`, calls `setup(_state)`, and delegates all spell resolution to it.
 
 **Constants (co-located with resolver so targeting UI and match arms stay in sync):**
-- `ENEMY_TARGETED_EFFECTS: Array[String]` — `["deal_damage_single", "curse_minion", "lifesteal_hit"]`
-- `FRIENDLY_TARGETED_EFFECTS: Array[String]` — `["heal_single", "shield_minion", "buff_attack"]`
+- `ENEMY_TARGETED_EFFECTS: Array[String]` — `["deal_damage_single", "curse_minion", "lifesteal_hit", "apply_poison_single", "freeze_single", "bind_minion", "stun_single"]`
+- `FRIENDLY_TARGETED_EFFECTS: Array[String]` — `["heal_single", "shield_minion", "buff_attack", "grant_surge", "grant_ward", "grant_shroud", "double_attack"]`
 - `SLOT_TARGETED_EFFECTS: Array[String]` — `["bless_slot", "ward_slot"]`
 
 **API:**
@@ -211,6 +231,70 @@ All spell and emergence resolution logic lives in `SpellEffectResolver` (extends
 **Properties:**
 - `extra_turn_granted: bool` — set `true` inside the `"extra_turn"` match arm; BattleScene checks and resets this in `_on_turn_ended()`
 - `capture_tracker: CaptureTracker` — optional; set by BattleScene after tracker init; used to note spell-kill captures
+
+### Magic Subtype Spell Catalogue (GID-076)
+
+40 new spell cards across the 4 branches, 10 per branch. All are in the shop (CardRegistry scan) and distributed across enemy drop pools by affinity.
+
+**Ember** (light / fire)
+
+| ID | Name | Cost | Effect | Power |
+|---|---|---|---|---|
+| `ember_cinder` | Cinderspark | 1 | `deal_damage_hero` | 2 |
+| `ember_flame_lance` | Flame Lance | 2 | `deal_damage_single` | 3 |
+| `ember_brand` | Searing Brand | 2 | `apply_poison_single` | 2 |
+| `ember_rush` | Ember Rush | 3 | `grant_surge` | 0 |
+| `ember_heat_wave` | Heat Wave | 3 | `deal_damage_all` | 2 |
+| `ember_backdraft` | Backdraft | 3 | `deal_damage_hero` | 4 |
+| `ember_wildfire` | Wildfire | 3 | `deal_damage_random` | 4 |
+| `ember_fury` | Ember Fury | 4 | `double_attack` | 0 |
+| `ember_molten_fury` | Molten Fury | 5 | `buff_attack_all` | 2 |
+| `ember_solar_flare` | Solar Flare | 6 | `deal_damage_all` | 5 |
+
+**Dawn** (light / holy)
+
+| ID | Name | Cost | Effect | Power |
+|---|---|---|---|---|
+| `dawn_soothing_touch` | Soothing Touch | 1 | `heal_hero` | 4 |
+| `dawn_guardian_vow` | Guardian's Vow | 2 | `grant_ward` | 0 |
+| `dawn_aegis` | Aegis | 2 | `armor_hero` | 4 |
+| `dawn_bind` | Bind | 2 | `bind_minion` | 0 |
+| `dawn_blessing` | Blessing of Vigor | 3 | `buff_health_all` | 2 |
+| `dawn_sanctuary` | Sanctuary | 3 | `grant_shroud` | 0 |
+| `dawn_beacon` | Beacon of Hope | 4 | `heal_all` | 3 |
+| `dawn_lay_on_hands` | Lay on Hands | 4 | `heal_hero` | 8 |
+| `dawn_aegis_of_all` | Aegis of All | 5 | `grant_ward_all` | 0 |
+| `dawn_salvation` | Salvation | 6 | `heal_hero` | 12 |
+
+**Dusk** (dark / shadow)
+
+| ID | Name | Cost | Effect | Power |
+|---|---|---|---|---|
+| `dusk_shadow_whisper` | Shadow Whisper | 1 | `enemy_discard` | 1 |
+| `dusk_nightchill` | Nightchill | 2 | `freeze_single` | 1 |
+| `dusk_vampiric_touch` | Vampiric Touch | 2 | `drain_hero` | 3 |
+| `dusk_corrupt` | Corrupt | 3 | `curse_minion` | 3 |
+| `dusk_mind_rot` | Mind Rot | 3 | `enemy_discard` | 2 |
+| `dusk_hex` | Hex of Weakness | 3 | `debuff_attack` | 3 |
+| `dusk_drain_essence` | Drain Essence | 4 | `drain_hero` | 5 |
+| `dusk_shadow_bind` | Shadow Bind | 4 | `stun_single` | 2 |
+| `dusk_eclipse` | Eclipse | 5 | `freeze_all` | 1 |
+| `dusk_soul_eater` | Soul Eater | 6 | `lifesteal_hit` | 8 |
+
+**Ash** (dark / decay)
+
+| ID | Name | Cost | Effect | Power |
+|---|---|---|---|---|
+| `ash_rot` | Rot | 1 | `apply_poison_single` | 1 |
+| `ash_desecrate` | Desecrate | 2 | `deal_damage_all` | 1 |
+| `ash_plague` | Plague Cloud | 3 | `apply_poison_all` | 1 |
+| `ash_bone_spear` | Bone Spear | 3 | `deal_damage_single` | 4 |
+| `ash_raise_dead` | Raise Dead | 3 | `summon_token` | 2 |
+| `ash_wither_away` | Wither Away | 3 | `destroy_low_hp` | 3 |
+| `ash_defile` | Defile | 4 | `curse_minion` | 4 |
+| `ash_bone_wall` | Bone Wall | 4 | `buff_health_all` | 3 |
+| `ash_mass_decay` | Mass Decay | 5 | `apply_poison_all` | 2 |
+| `ash_annihilate` | Annihilate | 6 | `deal_damage_all_full` | 4 |
 
 ### CardViewBuilder (`scenes/battle/CardViewBuilder.gd`, TID-263)
 
