@@ -10,6 +10,8 @@ var _tab_buttons: Array[Button] = []
 
 const _ROWS: int = 3
 
+var hub_mode: bool = false
+
 const MAGIC_BRANCHES: Dictionary = {
 	"light": ["ember", "dawn"],
 	"dark":  ["dusk",  "ash"],
@@ -28,12 +30,27 @@ func _ready() -> void:
 # -------------------------------------------------------------------------
 
 func _build_magic_choice() -> void:
-	_build_backdrop(0.88)
-	var panel_w: float = _vw * 0.82
-	var panel_h: float = _vh * 0.72
-	var outer := _build_centered_panel(panel_w, panel_h)
-	var vbox := _build_margin_vbox(outer, 0.04, 0.025)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	var vbox: VBoxContainer
+	if hub_mode:
+		var margin := MarginContainer.new()
+		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var m: int = int(_ref * 0.04)
+		margin.add_theme_constant_override("margin_left", m)
+		margin.add_theme_constant_override("margin_right", m)
+		margin.add_theme_constant_override("margin_top", m)
+		margin.add_theme_constant_override("margin_bottom", m)
+		add_child(margin)
+		vbox = VBoxContainer.new()
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		vbox.add_theme_constant_override("separation", int(_ref * 0.025))
+		margin.add_child(vbox)
+	else:
+		_build_backdrop(0.88)
+		var panel_w: float = _vw * 0.82
+		var panel_h: float = _vh * 0.72
+		var outer := _build_centered_panel(panel_w, panel_h)
+		vbox = _build_margin_vbox(outer, 0.04, 0.025)
+		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	var title := Label.new()
 	title.text = "Choose Your Path"
@@ -153,11 +170,25 @@ func _cross_currency() -> String:
 # -------------------------------------------------------------------------
 
 func _build_ui() -> void:
-	_build_backdrop(0.78)
-	var panel_w: float = _vw * 0.96
-	var panel_h: float = _vh * 0.92
-	var outer := _build_centered_panel(panel_w, panel_h)
-	var root_vbox := _build_margin_vbox(outer, 0.03, 0.010)
+	var root_vbox: VBoxContainer
+	if hub_mode:
+		var margin := MarginContainer.new()
+		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var m: int = int(_ref * 0.030)
+		margin.add_theme_constant_override("margin_left", m)
+		margin.add_theme_constant_override("margin_right", m)
+		margin.add_theme_constant_override("margin_top", m)
+		margin.add_theme_constant_override("margin_bottom", m)
+		add_child(margin)
+		root_vbox = VBoxContainer.new()
+		root_vbox.add_theme_constant_override("separation", int(_ref * 0.010))
+		margin.add_child(root_vbox)
+	else:
+		_build_backdrop(0.78)
+		var panel_w: float = _vw * 0.96
+		var panel_h: float = _vh * 0.92
+		var outer := _build_centered_panel(panel_w, panel_h)
+		root_vbox = _build_margin_vbox(outer, 0.03, 0.010)
 
 	# ── Header: title + stats on the left, big X close on the right ──
 	var header := HBoxContainer.new()
@@ -179,13 +210,14 @@ func _build_ui() -> void:
 	_points_label.modulate = Color(1.0, 0.85, 0.2)
 	title_stack.add_child(_points_label)
 
-	var close_btn := Button.new()
-	close_btn.text = "X"
-	var close_size: float = _ref * 0.065
-	close_btn.custom_minimum_size = Vector2(close_size, close_size)
-	close_btn.add_theme_font_size_override("font_size", int(close_size * 0.45))
-	close_btn.pressed.connect(func() -> void: closed.emit())
-	header.add_child(close_btn)
+	if not hub_mode:
+		var close_btn := Button.new()
+		close_btn.text = "X"
+		var close_size: float = _ref * 0.065
+		close_btn.custom_minimum_size = Vector2(close_size, close_size)
+		close_btn.add_theme_font_size_override("font_size", int(close_size * 0.45))
+		close_btn.pressed.connect(func() -> void: closed.emit())
+		header.add_child(close_btn)
 
 	# ── Tab bar ──
 	var tab_bar := HBoxContainer.new()
@@ -392,7 +424,14 @@ func _on_cross_unlock_pressed(skill_id: String, cost: int, currency: String) -> 
 	SceneManager.save_manager.unlock_cross_skill(skill_id, cost, currency)
 	_refresh()
 
+func _input(event: InputEvent) -> void:
+	if hub_mode:
+		return
+	super._input(event)
+
 func _unhandled_input(event: InputEvent) -> void:
+	if hub_mode:
+		return
 	if event.is_action_pressed("skill_tree"):
 		closed.emit()
 		get_viewport().set_input_as_handled()

@@ -3,6 +3,8 @@ extends "res://scenes/ui/BaseOverlay.gd"
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
 
+var hub_mode: bool = false
+
 var _selected_id: String = ""
 var _active_tab: String = "scrolls"
 var _bestiary_selected_id: String = ""
@@ -24,15 +26,26 @@ func _ready() -> void:
 	_refresh_treasure_panel()
 
 func _build_ui() -> void:
-	_build_backdrop(0.78)
-
 	var is_portrait: bool = _vw < _vh
-	var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
-	var panel_h: float = _vh * 0.92 if is_portrait else _vh * 0.86
-
-	var outer := _build_centered_panel(panel_w, panel_h)
-
-	var root_vbox := _build_margin_vbox(outer, 0.015, 0.01)
+	var root_vbox: VBoxContainer
+	if hub_mode:
+		var margin := MarginContainer.new()
+		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var m: int = int(_ref * 0.015)
+		margin.add_theme_constant_override("margin_left", m)
+		margin.add_theme_constant_override("margin_right", m)
+		margin.add_theme_constant_override("margin_top", m)
+		margin.add_theme_constant_override("margin_bottom", m)
+		add_child(margin)
+		root_vbox = VBoxContainer.new()
+		root_vbox.add_theme_constant_override("separation", int(_ref * 0.01))
+		margin.add_child(root_vbox)
+	else:
+		_build_backdrop(0.78)
+		var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
+		var panel_h: float = _vh * 0.92 if is_portrait else _vh * 0.86
+		var outer := _build_centered_panel(panel_w, panel_h)
+		root_vbox = _build_margin_vbox(outer, 0.015, 0.01)
 
 	# ── Header row ────────────────────────────────────────────────────────────
 	var header_row := HBoxContainer.new()
@@ -43,12 +56,13 @@ func _build_ui() -> void:
 	_header_label.add_theme_font_size_override("font_size", int(_vh * 0.035))
 	header_row.add_child(_header_label)
 
-	var close_btn := Button.new()
-	close_btn.text = "X"
-	close_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
-	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
-	close_btn.pressed.connect(_close)
-	header_row.add_child(close_btn)
+	if not hub_mode:
+		var close_btn := Button.new()
+		close_btn.text = "X"
+		close_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
+		close_btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
+		close_btn.pressed.connect(_close)
+		header_row.add_child(close_btn)
 
 	# ── Tab bar ───────────────────────────────────────────────────────────────
 	var tab_bar := HBoxContainer.new()
@@ -355,6 +369,13 @@ func _show_bestiary_detail(type_id: String) -> void:
 			var lore: String = _EnemyRegistry.get_lore_text(type_id)
 			_lore_label.text = "Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n%s" % [deck2.size(), diff2, coins2, lore]
 
+func _input(event: InputEvent) -> void:
+	if hub_mode:
+		return
+	super._input(event)
+
 func _close() -> void:
+	if hub_mode:
+		return
 	closed.emit()
 	queue_free()

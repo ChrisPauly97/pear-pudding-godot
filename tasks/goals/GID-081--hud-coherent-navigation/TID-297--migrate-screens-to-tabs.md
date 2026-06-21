@@ -2,7 +2,7 @@
 
 **Goal:** GID-081
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-296
 
 ## Lock
@@ -42,8 +42,12 @@ _Written during Plan phase._
 
 ## Changes Made
 
-_Filled after Build phase._
+**Modified:**
+- `scenes/ui/CharacterScene.gd`: Added `hub_mode: bool = false`. `_build_ui()` branches on hub_mode — hub path builds MarginContainer (FULL_RECT) + VBox into self, skips backdrop/panel and close button. `_input()` returns early in hub_mode so ui_cancel propagates to the hub.
+- `scenes/ui/SkillTreeScene.gd`: Added `hub_mode: bool = false`. Both `_build_magic_choice()` and `_build_ui()` branch on hub_mode. Close button gated on `not hub_mode`. Added `_input()` override (returns in hub_mode, calls super otherwise). `_unhandled_input()` gated on hub_mode.
+- `scenes/ui/JournalScene.gd`: Added `hub_mode: bool = false`. `_build_ui()` branches on hub_mode. Close button gated. Added `_input()` override. `_close()` returns early in hub_mode.
+- `scenes/ui/MenuHubScene.gd`: Added preloads for CharacterScene, SkillTreeScene, JournalScene .tscn files. Updated `_load_tab_content()` to instantiate all four real scenes with `hub_mode=true` instead of placeholder labels. Skills tab emits `GameBus.tutorial_popup_requested.emit("skill_tree")` before instantiating the page.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md`: expanded Menu Hub section to document all four migrated pages and the full page contract (hub_mode behaviour).

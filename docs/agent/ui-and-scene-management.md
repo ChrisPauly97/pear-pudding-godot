@@ -61,6 +61,58 @@ All 9 modal overlays extend BaseOverlay (as of GID-073): `InventoryScene`, `Shop
 
 ---
 
+## Menu Hub (GID-081)
+
+### MenuHubScene (`scenes/ui/MenuHubScene.gd`)
+
+Unified tabbed shell that hosts all four player-facing screens (Deck/Bag, Character, Skills, Journal) as switchable pages. Added in TID-296/297; replaces the four separate SceneManager overlay states.
+
+**Structure:** backdrop → centered panel → VBox with [tab bar row, content area].
+
+**Tab IDs:** `"deck"`, `"character"`, `"skills"`, `"journal"`.
+
+**Public API:**
+```gdscript
+hub.show_tab("skills")          # switch to a tab; safe to call any time
+SceneManager.open_menu_hub("character")  # open or switch from world
+```
+
+**SceneManager routing:**
+- `GameBus.inventory_requested` → `open_menu_hub("deck")`
+- `GameBus.journal_requested` → `open_menu_hub("journal")`
+- `GameBus.character_requested` → `open_menu_hub("character")`
+- `GameBus.skill_tree_requested` → `tutorial_popup_requested.emit("skill_tree")` + `open_menu_hub("skills")`
+
+If the hub is already open (`State.MENU_HUB`), `open_menu_hub(tab)` switches tabs on the existing hub instance instead of stacking a second overlay.
+
+The four GameBus signals are preserved as the public API — HUD buttons, WorldScene key handlers, and other callers still emit them unchanged.
+
+**Page contract:** Pages that embed in the hub receive `hub_mode = true` set before `add_child()`. In hub mode a page:
+- Skips `_build_backdrop()` and `_build_centered_panel()`; instead builds a `MarginContainer` (FULL_RECT) → `VBoxContainer` into `self`
+- Omits its Close button
+- Does not emit `closed` on neutral actions (e.g., Save in InventoryScene)
+- Overrides `_input()` to return early so it does not consume `ui_cancel` (Escape must close the hub, not the page)
+
+All four pages are migrated (TID-296/297): `InventoryScene`, `CharacterScene`, `SkillTreeScene`, `JournalScene`.
+
+**Key bindings and tab cycling (TID-299):**
+
+| Action | Key | Mobile equivalent |
+|---|---|---|
+| Open hub → Deck/Bag | I | "Menu" HUD button |
+| Open hub → Character | C | Tab bar "Character" button |
+| Open hub → Skills | K | Tab bar "Skills" button |
+| Open hub → Journal | J | Tab bar "Journal" button |
+| Previous tab | `[` | Tab bar buttons |
+| Next tab | `]` | Tab bar buttons |
+| Close hub | Escape / ui_cancel | "Close" button in hub tab bar |
+
+Tab cycling (`[`/`]`) is handled in MenuHubScene's `_input()` which also re-declares `ui_cancel` → `_close()` to prevent page nodes from consuming it first.
+
+**State:** `SceneManager.State.MENU_HUB`. The four old states (INVENTORY, CHARACTER, SKILL_TREE, JOURNAL) are retained in the enum for backwards-compatibility but are no longer used by routing.
+
+---
+
 ## How It Works
 
 ### SceneManager (`autoloads/SceneManager.gd`)
@@ -75,12 +127,13 @@ BATTLE → WORLD (battle_won signal)
 BATTLE → GAME_OVER (battle_lost signal)
 GAME_OVER → MENU (return to menu button)
 WORLD ← → WORLD (map transition via map_stack)
-WORLD ← → INVENTORY (overlay, world stays in tree)
+WORLD ← → MENU_HUB (overlay, world stays in tree; one state replaces INVENTORY/CHARACTER/SKILL_TREE/JOURNAL)
 WORLD ← → SHOP (overlay, world stays in tree)
-WORLD ← → JOURNAL (overlay, world stays in tree)
 WORLD → SPIRE_FLOOR (SceneManager.enter_spire via entrance panel in WorldScene)
 SPIRE_FLOOR → SPIRE_FLOOR (SceneManager.exit_map detects spire_ prefix → _advance_spire_floor)
 ```
+
+`open_menu_hub(tab)` is the single entry point for all four player screens. If state is already MENU_HUB, it calls `show_tab(tab)` on the live hub instead of stacking a second overlay. The old INVENTORY/CHARACTER/SKILL_TREE/JOURNAL state enum values are kept for backwards-compatibility but are no longer routed to.
 
 **Gambit picker flow (GID-063):**
 
@@ -241,9 +294,21 @@ if _cycle_update_timer >= 0.5:
 
 `time_of_day` is read from `SaveManager` on load and written back on map exit.
 
-### HUD (`WorldScene.gd`)
+### HUD (`WorldHUD.gd` / `WorldScene.gd`)
 
-Labels and panels parented to a `CanvasLayer` (always on top):
+HUD elements are constructed by `WorldHUD.gd` (owned and set up by WorldScene). They are parented to a `CanvasLayer` (always on top):
+
+**System/navigation controls (TID-298 declutter):**
+- **Pause button** (`II`) — top-left `(vh*0.01, vh*0.01)`, size `vh*0.07 × vh*0.07`. Opens `OverworldPauseOverlay` (which contains Resume / Settings / Save & Quit). Replaces the old Menu + II pair.
+- **Menu/Bag button** — right side under the minimap. Opens `MenuHub` on the Deck/Bag tab via `SceneManager.open_menu_hub("deck")`. Replaces the old four-button stack (Inventory / Journal / Character / Skills).
+- **Mount button** — right side below Menu button, hidden until the player owns a mount on the main map. Calls `_toggle_mount()`.
+
+**Action cluster (TID-298):**
+- **[G] Phase** cantrip button — left side at `vh*0.17`. Calls `_activate_ghost_phase()`. Visible only when `CantripManager.is_available("ghost_phase", deck_ids)`. Refreshed on `GameBus.inventory_changed`.
+- **[D] Dig** cantrip button — left side below Phase. Calls `_activate_skeleton_dig()`. Gated on `CantripManager.is_available("skeleton_dig", deck_ids)`.
+- `WorldHUD.refresh_action_cluster()` rechecks availability and updates visibility; connected to `GameBus.inventory_changed`.
+
+**Informational elements (unchanged):**
 - **Interact prompt** — on desktop: `_interact_label` Label (`"[E] Interact"`); on Android: `_interact_btn` Button (`"USE"`, `vh * 0.18 × vh * 0.08`) positioned center-bottom at `vh * 0.80`. Both are hidden until the player is within `INTERACT_RANGE` of a door, chest, NPC, or scroll. On Android the button calls `_handle_interact()` directly when tapped.
 - **Map name label** — displayed for 3 seconds on map load, then fades. Font `vh * 0.032`.
 - **Coin counter** — reads `SaveManager.coins` each frame. Font `vh * 0.03`.

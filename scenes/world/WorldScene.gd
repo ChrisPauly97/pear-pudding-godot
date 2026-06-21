@@ -1514,7 +1514,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_clear_dest_marker()
 		GameBus.inventory_requested.emit()
 		get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_J:
+	elif event.is_action_pressed("journal"):
 		_clear_dest_marker()
 		GameBus.journal_requested.emit()
 		get_viewport().set_input_as_handled()

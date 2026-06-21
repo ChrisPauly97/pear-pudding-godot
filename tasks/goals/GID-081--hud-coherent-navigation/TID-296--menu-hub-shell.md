@@ -2,7 +2,7 @@
 
 **Goal:** GID-081
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -46,12 +46,61 @@ The four player-facing screens (Inventory, Character, Skills, Journal) currently
 
 ## Plan
 
-_Written during Plan phase._
+### Files to Create
+- `scenes/ui/MenuHubScene.gd` — pure-code overlay (no .tscn needed). Extends BaseOverlay.
+  - Builds: backdrop → centered panel → VBox with [tab bar row, content area].
+  - Tab bar: "Deck/Bag", "Character", "Skills", "Journal" buttons + Close button.
+  - `show_tab(tab_id: String)` → clears content area and loads the page.
+  - Deck/Bag tab: instantiates InventoryScene with `hub_mode=true`, adds it to content area.
+  - Other 3 tabs: placeholder Label ("Coming in TID-297") until migrated.
+  - `_close()` override: `closed.emit(); queue_free()`.
+
+### Files to Modify
+- `scenes/ui/InventoryScene.gd`:
+  - Add `var hub_mode: bool = false` property.
+  - In `_build_ui()`: branch on `hub_mode`. If true, skip `_build_backdrop()` and `_build_centered_panel()`; instead build a MarginContainer into `self` (which is FULL_RECT inside content_area) and add a VBox wrapper. If false, existing standalone path (unchanged for now, though won't be reached since all four are routed through hub).
+  - Skip Close button(s) when `hub_mode = true`.
+  - `_on_save()`: if `hub_mode`, save without emitting `closed`.
+
+- `autoloads/SceneManager.gd`:
+  - Add `MENU_HUB` to State enum.
+  - Add `const _MenuHubScript = preload("res://scenes/ui/MenuHubScene.gd")`.
+  - Add `open_menu_hub(tab: String = "deck") -> void`: instantiate hub, `show_tab(tab)`, add to world, connect `closed`, record in `_overlays[State.MENU_HUB]`, set state.
+  - Add `_on_menu_hub_closed()`: erase MENU_HUB from `_overlays`, set `_state = State.WORLD`.
+  - Replace `_on_inventory_requested()` → `open_menu_hub("deck")`.
+  - Replace `_on_journal_requested()` → `open_menu_hub("journal")`.
+  - Replace `_on_character_requested()` → `open_menu_hub("character")`.
+  - Replace `_on_skill_tree_requested()` → preserve `tutorial_popup_requested.emit("skill_tree")` + `open_menu_hub("skills")`.
+  - Leave INVENTORY/CHARACTER/SKILL_TREE/JOURNAL in enum (other code might reference them; they become unused variants).
+
+### Acceptance check
+- Opening any of Inventory / Journal / Character / Skills now opens a single hub with 4 tabs.
+- Deck/Bag tab shows InventoryScene content (fully functional: browse, build, save deck).
+- Other tabs show placeholder.
+- Hub Close button returns to world correctly.
+- Escape key closes hub (via BaseOverlay._input).
 
 ## Changes Made
 
-_Filled after Build phase._
+**Created:**
+- `scenes/ui/MenuHubScene.gd` — pure-code overlay (no .tscn). Extends BaseOverlay. Builds backdrop + centered panel with tab bar (Deck/Bag, Character, Skills, Journal) + Close button + content area. `show_tab(tab_id)` switches the active page. Deck tab embeds InventoryScene with `hub_mode=true`. Other tabs show placeholder until TID-297.
+
+**Modified:**
+- `scenes/ui/InventoryScene.gd`:
+  - Added `var hub_mode: bool = false` property.
+  - `_build_ui()` branches on `hub_mode`: hub path builds a MarginContainer into `self` (FULL_RECT inside content area) and skips backdrop/panel; standalone path unchanged.
+  - Close buttons (portrait/landscape/craft panel) are skipped when `hub_mode=true`.
+  - `_on_save()` only emits `closed` when `not hub_mode` (in hub, saving keeps hub open).
+- `autoloads/SceneManager.gd`:
+  - Added `MENU_HUB` to State enum (old states kept for backwards-compat).
+  - Added `const _MenuHubScript = preload("res://scenes/ui/MenuHubScene.gd")`.
+  - Added `open_menu_hub(tab: String = "deck") -> void` public entry point.
+  - Added `_on_menu_hub_closed()` handler (resets to WORLD state).
+  - `_on_inventory_requested()` → `open_menu_hub("deck")`.
+  - `_on_journal_requested()` → `open_menu_hub("journal")`.
+  - `_on_character_requested()` → `open_menu_hub("character")`.
+  - `_on_skill_tree_requested()` → preserves tutorial_popup_requested emit + `open_menu_hub("skills")`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md`: added Menu Hub section documenting the hub overlay, page contract, SceneManager routing change, and tab IDs.

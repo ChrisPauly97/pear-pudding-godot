@@ -4,17 +4,18 @@ enum State {
 	MENU,
 	WORLD,
 	BATTLE,
-	INVENTORY,
+	INVENTORY,    # kept for backwards-compat; no longer used by routing
 	SHOP,
 	GAME_OVER,
-	JOURNAL,
+	JOURNAL,      # kept for backwards-compat; no longer used by routing
 	ACHIEVEMENTS,
 	RUN_SUMMARY,
-	CHARACTER,
-	SKILL_TREE,
+	CHARACTER,    # kept for backwards-compat; no longer used by routing
+	SKILL_TREE,   # kept for backwards-compat; no longer used by routing
 	PACK_OPEN,
 	BOUNTY_BOARD,
 	BLACKSMITH,
+	MENU_HUB,
 }
 
 const _PackOpenSceneScript = preload("res://scenes/ui/PackOpenScene.gd")
@@ -25,6 +26,7 @@ const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const _GambitPickerOverlay = preload("res://scenes/battle/GambitPickerOverlay.gd")
+const _MenuHubScript = preload("res://scenes/ui/MenuHubScene.gd")
 
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
@@ -848,8 +850,32 @@ func _close_overlay(overlay_state: State) -> void:
 		_overlays.erase(overlay_state)
 	_state = State.WORLD
 
+## Opens the unified Menu Hub overlay on the specified tab.
+## Replaces the four separate INVENTORY / CHARACTER / SKILL_TREE / JOURNAL overlays.
+func open_menu_hub(tab: String = "deck") -> void:
+	if _state == State.MENU_HUB:
+		var existing: Node = _overlays.get(State.MENU_HUB, null)
+		if existing != null and is_instance_valid(existing):
+			existing.call("show_tab", tab)
+		return
+	if _state != State.WORLD:
+		return
+	var hub: Node = _MenuHubScript.new()
+	hub.name = "MenuHub"
+	get_tree().current_scene.add_child(hub)
+	hub.show_tab(tab)
+	hub.closed.connect(_on_menu_hub_closed)
+	_overlays[State.MENU_HUB] = hub
+	_state = State.MENU_HUB
+
+func _on_menu_hub_closed() -> void:
+	var hub: Node = _overlays.get(State.MENU_HUB, null)
+	if hub != null and is_instance_valid(hub):
+		_overlays.erase(State.MENU_HUB)
+	_state = State.WORLD
+
 func _on_inventory_requested() -> void:
-	_open_overlay(_inventory_scene_packed, State.INVENTORY)
+	open_menu_hub("deck")
 
 func _on_shop_requested() -> void:
 	_open_overlay(_shop_scene_packed, State.SHOP, func(o: Node) -> void:
@@ -868,14 +894,14 @@ func _on_blacksmith_requested() -> void:
 	_open_overlay(_blacksmith_scene_packed, State.BLACKSMITH)
 
 func _on_journal_requested() -> void:
-	_open_overlay(_journal_scene_packed, State.JOURNAL)
+	open_menu_hub("journal")
 
 func _on_character_requested() -> void:
-	_open_overlay(_character_scene_packed, State.CHARACTER)
+	open_menu_hub("character")
 
 func _on_skill_tree_requested() -> void:
 	GameBus.tutorial_popup_requested.emit("skill_tree")
-	_open_overlay(_skill_tree_scene_packed, State.SKILL_TREE)
+	open_menu_hub("skills")
 
 ## Applies siege victory rewards: 150 coins + a rare-or-better card.
 func _apply_siege_victory_rewards(town: String) -> void:

@@ -2,13 +2,13 @@
 
 **Goal:** GID-081
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-296, TID-297, TID-298
 
 ## Lock
 
 **Session:** none
-**Acquired:** none
+**Acquired:** —
 **Expires:** —
 
 ## Context
@@ -41,12 +41,21 @@ With the Menu Hub (TID-296/297) and decluttered HUD (TID-298) in place, this tas
 
 ## Plan
 
-_Written during Plan phase._
+Implemented per research notes.
 
 ## Changes Made
 
-_Filled after Build phase._
+**Modified:**
+- `project.godot`: Added `journal` input action (J key, physical_keycode=74) so it has a named action like `inventory`, `character`, and `skill_tree`.
+- `scenes/world/WorldScene.gd`: Updated journal key handler to use `is_action_pressed("journal")` instead of raw `KEY_J` check.
+- `autoloads/SceneManager.gd`: `open_menu_hub(tab)` now handles `State.MENU_HUB` case — calls `show_tab(tab)` on the existing hub instead of returning early (allows key bindings to switch tabs while hub is open).
+- `scenes/ui/MenuHubScene.gd`: Added `_input()` override with `ui_cancel` → `_close()` and `[`/`]` → `_cycle_tab(-1/+1)`. Added `_cycle_tab(direction)` helper.
+
+**Tests:** 1129 passed, 12 failed (all pre-existing), 1 pending. No regressions.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/ui-and-scene-management.md`:
+- Menu Hub section: added key binding table (I/C/K/J open tabs, `[`/`]` cycle, Escape closes), documented tab cycling, documented the "already open" tab-switch behaviour.
+- HUD section: rewrote to describe new layout (single II pause, single Menu, action cluster).
+- SceneManager state machine: replaced four separate overlay states with MENU_HUB, documented `open_menu_hub` as the single entry point.

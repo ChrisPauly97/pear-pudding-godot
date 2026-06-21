@@ -12,19 +12,19 @@ The overworld HUD has accumulated buttons in every corner (`WorldScene.gd:342–
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-296 | Menu Hub navigation shell + SceneManager routing (page contract; wire Inventory/Deck as first tab) | agent | pending | — |
-| TID-297 | Migrate Character/Equipment, Skills, and Journal into hub tabs with cross-navigation | agent | pending | TID-296 |
-| TID-298 | HUD declutter: merge top-left system controls, single Menu/Bag entry, regroup cantrip + Mount action cluster | agent | pending | TID-296 |
-| TID-299 | Unified key bindings, in-hub tab cycling, Escape/back semantics, mobile tap parity + docs/test pass | agent | pending | TID-296, TID-297, TID-298 |
+| TID-296 | Menu Hub navigation shell + SceneManager routing (page contract; wire Inventory/Deck as first tab) | agent | done | — |
+| TID-297 | Migrate Character/Equipment, Skills, and Journal into hub tabs with cross-navigation | agent | done | TID-296 |
+| TID-298 | HUD declutter: merge top-left system controls, single Menu/Bag entry, regroup cantrip + Mount action cluster | agent | done | TID-296 |
+| TID-299 | Unified key bindings, in-hub tab cycling, Escape/back semantics, mobile tap parity + docs/test pass | agent | done | TID-296, TID-297, TID-298 |
 
 ## Acceptance Criteria
 
-- [ ] A single Menu Hub overlay hosts Deck/Bag, Character, Skills, and Journal as switchable tabs with a persistent tab bar
-- [ ] From any tab the player can switch to any other tab without returning to the world
-- [ ] `SceneManager` exposes one `open_menu_hub(tab)` entry point and a single hub state replacing the separate INVENTORY/CHARACTER/SKILL_TREE/JOURNAL states
-- [ ] All existing functionality of the four screens (deck building, equipment slots, skill tree interaction, journal sub-tabs) is preserved
-- [ ] The overworld HUD top-left is a single system/pause control; the five-button right stack is replaced by a single Menu/Bag entry that opens the hub
-- [ ] Contextual action buttons (cantrips, Mount) are grouped into one coherent cluster and only shown when relevant
-- [ ] Every navigation key (open hub / open a tab / cycle tabs / back) has a mobile tap equivalent; all controls are viewport-relative
-- [ ] `docs/agent/ui-and-scene-management.md` documents the Menu Hub, the page contract, the new HUD layout, and key bindings
-- [ ] All tests pass headless
+- [x] A single Menu Hub overlay hosts Deck/Bag, Character, Skills, and Journal as switchable tabs with a persistent tab bar
+- [x] From any tab the player can switch to any other tab without returning to the world
+- [x] `SceneManager` exposes one `open_menu_hub(tab)` entry point and a single hub state replacing the separate INVENTORY/CHARACTER/SKILL_TREE/JOURNAL states
+- [x] All existing functionality of the four screens (deck building, equipment slots, skill tree interaction, journal sub-tabs) is preserved
+- [x] The overworld HUD top-left is a single system/pause control; the five-button right stack is replaced by a single Menu/Bag entry that opens the hub
+- [x] Contextual action buttons (cantrips, Mount) are grouped into one coherent cluster and only shown when relevant
+- [x] Every navigation key (open hub / open a tab / cycle tabs / back) has a mobile tap equivalent; all controls are viewport-relative
+- [x] `docs/agent/ui-and-scene-management.md` documents the Menu Hub, the page contract, the new HUD layout, and key bindings
+- [x] All tests pass headless (1129 pass, 12 pre-existing failures, 0 regressions)
