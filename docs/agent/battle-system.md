@@ -116,15 +116,15 @@ All 6 appear in ShopScene automatically (CardRegistry scans `data/cards/`). None
 
 ### Keyword UI (TID-095)
 
-**Card badges** (`BattleScene._update_keyword_badges(hbox, card)`):
-- Called from `_build_card_vbox()` (always adds "KeywordRow" HBox) and `_update_card_view()` (refreshes it each frame).
+**Card badges** (`CardViewBuilder.update_keyword_badges(hbox, card)`):
+- Called from `build_card_vbox()` (always adds "KeywordRow" HBox) and `update_card_view()` (refreshes it each frame).
 - Shows one colored Label per active keyword: Ward = `Color(0.35, 0.5, 1.0)`, Surge = `Color(1.0, 0.6, 0.15)`, Shroud = `Color(0.8, 0.8, 0.88)`. Font 1.8% vh.
 - Shroud badge is hidden when `card.shroud_active == false` (consumed) — updates automatically on `_refresh_all()`.
 - Badges appear in hand and on-board cards. Empty KeywordRow (no keywords) collapses to zero height.
 
 **Ward visual feedback**:
-- `_apply_card_style()` darkens enemy board minions (by 0.45) that are not in `_get_ward_valid_targets()` when an attacker is selected.
-- `_refresh_hero()` sets `is_attack_targetable = false` when any enemy Ward minion is alive, removing the red border/background from the hero attack target.
+- `CardViewBuilder.apply_card_style()` darkens enemy board minions (by 0.45) that are not in `get_ward_valid_targets()` when an attacker is selected.
+- `CardViewBuilder.refresh_hero()` sets `is_attack_targetable = false` when any enemy Ward minion is alive, removing the red border/background from the hero attack target.
 
 **Card inspect overlay** (`CardInspectOverlay.gd`):
 - After spell-effect section: separator + one Label per keyword in `_card.keywords`.
@@ -137,7 +137,7 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
 **Ward** — Targeting constraint. When any entity (player or AI) selects an attack target:
 - Among the defender's minions, only Ward minions may be targeted while any Ward minion is alive.
 - The enemy hero cannot be attacked while any Ward minion is alive on that side.
-- Implementation: `BattleScene._get_ward_valid_targets()` filters enemy minions to Ward-bearing ones when present; `_on_enemy_card_input` rejects clicks on non-Ward targets (keeps attacker selected); `_on_enemy_hero_input` early-returns when Ward minions live. `BasicAI.decide_turn/describe_turn` collect `ward_targets` and use them as the target list when non-empty.
+- Implementation: `CardViewBuilder.get_ward_valid_targets()` filters enemy minions to Ward-bearing ones when present; `_on_enemy_card_input` rejects clicks on non-Ward targets (keeps attacker selected); `_on_enemy_hero_input` early-returns when Ward minions live. `BasicAI.decide_turn/describe_turn` collect `ward_targets` and use them as the target list when non-empty.
 
 **Surge** — On placement. `PlayerState.play_card()`: after `board.add_card(card)`, if `card.keywords.has(Keywords.SURGE)`, set `card.summoning_sick = false`. No other change — `can_attack()` already checks `summoning_sick`.
 
@@ -191,7 +191,27 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
 | `arcane_seal` | Arcane Seal | 2 | Dawn | `bless_slot` — next minion placed in target slot gains +2 ATK |
 | `shadow_ward` | Shadow Ward | 1 | Dusk | `ward_slot` — next minion placed in target slot gains Shroud |
 
-**Board UI:** `_refresh_board_zone(zone_node, zone_state, zone_id)` maintains exactly `SLOT_COUNT` slot panels (using `slot_idx` meta as stable identity). Empty slots show a dimmed numbered outline; enhanced slots show an orange border (`atk_bonus`) or pale-blue border (`shroud`). Board views are centred via `BoxContainer.ALIGNMENT_CENTER`. Enhancement borders skip application if a targeting border is already set.
+**Board UI:** `CardViewBuilder.refresh_board_zone(zone_node, zone_state, zone_id)` maintains exactly `SLOT_COUNT` slot panels (using `slot_idx` meta as stable identity). Empty slots show a dimmed numbered outline; enhanced slots show an orange border (`atk_bonus`) or pale-blue border (`shroud`). Board views are centred via `BoxContainer.ALIGNMENT_CENTER`. Enhancement borders skip application if a targeting border is already set.
+
+### CardViewBuilder (`scenes/battle/CardViewBuilder.gd`, TID-263)
+
+All pure view-building logic lives in `CardViewBuilder` (extends RefCounted). BattleScene creates it in `_ready()` and delegates all rendering to it.
+
+**API:**
+- `setup(vh, fx, bind_card_input_fn, on_empty_slot_fn, make_card_view_fn)` — wires Callables from BattleScene
+- `set_battle_state(state, enemy_data)` — sets the GameState reference after it is constructed
+- `update_context(targeting_active, targeting_friendly, dragged_card, hand_drag_card, slot_targeting_spell, slot_select_card)` — syncs ephemeral BattleScene state; called at the start of every `_refresh_all()`
+- `refresh_zone(zone_node, cards, zone_id)` — rebuilds a hand zone
+- `refresh_board_zone(zone_node, zone_state, zone_id)` — rebuilds a board zone with slot panels
+- `refresh_hero(hero_node, hero, is_enemy)` — updates a hero panel with targeting/status styling
+- `build_card_vbox(card, with_status_row)` — creates the VBox subtree for a card panel
+- `update_card_view(panel, card, zone_id)` — in-place refresh of an existing card panel
+- `apply_card_style(panel, card, zone_id)` — sets modulate/scale/border based on targeting state
+- `format_card_stats(card, cost)` — `"(cost)"` for spells, `"atk/hp  (cost)"` for minions (eliminates duplication)
+- `get_ward_valid_targets(cards)` — filters to Ward minions when any are present
+- `SPELL_EFFECT_LABELS` / `EMERGENCE_LABELS` — public constants (CardInspectOverlay mirrors these — keep in sync)
+
+**BattleScene retains:** `_bind_card_input`, `_make_card_view`, `_trigger_dual_face_flip`, `_update_status`, `_refresh_all`, `_refresh_player_board`.
 
 ### BattleScene UI (`scenes/battle/BattleScene.gd`)
 
@@ -200,7 +220,7 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
 - Hero panels show current/max HP, mana pips, and status icons
 - Drag-to-play: card dragged from hand onto an empty board slot triggers `GameState.play_card()`
 - **Emergence (TID-142):** `_resolve_emergence(card, caster_pid)` fires after any minion is placed on board. 5 effects: `emergence_deal_damage` (damage enemy hero), `emergence_heal_hero` (heal caster hero), `emergence_draw` (draw cards), `emergence_buff_friendly` (buff random other friendly), `emergence_apply_poison` (poison random enemy). Emergence text shown on card face in amber. 5 new minion cards: Ember Imp (Ember), Dawn Healer (Dawn), Dusk Seer (Dusk), Ash Warden (Ash), Void Creeper (Dusk).
-- **Inline ability text (TID-140):** `_SPELL_EFFECT_LABELS` constant in BattleScene maps each `spell_effect` key to a human-readable string with `[power]` placeholder. `_get_card_ability_text(card)` resolves it for a given CardInstance. Spell cards show the resolved text in green on the card face (replacing the flavor description); spell StatsLabel shows `"(cost)"` only (not `"0/0 (cost)"`). Minion cards keep their description. `CardInspectOverlay._SPELL_EFFECT_LABELS` mirrors this dict — keep both in sync.
+- **Inline ability text (TID-140):** `CardViewBuilder.SPELL_EFFECT_LABELS` maps each `spell_effect` key to a human-readable string with `[power]` placeholder. `CardViewBuilder.get_card_ability_text(card)` resolves it for a given CardInstance. Spell cards show the resolved text in green on the card face (replacing the flavor description); spell StatsLabel shows `"(cost)"` only (not `"0/0 (cost)"`). Minion cards keep their description. `CardInspectOverlay._SPELL_EFFECT_LABELS` mirrors this dict — keep both in sync.
 - **Spell targeting (TID-058, TID-141):** `_ENEMY_TARGETED_EFFECTS = ["deal_damage_single", "curse_minion", "lifesteal_hit"]` and `_FRIENDLY_TARGETED_EFFECTS = ["heal_single", "shield_minion", "buff_attack"]`. Dragging one of these spells to the board enters targeting mode: enemy effects cyan-highlight the enemy board (and hero for `deal_damage_single`); friendly effects cyan-highlight the player's own board. `_targeting_friendly` flag distinguishes the two modes. If no valid targets exist (friendly board empty, or enemy board empty for non-hero spells) targeting is skipped and the spell auto-resolves. All six spells honour the `explicit_target` dict in `_resolve_spell_effect()`; slot-0 fallback kept for AI auto-resolve path.
 - **Enemy intent banner (TID-059):** before AI actions execute, a centered panel shows what the AI plans (e.g. "Enemy will play Ghost"); hides when actions complete
 - **Battle SFX (TID-080):** Full coverage — `card_draw` plays at player turn start (after game-over check in `_on_turn_ended(0)`); `card_play` plays on card drop; `spell_resolve` plays at the top of `_resolve_spell_effect` (covers player, AI, and auto-resolved spells); `attack` plays on all minion attacks; `battle_win`/`battle_lose` play at game end. All SFX are registered in `AudioManager.SFX_PATHS`; AudioManager silently no-ops if the wav file is absent.

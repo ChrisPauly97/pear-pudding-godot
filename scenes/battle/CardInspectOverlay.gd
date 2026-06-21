@@ -4,7 +4,7 @@ const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 
-# Mirrors BattleScene._SPELL_EFFECT_LABELS and _EMERGENCE_LABELS (TID-140, TID-142). Keep both in sync.
+# Mirrors CardViewBuilder.SPELL_EFFECT_LABELS and EMERGENCE_LABELS (TID-140, TID-142). Keep both in sync.
 const _SPELL_EFFECT_LABELS: Dictionary = {
 	"deal_damage_single":  "Deal [power] damage to one target",
 	"deal_damage_all":     "Deal [power] damage to all enemy minions",
