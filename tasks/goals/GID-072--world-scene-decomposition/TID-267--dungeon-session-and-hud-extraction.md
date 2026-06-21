@@ -2,7 +2,7 @@
 
 **Goal:** GID-072
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-266
 
 ## Lock
@@ -24,12 +24,19 @@ Approximately 445 lines of UI code (dungeon event panels + HUD wiring) are embed
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/world/DungeonSessionUI.gd` with `setup()`, hero HP accessors, and the three dungeon overlay panels + `apply_event_outcome()`.
+2. Create `scenes/world/WorldHUD.gd` with `setup()`, all nav/cantrip buttons, dialogue/tip/coord/XP/ley/compass/mount/bounty nodes.
+3. Remove corresponding code from WorldScene.gd and wire through the two new components.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/world/DungeonSessionUI.gd` + `.uid` — extracts `_show_rest_site_panel`, `_show_cull_panel`, `_show_event_panel`, `_apply_event_outcome`, and `_dungeon_hero_hp` from WorldScene.
+- Created `scenes/world/WorldHUD.gd` + `.uid` — extracts all dynamically-created HUD nodes, dialogue/tip display, bounty tracker, mount button, compass, ley indicator, XP bar from WorldScene.
+- Removed from WorldScene: `_dungeon_hero_hp`, all dungeon panel functions, `_update_mount_btn`, `_on_mount_state_changed`, bounty tracker functions, `_show_dialogue`/`_show_tip` implementations, XP bar creation, ley indicator, compass, all nav/cantrip button creation, signal connections moved to WorldHUD.
+- WorldScene `_handle_interact()` now delegates to `_dungeon_session_ui.show_rest_site_panel()` / `show_event_panel()`.
+- WorldScene `_show_stable_panel()` delegates mount button refresh to `_world_hud.update_mount_btn()`.
+- WorldScene reduced from ~3245 lines to ~2681 lines.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — `docs/agent/ui-and-scene-management.md` already describes HUD and dungeon UI components.

@@ -2,7 +2,7 @@
 
 **Goal:** GID-072
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-266
 
 ## Lock
@@ -24,12 +24,19 @@ NPC and scroll spawning are implemented twice (ChunkRenderer vs WorldScene), and
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/world/entities/WorldEntityBase.gd` — Node3D base with `static func _make_mi`.
+2. Create `.uid` sidecar.
+3. Update EnemyNPC, TownspersonNPC, MerchantNPC, BountyBoardNPC to `extends "res://scenes/world/entities/WorldEntityBase.gd"` and remove their local `_make_mi`.
+4. Update ChunkRenderer NPC spawning to use `TerrainMath.spawn_entity()` (select scene first, then delegate).
+5. Remove unused `_TownspersonScene` preload from WorldScene.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/world/entities/WorldEntityBase.gd` + `.uid` — Node3D base class with shared `static func _make_mi(mesh, mat)`.
+- Updated EnemyNPC, TownspersonNPC, MerchantNPC, BountyBoardNPC to `extends "res://scenes/world/entities/WorldEntityBase.gd"` and removed their local `_make_mi` duplicates (~5 lines × 4 files = ~20 lines removed).
+- Updated ChunkRenderer NPC spawning (lines 306–323 → now 3 fewer lines) to use `TerrainMath.spawn_entity(scene_to_use, n_data, 0.5, entity_root, world_scene)` — NPC and scroll/enemy/chest/door spawning now all go through the same code path.
+- Removed unused `_TownspersonScene` preload from WorldScene.gd (NPCs always come through ChunkRenderer).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — existing docs cover entity spawning at a high level.

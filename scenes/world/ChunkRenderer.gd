@@ -312,12 +312,7 @@ func _spawn_entities(world_scene: Node3D) -> void:
 			scene_to_use = _BountyBoardScene
 		else:
 			scene_to_use = _TownspersonScene
-		var node: Node3D = scene_to_use.instantiate()
-		var ny: float = world_scene.get_terrain_height(float(n_data["x"]), float(n_data["z"])) + 0.5
-		node.position = Vector3(n_data["x"], ny, n_data["z"])
-		if node.has_method("init_from_data"):
-			node.init_from_data(n_data)
-		entity_root.add_child(node)
+		var node: Node3D = TerrainMath.spawn_entity(scene_to_use, n_data, 0.5, entity_root, world_scene)
 		_set_visibility_range(node)
 		if world_scene.has_method("register_npc"):
 			world_scene.register_npc(n_data["id"], node, n_data)

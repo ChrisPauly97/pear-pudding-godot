@@ -1,4 +1,4 @@
-extends Node3D
+extends "res://scenes/world/entities/WorldEntityBase.gd"
 
 var npc_data: Dictionary = {}
 
@@ -35,12 +35,6 @@ func _ready() -> void:
 	add_child(board)
 
 	_add_label()
-
-static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	mi.material_override = mat
-	return mi
 
 func init_from_data(data: Dictionary) -> void:
 	npc_data = data
