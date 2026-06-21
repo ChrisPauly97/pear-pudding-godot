@@ -49,11 +49,11 @@ func test_straight_path_optimal_length() -> void:
 	assert_eq(path.size(), 5, "straight 4-tile path should have 5 nodes")
 
 func test_diagonal_path_optimal_length() -> void:
-	# (0,0) → (4,4): Manhattan = 8 → 9 tiles
+	# (0,0) → (4,4): 4 diagonal steps = 5 nodes with 8-directional movement
 	var path: Array[Vector2i] = Pathfinder.find_path(_all_grass, Vector2i(0, 0), Vector2i(4, 4), 64)
 	assert_false(path.is_empty(), "should find a path")
 	assert_eq(path[path.size() - 1], Vector2i(4, 4))
-	assert_eq(path.size(), 9, "diagonal 4+4 path should have 9 nodes")
+	assert_eq(path.size(), 5, "diagonal 4+4 path needs only 5 nodes with 8-dir movement")
 
 # ---------------------------------------------------------------------------
 # Path around a partial wall
@@ -110,13 +110,13 @@ func test_open_path_steps_are_adjacent() -> void:
 	for i in range(1, path.size()):
 		var prev: Vector2i = path[i - 1]
 		var curr: Vector2i = path[i]
-		var dist: int = abs(curr.x - prev.x) + abs(curr.y - prev.y)
-		assert_eq(dist, 1, "consecutive tiles must be 4-directionally adjacent")
+		var dist: int = maxi(abs(curr.x - prev.x), abs(curr.y - prev.y))
+		assert_eq(dist, 1, "consecutive tiles must be 8-directionally adjacent (Chebyshev distance 1)")
 
 func test_detour_path_steps_are_adjacent() -> void:
 	var path: Array[Vector2i] = Pathfinder.find_path(_wall_partial, Vector2i(0, 0), Vector2i(4, 0), 64)
 	for i in range(1, path.size()):
 		var prev: Vector2i = path[i - 1]
 		var curr: Vector2i = path[i]
-		var dist: int = abs(curr.x - prev.x) + abs(curr.y - prev.y)
-		assert_eq(dist, 1, "detour steps must be 4-directionally adjacent")
+		var dist: int = maxi(abs(curr.x - prev.x), abs(curr.y - prev.y))
+		assert_eq(dist, 1, "detour steps must be 8-directionally adjacent (Chebyshev distance 1)")

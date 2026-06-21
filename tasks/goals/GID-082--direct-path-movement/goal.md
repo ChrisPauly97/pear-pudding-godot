@@ -12,7 +12,7 @@ The existing tap-to-move system (GID-047) uses 4-directional A* returning every 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-300 | 8-directional A* with Octile heuristic | agent | pending | — |
+| TID-300 | 8-directional A* with Octile heuristic | agent | done | — |
 | TID-301 | String-pull path smoothing + docs | agent | pending | TID-300 |
 
 ## Acceptance Criteria
