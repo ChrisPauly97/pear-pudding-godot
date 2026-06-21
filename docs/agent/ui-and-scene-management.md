@@ -61,6 +61,35 @@ All 9 modal overlays extend BaseOverlay (as of GID-073): `InventoryScene`, `Shop
 
 ---
 
+## Menu Hub (GID-081)
+
+### MenuHubScene (`scenes/ui/MenuHubScene.gd`)
+
+Unified tabbed shell that hosts the four player-facing screens (Deck/Bag, Character, Skills, Journal) as switchable pages. Added in TID-296; replaces the four separate SceneManager overlay states.
+
+**Structure:** backdrop → centered panel → VBox with [tab bar row, content area].
+
+**Tab IDs:** `"deck"`, `"character"`, `"skills"`, `"journal"`.
+
+**Public API:**
+```gdscript
+hub.show_tab("skills")  # switches to a tab; safe to call before _ready()
+```
+
+**SceneManager routing (as of TID-296):**
+- `GameBus.inventory_requested` → `open_menu_hub("deck")`
+- `GameBus.journal_requested` → `open_menu_hub("journal")`
+- `GameBus.character_requested` → `open_menu_hub("character")`
+- `GameBus.skill_tree_requested` → `tutorial_popup_requested.emit("skill_tree")` + `open_menu_hub("skills")`
+
+The four GameBus signals are preserved as the public API — HUD buttons and key handlers still emit them unchanged.
+
+**Page contract:** Pages that embed into the hub receive `hub_mode = true` set before `add_child()`. In hub mode they skip their own backdrop/panel and build content into `self` (which is FULL_RECT inside the hub's content area). They also omit Close buttons and avoid emitting `closed` on neutral actions (e.g., Save). InventoryScene is the first migrated page (TID-296); Character/Skills/Journal migrate in TID-297.
+
+**State:** `SceneManager.State.MENU_HUB`. The four old states (INVENTORY, CHARACTER, SKILL_TREE, JOURNAL) are retained in the enum for backwards-compatibility but are no longer used by routing.
+
+---
+
 ## How It Works
 
 ### SceneManager (`autoloads/SceneManager.gd`)

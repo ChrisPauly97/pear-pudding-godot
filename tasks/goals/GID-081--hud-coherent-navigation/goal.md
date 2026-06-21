@@ -12,7 +12,7 @@ The overworld HUD has accumulated buttons in every corner (`WorldScene.gd:342–
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-296 | Menu Hub navigation shell + SceneManager routing (page contract; wire Inventory/Deck as first tab) | agent | pending | — |
+| TID-296 | Menu Hub navigation shell + SceneManager routing (page contract; wire Inventory/Deck as first tab) | agent | done | — |
 | TID-297 | Migrate Character/Equipment, Skills, and Journal into hub tabs with cross-navigation | agent | pending | TID-296 |
 | TID-298 | HUD declutter: merge top-left system controls, single Menu/Bag entry, regroup cantrip + Mount action cluster | agent | pending | TID-296 |
 | TID-299 | Unified key bindings, in-hub tab cycling, Escape/back semantics, mobile tap parity + docs/test pass | agent | pending | TID-296, TID-297, TID-298 |

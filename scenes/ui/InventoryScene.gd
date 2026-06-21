@@ -43,6 +43,10 @@ var _rename_btn: Button
 var _dup_btn: Button
 var _del_btn: Button
 
+# Set to true by MenuHubScene before add_child() so the scene skips its own
+# backdrop/panel and builds content directly into the hub's content area.
+var hub_mode: bool = false
+
 func _ready() -> void:
 	super._ready()
 	_working_deck.assign(SceneManager.save_manager.player_deck)
@@ -50,13 +54,26 @@ func _ready() -> void:
 	_refresh()
 
 func _build_ui() -> void:
-	_build_backdrop(0.78)
-
 	var is_portrait: bool = _vw < _vh
-	var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
-	var panel_h: float = _vh * 0.92 if is_portrait else _vh * 0.86
-	var outer := _build_centered_panel(panel_w, panel_h)
-	var wrapper := _build_margin_vbox(outer, 0.015, 0.008)
+	var wrapper: VBoxContainer
+	if hub_mode:
+		var margin := MarginContainer.new()
+		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var m: int = int(_ref * 0.010)
+		margin.add_theme_constant_override("margin_left", m)
+		margin.add_theme_constant_override("margin_right", m)
+		margin.add_theme_constant_override("margin_top", m)
+		margin.add_theme_constant_override("margin_bottom", m)
+		add_child(margin)
+		wrapper = VBoxContainer.new()
+		wrapper.add_theme_constant_override("separation", int(_ref * 0.008))
+		margin.add_child(wrapper)
+	else:
+		_build_backdrop(0.78)
+		var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
+		var panel_h: float = _vh * 0.92 if is_portrait else _vh * 0.86
+		var outer := _build_centered_panel(panel_w, panel_h)
+		wrapper = _build_margin_vbox(outer, 0.015, 0.008)
 
 	# ---- Tab bar ----
 	var tab_bar := HBoxContainer.new()
@@ -226,12 +243,13 @@ func _build_ui() -> void:
 		save_btn.pressed.connect(_on_save)
 		btn_hbox.add_child(save_btn)
 
-		var close_btn := Button.new()
-		close_btn.text = "Close"
-		close_btn.custom_minimum_size = Vector2(_vw * 0.35, _ref * 0.065)
-		close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		close_btn.pressed.connect(_on_close)
-		btn_hbox.add_child(close_btn)
+		if not hub_mode:
+			var close_btn := Button.new()
+			close_btn.text = "Close"
+			close_btn.custom_minimum_size = Vector2(_vw * 0.35, _ref * 0.065)
+			close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+			close_btn.pressed.connect(_on_close)
+			btn_hbox.add_child(close_btn)
 	else:
 		var btn_vbox := VBoxContainer.new()
 		btn_vbox.add_theme_constant_override("separation", int(_ref * 0.012))
@@ -245,12 +263,13 @@ func _build_ui() -> void:
 		save_btn.pressed.connect(_on_save)
 		btn_vbox.add_child(save_btn)
 
-		var close_btn := Button.new()
-		close_btn.text = "Close  [I]" if not OS.has_feature("android") else "Close"
-		close_btn.custom_minimum_size = Vector2(_vw * 0.1, _ref * 0.065)
-		close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		close_btn.pressed.connect(_on_close)
-		btn_vbox.add_child(close_btn)
+		if not hub_mode:
+			var close_btn := Button.new()
+			close_btn.text = "Close  [I]" if not OS.has_feature("android") else "Close"
+			close_btn.custom_minimum_size = Vector2(_vw * 0.1, _ref * 0.065)
+			close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+			close_btn.pressed.connect(_on_close)
+			btn_vbox.add_child(close_btn)
 
 	# ====================================================================
 	# CRAFT PANEL
@@ -277,12 +296,13 @@ func _build_ui() -> void:
 	_craft_list.add_theme_constant_override("separation", int(_ref * 0.006))
 	craft_scroll.add_child(_craft_list)
 
-	var craft_close_btn := Button.new()
-	craft_close_btn.text = "Close  [I]" if not OS.has_feature("android") else "Close"
-	craft_close_btn.custom_minimum_size = Vector2(_vw * 0.1, _ref * 0.065)
-	craft_close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	craft_close_btn.pressed.connect(_on_close)
-	craft_box.add_child(craft_close_btn)
+	if not hub_mode:
+		var craft_close_btn := Button.new()
+		craft_close_btn.text = "Close  [I]" if not OS.has_feature("android") else "Close"
+		craft_close_btn.custom_minimum_size = Vector2(_vw * 0.1, _ref * 0.065)
+		craft_close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		craft_close_btn.pressed.connect(_on_close)
+		craft_box.add_child(craft_close_btn)
 
 # -------------------------------------------------------------------------
 # Refresh
@@ -1232,7 +1252,8 @@ func _show_inspect(card_id: String) -> void:
 
 func _on_save() -> void:
 	SceneManager.save_manager.set_active_deck(_working_deck)
-	closed.emit()
+	if not hub_mode:
+		closed.emit()
 
 func _on_close() -> void:
 	closed.emit()
