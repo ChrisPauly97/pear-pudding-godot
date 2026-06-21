@@ -2,7 +2,7 @@
 
 **Goal:** GID-076
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -124,12 +124,28 @@ health = min(health + n, max_health)
 
 ## Plan
 
-_Written during Plan phase._
+Files to modify:
+1. `game_logic/battle/HeroState.gd` — add `heal(n: int)` method (health = min(health + n, max_health))
+2. `scenes/battle/SpellEffectResolver.gd` — add Keywords/CardRegistry preloads; extend targeting arrays; add 20 new match cases in resolve_spell()
+3. `scenes/battle/CardViewBuilder.gd` — add 20 new entries to SPELL_EFFECT_LABELS
+4. `scenes/battle/CardInspectOverlay.gd` — add 20 new entries to _SPELL_EFFECT_LABELS (keep in sync with CardViewBuilder)
+
+No new files needed. No .uid sidecars needed (only .gd files modified). No .tscn changes needed.
+
+Token summon: use CardRegistry.get_template("skeleton") + CardInstance.new(tmpl) loop up to spell_power, add_card() while not full.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/battle/HeroState.gd`: added `heal(n: int)` method (caps at max_health with `mini`)
+- `scenes/battle/SpellEffectResolver.gd`:
+  - Added `const Keywords` and `const CardRegistry` preloads
+  - Extended `ENEMY_TARGETED_EFFECTS` with 4 new keys: `apply_poison_single`, `freeze_single`, `bind_minion`, `stun_single`
+  - Extended `FRIENDLY_TARGETED_EFFECTS` with 4 new keys: `grant_surge`, `grant_ward`, `grant_shroud`, `double_attack`
+  - Added 20 new `match` arms in `resolve_spell()`; corrected `double_attack` to set `attack_count = 1` (not 0) since `can_attack()` requires `attack_count > 0`; used `keywords.clear()` for `bind_minion` to avoid typed-array assignment issues
+- `scenes/battle/CardViewBuilder.gd`: added 22 new entries to `SPELL_EFFECT_LABELS` (20 new + 2 existing `bless_slot`/`ward_slot` that were missing from the dict)
+- `scenes/battle/CardInspectOverlay.gd`: added 22 new entries to `_SPELL_EFFECT_LABELS` (mirrors CardViewBuilder, now fully in sync)
+- Tests: 1129 passed / 12 failed (12 failures are pre-existing, none related to spell effects)
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent docs updated (battle-system.md update deferred to TID-285 per goal plan).
