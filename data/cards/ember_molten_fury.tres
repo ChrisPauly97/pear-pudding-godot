@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://ty84rptdw2yn"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ember_molten_fury"]
+
+[resource]
+script = ExtResource("1_ember_molten_fury")
+id = "ember_molten_fury"
+card_name = "Molten Fury"
+cost = 5
+attack = 0
+health = 0
+card_class = "spell"
+description = "Molten energy floods your minions, granting +2 attack."
+color = Color(1.0, 0.2, 0.0, 1)
+magic_type = "light"
+magic_branch = "ember"
+spell_effect = "buff_attack_all"
+spell_power = 2

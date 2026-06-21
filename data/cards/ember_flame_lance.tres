@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://5a6zvyie43sa"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ember_flame_lance"]
+
+[resource]
+script = ExtResource("1_ember_flame_lance")
+id = "ember_flame_lance"
+card_name = "Flame Lance"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "A piercing bolt of fire."
+color = Color(1.0, 0.55, 0.1, 1)
+magic_type = "light"
+magic_branch = "ember"
+spell_effect = "deal_damage_single"
+spell_power = 3

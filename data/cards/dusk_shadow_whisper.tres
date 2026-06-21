@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://kknmzw4kkrer"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dusk_shadow_whisper"]
+
+[resource]
+script = ExtResource("1_dusk_shadow_whisper")
+id = "dusk_shadow_whisper"
+card_name = "Shadow Whisper"
+cost = 1
+attack = 0
+health = 0
+card_class = "spell"
+description = "A whisper from the void causes the enemy to lose a card."
+color = Color(0.5, 0.2, 0.7, 1)
+magic_type = "dark"
+magic_branch = "dusk"
+spell_effect = "enemy_discard"
+spell_power = 1

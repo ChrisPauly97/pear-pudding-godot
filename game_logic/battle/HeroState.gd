@@ -33,6 +33,9 @@ func take_damage(dmg: int) -> void:
 			status_effects["armor"] = remaining
 	health = max(0, health - dmg)
 
+func heal(n: int) -> void:
+	health = mini(max_health, health + n)
+
 func gain_mana_for_turn(turn: int) -> void:
 	max_mana = mini(10, turn + bonus_mana)
 	mana = max_mana

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://xf246ip0xaz8"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ember_brand"]
+
+[resource]
+script = ExtResource("1_ember_brand")
+id = "ember_brand"
+card_name = "Searing Brand"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "Burns a minion — it takes 2 fire damage each turn."
+color = Color(1.0, 0.55, 0.1, 1)
+magic_type = "light"
+magic_branch = "ember"
+spell_effect = "apply_poison_single"
+spell_power = 2

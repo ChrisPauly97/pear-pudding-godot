@@ -2,7 +2,7 @@
 
 **Goal:** GID-076
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-284
 
 ## Lock
@@ -32,12 +32,14 @@ Update `docs/agent/battle-system.md` to document all 20 new `spell_effect` keys 
 
 ## Plan
 
-_Written during Plan phase._
+Update `docs/agent/battle-system.md`: extend spell_effect values list with 20 new keys, update targeting arrays, add 40-card spell catalogue section.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `docs/agent/battle-system.md`: added 20 new spell_effect descriptions to Card Data section
+- `docs/agent/battle-system.md`: updated ENEMY_TARGETED_EFFECTS (now 7 entries) and FRIENDLY_TARGETED_EFFECTS (now 7 entries) in SpellEffectResolver section
+- `docs/agent/battle-system.md`: added "Magic Subtype Spell Catalogue (GID-076)" section with 4 branch tables
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/battle-system.md` is now current for GID-076.

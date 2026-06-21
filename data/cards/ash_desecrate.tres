@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://eib6k09vsa5s"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ash_desecrate"]
+
+[resource]
+script = ExtResource("1_ash_desecrate")
+id = "ash_desecrate"
+card_name = "Desecrate"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "Dark energy desecrates all enemy minions for 1."
+color = Color(0.5, 0.45, 0.4, 1)
+magic_type = "dark"
+magic_branch = "ash"
+spell_effect = "deal_damage_all"
+spell_power = 1

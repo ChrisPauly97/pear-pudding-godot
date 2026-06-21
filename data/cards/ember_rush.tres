@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://ihxggvehs7oi"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ember_rush"]
+
+[resource]
+script = ExtResource("1_ember_rush")
+id = "ember_rush"
+card_name = "Ember Rush"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Flood a minion with fire, letting it strike immediately."
+color = Color(1.0, 0.45, 0.05, 1)
+magic_type = "light"
+magic_branch = "ember"
+spell_effect = "grant_surge"
+spell_power = 0

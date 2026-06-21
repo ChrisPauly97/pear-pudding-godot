@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://zd9z1ldicn61"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dusk_drain_essence"]
+
+[resource]
+script = ExtResource("1_dusk_drain_essence")
+id = "dusk_drain_essence"
+card_name = "Drain Essence"
+cost = 4
+attack = 0
+health = 0
+card_class = "spell"
+description = "Drain 5 life from the enemy hero and restore it to yours."
+color = Color(0.5, 0.2, 0.7, 1)
+magic_type = "dark"
+magic_branch = "dusk"
+spell_effect = "drain_hero"
+spell_power = 5

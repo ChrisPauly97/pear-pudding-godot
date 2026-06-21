@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://6j1c0fitlqtg"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ash_raise_dead"]
+
+[resource]
+script = ExtResource("1_ash_raise_dead")
+id = "ash_raise_dead"
+card_name = "Raise Dead"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Raise two 1/1 Skeleton tokens from the grave."
+color = Color(0.45, 0.4, 0.35, 1)
+magic_type = "dark"
+magic_branch = "ash"
+spell_effect = "summon_token"
+spell_power = 2

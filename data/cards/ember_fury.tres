@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://vlyms0lnmunu"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ember_fury"]
+
+[resource]
+script = ExtResource("1_ember_fury")
+id = "ember_fury"
+card_name = "Ember Fury"
+cost = 4
+attack = 0
+health = 0
+card_class = "spell"
+description = "A minion burns with fury, attacking twice this turn."
+color = Color(1.0, 0.3, 0.0, 1)
+magic_type = "light"
+magic_branch = "ember"
+spell_effect = "double_attack"
+spell_power = 0

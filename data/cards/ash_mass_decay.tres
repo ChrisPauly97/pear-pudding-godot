@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://yigmx1jtgu3r"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ash_mass_decay"]
+
+[resource]
+script = ExtResource("1_ash_mass_decay")
+id = "ash_mass_decay"
+card_name = "Mass Decay"
+cost = 5
+attack = 0
+health = 0
+card_class = "spell"
+description = "Accelerated plague — all enemy minions decay for 2/turn."
+color = Color(0.3, 0.25, 0.2, 1)
+magic_type = "dark"
+magic_branch = "ash"
+spell_effect = "apply_poison_all"
+spell_power = 2

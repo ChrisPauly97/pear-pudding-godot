@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://ogvnwqdl1uex"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dawn_aegis_of_all"]
+
+[resource]
+script = ExtResource("1_dawn_aegis_of_all")
+id = "dawn_aegis_of_all"
+card_name = "Aegis of All"
+cost = 5
+attack = 0
+health = 0
+card_class = "spell"
+description = "All your minions become Ward guardians."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "grant_ward_all"
+spell_power = 0

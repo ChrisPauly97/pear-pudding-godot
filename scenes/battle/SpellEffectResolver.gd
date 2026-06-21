@@ -5,10 +5,18 @@ const GameState = preload("res://game_logic/battle/GameState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CaptureTracker = preload("res://game_logic/battle/CaptureTracker.gd")
+const Keywords = preload("res://game_logic/battle/Keywords.gd")
+const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 # Co-located with resolver so match arms and targeting UI stay in sync.
-const ENEMY_TARGETED_EFFECTS: Array[String] = ["deal_damage_single", "curse_minion", "lifesteal_hit"]
-const FRIENDLY_TARGETED_EFFECTS: Array[String] = ["heal_single", "shield_minion", "buff_attack"]
+const ENEMY_TARGETED_EFFECTS: Array[String] = [
+	"deal_damage_single", "curse_minion", "lifesteal_hit",
+	"apply_poison_single", "freeze_single", "bind_minion", "stun_single",
+]
+const FRIENDLY_TARGETED_EFFECTS: Array[String] = [
+	"heal_single", "shield_minion", "buff_attack",
+	"grant_surge", "grant_ward", "grant_shroud", "double_attack",
+]
 const SLOT_TARGETED_EFFECTS: Array[String] = ["bless_slot", "ward_slot"]
 
 var extra_turn_granted: bool = false
@@ -191,6 +199,138 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				_state.players[1].discard.append(t)
 			for _i in range(3):
 				caster.draw_card()
+		# ── 20 new effects (TID-279) ──────────────────────────────────────
+		"deal_damage_hero":
+			opponent.hero.take_damage(_spell_dmg)
+		"apply_poison_single":
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var targets := opponent.board.get_cards()
+				if not targets.is_empty():
+					t = targets[0]
+			if t != null:
+				t.apply_status("poison", card.spell_power)
+		"apply_poison_all":
+			for t in opponent.board.get_cards():
+				t.apply_status("poison", card.spell_power)
+		"grant_surge":
+			var caster: PlayerState = _state.players[caster_pid]
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var friendlies := caster.board.get_cards()
+				if not friendlies.is_empty():
+					t = friendlies[0]
+			if t != null:
+				if not t.keywords.has(Keywords.SURGE):
+					t.keywords.append(Keywords.SURGE)
+				t.summoning_sick = false
+		"double_attack":
+			var caster: PlayerState = _state.players[caster_pid]
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var friendlies := caster.board.get_cards()
+				if not friendlies.is_empty():
+					t = friendlies[0]
+			if t != null:
+				t.attack_count = 1
+				t.summoning_sick = false
+		"buff_attack_all":
+			var caster: PlayerState = _state.players[caster_pid]
+			for t in caster.board.get_cards():
+				t.attack += card.spell_power
+		"heal_hero":
+			var caster: PlayerState = _state.players[caster_pid]
+			caster.hero.heal(card.spell_power)
+		"armor_hero":
+			var caster: PlayerState = _state.players[caster_pid]
+			caster.hero.apply_status("armor", card.spell_power)
+		"grant_ward":
+			var caster: PlayerState = _state.players[caster_pid]
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var friendlies := caster.board.get_cards()
+				if not friendlies.is_empty():
+					t = friendlies[0]
+			if t != null:
+				if not t.keywords.has(Keywords.WARD):
+					t.keywords.append(Keywords.WARD)
+		"grant_shroud":
+			var caster: PlayerState = _state.players[caster_pid]
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var friendlies := caster.board.get_cards()
+				if not friendlies.is_empty():
+					t = friendlies[0]
+			if t != null:
+				if not t.keywords.has(Keywords.SHROUD):
+					t.keywords.append(Keywords.SHROUD)
+				t.shroud_active = true
+		"grant_ward_all":
+			var caster: PlayerState = _state.players[caster_pid]
+			for t in caster.board.get_cards():
+				if not t.keywords.has(Keywords.WARD):
+					t.keywords.append(Keywords.WARD)
+		"bind_minion":
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var targets := opponent.board.get_cards()
+				if not targets.is_empty():
+					t = targets[0]
+			if t != null:
+				t.keywords.clear()
+				t.shroud_active = false
+		"buff_health_all":
+			var caster: PlayerState = _state.players[caster_pid]
+			for t in caster.board.get_cards():
+				t.health += card.spell_power
+				t.max_health += card.spell_power
+		"enemy_discard":
+			opponent.hand.shuffle()
+			var discard_count: int = mini(card.spell_power, opponent.hand.size())
+			for _i in range(discard_count):
+				opponent.discard.append(opponent.hand.pop_back())
+		"freeze_single":
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var targets := opponent.board.get_cards()
+				if not targets.is_empty():
+					t = targets[0]
+			if t != null:
+				t.apply_status("freeze", 1)
+		"freeze_all":
+			for t in opponent.board.get_cards():
+				t.apply_status("freeze", 1)
+		"drain_hero":
+			var caster: PlayerState = _state.players[caster_pid]
+			opponent.hero.take_damage(_spell_dmg)
+			caster.hero.heal(_spell_dmg)
+		"stun_single":
+			var t: CardInstance = explicit_target.get("card", null) as CardInstance
+			if t == null:
+				var targets := opponent.board.get_cards()
+				if not targets.is_empty():
+					t = targets[0]
+			if t != null:
+				t.apply_status("stun", card.spell_power)
+				t.out_of_play = card.spell_power
+		"summon_token":
+			var caster: PlayerState = _state.players[caster_pid]
+			var tmpl: Dictionary = CardRegistry.get_template("skeleton")
+			if not tmpl.is_empty():
+				for _i in range(card.spell_power):
+					if caster.board.is_full():
+						break
+					var token := CardInstance.new(tmpl)
+					token.summoning_sick = true
+					caster.board.add_card(token)
+		"deal_damage_all_full":
+			for t in opponent.board.get_cards():
+				t.take_damage(_spell_dmg)
+			for t in opponent.board.get_cards().duplicate():
+				if not t.is_alive():
+					opponent.board.remove_card(t)
+					opponent.discard.append(t)
+			opponent.hero.take_damage(_spell_dmg)
 	if capture_tracker != null and caster_pid == 0:
 		var _ct_board_after: int = _state.players[1].board.get_cards().size()
 		capture_tracker.note_spell_resolved(0, _ct_board_before, _ct_board_after)

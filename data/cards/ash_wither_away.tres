@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://ium9cpj5tn6b"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ash_wither_away"]
+
+[resource]
+script = ExtResource("1_ash_wither_away")
+id = "ash_wither_away"
+card_name = "Wither Away"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Wither away all enemy minions with 3 or less HP."
+color = Color(0.45, 0.4, 0.35, 1)
+magic_type = "dark"
+magic_branch = "ash"
+spell_effect = "destroy_low_hp"
+spell_power = 3

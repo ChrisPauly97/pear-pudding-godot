@@ -6,7 +6,17 @@ const _C_ARCANE_SEAL      := preload("res://data/cards/arcane_seal.tres")
 const _C_ALIGHT           := preload("res://data/cards/alight.tres")
 const _C_ANCIENT_GUARDIAN := preload("res://data/cards/ancient_guardian.tres")
 const _C_ASH              := preload("res://data/cards/ash.tres")
+const _C_ASH_ANNIHILATE   := preload("res://data/cards/ash_annihilate.tres")
+const _C_ASH_BONE_SPEAR   := preload("res://data/cards/ash_bone_spear.tres")
+const _C_ASH_BONE_WALL    := preload("res://data/cards/ash_bone_wall.tres")
+const _C_ASH_DEFILE       := preload("res://data/cards/ash_defile.tres")
+const _C_ASH_DESECRATE    := preload("res://data/cards/ash_desecrate.tres")
+const _C_ASH_MASS_DECAY   := preload("res://data/cards/ash_mass_decay.tres")
+const _C_ASH_PLAGUE       := preload("res://data/cards/ash_plague.tres")
+const _C_ASH_RAISE_DEAD   := preload("res://data/cards/ash_raise_dead.tres")
+const _C_ASH_ROT          := preload("res://data/cards/ash_rot.tres")
 const _C_ASH_WARDEN       := preload("res://data/cards/ash_warden.tres")
+const _C_ASH_WITHER_AWAY  := preload("res://data/cards/ash_wither_away.tres")
 const _C_BLESSED_LIGHT    := preload("res://data/cards/blessed_light.tres")
 const _C_BLITZ_GHOUL      := preload("res://data/cards/blitz_ghoul.tres")
 const _C_BRITTLE          := preload("res://data/cards/brittle.tres")
@@ -16,15 +26,45 @@ const _C_DAGGER_THROW     := preload("res://data/cards/dagger_throw.tres")
 const _C_DARK_PACT        := preload("res://data/cards/dark_pact.tres")
 const _C_DUEL_CROWN       := preload("res://data/cards/duel_crown.tres")
 const _C_DAWN_ACOLYTE     := preload("res://data/cards/dawn_acolyte.tres")
+const _C_DAWN_AEGIS       := preload("res://data/cards/dawn_aegis.tres")
+const _C_DAWN_AEGIS_OF_ALL := preload("res://data/cards/dawn_aegis_of_all.tres")
+const _C_DAWN_BEACON      := preload("res://data/cards/dawn_beacon.tres")
+const _C_DAWN_BIND        := preload("res://data/cards/dawn_bind.tres")
+const _C_DAWN_BLESSING    := preload("res://data/cards/dawn_blessing.tres")
 const _C_DAWN_GUARDIAN    := preload("res://data/cards/dawn_guardian.tres")
+const _C_DAWN_GUARDIAN_VOW := preload("res://data/cards/dawn_guardian_vow.tres")
 const _C_DAWN_HEALER      := preload("res://data/cards/dawn_healer.tres")
+const _C_DAWN_LAY_ON_HANDS := preload("res://data/cards/dawn_lay_on_hands.tres")
 const _C_DAWN_PALADIN     := preload("res://data/cards/dawn_paladin.tres")
+const _C_DAWN_SALVATION   := preload("res://data/cards/dawn_salvation.tres")
+const _C_DAWN_SANCTUARY   := preload("res://data/cards/dawn_sanctuary.tres")
+const _C_DAWN_SOOTHING_TOUCH := preload("res://data/cards/dawn_soothing_touch.tres")
 const _C_DRAIN            := preload("res://data/cards/drain.tres")
+const _C_DUSK_CORRUPT     := preload("res://data/cards/dusk_corrupt.tres")
+const _C_DUSK_DRAIN_ESSENCE := preload("res://data/cards/dusk_drain_essence.tres")
+const _C_DUSK_ECLIPSE     := preload("res://data/cards/dusk_eclipse.tres")
+const _C_DUSK_HEX         := preload("res://data/cards/dusk_hex.tres")
+const _C_DUSK_MIND_ROT    := preload("res://data/cards/dusk_mind_rot.tres")
+const _C_DUSK_NIGHTCHILL  := preload("res://data/cards/dusk_nightchill.tres")
 const _C_DUSK_SEER        := preload("res://data/cards/dusk_seer.tres")
+const _C_DUSK_SHADOW_BIND := preload("res://data/cards/dusk_shadow_bind.tres")
+const _C_DUSK_SHADOW_WHISPER := preload("res://data/cards/dusk_shadow_whisper.tres")
+const _C_DUSK_SOUL_EATER  := preload("res://data/cards/dusk_soul_eater.tres")
 const _C_DUSK_VAMPIRE     := preload("res://data/cards/dusk_vampire.tres")
+const _C_DUSK_VAMPIRIC_TOUCH := preload("res://data/cards/dusk_vampiric_touch.tres")
 const _C_DUSK_WRAITH      := preload("res://data/cards/dusk_wraith.tres")
 const _C_EMBER            := preload("res://data/cards/ember.tres")
+const _C_EMBER_BACKDRAFT  := preload("res://data/cards/ember_backdraft.tres")
+const _C_EMBER_BRAND      := preload("res://data/cards/ember_brand.tres")
+const _C_EMBER_CINDER     := preload("res://data/cards/ember_cinder.tres")
+const _C_EMBER_FLAME_LANCE := preload("res://data/cards/ember_flame_lance.tres")
+const _C_EMBER_FURY       := preload("res://data/cards/ember_fury.tres")
+const _C_EMBER_HEAT_WAVE  := preload("res://data/cards/ember_heat_wave.tres")
 const _C_EMBER_IMP        := preload("res://data/cards/ember_imp.tres")
+const _C_EMBER_MOLTEN_FURY := preload("res://data/cards/ember_molten_fury.tres")
+const _C_EMBER_RUSH       := preload("res://data/cards/ember_rush.tres")
+const _C_EMBER_SOLAR_FLARE := preload("res://data/cards/ember_solar_flare.tres")
+const _C_EMBER_WILDFIRE   := preload("res://data/cards/ember_wildfire.tres")
 const _C_FLICKER          := preload("res://data/cards/flicker.tres")
 const _C_GHOST            := preload("res://data/cards/ghost.tres")
 const _C_GHOUL            := preload("res://data/cards/ghoul.tres")
@@ -74,8 +114,21 @@ static func _ensure_loaded() -> void:
 		_C_ARCANE_SEAL,
 		_C_ALIGHT, _C_ANCIENT_GUARDIAN, _C_ASH, _C_ASH_WARDEN, _C_BLESSED_LIGHT, _C_BLITZ_GHOUL,
 		_C_BRITTLE, _C_BULWARK, _C_CHAR, _C_DAGGER_THROW, _C_DARK_PACT, _C_DUEL_CROWN,
-		_C_DAWN_ACOLYTE, _C_DAWN_GUARDIAN, _C_DAWN_HEALER, _C_DAWN_PALADIN, _C_DRAIN,
-		_C_DUSK_SEER, _C_DUSK_VAMPIRE, _C_DUSK_WRAITH, _C_EMBER, _C_EMBER_IMP, _C_FLICKER,
+		_C_DAWN_ACOLYTE, _C_DAWN_AEGIS, _C_DAWN_AEGIS_OF_ALL, _C_DAWN_BEACON,
+		_C_DAWN_BIND, _C_DAWN_BLESSING,
+		_C_DAWN_GUARDIAN, _C_DAWN_GUARDIAN_VOW, _C_DAWN_HEALER,
+		_C_DAWN_LAY_ON_HANDS, _C_DAWN_PALADIN,
+		_C_DAWN_SALVATION, _C_DAWN_SANCTUARY, _C_DAWN_SOOTHING_TOUCH,
+		_C_DRAIN,
+		_C_DUSK_CORRUPT, _C_DUSK_DRAIN_ESSENCE, _C_DUSK_ECLIPSE, _C_DUSK_HEX,
+		_C_DUSK_MIND_ROT, _C_DUSK_NIGHTCHILL,
+		_C_DUSK_SEER, _C_DUSK_SHADOW_BIND, _C_DUSK_SHADOW_WHISPER,
+		_C_DUSK_SOUL_EATER, _C_DUSK_VAMPIRE, _C_DUSK_VAMPIRIC_TOUCH, _C_DUSK_WRAITH,
+		_C_EMBER, _C_EMBER_BACKDRAFT, _C_EMBER_BRAND, _C_EMBER_CINDER,
+		_C_EMBER_FLAME_LANCE, _C_EMBER_FURY, _C_EMBER_HEAT_WAVE,
+		_C_EMBER_IMP, _C_EMBER_MOLTEN_FURY, _C_EMBER_RUSH,
+		_C_EMBER_SOLAR_FLARE, _C_EMBER_WILDFIRE,
+		_C_FLICKER,
 		_C_GHOST, _C_GHOUL, _C_INSIGHT, _C_IRON_REVENANT, _C_MEND, _C_PHOENIX_RISE,
 		_C_RADIANCE, _C_RALLY, _C_RESTORE, _C_SCORCH, _C_SHADOW_BOLT,
 		_C_SHADOW_WARD,
@@ -86,6 +139,9 @@ static func _ensure_loaded() -> void:
 		_C_ISFIG_SHADOW_ECHO,
 		_C_EMBER_COVENANT, _C_PYRE_WARDEN, _C_SACRED_LIGHT,
 		_C_HALLOWED_GROUND, _C_TWILIGHT_VEIL, _C_ASH_ARBITER,
+		_C_ASH_ANNIHILATE, _C_ASH_BONE_SPEAR, _C_ASH_BONE_WALL,
+		_C_ASH_DEFILE, _C_ASH_DESECRATE, _C_ASH_MASS_DECAY,
+		_C_ASH_PLAGUE, _C_ASH_RAISE_DEAD, _C_ASH_ROT, _C_ASH_WITHER_AWAY,
 	]
 	for preloaded in all:
 		if preloaded == null:

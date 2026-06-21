@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://ip6p5jz50od1"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ash_bone_wall"]
+
+[resource]
+script = ExtResource("1_ash_bone_wall")
+id = "ash_bone_wall"
+card_name = "Bone Wall"
+cost = 4
+attack = 0
+health = 0
+card_class = "spell"
+description = "Reinforce your minions with bone — each gains +3 health."
+color = Color(0.3, 0.25, 0.2, 1)
+magic_type = "dark"
+magic_branch = "ash"
+spell_effect = "buff_health_all"
+spell_power = 3

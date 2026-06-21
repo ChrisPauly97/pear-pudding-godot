@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://joux5kzbyy2n"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ash_rot"]
+
+[resource]
+script = ExtResource("1_ash_rot")
+id = "ash_rot"
+card_name = "Rot"
+cost = 1
+attack = 0
+health = 0
+card_class = "spell"
+description = "A minion begins to decay — takes 1 damage each turn."
+color = Color(0.5, 0.45, 0.4, 1)
+magic_type = "dark"
+magic_branch = "ash"
+spell_effect = "apply_poison_single"
+spell_power = 1

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://z0b9kx3uox09"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dawn_lay_on_hands"]
+
+[resource]
+script = ExtResource("1_dawn_lay_on_hands")
+id = "dawn_lay_on_hands"
+card_name = "Lay on Hands"
+cost = 4
+attack = 0
+health = 0
+card_class = "spell"
+description = "Channel divine power to restore 8 HP to your hero."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "heal_hero"
+spell_power = 8

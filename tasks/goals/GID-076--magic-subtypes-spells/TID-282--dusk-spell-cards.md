@@ -2,7 +2,7 @@
 
 **Goal:** GID-076
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-279
 
 ## Lock
@@ -40,12 +40,15 @@ Same `.tres` template with `magic_type = "dark"` and `magic_branch = "dusk"`.
 
 ## Plan
 
-_Written during Plan phase._
+Create 10 .tres + .uid files in data/cards/, add preloads to CardRegistry.gd, update test count 80→90.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created 10 Dusk spell .tres files: dusk_corrupt, dusk_drain_essence, dusk_eclipse, dusk_hex, dusk_mind_rot, dusk_nightchill, dusk_shadow_bind, dusk_shadow_whisper, dusk_soul_eater, dusk_vampiric_touch
+- Created matching .uid sidecar files for each
+- `autoloads/CardRegistry.gd`: added 10 _C_DUSK_* preload consts and registered in _ensure_loaded()
+- `tests/unit/test_card_registry.gd`: updated card count 80 → 90
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None (deferred to TID-285).

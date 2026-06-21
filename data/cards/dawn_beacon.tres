@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://e6wshto879f9"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_dawn_beacon"]
+
+[resource]
+script = ExtResource("1_dawn_beacon")
+id = "dawn_beacon"
+card_name = "Beacon of Hope"
+cost = 4
+attack = 0
+health = 0
+card_class = "spell"
+description = "A beacon of light restores 3 HP to all friendly minions."
+color = Color(1, 0.9, 0.5, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "heal_all"
+spell_power = 3

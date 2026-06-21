@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://x1qwfuk2tlgl"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_ash_defile"]
+
+[resource]
+script = ExtResource("1_ash_defile")
+id = "ash_defile"
+card_name = "Defile"
+cost = 4
+attack = 0
+health = 0
+card_class = "spell"
+description = "Defile a minion — its attack and HP each fall by 4."
+color = Color(0.3, 0.25, 0.2, 1)
+magic_type = "dark"
+magic_branch = "ash"
+spell_effect = "curse_minion"
+spell_power = 4
