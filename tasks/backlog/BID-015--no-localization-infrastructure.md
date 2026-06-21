@@ -15,4 +15,4 @@ The game has no i18n support: no translation files (.po/.csv), no `tr()` calls â
 
 ## Suggested Resolution
 
-Human decision needed: is English-only acceptable for v1? If yes, add "Localization" to the spec's Out of Scope list to make it explicit. If other languages are planned, schedule a goal early (before more text-heavy story content lands) to wrap user-facing strings in `tr()` and set up CSV translations â€” doing it later only gets more expensive.
+**Decision (June 2026):** English-only for v1. Localization is out of scope for now. No action required until a future goal explicitly targets internationalization. The spec's Out of Scope section should note this when TID-311 (GID-087) is completed by the human owner.
