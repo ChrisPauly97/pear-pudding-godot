@@ -7,6 +7,7 @@ const SpireFloorGen   = preload("res://game_logic/spire/SpireFloorGen.gd")
 const GrassBlades     = preload("res://scenes/world/GrassBlades.gd")
 const VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const ChunkStreamingManager = preload("res://scenes/world/ChunkStreamingManager.gd")
 const BlightField      = preload("res://game_logic/world/BlightField.gd")
 const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
@@ -76,9 +77,9 @@ var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
 
-# Chunk streaming (both infinite and named-map paths use ChunkRenderer)
-var _chunk_data_cache: Dictionary = {}    # Vector2i -> ChunkData (RefCounted)
-var _chunk_renderers: Dictionary = {}     # Vector2i -> ChunkRenderer
+# Chunk streaming delegated to ChunkStreamingManager (_csm)
+var _csm: ChunkStreamingManager = null
+
 var _active_chest_data: Dictionary = {}  # chest_id -> Dictionary
 var _active_door_data: Dictionary = {}   # door_id -> Dictionary
 var _active_npc_data: Dictionary = {}    # npc_id -> Dictionary
@@ -90,8 +91,6 @@ var _mana_well_nodes: Dictionary = {}    # well_id -> Node3D
 var _ley_indicator: Label = null         # HUD label shown while on a ley line
 var _ghost_phase_active: bool = false    # true while ghost-phase tween runs
 var _ghost_tween: Tween = null
-var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
-var _last_move_dir: Vector2 = Vector2.ZERO
 var _current_biome: int = -1
 
 const _BIOME_MUSIC: Array = [
@@ -102,7 +101,6 @@ const _BIOME_MUSIC: Array = [
 	"res://assets/audio/music/mountains.ogg",
 ]
 var _terrain_mat: ShaderMaterial
-var _chunk_build_queue: Array[Vector2i] = []
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 var _interact_timer: float = 0.0
 var _roaming_boss_timer: float = 0.0
@@ -139,22 +137,7 @@ var _weather_tint_target: Color = Color(1.0, 1.0, 1.0)
 var _weather_tint_lerp_t: float = 1.0
 const _WEATHER_TINT_SPEED: float = 2.0  # tint blends in 0.5s
 
-# Threaded chunk building
-var _chunk_data_pending: Dictionary = {}    # Vector2i -> true (job in flight)
-var _chunk_build_results: Array[Dictionary] = []  # completed terrain prep, waiting for commit
-var _chunk_build_mutex: Mutex = Mutex.new()
-var _chunk_task_ids: Array[int] = []        # WorkerThreadPool task IDs in flight
-var _chunk_task_id_map: Dictionary = {}     # Vector2i -> task_id for reaping
-var _chunk_queued: Dictionary = {}          # Vector2i -> true (O(1) queue membership)
-var _chunk_queue_dirty: bool = false       # only re-sort when new items were added
-var _pending_physics: Array[Node3D] = []    # ChunkRenderers awaiting physics build
-var _last_dir_update_time: float = -999.0  # throttle direction-change chunk updates
-
-const LOAD_RADIUS:        int = 6
-const UNLOAD_RADIUS:      int = 7
-const CACHE_EVICT_RADIUS: int = 10  # evict chunk data beyond this to bound memory
-var WORLD_SEED:           int = 42  # overwritten in _ready() for infinite worlds
-const MAX_CHUNK_JOBS:     int = 4   # concurrent WorkerThreadPool tasks
+var WORLD_SEED: int = 42  # overwritten in _ready() for infinite worlds
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
 @onready var _camera: Camera3D = $Camera3D
@@ -274,34 +257,26 @@ func _ready() -> void:
 				_show_dialogue.call_deferred(
 					"Map '%s' could not be loaded — using a generated map instead." % map_name)
 
+	# ChunkStreamingManager owns all chunk lifecycle state and thread work.
+	# Created after world_map is ready so it receives the correct reference.
+	_csm = ChunkStreamingManager.new()
+	_csm.name = "ChunkStreamingManager"
+	add_child(_csm)
+	_csm.setup(WORLD_SEED, _is_infinite, world_map, _terrain_mat, self)
+	_csm.player_chunk_changed.connect(_on_player_chunk_changed)
+	_csm.chunk_committed.connect(_on_chunk_committed)
+	_csm.chunk_unloading.connect(_on_chunk_unloading)
+
 	_spawn_player()
 
 	if _is_infinite:
-		_update_chunks()
-		# Build the inner 5×5 ring synchronously for an immediate view;
-		# outer chunks stream in via threaded jobs in _process.
-		var sync_cx: int = _last_player_chunk.x
-		var sync_cz: int = _last_player_chunk.y
-		var deferred: Array[Vector2i] = []
-		while not _chunk_build_queue.is_empty():
-			var key: Vector2i = _chunk_build_queue.pop_front()
-			if abs(key.x - sync_cx) <= 2 and abs(key.y - sync_cz) <= 2:
-				_build_chunk_sync(key)
-			else:
-				deferred.append(key)
-		_chunk_build_queue.assign(deferred)
+		_csm.build_initial_infinite(_player.position)
 		_spawn_open_world_rival_enc2()
 	else:
 		# Named map: load all chunks covering the 100×100 tile map synchronously
 		var max_cx: int = (WorldMap.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
 		var max_cz: int = (WorldMap.MAP_HEIGHT + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
-		for cz in range(max_cz):
-			for cx in range(max_cx):
-				_build_chunk_sync(Vector2i(cx, cz))
-		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-		_last_player_chunk = Vector2i(
-			int(floor(_player.position.x / chunk_world)),
-			int(floor(_player.position.z / chunk_world)))
+		_csm.build_all_named_map(max_cx, max_cz, _player.position)
 		_spawn_named_map_scrolls()
 		_spawn_named_map_shrines()
 		_spawn_named_map_waystones()
@@ -542,12 +517,8 @@ func _ready() -> void:
 	GameBus.map_transition_requested.connect(_clear_dest_marker)
 
 func _exit_tree() -> void:
-	# Wait for any in-flight worker tasks before the GDScript instance is freed.
-	# Without this, WorkerThreadPool holds a Callable referencing this object and
-	# crashes on shutdown when it tries to clean up while the instance is gone.
-	for task_id: int in _chunk_task_ids:
-		WorkerThreadPool.wait_for_task_completion(task_id)
-	_chunk_task_ids.clear()
+	if _csm != null:
+		_csm.exit_cleanup()
 	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
 		_active_weather_particles.queue_free()
 	_active_weather_particles = null
@@ -685,381 +656,87 @@ func _spawn_player() -> void:
 # Used by ChunkRenderer during terrain height computation so hills blend
 # seamlessly across chunk borders.
 func get_tile_global(wtx: int, wtz: int) -> int:
-	if not _is_infinite:
-		return world_map.get_tile(wtx, wtz)
-	var cx: int = int(floor(float(wtx) / float(IsoConst.CHUNK_SIZE)))
-	var cz: int = int(floor(float(wtz) / float(IsoConst.CHUNK_SIZE)))
-	var key := Vector2i(cx, cz)
-	if not _chunk_data_cache.has(key):
-		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk_data_only(cx, cz, WORLD_SEED)
-	var lx: int = wtx - cx * IsoConst.CHUNK_SIZE
-	var lz: int = wtz - cz * IsoConst.CHUNK_SIZE
-	var chunk: RefCounted = _chunk_data_cache[key]
-	return chunk.get_tile(lx, lz)
+	return _csm.get_tile_global(wtx, wtz)
 
 func _get_height_global(wtx: int, wtz: int) -> int:
-	if not _is_infinite:
-		return world_map.get_height(wtx, wtz)
-	var cx: int = int(floor(float(wtx) / float(IsoConst.CHUNK_SIZE)))
-	var cz: int = int(floor(float(wtz) / float(IsoConst.CHUNK_SIZE)))
-	var key := Vector2i(cx, cz)
-	if not _chunk_data_cache.has(key):
-		_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk_data_only(cx, cz, WORLD_SEED)
-	var lx: int = wtx - cx * IsoConst.CHUNK_SIZE
-	var lz: int = wtz - cz * IsoConst.CHUNK_SIZE
-	var chunk: RefCounted = _chunk_data_cache[key]
-	return chunk.get_height(lx, lz)
+	return _csm.get_height_global(wtx, wtz)
 
 # Compute terrain height at a world position using the shared smoothstep algorithm.
 func get_terrain_height(wx: float, wz: float) -> float:
 	if _is_infinite:
-		# Use the same radii as ChunkRenderer so entity Y matches the rendered terrain
 		return TerrainMath.get_height_at(wx, wz, get_tile_global, _get_height_global,
 				IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
 	return TerrainMath.get_height_at(wx, wz, world_map.get_tile, world_map.get_height,
 			IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
 
-# Returns false if the chunk AABB is definitely outside the camera frustum.
-# Uses the standard separating-plane test: if all 8 corners of the chunk's
-# bounding box are on the outside of any single frustum plane, it's culled.
-func _chunk_in_frustum(cx: int, cz: int, frustum: Array[Plane]) -> bool:
-	var ws: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var x0: float = float(cx) * ws
-	var z0: float = float(cz) * ws
-	var x1: float = x0 + ws
-	var z1: float = z0 + ws
-	# Y range: -1 (below flat ground) to 16 (above tallest mountain/ruin peak)
-	for plane: Plane in frustum:
-		if (not plane.is_point_over(Vector3(x0, -1.0, z0)) and
-			not plane.is_point_over(Vector3(x1, -1.0, z0)) and
-			not plane.is_point_over(Vector3(x0, -1.0, z1)) and
-			not plane.is_point_over(Vector3(x1, -1.0, z1)) and
-			not plane.is_point_over(Vector3(x0, 16.0, z0)) and
-			not plane.is_point_over(Vector3(x1, 16.0, z0)) and
-			not plane.is_point_over(Vector3(x0, 16.0, z1)) and
-			not plane.is_point_over(Vector3(x1, 16.0, z1))):
-			return false
-	return true
+# ── ChunkStreamingManager signal handlers ─────────────────────────────────────
 
-func _update_chunks() -> void:
-	if _player == null:
-		return
+func _on_player_chunk_changed(_chunk: Vector2i, biome_id: int) -> void:
+	_current_biome = biome_id
+	AudioManager.play_music(_BIOME_MUSIC[biome_id])
+	AudioManager.set_ambience(biome_id)
+	SceneManager.save_manager.visit_biome(biome_id)
+	WeatherManager.set_biome(biome_id)
+	GameBus.biome_changed.emit(biome_id)
 
-	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var pcx: int = int(floor(_player.position.x / chunk_world))
-	var pcz: int = int(floor(_player.position.z / chunk_world))
-	var player_chunk := Vector2i(pcx, pcz)
-
-	var new_biome: int = InfiniteWorldGen.biome_for_chunk(pcx, pcz, WORLD_SEED)
-	if new_biome != _current_biome:
-		_current_biome = new_biome
-		AudioManager.play_music(_BIOME_MUSIC[new_biome])
-		AudioManager.set_ambience(new_biome)
-		SceneManager.save_manager.visit_biome(new_biome)
-		WeatherManager.set_biome(new_biome)
-		GameBus.biome_changed.emit(new_biome)
-
-	# Camera frustum for visibility culling. Falls back to load-all if unavailable.
-	var frustum: Array[Plane] = _camera.get_frustum()
-
-	# Movement lookahead direction (XZ plane, normalised; zero when standing still).
-	var vel_xz: Vector2 = Vector2(_player.velocity.x, _player.velocity.z)
-	var look_dir: Vector2 = vel_xz.normalized() if vel_xz.length_squared() > 0.25 else Vector2.ZERO
-
-	# Queue chunks that are visible or in the movement lookahead cone.
-	# Tile data for neighbours is ensured lazily in _kick_chunk_jobs before dispatch.
-	for dz in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
-		for dx in range(-LOAD_RADIUS, LOAD_RADIUS + 1):
-			var key := Vector2i(pcx + dx, pcz + dz)
-			if _chunk_renderers.has(key) or _chunk_queued.has(key):
-				continue
-			# Trim square to a circle (skip far corners of the grid)
-			if dx * dx + dz * dz > LOAD_RADIUS * LOAD_RADIUS:
-				continue
-			# Always load the immediate 3×3 neighbourhood around the player
-			if abs(dx) <= 1 and abs(dz) <= 1:
-				_chunk_build_queue.append(key)
-				_chunk_queued[key] = true
-				continue
-			# Load if visible in camera frustum (or no frustum available)
-			if frustum.is_empty() or _chunk_in_frustum(key.x, key.y, frustum):
-				_chunk_build_queue.append(key)
-				_chunk_queued[key] = true
-				continue
-			# Load if inside the forward movement cone (~120° arc ahead)
-			if look_dir.length_squared() > 0.1:
-				var to_chunk := Vector2(float(dx), float(dz))
-				if to_chunk.length_squared() > 0.0 and to_chunk.normalized().dot(look_dir) > 0.3:
-					_chunk_build_queue.append(key)
-					_chunk_queued[key] = true
-
-	_chunk_queue_dirty = true  # queue contents changed — re-sort before next dispatch
-
-	# 3. Unload chunks beyond UNLOAD_RADIUS (distance-based, not frustum,
-	#    so chunks behind you stay loaded while you might still turn around)
-	var keys_to_remove: Array[Vector2i] = []
-	for raw_key in _chunk_renderers:
-		var typed_key: Vector2i = raw_key
-		if abs(typed_key.x - pcx) > UNLOAD_RADIUS or abs(typed_key.y - pcz) > UNLOAD_RADIUS:
-			keys_to_remove.append(typed_key)
-
-	for key in keys_to_remove:
-		var renderer: ChunkRenderer = _chunk_renderers[key]
-		renderer.teardown()
-		_chunk_renderers.erase(key)
-		var grass_node: GrassBlades = _grass as GrassBlades
-		if grass_node:
-			grass_node.remove_chunk(key)
-		# Evict nocturnal enemies in this chunk immediately
-		_evict_nocturnal_enemies_in_chunk(key)
-		# Remove entities belonging to this chunk from the active sets
-		var chunk: RefCounted = _chunk_data_cache[key]
-		for e_data in chunk.enemies:
-			var eid: String = str(e_data.get("id", ""))
-			var enode: Node3D = _enemy_nodes.get(eid) as Node3D
-			if is_instance_valid(enode):
-				enode.queue_free()
-			_enemy_nodes.erase(eid)
-		for c_data in chunk.chests:
-			var cid: String = str(c_data.get("id", ""))
-			_active_chest_data.erase(cid)
-			var cnode: Node3D = _chest_nodes.get(cid) as Node3D
-			if is_instance_valid(cnode):
-				cnode.queue_free()
-			_chest_nodes.erase(cid)
-		for d_data in chunk.doors:
-			var did: String = str(d_data.get("id", ""))
-			_active_door_data.erase(did)
-			var dnode: Node3D = _door_nodes.get(did) as Node3D
-			if is_instance_valid(dnode):
-				dnode.queue_free()
-			_door_nodes.erase(did)
-		for n_data in chunk.npcs:
-			var nid: String = str(n_data.get("id", ""))
-			_active_npc_data.erase(nid)
-			var nnode: Node3D = _npc_nodes.get(nid) as Node3D
-			if is_instance_valid(nnode):
-				nnode.queue_free()
-			_npc_nodes.erase(nid)
-		for w_data in chunk.waystones:
-			var wid: String = str(w_data.get("id", ""))
-			_active_waystone_data.erase(wid)
-			var wnode: Node3D = _waystone_nodes.get(wid) as Node3D
-			if is_instance_valid(wnode):
-				wnode.queue_free()
-			_waystone_nodes.erase(wid)
-		for m_data in chunk.burial_mounds:
-			var mid: String = str(m_data.get("id", ""))
-			var mnode: Node3D = _burial_mound_nodes.get(mid) as Node3D
-			if is_instance_valid(mnode):
-				mnode.queue_free()
-			_burial_mound_nodes.erase(mid)
-		for l_data: Dictionary in chunk.landmarks:
-			var lid: String = str(l_data.get("id", ""))
-			_active_landmark_data.erase(lid)
-		for w_data in chunk.mana_wells:
-			var wid: String = str(w_data.get("id", ""))
-			var wnode: Node3D = _mana_well_nodes.get(wid) as Node3D
-			if is_instance_valid(wnode):
-				wnode.queue_free()
-			_mana_well_nodes.erase(wid)
-
-	# Evict chunk data cache entries far beyond the unload radius to bound memory.
-	# Keep a margin beyond UNLOAD_RADIUS so neighbour tile lookups still hit cache.
-	var cache_keys_to_remove: Array[Vector2i] = []
-	for raw_key in _chunk_data_cache:
-		var typed_key: Vector2i = raw_key
-		if abs(typed_key.x - pcx) > CACHE_EVICT_RADIUS or abs(typed_key.y - pcz) > CACHE_EVICT_RADIUS:
-			cache_keys_to_remove.append(typed_key)
-	for key in cache_keys_to_remove:
-		_chunk_data_cache.erase(key)
-
-	_last_player_chunk = player_chunk
-
-# ── Tile-grid snapshot helpers ─────────────────────────────────────────────
-
-# Ensure 3×3 neighbourhood of chunk key has tile-only data in the cache.
-# Fast: only noise for 16×16 tiles each, no mesh work.
-func _ensure_tile_data_around(key: Vector2i) -> void:
-	if not _is_infinite:
-		return  # named map reads tiles directly from world_map
-	for dz in range(-1, 2):
-		for dx in range(-1, 2):
-			var nkey := Vector2i(key.x + dx, key.y + dz)
-			if not _chunk_data_cache.has(nkey):
-				_chunk_data_cache[nkey] = InfiniteWorldGen.generate_chunk_data_only(nkey.x, nkey.y, WORLD_SEED)
-
-# Build the packed tile-type grid needed by ChunkRenderer.prepare_terrain().
-# Returns [tile_grid, grid_min_x, grid_min_z, grid_w].
-func _snapshot_tile_grid_for(key: Vector2i) -> Array:
-	const TILE_CHECK: int = ChunkRenderer.TILE_CHECK
-	var chunk_origin_x: float = float(key.x * IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var chunk_origin_z: float = float(key.y * IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var base_tx: int = int(chunk_origin_x / IsoConst.TILE_SIZE)
-	var base_tz: int = int(chunk_origin_z / IsoConst.TILE_SIZE)
-	var grid_min_x: int = base_tx - TILE_CHECK
-	var grid_min_z: int = base_tz - TILE_CHECK
-	var grid_w: int = IsoConst.CHUNK_SIZE + TILE_CHECK * 2 + 1
-	var grid_h: int = IsoConst.CHUNK_SIZE + TILE_CHECK * 2 + 1
-	var tile_grid := PackedInt32Array()
-	var height_grid := PackedInt32Array()
-	tile_grid.resize(grid_w * grid_h)
-	height_grid.resize(grid_w * grid_h)
-	for gz in range(grid_h):
-		for gx in range(grid_w):
-			var idx: int = gz * grid_w + gx
-			var wtx: int = grid_min_x + gx
-			var wtz: int = grid_min_z + gz
-			tile_grid[idx] = get_tile_global(wtx, wtz)
-			height_grid[idx] = _get_height_global(wtx, wtz)
-	return [tile_grid, height_grid, grid_min_x, grid_min_z, grid_w]
-
-# ── Threaded chunk building ────────────────────────────────────────────────
-
-# Worker-thread task: does the heavy CPU work (height field, packed arrays,
-# ArrayMesh, HeightMapShape3D) without touching the scene tree.
-func _chunk_prepare_task(key: Vector2i, chunk_data: RefCounted,
-		tile_grid: PackedInt32Array, height_grid: PackedInt32Array,
-		grid_min_x: int, grid_min_z: int, grid_w: int, p_world_seed: int) -> void:
-	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(
-			chunk_data, tile_grid, height_grid, grid_min_x, grid_min_z, grid_w, p_world_seed)
-	_chunk_build_mutex.lock()
-	_chunk_build_results.append({ "key": key, "chunk_data": chunk_data, "terrain_res": terrain_res })
-	_chunk_build_mutex.unlock()
-
-# Called every frame: kick off thread jobs for queued chunks up to MAX_CHUNK_JOBS.
-func _kick_chunk_jobs() -> void:
-	var pcx: int = _last_player_chunk.x
-	var pcz: int = _last_player_chunk.y
-	# Only sort when new items were added — skipped every frame when idle.
-	if _chunk_queue_dirty and _chunk_build_queue.size() > 1:
-		_chunk_build_queue.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-			var da: int = (a.x - pcx) * (a.x - pcx) + (a.y - pcz) * (a.y - pcz)
-			var db: int = (b.x - pcx) * (b.x - pcx) + (b.y - pcz) * (b.y - pcz)
-			return da < db
-		)
-		_chunk_queue_dirty = false
-
-	var i: int = 0
-	while i < _chunk_build_queue.size():
-		if _chunk_data_pending.size() >= MAX_CHUNK_JOBS:
-			break
-		var key: Vector2i = _chunk_build_queue[i]
-		if _chunk_renderers.has(key) or _chunk_data_pending.has(key):
-			_chunk_build_queue.remove_at(i)
-			_chunk_queued.erase(key)
-			continue
-		if abs(key.x - pcx) > LOAD_RADIUS or abs(key.y - pcz) > LOAD_RADIUS:
-			_chunk_build_queue.remove_at(i)
-			_chunk_queued.erase(key)
-			continue
-
-		# Ensure neighbour tile data exists (fast, sync) then snapshot for thread
-		_ensure_tile_data_around(key)
-		var snap := _snapshot_tile_grid_for(key)
-
-		# Ensure full chunk data (entities) is ready before handing to thread
-		if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
-			if _is_infinite:
-				_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
-			else:
-				_chunk_data_cache[key] = world_map.get_chunk_data(key.x, key.y)
-		var chunk_data: RefCounted = _chunk_data_cache[key]
-
-		_chunk_data_pending[key] = true
-		_chunk_build_queue.remove_at(i)
-		_chunk_queued.erase(key)
-		var task_id: int = WorkerThreadPool.add_task(_chunk_prepare_task.bind(
-				key, chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4], WORLD_SEED))
-		_chunk_task_ids.append(task_id)
-		_chunk_task_id_map[key] = task_id
-		# don't increment i — next item shifted into position
-
-# Called every frame: commit one ready result to the scene tree (cheap).
-func _commit_chunk_results() -> void:
-	_chunk_build_mutex.lock()
-	if _chunk_build_results.is_empty():
-		_chunk_build_mutex.unlock()
-		return
-	var result: Dictionary = _chunk_build_results.pop_front()
-	_chunk_build_mutex.unlock()
-
-	var key: Vector2i = result["key"]
-	_chunk_data_pending.erase(key)
-	# Reap the WorkerThreadPool task so the pool can reclaim its slot.
-	if _chunk_task_id_map.has(key):
-		var done_id: int = _chunk_task_id_map[key]
-		WorkerThreadPool.wait_for_task_completion(done_id)
-		_chunk_task_ids.erase(done_id)
-		_chunk_task_id_map.erase(key)
-
-	# Discard if the chunk was unloaded or is now out of range
-	if _chunk_renderers.has(key):
-		return
-	if abs(key.x - _last_player_chunk.x) > LOAD_RADIUS or abs(key.y - _last_player_chunk.y) > LOAD_RADIUS:
-		return
-
-	var chunk: RefCounted = result["chunk_data"]
-	for c_data in chunk.chests:
-		var cid: String = str(c_data.get("id", ""))
-		_active_chest_data[cid] = c_data
-	for d_data in chunk.doors:
-		var did: String = str(d_data.get("id", ""))
-		_active_door_data[did] = d_data
-	for n_data in chunk.npcs:
-		var nid: String = str(n_data.get("id", ""))
-		_active_npc_data[nid] = n_data
-	for w_data in chunk.waystones:
-		var wid: String = str(w_data.get("id", ""))
-		_active_waystone_data[wid] = w_data
-	for l_data: Dictionary in chunk.landmarks:
+func _on_chunk_committed(_key: Vector2i, chunk_data: RefCounted) -> void:
+	for l_data: Dictionary in chunk_data.landmarks:
 		var lid: String = str(l_data.get("id", ""))
 		_active_landmark_data[lid] = l_data
 
-	var renderer: ChunkRenderer = ChunkRenderer.new()
-	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
-	add_child(renderer)
-	renderer.build_visual(chunk, key, self, _terrain_mat, result["terrain_res"])
-	_chunk_renderers[key] = renderer
-	# Defer physics bodies to next frame to avoid a double-hitch (mesh + physics)
-	_pending_physics.append(renderer)
-
-# Synchronous build used at startup so the world is ready before first frame.
-func _build_chunk_sync(key: Vector2i) -> void:
-	if _chunk_renderers.has(key):
-		return
-	_ensure_tile_data_around(key)
-	var snap := _snapshot_tile_grid_for(key)
-	if not _chunk_data_cache.has(key) or not _chunk_data_cache[key].has_entities:
-		if _is_infinite:
-			_chunk_data_cache[key] = InfiniteWorldGen.generate_chunk(key.x, key.y, WORLD_SEED)
-		else:
-			_chunk_data_cache[key] = world_map.get_chunk_data(key.x, key.y)
-	var chunk: RefCounted = _chunk_data_cache[key]
-	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3], snap[4], WORLD_SEED)
-	for c_data in chunk.chests:
+func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: RefCounted) -> void:
+	for e_data in chunk_data.enemies:
+		var eid: String = str(e_data.get("id", ""))
+		var enode: Node3D = _enemy_nodes.get(eid) as Node3D
+		if is_instance_valid(enode):
+			enode.queue_free()
+		_enemy_nodes.erase(eid)
+	for c_data in chunk_data.chests:
 		var cid: String = str(c_data.get("id", ""))
-		_active_chest_data[cid] = c_data
-	for d_data in chunk.doors:
+		_active_chest_data.erase(cid)
+		var cnode: Node3D = _chest_nodes.get(cid) as Node3D
+		if is_instance_valid(cnode):
+			cnode.queue_free()
+		_chest_nodes.erase(cid)
+	for d_data in chunk_data.doors:
 		var did: String = str(d_data.get("id", ""))
-		_active_door_data[did] = d_data
-	for n_data in chunk.npcs:
+		_active_door_data.erase(did)
+		var dnode: Node3D = _door_nodes.get(did) as Node3D
+		if is_instance_valid(dnode):
+			dnode.queue_free()
+		_door_nodes.erase(did)
+	for n_data in chunk_data.npcs:
 		var nid: String = str(n_data.get("id", ""))
-		_active_npc_data[nid] = n_data
-	for w_data in chunk.waystones:
+		_active_npc_data.erase(nid)
+		var nnode: Node3D = _npc_nodes.get(nid) as Node3D
+		if is_instance_valid(nnode):
+			nnode.queue_free()
+		_npc_nodes.erase(nid)
+	for w_data in chunk_data.waystones:
 		var wid: String = str(w_data.get("id", ""))
-		_active_waystone_data[wid] = w_data
-	for l_data: Dictionary in chunk.landmarks:
+		_active_waystone_data.erase(wid)
+		var wnode: Node3D = _waystone_nodes.get(wid) as Node3D
+		if is_instance_valid(wnode):
+			wnode.queue_free()
+		_waystone_nodes.erase(wid)
+	for m_data in chunk_data.burial_mounds:
+		var mid: String = str(m_data.get("id", ""))
+		var mnode: Node3D = _burial_mound_nodes.get(mid) as Node3D
+		if is_instance_valid(mnode):
+			mnode.queue_free()
+		_burial_mound_nodes.erase(mid)
+	for l_data: Dictionary in chunk_data.landmarks:
 		var lid: String = str(l_data.get("id", ""))
-		_active_landmark_data[lid] = l_data
-	var renderer: ChunkRenderer = ChunkRenderer.new()
-	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
-	add_child(renderer)
-	# Sync path (startup): build visual and physics together — slowness is acceptable here.
-	renderer.build_visual(chunk, key, self, _terrain_mat, terrain_res)
-	renderer.build_physics()
-	_chunk_renderers[key] = renderer
-	_chunk_queued.erase(key)
+		_active_landmark_data.erase(lid)
+	for w_data in chunk_data.mana_wells:
+		var wid: String = str(w_data.get("id", ""))
+		var wnode: Node3D = _mana_well_nodes.get(wid) as Node3D
+		if is_instance_valid(wnode):
+			wnode.queue_free()
+		_mana_well_nodes.erase(wid)
+	_evict_nocturnal_enemies_in_chunk(chunk_key)
+
+# ── ChunkRenderer registration callbacks (called via duck typing) ──────────────
 
 # Called by ChunkRenderer after spawning an enemy
 func register_enemy(eid: String, node: Node3D) -> void:
@@ -1189,17 +866,17 @@ func _find_nocturnal_spawn_pos() -> Vector3:
 		var cx: int = int(floor(tx / chunk_world))
 		var cz: int = int(floor(tz / chunk_world))
 		var key := Vector2i(cx, cz)
-		if not _chunk_data_cache.has(key):
+		if not _csm.has_chunk_data(key):
 			continue
-		var chunk: RefCounted = _chunk_data_cache[key]
+		var chunk: RefCounted = _csm.get_chunk_data(key)
 		var tile_x: int = int(tx / IsoConst.TILE_SIZE) - cx * IsoConst.CHUNK_SIZE
 		var tile_z: int = int(tz / IsoConst.TILE_SIZE) - cz * IsoConst.CHUNK_SIZE
 		tile_x = clampi(tile_x, 0, IsoConst.CHUNK_SIZE - 1)
 		tile_z = clampi(tile_z, 0, IsoConst.CHUNK_SIZE - 1)
 		var li: int = tile_z * IsoConst.CHUNK_SIZE + tile_x
-		if li < 0 or li >= chunk.tile_grid.size():
+		if li < 0 or li >= chunk.tiles.size():
 			continue
-		var tile_type: int = chunk.tile_grid[li]
+		var tile_type: int = chunk.tiles[li]
 		if tile_type != IsoConst.TILE_GRASS:
 			continue
 		var world_y: float = get_terrain_height(tx, tz) + 0.5
@@ -1483,13 +1160,11 @@ func _discover_landmark(lid: String, l_data: Dictionary) -> void:
 
 func _refresh_blight_tints() -> void:
 	var sm := SceneManager.save_manager
-	for key: Vector2i in _chunk_renderers:
-		var cr: ChunkRenderer = _chunk_renderers[key] as ChunkRenderer
-		if cr == null:
-			continue
+	_csm.for_each_renderer(func(key: Vector2i, cr: ChunkRenderer) -> void:
 		var intensity: float = BlightField.blight_intensity(
 			key.x, key.y, WORLD_SEED, sm.days_elapsed, sm.blight_cleansed_hearts)
 		cr.set_blight_amount(intensity)
+	)
 
 func _find_nearby_burial_mound(px: float, pz: float, range_dist: float) -> Node3D:
 	var range_sq: float = range_dist * range_dist
@@ -1704,9 +1379,9 @@ func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
 	for dz in range(-1, 2):
 		for dx in range(-1, 2):
 			var key := Vector2i(pcx + dx, pcz + dz)
-			if not _chunk_data_cache.has(key):
+			if not _csm.has_chunk_data(key):
 				continue
-			var chunk: RefCounted = _chunk_data_cache[key]
+			var chunk: RefCounted = _csm.get_chunk_data(key)
 			for e_data in chunk.enemies:
 				var eid: String = str(e_data.get("id", ""))
 				var node: Node3D = _enemy_nodes.get(eid) as Node3D
@@ -1726,9 +1401,9 @@ func _find_nearby_chest(px: float, pz: float, range_dist: float) -> Dictionary:
 	for dz in range(-1, 2):
 		for dx in range(-1, 2):
 			var key := Vector2i(pcx + dx, pcz + dz)
-			if not _chunk_data_cache.has(key):
+			if not _csm.has_chunk_data(key):
 				continue
-			var chunk: RefCounted = _chunk_data_cache[key]
+			var chunk: RefCounted = _csm.get_chunk_data(key)
 			for c_data in chunk.chests:
 				var cid: String = str(c_data.get("id", ""))
 				var d: Dictionary = _active_chest_data.get(cid, {})
@@ -1775,16 +1450,7 @@ func _break_cracked_wall(tx: int, tz: int) -> void:
 	world_map.save_to_file(SceneManager.save_manager.current_map)
 
 func _rebuild_terrain_around_tile(tx: int, tz: int) -> void:
-	var cx: int = int(floor(float(tx) / float(IsoConst.CHUNK_SIZE)))
-	var cz: int = int(floor(float(tz) / float(IsoConst.CHUNK_SIZE)))
-	for dz in range(-1, 2):
-		for dx in range(-1, 2):
-			var key := Vector2i(cx + dx, cz + dz)
-			var renderer: ChunkRenderer = _chunk_renderers.get(key) as ChunkRenderer
-			if renderer == null:
-				continue
-			var snap := _snapshot_tile_grid_for(key)
-			renderer.rebuild_terrain(snap, WORLD_SEED)
+	_csm.rebuild_terrain_around_tile(tx, tz)
 
 func _find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
@@ -1941,34 +1607,7 @@ func _process(delta: float) -> void:
 		_tick_traveling_merchant(delta)
 		_tick_card_shower()
 		_update_nocturnal_spawns(delta)
-		var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-		var pcx: int = int(floor(_player.position.x / chunk_world))
-		var pcz: int = int(floor(_player.position.z / chunk_world))
-		var needs_update: bool = Vector2i(pcx, pcz) != _last_player_chunk
-		# Also re-evaluate when movement direction turns significantly —
-		# new chunks may have entered the forward cone or become visible.
-		if not needs_update:
-			var vel_xz: Vector2 = Vector2(_player.velocity.x, _player.velocity.z)
-			if vel_xz.length_squared() > 0.25:
-				var new_dir: Vector2 = vel_xz.normalized()
-				if new_dir.dot(_last_move_dir) < 0.7:  # > ~45° turn
-					# Throttle: direction changes trigger at most twice per second to avoid
-					# re-running the 169-chunk frustum scan every frame while turning.
-					var now: float = Time.get_ticks_msec() * 0.001
-					if now - _last_dir_update_time >= 0.5:
-						needs_update = true
-						_last_move_dir = new_dir
-						_last_dir_update_time = now
-		if needs_update:
-			_update_chunks()
-		# Dispatch thread jobs for queued chunks, commit completed results
-		_kick_chunk_jobs()
-		_commit_chunk_results()
-		# Build physics for one deferred chunk per frame (spreads the hitch)
-		if not _pending_physics.is_empty():
-			var r: ChunkRenderer = _pending_physics.pop_front() as ChunkRenderer
-			if is_instance_valid(r):
-				r.build_physics()
+		_csm.process_streaming(_player.position, _player.velocity, _camera.get_frustum())
 
 	# Only update save position when player moves > 1 unit (not every frame)
 	var cur_pos := Vector2(_player.position.x, _player.position.z)
@@ -2092,6 +1731,7 @@ func _do_ghost_phase() -> bool:
 
 	# Build ordered list of directions to try: facing first, then all 4 cardinals
 	var dirs: Array[Vector2i] = []
+	var _last_move_dir: Vector2 = _csm.get_last_move_dir() if _csm != null else Vector2.ZERO
 	if _last_move_dir.length_squared() > 0.01:
 		var primary: Vector2i
 		if abs(_last_move_dir.x) >= abs(_last_move_dir.y):
