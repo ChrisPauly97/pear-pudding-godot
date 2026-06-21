@@ -44,16 +44,16 @@ func test_straight_path_has_correct_endpoints() -> void:
 	assert_eq(path[path.size() - 1], Vector2i(4, 0))
 
 func test_straight_path_optimal_length() -> void:
-	# Manhattan distance = 4; optimal path visits 5 tiles
+	# After string-pull smoothing, a straight open path collapses to [start, dest]
 	var path: Array[Vector2i] = Pathfinder.find_path(_all_grass, Vector2i(0, 0), Vector2i(4, 0), 64)
-	assert_eq(path.size(), 5, "straight 4-tile path should have 5 nodes")
+	assert_eq(path.size(), 2, "smoothed straight open path should have only start and dest")
 
 func test_diagonal_path_optimal_length() -> void:
-	# (0,0) → (4,4): 4 diagonal steps = 5 nodes with 8-directional movement
+	# After string-pull smoothing, open diagonal path collapses to [start, dest]
 	var path: Array[Vector2i] = Pathfinder.find_path(_all_grass, Vector2i(0, 0), Vector2i(4, 4), 64)
 	assert_false(path.is_empty(), "should find a path")
 	assert_eq(path[path.size() - 1], Vector2i(4, 4))
-	assert_eq(path.size(), 5, "diagonal 4+4 path needs only 5 nodes with 8-dir movement")
+	assert_eq(path.size(), 2, "smoothed open diagonal path should have only start and dest")
 
 # ---------------------------------------------------------------------------
 # Path around a partial wall
@@ -101,22 +101,46 @@ func test_max_radius_allows_near_goal() -> void:
 	assert_eq(path[path.size() - 1], Vector2i(5, 0))
 
 # ---------------------------------------------------------------------------
-# Connectivity — every step in path is 4-directionally adjacent
+# Smoothed path correctness — endpoints match and no waypoint is a wall tile
 # ---------------------------------------------------------------------------
 
 func test_open_path_steps_are_adjacent() -> void:
+	# After smoothing, intermediate tiles are skipped; verify endpoints and tile validity.
 	var path: Array[Vector2i] = Pathfinder.find_path(_all_grass, Vector2i(0, 0), Vector2i(6, 4), 64)
 	assert_false(path.is_empty(), "should find a path")
-	for i in range(1, path.size()):
-		var prev: Vector2i = path[i - 1]
-		var curr: Vector2i = path[i]
-		var dist: int = maxi(abs(curr.x - prev.x), abs(curr.y - prev.y))
-		assert_eq(dist, 1, "consecutive tiles must be 8-directionally adjacent (Chebyshev distance 1)")
+	assert_eq(path[0], Vector2i(0, 0), "first waypoint must be start")
+	assert_eq(path[path.size() - 1], Vector2i(6, 4), "last waypoint must be dest")
+	for wp: Vector2i in path:
+		assert_true(_all_grass(wp.x, wp.y) != IsoConst.TILE_WALL, "no waypoint may land on a wall")
 
 func test_detour_path_steps_are_adjacent() -> void:
+	# After smoothing, verify endpoints and no waypoint on a wall tile.
 	var path: Array[Vector2i] = Pathfinder.find_path(_wall_partial, Vector2i(0, 0), Vector2i(4, 0), 64)
-	for i in range(1, path.size()):
-		var prev: Vector2i = path[i - 1]
-		var curr: Vector2i = path[i]
-		var dist: int = maxi(abs(curr.x - prev.x), abs(curr.y - prev.y))
-		assert_eq(dist, 1, "detour steps must be 8-directionally adjacent (Chebyshev distance 1)")
+	assert_false(path.is_empty(), "detour path must not be empty")
+	assert_eq(path[0], Vector2i(0, 0), "first waypoint must be start")
+	assert_eq(path[path.size() - 1], Vector2i(4, 0), "last waypoint must be dest")
+	for wp: Vector2i in path:
+		assert_false(wp.x == 2 and wp.y >= 0 and wp.y <= 5,
+			"no waypoint may land on the wall column")
+
+# ---------------------------------------------------------------------------
+# String-pull smoothing — new tests
+# ---------------------------------------------------------------------------
+
+func test_open_diagonal_path_is_direct() -> void:
+	# Open diagonal: (0,0)→(4,4) should collapse to just [start, dest] after smoothing.
+	var path: Array[Vector2i] = Pathfinder.find_path(_all_grass, Vector2i(0, 0), Vector2i(4, 4), 64)
+	assert_false(path.is_empty(), "should find a path")
+	assert_eq(path.size(), 2, "open diagonal should be [start, dest] after smoothing")
+	assert_eq(path[0], Vector2i(0, 0))
+	assert_eq(path[1], Vector2i(4, 4))
+
+func test_smoothed_path_around_wall_reaches_dest() -> void:
+	# Wall detour: endpoints correct, no waypoint on the wall column.
+	var path: Array[Vector2i] = Pathfinder.find_path(_wall_partial, Vector2i(0, 0), Vector2i(4, 0), 64)
+	assert_false(path.is_empty(), "should find a detour path")
+	assert_eq(path[0], Vector2i(0, 0), "first waypoint must be start")
+	assert_eq(path[path.size() - 1], Vector2i(4, 0), "last waypoint must be dest")
+	for wp: Vector2i in path:
+		assert_false(_wall_partial(wp.x, wp.y) == IsoConst.TILE_WALL,
+			"no smoothed waypoint may land on a wall tile")
