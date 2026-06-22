@@ -88,3 +88,47 @@ static func _gen_mount_horse() -> ImageTexture:
 
 	var himg := Image.create_from_data(W, H, false, Image.FORMAT_RGBA8, hdata)
 	return ImageTexture.create_from_image(himg)
+
+# ── Humanoid characters: 16×32 pixel-art silhouettes ─────────────────────────
+
+static func enemy(is_roaming_boss: bool = false, is_boss: bool = false) -> ImageTexture:
+	if is_roaming_boss:
+		return _cached("enemy_rb",   _gen_humanoid.bind(100,5,5,   178,13,13,  110,8,8))
+	if is_boss:
+		return _cached("enemy_boss", _gen_humanoid.bind(150,100,5,  218,166,13, 140,90,5))
+	return     _cached("enemy",      _gen_humanoid.bind(120,15,15,  180,30,30,  110,10,10))
+
+static func npc_townsperson() -> ImageTexture:
+	return _cached("npc_town",    _gen_humanoid.bind(230,191,153, 51,115,179, 30,70,110))
+
+static func npc_merchant(is_traveling: bool = false) -> ImageTexture:
+	if is_traveling:
+		return _cached("npc_merch_t", _gen_humanoid.bind(230,191,153, 115,38,166, 75,20,110))
+	return     _cached("npc_merch",   _gen_humanoid.bind(230,191,153, 191,158,26, 140,100,10))
+
+static func _gen_humanoid(hr: int, hg: int, hb: int,
+		br: int, bg: int, bb: int,
+		lr: int, lg: int, lb: int) -> ImageTexture:
+	const W: int = 16
+	const H: int = 32
+	var data := PackedByteArray()
+	data.resize(W * H * 4)
+	for y in range(H):
+		for x in range(W):
+			var off: int = (y * W + x) * 4
+			var in_head: bool = y >= 1  and y <= 6  and x >= 5 and x <= 10
+			var in_body: bool = y >= 7  and y <= 18 and x >= 3 and x <= 12
+			var in_larm: bool = y >= 7  and y <= 16 and x >= 0 and x <= 2
+			var in_rarm: bool = y >= 7  and y <= 16 and x >= 13 and x <= 15
+			var in_lleg: bool = y >= 19 and y <= 31 and x >= 3 and x <= 7
+			var in_rleg: bool = y >= 19 and y <= 31 and x >= 8 and x <= 12
+			if in_head:
+				data[off]=hr; data[off+1]=hg; data[off+2]=hb; data[off+3]=255
+			elif in_body:
+				data[off]=br; data[off+1]=bg; data[off+2]=bb; data[off+3]=255
+			elif in_larm or in_rarm or in_lleg or in_rleg:
+				data[off]=lr; data[off+1]=lg; data[off+2]=lb; data[off+3]=255
+			else:
+				data[off]=0; data[off+1]=0; data[off+2]=0; data[off+3]=0
+	var img := Image.create_from_data(W, H, false, Image.FORMAT_RGBA8, data)
+	return ImageTexture.create_from_image(img)

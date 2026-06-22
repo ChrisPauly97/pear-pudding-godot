@@ -1,6 +1,7 @@
 extends "res://scenes/world/entities/WorldEntityBase.gd"
 
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const TextureGen = preload("res://game_logic/TextureGen.gd")
 
 var enemy_data: Dictionary = {}
 var _alive: bool = true
@@ -9,58 +10,19 @@ var _is_roaming_boss: bool = false
 var _tracking: bool = false
 var engage_cooldown: float = 0.0
 
-# Shared across all enemy instances — created once
-static var _body_mat: StandardMaterial3D
-static var _dark_mat: StandardMaterial3D
-static var _body_mesh: BoxMesh
-static var _head_mesh: BoxMesh
-static var _leg_mesh: BoxMesh
-
-static func _ensure_shared_resources() -> void:
-	if _body_mat != null:
-		return
-	_body_mat = StandardMaterial3D.new()
-	_body_mat.albedo_color = Color(0.70, 0.12, 0.12)
-	_body_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_dark_mat = StandardMaterial3D.new()
-	_dark_mat.albedo_color = Color(0.45, 0.05, 0.05)
-	_dark_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_body_mesh = BoxMesh.new()
-	_body_mesh.size = Vector3(0.5, 0.55, 0.3)
-	_head_mesh = BoxMesh.new()
-	_head_mesh.size = Vector3(0.35, 0.35, 0.35)
-	_leg_mesh = BoxMesh.new()
-	_leg_mesh.size = Vector3(0.22, 0.5, 0.22)
-
 func _ready() -> void:
-	_ensure_shared_resources()
-
-	# Re-use the existing MeshInstance3D (so visibility range from ChunkRenderer sticks)
-	var body: MeshInstance3D = find_child("MeshInstance3D", true, false) as MeshInstance3D
-	if body:
-		body.mesh = _body_mesh
-		body.material_override = _body_mat
-		body.position = Vector3(0.0, 0.275, 0.0)
-
-	# Head
-	var head := _make_mi(_head_mesh, _dark_mat)
-	head.position = Vector3(0.0, 0.75, 0.0)
-	add_child(head)
-
-	# Legs
-	var left_leg := _make_mi(_leg_mesh, _dark_mat)
-	left_leg.position = Vector3(-0.15, -0.25, 0.0)
-	add_child(left_leg)
-
-	var right_leg := _make_mi(_leg_mesh, _dark_mat)
-	right_leg.position = Vector3(0.15, -0.25, 0.0)
-	add_child(right_leg)
-
+	var sprite := Sprite3D.new()
+	sprite.texture = TextureGen.enemy(_is_roaming_boss, _is_boss)
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.pixel_size = 0.04
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	sprite.position = Vector3(0.0, 0.69, 0.0)
+	add_child(sprite)
 	if _is_roaming_boss:
-		_apply_roaming_boss_visual()
+		scale = Vector3(1.5, 1.5, 1.5)
 	elif _is_boss:
-		_apply_boss_visual()
-
+		scale = Vector3(1.3, 1.3, 1.3)
 	if _tracking:
 		_setup_proximity_area()
 
@@ -78,7 +40,6 @@ func init_from_data(data: Dictionary) -> void:
 		_is_boss = EnemyRegistry.get_is_boss(etype)
 	_add_difficulty_pip(etype)
 
-# Called by WorldScene when player interacts with this enemy.
 func engage() -> void:
 	if not _alive:
 		return
@@ -149,35 +110,3 @@ func _add_difficulty_pip(enemy_type: String) -> void:
 	lbl.pixel_size = 0.004
 	lbl.position = Vector3(0.0, 1.4, 0.0)
 	add_child(lbl)
-
-func _apply_roaming_boss_visual() -> void:
-	scale = Vector3(1.5, 1.5, 1.5)
-	var crimson_mat := StandardMaterial3D.new()
-	crimson_mat.albedo_color = Color(0.70, 0.05, 0.05)
-	crimson_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	var dark_crimson_mat := StandardMaterial3D.new()
-	dark_crimson_mat.albedo_color = Color(0.40, 0.02, 0.02)
-	dark_crimson_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	for child in get_children():
-		var mi := child as MeshInstance3D
-		if mi:
-			mi.material_override = crimson_mat
-	var body: MeshInstance3D = find_child("MeshInstance3D", true, false) as MeshInstance3D
-	if body:
-		body.material_override = dark_crimson_mat
-
-func _apply_boss_visual() -> void:
-	scale = Vector3(1.3, 1.3, 1.3)
-	var gold_mat := StandardMaterial3D.new()
-	gold_mat.albedo_color = Color(0.85, 0.65, 0.05)
-	gold_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	var dark_gold_mat := StandardMaterial3D.new()
-	dark_gold_mat.albedo_color = Color(0.55, 0.40, 0.02)
-	dark_gold_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	for child in get_children():
-		var mi := child as MeshInstance3D
-		if mi:
-			mi.material_override = gold_mat
-	var body: MeshInstance3D = find_child("MeshInstance3D", true, false) as MeshInstance3D
-	if body:
-		body.material_override = dark_gold_mat
