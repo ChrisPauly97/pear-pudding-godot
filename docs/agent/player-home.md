@@ -20,7 +20,7 @@ When the player interacts with a door whose `entity_id` is `"house_door"` (place
 
 - 100×100 tile grid (PackedInt32Array, all values WALL=1 except tiles x:41–59, z:45–54 which are GRASS=0).
 - `spawn_x = 50`, `spawn_z = 53` — player lands inside the room.
-- Exit door entity: `entity_id = "exit_door"`, tile (50,44), `target_map = ""` → pops map stack back to madrian.
+- Exit door entity: `entity_id = "exit_door"`, tile (50,46), `target_map = ""` → pops map stack back to madrian.
 - Bed NPC entity: `entity_id = "npc_bed"`, `npc_type = "bed"`, tile (57,50).
 - Registered in `MapRegistry._BUNDLED` as `"player_home"` via a `const` preload (Android-safe).
 
