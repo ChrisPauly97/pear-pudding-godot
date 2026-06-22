@@ -13,7 +13,7 @@ The isometric camera follow runs in `_process` off a physics-driven `CharacterBo
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-303 | Add lerp smoothing to camera follow | agent | done | — |
-| TID-304 | Migrate walk animation to AnimatedSprite3D/SpriteFrames | agent | pending | — |
+| TID-304 | Migrate walk animation to AnimatedSprite3D/SpriteFrames | agent | done | — |
 
 ## Acceptance Criteria
 

@@ -13,19 +13,15 @@ const _WalkTex1: Texture2D = preload("res://assets/textures/pixel_art/wizard_wal
 const _WalkTex2: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_2_pixel.png")
 const _WalkTex3: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_3_pixel.png")
 const _WalkTex4: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_4_pixel.png")
-const WALK_FRAMES: int = 4
 
 const ANIM_FPS: float = 6.0        # walking animation speed
 const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite scale
 
 var _velocity_y: float = 0.0
-var _sprite: Sprite3D
+var _sprite: AnimatedSprite3D
 var _mount_sprite: Sprite3D
 var _dust_particles: GPUParticles3D
-var _anim_timer: float = 0.0
-var _anim_frame: int = 0
 var _is_moving: bool = false
-var _walk_frames: Array[Texture2D]
 var _footstep_timer: float = 0.0
 
 # Path-following state (tap-to-move)
@@ -35,7 +31,6 @@ var _has_active_path: bool = false
 const _WP_ARRIVE_DIST_SQ: float = 0.3 * 0.3  # arrive when within 0.3 world units
 
 func _ready() -> void:
-	_walk_frames = [_WalkTex1, _WalkTex2, _WalkTex3, _WalkTex4]
 	collision_layer = 1       # player layer
 	collision_mask  = 2 | 4   # collide with terrain (2) + walls (4)
 	_build_sprite()
@@ -69,8 +64,28 @@ func cancel_path() -> void:
 	_path_wp_index = 0
 
 func _build_sprite() -> void:
-	_sprite = Sprite3D.new()
-	_sprite.texture = _walk_frames[0]
+	# Build a SpriteFrames resource with idle (frame 0) and walk (all 4 frames).
+	var sf := SpriteFrames.new()
+
+	sf.add_animation("idle")
+	sf.set_animation_loop("idle", true)
+	sf.set_animation_speed("idle", ANIM_FPS)
+	sf.add_frame("idle", _WalkTex1)
+
+	sf.add_animation("walk")
+	sf.set_animation_loop("walk", true)
+	sf.set_animation_speed("walk", ANIM_FPS)
+	sf.add_frame("walk", _WalkTex1)
+	sf.add_frame("walk", _WalkTex2)
+	sf.add_frame("walk", _WalkTex3)
+	sf.add_frame("walk", _WalkTex4)
+
+	# SpriteFrames starts with a default "default" animation — remove it.
+	if sf.has_animation("default"):
+		sf.remove_animation("default")
+
+	_sprite = AnimatedSprite3D.new()
+	_sprite.sprite_frames = sf
 	_sprite.pixel_size = PIXEL_SIZE
 	_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_sprite.shaded = false
@@ -85,6 +100,7 @@ func _build_sprite() -> void:
 	_sprite.position = Vector3(0.0, frame_h * 0.5, 0.0)
 
 	add_child(_sprite)
+	_sprite.play("idle")
 
 	# Mount sprite: sits below player sprite, only visible while mounted
 	_mount_sprite = Sprite3D.new()
@@ -175,7 +191,7 @@ func _physics_process(delta: float) -> void:
 		AudioManager.play_sfx("footstep")
 		_footstep_timer = 0.4
 
-	# --- Sprite animation ---
+	# --- Sprite animation (AnimatedSprite3D drives frame timing natively) ---
 	_is_moving = dir.length_squared() > 0.0
 
 	if _is_moving:
@@ -183,18 +199,11 @@ func _physics_process(delta: float) -> void:
 		var screen_x: float = dir.x - dir.z
 		if abs(screen_x) > 0.1:
 			_sprite.flip_h = screen_x < 0.0
-
-		_anim_timer += delta
-		var frame_dur: float = 1.0 / ANIM_FPS
-		if _anim_timer >= frame_dur:
-			_anim_timer -= frame_dur
-			_anim_frame = (_anim_frame + 1) % WALK_FRAMES
-			_sprite.texture = _walk_frames[_anim_frame]
+		if _sprite.animation != &"walk":
+			_sprite.play("walk")
 	else:
-		_anim_timer = 0.0
-		if _anim_frame != 0:
-			_anim_frame = 0
-			_sprite.texture = _walk_frames[0]
+		if _sprite.animation != &"idle":
+			_sprite.play("idle")
 
 	# Dust particles: emit only when mounted and moving
 	if _dust_particles != null:
