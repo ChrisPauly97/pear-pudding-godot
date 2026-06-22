@@ -84,6 +84,7 @@ func _build_ui() -> void:
 	_weapon_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_weapon_scroll.custom_minimum_size = Vector2(0.0, _ref * 0.30)
 	root_vbox.add_child(_weapon_scroll)
+	attach_drag_scroll(_weapon_scroll)
 
 	_weapon_list = VBoxContainer.new()
 	_weapon_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -74,6 +74,32 @@ func _build_margin_vbox(parent: Control, margin_frac: float = 0.015, sep_frac: f
 func _close() -> void:
 	closed.emit()
 
+# Attach mouse-drag-to-scroll behaviour to any ScrollContainer.
+# Works on the container's background and on child controls that let events
+# through (Labels, separators, etc.). Interactive controls (Button, HSlider)
+# still handle their own input normally.
+func attach_drag_scroll(scroll: ScrollContainer) -> void:
+	var drag_start := [0.0]
+	var scroll_start := [0]
+	var dragging := [false]
+
+	scroll.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+			if ev.pressed:
+				drag_start[0] = ev.position.y
+				scroll_start[0] = scroll.scroll_vertical
+				dragging[0] = false
+			else:
+				dragging[0] = false
+		elif ev is InputEventMouseMotion:
+			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+				var dy: float = ev.position.y - drag_start[0]
+				if dragging[0] or absf(dy) > 8.0:
+					dragging[0] = true
+					scroll.scroll_vertical = scroll_start[0] - int(dy)
+					scroll.accept_event()
+	)
+
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		_close()

@@ -14,10 +14,23 @@ func _build_ui() -> void:
 	var panel := _build_centered_panel(panel_w, panel_h)
 	panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
 
-	var vbox := _build_margin_vbox(panel, 0.04, 0.03)
+	var outer_vbox := _build_margin_vbox(panel, 0.04, 0.03)
 
-	vbox.add_child(_UiUtil.make_title_label("Settings", _vh))
-	vbox.add_child(_UiUtil.make_separator())
+	outer_vbox.add_child(_UiUtil.make_title_label("Settings", _vh))
+	outer_vbox.add_child(_UiUtil.make_separator())
+
+	# Scrollable settings area
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer_vbox.add_child(scroll)
+	attach_drag_scroll(scroll)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(_ref * 0.025))
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(vbox)
 
 	# — Audio —
 	var audio_lbl := Label.new()
@@ -82,14 +95,12 @@ func _build_ui() -> void:
 			SceneManager.save_manager.set_setting("battle_speed", "fast" if idx == 1 else "normal")
 	)
 
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(spacer)
-
+	# Close button pinned below the scroll area
+	outer_vbox.add_child(_UiUtil.make_separator())
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	btn_row.add_child(_UiUtil.make_close_button(_vh, _close))
-	vbox.add_child(btn_row)
+	outer_vbox.add_child(btn_row)
 
 func _scale_to_index(scale: float) -> int:
 	if scale < 0.95:
