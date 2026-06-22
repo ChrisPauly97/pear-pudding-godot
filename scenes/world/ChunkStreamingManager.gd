@@ -29,7 +29,6 @@ var _chunk_task_ids: Array[int] = []
 var _chunk_task_id_map: Dictionary = {}       # Vector2i -> task_id
 var _chunk_queued: Dictionary = {}            # Vector2i -> true (O(1) membership)
 var _chunk_queue_dirty: bool = false
-var _pending_physics: Array[Node3D] = []
 var _chunk_build_queue: Array[Vector2i] = []
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
 
@@ -104,10 +103,6 @@ func process_streaming(player_pos: Vector3, player_vel: Vector3, camera_frustum:
 		_update_chunks(player_pos, camera_frustum, look_dir)
 	_kick_chunk_jobs()
 	_commit_chunk_results()
-	if not _pending_physics.is_empty():
-		var r: ChunkRenderer = _pending_physics.pop_front() as ChunkRenderer
-		if is_instance_valid(r):
-			r.build_physics()
 
 ## Returns the chunk coordinate the player was last seen in.
 func get_last_player_chunk() -> Vector2i:
@@ -381,8 +376,8 @@ func _commit_chunk_results() -> void:
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
 	add_child(renderer)
 	renderer.build_visual(chunk, key, _world_scene, _terrain_mat, result["terrain_res"])
+	renderer.build_physics()
 	_chunk_renderers[key] = renderer
-	_pending_physics.append(renderer)
 	chunk_committed.emit(key, chunk)
 
 func _build_chunk_sync(key: Vector2i) -> void:
