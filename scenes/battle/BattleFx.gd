@@ -109,20 +109,6 @@ func _tick_statuses_on_hero(hero: HeroState, player_idx: int) -> void:
 		else:
 			hero.apply_status("poison", nv)
 		GameBus.status_ticked.emit(hid, "poison", maxi(nv, 0))
-	if hero.has_status("freeze"):
-		var dur: int = hero.get_status_value("freeze") - 1
-		if dur <= 0:
-			hero.clear_status("freeze")
-		else:
-			hero.apply_status("freeze", dur)
-		GameBus.status_ticked.emit(hid, "freeze", maxi(dur, 0))
-	if hero.has_status("stun"):
-		var dur: int = hero.get_status_value("stun") - 1
-		if dur <= 0:
-			hero.clear_status("stun")
-		else:
-			hero.apply_status("stun", dur)
-		GameBus.status_ticked.emit(hid, "stun", maxi(dur, 0))
 
 # -------------------------------------------------------------------------
 # Status icon rendering — unified
