@@ -78,7 +78,7 @@ func _close() -> void:
 # Works on the container's background and on child controls that let events
 # through (Labels, separators, etc.). Interactive controls (Button, HSlider)
 # still handle their own input normally.
-func attach_drag_scroll(scroll: ScrollContainer) -> void:
+static func attach_drag_scroll(scroll: ScrollContainer) -> void:
 	var drag_start := [0.0]
 	var scroll_start := [0]
 	var dragging := [false]

@@ -640,8 +640,8 @@ func get_chunk_data(cx: int, cz: int) -> RefCounted:
 			cd.set_height(lx, lz, get_height(tx0 + lx, tz0 + lz))
 	var wx0: float = float(tx0) * TILE_SIZE
 	var wz0: float = float(tz0) * TILE_SIZE
-	var wx1: float = wx0 + float(CHUNK_SIZE) * TILE_SIZE
-	var wz1: float = wz0 + float(CHUNK_SIZE) * TILE_SIZE
+	var wx1: float = wx0 + float(IsoConst.CHUNK_SIZE) * TILE_SIZE
+	var wz1: float = wz0 + float(IsoConst.CHUNK_SIZE) * TILE_SIZE
 	for e in enemies:
 		if e["x"] >= wx0 and e["x"] < wx1 and e["z"] >= wz0 and e["z"] < wz1:
 			cd.enemies.append(e)
