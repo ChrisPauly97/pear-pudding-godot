@@ -175,7 +175,7 @@ func rebuild_terrain(snap: Array, world_seed: int = 42) -> void:
 	for child in get_children():
 		child.queue_free()
 	_physics_built = false
-	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(
+	var terrain_res: Dictionary = prepare_terrain(
 		_chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4], world_seed)
 	_terrain_hmap = terrain_res["hmap"]
 	_terrain_chunk_world = terrain_res["chunk_world"]
