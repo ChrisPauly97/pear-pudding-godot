@@ -156,6 +156,7 @@ func _build_ui() -> void:
 	if scroll_min_h > 0.0:
 		left_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
 	left_vbox.add_child(left_scroll)
+	attach_drag_scroll(left_scroll)
 
 	_collection_list = VBoxContainer.new()
 	_collection_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -223,6 +224,7 @@ func _build_ui() -> void:
 	if scroll_min_h > 0.0:
 		right_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
 	right_vbox.add_child(right_scroll)
+	attach_drag_scroll(right_scroll)
 
 	_deck_list = VBoxContainer.new()
 	_deck_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -290,6 +292,7 @@ func _build_ui() -> void:
 	var craft_scroll := ScrollContainer.new()
 	craft_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	craft_box.add_child(craft_scroll)
+	attach_drag_scroll(craft_scroll)
 
 	_craft_list = VBoxContainer.new()
 	_craft_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -123,6 +123,7 @@ func _build_ui() -> void:
 	var left_scroll := ScrollContainer.new()
 	left_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	left_panel.add_child(left_scroll)
+	attach_drag_scroll(left_scroll)
 
 	_scroll_list = VBoxContainer.new()
 	_scroll_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL

@@ -37,6 +37,7 @@ func _build_ui() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_vbox.add_child(scroll)
+	attach_drag_scroll(scroll)
 
 	var list := VBoxContainer.new()
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL

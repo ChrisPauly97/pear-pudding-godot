@@ -30,6 +30,7 @@ func _ready() -> void:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	vbox.add_child(scroll)
+	attach_drag_scroll(scroll)
 
 	_rich = RichTextLabel.new()
 	_rich.bbcode_enabled = true
