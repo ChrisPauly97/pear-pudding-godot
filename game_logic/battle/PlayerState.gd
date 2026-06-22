@@ -118,8 +118,6 @@ func effective_cost(card: CardInstance) -> int:
 		card.cost, card.magic_branch, battlefield_biome, is_night, grasslands_card_played)
 
 func can_play(card: CardInstance) -> bool:
-	if hero.has_status("freeze"):
-		return false
 	var cost: int = effective_cost(card)
 	if card.card_class == "spell":
 		return hero.mana >= cost

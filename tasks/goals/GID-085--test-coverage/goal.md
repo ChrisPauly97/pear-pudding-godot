@@ -12,9 +12,9 @@ Add headless test suites for the two highest-risk untested paths (SaveManager pe
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-305 | Add test_save_manager.gd suite | agent | pending | — |
-| TID-306 | Add test_scene_manager_state.gd suite | agent | pending | — |
-| TID-307 | BattleScene keyword integration tests + resolve hero freeze/stun | agent | pending | — |
+| TID-305 | Add test_save_manager.gd suite | agent | done | — |
+| TID-306 | Add test_scene_manager_state.gd suite | agent | done | — |
+| TID-307 | BattleScene keyword integration tests + resolve hero freeze/stun | agent | done | — |
 
 ## Acceptance Criteria
 
