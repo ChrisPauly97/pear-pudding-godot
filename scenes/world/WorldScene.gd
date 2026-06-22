@@ -126,6 +126,10 @@ var _weather_tint_target: Color = Color(1.0, 1.0, 1.0)
 var _weather_tint_lerp_t: float = 1.0
 const _WEATHER_TINT_SPEED: float = 2.0  # tint blends in 0.5s
 
+# Camera smoothing: lerped toward player each _process frame to eliminate
+# micro-stutter on high-refresh displays (camera runs at render rate, physics at ~60 Hz).
+var _smooth_camera_target: Vector3 = Vector3.ZERO
+
 var WORLD_SEED: int = 42  # overwritten in _ready() for infinite worlds
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
@@ -435,7 +439,8 @@ func _spawn_player() -> void:
 	_player = _create_player_node()
 	_player.position = Vector3(px, get_terrain_height(px, pz) + 0.5, pz)
 	_entity_root.add_child(_player)
-	_camera.position = _player.position + Vector3(20, 20, 20)
+	_smooth_camera_target = _player.position + Vector3(20, 20, 20)
+	_camera.position = _snap_to_pixel(_smooth_camera_target)
 
 # Returns the tile type at global tile coordinates (wtx, wtz).
 # Used by ChunkRenderer during terrain height computation so hills blend
@@ -1283,7 +1288,9 @@ func _snap_to_pixel(pos: Vector3) -> Vector3:
 func _process(delta: float) -> void:
 	if _player == null:
 		return
-	_camera.position = _snap_to_pixel(_player.position + Vector3(20, 20, 20))
+	var cam_target := _player.position + Vector3(20, 20, 20)
+	_smooth_camera_target = _smooth_camera_target.lerp(cam_target, clampf(20.0 * delta, 0.0, 1.0))
+	_camera.position = _snap_to_pixel(_smooth_camera_target)
 	if _minimap:
 		_minimap.update()
 	if _world_hud:
