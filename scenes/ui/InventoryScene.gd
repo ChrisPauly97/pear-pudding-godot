@@ -35,6 +35,8 @@ var _tab_craft_btn: Button
 var _craft_panel: Control
 var _craft_list: VBoxContainer
 var _craft_essence_label: Label
+var _craft_rarity_row: HBoxContainer
+var _craft_rarity: String = "common"
 var _inspect_overlay: Control = null
 
 var _loadout_tab_row: HBoxContainer
@@ -286,6 +288,11 @@ func _build_ui() -> void:
 	_craft_essence_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_craft_essence_label.modulate = Color(0.5, 0.85, 1.0)
 	craft_box.add_child(_craft_essence_label)
+
+	_craft_rarity_row = HBoxContainer.new()
+	_craft_rarity_row.add_theme_constant_override("separation", int(_ref * 0.006))
+	_craft_rarity_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	craft_box.add_child(_craft_rarity_row)
 
 	var craft_scroll := ScrollContainer.new()
 	craft_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1204,23 +1211,39 @@ func _refresh_craft() -> void:
 
 	_craft_essence_label.text = "Essence: %d" % SceneManager.save_manager.essence
 
+	# Rebuild rarity selector buttons.
+	for child in _craft_rarity_row.get_children():
+		child.queue_free()
+	for rarity: String in IsoConst.RARITY_ORDER:
+		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+		var ess_cost: int = int(cfg.get("craft_essence", 0))
+		var sel_btn := Button.new()
+		sel_btn.text = "%s %de" % [_UiUtil.rarity_badge(rarity), ess_cost]
+		sel_btn.custom_minimum_size = Vector2(_ref * 0.17, _ref * 0.058)
+		sel_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		if rarity == _craft_rarity:
+			sel_btn.modulate = _UiUtil.rarity_color(rarity)
+		else:
+			sel_btn.modulate = Color(0.50, 0.50, 0.50)
+		sel_btn.pressed.connect(func() -> void:
+			_craft_rarity = rarity
+			_refresh_craft())
+		_craft_rarity_row.add_child(sel_btn)
+
+	# Show only recipes for the selected rarity, sorted by card name.
 	var recipes: Array = CraftingRegistry.get_all_recipes()
-	recipes.sort_custom(func(a, b) -> bool:
-		var ta: String = str(a.template_id)
-		var tb: String = str(b.template_id)
-		var tmpl_a: Dictionary = CardRegistry.get_template(ta)
-		var tmpl_b: Dictionary = CardRegistry.get_template(tb)
-		var na: String = str(tmpl_a.get("name", ta))
-		var nb: String = str(tmpl_b.get("name", tb))
-		if na != nb:
-			return na < nb
-		var ra: int = IsoConst.RARITY_ORDER.find(str(a.rarity))
-		var rb: int = IsoConst.RARITY_ORDER.find(str(b.rarity))
-		return ra < rb
+	var filtered: Array = []
+	for recipe in recipes:
+		if str(recipe.rarity) == _craft_rarity:
+			filtered.append(recipe)
+	filtered.sort_custom(func(a: Object, b: Object) -> bool:
+		var na: String = str(CardRegistry.get_template(str(a.template_id)).get("name", str(a.template_id)))
+		var nb: String = str(CardRegistry.get_template(str(b.template_id)).get("name", str(b.template_id)))
+		return na < nb
 	)
 
 	var player_essence: int = SceneManager.save_manager.essence
-	for recipe in recipes:
+	for recipe in filtered:
 		_craft_list.add_child(_make_craft_row(recipe, player_essence))
 
 	# Potions section

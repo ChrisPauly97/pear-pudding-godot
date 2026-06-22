@@ -10,6 +10,7 @@ const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 
 const CARD_PRICE: int = 15
 const SEED_PRICE: int = 30
@@ -21,6 +22,9 @@ var _custom_title: String = ""          # "" = use default title
 
 # Town gratitude discount: set by SceneManager from current_map before add_child().
 var town_name: String = ""
+
+# Rarity selected for the cards section (session state).
+var _shop_card_rarity: String = "common"
 
 var _coin_label: Label
 var _title_lbl: Label
@@ -110,7 +114,15 @@ func _refresh() -> void:
 	var card_header: String = "— Cards (20% off — Town Discount) —" if discounted else "— Cards —"
 	_shop_list.add_child(_make_section_header(card_header))
 
-	var effective_card_price: int = int(CARD_PRICE * 0.8) if discounted else CARD_PRICE
+	# Rarity selector: 4 connected boxes [C][R][E][L]
+	_shop_list.add_child(_make_card_rarity_selector())
+
+	var base_price: int = int(CARD_PRICE * 0.8) if discounted else CARD_PRICE
+	var rarity_cfg: Dictionary = IsoConst.RARITY_CONFIG.get(_shop_card_rarity, {})
+	var rarity_ess: int = int(rarity_cfg.get("craft_essence", 10))
+	var effective_card_price: int = int(base_price * rarity_ess / 10)
+	effective_card_price = maxi(base_price, effective_card_price)
+
 	var unlocked_ach: Array[String] = SceneManager.save_manager.unlocked_achievements
 	var _sig_ids: Array[String] = EnemyRegistry.get_all_signature_card_ids()
 	for id: String in CardRegistry.get_all_ids():
@@ -219,6 +231,29 @@ func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int
 	buy_btn.pressed.connect(_on_buy_equipment.bind(eid, weapon.slot, price))
 	row.add_child(buy_btn)
 
+	return row
+
+func _make_card_rarity_selector() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 1)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	for rarity: String in IsoConst.RARITY_ORDER:
+		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+		var ess: int = int(cfg.get("craft_essence", 10))
+		var base: int = CARD_PRICE
+		var rarity_price: int = maxi(base, int(base * ess / 10))
+		var btn := Button.new()
+		btn.text = "%s  %dg" % [_UiUtil.rarity_badge(rarity), rarity_price]
+		btn.custom_minimum_size = Vector2(_ref * 0.16, _ref * 0.058)
+		btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		if rarity == _shop_card_rarity:
+			btn.modulate = _UiUtil.rarity_color(rarity)
+		else:
+			btn.modulate = Color(0.50, 0.50, 0.50)
+		btn.pressed.connect(func() -> void:
+			_shop_card_rarity = rarity
+			_refresh())
+		row.add_child(btn)
 	return row
 
 func _make_section_header(text: String) -> Label:
@@ -331,8 +366,11 @@ func _on_buy_card(card_id: String, price: int = CARD_PRICE) -> void:
 	if sm.coins < price:
 		return
 	sm.add_coins(-price)
-	var ids: Array[String] = [card_id]
-	sm.add_cards_to_deck(ids)
+	var stats: Dictionary = _CardDropUtil.roll_stats(card_id, _shop_card_rarity)
+	sm.add_card_instance(card_id, _shop_card_rarity,
+		int(stats.get("attack", -1)),
+		int(stats.get("health", -1)),
+		int(stats.get("cost", -1)))
 	_refresh()
 
 func _on_buy_weapon(weapon_id: String, price: int) -> void:
