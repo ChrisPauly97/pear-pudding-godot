@@ -444,7 +444,7 @@ func _spawn_player() -> void:
 			pz = default_pz
 
 	_player = _create_player_node()
-	_player.position = Vector3(px, get_terrain_height(px, pz) + 0.5, pz)
+	_player.position = Vector3(px, get_terrain_height(px, pz), pz)
 	_entity_root.add_child(_player)
 	_smooth_camera_target = _player.position + Vector3(20, 20, 20)
 	_camera.position = _smooth_camera_target
@@ -1295,11 +1295,12 @@ func _snap_to_pixel(pos: Vector3) -> Vector3:
 func _process(delta: float) -> void:
 	if _player == null:
 		return
-	# Fall-through safety: if player escapes below the terrain, snap them back up.
-	if _player.position.y < -3.0:
-		var rx: float = _player.position.x
-		var rz: float = _player.position.z
-		_player.position = Vector3(rx, get_terrain_height(rx, rz) + 0.5, rz)
+	# Software floor: snap player back to terrain surface if physics misses it.
+	var rx: float = _player.position.x
+	var rz: float = _player.position.z
+	var floor_y: float = get_terrain_height(rx, rz)
+	if _player.position.y < floor_y:
+		_player.position = Vector3(rx, floor_y, rz)
 		_player.cancel_fall()
 		_smooth_camera_target = _player.position + Vector3(20, 20, 20)
 	var cam_target := _player.position + Vector3(20, 20, 20)
