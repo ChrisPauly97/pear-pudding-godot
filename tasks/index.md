@@ -92,6 +92,7 @@
 | [GID-086](goals/GID-086--corruption-redemption-accrual/goal.md) | Corruption & Redemption Points Accrual | pending | 0 / 2 |
 | [GID-087](goals/GID-087--godot-version-spec-alignment/goal.md) | Godot Version & Spec Alignment | pending | 0 / 2 |
 | [GID-088](goals/GID-088--battle-code-quality/goal.md) | Battle Code Quality — GameState Decoupling & Native Drag | pending | 0 / 2 |
+| [GID-089](goals/GID-089--game-visual-polish/goal.md) | Visual Polish — World Art, Atmosphere & Props | pending | 0 / 6 |
 
 ## Backlog
 
