@@ -437,10 +437,10 @@ func _spawn_player() -> void:
 			pz = default_pz
 
 	_player = _create_player_node()
-	_player.position = Vector3(px, get_terrain_height(px, pz) + 0.5, pz)
+	_player.position = Vector3(px, get_terrain_height(px, pz), pz)
 	_entity_root.add_child(_player)
 	_smooth_camera_target = _player.position + Vector3(20, 20, 20)
-	_camera.position = _snap_to_pixel(_smooth_camera_target)
+	_camera.position = _smooth_camera_target
 
 # Returns the tile type at global tile coordinates (wtx, wtz).
 # Used by ChunkRenderer during terrain height computation so hills blend
@@ -1288,6 +1288,13 @@ func _snap_to_pixel(pos: Vector3) -> Vector3:
 func _process(delta: float) -> void:
 	if _player == null:
 		return
+	# Fall-through safety: if player escapes below the terrain, snap them back up.
+	if _player.position.y < -10.0:
+		var rx: float = _player.position.x
+		var rz: float = _player.position.z
+		_player.position = Vector3(rx, get_terrain_height(rx, rz) + 0.5, rz)
+		_player.cancel_fall()
+		_smooth_camera_target = _player.position + Vector3(20, 20, 20)
 	var cam_target := _player.position + Vector3(20, 20, 20)
 	_smooth_camera_target = _smooth_camera_target.lerp(cam_target, clampf(20.0 * delta, 0.0, 1.0))
 	_camera.position = _snap_to_pixel(_smooth_camera_target)

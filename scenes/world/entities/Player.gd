@@ -215,5 +215,9 @@ func _update_mount_visuals(mounted: bool) -> void:
 	if _dust_particles != null and not mounted:
 		_dust_particles.emitting = false
 
+func cancel_fall() -> void:
+	_velocity_y = 0.0
+	velocity = Vector3.ZERO
+
 func _on_mount_state_changed(mounted: bool, _mount_id: String) -> void:
 	_update_mount_visuals(mounted)
