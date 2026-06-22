@@ -245,6 +245,13 @@ func _ready() -> void:
 	_spawn_player()
 
 	if _is_infinite:
+		var floor_body := StaticBody3D.new()
+		floor_body.collision_layer = 2
+		floor_body.collision_mask = 0
+		var floor_col := CollisionShape3D.new()
+		floor_col.shape = WorldBoundaryShape3D.new()
+		floor_body.add_child(floor_col)
+		add_child(floor_body)
 		_csm.build_initial_infinite(_player.position)
 		_spawn_open_world_rival_enc2()
 	else:
@@ -437,7 +444,7 @@ func _spawn_player() -> void:
 			pz = default_pz
 
 	_player = _create_player_node()
-	_player.position = Vector3(px, get_terrain_height(px, pz), pz)
+	_player.position = Vector3(px, get_terrain_height(px, pz) + 0.5, pz)
 	_entity_root.add_child(_player)
 	_smooth_camera_target = _player.position + Vector3(20, 20, 20)
 	_camera.position = _smooth_camera_target
@@ -1289,7 +1296,7 @@ func _process(delta: float) -> void:
 	if _player == null:
 		return
 	# Fall-through safety: if player escapes below the terrain, snap them back up.
-	if _player.position.y < -10.0:
+	if _player.position.y < -3.0:
 		var rx: float = _player.position.x
 		var rz: float = _player.position.z
 		_player.position = Vector3(rx, get_terrain_height(rx, rz) + 0.5, rz)
