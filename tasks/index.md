@@ -86,7 +86,7 @@
 | [GID-080](goals/GID-080--landscape-rotation-direction/goal.md) | Landscape Rotation Direction | done | 1 / 1 |
 | [GID-081](goals/GID-081--hud-coherent-navigation/goal.md) | Coherent HUD & Unified In-Game Navigation | done | 4 / 4 |
 | [GID-082](goals/GID-082--direct-path-movement/goal.md) | Direct-Path Tap-to-Move Movement | done | 2 / 2 |
-| [GID-083](goals/GID-083--instance-battle-stats/goal.md) | Instance-Level Battle Stats | pending | 0 / 1 |
+| [GID-083](goals/GID-083--instance-battle-stats/goal.md) | Instance-Level Battle Stats | done | 1 / 1 |
 | [GID-084](goals/GID-084--camera-smoothing/goal.md) | Camera Smoothing & Walk Animation | pending | 0 / 2 |
 | [GID-085](goals/GID-085--test-coverage/goal.md) | Test Coverage Expansion | pending | 0 / 3 |
 | [GID-086](goals/GID-086--corruption-redemption-accrual/goal.md) | Corruption & Redemption Points Accrual | pending | 0 / 2 |
