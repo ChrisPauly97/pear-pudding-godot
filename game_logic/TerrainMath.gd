@@ -337,10 +337,13 @@ static func build_terrain_mesh(
 	var terrain_mesh := ArrayMesh.new()
 	terrain_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 
+	# HeightMapShape3D in Godot 4 has no cell_size property — vertex spacing is
+	# fixed at 1 world unit, which already matches step (TILE_SIZE / VDENSITY = 1.0).
+	# Setting a non-existent property on the statically-typed shape is a parse error
+	# that fails the whole script to compile, so it must not be reintroduced.
 	var hmap := HeightMapShape3D.new()
 	hmap.map_width = nvx
 	hmap.map_depth = nvz
-	hmap.cell_size = step
 	hmap.map_data  = hfield
 
 	return { "mesh": terrain_mesh, "hmap": hmap }
