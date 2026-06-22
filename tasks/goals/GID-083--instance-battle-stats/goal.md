@@ -12,12 +12,12 @@ GID-028 introduced per-instance card rarity with rolled stats stored in `owned_c
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-302 | Wire get_deck_instances() into BattleScene and PlayerState | agent | pending | — |
+| TID-302 | Wire get_deck_instances() into BattleScene and PlayerState | agent | done | — |
 
 ## Acceptance Criteria
 
-- [ ] Player deck in battle uses per-instance rolled attack/health/cost from `owned_cards`
-- [ ] `SaveManager.get_deck_instances()` is the sole caller path for player deck construction
-- [ ] `get_deck_template_ids()` remains for non-battle uses (deck builder display)
-- [ ] Legendary/epic cards show their upgraded stats on the card in battle
-- [ ] All existing tests pass headless
+- [x] Player deck in battle uses per-instance rolled attack/health/cost from `owned_cards`
+- [x] `SaveManager.get_deck_instances()` is the sole caller path for player deck construction
+- [x] `get_deck_template_ids()` remains for non-battle uses (deck builder display)
+- [x] Legendary/epic cards show their upgraded stats on the card in battle
+- [x] All existing tests pass headless

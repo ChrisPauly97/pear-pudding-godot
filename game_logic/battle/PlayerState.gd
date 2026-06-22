@@ -64,11 +64,12 @@ func build_deck_from_instances(insts: Array[Dictionary]) -> void:
 	discard.clear()
 	hand.clear()
 	pending_auto_spells.clear()
+	var face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
 	for inst: Dictionary in insts:
 		var tid: String = str(inst.get("template_id", ""))
 		if tid == "":
 			continue
-		var tmpl: Dictionary = CardRegistry.get_template(tid)
+		var tmpl: Dictionary = CardRegistry.get_template_for_face(tid, face)
 		if tmpl.is_empty():
 			continue
 		tmpl = tmpl.duplicate()
