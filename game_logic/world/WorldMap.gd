@@ -268,8 +268,8 @@ func load_from_resource(data: Resource) -> void:
 			var door_flag: Variant = r.get("flag_key")
 			doors.append({
 				"id": str(did) if did != null and str(did) != "" else "door_%d" % uid_counter,
-				"x": float(int(dtx)) * TILE_SIZE,
-				"z": float(int(dtz)) * TILE_SIZE,
+				"x": (float(int(dtx)) + 0.5) * TILE_SIZE,
+				"z": (float(int(dtz)) + 0.5) * TILE_SIZE,
 				"target_map": str(target_map) if target_map != null else "",
 				"target_door_id": str(target_door_id) if target_door_id != null else "",
 				"flag_key": str(door_flag) if door_flag != null else "",
@@ -597,8 +597,8 @@ func load_from_string(content: String) -> void:
 							flag_key = parts[5].substr(5)
 				doors.append({
 					"id": "door_%d" % uid_counter,
-					"x": float(parts[1]) * TILE_SIZE,
-					"z": float(parts[2]) * TILE_SIZE,
+					"x": (float(parts[1]) + 0.5) * TILE_SIZE,
+					"z": (float(parts[2]) + 0.5) * TILE_SIZE,
 					"target_map": target,
 					"target_door_id": tdoor,
 					"flag_key": flag_key

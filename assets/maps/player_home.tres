@@ -8,7 +8,7 @@
 script = ExtResource("2_mapdoor")
 entity_id = "exit_door"
 tile_x = 50
-tile_z = 44
+tile_z = 46
 target_map = ""
 target_door_id = ""
 flag_key = ""
