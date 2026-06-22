@@ -340,6 +340,7 @@ static func build_terrain_mesh(
 	var hmap := HeightMapShape3D.new()
 	hmap.map_width = nvx
 	hmap.map_depth = nvz
+	hmap.cell_size = step
 	hmap.map_data  = hfield
 
 	return { "mesh": terrain_mesh, "hmap": hmap }
