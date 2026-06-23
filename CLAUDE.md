@@ -382,6 +382,49 @@ Exit code 0 means all tests passed, 1 means one or more failed.
 
 ---
 
+## Named Map Player Spawn vs. Saved Position
+
+### The rule
+`WorldScene._spawn_player()` uses `save_manager.current_map == map_name` as the
+guard to decide whether to restore a saved player position. **Do not add additional
+guards** (e.g., `not world_map.has_player_spawn()`) to this branch — they break
+save restoration for maps that define an explicit SPAWN marker.
+
+### Why the guard works without extras
+`save_manager.current_map` is written by `update_position(map_name, x, z)`, which
+WorldScene calls from `_process` as the player moves. When entering a map fresh
+(new game, door, waystone), `save_manager.current_map` still points to the **previous**
+map at the time `_spawn_player` runs, so the condition is `false` and the spawn /
+door position is used. Only a `continue_game()` load restores `current_map` to the
+target map, making the condition `true` and restoring the saved coordinates.
+
+### Entry-path summary
+
+| Entry path | `current_map` at spawn time | Position used |
+|---|---|---|
+| New game → enter madrian | `"main"` (set by `new_game()`) | Spawn marker |
+| Continue game in madrian | `"madrian"` (loaded from save) | Saved x/z |
+| Door with target_door_id | any | Door position (first branch) |
+| Waystone → enter madrian | `"main"` (world position flushed) | Spawn marker |
+| Exit dungeon back to madrian | `"dungeon_*"` (last dungeon pos) | Spawn marker |
+
+---
+
+## Bug Fix Learnings
+
+When a bug is fixed, record the root cause and the invariant it violated here so
+future changes don't reintroduce it. Keep entries concise: one paragraph max.
+
+### Named map position not restored on reload (fixed in claude/character-position-save-bug-0glsz2)
+
+`_spawn_player` guarded save-position restore with `not world_map.has_player_spawn()`.
+Maps that define a SPAWN marker (madrian, maykalene, and any future town maps) always
+fell through to the spawn default on `continue_game`, ignoring the persisted `player_x/z`.
+Fix: remove the `has_player_spawn()` guard; `current_map == map_name` is sufficient and
+correct for all entry paths (see table above).
+
+---
+
 ## Documentation: docs/agent/ Directory
 
 Agent-owned feature documentation lives in `docs/agent/`. Each file covers **Key Features**, **How It Works**, **Integrations with Other Features**, and **Asset Requirements**.
