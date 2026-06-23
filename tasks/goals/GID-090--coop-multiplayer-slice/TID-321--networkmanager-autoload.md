@@ -2,7 +2,7 @@
 
 **Goal:** GID-090
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -83,12 +83,37 @@ decision).
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `autoloads/NetworkManager.gd` extending `Node` with:
+   - `enum Transport { ENET, STEAM }` as the swap seam
+   - Signals: `server_started`, `connection_succeeded`, `connection_failed`,
+     `peer_connected(id)`, `peer_disconnected(id)`, `session_ended`
+   - `_ready()` connects native `multiplayer.*` signals to relay handlers
+   - `_create_peer(transport) -> MultiplayerPeer` factory — ENET branch returns
+     `ENetMultiplayerPeer.new()`, STEAM branch push_warning + return null
+   - `host(port)` / `join(ip, port)` call the factory, run `create_server` /
+     `create_client`, assign `multiplayer.multiplayer_peer`
+   - `leave()` clears the peer and emits `session_ended`
+   - `is_active()` / `is_host()` / `local_id()` query multiplayer state
+2. Register `NetworkManager` last in the `[autoload]` section of `project.godot`.
+3. Run headless compile check to confirm clean.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `autoloads/NetworkManager.gd` (Node autoload):
+  - `enum Transport { ENET, STEAM }` marks the swap seam
+  - Signals: `server_started`, `connection_succeeded`, `connection_failed`,
+    `peer_connected(id)`, `peer_disconnected(id)`, `session_ended`
+  - `host(port)` / `join(ip, port)` route through `_create_peer(Transport.ENET)`,
+    call `create_server` / `create_client`, assign `multiplayer.multiplayer_peer`
+  - `leave()` clears the peer and emits `session_ended`
+  - `is_active()` / `is_host()` / `local_id()` query multiplayer state
+  - `_create_peer(transport)` factory: ENET returns `ENetMultiplayerPeer.new()`;
+    STEAM branch push_warning + returns null (stub for GodotSteam)
+  - `_ready()` connects native `multiplayer.*` signals; relay methods re-emit own signals
+- Registered `NetworkManager="*res://autoloads/NetworkManager.gd"` last in
+  `project.godot` [autoload] section (after CompanionRegistry)
+- All 1530 tests pass; headless compile check clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — `docs/agent/multiplayer-coop.md` is created by TID-326.
