@@ -373,7 +373,6 @@ func _ready() -> void:
 	GameBus.enemy_engaged.connect(_clear_dest_marker)
 	GameBus.inventory_requested.connect(_clear_dest_marker)
 	GameBus.journal_requested.connect(_clear_dest_marker)
-	GameBus.map_transition_requested.connect(_clear_dest_marker)
 
 	_setup_coop()
 

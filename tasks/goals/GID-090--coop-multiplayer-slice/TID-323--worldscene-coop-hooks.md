@@ -125,6 +125,15 @@ screens the whole world).
   via change_scene_to_node). Camera logic untouched.
 - All 1530 tests pass; headless compile clean. Live 2-instance verification is TID-325.
 
+### Post-completion fix (host "did nothing")
+
+`_setup_coop()` is the last line of `_ready`, but the preceding line connected to
+`GameBus.map_transition_requested` — a signal removed as dead code in TID-236.
+Accessing the missing signal threw and aborted `_ready` before `_setup_coop()`, so
+`NetSync` was never created and hosting/joining silently did nothing. Fixed by
+removing the dead connect line (the marker is cleared on map change anyway since
+the world reloads). Recorded under CLAUDE.md "Bug Fix Learnings".
+
 ## Documentation Updates
 
 None required — `docs/agent/multiplayer-coop.md` is created by TID-326.

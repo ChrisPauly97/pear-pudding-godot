@@ -495,6 +495,17 @@ fell through to the spawn default on `continue_game`, ignoring the persisted `pl
 Fix: remove the `has_player_spawn()` guard; `current_map == map_name` is sufficient and
 correct for all entry paths (see table above).
 
+### WorldScene `_ready` aborted on a stale dead-signal connect (fixed in claude/game-multiplayer-networking-fb94pj)
+
+`WorldScene._ready` ended with `GameBus.map_transition_requested.connect(...)`, but that
+signal was deleted as dead code back in TID-236. Accessing the non-existent signal threw
+at runtime and aborted `_ready` *at that line* — invisible for a long time because it was
+the last statement, so nothing was lost. When GID-090 appended `_setup_coop()` after it,
+co-op setup silently never ran (no `NetSync`, hosting "did nothing"). Fix: removed the
+dead connect line. Invariant: never `connect` to a GameBus signal without confirming it is
+still declared in `GameBus.gd`; appending to the tail of a long `_ready` can resurrect a
+latent abort — keep `_ready` free of throwing statements.
+
 ---
 
 ## Documentation: docs/agent/ Directory
