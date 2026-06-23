@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ckl5f8itbizu"]
+
+[ext_resource type="Script" path="res://scenes/world/entities/RemotePlayer.gd" id="1_upczd"]
+
+[node name="RemotePlayer" type="Node3D"]
+script = ExtResource("1_upczd")

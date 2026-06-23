@@ -31,7 +31,7 @@ traversal, >2 players, and Steam (stubbed behind a reserved enum).
 |----|------|------|--------|------------|
 | TID-320 | Pure avatar-sync logic (serialize + interpolate) | agent | done | — |
 | TID-321 | NetworkManager autoload (abstracted ENet factory + signals) | agent | done | — |
-| TID-322 | RemotePlayer scene/script + shared AvatarSprite helper | agent | pending | TID-320 |
+| TID-322 | RemotePlayer scene/script + shared AvatarSprite helper | agent | done | TID-320 |
 | TID-323 | WorldScene coop hooks: NetSync RPC node, spawn/despawn, 15 Hz broadcast | agent | pending | TID-321, TID-322 |
 | TID-324 | MultiplayerLobbyScene UI + MenuScene entry + SceneManager coop hook | agent | pending | TID-321, TID-323 |
 | TID-325 | Unit test + headless compile + manual 2-instance verification | agent | pending | TID-323, TID-324 |
