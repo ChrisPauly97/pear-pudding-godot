@@ -2,7 +2,7 @@
 
 **Goal:** GID-091
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-328
 
 ## Lock
@@ -81,12 +81,25 @@ BattleScene without error.
 
 ## Plan
 
-_Written during Plan phase._
+Create `scenes/battle/BattleNetSync.gd` — a plain `Node` with a `battle_scene`
+back-reference and three **reliable** `any_peer`/`call_remote` RPCs:
+`send_intent(payload)` (client→host, routes to `_on_pvp_intent`),
+`sync_state(payload)` (host→client, routes to `_on_pvp_state`), and
+`pvp_ended(payload)` (host→client, routes to `_on_pvp_ended`). Each guards on
+`battle_scene != null and has_method(...)`. Authority resolves via
+`NetworkManager.is_host()` — no new NetworkManager API. The node is added under
+BattleScene by SceneManager (TID-331) as a fixed-name child so the path
+`/root/BattleScene/BattleNetSync` matches on both peers. `MAX_PEERS = 1` is fine.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/battle/BattleNetSync.gd`** (new) — RPC relay node mirroring
+  `scenes/world/NetSync.gd` but for the battle layer. Reliable RPCs `send_intent`,
+  `sync_state`, `pvp_ended`, each routing to a `battle_scene._on_pvp_*` handler
+  (handlers land in TID-330/332). `any_peer` so host and client can both call.
+- Headless editor import clean (no parse/compile errors); the node compiles and
+  can be instantiated under a BattleScene. End-to-end exercise lands in TID-330+.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Documented holistically in TID-333 (`docs/agent/multiplayer-coop.md`).
