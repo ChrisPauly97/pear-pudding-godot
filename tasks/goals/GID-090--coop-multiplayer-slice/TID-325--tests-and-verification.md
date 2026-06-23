@@ -2,7 +2,7 @@
 
 **Goal:** GID-090
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-323, TID-324
 
 ## Lock
@@ -62,12 +62,51 @@ terrain height must be available when the avatar spawns.
 
 ## Plan
 
-_Written during Plan phase._
+1. Confirm `tests/unit/test_coop_sync.gd` (added in TID-320) is auto-discovered and
+   passes — no runner registration needed (runner auto-discovers `tests/unit/test_*.gd`).
+2. Run the project-wide headless compile check — must be empty.
+3. Write `tests/net_coop_smoke.gd` — a standalone `SceneTree` script that proves
+   real ENet loopback + the actual `NetSync.gd` RPC + `AvatarSync` payload end to
+   end in one process: two `SceneMultiplayer` instances (server + client) on
+   127.0.0.1, two `WorldScene/NetSync` subtrees at matching relative paths, poll
+   until connected, server `rpc("recv_avatar", payload)`, assert the client's
+   stub world-scene receives and decodes it. Exit 0 on success.
+4. Run the smoke test; record the result. If the sandbox blocks loopback sockets,
+   note that and fall back to the documented manual procedure.
+5. Document the manual two-instance procedure + observed/automated results in
+   Changes Made for TID-326 to fold into the agent doc.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Verified `tests/unit/test_coop_sync.gd` (13 cases, added in TID-320) is
+  auto-discovered and passes — no runner registration needed.
+- Headless compile check (`--editor --quit`) is clean (empty output).
+- Full unit suite: **1530 passed, 0 failed, 1 pending**.
+- Created `tests/net_coop_smoke.gd` (+ editor `.gd.uid`) — a standalone `SceneTree`
+  script that drives a **real ENet loopback session** in one process: server +
+  client `SceneMultiplayer` on `127.0.0.1:24567`, two `WorldScene/NetSync`
+  subtrees at matching relative paths, polls until connected, then the server
+  `rpc("recv_avatar", payload)` and the client asserts it received + decoded the
+  packet via the real `NetSync.gd` + `AvatarSync`. Run on demand:
+  `godot --headless --path . -s tests/net_coop_smoke.gd` (exit 0 = pass).
+  Result: **PASS** — "ENet loopback connected (server sees 1 peer)" and
+  "avatar packet received and decoded correctly". (Needed a one-frame `await`
+  so added nodes are inside_tree before RPC path resolution.)
+- This automated smoke test covers the previously manual-only risks: RPC path
+  matching across peers and payload round-trip over a live socket.
+
+**Manual two-instance procedure (visual, for a human — recommended before release):**
+1. `godot --path .` twice (or two exported builds).
+2. Instance A → Co-op (Beta) → Host → confirm it lands in madrian.
+3. Instance B → Co-op (Beta) → IP `127.0.0.1` → Join → confirm it lands in
+   madrian and A's (blue-tinted) avatar appears, offset ~2 tiles.
+4. Move A → B sees it walk smoothly (interpolated, correct facing, walk/idle anim);
+   move B → A sees it.
+5. Close one → the other frees the disconnected avatar.
+Caveats: loopback/LAN only (no NAT traversal); 2 players; battles/enemies/chests
+not synced.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None in this task — `docs/agent/multiplayer-coop.md` is created by TID-326, which
+will fold in the verification results and the manual procedure above.
