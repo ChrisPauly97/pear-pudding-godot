@@ -2,7 +2,7 @@
 
 **Goal:** GID-090
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-321, TID-324
 
 ## Lock
@@ -82,12 +82,59 @@ scripts; no `.uid` for plain `.gd`; validate with headless import.
 
 ## Plan
 
-_Written during Plan phase._
+Model decision: **client broadcasts a query, host replies unicast** (request/
+response). Only the *host* receiving the broadcast needs Android's MulticastLock,
+so the most valuable mobile path (Android client → desktop host) is lock-free.
+Android-host discovery is documented as a known limitation (needs a future
+MulticastLock plugin).
+
+1. `autoloads/NetworkManager.gd`:
+   - Consts `DISCOVERY_PORT = 24566`, query/reply magic strings; `signal
+     hosts_discovered(hosts: Array)`; `host_label`.
+   - Static pure helpers (unit-testable): `build_discovery_query()`,
+     `is_discovery_query(pkt)`, `build_discovery_reply(label, port, map, players)`,
+     `parse_discovery_reply(pkt, ip)`.
+   - Host: on `host()`, bind a `PacketPeerUDP` listener on DISCOVERY_PORT;
+     `_serve_discovery()` answers queries with a unicast reply each `_process`.
+   - Client: `start_discovery()` / `stop_discovery()` — broadcast a query, collect
+     replies for ~1.2 s in `_process`, dedupe by IP, emit `hosts_discovered`.
+   - `leave()` stops both. Comment the Steam seam (Steam matchmaking replaces this).
+2. `scenes/ui/MultiplayerLobbyScene.gd`: add a "Find Games" button + a results VBox
+   (`_populate_results`) of tap-to-join host rows; connect `hosts_discovered`. Keep
+   manual IP entry + Host as-is. Rebuild-on-resize already preserves layout.
+3. Tests: `tests/unit/test_coop_discovery.gd` (payload round-trip + invalid input);
+   `tests/net_discovery_smoke.gd` — real loopback UDP request/reply using the
+   NetworkManager helpers. Headless compile + full suite.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/NetworkManager.gd`:
+  - `DISCOVERY_PORT = 24566`, query/reply magic consts, `signal hosts_discovered`,
+    `host_label`, and discovery socket state vars.
+  - Static pure helpers: `build_discovery_query()`, `is_discovery_query(pkt)`,
+    `build_discovery_reply(label, port, map, players)`, `parse_discovery_reply(pkt, ip)`
+    (IP is taken from the socket, never trusted from the payload).
+  - Host: `host()` binds a `PacketPeerUDP` listener; `_serve_discovery()` replies
+    unicast to each query each frame.
+  - Client: `start_discovery()` broadcasts a query and `_tick_scan()` collects
+    replies for ~1.2 s, dedupes by IP, emits `hosts_discovered`.
+  - `_process()` drives both; `leave()` stops both. Steam seam documented.
+  - **Model choice:** client broadcasts / host replies unicast — only the host's
+    *receipt* of a broadcast needs Android's MulticastLock, so Android-client →
+    desktop-host discovery is lock-free. **Android *host* discovery is a known
+    limitation** (needs a future MulticastLock plugin); manual IP entry is the
+    fallback, and AP-isolation/guest networks block broadcast entirely.
+- `scenes/ui/MultiplayerLobbyScene.gd`: added a "Find Games" button + a results
+  VBox of tap-to-join host rows (`_populate_results`, `_on_hosts_discovered`,
+  `_on_join_discovered`); manual IP entry retained as fallback; `stop_discovery()`
+  on close. Results survive resize (stored in `_hosts`).
+- Tests: `tests/unit/test_coop_discovery.gd` (7 cases — wire-format round-trip,
+  IP-from-socket, invalid/non-JSON/wrong-tag rejection, field defaults);
+  `tests/net_discovery_smoke.gd` (+ `.gd.uid`) — real loopback UDP request/reply
+  using the helpers. Both pass. Unit suite now **1537 passed, 0 failed, 1 pending**;
+  compile clean; `net_coop_smoke` still passes.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None in this task — `docs/agent/multiplayer-coop.md` (TID-326) will document the
+discovery protocol, the Android receive-side limitation, and the chosen model.

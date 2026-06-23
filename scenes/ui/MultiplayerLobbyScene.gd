@@ -11,6 +11,8 @@ const _COOP_MAP: String = "madrian"
 
 var _ip_edit: LineEdit
 var _status_lbl: Label
+var _results_box: VBoxContainer
+var _hosts: Array = []
 
 
 func _ready() -> void:
@@ -18,8 +20,10 @@ func _ready() -> void:
 	_build_ui()
 	NetworkManager.connection_succeeded.connect(_on_connection_succeeded)
 	NetworkManager.connection_failed.connect(_on_connection_failed)
+	NetworkManager.hosts_discovered.connect(_on_hosts_discovered)
 	# Leave any half-open session if the player backs out before entering the world.
 	closed.connect(func() -> void:
+		NetworkManager.stop_discovery()
 		if NetworkManager.is_active():
 			NetworkManager.leave()
 	)
@@ -51,11 +55,26 @@ func _build_ui() -> void:
 	vbox.add_child(_UiUtil.make_separator())
 
 	var info := _UiUtil.make_body_label(
-		"Host a session, or join a host by IP on the same Wi-Fi.", _vh)
+		"Host a session, find nearby games, or join by IP on the same Wi-Fi.", _vh)
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(info)
 
-	var ip_lbl := _UiUtil.make_body_label("Host IP", _vh)
+	vbox.add_child(_make_button("Host Game", _on_host))
+
+	vbox.add_child(_UiUtil.make_separator())
+
+	# Discovery: scan the LAN and list hosts to tap-join.
+	vbox.add_child(_make_button("Find Games", _on_find))
+	_results_box = VBoxContainer.new()
+	_results_box.add_theme_constant_override("separation", int(_ref * 0.012))
+	_results_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_results_box)
+	_populate_results()
+
+	vbox.add_child(_UiUtil.make_separator())
+
+	# Manual fallback: join by IP (needed where broadcast is blocked).
+	var ip_lbl := _UiUtil.make_body_label("Or join by IP", _vh)
 	vbox.add_child(ip_lbl)
 
 	_ip_edit = LineEdit.new()
@@ -65,10 +84,7 @@ func _build_ui() -> void:
 	_ip_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_ip_edit)
 
-	vbox.add_child(_UiUtil.make_separator())
-
-	vbox.add_child(_make_button("Host Game", _on_host))
-	vbox.add_child(_make_button("Join Game", _on_join))
+	vbox.add_child(_make_button("Join by IP", _on_join))
 
 	_status_lbl = _UiUtil.make_body_label("", _vh)
 	_status_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -111,6 +127,48 @@ func _on_join() -> void:
 	var err: Error = NetworkManager.join(ip)
 	if err != OK:
 		_set_status("Could not start joining (error %d)." % err)
+		return
+	_set_status("Connecting to %s…" % ip)
+
+
+func _on_find() -> void:
+	_set_status("Scanning the local network…")
+	NetworkManager.start_discovery()
+
+
+func _on_hosts_discovered(hosts: Array) -> void:
+	_hosts = hosts
+	if _hosts.is_empty():
+		_set_status("No games found. Check you're on the same Wi-Fi, or join by IP.")
+	else:
+		_set_status("Found %d game(s)." % _hosts.size())
+	_populate_results()
+
+
+func _populate_results() -> void:
+	if _results_box == null:
+		return
+	for c in _results_box.get_children():
+		c.queue_free()
+	if _hosts.is_empty():
+		var none := _UiUtil.make_body_label("No games found yet — tap Find Games.", _vh)
+		_results_box.add_child(none)
+		return
+	for h in _hosts:
+		var hd: Dictionary = h
+		var label: String = "%s   (%s)   %d player(s)" % [
+			str(hd.get("name", "Host")), str(hd.get("ip", "")), int(hd.get("players", 1))]
+		_results_box.add_child(_make_button(label, _on_join_discovered.bind(hd)))
+
+
+func _on_join_discovered(hd: Dictionary) -> void:
+	var ip: String = str(hd.get("ip", ""))
+	if ip.is_empty():
+		return
+	var port: int = int(hd.get("game_port", 0))
+	var err: Error = NetworkManager.join(ip, port) if port > 0 else NetworkManager.join(ip)
+	if err != OK:
+		_set_status("Could not join (error %d)." % err)
 		return
 	_set_status("Connecting to %s…" % ip)
 
