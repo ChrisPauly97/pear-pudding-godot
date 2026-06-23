@@ -2,7 +2,7 @@
 
 **Goal:** GID-091
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -76,12 +76,48 @@ runner picks it up (`tests/runner.gd`).
 
 ## Plan
 
-_Written during Plan phase._
+Create `game_logic/net/BattleNetProtocol.gd` (pure `RefCounted`, no scene deps,
+mirrors `AvatarSync.gd`). All payloads are JSON-primitive `Dictionary`s.
+
+**Addressing scheme (host is authoritative):**
+- Hand cards → `hand_index: int`.
+- Board minions → `attacker_slot: int` (0..4).
+- Attack target → `target_slot: int`, where `-1` = enemy hero, `0..4` = enemy board slot.
+- Spell / hero-power target → a generic `target: Dictionary` (`{}` = no target;
+  `{"side": int, "slot": int}` when a target is needed). Round-tripped verbatim;
+  exact semantics wired in TID-330.
+
+**Intent encoders** (each returns `{"v": 1, "type": <type>, ...fields}`):
+`encode_play_card_at_slot(hand_index, slot_idx)`, `encode_play_spell(hand_index, target={})`,
+`encode_attack(attacker_slot, target_slot)`, `encode_end_turn()`,
+`encode_hero_power(target={})`, `encode_potion(potion_id)`, `encode_surrender()`.
+
+**`decode_intent(payload) -> Dictionary`** always returns a fully-defaulted dict
+with keys `type, hand_index, slot_idx, attacker_slot, target_slot, target, potion_id`.
+Garbage/unknown → `type == ""` (safe no-op for callers).
+
+**State mirror:** `encode_state(state_dict, seq) -> {"v":1,"seq":seq,"state":state_dict}`;
+`decode_state(payload) -> {"valid":bool,"seq":int,"state":Dictionary}`.
+
+**Tests:** `tests/unit/test_pvp_protocol.gd` (auto-run). Round-trip every intent,
+garbage→empty default, state round-trip incl. seq.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/net/BattleNetProtocol.gd`** (new) — pure `RefCounted`, scene-free
+  wire-format helper mirroring `AvatarSync.gd`. Encoders for all 7 intents
+  (`play_card_at_slot`, `play_spell`, `attack`, `end_turn`, `hero_power`, `potion`,
+  `surrender`), a robust `decode_intent()` that always returns a fully-defaulted
+  dict (garbage/unknown → `type == ""`), and `encode_state()`/`decode_state()` for
+  the seq-stamped full-state mirror. Addressing: hand cards by `hand_index`, board
+  minions by `attacker_slot`, attack target by `target_slot` (`-1`/`TARGET_HERO` =
+  enemy hero), spell/hero-power target by a generic `target` dict.
+- **`tests/unit/test_pvp_protocol.gd`** (new, 17 cases, auto-run) — round-trips for
+  every intent, garbage/empty/non-dict decode safety, all-keys-present guarantee,
+  and state-mirror round-trip incl. `seq` + invalid-state rejection.
+- Full unit suite passes (1554 tests, exit 0); headless editor import clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None yet — the PvP system is documented holistically in TID-333 once the full
+slice lands. `BattleNetProtocol` is referenced there.

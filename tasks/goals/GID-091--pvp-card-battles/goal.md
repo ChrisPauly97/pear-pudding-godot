@@ -47,7 +47,7 @@ GID-090), and the Steam transport (still stubbed).
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-328 | PvP action wire protocol (pure logic + unit tests) | agent | pending | — |
+| TID-328 | PvP action wire protocol (pure logic + unit tests) | agent | done | — |
 | TID-329 | Battle RPC relay node + host-authority scaffolding | agent | pending | TID-328 |
 | TID-330 | BattleScene PvP perspective, input gating & AI disable | agent | pending | TID-329 |
 | TID-331 | Challenge handshake & SceneManager PvP routing | agent | pending | TID-330 |
