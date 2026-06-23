@@ -36,15 +36,15 @@ traversal, >2 players, and Steam (stubbed behind a reserved enum).
 | TID-324 | MultiplayerLobbyScene UI + MenuScene entry + SceneManager coop hook | agent | done | TID-321, TID-323 |
 | TID-325 | Unit test + headless compile + manual 2-instance verification | agent | done | TID-323, TID-324 |
 | TID-327 | LAN game discovery (UDP broadcast) + found-games list in lobby | agent | done | TID-321, TID-324 |
-| TID-326 | Agent doc multiplayer-coop.md + CLAUDE.md doc-table row | agent | pending | TID-325, TID-327 |
+| TID-326 | Agent doc multiplayer-coop.md + CLAUDE.md doc-table row | agent | done | TID-325, TID-327 |
 
 ## Acceptance Criteria
 
-- [ ] A `NetworkManager` autoload wraps ENet host/join behind one `_create_peer()` factory and re-broadcasts native multiplayer signals; a `Transport { ENET, STEAM }` enum marks the swap seam.
-- [ ] A "Co-op (Beta)" entry in MenuScene opens a lobby with IP entry (prefilled `127.0.0.1`), Host / Join / Back, viewport-relative sizing, and works on desktop + mobile.
-- [ ] Host starts a session and enters madrian; the joining client is routed to madrian before any avatar data flows.
-- [ ] Each connected peer is represented by a `RemotePlayer` avatar in the other client's `Entities` node, spawned on connect and freed on disconnect.
-- [ ] Local avatars broadcast position/facing at ~15 Hz; remote avatars interpolate and walk smoothly; `y` is recomputed locally (never synced); the camera follows only the local player.
-- [ ] A joining player can discover nearby hosts on the same LAN (UDP broadcast) and tap one to join, with manual IP entry retained as a fallback; the Android receive-side broadcast limitation is handled and documented.
-- [ ] `tests/test_coop_sync.gd` passes (AvatarSync encode/decode round-trip + interpolation), `tests/runner.gd` exits 0, and a headless editor import reports no parse/compile errors.
-- [ ] `docs/agent/multiplayer-coop.md` documents the system and a row is added to the CLAUDE.md doc table.
+- [x] A `NetworkManager` autoload wraps ENet host/join behind one `_create_peer()` factory and re-broadcasts native multiplayer signals; a `Transport { ENET, STEAM }` enum marks the swap seam.
+- [x] A "Co-op (Beta)" entry in MenuScene opens a lobby with IP entry (prefilled `127.0.0.1`), Host / Join / Back, viewport-relative sizing, and works on desktop + mobile.
+- [x] Host starts a session and enters madrian; the joining client is routed to madrian before any avatar data flows.
+- [x] Each connected peer is represented by a `RemotePlayer` avatar in the other client's `Entities` node, spawned on connect and freed on disconnect.
+- [x] Local avatars broadcast position/facing at ~15 Hz; remote avatars interpolate and walk smoothly; `y` is recomputed locally (never synced); the camera follows only the local player.
+- [x] A joining player can discover nearby hosts on the same LAN (UDP broadcast) and tap one to join, with manual IP entry retained as a fallback; the Android receive-side broadcast limitation is handled and documented.
+- [x] `tests/test_coop_sync.gd` passes (AvatarSync encode/decode round-trip + interpolation), `tests/runner.gd` exits 0, and a headless editor import reports no parse/compile errors.
+- [x] `docs/agent/multiplayer-coop.md` documents the system and a row is added to the CLAUDE.md doc table.
