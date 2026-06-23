@@ -83,7 +83,8 @@ func start_banner_fade(banner: Control) -> void:
 func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 		sig_card_id: String = "", condition_text_arg: String = "", condition_met: bool = false,
 		reward_rarity: String = "", reward_stats: Dictionary = {},
-		coins_earned: int = 0, xp_earned: int = 0, hero_hp: int = 0) -> void:
+		coins_earned: int = 0, xp_earned: int = 0, hero_hp: int = 0,
+		dawn_played: int = 0, dusk_played: int = 0) -> void:
 	if _float_layer:
 		_float_layer.hide()
 	var overlay := PanelContainer.new()
@@ -163,6 +164,8 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 	var final_stats: Dictionary = reward_stats
 	var veterancy_data: Dictionary = _collect_veterancy_fn.call() if _collect_veterancy_fn.is_valid() else {}
 	var final_hp: int = hero_hp
+	var final_dawn: int = dawn_played
+	var final_dusk: int = dusk_played
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
 		GameBus.battle_won.emit({
@@ -172,6 +175,8 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 			"veterancy": veterancy_data,
 			"reward_rarity": final_rarity,
 			"reward_stats": final_stats,
+			"dawn_played": final_dawn,
+			"dusk_played": final_dusk,
 		})
 	)
 	vbox.add_child(btn)
@@ -179,7 +184,8 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
-func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_arg: String, hero_hp: int = 0) -> void:
+func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_arg: String, hero_hp: int = 0,
+		dawn_played: int = 0, dusk_played: int = 0) -> void:
 	if _float_layer:
 		_float_layer.hide()
 	var overlay := PanelContainer.new()
@@ -238,6 +244,8 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 	var fc: String = reward_card_id
 	var sc: String = sig_card_id
 	var sb_hp: int = hero_hp
+	var sb_dawn: int = dawn_played
+	var sb_dusk: int = dusk_played
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
 		GameBus.battle_won.emit({
@@ -245,6 +253,8 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 			"weapon_reward": "",
 			"hero_hp": sb_hp,
 			"signature_capture": sc,
+			"dawn_played": sb_dawn,
+			"dusk_played": sb_dusk,
 		})
 	)
 	vbox.add_child(btn)
@@ -254,7 +264,8 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 
 func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "",
 		rarities: Array[String] = [], stats_list: Array[Dictionary] = [],
-		coins_earned: int = 0, xp_earned: int = 0, hero_hp: int = 0) -> void:
+		coins_earned: int = 0, xp_earned: int = 0, hero_hp: int = 0,
+		dawn_played: int = 0, dusk_played: int = 0) -> void:
 	if _float_layer:
 		_float_layer.hide()
 	var overlay := PanelContainer.new()
@@ -333,6 +344,8 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 	var final_stats_list: Array[Dictionary] = stats_list.duplicate()
 	var veterancy_data_boss: Dictionary = _collect_veterancy_fn.call() if _collect_veterancy_fn.is_valid() else {}
 	var boss_hp: int = hero_hp
+	var boss_dawn: int = dawn_played
+	var boss_dusk: int = dusk_played
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
 		GameBus.battle_won.emit({
@@ -342,6 +355,8 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 			"veterancy": veterancy_data_boss,
 			"reward_rarities": final_rarities,
 			"reward_stats_list": final_stats_list,
+			"dawn_played": boss_dawn,
+			"dusk_played": boss_dusk,
 		})
 	)
 	vbox.add_child(btn)

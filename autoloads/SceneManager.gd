@@ -652,13 +652,22 @@ func _on_battle_won(result: Dictionary) -> void:
 	for vet_uid: String in veterancy.keys():
 		var vdata: Dictionary = veterancy[vet_uid]
 		save_manager.record_veterancy(vet_uid, int(vdata.get("kills", 0)), bool(vdata.get("survived", true)))
-	# Blight Heart cleansing (GID-066): mark the heart purified and award redemption points.
+	# Branch-play currency accrual (GID-086): 1 corruption per Dawn card, 1 redemption per Dusk card.
+	const CORRUPTION_PER_CARD: int = 1
+	const REDEMPTION_PER_CARD: int = 1
+	var dawn_played: int = int(result.get("dawn_played", 0))
+	var dusk_played: int = int(result.get("dusk_played", 0))
+	if dawn_played > 0:
+		save_manager.add_corruption_points(dawn_played * CORRUPTION_PER_CARD)
+	if dusk_played > 0:
+		save_manager.add_redemption_points(dusk_played * REDEMPTION_PER_CARD)
+	# Blight Heart cleansing (GID-066): mark the heart purified and award corruption points.
 	var blight_heart_id: String = str(save_manager.pending_battle_enemy_data.get("blight_heart_id", ""))
 	if blight_heart_id != "":
 		save_manager.mark_heart_cleansed(blight_heart_id)
-		save_manager.add_redemption_points(10)
+		save_manager.add_corruption_points(5)
 		GameBus.blight_changed.emit()
-		GameBus.hud_message_requested.emit("The blight recedes… +10 Redemption Points.")
+		GameBus.hud_message_requested.emit("The blight recedes… +5 Corruption Points.")
 	save_manager.clear_pending_battle()
 	save_manager.clear_pending_battle_state()
 	if _battle_overlay != null:
