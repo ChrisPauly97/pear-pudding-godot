@@ -3,7 +3,7 @@
 **Goal:** GID-090
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-325
+**Depends On:** TID-325, TID-327
 
 ## Lock
 
@@ -36,6 +36,9 @@ register it in the project's documentation index.
   peers, Y recomputed locally.
 - Pure logic: `game_logic/net/AvatarSync.gd` encode/decode/interp.
 - Flow: lobby UI → host/join → both into madrian → broadcasts begin.
+- LAN discovery (TID-327): UDP-broadcast scan on the discovery port, the
+  found-games list, why it's ENet-only (Steam matchmaking replaces it), and the
+  Android receive-side broadcast/multicast-lock workaround that was chosen.
 - **Out of scope / known limitations:** loopback/LAN only (no NAT traversal),
   battles/enemies/chests/inventory/save not synced, infinite chunk world not
   supported, 2 players max, no reconnection, Steam stubbed. Be explicit so the

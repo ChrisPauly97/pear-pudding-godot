@@ -35,7 +35,8 @@ traversal, >2 players, and Steam (stubbed behind a reserved enum).
 | TID-323 | WorldScene coop hooks: NetSync RPC node, spawn/despawn, 15 Hz broadcast | agent | pending | TID-321, TID-322 |
 | TID-324 | MultiplayerLobbyScene UI + MenuScene entry + SceneManager coop hook | agent | pending | TID-321, TID-323 |
 | TID-325 | Unit test + headless compile + manual 2-instance verification | agent | pending | TID-323, TID-324 |
-| TID-326 | Agent doc multiplayer-coop.md + CLAUDE.md doc-table row | agent | pending | TID-325 |
+| TID-327 | LAN game discovery (UDP broadcast) + found-games list in lobby | agent | pending | TID-321, TID-324 |
+| TID-326 | Agent doc multiplayer-coop.md + CLAUDE.md doc-table row | agent | pending | TID-325, TID-327 |
 
 ## Acceptance Criteria
 
@@ -44,5 +45,6 @@ traversal, >2 players, and Steam (stubbed behind a reserved enum).
 - [ ] Host starts a session and enters madrian; the joining client is routed to madrian before any avatar data flows.
 - [ ] Each connected peer is represented by a `RemotePlayer` avatar in the other client's `Entities` node, spawned on connect and freed on disconnect.
 - [ ] Local avatars broadcast position/facing at ~15 Hz; remote avatars interpolate and walk smoothly; `y` is recomputed locally (never synced); the camera follows only the local player.
+- [ ] A joining player can discover nearby hosts on the same LAN (UDP broadcast) and tap one to join, with manual IP entry retained as a fallback; the Android receive-side broadcast limitation is handled and documented.
 - [ ] `tests/test_coop_sync.gd` passes (AvatarSync encode/decode round-trip + interpolation), `tests/runner.gd` exits 0, and a headless editor import reports no parse/compile errors.
 - [ ] `docs/agent/multiplayer-coop.md` documents the system and a row is added to the CLAUDE.md doc table.
