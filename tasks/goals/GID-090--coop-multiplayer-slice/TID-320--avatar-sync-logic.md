@@ -2,7 +2,7 @@
 
 **Goal:** GID-090
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -56,12 +56,27 @@ static func interp(current: Vector3, target: Vector3, delta: float, rate: float)
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/net/AvatarSync.gd` — a static-only class (no class_name,
+   no extends, RefCounted-compatible) with three methods:
+   - `encode(x, z, flip_h, moving) -> Array` — packs the 4 fields in order.
+   - `decode(payload: Array) -> Dictionary` — unpacks with explicit typed vars
+     (Array indexing returns Variant; annotate each `var x: float = payload[0]`).
+   - `interp(current, target, delta, rate) -> Vector3` — lerps with a clamped
+     factor so it never overshoots.
+2. Create `tests/unit/test_coop_sync.gd` extending the framework's `test_case.gd`,
+   covering: round-trip encode/decode (values preserved), interp moves toward
+   target (not away, not past), interp with zero delta returns current, interp
+   already at target returns target exactly, large delta clamps to target.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `game_logic/net/AvatarSync.gd` — static RefCounted with three methods:
+  - `encode(x, z, flip_h, moving) -> Array` packs payload `[x, z, flip_h, moving]`
+  - `decode(payload: Array) -> Dictionary` unpacks with explicit typed vars to avoid Variant-inference errors
+  - `interp(current, target, delta, rate) -> Vector3` lerps with `clamp(delta*rate, 0.0, 1.0)` so it never overshoots
+- Created `tests/unit/test_coop_sync.gd` — 13 tests covering encode/decode round-trip (all 4 fields, size, keys) and interp behaviour (moves toward target, zero delta, large delta clamp, already-at-target, no overshoot on normal tick)
+- All 1530 tests pass (0 failed); headless compile check clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required for this task — `docs/agent/multiplayer-coop.md` is created by TID-326 once the full slice is built.
