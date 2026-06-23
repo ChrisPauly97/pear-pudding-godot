@@ -104,25 +104,43 @@ player.build_deck(deck)
 
 ---
 
-## GDScript: class_name Not Immediately Available
+## GDScript: class_name — Always preload, Never Rely on Global Registration
 
 ### The problem
-When a new `.gd` file with `class_name Foo` is created outside the Godot editor (e.g. by Claude via file writes), Godot hasn't scanned it yet. Any script that references `Foo` directly will fail:
+`class_name Foo` registers a global identifier, but **only after Godot's editor scanner has seen the file**. This fails in two situations:
+
+1. **New files created by Claude** — the editor hasn't scanned them yet, so `Foo` is not registered.
+2. **Load-order races at runtime** — even for existing, committed scripts, if a file is loaded before the class_name's defining script has been parsed in the current session, `Foo` is not available. This caused a real crash: `DiagnosticsScene.gd` called `BaseOverlay._make_dark_glass_style()` via the class_name. When SceneManager loaded `MenuScene` → `DiagnosticsScene` at battle start, `BaseOverlay` wasn't registered yet, causing a compile failure that propagated all the way up to SceneManager and crashed both combat start and the collect-rewards button.
 
 ```
-Parse Error: Identifier "TextureGen" not declared in the current scope.
+Parse Error: Identifier "BaseOverlay" not declared in the current scope.
+ERROR: Failed to load script 'res://autoloads/SceneManager.gd' with error 'Compilation failed'
 ```
 
 ### The fix
-Always `preload` scripts in the file that uses them. Don't rely on `class_name` being globally available in files Claude creates:
+**Always `preload` the script in the file that uses it.** Never call static methods or reference a class_name without a preload in the same file.
 
 ```gdscript
-# At the top of the file that uses it
-const TextureGen = preload("res://game_logic/TextureGen.gd")
+# Bad — relies on class_name registration order
+BaseOverlay.attach_drag_scroll(_scroll)
+BaseOverlay._make_dark_glass_style()
 
-# Then call static methods normally
-var tex := TextureGen.grass()
+# Good — explicit preload, always works
+const _BaseOverlay = preload("res://scenes/ui/BaseOverlay.gd")
+_BaseOverlay.attach_drag_scroll(_scroll)
+_BaseOverlay._make_dark_glass_style()
 ```
+
+**Exception — inherited statics:** If a file `extends "res://scenes/ui/BaseOverlay.gd"` (via path string, not class_name), inherited static methods can be called without a qualifier because the parent is already loaded as a dependency:
+
+```gdscript
+# OK — DiagnosticsScene extends BaseOverlay via path string, so the static is inherited
+extends "res://scenes/ui/BaseOverlay.gd"
+panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
+```
+
+### Rule of thumb
+If a file calls `Foo.some_method()` and does not have `extends "res://path/to/Foo.gd"` at the top, it **must** have `const Foo = preload("res://path/to/Foo.gd")` (or equivalent) at the top.
 
 ---
 

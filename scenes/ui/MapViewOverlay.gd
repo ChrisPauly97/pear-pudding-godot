@@ -3,6 +3,8 @@
 # Shows the 100×100 tile grid as a color-coded image with entity dots on top.
 extends CanvasLayer
 
+const _BaseOverlay = preload("res://scenes/ui/BaseOverlay.gd")
+
 signal closed
 
 # Tile color palette
@@ -319,7 +321,7 @@ func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
 	_travel_panel.size = Vector2(panel_w - vh * 0.02, panel_h - vh * 0.055)
 	_travel_panel.position = Vector2(px + vh * 0.01, py + vh * 0.048)
 	add_child(_travel_panel)
-	BaseOverlay.attach_drag_scroll(_travel_panel)
+	_BaseOverlay.attach_drag_scroll(_travel_panel)
 
 	var vbox := VBoxContainer.new()
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL

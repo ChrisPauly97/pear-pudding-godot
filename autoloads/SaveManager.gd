@@ -523,6 +523,105 @@ static func _apply_migrations(data: Dictionary) -> void:
 			elif payload is Callable:
 				(payload as Callable).call(data)
 
+static func _migrate_v15_to_v16(data: Dictionary) -> void:
+	if not data.has("spire_run"):
+		data["spire_run"] = {"active": false}
+	data["version"] = 16
+
+static func _migrate_v16_to_v17(data: Dictionary) -> void:
+	if not data.has("spire_best_floor"):
+		data["spire_best_floor"] = 0
+	data["version"] = 17
+
+static func _migrate_v19_to_v20(data: Dictionary) -> void:
+	if not data.has("treasure_fragments"):
+		data["treasure_fragments"] = 0
+	if not data.has("active_treasure"):
+		data["active_treasure"] = {}
+	if not data.has("treasures_completed"):
+		data["treasures_completed"] = 0
+	data["version"] = 20
+
+static func _migrate_v21_to_v22(data: Dictionary) -> void:
+	if not data.has("bestiary"):
+		data["bestiary"] = {}
+	if not data.has("bestiary_complete_rewarded"):
+		data["bestiary_complete_rewarded"] = false
+	if not data.has("home_owned"):
+		data["home_owned"] = false
+	data["version"] = 22
+
+static func _migrate_v22_to_v23(data: Dictionary) -> void:
+	if not data.has("respawn_map"):
+		data["respawn_map"] = ""
+	if not data.has("respawn_x"):
+		data["respawn_x"] = 0.0
+	if not data.has("respawn_z"):
+		data["respawn_z"] = 0.0
+	data["version"] = 23
+
+static func _migrate_v23_to_v24(data: Dictionary) -> void:
+	if not data.has("owned_mounts"):
+		data["owned_mounts"] = []
+	if not data.has("active_mount"):
+		data["active_mount"] = ""
+	if not data.has("is_mounted"):
+		data["is_mounted"] = false
+	data["version"] = 24
+
+static func _migrate_v24_to_v25(data: Dictionary) -> void:
+	if not data.has("packs_since_legendary"):
+		data["packs_since_legendary"] = 0
+	data["version"] = 25
+
+static func _migrate_v27_to_v28(data: Dictionary) -> void:
+	if not data.has("bounty_day"):
+		data["bounty_day"] = 0
+	if not data.has("offered_bounties"):
+		data["offered_bounties"] = []
+	if not data.has("active_bounties"):
+		data["active_bounties"] = []
+	data["version"] = 28
+
+static func _migrate_v29_to_v30(data: Dictionary) -> void:
+	if data.has("owned_weapons"):
+		var old_weapons: Array = data["owned_weapons"]
+		var new_weapons: Array = []
+		for item: Variant in old_weapons:
+			if item is Dictionary:
+				new_weapons.append(item)
+			else:
+				new_weapons.append({"weapon_id": str(item), "upgrade_level": 0})
+		data["owned_weapons"] = new_weapons
+	data["version"] = 30
+
+static func _migrate_v30_to_v31(data: Dictionary) -> void:
+	if not data.has("siege"):
+		data["siege"] = {}
+	if not data.has("last_siege_day"):
+		data["last_siege_day"] = 0
+	if not data.has("town_discounts"):
+		data["town_discounts"] = {}
+	data["version"] = 31
+
+static func _migrate_v32_to_v33(data: Dictionary) -> void:
+	if not data.has("garden_plots"):
+		data["garden_plots"] = [{}, {}, {}]
+	if not data.has("seeds"):
+		data["seeds"] = {}
+	if not data.has("plants"):
+		data["plants"] = {}
+	if not data.has("potions"):
+		data["potions"] = {}
+	data["version"] = 33
+
+static func _migrate_v33_to_v34(data: Dictionary) -> void:
+	if not data.has("loadouts"):
+		var existing_deck: Array = data.get("player_deck", [])
+		data["loadouts"] = [{"name": "Deck 1", "cards": existing_deck.duplicate()}]
+		data["active_loadout"] = 0
+	data["version"] = 34
+
 static func _sign(payload: String) -> String:
 	var crypto := Crypto.new()
 	return crypto.hmac_digest(HashingContext.HASH_SHA256, _HMAC_SECRET.to_utf8_buffer(), payload.to_utf8_buffer()).hex_encode()
