@@ -431,12 +431,13 @@ func _spawn_player() -> void:
 			var door := world_map.find_door_by_id(target_door_id)
 			px = door.get("x", default_px) if not door.is_empty() else default_px
 			pz = door.get("z", default_pz) if not door.is_empty() else default_pz
-		elif not world_map.has_player_spawn() and \
-				SceneManager.save_manager.current_map == map_name and \
+		elif SceneManager.save_manager.current_map == map_name and \
 				(SceneManager.save_manager.player_x != 0.0 or SceneManager.save_manager.player_z != 0.0):
-			# Only restore saved position for maps without an explicit SPAWN marker.
-			# Maps with a SPAWN marker (like madrian) always use it so key NPCs
-			# placed near the spawn (e.g. Maiteln) are always visible on arrival.
+			# Restore saved position when the save file records this map as the player's
+			# last location. The current_map == map_name guard is sufficient — it is only
+			# true when loading a save where the player was already in this map. Fresh
+			# entries (new game, door travel, waystone) always leave save_manager.current_map
+			# pointing to the previous map, so they fall through to the spawn default.
 			px = SceneManager.save_manager.player_x
 			pz = SceneManager.save_manager.player_z
 		else:
