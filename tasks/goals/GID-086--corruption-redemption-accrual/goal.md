@@ -16,15 +16,15 @@ Intended accrual sites:
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-308 | Accrue corruption points from battle outcomes | agent | pending | — |
-| TID-309 | Accrue redemption points from battle outcomes and story flags | agent | pending | — |
+| TID-308 | Accrue corruption points from battle outcomes | agent | done | — |
+| TID-309 | Accrue redemption points from battle outcomes and story flags | agent | done | — |
 
 ## Acceptance Criteria
 
-- [ ] Winning a battle awards corruption points proportional to Dawn-branch cards played
-- [ ] Winning a battle awards redemption points proportional to Dusk-branch cards played
-- [ ] Cleansing a BlightHeart awards a fixed corruption point bonus
-- [ ] Setting story chapter flags awards a fixed redemption point bonus
-- [ ] `GameBus.corruption_points_changed` and `redemption_points_changed` fire after each award
-- [ ] Points persist across sessions via SaveManager
-- [ ] All existing tests pass headless
+- [x] Winning a battle awards corruption points proportional to Dawn-branch cards played
+- [x] Winning a battle awards redemption points proportional to Dusk-branch cards played
+- [x] Cleansing a BlightHeart awards a fixed corruption point bonus
+- [x] Setting story chapter flags awards a fixed redemption point bonus
+- [x] `GameBus.corruption_points_changed` and `redemption_points_changed` fire after each award
+- [x] Points persist across sessions via SaveManager
+- [x] All existing tests pass headless

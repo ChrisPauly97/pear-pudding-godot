@@ -1145,12 +1145,24 @@ func clear_pending_battle_state() -> void:
 	pending_battle_state = {}
 	_dirty = true
 
+const REDEMPTION_FLAG_AWARDS: Dictionary = {
+	"chapter1_left_madrian": 5,
+	"chapter1_reached_blancogov": 10,
+	"chapter1_received_letter": 10,
+	"chapter1_temple_council": 10,
+	"champion_blancogov_defeated": 15,
+	"bestiary_complete": 10,
+}
+
 func set_story_flag(key: String, value: bool = true) -> void:
+	var was_unset: bool = not story_flags.get(key, false)
 	story_flags[key] = value
 	_dirty = true
 	GameBus.story_flag_set.emit(key)
 	if value:
 		check_flag_achievement(key)
+		if was_unset and REDEMPTION_FLAG_AWARDS.has(key):
+			add_redemption_points(int(REDEMPTION_FLAG_AWARDS[key]))
 
 func get_story_flag(key: String) -> bool:
 	return story_flags.get(key, false)

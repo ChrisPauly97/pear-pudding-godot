@@ -22,6 +22,10 @@ var fatigue_counter: int = 0
 var skip_next_draw: bool = false
 var minion_attack_bonus: int = 0
 
+# Branch-play counters (not serialized — used at battle end to award currency points)
+var dawn_cards_played: int = 0
+var dusk_cards_played: int = 0
+
 # Battlefield Resonance context (GID-059) — set by GameState.set_battlefield_context().
 var battlefield_biome: int = -1
 var is_night: bool = false
@@ -139,6 +143,10 @@ func play_card(card: CardInstance) -> bool:
 		BattlefieldRules.apply_slot_rule(card, slot_idx, battlefield_biome)
 		if card.keywords.has(Keywords.SURGE):
 			card.summoning_sick = false
+	if card.magic_branch == "dawn":
+		dawn_cards_played += 1
+	elif card.magic_branch == "dusk":
+		dusk_cards_played += 1
 	grasslands_card_played = true
 	return true
 
@@ -159,6 +167,10 @@ func play_card_at_slot(card: CardInstance, slot_idx: int) -> bool:
 		card.summoning_sick = true
 		if card.keywords.has(Keywords.SURGE):
 			card.summoning_sick = false
+	if card.magic_branch == "dawn":
+		dawn_cards_played += 1
+	elif card.magic_branch == "dusk":
+		dusk_cards_played += 1
 	grasslands_card_played = true
 	return true
 
