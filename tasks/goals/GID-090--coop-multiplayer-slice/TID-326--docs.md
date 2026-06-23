@@ -2,7 +2,7 @@
 
 **Goal:** GID-090
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-325, TID-327
 
 ## Lock
@@ -56,12 +56,27 @@ row.
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `docs/agent/multiplayer-coop.md` matching the house structure (Key
+   Features / How It Works / Integrations / Asset Requirements / Tests), covering:
+   NetworkManager transport seam + signals, RemotePlayer + AvatarSprite, NetSync
+   RPC + 15 Hz sync, AvatarSync pure logic, lobby + enter_map_coop flow, LAN
+   discovery protocol + the Android receive-side limitation and chosen model, and
+   an explicit Out-of-Scope/Limitations section.
+2. Add a doc-table row to CLAUDE.md after the app-diagnostics row.
+3. Mark goal/index complete (8/8).
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `docs/agent/multiplayer-coop.md` — full system doc (Key Features / How
+  It Works / Integrations / Asset Requirements / Tests / Limitations): the
+  NetworkManager transport seam + signals, AvatarSync pure logic, RemotePlayer +
+  AvatarSprite, NetSync RPC + 15 Hz sync + RPC-path requirement, lobby +
+  enter_map_coop flow, the LAN discovery protocol with the rationale for the
+  client-broadcasts/host-replies-unicast model and the Android MulticastLock
+  limitation, and an explicit Out-of-Scope section.
+- Added the doc-table row to `CLAUDE.md` after the app-diagnostics entry.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- New `docs/agent/multiplayer-coop.md`; CLAUDE.md doc index updated. This is the
+  agent-doc deliverable for the whole GID-090 slice.

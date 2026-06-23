@@ -2,7 +2,7 @@
 
 **Goal:** GID-090
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-321, TID-322
 
 ## Lock
@@ -75,12 +75,56 @@ screens the whole world).
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/world/NetSync.gd` — a `Node` with one `@rpc("any_peer",
+   "unreliable_ordered", "call_remote")` method `recv_avatar(payload: Array)`
+   that routes `(sender_id, payload)` to `world_scene._on_avatar_received(...)`.
+   Has a `world_scene` property set by WorldScene.
+2. WorldScene.gd additions (all guarded by `_coop_active` / `NetworkManager.is_active()`):
+   - Preloads: `_NetSyncScript`, `_RemotePlayerScene`, `_AvatarSync`
+   - Vars: `_remote_player_nodes: Dictionary`, `_net_sync: Node`,
+     `_coop_active: bool`, `_net_broadcast_accum: float`
+   - `_setup_coop()` called at end of `_ready`: if active, create the `NetSync`
+     child node, connect NetworkManager signals (peer_connected/disconnected/
+     session_ended), and spawn RemotePlayers for already-connected peers
+     (`multiplayer.get_peers()` — handles the client-joining-host ordering)
+   - `_spawn_remote_player(pid)` / `_on_coop_peer_disconnected` /
+     `_on_coop_session_ended` manage the dict + Entities children
+   - `_on_avatar_received(sender, payload)` decodes via AvatarSync and calls
+     `set_net_state` on the matching RemotePlayer (spawns lazily if missing)
+   - 15 Hz broadcast block in `_process`: encode local `(x, z, flip_h, moving)`
+     (flip_h/moving read from the local Player via `get("_sprite")`/`get("_is_moving")`)
+     and `rpc("recv_avatar", payload)`
+   - `_exit_tree` disconnects the NetworkManager signals defensively
+3. RPC path: NetSync is `/root/WorldScene/NetSync` on both peers (root node is
+   "WorldScene", instantiated via change_scene_to_node — confirmed). Camera
+   untouched. Headless compile + full test run.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/world/NetSync.gd` (+ editor-generated `.gd.uid`) — Node with the
+  `@rpc("any_peer", "unreliable_ordered", "call_remote")` `recv_avatar(payload)`
+  method routing `(sender, payload)` to `world_scene._on_avatar_received(...)`.
+- `scenes/world/WorldScene.gd` additions (all guarded; single-player unchanged):
+  - Preloads `_NetSyncScript`, `_RemotePlayerScene`, `_AvatarSync`; const
+    `_NET_BROADCAST_INTERVAL = 1/15`
+  - Vars `_remote_player_nodes`, `_net_sync`, `_coop_active`, `_net_broadcast_accum`
+  - `_setup_coop()` (called at end of `_ready`): when `NetworkManager.is_active()`,
+    creates the fixed-name `NetSync` child, connects NetworkManager
+    peer_connected/peer_disconnected/session_ended, and spawns RemotePlayers for
+    already-connected peers via `multiplayer.get_peers()` (covers client-joins-host)
+  - `_spawn_remote_player(pid)` instantiates RemotePlayer, sets `world_scene`,
+    `init_from_data`, adds under `Entities`, tracks in `_remote_player_nodes`
+  - `_on_coop_peer_disconnected` / `_on_coop_session_ended` free + clear avatars
+  - `_on_avatar_received(sender, payload)` decodes via AvatarSync and calls
+    `set_net_state` (lazy-spawns if the packet beats the connect signal)
+  - `_broadcast_local_avatar(delta)` 15 Hz: reads local `flip_h`/`_is_moving` via
+    `get()`, encodes, `rpc("recv_avatar", payload)` — called from `_process` under
+    `if _coop_active`
+  - `_teardown_coop()` in `_exit_tree` disconnects NetworkManager signals
+- RPC path `/root/WorldScene/NetSync` matches on both peers (root node "WorldScene"
+  via change_scene_to_node). Camera logic untouched.
+- All 1530 tests pass; headless compile clean. Live 2-instance verification is TID-325.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — `docs/agent/multiplayer-coop.md` is created by TID-326.

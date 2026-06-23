@@ -2,6 +2,7 @@ extends Control
 
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
+const MultiplayerLobbyScene = preload("res://scenes/ui/MultiplayerLobbyScene.gd")
 
 var _title: Label
 var _continue_btn: Button
@@ -18,6 +19,7 @@ func _ready() -> void:
 
 	_continue_btn = _add_btn("Continue", _on_continue)
 	_add_btn("New Game", _on_start)
+	_add_btn("Co-op (Beta)", _on_coop)
 	_add_btn("Achievements", _on_achievements)
 	_add_btn("Map Editor", _on_editor)
 	_add_btn("Settings", _on_settings)
@@ -115,6 +117,11 @@ func _on_achievements() -> void:
 
 func _on_editor() -> void:
 	get_tree().change_scene_to_file("res://scenes/ui/MapEditorScene.tscn")
+
+func _on_coop() -> void:
+	var overlay: MultiplayerLobbyScene = MultiplayerLobbyScene.new()
+	add_child(overlay)
+	overlay.closed.connect(overlay.queue_free)
 
 func _on_settings() -> void:
 	var overlay: SettingsScene = SettingsScene.new()

@@ -2,7 +2,7 @@
 
 **Goal:** GID-090
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-321, TID-323
 
 ## Lock
@@ -68,12 +68,47 @@ explicit types; `.uid` sidecar for the new `.tscn`; validate with headless impor
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/ui/MultiplayerLobbyScene.gd` extending `BaseOverlay` (script-only,
+   instantiated via `.new()` — matching SettingsScene/DiagnosticsScene; no `.tscn`).
+   - Dark-glass panel: title, info line, IP `LineEdit` (prefill `127.0.0.1`),
+     Host/Join buttons, status label, Close button. Viewport-relative via `_vh/_vw/_ref`.
+   - Rebuild on `NOTIFICATION_RESIZED`.
+   - Host: `NetworkManager.host()`; on OK → `SceneManager.enter_map_coop("madrian")`.
+   - Join: `NetworkManager.join(ip)`; on `connection_succeeded` →
+     `enter_map_coop("madrian")`; on `connection_failed` → status + `leave()`.
+   - On `closed` while a session is half-open (joining), call `NetworkManager.leave()`.
+2. MenuScene: add preload + a "Co-op (Beta)" button opening the lobby overlay
+   (same pattern as Settings: `add_child` + `closed`→`queue_free`).
+3. SceneManager: add `enter_map_coop(map_name)` — `_exit_world_cleanup()` then reuse
+   `enter_map(map_name, "")` (save() is a no-op when no game loaded; current_map
+   cleared so no stale stack push).
+4. WorldScene `_spawn_player`: nudge the non-host avatar +2 tiles so the two
+   avatars don't perfectly overlap at spawn (guarded by `NetworkManager.is_active()`).
+5. Headless compile + full test run.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `scenes/ui/MultiplayerLobbyScene.gd` (+ editor `.gd.uid`) extending
+  `BaseOverlay`, script-only `.new()` overlay (matches SettingsScene — **no `.tscn`
+  needed**, deviating from the task's suggestion to follow the established pattern):
+  - Dark-glass panel with title, info line, IP `LineEdit` (prefill `127.0.0.1`),
+    Host/Join buttons, status label, Close button; viewport-relative via `_vh/_vw/_ref`
+  - Rebuilds UI on `NOTIFICATION_RESIZED` (preserving IP text + status)
+  - Host → `NetworkManager.host()`; on OK → `SceneManager.enter_map_coop("madrian")`
+  - Join → `NetworkManager.join(ip)`; on `connection_succeeded` →
+    `enter_map_coop("madrian")`; on `connection_failed` → status + `leave()`
+  - On `closed` with a half-open session, calls `NetworkManager.leave()`
+- `scenes/ui/MenuScene.gd`: preload + "Co-op (Beta)" button (after New Game)
+  opening the lobby overlay (same add_child + `closed`→`queue_free` pattern as Settings)
+- `autoloads/SceneManager.gd`: added `enter_map_coop(map_name)` — `_exit_world_cleanup()`
+  then reuse `enter_map(map_name, "")`. `save()` is a no-op without a loaded game,
+  so this is safe launched cold from the menu; cleared current_map avoids a stale
+  stack push.
+- `scenes/world/WorldScene.gd` `_spawn_player`: non-host avatar nudged +2 tiles
+  (guarded by `NetworkManager.is_active() and not multiplayer.is_server()`) so the
+  two avatars don't overlap at the shared madrian spawn.
+- All 1530 tests pass; headless compile clean. Live 2-instance run is verified in TID-325.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+None required — `docs/agent/multiplayer-coop.md` is created by TID-326.

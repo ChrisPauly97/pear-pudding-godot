@@ -50,6 +50,12 @@ const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 
+# Co-op multiplayer (GID-090)
+const _NetSyncScript     = preload("res://scenes/world/NetSync.gd")
+const _RemotePlayerScene = preload("res://scenes/world/entities/RemotePlayer.tscn")
+const _AvatarSync        = preload("res://game_logic/net/AvatarSync.gd")
+const _NET_BROADCAST_INTERVAL: float = 1.0 / 15.0  # 15 Hz avatar broadcast
+
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
 
@@ -64,6 +70,11 @@ var _player: CharacterBody3D
 var _grass: Node3D
 var _enemy_nodes: Dictionary = {}   # id -> Node3D
 var _chest_nodes: Dictionary = {}   # id -> Node3D
+# Co-op multiplayer (GID-090) — guarded by _coop_active; inert in single-player
+var _remote_player_nodes: Dictionary = {}  # peer_id -> RemotePlayer Node3D
+var _net_sync: Node = null
+var _coop_active: bool = false
+var _net_broadcast_accum: float = 0.0
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -364,12 +375,108 @@ func _ready() -> void:
 	GameBus.journal_requested.connect(_clear_dest_marker)
 	GameBus.map_transition_requested.connect(_clear_dest_marker)
 
+	_setup_coop()
+
 func _exit_tree() -> void:
+	_teardown_coop()
 	if _csm != null:
 		_csm.exit_cleanup()
 	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
 		_active_weather_particles.queue_free()
 	_active_weather_particles = null
+
+# ── Co-op multiplayer (GID-090) ───────────────────────────────────────────────
+# All of this is inert unless a NetworkManager session is active when the world
+# loads. Single-player behaviour is unchanged.
+
+func _setup_coop() -> void:
+	if not NetworkManager.is_active():
+		return
+	_coop_active = true
+
+	# Fixed-name RPC relay child. Path /root/WorldScene/NetSync matches on both
+	# peers, and it is freed with the scene.
+	_net_sync = _NetSyncScript.new()
+	_net_sync.name = "NetSync"
+	_net_sync.set("world_scene", self)
+	add_child(_net_sync)
+
+	NetworkManager.peer_connected.connect(_on_coop_peer_connected)
+	NetworkManager.peer_disconnected.connect(_on_coop_peer_disconnected)
+	NetworkManager.session_ended.connect(_on_coop_session_ended)
+
+	# Spawn avatars for peers already connected when this world loads (the
+	# client-joining-host case; the host's peer is already present).
+	for pid in multiplayer.get_peers():
+		_spawn_remote_player(int(pid))
+
+func _teardown_coop() -> void:
+	if not _coop_active:
+		return
+	if NetworkManager.peer_connected.is_connected(_on_coop_peer_connected):
+		NetworkManager.peer_connected.disconnect(_on_coop_peer_connected)
+	if NetworkManager.peer_disconnected.is_connected(_on_coop_peer_disconnected):
+		NetworkManager.peer_disconnected.disconnect(_on_coop_peer_disconnected)
+	if NetworkManager.session_ended.is_connected(_on_coop_session_ended):
+		NetworkManager.session_ended.disconnect(_on_coop_session_ended)
+
+func _spawn_remote_player(pid: int) -> void:
+	if _remote_player_nodes.has(pid):
+		return
+	var spawn_x: float = _player.position.x if _player != null else 0.0
+	var spawn_z: float = _player.position.z if _player != null else 0.0
+	var rp: Node3D = _RemotePlayerScene.instantiate() as Node3D
+	rp.set("world_scene", self)
+	rp.init_from_data({"peer_id": pid, "x": spawn_x, "z": spawn_z})
+	_entity_root.add_child(rp)
+	_remote_player_nodes[pid] = rp
+
+func _on_coop_peer_connected(pid: int) -> void:
+	_spawn_remote_player(pid)
+
+func _on_coop_peer_disconnected(pid: int) -> void:
+	var rp: Node = _remote_player_nodes.get(pid) as Node
+	if is_instance_valid(rp):
+		rp.queue_free()
+	_remote_player_nodes.erase(pid)
+
+func _on_coop_session_ended() -> void:
+	for pid in _remote_player_nodes.keys():
+		var rp: Node = _remote_player_nodes[pid] as Node
+		if is_instance_valid(rp):
+			rp.queue_free()
+	_remote_player_nodes.clear()
+	_coop_active = false
+
+# Called by NetSync when a remote avatar packet arrives.
+func _on_avatar_received(sender: int, payload: Array) -> void:
+	var rp: Node = _remote_player_nodes.get(sender) as Node
+	if not is_instance_valid(rp):
+		# Packet arrived before the connect signal was processed — spawn now.
+		_spawn_remote_player(sender)
+		rp = _remote_player_nodes.get(sender) as Node
+	if is_instance_valid(rp) and rp.has_method("set_net_state"):
+		var d: Dictionary = _AvatarSync.decode(payload)
+		rp.set_net_state(d["x"], d["z"], d["flip_h"], d["moving"])
+
+# Broadcast the local avatar's state at 15 Hz. Called from _process.
+func _broadcast_local_avatar(delta: float) -> void:
+	if not _coop_active or _net_sync == null or _player == null:
+		return
+	if not NetworkManager.is_active():
+		return
+	_net_broadcast_accum += delta
+	if _net_broadcast_accum < _NET_BROADCAST_INTERVAL:
+		return
+	_net_broadcast_accum = 0.0
+	var flip_h: bool = false
+	var spr: AnimatedSprite3D = _player.get("_sprite") as AnimatedSprite3D
+	if spr != null:
+		flip_h = spr.flip_h
+	var moving: bool = bool(_player.get("_is_moving"))
+	var payload: Array = _AvatarSync.encode(
+		_player.position.x, _player.position.z, flip_h, moving)
+	_net_sync.rpc("recv_avatar", payload)
 
 ## Returns the biome and time context at the moment of engagement (GID-059).
 ## Called by SceneManager._on_enemy_engaged() to stamp context into enemy_data.
@@ -443,6 +550,11 @@ func _spawn_player() -> void:
 		else:
 			px = default_px
 			pz = default_pz
+
+	# Co-op: nudge the joining client +2 tiles so the two avatars don't perfectly
+	# overlap at the shared spawn marker (cosmetic; they walk apart immediately).
+	if NetworkManager.is_active() and not multiplayer.is_server():
+		px += 2.0 * IsoConst.TILE_SIZE
 
 	_player = _create_player_node()
 	_player.position = Vector3(px, get_terrain_height(px, pz), pz)
@@ -1338,6 +1450,10 @@ func _process(delta: float) -> void:
 		_tick_card_shower()
 		_update_nocturnal_spawns(delta)
 		_csm.process_streaming(_player.position, _player.velocity, _camera.get_frustum())
+
+	# Co-op: broadcast local avatar state to peers (inert in single-player)
+	if _coop_active:
+		_broadcast_local_avatar(delta)
 
 	# Only update save position when player moves > 1 unit (not every frame)
 	var cur_pos := Vector2(_player.position.x, _player.position.z)

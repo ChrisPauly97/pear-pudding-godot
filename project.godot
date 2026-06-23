@@ -35,6 +35,7 @@ ScrollRegistry="*res://autoloads/ScrollRegistry.gd"
 MapRegistry="*res://autoloads/MapRegistry.gd"
 PuzzleRegistry="*res://autoloads/PuzzleRegistry.gd"
 CompanionRegistry="*res://autoloads/CompanionRegistry.gd"
+NetworkManager="*res://autoloads/NetworkManager.gd"
 
 [display]
 
