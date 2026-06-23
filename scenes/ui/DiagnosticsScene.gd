@@ -15,7 +15,7 @@ func _ready() -> void:
 	var panel_w: float = _vw * 0.88
 	var panel_h: float = _vh * 0.82
 	var panel := _build_centered_panel(panel_w, panel_h)
-	panel.add_theme_stylebox_override("panel", BaseOverlay._make_dark_glass_style())
+	panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
 
 	var vbox := _build_margin_vbox(panel, 0.018, 0.012)
 
