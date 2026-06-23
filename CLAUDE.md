@@ -126,6 +126,60 @@ var tex := TextureGen.grass()
 
 ---
 
+## GDScript: Always Validate Compilation — Parse Errors Cascade Through preload()
+
+### The problem
+A single parse/compile error in one `.gd` file silently breaks **every** scene
+that `preload`s it, directly or transitively. Because `WorldScene.gd` preloads a
+long chain (`WorldMap`, `ChunkRenderer`, `MapViewOverlay`, …), one bad line in any
+of them makes the whole world fail to load: **blue screen, no terrain, no
+collision, map overlay won't open, map editor crashes**. The symptoms look like a
+rendering or physics bug, but the root cause is a script that never compiled.
+
+These errors are invisible without running Godot — the file looks fine, and tests
+that don't touch the broken script still pass. Real cases that shipped this way:
+
+| Bug | Broke | Cascaded into |
+|---|---|---|
+| `hmap.cell_size = step` — `HeightMapShape3D` has no `cell_size` (runtime error aborts the function before its `return`) | `TerrainMath.build_terrain_mesh` returned a dict missing `mesh`/`hmap` | no terrain mesh, no collision |
+| Bare `CHUNK_SIZE` after the local `const CHUNK_SIZE` was deleted | `WorldMap.gd` parse error | `WorldScene` + `MapEditorScene` (both preload it) |
+| `ChunkRenderer.prepare_terrain()` — self-reference to a `class_name` the file doesn't declare | `ChunkRenderer.gd` parse error | `WorldScene` |
+| `attach_drag_scroll()` called in a scene that doesn't `extends BaseOverlay` | `MapViewOverlay` / `BlacksmithScene` parse error | `WorldScene` (preloads `MapViewOverlay`) |
+
+### The rule — run a headless import after ANY GDScript edit
+The single check that catches all of the above is a full-project editor import
+(autoloads loaded, every script compiled, `preload` chains followed):
+
+```bash
+godot --headless --editor --quit 2>&1 | \
+  grep -iE "Parse Error|Compile Error|Failed to load script" | \
+  grep -viE "imported/|Make sure resources"   # filter first-import texture noise
+```
+
+Empty output = clean. Any line is a real error to fix **before** committing.
+`--check-only --script <file>` validates a single file but reports false
+positives for autoloads (`SceneManager`, `AudioManager`, …) and `class_name`
+globals, because it doesn't load them — prefer the full import for the verdict.
+Install Godot per *Running Tests: Installing Godot* below if the binary is absent.
+
+### Specific pitfalls these errors come from
+- **Removing a `const` alias** (dead-code cleanup): grep the whole file for the
+  bare name first — `grep -nE "[^.]CHUNK_SIZE"` — a missed usage is a parse error.
+  Constants like `CHUNK_SIZE` must be referenced as `IsoConst.CHUNK_SIZE` unless
+  the file declares a local alias.
+- **Calling a script's own static method as `ClassName.method()`** only works if
+  the file declares `class_name ClassName`. Inside the same file, call it
+  unqualified (`method()`).
+- **Calling an inherited method** (e.g. `attach_drag_scroll`, `_build_backdrop`)
+  only works if the scene `extends "res://scenes/ui/BaseOverlay.gd"`. For scenes
+  that can't (different base like `CanvasLayer`), make the helper a `static func`
+  and call it as `BaseOverlay.attach_drag_scroll(...)`.
+- **Setting an engine property that doesn't exist** (`HeightMapShape3D.cell_size`)
+  throws at runtime and aborts the function mid-way — verify the property exists
+  in the Godot docs for the class before assigning it.
+
+---
+
 ## Camera: Isometric Follow Without look_at
 
 ### The problem
