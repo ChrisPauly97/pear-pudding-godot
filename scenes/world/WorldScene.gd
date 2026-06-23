@@ -551,6 +551,11 @@ func _spawn_player() -> void:
 			px = default_px
 			pz = default_pz
 
+	# Co-op: nudge the joining client +2 tiles so the two avatars don't perfectly
+	# overlap at the shared spawn marker (cosmetic; they walk apart immediately).
+	if NetworkManager.is_active() and not multiplayer.is_server():
+		px += 2.0 * IsoConst.TILE_SIZE
+
 	_player = _create_player_node()
 	_player.position = Vector3(px, get_terrain_height(px, pz), pz)
 	_entity_root.add_child(_player)

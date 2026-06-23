@@ -228,6 +228,15 @@ func enter_map(map_name: String, target_door_id: String = "") -> void:
 	save_manager.save()
 	_load_world(map_name, target_door_id)
 
+# Co-op (GID-090): enter a shared named map for a networked session. Reuses the
+# normal map-load path; an active NetworkManager session makes WorldScene wire up
+# its co-op hooks (_setup_coop). Clears any prior world/stack so the session
+# starts clean from the main menu. save() inside enter_map is a no-op when no
+# game has been loaded, so this is safe without an active save slot.
+func enter_map_coop(map_name: String) -> void:
+	_exit_world_cleanup()
+	enter_map(map_name, "")
+
 func exit_map() -> void:
 	_flush_position_save()
 	# Spire: exiting a floor loads the next floor rather than popping the map stack.
