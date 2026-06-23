@@ -94,6 +94,7 @@
 | [GID-088](goals/GID-088--battle-code-quality/goal.md) | Battle Code Quality — GameState Decoupling & Native Drag | pending | 0 / 2 |
 | [GID-089](goals/GID-089--game-visual-polish/goal.md) | Visual Polish — World Art, Atmosphere & Props | pending | 0 / 6 |
 | [GID-090](goals/GID-090--coop-multiplayer-slice/goal.md) | Co-op Multiplayer Vertical Slice | done | 8 / 8 |
+| [GID-091](goals/GID-091--pvp-card-battles/goal.md) | PvP Card Battles over Co-op | pending | 0 / 7 |
 
 ## Backlog
 
@@ -115,6 +116,7 @@
 | [BID-016](backlog/BID-016--flag-gated-dialogue-content.md) | Flag-gated NPC dialogue content not yet authored; TownspersonNPC logic ready but table mostly empty | human-action-deferred | GID-020 / TID-063 |
 | ~~[BID-017](backlog/BID-017--corruption-redemption-points-never-accrue.md)~~ | ~~add_corruption_points / add_redemption_points never called — currencies may never accrue~~ | ~~design-inconsistency~~ | Promoted to GID-086 / TID-308, TID-309 |
 | ~~[BID-020](backlog/BID-020--always-visible-cantrip-buttons.md)~~ | ~~Cantrip HUD buttons always built regardless of unlock state~~ | ~~code-smell~~ | Resolved by GID-081 / TID-298 |
+| [BID-022](backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md) | Spec lists multiplayer as out-of-scope, but co-op + PvP shipped | spec-gap | GID-091 research |
 
 ## Resolved Backlog
 
