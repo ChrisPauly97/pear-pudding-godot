@@ -1647,7 +1647,7 @@ func _check_game_over() -> void:
 				var _ct_captured: bool = SceneManager.save_manager.is_signature_captured(_ct_sig)
 				var _ct_met: bool = _capture_tracker != null and not _ct_sig.is_empty() and _capture_tracker.is_satisfied(_state)
 				if not _ct_sig.is_empty() and not _ct_captured and _ct_met:
-					_result_ui.show_soulbind(reward_card_id, _ct_sig, _capture_tracker.condition_text(), hero_hp_win, dawn_win, dusk_win)
+					_result_ui.show_soulbind(reward_card_id, _ct_sig, _capture_tracker.condition_text(), hero_hp_win, dawn_win, dusk_win, rolled_rarity, rolled_stats)
 				elif not _ct_sig.is_empty() and not _ct_captured:
 					var _ct_text: String = _capture_tracker.condition_text() if _capture_tracker != null else ""
 					_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win, dawn_win, dusk_win)

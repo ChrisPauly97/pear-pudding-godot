@@ -736,6 +736,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		GameBus.hud_message_requested.emit("The blight recedes… +5 Corruption Points.")
 	save_manager.clear_pending_battle()
 	save_manager.clear_pending_battle_state()
+	save_manager.save()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
