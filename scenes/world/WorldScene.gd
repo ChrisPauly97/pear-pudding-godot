@@ -1698,7 +1698,39 @@ func _check_interactions() -> void:
 	_check_nearby_landmark(px, pz)
 	var mana_well := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
 	var has_entity: bool = enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
-	_world_hud.show_interact_prompt(has_entity)
+	var interact_label: String = "USE"
+	if enemy != null:
+		interact_label = "ATTACK"
+	elif not chest.is_empty():
+		interact_label = "OPEN"
+	elif not door.is_empty():
+		interact_label = "ENTER"
+	elif not npc.is_empty():
+		match str(npc.get("npc_type", "")):
+			"merchant", "traveling_merchant": interact_label = "SHOP"
+			"blacksmith": interact_label = "FORGE"
+			"bounty_board": interact_label = "BOARD"
+			"stable": interact_label = "STABLE"
+			"duelist": interact_label = "DUEL"
+			"rest_site", "bed": interact_label = "REST"
+			_: interact_label = "TALK"
+	elif scroll != null:
+		interact_label = "READ"
+	elif shrine != null:
+		interact_label = "PRAY"
+	elif digspot != null:
+		interact_label = "DIG"
+	elif not waystone.is_empty():
+		interact_label = "WARP"
+	elif garden_plot != null:
+		interact_label = "TEND"
+	elif burial_mound != null:
+		interact_label = "DIG"
+	elif blight_heart != null:
+		interact_label = "CLEANSE"
+	elif mana_well != null:
+		interact_label = "FILL"
+	_world_hud.show_interact_prompt(has_entity and not SceneManager.has_open_overlay(), interact_label)
 
 	var is_android: bool = OS.has_feature("android")
 	if not npc.is_empty() and not SceneManager.save_manager.get_story_flag("tutorial_npc_tip"):
@@ -1905,6 +1937,9 @@ func _on_screen_touch(touch: InputEventScreenTouch) -> void:
 		if _joystick_ref != null and _joystick_ref.has_method("is_touch_in_control_area"):
 			if _joystick_ref.call("is_touch_in_control_area", touch.position):
 				return
+		# Reject taps on any visible HUD button (USE, Mount, Ghost Phase, etc.).
+		if _world_hud != null and _world_hud.is_touch_on_hud_button(touch.position):
+			return
 		_tap_start_screen = touch.position
 		_tap_touch_index = touch.index
 		_drag_last_tile = Vector2i(-9999, -9999)

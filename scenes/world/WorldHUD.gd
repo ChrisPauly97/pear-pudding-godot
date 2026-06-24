@@ -304,16 +304,30 @@ func set_ley_indicator_visible(v: bool) -> void:
 	if _ley_indicator:
 		_ley_indicator.visible = v
 
-func show_interact_prompt(v: bool) -> void:
+func show_interact_prompt(v: bool, label: String = "USE") -> void:
 	if v:
 		if _interact_btn != null:
+			_interact_btn.text = label
 			_interact_btn.show()
 		else:
+			var key: String = "Tap" if OS.has_feature("android") else "E"
+			_interact_label.text = "[%s] %s" % [key, label.capitalize()]
 			_interact_label.show()
 	else:
 		_interact_label.hide()
 		if _interact_btn != null:
 			_interact_btn.hide()
+
+# Returns true if pos (screen coordinates) lands on any visible HUD button.
+# Used by WorldScene to prevent tap-to-move from firing through HUD controls.
+func is_touch_on_hud_button(pos: Vector2) -> bool:
+	if _hud == null:
+		return false
+	for child in _hud.get_children():
+		if child is Button and (child as Button).visible:
+			if (child as Button).get_global_rect().has_point(pos):
+				return true
+	return false
 
 func update_mount_btn() -> void:
 	if _mount_btn == null:
