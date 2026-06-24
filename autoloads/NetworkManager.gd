@@ -114,6 +114,29 @@ func local_id() -> int:
 	return multiplayer.get_unique_id()
 
 
+## Best-guess LAN IPv4 address for this device, for display so the other player
+## can type it into "Join by IP". Prefers private ranges (192.168.x / 10.x /
+## 172.16–31.x) and skips loopback. Returns "" if none found.
+func get_lan_ip() -> String:
+	var fallback: String = ""
+	for addr in IP.get_local_addresses():
+		var a: String = str(addr)
+		if a.contains(":"):
+			continue  # skip IPv6
+		if a == "127.0.0.1" or a.begins_with("169.254."):
+			continue  # loopback / link-local
+		if a.begins_with("192.168.") or a.begins_with("10."):
+			return a
+		if a.begins_with("172."):
+			var second: int = int(a.split(".")[1]) if a.split(".").size() > 1 else 0
+			if second >= 16 and second <= 31:
+				return a
+		if fallback == "":
+			fallback = a
+	return fallback
+
+
+
 # ---------------------------------------------------------------------------
 # LAN discovery (ENet-transport-only — Steam matchmaking replaces this).
 #
