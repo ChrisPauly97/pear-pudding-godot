@@ -54,7 +54,10 @@ func set_destination_path(waypoints: Array[Vector2i]) -> void:
 	if waypoints.is_empty():
 		return
 	_path_waypoints = waypoints
-	_path_wp_index = 0
+	# Waypoint 0 is always the player's current tile (the A* start tile).
+	# Skip it so a drag update doesn't steer toward the current tile centre
+	# before heading to the real destination.
+	_path_wp_index = 1 if waypoints.size() > 1 else 0
 	_has_active_path = true
 
 # Cancels the active tap-to-move path (called on manual input or interrupts).
