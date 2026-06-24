@@ -290,8 +290,6 @@ func _ready() -> void:
 		if map_name == "blancogov" or map_name == "blancogov_temple":
 			SceneManager.save_manager.set_story_flag("chapter1_reached_blancogov")
 
-	_update_hud()
-
 	# Re-enter any battle that was interrupted (e.g. app quit mid-fight)
 	if not SceneManager.save_manager.pending_battle_enemy_data.is_empty():
 		GameBus.enemy_engaged.emit.call_deferred(SceneManager.save_manager.pending_battle_enemy_data)
@@ -313,6 +311,9 @@ func _ready() -> void:
 	add_child(_world_hud)
 	_world_hud.setup(_hud, _is_infinite, map_name, _interact_label, self)
 	_world_hud.build_bounty_tracker()
+
+	# Must run after _world_hud exists — _update_hud refreshes the XP bar via it.
+	_update_hud()
 
 	if not SceneManager.save_manager.get_story_flag("tutorial_inventory_tip"):
 		SceneManager.save_manager.set_story_flag("tutorial_inventory_tip")
