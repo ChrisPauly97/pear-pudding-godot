@@ -545,5 +545,5 @@ When adding a new major feature or system, create a corresponding `.md` file in 
 | [docs/agent/ancient-colossi.md](docs/agent/ancient-colossi.md) | Ancient Colossi | Landmark placement, 5 biome variants, CPU ArrayMesh structures, name generator, discovery system, Journal tab |
 | [docs/agent/ley-lines.md](docs/agent/ley-lines.md) | Ley Lines | Simplex noise bands, UV2 terrain glow, speed boost, Attuned battle buff, Mana Wells |
 | [docs/agent/app-diagnostics.md](docs/agent/app-diagnostics.md) | App Diagnostics Log Screen | AppLog ring buffer, auto-logged GameBus signals, DiagnosticsScene overlay, pause & menu entry points |
-| [docs/agent/multiplayer-coop.md](docs/agent/multiplayer-coop.md) | Co-op Multiplayer (vertical slice) | NetworkManager transport abstraction, RemotePlayer avatars, NetSync RPC + AvatarSync, lobby + LAN discovery, limitations |
+| [docs/agent/multiplayer-coop.md](docs/agent/multiplayer-coop.md) | Co-op Multiplayer + PvP card battles | NetworkManager transport, RemotePlayer avatars, NetSync/AvatarSync, lobby + LAN discovery; PvP (GID-091): BattleNetProtocol wire format, BattleNetSync relay, host-authoritative state mirroring, challenge handshake, duel-style rewards |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

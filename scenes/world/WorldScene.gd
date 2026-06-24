@@ -75,6 +75,14 @@ var _remote_player_nodes: Dictionary = {}  # peer_id -> RemotePlayer Node3D
 var _net_sync: Node = null
 var _coop_active: bool = false
 var _net_broadcast_accum: float = 0.0
+var _initial_ready_done: bool = false  # so _enter_tree re-setup only runs on re-entry
+# PvP challenges (GID-091)
+var _challenge_btn: Button = null
+var _challenge_target_peer: int = -1     # nearby remote peer eligible to challenge
+var _pending_challenge_from: int = -1    # incoming challenge awaiting our response
+var _pending_challenge_deck: Array = []  # challenger's deck stored until we accept
+var _challenge_accept_panel: Node = null
+const _CHALLENGE_RANGE: float = 3.0      # tiles; proximity to show the prompt
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -375,6 +383,15 @@ func _ready() -> void:
 	GameBus.journal_requested.connect(_clear_dest_marker)
 
 	_setup_coop()
+	_initial_ready_done = true
+
+# Re-establish co-op when the world is re-attached after a PvP battle detached it
+# (SceneManager keeps the WorldScene alive but removes it from the tree, which runs
+# _exit_tree → _teardown_coop). On first load _ready handles setup, so this only
+# fires on re-entry.
+func _enter_tree() -> void:
+	if _initial_ready_done and not _coop_active and NetworkManager.is_active():
+		_setup_coop()
 
 func _exit_tree() -> void:
 	_teardown_coop()
@@ -391,18 +408,23 @@ func _exit_tree() -> void:
 func _setup_coop() -> void:
 	if not NetworkManager.is_active():
 		return
+	if _coop_active:
+		return
 	_coop_active = true
 
 	# Fixed-name RPC relay child. Path /root/WorldScene/NetSync matches on both
-	# peers, and it is freed with the scene.
-	_net_sync = _NetSyncScript.new()
-	_net_sync.name = "NetSync"
-	_net_sync.set("world_scene", self)
-	add_child(_net_sync)
+	# peers. Reused across a PvP battle detach (not freed in _teardown_coop).
+	if _net_sync == null or not is_instance_valid(_net_sync):
+		_net_sync = _NetSyncScript.new()
+		_net_sync.name = "NetSync"
+		_net_sync.set("world_scene", self)
+		add_child(_net_sync)
 
 	NetworkManager.peer_connected.connect(_on_coop_peer_connected)
 	NetworkManager.peer_disconnected.connect(_on_coop_peer_disconnected)
 	NetworkManager.session_ended.connect(_on_coop_session_ended)
+
+	_ensure_challenge_button()
 
 	# Spawn avatars for peers already connected when this world loads (the
 	# client-joining-host case; the host's peer is already present).
@@ -418,6 +440,9 @@ func _teardown_coop() -> void:
 		NetworkManager.peer_disconnected.disconnect(_on_coop_peer_disconnected)
 	if NetworkManager.session_ended.is_connected(_on_coop_session_ended):
 		NetworkManager.session_ended.disconnect(_on_coop_session_ended)
+	# Keep _net_sync alive across a battle detach so the RPC node persists; set
+	# inactive so re-entry (_enter_tree) re-runs setup and reconnects signals.
+	_coop_active = false
 
 func _spawn_remote_player(pid: int) -> void:
 	if _remote_player_nodes.has(pid):
@@ -476,6 +501,165 @@ func _broadcast_local_avatar(delta: float) -> void:
 	var payload: Array = _AvatarSync.encode(
 		_player.position.x, _player.position.z, flip_h, moving)
 	_net_sync.rpc("recv_avatar", payload)
+
+# ── PvP challenge handshake (GID-091) ─────────────────────────────────────────
+
+## Creates the hidden "Challenge to Battle" HUD button (mobile + desktop parity).
+func _ensure_challenge_button() -> void:
+	if _challenge_btn != null and is_instance_valid(_challenge_btn):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_challenge_btn = Button.new()
+	_challenge_btn.text = "Challenge to Battle"
+	_challenge_btn.custom_minimum_size = Vector2(vp.y * 0.34, vp.y * 0.07)
+	_challenge_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	_challenge_btn.position = Vector2((vp.x - vp.y * 0.34) * 0.5, vp.y * 0.80)
+	_challenge_btn.hide()
+	_challenge_btn.pressed.connect(_request_challenge)
+	_hud.add_child(_challenge_btn)
+
+## Shows/hides the challenge button based on proximity to a remote player. Called
+## each frame from _process while co-op is active.
+func _update_challenge_proximity() -> void:
+	if _challenge_btn == null or not is_instance_valid(_challenge_btn):
+		return
+	# Suppress while a challenge is pending or we're not in the world.
+	if _pending_challenge_from != -1 or SceneManager._state != SceneManager.State.WORLD:
+		_challenge_btn.hide()
+		return
+	if _player == null:
+		_challenge_btn.hide()
+		return
+	var range_world: float = _CHALLENGE_RANGE * IsoConst.TILE_SIZE
+	var nearest_pid: int = -1
+	var nearest_d: float = range_world
+	for pid in _remote_player_nodes.keys():
+		var rp: Node3D = _remote_player_nodes[pid] as Node3D
+		if not is_instance_valid(rp):
+			continue
+		var d: float = Vector2(rp.position.x, rp.position.z).distance_to(
+			Vector2(_player.position.x, _player.position.z))
+		if d <= nearest_d:
+			nearest_d = d
+			nearest_pid = int(pid)
+	_challenge_target_peer = nearest_pid
+	_challenge_btn.visible = nearest_pid != -1
+
+## Local deck as a plain Array of Dictionaries for RPC transmission.
+func _local_deck_for_net() -> Array:
+	var out: Array = []
+	for inst in SceneManager.save_manager.get_deck_instances():
+		out.append(inst)
+	return out
+
+## Send a challenge to the nearby peer.
+func _request_challenge() -> void:
+	if _challenge_target_peer == -1 or _net_sync == null:
+		return
+	var my_deck: Array = _local_deck_for_net()
+	if my_deck.size() < IsoConst.DECK_MIN:
+		_show_tip("Your deck is too small to duel — add at least %d cards." % IsoConst.DECK_MIN)
+		return
+	_net_sync.rpc_id(_challenge_target_peer, "request_battle", my_deck)
+	_show_tip("Challenge sent…")
+
+## Incoming challenge — show an Accept/Decline prompt.
+func _on_battle_requested(from_id: int, challenger_deck: Array) -> void:
+	if _pending_challenge_from != -1:
+		return  # already handling one
+	_pending_challenge_from = from_id
+	_pending_challenge_deck = challenger_deck
+	_show_challenge_accept_panel(from_id)
+
+## Challenger learns the response.
+func _on_battle_responded(_from_id: int, accepted: bool, responder_deck: Array) -> void:
+	if not accepted:
+		_show_tip("Challenge declined.")
+		return
+	_enter_pvp(responder_deck)
+
+func _show_challenge_accept_panel(from_id: int) -> void:
+	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
+		_challenge_accept_panel.queue_free()
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var layer := CanvasLayer.new()
+	layer.layer = 180
+	add_child(layer)
+	_challenge_accept_panel = layer
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	layer.add_child(panel)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vp.y * 0.025))
+	panel.add_child(vbox)
+
+	var lbl := Label.new()
+	lbl.text = "A player challenges you to a card battle!"
+	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.03))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(lbl)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(vp.y * 0.03))
+	vbox.add_child(row)
+
+	var accept_btn := Button.new()
+	accept_btn.text = "Accept"
+	accept_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
+	accept_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	accept_btn.pressed.connect(_accept_challenge.bind(from_id))
+	row.add_child(accept_btn)
+
+	var decline_btn := Button.new()
+	decline_btn.text = "Decline"
+	decline_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
+	decline_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	decline_btn.pressed.connect(_decline_challenge.bind(from_id))
+	row.add_child(decline_btn)
+
+func _dismiss_challenge_panel() -> void:
+	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
+		_challenge_accept_panel.queue_free()
+	_challenge_accept_panel = null
+
+func _accept_challenge(from_id: int) -> void:
+	_dismiss_challenge_panel()
+	var my_deck: Array = _local_deck_for_net()
+	if my_deck.size() < IsoConst.DECK_MIN:
+		_show_tip("Your deck is too small to duel.")
+		if _net_sync != null:
+			_net_sync.rpc_id(from_id, "respond_battle", false, [])
+		_pending_challenge_from = -1
+		return
+	var opp_deck: Array = _pending_challenge_deck
+	_pending_challenge_from = -1
+	_pending_challenge_deck = []
+	if _net_sync != null:
+		_net_sync.rpc_id(from_id, "respond_battle", true, my_deck)
+	_enter_pvp(opp_deck)
+
+func _decline_challenge(from_id: int) -> void:
+	_dismiss_challenge_panel()
+	if _net_sync != null:
+		_net_sync.rpc_id(from_id, "respond_battle", false, [])
+	_pending_challenge_from = -1
+	_pending_challenge_deck = []
+
+## Both peers route into SceneManager. The co-op host is always the battle
+## authority (canonical player 0); the client is player 1.
+func _enter_pvp(opponent_deck: Array) -> void:
+	if _challenge_btn != null and is_instance_valid(_challenge_btn):
+		_challenge_btn.hide()
+	var local_idx: int = 0 if NetworkManager.is_host() else 1
+	SceneManager.enter_pvp_battle(local_idx, opponent_deck)
 
 ## Returns the biome and time context at the moment of engagement (GID-059).
 ## Called by SceneManager._on_enemy_engaged() to stamp context into enemy_data.
@@ -1453,6 +1637,7 @@ func _process(delta: float) -> void:
 	# Co-op: broadcast local avatar state to peers (inert in single-player)
 	if _coop_active:
 		_broadcast_local_avatar(delta)
+		_update_challenge_proximity()
 
 	# Only update save position when player moves > 1 unit (not every frame)
 	var cur_pos := Vector2(_player.position.x, _player.position.z)

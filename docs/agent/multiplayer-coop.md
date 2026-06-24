@@ -1,9 +1,9 @@
-# Co-op Multiplayer (Vertical Slice)
+# Co-op Multiplayer (Vertical Slice + PvP)
 
-> Status: thin vertical slice (GID-090). Two players share one named map
-> (**madrian**) and see each other's avatar move. Battles, enemies, chests,
-> inventory, the infinite chunk world, and save sync are **out of scope** — see
-> Limitations.
+> Status: two players share one named map (**madrian**) and see each other's
+> avatar move (GID-090), and can challenge each other to a real TCG **card battle**
+> (GID-091, host-authoritative). Enemies, chests, inventory, the infinite chunk
+> world, and save sync remain out of scope — see Limitations.
 
 ## Key Features
 
@@ -122,6 +122,73 @@ broadcast* needs Android's `WifiManager.MulticastLock`. With this model only the
 desktop host** works with zero native code (the Android client receives a unicast
 reply, which needs no lock).
 
+## PvP Card Battles (GID-091)
+
+Two co-op players can challenge each other to a TCG card battle reusing the
+existing battle engine, under a **host-authoritative state-mirroring** model
+(not lockstep — avoids needing deterministic shared RNG for shuffles/draws).
+
+### Model
+
+- The co-op **host** (`NetworkManager.is_host()`) owns the one canonical
+  `GameState`: `players[0]` = host, `players[1]` = client. It applies both its own
+  and the client's actions, then broadcasts `GameState.to_dict()`.
+- The **client** never simulates. It sends *intents* over a reliable RPC, and
+  renders the received mirror **from its own perspective** (`_local_player_idx == 1`:
+  its side at the bottom, host's at the top). Input is gated to its own turn and
+  blocked while a round-trip is pending (`_pvp_pending`).
+- Everything is guarded by `_pvp`; single-player / NPC duel / puzzle / Spire
+  battles hit zero new code paths (`_local_player_idx == 0` → the `_my_idx()`/
+  `_opp_idx()` accessors are the identity, so rendering/input are unchanged).
+
+### Wire format — `game_logic/net/BattleNetProtocol.gd`
+
+Pure, scene-free, unit-tested (mirrors `AvatarSync.gd`). JSON-primitive dicts.
+
+| Helper | Payload |
+|---|---|
+| `encode_play_card_at_slot(hand_index, slot_idx)` | minion from hand → board slot |
+| `encode_play_spell(hand_index, target={})` | spell; `target` = `{}` / `{hero:true}` / `{side,slot}` / `{slot}` (slot spells) |
+| `encode_attack(attacker_slot, target_slot)` | `target_slot == -1` (`TARGET_HERO`) = enemy hero |
+| `encode_end_turn()` / `encode_surrender()` | — |
+| `encode_hero_power(target, effect_type, effect_value)` | effect carried because the host doesn't know the client's skills |
+| `encode_potion(potion_id)` | host applies the state effect (acting peer consumed its own inventory) |
+| `encode_state(state_dict, seq)` / `decode_state` | full-state mirror with a monotonic `seq` (client drops stale) |
+
+`decode_intent` always returns a fully-defaulted dict; garbage/unknown → `type == ""`.
+
+### Relay — `scenes/battle/BattleNetSync.gd`
+
+Fixed-name child of `BattleScene`, so the RPC path
+`/root/BattleScene/BattleNetSync` matches on both peers (SceneManager sets the
+BattleScene root name explicitly). **Reliable** RPCs (turn-based, must not drop):
+`send_intent` (client→host), `sync_state` / `pvp_ended` (host→client), and
+`request_sync` (client→host, retried until the first mirror lands — resolves the
+race where the host broadcasts before the client's scene exists).
+
+### Flow
+
+1. Walk within ~3 tiles of the other player → a **"Challenge to Battle"** HUD
+   button appears (mobile + desktop). Press it → `NetSync.request_battle(my_deck)`.
+2. The other peer sees an Accept/Decline prompt. On Accept →
+   `NetSync.respond_battle(true, my_deck)`; both peers then call
+   `SceneManager.enter_pvp_battle(local_idx, opponent_deck)` (host = idx 0).
+3. The host builds both decks (its own + the relayed client deck), draws opening
+   hands, `start_turn(1)`, and broadcasts the initial state. The host plays first.
+4. The WorldScene is detached but kept alive; the co-op session is **never** torn
+   down (`_setup_coop`/`_teardown_coop` are idempotent and re-run from
+   `_enter_tree` on world re-attach). Both peers return to the same madrian.
+
+### Rewards & end states (duel-style)
+
+PvP outcomes award **no cards, no coins, no XP** and don't mark enemies defeated
+(`enemy_data` carries an empty drop pool / zero coin reward). A synced
+victory/defeat overlay (`BattleResultUI.show_pvp_result`) shows on both peers;
+its Continue button emits `GameBus.pvp_battle_ended(did_win)`, which SceneManager
+handles by restoring the shared world. **Flee** (pause menu) becomes a surrender;
+an **opponent disconnect** mid-battle is a forfeit win for the remaining player
+(if the whole session ended, the client routes to the menu).
+
 ## Integrations with Other Features
 
 | System | Integration |
@@ -145,8 +212,10 @@ No new art. RemotePlayer reuses the existing wizard walk textures
 |---|---|---|
 | `tests/unit/test_coop_sync.gd` | unit (auto-run) | AvatarSync encode/decode round-trip + interpolation (13 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
+| `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |
+| `tests/net_pvp_smoke.gd` | on-demand SceneTree | Real ENet loopback: client intent → host apply → state-mirror round-trip |
 
 Run the smoke tests with `godot --headless --path . -s tests/<file>` (exit 0 =
 pass). They are not in the auto-discovered unit suite because they need real
@@ -165,9 +234,12 @@ close one and confirm its avatar is freed.
   Android device can *join* and be *discovered as a client-of-desktop-host*, but
   hosting-and-being-found on Android requires a future plugin. AP-isolation and
   guest networks block UDP discovery entirely — manual IP entry is the fallback.
-- **2 players max** (`MAX_PEERS = 1`); no reconnection.
-- **Not synced:** battles, enemies/NPCs, chests, inventory, story flags, save data,
-  day/night, weather. Co-op assumes both players just explore madrian together.
+- **2 players max** (`MAX_PEERS = 1`); no reconnection (including no reconnection
+  into an in-progress PvP battle).
+- **PvP is LAN/loopback only, 2 players**, no spectating, no wagers/ranked ladder.
+- **Not synced:** enemies/NPCs, chests, inventory, story flags, save data,
+  day/night, weather. Co-op assumes both players explore madrian together; PvP
+  battles are duel-style (no rewards) so there's nothing to sync back to saves.
 - **Infinite chunk world not supported** — co-op uses a finite named map to avoid
   chunk synchronisation.
 - **Steam transport** is stubbed (`Transport.STEAM` returns null with a warning).

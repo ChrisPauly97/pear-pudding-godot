@@ -2,7 +2,7 @@
 
 **Goal:** GID-091
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-329
 
 ## Lock
@@ -114,12 +114,48 @@ unchanged.
 
 ## Plan
 
-_Written during Plan phase._
+Accessor-based perspective (per research notes). New fields `_pvp`,
+`_local_player_idx` (0=host, 1=client), `_net`, `_state_seq`, `_last_applied_seq`,
+`_pvp_pending`, `_pvp_ended`, `pvp_opponent_deck`. Helpers `_my_idx()`/`_opp_idx()`
+(=0/1 in single-player → regression-safe), `_is_pvp_host/client()`,
+`_can_local_act()`. Render/input audited to route every `players[0]`/`players[1]`
+"me/opp" assumption through the accessors. Client is a thin controller: each local
+action encodes a `BattleNetProtocol` intent and `rpc_id(1,…)`s the host, then waits
+for the mirror (`_pvp_pending`). Host applies its own + relayed intents to the one
+canonical state and re-broadcasts via `_check_game_over` (which routes to
+`_pvp_check_game_over` when `_pvp`). AI disabled in `_on_turn_ended` for PvP.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/battle/BattleScene.gd`** — PvP fields + perspective accessors;
+  `_setup_pvp_battle()`/`_build_pvp_decks()` (host builds both decks, starts turn 1;
+  client waits for first mirror); `_broadcast_state()`, `_on_pvp_state()` (client
+  rebuilds `_state` and re-wires `_resolver`/`_fx`/`_view`), `_on_pvp_intent()` +
+  `_apply_remote_intent()` (host validates the client is on turn and the move legal,
+  applies via the same `_do_play_card*`/resolver/`_resolve_remote_attack` paths),
+  `_apply_hero_power_effect()`/`_apply_potion_state_effect()` (shared, so the host
+  can apply a relayed client power/potion it has no inventory for),
+  `_pvp_resolver_target()`, `_pvp_target_dict_for_card()`. End-of-battle:
+  `_pvp_check_game_over()` (host detects winner → broadcast final state + `pvp_ended`
+  → `_finish_pvp`), `_on_pvp_ended()` (client), surrender + disconnect-forfeit
+  handlers (`_pvp_surrender`, `_apply_remote_surrender`, `_on_pvp_peer_disconnected`,
+  `_on_pvp_session_ended`), `_finish_pvp()`. Render/input refactor: `_refresh_all`,
+  `_refresh_player_board`, `_update_status`, `_bind_card_input`, `_on_hand_card_*`,
+  `_start_hand_drag`, `_finish_hand_drag`, `_on_empty_slot_input`,
+  `_resolve_slot_spell`, `_on_target_chosen_*`, `_on_enemy_card/hero_input` +
+  `_attempt_attack`, `_on_end_turn`, `_use_hero_power`, `_apply_potion_effect`,
+  `_refresh_potion_button`, `_on_potion_button_pressed` all route through the
+  accessors and gate client actions through intent sends. `_notification`
+  focus-out save guarded against `_pvp`. Capture tracker skipped for `_pvp`.
+- **`game_logic/net/BattleNetProtocol.gd`** — `encode_hero_power`/`decode_intent`
+  extended (additively) with `effect_type`/`effect_value` so the host can apply the
+  client's skill effect authoritatively.
+- **`autoloads/GameBus.gd`** — new `pvp_battle_ended(did_win)` signal.
+- **`scenes/battle/BattleResultUI.gd`** — `show_pvp_result(did_win)` duel-style
+  overlay (no rewards) that emits `pvp_battle_ended` on Continue.
+- Single-player path unchanged (`_local_player_idx == 0` → accessors are identity);
+  headless import clean; full unit suite passes (1554, exit 0).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Documented holistically in TID-333.

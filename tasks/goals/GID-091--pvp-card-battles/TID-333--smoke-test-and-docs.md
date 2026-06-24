@@ -2,7 +2,7 @@
 
 **Goal:** GID-091
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-332
 
 ## Lock
@@ -66,12 +66,29 @@ standalone doc file for PvP (amend the existing `multiplayer-coop.md`, per the
 
 ## Plan
 
-_Written during Plan phase._
+Add `tests/net_pvp_smoke.gd` (on-demand SceneTree, ENet loopback) modelled on
+`net_coop_smoke.gd`; document the PvP system in the agent docs.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`tests/net_pvp_smoke.gd`** (new, + `.gd.uid`) — stands up host+client over ENet
+  loopback under a fixed `BattleScene/BattleNetSync` path; the client sends an
+  `end_turn` intent via the real relay; a minimal host stub holds a real
+  `GameState`, applies it, and broadcasts `BattleNetProtocol.encode_state`; the test
+  asserts the client receives a valid mirror with `seq >= 1` and a flipped
+  `current_player_idx`. Exit 0 = pass. **Passes.**
+- Confirmed the auto unit suite (incl. `test_pvp_protocol.gd`, 17 cases) exits 0
+  (1554 total), the existing `net_coop_smoke.gd` still passes, and a headless editor
+  import is clean across the BattleScene preload chain.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/multiplayer-coop.md`** — status banner updated; new "PvP Card
+  Battles (GID-091)" section (host-authoritative model, `BattleNetProtocol` wire
+  format table, `BattleNetSync` relay + reliable RPCs incl. `request_sync`,
+  perspective/`_local_player_idx`, challenge handshake flow, duel-style rewards,
+  surrender/disconnect-forfeit); Tests table + Limitations refreshed.
+- **`docs/agent/battle-system.md`** — Integrations row + new "PvP Battles (GID-091)"
+  subsection (perspective accessors, AI disable, host applies remote intents,
+  single-player unchanged).
+- **`CLAUDE.md`** — doc-table row updated to mention PvP.

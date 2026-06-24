@@ -23,6 +23,9 @@ signal turn_ended(player_id: int)
 signal battle_ended(winner: int)  # 0 = player, 1 = enemy
 signal status_ticked(entity_id: String, effect_id: String, remaining: int)
 signal fatigue_damage(player_id: int, damage: int)
+# PvP card battles (GID-091): duel-style end, no rewards. did_win is from the
+# local peer's perspective. SceneManager restores the shared co-op world.
+signal pvp_battle_ended(did_win: bool)
 
 # Story signals
 signal story_flag_set(flag: String)

@@ -28,6 +28,8 @@ const CardViewBuilder = preload("res://scenes/battle/CardViewBuilder.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
 const BattlePauseUI = preload("res://scenes/battle/BattlePauseUI.gd")
 const BattleResultUI = preload("res://scenes/battle/BattleResultUI.gd")
+const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
+const _BattleNetSyncScript = preload("res://scenes/battle/BattleNetSync.gd")
 
 var _fx: BattleFx
 var _view: CardViewBuilder
@@ -38,6 +40,20 @@ var _result_ui: BattleResultUI
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
 var puzzle_data: Resource = null  # PuzzleData set by SceneManager before _ready
+
+# ── PvP card battles (GID-091) ────────────────────────────────────────────────
+# All inert unless SceneManager sets _pvp = true before _ready. Single-player,
+# NPC duel, puzzle and Spire battles never touch any of this.
+var _pvp: bool = false
+var _local_player_idx: int = 0       # 0 = host (authority), 1 = client
+var _net: Node = null                # BattleNetSync relay, added under this scene
+var _state_seq: int = 0              # host: monotonic broadcast counter
+var _last_applied_seq: int = -1      # client: last mirror seq applied
+var _pvp_pending: bool = false       # client: waiting on host ack of last action
+var _pvp_ended: bool = false         # guard so the result fires once
+# Client deck (collection-instance dicts) relayed in the challenge handshake; the
+# host uses it to build players[1] authoritatively. Set by SceneManager.
+var pvp_opponent_deck: Array = []
 
 # Weather modifier state — determined once at battle start
 var _battle_weather: String = ""  # "" if no infinite-world weather applies
@@ -139,6 +155,8 @@ func _ready() -> void:
 		_state = GameState.new()
 		_resolver.setup(_state)
 		_state.load_puzzle(puzzle_data)
+	elif _pvp:
+		_setup_pvp_battle()
 	elif not _saved_battle.is_empty():
 		_state = GameState.new()
 		_resolver.setup(_state)
@@ -252,8 +270,8 @@ func _ready() -> void:
 	_fx.set_game_state(_state)
 	_view.set_battle_state(_state, enemy_data)
 
-	# Initialise capture tracker for the current enemy (no-op for puzzles/duels).
-	if not _state.puzzle_mode and not _state.friendly_duel:
+	# Initialise capture tracker for the current enemy (no-op for puzzles/duels/PvP).
+	if not _state.puzzle_mode and not _state.friendly_duel and not _pvp:
 		var _ct_enemy_type: String = str(enemy_data.get("enemy_type", ""))
 		var _ct_condition: String = EnemyRegistry.get_capture_condition(_ct_enemy_type)
 		var _ct_param: int = EnemyRegistry.get_capture_param(_ct_enemy_type)
@@ -627,7 +645,7 @@ func _finish_hand_drag() -> void:
 		var is_enemy_targeted: bool = SpellEffectResolver.ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
 		var is_friendly_targeted: bool = SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
 		var is_slot_targeted: bool = SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(played_card.spell_effect)
-		if played_card.card_class == "spell" and is_slot_targeted and _state.players[0].can_play(played_card):
+		if played_card.card_class == "spell" and is_slot_targeted and _state.players[_my_idx()].can_play(played_card):
 			_hand_drag_card = null
 			if _drag_visual:
 				_drag_visual.queue_free()
@@ -635,12 +653,12 @@ func _finish_hand_drag() -> void:
 			_hide_cancel_btn()
 			_enter_slot_targeting_mode(played_card)
 			return
-		if played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted) and _state.players[0].can_play(played_card):
+		if played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted) and _state.players[_my_idx()].can_play(played_card):
 			# Refuse targeted spells when there are no valid targets — return to hand.
-			if is_friendly_targeted and _state.players[0].board.get_cards().is_empty():
+			if is_friendly_targeted and _state.players[_my_idx()].board.get_cards().is_empty():
 				_cancel_hand_drag()
 				return
-			elif is_enemy_targeted and played_card.spell_effect != "deal_damage_single" and _state.players[1].board.get_cards().is_empty():
+			elif is_enemy_targeted and played_card.spell_effect != "deal_damage_single" and _state.players[_opp_idx()].board.get_cards().is_empty():
 				_cancel_hand_drag()
 				return
 			else:
@@ -654,28 +672,46 @@ func _finish_hand_drag() -> void:
 		# Minions: find which slot the mouse is over
 		if played_card.card_class != "spell":
 			var target_slot_idx: int = _slot_idx_at_point(mouse_pos, _player_board_view)
-			if target_slot_idx == -1 or _state.players[0].board.slots[target_slot_idx] != null:
+			if target_slot_idx == -1 or _state.players[_my_idx()].board.slots[target_slot_idx] != null:
 				_cancel_hand_drag()
 				return
-			if _do_play_card_at_slot(played_card, 0, target_slot_idx):
+			if _is_pvp_client():
+				var hi: int = _state.players[_my_idx()].hand.find(played_card)
+				_cancel_hand_drag()
+				if hi != -1 and _state.players[_my_idx()].can_play(played_card):
+					AudioManager.play_sfx("card_play")
+					_fx.haptic(20)
+					_send_intent(BattleNetProtocol.encode_play_card_at_slot(hi, target_slot_idx))
+					_dismiss_battle_tutorial()
+				return
+			if _do_play_card_at_slot(played_card, _my_idx(), target_slot_idx):
 				AudioManager.play_sfx("card_play")
 				_fx.haptic(20)
 				if played_card.emergence_effect != "":
 					var snap_em := _fx.snapshot()
-					_resolver.resolve_emergence(played_card, 0)
+					_resolver.resolve_emergence(played_card, _my_idx())
 					_fx.trigger_fx(snap_em)
 				else:
-					_apply_weather_to_summoned(played_card, 0)
+					_apply_weather_to_summoned(played_card, _my_idx())
 				_refresh_all()
 				_check_game_over()
 				_dismiss_battle_tutorial()
 		else:
 			# Non-targeted spells: slot doesn't matter
-			if _do_play_card(played_card, 0):
+			if _is_pvp_client():
+				var hi2: int = _state.players[_my_idx()].hand.find(played_card)
+				_cancel_hand_drag()
+				if hi2 != -1 and _state.players[_my_idx()].can_play(played_card):
+					AudioManager.play_sfx("card_play")
+					_fx.haptic(20)
+					_send_intent(BattleNetProtocol.encode_play_spell(hi2, {}))
+					_dismiss_battle_tutorial()
+				return
+			if _do_play_card(played_card, _my_idx()):
 				AudioManager.play_sfx("card_play")
 				_fx.haptic(20)
 				var snap_fhd := _fx.snapshot()
-				_resolver.resolve_spell(played_card, 0)
+				_resolver.resolve_spell(played_card, _my_idx())
 				_fx.trigger_fx(snap_fhd)
 				_refresh_all()
 				_check_game_over()
@@ -694,7 +730,7 @@ func _start_hand_drag(card: CardInstance, from_pos: Vector2) -> void:
 	_hand_drag_card = card
 	_drag_start_pos = from_pos
 	_drag_moved = false
-	if not _state.players[0].can_play(card):
+	if not _state.players[_my_idx()].can_play(card):
 		# Still track for tap-to-inspect; don't show drag ghost for unplayable
 		return
 	_drag_visual = _make_card_ghost(card)
@@ -791,15 +827,23 @@ func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 			if _slot_select_card != null:
 				var card := _slot_select_card
 				_exit_slot_select_mode()
-				if _do_play_card_at_slot(card, 0, slot_idx):
+				if _is_pvp_client():
+					var hi: int = _state.players[_my_idx()].hand.find(card)
+					if hi != -1 and _state.players[_my_idx()].can_play(card):
+						AudioManager.play_sfx("card_play")
+						_fx.haptic(20)
+						_send_intent(BattleNetProtocol.encode_play_card_at_slot(hi, slot_idx))
+						_dismiss_battle_tutorial()
+					return
+				if _do_play_card_at_slot(card, _my_idx(), slot_idx):
 					AudioManager.play_sfx("card_play")
 					_fx.haptic(20)
 					if card.emergence_effect != "":
 						var snap_se := _fx.snapshot()
-						_resolver.resolve_emergence(card, 0)
+						_resolver.resolve_emergence(card, _my_idx())
 						_fx.trigger_fx(snap_se)
 					else:
-						_apply_weather_to_summoned(card, 0)
+						_apply_weather_to_summoned(card, _my_idx())
 					_refresh_all()
 					_check_game_over()
 					_dismiss_battle_tutorial()
@@ -818,16 +862,23 @@ func _exit_slot_targeting_mode() -> void:
 	_refresh_player_board()
 
 func _resolve_slot_spell(spell: CardInstance, slot_idx: int) -> void:
-	if not _state.players[0].can_play(spell):
+	if not _state.players[_my_idx()].can_play(spell):
 		return
-	_do_play_card(spell, 0)
+	if _is_pvp_client():
+		var hi: int = _state.players[_my_idx()].hand.find(spell)
+		if hi != -1:
+			AudioManager.play_sfx("spell_resolve")
+			_fx.haptic(20)
+			_send_intent(BattleNetProtocol.encode_play_spell(hi, {"slot": slot_idx}))
+		return
+	_do_play_card(spell, _my_idx())
 	AudioManager.play_sfx("spell_resolve")
 	_fx.haptic(20)
 	match spell.spell_effect:
 		"bless_slot":
-			_state.players[0].board.enhance_slot(slot_idx, "atk_bonus", spell.spell_power)
+			_state.players[_my_idx()].board.enhance_slot(slot_idx, "atk_bonus", spell.spell_power)
 		"ward_slot":
-			_state.players[0].board.enhance_slot(slot_idx, "shroud", 1)
+			_state.players[_my_idx()].board.enhance_slot(slot_idx, "shroud", 1)
 	_refresh_all()
 	_check_game_over()
 
@@ -913,11 +964,11 @@ func _refresh_potion_button() -> void:
 		if int(SceneManager.save_manager.potions[potion_id]) > 0:
 			has_potions = true
 			break
-	_potion_btn.disabled = _used_potion_this_battle or not has_potions or _state.current_player_idx != 0
+	_potion_btn.disabled = _used_potion_this_battle or not has_potions or _state.current_player_idx != _my_idx()
 	_potion_btn.visible = has_potions
 
 func _on_potion_button_pressed() -> void:
-	if _used_potion_this_battle or _state.current_player_idx != 0:
+	if _used_potion_this_battle or _state.current_player_idx != _my_idx():
 		return
 	_show_potion_picker()
 
@@ -1005,7 +1056,13 @@ func _apply_potion_effect(potion_id: String) -> void:
 	if not sm.remove_potions(potion_id, 1):
 		return
 	_used_potion_this_battle = true
-	var player: PlayerState = _state.players[0]
+	if _is_pvp_client():
+		# Inventory consumed locally; the host applies the state effect to players[1].
+		_send_intent(BattleNetProtocol.encode_potion(potion_id))
+		GameBus.potion_used.emit(potion_id)
+		_refresh_potion_button()
+		return
+	var player: PlayerState = _state.players[_my_idx()]
 	var snap_pot := _fx.snapshot()
 	match potion_id:
 		"healing_draught":
@@ -1021,6 +1078,8 @@ func _apply_potion_effect(potion_id: String) -> void:
 	GameBus.potion_used.emit(potion_id)
 	_refresh_all()
 	_refresh_potion_button()
+	if _pvp:
+		_check_game_over()
 
 func _get_active_skill() -> SkillData:
 	var result: SkillData = null
@@ -1033,34 +1092,21 @@ func _get_active_skill() -> SkillData:
 func _use_hero_power() -> void:
 	if _hero_power_used:
 		return
+	if _pvp and not _can_local_act():
+		return
 	var active_skill: SkillData = _get_active_skill()
 	if active_skill == null:
 		return
 	_hero_power_used = true
 	if _hero_power_btn != null:
 		_hero_power_btn.disabled = true
-	var player: PlayerState = _state.players[0]
-	var enemy: PlayerState = _state.players[1]
-	match active_skill.effect_type:
-		"active_damage_all":
-			for card: CardInstance in enemy.board.get_cards().duplicate():
-				card.take_damage(active_skill.effect_value)
-				if not card.is_alive():
-					enemy.board.remove_card(card)
-					enemy.discard.append(card)
-		"active_heal":
-			player.hero.health = mini(
-				player.hero.health + active_skill.effect_value,
-				player.hero.max_health)
-		"active_draw":
-			for _i in active_skill.effect_value:
-				player.draw_card()
-			_resolver.flush_auto_spells(0)
-		"active_mana":
-			player.hero.mana = mini(
-				player.hero.mana + active_skill.effect_value,
-				player.hero.max_mana)
+	if _is_pvp_client():
+		# Host doesn't know the client's skill — relay the effect itself.
+		_send_intent(BattleNetProtocol.encode_hero_power({}, active_skill.effect_type, active_skill.effect_value))
+		return
+	_apply_hero_power_effect(_my_idx(), active_skill.effect_type, active_skill.effect_value)
 	_refresh_all()
+	_check_game_over()
 
 func _make_battle_save() -> Dictionary:
 	var d: Dictionary = _state.to_dict()
@@ -1099,7 +1145,7 @@ func _bump_card_next_id(state: GameState) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
-		if _state != null and not _state.puzzle_mode and not _state.is_game_over():
+		if _state != null and not _state.puzzle_mode and not _pvp and not _state.is_game_over():
 			SceneManager.save_manager.set_pending_battle_state(_make_battle_save())
 			SceneManager.save_manager.save()
 		if _pause_ui != null and not _pause_ui.is_paused():
@@ -1111,11 +1157,19 @@ func _on_target_chosen_card(target: CardInstance) -> void:
 	_targeting_friendly = false
 	_targeting_spell = null
 	_hide_cancel_btn()
-	if _do_play_card(spell, 0):
+	if _is_pvp_client():
+		var hi: int = _state.players[_my_idx()].hand.find(spell)
+		if hi != -1 and _state.players[_my_idx()].can_play(spell):
+			AudioManager.play_sfx("card_play")
+			_fx.haptic(20)
+			_send_intent(BattleNetProtocol.encode_play_spell(hi, _pvp_target_dict_for_card(target)))
+			_dismiss_battle_tutorial()
+		return
+	if _do_play_card(spell, _my_idx()):
 		AudioManager.play_sfx("card_play")
 		_fx.haptic(20)
 		var snap_otc := _fx.snapshot()
-		_resolver.resolve_spell(spell, 0, {"type": "minion", "card": target})
+		_resolver.resolve_spell(spell, _my_idx(), {"type": "minion", "card": target})
 		_fx.trigger_fx(snap_otc)
 	_refresh_all()
 	_check_game_over()
@@ -1127,11 +1181,19 @@ func _on_target_chosen_hero() -> void:
 	_targeting_friendly = false
 	_targeting_spell = null
 	_hide_cancel_btn()
-	if _do_play_card(spell, 0):
+	if _is_pvp_client():
+		var hi: int = _state.players[_my_idx()].hand.find(spell)
+		if hi != -1 and _state.players[_my_idx()].can_play(spell):
+			AudioManager.play_sfx("card_play")
+			_fx.haptic(20)
+			_send_intent(BattleNetProtocol.encode_play_spell(hi, {"hero": true}))
+			_dismiss_battle_tutorial()
+		return
+	if _do_play_card(spell, _my_idx()):
 		AudioManager.play_sfx("card_play")
 		_fx.haptic(20)
 		var snap_oth := _fx.snapshot()
-		_resolver.resolve_spell(spell, 0, {"type": "hero"})
+		_resolver.resolve_spell(spell, _my_idx(), {"type": "hero"})
 		_fx.trigger_fx(snap_oth)
 	_refresh_all()
 	_check_game_over()
@@ -1153,12 +1215,12 @@ func _refresh_all() -> void:
 		_dragged_card, _hand_drag_card,
 		_slot_targeting_spell, _slot_select_card
 	)
-	_view.refresh_zone(_enemy_hand_view, _state.players[1].hand, "enemy_hand")
-	_view.refresh_board_zone(_enemy_board_view, _state.players[1].board, "enemy_board")
-	_view.refresh_board_zone(_player_board_view, _state.players[0].board, "board")
-	_view.refresh_zone(_player_hand_view, _state.players[0].hand, "hand")
-	_view.refresh_hero(_enemy_hero_view, _state.players[1].hero, true)
-	_view.refresh_hero(_player_hero_view, _state.players[0].hero, false)
+	_view.refresh_zone(_enemy_hand_view, _state.players[_opp_idx()].hand, "enemy_hand")
+	_view.refresh_board_zone(_enemy_board_view, _state.players[_opp_idx()].board, "enemy_board")
+	_view.refresh_board_zone(_player_board_view, _state.players[_my_idx()].board, "board")
+	_view.refresh_zone(_player_hand_view, _state.players[_my_idx()].hand, "hand")
+	_view.refresh_hero(_enemy_hero_view, _state.players[_opp_idx()].hero, true)
+	_view.refresh_hero(_player_hero_view, _state.players[_my_idx()].hero, false)
 	_update_status()
 
 func _refresh_player_board() -> void:
@@ -1167,14 +1229,14 @@ func _refresh_player_board() -> void:
 		_dragged_card, _hand_drag_card,
 		_slot_targeting_spell, _slot_select_card
 	)
-	_view.refresh_board_zone(_player_board_view, _state.players[0].board, "board")
+	_view.refresh_board_zone(_player_board_view, _state.players[_my_idx()].board, "board")
 
 func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
 	for conn in panel.gui_input.get_connections():
 		panel.gui_input.disconnect(conn["callable"])
-	if zone_id == "hand" and _state.current_player_idx == 0:
+	if zone_id == "hand" and _state.current_player_idx == _my_idx():
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_hand_card_input(event, card, panel))
-	elif zone_id == "board" and _state.current_player_idx == 0:
+	elif zone_id == "board" and _state.current_player_idx == _my_idx():
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_board_card_input(event, card))
 	elif zone_id == "enemy_board":
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_enemy_card_input(event, card))
@@ -1231,10 +1293,10 @@ func _trigger_dual_face_flip(panel: PanelContainer) -> void:
 	tween.tween_property(panel, "scale", Vector2(1.0, 1.0), 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _update_status() -> void:
-	var player := _state.players[0]
+	var player := _state.players[_my_idx()]
 	_turn_label.text = "Turn %d" % _state.turn_number
 	_mana_label.text = "Mana: %d/%d" % [player.hero.mana, player.hero.max_mana]
-	_end_turn_btn.disabled = _state.current_player_idx != 0 or _ai_thinking
+	_end_turn_btn.disabled = _state.current_player_idx != _my_idx() or _ai_thinking
 
 # -------------------------------------------------------------------------
 # Input handlers
@@ -1244,16 +1306,16 @@ func _on_hand_card_input(event: InputEvent, card: CardInstance, panel: Control) 
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			if _state.current_player_idx != 0 or _ai_thinking:
+			if not _can_local_act():
 				return
 			_start_hand_drag(card, panel.get_global_rect().get_center())
 
 func _on_hand_card_tap(card: CardInstance) -> void:
-	if _state.current_player_idx != 0 or _ai_thinking:
+	if not _can_local_act():
 		return
-	if card.card_class != "spell" and _state.players[0].can_play(card):
+	if card.card_class != "spell" and _state.players[_my_idx()].can_play(card):
 		_enter_slot_select_mode(card)
-	elif SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(card.spell_effect) and _state.players[0].can_play(card):
+	elif SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(card.spell_effect) and _state.players[_my_idx()].can_play(card):
 		_enter_slot_targeting_mode(card)
 	else:
 		_show_card_inspect(card)
@@ -1281,17 +1343,17 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 			_dragged_card.clear()
 			return
 		# Ward: if any enemy minion has Ward, only those are valid targets
-		var valid_targets: Array[CardInstance] = _view.get_ward_valid_targets(_state.players[1].board.get_cards())
+		var valid_targets: Array[CardInstance] = _view.get_ward_valid_targets(_state.players[_opp_idx()].board.get_cards())
 		if not valid_targets.has(target):
 			return  # keep attacker selected; player must click a Ward minion
-		_execute_attack(attacker, target)
+		_attempt_attack(attacker, target)
 
 func _on_enemy_hero_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		if _targeting_active and not _targeting_friendly:
 			_on_target_chosen_hero()
 			return
-		if _state.current_player_idx != 0 or _ai_thinking:
+		if not _can_local_act():
 			return
 		if _dragged_card.is_empty():
 			return
@@ -1301,10 +1363,25 @@ func _on_enemy_hero_input(event: InputEvent) -> void:
 			_refresh_all()
 			return
 		# Ward: cannot attack hero while any Ward minion is alive on enemy board
-		for ec: CardInstance in _state.players[1].board.get_cards():
+		for ec: CardInstance in _state.players[_opp_idx()].board.get_cards():
 			if ec.keywords.has(Keywords.WARD):
 				return  # keep attacker selected; player must target the Ward minion
-		_execute_attack(attacker, null)
+		_attempt_attack(attacker, null)
+
+## Routes a chosen attack: client sends an intent; host/single-player resolves
+## locally via _execute_attack (which broadcasts through _check_game_over).
+func _attempt_attack(attacker: CardInstance, target: CardInstance) -> void:
+	if _is_pvp_client():
+		var a_slot: int = _state.players[_my_idx()].board.slots.find(attacker)
+		var t_slot: int = BattleNetProtocol.TARGET_HERO
+		if target != null:
+			t_slot = _state.players[_opp_idx()].board.slots.find(target)
+		_dragged_card.clear()
+		if a_slot != -1 and (target == null or t_slot != -1):
+			_send_intent(BattleNetProtocol.encode_attack(a_slot, t_slot))
+		_refresh_all()
+		return
+	_execute_attack(attacker, target)
 
 ## Resolves a player minion attack against target (CardInstance) or the enemy hero (null).
 ## Handles damage, counterattack, death removal, FX, and the card_attacked signal.
@@ -1350,13 +1427,16 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 # -------------------------------------------------------------------------
 
 func _on_end_turn() -> void:
-	if _state.current_player_idx != 0 or _ai_thinking:
+	if not _can_local_act():
 		return
 	_cancel_hand_drag()
 	_dragged_card.clear()
 	if _state.puzzle_mode:
 		if not _state.is_game_over():
 			_show_puzzle_fail()
+		return
+	if _is_pvp_client():
+		_send_intent(BattleNetProtocol.encode_end_turn())
 		return
 	_state.end_turn()
 
@@ -1388,6 +1468,11 @@ func _on_turn_ended(player_idx: int) -> void:
 		if _potion_btn != null:
 			_potion_btn.disabled = true
 		_check_game_over()
+		# PvP: the opponent is a remote human; never run the AI. Their turn advances
+		# via relayed intents (host applies them). _check_game_over above already
+		# broadcast the post-turn state to the client.
+		if _pvp:
+			return
 		if not _state.is_game_over() and not _state.puzzle_mode:
 			if _resolver.extra_turn_granted:
 				_resolver.extra_turn_granted = false
@@ -1480,6 +1565,9 @@ func _check_boss_phase2() -> void:
 	_result_ui.show_phase2_banner()
 
 func _check_game_over() -> void:
+	if _pvp:
+		_pvp_check_game_over()
+		return
 	_check_boss_phase2()
 	if _game_over_handled:
 		return
@@ -1713,3 +1801,412 @@ func _show_battlefield_banner() -> void:
 	tw.tween_interval(_BATTLEFIELD_BANNER_DURATION)
 	tw.tween_callback(panel.queue_free)
 	tw.tween_callback(func() -> void: _battlefield_banner = null)
+
+# -------------------------------------------------------------------------
+# PvP Card Battles (GID-091)
+#
+# Host-authoritative state mirroring. The co-op host owns the one canonical
+# GameState (players[0] = host, players[1] = client). The client never simulates:
+# it sends intents over BattleNetSync and renders the broadcast mirror from its
+# own perspective (_local_player_idx == 1). All of this is guarded by `_pvp`; in
+# single-player _local_player_idx == 0, so the perspective accessors are no-ops.
+# -------------------------------------------------------------------------
+
+## Index of the local player in the canonical state (host = 0, client = 1).
+func _my_idx() -> int:
+	return _local_player_idx
+
+## Index of the opponent in the canonical state.
+func _opp_idx() -> int:
+	return 1 - _local_player_idx
+
+## True when this peer owns the canonical simulation (PvP host).
+func _is_pvp_host() -> bool:
+	return _pvp and _local_player_idx == 0
+
+## True when this peer is the thin client renderer.
+func _is_pvp_client() -> bool:
+	return _pvp and _local_player_idx == 1
+
+## True when local input is allowed: it's our turn, AI/round-trip not pending.
+func _can_local_act() -> bool:
+	if _ai_thinking:
+		return false
+	if _state == null:
+		return false
+	if _is_pvp_client() and _pvp_pending:
+		return false
+	return _state.current_player_idx == _my_idx()
+
+## Builds the relay node + canonical state for a PvP battle. Host builds both
+## decks and starts turn 1; the client waits for the first sync_state mirror.
+func _setup_pvp_battle() -> void:
+	_state = GameState.new()
+	_resolver.setup(_state)
+	_net = _BattleNetSyncScript.new()
+	_net.name = "BattleNetSync"
+	add_child(_net)
+	_net.battle_scene = self
+	_connect_pvp_net_signals()
+	if _is_pvp_host():
+		_build_pvp_decks()
+		_state.players[0].start_turn(1)
+		# Initial state is broadcast by the _check_game_over() call at the end of
+		# _ready (host branch), so the client populates from the mirror.
+
+var _pvp_sync_retry_accum: float = 0.0
+
+## Client: keep asking the host for the initial state until the first mirror lands
+## (handles the race where the host broadcasts before this scene exists).
+func _process(delta: float) -> void:
+	if not _is_pvp_client() or _last_applied_seq >= 0 or _net == null:
+		return
+	_pvp_sync_retry_accum += delta
+	if _pvp_sync_retry_accum >= 0.4:
+		_pvp_sync_retry_accum = 0.0
+		_net.rpc_id(1, "request_sync")
+
+## Host: a client asked for the current state — send it.
+func _on_pvp_sync_request() -> void:
+	if _is_pvp_host():
+		_broadcast_state()
+
+## Host: build players[0] from this peer's deck, players[1] from the relayed
+## client deck (pvp_opponent_deck). Falls back to a basic deck if either is empty.
+func _build_pvp_decks() -> void:
+	var fallback: Array[String] = [
+		"ghost", "skeleton", "zombie", "ghoul",
+		"ghost", "skeleton", "zombie", "ghoul",
+		"ghost", "skeleton", "zombie", "ghoul",
+	]
+	var my_insts: Array[Dictionary] = SceneManager.save_manager.get_deck_instances()
+	if my_insts.size() > 0:
+		_state.players[0].build_deck_from_instances(my_insts)
+	else:
+		_state.players[0].build_deck(fallback)
+	var opp_insts: Array[Dictionary] = []
+	for inst in pvp_opponent_deck:
+		if inst is Dictionary:
+			opp_insts.append(inst)
+	if opp_insts.size() > 0:
+		_state.players[1].build_deck_from_instances(opp_insts)
+	else:
+		_state.players[1].build_deck(fallback)
+	_state.players[0].draw_opening_hand(4)
+	_state.players[1].draw_opening_hand(4)
+
+func _connect_pvp_net_signals() -> void:
+	if NetworkManager.peer_disconnected.is_connected(_on_pvp_peer_disconnected):
+		return
+	NetworkManager.peer_disconnected.connect(_on_pvp_peer_disconnected)
+	NetworkManager.session_ended.connect(_on_pvp_session_ended)
+
+func _disconnect_pvp_net_signals() -> void:
+	if NetworkManager.peer_disconnected.is_connected(_on_pvp_peer_disconnected):
+		NetworkManager.peer_disconnected.disconnect(_on_pvp_peer_disconnected)
+	if NetworkManager.session_ended.is_connected(_on_pvp_session_ended):
+		NetworkManager.session_ended.disconnect(_on_pvp_session_ended)
+
+## Client → host: send one intent (host is network id 1).
+func _send_intent(payload: Dictionary) -> void:
+	if _net != null:
+		_pvp_pending = true
+		_net.rpc_id(1, "send_intent", payload)
+
+## Host → client: broadcast the full canonical state with a fresh seq.
+func _broadcast_state() -> void:
+	if not _is_pvp_host() or _net == null:
+		return
+	_state_seq += 1
+	_net.rpc("sync_state", BattleNetProtocol.encode_state(_state.to_dict(), _state_seq))
+
+## Client: receive and apply an authoritative state mirror.
+func _on_pvp_state(payload: Dictionary) -> void:
+	if not _is_pvp_client():
+		return
+	var decoded: Dictionary = BattleNetProtocol.decode_state(payload)
+	if not bool(decoded["valid"]):
+		return
+	var seq: int = int(decoded["seq"])
+	if seq <= _last_applied_seq:
+		return
+	_last_applied_seq = seq
+	_pvp_pending = false
+	var state_dict: Dictionary = decoded["state"]
+	_state = GameState.new()
+	_state.from_dict(state_dict)
+	_bump_card_next_id(_state)
+	# Re-wire the helpers that cache a GameState reference (GID-040 pattern).
+	_resolver.setup(_state)
+	_fx.set_game_state(_state)
+	_view.set_battle_state(_state, enemy_data)
+	_refresh_all()
+	_refresh_potion_button()
+
+## Host: validate + apply a client intent, then re-render (broadcast happens in
+## _check_game_over). Illegal intents are rejected by re-syncing the client.
+func _on_pvp_intent(_sender: int, payload: Dictionary) -> void:
+	if not _is_pvp_host():
+		return
+	var intent: Dictionary = BattleNetProtocol.decode_intent(payload)
+	var t: String = str(intent["type"])
+	if t == "":
+		return
+	if t == BattleNetProtocol.INTENT_SURRENDER:
+		_apply_remote_surrender()
+		return
+	# The client is canonical player 1 — only act on its own turn.
+	if _state.current_player_idx != 1:
+		_broadcast_state()
+		return
+	var changed: bool = _apply_remote_intent(intent)
+	if changed:
+		_refresh_all()
+		_check_game_over()
+	else:
+		_broadcast_state()  # reject → re-sync the client
+
+## Host: apply a validated client (player 1) intent to the canonical state.
+## Returns true if the state changed (and should be re-broadcast).
+func _apply_remote_intent(intent: Dictionary) -> bool:
+	var t: String = str(intent["type"])
+	var p1: PlayerState = _state.players[1]
+	match t:
+		BattleNetProtocol.INTENT_PLAY_CARD_AT_SLOT:
+			var hi: int = int(intent["hand_index"])
+			var slot_idx: int = int(intent["slot_idx"])
+			if hi < 0 or hi >= p1.hand.size():
+				return false
+			var card: CardInstance = p1.hand[hi]
+			if card.card_class == "spell":
+				return false
+			if slot_idx < 0 or slot_idx >= 5 or p1.board.slots[slot_idx] != null:
+				return false
+			if not _do_play_card_at_slot(card, 1, slot_idx):
+				return false
+			if card.emergence_effect != "":
+				_resolver.resolve_emergence(card, 1)
+			else:
+				_apply_weather_to_summoned(card, 1)
+			return true
+		BattleNetProtocol.INTENT_PLAY_SPELL:
+			var hi2: int = int(intent["hand_index"])
+			if hi2 < 0 or hi2 >= p1.hand.size():
+				return false
+			var spell: CardInstance = p1.hand[hi2]
+			if spell.card_class != "spell" or not p1.can_play(spell):
+				return false
+			var tgt: Dictionary = intent["target"]
+			if SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(spell.spell_effect):
+				var s_slot: int = int(tgt.get("slot", -1))
+				if not _do_play_card(spell, 1):
+					return false
+				match spell.spell_effect:
+					"bless_slot":
+						p1.board.enhance_slot(s_slot, "atk_bonus", spell.spell_power)
+					"ward_slot":
+						p1.board.enhance_slot(s_slot, "shroud", 1)
+				return true
+			var resolver_target: Dictionary = _pvp_resolver_target(tgt)
+			if not _do_play_card(spell, 1):
+				return false
+			_resolver.resolve_spell(spell, 1, resolver_target)
+			return true
+		BattleNetProtocol.INTENT_ATTACK:
+			var a_slot: int = int(intent["attacker_slot"])
+			var t_slot: int = int(intent["target_slot"])
+			if a_slot < 0 or a_slot >= 5:
+				return false
+			var attacker: CardInstance = p1.board.slots[a_slot]
+			if attacker == null or not attacker.can_attack():
+				return false
+			var target: CardInstance = null
+			if t_slot != BattleNetProtocol.TARGET_HERO:
+				if t_slot < 0 or t_slot >= 5:
+					return false
+				target = _state.players[0].board.slots[t_slot]
+				if target == null:
+					return false
+				# Ward gating: if any enemy minion has Ward, only Ward minions are valid.
+				var valid: Array[CardInstance] = _view.get_ward_valid_targets(_state.players[0].board.get_cards())
+				if not valid.has(target):
+					return false
+			else:
+				# Cannot attack hero while a Ward minion stands.
+				for ec: CardInstance in _state.players[0].board.get_cards():
+					if ec.keywords.has(Keywords.WARD):
+						return false
+			_resolve_remote_attack(attacker, target, 1)
+			return true
+		BattleNetProtocol.INTENT_HERO_POWER:
+			_apply_hero_power_effect(1, str(intent["effect_type"]), int(intent["effect_value"]))
+			return true
+		BattleNetProtocol.INTENT_POTION:
+			_apply_potion_state_effect(1, str(intent["potion_id"]))
+			return true
+		BattleNetProtocol.INTENT_END_TURN:
+			_state.end_turn()
+			return true
+	return false
+
+## Translates a wire target dict ({hero}/{side,slot}) into a resolver target.
+func _pvp_resolver_target(tgt: Dictionary) -> Dictionary:
+	if tgt.is_empty():
+		return {}
+	if bool(tgt.get("hero", false)):
+		return {"type": "hero"}
+	if tgt.has("side") and tgt.has("slot"):
+		var side: int = int(tgt["side"])
+		var slot: int = int(tgt["slot"])
+		if side >= 0 and side < 2 and slot >= 0 and slot < 5:
+			var c: CardInstance = _state.players[side].board.slots[slot]
+			if c != null:
+				return {"type": "minion", "card": c}
+	return {}
+
+## State-only attack resolution (no side-specific FX) for relayed/remote attacks.
+func _resolve_remote_attack(attacker: CardInstance, target: CardInstance, attacker_pid: int) -> void:
+	var defender_pid: int = 1 - attacker_pid
+	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome)
+	if target != null:
+		var target_dmg: int = BattlefieldRules.modify_damage(target.attack, _state.battlefield_biome)
+		target.take_damage(attacker_dmg)
+		attacker.take_damage(target_dmg)
+		attacker.attack_count -= 1
+		if not target.is_alive():
+			attacker.battle_kills += 1
+			_state.players[defender_pid].board.remove_card(target)
+			_state.players[defender_pid].discard.append(target)
+		GameBus.card_attacked.emit(attacker.template_id, target.template_id)
+	else:
+		var hero := _state.players[defender_pid].hero
+		hero.take_damage(attacker_dmg)
+		attacker.take_damage(BattlefieldRules.modify_damage(hero.attack, _state.battlefield_biome))
+		attacker.attack_count -= 1
+		GameBus.card_attacked.emit(attacker.template_id, "hero")
+	if not attacker.is_alive():
+		_state.players[attacker_pid].board.remove_card(attacker)
+		_state.players[attacker_pid].discard.append(attacker)
+
+## Applies a hero-power effect to player_idx. Shared by the local host power and
+## the relayed client power (host doesn't know the client's skill, so the effect
+## is carried in the intent).
+func _apply_hero_power_effect(player_idx: int, effect_type: String, value: int) -> void:
+	var player: PlayerState = _state.players[player_idx]
+	var enemy: PlayerState = _state.players[1 - player_idx]
+	match effect_type:
+		"active_damage_all":
+			for card: CardInstance in enemy.board.get_cards().duplicate():
+				card.take_damage(value)
+				if not card.is_alive():
+					enemy.board.remove_card(card)
+					enemy.discard.append(card)
+		"active_heal":
+			player.hero.health = mini(player.hero.health + value, player.hero.max_health)
+		"active_draw":
+			for _i in value:
+				player.draw_card()
+			_resolver.flush_auto_spells(player_idx)
+		"active_mana":
+			player.hero.mana = mini(player.hero.mana + value, player.hero.max_mana)
+
+## Applies the game-state portion of a potion to player_idx (no inventory I/O —
+## the acting peer already consumed it from its own SaveManager).
+func _apply_potion_state_effect(player_idx: int, potion_id: String) -> void:
+	var player: PlayerState = _state.players[player_idx]
+	match potion_id:
+		"healing_draught":
+			player.hero.health = mini(player.hero.health + 8, player.hero.max_health)
+		"clarity_brew":
+			player.draw_card()
+			player.draw_card()
+		"ember_tonic":
+			player.hero.mana = mini(player.hero.mana + 1, player.hero.max_mana)
+
+# ── Client intent builders ────────────────────────────────────────────────────
+
+## Computes a wire target dict for a chosen target card (any board) or hero.
+func _pvp_target_dict_for_card(card: CardInstance) -> Dictionary:
+	var my_slot: int = _state.players[_my_idx()].board.slots.find(card)
+	if my_slot != -1:
+		return {"side": _my_idx(), "slot": my_slot}
+	var opp_slot: int = _state.players[_opp_idx()].board.slots.find(card)
+	if opp_slot != -1:
+		return {"side": _opp_idx(), "slot": opp_slot}
+	return {}
+
+# ── PvP end-of-battle (host detect + sync) ────────────────────────────────────
+
+## Routed from _check_game_over when _pvp. Host detects the winner, broadcasts
+## the final state + pvp_ended, and shows its own overlay. Otherwise (host, not
+## over) it pushes the latest state to the client.
+func _pvp_check_game_over() -> void:
+	if not _is_pvp_host():
+		return
+	if _state.is_game_over():
+		if _pvp_ended:
+			return
+		_pvp_ended = true
+		var w: int = _state.winner()
+		_broadcast_state()
+		if _net != null:
+			_net.rpc("pvp_ended", {"winner_idx": w, "forfeit": false})
+		_finish_pvp(w == _local_player_idx)
+		return
+	_broadcast_state()
+
+## Client: the host says the battle is over. Show the matching overlay.
+func _on_pvp_ended(payload: Dictionary) -> void:
+	if not _is_pvp_client() or _pvp_ended:
+		return
+	_pvp_ended = true
+	var w: int = int(payload.get("winner_idx", _opp_idx()))
+	_finish_pvp(w == _local_player_idx)
+
+## Host: opponent (the client) is the loser → end as a forfeit win for the host.
+func _apply_remote_surrender() -> void:
+	if _pvp_ended:
+		return
+	_pvp_ended = true
+	_state.players[1].hero.health = 0
+	_broadcast_state()
+	if _net != null:
+		_net.rpc("pvp_ended", {"winner_idx": 0, "forfeit": true})
+	_finish_pvp(true)
+
+## Local surrender request (from the pause menu Flee). Host ends immediately;
+## client tells the host, which marks it the loser and ends for both.
+func _pvp_surrender() -> void:
+	if _pvp_ended:
+		return
+	if _is_pvp_host():
+		_pvp_ended = true
+		_state.players[0].hero.health = 0
+		_broadcast_state()
+		if _net != null:
+			_net.rpc("pvp_ended", {"winner_idx": 1, "forfeit": true})
+		_finish_pvp(false)
+	else:
+		_send_intent(BattleNetProtocol.encode_surrender())
+
+## Disconnect = forfeit win for whoever remains.
+func _on_pvp_peer_disconnected(_pid: int) -> void:
+	if not _pvp or _pvp_ended:
+		return
+	_pvp_ended = true
+	if _is_pvp_host():
+		_broadcast_state()
+	_finish_pvp(true)
+
+func _on_pvp_session_ended() -> void:
+	if not _pvp or _pvp_ended:
+		return
+	_pvp_ended = true
+	_finish_pvp(true)
+
+## Shows the synced duel-style result overlay (no rewards) and emits the
+## SceneManager completion signal once dismissed.
+func _finish_pvp(did_win: bool) -> void:
+	_disconnect_pvp_net_signals()
+	if _result_ui != null:
+		_result_ui.show_pvp_result(did_win)

@@ -451,6 +451,50 @@ func show_duel_loss(wager: int) -> void:
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
+## PvP duel-style result (GID-091): no rewards, no coins. did_win is from the
+## local peer's perspective; both peers show the matching screen. The Continue
+## button emits pvp_battle_ended, which SceneManager handles by restoring the
+## shared co-op world.
+func show_pvp_result(did_win: bool) -> void:
+	if _float_layer:
+		_float_layer.hide()
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92)
+	overlay.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Victory!" if did_win else "Defeated"
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.modulate = Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4)
+	vbox.add_child(title_lbl)
+
+	var sub_lbl := Label.new()
+	sub_lbl.text = "You bested your rival!" if did_win else "Your rival prevailed."
+	sub_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(sub_lbl)
+
+	var btn := Button.new()
+	btn.text = "Continue"
+	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
+	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	btn.pressed.connect(func() -> void:
+		overlay.queue_free()
+		GameBus.pvp_battle_ended.emit(did_win)
+	)
+	vbox.add_child(btn)
+
+	overlay.add_child(vbox)
+	_parent.add_child(overlay)
+
 func show_puzzle_fail_overlay(hint_text: String) -> void:
 	var overlay := PanelContainer.new()
 	overlay.name = "PuzzleFailOverlay"
