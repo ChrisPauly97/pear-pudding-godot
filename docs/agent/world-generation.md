@@ -191,6 +191,7 @@ var pos := WorldEventManager.find_spawn_tile(player_pos, 20.0, 50.0, world_seed)
 | **SaveManager** | Seed source | `SaveManager.world_seed` seeds `InfiniteWorldGen`; `SaveManager.starting_biome` sets the safe-zone biome |
 | **IsoConst** | Constants | `CHUNK_SIZE`, `TILE_SIZE`, tile type constants (`TILE_GRASS`, `TILE_HILL`, `TILE_WALL`) |
 | **Named Maps / Dungeons** | Doors | Door entities generated inside ruins point to `dungeon_<seed>` named maps |
+| **Return Portal** | Fixed entity | `WorldScene._spawn_return_portal()` places a glowing pillar at tile (3, 6) in the `"main"` overworld only; registered in `_active_door_data` with `target_map = ""` so `_handle_interact` calls `SceneManager.exit_map()` — pops the map stack back to madrian without needing a waystone |
 | **ChunkStreamingManager** | Orchestrator | Owns cache, thread pool, and all chunk lifecycle; child of WorldScene |
 | **WorldScene** | Host | Creates CSM, connects its signals; delegates tile/height queries and streaming to CSM |
 

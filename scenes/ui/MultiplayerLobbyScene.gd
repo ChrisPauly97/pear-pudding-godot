@@ -129,6 +129,7 @@ func _on_join() -> void:
 		_set_status("Could not start joining (error %d)." % err)
 		return
 	_set_status("Connecting to %s…" % ip)
+	_arm_join_timeout()
 
 
 func _on_find() -> void:
@@ -171,6 +172,20 @@ func _on_join_discovered(hd: Dictionary) -> void:
 		_set_status("Could not join (error %d)." % err)
 		return
 	_set_status("Connecting to %s…" % ip)
+	_arm_join_timeout()
+
+
+## Watchdog: if neither connection_succeeded nor connection_failed has resolved
+## the attempt within the window, give an actionable message (covers silent
+## timeouts from a wrong IP, AP isolation, or the host not actually listening).
+func _arm_join_timeout() -> void:
+	var t: SceneTreeTimer = get_tree().create_timer(12.0)
+	t.timeout.connect(func() -> void:
+		if not is_instance_valid(self) or not is_inside_tree():
+			return  # already connected & transitioned away
+		if not NetworkManager.is_active():
+			_set_status("Couldn't reach the host. Check: both on the SAME Wi-Fi, the IP is the host's Wi-Fi address, the host tapped Host Game first, and the router allows device-to-device (some networks block this).")
+	)
 
 
 func _on_connection_succeeded() -> void:

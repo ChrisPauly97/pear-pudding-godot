@@ -2,7 +2,7 @@
 
 **Goal:** GID-093
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Context
@@ -41,15 +41,27 @@ entity**: a visible portal/door in the overworld that steps the player back to m
 - Check `_spawn_player` / main-map entry (WorldScene.gd:706+, and the `map_name == "main"`
   block at 375) for where to anchor the portal so it's reliably reachable.
 
+## Lock
+
+- **Session:** claude/work-task-gid-093-o3wpfd
+- **Acquired:** 2026-06-24T12:00:00Z
+- **Expires:** 2026-06-24T12:30:00Z
+
 ## Plan
 
-_Written during Plan phase._
+1. In `WorldScene.gd` add `_spawn_return_portal()` that creates a glowing portal mesh entity at tile (3, 6) and registers it in `_active_door_data` with `target_map = ""`. The empty `target_map` causes `_handle_interact` to call `SceneManager.exit_map()`, which pops the map stack back to madrian.
+2. Call `_spawn_return_portal()` from `_ready()` only when `_is_infinite and map_name == "main"`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WorldScene.gd`: added `_spawn_return_portal()` function; called from `_ready()` when `map_name == "main"`. Spawns a glowing golden pillar at tile (3, 6) with a `Label3D` "Return to Town". Registers the entity in `_active_door_data` with `target_map = ""` so `_handle_interact` calls `SceneManager.exit_map()`, popping the map stack back to madrian.
 
 ## Documentation Updates
 
-_What was updated in agent docs._ Update `docs/agent/named-maps-and-dungeons.md` and/or
-`docs/agent/world-generation.md` to document the overworld return portal and its routing.
+Updated `docs/agent/world-generation.md`: documented the return portal entity and its routing.
+
+## Lock
+
+- **Session:** none
+- **Acquired:** —
+- **Expires:** —

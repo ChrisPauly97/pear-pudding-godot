@@ -22,9 +22,9 @@ multiplayer:
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-338 | Menu hub overlay above HUD; close button clear of minimap | agent | pending | — |
-| TID-339 | Persistent return portal from the infinite overworld to town | agent | pending | — |
-| TID-340 | Tap-to-move drag steering (update target while dragging) | agent | pending | — |
+| TID-338 | Menu hub overlay above HUD; close button clear of minimap | agent | done | — |
+| TID-339 | Persistent return portal from the infinite overworld to town | agent | done | — |
+| TID-340 | Tap-to-move drag steering (update target while dragging) | agent | done | — |
 
 ## Acceptance Criteria
 

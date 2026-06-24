@@ -175,6 +175,7 @@ var _joystick_ref: Node = null
 var _tap_start_screen: Vector2 = Vector2.ZERO
 var _tap_touch_index: int = -2  # -2 = no tracked tap; -1 reserved for mouse
 const _TAP_DRAG_THRESHOLD: float = 30.0  # screen pixels; beyond this is a drag, not a tap
+var _drag_last_tile: Vector2i = Vector2i(-9999, -9999)  # throttle drag-steer re-pathing
 
 # Terrain height constants — named-map path uses a wider ramp than chunks
 
@@ -273,6 +274,8 @@ func _ready() -> void:
 		add_child(floor_body)
 		_csm.build_initial_infinite(_player.position)
 		_spawn_open_world_rival_enc2()
+		if map_name == "main":
+			_spawn_return_portal()
 	else:
 		# Named map: load all chunks covering the 100×100 tile map synchronously
 		var max_cx: int = (WorldMap.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
@@ -289,8 +292,6 @@ func _ready() -> void:
 		# Set chapter1_reached_blancogov when the player enters blancogov
 		if map_name == "blancogov" or map_name == "blancogov_temple":
 			SceneManager.save_manager.set_story_flag("chapter1_reached_blancogov")
-
-	_update_hud()
 
 	# Re-enter any battle that was interrupted (e.g. app quit mid-fight)
 	if not SceneManager.save_manager.pending_battle_enemy_data.is_empty():
@@ -313,6 +314,9 @@ func _ready() -> void:
 	add_child(_world_hud)
 	_world_hud.setup(_hud, _is_infinite, map_name, _interact_label, self)
 	_world_hud.build_bounty_tracker()
+
+	# Must run after _world_hud exists — _update_hud refreshes the XP bar via it.
+	_update_hud()
 
 	if not SceneManager.save_manager.get_story_flag("tutorial_inventory_tip"):
 		SceneManager.save_manager.set_story_flag("tutorial_inventory_tip")
@@ -425,6 +429,13 @@ func _setup_coop() -> void:
 	NetworkManager.session_ended.connect(_on_coop_session_ended)
 
 	_ensure_challenge_button()
+
+	# Host: surface the LAN IP so the other player knows what to type into
+	# "Join by IP" (only shown on the first co-op entry, not on battle re-attach).
+	if NetworkManager.is_host() and not _initial_ready_done:
+		var lan_ip: String = NetworkManager.get_lan_ip()
+		if lan_ip != "":
+			SceneManager.show_toast("Hosting", "Other player: Join by IP  →  %s" % lan_ip)
 
 	# Spawn avatars for peers already connected when this world loads (the
 	# client-joining-host case; the host's peer is already present).
@@ -1860,13 +1871,31 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag:
 		var drag: InputEventScreenDrag = event as InputEventScreenDrag
 		if drag.index == _tap_touch_index:
+			# Joystick guard: if the drag moves over the joystick, let joystick win.
+			if _joystick_ref != null and _joystick_ref.has_method("is_touch_in_control_area"):
+				if _joystick_ref.call("is_touch_in_control_area", drag.position):
+					_tap_touch_index = -2
+					return
+			# Steer the move target continuously once the drag threshold is crossed.
 			if drag.position.distance_to(_tap_start_screen) >= _TAP_DRAG_THRESHOLD:
-				_tap_touch_index = -2  # too much movement — treat as a joystick drag, not a tap
+				if _camera != null:
+					var drag_tile: Vector2i = _screen_to_tile(drag.position)
+					if drag_tile != _drag_last_tile:
+						_drag_last_tile = drag_tile
+						_handle_tap_to_move(drag.position)
 	elif event is InputEventMouseButton:
 		var mb: InputEventMouseButton = event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			_drag_last_tile = Vector2i(-9999, -9999)
 			_handle_tap_to_move(mb.position)
 			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion:
+		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and _camera != null:
+			var mt: Vector2i = _screen_to_tile((event as InputEventMouseMotion).position)
+			if mt != _drag_last_tile:
+				_drag_last_tile = mt
+				_handle_tap_to_move((event as InputEventMouseMotion).position)
+				get_viewport().set_input_as_handled()
 
 func _on_screen_touch(touch: InputEventScreenTouch) -> void:
 	if touch.pressed:
@@ -1878,6 +1907,7 @@ func _on_screen_touch(touch: InputEventScreenTouch) -> void:
 				return
 		_tap_start_screen = touch.position
 		_tap_touch_index = touch.index
+		_drag_last_tile = Vector2i(-9999, -9999)
 	else:
 		if touch.index != _tap_touch_index:
 			return
@@ -2935,3 +2965,58 @@ func _clear_dest_marker() -> void:
 		_dest_marker.hide()
 	if _player != null and _player.has_method("cancel_path"):
 		_player.call("cancel_path")
+
+# ── Return portal (TID-339) ───────────────────────────────────────────────
+# Spawns a visible "Return to Town" portal in the main overworld near the
+# player's initial spawn so there is always an exit that doesn't require a
+# waystone. Registers itself in _active_door_data with target_map = "" so
+# _handle_interact → exit_map() pops the map stack back to madrian.
+
+func _spawn_return_portal() -> void:
+	const PORTAL_TX: int = 3
+	const PORTAL_TZ: int = 6  # 3 tiles south of the default infinite-world spawn
+	var wx: float = (float(PORTAL_TX) + 0.5) * IsoConst.TILE_SIZE
+	var wz: float = (float(PORTAL_TZ) + 0.5) * IsoConst.TILE_SIZE
+	var wy: float = get_terrain_height(wx, wz)
+
+	# Visual: glowing golden pillar with a label above it.
+	var root := Node3D.new()
+	root.name = "ReturnPortal"
+	root.position = Vector3(wx, wy, wz)
+	_entity_root.add_child(root)
+
+	var mesh_inst := MeshInstance3D.new()
+	var cyl := CylinderMesh.new()
+	cyl.top_radius    = 0.20
+	cyl.bottom_radius = 0.20
+	cyl.height        = 2.0
+	mesh_inst.mesh = cyl
+	mesh_inst.position = Vector3(0.0, 1.0, 0.0)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(1.0, 0.85, 0.20, 0.90)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.75, 0.10)
+	mat.emission_energy_multiplier = 2.0
+	mesh_inst.material_override = mat
+	root.add_child(mesh_inst)
+
+	var lbl := Label3D.new()
+	lbl.text = "Return to Town"
+	lbl.font_size = 24
+	lbl.modulate = Color(1.0, 0.95, 0.60)
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.position = Vector3(0.0, 2.5, 0.0)
+	root.add_child(lbl)
+
+	# Register as a door with empty target_map so _handle_interact calls exit_map().
+	var portal_data: Dictionary = {
+		"id":             "return_portal",
+		"x":              wx,
+		"z":              wz,
+		"target_map":     "",
+		"target_door_id": "",
+	}
+	_active_door_data["return_portal"] = portal_data
+	_door_nodes["return_portal"] = root
