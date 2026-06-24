@@ -144,6 +144,59 @@ func test_flush_if_dirty_does_nothing_when_not_dirty() -> void:
 	assert_true(still_not_dirty)
 
 # ---------------------------------------------------------------------------
+# ensure_coop_deck — transient deck seeding for cold co-op (GID-092 / TID-335)
+# ---------------------------------------------------------------------------
+
+func _snapshot_deck_state() -> Dictionary:
+	return {
+		"owned": SaveManager.owned_cards.duplicate(true),
+		"deck": SaveManager.player_deck.duplicate(true),
+		"index": SaveManager._uid_index.duplicate(true),
+		"loaded": SaveManager._loaded,
+		"dirty": SaveManager._dirty,
+	}
+
+func _restore_deck_state(s: Dictionary) -> void:
+	SaveManager.owned_cards = s["owned"]
+	SaveManager.player_deck = s["deck"]
+	SaveManager._uid_index = s["index"]
+	SaveManager._loaded = s["loaded"]
+	SaveManager._dirty = s["dirty"]
+
+func test_ensure_coop_deck_seeds_when_empty_and_not_loaded() -> void:
+	var snap: Dictionary = _snapshot_deck_state()
+	SaveManager._loaded = false
+	SaveManager.owned_cards = []
+	SaveManager._uid_index = {}
+	SaveManager.player_deck = []
+	SaveManager.ensure_coop_deck()
+	var n: int = SaveManager.get_deck_instances().size()
+	_restore_deck_state(snap)
+	assert_true(n >= IsoConst.DECK_MIN)
+
+func test_ensure_coop_deck_does_not_mark_loaded() -> void:
+	var snap: Dictionary = _snapshot_deck_state()
+	SaveManager._loaded = false
+	SaveManager.owned_cards = []
+	SaveManager._uid_index = {}
+	SaveManager.player_deck = []
+	SaveManager.ensure_coop_deck()
+	var still_unloaded: bool = not SaveManager._loaded
+	_restore_deck_state(snap)
+	assert_true(still_unloaded)
+
+func test_ensure_coop_deck_noop_when_game_loaded() -> void:
+	var snap: Dictionary = _snapshot_deck_state()
+	SaveManager._loaded = true
+	SaveManager.owned_cards = []
+	SaveManager._uid_index = {}
+	SaveManager.player_deck = []
+	SaveManager.ensure_coop_deck()
+	var n: int = SaveManager.player_deck.size()
+	_restore_deck_state(snap)
+	assert_eq(n, 0)
+
+# ---------------------------------------------------------------------------
 # Corrupt-file fallback in _read_save_json
 # ---------------------------------------------------------------------------
 

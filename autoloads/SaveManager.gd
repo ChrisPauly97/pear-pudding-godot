@@ -392,6 +392,33 @@ func new_game() -> void:
 	_loaded = true
 	save()
 
+## Seeds a transient starter deck for a cold co-op session that was launched straight
+## from the menu without ever starting or loading a game (GID-092 / TID-335). Without
+## this, `player_deck` is empty, so the PvP challenge flow's DECK_MIN gate blocks the
+## battle from ever starting.
+##
+## No-op when a real game is loaded (`_loaded` true) — that game's deck is used as-is —
+## or when the current deck already meets DECK_MIN. Because `_loaded` stays false for a
+## cold co-op session, `save()`/`_flush_if_dirty()` remain no-ops, so the single on-disk
+## save is never overwritten by a throwaway co-op session.
+func ensure_coop_deck() -> void:
+	if _loaded:
+		return
+	if get_deck_instances().size() >= IsoConst.DECK_MIN:
+		return
+	var deck_ids: Array[String] = [
+		"ghost", "skeleton", "zombie", "ghoul",
+		"ghost", "skeleton", "zombie", "ghoul",
+		"ghost", "skeleton", "zombie", "ghoul",
+	]
+	owned_cards.clear()
+	_uid_index.clear()
+	player_deck.clear()
+	for tid: String in deck_ids:
+		var uid: String = add_card_instance(tid, "common")
+		if uid != "":
+			player_deck.append(uid)
+
 const CURRENT_SAVE_VERSION: int = 40
 
 # Each entry is [target_version, payload] where payload is either:

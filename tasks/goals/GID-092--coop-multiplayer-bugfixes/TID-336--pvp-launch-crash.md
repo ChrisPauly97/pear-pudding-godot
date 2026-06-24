@@ -2,7 +2,7 @@
 
 **Goal:** GID-092
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Context
@@ -46,17 +46,66 @@ without a deck), but this is a distinct fault in the PvP launch/mirror path.
 
 ## Plan
 
-_Written during Plan phase._ Reproduce the client crash (headless smoke + reading the
-client `_ready` path), get the exact error, then guard the client launch so nothing
-dereferences an unbuilt `_state` before the first mirror (or build a minimal placeholder
-state on the client). Keep all changes under `_pvp` / `_is_pvp_client()` guards so
-single-player is untouched.
+Investigation (headless, Godot 4.4.1): the launch path is robust across every suspect in
+the Research Notes. Reproductions tried, all crash-free:
+- Isolated client `BattleScene` (`_pvp`, idx 1) through full `_ready`.
+- Client applying a real encoded state mirror (`_on_pvp_state` → `from_dict` → render).
+- A real two-peer ENet loopback with **two real `BattleScene` instances** (host idx 0 +
+  client idx 1): client syncs from the host's broadcast over the real `BattleNetSync`
+  relay with no crash.
+- The seeded-deck path: host builds via `build_deck_from_instances` (rolled stats) →
+  `to_dict` → client renders the deserialised mirror.
+
+The premise in suspect #1 ("`_state` is a bare `GameState.new()` with no players/hand") is
+false: `GameState._init()` always seeds two full default players, so the client renders a
+valid placeholder until the first mirror lands. `CardInstance.to_dict/from_dict` is
+symmetric, so no field is dropped across the mirror.
+
+Conclusion: the user-visible "crash on launch" is gated behind **TID-335** — a cold co-op
+session has an empty deck, so the only way to perceive a broken launch was the deck gate /
+fallback path. With TID-335 seeding a deck, the launch is sound.
+
+Deliverables for this task:
+1. Defensive hardening on the client path that's cheap and correct: reconnect
+   `_state.turn_ended` after a mirror replaces `_state` in `_on_pvp_state` (the new
+   `GameState` was previously left without the connection), and guard `_setup_pvp_battle`
+   so `_state`/`_net` are always valid.
+2. A real regression smoke test, `tests/net_pvp_client_smoke.gd`, that stands up two real
+   `BattleScene` peers over ENet loopback and asserts the client launches + syncs the first
+   mirror without crashing — the explicit "extend the smoke test to cover the client scene
+   launch" deliverable.
+
+All changes stay under `_pvp` / `_is_pvp_client()` guards; single-player is untouched.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`: in `_on_pvp_state`, reconnect `_state.turn_ended` to
+  `_on_turn_ended` after `from_dict` replaces `_state` with a fresh `GameState`. The
+  `_ready` connection pointed at the discarded placeholder, so it was lost after the first
+  mirror; the new state was left without it.
+- `tests/net_pvp_client_smoke.gd`: new on-demand smoke test standing up **two real
+  `BattleScene` peers** (host idx 0 + client idx 1) over ENet loopback. Asserts both launch
+  without crashing in `_ready` and the client applies the host's first mirror over the real
+  `BattleNetSync` relay — the explicit "extend the smoke test to cover the client scene
+  launch" deliverable.
+
+Investigation outcome: across every reproduction I could build headlessly (isolated client
+`_ready`; client applying a real encoded mirror; the seeded-deck
+`build_deck_from_instances`→`to_dict`→client-render path; and the two-peer real-scene
+loopback above) the PvP launch path is **crash-free**. The Research Notes' lead suspect
+(a "bare `GameState.new()` with no players") is false — `GameState._init()` seeds two full
+default players, and `CardInstance.to_dict/from_dict` is symmetric, so the mirror never drops
+a field. The user-visible "client crash" was gated behind TID-335 (a cold co-op session had
+no deck, so the only broken-launch surface was the deck gate / fallback). With TID-335
+seeding a deck the launch is sound; this task adds the regression coverage plus the
+signal-reconnection hardening.
+
+Verified: `net_pvp_client_smoke` PASS; `net_pvp_smoke` still PASS; full unit suite 1557/0;
+headless import clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._ Add a Bug Fix Learnings entry (CLAUDE.md) for the root
-cause; update `docs/agent/multiplayer-coop.md` if the client launch contract changes.
+- `docs/agent/multiplayer-coop.md`: documented client mirror application (placeholder state
+  + signal reconnection) under the wire-format section, and added the new test row.
+- `CLAUDE.md`: Bug Fix Learnings entry (reconnect signals when replacing a cached state
+  object; no "bare state" exists because `GameState.new()` seeds players).

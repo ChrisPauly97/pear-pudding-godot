@@ -32,8 +32,16 @@ Public API:
 |---|---|
 | `host(port = 24565) -> Error` | Create an ENet server + start the discovery listener; emits `server_started` |
 | `join(ip, port = 24565) -> Error` | Connect to a host |
-| `leave()` | Tear down peer + discovery; emits `session_ended` |
+| `leave()` | Tear down peer + discovery (via `_reset_session()`); emits `session_ended` |
 | `is_active()` / `is_host()` / `local_id()` | State queries (guard all co-op code with `is_active()`) |
+
+**Host/join reset contract (GID-092 / TID-337):** `host()` and `join()` both call the
+private `_reset_session()` first, which stops the discovery sockets, **closes** the current
+ENet peer (`peer.close()` — not just nulling it), then nulls it. Closing is mandatory:
+dropping the reference alone leaves the server socket holding the OS port until GC, so a
+second `host()` on the same port would fail with "address in use". This makes the **Host
+Game** button work on repeat presses even when a prior session was left dangling (e.g. the
+host returned to the menu by a path that never called `leave()`).
 | signals | `server_started`, `connection_succeeded`, `connection_failed`, `peer_connected(id)`, `peer_disconnected(id)`, `session_ended`, `hosts_discovered(hosts)` |
 
 **Steam swap point:** `enum Transport { ENET, STEAM }` + `_create_peer(transport)`
@@ -104,6 +112,16 @@ WorldScene co-op hooks (all guarded by `NetworkManager.is_active()` /
 - `SceneManager.enter_map_coop(map_name)` clears any prior world/stack and reuses
   the normal `enter_map` path. `save()` is a no-op when no game is loaded, so this
   is safe launched cold from the menu.
+- **Cold-session deck seeding (GID-092 / TID-335):** `enter_map_coop` calls
+  `SaveManager.ensure_coop_deck()` before loading the map. A co-op session launched
+  straight from the menu never ran `new_game()`/`load()`, so `player_deck` is empty and
+  the PvP challenge flow's `DECK_MIN` gate (`WorldScene._request_challenge` /
+  `_accept_challenge`) would block the battle from ever starting. `ensure_coop_deck()`
+  seeds the same 12-card starter `new_game()` uses, **in-memory only**: it is a no-op when
+  a real game is loaded (`_loaded`) or the deck already meets `DECK_MIN`, and because
+  `_loaded` stays false for a cold session, `save()`/`_flush_if_dirty()` remain no-ops, so
+  the on-disk save is never clobbered. Covers both host (`_on_host`) and client
+  (`_on_connection_succeeded`) since both route through `enter_map_coop`.
 
 ### LAN discovery — UDP channel (ENet-only)
 
@@ -156,6 +174,14 @@ Pure, scene-free, unit-tested (mirrors `AvatarSync.gd`). JSON-primitive dicts.
 | `encode_state(state_dict, seq)` / `decode_state` | full-state mirror with a monotonic `seq` (client drops stale) |
 
 `decode_intent` always returns a fully-defaulted dict; garbage/unknown → `type == ""`.
+
+**Client mirror application (`_on_pvp_state`):** the client never simulates — it rebuilds a
+fresh `GameState` from each mirror via `from_dict`. Because that is a brand-new object, the
+`turn_ended` signal is reconnected to `_on_turn_ended` on every apply (GID-092 / TID-336);
+the original `_ready` connection was to the now-discarded placeholder state. The client
+launches on the default `GameState.new()` placeholder (which already seeds two full
+players), so rendering before the first mirror lands is always safe — verified end-to-end
+by `tests/net_pvp_client_smoke.gd`.
 
 ### Relay — `scenes/battle/BattleNetSync.gd`
 
@@ -216,6 +242,8 @@ No new art. RemotePlayer reuses the existing wizard walk textures
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |
 | `tests/net_pvp_smoke.gd` | on-demand SceneTree | Real ENet loopback: client intent → host apply → state-mirror round-trip |
+| `tests/net_pvp_client_smoke.gd` | on-demand SceneTree | Real ENet loopback with **two real `BattleScene` peers**: client (idx 1) launches + applies the host's first mirror without crashing (GID-092 / TID-336) |
+| `tests/net_rehost_smoke.gd` | on-demand SceneTree | host→leave→host repeated, and re-host without an explicit leave, all return OK (port freed) (GID-092 / TID-337) |
 
 Run the smoke tests with `godot --headless --path . -s tests/<file>` (exit 0 =
 pass). They are not in the auto-discovered unit suite because they need real

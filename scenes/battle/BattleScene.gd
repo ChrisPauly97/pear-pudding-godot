@@ -1937,6 +1937,10 @@ func _on_pvp_state(payload: Dictionary) -> void:
 	_state.from_dict(state_dict)
 	_bump_card_next_id(_state)
 	# Re-wire the helpers that cache a GameState reference (GID-040 pattern).
+	# from_dict built a brand-new GameState, so its turn_ended signal must be
+	# reconnected — the original connection in _ready was to the now-discarded state.
+	if not _state.turn_ended.is_connected(_on_turn_ended):
+		_state.turn_ended.connect(_on_turn_ended)
 	_resolver.setup(_state)
 	_fx.set_game_state(_state)
 	_view.set_battle_state(_state, enemy_data)
