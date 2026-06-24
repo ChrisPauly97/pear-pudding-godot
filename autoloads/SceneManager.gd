@@ -910,6 +910,9 @@ func _on_battle_fled() -> void:
 		_battle_overlay = null
 	_restore_world()
 
+func has_open_overlay() -> bool:
+	return _state != State.WORLD
+
 func _open_overlay(packed_scene: PackedScene, overlay_state: State, setup: Callable = Callable()) -> void:
 	if _state != State.WORLD:
 		return
