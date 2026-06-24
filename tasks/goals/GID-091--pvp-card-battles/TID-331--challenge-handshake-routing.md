@@ -2,7 +2,7 @@
 
 **Goal:** GID-091
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-330
 
 ## Lock
@@ -91,12 +91,35 @@ for the challenge prompt.
 
 ## Plan
 
-_Written during Plan phase._
+Proximity challenge via a HUD button (mobile+desktop parity). Handshake on the
+world relay (`NetSync`): `request_battle(deck)` / `respond_battle(accepted, deck)`.
+Each peer carries its own deck in the handshake so the host can build both sides.
+On mutual accept both peers call `SceneManager.enter_pvp_battle(local_idx,
+opponent_deck)` (host = idx 0). World is detached but kept alive; co-op session is
+preserved by making `_setup_coop`/`_teardown_coop` idempotent and re-running setup
+from `_enter_tree` on world re-attach.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/world/NetSync.gd`** — added reliable `request_battle` / `respond_battle`
+  RPCs routing to WorldScene handlers.
+- **`scenes/world/WorldScene.gd`** — challenge HUD button (`_ensure_challenge_button`,
+  shown by `_update_challenge_proximity` when within `_CHALLENGE_RANGE` of a
+  RemotePlayer, called from `_process`); handshake (`_request_challenge`,
+  `_on_battle_requested` + Accept/Decline panel, `_on_battle_responded`,
+  `_accept_challenge`/`_decline_challenge`, `_enter_pvp`); `_local_deck_for_net()`
+  enforces `DECK_MIN`. **Co-op preservation across the battle detach:** added
+  `_enter_tree()` re-setup, `_initial_ready_done` flag, made `_setup_coop` guard
+  against double-init and reuse the existing `NetSync`, and `_teardown_coop` now
+  leaves `NetSync` alive and only flips `_coop_active` so re-entry reconnects.
+- **`autoloads/SceneManager.gd`** — `enter_pvp_battle(local_player_idx,
+  opponent_deck)` (detaches+keeps the world, instantiates a fixed-name
+  `BattleScene`, sets `_pvp`/`_local_player_idx`/`pvp_opponent_deck` + minimal
+  duel-style `enemy_data`); `_on_pvp_battle_ended` restores the shared world (or
+  routes to menu if the session ended); `pvp_battle_ended` connected; `_on_battle_fled`
+  routes PvP flee to `BattleScene._pvp_surrender`.
+- Headless import clean; full unit suite passes (1554, exit 0).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Documented holistically in TID-333.

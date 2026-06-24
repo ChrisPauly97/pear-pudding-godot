@@ -97,6 +97,7 @@ func _ready() -> void:
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.battle_lost.connect(_on_battle_lost)
 	GameBus.battle_fled.connect(_on_battle_fled)
+	GameBus.pvp_battle_ended.connect(_on_pvp_battle_ended)
 	GameBus.duel_won.connect(_on_duel_won)
 	GameBus.duel_lost.connect(_on_duel_lost)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
@@ -378,6 +379,54 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 		get_tree().root.add_child(_battle_overlay)
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
+
+# ── PvP card battles (GID-091) ────────────────────────────────────────────────
+
+## Enters a networked PvP battle from the shared co-op world. The WorldScene is
+## detached but kept alive (like a normal battle) so both peers return to the SAME
+## madrian session afterwards; the NetworkManager co-op session is NOT torn down.
+## local_player_idx: 0 on the host (authority), 1 on the client.
+func enter_pvp_battle(local_player_idx: int, opponent_deck: Array) -> void:
+	if _state != State.WORLD:
+		return
+	var captured_idx: int = local_player_idx
+	var captured_deck: Array = opponent_deck
+	TransitionManager.transition(func() -> void:
+		_saved_world_scene = get_tree().current_scene
+		get_tree().root.remove_child(_saved_world_scene)
+		_battle_overlay = _battle_scene_packed.instantiate()
+		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
+		_battle_overlay.set("_pvp", true)
+		_battle_overlay.set("_local_player_idx", captured_idx)
+		_battle_overlay.set("pvp_opponent_deck", captured_deck)
+		_battle_overlay.enemy_data = {
+			"display_name": "Player",
+			"enemy_type": "",
+			"is_boss": false,
+			"drop_pool": [],
+			"coin_reward": 0,
+		}
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
+	_state = State.BATTLE
+
+## PvP battle finished (duel-style: no cards/coins/defeat tracking). Restore the
+## shared co-op world. If the session ended (host vanished for a client), the
+## world can't be restored → go to the menu cleanly.
+func _on_pvp_battle_ended(_did_win: bool) -> void:
+	if _state != State.BATTLE:
+		return
+	if _battle_overlay != null:
+		_battle_overlay.queue_free()
+		_battle_overlay = null
+	if _saved_world_scene != null and NetworkManager.is_active():
+		_restore_world()
+	else:
+		# No co-op session / world to return to.
+		if _saved_world_scene != null:
+			_saved_world_scene.queue_free()
+			_saved_world_scene = null
+		go_to_menu_direct()
 
 func _on_duel_won() -> void:
 	if _state != State.BATTLE:
@@ -839,6 +888,11 @@ func _on_defeat_menu() -> void:
 
 func _on_battle_fled() -> void:
 	if _state != State.BATTLE:
+		return
+	# PvP: fleeing is a surrender — let BattleScene notify the opponent and drive
+	# the synced end (which routes back through _on_pvp_battle_ended).
+	if _battle_overlay != null and bool(_battle_overlay.get("_pvp")):
+		_battle_overlay.call("_pvp_surrender")
 		return
 	save_manager.clear_pending_battle()
 	save_manager.clear_pending_battle_state()
