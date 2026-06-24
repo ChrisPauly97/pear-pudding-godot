@@ -2,7 +2,7 @@
 
 **Goal:** GID-092
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Context
@@ -36,18 +36,34 @@ creating a new server, so the second attempt fails on the already-bound port.
 
 ## Plan
 
-_Written during Plan phase._ In `NetworkManager.host()` (and likely `join()`), tear down any
-existing peer first — e.g. early `if is_active(): leave()` or reset
-`multiplayer.multiplayer_peer = null` + stop listeners — before creating the new server, so
-re-hosting always starts from a clean slate and the port is free. Confirm `_on_host` then
-succeeds on repeat presses. Verify the LAN smoke tests still pass
-(`godot --headless --path . -s tests/net_coop_smoke.gd` and `tests/net_discovery_smoke.gd`).
+Root cause confirmed: `leave()` only sets `multiplayer.multiplayer_peer = null` — it never
+calls `peer.close()`, so the prior ENet server socket keeps the OS port bound until GC, and
+the next `create_server(port)` fails with "address in use". Fix: add a private
+`_reset_session()` that stops the discovery listener/scanner, **closes** the current peer
+(`multiplayer.multiplayer_peer.close()`), then nulls it. Call `_reset_session()` at the
+start of `host()` and `join()` (free the port before re-binding) and from `leave()` (which
+keeps emitting `session_ended`). Re-hosting then starts from a clean slate every time.
+
+Note: there is no Lock section in this task file; per workflow that means it is free to
+claim. This whole goal is being executed in one session
+(`claude/work-task-gid-092-t6krxi`).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/NetworkManager.gd`: added private `_reset_session()` — stops the discovery
+  listener/scanner, **closes** the current peer (`peer.close()`), then nulls it. `leave()`
+  now delegates to it (still emits `session_ended`); `host()` and `join()` call it first so a
+  stale peer/port is freed before `create_server`/`create_client`. The missing `close()` was
+  the root cause: nulling alone left the ENet server socket bound until GC, so the second
+  `host()` failed with "address in use".
+- `tests/net_rehost_smoke.gd`: new on-demand smoke test — host→leave→host ×3, plus a re-host
+  with no explicit `leave()`, all assert `OK`.
+
+Verified: `net_rehost_smoke` PASS; full unit suite 1557/0; existing `net_coop_smoke` /
+`net_discovery_smoke` still green; headless import clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._ Note the host/join reset contract in
-`docs/agent/multiplayer-coop.md`.
+- `docs/agent/multiplayer-coop.md`: added the host/join reset contract to the
+  NetworkManager API section + the new test row.
+- `CLAUDE.md`: Bug Fix Learnings entry (always `close()` a peer before dropping it).

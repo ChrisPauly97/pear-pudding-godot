@@ -57,6 +57,9 @@ func _ready() -> void:
 
 ## Start hosting on the given port. Returns OK or an Error code.
 func host(port: int = DEFAULT_PORT) -> Error:
+	# Free any stale peer/port from a prior session before re-binding, otherwise
+	# create_server() fails with "address in use" on repeat Host presses (TID-337).
+	_reset_session()
 	var peer: MultiplayerPeer = _create_peer(Transport.ENET)
 	if peer == null:
 		return ERR_UNAVAILABLE
@@ -75,6 +78,8 @@ func host(port: int = DEFAULT_PORT) -> Error:
 
 ## Connect to a host. Returns OK or an Error code.
 func join(ip: String, port: int = DEFAULT_PORT) -> Error:
+	# Tear down any prior peer first so a re-join starts from a clean slate (TID-337).
+	_reset_session()
 	var peer: MultiplayerPeer = _create_peer(Transport.ENET)
 	if peer == null:
 		return ERR_UNAVAILABLE
@@ -90,10 +95,20 @@ func join(ip: String, port: int = DEFAULT_PORT) -> Error:
 
 ## Disconnect and clean up. Safe to call when not connected.
 func leave() -> void:
+	_reset_session()
+	session_ended.emit()
+
+## Tear down the peer + discovery sockets without emitting session_ended. Shared by
+## leave()/host()/join() so re-hosting frees the bound port. The peer is explicitly
+## closed (not just nulled) — dropping the reference alone leaves the ENet server
+## socket holding the OS port until GC, which makes the next create_server() fail.
+func _reset_session() -> void:
 	_stop_discovery_listener()
 	stop_discovery()
-	multiplayer.multiplayer_peer = null
-	session_ended.emit()
+	var peer: MultiplayerPeer = multiplayer.multiplayer_peer
+	if peer != null:
+		peer.close()
+		multiplayer.multiplayer_peer = null
 
 
 ## True when a peer is assigned and not in the DISCONNECTED state.
