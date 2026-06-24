@@ -427,6 +427,13 @@ func _setup_coop() -> void:
 
 	_ensure_challenge_button()
 
+	# Host: surface the LAN IP so the other player knows what to type into
+	# "Join by IP" (only shown on the first co-op entry, not on battle re-attach).
+	if NetworkManager.is_host() and not _initial_ready_done:
+		var lan_ip: String = NetworkManager.get_lan_ip()
+		if lan_ip != "":
+			SceneManager.show_toast("Hosting", "Other player: Join by IP  →  %s" % lan_ip)
+
 	# Spawn avatars for peers already connected when this world loads (the
 	# client-joining-host case; the host's peer is already present).
 	for pid in multiplayer.get_peers():
