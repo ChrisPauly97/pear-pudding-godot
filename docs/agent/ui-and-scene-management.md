@@ -69,6 +69,10 @@ Unified tabbed shell that hosts all four player-facing screens (Deck/Bag, Charac
 
 **Structure:** backdrop → centered panel → VBox with [tab bar row, content area].
 
+**Tab bar layout:** `[Close] [Deck/Bag] [Character] [Skills] [Journal]` — Close is on the LEFT so it never overlaps the minimap in the top-right corner.
+
+**Layering:** `SceneManager.open_menu_hub()` wraps the hub in a `CanvasLayer` (layer 10, stored as `_menu_hub_layer`) so it renders above the HUD CanvasLayer (default layer 1). The layer is freed in `_on_menu_hub_closed()` and `_exit_world_cleanup()`.
+
 **Tab IDs:** `"deck"`, `"character"`, `"skills"`, `"journal"`.
 
 **Public API:**

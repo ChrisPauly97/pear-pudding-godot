@@ -2,7 +2,7 @@
 
 **Goal:** GID-093
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Context
@@ -39,15 +39,29 @@ drags, with the player following in real time.
   way for genuine joystick/camera gestures to win. Confirm there's no camera-pan gesture
   that this would break.
 
+## Lock
+
+- **Session:** claude/work-task-gid-093-o3wpfd
+- **Acquired:** 2026-06-24T12:00:00Z
+- **Expires:** 2026-06-24T12:30:00Z
+
 ## Plan
 
-_Written during Plan phase._
+1. Add `var _drag_last_tile: Vector2i = Vector2i(-9999, -9999)` to WorldScene.
+2. Modify `InputEventScreenDrag` handler: instead of abandoning the tap on threshold-exceed, check joystick guard first; if the drag is outside joystick area and threshold is exceeded, call `_handle_tap_to_move()` (throttled by tile change).
+3. Add `InputEventMouseMotion` handler: while left button held, call `_handle_tap_to_move()` on tile change.
+4. Reset `_drag_last_tile` on new touch press and mouse button press.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WorldScene.gd`: added `var _drag_last_tile: Vector2i`; replaced the "abandon tap on threshold" drag handler with a steering handler that calls `_handle_tap_to_move()` on tile change; added `InputEventMouseMotion` handler for mouse drag-steering; reset `_drag_last_tile` on new touch press and mouse button press.
 
 ## Documentation Updates
 
-_What was updated in agent docs._ Update `docs/agent/tap-to-move.md` to document drag
-steering (touch + mouse) and the joystick-area guard interaction.
+Updated `docs/agent/tap-to-move.md`: documented drag steering (touch + mouse) and joystick-area guard.
+
+## Lock
+
+- **Session:** none
+- **Acquired:** —
+- **Expires:** —

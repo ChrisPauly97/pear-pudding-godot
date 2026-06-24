@@ -52,10 +52,16 @@ Walkable tiles: `TILE_GRASS`, `TILE_HILL`, `TILE_PATH`. `TILE_WALL` blocks movem
 Tap-to-move uses `_unhandled_input()` so HUD buttons (which call `accept_event()`) suppress the event before it reaches the handler.
 
 Touch guard:
-1. On `InputEventScreenTouch` press — record `_tap_start_screen` and `_tap_touch_index`.
+1. On `InputEventScreenTouch` press — record `_tap_start_screen`, `_tap_touch_index`, and reset `_drag_last_tile`.
 2. On `InputEventScreenTouch` release — if release position is within `_TAP_DRAG_THRESHOLD` (30 px) of press, treat as a tap and call `_handle_tap_to_move()`.
 3. Call `VirtualJoystick.is_touch_in_control_area(pos)` — returns `true` if the tap landed on the joystick base, jump button, or interact button (radius × 1.5 for slop). Abort if true.
-4. Mouse: `InputEventMouseButton` left-click `is_pressed()` triggers `_handle_tap_to_move()` directly.
+4. Mouse: `InputEventMouseButton` left-click `is_pressed()` triggers `_handle_tap_to_move()` directly and resets `_drag_last_tile`.
+
+**Drag steering (TID-340):** Once the drag threshold is crossed, the move target updates continuously:
+
+- **Touch drag (`InputEventScreenDrag`):** if the dragging finger is still tracked and the drag has exceeded `_TAP_DRAG_THRESHOLD`, the joystick area is checked first — if the drag moves into the joystick, steering stops and the tap is abandoned. Otherwise `_handle_tap_to_move()` is called whenever the drag crosses into a new tile (throttled by `_drag_last_tile`).
+- **Mouse drag (`InputEventMouseMotion`):** while the left button is held, any tile-change triggers `_handle_tap_to_move()` on the new tile.
+- The player follows the finger/cursor in real time; releasing lands at the final position.
 
 ### Screen-to-Tile Conversion (`_screen_to_tile`)
 

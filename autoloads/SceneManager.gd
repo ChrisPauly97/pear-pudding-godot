@@ -66,6 +66,7 @@ var session_stats: Dictionary = {
 }
 
 var _toast: CanvasLayer = null
+var _menu_hub_layer: CanvasLayer = null
 var _defeat_overlay: Node = null
 var _defeat_pending_enemy_data: Dictionary = {}
 
@@ -269,6 +270,9 @@ func _load_world(map_name: String, target_door_id: String) -> void:
 		_state = State.WORLD)
 
 func _exit_world_cleanup() -> void:
+	if _menu_hub_layer != null and is_instance_valid(_menu_hub_layer):
+		_menu_hub_layer.queue_free()
+		_menu_hub_layer = null
 	if _defeat_overlay != null:
 		_defeat_overlay.queue_free()
 		_defeat_overlay = null
@@ -932,9 +936,15 @@ func open_menu_hub(tab: String = "deck") -> void:
 		return
 	if _state != State.WORLD:
 		return
+	# Host the hub on a CanvasLayer above the HUD (default layer 1) so it
+	# always renders on top of the minimap and other HUD elements.
+	_menu_hub_layer = CanvasLayer.new()
+	_menu_hub_layer.layer = 10
+	_menu_hub_layer.name = "MenuHubLayer"
+	get_tree().current_scene.add_child(_menu_hub_layer)
 	var hub: Node = _MenuHubScript.new()
 	hub.name = "MenuHub"
-	get_tree().current_scene.add_child(hub)
+	_menu_hub_layer.add_child(hub)
 	hub.show_tab(tab)
 	hub.closed.connect(_on_menu_hub_closed)
 	_overlays[State.MENU_HUB] = hub
@@ -944,6 +954,9 @@ func _on_menu_hub_closed() -> void:
 	var hub: Node = _overlays.get(State.MENU_HUB, null)
 	if hub != null and is_instance_valid(hub):
 		_overlays.erase(State.MENU_HUB)
+	if _menu_hub_layer != null and is_instance_valid(_menu_hub_layer):
+		_menu_hub_layer.queue_free()
+		_menu_hub_layer = null
 	_state = State.WORLD
 
 func _on_inventory_requested() -> void:

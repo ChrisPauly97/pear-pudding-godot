@@ -2,7 +2,7 @@
 
 **Goal:** GID-093
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Context
@@ -39,16 +39,28 @@ minimap and the whole overlay renders behind the HUD. Players can't reliably tap
 - Cross-check the other BaseOverlay-based screens opened over the world (Shop, MapView,
   Settings) for the same z-order/corner issue while here; fix consistently if shared.
 
+## Lock
+
+- **Session:** claude/work-task-gid-093-o3wpfd
+- **Acquired:** 2026-06-24T12:00:00Z
+- **Expires:** 2026-06-24T12:30:00Z
+
 ## Plan
 
-_Written during Plan phase._
+1. In `autoloads/SceneManager.gd`: add `var _menu_hub_layer: CanvasLayer = null`; in `open_menu_hub()` create a CanvasLayer at layer 10 and add the hub as its child; in `_on_menu_hub_closed()` free the layer; in `_exit_world_cleanup()` free the layer.
+2. In `scenes/ui/MenuHubScene.gd`: move the Close button to the **left** side of the tab row (add it first, before the tab buttons) so it never lands in the top-right corner where the minimap lives.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SceneManager.gd`: added `var _menu_hub_layer: CanvasLayer = null`; in `open_menu_hub()` create a `CanvasLayer` (layer 10) as the hub's parent before adding to the scene; in `_on_menu_hub_closed()` and `_exit_world_cleanup()` free that layer.
+- `scenes/ui/MenuHubScene.gd`: moved Close button to the left end of the tab row so it is clear of the top-right minimap corner.
 
 ## Documentation Updates
 
-_What was updated in agent docs._ Update `docs/agent/ui-and-scene-management.md` (overlay
-layering vs. HUD) and/or `docs/agent/signals-and-constants.md` if the layering convention
-changes.
+Updated `docs/agent/ui-and-scene-management.md`: added note under Menu Hub section about wrapping the hub in a CanvasLayer at layer 10, and moved Close button position to left.
+
+## Lock
+
+- **Session:** none
+- **Acquired:** —
+- **Expires:** —
