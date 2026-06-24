@@ -2,7 +2,7 @@
 
 **Goal:** GID-092
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -44,18 +44,35 @@ loading a single-player game, and the co-op entry path never seeds a deck.
 
 ## Plan
 
-_Written during Plan phase._ Likely: in `enter_map_coop` (or a small helper invoked by it),
-ensure `save_manager` has a usable deck — if `get_deck_instances()` is empty, seed an
-in-memory starter/auto-filled deck (DeckAutoFill or the `new_game` starter) **without**
-persisting, so both peers can build decks and pass the `DECK_MIN` gate. Confirm both host
-and client paths (`_on_host`, `_on_connection_succeeded` in MultiplayerLobbyScene.gd) are
-covered since both call `enter_map_coop`.
+Add `SaveManager.ensure_coop_deck()`: a no-op when a real game is loaded (`_loaded`),
+or when the current deck already meets `IsoConst.DECK_MIN`; otherwise it seeds the same
+12-card starter `new_game()` uses, in-memory only. Because `_loaded` stays `false` for a
+cold co-op session, `save()`/`_flush_if_dirty()` remain no-ops, so the on-disk save is
+never touched. Call it from `SceneManager.enter_map_coop()` (covers both host
+`_on_host` and client `_on_connection_succeeded`, which both route through it).
+
+Verified `player_deck` defaults to `[]` and `get_deck_instances()` returns `[]` for a cold
+session, so the `WorldScene` `DECK_MIN` challenge gate currently fires. Seeding clears the
+gate for both peers without a disk write.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`: added `ensure_coop_deck()`. No-op when `_loaded` (a real game
+  is in play) or when the current deck already meets `IsoConst.DECK_MIN`; otherwise seeds the
+  same 12-card starter (`ghost/skeleton/zombie/ghoul` ×3) that `new_game()` uses, via
+  `add_card_instance()`, in-memory only. `_loaded` stays false so `save()`/`_flush_if_dirty()`
+  never write — the on-disk save is never clobbered.
+- `autoloads/SceneManager.gd`: `enter_map_coop()` now calls
+  `save_manager.ensure_coop_deck()` before `enter_map()`, covering both host
+  (`MultiplayerLobbyScene._on_host`) and client (`_on_connection_succeeded`) entry paths.
+- `tests/unit/test_save_manager.gd`: 3 new tests — seeds ≥ `DECK_MIN` when empty + not
+  loaded; never sets `_loaded`; no-op when a game is loaded.
+
+Verified: full unit suite 1557 passed / 0 failed; headless import clean; all co-op/PvP smoke
+tests green.
 
 ## Documentation Updates
 
-_What was updated in agent docs._ Update `docs/agent/multiplayer-coop.md` (deck seeding for
-cold co-op sessions) if behaviour changes.
+- `docs/agent/multiplayer-coop.md`: documented cold-session deck seeding under "Session
+  entry" and added the new test rows.
+- `CLAUDE.md`: added a Bug Fix Learnings entry (cold co-op has no save-backed deck).

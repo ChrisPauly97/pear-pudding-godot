@@ -236,6 +236,10 @@ func enter_map(map_name: String, target_door_id: String = "") -> void:
 # game has been loaded, so this is safe without an active save slot.
 func enter_map_coop(map_name: String) -> void:
 	_exit_world_cleanup()
+	# Cold co-op launched from the menu has no deck — seed a transient one so both
+	# peers can pass the PvP DECK_MIN gate (TID-335). No-op for a loaded game; never
+	# persists (save() is a no-op until a real game is loaded).
+	save_manager.ensure_coop_deck()
 	enter_map(map_name, "")
 
 func exit_map() -> void:
