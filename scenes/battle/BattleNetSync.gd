@@ -35,3 +35,11 @@ func sync_state(payload: Dictionary) -> void:
 func pvp_ended(payload: Dictionary) -> void:
 	if battle_scene != null and battle_scene.has_method("_on_pvp_ended"):
 		battle_scene._on_pvp_ended(payload)
+
+
+## Client -> host: "my BattleScene is up, send me the current state." Resolves the
+## startup race where the host's initial broadcast can precede the client's scene.
+@rpc("any_peer", "reliable", "call_remote")
+func request_sync() -> void:
+	if battle_scene != null and battle_scene.has_method("_on_pvp_sync_request"):
+		battle_scene._on_pvp_sync_request()

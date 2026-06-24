@@ -1854,6 +1854,23 @@ func _setup_pvp_battle() -> void:
 		# Initial state is broadcast by the _check_game_over() call at the end of
 		# _ready (host branch), so the client populates from the mirror.
 
+var _pvp_sync_retry_accum: float = 0.0
+
+## Client: keep asking the host for the initial state until the first mirror lands
+## (handles the race where the host broadcasts before this scene exists).
+func _process(delta: float) -> void:
+	if not _is_pvp_client() or _last_applied_seq >= 0 or _net == null:
+		return
+	_pvp_sync_retry_accum += delta
+	if _pvp_sync_retry_accum >= 0.4:
+		_pvp_sync_retry_accum = 0.0
+		_net.rpc_id(1, "request_sync")
+
+## Host: a client asked for the current state — send it.
+func _on_pvp_sync_request() -> void:
+	if _is_pvp_host():
+		_broadcast_state()
+
 ## Host: build players[0] from this peer's deck, players[1] from the relayed
 ## client deck (pvp_opponent_deck). Falls back to a basic deck if either is empty.
 func _build_pvp_decks() -> void:

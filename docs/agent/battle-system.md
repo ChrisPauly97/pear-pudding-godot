@@ -532,6 +532,28 @@ XP is NOT multiplied by gambits. `session_stats["coins_earned"]` records the pos
 | **Gambits** | Pre-battle | `Gambits.gd` catalogue + `GambitPickerOverlay.gd` picker shown before each battle (GID-063); gambit_id stored in `enemy_data` |
 | **GameBus signals** | Both | `card_played(card_id, type, slot_idx)` — emitted by `BattleScene._do_play_card()` (type="spell") and `_do_play_card_at_slot()` (type="board") on successful play. `card_attacked(attacker_id, target_id_or_"hero")` — emitted by `BattleScene._execute_attack()` on every attack. `battle_ended(winner_id)` — emitted by `BattleScene._check_game_over()` when a hero dies. `turn_ended(player_id)` — `GameState` emits its own `turn_ended` signal; `BattleScene._on_turn_ended()` relays it to `GameBus.turn_ended` for external subscribers. `status_applied`, `status_ticked` — available for future subscribers. |
 | **Veterancy (GID-060)** | Post-battle | `battle_won` result carries `"veterancy"` dict; SceneManager applies it via `SaveManager.record_veterancy`; see Veterancy Kill Attribution section above |
+| **PvP (GID-091)** | Networked battle | When `_pvp` is true the same engine runs host-authoritative: `_local_player_idx` selects perspective (0=host, 1=client), `BasicAI` is disabled, the host applies its own + the client's relayed intents to the canonical `GameState` and broadcasts `to_dict()`, the client renders the mirror. Single-player paths are unchanged. See PvP subsection below + `docs/agent/multiplayer-coop.md`. |
+
+### PvP Battles (GID-091)
+
+Additive layer on the existing engine, fully guarded by `_pvp`:
+
+- **Perspective:** `_my_idx()`/`_opp_idx()` route every "me/opponent" render & input
+  site. In single-player `_local_player_idx == 0` so they are the identity (no
+  behavioural change). On the client (`_local_player_idx == 1`) the bottom shows
+  `players[1]`, top shows `players[0]`.
+- **AI disable:** `_on_turn_ended` early-returns before `_run_ai_turn` when `_pvp`;
+  the opponent's turn advances only via relayed intents.
+- **Host authority:** the client's input handlers send `BattleNetProtocol` intents
+  (`_send_intent` → `rpc_id(1,…)`) instead of mutating; `_on_pvp_intent` validates
+  (turn ownership + legality) and applies via the same `_do_play_card*` / resolver /
+  `_resolve_remote_attack` paths, then re-broadcasts through `_check_game_over` →
+  `_pvp_check_game_over`. `_on_pvp_state` rebuilds the client's `_state` and re-wires
+  `_resolver`/`_fx`/`_view`.
+- **End / rewards:** duel-style — `_pvp_check_game_over` (host) broadcasts the final
+  state + `pvp_ended`; both peers show `BattleResultUI.show_pvp_result`, which emits
+  `GameBus.pvp_battle_ended`. No cards/coins/defeat tracking. Flee = surrender;
+  opponent disconnect = forfeit win.
 
 ---
 

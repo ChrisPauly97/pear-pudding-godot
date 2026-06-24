@@ -2,7 +2,7 @@
 
 **Goal:** GID-091
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-331
 
 ## Lock
@@ -74,12 +74,36 @@ parity for any new buttons (the surrender prompt already exists via the pause UI
 
 ## Plan
 
-_Written during Plan phase._
+Duel-style end (no rewards), synced via the host, with surrender + disconnect
+forfeit. Built cohesively alongside TID-330/331 since the logic is interleaved
+with the BattleScene PvP layer.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/GameBus.gd`** — `pvp_battle_ended(did_win)` signal (duel-style end).
+- **`scenes/battle/BattleResultUI.gd`** — `show_pvp_result(did_win)`: Victory/
+  Defeated overlay with **no** reward card / rarity / coins; Continue emits
+  `pvp_battle_ended`.
+- **`scenes/battle/BattleScene.gd`** — `_pvp_check_game_over` (host detects
+  `_state.winner()`, broadcasts final state + `pvp_ended`, shows its own overlay;
+  `_pvp_ended` guards double-fire); `_on_pvp_ended` (client shows the matching
+  overlay); surrender (`_pvp_surrender` local, `_apply_remote_surrender` host —
+  marks the leaver's hero dead); disconnect forfeit (`_on_pvp_peer_disconnected` /
+  `_on_pvp_session_ended` → `_finish_pvp(true)`, signals connected in
+  `_connect_pvp_net_signals` and removed in `_finish_pvp`).
+- **`autoloads/SceneManager.gd`** — `_on_pvp_battle_ended` restores the shared
+  world (or routes to menu if the session ended); `_on_battle_fled` routes a PvP
+  flee to `BattleScene._pvp_surrender` (instead of the single-player flee path).
+- **Rewards policy:** `enter_pvp_battle` builds `enemy_data` with empty drop_pool,
+  zero coin_reward, no enemy_type, not boss — so even the duel/standard reward
+  branches would no-op; the dedicated `_pvp` branch in `_check_game_over` bypasses
+  them entirely. No cards/coins/XP/defeat-tracking touched.
+- **Regression guard:** single-player / NPC duel / puzzle / Spire / boss all take
+  `_pvp == false`, so `_check_game_over` runs the original logic unchanged;
+  `_local_player_idx == 0` makes the perspective accessors the identity. Verified:
+  full unit suite (1554, exit 0), headless import clean, both loopback smoke tests
+  pass.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Covered in TID-333 (`docs/agent/multiplayer-coop.md`, `battle-system.md`).
