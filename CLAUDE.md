@@ -506,6 +506,36 @@ dead connect line. Invariant: never `connect` to a GameBus signal without confir
 still declared in `GameBus.gd`; appending to the tail of a long `_ready` can resurrect a
 latent abort — keep `_ready` free of throwing statements.
 
+### Re-hosting failed on a stale, un-closed ENet peer (fixed in GID-092 / TID-337)
+
+`NetworkManager.leave()` set `multiplayer.multiplayer_peer = null` but never called
+`peer.close()`. Nulling the reference does not immediately release the OS-level ENet server
+socket — it stays bound to the port until the peer is garbage-collected — so the next
+`host()` on the same port intermittently failed with "address in use" (the **Host Game**
+button "only worked once"). Fix: a shared `_reset_session()` that `close()`s the peer before
+nulling it, called from `leave()` and at the top of `host()`/`join()`. Invariant: always
+`close()` a `MultiplayerPeer`/`PacketPeerUDP` before dropping it — nulling alone leaks the
+bound port.
+
+### Cold co-op had no deck, blocking PvP (fixed in GID-092 / TID-335)
+
+Co-op launched from the menu never ran `new_game()`/`load()`, so `player_deck` was empty and
+the PvP `DECK_MIN` challenge gate blocked every battle. Fix: `SaveManager.ensure_coop_deck()`
+(called from `SceneManager.enter_map_coop`) seeds a transient starter deck in-memory, guarded
+by `not _loaded` so it never runs for a real game and never persists (`save()` is a no-op
+until `_loaded`). Invariant: a feature reachable without starting/loading a game must not
+assume save-backed state (deck, coins, flags) exists — seed a transient default or guard the
+access.
+
+### PvP client renders a mirror on a fresh GameState — reconnect its signals (GID-092 / TID-336)
+
+The thin PvP client rebuilds `_state` from each host mirror via `GameState.from_dict`, which
+creates a **new** object. The `turn_ended` connection made once in `_ready` pointed at the
+discarded placeholder, so it was silently lost after the first mirror. Reconnect signals
+whenever you replace a cached state object. Note `GameState.new()` already seeds two full
+default players, so the client always has a valid placeholder to render before the first
+mirror — there is no "bare state" to crash on.
+
 ---
 
 ## Documentation: docs/agent/ Directory

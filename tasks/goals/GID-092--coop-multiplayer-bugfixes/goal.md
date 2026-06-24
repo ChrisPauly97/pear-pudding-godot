@@ -21,9 +21,9 @@ See `docs/agent/multiplayer-coop.md` for the architecture these fixes touch.
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-335 | Co-op session loads a usable deck | agent | pending | — |
-| TID-336 | Fix client crash when a co-op PvP battle launches | agent | pending | — |
-| TID-337 | Host button reliability — reset stale session before re-hosting | agent | pending | — |
+| TID-335 | Co-op session loads a usable deck | agent | done | — |
+| TID-336 | Fix client crash when a co-op PvP battle launches | agent | done | — |
+| TID-337 | Host button reliability — reset stale session before re-hosting | agent | done | — |
 
 ## Acceptance Criteria
 
