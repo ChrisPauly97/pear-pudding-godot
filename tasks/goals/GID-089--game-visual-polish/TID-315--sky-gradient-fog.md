@@ -2,14 +2,14 @@
 
 **Goal:** GID-089
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/GID-089--game-visual-polish
+**Acquired:** 2026-06-25T00:34:08Z
+**Expires:** 2026-06-25T01:04:08Z
 
 ## Context
 
@@ -50,12 +50,15 @@ env.background_color = Color(0.25, 0.5, 0.85)
 
 ## Plan
 
-_Written during Plan phase._
+Replace `BG_COLOR` with `BG_SKY` + `ProceduralSkyMaterial` in `WorldScene._setup_environment()`. Add distance fog to the same environment. Update `DayNightCycle._apply_lighting()` to drive the sky material colors and fog light color instead of the now-removed `background_color`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WorldScene.gd`: `_setup_environment()` creates `ProceduralSkyMaterial` with initial day colors, wraps it in a `Sky`, sets `env.background_mode = BG_SKY`, enables fog (`fog_enabled`, `fog_density=0.004`, `fog_aerial_perspective=0.3`, `fog_sky_affect=0.7`). Added `_setup_vignette()` call which creates a `CanvasLayer(127)` with a `ColorRect` using an inline `Shader` for edge darkening.
+- `scenes/world/DayNightCycle.gd`: Added `_sky_mat: ProceduralSkyMaterial` lazy-getter, updated sky block in `_apply_lighting()` to set `sky_top_color`, `sky_horizon_color`, `ground_horizon_color` on the ProceduralSkyMaterial and update `fog_light_color`.
 
-## Documentation Updates
+## Lock
 
-_What was updated in agent docs._
+**Session:** none
+**Acquired:** —
+**Expires:** —

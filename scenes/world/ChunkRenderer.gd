@@ -3,6 +3,7 @@ extends Node3D
 const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 const BiomeDef      = preload("res://game_logic/world/BiomeDef.gd")
+const TextureGen    = preload("res://game_logic/TextureGen.gd")
 const BlightField   = preload("res://game_logic/world/BlightField.gd")
 const LandmarkMesh  = preload("res://game_logic/world/LandmarkMesh.gd")
 
@@ -120,13 +121,70 @@ static func prepare_terrain(
 	var grass_centres: Array[Vector2] = GrassBlades.compute_centres(chunk_data, chunk_origin)
 	var grass_data: Dictionary = GrassBlades.prepare_buffers(grass_centres, Vector2i(chunk_data.cx, chunk_data.cz))
 
+	# Build per-biome prop positions (pure math, no scene tree).
+	var prop_positions: Dictionary = _compute_prop_positions(
+			chunk_data, grid_tile_lookup, hfield, chunk_origin, nvx, world_seed)
+
 	return {
 		"mesh":           terrain_res["mesh"],
 		"hmap":           terrain_res["hmap"],
 		"chunk_world":    float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE,
 		"wall_face_mesh": wall_face_mesh,
 		"grass":          grass_data,
+		"props":          prop_positions,
 	}
+
+# Returns Dictionary of prop_type -> Array[Vector3] of world positions.
+static func _compute_prop_positions(
+		chunk_data: RefCounted,
+		grid_tile_lookup: Callable,
+		hfield: PackedFloat32Array,
+		chunk_origin: Vector3,
+		nvx: int,
+		world_seed: int) -> Dictionary:
+	const MAX_PER_TYPE: int = 12
+	const SPAWN_CHANCE: float = 0.15
+	var prop_sets: Array = BiomeDef.PROP_SETS
+	var biome_id: int = int(chunk_data.get("biome_id"))
+	if biome_id < 0 or biome_id >= prop_sets.size():
+		return {}
+	var prop_types: Array = prop_sets[biome_id] as Array
+	if prop_types.is_empty():
+		return {}
+	var cx: int = int(chunk_data.get("cx"))
+	var cz_val: int = int(chunk_data.get("cz"))
+	var result: Dictionary = {}
+	for pt in prop_types:
+		result[str(pt)] = []
+	var hash_s: int = (world_seed ^ (cx * 7919) ^ (cz_val * 4993)) & 0x7FFFFFFF
+	for lz in range(IsoConst.CHUNK_SIZE):
+		for lx in range(IsoConst.CHUNK_SIZE):
+			var tx: int = cx * IsoConst.CHUNK_SIZE + lx
+			var tz: int = cz_val * IsoConst.CHUNK_SIZE + lz
+			if grid_tile_lookup.call(tx, tz) != IsoConst.TILE_GRASS:
+				continue
+			hash_s = (hash_s * 1103515245 + lz * 31337 + lx * 73856093) & 0x7FFFFFFF
+			var rand_val: float = float(hash_s & 0xFFFF) / 65535.0
+			if rand_val > SPAWN_CHANCE:
+				continue
+			var type_idx: int = (hash_s >> 16) % prop_types.size()
+			var pt_key: String = str(prop_types[type_idx])
+			var arr: Array = result[pt_key] as Array
+			if arr.size() >= MAX_PER_TYPE:
+				continue
+			hash_s = (hash_s * 1664525 + 1013904223) & 0x7FFFFFFF
+			var ox: float = float(hash_s & 0xFF) / 255.0 * IsoConst.TILE_SIZE * 0.8 + IsoConst.TILE_SIZE * 0.1
+			hash_s = (hash_s * 1664525 + 1013904223) & 0x7FFFFFFF
+			var oz: float = float(hash_s & 0xFF) / 255.0 * IsoConst.TILE_SIZE * 0.8 + IsoConst.TILE_SIZE * 0.1
+			var vi: int = lz * nvx + lx
+			if vi >= hfield.size():
+				vi = hfield.size() - 1
+			var wy: float = hfield[vi]
+			arr.append(Vector3(
+				chunk_origin.x + float(lx) * IsoConst.TILE_SIZE + ox,
+				wy,
+				chunk_origin.z + float(lz) * IsoConst.TILE_SIZE + oz))
+	return result
 
 # ── Main entry point (main thread only) ───────────────────────────────────
 # Phase 1: visual mesh + entities only — no physics bodies — call from _commit_chunk_results.
@@ -143,6 +201,7 @@ func build_visual(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node
 
 	_apply_terrain_visual(terrain_res)
 	_build_grass(world_scene, terrain_res.get("grass", {}) as Dictionary)
+	_build_props(biome, terrain_res.get("props", {}) as Dictionary)
 	_spawn_entities(world_scene)
 	# Apply initial blight tint for this chunk based on current world state.
 	if world_scene.get("WORLD_SEED") != null:
@@ -271,6 +330,43 @@ func _build_grass(world_scene: Node3D, grass_data: Dictionary) -> void:
 		return
 	# Buffers were pre-built on the worker thread; just commit them to the scene tree.
 	grass.commit_grass_buffers(grass_data, _chunk_key)
+
+# ── Props ──────────────────────────────────────────────────
+
+func _build_props(_biome: int, prop_positions: Dictionary) -> void:
+	if prop_positions.is_empty():
+		return
+	for pt_key in prop_positions.keys():
+		var positions: Array = prop_positions[pt_key] as Array
+		if positions.is_empty():
+			continue
+		var tex: ImageTexture = TextureGen.prop(str(pt_key))
+		if tex == null:
+			continue
+		var mat := StandardMaterial3D.new()
+		mat.albedo_texture = tex
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		mat.alpha_scissor_threshold = 0.5
+		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.disable_receive_shadows = true
+		var quad := QuadMesh.new()
+		quad.size = Vector2(0.5, 0.5)
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.instance_count = positions.size()
+		mm.mesh = quad
+		for i in range(positions.size()):
+			var pos: Vector3 = positions[i] as Vector3
+			mm.set_instance_transform(i, Transform3D(Basis.IDENTITY, pos))
+		var mmi := MultiMeshInstance3D.new()
+		mmi.multimesh = mm
+		mmi.material_override = mat
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mmi.visibility_range_end = IsoConst.ENTITY_VISIBILITY_END
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+		add_child(mmi)
 
 # ── Entities ───────────────────────────────────────────────────────────────
 

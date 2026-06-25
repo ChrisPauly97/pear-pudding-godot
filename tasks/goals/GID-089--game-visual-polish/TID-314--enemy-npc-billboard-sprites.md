@@ -2,14 +2,14 @@
 
 **Goal:** GID-089
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/GID-089--game-visual-polish
+**Acquired:** 2026-06-25T00:34:08Z
+**Expires:** 2026-06-25T01:04:08Z
 
 ## Context
 
@@ -41,12 +41,14 @@ For 32px height, pixel_size=0.04: `y = 32 * 0.04 * 0.5 + 0.05 = 0.69`
 
 ## Plan
 
-_Written during Plan phase._
+Pre-done: EnemyNPC, MerchantNPC, TownspersonNPC already use `Sprite3D` + `TextureGen` humanoid generators; no changes needed.
 
 ## Changes Made
 
-_Filled after Build phase._
+No code changes required — sprite billboards were already implemented in a prior session. Verified that `EnemyNPC.gd`, `MerchantNPC.gd`, and `TownspersonNPC.gd` all create `Sprite3D` nodes with `TextureGen.enemy()` / `TextureGen.npc_merchant()` / `TextureGen.npc_townsperson()` textures.
 
-## Documentation Updates
+## Lock
 
-_What was updated in agent docs._
+**Session:** none
+**Acquired:** —
+**Expires:** —

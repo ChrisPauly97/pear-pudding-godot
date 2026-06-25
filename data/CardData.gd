@@ -19,6 +19,7 @@ extends Resource
 @export var keywords: PackedStringArray = PackedStringArray()
 @export var can_craft: bool = true
 @export var is_unique: bool = false
+@export var illustration: Texture2D = null
 
 # Dual-face support (GID-062). When is_dual_face == true, the base fields above
 # represent the Light face; dark_* fields below define the Dark face.
@@ -61,6 +62,7 @@ func to_template_dict(face: String = "light") -> Dictionary:
 			"emergence_power": dark_emergence_power,
 			"dual_card_id": id,
 			"active_face": "dark",
+			"illustration": illustration,
 		}
 	return {
 		"id": id,
@@ -83,4 +85,5 @@ func to_template_dict(face: String = "light") -> Dictionary:
 		"active_face": "light" if is_dual_face else "",
 		"is_unique": is_unique,
 		"can_craft": can_craft,
+		"illustration": illustration,
 	}

@@ -2,14 +2,14 @@
 
 **Goal:** GID-089
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/GID-089--game-visual-polish
+**Acquired:** 2026-06-25T00:34:08Z
+**Expires:** 2026-06-25T01:04:08Z
 
 ## Context
 
@@ -43,12 +43,17 @@ Add `set_highlighted(on: bool)` to `WorldEntityBase.gd` — shows/hides the ring
 
 ## Plan
 
-_Written during Plan phase._
+Add `build_highlight_ring(parent, radius)` static + `_ring` field + `set_highlighted(on)` instance method to `WorldEntityBase`. Add `add_to_group("interactable")` + ring setup to `_ready()` of all 6 interactable entities. Add `_scan_interactables()` to `Player.gd` called at ~7 Hz from `_physics_process`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/entities/WorldEntityBase.gd`: Added `var _ring: MeshInstance3D = null`, `static func build_highlight_ring(parent, radius) -> MeshInstance3D` (creates `CylinderMesh` with inline pulsing emissive shader), `func set_highlighted(on)`.
+- `scenes/world/entities/MerchantNPC.gd`, `TownspersonNPC.gd`, `BountyBoardNPC.gd`: Added `add_to_group("interactable")` + `_ring = build_highlight_ring(self, 0.55/0.6)` in `_ready()`.
+- `scenes/world/entities/Chest.gd`, `Door.gd`, `Waystone.gd`: Added `const _WEB = preload(WorldEntityBase)`, `var _ring`, `add_to_group("interactable")`, `_ring = _WEB.build_highlight_ring(self, r)` in `_ready()`, `func set_highlighted(on)`.
+- `scenes/world/entities/Player.gd`: Added `_highlight_timer`, `_highlighted_node`, `_SCAN_INTERVAL=1/7`, `_INTERACT_RADIUS=3.0`, `_scan_interactables()` proximity scan in `_physics_process`.
 
-## Documentation Updates
+## Lock
 
-_What was updated in agent docs._
+**Session:** none
+**Acquired:** —
+**Expires:** —

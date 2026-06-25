@@ -1,6 +1,9 @@
 extends Node3D
 
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
+
 var waystone_data: Dictionary = {}
+var _ring: MeshInstance3D = null
 
 static var _dormant_mat: StandardMaterial3D
 static var _active_mat: StandardMaterial3D
@@ -19,12 +22,18 @@ static func _ensure_shared_resources() -> void:
 	_pillar_mesh.size = Vector3(1.0, 1.5, 1.0)
 
 func _ready() -> void:
+	add_to_group("interactable")
+	_ring = _WEB.build_highlight_ring(self, 0.7)
 	_ensure_shared_resources()
 	var mi: MeshInstance3D = find_child("MeshInstance3D", true, false) as MeshInstance3D
 	if mi:
 		mi.mesh = _pillar_mesh
 		mi.material_override = _dormant_mat
 		mi.position = Vector3(0.0, 0.75, 0.0)
+
+func set_highlighted(on: bool) -> void:
+	if _ring != null:
+		_ring.visible = on
 
 func init_from_data(data: Dictionary) -> void:
 	waystone_data = data

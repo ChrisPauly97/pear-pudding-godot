@@ -26,6 +26,21 @@ var _cached_ambient_color: Color = Color.BLACK
 var _cached_ambient_energy: float = -1.0
 
 var _prev_was_night: bool = false
+var _sky_mat: ProceduralSkyMaterial = null
+
+func _get_sky_mat() -> ProceduralSkyMaterial:
+	if _sky_mat != null:
+		return _sky_mat
+	if _world_env == null:
+		return null
+	var env: Environment = _world_env.environment
+	if env == null:
+		return null
+	var s: Sky = env.sky as Sky
+	if s == null:
+		return null
+	_sky_mat = s.sky_material as ProceduralSkyMaterial
+	return _sky_mat
 
 static func is_night(time_of_day: float) -> bool:
 	return sin((time_of_day - 0.25) * TAU) < 0.0
@@ -107,8 +122,14 @@ func _apply_lighting(weather_tint: Color) -> void:
 	else:
 		sky = Color(0.02, 0.02, 0.08).lerp(Color(0.7, 0.3, 0.1), clampf((sun_h + 0.3) * 5.0, 0.0, 1.0))
 	if not sky.is_equal_approx(_cached_sky_color):
-		_world_env.environment.background_color = sky
 		_cached_sky_color = sky
+		var sm: ProceduralSkyMaterial = _get_sky_mat()
+		if sm != null:
+			sm.sky_top_color         = sky.darkened(0.55)
+			sm.sky_horizon_color     = sky
+			sm.ground_horizon_color  = sky.darkened(0.25)
+		if _world_env.environment.fog_enabled:
+			_world_env.environment.fog_light_color = sky.lerp(Color(0.15, 0.18, 0.30), 0.35)
 
 	var base_ambient: Color = Color(0.1, 0.12, 0.22).lerp(Color(0.6, 0.65, 0.7), t_day)
 	var ambient_color: Color = Color(

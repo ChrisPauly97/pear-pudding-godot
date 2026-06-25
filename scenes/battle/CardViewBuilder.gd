@@ -327,6 +327,16 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	name_lbl.text = card.name
 	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var tmpl_for_illus: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
+	var illus: Texture2D = tmpl_for_illus.get("illustration") as Texture2D
+	if illus != null:
+		var art := TextureRect.new()
+		art.name = "IllustrationRect"
+		art.texture = illus
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.custom_minimum_size = Vector2(0.0, _vh * 0.06)
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		vbox.add_child(art)
 	var stats_lbl := Label.new()
 	stats_lbl.name = "StatsLabel"
 	stats_lbl.text = format_card_stats(card, card.cost)

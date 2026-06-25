@@ -92,7 +92,7 @@
 | [GID-086](goals/GID-086--corruption-redemption-accrual/goal.md) | Corruption & Redemption Points Accrual | done | 2 / 2 |
 | [GID-087](goals/GID-087--godot-version-spec-alignment/goal.md) | Godot Version & Spec Alignment | pending | 1 / 2 |
 | [GID-088](goals/GID-088--battle-code-quality/goal.md) | Battle Code Quality — GameState Decoupling & Native Drag | pending | 0 / 2 |
-| [GID-089](goals/GID-089--game-visual-polish/goal.md) | Visual Polish — World Art, Atmosphere & Props | pending | 0 / 6 |
+| [GID-089](goals/GID-089--game-visual-polish/goal.md) | Visual Polish — World Art, Atmosphere & Props | done | 6 / 6 |
 | [GID-090](goals/GID-090--coop-multiplayer-slice/goal.md) | Co-op Multiplayer Vertical Slice | done | 8 / 8 |
 | [GID-091](goals/GID-091--pvp-card-battles/goal.md) | PvP Card Battles over Co-op | pending | 6 / 7 |
 | [GID-092](goals/GID-092--coop-multiplayer-bugfixes/goal.md) | Co-op Multiplayer Bug Fixes | done | 3 / 3 |

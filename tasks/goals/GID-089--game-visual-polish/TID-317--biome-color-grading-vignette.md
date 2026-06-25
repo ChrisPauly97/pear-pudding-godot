@@ -2,14 +2,14 @@
 
 **Goal:** GID-089
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-315
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/GID-089--game-visual-polish
+**Acquired:** 2026-06-25T00:34:08Z
+**Expires:** 2026-06-25T01:04:08Z
 
 ## Context
 
@@ -45,12 +45,15 @@ All five biomes currently look similar at the `WorldEnvironment` level — only 
 
 ## Plan
 
-_Written during Plan phase._
+Add `ADJ_PARAMS` to `BiomeDef`. Add `_apply_biome_color_grade(biome_id)` to `WorldScene`, called from `_on_player_chunk_changed()`. Add `_setup_vignette()` to `WorldScene` using inline `Shader` on a `CanvasLayer(127)` `ColorRect`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/BiomeDef.gd`: Added `ADJ_PARAMS` array (brightness/contrast/saturation per biome).
+- `scenes/world/WorldScene.gd`: Added `BiomeDef` preload, `_apply_biome_color_grade(biome_id)` sets `env.adjustment_enabled/brightness/contrast/saturation`, called from `_on_player_chunk_changed()`. Added `_setup_vignette()` creates `CanvasLayer(127)` + `ColorRect` + inline `Shader` for edge vignette (strength 0.45).
 
-## Documentation Updates
+## Lock
 
-_What was updated in agent docs._
+**Session:** none
+**Acquired:** —
+**Expires:** —

@@ -1,6 +1,7 @@
 extends Node
 
 const CardData = preload("res://data/CardData.gd")
+const TextureGen = preload("res://game_logic/TextureGen.gd")
 
 const _C_ARCANE_SEAL      := preload("res://data/cards/arcane_seal.tres")
 const _C_ALIGHT           := preload("res://data/cards/alight.tres")
@@ -159,6 +160,12 @@ static func _ensure_loaded() -> void:
 		var card_id: String = str(id_val) if id_val != null else ""
 		if card_id != "":
 			_cards[card_id] = res
+			var illus = res.get("illustration")
+			if illus == null:
+				var card_class_val: String = str(res.get("card_class", ""))
+				var magic_branch: String = str(res.get("magic_branch", ""))
+				var illus_key: String = "spell" if card_class_val == "spell" else card_id
+				res.set("illustration", TextureGen.card_illustration(illus_key, magic_branch))
 		else:
 			push_error("CardRegistry: a preloaded card has empty id, skipped")
 	if _cards.is_empty():
