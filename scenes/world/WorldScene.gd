@@ -13,6 +13,7 @@ const WorldHUD          = preload("res://scenes/world/WorldHUD.gd")
 const DayNightCycle     = preload("res://scenes/world/DayNightCycle.gd")
 const BlightField      = preload("res://game_logic/world/BlightField.gd")
 const ChunkRenderer   = preload("res://scenes/world/ChunkRenderer.gd")
+const BiomeDef        = preload("res://game_logic/world/BiomeDef.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const Minimap         = preload("res://scenes/world/Minimap.gd")
 const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
@@ -181,8 +182,24 @@ var _drag_last_tile: Vector2i = Vector2i(-9999, -9999)  # throttle drag-steer re
 
 func _setup_environment() -> void:
 	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.25, 0.5, 0.85)   # daytime sky; updated every frame
+	# Procedural sky with depth gradient — updated each frame by DayNightCycle
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color        = Color(0.04, 0.10, 0.32)
+	sky_mat.sky_horizon_color    = Color(0.25, 0.50, 0.85)
+	sky_mat.ground_horizon_color = Color(0.20, 0.42, 0.70)
+	sky_mat.ground_bottom_color  = Color(0.08, 0.06, 0.04)
+	sky_mat.sun_angle_max = 55.0
+	sky_mat.sun_curve     = 0.25
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	# Distance fog for horizon depth
+	env.fog_enabled            = true
+	env.fog_density            = 0.004
+	env.fog_aerial_perspective = 0.3
+	env.fog_sky_affect         = 0.7
+	env.fog_light_color        = Color(0.70, 0.85, 1.0)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.6, 0.65, 0.7)
 	env.ambient_light_energy = 1.0
@@ -207,6 +224,21 @@ func _setup_environment() -> void:
 	_fill_light.shadow_enabled = false
 	_fill_light.rotation_degrees = Vector3(60.0, 45.0, 0.0)
 	add_child(_fill_light)
+	_setup_vignette()
+
+func _setup_vignette() -> void:
+	var cl := CanvasLayer.new()
+	cl.layer = 127
+	var cr := ColorRect.new()
+	cr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vshader := Shader.new()
+	vshader.code = "shader_type canvas_item;\nvoid fragment() {\n\tvec2 uv = UV - vec2(0.5);\n\tfloat d = length(uv * vec2(1.0, 1.2));\n\tfloat vig = smoothstep(0.35, 0.75, d) * 0.45;\n\tCOLOR = vec4(0.0, 0.0, 0.0, vig);\n}"
+	var vmat := ShaderMaterial.new()
+	vmat.shader = vshader
+	cr.material = vmat
+	cl.add_child(cr)
+	add_child(cl)
 
 func _ready() -> void:
 	_setup_environment()
@@ -782,6 +814,19 @@ func _on_player_chunk_changed(_chunk: Vector2i, biome_id: int) -> void:
 	SceneManager.save_manager.visit_biome(biome_id)
 	WeatherManager.set_biome(biome_id)
 	GameBus.biome_changed.emit(biome_id)
+	_apply_biome_color_grade(biome_id)
+
+func _apply_biome_color_grade(biome_id: int) -> void:
+	if _world_env == null or _world_env.environment == null:
+		return
+	if biome_id < 0 or biome_id >= BiomeDef.ADJ_PARAMS.size():
+		return
+	var adj: Dictionary = BiomeDef.ADJ_PARAMS[biome_id] as Dictionary
+	var env: Environment = _world_env.environment
+	env.adjustment_enabled    = true
+	env.adjustment_brightness = float(adj.get("brightness", 1.0))
+	env.adjustment_contrast   = float(adj.get("contrast",   1.0))
+	env.adjustment_saturation = float(adj.get("saturation", 1.0))
 
 func _on_chunk_committed(_key: Vector2i, chunk_data: RefCounted) -> void:
 	for l_data: Dictionary in chunk_data.landmarks:

@@ -22,6 +22,8 @@ static func _ensure_shared_resources() -> void:
 	_board_mesh.size = Vector3(0.85, 0.55, 0.08)
 
 func _ready() -> void:
+	add_to_group("interactable")
+	_ring = build_highlight_ring(self, 0.6)
 	_ensure_shared_resources()
 
 	var body: MeshInstance3D = find_child("MeshInstance3D", true, false) as MeshInstance3D

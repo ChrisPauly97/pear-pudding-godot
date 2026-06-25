@@ -7,6 +7,8 @@ var _flag_key: String = ""
 var _after_dialogue: String = ""
 
 func _ready() -> void:
+	add_to_group("interactable")
+	_ring = build_highlight_ring(self, 0.55)
 	var sprite := Sprite3D.new()
 	sprite.texture = TextureGen.npc_townsperson()
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED

@@ -60,6 +60,25 @@ const ENEMY_POOLS: Array = [
 	["undead_elite", "undead_elite"],    # Mountains
 ]
 
+# Per-biome Environment.adjustment scalars (brightness, contrast, saturation).
+# Grasslands: vivid; Forest: cool/desaturated; Desert: bleached; Scorched: dark/muted; Mountains: crisp/cold.
+const ADJ_PARAMS: Array = [
+	{"brightness": 1.0,  "contrast": 1.05, "saturation": 1.1},
+	{"brightness": 0.95, "contrast": 1.05, "saturation": 0.85},
+	{"brightness": 1.1,  "contrast": 1.1,  "saturation": 0.9},
+	{"brightness": 0.9,  "contrast": 1.15, "saturation": 0.7},
+	{"brightness": 1.05, "contrast": 1.0,  "saturation": 0.8},
+]
+
+# Per-biome prop types to scatter on TILE_GRASS cells (used by ChunkRenderer).
+const PROP_SETS: Array = [
+	["rock", "flower"],     # Grasslands
+	["mushroom", "fern"],   # Forest
+	["cactus", "thorn"],    # Desert
+	["ash_pile", "ember"],  # Scorched
+	["boulder", "lichen"],  # Mountains
+]
+
 # NPC dialogue lines per biome.
 const NPC_LINES: Array = [
 	["The flowers here bloom even in winter.", "These fields stretch as far as I can see."],

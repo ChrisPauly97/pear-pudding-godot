@@ -576,4 +576,5 @@ When adding a new major feature or system, create a corresponding `.md` file in 
 | [docs/agent/ley-lines.md](docs/agent/ley-lines.md) | Ley Lines | Simplex noise bands, UV2 terrain glow, speed boost, Attuned battle buff, Mana Wells |
 | [docs/agent/app-diagnostics.md](docs/agent/app-diagnostics.md) | App Diagnostics Log Screen | AppLog ring buffer, auto-logged GameBus signals, DiagnosticsScene overlay, pause & menu entry points |
 | [docs/agent/multiplayer-coop.md](docs/agent/multiplayer-coop.md) | Co-op Multiplayer + PvP card battles | NetworkManager transport, RemotePlayer avatars, NetSync/AvatarSync, lobby + LAN discovery; PvP (GID-091): BattleNetProtocol wire format, BattleNetSync relay, host-authoritative state mirroring, challenge handshake, duel-style rewards |
+| [docs/agent/visual-polish.md](docs/agent/visual-polish.md) | Visual Polish — World Art, Atmosphere & Props | ProceduralSkyMaterial sky/fog, biome color grade, vignette, GPU-instanced prop scatter, interactable highlight rings, card illustration art |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

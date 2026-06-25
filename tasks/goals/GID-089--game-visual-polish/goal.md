@@ -12,12 +12,12 @@ The game has solid terrain shaders, a day/night cycle, and filmic tonemapping, b
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-314 | Pixel-art enemy & NPC billboard sprites | agent | pending | — |
-| TID-315 | Atmospheric sky gradient & distance fog | agent | pending | — |
-| TID-316 | Environmental prop scatter per biome | agent | pending | — |
-| TID-317 | Per-biome color grading & vignette | agent | pending | TID-315 |
-| TID-318 | Interactable highlight & selection outline | agent | pending | — |
-| TID-319 | Per-card illustration art | agent | pending | — |
+| TID-314 | Pixel-art enemy & NPC billboard sprites | agent | done | — |
+| TID-315 | Atmospheric sky gradient & distance fog | agent | done | — |
+| TID-316 | Environmental prop scatter per biome | agent | done | — |
+| TID-317 | Per-biome color grading & vignette | agent | done | TID-315 |
+| TID-318 | Interactable highlight & selection outline | agent | done | — |
+| TID-319 | Per-card illustration art | agent | done | — |
 
 ## Acceptance Criteria
 

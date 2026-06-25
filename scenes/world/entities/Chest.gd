@@ -1,7 +1,10 @@
 extends Node3D
 
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
+
 var chest_data: Dictionary = {}
 var _opened: bool = false
+var _ring: MeshInstance3D = null
 
 # Shared across all chest instances — created once
 static var _opened_mat: StandardMaterial3D
@@ -25,6 +28,8 @@ static func _ensure_shared_resources() -> void:
 	_lock_mesh.size = Vector3(0.1, 0.1, 0.06)
 
 func _ready() -> void:
+	add_to_group("interactable")
+	_ring = _WEB.build_highlight_ring(self, 0.5)
 	_ensure_shared_resources()
 
 	# Re-use the existing MeshInstance3D (so visibility range from ChunkRenderer sticks)
@@ -51,6 +56,10 @@ func mark_opened() -> void:
 	_opened = true
 	chest_data["opened"] = true
 	_show_opened()
+
+func set_highlighted(on: bool) -> void:
+	if _ring != null:
+		_ring.visible = on
 
 func _show_opened() -> void:
 	if not _opened_mat:

@@ -24,6 +24,11 @@ var _dust_particles: GPUParticles3D
 var _is_moving: bool = false
 var _footstep_timer: float = 0.0
 
+var _highlight_timer: float = 0.0
+var _highlighted_node: Node3D = null
+const _SCAN_INTERVAL: float = 1.0 / 7.0
+const _INTERACT_RADIUS: float = 3.0
+
 # Path-following state (tap-to-move)
 var _path_waypoints: Array[Vector2i] = []
 var _path_wp_index: int = 0
@@ -212,6 +217,11 @@ func _physics_process(delta: float) -> void:
 	if _dust_particles != null:
 		_dust_particles.emitting = SaveManager.is_mounted and _is_moving
 
+	_highlight_timer -= delta
+	if _highlight_timer <= 0.0:
+		_highlight_timer = _SCAN_INTERVAL
+		_scan_interactables()
+
 func _update_mount_visuals(mounted: bool) -> void:
 	if _mount_sprite != null:
 		_mount_sprite.visible = mounted
@@ -221,6 +231,25 @@ func _update_mount_visuals(mounted: bool) -> void:
 func cancel_fall() -> void:
 	_velocity_y = 0.0
 	velocity = Vector3.ZERO
+
+func _scan_interactables() -> void:
+	var closest: Node3D = null
+	var min_sq: float = _INTERACT_RADIUS * _INTERACT_RADIUS
+	for node in get_tree().get_nodes_in_group("interactable"):
+		if not node is Node3D:
+			continue
+		var n3d: Node3D = node as Node3D
+		var dv: Vector3 = n3d.global_position - global_position
+		var dsq: float = dv.x * dv.x + dv.z * dv.z
+		if dsq < min_sq:
+			min_sq = dsq
+			closest = n3d
+	if closest != _highlighted_node:
+		if _highlighted_node != null and _highlighted_node.has_method("set_highlighted"):
+			_highlighted_node.call("set_highlighted", false)
+		if closest != null and closest.has_method("set_highlighted"):
+			closest.call("set_highlighted", true)
+		_highlighted_node = closest
 
 func _on_mount_state_changed(mounted: bool, _mount_id: String) -> void:
 	_update_mount_visuals(mounted)

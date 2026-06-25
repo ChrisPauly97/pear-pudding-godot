@@ -2,14 +2,14 @@
 
 **Goal:** GID-089
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/GID-089--game-visual-polish
+**Acquired:** 2026-06-25T00:34:08Z
+**Expires:** 2026-06-25T01:04:08Z
 
 ## Context
 
@@ -50,12 +50,17 @@ if skill.illustration == null:
 
 ## Plan
 
-_Written during Plan phase._
+Add `@export var illustration: Texture2D = null` to `CardData`. Add illustration to both `to_template_dict()` return dicts. Add 5 card illustration generators to `TextureGen` (32×32 pixel art: ghost, skeleton, zombie, ghoul, spell rune). Wire up in `CardRegistry._ensure_loaded()`. Display in `CardViewBuilder.build_card_vbox()` as a `TextureRect`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/CardData.gd`: Added `@export var illustration: Texture2D = null`, included `"illustration": illustration` in both light and dark `to_template_dict()` return dicts.
+- `game_logic/TextureGen.gd`: Added `card_illustration(card_id, magic_branch)` static + 5 generators: ghost (wisp silhouette), skeleton (bone figure), zombie (green shambler), ghoul (dark hunched creature), spell rune (swirling glyph with branch color). Each 32×32 RGBA8.
+- `autoloads/CardRegistry.gd`: Added `TextureGen` preload, assigned `TextureGen.card_illustration(illus_key, magic_branch)` for each loaded card where `illustration == null`. Creature archetypes use card `id` as key; spell cards use `"spell"`.
+- `scenes/battle/CardViewBuilder.gd`: Added `TextureRect` ("IllustrationRect") in `build_card_vbox()` between name label and stats, sized `_vh * 0.06`, using illustration from the template dict.
 
-## Documentation Updates
+## Lock
 
-_What was updated in agent docs._
+**Session:** none
+**Acquired:** —
+**Expires:** —

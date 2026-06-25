@@ -6,6 +6,8 @@ var npc_data: Dictionary = {}
 var _is_traveling: bool = false
 
 func _ready() -> void:
+	add_to_group("interactable")
+	_ring = build_highlight_ring(self, 0.55)
 	var sprite := Sprite3D.new()
 	sprite.texture = TextureGen.npc_merchant(_is_traveling)
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED

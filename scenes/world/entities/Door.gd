@@ -1,6 +1,9 @@
 extends Node3D
 
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
+
 var door_data: Dictionary = {}
+var _ring: MeshInstance3D = null
 
 static var _door_mat: StandardMaterial3D
 static var _door_mesh: BoxMesh
@@ -15,12 +18,18 @@ static func _ensure_shared_resources() -> void:
 	_door_mesh.size = Vector3(1.8, 1.8, 0.1)
 
 func _ready() -> void:
+	add_to_group("interactable")
+	_ring = _WEB.build_highlight_ring(self, 1.0)
 	_ensure_shared_resources()
 	var mi: MeshInstance3D = find_child("MeshInstance3D", true, false) as MeshInstance3D
 	if mi:
 		mi.mesh = _door_mesh
 		mi.material_override = _door_mat
 		mi.position = Vector3(0.0, 0.9, 0.0)
+
+func set_highlighted(on: bool) -> void:
+	if _ring != null:
+		_ring.visible = on
 
 func init_from_data(data: Dictionary) -> void:
 	door_data = data

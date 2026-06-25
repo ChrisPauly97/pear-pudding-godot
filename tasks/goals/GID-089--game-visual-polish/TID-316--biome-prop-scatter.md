@@ -2,14 +2,14 @@
 
 **Goal:** GID-089
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/GID-089--game-visual-polish
+**Acquired:** 2026-06-25T00:34:08Z
+**Expires:** 2026-06-25T01:04:08Z
 
 ## Context
 
@@ -49,12 +49,16 @@ Each prop is a 16×24 pixel sprite painted procedurally with `Image.set_pixel()`
 
 ## Plan
 
-_Written during Plan phase._
+Add `PROP_SETS` to `BiomeDef` (2 prop types per biome). Add 10 prop texture generators to `TextureGen` (16×16 RGBA8 pixel art). Add `_compute_prop_positions()` static to `ChunkRenderer.prepare_terrain()` (worker-thread safe). Add `_build_props()` to `ChunkRenderer.build_visual()` using `MultiMeshInstance3D` with `QuadMesh` + billboard material.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/BiomeDef.gd`: Added `PROP_SETS` array (2 prop types per biome) and `ADJ_PARAMS` array (brightness/contrast/saturation per biome).
+- `game_logic/TextureGen.gd`: Added `prop(key)` static + 10 per-prop 16×16 pixel-art generators: rock, flower, mushroom, fern, cactus, thorn, ash_pile, ember, boulder, lichen.
+- `scenes/world/ChunkRenderer.gd`: Added `TextureGen` preload, `_compute_prop_positions()` static method (seeded RNG, 15% spawn chance per TILE_GRASS, ≤12 per type, returns `prop_type -> Array[Vector3]`), added `"props"` key to `prepare_terrain()` return dict, added `_build_props()` which creates one `MultiMeshInstance3D` per prop type with billboard material and visibility range.
 
-## Documentation Updates
+## Lock
 
-_What was updated in agent docs._
+**Session:** none
+**Acquired:** —
+**Expires:** —
