@@ -536,6 +536,19 @@ whenever you replace a cached state object. Note `GameState.new()` already seeds
 default players, so the client always has a valid placeholder to render before the first
 mirror — there is no "bare state" to crash on.
 
+### Branch HEAD didn't compile under Godot 4.6 — Python idioms in GDScript (fixed in GID-094 / TID-341)
+
+The headless import surfaced three pre-existing parse errors that cascaded through
+`preload` chains and broke the whole project: `TextureGen.gd` used Python-style `//`
+integer division (`i//2`) — GDScript has no `//`, and `/` on two ints is already
+integer division — and `CardRegistry.gd` called `res.get("card_class", "")` on a
+Resource — `Object.get()` takes ONE argument; only `Dictionary.get(key, default)`
+takes a default. Both are accepted by older GDScript analyzers but rejected by 4.6's
+stricter parser. Invariant: GDScript is not Python — use `/` (not `//`) for int
+division, and never pass a default to `Object.get()` (guard the `null` return
+explicitly, as is done for `id`). Always run the headless import after any `.gd`
+edit; a single parse error blocks every dependent scene.
+
 ---
 
 ## Documentation: docs/agent/ Directory

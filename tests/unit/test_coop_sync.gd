@@ -102,3 +102,46 @@ func test_interp_does_not_overshoot_on_normal_tick() -> void:
 	# Simulate 15 Hz tick at rate 12 → factor ≈ 0.8; result must stay ≤ target
 	var result: Vector3 = AvatarSync.interp(current, target, 1.0 / 15.0, 12.0)
 	assert_lte(result.x, target.x + 0.0001, "must not overshoot target")
+
+
+# ---------------------------------------------------------------------------
+# spawn_offset — deterministic N-peer fan-out (TID-341)
+# ---------------------------------------------------------------------------
+
+func test_spawn_offset_is_deterministic() -> void:
+	var a: Vector2 = AvatarSync.spawn_offset(42, 2.0)
+	var b: Vector2 = AvatarSync.spawn_offset(42, 2.0)
+	assert_almost_eq(a.x, b.x)
+	assert_almost_eq(a.y, b.y)
+
+
+func test_spawn_offset_distinct_slots_distinct_offsets() -> void:
+	# Four peer ids mapping to four different ring slots must not stack.
+	var ids: Array[int] = [1, 2, 3, 4]
+	var seen: Array[Vector2] = []
+	for pid in ids:
+		var off: Vector2 = AvatarSync.spawn_offset(pid, 2.0)
+		for prev in seen:
+			assert_gt(off.distance_to(prev), 0.01,
+				"peer %d offset collides with an earlier peer" % pid)
+		seen.append(off)
+
+
+func test_spawn_offset_radius_is_two_tiles() -> void:
+	# Every slot sits on a ring of radius 2 * tile_size from the centre.
+	var tile: float = 3.0
+	var off: Vector2 = AvatarSync.spawn_offset(5, tile)
+	assert_almost_eq(off.length(), 2.0 * tile)
+
+
+func test_spawn_offset_never_at_centre() -> void:
+	# A zero offset would stack the avatar on the local player — never allowed.
+	for pid in range(0, 24):
+		var off: Vector2 = AvatarSync.spawn_offset(pid, 1.0)
+		assert_gt(off.length(), 0.01, "peer %d landed at the centre" % pid)
+
+
+func test_spawn_offset_handles_large_peer_ids() -> void:
+	# Real ENet peer ids are large random ints; abs(%) must stay in range.
+	var off: Vector2 = AvatarSync.spawn_offset(2138472913, 2.0)
+	assert_almost_eq(off.length(), 4.0)

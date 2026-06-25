@@ -174,8 +174,8 @@ static func _gen_prop_fern() -> ImageTexture:
 		_prop_px(d, 8, 10 + i, 50, 130, 40)
 	for sx in [-1, 1]:
 		for i in range(4):
-			_prop_px(d, 8 + sx * (i+1), 9 - i//2, 60, 160, 50)
-			_prop_px(d, 8 + sx * (i+1), 10 - i//2, 45, 140, 35)
+			_prop_px(d, 8 + sx * (i+1), 9 - i / 2, 60, 160, 50)
+			_prop_px(d, 8 + sx * (i+1), 10 - i / 2, 45, 140, 35)
 	return _prop_img(d)
 
 static func _gen_prop_cactus() -> ImageTexture:
@@ -199,7 +199,7 @@ static func _gen_prop_thorn() -> ImageTexture:
 			if (y-12)*(y-12) + (x-8)*(x-8) < 18:
 				_prop_px(d, x, y, 90, 65, 35)
 	for sx in [-3, -2, -1, 1, 2, 3]:
-		_prop_px(d, 8+sx, 10 + sx*sx//3, 110, 80, 40)
+		_prop_px(d, 8+sx, 10 + sx * sx / 3, 110, 80, 40)
 	return _prop_img(d)
 
 static func _gen_prop_ash() -> ImageTexture:

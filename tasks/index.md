@@ -97,7 +97,7 @@
 | [GID-091](goals/GID-091--pvp-card-battles/goal.md) | PvP Card Battles over Co-op | pending | 6 / 7 |
 | [GID-092](goals/GID-092--coop-multiplayer-bugfixes/goal.md) | Co-op Multiplayer Bug Fixes | done | 3 / 3 |
 | [GID-093](goals/GID-093--world-nav-ux-fixes/goal.md) | World Navigation & UX Fixes | done | 3 / 3 |
-| [GID-094](goals/GID-094--multiplayer-foundations/goal.md) | Multiplayer Foundations — N-Player Capacity & Identity | pending | 0 / 4 |
+| [GID-094](goals/GID-094--multiplayer-foundations/goal.md) | Multiplayer Foundations — N-Player Capacity & Identity | pending | 1 / 4 |
 | [GID-095](goals/GID-095--persistent-mp-sessions/goal.md) | Persistent Multiplayer Sessions & Per-Player Progress | pending | 0 / 4 |
 | [GID-096](goals/GID-096--coop-world-sync/goal.md) | Co-op World State Sync | pending | 0 / 3 |
 | [GID-097](goals/GID-097--dedicated-server/goal.md) | Dedicated Server Option | pending | 0 / 3 |
@@ -132,6 +132,7 @@
 | [BID-003](archive/backlog/BID-003--maykalene-concatenated-door-scroll.md) | maykalene.txt DOOR+SCROLL lines were concatenated; scroll_martarquas_first_war was never spawned | code-smell | GID-017 / TID-047 |
 | [BID-004](archive/backlog/BID-004--orphaned-chestopenscene-uid.md) | Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen) | code-smell | Resolved by GID-075 |
 | [BID-007](archive/backlog/BID-007--card-registry-test-count-stale.md) | test_card_registry asserts 40 cards but registry preloads 46 | code-smell | Resolved by GID-075 |
+| [BID-023](archive/backlog/BID-023--head-did-not-compile-godot46.md) | Branch HEAD did not compile under Godot 4.6 (`//` in TextureGen, 2-arg `Object.get()` in CardRegistry) | code-smell | Resolved by GID-094 / TID-341 |
 
 ## Archive
 

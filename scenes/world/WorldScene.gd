@@ -490,8 +490,13 @@ func _teardown_coop() -> void:
 func _spawn_remote_player(pid: int) -> void:
 	if _remote_player_nodes.has(pid):
 		return
-	var spawn_x: float = _player.position.x if _player != null else 0.0
-	var spawn_z: float = _player.position.z if _player != null else 0.0
+	# Seed near the local player but fan out by a deterministic per-peer ring offset
+	# so up to 4 avatars don't stack on the shared SPAWN tile before packets flow.
+	var base_x: float = _player.position.x if _player != null else 0.0
+	var base_z: float = _player.position.z if _player != null else 0.0
+	var off: Vector2 = _AvatarSync.spawn_offset(pid, IsoConst.TILE_SIZE)
+	var spawn_x: float = base_x + off.x
+	var spawn_z: float = base_z + off.y
 	var rp: Node3D = _RemotePlayerScene.instantiate() as Node3D
 	rp.set("world_scene", self)
 	rp.init_from_data({"peer_id": pid, "x": spawn_x, "z": spawn_z})

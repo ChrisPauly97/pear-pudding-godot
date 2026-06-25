@@ -1,9 +1,10 @@
 # Co-op Multiplayer (Vertical Slice + PvP)
 
-> Status: two players share one named map (**madrian**) and see each other's
-> avatar move (GID-090), and can challenge each other to a real TCG **card battle**
-> (GID-091, host-authoritative). Enemies, chests, inventory, the infinite chunk
-> world, and save sync remain out of scope — see Limitations.
+> Status: up to **4 players** (GID-094 / TID-341) share one named map
+> (**madrian**) and see each other's avatar move (GID-090), and two players can
+> challenge each other to a real TCG **card battle** (GID-091, host-authoritative).
+> Enemies, chests, inventory, the infinite chunk world, and save sync remain out
+> of scope — see Limitations.
 
 ## Key Features
 
@@ -30,7 +31,7 @@ Public API:
 
 | Member | Purpose |
 |---|---|
-| `host(port = 24565) -> Error` | Create an ENet server + start the discovery listener; emits `server_started` |
+| `host(port = 24565, max_clients = DEFAULT_MAX_CLIENTS) -> Error` | Create an ENet server + start the discovery listener; emits `server_started`. `max_clients` is the ENet client capacity (host occupies no slot); default `3` ⇒ 4-player session. A dedicated server (GID-097, host not a player) passes `4` without re-editing the constant (GID-094 / TID-341) |
 | `join(ip, port = 24565) -> Error` | Connect to a host |
 | `leave()` | Tear down peer + discovery (via `_reset_session()`); emits `session_ended` |
 | `is_active()` / `is_host()` / `local_id()` | State queries (guard all co-op code with `is_active()`) |
@@ -57,6 +58,7 @@ Static, scene-free, fully unit-tested:
 AvatarSync.encode(x, z, flip_h, moving) -> Array       # payload [x, z, flip_h, moving]
 AvatarSync.decode(payload) -> Dictionary               # {x, z, flip_h, moving}
 AvatarSync.interp(current, target, delta, rate) -> Vector3   # clamped lerp, no overshoot
+AvatarSync.spawn_offset(peer_id, tile_size) -> Vector2 # deterministic N-peer ring fan-out
 ```
 
 `y` is **never transmitted** — receivers recompute it locally from terrain height.
@@ -98,8 +100,13 @@ WorldScene co-op hooks (all guarded by `NetworkManager.is_active()` /
   `(x, z, flip_h, moving)` and `rpc("recv_avatar", payload)`.
 - `_on_avatar_received(sender, payload)` decodes and feeds `set_net_state` (lazy-
   spawns if a packet arrives before the connect signal).
-- The non-host avatar spawns +2 tiles over so the two don't overlap at the shared
-  madrian spawn marker. Camera logic is untouched (only the local player drives it).
+- Remote avatars seed near the local player with a **deterministic per-peer ring
+  offset** (`AvatarSync.spawn_offset(peer_id, tile_size)` — 12 slots at a 2-tile
+  radius, slot = `peer_id mod 12`) so up to 4 avatars don't stack on the shared
+  madrian SPAWN tile before the first packet arrives, regardless of join order
+  (GID-094 / TID-341). The seed is cosmetic — once 15 Hz packets flow each avatar
+  interpolates to its real position; Y is always terrain-recomputed by RemotePlayer.
+  Camera logic is untouched (only the local player drives it).
 
 ### Session entry — lobby + SceneManager
 
@@ -236,7 +243,7 @@ No new art. RemotePlayer reuses the existing wizard walk textures
 
 | File | Type | Covers |
 |---|---|---|
-| `tests/unit/test_coop_sync.gd` | unit (auto-run) | AvatarSync encode/decode round-trip + interpolation (13 cases) |
+| `tests/unit/test_coop_sync.gd` | unit (auto-run) | AvatarSync encode/decode round-trip + interpolation + N-peer `spawn_offset` fan-out (18 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
@@ -262,8 +269,9 @@ close one and confirm its avatar is freed.
   Android device can *join* and be *discovered as a client-of-desktop-host*, but
   hosting-and-being-found on Android requires a future plugin. AP-isolation and
   guest networks block UDP discovery entirely — manual IP entry is the fallback.
-- **2 players max** (`MAX_PEERS = 1`); no reconnection (including no reconnection
-  into an in-progress PvP battle).
+- **Up to 4 players** (`host()` default `max_clients = DEFAULT_MAX_CLIENTS = 3`,
+  i.e. 3 clients + host; GID-094 / TID-341). No reconnection yet (including no
+  reconnection into an in-progress PvP battle) — that lands in GID-095.
 - **PvP is LAN/loopback only, 2 players**, no spectating, no wagers/ranked ladder.
 - **Not synced:** enemies/NPCs, chests, inventory, story flags, save data,
   day/night, weather. Co-op assumes both players explore madrian together; PvP
