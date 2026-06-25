@@ -63,15 +63,56 @@ AvatarSync.spawn_offset(peer_id, tile_size) -> Vector2 # deterministic N-peer ri
 
 `y` is **never transmitted** — receivers recompute it locally from terrain height.
 
+### Player identity — name, color & stable token (GID-094 / TID-342)
+
+Each player has a **display name**, an **avatar color**, and a **stable identity
+token**. Three distinct concepts, deliberately separate:
+
+- **Token** — an opaque 16-hex id generated once and stored locally; *never shown*.
+  It is the key GID-095 will use to match a reconnecting player to their saved
+  per-session character. Shape is fixed here even though persistence lands later.
+- **Display name / color** — user-editable in the lobby, shown to others, remembered.
+
+**Device profile — `autoloads/MpProfile.gd` (autoload).** Stores `{token, name,
+color}` at `user://mp_profile.json`, deliberately **separate from the game save**
+(`save_slot_*.json`) because co-op can launch cold from the menu without loading a
+game (cf. `SaveManager.ensure_coop_deck`). The token is generated and a random
+palette color is assigned on first run; both persist. API: `get_token()`,
+`get_display_name()`/`set_display_name()`, `get_color()`/`set_color()`, `color_hex()`.
+
+**Pure wire format — `game_logic/net/PlayerIdentity.gd`** (mirrors `AvatarSync`):
+`encode(token, name, color) -> [token, name, color_hex]` and
+`decode(payload) -> {token, name, color}` (fully defaulted, invalid-hex-safe).
+
+**Handshake — `NetSync.recv_identity(payload, is_reply)` (reliable RPC).** Identity
+is a one-shot, so delivery can't rely on the avatar stream's continuous rebroadcast.
+Instead the **just-loaded** peer drives it: in `_setup_coop` it broadcasts its
+identity to all (`is_reply = false`); every recipient (already in-world, so its
+NetSync exists) stores it and **replies once** directly (`is_reply = true`),
+terminating the exchange. WorldScene keeps `_remote_identities` (peer_id →
+{token,name,color}); identities arriving before the avatar spawns are applied lazily
+in `_spawn_remote_player`. Entries are erased on disconnect / cleared on session end.
+
+**Session roster.** A compact HUD panel (`_build_coop_roster` / `_refresh_coop_roster`)
+lists the local player (`"<name> (you)"`) and every connected remote as a colored
+swatch + name, refreshed on identity/connect/disconnect.
+
+**Lobby fields.** `MultiplayerLobbyScene` has a name `LineEdit` (max 16) and a row of
+preset color swatches, seeded from `MpProfile` and saved back on edit / before
+hosting/joining. The host also sets `NetworkManager.host_label = "<name>'s game"` so
+the name shows in others' Find-Games list.
+
 ### Remote avatars — `scenes/world/entities/RemotePlayer.gd` (+ `.tscn`)
 
 A `Node3D` (no physics, no input, no camera). `init_from_data({peer_id, x, z})`
 seeds it; `set_net_state(x, z, flip_h, moving)` stores the latest packet;
 `_process` interpolates XZ via `AvatarSync.interp` (rate 12), recomputes Y from
-`world_scene.get_terrain_height`, and drives walk/idle + horizontal flip. A blue
-modulate distinguishes it from the local player. The wizard walk sprite is built
-by the shared helper `scenes/world/entities/AvatarSprite.gd` (`build()`), reused
-to avoid duplicating Player's sprite setup.
+`world_scene.get_terrain_height`, and drives walk/idle + horizontal flip. The wizard
+walk sprite is built by the shared helper `scenes/world/entities/AvatarSprite.gd`
+(`build()`), reused to avoid duplicating Player's sprite setup. `set_player_identity(name, color)`
+(named so to avoid the native `Node3D.set_identity`) drives the sprite **tint** and a
+billboard `Label3D` name tag above the head; until identity arrives it defaults to the
+old neutral blue.
 
 ### Position sync — `scenes/world/NetSync.gd` + WorldScene hooks
 
@@ -230,6 +271,7 @@ an **opponent disconnect** mid-battle is a forfeit win for the remaining player
 | WorldScene | Hosts `NetSync`, spawns/despawns RemotePlayers under `Entities`, broadcasts at 15 Hz; reuses `get_terrain_height` |
 | Player | Local avatar's `_sprite.flip_h` / `_is_moving` are read (via `get()`) to build the broadcast payload |
 | MenuScene | "Co-op (Beta)" button opens the lobby overlay (same pattern as Settings) |
+| MpProfile | Device-local identity store (token/name/color) read by the lobby + WorldScene handshake; independent of `save.json` so it works for cold co-op |
 | MapRegistry | madrian `.tres` is identical on both peers, so the shared map is deterministic |
 | GameBus | Not used for net events by design — NetworkManager is itself the event hub |
 
@@ -237,13 +279,16 @@ an **opponent disconnect** mid-battle is a forfeit win for the remaining player
 
 No new art. RemotePlayer reuses the existing wizard walk textures
 (`assets/textures/pixel_art/wizard_walk_*_pixel.png`) via `AvatarSprite.build()`.
-`RemotePlayer.tscn` and all new scripts have `.uid` sidecars.
+The name tag is a procedural `Label3D` and the roster/lobby swatches are procedural
+`ColorRect`/`StyleBoxFlat` — no textures. `RemotePlayer.tscn` and all new scripts
+(`MpProfile.gd`, `PlayerIdentity.gd`) have `.uid` sidecars.
 
 ## Tests
 
 | File | Type | Covers |
 |---|---|---|
 | `tests/unit/test_coop_sync.gd` | unit (auto-run) | AvatarSync encode/decode round-trip + interpolation + N-peer `spawn_offset` fan-out (18 cases) |
+| `tests/unit/test_player_identity.gd` | unit (auto-run) | PlayerIdentity encode/decode round-trip, color hex, robust defaults for short/blank/invalid payloads (10 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |

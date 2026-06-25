@@ -55,6 +55,7 @@ const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 const _NetSyncScript     = preload("res://scenes/world/NetSync.gd")
 const _RemotePlayerScene = preload("res://scenes/world/entities/RemotePlayer.tscn")
 const _AvatarSync        = preload("res://game_logic/net/AvatarSync.gd")
+const _PlayerIdentity    = preload("res://game_logic/net/PlayerIdentity.gd")
 const _NET_BROADCAST_INTERVAL: float = 1.0 / 15.0  # 15 Hz avatar broadcast
 
 @export var map_name: String = "main"
@@ -73,6 +74,8 @@ var _enemy_nodes: Dictionary = {}   # id -> Node3D
 var _chest_nodes: Dictionary = {}   # id -> Node3D
 # Co-op multiplayer (GID-090) — guarded by _coop_active; inert in single-player
 var _remote_player_nodes: Dictionary = {}  # peer_id -> RemotePlayer Node3D
+var _remote_identities: Dictionary = {}    # peer_id -> {token, name, color} (TID-342)
+var _coop_roster: VBoxContainer = null     # in-world session roster panel (TID-342)
 var _net_sync: Node = null
 var _coop_active: bool = false
 var _net_broadcast_accum: float = 0.0
@@ -474,6 +477,12 @@ func _setup_coop() -> void:
 	for pid in multiplayer.get_peers():
 		_spawn_remote_player(int(pid))
 
+	# Identity handshake (TID-342): this just-loaded peer broadcasts its identity
+	# to everyone already in-world. Each recipient replies once directly, so both
+	# sides learn each other without relying on the connect-signal ordering.
+	_build_coop_roster()
+	_send_local_identity(false, 0)
+
 func _teardown_coop() -> void:
 	if not _coop_active:
 		return
@@ -502,6 +511,9 @@ func _spawn_remote_player(pid: int) -> void:
 	rp.init_from_data({"peer_id": pid, "x": spawn_x, "z": spawn_z})
 	_entity_root.add_child(rp)
 	_remote_player_nodes[pid] = rp
+	# Apply identity if it already arrived before the avatar spawned (lazy ordering).
+	if _remote_identities.has(pid):
+		_apply_identity_to_avatar(pid)
 
 func _on_coop_peer_connected(pid: int) -> void:
 	_spawn_remote_player(pid)
@@ -511,6 +523,8 @@ func _on_coop_peer_disconnected(pid: int) -> void:
 	if is_instance_valid(rp):
 		rp.queue_free()
 	_remote_player_nodes.erase(pid)
+	_remote_identities.erase(pid)
+	_refresh_coop_roster()
 
 func _on_coop_session_ended() -> void:
 	for pid in _remote_player_nodes.keys():
@@ -518,7 +532,92 @@ func _on_coop_session_ended() -> void:
 		if is_instance_valid(rp):
 			rp.queue_free()
 	_remote_player_nodes.clear()
+	_remote_identities.clear()
+	_refresh_coop_roster()
 	_coop_active = false
+
+# ── Player identity handshake (GID-094 / TID-342) ─────────────────────────────
+
+## Broadcast (target_peer == 0) or unicast this peer's identity. `is_reply` marks
+## the one-shot direct answer so the exchange terminates after one round-trip.
+func _send_local_identity(is_reply: bool, target_peer: int) -> void:
+	if not _coop_active or _net_sync == null or not NetworkManager.is_active():
+		return
+	var payload: Array = _PlayerIdentity.encode(
+		MpProfile.get_token(), MpProfile.get_display_name(), MpProfile.get_color())
+	if target_peer == 0:
+		_net_sync.rpc("recv_identity", payload, is_reply)
+	else:
+		_net_sync.rpc_id(target_peer, "recv_identity", payload, is_reply)
+
+## Called by NetSync when a peer's identity packet arrives.
+func _on_identity_received(sender: int, payload: Array, is_reply: bool) -> void:
+	var d: Dictionary = _PlayerIdentity.decode(payload)
+	_remote_identities[sender] = d
+	_apply_identity_to_avatar(sender)
+	_refresh_coop_roster()
+	# Answer an initiator's broadcast exactly once so it learns our identity too.
+	if not is_reply:
+		_send_local_identity(true, sender)
+
+## Push a stored identity onto the matching RemotePlayer avatar, if spawned.
+func _apply_identity_to_avatar(pid: int) -> void:
+	var rp: Node = _remote_player_nodes.get(pid) as Node
+	if not is_instance_valid(rp) or not rp.has_method("set_player_identity"):
+		return
+	var d: Dictionary = _remote_identities.get(pid, {})
+	var nm: String = str(d.get("name", "Player"))
+	var col: Color = d.get("color", Color.WHITE)
+	rp.set_player_identity(nm, col)
+
+# ── In-world session roster (GID-094 / TID-342) ───────────────────────────────
+
+func _build_coop_roster() -> void:
+	if _coop_roster != null and is_instance_valid(_coop_roster):
+		_refresh_coop_roster()
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var panel := PanelContainer.new()
+	panel.name = "CoopRoster"
+	panel.position = Vector2(vp.x * 0.012, vp.y * 0.30)
+	panel.modulate = Color(1.0, 1.0, 1.0, 0.92)
+	_coop_roster = VBoxContainer.new()
+	_coop_roster.add_theme_constant_override("separation", int(vp.y * 0.006))
+	panel.add_child(_coop_roster)
+	_hud.add_child(panel)
+	_refresh_coop_roster()
+
+## Rebuild the roster rows: local player first, then each connected remote.
+func _refresh_coop_roster() -> void:
+	if _coop_roster == null or not is_instance_valid(_coop_roster):
+		return
+	var panel: Node = _coop_roster.get_parent()
+	if is_instance_valid(panel):
+		(panel as CanvasItem).visible = _coop_active
+	for c in _coop_roster.get_children():
+		c.queue_free()
+	if not _coop_active:
+		return
+	_add_roster_row("%s (you)" % MpProfile.get_display_name(), MpProfile.get_color())
+	for pid in _remote_player_nodes.keys():
+		var d: Dictionary = _remote_identities.get(pid, {})
+		var nm: String = str(d.get("name", "Player"))
+		var col: Color = d.get("color", Color(0.7, 0.85, 1.0))
+		_add_roster_row(nm, col)
+
+func _add_roster_row(text: String, col: Color) -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(vp.y * 0.01))
+	var swatch := ColorRect.new()
+	swatch.color = Color(col.r, col.g, col.b, 1.0)
+	swatch.custom_minimum_size = Vector2(vp.y * 0.022, vp.y * 0.022)
+	row.add_child(swatch)
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.022))
+	row.add_child(lbl)
+	_coop_roster.add_child(row)
 
 # Called by NetSync when a remote avatar packet arrives.
 func _on_avatar_received(sender: int, payload: Array) -> void:
