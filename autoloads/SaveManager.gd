@@ -420,6 +420,66 @@ func ensure_coop_deck() -> void:
 		if uid != "":
 			player_deck.append(uid)
 
+## Load a multiplayer **session character** (GID-095 / TID-346) into the in-memory
+## state that co-op and PvP already read (deck, collection, coins, level, skills,
+## magic). The record comes from the authority's `SessionState` member roster — its
+## own save, scoped to the session and entirely separate from single-player.
+##
+## **Isolation invariant:** this deliberately forces `_loaded = false`, so `save()`
+## and the 2 s `_flush_if_dirty` stay no-ops for the whole session — the session
+## character can NEVER be written into `save_slot_*.json`. The single-player save on
+## disk is untouched; `continue_game`/`load_save` re-reads it fresh afterwards.
+func adopt_session_character(record: Dictionary) -> void:
+	owned_cards.clear()
+	_uid_index.clear()
+	var raw_owned: Array = record.get("owned_cards", [])
+	for c: Variant in raw_owned:
+		if not c is Dictionary:
+			continue
+		var inst: Dictionary = c
+		owned_cards.append(inst)
+		var u: String = str(inst.get("uid", ""))
+		if u != "":
+			_uid_index[u] = inst
+	player_deck.assign(record.get("player_deck", []))
+	var deck_copy: Array[String] = []
+	deck_copy.assign(player_deck)
+	loadouts = [{"name": "Session", "cards": deck_copy}]
+	active_loadout = 0
+	coins = int(record.get("coins", 0))
+	essence = int(record.get("essence", 0))
+	xp = int(record.get("xp", 0))
+	level = max(1, int(record.get("level", 1)))
+	skill_points = int(record.get("skill_points", 0))
+	unlocked_skills.assign(record.get("unlocked_skills", []))
+	magic_type = str(record.get("magic_type", ""))
+	corruption_points = int(record.get("corruption_points", 0))
+	redemption_points = int(record.get("redemption_points", 0))
+	# Hard isolation: a session character must never persist to the single-player save.
+	_loaded = false
+	_dirty = false
+	coins_changed.emit(coins)
+	GameBus.essence_changed.emit(essence)
+
+## Snapshot the current in-memory character slice back into a session record dict
+## (GID-095 / TID-346). The caller attaches token / display_name / position before
+## sending it to the authority for persist-back. Shape matches
+## `SessionState.make_starter_character` (minus the caller-owned fields).
+func export_session_character() -> Dictionary:
+	return {
+		"owned_cards": owned_cards.duplicate(true),
+		"player_deck": player_deck.duplicate(),
+		"coins": coins,
+		"essence": essence,
+		"xp": xp,
+		"level": level,
+		"skill_points": skill_points,
+		"unlocked_skills": unlocked_skills.duplicate(),
+		"magic_type": magic_type,
+		"corruption_points": corruption_points,
+		"redemption_points": redemption_points,
+	}
+
 const CURRENT_SAVE_VERSION: int = 40
 
 # Each entry is [target_version, payload] where payload is either:

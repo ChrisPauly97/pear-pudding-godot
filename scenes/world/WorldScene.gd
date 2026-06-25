@@ -79,6 +79,12 @@ var _coop_roster: VBoxContainer = null     # in-world session roster panel (TID-
 var _net_sync: Node = null
 var _coop_active: bool = false
 var _net_broadcast_accum: float = 0.0
+# Persistent session (GID-095 / TID-346) — character adopted from the authority's
+# SessionState; persist-back snapshots batched at _SESSION_SNAPSHOT_INTERVAL.
+var _session_adopted: bool = false
+var _session_token_by_peer: Dictionary = {}  # host: peer_id -> identity token
+var _session_snapshot_accum: float = 0.0
+const _SESSION_SNAPSHOT_INTERVAL: float = 5.0
 var _initial_ready_done: bool = false  # so _enter_tree re-setup only runs on re-entry
 # PvP challenges (GID-091)
 var _challenge_btn: Button = null
@@ -477,6 +483,10 @@ func _setup_coop() -> void:
 	for pid in multiplayer.get_peers():
 		_spawn_remote_player(int(pid))
 
+	# Persistent session (GID-095 / TID-346): the host (authority) opens its session
+	# file and adopts its own character; clients adopt on the character handshake.
+	_setup_session()
+
 	# Identity handshake (TID-342): this just-loaded peer broadcasts its identity
 	# to everyone already in-world. Each recipient replies once directly, so both
 	# sides learn each other without relying on the connect-signal ordering.
@@ -524,6 +534,10 @@ func _on_coop_peer_disconnected(pid: int) -> void:
 		rp.queue_free()
 	_remote_player_nodes.erase(pid)
 	_remote_identities.erase(pid)
+	_session_token_by_peer.erase(pid)
+	# Flush so the leaving player's last persisted snapshot is on disk (host only).
+	if NetworkManager.is_host():
+		SessionStore.flush_now()
 	_refresh_coop_roster()
 
 func _on_coop_session_ended() -> void:
@@ -533,6 +547,12 @@ func _on_coop_session_ended() -> void:
 			rp.queue_free()
 	_remote_player_nodes.clear()
 	_remote_identities.clear()
+	_session_token_by_peer.clear()
+	# Authority owns the session file: flush + close it on session end (host left /
+	# server stopped). On clients SessionStore is never open, so this is a no-op.
+	if SessionStore.is_open():
+		SessionStore.close(true)
+	_session_adopted = false
 	_refresh_coop_roster()
 	_coop_active = false
 
@@ -556,6 +576,10 @@ func _on_identity_received(sender: int, payload: Array, is_reply: bool) -> void:
 	_remote_identities[sender] = d
 	_apply_identity_to_avatar(sender)
 	_refresh_coop_roster()
+	# Authority: now that we know this peer's token, resolve + send its session
+	# character (resume or fresh starter). GID-095 / TID-346.
+	if NetworkManager.is_host():
+		_send_character_to_peer(sender, str(d.get("token", "")), str(d.get("name", "Player")))
 	# Answer an initiator's broadcast exactly once so it learns our identity too.
 	if not is_reply:
 		_send_local_identity(true, sender)
@@ -569,6 +593,106 @@ func _apply_identity_to_avatar(pid: int) -> void:
 	var nm: String = str(d.get("name", "Player"))
 	var col: Color = d.get("color", Color.WHITE)
 	rp.set_player_identity(nm, col)
+
+# ── Persistent session character (GID-095 / TID-346) ──────────────────────────
+# The authority (host) owns SessionStore and the per-player character roster, keyed
+# by the GID-094 identity token. The host adopts its own character here; each client
+# adopts the record the host sends on the identity handshake. All guarded by
+# _coop_active / NetworkManager.is_host(); inert in single-player and on clients.
+
+func _setup_session() -> void:
+	# Re-entry after a PvP battle keeps the same WorldScene (SessionStore stays open),
+	# so only the first co-op entry initialises + adopts.
+	if _session_adopted:
+		return
+	if not NetworkManager.is_host():
+		return  # clients adopt later, in _on_character_received
+	SessionStore.open(MpProfile.get_host_session_id(),
+		"%s's world" % MpProfile.get_display_name())
+	var st = SessionStore.get_state()
+	if st != null:
+		st.current_map = map_name
+		st.world_seed = SceneManager.save_manager.world_seed
+		SessionStore.mark_dirty()
+	var token: String = MpProfile.get_token()
+	var resume: bool = st != null and st.has_member(token)
+	var rec: Dictionary = SessionStore.ensure_member(token, MpProfile.get_display_name())
+	if rec.is_empty():
+		return
+	SceneManager.save_manager.adopt_session_character(rec)
+	if resume:
+		_restore_session_position(rec)
+	_session_adopted = true
+
+## Client: adopt the character record the host resolved for our token. On a resume
+## the host flags it so we also restore our saved position.
+func _on_character_received(record: Dictionary, resume: bool) -> void:
+	if record.is_empty():
+		return
+	SceneManager.save_manager.adopt_session_character(record)
+	if resume:
+		_restore_session_position(record)
+	_session_adopted = true
+	_refresh_coop_roster()
+
+## Host: a client pushed its latest character snapshot — persist it under its token.
+func _on_character_submitted(sender: int, record: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	var token: String = str(_session_token_by_peer.get(sender, ""))
+	if token == "":
+		token = str(record.get("token", ""))
+	if token == "":
+		return
+	SessionStore.update_member(token, record)
+
+## Host: resolve (or create) the character for a just-identified client and send it.
+## Called from _on_identity_received once the client's token is known.
+func _send_character_to_peer(peer_id: int, token: String, member_name: String) -> void:
+	if not NetworkManager.is_host() or _net_sync == null:
+		return
+	if token == "" or not SessionStore.is_open():
+		return
+	_session_token_by_peer[peer_id] = token
+	var st = SessionStore.get_state()
+	var resume: bool = st != null and st.has_member(token)
+	var rec: Dictionary = SessionStore.ensure_member(token, member_name)
+	if rec.is_empty():
+		return
+	_net_sync.rpc_id(peer_id, "recv_character", rec, resume)
+
+## Move the local player to the position stored in a session record (same map only).
+func _restore_session_position(record: Dictionary) -> void:
+	if _player == null or str(record.get("map", "")) != map_name:
+		return
+	var x: float = float(record.get("x", 0.0))
+	var z: float = float(record.get("z", 0.0))
+	_player.position = Vector3(x, get_terrain_height(x, z), z)
+
+## Build a session record from the local in-memory character + current position.
+func _build_local_character_record() -> Dictionary:
+	var rec: Dictionary = SceneManager.save_manager.export_session_character()
+	rec["token"] = MpProfile.get_token()
+	rec["display_name"] = MpProfile.get_display_name()
+	rec["map"] = map_name
+	rec["x"] = _player.position.x if _player != null else 0.0
+	rec["z"] = _player.position.z if _player != null else 0.0
+	return rec
+
+## Persist-back tick (called from _process at _SESSION_SNAPSHOT_INTERVAL): host writes
+## its own member directly; clients send an intent the host merges + persists.
+func _tick_session_persist(delta: float) -> void:
+	if not _coop_active or not _session_adopted or not NetworkManager.is_active():
+		return
+	_session_snapshot_accum += delta
+	if _session_snapshot_accum < _SESSION_SNAPSHOT_INTERVAL:
+		return
+	_session_snapshot_accum = 0.0
+	var rec: Dictionary = _build_local_character_record()
+	if NetworkManager.is_host():
+		SessionStore.update_member(MpProfile.get_token(), rec)
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_character", rec)
 
 # ── In-world session roster (GID-094 / TID-342) ───────────────────────────────
 
@@ -1798,6 +1922,7 @@ func _process(delta: float) -> void:
 	if _coop_active:
 		_broadcast_local_avatar(delta)
 		_update_challenge_proximity()
+		_tick_session_persist(delta)
 
 	# Only update save position when player moves > 1 unit (not every frame)
 	var cur_pos := Vector2(_player.position.x, _player.position.z)

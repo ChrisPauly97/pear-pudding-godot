@@ -29,6 +29,25 @@ func recv_identity(payload: Array, is_reply: bool) -> void:
 		world_scene._on_identity_received(sender, payload, is_reply)
 
 
+## Session character handshake (GID-095 / TID-346): host → client. Carries the
+## resolved per-player character record (deck/inventory/coins/level/skills) for this
+## session. `resume` is true when the record was matched to an existing member (a
+## reconnect) so the client restores its saved position. Reliable — must not drop.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_character(record: Dictionary, resume: bool) -> void:
+	if world_scene != null and world_scene.has_method("_on_character_received"):
+		world_scene._on_character_received(record, resume)
+
+
+## Session persist-back intent (GID-095 / TID-346): client → host. The client sends
+## its latest character snapshot; only the host (authority) writes the session file.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_character(record: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_character_submitted"):
+		world_scene._on_character_submitted(sender, record)
+
+
 ## PvP challenge (GID-091): A → B "challenge to battle", carrying A's deck.
 ## Reliable — must not drop. Routed to WorldScene._on_battle_requested.
 @rpc("any_peer", "reliable", "call_remote")
