@@ -18,10 +18,16 @@ var world_scene: Node3D = null
 const _INTERP_RATE: float = 12.0
 
 var _sprite: AnimatedSprite3D
+var _label: Label3D
 var _target_x: float = 0.0
 var _target_z: float = 0.0
 var _target_flip_h: bool = false
 var _target_moving: bool = false
+
+## Identity (TID-342). Defaults until set_identity() delivers the peer's choice;
+## the neutral blue keeps the old look for an as-yet-unidentified avatar.
+var _display_name: String = ""
+var _tint: Color = Color(0.7, 0.85, 1.0, 1.0)
 
 
 ## Called by WorldScene after instantiation. Expected keys: peer_id, x, z.
@@ -32,12 +38,41 @@ func init_from_data(data: Dictionary) -> void:
 	position = Vector3(_target_x, 0.0, _target_z)
 
 
+## Apply the peer's display name + color (TID-342). Safe before or after _ready.
+## (Named set_player_identity, not set_identity — Node3D has a native set_identity.)
+func set_player_identity(display_name: String, color: Color) -> void:
+	_display_name = display_name
+	_tint = Color(color.r, color.g, color.b, 1.0)
+	_apply_identity()
+
+
 func _ready() -> void:
 	_sprite = _AvatarSprite.build()
-	# Blue tint distinguishes this avatar from the local player's neutral sprite.
-	_sprite.modulate = Color(0.7, 0.85, 1.0, 1.0)
 	add_child(_sprite)
 	_sprite.play("idle")
+
+	# Billboard name tag floating above the sprite's head. no_depth_test keeps it
+	# visible over terrain; the top of the sprite is at 2 × its centre Y.
+	_label = Label3D.new()
+	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_label.no_depth_test = true
+	_label.fixed_size = true
+	_label.pixel_size = 0.0008
+	_label.outline_size = 12
+	_label.modulate = Color.WHITE
+	_label.outline_modulate = Color(0.0, 0.0, 0.0, 0.85)
+	_label.position = Vector3(0.0, _sprite.position.y * 2.0 + 0.4, 0.0)
+	add_child(_label)
+
+	_apply_identity()
+
+
+## Push the current name/tint onto the sprite + label (no-op before _ready).
+func _apply_identity() -> void:
+	if _sprite != null:
+		_sprite.modulate = _tint
+	if _label != null:
+		_label.text = _display_name
 
 
 ## Receive latest authoritative state from the peer (called by WorldScene/NetSync).

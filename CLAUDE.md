@@ -536,6 +536,19 @@ whenever you replace a cached state object. Note `GameState.new()` already seeds
 default players, so the client always has a valid placeholder to render before the first
 mirror — there is no "bare state" to crash on.
 
+### Branch HEAD didn't compile under Godot 4.6 — Python idioms in GDScript (fixed in GID-094 / TID-341)
+
+The headless import surfaced three pre-existing parse errors that cascaded through
+`preload` chains and broke the whole project: `TextureGen.gd` used Python-style `//`
+integer division (`i//2`) — GDScript has no `//`, and `/` on two ints is already
+integer division — and `CardRegistry.gd` called `res.get("card_class", "")` on a
+Resource — `Object.get()` takes ONE argument; only `Dictionary.get(key, default)`
+takes a default. Both are accepted by older GDScript analyzers but rejected by 4.6's
+stricter parser. Invariant: GDScript is not Python — use `/` (not `//`) for int
+division, and never pass a default to `Object.get()` (guard the `null` return
+explicitly, as is done for `id`). Always run the headless import after any `.gd`
+edit; a single parse error blocks every dependent scene.
+
 ---
 
 ## Documentation: docs/agent/ Directory
@@ -575,6 +588,6 @@ When adding a new major feature or system, create a corresponding `.md` file in 
 | [docs/agent/ancient-colossi.md](docs/agent/ancient-colossi.md) | Ancient Colossi | Landmark placement, 5 biome variants, CPU ArrayMesh structures, name generator, discovery system, Journal tab |
 | [docs/agent/ley-lines.md](docs/agent/ley-lines.md) | Ley Lines | Simplex noise bands, UV2 terrain glow, speed boost, Attuned battle buff, Mana Wells |
 | [docs/agent/app-diagnostics.md](docs/agent/app-diagnostics.md) | App Diagnostics Log Screen | AppLog ring buffer, auto-logged GameBus signals, DiagnosticsScene overlay, pause & menu entry points |
-| [docs/agent/multiplayer-coop.md](docs/agent/multiplayer-coop.md) | Co-op Multiplayer + PvP card battles | NetworkManager transport, RemotePlayer avatars, NetSync/AvatarSync, lobby + LAN discovery; PvP (GID-091): BattleNetProtocol wire format, BattleNetSync relay, host-authoritative state mirroring, challenge handshake, duel-style rewards |
+| [docs/agent/multiplayer-coop.md](docs/agent/multiplayer-coop.md) | Co-op Multiplayer + PvP card battles | NetworkManager transport (up to 4 players, GID-094), RemotePlayer avatars + named/colored identity (MpProfile/PlayerIdentity handshake), NetSync/AvatarSync + deterministic spawn fan-out, session roster, lobby + LAN discovery; PvP (GID-091): BattleNetProtocol wire format, BattleNetSync relay, host-authoritative state mirroring, challenge handshake, duel-style rewards |
 | [docs/agent/visual-polish.md](docs/agent/visual-polish.md) | Visual Polish — World Art, Atmosphere & Props | ProceduralSkyMaterial sky/fog, biome color grade, vignette, GPU-instanced prop scatter, interactable highlight rings, card illustration art |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

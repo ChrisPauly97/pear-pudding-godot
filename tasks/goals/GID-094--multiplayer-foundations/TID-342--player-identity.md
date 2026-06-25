@@ -2,7 +2,7 @@
 
 **Goal:** GID-094
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-341
 
 ## Lock
@@ -65,12 +65,86 @@ sidecars; guard by `NetworkManager.is_active()`; explicit typing; `preload`.
 
 ## Plan
 
-_Written during Plan phase._
+Complexity is moderate but the research notes are sufficient — proceeding to Build.
+
+1. **`autoloads/MpProfile.gd`** (new autoload, registered in `project.godot`):
+   device-local profile at `user://mp_profile.json`, independent of `save.json`.
+   Holds `token` (opaque 16-hex, generated once, never shown), `display_name`
+   (default "Player"), `color` (random palette pick on first run). Lazy-load +
+   persist-on-set. API: `get_token`, `get_display_name`/`set_display_name`,
+   `get_color`/`set_color`, `color_hex`.
+
+2. **`game_logic/net/PlayerIdentity.gd`** (pure, unit-testable, mirrors
+   AvatarSync): `encode(token, name, color) -> Array` (`[token, name, color_hex]`),
+   `decode(payload) -> Dictionary` fully-defaulted + invalid-hex-safe.
+
+3. **`scenes/world/NetSync.gd`**: add a reliable `recv_identity(payload, is_reply)`
+   RPC routed to `WorldScene._on_identity_received`.
+
+4. **`scenes/world/WorldScene.gd`**: `_remote_identities` map (peer_id→{token,name,
+   color}). On `_setup_coop` broadcast local identity to all (reply=false); on
+   receiving a non-reply, store + reply once directly to sender (reply=true) — this
+   handshake is initiated by the just-loaded peer so the other side's NetSync
+   always exists (no lost one-shot). Apply identity to the matching RemotePlayer
+   (lazy: stored if avatar not spawned yet, applied in `_spawn_remote_player`).
+   Erase on disconnect / clear on session end. Add a compact HUD **session roster**
+   (colored bullet + name per connected player, incl. self), refreshed on
+   identity/connect/disconnect.
+
+5. **`scenes/world/entities/RemotePlayer.gd`**: `set_identity(name, color)` drives
+   the sprite tint (replacing the hard-coded blue) and a billboard `Label3D` above
+   the sprite (Y above sprite top, `no_depth_test`, outline).
+
+6. **`scenes/ui/MultiplayerLobbyScene.gd`**: name `LineEdit` + color swatch row at
+   the top, seeded from MpProfile, saved back on edit.
+
+7. **Tests** (`tests/unit/test_player_identity.gd`): encode/decode round-trip,
+   color hex preservation, invalid/short-payload defaults.
+
+8. **Validate** headless import clean + `tests/runner.gd` exit 0; update docs.
 
 ## Changes Made
 
-_Filled after Build phase._
+**New device profile autoload — `autoloads/MpProfile.gd`** (+ `.uid`, registered in
+`project.godot`): stores `{token, name, color}` at `user://mp_profile.json`,
+separate from the game save so it works for cold co-op. Generates a stable opaque
+16-hex token + random palette color on first run; lazy-load + persist-on-set.
+
+**New pure wire helper — `game_logic/net/PlayerIdentity.gd`** (+ `.uid`):
+`encode(token,name,color)->[token,name,color_hex]` / `decode(payload)->{token,name,
+color}`, fully defaulted and invalid-hex-safe (mirrors `AvatarSync`).
+
+**Identity handshake — `scenes/world/NetSync.gd`:** added reliable
+`recv_identity(payload, is_reply)` RPC routed to `WorldScene._on_identity_received`.
+
+**`scenes/world/WorldScene.gd`:**
+- `_remote_identities` map; `_send_local_identity(is_reply, target_peer)` (broadcast
+  or unicast); `_on_identity_received` stores + applies + replies once to a
+  non-reply broadcast (terminating handshake, initiated by the just-loaded peer so
+  the other side's NetSync always exists).
+- `_setup_coop` broadcasts local identity after spawning existing peers; identities
+  arriving before an avatar spawns are applied lazily in `_spawn_remote_player`.
+- Erase identity on peer disconnect / clear on session end.
+- In-world **session roster** HUD panel (`_build_coop_roster` / `_refresh_coop_roster`
+  / `_add_roster_row`): local player + each remote as colored swatch + name.
+
+**`scenes/world/entities/RemotePlayer.gd`:** `set_player_identity(name, color)`
+(renamed from `set_identity` — collides with native `Node3D.set_identity`) drives the
+sprite tint (replacing the hard-coded blue) and a billboard `Label3D` name tag above
+the head; neutral-blue default until identity arrives.
+
+**`scenes/ui/MultiplayerLobbyScene.gd`:** name `LineEdit` (max 16) + preset color
+swatch row, seeded from `MpProfile` and saved on edit / before host/join; resize
+preserves the unsaved name; host advertises `"<name>'s game"` in LAN discovery.
+
+**Tests — `tests/unit/test_player_identity.gd`** (+ `.uid`, 10 cases): encode/decode
+round-trip, color-hex preservation, robust defaults (empty/short/blank/invalid).
+Full suite 1572 pass / 0 fail, exit 0; headless import clean; `net_coop_smoke` PASS.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+`docs/agent/multiplayer-coop.md`: new "Player identity" section (MpProfile token/
+name/color store, PlayerIdentity wire format, the reply-flagged handshake, session
+roster, lobby fields); RemotePlayer description updated (identity-driven tint +
+`Label3D`, `set_player_identity` naming); MpProfile added to the Integrations table;
+tests table + Asset Requirements updated for the new files.

@@ -12,7 +12,11 @@ extends Node
 enum Transport { ENET, STEAM }
 
 const DEFAULT_PORT: int = 24565
-const MAX_PEERS: int = 1  # 2-player slice: host + 1 client
+# Default ENet client capacity for a host-is-player session: 3 clients + the host
+# = 4 players total. Exposed as a host() parameter (not baked into create_server)
+# so a future dedicated server (GID-097, host is not a player) can pass 4 without
+# re-editing this file.
+const DEFAULT_MAX_CLIENTS: int = 3
 
 # LAN discovery (separate UDP channel from the ENet game connection).
 const DISCOVERY_PORT: int = 24566
@@ -55,8 +59,10 @@ func _ready() -> void:
 # Public API
 # ---------------------------------------------------------------------------
 
-## Start hosting on the given port. Returns OK or an Error code.
-func host(port: int = DEFAULT_PORT) -> Error:
+## Start hosting on the given port. `max_clients` is the number of ENet clients
+## allowed (the host occupies no client slot), defaulting to a 4-player co-op
+## session. Returns OK or an Error code.
+func host(port: int = DEFAULT_PORT, max_clients: int = DEFAULT_MAX_CLIENTS) -> Error:
 	# Free any stale peer/port from a prior session before re-binding, otherwise
 	# create_server() fails with "address in use" on repeat Host presses (TID-337).
 	_reset_session()
@@ -66,7 +72,7 @@ func host(port: int = DEFAULT_PORT) -> Error:
 	var enet: ENetMultiplayerPeer = peer as ENetMultiplayerPeer
 	if enet == null:
 		return ERR_UNAVAILABLE
-	var err: Error = enet.create_server(port, MAX_PEERS)
+	var err: Error = enet.create_server(port, max_clients)
 	if err != OK:
 		return err
 	multiplayer.multiplayer_peer = peer

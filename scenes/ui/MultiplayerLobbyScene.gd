@@ -9,7 +9,19 @@ const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const _COOP_MAP: String = "madrian"
 
+## Touch-friendly preset tints for the avatar color swatches (TID-342).
+const _COLOR_PRESETS: Array[Color] = [
+	Color(0.95, 0.45, 0.45),
+	Color(0.45, 0.75, 0.95),
+	Color(0.55, 0.85, 0.55),
+	Color(0.92, 0.82, 0.45),
+	Color(0.80, 0.55, 0.92),
+	Color(0.97, 0.67, 0.40),
+]
+
 var _ip_edit: LineEdit
+var _name_edit: LineEdit
+var _swatch_row: HBoxContainer
 var _status_lbl: Label
 var _results_box: VBoxContainer
 var _hosts: Array = []
@@ -31,6 +43,7 @@ func _ready() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_node_ready():
+		_save_name()  # don't lose an unsaved edit across the rebuild
 		_vh = get_viewport().get_visible_rect().size.y
 		_vw = get_viewport().get_visible_rect().size.x
 		_ref = minf(_vh, _vw)
@@ -58,6 +71,26 @@ func _build_ui() -> void:
 		"Host a session, find nearby games, or join by IP on the same Wi-Fi.", _vh)
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(info)
+
+	# Player identity (TID-342): name + avatar color, remembered between launches.
+	vbox.add_child(_UiUtil.make_body_label("Your name", _vh))
+	_name_edit = LineEdit.new()
+	_name_edit.text = MpProfile.get_display_name()
+	_name_edit.max_length = 16
+	_name_edit.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	_name_edit.custom_minimum_size = Vector2(0.0, _vh * 0.07)
+	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_name_edit.text_submitted.connect(func(_t: String) -> void: _save_name())
+	_name_edit.focus_exited.connect(_save_name)
+	vbox.add_child(_name_edit)
+
+	vbox.add_child(_UiUtil.make_body_label("Your color", _vh))
+	_swatch_row = HBoxContainer.new()
+	_swatch_row.add_theme_constant_override("separation", int(_ref * 0.012))
+	vbox.add_child(_swatch_row)
+	_build_swatches()
+
+	vbox.add_child(_UiUtil.make_separator())
 
 	vbox.add_child(_make_button("Host Game", _on_host))
 
@@ -101,6 +134,41 @@ func _build_ui() -> void:
 	vbox.add_child(btn_row)
 
 
+## Persist the typed name to the device profile (fallback handled by MpProfile).
+func _save_name() -> void:
+	if _name_edit != null:
+		MpProfile.set_display_name(_name_edit.text)
+
+
+## Build one swatch button per preset; the current color gets a selected outline.
+func _build_swatches() -> void:
+	if _swatch_row == null:
+		return
+	for c in _swatch_row.get_children():
+		c.queue_free()
+	var current: Color = MpProfile.get_color()
+	var sz: float = _vh * 0.06
+	for preset in _COLOR_PRESETS:
+		var btn := Button.new()
+		btn.custom_minimum_size = Vector2(sz, sz)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = preset
+		sb.set_corner_radius_all(int(sz * 0.18))
+		if preset.is_equal_approx(current):
+			sb.border_color = Color.WHITE
+			sb.set_border_width_all(max(2, int(sz * 0.12)))
+		btn.add_theme_stylebox_override("normal", sb)
+		btn.add_theme_stylebox_override("hover", sb)
+		btn.add_theme_stylebox_override("pressed", sb)
+		btn.pressed.connect(_on_pick_color.bind(preset))
+		_swatch_row.add_child(btn)
+
+
+func _on_pick_color(c: Color) -> void:
+	MpProfile.set_color(c)
+	_build_swatches()  # redraw selection outline
+
+
 func _make_button(text: String, cb: Callable) -> Button:
 	var btn := Button.new()
 	btn.text = text
@@ -111,6 +179,9 @@ func _make_button(text: String, cb: Callable) -> Button:
 
 
 func _on_host() -> void:
+	_save_name()
+	# Advertise the player's name in LAN discovery so it shows in others' lists.
+	NetworkManager.host_label = "%s's game" % MpProfile.get_display_name()
 	var err: Error = NetworkManager.host()
 	if err != OK:
 		_set_status("Could not host (error %d)." % err)
@@ -120,6 +191,7 @@ func _on_host() -> void:
 
 
 func _on_join() -> void:
+	_save_name()
 	var ip: String = _ip_edit.text.strip_edges()
 	if ip.is_empty():
 		_set_status("Enter the host's IP address first.")
@@ -163,6 +235,7 @@ func _populate_results() -> void:
 
 
 func _on_join_discovered(hd: Dictionary) -> void:
+	_save_name()
 	var ip: String = str(hd.get("ip", ""))
 	if ip.is_empty():
 		return

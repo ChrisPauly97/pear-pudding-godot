@@ -2,7 +2,7 @@
 
 **Goal:** GID-094
 **Type:** human-action
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -44,12 +44,22 @@ tracks this.
 
 ## Plan
 
-_Written during Plan phase._
+Human-action task. The user explicitly authorized the agent to apply the spec edits
+directly (human-owned doc), so the agent made the changes and confirmed completion.
 
 ## Changes Made
 
-_Filled after Build phase._
+`docs/human/specification.md` (edited with the owner's explicit permission):
+1. **Out of Scope** — replaced "Multiplayer / online features" with the narrower
+   "Ranked matchmaking, global server browser, and NAT-punch relay/matchmaking service".
+2. **Key Features** — added a "Multiplayer (Co-op & PvP)" subsection summarizing
+   shipped + planned scope (4-player co-op, PvP duels, LAN discovery + join-by-IP,
+   planned dedicated server + session-scoped persistent characters) and the
+   connectivity constraints (LAN by default, no NAT traversal; Android host-discovery limited).
+
+Backlog: moved `BID-022` to `tasks/archive/backlog/` and updated `tasks/index.md`
+(struck through in Backlog, added to Resolved Backlog).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+No agent-doc changes (spec is human-owned). BID-022 resolved and archived.

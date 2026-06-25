@@ -162,8 +162,12 @@ static func _ensure_loaded() -> void:
 			_cards[card_id] = res
 			var illus = res.get("illustration")
 			if illus == null:
-				var card_class_val: String = str(res.get("card_class", ""))
-				var magic_branch: String = str(res.get("magic_branch", ""))
+				# res is a Resource (Object): Object.get() takes ONE arg — the 2-arg
+				# Dictionary.get(key, default) form is a parse error under Godot 4.6.
+				var cc_val = res.get("card_class")
+				var mb_val = res.get("magic_branch")
+				var card_class_val: String = str(cc_val) if cc_val != null else ""
+				var magic_branch: String = str(mb_val) if mb_val != null else ""
 				var illus_key: String = "spell" if card_class_val == "spell" else card_id
 				res.set("illustration", TextureGen.card_illustration(illus_key, magic_branch))
 		else:

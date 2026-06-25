@@ -18,6 +18,17 @@ func recv_avatar(payload: Array) -> void:
 		world_scene._on_avatar_received(sender, payload)
 
 
+## Player identity handshake (GID-094 / TID-342). payload is PlayerIdentity.encode()
+## output: [token, name, color_hex]. Reliable — a one-shot that must not drop.
+## `is_reply` is false for the initiator's broadcast and true for the direct
+## reply, so the receiver replies exactly once and the exchange terminates.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_identity(payload: Array, is_reply: bool) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_identity_received"):
+		world_scene._on_identity_received(sender, payload, is_reply)
+
+
 ## PvP challenge (GID-091): A → B "challenge to battle", carrying A's deck.
 ## Reliable — must not drop. Routed to WorldScene._on_battle_requested.
 @rpc("any_peer", "reliable", "call_remote")
