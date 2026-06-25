@@ -58,6 +58,18 @@ Pear Pudding TCG is a 3D isometric open-world RPG built in Godot 4 where the pla
 - Main menu, biome selection (new game), inventory/deck builder, game over screen
 - Map editor for authoring named maps in-engine
 
+### Multiplayer (Co-op & PvP)
+- Shared-world **co-op for up to 4 players** on a named map (madrian) — each player
+  has a display name, avatar color, and a stable identity token
+- **PvP card duels** between co-op players, reusing the battle engine (host-authoritative)
+- **LAN discovery** (find nearby games) plus **join by IP** as a fallback
+- Planned: a **dedicated server** option and **session-scoped persistent characters**
+  (deck/inventory/level follow a player across reconnects, keyed by identity token)
+- **Connectivity constraints:** LAN/loopback by default; over-the-internet play needs
+  port-forwarding / a public-IP host / a home dedicated server / VPN overlay (no
+  built-in NAT traversal). Android can join and be discovered as a client; Android
+  *hosting* discovery is limited (multicast lock not yet implemented) — use join-by-IP.
+
 ---
 
 ## Architecture & Technical Constraints
@@ -98,7 +110,7 @@ tasks/              — goal and task tracking (agent-managed)
 
 ## Out of Scope (for now)
 
-- Multiplayer / online features
+- Ranked matchmaking, global server browser, and NAT-punch relay/matchmaking service
 - More than 4 card types in v1 battle system
 - Voice acting or music
 - Complex branching dialogue trees (single NPC line per state for now)

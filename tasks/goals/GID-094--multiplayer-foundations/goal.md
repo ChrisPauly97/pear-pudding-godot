@@ -35,21 +35,21 @@ sync — those are GID-095/096/097.
 | TID-341 | Raise player cap to 4 + generalize avatar sync to N peers | agent | done | — |
 | TID-342 | Player identity — display name + color + stable token | agent | done | TID-341 |
 | TID-343 | Tests + docs for foundations | agent | done | TID-341, TID-342 |
-| TID-344 | Update spec multiplayer scope (human-owned spec); resolves BID-022 | human-action | pending | — |
+| TID-344 | Update spec multiplayer scope (human-owned spec); resolves BID-022 | human-action | done | — |
 
 ## Acceptance Criteria
 
-- [ ] Up to 4 players can be in one session (`MAX_PEERS = 3`); each renders the
-      other three as distinct avatars that spawn on connect and free on disconnect.
-- [ ] Remote avatars no longer collide at a single fixed +2 offset — spawn
-      placement fans out deterministically so N avatars don't stack.
-- [ ] Each player sets a **display name** and **color** in the lobby; both are
+- [x] Up to 4 players can be in one session (`host()` `max_clients` default 3); each
+      renders the others as distinct avatars that spawn on connect and free on disconnect.
+- [x] Remote avatars no longer collide at a single fixed +2 offset — spawn
+      placement fans out deterministically (`AvatarSync.spawn_offset`) so N avatars don't stack.
+- [x] Each player sets a **display name** and **color** in the lobby; both are
       transmitted on connect and shown as a label + tint above each remote avatar
-      and in a lobby/session roster.
-- [ ] Each player has a **stable identity token** (persisted locally, generated
-      once) that is transmitted on connect — the key GID-095 uses to match a
+      and in the session roster.
+- [x] Each player has a **stable identity token** (persisted locally via MpProfile,
+      generated once) that is transmitted on connect — the key GID-095 uses to match a
       returning player to their saved character.
-- [ ] Name/color default is remembered between launches.
-- [ ] Unit tests cover identity payload encode/decode and N-peer spawn fan-out;
+- [x] Name/color default is remembered between launches (MpProfile / `user://mp_profile.json`).
+- [x] Unit tests cover identity payload encode/decode and N-peer spawn fan-out;
       headless import is clean; `tests/runner.gd` exits 0.
-- [ ] `docs/agent/multiplayer-coop.md` updated; spec scope updated (TID-344).
+- [x] `docs/agent/multiplayer-coop.md` updated; spec scope updated (TID-344).
