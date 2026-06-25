@@ -26,6 +26,10 @@ const _PALETTE: Array[Color] = [
 var _token: String = ""
 var _name: String = DEFAULT_NAME
 var _color: Color = Color.WHITE
+## Stable id for the session this device hosts (GID-095). Generated once so
+## re-hosting reuses the same `user://sessions/<id>.json` file. Distinct from the
+## per-player `token`: the token identifies the *player*, this identifies the *world*.
+var _host_session_id: String = ""
 var _loaded: bool = false
 
 
@@ -74,6 +78,16 @@ func set_color(value: Color) -> void:
 	_save()
 
 
+## Stable id of the session this device hosts (GID-095). Generated + persisted on
+## first use so re-hosting reuses the same session file. Never shown to players.
+func get_host_session_id() -> String:
+	_ensure_loaded()
+	if _host_session_id == "":
+		_host_session_id = _generate_token()
+		_save()
+	return _host_session_id
+
+
 # ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
@@ -90,6 +104,7 @@ func _ensure_loaded() -> void:
 			if parsed is Dictionary:
 				d = parsed
 	_token = str(d.get("token", ""))
+	_host_session_id = str(d.get("host_session_id", ""))
 	_name = str(d.get("name", DEFAULT_NAME))
 	if _name.strip_edges() == "":
 		_name = DEFAULT_NAME
@@ -116,6 +131,7 @@ func _save() -> void:
 		return
 	f.store_string(JSON.stringify({
 		"token": _token,
+		"host_session_id": _host_session_id,
 		"name": _name,
 		"color": _color.to_html(false),
 	}, "\t"))

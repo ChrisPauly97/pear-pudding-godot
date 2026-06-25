@@ -3,6 +3,7 @@ extends Node
 const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const _CardInstanceUtil = preload("res://game_logic/CardInstanceUtil.gd")
 
 signal coins_changed(new_amount: int)
 
@@ -1011,17 +1012,9 @@ func add_card_instance(template_id: String, rarity: String, attack: int = -1, he
 	var hp: int  = health if health >= 0 else int(tmpl.get("health", 0))
 	var c: int   = cost   if cost   >= 0 else int(tmpl.get("cost", 1))
 	var uid: String = _gen_uid(template_id)
-	var inst_dict := {
-		"uid": uid,
-		"template_id": template_id,
-		"rarity": rarity,
-		"attack": atk,
-		"health": hp,
-		"cost": c,
-		"kills": 0,
-		"battles_survived": 0,
-		"custom_name": "",
-	}
+	# Canonical instance shape shared with SessionState (GID-095) via CardInstanceUtil
+	# so save.json and the multiplayer session files never diverge.
+	var inst_dict: Dictionary = _CardInstanceUtil.make(uid, template_id, rarity, atk, hp, c)
 	owned_cards.append(inst_dict)
 	_uid_index[uid] = inst_dict
 	if rarity != "common":

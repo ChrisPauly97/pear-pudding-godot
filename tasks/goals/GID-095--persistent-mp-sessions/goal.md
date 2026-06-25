@@ -32,7 +32,7 @@ this goal defines (TID-350 in GID-096 depends on it).
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-345 | Session model + persistence file (`SessionState` pure logic + authority-side save/load) | agent | pending | GID-094 |
+| TID-345 | Session model + persistence file (`SessionState` pure logic + authority-side save/load) | agent | done | GID-094 |
 | TID-346 | Per-player character handshake & session-scoped progress (adopt + persist back) | agent | pending | TID-345 |
 | TID-347 | Reconnection + recent-servers list + join-by-address + public-IP/port-forward guidance | agent | pending | TID-345 |
 | TID-348 | Tests + docs (persistence, handshake, reconnect) | agent | pending | TID-345, TID-346, TID-347 |

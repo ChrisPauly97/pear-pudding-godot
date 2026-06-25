@@ -2,7 +2,7 @@
 
 **Goal:** GID-095
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** GID-094
 
 ## Lock
@@ -41,12 +41,53 @@ _To be expanded when GID-094 lands (identity token shape finalized there)._
 
 ## Plan
 
-_Written during Plan phase._
+1. **`game_logic/CardInstanceUtil.gd`** — extract the canonical owned-card instance
+   dict (uid/template_id/rarity/attack/health/cost/kills/battles_survived/custom_name)
+   into one shared builder so `save.json` and the session file never diverge.
+   Refactor `SaveManager.add_card_instance` to call it.
+2. **`game_logic/net/SessionState.gd`** — pure RefCounted model. Holds session id +
+   display name, shared world progress (map, seed, time_of_day, days_elapsed,
+   defeated_enemies, opened_chests, story_flags) and `members: {token -> record}`.
+   `to_dict`/`from_dict` round-trip, `CURRENT_SESSION_VERSION` + migration scaffold,
+   `make_starter_character(token, name)`, `ensure_member`, `get_member`, `has_member`.
+   Character record = deck (owned_cards + player_deck uids), coins, essence, xp,
+   level, skill_points, unlocked_skills, magic_type, corruption/redemption, position.
+3. **`autoloads/SessionStore.gd`** (new autoload) — authority-side dirty-flag batched
+   writer to `user://sessions/<session_id>.json`, one file per session. Mirrors
+   `SaveManager`'s 2 s timer + close-notification flush, but a wholly separate code
+   path that NEVER touches `save_slot_*.json`. `open()/close()/mark_dirty()`,
+   member convenience methods.
+4. **`MpProfile.get_host_session_id()`** — stable per-host id generated + persisted
+   once in `mp_profile.json`, so re-hosting reuses the same session file.
+5. Register `SessionStore` autoload; add `.uid` sidecars; headless-import gate.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/CardInstanceUtil.gd`** (new) — single canonical owned-card instance
+  dict builder (`make(uid, template_id, rarity, attack, health, cost)`). Refactored
+  `SaveManager.add_card_instance` to use it so `save.json` and the session files share
+  one instance shape and never diverge.
+- **`game_logic/net/SessionState.gd`** (new) — pure `RefCounted` model
+  (`class_name SessionState` for self-typed `from_dict`/`new`). Holds session id +
+  display name, shared world progress (map/seed/time_of_day/days_elapsed/
+  defeated_enemies/opened_chests/story_flags) and `members: {token -> record}`.
+  `to_dict`/`from_dict` round-trip, `CURRENT_SESSION_VERSION = 1` + `_apply_migrations`
+  scaffold, `make_starter_character` (12-card starter mirroring `new_game`, token-salted
+  UIDs, 200-coin float), `ensure_member`/`get_member`/`has_member`/`update_member`.
+- **`autoloads/SessionStore.gd`** (new autoload) — authority-side dirty-flag batched
+  writer to `user://sessions/<session_id>.json`. Mirrors SaveManager's 2 s timer +
+  close-notification flush via a wholly separate code path that NEVER touches
+  `save_slot_*.json`. `open`/`close`/`mark_dirty`/`flush_now`, plus `ensure_member`/
+  `update_member` convenience that delegate to the open state and mark dirty.
+  Atomic write via `.tmp` + rename.
+- **`autoloads/MpProfile.gd`** — added `get_host_session_id()`: a stable per-host id
+  generated + persisted once in `mp_profile.json` (new `host_session_id` field) so
+  re-hosting reuses the same session file. Distinct from the per-player token.
+- **`project.godot`** — registered `SessionStore` autoload (after `MpProfile`).
+- `.uid` sidecars added for all three new scripts.
+- Validation: headless editor import clean; `tests/runner.gd` exits 0.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Deferred to TID-348 (the goal's docs task), which adds the persistent-sessions
+section to `docs/agent/multiplayer-coop.md` covering all of GID-095.
