@@ -97,6 +97,10 @@
 | [GID-091](goals/GID-091--pvp-card-battles/goal.md) | PvP Card Battles over Co-op | pending | 6 / 7 |
 | [GID-092](goals/GID-092--coop-multiplayer-bugfixes/goal.md) | Co-op Multiplayer Bug Fixes | done | 3 / 3 |
 | [GID-093](goals/GID-093--world-nav-ux-fixes/goal.md) | World Navigation & UX Fixes | done | 3 / 3 |
+| [GID-094](goals/GID-094--multiplayer-foundations/goal.md) | Multiplayer Foundations — N-Player Capacity & Identity | pending | 0 / 4 |
+| [GID-095](goals/GID-095--persistent-mp-sessions/goal.md) | Persistent Multiplayer Sessions & Per-Player Progress | pending | 0 / 4 |
+| [GID-096](goals/GID-096--coop-world-sync/goal.md) | Co-op World State Sync | pending | 0 / 3 |
+| [GID-097](goals/GID-097--dedicated-server/goal.md) | Dedicated Server Option | pending | 0 / 3 |
 
 ## Backlog
 
@@ -118,7 +122,7 @@
 | [BID-016](backlog/BID-016--flag-gated-dialogue-content.md) | Flag-gated NPC dialogue content not yet authored; TownspersonNPC logic ready but table mostly empty | human-action-deferred | GID-020 / TID-063 |
 | ~~[BID-017](backlog/BID-017--corruption-redemption-points-never-accrue.md)~~ | ~~add_corruption_points / add_redemption_points never called — currencies may never accrue~~ | ~~design-inconsistency~~ | Promoted to GID-086 / TID-308, TID-309 |
 | ~~[BID-020](backlog/BID-020--always-visible-cantrip-buttons.md)~~ | ~~Cantrip HUD buttons always built regardless of unlock state~~ | ~~code-smell~~ | Resolved by GID-081 / TID-298 |
-| [BID-022](backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md) | Spec lists multiplayer as out-of-scope, but co-op + PvP shipped | spec-gap | GID-091 research |
+| [BID-022](backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md) | Spec lists multiplayer as out-of-scope, but co-op + PvP shipped | spec-gap | GID-091 research → scheduled for GID-094 / TID-344 |
 
 ## Resolved Backlog
 
