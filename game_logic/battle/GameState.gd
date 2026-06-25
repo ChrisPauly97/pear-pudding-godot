@@ -8,6 +8,8 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 var players: Array[PlayerState] = []
 var current_player_idx: int = 0
 var turn_number: int = 1
+# Injected by BattleScene; propagated to all PlayerState instances.
+var gamebus_emitter: Callable = Callable()
 # Per-player turn counters so each player ramps mana independently.
 # p0 starts at 1 (set by BattleScene); p1 starts at 0 and becomes 1 on first end_turn.
 var player_turn_numbers: Array[int] = [1, 0]
@@ -35,6 +37,16 @@ func _init() -> void:
 	p2.draw_opening_hand(4)
 	players.append(p1)
 	players.append(p2)
+
+## Inject the GameBus emitter so PlayerState can emit signals without touching the SceneTree.
+## emitter is called as emitter.call(player_id: int, damage: int) for fatigue_damage.
+func inject_gamebus_emitter(emitter: Callable) -> void:
+	gamebus_emitter = emitter
+	_propagate_emitter()
+
+func _propagate_emitter() -> void:
+	for p: PlayerState in players:
+		p.gamebus_emitter = gamebus_emitter
 
 func current_player() -> PlayerState:
 	return players[current_player_idx]
@@ -190,3 +202,4 @@ func from_dict(d: Dictionary) -> void:
 			var ps := PlayerState.new(pid, ai)
 			ps.from_dict(pd)
 			players.append(ps)
+	_propagate_emitter()

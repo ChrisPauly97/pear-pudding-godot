@@ -21,6 +21,8 @@ var bonus_draw: int = 0
 var fatigue_counter: int = 0
 var skip_next_draw: bool = false
 var minion_attack_bonus: int = 0
+# Injected by GameState.inject_gamebus_emitter(); call(player_id, damage)
+var gamebus_emitter: Callable = Callable()
 
 # Branch-play counters (not serialized — used at battle end to award currency points)
 var dawn_cards_played: int = 0
@@ -106,11 +108,8 @@ func draw_card() -> CardInstance:
 	return card
 
 func _emit_fatigue(dmg: int) -> void:
-	var ml: MainLoop = Engine.get_main_loop()
-	if ml is SceneTree:
-		var gb: Node = (ml as SceneTree).root.get_node_or_null("GameBus")
-		if gb != null:
-			gb.emit_signal("fatigue_damage", player_id, dmg)
+	if gamebus_emitter.is_valid():
+		gamebus_emitter.call(player_id, dmg)
 
 func draw_opening_hand(count: int = 4) -> void:
 	for _i in range(count):

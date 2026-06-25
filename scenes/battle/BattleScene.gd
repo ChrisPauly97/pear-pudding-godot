@@ -83,11 +83,9 @@ var _float_layer: CanvasLayer = null
 var _dragged_card: Dictionary = {}  # {card: CardInstance}
 var _vh: float = 0.0
 
-# Drag-to-play: hand card being dragged onto the board
+# Drag-to-play: populated when native drag starts so CardViewBuilder can highlight slots.
+# Cleared in NOTIFICATION_DRAG_END and after a successful drop.
 var _hand_drag_card: CardInstance = null
-var _drag_visual: Control = null
-var _drag_start_pos: Vector2 = Vector2.ZERO
-var _drag_moved: bool = false
 var _cancel_btn: Button = null
 
 # Card inspect overlay
@@ -155,12 +153,14 @@ func _ready() -> void:
 		_state = GameState.new()
 		_resolver.setup(_state)
 		_state.load_puzzle(puzzle_data)
+		_wire_gamebus_emitter()
 	elif _pvp:
 		_setup_pvp_battle()
 	elif not _saved_battle.is_empty():
 		_state = GameState.new()
 		_resolver.setup(_state)
 		_state.from_dict(_saved_battle)
+		_wire_gamebus_emitter()
 		_boss_phase2_triggered = bool(_saved_battle.get("_boss_phase2", false))
 		_hero_power_used = bool(_saved_battle.get("_hero_power_used", false))
 		_bump_card_next_id(_state)
@@ -168,6 +168,7 @@ func _ready() -> void:
 	else:
 		_state = GameState.new()
 		_resolver.setup(_state)
+		_wire_gamebus_emitter()
 
 		# Player deck: spire run uses its run-local draft deck; otherwise use the
 		# persistent player deck. Floor 1 starter gives 8 basics before any pick.
@@ -281,6 +282,7 @@ func _ready() -> void:
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(_pause_ui.confirm_return_to_menu)
 	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
+	_setup_board_drop_zone()
 	_pause_ui.add_pause_button($SidePanel)
 	_add_hero_power_button()
 	_add_companion_hud()
@@ -328,6 +330,10 @@ func _ready() -> void:
 		_show_battle_tutorial()
 
 	GameBus.tutorial_popup_requested.emit("tap_and_hold")
+
+func _wire_gamebus_emitter() -> void:
+	_state.inject_gamebus_emitter(func(pid: int, dmg: int) -> void:
+		GameBus.fatigue_damage.emit(pid, dmg))
 
 func _apply_equipment_effects(player: PlayerState) -> void:
 	var sm := SceneManager.save_manager
@@ -600,7 +606,7 @@ func _dismiss_battle_tutorial() -> void:
 	SceneManager.save_manager.set_story_flag("tutorial_battle_tip")
 
 # -------------------------------------------------------------------------
-# Drag/Drop — scene-level input catches mouse move and release globally
+# Drag/Drop — native Godot drag-and-drop API (mouse + touch transparent)
 # -------------------------------------------------------------------------
 
 func _input(event: InputEvent) -> void:
@@ -610,137 +616,94 @@ func _input(event: InputEvent) -> void:
 				return  # overlay handles its own Escape
 			_pause_ui.toggle()
 			get_viewport().set_input_as_handled()
-			return
 
-	if _hand_drag_card == null:
+## Wire _player_board_view as the native drop target for hand-card drags.
+## Called once from _ready() after the board node is ready.
+func _setup_board_drop_zone() -> void:
+	_player_board_view.set_drag_forwarding(
+		func(_pos: Vector2) -> Variant: return null,
+		func(pos: Vector2, data: Variant) -> bool: return _board_can_drop(pos, data),
+		func(pos: Vector2, data: Variant) -> void: _board_drop(pos, data)
+	)
+
+## Called by Godot when the dragged card is released over _player_board_view.
+func _board_drop(local_pos: Vector2, data: Variant) -> void:
+	if not data is Dictionary or not data.has("card"):
 		return
-
-	if event is InputEventMouseMotion:
-		_drag_moved = true
-		if _drag_visual:
-			_drag_visual.position = get_viewport().get_mouse_position() - _drag_visual.size * 0.5
-		get_viewport().set_input_as_handled()
-
-	elif event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
-			if not _drag_moved:
-				# Tap without drag — enter slot-select or inspect
-				var card_tapped := _hand_drag_card
-				_cancel_hand_drag()
-				_on_hand_card_tap(card_tapped)
-			else:
-				_finish_hand_drag()
-			get_viewport().set_input_as_handled()
-		elif mb.button_index == MOUSE_BUTTON_RIGHT:
-			_cancel_hand_drag()
-			get_viewport().set_input_as_handled()
-
-func _finish_hand_drag() -> void:
-	var mouse_pos := get_viewport().get_mouse_position()
-	var board_rect: Rect2 = _player_board_view.get_global_rect()
-	if board_rect.has_point(mouse_pos):
-		var played_card := _hand_drag_card
-		# Targeted spells: enter appropriate targeting mode
-		var is_enemy_targeted: bool = SpellEffectResolver.ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
-		var is_friendly_targeted: bool = SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
-		var is_slot_targeted: bool = SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(played_card.spell_effect)
-		if played_card.card_class == "spell" and is_slot_targeted and _state.players[_my_idx()].can_play(played_card):
-			_hand_drag_card = null
-			if _drag_visual:
-				_drag_visual.queue_free()
-				_drag_visual = null
-			_hide_cancel_btn()
-			_enter_slot_targeting_mode(played_card)
-			return
-		if played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted) and _state.players[_my_idx()].can_play(played_card):
-			# Refuse targeted spells when there are no valid targets — return to hand.
-			if is_friendly_targeted and _state.players[_my_idx()].board.get_cards().is_empty():
-				_cancel_hand_drag()
-				return
-			elif is_enemy_targeted and played_card.spell_effect != "deal_damage_single" and _state.players[_opp_idx()].board.get_cards().is_empty():
-				_cancel_hand_drag()
-				return
-			else:
-				_hand_drag_card = null
-				if _drag_visual:
-					_drag_visual.queue_free()
-					_drag_visual = null
-				_hide_cancel_btn()
-				_enter_targeting_mode(played_card, is_friendly_targeted)
-				return
-		# Minions: find which slot the mouse is over
-		if played_card.card_class != "spell":
-			var target_slot_idx: int = _slot_idx_at_point(mouse_pos, _player_board_view)
-			if target_slot_idx == -1 or _state.players[_my_idx()].board.slots[target_slot_idx] != null:
-				_cancel_hand_drag()
-				return
-			if _is_pvp_client():
-				var hi: int = _state.players[_my_idx()].hand.find(played_card)
-				_cancel_hand_drag()
-				if hi != -1 and _state.players[_my_idx()].can_play(played_card):
-					AudioManager.play_sfx("card_play")
-					_fx.haptic(20)
-					_send_intent(BattleNetProtocol.encode_play_card_at_slot(hi, target_slot_idx))
-					_dismiss_battle_tutorial()
-				return
-			if _do_play_card_at_slot(played_card, _my_idx(), target_slot_idx):
-				AudioManager.play_sfx("card_play")
-				_fx.haptic(20)
-				if played_card.emergence_effect != "":
-					var snap_em := _fx.snapshot()
-					_resolver.resolve_emergence(played_card, _my_idx())
-					_fx.trigger_fx(snap_em)
-				else:
-					_apply_weather_to_summoned(played_card, _my_idx())
-				_refresh_all()
-				_check_game_over()
-				_dismiss_battle_tutorial()
-		else:
-			# Non-targeted spells: slot doesn't matter
-			if _is_pvp_client():
-				var hi2: int = _state.players[_my_idx()].hand.find(played_card)
-				_cancel_hand_drag()
-				if hi2 != -1 and _state.players[_my_idx()].can_play(played_card):
-					AudioManager.play_sfx("card_play")
-					_fx.haptic(20)
-					_send_intent(BattleNetProtocol.encode_play_spell(hi2, {}))
-					_dismiss_battle_tutorial()
-				return
-			if _do_play_card(played_card, _my_idx()):
-				AudioManager.play_sfx("card_play")
-				_fx.haptic(20)
-				var snap_fhd := _fx.snapshot()
-				_resolver.resolve_spell(played_card, _my_idx())
-				_fx.trigger_fx(snap_fhd)
-				_refresh_all()
-				_check_game_over()
-				_dismiss_battle_tutorial()
-	_cancel_hand_drag()
-
-func _cancel_hand_drag() -> void:
-	_hide_cancel_btn()
-	if _drag_visual:
-		_drag_visual.queue_free()
-		_drag_visual = null
+	var played_card: CardInstance = data["card"] as CardInstance
+	if played_card == null:
+		return
 	_hand_drag_card = null
 	_refresh_player_board()
 
-func _start_hand_drag(card: CardInstance, from_pos: Vector2) -> void:
-	_hand_drag_card = card
-	_drag_start_pos = from_pos
-	_drag_moved = false
-	if not _state.players[_my_idx()].can_play(card):
-		# Still track for tap-to-inspect; don't show drag ghost for unplayable
+	var global_pos: Vector2 = _player_board_view.to_global(local_pos)
+	var is_enemy_targeted: bool = SpellEffectResolver.ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
+	var is_friendly_targeted: bool = SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
+	var is_slot_targeted: bool = SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(played_card.spell_effect)
+
+	if played_card.card_class == "spell" and is_slot_targeted and _state.players[_my_idx()].can_play(played_card):
+		_enter_slot_targeting_mode(played_card)
 		return
-	_drag_visual = _make_card_ghost(card)
-	_drag_visual.position = from_pos - _drag_visual.size * 0.5
-	_drag_visual.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_drag_visual)
-	move_child(_drag_visual, get_child_count() - 1)
-	_show_cancel_btn("✕ Cancel", _cancel_hand_drag)
-	# Trigger board refresh so slot panels update to highlight state
-	_refresh_player_board()
+
+	if played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted) and _state.players[_my_idx()].can_play(played_card):
+		if is_friendly_targeted and _state.players[_my_idx()].board.get_cards().is_empty():
+			return
+		elif is_enemy_targeted and played_card.spell_effect != "deal_damage_single" and _state.players[_opp_idx()].board.get_cards().is_empty():
+			return
+		else:
+			_enter_targeting_mode(played_card, is_friendly_targeted)
+			return
+
+	if played_card.card_class != "spell":
+		var target_slot_idx: int = _slot_idx_at_point(global_pos, _player_board_view)
+		if target_slot_idx == -1 or _state.players[_my_idx()].board.slots[target_slot_idx] != null:
+			return
+		if _is_pvp_client():
+			var hi: int = _state.players[_my_idx()].hand.find(played_card)
+			if hi != -1 and _state.players[_my_idx()].can_play(played_card):
+				AudioManager.play_sfx("card_play")
+				_fx.haptic(20)
+				_send_intent(BattleNetProtocol.encode_play_card_at_slot(hi, target_slot_idx))
+				_dismiss_battle_tutorial()
+			return
+		if _do_play_card_at_slot(played_card, _my_idx(), target_slot_idx):
+			AudioManager.play_sfx("card_play")
+			_fx.haptic(20)
+			if played_card.emergence_effect != "":
+				var snap_em := _fx.snapshot()
+				_resolver.resolve_emergence(played_card, _my_idx())
+				_fx.trigger_fx(snap_em)
+			else:
+				_apply_weather_to_summoned(played_card, _my_idx())
+			_refresh_all()
+			_check_game_over()
+			_dismiss_battle_tutorial()
+	else:
+		# Non-targeted spell: slot doesn't matter
+		if _is_pvp_client():
+			var hi2: int = _state.players[_my_idx()].hand.find(played_card)
+			if hi2 != -1 and _state.players[_my_idx()].can_play(played_card):
+				AudioManager.play_sfx("card_play")
+				_fx.haptic(20)
+				_send_intent(BattleNetProtocol.encode_play_spell(hi2, {}))
+				_dismiss_battle_tutorial()
+			return
+		if _do_play_card(played_card, _my_idx()):
+			AudioManager.play_sfx("card_play")
+			_fx.haptic(20)
+			var snap_fhd := _fx.snapshot()
+			_resolver.resolve_spell(played_card, _my_idx())
+			_fx.trigger_fx(snap_fhd)
+			_refresh_all()
+			_check_game_over()
+			_dismiss_battle_tutorial()
+
+## Returns true so Godot highlights the board zone when a hand-card drag is over it.
+func _board_can_drop(_pos: Vector2, data: Variant) -> bool:
+	if not data is Dictionary or not data.has("card"):
+		return false
+	var card: CardInstance = data["card"] as CardInstance
+	return card != null and _can_local_act() and _state.players[_my_idx()].can_play(card)
 
 func _show_cancel_btn(label: String = "✕ Cancel", callback: Callable = Callable()) -> void:
 	if _cancel_btn != null:
@@ -753,7 +716,7 @@ func _show_cancel_btn(label: String = "✕ Cancel", callback: Callable = Callabl
 	_cancel_btn.custom_minimum_size = Vector2(vh * 0.14, vh * 0.06)
 	_cancel_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
 	_cancel_btn.position = Vector2((vw - vh * 0.14) * 0.5, vh * 0.02)
-	var cb: Callable = callback if callback.is_valid() else _cancel_hand_drag
+	var cb: Callable = callback if callback.is_valid() else _hide_cancel_btn
 	_cancel_btn.pressed.connect(cb)
 	add_child(_cancel_btn)
 
@@ -1150,6 +1113,12 @@ func _notification(what: int) -> void:
 			SceneManager.save_manager.save()
 		if _pause_ui != null and not _pause_ui.is_paused():
 			_pause_ui.show_pause()
+	elif what == NOTIFICATION_DRAG_END:
+		# Native drag ended (dropped outside any drop zone or cancelled).
+		# Clear the slot-highlight state that was set when the drag started.
+		if _hand_drag_card != null:
+			_hand_drag_card = null
+			_refresh_player_board()
 
 func _on_target_chosen_card(target: CardInstance) -> void:
 	var spell := _targeting_spell
@@ -1235,7 +1204,26 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 	for conn in panel.gui_input.get_connections():
 		panel.gui_input.disconnect(conn["callable"])
 	if zone_id == "hand" and _state.current_player_idx == _my_idx():
-		panel.gui_input.connect(func(event: InputEvent) -> void: _on_hand_card_input(event, card, panel))
+		# Tap/click handler fires on release; it only fires when no native drag was started.
+		panel.gui_input.connect(func(event: InputEvent) -> void: _on_hand_card_input(event, card))
+		# Native drag forwarding: drag threshold handled by Godot (mouse + touch transparent).
+		# LongPressDetector remains independent; it cancels itself if movement > SLOP_PX,
+		# which happens before the drag threshold is reached, so inspect and drag don't conflict.
+		panel.set_drag_forwarding(
+			func(_pos: Vector2) -> Variant:
+				if not _can_local_act():
+					return null
+				if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
+					return null
+				if not _state.players[_my_idx()].can_play(card):
+					return null
+				_hand_drag_card = card
+				panel.set_drag_preview(_make_card_ghost(card))
+				_refresh_player_board()
+				return {"card": card},
+			func(_pos: Vector2, _data: Variant) -> bool: return false,
+			func(_pos: Vector2, _data: Variant) -> void: pass
+		)
 	elif zone_id == "board" and _state.current_player_idx == _my_idx():
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_board_card_input(event, card))
 	elif zone_id == "enemy_board":
@@ -1302,13 +1290,15 @@ func _update_status() -> void:
 # Input handlers
 # -------------------------------------------------------------------------
 
-func _on_hand_card_input(event: InputEvent, card: CardInstance, panel: Control) -> void:
+## Handles tap (press+release without drag). Fires only when native drag was NOT started,
+## because Godot consumes the release event when a drag is in progress.
+func _on_hand_card_input(event: InputEvent, card: CardInstance) -> void:
 	if event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+		if mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
 			if not _can_local_act():
 				return
-			_start_hand_drag(card, panel.get_global_rect().get_center())
+			_on_hand_card_tap(card)
 
 func _on_hand_card_tap(card: CardInstance) -> void:
 	if not _can_local_act():
@@ -1429,7 +1419,7 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 func _on_end_turn() -> void:
 	if not _can_local_act():
 		return
-	_cancel_hand_drag()
+	_hand_drag_card = null
 	_dragged_card.clear()
 	if _state.puzzle_mode:
 		if not _state.is_game_over():
@@ -1684,6 +1674,7 @@ func _show_puzzle_fail() -> void:
 	_state = GameState.new()
 	_state.load_puzzle(_puzzle_data_ref)
 	_resolver.setup(_state)
+	_wire_gamebus_emitter()
 	_view.set_battle_state(_state, enemy_data)
 	_refresh_all()
 	var pd: Resource = _puzzle_data_ref
@@ -1843,6 +1834,7 @@ func _can_local_act() -> bool:
 func _setup_pvp_battle() -> void:
 	_state = GameState.new()
 	_resolver.setup(_state)
+	_wire_gamebus_emitter()
 	_net = _BattleNetSyncScript.new()
 	_net.name = "BattleNetSync"
 	add_child(_net)
@@ -1935,6 +1927,7 @@ func _on_pvp_state(payload: Dictionary) -> void:
 	var state_dict: Dictionary = decoded["state"]
 	_state = GameState.new()
 	_state.from_dict(state_dict)
+	_wire_gamebus_emitter()
 	_bump_card_next_id(_state)
 	# Re-wire the helpers that cache a GameState reference (GID-040 pattern).
 	# from_dict built a brand-new GameState, so its turn_ended signal must be

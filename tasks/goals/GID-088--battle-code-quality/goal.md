@@ -16,8 +16,8 @@ Two code-quality issues found during the GID-064 audit: (BID-010)
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-312 | Inject GameBus emitter into GameState via Callable | agent | pending | — |
-| TID-313 | Migrate battle drag-to-play to native Godot drag-and-drop | agent | pending | TID-312 |
+| TID-312 | Inject GameBus emitter into GameState via Callable | agent | done | — |
+| TID-313 | Migrate battle drag-to-play to native Godot drag-and-drop | agent | done | TID-312 |
 
 ## Acceptance Criteria
 
