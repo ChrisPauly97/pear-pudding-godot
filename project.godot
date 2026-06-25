@@ -37,6 +37,7 @@ PuzzleRegistry="*res://autoloads/PuzzleRegistry.gd"
 CompanionRegistry="*res://autoloads/CompanionRegistry.gd"
 NetworkManager="*res://autoloads/NetworkManager.gd"
 MpProfile="*res://autoloads/MpProfile.gd"
+SessionStore="*res://autoloads/SessionStore.gd"
 
 [display]
 

@@ -26,7 +26,16 @@ const _PALETTE: Array[Color] = [
 var _token: String = ""
 var _name: String = DEFAULT_NAME
 var _color: Color = Color.WHITE
+## Stable id for the session this device hosts (GID-095). Generated once so
+## re-hosting reuses the same `user://sessions/<id>.json` file. Distinct from the
+## per-player `token`: the token identifies the *player*, this identifies the *world*.
+var _host_session_id: String = ""
+## Recent servers this device has joined (GID-095 / TID-347), most-recent first.
+## Each entry: {address, port, label, last_session_id, last_joined}.
+var _recent_servers: Array = []
 var _loaded: bool = false
+
+const _MAX_RECENT_SERVERS: int = 6
 
 
 func _ready() -> void:
@@ -74,6 +83,54 @@ func set_color(value: Color) -> void:
 	_save()
 
 
+## Stable id of the session this device hosts (GID-095). Generated + persisted on
+## first use so re-hosting reuses the same session file. Never shown to players.
+func get_host_session_id() -> String:
+	_ensure_loaded()
+	if _host_session_id == "":
+		_host_session_id = _generate_token()
+		_save()
+	return _host_session_id
+
+
+# ---------------------------------------------------------------------------
+# Recent servers (GID-095 / TID-347) — one-tap rejoin of a server you were in.
+# ---------------------------------------------------------------------------
+
+## Remember a server this device just joined. Dedupes by address:port (an existing
+## entry is moved to the front with refreshed metadata), keeps the most recent
+## _MAX_RECENT_SERVERS, and persists. `last_session_id` is optional metadata.
+func add_recent_server(address: String, port: int, label: String, session_id: String = "") -> void:
+	_ensure_loaded()
+	if address.strip_edges() == "":
+		return
+	var key: String = "%s:%d" % [address, port]
+	var kept: Array = []
+	for e: Variant in _recent_servers:
+		if not e is Dictionary:
+			continue
+		var ed: Dictionary = e
+		if "%s:%d" % [str(ed.get("address", "")), int(ed.get("port", 0))] != key:
+			kept.append(ed)
+	kept.push_front({
+		"address": address,
+		"port": port,
+		"label": label if label.strip_edges() != "" else address,
+		"last_session_id": session_id,
+		"last_joined": Time.get_datetime_string_from_system(false, true),
+	})
+	if kept.size() > _MAX_RECENT_SERVERS:
+		kept.resize(_MAX_RECENT_SERVERS)
+	_recent_servers = kept
+	_save()
+
+
+## The recent-servers list, most-recent first (a copy — mutate via add_recent_server).
+func get_recent_servers() -> Array:
+	_ensure_loaded()
+	return _recent_servers.duplicate(true)
+
+
 # ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
@@ -90,6 +147,9 @@ func _ensure_loaded() -> void:
 			if parsed is Dictionary:
 				d = parsed
 	_token = str(d.get("token", ""))
+	_host_session_id = str(d.get("host_session_id", ""))
+	var rs: Variant = d.get("recent_servers", [])
+	_recent_servers = rs if rs is Array else []
 	_name = str(d.get("name", DEFAULT_NAME))
 	if _name.strip_edges() == "":
 		_name = DEFAULT_NAME
@@ -116,6 +176,8 @@ func _save() -> void:
 		return
 	f.store_string(JSON.stringify({
 		"token": _token,
+		"host_session_id": _host_session_id,
+		"recent_servers": _recent_servers,
 		"name": _name,
 		"color": _color.to_html(false),
 	}, "\t"))

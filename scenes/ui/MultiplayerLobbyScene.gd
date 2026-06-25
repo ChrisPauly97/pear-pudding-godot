@@ -26,6 +26,16 @@ var _status_lbl: Label
 var _results_box: VBoxContainer
 var _hosts: Array = []
 
+# Reconnection / diagnostics (GID-095 / TID-347)
+var _recent_box: VBoxContainer
+var _wan_box: VBoxContainer
+var _retry_row: HBoxContainer
+# The join attempt in flight, so a successful connect can be recorded as a recent
+# server and a failed one can be retried with one tap.
+var _pending_addr: String = ""
+var _pending_port: int = 0
+var _pending_label: String = ""
+
 
 func _ready() -> void:
 	super._ready()
@@ -96,6 +106,18 @@ func _build_ui() -> void:
 
 	vbox.add_child(_UiUtil.make_separator())
 
+	# Rejoin: one-tap reconnect to a server we were in before (GID-095 / TID-347).
+	# The host's stable session id resumes the same world + character.
+	var recent: Array = MpProfile.get_recent_servers()
+	if not recent.is_empty():
+		vbox.add_child(_UiUtil.make_body_label("Rejoin a recent server", _vh))
+		_recent_box = VBoxContainer.new()
+		_recent_box.add_theme_constant_override("separation", int(_ref * 0.012))
+		_recent_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.add_child(_recent_box)
+		_populate_recent(recent)
+		vbox.add_child(_UiUtil.make_separator())
+
 	# Discovery: scan the LAN and list hosts to tap-join.
 	vbox.add_child(_make_button("Find Games", _on_find))
 	_results_box = VBoxContainer.new()
@@ -123,6 +145,28 @@ func _build_ui() -> void:
 	_status_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(_status_lbl)
+
+	# Retry row: hidden until a join attempt times out or fails (TID-347).
+	_retry_row = HBoxContainer.new()
+	_retry_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_retry_row.visible = false
+	_retry_row.add_child(_make_button("Retry", _on_retry))
+	vbox.add_child(_retry_row)
+
+	# Play-over-the-internet guidance — collapsed by default (TID-347).
+	vbox.add_child(_make_button("Play over the internet ▸", _toggle_wan))
+	_wan_box = VBoxContainer.new()
+	_wan_box.visible = false
+	var wan_text := _UiUtil.make_body_label(
+		"LAN only by default. To play across the internet:\n" +
+		"• Host: forward UDP port 24565 on your router to this device, then share " +
+		"your PUBLIC IP (search \"what is my ip\").\n" +
+		"• Joiner: type that public IP into \"Or join by IP\" below.\n" +
+		"\"Find Games\" only discovers hosts on the same Wi-Fi, not over the internet.",
+		_vh)
+	wan_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_wan_box.add_child(wan_text)
+	vbox.add_child(_wan_box)
 
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -196,12 +240,7 @@ func _on_join() -> void:
 	if ip.is_empty():
 		_set_status("Enter the host's IP address first.")
 		return
-	var err: Error = NetworkManager.join(ip)
-	if err != OK:
-		_set_status("Could not start joining (error %d)." % err)
-		return
-	_set_status("Connecting to %s…" % ip)
-	_arm_join_timeout()
+	_start_join(ip, NetworkManager.DEFAULT_PORT, ip)
 
 
 func _on_find() -> void:
@@ -240,12 +279,63 @@ func _on_join_discovered(hd: Dictionary) -> void:
 	if ip.is_empty():
 		return
 	var port: int = int(hd.get("game_port", 0))
-	var err: Error = NetworkManager.join(ip, port) if port > 0 else NetworkManager.join(ip)
-	if err != OK:
-		_set_status("Could not join (error %d)." % err)
+	if port <= 0:
+		port = NetworkManager.DEFAULT_PORT
+	_start_join(ip, port, str(hd.get("name", ip)))
+
+
+## Tap a remembered server to reconnect (GID-095 / TID-347).
+func _on_rejoin(entry: Dictionary) -> void:
+	_save_name()
+	var ip: String = str(entry.get("address", ""))
+	if ip.is_empty():
 		return
-	_set_status("Connecting to %s…" % ip)
+	var port: int = int(entry.get("port", NetworkManager.DEFAULT_PORT))
+	_start_join(ip, port, str(entry.get("label", ip)))
+
+
+## Shared join entry point: remembers the attempt (for record-on-success / retry),
+## starts the connection, and arms the watchdog.
+func _start_join(ip: String, port: int, label: String) -> void:
+	_pending_addr = ip
+	_pending_port = port
+	_pending_label = label
+	if _retry_row != null:
+		_retry_row.visible = false
+	var err: Error = NetworkManager.join(ip, port)
+	if err != OK:
+		_set_status("Could not start joining (error %d)." % err)
+		if _retry_row != null:
+			_retry_row.visible = true
+		return
+	_set_status("Connecting to %s…" % label)
 	_arm_join_timeout()
+
+
+func _on_retry() -> void:
+	if _pending_addr == "":
+		return
+	_start_join(_pending_addr, _pending_port, _pending_label)
+
+
+func _toggle_wan() -> void:
+	if _wan_box != null:
+		_wan_box.visible = not _wan_box.visible
+
+
+## Render one tap-to-rejoin button per remembered server.
+func _populate_recent(recent: Array) -> void:
+	if _recent_box == null:
+		return
+	for c in _recent_box.get_children():
+		c.queue_free()
+	for e in recent:
+		if not e is Dictionary:
+			continue
+		var ed: Dictionary = e
+		var label: String = "%s   (%s:%d)" % [
+			str(ed.get("label", "Server")), str(ed.get("address", "")), int(ed.get("port", 0))]
+		_recent_box.add_child(_make_button(label, _on_rejoin.bind(ed)))
 
 
 ## Watchdog: if neither connection_succeeded nor connection_failed has resolved
@@ -257,17 +347,24 @@ func _arm_join_timeout() -> void:
 		if not is_instance_valid(self) or not is_inside_tree():
 			return  # already connected & transitioned away
 		if not NetworkManager.is_active():
-			_set_status("Couldn't reach the host. Check: both on the SAME Wi-Fi, the IP is the host's Wi-Fi address, the host tapped Host Game first, and the router allows device-to-device (some networks block this).")
+			_set_status("Couldn't reach the host. Check: both on the SAME Wi-Fi (or, over the internet, the host forwarded UDP 24565 and you used their public IP), the host tapped Host Game first, and the router allows device-to-device (some networks block this).")
+			if _retry_row != null:
+				_retry_row.visible = true
 	)
 
 
 func _on_connection_succeeded() -> void:
+	# Remember this server so it appears in the Rejoin list next time (TID-347).
+	if _pending_addr != "":
+		MpProfile.add_recent_server(_pending_addr, _pending_port, _pending_label)
 	_set_status("Connected — entering Madrian…")
 	SceneManager.enter_map_coop(_COOP_MAP)
 
 
 func _on_connection_failed() -> void:
 	_set_status("Connection failed. Check the IP and that the host is running.")
+	if _retry_row != null:
+		_retry_row.visible = true
 	NetworkManager.leave()
 
 

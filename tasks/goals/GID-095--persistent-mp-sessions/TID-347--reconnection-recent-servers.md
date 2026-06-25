@@ -2,7 +2,7 @@
 
 **Goal:** GID-095
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-345
 
 ## Lock
@@ -45,12 +45,49 @@ _To be expanded when TID-345 lands._
 
 ## Plan
 
-_Written during Plan phase._
+1. **`MpProfile` recent-servers store** — persist a small `recent_servers` list
+   (`{address, port, label, last_session_id, last_joined}`) in `mp_profile.json`.
+   `add_recent_server(...)` (dedupe by address:port, most-recent-first, cap 6) +
+   `get_recent_servers()`. Re-host reuse already covered by `get_host_session_id`.
+2. **Lobby — Rejoin list** above "Find Games": one tap per recent entry →
+   `NetworkManager.join(address, port)`. Recorded on every successful connect
+   (host's `label` from discovery, or the typed IP).
+3. **WAN guidance** — a collapsible "Play over the internet" block: host forwards
+   UDP 24565 + shares its **public** IP (not the LAN IP `get_lan_ip` returns);
+   joiner uses Join by IP; Find Games is LAN-only.
+4. **Connection diagnostics** — track the pending attempt; on the 12 s watchdog or a
+   hard failure show a **Retry** button that re-runs the same join.
+5. **Reconnect UX** — on an unexpected client-side `session_ended` mid-session, route
+   back to the menu with a toast pointing at Co-op → Rejoin (the recent list makes it
+   one tap; the host's stable session id resumes the same world + character).
+6. Mobile/desktop parity (all tap targets, viewport-relative). Import + runner gate.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`autoloads/MpProfile.gd`** — recent-servers store persisted in `mp_profile.json`
+  (`recent_servers` field). `add_recent_server(address, port, label, session_id="")`
+  (dedupe by address:port, most-recent-first, cap 6) and `get_recent_servers()`.
+- **`scenes/ui/MultiplayerLobbyScene.gd`:**
+  - **Rejoin list** above "Find Games" — one tap per remembered server →
+    `NetworkManager.join(address, port)` (the host's stable session id resumes the
+    same world + character). Populated from `MpProfile.get_recent_servers()`.
+  - Recorded on every successful connect (`_on_connection_succeeded` →
+    `MpProfile.add_recent_server`), tracking the in-flight attempt via
+    `_pending_addr/_port/_label`. All three join paths (IP, discovered, rejoin) now
+    funnel through one `_start_join(ip, port, label)`.
+  - **Retry** button (hidden until a timeout/failure) re-runs the same attempt.
+  - **"Play over the internet"** collapsible guidance: forward UDP 24565, share the
+    **public** IP (not the LAN IP), Find Games is LAN-only. Watchdog message extended
+    with the WAN hint.
+- **Reconnect UX:** delivered via the persistent one-tap Rejoin list rather than
+  auto-navigating on `session_ended` — `NetworkManager` conflates the host's own
+  `leave()` with a client losing the host into one signal, so force-routing there
+  would regress existing host-exit flows. (Also: WorldScene already closes/flushes
+  `SessionStore` on session end, from TID-346.)
+- Mobile/desktop parity: every new control is a `Button` tap target, viewport-relative,
+  preserved across the resize rebuild.
+- Validation: headless import clean; `tests/runner.gd` 1572 passed / 0 failed.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Deferred to TID-348 (the goal's docs task).

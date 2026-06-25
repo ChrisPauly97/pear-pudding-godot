@@ -3,8 +3,11 @@
 > Status: up to **4 players** (GID-094 / TID-341) share one named map
 > (**madrian**) and see each other's avatar move (GID-090), and two players can
 > challenge each other to a real TCG **card battle** (GID-091, host-authoritative).
-> Enemies, chests, inventory, the infinite chunk world, and save sync remain out
-> of scope — see Limitations.
+> Each server now keeps a **persistent session** (GID-095): a shared world plus a
+> **per-player character** (deck/inventory/coins/level/skills) keyed to the player's
+> identity token and resumed on reconnect, all owned by the host authority and stored
+> separately from single-player saves. Live enemy/chest sync and the infinite chunk
+> world remain out of scope — see Limitations.
 
 ## Key Features
 
@@ -267,11 +270,120 @@ handles by restoring the shared world. **Flee** (pause menu) becomes a surrender
 an **opponent disconnect** mid-battle is a forfeit win for the remaining player
 (if the whole session ended, the client routes to the menu).
 
+## Persistent Sessions & Per-Player Progress (GID-095)
+
+Each server keeps a **persistent session**: shared world progress plus a roster of
+**per-player character records** (deck, inventory, coins, level, skills, position),
+each scoped to that session and resumed when the same player reconnects. The
+**authority** (the host in the listen-server model; a dedicated server in GID-097)
+owns the persistence — this goal ships on the host-is-authority P2P path, but nothing
+is host-specific, so GID-097 reuses the same interfaces.
+
+The per-player character is keyed by the **identity token** from GID-094
+(`MpProfile.get_token()`). A session character is **its own save, fully separate from
+single-player `save_slot_*.json`** — the two never read or write each other.
+
+### Pure model — `game_logic/net/SessionState.gd`
+
+`class_name SessionState`, scene-free, unit-tested (mirrors `GameState`). JSON-primitive
+only. Holds:
+
+- **Identity:** `session_id`, `display_name`.
+- **Shared world progress:** `current_map`, `world_seed`, `time_of_day`, `days_elapsed`,
+  `defeated_enemies`, `opened_chests`, `story_flags`.
+- **Roster:** `members: { token -> character_record }`.
+
+A **character record** is the per-player slice: `owned_cards` (instances),
+`player_deck` (UIDs), `coins`, `essence`, `xp`, `level`, `skill_points`,
+`unlocked_skills`, `magic_type`, `corruption_points`, `redemption_points`, and
+`map`/`x`/`z`. `to_dict`/`from_dict` round-trip with `CURRENT_SESSION_VERSION = 1` +
+an `_apply_migrations` scaffold (same shape as `SaveManager`). API:
+`ensure_member(token, name)` (resume or seed starter), `get_member`, `has_member`,
+`update_member`, and static `make_starter_character(token, name)` — the 12-card
+starter deck (same templates as `new_game`) with **token-salted UIDs** so two members'
+instances never collide in one file.
+
+**Card-instance shape is shared** with single-player via
+`game_logic/CardInstanceUtil.gd` (`make(uid, template_id, rarity, attack, health,
+cost)`), which `SaveManager.add_card_instance` now also uses, so `save.json` and the
+session files can never diverge.
+
+### Authority store — `autoloads/SessionStore.gd` (autoload)
+
+A `SaveManager`-style **dirty-flag batched writer** (2 s timer + close-notification
+flush) to `user://sessions/<session_id>.json` — one file per session so a device can
+host several worlds. It is a **completely separate code path** that NEVER touches
+`save_slot_*.json` (the isolation invariant). API: `open(session_id, display_name)`
+(load-or-create), `close(flush)`, `mark_dirty`, `flush_now`, plus `ensure_member` /
+`update_member` convenience that delegate to the open `SessionState` and mark dirty.
+Writes atomically via `.tmp` + rename. Clients never call `open`/`_write` — only the
+authority persists (single source of truth).
+
+The **session id is stable per host**: `MpProfile.get_host_session_id()` generates +
+persists one opaque id in `mp_profile.json`, so re-hosting reuses the same file.
+
+### Character handshake — `NetSync` + WorldScene (TID-346)
+
+Two reliable RPCs on `NetSync`:
+
+```gdscript
+@rpc("any_peer", "reliable", "call_remote")
+func recv_character(record: Dictionary, resume: bool) -> void   # host → client
+@rpc("any_peer", "reliable", "call_remote")
+func submit_character(record: Dictionary) -> void               # client → host intent
+```
+
+Flow (all guarded by `NetworkManager.is_active()` / `_session_adopted`):
+
+1. **Host** `_setup_coop` → `_setup_session()`: opens `SessionStore` with
+   `get_host_session_id()`, seeds the shared world fields, `ensure_member` for its own
+   token, and **adopts** its own record (restoring position on resume).
+2. A client's identity arrives (`_on_identity_received`); the host now knows the token,
+   so `_send_character_to_peer` resolves the member (resume or fresh starter via
+   `SessionStore.ensure_member`) and `rpc_id`s `recv_character` to that peer, recording
+   `peer_id → token`.
+3. The **client** `_on_character_received` calls
+   `SaveManager.adopt_session_character(record)` and restores position when `resume`.
+
+**Adoption — `SaveManager.adopt_session_character(record)`:** loads the record into the
+*same in-memory fields* co-op/PvP already read (collection, deck, loadout, coins,
+essence, xp, level, skills, magic, corruption/redemption), then **forces
+`_loaded = false`**. Because `save()`/`_flush_if_dirty` are no-ops until `_loaded`, the
+session character can **never** be written into `save_slot_*.json` — the same
+no-op-when-cold contract as `ensure_coop_deck`, extended to a full character. The
+matching `export_session_character()` snapshots that slice back to a record dict.
+
+**Persist-back** (`_tick_session_persist`, every 5 s in `_process`): the host writes
+its own member directly; clients `rpc_id(1, "submit_character", record)` with their
+latest snapshot (collection/deck/coins/level/skills + current position), which the host
+merges by the `peer_id → token` map and marks dirty. The host also flushes on a
+peer-disconnect, and `flush_now()` + `close()` on session end. `_session_adopted`
+survives a PvP battle re-attach (SessionStore stays open across battles).
+
+### Reconnection & recent servers (TID-347)
+
+- **Recent-servers store** in `MpProfile` (`recent_servers` in `mp_profile.json`):
+  `{address, port, label, last_session_id, last_joined}`, deduped by `address:port`,
+  most-recent-first, capped at 6. API: `add_recent_server(...)`, `get_recent_servers()`.
+- **Lobby Rejoin list** above "Find Games": one tap per remembered server →
+  `NetworkManager.join(address, port)`. Because the host's session id is stable, this
+  resumes the **same world + character**. Recorded on every successful connect; all
+  three join paths (IP / discovered / rejoin) funnel through one `_start_join`.
+- **Retry** button (hidden until a 12 s-watchdog timeout or hard failure) re-runs the
+  same attempt. **WAN guidance** is a collapsible block: forward UDP 24565 + share the
+  **public** IP (not the LAN IP `get_lan_ip` returns); Find Games is LAN-only.
+- Reconnect UX is delivered via the one-tap Rejoin list, *not* by auto-navigating on
+  `session_ended` — `NetworkManager` conflates the host's own `leave()` with a client
+  losing the host into the same signal, so force-routing there would regress host-exit.
+
 ## Integrations with Other Features
 
 | System | Integration |
 |---|---|
 | SceneManager | `enter_map_coop()` reuses `enter_map`; co-op lives entirely in `State.WORLD` |
+| SessionStore | Authority-owned session persistence (`user://sessions/<id>.json`), isolated from `save.json`; opened/closed by WorldScene co-op hooks |
+| SaveManager | `adopt_session_character` / `export_session_character` bridge a session record to the in-memory character co-op/PvP read, forcing `_loaded = false` for isolation; shares `CardInstanceUtil` for the instance shape |
+| MpProfile | `get_host_session_id` (stable session file) + recent-servers list for one-tap Rejoin, alongside the GID-094 token/name/color |
 | WorldScene | Hosts `NetSync`, spawns/despawns RemotePlayers under `Entities`, broadcasts at 15 Hz; reuses `get_terrain_height` |
 | Player | Local avatar's `_sprite.flip_h` / `_is_moving` are read (via `get()`) to build the broadcast payload |
 | MenuScene | "Co-op (Beta)" button opens the lobby overlay (same pattern as Settings) |
@@ -295,12 +407,14 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_player_identity.gd` | unit (auto-run) | PlayerIdentity encode/decode round-trip, color hex, robust defaults for short/blank/invalid payloads (10 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
+| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance (16 cases) (GID-095) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_coop_npeer_smoke.gd` | on-demand SceneTree | 3-peer (host + 2 clients) loopback: host avatar reaches both clients, and a **client→client** identity packet is relayed by the host (proves the server-relay path N-peer rendering depends on) + PlayerIdentity decode (GID-094) |
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |
 | `tests/net_pvp_smoke.gd` | on-demand SceneTree | Real ENet loopback: client intent → host apply → state-mirror round-trip |
 | `tests/net_pvp_client_smoke.gd` | on-demand SceneTree | Real ENet loopback with **two real `BattleScene` peers**: client (idx 1) launches + applies the host's first mirror without crashing (GID-092 / TID-336) |
 | `tests/net_rehost_smoke.gd` | on-demand SceneTree | host→leave→host repeated, and re-host without an explicit leave, all return OK (port freed) (GID-092 / TID-337) |
+| `tests/net_session_smoke.gd` | on-demand SceneTree | Real ENet loopback + live `SessionStore`/`SaveManager` autoloads: client identifies (token A) → host sends a seeded 12-card starter via `recv_character`; after persisted progress + close, re-opening the session resumes the **same** character (coins) + world progress from disk; `save_slot_*.json` proven untouched (GID-095 / TID-348) |
 
 Run the smoke tests with `godot --headless --path . -s tests/<file>` (exit 0 =
 pass). They are not in the auto-discovered unit suite because they need real
@@ -320,12 +434,15 @@ close one and confirm its avatar is freed.
   hosting-and-being-found on Android requires a future plugin. AP-isolation and
   guest networks block UDP discovery entirely — manual IP entry is the fallback.
 - **Up to 4 players** (`host()` default `max_clients = DEFAULT_MAX_CLIENTS = 3`,
-  i.e. 3 clients + host; GID-094 / TID-341). No reconnection yet (including no
-  reconnection into an in-progress PvP battle) — that lands in GID-095.
+  i.e. 3 clients + host; GID-094 / TID-341). **Reconnection** resumes a player's
+  session character + position and the shared world (GID-095), via the lobby's one-tap
+  Rejoin list; there is still no reconnection *into an in-progress PvP battle*.
 - **PvP is LAN/loopback only, 2 players**, no spectating, no wagers/ranked ladder.
-- **Not synced:** enemies/NPCs, chests, inventory, story flags, save data,
-  day/night, weather. Co-op assumes both players explore madrian together; PvP
-  battles are duel-style (no rewards) so there's nothing to sync back to saves.
+- **Not *live*-synced:** enemies/NPCs, chests, day/night, weather (live world-object
+  sync is GID-096). Per-player character progress (deck/coins/level/skills/position) IS
+  persisted per session (GID-095); shared world progress fields exist in the session
+  file but are only minimally populated until GID-096 writes them live. PvP battles are
+  duel-style (no rewards).
 - **Infinite chunk world not supported** — co-op uses a finite named map to avoid
   chunk synchronisation.
 - **Steam transport** is stubbed (`Transport.STEAM` returns null with a warning).
