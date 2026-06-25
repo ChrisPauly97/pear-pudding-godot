@@ -90,7 +90,7 @@
 | [GID-084](goals/GID-084--camera-smoothing/goal.md) | Camera Smoothing & Walk Animation | done | 2 / 2 |
 | [GID-085](goals/GID-085--test-coverage/goal.md) | Test Coverage Expansion | done | 3 / 3 |
 | [GID-086](goals/GID-086--corruption-redemption-accrual/goal.md) | Corruption & Redemption Points Accrual | done | 2 / 2 |
-| [GID-087](goals/GID-087--godot-version-spec-alignment/goal.md) | Godot Version & Spec Alignment | pending | 0 / 2 |
+| [GID-087](goals/GID-087--godot-version-spec-alignment/goal.md) | Godot Version & Spec Alignment | pending | 1 / 2 |
 | [GID-088](goals/GID-088--battle-code-quality/goal.md) | Battle Code Quality — GameState Decoupling & Native Drag | pending | 0 / 2 |
 | [GID-089](goals/GID-089--game-visual-polish/goal.md) | Visual Polish — World Art, Atmosphere & Props | pending | 0 / 6 |
 | [GID-090](goals/GID-090--coop-multiplayer-slice/goal.md) | Co-op Multiplayer Vertical Slice | done | 8 / 8 |

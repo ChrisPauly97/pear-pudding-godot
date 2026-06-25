@@ -2,7 +2,7 @@
 
 **Goal:** GID-087
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -19,6 +19,12 @@ The CI workflow URL and version string need to be checked against the actual CI 
 
 ## Plan
 
+Replace the two `4.4.1-stable` version strings in CLAUDE.md's "Installing Godot headless" bash snippet with `4.6-stable` to match the CI workflow and `project.godot`.
+
 ## Changes Made
 
+- `CLAUDE.md`: Updated wget URL and cp path in "Running Tests: Installing Godot" from `Godot_v4.4.1-stable_linux.x86_64` to `Godot_v4.6-stable_linux.x86_64`.
+
 ## Documentation Updates
+
+None — CLAUDE.md is the doc.

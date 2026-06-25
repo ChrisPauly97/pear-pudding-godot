@@ -437,9 +437,9 @@ tests cannot run.
 ### Installing Godot headless
 ```bash
 # Download Godot 4 headless (Linux 64-bit)
-wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip -O /tmp/godot.zip
+wget -q https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_linux.x86_64.zip -O /tmp/godot.zip
 unzip -o /tmp/godot.zip -d /tmp/godot
-cp /tmp/godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+cp /tmp/godot/Godot_v4.6-stable_linux.x86_64 /usr/local/bin/godot
 chmod +x /usr/local/bin/godot
 rm -rf /tmp/godot /tmp/godot.zip
 ```
