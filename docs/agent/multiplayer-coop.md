@@ -138,7 +138,11 @@ WorldScene co-op hooks (all guarded by `NetworkManager.is_active()` /
   `Entities` node; spawned on `peer_connected`, freed on `peer_disconnected` /
   `session_ended`.
 - `_broadcast_local_avatar(delta)` in `_process` at **15 Hz**: encodes the local
-  `(x, z, flip_h, moving)` and `rpc("recv_avatar", payload)`.
+  `(x, z, flip_h, moving)` and `rpc("recv_avatar", payload)`. **N-peer note:** in
+  ENet client-server, clients aren't directly connected, so a client's broadcast
+  reaches other clients only because Godot's `SceneMultiplayer.server_relay` (on by
+  default) has the host relay it. This is what lets up to 4 players all see each
+  other; it is exercised end-to-end by `tests/net_coop_npeer_smoke.gd`.
 - `_on_avatar_received(sender, payload)` decodes and feeds `set_net_state` (lazy-
   spawns if a packet arrives before the connect signal).
 - Remote avatars seed near the local player with a **deterministic per-peer ring
@@ -292,6 +296,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
+| `tests/net_coop_npeer_smoke.gd` | on-demand SceneTree | 3-peer (host + 2 clients) loopback: host avatar reaches both clients, and a **client→client** identity packet is relayed by the host (proves the server-relay path N-peer rendering depends on) + PlayerIdentity decode (GID-094) |
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |
 | `tests/net_pvp_smoke.gd` | on-demand SceneTree | Real ENet loopback: client intent → host apply → state-mirror round-trip |
 | `tests/net_pvp_client_smoke.gd` | on-demand SceneTree | Real ENet loopback with **two real `BattleScene` peers**: client (idx 1) launches + applies the host's first mirror without crashing (GID-092 / TID-336) |

@@ -34,7 +34,7 @@ sync — those are GID-095/096/097.
 |----|------|------|--------|------------|
 | TID-341 | Raise player cap to 4 + generalize avatar sync to N peers | agent | done | — |
 | TID-342 | Player identity — display name + color + stable token | agent | done | TID-341 |
-| TID-343 | Tests + docs for foundations | agent | pending | TID-341, TID-342 |
+| TID-343 | Tests + docs for foundations | agent | done | TID-341, TID-342 |
 | TID-344 | Update spec multiplayer scope (human-owned spec); resolves BID-022 | human-action | pending | — |
 
 ## Acceptance Criteria

@@ -97,7 +97,7 @@
 | [GID-091](goals/GID-091--pvp-card-battles/goal.md) | PvP Card Battles over Co-op | pending | 6 / 7 |
 | [GID-092](goals/GID-092--coop-multiplayer-bugfixes/goal.md) | Co-op Multiplayer Bug Fixes | done | 3 / 3 |
 | [GID-093](goals/GID-093--world-nav-ux-fixes/goal.md) | World Navigation & UX Fixes | done | 3 / 3 |
-| [GID-094](goals/GID-094--multiplayer-foundations/goal.md) | Multiplayer Foundations — N-Player Capacity & Identity | pending | 2 / 4 |
+| [GID-094](goals/GID-094--multiplayer-foundations/goal.md) | Multiplayer Foundations — N-Player Capacity & Identity | pending | 3 / 4 |
 | [GID-095](goals/GID-095--persistent-mp-sessions/goal.md) | Persistent Multiplayer Sessions & Per-Player Progress | pending | 0 / 4 |
 | [GID-096](goals/GID-096--coop-world-sync/goal.md) | Co-op World State Sync | pending | 0 / 3 |
 | [GID-097](goals/GID-097--dedicated-server/goal.md) | Dedicated Server Option | pending | 0 / 3 |
