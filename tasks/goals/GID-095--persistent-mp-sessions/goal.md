@@ -35,23 +35,28 @@ this goal defines (TID-350 in GID-096 depends on it).
 | TID-345 | Session model + persistence file (`SessionState` pure logic + authority-side save/load) | agent | done | GID-094 |
 | TID-346 | Per-player character handshake & session-scoped progress (adopt + persist back) | agent | done | TID-345 |
 | TID-347 | Reconnection + recent-servers list + join-by-address + public-IP/port-forward guidance | agent | done | TID-345 |
-| TID-348 | Tests + docs (persistence, handshake, reconnect) | agent | pending | TID-345, TID-346, TID-347 |
+| TID-348 | Tests + docs (persistence, handshake, reconnect) | agent | done | TID-345, TID-346, TID-347 |
 
 ## Acceptance Criteria
 
-- [ ] The authority persists a **session file** containing shared world progress
+- [x] The authority persists a **session file** containing shared world progress
       (map, defeated enemies, opened chests, day/night, seed) and a roster of
-      **per-member character records** keyed by player token.
-- [ ] On join, a player's token is matched to an existing member record (resume) or
+      **per-member character records** keyed by player token. *(SessionState +
+      SessionStore → `user://sessions/<id>.json`. Note: world-progress fields are
+      modelled + persisted but only minimally populated live until GID-096.)*
+- [x] On join, a player's token is matched to an existing member record (resume) or
       a new one is created (seeded starter character); the authority sends the
       character state and the client adopts deck/inventory/level/skills for the
-      session.
-- [ ] Per-player progress changes during the session are persisted back to the
-      session file (dirty-flag batched, like `SaveManager`).
-- [ ] Reconnecting with the same token resumes the same character + position and
-      the same world progress — verified by a smoke test.
-- [ ] A client keeps a **recent-servers** list and can rejoin a known server by
+      session. *(`_send_character_to_peer` → `recv_character` → `adopt_session_character`.)*
+- [x] Per-player progress changes during the session are persisted back to the
+      session file (dirty-flag batched, like `SaveManager`). *(`_tick_session_persist`
+      every 5 s → `update_member` + SessionStore's 2 s dirty-flag writer.)*
+- [x] Reconnecting with the same token resumes the same character + position and
+      the same world progress — verified by a smoke test. *(`net_session_smoke.gd`.)*
+- [x] A client keeps a **recent-servers** list and can rejoin a known server by
       address; join-by-address + public-IP/port-forward guidance is presented.
-- [ ] Single-player `save.json` is never read or written by session persistence;
-      the two are fully isolated.
-- [ ] Tests + `docs/agent/multiplayer-coop.md` updated.
+      *(MpProfile recent servers + lobby Rejoin list + WAN guidance + Retry.)*
+- [x] Single-player `save.json` is never read or written by session persistence;
+      the two are fully isolated. *(SessionStore is a separate path; adoption forces
+      `_loaded = false`; smoke test asserts `save_slot_*.json` untouched.)*
+- [x] Tests + `docs/agent/multiplayer-coop.md` updated.
