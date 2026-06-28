@@ -2,7 +2,7 @@
 
 **Goal:** GID-101
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -47,12 +47,18 @@ winning is visible and worth chasing.
 
 ## Plan
 
-_Written during Plan phase._
+Extend the PvP challenge handshake with an optional ante, thread ante_coins through SceneManager into BattleScene, award pot on win via `_on_pvp_battle_ended_coop`, and persist pvp stats into SessionState.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/net/SessionState.gd`**: bumped `CURRENT_SESSION_VERSION = 3`; `party_bounties: Array = []` field; `make_starter_character` returns `pvp_wins/losses/streak/best_streak = 0`; `to_dict`/`from_dict` include party_bounties; `_apply_migrations` v<2 adds party_bounties, v<3 backfills pvp stats on existing members.
+- **`scenes/world/NetSync.gd`**: `request_battle_wager(challenger_deck, ante_coins)` (reliable), `respond_battle_wager(accepted, responder_deck, ante_coins)` (reliable).
+- **`autoloads/SceneManager.gd`**: `enter_pvp_battle(local_player_idx, opponent_deck, ante_coins: int = 0)` — passes `pvp_ante_coins` to BattleScene overlay.
+- **`scenes/battle/BattleScene.gd`**: `pvp_ante_coins: int = 0`; `_pvp_check_game_over()` includes `"ante_coins"` in pvp_ended payload.
+- **`scenes/battle/BattleResultUI.gd`**: `show_pvp_result(did_win, coins_delta)` displays "+N coins (wagered)" (gold) or "-N coins (wagered)" (red) when `coins_delta != 0`.
+- **`scenes/world/WorldScene.gd`**: `_pvp_ante_coins: int`, `_pvp_ante_peer0/1: int`; `_request_wager_challenge(ante_coins)` / `_show_wager_accept_panel` / `_accept_wager_challenge` / `_decline_wager_challenge` / `_on_battle_wager_requested` / `_on_battle_wager_responded` / `_enter_pvp_wagered`; `_on_pvp_battle_ended_coop(did_win)` — `add_coins(_pvp_ante_coins * 2)` on win, updates pvp_wins/losses/streak/best_streak in SessionStore, defers pvp-active clear broadcast via `_pvp_ended_pending_broadcast`.
+- **`tests/unit/test_session_state.gd`**: 5 new cases for pvp stats fields, round-trip, migration v3 backfill, and party_bounties garbage tolerance.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/multiplayer-coop.md`: replaced "no rewards" Rewards section with wagered duel description; added Champion record subsection; updated Tests table.

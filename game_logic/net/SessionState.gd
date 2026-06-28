@@ -21,7 +21,9 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 ## Bump when the on-disk shape changes; `from_dict` runs `_apply_migrations` so old
 ## session files keep loading (mirrors SaveManager.CURRENT_SAVE_VERSION).
-const CURRENT_SESSION_VERSION: int = 1
+## v2 — adds party_bounties shared progress (TID-369).
+## v3 — adds pvp_wins/losses/streak/best_streak per character (TID-368).
+const CURRENT_SESSION_VERSION: int = 3
 
 ## Starter deck template ids — mirrors `SaveManager.new_game` / `ensure_coop_deck`
 ## so a freshly created session character can battle immediately.
@@ -48,6 +50,11 @@ var story_flags: Dictionary = {}
 # --- Roster: token -> character record dict ---------------------------------
 var members: Dictionary = {}
 
+# --- Shared party bounties (GID-101 / TID-369) ----------------------------
+# Array of bounty dicts with shared progress across all party members.
+# Shape: {id, type, target, count, progress, contributors: [tokens], completed}
+var party_bounties: Array = []
+
 
 # ---------------------------------------------------------------------------
 # Serialization
@@ -66,6 +73,7 @@ func to_dict() -> Dictionary:
 		"opened_chests": opened_chests.duplicate(),
 		"story_flags": story_flags.duplicate(true),
 		"members": members.duplicate(true),
+		"party_bounties": party_bounties.duplicate(true),
 	}
 
 
@@ -88,6 +96,8 @@ static func from_dict(data: Dictionary) -> SessionState:
 	s.story_flags = (sf as Dictionary).duplicate(true) if sf is Dictionary else {}
 	var mem: Variant = data.get("members", {})
 	s.members = (mem as Dictionary).duplicate(true) if mem is Dictionary else {}
+	var pb: Variant = data.get("party_bounties", [])
+	s.party_bounties = (pb as Array).duplicate(true) if pb is Array else []
 	return s
 
 
@@ -96,8 +106,27 @@ static func from_dict(data: Dictionary) -> SessionState:
 ## session-format changes never break existing files.
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
-	# No migrations yet — version 1 is the first shipped format. When the shape
-	# changes, add: `if ver < N: <backfill>; data["version"] = N`.
+	if ver < 2:
+		# v2: add party_bounties field.
+		if not data.has("party_bounties"):
+			data["party_bounties"] = []
+		data["version"] = 2
+	if ver < 3:
+		# v3: add pvp stats to each member character record.
+		var members: Variant = data.get("members", {})
+		if members is Dictionary:
+			for token in members.keys():
+				var rec: Variant = members[token]
+				if rec is Dictionary:
+					if not (rec as Dictionary).has("pvp_wins"):
+						(rec as Dictionary)["pvp_wins"] = 0
+					if not (rec as Dictionary).has("pvp_losses"):
+						(rec as Dictionary)["pvp_losses"] = 0
+					if not (rec as Dictionary).has("pvp_streak"):
+						(rec as Dictionary)["pvp_streak"] = 0
+					if not (rec as Dictionary).has("pvp_best_streak"):
+						(rec as Dictionary)["pvp_best_streak"] = 0
+		data["version"] = 3
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 
@@ -173,4 +202,9 @@ static func make_starter_character(token: String, member_name: String) -> Dictio
 		"map": "madrian",
 		"x": 0.0,
 		"z": 0.0,
+		# PvP champion record (GID-101 / TID-368)
+		"pvp_wins": 0,
+		"pvp_losses": 0,
+		"pvp_streak": 0,
+		"pvp_best_streak": 0,
 	}

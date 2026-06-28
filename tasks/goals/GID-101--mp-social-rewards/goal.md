@@ -25,11 +25,11 @@ enemies existing.
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-365 | Emote wheel & map pings | agent | pending | TID-355 |
-| TID-366 | Card trading & gifting | agent | pending | — |
-| TID-367 | Spectate a duel | agent | pending | — |
-| TID-368 | Wagered duels & Champion record | agent | pending | — |
-| TID-369 | Shared party bounties | agent | pending | TID-361 |
+| TID-365 | Emote wheel & map pings | agent | done | TID-355 |
+| TID-366 | Card trading & gifting | agent | done | — |
+| TID-367 | Spectate a duel | agent | done | — |
+| TID-368 | Wagered duels & Champion record | agent | done | — |
+| TID-369 | Shared party bounties | agent | done | TID-361 |
 
 ## Acceptance Criteria
 

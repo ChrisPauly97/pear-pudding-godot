@@ -2,7 +2,7 @@
 
 **Goal:** GID-101
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -42,12 +42,16 @@ peers that render but never input.
 
 ## Plan
 
-_Written during Plan phase._
+Fan existing `GameState` mirrors to registered spectator peers. A `_pvp_spectating` flag gates all input; `_spectators: Array[int]` fans mirrors. Host broadcasts `recv_pvp_active` RPC when a duel starts/ends so non-combatants can show/hide the Spectate button.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/battle/BattleScene.gd`**: `_pvp_spectating: bool`; `_spectators: Array[int]`; `_is_spectator()` returns `_pvp_spectating`; `_can_local_act()` blocks when spectating; `_broadcast_state()` fans to `_spectators`; `_on_spectate_request(sender)` adds sender to `_spectators` and sends current state; `_on_stop_spectate(sender)` removes sender.
+- **`scenes/battle/BattleNetSync.gd`**: `request_spectate()` (reliable, client→host) and `stop_spectate()` (reliable, client→host) RPCs.
+- **`autoloads/SceneManager.gd`**: `enter_pvp_spectator()` — sets `_pvp_spectating = true`, `_local_player_idx = 0`, transitions to BattleScene.
+- **`scenes/world/NetSync.gd`**: `recv_pvp_active(in_battle, peer_a, peer_b)` (reliable, authority→others), `request_spectate_pvp()` (reliable, client→authority).
+- **`scenes/world/WorldScene.gd`**: `_on_pvp_active_received` tracks `_pvp_active_peers`; shows/hides "Spectate" HUD button; `_request_spectate()` / `_on_spectate_pvp_requested(sender)` / `_on_spectate_approved()` — three-step spectate entry flow. `_pvp_ended_pending_broadcast` defers clear broadcast until WorldScene re-enters tree after battle.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/multiplayer-coop.md`: GID-101 spectate subsection; updated Limitations note (spectating now available).

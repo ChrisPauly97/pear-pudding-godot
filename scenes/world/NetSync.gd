@@ -180,3 +180,125 @@ func submit_story_flag(key: String, value: bool) -> void:
 func recv_story_flags_snapshot(flags: Dictionary) -> void:
 	if world_scene != null and world_scene.has_method("_on_story_flags_snapshot_received"):
 		world_scene._on_story_flags_snapshot_received(flags)
+
+
+# ── Emotes & map pings (GID-101 / TID-365) ───────────────────────────────────
+
+## Any peer → all peers: a preset emote expression. Unreliable_ordered — a dropped
+## emote is acceptable; the continuous 15 Hz avatar stream makes resilience cheap.
+## payload is SocialSync.encode_emote() output: [emote_id, map_name].
+@rpc("any_peer", "unreliable_ordered", "call_remote")
+func recv_emote(payload: Array) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_emote_received"):
+		world_scene._on_emote_received(sender, payload)
+
+
+## Any peer → all peers: a world-space tap-to-ping. Unreliable_ordered — a dropped
+## ping is fine; the marker auto-expires anyway.
+## payload is SocialSync.encode_ping() output: [x, z, kind, color_hex, map_name].
+@rpc("any_peer", "unreliable_ordered", "call_remote")
+func recv_ping(payload: Array) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_ping_received"):
+		world_scene._on_ping_received(sender, payload)
+
+
+# ── Card trading & gifting (GID-101 / TID-366) ───────────────────────────────
+
+## Client (initiator) → authority: propose a trade or gift. payload is
+## TradeSync.encode_offer(). Reliable — must not drop.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_trade_offer(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_trade_offer_submitted"):
+		world_scene._on_trade_offer_submitted(sender, payload)
+
+
+## Target peer → authority: accept or decline the pending offer. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_trade_confirm(trade_id: String, confirmed: bool) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_trade_confirm_submitted"):
+		world_scene._on_trade_confirm_submitted(sender, trade_id, confirmed)
+
+
+## Authority → both trade parties: outcome (proposed / completed / cancelled).
+## payload is TradeSync.encode_update(). Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_trade_update(payload: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_trade_update_received"):
+		world_scene._on_trade_update_received(payload)
+
+
+# ── PvP spectating (GID-101 / TID-367) ───────────────────────────────────────
+
+## Host → all non-participants: a PvP duel started/ended among party members.
+## Receivers show/hide the "Spectate" HUD affordance accordingly. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_pvp_active(in_battle: bool, peer_a: int, peer_b: int) -> void:
+	if world_scene != null and world_scene.has_method("_on_pvp_active_received"):
+		world_scene._on_pvp_active_received(in_battle, peer_a, peer_b)
+
+
+## Non-participant → host: "I want to spectate the active duel." Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func request_spectate_pvp() -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_spectate_pvp_requested"):
+		world_scene._on_spectate_pvp_requested(sender)
+
+
+## Host → requesting spectator: "you may enter the battle scene as a spectator."
+## Reliable. The receiver calls SceneManager.enter_pvp_spectator().
+@rpc("any_peer", "reliable", "call_remote")
+func recv_spectate_approved() -> void:
+	if world_scene != null and world_scene.has_method("_on_spectate_approved"):
+		world_scene._on_spectate_approved()
+
+
+# ── Wagered duels (GID-101 / TID-368) ────────────────────────────────────────
+
+## Alternative challenge that carries a coin ante. Like request_battle but the
+## challenger also proposes ante_coins staked by each player. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func request_battle_wager(challenger_deck: Array, ante_coins: int) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_battle_wager_requested"):
+		world_scene._on_battle_wager_requested(sender, challenger_deck, ante_coins)
+
+
+## Response to a wagered challenge: accepted carries the responder's deck +
+## confirms the agreed ante. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func respond_battle_wager(accepted: bool, responder_deck: Array, ante_coins: int) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_battle_wager_responded"):
+		world_scene._on_battle_wager_responded(sender, accepted, responder_deck, ante_coins)
+
+
+# ── Shared party bounties (GID-101 / TID-369) ────────────────────────────────
+
+## Authority → all clients: a party bounty's shared progress changed.
+## payload: {"bounty_id": String, "progress": int, "count": int, "completed": bool}. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_party_bounty_update(payload: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_party_bounty_update_received"):
+		world_scene._on_party_bounty_update_received(payload)
+
+
+## Client → authority: I contributed a party bounty progress event.
+## bounty_type / match_data mirror SaveManager.increment_bounty_progress. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_party_bounty_progress(bounty_type: String, match_data: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_party_bounty_progress_submitted"):
+		world_scene._on_party_bounty_progress_submitted(sender, bounty_type, match_data)
+
+
+## Authority → joining client: the full party bounty list (with progress) so a
+## late-joiner starts with the same shared state. payload: Array[Dictionary]. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_party_bounties_snapshot(bounties: Array) -> void:
+	if world_scene != null and world_scene.has_method("_on_party_bounties_snapshot_received"):
+		world_scene._on_party_bounties_snapshot_received(bounties)

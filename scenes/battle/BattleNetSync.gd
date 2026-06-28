@@ -80,3 +80,22 @@ func coop_battle_ended(payload: Dictionary) -> void:
 func request_coop_sync() -> void:
 	if battle_scene != null and battle_scene.has_method("_on_coop_sync_request"):
 		battle_scene._on_coop_sync_request()
+
+
+# ── Duel spectating (GID-101 / TID-367) ──────────────────────────────────────
+
+## Spectator → host: "register me as a spectator and send the current state."
+## The host adds the sender to _spectators and fans the next sync_state to them.
+@rpc("any_peer", "reliable", "call_remote")
+func request_spectate() -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if battle_scene != null and battle_scene.has_method("_on_spectate_request"):
+		battle_scene._on_spectate_request(sender)
+
+
+## Spectator → host: "I'm leaving the spectator view."
+@rpc("any_peer", "reliable", "call_remote")
+func stop_spectate() -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if battle_scene != null and battle_scene.has_method("_on_stop_spectate"):
+		battle_scene._on_stop_spectate(sender)
