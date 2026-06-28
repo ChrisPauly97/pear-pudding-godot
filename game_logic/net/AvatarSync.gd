@@ -6,20 +6,24 @@ extends RefCounted
 
 
 ## Pack local avatar state into a small array for RPC transmission.
-## Payload layout: [x: float, z: float, flip_h: bool, moving: bool]
-## y is intentionally omitted — receivers recompute it from terrain height.
-static func encode(x: float, z: float, flip_h: bool, moving: bool) -> Array:
-	return [x, z, flip_h, moving]
+## Payload layout: [x: float, z: float, flip_h: bool, moving: bool, map: String]
+## y is intentionally omitted — receivers recompute it from terrain height. `map` is
+## the sender's current map name so receivers can drop cross-map packets (TID-352);
+## it is optional/defaulted so older 4-element payloads still decode.
+static func encode(x: float, z: float, flip_h: bool, moving: bool, map: String = "") -> Array:
+	return [x, z, flip_h, moving, map]
 
 
 ## Unpack a received payload back into named fields.
-## Returns {x, z, flip_h, moving}. Explicit type vars guard against Variant inference.
+## Returns {x, z, flip_h, moving, map}. Explicit type vars guard against Variant
+## inference; `map` defaults to "" for short/garbage/legacy 4-element payloads.
 static func decode(payload: Array) -> Dictionary:
 	var x: float = payload[0]
 	var z: float = payload[1]
 	var flip_h: bool = payload[2]
 	var moving: bool = payload[3]
-	return {"x": x, "z": z, "flip_h": flip_h, "moving": moving}
+	var map: String = str(payload[4]) if payload.size() > 4 else ""
+	return {"x": x, "z": z, "flip_h": flip_h, "moving": moving, "map": map}
 
 
 ## Smooth-step a remote avatar's current position toward the latest received target.

@@ -549,6 +549,22 @@ division, and never pass a default to `Object.get()` (guard the `null` return
 explicitly, as is done for `id`). Always run the headless import after any `.gd`
 edit; a single parse error blocks every dependent scene.
 
+### Co-op avatar sync was map-blind — cross-map ghosts (fixed in GID-096 / TID-352)
+
+Co-op is pinned to a single shared map (madrian) **only at the lobby entry point**
+(`enter_map_coop("madrian")`), but the avatar sync layer never knew the map: the
+`AvatarSync` payload carried no map id, `NetSync`'s path `/root/WorldScene/NetSync` resolves
+on *any* map, and `_setup_coop` re-runs on every map load gated only by
+`NetworkManager.is_active()`. So when one player walked into `main` through a door, both
+peers kept rendering each other's avatar at coordinates belonging to a different map. Fix:
+thread the sender's `map_name` through `AvatarSync.encode/decode` (optional 5th element,
+defaulted for legacy payloads) and filter on receive — show/feed an avatar only when its map
+equals the local `map_name`, otherwise hide it (don't free; it holds its last same-map
+position for instant re-convergence). New avatars spawn `visible = false` until the first
+same-map packet. Invariant: a feature whose correctness depends on a shared map/world/seed
+must enforce that contract **in the sync layer** (carry the discriminator in the payload and
+filter on receive), not just at the entry point — the RPC transport is context-blind.
+
 ---
 
 ## Documentation: docs/agent/ Directory

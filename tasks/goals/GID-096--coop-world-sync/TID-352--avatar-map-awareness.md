@@ -2,7 +2,7 @@
 
 **Goal:** GID-096
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** GID-094
 
 ## Lock
@@ -54,25 +54,54 @@ and explicitly out of scope here.)
 
 ## Plan
 
-_To be written during /work-task. Sketch:_
+**Chosen behavior:** a remote avatar renders **only** for peers on the same `map_name`.
+A peer on a different map is **hidden** in the 3D world (not freed — its node persists so
+re-convergence is instant) and shown in the roster as greyed **"(elsewhere)"**. Genuine
+multi-map co-op (syncing transitions / differing geometry) stays out of scope.
 
-1. Add a map field to the avatar wire format (`AvatarSync.encode`/`decode`) — keep
-   it backward/garbage tolerant like the existing helpers, and update
+1. **Wire format** — `AvatarSync.encode(x, z, flip_h, moving, map_name := "")` appends the
+   sender's map; `decode` returns `map` (defaulting to `""` for short/garbage/old payloads,
+   matching the helper's tolerance style). Add round-trip + default cases to
    `tests/unit/test_coop_sync.gd`.
-2. `_broadcast_local_avatar` includes the local `map_name`; `_on_avatar_received`
-   drops (or hides the avatar for) any packet whose map != the local `map_name`.
-3. Hide / free a remote avatar when its peer's last-known map diverges from the
-   local map, and re-show it when they converge again.
-4. Decide and document the chosen behavior for the roster when peers are on
-   different maps (e.g. still listed but greyed / "elsewhere"), consistent with the
-   GID-096 acceptance-criteria style of documenting the rule.
+2. **Broadcast** — `_broadcast_local_avatar` passes the local `map_name`.
+3. **Receive filter** — `_on_avatar_received` records the sender's last-known map
+   (`_remote_player_maps[sender]`); the avatar is shown + `set_net_state` fed **only** when
+   `sender_map == map_name` (empty map = legacy/garbage → treat as same map, no regression).
+   On a different map the node is hidden and not updated (keeps its last same-map position,
+   so re-convergence resumes cleanly). Roster refreshed only when a peer's map actually changes.
+4. **No spawn flash** — newly spawned `RemotePlayer`s start `visible = false`; the first
+   same-map packet (≤66 ms at 15 Hz, broadcast unconditionally) reveals them. This kills the
+   cross-map ghost on a fresh map load too.
+5. **Roster** — peers on another map render greyed with an " (elsewhere)" suffix.
+6. **State hygiene** — `_remote_player_maps` cleared on disconnect / session end.
+7. Docs: `multiplayer-coop.md` (avatar sync is map-scoped) + a CLAUDE.md Bug Fix Learnings entry.
+
+Single-player untouched — all paths guarded by `_coop_active`.
 
 ## Changes Made
 
-_TBD._
+- **`game_logic/net/AvatarSync.gd`**: `encode` gains an optional `map := ""` 5th element;
+  `decode` returns `map` (defaulted to `""` for short/legacy 4-element payloads).
+- **`scenes/world/WorldScene.gd`** (all guarded by `_coop_active`):
+  - `_broadcast_local_avatar` now sends the local `map_name`.
+  - `_on_avatar_received` records `_remote_player_maps[sender]` and shows + feeds
+    `set_net_state` **only** when the sender's map equals the local `map_name`; otherwise the
+    avatar is hidden (node kept, holding its last same-map position). Roster refreshed only
+    when a peer's map changes.
+  - `_spawn_remote_player` spawns avatars `visible = false` (revealed by the first same-map
+    packet) — no cross-map ghost flash on map load.
+  - Roster (`_refresh_coop_roster`) greys off-map peers with an " (elsewhere)" suffix.
+  - `_remote_player_maps` declared + cleared on peer disconnect / session end.
+- **`tests/unit/test_coop_sync.gd`**: +3 cases — map round-trip, default-empty, legacy
+  4-element payload tolerance (now 21 cases); renamed the element-count test to 5.
+- Chosen rule documented: avatar renders only for same-map peers; off-map peers are
+  hidden + listed as "(elsewhere)"; empty map = same-map (no regression).
+- Validation: headless import clean; `tests/runner.gd` 1606 pass; `net_coop_smoke`,
+  `net_coop_npeer_smoke`, `net_world_sync_smoke`, `net_session_smoke` all PASS.
 
 ## Documentation Updates
 
-_TBD — update `docs/agent/multiplayer-coop.md` (avatar sync is map-scoped) and add
-a Bug Fix Learnings entry to `CLAUDE.md` (avatar sync was map-blind → cross-map
-ghosts)._
+- `docs/agent/multiplayer-coop.md`: new *Map-scoped avatar sync (TID-352)* subsection, updated
+  AvatarSync wire-format block + Tests row.
+- `CLAUDE.md`: Bug Fix Learnings entry — "Co-op avatar sync was map-blind — cross-map ghosts"
+  (invariant: enforce shared-map/world/seed contracts in the sync layer, not just at entry).

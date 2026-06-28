@@ -46,9 +46,10 @@ func test_encode_decode_preserves_moving_false() -> void:
 	assert_false(d["moving"], "moving false should survive round-trip")
 
 
-func test_encode_returns_four_elements() -> void:
-	var payload: Array = AvatarSync.encode(1.0, 2.0, true, true)
-	assert_eq(payload.size(), 4)
+func test_encode_returns_five_elements() -> void:
+	# Now carries the sender's map name as a 5th element (TID-352).
+	var payload: Array = AvatarSync.encode(1.0, 2.0, true, true, "madrian")
+	assert_eq(payload.size(), 5)
 
 
 func test_decode_returns_all_keys() -> void:
@@ -58,6 +59,29 @@ func test_decode_returns_all_keys() -> void:
 	assert_true(d.has("z"), "missing key z")
 	assert_true(d.has("flip_h"), "missing key flip_h")
 	assert_true(d.has("moving"), "missing key moving")
+	assert_true(d.has("map"), "missing key map")
+
+
+# ---------------------------------------------------------------------------
+# map field (TID-352) — round-trip + backward/garbage tolerance
+# ---------------------------------------------------------------------------
+
+func test_encode_decode_preserves_map() -> void:
+	var d: Dictionary = AvatarSync.decode(AvatarSync.encode(0.0, 0.0, false, false, "madrian"))
+	assert_eq(str(d["map"]), "madrian")
+
+
+func test_decode_default_map_is_empty() -> void:
+	# Omitted map arg encodes "" and round-trips to "".
+	var d: Dictionary = AvatarSync.decode(AvatarSync.encode(0.0, 0.0, false, false))
+	assert_eq(str(d["map"]), "")
+
+
+func test_decode_legacy_four_element_payload_map_empty() -> void:
+	# A pre-TID-352 4-element payload must still decode, with map defaulting to "".
+	var d: Dictionary = AvatarSync.decode([1.0, 2.0, true, false])
+	assert_almost_eq(float(d["x"]), 1.0)
+	assert_eq(str(d["map"]), "")
 
 
 # ---------------------------------------------------------------------------

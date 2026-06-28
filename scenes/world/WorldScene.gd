@@ -79,6 +79,7 @@ var _chest_nodes: Dictionary = {}   # id -> Node3D
 # Co-op multiplayer (GID-090) — guarded by _coop_active; inert in single-player
 var _remote_player_nodes: Dictionary = {}  # peer_id -> RemotePlayer Node3D
 var _remote_identities: Dictionary = {}    # peer_id -> {token, name, color} (TID-342)
+var _remote_player_maps: Dictionary = {}   # peer_id -> last-known map name (TID-352)
 var _coop_roster: VBoxContainer = null     # in-world session roster panel (TID-342)
 var _net_sync: Node = null
 var _coop_active: bool = false
@@ -533,6 +534,9 @@ func _spawn_remote_player(pid: int) -> void:
 	var rp: Node3D = _RemotePlayerScene.instantiate() as Node3D
 	rp.set("world_scene", self)
 	rp.init_from_data({"peer_id": pid, "x": spawn_x, "z": spawn_z})
+	# Map-scoped sync (TID-352): hidden until the first packet confirms the peer is on
+	# our map, so a peer on a different map never flashes a cross-map ghost on load.
+	rp.visible = false
 	_entity_root.add_child(rp)
 	_remote_player_nodes[pid] = rp
 	# Apply identity if it already arrived before the avatar spawned (lazy ordering).
@@ -548,6 +552,7 @@ func _on_coop_peer_disconnected(pid: int) -> void:
 		rp.queue_free()
 	_remote_player_nodes.erase(pid)
 	_remote_identities.erase(pid)
+	_remote_player_maps.erase(pid)
 	_session_token_by_peer.erase(pid)
 	# Flush so the leaving player's last persisted snapshot is on disk (host only).
 	if NetworkManager.is_host():
@@ -561,6 +566,7 @@ func _on_coop_session_ended() -> void:
 			rp.queue_free()
 	_remote_player_nodes.clear()
 	_remote_identities.clear()
+	_remote_player_maps.clear()
 	_session_token_by_peer.clear()
 	# Co-op world-object sync state (GID-096) is session-scoped; clear it so a fresh
 	# session starts from the deterministic spawn (persisted progress reloads via
@@ -760,6 +766,11 @@ func _refresh_coop_roster() -> void:
 		var d: Dictionary = _remote_identities.get(pid, {})
 		var nm: String = str(d.get("name", "Player"))
 		var col: Color = d.get("color", Color(0.7, 0.85, 1.0))
+		# Map-scoped sync (TID-352): peers on another map are greyed + "(elsewhere)".
+		var peer_map: String = str(_remote_player_maps.get(pid, map_name))
+		if peer_map != "" and peer_map != map_name:
+			nm += " (elsewhere)"
+			col = col.darkened(0.45)
 		_add_roster_row(nm, col)
 
 func _add_roster_row(text: String, col: Color) -> void:
@@ -783,8 +794,21 @@ func _on_avatar_received(sender: int, payload: Array) -> void:
 		# Packet arrived before the connect signal was processed — spawn now.
 		_spawn_remote_player(sender)
 		rp = _remote_player_nodes.get(sender) as Node
-	if is_instance_valid(rp) and rp.has_method("set_net_state"):
-		var d: Dictionary = _AvatarSync.decode(payload)
+	var d: Dictionary = _AvatarSync.decode(payload)
+	# Map-scoped avatar sync (TID-352): only render a peer that is on our map. An
+	# empty map (legacy/garbage payload) is treated as same-map so nothing regresses.
+	var sender_map: String = str(d.get("map", ""))
+	var prev_map: String = str(_remote_player_maps.get(sender, ""))
+	_remote_player_maps[sender] = sender_map
+	if prev_map != sender_map:
+		_refresh_coop_roster()
+	var same_map: bool = sender_map == "" or sender_map == map_name
+	if not is_instance_valid(rp):
+		return
+	(rp as Node3D).visible = same_map
+	# Only feed position while on the same map; otherwise the avatar holds its last
+	# same-map position so re-convergence resumes cleanly (no cross-map coordinates).
+	if same_map and rp.has_method("set_net_state"):
 		rp.set_net_state(d["x"], d["z"], d["flip_h"], d["moving"])
 
 # Broadcast the local avatar's state at 15 Hz. Called from _process.
@@ -803,7 +827,7 @@ func _broadcast_local_avatar(delta: float) -> void:
 		flip_h = spr.flip_h
 	var moving: bool = bool(_player.get("_is_moving"))
 	var payload: Array = _AvatarSync.encode(
-		_player.position.x, _player.position.z, flip_h, moving)
+		_player.position.x, _player.position.z, flip_h, moving, map_name)
 	_net_sync.rpc("recv_avatar", payload)
 
 # ── Co-op world-object sync (GID-096) ─────────────────────────────────────────

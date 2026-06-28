@@ -60,11 +60,14 @@ The discovery channel (below) is ENet-only — Steam's matchmaking replaces it.
 Static, scene-free, fully unit-tested:
 
 ```
-AvatarSync.encode(x, z, flip_h, moving) -> Array       # payload [x, z, flip_h, moving]
-AvatarSync.decode(payload) -> Dictionary               # {x, z, flip_h, moving}
+AvatarSync.encode(x, z, flip_h, moving, map := "") -> Array   # [x, z, flip_h, moving, map]
+AvatarSync.decode(payload) -> Dictionary               # {x, z, flip_h, moving, map}
 AvatarSync.interp(current, target, delta, rate) -> Vector3   # clamped lerp, no overshoot
 AvatarSync.spawn_offset(peer_id, tile_size) -> Vector2 # deterministic N-peer ring fan-out
 ```
+
+`map` is the sender's current map name (TID-352) so receivers can drop cross-map packets;
+it is optional/defaulted, so a legacy 4-element payload still decodes (`map == ""`).
 
 `y` is **never transmitted** — receivers recompute it locally from terrain height.
 
@@ -157,6 +160,27 @@ WorldScene co-op hooks (all guarded by `NetworkManager.is_active()` /
   (GID-094 / TID-341). The seed is cosmetic — once 15 Hz packets flow each avatar
   interpolates to its real position; Y is always terrain-recomputed by RemotePlayer.
   Camera logic is untouched (only the local player drives it).
+
+### Map-scoped avatar sync (TID-352)
+
+Co-op is designed for a **single shared map** (madrian), but that contract was previously
+enforced only at the lobby entry point — the avatar layer was map-blind, so a peer who walked
+into another map (e.g. `main` via a door) still rendered as a **cross-map ghost** at
+coordinates belonging to a different map. The fix makes the avatar layer honor the contract:
+
+- The avatar payload carries the sender's `map_name` (the 5th `AvatarSync` element).
+- `_on_avatar_received` records each peer's last-known map (`_remote_player_maps[peer_id]`)
+  and **only shows + feeds `set_net_state`** to an avatar whose map equals the local
+  `map_name`. A peer on a different map is **hidden** (its node persists, holding its last
+  same-map position, so re-convergence resumes instantly) — not freed.
+- Newly spawned `RemotePlayer`s start `visible = false` and are revealed by the first
+  same-map packet (≤66 ms at 15 Hz, broadcast unconditionally), so there is no ghost flash
+  on a fresh map load either.
+- **Roster rule:** an off-map peer stays listed but greyed with an **"(elsewhere)"** suffix.
+- An empty map field (legacy/garbage payload) is treated as same-map, so nothing regresses.
+
+This is **not** multi-map co-op (syncing transitions / differing geometry is a larger,
+out-of-scope feature) — it is correctness: you only see a partner who is actually with you.
 
 ### Session entry — lobby + SceneManager
 
@@ -479,7 +503,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 
 | File | Type | Covers |
 |---|---|---|
-| `tests/unit/test_coop_sync.gd` | unit (auto-run) | AvatarSync encode/decode round-trip + interpolation + N-peer `spawn_offset` fan-out (18 cases) |
+| `tests/unit/test_coop_sync.gd` | unit (auto-run) | AvatarSync encode/decode round-trip (incl. the TID-352 `map` field + legacy 4-element tolerance) + interpolation + N-peer `spawn_offset` fan-out (21 cases) |
 | `tests/unit/test_player_identity.gd` | unit (auto-run) | PlayerIdentity encode/decode round-trip, color hex, robust defaults for short/blank/invalid payloads (10 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
