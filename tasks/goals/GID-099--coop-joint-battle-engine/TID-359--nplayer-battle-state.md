@@ -2,7 +2,7 @@
 
 **Goal:** GID-099
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-355
 
 ## Lock
@@ -54,12 +54,27 @@ GID-099/GID-100 builds on this.
 
 ## Plan
 
-_Written during Plan phase._
+Extended `GameState` with a `coop_battle: bool` flag; all co-op logic gated behind it
+so the 2-player path is byte-for-byte unchanged. Added `setup_coop_battle(n_allies,
+ally_setup, boss_setup)` to initialize N ally PlayerStates + 1 boss. Updated
+`opponent()` to return boss during ally turns and lowest-HP alive ally during boss turns.
+Updated `end_turn()` to use modular arithmetic `(idx+1) % N`. Updated `is_game_over()`
+and `winner()` for N-player semantics. Updated `to_dict`/`from_dict` to carry the
+`coop_battle` flag and dynamic `player_turn_numbers`. Added `allies()`, `boss()`,
+`is_ally()` accessors. Added 42-case unit test file covering all of the above plus
+`CoopBattleScaling`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/battle/GameState.gd`: added `coop_battle: bool`, `setup_coop_battle`,
+  `allies()`, `boss()`, `is_ally()`, `_get_lowest_hp_ally()`. Modified `opponent()`,
+  `end_turn()`, `is_game_over()`, `winner()`, `to_dict()`, `from_dict()`.
+- `game_logic/battle/CoopBattleScaling.gd`: new pure static file with `scale_boss_hp`
+  and `scale_boss_tier`.
+- `tests/unit/test_coop_battle_state.gd`: 42-case unit test.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md`: added "Co-op Joint Battle Engine (GID-099)" section
+  covering the state model, scaling, networking, BattleScene hooks, SceneManager
+  integration, and tests.

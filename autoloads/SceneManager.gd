@@ -99,6 +99,7 @@ func _ready() -> void:
 	GameBus.battle_lost.connect(_on_battle_lost)
 	GameBus.battle_fled.connect(_on_battle_fled)
 	GameBus.pvp_battle_ended.connect(_on_pvp_battle_ended)
+	GameBus.coop_pve_battle_ended.connect(_on_coop_pve_battle_ended)
 	GameBus.duel_won.connect(_on_duel_won)
 	GameBus.duel_lost.connect(_on_duel_lost)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
@@ -473,6 +474,49 @@ func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: 
 		get_tree().root.add_child(_battle_overlay)
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
+
+## Enters a co-op PvE battle from the shared world (GID-099).
+## All N allies fight a single shared boss together. The authority (host or dedicated
+## server) owns the canonical GameState; each client sends intents and renders the
+## mirror. local_ally_idx is 0 for the host, 1..N-1 for each additional ally client.
+## all_ally_decks is an Array of N Arrays[Dictionary] (deck instances per ally, indexed
+## by ally_idx); only the authority uses all N; clients supply their own at idx 0 of
+## the outer array (the host re-orders by ally_idx).
+## enemy_data is the boss enemy_data dict (same shape as NPC-battle enemy_data).
+func enter_coop_pve_battle(local_ally_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
+	if _state != State.WORLD:
+		return
+	var captured_idx: int = local_ally_idx
+	var captured_decks: Array = all_ally_decks
+	var captured_edata: Dictionary = enemy_data
+	TransitionManager.transition(func() -> void:
+		_saved_world_scene = get_tree().current_scene
+		get_tree().root.remove_child(_saved_world_scene)
+		_battle_overlay = _battle_scene_packed.instantiate()
+		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
+		_battle_overlay.set("_coop_pve", true)
+		_battle_overlay.set("_local_player_idx", captured_idx)
+		_battle_overlay.set("_coop_ally_decks", captured_decks)
+		_battle_overlay.enemy_data = captured_edata
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
+	_state = State.BATTLE
+
+## Co-op PvE battle finished (all allies vs shared boss). Restore the shared world.
+## Mirrors _on_pvp_battle_ended but emitted by GameBus.coop_pve_battle_ended.
+func _on_coop_pve_battle_ended(_did_win: bool) -> void:
+	if _state != State.BATTLE:
+		return
+	if _battle_overlay != null:
+		_battle_overlay.queue_free()
+		_battle_overlay = null
+	if _saved_world_scene != null and NetworkManager.is_active():
+		_restore_world()
+	else:
+		if _saved_world_scene != null:
+			_saved_world_scene.queue_free()
+			_saved_world_scene = null
+		go_to_menu_direct()
 
 ## PvP battle finished (duel-style: no cards/coins/defeat tracking). Restore the
 ## shared co-op world. If the session ended (host vanished for a client), the

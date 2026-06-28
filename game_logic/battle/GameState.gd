@@ -11,7 +11,8 @@ var turn_number: int = 1
 # Injected by BattleScene; propagated to all PlayerState instances.
 var gamebus_emitter: Callable = Callable()
 # Per-player turn counters so each player ramps mana independently.
-# p0 starts at 1 (set by BattleScene); p1 starts at 0 and becomes 1 on first end_turn.
+# In the 2-player case: p0 starts at 1, p1 starts at 0.
+# In co-op: N ally entries + 1 boss entry, all starting at 0 except ally-0 (starts at 1).
 var player_turn_numbers: Array[int] = [1, 0]
 var friendly_duel: bool = false
 var wager_coins: int = 0
@@ -22,6 +23,12 @@ var puzzle_data_id: String = ""
 # battlefield_biome: -1 = dungeon/named map (no rule), 0..4 = biome id.
 var battlefield_biome: int = -1
 var is_night: bool = false
+
+# Co-op joint battle flag (GID-099).
+# When true: players[0..N-2] are allies, players[N-1] is the shared boss.
+# Turn order rotates modulo players.size() (all allies then boss).
+# Win: boss hero dead. Loss: all ally heroes dead.
+var coop_battle: bool = false
 
 func _init() -> void:
 	var p1 := PlayerState.new(0, false)
@@ -51,23 +58,95 @@ func _propagate_emitter() -> void:
 func current_player() -> PlayerState:
 	return players[current_player_idx]
 
+## Returns the opponent of the current player.
+## 2-player: always the other player.
+## Co-op ally turn: the shared boss.
+## Co-op boss turn: the alive ally with the lowest hero HP (boss targeting rule).
 func opponent() -> PlayerState:
-	return players[1 - current_player_idx]
+	if not coop_battle:
+		return players[1 - current_player_idx]
+	var boss_idx: int = players.size() - 1
+	if current_player_idx == boss_idx:
+		# Boss turn — target the alive ally with the lowest HP.
+		return _get_lowest_hp_ally()
+	# Ally turn — boss is the opponent.
+	return players[boss_idx]
+
+## Convenience accessor — always returns the boss PlayerState when coop_battle.
+func boss() -> PlayerState:
+	return players[players.size() - 1]
+
+## Returns all ally PlayerStates (players[0..N-2]) when coop_battle.
+## Falls back to [players[0]] for the 2-player case.
+func allies() -> Array[PlayerState]:
+	var result: Array[PlayerState] = []
+	if not coop_battle:
+		result.append(players[0])
+		return result
+	for i in range(players.size() - 1):
+		result.append(players[i])
+	return result
+
+## True when idx is an ally in a co-op battle.
+func is_ally(idx: int) -> bool:
+	return coop_battle and idx >= 0 and idx < players.size() - 1
+
+## Returns the alive ally PlayerState with the lowest hero HP.
+## Prefers the first alive ally if all have equal HP (or none is alive).
+func _get_lowest_hp_ally() -> PlayerState:
+	var result: PlayerState = players[0]
+	var lowest: int = players[0].hero.health
+	for i in range(players.size() - 1):
+		var p: PlayerState = players[i]
+		if p.hero.is_alive() and p.hero.health < lowest:
+			lowest = p.hero.health
+			result = p
+	return result
 
 func end_turn() -> void:
-	current_player_idx = 1 - current_player_idx
+	current_player_idx = (current_player_idx + 1) % players.size()
 	turn_number += 1
+	# Grow player_turn_numbers on demand (handles setup of 3-4 player co-op).
+	while player_turn_numbers.size() <= current_player_idx:
+		player_turn_numbers.append(0)
 	player_turn_numbers[current_player_idx] += 1
 	current_player().start_turn(player_turn_numbers[current_player_idx])
 	turn_ended.emit(current_player_idx)
 
+## In co-op: party wins when boss is dead; party loses when all allies are dead.
+## In 2-player: game over when any hero dies (unchanged).
 func is_game_over() -> bool:
+	if coop_battle:
+		# Boss dead → party wins.
+		if not players[players.size() - 1].hero.is_alive():
+			return true
+		# All allies dead → party loses.
+		for i in range(players.size() - 1):
+			if players[i].hero.is_alive():
+				return false
+		return true
 	for p in players:
 		if not p.hero.is_alive():
 			return true
 	return false
 
+## Returns the player_id of the winner (-1 if undecided).
+## In co-op: returns 0 when allies win (boss dead), boss's player_id when boss wins.
+## In 2-player: returns the surviving player_id.
 func winner() -> int:
+	if coop_battle:
+		var boss_idx: int = players.size() - 1
+		if not players[boss_idx].hero.is_alive():
+			return 0  # party wins — convention: return ally-side index 0
+		# All allies dead → boss wins.
+		var all_dead: bool = true
+		for i in range(boss_idx):
+			if players[i].hero.is_alive():
+				all_dead = false
+				break
+		if all_dead:
+			return boss_idx
+		return -1
 	for p in players:
 		if not p.hero.is_alive():
 			return 1 - p.player_id
@@ -151,7 +230,7 @@ func load_puzzle(p: Resource) -> void:
 	current_player_idx = 0
 	turn_number = 1
 
-## Sets battlefield context on this GameState and propagates to both PlayerStates.
+## Sets battlefield context on this GameState and propagates to all PlayerStates.
 ## Call once after building a new GameState for a non-resumed battle.
 func set_battlefield_context(biome: int, night: bool) -> void:
 	battlefield_biome = biome
@@ -160,14 +239,38 @@ func set_battlefield_context(biome: int, night: bool) -> void:
 		p.battlefield_biome = biome
 		p.is_night = night
 
+## Initialises a co-op battle with n_allies allies and one shared boss (GID-099).
+## Must be called on a freshly constructed GameState (replaces the default 2-player setup).
+## ally_setup is a Callable(idx) → void (caller builds each ally's deck/stats).
+## boss_setup is a Callable(PlayerState) → void (caller builds the boss).
+func setup_coop_battle(n_allies: int, ally_setup: Callable, boss_setup: Callable) -> void:
+	players.clear()
+	player_turn_numbers.clear()
+	coop_battle = true
+	var n: int = maxi(2, mini(n_allies, 4))  # clamp 2..4 allies
+	for i in range(n):
+		var ally := PlayerState.new(i, false)
+		players.append(ally)
+		player_turn_numbers.append(0)
+		ally_setup.call(i, ally)
+	player_turn_numbers[0] = 1  # ally-0 starts first
+	var boss_ps := PlayerState.new(n, true)
+	players.append(boss_ps)
+	player_turn_numbers.append(0)
+	boss_setup.call(boss_ps)
+	current_player_idx = 0
+
 func to_dict() -> Dictionary:
 	var player_arr: Array = []
 	for p: PlayerState in players:
 		player_arr.append(p.to_dict())
+	var ptn_arr: Array = []
+	for v: int in player_turn_numbers:
+		ptn_arr.append(v)
 	return {
 		"current_player_idx": current_player_idx,
 		"turn_number": turn_number,
-		"player_turn_numbers": [player_turn_numbers[0], player_turn_numbers[1]],
+		"player_turn_numbers": ptn_arr,
 		"players": player_arr,
 		"friendly_duel": friendly_duel,
 		"wager_coins": wager_coins,
@@ -175,19 +278,13 @@ func to_dict() -> Dictionary:
 		"puzzle_data_id": puzzle_data_id,
 		"battlefield_biome": battlefield_biome,
 		"is_night": is_night,
+		"coop_battle": coop_battle,
 	}
 
 func from_dict(d: Dictionary) -> void:
 	current_player_idx = int(d.get("current_player_idx", 0))
 	turn_number = int(d.get("turn_number", 1))
-	var ptn = d.get("player_turn_numbers", [turn_number, turn_number - 1])
-	if ptn is Array and ptn.size() >= 2:
-		player_turn_numbers[0] = int(ptn[0])
-		player_turn_numbers[1] = int(ptn[1])
-	else:
-		# Old save: derive from shared turn_number as a best-effort fallback
-		player_turn_numbers[0] = int(ceil(float(turn_number) / 2.0))
-		player_turn_numbers[1] = int(floor(float(turn_number) / 2.0))
+	coop_battle = bool(d.get("coop_battle", false))
 	friendly_duel = bool(d.get("friendly_duel", false))
 	wager_coins = int(d.get("wager_coins", 0))
 	puzzle_mode = bool(d.get("puzzle_mode", false))
@@ -202,4 +299,22 @@ func from_dict(d: Dictionary) -> void:
 			var ps := PlayerState.new(pid, ai)
 			ps.from_dict(pd)
 			players.append(ps)
+	# Restore player_turn_numbers — supports legacy 2-entry saves and new N-entry saves.
+	var ptn = d.get("player_turn_numbers", null)
+	player_turn_numbers.clear()
+	if ptn is Array and ptn.size() >= players.size():
+		for i in range(players.size()):
+			player_turn_numbers.append(int(ptn[i]))
+	elif ptn is Array and ptn.size() == 2 and players.size() >= 2:
+		# Legacy 2-entry save: carry forward p0 and p1 values, zero the rest.
+		player_turn_numbers.append(int(ptn[0]))
+		player_turn_numbers.append(int(ptn[1]))
+		for _i in range(players.size() - 2):
+			player_turn_numbers.append(0)
+	else:
+		# Fallback: derive from turn_number.
+		player_turn_numbers.append(int(ceil(float(turn_number) / 2.0)))
+		player_turn_numbers.append(int(floor(float(turn_number) / 2.0)))
+		for _i in range(players.size() - 2):
+			player_turn_numbers.append(0)
 	_propagate_emitter()

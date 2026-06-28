@@ -2,7 +2,7 @@
 
 **Goal:** GID-099
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-359
 
 ## Lock
@@ -47,12 +47,25 @@ shared boss and makes the boss reward a **soulbound card to every participant**.
 
 ## Plan
 
-_Written during Plan phase._
+Implemented `CoopBattleScaling.gd` (pure static) with `scale_boss_hp` (formula:
+base × (0.6·n + 0.4)) and `scale_boss_tier` (bonus = (n-1)/2, capped at 4). Applied in
+`BattleScene._build_coop_pve_state`. Reward fan-out: `_build_coop_reward_payload`
+computes card/rarity/stats/coins/xp once on the authority; `_finish_coop_pve` applies
+locally via `_apply_coop_pve_rewards` (coins via `SaveManager.add_coins`, XP via
+`SaveManager.add_xp`, card via `SaveManager.add_card_instance`). Each ally gets full
+(not split) coins/XP and their own soulbound card instance. Scaling tests included in
+`test_coop_battle_state.gd` (12 scaling cases).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/battle/CoopBattleScaling.gd`: new file with `scale_boss_hp`,
+  `scale_boss_tier`, `MIN_PARTY = 1`, `MAX_PARTY = 4`.
+- `scenes/battle/BattleScene.gd`: `_build_coop_pve_state` applies scaling; `_coop_pve_check_game_over`,
+  `_build_coop_reward_payload`, `_on_coop_battle_ended`, `_finish_coop_pve`,
+  `_apply_coop_pve_rewards` implement reward fan-out.
+- `tests/unit/test_coop_battle_state.gd`: scaling tests covering monotonicity,
+  exact formula values, and clamping at n=0 and n=99.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md`: GID-099 section (scaling and rewards sub-sections).

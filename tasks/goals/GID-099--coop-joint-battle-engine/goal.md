@@ -30,9 +30,9 @@ PvP changes (GID-091/GID-101).
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-359 | N-player co-op battle state model (N allies + shared boss) | agent | pending | TID-355 |
-| TID-360 | N-player host-authoritative battle networking | agent | pending | TID-359 |
-| TID-361 | Party-scaled enemies & shared soulbound drops | agent | pending | TID-359 |
+| TID-359 | N-player co-op battle state model (N allies + shared boss) | agent | done | TID-355 |
+| TID-360 | N-player host-authoritative battle networking | agent | done | TID-359 |
+| TID-361 | Party-scaled enemies & shared soulbound drops | agent | done | TID-359 |
 
 ## Acceptance Criteria
 

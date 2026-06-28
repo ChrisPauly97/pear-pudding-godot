@@ -26,6 +26,9 @@ signal fatigue_damage(player_id: int, damage: int)
 # PvP card battles (GID-091): duel-style end, no rewards. did_win is from the
 # local peer's perspective. SceneManager restores the shared co-op world.
 signal pvp_battle_ended(did_win: bool)
+# Co-op PvE joint battle (GID-099): all allies vs shared boss. did_win from local
+# perspective. SceneManager restores the shared co-op world.
+signal coop_pve_battle_ended(did_win: bool)
 
 # Story signals
 signal story_flag_set(flag: String)
