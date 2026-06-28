@@ -22,3 +22,6 @@ extends Resource
 @export var required_duelist_ids: PackedStringArray = []
 ## One-time legendary card awarded to the player on first defeat (champion NPCs only).
 @export var champion_reward_card: String = ""
+## Co-op group dialogue (GID-098): shown instead of `dialogue` when ≥2 players
+## are present on the same map. Leave blank to always use the solo dialogue.
+@export var dialogue_group: String = ""

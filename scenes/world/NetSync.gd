@@ -143,3 +143,40 @@ func relay_pvp_response(challenger_id: int, accepted: bool, responder_deck: Arra
 func notify_pvp_start(my_player_idx: int, opponent_deck: Array) -> void:
 	if world_scene != null and world_scene.has_method("_on_notify_pvp_start"):
 		world_scene._on_notify_pvp_start(my_player_idx, opponent_deck)
+
+
+# ── Co-op story mode (GID-098) ────────────────────────────────────────────────
+
+## Any peer → all others: follow me to this map (door or exit). Reliable —
+## a dropped packet would leave one player stranded on the wrong map.
+## target_map == "" means exit_map() (pop the stack). Routed to
+## WorldScene._on_map_transition_received on each receiver.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_map_transition(target_map: String, door_id: String) -> void:
+	if world_scene != null and world_scene.has_method("_on_map_transition_received"):
+		world_scene._on_map_transition_received(target_map, door_id)
+
+
+## Authority → all: a story flag was set by any peer. Reliable — flag state must
+## be consistent across the party. Routed to WorldScene._on_story_flag_received.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_story_flag(key: String, value: bool) -> void:
+	if world_scene != null and world_scene.has_method("_on_story_flag_received"):
+		world_scene._on_story_flag_received(key, value)
+
+
+## Client → authority: I want to set a story flag. Only the authority mutates
+## the session state and broadcasts to everyone (including the submitter).
+@rpc("any_peer", "reliable", "call_remote")
+func submit_story_flag(key: String, value: bool) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_story_flag_submitted"):
+		world_scene._on_story_flag_submitted(sender, key, value)
+
+
+## Authority → joining client: the current shared story flags so the late-joiner
+## starts with the same story state as the rest of the party.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_story_flags_snapshot(flags: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_story_flags_snapshot_received"):
+		world_scene._on_story_flags_snapshot_received(flags)

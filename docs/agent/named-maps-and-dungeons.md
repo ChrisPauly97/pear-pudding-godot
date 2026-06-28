@@ -21,7 +21,7 @@ All map data is stored in typed `extends Resource` classes. Each class has a `.u
 | `MapEnemy` | `game_logic/world/resources/MapEnemy.gd` | Enemy tile position + type key |
 | `MapChest` | `game_logic/world/resources/MapChest.gd` | Chest tile position + card ID list |
 | `MapDoor` | `game_logic/world/resources/MapDoor.gd` | Door tile position + destination map + flag key |
-| `MapNpc` | `game_logic/world/resources/MapNpc.gd` | NPC tile position + dialogue + npc_type + flag |
+| `MapNpc` | `game_logic/world/resources/MapNpc.gd` | NPC tile position + dialogue + npc_type + flag; `dialogue_group` for co-op |
 | `MapScroll` | `game_logic/world/resources/MapScroll.gd` | Scroll tile position + scroll_id + flag key |
 | `MapTrigger` | `game_logic/world/resources/MapTrigger.gd` | Scripted trigger tile position + event_id (extensibility) |
 | `MapRegion` | `game_logic/world/resources/MapRegion.gd` | Named rectangular region (extensibility) |
