@@ -48,6 +48,45 @@ func submit_character(record: Dictionary) -> void:
 		world_scene._on_character_submitted(sender, record)
 
 
+## Co-op world-object sync (GID-096) ───────────────────────────────────────────
+
+## Authority → clients: a discrete world event. payload is WorldObjectSync.encode_event()
+## output: [kind, id] (e.g. ["enemy_removed", "orc_3"], ["chest_opened", "dc_1"]).
+## Reliable — discrete state changes must not drop.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_world_event(payload: Array) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_world_event_received"):
+		world_scene._on_world_event_received(sender, payload)
+
+
+## Client → authority: a world-event intent (I engaged enemy id / opened chest id /
+## won against enemy id). Only the authority mutates shared/persisted state.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_world_event(payload: Array) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_world_event_submitted"):
+		world_scene._on_world_event_submitted(sender, payload)
+
+
+## Authority → a just-joined client: the current world snapshot (removed enemy ids +
+## opened object ids) so the client's deterministically-spawned nodes are reconciled
+## to the live/persisted state. payload is WorldObjectSync.encode_snapshot() output.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_world_snapshot(payload: Array) -> void:
+	if world_scene != null and world_scene.has_method("_on_world_snapshot_received"):
+		world_scene._on_world_snapshot_received(payload)
+
+
+## Authority → clients: a low-Hz batch of enemy positions for any *moving* enemy.
+## payload is EnemySync.encode_batch() output. Unreliable_ordered (like avatars) —
+## a dropped packet is corrected by the next one. Static enemies make this inert.
+@rpc("any_peer", "unreliable_ordered", "call_remote")
+func recv_enemy_positions(payload: Array) -> void:
+	if world_scene != null and world_scene.has_method("_on_enemy_positions_received"):
+		world_scene._on_enemy_positions_received(payload)
+
+
 ## PvP challenge (GID-091): A → B "challenge to battle", carrying A's deck.
 ## Reliable — must not drop. Routed to WorldScene._on_battle_requested.
 @rpc("any_peer", "reliable", "call_remote")

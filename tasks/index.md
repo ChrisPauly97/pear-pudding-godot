@@ -99,7 +99,7 @@
 | [GID-093](goals/GID-093--world-nav-ux-fixes/goal.md) | World Navigation & UX Fixes | done | 3 / 3 |
 | [GID-094](goals/GID-094--multiplayer-foundations/goal.md) | Multiplayer Foundations — N-Player Capacity & Identity | done | 4 / 4 |
 | [GID-095](goals/GID-095--persistent-mp-sessions/goal.md) | Persistent Multiplayer Sessions & Per-Player Progress | done | 4 / 4 |
-| [GID-096](goals/GID-096--coop-world-sync/goal.md) | Co-op World State Sync | pending | 0 / 4 |
+| [GID-096](goals/GID-096--coop-world-sync/goal.md) | Co-op World State Sync | done | 4 / 4 |
 | [GID-097](goals/GID-097--dedicated-server/goal.md) | Dedicated Server Option | pending | 0 / 3 |
 
 ## Backlog
@@ -123,6 +123,7 @@
 | ~~[BID-017](backlog/BID-017--corruption-redemption-points-never-accrue.md)~~ | ~~add_corruption_points / add_redemption_points never called — currencies may never accrue~~ | ~~design-inconsistency~~ | Promoted to GID-086 / TID-308, TID-309 |
 | ~~[BID-020](backlog/BID-020--always-visible-cantrip-buttons.md)~~ | ~~Cantrip HUD buttons always built regardless of unlock state~~ | ~~code-smell~~ | Resolved by GID-081 / TID-298 |
 | ~~[BID-022](archive/backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md)~~ | ~~Spec lists multiplayer as out-of-scope, but co-op + PvP shipped~~ | ~~spec-gap~~ | Resolved by GID-094 / TID-344 |
+| [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) | content-gap | GID-096 |
 
 ## Resolved Backlog
 
