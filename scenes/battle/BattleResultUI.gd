@@ -458,11 +458,11 @@ func show_duel_loss(wager: int) -> void:
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
-## PvP duel-style result (GID-091): no rewards, no coins. did_win is from the
-## local peer's perspective; both peers show the matching screen. The Continue
-## button emits pvp_battle_ended, which SceneManager handles by restoring the
-## shared co-op world.
-func show_pvp_result(did_win: bool) -> void:
+## PvP duel-style result (GID-091 / TID-368). did_win is from the local peer's
+## perspective; coins_delta is the net coin change from any wager (positive = won,
+## negative = lost, 0 = unwagered). The Continue button emits pvp_battle_ended,
+## which SceneManager handles by restoring the shared co-op world.
+func show_pvp_result(did_win: bool, coins_delta: int = 0) -> void:
 	if _float_layer:
 		_float_layer.hide()
 	var overlay := PanelContainer.new()
@@ -488,6 +488,19 @@ func show_pvp_result(did_win: bool) -> void:
 	sub_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
 	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(sub_lbl)
+
+	# Show wager result if a coin ante was staked (TID-368).
+	if coins_delta != 0:
+		var wager_lbl := Label.new()
+		if coins_delta > 0:
+			wager_lbl.text = "+%d coins (wagered)" % coins_delta
+			wager_lbl.modulate = Color(1.0, 0.85, 0.3)
+		else:
+			wager_lbl.text = "%d coins (wagered)" % coins_delta
+			wager_lbl.modulate = Color(1.0, 0.5, 0.5)
+		wager_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+		wager_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(wager_lbl)
 
 	var btn := Button.new()
 	btn.text = "Continue"

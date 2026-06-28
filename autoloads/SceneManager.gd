@@ -424,11 +424,12 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 ## detached but kept alive (like a normal battle) so both peers return to the SAME
 ## madrian session afterwards; the NetworkManager co-op session is NOT torn down.
 ## local_player_idx: 0 on the host (authority), 1 on the client.
-func enter_pvp_battle(local_player_idx: int, opponent_deck: Array) -> void:
+func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int = 0) -> void:
 	if _state != State.WORLD:
 		return
 	var captured_idx: int = local_player_idx
 	var captured_deck: Array = opponent_deck
+	var captured_ante: int = ante_coins
 	TransitionManager.transition(func() -> void:
 		_saved_world_scene = get_tree().current_scene
 		get_tree().root.remove_child(_saved_world_scene)
@@ -437,6 +438,7 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array) -> void:
 		_battle_overlay.set("_pvp", true)
 		_battle_overlay.set("_local_player_idx", captured_idx)
 		_battle_overlay.set("pvp_opponent_deck", captured_deck)
+		_battle_overlay.set("pvp_ante_coins", captured_ante)
 		_battle_overlay.enemy_data = {
 			"display_name": "Player",
 			"enemy_type": "",
@@ -474,6 +476,32 @@ func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: 
 		get_tree().root.add_child(_battle_overlay)
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
+
+## Enters a PvP battle as a read-only spectator (GID-101 / TID-367). The spectator
+## renders the board (from a neutral perspective, local_player_idx = -1) but sends
+## no intents. The BattleScene's _pvp_spectating flag blocks all input gates.
+func enter_pvp_spectator() -> void:
+	if _state != State.WORLD:
+		return
+	TransitionManager.transition(func() -> void:
+		_saved_world_scene = get_tree().current_scene
+		get_tree().root.remove_child(_saved_world_scene)
+		_battle_overlay = _battle_scene_packed.instantiate()
+		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
+		_battle_overlay.set("_pvp", true)
+		_battle_overlay.set("_local_player_idx", 0)   # neutral — same as host perspective
+		_battle_overlay.set("_pvp_spectating", true)
+		_battle_overlay.enemy_data = {
+			"display_name": "Player",
+			"enemy_type": "",
+			"is_boss": false,
+			"drop_pool": [],
+			"coin_reward": 0,
+		}
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
+	_state = State.BATTLE
+
 
 ## Enters a co-op PvE battle from the shared world (GID-099).
 ## All N allies fight a single shared boss together. The authority (host or dedicated

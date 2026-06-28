@@ -2,7 +2,7 @@
 
 **Goal:** GID-101
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -46,12 +46,15 @@ The core TCG social loop, entirely absent today: let two players trade or gift c
 
 ## Plan
 
-_Written during Plan phase._
+Host-authoritative two-sided trade flow via new RPCs on NetSync. Pure encode/decode in TradeSync.gd. WorldScene handles proposal → confirm → transfer with authority validation against SessionState.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/net/TradeSync.gd`** (new): `STATUS_PROPOSED/COMPLETED/CANCELLED`; `encode_offer(trade_id, initiator_peer, target_peer, card_uid, offer_coins, request_coins)`; `encode_update(trade_id, status, detail)`; `decode_offer`/`decode_update` (fully defaulted).
+- **`game_logic/net/TradeSync.gd.uid`** (new): `uid://ozomjrclae5d`
+- **`scenes/world/NetSync.gd`**: `submit_trade_offer(payload)` (reliable, client→authority), `submit_trade_confirm(trade_id, confirmed)` (reliable), `recv_trade_update(payload)` (reliable, authority→both parties).
+- **`scenes/world/WorldScene.gd`**: proximity-gated "Trade" HUD button; `_open_trade_offer` (initiates gift of top deck card); `_on_trade_offer_submitted` (authority validates giver owns the card via `SessionStore.get_state().get_member(token)`); `_on_trade_confirm_submitted` (authority executes transfer or cancels); `_transfer_card_in_session` (moves instance, re-keys UID into receiver's namespace, calls `SessionStore.mark_dirty()`); `_show_trade_accept_panel`; `_on_trade_update_received`. Unique-card guard prevents trading `is_unique` cards.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/multiplayer-coop.md`: GID-101 Social & Rewards section (card trading subsection).

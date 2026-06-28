@@ -58,6 +58,17 @@ var pvp_player0_deck: Array = []
 var pvp_player1_deck: Array = []
 var _pvp_peer_to_idx: Dictionary = {}  # peer_id (int) → player_idx (int), referee only
 
+# ── Duel spectating (GID-101 / TID-367) ──────────────────────────────────────
+# A spectator enters BattleScene with _pvp_spectating = true. They receive state
+# mirrors from the host but never send any intents. Input is fully blocked.
+# The host tracks spectator peer_ids in _spectators and fans sync_state to them.
+var _pvp_spectating: bool = false
+var _spectators: Array[int] = []      # host only: peer_ids watching this duel
+
+# Wager (GID-101 / TID-368): ante_coins for the current PvP duel; 0 = unwagered.
+# The host reads this to include wager info in the pvp_ended payload.
+var pvp_ante_coins: int = 0
+
 # ── Co-op PvE joint battle (GID-099) ─────────────────────────────────────────
 # All inert unless SceneManager sets _coop_pve = true before _ready.
 # _local_player_idx is the local ally index (0 = host/ally-0, 1..N-1 = ally clients).
@@ -1993,9 +2004,17 @@ func _is_pvp_host() -> bool:
 func _is_pvp_client() -> bool:
 	return (_pvp or _coop_pve) and not multiplayer.is_server()
 
+
+## True when this peer is a read-only spectator (TID-367). Spectators mirror
+## the state but never send intents; all input gates check this.
+func _is_spectator() -> bool:
+	return _pvp_spectating
+
 ## True when local input is allowed: it's our turn, AI/round-trip not pending,
 ## and we have a local player (not the headless referee, _local_player_idx = -1).
 func _can_local_act() -> bool:
+	if _pvp_spectating:
+		return false  # spectators never act
 	if _local_player_idx < 0:
 		return false  # dedicated-server referee has no local player
 	if _ai_thinking:
@@ -2008,6 +2027,7 @@ func _can_local_act() -> bool:
 
 ## Builds the relay node + canonical state for a PvP battle. Host builds both
 ## decks and starts turn 1; the client waits for the first sync_state mirror.
+## If _pvp_spectating is true, we skip simulation entirely and only receive mirrors.
 func _setup_pvp_battle() -> void:
 	_state = GameState.new()
 	_resolver.setup(_state)
@@ -2016,6 +2036,11 @@ func _setup_pvp_battle() -> void:
 	_net.name = "BattleNetSync"
 	add_child(_net)
 	_net.battle_scene = self
+	if _pvp_spectating:
+		# Spectator: send request_spectate so the host registers us and sends the state.
+		_connect_pvp_net_signals()
+		_net.rpc_id(1, "request_spectate")
+		return
 	_connect_pvp_net_signals()
 	if _is_pvp_host():
 		_build_pvp_decks()
@@ -2025,18 +2050,21 @@ func _setup_pvp_battle() -> void:
 
 var _pvp_sync_retry_accum: float = 0.0
 
-## Client: keep asking the host for the initial state until the first mirror lands
-## (handles the race where the host broadcasts before this scene exists).
+## Client/spectator: keep asking the host for the initial state until the first
+## mirror lands (handles the race where the host broadcasts before this scene exists).
 func _process(delta: float) -> void:
 	if _coop_pve:
 		_process_coop_sync(delta)
 		return
-	if not _is_pvp_client() or _last_applied_seq >= 0 or _net == null:
+	if not (_is_pvp_client() or _pvp_spectating) or _last_applied_seq >= 0 or _net == null:
 		return
 	_pvp_sync_retry_accum += delta
 	if _pvp_sync_retry_accum >= 0.4:
 		_pvp_sync_retry_accum = 0.0
-		_net.rpc_id(1, "request_sync")
+		if _pvp_spectating:
+			_net.rpc_id(1, "request_spectate")  # re-send until host registers us
+		else:
+			_net.rpc_id(1, "request_sync")
 
 ## Host: a client asked for the current state — send it.
 func _on_pvp_sync_request() -> void:
@@ -2108,15 +2136,19 @@ func _send_intent(payload: Dictionary) -> void:
 		_net.rpc_id(1, rpc_name, payload)
 
 ## Host → client: broadcast the full canonical state with a fresh seq.
+## Also fans to any registered spectators (TID-367).
 func _broadcast_state() -> void:
 	if not _is_pvp_host() or _net == null:
 		return
 	_state_seq += 1
-	_net.rpc("sync_state", BattleNetProtocol.encode_state(_state.to_dict(), _state_seq))
+	var payload: Dictionary = BattleNetProtocol.encode_state(_state.to_dict(), _state_seq)
+	_net.rpc("sync_state", payload)
+	for spec_id in _spectators:
+		_net.rpc_id(spec_id, "sync_state", payload)
 
-## Client: receive and apply an authoritative state mirror.
+## Client/spectator: receive and apply an authoritative state mirror.
 func _on_pvp_state(payload: Dictionary) -> void:
-	if not _is_pvp_client():
+	if not (_is_pvp_client() or _pvp_spectating):
 		return
 	var decoded: Dictionary = BattleNetProtocol.decode_state(payload)
 	if not bool(decoded["valid"]):
@@ -2362,17 +2394,20 @@ func _pvp_check_game_over() -> void:
 		var w: int = _state.winner()
 		_broadcast_state()
 		if _net != null:
-			_net.rpc("pvp_ended", {"winner_idx": w, "forfeit": false})
+			_net.rpc("pvp_ended", {"winner_idx": w, "forfeit": false, "ante_coins": pvp_ante_coins})
+			for spec_id in _spectators:
+				_net.rpc_id(spec_id, "pvp_ended", {"winner_idx": w, "forfeit": false, "ante_coins": 0})
 		_finish_pvp(w == _local_player_idx)
 		return
 	_broadcast_state()
 
-## Client: the host says the battle is over. Show the matching overlay.
+## Client/spectator: the host says the battle is over. Show the matching overlay.
 func _on_pvp_ended(payload: Dictionary) -> void:
-	if not _is_pvp_client() or _pvp_ended:
+	if not (_is_pvp_client() or _pvp_spectating) or _pvp_ended:
 		return
 	_pvp_ended = true
 	var w: int = int(payload.get("winner_idx", _opp_idx()))
+	pvp_ante_coins = int(payload.get("ante_coins", 0))
 	_finish_pvp(w == _local_player_idx)
 
 ## Host/referee: player_idx surrenders → the other player wins.
@@ -2384,7 +2419,9 @@ func _apply_remote_surrender(player_idx: int) -> void:
 	_state.players[player_idx].hero.health = 0
 	_broadcast_state()
 	if _net != null:
-		_net.rpc("pvp_ended", {"winner_idx": winner_idx, "forfeit": true})
+		_net.rpc("pvp_ended", {"winner_idx": winner_idx, "forfeit": true, "ante_coins": pvp_ante_coins})
+		for spec_id in _spectators:
+			_net.rpc_id(spec_id, "pvp_ended", {"winner_idx": winner_idx, "forfeit": true, "ante_coins": 0})
 	_finish_pvp(_local_player_idx >= 0 and winner_idx == _local_player_idx)
 
 ## Local surrender request (from the pause menu Flee). Host ends immediately;
@@ -2398,7 +2435,9 @@ func _pvp_surrender() -> void:
 		_state.players[_local_player_idx].hero.health = 0
 		_broadcast_state()
 		if _net != null:
-			_net.rpc("pvp_ended", {"winner_idx": 1 - _local_player_idx, "forfeit": true})
+			_net.rpc("pvp_ended", {"winner_idx": 1 - _local_player_idx, "forfeit": true, "ante_coins": pvp_ante_coins})
+			for spec_id in _spectators:
+				_net.rpc_id(spec_id, "pvp_ended", {"winner_idx": 1 - _local_player_idx, "forfeit": true, "ante_coins": 0})
 		_finish_pvp(false)
 	else:
 		_send_intent(BattleNetProtocol.encode_surrender())
@@ -2418,15 +2457,42 @@ func _on_pvp_session_ended() -> void:
 	_pvp_ended = true
 	_finish_pvp(true)
 
-## Shows the synced duel-style result overlay (no rewards) and emits the
-## SceneManager completion signal once dismissed. Headless referee has no
-## _result_ui — emit the signal directly so SceneManager returns to world.
+## Shows the synced duel-style result overlay and emits the SceneManager
+## completion signal once dismissed. Headless referee has no _result_ui —
+## emit the signal directly. Spectators dismiss back to world too.
 func _finish_pvp(did_win: bool) -> void:
 	_disconnect_pvp_net_signals()
+	# Remove self from spectator list if we are one (cleanup on battle end).
+	if _pvp_spectating and _net != null:
+		_net.rpc_id(1, "stop_spectate")
 	if _result_ui != null:
-		_result_ui.show_pvp_result(did_win)
+		_result_ui.show_pvp_result(did_win, pvp_ante_coins if did_win else -pvp_ante_coins)
 	elif _local_player_idx < 0:
 		GameBus.pvp_battle_ended.emit(false)
+	elif _pvp_spectating:
+		GameBus.pvp_battle_ended.emit(false)
+
+
+# ── Spectator handlers (GID-101 / TID-367) ───────────────────────────────────
+
+## Host: a peer wants to spectate — add them to the list and send the current state.
+func _on_spectate_request(sender: int) -> void:
+	if not _is_pvp_host() or _pvp_ended:
+		return
+	if not _spectators.has(sender):
+		_spectators.append(sender)
+	if _net != null and _state != null:
+		var payload: Dictionary = BattleNetProtocol.encode_state(_state.to_dict(), _state_seq)
+		_net.rpc_id(sender, "sync_state", payload)
+
+
+## Host: a spectator is leaving — remove them from the list.
+func _on_stop_spectate(sender: int) -> void:
+	_spectators.erase(sender)
+
+
+## Spectator: receives state mirrors via the same _on_pvp_state path (reused).
+## The _pvp_spectating flag ensures _can_local_act() returns false so no input fires.
 
 # ── Co-op PvE joint battle (GID-099) ─────────────────────────────────────────
 

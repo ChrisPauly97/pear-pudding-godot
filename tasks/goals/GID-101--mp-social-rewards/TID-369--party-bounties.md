@@ -2,7 +2,7 @@
 
 **Goal:** GID-101
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-361
 
 ## Lock
@@ -45,12 +45,15 @@ existing Bounty Board and the joint-battle enemies (GID-099).
 
 ## Plan
 
-_Written during Plan phase._
+Store `party_bounties: Array` in `SessionState` (host authority). Host generates daily bounties via `BountyGen.generate_daily(world_seed, day_index)` on `_setup_party_bounties`, persists via `SessionStore`. Progress RPCs fan through `submit_party_bounty_progress` → authority increments → `recv_party_bounty_update` → all peers. Clients receive snapshot on join.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/net/SessionState.gd`**: `party_bounties: Array = []` field; serialized in `to_dict`/`from_dict`; migration v<2 backfills it.
+- **`scenes/world/NetSync.gd`**: `recv_party_bounty_update(payload)` (reliable, authority→all), `submit_party_bounty_progress(bounty_type, match_data)` (reliable, client→authority), `recv_party_bounties_snapshot(bounties)` (reliable, authority→joining client).
+- **`scenes/world/WorldScene.gd`**: `_setup_party_bounties()` (host only — generates 3 daily bounties via `BountyGen.generate_daily(WORLD_SEED, day_idx)` if `party_bounties` is empty); `_build_party_bounty_panel()` / `_refresh_party_bounty_panel()` / `_add_bounty_row(bd)` — viewport-relative HUD panel; `submit_party_bounty_progress(bounty_type, match_data)` — public method for `_on_pvp_battle_ended_coop` and future subsystems; `_on_party_bounty_progress_submitted(sender, ...)` (authority: increments matching bounty, awards reward fan-out on completion); `_on_party_bounty_update_received` (client: refreshes HUD); `_on_party_bounties_snapshot_received(bounties)` (client: builds panel from snapshot). `_send_character_to_peer` also sends snapshot on peer join.
+- **`tests/unit/test_session_state.gd`**: tests for `party_bounties` default, round-trip, and garbage-field tolerance; migration v2 adds empty array.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/multiplayer-coop.md`: GID-101 party bounties subsection; updated SessionState description to include party_bounties.

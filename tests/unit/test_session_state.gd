@@ -169,3 +169,95 @@ func test_from_dict_tolerates_garbage_fields() -> void:
 	assert_true(s.members.is_empty())
 	assert_true(s.defeated_enemies.is_empty())
 	assert_true(s.story_flags.is_empty())
+
+
+# ---------------------------------------------------------------------------
+# PvP champion record (GID-101 / TID-368)
+# ---------------------------------------------------------------------------
+
+func test_starter_has_pvp_fields_zeroed() -> void:
+	var rec: Dictionary = SessionState.make_starter_character("tok", "Ada")
+	assert_eq(int(rec.get("pvp_wins", -1)), 0)
+	assert_eq(int(rec.get("pvp_losses", -1)), 0)
+	assert_eq(int(rec.get("pvp_streak", -1)), 0)
+	assert_eq(int(rec.get("pvp_best_streak", -1)), 0)
+
+
+func test_round_trip_preserves_pvp_stats() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var rec: Dictionary = s.get_member("tok")
+	rec["pvp_wins"] = 5
+	rec["pvp_losses"] = 2
+	rec["pvp_streak"] = 3
+	rec["pvp_best_streak"] = 4
+	s.update_member("tok", rec)
+	var restored := SessionState.from_dict(s.to_dict())
+	var r: Dictionary = restored.get_member("tok")
+	assert_eq(int(r.get("pvp_wins", -1)), 5)
+	assert_eq(int(r.get("pvp_losses", -1)), 2)
+	assert_eq(int(r.get("pvp_streak", -1)), 3)
+	assert_eq(int(r.get("pvp_best_streak", -1)), 4)
+
+
+func test_migration_v2_adds_party_bounties() -> void:
+	var data: Dictionary = {"version": 1, "session_id": "old", "members": {}}
+	var s := SessionState.from_dict(data)
+	assert_true(s.party_bounties is Array)
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_migration_v3_backfills_pvp_stats_on_existing_members() -> void:
+	# Simulate a v2 session with a member that has no pvp fields.
+	var data: Dictionary = {
+		"version": 2,
+		"session_id": "old",
+		"party_bounties": [],
+		"members": {
+			"tokA": {
+				"token": "tokA",
+				"display_name": "Ada",
+				"coins": 500,
+			}
+		}
+	}
+	var s := SessionState.from_dict(data)
+	var rec: Dictionary = s.get_member("tokA")
+	assert_eq(int(rec.get("pvp_wins", -1)), 0, "pvp_wins backfilled to 0")
+	assert_eq(int(rec.get("pvp_losses", -1)), 0, "pvp_losses backfilled to 0")
+	assert_eq(int(rec.get("pvp_streak", -1)), 0, "pvp_streak backfilled to 0")
+	assert_eq(int(rec.get("pvp_best_streak", -1)), 0, "pvp_best_streak backfilled to 0")
+	assert_eq(int(rec.get("coins", 0)), 500, "existing fields preserved")
+
+
+# ---------------------------------------------------------------------------
+# Party bounties (GID-101 / TID-369)
+# ---------------------------------------------------------------------------
+
+func test_party_bounties_defaults_to_empty_array() -> void:
+	var s := SessionState.new()
+	assert_true(s.party_bounties is Array)
+	assert_true(s.party_bounties.is_empty())
+
+
+func test_party_bounties_round_trip() -> void:
+	var s := SessionState.new()
+	s.party_bounties = [
+		{"id": "b1", "type": "kill", "target": "skeleton", "count": 5, "progress": 2,
+		 "contributors": ["tokA"], "completed": false},
+	]
+	var restored := SessionState.from_dict(s.to_dict())
+	assert_eq(restored.party_bounties.size(), 1)
+	var b: Dictionary = restored.party_bounties[0]
+	assert_eq(str(b.get("id", "")), "b1")
+	assert_eq(int(b.get("progress", -1)), 2)
+	assert_false(bool(b.get("completed", true)))
+
+
+func test_party_bounties_garbage_field_returns_empty_array() -> void:
+	var data: Dictionary = {
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"party_bounties": "not-an-array",
+	}
+	var s := SessionState.from_dict(data)
+	assert_true(s.party_bounties.is_empty())

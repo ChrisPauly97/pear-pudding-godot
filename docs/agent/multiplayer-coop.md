@@ -286,15 +286,105 @@ race where the host broadcasts before the client's scene exists).
    down (`_setup_coop`/`_teardown_coop` are idempotent and re-run from
    `_enter_tree` on world re-attach). Both peers return to the same madrian.
 
-### Rewards & end states (duel-style)
+### Rewards & end states
 
-PvP outcomes award **no cards, no coins, no XP** and don't mark enemies defeated
-(`enemy_data` carries an empty drop pool / zero coin reward). A synced
-victory/defeat overlay (`BattleResultUI.show_pvp_result`) shows on both peers;
-its Continue button emits `GameBus.pvp_battle_ended(did_win)`, which SceneManager
-handles by restoring the shared world. **Flee** (pause menu) becomes a surrender;
-an **opponent disconnect** mid-battle is a forfeit win for the remaining player
-(if the whole session ended, the client routes to the menu).
+PvP duels support an **optional ante (wager)**: during the challenge handshake, either
+peer can propose an ante via `NetSync.request_battle_wager(challenger_deck, ante_coins)` →
+the opponent sees an Accept/Decline panel → on accept, both sides deduct `ante_coins`
+(`SaveManager.add_coins(-ante)`) and call `SceneManager.enter_pvp_battle(local_idx,
+opp_deck, ante_coins)`. On battle end the winner's `_on_pvp_battle_ended_coop(did_win)`
+restores the pot (`add_coins(ante_coins * 2)`). For **unwagered** duels the flow is
+unchanged: no coins awarded, same "no cards/XP" result.
+
+`BattleResultUI.show_pvp_result(did_win, coins_delta)` shows `"+N coins (wagered)"` in gold
+or `"-N coins (wagered)"` in red when `coins_delta != 0`. The Continue button emits
+`GameBus.pvp_battle_ended(did_win)`, which SceneManager handles by restoring the shared
+world. **Flee** (pause menu) becomes a surrender; an **opponent disconnect** mid-battle
+is a forfeit win for the remaining player (if the whole session ended, the client routes
+to the menu).
+
+**Champion record (GID-101 / TID-368):** `SessionState` character records carry
+`pvp_wins`, `pvp_losses`, `pvp_streak`, and `pvp_best_streak` (added in v3 migration).
+`_on_pvp_battle_ended_coop` increments wins/streak or losses/resets streak and
+writes the updated record back via `SessionStore.update_member` + `mark_dirty`.
+A streak ≥ 3 earns the informal "Champion" status (visible in the session roster label).
+
+### Spectating a duel (GID-101 / TID-367)
+
+Non-combatant party members can **watch** an in-progress PvP duel read-only.
+
+- `NetSync.recv_pvp_active(in_battle, peer_a, peer_b)` (reliable, host→others) is
+  broadcast when a duel starts or ends, tracking which two peers are fighting.
+- A **"Spectate"** HUD button appears for non-combatants when `_pvp_active_peers` is
+  non-empty. Pressing it sends `NetSync.request_spectate_pvp()` → host grants → authority
+  calls `SceneManager.enter_pvp_spectator()` on the requesting peer.
+- `enter_pvp_spectator()` launches BattleScene with `_pvp_spectating = true`,
+  `_local_player_idx = 0` (host's perspective). All input is blocked (`_can_local_act()`
+  returns false); `_broadcast_state()` fans mirrors to the `_spectators` list so the
+  spectator sees live state.
+- `BattleNetSync.request_spectate()` / `stop_spectate()` register/deregister spectators
+  during the battle.
+- **WorldScene detach/re-attach:** when a PvP battle starts, SceneManager removes
+  WorldScene from the tree. The `pvp_battle_ended` signal fires while WorldScene is
+  detached (`_net_sync` is nil), so the broadcast of `recv_pvp_active(false)` is
+  deferred via `_pvp_ended_pending_broadcast = true` and fires on `_enter_tree()`.
+
+### Social features (GID-101 / TID-365 & TID-366)
+
+#### Emotes & map pings
+
+- **`game_logic/net/SocialSync.gd`** — pure encode/decode for emote packets
+  `[emote_id, map]` and ping packets `[x, z, kind, color_hex, map]`. Mirrors
+  `AvatarSync`. Six presets: `greet`, `thanks`, `help`, `attack`, `retreat`, `laugh`.
+- **Emote wheel**: a HUD button opens a 6-button `GridContainer` radial. Pressing a
+  preset broadcasts `NetSync.recv_emote(payload)` (unreliable_ordered) and shows a
+  transient `Label3D` bubble above the local avatar. Remote players receive it (same-map
+  filter via `_remote_player_maps`) and show it via `RemotePlayer.show_emote(text)` —
+  a `Label3D` above the name tag, auto-hidden after `EMOTE_DURATION = 3.0` seconds.
+- **Ping mode**: toggled with a HUD button; in ping mode, a world tap fires
+  `_handle_ping_tap` (ray-plane XZ intersection) → `NetSync.recv_ping(payload)`
+  (unreliable_ordered). A torus mesh marker with emission material pulses at the
+  pinged world position for `PING_DURATION = 5.0` seconds, then is freed. Kinds:
+  `"place"` (map location) and `"enemy"` (enemy marker). Color matches the pinger's
+  avatar color.
+
+#### Card trading & gifting
+
+- **`game_logic/net/TradeSync.gd`** — encode/offer/update helpers. `STATUS_PROPOSED`
+  / `STATUS_COMPLETED` / `STATUS_CANCELLED`.
+- Flow (proximity-gated, same as PvP challenge button): initiator clicks **"Trade"**
+  → `submit_trade_offer(payload)` → host validates giver still owns the card in
+  `SessionState`; if valid, sends `recv_trade_update(proposed)` to the target → target
+  sees Accept/Decline panel → `submit_trade_confirm(trade_id, accepted)` → host executes
+  `_transfer_card_in_session` (removes instance from giver's `owned_cards`/`player_deck`,
+  re-keys UID into receiver's namespace, adds to receiver's `owned_cards`) → broadcasts
+  `recv_trade_update(completed)` to both; on decline, `cancelled`.
+- Unique cards (`is_unique = true`) are blocked from trading. All persistence goes
+  through `SessionStore.mark_dirty()` — never `save_slot_*.json`.
+
+### Shared party bounties (GID-101 / TID-369)
+
+Party bounties are co-op goals the whole party works toward together.
+
+- **Storage**: `SessionState.party_bounties: Array` — shared state owned by the host
+  authority, persisted via `SessionStore`. Shape per bounty:
+  `{id, type, target, count, progress, contributors: [tokens], completed}`.
+- **Generation**: host calls `_setup_party_bounties()` in `_setup_coop()` if
+  `party_bounties` is empty — generates 3 daily bounties via
+  `BountyGen.generate_daily(WORLD_SEED, day_index)` so all peers compute the same list.
+- **Progress flow** (authority-records-then-broadcasts): any subsystem calls
+  `WorldScene.submit_party_bounty_progress(bounty_type, match_data)` — on the host this
+  increments the matching bounty directly; on a client it sends
+  `NetSync.submit_party_bounty_progress(type, data)` (reliable) to the host, which
+  increments, persists, and fans `recv_party_bounty_update(payload)` to all peers.
+- **Completion rewards**: when a bounty's `progress >= count`, the host iterates all
+  session members and calls `SessionStore.ensure_member(token, name)` to distribute
+  coins/cards; `completed` is set to `true`; a notification HUD message shows.
+- **Late-join snapshot**: `_send_character_to_peer` sends `recv_party_bounties_snapshot`
+  to the joining peer after the character record. Clients build their HUD panel from this.
+- **HUD panel**: viewport-relative `VBoxContainer` panel in the world HUD, showing
+  each bounty's `target` + `progress/count` + a check mark on completion. Refreshed
+  on each `recv_party_bounty_update`.
 
 ## Persistent Sessions & Per-Player Progress (GID-095)
 
@@ -507,7 +597,8 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_player_identity.gd` | unit (auto-run) | PlayerIdentity encode/decode round-trip, color hex, robust defaults for short/blank/invalid payloads (10 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
-| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance (16 cases) (GID-095) |
+| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; party_bounties default/round-trip/garbage tolerance (25 cases) (GID-095 / GID-101) |
+| `tests/unit/test_social_sync.gd` | unit (auto-run) | SocialSync emote round-trip for all 6 preset ids, map field, garbage/empty array tolerance; ping round-trip preserving coords/kind/color/map, partial array defaults, negative coords, constants sanity (16 cases) (GID-101 / TID-365) |
 | `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_coop_npeer_smoke.gd` | on-demand SceneTree | 3-peer (host + 2 clients) loopback: host avatar reaches both clients, and a **client→client** identity packet is relayed by the host (proves the server-relay path N-peer rendering depends on) + PlayerIdentity decode (GID-094) |
@@ -629,13 +720,13 @@ listen-server host (peer_id=1, local_idx=0); `_pvp_peer_to_idx` is empty so
   i.e. 3 clients + host; GID-094 / TID-341). **Reconnection** resumes a player's
   session character + position and the shared world (GID-095), via the lobby's one-tap
   Rejoin list; there is still no reconnection *into an in-progress PvP battle*.
-- **PvP is LAN/loopback only, 2 players**, no spectating, no wagers/ranked ladder.
+- **PvP is LAN/loopback only, 2 players**. Spectating (TID-367) and wagered duels (TID-368) are now supported; there is still no ranked ladder across sessions.
 - **Live-synced (GID-096):** shared **enemies** (engage-locks; defeat persists) and
   **chests** (first-opener-takes; open persists) now sync from the authority and resume on
   reconnect. Still **not** synced: NPC dialogue/story, day/night, weather, and the
-  per-player inventory (that is the GID-095 character, by design). PvP battles remain
-  duel-style (no rewards). The co-op map (madrian) happens to have no enemies/chests today,
-  so the sync is dormant in practice but verified by `net_world_sync_smoke.gd`.
+  per-player inventory (that is the GID-095 character, by design). The co-op map (madrian)
+  happens to have no enemies/chests today, so the sync is dormant in practice but verified
+  by `net_world_sync_smoke.gd`.
 - **Infinite chunk world not supported** — co-op uses a finite named map to avoid
   chunk synchronisation.
 

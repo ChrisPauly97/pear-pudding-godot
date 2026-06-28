@@ -104,7 +104,7 @@
 | [GID-098](goals/GID-098--coop-story-mode/goal.md) | Co-op Story Mode | pending | 0 / 4 |
 | [GID-099](goals/GID-099--coop-joint-battle-engine/goal.md) | Co-op Joint Battle Engine | done | 3 / 3 |
 | [GID-100](goals/GID-100--coop-battle-design/goal.md) | Co-op Battle Design — Square Battlefield & Cross-Board Cards | done | 3 / 3 |
-| [GID-101](goals/GID-101--mp-social-rewards/goal.md) | Multiplayer Social & Rewards | pending | 0 / 5 |
+| [GID-101](goals/GID-101--mp-social-rewards/goal.md) | Multiplayer Social & Rewards | done | 5 / 5 |
 
 ## Backlog
 

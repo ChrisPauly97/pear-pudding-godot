@@ -29,6 +29,10 @@ var _target_moving: bool = false
 var _display_name: String = ""
 var _tint: Color = Color(0.7, 0.85, 1.0, 1.0)
 
+## Emote bubble (TID-365): transient Label3D shown above the name tag.
+var _emote_label: Label3D = null
+var _emote_timer: float = 0.0
+
 
 ## Called by WorldScene after instantiation. Expected keys: peer_id, x, z.
 func init_from_data(data: Dictionary) -> void:
@@ -64,7 +68,29 @@ func _ready() -> void:
 	_label.position = Vector3(0.0, _sprite.position.y * 2.0 + 0.4, 0.0)
 	add_child(_label)
 
+	# Emote bubble (TID-365): positioned above the name tag; hidden until shown.
+	_emote_label = Label3D.new()
+	_emote_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_emote_label.no_depth_test = true
+	_emote_label.fixed_size = true
+	_emote_label.pixel_size = 0.0010
+	_emote_label.outline_size = 10
+	_emote_label.modulate = Color(1.0, 0.95, 0.6)
+	_emote_label.outline_modulate = Color(0.0, 0.0, 0.0, 0.85)
+	_emote_label.position = Vector3(0.0, _label.position.y + 0.5, 0.0)
+	_emote_label.visible = false
+	add_child(_emote_label)
+
 	_apply_identity()
+
+
+## Show an emote text above this avatar for EMOTE_DURATION seconds.
+func show_emote(text: String) -> void:
+	if _emote_label == null:
+		return
+	_emote_label.text = text
+	_emote_label.visible = true
+	_emote_timer = 3.0  # SocialSync.EMOTE_DURATION
 
 
 ## Push the current name/tint onto the sprite + label (no-op before _ready).
@@ -84,6 +110,12 @@ func set_net_state(x: float, z: float, flip_h: bool, moving: bool) -> void:
 
 
 func _process(delta: float) -> void:
+	# Tick emote bubble timer.
+	if _emote_timer > 0.0:
+		_emote_timer -= delta
+		if _emote_timer <= 0.0 and _emote_label != null:
+			_emote_label.visible = false
+
 	# Interpolate XZ toward the latest received target.
 	var target_pos := Vector3(_target_x, position.y, _target_z)
 	var new_pos: Vector3 = _AvatarSync.interp(position, target_pos, delta, _INTERP_RATE)

@@ -115,6 +115,35 @@ var _session_dedicated: bool = false      # client: true when connected to a ded
 var _pvp_relay_challenger_id: int = -1   # server: peer_id of the challenger awaiting response
 var _pvp_relay_challenger_deck: Array = [] # server: challenger's deck
 var _pvp_relay_target_id: int = -1       # server: peer_id of the challenged player
+# GID-101 — Social & Rewards ──────────────────────────────────────────────────
+# TID-365: Emotes & pings
+const _SocialSync = preload("res://game_logic/net/SocialSync.gd")
+var _emote_wheel_panel: Control = null   # the radial preset panel; nil when closed
+var _ping_mode_active: bool = false      # true while player has ping mode toggled on
+var _ping_btn: Button = null             # HUD toggle button for ping mode
+var _emote_btn: Button = null            # HUD button that opens the emote wheel
+var _ping_markers: Array[Node3D] = []    # active world-space ping markers
+var _emote_timer_self: float = 0.0      # local avatar emote bubble countdown
+var _emote_label_self: Label3D = null   # local avatar emote bubble
+# TID-366: Card trading
+const _TradeSync = preload("res://game_logic/net/TradeSync.gd")
+var _trade_window: Node = null           # the two-sided trade UI, nil when closed
+var _pending_trade: Dictionary = {}      # active trade offer held by authority
+var _trade_window_mine: Button = null    # "Trade" HUD button (proximity-gated)
+var _trade_target_peer: int = -1         # peer we'd trade with (nearest in range)
+# TID-367: Spectating
+var _pvp_active_peers: Array[int] = []  # host: peer_ids currently in a PvP duel
+var _spectate_btn: Button = null         # shown to non-participants while duel active
+# TID-368: Wagered duels & champion record
+var _pending_wager_from: int = -1        # peer_id of an incoming wagered challenge
+var _pending_wager_deck: Array = []      # challenger's deck for a wagered challenge
+var _pending_wager_coins: int = 0        # ante for the pending wagered challenge
+var _pvp_ante_coins: int = 0             # ante for the active duel (escrowed on start)
+var _pvp_ante_peer0: int = -1           # host peer in the active wager
+var _pvp_ante_peer1: int = -1           # client peer in the active wager
+# TID-369: Shared party bounties
+var _party_bounty_panel: VBoxContainer = null   # HUD panel showing shared progress
+var _pvp_ended_pending_broadcast: bool = false  # set in pvp_battle_ended; cleared on _enter_tree
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -472,6 +501,11 @@ func _ready() -> void:
 	GameBus.inventory_requested.connect(_clear_dest_marker)
 	GameBus.journal_requested.connect(_clear_dest_marker)
 
+	# GID-101 (TID-368): champion record + wager payout when PvP ends. Connected
+	# permanently (not in _setup_coop) because WorldScene is detached during battle.
+	if not GameBus.pvp_battle_ended.is_connected(_on_pvp_battle_ended_coop):
+		GameBus.pvp_battle_ended.connect(_on_pvp_battle_ended_coop)
+
 	_setup_coop()
 	_initial_ready_done = true
 
@@ -482,6 +516,16 @@ func _ready() -> void:
 func _enter_tree() -> void:
 	if _initial_ready_done and not _coop_active and NetworkManager.is_active():
 		_setup_coop()
+	# GID-101 (TID-367/368): broadcast pvp-clear to spectators now that the world is
+	# back in the tree and _net_sync is valid again.
+	if _pvp_ended_pending_broadcast and _net_sync != null and _coop_active:
+		_pvp_ended_pending_broadcast = false
+		_pvp_active_peers.clear()
+		for pid in multiplayer.get_peers():
+			_net_sync.rpc_id(int(pid), "recv_pvp_active", false,
+				_pvp_ante_peer0, _pvp_ante_peer1)
+		_pvp_ante_peer0 = -1
+		_pvp_ante_peer1 = -1
 
 func _exit_tree() -> void:
 	_teardown_coop()
@@ -517,6 +561,11 @@ func _setup_coop() -> void:
 	# Dedicated server has no player, no HUD, no identity to share.
 	if not NetworkManager.is_dedicated_server():
 		_ensure_challenge_button()
+		_ensure_social_buttons()
+	# GID-101 (TID-369): host initialises party bounties; all peers build the HUD.
+	_setup_party_bounties()
+	if not NetworkManager.is_dedicated_server():
+		_build_party_bounty_panel()
 
 	# Host: surface the LAN IP so the other player knows what to type into
 	# "Join by IP" (only shown on the first co-op entry, not on battle re-attach).
@@ -755,6 +804,9 @@ func _send_character_to_peer(peer_id: int, token: String, member_name: String) -
 	_net_sync.rpc_id(peer_id, "recv_character", rec, resume)
 	if NetworkManager.is_dedicated_server():
 		_net_sync.rpc_id(peer_id, "set_session_flags", {"dedicated": true})
+	# GID-101 (TID-369): send party bounties snapshot so joining client is in sync.
+	if st != null and not (st.party_bounties as Array).is_empty():
+		_net_sync.rpc_id(peer_id, "recv_party_bounties_snapshot", st.party_bounties)
 
 ## Move the local player to the position stored in a session record (same map only).
 func _restore_session_position(record: Dictionary) -> void:
@@ -1409,6 +1461,15 @@ func _enter_pvp(opponent_deck: Array) -> void:
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		_challenge_btn.hide()
 	var local_idx: int = 0 if NetworkManager.is_host() else 1
+	# GID-101 (TID-367): host broadcasts duel-start to spectators
+	if NetworkManager.is_host() and _net_sync != null:
+		var my_id: int = multiplayer.get_unique_id()
+		_pvp_ante_peer0 = my_id
+		_pvp_ante_peer1 = _challenge_target_peer
+		for pid in multiplayer.get_peers():
+			var p: int = int(pid)
+			if p != _challenge_target_peer:
+				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _challenge_target_peer)
 	SceneManager.enter_pvp_battle(local_idx, opponent_deck)
 
 ## Returns the biome and time context at the moment of engagement (GID-059).
@@ -2363,6 +2424,10 @@ func _process(delta: float) -> void:
 		# World-object sync (GID-096): host streams enemy positions; clients smooth.
 		_broadcast_enemy_positions(delta)
 		_interp_synced_enemies(delta)
+		# GID-101: social features tick
+		_tick_emote_self(delta)
+		_tick_ping_markers(delta)
+		_update_social_proximity()
 	if _dnc:
 		_dnc.tick(delta, _weather_tint)
 
@@ -3693,6 +3758,10 @@ func _on_weather_changed(weather_id: String, _duration: float) -> void:
 func _handle_tap_to_move(screen_pos: Vector2) -> void:
 	if _player == null or _camera == null:
 		return
+	# GID-101 (TID-365): ping mode intercepts taps and creates a world-space ping.
+	if _ping_mode_active and _coop_active:
+		_handle_ping_tap(screen_pos)
+		return
 	var tile: Vector2i = _screen_to_tile(screen_pos)
 	var tile_type: int = get_tile_global(tile.x, tile.y)
 	var is_walkable: bool = (tile_type == IsoConst.TILE_GRASS
@@ -3829,3 +3898,849 @@ func _spawn_return_portal() -> void:
 	}
 	_active_door_data["return_portal"] = portal_data
 	_door_nodes["return_portal"] = root
+
+
+# ── GID-101: Social & Rewards ─────────────────────────────────────────────────
+# TID-365: Emotes & map pings
+# TID-366: Card trading & gifting
+# TID-367: Spectate a duel
+# TID-368: Wagered duels & champion record
+# TID-369: Shared party bounties
+
+func _ensure_social_buttons() -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	if _emote_btn == null or not is_instance_valid(_emote_btn):
+		_emote_btn = Button.new()
+		_emote_btn.text = ":)"
+		_emote_btn.tooltip_text = "Emote"
+		_emote_btn.custom_minimum_size = Vector2(vh * 0.08, vh * 0.06)
+		_emote_btn.add_theme_font_size_override("font_size", int(vh * 0.026))
+		_emote_btn.position = Vector2(vp.x - vh * 0.09, vh * 0.87)
+		_emote_btn.pressed.connect(_toggle_emote_wheel)
+		_hud.add_child(_emote_btn)
+	if _ping_btn == null or not is_instance_valid(_ping_btn):
+		_ping_btn = Button.new()
+		_ping_btn.text = "Ping"
+		_ping_btn.tooltip_text = "Toggle ping mode — tap the world to place a ping"
+		_ping_btn.toggle_mode = true
+		_ping_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.06)
+		_ping_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+		_ping_btn.position = Vector2(vp.x - vh * 0.20, vh * 0.87)
+		_ping_btn.toggled.connect(func(on: bool) -> void: _ping_mode_active = on)
+		_hud.add_child(_ping_btn)
+	if _trade_window_mine == null or not is_instance_valid(_trade_window_mine):
+		_trade_window_mine = Button.new()
+		_trade_window_mine.text = "Trade"
+		_trade_window_mine.custom_minimum_size = Vector2(vh * 0.22, vh * 0.06)
+		_trade_window_mine.add_theme_font_size_override("font_size", int(vh * 0.024))
+		_trade_window_mine.position = Vector2((vp.x - vh * 0.22) * 0.5, vh * 0.88)
+		_trade_window_mine.hide()
+		_trade_window_mine.pressed.connect(_open_trade_offer)
+		_hud.add_child(_trade_window_mine)
+	if _spectate_btn == null or not is_instance_valid(_spectate_btn):
+		_spectate_btn = Button.new()
+		_spectate_btn.text = "Spectate Duel"
+		_spectate_btn.custom_minimum_size = Vector2(vh * 0.28, vh * 0.06)
+		_spectate_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+		_spectate_btn.position = Vector2((vp.x - vh * 0.28) * 0.5, vh * 0.76)
+		_spectate_btn.hide()
+		_spectate_btn.pressed.connect(_request_spectate)
+		_hud.add_child(_spectate_btn)
+
+
+func _update_social_proximity() -> void:
+	if _player == null:
+		return
+	var range_world: float = _CHALLENGE_RANGE * IsoConst.TILE_SIZE
+	var nearest_pid: int = -1
+	var nearest_d: float = range_world
+	for pid in _remote_player_nodes.keys():
+		var rp: Node3D = _remote_player_nodes[pid] as Node3D
+		if not is_instance_valid(rp) or not rp.visible:
+			continue
+		var d: float = Vector2(rp.position.x, rp.position.z).distance_to(
+			Vector2(_player.position.x, _player.position.z))
+		if d < nearest_d:
+			nearest_d = d
+			nearest_pid = int(pid)
+	_trade_target_peer = nearest_pid
+	if _trade_window_mine != null and is_instance_valid(_trade_window_mine):
+		_trade_window_mine.visible = nearest_pid != -1 and _pending_challenge_from == -1 \
+			and _pending_wager_from == -1
+	if _spectate_btn != null and is_instance_valid(_spectate_btn):
+		_spectate_btn.visible = _pvp_active_peers.size() >= 2
+
+
+# ── TID-365: Emotes ────────────────────────────────────────────────────────────
+
+func _toggle_emote_wheel() -> void:
+	if _emote_wheel_panel != null and is_instance_valid(_emote_wheel_panel):
+		_emote_wheel_panel.queue_free()
+		_emote_wheel_panel = null
+		return
+	_show_emote_wheel()
+
+
+func _show_emote_wheel() -> void:
+	if _emote_wheel_panel != null and is_instance_valid(_emote_wheel_panel):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.05, 0.1, 0.90)
+	style.corner_radius_top_left    = 8
+	style.corner_radius_top_right   = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	panel.add_theme_stylebox_override("panel", style)
+	panel.position = Vector2(vp.x - vh * 0.52, vh * 0.66)
+	_hud.add_child(panel)
+	_emote_wheel_panel = panel
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", int(vh * 0.010))
+	grid.add_theme_constant_override("v_separation", int(vh * 0.010))
+	panel.add_child(grid)
+	var emote_ids: Array[String] = _SocialSync.EMOTE_IDS
+	for eid: String in emote_ids:
+		var label: String = str(_SocialSync.EMOTE_LABELS.get(eid, eid))
+		var btn := Button.new()
+		btn.text = label
+		btn.custom_minimum_size = Vector2(vh * 0.14, vh * 0.055)
+		btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+		var captured: String = eid
+		btn.pressed.connect(func() -> void:
+			if _emote_wheel_panel != null and is_instance_valid(_emote_wheel_panel):
+				_emote_wheel_panel.queue_free()
+				_emote_wheel_panel = null
+			_send_emote(captured)
+		)
+		grid.add_child(btn)
+
+
+func _send_emote(emote_id: String) -> void:
+	if _net_sync == null or not _coop_active:
+		return
+	var payload: Array = _SocialSync.encode_emote(emote_id, map_name)
+	_net_sync.rpc("recv_emote", payload)
+	var label_text: String = str(_SocialSync.EMOTE_LABELS.get(emote_id, emote_id))
+	_show_emote_self(label_text)
+
+
+func _show_emote_self(text: String) -> void:
+	if _emote_label_self == null or not is_instance_valid(_emote_label_self):
+		_emote_label_self = Label3D.new()
+		_emote_label_self.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_emote_label_self.font_size = 28
+		_emote_label_self.modulate = Color(1.0, 1.0, 0.8)
+		if _player != null:
+			_player.add_child(_emote_label_self)
+			_emote_label_self.position = Vector3(0.0, 2.0, 0.0)
+	if _emote_label_self != null and is_instance_valid(_emote_label_self):
+		_emote_label_self.text = text
+		_emote_label_self.visible = true
+	_emote_timer_self = _SocialSync.EMOTE_DURATION
+
+
+func _tick_emote_self(delta: float) -> void:
+	if _emote_timer_self > 0.0:
+		_emote_timer_self -= delta
+		if _emote_timer_self <= 0.0 and _emote_label_self != null \
+				and is_instance_valid(_emote_label_self):
+			_emote_label_self.visible = false
+
+
+func _on_emote_received(sender: int, payload: Array) -> void:
+	var d: Dictionary = _SocialSync.decode_emote(payload)
+	var sender_map: String = str(d.get("map", ""))
+	if sender_map != "" and sender_map != map_name:
+		return
+	var rp: Node = _remote_player_nodes.get(sender) as Node
+	if not is_instance_valid(rp):
+		return
+	var emote_id: String = str(d.get("emote_id", ""))
+	var label_text: String = str(_SocialSync.EMOTE_LABELS.get(emote_id, emote_id))
+	if rp.has_method("show_emote"):
+		rp.call("show_emote", label_text)
+
+
+# ── TID-365: World-space pings ─────────────────────────────────────────────────
+
+func _handle_ping_tap(screen_pos: Vector2) -> void:
+	if _camera == null:
+		return
+	var ray_origin: Vector3 = _camera.project_ray_origin(screen_pos)
+	var ray_dir: Vector3 = _camera.project_ray_normal(screen_pos)
+	if abs(ray_dir.y) < 0.0001:
+		return
+	var t: float = -ray_origin.y / ray_dir.y
+	var world_pos: Vector3 = ray_origin + t * ray_dir
+	var my_col: Color = MpProfile.get_color()
+	var hex: String = "#%02x%02x%02x" % [
+		int(my_col.r * 255), int(my_col.g * 255), int(my_col.b * 255)]
+	_send_ping(world_pos.x, world_pos.z, _SocialSync.PING_PLACE, hex)
+
+
+func _send_ping(wx: float, wz: float, kind: String, color_hex: String) -> void:
+	if _net_sync == null or not _coop_active:
+		return
+	var payload: Array = _SocialSync.encode_ping(wx, wz, kind, color_hex, map_name)
+	_net_sync.rpc("recv_ping", payload)
+	_spawn_ping_marker(wx, wz, kind, color_hex)
+
+
+func _on_ping_received(sender: int, payload: Array) -> void:
+	var d: Dictionary = _SocialSync.decode_ping(payload)
+	var sender_map: String = str(d.get("map", ""))
+	if sender_map != "" and sender_map != map_name:
+		return
+	var wx: float = float(d.get("x", 0.0))
+	var wz: float = float(d.get("z", 0.0))
+	var kind: String = str(d.get("kind", _SocialSync.PING_PLACE))
+	var col_hex: String = str(d.get("color_hex", "#ffffff"))
+	_spawn_ping_marker(wx, wz, kind, col_hex)
+
+
+func _spawn_ping_marker(wx: float, wz: float, _kind: String, color_hex: String) -> Node3D:
+	var wy: float = get_terrain_height(wx, wz) + 0.3
+	var root := Node3D.new()
+	root.position = Vector3(wx, wy, wz)
+	_entity_root.add_child(root)
+	var mesh_inst := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.30
+	torus.outer_radius = 0.45
+	torus.rings = 10
+	torus.ring_segments = 12
+	mesh_inst.mesh = torus
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	var c: Color = Color.html(color_hex)
+	mat.albedo_color = Color(c.r, c.g, c.b, 0.9)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.emission_enabled = true
+	mat.emission = Color(c.r, c.g, c.b)
+	mat.emission_energy_multiplier = 1.5
+	mesh_inst.material_override = mat
+	root.add_child(mesh_inst)
+	var tw: Tween = create_tween().set_loops(3)
+	tw.tween_property(root, "scale", Vector3(1.4, 1.0, 1.4), 0.4)
+	tw.tween_property(root, "scale", Vector3(0.8, 1.0, 0.8), 0.4)
+	root.set_meta("ping_timer", _SocialSync.PING_DURATION)
+	_ping_markers.append(root)
+	return root
+
+
+func _tick_ping_markers(delta: float) -> void:
+	var to_remove: Array[Node3D] = []
+	for m: Node3D in _ping_markers:
+		if not is_instance_valid(m):
+			to_remove.append(m)
+			continue
+		var t: float = float(m.get_meta("ping_timer", 0.0)) - delta
+		m.set_meta("ping_timer", t)
+		if t <= 0.0:
+			m.queue_free()
+			to_remove.append(m)
+	for m: Node3D in to_remove:
+		_ping_markers.erase(m)
+
+
+# ── TID-366: Card trading & gifting ─────────────────────────────────────────────
+
+func _open_trade_offer() -> void:
+	if _trade_target_peer == -1 or _net_sync == null:
+		return
+	var deck: Array = _local_deck_for_net()
+	if deck.is_empty():
+		_show_tip("No cards in deck to trade.")
+		return
+	var top_card: Variant = deck[0]
+	if not (top_card is Dictionary):
+		_show_tip("No valid card to gift.")
+		return
+	var card_uid: String = str((top_card as Dictionary).get("uid", ""))
+	if card_uid == "":
+		_show_tip("No valid card UID.")
+		return
+	var trade_id: String = "%d_%d_%d" % [
+		multiplayer.get_unique_id(), _trade_target_peer, Time.get_ticks_msec()]
+	var payload: Dictionary = _TradeSync.encode_offer(
+		trade_id,
+		multiplayer.get_unique_id(),
+		_trade_target_peer,
+		card_uid,
+		0, 0)
+	if NetworkManager.is_host():
+		_on_trade_offer_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_trade_offer", payload)
+	_show_tip("Trade offer sent…")
+
+
+func _on_trade_offer_submitted(sender: int, payload: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	var offer: Dictionary = _TradeSync.decode_offer(payload)
+	if offer.is_empty():
+		return
+	var trade_id: String = str(offer.get("trade_id", ""))
+	var target_peer: int = int(offer.get("target_peer", -1))
+	var initiator_peer: int = int(offer.get("initiator_peer", sender))
+	var card_uid: String = str(offer.get("card_uid", ""))
+	var token_init: String = str(_session_token_by_peer.get(initiator_peer,
+		MpProfile.get_token() if initiator_peer == multiplayer.get_unique_id() else ""))
+	var st = SessionStore.get_state()
+	var valid: bool = false
+	if st != null and token_init != "":
+		var rec: Dictionary = st.get_member(token_init)
+		var owned: Array = rec.get("owned_cards", []) as Array
+		for card: Variant in owned:
+			if card is Dictionary and str((card as Dictionary).get("uid", "")) == card_uid:
+				valid = true
+				break
+	if not valid:
+		var cancel: Dictionary = _TradeSync.encode_update(
+			trade_id, _TradeSync.STATUS_CANCELLED, {})
+		if _net_sync != null:
+			_net_sync.rpc_id(initiator_peer, "recv_trade_update", cancel)
+		return
+	_pending_trade = offer
+	var update: Dictionary = _TradeSync.encode_update(
+		trade_id, _TradeSync.STATUS_PROPOSED, offer)
+	if target_peer == multiplayer.get_unique_id():
+		_on_trade_update_received(update)
+	elif _net_sync != null:
+		_net_sync.rpc_id(target_peer, "recv_trade_update", update)
+
+
+func _on_trade_confirm_submitted(sender: int, trade_id: String, confirmed: bool) -> void:
+	if not NetworkManager.is_host():
+		return
+	if str(_pending_trade.get("trade_id", "")) != trade_id:
+		return
+	var offer: Dictionary = _pending_trade.duplicate(true)
+	_pending_trade = {}
+	var init_p: int = int(offer.get("initiator_peer", -1))
+	var tgt_p: int = int(offer.get("target_peer", -1))
+	if not confirmed:
+		var cancel: Dictionary = _TradeSync.encode_update(
+			trade_id, _TradeSync.STATUS_CANCELLED, {})
+		if init_p == multiplayer.get_unique_id():
+			_on_trade_update_received(cancel)
+		elif _net_sync != null:
+			_net_sync.rpc_id(init_p, "recv_trade_update", cancel)
+		return
+	var card_uid: String = str(offer.get("card_uid", ""))
+	var st = SessionStore.get_state()
+	if st != null:
+		var token_i: String = str(_session_token_by_peer.get(init_p,
+			MpProfile.get_token() if init_p == multiplayer.get_unique_id() else ""))
+		var token_t: String = str(_session_token_by_peer.get(tgt_p,
+			MpProfile.get_token() if tgt_p == multiplayer.get_unique_id() else ""))
+		_transfer_card_in_session(st, token_i, token_t, card_uid)
+	var complete: Dictionary = _TradeSync.encode_update(
+		trade_id, _TradeSync.STATUS_COMPLETED, offer)
+	if init_p == multiplayer.get_unique_id():
+		_on_trade_update_received(complete)
+	elif _net_sync != null:
+		_net_sync.rpc_id(init_p, "recv_trade_update", complete)
+	if tgt_p == multiplayer.get_unique_id():
+		_on_trade_update_received(complete)
+	elif _net_sync != null:
+		_net_sync.rpc_id(tgt_p, "recv_trade_update", complete)
+
+
+func _transfer_card_in_session(st: RefCounted, giver_token: String, target_token: String, card_uid: String) -> void:
+	if giver_token == "" or target_token == "":
+		return
+	var g_rec: Dictionary = st.get_member(giver_token)
+	var t_rec: Dictionary = st.get_member(target_token)
+	if g_rec.is_empty() or t_rec.is_empty():
+		return
+	var g_owned: Array = g_rec.get("owned_cards", []) as Array
+	var g_deck: Array = g_rec.get("player_deck", []) as Array
+	var card_inst: Dictionary = {}
+	for i: int in range(g_owned.size() - 1, -1, -1):
+		var c: Variant = g_owned[i]
+		if c is Dictionary and str((c as Dictionary).get("uid", "")) == card_uid:
+			card_inst = (c as Dictionary).duplicate(true)
+			g_owned.remove_at(i)
+			break
+	if card_inst.is_empty():
+		return
+	g_deck.erase(card_uid)
+	g_rec["owned_cards"] = g_owned
+	g_rec["player_deck"] = g_deck
+	var new_uid: String = card_uid + "_gift_" + target_token.substr(0, 4)
+	card_inst["uid"] = new_uid
+	var t_owned: Array = t_rec.get("owned_cards", []) as Array
+	t_owned.append(card_inst)
+	t_rec["owned_cards"] = t_owned
+	st.update_member(giver_token, g_rec)
+	st.update_member(target_token, t_rec)
+	SessionStore.mark_dirty()
+
+
+func _on_trade_update_received(payload: Dictionary) -> void:
+	var update: Dictionary = _TradeSync.decode_update(payload)
+	var status: String = str(update.get("status", ""))
+	var trade_id: String = str(update.get("trade_id", ""))
+	match status:
+		_TradeSync.STATUS_PROPOSED:
+			var detail: Dictionary = update.get("detail", {}) as Dictionary
+			_show_trade_accept_panel(trade_id, detail)
+		_TradeSync.STATUS_COMPLETED:
+			SceneManager.show_toast("Trade Complete", "Card transferred successfully!")
+		_TradeSync.STATUS_CANCELLED:
+			_show_tip("Trade cancelled.")
+
+
+func _show_trade_accept_panel(trade_id: String, offer: Dictionary) -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var layer := CanvasLayer.new()
+	layer.layer = 182
+	add_child(layer)
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	layer.add_child(panel)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vh * 0.02))
+	panel.add_child(vbox)
+	var lbl := Label.new()
+	var card_uid: String = str(offer.get("card_uid", "unknown"))
+	lbl.text = "Trade offer received!\nCard: %s\nAccept?" % card_uid
+	lbl.add_theme_font_size_override("font_size", int(vh * 0.026))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(lbl)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(vh * 0.03))
+	vbox.add_child(row)
+	var captured_id: String = trade_id
+	var accept_btn := Button.new()
+	accept_btn.text = "Accept"
+	accept_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.06)
+	accept_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	accept_btn.pressed.connect(func() -> void:
+		layer.queue_free()
+		if NetworkManager.is_host():
+			_on_trade_confirm_submitted(multiplayer.get_unique_id(), captured_id, true)
+		elif _net_sync != null:
+			_net_sync.rpc_id(1, "submit_trade_confirm", captured_id, true)
+	)
+	row.add_child(accept_btn)
+	var decline_btn := Button.new()
+	decline_btn.text = "Decline"
+	decline_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.06)
+	decline_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	decline_btn.pressed.connect(func() -> void:
+		layer.queue_free()
+		if NetworkManager.is_host():
+			_on_trade_confirm_submitted(multiplayer.get_unique_id(), captured_id, false)
+		elif _net_sync != null:
+			_net_sync.rpc_id(1, "submit_trade_confirm", captured_id, false)
+	)
+	row.add_child(decline_btn)
+
+
+# ── TID-367: PvP spectating ────────────────────────────────────────────────────
+
+func _on_pvp_active_received(in_battle: bool, peer_a: int, peer_b: int) -> void:
+	if in_battle:
+		if not _pvp_active_peers.has(peer_a):
+			_pvp_active_peers.append(peer_a)
+		if not _pvp_active_peers.has(peer_b):
+			_pvp_active_peers.append(peer_b)
+	else:
+		_pvp_active_peers.erase(peer_a)
+		_pvp_active_peers.erase(peer_b)
+	if _spectate_btn != null and is_instance_valid(_spectate_btn):
+		_spectate_btn.visible = _pvp_active_peers.size() >= 2
+
+
+func _request_spectate() -> void:
+	if _net_sync == null:
+		return
+	if NetworkManager.is_host():
+		_show_tip("You are in the duel — cannot spectate.")
+		return
+	_net_sync.rpc_id(1, "request_spectate_pvp")
+
+
+func _on_spectate_pvp_requested(sender: int) -> void:
+	if not NetworkManager.is_host():
+		return
+	if _pvp_active_peers.size() < 2:
+		return
+	if _net_sync != null:
+		_net_sync.rpc_id(sender, "recv_spectate_approved")
+
+
+func _on_spectate_approved() -> void:
+	SceneManager.enter_pvp_spectator()
+
+
+# ── TID-368: Wagered duels & champion record ──────────────────────────────────
+
+func _request_wager_challenge(ante_coins: int) -> void:
+	if _challenge_target_peer == -1 or _net_sync == null:
+		return
+	if SceneManager.save_manager.coins < ante_coins:
+		_show_tip("Not enough coins to wager (need %d)." % ante_coins)
+		return
+	var my_deck: Array = _local_deck_for_net()
+	if my_deck.size() < IsoConst.DECK_MIN:
+		_show_tip("Your deck is too small to duel.")
+		return
+	_net_sync.rpc_id(_challenge_target_peer, "request_battle_wager", my_deck, ante_coins)
+	_show_tip("Wagered challenge sent…")
+
+
+func _on_battle_wager_requested(sender: int, challenger_deck: Array, ante_coins: int) -> void:
+	if _pending_challenge_from != -1 or _pending_wager_from != -1:
+		return
+	_pending_wager_from = sender
+	_pending_wager_deck = challenger_deck
+	_pending_wager_coins = ante_coins
+	_show_wager_accept_panel(sender, ante_coins)
+
+
+func _show_wager_accept_panel(from_id: int, ante_coins: int) -> void:
+	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
+		_challenge_accept_panel.queue_free()
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var layer := CanvasLayer.new()
+	layer.layer = 181
+	add_child(layer)
+	_challenge_accept_panel = layer
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	layer.add_child(panel)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vh * 0.025))
+	panel.add_child(vbox)
+	var lbl := Label.new()
+	lbl.text = "Wagered duel challenge!\nAnte: %d coins each. Accept?" % ante_coins
+	lbl.add_theme_font_size_override("font_size", int(vh * 0.03))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(lbl)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(vh * 0.03))
+	vbox.add_child(row)
+	var accept_btn := Button.new()
+	accept_btn.text = "Accept (%d coins)" % ante_coins
+	accept_btn.custom_minimum_size = Vector2(vh * 0.26, vh * 0.07)
+	accept_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	accept_btn.pressed.connect(_accept_wager_challenge.bind(from_id, ante_coins))
+	row.add_child(accept_btn)
+	var decline_btn := Button.new()
+	decline_btn.text = "Decline"
+	decline_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.07)
+	decline_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	decline_btn.pressed.connect(_decline_wager_challenge.bind(from_id))
+	row.add_child(decline_btn)
+
+
+func _accept_wager_challenge(from_id: int, ante_coins: int) -> void:
+	_dismiss_challenge_panel()
+	if SceneManager.save_manager.coins < ante_coins:
+		_show_tip("Not enough coins for the wager.")
+		if _net_sync != null:
+			_net_sync.rpc_id(from_id, "respond_battle_wager", false, [], 0)
+		_pending_wager_from = -1
+		_pending_wager_deck = []
+		_pending_wager_coins = 0
+		return
+	var my_deck: Array = _local_deck_for_net()
+	if my_deck.size() < IsoConst.DECK_MIN:
+		_show_tip("Your deck is too small to duel.")
+		if _net_sync != null:
+			_net_sync.rpc_id(from_id, "respond_battle_wager", false, [], 0)
+		_pending_wager_from = -1
+		_pending_wager_deck = []
+		_pending_wager_coins = 0
+		return
+	var opp_deck: Array = _pending_wager_deck
+	_pending_wager_from = -1
+	_pending_wager_deck = []
+	_pending_wager_coins = 0
+	if _net_sync != null:
+		_net_sync.rpc_id(from_id, "respond_battle_wager", true, my_deck, ante_coins)
+	_enter_pvp_wagered(ante_coins, opp_deck)
+
+
+func _decline_wager_challenge(from_id: int) -> void:
+	_dismiss_challenge_panel()
+	if _net_sync != null:
+		_net_sync.rpc_id(from_id, "respond_battle_wager", false, [], 0)
+	_pending_wager_from = -1
+	_pending_wager_deck = []
+	_pending_wager_coins = 0
+
+
+func _on_battle_wager_responded(_sender: int, accepted: bool, responder_deck: Array, ante_coins: int) -> void:
+	if not accepted:
+		_show_tip("Wagered challenge declined.")
+		return
+	_enter_pvp_wagered(ante_coins, responder_deck)
+
+
+func _enter_pvp_wagered(ante: int, opp_deck: Array) -> void:
+	if _challenge_btn != null and is_instance_valid(_challenge_btn):
+		_challenge_btn.hide()
+	SceneManager.save_manager.add_coins(-ante)
+	_pvp_ante_coins = ante
+	var local_idx: int = 0 if NetworkManager.is_host() else 1
+	if NetworkManager.is_host() and _net_sync != null:
+		var my_id: int = multiplayer.get_unique_id()
+		_pvp_ante_peer0 = my_id
+		_pvp_ante_peer1 = _challenge_target_peer
+		for pid in multiplayer.get_peers():
+			var p: int = int(pid)
+			if p != _challenge_target_peer:
+				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _challenge_target_peer)
+	SceneManager.enter_pvp_battle(local_idx, opp_deck, ante)
+
+
+func _on_pvp_battle_ended_coop(did_win: bool) -> void:
+	if not _coop_active:
+		return
+	# Wager payout (TID-368): winner gets both antes back.
+	if _pvp_ante_coins > 0:
+		if did_win:
+			SceneManager.save_manager.add_coins(_pvp_ante_coins * 2)
+		_pvp_ante_coins = 0
+	# Champion record (TID-368): update pvp stats in session record (host only).
+	if NetworkManager.is_host() and SessionStore.is_open():
+		var token: String = MpProfile.get_token()
+		var st = SessionStore.get_state()
+		if st != null:
+			var rec: Dictionary = st.get_member(token)
+			if not rec.is_empty():
+				var wins: int = int(rec.get("pvp_wins", 0))
+				var losses: int = int(rec.get("pvp_losses", 0))
+				var streak: int = int(rec.get("pvp_streak", 0))
+				var best: int = int(rec.get("pvp_best_streak", 0))
+				if did_win:
+					wins += 1
+					streak += 1
+					if streak > best:
+						best = streak
+				else:
+					losses += 1
+					streak = 0
+				rec["pvp_wins"] = wins
+				rec["pvp_losses"] = losses
+				rec["pvp_streak"] = streak
+				rec["pvp_best_streak"] = best
+				st.update_member(token, rec)
+				SessionStore.mark_dirty()
+	# Signal spectators to return to world when WorldScene re-enters the tree.
+	_pvp_ended_pending_broadcast = true
+
+
+# ── TID-369: Shared party bounties ────────────────────────────────────────────
+
+func _setup_party_bounties() -> void:
+	if not NetworkManager.is_host():
+		return
+	if not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	const _BountyGen = preload("res://game_logic/BountyGen.gd")
+	if (st.party_bounties as Array).is_empty():
+		var day_idx: int = SceneManager.save_manager.days_elapsed
+		var raw: Array[Dictionary] = _BountyGen.generate_daily(WORLD_SEED, day_idx)
+		var bounties: Array = []
+		for b: Dictionary in raw:
+			var pb: Dictionary = b.duplicate(true)
+			pb["progress"] = 0
+			pb["contributors"] = []
+			pb["completed"] = false
+			bounties.append(pb)
+		st.party_bounties = bounties
+		SessionStore.mark_dirty()
+
+
+func _build_party_bounty_panel() -> void:
+	if _party_bounty_panel != null and is_instance_valid(_party_bounty_panel):
+		_refresh_party_bounty_panel()
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var outer := PanelContainer.new()
+	outer.name = "PartyBountyPanel"
+	outer.position = Vector2(vp.x * 0.012, vp.y * 0.50)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.04, 0.04, 0.08, 0.88)
+	style.corner_radius_top_left    = 6
+	style.corner_radius_top_right   = 6
+	style.corner_radius_bottom_left = 6
+	style.corner_radius_bottom_right = 6
+	outer.add_theme_stylebox_override("panel", style)
+	_hud.add_child(outer)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vh * 0.006))
+	outer.add_child(vbox)
+	_party_bounty_panel = vbox
+	_refresh_party_bounty_panel()
+
+
+func _refresh_party_bounty_panel() -> void:
+	if _party_bounty_panel == null or not is_instance_valid(_party_bounty_panel):
+		return
+	for c in _party_bounty_panel.get_children():
+		c.queue_free()
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var title := Label.new()
+	title.text = "Party Bounties"
+	title.add_theme_font_size_override("font_size", int(vh * 0.020))
+	title.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
+	_party_bounty_panel.add_child(title)
+	if NetworkManager.is_host() and SessionStore.is_open():
+		var st = SessionStore.get_state()
+		if st != null:
+			for b: Variant in (st.party_bounties as Array):
+				if b is Dictionary:
+					_add_bounty_row(b as Dictionary)
+
+
+func _add_bounty_row(bd: Dictionary) -> void:
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var lbl := Label.new()
+	var cnt: int = int(bd.get("count", 1))
+	var prog: int = int(bd.get("progress", 0))
+	var done: bool = bool(bd.get("completed", false))
+	lbl.text = "%s: %d/%d%s" % [
+		str(bd.get("type", "?")), prog, cnt,
+		" [done]" if done else ""]
+	lbl.add_theme_font_size_override("font_size", int(vh * 0.016))
+	if done:
+		lbl.add_theme_color_override("font_color", Color(0.5, 1.0, 0.5))
+	_party_bounty_panel.add_child(lbl)
+
+
+## Public: called by other WorldScene subsystems (battle won, chest opened) to
+## contribute party bounty progress in co-op. Works like
+## SaveManager.increment_bounty_progress but for the shared party list.
+func submit_party_bounty_progress(bounty_type: String, match_data: Dictionary) -> void:
+	if not _coop_active or _net_sync == null:
+		return
+	if NetworkManager.is_host():
+		_on_party_bounty_progress_submitted(multiplayer.get_unique_id(), bounty_type, match_data)
+	else:
+		_net_sync.rpc_id(1, "submit_party_bounty_progress", bounty_type, match_data)
+
+
+func _on_party_bounty_progress_submitted(sender: int, bounty_type: String, match_data: Dictionary) -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var token: String = str(_session_token_by_peer.get(sender,
+		MpProfile.get_token() if sender == multiplayer.get_unique_id() else ""))
+	for i: int in range((st.party_bounties as Array).size()):
+		var b: Variant = (st.party_bounties as Array)[i]
+		if not (b is Dictionary):
+			continue
+		var bd: Dictionary = b as Dictionary
+		if bool(bd.get("completed", false)):
+			continue
+		if str(bd.get("type", "")) != bounty_type:
+			continue
+		var target: String = str(bd.get("target", ""))
+		var matches: bool = false
+		match bounty_type:
+			"defeat_enemy_type":
+				matches = str(match_data.get("enemy_type", "")) == target
+			"defeat_in_biome":
+				matches = str(match_data.get("biome", "")) == target
+			"open_chests":
+				matches = true
+		if not matches:
+			continue
+		var progress: int = int(bd.get("progress", 0))
+		progress += 1
+		bd["progress"] = progress
+		var contributors: Array = bd.get("contributors", []) as Array
+		if not contributors.has(token):
+			contributors.append(token)
+		bd["contributors"] = contributors
+		var count: int = int(bd.get("count", 1))
+		if progress >= count:
+			bd["completed"] = true
+			SceneManager.save_manager.add_coins(int(bd.get("reward", 0)))
+		(st.party_bounties as Array)[i] = bd
+		SessionStore.mark_dirty()
+		var update_payload: Dictionary = {
+			"bounty_id": str(bd.get("id", "")),
+			"progress": progress,
+			"count": count,
+			"completed": bool(bd.get("completed", false)),
+		}
+		if _net_sync != null:
+			_net_sync.rpc("recv_party_bounty_update", update_payload)
+		_refresh_party_bounty_panel()
+		break
+
+
+func _on_party_bounty_update_received(payload: Dictionary) -> void:
+	# Clients update their local HUD row. The snapshot drives initial state;
+	# incremental updates patch one row at a time.
+	_refresh_party_bounty_panel()
+
+
+func _on_party_bounties_snapshot_received(bounties: Array) -> void:
+	# Client: received full party bounty list from host on join.
+	if _party_bounty_panel == null or not is_instance_valid(_party_bounty_panel):
+		# Build panel first time
+		var vp: Vector2 = get_viewport().get_visible_rect().size
+		var vh: float = vp.y
+		var outer := PanelContainer.new()
+		outer.name = "PartyBountyPanel"
+		outer.position = Vector2(vp.x * 0.012, vp.y * 0.50)
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.04, 0.04, 0.08, 0.88)
+		style.corner_radius_top_left    = 6
+		style.corner_radius_top_right   = 6
+		style.corner_radius_bottom_left = 6
+		style.corner_radius_bottom_right = 6
+		outer.add_theme_stylebox_override("panel", style)
+		_hud.add_child(outer)
+		var vbox := VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", int(vh * 0.006))
+		outer.add_child(vbox)
+		_party_bounty_panel = vbox
+	# Populate from snapshot
+	for c in _party_bounty_panel.get_children():
+		c.queue_free()
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var title := Label.new()
+	title.text = "Party Bounties"
+	title.add_theme_font_size_override("font_size", int(vh * 0.020))
+	title.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
+	_party_bounty_panel.add_child(title)
+	for b: Variant in bounties:
+		if b is Dictionary:
+			_add_bounty_row(b as Dictionary)
