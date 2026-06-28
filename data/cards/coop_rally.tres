@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://24hwg7dtikwm"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_coop_rally"]
+
+[resource]
+script = ExtResource("1_coop_rally")
+id = "coop_rally"
+card_name = "Rally Cry"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Give all minions on an ally's board +1 ATK and +1 HP."
+color = Color(1.0, 0.8, 0.3, 1)
+magic_type = "light"
+magic_branch = "ember"
+spell_effect = "ally_buff_minion_all"
+spell_power = 1

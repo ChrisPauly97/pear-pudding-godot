@@ -18,6 +18,12 @@ const FRIENDLY_TARGETED_EFFECTS: Array[String] = [
 	"grant_surge", "grant_ward", "grant_shroud", "double_attack",
 ]
 const SLOT_TARGETED_EFFECTS: Array[String] = ["bless_slot", "ward_slot"]
+# Effects that target an ally's board/hero in co-op PvE. The target dict carries
+# {"pidx": <ally_player_idx>} set by BattleScene during ally selection.
+const ALLY_TARGETED_EFFECTS: Array[String] = [
+	"ally_heal_hero", "ally_grant_ward_board", "ally_buff_minion_all",
+	"ally_grant_mana", "ally_revive",
+]
 
 var extra_turn_granted: bool = false
 var capture_tracker: CaptureTracker
@@ -331,6 +337,39 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 					opponent.board.remove_card(t)
 					opponent.discard.append(t)
 			opponent.hero.take_damage(_spell_dmg)
+		# ── Co-op PvE support cards (GID-100) ────────────────────────────────
+		# explicit_target carries {"pidx": <ally_player_idx>}. Falls back to
+		# caster_pid when pidx is absent (e.g., solo / 2-player context).
+		"ally_heal_hero":
+			var tpid: int = clamp(int(explicit_target.get("pidx", caster_pid)), 0, _state.players.size() - 2)
+			_state.players[tpid].hero.heal(card.spell_power)
+		"ally_grant_ward_board":
+			var tpid: int = clamp(int(explicit_target.get("pidx", caster_pid)), 0, _state.players.size() - 2)
+			for t in _state.players[tpid].board.get_cards():
+				if not t.keywords.has(Keywords.WARD):
+					t.keywords.append(Keywords.WARD)
+		"ally_buff_minion_all":
+			var tpid: int = clamp(int(explicit_target.get("pidx", caster_pid)), 0, _state.players.size() - 2)
+			for t in _state.players[tpid].board.get_cards():
+				t.attack += card.spell_power
+				t.health += card.spell_power
+				t.max_health += card.spell_power
+		"ally_grant_mana":
+			var tpid: int = clamp(int(explicit_target.get("pidx", caster_pid)), 0, _state.players.size() - 2)
+			_state.players[tpid].hero.mana = mini(
+				_state.players[tpid].hero.mana + card.spell_power,
+				_state.players[tpid].hero.max_mana)
+		"ally_revive":
+			var tpid: int = clamp(int(explicit_target.get("pidx", caster_pid)), 0, _state.players.size() - 2)
+			var ally: PlayerState = _state.players[tpid]
+			for i in range(ally.discard.size() - 1, -1, -1):
+				var t := ally.discard[i] as CardInstance
+				if t.card_class == "minion" and not ally.board.is_full():
+					t.health = t.max_health
+					t.summoning_sick = true
+					ally.board.add_card(t)
+					ally.discard.remove_at(i)
+					break
 	if capture_tracker != null and caster_pid == 0:
 		var _ct_board_after: int = _state.players[1].board.get_cards().size()
 		capture_tracker.note_spell_resolved(0, _ct_board_before, _ct_board_after)

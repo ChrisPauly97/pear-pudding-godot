@@ -103,6 +103,11 @@ const _C_SACRED_LIGHT      := preload("res://data/cards/sacred_light.tres")
 const _C_HALLOWED_GROUND   := preload("res://data/cards/hallowed_ground.tres")
 const _C_TWILIGHT_VEIL     := preload("res://data/cards/twilight_veil.tres")
 const _C_ASH_ARBITER       := preload("res://data/cards/ash_arbiter.tres")
+const _C_COOP_AEGIS        := preload("res://data/cards/coop_aegis.tres")
+const _C_COOP_MEND         := preload("res://data/cards/coop_mend.tres")
+const _C_COOP_RALLY        := preload("res://data/cards/coop_rally.tres")
+const _C_COOP_MANA_TITHE   := preload("res://data/cards/coop_mana_tithe.tres")
+const _C_COOP_SECOND_WIND  := preload("res://data/cards/coop_second_wind.tres")
 
 static var _cards: Dictionary = {}  # id -> CardData
 static var _loaded: bool = false
@@ -143,6 +148,7 @@ static func _ensure_loaded() -> void:
 		_C_ASH_ANNIHILATE, _C_ASH_BONE_SPEAR, _C_ASH_BONE_WALL,
 		_C_ASH_DEFILE, _C_ASH_DESECRATE, _C_ASH_MASS_DECAY,
 		_C_ASH_PLAGUE, _C_ASH_RAISE_DEAD, _C_ASH_ROT, _C_ASH_WITHER_AWAY,
+		_C_COOP_AEGIS, _C_COOP_MEND, _C_COOP_RALLY, _C_COOP_MANA_TITHE, _C_COOP_SECOND_WIND,
 	]
 	for preloaded in all:
 		if preloaded == null:

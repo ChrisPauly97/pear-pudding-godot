@@ -2,7 +2,7 @@
 
 **Goal:** GID-100
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-360
 
 ## Lock
@@ -50,12 +50,24 @@ the user described.
 
 ## Plan
 
-_Written during Plan phase._
+Add a compact ally-status bar to `BattleScene.gd` that appears during co-op PvE. The bar
+sits at the top of the screen above the existing EnemyArea (anchor TOP_WIDE). Each ally
+gets a labeled Button showing P{n} HP and Mana. The bar is built lazily on first
+`_refresh_all()` while `_coop_pve == true`, and refreshed every subsequent call via
+`_refresh_coop_ally_panels()`. The existing 2-player layout (EnemyArea/PlayerArea) is
+unchanged; co-op only adds the overlay bar.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/BattleScene.gd`:
+  - Added vars `_coop_arena_built`, `_coop_ally_panels` for the ally bar state.
+  - Added `_build_coop_arena_layout()`: creates an `HBoxContainer` across the top with
+    one `Button` per ally (boss excluded). Buttons are tappable during ally-targeting mode
+    to route the spell to that ally.
+  - Added `_refresh_coop_ally_panels()`: updates button text (HP/Mana) on each
+    `_refresh_all()` call.
+  - Hooked `_refresh_coop_ally_panels()` into `_refresh_all()` under `if _coop_pve`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/multiplayer-coop.md` with GID-100 co-op battle design section.

@@ -834,3 +834,48 @@ intervals until the first mirror arrives (same pattern as `_process` for PvP).
 | File | Type | Covers |
 |---|---|---|
 | `tests/unit/test_coop_battle_state.gd` | unit (auto-run) | N-player setup (2–4 allies + boss), turn rotation including boss turn and wrap-around, opponent targeting, win/loss conditions, `to_dict`/`from_dict` round-trip for N participants, `CoopBattleScaling` HP/tier for n=1..4 (42 cases) |
+
+## Co-op Battle Design (GID-100)
+
+### Square battlefield ally bar
+
+`BattleScene` adds a compact ally-status bar above the main battlefield when `_coop_pve`
+is true. The bar is an `HBoxContainer` anchored to `PRESET_TOP_WIDE`, populated with one
+`Button` per ally player (boss excluded). Each button shows `P{n}  HP:{h}/{max}  Mana:{m}`
+and is refreshed on every `_refresh_all()` call via `_refresh_coop_ally_panels()`.
+
+The bar is built lazily on the first `_refresh_all()` after `_state` is ready, using
+`_coop_arena_built: bool` as the guard (no build before `_state` exists). The existing
+`$EnemyArea/$PlayerArea` two-zone layout is untouched for solo/PvP/NPC battles.
+
+### Cross-board card targeting
+
+Five new effect names — `ally_heal_hero`, `ally_grant_ward_board`, `ally_buff_minion_all`,
+`ally_grant_mana`, `ally_revive` — are listed in
+`SpellEffectResolver.ALLY_TARGETED_EFFECTS`. When a card with one of these effects is
+dragged to the board in co-op PvE mode, `BattleScene._board_drop()` calls
+`_enter_ally_targeting_mode(card)` instead of the normal targeting path.
+
+In ally-targeting mode the ally bar buttons become tappable targets: tapping `P{n}`
+calls `_resolve_ally_spell(spell, pidx)`, which encodes `{"pidx": n}` into the wire
+target dict via `BattleNetProtocol.encode_play_spell(hi, {"pidx": n})`. The host
+decodes this through `_pvp_resolver_target()` (extended to handle the `"pidx"` key) and
+passes `{"pidx": n}` as `explicit_target` to `_resolver.resolve_spell()`.
+
+`SpellEffectResolver.resolve_spell()` match arms for the 5 new effects read
+`explicit_target.get("pidx", caster_pid)` — falling back to self when the target is
+absent (solo / 2-player context).
+
+### Co-op support cards (5 new)
+
+| ID | Name | Cost | Effect |
+|---|---|---|---|
+| `coop_aegis` | Aegis Pact | 2 | Grant Ward to all minions on an ally's board |
+| `coop_mend` | Mending Light | 2 | Restore 5 HP to an ally's hero |
+| `coop_rally` | Rally Cry | 3 | Give all minions on an ally's board +1 ATK and +1 HP |
+| `coop_mana_tithe` | Mana Tithe | 1 | Give an ally +1 mana this turn |
+| `coop_second_wind` | Second Wind | 3 | Revive the last minion that died on an ally's board |
+
+All five are `magic_type = "light"` spells with `.tres` + `.uid` sidecars in `data/cards/`
+and are registered in `CardRegistry` via `const _C_COOP_*` preloads. The card-count
+assertion in `tests/unit/test_card_registry.gd` was updated from 100 → 105.
