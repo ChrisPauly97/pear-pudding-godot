@@ -32,6 +32,7 @@ character in GID-095), the infinite chunk world (co-op stays on finite named map
 | TID-349 | Authoritative enemy & encounter sync (spawns/positions/defeat) | agent | pending | GID-094 |
 | TID-350 | Chest / loot / world-object state sync + persist into session file | agent | pending | GID-095, TID-349 |
 | TID-351 | Tests + docs (world sync) | agent | pending | TID-349, TID-350 |
+| TID-352 | Make avatar sync map-aware (no cross-map ghosts) | agent | pending | GID-094 |
 
 ## Acceptance Criteria
 
@@ -45,5 +46,8 @@ character in GID-095), the infinite chunk world (co-op stays on finite named map
       session file (resumes on reconnect).
 - [ ] Single-player enemy/chest behavior is byte-for-byte unchanged when no session
       is active.
+- [ ] Avatar sync is map-scoped: a remote avatar only renders for peers on the same
+      map; peers on different maps don't show cross-map ghosts (the single-map
+      contract is enforced in the sync layer, not just at entry).
 - [ ] Tests (unit for any pure sync helpers + a smoke test for enemy/chest sync)
       pass; headless import clean; docs updated.
