@@ -101,6 +101,10 @@
 | [GID-095](goals/GID-095--persistent-mp-sessions/goal.md) | Persistent Multiplayer Sessions & Per-Player Progress | done | 4 / 4 |
 | [GID-096](goals/GID-096--coop-world-sync/goal.md) | Co-op World State Sync | done | 4 / 4 |
 | [GID-097](goals/GID-097--dedicated-server/goal.md) | Dedicated Server Option | done | 3 / 3 |
+| [GID-098](goals/GID-098--coop-story-mode/goal.md) | Co-op Story Mode | pending | 0 / 4 |
+| [GID-099](goals/GID-099--coop-joint-battle-engine/goal.md) | Co-op Joint Battle Engine | pending | 0 / 3 |
+| [GID-100](goals/GID-100--coop-battle-design/goal.md) | Co-op Battle Design — Square Battlefield & Cross-Board Cards | pending | 0 / 3 |
+| [GID-101](goals/GID-101--mp-social-rewards/goal.md) | Multiplayer Social & Rewards | pending | 0 / 5 |
 
 ## Backlog
 
@@ -123,7 +127,7 @@
 | ~~[BID-017](backlog/BID-017--corruption-redemption-points-never-accrue.md)~~ | ~~add_corruption_points / add_redemption_points never called — currencies may never accrue~~ | ~~design-inconsistency~~ | Promoted to GID-086 / TID-308, TID-309 |
 | ~~[BID-020](backlog/BID-020--always-visible-cantrip-buttons.md)~~ | ~~Cantrip HUD buttons always built regardless of unlock state~~ | ~~code-smell~~ | Resolved by GID-081 / TID-298 |
 | ~~[BID-022](archive/backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md)~~ | ~~Spec lists multiplayer as out-of-scope, but co-op + PvP shipped~~ | ~~spec-gap~~ | Resolved by GID-094 / TID-344 |
-| [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) | content-gap | GID-096 |
+| [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story gives the party real story maps with enemies/chests) | content-gap | GID-096 |
 
 ## Resolved Backlog
 
