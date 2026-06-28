@@ -38,13 +38,20 @@ static func encode_play_card_at_slot(hand_index: int, slot_idx: int) -> Dictiona
 
 
 ## Play a spell from hand. `target` is {} for untargeted, else {"side": int, "slot": int}.
+## In N-player co-op battles, `target` may include `"pidx": int` to identify which ally's
+## board/hero is targeted (defaults to -1 = boss/primary opponent).
 static func encode_play_spell(hand_index: int, target: Dictionary = {}) -> Dictionary:
 	return {"v": VERSION, "type": INTENT_PLAY_SPELL, "hand_index": hand_index, "target": target.duplicate()}
 
 
 ## Attack with a board minion. target_slot: -1 (TARGET_HERO) = enemy hero, 0..4 = enemy board slot.
-static func encode_attack(attacker_slot: int, target_slot: int) -> Dictionary:
-	return {"v": VERSION, "type": INTENT_ATTACK, "attacker_slot": attacker_slot, "target_slot": target_slot}
+## target_pidx: -1 = default opponent; in co-op, a non-negative value selects a specific ally as target.
+static func encode_attack(attacker_slot: int, target_slot: int, target_pidx: int = -1) -> Dictionary:
+	return {
+		"v": VERSION, "type": INTENT_ATTACK,
+		"attacker_slot": attacker_slot, "target_slot": target_slot,
+		"target_pidx": target_pidx,
+	}
 
 
 ## End the sender's turn.
@@ -78,6 +85,7 @@ static func encode_surrender() -> Dictionary:
 
 ## Decode any intent payload into a fully-defaulted dict. Garbage or unknown
 ## input yields type == "" so callers can safely no-op. Never throws.
+## target_pidx: -1 = default opponent (boss in co-op, or only opponent in PvP/solo).
 static func decode_intent(payload: Variant) -> Dictionary:
 	var out: Dictionary = {
 		"type": "",
@@ -85,6 +93,7 @@ static func decode_intent(payload: Variant) -> Dictionary:
 		"slot_idx": -1,
 		"attacker_slot": -1,
 		"target_slot": TARGET_HERO,
+		"target_pidx": -1,
 		"target": {},
 		"potion_id": "",
 		"effect_type": "",
@@ -108,6 +117,7 @@ static func decode_intent(payload: Variant) -> Dictionary:
 			out["type"] = t
 			out["attacker_slot"] = int(d.get("attacker_slot", -1))
 			out["target_slot"] = int(d.get("target_slot", TARGET_HERO))
+			out["target_pidx"] = int(d.get("target_pidx", -1))
 		INTENT_END_TURN:
 			out["type"] = t
 		INTENT_HERO_POWER:

@@ -43,3 +43,40 @@ func pvp_ended(payload: Dictionary) -> void:
 func request_sync() -> void:
 	if battle_scene != null and battle_scene.has_method("_on_pvp_sync_request"):
 		battle_scene._on_pvp_sync_request()
+
+
+# ── Co-op PvE battle RPCs (GID-099) ──────────────────────────────────────────
+# Mirror of the PvP RPCs above, extended to N acting peers (all allies).
+# The boss is always AI-controlled by the authority; only allies send intents.
+
+## Ally client → host: a single relayed ally action (BattleNetProtocol intent dict).
+## Identical to send_intent but named distinctly so PvP and co-op paths don't share
+## the same RPC handler (avoids cross-mode confusion on the host).
+@rpc("any_peer", "reliable", "call_remote")
+func send_coop_intent(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if battle_scene != null and battle_scene.has_method("_on_coop_intent"):
+		battle_scene._on_coop_intent(sender, payload)
+
+
+## Host → all ally clients: full-state mirror (BattleNetProtocol.encode_state output).
+@rpc("any_peer", "reliable", "call_remote")
+func sync_coop_state(payload: Dictionary) -> void:
+	if battle_scene != null and battle_scene.has_method("_on_coop_state"):
+		battle_scene._on_coop_state(payload)
+
+
+## Host → all ally clients: battle ended.
+## payload: {"winner_ally": bool, "card_id": String, "rarity": String,
+##           "stats": Dictionary, "coins": int, "xp": int}
+@rpc("any_peer", "reliable", "call_remote")
+func coop_battle_ended(payload: Dictionary) -> void:
+	if battle_scene != null and battle_scene.has_method("_on_coop_battle_ended"):
+		battle_scene._on_coop_battle_ended(payload)
+
+
+## Ally client → host: "my co-op BattleScene is ready, send me the current state."
+@rpc("any_peer", "reliable", "call_remote")
+func request_coop_sync() -> void:
+	if battle_scene != null and battle_scene.has_method("_on_coop_sync_request"):
+		battle_scene._on_coop_sync_request()

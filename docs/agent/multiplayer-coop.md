@@ -708,3 +708,129 @@ NPCs can show different text when addressed as a group.
 
 **TID-358 (human-action):** The human-owned story bible (`docs/human/story.md`) is updated separately to pluralize authored lines where a group variant exists.
 - **Steam transport** is stubbed (`Transport.STEAM` returns null with a warning).
+
+---
+
+## Co-op Joint Battle Engine (GID-099)
+
+Extends the battle engine so a **party of N allies (2–4) fight one shared boss** together.
+Each ally keeps their own board, hand, and mana; the boss scales its HP and deck tier by
+party size; and the boss drops a **soulbound card to every ally** on a party win.
+
+### Model — `game_logic/battle/GameState.gd`
+
+`GameState` is extended with a `coop_battle: bool = false` flag. All co-op logic is gated
+behind it — the 2-player PvP / NPC-duel / puzzle / Spire paths are entirely unchanged.
+
+**State shape:** `players[0..N-2]` = allies; `players[N-1]` = boss. The boss is always
+`is_ai = true`; allies are `is_ai = false`.
+
+**Key new API:**
+
+| Member | Purpose |
+|---|---|
+| `coop_battle: bool` | Enables the N-player co-op code paths in `opponent()`, `end_turn()`, `is_game_over()`, `winner()` |
+| `setup_coop_battle(n_allies, ally_setup, boss_setup)` | Builds N ally PlayerStates + 1 boss PlayerState. Clamps allies to 2..4. `ally_setup(i, ally)` / `boss_setup(boss)` are callables that populate decks and opening hands |
+| `allies() -> Array[PlayerState]` | `players[0..N-2]` when co-op; `[players[0]]` for legacy 2-player |
+| `boss() -> PlayerState` | Always `players[players.size()-1]` |
+| `is_ally(idx) -> bool` | `coop_battle and idx < players.size()-1` |
+
+**Turn rotation:** `(current_player_idx + 1) % players.size()` — mathematically identical to
+`1 - idx` for 2 players, naturally extends to N. The boss turn follows all allies; after the
+boss, play wraps back to ally 0.
+
+**`opponent()` targeting:**
+- Ally turn → always returns the boss (`players[N-1]`).
+- Boss turn → returns the **alive ally with the lowest hero HP** (`_get_lowest_hp_ally()`);
+  BasicAI is reused unchanged because it calls `state.opponent()` to find its target.
+
+**Win/loss conditions:**
+- Boss dead → party wins; `winner()` returns `0` (ally side).
+- All allies dead → boss wins; `winner()` returns `players.size()-1` (boss's `player_id`).
+
+**`to_dict`/`from_dict`:** includes `coop_battle` flag and a dynamically-grown
+`player_turn_numbers` array (size = `players.size()`). `from_dict` handles 3 cases: new
+N-entry saves, legacy 2-entry saves, and missing-key fallback from `turn_number`.
+
+### Scaling — `game_logic/battle/CoopBattleScaling.gd`
+
+Pure static helper. No scene dependencies.
+
+```gdscript
+# Boss HP: base_hp × (0.6·n + 0.4)   (n clamped to MIN_PARTY=1, MAX_PARTY=4)
+scale_boss_hp(base_hp: int, n: int) -> int
+
+# Boss deck tier: bonus = (n-1)/2  (0 for n=1,2; 1 for n=3,4), capped at 4
+scale_boss_tier(base_tier: int, n: int) -> int
+```
+
+Party-size effect on a 30-HP boss: n=1→30 HP, n=2→48 HP, n=3→66 HP, n=4→84 HP.
+
+### Networking — `BattleNetProtocol` + `BattleNetSync`
+
+**`BattleNetProtocol.gd`:** `encode_attack` gains an optional `target_pidx: int = -1`
+parameter carried through the wire dict and decoded back. `target_pidx >= 0` selects a
+specific ally's board/hero as the attack target in N-player co-op; `-1` = default opponent
+(boss or only opponent).
+
+**`BattleNetSync.gd`:** four new reliable RPCs for the co-op PvE path, kept separate from
+the PvP RPCs to avoid cross-mode confusion:
+
+| RPC | Direction | Purpose |
+|---|---|---|
+| `send_coop_intent(payload)` | ally client → host | one ally action |
+| `sync_coop_state(payload)` | host → all ally clients | full GameState mirror |
+| `coop_battle_ended(payload)` | host → all ally clients | end-of-battle with reward dict |
+| `request_coop_sync()` | ally client → host | startup race: "send me the current state" |
+
+**`_send_intent` routing:** `BattleScene._send_intent` now calls `send_coop_intent` when
+`_coop_pve`, `send_intent` otherwise.
+
+### BattleScene co-op PvE hooks
+
+All co-op code is gated behind `_coop_pve: bool`. No existing code paths are changed.
+
+| Member | Purpose |
+|---|---|
+| `_coop_pve: bool` | Mode flag, set by `SceneManager.enter_coop_pve_battle` |
+| `_coop_ally_decks: Array` | Per-ally deck data passed from SceneManager |
+| `_coop_peer_to_idx: Dictionary` | Maps peer_id → ally_idx (authority-side only) |
+| `_coop_ended: bool` | Guard against double end-of-battle |
+
+**Setup:** `_setup_coop_pve_battle()` → creates `BattleNetSync`, wires disconnect signals
+(reusing PvP handlers). Authority also calls `_build_coop_pve_state()`, which invokes
+`GameState.setup_coop_battle` with `CoopBattleScaling`-derived boss HP and tier.
+
+**Intent flow (authority):** `_on_coop_intent(sender, payload)` maps the sender peer to
+their `ally_idx` via `_coop_peer_to_idx`, validates it's that ally's turn, then delegates to
+`_apply_remote_intent` (shared with PvP). Surrender zeroes that ally's HP.
+
+**End of battle (authority):** `_coop_pve_check_game_over()` detects `is_game_over()`,
+computes `_build_coop_reward_payload` once (card, rarity, stats, coins, xp from
+`EnemyRegistry`), broadcasts via `coop_battle_ended` RPC, then calls `_finish_coop_pve`
+locally.
+
+**Rewards (each peer):** `_finish_coop_pve` calls `_apply_coop_pve_rewards` which adds
+coins (`SaveManager.add_coins`), XP (`SaveManager.add_xp`), and the soulbound card
+(`SaveManager.add_card_instance`). Each ally gets their own instance with their own UID.
+Minimal result: a HUD message ("Party victorious!" / "The party was defeated."), 2 s pause,
+then `GameBus.coop_pve_battle_ended.emit(did_win)`.
+
+**Client sync startup:** `_process_coop_sync` retries `request_coop_sync` at 0.4 s
+intervals until the first mirror arrives (same pattern as `_process` for PvP).
+
+### SceneManager integration
+
+- `enter_coop_pve_battle(local_ally_idx, all_ally_decks, enemy_data)`: sets `_coop_pve =
+  true`, `_local_player_idx = local_ally_idx`, `_coop_ally_decks = all_ally_decks`, then
+  transitions to BattleScene.
+- `_on_coop_pve_battle_ended(_did_win)`: restores the shared co-op world (mirrors the
+  `_on_pvp_battle_ended` handler).
+- `GameBus.coop_pve_battle_ended(did_win: bool)` signal added alongside
+  `pvp_battle_ended`.
+
+### Tests
+
+| File | Type | Covers |
+|---|---|---|
+| `tests/unit/test_coop_battle_state.gd` | unit (auto-run) | N-player setup (2–4 allies + boss), turn rotation including boss turn and wrap-around, opponent targeting, win/loss conditions, `to_dict`/`from_dict` round-trip for N participants, `CoopBattleScaling` HP/tier for n=1..4 (42 cases) |

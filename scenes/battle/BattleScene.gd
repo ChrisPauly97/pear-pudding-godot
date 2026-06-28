@@ -58,6 +58,19 @@ var pvp_player0_deck: Array = []
 var pvp_player1_deck: Array = []
 var _pvp_peer_to_idx: Dictionary = {}  # peer_id (int) → player_idx (int), referee only
 
+# ── Co-op PvE joint battle (GID-099) ─────────────────────────────────────────
+# All inert unless SceneManager sets _coop_pve = true before _ready.
+# _local_player_idx is the local ally index (0 = host/ally-0, 1..N-1 = ally clients).
+# The boss is always AI-controlled by the authority (host).
+# Peer-to-ally mapping mirrors the referee's _pvp_peer_to_idx logic.
+var _coop_pve: bool = false
+# All ally deck instances: Array[Array[Dictionary]], indexed [ally_idx][card_inst].
+# Set by SceneManager before _ready; only the authority uses all N entries.
+var _coop_ally_decks: Array = []
+# Peer-to-ally-idx map, built by the authority from the join handshake.
+var _coop_peer_to_idx: Dictionary = {}
+var _coop_ended: bool = false  # guard so the result fires once
+
 # Weather modifier state — determined once at battle start
 var _battle_weather: String = ""  # "" if no infinite-world weather applies
 var _snow_discount_used: Array[bool] = [false, false]  # per-player first-card discount
@@ -159,6 +172,8 @@ func _ready() -> void:
 		_wire_gamebus_emitter()
 	elif _pvp:
 		_setup_pvp_battle()
+	elif _coop_pve:
+		_setup_coop_pve_battle()
 	elif not _saved_battle.is_empty():
 		_state = GameState.new()
 		_resolver.setup(_state)
@@ -1446,12 +1461,42 @@ func _on_turn_ended(player_idx: int) -> void:
 	# Desert biome rule: leftmost minion on each board takes 1 damage at turn start (daytime only).
 	if _state.battlefield_biome == BattlefieldRules.BIOME_DESERT and not _state.is_night:
 		_apply_desert_scorch()
+	# Grow snow-discount tracking array to match player count.
+	while _snow_discount_used.size() <= player_idx:
+		_snow_discount_used.append(false)
 	_snow_discount_used[player_idx] = false
 	if _battle_weather == "blizzard" and _state.turn_number <= 2:
 		for card: CardInstance in _state.players[player_idx].board.get_cards():
 			card.apply_status("freeze", 1)
 	_fx.trigger_fx(snap_sot)
 	_refresh_all()
+
+	# Co-op PvE: boss turn handled by authority only; ally turns handled locally.
+	if _coop_pve:
+		var boss_idx: int = _state.players.size() - 1
+		if player_idx == _my_idx():
+			# Local ally's turn just ended — buttons already disabled by end_turn().
+			_refresh_potion_button()
+			_check_game_over()
+			if not _state.is_game_over():
+				AudioManager.play_sfx("card_draw")
+				_apply_companion_turn_start()
+				var snap_coop := _fx.snapshot()
+				_resolver.flush_auto_spells(player_idx)
+				_fx.trigger_fx(snap_coop)
+				_refresh_all()
+				_check_game_over()
+		elif player_idx == boss_idx:
+			# Boss turn — run AI only on the authority.
+			if _potion_btn != null:
+				_potion_btn.disabled = true
+			_check_game_over()
+			if _is_pvp_host() and not _state.is_game_over() and not _state.puzzle_mode:
+				_run_ai_turn()
+		# Non-local ally turn: just refresh (no local action, no companion draw).
+		# (Fall through — _refresh_all was called above.)
+		return
+
 	if player_idx == 0:
 		_refresh_potion_button()
 		_check_game_over()
@@ -1566,6 +1611,9 @@ func _check_boss_phase2() -> void:
 func _check_game_over() -> void:
 	if _pvp:
 		_pvp_check_game_over()
+		return
+	if _coop_pve:
+		_coop_pve_check_game_over()
 		return
 	_check_boss_phase2()
 	if _game_over_handled:
@@ -1817,7 +1865,10 @@ func _my_idx() -> int:
 	return _local_player_idx
 
 ## Index of the opponent in the canonical state.
+## In co-op PvE, the local ally's opponent is always the boss (last player slot).
 func _opp_idx() -> int:
+	if _coop_pve and _state != null and _state.players.size() > 2:
+		return _state.players.size() - 1
 	return 1 - _local_player_idx
 
 ## True when this peer owns the canonical simulation: ENet host in any mode
@@ -1826,11 +1877,12 @@ func _opp_idx() -> int:
 ## so it works correctly both in production and in smoke tests that register
 ## custom multiplayer instances via set_multiplayer().
 func _is_pvp_host() -> bool:
-	return _pvp and multiplayer.is_server()
+	return (_pvp or _coop_pve) and multiplayer.is_server()
 
 ## True when this peer is a thin client renderer (never the ENet host).
+## Also true for co-op PvE ally clients.
 func _is_pvp_client() -> bool:
-	return _pvp and not multiplayer.is_server()
+	return (_pvp or _coop_pve) and not multiplayer.is_server()
 
 ## True when local input is allowed: it's our turn, AI/round-trip not pending,
 ## and we have a local player (not the headless referee, _local_player_idx = -1).
@@ -1867,6 +1919,9 @@ var _pvp_sync_retry_accum: float = 0.0
 ## Client: keep asking the host for the initial state until the first mirror lands
 ## (handles the race where the host broadcasts before this scene exists).
 func _process(delta: float) -> void:
+	if _coop_pve:
+		_process_coop_sync(delta)
+		return
 	if not _is_pvp_client() or _last_applied_seq >= 0 or _net == null:
 		return
 	_pvp_sync_retry_accum += delta
@@ -1940,7 +1995,8 @@ func _disconnect_pvp_net_signals() -> void:
 func _send_intent(payload: Dictionary) -> void:
 	if _net != null:
 		_pvp_pending = true
-		_net.rpc_id(1, "send_intent", payload)
+		var rpc_name: String = "send_coop_intent" if _coop_pve else "send_intent"
+		_net.rpc_id(1, rpc_name, payload)
 
 ## Host → client: broadcast the full canonical state with a fresh seq.
 func _broadcast_state() -> void:
@@ -2260,3 +2316,226 @@ func _finish_pvp(did_win: bool) -> void:
 		_result_ui.show_pvp_result(did_win)
 	elif _local_player_idx < 0:
 		GameBus.pvp_battle_ended.emit(false)
+
+# ── Co-op PvE joint battle (GID-099) ─────────────────────────────────────────
+
+const _CoopBattleScaling = preload("res://game_logic/battle/CoopBattleScaling.gd")
+
+## Builds the relay node + canonical co-op state. Authority builds N ally states +
+## the scaled boss; each client waits for the first sync_coop_state mirror.
+func _setup_coop_pve_battle() -> void:
+	_state = GameState.new()
+	_resolver.setup(_state)
+	_wire_gamebus_emitter()
+	_net = _BattleNetSyncScript.new()
+	_net.name = "BattleNetSync"
+	add_child(_net)
+	_net.battle_scene = self
+	_connect_pvp_net_signals()  # reuse PvP disconnect handlers
+	if _is_pvp_host():
+		_build_coop_pve_state()
+		# Boss skips start_turn (AI acts on boss's turn via _run_ai_turn in _on_turn_ended).
+		_state.players[_my_idx()].start_turn(1)
+
+## Authority-only: build N-player co-op GameState from ally decks + enemy_data.
+func _build_coop_pve_state() -> void:
+	var n: int = maxi(1, _coop_ally_decks.size())
+	var boss_hp_base: int = int(enemy_data.get("boss_hp", 30))
+	if boss_hp_base <= 0:
+		boss_hp_base = 30
+	var enemy_type: String = str(enemy_data.get("enemy_type", ""))
+	var base_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
+	if bool(enemy_data.get("is_boss", false)):
+		base_tier = 4
+	var scaled_hp: int = _CoopBattleScaling.scale_boss_hp(boss_hp_base, n)
+	var scaled_tier: int = _CoopBattleScaling.scale_boss_tier(base_tier, n)
+	var fallback: Array[String] = ["ghost", "skeleton", "zombie", "ghoul",
+		"ghost", "skeleton", "zombie", "ghoul", "ghost", "skeleton", "zombie", "ghoul"]
+	var p_idx_ref: Array[int] = [0]  # closure-safe counter
+	_state.setup_coop_battle(n,
+		func(ally_idx: int, ally: PlayerState) -> void:
+			var deck_arr: Array = _coop_ally_decks[ally_idx] if ally_idx < _coop_ally_decks.size() else []
+			var insts: Array[Dictionary] = []
+			for inst in deck_arr:
+				if inst is Dictionary:
+					insts.append(inst)
+			if insts.size() > 0:
+				ally.build_deck_from_instances(insts)
+			else:
+				ally.build_deck(fallback)
+			ally.draw_opening_hand(4)
+			p_idx_ref[0] += 1,
+		func(boss_ps: PlayerState) -> void:
+			var raw: Array = enemy_data.get("enemy_deck", [])
+			var boss_deck: Array[String] = []
+			boss_deck.assign(raw)
+			if boss_deck.is_empty():
+				boss_deck = fallback
+			boss_ps.build_deck(boss_deck, scaled_tier)
+			boss_ps.draw_opening_hand(4)
+			boss_ps.hero.health = scaled_hp
+			boss_ps.hero.max_health = scaled_hp)
+
+## Client: receive and apply an authoritative co-op state mirror.
+func _on_coop_state(payload: Dictionary) -> void:
+	if not _is_pvp_client():
+		return
+	var decoded: Dictionary = BattleNetProtocol.decode_state(payload)
+	if not bool(decoded["valid"]):
+		return
+	var seq: int = int(decoded["seq"])
+	if seq <= _last_applied_seq:
+		return
+	_last_applied_seq = seq
+	_pvp_pending = false
+	var state_dict: Dictionary = decoded["state"]
+	_state = GameState.new()
+	_state.from_dict(state_dict)
+	_wire_gamebus_emitter()
+	_bump_card_next_id(_state)
+	if not _state.turn_ended.is_connected(_on_turn_ended):
+		_state.turn_ended.connect(_on_turn_ended)
+	_resolver.setup(_state)
+	_fx.set_game_state(_state)
+	_view.set_battle_state(_state, enemy_data)
+	_refresh_all()
+	_refresh_potion_button()
+
+## Authority: validate + apply an ally client's intent for the co-op battle.
+func _on_coop_intent(sender: int, payload: Dictionary) -> void:
+	if not _is_pvp_host() or not _coop_pve:
+		return
+	var intent: Dictionary = BattleNetProtocol.decode_intent(payload)
+	var t: String = str(intent["type"])
+	if t == "":
+		return
+	# Map peer → ally_idx. Host-as-ally-0 never sends intents to itself.
+	var acting_idx: int = int(_coop_peer_to_idx.get(sender, -1))
+	if acting_idx < 0:
+		return
+	if t == BattleNetProtocol.INTENT_SURRENDER:
+		# Ally surrenders: mark that ally dead (spectating) and broadcast.
+		_state.players[acting_idx].hero.health = 0
+		_broadcast_coop_state()
+		_coop_pve_check_game_over()
+		return
+	if _state.current_player_idx != acting_idx:
+		_broadcast_coop_state()
+		return
+	# Resolve opponent index for this intent (always the boss in ally turns).
+	var changed: bool = _apply_remote_intent(intent, acting_idx)
+	if changed:
+		_refresh_all()
+		_coop_pve_check_game_over()
+	else:
+		_broadcast_coop_state()
+
+## Host: a client asked for the current co-op state — send it.
+func _on_coop_sync_request() -> void:
+	if _is_pvp_host() and _coop_pve:
+		_broadcast_coop_state()
+
+## Authority: broadcast the full canonical co-op state.
+func _broadcast_coop_state() -> void:
+	if not _is_pvp_host() or _net == null:
+		return
+	_state_seq += 1
+	_net.rpc("sync_coop_state", BattleNetProtocol.encode_state(_state.to_dict(), _state_seq))
+
+## Authority-only: detect co-op battle end, compute rewards, and broadcast.
+func _coop_pve_check_game_over() -> void:
+	if not _is_pvp_host():
+		return
+	if _state.is_game_over():
+		if _coop_ended:
+			return
+		_coop_ended = true
+		var w: int = _state.winner()
+		var did_win: bool = (w == 0)  # 0 = party wins
+		_broadcast_coop_state()
+		var reward_payload: Dictionary = _build_coop_reward_payload(did_win)
+		if _net != null:
+			_net.rpc("coop_battle_ended", reward_payload)
+		_finish_coop_pve(did_win, reward_payload)
+		return
+	_broadcast_coop_state()
+
+## Computes the reward payload for the co-op battle result.
+## Each ally gets: full coins, full XP, and the soulbound card (if won).
+func _build_coop_reward_payload(did_win: bool) -> Dictionary:
+	if not did_win:
+		return {"winner_ally": false, "card_id": "", "rarity": "", "stats": {}, "coins": 0, "xp": 0}
+	var enemy_type: String = str(enemy_data.get("enemy_type", ""))
+	var is_boss: bool = bool(enemy_data.get("is_boss", false))
+	var drop_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
+	if is_boss:
+		drop_tier = 4
+	var coins: int = EnemyRegistry.get_coin_reward(enemy_type) if enemy_type != "" else 0
+	var xp: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss)
+	var pool: Array[String] = EnemyRegistry.get_drop_pool(enemy_type)
+	var card_id: String = ""
+	var rarity: String = ""
+	var stats: Dictionary = {}
+	if pool.size() > 0:
+		card_id = pool[randi() % pool.size()]
+		rarity = CardDropUtil.effective_rarity(card_id, CardDropUtil.roll_rarity(drop_tier))
+		stats = CardDropUtil.roll_stats(card_id, rarity)
+	return {"winner_ally": true, "card_id": card_id, "rarity": rarity, "stats": stats, "coins": coins, "xp": xp}
+
+## Called on every peer (host from _coop_pve_check_game_over, clients from RPC).
+func _on_coop_battle_ended(payload: Dictionary) -> void:
+	if _coop_ended:
+		return
+	_coop_ended = true
+	var did_win: bool = bool(payload.get("winner_ally", false))
+	_finish_coop_pve(did_win, payload)
+
+## Apply rewards locally and show a simple result message, then return to world.
+func _finish_coop_pve(did_win: bool, payload: Dictionary) -> void:
+	_disconnect_pvp_net_signals()
+	if did_win:
+		AudioManager.play_sfx("battle_win")
+		_fx.haptic(120)
+		var card_id: String = str(payload.get("card_id", ""))
+		var rarity: String = str(payload.get("rarity", ""))
+		var stats: Dictionary = {}
+		var raw_stats: Variant = payload.get("stats", {})
+		if raw_stats is Dictionary:
+			stats = raw_stats
+		var coins: int = int(payload.get("coins", 0))
+		var xp: int = int(payload.get("xp", 0))
+		_apply_coop_pve_rewards(card_id, rarity, stats, coins, xp)
+	else:
+		AudioManager.play_sfx("battle_lose")
+		_fx.haptic(80)
+	# Minimal result: show HUD message and return. Full ceremony is GID-100.
+	var msg: String = "Party victorious!" if did_win else "The party was defeated."
+	GameBus.hud_message_requested.emit(msg)
+	await get_tree().create_timer(2.0, false).timeout
+	GameBus.coop_pve_battle_ended.emit(did_win)
+
+## Apply the per-ally rewards from a co-op win to the local session character.
+func _apply_coop_pve_rewards(card_id: String, rarity: String, stats: Dictionary, coins: int, xp: int) -> void:
+	var sm := SceneManager.save_manager
+	if coins > 0:
+		sm.add_coins(coins)
+	if xp > 0:
+		sm.add_xp(xp)
+	if card_id == "" or rarity == "":
+		return
+	# Use the signature card as the soulbound card (same as solo soulbind logic).
+	# Each ally gets their own instance.
+	var atk: int = int(stats.get("attack", -1))
+	var hp: int = int(stats.get("health", -1))
+	var cst: int = int(stats.get("cost", -1))
+	sm.add_card_instance(card_id, rarity, atk, hp, cst)
+
+## Co-op PvE retry sync (mirrors _process for PvP).
+var _coop_sync_retry_accum: float = 0.0
+func _process_coop_sync(delta: float) -> void:
+	if not _coop_pve or not _is_pvp_client() or _last_applied_seq >= 0 or _net == null:
+		return
+	_coop_sync_retry_accum += delta
+	if _coop_sync_retry_accum >= 0.4:
+		_coop_sync_retry_accum = 0.0
+		_net.rpc_id(1, "request_coop_sync")

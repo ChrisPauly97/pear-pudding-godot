@@ -2,7 +2,7 @@
 
 **Goal:** GID-099
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-359
 
 ## Lock
@@ -57,12 +57,28 @@ to N.
 
 ## Plan
 
-_Written during Plan phase._
+Extended `BattleNetProtocol.encode_attack` with optional `target_pidx: int = -1` for
+cross-board targeting. Added 4 new reliable RPCs to `BattleNetSync` for co-op PvE:
+`send_coop_intent`, `sync_coop_state`, `coop_battle_ended`, `request_coop_sync` (kept
+separate from PvP RPCs to avoid cross-mode confusion). Added `_on_coop_intent`,
+`_on_coop_state`, `_on_coop_sync_request`, `_broadcast_coop_state`, `_setup_coop_pve_battle`,
+`_build_coop_pve_state`, `_process_coop_sync` in `BattleScene`. Updated `_send_intent` to
+route through `send_coop_intent` when `_coop_pve`. Added `SceneManager.enter_coop_pve_battle`
+and `_on_coop_pve_battle_ended`. Added `GameBus.coop_pve_battle_ended` signal.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/net/BattleNetProtocol.gd`: `encode_attack` gains `target_pidx` param;
+  `decode_intent` includes `"target_pidx"` field in defaults and INTENT_ATTACK branch.
+- `scenes/battle/BattleNetSync.gd`: added 4 co-op PvE RPCs.
+- `scenes/battle/BattleScene.gd`: `_coop_pve` mode, `_setup_coop_pve_battle`,
+  `_build_coop_pve_state`, `_on_coop_state`, `_on_coop_intent`, `_on_coop_sync_request`,
+  `_broadcast_coop_state`, `_process_coop_sync`, `_send_intent` routing; extended
+  `_is_pvp_host`, `_is_pvp_client`, `_opp_idx` for co-op; extended `_on_turn_ended`
+  for N-player boss turn detection; extended `_check_game_over` for co-op.
+- `autoloads/GameBus.gd`: `coop_pve_battle_ended(did_win: bool)` signal.
+- `autoloads/SceneManager.gd`: `enter_coop_pve_battle`, `_on_coop_pve_battle_ended`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md`: GID-099 section (networking sub-section).
