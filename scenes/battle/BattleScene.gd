@@ -1822,12 +1822,15 @@ func _opp_idx() -> int:
 
 ## True when this peer owns the canonical simulation: ENet host in any mode
 ## (listen-server host/player-0 or dedicated-server referee).
+## Uses self.multiplayer (resolved to the node's own SceneMultiplayer subtree)
+## so it works correctly both in production and in smoke tests that register
+## custom multiplayer instances via set_multiplayer().
 func _is_pvp_host() -> bool:
-	return _pvp and NetworkManager.is_host()
+	return _pvp and multiplayer.is_server()
 
 ## True when this peer is a thin client renderer (never the ENet host).
 func _is_pvp_client() -> bool:
-	return _pvp and not NetworkManager.is_host()
+	return _pvp and not multiplayer.is_server()
 
 ## True when local input is allowed: it's our turn, AI/round-trip not pending,
 ## and we have a local player (not the headless referee, _local_player_idx = -1).
@@ -2062,7 +2065,6 @@ func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 			var attacker: CardInstance = p1.board.slots[a_slot]
 			if attacker == null or not attacker.can_attack():
 				return false
-			var opp_idx: int = 1 - player_idx
 			var target: CardInstance = null
 			if t_slot != BattleNetProtocol.TARGET_HERO:
 				if t_slot < 0 or t_slot >= 5:
