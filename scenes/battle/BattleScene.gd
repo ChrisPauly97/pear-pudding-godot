@@ -41,19 +41,22 @@ var enemy_data: Dictionary = {}
 var duel_wager: int = 0
 var puzzle_data: Resource = null  # PuzzleData set by SceneManager before _ready
 
-# ── PvP card battles (GID-091) ────────────────────────────────────────────────
+# ── PvP card battles (GID-091 + GID-097) ─────────────────────────────────────
 # All inert unless SceneManager sets _pvp = true before _ready. Single-player,
 # NPC duel, puzzle and Spire battles never touch any of this.
 var _pvp: bool = false
-var _local_player_idx: int = 0       # 0 = host (authority), 1 = client
+var _local_player_idx: int = 0       # 0 = host/challenger, 1 = client, -1 = server referee
 var _net: Node = null                # BattleNetSync relay, added under this scene
 var _state_seq: int = 0              # host: monotonic broadcast counter
 var _last_applied_seq: int = -1      # client: last mirror seq applied
 var _pvp_pending: bool = false       # client: waiting on host ack of last action
 var _pvp_ended: bool = false         # guard so the result fires once
-# Client deck (collection-instance dicts) relayed in the challenge handshake; the
-# host uses it to build players[1] authoritatively. Set by SceneManager.
+# Listen-server: client deck relayed in challenge handshake (host builds players[1]).
 var pvp_opponent_deck: Array = []
+# Dedicated-server referee (GID-097 / TID-353): both player decks come from clients.
+var pvp_player0_deck: Array = []
+var pvp_player1_deck: Array = []
+var _pvp_peer_to_idx: Dictionary = {}  # peer_id (int) → player_idx (int), referee only
 
 # Weather modifier state — determined once at battle start
 var _battle_weather: String = ""  # "" if no infinite-world weather applies
@@ -1179,6 +1182,8 @@ func _make_card_ghost(card: CardInstance) -> PanelContainer:
 # -------------------------------------------------------------------------
 
 func _refresh_all() -> void:
+	if _local_player_idx < 0:
+		return  # dedicated-server referee: no rendering
 	_view.update_context(
 		_targeting_active, _targeting_friendly,
 		_dragged_card, _hand_drag_card,
@@ -1193,6 +1198,8 @@ func _refresh_all() -> void:
 	_update_status()
 
 func _refresh_player_board() -> void:
+	if _local_player_idx < 0:
+		return
 	_view.update_context(
 		_targeting_active, _targeting_friendly,
 		_dragged_card, _hand_drag_card,
@@ -1281,6 +1288,8 @@ func _trigger_dual_face_flip(panel: PanelContainer) -> void:
 	tween.tween_property(panel, "scale", Vector2(1.0, 1.0), 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _update_status() -> void:
+	if _local_player_idx < 0:
+		return  # referee: no UI to update
 	var player := _state.players[_my_idx()]
 	_turn_label.text = "Turn %d" % _state.turn_number
 	_mana_label.text = "Mana: %d/%d" % [player.hero.mana, player.hero.max_mana]
@@ -1811,16 +1820,20 @@ func _my_idx() -> int:
 func _opp_idx() -> int:
 	return 1 - _local_player_idx
 
-## True when this peer owns the canonical simulation (PvP host).
+## True when this peer owns the canonical simulation: ENet host in any mode
+## (listen-server host/player-0 or dedicated-server referee).
 func _is_pvp_host() -> bool:
-	return _pvp and _local_player_idx == 0
+	return _pvp and NetworkManager.is_host()
 
-## True when this peer is the thin client renderer.
+## True when this peer is a thin client renderer (never the ENet host).
 func _is_pvp_client() -> bool:
-	return _pvp and _local_player_idx == 1
+	return _pvp and not NetworkManager.is_host()
 
-## True when local input is allowed: it's our turn, AI/round-trip not pending.
+## True when local input is allowed: it's our turn, AI/round-trip not pending,
+## and we have a local player (not the headless referee, _local_player_idx = -1).
 func _can_local_act() -> bool:
+	if _local_player_idx < 0:
+		return false  # dedicated-server referee has no local player
 	if _ai_thinking:
 		return false
 	if _state == null:
@@ -1863,27 +1876,48 @@ func _on_pvp_sync_request() -> void:
 	if _is_pvp_host():
 		_broadcast_state()
 
-## Host: build players[0] from this peer's deck, players[1] from the relayed
-## client deck (pvp_opponent_deck). Falls back to a basic deck if either is empty.
+## Authority: build both player decks. In listen-server mode players[0] uses the
+## local save and players[1] uses pvp_opponent_deck; in dedicated-server referee
+## mode both decks come from the clients (pvp_player0_deck / pvp_player1_deck).
 func _build_pvp_decks() -> void:
 	var fallback: Array[String] = [
 		"ghost", "skeleton", "zombie", "ghoul",
 		"ghost", "skeleton", "zombie", "ghoul",
 		"ghost", "skeleton", "zombie", "ghoul",
 	]
-	var my_insts: Array[Dictionary] = SceneManager.save_manager.get_deck_instances()
-	if my_insts.size() > 0:
-		_state.players[0].build_deck_from_instances(my_insts)
+	if _local_player_idx < 0:
+		# Dedicated-server referee: both decks supplied by clients.
+		var insts0: Array[Dictionary] = []
+		for inst in pvp_player0_deck:
+			if inst is Dictionary:
+				insts0.append(inst)
+		if insts0.size() > 0:
+			_state.players[0].build_deck_from_instances(insts0)
+		else:
+			_state.players[0].build_deck(fallback)
+		var insts1: Array[Dictionary] = []
+		for inst in pvp_player1_deck:
+			if inst is Dictionary:
+				insts1.append(inst)
+		if insts1.size() > 0:
+			_state.players[1].build_deck_from_instances(insts1)
+		else:
+			_state.players[1].build_deck(fallback)
 	else:
-		_state.players[0].build_deck(fallback)
-	var opp_insts: Array[Dictionary] = []
-	for inst in pvp_opponent_deck:
-		if inst is Dictionary:
-			opp_insts.append(inst)
-	if opp_insts.size() > 0:
-		_state.players[1].build_deck_from_instances(opp_insts)
-	else:
-		_state.players[1].build_deck(fallback)
+		# Listen-server host: players[0] is local, players[1] from the challenged peer.
+		var my_insts: Array[Dictionary] = SceneManager.save_manager.get_deck_instances()
+		if my_insts.size() > 0:
+			_state.players[0].build_deck_from_instances(my_insts)
+		else:
+			_state.players[0].build_deck(fallback)
+		var opp_insts: Array[Dictionary] = []
+		for inst in pvp_opponent_deck:
+			if inst is Dictionary:
+				opp_insts.append(inst)
+		if opp_insts.size() > 0:
+			_state.players[1].build_deck_from_instances(opp_insts)
+		else:
+			_state.players[1].build_deck(fallback)
 	_state.players[0].draw_opening_hand(4)
 	_state.players[1].draw_opening_hand(4)
 
@@ -1940,34 +1974,45 @@ func _on_pvp_state(payload: Dictionary) -> void:
 	_refresh_all()
 	_refresh_potion_button()
 
-## Host: validate + apply a client intent, then re-render (broadcast happens in
-## _check_game_over). Illegal intents are rejected by re-syncing the client.
-func _on_pvp_intent(_sender: int, payload: Dictionary) -> void:
+## Authority: validate + apply a client intent, then re-render (broadcast happens
+## in _check_game_over). In referee mode both players send intents; in
+## listen-server mode only the single client (player 1) does.
+func _on_pvp_intent(sender: int, payload: Dictionary) -> void:
 	if not _is_pvp_host():
 		return
 	var intent: Dictionary = BattleNetProtocol.decode_intent(payload)
 	var t: String = str(intent["type"])
 	if t == "":
 		return
+	# Determine which player index the sender maps to.
+	# Listen-server: the only remote sender is always player 1.
+	# Dedicated-server referee: look up the per-peer mapping.
+	var acting_idx: int = 1
+	if _local_player_idx < 0:
+		acting_idx = int(_pvp_peer_to_idx.get(sender, -1))
+		if acting_idx < 0:
+			return  # unknown sender — ignore
 	if t == BattleNetProtocol.INTENT_SURRENDER:
-		_apply_remote_surrender()
+		_apply_remote_surrender(acting_idx)
 		return
-	# The client is canonical player 1 — only act on its own turn.
-	if _state.current_player_idx != 1:
+	if _state.current_player_idx != acting_idx:
 		_broadcast_state()
 		return
-	var changed: bool = _apply_remote_intent(intent)
+	var changed: bool = _apply_remote_intent(intent, acting_idx)
 	if changed:
 		_refresh_all()
 		_check_game_over()
 	else:
 		_broadcast_state()  # reject → re-sync the client
 
-## Host: apply a validated client (player 1) intent to the canonical state.
+## Authority: apply a validated remote-player intent to the canonical state.
+## `player_idx` is 1 in listen-server mode (the single client); either 0 or 1 in
+## referee mode (determined by _pvp_peer_to_idx lookup in _on_pvp_intent).
 ## Returns true if the state changed (and should be re-broadcast).
-func _apply_remote_intent(intent: Dictionary) -> bool:
+func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 	var t: String = str(intent["type"])
-	var p1: PlayerState = _state.players[1]
+	var p1: PlayerState = _state.players[player_idx]
+	var opp_idx: int = 1 - player_idx
 	match t:
 		BattleNetProtocol.INTENT_PLAY_CARD_AT_SLOT:
 			var hi: int = int(intent["hand_index"])
@@ -1979,12 +2024,12 @@ func _apply_remote_intent(intent: Dictionary) -> bool:
 				return false
 			if slot_idx < 0 or slot_idx >= 5 or p1.board.slots[slot_idx] != null:
 				return false
-			if not _do_play_card_at_slot(card, 1, slot_idx):
+			if not _do_play_card_at_slot(card, player_idx, slot_idx):
 				return false
 			if card.emergence_effect != "":
-				_resolver.resolve_emergence(card, 1)
+				_resolver.resolve_emergence(card, player_idx)
 			else:
-				_apply_weather_to_summoned(card, 1)
+				_apply_weather_to_summoned(card, player_idx)
 			return true
 		BattleNetProtocol.INTENT_PLAY_SPELL:
 			var hi2: int = int(intent["hand_index"])
@@ -1996,7 +2041,7 @@ func _apply_remote_intent(intent: Dictionary) -> bool:
 			var tgt: Dictionary = intent["target"]
 			if SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(spell.spell_effect):
 				var s_slot: int = int(tgt.get("slot", -1))
-				if not _do_play_card(spell, 1):
+				if not _do_play_card(spell, player_idx):
 					return false
 				match spell.spell_effect:
 					"bless_slot":
@@ -2005,9 +2050,9 @@ func _apply_remote_intent(intent: Dictionary) -> bool:
 						p1.board.enhance_slot(s_slot, "shroud", 1)
 				return true
 			var resolver_target: Dictionary = _pvp_resolver_target(tgt)
-			if not _do_play_card(spell, 1):
+			if not _do_play_card(spell, player_idx):
 				return false
-			_resolver.resolve_spell(spell, 1, resolver_target)
+			_resolver.resolve_spell(spell, player_idx, resolver_target)
 			return true
 		BattleNetProtocol.INTENT_ATTACK:
 			var a_slot: int = int(intent["attacker_slot"])
@@ -2017,29 +2062,30 @@ func _apply_remote_intent(intent: Dictionary) -> bool:
 			var attacker: CardInstance = p1.board.slots[a_slot]
 			if attacker == null or not attacker.can_attack():
 				return false
+			var opp_idx: int = 1 - player_idx
 			var target: CardInstance = null
 			if t_slot != BattleNetProtocol.TARGET_HERO:
 				if t_slot < 0 or t_slot >= 5:
 					return false
-				target = _state.players[0].board.slots[t_slot]
+				target = _state.players[opp_idx].board.slots[t_slot]
 				if target == null:
 					return false
 				# Ward gating: if any enemy minion has Ward, only Ward minions are valid.
-				var valid: Array[CardInstance] = _view.get_ward_valid_targets(_state.players[0].board.get_cards())
+				var valid: Array[CardInstance] = _view.get_ward_valid_targets(_state.players[opp_idx].board.get_cards())
 				if not valid.has(target):
 					return false
 			else:
 				# Cannot attack hero while a Ward minion stands.
-				for ec: CardInstance in _state.players[0].board.get_cards():
+				for ec: CardInstance in _state.players[opp_idx].board.get_cards():
 					if ec.keywords.has(Keywords.WARD):
 						return false
-			_resolve_remote_attack(attacker, target, 1)
+			_resolve_remote_attack(attacker, target, player_idx)
 			return true
 		BattleNetProtocol.INTENT_HERO_POWER:
-			_apply_hero_power_effect(1, str(intent["effect_type"]), int(intent["effect_value"]))
+			_apply_hero_power_effect(player_idx, str(intent["effect_type"]), int(intent["effect_value"]))
 			return true
 		BattleNetProtocol.INTENT_POTION:
-			_apply_potion_state_effect(1, str(intent["potion_id"]))
+			_apply_potion_state_effect(player_idx, str(intent["potion_id"]))
 			return true
 		BattleNetProtocol.INTENT_END_TURN:
 			_state.end_turn()
@@ -2160,28 +2206,30 @@ func _on_pvp_ended(payload: Dictionary) -> void:
 	var w: int = int(payload.get("winner_idx", _opp_idx()))
 	_finish_pvp(w == _local_player_idx)
 
-## Host: opponent (the client) is the loser → end as a forfeit win for the host.
-func _apply_remote_surrender() -> void:
+## Host/referee: player_idx surrenders → the other player wins.
+func _apply_remote_surrender(player_idx: int) -> void:
 	if _pvp_ended:
 		return
 	_pvp_ended = true
-	_state.players[1].hero.health = 0
+	var winner_idx: int = 1 - player_idx
+	_state.players[player_idx].hero.health = 0
 	_broadcast_state()
 	if _net != null:
-		_net.rpc("pvp_ended", {"winner_idx": 0, "forfeit": true})
-	_finish_pvp(true)
+		_net.rpc("pvp_ended", {"winner_idx": winner_idx, "forfeit": true})
+	_finish_pvp(_local_player_idx >= 0 and winner_idx == _local_player_idx)
 
 ## Local surrender request (from the pause menu Flee). Host ends immediately;
 ## client tells the host, which marks it the loser and ends for both.
+## Referee (_local_player_idx < 0) has no local player — nothing to do.
 func _pvp_surrender() -> void:
-	if _pvp_ended:
+	if _pvp_ended or _local_player_idx < 0:
 		return
 	if _is_pvp_host():
 		_pvp_ended = true
-		_state.players[0].hero.health = 0
+		_state.players[_local_player_idx].hero.health = 0
 		_broadcast_state()
 		if _net != null:
-			_net.rpc("pvp_ended", {"winner_idx": 1, "forfeit": true})
+			_net.rpc("pvp_ended", {"winner_idx": 1 - _local_player_idx, "forfeit": true})
 		_finish_pvp(false)
 	else:
 		_send_intent(BattleNetProtocol.encode_surrender())
@@ -2202,8 +2250,11 @@ func _on_pvp_session_ended() -> void:
 	_finish_pvp(true)
 
 ## Shows the synced duel-style result overlay (no rewards) and emits the
-## SceneManager completion signal once dismissed.
+## SceneManager completion signal once dismissed. Headless referee has no
+## _result_ui — emit the signal directly so SceneManager returns to world.
 func _finish_pvp(did_win: bool) -> void:
 	_disconnect_pvp_net_signals()
 	if _result_ui != null:
 		_result_ui.show_pvp_result(did_win)
+	elif _local_player_idx < 0:
+		GameBus.pvp_battle_ended.emit(false)

@@ -102,3 +102,44 @@ func respond_battle(accepted: bool, responder_deck: Array) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if world_scene != null and world_scene.has_method("_on_battle_responded"):
 		world_scene._on_battle_responded(sender, accepted, responder_deck)
+
+
+# ── Dedicated-server PvP routing (GID-097 / TID-353) ──────────────────────────
+# In a dedicated-server session neither connected peer is the host, so the server
+# arbitrates challenges and acts as the headless referee.  Three-message flow:
+#   1. Challenger  → server: relay_pvp_request(target, my_deck)
+#   2. Target      → server: relay_pvp_response(challenger_id, accepted, my_deck)
+#   3. Server      → each client: notify_pvp_start(my_player_idx, opponent_deck)
+# The server also sends set_session_flags to tell clients they are in a dedicated
+# session so they know to use the relay path instead of the direct P2P path.
+
+## Host → client: session metadata (e.g. {"dedicated": true}). Sent when the
+## host delivers the session character in dedicated-server mode.
+@rpc("any_peer", "reliable", "call_remote")
+func set_session_flags(flags: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_session_flags"):
+		world_scene._on_session_flags(flags)
+
+
+## Client → server: "I want to challenge peer target_peer_id." Dedicated mode only.
+@rpc("any_peer", "reliable", "call_remote")
+func relay_pvp_request(target_peer_id: int, challenger_deck: Array) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_relay_pvp_request"):
+		world_scene._on_relay_pvp_request(sender, target_peer_id, challenger_deck)
+
+
+## Client → server: "I accept/decline the challenge from challenger_id." Dedicated mode only.
+@rpc("any_peer", "reliable", "call_remote")
+func relay_pvp_response(challenger_id: int, accepted: bool, responder_deck: Array) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_relay_pvp_response"):
+		world_scene._on_relay_pvp_response(sender, challenger_id, accepted, responder_deck)
+
+
+## Server → client: "You are player my_player_idx; here is your opponent's deck."
+## Triggers SceneManager.enter_pvp_battle on the client.
+@rpc("any_peer", "reliable", "call_remote")
+func notify_pvp_start(my_player_idx: int, opponent_deck: Array) -> void:
+	if world_scene != null and world_scene.has_method("_on_notify_pvp_start"):
+		world_scene._on_notify_pvp_start(my_player_idx, opponent_deck)

@@ -104,6 +104,11 @@ var _pending_challenge_from: int = -1    # incoming challenge awaiting our respo
 var _pending_challenge_deck: Array = []  # challenger's deck stored until we accept
 var _challenge_accept_panel: Node = null
 const _CHALLENGE_RANGE: float = 3.0      # tiles; proximity to show the prompt
+# Dedicated-server PvP routing (GID-097 / TID-353) — server tracks pending challenge
+var _session_dedicated: bool = false      # client: true when connected to a dedicated server
+var _pvp_relay_challenger_id: int = -1   # server: peer_id of the challenger awaiting response
+var _pvp_relay_challenger_deck: Array = [] # server: challenger's deck
+var _pvp_relay_target_id: int = -1       # server: peer_id of the challenged player
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -503,11 +508,13 @@ func _setup_coop() -> void:
 	NetworkManager.peer_disconnected.connect(_on_coop_peer_disconnected)
 	NetworkManager.session_ended.connect(_on_coop_session_ended)
 
-	_ensure_challenge_button()
+	# Dedicated server has no player, no HUD, no identity to share.
+	if not NetworkManager.is_dedicated_server():
+		_ensure_challenge_button()
 
 	# Host: surface the LAN IP so the other player knows what to type into
 	# "Join by IP" (only shown on the first co-op entry, not on battle re-attach).
-	if NetworkManager.is_host() and not _initial_ready_done:
+	if NetworkManager.is_host() and not NetworkManager.is_dedicated_server() and not _initial_ready_done:
 		var lan_ip: String = NetworkManager.get_lan_ip()
 		if lan_ip != "":
 			SceneManager.show_toast("Hosting", "Other player: Join by IP  →  %s" % lan_ip)
@@ -521,11 +528,11 @@ func _setup_coop() -> void:
 	# file and adopts its own character; clients adopt on the character handshake.
 	_setup_session()
 
-	# Identity handshake (TID-342): this just-loaded peer broadcasts its identity
-	# to everyone already in-world. Each recipient replies once directly, so both
-	# sides learn each other without relying on the connect-signal ordering.
-	_build_coop_roster()
-	_send_local_identity(false, 0)
+	# Identity handshake (TID-342): broadcast this peer's identity to everyone
+	# already in-world. Dedicated server has no player identity to share.
+	if not NetworkManager.is_dedicated_server():
+		_build_coop_roster()
+		_send_local_identity(false, 0)
 
 func _teardown_coop() -> void:
 	if not _coop_active:
@@ -718,6 +725,8 @@ func _send_character_to_peer(peer_id: int, token: String, member_name: String) -
 	if rec.is_empty():
 		return
 	_net_sync.rpc_id(peer_id, "recv_character", rec, resume)
+	if NetworkManager.is_dedicated_server():
+		_net_sync.rpc_id(peer_id, "set_session_flags", {"dedicated": true})
 
 ## Move the local player to the position stored in a session record (same map only).
 func _restore_session_position(record: Dictionary) -> void:
@@ -1115,7 +1124,11 @@ func _request_challenge() -> void:
 	if my_deck.size() < IsoConst.DECK_MIN:
 		_show_tip("Your deck is too small to duel — add at least %d cards." % IsoConst.DECK_MIN)
 		return
-	_net_sync.rpc_id(_challenge_target_peer, "request_battle", my_deck)
+	if _session_dedicated:
+		# Dedicated server: route through the server referee (peer_id 1).
+		_net_sync.rpc_id(1, "relay_pvp_request", _challenge_target_peer, my_deck)
+	else:
+		_net_sync.rpc_id(_challenge_target_peer, "request_battle", my_deck)
 	_show_tip("Challenge sent…")
 
 ## Incoming challenge — show an Accept/Decline prompt.
@@ -1132,6 +1145,55 @@ func _on_battle_responded(_from_id: int, accepted: bool, responder_deck: Array) 
 		_show_tip("Challenge declined.")
 		return
 	_enter_pvp(responder_deck)
+
+# ── Dedicated-server PvP routing (GID-097 / TID-353) ──────────────────────────
+
+## Client handler: server told us we're in a dedicated-server session.
+func _on_session_flags(flags: Dictionary) -> void:
+	_session_dedicated = bool(flags.get("dedicated", false))
+
+## Server handler: client A wants to challenge client B.
+## Stores the pending challenge and relays the request to B as a normal request_battle.
+func _on_relay_pvp_request(sender_id: int, target_peer_id: int, challenger_deck: Array) -> void:
+	if not NetworkManager.is_dedicated_server():
+		return
+	if _pvp_relay_challenger_id != -1:
+		return  # a challenge is already pending
+	_pvp_relay_challenger_id = sender_id
+	_pvp_relay_challenger_deck = challenger_deck
+	_pvp_relay_target_id = target_peer_id
+	if _net_sync != null:
+		_net_sync.rpc_id(target_peer_id, "request_battle", challenger_deck)
+
+## Server handler: the challenged peer accepted or declined.
+## On accept: launch a headless referee BattleScene and notify both clients.
+func _on_relay_pvp_response(sender_id: int, challenger_id: int, accepted: bool, responder_deck: Array) -> void:
+	if not NetworkManager.is_dedicated_server():
+		return
+	if _pvp_relay_challenger_id != challenger_id or _pvp_relay_target_id != sender_id:
+		return  # stale or mismatched response
+	var challenger: int = _pvp_relay_challenger_id
+	var target: int = _pvp_relay_target_id
+	var deck_a: Array = _pvp_relay_challenger_deck.duplicate()
+	_pvp_relay_challenger_id = -1
+	_pvp_relay_challenger_deck = []
+	_pvp_relay_target_id = -1
+	if not accepted:
+		if _net_sync != null:
+			_net_sync.rpc_id(challenger, "respond_battle", false, [])
+		return
+	# Notify both clients: each will call enter_pvp_battle with their role.
+	if _net_sync != null:
+		_net_sync.rpc_id(challenger, "notify_pvp_start", 0, responder_deck)
+		_net_sync.rpc_id(target, "notify_pvp_start", 1, deck_a)
+	# Launch the headless referee on the server itself.
+	SceneManager.enter_pvp_referee(deck_a, responder_deck, challenger, target)
+
+## Client handler: server assigned us a player index; start the PvP battle.
+func _on_notify_pvp_start(my_player_idx: int, opponent_deck: Array) -> void:
+	if NetworkManager.is_dedicated_server():
+		return
+	SceneManager.enter_pvp_battle(my_player_idx, opponent_deck)
 
 func _show_challenge_accept_panel(from_id: int) -> void:
 	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
@@ -1191,20 +1253,30 @@ func _accept_challenge(from_id: int) -> void:
 	if my_deck.size() < IsoConst.DECK_MIN:
 		_show_tip("Your deck is too small to duel.")
 		if _net_sync != null:
-			_net_sync.rpc_id(from_id, "respond_battle", false, [])
+			if _session_dedicated:
+				_net_sync.rpc_id(1, "relay_pvp_response", from_id, false, [])
+			else:
+				_net_sync.rpc_id(from_id, "respond_battle", false, [])
 		_pending_challenge_from = -1
 		return
 	var opp_deck: Array = _pending_challenge_deck
 	_pending_challenge_from = -1
 	_pending_challenge_deck = []
 	if _net_sync != null:
+		if _session_dedicated:
+			# Server will send notify_pvp_start to both peers — don't call _enter_pvp here.
+			_net_sync.rpc_id(1, "relay_pvp_response", from_id, true, my_deck)
+			return
 		_net_sync.rpc_id(from_id, "respond_battle", true, my_deck)
 	_enter_pvp(opp_deck)
 
 func _decline_challenge(from_id: int) -> void:
 	_dismiss_challenge_panel()
 	if _net_sync != null:
-		_net_sync.rpc_id(from_id, "respond_battle", false, [])
+		if _session_dedicated:
+			_net_sync.rpc_id(1, "relay_pvp_response", from_id, false, [])
+		else:
+			_net_sync.rpc_id(from_id, "respond_battle", false, [])
 	_pending_challenge_from = -1
 	_pending_challenge_deck = []
 

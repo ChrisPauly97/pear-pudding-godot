@@ -447,6 +447,33 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array) -> void:
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
 
+## Dedicated-server variant of enter_pvp_battle (GID-097 / TID-353).
+## The server is the headless referee: _local_player_idx = -1 (no local player),
+## both decks come from the clients, and _pvp_peer_to_idx maps peer_id → player_idx.
+func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: int) -> void:
+	if _state != State.WORLD:
+		return
+	TransitionManager.transition(func() -> void:
+		_saved_world_scene = get_tree().current_scene
+		get_tree().root.remove_child(_saved_world_scene)
+		_battle_overlay = _battle_scene_packed.instantiate()
+		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
+		_battle_overlay.set("_pvp", true)
+		_battle_overlay.set("_local_player_idx", -1)       # no local player
+		_battle_overlay.set("pvp_player0_deck", deck_a)
+		_battle_overlay.set("pvp_player1_deck", deck_b)
+		_battle_overlay.set("_pvp_peer_to_idx", {peer_a_id: 0, peer_b_id: 1})
+		_battle_overlay.enemy_data = {
+			"display_name": "Player",
+			"enemy_type": "",
+			"is_boss": false,
+			"drop_pool": [],
+			"coin_reward": 0,
+		}
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
+	_state = State.BATTLE
+
 ## PvP battle finished (duel-style: no cards/coins/defeat tracking). Restore the
 ## shared co-op world. If the session ended (host vanished for a client), the
 ## world can't be restored → go to the menu cleanly.
@@ -458,6 +485,12 @@ func _on_pvp_battle_ended(_did_win: bool) -> void:
 		_battle_overlay = null
 	if _saved_world_scene != null and NetworkManager.is_active():
 		_restore_world()
+	elif NetworkManager.is_dedicated_server():
+		# Server restores its world scene — no menu to fall back to.
+		if _saved_world_scene != null:
+			get_tree().root.add_child(_saved_world_scene)
+			get_tree().current_scene = _saved_world_scene
+			_state = State.WORLD
 	else:
 		# No co-op session / world to return to.
 		if _saved_world_scene != null:
