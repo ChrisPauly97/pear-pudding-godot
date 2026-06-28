@@ -32,7 +32,7 @@ containerized deployment tooling (document the manual run instead).
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-352 | Dedicated headless server mode (`--server` launch, non-player authority) | agent | pending | GID-095, GID-096 |
+| TID-352 | Dedicated headless server mode (`--server` launch, non-player authority) | agent | done | GID-095, GID-096 |
 | TID-353 | PvP on dedicated server (server-authoritative duel, neither peer simulates) | agent | pending | TID-352 |
 | TID-354 | Tests + docs (dedicated server + PvP-on-server) | agent | pending | TID-352, TID-353 |
 

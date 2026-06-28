@@ -527,6 +527,60 @@ instances; A → Co-op → Host (lands in madrian); B → Co-op → Find Games o
 `127.0.0.1` → Join. Move each player and confirm the other sees it walk smoothly;
 close one and confirm its avatar is freed.
 
+## Dedicated Server (GID-097 / TID-352)
+
+A **headless, non-player server** is an additional hosting option that owns the
+session + world authority without rendering, a local player, a camera, or a HUD.
+
+### Launch
+
+```bash
+# From the project root, or from a deployed export
+godot --headless -- --server [--port N] [--map NAME]
+```
+
+`--port` defaults to `24565`. `--map` defaults to `"madrian"`.
+Connect clients with the normal "Join by IP" path in the lobby.
+
+### How it works
+
+1. **`SceneManager._maybe_boot_dedicated_server()`** (called at the end of `_ready()`):
+   parses `OS.get_cmdline_user_args()` for `--server`, `--port N`, `--map NAME`;
+   sets `NetworkManager._server_mode = true`, calls `NetworkManager.host(port, 4)`
+   (4 client slots — the server is not a player), then `enter_map_coop.call_deferred(map_name)`.
+   If the port bind fails, logs the error and quits with exit code 1.
+
+2. **`NetworkManager.is_dedicated_server()`** — returns `true` only when this
+   process was launched with `--server`. All server-only branches in WorldScene and
+   elsewhere are gated on this.
+
+3. **`WorldScene._ready()`** skips `_spawn_player()`, virtual joystick, HUD labels,
+   WorldHUD, Minimap, DungeonSessionUI, and pending-battle re-enter when
+   `is_dedicated_server()` is true. A `_server_ref_pos` computed from the map's SPAWN
+   marker (or `Vector3.ZERO`) is used in place of `_player.position` for the initial
+   chunk streaming calls.
+
+4. **`WorldScene._process()`** runs co-op ticks (`_coop_active`) and the DayNightCycle
+   tick *before* the `if _player == null: return` guard, so time, persistence, and
+   enemy streaming work even without a local player.
+
+5. All `_world_hud` accesses in WorldScene are safe: the HUD is never created in server
+   mode and the code paths that access it are all reachable only via the player-guard
+   (player-triggered interactions, `_check_interactions()`, etc.).
+
+### Lifecycle
+
+- Connects and disconnects are logged: `[Server] Client connected:` / `[Server] Client disconnected:`.
+- The server keeps running when the last client leaves (no auto-quit).
+- Session state (`SessionStore`) flushes on a peer-disconnect and on the normal quit/SIGINT path.
+- All GID-095 per-player persistence and GID-096 world-object sync work unchanged
+  — both were built against the authority abstraction, not the listen-server path.
+
+### Additive guarantee
+
+Every server-mode branch is gated on `NetworkManager.is_dedicated_server()` or
+`_player == null`. The listen-server path (`MenuScene → Host Game`) is untouched.
+
 ## Limitations / Out of Scope (this slice)
 
 - **LAN / loopback only** — no NAT traversal; over-the-internet play needs a VPN

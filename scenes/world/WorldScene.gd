@@ -314,7 +314,18 @@ func _ready() -> void:
 	_csm.chunk_committed.connect(_on_chunk_committed)
 	_csm.chunk_unloading.connect(_on_chunk_unloading)
 
-	_spawn_player()
+	# Dedicated server: no local player, camera, or HUD. Compute a reference position
+	# for the chunk-streaming manager from the map's spawn marker instead.
+	var _server_ref_pos: Vector3 = Vector3.ZERO
+	if NetworkManager.is_dedicated_server():
+		if not _is_infinite and world_map != null and world_map.has_player_spawn():
+			_server_ref_pos = Vector3(
+				(float(world_map.player_spawn_x) + 0.5) * IsoConst.TILE_SIZE,
+				0.0,
+				(float(world_map.player_spawn_z) + 0.5) * IsoConst.TILE_SIZE)
+		print("[Server] World loaded: %s" % map_name)
+	else:
+		_spawn_player()
 
 	if _is_infinite:
 		var floor_body := StaticBody3D.new()
@@ -324,15 +335,18 @@ func _ready() -> void:
 		floor_col.shape = WorldBoundaryShape3D.new()
 		floor_body.add_child(floor_col)
 		add_child(floor_body)
-		_csm.build_initial_infinite(_player.position)
-		_spawn_open_world_rival_enc2()
-		if map_name == "main":
-			_spawn_return_portal()
+		var _inf_ref: Vector3 = _player.position if _player != null else _server_ref_pos
+		_csm.build_initial_infinite(_inf_ref)
+		if not NetworkManager.is_dedicated_server():
+			_spawn_open_world_rival_enc2()
+			if map_name == "main":
+				_spawn_return_portal()
 	else:
 		# Named map: load all chunks covering the 100×100 tile map synchronously
 		var max_cx: int = (WorldMap.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
 		var max_cz: int = (WorldMap.MAP_HEIGHT + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
-		_csm.build_all_named_map(max_cx, max_cz, _player.position)
+		var _named_ref: Vector3 = _player.position if _player != null else _server_ref_pos
+		_csm.build_all_named_map(max_cx, max_cz, _named_ref)
 		_spawn_named_map_scrolls()
 		_spawn_named_map_shrines()
 		_spawn_named_map_waystones()
@@ -345,51 +359,56 @@ func _ready() -> void:
 		if map_name == "blancogov" or map_name == "blancogov_temple":
 			SceneManager.save_manager.set_story_flag("chapter1_reached_blancogov")
 
-	# Re-enter any battle that was interrupted (e.g. app quit mid-fight)
-	if not SceneManager.save_manager.pending_battle_enemy_data.is_empty():
+	# Re-enter any battle that was interrupted (e.g. app quit mid-fight).
+	# Dedicated server has no local player, so this is skipped.
+	if not SceneManager.save_manager.pending_battle_enemy_data.is_empty() \
+			and not NetworkManager.is_dedicated_server():
 		GameBus.enemy_engaged.emit.call_deferred(SceneManager.save_manager.pending_battle_enemy_data)
-	_interact_label.hide()
-	_interact_label.text = "[Tap] Interact" if OS.has_feature("android") else "[E] Interact"
 
-	var joystick := VirtualJoystick.new()
-	_hud.add_child(joystick)
-	_joystick_ref = joystick
+	if not NetworkManager.is_dedicated_server():
+		_interact_label.hide()
+		_interact_label.text = "[Tap] Interact" if OS.has_feature("android") else "[E] Interact"
 
-	var vh: float = get_viewport().get_visible_rect().size.y
-	_map_label.add_theme_font_size_override("font_size", int(vh * 0.032))
-	_coin_label.add_theme_font_size_override("font_size", int(vh * 0.03))
-	_interact_label.add_theme_font_size_override("font_size", int(vh * 0.03))
+		var joystick := VirtualJoystick.new()
+		_hud.add_child(joystick)
+		_joystick_ref = joystick
 
-	# WorldHUD owns all dynamically-created buttons, labels, and display state.
-	_world_hud = WorldHUD.new()
-	_world_hud.name = "WorldHUD"
-	add_child(_world_hud)
-	_world_hud.setup(_hud, _is_infinite, map_name, _interact_label, self)
-	_world_hud.build_bounty_tracker()
+		var vh: float = get_viewport().get_visible_rect().size.y
+		_map_label.add_theme_font_size_override("font_size", int(vh * 0.032))
+		_coin_label.add_theme_font_size_override("font_size", int(vh * 0.03))
+		_interact_label.add_theme_font_size_override("font_size", int(vh * 0.03))
 
-	# Must run after _world_hud exists — _update_hud refreshes the XP bar via it.
-	_update_hud()
+		# WorldHUD owns all dynamically-created buttons, labels, and display state.
+		_world_hud = WorldHUD.new()
+		_world_hud.name = "WorldHUD"
+		add_child(_world_hud)
+		_world_hud.setup(_hud, _is_infinite, map_name, _interact_label, self)
+		_world_hud.build_bounty_tracker()
 
-	if not SceneManager.save_manager.get_story_flag("tutorial_inventory_tip"):
-		SceneManager.save_manager.set_story_flag("tutorial_inventory_tip")
-		var inv_tip: String = "Tap the Inventory button to manage your deck." \
-			if OS.has_feature("android") else "Press I or tap Inventory to manage your deck."
-		_world_hud.show_tip.call_deferred(inv_tip)
+		# Must run after _world_hud exists — _update_hud refreshes the XP bar via it.
+		_update_hud()
 
-	_minimap = Minimap.new()
-	add_child(_minimap)
-	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
-	_minimap.tapped.connect(_open_map_view)
+		if not SceneManager.save_manager.get_story_flag("tutorial_inventory_tip"):
+			SceneManager.save_manager.set_story_flag("tutorial_inventory_tip")
+			var inv_tip: String = "Tap the Inventory button to manage your deck." \
+				if OS.has_feature("android") else "Press I or tap Inventory to manage your deck."
+			_world_hud.show_tip.call_deferred(inv_tip)
 
-	GameBus.hud_message_requested.connect(func(text: String) -> void: _world_hud.show_dialogue(text))
-	GameBus.story_scroll_collected.connect(_on_scroll_collected)
-	GameBus.waystone_activated.connect(_on_waystone_activated)
+		_minimap = Minimap.new()
+		add_child(_minimap)
+		_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
+		_minimap.tapped.connect(_open_map_view)
+
+		GameBus.hud_message_requested.connect(func(text: String) -> void: _world_hud.show_dialogue(text))
+		GameBus.story_scroll_collected.connect(_on_scroll_collected)
+		GameBus.waystone_activated.connect(_on_waystone_activated)
 
 	# DungeonSessionUI owns dungeon room overlay panels and hero HP tracking.
-	_dungeon_session_ui = DungeonSessionUI.new()
-	_dungeon_session_ui.name = "DungeonSessionUI"
-	add_child(_dungeon_session_ui)
-	_dungeon_session_ui.setup(_hud, func(text: String) -> void: _world_hud.show_dialogue(text))
+	if not NetworkManager.is_dedicated_server():
+		_dungeon_session_ui = DungeonSessionUI.new()
+		_dungeon_session_ui.name = "DungeonSessionUI"
+		add_child(_dungeon_session_ui)
+		_dungeon_session_ui.setup(_hud, func(text: String) -> void: _world_hud.show_dialogue(text))
 
 	# DayNightCycle owns time-of-day advancement, sun/moon lighting, and sky color.
 	_dnc = DayNightCycle.new()
@@ -1403,7 +1422,7 @@ func _tick_roaming_boss(delta: float) -> void:
 	var boss: Node3D = _enemy_nodes.get("roaming_boss") as Node3D
 	var expired: bool = _roaming_boss_timer >= 300.0
 	var fled: bool = boss == null or not is_instance_valid(boss) or \
-		_player.position.distance_to(boss.position) > 160.0
+		(_player != null and _player.position.distance_to(boss.position) > 160.0)
 	if expired or fled:
 		var wem: Node = get_node_or_null("/root/WorldEventManager")
 		if wem != null:
@@ -1424,7 +1443,7 @@ func _tick_card_shower() -> void:
 # ── Nocturnal spawn system (GID-055 Night Hunts) ──────────────────────────────
 
 func _update_nocturnal_spawns(delta: float) -> void:
-	if not _is_infinite:
+	if not _is_infinite or _player == null:
 		return
 	var currently_night: bool = _dnc != null and _dnc.is_night_now()
 	if not currently_night:
@@ -1492,6 +1511,8 @@ func _update_nocturnal_spawns(delta: float) -> void:
 			GameBus.tutorial_popup_requested.emit("night_hunts")
 
 func _find_nocturnal_spawn_pos() -> Vector3:
+	if _player == null:
+		return Vector3.ZERO
 	var min_dist: float = 6.0
 	var max_dist: float = 14.0
 	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
@@ -2138,6 +2159,18 @@ func _snap_to_pixel(pos: Vector3) -> Vector3:
 # ── Per-frame update ───────────────────────────────────────────────────────
 
 func _process(delta: float) -> void:
+	# Co-op and time ticks run before the player null-check so they work in
+	# dedicated-server mode (no local player) as well as in normal sessions.
+	if _coop_active:
+		_broadcast_local_avatar(delta)
+		_update_challenge_proximity()
+		_tick_session_persist(delta)
+		# World-object sync (GID-096): host streams enemy positions; clients smooth.
+		_broadcast_enemy_positions(delta)
+		_interp_synced_enemies(delta)
+	if _dnc:
+		_dnc.tick(delta, _weather_tint)
+
 	if _player == null:
 		return
 	# Software floor: snap player back to terrain surface if physics misses it.
@@ -2157,8 +2190,6 @@ func _process(delta: float) -> void:
 		var tx: int = int(_player.position.x / IsoConst.TILE_SIZE)
 		var tz: int = int(_player.position.z / IsoConst.TILE_SIZE)
 		_world_hud.update_coords(tx, tz)
-	if _dnc:
-		_dnc.tick(delta, _weather_tint)
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
 
@@ -2182,15 +2213,6 @@ func _process(delta: float) -> void:
 		_tick_card_shower()
 		_update_nocturnal_spawns(delta)
 		_csm.process_streaming(_player.position, _player.velocity, _camera.get_frustum())
-
-	# Co-op: broadcast local avatar state to peers (inert in single-player)
-	if _coop_active:
-		_broadcast_local_avatar(delta)
-		_update_challenge_proximity()
-		_tick_session_persist(delta)
-		# World-object sync (GID-096): host streams enemy positions; clients smooth.
-		_broadcast_enemy_positions(delta)
-		_interp_synced_enemies(delta)
 
 	# Only update save position when player moves > 1 unit (not every frame)
 	var cur_pos := Vector2(_player.position.x, _player.position.z)

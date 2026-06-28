@@ -122,6 +122,35 @@ func _ready() -> void:
 		GameBus.hud_message_requested.emit("Bag full! Sell or scrap cards to make room."))
 	GameBus.siege_defeated.connect(func(coins_lost: int) -> void:
 		show_toast("Siege Lost", "The town fell. Lost %d coins." % coins_lost))
+	_maybe_boot_dedicated_server()
+
+## Dedicated server boot (GID-097 / TID-352).
+## Invocation: godot --headless -- --server [--port N] [--map NAME]
+## Parses user args, sets NetworkManager server-mode, hosts on the given port with
+## 4 client slots (no host-is-player slot consumed), and loads the shared map.
+## Deferred so the main scene (MenuScene) finishes loading before we replace it.
+func _maybe_boot_dedicated_server() -> void:
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	if not args.has("--server"):
+		return
+	var port: int = NetworkManager.DEFAULT_PORT
+	var map_name: String = "madrian"
+	for i: int in range(args.size()):
+		var arg: String = args[i]
+		if arg == "--port" and i + 1 < args.size():
+			port = int(args[i + 1])
+		elif arg == "--map" and i + 1 < args.size():
+			map_name = args[i + 1]
+	print("[Server] Dedicated server starting — port %d, map '%s'" % [port, map_name])
+	NetworkManager._server_mode = true
+	var err: Error = NetworkManager.host(port, 4)
+	if err != OK:
+		push_error("[Server] Failed to bind port %d (error %d) — exiting." % [port, err])
+		get_tree().quit(1)
+		return
+	print("[Server] Listening. Connect with: godot -- --join <server-ip> [--port %d]" % port)
+	# Deferred so MenuScene's _ready completes before we change the scene.
+	enter_map_coop.call_deferred(map_name)
 
 func go_to_menu() -> void:
 	_flush_position_save()

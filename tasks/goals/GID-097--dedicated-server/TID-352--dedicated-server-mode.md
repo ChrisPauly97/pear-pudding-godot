@@ -2,7 +2,7 @@
 
 **Goal:** GID-097
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** GID-095, GID-096
 
 ## Lock
@@ -45,12 +45,55 @@ _To be expanded when GID-095 + GID-096 land._
 
 ## Plan
 
-_Written during Plan phase._
+### Files to change
+
+1. **`autoloads/NetworkManager.gd`**
+   - Add `var _server_mode: bool = false` instance field.
+   - Add `func is_dedicated_server() -> bool: return _server_mode`.
+   - In `_on_peer_connected` / `_on_peer_disconnected`: add `if _server_mode: print(...)` log lines.
+
+2. **`autoloads/SceneManager.gd`**
+   - At the end of `_ready()`, call `_maybe_boot_dedicated_server()`.
+   - Add `_maybe_boot_dedicated_server()`: parses `OS.get_cmdline_user_args()` for `--server`,
+     `--port N`, `--map NAME`; sets `NetworkManager._server_mode = true`, calls
+     `NetworkManager.host(port, 4)` (4 clients — no host player slot used), then
+     `enter_map_coop(map)`.
+
+3. **`scenes/world/WorldScene.gd`**
+   - In `_ready()`: skip `_spawn_player()`, joystick, `WorldHUD`, `DungeonSessionUI`, and
+     `Minimap` when `NetworkManager.is_dedicated_server()`. Compute `_server_spawn_pos` for
+     the `build_all_named_map` / `build_initial_infinite` calls instead.
+   - Replace the two `_csm.build_*(... _player.position)` calls with a local
+     `var _ref_pos := _player.position if _player != null else _server_spawn_pos`.
+   - In `_process()`: move the `_coop_active` block and `_dnc.tick(delta)` **before** the
+     `if _player == null: return` guard so those ticks run in server mode.
+   - Guard `_update_nocturnal_spawns()` and `_find_nocturnal_spawn_pos()` with
+     `if _player == null: return / return Vector3.ZERO` early returns.
+   - Guard `_tick_roaming_boss()` distance check with `if _player == null: …`.
+
+### Guarantee: additive only
+All server-mode paths are gated on `NetworkManager.is_dedicated_server()` or `_player == null`.
+The existing listen-server / single-player paths are unchanged.
 
 ## Changes Made
 
-_Filled after Build phase._
+1. **`autoloads/NetworkManager.gd`**
+   - Added `var _server_mode: bool = false` field.
+   - Added `func is_dedicated_server() -> bool: return _server_mode`.
+   - Added `if _server_mode: print(...)` log lines in `_on_peer_connected` and `_on_peer_disconnected`.
+
+2. **`autoloads/SceneManager.gd`**
+   - Added `_maybe_boot_dedicated_server()` call at the end of `_ready()` (after all GameBus connects).
+   - Added `_maybe_boot_dedicated_server()`: parses `OS.get_cmdline_user_args()` for `--server`, `--port N`, `--map NAME`; sets `NetworkManager._server_mode = true`, calls `NetworkManager.host(port, 4)`, then `enter_map_coop.call_deferred(map_name)`.
+
+3. **`scenes/world/WorldScene.gd`**
+   - In `_ready()`: gated `_spawn_player()`, joystick, HUD labels, WorldHUD, Minimap, DungeonSessionUI, pending battle re-enter on `not NetworkManager.is_dedicated_server()`. Added `_server_ref_pos` computed from world map's SPAWN marker (or Vector3.ZERO) for chunk streaming.
+   - Replaced `_player.position` in `build_initial_infinite` and `build_all_named_map` calls with `_player.position if _player != null else _server_ref_pos`.
+   - In `_process()`: moved `_coop_active` ticks and `_dnc.tick()` BEFORE the `if _player == null: return` guard so they run in server mode.
+   - `_update_nocturnal_spawns()`: already had `if not _is_infinite or _player == null: return`.
+   - `_find_nocturnal_spawn_pos()`: added `if _player == null: return Vector3.ZERO`.
+   - `_tick_roaming_boss()`: guarded `distance_to` call with `_player != null and`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Updated `docs/agent/multiplayer-coop.md` to document dedicated server launch path, invocation syntax, and server-mode behaviour.
