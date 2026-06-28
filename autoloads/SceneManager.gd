@@ -122,6 +122,35 @@ func _ready() -> void:
 		GameBus.hud_message_requested.emit("Bag full! Sell or scrap cards to make room."))
 	GameBus.siege_defeated.connect(func(coins_lost: int) -> void:
 		show_toast("Siege Lost", "The town fell. Lost %d coins." % coins_lost))
+	_maybe_boot_dedicated_server()
+
+## Dedicated server boot (GID-097 / TID-352).
+## Invocation: godot --headless -- --server [--port N] [--map NAME]
+## Parses user args, sets NetworkManager server-mode, hosts on the given port with
+## 4 client slots (no host-is-player slot consumed), and loads the shared map.
+## Deferred so the main scene (MenuScene) finishes loading before we replace it.
+func _maybe_boot_dedicated_server() -> void:
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	if not args.has("--server"):
+		return
+	var port: int = NetworkManager.DEFAULT_PORT
+	var map_name: String = "madrian"
+	for i: int in range(args.size()):
+		var arg: String = args[i]
+		if arg == "--port" and i + 1 < args.size():
+			port = int(args[i + 1])
+		elif arg == "--map" and i + 1 < args.size():
+			map_name = args[i + 1]
+	print("[Server] Dedicated server starting — port %d, map '%s'" % [port, map_name])
+	NetworkManager._server_mode = true
+	var err: Error = NetworkManager.host(port, 4)
+	if err != OK:
+		push_error("[Server] Failed to bind port %d (error %d) — exiting." % [port, err])
+		get_tree().quit(1)
+		return
+	print("[Server] Listening. Connect with: godot -- --join <server-ip> [--port %d]" % port)
+	# Deferred so MenuScene's _ready completes before we change the scene.
+	enter_map_coop.call_deferred(map_name)
 
 func go_to_menu() -> void:
 	_flush_position_save()
@@ -418,6 +447,33 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array) -> void:
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
 
+## Dedicated-server variant of enter_pvp_battle (GID-097 / TID-353).
+## The server is the headless referee: _local_player_idx = -1 (no local player),
+## both decks come from the clients, and _pvp_peer_to_idx maps peer_id → player_idx.
+func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: int) -> void:
+	if _state != State.WORLD:
+		return
+	TransitionManager.transition(func() -> void:
+		_saved_world_scene = get_tree().current_scene
+		get_tree().root.remove_child(_saved_world_scene)
+		_battle_overlay = _battle_scene_packed.instantiate()
+		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
+		_battle_overlay.set("_pvp", true)
+		_battle_overlay.set("_local_player_idx", -1)       # no local player
+		_battle_overlay.set("pvp_player0_deck", deck_a)
+		_battle_overlay.set("pvp_player1_deck", deck_b)
+		_battle_overlay.set("_pvp_peer_to_idx", {peer_a_id: 0, peer_b_id: 1})
+		_battle_overlay.enemy_data = {
+			"display_name": "Player",
+			"enemy_type": "",
+			"is_boss": false,
+			"drop_pool": [],
+			"coin_reward": 0,
+		}
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
+	_state = State.BATTLE
+
 ## PvP battle finished (duel-style: no cards/coins/defeat tracking). Restore the
 ## shared co-op world. If the session ended (host vanished for a client), the
 ## world can't be restored → go to the menu cleanly.
@@ -429,6 +485,12 @@ func _on_pvp_battle_ended(_did_win: bool) -> void:
 		_battle_overlay = null
 	if _saved_world_scene != null and NetworkManager.is_active():
 		_restore_world()
+	elif NetworkManager.is_dedicated_server():
+		# Server restores its world scene — no menu to fall back to.
+		if _saved_world_scene != null:
+			get_tree().root.add_child(_saved_world_scene)
+			get_tree().current_scene = _saved_world_scene
+			_state = State.WORLD
 	else:
 		# No co-op session / world to return to.
 		if _saved_world_scene != null:

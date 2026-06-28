@@ -100,7 +100,7 @@
 | [GID-094](goals/GID-094--multiplayer-foundations/goal.md) | Multiplayer Foundations — N-Player Capacity & Identity | done | 4 / 4 |
 | [GID-095](goals/GID-095--persistent-mp-sessions/goal.md) | Persistent Multiplayer Sessions & Per-Player Progress | done | 4 / 4 |
 | [GID-096](goals/GID-096--coop-world-sync/goal.md) | Co-op World State Sync | done | 4 / 4 |
-| [GID-097](goals/GID-097--dedicated-server/goal.md) | Dedicated Server Option | pending | 0 / 3 |
+| [GID-097](goals/GID-097--dedicated-server/goal.md) | Dedicated Server Option | done | 3 / 3 |
 
 ## Backlog
 

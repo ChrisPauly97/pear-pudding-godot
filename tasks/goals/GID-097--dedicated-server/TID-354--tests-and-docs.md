@@ -2,7 +2,7 @@
 
 **Goal:** GID-097
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-352, TID-353
 
 ## Lock
@@ -16,8 +16,6 @@
 Verify the dedicated server and server-refereed PvP, and document how to run it.
 
 ## Research Notes
-
-_To be expanded as the goal lands._
 
 - **Smoke (real sockets):**
   - `tests/net_dedicated_server_smoke.gd` — boot a server-mode authority (no
@@ -37,12 +35,57 @@ _To be expanded as the goal lands._
 
 ## Plan
 
-_Written during Plan phase._
+1. Write `tests/net_dedicated_server_smoke.gd` — 3-peer ENet loopback test for
+   the NetSync relay handshake: set_session_flags, relay_pvp_request, request_battle
+   forwarding, relay_pvp_response, notify_pvp_start to both clients with correct
+   player indices and opponent decks.
+2. Write `tests/net_pvp_dedicated_smoke.gd` — 3-peer test with real BattleScene
+   instances (referee idx=-1, client A idx=0, client B idx=1); verify initial mirror
+   broadcast and client A end_turn intent flips the turn.
+3. Fix `_is_pvp_host()` / `_is_pvp_client()` to use `self.multiplayer.is_server()`
+   (node's own subtree multiplayer) instead of `NetworkManager.is_host()` —
+   corrects the test environment where the root multiplayer always reports is_server=true.
+4. Run headless compilation check + all smoke tests.
+5. Update docs: add test rows to multiplayer-coop.md's existing dedicated-server doc.
 
 ## Changes Made
 
-_Filled after Build phase._
+### `scenes/battle/BattleScene.gd`
+- Changed `_is_pvp_host()` from `NetworkManager.is_host()` to
+  `multiplayer.is_server()` (the node's own subtree multiplayer). This correctly
+  identifies the ENet host in both production (`NetworkManager.host()` sets the root
+  multiplayer peer) and in smoke tests (set_multiplayer on a subtree registers the
+  per-peer SceneMultiplayer). The root-level default multiplayer always reports
+  `is_server()=true`, so using `NetworkManager.is_host()` made every test peer
+  think it was the host.
+- Same fix applied to `_is_pvp_client()`.
+
+### `tests/net_dedicated_server_smoke.gd` (new)
+- 3-peer ENet loopback smoke for the NetSync relay flow. Connects two clients
+  to a server (peer 1). Verifies:
+  1. `set_session_flags({"dedicated": true})` reaches client A.
+  2. `relay_pvp_request` from client A → server forwards `request_battle` to client B.
+  3. `relay_pvp_response` from client B → server sends `notify_pvp_start(0, deck_b)`
+     to client A and `notify_pvp_start(1, deck_a)` to client B.
+  4. Client A (challenger) does NOT receive a spurious `request_battle`.
+- Uses `mp_a.get_unique_id()` / `mp_b.get_unique_id()` and `peer_connected` signal
+  for robust peer ID discovery instead of hardcoded sequential IDs.
+
+### `tests/net_pvp_dedicated_smoke.gd` (new)
+- 3-peer ENet loopback smoke for the BattleScene referee. Instantiates a real
+  BattleScene on each peer: referee (`_local_player_idx=-1`, `_pvp_peer_to_idx`
+  map set), client A (idx=0), client B (idx=1). Verifies:
+  1. All three BattleScenes launch without crashing in `_ready`.
+  2. Both clients receive the initial state mirror from the referee.
+  3. Client A sends an `end_turn` intent; the referee applies it; the referee's
+     canonical `current_player_idx` flips to 1; both clients receive updated mirrors.
+
+### `.uid` sidecars
+- `tests/net_dedicated_server_smoke.gd.uid` and
+  `tests/net_pvp_dedicated_smoke.gd.uid` created.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md` already updated in TID-353 with the PvP-on-
+  dedicated-server subsection. This task adds test rows to the doc's "How to verify"
+  section noting the two new smoke tests.

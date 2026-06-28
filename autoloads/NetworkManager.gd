@@ -40,6 +40,14 @@ signal hosts_discovered(hosts: Array)
 ## Shown to other players in their found-games list.
 var host_label: String = "Pear Pudding Host"
 
+## Set true by SceneManager when launched with --server. Clients and listen-server
+## hosts always read false; only the headless dedicated-server process reads true.
+var _server_mode: bool = false
+
+## Returns true only when this process was launched as a dedicated headless server.
+func is_dedicated_server() -> bool:
+	return _server_mode
+
 var _host_listener: PacketPeerUDP = null  # host: answers discovery queries
 var _scan_socket: PacketPeerUDP = null    # client: broadcasts query, collects replies
 var _scan_time_left: float = 0.0
@@ -298,10 +306,14 @@ func _create_peer(transport: Transport) -> MultiplayerPeer:
 # ---------------------------------------------------------------------------
 
 func _on_peer_connected(id: int) -> void:
+	if _server_mode:
+		print("[Server] Client connected: peer_id=%d  total=%d" % [id, multiplayer.get_peers().size()])
 	peer_connected.emit(id)
 
 
 func _on_peer_disconnected(id: int) -> void:
+	if _server_mode:
+		print("[Server] Client disconnected: peer_id=%d  remaining=%d" % [id, multiplayer.get_peers().size() - 1])
 	peer_disconnected.emit(id)
 
 

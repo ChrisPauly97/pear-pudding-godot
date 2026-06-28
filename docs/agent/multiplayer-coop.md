@@ -527,6 +527,96 @@ instances; A → Co-op → Host (lands in madrian); B → Co-op → Find Games o
 `127.0.0.1` → Join. Move each player and confirm the other sees it walk smoothly;
 close one and confirm its avatar is freed.
 
+## Dedicated Server (GID-097 / TID-352)
+
+A **headless, non-player server** is an additional hosting option that owns the
+session + world authority without rendering, a local player, a camera, or a HUD.
+
+### Launch
+
+```bash
+# From the project root, or from a deployed export
+godot --headless -- --server [--port N] [--map NAME]
+```
+
+`--port` defaults to `24565`. `--map` defaults to `"madrian"`.
+Connect clients with the normal "Join by IP" path in the lobby.
+
+### How it works
+
+1. **`SceneManager._maybe_boot_dedicated_server()`** (called at the end of `_ready()`):
+   parses `OS.get_cmdline_user_args()` for `--server`, `--port N`, `--map NAME`;
+   sets `NetworkManager._server_mode = true`, calls `NetworkManager.host(port, 4)`
+   (4 client slots — the server is not a player), then `enter_map_coop.call_deferred(map_name)`.
+   If the port bind fails, logs the error and quits with exit code 1.
+
+2. **`NetworkManager.is_dedicated_server()`** — returns `true` only when this
+   process was launched with `--server`. All server-only branches in WorldScene and
+   elsewhere are gated on this.
+
+3. **`WorldScene._ready()`** skips `_spawn_player()`, virtual joystick, HUD labels,
+   WorldHUD, Minimap, DungeonSessionUI, and pending-battle re-enter when
+   `is_dedicated_server()` is true. A `_server_ref_pos` computed from the map's SPAWN
+   marker (or `Vector3.ZERO`) is used in place of `_player.position` for the initial
+   chunk streaming calls.
+
+4. **`WorldScene._process()`** runs co-op ticks (`_coop_active`) and the DayNightCycle
+   tick *before* the `if _player == null: return` guard, so time, persistence, and
+   enemy streaming work even without a local player.
+
+5. All `_world_hud` accesses in WorldScene are safe: the HUD is never created in server
+   mode and the code paths that access it are all reachable only via the player-guard
+   (player-triggered interactions, `_check_interactions()`, etc.).
+
+### Lifecycle
+
+- Connects and disconnects are logged: `[Server] Client connected:` / `[Server] Client disconnected:`.
+- The server keeps running when the last client leaves (no auto-quit).
+- Session state (`SessionStore`) flushes on a peer-disconnect and on the normal quit/SIGINT path.
+- All GID-095 per-player persistence and GID-096 world-object sync work unchanged
+  — both were built against the authority abstraction, not the listen-server path.
+
+### Additive guarantee
+
+Every server-mode branch is gated on `NetworkManager.is_dedicated_server()` or
+`_player == null`. The listen-server path (`MenuScene → Host Game`) is untouched.
+
+### PvP on a Dedicated Server (GID-097 / TID-353)
+
+On a dedicated server **neither client is the host**, so the server acts as the
+headless referee. Both clients send intents; the server owns `GameState` and
+broadcasts mirrors to both.
+
+**Challenge handshake (3 messages):**
+
+1. **Challenger → server:** `NetSync.relay_pvp_request(target_peer_id, my_deck)`.
+   Clients use this path when `_session_dedicated == true` (set by
+   `set_session_flags` alongside the character record on connect).
+
+2. **Target → server:** `NetSync.relay_pvp_response(challenger_id, accepted, my_deck)`.
+   The server also forwards the challenge to the target via the existing
+   `request_battle` RPC so the target's `_pending_challenge_from` / UI still works.
+
+3. **Server → each client:** `NetSync.notify_pvp_start(my_player_idx, opponent_deck)`.
+   Challenger gets `(0, target_deck)`; target gets `(1, challenger_deck)`.
+   Each client calls `SceneManager.enter_pvp_battle(my_player_idx, opponent_deck)`.
+
+**Server referee scene** (`SceneManager.enter_pvp_referee`)
+
+- Instantiates `BattleScene` with `_local_player_idx = -1` and
+  `_pvp_peer_to_idx = {peer_a_id: 0, peer_b_id: 1}`.
+- `_is_pvp_host()` returns `true` (the server is the ENet host).
+- All rendering paths guard on `_local_player_idx < 0` — no UI, no board view.
+- Intent routing: `_on_pvp_intent(sender, payload)` looks up `sender` in
+  `_pvp_peer_to_idx` to get `acting_idx` (0 or 1); `_apply_remote_intent(intent,
+  acting_idx)` is fully generalised with `opp_idx = 1 - acting_idx`.
+- On game-over: broadcasts `pvp_ended`, then `_finish_pvp` emits
+  `GameBus.pvp_battle_ended` directly (no result UI), returning to the world.
+
+**Listen-server path unchanged:** `_is_pvp_host()` still returns `true` for the
+listen-server host (peer_id=1, local_idx=0); `_pvp_peer_to_idx` is empty so
+`_on_pvp_intent` falls through to the hardcoded `acting_idx = 1` path.
+
 ## Limitations / Out of Scope (this slice)
 
 - **LAN / loopback only** — no NAT traversal; over-the-internet play needs a VPN
