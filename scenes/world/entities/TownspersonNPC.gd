@@ -5,6 +5,7 @@ const TextureGen = preload("res://game_logic/TextureGen.gd")
 var npc_data: Dictionary = {}
 var _flag_key: String = ""
 var _after_dialogue: String = ""
+var _dialogue_group: String = ""
 
 func _ready() -> void:
 	add_to_group("interactable")
@@ -23,6 +24,7 @@ func init_from_data(data: Dictionary) -> void:
 	npc_data = data
 	_flag_key = str(data.get("flag_key", ""))
 	_after_dialogue = str(data.get("after_dialogue", ""))
+	_dialogue_group = str(data.get("dialogue_group", ""))
 
 func _add_name_label() -> void:
 	var npc_name: String = _extract_name()
@@ -54,4 +56,6 @@ func _extract_name() -> String:
 func get_dialogue() -> String:
 	if _flag_key != "" and SaveManager.get_story_flag(_flag_key):
 		return _after_dialogue
+	if _dialogue_group != "" and NetworkManager.is_active() and multiplayer.get_peers().size() > 0:
+		return _dialogue_group
 	return str(npc_data.get("dialogue", "..."))

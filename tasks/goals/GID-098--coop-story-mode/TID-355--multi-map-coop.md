@@ -2,14 +2,14 @@
 
 **Goal:** GID-098
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/work-task-gid-098-2r7qpg
+**Acquired:** 2026-06-28T14:47:40Z
+**Expires:** 2026-06-28T15:17:40Z
 
 ## Context
 
@@ -60,12 +60,31 @@ see each other.
 
 ## Plan
 
-_Written during Plan phase._
+**Model chosen:** Followed transition. When any co-op player interacts with a door, all peers follow to the same map. The initiating player broadcasts a reliable `recv_map_transition` RPC before loading; receivers call the matching SceneManager entry point.
+
+**Changes:**
+
+1. `scenes/world/NetSync.gd` — add `recv_map_transition(target_map, door_id)` reliable RPC (any_peer, call_remote → WorldScene._on_map_transition_received).
+2. `scenes/world/WorldScene.gd`:
+   - Add `_coop_map_transitioning: bool = false` member (guards against double-transition on the same scene instance).
+   - In `_handle_interact` door block: before calling `SceneManager.exit_map()` / `enter_map()`, when `_coop_active` broadcast `recv_map_transition` and set flag.
+   - Add `_on_map_transition_received(target_map, door_id)` handler.
+   - In `_on_identity_received` host block: after sending character + snapshot, if `SessionState.current_map != map_name`, unicast `recv_map_transition` to the new peer so late-joiners land where the party is.
+3. `SessionState.current_map` already updated by `_setup_session()` on every new WorldScene — no extra code needed.
+4. `tests/unit/test_coop_map_transition.gd` — unit tests for the new map-transition logic helper.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/NetSync.gd` — added `recv_map_transition(target_map, door_id)` reliable RPC (any_peer → WorldScene._on_map_transition_received).
+- `scenes/world/WorldScene.gd`:
+  - Added `_coop_map_transitioning: bool = false` member variable.
+  - In `_handle_interact` door block: when `_coop_active` and not already transitioning, sets the guard and broadcasts `recv_map_transition` before calling the local `SceneManager.exit_map()` / `enter_map()`.
+  - Added `_on_map_transition_received(target_map, door_id)` handler: guards against double-transition, routes empty string → `exit_map()`, non-empty → `enter_map(target_map, door_id)`.
+  - In `_on_identity_received` host block: after sending character + snapshot, checks `SessionStore.current_map != map_name` and unicasts `recv_map_transition` to the joining peer so late-joiners land where the party is.
+  - In `_setup_coop`: connects `GameBus.story_flag_set` to `_on_local_story_flag_set`.
+  - In `_teardown_coop`: disconnects the signal.
+- `tests/unit/test_coop_map_transition.gd` — new unit tests for the map-transition payload convention and `dialogue_group` field pipeline.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md` updated with GID-098 co-op story mode section.

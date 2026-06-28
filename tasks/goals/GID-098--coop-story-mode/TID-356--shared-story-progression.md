@@ -2,7 +2,7 @@
 
 **Goal:** GID-098
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-355
 
 ## Lock
@@ -48,12 +48,27 @@ session character forces `_loaded = false`, so flag writes never persist for co-
 
 ## Plan
 
-_Written during Plan phase._
+**Model chosen:** GameBus bridge + authority arbitration. `GameBus.story_flag_set` fires for every local `set_story_flag` call. The new `_on_local_story_flag_set` handler routes the change through the co-op session: hosts write to `SessionState` + broadcast `recv_story_flag`; clients submit to authority via `submit_story_flag`. Idempotency key: if the flag already has the same value in `SessionState`, the authority skips the broadcast.
+
+**Changes:**
+
+1. `NetSync.gd` — added `recv_story_flag`, `submit_story_flag`, `recv_story_flags_snapshot`.
+2. `WorldScene.gd` — added `_coop_story_flag_syncing` guard; `_on_local_story_flag_set`, `_on_story_flag_received`, `_on_story_flag_submitted`, `_on_story_flags_snapshot_received`, `_send_story_flags_snapshot_to_peer`; `_setup_session` restores session flags on host resume.
+3. `tests/unit/test_coop_story_flags.gd` — unit tests for flag dict round-trip and idempotency logic.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/NetSync.gd` — 3 new reliable RPCs: `recv_story_flag`, `submit_story_flag`, `recv_story_flags_snapshot`.
+- `scenes/world/WorldScene.gd`:
+  - `_coop_story_flag_syncing: bool` guard (prevents re-entrant broadcast when receiving a flag already sets it locally via GameBus).
+  - `_on_local_story_flag_set(key)` — host writes to SessionState + broadcasts; client submits to authority.
+  - `_on_story_flag_received(key, value)` — applies flag to local `save_manager.story_flags` and SessionState, emits GameBus guarded by `_coop_story_flag_syncing`.
+  - `_on_story_flag_submitted(sender, key, value)` — authority arbitrates with idempotency check, updates SessionState, broadcasts.
+  - `_on_story_flags_snapshot_received(flags)` — client joining late: applies all session flags at once.
+  - `_send_story_flags_snapshot_to_peer(peer_id)` — host sends snapshot to a just-joined peer.
+  - `_setup_session` extended: restores `SessionState.story_flags` into `save_manager.story_flags` when host re-enters a saved co-op session.
+- `tests/unit/test_coop_story_flags.gd` — new unit tests.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md` updated with GID-098 co-op story mode section.

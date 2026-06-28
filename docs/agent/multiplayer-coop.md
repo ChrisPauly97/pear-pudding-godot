@@ -638,4 +638,73 @@ listen-server host (peer_id=1, local_idx=0); `_pvp_peer_to_idx` is empty so
   so the sync is dormant in practice but verified by `net_world_sync_smoke.gd`.
 - **Infinite chunk world not supported** — co-op uses a finite named map to avoid
   chunk synchronisation.
+
+---
+
+## Co-op Story Mode (GID-098)
+
+Extends co-op so the party can travel through and experience the story together across all named maps and dungeons.
+
+### Multi-map transitions (TID-355)
+
+**Model: Followed transition.** When any co-op player interacts with a door, all peers follow to the same map.
+
+**Flow:**
+1. The initiating peer broadcasts `NetSync.recv_map_transition(target_map, door_id)` before calling the local SceneManager entry point.
+2. Receivers fire `WorldScene._on_map_transition_received(target_map, door_id)`:
+   - Empty `target_map` → `SceneManager.exit_map()`.
+   - Non-empty → `SceneManager.enter_map(target_map, door_id)`.
+3. `_coop_map_transitioning: bool` flag on each WorldScene instance guards against double-transitions on the same scene instance.
+4. **Late-joiner redirect:** in `_on_identity_received`, after the host sends the character + world snapshot, it checks `SessionStore.current_map != map_name` and unicasts `recv_map_transition` to the joining peer so they land where the party already is.
+
+**RPC:** `recv_map_transition(target_map: String, door_id: String)` — reliable, any_peer → call_remote.
+
+### Shared story flags (TID-356)
+
+Story flags are authority-owned and stored in `SessionState.story_flags`. Every peer's local `SaveManager.story_flags` is kept as a mirror. Changes flow through the authority to prevent races and duplicate story beats.
+
+**Write path (any peer):**
+- `GameBus.story_flag_set` fires when `SaveManager.set_story_flag()` is called.
+- `WorldScene._on_local_story_flag_set(key)` intercepts it (guarded by `_coop_story_flag_syncing` to prevent loops).
+  - **Host:** writes to `SessionState`, marks dirty, broadcasts `recv_story_flag` to all peers.
+  - **Client:** submits `submit_story_flag(key, value)` to authority (peer_id=1).
+
+**Authority arbitration (`_on_story_flag_submitted`):**
+- Idempotency check: if `SessionState.story_flags[key]` already equals the submitted value, the broadcast is skipped.
+- Otherwise: updates `SessionState`, marks dirty, broadcasts `recv_story_flag` to all (including the submitter).
+
+**Receive path (`_on_story_flag_received`):**
+- Sets `save_manager.story_flags[key] = value`.
+- Emits `GameBus.story_flag_set` (guarded by `_coop_story_flag_syncing` so it doesn't re-enter).
+- Updates `SessionState` if open.
+
+**Late-joiner snapshot:**
+- Host sends `recv_story_flags_snapshot(flags: Dictionary)` to the joining peer after character + world snapshot.
+- Receiver applies all flags at once (guarded by `_coop_story_flag_syncing`).
+
+**Host resume:**
+- `_setup_session` now restores `SessionState.story_flags` into `save_manager.story_flags` so a host re-entering a saved session starts with the correct story state.
+
+**RPCs (all reliable):**
+- `recv_story_flag(key: String, value: bool)` — authority → all.
+- `submit_story_flag(key: String, value: bool)` — client → authority.
+- `recv_story_flags_snapshot(flags: Dictionary)` — authority → joining peer.
+
+### Group-aware NPC dialogue (TID-357)
+
+NPCs can show different text when addressed as a group.
+
+**Field:** `MapNpc.dialogue_group: String` (optional `@export`). Leave blank to always use `dialogue`.
+
+**Selection logic** (`TownspersonNPC.get_dialogue()`):
+1. If `_flag_key` is set and the flag is raised → return `_after_dialogue` (story-flag gate, unchanged).
+2. Else if `_dialogue_group != ""` and `NetworkManager.is_active()` and `multiplayer.get_peers().size() > 0` → return `_dialogue_group`.
+3. Else → return `npc_data["dialogue"]` (solo/single-player).
+
+**Data pipeline:**
+- `WorldMap.load_from_resource()` reads `dialogue_group` from the MapNpc resource and includes it in the NPC dict.
+- `WorldMap.to_map_data()` writes it back to MapNpc on save.
+- Author group variants in the `.tres` NPC directives under `assets/maps/`.
+
+**TID-358 (human-action):** The human-owned story bible (`docs/human/story.md`) is updated separately to pluralize authored lines where a group variant exists.
 - **Steam transport** is stubbed (`Transport.STEAM` returns null with a warning).

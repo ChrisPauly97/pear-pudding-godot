@@ -293,6 +293,7 @@ func load_from_resource(data: Resource) -> void:
 			var wager_c: Variant = r.get("wager_coins")
 			var req_ids: Variant = r.get("required_duelist_ids")
 			var champ_reward: Variant = r.get("champion_reward_card")
+			var dlg_group: Variant = r.get("dialogue_group")
 			npcs.append({
 				"id": str(nid) if nid != null and str(nid) != "" else "npc_%d" % uid_counter,
 				"x": float(int(ntx)) * TILE_SIZE,
@@ -305,6 +306,7 @@ func load_from_resource(data: Resource) -> void:
 				"wager_coins": int(wager_c) if wager_c != null else 0,
 				"required_duelist_ids": req_ids if req_ids is PackedStringArray else PackedStringArray(),
 				"champion_reward_card": str(champ_reward) if champ_reward != null else "",
+				"dialogue_group": str(dlg_group) if dlg_group != null else "",
 			})
 
 	var raw_scrolls: Variant = data.get("scrolls")
@@ -425,6 +427,7 @@ func to_map_data(p_map_name: String = "") -> Resource:
 		var req: Variant = n_dict.get("required_duelist_ids")
 		n.required_duelist_ids = req if req is PackedStringArray else PackedStringArray()
 		n.champion_reward_card = str(n_dict.get("champion_reward_card", ""))
+		n.dialogue_group = str(n_dict.get("dialogue_group", ""))
 		md.npcs.append(n)
 
 	for s_dict in scrolls:

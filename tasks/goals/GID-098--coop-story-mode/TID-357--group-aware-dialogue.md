@@ -2,7 +2,7 @@
 
 **Goal:** GID-098
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-356
 
 ## Lock
@@ -47,12 +47,22 @@ separately in TID-358.
 
 ## Plan
 
-_Written during Plan phase._
+**Design chosen:** Option A — `dialogue_group` optional field on `MapNpc`. When a co-op session has ≥1 remote peer, `TownspersonNPC.get_dialogue()` returns `dialogue_group` if non-empty, else falls back to `dialogue`. Solo and single-player sessions always use `dialogue`.
+
+**Changes:**
+
+1. `game_logic/world/resources/MapNpc.gd` — add `@export var dialogue_group: String = ""`.
+2. `game_logic/world/WorldMap.gd` — read `dialogue_group` in `load_from_resource()` and write it in `to_map_data()`.
+3. `scenes/world/entities/TownspersonNPC.gd` — store `_dialogue_group` in `init_from_data`, return it from `get_dialogue()` when co-op peers are present.
+4. `docs/agent/named-maps-and-dungeons.md` — update MapNpc table row.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/world/resources/MapNpc.gd` — added `@export var dialogue_group: String = ""`.
+- `game_logic/world/WorldMap.gd` — `load_from_resource()` reads `r.get("dialogue_group")` and includes `"dialogue_group"` key in the NPC dict; `to_map_data()` writes `n.dialogue_group = str(n_dict.get("dialogue_group", ""))`.
+- `scenes/world/entities/TownspersonNPC.gd` — `_dialogue_group: String` member; populated in `init_from_data()`; `get_dialogue()` returns it when `NetworkManager.is_active() and multiplayer.get_peers().size() > 0`.
+- `docs/agent/named-maps-and-dungeons.md` — updated MapNpc table row to mention `dialogue_group`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/named-maps-and-dungeons.md` — MapNpc entry updated.

@@ -96,6 +96,12 @@ var _coop_opened_objects: Dictionary = {}   # object id -> true (chest opened th
 var _coop_last_engaged_enemy_id: String = ""  # id of the enemy the local battle is against
 var _coop_enemy_targets: Dictionary = {}    # enemy id -> Vector2(x,z) interp target (clients)
 var _enemy_pos_accum: float = 0.0
+# Co-op story mode (GID-098): true once a map transition is in flight on this
+# WorldScene instance so duplicate recv_map_transition packets are ignored.
+var _coop_map_transitioning: bool = false
+# Co-op story mode (GID-098): guard against re-entering the network broadcast
+# while processing our own GameBus.story_flag_set echo.
+var _coop_story_flag_syncing: bool = false
 var _initial_ready_done: bool = false  # so _enter_tree re-setup only runs on re-entry
 # PvP challenges (GID-091)
 var _challenge_btn: Button = null
@@ -528,6 +534,10 @@ func _setup_coop() -> void:
 	# file and adopts its own character; clients adopt on the character handshake.
 	_setup_session()
 
+	# Co-op story mode (GID-098): sync story flag changes through the authority.
+	if not GameBus.story_flag_set.is_connected(_on_local_story_flag_set):
+		GameBus.story_flag_set.connect(_on_local_story_flag_set)
+
 	# Identity handshake (TID-342): broadcast this peer's identity to everyone
 	# already in-world. Dedicated server has no player identity to share.
 	if not NetworkManager.is_dedicated_server():
@@ -543,6 +553,8 @@ func _teardown_coop() -> void:
 		NetworkManager.peer_disconnected.disconnect(_on_coop_peer_disconnected)
 	if NetworkManager.session_ended.is_connected(_on_coop_session_ended):
 		NetworkManager.session_ended.disconnect(_on_coop_session_ended)
+	if GameBus.story_flag_set.is_connected(_on_local_story_flag_set):
+		GameBus.story_flag_set.disconnect(_on_local_story_flag_set)
 	# Keep _net_sync alive across a battle detach so the RPC node persists; set
 	# inactive so re-entry (_enter_tree) re-runs setup and reconnects signals.
 	_coop_active = false
@@ -636,6 +648,15 @@ func _on_identity_received(sender: int, payload: Array, is_reply: bool) -> void:
 		# World-object snapshot (GID-096): reconcile the joiner's freshly-spawned
 		# enemies/chests to the live + persisted removed/opened sets.
 		_send_world_snapshot_to_peer(sender)
+		# Co-op story mode (GID-098): send the shared story flags so the new peer
+		# has the same story state as the rest of the party.
+		_send_story_flags_snapshot_to_peer(sender)
+		# Co-op story mode (GID-098): if the party has already moved beyond the
+		# default lobby map, redirect the late joiner to the party's current map.
+		if SessionStore.is_open() and _net_sync != null:
+			var st = SessionStore.get_state()
+			if st != null and st.current_map != "" and st.current_map != map_name:
+				_net_sync.rpc_id(sender, "recv_map_transition", st.current_map, "")
 	# Answer an initiator's broadcast exactly once so it learns our identity too.
 	if not is_reply:
 		_send_local_identity(true, sender)
@@ -688,6 +709,13 @@ func _setup_session() -> void:
 			_coop_removed_enemies[str(eid)] = true
 		for cid in st.opened_chests:
 			_coop_opened_objects[str(cid)] = true
+		# Co-op story mode (GID-098): restore session story flags so the host
+		# re-entering a saved co-op session sees the correct story state.
+		if not st.story_flags.is_empty():
+			_coop_story_flag_syncing = true
+			for key in st.story_flags:
+				SceneManager.save_manager.story_flags[str(key)] = bool(st.story_flags[key])
+			_coop_story_flag_syncing = false
 
 ## Client: adopt the character record the host resolved for our token. On a resume
 ## the host flags it so we also restore our saved position.
@@ -1016,6 +1044,86 @@ func _on_world_snapshot_received(payload: Array) -> void:
 	_coop_apply_world_progress(
 		snap.get("removed_enemies", []), snap.get("opened_objects", []))
 
+# ── Co-op story mode — shared story flags (GID-098 / TID-356) ────────────────
+
+## Host: send current session story flags to a just-joined peer.
+func _send_story_flags_snapshot_to_peer(peer_id: int) -> void:
+	if not _coop_world_authority() or _net_sync == null or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	_net_sync.rpc_id(peer_id, "recv_story_flags_snapshot", st.story_flags.duplicate())
+
+## Client: apply the session story flags on join so NPCs/gates are consistent.
+func _on_story_flags_snapshot_received(flags: Dictionary) -> void:
+	if not _coop_active:
+		return
+	_coop_story_flag_syncing = true
+	for key in flags:
+		var val: bool = bool(flags[key])
+		SceneManager.save_manager.story_flags[key] = val
+		if val:
+			GameBus.story_flag_set.emit(str(key))
+	_coop_story_flag_syncing = false
+
+## Called when GameBus.story_flag_set fires locally (any setter).
+## Routes the flag change through the authority so the whole party stays in sync.
+func _on_local_story_flag_set(key: String) -> void:
+	if not _coop_active or _net_sync == null or not NetworkManager.is_active():
+		return
+	if _coop_story_flag_syncing:
+		return
+	var value: bool = SceneManager.save_manager.get_story_flag(key)
+	if NetworkManager.is_host():
+		# Apply to session state and broadcast to all clients.
+		if SessionStore.is_open():
+			var st = SessionStore.get_state()
+			if st != null:
+				st.story_flags[key] = value
+				SessionStore.mark_dirty()
+		_coop_story_flag_syncing = true
+		_net_sync.rpc("recv_story_flag", key, value)
+		_coop_story_flag_syncing = false
+	else:
+		# Submit intent to authority; the authority will broadcast back to everyone.
+		_net_sync.rpc_id(1, "submit_story_flag", key, value)
+
+## Any peer: the authority broadcast a flag change — apply locally.
+func _on_story_flag_received(key: String, value: bool) -> void:
+	if not _coop_active:
+		return
+	_coop_story_flag_syncing = true
+	SceneManager.save_manager.story_flags[key] = value
+	if value:
+		GameBus.story_flag_set.emit(key)
+	if SessionStore.is_open():
+		var st = SessionStore.get_state()
+		if st != null:
+			st.story_flags[key] = value
+			SessionStore.mark_dirty()
+	_coop_story_flag_syncing = false
+
+## Authority: a client wants to set a flag — arbitrate (idempotent) and broadcast.
+func _on_story_flag_submitted(sender: int, key: String, value: bool) -> void:
+	if not _coop_world_authority() or _net_sync == null:
+		return
+	# Idempotency: if the flag is already this value, skip side-effects.
+	if SessionStore.is_open():
+		var st = SessionStore.get_state()
+		if st != null and st.story_flags.get(key, false) == value:
+			return
+		if st != null:
+			st.story_flags[key] = value
+			SessionStore.mark_dirty()
+	_coop_story_flag_syncing = true
+	SceneManager.save_manager.story_flags[key] = value
+	if value:
+		GameBus.story_flag_set.emit(key)
+	# Broadcast to all peers (including the submitter so their SaveManager is synced).
+	_net_sync.rpc("recv_story_flag", key, value)
+	_coop_story_flag_syncing = false
+
 ## Remove already-resolved enemy nodes and flip opened chests. Shared by host resume
 ## (_setup_session) and client join (_on_world_snapshot_received).
 func _coop_apply_world_progress(removed_enemies: Array, opened_objects: Array) -> void:
@@ -1065,6 +1173,21 @@ func _interp_synced_enemies(delta: float) -> void:
 		var tgt2: Vector2 = _coop_enemy_targets[eid]
 		var target: Vector3 = Vector3(tgt2.x, get_terrain_height(tgt2.x, tgt2.y), tgt2.y)
 		node.position = _EnemySync.interp(node.position, target, delta, 12.0)
+
+# ── Co-op story mode — map transitions (GID-098 / TID-355) ───────────────────
+
+## Received from any peer: follow them to target_map / door_id.
+## Guards against double-transition on the same WorldScene instance.
+func _on_map_transition_received(target_map: String, door_id: String) -> void:
+	if not _coop_active:
+		return
+	if _coop_map_transitioning:
+		return
+	_coop_map_transitioning = true
+	if target_map.is_empty():
+		SceneManager.exit_map()
+	else:
+		SceneManager.enter_map(target_map, door_id)
 
 # ── PvP challenge handshake (GID-091) ─────────────────────────────────────────
 
@@ -2609,10 +2732,18 @@ func _handle_interact() -> void:
 		if target_map == "spire":
 			_show_spire_entrance_panel()
 		elif target_map.is_empty():
+			# Co-op (GID-098): broadcast exit so all peers pop together.
+			if _coop_active and _net_sync != null and not _coop_map_transitioning:
+				_coop_map_transitioning = true
+				_net_sync.rpc("recv_map_transition", "", "")
 			SceneManager.exit_map()
 		else:
 			if SceneManager.save_manager.current_map == "madrian" and target_map == "maykalene":
 				SceneManager.save_manager.set_story_flag("chapter1_left_madrian")
+			# Co-op (GID-098): broadcast enter so all peers follow.
+			if _coop_active and _net_sync != null and not _coop_map_transitioning:
+				_coop_map_transitioning = true
+				_net_sync.rpc("recv_map_transition", target_map, tdoor)
 			SceneManager.enter_map(target_map, tdoor)
 		return
 
