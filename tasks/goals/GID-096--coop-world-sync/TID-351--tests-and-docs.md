@@ -2,7 +2,7 @@
 
 **Goal:** GID-096
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-349, TID-350
 
 ## Lock
@@ -38,8 +38,20 @@ _Written during Plan phase._
 
 ## Changes Made
 
-_Filled after Build phase._
+- **Unit** `tests/unit/test_world_sync.gd` (18 cases, auto-run): EnemySync state/batch round-trip
+  + interp (incl. static-target no-op); WorldObjectSync event + snapshot encode/decode, distinct
+  kinds, short/garbage tolerance, id→string coercion.
+- **Smoke** `tests/net_world_sync_smoke.gd` (+ `.uid`): real ENet loopback + live `SessionStore` —
+  authority `enemy_removed`/`chest_opened` events + late-join snapshot + enemy position batch all
+  reach the client via real NetSync RPCs and decode; a defeated enemy + opened chest persist into
+  the session file and resume on reopen; `save_slot_*.json` proven untouched.
+- **Single-player regression:** all of `tests/runner.gd` passes (1603), incl. existing enemy/chest
+  unit suites — no co-op branch runs without a session.
+- **Validation gate:** headless import clean; `tests/runner.gd` exit 0; `net_world_sync_smoke`,
+  `net_coop_smoke`, `net_session_smoke`, `net_coop_npeer_smoke` all PASS.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md`: *Shared World-Object Sync (GID-096)* section + Tests table rows
+  (`test_world_sync.gd`, `net_world_sync_smoke.gd`) + Limitations refresh.
+- `docs/agent/enemies-and-npcs.md` + `docs/agent/treasure-maps.md`: co-op cross-link notes.

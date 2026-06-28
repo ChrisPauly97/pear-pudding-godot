@@ -6,8 +6,10 @@
 > Each server now keeps a **persistent session** (GID-095): a shared world plus a
 > **per-player character** (deck/inventory/coins/level/skills) keyed to the player's
 > identity token and resumed on reconnect, all owned by the host authority and stored
-> separately from single-player saves. Live enemy/chest sync and the infinite chunk
-> world remain out of scope — see Limitations.
+> separately from single-player saves. **Shared world-object state** (GID-096) — enemy
+> encounters and chest/loot opens — now syncs from the authority to all players and
+> persists into the session file, resuming on reconnect. The infinite chunk world
+> remains out of scope — see Limitations.
 
 ## Key Features
 
@@ -376,11 +378,85 @@ survives a PvP battle re-attach (SessionStore stays open across battles).
   `session_ended` — `NetworkManager` conflates the host's own `leave()` with a client
   losing the host into the same signal, so force-routing there would regress host-exit.
 
+## Shared World-Object Sync (GID-096)
+
+Enemies and chests in a co-op session are **authority-owned shared state**. They are
+spawned **deterministically** from the same map `.tres` on every peer (so positions are
+identical by construction); only **discrete lifecycle changes** are synced live, and the
+resolved state persists into the GID-095 session file so the world resumes on reconnect.
+
+> Scope note: co-op currently lands on **madrian**, a town map with no enemies/chests, so
+> there is nothing to sync there *in practice* — the system is map-agnostic and exercised by
+> `tests/net_world_sync_smoke.gd` with synthetic ids. Named-map enemies are **static**
+> (`EnemyNPC` is a proximity trigger, no wander AI; roaming-boss / nocturnal wanderers are
+> infinite-world only and out of co-op scope), which is why deterministic spawn + discrete
+> sync is sufficient.
+
+### Encounter rule — engage-locks (first-engager-takes)
+
+The first player to reach a shared enemy fights it **solo vs the AI** (this is the normal
+single-player battle, *not* PvP). The instant they engage, the enemy is **removed for
+everyone** (the authority fans out an `enemy_removed` event). Outcomes:
+
+- **Win** → the defeat is recorded into the session file's `defeated_enemies`; the enemy
+  stays gone after reconnect.
+- **Loss / flee** → the enemy is gone for the live session but **returns on reconnect** (a
+  loss is never persisted) — exactly the single-player semantic.
+
+This avoids two players desyncing over one enemy without needing shared battle state for
+PvE; PvE battles remain local to the engaging player.
+
+### Loot rule — first-opener-takes
+
+The player who opens a chest gets the loot (cards/coins/equipment drop **locally for the
+opener only**, into their per-player GID-095 character). Every other peer just sees the
+chest **flip to opened** — no loot. The open is recorded into the session file's
+`opened_chests`, so a chest can never be looted twice and reopens as opened on reconnect.
+
+### Pure helpers
+
+| Helper | Purpose |
+|---|---|
+| `game_logic/net/EnemySync.gd` | Enemy **position** stream: `encode_state(id,x,z,alive)`/`decode_state`, `encode_batch`/`decode_batch`, `interp` (mirrors AvatarSync). Inert while enemies are static; provided for future moving enemies. |
+| `game_logic/net/WorldObjectSync.gd` | **Discrete** events: `encode_event(kind,id)`/`decode_event` (kinds `enemy_engaged`/`enemy_removed`/`enemy_defeated`/`chest_opened`) and `encode_snapshot(removed_enemies, opened_objects)`/`decode_snapshot` for late-join reconciliation. |
+
+### RPCs — `NetSync` (added)
+
+| RPC | Direction / reliability | Purpose |
+|---|---|---|
+| `recv_world_event(payload)` | authority → clients, reliable | apply a discrete event (`enemy_removed` → drop node; `chest_opened` → flip node) |
+| `submit_world_event(payload)` | client → authority, reliable | intent: I engaged / defeated an enemy, or opened a chest |
+| `recv_world_snapshot(payload)` | authority → joining client, reliable | reconcile freshly-spawned nodes to the live + persisted removed/opened sets |
+| `recv_enemy_positions(payload)` | authority → clients, unreliable_ordered | low-Hz (5 Hz) moving-enemy position batch; clients `EnemySync.interp` toward it |
+
+### Authority flow (WorldScene, all guarded by `_coop_active`)
+
+- **Engage:** `_on_enemy_engaged_coop(edata)` (connected to `GameBus.enemy_engaged`) — the
+  host broadcasts `enemy_removed`; a client `submit`s `enemy_engaged`, and the host then
+  removes its own node and fans `enemy_removed` to every *other* peer. The engaging peer
+  already freed its node in `EnemyNPC.engage()`.
+- **Defeat:** `_on_battle_won` → `_coop_persist_enemy_defeat()` — the host records the
+  defeat into the session state; a client `submit`s `enemy_defeated` for the host to record.
+  The id is captured at engage time (`_coop_last_engaged_enemy_id`) because
+  `SceneManager._on_battle_won` clears its own copy first.
+- **Chest open:** the chest branch of `_handle_interact` calls `_on_chest_opened_coop(cid)`
+  — host persists + broadcasts `chest_opened`; a client `submit`s it (host persists +
+  re-broadcasts). Peers only `mark_opened()` the node (no loot).
+- **Resume / late-join:** `_coop_apply_world_progress(defeated, opened)` removes already-
+  resolved nodes. The host applies it from the session state in `_setup_session`; a joining
+  client applies the `recv_world_snapshot` the host sends right after the identity handshake.
+- **Position stream:** `_broadcast_enemy_positions` (host, 5 Hz) + `_interp_synced_enemies`
+  (clients) — a genuine path, inert while all enemies are static (target == spawn position).
+- **Persistence target:** the GID-095 `SessionState.defeated_enemies` / `opened_chests`
+  via `SessionStore` — **never** `save.json`. Single-player (no session) hits none of this:
+  `SaveManager.is_enemy_defeated` / `is_chest_opened` + local loot are entirely unchanged.
+
 ## Integrations with Other Features
 
 | System | Integration |
 |---|---|
 | SceneManager | `enter_map_coop()` reuses `enter_map`; co-op lives entirely in `State.WORLD` |
+| World objects | Enemy engage/defeat + chest open branch on `_coop_active` to sync + persist into the session file; single-player path unchanged (GID-096) |
 | SessionStore | Authority-owned session persistence (`user://sessions/<id>.json`), isolated from `save.json`; opened/closed by WorldScene co-op hooks |
 | SaveManager | `adopt_session_character` / `export_session_character` bridge a session record to the in-memory character co-op/PvP read, forcing `_loaded = false` for isolation; shares `CardInstanceUtil` for the instance shape |
 | MpProfile | `get_host_session_id` (stable session file) + recent-servers list for one-tap Rejoin, alongside the GID-094 token/name/color |
@@ -408,6 +484,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
 | `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance (16 cases) (GID-095) |
+| `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_coop_npeer_smoke.gd` | on-demand SceneTree | 3-peer (host + 2 clients) loopback: host avatar reaches both clients, and a **client→client** identity packet is relayed by the host (proves the server-relay path N-peer rendering depends on) + PlayerIdentity decode (GID-094) |
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |
@@ -415,6 +492,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/net_pvp_client_smoke.gd` | on-demand SceneTree | Real ENet loopback with **two real `BattleScene` peers**: client (idx 1) launches + applies the host's first mirror without crashing (GID-092 / TID-336) |
 | `tests/net_rehost_smoke.gd` | on-demand SceneTree | host→leave→host repeated, and re-host without an explicit leave, all return OK (port freed) (GID-092 / TID-337) |
 | `tests/net_session_smoke.gd` | on-demand SceneTree | Real ENet loopback + live `SessionStore`/`SaveManager` autoloads: client identifies (token A) → host sends a seeded 12-card starter via `recv_character`; after persisted progress + close, re-opening the session resumes the **same** character (coins) + world progress from disk; `save_slot_*.json` proven untouched (GID-095 / TID-348) |
+| `tests/net_world_sync_smoke.gd` | on-demand SceneTree | Real ENet loopback + live `SessionStore`: authority `enemy_removed`/`chest_opened` events + a late-join snapshot + an enemy position batch all reach the client via real NetSync RPCs and decode; a defeated enemy + opened chest persist into the session file and resume on reopen; `save_slot_*.json` untouched (GID-096) |
 
 Run the smoke tests with `godot --headless --path . -s tests/<file>` (exit 0 =
 pass). They are not in the auto-discovered unit suite because they need real
@@ -438,11 +516,12 @@ close one and confirm its avatar is freed.
   session character + position and the shared world (GID-095), via the lobby's one-tap
   Rejoin list; there is still no reconnection *into an in-progress PvP battle*.
 - **PvP is LAN/loopback only, 2 players**, no spectating, no wagers/ranked ladder.
-- **Not *live*-synced:** enemies/NPCs, chests, day/night, weather (live world-object
-  sync is GID-096). Per-player character progress (deck/coins/level/skills/position) IS
-  persisted per session (GID-095); shared world progress fields exist in the session
-  file but are only minimally populated until GID-096 writes them live. PvP battles are
-  duel-style (no rewards).
+- **Live-synced (GID-096):** shared **enemies** (engage-locks; defeat persists) and
+  **chests** (first-opener-takes; open persists) now sync from the authority and resume on
+  reconnect. Still **not** synced: NPC dialogue/story, day/night, weather, and the
+  per-player inventory (that is the GID-095 character, by design). PvP battles remain
+  duel-style (no rewards). The co-op map (madrian) happens to have no enemies/chests today,
+  so the sync is dormant in practice but verified by `net_world_sync_smoke.gd`.
 - **Infinite chunk world not supported** — co-op uses a finite named map to avoid
   chunk synchronisation.
 - **Steam transport** is stubbed (`Transport.STEAM` returns null with a warning).

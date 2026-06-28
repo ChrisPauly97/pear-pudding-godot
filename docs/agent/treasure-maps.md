@@ -68,6 +68,13 @@ A gold `_treasure_label` is inserted above the two-panel scroll layout. `_refres
 
 ---
 
+## Co-op note (GID-096)
+
+Dig spots are tied to a player's **own** treasure-map fragment, so they are **per-player**
+state, **not** shared-world state — they are deliberately excluded from the GID-096 co-op
+world-object sync (which covers shared enemies and chests). Each player digs their own site.
+See [multiplayer-coop.md](multiplayer-coop.md) → *Shared World-Object Sync*.
+
 ## Asset Requirements
 
 - No new art assets required — DigSpot uses `StandardMaterial3D` with procedural meshes (brown earth + gold stake)

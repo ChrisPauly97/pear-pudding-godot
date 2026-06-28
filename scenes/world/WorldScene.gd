@@ -57,6 +57,10 @@ const _RemotePlayerScene = preload("res://scenes/world/entities/RemotePlayer.tsc
 const _AvatarSync        = preload("res://game_logic/net/AvatarSync.gd")
 const _PlayerIdentity    = preload("res://game_logic/net/PlayerIdentity.gd")
 const _NET_BROADCAST_INTERVAL: float = 1.0 / 15.0  # 15 Hz avatar broadcast
+# Co-op world-object sync (GID-096)
+const _EnemySync         = preload("res://game_logic/net/EnemySync.gd")
+const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
+const _ENEMY_POS_INTERVAL: float = 1.0 / 5.0  # 5 Hz enemy position broadcast (host)
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -85,6 +89,12 @@ var _session_adopted: bool = false
 var _session_token_by_peer: Dictionary = {}  # host: peer_id -> identity token
 var _session_snapshot_accum: float = 0.0
 const _SESSION_SNAPSHOT_INTERVAL: float = 5.0
+# Co-op world-object sync (GID-096) — guarded by _coop_active; inert single-player.
+var _coop_removed_enemies: Dictionary = {}  # enemy id -> true (engaged/defeated this session)
+var _coop_opened_objects: Dictionary = {}   # object id -> true (chest opened this session)
+var _coop_last_engaged_enemy_id: String = ""  # id of the enemy the local battle is against
+var _coop_enemy_targets: Dictionary = {}    # enemy id -> Vector2(x,z) interp target (clients)
+var _enemy_pos_accum: float = 0.0
 var _initial_ready_done: bool = false  # so _enter_tree re-setup only runs on re-entry
 # PvP challenges (GID-091)
 var _challenge_btn: Button = null
@@ -422,6 +432,10 @@ func _ready() -> void:
 		if sm_ready.active_mount != "" and not sm_ready.is_mounted:
 			sm_ready.summon_mount(sm_ready.active_mount)
 
+	# Co-op (GID-096): when the local player engages a shared enemy, tell the
+	# authority so it is removed for everyone (engage-locks). Inert single-player.
+	GameBus.enemy_engaged.connect(_on_enemy_engaged_coop)
+
 	# Cancel tap-to-move path when battle or menu interrupts movement.
 	GameBus.enemy_engaged.connect(_clear_dest_marker)
 	GameBus.inventory_requested.connect(_clear_dest_marker)
@@ -548,6 +562,13 @@ func _on_coop_session_ended() -> void:
 	_remote_player_nodes.clear()
 	_remote_identities.clear()
 	_session_token_by_peer.clear()
+	# Co-op world-object sync state (GID-096) is session-scoped; clear it so a fresh
+	# session starts from the deterministic spawn (persisted progress reloads via
+	# _setup_session / the join snapshot).
+	_coop_removed_enemies.clear()
+	_coop_opened_objects.clear()
+	_coop_enemy_targets.clear()
+	_coop_last_engaged_enemy_id = ""
 	# Authority owns the session file: flush + close it on session end (host left /
 	# server stopped). On clients SessionStore is never open, so this is a no-op.
 	if SessionStore.is_open():
@@ -580,6 +601,9 @@ func _on_identity_received(sender: int, payload: Array, is_reply: bool) -> void:
 	# character (resume or fresh starter). GID-095 / TID-346.
 	if NetworkManager.is_host():
 		_send_character_to_peer(sender, str(d.get("token", "")), str(d.get("name", "Player")))
+		# World-object snapshot (GID-096): reconcile the joiner's freshly-spawned
+		# enemies/chests to the live + persisted removed/opened sets.
+		_send_world_snapshot_to_peer(sender)
 	# Answer an initiator's broadcast exactly once so it learns our identity too.
 	if not is_reply:
 		_send_local_identity(true, sender)
@@ -623,6 +647,15 @@ func _setup_session() -> void:
 	if resume:
 		_restore_session_position(rec)
 	_session_adopted = true
+	# Reconcile the deterministically-spawned world to the session's persisted
+	# progress (defeated enemies / opened chests) so a resumed host world matches
+	# what was left behind (GID-096).
+	if st != null:
+		_coop_apply_world_progress(st.defeated_enemies, st.opened_chests)
+		for eid in st.defeated_enemies:
+			_coop_removed_enemies[str(eid)] = true
+		for cid in st.opened_chests:
+			_coop_opened_objects[str(cid)] = true
 
 ## Client: adopt the character record the host resolved for our token. On a resume
 ## the host flags it so we also restore our saved position.
@@ -772,6 +805,214 @@ func _broadcast_local_avatar(delta: float) -> void:
 	var payload: Array = _AvatarSync.encode(
 		_player.position.x, _player.position.z, flip_h, moving)
 	_net_sync.rpc("recv_avatar", payload)
+
+# ── Co-op world-object sync (GID-096) ─────────────────────────────────────────
+# The authority (host) owns the canonical lifecycle of shared world objects
+# (enemies, chests). Enemies/chests are spawned deterministically from the shared
+# map on every peer, so only *discrete* state changes are synced: an enemy engaged
+# (removed for all — engage-locks), an enemy defeated (persisted to the session
+# file), a chest opened (reflected for all + persisted). Positions are correct by
+# construction; a low-Hz position stream exists for future moving enemies. All
+# guarded by _coop_active; single-player hits none of this.
+
+## True only when a co-op session is live and this peer is the authority (host).
+func _coop_world_authority() -> bool:
+	return _coop_active and NetworkManager.is_active() and NetworkManager.is_host()
+
+## Local player engaged an enemy. Authority broadcasts its removal to all peers;
+## a client submits the intent and lets the authority fan it out. Either way the
+## engaging peer already removed the node locally (EnemyNPC.engage queue_free'd it).
+## Records the id so a subsequent battle win can persist the defeat.
+func _on_enemy_engaged_coop(edata: Dictionary) -> void:
+	if not _coop_active or _net_sync == null or not NetworkManager.is_active():
+		return
+	var eid: String = str(edata.get("id", ""))
+	if eid == "":
+		return
+	_coop_last_engaged_enemy_id = eid
+	if NetworkManager.is_host():
+		_coop_removed_enemies[eid] = true
+		_net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_ENEMY_REMOVED, eid))
+	else:
+		_net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_ENEMY_ENGAGED, eid))
+
+## Persist a co-op battle victory against a shared enemy. Host writes the session
+## file directly; a client submits the defeat for the host to persist. Called from
+## _on_battle_won when a session is active.
+func _coop_persist_enemy_defeat() -> void:
+	if not _coop_active or not NetworkManager.is_active():
+		return
+	var eid: String = _coop_last_engaged_enemy_id
+	_coop_last_engaged_enemy_id = ""
+	if eid == "":
+		return
+	if NetworkManager.is_host():
+		_coop_record_enemy_defeated(eid)
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_ENEMY_DEFEATED, eid))
+
+## Host-only: record a defeated enemy into the session file (resumes on reconnect).
+func _coop_record_enemy_defeated(eid: String) -> void:
+	_coop_removed_enemies[eid] = true
+	var st = SessionStore.get_state()
+	if st != null and not st.defeated_enemies.has(eid):
+		st.defeated_enemies.append(eid)
+		SessionStore.mark_dirty()
+
+## Local player opened a chest. Authority persists + broadcasts; a client submits the
+## intent. The opener keeps the loot (first-opener-takes); peers only flip it open.
+func _on_chest_opened_coop(cid: String) -> void:
+	if not _coop_active or _net_sync == null or not NetworkManager.is_active() or cid == "":
+		return
+	_coop_opened_objects[cid] = true
+	if NetworkManager.is_host():
+		_coop_record_chest_opened(cid)
+		_net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_CHEST_OPENED, cid))
+	else:
+		_net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_CHEST_OPENED, cid))
+
+## Host-only: persist an opened chest into the session file.
+func _coop_record_chest_opened(cid: String) -> void:
+	_coop_opened_objects[cid] = true
+	var st = SessionStore.get_state()
+	if st != null and not st.opened_chests.has(cid):
+		st.opened_chests.append(cid)
+		SessionStore.mark_dirty()
+
+## Remove a shared enemy node locally (a peer reflecting the authority's removal).
+func _coop_remove_enemy_node(eid: String) -> void:
+	_coop_removed_enemies[eid] = true
+	_coop_enemy_targets.erase(eid)
+	var node: Node3D = _enemy_nodes.get(eid) as Node3D
+	if is_instance_valid(node):
+		if node.has_method("mark_defeated"):
+			node.mark_defeated()
+		else:
+			node.queue_free()
+	_enemy_nodes.erase(eid)
+
+## Flip a shared chest node to opened locally (no loot — first-opener already took it).
+func _coop_mark_chest_opened_node(cid: String) -> void:
+	_coop_opened_objects[cid] = true
+	if _active_chest_data.has(cid):
+		(_active_chest_data[cid] as Dictionary)["opened"] = true
+	var node: Node3D = _chest_nodes.get(cid) as Node3D
+	if is_instance_valid(node) and node.has_method("mark_opened"):
+		node.mark_opened()
+
+## NetSync → peer: apply a discrete world event from the authority.
+func _on_world_event_received(_sender: int, payload: Array) -> void:
+	if not _coop_active:
+		return
+	var ev: Dictionary = _WorldObjectSync.decode_event(payload)
+	var kind: String = str(ev.get("kind", ""))
+	var id: String = str(ev.get("id", ""))
+	if id == "":
+		return
+	match kind:
+		_WorldObjectSync.EV_ENEMY_REMOVED:
+			_coop_remove_enemy_node(id)
+		_WorldObjectSync.EV_CHEST_OPENED:
+			_coop_mark_chest_opened_node(id)
+
+## NetSync → authority: apply a client's world-event intent (host only).
+func _on_world_event_submitted(sender: int, payload: Array) -> void:
+	if not _coop_world_authority():
+		return
+	var ev: Dictionary = _WorldObjectSync.decode_event(payload)
+	var kind: String = str(ev.get("kind", ""))
+	var id: String = str(ev.get("id", ""))
+	if id == "":
+		return
+	match kind:
+		_WorldObjectSync.EV_ENEMY_ENGAGED:
+			# A client engaged a shared enemy: drop it on the host and fan the
+			# removal out to every other peer (the sender already removed its own).
+			_coop_remove_enemy_node(id)
+			for pid in multiplayer.get_peers():
+				if int(pid) != sender:
+					_net_sync.rpc_id(int(pid), "recv_world_event",
+						_WorldObjectSync.encode_event(_WorldObjectSync.EV_ENEMY_REMOVED, id))
+		_WorldObjectSync.EV_ENEMY_DEFEATED:
+			_coop_record_enemy_defeated(id)
+		_WorldObjectSync.EV_CHEST_OPENED:
+			_coop_record_chest_opened(id)
+			_coop_mark_chest_opened_node(id)
+			for pid in multiplayer.get_peers():
+				if int(pid) != sender:
+					_net_sync.rpc_id(int(pid), "recv_world_event",
+						_WorldObjectSync.encode_event(_WorldObjectSync.EV_CHEST_OPENED, id))
+
+## Host: send the current removed/opened snapshot to a just-joined peer.
+func _send_world_snapshot_to_peer(peer_id: int) -> void:
+	if not _coop_world_authority() or _net_sync == null:
+		return
+	var payload: Array = _WorldObjectSync.encode_snapshot(
+		_coop_removed_enemies.keys(), _coop_opened_objects.keys())
+	_net_sync.rpc_id(peer_id, "recv_world_snapshot", payload)
+
+## Client: reconcile freshly-spawned nodes to the authority's snapshot on join.
+func _on_world_snapshot_received(payload: Array) -> void:
+	if not _coop_active:
+		return
+	var snap: Dictionary = _WorldObjectSync.decode_snapshot(payload)
+	_coop_apply_world_progress(
+		snap.get("removed_enemies", []), snap.get("opened_objects", []))
+
+## Remove already-resolved enemy nodes and flip opened chests. Shared by host resume
+## (_setup_session) and client join (_on_world_snapshot_received).
+func _coop_apply_world_progress(removed_enemies: Array, opened_objects: Array) -> void:
+	for eid in removed_enemies:
+		_coop_remove_enemy_node(str(eid))
+	for cid in opened_objects:
+		_coop_mark_chest_opened_node(str(cid))
+
+## Host: broadcast positions for any live shared enemy at a low Hz (inert while all
+## enemies are static, as on every current co-op map). Called from _process.
+func _broadcast_enemy_positions(delta: float) -> void:
+	if not _coop_world_authority() or _net_sync == null or _enemy_nodes.is_empty():
+		return
+	_enemy_pos_accum += delta
+	if _enemy_pos_accum < _ENEMY_POS_INTERVAL:
+		return
+	_enemy_pos_accum = 0.0
+	var states: Array = []
+	for eid in _enemy_nodes.keys():
+		var node: Node3D = _enemy_nodes.get(eid) as Node3D
+		if is_instance_valid(node):
+			states.append(_EnemySync.encode_state(
+				str(eid), node.position.x, node.position.z, true))
+	if not states.is_empty():
+		_net_sync.rpc("recv_enemy_positions", _EnemySync.encode_batch(states))
+
+## Client: store the latest authority positions; _process interpolates toward them.
+func _on_enemy_positions_received(payload: Array) -> void:
+	if not _coop_active or NetworkManager.is_host():
+		return
+	for st: Dictionary in _EnemySync.decode_batch(payload):
+		var eid: String = str(st.get("id", ""))
+		if eid == "" or _coop_removed_enemies.has(eid):
+			continue
+		_coop_enemy_targets[eid] = Vector2(float(st.get("x", 0.0)), float(st.get("z", 0.0)))
+
+## Client: smooth shared enemies toward their last synced position (no-op for static
+## enemies, where target == spawn). Called from _process.
+func _interp_synced_enemies(delta: float) -> void:
+	if _coop_enemy_targets.is_empty():
+		return
+	for eid in _coop_enemy_targets.keys():
+		var node: Node3D = _enemy_nodes.get(eid) as Node3D
+		if not is_instance_valid(node):
+			_coop_enemy_targets.erase(eid)
+			continue
+		var tgt2: Vector2 = _coop_enemy_targets[eid]
+		var target: Vector3 = Vector3(tgt2.x, get_terrain_height(tgt2.x, tgt2.y), tgt2.y)
+		node.position = _EnemySync.interp(node.position, target, delta, 12.0)
 
 # ── PvP challenge handshake (GID-091) ─────────────────────────────────────────
 
@@ -1923,6 +2164,9 @@ func _process(delta: float) -> void:
 		_broadcast_local_avatar(delta)
 		_update_challenge_proximity()
 		_tick_session_persist(delta)
+		# World-object sync (GID-096): host streams enemy positions; clients smooth.
+		_broadcast_enemy_positions(delta)
+		_interp_synced_enemies(delta)
 
 	# Only update save position when player moves > 1 unit (not every frame)
 	var cur_pos := Vector2(_player.position.x, _player.position.z)
@@ -2293,6 +2537,9 @@ func _handle_interact() -> void:
 		var node := _chest_nodes.get(cid) as Node3D
 		if node and node.has_method("mark_opened"):
 			node.mark_opened()
+		# Co-op (GID-096): reflect + persist the open for all players (this opener
+		# keeps the loot below; peers only see the chest flip open). Inert solo.
+		_on_chest_opened_coop(cid)
 		var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
 		var chest_card_ids: Array[String] = []
 		chest_card_ids.assign(chest.get("card_ids", []))
@@ -2621,6 +2868,10 @@ func _on_enemy_engaged_for_mount(_enemy_data: Dictionary) -> void:
 		SceneManager.save_manager.auto_dismiss_mount()
 
 func _on_battle_won(_result: Dictionary) -> void:
+	# Co-op (GID-096): a victory over a shared enemy persists its defeat into the
+	# session file (stays gone after reconnect). A loss isn't persisted, so the
+	# enemy returns on reconnect — matching single-player. Inert single-player.
+	_coop_persist_enemy_defeat()
 	if _is_infinite and _current_biome >= 0:
 		AudioManager.play_music(_BIOME_MUSIC[_current_biome])
 		AudioManager.set_ambience(_current_biome)

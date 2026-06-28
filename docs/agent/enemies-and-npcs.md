@@ -233,3 +233,14 @@ This means defeated enemies stay gone across sessions.
 | TownspersonNPC scene | `scenes/world/entities/TownspersonNPC.tscn` | Static NPC with dialogue label |
 | Enemy sprite texture | `assets/textures/pixel_art/` | Per-enemy-type sprite; falls back to placeholder if missing |
 | NPC sprite texture | `assets/textures/pixel_art/` | Townsperson sprite |
+
+---
+
+## Co-op note (GID-096)
+
+In a co-op session (`NetworkManager.is_active()` / WorldScene `_coop_active`), enemies are
+**authority-owned shared state**: engaging one removes it for everyone (engage-locks), and a
+victory persists the defeat into the GID-095 session file instead of `save.json`. Single-player
+behaviour is unchanged — the proximity-trigger AI, `EnemyRegistry` decks, and
+`SaveManager.defeated_enemies` are all untouched when no session is active. See
+[multiplayer-coop.md](multiplayer-coop.md) → *Shared World-Object Sync*.
