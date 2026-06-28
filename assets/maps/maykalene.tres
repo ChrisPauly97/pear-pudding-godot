@@ -33,6 +33,7 @@ dialogue = "Welcome to Maykalene! Fine white-washed houses and a warm inn await 
 npc_type = ""
 flag_key = ""
 after_dialogue = ""
+dialogue_group = "Welcome to Maykalene! Fine white-washed houses and a warm inn await you all."
 
 [sub_resource type="Resource" id="MapNpc_2"]
 script = ExtResource("3_mapnpc")
@@ -43,6 +44,7 @@ dialogue = "Best broth and cocoa in all the land! A warm meal and soft bed withi
 npc_type = ""
 flag_key = ""
 after_dialogue = ""
+dialogue_group = "Best broth and cocoa in all the land! Warm meals and soft beds for your whole party within!"
 
 [sub_resource type="Resource" id="MapNpc_3"]
 script = ExtResource("3_mapnpc")
@@ -53,6 +55,7 @@ dialogue = "Ah, Maiteln! Lord Farsyth is not busy at the moment. Go straight in 
 npc_type = ""
 flag_key = ""
 after_dialogue = ""
+dialogue_group = "Ah, Maiteln! Lord Farsyth is not busy at the moment. Bring your companions inside — he will see you all if you have news of the prophecy."
 
 [sub_resource type="Resource" id="MapNpc_4"]
 script = ExtResource("3_mapnpc")
@@ -83,6 +86,7 @@ dialogue = "Welcome, traveller! Browse my wares."
 npc_type = "merchant"
 flag_key = ""
 after_dialogue = ""
+dialogue_group = "Welcome, travellers! Browse my wares."
 
 [sub_resource type="Resource" id="MapNpc_7"]
 script = ExtResource("3_mapnpc")

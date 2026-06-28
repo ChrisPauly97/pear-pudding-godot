@@ -87,6 +87,7 @@ dialogue = "I am a wizard of old. If you come with me you will never have to wor
 npc_type = ""
 flag_key = "story_intro_complete"
 after_dialogue = "Come, we must make haste before your master notices we are gone."
+dialogue_group = "I am a wizard of old. If you will all come with me, none of you need worry about that master again — I will take you all on an adventure. My name is Maiteln. Will you join me?"
 
 [sub_resource type="Resource" id="MapNpc_2"]
 script = ExtResource("3_mapnpc")
@@ -97,6 +98,7 @@ dialogue = "Boy! Get back to your chores this instant or you will be punished!"
 npc_type = ""
 flag_key = ""
 after_dialogue = ""
+dialogue_group = "All of you! Get back to your chores this instant or you will all be punished!"
 
 [sub_resource type="Resource" id="MapNpc_3"]
 script = ExtResource("3_mapnpc")
@@ -107,6 +109,7 @@ dialogue = "You dare enter my house? Get out before I call the guards!"
 npc_type = ""
 flag_key = ""
 after_dialogue = ""
+dialogue_group = "You lot! Dare you enter my house? Get out before I call the guards!"
 
 [sub_resource type="Resource" id="MapNpc_4"]
 script = ExtResource("3_mapnpc")
@@ -157,6 +160,7 @@ dialogue = "Welcome, traveller! Browse my wares."
 npc_type = "merchant"
 flag_key = ""
 after_dialogue = ""
+dialogue_group = "Welcome, travellers! Browse my wares."
 
 [sub_resource type="Resource" id="MapNpc_9"]
 script = ExtResource("3_mapnpc")
@@ -169,6 +173,7 @@ flag_key = ""
 after_dialogue = ""
 duelist_enemy_id = "duelist_novice"
 wager_coins = 15
+dialogue_group = "I have bested many a traveller in a duel. Which of you dares face me?"
 
 [sub_resource type="Resource" id="MapNpc_10"]
 script = ExtResource("3_mapnpc")

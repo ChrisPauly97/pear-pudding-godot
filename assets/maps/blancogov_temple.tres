@@ -24,6 +24,7 @@ dialogue = "Maiteln! We are glad you came so swiftly. The council is assembling.
 npc_type = ""
 flag_key = "chapter1_temple_council"
 after_dialogue = "The council has heard the prophecy. We act at dawn."
+dialogue_group = "Maiteln! We are glad you all came so swiftly. The council is assembling. The Martarquas threat must be answered together."
 
 [sub_resource type="Resource" id="MapNpc_2"]
 script = ExtResource("3_mapnpc")
@@ -34,6 +35,7 @@ dialogue = "Welcome, Maiteln, and your young companion. You are most welcome her
 npc_type = ""
 flag_key = ""
 after_dialogue = ""
+dialogue_group = "Welcome, Maiteln, and your companions. You are all most welcome here. Please take your seats in the red satin oak chairs."
 
 [sub_resource type="Resource" id="MapNpc_3"]
 script = ExtResource("3_mapnpc")

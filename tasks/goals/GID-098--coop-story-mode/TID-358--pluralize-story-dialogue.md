@@ -7,9 +7,9 @@
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/work-task-gid-102-gejm0z
+**Acquired:** 2026-06-28T15:00:00Z
+**Expires:** 2026-06-28T15:30:00Z
 
 ## Context
 
@@ -31,7 +31,10 @@ must be pluralized by the human so the two stay in sync.
 
 ## Plan
 
-_Agent prepares the change list during/after TID-357; human applies._
+Agent authored `dialogue_group` values in all five story map `.tres` files (16 NPCs
+across madrian, maykalene, farsyth_mansion, blancogov, blancogov_temple). Human
+applies corresponding pluralization to the matching rows in `docs/human/story.md`
+NPC Dialogue by Map section, then confirms.
 
 ## Changes Made
 
