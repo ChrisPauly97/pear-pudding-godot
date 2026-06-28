@@ -27,9 +27,9 @@ today (spells target `{hero}` / `{side, slot}` on the two-player axis only).
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-362 | Square battlefield arena UI — render all ally boards + boss | agent | pending | TID-360 |
-| TID-363 | Cross-board card targeting — affect allied boards & heroes | agent | pending | TID-359 |
-| TID-364 | Co-op support card content — ally-affecting cards | agent | pending | TID-363 |
+| TID-362 | Square battlefield arena UI — render all ally boards + boss | agent | done | TID-360 |
+| TID-363 | Cross-board card targeting — affect allied boards & heroes | agent | done | TID-359 |
+| TID-364 | Co-op support card content — ally-affecting cards | agent | done | TID-363 |
 
 ## Acceptance Criteria
 

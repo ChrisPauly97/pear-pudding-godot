@@ -2,7 +2,7 @@
 
 **Goal:** GID-100
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-363
 
 ## Lock
@@ -45,12 +45,27 @@ cards that affect allies, turning the joint battle into a genuine team effort.
 
 ## Plan
 
-_Written during Plan phase._
+Create 5 new `.tres` card files + `.uid` sidecars, register them in `CardRegistry.gd`,
+add match arms in `SpellEffectResolver.gd`, and update the test count. All 5 cards use
+`card_class = "spell"` and `magic_type = "light"` so they fit the dawn/ember support
+theme. In solo/2-player the resolver falls back to `caster_pid` (self-target).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `data/cards/coop_aegis.tres` + `.uid` — "Aegis Pact" (cost 2): grant Ward to all
+  minions on an ally's board. `spell_effect = "ally_grant_ward_board"`.
+- `data/cards/coop_mend.tres` + `.uid` — "Mending Light" (cost 2): restore 5 HP to an
+  ally's hero. `spell_effect = "ally_heal_hero"`, `spell_power = 5`.
+- `data/cards/coop_rally.tres` + `.uid` — "Rally Cry" (cost 3): give all minions on an
+  ally's board +1 ATK and +1 HP. `spell_effect = "ally_buff_minion_all"`, `spell_power = 1`.
+- `data/cards/coop_mana_tithe.tres` + `.uid` — "Mana Tithe" (cost 1): give an ally +1
+  mana this turn. `spell_effect = "ally_grant_mana"`, `spell_power = 1`.
+- `data/cards/coop_second_wind.tres` + `.uid` — "Second Wind" (cost 3): revive the last
+  minion that died on an ally's board. `spell_effect = "ally_revive"`.
+- `autoloads/CardRegistry.gd`: added 5 const preloads (`_C_COOP_*`) + added them to the
+  `_ensure_loaded()` array.
+- `tests/unit/test_card_registry.gd`: updated count assertion from 100 → 105.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/multiplayer-coop.md` with GID-100 co-op support cards section.

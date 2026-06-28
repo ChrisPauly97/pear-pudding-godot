@@ -118,6 +118,14 @@ var _targeting_friendly: bool = false
 # Slot targeting (TID-294)
 var _slot_targeting_spell: CardInstance = null
 
+# Ally targeting for co-op PvE support cards (GID-100)
+var _ally_targeting_spell: CardInstance = null
+var _ally_targeting_active: bool = false
+
+# Co-op arena layout (GID-100): compact ally panels above the enemy area
+var _coop_arena_built: bool = false
+var _coop_ally_panels: Array[Control] = []   # one panel per ally player index
+
 # Mobile tap-to-slot placement (TID-293)
 var _slot_select_card: CardInstance = null
 
@@ -658,9 +666,14 @@ func _board_drop(local_pos: Vector2, data: Variant) -> void:
 	var is_enemy_targeted: bool = SpellEffectResolver.ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
 	var is_friendly_targeted: bool = SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
 	var is_slot_targeted: bool = SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(played_card.spell_effect)
+	var is_ally_targeted: bool = SpellEffectResolver.ALLY_TARGETED_EFFECTS.has(played_card.spell_effect)
 
 	if played_card.card_class == "spell" and is_slot_targeted and _state.players[_my_idx()].can_play(played_card):
 		_enter_slot_targeting_mode(played_card)
+		return
+
+	if played_card.card_class == "spell" and is_ally_targeted and _coop_pve and _state.players[_my_idx()].can_play(played_card):
+		_enter_ally_targeting_mode(played_card)
 		return
 
 	if played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted) and _state.players[_my_idx()].can_play(played_card):
@@ -756,6 +769,100 @@ func _cancel_targeting() -> void:
 	_targeting_spell = null
 	_hide_cancel_btn()
 	_refresh_all()
+
+# ── Co-op ally targeting (GID-100) ───────────────────────────────────────────
+# Ally-targeted spells (ally_heal_hero, ally_revive, etc.) need the local player
+# to tap one of the compact ally panels to choose which ally to benefit.
+
+func _enter_ally_targeting_mode(card: CardInstance) -> void:
+	_ally_targeting_spell = card
+	_ally_targeting_active = true
+	_show_cancel_btn("✕ Cancel Spell", _cancel_ally_targeting)
+	_build_coop_arena_layout()
+
+func _cancel_ally_targeting() -> void:
+	_ally_targeting_active = false
+	_ally_targeting_spell = null
+	_hide_cancel_btn()
+
+func _resolve_ally_spell(spell: CardInstance, target_pidx: int) -> void:
+	_ally_targeting_active = false
+	_ally_targeting_spell = null
+	_hide_cancel_btn()
+	var tgt: Dictionary = {"pidx": target_pidx}
+	if _is_pvp_client():
+		var hi: int = _state.players[_my_idx()].hand.find(spell)
+		if hi != -1 and _state.players[_my_idx()].can_play(spell):
+			AudioManager.play_sfx("card_play")
+			_fx.haptic(20)
+			_send_intent(BattleNetProtocol.encode_play_spell(hi, tgt))
+		return
+	if _do_play_card(spell, _my_idx()):
+		AudioManager.play_sfx("card_play")
+		_fx.haptic(20)
+		var snap := _fx.snapshot()
+		_resolver.resolve_spell(spell, _my_idx(), tgt)
+		_fx.trigger_fx(snap)
+	_refresh_all()
+	_check_game_over()
+
+# Builds (or rebuilds) the top ally bar showing compact hero panels for each
+# non-boss player. Tapping a panel during ally targeting resolves the spell.
+func _build_coop_arena_layout() -> void:
+	if not _coop_pve or _state == null:
+		return
+	# Remove stale panels
+	for p in _coop_ally_panels:
+		if is_instance_valid(p):
+			p.queue_free()
+	_coop_ally_panels.clear()
+
+	var boss_idx: int = _state.players.size() - 1
+	var bar := HBoxContainer.new()
+	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	bar.offset_bottom = _vh * 0.08
+	add_child(bar)
+	_coop_ally_panels.append(bar)
+
+	for pidx in range(_state.players.size()):
+		if pidx == boss_idx:
+			continue
+		var ps: PlayerState = _state.players[pidx]
+		var btn := Button.new()
+		btn.text = "P%d  HP:%d/%d  Mana:%d" % [pidx + 1, ps.hero.health, ps.hero.max_health, ps.hero.mana]
+		btn.custom_minimum_size = Vector2(_vh * 0.20, _vh * 0.06)
+		if _ally_targeting_active:
+			var cap_pidx: int = pidx  # capture for lambda
+			btn.pressed.connect(func() -> void:
+				if _ally_targeting_spell != null:
+					_resolve_ally_spell(_ally_targeting_spell, cap_pidx)
+			)
+		bar.add_child(btn)
+	_coop_arena_built = true
+
+func _refresh_coop_ally_panels() -> void:
+	if not _coop_pve or _state == null:
+		return
+	if not _coop_arena_built:
+		_build_coop_arena_layout()
+		return
+	var boss_idx: int = _state.players.size() - 1
+	var btn_idx: int = 0
+	# bar is the first (and only) element in _coop_ally_panels
+	if _coop_ally_panels.is_empty():
+		return
+	var bar: HBoxContainer = _coop_ally_panels[0] as HBoxContainer
+	if bar == null or not is_instance_valid(bar):
+		return
+	for pidx in range(_state.players.size()):
+		if pidx == boss_idx:
+			continue
+		var ps: PlayerState = _state.players[pidx]
+		var btn: Button = bar.get_child(btn_idx) as Button
+		if btn != null:
+			btn.text = "P%d  HP:%d/%d  Mana:%d" % [pidx + 1, ps.hero.health, ps.hero.max_health, ps.hero.mana]
+		btn_idx += 1
 
 func _slot_idx_at_point(point: Vector2, board_view: Node) -> int:
 	for child in board_view.get_children():
@@ -1211,6 +1318,8 @@ func _refresh_all() -> void:
 	_view.refresh_hero(_enemy_hero_view, _state.players[_opp_idx()].hero, true)
 	_view.refresh_hero(_player_hero_view, _state.players[_my_idx()].hero, false)
 	_update_status()
+	if _coop_pve:
+		_refresh_coop_ally_panels()
 
 func _refresh_player_board() -> void:
 	if _local_player_idx < 0:
@@ -2150,10 +2259,12 @@ func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 			return true
 	return false
 
-## Translates a wire target dict ({hero}/{side,slot}) into a resolver target.
+## Translates a wire target dict ({hero}/{side,slot}/{pidx}) into a resolver target.
 func _pvp_resolver_target(tgt: Dictionary) -> Dictionary:
 	if tgt.is_empty():
 		return {}
+	if tgt.has("pidx"):
+		return {"pidx": int(tgt["pidx"])}
 	if bool(tgt.get("hero", false)):
 		return {"type": "hero"}
 	if tgt.has("side") and tgt.has("slot"):

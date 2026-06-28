@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://ghcgw05jrhp8"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_coop_aegis"]
+
+[resource]
+script = ExtResource("1_coop_aegis")
+id = "coop_aegis"
+card_name = "Aegis Pact"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "Grant Ward to all minions on an ally's board."
+color = Color(0.4, 0.7, 1.0, 1)
+magic_type = "light"
+magic_branch = "dawn"
+spell_effect = "ally_grant_ward_board"
+spell_power = 0

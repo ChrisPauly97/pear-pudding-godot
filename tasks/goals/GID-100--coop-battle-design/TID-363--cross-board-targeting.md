@@ -2,7 +2,7 @@
 
 **Goal:** GID-100
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-359
 
 ## Lock
@@ -48,12 +48,29 @@ axis only.
 
 ## Plan
 
-_Written during Plan phase._
+Instead of a `target_scope` field on CardData (which requires schema migration), use an
+`ALLY_TARGETED_EFFECTS` constant list in `SpellEffectResolver` (same pattern as
+`ENEMY_TARGETED_EFFECTS`/`FRIENDLY_TARGETED_EFFECTS`). The target dict is extended with
+`{"pidx": <int>}`. Wire `pidx` through `_pvp_resolver_target()` → `resolve_spell()`.
+Ally targeting UI: ally bar buttons (TID-362) become tappable during ally-targeting mode.
+In non-co-op contexts the fallback `caster_pid` is used, so all existing cards work
+unchanged.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/battle/SpellEffectResolver.gd`:
+  - Added `ALLY_TARGETED_EFFECTS: Array[String]` constant listing the 5 new effect names.
+  - Added 5 match arms inside `resolve_spell()` for the co-op effects; each reads
+    `explicit_target.get("pidx", caster_pid)` with clamp to valid ally range.
+- `scenes/battle/BattleScene.gd`:
+  - Added `_ally_targeting_spell`, `_ally_targeting_active` vars.
+  - Added `_enter_ally_targeting_mode()`, `_cancel_ally_targeting()`, `_resolve_ally_spell()`.
+  - Extended `_board_drop()` to detect `ALLY_TARGETED_EFFECTS` and enter ally targeting
+    when `_coop_pve` is true.
+  - Extended `_pvp_resolver_target()` to handle `{"pidx": n}` wire target dict.
+  - `_apply_remote_intent()` already routes through `_pvp_resolver_target()`, so host
+    authority applies ally effects to the correct `_state.players[pidx]`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Updated `docs/agent/multiplayer-coop.md` with cross-board targeting section.
