@@ -220,6 +220,11 @@ var _dirty: bool = false
 var _uid_counter: int = 0
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
 
+# Slot that provided the live achievement data (set by load_save/new_game; never
+# cleared by adopt_session_character so co-op sessions can still persist achievements).
+var _achievement_slot: int = -1
+var _achievement_dirty: bool = false
+
 func _ready() -> void:
 	var timer := Timer.new()
 	timer.wait_time = SAVE_INTERVAL
@@ -270,6 +275,31 @@ func _flush_if_dirty() -> void:
 	if _dirty and _loaded:
 		_dirty = false
 		save()
+	if _achievement_dirty and _achievement_slot >= 0 and not _loaded:
+		_achievement_dirty = false
+		_flush_achievements(_achievement_slot)
+
+## Write only achievement fields into the on-disk save for the given slot.
+## Used during co-op sessions where _loaded = false blocks the normal save() path.
+func _flush_achievements(slot: int) -> void:
+	var path: String = _get_slot_path(slot)
+	var parsed = _read_save_json(path)
+	if not parsed is Dictionary:
+		return
+	var data: Dictionary = parsed
+	data["achievement_progress"] = achievement_progress
+	data["unlocked_achievements"] = unlocked_achievements
+	var tmp_path: String = _get_slot_tmp_path(slot)
+	var bak_path: String = _get_slot_bak_path(slot)
+	var inner_json: String = JSON.stringify(data, "\t")
+	var tmp_file := FileAccess.open(tmp_path, FileAccess.WRITE)
+	if not tmp_file:
+		return
+	tmp_file.store_string(JSON.stringify({"hmac": _sign(inner_json), "payload": inner_json}))
+	tmp_file = null
+	if FileAccess.file_exists(path):
+		DirAccess.copy_absolute(path, bak_path)
+	DirAccess.rename_absolute(tmp_path, path)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST \
@@ -390,6 +420,7 @@ func new_game() -> void:
 	# settings intentionally preserved across new games so volume prefs persist
 	# world_seed and starting_biome are set by SceneManager.start_new_game_with_biome
 	# before new_game() is called, so do not reset them here.
+	_achievement_slot = active_slot
 	_loaded = true
 	save()
 
@@ -862,6 +893,7 @@ func load_save() -> bool:
 	discovered_landmarks.assign(data.get("discovered_landmarks", []))
 	collected_mana_wells.assign(data.get("collected_mana_wells", []))
 	last_saved = str(data.get("last_saved", ""))
+	_achievement_slot = active_slot
 	_loaded = true
 	return true
 
@@ -1506,6 +1538,7 @@ func increment_progress(condition_type: String, amount: int) -> void:
 		achievement_progress[aid] = current + amount
 		_check_unlock(aid, a)
 	_dirty = true
+	_achievement_dirty = true
 
 func check_flag_achievement(flag: String) -> void:
 	for a: Dictionary in AchievementRegistry.get_all():
@@ -1519,6 +1552,7 @@ func check_flag_achievement(flag: String) -> void:
 		achievement_progress[aid] = 1
 		_check_unlock(aid, a)
 	_dirty = true
+	_achievement_dirty = true
 
 func check_deck_achievements(deck: Array[String]) -> void:
 	var dawn_count: int = 0
