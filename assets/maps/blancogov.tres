@@ -33,6 +33,7 @@ dialogue = "Halt! State your business at the gates of Blancogov. No entry withou
 npc_type = ""
 flag_key = ""
 after_dialogue = ""
+dialogue_group = "Halt! State your business at the gates of Blancogov. No entry without authorisation for any of you!"
 
 [sub_resource type="Resource" id="MapNpc_2"]
 script = ExtResource("3_mapnpc")
@@ -55,6 +56,7 @@ flag_key = ""
 after_dialogue = ""
 duelist_enemy_id = "duelist_adept"
 wager_coins = 25
+dialogue_group = "The streets of Blancogov have made me a sharp duelist. Which of you will test your deck against mine?"
 
 [sub_resource type="Resource" id="MapNpc_4"]
 script = ExtResource("3_mapnpc")
@@ -69,6 +71,7 @@ duelist_enemy_id = "duelist_champion"
 wager_coins = 50
 required_duelist_ids = PackedStringArray("duelist_2")
 champion_reward_card = "duel_crown"
+dialogue_group = "Your group seeks a challenge? Defeat all the duelists in town first, then we'll talk."
 
 [sub_resource type="Resource" id="MapNpc_5"]
 script = ExtResource("3_mapnpc")

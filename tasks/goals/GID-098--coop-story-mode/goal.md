@@ -28,10 +28,10 @@ stays on finite named maps).
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-355 | Multi-map co-op — map-transition & cross-map avatar sync | agent | pending | — |
-| TID-356 | Shared story progression & flag arbitration | agent | pending | TID-355 |
-| TID-357 | Group-aware NPC & story dialogue system | agent | pending | TID-356 |
-| TID-358 | Pluralize authored story dialogue in story.md | human-action | pending | TID-357 |
+| TID-355 | Multi-map co-op — map-transition & cross-map avatar sync | agent | done | — |
+| TID-356 | Shared story progression & flag arbitration | agent | done | TID-355 |
+| TID-357 | Group-aware NPC & story dialogue system | agent | done | TID-356 |
+| TID-358 | Pluralize authored story dialogue in story.md | human-action | in-progress | TID-357 |
 
 ## Acceptance Criteria
 

@@ -24,6 +24,7 @@ dialogue = "Welcome, Maiteln! Lord Farsyth will receive you directly. He awaits 
 npc_type = ""
 flag_key = ""
 after_dialogue = ""
+dialogue_group = "Welcome, Maiteln and companions! Lord Farsyth will receive you all directly. He awaits word of the prophecy."
 
 [sub_resource type="Resource" id="MapNpc_2"]
 script = ExtResource("3_mapnpc")
@@ -34,6 +35,7 @@ dialogue = "The Martarquas tribe rising again? By the gods, this is dire news. I
 npc_type = ""
 flag_key = "chapter1_warned_farsyth"
 after_dialogue = "Safe travels, Maiteln. Warn King Eldar swiftly."
+dialogue_group = "The Martarquas tribe rising again? By the gods, this is dire news. I shall send word to Lords Marsax, Ramtorous and Temlar at once. You must all ride to warn King Eldar in Blancogov!"
 
 [sub_resource type="Resource" id="MapScroll_1"]
 script = ExtResource("4_mapscroll")
