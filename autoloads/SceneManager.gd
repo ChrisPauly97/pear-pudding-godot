@@ -84,6 +84,8 @@ var _current_battle_enemy_id: String = ""
 var _current_duel_npc_id: String = ""
 # Legendary card to award on first champion duel win ("" = none)
 var _current_champion_reward: String = ""
+# Enemy type for the current co-op PvE battle (for achievement tracking)
+var _coop_pve_enemy_type: String = ""
 
 ## Points at the SaveManager autoload so all systems share one instance.
 ## The autoload is registered before SceneManager in project.godot.
@@ -514,6 +516,7 @@ func enter_pvp_spectator() -> void:
 func enter_coop_pve_battle(local_ally_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
 	if _state != State.WORLD:
 		return
+	_coop_pve_enemy_type = str(enemy_data.get("enemy_type", ""))
 	var captured_idx: int = local_ally_idx
 	var captured_decks: Array = all_ally_decks
 	var captured_edata: Dictionary = enemy_data
@@ -532,9 +535,15 @@ func enter_coop_pve_battle(local_ally_idx: int, all_ally_decks: Array, enemy_dat
 
 ## Co-op PvE battle finished (all allies vs shared boss). Restore the shared world.
 ## Mirrors _on_pvp_battle_ended but emitted by GameBus.coop_pve_battle_ended.
-func _on_coop_pve_battle_ended(_did_win: bool) -> void:
+func _on_coop_pve_battle_ended(did_win: bool) -> void:
 	if _state != State.BATTLE:
 		return
+	if did_win:
+		if not _coop_pve_enemy_type.is_empty():
+			save_manager.increment_progress("enemies_defeated", 1)
+		save_manager.increment_progress("battles_won", 1)
+		save_manager.check_deck_achievements(save_manager.player_deck)
+	_coop_pve_enemy_type = ""
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
