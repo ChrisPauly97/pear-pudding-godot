@@ -69,10 +69,34 @@ func _notification(what: int) -> void:
 func _build_ui() -> void:
 	_build_backdrop(0.72)
 
-	var panel := _build_centered_panel(_vw * 0.6, _vh * 0.62)
+	var panel := _build_centered_panel(_vw * 0.6, _vh * 0.90)
 	panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
 
-	var vbox := _build_margin_vbox(panel, 0.04, 0.03)
+	# Outer margin + vbox: scroll area on top, sticky close button on bottom.
+	var outer_margin := MarginContainer.new()
+	var m: int = int(_ref * 0.04)
+	outer_margin.add_theme_constant_override("margin_left",   m)
+	outer_margin.add_theme_constant_override("margin_right",  m)
+	outer_margin.add_theme_constant_override("margin_top",    m)
+	outer_margin.add_theme_constant_override("margin_bottom", m)
+	panel.add_child(outer_margin)
+
+	var outer_vbox := VBoxContainer.new()
+	outer_vbox.add_theme_constant_override("separation", int(_ref * 0.015))
+	outer_margin.add_child(outer_vbox)
+
+	# Scrollable content area.
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer_vbox.add_child(scroll)
+	attach_drag_scroll(scroll)
+
+	var vbox := VBoxContainer.new()
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_theme_constant_override("separation", int(_ref * 0.03))
+	scroll.add_child(vbox)
 
 	vbox.add_child(_UiUtil.make_title_label("Co-op (Beta)", _vh))
 	vbox.add_child(_UiUtil.make_separator())
@@ -168,14 +192,11 @@ func _build_ui() -> void:
 	_wan_box.add_child(wan_text)
 	vbox.add_child(_wan_box)
 
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(spacer)
-
+	# Close button is pinned outside the scroll so it's always reachable.
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	btn_row.add_child(_UiUtil.make_close_button(_vh, _close))
-	vbox.add_child(btn_row)
+	outer_vbox.add_child(btn_row)
 
 
 ## Persist the typed name to the device profile (fallback handled by MpProfile).
