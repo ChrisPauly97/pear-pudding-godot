@@ -50,6 +50,7 @@ const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tsc
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
+const _RatingMath        = preload("res://game_logic/net/RatingMath.gd")
 
 # Co-op multiplayer (GID-090)
 const _NetSyncScript     = preload("res://scenes/world/NetSync.gd")
@@ -1443,6 +1444,9 @@ func _accept_challenge(from_id: int) -> void:
 			_net_sync.rpc_id(1, "relay_pvp_response", from_id, true, my_deck)
 			return
 		_net_sync.rpc_id(from_id, "respond_battle", true, my_deck)
+	# Record the opponent peer so the host's spectator + rating (TID-370) paths know
+	# who it dueled when accepting an incoming challenge (not just when challenging).
+	_challenge_target_peer = from_id
 	_enter_pvp(opp_deck)
 
 func _decline_challenge(from_id: int) -> void:
@@ -4553,8 +4557,41 @@ func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 				rec["pvp_best_streak"] = best
 				st.update_member(token, rec)
 				SessionStore.mark_dirty()
+			# Ranked rating (TID-370): the authority owns both records, so it computes
+			# both combatants' ELO deltas and writes both. The host is one combatant;
+			# the opponent is the duel peer captured at battle-start (_pvp_ante_peer1).
+			_update_pvp_ratings(st, token, did_win)
 	# Signal spectators to return to world when WorldScene re-enters the tree.
 	_pvp_ended_pending_broadcast = true
+
+
+## Host-authority ranked rating update for a finished duel (GID-102 / TID-370).
+## `host_token` is the host's own member; `_pvp_ante_peer1` identifies the opponent peer
+## (set in `_enter_pvp` / `_enter_pvp_wagered`). Both ratings move zero-sum-ish via ELO;
+## a client never rates itself, so this only runs on the host (caller already guards that).
+func _update_pvp_ratings(st, host_token: String, host_won: bool) -> void:
+	var opp_peer: int = _pvp_ante_peer1
+	if opp_peer <= 0:
+		return
+	var opp_token: String = str(_session_token_by_peer.get(opp_peer, ""))
+	if host_token == "" or opp_token == "" or host_token == opp_token:
+		return
+	var host_rec: Dictionary = st.get_member(host_token)
+	var opp_rec: Dictionary = st.get_member(opp_token)
+	if host_rec.is_empty() or opp_rec.is_empty():
+		return
+	var r_host: int = int(host_rec.get("pvp_rating", _RatingMath.START_RATING))
+	var r_opp: int = int(opp_rec.get("pvp_rating", _RatingMath.START_RATING))
+	var g_host: int = int(host_rec.get("pvp_games", 0))
+	var g_opp: int = int(opp_rec.get("pvp_games", 0))
+	var host_score: float = 1.0 if host_won else 0.0
+	host_rec["pvp_rating"] = _RatingMath.updated(r_host, r_opp, host_score, g_host)
+	host_rec["pvp_games"] = g_host + 1
+	opp_rec["pvp_rating"] = _RatingMath.updated(r_opp, r_host, 1.0 - host_score, g_opp)
+	opp_rec["pvp_games"] = g_opp + 1
+	st.update_member(host_token, host_rec)
+	st.update_member(opp_token, opp_rec)
+	SessionStore.mark_dirty()
 
 
 # ── TID-369: Shared party bounties ────────────────────────────────────────────

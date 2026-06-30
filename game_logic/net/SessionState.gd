@@ -23,7 +23,8 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ## session files keep loading (mirrors SaveManager.CURRENT_SAVE_VERSION).
 ## v2 — adds party_bounties shared progress (TID-369).
 ## v3 — adds pvp_wins/losses/streak/best_streak per character (TID-368).
-const CURRENT_SESSION_VERSION: int = 3
+## v4 — adds pvp_rating/pvp_games per character for the ranked ladder (TID-370).
+const CURRENT_SESSION_VERSION: int = 4
 
 ## Starter deck template ids — mirrors `SaveManager.new_game` / `ensure_coop_deck`
 ## so a freshly created session character can battle immediately.
@@ -127,6 +128,18 @@ static func _apply_migrations(data: Dictionary) -> void:
 					if not (rec as Dictionary).has("pvp_best_streak"):
 						(rec as Dictionary)["pvp_best_streak"] = 0
 		data["version"] = 3
+	if ver < 4:
+		# v4: add pvp_rating/pvp_games to each member character record.
+		var members_v4: Variant = data.get("members", {})
+		if members_v4 is Dictionary:
+			for token in members_v4.keys():
+				var rec: Variant = members_v4[token]
+				if rec is Dictionary:
+					if not (rec as Dictionary).has("pvp_rating"):
+						(rec as Dictionary)["pvp_rating"] = 1000
+					if not (rec as Dictionary).has("pvp_games"):
+						(rec as Dictionary)["pvp_games"] = 0
+		data["version"] = 4
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 
@@ -207,4 +220,37 @@ static func make_starter_character(token: String, member_name: String) -> Dictio
 		"pvp_losses": 0,
 		"pvp_streak": 0,
 		"pvp_best_streak": 0,
+		# PvP ranked rating (GID-102 / TID-370)
+		"pvp_rating": 1000,
+		"pvp_games": 0,
 	}
+
+
+## Cross-session ranked leaderboard, derived from the member roster so there is no
+## second source of truth (the authority owns `members`; a dedicated server in GID-097
+## becomes the canonical ladder host). Returns the top `limit` members sorted by
+## `pvp_rating` descending, then by games played (ties broken by token for stability).
+func get_leaderboard(limit: int = 10) -> Array:
+	var rows: Array = []
+	for token in members.keys():
+		var rec: Variant = members[token]
+		if not (rec is Dictionary):
+			continue
+		var r: Dictionary = rec
+		rows.append({
+			"token": str(token),
+			"name": str(r.get("display_name", "Player")),
+			"rating": int(r.get("pvp_rating", 1000)),
+			"games": int(r.get("pvp_games", 0)),
+			"wins": int(r.get("pvp_wins", 0)),
+			"losses": int(r.get("pvp_losses", 0)),
+		})
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if a["rating"] != b["rating"]:
+			return a["rating"] > b["rating"]
+		if a["games"] != b["games"]:
+			return a["games"] > b["games"]
+		return str(a["token"]) < str(b["token"]))
+	if limit > 0 and rows.size() > limit:
+		rows.resize(limit)
+	return rows

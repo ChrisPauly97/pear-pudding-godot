@@ -105,7 +105,7 @@
 | [GID-099](goals/GID-099--coop-joint-battle-engine/goal.md) | Co-op Joint Battle Engine | done | 3 / 3 |
 | [GID-100](goals/GID-100--coop-battle-design/goal.md) | Co-op Battle Design — Square Battlefield & Cross-Board Cards | done | 3 / 3 |
 | [GID-101](goals/GID-101--mp-social-rewards/goal.md) | Multiplayer Social & Rewards | done | 5 / 5 |
-| [GID-102](goals/GID-102--mp-depth-competitive-social-async-coop/goal.md) | Multiplayer Depth — Competitive, Social, Async & Co-op Content | pending | 0 / 12 |
+| [GID-102](goals/GID-102--mp-depth-competitive-social-async-coop/goal.md) | Multiplayer Depth — Competitive, Social, Async & Co-op Content | in-progress | 1 / 12 |
 
 ## Backlog
 
@@ -129,6 +129,7 @@
 | ~~[BID-020](backlog/BID-020--always-visible-cantrip-buttons.md)~~ | ~~Cantrip HUD buttons always built regardless of unlock state~~ | ~~code-smell~~ | Resolved by GID-081 / TID-298 |
 | ~~[BID-022](archive/backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md)~~ | ~~Spec lists multiplayer as out-of-scope, but co-op + PvP shipped~~ | ~~spec-gap~~ | Resolved by GID-094 / TID-344 |
 | [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | GID-096 |
+| [BID-025](backlog/BID-025--opponent-champion-stats-host-only.md) | Opponent PvP champion stats (wins/losses/streak) recorded host-only; non-host members show 0 in the leaderboard | design-inconsistency | GID-102 / TID-370 |
 
 ## Resolved Backlog
 
