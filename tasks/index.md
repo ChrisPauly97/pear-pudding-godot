@@ -105,7 +105,7 @@
 | [GID-099](goals/GID-099--coop-joint-battle-engine/goal.md) | Co-op Joint Battle Engine | done | 3 / 3 |
 | [GID-100](goals/GID-100--coop-battle-design/goal.md) | Co-op Battle Design — Square Battlefield & Cross-Board Cards | done | 3 / 3 |
 | [GID-101](goals/GID-101--mp-social-rewards/goal.md) | Multiplayer Social & Rewards | done | 5 / 5 |
-| [GID-102](goals/GID-102--mp-depth-competitive-social-async-coop/goal.md) | Multiplayer Depth — Competitive, Social, Async & Co-op Content | in-progress | 3 / 12 |
+| [GID-102](goals/GID-102--mp-depth-competitive-social-async-coop/goal.md) | Multiplayer Depth — Competitive, Social, Async & Co-op Content | in-progress | 6 / 12 |
 
 ## Backlog
 
@@ -132,6 +132,7 @@
 | [BID-025](backlog/BID-025--opponent-champion-stats-host-only.md) | Opponent PvP champion stats (wins/losses/streak) recorded host-only; non-host members show 0 in the leaderboard | design-inconsistency | GID-102 / TID-370 |
 | [BID-027](backlog/BID-027--coop-pve-boss-ai-turn-hardcoded-index.md) | Co-op PvE boss AI turn execution hardcodes player index 1 (board-diff/emergence/weather bookkeeping only) | code-smell | GID-102 / TID-371 |
 | [BID-028](backlog/BID-028--coop-pve-lowest-hp-ally-stuck-on-dead.md) | `_get_lowest_hp_ally` can get stuck targeting a dead ally instead of retargeting to an alive one | code-smell | GID-102 / TID-371 |
+| [BID-029](backlog/BID-029--wager-challenge-button-missing.md) | `_request_wager_challenge` has zero callers — no UI exists to *initiate* a custom-ante wager, only to accept one | code-smell | GID-102 / TID-373 |
 
 ## Resolved Backlog
 
