@@ -407,6 +407,107 @@ Party bounties are co-op goals the whole party works toward together.
   each bounty's `target` + `progress/count` + a check mark on completion. Refreshed
   on each `recv_party_bounty_update`.
 
+### Team Duels (GID-102 / TID-371)
+
+2v2 team PvP: two teams of two allies fight each other, reusing the same
+host-authoritative state-mirroring model as 2-player PvP, generalized to 4 participants.
+**No accept/decline and no wagers in v1** — the host assigns teams from the connected
+4-peer session and starts the duel immediately for everyone (deliberately minimal
+team-formation UI, per the task's scope).
+
+**Model — `GameState.team_battle` / `player_teams`.** `setup_team_battle(team_a_setup,
+team_b_setup)` builds exactly 4 `PlayerState`s, **interleaved**
+`[teamA_0, teamB_0, teamA_1, teamB_1]` (`player_teams = [0,1,0,1]`) so the existing
+`(idx+1) % size` turn rotation alternates teams every turn with zero rotation changes.
+`is_game_over()`/`winner()` are team-aware: a team loses when **both** its members'
+heroes are dead; `winner()` returns the surviving team id (0/1).
+
+**Targeting — auto-pick + manual focus, not per-effect wiring.** Rather than threading
+an explicit target through every spell-effect match arm, `GameState.opponent()` gained a
+`team_battle` branch returning the alive enemy-team member with the **lowest hero HP**
+(`_get_lowest_hp_enemy_team_member`, sibling to the co-op-PvE boss-targeting helper) —
+this is the auto-target used by anything that doesn't have a manual choice (AOE/random/
+hand-disruption spell effects, hero powers' `active_damage_all`, etc. — a documented v1
+simplification: these always hit the single auto-picked enemy's board/hand, never both
+enemies' combined). `BattleScene._opp_idx()` adds a **manual focus** override:
+`_team_focus_target_pidx` (set by tapping an enemy panel in the new team status bar) is
+used instead of the auto pick when it still names a living enemy-team member. Because
+every existing render/target-building call site already routes through `_opp_idx()`
+(`EnemyArea` board/hand/hero, `_pvp_target_dict_for_card`, `_attempt_attack`'s slot
+lookup), focus propagates to spell minion/board targeting and attack-target-slot
+resolution **for free** — no per-feature target-selection code was needed for those.
+Two cases needed small, contained wiring since the slot index alone is ambiguous between
+2 possible enemy boards:
+- **Attacks**: `BattleNetProtocol.encode_attack`'s existing (previously-unused)
+  `target_pidx` parameter now carries the attacker's `_opp_idx()`; the authority's
+  `_apply_remote_intent` resolves `opp_idx` via `_resolve_intent_opp_idx` (validates the
+  sent `target_pidx` names a living enemy-team member, else falls back to
+  `_state.opponent_idx()`).
+- **Hero-targeted spells** (only `deal_damage_single`'s hero branch reads
+  `explicit_target.get("type") == "hero"`): the wire target dict carries
+  `{"hero": true, "pidx": N}`; `SpellEffectResolver` uses `_state.players[pidx].hero`
+  when present.
+- **Single-minion-targeted spells** (`deal_damage_single`, `lifesteal_hit`,
+  `curse_minion` — the only `ENEMY_TARGETED_EFFECTS` that remove a dead explicit target)
+  need no wire change: the wire `{"side", "slot"}` dict already carries the real
+  `CardInstance`, and a new `SpellEffectResolver._find_card_owner(card, fallback)`
+  resolves the *actual* owner by board-membership scan instead of assuming `opponent`,
+  so removal works correctly even when the manually-focused target differs from the
+  GameState-level auto pick.
+
+**Networking — own RPC set, mirrors co-op PvE.** `BattleNetSync` gains
+`send_team_intent` / `sync_team_state` / `team_battle_ended` / `request_team_sync`
+(reliable), kept distinct from the PvP and co-op-PvE RPCs. `BattleScene` gains a
+`_team_pvp` section mirroring `_coop_pve` structurally: `_setup_team_battle`,
+`_build_team_battle_state` (host-only, builds all 4 decks from `_team_decks`/
+`_team_assignments`), `_on_team_state`/`_on_team_intent`/`_on_team_sync_request`/
+`_broadcast_team_state`, `_team_check_game_over`, `_on_team_battle_ended`/
+`_finish_team_battle` (minimal result: HUD message, 2 s pause, then
+`GameBus.team_battle_ended.emit(did_win)` — no card/coin rewards, duel-style like
+unwagered 2-player PvP), `_process_team_sync`.
+
+**Team status bar.** A read-only `_build_team_arena_layout`/`_refresh_team_panels` pair
+(new, parallel to the GID-100 ally bar, not a generalization of it) shows all 4
+participants' HP/mana, grouped my-team-first then enemy-team. The two enemy panels are
+tappable (`_team_focus_target_pidx`); the two ally panels are informational only (no
+per-teammate spell targeting in v1).
+
+**Team formation — `WorldScene`.** A host-only **"Team Duel (2v2)"** HUD button
+(`_ensure_team_duel_button`/`_update_team_duel_button_visibility`) appears when exactly
+3 clients are connected (4 total players). Pressing it (`_start_team_duel`): sorts the
+connected peer ids for determinism, lays out the 4 absolute `GameState` indices as
+`[host, clients[1], clients[0], clients[2]]` (so `player_teams = [0,1,0,1]` puts the
+host's chosen partner, `clients[0]`, on the host's team), resolves each participant's
+**real** deck via `_team_deck_for_peer` (reads the host-authoritative GID-095
+`SessionState` member record directly — `owned_cards` + `player_deck` UIDs — so **no
+extra deck-collection RPC round-trip is needed**, unlike the proximity-gated 1v1
+challenge flow), and `rpc_id`s `NetSync.notify_team_duel_start(my_idx, team_assignments,
+all_decks)` to each client before calling `SceneManager.enter_team_battle` itself.
+
+**Rating — team-average expected score (GID-102 / TID-370 integration).** Host-only
+`WorldScene._on_team_battle_ended_coop` (connected permanently to
+`GameBus.team_battle_ended`, like `_on_pvp_battle_ended_coop`) uses the formation
+`_start_team_duel` recorded (`_active_team_duel_peer_ids`/`_active_team_duel_teams`) to
+resolve all 4 tokens, computes each team's **average rating**, then applies
+`RatingMath.updated` per player against the *opposing team's average* (not pairwise per
+opponent) scored 1.0/0.0 for their team's win/loss — the "team-average expected score"
+approach. A no-op for every non-host peer and once the formation has been consumed.
+
+**Bugs found and fixed while generalizing the opponent-index plumbing (BID-026):**
+`BattleScene._execute_attack` (the host's own local attack resolution) hardcoded
+`_state.players[1]`/`[0]` instead of `_opp_idx()`/`_my_idx()` — dormant for solo/2-player
+PvP but a real bug in co-op PvE (the boss is never at index 1 for any valid battle; a
+host's attack on the boss damaged the wrong ally). `_apply_remote_intent`'s `opp_idx`
+had the same unconditional `1 - player_idx` problem for ally-client relayed attacks. Both
+are fixed via the new `_resolve_intent_opp_idx` helper. See BID-026/027/028 for the
+residual gaps (no co-op-PvE attack-resolution smoke test; the AI-turn boss path has the
+same hardcoded-1 issue but is unreached by team PvP so was left for a follow-up).
+
+**Out of scope for v1** (documented, not silent): individual team-invite accept/decline,
+wagered team duels, a live 4-peer ENet loopback smoke test (covered instead by 17 pure
+`GameState` unit tests — `test_team_battle_state.gd`), and 3v3/4v4 (`setup_team_battle`
+is fixed at 2v2).
+
 ## Persistent Sessions & Per-Player Progress (GID-095)
 
 Each server keeps a **persistent session**: shared world progress plus a roster of
@@ -742,7 +843,12 @@ listen-server host (peer_id=1, local_idx=0); `_pvp_peer_to_idx` is empty so
   i.e. 3 clients + host; GID-094 / TID-341). **Reconnection** resumes a player's
   session character + position and the shared world (GID-095), via the lobby's one-tap
   Rejoin list; there is still no reconnection *into an in-progress PvP battle*.
-- **PvP is LAN/loopback only, 2 players**. Spectating (TID-367) and wagered duels (TID-368) are now supported. A **persistent ELO rating + a derived cross-session leaderboard** now exist (GID-102 / TID-370); what is still missing is global *matchmaking* (no queue across the internet) and the ranked UI panel (TID-373).
+- **PvP is LAN/loopback only**, 2 players for 1v1 duels (Spectating/TID-367 and wagered
+  duels/TID-368 are supported there) or 4 for **2v2 team duels** (GID-102 / TID-371 —
+  no wagers, no accept/decline, fixed 2v2). A **persistent ELO rating + a derived
+  cross-session leaderboard** now exist (GID-102 / TID-370), extended to team duels via
+  a team-average-expected-score update; what is still missing is global *matchmaking*
+  (no queue across the internet) and the ranked UI panel (TID-373).
 - **Live-synced (GID-096):** shared **enemies** (engage-locks; defeat persists) and
   **chests** (first-opener-takes; open persists) now sync from the authority and resume on
   reconnect. Still **not** synced: NPC dialogue/story, day/night, weather, and the
@@ -947,6 +1053,7 @@ intervals until the first mirror arrives (same pattern as `_process` for PvP).
 | File | Type | Covers |
 |---|---|---|
 | `tests/unit/test_coop_battle_state.gd` | unit (auto-run) | N-player setup (2–4 allies + boss), turn rotation including boss turn and wrap-around, opponent targeting, win/loss conditions, `to_dict`/`from_dict` round-trip for N participants, `CoopBattleScaling` HP/tier for n=1..4 (42 cases) |
+| `tests/unit/test_team_battle_state.gd` | unit (auto-run) | 2v2 team battle: interleaved setup + team assignment, turn rotation alternates teams across all 4 slots and wraps, `opponent()` picks the lowest-HP alive enemy-team member (preferring alive over dead), team-aware `is_game_over()`/`winner()`, `to_dict`/`from_dict` round-trip incl. legacy-dict default tolerance (17 cases) (GID-102 / TID-371) |
 
 ## Co-op Battle Design (GID-100)
 

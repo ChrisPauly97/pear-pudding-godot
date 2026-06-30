@@ -102,6 +102,7 @@ func _ready() -> void:
 	GameBus.battle_fled.connect(_on_battle_fled)
 	GameBus.pvp_battle_ended.connect(_on_pvp_battle_ended)
 	GameBus.coop_pve_battle_ended.connect(_on_coop_pve_battle_ended)
+	GameBus.team_battle_ended.connect(_on_team_battle_ended)
 	GameBus.duel_won.connect(_on_duel_won)
 	GameBus.duel_lost.connect(_on_duel_lost)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
@@ -532,6 +533,54 @@ func enter_coop_pve_battle(local_ally_idx: int, all_ally_decks: Array, enemy_dat
 		get_tree().root.add_child(_battle_overlay)
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
+
+## Enters a 2v2 team PvP duel from the shared world (GID-102 / TID-371). The host is
+## always players[0]/team 0 in the canonical GameState; local_player_idx is the local
+## participant's absolute index (0..3). team_assignments[i] is the team (0/1) for
+## absolute index i. all_decks is an Array of 4 Arrays[Dictionary] (deck instances per
+## absolute index); only the authority uses all 4, set by the host from the connected
+## peers' relayed decks (see WorldScene's "Team Duel" trigger).
+func enter_team_battle(local_player_idx: int, team_assignments: Array, all_decks: Array) -> void:
+	if _state != State.WORLD:
+		return
+	var captured_idx: int = local_player_idx
+	var captured_teams: Array = team_assignments
+	var captured_decks: Array = all_decks
+	TransitionManager.transition(func() -> void:
+		_saved_world_scene = get_tree().current_scene
+		get_tree().root.remove_child(_saved_world_scene)
+		_battle_overlay = _battle_scene_packed.instantiate()
+		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
+		_battle_overlay.set("_team_pvp", true)
+		_battle_overlay.set("_local_player_idx", captured_idx)
+		_battle_overlay.set("_team_assignments", captured_teams)
+		_battle_overlay.set("_team_decks", captured_decks)
+		_battle_overlay.enemy_data = {
+			"display_name": "Player",
+			"enemy_type": "",
+			"is_boss": false,
+			"drop_pool": [],
+			"coin_reward": 0,
+		}
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
+	_state = State.BATTLE
+
+## Team PvP duel finished (2v2). Restore the shared world (duel-style: no card/coin
+## rewards in v1, like unwagered 2-player PvP). Mirrors _on_coop_pve_battle_ended.
+func _on_team_battle_ended(_did_win: bool) -> void:
+	if _state != State.BATTLE:
+		return
+	if _battle_overlay != null:
+		_battle_overlay.queue_free()
+		_battle_overlay = null
+	if _saved_world_scene != null and NetworkManager.is_active():
+		_restore_world()
+	else:
+		if _saved_world_scene != null:
+			_saved_world_scene.queue_free()
+			_saved_world_scene = null
+		go_to_menu_direct()
 
 ## Co-op PvE battle finished (all allies vs shared boss). Restore the shared world.
 ## Mirrors _on_pvp_battle_ended but emitted by GameBus.coop_pve_battle_ended.

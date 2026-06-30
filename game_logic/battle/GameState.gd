@@ -30,6 +30,13 @@ var is_night: bool = false
 # Win: boss hero dead. Loss: all ally heroes dead.
 var coop_battle: bool = false
 
+# Team PvP flag (GID-102 / TID-371). When true: 4 players split into 2 teams of 2,
+# interleaved [teamA_0, teamB_0, teamA_1, teamB_1] so the existing (idx+1) % size
+# turn rotation alternates teams every turn with no rotation changes needed.
+# Win: the other team's both heroes dead. player_teams[i] is 0 or 1, parallel to players.
+var team_battle: bool = false
+var player_teams: Array[int] = []
+
 func _init() -> void:
 	var p1 := PlayerState.new(0, false)
 	var p2 := PlayerState.new(1, true)
@@ -62,7 +69,12 @@ func current_player() -> PlayerState:
 ## 2-player: always the other player.
 ## Co-op ally turn: the shared boss.
 ## Co-op boss turn: the alive ally with the lowest hero HP (boss targeting rule).
+## Team battle: the alive enemy-team member with the lowest hero HP (auto-target rule;
+## BattleScene may override this per-attack with a manually focused enemy — see
+## BattleScene._opp_idx() / docs/agent/multiplayer-coop.md "Team Duels").
 func opponent() -> PlayerState:
+	if team_battle:
+		return _get_lowest_hp_enemy_team_member(current_player_idx)
 	if not coop_battle:
 		return players[1 - current_player_idx]
 	var boss_idx: int = players.size() - 1
@@ -71,6 +83,11 @@ func opponent() -> PlayerState:
 		return _get_lowest_hp_ally()
 	# Ally turn — boss is the opponent.
 	return players[boss_idx]
+
+## Index of opponent() within `players`. Used by callers that need the index rather
+## than the PlayerState (e.g. attack/removal resolution).
+func opponent_idx() -> int:
+	return players.find(opponent())
 
 ## Convenience accessor — always returns the boss PlayerState when coop_battle.
 func boss() -> PlayerState:
@@ -103,6 +120,27 @@ func _get_lowest_hp_ally() -> PlayerState:
 			result = p
 	return result
 
+## Returns the alive member of the *other* team (relative to player_idx) with the
+## lowest hero HP. Prefers any alive member over a dead one; falls back to the
+## first enemy-team member only if the whole enemy team is dead (shouldn't happen
+## mid-battle — that condition ends the game, see is_game_over()).
+func _get_lowest_hp_enemy_team_member(player_idx: int) -> PlayerState:
+	var my_team: int = player_teams[player_idx] if player_idx < player_teams.size() else 0
+	var result: PlayerState = null
+	var lowest: int = 0
+	for i in range(players.size()):
+		if i < player_teams.size() and player_teams[i] == my_team:
+			continue
+		var p: PlayerState = players[i]
+		if result == null:
+			result = p
+			lowest = p.hero.health
+			continue
+		if p.hero.is_alive() and (not result.hero.is_alive() or p.hero.health < lowest):
+			lowest = p.hero.health
+			result = p
+	return result
+
 func end_turn() -> void:
 	current_player_idx = (current_player_idx + 1) % players.size()
 	turn_number += 1
@@ -114,8 +152,20 @@ func end_turn() -> void:
 	turn_ended.emit(current_player_idx)
 
 ## In co-op: party wins when boss is dead; party loses when all allies are dead.
+## In team battle: game over when one whole team's heroes are all dead.
 ## In 2-player: game over when any hero dies (unchanged).
 func is_game_over() -> bool:
+	if team_battle:
+		var team0_alive: bool = false
+		var team1_alive: bool = false
+		for i in range(players.size()):
+			var t: int = player_teams[i] if i < player_teams.size() else 0
+			if players[i].hero.is_alive():
+				if t == 0:
+					team0_alive = true
+				else:
+					team1_alive = true
+		return not (team0_alive and team1_alive)
 	if coop_battle:
 		# Boss dead → party wins.
 		if not players[players.size() - 1].hero.is_alive():
@@ -132,8 +182,24 @@ func is_game_over() -> bool:
 
 ## Returns the player_id of the winner (-1 if undecided).
 ## In co-op: returns 0 when allies win (boss dead), boss's player_id when boss wins.
+## In team battle: returns the surviving team id (0 or 1), or -1 if undecided.
 ## In 2-player: returns the surviving player_id.
 func winner() -> int:
+	if team_battle:
+		var team0_alive: bool = false
+		var team1_alive: bool = false
+		for i in range(players.size()):
+			var t: int = player_teams[i] if i < player_teams.size() else 0
+			if players[i].hero.is_alive():
+				if t == 0:
+					team0_alive = true
+				else:
+					team1_alive = true
+		if team0_alive and not team1_alive:
+			return 0
+		if team1_alive and not team0_alive:
+			return 1
+		return -1
 	if coop_battle:
 		var boss_idx: int = players.size() - 1
 		if not players[boss_idx].hero.is_alive():
@@ -260,6 +326,29 @@ func setup_coop_battle(n_allies: int, ally_setup: Callable, boss_setup: Callable
 	boss_setup.call(boss_ps)
 	current_player_idx = 0
 
+## Initialises a 2v2 team battle (GID-102 / TID-371). Must be called on a freshly
+## constructed GameState (replaces the default 2-player setup). Players are laid out
+## interleaved [teamA_0, teamB_0, teamA_1, teamB_1] so the existing (idx+1) % size
+## turn rotation alternates teams every turn with no rotation changes.
+## team_a_setup/team_b_setup: Callable(local_idx: int, ps: PlayerState) -> void,
+## local_idx is 0 or 1 within that team (caller builds each member's deck/stats).
+func setup_team_battle(team_a_setup: Callable, team_b_setup: Callable) -> void:
+	players.clear()
+	player_teams.clear()
+	player_turn_numbers.clear()
+	team_battle = true
+	var setups: Array[Callable] = [team_a_setup, team_b_setup, team_a_setup, team_b_setup]
+	var teams: Array[int] = [0, 1, 0, 1]
+	var local_idxs: Array[int] = [0, 0, 1, 1]
+	for i in range(4):
+		var ps := PlayerState.new(i, false)
+		players.append(ps)
+		player_teams.append(teams[i])
+		player_turn_numbers.append(0)
+		setups[i].call(local_idxs[i], ps)
+	player_turn_numbers[0] = 1  # players[0] starts first
+	current_player_idx = 0
+
 func to_dict() -> Dictionary:
 	var player_arr: Array = []
 	for p: PlayerState in players:
@@ -279,12 +368,20 @@ func to_dict() -> Dictionary:
 		"battlefield_biome": battlefield_biome,
 		"is_night": is_night,
 		"coop_battle": coop_battle,
+		"team_battle": team_battle,
+		"player_teams": player_teams.duplicate(),
 	}
 
 func from_dict(d: Dictionary) -> void:
 	current_player_idx = int(d.get("current_player_idx", 0))
 	turn_number = int(d.get("turn_number", 1))
 	coop_battle = bool(d.get("coop_battle", false))
+	team_battle = bool(d.get("team_battle", false))
+	player_teams.clear()
+	var pt: Variant = d.get("player_teams", [])
+	if pt is Array:
+		for v in pt:
+			player_teams.append(int(v))
 	friendly_duel = bool(d.get("friendly_duel", false))
 	wager_coins = int(d.get("wager_coins", 0))
 	puzzle_mode = bool(d.get("puzzle_mode", false))

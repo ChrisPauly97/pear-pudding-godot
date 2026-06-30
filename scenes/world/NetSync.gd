@@ -302,3 +302,16 @@ func submit_party_bounty_progress(bounty_type: String, match_data: Dictionary) -
 func recv_party_bounties_snapshot(bounties: Array) -> void:
 	if world_scene != null and world_scene.has_method("_on_party_bounties_snapshot_received"):
 		world_scene._on_party_bounties_snapshot_received(bounties)
+
+
+# ── Team PvP duels (GID-102 / TID-371) ───────────────────────────────────────
+
+## Host → each participant: "the team duel is starting; you are absolute index
+## my_idx." team_assignments[i] is the team (0/1) for absolute index i; all_decks[i]
+## is that index's deck instances. No accept/decline — the host assigns teams from
+## the connected 4-peer session (keeps team-formation UI minimal, per design).
+## Triggers SceneManager.enter_team_battle on the recipient. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func notify_team_duel_start(my_idx: int, team_assignments: Array, all_decks: Array) -> void:
+	if world_scene != null and world_scene.has_method("_on_notify_team_duel_start"):
+		world_scene._on_notify_team_duel_start(my_idx, team_assignments, all_decks)

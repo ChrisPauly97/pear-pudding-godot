@@ -82,6 +82,27 @@ var _coop_ally_decks: Array = []
 var _coop_peer_to_idx: Dictionary = {}
 var _coop_ended: bool = false  # guard so the result fires once
 
+# ── Team PvP duels (GID-102 / TID-371) ───────────────────────────────────────────
+# All inert unless SceneManager sets _team_pvp = true before _ready. 2v2 only: 4
+# players, GameState.player_teams[i] is 0 or 1. _local_player_idx is the local
+# player's absolute index (host is always 0, see SceneManager.enter_team_battle).
+var _team_pvp: bool = false
+# Per-team deck instances, indexed by the absolute player index (0..3). Set by
+# SceneManager before _ready; only the authority uses all 4 entries.
+var _team_decks: Array = []
+# player_teams snapshot (0/1 per absolute index), set by SceneManager before _ready.
+var _team_assignments: Array = []
+var _team_peer_to_idx: Dictionary = {}  # peer_id (int) → player_idx (int), authority only
+var _team_ended: bool = false  # guard so the result fires once
+# Manual enemy-target focus (-1 = auto lowest-HP enemy-team member). Tapping an
+# enemy panel in the team status bar sets this; it drives _opp_idx() so the
+# existing EnemyArea rendering + attack/spell targeting transparently follow it.
+var _team_focus_target_pidx: int = -1
+# Team status bar (read-only HP/mana for all 4 participants; enemy panels are
+# tappable focus targets). Mirrors _coop_ally_panels/_coop_arena_built.
+var _team_arena_built: bool = false
+var _team_panels: Array[Control] = []
+
 # Weather modifier state — determined once at battle start
 var _battle_weather: String = ""  # "" if no infinite-world weather applies
 var _snow_discount_used: Array[bool] = [false, false]  # per-player first-card discount
@@ -193,6 +214,8 @@ func _ready() -> void:
 		_setup_pvp_battle()
 	elif _coop_pve:
 		_setup_coop_pve_battle()
+	elif _team_pvp:
+		_setup_team_battle()
 	elif not _saved_battle.is_empty():
 		_state = GameState.new()
 		_resolver.setup(_state)
@@ -1286,19 +1309,21 @@ func _on_target_chosen_hero() -> void:
 	_targeting_friendly = false
 	_targeting_spell = null
 	_hide_cancel_btn()
+	var hero_tgt: Dictionary = {"hero": true, "pidx": _opp_idx()} if _team_pvp else {"hero": true}
 	if _is_pvp_client():
 		var hi: int = _state.players[_my_idx()].hand.find(spell)
 		if hi != -1 and _state.players[_my_idx()].can_play(spell):
 			AudioManager.play_sfx("card_play")
 			_fx.haptic(20)
-			_send_intent(BattleNetProtocol.encode_play_spell(hi, {"hero": true}))
+			_send_intent(BattleNetProtocol.encode_play_spell(hi, hero_tgt))
 			_dismiss_battle_tutorial()
 		return
 	if _do_play_card(spell, _my_idx()):
 		AudioManager.play_sfx("card_play")
 		_fx.haptic(20)
 		var snap_oth := _fx.snapshot()
-		_resolver.resolve_spell(spell, _my_idx(), {"type": "hero"})
+		var resolver_hero_tgt: Dictionary = {"type": "hero", "pidx": _opp_idx()} if _team_pvp else {"type": "hero"}
+		_resolver.resolve_spell(spell, _my_idx(), resolver_hero_tgt)
 		_fx.trigger_fx(snap_oth)
 	_refresh_all()
 	_check_game_over()
@@ -1331,6 +1356,8 @@ func _refresh_all() -> void:
 	_update_status()
 	if _coop_pve:
 		_refresh_coop_ally_panels()
+	if _team_pvp:
+		_refresh_team_panels()
 
 func _refresh_player_board() -> void:
 	if _local_player_idx < 0:
@@ -1512,7 +1539,8 @@ func _attempt_attack(attacker: CardInstance, target: CardInstance) -> void:
 			t_slot = _state.players[_opp_idx()].board.slots.find(target)
 		_dragged_card.clear()
 		if a_slot != -1 and (target == null or t_slot != -1):
-			_send_intent(BattleNetProtocol.encode_attack(a_slot, t_slot))
+			var target_pidx: int = _opp_idx() if _team_pvp else -1
+			_send_intent(BattleNetProtocol.encode_attack(a_slot, t_slot, target_pidx))
 		_refresh_all()
 		return
 	_execute_attack(attacker, target)
@@ -1534,13 +1562,13 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 		_fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
 		if not target.is_alive():
 			attacker.battle_kills += 1
-			_state.players[1].board.remove_card(target)
-			_state.players[1].discard.append(target)
+			_state.players[_opp_idx()].board.remove_card(target)
+			_state.players[_opp_idx()].discard.append(target)
 		GameBus.card_attacked.emit(attacker.card_id, target.card_id)
 	else:
 		if _capture_tracker != null:
 			_capture_tracker.note_minion_attacked_hero(0)
-		var hero := _state.players[1].hero
+		var hero := _state.players[_opp_idx()].hero
 		hero.take_damage(attacker_dmg)
 		attacker.take_damage(BattlefieldRules.modify_damage(hero.attack, _state.battlefield_biome))
 		attacker.attack_count -= 1
@@ -1548,8 +1576,8 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 		_fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
 		GameBus.card_attacked.emit(attacker.card_id, "hero")
 	if not attacker.is_alive():
-		_state.players[0].board.remove_card(attacker)
-		_state.players[0].discard.append(attacker)
+		_state.players[_my_idx()].board.remove_card(attacker)
+		_state.players[_my_idx()].discard.append(attacker)
 	_fx.spawn_float_labels(snap)
 	_fx.check_shake(snap)
 	_dragged_card.clear()
@@ -1734,6 +1762,9 @@ func _check_game_over() -> void:
 		return
 	if _coop_pve:
 		_coop_pve_check_game_over()
+		return
+	if _team_pvp:
+		_team_check_game_over()
 		return
 	_check_boss_phase2()
 	if _game_over_handled:
@@ -1986,9 +2017,21 @@ func _my_idx() -> int:
 
 ## Index of the opponent in the canonical state.
 ## In co-op PvE, the local ally's opponent is always the boss (last player slot).
+## In team PvP, the opponent is the manually focused enemy-team member if one is
+## set and still alive, else the auto-picked lowest-HP enemy-team member
+## (GameState.opponent_idx()). Every existing render/target-building call site
+## already routes through this accessor, so manual focus propagates for free.
 func _opp_idx() -> int:
 	if _coop_pve and _state != null and _state.players.size() > 2:
 		return _state.players.size() - 1
+	if _team_pvp and _state != null and _state.team_battle:
+		var f: int = _team_focus_target_pidx
+		if f >= 0 and f < _state.players.size() \
+				and f < _state.player_teams.size() and _local_player_idx < _state.player_teams.size() \
+				and _state.player_teams[f] != _state.player_teams[_local_player_idx] \
+				and _state.players[f].hero.is_alive():
+			return f
+		return _state.opponent_idx()
 	return 1 - _local_player_idx
 
 ## True when this peer owns the canonical simulation: ENet host in any mode
@@ -1997,12 +2040,12 @@ func _opp_idx() -> int:
 ## so it works correctly both in production and in smoke tests that register
 ## custom multiplayer instances via set_multiplayer().
 func _is_pvp_host() -> bool:
-	return (_pvp or _coop_pve) and multiplayer.is_server()
+	return (_pvp or _coop_pve or _team_pvp) and multiplayer.is_server()
 
 ## True when this peer is a thin client renderer (never the ENet host).
 ## Also true for co-op PvE ally clients.
 func _is_pvp_client() -> bool:
-	return (_pvp or _coop_pve) and not multiplayer.is_server()
+	return (_pvp or _coop_pve or _team_pvp) and not multiplayer.is_server()
 
 
 ## True when this peer is a read-only spectator (TID-367). Spectators mirror
@@ -2055,6 +2098,9 @@ var _pvp_sync_retry_accum: float = 0.0
 func _process(delta: float) -> void:
 	if _coop_pve:
 		_process_coop_sync(delta)
+		return
+	if _team_pvp:
+		_process_team_sync(delta)
 		return
 	if not (_is_pvp_client() or _pvp_spectating) or _last_applied_seq >= 0 or _net == null:
 		return
@@ -2132,7 +2178,11 @@ func _disconnect_pvp_net_signals() -> void:
 func _send_intent(payload: Dictionary) -> void:
 	if _net != null:
 		_pvp_pending = true
-		var rpc_name: String = "send_coop_intent" if _coop_pve else "send_intent"
+		var rpc_name: String = "send_intent"
+		if _coop_pve:
+			rpc_name = "send_coop_intent"
+		elif _team_pvp:
+			rpc_name = "send_team_intent"
 		_net.rpc_id(1, rpc_name, payload)
 
 ## Host → client: broadcast the full canonical state with a fresh seq.
@@ -2205,6 +2255,37 @@ func _on_pvp_intent(sender: int, payload: Dictionary) -> void:
 	else:
 		_broadcast_state()  # reject → re-sync the client
 
+## Resolves the "opponent index" an authority should use for a given remote intent.
+##
+## 2-player PvP: 1 - player_idx (unchanged).
+##
+## Co-op PvE (GID-099): always the boss (last player slot) — fixes a pre-existing bug
+## (discovered while generalizing this for team PvP, see BID-026): the old unconditional
+## `1 - player_idx` only happens to equal the boss index for a 2-player-shaped state;
+## for any ally CLIENT (idx 1..N-1) relaying an ATTACK intent, `1 - player_idx` resolved
+## to an arbitrary ally index (and, via GDScript's negative-index wraparound, sometimes a
+## different ally entirely) instead of the boss, so a relayed ally attack could damage/
+## remove against the wrong ally's board. Ally indices vs the boss only ever face one
+## opponent (the boss), so this is unconditional, not target_pidx-dependent.
+##
+## Team PvP (GID-102 / TID-371): the intent's target_pidx when it names a living
+## enemy-team member (the attacker's manually focused target, sent by the client's
+## _opp_idx()), else the auto-picked lowest-HP enemy-team member (_state.opponent_idx(),
+## valid here since callers already verified current_player_idx == player_idx before
+## invoking _apply_remote_intent).
+func _resolve_intent_opp_idx(intent: Dictionary, player_idx: int) -> int:
+	if _coop_pve:
+		return _state.players.size() - 1
+	if not _team_pvp:
+		return 1 - player_idx
+	var tp: int = int(intent.get("target_pidx", -1))
+	if tp >= 0 and tp < _state.players.size() and tp < _state.player_teams.size() \
+			and player_idx < _state.player_teams.size() \
+			and _state.player_teams[tp] != _state.player_teams[player_idx] \
+			and _state.players[tp].hero.is_alive():
+		return tp
+	return _state.opponent_idx()
+
 ## Authority: apply a validated remote-player intent to the canonical state.
 ## `player_idx` is 1 in listen-server mode (the single client); either 0 or 1 in
 ## referee mode (determined by _pvp_peer_to_idx lookup in _on_pvp_intent).
@@ -2212,7 +2293,7 @@ func _on_pvp_intent(sender: int, payload: Dictionary) -> void:
 func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 	var t: String = str(intent["type"])
 	var p1: PlayerState = _state.players[player_idx]
-	var opp_idx: int = 1 - player_idx
+	var opp_idx: int = _resolve_intent_opp_idx(intent, player_idx)
 	match t:
 		BattleNetProtocol.INTENT_PLAY_CARD_AT_SLOT:
 			var hi: int = int(intent["hand_index"])
@@ -2278,7 +2359,7 @@ func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 				for ec: CardInstance in _state.players[opp_idx].board.get_cards():
 					if ec.keywords.has(Keywords.WARD):
 						return false
-			_resolve_remote_attack(attacker, target, player_idx)
+			_resolve_remote_attack(attacker, target, player_idx, opp_idx)
 			return true
 		BattleNetProtocol.INTENT_HERO_POWER:
 			_apply_hero_power_effect(player_idx, str(intent["effect_type"]), int(intent["effect_value"]))
@@ -2291,26 +2372,33 @@ func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 			return true
 	return false
 
-## Translates a wire target dict ({hero}/{side,slot}/{pidx}) into a resolver target.
+## Translates a wire target dict ({hero}/{hero,pidx}/{side,slot}/{pidx}) into a resolver
+## target. "hero" is checked before the plain "pidx" branch: a team-battle hero target
+## carries BOTH keys ({"hero": true, "pidx": N} — which enemy hero), distinct from the
+## ally-targeting payload which carries "pidx" alone (GID-100).
 func _pvp_resolver_target(tgt: Dictionary) -> Dictionary:
 	if tgt.is_empty():
 		return {}
+	if bool(tgt.get("hero", false)):
+		var out: Dictionary = {"type": "hero"}
+		if tgt.has("pidx"):
+			out["pidx"] = int(tgt["pidx"])
+		return out
 	if tgt.has("pidx"):
 		return {"pidx": int(tgt["pidx"])}
-	if bool(tgt.get("hero", false)):
-		return {"type": "hero"}
 	if tgt.has("side") and tgt.has("slot"):
 		var side: int = int(tgt["side"])
 		var slot: int = int(tgt["slot"])
-		if side >= 0 and side < 2 and slot >= 0 and slot < 5:
+		if side >= 0 and side < _state.players.size() and slot >= 0 and slot < 5:
 			var c: CardInstance = _state.players[side].board.slots[slot]
 			if c != null:
 				return {"type": "minion", "card": c}
 	return {}
 
 ## State-only attack resolution (no side-specific FX) for relayed/remote attacks.
-func _resolve_remote_attack(attacker: CardInstance, target: CardInstance, attacker_pid: int) -> void:
-	var defender_pid: int = 1 - attacker_pid
+## defender_pid is resolved by the caller via _resolve_intent_opp_idx (handles 2-player
+## PvP, co-op-PvE-vs-boss, and team-PvP focus/auto-target uniformly).
+func _resolve_remote_attack(attacker: CardInstance, target: CardInstance, attacker_pid: int, defender_pid: int) -> void:
 	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome)
 	if target != null:
 		var target_dmg: int = BattlefieldRules.modify_damage(target.attack, _state.battlefield_biome)
@@ -2337,7 +2425,11 @@ func _resolve_remote_attack(attacker: CardInstance, target: CardInstance, attack
 ## is carried in the intent).
 func _apply_hero_power_effect(player_idx: int, effect_type: String, value: int) -> void:
 	var player: PlayerState = _state.players[player_idx]
-	var enemy: PlayerState = _state.players[1 - player_idx]
+	# Hero power only fires on the acting player's own turn (current_player_idx ==
+	# player_idx, enforced by every caller), so opponent() resolves correctly for
+	# 2-player PvP, co-op-PvE (boss), and team PvP (auto lowest-HP enemy-team member —
+	# hero powers don't carry a manual target_pidx, consistent with other AOE effects).
+	var enemy: PlayerState = _state.opponent()
 	match effect_type:
 		"active_damage_all":
 			for card: CardInstance in enemy.board.get_cards().duplicate():
@@ -2716,3 +2808,241 @@ func _process_coop_sync(delta: float) -> void:
 	if _coop_sync_retry_accum >= 0.4:
 		_coop_sync_retry_accum = 0.0
 		_net.rpc_id(1, "request_coop_sync")
+
+
+# -------------------------------------------------------------------------
+# Team PvP duels (GID-102 / TID-371)
+#
+# 2v2 only. Mirrors the GID-099 co-op-PvE section structurally (own RPC set, own
+# setup/intent/state/end-of-battle functions) rather than the 2-player PvP path,
+# since both need N-participant handling. The host is always players[0]/team 0;
+# GameState.player_teams + the focus mechanism (_opp_idx()) carry the rest.
+# -------------------------------------------------------------------------
+
+## Builds the relay node + canonical state for a team battle. Host builds all 4
+## decks and starts turn 1; clients wait for the first sync_team_state mirror.
+func _setup_team_battle() -> void:
+	_state = GameState.new()
+	_resolver.setup(_state)
+	_wire_gamebus_emitter()
+	_net = _BattleNetSyncScript.new()
+	_net.name = "BattleNetSync"
+	add_child(_net)
+	_net.battle_scene = self
+	_connect_pvp_net_signals()  # reuse PvP disconnect handlers
+	if _is_pvp_host():
+		_build_team_battle_state()
+		_state.players[_my_idx()].start_turn(1)
+
+## Authority-only: build the 4-player team GameState from _team_decks/_team_assignments.
+## _team_assignments[i] is the team (0/1) for absolute player index i; team_a_setup/
+## team_b_setup close over that to assign the right deck per absolute index.
+func _build_team_battle_state() -> void:
+	var fallback: Array[String] = ["ghost", "skeleton", "zombie", "ghoul",
+		"ghost", "skeleton", "zombie", "ghoul", "ghost", "skeleton", "zombie", "ghoul"]
+	var deck_for_abs_idx := func(abs_idx: int) -> Array[Dictionary]:
+		var insts: Array[Dictionary] = []
+		if abs_idx < _team_decks.size():
+			for inst in _team_decks[abs_idx]:
+				if inst is Dictionary:
+					insts.append(inst)
+		return insts
+	# setup_team_battle calls team_a_setup for absolute indices 0,2 and team_b_setup
+	# for 1,3 (the interleaved layout) with local_idx 0/1 within that team — recover
+	# the absolute index from _team_assignments so each member gets their own deck.
+	var abs_for_team := func(team: int, local_idx: int) -> int:
+		var seen: int = 0
+		for i in range(_team_assignments.size()):
+			if int(_team_assignments[i]) == team:
+				if seen == local_idx:
+					return i
+				seen += 1
+		return -1
+	_state.setup_team_battle(
+		func(local_idx: int, ps: PlayerState) -> void:
+			var abs_idx: int = abs_for_team.call(0, local_idx)
+			var insts: Array[Dictionary] = deck_for_abs_idx.call(abs_idx) if abs_idx >= 0 else []
+			if insts.size() > 0:
+				ps.build_deck_from_instances(insts)
+			else:
+				ps.build_deck(fallback)
+			ps.draw_opening_hand(4),
+		func(local_idx: int, ps: PlayerState) -> void:
+			var abs_idx: int = abs_for_team.call(1, local_idx)
+			var insts: Array[Dictionary] = deck_for_abs_idx.call(abs_idx) if abs_idx >= 0 else []
+			if insts.size() > 0:
+				ps.build_deck_from_instances(insts)
+			else:
+				ps.build_deck(fallback)
+			ps.draw_opening_hand(4))
+
+## Client: receive and apply an authoritative team-battle state mirror.
+func _on_team_state(payload: Dictionary) -> void:
+	if not _is_pvp_client():
+		return
+	var decoded: Dictionary = BattleNetProtocol.decode_state(payload)
+	if not bool(decoded["valid"]):
+		return
+	var seq: int = int(decoded["seq"])
+	if seq <= _last_applied_seq:
+		return
+	_last_applied_seq = seq
+	_pvp_pending = false
+	var state_dict: Dictionary = decoded["state"]
+	_state = GameState.new()
+	_state.from_dict(state_dict)
+	_wire_gamebus_emitter()
+	_bump_card_next_id(_state)
+	if not _state.turn_ended.is_connected(_on_turn_ended):
+		_state.turn_ended.connect(_on_turn_ended)
+	_resolver.setup(_state)
+	_fx.set_game_state(_state)
+	_view.set_battle_state(_state, enemy_data)
+	_refresh_all()
+	_refresh_potion_button()
+
+## Authority: validate + apply a team participant's intent.
+func _on_team_intent(sender: int, payload: Dictionary) -> void:
+	if not _is_pvp_host() or not _team_pvp:
+		return
+	var intent: Dictionary = BattleNetProtocol.decode_intent(payload)
+	var t: String = str(intent["type"])
+	if t == "":
+		return
+	var acting_idx: int = int(_team_peer_to_idx.get(sender, -1))
+	if acting_idx < 0:
+		return
+	if t == BattleNetProtocol.INTENT_SURRENDER:
+		_state.players[acting_idx].hero.health = 0
+		_broadcast_team_state()
+		_team_check_game_over()
+		return
+	if _state.current_player_idx != acting_idx:
+		_broadcast_team_state()
+		return
+	var changed: bool = _apply_remote_intent(intent, acting_idx)
+	if changed:
+		_refresh_all()
+		_team_check_game_over()
+	else:
+		_broadcast_team_state()
+
+## Host: a client asked for the current team-battle state — send it.
+func _on_team_sync_request() -> void:
+	if _is_pvp_host() and _team_pvp:
+		_broadcast_team_state()
+
+## Authority: broadcast the full canonical team-battle state.
+func _broadcast_team_state() -> void:
+	if not _is_pvp_host() or _net == null:
+		return
+	_state_seq += 1
+	_net.rpc("sync_team_state", BattleNetProtocol.encode_state(_state.to_dict(), _state_seq))
+
+## Authority-only: detect team-battle end and broadcast.
+func _team_check_game_over() -> void:
+	if not _is_pvp_host():
+		return
+	if _state.is_game_over():
+		if _team_ended:
+			return
+		_team_ended = true
+		var winning_team: int = _state.winner()
+		_broadcast_team_state()
+		var payload: Dictionary = {"winning_team": winning_team}
+		if _net != null:
+			_net.rpc("team_battle_ended", payload)
+		_finish_team_battle(winning_team, payload)
+		return
+	_broadcast_team_state()
+
+## Called on every peer (host from _team_check_game_over, clients from RPC).
+func _on_team_battle_ended(payload: Dictionary) -> void:
+	if _team_ended:
+		return
+	_team_ended = true
+	var winning_team: int = int(payload.get("winning_team", -1))
+	_finish_team_battle(winning_team, payload)
+
+## Apply a minimal result (no card/coin rewards — duel-style, like unwagered 2-player
+## PvP; ante wagers are out of scope for v1) and return to the shared world. Full
+## result ceremony is a future enhancement, mirroring _finish_coop_pve's "minimal
+## result" precedent (GID-100 polish applies there too).
+func _finish_team_battle(winning_team: int, _payload: Dictionary) -> void:
+	_disconnect_pvp_net_signals()
+	var my_team: int = int(_state.player_teams[_my_idx()]) if _my_idx() < _state.player_teams.size() else 0
+	var did_win: bool = winning_team == my_team
+	if did_win:
+		AudioManager.play_sfx("battle_win")
+		_fx.haptic(120)
+	else:
+		AudioManager.play_sfx("battle_lose")
+		_fx.haptic(80)
+	var msg: String = "Your team is victorious!" if did_win else "Your team was defeated."
+	GameBus.hud_message_requested.emit(msg)
+	await get_tree().create_timer(2.0, false).timeout
+	GameBus.team_battle_ended.emit(did_win)
+
+## Team-battle retry sync (mirrors _process_coop_sync).
+var _team_sync_retry_accum: float = 0.0
+func _process_team_sync(delta: float) -> void:
+	if not _team_pvp or not _is_pvp_client() or _last_applied_seq >= 0 or _net == null:
+		return
+	_team_sync_retry_accum += delta
+	if _team_sync_retry_accum >= 0.4:
+		_team_sync_retry_accum = 0.0
+		_net.rpc_id(1, "request_team_sync")
+
+## Builds (or rebuilds) the read-only team status bar: one compact hero panel per
+## participant (HP/mana), grouped my-team-first then enemy-team. Enemy panels are
+## tappable focus targets (sets _team_focus_target_pidx, drives _opp_idx()); my-team
+## panels are informational only (no per-teammate spell targeting in v1).
+func _build_team_arena_layout() -> void:
+	if not _team_pvp or _state == null:
+		return
+	for p in _team_panels:
+		if is_instance_valid(p):
+			p.queue_free()
+	_team_panels.clear()
+
+	var bar := HBoxContainer.new()
+	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	bar.offset_bottom = _vh * 0.08
+	add_child(bar)
+	_team_panels.append(bar)
+
+	var my_team: int = int(_state.player_teams[_my_idx()]) if _my_idx() < _state.player_teams.size() else 0
+	var order: Array[int] = []
+	for i in range(_state.players.size()):
+		if i < _state.player_teams.size() and _state.player_teams[i] == my_team:
+			order.append(i)
+	for i in range(_state.players.size()):
+		if i < _state.player_teams.size() and _state.player_teams[i] != my_team:
+			order.append(i)
+	for pidx in order:
+		var ps: PlayerState = _state.players[pidx]
+		var is_enemy: bool = pidx < _state.player_teams.size() and _state.player_teams[pidx] != my_team
+		var btn := Button.new()
+		btn.text = "%s P%d  HP:%d/%d  Mana:%d" % [
+			"Enemy" if is_enemy else "Ally", pidx + 1,
+			ps.hero.health, ps.hero.max_health, ps.hero.mana]
+		btn.custom_minimum_size = Vector2(_vh * 0.20, _vh * 0.06)
+		if is_enemy:
+			var cap_pidx: int = pidx
+			btn.pressed.connect(func() -> void:
+				_team_focus_target_pidx = cap_pidx
+				_refresh_all()
+			)
+		bar.add_child(btn)
+	_team_arena_built = true
+
+func _refresh_team_panels() -> void:
+	if not _team_pvp or _state == null:
+		return
+	if not _team_arena_built:
+		_build_team_arena_layout()
+		return
+	# Rebuild wholesale: simplest correct option since the focused enemy can change
+	# the highlighted/ordered set, and there are only ever 4 panels.
+	_build_team_arena_layout()

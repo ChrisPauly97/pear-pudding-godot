@@ -99,3 +99,36 @@ func stop_spectate() -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if battle_scene != null and battle_scene.has_method("_on_stop_spectate"):
 		battle_scene._on_stop_spectate(sender)
+
+
+# ── Team PvP duels (GID-102 / TID-371) ───────────────────────────────────────
+# Mirror of the co-op PvE RPCs above, kept on a distinct name set so PvP/co-op-PvE/
+# team-PvP modes never share a handler (avoids cross-mode confusion on the host).
+
+## Team participant client → host: a single relayed action (BattleNetProtocol intent dict).
+@rpc("any_peer", "reliable", "call_remote")
+func send_team_intent(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if battle_scene != null and battle_scene.has_method("_on_team_intent"):
+		battle_scene._on_team_intent(sender, payload)
+
+
+## Host → all team-battle clients: full-state mirror (BattleNetProtocol.encode_state output).
+@rpc("any_peer", "reliable", "call_remote")
+func sync_team_state(payload: Dictionary) -> void:
+	if battle_scene != null and battle_scene.has_method("_on_team_state"):
+		battle_scene._on_team_state(payload)
+
+
+## Host → all team-battle clients: battle ended. payload: {"winning_team": int}.
+@rpc("any_peer", "reliable", "call_remote")
+func team_battle_ended(payload: Dictionary) -> void:
+	if battle_scene != null and battle_scene.has_method("_on_team_battle_ended"):
+		battle_scene._on_team_battle_ended(payload)
+
+
+## Team participant client → host: "my BattleScene is ready, send me the current state."
+@rpc("any_peer", "reliable", "call_remote")
+func request_team_sync() -> void:
+	if battle_scene != null and battle_scene.has_method("_on_team_sync_request"):
+		battle_scene._on_team_sync_request()

@@ -29,6 +29,9 @@ signal pvp_battle_ended(did_win: bool)
 # Co-op PvE joint battle (GID-099): all allies vs shared boss. did_win from local
 # perspective. SceneManager restores the shared co-op world.
 signal coop_pve_battle_ended(did_win: bool)
+# Team PvP duels (GID-102 / TID-371): 2v2, duel-style end, no rewards. did_win is
+# from the local peer's team perspective. SceneManager restores the shared co-op world.
+signal team_battle_ended(did_win: bool)
 
 # Story signals
 signal story_flag_set(flag: String)

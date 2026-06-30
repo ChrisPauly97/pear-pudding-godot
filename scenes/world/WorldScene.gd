@@ -116,6 +116,14 @@ var _session_dedicated: bool = false      # client: true when connected to a ded
 var _pvp_relay_challenger_id: int = -1   # server: peer_id of the challenger awaiting response
 var _pvp_relay_challenger_deck: Array = [] # server: challenger's deck
 var _pvp_relay_target_id: int = -1       # server: peer_id of the challenged player
+# Team PvP duels (GID-102 / TID-371): host-only trigger, visible at 4 players (host
+# + 3 clients). No accept/decline — keeps team-formation UI minimal (see task notes).
+var _team_duel_btn: Button = null
+# Host-only: remembers the formation of the duel it started so _on_team_battle_ended_coop
+# can resolve all 4 participants' tokens for the rating update. Empty when no team
+# duel is in flight (the host itself never started one, or it already finished).
+var _active_team_duel_peer_ids: Array[int] = []
+var _active_team_duel_teams: Array = []
 # GID-101 — Social & Rewards ──────────────────────────────────────────────────
 # TID-365: Emotes & pings
 const _SocialSync = preload("res://game_logic/net/SocialSync.gd")
@@ -507,6 +515,10 @@ func _ready() -> void:
 	if not GameBus.pvp_battle_ended.is_connected(_on_pvp_battle_ended_coop):
 		GameBus.pvp_battle_ended.connect(_on_pvp_battle_ended_coop)
 
+	# GID-102 (TID-371): ranked rating for team duels. Same "connected permanently" reasoning.
+	if not GameBus.team_battle_ended.is_connected(_on_team_battle_ended_coop):
+		GameBus.team_battle_ended.connect(_on_team_battle_ended_coop)
+
 	_setup_coop()
 	_initial_ready_done = true
 
@@ -563,6 +575,7 @@ func _setup_coop() -> void:
 	if not NetworkManager.is_dedicated_server():
 		_ensure_challenge_button()
 		_ensure_social_buttons()
+		_ensure_team_duel_button()
 	# GID-101 (TID-369): host initialises party bounties; all peers build the HUD.
 	_setup_party_bounties()
 	if not NetworkManager.is_dedicated_server():
@@ -1306,6 +1319,98 @@ func _request_challenge() -> void:
 	else:
 		_net_sync.rpc_id(_challenge_target_peer, "request_battle", my_deck)
 	_show_tip("Challenge sent…")
+
+# ── Team PvP duels (GID-102 / TID-371) ────────────────────────────────────────
+
+## Creates the hidden "Team Duel (2v2)" HUD button. Host-only trigger.
+func _ensure_team_duel_button() -> void:
+	if _team_duel_btn != null and is_instance_valid(_team_duel_btn):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_team_duel_btn = Button.new()
+	_team_duel_btn.text = "Team Duel (2v2)"
+	_team_duel_btn.custom_minimum_size = Vector2(vp.y * 0.34, vp.y * 0.07)
+	_team_duel_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	_team_duel_btn.position = Vector2((vp.x - vp.y * 0.34) * 0.5, vp.y * 0.72)
+	_team_duel_btn.hide()
+	_team_duel_btn.pressed.connect(_start_team_duel)
+	_hud.add_child(_team_duel_btn)
+
+## Shows the team-duel button only for the host with exactly 3 connected clients
+## (4 total players — required for 2v2). Dedicated-server / non-host peers never see it.
+func _update_team_duel_button_visibility() -> void:
+	if _team_duel_btn == null or not is_instance_valid(_team_duel_btn):
+		return
+	if not NetworkManager.is_host() or NetworkManager.is_dedicated_server() \
+			or SceneManager._state != SceneManager.State.WORLD:
+		_team_duel_btn.hide()
+		return
+	_team_duel_btn.visible = multiplayer.get_peers().size() >= 3 and _pending_challenge_from == -1
+
+## Host-only: resolves a connected peer's current deck as instances for the team duel.
+## The host's own deck comes straight from SaveManager; a client's deck is read from
+## its already-synced GID-095 session character record — no extra RPC round-trip needed.
+func _team_deck_for_peer(pid: int) -> Array:
+	if pid == multiplayer.get_unique_id():
+		return _local_deck_for_net()
+	var token: String = str(_session_token_by_peer.get(pid, ""))
+	if token == "" or not SessionStore.is_open():
+		return []
+	var st = SessionStore.get_state()
+	if st == null:
+		return []
+	var rec: Dictionary = st.get_member(token)
+	if rec.is_empty():
+		return []
+	var by_uid: Dictionary = {}
+	for inst in rec.get("owned_cards", []):
+		if inst is Dictionary:
+			by_uid[str(inst.get("uid", ""))] = inst
+	var out: Array = []
+	for uid in rec.get("player_deck", []):
+		if by_uid.has(str(uid)):
+			out.append(by_uid[str(uid)])
+	return out
+
+## Host: assigns teams from the connected 4-peer session and starts a 2v2 duel for
+## everyone immediately — no individual accept/decline (keeps team-formation UI
+## minimal, per the task notes). Host + the first-sorted client form team 0; the other
+## two clients form team 1. Absolute GameState indices: [host, client_b, host's
+## partner, client_c] so the interleaved [teamA_0,teamB_0,teamA_1,teamB_1] layout in
+## GameState.setup_team_battle puts the host's chosen partner on the host's team.
+func _start_team_duel() -> void:
+	if not NetworkManager.is_host() or _net_sync == null:
+		return
+	var clients: Array = multiplayer.get_peers()
+	if clients.size() < 3:
+		_show_tip("Need 4 players for a team duel.")
+		return
+	clients.sort()
+	var host_id: int = multiplayer.get_unique_id()
+	var abs_peer_ids: Array[int] = [host_id, int(clients[1]), int(clients[0]), int(clients[2])]
+	var team_assignments: Array = [0, 1, 0, 1]
+	var all_decks: Array = []
+	for pid in abs_peer_ids:
+		all_decks.append(_team_deck_for_peer(pid))
+	for i in range(abs_peer_ids.size()):
+		var pid: int = abs_peer_ids[i]
+		if pid != host_id:
+			_net_sync.rpc_id(pid, "notify_team_duel_start", i, team_assignments, all_decks)
+	if _challenge_btn != null and is_instance_valid(_challenge_btn):
+		_challenge_btn.hide()
+	if _team_duel_btn != null and is_instance_valid(_team_duel_btn):
+		_team_duel_btn.hide()
+	_active_team_duel_peer_ids = abs_peer_ids
+	_active_team_duel_teams = team_assignments
+	SceneManager.enter_team_battle(0, team_assignments, all_decks)
+
+## Client: the host started a team duel — enter it with the assigned absolute index.
+func _on_notify_team_duel_start(my_idx: int, team_assignments: Array, all_decks: Array) -> void:
+	if _challenge_btn != null and is_instance_valid(_challenge_btn):
+		_challenge_btn.hide()
+	if _team_duel_btn != null and is_instance_valid(_team_duel_btn):
+		_team_duel_btn.hide()
+	SceneManager.enter_team_battle(my_idx, team_assignments, all_decks)
 
 ## Incoming challenge — show an Accept/Decline prompt.
 func _on_battle_requested(from_id: int, challenger_deck: Array) -> void:
@@ -2424,6 +2529,7 @@ func _process(delta: float) -> void:
 	if _coop_active:
 		_broadcast_local_avatar(delta)
 		_update_challenge_proximity()
+		_update_team_duel_button_visibility()
 		_tick_session_persist(delta)
 		# World-object sync (GID-096): host streams enemy positions; clients smooth.
 		_broadcast_enemy_positions(delta)
@@ -4591,6 +4697,69 @@ func _update_pvp_ratings(st, host_token: String, host_won: bool) -> void:
 	opp_rec["pvp_games"] = g_opp + 1
 	st.update_member(host_token, host_rec)
 	st.update_member(opp_token, opp_rec)
+	SessionStore.mark_dirty()
+
+
+## Host-only: ranked rating update for a finished 2v2 team duel (GID-102 / TID-371).
+## did_win is the host's own perspective (team_assignments[0]'s result). Uses the
+## formation _start_team_duel recorded to resolve all 4 tokens, then applies a
+## "team-average expected score" ELO update per the task notes: each player's rating
+## moves against the *average* rating of the opposing team, scored 1.0/0.0 for their
+## team's win/loss (not pairwise per-opponent). A client never rates itself — this is
+## a no-op when _active_team_duel_peer_ids is empty (every non-host peer, and the host
+## itself once the formation has been consumed/cleared).
+func _on_team_battle_ended_coop(did_win: bool) -> void:
+	if not NetworkManager.is_host() or _active_team_duel_peer_ids.is_empty():
+		return
+	var peer_ids: Array[int] = _active_team_duel_peer_ids
+	var teams: Array = _active_team_duel_teams
+	_active_team_duel_peer_ids = []
+	_active_team_duel_teams = []
+	if not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var host_id: int = multiplayer.get_unique_id()
+	var tokens: Array[String] = []
+	for pid in peer_ids:
+		var token: String = MpProfile.get_token() if pid == host_id else str(_session_token_by_peer.get(pid, ""))
+		tokens.append(token)
+	if tokens.has(""):
+		return  # an unresolved token means a peer left mid-duel — skip the rating update
+	var recs: Array[Dictionary] = []
+	for token in tokens:
+		var rec: Dictionary = st.get_member(token)
+		if rec.is_empty():
+			return
+		recs.append(rec)
+	var team0_idxs: Array[int] = []
+	var team1_idxs: Array[int] = []
+	for i in range(teams.size()):
+		if int(teams[i]) == 0:
+			team0_idxs.append(i)
+		else:
+			team1_idxs.append(i)
+	var avg_rating := func(idxs: Array[int]) -> float:
+		var sum: int = 0
+		for i in idxs:
+			sum += int(recs[i].get("pvp_rating", _RatingMath.START_RATING))
+		return float(sum) / float(idxs.size())
+	var avg0: float = avg_rating.call(team0_idxs)
+	var avg1: float = avg_rating.call(team1_idxs)
+	var team0_won: bool = did_win  # team_assignments[0] is the host's team
+	for i in team0_idxs:
+		var r: int = int(recs[i].get("pvp_rating", _RatingMath.START_RATING))
+		var g: int = int(recs[i].get("pvp_games", 0))
+		recs[i]["pvp_rating"] = _RatingMath.updated(r, int(round(avg1)), 1.0 if team0_won else 0.0, g)
+		recs[i]["pvp_games"] = g + 1
+	for i in team1_idxs:
+		var r: int = int(recs[i].get("pvp_rating", _RatingMath.START_RATING))
+		var g: int = int(recs[i].get("pvp_games", 0))
+		recs[i]["pvp_rating"] = _RatingMath.updated(r, int(round(avg0)), 0.0 if team0_won else 1.0, g)
+		recs[i]["pvp_games"] = g + 1
+	for i in range(tokens.size()):
+		st.update_member(tokens[i], recs[i])
 	SessionStore.mark_dirty()
 
 
