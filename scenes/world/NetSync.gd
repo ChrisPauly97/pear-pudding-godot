@@ -204,6 +204,19 @@ func recv_ping(payload: Array) -> void:
 		world_scene._on_ping_received(sender, payload)
 
 
+# ── Party chat (GID-102 / TID-374) ───────────────────────────────────────────
+
+## Any peer → all peers: a quick-chat preset or free-text chat line. Reliable —
+## unlike avatars/emotes/pings, chat messages must not be silently dropped, and
+## chat is low-rate enough that reliable's extra overhead doesn't matter.
+## payload is ChatSync.encode_quick()/encode_text() output: [text, kind, map].
+@rpc("any_peer", "reliable", "call_remote")
+func recv_chat(payload: Array) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_chat_received"):
+		world_scene._on_chat_received(sender, payload)
+
+
 # ── Card trading & gifting (GID-101 / TID-366) ───────────────────────────────
 
 ## Client (initiator) → authority: propose a trade or gift. payload is
