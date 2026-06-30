@@ -62,7 +62,7 @@ class _ClientAStub:
 	func _on_session_flags(flags: Dictionary) -> void:
 		session_flags = flags
 
-	func _on_battle_requested(_sender: int, _deck: Array) -> void:
+	func _on_battle_requested(_sender: int, _deck: Array, _ranked: bool = false) -> void:
 		got_request_battle = true
 
 	func _on_notify_pvp_start(my_player_idx: int, opponent_deck: Array) -> void:
@@ -78,7 +78,7 @@ class _ClientBStub:
 	var notify_player_idx: int = -1
 	var notify_opponent_deck: Array = []
 
-	func _on_battle_requested(sender: int, deck: Array) -> void:
+	func _on_battle_requested(sender: int, deck: Array, _ranked: bool = false) -> void:
 		challenger_id_seen = sender
 		challenge_deck_seen = deck
 
