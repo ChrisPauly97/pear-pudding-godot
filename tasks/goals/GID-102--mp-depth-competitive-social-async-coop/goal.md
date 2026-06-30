@@ -39,9 +39,9 @@ ladder is a persistent rating + leaderboard, not a global queue).
 | TID-370 | PvP rating model + persistence (MMR/ELO) | agent | done | — |
 | TID-371 | 2v2 team duels (allies-vs-allies battle mode) | agent | done | — |
 | TID-372 | Reconnect into in-progress PvP battle | agent | done | — |
-| TID-373 | Ranked queue UI + season leaderboard panel | agent | pending | TID-370 |
-| TID-374 | Chat system (quick-chat presets + free text) | agent | pending | — |
-| TID-375 | Token-keyed friends list + online status | agent | pending | — |
+| TID-373 | Ranked queue UI + season leaderboard panel | agent | done | TID-370 |
+| TID-374 | Chat system (quick-chat presets + free text) | agent | done | — |
+| TID-375 | Token-keyed friends list + online status | agent | done | — |
 | TID-376 | Shared party stash (deposit/withdraw) | agent | pending | — |
 | TID-377 | Ghost duels vs stored deck snapshots | agent | pending | — |
 | TID-378 | Async card auction house | agent | pending | TID-376 |

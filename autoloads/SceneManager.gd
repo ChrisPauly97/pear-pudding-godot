@@ -431,13 +431,18 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 ## this same opponent — empty when unknown (e.g. an already-resumed duel re-entering
 ## via resume_pvp_battle, which doesn't have a token to pass; verification then
 ## falls back to accepting any reconnect, the documented same-LAN trust model).
-func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int = 0, opponent_token: String = "") -> void:
+## ranked (GID-102 / TID-373): when true, the duel's outcome moves both combatants'
+## persistent ELO rating (TID-370) — both peers must pass the same value (set from the
+## challenge handshake, mirroring how ante_coins is agreed before either side calls this).
+func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int = 0,
+		opponent_token: String = "", ranked: bool = false) -> void:
 	if _state != State.WORLD:
 		return
 	var captured_idx: int = local_player_idx
 	var captured_deck: Array = opponent_deck
 	var captured_ante: int = ante_coins
 	var captured_token: String = opponent_token
+	var captured_ranked: bool = ranked
 	TransitionManager.transition(func() -> void:
 		_saved_world_scene = get_tree().current_scene
 		get_tree().root.remove_child(_saved_world_scene)
@@ -448,6 +453,7 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 		_battle_overlay.set("pvp_opponent_deck", captured_deck)
 		_battle_overlay.set("pvp_ante_coins", captured_ante)
 		_battle_overlay.set("pvp_opponent_token", captured_token)
+		_battle_overlay.set("pvp_ranked", captured_ranked)
 		_battle_overlay.enemy_data = {
 			"display_name": "Player",
 			"enemy_type": "",

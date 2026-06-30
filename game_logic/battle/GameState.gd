@@ -19,6 +19,12 @@ var wager_coins: int = 0
 var puzzle_mode: bool = false
 var puzzle_data_id: String = ""
 
+# Ranked PvP opt-in (GID-102 / TID-373). Distinct from `friendly_duel`, which is the
+# single-player NPC wager-duel mode (disables capture-tracking / companion bonuses) and
+# is unrelated to co-op `_pvp` battles. When true, the duel's outcome moves both
+# combatants' persistent ELO rating (TID-370); when false (default), it is a casual duel.
+var ranked: bool = false
+
 # Battlefield Resonance context (GID-059).
 # battlefield_biome: -1 = dungeon/named map (no rule), 0..4 = biome id.
 var battlefield_biome: int = -1
@@ -370,6 +376,7 @@ func to_dict() -> Dictionary:
 		"coop_battle": coop_battle,
 		"team_battle": team_battle,
 		"player_teams": player_teams.duplicate(),
+		"ranked": ranked,
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -388,6 +395,7 @@ func from_dict(d: Dictionary) -> void:
 	puzzle_data_id = str(d.get("puzzle_data_id", ""))
 	battlefield_biome = int(d.get("battlefield_biome", -1))
 	is_night = bool(d.get("is_night", false))
+	ranked = bool(d.get("ranked", false))
 	players.clear()
 	for pd in d.get("players", []):
 		if pd is Dictionary:
