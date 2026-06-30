@@ -300,7 +300,8 @@ unchanged: no coins awarded, same "no cards/XP" result.
 or `"-N coins (wagered)"` in red when `coins_delta != 0`. The Continue button emits
 `GameBus.pvp_battle_ended(did_win)`, which SceneManager handles by restoring the shared
 world. **Flee** (pause menu) becomes a surrender; an **opponent disconnect** mid-battle
-is a forfeit win for the remaining player (if the whole session ended, the client routes
+starts a 45 s reconnect grace window (GID-102 / TID-372, below) before becoming a
+forfeit win for the remaining player (if the whole session ended, the client routes
 to the menu).
 
 **Champion record (GID-101 / TID-368):** `SessionState` character records carry
@@ -329,6 +330,76 @@ wins, losses}` rows. The dedicated server (GID-097) is the canonical ladder host
 is the data foundation TID-373 (ranked UI) builds on. Single-player hits none of it.
 **Known gap:** opponent *champion* stats (wins/losses/streak) are still host-only
 (TID-368 behaviour) — only the rating is updated for both sides here (see BID-025).
+
+### Reconnecting into an in-progress duel (GID-102 / TID-372)
+
+A **1v1 PvP duel** (listen-server or dedicated-server-refereed) survives a dropped
+**client** combatant for a 45 s grace window, instead of an immediate forfeit. Team
+duels (TID-371) and a dropped host/referee are out of scope for this slice — both still
+end the battle immediately, as before.
+
+**Why this can't be the WorldScene identity handshake (the originally-proposed
+design):** `enter_pvp_battle`/`enter_pvp_referee` **detach WorldScene**
+(`get_tree().root.remove_child`) on every peer mid-duel, including the dedicated
+server's own WorldScene while refereeing. The identity broadcast/reply and the GID-095
+character handshake all live on `WorldScene`/`NetSync`, so a peer reconnecting mid-duel
+cannot complete a normal join — there's no live `/root/WorldScene/NetSync` to land on.
+`BattleScene`/`BattleNetSync`, by contrast, stay alive at the fixed path
+`/root/BattleScene/BattleNetSync` on every participant for the whole duel — the one
+stable channel reconnect can actually use.
+
+**Design — the reconnecting client decides locally, the host/referee just waits:**
+
+- **Client-side resume memory — `NetworkManager.set_pvp_resume(local_idx, opponent_deck,
+  ante_coins)` / `clear_pvp_resume()` / `has_pvp_resume()` / `get_pvp_resume()`.** A
+  small in-memory (never persisted to disk) record set by `BattleScene._setup_pvp_battle`
+  for the client side only (not the host/referee — only a disconnected client
+  reconnects in this slice). Survives `_reset_session()` (called by `join()`/`host()` to
+  tear down a stale peer before reconnecting) — **only an explicit `leave()` clears
+  it**, so the record outlives the very disconnect it exists to recover from.
+- **`MultiplayerLobbyScene._on_connection_succeeded`**: checks
+  `NetworkManager.has_pvp_resume()` first; if set, calls
+  `SceneManager.resume_pvp_battle(local_idx, opponent_deck, ante_coins)` instead of the
+  normal `enter_map_coop` landing.
+- **`SceneManager.resume_pvp_battle`**: the reconnecting client has no current
+  WorldScene to give `enter_pvp_battle` a `_saved_world_scene` to detach/restore later,
+  so it first lands in the shared map (`enter_map_coop("madrian")`), `await`s the state
+  actually reaching `State.WORLD` (`TransitionManager.transition` is fire-and-forget
+  async, so this can't be a synchronous follow-up call), then calls the normal
+  `enter_pvp_battle`.
+- **Host/referee grace window — `BattleScene._on_pvp_peer_disconnected`**: resolves the
+  disconnecting peer's combatant index (listen-server: always 1, the sole client;
+  referee: `_pvp_peer_to_idx.get(pid)`), records `_pvp_reconnect_idx`, and starts a
+  45 s one-shot `Timer` instead of calling `_finish_pvp` immediately. On timeout
+  (`_on_pvp_reconnect_grace_expired`), falls back to the original immediate-forfeit
+  behavior.
+- **Token verification — `BattleNetSync.announce_reconnect(token)`** (new RPC, client →
+  host/referee, sent once at every duel setup — harmless no-op when no grace window is
+  pending, i.e. a fresh non-reconnect start). `BattleScene._on_reconnect_announced`
+  checks the announced token against the recorded opponent token for the
+  mid-grace-window combatant (`pvp_opponent_token` for listen-server, set by
+  `WorldScene._enter_pvp`/`_enter_pvp_wagered` from `_session_token_by_peer`;
+  `_pvp_idx_to_token` for the referee, set by `enter_pvp_referee` from the same map on
+  the dedicated server's `_on_relay_pvp_response`). A **missing recorded token doesn't
+  block the resume** — refusing is worse than a same-LAN false accept (same trust model
+  as the rest of LAN-only co-op). On match: cancels the timer, and for referee mode
+  remaps `_pvp_peer_to_idx` to the new peer id (listen-server needs no peer-id
+  bookkeeping at all — `_broadcast_state()` already reaches "all connected peers" and
+  incoming-intent routing is hardcoded idx 1 regardless of peer id), then re-broadcasts
+  the live state. The rejoined client's own `request_sync` retry loop
+  (`_process`/`_pvp_sync_retry_accum`) also converges on it within ~0.4 s regardless.
+- **Resume-record lifecycle**: `_finish_pvp` (the single function behind every genuine
+  end-of-duel path — win/loss mirror, surrender, grace-timeout forfeit) calls
+  `NetworkManager.clear_pvp_resume()`. The one path that must **not** clear it is the
+  client's own `_on_pvp_session_ended` (its connection to the duel just dropped) — it
+  returns early without declaring a false "win" when a resume record is pending, leaving
+  the scene frozen-but-recoverable until the player navigates back to the lobby and
+  reconnects (no auto-navigation on `session_ended`, consistent with the existing
+  Rejoin-list precedent — `NetworkManager` conflates a host's own `leave()` with a
+  client losing the host into the same signal).
+
+**Out of scope (documented):** team duels, a dropped host/referee, and any UI affordance
+beyond the existing pause menu / lobby Rejoin list (no "Reconnecting…" overlay).
 
 ### Spectating a duel (GID-101 / TID-367)
 
@@ -728,6 +799,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |
 | `tests/net_pvp_smoke.gd` | on-demand SceneTree | Real ENet loopback: client intent → host apply → state-mirror round-trip |
 | `tests/net_pvp_client_smoke.gd` | on-demand SceneTree | Real ENet loopback with **two real `BattleScene` peers**: client (idx 1) launches + applies the host's first mirror without crashing (GID-092 / TID-336) |
+| `tests/net_pvp_reconnect_smoke.gd` | on-demand SceneTree | Real ENet loopback: duel starts and syncs, client peer disconnects (host starts a grace window, does **not** forfeit), a new connection reconnects and announces via `announce_reconnect`, host resumes (grace cancelled, re-mirrors) and the reconnecting client syncs (GID-102 / TID-372) |
 | `tests/net_rehost_smoke.gd` | on-demand SceneTree | host→leave→host repeated, and re-host without an explicit leave, all return OK (port freed) (GID-092 / TID-337) |
 | `tests/net_session_smoke.gd` | on-demand SceneTree | Real ENet loopback + live `SessionStore`/`SaveManager` autoloads: client identifies (token A) → host sends a seeded 12-card starter via `recv_character`; after persisted progress + close, re-opening the session resumes the **same** character (coins) + world progress from disk; `save_slot_*.json` proven untouched (GID-095 / TID-348) |
 | `tests/net_world_sync_smoke.gd` | on-demand SceneTree | Real ENet loopback + live `SessionStore`: authority `enemy_removed`/`chest_opened` events + a late-join snapshot + an enemy position batch all reach the client via real NetSync RPCs and decode; a defeated enemy + opened chest persist into the session file and resume on reopen; `save_slot_*.json` untouched (GID-096) |
@@ -842,7 +914,10 @@ listen-server host (peer_id=1, local_idx=0); `_pvp_peer_to_idx` is empty so
 - **Up to 4 players** (`host()` default `max_clients = DEFAULT_MAX_CLIENTS = 3`,
   i.e. 3 clients + host; GID-094 / TID-341). **Reconnection** resumes a player's
   session character + position and the shared world (GID-095), via the lobby's one-tap
-  Rejoin list; there is still no reconnection *into an in-progress PvP battle*.
+  Rejoin list. **Reconnection into an in-progress 1v1 PvP duel** is now supported
+  (GID-102 / TID-372 — see the PvP section below); a dropped **host or referee**, or a
+  dropped **team duel** (TID-371) participant, still ends the battle immediately
+  (out of scope for this slice).
 - **PvP is LAN/loopback only**, 2 players for 1v1 duels (Spectating/TID-367 and wagered
   duels/TID-368 are supported there) or 4 for **2v2 team duels** (GID-102 / TID-371 —
   no wagers, no accept/decline, fixed 2v2). A **persistent ELO rating + a derived

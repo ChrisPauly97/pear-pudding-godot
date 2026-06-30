@@ -426,13 +426,18 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 ## Enters a networked PvP battle from the shared co-op world. The WorldScene is
 ## detached but kept alive (like a normal battle) so both peers return to the SAME
 ## madrian session afterwards; the NetworkManager co-op session is NOT torn down.
-## local_player_idx: 0 on the host (authority), 1 on the client.
-func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int = 0) -> void:
+## local_player_idx: 0 on the host (authority), 1 on the client. opponent_token
+## (GID-102 / TID-372) lets the host verify a later reconnect actually claims to be
+## this same opponent — empty when unknown (e.g. an already-resumed duel re-entering
+## via resume_pvp_battle, which doesn't have a token to pass; verification then
+## falls back to accepting any reconnect, the documented same-LAN trust model).
+func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int = 0, opponent_token: String = "") -> void:
 	if _state != State.WORLD:
 		return
 	var captured_idx: int = local_player_idx
 	var captured_deck: Array = opponent_deck
 	var captured_ante: int = ante_coins
+	var captured_token: String = opponent_token
 	TransitionManager.transition(func() -> void:
 		_saved_world_scene = get_tree().current_scene
 		get_tree().root.remove_child(_saved_world_scene)
@@ -442,6 +447,7 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 		_battle_overlay.set("_local_player_idx", captured_idx)
 		_battle_overlay.set("pvp_opponent_deck", captured_deck)
 		_battle_overlay.set("pvp_ante_coins", captured_ante)
+		_battle_overlay.set("pvp_opponent_token", captured_token)
 		_battle_overlay.enemy_data = {
 			"display_name": "Player",
 			"enemy_type": "",
@@ -453,10 +459,26 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
 
+## Resumes a PvP duel after a reconnect (GID-102 / TID-372). Called from
+## MultiplayerLobbyScene._on_connection_succeeded when NetworkManager.has_pvp_resume()
+## instead of the normal enter_map_coop landing. Unlike enter_pvp_battle, this is
+## reachable with no current WorldScene (the reconnecting client is coming cold from
+## the lobby/menu, not from an active shared world) — so it first lands in the shared
+## map (giving enter_pvp_battle a real "_saved_world_scene" to detach/restore later)
+## and waits for that transition to actually finish before stacking the battle
+## transition on top (TransitionManager.transition() is fire-and-forget async).
+func resume_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int) -> void:
+	enter_map_coop("madrian")
+	while _state != State.WORLD:
+		await get_tree().process_frame
+	enter_pvp_battle(local_player_idx, opponent_deck, ante_coins)
+
 ## Dedicated-server variant of enter_pvp_battle (GID-097 / TID-353).
 ## The server is the headless referee: _local_player_idx = -1 (no local player),
 ## both decks come from the clients, and _pvp_peer_to_idx maps peer_id → player_idx.
-func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: int) -> void:
+## token_a/token_b (GID-102 / TID-372) are the combatants' identity tokens, used to
+## verify a later reconnect; empty strings fall back to accepting any reconnect.
+func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: int, token_a: String = "", token_b: String = "") -> void:
 	if _state != State.WORLD:
 		return
 	TransitionManager.transition(func() -> void:
@@ -469,6 +491,7 @@ func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: 
 		_battle_overlay.set("pvp_player0_deck", deck_a)
 		_battle_overlay.set("pvp_player1_deck", deck_b)
 		_battle_overlay.set("_pvp_peer_to_idx", {peer_a_id: 0, peer_b_id: 1})
+		_battle_overlay.set("_pvp_idx_to_token", {0: token_a, 1: token_b})
 		_battle_overlay.enemy_data = {
 			"display_name": "Player",
 			"enemy_type": "",

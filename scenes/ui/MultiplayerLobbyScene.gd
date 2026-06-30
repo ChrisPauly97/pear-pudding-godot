@@ -378,6 +378,17 @@ func _on_connection_succeeded() -> void:
 	# Remember this server so it appears in the Rejoin list next time (TID-347).
 	if _pending_addr != "":
 		MpProfile.add_recent_server(_pending_addr, _pending_port, _pending_label)
+	# GID-102 (TID-372): a pending PvP resume record means we were a duel combatant
+	# when the connection dropped — route straight back into the duel instead of the
+	# normal shared-world landing.
+	if NetworkManager.has_pvp_resume():
+		var resume: Dictionary = NetworkManager.get_pvp_resume()
+		_set_status("Connected — resuming duel…")
+		SceneManager.resume_pvp_battle(
+			int(resume.get("local_idx", 1)),
+			resume.get("opponent_deck", []),
+			int(resume.get("ante_coins", 0)))
+		return
 	_set_status("Connected — entering Madrian…")
 	SceneManager.enter_map_coop(_COOP_MAP)
 

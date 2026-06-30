@@ -45,6 +45,17 @@ func request_sync() -> void:
 		battle_scene._on_pvp_sync_request()
 
 
+## Client -> host/referee: "I'm token X, possibly reconnecting." Sent once at duel
+## setup (GID-102 / TID-372). A no-op when no reconnect is pending (fresh duel
+## start); cancels the grace-window forfeit timer and resumes when it matches a
+## disconnected combatant.
+@rpc("any_peer", "reliable", "call_remote")
+func announce_reconnect(token: String) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if battle_scene != null and battle_scene.has_method("_on_reconnect_announced"):
+		battle_scene._on_reconnect_announced(sender, token)
+
+
 # ── Co-op PvE battle RPCs (GID-099) ──────────────────────────────────────────
 # Mirror of the PvP RPCs above, extended to N acting peers (all allies).
 # The boss is always AI-controlled by the authority; only allies send intents.

@@ -1467,8 +1467,11 @@ func _on_relay_pvp_response(sender_id: int, challenger_id: int, accepted: bool, 
 	if _net_sync != null:
 		_net_sync.rpc_id(challenger, "notify_pvp_start", 0, responder_deck)
 		_net_sync.rpc_id(target, "notify_pvp_start", 1, deck_a)
-	# Launch the headless referee on the server itself.
-	SceneManager.enter_pvp_referee(deck_a, responder_deck, challenger, target)
+	# Launch the headless referee on the server itself. Tokens (GID-102 / TID-372) let
+	# the referee verify a later reconnect from either combatant.
+	var token_a: String = str(_session_token_by_peer.get(challenger, ""))
+	var token_b: String = str(_session_token_by_peer.get(target, ""))
+	SceneManager.enter_pvp_referee(deck_a, responder_deck, challenger, target, token_a, token_b)
 
 ## Client handler: server assigned us a player index; start the PvP battle.
 func _on_notify_pvp_start(my_player_idx: int, opponent_deck: Array) -> void:
@@ -1579,7 +1582,11 @@ func _enter_pvp(opponent_deck: Array) -> void:
 			var p: int = int(pid)
 			if p != _challenge_target_peer:
 				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _challenge_target_peer)
-	SceneManager.enter_pvp_battle(local_idx, opponent_deck)
+	# GID-102 (TID-372): opponent's identity token, so the host can verify a later
+	# reconnect. Only meaningful on the host's own call (_session_token_by_peer is
+	# host-side only); harmless empty string on the client's own call.
+	var opp_token: String = str(_session_token_by_peer.get(_challenge_target_peer, ""))
+	SceneManager.enter_pvp_battle(local_idx, opponent_deck, 0, opp_token)
 
 ## Returns the biome and time context at the moment of engagement (GID-059).
 ## Called by SceneManager._on_enemy_engaged() to stamp context into enemy_data.
@@ -4627,7 +4634,8 @@ func _enter_pvp_wagered(ante: int, opp_deck: Array) -> void:
 			var p: int = int(pid)
 			if p != _challenge_target_peer:
 				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _challenge_target_peer)
-	SceneManager.enter_pvp_battle(local_idx, opp_deck, ante)
+	var opp_token: String = str(_session_token_by_peer.get(_challenge_target_peer, ""))
+	SceneManager.enter_pvp_battle(local_idx, opp_deck, ante, opp_token)
 
 
 func _on_pvp_battle_ended_coop(did_win: bool) -> void:

@@ -65,6 +65,21 @@ var _pvp_peer_to_idx: Dictionary = {}  # peer_id (int) → player_idx (int), ref
 var _pvp_spectating: bool = false
 var _spectators: Array[int] = []      # host only: peer_ids watching this duel
 
+# ── PvP reconnect (GID-102 / TID-372) ────────────────────────────────────────
+# Listen-server host: the opponent's identity token, so a reconnect can be verified.
+# Set by SceneManager.enter_pvp_battle (sourced from WorldScene's
+# _session_token_by_peer). Empty when unknown — verification then falls back to
+# accepting any reconnect (same-LAN trust model, see _on_reconnect_announced).
+var pvp_opponent_token: String = ""
+# Dedicated-server referee: idx (0/1) -> identity token, for the same verification.
+var _pvp_idx_to_token: Dictionary = {}
+# Host/referee: idx of the combatant currently mid-grace-window after a disconnect,
+# or -1 if no reconnect is pending. Set by _on_pvp_peer_disconnected, cleared by a
+# successful _on_reconnect_announced or the grace timer's timeout (forfeit).
+var _pvp_reconnect_idx: int = -1
+var _pvp_reconnect_timer: Timer = null
+const _PVP_RECONNECT_GRACE_SECONDS: float = 45.0
+
 # Wager (GID-101 / TID-368): ante_coins for the current PvP duel; 0 = unwagered.
 # The host reads this to include wager info in the pvp_ended payload.
 var pvp_ante_coins: int = 0
@@ -2090,6 +2105,17 @@ func _setup_pvp_battle() -> void:
 		_state.players[0].start_turn(1)
 		# Initial state is broadcast by the _check_game_over() call at the end of
 		# _ready (host branch), so the client populates from the mirror.
+	elif _local_player_idx >= 0:
+		# Client (GID-102 / TID-372): remember enough to re-enter this exact duel if the
+		# connection drops — MultiplayerLobbyScene checks this on the next
+		# connection_succeeded instead of landing in the normal shared world. Only the
+		# client reconnects in this slice (a dropped host/referee still ends the duel
+		# for everyone, per the existing session_ended semantics).
+		NetworkManager.set_pvp_resume(_local_player_idx, pvp_opponent_deck, pvp_ante_coins)
+		# Announce once so a host/referee with a pending grace window (this peer
+		# reconnecting after a drop) can verify + resume immediately; harmless no-op
+		# on a fresh (non-reconnect) duel start since no grace window is pending.
+		_net.rpc_id(1, "announce_reconnect", MpProfile.get_token())
 
 var _pvp_sync_retry_accum: float = 0.0
 
@@ -2534,25 +2560,84 @@ func _pvp_surrender() -> void:
 	else:
 		_send_intent(BattleNetProtocol.encode_surrender())
 
-## Disconnect = forfeit win for whoever remains.
-func _on_pvp_peer_disconnected(_pid: int) -> void:
-	if not _pvp or _pvp_ended:
+## A combatant's peer disconnected. 2-player PvP (GID-102 / TID-372): starts a grace
+## window instead of an immediate forfeit, so a dropped client can reconnect via
+## announce_reconnect. Team duels and co-op PvE are untouched (this only fires when
+## _pvp is set; their own disconnect handling — currently immediate end — is
+## unaffected, out of scope for this slice). Spectator disconnects don't map to a
+## combatant idx and are ignored here (no effect on the duel).
+func _on_pvp_peer_disconnected(pid: int) -> void:
+	if not _pvp or _pvp_ended or _pvp_reconnect_idx != -1:
+		return
+	var idx: int = 1 if _local_player_idx >= 0 else int(_pvp_peer_to_idx.get(pid, -1))
+	if idx < 0:
+		return
+	_pvp_reconnect_idx = idx
+	if _pvp_reconnect_timer == null:
+		_pvp_reconnect_timer = Timer.new()
+		_pvp_reconnect_timer.one_shot = true
+		add_child(_pvp_reconnect_timer)
+		_pvp_reconnect_timer.timeout.connect(_on_pvp_reconnect_grace_expired)
+	_pvp_reconnect_timer.start(_PVP_RECONNECT_GRACE_SECONDS)
+
+## Grace window expired with no reconnect — fall back to the original immediate-forfeit
+## behavior (same shape as the pre-TID-372 _on_pvp_peer_disconnected).
+func _on_pvp_reconnect_grace_expired() -> void:
+	if _pvp_ended or _pvp_reconnect_idx < 0:
 		return
 	_pvp_ended = true
+	_pvp_reconnect_idx = -1
 	if _is_pvp_host():
 		_broadcast_state()
 	_finish_pvp(true)
 
+## Authority: a peer announced its identity token (sent once at every duel setup,
+## including fresh non-reconnect starts — a no-op there since no grace window is
+## pending). When it matches the combatant currently mid-grace-window, cancels the
+## timer and resumes by re-broadcasting the live state; the rejoined client's own
+## request_sync retry loop also converges on it within ~0.4 s regardless.
+func _on_reconnect_announced(sender: int, token: String) -> void:
+	if _pvp_reconnect_idx < 0:
+		return
+	var idx: int = _pvp_reconnect_idx
+	var expected_token: String = str(_pvp_idx_to_token.get(idx, "")) if _local_player_idx < 0 else pvp_opponent_token
+	# Same-LAN trust model: a missing recorded token (legacy/edge case) doesn't block
+	# resume — refusing a reconnect is worse than a same-LAN false accept.
+	if expected_token != "" and token != "" and expected_token != token:
+		return
+	_pvp_reconnect_idx = -1
+	if _pvp_reconnect_timer != null:
+		_pvp_reconnect_timer.stop()
+	if _local_player_idx < 0:
+		# Referee: remap the stale peer id to the same idx (prune the old mapping first).
+		for old_pid in _pvp_peer_to_idx.keys():
+			if int(_pvp_peer_to_idx[old_pid]) == idx:
+				_pvp_peer_to_idx.erase(old_pid)
+		_pvp_peer_to_idx[sender] = idx
+	# Listen-server needs no peer-id bookkeeping: _broadcast_state() already reaches
+	# "all connected peers" and incoming-intent routing is hardcoded idx 1 regardless
+	# of the client's current peer id.
+	_broadcast_state()
+
 func _on_pvp_session_ended() -> void:
 	if not _pvp or _pvp_ended:
+		return
+	# GID-102 / TID-372: my own connection to the duel just dropped. If I'm a client
+	# with a resume record (set at duel setup), don't declare a false "win" and tear
+	# the scene down — leave it frozen-but-recoverable so the player can navigate back
+	# to the lobby's Rejoin list and reconnect within the host's grace window, which
+	# routes straight back here via MultiplayerLobbyScene._on_connection_succeeded.
+	if _local_player_idx == 1 and NetworkManager.has_pvp_resume():
 		return
 	_pvp_ended = true
 	_finish_pvp(true)
 
 ## Shows the synced duel-style result overlay and emits the SceneManager
 ## completion signal once dismissed. Headless referee has no _result_ui —
-## emit the signal directly. Spectators dismiss back to world too.
+## emit the signal directly. Spectators dismiss back to world too. Always the
+## genuine end of a duel — clears any pending PvP resume record (TID-372).
 func _finish_pvp(did_win: bool) -> void:
+	NetworkManager.clear_pvp_resume()
 	_disconnect_pvp_net_signals()
 	# Remove self from spectator list if we are one (cleanup on battle end).
 	if _pvp_spectating and _net != null:
