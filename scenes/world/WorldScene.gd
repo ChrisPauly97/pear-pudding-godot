@@ -888,14 +888,21 @@ func _refresh_coop_roster() -> void:
 		var d: Dictionary = _remote_identities.get(pid, {})
 		var nm: String = str(d.get("name", "Player"))
 		var col: Color = d.get("color", Color(0.7, 0.85, 1.0))
+		var token: String = str(d.get("token", ""))
+		# Friends list (GID-102 / TID-375): a friend currently in-session is "seen now".
+		if token != "":
+			MpProfile.touch_friend_last_seen(token)
 		# Map-scoped sync (TID-352): peers on another map are greyed + "(elsewhere)".
 		var peer_map: String = str(_remote_player_maps.get(pid, map_name))
 		if peer_map != "" and peer_map != map_name:
 			nm += " (elsewhere)"
 			col = col.darkened(0.45)
-		_add_roster_row(nm, col)
+		_add_roster_row(nm, col, token)
 
-func _add_roster_row(text: String, col: Color) -> void:
+## `token` is the remote peer's stable identity (empty for the local "(you)" row,
+## which never gets an add-friend affordance). The token itself is never shown —
+## only used as the add_friend/is_friend key (GID-102 / TID-375).
+func _add_roster_row(text: String, col: Color, token: String = "") -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(vp.y * 0.01))
@@ -907,6 +914,26 @@ func _add_roster_row(text: String, col: Color) -> void:
 	lbl.text = text
 	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.022))
 	row.add_child(lbl)
+	if token != "":
+		var btn := Button.new()
+		var sz: float = vp.y * 0.026
+		btn.custom_minimum_size = Vector2(sz, sz)
+		btn.add_theme_font_size_override("font_size", int(vp.y * 0.02))
+		if MpProfile.is_friend(token):
+			btn.text = "✓"
+			btn.disabled = true
+			btn.tooltip_text = "Friend"
+		else:
+			btn.text = "+"
+			btn.tooltip_text = "Add friend"
+			# Strip the "(elsewhere)" / "(you)" suffixes before saving — friends are
+			# stored by clean display name only.
+			var clean_name: String = text.replace(" (elsewhere)", "")
+			btn.pressed.connect(func() -> void:
+				MpProfile.add_friend(token, clean_name, col.to_html(false))
+				_refresh_coop_roster()
+			)
+		row.add_child(btn)
 	_coop_roster.add_child(row)
 
 # Called by NetSync when a remote avatar packet arrives.

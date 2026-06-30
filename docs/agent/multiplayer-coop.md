@@ -685,6 +685,55 @@ survives a PvP battle re-attach (SessionStore stays open across battles).
   `session_ended` — `NetworkManager` conflates the host's own `leave()` with a client
   losing the host into the same signal, so force-routing there would regress host-exit.
 
+#### Friends list (GID-102 / TID-375)
+
+Players who met in a co-op session previously had no way to remember each other. A
+**device-local, token-keyed friends list** fixes this, mirroring the recent-servers
+pattern above exactly.
+
+- **Storage — `MpProfile`** (`friends` in `mp_profile.json`): an `Array` of
+  `{token, name, color_hex, last_seen}` dicts, deduped by `token`, most-recent-
+  touched-first, capped at **50** entries (same push-front + `resize` cap pattern as
+  `_recent_servers`). API:
+  - `add_friend(token, name, color_hex)` — idempotent upsert: re-adding an existing
+    token refreshes name/color/last_seen and moves it to the front rather than
+    duplicating it. Inputs are sanitized the same way `PlayerIdentity.decode`
+    defaults a malformed identity payload (blank name → `DEFAULT_NAME`, invalid hex →
+    `"ffffff"`), so a corrupted/garbage packet can never poison the friends list.
+    No-ops on a blank token.
+  - `remove_friend(token)` — drop by token; no-op if absent.
+  - `get_friends() -> Array` — defensive copy, most-recent-touched-first.
+  - `is_friend(token) -> bool` — membership check.
+  - `touch_friend_last_seen(token)` — refreshes `last_seen` for an **existing**
+    friend only (does not upsert a non-friend); called whenever a friend's token is
+    observed among connected session peers.
+  - The **token is never displayed** in any UI — friends are always rendered as a
+    color swatch + sanitized display name, per the GID-094 opaque-token rule.
+- **Add from roster — `WorldScene._add_roster_row`** gains an optional `token`
+  parameter (empty for the local "(you)" row, which never gets the affordance). Each
+  remote roster row shows a small "+ " button that calls
+  `MpProfile.add_friend(token, name, color_hex)`; once `MpProfile.is_friend(token)` is
+  true the button is replaced by a disabled "✓ Friend" indicator instead of allowing a
+  redundant add. `_refresh_coop_roster` also calls `touch_friend_last_seen(token)` for
+  every peer currently in `_remote_identities`, so a friend's `last_seen` advances
+  automatically just by being in the same session — independent of whether they were
+  added via the roster this session or a previous one.
+- **Online status is in-session presence only** — there is no global
+  matchmaking/presence backend (explicitly out of scope). "Online" means "this
+  friend's token is currently among the connected peers' identities in the session
+  I'm in right now"; otherwise the UI shows the stored `last_seen` timestamp honestly.
+- **Lobby — `MultiplayerLobbyScene`**: a "Friends" section (viewport-relative,
+  rebuilt on resize, same pattern as the Rejoin/Find-Games rows) lists
+  `MpProfile.get_friends()` as swatch + name + status. `_online_friend_tokens()`
+  checks `NetworkManager.is_active()` and, if so, reads `WorldScene._remote_identities`
+  via `get_node_or_null` + `get()` (the lobby has no direct WorldScene reference) to
+  see if any saved friend's token is currently connected; this is realistically rare
+  while still *in* the lobby overlay (pre-connection) and more useful if the panel
+  is later revisited mid-session. **No invite mechanism** is provided (no presence
+  backend to deliver one) and **no join-shortcut** was added from a friend entry —
+  a friend's server, if known, already one-tap-rejoins via the existing
+  recent-servers list, so the coupling was kept deliberately light per the task scope.
+
 ## Shared World-Object Sync (GID-096)
 
 Enemies and chests in a co-op session are **authority-owned shared state**. They are
@@ -794,6 +843,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_rating_math.gd` | unit (auto-run) | RatingMath ELO: expected-score symmetry/bounds/favouring, win-raises/loss-lowers, symmetric zero-sum deltas at equal rating, placement vs settled K, floor clamp, draw no-op (15 cases) (GID-102 / TID-370) |
 | `tests/unit/test_social_sync.gd` | unit (auto-run) | SocialSync emote round-trip for all 6 preset ids, map field, garbage/empty array tolerance; ping round-trip preserving coords/kind/color/map, partial array defaults, negative coords, constants sanity (16 cases) (GID-101 / TID-365) |
 | `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
+| `tests/unit/test_mp_profile_friends.gd` | unit (auto-run) | MpProfile friends list: add/dedupe-by-token/move-to-front, blank-token no-op, name/color sanitization, remove (existing + missing), `is_friend` true/false/blank, 50-entry cap eviction (keeps newest, drops oldest), `touch_friend_last_seen` (updates existing, no-op for non-friend), `get_friends` defensive copy, JSON persistence shape round-trip via a temp `user://` file (17 cases) (GID-102 / TID-375) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_coop_npeer_smoke.gd` | on-demand SceneTree | 3-peer (host + 2 clients) loopback: host avatar reaches both clients, and a **client→client** identity packet is relayed by the host (proves the server-relay path N-peer rendering depends on) + PlayerIdentity decode (GID-094) |
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |
