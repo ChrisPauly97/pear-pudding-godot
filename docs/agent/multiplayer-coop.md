@@ -362,6 +362,57 @@ Non-combatant party members can **watch** an in-progress PvP duel read-only.
 - Unique cards (`is_unique = true`) are blocked from trading. All persistence goes
   through `SessionStore.mark_dirty()` — never `save_slot_*.json`.
 
+#### Chat (GID-102 / TID-374)
+
+- **`game_logic/net/ChatSync.gd`** — pure encode/decode for chat packets
+  `[text, kind, map]`, scene-free and mirrors `SocialSync.gd` structurally. Two kinds:
+  `KIND_QUICK = "quick"` and `KIND_TEXT = "text"`. Six fixed quick-chat presets
+  (`QUICK_PRESETS`, order fixed for wire compatibility): "On my way", "Need help",
+  "Nice!", "Wait", "Let's battle", "Trade?".
+- **Sanitization happens in the pure helper**, not the UI, so the authority and every
+  client compute the identical result: `_sanitize()` strips ASCII control characters
+  (0x00–0x1F and 0x7F) and caps the result to `MAX_TEXT_LEN = 120` characters.
+  `encode_text()` sanitizes the raw input; `decode()` *also* re-sanitizes the decoded
+  text defensively, so a forged or corrupted payload can never smuggle control
+  characters or exceed the cap on the receiving end either. `decode()` is fully
+  defaulted and garbage-tolerant (never throws), exactly like `SocialSync.decode_*`.
+- **RPC — `NetSync.recv_chat(payload: Array)`.** Unlike avatars/emotes/pings, this is
+  **reliable** (not `unreliable_ordered`): the task explicitly calls out that chat
+  messages must not be dropped, and chat is low-rate enough that reliable's extra
+  overhead is irrelevant. Same `any_peer` / `call_remote` shape as `recv_emote`, so it
+  benefits from the same automatic host server-relay (`SceneMultiplayer.server_relay`)
+  that fans a client's broadcast out to every other client.
+- **Same-map filtering matches the emote behaviour for consistency**: `_on_chat_received`
+  decodes the payload and, if the sender's `map` is non-empty and differs from the
+  local `map_name`, the message is **dropped** (not shown-but-tagged) — identical to
+  `_on_emote_received`'s early-return. Sender display name + color are resolved from
+  `_remote_identities[peer_id]` (the existing identity handshake), exactly like the
+  emote bubble and roster.
+- **HUD panel** (`WorldScene._ensure_chat_ui`): a viewport-relative `ScrollContainer` +
+  `VBoxContainer` chat log (top-left, above the party bounty panel), retaining the last
+  `ChatSync.LOG_MAX_LINES = 40` lines (oldest evicted first). Each line shows
+  `[HH:MM] Name: text` colored by the sender's avatar color. The log stays **always
+  visible** while in co-op (no auto-fade, no show/hide toggle) — the simplest option,
+  matching the always-visible party bounty panel, and chat is low-frequency enough
+  that it doesn't clutter the screen.
+- **Quick-chat row**: reuses the emote-wheel's `GridContainer` radial-button pattern
+  (`_show_chat_quick_panel`), built from `ChatSync.QUICK_PRESETS`, opened via a "Chat"
+  HUD button (`_chat_toggle_btn`).
+- **Free-text input**: a `LineEdit` (`_chat_input`) + "Send" button are always present
+  in the HUD (desktop-first, but tappable on mobile too — satisfies the parity rule
+  without hiding the control behind a second tap). The "Chat" HUD button additionally
+  opens the quick-chat row and focuses the input, so a touch-only user can reach both
+  quick presets and free text from one tap. Desktop also gets a keyboard shortcut:
+  pressing Enter/Numpad-Enter while not already focused in the chat input focuses it
+  (`_unhandled_input`, same raw-keycode pattern as the existing `KEY_G`/`KEY_D`
+  shortcuts), mirroring the mobile "Chat" button per the CLAUDE.md parity rule.
+- **Battle chat is out of scope for this slice.** The relay path during a PvP duel is
+  `BattleNetSync`, not `NetSync` — bridging the two relay layers safely (e.g. so a
+  chat line sent mid-duel doesn't leak to/from spectators incorrectly) was judged not
+  "genuinely cheap" once the world-HUD version worked, so it was deliberately cut.
+  Revisit if a future task wants in-duel chat; the same `ChatSync` pure helper can be
+  reused, only the relay/RPC wiring would need to be duplicated onto `BattleNetSync`.
+
 ### Shared party bounties (GID-101 / TID-369)
 
 Party bounties are co-op goals the whole party works toward together.
@@ -599,6 +650,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
 | `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; party_bounties default/round-trip/garbage tolerance (25 cases) (GID-095 / GID-101) |
 | `tests/unit/test_social_sync.gd` | unit (auto-run) | SocialSync emote round-trip for all 6 preset ids, map field, garbage/empty array tolerance; ping round-trip preserving coords/kind/color/map, partial array defaults, negative coords, constants sanity (16 cases) (GID-101 / TID-365) |
+| `tests/unit/test_chat_sync.gd` | unit (auto-run) | ChatSync quick-chat round-trip for all preset ids + unknown-preset fallback, free-text round-trip + 120-char length cap (under/at/over + forged-payload re-sanitization), control-character (incl. DEL) and newline/tab stripping, map field round-trip, garbage/null/empty/short-array/invalid-kind decode tolerance, constants sanity (26 cases) (GID-102 / TID-374) |
 | `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_coop_npeer_smoke.gd` | on-demand SceneTree | 3-peer (host + 2 clients) loopback: host avatar reaches both clients, and a **client→client** identity packet is relayed by the host (proves the server-relay path N-peer rendering depends on) + PlayerIdentity decode (GID-094) |

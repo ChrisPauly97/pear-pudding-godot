@@ -143,6 +143,15 @@ var _pvp_ante_peer0: int = -1           # host peer in the active wager
 var _pvp_ante_peer1: int = -1           # client peer in the active wager
 # TID-369: Shared party bounties
 var _party_bounty_panel: VBoxContainer = null   # HUD panel showing shared progress
+# TID-374: Party chat
+const _ChatSync = preload("res://game_logic/net/ChatSync.gd")
+var _chat_log_panel: Control = null        # outer panel (always visible while in co-op)
+var _chat_log_vbox: VBoxContainer = null   # scrolling log of chat lines
+var _chat_lines: Array[Dictionary] = []    # retained {name, color, text} rows, capped
+var _chat_quick_panel: Control = null      # quick-chat preset button row; nil when closed
+var _chat_input: LineEdit = null           # free-text input (desktop always-visible; mobile behind toggle)
+var _chat_send_btn: Button = null          # send button next to the free-text input
+var _chat_toggle_btn: Button = null        # HUD button: opens quick-chat row + reveals input (mobile parity)
 var _pvp_ended_pending_broadcast: bool = false  # set in pvp_battle_ended; cleared on _enter_tree
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
@@ -562,6 +571,7 @@ func _setup_coop() -> void:
 	if not NetworkManager.is_dedicated_server():
 		_ensure_challenge_button()
 		_ensure_social_buttons()
+		_ensure_chat_ui()
 	# GID-101 (TID-369): host initialises party bounties; all peers build the HUD.
 	_setup_party_bounties()
 	if not NetworkManager.is_dedicated_server():
@@ -2722,6 +2732,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_D:
 		_activate_skeleton_dig()
 		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed \
+			and (event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER) \
+			and _coop_active and _chat_input != null and is_instance_valid(_chat_input) \
+			and not _chat_input.has_focus():
+		# Desktop chat-focus shortcut (TID-374). Mobile equivalent is the "Chat"
+		# HUD button (_chat_toggle_btn), which also reveals/focuses the input.
+		_chat_input.grab_focus()
+		get_viewport().set_input_as_handled()
 	elif event is InputEventScreenTouch:
 		_on_screen_touch(event as InputEventScreenTouch)
 	elif event is InputEventScreenDrag:
@@ -4146,6 +4164,186 @@ func _tick_ping_markers(delta: float) -> void:
 			to_remove.append(m)
 	for m: Node3D in to_remove:
 		_ping_markers.erase(m)
+
+
+# ── TID-374: Party chat ──────────────────────────────────────────────────────
+# Quick-chat presets (reuses the emote-wheel GridContainer pattern) plus an
+# optional free-text LineEdit, with a scrolling log panel. The log panel stays
+# always-visible while in co-op (simplest option, matches the always-visible
+# party bounty panel) rather than auto-fading — no extra show/hide state to
+# manage, and chat is low-frequency enough that it won't clutter the screen.
+
+func _ensure_chat_ui() -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+
+	# Scrolling log panel, upper-left-ish (clear of the party bounty panel which
+	# sits at vp.y * 0.50; chat log sits above it).
+	if _chat_log_panel == null or not is_instance_valid(_chat_log_panel):
+		var outer := PanelContainer.new()
+		outer.name = "ChatLogPanel"
+		outer.position = Vector2(vp.x * 0.012, vh * 0.16)
+		outer.custom_minimum_size = Vector2(vp.x * 0.26, vh * 0.30)
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.04, 0.04, 0.08, 0.78)
+		style.corner_radius_top_left    = 6
+		style.corner_radius_top_right   = 6
+		style.corner_radius_bottom_left = 6
+		style.corner_radius_bottom_right = 6
+		outer.add_theme_stylebox_override("panel", style)
+		_hud.add_child(outer)
+		_chat_log_panel = outer
+		var scroll := ScrollContainer.new()
+		scroll.custom_minimum_size = Vector2(vp.x * 0.26, vh * 0.30)
+		outer.add_child(scroll)
+		var vbox := VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", int(vh * 0.004))
+		vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(vbox)
+		_chat_log_vbox = vbox
+
+	# HUD toggle button: opens the quick-chat row and reveals the free-text
+	# input (mobile parity — desktop also has the Enter-key shortcut below).
+	if _chat_toggle_btn == null or not is_instance_valid(_chat_toggle_btn):
+		_chat_toggle_btn = Button.new()
+		_chat_toggle_btn.text = "Chat"
+		_chat_toggle_btn.tooltip_text = "Open chat (or press Enter)"
+		_chat_toggle_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.06)
+		_chat_toggle_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+		_chat_toggle_btn.position = Vector2(vp.x - vh * 0.31, vh * 0.87)
+		_chat_toggle_btn.pressed.connect(_toggle_chat_quick_panel)
+		_hud.add_child(_chat_toggle_btn)
+
+	# Free-text input + send button. Visible by default on desktop; mobile
+	# users reveal it via the Chat HUD button (parity is satisfied either way
+	# since both platforms can always tap "Chat" — desktop additionally gets
+	# the Enter-key shortcut to focus it directly).
+	if _chat_input == null or not is_instance_valid(_chat_input):
+		_chat_input = LineEdit.new()
+		_chat_input.placeholder_text = "Say something…"
+		_chat_input.custom_minimum_size = Vector2(vp.x * 0.30, vh * 0.05)
+		_chat_input.position = Vector2(vp.x * 0.012, vh * 0.93)
+		_chat_input.add_theme_font_size_override("font_size", int(vh * 0.020))
+		_chat_input.text_submitted.connect(func(_t: String) -> void: _submit_chat_input())
+		_hud.add_child(_chat_input)
+	if _chat_send_btn == null or not is_instance_valid(_chat_send_btn):
+		_chat_send_btn = Button.new()
+		_chat_send_btn.text = "Send"
+		_chat_send_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.05)
+		_chat_send_btn.position = Vector2(vp.x * 0.32, vh * 0.93)
+		_chat_send_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+		_chat_send_btn.pressed.connect(_submit_chat_input)
+		_hud.add_child(_chat_send_btn)
+
+
+func _toggle_chat_quick_panel() -> void:
+	if _chat_quick_panel != null and is_instance_valid(_chat_quick_panel):
+		_chat_quick_panel.queue_free()
+		_chat_quick_panel = null
+		return
+	_show_chat_quick_panel()
+
+
+func _show_chat_quick_panel() -> void:
+	if _chat_quick_panel != null and is_instance_valid(_chat_quick_panel):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.05, 0.1, 0.90)
+	style.corner_radius_top_left    = 8
+	style.corner_radius_top_right   = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	panel.add_theme_stylebox_override("panel", style)
+	panel.position = Vector2(vp.x - vh * 0.40, vh * 0.66)
+	_hud.add_child(panel)
+	_chat_quick_panel = panel
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", int(vh * 0.010))
+	grid.add_theme_constant_override("v_separation", int(vh * 0.010))
+	panel.add_child(grid)
+	var presets: Array[String] = _ChatSync.QUICK_PRESETS
+	for preset: String in presets:
+		var btn := Button.new()
+		btn.text = preset
+		btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.055)
+		btn.add_theme_font_size_override("font_size", int(vh * 0.018))
+		var captured: String = preset
+		btn.pressed.connect(func() -> void:
+			if _chat_quick_panel != null and is_instance_valid(_chat_quick_panel):
+				_chat_quick_panel.queue_free()
+				_chat_quick_panel = null
+			_send_chat_quick(captured)
+		)
+		grid.add_child(btn)
+	# Mobile parity: opening the quick-chat row also surfaces the free-text
+	# entry point, so a touch-only user can reach both from one "Chat" tap.
+	if _chat_input != null and is_instance_valid(_chat_input):
+		_chat_input.grab_focus()
+
+
+func _submit_chat_input() -> void:
+	if _chat_input == null or not is_instance_valid(_chat_input):
+		return
+	var raw: String = _chat_input.text
+	_chat_input.text = ""
+	if raw.strip_edges() == "":
+		return
+	_send_chat_text(raw)
+
+
+func _send_chat_quick(preset: String) -> void:
+	if _net_sync == null or not _coop_active:
+		return
+	var payload: Array = _ChatSync.encode_quick(preset, map_name)
+	_net_sync.rpc("recv_chat", payload)
+	var d: Dictionary = _ChatSync.decode(payload)
+	_append_chat_line(MpProfile.get_display_name(), MpProfile.get_color(), str(d.get("text", preset)))
+
+
+func _send_chat_text(raw_text: String) -> void:
+	if _net_sync == null or not _coop_active:
+		return
+	var payload: Array = _ChatSync.encode_text(raw_text, map_name)
+	_net_sync.rpc("recv_chat", payload)
+	var d: Dictionary = _ChatSync.decode(payload)
+	_append_chat_line(MpProfile.get_display_name(), MpProfile.get_color(), str(d.get("text", "")))
+
+
+## Same-map filter mirrors `_on_emote_received`: a message from a peer on a
+## different map is dropped rather than shown-but-tagged, for HUD consistency
+## with how emotes already behave (an off-map peer's expression never appears).
+func _on_chat_received(sender: int, payload: Array) -> void:
+	var d: Dictionary = _ChatSync.decode(payload)
+	var sender_map: String = str(d.get("map", ""))
+	if sender_map != "" and sender_map != map_name:
+		return
+	var id: Dictionary = _remote_identities.get(sender, {})
+	var nm: String = str(id.get("name", "Player"))
+	var col: Color = id.get("color", Color(0.7, 0.85, 1.0))
+	_append_chat_line(nm, col, str(d.get("text", "")))
+
+
+func _append_chat_line(sender_name: String, color: Color, text: String) -> void:
+	if text == "":
+		return
+	if _chat_log_vbox == null or not is_instance_valid(_chat_log_vbox):
+		return
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var lbl := Label.new()
+	lbl.text = "[%s] %s: %s" % [Time.get_time_string_from_system().substr(0, 5), sender_name, text]
+	lbl.add_theme_font_size_override("font_size", int(vh * 0.016))
+	lbl.add_theme_color_override("font_color", color)
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_chat_log_vbox.add_child(lbl)
+	_chat_lines.append({"name": sender_name, "color": color, "text": text})
+	while _chat_lines.size() > _ChatSync.LOG_MAX_LINES:
+		_chat_lines.pop_front()
+		if _chat_log_vbox.get_child_count() > 0:
+			_chat_log_vbox.get_child(0).queue_free()
 
 
 # ── TID-366: Card trading & gifting ─────────────────────────────────────────────
