@@ -30,6 +30,8 @@ var _hosts: Array = []
 var _recent_box: VBoxContainer
 var _wan_box: VBoxContainer
 var _retry_row: HBoxContainer
+# Friends list (GID-102 / TID-375)
+var _friends_box: VBoxContainer
 # The join attempt in flight, so a successful connect can be recorded as a recent
 # server and a failed one can be retried with one tap.
 var _pending_addr: String = ""
@@ -129,6 +131,19 @@ func _build_ui() -> void:
 	vbox.add_child(_make_button("Host Game", _on_host))
 
 	vbox.add_child(_UiUtil.make_separator())
+
+	# Friends (GID-102 / TID-375): device-local list, added from the session roster.
+	# No presence backend exists, so "online" only means "currently a connected peer
+	# in the session you're in right now" — shown honestly as last-seen otherwise.
+	var friends: Array = MpProfile.get_friends()
+	if not friends.is_empty():
+		vbox.add_child(_UiUtil.make_body_label("Friends", _vh))
+		_friends_box = VBoxContainer.new()
+		_friends_box.add_theme_constant_override("separation", int(_ref * 0.012))
+		_friends_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vbox.add_child(_friends_box)
+		_populate_friends(friends)
+		vbox.add_child(_UiUtil.make_separator())
 
 	# Rejoin: one-tap reconnect to a server we were in before (GID-095 / TID-347).
 	# The host's stable session id resumes the same world + character.
@@ -342,6 +357,66 @@ func _on_retry() -> void:
 func _toggle_wan() -> void:
 	if _wan_box != null:
 		_wan_box.visible = not _wan_box.visible
+
+
+## Render one row per saved friend: color swatch + name + status. Display-only —
+## no "invite" mechanism (no presence/matchmaking backend exists), and no join-
+## shortcut (a friend's server, if known, already shows in the Rejoin list above).
+## The token is never shown, only used to check in-session presence.
+func _populate_friends(friends: Array) -> void:
+	if _friends_box == null:
+		return
+	for c in _friends_box.get_children():
+		c.queue_free()
+	# "Online here" is only knowable for peers in the CURRENT session (no global
+	# presence service). The lobby itself is pre-connection, so this will normally
+	# show "Last seen" — it only flips to "online" if NetworkManager is already
+	# active with this friend's token among the connected peers' identities.
+	var online_tokens: Array = _online_friend_tokens()
+	for f in friends:
+		if not f is Dictionary:
+			continue
+		var fd: Dictionary = f
+		var token: String = str(fd.get("token", ""))
+		var nm: String = str(fd.get("name", "Player"))
+		var color_hex: String = str(fd.get("color_hex", "ffffff"))
+		var col: Color = Color.html(color_hex) if Color.html_is_valid(color_hex) else Color.WHITE
+		var status: String = "Online here" if online_tokens.has(token) else \
+			"Last seen %s" % str(fd.get("last_seen", "—"))
+
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", int(_ref * 0.012))
+		var swatch := ColorRect.new()
+		swatch.color = col
+		var sz: float = _vh * 0.03
+		swatch.custom_minimum_size = Vector2(sz, sz)
+		row.add_child(swatch)
+		var lbl := _UiUtil.make_body_label("%s — %s" % [nm, status], _vh)
+		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(lbl)
+		_friends_box.add_child(row)
+
+
+## Tokens of saved friends currently visible as connected peers in an active
+## session (in-session presence only — there is no global presence/matchmaking
+## service). Empty whenever no session is active, which is the common case while
+## still in the lobby.
+func _online_friend_tokens() -> Array:
+	var out: Array = []
+	if not NetworkManager.is_active():
+		return out
+	var world: Node = get_tree().root.get_node_or_null("WorldScene")
+	if world == null:
+		return out
+	var identities: Variant = world.get("_remote_identities")
+	if not identities is Dictionary:
+		return out
+	for pid in (identities as Dictionary).keys():
+		var d: Dictionary = (identities as Dictionary)[pid]
+		var token: String = str(d.get("token", ""))
+		if token != "" and MpProfile.is_friend(token):
+			out.append(token)
+	return out
 
 
 ## Render one tap-to-rejoin button per remembered server.
