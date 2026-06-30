@@ -33,12 +33,25 @@ var _state: GameState
 func setup(state: GameState) -> void:
 	_state = state
 
+## Finds the actual owner of `card` by board membership (GID-102 / TID-371). Used
+## when removing an explicitly-targeted minion that died: in a team battle, the
+## targeted card may belong to either enemy-team member, not just the auto-picked
+## `opponent`. Falls back to `fallback` if the card isn't found on any board (should
+## not happen for a live explicit target, but keeps this total).
+func _find_card_owner(card: CardInstance, fallback: PlayerState) -> PlayerState:
+	for p: PlayerState in _state.players:
+		if p.board.slots.has(card):
+			return p
+	return fallback
+
 ## Fires when a minion with an emergence_effect is placed on the board.
 func resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 	if card.emergence_effect == "":
 		return
 	AudioManager.play_sfx("spell_resolve")
-	var opponent: PlayerState = _state.players[1 - caster_pid]
+	# Mirrors resolve_spell's generalization: caster_pid is always current_player_idx
+	# at the time a just-played minion's emergence fires, so opponent() is correct.
+	var opponent: PlayerState = _state.opponent()
 	var caster: PlayerState = _state.players[caster_pid]
 	match card.emergence_effect:
 		"emergence_deal_damage":
@@ -65,7 +78,11 @@ func resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Dictionary = {}) -> void:
 	AudioManager.play_sfx("spell_resolve")
 	var _ct_board_before: int = _state.players[1 - caster_pid].board.get_cards().size() if caster_pid == 0 else 0
-	var opponent: PlayerState = _state.players[1 - caster_pid]
+	# resolve_spell is only ever called for the currently-acting player (turn-gated by every
+	# caller), so _state.opponent() always reflects caster_pid's opponent — generalizes the
+	# old "_state.players[1 - caster_pid]" to co-op-PvE (boss) and team battles (lowest-HP
+	# enemy-team member) without changing 2-player behavior (opponent() == players[1-idx] there).
+	var opponent: PlayerState = _state.opponent()
 	var _spell_dmg: int = BattlefieldRules.modify_damage(card.spell_power, _state.battlefield_biome)
 	match card.spell_effect:
 		"deal_damage_single":
@@ -73,10 +90,14 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 			if target_card != null:
 				target_card.take_damage(_spell_dmg)
 				if not target_card.is_alive():
-					opponent.board.remove_card(target_card)
-					opponent.discard.append(target_card)
+					var owner := _find_card_owner(target_card, opponent)
+					owner.board.remove_card(target_card)
+					owner.discard.append(target_card)
 			elif explicit_target.get("type", "") == "hero":
-				opponent.hero.take_damage(_spell_dmg)
+				var hero_owner: PlayerState = opponent
+				if explicit_target.has("pidx"):
+					hero_owner = _state.players[int(explicit_target["pidx"])]
+				hero_owner.hero.take_damage(_spell_dmg)
 			else:
 				var targets := opponent.board.get_cards()
 				if targets.is_empty():
@@ -163,8 +184,9 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				t.take_damage(_spell_dmg)
 				caster.hero.health = mini(caster.hero.max_health, caster.hero.health + _spell_dmg)
 				if not t.is_alive():
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
+					var ls_owner := _find_card_owner(t, opponent)
+					ls_owner.board.remove_card(t)
+					ls_owner.discard.append(t)
 		"mana_drain":
 			opponent.hero.mana = maxi(0, opponent.hero.mana - card.spell_power)
 		"curse_minion":
@@ -177,8 +199,9 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 				t.attack = maxi(0, t.attack - card.spell_power)
 				t.health -= _spell_dmg
 				if not t.is_alive():
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
+					var cm_owner := _find_card_owner(t, opponent)
+					cm_owner.board.remove_card(t)
+					cm_owner.discard.append(t)
 		"draw_card":
 			var caster: PlayerState = _state.players[caster_pid]
 			for _i in range(card.spell_power):

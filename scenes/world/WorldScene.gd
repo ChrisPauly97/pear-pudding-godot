@@ -50,6 +50,7 @@ const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tsc
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
+const _RatingMath        = preload("res://game_logic/net/RatingMath.gd")
 
 # Co-op multiplayer (GID-090)
 const _NetSyncScript     = preload("res://scenes/world/NetSync.gd")
@@ -115,6 +116,14 @@ var _session_dedicated: bool = false      # client: true when connected to a ded
 var _pvp_relay_challenger_id: int = -1   # server: peer_id of the challenger awaiting response
 var _pvp_relay_challenger_deck: Array = [] # server: challenger's deck
 var _pvp_relay_target_id: int = -1       # server: peer_id of the challenged player
+# Team PvP duels (GID-102 / TID-371): host-only trigger, visible at 4 players (host
+# + 3 clients). No accept/decline — keeps team-formation UI minimal (see task notes).
+var _team_duel_btn: Button = null
+# Host-only: remembers the formation of the duel it started so _on_team_battle_ended_coop
+# can resolve all 4 participants' tokens for the rating update. Empty when no team
+# duel is in flight (the host itself never started one, or it already finished).
+var _active_team_duel_peer_ids: Array[int] = []
+var _active_team_duel_teams: Array = []
 # GID-101 — Social & Rewards ──────────────────────────────────────────────────
 # TID-365: Emotes & pings
 const _SocialSync = preload("res://game_logic/net/SocialSync.gd")
@@ -143,6 +152,15 @@ var _pvp_ante_peer0: int = -1           # host peer in the active wager
 var _pvp_ante_peer1: int = -1           # client peer in the active wager
 # TID-369: Shared party bounties
 var _party_bounty_panel: VBoxContainer = null   # HUD panel showing shared progress
+# TID-374: Party chat
+const _ChatSync = preload("res://game_logic/net/ChatSync.gd")
+var _chat_log_panel: Control = null        # outer panel (always visible while in co-op)
+var _chat_log_vbox: VBoxContainer = null   # scrolling log of chat lines
+var _chat_lines: Array[Dictionary] = []    # retained {name, color, text} rows, capped
+var _chat_quick_panel: Control = null      # quick-chat preset button row; nil when closed
+var _chat_input: LineEdit = null           # free-text input (desktop always-visible; mobile behind toggle)
+var _chat_send_btn: Button = null          # send button next to the free-text input
+var _chat_toggle_btn: Button = null        # HUD button: opens quick-chat row + reveals input (mobile parity)
 var _pvp_ended_pending_broadcast: bool = false  # set in pvp_battle_ended; cleared on _enter_tree
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
@@ -506,6 +524,10 @@ func _ready() -> void:
 	if not GameBus.pvp_battle_ended.is_connected(_on_pvp_battle_ended_coop):
 		GameBus.pvp_battle_ended.connect(_on_pvp_battle_ended_coop)
 
+	# GID-102 (TID-371): ranked rating for team duels. Same "connected permanently" reasoning.
+	if not GameBus.team_battle_ended.is_connected(_on_team_battle_ended_coop):
+		GameBus.team_battle_ended.connect(_on_team_battle_ended_coop)
+
 	_setup_coop()
 	_initial_ready_done = true
 
@@ -562,6 +584,8 @@ func _setup_coop() -> void:
 	if not NetworkManager.is_dedicated_server():
 		_ensure_challenge_button()
 		_ensure_social_buttons()
+		_ensure_team_duel_button()
+		_ensure_chat_ui()
 	# GID-101 (TID-369): host initialises party bounties; all peers build the HUD.
 	_setup_party_bounties()
 	if not NetworkManager.is_dedicated_server():
@@ -874,14 +898,21 @@ func _refresh_coop_roster() -> void:
 		var d: Dictionary = _remote_identities.get(pid, {})
 		var nm: String = str(d.get("name", "Player"))
 		var col: Color = d.get("color", Color(0.7, 0.85, 1.0))
+		var token: String = str(d.get("token", ""))
+		# Friends list (GID-102 / TID-375): a friend currently in-session is "seen now".
+		if token != "":
+			MpProfile.touch_friend_last_seen(token)
 		# Map-scoped sync (TID-352): peers on another map are greyed + "(elsewhere)".
 		var peer_map: String = str(_remote_player_maps.get(pid, map_name))
 		if peer_map != "" and peer_map != map_name:
 			nm += " (elsewhere)"
 			col = col.darkened(0.45)
-		_add_roster_row(nm, col)
+		_add_roster_row(nm, col, token)
 
-func _add_roster_row(text: String, col: Color) -> void:
+## `token` is the remote peer's stable identity (empty for the local "(you)" row,
+## which never gets an add-friend affordance). The token itself is never shown —
+## only used as the add_friend/is_friend key (GID-102 / TID-375).
+func _add_roster_row(text: String, col: Color, token: String = "") -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(vp.y * 0.01))
@@ -893,6 +924,26 @@ func _add_roster_row(text: String, col: Color) -> void:
 	lbl.text = text
 	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.022))
 	row.add_child(lbl)
+	if token != "":
+		var btn := Button.new()
+		var sz: float = vp.y * 0.026
+		btn.custom_minimum_size = Vector2(sz, sz)
+		btn.add_theme_font_size_override("font_size", int(vp.y * 0.02))
+		if MpProfile.is_friend(token):
+			btn.text = "✓"
+			btn.disabled = true
+			btn.tooltip_text = "Friend"
+		else:
+			btn.text = "+"
+			btn.tooltip_text = "Add friend"
+			# Strip the "(elsewhere)" / "(you)" suffixes before saving — friends are
+			# stored by clean display name only.
+			var clean_name: String = text.replace(" (elsewhere)", "")
+			btn.pressed.connect(func() -> void:
+				MpProfile.add_friend(token, clean_name, col.to_html(false))
+				_refresh_coop_roster()
+			)
+		row.add_child(btn)
 	_coop_roster.add_child(row)
 
 # Called by NetSync when a remote avatar packet arrives.
@@ -1306,6 +1357,98 @@ func _request_challenge() -> void:
 		_net_sync.rpc_id(_challenge_target_peer, "request_battle", my_deck)
 	_show_tip("Challenge sent…")
 
+# ── Team PvP duels (GID-102 / TID-371) ────────────────────────────────────────
+
+## Creates the hidden "Team Duel (2v2)" HUD button. Host-only trigger.
+func _ensure_team_duel_button() -> void:
+	if _team_duel_btn != null and is_instance_valid(_team_duel_btn):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_team_duel_btn = Button.new()
+	_team_duel_btn.text = "Team Duel (2v2)"
+	_team_duel_btn.custom_minimum_size = Vector2(vp.y * 0.34, vp.y * 0.07)
+	_team_duel_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	_team_duel_btn.position = Vector2((vp.x - vp.y * 0.34) * 0.5, vp.y * 0.72)
+	_team_duel_btn.hide()
+	_team_duel_btn.pressed.connect(_start_team_duel)
+	_hud.add_child(_team_duel_btn)
+
+## Shows the team-duel button only for the host with exactly 3 connected clients
+## (4 total players — required for 2v2). Dedicated-server / non-host peers never see it.
+func _update_team_duel_button_visibility() -> void:
+	if _team_duel_btn == null or not is_instance_valid(_team_duel_btn):
+		return
+	if not NetworkManager.is_host() or NetworkManager.is_dedicated_server() \
+			or SceneManager._state != SceneManager.State.WORLD:
+		_team_duel_btn.hide()
+		return
+	_team_duel_btn.visible = multiplayer.get_peers().size() >= 3 and _pending_challenge_from == -1
+
+## Host-only: resolves a connected peer's current deck as instances for the team duel.
+## The host's own deck comes straight from SaveManager; a client's deck is read from
+## its already-synced GID-095 session character record — no extra RPC round-trip needed.
+func _team_deck_for_peer(pid: int) -> Array:
+	if pid == multiplayer.get_unique_id():
+		return _local_deck_for_net()
+	var token: String = str(_session_token_by_peer.get(pid, ""))
+	if token == "" or not SessionStore.is_open():
+		return []
+	var st = SessionStore.get_state()
+	if st == null:
+		return []
+	var rec: Dictionary = st.get_member(token)
+	if rec.is_empty():
+		return []
+	var by_uid: Dictionary = {}
+	for inst in rec.get("owned_cards", []):
+		if inst is Dictionary:
+			by_uid[str(inst.get("uid", ""))] = inst
+	var out: Array = []
+	for uid in rec.get("player_deck", []):
+		if by_uid.has(str(uid)):
+			out.append(by_uid[str(uid)])
+	return out
+
+## Host: assigns teams from the connected 4-peer session and starts a 2v2 duel for
+## everyone immediately — no individual accept/decline (keeps team-formation UI
+## minimal, per the task notes). Host + the first-sorted client form team 0; the other
+## two clients form team 1. Absolute GameState indices: [host, client_b, host's
+## partner, client_c] so the interleaved [teamA_0,teamB_0,teamA_1,teamB_1] layout in
+## GameState.setup_team_battle puts the host's chosen partner on the host's team.
+func _start_team_duel() -> void:
+	if not NetworkManager.is_host() or _net_sync == null:
+		return
+	var clients: Array = multiplayer.get_peers()
+	if clients.size() < 3:
+		_show_tip("Need 4 players for a team duel.")
+		return
+	clients.sort()
+	var host_id: int = multiplayer.get_unique_id()
+	var abs_peer_ids: Array[int] = [host_id, int(clients[1]), int(clients[0]), int(clients[2])]
+	var team_assignments: Array = [0, 1, 0, 1]
+	var all_decks: Array = []
+	for pid in abs_peer_ids:
+		all_decks.append(_team_deck_for_peer(pid))
+	for i in range(abs_peer_ids.size()):
+		var pid: int = abs_peer_ids[i]
+		if pid != host_id:
+			_net_sync.rpc_id(pid, "notify_team_duel_start", i, team_assignments, all_decks)
+	if _challenge_btn != null and is_instance_valid(_challenge_btn):
+		_challenge_btn.hide()
+	if _team_duel_btn != null and is_instance_valid(_team_duel_btn):
+		_team_duel_btn.hide()
+	_active_team_duel_peer_ids = abs_peer_ids
+	_active_team_duel_teams = team_assignments
+	SceneManager.enter_team_battle(0, team_assignments, all_decks)
+
+## Client: the host started a team duel — enter it with the assigned absolute index.
+func _on_notify_team_duel_start(my_idx: int, team_assignments: Array, all_decks: Array) -> void:
+	if _challenge_btn != null and is_instance_valid(_challenge_btn):
+		_challenge_btn.hide()
+	if _team_duel_btn != null and is_instance_valid(_team_duel_btn):
+		_team_duel_btn.hide()
+	SceneManager.enter_team_battle(my_idx, team_assignments, all_decks)
+
 ## Incoming challenge — show an Accept/Decline prompt.
 func _on_battle_requested(from_id: int, challenger_deck: Array) -> void:
 	if _pending_challenge_from != -1:
@@ -1361,8 +1504,11 @@ func _on_relay_pvp_response(sender_id: int, challenger_id: int, accepted: bool, 
 	if _net_sync != null:
 		_net_sync.rpc_id(challenger, "notify_pvp_start", 0, responder_deck)
 		_net_sync.rpc_id(target, "notify_pvp_start", 1, deck_a)
-	# Launch the headless referee on the server itself.
-	SceneManager.enter_pvp_referee(deck_a, responder_deck, challenger, target)
+	# Launch the headless referee on the server itself. Tokens (GID-102 / TID-372) let
+	# the referee verify a later reconnect from either combatant.
+	var token_a: String = str(_session_token_by_peer.get(challenger, ""))
+	var token_b: String = str(_session_token_by_peer.get(target, ""))
+	SceneManager.enter_pvp_referee(deck_a, responder_deck, challenger, target, token_a, token_b)
 
 ## Client handler: server assigned us a player index; start the PvP battle.
 func _on_notify_pvp_start(my_player_idx: int, opponent_deck: Array) -> void:
@@ -1443,6 +1589,9 @@ func _accept_challenge(from_id: int) -> void:
 			_net_sync.rpc_id(1, "relay_pvp_response", from_id, true, my_deck)
 			return
 		_net_sync.rpc_id(from_id, "respond_battle", true, my_deck)
+	# Record the opponent peer so the host's spectator + rating (TID-370) paths know
+	# who it dueled when accepting an incoming challenge (not just when challenging).
+	_challenge_target_peer = from_id
 	_enter_pvp(opp_deck)
 
 func _decline_challenge(from_id: int) -> void:
@@ -1470,7 +1619,11 @@ func _enter_pvp(opponent_deck: Array) -> void:
 			var p: int = int(pid)
 			if p != _challenge_target_peer:
 				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _challenge_target_peer)
-	SceneManager.enter_pvp_battle(local_idx, opponent_deck)
+	# GID-102 (TID-372): opponent's identity token, so the host can verify a later
+	# reconnect. Only meaningful on the host's own call (_session_token_by_peer is
+	# host-side only); harmless empty string on the client's own call.
+	var opp_token: String = str(_session_token_by_peer.get(_challenge_target_peer, ""))
+	SceneManager.enter_pvp_battle(local_idx, opponent_deck, 0, opp_token)
 
 ## Returns the biome and time context at the moment of engagement (GID-059).
 ## Called by SceneManager._on_enemy_engaged() to stamp context into enemy_data.
@@ -2420,6 +2573,7 @@ func _process(delta: float) -> void:
 	if _coop_active:
 		_broadcast_local_avatar(delta)
 		_update_challenge_proximity()
+		_update_team_duel_button_visibility()
 		_tick_session_persist(delta)
 		# World-object sync (GID-096): host streams enemy positions; clients smooth.
 		_broadcast_enemy_positions(delta)
@@ -2721,6 +2875,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event is InputEventKey and event.pressed and event.keycode == KEY_D:
 		_activate_skeleton_dig()
+		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed \
+			and (event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER) \
+			and _coop_active and _chat_input != null and is_instance_valid(_chat_input) \
+			and not _chat_input.has_focus():
+		# Desktop chat-focus shortcut (TID-374). Mobile equivalent is the "Chat"
+		# HUD button (_chat_toggle_btn), which also reveals/focuses the input.
+		_chat_input.grab_focus()
 		get_viewport().set_input_as_handled()
 	elif event is InputEventScreenTouch:
 		_on_screen_touch(event as InputEventScreenTouch)
@@ -4148,6 +4310,186 @@ func _tick_ping_markers(delta: float) -> void:
 		_ping_markers.erase(m)
 
 
+# ── TID-374: Party chat ──────────────────────────────────────────────────────
+# Quick-chat presets (reuses the emote-wheel GridContainer pattern) plus an
+# optional free-text LineEdit, with a scrolling log panel. The log panel stays
+# always-visible while in co-op (simplest option, matches the always-visible
+# party bounty panel) rather than auto-fading — no extra show/hide state to
+# manage, and chat is low-frequency enough that it won't clutter the screen.
+
+func _ensure_chat_ui() -> void:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+
+	# Scrolling log panel, upper-left-ish (clear of the party bounty panel which
+	# sits at vp.y * 0.50; chat log sits above it).
+	if _chat_log_panel == null or not is_instance_valid(_chat_log_panel):
+		var outer := PanelContainer.new()
+		outer.name = "ChatLogPanel"
+		outer.position = Vector2(vp.x * 0.012, vh * 0.16)
+		outer.custom_minimum_size = Vector2(vp.x * 0.26, vh * 0.30)
+		var style := StyleBoxFlat.new()
+		style.bg_color = Color(0.04, 0.04, 0.08, 0.78)
+		style.corner_radius_top_left    = 6
+		style.corner_radius_top_right   = 6
+		style.corner_radius_bottom_left = 6
+		style.corner_radius_bottom_right = 6
+		outer.add_theme_stylebox_override("panel", style)
+		_hud.add_child(outer)
+		_chat_log_panel = outer
+		var scroll := ScrollContainer.new()
+		scroll.custom_minimum_size = Vector2(vp.x * 0.26, vh * 0.30)
+		outer.add_child(scroll)
+		var vbox := VBoxContainer.new()
+		vbox.add_theme_constant_override("separation", int(vh * 0.004))
+		vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(vbox)
+		_chat_log_vbox = vbox
+
+	# HUD toggle button: opens the quick-chat row and reveals the free-text
+	# input (mobile parity — desktop also has the Enter-key shortcut below).
+	if _chat_toggle_btn == null or not is_instance_valid(_chat_toggle_btn):
+		_chat_toggle_btn = Button.new()
+		_chat_toggle_btn.text = "Chat"
+		_chat_toggle_btn.tooltip_text = "Open chat (or press Enter)"
+		_chat_toggle_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.06)
+		_chat_toggle_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+		_chat_toggle_btn.position = Vector2(vp.x - vh * 0.31, vh * 0.87)
+		_chat_toggle_btn.pressed.connect(_toggle_chat_quick_panel)
+		_hud.add_child(_chat_toggle_btn)
+
+	# Free-text input + send button. Visible by default on desktop; mobile
+	# users reveal it via the Chat HUD button (parity is satisfied either way
+	# since both platforms can always tap "Chat" — desktop additionally gets
+	# the Enter-key shortcut to focus it directly).
+	if _chat_input == null or not is_instance_valid(_chat_input):
+		_chat_input = LineEdit.new()
+		_chat_input.placeholder_text = "Say something…"
+		_chat_input.custom_minimum_size = Vector2(vp.x * 0.30, vh * 0.05)
+		_chat_input.position = Vector2(vp.x * 0.012, vh * 0.93)
+		_chat_input.add_theme_font_size_override("font_size", int(vh * 0.020))
+		_chat_input.text_submitted.connect(func(_t: String) -> void: _submit_chat_input())
+		_hud.add_child(_chat_input)
+	if _chat_send_btn == null or not is_instance_valid(_chat_send_btn):
+		_chat_send_btn = Button.new()
+		_chat_send_btn.text = "Send"
+		_chat_send_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.05)
+		_chat_send_btn.position = Vector2(vp.x * 0.32, vh * 0.93)
+		_chat_send_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+		_chat_send_btn.pressed.connect(_submit_chat_input)
+		_hud.add_child(_chat_send_btn)
+
+
+func _toggle_chat_quick_panel() -> void:
+	if _chat_quick_panel != null and is_instance_valid(_chat_quick_panel):
+		_chat_quick_panel.queue_free()
+		_chat_quick_panel = null
+		return
+	_show_chat_quick_panel()
+
+
+func _show_chat_quick_panel() -> void:
+	if _chat_quick_panel != null and is_instance_valid(_chat_quick_panel):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.05, 0.1, 0.90)
+	style.corner_radius_top_left    = 8
+	style.corner_radius_top_right   = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
+	panel.add_theme_stylebox_override("panel", style)
+	panel.position = Vector2(vp.x - vh * 0.40, vh * 0.66)
+	_hud.add_child(panel)
+	_chat_quick_panel = panel
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", int(vh * 0.010))
+	grid.add_theme_constant_override("v_separation", int(vh * 0.010))
+	panel.add_child(grid)
+	var presets: Array[String] = _ChatSync.QUICK_PRESETS
+	for preset: String in presets:
+		var btn := Button.new()
+		btn.text = preset
+		btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.055)
+		btn.add_theme_font_size_override("font_size", int(vh * 0.018))
+		var captured: String = preset
+		btn.pressed.connect(func() -> void:
+			if _chat_quick_panel != null and is_instance_valid(_chat_quick_panel):
+				_chat_quick_panel.queue_free()
+				_chat_quick_panel = null
+			_send_chat_quick(captured)
+		)
+		grid.add_child(btn)
+	# Mobile parity: opening the quick-chat row also surfaces the free-text
+	# entry point, so a touch-only user can reach both from one "Chat" tap.
+	if _chat_input != null and is_instance_valid(_chat_input):
+		_chat_input.grab_focus()
+
+
+func _submit_chat_input() -> void:
+	if _chat_input == null or not is_instance_valid(_chat_input):
+		return
+	var raw: String = _chat_input.text
+	_chat_input.text = ""
+	if raw.strip_edges() == "":
+		return
+	_send_chat_text(raw)
+
+
+func _send_chat_quick(preset: String) -> void:
+	if _net_sync == null or not _coop_active:
+		return
+	var payload: Array = _ChatSync.encode_quick(preset, map_name)
+	_net_sync.rpc("recv_chat", payload)
+	var d: Dictionary = _ChatSync.decode(payload)
+	_append_chat_line(MpProfile.get_display_name(), MpProfile.get_color(), str(d.get("text", preset)))
+
+
+func _send_chat_text(raw_text: String) -> void:
+	if _net_sync == null or not _coop_active:
+		return
+	var payload: Array = _ChatSync.encode_text(raw_text, map_name)
+	_net_sync.rpc("recv_chat", payload)
+	var d: Dictionary = _ChatSync.decode(payload)
+	_append_chat_line(MpProfile.get_display_name(), MpProfile.get_color(), str(d.get("text", "")))
+
+
+## Same-map filter mirrors `_on_emote_received`: a message from a peer on a
+## different map is dropped rather than shown-but-tagged, for HUD consistency
+## with how emotes already behave (an off-map peer's expression never appears).
+func _on_chat_received(sender: int, payload: Array) -> void:
+	var d: Dictionary = _ChatSync.decode(payload)
+	var sender_map: String = str(d.get("map", ""))
+	if sender_map != "" and sender_map != map_name:
+		return
+	var id: Dictionary = _remote_identities.get(sender, {})
+	var nm: String = str(id.get("name", "Player"))
+	var col: Color = id.get("color", Color(0.7, 0.85, 1.0))
+	_append_chat_line(nm, col, str(d.get("text", "")))
+
+
+func _append_chat_line(sender_name: String, color: Color, text: String) -> void:
+	if text == "":
+		return
+	if _chat_log_vbox == null or not is_instance_valid(_chat_log_vbox):
+		return
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var lbl := Label.new()
+	lbl.text = "[%s] %s: %s" % [Time.get_time_string_from_system().substr(0, 5), sender_name, text]
+	lbl.add_theme_font_size_override("font_size", int(vh * 0.016))
+	lbl.add_theme_color_override("font_color", color)
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_chat_log_vbox.add_child(lbl)
+	_chat_lines.append({"name": sender_name, "color": color, "text": text})
+	while _chat_lines.size() > _ChatSync.LOG_MAX_LINES:
+		_chat_lines.pop_front()
+		if _chat_log_vbox.get_child_count() > 0:
+			_chat_log_vbox.get_child(0).queue_free()
+
+
 # ── TID-366: Card trading & gifting ─────────────────────────────────────────────
 
 func _open_trade_offer() -> void:
@@ -4517,7 +4859,8 @@ func _enter_pvp_wagered(ante: int, opp_deck: Array) -> void:
 			var p: int = int(pid)
 			if p != _challenge_target_peer:
 				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _challenge_target_peer)
-	SceneManager.enter_pvp_battle(local_idx, opp_deck, ante)
+	var opp_token: String = str(_session_token_by_peer.get(_challenge_target_peer, ""))
+	SceneManager.enter_pvp_battle(local_idx, opp_deck, ante, opp_token)
 
 
 func _on_pvp_battle_ended_coop(did_win: bool) -> void:
@@ -4553,8 +4896,104 @@ func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 				rec["pvp_best_streak"] = best
 				st.update_member(token, rec)
 				SessionStore.mark_dirty()
+			# Ranked rating (TID-370): the authority owns both records, so it computes
+			# both combatants' ELO deltas and writes both. The host is one combatant;
+			# the opponent is the duel peer captured at battle-start (_pvp_ante_peer1).
+			_update_pvp_ratings(st, token, did_win)
 	# Signal spectators to return to world when WorldScene re-enters the tree.
 	_pvp_ended_pending_broadcast = true
+
+
+## Host-authority ranked rating update for a finished duel (GID-102 / TID-370).
+## `host_token` is the host's own member; `_pvp_ante_peer1` identifies the opponent peer
+## (set in `_enter_pvp` / `_enter_pvp_wagered`). Both ratings move zero-sum-ish via ELO;
+## a client never rates itself, so this only runs on the host (caller already guards that).
+func _update_pvp_ratings(st, host_token: String, host_won: bool) -> void:
+	var opp_peer: int = _pvp_ante_peer1
+	if opp_peer <= 0:
+		return
+	var opp_token: String = str(_session_token_by_peer.get(opp_peer, ""))
+	if host_token == "" or opp_token == "" or host_token == opp_token:
+		return
+	var host_rec: Dictionary = st.get_member(host_token)
+	var opp_rec: Dictionary = st.get_member(opp_token)
+	if host_rec.is_empty() or opp_rec.is_empty():
+		return
+	var r_host: int = int(host_rec.get("pvp_rating", _RatingMath.START_RATING))
+	var r_opp: int = int(opp_rec.get("pvp_rating", _RatingMath.START_RATING))
+	var g_host: int = int(host_rec.get("pvp_games", 0))
+	var g_opp: int = int(opp_rec.get("pvp_games", 0))
+	var host_score: float = 1.0 if host_won else 0.0
+	host_rec["pvp_rating"] = _RatingMath.updated(r_host, r_opp, host_score, g_host)
+	host_rec["pvp_games"] = g_host + 1
+	opp_rec["pvp_rating"] = _RatingMath.updated(r_opp, r_host, 1.0 - host_score, g_opp)
+	opp_rec["pvp_games"] = g_opp + 1
+	st.update_member(host_token, host_rec)
+	st.update_member(opp_token, opp_rec)
+	SessionStore.mark_dirty()
+
+
+## Host-only: ranked rating update for a finished 2v2 team duel (GID-102 / TID-371).
+## did_win is the host's own perspective (team_assignments[0]'s result). Uses the
+## formation _start_team_duel recorded to resolve all 4 tokens, then applies a
+## "team-average expected score" ELO update per the task notes: each player's rating
+## moves against the *average* rating of the opposing team, scored 1.0/0.0 for their
+## team's win/loss (not pairwise per-opponent). A client never rates itself — this is
+## a no-op when _active_team_duel_peer_ids is empty (every non-host peer, and the host
+## itself once the formation has been consumed/cleared).
+func _on_team_battle_ended_coop(did_win: bool) -> void:
+	if not NetworkManager.is_host() or _active_team_duel_peer_ids.is_empty():
+		return
+	var peer_ids: Array[int] = _active_team_duel_peer_ids
+	var teams: Array = _active_team_duel_teams
+	_active_team_duel_peer_ids = []
+	_active_team_duel_teams = []
+	if not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var host_id: int = multiplayer.get_unique_id()
+	var tokens: Array[String] = []
+	for pid in peer_ids:
+		var token: String = MpProfile.get_token() if pid == host_id else str(_session_token_by_peer.get(pid, ""))
+		tokens.append(token)
+	if tokens.has(""):
+		return  # an unresolved token means a peer left mid-duel — skip the rating update
+	var recs: Array[Dictionary] = []
+	for token in tokens:
+		var rec: Dictionary = st.get_member(token)
+		if rec.is_empty():
+			return
+		recs.append(rec)
+	var team0_idxs: Array[int] = []
+	var team1_idxs: Array[int] = []
+	for i in range(teams.size()):
+		if int(teams[i]) == 0:
+			team0_idxs.append(i)
+		else:
+			team1_idxs.append(i)
+	var avg_rating := func(idxs: Array[int]) -> float:
+		var sum: int = 0
+		for i in idxs:
+			sum += int(recs[i].get("pvp_rating", _RatingMath.START_RATING))
+		return float(sum) / float(idxs.size())
+	var avg0: float = avg_rating.call(team0_idxs)
+	var avg1: float = avg_rating.call(team1_idxs)
+	var team0_won: bool = did_win  # team_assignments[0] is the host's team
+	for i in team0_idxs:
+		var r: int = int(recs[i].get("pvp_rating", _RatingMath.START_RATING))
+		var g: int = int(recs[i].get("pvp_games", 0))
+		recs[i]["pvp_rating"] = _RatingMath.updated(r, int(round(avg1)), 1.0 if team0_won else 0.0, g)
+		recs[i]["pvp_games"] = g + 1
+	for i in team1_idxs:
+		var r: int = int(recs[i].get("pvp_rating", _RatingMath.START_RATING))
+		var g: int = int(recs[i].get("pvp_games", 0))
+		recs[i]["pvp_rating"] = _RatingMath.updated(r, int(round(avg0)), 0.0 if team0_won else 1.0, g)
+		recs[i]["pvp_games"] = g + 1
+	for i in range(tokens.size()):
+		st.update_member(tokens[i], recs[i])
+	SessionStore.mark_dirty()
 
 
 # ── TID-369: Shared party bounties ────────────────────────────────────────────

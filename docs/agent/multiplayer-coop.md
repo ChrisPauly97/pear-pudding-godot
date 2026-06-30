@@ -300,7 +300,8 @@ unchanged: no coins awarded, same "no cards/XP" result.
 or `"-N coins (wagered)"` in red when `coins_delta != 0`. The Continue button emits
 `GameBus.pvp_battle_ended(did_win)`, which SceneManager handles by restoring the shared
 world. **Flee** (pause menu) becomes a surrender; an **opponent disconnect** mid-battle
-is a forfeit win for the remaining player (if the whole session ended, the client routes
+starts a 45 s reconnect grace window (GID-102 / TID-372, below) before becoming a
+forfeit win for the remaining player (if the whole session ended, the client routes
 to the menu).
 
 **Champion record (GID-101 / TID-368):** `SessionState` character records carry
@@ -308,6 +309,97 @@ to the menu).
 `_on_pvp_battle_ended_coop` increments wins/streak or losses/resets streak and
 writes the updated record back via `SessionStore.update_member` + `mark_dirty`.
 A streak ≥ 3 earns the informal "Champion" status (visible in the session roster label).
+
+**Ranked rating (GID-102 / TID-370):** character records also carry `pvp_rating`
+(starts `1000`) and `pvp_games` (added in **v4** migration). The rating math lives in
+the pure, unit-tested **`game_logic/net/RatingMath.gd`** (mirrors `BattleNetProtocol`):
+standard ELO — `expected_score(a, b) = 1 / (1 + 10^((b-a)/400))`,
+`updated(r, opp, score, games) = clamp(r + K·(score − expected))` — with a larger
+placement K (`K_PLACEMENT = 64`) for the first `PLACEMENT_GAMES = 10` games settling to
+`K_BASE = 32`, a `MIN_RATING = 100` floor, and `score` 1.0/0.0 (0.5 reserved for a draw).
+Because the **authority owns both combatants' records**, `_on_pvp_battle_ended_coop`
+calls `_update_pvp_ratings(state, host_token, host_won)`: it resolves the opponent token
+from the duel peer (`_pvp_ante_peer1`, set in `_enter_pvp` / `_enter_pvp_wagered`; the
+host-accepts-incoming path now sets `_challenge_target_peer = from_id` so it is recorded
+there too) via `_session_token_by_peer`, computes both zero-sum-ish ELO deltas, bumps
+`pvp_games`, and writes both records (`update_member` + `mark_dirty`). A client never
+rates itself — only the host runs this. The **cross-session leaderboard** is *derived*
+(no second source of truth): `SessionState.get_leaderboard(limit)` sorts `members` by
+`pvp_rating` desc (ties → games, then token) returning `{token, name, rating, games,
+wins, losses}` rows. The dedicated server (GID-097) is the canonical ladder host. This
+is the data foundation TID-373 (ranked UI) builds on. Single-player hits none of it.
+**Known gap:** opponent *champion* stats (wins/losses/streak) are still host-only
+(TID-368 behaviour) — only the rating is updated for both sides here (see BID-025).
+
+### Reconnecting into an in-progress duel (GID-102 / TID-372)
+
+A **1v1 PvP duel** (listen-server or dedicated-server-refereed) survives a dropped
+**client** combatant for a 45 s grace window, instead of an immediate forfeit. Team
+duels (TID-371) and a dropped host/referee are out of scope for this slice — both still
+end the battle immediately, as before.
+
+**Why this can't be the WorldScene identity handshake (the originally-proposed
+design):** `enter_pvp_battle`/`enter_pvp_referee` **detach WorldScene**
+(`get_tree().root.remove_child`) on every peer mid-duel, including the dedicated
+server's own WorldScene while refereeing. The identity broadcast/reply and the GID-095
+character handshake all live on `WorldScene`/`NetSync`, so a peer reconnecting mid-duel
+cannot complete a normal join — there's no live `/root/WorldScene/NetSync` to land on.
+`BattleScene`/`BattleNetSync`, by contrast, stay alive at the fixed path
+`/root/BattleScene/BattleNetSync` on every participant for the whole duel — the one
+stable channel reconnect can actually use.
+
+**Design — the reconnecting client decides locally, the host/referee just waits:**
+
+- **Client-side resume memory — `NetworkManager.set_pvp_resume(local_idx, opponent_deck,
+  ante_coins)` / `clear_pvp_resume()` / `has_pvp_resume()` / `get_pvp_resume()`.** A
+  small in-memory (never persisted to disk) record set by `BattleScene._setup_pvp_battle`
+  for the client side only (not the host/referee — only a disconnected client
+  reconnects in this slice). Survives `_reset_session()` (called by `join()`/`host()` to
+  tear down a stale peer before reconnecting) — **only an explicit `leave()` clears
+  it**, so the record outlives the very disconnect it exists to recover from.
+- **`MultiplayerLobbyScene._on_connection_succeeded`**: checks
+  `NetworkManager.has_pvp_resume()` first; if set, calls
+  `SceneManager.resume_pvp_battle(local_idx, opponent_deck, ante_coins)` instead of the
+  normal `enter_map_coop` landing.
+- **`SceneManager.resume_pvp_battle`**: the reconnecting client has no current
+  WorldScene to give `enter_pvp_battle` a `_saved_world_scene` to detach/restore later,
+  so it first lands in the shared map (`enter_map_coop("madrian")`), `await`s the state
+  actually reaching `State.WORLD` (`TransitionManager.transition` is fire-and-forget
+  async, so this can't be a synchronous follow-up call), then calls the normal
+  `enter_pvp_battle`.
+- **Host/referee grace window — `BattleScene._on_pvp_peer_disconnected`**: resolves the
+  disconnecting peer's combatant index (listen-server: always 1, the sole client;
+  referee: `_pvp_peer_to_idx.get(pid)`), records `_pvp_reconnect_idx`, and starts a
+  45 s one-shot `Timer` instead of calling `_finish_pvp` immediately. On timeout
+  (`_on_pvp_reconnect_grace_expired`), falls back to the original immediate-forfeit
+  behavior.
+- **Token verification — `BattleNetSync.announce_reconnect(token)`** (new RPC, client →
+  host/referee, sent once at every duel setup — harmless no-op when no grace window is
+  pending, i.e. a fresh non-reconnect start). `BattleScene._on_reconnect_announced`
+  checks the announced token against the recorded opponent token for the
+  mid-grace-window combatant (`pvp_opponent_token` for listen-server, set by
+  `WorldScene._enter_pvp`/`_enter_pvp_wagered` from `_session_token_by_peer`;
+  `_pvp_idx_to_token` for the referee, set by `enter_pvp_referee` from the same map on
+  the dedicated server's `_on_relay_pvp_response`). A **missing recorded token doesn't
+  block the resume** — refusing is worse than a same-LAN false accept (same trust model
+  as the rest of LAN-only co-op). On match: cancels the timer, and for referee mode
+  remaps `_pvp_peer_to_idx` to the new peer id (listen-server needs no peer-id
+  bookkeeping at all — `_broadcast_state()` already reaches "all connected peers" and
+  incoming-intent routing is hardcoded idx 1 regardless of peer id), then re-broadcasts
+  the live state. The rejoined client's own `request_sync` retry loop
+  (`_process`/`_pvp_sync_retry_accum`) also converges on it within ~0.4 s regardless.
+- **Resume-record lifecycle**: `_finish_pvp` (the single function behind every genuine
+  end-of-duel path — win/loss mirror, surrender, grace-timeout forfeit) calls
+  `NetworkManager.clear_pvp_resume()`. The one path that must **not** clear it is the
+  client's own `_on_pvp_session_ended` (its connection to the duel just dropped) — it
+  returns early without declaring a false "win" when a resume record is pending, leaving
+  the scene frozen-but-recoverable until the player navigates back to the lobby and
+  reconnects (no auto-navigation on `session_ended`, consistent with the existing
+  Rejoin-list precedent — `NetworkManager` conflates a host's own `leave()` with a
+  client losing the host into the same signal).
+
+**Out of scope (documented):** team duels, a dropped host/referee, and any UI affordance
+beyond the existing pause menu / lobby Rejoin list (no "Reconnecting…" overlay).
 
 ### Spectating a duel (GID-101 / TID-367)
 
@@ -362,6 +454,57 @@ Non-combatant party members can **watch** an in-progress PvP duel read-only.
 - Unique cards (`is_unique = true`) are blocked from trading. All persistence goes
   through `SessionStore.mark_dirty()` — never `save_slot_*.json`.
 
+#### Chat (GID-102 / TID-374)
+
+- **`game_logic/net/ChatSync.gd`** — pure encode/decode for chat packets
+  `[text, kind, map]`, scene-free and mirrors `SocialSync.gd` structurally. Two kinds:
+  `KIND_QUICK = "quick"` and `KIND_TEXT = "text"`. Six fixed quick-chat presets
+  (`QUICK_PRESETS`, order fixed for wire compatibility): "On my way", "Need help",
+  "Nice!", "Wait", "Let's battle", "Trade?".
+- **Sanitization happens in the pure helper**, not the UI, so the authority and every
+  client compute the identical result: `_sanitize()` strips ASCII control characters
+  (0x00–0x1F and 0x7F) and caps the result to `MAX_TEXT_LEN = 120` characters.
+  `encode_text()` sanitizes the raw input; `decode()` *also* re-sanitizes the decoded
+  text defensively, so a forged or corrupted payload can never smuggle control
+  characters or exceed the cap on the receiving end either. `decode()` is fully
+  defaulted and garbage-tolerant (never throws), exactly like `SocialSync.decode_*`.
+- **RPC — `NetSync.recv_chat(payload: Array)`.** Unlike avatars/emotes/pings, this is
+  **reliable** (not `unreliable_ordered`): the task explicitly calls out that chat
+  messages must not be dropped, and chat is low-rate enough that reliable's extra
+  overhead is irrelevant. Same `any_peer` / `call_remote` shape as `recv_emote`, so it
+  benefits from the same automatic host server-relay (`SceneMultiplayer.server_relay`)
+  that fans a client's broadcast out to every other client.
+- **Same-map filtering matches the emote behaviour for consistency**: `_on_chat_received`
+  decodes the payload and, if the sender's `map` is non-empty and differs from the
+  local `map_name`, the message is **dropped** (not shown-but-tagged) — identical to
+  `_on_emote_received`'s early-return. Sender display name + color are resolved from
+  `_remote_identities[peer_id]` (the existing identity handshake), exactly like the
+  emote bubble and roster.
+- **HUD panel** (`WorldScene._ensure_chat_ui`): a viewport-relative `ScrollContainer` +
+  `VBoxContainer` chat log (top-left, above the party bounty panel), retaining the last
+  `ChatSync.LOG_MAX_LINES = 40` lines (oldest evicted first). Each line shows
+  `[HH:MM] Name: text` colored by the sender's avatar color. The log stays **always
+  visible** while in co-op (no auto-fade, no show/hide toggle) — the simplest option,
+  matching the always-visible party bounty panel, and chat is low-frequency enough
+  that it doesn't clutter the screen.
+- **Quick-chat row**: reuses the emote-wheel's `GridContainer` radial-button pattern
+  (`_show_chat_quick_panel`), built from `ChatSync.QUICK_PRESETS`, opened via a "Chat"
+  HUD button (`_chat_toggle_btn`).
+- **Free-text input**: a `LineEdit` (`_chat_input`) + "Send" button are always present
+  in the HUD (desktop-first, but tappable on mobile too — satisfies the parity rule
+  without hiding the control behind a second tap). The "Chat" HUD button additionally
+  opens the quick-chat row and focuses the input, so a touch-only user can reach both
+  quick presets and free text from one tap. Desktop also gets a keyboard shortcut:
+  pressing Enter/Numpad-Enter while not already focused in the chat input focuses it
+  (`_unhandled_input`, same raw-keycode pattern as the existing `KEY_G`/`KEY_D`
+  shortcuts), mirroring the mobile "Chat" button per the CLAUDE.md parity rule.
+- **Battle chat is out of scope for this slice.** The relay path during a PvP duel is
+  `BattleNetSync`, not `NetSync` — bridging the two relay layers safely (e.g. so a
+  chat line sent mid-duel doesn't leak to/from spectators incorrectly) was judged not
+  "genuinely cheap" once the world-HUD version worked, so it was deliberately cut.
+  Revisit if a future task wants in-duel chat; the same `ChatSync` pure helper can be
+  reused, only the relay/RPC wiring would need to be duplicated onto `BattleNetSync`.
+
 ### Shared party bounties (GID-101 / TID-369)
 
 Party bounties are co-op goals the whole party works toward together.
@@ -385,6 +528,107 @@ Party bounties are co-op goals the whole party works toward together.
 - **HUD panel**: viewport-relative `VBoxContainer` panel in the world HUD, showing
   each bounty's `target` + `progress/count` + a check mark on completion. Refreshed
   on each `recv_party_bounty_update`.
+
+### Team Duels (GID-102 / TID-371)
+
+2v2 team PvP: two teams of two allies fight each other, reusing the same
+host-authoritative state-mirroring model as 2-player PvP, generalized to 4 participants.
+**No accept/decline and no wagers in v1** — the host assigns teams from the connected
+4-peer session and starts the duel immediately for everyone (deliberately minimal
+team-formation UI, per the task's scope).
+
+**Model — `GameState.team_battle` / `player_teams`.** `setup_team_battle(team_a_setup,
+team_b_setup)` builds exactly 4 `PlayerState`s, **interleaved**
+`[teamA_0, teamB_0, teamA_1, teamB_1]` (`player_teams = [0,1,0,1]`) so the existing
+`(idx+1) % size` turn rotation alternates teams every turn with zero rotation changes.
+`is_game_over()`/`winner()` are team-aware: a team loses when **both** its members'
+heroes are dead; `winner()` returns the surviving team id (0/1).
+
+**Targeting — auto-pick + manual focus, not per-effect wiring.** Rather than threading
+an explicit target through every spell-effect match arm, `GameState.opponent()` gained a
+`team_battle` branch returning the alive enemy-team member with the **lowest hero HP**
+(`_get_lowest_hp_enemy_team_member`, sibling to the co-op-PvE boss-targeting helper) —
+this is the auto-target used by anything that doesn't have a manual choice (AOE/random/
+hand-disruption spell effects, hero powers' `active_damage_all`, etc. — a documented v1
+simplification: these always hit the single auto-picked enemy's board/hand, never both
+enemies' combined). `BattleScene._opp_idx()` adds a **manual focus** override:
+`_team_focus_target_pidx` (set by tapping an enemy panel in the new team status bar) is
+used instead of the auto pick when it still names a living enemy-team member. Because
+every existing render/target-building call site already routes through `_opp_idx()`
+(`EnemyArea` board/hand/hero, `_pvp_target_dict_for_card`, `_attempt_attack`'s slot
+lookup), focus propagates to spell minion/board targeting and attack-target-slot
+resolution **for free** — no per-feature target-selection code was needed for those.
+Two cases needed small, contained wiring since the slot index alone is ambiguous between
+2 possible enemy boards:
+- **Attacks**: `BattleNetProtocol.encode_attack`'s existing (previously-unused)
+  `target_pidx` parameter now carries the attacker's `_opp_idx()`; the authority's
+  `_apply_remote_intent` resolves `opp_idx` via `_resolve_intent_opp_idx` (validates the
+  sent `target_pidx` names a living enemy-team member, else falls back to
+  `_state.opponent_idx()`).
+- **Hero-targeted spells** (only `deal_damage_single`'s hero branch reads
+  `explicit_target.get("type") == "hero"`): the wire target dict carries
+  `{"hero": true, "pidx": N}`; `SpellEffectResolver` uses `_state.players[pidx].hero`
+  when present.
+- **Single-minion-targeted spells** (`deal_damage_single`, `lifesteal_hit`,
+  `curse_minion` — the only `ENEMY_TARGETED_EFFECTS` that remove a dead explicit target)
+  need no wire change: the wire `{"side", "slot"}` dict already carries the real
+  `CardInstance`, and a new `SpellEffectResolver._find_card_owner(card, fallback)`
+  resolves the *actual* owner by board-membership scan instead of assuming `opponent`,
+  so removal works correctly even when the manually-focused target differs from the
+  GameState-level auto pick.
+
+**Networking — own RPC set, mirrors co-op PvE.** `BattleNetSync` gains
+`send_team_intent` / `sync_team_state` / `team_battle_ended` / `request_team_sync`
+(reliable), kept distinct from the PvP and co-op-PvE RPCs. `BattleScene` gains a
+`_team_pvp` section mirroring `_coop_pve` structurally: `_setup_team_battle`,
+`_build_team_battle_state` (host-only, builds all 4 decks from `_team_decks`/
+`_team_assignments`), `_on_team_state`/`_on_team_intent`/`_on_team_sync_request`/
+`_broadcast_team_state`, `_team_check_game_over`, `_on_team_battle_ended`/
+`_finish_team_battle` (minimal result: HUD message, 2 s pause, then
+`GameBus.team_battle_ended.emit(did_win)` — no card/coin rewards, duel-style like
+unwagered 2-player PvP), `_process_team_sync`.
+
+**Team status bar.** A read-only `_build_team_arena_layout`/`_refresh_team_panels` pair
+(new, parallel to the GID-100 ally bar, not a generalization of it) shows all 4
+participants' HP/mana, grouped my-team-first then enemy-team. The two enemy panels are
+tappable (`_team_focus_target_pidx`); the two ally panels are informational only (no
+per-teammate spell targeting in v1).
+
+**Team formation — `WorldScene`.** A host-only **"Team Duel (2v2)"** HUD button
+(`_ensure_team_duel_button`/`_update_team_duel_button_visibility`) appears when exactly
+3 clients are connected (4 total players). Pressing it (`_start_team_duel`): sorts the
+connected peer ids for determinism, lays out the 4 absolute `GameState` indices as
+`[host, clients[1], clients[0], clients[2]]` (so `player_teams = [0,1,0,1]` puts the
+host's chosen partner, `clients[0]`, on the host's team), resolves each participant's
+**real** deck via `_team_deck_for_peer` (reads the host-authoritative GID-095
+`SessionState` member record directly — `owned_cards` + `player_deck` UIDs — so **no
+extra deck-collection RPC round-trip is needed**, unlike the proximity-gated 1v1
+challenge flow), and `rpc_id`s `NetSync.notify_team_duel_start(my_idx, team_assignments,
+all_decks)` to each client before calling `SceneManager.enter_team_battle` itself.
+
+**Rating — team-average expected score (GID-102 / TID-370 integration).** Host-only
+`WorldScene._on_team_battle_ended_coop` (connected permanently to
+`GameBus.team_battle_ended`, like `_on_pvp_battle_ended_coop`) uses the formation
+`_start_team_duel` recorded (`_active_team_duel_peer_ids`/`_active_team_duel_teams`) to
+resolve all 4 tokens, computes each team's **average rating**, then applies
+`RatingMath.updated` per player against the *opposing team's average* (not pairwise per
+opponent) scored 1.0/0.0 for their team's win/loss — the "team-average expected score"
+approach. A no-op for every non-host peer and once the formation has been consumed.
+
+**Bugs found and fixed while generalizing the opponent-index plumbing (BID-026):**
+`BattleScene._execute_attack` (the host's own local attack resolution) hardcoded
+`_state.players[1]`/`[0]` instead of `_opp_idx()`/`_my_idx()` — dormant for solo/2-player
+PvP but a real bug in co-op PvE (the boss is never at index 1 for any valid battle; a
+host's attack on the boss damaged the wrong ally). `_apply_remote_intent`'s `opp_idx`
+had the same unconditional `1 - player_idx` problem for ally-client relayed attacks. Both
+are fixed via the new `_resolve_intent_opp_idx` helper. See BID-026/027/028 for the
+residual gaps (no co-op-PvE attack-resolution smoke test; the AI-turn boss path has the
+same hardcoded-1 issue but is unreached by team PvP so was left for a follow-up).
+
+**Out of scope for v1** (documented, not silent): individual team-invite accept/decline,
+wagered team duels, a live 4-peer ENet loopback smoke test (covered instead by 17 pure
+`GameState` unit tests — `test_team_battle_state.gd`), and 3v3/4v4 (`setup_team_battle`
+is fixed at 2v2).
 
 ## Persistent Sessions & Per-Player Progress (GID-095)
 
@@ -492,6 +736,55 @@ survives a PvP battle re-attach (SessionStore stays open across battles).
   `session_ended` — `NetworkManager` conflates the host's own `leave()` with a client
   losing the host into the same signal, so force-routing there would regress host-exit.
 
+#### Friends list (GID-102 / TID-375)
+
+Players who met in a co-op session previously had no way to remember each other. A
+**device-local, token-keyed friends list** fixes this, mirroring the recent-servers
+pattern above exactly.
+
+- **Storage — `MpProfile`** (`friends` in `mp_profile.json`): an `Array` of
+  `{token, name, color_hex, last_seen}` dicts, deduped by `token`, most-recent-
+  touched-first, capped at **50** entries (same push-front + `resize` cap pattern as
+  `_recent_servers`). API:
+  - `add_friend(token, name, color_hex)` — idempotent upsert: re-adding an existing
+    token refreshes name/color/last_seen and moves it to the front rather than
+    duplicating it. Inputs are sanitized the same way `PlayerIdentity.decode`
+    defaults a malformed identity payload (blank name → `DEFAULT_NAME`, invalid hex →
+    `"ffffff"`), so a corrupted/garbage packet can never poison the friends list.
+    No-ops on a blank token.
+  - `remove_friend(token)` — drop by token; no-op if absent.
+  - `get_friends() -> Array` — defensive copy, most-recent-touched-first.
+  - `is_friend(token) -> bool` — membership check.
+  - `touch_friend_last_seen(token)` — refreshes `last_seen` for an **existing**
+    friend only (does not upsert a non-friend); called whenever a friend's token is
+    observed among connected session peers.
+  - The **token is never displayed** in any UI — friends are always rendered as a
+    color swatch + sanitized display name, per the GID-094 opaque-token rule.
+- **Add from roster — `WorldScene._add_roster_row`** gains an optional `token`
+  parameter (empty for the local "(you)" row, which never gets the affordance). Each
+  remote roster row shows a small "+ " button that calls
+  `MpProfile.add_friend(token, name, color_hex)`; once `MpProfile.is_friend(token)` is
+  true the button is replaced by a disabled "✓ Friend" indicator instead of allowing a
+  redundant add. `_refresh_coop_roster` also calls `touch_friend_last_seen(token)` for
+  every peer currently in `_remote_identities`, so a friend's `last_seen` advances
+  automatically just by being in the same session — independent of whether they were
+  added via the roster this session or a previous one.
+- **Online status is in-session presence only** — there is no global
+  matchmaking/presence backend (explicitly out of scope). "Online" means "this
+  friend's token is currently among the connected peers' identities in the session
+  I'm in right now"; otherwise the UI shows the stored `last_seen` timestamp honestly.
+- **Lobby — `MultiplayerLobbyScene`**: a "Friends" section (viewport-relative,
+  rebuilt on resize, same pattern as the Rejoin/Find-Games rows) lists
+  `MpProfile.get_friends()` as swatch + name + status. `_online_friend_tokens()`
+  checks `NetworkManager.is_active()` and, if so, reads `WorldScene._remote_identities`
+  via `get_node_or_null` + `get()` (the lobby has no direct WorldScene reference) to
+  see if any saved friend's token is currently connected; this is realistically rare
+  while still *in* the lobby overlay (pre-connection) and more useful if the panel
+  is later revisited mid-session. **No invite mechanism** is provided (no presence
+  backend to deliver one) and **no join-shortcut** was added from a friend entry —
+  a friend's server, if known, already one-tap-rejoins via the existing
+  recent-servers list, so the coupling was kept deliberately light per the task scope.
+
 ## Shared World-Object Sync (GID-096)
 
 Enemies and chests in a co-op session are **authority-owned shared state**. They are
@@ -597,14 +890,18 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_player_identity.gd` | unit (auto-run) | PlayerIdentity encode/decode round-trip, color hex, robust defaults for short/blank/invalid payloads (10 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
-| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; party_bounties default/round-trip/garbage tolerance (25 cases) (GID-095 / GID-101) |
+| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance (32 cases) (GID-095 / GID-101 / GID-102) |
+| `tests/unit/test_rating_math.gd` | unit (auto-run) | RatingMath ELO: expected-score symmetry/bounds/favouring, win-raises/loss-lowers, symmetric zero-sum deltas at equal rating, placement vs settled K, floor clamp, draw no-op (15 cases) (GID-102 / TID-370) |
 | `tests/unit/test_social_sync.gd` | unit (auto-run) | SocialSync emote round-trip for all 6 preset ids, map field, garbage/empty array tolerance; ping round-trip preserving coords/kind/color/map, partial array defaults, negative coords, constants sanity (16 cases) (GID-101 / TID-365) |
+| `tests/unit/test_chat_sync.gd` | unit (auto-run) | ChatSync quick-chat round-trip for all preset ids + unknown-preset fallback, free-text round-trip + 120-char length cap (under/at/over + forged-payload re-sanitization), control-character (incl. DEL) and newline/tab stripping, map field round-trip, garbage/null/empty/short-array/invalid-kind decode tolerance, constants sanity (26 cases) (GID-102 / TID-374) |
 | `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
+| `tests/unit/test_mp_profile_friends.gd` | unit (auto-run) | MpProfile friends list: add/dedupe-by-token/move-to-front, blank-token no-op, name/color sanitization, remove (existing + missing), `is_friend` true/false/blank, 50-entry cap eviction (keeps newest, drops oldest), `touch_friend_last_seen` (updates existing, no-op for non-friend), `get_friends` defensive copy, JSON persistence shape round-trip via a temp `user://` file (17 cases) (GID-102 / TID-375) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_coop_npeer_smoke.gd` | on-demand SceneTree | 3-peer (host + 2 clients) loopback: host avatar reaches both clients, and a **client→client** identity packet is relayed by the host (proves the server-relay path N-peer rendering depends on) + PlayerIdentity decode (GID-094) |
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |
 | `tests/net_pvp_smoke.gd` | on-demand SceneTree | Real ENet loopback: client intent → host apply → state-mirror round-trip |
 | `tests/net_pvp_client_smoke.gd` | on-demand SceneTree | Real ENet loopback with **two real `BattleScene` peers**: client (idx 1) launches + applies the host's first mirror without crashing (GID-092 / TID-336) |
+| `tests/net_pvp_reconnect_smoke.gd` | on-demand SceneTree | Real ENet loopback: duel starts and syncs, client peer disconnects (host starts a grace window, does **not** forfeit), a new connection reconnects and announces via `announce_reconnect`, host resumes (grace cancelled, re-mirrors) and the reconnecting client syncs (GID-102 / TID-372) |
 | `tests/net_rehost_smoke.gd` | on-demand SceneTree | host→leave→host repeated, and re-host without an explicit leave, all return OK (port freed) (GID-092 / TID-337) |
 | `tests/net_session_smoke.gd` | on-demand SceneTree | Real ENet loopback + live `SessionStore`/`SaveManager` autoloads: client identifies (token A) → host sends a seeded 12-card starter via `recv_character`; after persisted progress + close, re-opening the session resumes the **same** character (coins) + world progress from disk; `save_slot_*.json` proven untouched (GID-095 / TID-348) |
 | `tests/net_world_sync_smoke.gd` | on-demand SceneTree | Real ENet loopback + live `SessionStore`: authority `enemy_removed`/`chest_opened` events + a late-join snapshot + an enemy position batch all reach the client via real NetSync RPCs and decode; a defeated enemy + opened chest persist into the session file and resume on reopen; `save_slot_*.json` untouched (GID-096) |
@@ -719,8 +1016,16 @@ listen-server host (peer_id=1, local_idx=0); `_pvp_peer_to_idx` is empty so
 - **Up to 4 players** (`host()` default `max_clients = DEFAULT_MAX_CLIENTS = 3`,
   i.e. 3 clients + host; GID-094 / TID-341). **Reconnection** resumes a player's
   session character + position and the shared world (GID-095), via the lobby's one-tap
-  Rejoin list; there is still no reconnection *into an in-progress PvP battle*.
-- **PvP is LAN/loopback only, 2 players**. Spectating (TID-367) and wagered duels (TID-368) are now supported; there is still no ranked ladder across sessions.
+  Rejoin list. **Reconnection into an in-progress 1v1 PvP duel** is now supported
+  (GID-102 / TID-372 — see the PvP section below); a dropped **host or referee**, or a
+  dropped **team duel** (TID-371) participant, still ends the battle immediately
+  (out of scope for this slice).
+- **PvP is LAN/loopback only**, 2 players for 1v1 duels (Spectating/TID-367 and wagered
+  duels/TID-368 are supported there) or 4 for **2v2 team duels** (GID-102 / TID-371 —
+  no wagers, no accept/decline, fixed 2v2). A **persistent ELO rating + a derived
+  cross-session leaderboard** now exist (GID-102 / TID-370), extended to team duels via
+  a team-average-expected-score update; what is still missing is global *matchmaking*
+  (no queue across the internet) and the ranked UI panel (TID-373).
 - **Live-synced (GID-096):** shared **enemies** (engage-locks; defeat persists) and
   **chests** (first-opener-takes; open persists) now sync from the authority and resume on
   reconnect. Still **not** synced: NPC dialogue/story, day/night, weather, and the
@@ -925,6 +1230,7 @@ intervals until the first mirror arrives (same pattern as `_process` for PvP).
 | File | Type | Covers |
 |---|---|---|
 | `tests/unit/test_coop_battle_state.gd` | unit (auto-run) | N-player setup (2–4 allies + boss), turn rotation including boss turn and wrap-around, opponent targeting, win/loss conditions, `to_dict`/`from_dict` round-trip for N participants, `CoopBattleScaling` HP/tier for n=1..4 (42 cases) |
+| `tests/unit/test_team_battle_state.gd` | unit (auto-run) | 2v2 team battle: interleaved setup + team assignment, turn rotation alternates teams across all 4 slots and wraps, `opponent()` picks the lowest-HP alive enemy-team member (preferring alive over dead), team-aware `is_game_over()`/`winner()`, `to_dict`/`from_dict` round-trip incl. legacy-dict default tolerance (17 cases) (GID-102 / TID-371) |
 
 ## Co-op Battle Design (GID-100)
 

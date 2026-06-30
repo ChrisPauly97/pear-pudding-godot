@@ -8,6 +8,8 @@
 ##   key GID-095 uses to match a reconnecting player to their saved session character.
 ## - display_name / color: user-editable in the lobby, shown above remote avatars
 ##   and in the session roster, and remembered between launches.
+## - friends: a device-local, token-keyed friends list (GID-102 / TID-375), added
+##   from the session roster and shown by name + color only (never by token).
 extends Node
 
 const _PATH: String = "user://mp_profile.json"
@@ -33,9 +35,14 @@ var _host_session_id: String = ""
 ## Recent servers this device has joined (GID-095 / TID-347), most-recent first.
 ## Each entry: {address, port, label, last_session_id, last_joined}.
 var _recent_servers: Array = []
+## Friends list (GID-102 / TID-375), most-recent-touched first. Device-local, keyed
+## by the stable identity token (never shown). Each entry:
+## {token, name, color_hex, last_seen}.
+var _friends: Array = []
 var _loaded: bool = false
 
 const _MAX_RECENT_SERVERS: int = 6
+const _MAX_FRIENDS: int = 50
 
 
 func _ready() -> void:
@@ -132,6 +139,98 @@ func get_recent_servers() -> Array:
 
 
 # ---------------------------------------------------------------------------
+# Friends list (GID-102 / TID-375) — device-local, keyed by the stable identity
+# token. The token is opaque infrastructure and is NEVER displayed to the player;
+# friends are always shown by name + color swatch only.
+# ---------------------------------------------------------------------------
+
+## Add or update a friend, keyed by token (idempotent upsert — re-adding an existing
+## token refreshes name/color/last_seen and moves it to the front rather than
+## duplicating it). Mirrors add_recent_server's dedupe/cap/most-recent-first pattern.
+## Inputs are sanitized the same way PlayerIdentity.decode defaults a malformed
+## identity payload, so garbage data can never crash the friends list.
+func add_friend(token: String, name: String, color_hex: String) -> void:
+	_ensure_loaded()
+	var t: String = token.strip_edges()
+	if t == "":
+		return
+	var safe_name: String = name.strip_edges()
+	if safe_name == "":
+		safe_name = DEFAULT_NAME
+	var safe_color_hex: String = color_hex if Color.html_is_valid(color_hex) else "ffffff"
+	var kept: Array = []
+	for e: Variant in _friends:
+		if not e is Dictionary:
+			continue
+		var ed: Dictionary = e
+		if str(ed.get("token", "")) != t:
+			kept.append(ed)
+	kept.push_front({
+		"token": t,
+		"name": safe_name,
+		"color_hex": safe_color_hex,
+		"last_seen": Time.get_datetime_string_from_system(false, true),
+	})
+	if kept.size() > _MAX_FRIENDS:
+		kept.resize(_MAX_FRIENDS)
+	_friends = kept
+	_save()
+
+
+## Remove a friend by token. No-op if not present.
+func remove_friend(token: String) -> void:
+	_ensure_loaded()
+	var t: String = token.strip_edges()
+	var kept: Array = []
+	for e: Variant in _friends:
+		if not e is Dictionary:
+			continue
+		var ed: Dictionary = e
+		if str(ed.get("token", "")) != t:
+			kept.append(ed)
+	if kept.size() == _friends.size():
+		return  # nothing removed
+	_friends = kept
+	_save()
+
+
+## The friends list, most-recently-touched first (a copy — mutate via add_friend /
+## remove_friend / touch_friend_last_seen).
+func get_friends() -> Array:
+	_ensure_loaded()
+	return _friends.duplicate(true)
+
+
+## True if `token` is already a saved friend.
+func is_friend(token: String) -> bool:
+	_ensure_loaded()
+	var t: String = token.strip_edges()
+	if t == "":
+		return false
+	for e: Variant in _friends:
+		if e is Dictionary and str((e as Dictionary).get("token", "")) == t:
+			return true
+	return false
+
+
+## Refresh last_seen for an existing friend (e.g. their token was just observed
+## among connected session peers). No-op (does not upsert) if `token` is not
+## already a saved friend.
+func touch_friend_last_seen(token: String) -> void:
+	_ensure_loaded()
+	var t: String = token.strip_edges()
+	if t == "":
+		return
+	for i in range(_friends.size()):
+		var ed: Dictionary = _friends[i]
+		if str(ed.get("token", "")) == t:
+			ed["last_seen"] = Time.get_datetime_string_from_system(false, true)
+			_friends[i] = ed
+			_save()
+			return
+
+
+# ---------------------------------------------------------------------------
 # Persistence
 # ---------------------------------------------------------------------------
 
@@ -150,6 +249,8 @@ func _ensure_loaded() -> void:
 	_host_session_id = str(d.get("host_session_id", ""))
 	var rs: Variant = d.get("recent_servers", [])
 	_recent_servers = rs if rs is Array else []
+	var fr: Variant = d.get("friends", [])
+	_friends = fr if fr is Array else []
 	_name = str(d.get("name", DEFAULT_NAME))
 	if _name.strip_edges() == "":
 		_name = DEFAULT_NAME
@@ -178,6 +279,7 @@ func _save() -> void:
 		"token": _token,
 		"host_session_id": _host_session_id,
 		"recent_servers": _recent_servers,
+		"friends": _friends,
 		"name": _name,
 		"color": _color.to_html(false),
 	}, "\t"))

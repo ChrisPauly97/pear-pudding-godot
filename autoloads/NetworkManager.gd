@@ -110,6 +110,7 @@ func join(ip: String, port: int = DEFAULT_PORT) -> Error:
 ## Disconnect and clean up. Safe to call when not connected.
 func leave() -> void:
 	_reset_session()
+	clear_pvp_resume()
 	session_ended.emit()
 
 ## Tear down the peer + discovery sockets without emitting session_ended. Shared by
@@ -136,6 +137,36 @@ func is_active() -> bool:
 ## True if this instance is the host (server).
 func is_host() -> bool:
 	return multiplayer.is_server()
+
+
+# ---------------------------------------------------------------------------
+# PvP duel reconnect (GID-102 / TID-372)
+# ---------------------------------------------------------------------------
+# A small in-memory (never persisted to disk) record of "I was a PvP combatant when
+# I lost connection." Set by BattleScene at duel setup (client side only — only a
+# disconnected CLIENT reconnects in this slice, not a dropped host/referee), read by
+# MultiplayerLobbyScene._on_connection_succeeded to route straight back into the duel
+# instead of the normal shared-world landing. Survives _reset_session() (called by
+# join()/host() to tear down a stale peer before reconnecting) — only an explicit
+# leave() clears it, so the record outlives the very disconnect it exists to recover
+# from. Cleared explicitly by BattleScene at every genuine end-of-duel path.
+var _pvp_resume: Dictionary = {}
+
+## Record enough to re-enter the same duel: local_idx (0 host-side convention is
+## never used here — only client idx 1 calls this), the opponent's deck snapshot, and
+## any active wager so a resumed duel keeps its stakes.
+func set_pvp_resume(local_idx: int, opponent_deck: Array, ante_coins: int) -> void:
+	_pvp_resume = {"local_idx": local_idx, "opponent_deck": opponent_deck, "ante_coins": ante_coins}
+
+func clear_pvp_resume() -> void:
+	_pvp_resume = {}
+
+func has_pvp_resume() -> bool:
+	return not _pvp_resume.is_empty()
+
+## Returns the stored record, or {} if none is pending.
+func get_pvp_resume() -> Dictionary:
+	return _pvp_resume
 
 
 ## This peer's unique network ID (1 = host, >1 = clients).
