@@ -88,20 +88,24 @@ func recv_enemy_positions(payload: Array) -> void:
 
 
 ## PvP challenge (GID-091): A → B "challenge to battle", carrying A's deck.
+## `ranked` (GID-102 / TID-373): A's "Ranked" toggle state — both peers must agree, so
+## the responder's accept always echoes back the challenger's value (see respond_battle).
 ## Reliable — must not drop. Routed to WorldScene._on_battle_requested.
 @rpc("any_peer", "reliable", "call_remote")
-func request_battle(challenger_deck: Array) -> void:
+func request_battle(challenger_deck: Array, ranked: bool = false) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if world_scene != null and world_scene.has_method("_on_battle_requested"):
-		world_scene._on_battle_requested(sender, challenger_deck)
+		world_scene._on_battle_requested(sender, challenger_deck, ranked)
 
 
 ## PvP challenge response: B → A accept/decline, carrying B's deck on accept.
+## `ranked` echoes the challenger's request_battle value so both peers enter the duel
+## with the same flag (defaulted for backward-compat with any stale caller).
 @rpc("any_peer", "reliable", "call_remote")
-func respond_battle(accepted: bool, responder_deck: Array) -> void:
+func respond_battle(accepted: bool, responder_deck: Array, ranked: bool = false) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if world_scene != null and world_scene.has_method("_on_battle_responded"):
-		world_scene._on_battle_responded(sender, accepted, responder_deck)
+		world_scene._on_battle_responded(sender, accepted, responder_deck, ranked)
 
 
 # ── Dedicated-server PvP routing (GID-097 / TID-353) ──────────────────────────
@@ -302,3 +306,34 @@ func submit_party_bounty_progress(bounty_type: String, match_data: Dictionary) -
 func recv_party_bounties_snapshot(bounties: Array) -> void:
 	if world_scene != null and world_scene.has_method("_on_party_bounties_snapshot_received"):
 		world_scene._on_party_bounties_snapshot_received(bounties)
+
+
+# ── Ranked UI & leaderboard (GID-102 / TID-373) ──────────────────────────────
+
+## Authority → one or all peers: the current session leaderboard. payload is
+## SessionState.get_leaderboard() output: Array[Dictionary] of
+## {token, name, rating, games, wins, losses} — already JSON-primitive, sent as-is
+## (same pattern as recv_party_bounties_snapshot). Reliable — must not drop so the
+## client's cached rows stay consistent with the authority.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_leaderboard(rows: Array) -> void:
+	if world_scene != null and world_scene.has_method("_on_leaderboard_received"):
+		world_scene._on_leaderboard_received(rows)
+
+
+## Client → authority: on-demand refresh request (e.g. opening the leaderboard panel).
+## Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_leaderboard_request() -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_leaderboard_request_submitted"):
+		world_scene._on_leaderboard_request_submitted(sender)
+
+
+## Host → the opponent of a just-finished ranked duel: their rating delta, shown as a
+## toast once they're back in the world (see WorldScene._update_pvp_ratings doc comment
+## for why this can't be shown on the same-screen result UI). Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_rating_delta(delta: int) -> void:
+	if world_scene != null and world_scene.has_method("_on_rating_delta_received"):
+		world_scene._on_rating_delta_received(delta)

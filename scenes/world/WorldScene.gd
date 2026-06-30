@@ -51,6 +51,7 @@ const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 const _RatingMath        = preload("res://game_logic/net/RatingMath.gd")
+const _LeaderboardOverlay = preload("res://scenes/ui/LeaderboardOverlay.gd")
 
 # Co-op multiplayer (GID-090)
 const _NetSyncScript     = preload("res://scenes/world/NetSync.gd")
@@ -109,6 +110,7 @@ var _challenge_btn: Button = null
 var _challenge_target_peer: int = -1     # nearby remote peer eligible to challenge
 var _pending_challenge_from: int = -1    # incoming challenge awaiting our response
 var _pending_challenge_deck: Array = []  # challenger's deck stored until we accept
+var _pending_challenge_ranked: bool = false  # GID-102 (TID-373): challenger's ranked opt-in
 var _challenge_accept_panel: Node = null
 const _CHALLENGE_RANGE: float = 3.0      # tiles; proximity to show the prompt
 # Dedicated-server PvP routing (GID-097 / TID-353) — server tracks pending challenge
@@ -145,6 +147,13 @@ var _pvp_ante_peer1: int = -1           # client peer in the active wager
 # TID-369: Shared party bounties
 var _party_bounty_panel: VBoxContainer = null   # HUD panel showing shared progress
 var _pvp_ended_pending_broadcast: bool = false  # set in pvp_battle_ended; cleared on _enter_tree
+# GID-102 (TID-373): Ranked UI & leaderboard
+var _leaderboard_rows: Array = []        # cached SessionState.get_leaderboard() rows
+var _leaderboard_overlay: Node = null    # LeaderboardOverlay instance, nil when closed
+var _leaderboard_btn: Button = null      # HUD button that opens the leaderboard
+var _ranked_toggle_btn: Button = null    # "Ranked" opt-in toggle next to the challenge button
+var _ranked_toggle_on: bool = false      # local challenger's ranked opt-in state
+var _pvp_ranked: bool = false            # ranked flag captured for the active duel (both peers)
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -766,6 +775,11 @@ func _setup_session() -> void:
 			for key in st.story_flags:
 				SceneManager.save_manager.story_flags[str(key)] = bool(st.story_flags[key])
 			_coop_story_flag_syncing = false
+		# GID-102 (TID-373): seed the host's own leaderboard cache immediately so the
+		# roster badge + leaderboard panel are populated even before any peer joins or
+		# any duel has been played this session (e.g. a solo host re-entering a session
+		# with existing ranked history).
+		_leaderboard_rows = st.get_leaderboard(20) if st != null else []
 
 ## Client: adopt the character record the host resolved for our token. On a resume
 ## the host flags it so we also restore our saved position.
@@ -808,6 +822,11 @@ func _send_character_to_peer(peer_id: int, token: String, member_name: String) -
 	# GID-101 (TID-369): send party bounties snapshot so joining client is in sync.
 	if st != null and not (st.party_bounties as Array).is_empty():
 		_net_sync.rpc_id(peer_id, "recv_party_bounties_snapshot", st.party_bounties)
+	# GID-102 (TID-373): send the current leaderboard so the joining client's roster
+	# badges + leaderboard panel start populated instead of showing "—" until the
+	# next duel ends.
+	if st != null:
+		_net_sync.rpc_id(peer_id, "recv_leaderboard", st.get_leaderboard(20))
 
 ## Move the local player to the position stored in a session record (same map only).
 func _restore_session_position(record: Dictionary) -> void:
@@ -870,11 +889,17 @@ func _refresh_coop_roster() -> void:
 		c.queue_free()
 	if not _coop_active:
 		return
-	_add_roster_row("%s (you)" % MpProfile.get_display_name(), MpProfile.get_color())
+	# Rating badge (GID-102 / TID-373): looked up from the cached leaderboard rows by
+	# identity token; shows "—" until the first snapshot arrives.
+	var my_rating: String = _rating_badge_for_token(MpProfile.get_token())
+	_add_roster_row("%s (you)  [%s]" % [MpProfile.get_display_name(), my_rating], MpProfile.get_color())
 	for pid in _remote_player_nodes.keys():
 		var d: Dictionary = _remote_identities.get(pid, {})
 		var nm: String = str(d.get("name", "Player"))
 		var col: Color = d.get("color", Color(0.7, 0.85, 1.0))
+		var peer_token: String = str(d.get("token", ""))
+		var rating_badge: String = _rating_badge_for_token(peer_token)
+		nm += "  [%s]" % rating_badge
 		# Map-scoped sync (TID-352): peers on another map are greyed + "(elsewhere)".
 		var peer_map: String = str(_remote_player_maps.get(pid, map_name))
 		if peer_map != "" and peer_map != map_name:
@@ -1257,6 +1282,20 @@ func _ensure_challenge_button() -> void:
 	_challenge_btn.hide()
 	_challenge_btn.pressed.connect(_request_challenge)
 	_hud.add_child(_challenge_btn)
+	# Ranked opt-in toggle (GID-102 / TID-373): sits just below the challenge button,
+	# a touch/click target like every other HUD toggle (no separate keybind needed).
+	_ranked_toggle_btn = Button.new()
+	_ranked_toggle_btn.toggle_mode = true
+	_ranked_toggle_btn.text = "Ranked: OFF"
+	_ranked_toggle_btn.tooltip_text = "When ON, this duel counts toward your ranked rating."
+	_ranked_toggle_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
+	_ranked_toggle_btn.add_theme_font_size_override("font_size", int(vp.y * 0.020))
+	_ranked_toggle_btn.position = Vector2((vp.x - vp.y * 0.20) * 0.5, vp.y * 0.875)
+	_ranked_toggle_btn.hide()
+	_ranked_toggle_btn.toggled.connect(func(on: bool) -> void:
+		_ranked_toggle_on = on
+		_ranked_toggle_btn.text = "Ranked: ON" if on else "Ranked: OFF")
+	_hud.add_child(_ranked_toggle_btn)
 
 ## Shows/hides the challenge button based on proximity to a remote player. Called
 ## each frame from _process while co-op is active.
@@ -1266,9 +1305,13 @@ func _update_challenge_proximity() -> void:
 	# Suppress while a challenge is pending or we're not in the world.
 	if _pending_challenge_from != -1 or SceneManager._state != SceneManager.State.WORLD:
 		_challenge_btn.hide()
+		if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
+			_ranked_toggle_btn.hide()
 		return
 	if _player == null:
 		_challenge_btn.hide()
+		if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
+			_ranked_toggle_btn.hide()
 		return
 	var range_world: float = _CHALLENGE_RANGE * IsoConst.TILE_SIZE
 	var nearest_pid: int = -1
@@ -1284,6 +1327,8 @@ func _update_challenge_proximity() -> void:
 			nearest_pid = int(pid)
 	_challenge_target_peer = nearest_pid
 	_challenge_btn.visible = nearest_pid != -1
+	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
+		_ranked_toggle_btn.visible = nearest_pid != -1
 
 ## Local deck as a plain Array of Dictionaries for RPC transmission.
 func _local_deck_for_net() -> Array:
@@ -1301,26 +1346,29 @@ func _request_challenge() -> void:
 		_show_tip("Your deck is too small to duel — add at least %d cards." % IsoConst.DECK_MIN)
 		return
 	if _session_dedicated:
-		# Dedicated server: route through the server referee (peer_id 1).
+		# Dedicated server: route through the server referee (peer_id 1). Ranked toggle
+		# is not threaded through the dedicated-server relay path in this task — out of
+		# scope (see TID-373 task file); always casual on a dedicated server for now.
 		_net_sync.rpc_id(1, "relay_pvp_request", _challenge_target_peer, my_deck)
 	else:
-		_net_sync.rpc_id(_challenge_target_peer, "request_battle", my_deck)
-	_show_tip("Challenge sent…")
+		_net_sync.rpc_id(_challenge_target_peer, "request_battle", my_deck, _ranked_toggle_on)
+	_show_tip("Ranked challenge sent…" if _ranked_toggle_on else "Challenge sent…")
 
 ## Incoming challenge — show an Accept/Decline prompt.
-func _on_battle_requested(from_id: int, challenger_deck: Array) -> void:
+func _on_battle_requested(from_id: int, challenger_deck: Array, ranked: bool = false) -> void:
 	if _pending_challenge_from != -1:
 		return  # already handling one
 	_pending_challenge_from = from_id
 	_pending_challenge_deck = challenger_deck
-	_show_challenge_accept_panel(from_id)
+	_pending_challenge_ranked = ranked
+	_show_challenge_accept_panel(from_id, ranked)
 
 ## Challenger learns the response.
-func _on_battle_responded(_from_id: int, accepted: bool, responder_deck: Array) -> void:
+func _on_battle_responded(_from_id: int, accepted: bool, responder_deck: Array, ranked: bool = false) -> void:
 	if not accepted:
 		_show_tip("Challenge declined.")
 		return
-	_enter_pvp(responder_deck)
+	_enter_pvp(responder_deck, ranked)
 
 # ── Dedicated-server PvP routing (GID-097 / TID-353) ──────────────────────────
 
@@ -1371,7 +1419,7 @@ func _on_notify_pvp_start(my_player_idx: int, opponent_deck: Array) -> void:
 		return
 	SceneManager.enter_pvp_battle(my_player_idx, opponent_deck)
 
-func _show_challenge_accept_panel(from_id: int) -> void:
+func _show_challenge_accept_panel(from_id: int, ranked: bool = false) -> void:
 	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
 		_challenge_accept_panel.queue_free()
 	var vp: Vector2 = get_viewport().get_visible_rect().size
@@ -1394,9 +1442,12 @@ func _show_challenge_accept_panel(from_id: int) -> void:
 	panel.add_child(vbox)
 
 	var lbl := Label.new()
-	lbl.text = "A player challenges you to a card battle!"
+	lbl.text = "A player challenges you to a RANKED card battle!" if ranked \
+		else "A player challenges you to a card battle!"
 	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.03))
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if ranked:
+		lbl.modulate = Color(1.0, 0.85, 0.3)
 	vbox.add_child(lbl)
 
 	var row := HBoxContainer.new()
@@ -1426,6 +1477,7 @@ func _dismiss_challenge_panel() -> void:
 func _accept_challenge(from_id: int) -> void:
 	_dismiss_challenge_panel()
 	var my_deck: Array = _local_deck_for_net()
+	var ranked: bool = _pending_challenge_ranked
 	if my_deck.size() < IsoConst.DECK_MIN:
 		_show_tip("Your deck is too small to duel.")
 		if _net_sync != null:
@@ -1434,23 +1486,26 @@ func _accept_challenge(from_id: int) -> void:
 			else:
 				_net_sync.rpc_id(from_id, "respond_battle", false, [])
 		_pending_challenge_from = -1
+		_pending_challenge_ranked = false
 		return
 	var opp_deck: Array = _pending_challenge_deck
 	_pending_challenge_from = -1
 	_pending_challenge_deck = []
+	_pending_challenge_ranked = false
 	if _net_sync != null:
 		if _session_dedicated:
 			# Server will send notify_pvp_start to both peers — don't call _enter_pvp here.
 			_net_sync.rpc_id(1, "relay_pvp_response", from_id, true, my_deck)
 			return
-		_net_sync.rpc_id(from_id, "respond_battle", true, my_deck)
+		_net_sync.rpc_id(from_id, "respond_battle", true, my_deck, ranked)
 	# Record the opponent peer so the host's spectator + rating (TID-370) paths know
 	# who it dueled when accepting an incoming challenge (not just when challenging).
 	_challenge_target_peer = from_id
-	_enter_pvp(opp_deck)
+	_enter_pvp(opp_deck, ranked)
 
 func _decline_challenge(from_id: int) -> void:
 	_dismiss_challenge_panel()
+	_pending_challenge_ranked = false
 	if _net_sync != null:
 		if _session_dedicated:
 			_net_sync.rpc_id(1, "relay_pvp_response", from_id, false, [])
@@ -1461,9 +1516,14 @@ func _decline_challenge(from_id: int) -> void:
 
 ## Both peers route into SceneManager. The co-op host is always the battle
 ## authority (canonical player 0); the client is player 1.
-func _enter_pvp(opponent_deck: Array) -> void:
+## ranked (GID-102 / TID-373): agreed by both peers via the request_battle/respond_battle
+## handshake before either calls this, so both pass the same value into enter_pvp_battle.
+func _enter_pvp(opponent_deck: Array, ranked: bool = false) -> void:
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		_challenge_btn.hide()
+	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
+		_ranked_toggle_btn.hide()
+	_pvp_ranked = ranked
 	var local_idx: int = 0 if NetworkManager.is_host() else 1
 	# GID-101 (TID-367): host broadcasts duel-start to spectators
 	if NetworkManager.is_host() and _net_sync != null:
@@ -1474,7 +1534,7 @@ func _enter_pvp(opponent_deck: Array) -> void:
 			var p: int = int(pid)
 			if p != _challenge_target_peer:
 				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _challenge_target_peer)
-	SceneManager.enter_pvp_battle(local_idx, opponent_deck)
+	SceneManager.enter_pvp_battle(local_idx, opponent_deck, 0, ranked)
 
 ## Returns the biome and time context at the moment of engagement (GID-059).
 ## Called by SceneManager._on_enemy_engaged() to stamp context into enemy_data.
@@ -3951,6 +4011,18 @@ func _ensure_social_buttons() -> void:
 		_spectate_btn.hide()
 		_spectate_btn.pressed.connect(_request_spectate)
 		_hud.add_child(_spectate_btn)
+	# Leaderboard panel button (GID-102 / TID-373): always visible while co-op is
+	# active (not proximity-gated like Trade/Spectate — the leaderboard is global,
+	# not tied to a nearby duel). Touch/click target, no separate keybind needed.
+	if _leaderboard_btn == null or not is_instance_valid(_leaderboard_btn):
+		_leaderboard_btn = Button.new()
+		_leaderboard_btn.text = "Leaderboard"
+		_leaderboard_btn.tooltip_text = "View the session's ranked leaderboard"
+		_leaderboard_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.055)
+		_leaderboard_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+		_leaderboard_btn.position = Vector2(vp.x * 0.012, vh * 0.012)
+		_leaderboard_btn.pressed.connect(_toggle_leaderboard_overlay)
+		_hud.add_child(_leaderboard_btn)
 
 
 func _update_social_proximity() -> void:
@@ -4557,10 +4629,15 @@ func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 				rec["pvp_best_streak"] = best
 				st.update_member(token, rec)
 				SessionStore.mark_dirty()
-			# Ranked rating (TID-370): the authority owns both records, so it computes
-			# both combatants' ELO deltas and writes both. The host is one combatant;
-			# the opponent is the duel peer captured at battle-start (_pvp_ante_peer1).
-			_update_pvp_ratings(st, token, did_win)
+			# Ranked rating (TID-370) — gated on the duel's ranked opt-in (GID-102 / TID-373):
+			# the authority owns both records, so it computes both combatants' ELO deltas and
+			# writes both. The host is one combatant; the opponent is the duel peer captured
+			# at battle-start (_pvp_ante_peer1). Casual (non-ranked) duels never touch rating.
+			if _pvp_ranked:
+				_update_pvp_ratings(st, token, did_win)
+				# Broadcast a fresh leaderboard snapshot now that ratings changed.
+				_broadcast_leaderboard()
+	_pvp_ranked = false
 	# Signal spectators to return to world when WorldScene re-enters the tree.
 	_pvp_ended_pending_broadcast = true
 
@@ -4569,6 +4646,16 @@ func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 ## `host_token` is the host's own member; `_pvp_ante_peer1` identifies the opponent peer
 ## (set in `_enter_pvp` / `_enter_pvp_wagered`). Both ratings move zero-sum-ish via ELO;
 ## a client never rates itself, so this only runs on the host (caller already guards that).
+## Only called for ranked duels (see _on_pvp_battle_ended_coop).
+##
+## Rating-delta display (GID-102 / TID-373): BattleResultUI.show_pvp_result() is shown by
+## BattleScene._finish_pvp BEFORE GameBus.pvp_battle_ended fires, but this update only runs
+## AFTER that signal, here in WorldScene once the battle has ended — so the result screen
+## cannot know the delta at the moment it is shown without restructuring the host-authoritative
+## battle-end sequencing (out of scope / risky, see task file). Instead each combatant gets a
+## toast once back in the world: the host shows its own delta locally; the opponent's delta is
+## unicast via a tiny dedicated RPC (recv_rating_delta) right after this update, reusing the
+## existing low-risk end-of-action toast pattern (hud_message_requested).
 func _update_pvp_ratings(st, host_token: String, host_won: bool) -> void:
 	var opp_peer: int = _pvp_ante_peer1
 	if opp_peer <= 0:
@@ -4585,13 +4672,107 @@ func _update_pvp_ratings(st, host_token: String, host_won: bool) -> void:
 	var g_host: int = int(host_rec.get("pvp_games", 0))
 	var g_opp: int = int(opp_rec.get("pvp_games", 0))
 	var host_score: float = 1.0 if host_won else 0.0
-	host_rec["pvp_rating"] = _RatingMath.updated(r_host, r_opp, host_score, g_host)
+	var new_host_rating: int = _RatingMath.updated(r_host, r_opp, host_score, g_host)
+	var new_opp_rating: int = _RatingMath.updated(r_opp, r_host, 1.0 - host_score, g_opp)
+	var host_delta: int = new_host_rating - r_host
+	var opp_delta: int = new_opp_rating - r_opp
+	host_rec["pvp_rating"] = new_host_rating
 	host_rec["pvp_games"] = g_host + 1
-	opp_rec["pvp_rating"] = _RatingMath.updated(r_opp, r_host, 1.0 - host_score, g_opp)
+	opp_rec["pvp_rating"] = new_opp_rating
 	opp_rec["pvp_games"] = g_opp + 1
 	st.update_member(host_token, host_rec)
 	st.update_member(opp_token, opp_rec)
 	SessionStore.mark_dirty()
+	# Toast both combatants with their rating delta (TID-373). The host shows its own
+	# locally; the opponent's is unicast since only the host computed it.
+	GameBus.hud_message_requested.emit(_format_rating_delta(host_delta))
+	if _net_sync != null:
+		_net_sync.rpc_id(opp_peer, "recv_rating_delta", opp_delta)
+
+
+## "+N rating" (gold) / "-N rating" formatted as plain text for hud_message_requested
+## (that signal carries text only, no color — color is the toast UI's own styling).
+func _format_rating_delta(delta: int) -> String:
+	return "+%d rating" % delta if delta >= 0 else "%d rating" % delta
+
+
+## Client: receive our own rating delta toast from the host after a ranked duel.
+func _on_rating_delta_received(delta: int) -> void:
+	GameBus.hud_message_requested.emit(_format_rating_delta(delta))
+
+
+# ── GID-102 (TID-373): Ranked UI & leaderboard ────────────────────────────────
+
+## Host: push the current leaderboard to one peer (target_peer == 0 broadcasts to all).
+func _broadcast_leaderboard(target_peer: int = 0) -> void:
+	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var rows: Array = st.get_leaderboard(20)
+	# Update the host's own cache too so its roster badge + overlay stay in sync.
+	_leaderboard_rows = rows
+	if target_peer == 0:
+		_net_sync.rpc("recv_leaderboard", rows)
+	else:
+		_net_sync.rpc_id(target_peer, "recv_leaderboard", rows)
+	_refresh_coop_roster()
+	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay) \
+			and _leaderboard_overlay.has_method("refresh_rows"):
+		_leaderboard_overlay.refresh_rows(_leaderboard_rows)
+
+
+## Any peer: receive a leaderboard snapshot (initial push, post-duel update, or an
+## on-demand refresh reply) and refresh the roster badges + open overlay if any.
+func _on_leaderboard_received(rows: Array) -> void:
+	_leaderboard_rows = rows
+	_refresh_coop_roster()
+	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay) \
+			and _leaderboard_overlay.has_method("refresh_rows"):
+		_leaderboard_overlay.refresh_rows(_leaderboard_rows)
+
+
+## Host: a client asked for a fresh leaderboard snapshot (e.g. opening the panel).
+func _on_leaderboard_request_submitted(sender: int) -> void:
+	_broadcast_leaderboard(sender)
+
+
+## token -> row lookup derived from the cache, for the roster badge + overlay.
+func _leaderboard_lookup_by_token() -> Dictionary:
+	var out: Dictionary = {}
+	for row in _leaderboard_rows:
+		if row is Dictionary:
+			out[str((row as Dictionary).get("token", ""))] = row
+	return out
+
+
+## Returns "1234" for a cached rating or "—" if the token isn't in the cache yet
+## (e.g. before the first leaderboard snapshot arrives).
+func _rating_badge_for_token(token: String) -> String:
+	if token == "":
+		return "—"
+	var lookup: Dictionary = _leaderboard_lookup_by_token()
+	if not lookup.has(token):
+		return "—"
+	return str(int((lookup[token] as Dictionary).get("rating", _RatingMath.START_RATING)))
+
+
+## Opens (or closes, if already open) the leaderboard overlay. Requests a fresh
+## snapshot from the host on open. HUD button + mobile/desktop parity (TID-373).
+func _toggle_leaderboard_overlay() -> void:
+	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay):
+		_leaderboard_overlay.queue_free()
+		_leaderboard_overlay = null
+		return
+	_leaderboard_overlay = _LeaderboardOverlay.new()
+	add_child(_leaderboard_overlay)
+	_leaderboard_overlay.closed.connect(func() -> void: _leaderboard_overlay = null)
+	_leaderboard_overlay.refresh_rows(_leaderboard_rows)
+	if NetworkManager.is_host():
+		_broadcast_leaderboard()
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_leaderboard_request")
 
 
 # ── TID-369: Shared party bounties ────────────────────────────────────────────

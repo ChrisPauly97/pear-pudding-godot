@@ -330,6 +330,81 @@ is the data foundation TID-373 (ranked UI) builds on. Single-player hits none of
 **Known gap:** opponent *champion* stats (wins/losses/streak) are still host-only
 (TID-368 behaviour) — only the rating is updated for both sides here (see BID-025).
 
+### Ranked UI & Leaderboard (GID-102 / TID-373)
+
+Surfaces the TID-370 rating data: a leaderboard panel, a rating badge in the session
+roster, and a "Ranked" opt-in toggle on the challenge flow so a casual duel never moves
+anyone's rating.
+
+**Ranked vs casual flag — `GameState.ranked: bool`.** A *new* dedicated field, not a
+reuse of `GameState.friendly_duel`. `friendly_duel` is the unrelated single-player
+NPC wager-duel mode (set when `BattleScene.duel_wager > 0` on the non-PvP path; it
+disables capture-tracking and companion bonuses) — co-op `_pvp` battles never touch
+it. Reusing it would have conflated two different game modes, so `ranked` is its own
+field, serialized in `to_dict`/`from_dict` like `coop_battle`, defaulting to `false`.
+
+**Challenge handshake.** A "Ranked: OFF/ON" toggle button sits next to the existing
+"Challenge to Battle" button (`WorldScene._ensure_challenge_button`), shown/hidden
+together by proximity. `request_battle` / `respond_battle` gained a trailing
+`ranked: bool = false` parameter so both peers agree on the flag before either calls
+`SceneManager.enter_pvp_battle(local_idx, opponent_deck, ante_coins, ranked)` (which
+now takes a 4th `ranked` parameter, threaded into `BattleScene.pvp_ranked` →
+`GameState.ranked`, mirroring exactly how `ante_coins` already crosses the same
+SceneManager → BattleScene boundary). `WorldScene._pvp_ranked` caches the agreed flag
+for the active duel and gates the TID-370 `_update_pvp_ratings` call in
+`_on_pvp_battle_ended_coop` — **casual duels never touch rating**. The wagered-duel
+flow (`_enter_pvp_wagered`) does not currently expose a ranked option — composing
+ranked + wagered is left for a follow-up (see BID-026, a related pre-existing gap:
+there is no HUD entry point to *initiate* a custom-ante wager at all today).
+
+**Leaderboard data flow.** A client never has direct `SessionStore` access, so the
+authority pushes snapshots. `WorldScene._leaderboard_rows: Array` caches the last
+`SessionState.get_leaderboard(20)` result (rows are already JSON-primitive —
+`{token, name, rating, games, wins, losses}` — sent as-is over the wire, the same
+"no dedicated wire-format helper needed" situation as `recv_party_bounties_snapshot`).
+Broadcast points (host only, via `_broadcast_leaderboard(target_peer := 0)`):
+
+- **Late join:** `_send_character_to_peer` unicasts the current leaderboard to a
+  newly-identified peer right alongside the character + party-bounty snapshot sends.
+- **After a ranked duel:** `_on_pvp_battle_ended_coop` calls `_broadcast_leaderboard()`
+  to all peers once `_update_pvp_ratings` has written the new records.
+- **On demand:** a client's `NetSync.submit_leaderboard_request()` (e.g. opening the
+  panel) is answered by `_on_leaderboard_request_submitted` unicasting back.
+
+**Roster rating badge.** The existing session roster (`_build_coop_roster` /
+`_refresh_coop_roster`) appends a `[rating]` badge after each name — `[—]` until the
+first snapshot arrives — via `_rating_badge_for_token(token)`, which looks the token
+up in a `token -> row` map built on demand by `_leaderboard_lookup_by_token()`. The
+local row uses `MpProfile.get_token()`; remote rows use `_remote_identities[pid]["token"]`.
+
+**Leaderboard overlay — `scenes/ui/LeaderboardOverlay.gd`.** Extends
+`res://scenes/ui/BaseOverlay.gd` by path string and is instantiated via `.new()` —
+confirmed this is the actual convention `SettingsScene` and `MultiplayerLobbyScene`
+both use before picking it. Viewport-relative throughout, rebuilt on
+`NOTIFICATION_RESIZED`. Lists the cached rows: rank, name, rating, W/L; shows a
+placeholder row when no ranked duels have been played yet. Opened via an
+always-visible "Leaderboard" HUD button (top-left, alongside the other social/utility
+buttons — a touch/click target, no separate keybind, consistent with how
+Trade/Spectate/Emote are reached) that calls `_toggle_leaderboard_overlay()`, which
+requests a fresh snapshot on open (host computes locally; client sends
+`submit_leaderboard_request`).
+
+**Rating-delta display — a sequencing constraint, not a corner cut.**
+`BattleResultUI.show_pvp_result(did_win, coins_delta)` is shown by
+`BattleScene._finish_pvp` **before** `GameBus.pvp_battle_ended` fires, but
+`_update_pvp_ratings` (the only place that computes a delta) only runs **after** that
+signal fires, inside `WorldScene._on_pvp_battle_ended_coop` — and only on the host.
+Showing the delta on the same result screen would require either threading an
+unverified number through the battle-end RPC (an integrity smell — a client would
+have to trust a delta it can't re-derive) or restructuring the host-authoritative
+battle-end ordering the rest of co-op relies on; both are out of scope here. Instead,
+once `_update_pvp_ratings` computes both deltas, the host shows its own as a
+`GameBus.hud_message_requested` toast ("+18 rating" / "-14 rating") and unicasts the
+opponent's via the new `recv_rating_delta(delta: int)` RPC, which the opponent's
+`_on_rating_delta_received` also surfaces as a toast — both appear once the player is
+back in the world, after the result screen's Continue button, using the same
+low-risk end-of-action toast pattern other features already rely on.
+
 ### Spectating a duel (GID-101 / TID-367)
 
 Non-combatant party members can **watch** an in-progress PvP duel read-only.
@@ -630,6 +705,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/net_rehost_smoke.gd` | on-demand SceneTree | host→leave→host repeated, and re-host without an explicit leave, all return OK (port freed) (GID-092 / TID-337) |
 | `tests/net_session_smoke.gd` | on-demand SceneTree | Real ENet loopback + live `SessionStore`/`SaveManager` autoloads: client identifies (token A) → host sends a seeded 12-card starter via `recv_character`; after persisted progress + close, re-opening the session resumes the **same** character (coins) + world progress from disk; `save_slot_*.json` proven untouched (GID-095 / TID-348) |
 | `tests/net_world_sync_smoke.gd` | on-demand SceneTree | Real ENet loopback + live `SessionStore`: authority `enemy_removed`/`chest_opened` events + a late-join snapshot + an enemy position batch all reach the client via real NetSync RPCs and decode; a defeated enemy + opened chest persist into the session file and resume on reopen; `save_slot_*.json` untouched (GID-096) |
+| `tests/net_leaderboard_smoke.gd` | on-demand SceneTree | Real ENet loopback: authority `recv_leaderboard` broadcast reaches the client with the exact `SessionState.get_leaderboard()` row shape and rating-desc ordering; client `submit_leaderboard_request` reaches the authority (GID-102 / TID-373) |
 
 Run the smoke tests with `godot --headless --path . -s tests/<file>` (exit 0 =
 pass). They are not in the auto-discovered unit suite because they need real
@@ -742,7 +818,7 @@ listen-server host (peer_id=1, local_idx=0); `_pvp_peer_to_idx` is empty so
   i.e. 3 clients + host; GID-094 / TID-341). **Reconnection** resumes a player's
   session character + position and the shared world (GID-095), via the lobby's one-tap
   Rejoin list; there is still no reconnection *into an in-progress PvP battle*.
-- **PvP is LAN/loopback only, 2 players**. Spectating (TID-367) and wagered duels (TID-368) are now supported. A **persistent ELO rating + a derived cross-session leaderboard** now exist (GID-102 / TID-370); what is still missing is global *matchmaking* (no queue across the internet) and the ranked UI panel (TID-373).
+- **PvP is LAN/loopback only, 2 players**. Spectating (TID-367) and wagered duels (TID-368) are now supported. A **persistent ELO rating + a derived cross-session leaderboard** exist (GID-102 / TID-370) with a **ranked toggle, leaderboard panel, and roster rating badges** surfacing them (GID-102 / TID-373); what is still missing is global *matchmaking* (no queue across the internet) and a true cross-session ladder (the leaderboard is per-session, scoped to one host's `SessionStore` file).
 - **Live-synced (GID-096):** shared **enemies** (engage-locks; defeat persists) and
   **chests** (first-opener-takes; open persists) now sync from the authority and resume on
   reconnect. Still **not** synced: NPC dialogue/story, day/night, weather, and the

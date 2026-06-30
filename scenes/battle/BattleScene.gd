@@ -69,6 +69,11 @@ var _spectators: Array[int] = []      # host only: peer_ids watching this duel
 # The host reads this to include wager info in the pvp_ended payload.
 var pvp_ante_coins: int = 0
 
+# Ranked opt-in (GID-102 / TID-373): set by SceneManager.enter_pvp_battle before
+# _ready. When true, _state.ranked is set so WorldScene knows to run the TID-370
+# ELO rating update on battle end (gated in WorldScene, not here).
+var pvp_ranked: bool = false
+
 # ── Co-op PvE joint battle (GID-099) ─────────────────────────────────────────
 # All inert unless SceneManager sets _coop_pve = true before _ready.
 # _local_player_idx is the local ally index (0 = host/ally-0, 1..N-1 = ally clients).
@@ -2030,6 +2035,7 @@ func _can_local_act() -> bool:
 ## If _pvp_spectating is true, we skip simulation entirely and only receive mirrors.
 func _setup_pvp_battle() -> void:
 	_state = GameState.new()
+	_state.ranked = pvp_ranked
 	_resolver.setup(_state)
 	_wire_gamebus_emitter()
 	_net = _BattleNetSyncScript.new()
