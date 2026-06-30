@@ -309,6 +309,27 @@ to the menu).
 writes the updated record back via `SessionStore.update_member` + `mark_dirty`.
 A streak ≥ 3 earns the informal "Champion" status (visible in the session roster label).
 
+**Ranked rating (GID-102 / TID-370):** character records also carry `pvp_rating`
+(starts `1000`) and `pvp_games` (added in **v4** migration). The rating math lives in
+the pure, unit-tested **`game_logic/net/RatingMath.gd`** (mirrors `BattleNetProtocol`):
+standard ELO — `expected_score(a, b) = 1 / (1 + 10^((b-a)/400))`,
+`updated(r, opp, score, games) = clamp(r + K·(score − expected))` — with a larger
+placement K (`K_PLACEMENT = 64`) for the first `PLACEMENT_GAMES = 10` games settling to
+`K_BASE = 32`, a `MIN_RATING = 100` floor, and `score` 1.0/0.0 (0.5 reserved for a draw).
+Because the **authority owns both combatants' records**, `_on_pvp_battle_ended_coop`
+calls `_update_pvp_ratings(state, host_token, host_won)`: it resolves the opponent token
+from the duel peer (`_pvp_ante_peer1`, set in `_enter_pvp` / `_enter_pvp_wagered`; the
+host-accepts-incoming path now sets `_challenge_target_peer = from_id` so it is recorded
+there too) via `_session_token_by_peer`, computes both zero-sum-ish ELO deltas, bumps
+`pvp_games`, and writes both records (`update_member` + `mark_dirty`). A client never
+rates itself — only the host runs this. The **cross-session leaderboard** is *derived*
+(no second source of truth): `SessionState.get_leaderboard(limit)` sorts `members` by
+`pvp_rating` desc (ties → games, then token) returning `{token, name, rating, games,
+wins, losses}` rows. The dedicated server (GID-097) is the canonical ladder host. This
+is the data foundation TID-373 (ranked UI) builds on. Single-player hits none of it.
+**Known gap:** opponent *champion* stats (wins/losses/streak) are still host-only
+(TID-368 behaviour) — only the rating is updated for both sides here (see BID-025).
+
 ### Spectating a duel (GID-101 / TID-367)
 
 Non-combatant party members can **watch** an in-progress PvP duel read-only.
@@ -597,7 +618,8 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_player_identity.gd` | unit (auto-run) | PlayerIdentity encode/decode round-trip, color hex, robust defaults for short/blank/invalid payloads (10 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
-| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; party_bounties default/round-trip/garbage tolerance (25 cases) (GID-095 / GID-101) |
+| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance (32 cases) (GID-095 / GID-101 / GID-102) |
+| `tests/unit/test_rating_math.gd` | unit (auto-run) | RatingMath ELO: expected-score symmetry/bounds/favouring, win-raises/loss-lowers, symmetric zero-sum deltas at equal rating, placement vs settled K, floor clamp, draw no-op (15 cases) (GID-102 / TID-370) |
 | `tests/unit/test_social_sync.gd` | unit (auto-run) | SocialSync emote round-trip for all 6 preset ids, map field, garbage/empty array tolerance; ping round-trip preserving coords/kind/color/map, partial array defaults, negative coords, constants sanity (16 cases) (GID-101 / TID-365) |
 | `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
@@ -720,7 +742,7 @@ listen-server host (peer_id=1, local_idx=0); `_pvp_peer_to_idx` is empty so
   i.e. 3 clients + host; GID-094 / TID-341). **Reconnection** resumes a player's
   session character + position and the shared world (GID-095), via the lobby's one-tap
   Rejoin list; there is still no reconnection *into an in-progress PvP battle*.
-- **PvP is LAN/loopback only, 2 players**. Spectating (TID-367) and wagered duels (TID-368) are now supported; there is still no ranked ladder across sessions.
+- **PvP is LAN/loopback only, 2 players**. Spectating (TID-367) and wagered duels (TID-368) are now supported. A **persistent ELO rating + a derived cross-session leaderboard** now exist (GID-102 / TID-370); what is still missing is global *matchmaking* (no queue across the internet) and the ranked UI panel (TID-373).
 - **Live-synced (GID-096):** shared **enemies** (engage-locks; defeat persists) and
   **chests** (first-opener-takes; open persists) now sync from the authority and resume on
   reconnect. Still **not** synced: NPC dialogue/story, day/night, weather, and the

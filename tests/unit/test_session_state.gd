@@ -231,6 +231,95 @@ func test_migration_v3_backfills_pvp_stats_on_existing_members() -> void:
 
 
 # ---------------------------------------------------------------------------
+# PvP ranked rating (GID-102 / TID-370)
+# ---------------------------------------------------------------------------
+
+func test_starter_has_rating_fields_defaulted() -> void:
+	var rec: Dictionary = SessionState.make_starter_character("tok", "Ada")
+	assert_eq(int(rec.get("pvp_rating", -1)), 1000)
+	assert_eq(int(rec.get("pvp_games", -1)), 0)
+
+
+func test_round_trip_preserves_rating_fields() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var rec: Dictionary = s.get_member("tok")
+	rec["pvp_rating"] = 1234
+	rec["pvp_games"] = 17
+	s.update_member("tok", rec)
+	var restored := SessionState.from_dict(s.to_dict())
+	var r: Dictionary = restored.get_member("tok")
+	assert_eq(int(r.get("pvp_rating", -1)), 1234)
+	assert_eq(int(r.get("pvp_games", -1)), 17)
+
+
+func test_migration_v4_backfills_rating_on_existing_members() -> void:
+	# A v3 session with a member that predates the rating fields.
+	var data: Dictionary = {
+		"version": 3,
+		"session_id": "old",
+		"party_bounties": [],
+		"members": {
+			"tokA": {
+				"token": "tokA", "display_name": "Ada", "coins": 500,
+				"pvp_wins": 4, "pvp_losses": 1, "pvp_streak": 2, "pvp_best_streak": 3,
+			}
+		}
+	}
+	var s := SessionState.from_dict(data)
+	var rec: Dictionary = s.get_member("tokA")
+	assert_eq(int(rec.get("pvp_rating", -1)), 1000, "pvp_rating backfilled to 1000")
+	assert_eq(int(rec.get("pvp_games", -1)), 0, "pvp_games backfilled to 0")
+	assert_eq(int(rec.get("pvp_wins", 0)), 4, "existing pvp fields preserved")
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+# ---------------------------------------------------------------------------
+# Derived leaderboard (GID-102 / TID-370)
+# ---------------------------------------------------------------------------
+
+func test_leaderboard_sorts_by_rating_desc() -> void:
+	var s := SessionState.new()
+	for entry in [["a", "A", 1100], ["b", "B", 1500], ["c", "C", 900]]:
+		s.ensure_member(entry[0], entry[1])
+		var rec: Dictionary = s.get_member(entry[0])
+		rec["pvp_rating"] = entry[2]
+		s.update_member(entry[0], rec)
+	var lb: Array = s.get_leaderboard()
+	assert_eq(lb.size(), 3)
+	assert_eq(str(lb[0]["token"]), "b", "highest rating first")
+	assert_eq(str(lb[1]["token"]), "a")
+	assert_eq(str(lb[2]["token"]), "c", "lowest rating last")
+	assert_eq(int(lb[0]["rating"]), 1500)
+
+
+func test_leaderboard_respects_limit() -> void:
+	var s := SessionState.new()
+	for i in range(5):
+		s.ensure_member("tok%d" % i, "P%d" % i)
+	var lb: Array = s.get_leaderboard(2)
+	assert_eq(lb.size(), 2)
+
+
+func test_leaderboard_includes_name_and_record() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var rec: Dictionary = s.get_member("tok")
+	rec["pvp_wins"] = 7
+	rec["pvp_losses"] = 3
+	s.update_member("tok", rec)
+	var row: Dictionary = s.get_leaderboard()[0]
+	assert_eq(str(row["name"]), "Ada")
+	assert_eq(int(row["wins"]), 7)
+	assert_eq(int(row["losses"]), 3)
+
+
+func test_leaderboard_empty_for_no_members() -> void:
+	var s := SessionState.new()
+	assert_true(s.get_leaderboard().is_empty())
+
+
+# ---------------------------------------------------------------------------
 # Party bounties (GID-101 / TID-369)
 # ---------------------------------------------------------------------------
 
