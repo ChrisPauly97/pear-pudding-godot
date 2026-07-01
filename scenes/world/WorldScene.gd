@@ -154,6 +154,9 @@ var _leaderboard_btn: Button = null      # HUD button that opens the leaderboard
 var _ranked_toggle_btn: Button = null    # "Ranked" opt-in toggle next to the challenge button
 var _ranked_toggle_on: bool = false      # local challenger's ranked opt-in state
 var _pvp_ranked: bool = false            # ranked flag captured for the active duel (both peers)
+# GID-102 (TID-379): PvE leaderboards (Endless Spire + co-op boss clears). Distinct
+# cache/RPC names from the TID-373 ranked-rating board above — never touches rating.
+var _pve_leaderboards: Dictionary = {"spire": [], "coop_clears": []}  # cached snapshot
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -516,6 +519,17 @@ func _ready() -> void:
 	if not GameBus.pvp_battle_ended.is_connected(_on_pvp_battle_ended_coop):
 		GameBus.pvp_battle_ended.connect(_on_pvp_battle_ended_coop)
 
+	# GID-102 (TID-379): PvE leaderboard submission. Connected permanently (same
+	# "WorldScene detaches during battle" reasoning as pvp_battle_ended above) so a
+	# co-op boss clear is recorded regardless of which map/battle state re-attaches us.
+	if not GameBus.coop_pve_battle_ended.is_connected(_on_coop_pve_battle_ended_leaderboard):
+		GameBus.coop_pve_battle_ended.connect(_on_coop_pve_battle_ended_leaderboard)
+	# Spire runs happen while WorldScene is loaded (no battle-detach involved), but the
+	# connection is still made once here (not in _setup_coop) so a Spire run that starts
+	# before any co-op session is active still reaches this handler once co-op does start.
+	if not GameBus.spire_run_ended.is_connected(_on_spire_run_ended_leaderboard):
+		GameBus.spire_run_ended.connect(_on_spire_run_ended_leaderboard)
+
 	_setup_coop()
 	_initial_ready_done = true
 
@@ -780,6 +794,9 @@ func _setup_session() -> void:
 		# any duel has been played this session (e.g. a solo host re-entering a session
 		# with existing ranked history).
 		_leaderboard_rows = st.get_leaderboard(20) if st != null else []
+		# GID-102 (TID-379): same seeding for the PvE leaderboards cache.
+		_pve_leaderboards = st.get_pve_leaderboards_snapshot() if st != null else \
+			{"spire": [], "coop_clears": []}
 
 ## Client: adopt the character record the host resolved for our token. On a resume
 ## the host flags it so we also restore our saved position.
@@ -827,6 +844,9 @@ func _send_character_to_peer(peer_id: int, token: String, member_name: String) -
 	# next duel ends.
 	if st != null:
 		_net_sync.rpc_id(peer_id, "recv_leaderboard", st.get_leaderboard(20))
+		# GID-102 (TID-379): send the current PvE leaderboards snapshot alongside it so
+		# a joining client's Spire/Co-op-clears tabs start populated too.
+		_net_sync.rpc_id(peer_id, "recv_pve_leaderboards", st.get_pve_leaderboards_snapshot())
 
 ## Move the local player to the position stored in a session record (same map only).
 func _restore_session_position(record: Dictionary) -> void:
@@ -4773,6 +4793,110 @@ func _toggle_leaderboard_overlay() -> void:
 		_broadcast_leaderboard()
 	elif _net_sync != null:
 		_net_sync.rpc_id(1, "submit_leaderboard_request")
+	if _leaderboard_overlay.has_method("refresh_pve_rows"):
+		_leaderboard_overlay.refresh_pve_rows(_pve_leaderboards)
+	if NetworkManager.is_host():
+		_broadcast_pve_leaderboards()
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_pve_leaderboard_request")
+
+
+# ── GID-102 (TID-379): PvE leaderboards — Spire + co-op boss clears ──────────
+# Distinct symbol/RPC names from the TID-373 ranked-rating board above
+# (recv_leaderboard/submit_leaderboard_request/_broadcast_leaderboard/etc.) —
+# these never touch pvp_rating. Reuses the LeaderboardOverlay's tabs (extended
+# by this task) rather than a second panel, per the task's "unified Rankings"
+# guidance.
+
+## Endless Spire is single-player; only submit a session-scoped board entry when a
+## co-op session is actually active (per task notes — a Spire run can happen with no
+## co-op session running at all, in which case this is purely a local result).
+## Offline/no-session best is intentionally NOT duplicated into MpProfile: the
+## fully-offline case is already covered by SaveManager.spire_best_floor (the "New
+## Record!" badge on RunSummaryScene reads that field already) — adding a second
+## local-best store here would just be a second source of truth for the same fact.
+func _on_spire_run_ended_leaderboard(stats: Dictionary) -> void:
+	if not NetworkManager.is_active():
+		return
+	var floors_cleared: int = int(stats.get("floors_cleared", 0))
+	if floors_cleared <= 0:
+		return
+	_submit_pve_score("spire", floors_cleared)
+
+## Co-op boss clear: submit on a party win while a co-op session is active. The
+## "value" recorded is the party size at the moment the battle ended (peers + self) —
+## a v1 simplification. Neither fastest-clear timing nor the scaled boss tier are
+## threaded from BattleScene back to WorldScene today (see BID-027), so party size is
+## the only robust, always-available proxy of "how tough a clear this was" without
+## inventing new cross-battle plumbing for this task.
+func _on_coop_pve_battle_ended_leaderboard(did_win: bool) -> void:
+	if not did_win or not NetworkManager.is_active():
+		return
+	var party_size: int = multiplayer.get_peers().size() + 1
+	_submit_pve_score("coop_clears", party_size)
+
+## Route a PvE score to the authority: host records directly via SessionStore; a
+## client sends the new submit RPC. board is "spire" or "coop_clears".
+func _submit_pve_score(board: String, value: int) -> void:
+	if NetworkManager.is_host():
+		if not SessionStore.is_open():
+			return
+		var st = SessionStore.get_state()
+		if st == null:
+			return
+		var token: String = MpProfile.get_token()
+		st.record_pve_score(board, token, MpProfile.get_display_name(), value,
+			SceneManager.save_manager.days_elapsed)
+		SessionStore.mark_dirty()
+		_broadcast_pve_leaderboards()
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_pve_leaderboard_score", board, value)
+
+## Host: a client submitted a PvE score — record it (using the sender's already-known
+## session token) and broadcast the refreshed snapshot to everyone.
+func _on_pve_leaderboard_score_submitted(sender: int, board: String, value: int) -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	var token: String = str(_session_token_by_peer.get(sender, ""))
+	if token == "":
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var rec: Dictionary = st.get_member(token)
+	var member_name: String = str(rec.get("display_name", "Player"))
+	st.record_pve_score(board, token, member_name, value, SceneManager.save_manager.days_elapsed)
+	SessionStore.mark_dirty()
+	_broadcast_pve_leaderboards()
+
+## Host: push the current {spire, coop_clears} PvE snapshot to one peer (0 = all).
+func _broadcast_pve_leaderboards(target_peer: int = 0) -> void:
+	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var snapshot: Dictionary = st.get_pve_leaderboards_snapshot()
+	_pve_leaderboards = snapshot
+	if target_peer == 0:
+		_net_sync.rpc("recv_pve_leaderboards", snapshot)
+	else:
+		_net_sync.rpc_id(target_peer, "recv_pve_leaderboards", snapshot)
+	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay) \
+			and _leaderboard_overlay.has_method("refresh_pve_rows"):
+		_leaderboard_overlay.refresh_pve_rows(_pve_leaderboards)
+
+## Any peer: receive a PvE leaderboard snapshot (late-join, post-update, or an
+## on-demand refresh reply) and refresh the overlay if open.
+func _on_pve_leaderboards_received(snapshot: Dictionary) -> void:
+	_pve_leaderboards = snapshot
+	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay) \
+			and _leaderboard_overlay.has_method("refresh_pve_rows"):
+		_leaderboard_overlay.refresh_pve_rows(_pve_leaderboards)
+
+## Host: a client asked for a fresh PvE leaderboard snapshot (e.g. switching tabs).
+func _on_pve_leaderboard_request_submitted(sender: int) -> void:
+	_broadcast_pve_leaderboards(sender)
 
 
 # ── TID-369: Shared party bounties ────────────────────────────────────────────
