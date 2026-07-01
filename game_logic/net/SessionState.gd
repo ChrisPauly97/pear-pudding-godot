@@ -23,7 +23,13 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ## session files keep loading (mirrors SaveManager.CURRENT_SAVE_VERSION).
 ## v2 — adds party_bounties shared progress (TID-369).
 ## v3 — adds pvp_wins/losses/streak/best_streak per character (TID-368).
-const CURRENT_SESSION_VERSION: int = 3
+## v4 — adds loot_mode session setting for need/greed chest rolls (TID-381).
+const CURRENT_SESSION_VERSION: int = 4
+
+## Loot distribution modes (TID-381). Default keeps the original GID-096
+## first-opener-takes behaviour; need/greed is an opt-in host-only setting.
+const LOOT_MODE_FIRST_OPENER: String = "first_opener"
+const LOOT_MODE_NEED_GREED: String = "need_greed"
 
 ## Starter deck template ids — mirrors `SaveManager.new_game` / `ensure_coop_deck`
 ## so a freshly created session character can battle immediately.
@@ -55,6 +61,10 @@ var members: Dictionary = {}
 # Shape: {id, type, target, count, progress, contributors: [tokens], completed}
 var party_bounties: Array = []
 
+# --- Loot distribution mode (GID-102 / TID-381) -----------------------------
+# Host-only session setting; LOOT_MODE_FIRST_OPENER (default) or LOOT_MODE_NEED_GREED.
+var loot_mode: String = LOOT_MODE_FIRST_OPENER
+
 
 # ---------------------------------------------------------------------------
 # Serialization
@@ -74,6 +84,7 @@ func to_dict() -> Dictionary:
 		"story_flags": story_flags.duplicate(true),
 		"members": members.duplicate(true),
 		"party_bounties": party_bounties.duplicate(true),
+		"loot_mode": loot_mode,
 	}
 
 
@@ -98,6 +109,8 @@ static func from_dict(data: Dictionary) -> SessionState:
 	s.members = (mem as Dictionary).duplicate(true) if mem is Dictionary else {}
 	var pb: Variant = data.get("party_bounties", [])
 	s.party_bounties = (pb as Array).duplicate(true) if pb is Array else []
+	var lm: String = str(data.get("loot_mode", LOOT_MODE_FIRST_OPENER))
+	s.loot_mode = lm if lm == LOOT_MODE_NEED_GREED else LOOT_MODE_FIRST_OPENER
 	return s
 
 
@@ -127,6 +140,12 @@ static func _apply_migrations(data: Dictionary) -> void:
 					if not (rec as Dictionary).has("pvp_best_streak"):
 						(rec as Dictionary)["pvp_best_streak"] = 0
 		data["version"] = 3
+	if ver < 4:
+		# v4: add loot_mode session setting (defaults to first-opener-takes so
+		# existing sessions keep their original behaviour unchanged).
+		if not data.has("loot_mode"):
+			data["loot_mode"] = LOOT_MODE_FIRST_OPENER
+		data["version"] = 4
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 
