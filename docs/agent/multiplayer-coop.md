@@ -1107,11 +1107,13 @@ listen-server host (peer_id=1, local_idx=0); `_pvp_peer_to_idx` is empty so
 - **Live-synced (GID-096):** shared **enemies** (engage-locks; defeat persists) and
   **chests** (first-opener-takes; open persists) now sync from the authority and resume on
   reconnect. Still **not** synced: NPC dialogue/story, day/night, weather, and the
-  per-player inventory (that is the GID-095 character, by design). The co-op map (madrian)
-  happens to have no enemies/chests today, so the sync is dormant in practice but verified
-  by `net_world_sync_smoke.gd`.
-- **Infinite chunk world not supported** — co-op uses a finite named map to avoid
-  chunk synchronisation.
+  per-player inventory (that is the GID-095 character, by design). The co-op landing map
+  (madrian) still has no enemies/chests of its own (BID-024, not fully resolved), but
+  **procedural dungeons are now reachable together** via the "Dungeon Crawl" host button
+  (GID-102 / TID-380, see Co-op Story Mode below) — every dungeon has combat/chest rooms, so
+  the sync is exercised for real content, not just `net_world_sync_smoke.gd`'s synthetic ids.
+- **Infinite chunk world not supported** — co-op uses a finite named map (or a finite
+  generated dungeon, GID-102 / TID-380) to avoid chunk synchronisation.
 
 ---
 
@@ -1132,6 +1134,65 @@ Extends co-op so the party can travel through and experience the story together 
 4. **Late-joiner redirect:** in `_on_identity_received`, after the host sends the character + world snapshot, it checks `SessionStore.current_map != map_name` and unicasts `recv_map_transition` to the joining peer so they land where the party already is.
 
 **RPC:** `recv_map_transition(target_map: String, door_id: String)` — reliable, any_peer → call_remote.
+
+### Shared dungeon crawl (GID-102 / TID-380)
+
+Co-op previously had **no way to reach a procedural `DungeonGen` dungeon at all** — every
+`"dungeon_<seed>"` map name in the game was constructed by `InfiniteWorldGen.gd` for ruin
+doors in the infinite chunk world, which co-op explicitly does not support (see
+Limitations), and zero dungeon doors are authored in any of the 6 named `.tres` maps. This
+was an entry-point gap, not a sync gap: `WorldScene._ready()` already loads any map whose
+name starts with `"dungeon_"` by parsing the seed out of the string
+(`int(map_name.substr(8))`) and calling `DungeonGen.generate(map_name, dseed)` — it doesn't
+care how the string was built — and `docs/agent/named-maps-and-dungeons.md` confirms
+`DungeonGen.generate` is a pure function of `(name, seed)`.
+
+**Trigger — host-only HUD button, not a new map door.** A "Dungeon Crawl" button
+(`WorldScene._ensure_dungeon_button` / `_start_dungeon_crawl`) is created in `_setup_coop()`
+alongside the existing challenge/social buttons, visible only when `NetworkManager.is_host()`
+(the host is the authority that picks the shared seed, avoiding a race where two peers open
+two different dungeons at once). A HUD button — rather than an authored door/portal entity in
+`madrian.tres` — was chosen because it needs no map-authoring pass (tile placement, terrain
+carving, a new `MapDoor` resource), generalizes to any future co-op-supported named map for
+free (it's gated on `_coop_active`, not a specific map name), and satisfies mobile/desktop
+parity trivially (a HUD button has no separate touch/keyboard path to duplicate).
+
+**Seed derivation:** when a session is open, `hash(str(world_seed) + "_dungeon_" +
+str(days_elapsed))` (from `SessionStore.get_state()`) — reopening the button on the same
+in-game day reproduces the same dungeon; a new day yields a fresh one. Falls back to
+`randi()` if `SessionStore` isn't open (defensive; doesn't happen while `_coop_active`).
+
+**Broadcast — no new RPC.** `_start_dungeon_crawl()` builds `target_map = "dungeon_%d" %
+seed` and reuses the **existing** TID-355 mechanism verbatim: `_net_sync.rpc("recv_map_transition",
+target_map, "")` then the local `SceneManager.enter_map(target_map, "")`, exactly like the
+door-triggered branch in `_handle_interact()`. Every peer's `_on_map_transition_received`
+independently calls `DungeonGen.generate(target_map, seed)` (or reloads its own cached
+`.tres` on a repeat visit), producing byte-identical tile grids and entity ids — confirmed by
+`DungeonGen`'s ids being purely index-based counters (`"de_%d"`, `"dnpc_rest_%d"`, `"dtr_%d"`,
+fixed `"dc_0"`/`"dsr_0"`/`"exit"`), never randomized or position-derived. This means GID-096's
+engage-lock / first-opener-takes sync (which keys purely on those string ids via
+`WorldObjectSync`) works in a dungeon exactly as it does on any named map — no map-name
+special-casing exists anywhere in the sync path.
+
+**Exit:** the dungeon's generated exit door has `target_map = ""`, so it already routes
+through the same `_handle_interact()` branch that broadcasts `recv_map_transition("", "")` for
+any empty-target door — no dungeon-specific exit handling was needed.
+
+**Progress is transient by design** — no dungeon-clear state is written to `SessionState`;
+the shared seed only needs to live for the duration of the crawl (matches single-player,
+where dungeons are also not tracked as "cleared").
+
+**Scope cut:** no new loopback smoke test was added for this transition specifically, since
+`recv_map_transition` itself is untouched, already-exercised code, and the property that
+actually needs proving — "two independent `DungeonGen.generate()` calls with the same seed
+produce identical content" — is a pure-logic property with no networking dependency. It is
+covered by a unit test (`tests/unit/test_dungeon_secrets.gd` →
+`test_dungeon_determinism_full_grid_and_entity_ids`) that asserts full tile-grid equality plus
+per-entity id/type/position equality across two independent generations, rather than the
+prior test's single center-tile + chest-count sample.
+
+**Still not multi-map co-op for the infinite world** — the trigger only ever produces a
+`"dungeon_<seed>"` name, never touches chunk streaming.
 
 ### Shared story flags (TID-356)
 

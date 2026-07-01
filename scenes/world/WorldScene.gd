@@ -108,6 +108,8 @@ var _initial_ready_done: bool = false  # so _enter_tree re-setup only runs on re
 # PvP challenges (GID-091)
 var _challenge_btn: Button = null
 var _challenge_target_peer: int = -1     # nearby remote peer eligible to challenge
+# Shared dungeon crawl (GID-102 / TID-380) — host-only trigger; a client sees it hidden.
+var _dungeon_btn: Button = null
 var _pending_challenge_from: int = -1    # incoming challenge awaiting our response
 var _pending_challenge_deck: Array = []  # challenger's deck stored until we accept
 var _pending_challenge_ranked: bool = false  # GID-102 (TID-373): challenger's ranked opt-in
@@ -595,6 +597,7 @@ func _setup_coop() -> void:
 		_ensure_social_buttons()
 		_ensure_team_duel_button()
 		_ensure_chat_ui()
+		_ensure_dungeon_button()
 	# GID-101 (TID-369): host initialises party bounties; all peers build the HUD.
 	_setup_party_bounties()
 	if not NetworkManager.is_dedicated_server():
@@ -1317,6 +1320,55 @@ func _on_map_transition_received(target_map: String, door_id: String) -> void:
 	else:
 		SceneManager.enter_map(target_map, door_id)
 
+# ── Shared dungeon crawl (GID-102 / TID-380) ──────────────────────────────────
+#
+# madrian (and any other co-op-supported named map) has no authored dungeon
+# door, so the party has no way to reach DungeonGen's procedural dungeons
+# together. This adds a host-only HUD trigger that picks a shared seed and
+# broadcasts the same "dungeon_<seed>" map name via the existing TID-355
+# recv_map_transition RPC — no new sync RPC needed, since DungeonGen is a pure
+# function of (name, seed) and WorldScene's dungeon-load branch only inspects
+# the map_name string, not how it was constructed.
+
+## Creates the hidden "Dungeon Crawl" HUD button. Visible only for the host —
+## the host is the authority that picks/blesses the shared seed (avoids two
+## peers racing to open two different dungeons at once).
+func _ensure_dungeon_button() -> void:
+	if _dungeon_btn != null and is_instance_valid(_dungeon_btn):
+		# Re-assert visibility: a PvP battle re-attach (_enter_tree → _setup_coop)
+		# hides this button unconditionally, so re-derive it here rather than only
+		# at creation time.
+		_dungeon_btn.visible = NetworkManager.is_host()
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_dungeon_btn = Button.new()
+	_dungeon_btn.text = "Dungeon Crawl"
+	_dungeon_btn.tooltip_text = "Open a procedural dungeon for the whole party"
+	_dungeon_btn.custom_minimum_size = Vector2(vp.y * 0.30, vp.y * 0.06)
+	_dungeon_btn.add_theme_font_size_override("font_size", int(vp.y * 0.024))
+	_dungeon_btn.position = Vector2((vp.x - vp.y * 0.30) * 0.5, vp.y * 0.72)
+	_dungeon_btn.visible = NetworkManager.is_host()
+	_dungeon_btn.pressed.connect(_start_dungeon_crawl)
+	_hud.add_child(_dungeon_btn)
+
+## Host-only: derive a shared seed and broadcast the transition so every peer
+## follows into the identical generated dungeon.
+func _start_dungeon_crawl() -> void:
+	if not NetworkManager.is_host():
+		return  # defensive: don't trust client-side button visibility alone
+	if not _coop_active or _net_sync == null or _coop_map_transitioning:
+		return
+	var seed_val: int = randi()
+	if SessionStore.is_open():
+		var st = SessionStore.get_state()
+		# world_seed + days_elapsed: reopening the crawl on the same in-game day
+		# reproduces the same dungeon; a new day yields a fresh one.
+		seed_val = hash(str(st.world_seed) + "_dungeon_" + str(st.days_elapsed))
+	var target_map: String = "dungeon_%d" % seed_val
+	_coop_map_transitioning = true
+	_net_sync.rpc("recv_map_transition", target_map, "")
+	SceneManager.enter_map(target_map, "")
+
 # ── PvP challenge handshake (GID-091) ─────────────────────────────────────────
 
 ## Creates the hidden "Challenge to Battle" HUD button (mobile + desktop parity).
@@ -1669,6 +1721,8 @@ func _enter_pvp(opponent_deck: Array, ranked: bool = false) -> void:
 	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
 		_ranked_toggle_btn.hide()
 	_pvp_ranked = ranked
+	if _dungeon_btn != null and is_instance_valid(_dungeon_btn):
+		_dungeon_btn.hide()
 	var local_idx: int = 0 if NetworkManager.is_host() else 1
 	# GID-101 (TID-367): host broadcasts duel-start to spectators
 	if NetworkManager.is_host() and _net_sync != null:
@@ -4920,6 +4974,8 @@ func _on_battle_wager_responded(_sender: int, accepted: bool, responder_deck: Ar
 func _enter_pvp_wagered(ante: int, opp_deck: Array) -> void:
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		_challenge_btn.hide()
+	if _dungeon_btn != null and is_instance_valid(_dungeon_btn):
+		_dungeon_btn.hide()
 	SceneManager.save_manager.add_coins(-ante)
 	_pvp_ante_coins = ante
 	var local_idx: int = 0 if NetworkManager.is_host() else 1
