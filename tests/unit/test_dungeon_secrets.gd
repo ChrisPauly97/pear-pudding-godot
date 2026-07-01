@@ -99,6 +99,64 @@ func test_dungeon_determinism_same_seed() -> void:
 		"same seed should produce same chest count")
 
 
+## GID-102 / TID-380: co-op shared dungeon crawl relies on DungeonGen being a pure
+## function of (name, seed) — every peer independently calls DungeonGen.generate()
+## with the same seed and must get byte-identical tile grids AND identical entity
+## ids/types/positions, since GID-096's engage-lock / first-opener-takes sync keys
+## purely on those string ids. This asserts the full property, not just a sample.
+func test_dungeon_determinism_full_grid_and_entity_ids() -> void:
+	var seed_val: int = 54321
+	var map1: RefCounted = DungeonGen.generate("det_test_a_%d" % seed_val, seed_val)
+	var map2: RefCounted = DungeonGen.generate("det_test_b_%d" % seed_val, seed_val)
+
+	# Full tile grid equality (every tile, not just the center sample).
+	for tz in range(DungeonGen.DH):
+		for tx in range(DungeonGen.DW):
+			assert_eq(map1.get_tile(tx, tz), map2.get_tile(tx, tz),
+				"tile (%d,%d) should match for identical seed" % [tx, tz])
+
+	# Player spawn identical.
+	assert_eq(map1.player_spawn_x, map2.player_spawn_x, "spawn x should match")
+	assert_eq(map1.player_spawn_z, map2.player_spawn_z, "spawn z should match")
+
+	# Entity arrays identical in count, ids, types, and positions.
+	assert_eq(map1.enemies.size(), map2.enemies.size(), "enemy count should match")
+	for i in range(map1.enemies.size()):
+		var e1: Dictionary = map1.enemies[i]
+		var e2: Dictionary = map2.enemies[i]
+		assert_eq(str(e1.get("id")), str(e2.get("id")), "enemy %d id should match" % i)
+		assert_eq(str(e1.get("enemy_type")), str(e2.get("enemy_type")),
+			"enemy %d type should match" % i)
+		assert_eq(float(e1.get("x")), float(e2.get("x")), "enemy %d x should match" % i)
+		assert_eq(float(e1.get("z")), float(e2.get("z")), "enemy %d z should match" % i)
+
+	assert_eq(map1.chests.size(), map2.chests.size(), "chest count should match")
+	for i in range(map1.chests.size()):
+		var c1: Dictionary = map1.chests[i]
+		var c2: Dictionary = map2.chests[i]
+		assert_eq(str(c1.get("id")), str(c2.get("id")), "chest %d id should match" % i)
+		assert_eq(bool(c1.get("is_mimic", false)), bool(c2.get("is_mimic", false)),
+			"chest %d mimic flag should match" % i)
+		assert_eq(float(c1.get("x")), float(c2.get("x")), "chest %d x should match" % i)
+		assert_eq(float(c1.get("z")), float(c2.get("z")), "chest %d z should match" % i)
+
+	assert_eq(map1.npcs.size(), map2.npcs.size(), "npc count should match")
+	for i in range(map1.npcs.size()):
+		var n1: Dictionary = map1.npcs[i]
+		var n2: Dictionary = map2.npcs[i]
+		assert_eq(str(n1.get("id")), str(n2.get("id")), "npc %d id should match" % i)
+		assert_eq(str(n1.get("npc_type")), str(n2.get("npc_type")),
+			"npc %d type should match" % i)
+
+	assert_eq(map1.doors.size(), map2.doors.size(), "door count should match")
+	for i in range(map1.doors.size()):
+		var d1: Dictionary = map1.doors[i]
+		var d2: Dictionary = map2.doors[i]
+		assert_eq(str(d1.get("id")), str(d2.get("id")), "door %d id should match" % i)
+		assert_eq(str(d1.get("target_map")), str(d2.get("target_map")),
+			"door %d target_map should match" % i)
+
+
 func test_dungeon_different_seeds_differ() -> void:
 	var map1: RefCounted = _gen(11111)
 	var map2: RefCounted = _gen(99999)

@@ -28,3 +28,20 @@ this is a content/reachability gap, not a code bug.
   be a finite named map.
 - No code change is required for the sync itself — only map content or the `enter_map_coop`
   destination.
+
+## Update (GID-102 / TID-380 — Shared dungeon crawl)
+
+TID-380 implements the second option above: a host-only "Dungeon Crawl" HUD button
+(`WorldScene._ensure_dungeon_button` / `_start_dungeon_crawl`) lets the co-op party enter a
+procedural `DungeonGen` dungeon together, broadcasting the shared seed via the existing
+TID-355 `recv_map_transition` RPC. Every generated dungeon has 3-4 combat rooms plus an end
+room, so co-op sessions now have a real, reachable source of live enemies/chests, and
+GID-096's engage-lock / first-opener-takes sync is exercised for real (not just by
+`net_world_sync_smoke.gd`'s synthetic ids) — confirmed by reasoning from `DungeonGen`'s
+purely index-based, seed-deterministic entity ids (see `docs/agent/multiplayer-coop.md`).
+
+**Not closing this item**: madrian itself — the map co-op actually lands on by default via
+`enter_map_coop("madrian")` — still has `enemies = []` / `chests = []`. The dungeon crawl is
+an *opt-in side trip* the host must trigger; it doesn't change madrian's own content. If a
+future task adds enemies/chests directly to madrian (the first option above), that would
+fully close this item. Leaving open, scoped down to "madrian itself has no content."
