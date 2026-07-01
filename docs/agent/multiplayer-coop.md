@@ -476,6 +476,87 @@ opponent's via the new `recv_rating_delta(delta: int)` RPC, which the opponent's
 back in the world, after the result screen's Continue button, using the same
 low-risk end-of-action toast pattern other features already rely on.
 
+### Leaderboards (GID-102 / TID-379)
+
+The **PvE counterpart** to the ranked rating board above: authority-persisted
+best-score boards for the **Endless Spire** roguelike (GID-038) and **co-op joint
+boss clears** (GID-099). Never touches `pvp_rating`/`pvp_games` — a completely
+separate model, RPC pair, and cache, all carrying a `pve`/`_pve_` marker in their
+names specifically to avoid colliding with the TID-373 symbols above
+(`recv_leaderboard`, `submit_leaderboard_request`, `_leaderboard_rows`,
+`_broadcast_leaderboard`, …).
+
+**Storage — `SessionState.leaderboards: Dictionary`.** Shape `{spire: Array,
+coop_clears: Array}`; each entry is `{token, name, value, day}`. Unlike the ranked
+board (which is *derived* from `members` on every read), these are stored as their
+own arrays — a player's best PvE result should survive independently of whatever
+else is in their character record. `record_pve_score(board, token, name, value, day)`
+is the single pure mutator: insert-or-update-if-better (a worse or equal `value`
+for a token that already has an entry is a silent no-op — "only your own better
+score overwrites"), then re-sort desc by `value` (ties broken by earliest `day`,
+then token) and cap to `PVE_LEADERBOARD_CAP = 20`. `get_pve_leaderboard(board,
+limit)` and `get_pve_leaderboards_snapshot()` (both boards together, for the wire)
+are the read side. `CURRENT_SESSION_VERSION` bumped 5 → 6 (renumbered during
+integration; TID-376's party stash claimed v5 first); the migration backfills
+`leaderboards = {spire: [], coop_clears: []}` when absent, and a non-dict/garbage
+`leaderboards` field on load falls back to the same empty shape rather than
+crashing (mirrors every other tolerant-fallback field in this file).
+
+**Submission hooks.** Both are connected **permanently** in `WorldScene._ready`
+(same "WorldScene detaches during battle" reasoning as `pvp_battle_ended` above),
+not inside `_setup_coop`:
+
+- **Endless Spire** (`GameBus.spire_run_ended(stats)` → `_on_spire_run_ended_leaderboard`):
+  submits `stats.floors_cleared` to the `"spire"` board — but **only when
+  `NetworkManager.is_active()`**, per the task's explicit call-out that Spire is
+  single-player and a co-op session may not even be running during a run. When no
+  session is active, the result is purely local. **Decision: no device-local
+  MpProfile best was added for the fully-offline case** — `SaveManager.spire_best_floor`
+  already tracks the player's all-time-best floor and already drives the "New
+  Record!" badge on `RunSummaryScene`, so a second offline-best store would just be
+  a second source of truth for the same fact. The session-scoped board is the
+  actual deliverable; the offline case was already solved before this task.
+- **Co-op boss clears** (`GameBus.coop_pve_battle_ended(did_win)` →
+  `_on_coop_pve_battle_ended_leaderboard`): submits on a party win, while
+  `NetworkManager.is_active()`, to the `"coop_clears"` board. **Value = party size
+  at battle end** (`multiplayer.get_peers().size() + 1`) — a v1 simplification.
+  Neither the party-scaled boss tier (`CoopBattleScaling.scale_boss_tier`, computed
+  inside `BattleScene._build_coop_pve_state`) nor a clear-duration timer are
+  threaded back out to `GameBus.coop_pve_battle_ended` today, so party size is the
+  only signal reliably available at the point WorldScene can submit a score without
+  inventing new cross-battle plumbings. Logged as BID-031 for a future task to
+  enrich the ranking signal (tier and/or clear time).
+
+**Authority-records-then-broadcasts, same as party bounties.** `_submit_pve_score(board,
+value)` is the single routing function: on the host it calls
+`SessionState.record_pve_score` directly via `SessionStore.get_state()`, marks dirty,
+and broadcasts; on a client it sends the new `NetSync.submit_pve_leaderboard_score(board,
+value)` RPC, which the host's `_on_pve_leaderboard_score_submitted` resolves to a token
+via the existing `_session_token_by_peer` map (the same lookup the ranked board and
+champion-record paths use) before recording + broadcasting.
+
+**Broadcast/snapshot — `NetSync.recv_pve_leaderboards(snapshot: Dictionary)`.**
+Fired on late-join (`_send_character_to_peer` unicasts it right alongside the
+existing character/party-bounty/ranked-leaderboard sends) and after every
+`record_pve_score` write, via `WorldScene._broadcast_pve_leaderboards(target_peer :=
+0)` — structurally identical to `_broadcast_leaderboard` but pushing the
+`{spire, coop_clears}` snapshot instead of ranked rows. A client can also request a
+fresh snapshot on demand via `NetSync.submit_pve_leaderboard_request()` (answered by
+`_on_pve_leaderboard_request_submitted`), mirroring `submit_leaderboard_request`.
+
+**UI — extended the existing overlay with tabs, not a second panel.** Per the task's
+explicit guidance ("a unified 'Rankings' overlay beats two near-identical panels"),
+`scenes/ui/LeaderboardOverlay.gd` gained a 3-button tab row (**Ranked** / **Spire** /
+**Co-op Clears**) above the existing header. `_active_tab` picks which cached array
+renders; `refresh_rows(rows)` (the pre-existing TID-373 method) still feeds the
+Ranked tab unchanged, and a new `refresh_pve_rows(snapshot)` feeds the Spire/Co-op
+tabs from the `{spire, coop_clears}` shape. Columns adapt per tab (Ranked: Rating/W-L;
+Spire/Co-op: Value/Day) via `_build_header()`. `WorldScene._toggle_leaderboard_overlay()`
+now requests **both** snapshots on open (ranked + PvE, each via its own
+host-computes-locally-or-client-requests branch) so every tab is populated the
+moment the panel opens, regardless of which tab happens to be active — switching
+tabs is a pure local re-render of already-cached data, no new network round trip.
+
 ### Spectating a duel (GID-101 / TID-367)
 
 Non-combatant party members can **watch** an in-progress PvP duel read-only.
@@ -579,6 +660,66 @@ Non-combatant party members can **watch** an in-progress PvP duel read-only.
   "genuinely cheap" once the world-HUD version worked, so it was deliberately cut.
   Revisit if a future task wants in-duel chat; the same `ChatSync` pure helper can be
   reused, only the relay/RPC wiring would need to be duplicated onto `BattleNetSync`.
+
+### Party stash (GID-102 / TID-376)
+
+A **session-owned chest** any co-op member can deposit cards/coins into and withdraw
+from — unlike trading, it needs no other player online and no proximity. It also lays
+the transfer plumbing the auction house (TID-378) is expected to reuse.
+
+- **Storage — `SessionState.stash: Dictionary`**, shape `{cards: Array, coins: int}`.
+  `cards` holds full card instance dicts (same shape as a member's `owned_cards`, via
+  `CardInstanceUtil`). Authority-owned, persisted via `SessionStore`, added in the **v5**
+  migration (`CURRENT_SESSION_VERSION` bumped 4 → 5): a pre-v5 session file gets
+  `stash = {cards: [], coins: 0}` backfilled on load.
+- **Transfer plumbing — `game_logic/net/StashTransfer.gd`.** A new **pure, unit-tested**
+  sibling to `CardInstanceUtil`/`RatingMath` (no scene deps) that generalizes the
+  dupe-proof re-key mechanic `_transfer_card_in_session` (trading) already uses, to a
+  **member ⇄ stash** move:
+  - `deposit_card(stash, member_rec, card_uid)` — removes the instance from
+    `member_rec.owned_cards`/`player_deck`, blocks it if the card's template has
+    `is_unique = true` (checked via `CardRegistry.get_template(template_id)`, the
+    correct way to read it since instance dicts never carry `is_unique` themselves —
+    see BID-030), re-keys the uid to `"<uid>_stash_<n>"`, and appends it to
+    `stash.cards`.
+  - `withdraw_card(stash, member_rec, stash_uid, member_token)` — the inverse: removes
+    the instance from `stash.cards`, re-keys the uid to `"<stash_uid>_w_<token_prefix>"`,
+    appends to `member_rec.owned_cards`.
+  - `deposit_coins(stash, member_rec, amount)` / `withdraw_coins(...)` — simple int
+    moves with insufficient-funds / non-positive-amount guards.
+  - All four return `{ok: bool, reason: String, stash: Dictionary, member: Dictionary}` —
+    callers always get back safe, defensively-normalized copies to write back onto the
+    live `SessionState`, even on failure.
+- **RPCs — `NetSync.gd`** (reliable, `any_peer`/`call_remote`, mirrors the trade RPCs —
+  proximity is **not** required since the stash is global to the session, unlike trade):
+  - `submit_stash_deposit(payload)` / `submit_stash_withdraw(payload)` (client →
+    authority). `payload = {kind: "card"|"coins", card_uid: String, amount: int}`.
+  - `recv_stash_update(snapshot)` (authority → all/one) — the current `{cards, coins}`
+    stash contents.
+- **Authority flow — `WorldScene.gd`**: `_on_stash_deposit_submitted` /
+  `_on_stash_withdraw_submitted` resolve the sender's token (via
+  `_session_token_by_peer`, or the local `MpProfile` token when the host acts on its own
+  behalf), call into `StashTransfer`, write the returned `stash`/`member` dicts back onto
+  `SessionState` + `SessionStore.mark_dirty()`, then `_broadcast_stash_update()` to all
+  peers. **Keeping the actor's in-memory character in sync**
+  (`_apply_updated_member_to_actor`): because the periodic `_tick_session_persist` tick
+  (every 5 s) would otherwise overwrite the just-mutated `SessionState` member record
+  with the acting peer's now-stale in-memory `SaveManager` fields, the host re-adopts
+  its own updated record directly (`adopt_session_character`) and a remote client actor
+  is sent a fresh `recv_character(updated_member, resume=false)` mirror (no position
+  restore — this isn't a reconnect, just a refresh).
+- **Late-join**: `_send_character_to_peer` unicasts `recv_stash_update` with the current
+  `SessionState.stash` alongside the character/party-bounty snapshot sends.
+- **HUD — `scenes/ui/PartyStashOverlay.gd`** (new): extends `BaseOverlay` by path
+  string, instantiated via `.new()` (matches `LeaderboardOverlay`/`SettingsScene`
+  convention), viewport-relative, rebuilt on `NOTIFICATION_RESIZED`. Two scrollable
+  columns — "My Collection" (deposit buttons; unique cards are filtered out of this
+  list) and "Stash" (withdraw buttons) — plus a coins row with fixed-step
+  deposit/withdraw buttons. Opened via an always-visible "Stash" HUD button (global to
+  the session, not proximity-gated, same rationale as the leaderboard button) —
+  touch/click target, mobile + desktop parity.
+- **Authority-only writes**: clients never mutate `SessionState` directly; only the
+  authority does, via `SessionStore` — same isolation invariant as trading/bounties.
 
 ### Shared party bounties (GID-101 / TID-369)
 
@@ -704,6 +845,97 @@ same hardcoded-1 issue but is unreached by team PvP so was left for a follow-up)
 wagered team duels, a live 4-peer ENet loopback smoke test (covered instead by 17 pure
 `GameState` unit tests — `test_team_battle_state.gd`), and 3v3/4v4 (`setup_team_battle`
 is fixed at 2v2).
+
+### Ghost duels (GID-102 / TID-377)
+
+A **ghost duel** lets a player battle an **AI-piloted snapshot** of another (possibly
+offline) session member's deck. This is the **only PvP-flavored mode in the game that
+needs zero live connection** — no `NetSync`, no `BattleNetSync`, no reconnection
+concern whatsoever, unlike every other duel/PvP mode documented above.
+
+#### Not PvP host-mirroring — a plain solo battle
+
+A ghost duel is the existing **single-player battle path**
+(`_local_player_idx == 0`, no `_pvp`/`_coop_pve`/`_team_pvp` flags), with
+`BasicAI` (`ai/BasicAI.gd`) piloting a deck built from the snapshot — exactly the
+same mechanism an NPC tavern duel (GID-037, `SceneManager._on_duel_requested`) uses
+for its enemy deck. `BattleScene` gains one small, inert-unless-set flag,
+`_ghost_duel: bool` (+ `_ghost_duel_reward: int`), set by
+`SceneManager.enter_ghost_duel` before `_ready`, mirroring how `_pvp`/`_coop_pve`
+are set. It is deliberately **not** built on `duel_wager`/`GameState.friendly_duel`:
+that path (`BattleResultUI.show_duel_loss`) deducts the wager amount as a real coin
+stake on a loss, which is correct for a live NPC wager but wrong here — nothing was
+ever staked against an offline AI opponent.
+
+#### Snapshot extraction — `SessionState.get_ghost_snapshot(token) -> Dictionary`
+
+Pure, derived on demand from `members[token]` — **no second source of truth**
+(nothing is persisted separately for "ghost" purposes). Returns
+`{token, name, deck: Array[String], rating}`. The member's `player_deck` is a list
+of card-instance **UIDs** (per-instance rolled stats); each UID is resolved to its
+`template_id` via the matching `owned_cards` entry, because the ghost only needs a
+playable deck of template ids, not the opponent's specific rolled stats. A UID with
+no matching `owned_cards` entry is silently skipped (the ghost fields a slightly
+smaller deck) rather than crashing — a hand-edited or corrupt session file must
+never break a duel. `rating` reads `pvp_rating` defaulting to `1000` (the same
+default `SessionState.make_starter_character` seeds), so this reads correctly
+whether or not the TID-370 rating model has landed. Returns `{}` for a blank token,
+an unknown token, or a corrupt (non-Dictionary) member record — never throws.
+
+#### Entry point — host-only "Ghost Duels" HUD button
+
+`WorldScene._ensure_ghost_duel_button()` is gated on `SessionStore.is_open()`
+(not `NetworkManager.is_active()`) — a **client never opens `SessionStore`
+locally** (only the authority does, in `_setup_session`), so this is a
+**host-only** feature in the current slice: a client has no local `SessionState`
+to list opponents from. The button is always visible once available (not
+proximity-gated like Trade/Spectate — this is async, not a live-nearby-player
+interaction). Pressing it opens `scenes/ui/GhostDuelOverlay.gd` (`extends
+BaseOverlay` by path string, `.new()`-instantiated, viewport-relative, mobile +
+desktop parity — a simple list + button, matching the task's "keep this UI
+genuinely simple" guidance), populated from `SessionStore.get_state().members`
+(excluding the local host's own token — dueling your own live snapshot is a no-op
+curiosity, not the intended use). Each row shows name + rating + a "Ghost Duel"
+button that resolves the snapshot and calls `SceneManager.enter_ghost_duel`.
+
+#### Entering the battle — `SceneManager.enter_ghost_duel(opponent_snapshot)`
+
+Builds an `enemy_data` dict (`display_name: "<name> (Ghost)"`, `enemy_type: ""`,
+`is_boss: false`, `drop_pool: []`, `coin_reward: 0`, `enemy_deck:
+opponent_snapshot.deck`) and enters through the exact same
+`_battle_scene_packed.instantiate()` + `TransitionManager.transition` path
+`_on_duel_requested` uses, with the same `DECK_MIN` guard. Guards against an empty
+snapshot deck up front so a bad caller can never launch a battle with nothing to
+fight. `BattleScene`'s plain `else` setup branch builds `_state.players[1]` from
+`enemy_data["enemy_deck"]` unchanged (`Array[String]` + `.assign()`, per CLAUDE.md's
+variant-inference guidance) — no new deck-building path was added.
+
+#### Rewards — coins only, win-only; explicitly NO rating change
+
+**Decision (documented, not a silent default): a ghost duel never moves PvP
+rating, win or lose.** The opponent is AI-piloted, not the real remote player — if
+rating moved here, a player could farm free ELO by dueling their own cached
+snapshot (or a stale/offline friend's) with zero real matched risk. Ghost duels
+only ever grant a flat, modest coin reward (`SceneManager.GHOST_DUEL_COIN_REWARD =
+25`, roughly half a basic-enemy's coin reward — clearly async, not a substitute
+for a real battle or a real PvP duel) on a **win only**; a loss grants and deducts
+nothing (there was never a stake). `BattleResultUi.show_ghost_duel_result(did_win,
+coin_reward)` (new, mirrors the structure of `show_pvp_result`) shows the result
+and a coin line only when `did_win and coin_reward > 0`, then emits
+`GameBus.ghost_duel_ended(did_win)`. `SceneManager._on_ghost_duel_ended` applies
+the reward **exactly once** (not on the button press, unlike the NPC wager-duel
+path) and restores the world, mirroring `_on_duel_won`/`_on_duel_lost` — no card
+drops, no enemy-defeat bookkeeping, no capture-tracker init (the capture-tracker
+guard at battle setup now also excludes `_ghost_duel`, alongside `puzzle_mode`/
+`friendly_duel`/`_pvp`).
+
+#### Known gap
+
+The ghost-duel entry point is host-only for now: a client would need its own way
+to read the session roster (there is no wire message today that hands a client
+the member list + ratings the way `recv_party_bounties_snapshot` does for
+bounties). Extending this to clients is a natural follow-up but out of scope here
+— see BID list for the corresponding backlog entry.
 
 ## Persistent Sessions & Per-Player Progress (GID-095)
 
@@ -888,12 +1120,58 @@ everyone** (the authority fans out an `enemy_removed` event). Outcomes:
 This avoids two players desyncing over one enemy without needing shared battle state for
 PvE; PvE battles remain local to the engaging player.
 
-### Loot rule — first-opener-takes
+### Loot rule — first-opener-takes (default), opt-in need/greed (GID-102 / TID-381)
 
 The player who opens a chest gets the loot (cards/coins/equipment drop **locally for the
 opener only**, into their per-player GID-095 character). Every other peer just sees the
 chest **flip to opened** — no loot. The open is recorded into the session file's
 `opened_chests`, so a chest can never be looted twice and reopens as opened on reconnect.
+This remains the default and is **completely unchanged** unless a host opts into the
+alternative below.
+
+**Need/greed roll mode.** `SessionState.loot_mode` (`LOOT_MODE_FIRST_OPENER` default /
+`LOOT_MODE_NEED_GREED`, added in **v4** with a migration that backfills the default for
+existing session files) is a host-only setting toggled via an in-world HUD button
+(`WorldScene._ensure_loot_mode_toggle_button`/`_on_loot_mode_toggle_pressed`, next to the
+session roster — placed in-world rather than the pre-connection lobby because
+`SessionStore` only opens once `_setup_session()` runs). `SessionStore.get_loot_mode()` /
+`set_loot_mode()` are the convenience accessors.
+
+When the mode is on, the chest branch of `_handle_interact` (immediately after the
+existing `_on_chest_opened_coop(cid)` call, which still flips the chest for everyone and
+persists the open exactly as before) **skips the opener's local grant** and calls
+`WorldScene._start_loot_roll(cid, chest_tier)` instead of `_spawn_card_items` /
+`_spawn_coin_piles` / `_maybe_drop_equipment_from_chest`. The chest's card ids / position
+are **never sent over the wire for the roll** — the authority re-derives them from its own
+`_active_chest_data[cid]`, which is deterministic and identical across peers (the same
+GID-096 invariant that makes discrete-event-only sync sufficient). A client opener instead
+sends a small `submit_loot_roll_request(cid, chest_tier)` intent so the authority knows to
+start a roll for that chest.
+
+The authority builds the participant list from every connected session member (host +
+`_session_token_by_peer.values()` — "present" is simplified to "connected to the session",
+not a same-map/proximity filter, a documented v1 scope cut), opens a roll session keyed by
+a generated `roll_id`, and broadcasts `recv_loot_roll_start`. Each peer shows a transient
+Need/Greed/Pass panel (`WorldScene._show_loot_roll_panel`, viewport-relative, three tappable
+buttons — mobile/desktop parity with no keyboard-only path) and sends its choice back via
+`submit_loot_roll_choice`. The authority resolves early once every expected participant has
+responded, or after a `_LOOT_ROLL_TIMEOUT = 15.0`s timeout (`_tick_loot_rolls`, ticked from
+`_process`) with any missing response **auto-passed**. **Equipment drops are out of scope for
+a roll** — there is no session-scoped equipment inventory to grant to an arbitrary winner
+(see BID-033), so only cards + a flat coin reward are roll-eligible; the map-fragment branch
+is also unaffected (still resolved before the roll check, same as always).
+
+**The authority is the only one that ever rolls the RNG** — clients only submit
+`need`/`greed`/`pass`, never a numeric value, so the outcome is tamper-proof. Need beats
+greed beats pass; ties within the same tier are broken by the highest rolled value
+(1–100). The winner's cards/coins are granted **directly into their GID-095 session
+character record** via `SessionStore` (`WorldScene._grant_chest_loot_to_token`) — the same
+direct-write pattern `_transfer_card_in_session` (card trading) and the party-bounty reward
+path already use for a member who may not be the local player, rather than the physical
+`WorldItem` pickup path GID-096 uses (which only ever grants to the local opener). The roll
+is removed from the in-flight map **before** any grant happens, so an item can never be
+granted twice. `recv_loot_roll_result` announces the winner (or "everyone passed") to all
+peers as a `GameBus.hud_message_requested` toast, consistent with other recent features.
 
 ### Pure helpers
 
@@ -901,6 +1179,7 @@ chest **flip to opened** — no loot. The open is recorded into the session file
 |---|---|
 | `game_logic/net/EnemySync.gd` | Enemy **position** stream: `encode_state(id,x,z,alive)`/`decode_state`, `encode_batch`/`decode_batch`, `interp` (mirrors AvatarSync). Inert while enemies are static; provided for future moving enemies. |
 | `game_logic/net/WorldObjectSync.gd` | **Discrete** events: `encode_event(kind,id)`/`decode_event` (kinds `enemy_engaged`/`enemy_removed`/`enemy_defeated`/`chest_opened`) and `encode_snapshot(removed_enemies, opened_objects)`/`decode_snapshot` for late-join reconciliation. |
+| `game_logic/net/LootRoll.gd` (GID-102 / TID-381) | Need/greed roll: `encode_start`/`decode_start` (roll prompt: roll_id, item, participant tokens), `encode_choice`/`decode_choice` (client's need/greed/pass intent), `encode_result`/`decode_result` (winner + rolled values), and the core `static func resolve_winner(choices: Dictionary, rng: RandomNumberGenerator) -> Dictionary` — need beats greed beats pass, ties broken by highest rolled value, `winner_token == ""` when all pass. The RNG is always injected so the authority (and tests) can seed it. |
 
 ### RPCs — `NetSync` (added)
 
@@ -910,6 +1189,10 @@ chest **flip to opened** — no loot. The open is recorded into the session file
 | `submit_world_event(payload)` | client → authority, reliable | intent: I engaged / defeated an enemy, or opened a chest |
 | `recv_world_snapshot(payload)` | authority → joining client, reliable | reconcile freshly-spawned nodes to the live + persisted removed/opened sets |
 | `recv_enemy_positions(payload)` | authority → clients, unreliable_ordered | low-Hz (5 Hz) moving-enemy position batch; clients `EnemySync.interp` toward it |
+| `recv_loot_roll_start(payload)` (GID-102 / TID-381) | authority → all, reliable | show the Need/Greed/Pass prompt for a chest's resolved drop |
+| `submit_loot_roll_request(cid, tier)` (GID-102 / TID-381) | client → authority, reliable | "I opened this chest and need/greed mode is on — start a roll" |
+| `submit_loot_roll_choice(roll_id, choice)` (GID-102 / TID-381) | client → authority, reliable | my need/greed/pass choice for an active roll |
+| `recv_loot_roll_result(payload)` (GID-102 / TID-381) | authority → all, reliable | announce the winner + rolled values; grant already happened authority-side before this broadcasts |
 
 ### Authority flow (WorldScene, all guarded by `_coop_active`)
 
@@ -965,12 +1248,14 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_player_identity.gd` | unit (auto-run) | PlayerIdentity encode/decode round-trip, color hex, robust defaults for short/blank/invalid payloads (10 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
-| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance (32 cases) (GID-095 / GID-101 / GID-102) |
+| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance; shared `stash` default/round-trip/garbage tolerance + migration v5 backfill; `leaderboards` {spire, coop_clears} default + `record_pve_score` insert/own-better-overwrites/worse-and-equal-are-no-ops/sort-desc/cap-at-20/unknown-board-and-blank-token no-ops, `get_pve_leaderboard` limit, round-trip + snapshot shape, migration v6 backfill + preserves-existing + garbage-field tolerance; ghost-duel snapshot shape + UID→template_id resolution + rating passthrough + blank/unknown-token/non-Dictionary-member/dangling-UID tolerance (60 cases) (GID-095 / GID-101 / GID-102) |
 | `tests/unit/test_rating_math.gd` | unit (auto-run) | RatingMath ELO: expected-score symmetry/bounds/favouring, win-raises/loss-lowers, symmetric zero-sum deltas at equal rating, placement vs settled K, floor clamp, draw no-op (15 cases) (GID-102 / TID-370) |
 | `tests/unit/test_social_sync.gd` | unit (auto-run) | SocialSync emote round-trip for all 6 preset ids, map field, garbage/empty array tolerance; ping round-trip preserving coords/kind/color/map, partial array defaults, negative coords, constants sanity (16 cases) (GID-101 / TID-365) |
 | `tests/unit/test_chat_sync.gd` | unit (auto-run) | ChatSync quick-chat round-trip for all preset ids + unknown-preset fallback, free-text round-trip + 120-char length cap (under/at/over + forged-payload re-sanitization), control-character (incl. DEL) and newline/tab stripping, map field round-trip, garbage/null/empty/short-array/invalid-kind decode tolerance, constants sanity (26 cases) (GID-102 / TID-374) |
+| `tests/unit/test_stash_transfer.gd` | unit (auto-run) | StashTransfer deposit/withdraw card round-trip + uid re-keying, unique-card block, missing-card/blank-uid no-ops, coin deposit/withdraw incl. insufficient-funds/non-positive-amount guards, deposit-then-withdraw and coin round-trips are neutral, garbage-stash-shape tolerance (16 cases) (GID-102 / TID-376) |
 | `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
 | `tests/unit/test_mp_profile_friends.gd` | unit (auto-run) | MpProfile friends list: add/dedupe-by-token/move-to-front, blank-token no-op, name/color sanitization, remove (existing + missing), `is_friend` true/false/blank, 50-entry cap eviction (keeps newest, drops oldest), `touch_friend_last_seen` (updates existing, no-op for non-friend), `get_friends` defensive copy, JSON persistence shape round-trip via a temp `user://` file (17 cases) (GID-102 / TID-375) |
+| `tests/unit/test_loot_roll.gd` | unit (auto-run) | LootRoll need-beats-greed (multi-seed), tie-break by highest rolled value within a tier, deterministic-with-seeded-RNG repeatability, all-pass/empty-choices has no winner, unrecognized choice normalizes to pass, timeout-as-pass equivalence, encode/decode round-trip + garbage/null/non-container tolerance for start/choice/result (24 cases) (GID-102 / TID-381) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_coop_npeer_smoke.gd` | on-demand SceneTree | 3-peer (host + 2 clients) loopback: host avatar reaches both clients, and a **client→client** identity packet is relayed by the host (proves the server-relay path N-peer rendering depends on) + PlayerIdentity decode (GID-094) |
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |
@@ -1107,11 +1392,13 @@ listen-server host (peer_id=1, local_idx=0); `_pvp_peer_to_idx` is empty so
 - **Live-synced (GID-096):** shared **enemies** (engage-locks; defeat persists) and
   **chests** (first-opener-takes; open persists) now sync from the authority and resume on
   reconnect. Still **not** synced: NPC dialogue/story, day/night, weather, and the
-  per-player inventory (that is the GID-095 character, by design). The co-op map (madrian)
-  happens to have no enemies/chests today, so the sync is dormant in practice but verified
-  by `net_world_sync_smoke.gd`.
-- **Infinite chunk world not supported** — co-op uses a finite named map to avoid
-  chunk synchronisation.
+  per-player inventory (that is the GID-095 character, by design). The co-op landing map
+  (madrian) still has no enemies/chests of its own (BID-024, not fully resolved), but
+  **procedural dungeons are now reachable together** via the "Dungeon Crawl" host button
+  (GID-102 / TID-380, see Co-op Story Mode below) — every dungeon has combat/chest rooms, so
+  the sync is exercised for real content, not just `net_world_sync_smoke.gd`'s synthetic ids.
+- **Infinite chunk world not supported** — co-op uses a finite named map (or a finite
+  generated dungeon, GID-102 / TID-380) to avoid chunk synchronisation.
 
 ---
 
@@ -1132,6 +1419,65 @@ Extends co-op so the party can travel through and experience the story together 
 4. **Late-joiner redirect:** in `_on_identity_received`, after the host sends the character + world snapshot, it checks `SessionStore.current_map != map_name` and unicasts `recv_map_transition` to the joining peer so they land where the party already is.
 
 **RPC:** `recv_map_transition(target_map: String, door_id: String)` — reliable, any_peer → call_remote.
+
+### Shared dungeon crawl (GID-102 / TID-380)
+
+Co-op previously had **no way to reach a procedural `DungeonGen` dungeon at all** — every
+`"dungeon_<seed>"` map name in the game was constructed by `InfiniteWorldGen.gd` for ruin
+doors in the infinite chunk world, which co-op explicitly does not support (see
+Limitations), and zero dungeon doors are authored in any of the 6 named `.tres` maps. This
+was an entry-point gap, not a sync gap: `WorldScene._ready()` already loads any map whose
+name starts with `"dungeon_"` by parsing the seed out of the string
+(`int(map_name.substr(8))`) and calling `DungeonGen.generate(map_name, dseed)` — it doesn't
+care how the string was built — and `docs/agent/named-maps-and-dungeons.md` confirms
+`DungeonGen.generate` is a pure function of `(name, seed)`.
+
+**Trigger — host-only HUD button, not a new map door.** A "Dungeon Crawl" button
+(`WorldScene._ensure_dungeon_button` / `_start_dungeon_crawl`) is created in `_setup_coop()`
+alongside the existing challenge/social buttons, visible only when `NetworkManager.is_host()`
+(the host is the authority that picks the shared seed, avoiding a race where two peers open
+two different dungeons at once). A HUD button — rather than an authored door/portal entity in
+`madrian.tres` — was chosen because it needs no map-authoring pass (tile placement, terrain
+carving, a new `MapDoor` resource), generalizes to any future co-op-supported named map for
+free (it's gated on `_coop_active`, not a specific map name), and satisfies mobile/desktop
+parity trivially (a HUD button has no separate touch/keyboard path to duplicate).
+
+**Seed derivation:** when a session is open, `hash(str(world_seed) + "_dungeon_" +
+str(days_elapsed))` (from `SessionStore.get_state()`) — reopening the button on the same
+in-game day reproduces the same dungeon; a new day yields a fresh one. Falls back to
+`randi()` if `SessionStore` isn't open (defensive; doesn't happen while `_coop_active`).
+
+**Broadcast — no new RPC.** `_start_dungeon_crawl()` builds `target_map = "dungeon_%d" %
+seed` and reuses the **existing** TID-355 mechanism verbatim: `_net_sync.rpc("recv_map_transition",
+target_map, "")` then the local `SceneManager.enter_map(target_map, "")`, exactly like the
+door-triggered branch in `_handle_interact()`. Every peer's `_on_map_transition_received`
+independently calls `DungeonGen.generate(target_map, seed)` (or reloads its own cached
+`.tres` on a repeat visit), producing byte-identical tile grids and entity ids — confirmed by
+`DungeonGen`'s ids being purely index-based counters (`"de_%d"`, `"dnpc_rest_%d"`, `"dtr_%d"`,
+fixed `"dc_0"`/`"dsr_0"`/`"exit"`), never randomized or position-derived. This means GID-096's
+engage-lock / first-opener-takes sync (which keys purely on those string ids via
+`WorldObjectSync`) works in a dungeon exactly as it does on any named map — no map-name
+special-casing exists anywhere in the sync path.
+
+**Exit:** the dungeon's generated exit door has `target_map = ""`, so it already routes
+through the same `_handle_interact()` branch that broadcasts `recv_map_transition("", "")` for
+any empty-target door — no dungeon-specific exit handling was needed.
+
+**Progress is transient by design** — no dungeon-clear state is written to `SessionState`;
+the shared seed only needs to live for the duration of the crawl (matches single-player,
+where dungeons are also not tracked as "cleared").
+
+**Scope cut:** no new loopback smoke test was added for this transition specifically, since
+`recv_map_transition` itself is untouched, already-exercised code, and the property that
+actually needs proving — "two independent `DungeonGen.generate()` calls with the same seed
+produce identical content" — is a pure-logic property with no networking dependency. It is
+covered by a unit test (`tests/unit/test_dungeon_secrets.gd` →
+`test_dungeon_determinism_full_grid_and_entity_ids`) that asserts full tile-grid equality plus
+per-entity id/type/position equality across two independent generations, rather than the
+prior test's single center-tile + chest-count sample.
+
+**Still not multi-map co-op for the infinite world** — the trigger only ever produces a
+`"dungeon_<seed>"` name, never touches chunk streaming.
 
 ### Shared story flags (TID-356)
 

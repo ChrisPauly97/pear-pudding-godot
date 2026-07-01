@@ -24,7 +24,18 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ## v2 — adds party_bounties shared progress (TID-369).
 ## v3 — adds pvp_wins/losses/streak/best_streak per character (TID-368).
 ## v4 — adds pvp_rating/pvp_games per character for the ranked ladder (TID-370).
-const CURRENT_SESSION_VERSION: int = 4
+## v5 — adds a shared party stash: {cards: Array, coins: int} (GID-102 / TID-376).
+## v6 — adds `leaderboards` {spire, coop_clears} PvE score boards (TID-379).
+## v7 — adds loot_mode session setting for need/greed chest rolls (TID-381).
+const CURRENT_SESSION_VERSION: int = 7
+
+## Cap applied to each PvE leaderboard array by record_pve_score (top N kept).
+const PVE_LEADERBOARD_CAP: int = 20
+
+## Loot distribution modes (TID-381). Default keeps the original GID-096
+## first-opener-takes behaviour; need/greed is an opt-in host-only setting.
+const LOOT_MODE_FIRST_OPENER: String = "first_opener"
+const LOOT_MODE_NEED_GREED: String = "need_greed"
 
 ## Starter deck template ids — mirrors `SaveManager.new_game` / `ensure_coop_deck`
 ## so a freshly created session character can battle immediately.
@@ -56,6 +67,23 @@ var members: Dictionary = {}
 # Shape: {id, type, target, count, progress, contributors: [tokens], completed}
 var party_bounties: Array = []
 
+# --- Shared party stash (GID-102 / TID-376) ---------------------------------
+# A session-owned chest any member can deposit into / withdraw from. `cards` holds
+# full card instance dicts (same shape as a member's owned_cards, via CardInstanceUtil),
+# re-keyed into a stash-namespaced uid on deposit. `coins` is a simple shared int pool.
+var stash: Dictionary = {"cards": [], "coins": 0}
+
+# --- PvE leaderboards (GID-102 / TID-379) -----------------------------------
+# Authority-owned, session-scoped best-score boards. Distinct from the PvP
+# `get_leaderboard()` ranked-rating board above (TID-370/373) — this is PvE
+# achievement (Endless Spire runs, co-op boss clears), never touches rating.
+# Shape: {spire: Array, coop_clears: Array}, each entry {token, name, value, day}.
+var leaderboards: Dictionary = {"spire": [], "coop_clears": []}
+
+# --- Loot distribution mode (GID-102 / TID-381) -----------------------------
+# Host-only session setting; LOOT_MODE_FIRST_OPENER (default) or LOOT_MODE_NEED_GREED.
+var loot_mode: String = LOOT_MODE_FIRST_OPENER
+
 
 # ---------------------------------------------------------------------------
 # Serialization
@@ -75,6 +103,9 @@ func to_dict() -> Dictionary:
 		"story_flags": story_flags.duplicate(true),
 		"members": members.duplicate(true),
 		"party_bounties": party_bounties.duplicate(true),
+		"stash": stash.duplicate(true),
+		"leaderboards": leaderboards.duplicate(true),
+		"loot_mode": loot_mode,
 	}
 
 
@@ -99,7 +130,33 @@ static func from_dict(data: Dictionary) -> SessionState:
 	s.members = (mem as Dictionary).duplicate(true) if mem is Dictionary else {}
 	var pb: Variant = data.get("party_bounties", [])
 	s.party_bounties = (pb as Array).duplicate(true) if pb is Array else []
+	var stash_v: Variant = data.get("stash", {})
+	if stash_v is Dictionary:
+		var stash_dict: Dictionary = (stash_v as Dictionary).duplicate(true)
+		var stash_cards: Variant = stash_dict.get("cards", [])
+		s.stash = {
+			"cards": (stash_cards as Array).duplicate(true) if stash_cards is Array else [],
+			"coins": int(stash_dict.get("coins", 0)),
+		}
+	else:
+		s.stash = {"cards": [], "coins": 0}
+	var lb: Variant = data.get("leaderboards", {})
+	s.leaderboards = _sanitized_leaderboards(lb as Dictionary if lb is Dictionary else {})
+	var lm: String = str(data.get("loot_mode", LOOT_MODE_FIRST_OPENER))
+	s.loot_mode = lm if lm == LOOT_MODE_NEED_GREED else LOOT_MODE_FIRST_OPENER
 	return s
+
+
+## Always returns a dict with both "spire" and "coop_clears" Array keys, discarding
+## any garbage-typed input so a corrupt/legacy file can never crash a caller that
+## assumes the shape (mirrors the tolerant fallback pattern used throughout this file).
+static func _sanitized_leaderboards(raw: Dictionary) -> Dictionary:
+	var spire: Variant = raw.get("spire", [])
+	var coop: Variant = raw.get("coop_clears", [])
+	return {
+		"spire": (spire as Array).duplicate(true) if spire is Array else [],
+		"coop_clears": (coop as Array).duplicate(true) if coop is Array else [],
+	}
 
 
 ## Forward-migration scaffold. Entries run in ascending order; each backfills the
@@ -140,6 +197,22 @@ static func _apply_migrations(data: Dictionary) -> void:
 					if not (rec as Dictionary).has("pvp_games"):
 						(rec as Dictionary)["pvp_games"] = 0
 		data["version"] = 4
+	if ver < 5:
+		# v5: add the shared party stash.
+		if not data.has("stash"):
+			data["stash"] = {"cards": [], "coins": 0}
+		data["version"] = 5
+	if ver < 6:
+		# v6: add the leaderboards {spire, coop_clears} PvE score boards.
+		if not data.has("leaderboards"):
+			data["leaderboards"] = {"spire": [], "coop_clears": []}
+		data["version"] = 6
+	if ver < 7:
+		# v7: add loot_mode session setting (defaults to first-opener-takes so
+		# existing sessions keep their original behaviour unchanged).
+		if not data.has("loot_mode"):
+			data["loot_mode"] = LOOT_MODE_FIRST_OPENER
+		data["version"] = 7
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 
@@ -177,6 +250,55 @@ func update_member(token: String, record: Dictionary) -> void:
 	if token == "":
 		return
 	members[token] = record
+
+
+# ---------------------------------------------------------------------------
+# Ghost duel snapshots (GID-102 / TID-377)
+# ---------------------------------------------------------------------------
+
+## Derive a playable "ghost" opponent snapshot from a member's character record —
+## no second source of truth (never persisted separately). Used by
+## `SceneManager.enter_ghost_duel` to build a local, AI-piloted (BasicAI) copy of
+## another (possibly offline) session member's deck: async competition, zero live
+## networking. Returns `{}` for a blank/unknown token or a corrupt (non-Dictionary)
+## record — never throws.
+##
+## `player_deck` is stored as a list of card-instance UIDs (per-instance rolled
+## stats); the ghost only needs a playable deck of template ids, so each UID is
+## resolved against `owned_cards`. A UID with no matching owned-card entry is
+## silently skipped (the ghost fields a slightly smaller deck) rather than
+## crashing — a corrupt/edited session file must never break a duel.
+##
+## Returns `{token, name, deck: Array[String], rating}`. No `color` field:
+## character records don't store one (color is a device-local MpProfile/identity
+## concept, not part of the session character).
+func get_ghost_snapshot(token: String) -> Dictionary:
+	if token == "" or not has_member(token):
+		return {}
+	var rec: Variant = members.get(token, null)
+	if not (rec is Dictionary):
+		return {}
+	var r: Dictionary = rec
+	var owned: Variant = r.get("owned_cards", [])
+	var uid_to_template: Dictionary = {}
+	if owned is Array:
+		for inst: Variant in (owned as Array):
+			if inst is Dictionary:
+				var idict: Dictionary = inst
+				uid_to_template[str(idict.get("uid", ""))] = str(idict.get("template_id", ""))
+	var deck: Array[String] = []
+	var pdeck: Variant = r.get("player_deck", [])
+	if pdeck is Array:
+		for uid: Variant in (pdeck as Array):
+			var tid: String = str(uid_to_template.get(str(uid), ""))
+			if tid != "":
+				deck.append(tid)
+	return {
+		"token": token,
+		"name": str(r.get("display_name", "Player")),
+		"deck": deck,
+		"rating": int(r.get("pvp_rating", 1000)),
+	}
 
 
 # ---------------------------------------------------------------------------
@@ -254,3 +376,69 @@ func get_leaderboard(limit: int = 10) -> Array:
 	if limit > 0 and rows.size() > limit:
 		rows.resize(limit)
 	return rows
+
+
+# ---------------------------------------------------------------------------
+# PvE leaderboards — Endless Spire runs + co-op boss clears (GID-102 / TID-379)
+# ---------------------------------------------------------------------------
+# Distinct from the PvP `get_leaderboard()` ranked-rating board above (TID-370):
+# these boards track PvE *achievement* (best Spire floor, best co-op clear value)
+# and are never touched by rating math. Kept as plain per-board Arrays (not derived
+# from `members`, unlike the ranked board) because a player's best PvE result should
+# survive even if their character record's fields don't carry it (mirrors how the
+# task asks for a standalone {token, name, value, day} entry shape).
+
+## Valid board names for `record_pve_score` / `get_pve_leaderboard`.
+const _PVE_BOARDS: Array[String] = ["spire", "coop_clears"]
+
+## Insert-or-update `token`'s best score on `board`, then re-sort (desc by value,
+## ties broken by earliest `day` so an established record isn't bumped by a later
+## tie) and cap to PVE_LEADERBOARD_CAP. A no-op if `board` isn't recognized or if
+## the token already has a stored score >= the new value (a worse or equal result
+## never overwrites a better one — "only your own better score overwrites").
+func record_pve_score(board: String, token: String, name: String, value: int, day: int = 0) -> void:
+	if token == "" or not _PVE_BOARDS.has(board):
+		return
+	if not (leaderboards.get(board, null) is Array):
+		leaderboards[board] = []
+	var rows: Array = leaderboards[board]
+	var existing_idx: int = -1
+	for i in range(rows.size()):
+		var row: Variant = rows[i]
+		if row is Dictionary and str((row as Dictionary).get("token", "")) == token:
+			existing_idx = i
+			break
+	if existing_idx >= 0:
+		var existing: Dictionary = rows[existing_idx]
+		if value <= int(existing.get("value", 0)):
+			return  # a worse (or equal) score never overwrites the stored best
+		rows.remove_at(existing_idx)
+	rows.append({"token": token, "name": name, "value": value, "day": day})
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		if int(a["value"]) != int(b["value"]):
+			return int(a["value"]) > int(b["value"])
+		if int(a["day"]) != int(b["day"]):
+			return int(a["day"]) < int(b["day"])
+		return str(a["token"]) < str(b["token"]))
+	if rows.size() > PVE_LEADERBOARD_CAP:
+		rows.resize(PVE_LEADERBOARD_CAP)
+	leaderboards[board] = rows
+
+
+## Read accessor mirroring `get_leaderboard()`. Returns [] for an unrecognized board.
+func get_pve_leaderboard(board: String, limit: int = PVE_LEADERBOARD_CAP) -> Array:
+	if not _PVE_BOARDS.has(board):
+		return []
+	var rows: Array = leaderboards.get(board, [])
+	if limit > 0 and rows.size() > limit:
+		return rows.slice(0, limit)
+	return rows.duplicate(true)
+
+
+## The full {spire, coop_clears} snapshot sent over the wire (both boards together,
+## same "send the whole cached thing" pattern as recv_party_bounties_snapshot).
+func get_pve_leaderboards_snapshot() -> Dictionary:
+	return {
+		"spire": get_pve_leaderboard("spire"),
+		"coop_clears": get_pve_leaderboard("coop_clears"),
+	}

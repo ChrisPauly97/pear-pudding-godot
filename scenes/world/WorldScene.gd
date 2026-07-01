@@ -63,6 +63,14 @@ const _NET_BROADCAST_INTERVAL: float = 1.0 / 15.0  # 15 Hz avatar broadcast
 const _EnemySync         = preload("res://game_logic/net/EnemySync.gd")
 const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
 const _ENEMY_POS_INTERVAL: float = 1.0 / 5.0  # 5 Hz enemy position broadcast (host)
+# Ghost duels (GID-102 / TID-377): async solo battle vs. an AI-piloted snapshot of
+# another session member's deck. Zero live networking (no NetSync RPC involved).
+const _GhostDuelOverlay  = preload("res://scenes/ui/GhostDuelOverlay.gd")
+# Party loot rolls (GID-102 / TID-381)
+const _LootRoll          = preload("res://game_logic/net/LootRoll.gd")
+const _CardDropUtil      = preload("res://game_logic/CardDropUtil.gd")
+const _CardInstanceUtil  = preload("res://game_logic/CardInstanceUtil.gd")
+const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -98,6 +106,14 @@ var _coop_opened_objects: Dictionary = {}   # object id -> true (chest opened th
 var _coop_last_engaged_enemy_id: String = ""  # id of the enemy the local battle is against
 var _coop_enemy_targets: Dictionary = {}    # enemy id -> Vector2(x,z) interp target (clients)
 var _enemy_pos_accum: float = 0.0
+# Party loot rolls (GID-102 / TID-381) — opt-in need/greed alternative to first-opener-takes.
+# Authority only: roll_id -> {chest_id, item, tier, participants: Array[String],
+# choices: {token: "need"|"greed"|"pass"}, timer: float}. Empty on clients and when unused.
+var _loot_rolls_active: Dictionary = {}
+const _LOOT_ROLL_TIMEOUT: float = 15.0
+# Client (or host's own local UI): the currently-shown roll prompt, or {} when none.
+var _pending_loot_roll: Dictionary = {}
+var _loot_roll_panel: Node = null   # transient Need/Greed/Pass panel (CanvasLayer), nil when closed
 # Co-op story mode (GID-098): true once a map transition is in flight on this
 # WorldScene instance so duplicate recv_map_transition packets are ignored.
 var _coop_map_transitioning: bool = false
@@ -108,6 +124,8 @@ var _initial_ready_done: bool = false  # so _enter_tree re-setup only runs on re
 # PvP challenges (GID-091)
 var _challenge_btn: Button = null
 var _challenge_target_peer: int = -1     # nearby remote peer eligible to challenge
+# Shared dungeon crawl (GID-102 / TID-380) — host-only trigger; a client sees it hidden.
+var _dungeon_btn: Button = null
 var _pending_challenge_from: int = -1    # incoming challenge awaiting our response
 var _pending_challenge_deck: Array = []  # challenger's deck stored until we accept
 var _pending_challenge_ranked: bool = false  # GID-102 (TID-373): challenger's ranked opt-in
@@ -163,6 +181,12 @@ var _chat_quick_panel: Control = null      # quick-chat preset button row; nil w
 var _chat_input: LineEdit = null           # free-text input (desktop always-visible; mobile behind toggle)
 var _chat_send_btn: Button = null          # send button next to the free-text input
 var _chat_toggle_btn: Button = null        # HUD button: opens quick-chat row + reveals input (mobile parity)
+# GID-102 / TID-376: Shared party stash
+const _StashTransfer = preload("res://game_logic/net/StashTransfer.gd")
+const _PartyStashOverlay = preload("res://scenes/ui/PartyStashOverlay.gd")
+var _stash_btn: Button = null             # "Stash" HUD button (always visible in co-op)
+var _stash_overlay: Node = null           # PartyStashOverlay instance, nil when closed
+var _stash_cache: Dictionary = {"cards": [], "coins": 0}  # last-known stash snapshot
 var _pvp_ended_pending_broadcast: bool = false  # set in pvp_battle_ended; cleared on _enter_tree
 # GID-102 (TID-373): Ranked UI & leaderboard
 var _leaderboard_rows: Array = []        # cached SessionState.get_leaderboard() rows
@@ -171,6 +195,13 @@ var _leaderboard_btn: Button = null      # HUD button that opens the leaderboard
 var _ranked_toggle_btn: Button = null    # "Ranked" opt-in toggle next to the challenge button
 var _ranked_toggle_on: bool = false      # local challenger's ranked opt-in state
 var _pvp_ranked: bool = false            # ranked flag captured for the active duel (both peers)
+# GID-102 (TID-379): PvE leaderboards (Endless Spire + co-op boss clears). Distinct
+# cache/RPC names from the TID-373 ranked-rating board above — never touches rating.
+var _pve_leaderboards: Dictionary = {"spire": [], "coop_clears": []}  # cached snapshot
+# TID-377: Ghost duels — host-only HUD button + overlay (SessionStore is only ever
+# open on the authority; a client has no local SessionState to list opponents from).
+var _ghost_duel_btn: Button = null
+var _ghost_duel_overlay: Node = null
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -537,6 +568,17 @@ func _ready() -> void:
 	if not GameBus.team_battle_ended.is_connected(_on_team_battle_ended_coop):
 		GameBus.team_battle_ended.connect(_on_team_battle_ended_coop)
 
+	# GID-102 (TID-379): PvE leaderboard submission. Connected permanently (same
+	# "WorldScene detaches during battle" reasoning as pvp_battle_ended above) so a
+	# co-op boss clear is recorded regardless of which map/battle state re-attaches us.
+	if not GameBus.coop_pve_battle_ended.is_connected(_on_coop_pve_battle_ended_leaderboard):
+		GameBus.coop_pve_battle_ended.connect(_on_coop_pve_battle_ended_leaderboard)
+	# Spire runs happen while WorldScene is loaded (no battle-detach involved), but the
+	# connection is still made once here (not in _setup_coop) so a Spire run that starts
+	# before any co-op session is active still reaches this handler once co-op does start.
+	if not GameBus.spire_run_ended.is_connected(_on_spire_run_ended_leaderboard):
+		GameBus.spire_run_ended.connect(_on_spire_run_ended_leaderboard)
+
 	_setup_coop()
 	_initial_ready_done = true
 
@@ -595,6 +637,7 @@ func _setup_coop() -> void:
 		_ensure_social_buttons()
 		_ensure_team_duel_button()
 		_ensure_chat_ui()
+		_ensure_dungeon_button()
 	# GID-101 (TID-369): host initialises party bounties; all peers build the HUD.
 	_setup_party_bounties()
 	if not NetworkManager.is_dedicated_server():
@@ -616,6 +659,12 @@ func _setup_coop() -> void:
 	# file and adopts its own character; clients adopt on the character handshake.
 	_setup_session()
 
+	# Ghost duels (GID-102 / TID-377): host-only, needs SessionStore.is_open()
+	# (true only once _setup_session succeeds on the authority). No-op on a client
+	# or dedicated server — _ensure_ghost_duel_button checks SessionStore itself.
+	if not NetworkManager.is_dedicated_server():
+		_ensure_ghost_duel_button()
+
 	# Co-op story mode (GID-098): sync story flag changes through the authority.
 	if not GameBus.story_flag_set.is_connected(_on_local_story_flag_set):
 		GameBus.story_flag_set.connect(_on_local_story_flag_set)
@@ -625,6 +674,13 @@ func _setup_coop() -> void:
 	if not NetworkManager.is_dedicated_server():
 		_build_coop_roster()
 		_send_local_identity(false, 0)
+
+	# Party loot rolls (GID-102 / TID-381): host-only session setting toggle. Placed
+	# in-world (rather than the pre-connection lobby) because SessionStore only opens
+	# once the host's session file is loaded in _setup_session() just above — there is
+	# no session to toggle a mode on before that point.
+	if NetworkManager.is_host() and not NetworkManager.is_dedicated_server():
+		_ensure_loot_mode_toggle_button()
 
 func _teardown_coop() -> void:
 	if not _coop_active:
@@ -695,6 +751,15 @@ func _on_coop_session_ended() -> void:
 	_coop_opened_objects.clear()
 	_coop_enemy_targets.clear()
 	_coop_last_engaged_enemy_id = ""
+	# Party loot rolls (GID-102 / TID-381) are session-scoped too.
+	_loot_rolls_active.clear()
+	_pending_loot_roll = {}
+	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
+		_loot_roll_panel.queue_free()
+	_loot_roll_panel = null
+	if _loot_mode_toggle_btn != null and is_instance_valid(_loot_mode_toggle_btn):
+		_loot_mode_toggle_btn.queue_free()
+	_loot_mode_toggle_btn = null
 	# Authority owns the session file: flush + close it on session end (host left /
 	# server stopped). On clients SessionStore is never open, so this is a no-op.
 	if SessionStore.is_open():
@@ -803,6 +868,9 @@ func _setup_session() -> void:
 		# any duel has been played this session (e.g. a solo host re-entering a session
 		# with existing ranked history).
 		_leaderboard_rows = st.get_leaderboard(20) if st != null else []
+		# GID-102 (TID-379): same seeding for the PvE leaderboards cache.
+		_pve_leaderboards = st.get_pve_leaderboards_snapshot() if st != null else \
+			{"spire": [], "coop_clears": []}
 
 ## Client: adopt the character record the host resolved for our token. On a resume
 ## the host flags it so we also restore our saved position.
@@ -850,6 +918,13 @@ func _send_character_to_peer(peer_id: int, token: String, member_name: String) -
 	# next duel ends.
 	if st != null:
 		_net_sync.rpc_id(peer_id, "recv_leaderboard", st.get_leaderboard(20))
+	# GID-102 (TID-376): send the current stash snapshot so the joining client's
+	# panel starts populated instead of showing stale/empty until the next change.
+	if st != null:
+		_net_sync.rpc_id(peer_id, "recv_stash_update", st.stash)
+		# GID-102 (TID-379): send the current PvE leaderboards snapshot alongside it so
+		# a joining client's Spire/Co-op-clears tabs start populated too.
+		_net_sync.rpc_id(peer_id, "recv_pve_leaderboards", st.get_pve_leaderboards_snapshot())
 
 ## Move the local player to the position stored in a session record (same map only).
 func _restore_session_position(record: Dictionary) -> void:
@@ -933,6 +1008,46 @@ func _refresh_coop_roster() -> void:
 			nm += " (elsewhere)"
 			col = col.darkened(0.45)
 		_add_roster_row(nm, col, token)
+
+## Party loot rolls (GID-102 / TID-381): host-only HUD toggle between the default
+## first-opener-takes rule and the opt-in need/greed roll. Placed beneath the
+## roster panel (top-left, alongside the other social/session HUD affordances) —
+## a touch/click target satisfying the mobile/desktop parity rule with no separate
+## keybind, consistent with the Trade/Ping/emote HUD buttons.
+var _loot_mode_toggle_btn: Button = null
+
+func _ensure_loot_mode_toggle_button() -> void:
+	if _loot_mode_toggle_btn != null and is_instance_valid(_loot_mode_toggle_btn):
+		_refresh_loot_mode_toggle_button()
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_loot_mode_toggle_btn = Button.new()
+	# Placed just right of the chat log panel column (which spans y 0.16-0.46 at
+	# this x) rather than stacked in it, to avoid overlapping the panel or the
+	# roster/party-bounty panels that also share the left column.
+	_loot_mode_toggle_btn.position = Vector2(vp.x * 0.012 + vp.x * 0.27, vp.y * 0.16)
+	_loot_mode_toggle_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
+	_loot_mode_toggle_btn.add_theme_font_size_override("font_size", int(vp.y * 0.02))
+	_loot_mode_toggle_btn.pressed.connect(_on_loot_mode_toggle_pressed)
+	_hud.add_child(_loot_mode_toggle_btn)
+	_refresh_loot_mode_toggle_button()
+
+func _refresh_loot_mode_toggle_button() -> void:
+	if _loot_mode_toggle_btn == null or not is_instance_valid(_loot_mode_toggle_btn):
+		return
+	var need_greed: bool = _coop_loot_mode_is_need_greed()
+	_loot_mode_toggle_btn.text = "Loot: Need/Greed" if need_greed else "Loot: First-Opener"
+
+func _on_loot_mode_toggle_pressed() -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	var new_mode: String = _SessionState.LOOT_MODE_FIRST_OPENER
+	if not _coop_loot_mode_is_need_greed():
+		new_mode = _SessionState.LOOT_MODE_NEED_GREED
+	SessionStore.set_loot_mode(new_mode)
+	_refresh_loot_mode_toggle_button()
+	GameBus.hud_message_requested.emit(
+		"Loot mode: %s" % ("Need/Greed" if new_mode == _SessionState.LOOT_MODE_NEED_GREED else "First-Opener"))
 
 ## `token` is the remote peer's stable identity (empty for the local "(you)" row,
 ## which never gets an add-friend affordance). The token itself is never shown —
@@ -1172,6 +1287,277 @@ func _on_world_snapshot_received(payload: Array) -> void:
 	_coop_apply_world_progress(
 		snap.get("removed_enemies", []), snap.get("opened_objects", []))
 
+# ── Party loot rolls (GID-102 / TID-381) ──────────────────────────────────────
+# Opt-in need/greed alternative to the GID-096 first-opener-takes chest rule.
+# Guarded by _coop_active + the session's loot_mode; completely inert (and this whole
+# section unreached) when the mode is left at the default "first_opener".
+
+## True when a co-op session has need/greed loot mode enabled. Reads the live
+## SessionState on the host; a client mirrors the flag locally when it receives
+## a roll-start broadcast (there's nothing to read before the first roll on a client,
+## which is fine — a client never decides to start a roll, only the authority does).
+func _coop_loot_mode_is_need_greed() -> bool:
+	if not SessionStore.is_open():
+		return false
+	return SessionStore.get_loot_mode() == _SessionState.LOOT_MODE_NEED_GREED
+
+## Opener (host or client) triggers a roll for a just-opened chest's drop. The chest's
+## position/card ids/tier are re-derived from _active_chest_data[cid] rather than sent
+## over the wire — chests are deterministically spawned from the same map data on every
+## peer (the GID-096 invariant), so the authority already knows the exact same values the
+## opener does without needing a payload for the item shape.
+func _start_loot_roll(cid: String, chest_tier: int) -> void:
+	if _coop_world_authority():
+		_authority_open_loot_roll(cid, chest_tier)
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_loot_roll_request", cid, chest_tier)
+
+## Client → authority: "a chest I opened should start a need/greed roll." The chest-open
+## itself is already synced via the existing EV_CHEST_OPENED path; this only carries the
+## tier (the id is enough for the host to re-derive position/card ids locally).
+func _on_loot_roll_request_submitted(sender: int, cid: String, chest_tier: int) -> void:
+	if not _coop_world_authority():
+		return
+	_authority_open_loot_roll(cid, chest_tier)
+
+
+## Authority: build the roll session for a chest's resolved drop and broadcast the prompt
+## to every connected session member (present = connected to the session; a same-map/
+## proximity filter was judged out of scope for v1 — documented in the task).
+func _authority_open_loot_roll(cid: String, chest_tier: int) -> void:
+	if _loot_roll_by_chest(cid) != "":
+		return  # a roll for this chest is already in flight — never double-grant
+	var chest_data: Dictionary = _active_chest_data.get(cid, {}) as Dictionary
+	var chest_card_ids: Array[String] = []
+	chest_card_ids.assign(chest_data.get("card_ids", []))
+	var roll_id: String = "roll_%s_%d" % [cid, Time.get_ticks_msec()]
+	var participants: Array = []
+	participants.append(MpProfile.get_token())
+	for token in _session_token_by_peer.values():
+		if not participants.has(token):
+			participants.append(str(token))
+	_loot_rolls_active[roll_id] = {
+		"chest_id": cid,
+		"card_ids": chest_card_ids,
+		"tier": chest_tier,
+		"participants": participants,
+		"choices": {},
+		"timer": 0.0,
+	}
+	var item: Dictionary = {"card_ids": chest_card_ids, "tier": chest_tier}
+	var payload: Dictionary = _LootRoll.encode_start(roll_id, item, participants)
+	if _net_sync != null:
+		_net_sync.rpc("recv_loot_roll_start", payload)
+	_on_loot_roll_start_received(payload)  # authority also sees its own prompt
+
+
+## Find the in-flight roll_id for a chest id, or "" if none (authority only; empty dict
+## on clients so this is always "").
+func _loot_roll_by_chest(cid: String) -> String:
+	for rid in _loot_rolls_active.keys():
+		if str((_loot_rolls_active[rid] as Dictionary).get("chest_id", "")) == cid:
+			return str(rid)
+	return ""
+
+
+## Any peer (including the authority itself): show the Need/Greed/Pass prompt.
+func _on_loot_roll_start_received(payload: Dictionary) -> void:
+	var start: Dictionary = _LootRoll.decode_start(payload)
+	if str(start.get("roll_id", "")) == "":
+		return
+	_pending_loot_roll = start
+	_show_loot_roll_panel(start)
+
+
+## Local player picked Need/Greed/Pass. Sends the choice to the authority (or applies
+## it directly if this peer IS the authority).
+func _submit_loot_roll_choice(roll_id: String, choice: String) -> void:
+	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
+		_loot_roll_panel.queue_free()
+		_loot_roll_panel = null
+	_pending_loot_roll = {}
+	if NetworkManager.is_host():
+		_on_loot_roll_choice_submitted(multiplayer.get_unique_id(), roll_id, choice)
+	elif _net_sync != null:
+		var payload: Array = _LootRoll.encode_choice(roll_id, choice)
+		_net_sync.rpc_id(1, "submit_loot_roll_choice", payload[0], payload[1])
+
+
+## Authority: record a participant's choice. Resolves early once every expected
+## participant has responded (rather than always waiting out the full timeout).
+func _on_loot_roll_choice_submitted(sender: int, roll_id: String, choice: String) -> void:
+	if not _coop_world_authority():
+		return
+	if not _loot_rolls_active.has(roll_id):
+		return
+	var roll: Dictionary = _loot_rolls_active[roll_id]
+	var token: String = str(_session_token_by_peer.get(sender,
+		MpProfile.get_token() if sender == multiplayer.get_unique_id() else ""))
+	if token == "":
+		return
+	var choices: Dictionary = roll.get("choices", {})
+	choices[token] = _LootRoll.normalize_choice(choice)
+	roll["choices"] = choices
+	_loot_rolls_active[roll_id] = roll
+	var participants: Array = roll.get("participants", [])
+	if choices.size() >= participants.size():
+		_settle_loot_roll(roll_id)
+
+
+## Ticked from _process while any roll is in flight (authority only). Missing
+## responses auto-pass once the timeout elapses.
+func _tick_loot_rolls(delta: float) -> void:
+	if not _coop_world_authority() or _loot_rolls_active.is_empty():
+		return
+	for roll_id in _loot_rolls_active.keys().duplicate():
+		var roll: Dictionary = _loot_rolls_active[roll_id]
+		var t: float = float(roll.get("timer", 0.0)) + delta
+		roll["timer"] = t
+		_loot_rolls_active[roll_id] = roll
+		if t >= _LOOT_ROLL_TIMEOUT:
+			_settle_loot_roll(str(roll_id))
+
+
+## Authority: resolve the winner (missing participants auto-pass), grant the loot to
+## the winner's session character, persist, and broadcast the result. No item is ever
+## granted twice — the roll is removed from _loot_rolls_active before any grant happens.
+func _settle_loot_roll(roll_id: String) -> void:
+	if not _loot_rolls_active.has(roll_id):
+		return
+	var roll: Dictionary = _loot_rolls_active[roll_id]
+	_loot_rolls_active.erase(roll_id)
+	var participants: Array = roll.get("participants", [])
+	var choices: Dictionary = (roll.get("choices", {}) as Dictionary).duplicate()
+	for token in participants:
+		if not choices.has(str(token)):
+			choices[str(token)] = _LootRoll.CHOICE_PASS
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var outcome: Dictionary = _LootRoll.resolve_winner(choices, rng)
+	var winner_token: String = str(outcome.get("winner_token", ""))
+	var rolls: Dictionary = outcome.get("rolls", {})
+	if winner_token != "":
+		var chest_card_ids: Array[String] = []
+		chest_card_ids.assign(roll.get("card_ids", []))
+		_grant_chest_loot_to_token(winner_token, chest_card_ids, int(roll.get("tier", 1)))
+	var payload: Dictionary = _LootRoll.encode_result(roll_id, winner_token, rolls)
+	if _net_sync != null:
+		_net_sync.rpc("recv_loot_roll_result", payload)
+	_on_loot_roll_result_received(payload)
+
+
+## Authority: grant a resolved chest's cards + a flat coin reward directly into the
+## winner's GID-095 session character record (they may not be the local player, so this
+## reuses the direct-SessionStore-write pattern from _transfer_card_in_session /
+## party-bounty rewards rather than the physical WorldItem pickup path, which only ever
+## grants to the local opener). Equipment drops are out of scope for the roll path — no
+## session-scoped equipment inventory exists to grant to an arbitrary winner (see BID).
+func _grant_chest_loot_to_token(token: String, card_ids: Array[String], tier: int) -> void:
+	var st = SessionStore.get_state()
+	if st == null or token == "":
+		return
+	var rec: Dictionary = st.get_member(token)
+	if rec.is_empty():
+		return
+	var owned: Array = rec.get("owned_cards", []) as Array
+	var counter: int = owned.size()
+	for cid_tpl: String in card_ids:
+		var rarity: String = _CardDropUtil.effective_rarity(cid_tpl, _CardDropUtil.roll_rarity(tier))
+		var stats: Dictionary = _CardDropUtil.roll_stats(cid_tpl, rarity)
+		var uid: String = "%s_%s_roll_%d" % [cid_tpl, token, counter]
+		counter += 1
+		owned.append(_CardInstanceUtil.make(
+			uid, cid_tpl, rarity,
+			int(stats.get("attack", 0)), int(stats.get("health", 0)), int(stats.get("cost", 1))))
+	rec["owned_cards"] = owned
+	rec["coins"] = int(rec.get("coins", 0)) + randi_range(5, 20) * 3
+	st.update_member(token, rec)
+	SessionStore.mark_dirty()
+
+
+## Any peer: announce the winner (toast) and close the prompt if one was open.
+func _on_loot_roll_result_received(payload: Dictionary) -> void:
+	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
+		_loot_roll_panel.queue_free()
+		_loot_roll_panel = null
+	_pending_loot_roll = {}
+	var result: Dictionary = _LootRoll.decode_result(payload)
+	var winner_token: String = str(result.get("winner_token", ""))
+	if winner_token == "":
+		GameBus.hud_message_requested.emit("Loot roll: everyone passed — nothing claimed.")
+		return
+	var winner_name: String = _display_name_for_token(winner_token)
+	GameBus.hud_message_requested.emit("%s won the loot roll!" % winner_name)
+
+
+## Resolve a session token to a display name for the loot-roll toast: the local
+## player's own name, or the matching remote identity's name, or a fallback.
+func _display_name_for_token(token: String) -> String:
+	if token == MpProfile.get_token():
+		return MpProfile.get_display_name()
+	for pid in _remote_identities.keys():
+		var ident: Dictionary = _remote_identities[pid]
+		if str(ident.get("token", "")) == token:
+			return str(ident.get("name", "Player"))
+	return "A party member"
+
+
+## Build the transient Need/Greed/Pass prompt panel. Viewport-relative, mobile/desktop
+## parity (all three choices are tappable buttons — no keyboard-only path).
+func _show_loot_roll_panel(start: Dictionary) -> void:
+	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
+		_loot_roll_panel.queue_free()
+		_loot_roll_panel = null
+	var roll_id: String = str(start.get("roll_id", ""))
+	var item: Dictionary = start.get("item", {})
+	var card_ids: Array = item.get("card_ids", [])
+	var tier: int = int(item.get("tier", 1))
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var layer := CanvasLayer.new()
+	layer.layer = 183
+	add_child(layer)
+	_loot_roll_panel = layer
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	layer.add_child(panel)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vh * 0.02))
+	panel.add_child(vbox)
+	var lbl := Label.new()
+	lbl.text = "Loot roll! Tier %d chest — %d card(s).\nNeed, Greed, or Pass?" % [tier, card_ids.size()]
+	lbl.add_theme_font_size_override("font_size", int(vh * 0.026))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(lbl)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(vh * 0.025))
+	vbox.add_child(row)
+	var need_btn := Button.new()
+	need_btn.text = "Need"
+	need_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
+	need_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	need_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_NEED))
+	row.add_child(need_btn)
+	var greed_btn := Button.new()
+	greed_btn.text = "Greed"
+	greed_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
+	greed_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	greed_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_GREED))
+	row.add_child(greed_btn)
+	var pass_btn := Button.new()
+	pass_btn.text = "Pass"
+	pass_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
+	pass_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	pass_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_PASS))
+	row.add_child(pass_btn)
+
 # ── Co-op story mode — shared story flags (GID-098 / TID-356) ────────────────
 
 ## Host: send current session story flags to a just-joined peer.
@@ -1316,6 +1702,55 @@ func _on_map_transition_received(target_map: String, door_id: String) -> void:
 		SceneManager.exit_map()
 	else:
 		SceneManager.enter_map(target_map, door_id)
+
+# ── Shared dungeon crawl (GID-102 / TID-380) ──────────────────────────────────
+#
+# madrian (and any other co-op-supported named map) has no authored dungeon
+# door, so the party has no way to reach DungeonGen's procedural dungeons
+# together. This adds a host-only HUD trigger that picks a shared seed and
+# broadcasts the same "dungeon_<seed>" map name via the existing TID-355
+# recv_map_transition RPC — no new sync RPC needed, since DungeonGen is a pure
+# function of (name, seed) and WorldScene's dungeon-load branch only inspects
+# the map_name string, not how it was constructed.
+
+## Creates the hidden "Dungeon Crawl" HUD button. Visible only for the host —
+## the host is the authority that picks/blesses the shared seed (avoids two
+## peers racing to open two different dungeons at once).
+func _ensure_dungeon_button() -> void:
+	if _dungeon_btn != null and is_instance_valid(_dungeon_btn):
+		# Re-assert visibility: a PvP battle re-attach (_enter_tree → _setup_coop)
+		# hides this button unconditionally, so re-derive it here rather than only
+		# at creation time.
+		_dungeon_btn.visible = NetworkManager.is_host()
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_dungeon_btn = Button.new()
+	_dungeon_btn.text = "Dungeon Crawl"
+	_dungeon_btn.tooltip_text = "Open a procedural dungeon for the whole party"
+	_dungeon_btn.custom_minimum_size = Vector2(vp.y * 0.30, vp.y * 0.06)
+	_dungeon_btn.add_theme_font_size_override("font_size", int(vp.y * 0.024))
+	_dungeon_btn.position = Vector2((vp.x - vp.y * 0.30) * 0.5, vp.y * 0.72)
+	_dungeon_btn.visible = NetworkManager.is_host()
+	_dungeon_btn.pressed.connect(_start_dungeon_crawl)
+	_hud.add_child(_dungeon_btn)
+
+## Host-only: derive a shared seed and broadcast the transition so every peer
+## follows into the identical generated dungeon.
+func _start_dungeon_crawl() -> void:
+	if not NetworkManager.is_host():
+		return  # defensive: don't trust client-side button visibility alone
+	if not _coop_active or _net_sync == null or _coop_map_transitioning:
+		return
+	var seed_val: int = randi()
+	if SessionStore.is_open():
+		var st = SessionStore.get_state()
+		# world_seed + days_elapsed: reopening the crawl on the same in-game day
+		# reproduces the same dungeon; a new day yields a fresh one.
+		seed_val = hash(str(st.world_seed) + "_dungeon_" + str(st.days_elapsed))
+	var target_map: String = "dungeon_%d" % seed_val
+	_coop_map_transitioning = true
+	_net_sync.rpc("recv_map_transition", target_map, "")
+	SceneManager.enter_map(target_map, "")
 
 # ── PvP challenge handshake (GID-091) ─────────────────────────────────────────
 
@@ -1669,6 +2104,8 @@ func _enter_pvp(opponent_deck: Array, ranked: bool = false) -> void:
 	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
 		_ranked_toggle_btn.hide()
 	_pvp_ranked = ranked
+	if _dungeon_btn != null and is_instance_valid(_dungeon_btn):
+		_dungeon_btn.hide()
 	var local_idx: int = 0 if NetworkManager.is_host() else 1
 	# GID-101 (TID-367): host broadcasts duel-start to spectators
 	if NetworkManager.is_host() and _net_sync != null:
@@ -2642,6 +3079,9 @@ func _process(delta: float) -> void:
 		_tick_emote_self(delta)
 		_tick_ping_markers(delta)
 		_update_social_proximity()
+		# Party loot rolls (GID-102 / TID-381): authority-only timeout ticker; inert
+		# unless a roll is actually in flight (need/greed mode opted in).
+		_tick_loot_rolls(delta)
 	if _dnc:
 		_dnc.tick(delta, _weather_tint)
 
@@ -3085,6 +3525,13 @@ func _handle_interact() -> void:
 			chest_tier = 3
 		elif cid.begins_with("dc_"):
 			chest_tier = 2
+		# Party loot rolls (GID-102 / TID-381): when need/greed mode is on for this
+		# co-op session, the opener does NOT keep the loot below — the authority
+		# opens a roll among present session members and grants it to the winner
+		# instead. Default (first-opener-takes) and single-player are unchanged.
+		if _coop_active and _coop_loot_mode_is_need_greed():
+			_start_loot_roll(cid, chest_tier)
+			return
 		# 20% chance to drop a map fragment instead of normal loot (only if no active map)
 		var sm := SceneManager.save_manager
 		if _is_infinite and sm.active_treasure.is_empty() and randf() < 0.20:
@@ -4181,6 +4628,85 @@ func _ensure_social_buttons() -> void:
 		_leaderboard_btn.position = Vector2(vp.x * 0.012, vh * 0.012)
 		_leaderboard_btn.pressed.connect(_toggle_leaderboard_overlay)
 		_hud.add_child(_leaderboard_btn)
+	# Party stash button (GID-102 / TID-376): always visible while co-op is active
+	# (global to the session, not proximity-gated like Trade). Touch/click target.
+	if _stash_btn == null or not is_instance_valid(_stash_btn):
+		_stash_btn = Button.new()
+		_stash_btn.text = "Stash"
+		_stash_btn.tooltip_text = "Open the shared party stash"
+		_stash_btn.custom_minimum_size = Vector2(vh * 0.14, vh * 0.055)
+		_stash_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+		_stash_btn.position = Vector2(vp.x * 0.012, vh * 0.078)
+		_stash_btn.pressed.connect(_toggle_stash_overlay)
+		_hud.add_child(_stash_btn)
+
+
+## Ghost Duels HUD button (GID-102 / TID-377). Host-only: gated on
+## SessionStore.is_open() rather than NetworkManager.is_active() — a client never
+## opens SessionStore locally (see WorldScene._setup_session), so this button
+## naturally stays hidden for clients and for a host before its session file is
+## open. Always visible (not proximity-gated) once available — this is an async
+## feature, not a live-nearby-player interaction like Trade/Spectate.
+func _ensure_ghost_duel_button() -> void:
+	if not SessionStore.is_open():
+		return
+	if _ghost_duel_btn != null and is_instance_valid(_ghost_duel_btn):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	_ghost_duel_btn = Button.new()
+	_ghost_duel_btn.text = "Ghost Duels"
+	_ghost_duel_btn.tooltip_text = "Duel an AI-piloted snapshot of a party member's deck"
+	_ghost_duel_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.055)
+	_ghost_duel_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+	# Placed beside the Stash button (same row, offset right by its width + a gap)
+	# rather than stacked below it, since the next row down collides with the
+	# Stash/Leaderboard column at this y.
+	_ghost_duel_btn.position = Vector2(vp.x * 0.012 + vh * 0.15, vh * 0.078)
+	_ghost_duel_btn.pressed.connect(_toggle_ghost_duel_overlay)
+	_hud.add_child(_ghost_duel_btn)
+
+
+## Builds the {token, name, rating} row list from the host's own SessionState and
+## opens (or closes) the GhostDuelOverlay. The local host's own token is excluded
+## — dueling your own live snapshot is a no-op curiosity, not the intended use.
+func _toggle_ghost_duel_overlay() -> void:
+	if _ghost_duel_overlay != null and is_instance_valid(_ghost_duel_overlay):
+		_ghost_duel_overlay.queue_free()
+		_ghost_duel_overlay = null
+		return
+	if not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var local_token: String = MpProfile.get_token()
+	var rows: Array = []
+	for token in st.members.keys():
+		var t: String = str(token)
+		if t == local_token:
+			continue
+		var rec: Dictionary = st.get_member(t)
+		if rec.is_empty():
+			continue
+		rows.append({
+			"token": t,
+			"name": str(rec.get("display_name", "Player")),
+			"rating": int(rec.get("pvp_rating", 1000)),
+		})
+	var overlay := _GhostDuelOverlay.new()
+	overlay.set_rows(rows)
+	overlay.on_duel_requested = func(token: String) -> void:
+		var snapshot: Dictionary = st.get_ghost_snapshot(token)
+		if snapshot.is_empty():
+			GameBus.hud_message_requested.emit("That ghost's deck couldn't be resolved.")
+			return
+		SceneManager.enter_ghost_duel(snapshot)
+	overlay.closed.connect(func() -> void:
+		_ghost_duel_overlay = null
+		overlay.queue_free())
+	_hud.add_child(overlay)
+	_ghost_duel_overlay = overlay
 
 
 func _update_social_proximity() -> void:
@@ -4767,6 +5293,182 @@ func _show_trade_accept_panel(trade_id: String, offer: Dictionary) -> void:
 	row.add_child(decline_btn)
 
 
+# ── GID-102 / TID-376: Shared party stash ───────────────────────────────────────
+# A session-owned chest any member can deposit into / withdraw from — unlike trading,
+# this is global to the session (no proximity gate). Transfer logic delegates to the
+# pure, unit-tested StashTransfer helper; only the authority mutates SessionState.
+
+## Resolve the local token for `peer_id` — the identity token map for remote peers,
+## or our own MpProfile token when the sender is us (host acting on its own behalf).
+func _stash_token_for_peer(peer_id: int) -> String:
+	return str(_session_token_by_peer.get(peer_id,
+		MpProfile.get_token() if peer_id == multiplayer.get_unique_id() else ""))
+
+
+func _on_stash_deposit_submitted(sender: int, payload: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var token: String = _stash_token_for_peer(sender)
+	if token == "" or not st.has_member(token):
+		return
+	var member_rec: Dictionary = st.get_member(token)
+	var kind: String = str(payload.get("kind", "card"))
+	var result: Dictionary
+	if kind == "coins":
+		result = _StashTransfer.deposit_coins(st.stash, member_rec, int(payload.get("amount", 0)))
+	else:
+		result = _StashTransfer.deposit_card(st.stash, member_rec, str(payload.get("card_uid", "")))
+	if not bool(result.get("ok", false)):
+		if kind != "coins":
+			_show_tip("Could not deposit that card.")
+		return
+	st.stash = result.get("stash", st.stash)
+	var updated_member: Dictionary = result.get("member", member_rec)
+	st.update_member(token, updated_member)
+	SessionStore.mark_dirty()
+	_apply_updated_member_to_actor(sender, updated_member)
+	_broadcast_stash_update()
+
+
+func _on_stash_withdraw_submitted(sender: int, payload: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var token: String = _stash_token_for_peer(sender)
+	if token == "" or not st.has_member(token):
+		return
+	var member_rec: Dictionary = st.get_member(token)
+	var kind: String = str(payload.get("kind", "card"))
+	var result: Dictionary
+	if kind == "coins":
+		result = _StashTransfer.withdraw_coins(st.stash, member_rec, int(payload.get("amount", 0)))
+	else:
+		result = _StashTransfer.withdraw_card(st.stash, member_rec, str(payload.get("card_uid", "")), token)
+	if not bool(result.get("ok", false)):
+		if kind != "coins":
+			_show_tip("Could not withdraw that card.")
+		return
+	st.stash = result.get("stash", st.stash)
+	var updated_member2: Dictionary = result.get("member", member_rec)
+	st.update_member(token, updated_member2)
+	SessionStore.mark_dirty()
+	_apply_updated_member_to_actor(sender, updated_member2)
+	_broadcast_stash_update()
+
+
+## Keeps the acting peer's in-memory character (SaveManager fields / adopted session
+## character) in sync with the record `StashTransfer` just mutated, so the next
+## periodic persist-back tick (`_tick_session_persist`) doesn't clobber the stash
+## change with stale in-memory data — the host re-adopts directly; a remote client
+## gets an updated `recv_character` mirror (resume flag false: this isn't a reconnect,
+## just a refresh, so no position restore).
+func _apply_updated_member_to_actor(sender: int, updated_member: Dictionary) -> void:
+	if sender == multiplayer.get_unique_id():
+		SceneManager.save_manager.adopt_session_character(updated_member)
+	elif _net_sync != null:
+		_net_sync.rpc_id(sender, "recv_character", updated_member, false)
+
+
+## Host: push the current stash snapshot to one peer (target_peer == 0 broadcasts to all).
+func _broadcast_stash_update(target_peer: int = 0) -> void:
+	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	_stash_cache = st.stash
+	if target_peer == 0:
+		_net_sync.rpc("recv_stash_update", st.stash)
+	else:
+		_net_sync.rpc_id(target_peer, "recv_stash_update", st.stash)
+	if NetworkManager.is_host():
+		_refresh_stash_overlay()
+
+
+## Any peer: receive a stash snapshot (initial push, post-transfer update, or the
+## late-join send) and refresh the overlay if it's open.
+func _on_stash_update_received(snapshot: Dictionary) -> void:
+	_stash_cache = snapshot
+	_refresh_stash_overlay()
+
+
+func _refresh_stash_overlay() -> void:
+	if _stash_overlay != null and is_instance_valid(_stash_overlay) \
+			and _stash_overlay.has_method("refresh"):
+		_stash_overlay.refresh(_my_collection_for_stash_ui(), _stash_cache)
+
+
+## My current owned-card collection for the stash UI's "deposit" column.
+func _my_collection_for_stash_ui() -> Array:
+	var out: Array = []
+	for inst in SceneManager.save_manager.owned_cards:
+		out.append(inst)
+	return out
+
+
+## Opens (or closes, if already open) the party stash overlay. HUD button, always
+## visible while co-op is active — global to the session (mobile/desktop parity).
+func _toggle_stash_overlay() -> void:
+	if _stash_overlay != null and is_instance_valid(_stash_overlay):
+		_stash_overlay.queue_free()
+		_stash_overlay = null
+		return
+	_stash_overlay = _PartyStashOverlay.new()
+	_stash_overlay.world_scene = self
+	add_child(_stash_overlay)
+	_stash_overlay.closed.connect(func() -> void: _stash_overlay = null)
+	_stash_overlay.refresh(_my_collection_for_stash_ui(), _stash_cache)
+
+
+## Called by PartyStashOverlay when the player presses "Deposit" on a card.
+func request_stash_deposit_card(card_uid: String) -> void:
+	if _net_sync == null:
+		return
+	var payload: Dictionary = {"kind": "card", "card_uid": card_uid, "amount": 0}
+	if NetworkManager.is_host():
+		_on_stash_deposit_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_stash_deposit", payload)
+
+
+## Called by PartyStashOverlay when the player presses "Withdraw" on a stash card.
+func request_stash_withdraw_card(stash_uid: String) -> void:
+	if _net_sync == null:
+		return
+	var payload: Dictionary = {"kind": "card", "card_uid": stash_uid, "amount": 0}
+	if NetworkManager.is_host():
+		_on_stash_withdraw_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_stash_withdraw", payload)
+
+
+## Called by PartyStashOverlay's coin deposit stepper.
+func request_stash_deposit_coins(amount: int) -> void:
+	if _net_sync == null or amount <= 0:
+		return
+	var payload: Dictionary = {"kind": "coins", "card_uid": "", "amount": amount}
+	if NetworkManager.is_host():
+		_on_stash_deposit_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_stash_deposit", payload)
+
+
+## Called by PartyStashOverlay's coin withdraw stepper.
+func request_stash_withdraw_coins(amount: int) -> void:
+	if _net_sync == null or amount <= 0:
+		return
+	var payload: Dictionary = {"kind": "coins", "card_uid": "", "amount": amount}
+	if NetworkManager.is_host():
+		_on_stash_withdraw_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_stash_withdraw", payload)
+
+
 # ── TID-367: PvP spectating ────────────────────────────────────────────────────
 
 func _on_pvp_active_received(in_battle: bool, peer_a: int, peer_b: int) -> void:
@@ -4920,6 +5622,8 @@ func _on_battle_wager_responded(_sender: int, accepted: bool, responder_deck: Ar
 func _enter_pvp_wagered(ante: int, opp_deck: Array) -> void:
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		_challenge_btn.hide()
+	if _dungeon_btn != null and is_instance_valid(_dungeon_btn):
+		_dungeon_btn.hide()
 	SceneManager.save_manager.add_coins(-ante)
 	_pvp_ante_coins = ante
 	var local_idx: int = 0 if NetworkManager.is_host() else 1
@@ -5175,6 +5879,110 @@ func _toggle_leaderboard_overlay() -> void:
 		_broadcast_leaderboard()
 	elif _net_sync != null:
 		_net_sync.rpc_id(1, "submit_leaderboard_request")
+	if _leaderboard_overlay.has_method("refresh_pve_rows"):
+		_leaderboard_overlay.refresh_pve_rows(_pve_leaderboards)
+	if NetworkManager.is_host():
+		_broadcast_pve_leaderboards()
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_pve_leaderboard_request")
+
+
+# ── GID-102 (TID-379): PvE leaderboards — Spire + co-op boss clears ──────────
+# Distinct symbol/RPC names from the TID-373 ranked-rating board above
+# (recv_leaderboard/submit_leaderboard_request/_broadcast_leaderboard/etc.) —
+# these never touch pvp_rating. Reuses the LeaderboardOverlay's tabs (extended
+# by this task) rather than a second panel, per the task's "unified Rankings"
+# guidance.
+
+## Endless Spire is single-player; only submit a session-scoped board entry when a
+## co-op session is actually active (per task notes — a Spire run can happen with no
+## co-op session running at all, in which case this is purely a local result).
+## Offline/no-session best is intentionally NOT duplicated into MpProfile: the
+## fully-offline case is already covered by SaveManager.spire_best_floor (the "New
+## Record!" badge on RunSummaryScene reads that field already) — adding a second
+## local-best store here would just be a second source of truth for the same fact.
+func _on_spire_run_ended_leaderboard(stats: Dictionary) -> void:
+	if not NetworkManager.is_active():
+		return
+	var floors_cleared: int = int(stats.get("floors_cleared", 0))
+	if floors_cleared <= 0:
+		return
+	_submit_pve_score("spire", floors_cleared)
+
+## Co-op boss clear: submit on a party win while a co-op session is active. The
+## "value" recorded is the party size at the moment the battle ended (peers + self) —
+## a v1 simplification. Neither fastest-clear timing nor the scaled boss tier are
+## threaded from BattleScene back to WorldScene today (see BID-027), so party size is
+## the only robust, always-available proxy of "how tough a clear this was" without
+## inventing new cross-battle plumbing for this task.
+func _on_coop_pve_battle_ended_leaderboard(did_win: bool) -> void:
+	if not did_win or not NetworkManager.is_active():
+		return
+	var party_size: int = multiplayer.get_peers().size() + 1
+	_submit_pve_score("coop_clears", party_size)
+
+## Route a PvE score to the authority: host records directly via SessionStore; a
+## client sends the new submit RPC. board is "spire" or "coop_clears".
+func _submit_pve_score(board: String, value: int) -> void:
+	if NetworkManager.is_host():
+		if not SessionStore.is_open():
+			return
+		var st = SessionStore.get_state()
+		if st == null:
+			return
+		var token: String = MpProfile.get_token()
+		st.record_pve_score(board, token, MpProfile.get_display_name(), value,
+			SceneManager.save_manager.days_elapsed)
+		SessionStore.mark_dirty()
+		_broadcast_pve_leaderboards()
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_pve_leaderboard_score", board, value)
+
+## Host: a client submitted a PvE score — record it (using the sender's already-known
+## session token) and broadcast the refreshed snapshot to everyone.
+func _on_pve_leaderboard_score_submitted(sender: int, board: String, value: int) -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	var token: String = str(_session_token_by_peer.get(sender, ""))
+	if token == "":
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var rec: Dictionary = st.get_member(token)
+	var member_name: String = str(rec.get("display_name", "Player"))
+	st.record_pve_score(board, token, member_name, value, SceneManager.save_manager.days_elapsed)
+	SessionStore.mark_dirty()
+	_broadcast_pve_leaderboards()
+
+## Host: push the current {spire, coop_clears} PvE snapshot to one peer (0 = all).
+func _broadcast_pve_leaderboards(target_peer: int = 0) -> void:
+	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var snapshot: Dictionary = st.get_pve_leaderboards_snapshot()
+	_pve_leaderboards = snapshot
+	if target_peer == 0:
+		_net_sync.rpc("recv_pve_leaderboards", snapshot)
+	else:
+		_net_sync.rpc_id(target_peer, "recv_pve_leaderboards", snapshot)
+	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay) \
+			and _leaderboard_overlay.has_method("refresh_pve_rows"):
+		_leaderboard_overlay.refresh_pve_rows(_pve_leaderboards)
+
+## Any peer: receive a PvE leaderboard snapshot (late-join, post-update, or an
+## on-demand refresh reply) and refresh the overlay if open.
+func _on_pve_leaderboards_received(snapshot: Dictionary) -> void:
+	_pve_leaderboards = snapshot
+	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay) \
+			and _leaderboard_overlay.has_method("refresh_pve_rows"):
+		_leaderboard_overlay.refresh_pve_rows(_pve_leaderboards)
+
+## Host: a client asked for a fresh PvE leaderboard snapshot (e.g. switching tabs).
+func _on_pve_leaderboard_request_submitted(sender: int) -> void:
+	_broadcast_pve_leaderboards(sender)
 
 
 # ── TID-369: Shared party bounties ────────────────────────────────────────────

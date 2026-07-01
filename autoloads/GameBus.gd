@@ -9,6 +9,10 @@ signal battle_won(result: Dictionary)
 signal battle_lost()
 signal duel_won()
 signal duel_lost()
+# Ghost duels (GID-102 / TID-377): async, AI-piloted battle against a stored deck
+# snapshot of another (possibly offline) session member. Zero live networking —
+# did_win is the only outcome; SceneManager applies the (win-only) coin reward.
+signal ghost_duel_ended(did_win: bool)
 signal inventory_requested
 signal shop_requested
 signal bounty_board_requested

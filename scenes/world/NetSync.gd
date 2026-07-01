@@ -248,6 +248,35 @@ func recv_trade_update(payload: Dictionary) -> void:
 		world_scene._on_trade_update_received(payload)
 
 
+# ── Shared party stash (GID-102 / TID-376) ───────────────────────────────────
+# Unlike trading, the stash is global to the session — no proximity gate needed.
+
+## Client → authority: deposit a card or coins into the shared stash.
+## payload: {"kind": "card"|"coins", "card_uid": String, "amount": int}. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_stash_deposit(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_stash_deposit_submitted"):
+		world_scene._on_stash_deposit_submitted(sender, payload)
+
+
+## Client → authority: withdraw a card or coins from the shared stash. Same payload
+## shape as submit_stash_deposit (card_uid here refers to the stash-namespaced uid).
+@rpc("any_peer", "reliable", "call_remote")
+func submit_stash_withdraw(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_stash_withdraw_submitted"):
+		world_scene._on_stash_withdraw_submitted(sender, payload)
+
+
+## Authority → all (or one, on late-join): the current stash snapshot.
+## payload: {"cards": Array, "coins": int}. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_stash_update(snapshot: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_stash_update_received"):
+		world_scene._on_stash_update_received(snapshot)
+
+
 # ── PvP spectating (GID-101 / TID-367) ───────────────────────────────────────
 
 ## Host → all non-participants: a PvP duel started/ended among party members.
@@ -363,3 +392,79 @@ func submit_leaderboard_request() -> void:
 func recv_rating_delta(delta: int) -> void:
 	if world_scene != null and world_scene.has_method("_on_rating_delta_received"):
 		world_scene._on_rating_delta_received(delta)
+
+
+# ── PvE leaderboards: Spire + co-op clears (GID-102 / TID-379) ──────────────
+# Distinct RPC/symbol names from the TID-373 PvP ranked-rating pair above
+# (recv_leaderboard / submit_leaderboard_request) — this is the PvE counterpart,
+# never touches rating. All names carry a "pve" marker to avoid any collision.
+
+## Client → authority: "I finished a Spire run / co-op boss clear, here's my score."
+## board is "spire" or "coop_clears"; value is floors_cleared (Spire) or the co-op
+## clear's recorded value (see WorldScene._submit_pve_score for the value choice).
+## Reliable — a dropped submission would silently lose a player's best result.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_pve_leaderboard_score(board: String, value: int) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_pve_leaderboard_score_submitted"):
+		world_scene._on_pve_leaderboard_score_submitted(sender, board, value)
+
+
+## Authority → one or all peers: the current {spire, coop_clears} PvE leaderboard
+## snapshot. payload is SessionState.get_pve_leaderboards_snapshot() output —
+## already JSON-primitive, sent as-is (same pattern as recv_leaderboard /
+## recv_party_bounties_snapshot). Reliable — must not drop so cached rows stay
+## consistent with the authority. Fired on late-join and after every score update.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_pve_leaderboards(snapshot: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_pve_leaderboards_received"):
+		world_scene._on_pve_leaderboards_received(snapshot)
+
+
+## Client → authority: on-demand refresh request (e.g. switching to the Spire/Co-op
+## tab in the leaderboard overlay). Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_pve_leaderboard_request() -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_pve_leaderboard_request_submitted"):
+		world_scene._on_pve_leaderboard_request_submitted(sender)
+
+
+# ── Party loot rolls (GID-102 / TID-381) ─────────────────────────────────────
+
+## Authority → all same-session members: open a Need/Greed/Pass prompt for a chest's
+## resolved drop. payload is LootRoll.encode_start() output. Reliable — a dropped
+## roll-start would leave a peer stuck unable to claim loot they're entitled to roll on.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_loot_roll_start(payload: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_loot_roll_start_received"):
+		world_scene._on_loot_roll_start_received(payload)
+
+
+## Client → authority: "I opened a chest (cid), and need/greed mode is on — please
+## start a roll." The chest-open flip itself already syncs via the existing
+## EV_CHEST_OPENED world event; this only carries the tier so the authority can
+## re-derive card_ids/position from its own deterministic chest data. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_loot_roll_request(cid: String, chest_tier: int) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_loot_roll_request_submitted"):
+		world_scene._on_loot_roll_request_submitted(sender, cid, chest_tier)
+
+
+## Client → authority: my Need/Greed/Pass choice for an active roll. payload fields are
+## sent positionally (roll_id, choice) rather than as one Array so both ends stay
+## simple RPC parameters like the other submit_* calls. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_loot_roll_choice(roll_id: String, choice: String) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_loot_roll_choice_submitted"):
+		world_scene._on_loot_roll_choice_submitted(sender, roll_id, choice)
+
+
+## Authority → all: the resolved outcome (winner + rolled values) so every peer can
+## show a toast. payload is LootRoll.encode_result() output. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_loot_roll_result(payload: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_loot_roll_result_received"):
+		world_scene._on_loot_roll_result_received(payload)

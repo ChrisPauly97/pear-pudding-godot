@@ -350,3 +350,325 @@ func test_party_bounties_garbage_field_returns_empty_array() -> void:
 	}
 	var s := SessionState.from_dict(data)
 	assert_true(s.party_bounties.is_empty())
+
+
+# ---------------------------------------------------------------------------
+# Shared party stash (GID-102 / TID-376)
+# ---------------------------------------------------------------------------
+
+func test_stash_defaults_to_empty_cards_and_zero_coins() -> void:
+	var s := SessionState.new()
+	assert_true(s.stash.get("cards", null) is Array)
+	assert_true((s.stash["cards"] as Array).is_empty())
+	assert_eq(int(s.stash.get("coins", -1)), 0)
+
+
+func test_stash_round_trip_preserves_cards_and_coins() -> void:
+	var s := SessionState.new()
+	s.stash = {
+		"cards": [{"uid": "ghost_stash_0", "template_id": "ghost", "rarity": "common"}],
+		"coins": 250,
+	}
+	var restored := SessionState.from_dict(s.to_dict())
+	assert_eq(int(restored.stash.get("coins", -1)), 250)
+	var cards: Array = restored.stash.get("cards", [])
+	assert_eq(cards.size(), 1)
+	assert_eq(str((cards[0] as Dictionary).get("uid", "")), "ghost_stash_0")
+
+
+func test_stash_garbage_field_falls_back_to_empty_defaults() -> void:
+	var data: Dictionary = {
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"stash": "not-a-dict",
+	}
+	var s := SessionState.from_dict(data)
+	assert_true((s.stash.get("cards", null) as Array).is_empty())
+	assert_eq(int(s.stash.get("coins", -1)), 0)
+
+
+func test_stash_garbage_cards_field_falls_back_to_empty_array() -> void:
+	var data: Dictionary = {
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"stash": {"cards": "not-an-array", "coins": 40},
+	}
+	var s := SessionState.from_dict(data)
+	assert_true((s.stash.get("cards", null) as Array).is_empty())
+	assert_eq(int(s.stash.get("coins", -1)), 40)
+
+
+func test_migration_v5_backfills_missing_stash() -> void:
+	# Simulate a v3 session file that predates the stash field entirely.
+	var data: Dictionary = {
+		"version": 3,
+		"session_id": "old",
+		"party_bounties": [],
+		"members": {},
+	}
+	var s := SessionState.from_dict(data)
+	assert_true(s.stash.get("cards", null) is Array)
+	assert_true((s.stash["cards"] as Array).is_empty())
+	assert_eq(int(s.stash.get("coins", -1)), 0)
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_from_dict_versionless_still_gets_stash_default() -> void:
+	# A very old dict with no version and no stash key at all.
+	var data: Dictionary = {"session_id": "ancient", "members": {}}
+	var s := SessionState.from_dict(data)
+	assert_true((s.stash.get("cards", null) as Array).is_empty())
+	assert_eq(int(s.stash.get("coins", -1)), 0)
+
+
+# ---------------------------------------------------------------------------
+# PvE leaderboards — Endless Spire + co-op boss clears (GID-102 / TID-379)
+# ---------------------------------------------------------------------------
+# Distinct from the PvP get_leaderboard() tests above (TID-370): record_pve_score /
+# get_pve_leaderboard never touch pvp_rating.
+
+func test_leaderboards_defaults_to_empty_both_boards() -> void:
+	var s := SessionState.new()
+	assert_true(s.leaderboards is Dictionary)
+	assert_true(s.leaderboards.get("spire", null) is Array)
+	assert_true(s.leaderboards.get("coop_clears", null) is Array)
+	assert_true(s.leaderboards["spire"].is_empty())
+	assert_true(s.leaderboards["coop_clears"].is_empty())
+
+
+func test_record_pve_score_inserts_new_entry() -> void:
+	var s := SessionState.new()
+	s.record_pve_score("spire", "tokA", "Ada", 7, 3)
+	var lb: Array = s.get_pve_leaderboard("spire")
+	assert_eq(lb.size(), 1)
+	assert_eq(str(lb[0]["token"]), "tokA")
+	assert_eq(str(lb[0]["name"]), "Ada")
+	assert_eq(int(lb[0]["value"]), 7)
+	assert_eq(int(lb[0]["day"]), 3)
+
+
+func test_record_pve_score_own_better_score_overwrites() -> void:
+	var s := SessionState.new()
+	s.record_pve_score("spire", "tokA", "Ada", 5, 1)
+	s.record_pve_score("spire", "tokA", "Ada", 9, 2)
+	var lb: Array = s.get_pve_leaderboard("spire")
+	assert_eq(lb.size(), 1, "same token updates in place, does not add a second row")
+	assert_eq(int(lb[0]["value"]), 9, "better score replaces the stored best")
+	assert_eq(int(lb[0]["day"]), 2)
+
+
+func test_record_pve_score_worse_score_is_a_no_op() -> void:
+	var s := SessionState.new()
+	s.record_pve_score("spire", "tokA", "Ada", 9, 1)
+	s.record_pve_score("spire", "tokA", "Ada", 3, 2)
+	var lb: Array = s.get_pve_leaderboard("spire")
+	assert_eq(lb.size(), 1)
+	assert_eq(int(lb[0]["value"]), 9, "a worse score must never overwrite a better one")
+	assert_eq(int(lb[0]["day"]), 1, "day must not change when the score is rejected")
+
+
+func test_record_pve_score_equal_score_is_a_no_op() -> void:
+	var s := SessionState.new()
+	s.record_pve_score("spire", "tokA", "Ada", 9, 1)
+	s.record_pve_score("spire", "tokA", "Ada", 9, 5)
+	var lb: Array = s.get_pve_leaderboard("spire")
+	assert_eq(int(lb[0]["day"]), 1, "an equal score does not overwrite the existing entry")
+
+
+func test_record_pve_score_sorts_desc_by_value() -> void:
+	var s := SessionState.new()
+	s.record_pve_score("spire", "a", "A", 10, 1)
+	s.record_pve_score("spire", "b", "B", 30, 1)
+	s.record_pve_score("spire", "c", "C", 20, 1)
+	var lb: Array = s.get_pve_leaderboard("spire")
+	assert_eq(lb.size(), 3)
+	assert_eq(str(lb[0]["token"]), "b", "highest value first")
+	assert_eq(str(lb[1]["token"]), "c")
+	assert_eq(str(lb[2]["token"]), "a", "lowest value last")
+
+
+func test_record_pve_score_caps_at_20_entries() -> void:
+	var s := SessionState.new()
+	for i in range(25):
+		s.record_pve_score("coop_clears", "tok%d" % i, "P%d" % i, i + 1, 1)
+	var lb: Array = s.get_pve_leaderboard("coop_clears", 0)
+	assert_eq(lb.size(), SessionState.PVE_LEADERBOARD_CAP)
+	# The top 20 by value (5..24, i.e. i=4..24) survive; the lowest 5 (i=0..3) are dropped.
+	assert_eq(int(lb[0]["value"]), 25, "highest value kept at rank 1")
+	assert_eq(int(lb[lb.size() - 1]["value"]), 6, "cap drops the lowest-value entries")
+
+
+func test_record_pve_score_ignores_unknown_board() -> void:
+	var s := SessionState.new()
+	s.record_pve_score("not_a_board", "tokA", "Ada", 5, 1)
+	assert_true(s.get_pve_leaderboard("not_a_board").is_empty())
+	assert_true(s.leaderboards.get("spire", []).is_empty())
+	assert_true(s.leaderboards.get("coop_clears", []).is_empty())
+
+
+func test_record_pve_score_ignores_blank_token() -> void:
+	var s := SessionState.new()
+	s.record_pve_score("spire", "", "Nobody", 5, 1)
+	assert_true(s.get_pve_leaderboard("spire").is_empty())
+
+
+func test_get_pve_leaderboard_respects_limit() -> void:
+	var s := SessionState.new()
+	for i in range(5):
+		s.record_pve_score("spire", "tok%d" % i, "P%d" % i, i + 1, 1)
+	var lb: Array = s.get_pve_leaderboard("spire", 2)
+	assert_eq(lb.size(), 2)
+
+
+func test_pve_leaderboards_round_trip() -> void:
+	var s := SessionState.new()
+	s.record_pve_score("spire", "tokA", "Ada", 12, 4)
+	s.record_pve_score("coop_clears", "tokB", "Bram", 3, 2)
+	var restored := SessionState.from_dict(s.to_dict())
+	var spire: Array = restored.get_pve_leaderboard("spire")
+	var coop: Array = restored.get_pve_leaderboard("coop_clears")
+	assert_eq(spire.size(), 1)
+	assert_eq(int(spire[0]["value"]), 12)
+	assert_eq(coop.size(), 1)
+	assert_eq(int(coop[0]["value"]), 3)
+
+
+func test_pve_leaderboards_snapshot_shape() -> void:
+	var s := SessionState.new()
+	s.record_pve_score("spire", "tokA", "Ada", 5, 1)
+	var snap: Dictionary = s.get_pve_leaderboards_snapshot()
+	assert_true(snap.has("spire"))
+	assert_true(snap.has("coop_clears"))
+	assert_eq((snap["spire"] as Array).size(), 1)
+	assert_true((snap["coop_clears"] as Array).is_empty())
+
+
+func test_migration_v6_backfills_leaderboards_field() -> void:
+	var data: Dictionary = {
+		"version": 4,
+		"session_id": "old",
+		"party_bounties": [],
+		"members": {},
+	}
+	var s := SessionState.from_dict(data)
+	assert_true(s.leaderboards.get("spire", null) is Array)
+	assert_true(s.leaderboards.get("coop_clears", null) is Array)
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_migration_preserves_existing_leaderboards_field() -> void:
+	# A hypothetical future file that already has leaderboards populated at v4 must not
+	# be clobbered by the v6 migration step (only backfills when the key is missing).
+	var data: Dictionary = {
+		"version": 4,
+		"session_id": "old",
+		"members": {},
+		"leaderboards": {"spire": [{"token": "t", "name": "N", "value": 9, "day": 1}], "coop_clears": []},
+	}
+	var s := SessionState.from_dict(data)
+	assert_eq(s.get_pve_leaderboard("spire").size(), 1)
+	assert_eq(int(s.get_pve_leaderboard("spire")[0]["value"]), 9)
+
+
+func test_pve_leaderboards_garbage_field_falls_back_to_empty_boards() -> void:
+	var data: Dictionary = {
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"leaderboards": "not-a-dict",
+	}
+	var s := SessionState.from_dict(data)
+	assert_true(s.leaderboards.get("spire", null) is Array)
+	assert_true(s.leaderboards.get("coop_clears", null) is Array)
+	assert_true(s.get_pve_leaderboard("spire").is_empty())
+	assert_true(s.get_pve_leaderboard("coop_clears").is_empty())
+
+
+# ---------------------------------------------------------------------------
+# Ghost duel snapshot (GID-102 / TID-377)
+# ---------------------------------------------------------------------------
+
+func test_ghost_snapshot_returns_name_deck_and_rating_for_populated_member() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	assert_eq(str(snap.get("token", "")), "tok")
+	assert_eq(str(snap.get("name", "")), "Ada")
+	assert_eq(int(snap.get("rating", -1)), 1000, "defaults to the starter rating")
+	var deck: Array = snap.get("deck", [])
+	assert_eq(deck.size(), 12, "starter deck resolves to 12 template ids")
+	for tid in deck:
+		assert_true(tid is String and tid != "", "every resolved deck entry is a non-empty template id")
+
+
+func test_ghost_snapshot_resolves_uids_to_template_ids() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var rec: Dictionary = s.get_member("tok")
+	var owned: Array = rec.get("owned_cards", [])
+	assert_gt(owned.size(), 0)
+	var first_uid: String = str((owned[0] as Dictionary).get("uid", ""))
+	var first_template: String = str((owned[0] as Dictionary).get("template_id", ""))
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	var deck: Array = snap.get("deck", [])
+	assert_has(deck, first_template, "the UID for the first owned card resolves to its template id")
+	assert_does_not_have(deck, first_uid, "the raw UID itself must never leak into the ghost deck")
+
+
+func test_ghost_snapshot_reflects_custom_rating() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var rec: Dictionary = s.get_member("tok")
+	rec["pvp_rating"] = 1420
+	s.update_member("tok", rec)
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	assert_eq(int(snap.get("rating", -1)), 1420)
+
+
+func test_ghost_snapshot_blank_token_returns_empty() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	assert_true(s.get_ghost_snapshot("").is_empty())
+
+
+func test_ghost_snapshot_unknown_token_returns_empty() -> void:
+	var s := SessionState.new()
+	assert_true(s.get_ghost_snapshot("nope").is_empty())
+
+
+func test_ghost_snapshot_tolerates_non_dictionary_member() -> void:
+	# Simulate a corrupt/hand-edited session file where a member entry isn't a dict.
+	var s := SessionState.new()
+	s.members["broken"] = "not-a-dict"
+	assert_true(s.get_ghost_snapshot("broken").is_empty())
+
+
+func test_ghost_snapshot_skips_deck_uid_missing_from_owned_cards() -> void:
+	# A player_deck UID with no matching owned_cards entry (corrupt/edited file)
+	# must be skipped, not crash or produce a blank template id.
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var rec: Dictionary = s.get_member("tok")
+	var deck: Array = rec.get("player_deck", [])
+	var original_size: int = deck.size()
+	deck.append("ghost_uid_with_no_owned_card")
+	rec["player_deck"] = deck
+	s.update_member("tok", rec)
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	var resolved: Array = snap.get("deck", [])
+	assert_eq(resolved.size(), original_size, "the dangling UID contributes no entry")
+	for tid in resolved:
+		assert_true(str(tid) != "", "no blank template id ever leaks into the ghost deck")
+
+
+func test_ghost_snapshot_empty_owned_cards_yields_empty_deck() -> void:
+	var s := SessionState.new()
+	s.update_member("tok", {
+		"token": "tok", "display_name": "Ada", "owned_cards": [], "player_deck": ["x", "y"],
+	})
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	assert_true(snap.get("deck", ["nonempty"]).is_empty())
+	assert_eq(str(snap.get("name", "")), "Ada")
+
+
+func test_ghost_snapshot_missing_display_name_defaults_to_player() -> void:
+	var s := SessionState.new()
+	s.update_member("tok", {"token": "tok", "owned_cards": [], "player_deck": []})
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	assert_eq(str(snap.get("name", "")), "Player")
