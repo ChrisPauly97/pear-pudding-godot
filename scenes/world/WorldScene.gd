@@ -63,6 +63,9 @@ const _NET_BROADCAST_INTERVAL: float = 1.0 / 15.0  # 15 Hz avatar broadcast
 const _EnemySync         = preload("res://game_logic/net/EnemySync.gd")
 const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
 const _ENEMY_POS_INTERVAL: float = 1.0 / 5.0  # 5 Hz enemy position broadcast (host)
+# Ghost duels (GID-102 / TID-377): async solo battle vs. an AI-piloted snapshot of
+# another session member's deck. Zero live networking (no NetSync RPC involved).
+const _GhostDuelOverlay  = preload("res://scenes/ui/GhostDuelOverlay.gd")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -182,6 +185,10 @@ var _pvp_ranked: bool = false            # ranked flag captured for the active d
 # GID-102 (TID-379): PvE leaderboards (Endless Spire + co-op boss clears). Distinct
 # cache/RPC names from the TID-373 ranked-rating board above — never touches rating.
 var _pve_leaderboards: Dictionary = {"spire": [], "coop_clears": []}  # cached snapshot
+# TID-377: Ghost duels — host-only HUD button + overlay (SessionStore is only ever
+# open on the authority; a client has no local SessionState to list opponents from).
+var _ghost_duel_btn: Button = null
+var _ghost_duel_overlay: Node = null
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -638,6 +645,12 @@ func _setup_coop() -> void:
 	# Persistent session (GID-095 / TID-346): the host (authority) opens its session
 	# file and adopts its own character; clients adopt on the character handshake.
 	_setup_session()
+
+	# Ghost duels (GID-102 / TID-377): host-only, needs SessionStore.is_open()
+	# (true only once _setup_session succeeds on the authority). No-op on a client
+	# or dedicated server — _ensure_ghost_duel_button checks SessionStore itself.
+	if not NetworkManager.is_dedicated_server():
+		_ensure_ghost_duel_button()
 
 	# Co-op story mode (GID-098): sync story flag changes through the authority.
 	if not GameBus.story_flag_set.is_connected(_on_local_story_flag_set):
@@ -4276,6 +4289,74 @@ func _ensure_social_buttons() -> void:
 		_stash_btn.position = Vector2(vp.x * 0.012, vh * 0.078)
 		_stash_btn.pressed.connect(_toggle_stash_overlay)
 		_hud.add_child(_stash_btn)
+
+
+## Ghost Duels HUD button (GID-102 / TID-377). Host-only: gated on
+## SessionStore.is_open() rather than NetworkManager.is_active() — a client never
+## opens SessionStore locally (see WorldScene._setup_session), so this button
+## naturally stays hidden for clients and for a host before its session file is
+## open. Always visible (not proximity-gated) once available — this is an async
+## feature, not a live-nearby-player interaction like Trade/Spectate.
+func _ensure_ghost_duel_button() -> void:
+	if not SessionStore.is_open():
+		return
+	if _ghost_duel_btn != null and is_instance_valid(_ghost_duel_btn):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	_ghost_duel_btn = Button.new()
+	_ghost_duel_btn.text = "Ghost Duels"
+	_ghost_duel_btn.tooltip_text = "Duel an AI-piloted snapshot of a party member's deck"
+	_ghost_duel_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.055)
+	_ghost_duel_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+	# Placed beside the Stash button (same row, offset right by its width + a gap)
+	# rather than stacked below it, since the next row down collides with the
+	# Stash/Leaderboard column at this y.
+	_ghost_duel_btn.position = Vector2(vp.x * 0.012 + vh * 0.15, vh * 0.078)
+	_ghost_duel_btn.pressed.connect(_toggle_ghost_duel_overlay)
+	_hud.add_child(_ghost_duel_btn)
+
+
+## Builds the {token, name, rating} row list from the host's own SessionState and
+## opens (or closes) the GhostDuelOverlay. The local host's own token is excluded
+## — dueling your own live snapshot is a no-op curiosity, not the intended use.
+func _toggle_ghost_duel_overlay() -> void:
+	if _ghost_duel_overlay != null and is_instance_valid(_ghost_duel_overlay):
+		_ghost_duel_overlay.queue_free()
+		_ghost_duel_overlay = null
+		return
+	if not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var local_token: String = MpProfile.get_token()
+	var rows: Array = []
+	for token in st.members.keys():
+		var t: String = str(token)
+		if t == local_token:
+			continue
+		var rec: Dictionary = st.get_member(t)
+		if rec.is_empty():
+			continue
+		rows.append({
+			"token": t,
+			"name": str(rec.get("display_name", "Player")),
+			"rating": int(rec.get("pvp_rating", 1000)),
+		})
+	var overlay := _GhostDuelOverlay.new()
+	overlay.set_rows(rows)
+	overlay.on_duel_requested = func(token: String) -> void:
+		var snapshot: Dictionary = st.get_ghost_snapshot(token)
+		if snapshot.is_empty():
+			GameBus.hud_message_requested.emit("That ghost's deck couldn't be resolved.")
+			return
+		SceneManager.enter_ghost_duel(snapshot)
+	overlay.closed.connect(func() -> void:
+		_ghost_duel_overlay = null
+		overlay.queue_free())
+	_hud.add_child(overlay)
+	_ghost_duel_overlay = overlay
 
 
 func _update_social_proximity() -> void:

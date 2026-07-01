@@ -234,6 +234,55 @@ func update_member(token: String, record: Dictionary) -> void:
 
 
 # ---------------------------------------------------------------------------
+# Ghost duel snapshots (GID-102 / TID-377)
+# ---------------------------------------------------------------------------
+
+## Derive a playable "ghost" opponent snapshot from a member's character record —
+## no second source of truth (never persisted separately). Used by
+## `SceneManager.enter_ghost_duel` to build a local, AI-piloted (BasicAI) copy of
+## another (possibly offline) session member's deck: async competition, zero live
+## networking. Returns `{}` for a blank/unknown token or a corrupt (non-Dictionary)
+## record — never throws.
+##
+## `player_deck` is stored as a list of card-instance UIDs (per-instance rolled
+## stats); the ghost only needs a playable deck of template ids, so each UID is
+## resolved against `owned_cards`. A UID with no matching owned-card entry is
+## silently skipped (the ghost fields a slightly smaller deck) rather than
+## crashing — a corrupt/edited session file must never break a duel.
+##
+## Returns `{token, name, deck: Array[String], rating}`. No `color` field:
+## character records don't store one (color is a device-local MpProfile/identity
+## concept, not part of the session character).
+func get_ghost_snapshot(token: String) -> Dictionary:
+	if token == "" or not has_member(token):
+		return {}
+	var rec: Variant = members.get(token, null)
+	if not (rec is Dictionary):
+		return {}
+	var r: Dictionary = rec
+	var owned: Variant = r.get("owned_cards", [])
+	var uid_to_template: Dictionary = {}
+	if owned is Array:
+		for inst: Variant in (owned as Array):
+			if inst is Dictionary:
+				var idict: Dictionary = inst
+				uid_to_template[str(idict.get("uid", ""))] = str(idict.get("template_id", ""))
+	var deck: Array[String] = []
+	var pdeck: Variant = r.get("player_deck", [])
+	if pdeck is Array:
+		for uid: Variant in (pdeck as Array):
+			var tid: String = str(uid_to_template.get(str(uid), ""))
+			if tid != "":
+				deck.append(tid)
+	return {
+		"token": token,
+		"name": str(r.get("display_name", "Player")),
+		"deck": deck,
+		"rating": int(r.get("pvp_rating", 1000)),
+	}
+
+
+# ---------------------------------------------------------------------------
 # Starter character
 # ---------------------------------------------------------------------------
 

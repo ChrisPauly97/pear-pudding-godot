@@ -578,3 +578,97 @@ func test_pve_leaderboards_garbage_field_falls_back_to_empty_boards() -> void:
 	assert_true(s.leaderboards.get("coop_clears", null) is Array)
 	assert_true(s.get_pve_leaderboard("spire").is_empty())
 	assert_true(s.get_pve_leaderboard("coop_clears").is_empty())
+
+
+# ---------------------------------------------------------------------------
+# Ghost duel snapshot (GID-102 / TID-377)
+# ---------------------------------------------------------------------------
+
+func test_ghost_snapshot_returns_name_deck_and_rating_for_populated_member() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	assert_eq(str(snap.get("token", "")), "tok")
+	assert_eq(str(snap.get("name", "")), "Ada")
+	assert_eq(int(snap.get("rating", -1)), 1000, "defaults to the starter rating")
+	var deck: Array = snap.get("deck", [])
+	assert_eq(deck.size(), 12, "starter deck resolves to 12 template ids")
+	for tid in deck:
+		assert_true(tid is String and tid != "", "every resolved deck entry is a non-empty template id")
+
+
+func test_ghost_snapshot_resolves_uids_to_template_ids() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var rec: Dictionary = s.get_member("tok")
+	var owned: Array = rec.get("owned_cards", [])
+	assert_gt(owned.size(), 0)
+	var first_uid: String = str((owned[0] as Dictionary).get("uid", ""))
+	var first_template: String = str((owned[0] as Dictionary).get("template_id", ""))
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	var deck: Array = snap.get("deck", [])
+	assert_has(deck, first_template, "the UID for the first owned card resolves to its template id")
+	assert_does_not_have(deck, first_uid, "the raw UID itself must never leak into the ghost deck")
+
+
+func test_ghost_snapshot_reflects_custom_rating() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var rec: Dictionary = s.get_member("tok")
+	rec["pvp_rating"] = 1420
+	s.update_member("tok", rec)
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	assert_eq(int(snap.get("rating", -1)), 1420)
+
+
+func test_ghost_snapshot_blank_token_returns_empty() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	assert_true(s.get_ghost_snapshot("").is_empty())
+
+
+func test_ghost_snapshot_unknown_token_returns_empty() -> void:
+	var s := SessionState.new()
+	assert_true(s.get_ghost_snapshot("nope").is_empty())
+
+
+func test_ghost_snapshot_tolerates_non_dictionary_member() -> void:
+	# Simulate a corrupt/hand-edited session file where a member entry isn't a dict.
+	var s := SessionState.new()
+	s.members["broken"] = "not-a-dict"
+	assert_true(s.get_ghost_snapshot("broken").is_empty())
+
+
+func test_ghost_snapshot_skips_deck_uid_missing_from_owned_cards() -> void:
+	# A player_deck UID with no matching owned_cards entry (corrupt/edited file)
+	# must be skipped, not crash or produce a blank template id.
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var rec: Dictionary = s.get_member("tok")
+	var deck: Array = rec.get("player_deck", [])
+	var original_size: int = deck.size()
+	deck.append("ghost_uid_with_no_owned_card")
+	rec["player_deck"] = deck
+	s.update_member("tok", rec)
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	var resolved: Array = snap.get("deck", [])
+	assert_eq(resolved.size(), original_size, "the dangling UID contributes no entry")
+	for tid in resolved:
+		assert_true(str(tid) != "", "no blank template id ever leaks into the ghost deck")
+
+
+func test_ghost_snapshot_empty_owned_cards_yields_empty_deck() -> void:
+	var s := SessionState.new()
+	s.update_member("tok", {
+		"token": "tok", "display_name": "Ada", "owned_cards": [], "player_deck": ["x", "y"],
+	})
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	assert_true(snap.get("deck", ["nonempty"]).is_empty())
+	assert_eq(str(snap.get("name", "")), "Ada")
+
+
+func test_ghost_snapshot_missing_display_name_defaults_to_player() -> void:
+	var s := SessionState.new()
+	s.update_member("tok", {"token": "tok", "owned_cards": [], "player_deck": []})
+	var snap: Dictionary = s.get_ghost_snapshot("tok")
+	assert_eq(str(snap.get("name", "")), "Player")

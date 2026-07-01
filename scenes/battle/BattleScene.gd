@@ -41,6 +41,17 @@ var enemy_data: Dictionary = {}
 var duel_wager: int = 0
 var puzzle_data: Resource = null  # PuzzleData set by SceneManager before _ready
 
+# ── Ghost duels (GID-102 / TID-377) ──────────────────────────────────────────
+# All inert unless SceneManager sets _ghost_duel = true before _ready (via
+# enter_ghost_duel). This is a plain solo battle (no _pvp/_coop_pve) against an
+# AI-piloted snapshot of another session member's deck — zero live networking.
+# Distinct from duel_wager/friendly_duel: that path deducts/refunds a real coin
+# stake on loss (BattleResultUI.show_duel_loss), which would be wrong here since
+# nothing was ever staked against an offline AI opponent. Coins are granted
+# win-only, exactly once, by SceneManager._on_ghost_duel_ended.
+var _ghost_duel: bool = false
+var _ghost_duel_reward: int = 0
+
 # ── PvP card battles (GID-091 + GID-097) ─────────────────────────────────────
 # All inert unless SceneManager sets _pvp = true before _ready. Single-player,
 # NPC duel, puzzle and Spire battles never touch any of this.
@@ -351,8 +362,8 @@ func _ready() -> void:
 	_fx.set_game_state(_state)
 	_view.set_battle_state(_state, enemy_data)
 
-	# Initialise capture tracker for the current enemy (no-op for puzzles/duels/PvP).
-	if not _state.puzzle_mode and not _state.friendly_duel and not _pvp:
+	# Initialise capture tracker for the current enemy (no-op for puzzles/duels/PvP/ghost duels).
+	if not _state.puzzle_mode and not _state.friendly_duel and not _pvp and not _ghost_duel:
 		var _ct_enemy_type: String = str(enemy_data.get("enemy_type", ""))
 		var _ct_condition: String = EnemyRegistry.get_capture_condition(_ct_enemy_type)
 		var _ct_param: int = EnemyRegistry.get_capture_param(_ct_enemy_type)
@@ -1799,6 +1810,15 @@ func _check_game_over() -> void:
 				_show_puzzle_victory()
 			return
 		GameBus.battle_ended.emit(w)
+		if _ghost_duel:
+			if w == 0:
+				AudioManager.play_sfx("battle_win")
+				_fx.haptic(120)
+			else:
+				AudioManager.play_sfx("battle_lose")
+				_fx.haptic(80)
+			_result_ui.show_ghost_duel_result(w == 0, _ghost_duel_reward)
+			return
 		if _state.friendly_duel:
 			if w == 0:
 				AudioManager.play_sfx("battle_win")

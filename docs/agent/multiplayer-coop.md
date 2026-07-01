@@ -846,6 +846,97 @@ wagered team duels, a live 4-peer ENet loopback smoke test (covered instead by 1
 `GameState` unit tests — `test_team_battle_state.gd`), and 3v3/4v4 (`setup_team_battle`
 is fixed at 2v2).
 
+### Ghost duels (GID-102 / TID-377)
+
+A **ghost duel** lets a player battle an **AI-piloted snapshot** of another (possibly
+offline) session member's deck. This is the **only PvP-flavored mode in the game that
+needs zero live connection** — no `NetSync`, no `BattleNetSync`, no reconnection
+concern whatsoever, unlike every other duel/PvP mode documented above.
+
+#### Not PvP host-mirroring — a plain solo battle
+
+A ghost duel is the existing **single-player battle path**
+(`_local_player_idx == 0`, no `_pvp`/`_coop_pve`/`_team_pvp` flags), with
+`BasicAI` (`ai/BasicAI.gd`) piloting a deck built from the snapshot — exactly the
+same mechanism an NPC tavern duel (GID-037, `SceneManager._on_duel_requested`) uses
+for its enemy deck. `BattleScene` gains one small, inert-unless-set flag,
+`_ghost_duel: bool` (+ `_ghost_duel_reward: int`), set by
+`SceneManager.enter_ghost_duel` before `_ready`, mirroring how `_pvp`/`_coop_pve`
+are set. It is deliberately **not** built on `duel_wager`/`GameState.friendly_duel`:
+that path (`BattleResultUI.show_duel_loss`) deducts the wager amount as a real coin
+stake on a loss, which is correct for a live NPC wager but wrong here — nothing was
+ever staked against an offline AI opponent.
+
+#### Snapshot extraction — `SessionState.get_ghost_snapshot(token) -> Dictionary`
+
+Pure, derived on demand from `members[token]` — **no second source of truth**
+(nothing is persisted separately for "ghost" purposes). Returns
+`{token, name, deck: Array[String], rating}`. The member's `player_deck` is a list
+of card-instance **UIDs** (per-instance rolled stats); each UID is resolved to its
+`template_id` via the matching `owned_cards` entry, because the ghost only needs a
+playable deck of template ids, not the opponent's specific rolled stats. A UID with
+no matching `owned_cards` entry is silently skipped (the ghost fields a slightly
+smaller deck) rather than crashing — a hand-edited or corrupt session file must
+never break a duel. `rating` reads `pvp_rating` defaulting to `1000` (the same
+default `SessionState.make_starter_character` seeds), so this reads correctly
+whether or not the TID-370 rating model has landed. Returns `{}` for a blank token,
+an unknown token, or a corrupt (non-Dictionary) member record — never throws.
+
+#### Entry point — host-only "Ghost Duels" HUD button
+
+`WorldScene._ensure_ghost_duel_button()` is gated on `SessionStore.is_open()`
+(not `NetworkManager.is_active()`) — a **client never opens `SessionStore`
+locally** (only the authority does, in `_setup_session`), so this is a
+**host-only** feature in the current slice: a client has no local `SessionState`
+to list opponents from. The button is always visible once available (not
+proximity-gated like Trade/Spectate — this is async, not a live-nearby-player
+interaction). Pressing it opens `scenes/ui/GhostDuelOverlay.gd` (`extends
+BaseOverlay` by path string, `.new()`-instantiated, viewport-relative, mobile +
+desktop parity — a simple list + button, matching the task's "keep this UI
+genuinely simple" guidance), populated from `SessionStore.get_state().members`
+(excluding the local host's own token — dueling your own live snapshot is a no-op
+curiosity, not the intended use). Each row shows name + rating + a "Ghost Duel"
+button that resolves the snapshot and calls `SceneManager.enter_ghost_duel`.
+
+#### Entering the battle — `SceneManager.enter_ghost_duel(opponent_snapshot)`
+
+Builds an `enemy_data` dict (`display_name: "<name> (Ghost)"`, `enemy_type: ""`,
+`is_boss: false`, `drop_pool: []`, `coin_reward: 0`, `enemy_deck:
+opponent_snapshot.deck`) and enters through the exact same
+`_battle_scene_packed.instantiate()` + `TransitionManager.transition` path
+`_on_duel_requested` uses, with the same `DECK_MIN` guard. Guards against an empty
+snapshot deck up front so a bad caller can never launch a battle with nothing to
+fight. `BattleScene`'s plain `else` setup branch builds `_state.players[1]` from
+`enemy_data["enemy_deck"]` unchanged (`Array[String]` + `.assign()`, per CLAUDE.md's
+variant-inference guidance) — no new deck-building path was added.
+
+#### Rewards — coins only, win-only; explicitly NO rating change
+
+**Decision (documented, not a silent default): a ghost duel never moves PvP
+rating, win or lose.** The opponent is AI-piloted, not the real remote player — if
+rating moved here, a player could farm free ELO by dueling their own cached
+snapshot (or a stale/offline friend's) with zero real matched risk. Ghost duels
+only ever grant a flat, modest coin reward (`SceneManager.GHOST_DUEL_COIN_REWARD =
+25`, roughly half a basic-enemy's coin reward — clearly async, not a substitute
+for a real battle or a real PvP duel) on a **win only**; a loss grants and deducts
+nothing (there was never a stake). `BattleResultUi.show_ghost_duel_result(did_win,
+coin_reward)` (new, mirrors the structure of `show_pvp_result`) shows the result
+and a coin line only when `did_win and coin_reward > 0`, then emits
+`GameBus.ghost_duel_ended(did_win)`. `SceneManager._on_ghost_duel_ended` applies
+the reward **exactly once** (not on the button press, unlike the NPC wager-duel
+path) and restores the world, mirroring `_on_duel_won`/`_on_duel_lost` — no card
+drops, no enemy-defeat bookkeeping, no capture-tracker init (the capture-tracker
+guard at battle setup now also excludes `_ghost_duel`, alongside `puzzle_mode`/
+`friendly_duel`/`_pvp`).
+
+#### Known gap
+
+The ghost-duel entry point is host-only for now: a client would need its own way
+to read the session roster (there is no wire message today that hands a client
+the member list + ratings the way `recv_party_bounties_snapshot` does for
+bounties). Extending this to clients is a natural follow-up but out of scope here
+— see BID list for the corresponding backlog entry.
+
 ## Persistent Sessions & Per-Player Progress (GID-095)
 
 Each server keeps a **persistent session**: shared world progress plus a roster of
@@ -1106,7 +1197,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_player_identity.gd` | unit (auto-run) | PlayerIdentity encode/decode round-trip, color hex, robust defaults for short/blank/invalid payloads (10 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
-| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance; shared `stash` default/round-trip/garbage tolerance + migration v5 backfill; `leaderboards` {spire, coop_clears} default + `record_pve_score` insert/own-better-overwrites/worse-and-equal-are-no-ops/sort-desc/cap-at-20/unknown-board-and-blank-token no-ops, `get_pve_leaderboard` limit, round-trip + snapshot shape, migration v6 backfill + preserves-existing + garbage-field tolerance (51 cases) (GID-095 / GID-101 / GID-102) |
+| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance; shared `stash` default/round-trip/garbage tolerance + migration v5 backfill; `leaderboards` {spire, coop_clears} default + `record_pve_score` insert/own-better-overwrites/worse-and-equal-are-no-ops/sort-desc/cap-at-20/unknown-board-and-blank-token no-ops, `get_pve_leaderboard` limit, round-trip + snapshot shape, migration v6 backfill + preserves-existing + garbage-field tolerance; ghost-duel snapshot shape + UID→template_id resolution + rating passthrough + blank/unknown-token/non-Dictionary-member/dangling-UID tolerance (60 cases) (GID-095 / GID-101 / GID-102) |
 | `tests/unit/test_rating_math.gd` | unit (auto-run) | RatingMath ELO: expected-score symmetry/bounds/favouring, win-raises/loss-lowers, symmetric zero-sum deltas at equal rating, placement vs settled K, floor clamp, draw no-op (15 cases) (GID-102 / TID-370) |
 | `tests/unit/test_social_sync.gd` | unit (auto-run) | SocialSync emote round-trip for all 6 preset ids, map field, garbage/empty array tolerance; ping round-trip preserving coords/kind/color/map, partial array defaults, negative coords, constants sanity (16 cases) (GID-101 / TID-365) |
 | `tests/unit/test_chat_sync.gd` | unit (auto-run) | ChatSync quick-chat round-trip for all preset ids + unknown-preset fallback, free-text round-trip + 120-char length cap (under/at/over + forged-payload re-sanitization), control-character (incl. DEL) and newline/tab stripping, map field round-trip, garbage/null/empty/short-array/invalid-kind decode tolerance, constants sanity (26 cases) (GID-102 / TID-374) |
