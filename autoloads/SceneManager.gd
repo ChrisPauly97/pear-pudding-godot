@@ -28,6 +28,10 @@ const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const _GambitPickerOverlay = preload("res://scenes/battle/GambitPickerOverlay.gd")
 const _MenuHubScript = preload("res://scenes/ui/MenuHubScene.gd")
 
+# Ghost duels (GID-102 / TID-377): flat, modest, clearly-async coin reward on win.
+# No rating change ever (see enter_ghost_duel doc comment) — coins only.
+const GHOST_DUEL_COIN_REWARD: int = 25
+
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
 var current_map: String = ""
@@ -104,6 +108,7 @@ func _ready() -> void:
 	GameBus.coop_pve_battle_ended.connect(_on_coop_pve_battle_ended)
 	GameBus.duel_won.connect(_on_duel_won)
 	GameBus.duel_lost.connect(_on_duel_lost)
+	GameBus.ghost_duel_ended.connect(_on_ghost_duel_ended)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 	GameBus.shop_requested.connect(_on_shop_requested)
 	GameBus.bounty_board_requested.connect(_on_bounty_board_requested)
@@ -419,6 +424,71 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 		get_tree().root.add_child(_battle_overlay)
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
+
+# ── Ghost duels (GID-102 / TID-377) ───────────────────────────────────────────
+
+## Enters a local, single-player battle against an AI-piloted snapshot of another
+## (possibly offline) session member's deck — async competition with ZERO live
+## networking. Reuses the exact same solo-battle setup path as an NPC tavern duel
+## (`_on_duel_requested`): no `_pvp`/`_coop_pve` flags are set, so BattleScene's
+## plain `else` branch builds `_state.players[1]` from `enemy_data["enemy_deck"]`
+## and BasicAI drives it, unchanged.
+##
+## `opponent_snapshot` is the dict from `SessionState.get_ghost_snapshot(token)`
+## (`{token, name, deck, rating}`); an empty/invalid snapshot is rejected here so a
+## bad caller can never launch a battle with an empty deck.
+##
+## Decision (documented, not silently chosen either way): a ghost duel NEVER moves
+## PvP rating — win or lose. The opponent is AI-piloted, not the real remote
+## player, so rating movement here would let a player farm free ELO against their
+## own cached snapshot (or a stale/offline friend's) with no real matched risk.
+## Only a flat, modest coin reward is granted, and only on a win — see
+## `_on_ghost_duel_ended`.
+func enter_ghost_duel(opponent_snapshot: Dictionary) -> void:
+	if _state != State.WORLD:
+		return
+	var deck: Array = opponent_snapshot.get("deck", [])
+	if deck.is_empty():
+		GameBus.hud_message_requested.emit("That ghost has no deck to duel.")
+		return
+	if save_manager.player_deck.size() < IsoConst.DECK_MIN:
+		GameBus.hud_message_requested.emit("Deck too small — add at least %d cards first." % IsoConst.DECK_MIN)
+		return
+	var opponent_name: String = str(opponent_snapshot.get("name", "Ghost"))
+	var captured_enemy_data: Dictionary = {
+		"display_name": "%s (Ghost)" % opponent_name,
+		"enemy_type": "",
+		"is_boss": false,
+		"drop_pool": [],
+		"coin_reward": 0,
+		"enemy_deck": deck,
+	}
+	TransitionManager.transition(func() -> void:
+		_saved_world_scene = get_tree().current_scene
+		get_tree().root.remove_child(_saved_world_scene)
+		_battle_overlay = _battle_scene_packed.instantiate()
+		_battle_overlay.enemy_data = captured_enemy_data
+		_battle_overlay.set("_ghost_duel", true)
+		_battle_overlay.set("_ghost_duel_reward", GHOST_DUEL_COIN_REWARD)
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
+	_state = State.BATTLE
+
+## Applies the (win-only) ghost-duel coin reward exactly once, then restores the
+## world — mirrors `_on_duel_won`/`_on_duel_lost` structurally. No card drops, no
+## enemy-defeat bookkeeping, no rating change (see `enter_ghost_duel` doc comment).
+func _on_ghost_duel_ended(did_win: bool) -> void:
+	if _state != State.BATTLE:
+		return
+	if did_win:
+		save_manager.add_coins(GHOST_DUEL_COIN_REWARD)
+		session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + GHOST_DUEL_COIN_REWARD
+	save_manager.clear_pending_battle_state()
+	save_manager.save()
+	if _battle_overlay != null:
+		_battle_overlay.queue_free()
+		_battle_overlay = null
+	_restore_world()
 
 # ── PvP card battles (GID-091) ────────────────────────────────────────────────
 

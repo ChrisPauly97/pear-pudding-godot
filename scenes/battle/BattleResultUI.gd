@@ -458,6 +458,62 @@ func show_duel_loss(wager: int) -> void:
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
+## Ghost duel result (GID-102 / TID-377): a local, single-player battle against an
+## AI-piloted snapshot of another (possibly offline) session member's deck — zero
+## live networking. Unlike show_duel_victory/show_duel_loss, no coin amount is
+## ever deducted here on a loss (nothing was staked against an offline AI
+## opponent) — coin_reward is shown only on a win, and the actual grant happens
+## exactly once in SceneManager._on_ghost_duel_ended (not on this button press,
+## so mashing Continue can't double-award). The Continue button emits
+## ghost_duel_ended; SceneManager restores the world exactly like an NPC duel.
+func show_ghost_duel_result(did_win: bool, coin_reward: int) -> void:
+	if _float_layer:
+		_float_layer.hide()
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92)
+	overlay.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Ghost Duel Won!" if did_win else "Ghost Duel Lost"
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.modulate = Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4)
+	vbox.add_child(title_lbl)
+
+	var sub_lbl := Label.new()
+	sub_lbl.text = "You bested their stored deck." if did_win else "Their stored deck bested you."
+	sub_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(sub_lbl)
+
+	if did_win and coin_reward > 0:
+		var coins_lbl := Label.new()
+		coins_lbl.text = "+%d coins" % coin_reward
+		coins_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+		coins_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		coins_lbl.modulate = Color(1.0, 0.85, 0.2)
+		vbox.add_child(coins_lbl)
+
+	var btn := Button.new()
+	btn.text = "Continue"
+	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
+	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	btn.pressed.connect(func() -> void:
+		overlay.queue_free()
+		GameBus.ghost_duel_ended.emit(did_win)
+	)
+	vbox.add_child(btn)
+
+	overlay.add_child(vbox)
+	_parent.add_child(overlay)
+
 ## PvP duel-style result (GID-091 / TID-368). did_win is from the local peer's
 ## perspective; coins_delta is the net coin change from any wager (positive = won,
 ## negative = lost, 0 = unwagered). The Continue button emits pvp_battle_ended,
