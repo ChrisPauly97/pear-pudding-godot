@@ -580,6 +580,66 @@ Non-combatant party members can **watch** an in-progress PvP duel read-only.
   Revisit if a future task wants in-duel chat; the same `ChatSync` pure helper can be
   reused, only the relay/RPC wiring would need to be duplicated onto `BattleNetSync`.
 
+### Party stash (GID-102 / TID-376)
+
+A **session-owned chest** any co-op member can deposit cards/coins into and withdraw
+from — unlike trading, it needs no other player online and no proximity. It also lays
+the transfer plumbing the auction house (TID-378) is expected to reuse.
+
+- **Storage — `SessionState.stash: Dictionary`**, shape `{cards: Array, coins: int}`.
+  `cards` holds full card instance dicts (same shape as a member's `owned_cards`, via
+  `CardInstanceUtil`). Authority-owned, persisted via `SessionStore`, added in the **v5**
+  migration (`CURRENT_SESSION_VERSION` bumped 4 → 5): a pre-v5 session file gets
+  `stash = {cards: [], coins: 0}` backfilled on load.
+- **Transfer plumbing — `game_logic/net/StashTransfer.gd`.** A new **pure, unit-tested**
+  sibling to `CardInstanceUtil`/`RatingMath` (no scene deps) that generalizes the
+  dupe-proof re-key mechanic `_transfer_card_in_session` (trading) already uses, to a
+  **member ⇄ stash** move:
+  - `deposit_card(stash, member_rec, card_uid)` — removes the instance from
+    `member_rec.owned_cards`/`player_deck`, blocks it if the card's template has
+    `is_unique = true` (checked via `CardRegistry.get_template(template_id)`, the
+    correct way to read it since instance dicts never carry `is_unique` themselves —
+    see BID-030), re-keys the uid to `"<uid>_stash_<n>"`, and appends it to
+    `stash.cards`.
+  - `withdraw_card(stash, member_rec, stash_uid, member_token)` — the inverse: removes
+    the instance from `stash.cards`, re-keys the uid to `"<stash_uid>_w_<token_prefix>"`,
+    appends to `member_rec.owned_cards`.
+  - `deposit_coins(stash, member_rec, amount)` / `withdraw_coins(...)` — simple int
+    moves with insufficient-funds / non-positive-amount guards.
+  - All four return `{ok: bool, reason: String, stash: Dictionary, member: Dictionary}` —
+    callers always get back safe, defensively-normalized copies to write back onto the
+    live `SessionState`, even on failure.
+- **RPCs — `NetSync.gd`** (reliable, `any_peer`/`call_remote`, mirrors the trade RPCs —
+  proximity is **not** required since the stash is global to the session, unlike trade):
+  - `submit_stash_deposit(payload)` / `submit_stash_withdraw(payload)` (client →
+    authority). `payload = {kind: "card"|"coins", card_uid: String, amount: int}`.
+  - `recv_stash_update(snapshot)` (authority → all/one) — the current `{cards, coins}`
+    stash contents.
+- **Authority flow — `WorldScene.gd`**: `_on_stash_deposit_submitted` /
+  `_on_stash_withdraw_submitted` resolve the sender's token (via
+  `_session_token_by_peer`, or the local `MpProfile` token when the host acts on its own
+  behalf), call into `StashTransfer`, write the returned `stash`/`member` dicts back onto
+  `SessionState` + `SessionStore.mark_dirty()`, then `_broadcast_stash_update()` to all
+  peers. **Keeping the actor's in-memory character in sync**
+  (`_apply_updated_member_to_actor`): because the periodic `_tick_session_persist` tick
+  (every 5 s) would otherwise overwrite the just-mutated `SessionState` member record
+  with the acting peer's now-stale in-memory `SaveManager` fields, the host re-adopts
+  its own updated record directly (`adopt_session_character`) and a remote client actor
+  is sent a fresh `recv_character(updated_member, resume=false)` mirror (no position
+  restore — this isn't a reconnect, just a refresh).
+- **Late-join**: `_send_character_to_peer` unicasts `recv_stash_update` with the current
+  `SessionState.stash` alongside the character/party-bounty snapshot sends.
+- **HUD — `scenes/ui/PartyStashOverlay.gd`** (new): extends `BaseOverlay` by path
+  string, instantiated via `.new()` (matches `LeaderboardOverlay`/`SettingsScene`
+  convention), viewport-relative, rebuilt on `NOTIFICATION_RESIZED`. Two scrollable
+  columns — "My Collection" (deposit buttons; unique cards are filtered out of this
+  list) and "Stash" (withdraw buttons) — plus a coins row with fixed-step
+  deposit/withdraw buttons. Opened via an always-visible "Stash" HUD button (global to
+  the session, not proximity-gated, same rationale as the leaderboard button) —
+  touch/click target, mobile + desktop parity.
+- **Authority-only writes**: clients never mutate `SessionState` directly; only the
+  authority does, via `SessionStore` — same isolation invariant as trading/bounties.
+
 ### Shared party bounties (GID-101 / TID-369)
 
 Party bounties are co-op goals the whole party works toward together.
@@ -965,10 +1025,11 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_player_identity.gd` | unit (auto-run) | PlayerIdentity encode/decode round-trip, color hex, robust defaults for short/blank/invalid payloads (10 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
-| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance (32 cases) (GID-095 / GID-101 / GID-102) |
+| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance; shared `stash` default/round-trip/garbage tolerance + migration v5 backfill (38 cases) (GID-095 / GID-101 / GID-102) |
 | `tests/unit/test_rating_math.gd` | unit (auto-run) | RatingMath ELO: expected-score symmetry/bounds/favouring, win-raises/loss-lowers, symmetric zero-sum deltas at equal rating, placement vs settled K, floor clamp, draw no-op (15 cases) (GID-102 / TID-370) |
 | `tests/unit/test_social_sync.gd` | unit (auto-run) | SocialSync emote round-trip for all 6 preset ids, map field, garbage/empty array tolerance; ping round-trip preserving coords/kind/color/map, partial array defaults, negative coords, constants sanity (16 cases) (GID-101 / TID-365) |
 | `tests/unit/test_chat_sync.gd` | unit (auto-run) | ChatSync quick-chat round-trip for all preset ids + unknown-preset fallback, free-text round-trip + 120-char length cap (under/at/over + forged-payload re-sanitization), control-character (incl. DEL) and newline/tab stripping, map field round-trip, garbage/null/empty/short-array/invalid-kind decode tolerance, constants sanity (26 cases) (GID-102 / TID-374) |
+| `tests/unit/test_stash_transfer.gd` | unit (auto-run) | StashTransfer deposit/withdraw card round-trip + uid re-keying, unique-card block, missing-card/blank-uid no-ops, coin deposit/withdraw incl. insufficient-funds/non-positive-amount guards, deposit-then-withdraw and coin round-trips are neutral, garbage-stash-shape tolerance (16 cases) (GID-102 / TID-376) |
 | `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
 | `tests/unit/test_mp_profile_friends.gd` | unit (auto-run) | MpProfile friends list: add/dedupe-by-token/move-to-front, blank-token no-op, name/color sanitization, remove (existing + missing), `is_friend` true/false/blank, 50-entry cap eviction (keeps newest, drops oldest), `touch_friend_last_seen` (updates existing, no-op for non-friend), `get_friends` defensive copy, JSON persistence shape round-trip via a temp `user://` file (17 cases) (GID-102 / TID-375) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |

@@ -248,6 +248,35 @@ func recv_trade_update(payload: Dictionary) -> void:
 		world_scene._on_trade_update_received(payload)
 
 
+# ── Shared party stash (GID-102 / TID-376) ───────────────────────────────────
+# Unlike trading, the stash is global to the session — no proximity gate needed.
+
+## Client → authority: deposit a card or coins into the shared stash.
+## payload: {"kind": "card"|"coins", "card_uid": String, "amount": int}. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_stash_deposit(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_stash_deposit_submitted"):
+		world_scene._on_stash_deposit_submitted(sender, payload)
+
+
+## Client → authority: withdraw a card or coins from the shared stash. Same payload
+## shape as submit_stash_deposit (card_uid here refers to the stash-namespaced uid).
+@rpc("any_peer", "reliable", "call_remote")
+func submit_stash_withdraw(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_stash_withdraw_submitted"):
+		world_scene._on_stash_withdraw_submitted(sender, payload)
+
+
+## Authority → all (or one, on late-join): the current stash snapshot.
+## payload: {"cards": Array, "coins": int}. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_stash_update(snapshot: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_stash_update_received"):
+		world_scene._on_stash_update_received(snapshot)
+
+
 # ── PvP spectating (GID-101 / TID-367) ───────────────────────────────────────
 
 ## Host → all non-participants: a PvP duel started/ended among party members.

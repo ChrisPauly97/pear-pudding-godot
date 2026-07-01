@@ -165,6 +165,12 @@ var _chat_quick_panel: Control = null      # quick-chat preset button row; nil w
 var _chat_input: LineEdit = null           # free-text input (desktop always-visible; mobile behind toggle)
 var _chat_send_btn: Button = null          # send button next to the free-text input
 var _chat_toggle_btn: Button = null        # HUD button: opens quick-chat row + reveals input (mobile parity)
+# GID-102 / TID-376: Shared party stash
+const _StashTransfer = preload("res://game_logic/net/StashTransfer.gd")
+const _PartyStashOverlay = preload("res://scenes/ui/PartyStashOverlay.gd")
+var _stash_btn: Button = null             # "Stash" HUD button (always visible in co-op)
+var _stash_overlay: Node = null           # PartyStashOverlay instance, nil when closed
+var _stash_cache: Dictionary = {"cards": [], "coins": 0}  # last-known stash snapshot
 var _pvp_ended_pending_broadcast: bool = false  # set in pvp_battle_ended; cleared on _enter_tree
 # GID-102 (TID-373): Ranked UI & leaderboard
 var _leaderboard_rows: Array = []        # cached SessionState.get_leaderboard() rows
@@ -853,6 +859,10 @@ func _send_character_to_peer(peer_id: int, token: String, member_name: String) -
 	# next duel ends.
 	if st != null:
 		_net_sync.rpc_id(peer_id, "recv_leaderboard", st.get_leaderboard(20))
+	# GID-102 (TID-376): send the current stash snapshot so the joining client's
+	# panel starts populated instead of showing stale/empty until the next change.
+	if st != null:
+		_net_sync.rpc_id(peer_id, "recv_stash_update", st.stash)
 
 ## Move the local player to the position stored in a session record (same map only).
 func _restore_session_position(record: Dictionary) -> void:
@@ -4235,6 +4245,17 @@ func _ensure_social_buttons() -> void:
 		_leaderboard_btn.position = Vector2(vp.x * 0.012, vh * 0.012)
 		_leaderboard_btn.pressed.connect(_toggle_leaderboard_overlay)
 		_hud.add_child(_leaderboard_btn)
+	# Party stash button (GID-102 / TID-376): always visible while co-op is active
+	# (global to the session, not proximity-gated like Trade). Touch/click target.
+	if _stash_btn == null or not is_instance_valid(_stash_btn):
+		_stash_btn = Button.new()
+		_stash_btn.text = "Stash"
+		_stash_btn.tooltip_text = "Open the shared party stash"
+		_stash_btn.custom_minimum_size = Vector2(vh * 0.14, vh * 0.055)
+		_stash_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+		_stash_btn.position = Vector2(vp.x * 0.012, vh * 0.078)
+		_stash_btn.pressed.connect(_toggle_stash_overlay)
+		_hud.add_child(_stash_btn)
 
 
 func _update_social_proximity() -> void:
@@ -4819,6 +4840,182 @@ func _show_trade_accept_panel(trade_id: String, offer: Dictionary) -> void:
 			_net_sync.rpc_id(1, "submit_trade_confirm", captured_id, false)
 	)
 	row.add_child(decline_btn)
+
+
+# ── GID-102 / TID-376: Shared party stash ───────────────────────────────────────
+# A session-owned chest any member can deposit into / withdraw from — unlike trading,
+# this is global to the session (no proximity gate). Transfer logic delegates to the
+# pure, unit-tested StashTransfer helper; only the authority mutates SessionState.
+
+## Resolve the local token for `peer_id` — the identity token map for remote peers,
+## or our own MpProfile token when the sender is us (host acting on its own behalf).
+func _stash_token_for_peer(peer_id: int) -> String:
+	return str(_session_token_by_peer.get(peer_id,
+		MpProfile.get_token() if peer_id == multiplayer.get_unique_id() else ""))
+
+
+func _on_stash_deposit_submitted(sender: int, payload: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var token: String = _stash_token_for_peer(sender)
+	if token == "" or not st.has_member(token):
+		return
+	var member_rec: Dictionary = st.get_member(token)
+	var kind: String = str(payload.get("kind", "card"))
+	var result: Dictionary
+	if kind == "coins":
+		result = _StashTransfer.deposit_coins(st.stash, member_rec, int(payload.get("amount", 0)))
+	else:
+		result = _StashTransfer.deposit_card(st.stash, member_rec, str(payload.get("card_uid", "")))
+	if not bool(result.get("ok", false)):
+		if kind != "coins":
+			_show_tip("Could not deposit that card.")
+		return
+	st.stash = result.get("stash", st.stash)
+	var updated_member: Dictionary = result.get("member", member_rec)
+	st.update_member(token, updated_member)
+	SessionStore.mark_dirty()
+	_apply_updated_member_to_actor(sender, updated_member)
+	_broadcast_stash_update()
+
+
+func _on_stash_withdraw_submitted(sender: int, payload: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var token: String = _stash_token_for_peer(sender)
+	if token == "" or not st.has_member(token):
+		return
+	var member_rec: Dictionary = st.get_member(token)
+	var kind: String = str(payload.get("kind", "card"))
+	var result: Dictionary
+	if kind == "coins":
+		result = _StashTransfer.withdraw_coins(st.stash, member_rec, int(payload.get("amount", 0)))
+	else:
+		result = _StashTransfer.withdraw_card(st.stash, member_rec, str(payload.get("card_uid", "")), token)
+	if not bool(result.get("ok", false)):
+		if kind != "coins":
+			_show_tip("Could not withdraw that card.")
+		return
+	st.stash = result.get("stash", st.stash)
+	var updated_member2: Dictionary = result.get("member", member_rec)
+	st.update_member(token, updated_member2)
+	SessionStore.mark_dirty()
+	_apply_updated_member_to_actor(sender, updated_member2)
+	_broadcast_stash_update()
+
+
+## Keeps the acting peer's in-memory character (SaveManager fields / adopted session
+## character) in sync with the record `StashTransfer` just mutated, so the next
+## periodic persist-back tick (`_tick_session_persist`) doesn't clobber the stash
+## change with stale in-memory data — the host re-adopts directly; a remote client
+## gets an updated `recv_character` mirror (resume flag false: this isn't a reconnect,
+## just a refresh, so no position restore).
+func _apply_updated_member_to_actor(sender: int, updated_member: Dictionary) -> void:
+	if sender == multiplayer.get_unique_id():
+		SceneManager.save_manager.adopt_session_character(updated_member)
+	elif _net_sync != null:
+		_net_sync.rpc_id(sender, "recv_character", updated_member, false)
+
+
+## Host: push the current stash snapshot to one peer (target_peer == 0 broadcasts to all).
+func _broadcast_stash_update(target_peer: int = 0) -> void:
+	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	_stash_cache = st.stash
+	if target_peer == 0:
+		_net_sync.rpc("recv_stash_update", st.stash)
+	else:
+		_net_sync.rpc_id(target_peer, "recv_stash_update", st.stash)
+	if NetworkManager.is_host():
+		_refresh_stash_overlay()
+
+
+## Any peer: receive a stash snapshot (initial push, post-transfer update, or the
+## late-join send) and refresh the overlay if it's open.
+func _on_stash_update_received(snapshot: Dictionary) -> void:
+	_stash_cache = snapshot
+	_refresh_stash_overlay()
+
+
+func _refresh_stash_overlay() -> void:
+	if _stash_overlay != null and is_instance_valid(_stash_overlay) \
+			and _stash_overlay.has_method("refresh"):
+		_stash_overlay.refresh(_my_collection_for_stash_ui(), _stash_cache)
+
+
+## My current owned-card collection for the stash UI's "deposit" column.
+func _my_collection_for_stash_ui() -> Array:
+	var out: Array = []
+	for inst in SceneManager.save_manager.owned_cards:
+		out.append(inst)
+	return out
+
+
+## Opens (or closes, if already open) the party stash overlay. HUD button, always
+## visible while co-op is active — global to the session (mobile/desktop parity).
+func _toggle_stash_overlay() -> void:
+	if _stash_overlay != null and is_instance_valid(_stash_overlay):
+		_stash_overlay.queue_free()
+		_stash_overlay = null
+		return
+	_stash_overlay = _PartyStashOverlay.new()
+	_stash_overlay.world_scene = self
+	add_child(_stash_overlay)
+	_stash_overlay.closed.connect(func() -> void: _stash_overlay = null)
+	_stash_overlay.refresh(_my_collection_for_stash_ui(), _stash_cache)
+
+
+## Called by PartyStashOverlay when the player presses "Deposit" on a card.
+func request_stash_deposit_card(card_uid: String) -> void:
+	if _net_sync == null:
+		return
+	var payload: Dictionary = {"kind": "card", "card_uid": card_uid, "amount": 0}
+	if NetworkManager.is_host():
+		_on_stash_deposit_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_stash_deposit", payload)
+
+
+## Called by PartyStashOverlay when the player presses "Withdraw" on a stash card.
+func request_stash_withdraw_card(stash_uid: String) -> void:
+	if _net_sync == null:
+		return
+	var payload: Dictionary = {"kind": "card", "card_uid": stash_uid, "amount": 0}
+	if NetworkManager.is_host():
+		_on_stash_withdraw_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_stash_withdraw", payload)
+
+
+## Called by PartyStashOverlay's coin deposit stepper.
+func request_stash_deposit_coins(amount: int) -> void:
+	if _net_sync == null or amount <= 0:
+		return
+	var payload: Dictionary = {"kind": "coins", "card_uid": "", "amount": amount}
+	if NetworkManager.is_host():
+		_on_stash_deposit_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_stash_deposit", payload)
+
+
+## Called by PartyStashOverlay's coin withdraw stepper.
+func request_stash_withdraw_coins(amount: int) -> void:
+	if _net_sync == null or amount <= 0:
+		return
+	var payload: Dictionary = {"kind": "coins", "card_uid": "", "amount": amount}
+	if NetworkManager.is_host():
+		_on_stash_withdraw_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_stash_withdraw", payload)
 
 
 # ── TID-367: PvP spectating ────────────────────────────────────────────────────

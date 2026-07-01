@@ -24,7 +24,8 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ## v2 — adds party_bounties shared progress (TID-369).
 ## v3 — adds pvp_wins/losses/streak/best_streak per character (TID-368).
 ## v4 — adds pvp_rating/pvp_games per character for the ranked ladder (TID-370).
-const CURRENT_SESSION_VERSION: int = 4
+## v5 — adds a shared party stash: {cards: Array, coins: int} (GID-102 / TID-376).
+const CURRENT_SESSION_VERSION: int = 5
 
 ## Starter deck template ids — mirrors `SaveManager.new_game` / `ensure_coop_deck`
 ## so a freshly created session character can battle immediately.
@@ -56,6 +57,12 @@ var members: Dictionary = {}
 # Shape: {id, type, target, count, progress, contributors: [tokens], completed}
 var party_bounties: Array = []
 
+# --- Shared party stash (GID-102 / TID-376) ---------------------------------
+# A session-owned chest any member can deposit into / withdraw from. `cards` holds
+# full card instance dicts (same shape as a member's owned_cards, via CardInstanceUtil),
+# re-keyed into a stash-namespaced uid on deposit. `coins` is a simple shared int pool.
+var stash: Dictionary = {"cards": [], "coins": 0}
+
 
 # ---------------------------------------------------------------------------
 # Serialization
@@ -75,6 +82,7 @@ func to_dict() -> Dictionary:
 		"story_flags": story_flags.duplicate(true),
 		"members": members.duplicate(true),
 		"party_bounties": party_bounties.duplicate(true),
+		"stash": stash.duplicate(true),
 	}
 
 
@@ -99,6 +107,16 @@ static func from_dict(data: Dictionary) -> SessionState:
 	s.members = (mem as Dictionary).duplicate(true) if mem is Dictionary else {}
 	var pb: Variant = data.get("party_bounties", [])
 	s.party_bounties = (pb as Array).duplicate(true) if pb is Array else []
+	var stash_v: Variant = data.get("stash", {})
+	if stash_v is Dictionary:
+		var stash_dict: Dictionary = (stash_v as Dictionary).duplicate(true)
+		var stash_cards: Variant = stash_dict.get("cards", [])
+		s.stash = {
+			"cards": (stash_cards as Array).duplicate(true) if stash_cards is Array else [],
+			"coins": int(stash_dict.get("coins", 0)),
+		}
+	else:
+		s.stash = {"cards": [], "coins": 0}
 	return s
 
 
@@ -140,6 +158,11 @@ static func _apply_migrations(data: Dictionary) -> void:
 					if not (rec as Dictionary).has("pvp_games"):
 						(rec as Dictionary)["pvp_games"] = 0
 		data["version"] = 4
+	if ver < 5:
+		# v5: add the shared party stash.
+		if not data.has("stash"):
+			data["stash"] = {"cards": [], "coins": 0}
+		data["version"] = 5
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 
