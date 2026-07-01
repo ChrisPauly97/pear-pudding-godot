@@ -122,6 +122,25 @@ func update_member(token: String, record: Dictionary) -> void:
 
 
 # ---------------------------------------------------------------------------
+# Loot mode convenience (GID-102 / TID-381) — host-only session setting.
+# ---------------------------------------------------------------------------
+
+## Current loot distribution mode, or the default when no session is open.
+func get_loot_mode() -> String:
+	if not is_open():
+		return _SessionState.LOOT_MODE_FIRST_OPENER
+	return _state.loot_mode
+
+
+## Host-only toggle. No-op when no session is open.
+func set_loot_mode(mode: String) -> void:
+	if not is_open():
+		return
+	_state.loot_mode = mode if mode == _SessionState.LOOT_MODE_NEED_GREED else _SessionState.LOOT_MODE_FIRST_OPENER
+	mark_dirty()
+
+
+# ---------------------------------------------------------------------------
 # Persistence internals
 # ---------------------------------------------------------------------------
 

@@ -66,6 +66,11 @@ const _ENEMY_POS_INTERVAL: float = 1.0 / 5.0  # 5 Hz enemy position broadcast (h
 # Ghost duels (GID-102 / TID-377): async solo battle vs. an AI-piloted snapshot of
 # another session member's deck. Zero live networking (no NetSync RPC involved).
 const _GhostDuelOverlay  = preload("res://scenes/ui/GhostDuelOverlay.gd")
+# Party loot rolls (GID-102 / TID-381)
+const _LootRoll          = preload("res://game_logic/net/LootRoll.gd")
+const _CardDropUtil      = preload("res://game_logic/CardDropUtil.gd")
+const _CardInstanceUtil  = preload("res://game_logic/CardInstanceUtil.gd")
+const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -101,6 +106,14 @@ var _coop_opened_objects: Dictionary = {}   # object id -> true (chest opened th
 var _coop_last_engaged_enemy_id: String = ""  # id of the enemy the local battle is against
 var _coop_enemy_targets: Dictionary = {}    # enemy id -> Vector2(x,z) interp target (clients)
 var _enemy_pos_accum: float = 0.0
+# Party loot rolls (GID-102 / TID-381) — opt-in need/greed alternative to first-opener-takes.
+# Authority only: roll_id -> {chest_id, item, tier, participants: Array[String],
+# choices: {token: "need"|"greed"|"pass"}, timer: float}. Empty on clients and when unused.
+var _loot_rolls_active: Dictionary = {}
+const _LOOT_ROLL_TIMEOUT: float = 15.0
+# Client (or host's own local UI): the currently-shown roll prompt, or {} when none.
+var _pending_loot_roll: Dictionary = {}
+var _loot_roll_panel: Node = null   # transient Need/Greed/Pass panel (CanvasLayer), nil when closed
 # Co-op story mode (GID-098): true once a map transition is in flight on this
 # WorldScene instance so duplicate recv_map_transition packets are ignored.
 var _coop_map_transitioning: bool = false
@@ -662,6 +675,13 @@ func _setup_coop() -> void:
 		_build_coop_roster()
 		_send_local_identity(false, 0)
 
+	# Party loot rolls (GID-102 / TID-381): host-only session setting toggle. Placed
+	# in-world (rather than the pre-connection lobby) because SessionStore only opens
+	# once the host's session file is loaded in _setup_session() just above — there is
+	# no session to toggle a mode on before that point.
+	if NetworkManager.is_host() and not NetworkManager.is_dedicated_server():
+		_ensure_loot_mode_toggle_button()
+
 func _teardown_coop() -> void:
 	if not _coop_active:
 		return
@@ -731,6 +751,15 @@ func _on_coop_session_ended() -> void:
 	_coop_opened_objects.clear()
 	_coop_enemy_targets.clear()
 	_coop_last_engaged_enemy_id = ""
+	# Party loot rolls (GID-102 / TID-381) are session-scoped too.
+	_loot_rolls_active.clear()
+	_pending_loot_roll = {}
+	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
+		_loot_roll_panel.queue_free()
+	_loot_roll_panel = null
+	if _loot_mode_toggle_btn != null and is_instance_valid(_loot_mode_toggle_btn):
+		_loot_mode_toggle_btn.queue_free()
+	_loot_mode_toggle_btn = null
 	# Authority owns the session file: flush + close it on session end (host left /
 	# server stopped). On clients SessionStore is never open, so this is a no-op.
 	if SessionStore.is_open():
@@ -980,6 +1009,46 @@ func _refresh_coop_roster() -> void:
 			col = col.darkened(0.45)
 		_add_roster_row(nm, col, token)
 
+## Party loot rolls (GID-102 / TID-381): host-only HUD toggle between the default
+## first-opener-takes rule and the opt-in need/greed roll. Placed beneath the
+## roster panel (top-left, alongside the other social/session HUD affordances) —
+## a touch/click target satisfying the mobile/desktop parity rule with no separate
+## keybind, consistent with the Trade/Ping/emote HUD buttons.
+var _loot_mode_toggle_btn: Button = null
+
+func _ensure_loot_mode_toggle_button() -> void:
+	if _loot_mode_toggle_btn != null and is_instance_valid(_loot_mode_toggle_btn):
+		_refresh_loot_mode_toggle_button()
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_loot_mode_toggle_btn = Button.new()
+	# Placed just right of the chat log panel column (which spans y 0.16-0.46 at
+	# this x) rather than stacked in it, to avoid overlapping the panel or the
+	# roster/party-bounty panels that also share the left column.
+	_loot_mode_toggle_btn.position = Vector2(vp.x * 0.012 + vp.x * 0.27, vp.y * 0.16)
+	_loot_mode_toggle_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
+	_loot_mode_toggle_btn.add_theme_font_size_override("font_size", int(vp.y * 0.02))
+	_loot_mode_toggle_btn.pressed.connect(_on_loot_mode_toggle_pressed)
+	_hud.add_child(_loot_mode_toggle_btn)
+	_refresh_loot_mode_toggle_button()
+
+func _refresh_loot_mode_toggle_button() -> void:
+	if _loot_mode_toggle_btn == null or not is_instance_valid(_loot_mode_toggle_btn):
+		return
+	var need_greed: bool = _coop_loot_mode_is_need_greed()
+	_loot_mode_toggle_btn.text = "Loot: Need/Greed" if need_greed else "Loot: First-Opener"
+
+func _on_loot_mode_toggle_pressed() -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	var new_mode: String = _SessionState.LOOT_MODE_FIRST_OPENER
+	if not _coop_loot_mode_is_need_greed():
+		new_mode = _SessionState.LOOT_MODE_NEED_GREED
+	SessionStore.set_loot_mode(new_mode)
+	_refresh_loot_mode_toggle_button()
+	GameBus.hud_message_requested.emit(
+		"Loot mode: %s" % ("Need/Greed" if new_mode == _SessionState.LOOT_MODE_NEED_GREED else "First-Opener"))
+
 ## `token` is the remote peer's stable identity (empty for the local "(you)" row,
 ## which never gets an add-friend affordance). The token itself is never shown —
 ## only used as the add_friend/is_friend key (GID-102 / TID-375).
@@ -1217,6 +1286,277 @@ func _on_world_snapshot_received(payload: Array) -> void:
 	var snap: Dictionary = _WorldObjectSync.decode_snapshot(payload)
 	_coop_apply_world_progress(
 		snap.get("removed_enemies", []), snap.get("opened_objects", []))
+
+# ── Party loot rolls (GID-102 / TID-381) ──────────────────────────────────────
+# Opt-in need/greed alternative to the GID-096 first-opener-takes chest rule.
+# Guarded by _coop_active + the session's loot_mode; completely inert (and this whole
+# section unreached) when the mode is left at the default "first_opener".
+
+## True when a co-op session has need/greed loot mode enabled. Reads the live
+## SessionState on the host; a client mirrors the flag locally when it receives
+## a roll-start broadcast (there's nothing to read before the first roll on a client,
+## which is fine — a client never decides to start a roll, only the authority does).
+func _coop_loot_mode_is_need_greed() -> bool:
+	if not SessionStore.is_open():
+		return false
+	return SessionStore.get_loot_mode() == _SessionState.LOOT_MODE_NEED_GREED
+
+## Opener (host or client) triggers a roll for a just-opened chest's drop. The chest's
+## position/card ids/tier are re-derived from _active_chest_data[cid] rather than sent
+## over the wire — chests are deterministically spawned from the same map data on every
+## peer (the GID-096 invariant), so the authority already knows the exact same values the
+## opener does without needing a payload for the item shape.
+func _start_loot_roll(cid: String, chest_tier: int) -> void:
+	if _coop_world_authority():
+		_authority_open_loot_roll(cid, chest_tier)
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_loot_roll_request", cid, chest_tier)
+
+## Client → authority: "a chest I opened should start a need/greed roll." The chest-open
+## itself is already synced via the existing EV_CHEST_OPENED path; this only carries the
+## tier (the id is enough for the host to re-derive position/card ids locally).
+func _on_loot_roll_request_submitted(sender: int, cid: String, chest_tier: int) -> void:
+	if not _coop_world_authority():
+		return
+	_authority_open_loot_roll(cid, chest_tier)
+
+
+## Authority: build the roll session for a chest's resolved drop and broadcast the prompt
+## to every connected session member (present = connected to the session; a same-map/
+## proximity filter was judged out of scope for v1 — documented in the task).
+func _authority_open_loot_roll(cid: String, chest_tier: int) -> void:
+	if _loot_roll_by_chest(cid) != "":
+		return  # a roll for this chest is already in flight — never double-grant
+	var chest_data: Dictionary = _active_chest_data.get(cid, {}) as Dictionary
+	var chest_card_ids: Array[String] = []
+	chest_card_ids.assign(chest_data.get("card_ids", []))
+	var roll_id: String = "roll_%s_%d" % [cid, Time.get_ticks_msec()]
+	var participants: Array = []
+	participants.append(MpProfile.get_token())
+	for token in _session_token_by_peer.values():
+		if not participants.has(token):
+			participants.append(str(token))
+	_loot_rolls_active[roll_id] = {
+		"chest_id": cid,
+		"card_ids": chest_card_ids,
+		"tier": chest_tier,
+		"participants": participants,
+		"choices": {},
+		"timer": 0.0,
+	}
+	var item: Dictionary = {"card_ids": chest_card_ids, "tier": chest_tier}
+	var payload: Dictionary = _LootRoll.encode_start(roll_id, item, participants)
+	if _net_sync != null:
+		_net_sync.rpc("recv_loot_roll_start", payload)
+	_on_loot_roll_start_received(payload)  # authority also sees its own prompt
+
+
+## Find the in-flight roll_id for a chest id, or "" if none (authority only; empty dict
+## on clients so this is always "").
+func _loot_roll_by_chest(cid: String) -> String:
+	for rid in _loot_rolls_active.keys():
+		if str((_loot_rolls_active[rid] as Dictionary).get("chest_id", "")) == cid:
+			return str(rid)
+	return ""
+
+
+## Any peer (including the authority itself): show the Need/Greed/Pass prompt.
+func _on_loot_roll_start_received(payload: Dictionary) -> void:
+	var start: Dictionary = _LootRoll.decode_start(payload)
+	if str(start.get("roll_id", "")) == "":
+		return
+	_pending_loot_roll = start
+	_show_loot_roll_panel(start)
+
+
+## Local player picked Need/Greed/Pass. Sends the choice to the authority (or applies
+## it directly if this peer IS the authority).
+func _submit_loot_roll_choice(roll_id: String, choice: String) -> void:
+	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
+		_loot_roll_panel.queue_free()
+		_loot_roll_panel = null
+	_pending_loot_roll = {}
+	if NetworkManager.is_host():
+		_on_loot_roll_choice_submitted(multiplayer.get_unique_id(), roll_id, choice)
+	elif _net_sync != null:
+		var payload: Array = _LootRoll.encode_choice(roll_id, choice)
+		_net_sync.rpc_id(1, "submit_loot_roll_choice", payload[0], payload[1])
+
+
+## Authority: record a participant's choice. Resolves early once every expected
+## participant has responded (rather than always waiting out the full timeout).
+func _on_loot_roll_choice_submitted(sender: int, roll_id: String, choice: String) -> void:
+	if not _coop_world_authority():
+		return
+	if not _loot_rolls_active.has(roll_id):
+		return
+	var roll: Dictionary = _loot_rolls_active[roll_id]
+	var token: String = str(_session_token_by_peer.get(sender,
+		MpProfile.get_token() if sender == multiplayer.get_unique_id() else ""))
+	if token == "":
+		return
+	var choices: Dictionary = roll.get("choices", {})
+	choices[token] = _LootRoll.normalize_choice(choice)
+	roll["choices"] = choices
+	_loot_rolls_active[roll_id] = roll
+	var participants: Array = roll.get("participants", [])
+	if choices.size() >= participants.size():
+		_settle_loot_roll(roll_id)
+
+
+## Ticked from _process while any roll is in flight (authority only). Missing
+## responses auto-pass once the timeout elapses.
+func _tick_loot_rolls(delta: float) -> void:
+	if not _coop_world_authority() or _loot_rolls_active.is_empty():
+		return
+	for roll_id in _loot_rolls_active.keys().duplicate():
+		var roll: Dictionary = _loot_rolls_active[roll_id]
+		var t: float = float(roll.get("timer", 0.0)) + delta
+		roll["timer"] = t
+		_loot_rolls_active[roll_id] = roll
+		if t >= _LOOT_ROLL_TIMEOUT:
+			_settle_loot_roll(str(roll_id))
+
+
+## Authority: resolve the winner (missing participants auto-pass), grant the loot to
+## the winner's session character, persist, and broadcast the result. No item is ever
+## granted twice — the roll is removed from _loot_rolls_active before any grant happens.
+func _settle_loot_roll(roll_id: String) -> void:
+	if not _loot_rolls_active.has(roll_id):
+		return
+	var roll: Dictionary = _loot_rolls_active[roll_id]
+	_loot_rolls_active.erase(roll_id)
+	var participants: Array = roll.get("participants", [])
+	var choices: Dictionary = (roll.get("choices", {}) as Dictionary).duplicate()
+	for token in participants:
+		if not choices.has(str(token)):
+			choices[str(token)] = _LootRoll.CHOICE_PASS
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var outcome: Dictionary = _LootRoll.resolve_winner(choices, rng)
+	var winner_token: String = str(outcome.get("winner_token", ""))
+	var rolls: Dictionary = outcome.get("rolls", {})
+	if winner_token != "":
+		var chest_card_ids: Array[String] = []
+		chest_card_ids.assign(roll.get("card_ids", []))
+		_grant_chest_loot_to_token(winner_token, chest_card_ids, int(roll.get("tier", 1)))
+	var payload: Dictionary = _LootRoll.encode_result(roll_id, winner_token, rolls)
+	if _net_sync != null:
+		_net_sync.rpc("recv_loot_roll_result", payload)
+	_on_loot_roll_result_received(payload)
+
+
+## Authority: grant a resolved chest's cards + a flat coin reward directly into the
+## winner's GID-095 session character record (they may not be the local player, so this
+## reuses the direct-SessionStore-write pattern from _transfer_card_in_session /
+## party-bounty rewards rather than the physical WorldItem pickup path, which only ever
+## grants to the local opener). Equipment drops are out of scope for the roll path — no
+## session-scoped equipment inventory exists to grant to an arbitrary winner (see BID).
+func _grant_chest_loot_to_token(token: String, card_ids: Array[String], tier: int) -> void:
+	var st = SessionStore.get_state()
+	if st == null or token == "":
+		return
+	var rec: Dictionary = st.get_member(token)
+	if rec.is_empty():
+		return
+	var owned: Array = rec.get("owned_cards", []) as Array
+	var counter: int = owned.size()
+	for cid_tpl: String in card_ids:
+		var rarity: String = _CardDropUtil.effective_rarity(cid_tpl, _CardDropUtil.roll_rarity(tier))
+		var stats: Dictionary = _CardDropUtil.roll_stats(cid_tpl, rarity)
+		var uid: String = "%s_%s_roll_%d" % [cid_tpl, token, counter]
+		counter += 1
+		owned.append(_CardInstanceUtil.make(
+			uid, cid_tpl, rarity,
+			int(stats.get("attack", 0)), int(stats.get("health", 0)), int(stats.get("cost", 1))))
+	rec["owned_cards"] = owned
+	rec["coins"] = int(rec.get("coins", 0)) + randi_range(5, 20) * 3
+	st.update_member(token, rec)
+	SessionStore.mark_dirty()
+
+
+## Any peer: announce the winner (toast) and close the prompt if one was open.
+func _on_loot_roll_result_received(payload: Dictionary) -> void:
+	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
+		_loot_roll_panel.queue_free()
+		_loot_roll_panel = null
+	_pending_loot_roll = {}
+	var result: Dictionary = _LootRoll.decode_result(payload)
+	var winner_token: String = str(result.get("winner_token", ""))
+	if winner_token == "":
+		GameBus.hud_message_requested.emit("Loot roll: everyone passed — nothing claimed.")
+		return
+	var winner_name: String = _display_name_for_token(winner_token)
+	GameBus.hud_message_requested.emit("%s won the loot roll!" % winner_name)
+
+
+## Resolve a session token to a display name for the loot-roll toast: the local
+## player's own name, or the matching remote identity's name, or a fallback.
+func _display_name_for_token(token: String) -> String:
+	if token == MpProfile.get_token():
+		return MpProfile.get_display_name()
+	for pid in _remote_identities.keys():
+		var ident: Dictionary = _remote_identities[pid]
+		if str(ident.get("token", "")) == token:
+			return str(ident.get("name", "Player"))
+	return "A party member"
+
+
+## Build the transient Need/Greed/Pass prompt panel. Viewport-relative, mobile/desktop
+## parity (all three choices are tappable buttons — no keyboard-only path).
+func _show_loot_roll_panel(start: Dictionary) -> void:
+	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
+		_loot_roll_panel.queue_free()
+		_loot_roll_panel = null
+	var roll_id: String = str(start.get("roll_id", ""))
+	var item: Dictionary = start.get("item", {})
+	var card_ids: Array = item.get("card_ids", [])
+	var tier: int = int(item.get("tier", 1))
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var layer := CanvasLayer.new()
+	layer.layer = 183
+	add_child(layer)
+	_loot_roll_panel = layer
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	layer.add_child(panel)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vh * 0.02))
+	panel.add_child(vbox)
+	var lbl := Label.new()
+	lbl.text = "Loot roll! Tier %d chest — %d card(s).\nNeed, Greed, or Pass?" % [tier, card_ids.size()]
+	lbl.add_theme_font_size_override("font_size", int(vh * 0.026))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(lbl)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(vh * 0.025))
+	vbox.add_child(row)
+	var need_btn := Button.new()
+	need_btn.text = "Need"
+	need_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
+	need_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	need_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_NEED))
+	row.add_child(need_btn)
+	var greed_btn := Button.new()
+	greed_btn.text = "Greed"
+	greed_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
+	greed_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	greed_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_GREED))
+	row.add_child(greed_btn)
+	var pass_btn := Button.new()
+	pass_btn.text = "Pass"
+	pass_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
+	pass_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	pass_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_PASS))
+	row.add_child(pass_btn)
 
 # ── Co-op story mode — shared story flags (GID-098 / TID-356) ────────────────
 
@@ -2739,6 +3079,9 @@ func _process(delta: float) -> void:
 		_tick_emote_self(delta)
 		_tick_ping_markers(delta)
 		_update_social_proximity()
+		# Party loot rolls (GID-102 / TID-381): authority-only timeout ticker; inert
+		# unless a roll is actually in flight (need/greed mode opted in).
+		_tick_loot_rolls(delta)
 	if _dnc:
 		_dnc.tick(delta, _weather_tint)
 
@@ -3182,6 +3525,13 @@ func _handle_interact() -> void:
 			chest_tier = 3
 		elif cid.begins_with("dc_"):
 			chest_tier = 2
+		# Party loot rolls (GID-102 / TID-381): when need/greed mode is on for this
+		# co-op session, the opener does NOT keep the loot below — the authority
+		# opens a roll among present session members and grants it to the winner
+		# instead. Default (first-opener-takes) and single-player are unchanged.
+		if _coop_active and _coop_loot_mode_is_need_greed():
+			_start_loot_roll(cid, chest_tier)
+			return
 		# 20% chance to drop a map fragment instead of normal loot (only if no active map)
 		var sm := SceneManager.save_manager
 		if _is_infinite and sm.active_treasure.is_empty() and randf() < 0.20:

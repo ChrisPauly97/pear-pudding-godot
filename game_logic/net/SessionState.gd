@@ -26,10 +26,16 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ## v4 — adds pvp_rating/pvp_games per character for the ranked ladder (TID-370).
 ## v5 — adds a shared party stash: {cards: Array, coins: int} (GID-102 / TID-376).
 ## v6 — adds `leaderboards` {spire, coop_clears} PvE score boards (TID-379).
-const CURRENT_SESSION_VERSION: int = 6
+## v7 — adds loot_mode session setting for need/greed chest rolls (TID-381).
+const CURRENT_SESSION_VERSION: int = 7
 
 ## Cap applied to each PvE leaderboard array by record_pve_score (top N kept).
 const PVE_LEADERBOARD_CAP: int = 20
+
+## Loot distribution modes (TID-381). Default keeps the original GID-096
+## first-opener-takes behaviour; need/greed is an opt-in host-only setting.
+const LOOT_MODE_FIRST_OPENER: String = "first_opener"
+const LOOT_MODE_NEED_GREED: String = "need_greed"
 
 ## Starter deck template ids — mirrors `SaveManager.new_game` / `ensure_coop_deck`
 ## so a freshly created session character can battle immediately.
@@ -74,6 +80,10 @@ var stash: Dictionary = {"cards": [], "coins": 0}
 # Shape: {spire: Array, coop_clears: Array}, each entry {token, name, value, day}.
 var leaderboards: Dictionary = {"spire": [], "coop_clears": []}
 
+# --- Loot distribution mode (GID-102 / TID-381) -----------------------------
+# Host-only session setting; LOOT_MODE_FIRST_OPENER (default) or LOOT_MODE_NEED_GREED.
+var loot_mode: String = LOOT_MODE_FIRST_OPENER
+
 
 # ---------------------------------------------------------------------------
 # Serialization
@@ -95,6 +105,7 @@ func to_dict() -> Dictionary:
 		"party_bounties": party_bounties.duplicate(true),
 		"stash": stash.duplicate(true),
 		"leaderboards": leaderboards.duplicate(true),
+		"loot_mode": loot_mode,
 	}
 
 
@@ -131,6 +142,8 @@ static func from_dict(data: Dictionary) -> SessionState:
 		s.stash = {"cards": [], "coins": 0}
 	var lb: Variant = data.get("leaderboards", {})
 	s.leaderboards = _sanitized_leaderboards(lb as Dictionary if lb is Dictionary else {})
+	var lm: String = str(data.get("loot_mode", LOOT_MODE_FIRST_OPENER))
+	s.loot_mode = lm if lm == LOOT_MODE_NEED_GREED else LOOT_MODE_FIRST_OPENER
 	return s
 
 
@@ -194,6 +207,12 @@ static func _apply_migrations(data: Dictionary) -> void:
 		if not data.has("leaderboards"):
 			data["leaderboards"] = {"spire": [], "coop_clears": []}
 		data["version"] = 6
+	if ver < 7:
+		# v7: add loot_mode session setting (defaults to first-opener-takes so
+		# existing sessions keep their original behaviour unchanged).
+		if not data.has("loot_mode"):
+			data["loot_mode"] = LOOT_MODE_FIRST_OPENER
+		data["version"] = 7
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 

@@ -428,3 +428,43 @@ func submit_pve_leaderboard_request() -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
 	if world_scene != null and world_scene.has_method("_on_pve_leaderboard_request_submitted"):
 		world_scene._on_pve_leaderboard_request_submitted(sender)
+
+
+# ── Party loot rolls (GID-102 / TID-381) ─────────────────────────────────────
+
+## Authority → all same-session members: open a Need/Greed/Pass prompt for a chest's
+## resolved drop. payload is LootRoll.encode_start() output. Reliable — a dropped
+## roll-start would leave a peer stuck unable to claim loot they're entitled to roll on.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_loot_roll_start(payload: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_loot_roll_start_received"):
+		world_scene._on_loot_roll_start_received(payload)
+
+
+## Client → authority: "I opened a chest (cid), and need/greed mode is on — please
+## start a roll." The chest-open flip itself already syncs via the existing
+## EV_CHEST_OPENED world event; this only carries the tier so the authority can
+## re-derive card_ids/position from its own deterministic chest data. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_loot_roll_request(cid: String, chest_tier: int) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_loot_roll_request_submitted"):
+		world_scene._on_loot_roll_request_submitted(sender, cid, chest_tier)
+
+
+## Client → authority: my Need/Greed/Pass choice for an active roll. payload fields are
+## sent positionally (roll_id, choice) rather than as one Array so both ends stay
+## simple RPC parameters like the other submit_* calls. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_loot_roll_choice(roll_id: String, choice: String) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_loot_roll_choice_submitted"):
+		world_scene._on_loot_roll_choice_submitted(sender, roll_id, choice)
+
+
+## Authority → all: the resolved outcome (winner + rolled values) so every peer can
+## show a toast. payload is LootRoll.encode_result() output. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_loot_roll_result(payload: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_loot_roll_result_received"):
+		world_scene._on_loot_roll_result_received(payload)

@@ -1120,12 +1120,58 @@ everyone** (the authority fans out an `enemy_removed` event). Outcomes:
 This avoids two players desyncing over one enemy without needing shared battle state for
 PvE; PvE battles remain local to the engaging player.
 
-### Loot rule — first-opener-takes
+### Loot rule — first-opener-takes (default), opt-in need/greed (GID-102 / TID-381)
 
 The player who opens a chest gets the loot (cards/coins/equipment drop **locally for the
 opener only**, into their per-player GID-095 character). Every other peer just sees the
 chest **flip to opened** — no loot. The open is recorded into the session file's
 `opened_chests`, so a chest can never be looted twice and reopens as opened on reconnect.
+This remains the default and is **completely unchanged** unless a host opts into the
+alternative below.
+
+**Need/greed roll mode.** `SessionState.loot_mode` (`LOOT_MODE_FIRST_OPENER` default /
+`LOOT_MODE_NEED_GREED`, added in **v4** with a migration that backfills the default for
+existing session files) is a host-only setting toggled via an in-world HUD button
+(`WorldScene._ensure_loot_mode_toggle_button`/`_on_loot_mode_toggle_pressed`, next to the
+session roster — placed in-world rather than the pre-connection lobby because
+`SessionStore` only opens once `_setup_session()` runs). `SessionStore.get_loot_mode()` /
+`set_loot_mode()` are the convenience accessors.
+
+When the mode is on, the chest branch of `_handle_interact` (immediately after the
+existing `_on_chest_opened_coop(cid)` call, which still flips the chest for everyone and
+persists the open exactly as before) **skips the opener's local grant** and calls
+`WorldScene._start_loot_roll(cid, chest_tier)` instead of `_spawn_card_items` /
+`_spawn_coin_piles` / `_maybe_drop_equipment_from_chest`. The chest's card ids / position
+are **never sent over the wire for the roll** — the authority re-derives them from its own
+`_active_chest_data[cid]`, which is deterministic and identical across peers (the same
+GID-096 invariant that makes discrete-event-only sync sufficient). A client opener instead
+sends a small `submit_loot_roll_request(cid, chest_tier)` intent so the authority knows to
+start a roll for that chest.
+
+The authority builds the participant list from every connected session member (host +
+`_session_token_by_peer.values()` — "present" is simplified to "connected to the session",
+not a same-map/proximity filter, a documented v1 scope cut), opens a roll session keyed by
+a generated `roll_id`, and broadcasts `recv_loot_roll_start`. Each peer shows a transient
+Need/Greed/Pass panel (`WorldScene._show_loot_roll_panel`, viewport-relative, three tappable
+buttons — mobile/desktop parity with no keyboard-only path) and sends its choice back via
+`submit_loot_roll_choice`. The authority resolves early once every expected participant has
+responded, or after a `_LOOT_ROLL_TIMEOUT = 15.0`s timeout (`_tick_loot_rolls`, ticked from
+`_process`) with any missing response **auto-passed**. **Equipment drops are out of scope for
+a roll** — there is no session-scoped equipment inventory to grant to an arbitrary winner
+(see BID-033), so only cards + a flat coin reward are roll-eligible; the map-fragment branch
+is also unaffected (still resolved before the roll check, same as always).
+
+**The authority is the only one that ever rolls the RNG** — clients only submit
+`need`/`greed`/`pass`, never a numeric value, so the outcome is tamper-proof. Need beats
+greed beats pass; ties within the same tier are broken by the highest rolled value
+(1–100). The winner's cards/coins are granted **directly into their GID-095 session
+character record** via `SessionStore` (`WorldScene._grant_chest_loot_to_token`) — the same
+direct-write pattern `_transfer_card_in_session` (card trading) and the party-bounty reward
+path already use for a member who may not be the local player, rather than the physical
+`WorldItem` pickup path GID-096 uses (which only ever grants to the local opener). The roll
+is removed from the in-flight map **before** any grant happens, so an item can never be
+granted twice. `recv_loot_roll_result` announces the winner (or "everyone passed") to all
+peers as a `GameBus.hud_message_requested` toast, consistent with other recent features.
 
 ### Pure helpers
 
@@ -1133,6 +1179,7 @@ chest **flip to opened** — no loot. The open is recorded into the session file
 |---|---|
 | `game_logic/net/EnemySync.gd` | Enemy **position** stream: `encode_state(id,x,z,alive)`/`decode_state`, `encode_batch`/`decode_batch`, `interp` (mirrors AvatarSync). Inert while enemies are static; provided for future moving enemies. |
 | `game_logic/net/WorldObjectSync.gd` | **Discrete** events: `encode_event(kind,id)`/`decode_event` (kinds `enemy_engaged`/`enemy_removed`/`enemy_defeated`/`chest_opened`) and `encode_snapshot(removed_enemies, opened_objects)`/`decode_snapshot` for late-join reconciliation. |
+| `game_logic/net/LootRoll.gd` (GID-102 / TID-381) | Need/greed roll: `encode_start`/`decode_start` (roll prompt: roll_id, item, participant tokens), `encode_choice`/`decode_choice` (client's need/greed/pass intent), `encode_result`/`decode_result` (winner + rolled values), and the core `static func resolve_winner(choices: Dictionary, rng: RandomNumberGenerator) -> Dictionary` — need beats greed beats pass, ties broken by highest rolled value, `winner_token == ""` when all pass. The RNG is always injected so the authority (and tests) can seed it. |
 
 ### RPCs — `NetSync` (added)
 
@@ -1142,6 +1189,10 @@ chest **flip to opened** — no loot. The open is recorded into the session file
 | `submit_world_event(payload)` | client → authority, reliable | intent: I engaged / defeated an enemy, or opened a chest |
 | `recv_world_snapshot(payload)` | authority → joining client, reliable | reconcile freshly-spawned nodes to the live + persisted removed/opened sets |
 | `recv_enemy_positions(payload)` | authority → clients, unreliable_ordered | low-Hz (5 Hz) moving-enemy position batch; clients `EnemySync.interp` toward it |
+| `recv_loot_roll_start(payload)` (GID-102 / TID-381) | authority → all, reliable | show the Need/Greed/Pass prompt for a chest's resolved drop |
+| `submit_loot_roll_request(cid, tier)` (GID-102 / TID-381) | client → authority, reliable | "I opened this chest and need/greed mode is on — start a roll" |
+| `submit_loot_roll_choice(roll_id, choice)` (GID-102 / TID-381) | client → authority, reliable | my need/greed/pass choice for an active roll |
+| `recv_loot_roll_result(payload)` (GID-102 / TID-381) | authority → all, reliable | announce the winner + rolled values; grant already happened authority-side before this broadcasts |
 
 ### Authority flow (WorldScene, all guarded by `_coop_active`)
 
@@ -1204,6 +1255,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_stash_transfer.gd` | unit (auto-run) | StashTransfer deposit/withdraw card round-trip + uid re-keying, unique-card block, missing-card/blank-uid no-ops, coin deposit/withdraw incl. insufficient-funds/non-positive-amount guards, deposit-then-withdraw and coin round-trips are neutral, garbage-stash-shape tolerance (16 cases) (GID-102 / TID-376) |
 | `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
 | `tests/unit/test_mp_profile_friends.gd` | unit (auto-run) | MpProfile friends list: add/dedupe-by-token/move-to-front, blank-token no-op, name/color sanitization, remove (existing + missing), `is_friend` true/false/blank, 50-entry cap eviction (keeps newest, drops oldest), `touch_friend_last_seen` (updates existing, no-op for non-friend), `get_friends` defensive copy, JSON persistence shape round-trip via a temp `user://` file (17 cases) (GID-102 / TID-375) |
+| `tests/unit/test_loot_roll.gd` | unit (auto-run) | LootRoll need-beats-greed (multi-seed), tie-break by highest rolled value within a tier, deterministic-with-seeded-RNG repeatability, all-pass/empty-choices has no winner, unrecognized choice normalizes to pass, timeout-as-pass equivalence, encode/decode round-trip + garbage/null/non-container tolerance for start/choice/result (24 cases) (GID-102 / TID-381) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_coop_npeer_smoke.gd` | on-demand SceneTree | 3-peer (host + 2 clients) loopback: host avatar reaches both clients, and a **client→client** identity packet is relayed by the host (proves the server-relay path N-peer rendering depends on) + PlayerIdentity decode (GID-094) |
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |
