@@ -261,3 +261,70 @@ func test_party_bounties_garbage_field_returns_empty_array() -> void:
 	}
 	var s := SessionState.from_dict(data)
 	assert_true(s.party_bounties.is_empty())
+
+
+# ---------------------------------------------------------------------------
+# Shared party stash (GID-102 / TID-376)
+# ---------------------------------------------------------------------------
+
+func test_stash_defaults_to_empty_cards_and_zero_coins() -> void:
+	var s := SessionState.new()
+	assert_true(s.stash.get("cards", null) is Array)
+	assert_true((s.stash["cards"] as Array).is_empty())
+	assert_eq(int(s.stash.get("coins", -1)), 0)
+
+
+func test_stash_round_trip_preserves_cards_and_coins() -> void:
+	var s := SessionState.new()
+	s.stash = {
+		"cards": [{"uid": "ghost_stash_0", "template_id": "ghost", "rarity": "common"}],
+		"coins": 250,
+	}
+	var restored := SessionState.from_dict(s.to_dict())
+	assert_eq(int(restored.stash.get("coins", -1)), 250)
+	var cards: Array = restored.stash.get("cards", [])
+	assert_eq(cards.size(), 1)
+	assert_eq(str((cards[0] as Dictionary).get("uid", "")), "ghost_stash_0")
+
+
+func test_stash_garbage_field_falls_back_to_empty_defaults() -> void:
+	var data: Dictionary = {
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"stash": "not-a-dict",
+	}
+	var s := SessionState.from_dict(data)
+	assert_true((s.stash.get("cards", null) as Array).is_empty())
+	assert_eq(int(s.stash.get("coins", -1)), 0)
+
+
+func test_stash_garbage_cards_field_falls_back_to_empty_array() -> void:
+	var data: Dictionary = {
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"stash": {"cards": "not-an-array", "coins": 40},
+	}
+	var s := SessionState.from_dict(data)
+	assert_true((s.stash.get("cards", null) as Array).is_empty())
+	assert_eq(int(s.stash.get("coins", -1)), 40)
+
+
+func test_migration_v4_backfills_missing_stash() -> void:
+	# Simulate a v3 session file that predates the stash field entirely.
+	var data: Dictionary = {
+		"version": 3,
+		"session_id": "old",
+		"party_bounties": [],
+		"members": {},
+	}
+	var s := SessionState.from_dict(data)
+	assert_true(s.stash.get("cards", null) is Array)
+	assert_true((s.stash["cards"] as Array).is_empty())
+	assert_eq(int(s.stash.get("coins", -1)), 0)
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_from_dict_versionless_still_gets_stash_default() -> void:
+	# A very old dict with no version and no stash key at all.
+	var data: Dictionary = {"session_id": "ancient", "members": {}}
+	var s := SessionState.from_dict(data)
+	assert_true((s.stash.get("cards", null) as Array).is_empty())
+	assert_eq(int(s.stash.get("coins", -1)), 0)
