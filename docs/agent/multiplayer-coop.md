@@ -476,6 +476,87 @@ opponent's via the new `recv_rating_delta(delta: int)` RPC, which the opponent's
 back in the world, after the result screen's Continue button, using the same
 low-risk end-of-action toast pattern other features already rely on.
 
+### Leaderboards (GID-102 / TID-379)
+
+The **PvE counterpart** to the ranked rating board above: authority-persisted
+best-score boards for the **Endless Spire** roguelike (GID-038) and **co-op joint
+boss clears** (GID-099). Never touches `pvp_rating`/`pvp_games` — a completely
+separate model, RPC pair, and cache, all carrying a `pve`/`_pve_` marker in their
+names specifically to avoid colliding with the TID-373 symbols above
+(`recv_leaderboard`, `submit_leaderboard_request`, `_leaderboard_rows`,
+`_broadcast_leaderboard`, …).
+
+**Storage — `SessionState.leaderboards: Dictionary`.** Shape `{spire: Array,
+coop_clears: Array}`; each entry is `{token, name, value, day}`. Unlike the ranked
+board (which is *derived* from `members` on every read), these are stored as their
+own arrays — a player's best PvE result should survive independently of whatever
+else is in their character record. `record_pve_score(board, token, name, value, day)`
+is the single pure mutator: insert-or-update-if-better (a worse or equal `value`
+for a token that already has an entry is a silent no-op — "only your own better
+score overwrites"), then re-sort desc by `value` (ties broken by earliest `day`,
+then token) and cap to `PVE_LEADERBOARD_CAP = 20`. `get_pve_leaderboard(board,
+limit)` and `get_pve_leaderboards_snapshot()` (both boards together, for the wire)
+are the read side. `CURRENT_SESSION_VERSION` bumped 5 → 6 (renumbered during
+integration; TID-376's party stash claimed v5 first); the migration backfills
+`leaderboards = {spire: [], coop_clears: []}` when absent, and a non-dict/garbage
+`leaderboards` field on load falls back to the same empty shape rather than
+crashing (mirrors every other tolerant-fallback field in this file).
+
+**Submission hooks.** Both are connected **permanently** in `WorldScene._ready`
+(same "WorldScene detaches during battle" reasoning as `pvp_battle_ended` above),
+not inside `_setup_coop`:
+
+- **Endless Spire** (`GameBus.spire_run_ended(stats)` → `_on_spire_run_ended_leaderboard`):
+  submits `stats.floors_cleared` to the `"spire"` board — but **only when
+  `NetworkManager.is_active()`**, per the task's explicit call-out that Spire is
+  single-player and a co-op session may not even be running during a run. When no
+  session is active, the result is purely local. **Decision: no device-local
+  MpProfile best was added for the fully-offline case** — `SaveManager.spire_best_floor`
+  already tracks the player's all-time-best floor and already drives the "New
+  Record!" badge on `RunSummaryScene`, so a second offline-best store would just be
+  a second source of truth for the same fact. The session-scoped board is the
+  actual deliverable; the offline case was already solved before this task.
+- **Co-op boss clears** (`GameBus.coop_pve_battle_ended(did_win)` →
+  `_on_coop_pve_battle_ended_leaderboard`): submits on a party win, while
+  `NetworkManager.is_active()`, to the `"coop_clears"` board. **Value = party size
+  at battle end** (`multiplayer.get_peers().size() + 1`) — a v1 simplification.
+  Neither the party-scaled boss tier (`CoopBattleScaling.scale_boss_tier`, computed
+  inside `BattleScene._build_coop_pve_state`) nor a clear-duration timer are
+  threaded back out to `GameBus.coop_pve_battle_ended` today, so party size is the
+  only signal reliably available at the point WorldScene can submit a score without
+  inventing new cross-battle plumbings. Logged as BID-031 for a future task to
+  enrich the ranking signal (tier and/or clear time).
+
+**Authority-records-then-broadcasts, same as party bounties.** `_submit_pve_score(board,
+value)` is the single routing function: on the host it calls
+`SessionState.record_pve_score` directly via `SessionStore.get_state()`, marks dirty,
+and broadcasts; on a client it sends the new `NetSync.submit_pve_leaderboard_score(board,
+value)` RPC, which the host's `_on_pve_leaderboard_score_submitted` resolves to a token
+via the existing `_session_token_by_peer` map (the same lookup the ranked board and
+champion-record paths use) before recording + broadcasting.
+
+**Broadcast/snapshot — `NetSync.recv_pve_leaderboards(snapshot: Dictionary)`.**
+Fired on late-join (`_send_character_to_peer` unicasts it right alongside the
+existing character/party-bounty/ranked-leaderboard sends) and after every
+`record_pve_score` write, via `WorldScene._broadcast_pve_leaderboards(target_peer :=
+0)` — structurally identical to `_broadcast_leaderboard` but pushing the
+`{spire, coop_clears}` snapshot instead of ranked rows. A client can also request a
+fresh snapshot on demand via `NetSync.submit_pve_leaderboard_request()` (answered by
+`_on_pve_leaderboard_request_submitted`), mirroring `submit_leaderboard_request`.
+
+**UI — extended the existing overlay with tabs, not a second panel.** Per the task's
+explicit guidance ("a unified 'Rankings' overlay beats two near-identical panels"),
+`scenes/ui/LeaderboardOverlay.gd` gained a 3-button tab row (**Ranked** / **Spire** /
+**Co-op Clears**) above the existing header. `_active_tab` picks which cached array
+renders; `refresh_rows(rows)` (the pre-existing TID-373 method) still feeds the
+Ranked tab unchanged, and a new `refresh_pve_rows(snapshot)` feeds the Spire/Co-op
+tabs from the `{spire, coop_clears}` shape. Columns adapt per tab (Ranked: Rating/W-L;
+Spire/Co-op: Value/Day) via `_build_header()`. `WorldScene._toggle_leaderboard_overlay()`
+now requests **both** snapshots on open (ranked + PvE, each via its own
+host-computes-locally-or-client-requests branch) so every tab is populated the
+moment the panel opens, regardless of which tab happens to be active — switching
+tabs is a pure local re-render of already-cached data, no new network round trip.
+
 ### Spectating a duel (GID-101 / TID-367)
 
 Non-combatant party members can **watch** an in-progress PvP duel read-only.
@@ -1025,7 +1106,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_player_identity.gd` | unit (auto-run) | PlayerIdentity encode/decode round-trip, color hex, robust defaults for short/blank/invalid payloads (10 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
-| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance; shared `stash` default/round-trip/garbage tolerance + migration v5 backfill (38 cases) (GID-095 / GID-101 / GID-102) |
+| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance; shared `stash` default/round-trip/garbage tolerance + migration v5 backfill; `leaderboards` {spire, coop_clears} default + `record_pve_score` insert/own-better-overwrites/worse-and-equal-are-no-ops/sort-desc/cap-at-20/unknown-board-and-blank-token no-ops, `get_pve_leaderboard` limit, round-trip + snapshot shape, migration v6 backfill + preserves-existing + garbage-field tolerance (51 cases) (GID-095 / GID-101 / GID-102) |
 | `tests/unit/test_rating_math.gd` | unit (auto-run) | RatingMath ELO: expected-score symmetry/bounds/favouring, win-raises/loss-lowers, symmetric zero-sum deltas at equal rating, placement vs settled K, floor clamp, draw no-op (15 cases) (GID-102 / TID-370) |
 | `tests/unit/test_social_sync.gd` | unit (auto-run) | SocialSync emote round-trip for all 6 preset ids, map field, garbage/empty array tolerance; ping round-trip preserving coords/kind/color/map, partial array defaults, negative coords, constants sanity (16 cases) (GID-101 / TID-365) |
 | `tests/unit/test_chat_sync.gd` | unit (auto-run) | ChatSync quick-chat round-trip for all preset ids + unknown-preset fallback, free-text round-trip + 120-char length cap (under/at/over + forged-payload re-sanitization), control-character (incl. DEL) and newline/tab stripping, map field round-trip, garbage/null/empty/short-array/invalid-kind decode tolerance, constants sanity (26 cases) (GID-102 / TID-374) |

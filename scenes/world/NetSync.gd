@@ -392,3 +392,39 @@ func submit_leaderboard_request() -> void:
 func recv_rating_delta(delta: int) -> void:
 	if world_scene != null and world_scene.has_method("_on_rating_delta_received"):
 		world_scene._on_rating_delta_received(delta)
+
+
+# ── PvE leaderboards: Spire + co-op clears (GID-102 / TID-379) ──────────────
+# Distinct RPC/symbol names from the TID-373 PvP ranked-rating pair above
+# (recv_leaderboard / submit_leaderboard_request) — this is the PvE counterpart,
+# never touches rating. All names carry a "pve" marker to avoid any collision.
+
+## Client → authority: "I finished a Spire run / co-op boss clear, here's my score."
+## board is "spire" or "coop_clears"; value is floors_cleared (Spire) or the co-op
+## clear's recorded value (see WorldScene._submit_pve_score for the value choice).
+## Reliable — a dropped submission would silently lose a player's best result.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_pve_leaderboard_score(board: String, value: int) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_pve_leaderboard_score_submitted"):
+		world_scene._on_pve_leaderboard_score_submitted(sender, board, value)
+
+
+## Authority → one or all peers: the current {spire, coop_clears} PvE leaderboard
+## snapshot. payload is SessionState.get_pve_leaderboards_snapshot() output —
+## already JSON-primitive, sent as-is (same pattern as recv_leaderboard /
+## recv_party_bounties_snapshot). Reliable — must not drop so cached rows stay
+## consistent with the authority. Fired on late-join and after every score update.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_pve_leaderboards(snapshot: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_pve_leaderboards_received"):
+		world_scene._on_pve_leaderboards_received(snapshot)
+
+
+## Client → authority: on-demand refresh request (e.g. switching to the Spire/Co-op
+## tab in the leaderboard overlay). Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_pve_leaderboard_request() -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_pve_leaderboard_request_submitted"):
+		world_scene._on_pve_leaderboard_request_submitted(sender)
