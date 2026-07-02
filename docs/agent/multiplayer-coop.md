@@ -937,6 +937,96 @@ the member list + ratings the way `recv_party_bounties_snapshot` does for
 bounties). Extending this to clients is a natural follow-up but out of scope here
 — see BID list for the corresponding backlog entry.
 
+### Draft Duels — sealed-deck PvP (GID-104 / TID-385)
+
+The fairest PvP format: both duelists build a deck **live** from **identical
+seeded card pools**, so a veteran's `owned_cards` collection gives zero advantage
+— only pick quality matters. Reuses the Endless Spire's 1-of-3 pick logic
+(GID-038, `SpireDraft.generate_picks`) for the rounds and the normal 1v1 PvP
+battle engine (GID-091) for the duel itself.
+
+#### Model — deterministic shared seed, no pick orchestration
+
+Both peers derive the **identical sequence** of `NUM_ROUNDS = 8` (==
+`IsoConst.DECK_MIN`, so a finished draft deck is always battle-legal) pick rounds
+of 3 options each from one shared integer seed, via the pure, unit-tested
+**`game_logic/net/DraftDuelGen.gd`** (mirrors `BattleNetProtocol`/`AvatarSync`):
+
+- `generate_rounds(seed_val, pool_templates) -> Array` — seeds one RNG, then calls
+  `SpireDraft.generate_picks` 8 times with `floor = round_idx + 1`, so later
+  rounds skew toward higher tiers (the same escalation curve the Spire uses).
+  Reuse, not reimplementation, of the tier-weighted pick algorithm.
+- `encode_seed(seed_val)` / `decode_seed(payload)` — versioned, garbage-tolerant
+  wire pair for the challenge handshake payload.
+- `make_drafted_instance(template_id, tier, round_idx, owner_token, tmpl)` —
+  builds a **transient** `CardInstanceUtil`-shaped instance dict with a synthetic
+  `"draft_<token>_<round>_<id>"` uid and the template's **base stats** (no rarity
+  roll — identical stats for both duelists is the point of a sealed format).
+
+Because both peers see the *same options* every round (not a shared/limited pool
+they compete over), there is nothing to arbitrate — each peer picks
+independently and **only the two finished decks cross the wire, once each**. The
+alternative (host relays each pick live) was rejected in the task's Plan phase:
+it needs a stateful start/pick/ack RPC set that determinism makes unnecessary.
+
+#### Wire — 3 new reliable `NetSync` RPCs
+
+| RPC | Direction | Purpose |
+|---|---|---|
+| `request_draft_duel(payload)` | challenger → target | `DraftDuelGen.encode_seed()` payload with a fresh `randi()` seed |
+| `respond_draft_duel(accepted, payload)` | target → challenger | accept echoes the seed payload back so both provably draft from the same seed |
+| `submit_draft_duel_deck(deck)` | either duelist → the other | the sender's finished transient deck; symmetric, whoever finishes first waits |
+
+#### Flow
+
+1. Proximity to another player (same `_challenge_target_peer` scan as the 1v1
+   challenge) shows a **"Draft Duel"** HUD button below the Ranked toggle
+   (`_ensure_draft_duel_button` / `_update_draft_duel_proximity` — a
+   `Button.pressed` tap/click target, mobile + desktop parity). **No `DECK_MIN`
+   gate** — a draft duel needs no collection at all.
+2. Target sees an Accept/Decline panel (`_show_draft_accept_panel`); a peer
+   already mid-handshake auto-declines so the challenger isn't left hanging.
+3. On accept, **both peers locally** open `scenes/ui/DraftDuelPickScene.gd` (new,
+   built fully in code like `PackOpenScene` — no `.tscn`; viewport-relative,
+   portrait-stacking, modeled on `SpireDraftScene`) seeded with the agreed seed.
+   Zero network traffic while picking.
+4. After the 8th pick, the overlay emits `draft_finished(deck)` and switches to a
+   "Waiting for opponent…" panel; WorldScene sends the deck via
+   `submit_draft_duel_deck` and enters the duel (`_maybe_enter_draft_duel`) once
+   **both** its own and the opponent's decks are present — no extra "go" signal;
+   the PvP client's existing `request_sync` retry loop absorbs entry-order skew.
+5. Entry mirrors `_enter_pvp` (spectator `recv_pvp_active` broadcast, opponent
+   reconnect token) but calls `SceneManager.enter_pvp_battle(local_idx, opp_deck,
+   0, opp_token, false, my_drafted_deck)` — the new trailing
+   **`local_deck_override`** parameter, threaded into
+   `BattleScene.pvp_local_deck_override`. `_build_pvp_decks`'s listen-server host
+   branch uses the override for `players[0]` instead of
+   `SaveManager.get_deck_instances()` when non-empty — the only change the battle
+   engine needed; the client side never builds decks (host-authoritative mirror).
+
+#### Invariants & scope
+
+- **Transient by construction**: drafted decks exist only in the pick overlay and
+  the one duel's `GameState`. Nothing writes them to `owned_cards`, `SaveManager`,
+  or `SessionState`; the synthetic `draft_` uid namespace can never collide with
+  real instance uids even if misused.
+- **Always casual**: never ranked (`_pvp_ranked` forced false — mixed-format ELO
+  would corrupt the constructed ladder), never wagered (`ante_coins = 0`). The
+  host's champion win/loss record still updates (it counts PvP duels generally).
+- **Aborts**: a draft in flight is cancelled (picker freed, state reset, tip
+  shown) if the opponent disconnects or the session ends
+  (`_abort_draft_duel_for_peer` / `_abort_draft_duel`, hooked into
+  `_on_coop_peer_disconnected` / `_on_coop_session_ended`).
+- **Out of scope (v1)**: dedicated-server draft routing (button hidden when
+  `_session_dedicated`; listen-server only), draft-duel reconnect resume (a mid-
+  draft drop aborts; a mid-*battle* drop uses the normal TID-372 grace window but
+  a resumed host would rebuild from its collection — LAN-trust accepted), and
+  spectating the *picking* phase (spectating the resulting battle works via the
+  normal TID-367 flow).
+- Unit tests: `tests/unit/test_draft_duel_gen.gd` (round shape, same-seed
+  determinism, seed wire round-trip + garbage tolerance, transient instance
+  shape/uid namespacing).
+
 ## Persistent Sessions & Per-Player Progress (GID-095)
 
 Each server keeps a **persistent session**: shared world progress plus a roster of
@@ -1256,6 +1346,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
 | `tests/unit/test_mp_profile_friends.gd` | unit (auto-run) | MpProfile friends list: add/dedupe-by-token/move-to-front, blank-token no-op, name/color sanitization, remove (existing + missing), `is_friend` true/false/blank, 50-entry cap eviction (keeps newest, drops oldest), `touch_friend_last_seen` (updates existing, no-op for non-friend), `get_friends` defensive copy, JSON persistence shape round-trip via a temp `user://` file (17 cases) (GID-102 / TID-375) |
 | `tests/unit/test_loot_roll.gd` | unit (auto-run) | LootRoll need-beats-greed (multi-seed), tie-break by highest rolled value within a tier, deterministic-with-seeded-RNG repeatability, all-pass/empty-choices has no winner, unrecognized choice normalizes to pass, timeout-as-pass equivalence, encode/decode round-trip + garbage/null/non-container tolerance for start/choice/result (24 cases) (GID-102 / TID-381) |
+| `tests/unit/test_draft_duel_gen.gd` | unit (auto-run) | DraftDuelGen sealed-pool rounds: NUM_ROUNDS × 3 shape, all picks in pool, no in-round duplicates, empty-pool tolerance, same-seed determinism (the fairness invariant), seed divergence, late-round tier escalation; encode/decode_seed round-trip + garbage/null/missing-key tolerance; make_drafted_instance shape + draft-namespaced uid + per-round uid uniqueness + tier→rarity mapping/clamp; tier_for_template bucket parity with SpireDraft (17 cases) (GID-104 / TID-385) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_coop_npeer_smoke.gd` | on-demand SceneTree | 3-peer (host + 2 clients) loopback: host avatar reaches both clients, and a **client→client** identity packet is relayed by the host (proves the server-relay path N-peer rendering depends on) + PlayerIdentity decode (GID-094) |
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |

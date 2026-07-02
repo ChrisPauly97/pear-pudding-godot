@@ -468,3 +468,38 @@ func submit_loot_roll_choice(roll_id: String, choice: String) -> void:
 func recv_loot_roll_result(payload: Dictionary) -> void:
 	if world_scene != null and world_scene.has_method("_on_loot_roll_result_received"):
 		world_scene._on_loot_roll_result_received(payload)
+
+
+# ── Draft duels — sealed-deck PvP (GID-104 / TID-385) ────────────────────────
+# Deterministic shared-seed model: the challenger generates one integer seed;
+# both peers derive the IDENTICAL sequence of 1-of-3 pick rounds locally via
+# DraftDuelGen.generate_rounds, so no per-pick relay/arbitration is needed. Only
+# the two finished (transient, never-persisted) decks cross the wire, once each.
+
+## Challenger → target: "draft duel?" payload is DraftDuelGen.encode_seed() output
+## carrying the shared seed. Reliable — a dropped challenge must not silently vanish.
+@rpc("any_peer", "reliable", "call_remote")
+func request_draft_duel(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_draft_duel_requested"):
+		world_scene._on_draft_duel_requested(sender, payload)
+
+
+## Target → challenger: accept/decline. On accept, payload echoes the challenger's
+## seed payload back so both peers provably draft from the same seed. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func respond_draft_duel(accepted: bool, payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_draft_duel_responded"):
+		world_scene._on_draft_duel_responded(sender, accepted, payload)
+
+
+## Either drafting peer → the other: my finished drafted deck (Array of transient
+## instance dicts built by DraftDuelGen.make_drafted_instance — never persisted).
+## Symmetric like request_battle/respond_battle: whichever peer finishes first
+## simply waits until the opponent's deck arrives. Reliable — must not drop.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_draft_duel_deck(deck: Array) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_draft_duel_deck_submitted"):
+		world_scene._on_draft_duel_deck_submitted(sender, deck)

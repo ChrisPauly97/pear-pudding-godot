@@ -100,6 +100,12 @@ var pvp_ante_coins: int = 0
 # ELO rating update on battle end (gated in WorldScene, not here).
 var pvp_ranked: bool = false
 
+# Draft duel (GID-104 / TID-385): when non-empty, the listen-server host builds
+# its own players[0] deck from these TRANSIENT drafted-instance dicts instead of
+# SaveManager.get_deck_instances() — a drafted deck must never read (or write)
+# the persisted collection. Set by SceneManager.enter_pvp_battle before _ready.
+var pvp_local_deck_override: Array = []
+
 # ── Co-op PvE joint battle (GID-099) ─────────────────────────────────────────
 # All inert unless SceneManager sets _coop_pve = true before _ready.
 # _local_player_idx is the local ally index (0 = host/ally-0, 1..N-1 = ally clients).
@@ -2198,7 +2204,15 @@ func _build_pvp_decks() -> void:
 			_state.players[1].build_deck(fallback)
 	else:
 		# Listen-server host: players[0] is local, players[1] from the challenged peer.
-		var my_insts: Array[Dictionary] = SceneManager.save_manager.get_deck_instances()
+		# Draft duel (GID-104 / TID-385): a non-empty pvp_local_deck_override replaces
+		# the persisted collection entirely — drafted decks never touch SaveManager.
+		var my_insts: Array[Dictionary] = []
+		if pvp_local_deck_override.size() > 0:
+			for inst in pvp_local_deck_override:
+				if inst is Dictionary:
+					my_insts.append(inst)
+		else:
+			my_insts = SceneManager.save_manager.get_deck_instances()
 		if my_insts.size() > 0:
 			_state.players[0].build_deck_from_instances(my_insts)
 		else:

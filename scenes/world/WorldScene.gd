@@ -202,6 +202,25 @@ var _pve_leaderboards: Dictionary = {"spire": [], "coop_clears": []}  # cached s
 # open on the authority; a client has no local SessionState to list opponents from).
 var _ghost_duel_btn: Button = null
 var _ghost_duel_overlay: Node = null
+# GID-104 (TID-385): Draft duels — sealed-deck PvP. Both peers derive identical
+# 1-of-3 pick rounds from one shared seed (DraftDuelGen); only the two finished
+# TRANSIENT decks cross the wire. Drafted cards never touch owned_cards /
+# SaveManager / SessionState. All state below is inert in single-player.
+const _DraftDuelGen = preload("res://game_logic/net/DraftDuelGen.gd")
+const _DraftDuelPickScene = preload("res://scenes/ui/DraftDuelPickScene.gd")
+var _draft_duel_btn: Button = null      # proximity-gated HUD button (mobile + desktop)
+var _pending_draft_from: int = -1       # incoming draft challenge awaiting our response
+var _pending_draft_seed: int = 0        # seed carried by that pending challenge
+var _draft_accept_panel: Node = null    # Accept/Decline prompt (CanvasLayer)
+var _draft_peer: int = -1               # opponent peer for the outgoing/active draft
+var _draft_seed: int = 0                # agreed shared seed for the active draft
+var _draft_picking: bool = false        # true once the pick overlay is open
+var _draft_picker: Node = null          # DraftDuelPickScene instance, nil when closed
+var _draft_picker_layer: Node = null    # its CanvasLayer wrapper
+var _draft_local_deck: Array = []       # my finished transient deck (instance dicts)
+var _draft_opp_deck: Array = []         # opponent's finished transient deck
+var _draft_local_done: bool = false
+var _draft_opp_done: bool = false
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -634,6 +653,7 @@ func _setup_coop() -> void:
 	# Dedicated server has no player, no HUD, no identity to share.
 	if not NetworkManager.is_dedicated_server():
 		_ensure_challenge_button()
+		_ensure_draft_duel_button()
 		_ensure_social_buttons()
 		_ensure_team_duel_button()
 		_ensure_chat_ui()
@@ -730,6 +750,8 @@ func _on_coop_peer_disconnected(pid: int) -> void:
 	_remote_identities.erase(pid)
 	_remote_player_maps.erase(pid)
 	_session_token_by_peer.erase(pid)
+	# Draft duel (GID-104 / TID-385): abort a draft in flight with this peer.
+	_abort_draft_duel_for_peer(pid)
 	# Flush so the leaving player's last persisted snapshot is on disk (host only).
 	if NetworkManager.is_host():
 		SessionStore.flush_now()
@@ -754,6 +776,8 @@ func _on_coop_session_ended() -> void:
 	# Party loot rolls (GID-102 / TID-381) are session-scoped too.
 	_loot_rolls_active.clear()
 	_pending_loot_roll = {}
+	# Draft duel (GID-104 / TID-385): session gone — abort any draft in flight.
+	_abort_draft_duel()
 	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
 		_loot_roll_panel.queue_free()
 	_loot_roll_panel = null
@@ -3071,6 +3095,7 @@ func _process(delta: float) -> void:
 		_broadcast_local_avatar(delta)
 		_update_challenge_proximity()
 		_update_team_duel_button_visibility()
+		_update_draft_duel_proximity()
 		_tick_session_persist(delta)
 		# World-object sync (GID-096): host streams enemy positions; clients smooth.
 		_broadcast_enemy_positions(delta)
@@ -6172,3 +6197,261 @@ func _on_party_bounties_snapshot_received(bounties: Array) -> void:
 	for b: Variant in bounties:
 		if b is Dictionary:
 			_add_bounty_row(b as Dictionary)
+
+
+# ── Draft duels — sealed-deck PvP (GID-104 / TID-385) ─────────────────────────
+# Deterministic shared-seed model: the challenger generates one seed; both peers
+# derive the IDENTICAL 1-of-3 pick rounds locally (DraftDuelGen.generate_rounds),
+# so no per-pick relay is needed — each side picks independently and only the two
+# finished TRANSIENT decks cross the wire (submit_draft_duel_deck), once each.
+# Drafted decks live only in the resulting duel's GameState; they are never
+# written to owned_cards, SaveManager, or SessionState. Always casual: never
+# ranked (fair-format ratings would need their own ladder), never wagered.
+# Everything here is guarded by the co-op HUD entry points (_setup_coop), so
+# single-player never reaches any of it.
+
+## Creates the hidden "Draft Duel" HUD button (mobile + desktop parity — a
+## Button.pressed tap/click target, no keybind). Sits below the ranked toggle.
+func _ensure_draft_duel_button() -> void:
+	if _draft_duel_btn != null and is_instance_valid(_draft_duel_btn):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_draft_duel_btn = Button.new()
+	_draft_duel_btn.text = "Draft Duel"
+	_draft_duel_btn.tooltip_text = "Sealed-deck duel: both players draft %d cards from identical seeded packs. No collection advantage; drafted cards last one duel." % _DraftDuelGen.NUM_ROUNDS
+	_draft_duel_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
+	_draft_duel_btn.add_theme_font_size_override("font_size", int(vp.y * 0.020))
+	_draft_duel_btn.position = Vector2((vp.x - vp.y * 0.20) * 0.5, vp.y * 0.935)
+	_draft_duel_btn.hide()
+	_draft_duel_btn.pressed.connect(_request_draft_duel)
+	_hud.add_child(_draft_duel_btn)
+
+## Shows/hides the draft-duel button. Piggybacks on the proximity result
+## (_challenge_target_peer) computed by _update_challenge_proximity, which runs
+## immediately before this in _process. Hidden while any challenge/draft is
+## pending, and on dedicated servers (draft routing is listen-server only in v1).
+func _update_draft_duel_proximity() -> void:
+	if _draft_duel_btn == null or not is_instance_valid(_draft_duel_btn):
+		return
+	if _draft_peer != -1 or _pending_draft_from != -1 or _pending_challenge_from != -1 \
+			or _session_dedicated or SceneManager._state != SceneManager.State.WORLD:
+		_draft_duel_btn.hide()
+		return
+	_draft_duel_btn.visible = _challenge_target_peer != -1
+
+## Send a draft-duel challenge to the nearby peer, carrying a freshly rolled seed.
+## No DECK_MIN gate — a draft duel needs no collection at all (that's the point).
+func _request_draft_duel() -> void:
+	if _challenge_target_peer == -1 or _net_sync == null or _draft_peer != -1:
+		return
+	if _session_dedicated:
+		_show_tip("Draft duels aren't available on dedicated servers yet.")
+		return
+	var seed_val: int = randi()
+	_draft_peer = _challenge_target_peer
+	_draft_seed = seed_val
+	_net_sync.rpc_id(_draft_peer, "request_draft_duel", _DraftDuelGen.encode_seed(seed_val))
+	_show_tip("Draft duel challenge sent…")
+
+## Incoming draft challenge — show an Accept/Decline prompt (auto-decline if busy
+## so the challenger isn't left hanging on a peer already in another handshake).
+func _on_draft_duel_requested(from_id: int, payload: Dictionary) -> void:
+	if _pending_challenge_from != -1 or _pending_draft_from != -1 or _draft_peer != -1:
+		if _net_sync != null:
+			_net_sync.rpc_id(from_id, "respond_draft_duel", false, {})
+		return
+	var decoded: Dictionary = _DraftDuelGen.decode_seed(payload)
+	if not bool(decoded["valid"]):
+		return
+	_pending_draft_from = from_id
+	_pending_draft_seed = int(decoded["seed"])
+	_show_draft_accept_panel(from_id)
+
+## Challenger learns the response. On accept, the echoed seed payload is used
+## (defensively falling back to the seed we sent) and both peers start drafting.
+func _on_draft_duel_responded(from_id: int, accepted: bool, payload: Dictionary) -> void:
+	if from_id != _draft_peer or _draft_picking:
+		return
+	if not accepted:
+		_show_tip("Draft duel declined.")
+		_draft_peer = -1
+		_draft_seed = 0
+		return
+	var decoded: Dictionary = _DraftDuelGen.decode_seed(payload)
+	var seed_val: int = int(decoded["seed"]) if bool(decoded["valid"]) else _draft_seed
+	_start_draft(from_id, seed_val)
+
+func _show_draft_accept_panel(from_id: int) -> void:
+	if _draft_accept_panel != null and is_instance_valid(_draft_accept_panel):
+		_draft_accept_panel.queue_free()
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var layer := CanvasLayer.new()
+	layer.layer = 180
+	add_child(layer)
+	_draft_accept_panel = layer
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	layer.add_child(panel)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vp.y * 0.025))
+	panel.add_child(vbox)
+
+	var lbl := Label.new()
+	lbl.text = "A player challenges you to a DRAFT DUEL!\nBoth of you draft %d cards from identical sealed packs." % _DraftDuelGen.NUM_ROUNDS
+	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.modulate = Color(0.6, 0.9, 1.0)
+	vbox.add_child(lbl)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(vp.y * 0.03))
+	vbox.add_child(row)
+
+	var accept_btn := Button.new()
+	accept_btn.text = "Accept"
+	accept_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
+	accept_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	accept_btn.pressed.connect(_accept_draft_duel.bind(from_id))
+	row.add_child(accept_btn)
+
+	var decline_btn := Button.new()
+	decline_btn.text = "Decline"
+	decline_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
+	decline_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	decline_btn.pressed.connect(_decline_draft_duel.bind(from_id))
+	row.add_child(decline_btn)
+
+func _dismiss_draft_panel() -> void:
+	if _draft_accept_panel != null and is_instance_valid(_draft_accept_panel):
+		_draft_accept_panel.queue_free()
+	_draft_accept_panel = null
+
+func _accept_draft_duel(from_id: int) -> void:
+	_dismiss_draft_panel()
+	var seed_val: int = _pending_draft_seed
+	_pending_draft_from = -1
+	_pending_draft_seed = 0
+	if _net_sync != null:
+		_net_sync.rpc_id(from_id, "respond_draft_duel", true, _DraftDuelGen.encode_seed(seed_val))
+	_start_draft(from_id, seed_val)
+
+func _decline_draft_duel(from_id: int) -> void:
+	_dismiss_draft_panel()
+	_pending_draft_from = -1
+	_pending_draft_seed = 0
+	if _net_sync != null:
+		_net_sync.rpc_id(from_id, "respond_draft_duel", false, {})
+
+## Both peers: open the local pick overlay with the agreed shared seed. From here
+## on there is zero network traffic until a peer finishes its last pick.
+func _start_draft(peer_id: int, seed_val: int) -> void:
+	_draft_peer = peer_id
+	_draft_seed = seed_val
+	_draft_picking = true
+	_draft_local_deck = []
+	_draft_opp_deck = []
+	_draft_local_done = false
+	_draft_opp_done = false
+	# Shared bookkeeping with the normal challenge path: the host's battle-end
+	# champion-record path resolves the opponent via _challenge_target_peer.
+	_challenge_target_peer = peer_id
+	if _challenge_btn != null and is_instance_valid(_challenge_btn):
+		_challenge_btn.hide()
+	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
+		_ranked_toggle_btn.hide()
+	if _draft_duel_btn != null and is_instance_valid(_draft_duel_btn):
+		_draft_duel_btn.hide()
+	var layer := CanvasLayer.new()
+	layer.layer = 190
+	add_child(layer)
+	_draft_picker_layer = layer
+	var picker := _DraftDuelPickScene.new()
+	layer.add_child(picker)
+	picker.draft_finished.connect(_on_local_draft_finished)
+	_draft_picker = picker
+	# setup() can finish synchronously (empty card registry edge) and cascade into
+	# _maybe_enter_draft_duel → _free_draft_picker, so it must run after the
+	# member references above are in place.
+	picker.setup(seed_val, MpProfile.get_token())
+
+func _free_draft_picker() -> void:
+	if _draft_picker_layer != null and is_instance_valid(_draft_picker_layer):
+		_draft_picker_layer.queue_free()
+	_draft_picker_layer = null
+	_draft_picker = null
+
+## Local draft complete: send my transient deck to the opponent, then start the
+## duel if theirs already arrived (whichever peer finishes second triggers entry).
+func _on_local_draft_finished(deck: Array) -> void:
+	_draft_local_deck = deck
+	_draft_local_done = true
+	if _net_sync != null and _draft_peer != -1:
+		_net_sync.rpc_id(_draft_peer, "submit_draft_duel_deck", deck)
+	_maybe_enter_draft_duel()
+
+func _on_draft_duel_deck_submitted(from_id: int, deck: Array) -> void:
+	if from_id != _draft_peer:
+		return
+	_draft_opp_deck = deck
+	_draft_opp_done = true
+	_maybe_enter_draft_duel()
+
+## Both decks ready → enter the duel. Mirrors _enter_pvp (spectator broadcast +
+## opponent token), but passes the local drafted deck as the override so the
+## battle never reads the host's persisted collection. Never ranked, no ante.
+func _maybe_enter_draft_duel() -> void:
+	if not (_draft_local_done and _draft_opp_done):
+		return
+	_free_draft_picker()
+	var local_idx: int = 0 if NetworkManager.is_host() else 1
+	_pvp_ranked = false
+	if NetworkManager.is_host() and _net_sync != null:
+		var my_id: int = multiplayer.get_unique_id()
+		_pvp_ante_peer0 = my_id
+		_pvp_ante_peer1 = _draft_peer
+		for pid in multiplayer.get_peers():
+			var p: int = int(pid)
+			if p != _draft_peer:
+				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _draft_peer)
+	var opp_token: String = str(_session_token_by_peer.get(_draft_peer, ""))
+	var opp_deck: Array = _draft_opp_deck
+	var my_deck: Array = _draft_local_deck
+	_reset_draft_state()
+	SceneManager.enter_pvp_battle(local_idx, opp_deck, 0, opp_token, false, my_deck)
+
+func _reset_draft_state() -> void:
+	_draft_peer = -1
+	_draft_seed = 0
+	_draft_picking = false
+	_draft_local_deck = []
+	_draft_opp_deck = []
+	_draft_local_done = false
+	_draft_opp_done = false
+
+## Abort hooks: called from _on_coop_peer_disconnected / _on_coop_session_ended.
+func _abort_draft_duel_for_peer(pid: int) -> void:
+	if _draft_peer != -1 and pid == _draft_peer:
+		_abort_draft_duel("Draft duel cancelled — opponent disconnected.")
+	elif _pending_draft_from != -1 and pid == _pending_draft_from:
+		_dismiss_draft_panel()
+		_pending_draft_from = -1
+		_pending_draft_seed = 0
+
+func _abort_draft_duel(reason: String = "") -> void:
+	if _draft_peer == -1 and _pending_draft_from == -1 and _draft_picker == null:
+		return
+	_free_draft_picker()
+	_dismiss_draft_panel()
+	_pending_draft_from = -1
+	_pending_draft_seed = 0
+	_reset_draft_state()
+	if reason != "":
+		_show_tip(reason)

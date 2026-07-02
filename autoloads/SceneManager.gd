@@ -504,8 +504,13 @@ func _on_ghost_duel_ended(did_win: bool) -> void:
 ## ranked (GID-102 / TID-373): when true, the duel's outcome moves both combatants'
 ## persistent ELO rating (TID-370) — both peers must pass the same value (set from the
 ## challenge handshake, mirroring how ante_coins is agreed before either side calls this).
+## local_deck_override (GID-104 / TID-385, draft duels): when non-empty, the
+## listen-server host builds its own players[0] deck from these transient instance
+## dicts instead of SaveManager.get_deck_instances() — a drafted deck must never
+## read (or write) the persisted collection. Empty = normal collection deck.
 func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int = 0,
-		opponent_token: String = "", ranked: bool = false) -> void:
+		opponent_token: String = "", ranked: bool = false,
+		local_deck_override: Array = []) -> void:
 	if _state != State.WORLD:
 		return
 	var captured_idx: int = local_player_idx
@@ -513,6 +518,7 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 	var captured_ante: int = ante_coins
 	var captured_token: String = opponent_token
 	var captured_ranked: bool = ranked
+	var captured_local_deck: Array = local_deck_override
 	TransitionManager.transition(func() -> void:
 		_saved_world_scene = get_tree().current_scene
 		get_tree().root.remove_child(_saved_world_scene)
@@ -524,6 +530,7 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 		_battle_overlay.set("pvp_ante_coins", captured_ante)
 		_battle_overlay.set("pvp_opponent_token", captured_token)
 		_battle_overlay.set("pvp_ranked", captured_ranked)
+		_battle_overlay.set("pvp_local_deck_override", captured_local_deck)
 		_battle_overlay.enemy_data = {
 			"display_name": "Player",
 			"enemy_type": "",
