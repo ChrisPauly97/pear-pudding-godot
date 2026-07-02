@@ -1863,3 +1863,84 @@ absent (solo / 2-player context).
 All five are `magic_type = "light"` spells with `.tres` + `.uid` sidecars in `data/cards/`
 and are registered in `CardRegistry` via `const _C_COOP_*` preloads. The card-count
 assertion in `tests/unit/test_card_registry.gd` was updated from 100 → 105.
+
+## Session Tournaments (GID-104 / TID-386)
+
+Host-run round-robin bracket for 3–4 session players — a marquee event that
+gives everyone in the session structured competition and non-combatants an
+automatic front-row seat.
+
+### Key Features
+
+- **Round-robin bracket** — every participant plays every other participant
+  exactly once (3 matches for 3 players, 6 for 4). Chosen over single-elim: no
+  byes, nobody is knocked out after one loss, and the schedule is a flat
+  ordered list resolved one match at a time. Winner = most wins; a 2-way tie
+  breaks by head-to-head, any other tie by lowest participant index — fully
+  deterministic so every peer's copy of the bracket agrees.
+- **Ante pot** — flat `TOURNAMENT_ANTE_COINS` (25) per player, deducted at
+  start (host locally via `SaveManager.add_coins`; each client locally in
+  `notify_tournament_start`, the existing ante-wager precedent). Pot
+  (`ante × players`) pays out to the bracket winner at the end.
+- **Auto-spectate** — every peer not in the current match is pushed into the
+  TID-367 spectator view via `notify_tournament_spectate` (no manual button).
+- **Bracket HUD panel** — right-side panel on all peers listing every match
+  ("A vs B" / "W def. L"), the current match highlighted, and the final
+  winner line. Rebuilt on every `recv_tournament_update`.
+- **Casual only** — tournament matches never touch the champion record, ELO
+  rating, or ante-wager systems (`_on_pvp_battle_ended_coop` short-circuits
+  into `_on_tournament_pvp_ended` while `_tournament_active`).
+
+### How It Works
+
+Pure scheduling/wire logic lives in `game_logic/net/TournamentSync.gd`
+(`class_name TournamentSync`, always preloaded as `_TournamentSync`):
+`new_bracket(tokens, names, ante)`, `get_current_match`,
+`record_match_result` (defensive: stale/duplicate winners are no-ops),
+`wins_by_participant` / `head_to_head_winner` / `compute_winner`,
+`payout_pot`, and garbage-tolerant `encode_bracket`/`decode_bracket`.
+Unit-tested in `tests/unit/test_tournament_sync.gd`.
+
+The host presses the **Tournament** button (visible only for the listen-server
+host with 2–3 connected clients, mirroring the Team Duel button precedent). It
+resolves every participant's token (`_session_token_by_peer` /
+`MpProfile.get_token()`), display name, and deck (`_team_deck_for_peer` — the
+GID-095 session record, no RPC round-trip), gates on `IsoConst.DECK_MIN` and
+the host's ante affordability, then builds and broadcasts the bracket.
+
+**Match execution reuses the existing PvP plumbing wholesale.** A match the
+host plays runs through `SceneManager.enter_pvp_battle(0, opp_deck, 0,
+opp_token, false)` + `notify_pvp_start(1, host_deck)` to the opponent. A
+client-vs-client match runs through the GID-097 referee path
+(`SceneManager.enter_pvp_referee`) with the listen-server host arbitrating a
+match it isn't playing in (`_local_player_idx = -1`). Because
+`pvp_battle_ended`'s bool can't express which of two *other* peers won, the
+referee paths emit a dedicated `GameBus.pvp_referee_match_ended(winner_idx)`
+signal from `_pvp_check_game_over` / `_apply_remote_surrender` (referee branch
+only — inert everywhere else, including the GID-097 dedicated-server relay,
+which fires it with no listener active).
+
+WorldScene is detached from the tree during each match, so results are staged
+in `_tournament_pending_result` and drained by `_tick_tournament` from
+`_process` once the world re-attaches: record → broadcast
+(`recv_tournament_update`) → 4 s countdown → next match, or payout on finish
+(host locally; a remote winner via the `_grant_chest_loot_to_token`-style
+direct member-record write + `SessionStore.mark_dirty()`).
+
+### RPCs (NetSync, all reliable)
+
+| RPC | Direction | Purpose |
+|---|---|---|
+| `notify_tournament_start(bracket, ante)` | host → each entrant | start + local ante deduction |
+| `recv_tournament_update(bracket)` | host → all | bracket changed / finished / aborted (empty) |
+| `notify_tournament_spectate()` | host → non-combatants | auto-enter spectator view |
+
+### Edge Cases & Known Gaps (v1)
+
+- A participant disconnecting mid-bracket **aborts** the tournament (host
+  broadcasts an empty bracket; every peer's panel clears). Antes are **not
+  refunded** — documented gap, consistent with the no-refund wager precedent.
+- Client ante affordability is not pre-checked by the host (the client deducts
+  locally, mirroring the existing wager flow); a client can go briefly negative.
+- No ranked-ELO integration — deliberately casual (see Plan decision).
+- Tournament state is session-scoped: `_on_coop_session_ended` resets it.

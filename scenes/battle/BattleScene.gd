@@ -2591,6 +2591,12 @@ func _pvp_check_game_over() -> void:
 			_net.rpc("pvp_ended", {"winner_idx": w, "forfeit": false, "ante_coins": pvp_ante_coins})
 			for spec_id in _spectators:
 				_net.rpc_id(spec_id, "pvp_ended", {"winner_idx": w, "forfeit": false, "ante_coins": 0})
+		# Referee mode (_local_player_idx < 0): _finish_pvp's did_win bool is always
+		# false here (there is no "local player" to compare w against), so a referee
+		# (e.g. a GID-104 tournament host arbitrating a match it isn't playing in)
+		# needs the real winner via a dedicated signal instead.
+		if _local_player_idx < 0:
+			GameBus.pvp_referee_match_ended.emit(w)
 		_finish_pvp(w == _local_player_idx)
 		return
 	_broadcast_state()
@@ -2618,6 +2624,10 @@ func _apply_remote_surrender(player_idx: int) -> void:
 		_net.rpc("pvp_ended", {"winner_idx": winner_idx, "forfeit": true, "ante_coins": pvp_ante_coins})
 		for spec_id in _spectators:
 			_net.rpc_id(spec_id, "pvp_ended", {"winner_idx": winner_idx, "forfeit": true, "ante_coins": 0})
+	# See the matching comment in _pvp_check_game_over — a referee has no local
+	# player, so _finish_pvp's did_win bool can't carry the real winner.
+	if _local_player_idx < 0:
+		GameBus.pvp_referee_match_ended.emit(winner_idx)
 	_finish_pvp(_local_player_idx >= 0 and winner_idx == _local_player_idx)
 
 ## Local surrender request (from the pause menu Flee). Host ends immediately;

@@ -36,6 +36,12 @@ signal coop_pve_battle_ended(did_win: bool)
 # Team PvP duels (GID-102 / TID-371): 2v2, duel-style end, no rewards. did_win is
 # from the local peer's team perspective. SceneManager restores the shared co-op world.
 signal team_battle_ended(did_win: bool)
+# PvP referee match end (GID-097 dedicated-server relay / GID-104 session tournaments):
+# emitted only when the local peer is refereeing (_local_player_idx < 0, i.e. it isn't
+# one of the two combatants) — carries the winner's canonical GameState index (0/1),
+# which pvp_battle_ended's plain bool can't express for a non-participant. A no-op
+# unless something is actually listening (e.g. WorldScene's tournament bracket advance).
+signal pvp_referee_match_ended(winner_idx: int)
 
 # Story signals
 signal story_flag_set(flag: String)
