@@ -6,6 +6,9 @@ extends CanvasLayer
 const _BaseOverlay = preload("res://scenes/ui/BaseOverlay.gd")
 
 signal closed
+## Emitted when the player taps a "Rally To" entry (GID-105 / TID-388). WorldScene
+## connects this and performs the actual teleport/transition.
+signal rally_requested(peer_id: int)
 
 # Tile color palette
 const _COL_GRASS := Color(0.28, 0.55, 0.22)
@@ -40,6 +43,9 @@ var _panel_size: float
 var _dot_layer: _DotLayer
 var _travel_panel: ScrollContainer
 var _map_name: String = ""
+## Rally waystones (GID-105 / TID-388): connected session members eligible for
+## rally-to, as {peer_id, name, color, map}. Empty outside co-op.
+var _rally_targets: Array[Dictionary] = []
 
 # Long-press state (mobile waypoint placement)
 var _lp_active: bool = false
@@ -76,7 +82,8 @@ func _is_in_panel(pos: Vector2) -> bool:
 func setup(world_map, map_name: String, player: CharacterBody3D,
 		npc_nodes: Dictionary, npc_data: Dictionary,
 		enemy_nodes: Dictionary, chest_nodes: Dictionary,
-		door_nodes: Dictionary, waystone_nodes: Dictionary = {}) -> void:
+		door_nodes: Dictionary, waystone_nodes: Dictionary = {},
+		rally_targets: Array[Dictionary] = []) -> void:
 	_map_name       = map_name
 	_player         = player
 	_npc_nodes      = npc_nodes
@@ -85,6 +92,7 @@ func setup(world_map, map_name: String, player: CharacterBody3D,
 	_chest_nodes    = chest_nodes
 	_door_nodes     = door_nodes
 	_waystone_nodes = waystone_nodes
+	_rally_targets  = rally_targets
 
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
@@ -363,6 +371,37 @@ func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
 		block_lbl.size = Vector2(panel_w, vh * 0.09)
 		add_child(block_lbl)
 
+	# Rally To (GID-105 / TID-388): connected party members, appended below the
+	# waystone list in the same scrollable vbox. Empty outside co-op.
+	if not _rally_targets.is_empty():
+		var rally_title := Label.new()
+		rally_title.text = "Rally To"
+		rally_title.add_theme_font_size_override("font_size", int(vh * 0.023))
+		rally_title.add_theme_color_override("font_color", Color(1.0, 0.75, 0.30))
+		rally_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		rally_title.custom_minimum_size = Vector2(panel_w - vh * 0.04, int(vh * 0.03))
+		vbox.add_child(rally_title)
+
+		var btn_h: float = vh * 0.055
+		var btn_w: float = panel_w - vh * 0.04
+		for target: Dictionary in _rally_targets:
+			var peer_id: int = int(target.get("peer_id", 0))
+			var t_name: String = str(target.get("name", "Player"))
+			var t_map: String = str(target.get("map", ""))
+			var t_col: Color = target.get("color", Color.WHITE)
+			var btn := Button.new()
+			btn.text = "Rally to %s (%s)" % [t_name, t_map.capitalize().replace("_", " ")]
+			btn.add_theme_color_override("font_color", t_col)
+			btn.custom_minimum_size = Vector2(btn_w, btn_h)
+			btn.add_theme_font_size_override("font_size", font_size)
+			if is_blocked:
+				btn.disabled = true
+				btn.modulate = Color(0.5, 0.5, 0.5)
+			else:
+				var captured_pid: int = peer_id
+				btn.pressed.connect(func() -> void: _request_rally(captured_pid))
+			vbox.add_child(btn)
+
 
 func _friendly_label(waystone_id: String) -> String:
 	if waystone_id.begins_with("map:"):
@@ -379,6 +418,14 @@ func _teleport_to_waystone(waystone_id: String) -> void:
 	closed.emit()
 	queue_free()
 	SceneManager.teleport_to_waystone(waystone_id)
+
+
+## Rally waystones (GID-105 / TID-388): dismiss the overlay and let WorldScene
+## (connected to rally_requested) perform the actual teleport/transition.
+func _request_rally(peer_id: int) -> void:
+	rally_requested.emit(peer_id)
+	closed.emit()
+	queue_free()
 
 
 func _process(delta: float) -> void:

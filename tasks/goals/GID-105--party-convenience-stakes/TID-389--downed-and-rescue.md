@@ -2,7 +2,7 @@
 
 **Goal:** GID-105
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -39,12 +39,48 @@ Shared dungeon crawls (TID-380) generate byte-identical dungeons for all co-op p
 
 ## Plan
 
-_Written during Plan phase._
+**Design decisions:**
+- **Frozen in place** (not free movement) — simplest, matches "spirit" flavor, and means doors/chests/NPCs are trivially unreachable while downed (no separate interaction-block list needed).
+- **Downed flag rides the existing `AvatarSync` payload** (extra defaulted element, same evolution pattern as the `map` field) rather than a new continuous-state RPC — the 15 Hz stream already reaches everyone, so a peer's downed transition (both directions) propagates automatically to every other peer's `_coop_downed_peers` mirror and to `RemotePlayer` tinting.
+- **Revive is the only thing that needs host arbitration** (avoid two teammates reviving the same target at once) — a dedicated reliable RPC pair (`submit_revive_request` / `recv_revive`) mirrors the `WorldObjectSync` engage-lock pattern (client submits intent → host validates against its authoritative view → host mutates + broadcasts). The host's view of "is X downed" is populated from the same avatar-stream mirror, so a stale request (already respawned/revived) is naturally rejected without extra plumbing.
+- **Auto-respawn timeout is self-managed per peer** (a local `SceneTreeTimer`, not host-driven) — avoids clock-sync and remote-control issues entirely. Because every downed peer runs its own independent timeout, an all-downed party is never soft-locked: each peer eventually respawns on its own regardless of what others are doing, satisfying the "all downed" fallback without a shared counter.
+
+**Files:**
+1. **`game_logic/net/DownedSync.gd`** (new, pure, `extends RefCounted`, mirrors `AvatarSync`): `const RESCUE_TIMEOUT: float = 60.0`; `static func remaining_time(elapsed: float) -> float` (clamped `RESCUE_TIMEOUT - elapsed`, floor 0); `static func can_revive(is_target_downed: bool) -> bool` (centralizes the race-guard predicate so both the host-direct and submitted-request paths use identical validation).
+2. **`game_logic/net/AvatarSync.gd`**: add a defaulted 6th `downed: bool = false` param to `encode()`; `decode()` reads `payload[5]` when present, defaulting `false` for any shorter/legacy payload (identical pattern to the existing `map` element).
+3. **`scenes/world/entities/RemotePlayer.gd`**: add `_is_downed: bool` + `func set_downed(downed: bool)` that swaps the sprite `modulate` between the identity tint and a desaturated grey.
+4. **`scenes/world/NetSync.gd`**: add `submit_revive_request(peer_id: int)` (client → host, reliable) and `recv_revive(peer_id: int)` (host → all, reliable), following the existing submit/recv naming and routing convention.
+5. **`scenes/world/WorldScene.gd`**:
+   - New state: `_coop_downed: bool`, `_coop_downed_peers: Dictionary` (peer_id → bool, mirror of everyone's downed flag incl. self), `_dungeon_spawn_pos: Vector3`, `_downed_banner: Label`, `_downed_started_at: float`.
+   - `_spawn_player()`: when `map_name.begins_with("dungeon_")`, cache `_dungeon_spawn_pos` right after computing the spawn position.
+   - `_broadcast_local_avatar`: pass `_coop_downed` as the new encode arg.
+   - `_on_avatar_received`: decode `downed`, update `_coop_downed_peers[sender]`, call `rp.set_downed(...)`.
+   - `enter_downed_state()` (called by SceneManager on the restored WorldScene): freezes `_player` (`set_physics_process(false)`, alpha 0.55 via the existing `_set_player_alpha` helper), sets `_coop_downed = true`, records `_coop_downed_peers[NetworkManager.local_id()] = true`, shows the banner, starts a `get_tree().create_timer(DownedSync.RESCUE_TIMEOUT)` → `_on_downed_timeout`.
+   - `_on_downed_timeout()`: no-ops if already revived (`not _coop_downed`); otherwise teleports `_player` to `_dungeon_spawn_pos` and calls `_exit_downed_state()`.
+   - `_exit_downed_state()`: un-freezes, restores alpha, hides banner, clears local downed bookkeeping.
+   - `_find_nearby_downed_peer(px, pz, range) -> int`: scans `_remote_player_nodes` filtered by `_coop_downed_peers`.
+   - `_check_interactions()`: if `_coop_downed`, return early (no prompts while downed — also structurally blocks chest/NPC/door interaction since a frozen player can't reach them anyway, but this is a defensive belt-and-braces guard for whatever is already in range at the moment of defeat). Otherwise, insert the downed-teammate check first in the has_entity/label chain (label `"REVIVE"`).
+   - `_handle_interact()`: mirror early-return + add the revive branch (calls host directly if local host, else RPCs `submit_revive_request` to peer 1).
+   - `_authority_apply_revive(peer_id)` / `_on_revive_request_submitted` / `_on_revive_received`: host validates via `DownedSync.can_revive`, mutates `_coop_downed_peers`, applies locally (self vs. remote `RemotePlayer.set_downed`), broadcasts `recv_revive`.
+   - `_on_coop_peer_disconnected` / `_on_coop_session_ended`: erase/clear the new dicts.
+   - Downed banner ticks its countdown text from `_process` using `DownedSync.remaining_time`.
+6. **`autoloads/SceneManager.gd`**: in `_on_battle_lost()`, add a new first-checked branch: `if NetworkManager.is_active() and current_map.begins_with("dungeon_")` → skip siege/spire/defeat-overlay entirely, restore the world (same `TransitionManager.transition` pattern already used for the regular-loss branch), then call `_saved_world_scene.call("enter_downed_state")` if the method exists.
+7. **Tests**: `tests/unit/test_downed_sync.gd` (new) for `DownedSync.remaining_time`/`can_revive`; extend `tests/unit/test_coop_sync.gd` with an `AvatarSync.encode(..., downed=true)` round-trip case and a legacy-5-element-payload-defaults-false case.
+8. Update `docs/agent/multiplayer-coop.md` (Co-op Story Mode section) with a "Downed & rescue in shared dungeons" subsection.
+9. Manual/code review only — no Godot headless binary available in this sandbox (see TID-388 Plan note on the blocked github.com release download). Verify via careful reading + grep for symbol consistency; note this limitation in Changes Made.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/net/DownedSync.gd`** (new): `RESCUE_TIMEOUT`, `remaining_time(elapsed)`, `can_revive(is_target_downed)`.
+- **`game_logic/net/AvatarSync.gd`**: `encode()`/`decode()` gained a defaulted 6th `downed: bool` element (mirrors the 5th `map` element's evolution pattern).
+- **`scenes/world/entities/RemotePlayer.gd`**: `_is_downed` + `set_downed(bool)`, swaps sprite tint to a desaturated grey.
+- **`scenes/world/NetSync.gd`**: added `submit_revive_request(peer_id)` (client → host) and `recv_revive(peer_id)` (host → all), both reliable.
+- **`scenes/world/WorldScene.gd`**: new state (`_coop_downed`, `_coop_downed_peers`, `_dungeon_spawn_pos`, `_downed_banner`, `_downed_started_at`); `_spawn_player()` caches `_dungeon_spawn_pos` on dungeon maps; `_broadcast_local_avatar`/`_on_avatar_received` thread the downed flag through the existing avatar stream; new `enter_downed_state()` / `_on_downed_timeout()` / `_exit_downed_state()` / `_show_downed_banner()` / `_hide_downed_banner()` / `_find_nearby_downed_peer()` / `_request_revive()` / `_authority_apply_revive()` / `_on_revive_request_submitted()` / `_on_revive_received()`; `_check_interactions()` / `_handle_interact()` gained a downed early-return + a "REVIVE" interact branch; `_process()` ticks the banner countdown; `_on_coop_peer_disconnected` / `_on_coop_session_ended` clean up the new dicts.
+- **`autoloads/SceneManager.gd`**: `_on_battle_lost()` gained a first-checked branch for `NetworkManager.is_active() and current_map.begins_with("dungeon_")` that restores the world and calls `enter_downed_state()` on it instead of falling through to siege/spire/the single-player defeat overlay.
+- **Tests**: new `tests/unit/test_downed_sync.gd` (6 cases covering `remaining_time`/`can_revive`); extended `tests/unit/test_coop_sync.gd` with downed-field round-trip/default/legacy-payload cases and updated the pre-existing element-count assertion (4→5 was already a thing; now 5→6) since `AvatarSync.encode`'s return shape changed.
+- **`docs/agent/multiplayer-coop.md`**: "Downed & rescue in shared dungeons (TID-389)" subsection.
+- **Verification limitation**: same as TID-388 — no Godot headless binary available in this sandbox (github.com release download blocked by the egress policy). Verified by careful manual reading and grepping for symbol/signature consistency across every call site touched (`AvatarSync`, `RemotePlayer`, `NetSync`, `SceneManager._on_battle_lost`, `_check_interactions`/`_handle_interact`), rather than a live headless import or `tests/runner.gd` run. The user should run `godot --headless --editor --quit` and the test suite in an environment with the engine installed before merging.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md` — added the "Downed & rescue in shared dungeons (TID-389)" subsection described above.

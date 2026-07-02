@@ -186,6 +186,36 @@ func recv_story_flags_snapshot(flags: Dictionary) -> void:
 		world_scene._on_story_flags_snapshot_received(flags)
 
 
+# ── Rally waystones (GID-105 / TID-388) ──────────────────────────────────────
+
+## Rallying peer → target peer: "I'm rallying to you" hero-moment notice. Reliable —
+## a one-shot toast, not worth losing to an unreliable channel.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_rally_notice(rallier_name: String) -> void:
+	if world_scene != null and world_scene.has_method("_on_rally_notice_received"):
+		world_scene._on_rally_notice_received(rallier_name)
+
+
+# ── Downed & rescue in shared dungeons (GID-105 / TID-389) ───────────────────
+
+## Client → authority: "please revive peer_id" (an interact against a downed
+## teammate). Reliable. The host validates against its authoritative downed-peers
+## view (mirrored from the AvatarSync stream) before applying.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_revive_request(peer_id: int) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_revive_request_submitted"):
+		world_scene._on_revive_request_submitted(sender, peer_id)
+
+
+## Authority → all: peer_id has been revived. Reliable — a dropped revive would
+## leave a peer stuck frozen even though the host considers them rescued.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_revive(peer_id: int) -> void:
+	if world_scene != null and world_scene.has_method("_on_revive_received"):
+		world_scene._on_revive_received(peer_id)
+
+
 # ── Emotes & map pings (GID-101 / TID-365) ───────────────────────────────────
 
 ## Any peer → all peers: a preset emote expression. Unreliable_ordered — a dropped

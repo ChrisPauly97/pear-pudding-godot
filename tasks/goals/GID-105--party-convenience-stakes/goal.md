@@ -14,14 +14,14 @@ Related design patterns: fast-travel UI (GID-044, docs/agent/waystone-fast-trave
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-388 | Rally waystones (teleport to party) | agent | pending | — |
-| TID-389 | Downed & rescue in shared dungeons | agent | pending | — |
+| TID-388 | Rally waystones (teleport to party) | agent | done | — |
+| TID-389 | Downed & rescue in shared dungeons | agent | done | — |
 
 ## Acceptance Criteria
 
-- [ ] A player can teleport to any connected party member from the fast-travel UI, same-map and cross-map
-- [ ] A PvE loss inside a shared dungeon leaves the player downed and revivable by a teammate instead of ending their run
-- [ ] Solo fallback: after timeout or all-downed, player respawns at the dungeon entrance
-- [ ] Single-player battle flow unchanged
-- [ ] Unit test suite passes
-- [ ] Headless import clean (no parse errors)
+- [x] A player can teleport to any connected party member from the fast-travel UI, same-map and cross-map
+- [x] A PvE loss inside a shared dungeon leaves the player downed and revivable by a teammate instead of ending their run
+- [x] Solo fallback: after timeout or all-downed, player respawns at the dungeon entrance (self-managed per-peer timeout — see TID-389 Plan)
+- [x] Single-player battle flow unchanged (guarded by `NetworkManager.is_active()` first)
+- [ ] Unit test suite passes — **unverified in this sandbox**: no Godot headless binary available (github.com release download blocked by the environment's egress policy). New/changed tests: `tests/unit/test_downed_sync.gd`, `tests/unit/test_coop_sync.gd`. Run `godot --headless --path . -s tests/runner.gd` to confirm before merging.
+- [ ] Headless import clean (no parse errors) — **unverified in this sandbox** for the same reason. Run `godot --headless --editor --quit` to confirm before merging.
