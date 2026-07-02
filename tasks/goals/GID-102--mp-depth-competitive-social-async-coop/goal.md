@@ -44,7 +44,7 @@ ladder is a persistent rating + leaderboard, not a global queue).
 | TID-375 | Token-keyed friends list + online status | agent | done | — |
 | TID-376 | Shared party stash (deposit/withdraw) | agent | done | — |
 | TID-377 | Ghost duels vs stored deck snapshots | agent | done | — |
-| TID-378 | Async card auction house | agent | pending | TID-376 |
+| TID-378 | Async card auction house | agent | done | TID-376 |
 | TID-379 | Global leaderboards (Spire + co-op clears) | agent | done | — |
 | TID-380 | Shared procedural dungeon crawl (synced seed) | agent | done | — |
 | TID-381 | Party loot rolls (need/greed on drops) | agent | done | — |
@@ -65,7 +65,7 @@ ladder is a persistent rating + leaderboard, not a global queue).
       with no duplication; state persists in the session file.
 - [x] A player can battle an AI-piloted snapshot of another player's deck while that player
       is offline (ghost duel), earning a configured reward.
-- [ ] Players can list cards for sale, bid/buy, and have trades settle host-authoritatively;
+- [x] Players can list cards for sale, bid/buy, and have trades settle host-authoritatively;
       listings persist in the session file with no duplication.
 - [x] Endless Spire scores and co-op boss clears are recorded to authority-persisted global
       leaderboards, viewable in a panel.
@@ -74,3 +74,11 @@ ladder is a persistent rating + leaderboard, not a global queue).
 - [x] Shared chest/boss drops can be resolved by a need/greed party roll; first-opener-takes
       remains the default when rolls are disabled.
 - [ ] Single-player is unchanged; the full unit suite passes; the headless import is clean.
+      **Not independently re-verified for TID-378**: this session's sandbox blocked the
+      GitHub release download needed to install the `godot` headless binary (org egress
+      policy 403 on `github.com`, not retried per proxy guidance), so the new/changed
+      GDScript could only be reviewed by hand (bracket/type-safety pass, mirrored against
+      the already-CI-green Stash/Trade/Leaderboard patterns) rather than executed. All
+      *other* tasks in this goal were previously verified green; only TID-378's addition
+      is unverified by an actual run. Flag for a CI check / follow-up session with Godot
+      available before treating this box as checked.

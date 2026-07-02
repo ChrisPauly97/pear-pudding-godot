@@ -205,6 +205,13 @@ const _PartyStashOverlay = preload("res://scenes/ui/PartyStashOverlay.gd")
 var _stash_btn: Button = null             # "Stash" HUD button (always visible in co-op)
 var _stash_overlay: Node = null           # PartyStashOverlay instance, nil when closed
 var _stash_cache: Dictionary = {"cards": [], "coins": 0}  # last-known stash snapshot
+# GID-102 / TID-378: Async card auction house
+const _AuctionTransfer = preload("res://game_logic/net/AuctionTransfer.gd")
+const _AuctionSync = preload("res://game_logic/net/AuctionSync.gd")
+const _AuctionHouseOverlay = preload("res://scenes/ui/AuctionHouseOverlay.gd")
+var _auction_btn: Button = null           # "Auction" HUD button (always visible in co-op)
+var _auction_overlay: Node = null         # AuctionHouseOverlay instance, nil when closed
+var _auction_cache: Array = []            # last-known listings snapshot
 var _pvp_ended_pending_broadcast: bool = false  # set in pvp_battle_ended; cleared on _enter_tree
 # GID-102 (TID-373): Ranked UI & leaderboard
 var _leaderboard_rows: Array = []        # cached SessionState.get_leaderboard() rows
@@ -989,6 +996,9 @@ func _send_character_to_peer(peer_id: int, token: String, member_name: String) -
 		# GID-102 (TID-379): send the current PvE leaderboards snapshot alongside it so
 		# a joining client's Spire/Co-op-clears tabs start populated too.
 		_net_sync.rpc_id(peer_id, "recv_pve_leaderboards", st.get_pve_leaderboards_snapshot())
+		# GID-102 (TID-378): send the current auction listings snapshot so a joining
+		# client's Auction House panel starts populated instead of empty.
+		_net_sync.rpc_id(peer_id, "recv_auction_update", st.auctions)
 
 ## Move the local player to the position stored in a session record (same map only).
 func _restore_session_position(record: Dictionary) -> void:
@@ -1020,6 +1030,7 @@ func _tick_session_persist(delta: float) -> void:
 	var rec: Dictionary = _build_local_character_record()
 	if NetworkManager.is_host():
 		SessionStore.update_member(MpProfile.get_token(), rec)
+		_sweep_expired_auctions()
 	elif _net_sync != null:
 		_net_sync.rpc_id(1, "submit_character", rec)
 
@@ -4722,6 +4733,18 @@ func _ensure_social_buttons() -> void:
 		_stash_btn.position = Vector2(vp.x * 0.012, vh * 0.078)
 		_stash_btn.pressed.connect(_toggle_stash_overlay)
 		_hud.add_child(_stash_btn)
+	# Auction house button (GID-102 / TID-378): always visible while co-op is active
+	# (global to the session, same as Stash). Placed on the next row down since the
+	# Stash/Ghost-Duels row is already occupied at vh * 0.078.
+	if _auction_btn == null or not is_instance_valid(_auction_btn):
+		_auction_btn = Button.new()
+		_auction_btn.text = "Auction"
+		_auction_btn.tooltip_text = "Buy and sell cards asynchronously with the party"
+		_auction_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.055)
+		_auction_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+		_auction_btn.position = Vector2(vp.x * 0.012, vh * 0.144)
+		_auction_btn.pressed.connect(_toggle_auction_overlay)
+		_hud.add_child(_auction_btn)
 
 
 ## Ghost Duels HUD button (GID-102 / TID-377). Host-only: gated on
@@ -5550,6 +5573,258 @@ func request_stash_withdraw_coins(amount: int) -> void:
 		_on_stash_withdraw_submitted(multiplayer.get_unique_id(), payload)
 	else:
 		_net_sync.rpc_id(1, "submit_stash_withdraw", payload)
+
+
+# ── GID-102 / TID-378: Async card auction house ──────────────────────────────────
+# Global to the session, same as the stash — no proximity gate. Transfer logic
+# delegates to the pure, unit-tested AuctionTransfer helper; only the authority
+# mutates SessionState. Reuses _stash_token_for_peer for sender -> token lookup.
+
+func _on_auction_list_submitted(sender: int, payload: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var token: String = _stash_token_for_peer(sender)
+	if token == "" or not st.has_member(token):
+		return
+	var intent: Dictionary = _AuctionSync.decode_list_intent(payload)
+	var member_rec: Dictionary = st.get_member(token)
+	var expires_day: int = st.days_elapsed + _AuctionSync.LISTING_DURATION_DAYS
+	var list_card_uid: String = str(intent.get("card_uid", ""))
+	var list_buyout: int = int(intent.get("buyout", 0))
+	var result: Dictionary = _AuctionTransfer.list_card(
+		st.auctions, member_rec, token, list_card_uid, list_buyout, expires_day)
+	if not bool(result.get("ok", false)):
+		_show_tip("Could not list that card.")
+		return
+	st.auctions = result.get("auctions", st.auctions)
+	var updated_member: Dictionary = result.get("member", member_rec)
+	st.update_member(token, updated_member)
+	SessionStore.mark_dirty()
+	_apply_updated_member_to_actor(sender, updated_member)
+	_broadcast_auction_update()
+
+
+func _on_auction_bid_submitted(sender: int, payload: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var token: String = _stash_token_for_peer(sender)
+	if token == "" or not st.has_member(token):
+		return
+	var intent: Dictionary = _AuctionSync.decode_bid_intent(payload)
+	var member_rec: Dictionary = st.get_member(token)
+	var bid_auction_id: String = str(intent.get("auction_id", ""))
+	var bid_amount: int = int(intent.get("amount", 0))
+	var result: Dictionary = _AuctionTransfer.place_bid(
+		st.auctions, member_rec, token, bid_auction_id, bid_amount)
+	if not bool(result.get("ok", false)):
+		_show_tip("Could not place that bid.")
+		return
+	st.auctions = result.get("auctions", st.auctions)
+	SessionStore.mark_dirty()
+	_broadcast_auction_update()
+
+
+func _on_auction_buyout_submitted(sender: int, payload: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var buyer_token: String = _stash_token_for_peer(sender)
+	if buyer_token == "" or not st.has_member(buyer_token):
+		return
+	var intent: Dictionary = _AuctionSync.decode_id_intent(payload)
+	var buyout_auction_id: String = str(intent.get("auction_id", ""))
+	var listing: Dictionary = _find_auction(st.auctions, buyout_auction_id)
+	var seller_token: String = str(listing.get("seller_token", ""))
+	if seller_token == "" or not st.has_member(seller_token):
+		_show_tip("Could not buy that listing.")
+		return
+	var buyer_rec: Dictionary = st.get_member(buyer_token)
+	var seller_rec: Dictionary = st.get_member(seller_token)
+	var result: Dictionary = _AuctionTransfer.buyout(
+		st.auctions, buyer_rec, buyer_token, seller_rec, buyout_auction_id)
+	if not bool(result.get("ok", false)):
+		_show_tip("Could not buy that listing.")
+		return
+	st.auctions = result.get("auctions", st.auctions)
+	var updated_buyer: Dictionary = result.get("buyer", buyer_rec)
+	var updated_seller: Dictionary = result.get("seller", seller_rec)
+	st.update_member(buyer_token, updated_buyer)
+	st.update_member(seller_token, updated_seller)
+	SessionStore.mark_dirty()
+	_apply_updated_member_to_actor(sender, updated_buyer)
+	_apply_updated_member_to_peer_by_token(seller_token, updated_seller)
+	_broadcast_auction_update()
+
+
+func _on_auction_cancel_submitted(sender: int, payload: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var token: String = _stash_token_for_peer(sender)
+	if token == "" or not st.has_member(token):
+		return
+	var intent: Dictionary = _AuctionSync.decode_id_intent(payload)
+	var member_rec: Dictionary = st.get_member(token)
+	var cancel_auction_id: String = str(intent.get("auction_id", ""))
+	var result: Dictionary = _AuctionTransfer.cancel(st.auctions, member_rec, token, cancel_auction_id)
+	if not bool(result.get("ok", false)):
+		_show_tip("Could not cancel that listing.")
+		return
+	st.auctions = result.get("auctions", st.auctions)
+	var updated_member: Dictionary = result.get("member", member_rec)
+	st.update_member(token, updated_member)
+	SessionStore.mark_dirty()
+	_apply_updated_member_to_actor(sender, updated_member)
+	_broadcast_auction_update()
+
+
+## Host-tick sweep (called from _tick_session_persist): settle any active listing
+## whose expires_day has passed. See AuctionTransfer.settle_expired — a listing
+## with a standing bid the bidder can still afford sells to them, otherwise the
+## card returns to the seller. Silently updates any member whose actor is
+## currently connected so their local collection stays in sync.
+func _sweep_expired_auctions() -> void:
+	var st = SessionStore.get_state()
+	if st == null or (st.auctions as Array).is_empty():
+		return
+	var result: Dictionary = _AuctionTransfer.settle_expired(st.auctions, st.members, st.days_elapsed)
+	var new_auctions: Array = result.get("auctions", st.auctions)
+	if new_auctions == st.auctions:
+		return
+	var new_members: Dictionary = result.get("members", st.members)
+	st.auctions = new_auctions
+	for token in new_members.keys():
+		var rec: Variant = new_members[token]
+		if rec is Dictionary:
+			st.update_member(str(token), rec as Dictionary)
+			_apply_updated_member_to_peer_by_token(str(token), rec as Dictionary)
+	SessionStore.mark_dirty()
+	_broadcast_auction_update()
+
+
+## Resolve the connected peer id for `token` (reverse of _stash_token_for_peer),
+## or -1 if that member isn't a currently-connected peer.
+func _peer_for_token(token: String) -> int:
+	if token == MpProfile.get_token():
+		return multiplayer.get_unique_id()
+	for peer_id in _session_token_by_peer.keys():
+		if str(_session_token_by_peer[peer_id]) == token:
+			return int(peer_id)
+	return -1
+
+
+## Like _apply_updated_member_to_actor, but resolved from a token rather than a
+## sender peer id — used when the auction settlement touches a member who isn't
+## the RPC sender (the seller on a buyout, any party on an expiry sweep).
+func _apply_updated_member_to_peer_by_token(token: String, updated_member: Dictionary) -> void:
+	var peer_id: int = _peer_for_token(token)
+	if peer_id == -1:
+		return  # not currently connected — their next reconnect adopts the persisted record
+	_apply_updated_member_to_actor(peer_id, updated_member)
+
+
+func _find_auction(auctions: Array, auction_id: String) -> Dictionary:
+	for a: Variant in auctions:
+		if a is Dictionary and str((a as Dictionary).get("id", "")) == auction_id:
+			return a as Dictionary
+	return {}
+
+
+## Host: push the current listings snapshot to one peer (target_peer == 0 broadcasts to all).
+func _broadcast_auction_update(target_peer: int = 0) -> void:
+	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	_auction_cache = _AuctionSync.decode_snapshot(st.auctions)
+	if target_peer == 0:
+		_net_sync.rpc("recv_auction_update", st.auctions)
+	else:
+		_net_sync.rpc_id(target_peer, "recv_auction_update", st.auctions)
+	if NetworkManager.is_host():
+		_refresh_auction_overlay()
+
+
+## Any peer: receive a listings snapshot (initial push, post-transfer update, or
+## the late-join send) and refresh the overlay if it's open.
+func _on_auction_update_received(snapshot: Array) -> void:
+	_auction_cache = _AuctionSync.decode_snapshot(snapshot)
+	_refresh_auction_overlay()
+
+
+func _refresh_auction_overlay() -> void:
+	if _auction_overlay != null and is_instance_valid(_auction_overlay) \
+			and _auction_overlay.has_method("refresh"):
+		_auction_overlay.refresh(_my_collection_for_stash_ui(), _auction_cache, MpProfile.get_token())
+
+
+## Opens (or closes, if already open) the auction house overlay. HUD button,
+## always visible while co-op is active — global to the session.
+func _toggle_auction_overlay() -> void:
+	if _auction_overlay != null and is_instance_valid(_auction_overlay):
+		_auction_overlay.queue_free()
+		_auction_overlay = null
+		return
+	_auction_overlay = _AuctionHouseOverlay.new()
+	_auction_overlay.world_scene = self
+	add_child(_auction_overlay)
+	_auction_overlay.closed.connect(func() -> void: _auction_overlay = null)
+	_auction_overlay.refresh(_my_collection_for_stash_ui(), _auction_cache, MpProfile.get_token())
+
+
+## Called by AuctionHouseOverlay when the player presses "List" on a card.
+func request_auction_list(card_uid: String, buyout: int) -> void:
+	if _net_sync == null or buyout <= 0:
+		return
+	var payload: Dictionary = _AuctionSync.encode_list_intent(card_uid, buyout)
+	if NetworkManager.is_host():
+		_on_auction_list_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_auction_list", payload)
+
+
+## Called by AuctionHouseOverlay's bid stepper.
+func request_auction_bid(auction_id: String, amount: int) -> void:
+	if _net_sync == null or amount <= 0:
+		return
+	var payload: Dictionary = _AuctionSync.encode_bid_intent(auction_id, amount)
+	if NetworkManager.is_host():
+		_on_auction_bid_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_auction_bid", payload)
+
+
+## Called by AuctionHouseOverlay's "Buyout" button.
+func request_auction_buyout(auction_id: String) -> void:
+	if _net_sync == null:
+		return
+	var payload: Dictionary = _AuctionSync.encode_id_intent(auction_id)
+	if NetworkManager.is_host():
+		_on_auction_buyout_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_auction_buyout", payload)
+
+
+## Called by AuctionHouseOverlay's "Cancel" button (My Listings tab).
+func request_auction_cancel(auction_id: String) -> void:
+	if _net_sync == null:
+		return
+	var payload: Dictionary = _AuctionSync.encode_id_intent(auction_id)
+	if NetworkManager.is_host():
+		_on_auction_cancel_submitted(multiplayer.get_unique_id(), payload)
+	else:
+		_net_sync.rpc_id(1, "submit_auction_cancel", payload)
 
 
 # ── TID-367: PvP spectating ────────────────────────────────────────────────────

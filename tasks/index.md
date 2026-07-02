@@ -105,7 +105,7 @@
 | [GID-099](goals/GID-099--coop-joint-battle-engine/goal.md) | Co-op Joint Battle Engine | done | 3 / 3 |
 | [GID-100](goals/GID-100--coop-battle-design/goal.md) | Co-op Battle Design — Square Battlefield & Cross-Board Cards | done | 3 / 3 |
 | [GID-101](goals/GID-101--mp-social-rewards/goal.md) | Multiplayer Social & Rewards | done | 5 / 5 |
-| [GID-102](goals/GID-102--mp-depth-competitive-social-async-coop/goal.md) | Multiplayer Depth — Competitive, Social, Async & Co-op Content | in-progress | 11 / 12 |
+| [GID-102](goals/GID-102--mp-depth-competitive-social-async-coop/goal.md) | Multiplayer Depth — Competitive, Social, Async & Co-op Content | done (TID-378 unit suite unverified in-sandbox — see goal.md note) | 12 / 12 |
 | [GID-103](goals/GID-103--shared-world-life/goal.md) | Shared World Life — Synced Clock, Weather, Night Hunts & Town Siege | pending | 0 / 3 |
 | [GID-104](goals/GID-104--competitive-formats/goal.md) | Competitive Formats — Draft Duels, Tournaments & Spectator Wagers | done | 3 / 3 |
 | [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | pending | 0 / 2 |
@@ -148,6 +148,7 @@
 | [BID-036](backlog/BID-036--spectator-wager-house-banked-payout.md) | Spectator wager settlement is house-banked (can mint coins); walkover forfeits refund instead of paying | design-gap | GID-104 / TID-387 |
 | [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
+| [BID-039](backlog/BID-039--session-days-elapsed-never-advances.md) | `SessionState.days_elapsed` is never advanced by any co-op tick, so the new auction-house expiry sweep is dormant until GID-103 wires a synced clock | gap (feature dependency) | GID-102 / TID-378 |
 
 ## Resolved Backlog
 

@@ -27,7 +27,8 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ## v5 — adds a shared party stash: {cards: Array, coins: int} (GID-102 / TID-376).
 ## v6 — adds `leaderboards` {spire, coop_clears} PvE score boards (TID-379).
 ## v7 — adds loot_mode session setting for need/greed chest rolls (TID-381).
-const CURRENT_SESSION_VERSION: int = 7
+## v8 — adds `auctions` array for the async card auction house (TID-378).
+const CURRENT_SESSION_VERSION: int = 8
 
 ## Cap applied to each PvE leaderboard array by record_pve_score (top N kept).
 const PVE_LEADERBOARD_CAP: int = 20
@@ -84,6 +85,14 @@ var leaderboards: Dictionary = {"spire": [], "coop_clears": []}
 # Host-only session setting; LOOT_MODE_FIRST_OPENER (default) or LOOT_MODE_NEED_GREED.
 var loot_mode: String = LOOT_MODE_FIRST_OPENER
 
+# --- Async card auction house (GID-102 / TID-378) ----------------------------
+# Authority-owned listings. Each entry: {id, seller_token, card_instance,
+# buyout, bid, bidder_token, expires_day, status}, status in
+# {"active", "sold", "cancelled", "expired"}. Escrowed card instances live
+# inside the listing dict (removed from the seller's owned_cards on list),
+# same re-key mechanic as the party stash. See AuctionTransfer.gd.
+var auctions: Array = []
+
 
 # ---------------------------------------------------------------------------
 # Serialization
@@ -106,6 +115,7 @@ func to_dict() -> Dictionary:
 		"stash": stash.duplicate(true),
 		"leaderboards": leaderboards.duplicate(true),
 		"loot_mode": loot_mode,
+		"auctions": auctions.duplicate(true),
 	}
 
 
@@ -144,6 +154,8 @@ static func from_dict(data: Dictionary) -> SessionState:
 	s.leaderboards = _sanitized_leaderboards(lb as Dictionary if lb is Dictionary else {})
 	var lm: String = str(data.get("loot_mode", LOOT_MODE_FIRST_OPENER))
 	s.loot_mode = lm if lm == LOOT_MODE_NEED_GREED else LOOT_MODE_FIRST_OPENER
+	var auc: Variant = data.get("auctions", [])
+	s.auctions = (auc as Array).duplicate(true) if auc is Array else []
 	return s
 
 
@@ -213,6 +225,11 @@ static func _apply_migrations(data: Dictionary) -> void:
 		if not data.has("loot_mode"):
 			data["loot_mode"] = LOOT_MODE_FIRST_OPENER
 		data["version"] = 7
+	if ver < 8:
+		# v8: add the async card auction house listings array.
+		if not data.has("auctions"):
+			data["auctions"] = []
+		data["version"] = 8
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 
