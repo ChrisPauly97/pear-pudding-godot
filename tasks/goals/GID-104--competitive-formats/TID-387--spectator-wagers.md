@@ -7,9 +7,9 @@
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/sonnet-5-subagent-dispatch-yz77ku
+**Acquired:** 2026-07-02T09:05:00Z
+**Expires:** 2026-07-02T09:35:00Z
 
 ## Context
 
