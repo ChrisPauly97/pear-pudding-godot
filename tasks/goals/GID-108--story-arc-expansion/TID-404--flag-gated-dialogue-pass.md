@@ -1,9 +1,9 @@
-# TID-399: Flag-Gated Dialogue Content Pass Across All Named Maps
+# TID-404: Flag-Gated Dialogue Content Pass Across All Named Maps
 
-**Goal:** GID-107
+**Goal:** GID-108
 **Type:** agent
 **Status:** pending
-**Depends On:** TID-395
+**Depends On:** TID-400
 
 ## Lock
 

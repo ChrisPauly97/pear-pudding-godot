@@ -1,6 +1,6 @@
-# TID-396: Scripted Battle Framework — Fixed Deck, Deterministic Draw, Tutorial Prompts
+# TID-401: Scripted Battle Framework — Fixed Deck, Deterministic Draw, Tutorial Prompts
 
-**Goal:** GID-107
+**Goal:** GID-108
 **Type:** agent
 **Status:** pending
 **Depends On:** —
@@ -13,7 +13,7 @@
 
 ## Context
 
-Story-driven tutorial battles need full determinism: a fixed player deck (ignoring the player's collection), a scripted draw order so cards are introduced one at a time, a reduced opening hand, a fixed weak enemy, and per-turn guidance popups. First consumer: the rabbit-hunt battle (TID-397); second: the Chapter 2 ambush (TID-402).
+Story-driven tutorial battles need full determinism: a fixed player deck (ignoring the player's collection), a scripted draw order so cards are introduced one at a time, a reduced opening hand, a fixed weak enemy, and per-turn guidance popups. First consumer: the rabbit-hunt battle (TID-402); second: the Chapter 2 ambush (TID-407).
 
 ## Research Notes
 

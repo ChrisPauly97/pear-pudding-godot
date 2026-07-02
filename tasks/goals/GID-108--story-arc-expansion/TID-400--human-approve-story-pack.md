@@ -1,9 +1,9 @@
-# TID-395: Human — Approve Story Pack into story.md + Amend Spec
+# TID-400: Human — Approve Story Pack into story.md + Amend Spec
 
-**Goal:** GID-107
+**Goal:** GID-108
 **Type:** human-action
 **Status:** done
-**Depends On:** TID-394
+**Depends On:** TID-399
 
 ## Lock
 
@@ -13,7 +13,7 @@
 
 ## Context
 
-docs/human/ is human-owned; the approved TID-394 content pack needed the user's sign-off before becoming canon, including a conscious amendment of the spec's "Chapter 2 out of scope" resolution.
+docs/human/ is human-owned; the approved TID-399 content pack needed the user's sign-off before becoming canon, including a conscious amendment of the spec's "Chapter 2 out of scope" resolution.
 
 ## Research Notes
 
@@ -22,7 +22,7 @@ docs/human/ is human-owned; the approved TID-394 content pack needed the user's 
 
 ## Plan
 
-User reviews the GID-107 proposal (task table, ending definition, dialogue table, Chapter 2 outline, tutorial battle design) and approves or amends.
+User reviews the GID-108 proposal (task table, ending definition, dialogue table, Chapter 2 outline, tutorial battle design) and approves or amends.
 
 ## Changes Made
 
@@ -30,4 +30,4 @@ User approved in-session on 2026-07-02 ("i approve the story beats … document 
 
 ## Documentation Updates
 
-docs/human/story.md and docs/human/specification.md updated (see TID-394 for section list). GID-020 TID-063/TID-066 marked done; BID-016 resolved.
+docs/human/story.md and docs/human/specification.md updated (see TID-399 for section list). GID-020 TID-063/TID-066 marked done; BID-016 resolved.

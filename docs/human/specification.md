@@ -135,7 +135,7 @@ The following questions from the initial spec have been answered by completed go
 - **Enemy respawn:** Defeated enemies stay dead per save via `SaveManager.defeated_enemies` (GID-009). No time-based respawn.
 - **Deck size constraints:** Minimum 5, maximum 30 cards enforced in deck builder (GID-003).
 - **Chapter count:** Chapter 1 is the target for v1 release. ~~Chapter 2 is out of scope.~~
-  **Amended 2026-07-02 (GID-107, user-approved):** Chapter 2 ("The Road to Larik",
+  **Amended 2026-07-02 (GID-108, user-approved):** Chapter 2 ("The Road to Larik",
   see `docs/human/story.md`) is now in scope. Chapter 1 remains the v1 release gate;
   Chapter 2 ships when ready.
 
@@ -143,7 +143,7 @@ The following questions from the initial spec have been answered by completed go
 
 ## Chapter 1 Victory Condition
 
-*(Resolved 2026-07-02 via GID-107, user-approved — full detail in `docs/human/story.md`.)*
+*(Resolved 2026-07-02 via GID-108, user-approved — full detail in `docs/human/story.md`.)*
 
 - **Trigger event:** King Eldar dialogue in blancogov_temple after `chapter1_temple_council`
   is set and the Queen and Scargroth have each been spoken to

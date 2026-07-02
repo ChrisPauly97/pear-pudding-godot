@@ -4,7 +4,7 @@
 >
 > **Provenance note:** The Chapter 1 Victory Condition, Flag-Gated Dialogue States table,
 > Scripted Tutorial Battles notes, and the Chapter 2 section were drafted by the agent as the
-> GID-107 story pack and **approved by the human on 2026-07-02**, who explicitly authorized
+> GID-108 story pack and **approved by the human on 2026-07-02**, who explicitly authorized
 > writing them into this file ("document the story even if its in the human subdir, i approve").
 
 ---
@@ -147,7 +147,7 @@ so every player gets the same introduction:
 
 ### Chapter 1 Victory Condition
 
-*(Approved via GID-107, 2026-07-02 — fills the former TID-066 / TID-067 TODO.)*
+*(Approved via GID-108, 2026-07-02 — fills the former TID-066 / TID-067 TODO.)*
 
 - **Trigger:** Speaking to King Eldar in blancogov_temple **after** `chapter1_temple_council`
   is set **and** the Queen and Scargroth have each been spoken to (sub-flags
@@ -165,7 +165,7 @@ so every player gets the same introduction:
 
 ## Chapter 2: The Road to Larik
 
-*(Approved via GID-107, 2026-07-02.)*
+*(Approved via GID-108, 2026-07-02.)*
 
 **Goal:** Carry the council's warning west to Lord Marsax — a road that passes through Larik,
 Saimtar's home village — and uncover why the Martarquas always seem one step ahead.
@@ -256,23 +256,23 @@ unresolved at the cliffhanger — fuel for Chapter 3.
 | Queen | x=58, z=15 | Welcome, Maiteln, and your young companion. You are most welcome here. Please take a seat in one of the red satin oak chairs. |
 | Scargroth | x=50, z=30 | The letter was urgent for good reason. The prophecy cannot be ignored. All lords must be present before we act. |
 
-### larik *(Chapter 2 — GID-107)*
+### larik *(Chapter 2 — GID-108)*
 
 | NPC | Position | Dialogue |
 |---|---|---|
-| Villager | (set in TID-401) | Saimtar? You shouldn't have come back. Nothing good lingers here since the night the fires went out. |
-| Old neighbour | (set in TID-401) | Your mother and father — we heard nothing, saw nothing. Doors were barred that night, and we kept them barred. |
+| Villager | (set in TID-406) | Saimtar? You shouldn't have come back. Nothing good lingers here since the night the fires went out. |
+| Old neighbour | (set in TID-406) | Your mother and father — we heard nothing, saw nothing. Doors were barred that night, and we kept them barred. |
 
-### marsax_hold *(Chapter 2 — GID-107)*
+### marsax_hold *(Chapter 2 — GID-108)*
 
 | NPC | Position | Dialogue |
 |---|---|---|
-| Garrison sergeant | (set in TID-401) | To arms! The hold stands while its walls do — who in blazes are you two? |
-| Lord Marsax | (set in TID-401) | Maiteln! Blancogov's warning came late — the tribe is already at my gates. Help us hold, and my banners ride with the alliance. |
+| Garrison sergeant | (set in TID-406) | To arms! The hold stands while its walls do — who in blazes are you two? |
+| Lord Marsax | (set in TID-406) | Maiteln! Blancogov's warning came late — the tribe is already at my gates. Help us hold, and my banners ride with the alliance. |
 
 ### Flag-Gated Dialogue States
 
-*(Table authored via GID-107, 2026-07-02 — fills the former TID-063 TODO. Format: text shown
+*(Table authored via GID-108, 2026-07-02 — fills the former TID-063 TODO. Format: text shown
 BEFORE flag is set | text shown AFTER flag is set. Before-Flag text is the static line above
 unless it differs here.)*
 

@@ -22,4 +22,4 @@ and update progress in `goal.md` and `tasks/index.md`.
 
 ---
 
-**RESOLVED 2026-07-02 via GID-107:** The full Flag-Gated Dialogue States table (11 NPCs across all 5 named maps) was drafted as the GID-107 story pack, approved by the user, and written into `docs/human/story.md`. TID-063 marked done. Application of the table to the map files is tracked by GID-107/TID-399.
+**RESOLVED 2026-07-02 via GID-108:** The full Flag-Gated Dialogue States table (11 NPCs across all 5 named maps) was drafted as the GID-108 story pack, approved by the user, and written into `docs/human/story.md`. TID-063 marked done. Application of the table to the map files is tracked by GID-108/TID-404.

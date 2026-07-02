@@ -1,4 +1,4 @@
-# GID-107: Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles
+# GID-108: Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles
 
 ## Objective
 
@@ -12,15 +12,15 @@ Chapter 1's plumbing (flags, ObjectiveTracker, 5 named maps, Isfig rival arc, sc
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-394 | Draft story pack: Ch1 enrichment, ending, dialogue table, Ch2 outline, parents-mystery | agent | done | — |
-| TID-395 | Human: approve story pack into story.md + amend spec (Ch2 scope) | human-action | done | TID-394 |
-| TID-396 | Scripted battle framework — fixed deck, deterministic draw order, tutorial prompts | agent | pending | — |
-| TID-397 | Wilderness journey beats — night camp, rabbit-hunt tutorial battle, fire-making morning | agent | pending | TID-396 |
-| TID-398 | Maiteln journey presence — companion avatar on story maps and camps | agent | pending | TID-397 |
-| TID-399 | Flag-gated dialogue content pass across all named maps | agent | pending | TID-395 |
-| TID-400 | Chapter 1 ending scene + post-council epilogue world reactivity | agent | pending | TID-395 |
-| TID-401 | Chapter 2 named maps skeleton (larik, marsax_hold, war-camp dungeon entry) | agent | pending | TID-395 |
-| TID-402 | Chapter 2 flags, objectives, beat wiring & scripted ambush battle | agent | pending | TID-400, TID-401 |
+| TID-399 | Draft story pack: Ch1 enrichment, ending, dialogue table, Ch2 outline, parents-mystery | agent | done | — |
+| TID-400 | Human: approve story pack into story.md + amend spec (Ch2 scope) | human-action | done | TID-399 |
+| TID-401 | Scripted battle framework — fixed deck, deterministic draw order, tutorial prompts | agent | pending | — |
+| TID-402 | Wilderness journey beats — night camp, rabbit-hunt tutorial battle, fire-making morning | agent | pending | TID-401 |
+| TID-403 | Maiteln journey presence — companion avatar on story maps and camps | agent | pending | TID-402 |
+| TID-404 | Flag-gated dialogue content pass across all named maps | agent | pending | TID-400 |
+| TID-405 | Chapter 1 ending scene + post-council epilogue world reactivity | agent | pending | TID-400 |
+| TID-406 | Chapter 2 named maps skeleton (larik, marsax_hold, war-camp dungeon entry) | agent | pending | TID-400 |
+| TID-407 | Chapter 2 flags, objectives, beat wiring & scripted ambush battle | agent | pending | TID-405, TID-406 |
 
 ## Acceptance Criteria
 
@@ -30,5 +30,5 @@ Chapter 1's plumbing (flags, ObjectiveTracker, 5 named maps, Isfig rival arc, sc
 - [ ] All NPCs in the flag-gated dialogue table (docs/human/story.md) show correct before/after lines
 - [ ] Chapter 1 ending plays via narration overlay at King Eldar after council conditions are met, sets `chapter1_complete`, and returns to a playable epilogue world with war-preparation dialogue
 - [ ] Chapter 2 maps (larik, marsax_hold) load, are registered in MapRegistry, and Chapter 2 beats 1–7 are playable through `chapter2_complete` with objectives shown in ObjectiveTracker
-- [ ] The Chapter 2 scripted ambush battle reuses the TID-396 framework to introduce spell cards
+- [ ] The Chapter 2 scripted ambush battle reuses the TID-401 framework to introduce spell cards
 - [ ] All tests pass headless (`godot --headless --path . -s tests/runner.gd`)

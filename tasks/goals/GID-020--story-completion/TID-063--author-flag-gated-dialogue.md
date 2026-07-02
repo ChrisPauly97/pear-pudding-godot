@@ -2,7 +2,7 @@
 
 **Goal:** GID-020
 **Type:** human-action
-**Status:** done — satisfied by GID-107/TID-394+395 (user-approved story pack written into story.md, 2026-07-02)
+**Status:** done — satisfied by GID-108/TID-399+395 (user-approved story pack written into story.md, 2026-07-02)
 **Depends On:** —
 
 ## Lock
