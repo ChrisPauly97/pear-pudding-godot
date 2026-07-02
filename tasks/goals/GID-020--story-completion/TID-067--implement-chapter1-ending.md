@@ -2,7 +2,7 @@
 
 **Goal:** GID-020
 **Type:** agent
-**Status:** pending
+**Status:** superseded by GID-107/TID-400 (2026-07-02)
 **Depends On:** TID-066
 
 ## Lock

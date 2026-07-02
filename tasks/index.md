@@ -23,7 +23,7 @@
 | [GID-017](goals/GID-017--native-map-storage/goal.md) | Native Godot Map Storage Migration | done | 8 / 8 |
 | [GID-018](goals/GID-018--card-content-depth/goal.md) | Card Content Depth — Dawn & Dusk Branches | done | 4 / 4 |
 | [GID-019](goals/GID-019--battle-depth/goal.md) | Battle Depth — Targeting, Intent & Status Effects | done | 5 / 5 |
-| [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | pending | 2 / 5 |
+| [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | done (TID-067 superseded by GID-107) | 4 / 5 |
 | [GID-021](goals/GID-021--enemy-boss-variety/goal.md) | Enemy & Boss Variety | pending | 1 / 5 |
 | [GID-022](goals/GID-022--weapon-system-content/goal.md) | Weapon System Content | done | 4 / 4 |
 | [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | done | 5 / 5 |
@@ -110,6 +110,7 @@
 | [GID-104](goals/GID-104--competitive-formats/goal.md) | Competitive Formats — Draft Duels, Tournaments & Spectator Wagers | pending | 0 / 3 |
 | [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | pending | 0 / 2 |
 | [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | pending | 0 / 4 |
+| [GID-107](goals/GID-107--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | in-progress | 2 / 9 |
 
 ## Backlog
 
@@ -128,7 +129,7 @@
 | ~~[BID-013](backlog/BID-013--godot-version-drift.md)~~ | ~~CI builds on Godot 4.6 but CLAUDE.md/spec say 4.4.1~~ | ~~doc-gap~~ | Promoted to GID-087 / TID-310 |
 | ~~[BID-014](backlog/BID-014--camera-follow-stutter.md)~~ | ~~Camera follows physics body from _process without interpolation (stutter at 90/120 Hz)~~ | ~~code-smell~~ | Promoted to GID-084 / TID-303, TID-304 |
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded — **out of scope for v1** | spec-gap | GID-070 research |
-| [BID-016](backlog/BID-016--flag-gated-dialogue-content.md) | Flag-gated NPC dialogue content not yet authored; TownspersonNPC logic ready but table mostly empty | human-action-deferred | GID-020 / TID-063 |
+| ~~[BID-016](archive/backlog/BID-016--flag-gated-dialogue-content.md)~~ | ~~Flag-gated NPC dialogue content not yet authored~~ | ~~human-action-deferred~~ | Resolved by GID-107 (story pack approved into story.md) |
 | ~~[BID-017](backlog/BID-017--corruption-redemption-points-never-accrue.md)~~ | ~~add_corruption_points / add_redemption_points never called — currencies may never accrue~~ | ~~design-inconsistency~~ | Promoted to GID-086 / TID-308, TID-309 |
 | ~~[BID-020](backlog/BID-020--always-visible-cantrip-buttons.md)~~ | ~~Cantrip HUD buttons always built regardless of unlock state~~ | ~~code-smell~~ | Resolved by GID-081 / TID-298 |
 | ~~[BID-022](archive/backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md)~~ | ~~Spec lists multiplayer as out-of-scope, but co-op + PvP shipped~~ | ~~spec-gap~~ | Resolved by GID-094 / TID-344 |
@@ -150,6 +151,7 @@
 | [BID-003](archive/backlog/BID-003--maykalene-concatenated-door-scroll.md) | maykalene.txt DOOR+SCROLL lines were concatenated; scroll_martarquas_first_war was never spawned | code-smell | GID-017 / TID-047 |
 | [BID-004](archive/backlog/BID-004--orphaned-chestopenscene-uid.md) | Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen) | code-smell | Resolved by GID-075 |
 | [BID-007](archive/backlog/BID-007--card-registry-test-count-stale.md) | test_card_registry asserts 40 cards but registry preloads 46 | code-smell | Resolved by GID-075 |
+| [BID-016](archive/backlog/BID-016--flag-gated-dialogue-content.md) | Flag-gated NPC dialogue content not yet authored | human-action-deferred | Resolved by GID-107 (approved story pack) |
 | [BID-022](archive/backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md) | Spec lists multiplayer as out-of-scope, but co-op + PvP shipped | spec-gap | Resolved by GID-094 / TID-344 |
 | [BID-023](archive/backlog/BID-023--head-did-not-compile-godot46.md) | Branch HEAD did not compile under Godot 4.6 (`//` in TextureGen, 2-arg `Object.get()` in CardRegistry) | code-smell | Resolved by GID-094 / TID-341 |
 | [BID-026](archive/backlog/BID-026--coop-pve-host-attack-wrong-opponent-index.md) | Co-op PvE host/ally attacks resolved against the wrong opponent index | code-smell | Resolved by GID-102 / TID-371 |

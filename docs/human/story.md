@@ -1,6 +1,11 @@
 # The Tale of Saimtar — Story Bible
 
 > **This file is human-owned.** Claude reads this to implement maps, dialogue, and story flags — but will never edit it.
+>
+> **Provenance note:** The Chapter 1 Victory Condition, Flag-Gated Dialogue States table,
+> Scripted Tutorial Battles notes, and the Chapter 2 section were drafted by the agent as the
+> GID-107 story pack and **approved by the human on 2026-07-02**, who explicitly authorized
+> writing them into this file ("document the story even if its in the human subdir, i approve").
 
 ---
 
@@ -12,6 +17,7 @@
 | [The Prophecy](#the-prophecy) | Background lore driving the plot |
 | [Introduction](#introduction) | Saimtar in Madrian, meeting Maiteln |
 | [Chapter 1: Into the Wild World](#chapter-1-into-the-wild-world) | Journey to Maykalene and Blancogov |
+| [Chapter 2: The Road to Larik](#chapter-2-the-road-to-larik) | Council's charge, Larik, the siege of Marsax hold, the traitor |
 | [NPC Dialogue by Map](#npc-dialogue-by-map) | All NPC lines, positions, and flag conditions |
 | [Map Specifications](#map-specifications) | Named map layouts and entity placements |
 
@@ -50,6 +56,18 @@
 ### King Eldar
 - King at Blancogov, occupies one of two thrones in the great temple
 - The other throne (for his wife) is empty when Maiteln and Saimtar first enter
+
+### Lord Marsax
+- Lord of Marsax hold, west of Blancogov beyond Larik
+- One of the three lords Farsyth sends word to (with Ramtorous and Temlar)
+- Blunt soldier-lord; his hold is the first to feel the Martarquas raids in Chapter 2
+- Grateful ally once the siege is broken — pledges his banners to the alliance
+
+### The Traitor (identity unrevealed)
+- A member of King Eldar's own council whose seal is found on Martarquas muster orders
+- The same hand struck the names from the old Larik register — connected to the
+  disappearance of Saimtar's parents
+- Identity is the driving mystery left open at the Chapter 2 cliffhanger
 
 ### Queen (name not yet given)
 - **Appearance:** shining blue eyes, pointy ears, lovely soft face
@@ -105,22 +123,97 @@ then race to reach King Eldar's temple within three days.
 
 ### Wilderness Encounters (Between Named Maps)
 
-- **Rabbit hunting (Night 1):** First night camp after leaving Madrian. Saimtar hunts a rabbit —
-  represented by a weak enemy encounter (undead_basic placeholder until a rabbit enemy type exists).
+- **Rabbit hunting (Night 1) — the tutorial battle:** First night camp after leaving Madrian.
+  Saimtar hunts a rabbit, played as the game's first battle using the scripted battle framework
+  (see below). Enemy: **Wild Rabbit** — 8 hero HP, a 2-card token deck that plays one weak minion
+  per turn; impossible to lose without trying. Victory sets `chapter1_camp_night`.
 - **Morning fire tutorial (Day 2):** Second day camp. Maiteln teaches fire-making — a simple
-  interaction dialogue with no combat.
+  interaction dialogue with no combat. Sets `chapter1_learned_fire`.
 - **Isfig on horseback (Road to Blancogov):** Scripted NPC encounter after leaving Maykalene.
   Isfig rides up with the letter from Scargroth. Triggers `chapter1_received_letter` flag.
 
+### Scripted Tutorial Battles
+
+Story battles that teach mechanics use a fixed deck and a **deterministic, 1-by-1 draw order**
+so every player gets the same introduction:
+
+- **Rabbit hunt (Chapter 1, beat 2):** fixed 6-card deck — 2× ghost, 2× skeleton, 1× zombie,
+  1× ghoul. Opening hand is 1 card (a ghost). Each turn draws the next card in scripted order:
+  ghost → skeleton → ghost → zombie → skeleton → ghoul — cheapest first, matching the growing
+  mana curve. Maiteln narrates each step via tutorial popups: turn 1 "That wee ghost costs
+  1 mana — drag it to a slot"; turn 2 "Minions cannae strike the turn they're summoned —
+  patience"; turn 3 "Now attack! Drag your ghost onto the beast."
+- **Scouts ambush (Chapter 2, beat 3):** the same framework introduces spell cards the same way.
+
 ### Chapter 1 Victory Condition
 
-> **TODO for TID-066 / TID-067:** Define what constitutes a Chapter 1 victory.
-> Fill in the details below so the agent can implement the ending scene.
->
-> - **Trigger:** Which interaction or story flag marks the chapter as complete?
->   (Suggested: King Eldar dialogue in blancogov_temple sets `chapter1_complete`)
-> - **Ending text/scene:** What is shown? (Narration overlay? Scroll? Black screen with text?)
-> - **After the ending:** Return to main menu? Loop for replay? Lock until Chapter 2?
+*(Approved via GID-107, 2026-07-02 — fills the former TID-066 / TID-067 TODO.)*
+
+- **Trigger:** Speaking to King Eldar in blancogov_temple **after** `chapter1_temple_council`
+  is set **and** the Queen and Scargroth have each been spoken to (sub-flags
+  `chapter1_spoke_queen`, `chapter1_spoke_scargroth`).
+- **Story flag set:** `chapter1_complete`
+- **Ending presentation:** Narration overlay (reuses the scroll narration UI), three short pages:
+  1. The council resolves — the old alliance is re-sworn, riders will carry the warning to every lord.
+  2. Maiteln, quietly proud, tells Saimtar he has earned his place at his side.
+  3. Scargroth pulls Saimtar aside: *"There is a name from Larik in the old registers you should see."*
+- **After the ending:** Return to the world (not the menu) as a playable epilogue — towns shift
+  to war-preparation dialogue via the `chapter1_complete` flag-gated lines. All sandbox systems
+  remain available; Chapter 2 begins from this epilogue state.
+
+---
+
+## Chapter 2: The Road to Larik
+
+*(Approved via GID-107, 2026-07-02.)*
+
+**Goal:** Carry the council's warning west to Lord Marsax — a road that passes through Larik,
+Saimtar's home village — and uncover why the Martarquas always seem one step ahead.
+
+The parents' mystery is the connective spine of the chapter: hinted in the Chapter 1 epilogue
+(Scargroth's register), opened in Larik, entangled with the traitor at Marsax hold, and left
+unresolved at the cliffhanger — fuel for Chapter 3.
+
+### Story Beats
+
+| # | Beat | Location | Notes |
+|---|---|---|---|
+| 1 | **The council's charge** | blancogov_temple | King Eldar sends riders in pairs to the three lords; Maiteln and Saimtar draw the western road — which passes Larik. Sets `chapter2_charged` |
+| 2 | **Return to Larik** | larik | Saimtar's village, cold and frightened; his old house stands empty. A hidden letter reveals his parents didn't flee — they were **taken**. Sets `chapter2_reached_larik`, then `chapter2_found_letter` |
+| 3 | **Scouts in the grass** | open world (west road) | First Martarquas contact — a scripted ambush battle that introduces spell cards 1-by-1 (scripted battle framework). New enemy: Martarquas scout. Sets `chapter2_ambush_survived` |
+| 4 | **Marsax hold besieged** | marsax_hold | The hold is already under attack on arrival — the town-siege system plays as a story beat. Victory sets `chapter2_siege_won` |
+| 5 | **The traitor's seal** | marsax_hold | Among the raiders' effects: muster orders sealed by someone on the king's own council — the same hand that struck the Larik register. Scroll sets `chapter2_traitor_seal` |
+| 6 | **The war-camp** | dungeon (hills west of the hold) | Infiltrate a Martarquas war-camp (procedural dungeon reskin) to steal the muster plans; boss battle vs the warband leader. Sets `chapter2_warcamp_cleared` |
+| 7 | **Cliffhanger** | narration overlay | The plans reveal the tribe marches not on Blancogov but on the lords one by one — and the traitor knows the alliance's every move. Sets `chapter2_complete` |
+
+### Chapter 2 Flags (progression order)
+
+`chapter2_charged` → `chapter2_reached_larik` → `chapter2_found_letter` →
+`chapter2_ambush_survived` → `chapter2_siege_won` → `chapter2_traitor_seal` →
+`chapter2_warcamp_cleared` → `chapter2_complete`
+
+### Chapter 2 Scrolls
+
+| Scroll ID | Placement | Text |
+|---|---|---|
+| `scroll_larik_letter` | larik — hidden in Saimtar's empty house | *"If you read this, we could not stay. They came in the night with the tribe's mark — and a councilman's seal. Do not follow us, Saimtar. Grow strong, and forgive us. — Father"* |
+| `scroll_traitor_seal` | marsax_hold — among the raiders' effects after the siege | *"Orders of muster, sealed in wax. The sigil is not Martarquas — it is a chair on the king's own council."* |
+
+### Chapter 2 Cliffhanger Narration (three pages)
+
+1. By firelight, Maiteln reads the stolen muster plans: the tribe will not strike Blancogov.
+   They march on the lords, one by one, before the alliance can gather.
+2. Maiteln, grim: every route, every garrison, every weakness — written in a steady court hand.
+   The traitor knows the alliance's every move.
+3. And beneath the last page, in a script Saimtar knew like his own name — a list of the taken.
+   His parents' names were not struck through.
+
+### New Enemy Types (Chapter 2)
+
+| ID | Display Name | Role | Notes |
+|---|---|---|---|
+| `martarquas_scout` | Martarquas Scout | Beat 3 scripted ambush | Introduces spell cards; modest deck, aggressive |
+| `martarquas_warleader` | Martarquas War-Leader | Beat 6 dungeon boss | Boss-tier deck using the GID-021 boss framework |
 
 ---
 
@@ -163,17 +256,39 @@ then race to reach King Eldar's temple within three days.
 | Queen | x=58, z=15 | Welcome, Maiteln, and your young companion. You are most welcome here. Please take a seat in one of the red satin oak chairs. |
 | Scargroth | x=50, z=30 | The letter was urgent for good reason. The prophecy cannot be ignored. All lords must be present before we act. |
 
+### larik *(Chapter 2 — GID-107)*
+
+| NPC | Position | Dialogue |
+|---|---|---|
+| Villager | (set in TID-401) | Saimtar? You shouldn't have come back. Nothing good lingers here since the night the fires went out. |
+| Old neighbour | (set in TID-401) | Your mother and father — we heard nothing, saw nothing. Doors were barred that night, and we kept them barred. |
+
+### marsax_hold *(Chapter 2 — GID-107)*
+
+| NPC | Position | Dialogue |
+|---|---|---|
+| Garrison sergeant | (set in TID-401) | To arms! The hold stands while its walls do — who in blazes are you two? |
+| Lord Marsax | (set in TID-401) | Maiteln! Blancogov's warning came late — the tribe is already at my gates. Help us hold, and my banners ride with the alliance. |
+
 ### Flag-Gated Dialogue States
 
-> **TODO for TID-063:** For each NPC whose dialogue changes after a story event, fill in this table.
-> Format: NPC | map | flag_key | text shown BEFORE flag is set | text shown AFTER flag is set.
-> The agent will read this to implement `TownspersonNPC.get_dialogue()` flag routing.
-> Leave Before-Flag blank if the NPC has no special pre-flag line (uses the static line above).
+*(Table authored via GID-107, 2026-07-02 — fills the former TID-063 TODO. Format: text shown
+BEFORE flag is set | text shown AFTER flag is set. Before-Flag text is the static line above
+unless it differs here.)*
 
 | NPC | Map | Flag Key | Before-Flag Text | After-Flag Text |
 |---|---|---|---|---|
+| Master | madrian | story_intro_complete | Boy! Get back to your chores this instant or you will be punished! | Running off with that old trickster? Good riddance — but your bed will be gone when you crawl back. |
+| Maiteln | madrian | story_intro_complete | I am a wizard of old. If you come with me you will never have to worry about your master again and I will take you on an adventure. My name is Maiteln. Will you come with me? | The road waits, wee Saimtar. South, past the wilds — Maykalene first. |
+| Townsperson | maykalene | chapter1_warned_farsyth | Welcome to Maykalene! Fine white-washed houses and a warm inn await you. | Word from the mansion is grim — riders left for Marsax and Temlar at first light. |
+| Innkeeper | maykalene | chapter1_warned_farsyth | Best broth and cocoa in all the land! A warm meal and soft bed within! | You're the lad who came with Maiteln? Broth's on the house — dark times make short bills. |
+| Mansion guard | maykalene | chapter1_warned_farsyth | Ah, Maiteln! Lord Farsyth is not busy at the moment. Go straight in if you have news of the prophecy. | The lord is with his war-scribes. He said you're to pass unannounced, always. |
+| Lord Farsyth | farsyth_mansion | chapter1_warned_farsyth | The Martarquas tribe rising again? By the gods, this is dire news. I shall send word to Lords Marsax, Ramtorous and Temlar at once. You must warn King Eldar in Blancogov! | Ride hard for Blancogov. Every hour you save may save a village. |
 | Gate guard | blancogov | chapter1_received_letter | Halt! State your business. No entry without authorisation! | Welcome back. The council awaits within — proceed. |
-| (add more rows here) | | | | |
+| City dweller | blancogov | chapter1_temple_council | The great temple of King Eldar lies at the road's end. The council has been summoned — something stirs. | The bells rang thrice — the alliance is called. First time in my lifetime. |
+| King Eldar | blancogov_temple | chapter1_complete | Maiteln! We are glad you came so swiftly. The council is assembling. The Martarquas threat must be answered together. | The realm owes its warning to a servant boy from Larik. Remember that, all of you. |
+| Queen | blancogov_temple | chapter1_complete | Welcome, Maiteln, and your young companion. You are most welcome here. Please take a seat in one of the red satin oak chairs. | Rest here whenever the road wears you thin, young Saimtar. |
+| Scargroth | blancogov_temple | chapter1_complete | The letter was urgent for good reason. The prophecy cannot be ignored. All lords must be present before we act. | I've been reading the old registers. There is a name from Larik you should see. |
 
 ---
 
@@ -206,6 +321,8 @@ DOOR x z target_map [door_id] — door linking to another map (__exit__ returns 
 | `assets/maps/farsyth_mansion.txt` | Chapter 1 | Long hall, Lord Farsyth's audience chamber |
 | `assets/maps/blancogov.txt` | Chapter 1 | Golden gate, three tower pairs, temple entrance |
 | `assets/maps/blancogov_temple.txt` | Chapter 1 | Throne hall, council seating |
+| `assets/maps/larik.tres` | Chapter 2 | Saimtar's empty house (hidden letter scroll), stables, ~6 village houses — "a collection of houses with aspirations of township" |
+| `assets/maps/marsax_hold.tres` | Chapter 2 | Gatehouse, keep, courtyard; siege plays on arrival; war-camp dungeon lies in the hills west of the hold |
 
 ---
 

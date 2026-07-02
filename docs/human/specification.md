@@ -134,19 +134,23 @@ The following questions from the initial spec have been answered by completed go
 - **Battle rewards beyond card drops:** Coins awarded via `coin_reward` in EnemyData (GID-007). No XP system planned.
 - **Enemy respawn:** Defeated enemies stay dead per save via `SaveManager.defeated_enemies` (GID-009). No time-based respawn.
 - **Deck size constraints:** Minimum 5, maximum 30 cards enforced in deck builder (GID-003).
-- **Chapter count:** Chapter 1 is the target for v1 release. Chapter 2 is out of scope.
+- **Chapter count:** Chapter 1 is the target for v1 release. ~~Chapter 2 is out of scope.~~
+  **Amended 2026-07-02 (GID-107, user-approved):** Chapter 2 ("The Road to Larik",
+  see `docs/human/story.md`) is now in scope. Chapter 1 remains the v1 release gate;
+  Chapter 2 ships when ready.
 
 ---
 
 ## Chapter 1 Victory Condition
 
-> **TODO for TID-066 / TID-067:** Describe the trigger and outcome for completing Chapter 1.
-> Fill this in so the agent can implement the ending scene and flag.
->
-> - **Trigger event:** (e.g. King Eldar dialogue interaction in blancogov_temple)
-> - **Story flag set:** (e.g. `chapter1_complete`)
-> - **Ending presentation:** (e.g. narration overlay, black screen + text, scroll)
-> - **Post-ending flow:** (e.g. return to main menu; Continue re-loads the save for future Chapter 2)
+*(Resolved 2026-07-02 via GID-107, user-approved — full detail in `docs/human/story.md`.)*
+
+- **Trigger event:** King Eldar dialogue in blancogov_temple after `chapter1_temple_council`
+  is set and the Queen and Scargroth have each been spoken to
+- **Story flag set:** `chapter1_complete`
+- **Ending presentation:** three-page narration overlay (reuses the scroll narration UI)
+- **Post-ending flow:** return to the world as a playable epilogue (war-preparation dialogue
+  via flag-gated lines); Chapter 2 begins from this state
 
 ---
 
