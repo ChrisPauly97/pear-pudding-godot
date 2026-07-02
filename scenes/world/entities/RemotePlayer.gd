@@ -33,6 +33,11 @@ var _tint: Color = Color(0.7, 0.85, 1.0, 1.0)
 var _emote_label: Label3D = null
 var _emote_timer: float = 0.0
 
+## Downed/rescue (GID-105 / TID-389): true while this peer is downed in a shared
+## dungeon. Purely visual here — WorldScene owns the authoritative bookkeeping.
+var _is_downed: bool = false
+const _DOWNED_TINT: Color = Color(0.35, 0.38, 0.45, 0.75)
+
 
 ## Called by WorldScene after instantiation. Expected keys: peer_id, x, z.
 func init_from_data(data: Dictionary) -> void:
@@ -96,9 +101,17 @@ func show_emote(text: String) -> void:
 ## Push the current name/tint onto the sprite + label (no-op before _ready).
 func _apply_identity() -> void:
 	if _sprite != null:
-		_sprite.modulate = _tint
+		_sprite.modulate = _DOWNED_TINT if _is_downed else _tint
 	if _label != null:
 		_label.text = _display_name
+
+
+## Set/clear the downed visual (desaturated grey tint). Safe before or after _ready.
+func set_downed(downed: bool) -> void:
+	if _is_downed == downed:
+		return
+	_is_downed = downed
+	_apply_identity()
 
 
 ## Receive latest authoritative state from the peer (called by WorldScene/NetSync).

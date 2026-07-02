@@ -108,7 +108,7 @@
 | [GID-102](goals/GID-102--mp-depth-competitive-social-async-coop/goal.md) | Multiplayer Depth — Competitive, Social, Async & Co-op Content | done (TID-378 unit suite unverified in-sandbox — see goal.md note) | 12 / 12 |
 | [GID-103](goals/GID-103--shared-world-life/goal.md) | Shared World Life — Synced Clock, Weather, Night Hunts & Town Siege | pending | 0 / 3 |
 | [GID-104](goals/GID-104--competitive-formats/goal.md) | Competitive Formats — Draft Duels, Tournaments & Spectator Wagers | done | 3 / 3 |
-| [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | pending | 0 / 2 |
+| [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | done (unit suite + headless import unverified in-sandbox — see goal.md note) | 2 / 2 |
 | [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | pending | 0 / 4 |
 | [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | pending | 0 / 5 |
 | [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | in-progress | 2 / 10 |
@@ -149,6 +149,7 @@
 | [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
 | [BID-039](backlog/BID-039--session-days-elapsed-never-advances.md) | `SessionState.days_elapsed` is never advanced by any co-op tick, so the new auction-house expiry sweep is dormant until GID-103 wires a synced clock | gap (feature dependency) | GID-102 / TID-378 |
+| [BID-040](backlog/BID-040--rally-blocked-inside-own-dungeon.md) | Rally waystones inherit the fast-travel dungeon block, so a player can't rally to teammates while already inside a shared dungeon crawl — exactly when it's most needed | design-gap | GID-105 / TID-388 |
 
 ## Resolved Backlog
 

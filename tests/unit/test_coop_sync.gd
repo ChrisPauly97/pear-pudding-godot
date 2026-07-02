@@ -46,10 +46,11 @@ func test_encode_decode_preserves_moving_false() -> void:
 	assert_false(d["moving"], "moving false should survive round-trip")
 
 
-func test_encode_returns_five_elements() -> void:
-	# Now carries the sender's map name as a 5th element (TID-352).
-	var payload: Array = AvatarSync.encode(1.0, 2.0, true, true, "madrian")
-	assert_eq(payload.size(), 5)
+func test_encode_returns_six_elements() -> void:
+	# Carries the sender's map name (TID-352) as a 5th element and the co-op
+	# downed/rescue flag (TID-389) as a 6th.
+	var payload: Array = AvatarSync.encode(1.0, 2.0, true, true, "madrian", true)
+	assert_eq(payload.size(), 6)
 
 
 func test_decode_returns_all_keys() -> void:
@@ -60,6 +61,7 @@ func test_decode_returns_all_keys() -> void:
 	assert_true(d.has("flip_h"), "missing key flip_h")
 	assert_true(d.has("moving"), "missing key moving")
 	assert_true(d.has("map"), "missing key map")
+	assert_true(d.has("downed"), "missing key downed")
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +84,28 @@ func test_decode_legacy_four_element_payload_map_empty() -> void:
 	var d: Dictionary = AvatarSync.decode([1.0, 2.0, true, false])
 	assert_almost_eq(float(d["x"]), 1.0)
 	assert_eq(str(d["map"]), "")
+
+
+# ---------------------------------------------------------------------------
+# downed field (GID-105 / TID-389) — round-trip + backward tolerance
+# ---------------------------------------------------------------------------
+
+func test_encode_decode_preserves_downed_true() -> void:
+	var d: Dictionary = AvatarSync.decode(AvatarSync.encode(0.0, 0.0, false, false, "madrian", true))
+	assert_true(d["downed"], "downed true should survive round-trip")
+
+
+func test_decode_default_downed_is_false() -> void:
+	# Omitted downed arg encodes false and round-trips to false.
+	var d: Dictionary = AvatarSync.decode(AvatarSync.encode(0.0, 0.0, false, false, "madrian"))
+	assert_false(d["downed"], "downed should default false")
+
+
+func test_decode_legacy_five_element_payload_downed_false() -> void:
+	# A pre-TID-389 5-element payload must still decode, with downed defaulting to false.
+	var d: Dictionary = AvatarSync.decode([1.0, 2.0, true, false, "madrian"])
+	assert_almost_eq(float(d["x"]), 1.0)
+	assert_false(d["downed"])
 
 
 # ---------------------------------------------------------------------------

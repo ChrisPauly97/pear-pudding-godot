@@ -1063,6 +1063,25 @@ func _on_battle_lost() -> void:
 		return
 	_current_battle_enemy_id = ""
 	session_stats["battles_lost"] = int(session_stats.get("battles_lost", 0)) + 1
+	# Downed & rescue in shared co-op dungeons (GID-105 / TID-389): a PvE loss inside
+	# a shared dungeon crawl leaves the player downed/revivable instead of routing to
+	# the single-player defeat screen below. Checked first — siege/spire are solo
+	# SaveManager-driven systems that never overlap with an active co-op dungeon crawl.
+	if NetworkManager.is_active() and current_map.begins_with("dungeon_"):
+		save_manager.clear_pending_battle()
+		save_manager.clear_pending_battle_state()
+		if _battle_overlay != null:
+			_battle_overlay.queue_free()
+			_battle_overlay = null
+		TransitionManager.transition(func() -> void:
+			if _saved_world_scene != null:
+				get_tree().root.add_child(_saved_world_scene)
+				get_tree().current_scene = _saved_world_scene
+				if _saved_world_scene.has_method("enter_downed_state"):
+					_saved_world_scene.call("enter_downed_state")
+				_saved_world_scene = null)
+		_state = State.WORLD
+		return
 	# Siege defeat: apply coin penalty, end siege, then show standard game over.
 	var _siege_on_lost: Dictionary = save_manager.get_active_siege()
 	if not _siege_on_lost.is_empty():

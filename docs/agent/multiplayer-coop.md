@@ -2040,3 +2040,133 @@ direct member-record write + `SessionStore.mark_dirty()`).
   locally, mirroring the existing wager flow); a client can go briefly negative.
 - No ranked-ELO integration — deliberately casual (see Plan decision).
 - Tournament state is session-scoped: `_on_coop_session_ended` resets it.
+
+## Party Convenience & Stakes (GID-105)
+
+Two independent quality-of-life additions that remove the friction of a co-op
+party splitting up: instant regrouping via rally waystones, and real stakes
+(instead of a hard eject) when a shared dungeon crawl goes wrong.
+
+### Rally waystones (TID-388)
+
+Any connected session member can teleport instantly to a teammate from the
+existing fast-travel UI (`MapViewOverlay`), reusing the GID-044 waystone panel
+rather than adding a new screen.
+
+- **Data**: `WorldScene._build_rally_targets()` returns `{peer_id, name, color,
+  map}` for every peer in `_remote_identities` whose `_remote_player_maps`
+  entry is non-empty (skips late-joiners with unknown location yet). Empty
+  outside co-op (`NetworkManager.is_active()` guard), so single-player fast
+  travel shows no "Rally To" section at all.
+- **UI**: `MapViewOverlay.setup()` takes an optional 10th `rally_targets`
+  param; `_build_fast_travel_panel()` appends a "Rally To" title + one button
+  per target (`"Rally to <name> (<map>)"`, tinted to the target's avatar
+  color) below the existing waystone list, in the same scrollable vbox —
+  blocked by the same `is_blocked` flag (battle / inside a dungeon... except
+  rally is explicitly meant to reach a party member *inside* a dungeon crawl,
+  so note this inherits the pre-existing waystone-panel dungeon block, a minor
+  known limitation logged for a future task rather than reworked here).
+  Pressing a button emits `rally_requested(peer_id)`, which WorldScene connects
+  to `_rally_to_peer`.
+- **Same-map rally**: instant — `_player.global_position` is set directly to
+  the target `RemotePlayer`'s `global_position`.
+- **Cross-map rally**: reuses the TID-355 followed-transition mechanism
+  verbatim — broadcasts `recv_map_transition(target_map, "")` and calls
+  `SceneManager.enter_map(target_map, "")` locally, exactly like the
+  door-triggered branch and the TID-380 Dungeon Crawl button. This means a
+  rally to a teammate on a different map brings the *whole* connected party
+  along, consistent with the "followed transition" party-cohesion model the
+  rest of co-op story mode already uses.
+- **Correctness fix bundled in**: `_on_map_transition_received` previously had
+  no guard against re-entering a map the receiving peer is already on (only
+  `_coop_map_transitioning` guarded against a *second* packet on the same
+  transition). A rally broadcast reaches every peer, including ones already on
+  the destination map — for them, `SceneManager.enter_map` would have
+  needlessly reloaded the map and reset their position to the spawn/door
+  default. Fixed by an early `if not target_map.is_empty() and target_map ==
+  map_name: return`, which also benefits the pre-existing Dungeon Crawl
+  broadcast path for free.
+- **Cooldown**: `_last_rally_time` / `_RALLY_COOLDOWN = 3.0` s, checked against
+  `Time.get_ticks_msec()`, guards against spam; a toast fires if still cooling
+  down.
+- **Hero-moment notice**: `NetSync.recv_rally_notice(rallier_name)` (reliable,
+  unicast to the target peer) surfaces "`<name>` is rallying to you!" via
+  `GameBus.hud_message_requested`.
+- **Mobile parity**: automatic — rally entries are ordinary tap targets in the
+  same list as waystone buttons.
+
+### Downed & rescue in shared dungeons (TID-389)
+
+A PvE loss inside a co-op shared dungeon crawl (`current_map.begins_with
+("dungeon_")` while `NetworkManager.is_active()`) no longer ejects the player
+to the single-player defeat screen — it leaves them **downed** (frozen, tinted,
+revivable) instead, so a shared run has real stakes without permanently
+punishing the party.
+
+**Interception — `SceneManager._on_battle_lost()`.** A new branch, checked
+*before* the existing siege/spire checks (those are solo `SaveManager`-driven
+systems that never coexist with an active co-op dungeon crawl): clears the
+pending battle, frees the battle overlay, restores the world via the same
+`TransitionManager.transition` pattern the regular-loss branch uses, then calls
+`_saved_world_scene.call("enter_downed_state")`. Every other loss path (single-
+player, siege, spire, co-op *outside* a dungeon, e.g. madrian) is untouched.
+
+**Frozen, not free-roaming.** `WorldScene.enter_downed_state()` sets
+`_coop_downed = true`, calls `_player.set_physics_process(false)` and dims the
+sprite alpha (reusing the existing `_set_player_alpha` cantrip helper), and
+shows a banner ("Downed — waiting for rescue… (Ns)"). Freezing rather than
+allowing limited movement was the simpler choice and has a side benefit: a
+frozen player structurally cannot reach a door/chest/NPC, so no separate
+interaction-block list was needed — `_check_interactions()` /
+`_handle_interact()` just early-return whenever `_coop_downed` is true.
+
+**Downed flag rides the existing AvatarSync stream — no dedicated broadcast.**
+`AvatarSync.encode/decode` gained a defaulted 6th `downed: bool` element
+(same evolution pattern as the 5th `map` element from TID-352); every peer's
+15 Hz avatar packet already carries it, so both directions of the transition
+(going down, being rescued) propagate to every other peer's
+`_coop_downed_peers: Dictionary` mirror (`peer_id -> bool`, updated in
+`_on_avatar_received`) automatically, and `RemotePlayer.set_downed()` swaps the
+sprite to a desaturated grey tint. This is also how the host learns about a
+non-host peer's downed state for the arbitration below — no extra plumbing.
+
+**Revive needs host arbitration; everything else doesn't.** The only race that
+matters is two teammates reviving the same target at once, so only that action
+gets a dedicated RPC pair (`NetSync.submit_revive_request(peer_id)` client→host,
+`recv_revive(peer_id)` host→all, both reliable — mirrors the `WorldObjectSync`
+engage-lock pattern: client submits intent, host validates against its
+authoritative view and broadcasts). A teammate sees a `"REVIVE"` interact
+prompt via `_find_nearby_downed_peer()` (same range-scan pattern as
+`_find_nearby_enemy` et al., filtered by `_coop_downed_peers`); interacting
+calls `_request_revive`, which either applies directly (`_authority_apply_revive`,
+if the interactor is the host) or sends `submit_revive_request` to peer 1.
+`_authority_apply_revive` uses `DownedSync.can_revive(is_target_downed)` as the
+single race-guard predicate — a stale request (the target already respawned via
+timeout, or was already revived) is silently discarded, whether it arrived via
+the direct host-local path or the submitted-RPC path.
+
+**Auto-respawn is self-managed per peer, not host-driven.** `enter_downed_state`
+starts a local `get_tree().create_timer(DownedSync.RESCUE_TIMEOUT)` (60 s); on
+timeout, if still downed, the peer teleports its own `_player` to
+`_dungeon_spawn_pos` (cached by `_spawn_player()` on entry to any
+`"dungeon_*"` map) and calls `_exit_downed_state()` locally — no RPC, no
+host-side countdown, no clock-sync concerns. This also solves the "everyone
+downed at once" soft-lock for free: since every downed peer's timeout runs
+independently of what anyone else is doing, nobody can get stuck waiting on a
+shared counter that never advances.
+
+**Session-scoped cleanup**: `_coop_downed_peers` is cleared on
+`_on_coop_session_ended` (and the local player is force-exited from the downed
+state if the session ends mid-downed); a disconnecting peer's entry is erased
+in `_on_coop_peer_disconnected` so a stale revive request can never match it.
+
+**Pure helper — `game_logic/net/DownedSync.gd`** (mirrors `AvatarSync`,
+unit-tested in `tests/unit/test_downed_sync.gd`): `RESCUE_TIMEOUT = 60.0`,
+`remaining_time(elapsed)` (clamped, drives the banner countdown text), and
+`can_revive(is_target_downed)` (the race-guard predicate above).
+
+**Known limitation (v1):** the downed player's own banner/prompt suppression
+only covers the local player; a downed player's `RemotePlayer` avatar on other
+clients still shows nameplate/emote UI as normal (only the sprite tint
+changes) — acceptable since the tint plus the "REVIVE" prompt already make the
+state legible to teammates.

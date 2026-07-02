@@ -73,6 +73,8 @@ const _CardInstanceUtil  = preload("res://game_logic/CardInstanceUtil.gd")
 const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 # Session tournaments (GID-104 / TID-386)
 const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
+# Downed & rescue in shared dungeons (GID-105 / TID-389)
+const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -119,6 +121,16 @@ var _loot_roll_panel: Node = null   # transient Need/Greed/Pass panel (CanvasLay
 # Co-op story mode (GID-098): true once a map transition is in flight on this
 # WorldScene instance so duplicate recv_map_transition packets are ignored.
 var _coop_map_transitioning: bool = false
+# Rally waystones (GID-105 / TID-388) — guarded by NetworkManager.is_active().
+var _last_rally_time: float = -999.0
+const _RALLY_COOLDOWN: float = 3.0
+# Downed & rescue in shared dungeons (GID-105 / TID-389) — guarded by _coop_active
+# and current_map.begins_with("dungeon_"); inert everywhere else.
+var _coop_downed: bool = false                # true while the LOCAL player is downed
+var _coop_downed_peers: Dictionary = {}       # peer_id -> bool, mirrored via the avatar stream
+var _dungeon_spawn_pos: Vector3 = Vector3.ZERO  # cached on entry to a "dungeon_*" map
+var _downed_banner: Label = null
+var _downed_started_at: float = 0.0
 # Co-op story mode (GID-098): guard against re-entering the network broadcast
 # while processing our own GameBus.story_flag_set echo.
 var _coop_story_flag_syncing: bool = false
@@ -782,6 +794,9 @@ func _on_coop_peer_disconnected(pid: int) -> void:
 	_remote_identities.erase(pid)
 	_remote_player_maps.erase(pid)
 	_session_token_by_peer.erase(pid)
+	# Downed & rescue (GID-105 / TID-389): a disconnected peer can't be revived or
+	# time out anymore — drop their entry so a stale revive request can't match it.
+	_coop_downed_peers.erase(pid)
 	# Draft duel (GID-104 / TID-385): abort a draft in flight with this peer.
 	_abort_draft_duel_for_peer(pid)
 	# Flush so the leaving player's last persisted snapshot is on disk (host only).
@@ -808,6 +823,10 @@ func _on_coop_session_ended() -> void:
 	_remote_identities.clear()
 	_remote_player_maps.clear()
 	_session_token_by_peer.clear()
+	# Downed & rescue (GID-105 / TID-389) is session-scoped state.
+	_coop_downed_peers.clear()
+	if _coop_downed:
+		_exit_downed_state()
 	# Co-op world-object sync state (GID-096) is session-scoped; clear it so a fresh
 	# session starts from the deterministic spawn (persisted progress reloads via
 	# _setup_session / the join snapshot).
@@ -1177,9 +1196,15 @@ func _on_avatar_received(sender: int, payload: Array) -> void:
 	if prev_map != sender_map:
 		_refresh_coop_roster()
 	var same_map: bool = sender_map == "" or sender_map == map_name
+	# Downed & rescue (GID-105 / TID-389): mirror the sender's downed flag regardless
+	# of map (cheap bookkeeping) but only apply the visual tint when they're rendered.
+	var sender_downed: bool = bool(d.get("downed", false))
+	_coop_downed_peers[sender] = sender_downed
 	if not is_instance_valid(rp):
 		return
 	(rp as Node3D).visible = same_map
+	if rp.has_method("set_downed"):
+		rp.set_downed(sender_downed)
 	# Only feed position while on the same map; otherwise the avatar holds its last
 	# same-map position so re-convergence resumes cleanly (no cross-map coordinates).
 	if same_map and rp.has_method("set_net_state"):
@@ -1201,7 +1226,7 @@ func _broadcast_local_avatar(delta: float) -> void:
 		flip_h = spr.flip_h
 	var moving: bool = bool(_player.get("_is_moving"))
 	var payload: Array = _AvatarSync.encode(
-		_player.position.x, _player.position.z, flip_h, moving, map_name)
+		_player.position.x, _player.position.z, flip_h, moving, map_name, _coop_downed)
 	_net_sync.rpc("recv_avatar", payload)
 
 # ── Co-op world-object sync (GID-096) ─────────────────────────────────────────
@@ -1788,11 +1813,197 @@ func _on_map_transition_received(target_map: String, door_id: String) -> void:
 		return
 	if _coop_map_transitioning:
 		return
+	# A peer already on the destination map (e.g. everyone but the rallier, in a
+	# rally-to-peer broadcast — GID-105 / TID-388) has nothing to follow; re-entering
+	# would needlessly reload the map and reset their position to the spawn/door
+	# default.
+	if not target_map.is_empty() and target_map == map_name:
+		return
 	_coop_map_transitioning = true
 	if target_map.is_empty():
 		SceneManager.exit_map()
 	else:
 		SceneManager.enter_map(target_map, door_id)
+
+# ── Rally waystones (GID-105 / TID-388) ──────────────────────────────────────
+# Lets any connected party member teleport instantly to a teammate from the
+# fast-travel UI — same-map is an instant local position sync, cross-map reuses
+# the TID-355 followed-transition mechanism (so the rest of the party, if any,
+# converges too). Guarded by NetworkManager.is_active(); single-player fast
+# travel sees no rally section at all (MapViewOverlay._rally_targets is empty).
+
+## Connected session members eligible for rally-to: everyone whose last-known
+## map we've learned (skips late-joiners whose location hasn't arrived yet).
+func _build_rally_targets() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	if not NetworkManager.is_active():
+		return out
+	for pid in _remote_identities.keys():
+		var peer_map: String = str(_remote_player_maps.get(pid, ""))
+		if peer_map == "":
+			continue
+		var ident: Dictionary = _remote_identities[pid]
+		out.append({
+			"peer_id": int(pid),
+			"name": str(ident.get("name", "Player")),
+			"color": ident.get("color", Color.WHITE),
+			"map": peer_map,
+		})
+	return out
+
+## Rally to a connected teammate. Same-map: instant local position sync.
+## Cross-map: broadcast the existing followed-transition RPC + follow locally.
+func _rally_to_peer(peer_id: int) -> void:
+	if not NetworkManager.is_active() or _player == null:
+		return
+	var now: float = Time.get_ticks_msec() / 1000.0
+	if now - _last_rally_time < _RALLY_COOLDOWN:
+		GameBus.hud_message_requested.emit("Rally is on cooldown.")
+		return
+	var target_map: String = str(_remote_player_maps.get(peer_id, ""))
+	if target_map == "":
+		return
+	var target_name: String = str(_remote_identities.get(peer_id, {}).get("name", "Player"))
+	_last_rally_time = now
+	GameBus.hud_message_requested.emit("Rallying to %s…" % target_name)
+	if _net_sync != null:
+		_net_sync.rpc_id(peer_id, "recv_rally_notice", MpProfile.get_display_name())
+	if target_map == map_name:
+		var rp: Node3D = _remote_player_nodes.get(peer_id) as Node3D
+		if rp != null and is_instance_valid(rp):
+			_player.global_position = rp.global_position
+		return
+	if _coop_map_transitioning:
+		return
+	_coop_map_transitioning = true
+	if _net_sync != null:
+		_net_sync.rpc("recv_map_transition", target_map, "")
+	SceneManager.enter_map(target_map, "")
+
+## A teammate is rallying to us — surface a hero-moment toast.
+func _on_rally_notice_received(rallier_name: String) -> void:
+	GameBus.hud_message_requested.emit("%s is rallying to you!" % rallier_name)
+
+# ── Downed & rescue in shared dungeons (GID-105 / TID-389) ───────────────────
+# A PvE loss inside a co-op shared dungeon ("dungeon_*") leaves the player downed
+# (frozen in place) instead of routing to the single-player defeat screen
+# (SceneManager._on_battle_lost intercepts before that path). A teammate can
+# revive them via the same interact prompt pattern as chests/NPCs; otherwise a
+# self-managed timeout auto-respawns them at the dungeon entrance. The downed
+# flag itself rides the existing AvatarSync stream (see _on_avatar_received);
+# only the revive action needs host arbitration, to avoid two teammates racing
+# to revive the same target.
+
+## Called by SceneManager (via _saved_world_scene.call) right after the world is
+## restored following a co-op-dungeon PvE loss.
+func enter_downed_state() -> void:
+	if not _coop_active or _player == null:
+		return
+	_coop_downed = true
+	_coop_downed_peers[NetworkManager.local_id()] = true
+	_downed_started_at = Time.get_ticks_msec() / 1000.0
+	_player.set_physics_process(false)
+	_set_player_alpha(0.55)
+	_show_downed_banner()
+	GameBus.hud_message_requested.emit("Downed! Waiting for rescue…")
+	get_tree().create_timer(_DownedSync.RESCUE_TIMEOUT, false).timeout.connect(_on_downed_timeout)
+
+## Fires RESCUE_TIMEOUT seconds after enter_downed_state(). No-ops if already
+## revived (a stale timer from a downed period that already ended).
+func _on_downed_timeout() -> void:
+	if not _coop_downed:
+		return
+	GameBus.hud_message_requested.emit("Respawning at the dungeon entrance…")
+	if _player != null:
+		_player.position = _dungeon_spawn_pos
+	_exit_downed_state()
+
+## Un-freeze the local player and clear downed bookkeeping (revived or timed out).
+func _exit_downed_state() -> void:
+	_coop_downed = false
+	_coop_downed_peers[NetworkManager.local_id()] = false
+	if _player != null:
+		_player.set_physics_process(true)
+		_set_player_alpha(1.0)
+	_hide_downed_banner()
+
+func _show_downed_banner() -> void:
+	if _downed_banner != null and is_instance_valid(_downed_banner):
+		_downed_banner.show()
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_downed_banner = Label.new()
+	_downed_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_downed_banner.add_theme_font_size_override("font_size", int(vp.y * 0.030))
+	_downed_banner.add_theme_color_override("font_color", Color(0.75, 0.80, 1.0))
+	_downed_banner.custom_minimum_size = Vector2(vp.x * 0.6, vp.y * 0.06)
+	_downed_banner.position = Vector2(vp.x * 0.2, vp.y * 0.12)
+	_hud.add_child(_downed_banner)
+
+func _hide_downed_banner() -> void:
+	if _downed_banner != null and is_instance_valid(_downed_banner):
+		_downed_banner.queue_free()
+		_downed_banner = null
+
+## Nearest downed teammate within range, or -1. Local player is never a valid
+## target here — you cannot revive yourself.
+func _find_nearby_downed_peer(px: float, pz: float, range_dist: float) -> int:
+	if not _coop_active:
+		return -1
+	for pid in _remote_player_nodes.keys():
+		if not bool(_coop_downed_peers.get(pid, false)):
+			continue
+		var rp: Node3D = _remote_player_nodes[pid] as Node3D
+		if not is_instance_valid(rp) or not rp.visible:
+			continue
+		var d: float = Vector2(rp.position.x, rp.position.z).distance_to(Vector2(px, pz))
+		if d <= range_dist:
+			return int(pid)
+	return -1
+
+## Local player interacted with a downed teammate. Host applies directly;
+## a client submits the request for the host to arbitrate.
+func _request_revive(peer_id: int) -> void:
+	if NetworkManager.is_host():
+		_authority_apply_revive(peer_id)
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_revive_request", peer_id)
+
+## Host-only: validate and apply a revive, then broadcast it. A stale request
+## (target already respawned via timeout, or already revived) is silently
+## discarded — DownedSync.can_revive centralizes that check.
+func _authority_apply_revive(peer_id: int) -> void:
+	if not NetworkManager.is_host():
+		return
+	if not _DownedSync.can_revive(bool(_coop_downed_peers.get(peer_id, false))):
+		return
+	_coop_downed_peers[peer_id] = false
+	if peer_id == NetworkManager.local_id():
+		_exit_downed_state()
+	else:
+		var rp: Node3D = _remote_player_nodes.get(peer_id) as Node3D
+		if rp != null and is_instance_valid(rp) and rp.has_method("set_downed"):
+			rp.set_downed(false)
+	GameBus.hud_message_requested.emit("Revived!")
+	if _net_sync != null:
+		_net_sync.rpc("recv_revive", peer_id)
+
+## NetSync → host: a client's revive request.
+func _on_revive_request_submitted(_sender: int, peer_id: int) -> void:
+	_authority_apply_revive(peer_id)
+
+## NetSync → peer: the host confirmed a revive.
+func _on_revive_received(peer_id: int) -> void:
+	if not _coop_active:
+		return
+	_coop_downed_peers[peer_id] = false
+	if peer_id == NetworkManager.local_id():
+		_exit_downed_state()
+		GameBus.hud_message_requested.emit("Revived!")
+	else:
+		var rp: Node3D = _remote_player_nodes.get(peer_id) as Node3D
+		if rp != null and is_instance_valid(rp) and rp.has_method("set_downed"):
+			rp.set_downed(false)
 
 # ── Shared dungeon crawl (GID-102 / TID-380) ──────────────────────────────────
 #
@@ -2296,6 +2507,11 @@ func _spawn_player() -> void:
 	_entity_root.add_child(_player)
 	_smooth_camera_target = _player.position + Vector3(20, 20, 20)
 	_camera.position = _smooth_camera_target
+
+	# Downed & rescue (GID-105 / TID-389): cache the entrance position so a downed
+	# player's auto-respawn timeout has somewhere to return to.
+	if map_name.begins_with("dungeon_"):
+		_dungeon_spawn_pos = _player.position
 
 # Returns the tile type at global tile coordinates (wtx, wtz).
 # Used by ChunkRenderer during terrain height computation so hills blend
@@ -3176,6 +3392,11 @@ func _process(delta: float) -> void:
 		# Party loot rolls (GID-102 / TID-381): authority-only timeout ticker; inert
 		# unless a roll is actually in flight (need/greed mode opted in).
 		_tick_loot_rolls(delta)
+		# Downed & rescue (GID-105 / TID-389): live countdown on the local banner.
+		if _coop_downed and _downed_banner != null and is_instance_valid(_downed_banner):
+			var elapsed: float = (Time.get_ticks_msec() / 1000.0) - _downed_started_at
+			var remaining: float = _DownedSync.remaining_time(elapsed)
+			_downed_banner.text = "Downed — waiting for rescue… (%ds)" % int(ceil(remaining))
 	if _dnc:
 		_dnc.tick(delta, _weather_tint)
 
@@ -3255,6 +3476,14 @@ func _process(delta: float) -> void:
 func _check_interactions() -> void:
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
+	# Downed & rescue (GID-105 / TID-389): a downed player is frozen and cannot
+	# interact with anything (chests/NPCs/doors/enemies are all unreachable anyway
+	# since they can't move, but this is a defensive guard for whatever happened
+	# to be in range at the moment of defeat).
+	if _coop_downed:
+		_world_hud.show_interact_prompt(false, "USE")
+		return
+	var downed_pid: int = _find_nearby_downed_peer(px, pz, IsoConst.INTERACT_RANGE)
 	var enemy := _find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
 	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
 	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
@@ -3269,9 +3498,11 @@ func _check_interactions() -> void:
 	# Landmarks auto-trigger on approach (no button press needed)
 	_check_nearby_landmark(px, pz)
 	var mana_well := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
-	var has_entity: bool = enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
+	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
 	var interact_label: String = "USE"
-	if enemy != null:
+	if downed_pid != -1:
+		interact_label = "REVIVE"
+	elif enemy != null:
 		interact_label = "ATTACK"
 	elif not chest.is_empty():
 		interact_label = "OPEN"
@@ -3328,8 +3559,10 @@ func _open_map_view() -> void:
 	add_child(_map_overlay)
 	_map_overlay.setup(world_map, map_name, _player,
 		_npc_nodes, _active_npc_data,
-		_enemy_nodes, _chest_nodes, _door_nodes, _waystone_nodes)
+		_enemy_nodes, _chest_nodes, _door_nodes, _waystone_nodes,
+		_build_rally_targets())
 	_map_overlay.closed.connect(func() -> void: _map_overlay = null)
+	_map_overlay.rally_requested.connect(_rally_to_peer)
 
 func _open_pause() -> void:
 	if _pause_overlay != null:
@@ -3535,8 +3768,16 @@ func _on_screen_touch(touch: InputEventScreenTouch) -> void:
 func _handle_interact() -> void:
 	if _player == null:
 		return
+	# Downed & rescue (GID-105 / TID-389): frozen — cannot interact with anything.
+	if _coop_downed:
+		return
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
+
+	var downed_pid: int = _find_nearby_downed_peer(px, pz, IsoConst.INTERACT_RANGE)
+	if downed_pid != -1:
+		_request_revive(downed_pid)
+		return
 
 	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
 	if not door.is_empty():

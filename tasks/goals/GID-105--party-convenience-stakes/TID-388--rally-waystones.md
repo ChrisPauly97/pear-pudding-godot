@@ -2,7 +2,7 @@
 
 **Goal:** GID-105
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -33,12 +33,26 @@ The #1 friction point in co-op multiplayer is regrouping after a split. Players 
 
 ## Plan
 
-_Written during Plan phase._
+1. **`scenes/ui/MapViewOverlay.gd`**: add `signal rally_requested(peer_id: int)`, a `_rally_targets: Array[Dictionary]` field, and an optional 10th `rally_targets: Array = []` parameter to `setup()`. Extend `_build_fast_travel_panel()` to append a "Rally To" section below the waystone list (same `vbox`, a separator label + one button per target formatted `"Rally to <name> (<map>)"`), blocked by the same `is_blocked` flag. Each button calls a new `_request_rally(peer_id)` which emits `rally_requested`, then `closed.emit()` + `queue_free()` (mirrors `_teleport_to_waystone`).
+2. **`scenes/world/WorldScene.gd`**:
+   - Add `_last_rally_time: float = -999.0` and `const _RALLY_COOLDOWN: float = 3.0`.
+   - Add `_build_rally_targets() -> Array[Dictionary]` returning `{peer_id, name, color, map}` for every entry in `_remote_identities` whose `_remote_player_maps` entry is non-empty (guarded by `NetworkManager.is_active()`).
+   - `_open_map_view()`: pass `_build_rally_targets()` as the new `setup()` arg; connect `_map_overlay.rally_requested` to `_rally_to_peer`.
+   - Add `_rally_to_peer(peer_id: int)`: cooldown check → same-map branch (teleport `_player.global_position` to the cached `RemotePlayer.global_position`) or cross-map branch (broadcast `recv_map_transition` via `_net_sync` + call `SceneManager.enter_map`), plus a `recv_rally_notice` RPC to the target peer for the "teammate rallying to you" toast.
+   - Add `_on_rally_notice_received(rallier_name: String)` → `GameBus.hud_message_requested.emit(...)`.
+   - Small correctness fix bundled here: `_on_map_transition_received` currently re-enters `target_map` even if the receiving peer is already on it (no existing guard) — add `if not target_map.is_empty() and target_map == map_name: return` so a rally (or the pre-existing dungeon-crawl broadcast) never needlessly reloads a peer who is already on the destination map.
+3. **`scenes/world/NetSync.gd`**: add `recv_rally_notice(rallier_name: String)` reliable RPC (mirrors the other one-shot notice RPCs), routed to `world_scene._on_rally_notice_received`.
+4. Update `docs/agent/multiplayer-coop.md` (Co-op Story Mode section) with a "Rally waystones" subsection.
+5. Manual/code review only — no Godot headless binary available in this sandbox (github.com release downloads are blocked by the egress policy, confirmed via the agent-proxy status). Verify via careful reading + grep for symbol consistency; note this limitation in Changes Made.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/ui/MapViewOverlay.gd`**: added `signal rally_requested(peer_id)`, `_rally_targets: Array[Dictionary]` field, an optional 10th `rally_targets` param to `setup()`, a "Rally To" section in `_build_fast_travel_panel()` (title + one tinted button per target, respecting the existing `is_blocked` flag), and `_request_rally(peer_id)`.
+- **`scenes/world/WorldScene.gd`**: added `_last_rally_time` / `_RALLY_COOLDOWN`, `_build_rally_targets()`, `_rally_to_peer(peer_id)` (same-map instant teleport / cross-map followed-transition broadcast), `_on_rally_notice_received()`; wired into `_open_map_view()`. Bundled a correctness fix in `_on_map_transition_received()`: added an early return when the receiving peer is already on the destination map, preventing a needless reload/position-reset (this also benefits the pre-existing TID-380 Dungeon Crawl broadcast).
+- **`scenes/world/NetSync.gd`**: added `recv_rally_notice(rallier_name)` reliable RPC.
+- **`docs/agent/multiplayer-coop.md`**: new "Party Convenience & Stakes (GID-105)" section, "Rally waystones (TID-388)" subsection.
+- **Verification limitation**: no Godot headless binary is available in this sandbox — `godot` is not installed and downloading the 4.6-stable release from `github.com/godotengine/godot/releases` was blocked by the environment's egress policy (403 from the agent proxy; confirmed via `curl $HTTPS_PROXY/__agentproxy/status`, a policy denial per the proxy's own guidance, not something to retry or route around). Verified by careful manual reading, symbol-consistency grepping, and cross-checking against every existing call site of the changed signatures (`AvatarSync.encode/decode`, `MapViewOverlay.setup`, `_on_map_transition_received` callers) instead of a live headless import.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md` — added the "Party Convenience & Stakes (GID-105)" / "Rally waystones (TID-388)" subsection described above.
