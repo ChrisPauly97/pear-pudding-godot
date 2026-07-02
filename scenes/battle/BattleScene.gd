@@ -29,6 +29,7 @@ const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd"
 const BattlePauseUI = preload("res://scenes/battle/BattlePauseUI.gd")
 const BattleResultUI = preload("res://scenes/battle/BattleResultUI.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
+const WagerSync = preload("res://game_logic/net/WagerSync.gd")
 const _BattleNetSyncScript = preload("res://scenes/battle/BattleNetSync.gd")
 
 var _fx: BattleFx
@@ -75,6 +76,32 @@ var _pvp_peer_to_idx: Dictionary = {}  # peer_id (int) → player_idx (int), ref
 # The host tracks spectator peer_ids in _spectators and fans sync_state to them.
 var _pvp_spectating: bool = false
 var _spectators: Array[int] = []      # host only: peer_ids watching this duel
+
+# ── Spectator wagers (GID-104 / TID-387) ─────────────────────────────────────
+# Spectators may bet coins on side a (players[0]) or b (players[1]) before the
+# WagerSync.CUTOFF_TURN. The AUTHORITY holds escrow: the stake is deducted from
+# the bettor's SessionState member record the moment the bet is accepted, and
+# settlement credits payouts back on battle end (same direct-SessionStore-write
+# pattern as WorldScene._grant_chest_loot_to_token). Refunds on spectator
+# disconnect, draw, or abandoned match. Only coins are ever at risk — never cards.
+# All inert unless NetworkManager.is_active(); single-player never touches this.
+var _wager_bets: Dictionary = {}      # authority: token -> {side, amount, peer_id}
+var _wagers_settled: bool = false     # authority: one-shot settlement guard
+# Spectator-side UI + local mirror of the accepted bet.
+var _wager_panel: Control = null
+var _wager_side: String = "a"
+var _wager_amount: int = 10
+var _wager_placed_side: String = ""   # last host-accepted bet ("" = none)
+var _wager_placed_amount: int = 0
+var _wager_result_text: String = ""   # settlement line shown on the result overlay
+var _wager_status_label: Label = null
+var _wager_amount_label: Label = null
+var _wager_side_a_btn: Button = null
+var _wager_side_b_btn: Button = null
+var _wager_place_btn: Button = null
+var _wager_minus_btn: Button = null
+var _wager_plus_btn: Button = null
+const _WAGER_STEP: int = 5
 
 # ── PvP reconnect (GID-102 / TID-372) ────────────────────────────────────────
 # Listen-server host: the opponent's identity token, so a reconnect can be verified.
@@ -2130,6 +2157,8 @@ func _setup_pvp_battle() -> void:
 		# Spectator: send request_spectate so the host registers us and sends the state.
 		_connect_pvp_net_signals()
 		_net.rpc_id(1, "request_spectate")
+		# Spectator wagers (GID-104 / TID-387): bet panel over the read-only view.
+		_build_wager_panel()
 		return
 	_connect_pvp_net_signals()
 	if _is_pvp_host():
@@ -2289,6 +2318,10 @@ func _on_pvp_state(payload: Dictionary) -> void:
 	_view.set_battle_state(_state, enemy_data)
 	_refresh_all()
 	_refresh_potion_button()
+	# Spectator wagers (GID-104 / TID-387): each mirror carries turn_number, so the
+	# cutoff ("Bets Closed") is evaluated locally on every state update.
+	if _pvp_spectating:
+		_update_wager_panel()
 
 ## Authority: validate + apply a client intent, then re-render (broadcast happens
 ## in _check_game_over). In referee mode both players send intents; in
@@ -2551,6 +2584,9 @@ func _pvp_check_game_over() -> void:
 		_pvp_ended = true
 		var w: int = _state.winner()
 		_broadcast_state()
+		# Settle spectator wagers BEFORE the pvp_ended broadcast so the settlement
+		# RPC (same reliable channel) lands before each spectator's result overlay.
+		_settle_spectator_wagers(WagerSync.SIDE_A if w == 0 else WagerSync.SIDE_B)
 		if _net != null:
 			_net.rpc("pvp_ended", {"winner_idx": w, "forfeit": false, "ante_coins": pvp_ante_coins})
 			for spec_id in _spectators:
@@ -2576,6 +2612,8 @@ func _apply_remote_surrender(player_idx: int) -> void:
 	var winner_idx: int = 1 - player_idx
 	_state.players[player_idx].hero.health = 0
 	_broadcast_state()
+	# A surrender is a clean win for the other side — spectator bets pay out normally.
+	_settle_spectator_wagers(WagerSync.SIDE_A if winner_idx == 0 else WagerSync.SIDE_B)
 	if _net != null:
 		_net.rpc("pvp_ended", {"winner_idx": winner_idx, "forfeit": true, "ante_coins": pvp_ante_coins})
 		for spec_id in _spectators:
@@ -2592,6 +2630,8 @@ func _pvp_surrender() -> void:
 		_pvp_ended = true
 		_state.players[_local_player_idx].hero.health = 0
 		_broadcast_state()
+		# Host surrender is a clean win for the other side — bets pay out normally.
+		_settle_spectator_wagers(WagerSync.SIDE_A if _local_player_idx == 1 else WagerSync.SIDE_B)
 		if _net != null:
 			_net.rpc("pvp_ended", {"winner_idx": 1 - _local_player_idx, "forfeit": true, "ante_coins": pvp_ante_coins})
 			for spec_id in _spectators:
@@ -2607,7 +2647,21 @@ func _pvp_surrender() -> void:
 ## unaffected, out of scope for this slice). Spectator disconnects don't map to a
 ## combatant idx and are ignored here (no effect on the duel).
 func _on_pvp_peer_disconnected(pid: int) -> void:
-	if not _pvp or _pvp_ended or _pvp_reconnect_idx != -1:
+	if not _pvp or _pvp_ended:
+		return
+	# Spectator wagers (GID-104 / TID-387): a disconnected SPECTATOR's pending bet is
+	# refunded immediately (their stake goes back into their SessionState record; they
+	# re-adopt it on reconnect). Runs before the combatant checks below because a
+	# spectator pid never maps to a combatant idx.
+	_refund_wager_for_peer(pid)
+	# Opportunistic fix (TID-387): on a listen server the `idx = 1` fallback below
+	# treats ANY disconnected pid as the combatant client — including a spectator,
+	# which would start a bogus 45 s grace window and end the duel as a forfeit.
+	# A registered spectator leaving must never touch the duel.
+	if _spectators.has(pid):
+		_spectators.erase(pid)
+		return
+	if _pvp_reconnect_idx != -1:
 		return
 	var idx: int = 1 if _local_player_idx >= 0 else int(_pvp_peer_to_idx.get(pid, -1))
 	if idx < 0:
@@ -2629,6 +2683,9 @@ func _on_pvp_reconnect_grace_expired() -> void:
 	_pvp_reconnect_idx = -1
 	if _is_pvp_host():
 		_broadcast_state()
+		# Abandoned match (combatant never came back) — refund every spectator bet
+		# rather than paying out on a walkover (GID-104 / TID-387).
+		_settle_spectator_wagers(WagerSync.OUTCOME_ABANDONED)
 	_finish_pvp(true)
 
 ## Authority: a peer announced its identity token (sent once at every duel setup,
@@ -2670,6 +2727,10 @@ func _on_pvp_session_ended() -> void:
 	if _local_player_idx == 1 and NetworkManager.has_pvp_resume():
 		return
 	_pvp_ended = true
+	# Authority: session tore down mid-duel — refund escrowed spectator bets into
+	# SessionState before it closes (no peers left to unicast to; the write is the
+	# part that matters, bettors re-adopt their record on the next session).
+	_settle_spectator_wagers(WagerSync.OUTCOME_ABANDONED)
 	_finish_pvp(true)
 
 ## Shows the synced duel-style result overlay and emits the SceneManager
@@ -2683,7 +2744,11 @@ func _finish_pvp(did_win: bool) -> void:
 	if _pvp_spectating and _net != null:
 		_net.rpc_id(1, "stop_spectate")
 	if _result_ui != null:
-		_result_ui.show_pvp_result(did_win, pvp_ante_coins if did_win else -pvp_ante_coins)
+		# wager_note (TID-387): the spectator's settlement line ("" for combatants —
+		# the settlement RPC is sent before pvp_ended on the same reliable channel,
+		# so _wager_result_text is already populated when this runs.)
+		_result_ui.show_pvp_result(did_win, pvp_ante_coins if did_win else -pvp_ante_coins,
+			_wager_result_text)
 	elif _local_player_idx < 0:
 		GameBus.pvp_battle_ended.emit(false)
 	elif _pvp_spectating:
@@ -2710,6 +2775,303 @@ func _on_stop_spectate(sender: int) -> void:
 
 ## Spectator: receives state mirrors via the same _on_pvp_state path (reused).
 ## The _pvp_spectating flag ensures _can_local_act() returns false so no input fires.
+
+# ── Spectator wagers (GID-104 / TID-387) ─────────────────────────────────────
+# Authority side: escrow + settlement. Spectator side: bet panel + local mirror.
+# Everything below is inert in single-player: the panel is only built when
+# _pvp_spectating (a co-op-only entry path), and the authority handlers guard on
+# NetworkManager.is_active() + _is_pvp_host().
+
+## Authority: a spectator wants to place (or replace) a bet. Validates spectator
+## registration (no betting on your own match — combatants are never in
+## _spectators, and the referee's _pvp_peer_to_idx is checked explicitly), the
+## cutoff turn, and the WagerSync bet caps against the bettor's SessionState
+## coins. On accept, the stake moves out of the member record into escrow
+## (_wager_bets) immediately — the same direct-SessionStore-write pattern as
+## WorldScene._grant_chest_loot_to_token, just in the debit direction.
+func _on_wager_bet_submitted(sender: int, payload: Dictionary) -> void:
+	if not NetworkManager.is_active() or not _is_pvp_host() or not _pvp or _pvp_ended:
+		return
+	if _net == null:
+		return
+	if _pvp_peer_to_idx.has(sender):
+		_net.rpc_id(sender, "recv_wager_ack", false, "You cannot bet on your own match.", "", 0, 0)
+		return
+	if not _spectators.has(sender):
+		_net.rpc_id(sender, "recv_wager_ack", false, "Only spectators can bet.", "", 0, 0)
+		return
+	if _state == null or not WagerSync.is_betting_open(_state.turn_number):
+		_net.rpc_id(sender, "recv_wager_ack", false, "Bets are closed.", "", 0, 0)
+		return
+	var bet: Dictionary = WagerSync.decode_bet(payload)
+	var side: String = str(bet.get("side", ""))
+	var amount: int = int(bet.get("amount", 0))
+	var token: String = SceneManager.session_token_for_peer(sender)
+	var st = SessionStore.get_state()
+	var rec: Dictionary = {}
+	if st != null and token != "":
+		rec = st.get_member(token)
+	if rec.is_empty():
+		_net.rpc_id(sender, "recv_wager_ack", false, "No session record found.", "", 0, 0)
+		return
+	var coins: int = int(rec.get("coins", 0))
+	var existing: int = 0
+	if _wager_bets.has(token):
+		existing = int((_wager_bets[token] as Dictionary).get("amount", 0))
+	if not WagerSync.is_valid_bet(side, amount, coins, existing):
+		var cap: int = WagerSync.max_bet(coins + existing)
+		_net.rpc_id(sender, "recv_wager_ack", false, "Invalid bet (max %d)." % cap, "", 0, coins)
+		return
+	# Escrow: credit back any prior stake, deduct the new one, persist.
+	rec["coins"] = coins + existing - amount
+	st.update_member(token, rec)
+	SessionStore.mark_dirty()
+	_wager_bets[token] = {"side": side, "amount": amount, "peer_id": sender}
+	_net.rpc_id(sender, "recv_wager_ack", true, "", side, amount, int(rec["coins"]))
+
+
+## Authority: refund a single disconnecting spectator's pending bet — the stake
+## goes straight back into their SessionState record (they re-adopt it on
+## reconnect). No-op once settlement has run or when the peer holds no bet.
+func _refund_wager_for_peer(pid: int) -> void:
+	if _wager_bets.is_empty() or _wagers_settled:
+		return
+	var st = SessionStore.get_state()
+	for token in _wager_bets.keys():
+		var wbet: Dictionary = _wager_bets[token]
+		if int(wbet.get("peer_id", 0)) != pid:
+			continue
+		_wager_bets.erase(token)
+		if st != null:
+			var rec: Dictionary = st.get_member(str(token))
+			if not rec.is_empty():
+				rec["coins"] = int(rec.get("coins", 0)) + int(wbet.get("amount", 0))
+				st.update_member(str(token), rec)
+				SessionStore.mark_dirty()
+		return
+
+
+## Authority: settle every escrowed bet exactly once. `outcome` is WagerSync.SIDE_A/
+## SIDE_B (clean win for that side) or OUTCOME_DRAW/OUTCOME_ABANDONED (refund all).
+## Payouts are credited directly into each bettor's SessionState record (the stake
+## was already debited at placement), then the settlement is unicast to each bettor
+## still connected so their local coin mirror + result UI update. Only the
+## authority ever fills _wager_bets, so a non-empty dict is itself authority proof
+## (no _is_pvp_host() check here — it can false-negative during session teardown).
+func _settle_spectator_wagers(outcome: String) -> void:
+	if _wagers_settled or _wager_bets.is_empty():
+		return
+	_wagers_settled = true
+	var payouts: Dictionary = WagerSync.settle(_wager_bets, outcome)
+	var st = SessionStore.get_state()
+	if st != null:
+		for token in payouts.keys():
+			var payout: int = int(payouts[token])
+			if payout <= 0:
+				continue
+			var rec: Dictionary = st.get_member(str(token))
+			if rec.is_empty():
+				continue
+			rec["coins"] = int(rec.get("coins", 0)) + payout
+			st.update_member(str(token), rec)
+			SessionStore.mark_dirty()
+	if _net != null and multiplayer.multiplayer_peer != null:
+		var payload: Dictionary = WagerSync.encode_settlement(outcome, payouts)
+		var connected: PackedInt32Array = multiplayer.get_peers()
+		for token in _wager_bets.keys():
+			var pid: int = int((_wager_bets[token] as Dictionary).get("peer_id", 0))
+			if pid > 0 and connected.has(pid):
+				_net.rpc_id(pid, "recv_wager_settlement", payload)
+	_wager_bets.clear()
+
+
+## Spectator: host accepted/rejected our bet. On accept, mirror the authority's
+## escrow deduction into the local in-memory character (add_coins with the exact
+## delta to the authoritative remainder) so the periodic session persist-back
+## can't clobber the record with stale pre-bet coins once back in the world.
+func _on_wager_ack(accepted: bool, reason: String, side: String, amount: int, remaining_coins: int) -> void:
+	if not _pvp_spectating:
+		return
+	if accepted:
+		_wager_placed_side = side
+		_wager_placed_amount = amount
+		var cur: int = SceneManager.save_manager.coins
+		SceneManager.save_manager.add_coins(remaining_coins - cur)
+		if _wager_status_label != null:
+			_wager_status_label.text = "Bet placed: %d on %s" % [amount, _wager_side_name(side)]
+	elif _wager_status_label != null:
+		_wager_status_label.text = reason
+	_update_wager_panel()
+
+
+## Spectator: final settlement from the authority. Credits any payout into the
+## local coin mirror (the authority already wrote our SessionState record) and
+## builds the result line surfaced on the post-match result overlay.
+func _on_wager_settlement(payload: Dictionary) -> void:
+	if not _pvp_spectating:
+		return
+	var s: Dictionary = WagerSync.decode_settlement(payload)
+	var payouts: Dictionary = s.get("payouts", {})
+	var my_token: String = MpProfile.get_token()
+	if not payouts.has(my_token) or _wager_placed_amount <= 0:
+		return
+	var payout: int = int(payouts[my_token])
+	var outcome: String = str(s.get("outcome", ""))
+	if payout > 0:
+		SceneManager.save_manager.add_coins(payout)
+	if outcome == WagerSync.OUTCOME_DRAW or outcome == WagerSync.OUTCOME_ABANDONED:
+		_wager_result_text = "Bet refunded: %d coins returned" % payout
+	elif payout > 0:
+		_wager_result_text = "Bet won! +%d coins" % (payout - _wager_placed_amount)
+	else:
+		_wager_result_text = "Bet lost: -%d coins" % _wager_placed_amount
+	_wager_placed_amount = 0
+	_wager_placed_side = ""
+	if _wager_status_label != null:
+		_wager_status_label.text = _wager_result_text
+	_update_wager_panel()
+
+
+## "Side a" renders at the bottom for a spectator (_local_player_idx = 0 → host
+## perspective, players[0] bottom / players[1] top).
+func _wager_side_name(side: String) -> String:
+	return "Bottom Player" if side == WagerSync.SIDE_A else "Top Player"
+
+
+## Spectator: build the bet panel over the read-only view. Viewport-relative
+## sizing per CLAUDE.md; every control is a tappable Button (mobile + desktop
+## parity — no keyboard-only path).
+func _build_wager_panel() -> void:
+	if not NetworkManager.is_active() or _wager_panel != null:
+		return
+	var panel := PanelContainer.new()
+	panel.name = "WagerPanel"
+	panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	panel.position = Vector2(_vh * 0.02, _vh * 0.14)
+	_float_layer.add_child(panel)
+	_wager_panel = panel
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(_vh * 0.012))
+	panel.add_child(vbox)
+
+	var title := Label.new()
+	title.text = "Spectator Bet"
+	title.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	vbox.add_child(title)
+
+	var side_row := HBoxContainer.new()
+	side_row.add_theme_constant_override("separation", int(_vh * 0.01))
+	vbox.add_child(side_row)
+	var group := ButtonGroup.new()
+	_wager_side_a_btn = _make_wager_side_button(_wager_side_name(WagerSync.SIDE_A), group)
+	_wager_side_a_btn.button_pressed = true
+	_wager_side_a_btn.pressed.connect(func() -> void: _wager_side = WagerSync.SIDE_A)
+	side_row.add_child(_wager_side_a_btn)
+	_wager_side_b_btn = _make_wager_side_button(_wager_side_name(WagerSync.SIDE_B), group)
+	_wager_side_b_btn.pressed.connect(func() -> void: _wager_side = WagerSync.SIDE_B)
+	side_row.add_child(_wager_side_b_btn)
+
+	var amount_row := HBoxContainer.new()
+	amount_row.add_theme_constant_override("separation", int(_vh * 0.01))
+	vbox.add_child(amount_row)
+	_wager_minus_btn = Button.new()
+	_wager_minus_btn.text = "-"
+	_wager_minus_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
+	_wager_minus_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	_wager_minus_btn.pressed.connect(func() -> void: _adjust_wager_amount(-_WAGER_STEP))
+	amount_row.add_child(_wager_minus_btn)
+	_wager_amount_label = Label.new()
+	_wager_amount_label.text = str(_wager_amount)
+	_wager_amount_label.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	_wager_amount_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_wager_amount_label.custom_minimum_size = Vector2(_vh * 0.07, 0)
+	amount_row.add_child(_wager_amount_label)
+	_wager_plus_btn = Button.new()
+	_wager_plus_btn.text = "+"
+	_wager_plus_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
+	_wager_plus_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	_wager_plus_btn.pressed.connect(func() -> void: _adjust_wager_amount(_WAGER_STEP))
+	amount_row.add_child(_wager_plus_btn)
+
+	_wager_place_btn = Button.new()
+	_wager_place_btn.text = "Place Bet"
+	_wager_place_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.055)
+	_wager_place_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_wager_place_btn.pressed.connect(_on_wager_place_pressed)
+	vbox.add_child(_wager_place_btn)
+
+	_wager_status_label = Label.new()
+	_wager_status_label.text = "Bets close after turn %d." % WagerSync.CUTOFF_TURN
+	_wager_status_label.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	vbox.add_child(_wager_status_label)
+	_clamp_wager_amount()
+	_update_wager_panel()
+
+
+func _make_wager_side_button(label_text: String, group: ButtonGroup) -> Button:
+	var b := Button.new()
+	b.text = label_text
+	b.toggle_mode = true
+	b.button_group = group
+	b.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.055)
+	b.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	return b
+
+
+func _adjust_wager_amount(delta: int) -> void:
+	_wager_amount += delta
+	_clamp_wager_amount()
+	if _wager_amount_label != null:
+		_wager_amount_label.text = str(_wager_amount)
+
+
+## Clamp the stepper to [1, cap]. Headroom includes any already-escrowed stake:
+## replacing a bet is validated by the host against balance + prior stake.
+func _clamp_wager_amount() -> void:
+	var cap: int = WagerSync.max_bet(SceneManager.save_manager.coins + _wager_placed_amount)
+	if cap <= 0:
+		_wager_amount = 0
+		return
+	_wager_amount = clampi(_wager_amount, 1, cap)
+
+
+func _on_wager_place_pressed() -> void:
+	if _net == null or _wager_amount <= 0:
+		return
+	if _wager_status_label != null:
+		_wager_status_label.text = "Placing bet..."
+	_net.rpc_id(1, "submit_spectator_bet", WagerSync.encode_bet(_wager_side, _wager_amount))
+
+
+## Refresh enabled/disabled state + the status line. Called on every state mirror
+## (turn_number can advance past the cutoff), on ack, and on settlement.
+func _update_wager_panel() -> void:
+	if _wager_panel == null or not is_instance_valid(_wager_panel):
+		return
+	var open: bool = _state != null and not _pvp_ended \
+			and WagerSync.is_betting_open(_state.turn_number)
+	var can_bet: bool = open \
+			and WagerSync.max_bet(SceneManager.save_manager.coins + _wager_placed_amount) > 0
+	if _wager_side_a_btn != null:
+		_wager_side_a_btn.disabled = not can_bet
+	if _wager_side_b_btn != null:
+		_wager_side_b_btn.disabled = not can_bet
+	if _wager_minus_btn != null:
+		_wager_minus_btn.disabled = not can_bet
+	if _wager_plus_btn != null:
+		_wager_plus_btn.disabled = not can_bet
+	if _wager_place_btn != null:
+		_wager_place_btn.disabled = not can_bet
+	if _wager_status_label == null or _wager_result_text != "":
+		return
+	if not open:
+		if _wager_placed_amount > 0:
+			_wager_status_label.text = "Bets Closed — %d on %s" % [
+				_wager_placed_amount, _wager_side_name(_wager_placed_side)]
+		else:
+			_wager_status_label.text = "Bets Closed"
+	elif not can_bet and _wager_placed_amount <= 0:
+		_wager_status_label.text = "Not enough coins to bet."
 
 # ── Co-op PvE joint battle (GID-099) ─────────────────────────────────────────
 

@@ -577,6 +577,78 @@ Non-combatant party members can **watch** an in-progress PvP duel read-only.
   detached (`_net_sync` is nil), so the broadcast of `recv_pvp_active(false)` is
   deferred via `_pvp_ended_pending_broadcast = true` and fires on `_enter_tree()`.
 
+### Spectator wagers (GID-104 / TID-387)
+
+Spectators of a live duel can bet **coins** on either combatant before a cutoff turn.
+Only coins are ever at risk — cards are never touched. Everything is guarded by
+`NetworkManager.is_active()` (and the spectator-only entry path), so single-player
+never executes any of it.
+
+- **Pure wire format + math — `game_logic/net/WagerSync.gd`** (mirrors `AvatarSync` /
+  `BattleNetProtocol` / `LootRoll`; fully unit-tested in `tests/unit/test_wager_sync.gd`):
+  - Sides: `SIDE_A = "a"` = `players[0]` (host/challenger, rendered at the **bottom**
+    for a spectator, whose perspective is `_local_player_idx = 0`); `SIDE_B = "b"` =
+    `players[1]` (top).
+  - **Cutoff — `is_betting_open(turn_number)`**: bets may be placed/replaced while
+    `turn_number <= CUTOFF_TURN` (**3**). Every peer already has `turn_number` locally
+    via the existing state mirror, so the cutoff needs zero extra wire traffic — the
+    host enforces it authoritatively on each `submit_spectator_bet`, and the spectator
+    UI locks itself ("Bets Closed") from the same mirrored value.
+  - **Caps — `max_bet(coins)`**: the smaller of `MAX_BET_FLAT = 50` and 10 %
+    (`MAX_BET_PCT`) of the bettor's balance (floored — under 10 coins means no betting).
+    `is_valid_bet(side, amount, coins, existing)` validates a replacement bet against
+    the bettor's full headroom (balance + already-escrowed stake).
+  - **Wire**: `encode_bet` / `decode_bet` (`{side, amount}`), `encode_settlement` /
+    `decode_settlement` (`{outcome, payouts: {token: credit}}`). All decoders are
+    fully defaulted and garbage-tolerant; a forged side normalizes to `""` (rejected).
+  - **Settlement math — `settle(bets, outcome)`**: returns the coins to **credit** per
+    bettor (the stake was already debited at placement). Clean win: winners get
+    `2 × stake` (1:1 payout), losers get 0. `OUTCOME_DRAW` / `OUTCOME_ABANDONED`:
+    everyone gets exactly their stake back. Note the 1:1 model is house-banked (the
+    session absorbs imbalance; it is not a parimutuel pool).
+- **RPCs — `BattleNetSync.gd`**: `submit_spectator_bet(payload)` (spectator → host),
+  `recv_wager_ack(accepted, reason, side, amount, remaining_coins)` and
+  `recv_wager_settlement(payload)` (host → spectator). All reliable, same relay node.
+- **Authority escrow — `BattleScene._on_wager_bet_submitted`**: validates sender is a
+  registered spectator (`_spectators`) and not a combatant (`_pvp_peer_to_idx` for the
+  referee; combatant clients are never in `_spectators` — **no betting on your own
+  match**), the cutoff, and the caps against the bettor's `SessionState` coins. On
+  accept, the stake is **debited directly from the member record**
+  (`SessionStore.get_state().update_member` + `mark_dirty` — the
+  `_grant_chest_loot_to_token` pattern in the debit direction) and held in the volatile
+  `_wager_bets` dict (`token → {side, amount, peer_id}`). Replacing a bet credits the
+  old stake back first. The peer→token lookup crosses the detached-WorldScene boundary
+  via `SceneManager.session_token_for_peer(peer_id)` → the live-or-saved WorldScene's
+  `get_session_token_for_peer` (which only touches `multiplayer` when inside the tree).
+- **Settlement — `BattleScene._settle_spectator_wagers(outcome)`** (one-shot,
+  `_wagers_settled`): called from every host end path **before** the `pvp_ended`
+  broadcast, so the settlement RPC lands first on the same reliable channel — normal
+  game-over and both surrender paths settle on the winning side; the reconnect-grace
+  **forfeit** and a host-side `session_ended` mid-duel settle as `OUTCOME_ABANDONED`
+  (refund). Payouts are credited straight into each bettor's `SessionState` record,
+  then unicast to each still-connected bettor.
+- **Refunds**: a disconnecting **spectator's** pending bet is refunded immediately
+  (`_refund_wager_for_peer` from `_on_pvp_peer_disconnected`; they re-adopt the
+  restored record on reconnect). This handler also got an opportunistic fix: on a
+  listen server the old `idx = 1` fallback treated *any* disconnected pid as the
+  combatant client — a spectator leaving would start a bogus 45 s grace window; now a
+  pid found in `_spectators` is removed and ignored.
+- **Local coin mirror**: the ack carries the authoritative remainder and the spectator
+  applies `add_coins(remaining - current)`; settlement credits are applied the same
+  way. This keeps the in-memory character consistent with the session record so the
+  periodic persist-back (`_tick_session_persist`) can't clobber the escrow/payout with
+  stale pre-bet coins once back in the world.
+- **Bet panel UI — `BattleScene._build_wager_panel`** (spectators only, on
+  `_float_layer`): viewport-relative per CLAUDE.md, all controls are tappable Buttons
+  (mobile + desktop parity) — two side toggle buttons ("Bottom Player" / "Top
+  Player"), a −/+ amount stepper (step 5, clamped to `max_bet`), "Place Bet", and a
+  status line. `_update_wager_panel()` runs on every state mirror: past the cutoff all
+  controls disable and the status shows **"Bets Closed"** (with the locked bet, if
+  any). The settlement line ("Bet won! +N coins" / "Bet lost: -N coins" / refund) is
+  shown both on the panel and on the post-match result overlay via the new optional
+  `wager_note` parameter of `BattleResultUI.show_pvp_result` ("" default keeps every
+  combatant call site pixel-identical).
+
 ### Social features (GID-101 / TID-365 & TID-366)
 
 #### Emotes & map pings

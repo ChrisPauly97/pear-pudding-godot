@@ -518,7 +518,10 @@ func show_ghost_duel_result(did_win: bool, coin_reward: int) -> void:
 ## perspective; coins_delta is the net coin change from any wager (positive = won,
 ## negative = lost, 0 = unwagered). The Continue button emits pvp_battle_ended,
 ## which SceneManager handles by restoring the shared co-op world.
-func show_pvp_result(did_win: bool, coins_delta: int = 0) -> void:
+## wager_note (GID-104 / TID-387): a spectator's bet-settlement line ("Bet won!
+## +N coins" / "Bet lost: -N coins" / refund). "" (default) adds nothing, so
+## every existing combatant call site renders exactly as before.
+func show_pvp_result(did_win: bool, coins_delta: int = 0, wager_note: String = "") -> void:
 	if _float_layer:
 		_float_layer.hide()
 	var overlay := PanelContainer.new()
@@ -557,6 +560,15 @@ func show_pvp_result(did_win: bool, coins_delta: int = 0) -> void:
 		wager_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
 		wager_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		vbox.add_child(wager_lbl)
+
+	# Spectator bet settlement (GID-104 / TID-387) — gold for a win/refund, red for a loss.
+	if wager_note != "":
+		var note_lbl := Label.new()
+		note_lbl.text = wager_note
+		note_lbl.modulate = Color(1.0, 0.5, 0.5) if wager_note.begins_with("Bet lost") else Color(1.0, 0.85, 0.3)
+		note_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+		note_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		vbox.add_child(note_lbl)
 
 	var btn := Button.new()
 	btn.text = "Continue"

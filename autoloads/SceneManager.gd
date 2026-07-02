@@ -612,6 +612,19 @@ func enter_pvp_spectator() -> void:
 	_state = State.BATTLE
 
 
+## Resolve a connected peer's GID-095 session token, whether WorldScene is currently
+## live in the tree or detached during an active PvP battle (GID-104 / TID-387:
+## spectator-wager escrow/settlement runs from BattleScene, which is exactly when
+## WorldScene is detached — see enter_pvp_battle/enter_pvp_spectator above). Looks at
+## the live scene first, falling back to the saved detached instance. Returns "" if
+## unknown (e.g. a peer whose identity handshake hasn't completed yet).
+func session_token_for_peer(peer_id: int) -> String:
+	var ws: Node = get_tree().current_scene if _state == State.WORLD else _saved_world_scene
+	if ws == null or not ws.has_method("get_session_token_for_peer"):
+		return ""
+	return str(ws.get_session_token_for_peer(peer_id))
+
+
 ## Enters a co-op PvE battle from the shared world (GID-099).
 ## All N allies fight a single shared boss together. The authority (host or dedicated
 ## server) owns the canonical GameState; each client sends intents and renders the

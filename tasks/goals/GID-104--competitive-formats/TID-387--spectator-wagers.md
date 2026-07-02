@@ -2,7 +2,7 @@
 
 **Goal:** GID-104
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -50,12 +50,41 @@ A new pure wire format `game_logic/net/WagerSync.gd` encodes/decodes spectator b
 
 ## Plan
 
-_Written during Plan phase._
+1. **Pure logic — `game_logic/net/WagerSync.gd`** (new, mirrors `AvatarSync`/`BattleNetProtocol`/`LootRoll`; no scene deps):
+   - Constants: `SIDE_A = "a"` (players[0]), `SIDE_B = "b"` (players[1]), `OUTCOME_DRAW`, `OUTCOME_ABANDONED`, `CUTOFF_TURN = 3`, `MAX_BET_FLAT = 50`, `MAX_BET_PCT = 0.10`.
+   - Cutoff: `is_betting_open(turn_number)` — every peer already mirrors `GameState.turn_number`, so no extra wire traffic is needed for the cutoff; the host enforces it authoritatively and the spectator UI locks from the same value.
+   - Caps: `max_bet(coins)` = min(flat, 10% floored); `is_valid_bet(side, amount, coins, existing)` validates a replacement against total headroom (balance + prior stake).
+   - Wire: `encode_bet`/`decode_bet` (`{side, amount}`), `encode_settlement`/`decode_settlement` (`{outcome, payouts}`). All decoders garbage-tolerant, forged sides normalize to `""`.
+   - Settlement: `settle(bets, outcome) -> {token: credit}` — 1:1 payout (winner credited 2× stake since the stake was already debited), losers 0, draw/abandoned refund exactly the stake.
+2. **RPCs — `BattleNetSync.gd`** (3 new reliable RPCs in the TID-367 spectate style): `submit_spectator_bet` (spectator→host), `recv_wager_ack`, `recv_wager_settlement` (host→spectator).
+3. **Peer→token across the detached WorldScene**: new `SceneManager.session_token_for_peer(peer_id)` reads the live scene in WORLD state or `_saved_world_scene` during BATTLE; backed by a new public `WorldScene.get_session_token_for_peer` over `_session_token_by_peer` (guarding `multiplayer` access behind `is_inside_tree()` since the scene is detached mid-battle).
+4. **Authority escrow/settlement — `BattleScene`**:
+   - `_wager_bets: {token → {side, amount, peer_id}}` + one-shot `_wagers_settled`.
+   - `_on_wager_bet_submitted`: guards (`NetworkManager.is_active()`, `_is_pvp_host()`, `_pvp`, not ended, sender in `_spectators` and not in `_pvp_peer_to_idx` — no betting on your own match), cutoff, `is_valid_bet` against the SessionState record; debits the stake directly from the member record (the `_grant_chest_loot_to_token` write pattern in reverse) and acks with the authoritative remainder.
+   - `_settle_spectator_wagers(outcome)`: called from every host end path *before* the `pvp_ended` broadcast (normal game-over + both surrender paths → winning side; reconnect-grace forfeit + host `session_ended` → `OUTCOME_ABANDONED` refund); credits payouts into member records and unicasts the settlement to still-connected bettors.
+   - `_refund_wager_for_peer(pid)` from `_on_pvp_peer_disconnected`: immediate refund for a disconnecting spectator. Opportunistic fix in the same handler: a pid found in `_spectators` must not trip the listen-server `idx = 1` combatant fallback (bogus grace window).
+5. **Spectator UI — `BattleScene._build_wager_panel`** (built only in the `_pvp_spectating` branch of `_setup_pvp_battle`, gated by `NetworkManager.is_active()`): viewport-relative panel on `_float_layer` — side toggle buttons ("Bottom Player"/"Top Player"), −/+ amount stepper (step 5, clamped to `max_bet`), "Place Bet", status line. `_update_wager_panel()` re-evaluates on every state mirror; past cutoff everything disables and shows "Bets Closed". Ack/settlement apply the exact authoritative coin delta locally (`add_coins(remaining - current)`) so the periodic session persist-back can't clobber the record. Settlement line surfaces on the panel and on the result overlay via a new optional `wager_note` param on `BattleResultUI.show_pvp_result` ("" default = existing call sites unchanged).
+6. **Tests — `tests/unit/test_wager_sync.gd`**: cutoff, caps (flat/pct/boundaries), validation (incl. replace-bet headroom), encode/decode round-trips + garbage tolerance, settlement math (win/loss/mixed/draw/abandoned/garbage entries), end-to-end net-effect flow.
+7. **Docs**: new "Spectator wagers (GID-104 / TID-387)" section in `docs/agent/multiplayer-coop.md` after the TID-367 spectate section.
 
 ## Changes Made
 
-_Filled after Build phase._
+**New files:**
+- `game_logic/net/WagerSync.gd` — pure spectator-wager helpers: sides/outcomes, cutoff (`CUTOFF_TURN = 3`, checked against the mirrored `turn_number`), bet caps (min of 50 flat and 10% of balance), `is_valid_bet` (replacement-aware headroom), `encode_bet`/`decode_bet`, `settle` (1:1 payout; draw/abandoned refund), `encode_settlement`/`decode_settlement`. No scene deps; all decoders garbage-tolerant.
+- `tests/unit/test_wager_sync.gd` — 39 unit tests covering cutoff, caps, validation, wire round-trips + garbage tolerance, payout math, and the full place→settle net-effect flow.
+
+**Modified files:**
+- `scenes/battle/BattleNetSync.gd` *(shared)* — added the spectator-wager RPC trio (`submit_spectator_bet`, `recv_wager_ack`, `recv_wager_settlement`), an isolated block between the spectate and team-duel sections.
+- `scenes/battle/BattleScene.gd` *(shared)* — `WagerSync` preload + a self-contained wager var block; authority escrow (`_on_wager_bet_submitted` — spectators only, never combatants; direct SessionState debit), one-shot settlement (`_settle_spectator_wagers`) wired into the four host end paths (game-over, remote/local surrender → winning side; grace-expired forfeit and host `session_ended` → abandoned refund) always *before* the `pvp_ended` broadcast; spectator disconnect refund (`_refund_wager_for_peer`); spectator bet panel (`_build_wager_panel` + `_update_wager_panel`, viewport-relative, all-Button tap targets, "Bets Closed" lock from each state mirror) and ack/settlement handlers that mirror the authoritative coin deltas into the local character. Opportunistic bug fix: `_on_pvp_peer_disconnected` no longer treats a disconnecting **spectator** as the listen-server combatant client (previously any pid hit the `idx = 1` fallback and started a bogus 45 s grace window → forfeit).
+- `scenes/battle/BattleResultUI.gd` *(shared)* — `show_pvp_result` gained an optional `wager_note: String = ""` third parameter rendering one extra settlement label; all existing call sites unchanged.
+- `autoloads/SceneManager.gd` *(shared)* — new `session_token_for_peer(peer_id)` helper resolving through the live or detached (`_saved_world_scene`) WorldScene.
+- `scenes/world/WorldScene.gd` *(shared)* — new public `get_session_token_for_peer(peer_id)` accessor over `_session_token_by_peer` (guards `multiplayer` behind `is_inside_tree()` because it is called while the scene is detached mid-battle).
+- `docs/agent/multiplayer-coop.md` — new "Spectator wagers (GID-104 / TID-387)" section.
+
+**Guard rails honored:** all wager logic inert without `NetworkManager.is_active()` (panel only exists for `_pvp_spectating`, authority handlers guard explicitly); single-player byte-for-byte unchanged; only coins at risk, never cards; no betting on your own match; bet cap enforced host-side; refunds on spectator disconnect, abandoned match, and (future) draw.
+
+**Not run (environment):** Godot is unavailable in this environment, so the headless import and the unit suite could not be executed; the diff was hand-audited against every CLAUDE.md parse pitfall (no `:=` on Variant RHS, no `//`, no 2-arg `Object.get()`, preloads for all cross-file class references, RPC arg counts match).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md`: added the "Spectator wagers (GID-104 / TID-387)" section after "Spectating a duel" — WagerSync pure helpers (cutoff/caps/settlement math and the house-banked 1:1 payout note), the three BattleNetSync RPCs, authority escrow + settlement/refund flow (including the `session_token_for_peer` detached-WorldScene bridge and the local coin-mirror rationale vs. `_tick_session_persist`), the bet panel UI/mobile parity, the "Bets Closed" lock, and the opportunistic spectator-disconnect fix.

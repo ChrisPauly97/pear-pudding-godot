@@ -1514,6 +1514,22 @@ func _on_loot_roll_result_received(payload: Dictionary) -> void:
 	GameBus.hud_message_requested.emit("%s won the loot roll!" % winner_name)
 
 
+## Public accessor for SceneManager.session_token_for_peer (GID-104 / TID-387),
+## called from BattleScene while this scene is detached from the tree during a PvP
+## battle/spectate session (spectator-wager escrow needs to resolve a spectator's
+## peer_id to their GID-095 session token). Returns "" for an unresolved peer (e.g.
+## the identity handshake hasn't completed) — callers must treat that as ineligible.
+func get_session_token_for_peer(peer_id: int) -> String:
+	var token: String = str(_session_token_by_peer.get(peer_id, ""))
+	# Local-peer convenience branch: only touch `multiplayer` while inside the tree —
+	# this accessor is typically called while WorldScene is DETACHED (mid-battle),
+	# where the node has no SceneTree and therefore no MultiplayerAPI. Remote lookups
+	# (the only ones the wager path actually needs) never require it.
+	if token == "" and is_inside_tree() and peer_id == multiplayer.get_unique_id():
+		return MpProfile.get_token()
+	return token
+
+
 ## Resolve a session token to a display name for the loot-roll toast: the local
 ## player's own name, or the matching remote identity's name, or a fallback.
 func _display_name_for_token(token: String) -> String:
