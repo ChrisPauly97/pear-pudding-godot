@@ -26,6 +26,8 @@ Story beats 2–3 (night camp with rabbit hunt; fire-making lesson next morning)
 - **Day/night:** the game has a day/night cycle (SaveManager time of day); the beat may simply narrate nightfall rather than forcing clock changes — keep scope small.
 - Mobile parity rule (CLAUDE.md): any interaction needs a tap target, not just a key.
 
+- **Co-op (up to 4 players):** this feature must follow the TID-408 design rules (shared-flag arbitration via SessionState, exactly-once beat effects, authority-broadcast narration, single synced Maiteln, no write-through to solo saves). Read TID-408--coop-story-compatibility.md before Plan.
+
 ## Plan
 
 _Written during Plan phase._

@@ -25,6 +25,8 @@ Story-driven tutorial battles need full determinism: a fixed player deck (ignori
 - **Validation rule:** run `godot --headless --editor --quit` after any .gd edit (CLAUDE.md); GDScript strict typing pitfalls (`:=` Variant inference) documented in CLAUDE.md.
 - Add pure-logic tests in tests/ (GUT): deterministic draw order, opening hand count, no shuffle, completion flag set.
 
+- **Co-op (up to 4 players):** this feature must follow the TID-408 design rules (shared-flag arbitration via SessionState, exactly-once beat effects, authority-broadcast narration, single synced Maiteln, no write-through to solo saves). Read TID-408--coop-story-compatibility.md before Plan.
+
 ## Plan
 
 _Written during Plan phase._

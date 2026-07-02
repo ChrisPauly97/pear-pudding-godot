@@ -25,6 +25,8 @@ The story is a duo road-trip, but Maiteln only exists as a battle companion and 
 - **Do NOT** call look_at on the isometric camera or break camera follow (CLAUDE.md camera rules).
 - Run `godot --headless --editor --quit` after any .gd edit; preload all resources.
 
+- **Co-op (up to 4 players):** this feature must follow the TID-408 design rules (shared-flag arbitration via SessionState, exactly-once beat effects, authority-broadcast narration, single synced Maiteln, no write-through to solo saves). Read TID-408--coop-story-compatibility.md before Plan.
+
 ## Plan
 
 _Written during Plan phase._

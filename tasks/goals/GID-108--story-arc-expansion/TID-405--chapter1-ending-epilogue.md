@@ -24,6 +24,8 @@ Chapter 1 currently dead-ends at `chapter1_temple_council`. The approved ending 
 - **GID-020 bookkeeping:** TID-067 was marked superseded by this task when GID-108 was created; on completion, tick GID-020's remaining acceptance criteria or note them satisfied here.
 - Ending must be reachable on mobile (tap-through pages) and desktop; audio: optional narration audio hook exists in the scroll system.
 
+- **Co-op (up to 4 players):** this feature must follow the TID-408 design rules (shared-flag arbitration via SessionState, exactly-once beat effects, authority-broadcast narration, single synced Maiteln, no write-through to solo saves). Read TID-408--coop-story-compatibility.md before Plan.
+
 ## Plan
 
 _Written during Plan phase._

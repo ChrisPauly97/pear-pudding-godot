@@ -25,6 +25,8 @@ Chapter 2 ("The Road to Larik", docs/human/story.md) needs two new small named m
 - **Scrolls:** larik hidden-letter scroll + marsax traitor's-seal scroll — register in autoloads/ScrollRegistry.gd (preload consts) with narration text from story.md; needs .uid sidecars.
 - Headless import validation after MapRegistry edits (CLAUDE.md); tests: extend the map-loading test (tests/ has named-map tests — verify larik/marsax_hold parse and expose SPAWN).
 
+- **Co-op (up to 4 players):** this feature must follow the TID-408 design rules (shared-flag arbitration via SessionState, exactly-once beat effects, authority-broadcast narration, single synced Maiteln, no write-through to solo saves). Read TID-408--coop-story-compatibility.md before Plan.
+
 ## Plan
 
 _Written during Plan phase._

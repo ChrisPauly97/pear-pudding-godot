@@ -21,6 +21,7 @@ Chapter 1's plumbing (flags, ObjectiveTracker, 5 named maps, Isfig rival arc, sc
 | TID-405 | Chapter 1 ending scene + post-council epilogue world reactivity | agent | pending | TID-400 |
 | TID-406 | Chapter 2 named maps skeleton (larik, marsax_hold, war-camp dungeon entry) | agent | pending | TID-400 |
 | TID-407 | Chapter 2 flags, objectives, beat wiring & scripted ambush battle | agent | pending | TID-405, TID-406 |
+| TID-408 | Co-op compatibility pass — Chapters 1 & 2 with up to 4 players | agent | pending | TID-402, TID-405, TID-407 |
 
 ## Acceptance Criteria
 
@@ -31,4 +32,5 @@ Chapter 1's plumbing (flags, ObjectiveTracker, 5 named maps, Isfig rival arc, sc
 - [ ] Chapter 1 ending plays via narration overlay at King Eldar after council conditions are met, sets `chapter1_complete`, and returns to a playable epilogue world with war-preparation dialogue
 - [ ] Chapter 2 maps (larik, marsax_hold) load, are registered in MapRegistry, and Chapter 2 beats 1–7 are playable through `chapter2_complete` with objectives shown in ObjectiveTracker
 - [ ] The Chapter 2 scripted ambush battle reuses the TID-401 framework to introduce spell cards
+- [ ] In a co-op session (up to 4 players), all new story beats follow the GID-098 shared-spine rules: any member's trigger advances the party exactly once, narration overlays show on all clients, exactly one synced Maiteln follows the party, and co-op progress never writes through to personal solo saves (TID-408 design rules)
 - [ ] All tests pass headless (`godot --headless --path . -s tests/runner.gd`)

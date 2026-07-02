@@ -26,6 +26,8 @@ With the maps (TID-406) and the Chapter 1 ending (TID-405) in place, this task w
 - **Rival hook (optional, keep scope tight):** Isfig's finale dialogue ("Perhaps it's time I stood beside him") leaves room for a Ch2 cameo — note for a future goal, do not implement here.
 - Headless import + full test run after every script edit (CLAUDE.md).
 
+- **Co-op (up to 4 players):** this feature must follow the TID-408 design rules (shared-flag arbitration via SessionState, exactly-once beat effects, authority-broadcast narration, single synced Maiteln, no write-through to solo saves). Read TID-408--coop-story-compatibility.md before Plan.
+
 ## Plan
 
 _Written during Plan phase._
