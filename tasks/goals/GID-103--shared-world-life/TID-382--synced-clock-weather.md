@@ -7,9 +7,9 @@
 
 ## Lock
 
-**Session:** none
-**Acquired:** —
-**Expires:** —
+**Session:** claude/end-to-end-goal-nbilf4
+**Acquired:** 2026-07-02T19:33:45Z
+**Expires:** 2026-07-02T20:03:45Z
 
 ## Context
 
