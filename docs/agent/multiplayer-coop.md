@@ -577,6 +577,78 @@ Non-combatant party members can **watch** an in-progress PvP duel read-only.
   detached (`_net_sync` is nil), so the broadcast of `recv_pvp_active(false)` is
   deferred via `_pvp_ended_pending_broadcast = true` and fires on `_enter_tree()`.
 
+### Spectator wagers (GID-104 / TID-387)
+
+Spectators of a live duel can bet **coins** on either combatant before a cutoff turn.
+Only coins are ever at risk — cards are never touched. Everything is guarded by
+`NetworkManager.is_active()` (and the spectator-only entry path), so single-player
+never executes any of it.
+
+- **Pure wire format + math — `game_logic/net/WagerSync.gd`** (mirrors `AvatarSync` /
+  `BattleNetProtocol` / `LootRoll`; fully unit-tested in `tests/unit/test_wager_sync.gd`):
+  - Sides: `SIDE_A = "a"` = `players[0]` (host/challenger, rendered at the **bottom**
+    for a spectator, whose perspective is `_local_player_idx = 0`); `SIDE_B = "b"` =
+    `players[1]` (top).
+  - **Cutoff — `is_betting_open(turn_number)`**: bets may be placed/replaced while
+    `turn_number <= CUTOFF_TURN` (**3**). Every peer already has `turn_number` locally
+    via the existing state mirror, so the cutoff needs zero extra wire traffic — the
+    host enforces it authoritatively on each `submit_spectator_bet`, and the spectator
+    UI locks itself ("Bets Closed") from the same mirrored value.
+  - **Caps — `max_bet(coins)`**: the smaller of `MAX_BET_FLAT = 50` and 10 %
+    (`MAX_BET_PCT`) of the bettor's balance (floored — under 10 coins means no betting).
+    `is_valid_bet(side, amount, coins, existing)` validates a replacement bet against
+    the bettor's full headroom (balance + already-escrowed stake).
+  - **Wire**: `encode_bet` / `decode_bet` (`{side, amount}`), `encode_settlement` /
+    `decode_settlement` (`{outcome, payouts: {token: credit}}`). All decoders are
+    fully defaulted and garbage-tolerant; a forged side normalizes to `""` (rejected).
+  - **Settlement math — `settle(bets, outcome)`**: returns the coins to **credit** per
+    bettor (the stake was already debited at placement). Clean win: winners get
+    `2 × stake` (1:1 payout), losers get 0. `OUTCOME_DRAW` / `OUTCOME_ABANDONED`:
+    everyone gets exactly their stake back. Note the 1:1 model is house-banked (the
+    session absorbs imbalance; it is not a parimutuel pool).
+- **RPCs — `BattleNetSync.gd`**: `submit_spectator_bet(payload)` (spectator → host),
+  `recv_wager_ack(accepted, reason, side, amount, remaining_coins)` and
+  `recv_wager_settlement(payload)` (host → spectator). All reliable, same relay node.
+- **Authority escrow — `BattleScene._on_wager_bet_submitted`**: validates sender is a
+  registered spectator (`_spectators`) and not a combatant (`_pvp_peer_to_idx` for the
+  referee; combatant clients are never in `_spectators` — **no betting on your own
+  match**), the cutoff, and the caps against the bettor's `SessionState` coins. On
+  accept, the stake is **debited directly from the member record**
+  (`SessionStore.get_state().update_member` + `mark_dirty` — the
+  `_grant_chest_loot_to_token` pattern in the debit direction) and held in the volatile
+  `_wager_bets` dict (`token → {side, amount, peer_id}`). Replacing a bet credits the
+  old stake back first. The peer→token lookup crosses the detached-WorldScene boundary
+  via `SceneManager.session_token_for_peer(peer_id)` → the live-or-saved WorldScene's
+  `get_session_token_for_peer` (which only touches `multiplayer` when inside the tree).
+- **Settlement — `BattleScene._settle_spectator_wagers(outcome)`** (one-shot,
+  `_wagers_settled`): called from every host end path **before** the `pvp_ended`
+  broadcast, so the settlement RPC lands first on the same reliable channel — normal
+  game-over and both surrender paths settle on the winning side; the reconnect-grace
+  **forfeit** and a host-side `session_ended` mid-duel settle as `OUTCOME_ABANDONED`
+  (refund). Payouts are credited straight into each bettor's `SessionState` record,
+  then unicast to each still-connected bettor.
+- **Refunds**: a disconnecting **spectator's** pending bet is refunded immediately
+  (`_refund_wager_for_peer` from `_on_pvp_peer_disconnected`; they re-adopt the
+  restored record on reconnect). This handler also got an opportunistic fix: on a
+  listen server the old `idx = 1` fallback treated *any* disconnected pid as the
+  combatant client — a spectator leaving would start a bogus 45 s grace window; now a
+  pid found in `_spectators` is removed and ignored.
+- **Local coin mirror**: the ack carries the authoritative remainder and the spectator
+  applies `add_coins(remaining - current)`; settlement credits are applied the same
+  way. This keeps the in-memory character consistent with the session record so the
+  periodic persist-back (`_tick_session_persist`) can't clobber the escrow/payout with
+  stale pre-bet coins once back in the world.
+- **Bet panel UI — `BattleScene._build_wager_panel`** (spectators only, on
+  `_float_layer`): viewport-relative per CLAUDE.md, all controls are tappable Buttons
+  (mobile + desktop parity) — two side toggle buttons ("Bottom Player" / "Top
+  Player"), a −/+ amount stepper (step 5, clamped to `max_bet`), "Place Bet", and a
+  status line. `_update_wager_panel()` runs on every state mirror: past the cutoff all
+  controls disable and the status shows **"Bets Closed"** (with the locked bet, if
+  any). The settlement line ("Bet won! +N coins" / "Bet lost: -N coins" / refund) is
+  shown both on the panel and on the post-match result overlay via the new optional
+  `wager_note` parameter of `BattleResultUI.show_pvp_result` ("" default keeps every
+  combatant call site pixel-identical).
+
 ### Social features (GID-101 / TID-365 & TID-366)
 
 #### Emotes & map pings
@@ -937,6 +1009,96 @@ the member list + ratings the way `recv_party_bounties_snapshot` does for
 bounties). Extending this to clients is a natural follow-up but out of scope here
 — see BID list for the corresponding backlog entry.
 
+### Draft Duels — sealed-deck PvP (GID-104 / TID-385)
+
+The fairest PvP format: both duelists build a deck **live** from **identical
+seeded card pools**, so a veteran's `owned_cards` collection gives zero advantage
+— only pick quality matters. Reuses the Endless Spire's 1-of-3 pick logic
+(GID-038, `SpireDraft.generate_picks`) for the rounds and the normal 1v1 PvP
+battle engine (GID-091) for the duel itself.
+
+#### Model — deterministic shared seed, no pick orchestration
+
+Both peers derive the **identical sequence** of `NUM_ROUNDS = 8` (==
+`IsoConst.DECK_MIN`, so a finished draft deck is always battle-legal) pick rounds
+of 3 options each from one shared integer seed, via the pure, unit-tested
+**`game_logic/net/DraftDuelGen.gd`** (mirrors `BattleNetProtocol`/`AvatarSync`):
+
+- `generate_rounds(seed_val, pool_templates) -> Array` — seeds one RNG, then calls
+  `SpireDraft.generate_picks` 8 times with `floor = round_idx + 1`, so later
+  rounds skew toward higher tiers (the same escalation curve the Spire uses).
+  Reuse, not reimplementation, of the tier-weighted pick algorithm.
+- `encode_seed(seed_val)` / `decode_seed(payload)` — versioned, garbage-tolerant
+  wire pair for the challenge handshake payload.
+- `make_drafted_instance(template_id, tier, round_idx, owner_token, tmpl)` —
+  builds a **transient** `CardInstanceUtil`-shaped instance dict with a synthetic
+  `"draft_<token>_<round>_<id>"` uid and the template's **base stats** (no rarity
+  roll — identical stats for both duelists is the point of a sealed format).
+
+Because both peers see the *same options* every round (not a shared/limited pool
+they compete over), there is nothing to arbitrate — each peer picks
+independently and **only the two finished decks cross the wire, once each**. The
+alternative (host relays each pick live) was rejected in the task's Plan phase:
+it needs a stateful start/pick/ack RPC set that determinism makes unnecessary.
+
+#### Wire — 3 new reliable `NetSync` RPCs
+
+| RPC | Direction | Purpose |
+|---|---|---|
+| `request_draft_duel(payload)` | challenger → target | `DraftDuelGen.encode_seed()` payload with a fresh `randi()` seed |
+| `respond_draft_duel(accepted, payload)` | target → challenger | accept echoes the seed payload back so both provably draft from the same seed |
+| `submit_draft_duel_deck(deck)` | either duelist → the other | the sender's finished transient deck; symmetric, whoever finishes first waits |
+
+#### Flow
+
+1. Proximity to another player (same `_challenge_target_peer` scan as the 1v1
+   challenge) shows a **"Draft Duel"** HUD button below the Ranked toggle
+   (`_ensure_draft_duel_button` / `_update_draft_duel_proximity` — a
+   `Button.pressed` tap/click target, mobile + desktop parity). **No `DECK_MIN`
+   gate** — a draft duel needs no collection at all.
+2. Target sees an Accept/Decline panel (`_show_draft_accept_panel`); a peer
+   already mid-handshake auto-declines so the challenger isn't left hanging.
+3. On accept, **both peers locally** open `scenes/ui/DraftDuelPickScene.gd` (new,
+   built fully in code like `PackOpenScene` — no `.tscn`; viewport-relative,
+   portrait-stacking, modeled on `SpireDraftScene`) seeded with the agreed seed.
+   Zero network traffic while picking.
+4. After the 8th pick, the overlay emits `draft_finished(deck)` and switches to a
+   "Waiting for opponent…" panel; WorldScene sends the deck via
+   `submit_draft_duel_deck` and enters the duel (`_maybe_enter_draft_duel`) once
+   **both** its own and the opponent's decks are present — no extra "go" signal;
+   the PvP client's existing `request_sync` retry loop absorbs entry-order skew.
+5. Entry mirrors `_enter_pvp` (spectator `recv_pvp_active` broadcast, opponent
+   reconnect token) but calls `SceneManager.enter_pvp_battle(local_idx, opp_deck,
+   0, opp_token, false, my_drafted_deck)` — the new trailing
+   **`local_deck_override`** parameter, threaded into
+   `BattleScene.pvp_local_deck_override`. `_build_pvp_decks`'s listen-server host
+   branch uses the override for `players[0]` instead of
+   `SaveManager.get_deck_instances()` when non-empty — the only change the battle
+   engine needed; the client side never builds decks (host-authoritative mirror).
+
+#### Invariants & scope
+
+- **Transient by construction**: drafted decks exist only in the pick overlay and
+  the one duel's `GameState`. Nothing writes them to `owned_cards`, `SaveManager`,
+  or `SessionState`; the synthetic `draft_` uid namespace can never collide with
+  real instance uids even if misused.
+- **Always casual**: never ranked (`_pvp_ranked` forced false — mixed-format ELO
+  would corrupt the constructed ladder), never wagered (`ante_coins = 0`). The
+  host's champion win/loss record still updates (it counts PvP duels generally).
+- **Aborts**: a draft in flight is cancelled (picker freed, state reset, tip
+  shown) if the opponent disconnects or the session ends
+  (`_abort_draft_duel_for_peer` / `_abort_draft_duel`, hooked into
+  `_on_coop_peer_disconnected` / `_on_coop_session_ended`).
+- **Out of scope (v1)**: dedicated-server draft routing (button hidden when
+  `_session_dedicated`; listen-server only), draft-duel reconnect resume (a mid-
+  draft drop aborts; a mid-*battle* drop uses the normal TID-372 grace window but
+  a resumed host would rebuild from its collection — LAN-trust accepted), and
+  spectating the *picking* phase (spectating the resulting battle works via the
+  normal TID-367 flow).
+- Unit tests: `tests/unit/test_draft_duel_gen.gd` (round shape, same-seed
+  determinism, seed wire round-trip + garbage tolerance, transient instance
+  shape/uid namespacing).
+
 ## Persistent Sessions & Per-Player Progress (GID-095)
 
 Each server keeps a **persistent session**: shared world progress plus a roster of
@@ -1256,6 +1418,7 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
 | `tests/unit/test_mp_profile_friends.gd` | unit (auto-run) | MpProfile friends list: add/dedupe-by-token/move-to-front, blank-token no-op, name/color sanitization, remove (existing + missing), `is_friend` true/false/blank, 50-entry cap eviction (keeps newest, drops oldest), `touch_friend_last_seen` (updates existing, no-op for non-friend), `get_friends` defensive copy, JSON persistence shape round-trip via a temp `user://` file (17 cases) (GID-102 / TID-375) |
 | `tests/unit/test_loot_roll.gd` | unit (auto-run) | LootRoll need-beats-greed (multi-seed), tie-break by highest rolled value within a tier, deterministic-with-seeded-RNG repeatability, all-pass/empty-choices has no winner, unrecognized choice normalizes to pass, timeout-as-pass equivalence, encode/decode round-trip + garbage/null/non-container tolerance for start/choice/result (24 cases) (GID-102 / TID-381) |
+| `tests/unit/test_draft_duel_gen.gd` | unit (auto-run) | DraftDuelGen sealed-pool rounds: NUM_ROUNDS × 3 shape, all picks in pool, no in-round duplicates, empty-pool tolerance, same-seed determinism (the fairness invariant), seed divergence, late-round tier escalation; encode/decode_seed round-trip + garbage/null/missing-key tolerance; make_drafted_instance shape + draft-namespaced uid + per-round uid uniqueness + tier→rarity mapping/clamp; tier_for_template bucket parity with SpireDraft (17 cases) (GID-104 / TID-385) |
 | `tests/net_coop_smoke.gd` | on-demand SceneTree | Real ENet loopback connect + NetSync RPC + AvatarSync decode end to end |
 | `tests/net_coop_npeer_smoke.gd` | on-demand SceneTree | 3-peer (host + 2 clients) loopback: host avatar reaches both clients, and a **client→client** identity packet is relayed by the host (proves the server-relay path N-peer rendering depends on) + PlayerIdentity decode (GID-094) |
 | `tests/net_discovery_smoke.gd` | on-demand SceneTree | Real loopback UDP discovery request/reply |
@@ -1700,3 +1863,84 @@ absent (solo / 2-player context).
 All five are `magic_type = "light"` spells with `.tres` + `.uid` sidecars in `data/cards/`
 and are registered in `CardRegistry` via `const _C_COOP_*` preloads. The card-count
 assertion in `tests/unit/test_card_registry.gd` was updated from 100 → 105.
+
+## Session Tournaments (GID-104 / TID-386)
+
+Host-run round-robin bracket for 3–4 session players — a marquee event that
+gives everyone in the session structured competition and non-combatants an
+automatic front-row seat.
+
+### Key Features
+
+- **Round-robin bracket** — every participant plays every other participant
+  exactly once (3 matches for 3 players, 6 for 4). Chosen over single-elim: no
+  byes, nobody is knocked out after one loss, and the schedule is a flat
+  ordered list resolved one match at a time. Winner = most wins; a 2-way tie
+  breaks by head-to-head, any other tie by lowest participant index — fully
+  deterministic so every peer's copy of the bracket agrees.
+- **Ante pot** — flat `TOURNAMENT_ANTE_COINS` (25) per player, deducted at
+  start (host locally via `SaveManager.add_coins`; each client locally in
+  `notify_tournament_start`, the existing ante-wager precedent). Pot
+  (`ante × players`) pays out to the bracket winner at the end.
+- **Auto-spectate** — every peer not in the current match is pushed into the
+  TID-367 spectator view via `notify_tournament_spectate` (no manual button).
+- **Bracket HUD panel** — right-side panel on all peers listing every match
+  ("A vs B" / "W def. L"), the current match highlighted, and the final
+  winner line. Rebuilt on every `recv_tournament_update`.
+- **Casual only** — tournament matches never touch the champion record, ELO
+  rating, or ante-wager systems (`_on_pvp_battle_ended_coop` short-circuits
+  into `_on_tournament_pvp_ended` while `_tournament_active`).
+
+### How It Works
+
+Pure scheduling/wire logic lives in `game_logic/net/TournamentSync.gd`
+(`class_name TournamentSync`, always preloaded as `_TournamentSync`):
+`new_bracket(tokens, names, ante)`, `get_current_match`,
+`record_match_result` (defensive: stale/duplicate winners are no-ops),
+`wins_by_participant` / `head_to_head_winner` / `compute_winner`,
+`payout_pot`, and garbage-tolerant `encode_bracket`/`decode_bracket`.
+Unit-tested in `tests/unit/test_tournament_sync.gd`.
+
+The host presses the **Tournament** button (visible only for the listen-server
+host with 2–3 connected clients, mirroring the Team Duel button precedent). It
+resolves every participant's token (`_session_token_by_peer` /
+`MpProfile.get_token()`), display name, and deck (`_team_deck_for_peer` — the
+GID-095 session record, no RPC round-trip), gates on `IsoConst.DECK_MIN` and
+the host's ante affordability, then builds and broadcasts the bracket.
+
+**Match execution reuses the existing PvP plumbing wholesale.** A match the
+host plays runs through `SceneManager.enter_pvp_battle(0, opp_deck, 0,
+opp_token, false)` + `notify_pvp_start(1, host_deck)` to the opponent. A
+client-vs-client match runs through the GID-097 referee path
+(`SceneManager.enter_pvp_referee`) with the listen-server host arbitrating a
+match it isn't playing in (`_local_player_idx = -1`). Because
+`pvp_battle_ended`'s bool can't express which of two *other* peers won, the
+referee paths emit a dedicated `GameBus.pvp_referee_match_ended(winner_idx)`
+signal from `_pvp_check_game_over` / `_apply_remote_surrender` (referee branch
+only — inert everywhere else, including the GID-097 dedicated-server relay,
+which fires it with no listener active).
+
+WorldScene is detached from the tree during each match, so results are staged
+in `_tournament_pending_result` and drained by `_tick_tournament` from
+`_process` once the world re-attaches: record → broadcast
+(`recv_tournament_update`) → 4 s countdown → next match, or payout on finish
+(host locally; a remote winner via the `_grant_chest_loot_to_token`-style
+direct member-record write + `SessionStore.mark_dirty()`).
+
+### RPCs (NetSync, all reliable)
+
+| RPC | Direction | Purpose |
+|---|---|---|
+| `notify_tournament_start(bracket, ante)` | host → each entrant | start + local ante deduction |
+| `recv_tournament_update(bracket)` | host → all | bracket changed / finished / aborted (empty) |
+| `notify_tournament_spectate()` | host → non-combatants | auto-enter spectator view |
+
+### Edge Cases & Known Gaps (v1)
+
+- A participant disconnecting mid-bracket **aborts** the tournament (host
+  broadcasts an empty bracket; every peer's panel clears). Antes are **not
+  refunded** — documented gap, consistent with the no-refund wager precedent.
+- Client ante affordability is not pre-checked by the host (the client deducts
+  locally, mirroring the existing wager flow); a client can go briefly negative.
+- No ranked-ELO integration — deliberately casual (see Plan decision).
+- Tournament state is session-scoped: `_on_coop_session_ended` resets it.

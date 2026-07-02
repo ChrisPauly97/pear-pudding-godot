@@ -107,7 +107,7 @@
 | [GID-101](goals/GID-101--mp-social-rewards/goal.md) | Multiplayer Social & Rewards | done | 5 / 5 |
 | [GID-102](goals/GID-102--mp-depth-competitive-social-async-coop/goal.md) | Multiplayer Depth — Competitive, Social, Async & Co-op Content | in-progress | 11 / 12 |
 | [GID-103](goals/GID-103--shared-world-life/goal.md) | Shared World Life — Synced Clock, Weather, Night Hunts & Town Siege | pending | 0 / 3 |
-| [GID-104](goals/GID-104--competitive-formats/goal.md) | Competitive Formats — Draft Duels, Tournaments & Spectator Wagers | pending | 0 / 3 |
+| [GID-104](goals/GID-104--competitive-formats/goal.md) | Competitive Formats — Draft Duels, Tournaments & Spectator Wagers | done | 3 / 3 |
 | [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | pending | 0 / 2 |
 | [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | pending | 0 / 4 |
 | [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | pending | 0 / 5 |
@@ -143,6 +143,11 @@
 | [BID-031](backlog/BID-031--coop-clear-value-lacks-boss-tier-and-timing.md) | Co-op boss clear leaderboard value has no boss-tier or timing signal, using party size as a low-signal proxy | design-gap | GID-102 / TID-379 |
 | [BID-032](backlog/BID-032--ghost-duels-host-only-entry-point.md) | Ghost duels are host-only — a client has no local SessionState to pick a ghost opponent from | feature-gap | GID-102 / TID-377 |
 | [BID-033](backlog/BID-033--no-session-scoped-equipment-inventory.md) | No session-scoped equipment inventory — chest equipment drops can't be roll-granted under need/greed | design-gap | GID-102 / TID-381 |
+| [BID-034](backlog/BID-034--pvp-challenge-handshakes-no-timeout.md) | PvP challenge handshakes (duel/wager/draft) have no timeout — pending state sticks until disconnect | code-smell | GID-104 / TID-385 |
+| [BID-035](backlog/BID-035--draft-duel-resume-lacks-deck-override.md) | resume_pvp_battle drops the draft-duel deck override — resumed host rebuilds from collection | logic-gap | GID-104 / TID-385 |
+| [BID-036](backlog/BID-036--spectator-wager-house-banked-payout.md) | Spectator wager settlement is house-banked (can mint coins); walkover forfeits refund instead of paying | design-gap | GID-104 / TID-387 |
+| [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
+| [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
 
 ## Resolved Backlog
 

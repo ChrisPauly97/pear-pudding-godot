@@ -14,9 +14,9 @@ These modes reuse two shipped systems: the Endless Spire draft UI and pick flow 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-385 | Draft duels (sealed-deck PvP) | agent | pending | — |
-| TID-386 | Session tournament mode | agent | pending | — |
-| TID-387 | Spectator wagers | agent | pending | — |
+| TID-385 | Draft duels (sealed-deck PvP) | agent | done | — |
+| TID-386 | Session tournament mode | agent | done | — |
+| TID-387 | Spectator wagers | agent | done | — |
 
 ## Acceptance Criteria
 

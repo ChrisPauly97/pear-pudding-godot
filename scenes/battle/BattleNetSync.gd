@@ -112,6 +112,33 @@ func stop_spectate() -> void:
 		battle_scene._on_stop_spectate(sender)
 
 
+# ── Spectator wagers (GID-104 / TID-387) ─────────────────────────────────────
+# A registered spectator (see request_spectate above) may bet coins on peer_a/peer_b
+# before the WagerSync cutoff turn. All escrow/settlement is host-authoritative;
+# these RPCs only relay the wire payloads built by game_logic/net/WagerSync.gd.
+
+## Spectator → host: place or replace a bet. payload = WagerSync.encode_bet(...).
+@rpc("any_peer", "reliable", "call_remote")
+func submit_spectator_bet(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if battle_scene != null and battle_scene.has_method("_on_wager_bet_submitted"):
+		battle_scene._on_wager_bet_submitted(sender, payload)
+
+
+## Host → spectator: bet accepted/rejected + the spectator's current escrow state.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_wager_ack(accepted: bool, reason: String, side: String, amount: int, remaining_coins: int) -> void:
+	if battle_scene != null and battle_scene.has_method("_on_wager_ack"):
+		battle_scene._on_wager_ack(accepted, reason, side, amount, remaining_coins)
+
+
+## Host → spectator: final settlement. payload = WagerSync.encode_settlement(...).
+@rpc("any_peer", "reliable", "call_remote")
+func recv_wager_settlement(payload: Dictionary) -> void:
+	if battle_scene != null and battle_scene.has_method("_on_wager_settlement"):
+		battle_scene._on_wager_settlement(payload)
+
+
 # ── Team PvP duels (GID-102 / TID-371) ───────────────────────────────────────
 # Mirror of the co-op PvE RPCs above, kept on a distinct name set so PvP/co-op-PvE/
 # team-PvP modes never share a handler (avoids cross-mode confusion on the host).

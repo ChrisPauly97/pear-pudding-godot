@@ -71,6 +71,8 @@ const _LootRoll          = preload("res://game_logic/net/LootRoll.gd")
 const _CardDropUtil      = preload("res://game_logic/CardDropUtil.gd")
 const _CardInstanceUtil  = preload("res://game_logic/CardInstanceUtil.gd")
 const _SessionState      = preload("res://game_logic/net/SessionState.gd")
+# Session tournaments (GID-104 / TID-386)
+const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -144,6 +146,22 @@ var _team_duel_btn: Button = null
 # duel is in flight (the host itself never started one, or it already finished).
 var _active_team_duel_peer_ids: Array[int] = []
 var _active_team_duel_teams: Array = []
+# Session tournaments (GID-104 / TID-386): host-run round-robin bracket. Guarded
+# end-to-end by _tournament_active so it never touches normal PvP/team-duel state.
+var _tournament_btn: Button = null
+var _tournament_panel_outer: Control = null   # outer panel Control, nil when never built
+var _tournament_panel: VBoxContainer = null   # inner row container
+var _tournament_active: bool = false          # true while a bracket is in progress (both host+clients)
+var _tournament_bracket: Dictionary = {}      # TournamentSync bracket dict; kept after finish for the panel
+var _tournament_peer_ids: Array[int] = []     # host-only: participant idx -> peer id
+var _tournament_tokens: Array[String] = []    # host-only: participant idx -> identity token
+var _tournament_decks: Array = []             # host-only: participant idx -> deck instances
+var _tournament_ante: int = 0                 # host-only: ante used to build the current bracket
+var _tournament_pending_result: Dictionary = {}  # host-only: {} or {"winner_participant_idx": int}
+var _tournament_current_is_host_match: bool = false  # host-only: is the in-flight match one the host is playing?
+var _tournament_canonical_to_participant: Dictionary = {}  # host-only: {0: participant_idx, 1: participant_idx}
+var _tournament_match_countdown: float = 0.0  # host-only: seconds until the next match starts (lets peers return to world + read the bracket)
+const TOURNAMENT_ANTE_COINS: int = 25  # flat per-player entry fee; pot = ante * players
 # GID-101 — Social & Rewards ──────────────────────────────────────────────────
 # TID-365: Emotes & pings
 const _SocialSync = preload("res://game_logic/net/SocialSync.gd")
@@ -202,6 +220,25 @@ var _pve_leaderboards: Dictionary = {"spire": [], "coop_clears": []}  # cached s
 # open on the authority; a client has no local SessionState to list opponents from).
 var _ghost_duel_btn: Button = null
 var _ghost_duel_overlay: Node = null
+# GID-104 (TID-385): Draft duels — sealed-deck PvP. Both peers derive identical
+# 1-of-3 pick rounds from one shared seed (DraftDuelGen); only the two finished
+# TRANSIENT decks cross the wire. Drafted cards never touch owned_cards /
+# SaveManager / SessionState. All state below is inert in single-player.
+const _DraftDuelGen = preload("res://game_logic/net/DraftDuelGen.gd")
+const _DraftDuelPickScene = preload("res://scenes/ui/DraftDuelPickScene.gd")
+var _draft_duel_btn: Button = null      # proximity-gated HUD button (mobile + desktop)
+var _pending_draft_from: int = -1       # incoming draft challenge awaiting our response
+var _pending_draft_seed: int = 0        # seed carried by that pending challenge
+var _draft_accept_panel: Node = null    # Accept/Decline prompt (CanvasLayer)
+var _draft_peer: int = -1               # opponent peer for the outgoing/active draft
+var _draft_seed: int = 0                # agreed shared seed for the active draft
+var _draft_picking: bool = false        # true once the pick overlay is open
+var _draft_picker: Node = null          # DraftDuelPickScene instance, nil when closed
+var _draft_picker_layer: Node = null    # its CanvasLayer wrapper
+var _draft_local_deck: Array = []       # my finished transient deck (instance dicts)
+var _draft_opp_deck: Array = []         # opponent's finished transient deck
+var _draft_local_done: bool = false
+var _draft_opp_done: bool = false
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -564,6 +601,12 @@ func _ready() -> void:
 	if not GameBus.pvp_battle_ended.is_connected(_on_pvp_battle_ended_coop):
 		GameBus.pvp_battle_ended.connect(_on_pvp_battle_ended_coop)
 
+	# GID-104 (TID-386): session tournaments — a referee'd match's real winner
+	# (the host isn't a combatant) arrives via this dedicated signal instead of
+	# pvp_battle_ended's plain bool. Same "connected permanently" reasoning.
+	if not GameBus.pvp_referee_match_ended.is_connected(_on_pvp_referee_match_ended):
+		GameBus.pvp_referee_match_ended.connect(_on_pvp_referee_match_ended)
+
 	# GID-102 (TID-371): ranked rating for team duels. Same "connected permanently" reasoning.
 	if not GameBus.team_battle_ended.is_connected(_on_team_battle_ended_coop):
 		GameBus.team_battle_ended.connect(_on_team_battle_ended_coop)
@@ -634,10 +677,12 @@ func _setup_coop() -> void:
 	# Dedicated server has no player, no HUD, no identity to share.
 	if not NetworkManager.is_dedicated_server():
 		_ensure_challenge_button()
+		_ensure_draft_duel_button()
 		_ensure_social_buttons()
 		_ensure_team_duel_button()
 		_ensure_chat_ui()
 		_ensure_dungeon_button()
+		_ensure_tournament_button()
 	# GID-101 (TID-369): host initialises party bounties; all peers build the HUD.
 	_setup_party_bounties()
 	if not NetworkManager.is_dedicated_server():
@@ -730,9 +775,21 @@ func _on_coop_peer_disconnected(pid: int) -> void:
 	_remote_identities.erase(pid)
 	_remote_player_maps.erase(pid)
 	_session_token_by_peer.erase(pid)
+	# Draft duel (GID-104 / TID-385): abort a draft in flight with this peer.
+	_abort_draft_duel_for_peer(pid)
 	# Flush so the leaving player's last persisted snapshot is on disk (host only).
 	if NetworkManager.is_host():
 		SessionStore.flush_now()
+	# GID-104 (TID-386): a tournament participant disconnecting mid-bracket has no
+	# resume/refund path in v1 (documented gap) — abort cleanly rather than leave
+	# the bracket stuck forever waiting for a match that can never finish.
+	if _tournament_active and NetworkManager.is_host() and _tournament_peer_ids.has(pid):
+		_reset_tournament_state()
+		_tournament_bracket = {}
+		if _net_sync != null:
+			_net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket({}))
+		_refresh_tournament_panel()
+		GameBus.hud_message_requested.emit("Tournament aborted — a player disconnected.")
 	_refresh_coop_roster()
 
 func _on_coop_session_ended() -> void:
@@ -754,6 +811,13 @@ func _on_coop_session_ended() -> void:
 	# Party loot rolls (GID-102 / TID-381) are session-scoped too.
 	_loot_rolls_active.clear()
 	_pending_loot_roll = {}
+	# Draft duel (GID-104 / TID-385): session gone — abort any draft in flight.
+	_abort_draft_duel()
+	# Session tournaments (GID-104 / TID-386) are session-scoped: a bracket cannot
+	# outlive the session that scheduled it. No refunds in v1 (documented gap).
+	_reset_tournament_state()
+	_tournament_bracket = {}
+	_refresh_tournament_panel()
 	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
 		_loot_roll_panel.queue_free()
 	_loot_roll_panel = null
@@ -1488,6 +1552,22 @@ func _on_loot_roll_result_received(payload: Dictionary) -> void:
 		return
 	var winner_name: String = _display_name_for_token(winner_token)
 	GameBus.hud_message_requested.emit("%s won the loot roll!" % winner_name)
+
+
+## Public accessor for SceneManager.session_token_for_peer (GID-104 / TID-387),
+## called from BattleScene while this scene is detached from the tree during a PvP
+## battle/spectate session (spectator-wager escrow needs to resolve a spectator's
+## peer_id to their GID-095 session token). Returns "" for an unresolved peer (e.g.
+## the identity handshake hasn't completed) — callers must treat that as ineligible.
+func get_session_token_for_peer(peer_id: int) -> String:
+	var token: String = str(_session_token_by_peer.get(peer_id, ""))
+	# Local-peer convenience branch: only touch `multiplayer` while inside the tree —
+	# this accessor is typically called while WorldScene is DETACHED (mid-battle),
+	# where the node has no SceneTree and therefore no MultiplayerAPI. Remote lookups
+	# (the only ones the wager path actually needs) never require it.
+	if token == "" and is_inside_tree() and peer_id == multiplayer.get_unique_id():
+		return MpProfile.get_token()
+	return token
 
 
 ## Resolve a session token to a display name for the loot-roll toast: the local
@@ -3071,6 +3151,9 @@ func _process(delta: float) -> void:
 		_broadcast_local_avatar(delta)
 		_update_challenge_proximity()
 		_update_team_duel_button_visibility()
+		_update_draft_duel_proximity()
+		_update_tournament_button_visibility()
+		_tick_tournament(delta)
 		_tick_session_persist(delta)
 		# World-object sync (GID-096): host streams enemy positions; clients smooth.
 		_broadcast_enemy_positions(delta)
@@ -5642,6 +5725,12 @@ func _enter_pvp_wagered(ante: int, opp_deck: Array) -> void:
 func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 	if not _coop_active:
 		return
+	# GID-104 (TID-386): tournament matches have their own bracket-scoped payout
+	# and never touch the champion-record/rating/ante-wager systems below — a
+	# tournament match is never wagered/ranked through the normal challenge flow.
+	if _tournament_active:
+		_on_tournament_pvp_ended(did_win)
+		return
 	# Wager payout (TID-368): winner gets both antes back.
 	if _pvp_ante_coins > 0:
 		if did_win:
@@ -6172,3 +6261,648 @@ func _on_party_bounties_snapshot_received(bounties: Array) -> void:
 	for b: Variant in bounties:
 		if b is Dictionary:
 			_add_bounty_row(b as Dictionary)
+
+
+# ── Draft duels — sealed-deck PvP (GID-104 / TID-385) ─────────────────────────
+# Deterministic shared-seed model: the challenger generates one seed; both peers
+# derive the IDENTICAL 1-of-3 pick rounds locally (DraftDuelGen.generate_rounds),
+# so no per-pick relay is needed — each side picks independently and only the two
+# finished TRANSIENT decks cross the wire (submit_draft_duel_deck), once each.
+# Drafted decks live only in the resulting duel's GameState; they are never
+# written to owned_cards, SaveManager, or SessionState. Always casual: never
+# ranked (fair-format ratings would need their own ladder), never wagered.
+# Everything here is guarded by the co-op HUD entry points (_setup_coop), so
+# single-player never reaches any of it.
+
+## Creates the hidden "Draft Duel" HUD button (mobile + desktop parity — a
+## Button.pressed tap/click target, no keybind). Sits below the ranked toggle.
+func _ensure_draft_duel_button() -> void:
+	if _draft_duel_btn != null and is_instance_valid(_draft_duel_btn):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_draft_duel_btn = Button.new()
+	_draft_duel_btn.text = "Draft Duel"
+	_draft_duel_btn.tooltip_text = "Sealed-deck duel: both players draft %d cards from identical seeded packs. No collection advantage; drafted cards last one duel." % _DraftDuelGen.NUM_ROUNDS
+	_draft_duel_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
+	_draft_duel_btn.add_theme_font_size_override("font_size", int(vp.y * 0.020))
+	_draft_duel_btn.position = Vector2((vp.x - vp.y * 0.20) * 0.5, vp.y * 0.935)
+	_draft_duel_btn.hide()
+	_draft_duel_btn.pressed.connect(_request_draft_duel)
+	_hud.add_child(_draft_duel_btn)
+
+## Shows/hides the draft-duel button. Piggybacks on the proximity result
+## (_challenge_target_peer) computed by _update_challenge_proximity, which runs
+## immediately before this in _process. Hidden while any challenge/draft is
+## pending, and on dedicated servers (draft routing is listen-server only in v1).
+func _update_draft_duel_proximity() -> void:
+	if _draft_duel_btn == null or not is_instance_valid(_draft_duel_btn):
+		return
+	if _draft_peer != -1 or _pending_draft_from != -1 or _pending_challenge_from != -1 \
+			or _session_dedicated or SceneManager._state != SceneManager.State.WORLD:
+		_draft_duel_btn.hide()
+		return
+	_draft_duel_btn.visible = _challenge_target_peer != -1
+
+## Send a draft-duel challenge to the nearby peer, carrying a freshly rolled seed.
+## No DECK_MIN gate — a draft duel needs no collection at all (that's the point).
+func _request_draft_duel() -> void:
+	if _challenge_target_peer == -1 or _net_sync == null or _draft_peer != -1:
+		return
+	if _session_dedicated:
+		_show_tip("Draft duels aren't available on dedicated servers yet.")
+		return
+	var seed_val: int = randi()
+	_draft_peer = _challenge_target_peer
+	_draft_seed = seed_val
+	_net_sync.rpc_id(_draft_peer, "request_draft_duel", _DraftDuelGen.encode_seed(seed_val))
+	_show_tip("Draft duel challenge sent…")
+
+## Incoming draft challenge — show an Accept/Decline prompt (auto-decline if busy
+## so the challenger isn't left hanging on a peer already in another handshake).
+func _on_draft_duel_requested(from_id: int, payload: Dictionary) -> void:
+	if _pending_challenge_from != -1 or _pending_draft_from != -1 or _draft_peer != -1:
+		if _net_sync != null:
+			_net_sync.rpc_id(from_id, "respond_draft_duel", false, {})
+		return
+	var decoded: Dictionary = _DraftDuelGen.decode_seed(payload)
+	if not bool(decoded["valid"]):
+		return
+	_pending_draft_from = from_id
+	_pending_draft_seed = int(decoded["seed"])
+	_show_draft_accept_panel(from_id)
+
+## Challenger learns the response. On accept, the echoed seed payload is used
+## (defensively falling back to the seed we sent) and both peers start drafting.
+func _on_draft_duel_responded(from_id: int, accepted: bool, payload: Dictionary) -> void:
+	if from_id != _draft_peer or _draft_picking:
+		return
+	if not accepted:
+		_show_tip("Draft duel declined.")
+		_draft_peer = -1
+		_draft_seed = 0
+		return
+	var decoded: Dictionary = _DraftDuelGen.decode_seed(payload)
+	var seed_val: int = int(decoded["seed"]) if bool(decoded["valid"]) else _draft_seed
+	_start_draft(from_id, seed_val)
+
+func _show_draft_accept_panel(from_id: int) -> void:
+	if _draft_accept_panel != null and is_instance_valid(_draft_accept_panel):
+		_draft_accept_panel.queue_free()
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var layer := CanvasLayer.new()
+	layer.layer = 180
+	add_child(layer)
+	_draft_accept_panel = layer
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	layer.add_child(panel)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vp.y * 0.025))
+	panel.add_child(vbox)
+
+	var lbl := Label.new()
+	lbl.text = "A player challenges you to a DRAFT DUEL!\nBoth of you draft %d cards from identical sealed packs." % _DraftDuelGen.NUM_ROUNDS
+	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.modulate = Color(0.6, 0.9, 1.0)
+	vbox.add_child(lbl)
+
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(vp.y * 0.03))
+	vbox.add_child(row)
+
+	var accept_btn := Button.new()
+	accept_btn.text = "Accept"
+	accept_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
+	accept_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	accept_btn.pressed.connect(_accept_draft_duel.bind(from_id))
+	row.add_child(accept_btn)
+
+	var decline_btn := Button.new()
+	decline_btn.text = "Decline"
+	decline_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
+	decline_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	decline_btn.pressed.connect(_decline_draft_duel.bind(from_id))
+	row.add_child(decline_btn)
+
+func _dismiss_draft_panel() -> void:
+	if _draft_accept_panel != null and is_instance_valid(_draft_accept_panel):
+		_draft_accept_panel.queue_free()
+	_draft_accept_panel = null
+
+func _accept_draft_duel(from_id: int) -> void:
+	_dismiss_draft_panel()
+	var seed_val: int = _pending_draft_seed
+	_pending_draft_from = -1
+	_pending_draft_seed = 0
+	if _net_sync != null:
+		_net_sync.rpc_id(from_id, "respond_draft_duel", true, _DraftDuelGen.encode_seed(seed_val))
+	_start_draft(from_id, seed_val)
+
+func _decline_draft_duel(from_id: int) -> void:
+	_dismiss_draft_panel()
+	_pending_draft_from = -1
+	_pending_draft_seed = 0
+	if _net_sync != null:
+		_net_sync.rpc_id(from_id, "respond_draft_duel", false, {})
+
+## Both peers: open the local pick overlay with the agreed shared seed. From here
+## on there is zero network traffic until a peer finishes its last pick.
+func _start_draft(peer_id: int, seed_val: int) -> void:
+	_draft_peer = peer_id
+	_draft_seed = seed_val
+	_draft_picking = true
+	_draft_local_deck = []
+	_draft_opp_deck = []
+	_draft_local_done = false
+	_draft_opp_done = false
+	# Shared bookkeeping with the normal challenge path: the host's battle-end
+	# champion-record path resolves the opponent via _challenge_target_peer.
+	_challenge_target_peer = peer_id
+	if _challenge_btn != null and is_instance_valid(_challenge_btn):
+		_challenge_btn.hide()
+	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
+		_ranked_toggle_btn.hide()
+	if _draft_duel_btn != null and is_instance_valid(_draft_duel_btn):
+		_draft_duel_btn.hide()
+	var layer := CanvasLayer.new()
+	layer.layer = 190
+	add_child(layer)
+	_draft_picker_layer = layer
+	var picker := _DraftDuelPickScene.new()
+	layer.add_child(picker)
+	picker.draft_finished.connect(_on_local_draft_finished)
+	_draft_picker = picker
+	# setup() can finish synchronously (empty card registry edge) and cascade into
+	# _maybe_enter_draft_duel → _free_draft_picker, so it must run after the
+	# member references above are in place.
+	picker.setup(seed_val, MpProfile.get_token())
+
+func _free_draft_picker() -> void:
+	if _draft_picker_layer != null and is_instance_valid(_draft_picker_layer):
+		_draft_picker_layer.queue_free()
+	_draft_picker_layer = null
+	_draft_picker = null
+
+## Local draft complete: send my transient deck to the opponent, then start the
+## duel if theirs already arrived (whichever peer finishes second triggers entry).
+func _on_local_draft_finished(deck: Array) -> void:
+	_draft_local_deck = deck
+	_draft_local_done = true
+	if _net_sync != null and _draft_peer != -1:
+		_net_sync.rpc_id(_draft_peer, "submit_draft_duel_deck", deck)
+	_maybe_enter_draft_duel()
+
+func _on_draft_duel_deck_submitted(from_id: int, deck: Array) -> void:
+	if from_id != _draft_peer:
+		return
+	_draft_opp_deck = deck
+	_draft_opp_done = true
+	_maybe_enter_draft_duel()
+
+## Both decks ready → enter the duel. Mirrors _enter_pvp (spectator broadcast +
+## opponent token), but passes the local drafted deck as the override so the
+## battle never reads the host's persisted collection. Never ranked, no ante.
+func _maybe_enter_draft_duel() -> void:
+	if not (_draft_local_done and _draft_opp_done):
+		return
+	_free_draft_picker()
+	var local_idx: int = 0 if NetworkManager.is_host() else 1
+	_pvp_ranked = false
+	if NetworkManager.is_host() and _net_sync != null:
+		var my_id: int = multiplayer.get_unique_id()
+		_pvp_ante_peer0 = my_id
+		_pvp_ante_peer1 = _draft_peer
+		for pid in multiplayer.get_peers():
+			var p: int = int(pid)
+			if p != _draft_peer:
+				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _draft_peer)
+	var opp_token: String = str(_session_token_by_peer.get(_draft_peer, ""))
+	var opp_deck: Array = _draft_opp_deck
+	var my_deck: Array = _draft_local_deck
+	_reset_draft_state()
+	SceneManager.enter_pvp_battle(local_idx, opp_deck, 0, opp_token, false, my_deck)
+
+func _reset_draft_state() -> void:
+	_draft_peer = -1
+	_draft_seed = 0
+	_draft_picking = false
+	_draft_local_deck = []
+	_draft_opp_deck = []
+	_draft_local_done = false
+	_draft_opp_done = false
+
+## Abort hooks: called from _on_coop_peer_disconnected / _on_coop_session_ended.
+func _abort_draft_duel_for_peer(pid: int) -> void:
+	if _draft_peer != -1 and pid == _draft_peer:
+		_abort_draft_duel("Draft duel cancelled — opponent disconnected.")
+	elif _pending_draft_from != -1 and pid == _pending_draft_from:
+		_dismiss_draft_panel()
+		_pending_draft_from = -1
+		_pending_draft_seed = 0
+
+func _abort_draft_duel(reason: String = "") -> void:
+	if _draft_peer == -1 and _pending_draft_from == -1 and _draft_picker == null:
+		return
+	_free_draft_picker()
+	_dismiss_draft_panel()
+	_pending_draft_from = -1
+	_pending_draft_seed = 0
+	_reset_draft_state()
+	if reason != "":
+		_show_tip(reason)
+# ── Session tournaments (GID-104 / TID-386) ───────────────────────────────────
+# Host-run round-robin bracket for 3-4 session players. The host is the
+# authority: it schedules matches one at a time, plays its own matches through
+# the normal enter_pvp_battle flow, referees client-vs-client matches through
+# the GID-097 enter_pvp_referee flow, auto-spectates every non-combatant, and
+# pays the pot to the bracket winner. Pure scheduling/wire logic lives in
+# game_logic/net/TournamentSync.gd; everything here is guarded end-to-end by
+# _tournament_active / NetworkManager.is_active() so single-player and normal
+# co-op PvP are untouched.
+
+func _ensure_tournament_button() -> void:
+	if _tournament_btn != null and is_instance_valid(_tournament_btn):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_tournament_btn = Button.new()
+	_tournament_btn.text = "Tournament"
+	_tournament_btn.custom_minimum_size = Vector2(vp.y * 0.28, vp.y * 0.07)
+	_tournament_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	_tournament_btn.position = Vector2((vp.x - vp.y * 0.28) * 0.5, vp.y * 0.63)
+	_tournament_btn.hide()
+	_tournament_btn.pressed.connect(_start_tournament)
+	_hud.add_child(_tournament_btn)
+
+
+## Shows the tournament button only for the host with 2-3 connected clients
+## (3-4 total players). Mirrors _update_team_duel_button_visibility.
+func _update_tournament_button_visibility() -> void:
+	if _tournament_btn == null or not is_instance_valid(_tournament_btn):
+		return
+	if not NetworkManager.is_host() or NetworkManager.is_dedicated_server() \
+			or SceneManager._state != SceneManager.State.WORLD or _tournament_active:
+		_tournament_btn.hide()
+		return
+	_tournament_btn.visible = multiplayer.get_peers().size() >= 2 and _pending_challenge_from == -1
+
+
+## Host: builds the bracket from every connected peer (host + all clients),
+## deducts the flat ante from every participant (host locally; clients via
+## notify_tournament_start doing the same on their side — the existing
+## ante-wager precedent), broadcasts the bracket, and schedules match 1.
+func _start_tournament() -> void:
+	if not NetworkManager.is_host() or _net_sync == null or _tournament_active:
+		return
+	var clients: Array = multiplayer.get_peers()
+	if clients.size() < 2:
+		_show_tip("Need 3-4 players for a tournament.")
+		return
+	clients.sort()
+	var host_id: int = multiplayer.get_unique_id()
+	var peer_ids: Array[int] = [host_id]
+	for pid in clients:
+		peer_ids.append(int(pid))
+	var tokens: Array = []
+	var names: Array = []
+	var decks: Array = []
+	for pid in peer_ids:
+		var token: String = MpProfile.get_token() if pid == host_id \
+				else str(_session_token_by_peer.get(pid, ""))
+		if token == "":
+			_show_tip("A player's identity isn't synced yet — try again shortly.")
+			return
+		var deck: Array = _team_deck_for_peer(pid)
+		if deck.size() < IsoConst.DECK_MIN:
+			_show_tip("%s's deck is too small to duel." % _display_name_for_token(token))
+			return
+		tokens.append(token)
+		names.append(_display_name_for_token(token))
+		decks.append(deck)
+	if SceneManager.save_manager.coins < TOURNAMENT_ANTE_COINS:
+		_show_tip("Not enough coins for the ante (%d)." % TOURNAMENT_ANTE_COINS)
+		return
+	var bracket: Dictionary = _TournamentSync.new_bracket(tokens, names, TOURNAMENT_ANTE_COINS)
+	if bracket.is_empty():
+		_show_tip("Tournaments support 3-4 players.")
+		return
+	SceneManager.save_manager.add_coins(-TOURNAMENT_ANTE_COINS)
+	_tournament_active = true
+	_tournament_bracket = bracket
+	_tournament_peer_ids = peer_ids
+	_tournament_tokens.assign(tokens)
+	_tournament_decks = decks
+	_tournament_ante = TOURNAMENT_ANTE_COINS
+	_tournament_pending_result = {}
+	if _tournament_btn != null and is_instance_valid(_tournament_btn):
+		_tournament_btn.hide()
+	for pid in peer_ids:
+		if pid != host_id:
+			_net_sync.rpc_id(pid, "notify_tournament_start",
+				_TournamentSync.encode_bracket(bracket), TOURNAMENT_ANTE_COINS)
+	_build_tournament_panel()
+	GameBus.hud_message_requested.emit("Tournament started — %d matches. Pot: %d coins." % [
+		(bracket.get("matches", []) as Array).size(), int(bracket.get("pot", 0))])
+	# Brief pause before match 1 so everyone can read the bracket panel first.
+	_tournament_match_countdown = 3.0
+
+
+## Host: launches the bracket's current match. The host plays its own matches
+## (canonical GameState idx 0, the enter_pvp_battle host path); a match between
+## two clients runs through the GID-097 referee path with the host arbitrating.
+## Every peer not in the match is told to auto-spectate.
+func _start_current_tournament_match() -> void:
+	if not NetworkManager.is_host() or _net_sync == null or not _tournament_active:
+		return
+	var m: Dictionary = _TournamentSync.get_current_match(_tournament_bracket)
+	if m.is_empty():
+		return
+	var pa: int = int(m.get("a", -1))
+	var pb: int = int(m.get("b", -1))
+	if pa < 0 or pb < 0 or pa >= _tournament_peer_ids.size() or pb >= _tournament_peer_ids.size():
+		return
+	var host_id: int = multiplayer.get_unique_id()
+	var peer_a: int = _tournament_peer_ids[pa]
+	var peer_b: int = _tournament_peer_ids[pb]
+	var deck_a: Array = _tournament_decks[pa]
+	var deck_b: Array = _tournament_decks[pb]
+	_net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket(_tournament_bracket))
+	if _challenge_btn != null and is_instance_valid(_challenge_btn):
+		_challenge_btn.hide()
+	if _team_duel_btn != null and is_instance_valid(_team_duel_btn):
+		_team_duel_btn.hide()
+	if _tournament_btn != null and is_instance_valid(_tournament_btn):
+		_tournament_btn.hide()
+	# Duel-active + auto-spectate broadcasts to everyone not in this match
+	# (reuses the TID-367 spectate plumbing; _enter_tree clears it after the match
+	# via the _pvp_ended_pending_broadcast pattern).
+	_pvp_ante_peer0 = peer_a
+	_pvp_ante_peer1 = peer_b
+	for pid in multiplayer.get_peers():
+		var p: int = int(pid)
+		if p == peer_a or p == peer_b:
+			continue
+		_net_sync.rpc_id(p, "recv_pvp_active", true, peer_a, peer_b)
+		_net_sync.rpc_id(p, "notify_tournament_spectate")
+	var names: Array = _tournament_bracket.get("names", [])
+	if pa < names.size() and pb < names.size():
+		GameBus.hud_message_requested.emit("Tournament match: %s vs %s" % [str(names[pa]), str(names[pb])])
+	if peer_a == host_id or peer_b == host_id:
+		# The host is a combatant — canonical idx 0 is always the host on this path.
+		_tournament_current_is_host_match = true
+		var host_participant: int = pa if peer_a == host_id else pb
+		var opp_participant: int = pb if peer_a == host_id else pa
+		var opp_peer: int = _tournament_peer_ids[opp_participant]
+		var opp_deck: Array = _tournament_decks[opp_participant]
+		var host_deck: Array = _tournament_decks[host_participant]
+		_tournament_canonical_to_participant = {0: host_participant, 1: opp_participant}
+		_net_sync.rpc_id(opp_peer, "notify_pvp_start", 1, host_deck)
+		var opp_token: String = str(_session_token_by_peer.get(opp_peer, ""))
+		SceneManager.enter_pvp_battle(0, opp_deck, 0, opp_token, false)
+	else:
+		# Two clients play; the listen-server host referees (GID-097 path,
+		# _local_player_idx = -1) — the winner arrives via pvp_referee_match_ended.
+		_tournament_current_is_host_match = false
+		_tournament_canonical_to_participant = {0: pa, 1: pb}
+		_net_sync.rpc_id(peer_a, "notify_pvp_start", 0, deck_b)
+		_net_sync.rpc_id(peer_b, "notify_pvp_start", 1, deck_a)
+		SceneManager.enter_pvp_referee(deck_a, deck_b, peer_a, peer_b,
+			str(_session_token_by_peer.get(peer_a, "")),
+			str(_session_token_by_peer.get(peer_b, "")))
+
+
+## All peers (routed from _on_pvp_battle_ended_coop's _tournament_active guard):
+## a tournament match this peer FOUGHT in just ended. The host captures the
+## winner for the bracket advance; every peer re-arms the duel-clear broadcast
+## exactly like the normal PvP path it replaced.
+func _on_tournament_pvp_ended(did_win: bool) -> void:
+	_pvp_ranked = false
+	_pvp_ended_pending_broadcast = true
+	if not NetworkManager.is_host():
+		return
+	if _tournament_current_is_host_match:
+		var canonical: int = 0 if did_win else 1
+		var participant: int = int(_tournament_canonical_to_participant.get(canonical, -1))
+		if participant >= 0:
+			_tournament_pending_result = {"winner_participant_idx": participant}
+
+
+## Host: a referee'd (client-vs-client) tournament match ended — the winner's
+## canonical GameState index arrives via the dedicated GID-104 signal because
+## pvp_battle_ended's bool can't express it for a non-participant. The GID-097
+## dedicated-server relay also fires this signal, but _tournament_active is
+## never true there, so it stays inert outside tournaments.
+func _on_pvp_referee_match_ended(winner_idx: int) -> void:
+	if not _tournament_active or not NetworkManager.is_host() or _tournament_current_is_host_match:
+		return
+	var participant: int = int(_tournament_canonical_to_participant.get(winner_idx, -1))
+	if participant >= 0:
+		_tournament_pending_result = {"winner_participant_idx": participant}
+
+
+## Host, from _process once WorldScene is back in the tree (a match result can
+## only be applied here — during the battle this scene is detached and _net_sync
+## is freed): drains the pending result, advances + broadcasts the bracket, and
+## either schedules the next match (short countdown so peers get back to the
+## world and read the panel) or finishes the tournament.
+func _tick_tournament(delta: float) -> void:
+	if not _tournament_active or not NetworkManager.is_host():
+		return
+	if not _tournament_pending_result.is_empty():
+		var w: int = int(_tournament_pending_result.get("winner_participant_idx", -1))
+		_tournament_pending_result = {}
+		if w >= 0:
+			_tournament_bracket = _TournamentSync.record_match_result(_tournament_bracket, w)
+			if _net_sync != null:
+				_net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket(_tournament_bracket))
+			_refresh_tournament_panel()
+			if _TournamentSync.is_finished(_tournament_bracket):
+				_finish_tournament()
+				return
+			var names: Array = _tournament_bracket.get("names", [])
+			if w < names.size():
+				GameBus.hud_message_requested.emit("%s wins the match!" % str(names[w]))
+			_tournament_match_countdown = 4.0
+		return
+	if _tournament_match_countdown > 0.0:
+		_tournament_match_countdown -= delta
+		if _tournament_match_countdown <= 0.0:
+			_start_current_tournament_match()
+
+
+## Host: pays the pot to the bracket winner — locally for the host itself,
+## otherwise straight into the winner's session member record (the
+## _grant_chest_loot_to_token direct-write pattern). Clients learn the outcome
+## from the finished bracket broadcast in _tick_tournament.
+func _finish_tournament() -> void:
+	var w: int = int(_tournament_bracket.get("winner_idx", -1))
+	var players: Array = _tournament_bracket.get("players", [])
+	var names: Array = _tournament_bracket.get("names", [])
+	var pot: int = int(_tournament_bracket.get("pot", 0))
+	if w >= 0 and w < players.size():
+		var token: String = str(players[w])
+		var wname: String = str(names[w]) if w < names.size() else "?"
+		if token == MpProfile.get_token():
+			SceneManager.save_manager.add_coins(pot)
+		elif SessionStore.is_open():
+			var st = SessionStore.get_state()
+			if st != null:
+				var rec: Dictionary = st.get_member(token)
+				if not rec.is_empty():
+					rec["coins"] = int(rec.get("coins", 0)) + pot
+					st.update_member(token, rec)
+					SessionStore.mark_dirty()
+		GameBus.hud_message_requested.emit("%s wins the tournament (+%d coins)!" % [wname, pot])
+	_reset_tournament_state()
+	_refresh_tournament_panel()
+
+
+## Clears every host-side orchestration field. Keeps _tournament_bracket so the
+## final standings stay on the panel — callers that need a blank panel (abort,
+## session end) clear the bracket themselves.
+func _reset_tournament_state() -> void:
+	_tournament_active = false
+	_tournament_peer_ids = []
+	_tournament_tokens = []
+	_tournament_decks = []
+	_tournament_ante = 0
+	_tournament_pending_result = {}
+	_tournament_current_is_host_match = false
+	_tournament_canonical_to_participant = {}
+	_tournament_match_countdown = 0.0
+
+
+## Client (notify_tournament_start): the host started a tournament that
+## includes us — deduct our ante locally (existing ante-wager precedent) and
+## build the bracket panel.
+func _on_tournament_started(bracket: Dictionary, ante: int) -> void:
+	if NetworkManager.is_host():
+		return
+	var b: Dictionary = _TournamentSync.decode_bracket(bracket)
+	if (b.get("players", []) as Array).is_empty():
+		return
+	_tournament_active = true
+	_tournament_bracket = b
+	if ante > 0:
+		SceneManager.save_manager.add_coins(-ante)
+	_build_tournament_panel()
+	GameBus.hud_message_requested.emit("Tournament started — ante %d coins. Pot: %d." % [
+		ante, int(b.get("pot", 0))])
+
+
+## Client (recv_tournament_update): bracket changed. An empty bracket means the
+## host aborted (participant disconnect); a finished one carries the winner.
+func _on_tournament_update_received(payload: Dictionary) -> void:
+	if NetworkManager.is_host():
+		return
+	var b: Dictionary = _TournamentSync.decode_bracket(payload)
+	if (b.get("players", []) as Array).is_empty():
+		if _tournament_active:
+			GameBus.hud_message_requested.emit("Tournament aborted.")
+		_tournament_active = false
+		_tournament_bracket = {}
+		_refresh_tournament_panel()
+		return
+	_tournament_bracket = b
+	if _TournamentSync.is_finished(b):
+		_tournament_active = false
+		var w: int = int(b.get("winner_idx", -1))
+		var names: Array = b.get("names", [])
+		if w >= 0 and w < names.size():
+			GameBus.hud_message_requested.emit("%s wins the tournament (+%d coins)!" % [
+				str(names[w]), int(b.get("pot", 0))])
+	_build_tournament_panel()
+
+
+## Client (notify_tournament_spectate): the host scheduled a match we're not in —
+## auto-enter the spectator view (no manual Spectate press, unlike TID-367).
+func _on_tournament_spectate_notified() -> void:
+	if not _tournament_active or NetworkManager.is_dedicated_server():
+		return
+	SceneManager.enter_pvp_spectator()
+
+
+## Bracket HUD panel (all peers) — mirrors _build_party_bounty_panel
+## structurally; right side of the screen (bounties/roster/chat own the left).
+func _build_tournament_panel() -> void:
+	if _tournament_panel != null and is_instance_valid(_tournament_panel):
+		_refresh_tournament_panel()
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var outer := PanelContainer.new()
+	outer.name = "TournamentPanel"
+	outer.position = Vector2(vp.x * 0.76, vp.y * 0.34)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.04, 0.04, 0.08, 0.88)
+	style.corner_radius_top_left    = 6
+	style.corner_radius_top_right   = 6
+	style.corner_radius_bottom_left = 6
+	style.corner_radius_bottom_right = 6
+	outer.add_theme_stylebox_override("panel", style)
+	_hud.add_child(outer)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", int(vp.y * 0.006))
+	outer.add_child(vbox)
+	_tournament_panel_outer = outer
+	_tournament_panel = vbox
+	_refresh_tournament_panel()
+
+
+func _refresh_tournament_panel() -> void:
+	if _tournament_panel == null or not is_instance_valid(_tournament_panel):
+		return
+	if (_tournament_bracket.get("players", []) as Array).is_empty():
+		if _tournament_panel_outer != null and is_instance_valid(_tournament_panel_outer):
+			_tournament_panel_outer.hide()
+		return
+	if _tournament_panel_outer != null and is_instance_valid(_tournament_panel_outer):
+		_tournament_panel_outer.show()
+	for c in _tournament_panel.get_children():
+		c.queue_free()
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var title := Label.new()
+	title.text = "Tournament — Pot: %d" % int(_tournament_bracket.get("pot", 0))
+	title.add_theme_font_size_override("font_size", int(vh * 0.020))
+	title.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
+	_tournament_panel.add_child(title)
+	var names: Array = _tournament_bracket.get("names", [])
+	var matches: Array = _tournament_bracket.get("matches", [])
+	var cur: int = int(_tournament_bracket.get("current_match", 0))
+	var finished: bool = bool(_tournament_bracket.get("finished", false))
+	for i in range(matches.size()):
+		var mv: Variant = matches[i]
+		if not (mv is Dictionary):
+			continue
+		var md: Dictionary = mv
+		var a: int = int(md.get("a", -1))
+		var b: int = int(md.get("b", -1))
+		var name_a: String = str(names[a]) if a >= 0 and a < names.size() else "?"
+		var name_b: String = str(names[b]) if b >= 0 and b < names.size() else "?"
+		var lbl := Label.new()
+		if bool(md.get("done", false)):
+			var w: int = int(md.get("winner", -1))
+			var wname: String = str(names[w]) if w >= 0 and w < names.size() else "?"
+			lbl.text = "%s def. %s" % [wname, name_b if w == a else name_a]
+			lbl.add_theme_color_override("font_color", Color(0.5, 1.0, 0.5))
+		else:
+			lbl.text = "%s vs %s" % [name_a, name_b]
+			if i == cur and not finished:
+				lbl.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
+		lbl.add_theme_font_size_override("font_size", int(vh * 0.016))
+		_tournament_panel.add_child(lbl)
+	if finished:
+		var wi: int = int(_tournament_bracket.get("winner_idx", -1))
+		if wi >= 0 and wi < names.size():
+			var win_lbl := Label.new()
+			win_lbl.text = "Winner: %s" % str(names[wi])
+			win_lbl.add_theme_font_size_override("font_size", int(vh * 0.018))
+			win_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
+			_tournament_panel.add_child(win_lbl)
