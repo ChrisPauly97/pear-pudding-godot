@@ -793,6 +793,100 @@ the transfer plumbing the auction house (TID-378) is expected to reuse.
 - **Authority-only writes**: clients never mutate `SessionState` directly; only the
   authority does, via `SessionStore` — same isolation invariant as trading/bounties.
 
+### Auction house (GID-102 / TID-378)
+
+An **async card marketplace**: a member lists a card at a fixed buyout price, other
+members can place a record-only bid or buy it outright, and the seller need not be
+online for either — the authority settles everything. Reuses the party stash's
+member ⇄ authority re-key mechanic, generalized to a **member ⇄ listing ⇄ member**
+move.
+
+- **Storage — `SessionState.auctions: Array`**, added in the **v8** migration
+  (`CURRENT_SESSION_VERSION` bumped 7 → 8; a pre-v8 file gets `auctions = []`
+  backfilled on load). Each entry: `{id, seller_token, seller_name, card_instance,
+  buyout, bid, bidder_token, expires_day, status}`, `status` ∈ `active` / `sold` /
+  `cancelled` / `expired`. The escrowed card instance lives **inside** the listing
+  dict (removed from the seller's `owned_cards` on list, same as a stash deposit) and
+  is cleared once the listing settles (sold/cancelled/expired keep the listing row for
+  the "My Listings" history view, but not a second copy of the card).
+- **Listing ids are deterministic** (`auc_<n>`), derived from the highest existing
+  numeric suffix rather than array length, so ids stay unique even after completed
+  listings are pruned — no wall-clock/random dependency, so listing creation stays
+  fully unit-testable.
+- **Bids are record-only, not escrowed.** `place_bid` only validates the bidder can
+  currently afford their bid and updates `bid`/`bidder_token` on the listing — no
+  coins move yet. This keeps the common case (browsing, outbidding, changing your
+  mind) cheap, at the cost that a bidder who spends their coins elsewhere before
+  settlement may no longer be able to honor a leading bid; settlement re-validates
+  affordability and falls back to returning the card to the seller if so (never a
+  failed/partial charge).
+- **Business logic — `game_logic/net/AuctionTransfer.gd`** (new, pure, unit-tested,
+  mirrors `StashTransfer.gd`):
+  - `list_card(auctions, seller_rec, seller_token, card_uid, buyout, expires_day)` —
+    escrows the card (unique-card block, same `CardRegistry.get_template().is_unique`
+    guard as trade/stash), creates the listing.
+  - `place_bid(auctions, bidder_rec, bidder_token, auction_id, amount)` — validates
+    active status, not-your-own-listing, strictly-higher-than-current-bid, and
+    affordability; record-only as above.
+  - `buyout(auctions, buyer_rec, buyer_token, seller_rec, auction_id)` — moves the
+    buyout price buyer → seller and the card (re-keyed into the buyer's namespace)
+    to the buyer; marks the listing `sold`.
+  - `cancel(auctions, seller_rec, seller_token, auction_id)` — seller-only, returns
+    the escrowed card (a standing bid does **not** block cancellation, since it was
+    never escrowed); marks `cancelled`.
+  - `settle_expired(auctions, members, current_day)` — host-tick sweep: any `active`
+    listing whose `expires_day <= current_day` either sells to its highest bidder (if
+    still affordable) exactly like `buyout`, or returns to the seller and is marked
+    `expired`. Operates over the **full member roster** in one pass so a single call
+    can settle every due listing.
+  - A shared `_prune_completed` caps `sold`/`cancelled`/`expired` rows at 30
+    (oldest-first trimmed, `active` rows never pruned) so the persisted session file
+    doesn't grow unbounded over a long-running party — mirrors `PVE_LEADERBOARD_CAP`.
+- **Wire helper — `game_logic/net/AuctionSync.gd`** (new, pure, unit-tested, mirrors
+  `TradeSync.gd`): `encode/decode_list_intent`, `encode/decode_bid_intent`,
+  `encode/decode_id_intent` (shared by buyout/cancel — both need only the id),
+  `normalize_listing` (defaults every field, tolerates garbage), and
+  `decode_snapshot` (normalizes every entry of a received listings array). Also owns
+  `LISTING_DURATION_DAYS = 3`, the fresh-listing lifetime added to the session's
+  current `days_elapsed` to compute `expires_day`.
+- **RPCs — `NetSync.gd`** (reliable, `any_peer`/`call_remote`, global to the session —
+  no proximity gate, same rationale as the stash): `submit_auction_list(payload)` /
+  `submit_auction_bid(payload)` / `submit_auction_buyout(payload)` /
+  `submit_auction_cancel(payload)` (client → authority) and
+  `recv_auction_update(snapshot)` (authority → all/one, the full listings array).
+- **Authority flow — `WorldScene.gd`**: `_on_auction_*_submitted` resolve the
+  sender's token (`_stash_token_for_peer`, reused from the stash feature), call into
+  `AuctionTransfer`, write the result back onto `SessionState` + `SessionStore.mark_dirty()`,
+  keep any touched member's in-memory character in sync
+  (`_apply_updated_member_to_actor` for the RPC sender,
+  `_apply_updated_member_to_peer_by_token` — new, resolves a token to its currently
+  connected peer id via `_session_token_by_peer`, a no-op if that member isn't
+  connected right now — for a buyout's seller or any party touched by the expiry
+  sweep), then `_broadcast_auction_update()` to all peers.
+- **Expiry sweep hook**: `_sweep_expired_auctions()` runs from the host branch of the
+  existing `_tick_session_persist` tick (the closest already-running periodic host
+  tick — reused rather than inventing new timer plumbing) and calls
+  `AuctionTransfer.settle_expired` against the live `SessionState`.
+  **Known limitation**: `SessionState.days_elapsed` is not currently advanced by any
+  co-op tick (it is only ever read elsewhere, e.g. for the dungeon-crawl seed), so in
+  practice listing expiry is dormant until a future goal wires a synced day/night
+  clock across co-op — the gap GID-103 "Shared World Life — Synced Clock" exists to
+  fill (see BID-039). The sweep itself is fully implemented and unit-tested against
+  `days_elapsed`, so it activates automatically once that clock lands.
+- **Late-join**: `_send_character_to_peer` unicasts `recv_auction_update` with the
+  current `SessionState.auctions` alongside the stash/leaderboard snapshot sends.
+- **HUD — `scenes/ui/AuctionHouseOverlay.gd`** (new): extends `BaseOverlay` by path
+  string, instantiated via `.new()`, viewport-relative, rebuilt on
+  `NOTIFICATION_RESIZED`. Three tabs (button-row pattern, mirrors
+  `LeaderboardOverlay`): **Sell** (my sellable collection, a +/- price stepper per
+  row, "List" button), **Browse** (other members' active listings — a "Bid +25"
+  stepper button and a "Buyout" button per row), **My Listings** (my own listings
+  across every status, with "Cancel" on active ones). Opened via an always-visible
+  "Auction" HUD button next to Stash/Ghost Duels — touch/click target, mobile +
+  desktop parity.
+- **Authority-only writes**: clients never mutate `SessionState` directly; only the
+  authority does, via `SessionStore` — same isolation invariant as trading/stash.
+
 ### Shared party bounties (GID-101 / TID-369)
 
 Party bounties are co-op goals the whole party works toward together.
@@ -1410,11 +1504,13 @@ The name tag is a procedural `Label3D` and the roster/lobby swatches are procedu
 | `tests/unit/test_player_identity.gd` | unit (auto-run) | PlayerIdentity encode/decode round-trip, color hex, robust defaults for short/blank/invalid payloads (10 cases) |
 | `tests/unit/test_coop_discovery.gd` | unit (auto-run) | Discovery wire-format round-trip, IP-from-socket, invalid/wrong-tag rejection (7 cases) |
 | `tests/unit/test_pvp_protocol.gd` | unit (auto-run) | BattleNetProtocol intent + state-mirror encode/decode (17 cases) |
-| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance; shared `stash` default/round-trip/garbage tolerance + migration v5 backfill; `leaderboards` {spire, coop_clears} default + `record_pve_score` insert/own-better-overwrites/worse-and-equal-are-no-ops/sort-desc/cap-at-20/unknown-board-and-blank-token no-ops, `get_pve_leaderboard` limit, round-trip + snapshot shape, migration v6 backfill + preserves-existing + garbage-field tolerance; ghost-duel snapshot shape + UID→template_id resolution + rating passthrough + blank/unknown-token/non-Dictionary-member/dangling-UID tolerance (60 cases) (GID-095 / GID-101 / GID-102) |
+| `tests/unit/test_session_state.gd` | unit (auto-run) | SessionState round-trip, member lookup/create by token, resume-without-reset, starter seeding (token-salted UIDs), migration scaffold + garbage tolerance; pvp stats fields + round-trip + migration v3 backfill; pvp_rating/pvp_games fields + round-trip + v4 backfill + derived `get_leaderboard` ordering/limit/record; party_bounties default/round-trip/garbage tolerance; shared `stash` default/round-trip/garbage tolerance + migration v5 backfill; `leaderboards` {spire, coop_clears} default + `record_pve_score` insert/own-better-overwrites/worse-and-equal-are-no-ops/sort-desc/cap-at-20/unknown-board-and-blank-token no-ops, `get_pve_leaderboard` limit, round-trip + snapshot shape, migration v6 backfill + preserves-existing + garbage-field tolerance; ghost-duel snapshot shape + UID→template_id resolution + rating passthrough + blank/unknown-token/non-Dictionary-member/dangling-UID tolerance; `auctions` default/round-trip/garbage tolerance + migration v8 backfill + preserves-existing (66 cases) (GID-095 / GID-101 / GID-102) |
 | `tests/unit/test_rating_math.gd` | unit (auto-run) | RatingMath ELO: expected-score symmetry/bounds/favouring, win-raises/loss-lowers, symmetric zero-sum deltas at equal rating, placement vs settled K, floor clamp, draw no-op (15 cases) (GID-102 / TID-370) |
 | `tests/unit/test_social_sync.gd` | unit (auto-run) | SocialSync emote round-trip for all 6 preset ids, map field, garbage/empty array tolerance; ping round-trip preserving coords/kind/color/map, partial array defaults, negative coords, constants sanity (16 cases) (GID-101 / TID-365) |
 | `tests/unit/test_chat_sync.gd` | unit (auto-run) | ChatSync quick-chat round-trip for all preset ids + unknown-preset fallback, free-text round-trip + 120-char length cap (under/at/over + forged-payload re-sanitization), control-character (incl. DEL) and newline/tab stripping, map field round-trip, garbage/null/empty/short-array/invalid-kind decode tolerance, constants sanity (26 cases) (GID-102 / TID-374) |
 | `tests/unit/test_stash_transfer.gd` | unit (auto-run) | StashTransfer deposit/withdraw card round-trip + uid re-keying, unique-card block, missing-card/blank-uid no-ops, coin deposit/withdraw incl. insufficient-funds/non-positive-amount guards, deposit-then-withdraw and coin round-trips are neutral, garbage-stash-shape tolerance (16 cases) (GID-102 / TID-376) |
+| `tests/unit/test_auction_sync.gd` | unit (auto-run) | AuctionSync list/bid/id intent encode/decode round-trip + garbage/missing-key defaults, listing normalization full-shape + garbage/garbage-card-instance tolerance, snapshot decode (normalizes every entry, non-Dictionary entries, non-Array input) (13 cases) (GID-102 / TID-378) |
+| `tests/unit/test_auction_transfer.gd` | unit (auto-run) | AuctionTransfer list_card escrow + uid re-key + unique-card block + not-found/invalid-price guards + collision-free incrementing ids; place_bid update/own-listing-block/lower-bid-block/insufficient-funds/not-found; buyout card+coin move/own-listing-block/insufficient-funds/non-active-block; cancel returns card/non-owner-block/non-active-block; settle_expired not-yet-due no-op, sells to affordable highest bidder, returns to seller when no bid, falls back to seller when the bidder can no longer afford it (23 cases) (GID-102 / TID-378) |
 | `tests/unit/test_world_sync.gd` | unit (auto-run) | EnemySync state/batch round-trip + interp; WorldObjectSync event + snapshot encode/decode, distinct kinds, garbage tolerance, id-string coercion (18 cases) (GID-096) |
 | `tests/unit/test_mp_profile_friends.gd` | unit (auto-run) | MpProfile friends list: add/dedupe-by-token/move-to-front, blank-token no-op, name/color sanitization, remove (existing + missing), `is_friend` true/false/blank, 50-entry cap eviction (keeps newest, drops oldest), `touch_friend_last_seen` (updates existing, no-op for non-friend), `get_friends` defensive copy, JSON persistence shape round-trip via a temp `user://` file (17 cases) (GID-102 / TID-375) |
 | `tests/unit/test_loot_roll.gd` | unit (auto-run) | LootRoll need-beats-greed (multi-seed), tie-break by highest rolled value within a tier, deterministic-with-seeded-RNG repeatability, all-pass/empty-choices has no winner, unrecognized choice normalizes to pass, timeout-as-pass equivalence, encode/decode round-trip + garbage/null/non-container tolerance for start/choice/result (24 cases) (GID-102 / TID-381) |

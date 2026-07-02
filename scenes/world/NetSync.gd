@@ -277,6 +277,53 @@ func recv_stash_update(snapshot: Dictionary) -> void:
 		world_scene._on_stash_update_received(snapshot)
 
 
+# ── Async card auction house (GID-102 / TID-378) ─────────────────────────────
+# Global to the session, same as the stash — no proximity gate.
+
+## Client → authority: list a card for sale. payload: AuctionSync.encode_list_intent
+## output ({"card_uid": String, "buyout": int}). Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_auction_list(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_auction_list_submitted"):
+		world_scene._on_auction_list_submitted(sender, payload)
+
+
+## Client → authority: bid on an active listing. payload: AuctionSync.encode_bid_intent
+## output ({"auction_id": String, "amount": int}). Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_auction_bid(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_auction_bid_submitted"):
+		world_scene._on_auction_bid_submitted(sender, payload)
+
+
+## Client → authority: buy a listing outright. payload: AuctionSync.encode_id_intent
+## output ({"auction_id": String}). Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_auction_buyout(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_auction_buyout_submitted"):
+		world_scene._on_auction_buyout_submitted(sender, payload)
+
+
+## Client → authority: cancel your own active listing. payload: AuctionSync.encode_id_intent
+## output ({"auction_id": String}). Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_auction_cancel(payload: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_auction_cancel_submitted"):
+		world_scene._on_auction_cancel_submitted(sender, payload)
+
+
+## Authority → all (or one, on late-join): the full listings snapshot.
+## payload is AuctionSync.decode_snapshot-compatible Array of listing dicts. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_auction_update(snapshot: Array) -> void:
+	if world_scene != null and world_scene.has_method("_on_auction_update_received"):
+		world_scene._on_auction_update_received(snapshot)
+
+
 # ── PvP spectating (GID-101 / TID-367) ───────────────────────────────────────
 
 ## Host → all non-participants: a PvP duel started/ended among party members.

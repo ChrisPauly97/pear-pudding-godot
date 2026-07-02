@@ -672,3 +672,69 @@ func test_ghost_snapshot_missing_display_name_defaults_to_player() -> void:
 	s.update_member("tok", {"token": "tok", "owned_cards": [], "player_deck": []})
 	var snap: Dictionary = s.get_ghost_snapshot("tok")
 	assert_eq(str(snap.get("name", "")), "Player")
+
+
+# ---------------------------------------------------------------------------
+# Async card auction house (GID-102 / TID-378)
+# ---------------------------------------------------------------------------
+
+func test_auctions_defaults_to_empty_array() -> void:
+	var s := SessionState.new()
+	assert_true(s.auctions is Array)
+	assert_true(s.auctions.is_empty())
+
+
+func test_auctions_round_trip() -> void:
+	var s := SessionState.new()
+	s.auctions = [
+		{"id": "auc_1", "seller_token": "tokA", "seller_name": "Ada",
+		 "card_instance": {"uid": "ghost_auc_1", "template_id": "ghost"},
+		 "buyout": 100, "bid": 0, "bidder_token": "", "expires_day": 5, "status": "active"},
+	]
+	var restored := SessionState.from_dict(s.to_dict())
+	assert_eq(restored.auctions.size(), 1)
+	var a: Dictionary = restored.auctions[0]
+	assert_eq(str(a.get("id", "")), "auc_1")
+	assert_eq(int(a.get("buyout", -1)), 100)
+	assert_eq(str(a.get("status", "")), "active")
+
+
+func test_auctions_garbage_field_falls_back_to_empty_array() -> void:
+	var data: Dictionary = {
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"auctions": "not-an-array",
+	}
+	var s := SessionState.from_dict(data)
+	assert_true(s.auctions.is_empty())
+
+
+func test_migration_v8_backfills_missing_auctions() -> void:
+	# Simulate a v7 session file that predates the auctions field entirely.
+	var data: Dictionary = {
+		"version": 7,
+		"session_id": "old",
+		"party_bounties": [],
+		"members": {},
+	}
+	var s := SessionState.from_dict(data)
+	assert_true(s.auctions is Array)
+	assert_true(s.auctions.is_empty())
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_migration_preserves_existing_auctions_field() -> void:
+	var data: Dictionary = {
+		"version": 7,
+		"session_id": "old",
+		"members": {},
+		"auctions": [{"id": "auc_1", "seller_token": "tokA", "buyout": 50, "status": "active"}],
+	}
+	var s := SessionState.from_dict(data)
+	assert_eq(s.auctions.size(), 1)
+	assert_eq(int((s.auctions[0] as Dictionary).get("buyout", -1)), 50)
+
+
+func test_from_dict_versionless_still_gets_auctions_default() -> void:
+	var data: Dictionary = {"session_id": "ancient", "members": {}}
+	var s := SessionState.from_dict(data)
+	assert_true(s.auctions.is_empty())
