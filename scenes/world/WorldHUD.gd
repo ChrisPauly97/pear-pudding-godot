@@ -14,6 +14,21 @@ var _world_scene: Node3D
 var _is_infinite: bool
 var _map_name: String
 var _interact_label: Label  # the @onready tscn node passed in from WorldScene
+var _vh: float = 0.0
+var _vw: float = 0.0
+
+# ── HUD Action Registry (GID-107) ───────────────────────────────────────────
+# Zones are real Container nodes that auto-stack their (visible) children, so
+# two actions registered into the same zone cannot overlap by construction.
+# See docs/agent/ui-and-scene-management.md "HUD Action Registry" section.
+const ZONE_SYSTEM  := "system"    # top-left: pause / system-level controls
+const ZONE_NAV     := "nav"       # top-right, under the minimap: Menu/Bag, Mount, Party
+const ZONE_ABILITY := "ability"   # left column: cantrip abilities
+const ZONE_CONTEXT := "context"   # bottom-center: one proximity-gated action at a time
+const ZONE_SOCIAL  := "social"    # bottom-right: Chat / Emote / Ping cluster
+
+var _zones: Dictionary = {}    # zone id (String) -> Container
+var _actions: Dictionary = {}  # action id (String) -> {button, callback, visible_when}
 
 # HUD nodes owned here
 var _dialogue_label: Label
@@ -49,10 +64,13 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 	var vp: Vector2 = hud.get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 	var vw: float = vp.x
+	_vh = vh
+	_vw = vw
 	var font_size: int = int(vh * 0.03)
 	var btn_w: float = vh * 0.14
 	var btn_h: float = vh * 0.07
 
+	_init_zones(vh, vw, btn_w, btn_h)
 	_create_nav_buttons(vh, vw, font_size, btn_w, btn_h)
 	_create_cantrip_buttons(vh, font_size)
 	_create_dialogue_label(vp, font_size)
@@ -78,75 +96,143 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 	GameBus.bounty_completed.connect(func(_id): refresh_bounty_tracker())
 	GameBus.inventory_changed.connect(refresh_action_cluster)
 
-func _create_nav_buttons(vh: float, vw: float, font_size: int,
+func _create_nav_buttons(vh: float, _vw_unused: float, font_size: int,
 		btn_w: float, btn_h: float) -> void:
 	# Single system/pause control replaces the Menu + II pair.
-	var pause_btn := Button.new()
-	pause_btn.text = "II"
-	pause_btn.custom_minimum_size = Vector2(btn_h, btn_h)
-	pause_btn.position = Vector2(vh * 0.01, vh * 0.01)
+	var pause_btn := register_action("pause", "II", ZONE_SYSTEM,
+		func() -> void: _world_scene.call("_open_pause"),
+		Callable(), Vector2(btn_h, btn_h))
 	pause_btn.add_theme_font_size_override("font_size", font_size)
-	pause_btn.pressed.connect(func() -> void: _world_scene.call("_open_pause"))
-	_hud.add_child(pause_btn)
 
 	# Single Menu/Bag entry replaces the four-button right column.
-	var minimap_bottom: float = vh * 0.01 + vh * 0.20 + vh * 0.01
-	var btn_x: float = vw - btn_w * 1.3 - vh * 0.01
-
-	var hub_btn := Button.new()
-	hub_btn.text = "Menu"
-	hub_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	hub_btn.position = Vector2(btn_x, minimap_bottom)
+	var hub_btn := register_action("menu_hub", "Menu", ZONE_NAV,
+		func() -> void: SceneManager.open_menu_hub("deck"),
+		Callable(), Vector2(btn_w * 1.3, btn_h))
 	hub_btn.add_theme_font_size_override("font_size", font_size)
-	hub_btn.pressed.connect(func() -> void: SceneManager.open_menu_hub("deck"))
-	_hud.add_child(hub_btn)
 
-	_mount_btn = Button.new()
-	_mount_btn.text = "Mount"
-	_mount_btn.custom_minimum_size = Vector2(btn_w * 1.3, btn_h)
-	_mount_btn.position = Vector2(btn_x, minimap_bottom + btn_h + vh * 0.005)
+	_mount_btn = register_action("mount", "Mount", ZONE_NAV,
+		func() -> void: _world_scene.call("_toggle_mount"),
+		Callable(), Vector2(btn_w * 1.3, btn_h))
 	_mount_btn.add_theme_font_size_override("font_size", font_size)
 	_mount_btn.flat = true
-	_mount_btn.pressed.connect(func() -> void: _world_scene.call("_toggle_mount"))
 	_mount_btn.hide()
-	_hud.add_child(_mount_btn)
 
 func _create_cantrip_buttons(vh: float, _font_size: int) -> void:
 	var cantrip_btn_w: float = vh * 0.12
 	var cantrip_btn_h: float = vh * 0.055
-	var cantrip_x: float = vh * 0.01
-	var cantrip_y: float = vh * 0.17
 
 	var sm := SceneManager.save_manager
 	var deck_ids: Array[String] = sm.get_deck_template_ids() if sm != null else []
 
-	_ghost_btn = Button.new()
-	_ghost_btn.text = "[G] Phase"
-	_ghost_btn.custom_minimum_size = Vector2(cantrip_btn_w, cantrip_btn_h)
+	_ghost_btn = register_action("cantrip_ghost_phase", "[G] Phase", ZONE_ABILITY,
+		func() -> void: _world_scene.call("_activate_ghost_phase"),
+		func() -> bool: return CantripManager.is_available("ghost_phase", _current_deck_ids()),
+		Vector2(cantrip_btn_w, cantrip_btn_h))
 	_ghost_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
-	_ghost_btn.position = Vector2(cantrip_x, cantrip_y)
-	_ghost_btn.pressed.connect(func() -> void: _world_scene.call("_activate_ghost_phase"))
-	_ghost_btn.visible = CantripManager.is_available("ghost_phase", deck_ids)
-	_hud.add_child(_ghost_btn)
 
-	_dig_btn = Button.new()
-	_dig_btn.text = "[D] Dig"
-	_dig_btn.custom_minimum_size = Vector2(cantrip_btn_w, cantrip_btn_h)
+	_dig_btn = register_action("cantrip_skeleton_dig", "[D] Dig", ZONE_ABILITY,
+		func() -> void: _world_scene.call("_activate_skeleton_dig"),
+		func() -> bool: return CantripManager.is_available("skeleton_dig", _current_deck_ids()),
+		Vector2(cantrip_btn_w, cantrip_btn_h))
 	_dig_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
-	_dig_btn.position = Vector2(cantrip_x, cantrip_y + cantrip_btn_h + vh * 0.005)
-	_dig_btn.pressed.connect(func() -> void: _world_scene.call("_activate_skeleton_dig"))
+	# visible_when above is only re-evaluated on demand (refresh_action_cluster); set the
+	# initial state explicitly since deck_ids was already computed here.
+	_ghost_btn.visible = CantripManager.is_available("ghost_phase", deck_ids)
 	_dig_btn.visible = CantripManager.is_available("skeleton_dig", deck_ids)
-	_hud.add_child(_dig_btn)
+
+func _current_deck_ids() -> Array[String]:
+	var sm := SceneManager.save_manager
+	return sm.get_deck_template_ids() if sm != null else []
 
 func refresh_action_cluster() -> void:
-	var sm := SceneManager.save_manager
-	if sm == null:
-		return
-	var deck_ids: Array[String] = sm.get_deck_template_ids()
-	if _ghost_btn != null:
-		_ghost_btn.visible = CantripManager.is_available("ghost_phase", deck_ids)
-	if _dig_btn != null:
-		_dig_btn.visible = CantripManager.is_available("skeleton_dig", deck_ids)
+	refresh_visibility("cantrip_ghost_phase")
+	refresh_visibility("cantrip_skeleton_dig")
+
+# ── HUD Action Registry (GID-107) ───────────────────────────────────────────
+
+func _init_zones(vh: float, vw: float, btn_w: float, btn_h: float) -> void:
+	var minimap_bottom: float = vh * 0.01 + vh * 0.20 + vh * 0.01
+	var nav_x: float = vw - btn_w * 1.3 - vh * 0.01
+	_add_zone(ZONE_SYSTEM, Vector2(vh * 0.01, vh * 0.01), false, vh * 0.01)
+	_add_zone(ZONE_NAV, Vector2(nav_x, minimap_bottom), false, vh * 0.005)
+	_add_zone(ZONE_ABILITY, Vector2(vh * 0.01, vh * 0.17), false, vh * 0.005)
+	_add_zone(ZONE_CONTEXT, Vector2(vw * 0.5 - vh * 0.17, vh * 0.80), false, vh * 0.005)
+	_add_zone(ZONE_SOCIAL, Vector2(vw - vh * 0.32, vh * 0.87), true, vh * 0.01)
+
+func _add_zone(zone_id: String, pos: Vector2, horizontal: bool, sep: float) -> void:
+	var box: Container = HBoxContainer.new() if horizontal else VBoxContainer.new()
+	box.name = "Zone_" + zone_id
+	box.position = pos
+	box.add_theme_constant_override("separation", int(sep))
+	_hud.add_child(box)
+	_zones[zone_id] = box
+
+## Creates (or returns, idempotently) a Button parented into `zone`'s container.
+## `min_size`, if non-zero, overrides the zone's default button size.
+func register_action(id: String, label: String, zone: String, callback: Callable,
+		visible_when: Callable = Callable(), min_size: Vector2 = Vector2.ZERO) -> Button:
+	var entry: Dictionary = _actions.get(id, {})
+	var btn: Button = entry.get("button") as Button
+	if btn == null or not is_instance_valid(btn):
+		btn = Button.new()
+		var zone_box: Container = _zones.get(zone) as Container
+		if zone_box != null:
+			zone_box.add_child(btn)
+		else:
+			_hud.add_child(btn)
+	else:
+		var old_callback: Callable = entry.get("callback", Callable())
+		if old_callback.is_valid() and btn.pressed.is_connected(old_callback):
+			btn.pressed.disconnect(old_callback)
+		var zone_box: Container = _zones.get(zone) as Container
+		if zone_box != null and btn.get_parent() != zone_box:
+			btn.get_parent().remove_child(btn)
+			zone_box.add_child(btn)
+	btn.text = label
+	if min_size != Vector2.ZERO:
+		btn.custom_minimum_size = min_size
+	elif btn.custom_minimum_size == Vector2.ZERO:
+		btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.06)
+	btn.pressed.connect(callback)
+	_actions[id] = {"button": btn, "callback": callback, "visible_when": visible_when}
+	if visible_when.is_valid():
+		btn.visible = bool(visible_when.call())
+	return btn
+
+func unregister_action(id: String) -> void:
+	var entry: Dictionary = _actions.get(id, {})
+	var btn: Button = entry.get("button") as Button
+	if btn != null and is_instance_valid(btn):
+		btn.queue_free()
+	_actions.erase(id)
+
+## Re-evaluates one action's `visible_when` (or every registered action's, if `id`
+## is omitted). No-op for actions registered without a `visible_when` Callable.
+func refresh_visibility(id: String = "") -> void:
+	var ids: Array = [id] if id != "" else _actions.keys()
+	for aid in ids:
+		var entry: Dictionary = _actions.get(aid, {})
+		var vw_check: Callable = entry.get("visible_when", Callable())
+		if not vw_check.is_valid():
+			continue
+		var btn: Button = entry.get("button") as Button
+		if btn != null and is_instance_valid(btn):
+			btn.visible = bool(vw_check.call())
+
+## Direct visibility setter for callers that already computed the boolean
+## themselves (e.g. per-frame proximity checks).
+func set_action_visible(id: String, v: bool) -> void:
+	var entry: Dictionary = _actions.get(id, {})
+	var btn: Button = entry.get("button") as Button
+	if btn != null and is_instance_valid(btn):
+		btn.visible = v
+
+func get_action_button(id: String) -> Button:
+	var entry: Dictionary = _actions.get(id, {})
+	return entry.get("button") as Button
+
+func get_zone_container(zone: String) -> Container:
+	return _zones.get(zone) as Container
 
 func _create_dialogue_label(vp: Vector2, font_size: int) -> void:
 	_dialogue_label = Label.new()
@@ -320,12 +406,23 @@ func show_interact_prompt(v: bool, label: String = "USE") -> void:
 
 # Returns true if pos (screen coordinates) lands on any visible HUD button.
 # Used by WorldScene to prevent tap-to-move from firing through HUD controls.
+# Recurses into zone Containers (GID-107) since registered buttons live one
+# level deeper than direct _hud children.
 func is_touch_on_hud_button(pos: Vector2) -> bool:
 	if _hud == null:
 		return false
 	for child in _hud.get_children():
-		if child is Button and (child as Button).visible:
-			if (child as Button).get_global_rect().has_point(pos):
+		if _hits_button(child, pos):
+			return true
+	return false
+
+func _hits_button(node: Node, pos: Vector2) -> bool:
+	if node is Button and (node as Button).visible:
+		if (node as Button).get_global_rect().has_point(pos):
+			return true
+	if node is Container:
+		for c in node.get_children():
+			if _hits_button(c, pos):
 				return true
 	return false
 

@@ -2,7 +2,7 @@
 
 **Goal:** GID-107
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -25,17 +25,40 @@ This is the anti-clutter mechanism the rest of GID-107 depends on. Every HUD but
 
 ## Plan
 
-_Written during Plan phase._ Suggested shape (confirm/adjust during Plan):
-- Add named zones to `WorldHUD.gd` as string constants or an enum, each backed by an actual `VBoxContainer`/`HBoxContainer` Control anchored at a fixed viewport-relative position (top-left system, top-right nav-under-minimap, left ability cluster, bottom-center contextual bar, bottom-right social strip, and a new party-entry slot near nav). Using real Container nodes for auto-stacking is the mechanism that makes overlap structurally impossible — do not keep manual per-button Y-offset math.
-- Add `register_action(id: String, label: String, zone: String, callback: Callable, visible_when: Callable = Callable()) -> Button` — creates or returns the button, reparents it into the zone container, connects `pressed`, and remembers `visible_when` for later re-evaluation.
-- Add `unregister_action(id: String) -> void` and `refresh_visibility() -> void` (iterates all registered actions, calls `visible_when` if set, updates `.visible`).
-- Migrate WorldHUD's own 5 buttons (Pause, Menu/Bag, Mount, Ghost Phase, Skeleton Dig) onto the new API in this task, replacing their current manual positioning — this is both the proof of the API and the first real usage.
-- Do not touch WorldScene's other buttons yet (TID-395/396/397 handle those) — but do expose whatever WorldHUD API those tasks will need (e.g. a way for WorldScene to call `_world_hud.register_action(...)`).
+Zones are real `Container` nodes childed directly to `_hud`, each anchored at a fixed viewport-relative position and stacking their own children (so overlap within a zone is structurally impossible — Godot's `BoxContainer` skips hidden children when sizing/sorting, which also fixes the "hidden button still reserves a slot" issue for free):
+
+- `ZONE_SYSTEM` ("system") — `VBoxContainer` at `(vh*0.01, vh*0.01)`, top-left. Houses Pause today.
+- `ZONE_NAV` ("nav") — `VBoxContainer` at `(vw - btn_w*1.3 - vh*0.01, minimap_bottom)`, top-right under the minimap. Houses Menu/Bag, Mount today; TID-395 adds Party here.
+- `ZONE_ABILITY` ("ability") — `VBoxContainer` at `(vh*0.01, vh*0.17)`, left column. Houses Ghost Phase / Skeleton Dig cantrips today.
+- `ZONE_CONTEXT` ("context") — `VBoxContainer` at `(vw*0.5 - vh*0.17, vh*0.80)`, bottom-center. Empty until TID-396.
+- `ZONE_SOCIAL` ("social") — `HBoxContainer` at `(vw - vh*0.32, vh*0.87)`, bottom-right. Empty until TID-397.
+
+API added to `WorldHUD.gd`:
+- `register_action(id, label, zone, callback, visible_when := Callable(), min_size := Vector2.ZERO) -> Button` — creates the button on first call (idempotent on repeat calls, matching the existing `_ensure_*` re-entrancy pattern used everywhere else in this codebase), parents it into the zone container, sizes it (explicit `min_size` or a zone-appropriate default), connects `pressed`, stores `visible_when`, and applies it once immediately.
+- `unregister_action(id)` — frees the button and drops the registry entry.
+- `set_action_visible(id, v)` — direct setter for the common case where a caller already computed the boolean itself (matches how `_update_challenge_proximity()` etc. already work — no need to force every per-frame caller through a re-evaluated Callable).
+- `refresh_visibility(id := "")` — re-evaluates one action's (or, if `id` omitted, every action's) stored `visible_when` Callable. Used for the ability cluster (`GameBus.inventory_changed`-driven, not per-frame).
+- `get_action_button(id) -> Button` — accessor for callers that need to mutate text/tooltip dynamically (Mount/Dismount, toggle labels).
+
+Migrate WorldHUD's own 5 buttons (Pause, Menu/Bag, Mount, Ghost Phase, Skeleton Dig) onto `register_action`, replacing their manual `Button.new()` + `add_child` + `position` code. `refresh_action_cluster()` switches to `refresh_visibility()`. `update_mount_btn()` switches to `get_action_button("mount")`.
+
+**Bug found while planning:** `is_touch_on_hud_button()` only scans `_hud.get_children()` one level deep. Once buttons live inside zone `Container`s instead of directly under `_hud`, that scan misses every registered button, silently breaking the "don't let tap-to-move fire through a HUD button" guard on Android. Fix: make the scan recurse into `Container` children (harmless no-op today, required once zones exist).
+
+Not touching WorldScene's other buttons — TID-395/396/397 handle those, using the zones/API this task exposes.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WorldHUD.gd`: added the zone/registry framework — `ZONE_SYSTEM`/`ZONE_NAV`/`ZONE_ABILITY`/`ZONE_CONTEXT`/`ZONE_SOCIAL` constants, `_zones`/`_actions` dictionaries, `_init_zones()`/`_add_zone()`, and the public API `register_action()`, `unregister_action()`, `refresh_visibility()`, `set_action_visible()`, `get_action_button()`, `get_zone_container()`.
+- Migrated the 5 WorldHUD-owned buttons (Pause → `ZONE_SYSTEM`; Menu/Bag, Mount → `ZONE_NAV`; Ghost Phase, Skeleton Dig cantrips → `ZONE_ABILITY`) onto `register_action`. Visual position is unchanged (zone anchors match the buttons' old coordinates exactly; per-zone `VBoxContainer` separation matches the old manual offsets), but overlap within a zone is now structurally impossible.
+- Cantrip visibility now goes through a `visible_when` Callable re-evaluated by `refresh_action_cluster()` (still triggered by `GameBus.inventory_changed`, unchanged trigger) instead of directly poking `.visible`.
+- **Bug fix (found during Plan):** `is_touch_on_hud_button()` only scanned direct `_hud` children; buttons now live one level deeper inside zone containers. Replaced with a recursive `_hits_button()` walk so the Android tap-to-move guard still sees every registered button.
+- No behavior change to any WorldScene-owned button in this task — TID-395/396/397 migrate those onto the zones this task exposes.
+
+**Not run:** `godot --headless --editor --quit` compile check — this environment's network policy blocks the Godot release download (403 from the egress proxy for github.com release assets). Reviewed the diff manually against GDScript syntax/typing rules in CLAUDE.md (explicit `Dictionary`/`Container` type annotations to avoid Variant-inference errors, `Dictionary.get(key, default)` two-arg form, preload-not-classname for `WorldHUD`). CI's headless import step will be the first actual compile check for this change.
 
 ## Documentation Updates
 
-_Leave the full `docs/agent/ui-and-scene-management.md` rewrite to TID-398 to avoid duplicate/conflicting edits across parallel-ish tasks in this goal. You may note the new API surface briefly in this section for TID-398's reference._
+New API surface for TID-398 to fold into `docs/agent/ui-and-scene-management.md`:
+- Zones: `system` (top-left), `nav` (top-right under minimap), `ability` (left column), `context` (bottom-center, empty until TID-396), `social` (bottom-right, empty until TID-397).
+- `WorldHUD.register_action(id, label, zone, callback, visible_when := Callable(), min_size := Vector2.ZERO) -> Button` / `unregister_action(id)` / `refresh_visibility(id := "")` / `set_action_visible(id, v)` / `get_action_button(id)` / `get_zone_container(zone)`.
+- Idempotent like the existing `_ensure_*_button()` pattern: calling `register_action` again with the same `id` updates the existing button in place rather than duplicating it.
