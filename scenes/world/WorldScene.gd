@@ -744,6 +744,12 @@ func _setup_coop() -> void:
 		# Party panel (GID-107 / TID-395): single entry point for Roster, Loot Mode,
 		# Stash, Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl.
 		_world_hud.register_action("party", "Party", WorldHUD.ZONE_NAV, _open_party_panel)
+		# Discoverability (GID-107 / TID-398): players used to the old scattered
+		# buttons need a one-time nudge to the new consolidated entry point.
+		# SceneManager dedups via the "seen_tutorial_party_panel" flag, so this is
+		# safe to emit every time co-op becomes active (matches the "night_hunts"
+		# precedent — emitter just emits, the handler owns the seen-once logic).
+		GameBus.tutorial_popup_requested.emit("party_panel")
 	# GID-101 (TID-369): host initialises party bounties; all peers build the HUD.
 	_setup_party_bounties()
 	if not NetworkManager.is_dedicated_server():

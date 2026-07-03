@@ -110,7 +110,7 @@
 | [GID-104](goals/GID-104--competitive-formats/goal.md) | Competitive Formats — Draft Duels, Tournaments & Spectator Wagers | done | 3 / 3 |
 | [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | done (unit suite + headless import unverified in-sandbox — see goal.md note) | 2 / 2 |
 | [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | pending | 0 / 4 |
-| [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | pending | 4 / 5 |
+| [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | done (needs headless test run + visual verification — see TID-398) | 5 / 5 |
 | [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | in-progress | 2 / 10 |
 
 ## Backlog
@@ -151,6 +151,7 @@
 | [BID-040](backlog/BID-040--rally-blocked-inside-own-dungeon.md) | Rally waystones inherit the fast-travel dungeon block, so a player can't rally to teammates while already inside a shared dungeon crawl — exactly when it's most needed | design-gap | GID-105 / TID-388 |
 | [BID-041](backlog/BID-041--siege-raiders-set-enemy-type-noop.md) | Single-player siege raiders' `node.set("enemy_type", ...)` is a silent no-op (no such property) — every raider always fights as fallback "undead_basic" regardless of stage | code-smell | GID-103 / TID-384 |
 | [BID-042](backlog/BID-042--auction-button-not-in-party-panel.md) | Auction House button is the same shape of always-on co-op clutter as Stash/Leaderboard but wasn't in GID-107's original consolidation list (shipped after the goal was written) | design-gap | GID-107 / TID-395 |
+| [BID-043](backlog/BID-043--siege-draft-tournament-buttons-not-migrated.md) | Siege/Draft Duel/Tournament HUD buttons not yet migrated to the GID-107 registry; Siege and Tournament buttons visually overlap (both centered at the same y) | code-smell / design-gap | GID-107 / TID-398 |
 
 ## Resolved Backlog
 
