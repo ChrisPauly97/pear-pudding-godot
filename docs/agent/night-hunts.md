@@ -102,3 +102,12 @@ Spectral enemies are transient. Detected by `enemy_type.begins_with("spectre_")`
 ## Asset Requirements
 
 - `res://assets/audio/sfx/nightfall.wav` — soft ambient nightfall sting (~1–3 s). Optional: `AudioManager.play_sfx()` no-ops if missing.
+
+## Co-op (GID-103 / TID-383)
+
+A separate, parallel system — **Party Night Hunts** — brings this to the shared
+co-op map (madrian) at synced night, spawning deterministic spectral enemies
+the whole party can hunt via the existing GID-096 engage-lock sync. It does not
+reuse this file's infinite-world spawn loop (`_update_nocturnal_spawns`, gated
+to `_is_infinite`); see `game_logic/CoopNightHunts.gd` and the "Party Night
+Hunts" section of `docs/agent/multiplayer-coop.md` for the full design.

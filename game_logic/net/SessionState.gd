@@ -28,7 +28,9 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ## v6 — adds `leaderboards` {spire, coop_clears} PvE score boards (TID-379).
 ## v7 — adds loot_mode session setting for need/greed chest rolls (TID-381).
 ## v8 — adds `auctions` array for the async card auction house (TID-378).
-const CURRENT_SESSION_VERSION: int = 8
+## v9 — adds `weather_id` (synced co-op weather, TID-382) and a `night_hunts`
+##      PvE leaderboard (party night hunt kill tallies, TID-383).
+const CURRENT_SESSION_VERSION: int = 9
 
 ## Cap applied to each PvE leaderboard array by record_pve_score (top N kept).
 const PVE_LEADERBOARD_CAP: int = 20
@@ -56,6 +58,10 @@ var current_map: String = "madrian"
 var world_seed: int = 42
 var time_of_day: float = 0.4
 var days_elapsed: int = 0
+# Synced co-op weather (GID-103 / TID-382) — authority-rolled, broadcast via EnvSync
+# alongside the clock. "" means clear. Only meaningful on named (non-infinite) co-op
+# maps; the infinite-world WeatherManager is a separate, single-player-only system.
+var weather_id: String = ""
 var defeated_enemies: Array = []
 var opened_chests: Array = []
 var story_flags: Dictionary = {}
@@ -78,8 +84,10 @@ var stash: Dictionary = {"cards": [], "coins": 0}
 # Authority-owned, session-scoped best-score boards. Distinct from the PvP
 # `get_leaderboard()` ranked-rating board above (TID-370/373) — this is PvE
 # achievement (Endless Spire runs, co-op boss clears), never touches rating.
-# Shape: {spire: Array, coop_clears: Array}, each entry {token, name, value, day}.
-var leaderboards: Dictionary = {"spire": [], "coop_clears": []}
+# Shape: {spire: Array, coop_clears: Array, night_hunts: Array}, each entry
+# {token, name, value, day}. night_hunts (TID-383) tracks a member's best
+# single-night spectral-kill tally.
+var leaderboards: Dictionary = {"spire": [], "coop_clears": [], "night_hunts": []}
 
 # --- Loot distribution mode (GID-102 / TID-381) -----------------------------
 # Host-only session setting; LOOT_MODE_FIRST_OPENER (default) or LOOT_MODE_NEED_GREED.
@@ -107,6 +115,7 @@ func to_dict() -> Dictionary:
 		"world_seed": world_seed,
 		"time_of_day": time_of_day,
 		"days_elapsed": days_elapsed,
+		"weather_id": weather_id,
 		"defeated_enemies": defeated_enemies.duplicate(),
 		"opened_chests": opened_chests.duplicate(),
 		"story_flags": story_flags.duplicate(true),
@@ -130,6 +139,7 @@ static func from_dict(data: Dictionary) -> SessionState:
 	s.world_seed = int(data.get("world_seed", 42))
 	s.time_of_day = float(data.get("time_of_day", 0.4))
 	s.days_elapsed = int(data.get("days_elapsed", 0))
+	s.weather_id = str(data.get("weather_id", ""))
 	var de: Variant = data.get("defeated_enemies", [])
 	s.defeated_enemies = (de as Array).duplicate() if de is Array else []
 	var oc: Variant = data.get("opened_chests", [])
@@ -159,15 +169,18 @@ static func from_dict(data: Dictionary) -> SessionState:
 	return s
 
 
-## Always returns a dict with both "spire" and "coop_clears" Array keys, discarding
-## any garbage-typed input so a corrupt/legacy file can never crash a caller that
-## assumes the shape (mirrors the tolerant fallback pattern used throughout this file).
+## Always returns a dict with "spire", "coop_clears" and "night_hunts" Array keys,
+## discarding any garbage-typed input so a corrupt/legacy file can never crash a
+## caller that assumes the shape (mirrors the tolerant fallback pattern used
+## throughout this file).
 static func _sanitized_leaderboards(raw: Dictionary) -> Dictionary:
 	var spire: Variant = raw.get("spire", [])
 	var coop: Variant = raw.get("coop_clears", [])
+	var hunts: Variant = raw.get("night_hunts", [])
 	return {
 		"spire": (spire as Array).duplicate(true) if spire is Array else [],
 		"coop_clears": (coop as Array).duplicate(true) if coop is Array else [],
+		"night_hunts": (hunts as Array).duplicate(true) if hunts is Array else [],
 	}
 
 
@@ -230,6 +243,14 @@ static func _apply_migrations(data: Dictionary) -> void:
 		if not data.has("auctions"):
 			data["auctions"] = []
 		data["version"] = 8
+	if ver < 9:
+		# v9: add synced co-op weather + the night_hunts PvE leaderboard.
+		if not data.has("weather_id"):
+			data["weather_id"] = ""
+		var lb9: Variant = data.get("leaderboards", {})
+		if lb9 is Dictionary and not (lb9 as Dictionary).has("night_hunts"):
+			(lb9 as Dictionary)["night_hunts"] = []
+		data["version"] = 9
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 
@@ -406,7 +427,7 @@ func get_leaderboard(limit: int = 10) -> Array:
 # task asks for a standalone {token, name, value, day} entry shape).
 
 ## Valid board names for `record_pve_score` / `get_pve_leaderboard`.
-const _PVE_BOARDS: Array[String] = ["spire", "coop_clears"]
+const _PVE_BOARDS: Array[String] = ["spire", "coop_clears", "night_hunts"]
 
 ## Insert-or-update `token`'s best score on `board`, then re-sort (desc by value,
 ## ties broken by earliest `day` so an established record isn't bumped by a later
@@ -452,10 +473,12 @@ func get_pve_leaderboard(board: String, limit: int = PVE_LEADERBOARD_CAP) -> Arr
 	return rows.duplicate(true)
 
 
-## The full {spire, coop_clears} snapshot sent over the wire (both boards together,
-## same "send the whole cached thing" pattern as recv_party_bounties_snapshot).
+## The full {spire, coop_clears, night_hunts} snapshot sent over the wire (all
+## boards together, same "send the whole cached thing" pattern as
+## recv_party_bounties_snapshot).
 func get_pve_leaderboards_snapshot() -> Dictionary:
 	return {
 		"spire": get_pve_leaderboard("spire"),
 		"coop_clears": get_pve_leaderboard("coop_clears"),
+		"night_hunts": get_pve_leaderboard("night_hunts"),
 	}

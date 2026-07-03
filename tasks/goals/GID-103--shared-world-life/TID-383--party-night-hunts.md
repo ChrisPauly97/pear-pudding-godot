@@ -2,14 +2,14 @@
 
 **Goal:** GID-103
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-382
 
 ## Lock
 
-**Session:** claude/end-to-end-goal-nbilf4
-**Acquired:** 2026-07-02T19:33:45Z
-**Expires:** 2026-07-02T20:03:45Z
+**Session:** none
+**Acquired:** —
+**Expires:** —
 
 ## Context
 
@@ -37,12 +37,50 @@ This directly addresses BID-024 (madrian has no enemies/chests to engage with), 
 
 ## Plan
 
-_Written during Plan phase._
+1. Pure deterministic planner `game_logic/CoopNightHunts.gd`:
+   `generate_hunt(map_name, days_elapsed)` derives up to 4 spectral enemies
+   (id/type/offset from the map's `SiegeDefs.TOWN_GATES` anchor), seeded only
+   by `(map_name, days_elapsed)` — no world-seed dependency needed since
+   `days_elapsed` is already synced (TID-382) and both peers are on the same
+   map by construction. `party_drop_tier_bonus(party_size)` for the drop-boost
+   scaling requirement.
+2. `WorldScene._coop_update_night_hunts` (ticked every frame, `_coop_active` +
+   `not _is_infinite`): spawns the plan the instant the synced clock crosses
+   into night, despawns at dawn. Each spawned node's `enemy_data["id"]` is the
+   deterministic id, so the pre-existing GID-096 engage-lock/defeat flow needs
+   **zero changes** to handle them — confirmed by reading `EnemyNPC.engage()`
+   (emits `enemy_data` verbatim) and `_on_enemy_engaged_coop`/`_on_world_event_*`
+   (generic on any id).
+3. `SceneManager._on_battle_won`: add the party-size drop-tier bonus on top of
+   the existing single-player night boost, guarded by `NetworkManager.is_active()`.
+4. New `"night_hunts"` PvE leaderboard board (`SessionState` v9, same migration
+   as TID-382's `weather_id`): kill tally submitted via the existing generic
+   `_submit_pve_score` routing (host-direct or client-RPC, whichever already
+   exists) — no new RPC needed.
+5. HUD toast per kill + a 5-kill milestone message via the existing
+   `GameBus.hud_message_requested` signal.
+6. Unit tests for `CoopNightHunts` (determinism, uniqueness, map support).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/CoopNightHunts.gd` (new) — pure spawn planner + drop-bonus helper.
+- `tests/unit/test_coop_night_hunts.gd` (new) — 14 tests.
+- `game_logic/net/SessionState.gd` — `_PVE_BOARDS`/`leaderboards`/
+  `get_pve_leaderboards_snapshot` extended with `"night_hunts"` (same v9
+  migration as TID-382).
+- `scenes/world/WorldScene.gd` — `_coop_update_night_hunts`,
+  `_coop_spawn_night_hunt`, `_coop_despawn_night_hunt`; wired into `_process`
+  and `_on_coop_session_ended` cleanup. `_coop_persist_enemy_defeat` extended
+  to tally + announce + submit a night-hunt kill when the defeated id begins
+  with `"night_hunt_"`. Minimap coloring required no changes — it already keys
+  off the shared `is_nocturnal` meta flag both single-player and this system set.
+- `autoloads/SceneManager.gd` — `_on_battle_won` applies
+  `CoopNightHunts.party_drop_tier_bonus` on a co-op spectral kill.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md`: "Shared World Life (GID-103)" section,
+  "Party Night Hunts" subsection — full design writeup.
+- `docs/agent/night-hunts.md`: added a short "Co-op (GID-103 / TID-383)" pointer
+  section clarifying this is a parallel system, not a reuse of the
+  infinite-world spawn loop, with a link to the full design doc.

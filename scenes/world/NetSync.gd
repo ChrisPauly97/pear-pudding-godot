@@ -607,3 +607,55 @@ func recv_tournament_update(bracket: Dictionary) -> void:
 func notify_tournament_spectate() -> void:
 	if world_scene != null and world_scene.has_method("_on_tournament_spectate_notified"):
 		world_scene._on_tournament_spectate_notified()
+
+
+# ── Synced world clock & weather (GID-103 / TID-382) ──────────────────────────
+
+## Authority → peers: the current shared clock/weather. payload is
+## EnvSync.encode() output: [time_of_day, days_elapsed, weather_id]. Reliable —
+## a dropped update just means the next low-Hz tick (or the next weather change)
+## corrects it; there is no continuous stream to fall back on.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_env_state(payload: Array) -> void:
+	if world_scene != null and world_scene.has_method("_on_env_state_received"):
+		world_scene._on_env_state_received(payload)
+
+
+# ── Co-op Town Siege (GID-103 / TID-384) ──────────────────────────────────────
+
+## Host → all: a siege has started with this deterministic id. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_siege_started(siege_id: int) -> void:
+	if world_scene != null and world_scene.has_method("_on_siege_started_received"):
+		world_scene._on_siege_started_received(siege_id)
+
+
+## Host → all: the previous wave cleared — advance to this wave index. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_siege_wave(siege_id: int, wave: int) -> void:
+	if world_scene != null and world_scene.has_method("_on_siege_wave_received"):
+		world_scene._on_siege_wave_received(siege_id, wave)
+
+
+## Host → all: every raider wave is cleared — spawn the finale boss. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_siege_boss_phase(siege_id: int) -> void:
+	if world_scene != null and world_scene.has_method("_on_siege_boss_phase_received"):
+		world_scene._on_siege_boss_phase_received(siege_id)
+
+
+## Client → host: I engaged the siege boss — start the joint battle for the
+## whole party. edata is the raw EnemyNPC.engage() payload. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_siege_boss_engaged(edata: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_siege_boss_engaged_submitted"):
+		world_scene._on_siege_boss_engaged_submitted(sender, edata)
+
+
+## Host → each ally client: the joint siege-boss battle is starting. Mirrors
+## notify_team_duel_start's per-recipient absolute-index pattern. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func notify_coop_pve_start(my_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_notify_coop_pve_start"):
+		world_scene._on_notify_coop_pve_start(my_idx, all_ally_decks, enemy_data)
