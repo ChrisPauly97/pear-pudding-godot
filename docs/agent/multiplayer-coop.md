@@ -45,9 +45,25 @@ Public API:
 private `_reset_session()` first, which stops the discovery sockets, **closes** the current
 ENet peer (`peer.close()` — not just nulling it), then nulls it. Closing is mandatory:
 dropping the reference alone leaves the server socket holding the OS port until GC, so a
-second `host()` on the same port would fail with "address in use". This makes the **Host
-Game** button work on repeat presses even when a prior session was left dangling (e.g. the
-host returned to the menu by a path that never called `leave()`).
+second `host()` on the same port would fail with "address in use". This is defense in depth
+for the **Host Game** button on repeat presses — the primary fix is that every path back to
+the main menu now calls `leave()` explicitly (see "Menu return always calls `leave()`" below),
+so a dangling peer from a prior session should no longer reach `host()`/`join()` at all.
+
+**Menu return always calls `leave()` (fixed in claude/single-player-multiplayer-bug-wlaoij):**
+`SceneManager.go_to_menu()` and `go_to_menu_direct()` — the only two functions that land on
+`MenuScene` — call `NetworkManager.leave()` whenever `is_active()` is true, before doing
+anything else. Previously nothing tore down the peer on the way out of an active co-op world
+(pause-menu "Quit to Menu", battle pause "Quit", Game Over, Spire/Run-Summary "Return to
+Menu" all skipped it), so `NetworkManager.is_active()` stayed stuck `true` across scene
+changes. The next **New Game** loaded a fresh `WorldScene`, whose `_setup_coop()` is gated
+only on `is_active()` — with no secondary "was this actually entered via `enter_map_coop()`"
+check — so it wrongly wired up chat, the Party panel, `NetSync`/avatar sync, and (if the
+stale role was host) `_setup_session()` re-adopted the old co-op session character via
+`SaveManager.adopt_session_character()`, silently clobbering the just-created single-player
+save and forcing `_loaded = false` so subsequent `save()` calls became no-ops. Invariant: any
+function that can return control to `MenuScene` must end an active network session there —
+don't rely on the *next* `host()`/`join()` to clean up a *previous* one.
 | signals | `server_started`, `connection_succeeded`, `connection_failed`, `peer_connected(id)`, `peer_disconnected(id)`, `session_ended`, `hosts_discovered(hosts)` |
 
 **Steam swap point:** `enum Transport { ENET, STEAM }` + `_create_peer(transport)`
