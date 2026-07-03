@@ -24,6 +24,7 @@ const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
 const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
 const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
+const _CoopNightHunts = preload("res://game_logic/CoopNightHunts.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const _GambitPickerOverlay = preload("res://scenes/battle/GambitPickerOverlay.gd")
 const _MenuHubScript = preload("res://scenes/ui/MenuHubScene.gd")
@@ -950,6 +951,11 @@ func _on_battle_won(result: Dictionary) -> void:
 		drop_tier = mini(drop_tier + 1, 4)
 	drop_tier = mini(drop_tier + Gambits.get_rarity_tier_bonus(gambit_id), 4)
 	var is_nocturnal: bool = enemy_type.begins_with("spectre_")
+	# GID-103 (TID-383): party night hunts — a bigger co-op party earns a further
+	# rarity bump on a spectral kill, on top of the existing single-player boost.
+	if is_nocturnal and NetworkManager.is_active():
+		var party_size: int = multiplayer.get_peers().size() + 1
+		drop_tier = mini(drop_tier + _CoopNightHunts.party_drop_tier_bonus(party_size), 4)
 	if not _current_battle_enemy_id.is_empty():
 		if not is_rival and not is_nocturnal:
 			save_manager.mark_enemy_defeated(_current_battle_enemy_id)

@@ -75,6 +75,12 @@ const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
 # Downed & rescue in shared dungeons (GID-105 / TID-389)
 const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
+# Shared world life (GID-103): synced clock/weather, party night hunts, co-op siege
+const _EnvSync           = preload("res://game_logic/net/EnvSync.gd")
+const _CoopNightHunts    = preload("res://game_logic/CoopNightHunts.gd")
+const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
+const _CardRegistry      = preload("res://autoloads/CardRegistry.gd")
+const _ENV_BROADCAST_INTERVAL: float = 3.0  # host: low-Hz clock/weather broadcast
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -234,7 +240,26 @@ var _ranked_toggle_on: bool = false      # local challenger's ranked opt-in stat
 var _pvp_ranked: bool = false            # ranked flag captured for the active duel (both peers)
 # GID-102 (TID-379): PvE leaderboards (Endless Spire + co-op boss clears). Distinct
 # cache/RPC names from the TID-373 ranked-rating board above — never touches rating.
-var _pve_leaderboards: Dictionary = {"spire": [], "coop_clears": []}  # cached snapshot
+var _pve_leaderboards: Dictionary = {"spire": [], "coop_clears": [], "night_hunts": []}  # cached snapshot
+# GID-103 (TID-382): Synced world clock & weather — host-only rolling/broadcast state.
+# Clients mirror the authority's days_elapsed/weather here since they have no
+# SessionStore of their own to read from.
+var _coop_env_broadcast_timer: float = 0.0
+var _coop_weather_timer: float = 0.0
+var _coop_weather_rng: RandomNumberGenerator = null
+var _coop_env_days_elapsed: int = 0
+var _coop_env_weather_id: String = ""
+# GID-103 (TID-383): Party Night Hunts — deterministic spectral spawns on synced night.
+var _coop_night_hunt_active: bool = false
+var _coop_night_hunt_day: int = -1
+var _coop_night_hunt_nodes: Dictionary = {}  # id -> Node3D
+var _coop_night_hunt_kills: int = 0          # resets at dawn
+# GID-103 (TID-384): Co-op Town Siege — host-only trigger; escalating waves + joint boss.
+var _siege_btn: Button = null
+var _coop_siege_active: bool = false
+var _coop_siege_id: int = 0
+var _coop_siege_wave: int = -1               # -1 = not started; >= WAVE_COUNT = boss phase
+var _coop_siege_wave_nodes: Dictionary = {}  # id -> Node3D (current wave only)
 # TID-377: Ghost duels — host-only HUD button + overlay (SessionStore is only ever
 # open on the authority; a client has no local SessionState to list opponents from).
 var _ghost_duel_btn: Button = null
@@ -573,6 +598,14 @@ func _ready() -> void:
 	_dnc.day_passed.connect(func() -> void:
 		SceneManager.save_manager.increment_day()
 		GameBus.blight_changed.emit()
+		# GID-103 (TID-382): advance the shared co-op day counter (BID-039) — only the
+		# authority owns SessionState.days_elapsed; clients learn the new value from
+		# the next env broadcast.
+		if _coop_active and NetworkManager.is_host() and SessionStore.is_open():
+			var st_day = SessionStore.get_state()
+			if st_day != null:
+				st_day.days_elapsed += 1
+				SessionStore.mark_dirty()
 	)
 	if _is_infinite:
 		_dnc.night_started.connect(func() -> void:
@@ -635,6 +668,11 @@ func _ready() -> void:
 	# co-op boss clear is recorded regardless of which map/battle state re-attaches us.
 	if not GameBus.coop_pve_battle_ended.is_connected(_on_coop_pve_battle_ended_leaderboard):
 		GameBus.coop_pve_battle_ended.connect(_on_coop_pve_battle_ended_leaderboard)
+	# GID-103 (TID-384): co-op Town Siege finale is the first caller of the joint PvE
+	# engine — reset siege UI/state and grant party rewards on the outcome. Same
+	# "connected permanently" reasoning (WorldScene detaches during the battle).
+	if not GameBus.coop_pve_battle_ended.is_connected(_on_coop_siege_battle_ended):
+		GameBus.coop_pve_battle_ended.connect(_on_coop_siege_battle_ended)
 	# Spire runs happen while WorldScene is loaded (no battle-detach involved), but the
 	# connection is still made once here (not in _setup_coop) so a Spire run that starts
 	# before any co-op session is active still reaches this handler once co-op does start.
@@ -702,6 +740,7 @@ func _setup_coop() -> void:
 		_ensure_chat_ui()
 		_ensure_dungeon_button()
 		_ensure_tournament_button()
+		_ensure_siege_button()
 	# GID-101 (TID-369): host initialises party bounties; all peers build the HUD.
 	_setup_party_bounties()
 	if not NetworkManager.is_dedicated_server():
@@ -856,6 +895,17 @@ func _on_coop_session_ended() -> void:
 		SessionStore.close(true)
 	_session_adopted = false
 	_refresh_coop_roster()
+	# Shared world life (GID-103) is session-scoped: clear the night hunt and
+	# siege state so a fresh session starts clean.
+	_coop_despawn_night_hunt()
+	_coop_siege_active = false
+	_coop_siege_wave = -1
+	_coop_siege_wave_nodes.clear()
+	if _siege_banner != null and is_instance_valid(_siege_banner):
+		_siege_banner.queue_free()
+	_siege_banner = null
+	_coop_env_weather_id = ""
+	_coop_weather_rng = null
 	_coop_active = false
 
 # ── Player identity handshake (GID-094 / TID-342) ─────────────────────────────
@@ -928,6 +978,11 @@ func _setup_session() -> void:
 		st.current_map = map_name
 		st.world_seed = SceneManager.save_manager.world_seed
 		SessionStore.mark_dirty()
+		# GID-103 (TID-382): resume the host's own clock from the persisted session
+		# value (a fresh session's default 0.4 matches _dnc's own default, so this is
+		# a no-op the first time a session file is created).
+		if _dnc != null:
+			_dnc.set_time_of_day(st.time_of_day)
 	var token: String = MpProfile.get_token()
 	var resume: bool = st != null and st.has_member(token)
 	var rec: Dictionary = SessionStore.ensure_member(token, MpProfile.get_display_name())
@@ -1018,6 +1073,11 @@ func _send_character_to_peer(peer_id: int, token: String, member_name: String) -
 		# GID-102 (TID-378): send the current auction listings snapshot so a joining
 		# client's Auction House panel starts populated instead of empty.
 		_net_sync.rpc_id(peer_id, "recv_auction_update", st.auctions)
+		# GID-103 (TID-382): send the current clock/weather so a late joiner never
+		# sees a mismatched sky before the next low-Hz broadcast tick.
+		if _dnc != null:
+			_net_sync.rpc_id(peer_id, "recv_env_state",
+				_EnvSync.encode(_dnc.get_time_of_day(), st.days_elapsed, st.weather_id))
 
 ## Move the local player to the position stored in a session record (same map only).
 func _restore_session_position(record: Dictionary) -> void:
@@ -1252,6 +1312,12 @@ func _on_enemy_engaged_coop(edata: Dictionary) -> void:
 	var eid: String = str(edata.get("id", ""))
 	if eid == "":
 		return
+	# GID-103 (TID-384): the siege finale boss is a joint battle for the whole
+	# party, not a solo engage-lock fight — route it separately and skip the
+	# normal single-player-battle path entirely.
+	if _coop_siege_active and eid.begins_with("siege_boss_"):
+		_coop_engage_siege_boss(edata)
+		return
 	_coop_last_engaged_enemy_id = eid
 	if NetworkManager.is_host():
 		_coop_removed_enemies[eid] = true
@@ -1276,6 +1342,14 @@ func _coop_persist_enemy_defeat() -> void:
 	elif _net_sync != null:
 		_net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
 			_WorldObjectSync.EV_ENEMY_DEFEATED, eid))
+	# GID-103 (TID-383): tally + announce a party night-hunt kill and record it to
+	# the session's night_hunts leaderboard (best single-night tally per member).
+	if eid.begins_with("night_hunt_"):
+		_coop_night_hunt_kills += 1
+		_submit_pve_score("night_hunts", _coop_night_hunt_kills)
+		GameBus.hud_message_requested.emit("Spectral kill! (%d tonight)" % _coop_night_hunt_kills)
+		if _coop_night_hunt_kills == 5:
+			GameBus.hud_message_requested.emit("The party has defeated 5 spectral enemies tonight!")
 
 ## Host-only: record a defeated enemy into the session file (resumes on reconnect).
 func _coop_record_enemy_defeated(eid: String) -> void:
@@ -1386,6 +1460,152 @@ func _on_world_snapshot_received(payload: Array) -> void:
 	var snap: Dictionary = _WorldObjectSync.decode_snapshot(payload)
 	_coop_apply_world_progress(
 		snap.get("removed_enemies", []), snap.get("opened_objects", []))
+
+# ── Synced world clock & weather (GID-103 / TID-382) ──────────────────────────
+# The authority (host) is the single source of truth for time_of_day/days_elapsed/
+# weather. Its own local DayNightCycle (_dnc) already advances every frame — this
+# section only adds the low-Hz broadcast (+ the co-op-only weather roll, since
+# WeatherManager is hard-gated to the "main" infinite-world map). Clients apply the
+# broadcast read-only to their own _dnc and to weather visuals. Guarded by
+# _coop_active + not _is_infinite (co-op stays on finite named maps); single-player
+# and the infinite world are completely untouched.
+
+## Host-only: roll/broadcast tick, called every frame from _process while co-op is
+## active. A no-op on clients (they only ever receive recv_env_state) and on the
+## infinite world (WeatherManager already owns weather there).
+func _tick_env_sync(delta: float) -> void:
+	if _is_infinite or not _coop_world_authority() or _dnc == null:
+		return
+	_coop_weather_timer -= delta
+	var weather_rolled: bool = false
+	if _coop_weather_timer <= 0.0:
+		_coop_weather_timer = _coop_roll_weather()
+		weather_rolled = true
+	_coop_env_broadcast_timer -= delta
+	if weather_rolled or _coop_env_broadcast_timer <= 0.0:
+		_coop_env_broadcast_timer = _ENV_BROADCAST_INTERVAL
+		_broadcast_env_state()
+
+## Host-only: pick the next weather id + duration, apply it locally, and persist it.
+## Returns the seconds until the next reroll.
+func _coop_roll_weather() -> float:
+	if _coop_weather_rng == null:
+		_coop_weather_rng = RandomNumberGenerator.new()
+		var seed_val: int = 0
+		if SessionStore.is_open():
+			seed_val = SessionStore.get_state().world_seed
+		_coop_weather_rng.seed = seed_val if seed_val != 0 else randi()
+	var weather_id: String = _EnvSync.roll_weather(_coop_weather_rng)
+	var duration: float = _EnvSync.roll_duration(_coop_weather_rng, weather_id)
+	if SessionStore.is_open():
+		SessionStore.get_state().weather_id = weather_id
+		SessionStore.mark_dirty()
+	_on_weather_changed(weather_id, duration)
+	return duration
+
+## Host-only: broadcast the current clock/weather to every peer.
+func _broadcast_env_state() -> void:
+	if not _coop_world_authority() or _net_sync == null or _dnc == null:
+		return
+	var days: int = 0
+	var weather_id: String = ""
+	if SessionStore.is_open():
+		var st = SessionStore.get_state()
+		days = st.days_elapsed
+		weather_id = st.weather_id
+	_net_sync.rpc("recv_env_state", _EnvSync.encode(_dnc.get_time_of_day(), days, weather_id))
+
+## Any peer: apply the authority's clock/weather broadcast (or late-join snapshot).
+func _on_env_state_received(payload: Array) -> void:
+	if not _coop_active:
+		return
+	var d: Dictionary = _EnvSync.decode(payload)
+	if _dnc != null:
+		_dnc.set_time_of_day(float(d.get("time_of_day", 0.4)))
+	_coop_env_days_elapsed = int(d.get("days_elapsed", 0))
+	var weather_id: String = str(d.get("weather_id", ""))
+	if weather_id != _coop_env_weather_id:
+		_coop_env_weather_id = weather_id
+		if not _is_infinite:
+			_on_weather_changed(weather_id, 0.0)
+
+## The current shared co-op day counter, read from the authoritative SessionStore on
+## the host or from the last-received broadcast on a client. Used to key the
+## deterministic night-hunt/siege plans so every peer computes the same result.
+func _coop_current_days_elapsed() -> int:
+	if NetworkManager.is_host() and SessionStore.is_open():
+		return SessionStore.get_state().days_elapsed
+	return _coop_env_days_elapsed
+
+# ── Party Night Hunts (GID-103 / TID-383) ─────────────────────────────────────
+# Deterministic spectral spawns on the shared co-op map at synced night — reuses
+# the GID-096 engage-lock/defeat sync generically (the spawn id alone keys it, no
+# new event kind or RPC needed: EnemyNPC.engage() emits enemy_data["id"], and
+# _on_enemy_engaged_coop already handles any id). Guarded by _coop_active + not
+# _is_infinite — the infinite world keeps its own single-player nocturnal system
+# (GID-055) untouched.
+
+## Called every frame from _process while co-op is active. Spawns/despawns the
+## whole nightly hunt as the synced clock crosses the night/day boundary.
+func _coop_update_night_hunts(_delta: float) -> void:
+	if not _coop_active or _is_infinite or not _CoopNightHunts.supports_map(map_name):
+		return
+	var is_night: bool = _dnc != null and _dnc.is_night_now()
+	var days: int = _coop_current_days_elapsed()
+	if is_night:
+		if not _coop_night_hunt_active or _coop_night_hunt_day != days:
+			_coop_spawn_night_hunt(days)
+	elif _coop_night_hunt_active:
+		_coop_despawn_night_hunt()
+
+## Spawn tonight's deterministic spectral enemies. Every peer computes the exact
+## same plan independently (see CoopNightHunts.generate_hunt) — nothing is
+## broadcast for the spawn itself, only the later engage/defeat events.
+func _coop_spawn_night_hunt(days: int) -> void:
+	if _coop_night_hunt_active:
+		_coop_despawn_night_hunt()
+	_coop_night_hunt_active = true
+	_coop_night_hunt_day = days
+	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
+	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(map_name, Vector3.ZERO)
+	var plan: Array[Dictionary] = _CoopNightHunts.generate_hunt(map_name, days)
+	var spawned_any: bool = false
+	for entry: Dictionary in plan:
+		var eid: String = str(entry.get("id", ""))
+		if eid == "" or _coop_removed_enemies.has(eid):
+			continue  # already engaged/defeated earlier tonight (e.g. re-entering the map)
+		var off: Vector2 = entry.get("offset", Vector2.ZERO)
+		var wx: float = gate.x + off.x
+		var wz: float = gate.z + off.y
+		var wy: float = get_terrain_height(wx, wz) + 0.5
+		var node: Node3D = _EnemyScene.instantiate() as Node3D
+		if node == null:
+			continue
+		node.set_meta("is_nocturnal", true)
+		node.call("init_from_data", {
+			"id": eid,
+			"enemy_type": str(entry.get("enemy_type", "spectre_wisp")),
+			"tracking": true,
+		})
+		node.position = Vector3(wx, wy, wz)
+		node.modulate = Color(0.7, 0.85, 1.0, 0.85)
+		_entity_root.add_child(node)
+		_enemy_nodes[eid] = node
+		_coop_night_hunt_nodes[eid] = node
+		spawned_any = true
+	if spawned_any:
+		GameBus.hud_message_requested.emit("The party hears spectral howls on the wind…")
+
+## Dawn (or map exit): clear tonight's surviving hunt nodes and reset the tally.
+func _coop_despawn_night_hunt() -> void:
+	for eid: String in _coop_night_hunt_nodes.keys():
+		var n: Node3D = _coop_night_hunt_nodes[eid] as Node3D
+		if is_instance_valid(n):
+			n.queue_free()
+		_enemy_nodes.erase(eid)
+	_coop_night_hunt_nodes.clear()
+	_coop_night_hunt_active = false
+	_coop_night_hunt_kills = 0
 
 # ── Party loot rolls (GID-102 / TID-381) ──────────────────────────────────────
 # Opt-in need/greed alternative to the GID-096 first-opener-takes chest rule.
@@ -2053,6 +2273,264 @@ func _start_dungeon_crawl() -> void:
 	_coop_map_transitioning = true
 	_net_sync.rpc("recv_map_transition", target_map, "")
 	SceneManager.enter_map(target_map, "")
+
+# ── Co-op Town Siege (GID-103 / TID-384) ──────────────────────────────────────
+#
+# Host-only trigger (same precedent as the Dungeon Crawl button above): a
+# deterministic siege id seeds WAVE_COUNT escalating raider waves, each spawned
+# identically on every peer (CoopSiege.generate_wave) and synced purely through
+# the existing GID-096 engage-lock events — no new spawn RPC needed, only "advance
+# to wave N" / "start the boss phase" broadcasts. The finale boss hands off to the
+# GID-099 joint PvE battle engine (this is that engine's first caller) so the
+# whole party fights it together; victory splits gold + a card among every
+# session member.
+
+## Creates the hidden "Siege" HUD button. Visible only for the host, and only on
+## a map with a known town-gate anchor (SiegeDefs.TOWN_GATES).
+func _ensure_siege_button() -> void:
+	if not _CoopSiege.supports_map(map_name):
+		return
+	if _siege_btn != null and is_instance_valid(_siege_btn):
+		_siege_btn.visible = NetworkManager.is_host() and not _coop_siege_active
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	_siege_btn = Button.new()
+	_siege_btn.text = "Siege"
+	_siege_btn.tooltip_text = "Trigger a party siege defense event"
+	_siege_btn.custom_minimum_size = Vector2(vp.y * 0.22, vp.y * 0.06)
+	_siege_btn.add_theme_font_size_override("font_size", int(vp.y * 0.024))
+	_siege_btn.position = Vector2((vp.x - vp.y * 0.22) * 0.5, vp.y * 0.63)
+	_siege_btn.visible = NetworkManager.is_host() and not _coop_siege_active
+	_siege_btn.pressed.connect(_start_coop_siege)
+	_hud.add_child(_siege_btn)
+
+## Host-only: derive a shared siege id and broadcast the start so every peer
+## begins the identical wave sequence.
+func _start_coop_siege() -> void:
+	if not NetworkManager.is_host() or _net_sync == null:
+		return
+	if not _coop_active or _coop_siege_active or not _CoopSiege.supports_map(map_name):
+		return
+	var siege_id: int = randi()
+	if SessionStore.is_open():
+		var st = SessionStore.get_state()
+		# world_seed + days_elapsed: retriggering later the same day reproduces the
+		# same waves; a new day yields a fresh sequence (mirrors _start_dungeon_crawl).
+		siege_id = hash(str(st.world_seed) + "_siege_" + str(st.days_elapsed))
+	_net_sync.rpc("recv_siege_started", siege_id)
+	_on_siege_started_received(siege_id)
+
+## Any peer: a siege has begun — reset local state and spawn wave 0.
+func _on_siege_started_received(siege_id: int) -> void:
+	if not _coop_active:
+		return
+	_coop_siege_active = true
+	_coop_siege_id = siege_id
+	_coop_siege_wave = 0
+	if _siege_btn != null and is_instance_valid(_siege_btn):
+		_siege_btn.visible = false
+	GameBus.hud_message_requested.emit("The town is under siege!")
+	_coop_spawn_siege_wave()
+
+## Spawn the current wave's deterministic raiders (identical on every peer).
+func _coop_spawn_siege_wave() -> void:
+	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
+	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(map_name, Vector3.ZERO)
+	var plan: Array[Dictionary] = _CoopSiege.generate_wave(map_name, _coop_siege_id, _coop_siege_wave)
+	_coop_siege_wave_nodes.clear()
+	for entry: Dictionary in plan:
+		var eid: String = str(entry.get("id", ""))
+		if eid == "" or _coop_removed_enemies.has(eid):
+			continue
+		var off: Vector2 = entry.get("offset", Vector2.ZERO)
+		var wx: float = gate.x + off.x
+		var wz: float = gate.z + off.y
+		var wy: float = get_terrain_height(wx, wz) + 0.5
+		var node: Node3D = _EnemyScene.instantiate() as Node3D
+		if node == null:
+			continue
+		node.call("init_from_data", {"id": eid, "enemy_type": str(entry.get("enemy_type", "martarquas_raider_1"))})
+		node.position = Vector3(wx, wy, wz)
+		_entity_root.add_child(node)
+		_enemy_nodes[eid] = node
+		_coop_siege_wave_nodes[eid] = node
+	GameBus.hud_message_requested.emit(
+		"Wave %d of %d: Siege intensifies…" % [_coop_siege_wave + 1, _CoopSiege.WAVE_COUNT])
+
+## Any peer: the host advanced to a new raider wave.
+func _on_siege_wave_received(siege_id: int, wave: int) -> void:
+	if not _coop_active or siege_id != _coop_siege_id:
+		return
+	_coop_siege_wave = wave
+	_coop_spawn_siege_wave()
+
+## Any peer: every raider wave is cleared — spawn the finale boss.
+func _on_siege_boss_phase_received(siege_id: int) -> void:
+	if not _coop_active or siege_id != _coop_siege_id:
+		return
+	_coop_siege_wave = _CoopSiege.WAVE_COUNT
+	_coop_siege_wave_nodes.clear()
+	GameBus.hud_message_requested.emit("The Siege Commander arrives!")
+	var boss_id: String = _CoopSiege.boss_id(siege_id)
+	if _coop_removed_enemies.has(boss_id):
+		return  # already resolved (e.g. a re-delivered broadcast on late reconciliation)
+	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
+	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(map_name, Vector3.ZERO)
+	var node: Node3D = _EnemyScene.instantiate() as Node3D
+	if node == null:
+		return
+	var wy: float = get_terrain_height(gate.x, gate.z) + 0.5
+	node.position = Vector3(gate.x, wy, gate.z)
+	node.call("init_from_data", {"id": boss_id, "enemy_type": _CoopSiege.boss_enemy_type(), "tracking": false})
+	_entity_root.add_child(node)
+	_enemy_nodes[boss_id] = node
+
+## Host-only: watches the current wave's engage-lock state; called every frame
+## from _process while a siege is active.
+func _coop_tick_siege(_delta: float) -> void:
+	if not _coop_world_authority() or not _coop_siege_active:
+		return
+	if _coop_siege_wave < 0 or _coop_siege_wave >= _CoopSiege.WAVE_COUNT:
+		return  # boss phase already reached, or not started
+	if _coop_siege_wave_nodes.is_empty():
+		return
+	for eid in _coop_siege_wave_nodes.keys():
+		if not _coop_removed_enemies.has(eid):
+			return  # a raider from this wave is still standing somewhere
+	_coop_siege_wave_nodes.clear()
+	_coop_siege_wave += 1
+	if _coop_siege_wave >= _CoopSiege.WAVE_COUNT:
+		_net_sync.rpc("recv_siege_boss_phase", _coop_siege_id)
+		_on_siege_boss_phase_received(_coop_siege_id)
+	else:
+		_net_sync.rpc("recv_siege_wave", _coop_siege_id, _coop_siege_wave)
+		_on_siege_wave_received(_coop_siege_id, _coop_siege_wave)
+
+## Local player engaged the siege boss. A client relays the intent to the host;
+## the host starts the joint battle directly.
+func _coop_engage_siege_boss(edata: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		if _net_sync != null:
+			_net_sync.rpc_id(1, "submit_siege_boss_engaged", edata)
+		return
+	_coop_start_siege_boss_battle(edata)
+
+## Host: a client engaged the siege boss — start the joint battle for everyone.
+func _on_siege_boss_engaged_submitted(_sender: int, edata: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	_coop_start_siege_boss_battle(edata)
+
+## Host-only: gathers every connected member's deck and starts the joint PvE
+## battle (GID-099). Boss HP/tier scaling by party size happens inside
+## BattleScene._build_coop_pve_state — edata is passed through unscaled, exactly
+## like a normal EnemyNPC.engage() payload.
+func _coop_start_siege_boss_battle(edata: Dictionary) -> void:
+	if not NetworkManager.is_host() or _net_sync == null:
+		return
+	var boss_eid: String = str(edata.get("id", ""))
+	if boss_eid != "":
+		# Remove the boss node locally too: if a CLIENT engaged it, the host's own
+		# copy is still standing (only the engager's local node freed itself via
+		# EnemyNPC.engage()). RPCs in this codebase are declared "call_remote" (never
+		# self-invoking), so the broadcast below reaches every *other* peer but not
+		# this one — _coop_remove_enemy_node covers the host's own copy and is a
+		# harmless no-op if it's already gone (the host-engaged case).
+		_coop_remove_enemy_node(boss_eid)
+		_net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_ENEMY_REMOVED, boss_eid))
+	var abs_peer_ids: Array[int] = [multiplayer.get_unique_id()]
+	var clients: Array = multiplayer.get_peers()
+	clients.sort()
+	for pid in clients:
+		abs_peer_ids.append(int(pid))
+	var all_decks: Array = []
+	for pid in abs_peer_ids:
+		all_decks.append(_team_deck_for_peer(pid))
+	for i in range(abs_peer_ids.size()):
+		var pid: int = abs_peer_ids[i]
+		if pid != multiplayer.get_unique_id():
+			_net_sync.rpc_id(pid, "notify_coop_pve_start", i, all_decks, edata)
+	if _siege_btn != null and is_instance_valid(_siege_btn):
+		_siege_btn.hide()
+	SceneManager.enter_coop_pve_battle(0, all_decks, edata)
+
+## Client: the host started the joint siege-boss battle — enter with our index.
+func _on_notify_coop_pve_start(my_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
+	if _siege_btn != null and is_instance_valid(_siege_btn):
+		_siege_btn.hide()
+	SceneManager.enter_coop_pve_battle(my_idx, all_ally_decks, enemy_data)
+
+## Any peer: the joint siege-boss battle ended — reset siege UI/state; the host
+## additionally distributes victory rewards to the whole party. A no-op unless a
+## siege was actually active (coop_pve_battle_ended may fire for future non-siege
+## joint battles too, once something else calls enter_coop_pve_battle).
+func _on_coop_siege_battle_ended(did_win: bool) -> void:
+	if not _coop_siege_active:
+		return
+	_coop_siege_active = false
+	_coop_siege_wave = -1
+	_coop_siege_wave_nodes.clear()
+	if _siege_banner != null and is_instance_valid(_siege_banner):
+		_siege_banner.queue_free()
+		_siege_banner = null
+	if _siege_btn != null and is_instance_valid(_siege_btn):
+		_siege_btn.visible = NetworkManager.is_host()
+	if did_win:
+		if NetworkManager.is_host():
+			_finish_coop_siege_victory()
+	else:
+		GameBus.hud_message_requested.emit("The siege defense failed…")
+
+## Host-only: split gold + a random rare-or-better card across every session
+## member, record the clear to the co-op leaderboard, and push refreshed
+## character records so connected peers see their reward immediately.
+func _finish_coop_siege_victory() -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	const SIEGE_COINS: int = 150
+	var tokens: Array[String] = [MpProfile.get_token()]
+	for pid in multiplayer.get_peers():
+		var tok: String = str(_session_token_by_peer.get(int(pid), ""))
+		if tok != "" and not tokens.has(tok):
+			tokens.append(tok)
+	var all_ids: Array[String] = _CardRegistry.get_all_ids()
+	for token: String in tokens:
+		var rec: Dictionary = st.get_member(token)
+		if rec.is_empty():
+			continue
+		rec["coins"] = int(rec.get("coins", 0)) + SIEGE_COINS
+		if not all_ids.is_empty():
+			var reward_id: String = all_ids[randi() % all_ids.size()]
+			var rarity: String = _CardDropUtil.roll_rarity(3)  # tier 3 = rare-or-better weighted
+			var stats: Dictionary = _CardDropUtil.roll_stats(reward_id, rarity)
+			var owned: Array = rec.get("owned_cards", [])
+			var uid: String = "%s_%s_siege_%d" % [reward_id, token, Time.get_ticks_msec()]
+			owned.append(_CardInstanceUtil.make(uid, reward_id, rarity,
+				int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1))))
+			rec["owned_cards"] = owned
+		st.update_member(token, rec)
+	# Note: the co-op boss-clear leaderboard entry itself is recorded generically by
+	# _on_coop_pve_battle_ended_leaderboard (permanently connected to the same
+	# GameBus.coop_pve_battle_ended signal for every joint PvE battle) — recording it
+	# again here would double-submit to the "coop_clears" board.
+	SessionStore.mark_dirty()
+	# Push refreshed character records so connected peers see their new coins/card
+	# without waiting for their next unrelated sync (mirrors _send_character_to_peer).
+	for pid in multiplayer.get_peers():
+		var tok: String = str(_session_token_by_peer.get(int(pid), ""))
+		if tok == "":
+			continue
+		var rec2: Dictionary = st.get_member(tok)
+		if not rec2.is_empty() and _net_sync != null:
+			_net_sync.rpc_id(int(pid), "recv_character", rec2, true)
+	var host_rec: Dictionary = st.get_member(MpProfile.get_token())
+	if not host_rec.is_empty():
+		SceneManager.save_manager.adopt_session_character(host_rec)
+	GameBus.hud_message_requested.emit("Party earned %d gold and defeated the Siege!" % SIEGE_COINS)
 
 # ── PvP challenge handshake (GID-091) ─────────────────────────────────────────
 
@@ -3397,6 +3875,12 @@ func _process(delta: float) -> void:
 			var elapsed: float = (Time.get_ticks_msec() / 1000.0) - _downed_started_at
 			var remaining: float = _DownedSync.remaining_time(elapsed)
 			_downed_banner.text = "Downed — waiting for rescue… (%ds)" % int(ceil(remaining))
+		# Shared world life (GID-103): synced clock/weather, party night hunts, and
+		# the co-op siege wave watcher. Map-scoped and host/authority gated
+		# internally; single-player never reaches these.
+		_tick_env_sync(delta)
+		_coop_update_night_hunts(delta)
+		_coop_tick_siege(delta)
 	if _dnc:
 		_dnc.tick(delta, _weather_tint)
 

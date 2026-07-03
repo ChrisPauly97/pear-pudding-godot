@@ -138,3 +138,16 @@ All three have empty `drop_pool` and `coin_reward = 0` (siege has its own victor
 | Siege logic | `game_logic/SiegeDefs.gd` | Pure static helpers |
 | Raider data | `data/enemies/martarquas_raider_1/2/3.tres` + `.uid` | EnemyData resources |
 | Tests | `tests/unit/test_siege_trigger/state/timeout/defeat/town_discount.gd` | 5 headless unit tests |
+
+---
+
+## Co-op (GID-103 / TID-384)
+
+The co-op **Town Siege** event on the shared madrian map reuses `SiegeDefs.TOWN_GATES`
+and the `martarquas_raider_*` / `roaming_terror` enemy data above, but is a genuinely
+different composition from the single-player sequential 3-battle gauntlet described in
+this file: escalating world-object-synced waves (`game_logic/CoopSiege.gd`) culminating
+in a **joint** PvE boss battle via the GID-099 engine, with party-wide rewards. It does
+not use `SaveManager.siege`/`start_siege`/`advance_siege_stage` at all — its state lives
+transiently on the co-op `WorldScene` instance (not persisted to `SessionState`). See the
+"Co-op Town Siege" section of `docs/agent/multiplayer-coop.md` for the full design.

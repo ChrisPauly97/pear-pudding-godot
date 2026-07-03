@@ -1650,14 +1650,21 @@ listen-server host (peer_id=1, local_idx=0); `_pvp_peer_to_idx` is empty so
   (the leaderboard is per-session, scoped to one host's `SessionStore` file).
 - **Live-synced (GID-096):** shared **enemies** (engage-locks; defeat persists) and
   **chests** (first-opener-takes; open persists) now sync from the authority and resume on
-  reconnect. Still **not** synced: NPC dialogue/story, day/night, weather, and the
-  per-player inventory (that is the GID-095 character, by design). The co-op landing map
-  (madrian) still has no enemies/chests of its own (BID-024, not fully resolved), but
-  **procedural dungeons are now reachable together** via the "Dungeon Crawl" host button
-  (GID-102 / TID-380, see Co-op Story Mode below) — every dungeon has combat/chest rooms, so
-  the sync is exercised for real content, not just `net_world_sync_smoke.gd`'s synthetic ids.
+  reconnect. **Day/night and weather are now synced too** (GID-103 / TID-382 — see Shared
+  World Life below); NPC dialogue/story sync is covered separately (GID-098, above). The
+  co-op landing map (madrian) had no enemies/chests of its own (BID-024) — this is now
+  substantially addressed: **procedural dungeons are reachable together** via the "Dungeon
+  Crawl" host button (GID-102 / TID-380, see Co-op Story Mode below), **Party Night Hunts**
+  spawn spectral enemies on madrian itself at synced night (GID-103 / TID-383), and a
+  host-triggered **Town Siege** event (GID-103 / TID-384) gives the party a flagship joint
+  boss fight right on the landing map.
 - **Infinite chunk world not supported** — co-op uses a finite named map (or a finite
   generated dungeon, GID-102 / TID-380) to avoid chunk synchronisation.
+- **Co-op siege state does not survive a map transition** — if the party leaves madrian
+  (e.g. via the Dungeon Crawl button or a door) while a Town Siege is in progress, the
+  siege silently ends; there is no `SessionState.current_siege` persistence/resume in v1
+  (unlike `defeated_enemies`/`opened_chests`). Re-triggering the Siege button on return
+  starts a fresh sequence.
 
 ---
 
@@ -2170,3 +2177,133 @@ only covers the local player; a downed player's `RemotePlayer` avatar on other
 clients still shows nameplate/emote UI as normal (only the sprite tint
 changes) — acceptable since the tint plus the "REVIVE" prompt already make the
 state legible to teammates.
+
+---
+
+## Shared World Life (GID-103)
+
+Syncs the shared world's environment (clock + weather) and turns madrian, the
+co-op landing map, into a place with things to actually do — closing the gap
+left open by BID-024.
+
+### Synced World Clock & Weather (TID-382)
+
+`SessionState.time_of_day` / `days_elapsed` existed since GID-095 but nothing
+broadcast them — each peer's local `DayNightCycle` (`_dnc`) advanced from its
+own single-player `save.json` value, so peers could see different times of day
+and, since `autoloads/WeatherManager.gd` (GID-042) is hard-gated to the
+infinite `"main"` map, madrian had no weather at all.
+
+- **Wire format** — `game_logic/net/EnvSync.gd` (pure, unit-tested in
+  `tests/unit/test_env_sync.gd`): `encode(time_of_day, days_elapsed, weather_id)`
+  / `decode(payload)`, plus a small standalone weather table (`roll_weather`,
+  `roll_duration`) mirroring `WeatherManager`'s grasslands biome-0 table — kept
+  as its own copy rather than importing `WeatherManager`, since that autoload is
+  hard-gated to `"main"` and co-op stays on named maps.
+- **Authority tick** — `WorldScene._tick_env_sync` (host + `not _is_infinite`
+  only): every `_ENV_BROADCAST_INTERVAL` (3 s), or immediately on a weather
+  reroll, broadcasts `NetSync.recv_env_state` to all peers. `_coop_roll_weather`
+  applies the new weather locally via the existing `_on_weather_changed` (the
+  same function the infinite world's `GameBus.weather_changed` signal drives)
+  and persists it to `SessionState.weather_id`.
+- **Client apply** — `_on_env_state_received` snaps the local `_dnc`'s clock to
+  the authoritative value (a client's `_dnc` still ticks every frame between
+  broadcasts, so this just corrects drift, same tolerance model as avatar
+  interpolation) and, if the weather id changed, calls `_on_weather_changed`
+  locally too. A client has no `SessionStore`, so it mirrors `days_elapsed` /
+  `weather_id` into `_coop_env_days_elapsed` / `_coop_env_weather_id` —
+  `_coop_current_days_elapsed()` reads whichever source (host SessionStore vs.
+  client mirror) applies, and every deterministic co-op system below keys off it.
+- **Late-join snapshot** — `_send_character_to_peer` appends an `EnvSync.encode`
+  payload alongside the existing character/world/story snapshots, so a joining
+  peer never sees a stale sky before the next broadcast tick.
+- **Day counter (closes BID-039)** — `_dnc.day_passed`'s handler now also
+  increments `SessionState.days_elapsed` on the host (guarded by `_coop_active`),
+  which is what makes the async auction-house expiry sweep (GID-102 / TID-378)
+  and every deterministic id below actually advance in co-op.
+
+### Party Night Hunts (TID-383)
+
+Brings single-player Night Hunts (GID-055, `docs/agent/night-hunts.md`) to
+co-op: at synced night, deterministic spectral enemies spawn on madrian for the
+whole party to hunt.
+
+- **Pure planner** — `game_logic/CoopNightHunts.gd` (unit-tested in
+  `tests/unit/test_coop_night_hunts.gd`): `generate_hunt(map_name, days_elapsed)`
+  derives up to `HUNT_SIZE` (4) spectral enemies with deterministic ids
+  (`night_hunt_<day>_<i>`), tiers, and offsets from the map's
+  `SiegeDefs.TOWN_GATES` anchor — seeded only by `(map_name, days_elapsed)`, so
+  every peer computes the identical plan with no network message for the spawn
+  itself, exactly like a named map's authored content.
+- **No new sync primitive** — each spawned node's `enemy_data["id"]` is the
+  deterministic id above, so the existing GID-096 engage-lock/defeat flow
+  (`_on_enemy_engaged_coop` → `EV_ENEMY_ENGAGED`/`REMOVED`/`DEFEATED`) handles
+  them with zero changes: the first peer to engage fights solo, the enemy is
+  removed for everyone, a win persists the defeat.
+- **Lifecycle** — `WorldScene._coop_update_night_hunts` (ticked every frame,
+  `_coop_active` + `not _is_infinite`) spawns the hunt the moment the synced
+  clock crosses into night and despawns survivors at dawn, resetting the
+  per-night kill tally. Minimap coloring is inherited for free (`Minimap.gd`
+  already keys off the `is_nocturnal` meta flag both systems set).
+- **Party-scaled drops** — `SceneManager._on_battle_won` adds
+  `CoopNightHunts.party_drop_tier_bonus(party_size)` (a further +1 rarity tier
+  at 3+ connected members) on top of the existing single-player night boost,
+  guarded by `NetworkManager.is_active()`.
+- **Leaderboard + announcements** — each kill increments a per-session tally
+  (`WorldScene._coop_night_hunt_kills`, resets at dawn) submitted to a new
+  `"night_hunts"` PvE leaderboard board (`SessionState` v9, alongside `spire`
+  and `coop_clears`) via the existing generic `_submit_pve_score` routing; a
+  `GameBus.hud_message_requested` toast announces each kill and a milestone
+  message fires at 5 kills in one night. The `night_hunts` board is recorded
+  and synced but not yet surfaced in `LeaderboardOverlay`'s UI (only `spire`/
+  `coop_clears` render tabs today) — a follow-up UI task, not a data gap.
+
+### Co-op Town Siege (TID-384)
+
+The flagship party event: a host-triggered, wave-based defense of madrian
+culminating in a joint boss fight — the **first caller** of the GID-099 joint
+PvE battle engine.
+
+- **Pure wave planner** — `game_logic/CoopSiege.gd` (unit-tested in
+  `tests/unit/test_coop_siege.gd`): `generate_wave(map_name, siege_id, wave)`
+  deterministically derives each wave's raider count/type/positions from
+  `(siege_id, wave, map_name)`; `WAVE_COUNT = 3` raider waves before the boss
+  phase. Reuses the existing `martarquas_raider_1/2/3` enemy data (same tiers
+  single-player Town Siege escalates through) and the existing `roaming_terror`
+  boss (`is_boss: true, boss_hp: 50` — its lore already ties it to "when the
+  Martarquas surge, this creature follows in their wake", so no new enemy data
+  was needed for the finale).
+- **Host-only "Siege" HUD button** — `_ensure_siege_button` (same precedent as
+  the "Dungeon Crawl" button, TID-380): visible only for the host, only on a map
+  with a `SiegeDefs.TOWN_GATES` anchor. `_start_coop_siege` derives a
+  deterministic `siege_id` from `hash(world_seed + "_siege_" + days_elapsed)`
+  and broadcasts `NetSync.recv_siege_started`.
+- **Wave sync — no new spawn RPC** — like night hunts, each wave's raider ids
+  are deterministic, so only the *progression* is broadcast
+  (`recv_siege_wave(siege_id, wave)` / `recv_siege_boss_phase(siege_id)`); every
+  peer spawns the identical wave independently on receipt. The host alone
+  watches wave-clear via `_coop_tick_siege` (all of a wave's ids present in the
+  shared `_coop_removed_enemies` set → advance) — reuses the GID-096 engage-lock
+  events with zero new event kinds.
+- **Boss finale → joint battle handoff** — the boss node's id is prefixed
+  `siege_boss_`; `_on_enemy_engaged_coop` special-cases this prefix to route to
+  `_coop_engage_siege_boss` instead of the normal solo engage-lock path. A
+  client relays the intent to the host (`submit_siege_boss_engaged`); the host
+  gathers every connected member's deck (`_team_deck_for_peer`, the same helper
+  2v2 Team Duels use) and calls `SceneManager.enter_coop_pve_battle` — boss
+  HP/tier scaling by party size happens inside `BattleScene._build_coop_pve_state`
+  (`CoopBattleScaling`), so the raw `EnemyRegistry` data is passed through
+  unscaled, just like a normal `EnemyNPC.engage()` payload.
+- **Rewards** — `_on_coop_siege_battle_ended` (permanently connected to
+  `GameBus.coop_pve_battle_ended`, alongside the pre-existing PvE-leaderboard
+  handler) resets siege UI/state on every peer; on a win, host-only
+  `_finish_coop_siege_victory` splits 150 gold + a random rare-or-better card
+  across every session member (writing directly into each `SessionState`
+  member record) and pushes refreshed `recv_character` snapshots so connected
+  peers see their reward without waiting for an unrelated sync. The co-op
+  boss-clear leaderboard entry itself is **not** duplicated here — the
+  pre-existing `_on_coop_pve_battle_ended_leaderboard` handler already records
+  every joint PvE win (including this one) to the `coop_clears` board.
+- **Known limitation** — siege progress is not persisted to `SessionState`; if
+  the party leaves madrian mid-siege the event silently ends (see Limitations
+  above).
