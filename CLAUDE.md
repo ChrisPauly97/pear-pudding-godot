@@ -592,6 +592,26 @@ same-map packet. Invariant: a feature whose correctness depends on a shared map/
 must enforce that contract **in the sync layer** (carry the discriminator in the payload and
 filter on receive), not just at the entry point — the RPC transport is context-blind.
 
+### New Game inherited a stale co-op session — chat/party/achievements leaked into single-player (fixed in claude/single-player-multiplayer-bug-wlaoij)
+
+`WorldScene._setup_coop()` gates all co-op wiring (chat, Party panel, `NetSync`/avatar sync,
+`_setup_session()`) on a single check: `NetworkManager.is_active()`. That check is correct in
+principle, but nothing ever flipped it back to `false` on the way out of an active co-op
+world — `SceneManager.go_to_menu()`/`go_to_menu_direct()` (the only two functions that land on
+`MenuScene`, reached from pause-menu "Quit to Menu", battle pause "Quit", Game Over, and
+Spire/Run-Summary "Return to Menu") never called `NetworkManager.leave()`. So
+`multiplayer.multiplayer_peer` stayed assigned and connected indefinitely after returning to
+the menu. The next **New Game** loaded a fresh `WorldScene`, whose `_setup_coop()` saw the
+stale `true` and wired up co-op — showing chat/party UI in what the player believed was a
+solo game, and (if the stale role was host) `_setup_session()` re-adopted the old co-op
+session character via `SaveManager.adopt_session_character()`, which forces `_loaded = false`
+and silently clobbered the just-created single-player save, disabling its persistence.
+Fix: `go_to_menu()`/`go_to_menu_direct()` now call `NetworkManager.leave()` whenever
+`is_active()` is true, before doing anything else. Invariant: a state flag read by "am I in
+co-op?" gates (`is_active()`) must be reset by every path that exits that state, not just
+defensively re-checked by the next entry path (`host()`/`join()` already reset stale peers
+defensively — that's not a substitute for tearing down on exit).
+
 ---
 
 ## Documentation: docs/agent/ Directory

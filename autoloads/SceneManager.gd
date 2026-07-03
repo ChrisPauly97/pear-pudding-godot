@@ -164,6 +164,12 @@ func _maybe_boot_dedicated_server() -> void:
 
 func go_to_menu() -> void:
 	_flush_position_save()
+	# Any active co-op/PvP session ends the moment the player returns to the main
+	# menu — otherwise NetworkManager.is_active() stays stuck true across scene
+	# changes and the next New Game wrongly inherits co-op (chat/party/session
+	# adoption) in WorldScene._setup_coop().
+	if NetworkManager.is_active():
+		NetworkManager.leave()
 	var scene := get_tree().current_scene
 	if scene and scene.has_method("flush_time_of_day"):
 		scene.flush_time_of_day()
@@ -195,6 +201,10 @@ func go_to_menu() -> void:
 	_state = State.MENU
 
 func go_to_menu_direct() -> void:
+	# See go_to_menu(): returning to the main menu must always end any active
+	# co-op/PvP session, or the stale peer makes the next New Game inherit co-op.
+	if NetworkManager.is_active():
+		NetworkManager.leave()
 	_exit_world_cleanup()
 	TransitionManager.transition(func() -> void:
 		get_tree().change_scene_to_packed(_menu_scene_packed))
