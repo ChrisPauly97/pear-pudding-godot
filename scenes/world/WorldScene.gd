@@ -2480,38 +2480,49 @@ func _finish_coop_siege_victory() -> void:
 
 # ── PvP challenge handshake (GID-091) ─────────────────────────────────────────
 
-## Creates the hidden "Challenge to Battle" HUD button (mobile + desktop parity).
+## Creates the hidden "Challenge to Battle" contextual-bar action (GID-107 / TID-396:
+## registered into WorldHUD.ZONE_CONTEXT so it can never pixel-overlap the Android
+## USE/Interact button or the other proximity-gated social actions, which share the
+## same zone). Mobile + desktop parity.
 func _ensure_challenge_button() -> void:
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		return
 	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_challenge_btn = Button.new()
-	_challenge_btn.text = "Challenge to Battle"
-	_challenge_btn.custom_minimum_size = Vector2(vp.y * 0.34, vp.y * 0.07)
-	_challenge_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	_challenge_btn.position = Vector2((vp.x - vp.y * 0.34) * 0.5, vp.y * 0.80)
+	_challenge_btn = _world_hud.register_action("challenge", "Challenge to Battle",
+		WorldHUD.ZONE_CONTEXT, _request_challenge, Callable(), Vector2(vp.y * 0.34, vp.y * 0.07))
 	_challenge_btn.hide()
-	_challenge_btn.pressed.connect(_request_challenge)
-	_hud.add_child(_challenge_btn)
-	# Ranked opt-in toggle (GID-102 / TID-373): sits just below the challenge button,
-	# a touch/click target like every other HUD toggle (no separate keybind needed).
+	# Ranked opt-in toggle (GID-102 / TID-373): stacks below the challenge button in
+	# the shared contextual zone — a touch/click target like every other HUD toggle
+	# (no separate keybind needed). Built directly (not via register_action) since it
+	# needs a `.toggled` connection, not a simple `.pressed` callback.
 	_ranked_toggle_btn = Button.new()
 	_ranked_toggle_btn.toggle_mode = true
 	_ranked_toggle_btn.text = "Ranked: OFF"
 	_ranked_toggle_btn.tooltip_text = "When ON, this duel counts toward your ranked rating."
 	_ranked_toggle_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
 	_ranked_toggle_btn.add_theme_font_size_override("font_size", int(vp.y * 0.020))
-	_ranked_toggle_btn.position = Vector2((vp.x - vp.y * 0.20) * 0.5, vp.y * 0.875)
 	_ranked_toggle_btn.hide()
 	_ranked_toggle_btn.toggled.connect(func(on: bool) -> void:
 		_ranked_toggle_on = on
 		_ranked_toggle_btn.text = "Ranked: ON" if on else "Ranked: OFF")
-	_hud.add_child(_ranked_toggle_btn)
+	var context_zone: Container = _world_hud.get_zone_container(WorldHUD.ZONE_CONTEXT)
+	if context_zone != null:
+		context_zone.add_child(_ranked_toggle_btn)
+	else:
+		_hud.add_child(_ranked_toggle_btn)
 
 ## Shows/hides the challenge button based on proximity to a remote player. Called
-## each frame from _process while co-op is active.
+## each frame from _process while co-op is active. GID-107 / TID-396 priority rule:
+## the world-interact prompt (door/chest/NPC/scroll) always wins the shared
+## contextual slot over a social action — interacting with the world is the more
+## frequent, lower-friction action.
 func _update_challenge_proximity() -> void:
 	if _challenge_btn == null or not is_instance_valid(_challenge_btn):
+		return
+	if _world_hud != null and _world_hud.is_interact_visible():
+		_challenge_btn.hide()
+		if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
+			_ranked_toggle_btn.hide()
 		return
 	# Suppress while a challenge is pending or we're not in the world.
 	if _pending_challenge_from != -1 or SceneManager._state != SceneManager.State.WORLD:
@@ -5333,24 +5344,16 @@ func _ensure_social_buttons() -> void:
 		_ping_btn.position = Vector2(vp.x - vh * 0.20, vh * 0.87)
 		_ping_btn.toggled.connect(func(on: bool) -> void: _ping_mode_active = on)
 		_hud.add_child(_ping_btn)
+	# Trade / Spectate (GID-107 / TID-396): registered into WorldHUD.ZONE_CONTEXT —
+	# the shared contextual bar — instead of each computing its own raw position.
 	if _trade_window_mine == null or not is_instance_valid(_trade_window_mine):
-		_trade_window_mine = Button.new()
-		_trade_window_mine.text = "Trade"
-		_trade_window_mine.custom_minimum_size = Vector2(vh * 0.22, vh * 0.06)
-		_trade_window_mine.add_theme_font_size_override("font_size", int(vh * 0.024))
-		_trade_window_mine.position = Vector2((vp.x - vh * 0.22) * 0.5, vh * 0.88)
+		_trade_window_mine = _world_hud.register_action("trade", "Trade", WorldHUD.ZONE_CONTEXT,
+			_open_trade_offer, Callable(), Vector2(vh * 0.22, vh * 0.06))
 		_trade_window_mine.hide()
-		_trade_window_mine.pressed.connect(_open_trade_offer)
-		_hud.add_child(_trade_window_mine)
 	if _spectate_btn == null or not is_instance_valid(_spectate_btn):
-		_spectate_btn = Button.new()
-		_spectate_btn.text = "Spectate Duel"
-		_spectate_btn.custom_minimum_size = Vector2(vh * 0.28, vh * 0.06)
-		_spectate_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-		_spectate_btn.position = Vector2((vp.x - vh * 0.28) * 0.5, vh * 0.76)
+		_spectate_btn = _world_hud.register_action("spectate", "Spectate Duel", WorldHUD.ZONE_CONTEXT,
+			_request_spectate, Callable(), Vector2(vh * 0.28, vh * 0.06))
 		_spectate_btn.hide()
-		_spectate_btn.pressed.connect(_request_spectate)
-		_hud.add_child(_spectate_btn)
 	# Leaderboard and Stash (GID-102 / TID-373, TID-376): now Party-panel actions
 	# (GID-107 / TID-395) instead of their own standalone always-visible buttons.
 	# Auction house button (GID-102 / TID-378): always visible while co-op is active
@@ -5414,8 +5417,16 @@ func _toggle_ghost_duel_overlay() -> void:
 	_ghost_duel_overlay = overlay
 
 
+## GID-107 / TID-396 priority rule: the world-interact prompt always wins the shared
+## contextual slot over Trade/Spectate, same as it does over Challenge above.
 func _update_social_proximity() -> void:
 	if _player == null:
+		return
+	if _world_hud != null and _world_hud.is_interact_visible():
+		if _trade_window_mine != null and is_instance_valid(_trade_window_mine):
+			_trade_window_mine.hide()
+		if _spectate_btn != null and is_instance_valid(_spectate_btn):
+			_spectate_btn.hide()
 		return
 	var range_world: float = _CHALLENGE_RANGE * IsoConst.TILE_SIZE
 	var nearest_pid: int = -1

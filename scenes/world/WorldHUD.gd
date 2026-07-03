@@ -81,14 +81,13 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 	_create_compass(map_name)
 
 	if OS.has_feature("android"):
-		_interact_btn = Button.new()
-		_interact_btn.text = "USE"
-		_interact_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.08)
+		# GID-107 / TID-396: registered into ZONE_CONTEXT — the shared contextual bar —
+		# so it can never pixel-overlap Challenge/Trade/Spectate, which share the zone.
+		_interact_btn = register_action("interact", "USE", ZONE_CONTEXT,
+			func() -> void: _world_scene.call("_handle_interact"),
+			Callable(), Vector2(vh * 0.18, vh * 0.08))
 		_interact_btn.add_theme_font_size_override("font_size", int(vh * 0.032))
-		_interact_btn.position = Vector2(vw * 0.5 - vh * 0.09, vh * 0.80)
-		_interact_btn.pressed.connect(func() -> void: _world_scene.call("_handle_interact"))
 		_interact_btn.hide()
-		_hud.add_child(_interact_btn)
 
 	GameBus.xp_changed.connect(_on_xp_changed)
 	GameBus.mount_state_changed.connect(_on_mount_state_changed)
@@ -403,6 +402,13 @@ func show_interact_prompt(v: bool, label: String = "USE") -> void:
 		_interact_label.hide()
 		if _interact_btn != null:
 			_interact_btn.hide()
+
+## True when the Android USE/Interact button is currently shown. Desktop's
+## interact prompt is a screen-centered Label (not part of ZONE_CONTEXT — see
+## docs/agent/ui-and-scene-management.md), so it never contends with the
+## contextual bar and is intentionally not part of this check (GID-107 / TID-396).
+func is_interact_visible() -> bool:
+	return _interact_btn != null and is_instance_valid(_interact_btn) and _interact_btn.visible
 
 # Returns true if pos (screen coordinates) lands on any visible HUD button.
 # Used by WorldScene to prevent tap-to-move from firing through HUD controls.
