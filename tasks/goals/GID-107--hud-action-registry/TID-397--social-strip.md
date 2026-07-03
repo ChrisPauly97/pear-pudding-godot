@@ -2,7 +2,7 @@
 
 **Goal:** GID-107
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-394
 
 ## Lock
@@ -26,16 +26,49 @@ Exact current locations in `scenes/world/WorldScene.gd`:
 
 ## Plan
 
-_Written during Plan phase._ Suggested shape (confirm/adjust during Plan):
-- Register a "social strip" zone via TID-394's registry (bottom-right, where Emote/Ping/Chat already loosely cluster today) containing compact icon-style buttons for Chat, Emote, and Ping.
-- Keep existing sub-panel behavior (emote wheel, chat quick-panel, free-text input + send) unchanged — only the three trigger buttons and their positioning need to move onto the registry.
-- Preserve the existing desktop Enter-key shortcut for chat and CLAUDE.md's mobile/desktop parity rule — every one of these three actions must remain reachable by tap on Android.
-- If `_chat_log_panel` stays always-visible, make sure the compact strip's placement doesn't overlap it; if you decide to make it toggle-visible instead, note that as a deliberate behavior change in Changes Made.
+- `ZONE_SOCIAL` (already anchored bottom-right by TID-394, `HBoxContainer`) becomes
+  the compact strip. Emote and Chat register via `register_action` (simple `.pressed`
+  callbacks: `_toggle_emote_wheel`, `_toggle_chat_quick_panel`). Ping is built directly
+  and parented via `get_zone_container(ZONE_SOCIAL)` — same reasoning as the Ranked
+  toggle in TID-396: it needs `.toggled` (toggle_mode), not a plain `.pressed`.
+- `_chat_input`/`_chat_send_btn` (free-text row at `vh*0.93`) and `_chat_log_panel`
+  (left side, `vp.x*0.012, vh*0.16`) are untouched — the task's plan explicitly scopes
+  this to the three trigger buttons; neither of these two overlaps the social strip's
+  new position (bottom-right) so there's no correctness reason to move them, and
+  moving them would be unreviewed scope creep beyond "one compact cluster of
+  buttons."
+- **`_chat_log_panel` visibility decision:** kept always-visible while co-op is active
+  (no behavior change) — it doesn't compete for space with the social strip (opposite
+  side of the screen), so there's no clutter motivation to make it toggle-only, and
+  doing so would be a user-facing behavior change outside this task's placement-only
+  scope.
+- Enter-key chat shortcut and Android tap parity for all three buttons are preserved
+  automatically — none of the underlying handlers (`_toggle_emote_wheel`,
+  `_toggle_chat_quick_panel`, the ping toggle) changed, only their container parent.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WorldScene.gd`:
+  - `_ensure_social_buttons()`: "emote" registered via `register_action` into
+    `WorldHUD.ZONE_SOCIAL`; `_ping_btn` built directly and parented into the same
+    zone via `get_zone_container()`.
+  - `_ensure_chat_ui()`: "chat" (the toggle button, not the log panel or input row)
+    registered via `register_action` into the same zone.
+- **Minor, deliberate layout change:** registration order now renders the strip
+  left-to-right as Emote, Ping, Chat (previously Chat/Ping/Emote right-to-left via
+  three independent hand-picked x-offsets). Purely cosmetic — same three buttons,
+  same behavior, mirrored order; not worth a special-case to preserve the old
+  left-right order given the zone-stacking approach naturally follows registration
+  order.
+
+**Not run:** `godot --headless --editor --quit` — same network-policy block as
+TID-394/395/396. Traced `_emote_btn`/`_ping_btn`/`_chat_toggle_btn` with `grep` across
+the file to confirm no other code assumed direct `_hud` parentage, and re-checked the
+parenthesis/bracket/brace balance against the pre-edit file (no new imbalance).
 
 ## Documentation Updates
 
-_Leave the full `docs/agent/ui-and-scene-management.md` rewrite to TID-398. Note the final social strip layout in this section for TID-398's reference.
+For TID-398: social strip = `WorldHUD.ZONE_SOCIAL` (bottom-right `HBoxContainer`),
+containing Emote, Ping, Chat in that left-to-right order. Chat's log panel and
+free-text input/send row are separate, unmoved elements (left side / bottom,
+respectively) — not part of the strip itself.

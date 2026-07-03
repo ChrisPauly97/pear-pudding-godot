@@ -5325,25 +5325,30 @@ func _spawn_return_portal() -> void:
 func _ensure_social_buttons() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
+	# Social strip (GID-107 / TID-397): Emote / Ping / Chat share one compact,
+	# registry-backed cluster (WorldHUD.ZONE_SOCIAL) instead of three buttons that
+	# happen to share a y-coordinate by hand-picked position.
 	if _emote_btn == null or not is_instance_valid(_emote_btn):
-		_emote_btn = Button.new()
-		_emote_btn.text = ":)"
+		_emote_btn = _world_hud.register_action("emote", ":)", WorldHUD.ZONE_SOCIAL,
+			_toggle_emote_wheel, Callable(), Vector2(vh * 0.08, vh * 0.06))
 		_emote_btn.tooltip_text = "Emote"
-		_emote_btn.custom_minimum_size = Vector2(vh * 0.08, vh * 0.06)
 		_emote_btn.add_theme_font_size_override("font_size", int(vh * 0.026))
-		_emote_btn.position = Vector2(vp.x - vh * 0.09, vh * 0.87)
-		_emote_btn.pressed.connect(_toggle_emote_wheel)
-		_hud.add_child(_emote_btn)
 	if _ping_btn == null or not is_instance_valid(_ping_btn):
+		# Built directly (not via register_action) since it needs a `.toggled`
+		# connection, not a simple `.pressed` callback — same reasoning as the
+		# Ranked toggle in _ensure_challenge_button().
 		_ping_btn = Button.new()
 		_ping_btn.text = "Ping"
 		_ping_btn.tooltip_text = "Toggle ping mode — tap the world to place a ping"
 		_ping_btn.toggle_mode = true
 		_ping_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.06)
 		_ping_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-		_ping_btn.position = Vector2(vp.x - vh * 0.20, vh * 0.87)
 		_ping_btn.toggled.connect(func(on: bool) -> void: _ping_mode_active = on)
-		_hud.add_child(_ping_btn)
+		var social_zone: Container = _world_hud.get_zone_container(WorldHUD.ZONE_SOCIAL)
+		if social_zone != null:
+			social_zone.add_child(_ping_btn)
+		else:
+			_hud.add_child(_ping_btn)
 	# Trade / Spectate (GID-107 / TID-396): registered into WorldHUD.ZONE_CONTEXT —
 	# the shared contextual bar — instead of each computing its own raw position.
 	if _trade_window_mine == null or not is_instance_valid(_trade_window_mine):
@@ -5660,17 +5665,14 @@ func _ensure_chat_ui() -> void:
 		scroll.add_child(vbox)
 		_chat_log_vbox = vbox
 
-	# HUD toggle button: opens the quick-chat row and reveals the free-text
-	# input (mobile parity — desktop also has the Enter-key shortcut below).
+	# HUD toggle button: opens the quick-chat row and reveals the free-text input
+	# (mobile parity — desktop also has the Enter-key shortcut below). Part of the
+	# social strip (GID-107 / TID-397) alongside Emote/Ping — see _ensure_social_buttons().
 	if _chat_toggle_btn == null or not is_instance_valid(_chat_toggle_btn):
-		_chat_toggle_btn = Button.new()
-		_chat_toggle_btn.text = "Chat"
+		_chat_toggle_btn = _world_hud.register_action("chat", "Chat", WorldHUD.ZONE_SOCIAL,
+			_toggle_chat_quick_panel, Callable(), Vector2(vh * 0.10, vh * 0.06))
 		_chat_toggle_btn.tooltip_text = "Open chat (or press Enter)"
-		_chat_toggle_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.06)
 		_chat_toggle_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-		_chat_toggle_btn.position = Vector2(vp.x - vh * 0.31, vh * 0.87)
-		_chat_toggle_btn.pressed.connect(_toggle_chat_quick_panel)
-		_hud.add_child(_chat_toggle_btn)
 
 	# Free-text input + send button. Visible by default on desktop; mobile
 	# users reveal it via the Chat HUD button (parity is satisfied either way
