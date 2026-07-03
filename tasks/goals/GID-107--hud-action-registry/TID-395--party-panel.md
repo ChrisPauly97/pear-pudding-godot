@@ -2,7 +2,7 @@
 
 **Goal:** GID-107
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-394
 
 ## Lock
@@ -30,16 +30,80 @@ Overlap only happens when co-op is active — in single-player none of these but
 
 ## Plan
 
-_Written during Plan phase._ Suggested shape (confirm/adjust during Plan):
-- Use `WorldHUD.register_action("party", "Party", <zone>, _open_party_panel, visible_when=<co-op active>)` (from TID-394) to add one button.
-- Build a `PartyPanel` overlay following the `BaseOverlay` + `UiUtil` pattern (GID-073) used by `MenuHubScene` — sections or sub-tabs for Roster, Stash, Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl, Loot Rules. Each section keeps its existing gating logic verbatim (especially Ghost Duels' host-only `SessionStore.is_open()` check).
-- Remove the individually-positioned buttons/panel from the HUD; their existing handler functions (`_toggle_stash_overlay`, `_toggle_leaderboard_overlay`, etc.) can be called from the new panel's section buttons largely unchanged.
-- Preserve all existing signals/behavior — this is a placement/discoverability change, not a feature change.
+- `scenes/ui/PartyPanel.gd`: a new script-only overlay (`extends BaseOverlay` by path
+  string, `.new()`-instantiated), matching `GhostDuelOverlay`/`PartyStashOverlay`/
+  `LeaderboardOverlay` — built entirely from plain data + Callables the caller
+  supplies (`roster_rows`, `on_add_friend`, `show_*`/`on_*` per action), so it stays
+  decoupled from `WorldScene` internals the same way those overlays already are.
+  Sections, in order: Roster (list + per-peer add-friend button), then an Actions
+  grid: Loot Mode toggle, Stash, Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl —
+  each only shown if its `show_*` flag is true.
+- **Roster decision:** moved fully inside the Party panel (not a lightweight
+  always-visible strip). This directly serves GID-107's decluttering goal and
+  matches the goal.md acceptance criteria, which explicitly lists "Roster" among
+  the buttons to fold into the single entry point.
+- `WorldScene.gd`: `_open_party_panel()` builds a `PartyPanel`, computing each
+  `show_*` flag from the exact same condition its old standalone button used
+  (documented inline at each assignment) — this is a placement change, not a
+  behavior change. `_refresh_coop_roster()` now computes `_party_roster_rows`
+  (Array[Dictionary]) instead of building Control nodes directly, and pushes to
+  the panel via `refresh_roster()` if it's currently open. The "Party" button
+  itself is registered once via `_world_hud.register_action("party", "Party",
+  WorldHUD.ZONE_NAV, _open_party_panel)` in `_setup_coop()`.
+- Removed the six standalone button-creation functions (`_ensure_dungeon_button`,
+  `_ensure_team_duel_button` + `_update_team_duel_button_visibility`,
+  `_ensure_ghost_duel_button`, `_ensure_loot_mode_toggle_button` +
+  `_refresh_loot_mode_toggle_button`, `_build_coop_roster`, and the Stash/
+  Leaderboard blocks inside `_ensure_social_buttons()`) along with their `Button`
+  member vars and every dead `.hide()` guard that referenced them.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Added `scenes/ui/PartyPanel.gd` (new file, no `.uid` needed — plain `.gd` script).
+- `scenes/world/WorldScene.gd`:
+  - Added `const _PartyPanel = preload(...)`, `_party_panel`/`_party_roster_rows` vars.
+  - `_refresh_coop_roster()` rewritten to build row data + push to the open panel
+    (same fields/order as the old `_add_roster_row` calls: text, color, token,
+    clean_name, is_friend).
+  - Added `_loot_mode_label_text()` (replaces `_refresh_loot_mode_toggle_button`'s
+    text computation) and `_open_party_panel()`.
+  - Removed: `_ensure_dungeon_button`, `_ensure_team_duel_button`,
+    `_update_team_duel_button_visibility` (and its `_process()` call site),
+    `_ensure_ghost_duel_button`, `_ensure_loot_mode_toggle_button`,
+    `_refresh_loot_mode_toggle_button`, `_build_coop_roster`, `_add_roster_row`,
+    and the Stash/Leaderboard button blocks in `_ensure_social_buttons()`.
+  - Removed vars: `_team_duel_btn`, `_dungeon_btn`, `_ghost_duel_btn`, `_stash_btn`,
+    `_leaderboard_btn`, `_loot_mode_toggle_btn`, `_coop_roster`. Removed every
+    `.hide()` guard on these across `_enter_pvp`, `_enter_pvp_wagered`,
+    `_start_team_duel`, `_on_notify_team_duel_start`, and the tournament match-start
+    handler.
+  - `_ensure_challenge_button`/`_ranked_toggle_btn`/`_tournament_btn`/`_auction_btn`
+    left untouched (out of scope — TID-396 handles Challenge/Ranked; Auction wasn't
+    in the goal's original list, logged as BID-042).
+- **Bug fix (found while editing):** `_on_coop_session_ended()` had a teardown block
+  (`if _loot_mode_toggle_btn != null: ... queue_free()`) that referenced the just-removed
+  var — would have been a compile error. Replaced with the equivalent `_party_panel`
+  cleanup (also better behavior: the panel now actually closes on session end instead
+  of silently holding stale data).
+- Fixed 6 stale references to the removed function names in
+  `docs/agent/multiplayer-coop.md` (Session roster, Roster rating badge, Team
+  formation, Ghost Duels entry point, Need/greed roll mode, Dungeon Crawl trigger).
+- Logged `BID-042` (Auction button not folded into Party panel — post-dates the
+  goal's original button list).
+
+**Not run:** `godot --headless --editor --quit` — same network-policy block on the
+Godot download as TID-394. Manually traced every removed symbol with `grep` across
+`scenes/`, `game_logic/`, `autoloads/`, `tests/` to confirm no dangling references
+(including the compile-error catch above), and did a parenthesis/bracket/brace
+balance check against the pre-edit file to confirm no imbalance was introduced.
 
 ## Documentation Updates
 
-_Leave the full `docs/agent/ui-and-scene-management.md` rewrite to TID-398. Note the Party panel's section list and gating rules in this section for TID-398's reference._
+For TID-398's `docs/agent/ui-and-scene-management.md` pass — Party panel section
+list and gating, in order: Roster (always shown, includes per-peer add-friend),
+Loot Mode toggle (host + `SessionStore.is_open()`), Stash (always, co-op active),
+Leaderboard (always, co-op active), Ghost Duels (host + `SessionStore.is_open()`),
+Team Duel (host, not dedicated server, `State.WORLD`, ≥3 connected clients, no
+pending challenge), Dungeon Crawl (host only). Opened via the "Party" button in
+`WorldHUD.ZONE_NAV`. `docs/agent/multiplayer-coop.md` was already updated directly
+in this task (see Changes Made) since it referenced the exact function names removed.

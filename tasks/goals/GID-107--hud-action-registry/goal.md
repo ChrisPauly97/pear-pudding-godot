@@ -21,7 +21,7 @@ This goal introduces a HUD zone/action-registry framework (extending the pattern
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-394 | HUD zone framework + action registry in WorldHUD | agent | done | — |
-| TID-395 | Party panel: consolidate always-on co-op buttons into one entry point | agent | pending | TID-394 |
+| TID-395 | Party panel: consolidate always-on co-op buttons into one entry point | agent | done | TID-394 |
 | TID-396 | Contextual action bar: single slot for proximity-gated actions | agent | pending | TID-394 |
 | TID-397 | Social strip: consolidate Chat/Emote/Ping into one compact cluster | agent | pending | TID-394 |
 | TID-398 | Discoverability pass, docs/CLAUDE.md rule, and anti-clutter regression test | agent | pending | TID-394, TID-395, TID-396, TID-397 |
