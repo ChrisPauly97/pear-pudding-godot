@@ -52,6 +52,10 @@ const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 const _RatingMath        = preload("res://game_logic/net/RatingMath.gd")
 const _LeaderboardOverlay = preload("res://scenes/ui/LeaderboardOverlay.gd")
+# Party panel (GID-107 / TID-395): consolidated entry point for the always-on
+# co-op HUD affordances (Roster, Loot Mode, Stash, Leaderboard, Ghost Duels,
+# Team Duel, Dungeon Crawl) that used to each be an individually-positioned button.
+const _PartyPanel        = preload("res://scenes/ui/PartyPanel.gd")
 
 # Co-op multiplayer (GID-090)
 const _NetSyncScript     = preload("res://scenes/world/NetSync.gd")
@@ -100,7 +104,8 @@ var _chest_nodes: Dictionary = {}   # id -> Node3D
 var _remote_player_nodes: Dictionary = {}  # peer_id -> RemotePlayer Node3D
 var _remote_identities: Dictionary = {}    # peer_id -> {token, name, color} (TID-342)
 var _remote_player_maps: Dictionary = {}   # peer_id -> last-known map name (TID-352)
-var _coop_roster: VBoxContainer = null     # in-world session roster panel (TID-342)
+var _party_panel: Node = null              # Party panel overlay (GID-107); roster lives inside it
+var _party_roster_rows: Array = []         # cached roster row data fed into _party_panel
 var _net_sync: Node = null
 var _coop_active: bool = false
 var _net_broadcast_accum: float = 0.0
@@ -144,8 +149,7 @@ var _initial_ready_done: bool = false  # so _enter_tree re-setup only runs on re
 # PvP challenges (GID-091)
 var _challenge_btn: Button = null
 var _challenge_target_peer: int = -1     # nearby remote peer eligible to challenge
-# Shared dungeon crawl (GID-102 / TID-380) — host-only trigger; a client sees it hidden.
-var _dungeon_btn: Button = null
+# Shared dungeon crawl (GID-102 / TID-380) — host-only trigger, now a Party-panel action.
 var _pending_challenge_from: int = -1    # incoming challenge awaiting our response
 var _pending_challenge_deck: Array = []  # challenger's deck stored until we accept
 var _pending_challenge_ranked: bool = false  # GID-102 (TID-373): challenger's ranked opt-in
@@ -157,8 +161,8 @@ var _pvp_relay_challenger_id: int = -1   # server: peer_id of the challenger awa
 var _pvp_relay_challenger_deck: Array = [] # server: challenger's deck
 var _pvp_relay_target_id: int = -1       # server: peer_id of the challenged player
 # Team PvP duels (GID-102 / TID-371): host-only trigger, visible at 4 players (host
-# + 3 clients). No accept/decline — keeps team-formation UI minimal (see task notes).
-var _team_duel_btn: Button = null
+# + 3 clients), now a Party-panel action. No accept/decline — keeps team-formation
+# UI minimal (see task notes).
 # Host-only: remembers the formation of the duel it started so _on_team_battle_ended_coop
 # can resolve all 4 participants' tokens for the rating update. Empty when no team
 # duel is in flight (the host itself never started one, or it already finished).
@@ -220,7 +224,6 @@ var _chat_toggle_btn: Button = null        # HUD button: opens quick-chat row + 
 # GID-102 / TID-376: Shared party stash
 const _StashTransfer = preload("res://game_logic/net/StashTransfer.gd")
 const _PartyStashOverlay = preload("res://scenes/ui/PartyStashOverlay.gd")
-var _stash_btn: Button = null             # "Stash" HUD button (always visible in co-op)
 var _stash_overlay: Node = null           # PartyStashOverlay instance, nil when closed
 var _stash_cache: Dictionary = {"cards": [], "coins": 0}  # last-known stash snapshot
 # GID-102 / TID-378: Async card auction house
@@ -234,7 +237,6 @@ var _pvp_ended_pending_broadcast: bool = false  # set in pvp_battle_ended; clear
 # GID-102 (TID-373): Ranked UI & leaderboard
 var _leaderboard_rows: Array = []        # cached SessionState.get_leaderboard() rows
 var _leaderboard_overlay: Node = null    # LeaderboardOverlay instance, nil when closed
-var _leaderboard_btn: Button = null      # HUD button that opens the leaderboard
 var _ranked_toggle_btn: Button = null    # "Ranked" opt-in toggle next to the challenge button
 var _ranked_toggle_on: bool = false      # local challenger's ranked opt-in state
 var _pvp_ranked: bool = false            # ranked flag captured for the active duel (both peers)
@@ -260,9 +262,9 @@ var _coop_siege_active: bool = false
 var _coop_siege_id: int = 0
 var _coop_siege_wave: int = -1               # -1 = not started; >= WAVE_COUNT = boss phase
 var _coop_siege_wave_nodes: Dictionary = {}  # id -> Node3D (current wave only)
-# TID-377: Ghost duels — host-only HUD button + overlay (SessionStore is only ever
-# open on the authority; a client has no local SessionState to list opponents from).
-var _ghost_duel_btn: Button = null
+# TID-377: Ghost duels — host-only Party-panel action + overlay (SessionStore is
+# only ever open on the authority; a client has no local SessionState to list
+# opponents from).
 var _ghost_duel_overlay: Node = null
 # GID-104 (TID-385): Draft duels — sealed-deck PvP. Both peers derive identical
 # 1-of-3 pick rounds from one shared seed (DraftDuelGen); only the two finished
@@ -736,11 +738,18 @@ func _setup_coop() -> void:
 		_ensure_challenge_button()
 		_ensure_draft_duel_button()
 		_ensure_social_buttons()
-		_ensure_team_duel_button()
 		_ensure_chat_ui()
-		_ensure_dungeon_button()
 		_ensure_tournament_button()
 		_ensure_siege_button()
+		# Party panel (GID-107 / TID-395): single entry point for Roster, Loot Mode,
+		# Stash, Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl.
+		_world_hud.register_action("party", "Party", WorldHUD.ZONE_NAV, _open_party_panel)
+		# Discoverability (GID-107 / TID-398): players used to the old scattered
+		# buttons need a one-time nudge to the new consolidated entry point.
+		# SceneManager dedups via the "seen_tutorial_party_panel" flag, so this is
+		# safe to emit every time co-op becomes active (matches the "night_hunts"
+		# precedent — emitter just emits, the handler owns the seen-once logic).
+		GameBus.tutorial_popup_requested.emit("party_panel")
 	# GID-101 (TID-369): host initialises party bounties; all peers build the HUD.
 	_setup_party_bounties()
 	if not NetworkManager.is_dedicated_server():
@@ -762,12 +771,6 @@ func _setup_coop() -> void:
 	# file and adopts its own character; clients adopt on the character handshake.
 	_setup_session()
 
-	# Ghost duels (GID-102 / TID-377): host-only, needs SessionStore.is_open()
-	# (true only once _setup_session succeeds on the authority). No-op on a client
-	# or dedicated server — _ensure_ghost_duel_button checks SessionStore itself.
-	if not NetworkManager.is_dedicated_server():
-		_ensure_ghost_duel_button()
-
 	# Co-op story mode (GID-098): sync story flag changes through the authority.
 	if not GameBus.story_flag_set.is_connected(_on_local_story_flag_set):
 		GameBus.story_flag_set.connect(_on_local_story_flag_set)
@@ -775,15 +778,8 @@ func _setup_coop() -> void:
 	# Identity handshake (TID-342): broadcast this peer's identity to everyone
 	# already in-world. Dedicated server has no player identity to share.
 	if not NetworkManager.is_dedicated_server():
-		_build_coop_roster()
+		_refresh_coop_roster()
 		_send_local_identity(false, 0)
-
-	# Party loot rolls (GID-102 / TID-381): host-only session setting toggle. Placed
-	# in-world (rather than the pre-connection lobby) because SessionStore only opens
-	# once the host's session file is loaded in _setup_session() just above — there is
-	# no session to toggle a mode on before that point.
-	if NetworkManager.is_host() and not NetworkManager.is_dedicated_server():
-		_ensure_loot_mode_toggle_button()
 
 func _teardown_coop() -> void:
 	if not _coop_active:
@@ -886,9 +882,9 @@ func _on_coop_session_ended() -> void:
 	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
 		_loot_roll_panel.queue_free()
 	_loot_roll_panel = null
-	if _loot_mode_toggle_btn != null and is_instance_valid(_loot_mode_toggle_btn):
-		_loot_mode_toggle_btn.queue_free()
-	_loot_mode_toggle_btn = null
+	if _party_panel != null and is_instance_valid(_party_panel):
+		_party_panel.queue_free()
+	_party_panel = null
 	# Authority owns the session file: flush + close it on session end (host left /
 	# server stopped). On clients SessionStore is never open, so this is a no-op.
 	if SessionStore.is_open():
@@ -1114,83 +1110,56 @@ func _tick_session_persist(delta: float) -> void:
 		_net_sync.rpc_id(1, "submit_character", rec)
 
 # ── In-world session roster (GID-094 / TID-342) ───────────────────────────────
+# GID-107 (TID-395): the roster no longer builds its own always-visible HUD panel —
+# it recomputes _party_roster_rows and, if the Party panel is currently open,
+# pushes the update into it. The row data/shape is unchanged from the old
+# _add_roster_row() calls, just collected into an Array[Dictionary] instead of
+# built straight into Control nodes.
 
-func _build_coop_roster() -> void:
-	if _coop_roster != null and is_instance_valid(_coop_roster):
-		_refresh_coop_roster()
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var panel := PanelContainer.new()
-	panel.name = "CoopRoster"
-	panel.position = Vector2(vp.x * 0.012, vp.y * 0.30)
-	panel.modulate = Color(1.0, 1.0, 1.0, 0.92)
-	_coop_roster = VBoxContainer.new()
-	_coop_roster.add_theme_constant_override("separation", int(vp.y * 0.006))
-	panel.add_child(_coop_roster)
-	_hud.add_child(panel)
-	_refresh_coop_roster()
-
-## Rebuild the roster rows: local player first, then each connected remote.
+## Rebuild the roster row data: local player first, then each connected remote.
 func _refresh_coop_roster() -> void:
-	if _coop_roster == null or not is_instance_valid(_coop_roster):
-		return
-	var panel: Node = _coop_roster.get_parent()
-	if is_instance_valid(panel):
-		(panel as CanvasItem).visible = _coop_active
-	for c in _coop_roster.get_children():
-		c.queue_free()
-	if not _coop_active:
-		return
-	# Rating badge (GID-102 / TID-373): looked up from the cached leaderboard rows by
-	# identity token; shows "—" until the first snapshot arrives.
-	var my_rating: String = _rating_badge_for_token(MpProfile.get_token())
-	_add_roster_row("%s (you)  [%s]" % [MpProfile.get_display_name(), my_rating], MpProfile.get_color())
-	for pid in _remote_player_nodes.keys():
-		var d: Dictionary = _remote_identities.get(pid, {})
-		var nm: String = str(d.get("name", "Player"))
-		var col: Color = d.get("color", Color(0.7, 0.85, 1.0))
-		var token: String = str(d.get("token", ""))
-		# Friends list (GID-102 / TID-375): a friend currently in-session is "seen now".
-		if token != "":
-			MpProfile.touch_friend_last_seen(token)
-		# Rating badge (GID-102 / TID-373): looked up from the cached leaderboard rows.
-		var rating_badge: String = _rating_badge_for_token(token)
-		nm += "  [%s]" % rating_badge
-		# Map-scoped sync (TID-352): peers on another map are greyed + "(elsewhere)".
-		var peer_map: String = str(_remote_player_maps.get(pid, map_name))
-		if peer_map != "" and peer_map != map_name:
-			nm += " (elsewhere)"
-			col = col.darkened(0.45)
-		_add_roster_row(nm, col, token)
+	_party_roster_rows.clear()
+	if _coop_active:
+		# Rating badge (GID-102 / TID-373): looked up from the cached leaderboard rows by
+		# identity token; shows "—" until the first snapshot arrives.
+		var my_rating: String = _rating_badge_for_token(MpProfile.get_token())
+		_party_roster_rows.append({
+			"text": "%s (you)  [%s]" % [MpProfile.get_display_name(), my_rating],
+			"color": MpProfile.get_color(),
+			"token": "",
+		})
+		for pid in _remote_player_nodes.keys():
+			var d: Dictionary = _remote_identities.get(pid, {})
+			var nm: String = str(d.get("name", "Player"))
+			var col: Color = d.get("color", Color(0.7, 0.85, 1.0))
+			var token: String = str(d.get("token", ""))
+			# Friends list (GID-102 / TID-375): a friend currently in-session is "seen now".
+			if token != "":
+				MpProfile.touch_friend_last_seen(token)
+			var clean_name: String = nm
+			# Rating badge (GID-102 / TID-373): looked up from the cached leaderboard rows.
+			var rating_badge: String = _rating_badge_for_token(token)
+			nm += "  [%s]" % rating_badge
+			# Map-scoped sync (TID-352): peers on another map are greyed + "(elsewhere)".
+			var peer_map: String = str(_remote_player_maps.get(pid, map_name))
+			if peer_map != "" and peer_map != map_name:
+				nm += " (elsewhere)"
+				col = col.darkened(0.45)
+			_party_roster_rows.append({
+				"text": nm,
+				"color": col,
+				"token": token,
+				"clean_name": clean_name,
+				"is_friend": MpProfile.is_friend(token) if token != "" else false,
+			})
+	if _party_panel != null and is_instance_valid(_party_panel):
+		_party_panel.refresh_roster(_party_roster_rows)
 
-## Party loot rolls (GID-102 / TID-381): host-only HUD toggle between the default
-## first-opener-takes rule and the opt-in need/greed roll. Placed beneath the
-## roster panel (top-left, alongside the other social/session HUD affordances) —
-## a touch/click target satisfying the mobile/desktop parity rule with no separate
-## keybind, consistent with the Trade/Ping/emote HUD buttons.
-var _loot_mode_toggle_btn: Button = null
-
-func _ensure_loot_mode_toggle_button() -> void:
-	if _loot_mode_toggle_btn != null and is_instance_valid(_loot_mode_toggle_btn):
-		_refresh_loot_mode_toggle_button()
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_loot_mode_toggle_btn = Button.new()
-	# Placed just right of the chat log panel column (which spans y 0.16-0.46 at
-	# this x) rather than stacked in it, to avoid overlapping the panel or the
-	# roster/party-bounty panels that also share the left column.
-	_loot_mode_toggle_btn.position = Vector2(vp.x * 0.012 + vp.x * 0.27, vp.y * 0.16)
-	_loot_mode_toggle_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
-	_loot_mode_toggle_btn.add_theme_font_size_override("font_size", int(vp.y * 0.02))
-	_loot_mode_toggle_btn.pressed.connect(_on_loot_mode_toggle_pressed)
-	_hud.add_child(_loot_mode_toggle_btn)
-	_refresh_loot_mode_toggle_button()
-
-func _refresh_loot_mode_toggle_button() -> void:
-	if _loot_mode_toggle_btn == null or not is_instance_valid(_loot_mode_toggle_btn):
-		return
-	var need_greed: bool = _coop_loot_mode_is_need_greed()
-	_loot_mode_toggle_btn.text = "Loot: Need/Greed" if need_greed else "Loot: First-Opener"
+## Party loot rolls (GID-102 / TID-381): host-only toggle between the default
+## first-opener-takes rule and the opt-in need/greed roll. Now a Party-panel
+## action (GID-107 / TID-395) rather than its own always-visible HUD button.
+func _loot_mode_label_text() -> String:
+	return "Loot: Need/Greed" if _coop_loot_mode_is_need_greed() else "Loot: First-Opener"
 
 func _on_loot_mode_toggle_pressed() -> void:
 	if not NetworkManager.is_host() or not SessionStore.is_open():
@@ -1199,46 +1168,50 @@ func _on_loot_mode_toggle_pressed() -> void:
 	if not _coop_loot_mode_is_need_greed():
 		new_mode = _SessionState.LOOT_MODE_NEED_GREED
 	SessionStore.set_loot_mode(new_mode)
-	_refresh_loot_mode_toggle_button()
+	if _party_panel != null and is_instance_valid(_party_panel):
+		_party_panel.refresh_loot_label(_loot_mode_label_text())
 	GameBus.hud_message_requested.emit(
 		"Loot mode: %s" % ("Need/Greed" if new_mode == _SessionState.LOOT_MODE_NEED_GREED else "First-Opener"))
 
-## `token` is the remote peer's stable identity (empty for the local "(you)" row,
-## which never gets an add-friend affordance). The token itself is never shown —
-## only used as the add_friend/is_friend key (GID-102 / TID-375).
-func _add_roster_row(text: String, col: Color, token: String = "") -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(vp.y * 0.01))
-	var swatch := ColorRect.new()
-	swatch.color = Color(col.r, col.g, col.b, 1.0)
-	swatch.custom_minimum_size = Vector2(vp.y * 0.022, vp.y * 0.022)
-	row.add_child(swatch)
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.022))
-	row.add_child(lbl)
-	if token != "":
-		var btn := Button.new()
-		var sz: float = vp.y * 0.026
-		btn.custom_minimum_size = Vector2(sz, sz)
-		btn.add_theme_font_size_override("font_size", int(vp.y * 0.02))
-		if MpProfile.is_friend(token):
-			btn.text = "✓"
-			btn.disabled = true
-			btn.tooltip_text = "Friend"
-		else:
-			btn.text = "+"
-			btn.tooltip_text = "Add friend"
-			# Strip the "(elsewhere)" / "(you)" suffixes before saving — friends are
-			# stored by clean display name only.
-			var clean_name: String = text.replace(" (elsewhere)", "")
-			btn.pressed.connect(func() -> void:
-				MpProfile.add_friend(token, clean_name, col.to_html(false))
-				_refresh_coop_roster()
-			)
-		row.add_child(btn)
-	_coop_roster.add_child(row)
+## Opens (or closes, if already open) the Party panel (GID-107 / TID-395):
+## Roster, Loot Mode, Stash, Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl —
+## each section keeps the exact gating/behavior its old standalone button had.
+func _open_party_panel() -> void:
+	if _party_panel != null and is_instance_valid(_party_panel):
+		_party_panel.queue_free()
+		_party_panel = null
+		return
+	var panel := _PartyPanel.new()
+	panel.roster_rows = _party_roster_rows
+	panel.on_add_friend = func(token: String, clean_name: String, color: Color) -> void:
+		MpProfile.add_friend(token, clean_name, color.to_html(false))
+		_refresh_coop_roster()
+	# Loot mode (host-only, same gate as the old button's press-handler check).
+	panel.show_loot_mode = NetworkManager.is_host() and SessionStore.is_open()
+	panel.loot_mode_label = _loot_mode_label_text()
+	panel.on_loot_mode_toggle = _on_loot_mode_toggle_pressed
+	# Stash / Leaderboard: always available while co-op is active (global to the
+	# session, not proximity-gated) — matches the old buttons' gating exactly.
+	panel.show_stash = true
+	panel.on_stash = _toggle_stash_overlay
+	panel.show_leaderboard = true
+	panel.on_leaderboard = _toggle_leaderboard_overlay
+	# Ghost Duels: host-only, gated on SessionStore.is_open() (see _ensure_ghost_duel_button's
+	# old comment — a client never opens SessionStore locally).
+	panel.show_ghost_duels = SessionStore.is_open()
+	panel.on_ghost_duels = _toggle_ghost_duel_overlay
+	# Team Duel: host-only, needs 3 connected clients (4 total) — mirrors the old
+	# _update_team_duel_button_visibility() condition exactly.
+	panel.show_team_duel = NetworkManager.is_host() and not NetworkManager.is_dedicated_server() \
+		and SceneManager._state == SceneManager.State.WORLD \
+		and multiplayer.get_peers().size() >= 3 and _pending_challenge_from == -1
+	panel.on_team_duel = _start_team_duel
+	# Dungeon Crawl: host-only trigger — mirrors the old _ensure_dungeon_button() gate.
+	panel.show_dungeon_crawl = NetworkManager.is_host()
+	panel.on_dungeon_crawl = _start_dungeon_crawl
+	_hud.add_child(panel)
+	panel.closed.connect(func() -> void: _party_panel = null)
+	_party_panel = panel
 
 # Called by NetSync when a remote avatar packet arrives.
 func _on_avatar_received(sender: int, payload: Array) -> void:
@@ -2235,27 +2208,6 @@ func _on_revive_received(peer_id: int) -> void:
 # function of (name, seed) and WorldScene's dungeon-load branch only inspects
 # the map_name string, not how it was constructed.
 
-## Creates the hidden "Dungeon Crawl" HUD button. Visible only for the host —
-## the host is the authority that picks/blesses the shared seed (avoids two
-## peers racing to open two different dungeons at once).
-func _ensure_dungeon_button() -> void:
-	if _dungeon_btn != null and is_instance_valid(_dungeon_btn):
-		# Re-assert visibility: a PvP battle re-attach (_enter_tree → _setup_coop)
-		# hides this button unconditionally, so re-derive it here rather than only
-		# at creation time.
-		_dungeon_btn.visible = NetworkManager.is_host()
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_dungeon_btn = Button.new()
-	_dungeon_btn.text = "Dungeon Crawl"
-	_dungeon_btn.tooltip_text = "Open a procedural dungeon for the whole party"
-	_dungeon_btn.custom_minimum_size = Vector2(vp.y * 0.30, vp.y * 0.06)
-	_dungeon_btn.add_theme_font_size_override("font_size", int(vp.y * 0.024))
-	_dungeon_btn.position = Vector2((vp.x - vp.y * 0.30) * 0.5, vp.y * 0.72)
-	_dungeon_btn.visible = NetworkManager.is_host()
-	_dungeon_btn.pressed.connect(_start_dungeon_crawl)
-	_hud.add_child(_dungeon_btn)
-
 ## Host-only: derive a shared seed and broadcast the transition so every peer
 ## follows into the identical generated dungeon.
 func _start_dungeon_crawl() -> void:
@@ -2534,38 +2486,49 @@ func _finish_coop_siege_victory() -> void:
 
 # ── PvP challenge handshake (GID-091) ─────────────────────────────────────────
 
-## Creates the hidden "Challenge to Battle" HUD button (mobile + desktop parity).
+## Creates the hidden "Challenge to Battle" contextual-bar action (GID-107 / TID-396:
+## registered into WorldHUD.ZONE_CONTEXT so it can never pixel-overlap the Android
+## USE/Interact button or the other proximity-gated social actions, which share the
+## same zone). Mobile + desktop parity.
 func _ensure_challenge_button() -> void:
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		return
 	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_challenge_btn = Button.new()
-	_challenge_btn.text = "Challenge to Battle"
-	_challenge_btn.custom_minimum_size = Vector2(vp.y * 0.34, vp.y * 0.07)
-	_challenge_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	_challenge_btn.position = Vector2((vp.x - vp.y * 0.34) * 0.5, vp.y * 0.80)
+	_challenge_btn = _world_hud.register_action("challenge", "Challenge to Battle",
+		WorldHUD.ZONE_CONTEXT, _request_challenge, Callable(), Vector2(vp.y * 0.34, vp.y * 0.07))
 	_challenge_btn.hide()
-	_challenge_btn.pressed.connect(_request_challenge)
-	_hud.add_child(_challenge_btn)
-	# Ranked opt-in toggle (GID-102 / TID-373): sits just below the challenge button,
-	# a touch/click target like every other HUD toggle (no separate keybind needed).
+	# Ranked opt-in toggle (GID-102 / TID-373): stacks below the challenge button in
+	# the shared contextual zone — a touch/click target like every other HUD toggle
+	# (no separate keybind needed). Built directly (not via register_action) since it
+	# needs a `.toggled` connection, not a simple `.pressed` callback.
 	_ranked_toggle_btn = Button.new()
 	_ranked_toggle_btn.toggle_mode = true
 	_ranked_toggle_btn.text = "Ranked: OFF"
 	_ranked_toggle_btn.tooltip_text = "When ON, this duel counts toward your ranked rating."
 	_ranked_toggle_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
 	_ranked_toggle_btn.add_theme_font_size_override("font_size", int(vp.y * 0.020))
-	_ranked_toggle_btn.position = Vector2((vp.x - vp.y * 0.20) * 0.5, vp.y * 0.875)
 	_ranked_toggle_btn.hide()
 	_ranked_toggle_btn.toggled.connect(func(on: bool) -> void:
 		_ranked_toggle_on = on
 		_ranked_toggle_btn.text = "Ranked: ON" if on else "Ranked: OFF")
-	_hud.add_child(_ranked_toggle_btn)
+	var context_zone: Container = _world_hud.get_zone_container(WorldHUD.ZONE_CONTEXT)
+	if context_zone != null:
+		context_zone.add_child(_ranked_toggle_btn)
+	else:
+		_hud.add_child(_ranked_toggle_btn)
 
 ## Shows/hides the challenge button based on proximity to a remote player. Called
-## each frame from _process while co-op is active.
+## each frame from _process while co-op is active. GID-107 / TID-396 priority rule:
+## the world-interact prompt (door/chest/NPC/scroll) always wins the shared
+## contextual slot over a social action — interacting with the world is the more
+## frequent, lower-friction action.
 func _update_challenge_proximity() -> void:
 	if _challenge_btn == null or not is_instance_valid(_challenge_btn):
+		return
+	if _world_hud != null and _world_hud.is_interact_visible():
+		_challenge_btn.hide()
+		if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
+			_ranked_toggle_btn.hide()
 		return
 	# Suppress while a challenge is pending or we're not in the world.
 	if _pending_challenge_from != -1 or SceneManager._state != SceneManager.State.WORLD:
@@ -2620,31 +2583,8 @@ func _request_challenge() -> void:
 	_show_tip("Ranked challenge sent…" if _ranked_toggle_on else "Challenge sent…")
 
 # ── Team PvP duels (GID-102 / TID-371) ────────────────────────────────────────
-
-## Creates the hidden "Team Duel (2v2)" HUD button. Host-only trigger.
-func _ensure_team_duel_button() -> void:
-	if _team_duel_btn != null and is_instance_valid(_team_duel_btn):
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_team_duel_btn = Button.new()
-	_team_duel_btn.text = "Team Duel (2v2)"
-	_team_duel_btn.custom_minimum_size = Vector2(vp.y * 0.34, vp.y * 0.07)
-	_team_duel_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	_team_duel_btn.position = Vector2((vp.x - vp.y * 0.34) * 0.5, vp.y * 0.72)
-	_team_duel_btn.hide()
-	_team_duel_btn.pressed.connect(_start_team_duel)
-	_hud.add_child(_team_duel_btn)
-
-## Shows the team-duel button only for the host with exactly 3 connected clients
-## (4 total players — required for 2v2). Dedicated-server / non-host peers never see it.
-func _update_team_duel_button_visibility() -> void:
-	if _team_duel_btn == null or not is_instance_valid(_team_duel_btn):
-		return
-	if not NetworkManager.is_host() or NetworkManager.is_dedicated_server() \
-			or SceneManager._state != SceneManager.State.WORLD:
-		_team_duel_btn.hide()
-		return
-	_team_duel_btn.visible = multiplayer.get_peers().size() >= 3 and _pending_challenge_from == -1
+# GID-107 (TID-395): Team Duel is now a Party-panel action (see _open_party_panel's
+# show_team_duel, computed fresh on open) instead of its own standalone HUD button.
 
 ## Host-only: resolves a connected peer's current deck as instances for the team duel.
 ## The host's own deck comes straight from SaveManager; a client's deck is read from
@@ -2697,8 +2637,6 @@ func _start_team_duel() -> void:
 			_net_sync.rpc_id(pid, "notify_team_duel_start", i, team_assignments, all_decks)
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		_challenge_btn.hide()
-	if _team_duel_btn != null and is_instance_valid(_team_duel_btn):
-		_team_duel_btn.hide()
 	_active_team_duel_peer_ids = abs_peer_ids
 	_active_team_duel_teams = team_assignments
 	SceneManager.enter_team_battle(0, team_assignments, all_decks)
@@ -2707,8 +2645,6 @@ func _start_team_duel() -> void:
 func _on_notify_team_duel_start(my_idx: int, team_assignments: Array, all_decks: Array) -> void:
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		_challenge_btn.hide()
-	if _team_duel_btn != null and is_instance_valid(_team_duel_btn):
-		_team_duel_btn.hide()
 	SceneManager.enter_team_battle(my_idx, team_assignments, all_decks)
 
 ## Incoming challenge — show an Accept/Decline prompt.
@@ -2884,8 +2820,6 @@ func _enter_pvp(opponent_deck: Array, ranked: bool = false) -> void:
 	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
 		_ranked_toggle_btn.hide()
 	_pvp_ranked = ranked
-	if _dungeon_btn != null and is_instance_valid(_dungeon_btn):
-		_dungeon_btn.hide()
 	var local_idx: int = 0 if NetworkManager.is_host() else 1
 	# GID-101 (TID-367): host broadcasts duel-start to spectators
 	if NetworkManager.is_host() and _net_sync != null:
@@ -3855,7 +3789,6 @@ func _process(delta: float) -> void:
 	if _coop_active:
 		_broadcast_local_avatar(delta)
 		_update_challenge_proximity()
-		_update_team_duel_button_visibility()
 		_update_draft_duel_proximity()
 		_update_tournament_button_visibility()
 		_tick_tournament(delta)
@@ -5398,66 +5331,42 @@ func _spawn_return_portal() -> void:
 func _ensure_social_buttons() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
+	# Social strip (GID-107 / TID-397): Emote / Ping / Chat share one compact,
+	# registry-backed cluster (WorldHUD.ZONE_SOCIAL) instead of three buttons that
+	# happen to share a y-coordinate by hand-picked position.
 	if _emote_btn == null or not is_instance_valid(_emote_btn):
-		_emote_btn = Button.new()
-		_emote_btn.text = ":)"
+		_emote_btn = _world_hud.register_action("emote", ":)", WorldHUD.ZONE_SOCIAL,
+			_toggle_emote_wheel, Callable(), Vector2(vh * 0.08, vh * 0.06))
 		_emote_btn.tooltip_text = "Emote"
-		_emote_btn.custom_minimum_size = Vector2(vh * 0.08, vh * 0.06)
 		_emote_btn.add_theme_font_size_override("font_size", int(vh * 0.026))
-		_emote_btn.position = Vector2(vp.x - vh * 0.09, vh * 0.87)
-		_emote_btn.pressed.connect(_toggle_emote_wheel)
-		_hud.add_child(_emote_btn)
 	if _ping_btn == null or not is_instance_valid(_ping_btn):
+		# Built directly (not via register_action) since it needs a `.toggled`
+		# connection, not a simple `.pressed` callback — same reasoning as the
+		# Ranked toggle in _ensure_challenge_button().
 		_ping_btn = Button.new()
 		_ping_btn.text = "Ping"
 		_ping_btn.tooltip_text = "Toggle ping mode — tap the world to place a ping"
 		_ping_btn.toggle_mode = true
 		_ping_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.06)
 		_ping_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-		_ping_btn.position = Vector2(vp.x - vh * 0.20, vh * 0.87)
 		_ping_btn.toggled.connect(func(on: bool) -> void: _ping_mode_active = on)
-		_hud.add_child(_ping_btn)
+		var social_zone: Container = _world_hud.get_zone_container(WorldHUD.ZONE_SOCIAL)
+		if social_zone != null:
+			social_zone.add_child(_ping_btn)
+		else:
+			_hud.add_child(_ping_btn)
+	# Trade / Spectate (GID-107 / TID-396): registered into WorldHUD.ZONE_CONTEXT —
+	# the shared contextual bar — instead of each computing its own raw position.
 	if _trade_window_mine == null or not is_instance_valid(_trade_window_mine):
-		_trade_window_mine = Button.new()
-		_trade_window_mine.text = "Trade"
-		_trade_window_mine.custom_minimum_size = Vector2(vh * 0.22, vh * 0.06)
-		_trade_window_mine.add_theme_font_size_override("font_size", int(vh * 0.024))
-		_trade_window_mine.position = Vector2((vp.x - vh * 0.22) * 0.5, vh * 0.88)
+		_trade_window_mine = _world_hud.register_action("trade", "Trade", WorldHUD.ZONE_CONTEXT,
+			_open_trade_offer, Callable(), Vector2(vh * 0.22, vh * 0.06))
 		_trade_window_mine.hide()
-		_trade_window_mine.pressed.connect(_open_trade_offer)
-		_hud.add_child(_trade_window_mine)
 	if _spectate_btn == null or not is_instance_valid(_spectate_btn):
-		_spectate_btn = Button.new()
-		_spectate_btn.text = "Spectate Duel"
-		_spectate_btn.custom_minimum_size = Vector2(vh * 0.28, vh * 0.06)
-		_spectate_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-		_spectate_btn.position = Vector2((vp.x - vh * 0.28) * 0.5, vh * 0.76)
+		_spectate_btn = _world_hud.register_action("spectate", "Spectate Duel", WorldHUD.ZONE_CONTEXT,
+			_request_spectate, Callable(), Vector2(vh * 0.28, vh * 0.06))
 		_spectate_btn.hide()
-		_spectate_btn.pressed.connect(_request_spectate)
-		_hud.add_child(_spectate_btn)
-	# Leaderboard panel button (GID-102 / TID-373): always visible while co-op is
-	# active (not proximity-gated like Trade/Spectate — the leaderboard is global,
-	# not tied to a nearby duel). Touch/click target, no separate keybind needed.
-	if _leaderboard_btn == null or not is_instance_valid(_leaderboard_btn):
-		_leaderboard_btn = Button.new()
-		_leaderboard_btn.text = "Leaderboard"
-		_leaderboard_btn.tooltip_text = "View the session's ranked leaderboard"
-		_leaderboard_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.055)
-		_leaderboard_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
-		_leaderboard_btn.position = Vector2(vp.x * 0.012, vh * 0.012)
-		_leaderboard_btn.pressed.connect(_toggle_leaderboard_overlay)
-		_hud.add_child(_leaderboard_btn)
-	# Party stash button (GID-102 / TID-376): always visible while co-op is active
-	# (global to the session, not proximity-gated like Trade). Touch/click target.
-	if _stash_btn == null or not is_instance_valid(_stash_btn):
-		_stash_btn = Button.new()
-		_stash_btn.text = "Stash"
-		_stash_btn.tooltip_text = "Open the shared party stash"
-		_stash_btn.custom_minimum_size = Vector2(vh * 0.14, vh * 0.055)
-		_stash_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
-		_stash_btn.position = Vector2(vp.x * 0.012, vh * 0.078)
-		_stash_btn.pressed.connect(_toggle_stash_overlay)
-		_hud.add_child(_stash_btn)
+	# Leaderboard and Stash (GID-102 / TID-373, TID-376): now Party-panel actions
+	# (GID-107 / TID-395) instead of their own standalone always-visible buttons.
 	# Auction house button (GID-102 / TID-378): always visible while co-op is active
 	# (global to the session, same as Stash). Placed on the next row down since the
 	# Stash/Ghost-Duels row is already occupied at vh * 0.078.
@@ -5472,31 +5381,10 @@ func _ensure_social_buttons() -> void:
 		_hud.add_child(_auction_btn)
 
 
-## Ghost Duels HUD button (GID-102 / TID-377). Host-only: gated on
-## SessionStore.is_open() rather than NetworkManager.is_active() — a client never
-## opens SessionStore locally (see WorldScene._setup_session), so this button
-## naturally stays hidden for clients and for a host before its session file is
-## open. Always visible (not proximity-gated) once available — this is an async
-## feature, not a live-nearby-player interaction like Trade/Spectate.
-func _ensure_ghost_duel_button() -> void:
-	if not SessionStore.is_open():
-		return
-	if _ghost_duel_btn != null and is_instance_valid(_ghost_duel_btn):
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	_ghost_duel_btn = Button.new()
-	_ghost_duel_btn.text = "Ghost Duels"
-	_ghost_duel_btn.tooltip_text = "Duel an AI-piloted snapshot of a party member's deck"
-	_ghost_duel_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.055)
-	_ghost_duel_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
-	# Placed beside the Stash button (same row, offset right by its width + a gap)
-	# rather than stacked below it, since the next row down collides with the
-	# Stash/Leaderboard column at this y.
-	_ghost_duel_btn.position = Vector2(vp.x * 0.012 + vh * 0.15, vh * 0.078)
-	_ghost_duel_btn.pressed.connect(_toggle_ghost_duel_overlay)
-	_hud.add_child(_ghost_duel_btn)
-
+## Ghost Duels (GID-102 / TID-377). Host-only: gated on SessionStore.is_open()
+## rather than NetworkManager.is_active() — a client never opens SessionStore
+## locally (see WorldScene._setup_session). Now a Party-panel action (GID-107 /
+## TID-395) whose show_ghost_duels condition reproduces this same gate on open.
 
 ## Builds the {token, name, rating} row list from the host's own SessionState and
 ## opens (or closes) the GhostDuelOverlay. The local host's own token is excluded
@@ -5540,8 +5428,16 @@ func _toggle_ghost_duel_overlay() -> void:
 	_ghost_duel_overlay = overlay
 
 
+## GID-107 / TID-396 priority rule: the world-interact prompt always wins the shared
+## contextual slot over Trade/Spectate, same as it does over Challenge above.
 func _update_social_proximity() -> void:
 	if _player == null:
+		return
+	if _world_hud != null and _world_hud.is_interact_visible():
+		if _trade_window_mine != null and is_instance_valid(_trade_window_mine):
+			_trade_window_mine.hide()
+		if _spectate_btn != null and is_instance_valid(_spectate_btn):
+			_spectate_btn.hide()
 		return
 	var range_world: float = _CHALLENGE_RANGE * IsoConst.TILE_SIZE
 	var nearest_pid: int = -1
@@ -5775,17 +5671,14 @@ func _ensure_chat_ui() -> void:
 		scroll.add_child(vbox)
 		_chat_log_vbox = vbox
 
-	# HUD toggle button: opens the quick-chat row and reveals the free-text
-	# input (mobile parity — desktop also has the Enter-key shortcut below).
+	# HUD toggle button: opens the quick-chat row and reveals the free-text input
+	# (mobile parity — desktop also has the Enter-key shortcut below). Part of the
+	# social strip (GID-107 / TID-397) alongside Emote/Ping — see _ensure_social_buttons().
 	if _chat_toggle_btn == null or not is_instance_valid(_chat_toggle_btn):
-		_chat_toggle_btn = Button.new()
-		_chat_toggle_btn.text = "Chat"
+		_chat_toggle_btn = _world_hud.register_action("chat", "Chat", WorldHUD.ZONE_SOCIAL,
+			_toggle_chat_quick_panel, Callable(), Vector2(vh * 0.10, vh * 0.06))
 		_chat_toggle_btn.tooltip_text = "Open chat (or press Enter)"
-		_chat_toggle_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.06)
 		_chat_toggle_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-		_chat_toggle_btn.position = Vector2(vp.x - vh * 0.31, vh * 0.87)
-		_chat_toggle_btn.pressed.connect(_toggle_chat_quick_panel)
-		_hud.add_child(_chat_toggle_btn)
 
 	# Free-text input + send button. Visible by default on desktop; mobile
 	# users reveal it via the Chat HUD button (parity is satisfied either way
@@ -6705,8 +6598,6 @@ func _on_battle_wager_responded(_sender: int, accepted: bool, responder_deck: Ar
 func _enter_pvp_wagered(ante: int, opp_deck: Array) -> void:
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		_challenge_btn.hide()
-	if _dungeon_btn != null and is_instance_valid(_dungeon_btn):
-		_dungeon_btn.hide()
 	SceneManager.save_manager.add_coins(-ante)
 	_pvp_ante_coins = ante
 	var local_idx: int = 0 if NetworkManager.is_host() else 1
@@ -7637,8 +7528,6 @@ func _start_current_tournament_match() -> void:
 	_net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket(_tournament_bracket))
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		_challenge_btn.hide()
-	if _team_duel_btn != null and is_instance_valid(_team_duel_btn):
-		_team_duel_btn.hide()
 	if _tournament_btn != null and is_instance_valid(_tournament_btn):
 		_tournament_btn.hide()
 	# Duel-active + auto-spectate broadcasts to everyone not in this match

@@ -291,6 +291,33 @@ Re-apply sizes in `_notification(NOTIFICATION_RESIZED)` if the window can be res
 
 ---
 
+## HUD Buttons: Always Use the Action Registry
+
+### The problem
+Every multiplayer/social task from GID-090 through GID-102 added its own `Button.new()` directly to `WorldScene.gd`'s HUD `CanvasLayer` with a hand-picked `position = Vector2(vh*..., vw*...)`, because there was no shared placement primitive to plug into. By GID-107 this had produced 39 `Button.new()` call sites and multiple silent pixel overlaps (Leaderboard on top of Pause, Challenge on top of the Android USE button, Ranked toggle on top of Trade, Siege on top of Tournament — see `docs/agent/ui-and-scene-management.md` "HUD Action Registry & Party Panel" for the fixed list and `tasks/backlog/BID-043*.md` for the ones still unmigrated).
+
+### The fix
+Never call `Button.new()` and `_hud.add_child(...)` directly for a new always-on or proximity-gated HUD button. Go through `WorldHUD`'s zone/action registry instead:
+
+```gdscript
+# Bad — hand-picked position, one more silent collision waiting to happen
+var btn := Button.new()
+btn.text = "New Feature"
+btn.position = Vector2(vh * 0.5, vh * 0.72)
+btn.pressed.connect(_on_new_feature_pressed)
+_hud.add_child(btn)
+
+# Good — registered into a zone Container that auto-stacks, overlap impossible
+_new_feature_btn = _world_hud.register_action(
+    "new_feature", "New Feature", WorldHUD.ZONE_CONTEXT, _on_new_feature_pressed)
+```
+
+If the button needs a `.toggled` connection (`toggle_mode = true`) rather than a plain `.pressed` callback, build it directly but still parent it into a zone via `_world_hud.get_zone_container(WorldHUD.ZONE_CONTEXT)` — see `_ensure_challenge_button()`'s Ranked toggle for the pattern.
+
+An always-on or session-scoped button (not proximity-gated) almost always belongs inside the **Party panel** (`scenes/ui/PartyPanel.gd`) instead of the HUD directly — add a `show_*`/`on_*` pair in `WorldScene._open_party_panel()` rather than a new zone action. `tests/unit/test_hud_registry_guardrail.gd` fails the build if a new unreviewed `_hud.add_child(<Button>)` call appears in `WorldScene.gd`.
+
+---
+
 ## Mobile / Desktop Feature Parity
 
 ### The rule

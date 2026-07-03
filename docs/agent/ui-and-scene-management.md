@@ -117,6 +117,77 @@ Tab cycling (`[`/`]`) is handled in MenuHubScene's `_input()` which also re-decl
 
 ---
 
+## HUD Action Registry & Party Panel (GID-107)
+
+### The problem it solves
+
+Every multiplayer/social task from GID-090 through GID-102 added its own `Button.new()` directly to `WorldScene.gd`'s HUD `CanvasLayer`, hand-positioned with `Vector2(vh*..., vw*...)` math, because there was no shared placement primitive. By the time GID-107 shipped this had produced 39 `Button.new()` call sites and several silent pixel overlaps: Leaderboard on top of Pause, Challenge-to-Battle on top of the Android USE button, the Ranked toggle on top of Trade, and (found later, still unmigrated — see `tasks/backlog/BID-043*.md`) Siege on top of Tournament.
+
+### WorldHUD zones (`scenes/world/WorldHUD.gd`)
+
+Each zone is a real `Container` node (`VBoxContainer` or `HBoxContainer`) childed directly to `_hud`, anchored at a fixed viewport-relative position. Godot's `BoxContainer` only allocates layout space to *visible* children, so a hidden action in a zone takes no space and two actions in the same zone cannot pixel-overlap — the auto-stacking is the actual anti-overlap mechanism, not a convention.
+
+| Zone constant | Position | Contents |
+|---|---|---|
+| `ZONE_SYSTEM` | top-left `(vh*0.01, vh*0.01)` | Pause |
+| `ZONE_NAV` | top-right, under the minimap | Menu/Bag, Mount, **Party** |
+| `ZONE_ABILITY` | left column, `(vh*0.01, vh*0.17)` | Ghost Phase / Skeleton Dig cantrips |
+| `ZONE_CONTEXT` | bottom-center, `(vw*0.5 - vh*0.17, vh*0.80)` | Interact (Android), Challenge/Ranked, Trade, Spectate |
+| `ZONE_SOCIAL` | bottom-right, `(vw - vh*0.32, vh*0.87)` | Emote, Ping, Chat |
+
+### API
+
+```gdscript
+# Simple press-callback button — creates on first call, idempotent thereafter
+# (matches the existing _ensure_*_button() re-entrancy pattern used elsewhere).
+_world_hud.register_action(id: String, label: String, zone: String, callback: Callable,
+    visible_when: Callable = Callable(), min_size: Vector2 = Vector2.ZERO) -> Button
+
+_world_hud.unregister_action(id: String) -> void
+_world_hud.refresh_visibility(id: String = "") -> void   # re-evaluates visible_when
+_world_hud.set_action_visible(id: String, v: bool) -> void  # direct setter (per-frame proximity checks)
+_world_hud.get_action_button(id: String) -> Button
+_world_hud.get_zone_container(zone: String) -> Container
+```
+
+A button that needs a `.toggled` connection (`toggle_mode = true`) rather than a plain `.pressed` callback — the Ranked toggle, the Ping toggle — can't go through `register_action` (its `callback` param is unconditionally wired to `.pressed`). Build it directly and parent it into the zone via `get_zone_container()` instead; see `WorldScene._ensure_challenge_button()`'s Ranked toggle for the pattern.
+
+`WorldHUD.is_touch_on_hud_button(pos)` recurses into zone `Container` children (not just direct `_hud` children) so the Android tap-to-move guard still sees every registered button.
+
+### Party panel (`scenes/ui/PartyPanel.gd`)
+
+A single "Party" button in `ZONE_NAV` opens a `BaseOverlay`-based panel (same pattern as `GhostDuelOverlay`/`LeaderboardOverlay`/`PartyStashOverlay`: `extends BaseOverlay` by path string, `.new()`-instantiated, built from plain data/Callables the caller supplies rather than reaching into `WorldScene` internals). It consolidates the always-on co-op affordances that used to be individually-positioned buttons:
+
+| Section | Gating | Notes |
+|---|---|---|
+| Roster | `_coop_active` | List of party members + per-peer add-friend button. Recomputed by `WorldScene._refresh_coop_roster()` into `_party_roster_rows`, pushed to the panel via `refresh_roster()` if open. |
+| Loot Mode toggle | Host + `SessionStore.is_open()` | `_on_loot_mode_toggle_pressed()` unchanged; label refreshed via `refresh_loot_label()`. |
+| Stash | co-op active | Opens `PartyStashOverlay` (Party panel closes first). |
+| Leaderboard | co-op active | Opens `LeaderboardOverlay`. |
+| Ghost Duels | Host + `SessionStore.is_open()` | A client never opens `SessionStore` locally, so this naturally stays hidden for clients. |
+| Team Duel (2v2) | Host, not dedicated server, `State.WORLD`, ≥3 connected clients, no pending challenge | Mirrors the old `_update_team_duel_button_visibility()` condition exactly. |
+| Dungeon Crawl | Host only | Host is the seed authority (avoids two peers racing to open different dungeons). |
+
+Each section's `show_*` flag is computed fresh in `WorldScene._open_party_panel()` from the exact condition its old standalone button used — opening the panel is a placement change, not a behavior change. Pressing most actions closes the panel first (`close_after = true` in `PartyPanel._add_action_button`) so it doesn't visually stack behind the overlay it just opened; Loot Mode is the one exception (stays open so the label refresh is visible immediately).
+
+The Auction House button (`_auction_btn`) and the Siege/Draft Duel/Tournament buttons are the same shape of always-on/host-gated clutter but were not in GID-107's original scope (Auction/Siege/Draft/Tournament all shipped from GID-102–105, overlapping with or after GID-107's authoring) — see `tasks/backlog/BID-042*.md` and `BID-043*.md`.
+
+### Contextual action bar (`ZONE_CONTEXT`)
+
+Proximity-/state-gated actions share one bottom-center zone instead of each computing an independent position. **Priority order:** the world-interact prompt (door/chest/NPC/scroll, Android-only `WorldHUD._interact_btn`) always wins the zone over any social action — `WorldHUD.is_interact_visible()` is checked at the top of both `WorldScene._update_challenge_proximity()` and `_update_social_proximity()`, hiding Challenge/Ranked or Trade/Spectate and returning early if true. This is a new explicit rule; previously these checks ran independently and could show two overlapping prompts simultaneously. Desktop's interact prompt is a separate screen-centered `Label` (`WorldScene.tscn`'s `InteractPrompt`, anchored at 0.5/0.5 — not viewport-relative like everything else, a pre-existing minor inconsistency, out of scope) and never contends with `ZONE_CONTEXT`, so it's intentionally excluded from `is_interact_visible()`.
+
+Challenge/Ranked and Trade/Spectate can still be visible at the same time as each other (unchanged from before — both key off the same nearby-peer proximity check); zone-stacking means that no longer produces a pixel overlap even so.
+
+### Social strip (`ZONE_SOCIAL`)
+
+Emote, Ping, and Chat trigger buttons, left-to-right in that registration order. Chat's scrolling log panel (left side, always visible while co-op is active) and its free-text input + send row (bottom, `vh*0.93`) are separate elements not part of the strip — they don't compete for the same screen region, so there was no clutter motivation to move them.
+
+### Anti-clutter regression test
+
+`tests/unit/test_hud_registry_guardrail.gd` scans `WorldScene.gd`'s source text for `_hud.add_child(<Button-typed var>)` calls and fails if any identifier isn't in its `_ALLOWED_DIRECT_HUD_CHILDREN` allow-list (the pre-existing, reviewed exceptions: Siege/Auction/Draft Duel/Tournament buttons, the Chat send button, and the two `.toggled`-based fallback parents). Adding a new HUD button that bypasses the registry fails this test; the fix is either to use `register_action()`/`get_zone_container()`, or — if genuinely justified — add a reviewed entry to the allow-list.
+
+---
+
 ## How It Works
 
 ### SceneManager (`autoloads/SceneManager.gd`)

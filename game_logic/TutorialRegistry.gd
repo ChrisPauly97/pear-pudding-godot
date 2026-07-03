@@ -33,6 +33,10 @@ const _DATA: Dictionary = {
 		"title": "Night Hunts",
 		"body": "Spectral enemies roam the world after sunset. They drop better loot — but are far more dangerous. Fight them for rare cards, or retreat to town before dawn.",
 	},
+	"party_panel": {
+		"title": "Party",
+		"body": "The Party button gathers everything you share with your co-op session in one place: the roster, loot rules, the shared stash, the leaderboard, Ghost Duels, Team Duel, and Dungeon Crawl.",
+	},
 }
 
 static func get_entry(popup_id: String) -> Dictionary:

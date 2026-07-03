@@ -101,9 +101,12 @@ terminating the exchange. WorldScene keeps `_remote_identities` (peer_id →
 {token,name,color}); identities arriving before the avatar spawns are applied lazily
 in `_spawn_remote_player`. Entries are erased on disconnect / cleared on session end.
 
-**Session roster.** A compact HUD panel (`_build_coop_roster` / `_refresh_coop_roster`)
-lists the local player (`"<name> (you)"`) and every connected remote as a colored
-swatch + name, refreshed on identity/connect/disconnect.
+**Session roster.** `_refresh_coop_roster()` rebuilds the roster row data (local player
+`"<name> (you)"` plus every connected remote as a colored swatch + name) and, since
+GID-107, pushes it into the Party panel (`_open_party_panel()`) if currently open,
+rather than building its own always-visible HUD panel. Refreshed on
+identity/connect/disconnect (see "HUD Action Registry & Party Panel" in
+`docs/agent/ui-and-scene-management.md`).
 
 **Lobby fields.** `MultiplayerLobbyScene` has a name `LineEdit` (max 16) and a row of
 preset color swatches, seeded from `MpProfile` and saved back on edit / before
@@ -442,8 +445,8 @@ Broadcast points (host only, via `_broadcast_leaderboard(target_peer := 0)`):
 - **On demand:** a client's `NetSync.submit_leaderboard_request()` (e.g. opening the
   panel) is answered by `_on_leaderboard_request_submitted` unicasting back.
 
-**Roster rating badge.** The existing session roster (`_build_coop_roster` /
-`_refresh_coop_roster`) appends a `[rating]` badge after each name — `[—]` until the
+**Roster rating badge.** The existing session roster (`_refresh_coop_roster`, rendered
+inside the Party panel since GID-107) appends a `[rating]` badge after each name — `[—]` until the
 first snapshot arrives — via `_rating_badge_for_token(token)`, which looks the token
 up in a `token -> row` map built on demand by `_leaderboard_lookup_by_token()`. The
 local row uses `MpProfile.get_token()`; remote rows use `_remote_identities[pid]["token"]`.
@@ -976,8 +979,8 @@ participants' HP/mana, grouped my-team-first then enemy-team. The two enemy pane
 tappable (`_team_focus_target_pidx`); the two ally panels are informational only (no
 per-teammate spell targeting in v1).
 
-**Team formation — `WorldScene`.** A host-only **"Team Duel (2v2)"** HUD button
-(`_ensure_team_duel_button`/`_update_team_duel_button_visibility`) appears when exactly
+**Team formation — `WorldScene`.** A host-only **"Team Duel (2v2)"** Party-panel action
+(since GID-107; `_open_party_panel`'s `show_team_duel` condition) appears when exactly
 3 clients are connected (4 total players). Pressing it (`_start_team_duel`): sorts the
 connected peer ids for determinism, lays out the 4 absolute `GameState` indices as
 `[host, clients[1], clients[0], clients[2]]` (so `player_teams = [0,1,0,1]` puts the
@@ -1048,15 +1051,16 @@ default `SessionState.make_starter_character` seeds), so this reads correctly
 whether or not the TID-370 rating model has landed. Returns `{}` for a blank token,
 an unknown token, or a corrupt (non-Dictionary) member record — never throws.
 
-#### Entry point — host-only "Ghost Duels" HUD button
+#### Entry point — host-only "Ghost Duels" Party-panel action
 
-`WorldScene._ensure_ghost_duel_button()` is gated on `SessionStore.is_open()`
+`_open_party_panel()`'s `show_ghost_duels` is gated on `SessionStore.is_open()`
 (not `NetworkManager.is_active()`) — a **client never opens `SessionStore`
 locally** (only the authority does, in `_setup_session`), so this is a
 **host-only** feature in the current slice: a client has no local `SessionState`
-to list opponents from. The button is always visible once available (not
-proximity-gated like Trade/Spectate — this is async, not a live-nearby-player
-interaction). Pressing it opens `scenes/ui/GhostDuelOverlay.gd` (`extends
+to list opponents from. Since GID-107 this lives in the Party panel rather than
+its own always-visible HUD button (it was not proximity-gated — async, not a
+live-nearby-player interaction — so it fit the "always-on" consolidation).
+Pressing it opens `scenes/ui/GhostDuelOverlay.gd` (`extends
 BaseOverlay` by path string, `.new()`-instantiated, viewport-relative, mobile +
 desktop parity — a simple list + button, matching the task's "keep this UI
 genuinely simple" guidance), populated from `SessionStore.get_state().members`
@@ -1387,10 +1391,10 @@ alternative below.
 
 **Need/greed roll mode.** `SessionState.loot_mode` (`LOOT_MODE_FIRST_OPENER` default /
 `LOOT_MODE_NEED_GREED`, added in **v4** with a migration that backfills the default for
-existing session files) is a host-only setting toggled via an in-world HUD button
-(`WorldScene._ensure_loot_mode_toggle_button`/`_on_loot_mode_toggle_pressed`, next to the
-session roster — placed in-world rather than the pre-connection lobby because
-`SessionStore` only opens once `_setup_session()` runs). `SessionStore.get_loot_mode()` /
+existing session files) is a host-only setting toggled via a Party-panel action since
+GID-107 (`WorldScene._on_loot_mode_toggle_pressed`, alongside the roster in the Party
+panel — not the pre-connection lobby, because `SessionStore` only opens once
+`_setup_session()` runs). `SessionStore.get_loot_mode()` /
 `set_loot_mode()` are the convenience accessors.
 
 When the mode is on, the chest branch of `_handle_interact` (immediately after the
@@ -1698,11 +1702,11 @@ name starts with `"dungeon_"` by parsing the seed out of the string
 care how the string was built — and `docs/agent/named-maps-and-dungeons.md` confirms
 `DungeonGen.generate` is a pure function of `(name, seed)`.
 
-**Trigger — host-only HUD button, not a new map door.** A "Dungeon Crawl" button
-(`WorldScene._ensure_dungeon_button` / `_start_dungeon_crawl`) is created in `_setup_coop()`
-alongside the existing challenge/social buttons, visible only when `NetworkManager.is_host()`
-(the host is the authority that picks the shared seed, avoiding a race where two peers open
-two different dungeons at once). A HUD button — rather than an authored door/portal entity in
+**Trigger — host-only Party-panel action, not a new map door.** A "Dungeon Crawl"
+action (`_start_dungeon_crawl`, reachable via the Party panel since GID-107) is shown
+only when `NetworkManager.is_host()` (the host is the authority that picks the shared
+seed, avoiding a race where two peers open two different dungeons at once). A HUD
+action — rather than an authored door/portal entity in
 `madrian.tres` — was chosen because it needs no map-authoring pass (tile placement, terrain
 carving, a new `MapDoor` resource), generalizes to any future co-op-supported named map for
 free (it's gated on `_coop_active`, not a specific map name), and satisfies mobile/desktop

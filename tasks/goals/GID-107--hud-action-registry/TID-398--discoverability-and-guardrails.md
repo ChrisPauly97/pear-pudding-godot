@@ -2,7 +2,7 @@
 
 **Goal:** GID-107
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-394, TID-395, TID-396, TID-397
 
 ## Lock
@@ -25,12 +25,80 @@ GID-107's whole point is that HUD clutter should not silently return with the ne
 
 ## Plan
 
-_Written during Plan phase._
+1. **Tutorial popup:** add a `"party_panel"` entry to `TutorialRegistry._DATA`; emit
+   `GameBus.tutorial_popup_requested.emit("party_panel")` from `WorldScene._setup_coop()`
+   right where the "party" HUD action is registered — mirrors the `"night_hunts"`
+   precedent (emitter just emits every time; `SceneManager._on_tutorial_popup_requested`
+   owns the `seen_tutorial_party_panel` dedup flag, so this is safe to call unconditionally).
+2. **Docs:** add the "HUD Action Registry & Party Panel (GID-107)" section to
+   `docs/agent/ui-and-scene-management.md` (between "Menu Hub" and "How It Works"),
+   pulling zone positions/API/gating specifics from TID-394–397's Changes Made notes.
+3. **CLAUDE.md:** add "HUD Buttons: Always Use the Action Registry" (problem / fix /
+   code example, same terse shape as the other rules) after "UI Sizing."
+4. **Regression test:** `tests/unit/test_hud_registry_guardrail.gd` — static
+   source-text scan (FileAccess + RegEx, no live scene instantiation, matching
+   `test_card_registry.gd`'s precedent). Cross-references two extracted sets from
+   `WorldScene.gd`'s text: (a) every `var _foo: Button` declaration, (b) every
+   `_hud.add_child(_foo)` call — flags any Button-typed identifier added directly to
+   `_hud` that isn't in a reviewed allow-list. Manually verified in Python
+   (`re` mirrors Godot's `RegEx` closely enough for this pattern) that it currently
+   finds **zero** offenders against the post-TID-397 codebase.
+5. **Found while writing the test:** Siege and Tournament buttons (both pre-dating
+   GID-107's scope, like Auction/BID-042) are centered at the *same* y-coordinate
+   (`vp.y*0.63`) and visually overlap in a reachable state (host, siege-supported
+   map, no active siege/tournament). Logged as BID-043 alongside Draft Duel (same
+   "not yet migrated" category); all three added to the guardrail test's allow-list
+   as reviewed, pre-existing exceptions.
+6. **Manual verification:** could not run the Godot editor in this environment (see
+   Changes Made) — substituted careful code tracing instead of the visual checklist
+   from Research Notes; flagged as an open item for the user/CI to confirm.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/TutorialRegistry.gd`: added `"party_panel"` entry.
+- `scenes/world/WorldScene.gd`: `_setup_coop()` now emits
+  `GameBus.tutorial_popup_requested.emit("party_panel")` alongside registering the
+  "party" HUD action.
+- `docs/agent/ui-and-scene-management.md`: added "HUD Action Registry & Party Panel
+  (GID-107)" section (zones table, API, Party panel section/gating table, contextual
+  bar priority rule, social strip layout, regression-test description).
+- `CLAUDE.md`: added "HUD Buttons: Always Use the Action Registry" rule after "UI
+  Sizing: Relative to Viewport, Never Fixed Pixels."
+- Added `tests/unit/test_hud_registry_guardrail.gd` (auto-discovered by
+  `tests/runner.gd`'s `test_*.gd` glob — no registration needed).
+- Logged `BID-043` (Siege/Draft Duel/Tournament buttons not migrated; Siege visually
+  overlaps Tournament — a real, previously-undetected collision found while building
+  the guardrail's allow-list).
+
+**Acceptance criteria status** (from `goal.md`):
+- [x] `WorldHUD.gd` exposes the zone/action-registry API; no *migrated* feature
+      computes its own raw `Vector2` HUD button position outside it. (Siege/Draft
+      Duel/Tournament/Auction remain unmigrated — logged as BID-042/BID-043, matches
+      the goal's own acknowledgment that some post-authoring buttons might be out of
+      scope; the guardrail test prevents the *unreviewed* case from growing further.)
+- [x] Roster/Stash/Leaderboard/Ghost Duels/Team Duel/Dungeon Crawl/Loot-mode reachable
+      from the single Party entry point (TID-395).
+- [x] Challenge/Ranked, Trade, Spectate, USE/Interact share one contextual bar with an
+      explicit priority order and no structural overlap (TID-396).
+- [x] Chat/Emote/Ping reachable from one compact social cluster (TID-397).
+- [ ] "No two HUD elements overlap in any reachable combination" — **not manually
+      verified** across single-player/co-op/dungeon-crawl/PvP-pending/Android states;
+      Godot could not be run in this environment (network policy blocks the release
+      download — see TID-394's Changes Made). Verified by code-tracing instead: every
+      *migrated* button lives in an auto-stacking zone Container (overlap-proof by
+      construction), and the one still-open gap (Siege vs. Tournament) is
+      characterized and logged as BID-043 rather than silently left unverified.
+- [x] Mobile tap parity retained — no handler logic changed, only placement; Android's
+      USE button and every migrated trigger button remain real `Button` nodes.
+- [x] `docs/agent/ui-and-scene-management.md` documents the system (this task).
+- [x] Regression test added (this task) — not run against a live Godot build; verified
+      its regex logic in Python against the actual file content instead.
+- [ ] "All tests pass headless" — **could not run** `godot --headless --path . -s
+      tests/runner.gd` in this environment. This is the standing verification gap for
+      the whole goal; flagged prominently for the user / next CI run.
 
 ## Documentation Updates
 
-_This task performs the consolidated `docs/agent/ui-and-scene-management.md` update and the `CLAUDE.md` rule addition for the whole goal — fill in specifics here once written._
+Both `docs/agent/ui-and-scene-management.md` and `CLAUDE.md` were updated directly by
+this task (see Changes Made above) — this is the consolidated documentation pass for
+the whole GID-107 goal.

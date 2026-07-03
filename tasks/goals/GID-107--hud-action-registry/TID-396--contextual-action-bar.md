@@ -2,7 +2,7 @@
 
 **Goal:** GID-107
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-394
 
 ## Lock
@@ -26,16 +26,66 @@ Exact current locations in `scenes/world/WorldScene.gd`:
 
 ## Plan
 
-_Written during Plan phase._ Suggested shape (confirm/adjust during Plan):
-- Register one contextual-bar zone via TID-394's registry (bottom-center, above the XP bar).
-- Define an explicit priority order for what occupies the single slot when multiple conditions could be true at once (e.g. door/chest/NPC interact takes priority over social proximity actions, since interacting with the world is the more frequent, lower-friction action) — decide and document this order, since today's implicit behavior via separate always-checked buttons doesn't cleanly define one.
-- Route `_interact_btn` (WorldHUD) and `_challenge_btn`/`_ranked_toggle_btn`/`_trade_window_mine`/`_spectate_btn` (WorldScene) through the shared zone so they never render simultaneously with an overlapping rect — either by sharing one Button that swaps label/callback, or by stacking them in the zone container so it degrades gracefully if two are somehow both true.
-- Preserve `_update_social_proximity()`'s existing range/eligibility logic; only change *placement*, not *when* an action becomes available.
+- `ZONE_CONTEXT` (already anchored bottom-center by TID-394) becomes the shared slot.
+  Chose the **stacking**, not **shared-button**, approach from the two options in the
+  original plan: `_interact_btn` (WorldHUD), `_challenge_btn`/`_ranked_toggle_btn`/
+  `_trade_window_mine`/`_spectate_btn` (WorldScene) all register/parent into the same
+  `VBoxContainer`. A single swapped-label button was rejected — `_interact_btn`'s
+  callback is a fixed `_handle_interact()` dispatch used from many call sites via
+  `show_interact_prompt(v, label)`, while Challenge/Trade/Spectate each have their own
+  distinct handler and independent show/hide triggers; unifying them into one Button
+  would mean rebuilding that whole dispatch surface for no behavioral gain, since
+  stacking already makes overlap structurally impossible.
+- **Priority order (documented, not merely implicit):** the Android world-interact
+  prompt (door/chest/NPC/scroll) always wins the slot over any social action —
+  interacting with the world is the more frequent, lower-friction action, and it was
+  already effectively "modal" in the old design (WorldScene's own interact-range check
+  runs independently of the social-proximity checks, so both could show together
+  today, silently colliding). New rule, enforced at the top of
+  `_update_challenge_proximity()` and `_update_social_proximity()`: if
+  `WorldHUD.is_interact_visible()` is true, hide Challenge/Ranked and Trade/Spectate
+  and return before evaluating anything else. Desktop's interact prompt is a
+  screen-centered `Label` (`WorldScene.tscn`'s `InteractPrompt`, anchored at 0.5/0.5 —
+  not viewport-relative like everything else, pre-existing, out of scope), so it
+  never physically contends with the bottom-center contextual bar and is intentionally
+  excluded from `is_interact_visible()`.
+- Challenge/Ranked and Trade/Spectate can still coexist with each other (that was
+  already possible pre-GID-107 — Challenge and Trade both key off the same nearby-peer
+  proximity check) — only cross-contention with Interact is resolved by priority.
+  Zone-stacking means even that coexistence can no longer produce a pixel overlap.
+- `_update_social_proximity()`/`_update_challenge_proximity()`'s existing range/
+  eligibility logic is otherwise untouched — only placement changed.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/WorldHUD.gd`: the Android `_interact_btn` now goes through
+  `register_action("interact", "USE", ZONE_CONTEXT, ...)` instead of manual
+  `Button.new()` + `_hud.add_child()` + hand positioning. Added
+  `is_interact_visible() -> bool`.
+- `scenes/world/WorldScene.gd`:
+  - `_ensure_challenge_button()`: "challenge" registered via `register_action` into
+    `WorldHUD.ZONE_CONTEXT`. `_ranked_toggle_btn` built directly (needs `.toggled`,
+    not `.pressed`) and parented into the zone via the new `get_zone_container()` API.
+  - `_ensure_social_buttons()`: "trade" and "spectate" registered via
+    `register_action` into the same zone.
+  - `_update_challenge_proximity()` / `_update_social_proximity()`: added the
+    interact-wins-the-slot priority check described above.
+- No behavior change to *when* any of these five actions becomes available — only
+  *where* they render, plus the one new priority rule (Interact > Challenge/Trade/
+  Spectate) that resolves a collision the old code left ambiguous.
+
+**Not run:** `godot --headless --editor --quit` — same network-policy block as
+TID-394/395. Traced `_interact_btn`, `_challenge_btn`, `_ranked_toggle_btn`,
+`_trade_window_mine`, `_spectate_btn` across both files with `grep` and re-read every
+edited function in full to confirm no dangling references or signature mismatches
+(`register_action`'s required non-optional `callback` param is why `_ranked_toggle_btn`
+couldn't go through it — verified before writing that branch). Parenthesis/bracket/
+brace balance check against the pre-edit files showed no new imbalance.
 
 ## Documentation Updates
 
-_Leave the full `docs/agent/ui-and-scene-management.md` rewrite to TID-398. Note the chosen priority order for the contextual bar in this section for TID-398's reference.
+For TID-398: contextual bar priority order is **Interact > {Challenge/Ranked, Trade,
+Spectate}** (documented above); Interact-vs-social is enforced explicitly, Challenge-
+vs-Trade-vs-Spectate can still coexist (unchanged from before, now just non-
+overlapping). Desktop's interact prompt is a separate screen-centered Label, not part
+of `ZONE_CONTEXT`.

@@ -20,20 +20,20 @@ This goal introduces a HUD zone/action-registry framework (extending the pattern
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-394 | HUD zone framework + action registry in WorldHUD | agent | pending | — |
-| TID-395 | Party panel: consolidate always-on co-op buttons into one entry point | agent | pending | TID-394 |
-| TID-396 | Contextual action bar: single slot for proximity-gated actions | agent | pending | TID-394 |
-| TID-397 | Social strip: consolidate Chat/Emote/Ping into one compact cluster | agent | pending | TID-394 |
-| TID-398 | Discoverability pass, docs/CLAUDE.md rule, and anti-clutter regression test | agent | pending | TID-394, TID-395, TID-396, TID-397 |
+| TID-394 | HUD zone framework + action registry in WorldHUD | agent | done | — |
+| TID-395 | Party panel: consolidate always-on co-op buttons into one entry point | agent | done | TID-394 |
+| TID-396 | Contextual action bar: single slot for proximity-gated actions | agent | done | TID-394 |
+| TID-397 | Social strip: consolidate Chat/Emote/Ping into one compact cluster | agent | done | TID-394 |
+| TID-398 | Discoverability pass, docs/CLAUDE.md rule, and anti-clutter regression test | agent | done | TID-394, TID-395, TID-396, TID-397 |
 
 ## Acceptance Criteria
 
-- [ ] `WorldHUD.gd` exposes a zone/action-registry API (e.g. `register_action(id, label, zone, callback, visible_when)`) that owns placement; no feature computes its own raw `Vector2` HUD button position outside this API
-- [ ] All always-on co-op buttons (Roster, Stash, Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl, Loot-mode toggle) are reachable from a single "Party" entry point instead of being individually placed on the HUD
-- [ ] Proximity-gated actions (Challenge/Ranked, Trade, Spectate, USE/Interact) share one contextual bar with no simultaneous overlap regardless of which combination is active
-- [ ] Chat, Emote, and Ping are reachable from one compact social cluster with no position collisions
-- [ ] No two HUD elements occupy overlapping screen regions in any reachable combination of single-player / co-op / dungeon-crawl / PvP-pending states (manually verified across states in TID-398)
-- [ ] Every consolidated action retains mobile tap parity per CLAUDE.md's Mobile/Desktop Feature Parity rule
-- [ ] `docs/agent/ui-and-scene-management.md` documents the zone/action-registry system, the Party panel, and the contextual action bar
-- [ ] A regression test or lint check fails if a raw `Button.new()` is added to WorldScene's HUD CanvasLayer outside the registry API
-- [ ] All tests pass headless with zero regressions
+- [x] `WorldHUD.gd` exposes a zone/action-registry API (e.g. `register_action(id, label, zone, callback, visible_when)`) that owns placement; no feature computes its own raw `Vector2` HUD button position outside this API (except the pre-existing, allow-listed Siege/Draft Duel/Tournament/Auction buttons — logged as BID-042/BID-043, out of this goal's original scope)
+- [x] All always-on co-op buttons (Roster, Stash, Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl, Loot-mode toggle) are reachable from a single "Party" entry point instead of being individually placed on the HUD
+- [x] Proximity-gated actions (Challenge/Ranked, Trade, Spectate, USE/Interact) share one contextual bar with no simultaneous overlap regardless of which combination is active
+- [x] Chat, Emote, and Ping are reachable from one compact social cluster with no position collisions
+- [ ] No two HUD elements occupy overlapping screen regions in any reachable combination of single-player / co-op / dungeon-crawl / PvP-pending states — **not manually verified**: this environment cannot run the Godot editor (network policy blocks the release download). Verified by code-tracing instead (every migrated button lives in an auto-stacking, overlap-proof zone Container); the one remaining known gap (Siege vs. Tournament, pre-existing/unmigrated) is logged as BID-043. Needs a real visual pass before merge.
+- [x] Every consolidated action retains mobile tap parity per CLAUDE.md's Mobile/Desktop Feature Parity rule
+- [x] `docs/agent/ui-and-scene-management.md` documents the zone/action-registry system, the Party panel, and the contextual action bar
+- [x] A regression test (`tests/unit/test_hud_registry_guardrail.gd`) fails if a raw `Button.new()`/`_hud.add_child(...)` is added to WorldScene's HUD CanvasLayer outside the registry API or the reviewed allow-list
+- [ ] All tests pass headless with zero regressions — **not run**: `godot --headless --path . -s tests/runner.gd` requires the Godot binary, which this environment could not download. Needs a CI/local run before merge.
