@@ -12,8 +12,8 @@ All keyboard actions are defined in `project.godot` under `[input]` but are neve
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-409 | Keybinding persistence & apply-on-load | agent | pending | — |
-| TID-410 | Keybindings UI section in SettingsScene | agent | pending | TID-409 |
+| TID-409 | Keybinding persistence & apply-on-load | agent | done | — |
+| TID-410 | Keybindings UI section in SettingsScene | agent | done | TID-409 |
 
 ## Acceptance Criteria
 

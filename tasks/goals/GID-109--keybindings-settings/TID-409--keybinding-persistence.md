@@ -2,14 +2,14 @@
 
 **Goal:** GID-109
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** claude/GID-109--keybindings-settings
-**Acquired:** 2026-07-04T10:00:00Z
-**Expires:** 2026-07-04T10:30:00Z
+**Session:** none
+**Acquired:** —
+**Expires:** —
 
 ## Context
 
@@ -50,12 +50,16 @@ const REBINDABLE_ACTIONS: Array[String] = [
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `REBINDABLE_ACTIONS: Array[String]` const to `SceneManager.gd`.
+2. Add `apply_keybindings()` to `SceneManager.gd`: calls `InputMap.load_from_project_settings()` to restore defaults, then applies `SaveManager.settings["keybindings"]` overrides.
+3. Call `apply_keybindings()` in `SceneManager._ready()` right after `save_manager = SaveManager`.
+4. Write unit test `tests/unit/test_keybindings.gd`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SceneManager.gd`: Added `REBINDABLE_ACTIONS` const (13 actions). Added `apply_keybindings()` which calls `InputMap.load_from_project_settings()` then applies `SaveManager.get_setting("keybindings", {})` overrides (erases all existing InputEventKey entries for an action, adds the custom one). Called `apply_keybindings()` at end of `_ready()`.
+- `tests/unit/test_keybindings.gd` + `.uid`: 5 unit tests covering custom key apply, default restore, action count, InputMap existence, multi-action override.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+_Updated ui-and-scene-management.md in TID-410._

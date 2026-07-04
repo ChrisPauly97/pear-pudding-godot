@@ -265,9 +265,7 @@ func apply_keybindings() -> void:
 	# Restore all actions to project.godot defaults first.
 	# This guarantees that removing an override re-exposes the default key.
 	InputMap.load_from_project_settings()
-	if save_manager == null:
-		return
-	var raw: Variant = save_manager.get_setting("keybindings", {})
+	var raw: Variant = SaveManager.get_setting("keybindings", {})
 	if not raw is Dictionary:
 		return
 	var overrides: Dictionary = raw as Dictionary
@@ -276,14 +274,14 @@ func apply_keybindings() -> void:
 			continue
 		if not overrides.has(action):
 			continue  # No override — project default restored above is correct
-		# Replace the first InputEventKey with the saved physical keycode
-		var existing_key_event: InputEventKey = null
+		# Erase all existing InputEventKey entries (WASD, arrow keys, etc.)
+		# so the custom binding is the only keyboard event for this action.
+		var key_events: Array[InputEventKey] = []
 		for ev in InputMap.action_get_events(action):
 			if ev is InputEventKey:
-				existing_key_event = ev
-				break
-		if existing_key_event != null:
-			InputMap.action_erase_event(action, existing_key_event)
+				key_events.append(ev as InputEventKey)
+		for ev in key_events:
+			InputMap.action_erase_event(action, ev)
 		var new_ev := InputEventKey.new()
 		new_ev.physical_keycode = int(overrides[action])
 		InputMap.action_add_event(action, new_ev)

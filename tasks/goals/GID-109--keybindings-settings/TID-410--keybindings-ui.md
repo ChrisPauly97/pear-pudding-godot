@@ -2,14 +2,14 @@
 
 **Goal:** GID-109
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-409
 
 ## Lock
 
-**Session:** claude/GID-109--keybindings-settings
-**Acquired:** 2026-07-04T10:00:00Z
-**Expires:** 2026-07-04T10:30:00Z
+**Session:** none
+**Acquired:** —
+**Expires:** —
 
 ## Context
 
@@ -54,12 +54,17 @@ Adds the visible "Keybindings" section to `SettingsScene.gd` so desktop players 
 
 ## Plan
 
-_Written during Plan phase._
+1. Add Keybindings section after Battle in `_build_ui()`, guarded by `not (OS.has_feature("mobile") or OS.has_feature("android"))`.
+2. Build rows: Action Name | Current Key label | Change button.
+3. Capture mode via `_unhandled_input` overlay (PanelContainer child).
+4. Escape cancels; any other key saves and applies.
+5. Optional conflict warning on the key label.
+6. Reset to Defaults button clears overrides dict and calls `apply_keybindings()`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/ui/SettingsScene.gd`: Added state vars (`_capture_action`, `_capture_key_lbl`, `_capture_overlay`, `_kb_vbox`). Added `_build_keybindings_section()`, `_rebuild_keybinding_rows()`, `_start_capture()`, `_show_capture_overlay()`, `_unhandled_input()`, `_cancel_capture()`, `_on_reset_keybindings()`, `_key_label()`, `_action_display_name()`, `_current_keycode()` helper methods. Desktop-only section guarded by mobile/android feature check. Conflict detection highlights key label amber with tooltip.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/ui-and-scene-management.md`: Added Keybindings Settings section.

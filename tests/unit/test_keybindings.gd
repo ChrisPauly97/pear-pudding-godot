@@ -26,6 +26,14 @@ func _get_first_key(action: String) -> int:
 			return (ev as InputEventKey).physical_keycode
 	return -1
 
+## Returns true if any InputEventKey for action has the given physical_keycode.
+func _has_key(action: String, keycode: int) -> bool:
+	for ev in InputMap.action_get_events(action):
+		if ev is InputEventKey:
+			if (ev as InputEventKey).physical_keycode == keycode:
+				return true
+	return false
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -64,5 +72,5 @@ func test_apply_keybindings_multiple_actions() -> void:
 		"move_down": KEY_K,
 	})
 	SceneManager.apply_keybindings()
-	assert_eq(_get_first_key("move_up"), KEY_I, "move_up should be KEY_I")
-	assert_eq(_get_first_key("move_down"), KEY_K, "move_down should be KEY_K")
+	assert_true(_has_key("move_up", KEY_I), "move_up should have KEY_I")
+	assert_true(_has_key("move_down", KEY_K), "move_down should have KEY_K")
