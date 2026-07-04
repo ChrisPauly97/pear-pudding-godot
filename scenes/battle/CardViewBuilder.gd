@@ -180,6 +180,11 @@ func _slot_size() -> Vector2:
 
 func _make_empty_slot_panel(slot_idx: int, zone_id: String) -> PanelContainer:
 	var panel := PanelContainer.new()
+	# MOUSE_FILTER_PASS lets drag events propagate to the parent board view
+	# (which has the drop handler) while still receiving click events for
+	# slot-select play mode. Enemy slots also use PASS so attack drags reach
+	# their per-panel forwarding before bubbling further up.
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.set_meta("slot_idx", slot_idx)
 	panel.set_meta("is_empty_slot", true)
 	panel.custom_minimum_size = _slot_size()

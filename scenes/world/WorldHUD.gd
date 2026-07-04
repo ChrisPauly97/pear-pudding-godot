@@ -339,6 +339,8 @@ func _create_compass(map_name: String) -> void:
 # ── Public display API ─────────────────────────────────────────────────────
 
 func show_dialogue(text: String) -> void:
+	if not is_inside_tree():
+		return
 	_dialogue_label.text = text
 	_dialogue_label.show()
 	GameBus.dialogue_state_changed.emit(true)
@@ -352,6 +354,8 @@ func show_dialogue(text: String) -> void:
 	)
 
 func show_tip(text: String) -> void:
+	if not is_inside_tree():
+		return
 	_tip_label.text = text
 	_tip_label.show()
 	_tip_id += 1

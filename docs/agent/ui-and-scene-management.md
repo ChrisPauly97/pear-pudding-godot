@@ -319,6 +319,14 @@ Overlay (extends Control, emits `closed`) showing volume and accessibility contr
 **Battle section (GID-069 TID-254):**
 - **Battle Speed** toggle row (Normal / Fast) — persists `"battle_speed"` (`"normal"` / `"fast"`); `BattleScene._ready()` reads this and sets `_speed_scale = 0.45` for fast mode. Default `"normal"` requires no migration.
 
+**Keybindings section (GID-109 / TID-409+410) — desktop only:**
+- Hidden entirely on `OS.has_feature("mobile") or OS.has_feature("android")`.
+- One row per action in `SceneManager.REBINDABLE_ACTIONS` (13 total): Action Name label | Current Key label | "Change" button.
+- "Change" shows a fullscreen capture overlay (`_show_capture_overlay`); next key press (not Esc) is saved to `SaveManager.settings["keybindings"][action] = physical_keycode` and `SceneManager.apply_keybindings()` is called immediately.
+- Escape during capture cancels without changing.
+- Conflict detection: if the chosen key is already used by another action, the key label turns amber and a tooltip names the conflicting action. The binding is still saved.
+- "Reset to Defaults" clears the `"keybindings"` setting dict entirely and calls `apply_keybindings()` (which reloads from project defaults via `InputMap.load_from_project_settings()`).
+
 Values apply immediately on change and persist across sessions. Dismissed by Close button, tapping the backdrop, or Escape key.
 
 ### BiomeSelectionScene (`scenes/ui/BiomeSelectionScene.gd`)

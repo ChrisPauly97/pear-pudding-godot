@@ -237,7 +237,8 @@ static func is_unlocked(card_id: String, unlocked_achievements: Array[String]) -
 	_ensure_loaded()
 	if not _cards.has(card_id):
 		return false
-	var card_class_val: String = str(_cards[card_id].get("card_class", ""))
+	var card_class_raw = _cards[card_id].get("card_class")
+	var card_class_val: String = str(card_class_raw) if card_class_raw != null else ""
 	if card_class_val != "legendary":
 		return true
 	const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")

@@ -65,7 +65,8 @@ func open(session_id: String, display_name: String = "Session") -> void:
 		if f != null:
 			var parsed: Variant = JSON.parse_string(f.get_as_text())
 			if parsed is Dictionary:
-				_state = _SessionState.from_dict(parsed)
+				_state = _SessionState.new()
+				_state.from_dict(parsed)
 	if _state == null:
 		_state = _SessionState.new()
 		_state.session_id = session_id

@@ -134,9 +134,11 @@ func is_active() -> bool:
 	return peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED
 
 
-## True if this instance is the host (server).
+## True if this instance is the host (server). Requires is_active() so that
+## single-player (where multiplayer.is_server() is always true) never appears
+## to be hosting a session.
 func is_host() -> bool:
-	return multiplayer.is_server()
+	return is_active() and multiplayer.is_server()
 
 
 # ---------------------------------------------------------------------------

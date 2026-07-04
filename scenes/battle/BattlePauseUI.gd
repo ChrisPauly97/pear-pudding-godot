@@ -49,7 +49,7 @@ func show_pause() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 200
 	layer.process_mode = Node.PROCESS_MODE_ALWAYS
-	_parent.add_child(layer)
+	_parent.add_child.call_deferred(layer)
 	_pause_overlay = layer
 
 	var backdrop := ColorRect.new()

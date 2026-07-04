@@ -12,7 +12,7 @@ func _ready() -> void:
 	var panel_w: float = minf(_vw * 0.85, _vh * 0.95)
 	var panel := _build_centered_panel(panel_w, 0)
 	panel.custom_minimum_size.x = panel_w
-	var style: StyleBoxFlat = BaseOverlay._make_dark_glass_style()
+	var style: StyleBoxFlat = _make_dark_glass_style()
 	panel.add_theme_stylebox_override("panel", style)
 
 	var vbox: VBoxContainer = _build_margin_vbox(panel, 0.025, 0.018)

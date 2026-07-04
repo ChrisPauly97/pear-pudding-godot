@@ -27,7 +27,8 @@ func _make_populated() -> SessionState:
 
 func test_round_trip_preserves_identity_and_world() -> void:
 	var s := _make_populated()
-	var restored := SessionState.from_dict(s.to_dict())
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
 	assert_eq(restored.session_id, "world_abc")
 	assert_eq(restored.display_name, "Maiteln's World")
 	assert_eq(restored.current_map, "madrian")
@@ -38,7 +39,8 @@ func test_round_trip_preserves_identity_and_world() -> void:
 
 func test_round_trip_preserves_world_progress_collections() -> void:
 	var s := _make_populated()
-	var restored := SessionState.from_dict(s.to_dict())
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
 	assert_has(restored.defeated_enemies, "enemy_1")
 	assert_has(restored.defeated_enemies, "enemy_2")
 	assert_has(restored.opened_chests, "chest_7")
@@ -47,7 +49,8 @@ func test_round_trip_preserves_world_progress_collections() -> void:
 
 func test_round_trip_preserves_members() -> void:
 	var s := _make_populated()
-	var restored := SessionState.from_dict(s.to_dict())
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
 	assert_true(restored.has_member("tokenA"))
 	var rec: Dictionary = restored.get_member("tokenA")
 	assert_eq(str(rec.get("display_name", "")), "Saimtar")
@@ -154,7 +157,8 @@ func test_starter_deck_uids_reference_owned_cards() -> void:
 func test_from_dict_versionless_is_upgraded() -> void:
 	# A legacy dict with no version still loads and is stamped to the current version.
 	var data: Dictionary = {"session_id": "old", "members": {}}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_eq(s.session_id, "old")
 	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
 
@@ -165,7 +169,8 @@ func test_from_dict_tolerates_garbage_fields() -> void:
 		"session_id": "g", "members": "not-a-dict",
 		"defeated_enemies": "nope", "story_flags": 7,
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true(s.members.is_empty())
 	assert_true(s.defeated_enemies.is_empty())
 	assert_true(s.story_flags.is_empty())
@@ -192,7 +197,8 @@ func test_round_trip_preserves_pvp_stats() -> void:
 	rec["pvp_streak"] = 3
 	rec["pvp_best_streak"] = 4
 	s.update_member("tok", rec)
-	var restored := SessionState.from_dict(s.to_dict())
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
 	var r: Dictionary = restored.get_member("tok")
 	assert_eq(int(r.get("pvp_wins", -1)), 5)
 	assert_eq(int(r.get("pvp_losses", -1)), 2)
@@ -202,7 +208,8 @@ func test_round_trip_preserves_pvp_stats() -> void:
 
 func test_migration_v2_adds_party_bounties() -> void:
 	var data: Dictionary = {"version": 1, "session_id": "old", "members": {}}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true(s.party_bounties is Array)
 	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
 
@@ -221,7 +228,8 @@ func test_migration_v3_backfills_pvp_stats_on_existing_members() -> void:
 			}
 		}
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	var rec: Dictionary = s.get_member("tokA")
 	assert_eq(int(rec.get("pvp_wins", -1)), 0, "pvp_wins backfilled to 0")
 	assert_eq(int(rec.get("pvp_losses", -1)), 0, "pvp_losses backfilled to 0")
@@ -247,7 +255,8 @@ func test_round_trip_preserves_rating_fields() -> void:
 	rec["pvp_rating"] = 1234
 	rec["pvp_games"] = 17
 	s.update_member("tok", rec)
-	var restored := SessionState.from_dict(s.to_dict())
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
 	var r: Dictionary = restored.get_member("tok")
 	assert_eq(int(r.get("pvp_rating", -1)), 1234)
 	assert_eq(int(r.get("pvp_games", -1)), 17)
@@ -266,7 +275,8 @@ func test_migration_v4_backfills_rating_on_existing_members() -> void:
 			}
 		}
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	var rec: Dictionary = s.get_member("tokA")
 	assert_eq(int(rec.get("pvp_rating", -1)), 1000, "pvp_rating backfilled to 1000")
 	assert_eq(int(rec.get("pvp_games", -1)), 0, "pvp_games backfilled to 0")
@@ -335,7 +345,8 @@ func test_party_bounties_round_trip() -> void:
 		{"id": "b1", "type": "kill", "target": "skeleton", "count": 5, "progress": 2,
 		 "contributors": ["tokA"], "completed": false},
 	]
-	var restored := SessionState.from_dict(s.to_dict())
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
 	assert_eq(restored.party_bounties.size(), 1)
 	var b: Dictionary = restored.party_bounties[0]
 	assert_eq(str(b.get("id", "")), "b1")
@@ -348,7 +359,8 @@ func test_party_bounties_garbage_field_returns_empty_array() -> void:
 		"version": SessionState.CURRENT_SESSION_VERSION,
 		"party_bounties": "not-an-array",
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true(s.party_bounties.is_empty())
 
 
@@ -369,7 +381,8 @@ func test_stash_round_trip_preserves_cards_and_coins() -> void:
 		"cards": [{"uid": "ghost_stash_0", "template_id": "ghost", "rarity": "common"}],
 		"coins": 250,
 	}
-	var restored := SessionState.from_dict(s.to_dict())
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
 	assert_eq(int(restored.stash.get("coins", -1)), 250)
 	var cards: Array = restored.stash.get("cards", [])
 	assert_eq(cards.size(), 1)
@@ -381,7 +394,8 @@ func test_stash_garbage_field_falls_back_to_empty_defaults() -> void:
 		"version": SessionState.CURRENT_SESSION_VERSION,
 		"stash": "not-a-dict",
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true((s.stash.get("cards", null) as Array).is_empty())
 	assert_eq(int(s.stash.get("coins", -1)), 0)
 
@@ -391,7 +405,8 @@ func test_stash_garbage_cards_field_falls_back_to_empty_array() -> void:
 		"version": SessionState.CURRENT_SESSION_VERSION,
 		"stash": {"cards": "not-an-array", "coins": 40},
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true((s.stash.get("cards", null) as Array).is_empty())
 	assert_eq(int(s.stash.get("coins", -1)), 40)
 
@@ -404,7 +419,8 @@ func test_migration_v5_backfills_missing_stash() -> void:
 		"party_bounties": [],
 		"members": {},
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true(s.stash.get("cards", null) is Array)
 	assert_true((s.stash["cards"] as Array).is_empty())
 	assert_eq(int(s.stash.get("coins", -1)), 0)
@@ -414,7 +430,8 @@ func test_migration_v5_backfills_missing_stash() -> void:
 func test_from_dict_versionless_still_gets_stash_default() -> void:
 	# A very old dict with no version and no stash key at all.
 	var data: Dictionary = {"session_id": "ancient", "members": {}}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true((s.stash.get("cards", null) as Array).is_empty())
 	assert_eq(int(s.stash.get("coins", -1)), 0)
 
@@ -522,7 +539,8 @@ func test_pve_leaderboards_round_trip() -> void:
 	var s := SessionState.new()
 	s.record_pve_score("spire", "tokA", "Ada", 12, 4)
 	s.record_pve_score("coop_clears", "tokB", "Bram", 3, 2)
-	var restored := SessionState.from_dict(s.to_dict())
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
 	var spire: Array = restored.get_pve_leaderboard("spire")
 	var coop: Array = restored.get_pve_leaderboard("coop_clears")
 	assert_eq(spire.size(), 1)
@@ -548,7 +566,8 @@ func test_migration_v6_backfills_leaderboards_field() -> void:
 		"party_bounties": [],
 		"members": {},
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true(s.leaderboards.get("spire", null) is Array)
 	assert_true(s.leaderboards.get("coop_clears", null) is Array)
 	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
@@ -563,7 +582,8 @@ func test_migration_preserves_existing_leaderboards_field() -> void:
 		"members": {},
 		"leaderboards": {"spire": [{"token": "t", "name": "N", "value": 9, "day": 1}], "coop_clears": []},
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_eq(s.get_pve_leaderboard("spire").size(), 1)
 	assert_eq(int(s.get_pve_leaderboard("spire")[0]["value"]), 9)
 
@@ -573,7 +593,8 @@ func test_pve_leaderboards_garbage_field_falls_back_to_empty_boards() -> void:
 		"version": SessionState.CURRENT_SESSION_VERSION,
 		"leaderboards": "not-a-dict",
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true(s.leaderboards.get("spire", null) is Array)
 	assert_true(s.leaderboards.get("coop_clears", null) is Array)
 	assert_true(s.get_pve_leaderboard("spire").is_empty())
@@ -691,7 +712,8 @@ func test_auctions_round_trip() -> void:
 		 "card_instance": {"uid": "ghost_auc_1", "template_id": "ghost"},
 		 "buyout": 100, "bid": 0, "bidder_token": "", "expires_day": 5, "status": "active"},
 	]
-	var restored := SessionState.from_dict(s.to_dict())
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
 	assert_eq(restored.auctions.size(), 1)
 	var a: Dictionary = restored.auctions[0]
 	assert_eq(str(a.get("id", "")), "auc_1")
@@ -704,7 +726,8 @@ func test_auctions_garbage_field_falls_back_to_empty_array() -> void:
 		"version": SessionState.CURRENT_SESSION_VERSION,
 		"auctions": "not-an-array",
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true(s.auctions.is_empty())
 
 
@@ -716,7 +739,8 @@ func test_migration_v8_backfills_missing_auctions() -> void:
 		"party_bounties": [],
 		"members": {},
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true(s.auctions is Array)
 	assert_true(s.auctions.is_empty())
 	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
@@ -729,12 +753,14 @@ func test_migration_preserves_existing_auctions_field() -> void:
 		"members": {},
 		"auctions": [{"id": "auc_1", "seller_token": "tokA", "buyout": 50, "status": "active"}],
 	}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_eq(s.auctions.size(), 1)
 	assert_eq(int((s.auctions[0] as Dictionary).get("buyout", -1)), 50)
 
 
 func test_from_dict_versionless_still_gets_auctions_default() -> void:
 	var data: Dictionary = {"session_id": "ancient", "members": {}}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true(s.auctions.is_empty())

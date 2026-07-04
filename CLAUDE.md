@@ -104,6 +104,42 @@ player.build_deck(deck)
 
 ---
 
+## GDScript: `as Node3D` / `as Node` on a Freed Instance Crashes Before You Can Check It
+
+### The problem
+Casting a `Variant` that holds a freed object reference — e.g. `var n: Node3D = my_dict.get(id) as Node3D` — throws `SCRIPT ERROR: Trying to cast a freed object` (or `Trying to assign invalid previously freed instance`) **at the cast/assignment itself**, before execution ever reaches an `is_instance_valid(n)` check on the next line. This bit `WorldScene.gd` and `Minimap.gd` repeatedly: any dictionary that tracks spawned nodes by id (`_enemy_nodes`, `_chest_nodes`, `_remote_player_nodes`, `_door_nodes`, `_npc_nodes`, `_waystone_nodes`, `_burial_mound_nodes`, `_mana_well_nodes`, `_blight_heart_nodes`, `_coop_night_hunt_nodes`, `_nocturnal_enemies[...]["node"]`, minimap's `_enemy_nodes`/group dicts) can end up holding a stale entry after the node was `queue_free()`'d elsewhere (chunk unload, coop despawn, enemy defeat) without the dict entry being erased in lockstep. The very next frame that reads the dict and types the result crashes, even though the code "correctly" checks validity right after.
+
+```gdscript
+# Bad — crashes immediately if _enemy_nodes[eid] is a freed reference
+var node: Node3D = _enemy_nodes.get(eid) as Node3D
+if is_instance_valid(node):
+    ...
+
+# Also bad — same crash, just moved one line down
+var raw: Object = _enemy_nodes[id]   # typed assignment still throws
+if not is_instance_valid(raw):
+    continue
+```
+
+### The fix
+Check `is_instance_valid()` on the **untyped** value first — before any typed variable, cast, or even an `Object`-typed assignment touches it — and only bind the typed variable once validity is confirmed:
+
+```gdscript
+# Good — validity check happens on the untyped Variant, no typed touch until safe
+func _valid_node3d(v) -> Node3D:
+    if is_instance_valid(v):
+        return v
+    return null
+
+var node: Node3D = _valid_node3d(_enemy_nodes.get(eid))
+if node != null:
+    ...
+```
+
+Reuse `WorldScene._valid_node3d()` / `_valid_node()` for this rather than re-deriving the pattern inline. Any new dictionary that tracks live scene nodes by id needs the same treatment the first time it's read back after nodes can be freed out from under it.
+
+---
+
 ## GDScript: class_name — Always preload, Never Rely on Global Registration
 
 ### The problem
@@ -611,6 +647,21 @@ Fix: `go_to_menu()`/`go_to_menu_direct()` now call `NetworkManager.leave()` when
 co-op?" gates (`is_active()`) must be reset by every path that exits that state, not just
 defensively re-checked by the next entry path (`host()`/`join()` already reset stale peers
 defensively — that's not a substitute for tearing down on exit).
+
+### Nocturnal enemy despawn fade crashed with "modulate:a does not exist" (fixed same session as automation bridge setup)
+
+`_despawn_nocturnal_enemies` tweened `"modulate:a"` directly on the enemy's `Node3D` root to
+fade it out at dawn. `Node3D` has no `modulate` property — only `CanvasItem`-derived nodes like
+`Sprite3D` do — so every dawn transition logged one `tween_property` error per still-alive
+nocturnal enemy and skipped the fade (falling through to an immediate, jarring `queue_free`).
+The spawn path two functions above it already documents this exact caveat inline ("Tint the
+Sprite3D child (Node3D has no modulate; Sprite3D does)") and looks up the `Sprite3D` child
+before touching `modulate`, but the despawn path never applied the same lookup. Fix: despawn
+now does the same `get_node_or_null("Sprite3D")` / child-scan lookup and tweens the sprite's
+`modulate:a`, falling back to instant `queue_free()` only if no sprite child exists. Invariant:
+never tween or set `modulate` on a bare `Node3D` — always resolve to its `Sprite3D`/`CanvasItem`
+child first; grep for other `tween_property(.*modulate` call sites against `Node3D`-typed
+variables when touching fade/tint code.
 
 ---
 

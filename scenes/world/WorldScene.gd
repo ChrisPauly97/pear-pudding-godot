@@ -572,13 +572,16 @@ func _ready() -> void:
 		if not SceneManager.save_manager.get_story_flag("tutorial_inventory_tip"):
 			SceneManager.save_manager.set_story_flag("tutorial_inventory_tip")
 			var inv_tip: String = "Tap the Inventory button to manage your deck." \
-				if OS.has_feature("android") else "Press I or tap Inventory to manage your deck."
+				if OS.has_feature("android") else "Press B or tap Bag to manage your deck."
 			_world_hud.show_tip.call_deferred(inv_tip)
 
 		_minimap = Minimap.new()
 		add_child(_minimap)
 		_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
-		_minimap.tapped.connect(_open_map_view)
+		if _is_infinite:
+			_minimap.tapped.connect(_open_fast_travel_panel)
+		else:
+			_minimap.tapped.connect(_open_map_view)
 
 		GameBus.hud_message_requested.connect(func(text: String) -> void: _world_hud.show_dialogue(text))
 		GameBus.story_scroll_collected.connect(_on_scroll_collected)
@@ -646,7 +649,7 @@ func _ready() -> void:
 	GameBus.enemy_engaged.connect(_on_enemy_engaged_coop)
 
 	# Cancel tap-to-move path when battle or menu interrupts movement.
-	GameBus.enemy_engaged.connect(_clear_dest_marker)
+	GameBus.enemy_engaged.connect(func(_enemy_data: Dictionary) -> void: _clear_dest_marker())
 	GameBus.inventory_requested.connect(_clear_dest_marker)
 	GameBus.journal_requested.connect(_clear_dest_marker)
 
@@ -822,7 +825,7 @@ func _on_coop_peer_connected(pid: int) -> void:
 	_spawn_remote_player(pid)
 
 func _on_coop_peer_disconnected(pid: int) -> void:
-	var rp: Node = _remote_player_nodes.get(pid) as Node
+	var rp: Node = _valid_node(_remote_player_nodes.get(pid))
 	if is_instance_valid(rp):
 		rp.queue_free()
 	_remote_player_nodes.erase(pid)
@@ -851,7 +854,7 @@ func _on_coop_peer_disconnected(pid: int) -> void:
 
 func _on_coop_session_ended() -> void:
 	for pid in _remote_player_nodes.keys():
-		var rp: Node = _remote_player_nodes[pid] as Node
+		var rp: Node = _valid_node(_remote_player_nodes[pid])
 		if is_instance_valid(rp):
 			rp.queue_free()
 	_remote_player_nodes.clear()
@@ -946,7 +949,7 @@ func _on_identity_received(sender: int, payload: Array, is_reply: bool) -> void:
 
 ## Push a stored identity onto the matching RemotePlayer avatar, if spawned.
 func _apply_identity_to_avatar(pid: int) -> void:
-	var rp: Node = _remote_player_nodes.get(pid) as Node
+	var rp: Node = _valid_node(_remote_player_nodes.get(pid))
 	if not is_instance_valid(rp) or not rp.has_method("set_player_identity"):
 		return
 	var d: Dictionary = _remote_identities.get(pid, {})
@@ -1215,11 +1218,11 @@ func _open_party_panel() -> void:
 
 # Called by NetSync when a remote avatar packet arrives.
 func _on_avatar_received(sender: int, payload: Array) -> void:
-	var rp: Node = _remote_player_nodes.get(sender) as Node
+	var rp: Node = _valid_node(_remote_player_nodes.get(sender))
 	if not is_instance_valid(rp):
 		# Packet arrived before the connect signal was processed — spawn now.
 		_spawn_remote_player(sender)
-		rp = _remote_player_nodes.get(sender) as Node
+		rp = _valid_node(_remote_player_nodes.get(sender))
 	var d: Dictionary = _AvatarSync.decode(payload)
 	# Map-scoped avatar sync (TID-352): only render a peer that is on our map. An
 	# empty map (legacy/garbage payload) is treated as same-map so nothing regresses.
@@ -1358,7 +1361,7 @@ func _coop_record_chest_opened(cid: String) -> void:
 func _coop_remove_enemy_node(eid: String) -> void:
 	_coop_removed_enemies[eid] = true
 	_coop_enemy_targets.erase(eid)
-	var node: Node3D = _enemy_nodes.get(eid) as Node3D
+	var node: Node3D = _valid_node3d(_enemy_nodes.get(eid))
 	if is_instance_valid(node):
 		if node.has_method("mark_defeated"):
 			node.mark_defeated()
@@ -1371,7 +1374,7 @@ func _coop_mark_chest_opened_node(cid: String) -> void:
 	_coop_opened_objects[cid] = true
 	if _active_chest_data.has(cid):
 		(_active_chest_data[cid] as Dictionary)["opened"] = true
-	var node: Node3D = _chest_nodes.get(cid) as Node3D
+	var node: Node3D = _valid_node3d(_chest_nodes.get(cid))
 	if is_instance_valid(node) and node.has_method("mark_opened"):
 		node.mark_opened()
 
@@ -1572,7 +1575,7 @@ func _coop_spawn_night_hunt(days: int) -> void:
 ## Dawn (or map exit): clear tonight's surviving hunt nodes and reset the tally.
 func _coop_despawn_night_hunt() -> void:
 	for eid: String in _coop_night_hunt_nodes.keys():
-		var n: Node3D = _coop_night_hunt_nodes[eid] as Node3D
+		var n: Node3D = _valid_node3d(_coop_night_hunt_nodes[eid])
 		if is_instance_valid(n):
 			n.queue_free()
 		_enemy_nodes.erase(eid)
@@ -1966,8 +1969,9 @@ func _broadcast_enemy_positions(delta: float) -> void:
 	_enemy_pos_accum = 0.0
 	var states: Array = []
 	for eid in _enemy_nodes.keys():
-		var node: Node3D = _enemy_nodes.get(eid) as Node3D
-		if is_instance_valid(node):
+		var raw = _enemy_nodes.get(eid)
+		if is_instance_valid(raw):
+			var node: Node3D = raw
 			states.append(_EnemySync.encode_state(
 				str(eid), node.position.x, node.position.z, true))
 	if not states.is_empty():
@@ -1989,7 +1993,7 @@ func _interp_synced_enemies(delta: float) -> void:
 	if _coop_enemy_targets.is_empty():
 		return
 	for eid in _coop_enemy_targets.keys():
-		var node: Node3D = _enemy_nodes.get(eid) as Node3D
+		var node: Node3D = _valid_node3d(_enemy_nodes.get(eid))
 		if not is_instance_valid(node):
 			_coop_enemy_targets.erase(eid)
 			continue
@@ -2062,7 +2066,7 @@ func _rally_to_peer(peer_id: int) -> void:
 	if _net_sync != null:
 		_net_sync.rpc_id(peer_id, "recv_rally_notice", MpProfile.get_display_name())
 	if target_map == map_name:
-		var rp: Node3D = _remote_player_nodes.get(peer_id) as Node3D
+		var rp: Node3D = _valid_node3d(_remote_player_nodes.get(peer_id))
 		if rp != null and is_instance_valid(rp):
 			_player.global_position = rp.global_position
 		return
@@ -2146,7 +2150,7 @@ func _find_nearby_downed_peer(px: float, pz: float, range_dist: float) -> int:
 	for pid in _remote_player_nodes.keys():
 		if not bool(_coop_downed_peers.get(pid, false)):
 			continue
-		var rp: Node3D = _remote_player_nodes[pid] as Node3D
+		var rp: Node3D = _valid_node3d(_remote_player_nodes[pid])
 		if not is_instance_valid(rp) or not rp.visible:
 			continue
 		var d: float = Vector2(rp.position.x, rp.position.z).distance_to(Vector2(px, pz))
@@ -2174,7 +2178,7 @@ func _authority_apply_revive(peer_id: int) -> void:
 	if peer_id == NetworkManager.local_id():
 		_exit_downed_state()
 	else:
-		var rp: Node3D = _remote_player_nodes.get(peer_id) as Node3D
+		var rp: Node3D = _valid_node3d(_remote_player_nodes.get(peer_id))
 		if rp != null and is_instance_valid(rp) and rp.has_method("set_downed"):
 			rp.set_downed(false)
 	GameBus.hud_message_requested.emit("Revived!")
@@ -2194,7 +2198,7 @@ func _on_revive_received(peer_id: int) -> void:
 		_exit_downed_state()
 		GameBus.hud_message_requested.emit("Revived!")
 	else:
-		var rp: Node3D = _remote_player_nodes.get(peer_id) as Node3D
+		var rp: Node3D = _valid_node3d(_remote_player_nodes.get(peer_id))
 		if rp != null and is_instance_valid(rp) and rp.has_method("set_downed"):
 			rp.set_downed(false)
 
@@ -2545,7 +2549,7 @@ func _update_challenge_proximity() -> void:
 	var nearest_pid: int = -1
 	var nearest_d: float = range_world
 	for pid in _remote_player_nodes.keys():
-		var rp: Node3D = _remote_player_nodes[pid] as Node3D
+		var rp: Node3D = _valid_node3d(_remote_player_nodes[pid])
 		if not is_instance_valid(rp):
 			continue
 		var d: float = Vector2(rp.position.x, rp.position.z).distance_to(
@@ -2973,41 +2977,41 @@ func _on_chunk_committed(_key: Vector2i, chunk_data: RefCounted) -> void:
 func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: RefCounted) -> void:
 	for e_data in chunk_data.enemies:
 		var eid: String = str(e_data.get("id", ""))
-		var enode: Node3D = _enemy_nodes.get(eid) as Node3D
+		var enode: Node3D = _valid_node3d(_enemy_nodes.get(eid))
 		if is_instance_valid(enode):
 			enode.queue_free()
 		_enemy_nodes.erase(eid)
 	for c_data in chunk_data.chests:
 		var cid: String = str(c_data.get("id", ""))
 		_active_chest_data.erase(cid)
-		var cnode: Node3D = _chest_nodes.get(cid) as Node3D
+		var cnode: Node3D = _valid_node3d(_chest_nodes.get(cid))
 		if is_instance_valid(cnode):
 			cnode.queue_free()
 		_chest_nodes.erase(cid)
 	for d_data in chunk_data.doors:
 		var did: String = str(d_data.get("id", ""))
 		_active_door_data.erase(did)
-		var dnode: Node3D = _door_nodes.get(did) as Node3D
+		var dnode: Node3D = _valid_node3d(_door_nodes.get(did))
 		if is_instance_valid(dnode):
 			dnode.queue_free()
 		_door_nodes.erase(did)
 	for n_data in chunk_data.npcs:
 		var nid: String = str(n_data.get("id", ""))
 		_active_npc_data.erase(nid)
-		var nnode: Node3D = _npc_nodes.get(nid) as Node3D
+		var nnode: Node3D = _valid_node3d(_npc_nodes.get(nid))
 		if is_instance_valid(nnode):
 			nnode.queue_free()
 		_npc_nodes.erase(nid)
 	for w_data in chunk_data.waystones:
 		var wid: String = str(w_data.get("id", ""))
 		_active_waystone_data.erase(wid)
-		var wnode: Node3D = _waystone_nodes.get(wid) as Node3D
+		var wnode: Node3D = _valid_node3d(_waystone_nodes.get(wid))
 		if is_instance_valid(wnode):
 			wnode.queue_free()
 		_waystone_nodes.erase(wid)
 	for m_data in chunk_data.burial_mounds:
 		var mid: String = str(m_data.get("id", ""))
-		var mnode: Node3D = _burial_mound_nodes.get(mid) as Node3D
+		var mnode: Node3D = _valid_node3d(_burial_mound_nodes.get(mid))
 		if is_instance_valid(mnode):
 			mnode.queue_free()
 		_burial_mound_nodes.erase(mid)
@@ -3016,7 +3020,7 @@ func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: RefCounted) -> void:
 		_active_landmark_data.erase(lid)
 	for w_data in chunk_data.mana_wells:
 		var wid: String = str(w_data.get("id", ""))
-		var wnode: Node3D = _mana_well_nodes.get(wid) as Node3D
+		var wnode: Node3D = _valid_node3d(_mana_well_nodes.get(wid))
 		if is_instance_valid(wnode):
 			wnode.queue_free()
 		_mana_well_nodes.erase(wid)
@@ -3044,7 +3048,7 @@ func _tick_roaming_boss(delta: float) -> void:
 	if not _enemy_nodes.has("roaming_boss"):
 		return
 	_roaming_boss_timer += delta
-	var boss: Node3D = _enemy_nodes.get("roaming_boss") as Node3D
+	var boss: Node3D = _valid_node3d(_enemy_nodes.get("roaming_boss"))
 	var expired: bool = _roaming_boss_timer >= 300.0
 	var fled: bool = boss == null or not is_instance_valid(boss) or \
 		(_player != null and _player.position.distance_to(boss.position) > 160.0)
@@ -3084,7 +3088,7 @@ func _update_nocturnal_spawns(delta: float) -> void:
 	var alive_count: int = 0
 	for sid: String in _nocturnal_enemies.keys():
 		var entry: Dictionary = _nocturnal_enemies[sid]
-		var n: Node3D = entry.get("node") as Node3D
+		var n: Node3D = _valid_node3d(entry.get("node"))
 		if not is_instance_valid(n):
 			_nocturnal_enemies.erase(sid)
 		else:
@@ -3120,8 +3124,16 @@ func _update_nocturnal_spawns(delta: float) -> void:
 	node.set_meta("is_nocturnal", true)
 	node.call("init_from_data", data)
 	node.position = spawn_pos
-	node.modulate = Color(0.7, 0.85, 1.0, 0.85)
 	_entity_root.add_child(node)
+	# Tint the Sprite3D child (Node3D has no modulate; Sprite3D does)
+	var sprite: Sprite3D = node.get_node_or_null("Sprite3D") as Sprite3D
+	if sprite == null:
+		for ch in node.get_children():
+			if ch is Sprite3D:
+				sprite = ch
+				break
+	if sprite != null:
+		sprite.modulate = Color(0.7, 0.85, 1.0, 0.85)
 
 	var pcx: int = int(floor(spawn_pos.x / chunk_world))
 	var pcz: int = int(floor(spawn_pos.z / chunk_world))
@@ -3171,15 +3183,25 @@ func _find_nocturnal_spawn_pos() -> Vector3:
 func _despawn_nocturnal_enemies(fade: bool) -> void:
 	for sid: String in _nocturnal_enemies.keys():
 		var entry: Dictionary = _nocturnal_enemies[sid]
-		var n: Node3D = entry.get("node") as Node3D
+		var n: Node3D = _valid_node3d(entry.get("node"))
 		if not is_instance_valid(n):
 			_enemy_nodes.erase(sid)
 			continue
 		_enemy_nodes.erase(sid)
 		if fade:
-			var tw: Tween = create_tween()
-			tw.tween_property(n, "modulate:a", 0.0, 1.0)
-			tw.tween_callback(n.queue_free)
+			# Node3D has no modulate; fade the Sprite3D child instead.
+			var sprite: Sprite3D = n.get_node_or_null("Sprite3D") as Sprite3D
+			if sprite == null:
+				for ch in n.get_children():
+					if ch is Sprite3D:
+						sprite = ch
+						break
+			if sprite != null:
+				var tw: Tween = create_tween()
+				tw.tween_property(sprite, "modulate:a", 0.0, 1.0)
+				tw.tween_callback(n.queue_free)
+			else:
+				n.queue_free()
 		else:
 			n.queue_free()
 	_nocturnal_enemies.clear()
@@ -3189,7 +3211,7 @@ func _evict_nocturnal_enemies_in_chunk(chunk_key: Vector2i) -> void:
 	for sid: String in _nocturnal_enemies.keys():
 		var entry: Dictionary = _nocturnal_enemies[sid]
 		if entry.get("chunk") == chunk_key:
-			var n: Node3D = entry.get("node") as Node3D
+			var n: Node3D = _valid_node3d(entry.get("node"))
 			if is_instance_valid(n):
 				n.queue_free()
 			_enemy_nodes.erase(sid)
@@ -3388,7 +3410,7 @@ func register_mana_well(wid: String, node: Node3D) -> void:
 func _find_nearby_mana_well(px: float, pz: float, range_dist: float) -> Node3D:
 	var range_sq: float = range_dist * range_dist
 	for wid: String in _mana_well_nodes:
-		var wnode: Node3D = _mana_well_nodes[wid] as Node3D
+		var wnode: Node3D = _valid_node3d(_mana_well_nodes[wid])
 		if not is_instance_valid(wnode):
 			continue
 		var ddx: float = wnode.position.x - px
@@ -3400,7 +3422,7 @@ func _find_nearby_mana_well(px: float, pz: float, range_dist: float) -> Node3D:
 func _find_nearby_blight_heart(px: float, pz: float, range_dist: float) -> Node3D:
 	var range_sq: float = range_dist * range_dist
 	for hid: String in _blight_heart_nodes:
-		var hnode: Node3D = _blight_heart_nodes[hid] as Node3D
+		var hnode: Node3D = _valid_node3d(_blight_heart_nodes[hid])
 		if not is_instance_valid(hnode):
 			continue
 		var ddx: float = hnode.position.x - px
@@ -3454,7 +3476,7 @@ func _refresh_blight_tints() -> void:
 func _find_nearby_burial_mound(px: float, pz: float, range_dist: float) -> Node3D:
 	var range_sq: float = range_dist * range_dist
 	for mid in _burial_mound_nodes:
-		var mnode: Node3D = _burial_mound_nodes[mid] as Node3D
+		var mnode: Node3D = _valid_node3d(_burial_mound_nodes[mid])
 		if not is_instance_valid(mnode) or not mnode.visible:
 			continue
 		var ddx: float = mnode.position.x - px
@@ -3669,7 +3691,7 @@ func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
 			var chunk: RefCounted = _csm.get_chunk_data(key)
 			for e_data in chunk.enemies:
 				var eid: String = str(e_data.get("id", ""))
-				var node: Node3D = _enemy_nodes.get(eid) as Node3D
+				var node: Node3D = _valid_node3d(_enemy_nodes.get(eid))
 				if not is_instance_valid(node):
 					continue
 				var ddx: float = node.global_position.x - px
@@ -3966,7 +3988,6 @@ func _check_interactions() -> void:
 
 func _open_map_view() -> void:
 	if _is_infinite:
-		_open_fast_travel_panel()
 		return
 	if _map_overlay != null:
 		_map_overlay.queue_free()
@@ -4262,7 +4283,7 @@ func _handle_interact() -> void:
 		SceneManager.save_manager.mark_chest_opened(cid)
 		SceneManager.save_manager.increment_bounty_progress("open_chests", {})
 		SceneManager.session_stats["chests_opened"] = int(SceneManager.session_stats.get("chests_opened", 0)) + 1
-		var node := _chest_nodes.get(cid) as Node3D
+		var node := _valid_node3d(_chest_nodes.get(cid))
 		if node and node.has_method("mark_opened"):
 			node.mark_opened()
 		# Co-op (GID-096): reflect + persist the open for all players (this opener
@@ -4339,7 +4360,7 @@ func _handle_interact() -> void:
 			_show_trophy_info(npc)
 			return
 		var nid: String = str(npc.get("id", ""))
-		var nnode := _npc_nodes.get(nid) as Node3D
+		var nnode := _valid_node3d(_npc_nodes.get(nid))
 		var dlg: String
 		if nnode != null and nnode.has_method("get_dialogue"):
 			dlg = nnode.get_dialogue()
@@ -4395,7 +4416,7 @@ func _handle_interact() -> void:
 		if bool(waystone.get("active", false)):
 			_open_fast_travel_panel()
 		else:
-			var wnode := _waystone_nodes.get(wid) as Node3D
+			var wnode := _valid_node3d(_waystone_nodes.get(wid))
 			if wnode != null and wnode.has_method("mark_activated"):
 				wnode.mark_activated()
 		return
@@ -5256,6 +5277,20 @@ func _make_dest_marker() -> Node3D:
 	root.add_child(mesh_inst)
 	return root
 
+## Safely coerce a tracking-dict value to Node3D. `as Node3D` on a Variant
+## holding a freed object throws "Trying to cast a freed object" immediately,
+## before is_instance_valid() can be checked — this checks validity first.
+func _valid_node3d(v) -> Node3D:
+	if is_instance_valid(v):
+		return v
+	return null
+
+## Same as _valid_node3d but for plain Node (RemotePlayer avatars).
+func _valid_node(v) -> Node:
+	if is_instance_valid(v):
+		return v
+	return null
+
 func _clear_dest_marker() -> void:
 	if _dest_tween != null and _dest_tween.is_valid():
 		_dest_tween.kill()
@@ -5443,7 +5478,7 @@ func _update_social_proximity() -> void:
 	var nearest_pid: int = -1
 	var nearest_d: float = range_world
 	for pid in _remote_player_nodes.keys():
-		var rp: Node3D = _remote_player_nodes[pid] as Node3D
+		var rp: Node3D = _valid_node3d(_remote_player_nodes[pid])
 		if not is_instance_valid(rp) or not rp.visible:
 			continue
 		var d: float = Vector2(rp.position.x, rp.position.z).distance_to(
@@ -5544,7 +5579,7 @@ func _on_emote_received(sender: int, payload: Array) -> void:
 	var sender_map: String = str(d.get("map", ""))
 	if sender_map != "" and sender_map != map_name:
 		return
-	var rp: Node = _remote_player_nodes.get(sender) as Node
+	var rp: Node = _valid_node(_remote_player_nodes.get(sender))
 	if not is_instance_valid(rp):
 		return
 	var emote_id: String = str(d.get("emote_id", ""))

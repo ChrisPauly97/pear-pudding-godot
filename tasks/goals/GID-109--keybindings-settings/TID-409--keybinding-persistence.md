@@ -1,0 +1,65 @@
+# TID-409: Keybinding Persistence & Apply-on-Load
+
+**Goal:** GID-109
+**Type:** agent
+**Status:** done
+**Depends On:** —
+
+## Lock
+
+**Session:** none
+**Acquired:** —
+**Expires:** —
+
+## Context
+
+Before the UI can let players remap keys, there must be a storage and restore layer. This task adds the `keybindings` dict to `SaveManager.settings`, a helper to save/clear individual bindings, and an `_apply_keybindings()` call in `SceneManager._ready()` so overrides are applied to `InputMap` before the first scene loads.
+
+## Research Notes
+
+**SaveManager** (`autoloads/SaveManager.gd`):
+- `settings: Dictionary` is the free-form bag for user prefs (lines 97–98).
+- `get_setting(key, default)` / `set_setting(key, value)` are the read/write API (lines 1460–1464).
+- `settings` is preserved across `new_game()` calls (line 420) — correct, binding prefs should survive new games.
+- Persistence: `settings` is serialized into save JSON at key `"settings"` (line 942) and read back at line 833.
+
+**SceneManager** (`autoloads/SceneManager.gd`):
+- Already calls `_apply_audio_settings()` in `_ready()` (line 240/244). Follow the same pattern for keybindings.
+
+**InputMap API** (Godot 4):
+- `InputMap.action_get_events(action_name)` returns the current event list.
+- `InputMap.action_erase_event(action_name, event)` removes one event.
+- `InputMap.action_add_event(action_name, event)` adds one event.
+- To replace only the first `InputEventKey` (leaving joypad events intact): iterate events, find `InputEventKey`, erase it, create a new `InputEventKey` with the saved `physical_keycode`, add it.
+
+**Actions to cover** (13 total, from project.godot [input] section):
+`move_up`, `move_down`, `move_left`, `move_right`, `interact`, `jump`,
+`inventory`, `map_view`, `character`, `skill_tree`, `journal`, `mount`, `pause`
+
+**Storage format** — `SaveManager.settings["keybindings"]` is a `Dictionary` mapping action name (String) → physical_keycode (int). Only overridden actions need an entry; missing entries mean "use project default".
+
+**Default keycode map** — store as a `const` in `SceneManager` so Reset-to-Defaults can also call it:
+```gdscript
+const REBINDABLE_ACTIONS: Array[String] = [
+    "move_up","move_down","move_left","move_right","interact","jump",
+    "inventory","map_view","character","skill_tree","journal","mount","pause"
+]
+```
+
+**Unit test** — `tests/unit/test_keybindings.gd`: verify that `set_setting("keybindings", {"interact": KEY_F})` followed by `_apply_keybindings()` results in `InputMap.action_has_event("interact", ...)` containing a key with `physical_keycode == KEY_F`.
+
+## Plan
+
+1. Add `REBINDABLE_ACTIONS: Array[String]` const to `SceneManager.gd`.
+2. Add `apply_keybindings()` to `SceneManager.gd`: calls `InputMap.load_from_project_settings()` to restore defaults, then applies `SaveManager.settings["keybindings"]` overrides.
+3. Call `apply_keybindings()` in `SceneManager._ready()` right after `save_manager = SaveManager`.
+4. Write unit test `tests/unit/test_keybindings.gd`.
+
+## Changes Made
+
+- `autoloads/SceneManager.gd`: Added `REBINDABLE_ACTIONS` const (13 actions). Added `apply_keybindings()` which calls `InputMap.load_from_project_settings()` then applies `SaveManager.get_setting("keybindings", {})` overrides (erases all existing InputEventKey entries for an action, adds the custom one). Called `apply_keybindings()` at end of `_ready()`.
+- `tests/unit/test_keybindings.gd` + `.uid`: 5 unit tests covering custom key apply, default restore, action count, InputMap existence, multi-action override.
+
+## Documentation Updates
+
+_Updated ui-and-scene-management.md in TID-410._
