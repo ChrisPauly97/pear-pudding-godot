@@ -375,18 +375,17 @@ func _refresh_cards() -> void:
 	_coin_label.text    = "Coins: %d" % sm.coins
 	_essence_label.text = "Essence: %d" % sm.essence
 
-	var used: int   = sm.get_slot_count()
+	var used: int   = sm.get_slot_count(_working_deck)
 	var cap: int    = sm.bag_size
 	_slot_label.text    = "Bag: %d / %d" % [used, cap]
 	_slot_label.modulate = Color(1.0, 0.35, 0.35) if used >= cap else Color(0.80, 0.80, 0.80)
 
 	var all_instances: Array[Dictionary] = sm.get_owned_instances()
 
-	# Separate into available (not in deck) vs in-deck, and common vs rare+.
-	var common_avail: Dictionary   = {}   # tid -> count
-	var rare_avail: Array[Dictionary] = []
-	var common_deck: Dictionary    = {}   # tid -> count
-	var rare_deck: Array[Dictionary]  = []
+	# Every instance has its own rolled stats, so each takes its own tile/row —
+	# no more grouping same-template commons into a single stack.
+	var avail: Array[Dictionary] = []
+	var deck_insts: Array[Dictionary] = []
 
 	for inst: Dictionary in all_instances:
 		var uid: String    = str(inst.get("uid", ""))
@@ -395,57 +394,44 @@ func _refresh_cards() -> void:
 		if tid == "":
 			continue
 		if _working_deck.has(uid):
-			if rarity == "common":
-				common_deck[tid] = int(common_deck.get(tid, 0)) + 1
-			else:
-				rare_deck.append(inst)
+			deck_insts.append(inst)
 		else:
 			if not _passes_filter(tid, rarity):
 				continue
-			if rarity == "common":
-				common_avail[tid] = int(common_avail.get(tid, 0)) + 1
-			else:
-				rare_avail.append(inst)
+			avail.append(inst)
 
-	# ---- Collection list ----
-	if not common_avail.is_empty():
-		_collection_list.add_child(_make_section_label("Common"))
-		var keys: Array = common_avail.keys()
-		keys.sort()
-		for tid: String in keys:
-			_collection_list.add_child(_make_collection_row_stacked(tid, int(common_avail[tid])))
+	var by_name_then_rarity := func(a: Dictionary, b: Dictionary) -> bool:
+		var ta: String = str(a.get("template_id", ""))
+		var tb: String = str(b.get("template_id", ""))
+		if ta != tb:
+			return ta < tb
+		return IsoConst.RARITY_ORDER.find(str(a.get("rarity", "common"))) > \
+		       IsoConst.RARITY_ORDER.find(str(b.get("rarity", "common")))
 
-	if not rare_avail.is_empty():
-		_collection_list.add_child(_make_section_label("Rare & Above"))
-		rare_avail.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-			var ta: String = str(a.get("template_id", ""))
-			var tb: String = str(b.get("template_id", ""))
-			if ta != tb:
-				return ta < tb
-			var ra: int = IsoConst.RARITY_ORDER.find(str(a.get("rarity", "common")))
-			var rb: int = IsoConst.RARITY_ORDER.find(str(b.get("rarity", "common")))
-			return ra > rb
-		)
-		for inst: Dictionary in rare_avail:
-			_collection_list.add_child(_make_collection_row_instance(inst))
+	# ---- Backpack grid ----
+	if not avail.is_empty():
+		avail.sort_custom(by_name_then_rarity)
+		var grid := GridContainer.new()
+		var tile_size: float = _ref * 0.11
+		var cols: int = maxi(1, int(_collection_scroll.size.x / (tile_size + _ref * 0.01)))
+		grid.columns = cols if cols > 1 else 4
+		grid.add_theme_constant_override("h_separation", int(_ref * 0.010))
+		grid.add_theme_constant_override("v_separation", int(_ref * 0.010))
+		_collection_list.add_child(grid)
+		for inst: Dictionary in avail:
+			grid.add_child(_make_card_tile(inst, false))
+	else:
+		var empty_lbl := Label.new()
+		empty_lbl.text = "No spare cards"
+		empty_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		empty_lbl.modulate = Color(0.6, 0.6, 0.6)
+		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_collection_list.add_child(empty_lbl)
 
 	# ---- Deck list ----
-	if not common_deck.is_empty():
-		var dkeys: Array = common_deck.keys()
-		dkeys.sort()
-		for tid: String in dkeys:
-			_deck_list.add_child(_make_deck_row_stacked(tid, int(common_deck[tid])))
-
-	if not rare_deck.is_empty():
-		rare_deck.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-			var ta: String = str(a.get("template_id", ""))
-			var tb: String = str(b.get("template_id", ""))
-			if ta != tb:
-				return ta < tb
-			return IsoConst.RARITY_ORDER.find(str(a.get("rarity", "common"))) > \
-			       IsoConst.RARITY_ORDER.find(str(b.get("rarity", "common")))
-		)
-		for inst: Dictionary in rare_deck:
+	if not deck_insts.is_empty():
+		deck_insts.sort_custom(by_name_then_rarity)
+		for inst: Dictionary in deck_insts:
 			_deck_list.add_child(_make_deck_row_instance(str(inst.get("uid", "")), inst))
 
 	var deck_sz: int = _working_deck.size()
@@ -572,218 +558,125 @@ func _make_section_label(text: String) -> Label:
 	lbl.modulate = Color(0.60, 0.72, 0.92)
 	return lbl
 
-# Stacked row for common cards (all copies identical — variance = 0).
-func _make_collection_row_stacked(tid: String, count: int) -> VBoxContainer:
-	var _face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
-	var tmpl: Dictionary  = CardRegistry.get_template_for_face(tid, _face)
-	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
-	var card_name: String = tmpl.get("name", tid)
-	var is_dual: bool = str(tmpl.get("dual_card_id", "")) != ""
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_ref * 0.003))
-
-	var top_row := HBoxContainer.new()
-	top_row.add_theme_constant_override("separation", int(_vw * 0.008))
-	vbox.add_child(top_row)
-
-	var swatch := ColorRect.new()
-	swatch.color = card_color
-	swatch.custom_minimum_size = Vector2(_ref * 0.03, _ref * 0.03)
-	top_row.add_child(swatch)
-
-	var name_lbl := Label.new()
-	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_row.add_child(name_lbl)
-
-	if is_dual:
-		var dual_badge := Label.new()
-		dual_badge.text = "◑"
-		dual_badge.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		dual_badge.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
-		dual_badge.tooltip_text = "Dual-faced card"
-		top_row.add_child(dual_badge)
-
-	var count_lbl := Label.new()
-	count_lbl.text = "×%d" % count
-	count_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	count_lbl.modulate = Color(0.85, 0.85, 0.85)
-	top_row.add_child(count_lbl)
-
-	var add_btn := Button.new()
-	add_btn.text = "+"
-	add_btn.custom_minimum_size = Vector2(_ref * 0.065, _ref * 0.065)
-	add_btn.add_theme_font_size_override("font_size", int(_ref * 0.025))
-	add_btn.disabled = _working_deck.size() >= IsoConst.DECK_MAX
-	add_btn.pressed.connect(_on_add_by_type.bind(tid, "common"))
-	top_row.add_child(add_btn)
-
-	var base_atk: int  = int(tmpl.get("attack", 0))
-	var base_hp: int   = int(tmpl.get("health", 0))
-	var base_cost: int = int(tmpl.get("cost", 0))
-	var stats_lbl := Label.new()
-	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [base_cost, base_atk, base_hp]
-	stats_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
-	vbox.add_child(stats_lbl)
-
-	var lpd := LongPressDetector.new()
-	vbox.add_child(lpd)
-	lpd.long_pressed.connect(func() -> void: _show_inspect(tid))
-
-	# Sell / Scrap / Combine
-	var is_unique: bool = bool(tmpl.get("is_unique", false))
-	if not is_unique:
-		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get("common", {})
-		var sell_gold: int  = int(cfg.get("sell_gold", 0))
-		var scrap_ess: int  = int(cfg.get("scrap_essence", 0))
-
-		var action_row := HBoxContainer.new()
-		action_row.add_theme_constant_override("separation", int(_vw * 0.006))
-		vbox.add_child(action_row)
-
-		var sell_btn := Button.new()
-		sell_btn.text = "Sell +%dg" % sell_gold
-		sell_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-		sell_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		sell_btn.modulate = Color(1.0, 0.9, 0.3)
-		sell_btn.pressed.connect(_do_sell_by_type.bind(tid, "common"))
-		action_row.add_child(sell_btn)
-
-		var scrap_btn := Button.new()
-		scrap_btn.text = "Scrap +%de" % scrap_ess
-		scrap_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-		scrap_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		scrap_btn.modulate = Color(0.5, 0.85, 1.0)
-		scrap_btn.pressed.connect(_do_scrap_by_type.bind(tid, "common"))
-		action_row.add_child(scrap_btn)
-
-		# Combine 3× common → 1× rare
-		var next_idx: int = IsoConst.RARITY_ORDER.find("common") + 1
-		if next_idx < IsoConst.RARITY_ORDER.size():
-			var next_rarity: String = IsoConst.RARITY_ORDER[next_idx]
-			var combine_btn := Button.new()
-			combine_btn.text = "Combine 3× → %s" % _UiUtil.rarity_badge(next_rarity)
-			combine_btn.custom_minimum_size = Vector2(_ref * 0.22, _ref * 0.065)
-			combine_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-			combine_btn.modulate = _UiUtil.rarity_color(next_rarity)
-			combine_btn.disabled = count < 3
-			combine_btn.pressed.connect(func() -> void:
-				SceneManager.save_manager.combine_cards(tid, "common")
-				_refresh_cards())
-			action_row.add_child(combine_btn)
-
-	return vbox
-
-# Individual slot for a rare/epic/legendary card — shows its specific rolled stats.
-func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
+# Diablo-3-style cube: one tile per owned instance. Hover (desktop) or
+# tap-and-hold (mobile) opens the detail popup with rolled stats + actions.
+# A plain tap adds the card to the working deck.
+func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 	var uid: String    = str(inst.get("uid", ""))
 	var tid: String    = str(inst.get("template_id", ""))
 	var rarity: String = str(inst.get("rarity", "common"))
 	var _face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
 	var tmpl: Dictionary  = CardRegistry.get_template_for_face(tid, _face)
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
-	var card_name: String = tmpl.get("name", tid)
-	var is_dual: bool = str(tmpl.get("dual_card_id", "")) != ""
 
 	var kills: int    = int(inst.get("kills", 0))
 	var survived: int = int(inst.get("battles_survived", 0))
 	var rank: int     = VeterancyUtil.rank_for(kills, survived)
+
+	var tile_size: float = _ref * 0.11
+	var cube := Button.new()
+	cube.custom_minimum_size = Vector2(tile_size, tile_size)
+	cube.focus_mode = Control.FOCUS_NONE
+
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = card_color
+	sb.border_color = _UiUtil.rarity_color(rarity)
+	sb.set_border_width_all(maxi(2, int(_ref * 0.006)))
+	sb.set_corner_radius_all(int(_ref * 0.012))
+	cube.add_theme_stylebox_override("normal", sb)
+	cube.add_theme_stylebox_override("hover", sb)
+	cube.add_theme_stylebox_override("pressed", sb)
+	cube.add_theme_stylebox_override("focus", sb)
+
+	var badge_lbl := Label.new()
+	badge_lbl.text = _UiUtil.rarity_badge(rarity)
+	badge_lbl.add_theme_font_size_override("font_size", int(_ref * 0.016))
+	badge_lbl.modulate = _UiUtil.rarity_color(rarity)
+	badge_lbl.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	badge_lbl.position = Vector2(_ref * 0.006, _ref * 0.004)
+	cube.add_child(badge_lbl)
+
+	if rank > 0:
+		var chev_lbl := Label.new()
+		chev_lbl.text = VeterancyUtil.rank_chevrons(rank)
+		chev_lbl.add_theme_font_size_override("font_size", int(_ref * 0.014))
+		chev_lbl.modulate = Color(1.0, 0.82, 0.2)
+		chev_lbl.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		chev_lbl.position = Vector2(tile_size - _ref * 0.03, tile_size - _ref * 0.022)
+		cube.add_child(chev_lbl)
+
+	cube.pressed.connect(func() -> void:
+		if in_deck:
+			_on_remove_by_uid(uid)
+		else:
+			_on_add_by_uid(uid))
+
+	var lpd := LongPressDetector.new()
+	cube.add_child(lpd)
+	lpd.long_pressed.connect(func() -> void: _show_instance_detail(inst, cube))
+
+	cube.mouse_entered.connect(func() -> void: _show_instance_detail(inst, cube))
+	cube.mouse_exited.connect(func() -> void: _hide_instance_detail())
+
+	return cube
+
+# -------------------------------------------------------------------------
+# Instance detail popup (hover / tap-and-hold)
+# -------------------------------------------------------------------------
+
+var _detail_popup: PopupPanel = null
+
+func _hide_instance_detail() -> void:
+	if _detail_popup != null and is_instance_valid(_detail_popup):
+		_detail_popup.queue_free()
+	_detail_popup = null
+
+func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
+	_hide_instance_detail()
+
+	var uid: String    = str(inst.get("uid", ""))
+	var tid: String    = str(inst.get("template_id", ""))
+	var rarity: String = str(inst.get("rarity", "common"))
+	var _face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
+	var tmpl: Dictionary  = CardRegistry.get_template_for_face(tid, _face)
+	var card_name: String = tmpl.get("name", tid)
 	var disp_name: String = VeterancyUtil.display_name(inst, card_name)
+	var is_dual: bool = str(tmpl.get("dual_card_id", "")) != ""
 
 	var rolled_atk: int  = int(inst.get("attack", int(tmpl.get("attack", 0))))
 	var rolled_hp: int   = int(inst.get("health", int(tmpl.get("health", 0))))
 	var rolled_cost: int = int(inst.get("cost",   int(tmpl.get("cost",   0))))
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_ref * 0.003))
+	var popup := PopupPanel.new()
+	add_child(popup)
+	_detail_popup = popup
 
-	var top_row := HBoxContainer.new()
-	top_row.add_theme_constant_override("separation", int(_vw * 0.008))
-	vbox.add_child(top_row)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", int(_ref * 0.008))
+	vb.custom_minimum_size = Vector2(_ref * 0.34, 0)
+	popup.add_child(vb)
 
-	var swatch := ColorRect.new()
-	swatch.color = card_color
-	swatch.custom_minimum_size = Vector2(_ref * 0.03, _ref * 0.03)
-	top_row.add_child(swatch)
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", int(_ref * 0.006))
+	vb.add_child(title_row)
 
 	var name_lbl := Label.new()
-	name_lbl.text = disp_name
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	name_lbl.text = disp_name + (" ◑" if is_dual else "")
+	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_row.add_child(name_lbl)
-
-	if rank > 0:
-		var chev_lbl := Label.new()
-		chev_lbl.text = VeterancyUtil.rank_chevrons(rank)
-		chev_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
-		chev_lbl.modulate = Color(1.0, 0.82, 0.2)
-		top_row.add_child(chev_lbl)
-	if is_dual:
-		var dual_badge := Label.new()
-		dual_badge.text = "◑"
-		dual_badge.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		dual_badge.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
-		dual_badge.tooltip_text = "Dual-faced card"
-		top_row.add_child(dual_badge)
+	title_row.add_child(name_lbl)
 
 	var badge_lbl := Label.new()
 	badge_lbl.text = _UiUtil.rarity_badge(rarity)
 	badge_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	badge_lbl.modulate = _UiUtil.rarity_color(rarity)
-	top_row.add_child(badge_lbl)
+	title_row.add_child(badge_lbl)
 
-	var add_btn := Button.new()
-	add_btn.text = "+"
-	add_btn.custom_minimum_size = Vector2(_ref * 0.065, _ref * 0.065)
-	add_btn.add_theme_font_size_override("font_size", int(_ref * 0.025))
-	add_btn.disabled = _working_deck.size() >= IsoConst.DECK_MAX
-	add_btn.pressed.connect(_on_add_by_uid.bind(uid))
-	top_row.add_child(add_btn)
-
-	# Rolled stats (specific to this instance)
 	var stats_lbl := Label.new()
 	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp]
 	stats_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	stats_lbl.modulate = _UiUtil.rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55)
-	vbox.add_child(stats_lbl)
-
-	var lpd := LongPressDetector.new()
-	vbox.add_child(lpd)
-	lpd.long_pressed.connect(func() -> void: _show_inspect(tid))
-
-	# Inline rename panel (hidden until Rename button pressed)
-	var rename_row := HBoxContainer.new()
-	rename_row.add_theme_constant_override("separation", int(_vw * 0.006))
-	rename_row.visible = false
-	vbox.add_child(rename_row)
-
-	var rename_edit := LineEdit.new()
-	rename_edit.text = str(inst.get("custom_name", ""))
-	rename_edit.placeholder_text = disp_name
-	rename_edit.max_length = 24
-	rename_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rename_edit.custom_minimum_size = Vector2(0, _ref * 0.065)
-	rename_edit.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	rename_row.add_child(rename_edit)
-
-	var save_rename_btn := Button.new()
-	save_rename_btn.text = "Save"
-	save_rename_btn.custom_minimum_size = Vector2(_ref * 0.1, _ref * 0.065)
-	save_rename_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	save_rename_btn.pressed.connect(func() -> void:
-		SceneManager.save_manager.set_card_custom_name(uid, rename_edit.text)
-		_refresh_cards())
-	rename_row.add_child(save_rename_btn)
-
-	var cancel_rename_btn := Button.new()
-	cancel_rename_btn.text = "✕"
-	cancel_rename_btn.custom_minimum_size = Vector2(_ref * 0.065, _ref * 0.065)
-	cancel_rename_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	cancel_rename_btn.pressed.connect(func() -> void: rename_row.visible = false)
-	rename_row.add_child(cancel_rename_btn)
+	stats_lbl.modulate = _UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55)
+	vb.add_child(stats_lbl)
 
 	var is_unique: bool = bool(tmpl.get("is_unique", false))
 	if not is_unique:
@@ -792,116 +685,77 @@ func _make_collection_row_instance(inst: Dictionary) -> VBoxContainer:
 		var scrap_ess: int  = int(cfg.get("scrap_essence", 0))
 
 		var action_row := HBoxContainer.new()
-		action_row.add_theme_constant_override("separation", int(_vw * 0.006))
-		vbox.add_child(action_row)
-
-		var confirm_row := HBoxContainer.new()
-		confirm_row.add_theme_constant_override("separation", int(_vw * 0.006))
-		confirm_row.visible = false
-		vbox.add_child(confirm_row)
-
-		var rename_btn := Button.new()
-		rename_btn.text = "✏ Rename"
-		rename_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-		rename_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		rename_btn.pressed.connect(func() -> void:
-			rename_row.visible = not rename_row.visible)
-		action_row.add_child(rename_btn)
+		action_row.add_theme_constant_override("separation", int(_ref * 0.006))
+		vb.add_child(action_row)
 
 		var sell_btn := Button.new()
 		sell_btn.text = "Sell +%dg" % sell_gold
-		sell_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-		sell_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		sell_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.06)
+		sell_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
 		sell_btn.modulate = Color(1.0, 0.9, 0.3)
 		sell_btn.pressed.connect(func() -> void:
-			_show_confirm(action_row, confirm_row, "Sell", func() -> void:
-				SceneManager.save_manager.sell_card_instance(uid)
-				_refresh_cards()))
+			SceneManager.save_manager.sell_card_instance(uid)
+			_hide_instance_detail()
+			_refresh_cards())
 		action_row.add_child(sell_btn)
 
 		var scrap_btn := Button.new()
 		scrap_btn.text = "Scrap +%de" % scrap_ess
-		scrap_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-		scrap_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		scrap_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.06)
+		scrap_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
 		scrap_btn.modulate = Color(0.5, 0.85, 1.0)
 		scrap_btn.pressed.connect(func() -> void:
-			_show_confirm(action_row, confirm_row, "Scrap", func() -> void:
-				SceneManager.save_manager.scrap_card_instance(uid)
-				_refresh_cards()))
+			SceneManager.save_manager.scrap_card_instance(uid)
+			_hide_instance_detail()
+			_refresh_cards())
 		action_row.add_child(scrap_btn)
 
-	return vbox
+		# Combine 3× same template+rarity → next tier (only offered for commons).
+		if rarity == "common":
+			var avail_count: int = 0
+			for other: Dictionary in SceneManager.save_manager.get_owned_instances():
+				if str(other.get("template_id", "")) == tid and str(other.get("rarity", "")) == "common" \
+						and not _working_deck.has(str(other.get("uid", ""))):
+					avail_count += 1
+			var next_idx: int = IsoConst.RARITY_ORDER.find("common") + 1
+			if next_idx < IsoConst.RARITY_ORDER.size():
+				var next_rarity: String = IsoConst.RARITY_ORDER[next_idx]
+				var combine_btn := Button.new()
+				combine_btn.text = "Combine 3× → %s" % _UiUtil.rarity_badge(next_rarity)
+				combine_btn.custom_minimum_size = Vector2(_ref * 0.22, _ref * 0.06)
+				combine_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+				combine_btn.modulate = _UiUtil.rarity_color(next_rarity)
+				combine_btn.disabled = avail_count < 3
+				combine_btn.pressed.connect(func() -> void:
+					SceneManager.save_manager.combine_cards(tid, "common")
+					_hide_instance_detail()
+					_refresh_cards())
+				vb.add_child(combine_btn)
 
-# Stacked deck row for common cards.
-func _make_deck_row_stacked(tid: String, count: int) -> VBoxContainer:
-	var _face: String = "dark" if CardRegistry.is_dark_aligned() else "light"
-	var tmpl: Dictionary  = CardRegistry.get_template_for_face(tid, _face)
-	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
-	var card_name: String = tmpl.get("name", tid)
-	var is_dual: bool = str(tmpl.get("dual_card_id", "")) != ""
+		var rename_row := HBoxContainer.new()
+		rename_row.add_theme_constant_override("separation", int(_ref * 0.006))
+		vb.add_child(rename_row)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_ref * 0.003))
+		var rename_edit := LineEdit.new()
+		rename_edit.text = str(inst.get("custom_name", ""))
+		rename_edit.placeholder_text = disp_name
+		rename_edit.max_length = 24
+		rename_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		rename_edit.custom_minimum_size = Vector2(0, _ref * 0.06)
+		rename_edit.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		rename_row.add_child(rename_edit)
 
-	var top_row := HBoxContainer.new()
-	top_row.add_theme_constant_override("separation", int(_vw * 0.008))
-	vbox.add_child(top_row)
+		var rename_btn := Button.new()
+		rename_btn.text = "Rename"
+		rename_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.06)
+		rename_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		rename_btn.pressed.connect(func() -> void:
+			SceneManager.save_manager.set_card_custom_name(uid, rename_edit.text)
+			_hide_instance_detail()
+			_refresh_cards())
+		rename_row.add_child(rename_btn)
 
-	var swatch := ColorRect.new()
-	swatch.color = card_color
-	swatch.custom_minimum_size = Vector2(_ref * 0.03, _ref * 0.03)
-	top_row.add_child(swatch)
-
-	var name_lbl := Label.new()
-	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_row.add_child(name_lbl)
-
-	if is_dual:
-		var dual_badge := Label.new()
-		dual_badge.text = "◑"
-		dual_badge.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		dual_badge.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
-		dual_badge.tooltip_text = "Dual-faced card"
-		top_row.add_child(dual_badge)
-
-	var count_lbl := Label.new()
-	count_lbl.text = "×%d" % count
-	count_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	count_lbl.modulate = Color(0.85, 0.85, 0.85)
-	top_row.add_child(count_lbl)
-
-	var rm_btn := Button.new()
-	rm_btn.text = "−"
-	rm_btn.custom_minimum_size = Vector2(_ref * 0.065, _ref * 0.065)
-	rm_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	if _working_deck.size() <= IsoConst.DECK_MIN:
-		if OS.has_feature("android"):
-			rm_btn.modulate = Color(1, 1, 1, 0.4)
-			rm_btn.pressed.connect(func() -> void:
-				GameBus.hud_message_requested.emit("Minimum deck size reached"))
-		else:
-			rm_btn.disabled = true
-			rm_btn.tooltip_text = "Minimum deck size reached"
-	else:
-		rm_btn.pressed.connect(_on_remove_by_type.bind(tid, "common"))
-	top_row.add_child(rm_btn)
-
-	var base_atk: int  = int(tmpl.get("attack", 0))
-	var base_hp: int   = int(tmpl.get("health", 0))
-	var base_cost: int = int(tmpl.get("cost", 0))
-	var stats_lbl := Label.new()
-	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [base_cost, base_atk, base_hp]
-	stats_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	stats_lbl.modulate = Color(0.75, 0.75, 0.75)
-	vbox.add_child(stats_lbl)
-
-	var lpd := LongPressDetector.new()
-	vbox.add_child(lpd)
-	lpd.long_pressed.connect(func() -> void: _show_inspect(tid))
-
-	return vbox
+	popup.popup(Rect2i(anchor.get_screen_transform().origin as Vector2i, Vector2i(int(_ref * 0.34), 0)))
 
 # Individual deck slot for a rare/epic/legendary card — shows its rolled stats.
 func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
@@ -1138,60 +992,21 @@ func _show_confirm(action_row: HBoxContainer, confirm_row: HBoxContainer, label:
 # Deck mutation actions
 # -------------------------------------------------------------------------
 
-# Add one common copy of tid to the working deck.
-func _on_add_by_type(tid: String, rarity: String) -> void:
-	if _working_deck.size() >= IsoConst.DECK_MAX:
-		return
-	for inst: Dictionary in SceneManager.save_manager.get_owned_instances():
-		if str(inst.get("template_id", "")) == tid and str(inst.get("rarity", "")) == rarity:
-			var uid: String = str(inst.get("uid", ""))
-			if not _working_deck.has(uid):
-				_working_deck.append(uid)
-				_refresh_cards()
-				return
-
-# Add a specific rare/epic/legendary instance by UID.
+# Add a specific instance by UID.
 func _on_add_by_uid(uid: String) -> void:
 	if _working_deck.size() >= IsoConst.DECK_MAX or _working_deck.has(uid):
 		return
 	_working_deck.append(uid)
+	_hide_instance_detail()
 	_refresh_cards()
 
-# Remove one common copy of tid from the working deck.
-func _on_remove_by_type(tid: String, rarity: String) -> void:
-	for uid: String in _working_deck:
-		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(uid)
-		if str(inst.get("template_id", "")) == tid and str(inst.get("rarity", "")) == rarity:
-			_working_deck.erase(uid)
-			_refresh_cards()
-			return
-
-# Remove a specific rare/epic/legendary instance by UID.
+# Remove a specific instance by UID.
 func _on_remove_by_uid(uid: String) -> void:
+	if _working_deck.size() <= IsoConst.DECK_MIN:
+		GameBus.hud_message_requested.emit("Minimum deck size reached")
+		return
 	_working_deck.erase(uid)
-	_refresh_cards()
-
-# Returns the first non-deck copy UID for (tid, rarity), or "".
-func _find_available_uid(tid: String, rarity: String) -> String:
-	for inst: Dictionary in SceneManager.save_manager.get_owned_instances():
-		if str(inst.get("template_id", "")) == tid and str(inst.get("rarity", "")) == rarity:
-			var uid: String = str(inst.get("uid", ""))
-			if not _working_deck.has(uid):
-				return uid
-	return ""
-
-func _do_sell_by_type(tid: String, rarity: String) -> void:
-	var uid: String = _find_available_uid(tid, rarity)
-	if uid == "":
-		return
-	SceneManager.save_manager.sell_card_instance(uid)
-	_refresh_cards()
-
-func _do_scrap_by_type(tid: String, rarity: String) -> void:
-	var uid: String = _find_available_uid(tid, rarity)
-	if uid == "":
-		return
-	SceneManager.save_manager.scrap_card_instance(uid)
+	_hide_instance_detail()
 	_refresh_cards()
 
 # -------------------------------------------------------------------------

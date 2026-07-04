@@ -119,6 +119,18 @@ func _input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
+			KEY_B:
+				show_tab("deck")
+				get_viewport().set_input_as_handled()
+			KEY_C:
+				show_tab("character")
+				get_viewport().set_input_as_handled()
+			KEY_K:
+				show_tab("skills")
+				get_viewport().set_input_as_handled()
+			KEY_J:
+				show_tab("journal")
+				get_viewport().set_input_as_handled()
 			KEY_BRACKETLEFT:
 				_cycle_tab(-1)
 				get_viewport().set_input_as_handled()

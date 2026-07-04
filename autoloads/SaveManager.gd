@@ -1066,37 +1066,26 @@ func set_active_deck(new_deck: Array[String]) -> void:
 		loadouts[active_loadout]["cards"] = synced
 	_dirty = true
 
-## Counts slots used: 1 per unique common template + 1 per rare/epic/legendary instance.
-func get_slot_count() -> int:
-	var common_templates: Dictionary = {}
-	var rare_plus: int = 0
+## Counts backpack slots used: every owned instance takes 1 slot, except cards
+## currently in the active deck (or `deck_uids`, if given) — those live in the
+## deck, not the backpack. Each instance has its own rolled stats even at the
+## same rarity, so commons no longer stack into a single slot.
+func get_slot_count(deck_uids: Array = []) -> int:
+	var excluded: Array = deck_uids if not deck_uids.is_empty() else player_deck
+	var count: int = 0
 	for inst: Dictionary in owned_cards:
-		var rarity: String = str(inst.get("rarity", "common"))
-		var tid: String = str(inst.get("template_id", ""))
-		if rarity == "common":
-			common_templates[tid] = true
-		else:
-			rare_plus += 1
-	return common_templates.size() + rare_plus
+		if not excluded.has(str(inst.get("uid", ""))):
+			count += 1
+	return count
 
 func is_bag_full() -> bool:
 	return get_slot_count() >= bag_size
-
-## Returns true if adding (template_id, rarity) would consume a NEW slot.
-## Commons share a slot per template; rare+ always need a new slot.
-func _would_fill_slot(template_id: String, rarity: String) -> bool:
-	if rarity != "common":
-		return true
-	for inst: Dictionary in owned_cards:
-		if str(inst.get("template_id", "")) == template_id and str(inst.get("rarity", "")) == "common":
-			return false
-	return true
 
 ## Creates a new card instance with the given stats and appends it to owned_cards.
 ## Returns the generated UID, or "" if the bag is full (emits GameBus.bag_full).
 ## attack/health/cost default to the card template's base stats.
 func add_card_instance(template_id: String, rarity: String, attack: int = -1, health: int = -1, cost: int = -1) -> String:
-	if _would_fill_slot(template_id, rarity) and is_bag_full():
+	if is_bag_full():
 		GameBus.bag_full.emit()
 		return ""
 	var tmpl: Dictionary = CardRegistry.get_template(template_id)

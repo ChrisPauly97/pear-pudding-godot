@@ -128,45 +128,43 @@ func to_dict() -> Dictionary:
 	}
 
 
-## Rebuild a SessionState from a parsed dict. Always returns a valid object; missing
-## or garbage fields fall back to safe defaults so a corrupt file can't crash load.
-static func from_dict(data: Dictionary) -> SessionState:
+## Populate this SessionState from a parsed dict. Missing or garbage fields fall
+## back to safe defaults so a corrupt file can't crash load.
+func from_dict(data: Dictionary) -> void:
 	_apply_migrations(data)
-	var s := SessionState.new()
-	s.session_id = str(data.get("session_id", ""))
-	s.display_name = str(data.get("display_name", "Session"))
-	s.current_map = str(data.get("current_map", "madrian"))
-	s.world_seed = int(data.get("world_seed", 42))
-	s.time_of_day = float(data.get("time_of_day", 0.4))
-	s.days_elapsed = int(data.get("days_elapsed", 0))
-	s.weather_id = str(data.get("weather_id", ""))
+	session_id = str(data.get("session_id", ""))
+	display_name = str(data.get("display_name", "Session"))
+	current_map = str(data.get("current_map", "madrian"))
+	world_seed = int(data.get("world_seed", 42))
+	time_of_day = float(data.get("time_of_day", 0.4))
+	days_elapsed = int(data.get("days_elapsed", 0))
+	weather_id = str(data.get("weather_id", ""))
 	var de: Variant = data.get("defeated_enemies", [])
-	s.defeated_enemies = (de as Array).duplicate() if de is Array else []
+	defeated_enemies = (de as Array).duplicate() if de is Array else []
 	var oc: Variant = data.get("opened_chests", [])
-	s.opened_chests = (oc as Array).duplicate() if oc is Array else []
+	opened_chests = (oc as Array).duplicate() if oc is Array else []
 	var sf: Variant = data.get("story_flags", {})
-	s.story_flags = (sf as Dictionary).duplicate(true) if sf is Dictionary else {}
+	story_flags = (sf as Dictionary).duplicate(true) if sf is Dictionary else {}
 	var mem: Variant = data.get("members", {})
-	s.members = (mem as Dictionary).duplicate(true) if mem is Dictionary else {}
+	members = (mem as Dictionary).duplicate(true) if mem is Dictionary else {}
 	var pb: Variant = data.get("party_bounties", [])
-	s.party_bounties = (pb as Array).duplicate(true) if pb is Array else []
+	party_bounties = (pb as Array).duplicate(true) if pb is Array else []
 	var stash_v: Variant = data.get("stash", {})
 	if stash_v is Dictionary:
 		var stash_dict: Dictionary = (stash_v as Dictionary).duplicate(true)
 		var stash_cards: Variant = stash_dict.get("cards", [])
-		s.stash = {
+		stash = {
 			"cards": (stash_cards as Array).duplicate(true) if stash_cards is Array else [],
 			"coins": int(stash_dict.get("coins", 0)),
 		}
 	else:
-		s.stash = {"cards": [], "coins": 0}
+		stash = {"cards": [], "coins": 0}
 	var lb: Variant = data.get("leaderboards", {})
-	s.leaderboards = _sanitized_leaderboards(lb as Dictionary if lb is Dictionary else {})
+	leaderboards = _sanitized_leaderboards(lb as Dictionary if lb is Dictionary else {})
 	var lm: String = str(data.get("loot_mode", LOOT_MODE_FIRST_OPENER))
-	s.loot_mode = lm if lm == LOOT_MODE_NEED_GREED else LOOT_MODE_FIRST_OPENER
+	loot_mode = lm if lm == LOOT_MODE_NEED_GREED else LOOT_MODE_FIRST_OPENER
 	var auc: Variant = data.get("auctions", [])
-	s.auctions = (auc as Array).duplicate(true) if auc is Array else []
-	return s
+	auctions = (auc as Array).duplicate(true) if auc is Array else []
 
 
 ## Always returns a dict with "spire", "coop_clears" and "night_hunts" Array keys,

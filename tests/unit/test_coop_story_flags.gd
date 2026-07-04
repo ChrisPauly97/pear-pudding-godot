@@ -22,7 +22,8 @@ func test_story_flags_survive_round_trip() -> void:
 	var s := SessionState.new()
 	s.story_flags["chapter1_left_madrian"] = true
 	s.story_flags["tutorial_done"] = true
-	var restored := SessionState.from_dict(s.to_dict())
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
 	assert_true(bool(restored.story_flags.get("chapter1_left_madrian", false)),
 		"chapter1_left_madrian must survive round-trip")
 	assert_true(bool(restored.story_flags.get("tutorial_done", false)),
@@ -32,7 +33,8 @@ func test_story_flags_survive_round_trip() -> void:
 func test_story_flags_false_value_survives_round_trip() -> void:
 	var s := SessionState.new()
 	s.story_flags["some_flag"] = false
-	var restored := SessionState.from_dict(s.to_dict())
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
 	assert_false(bool(restored.story_flags.get("some_flag", true)),
 		"false flag value must survive round-trip")
 
@@ -40,7 +42,8 @@ func test_story_flags_false_value_survives_round_trip() -> void:
 func test_story_flags_garbage_input_defaults_to_empty() -> void:
 	# If the session data carries a non-dict story_flags, from_dict must not crash.
 	var data: Dictionary = {"session_id": "x", "members": {}, "story_flags": 42}
-	var s := SessionState.from_dict(data)
+	var s := SessionState.new()
+	s.from_dict(data)
 	assert_true(s.story_flags.is_empty(), "non-dict story_flags must fall back to empty")
 
 

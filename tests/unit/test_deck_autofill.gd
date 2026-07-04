@@ -61,3 +61,19 @@ func test_fill_empty_available_returns_working_deck() -> void:
 	var working: Array[String] = ["u0", "u1"]
 	var result: Array[String] = DeckAutoFill.fill(working, [], 10)
 	assert_eq(result.size(), 2, "cannot exceed what is available")
+
+func test_fill_prefers_one_copy_per_name_before_duplicates() -> void:
+	# Two different cards, each owned at two rarities. With only 2 slots,
+	# the best copy of each unique card should be chosen over a second
+	# duplicate copy of either card.
+	var available: Array[Dictionary] = [
+		_make_inst("ghost_common", "ghost", "common", 3),
+		_make_inst("ghost_rare", "ghost", "rare", 3),
+		_make_inst("zombie_common", "zombie", "common", 3),
+		_make_inst("zombie_rare", "zombie", "rare", 3),
+	]
+	var result: Array[String] = DeckAutoFill.fill([], available, 2)
+	assert_true(result.has("ghost_rare"), "should pick the rare ghost over the common one")
+	assert_true(result.has("zombie_rare"), "should pick the rare zombie over the common one")
+	assert_false(result.has("ghost_common"), "should not add a duplicate ghost before every card is represented")
+	assert_false(result.has("zombie_common"), "should not add a duplicate zombie before every card is represented")

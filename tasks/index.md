@@ -112,6 +112,7 @@
 | [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | pending | 0 / 4 |
 | [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | done (needs headless test run + visual verification — see TID-398) | 5 / 5 |
 | [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | in-progress | 2 / 10 |
+| [GID-109](goals/GID-109--keybindings-settings/goal.md) | Desktop Keybindings Settings Page | pending | 0 / 2 |
 
 ## Backlog
 

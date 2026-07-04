@@ -38,6 +38,23 @@ The scene has two panels side by side:
 
 Changes are written back to `SaveManager` immediately on every add/remove button press; `SaveManager` queues a disk write (batched, 2-second interval).
 
+Note: `owned_cards` is actually `Array[Dictionary]` of card **instances** (uid, template_id, rarity, rolled attack/health/cost, kills, custom_name, …), not an `Array[String]` of card IDs — every instance rolls its own stats, so even two commons of the same template can differ. See `_CardInstanceUtil.make()`.
+
+### Backpack Capacity (the "Bag")
+
+`SaveManager.bag_size` caps how many card instances the player can hold **outside their active deck**. Every owned instance takes exactly one backpack slot — there is no stacking, since same-rarity copies can roll different stats — except instances currently in the active deck, which don't count against the cap at all (they've "moved" into the deck).
+
+```gdscript
+SaveManager.get_slot_count(deck_uids: Array = []) -> int   # counts owned_cards not in deck_uids (default: player_deck)
+SaveManager.is_bag_full() -> bool                          # get_slot_count() >= bag_size
+```
+
+`InventoryScene` passes its unsaved `_working_deck` into `get_slot_count()` so the "Bag: X / Y" label updates live as cards are dragged between the collection grid and the deck list, before "Save Deck" commits `_working_deck` to `SaveManager.player_deck`. `add_card_instance()` rejects new cards (returns `""`, emits `GameBus.bag_full`) once `is_bag_full()` is true against the *committed* deck — battle rewards, chest drops, and crafted cards are silently dropped when the bag is full; there is no overflow mailbox/stash yet.
+
+The collection panel renders the backpack as a grid of Diablo-3-style cube tiles (`_make_card_tile`), one per instance. Hovering (desktop) or tap-and-holding (mobile, via `LongPressDetector`) opens a detail popup with rolled stats and the Sell/Scrap/Combine/Rename actions that used to live inline per-row. A plain tap/click adds the card to the working deck (or removes it, on the deck side).
+
+`DeckAutoFill.fill()` treats the highest-rarity owned copy of each template as the "primary" pick for that card and fills the whole deck from primary picks before falling back to lower-rarity duplicates of an already-represented card — so Auto-Fill favors card diversity plus best-copy-per-card over just piling in extra copies of the same name.
+
 ### Starter Deck
 
 When `SaveManager.new_game()` is called, both arrays are initialised:

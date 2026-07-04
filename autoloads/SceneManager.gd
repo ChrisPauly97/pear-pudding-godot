@@ -29,6 +29,14 @@ const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const _GambitPickerOverlay = preload("res://scenes/battle/GambitPickerOverlay.gd")
 const _MenuHubScript = preload("res://scenes/ui/MenuHubScene.gd")
 
+## Rebindable keyboard actions exposed in the Keybindings settings section.
+## Order is the display order in SettingsScene.
+const REBINDABLE_ACTIONS: Array[String] = [
+	"move_up", "move_down", "move_left", "move_right",
+	"interact", "jump",
+	"inventory", "map_view", "character", "skill_tree", "journal", "mount", "pause",
+]
+
 # Ghost duels (GID-102 / TID-377): flat, modest, clearly-async coin reward on win.
 # No rating change ever (see enter_ghost_duel doc comment) — coins only.
 const GHOST_DUEL_COIN_REWARD: int = 25
@@ -98,6 +106,7 @@ var save_manager: Node
 
 func _ready() -> void:
 	save_manager = SaveManager
+	apply_keybindings()
 	_toast = _AchievementToastScript.new()
 	add_child(_toast)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged)
@@ -246,6 +255,38 @@ func _apply_audio_settings() -> void:
 	var sv: float = float(save_manager.get_setting("sfx_volume", 1.0))
 	AudioManager.set_music_volume(mv)
 	AudioManager.set_sfx_volume(sv)
+
+## Apply saved keybinding overrides to InputMap.
+## Called at startup (via _ready) and whenever the player saves a new binding.
+## Reloads project defaults first so clearing an override always restores the
+## original key. Joypad events are untouched because load_from_project_settings
+## restores the full action list including joypad bindings.
+func apply_keybindings() -> void:
+	# Restore all actions to project.godot defaults first.
+	# This guarantees that removing an override re-exposes the default key.
+	InputMap.load_from_project_settings()
+	if save_manager == null:
+		return
+	var raw: Variant = save_manager.get_setting("keybindings", {})
+	if not raw is Dictionary:
+		return
+	var overrides: Dictionary = raw as Dictionary
+	for action: String in REBINDABLE_ACTIONS:
+		if not InputMap.has_action(action):
+			continue
+		if not overrides.has(action):
+			continue  # No override — project default restored above is correct
+		# Replace the first InputEventKey with the saved physical keycode
+		var existing_key_event: InputEventKey = null
+		for ev in InputMap.action_get_events(action):
+			if ev is InputEventKey:
+				existing_key_event = ev
+				break
+		if existing_key_event != null:
+			InputMap.action_erase_event(action, existing_key_event)
+		var new_ev := InputEventKey.new()
+		new_ev.physical_keycode = int(overrides[action])
+		InputMap.action_add_event(action, new_ev)
 
 func continue_game() -> void:
 	if not save_manager.load_save():

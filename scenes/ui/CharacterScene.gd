@@ -5,6 +5,7 @@ const WeaponData = preload("res://data/WeaponData.gd")
 const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
 const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
+const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 
 var hub_mode: bool = false
 
@@ -15,6 +16,10 @@ var _picker_title: Label
 var _picker_list: VBoxContainer
 var _unequip_btn: Button
 var _picker_panel: Control
+
+var _compare_popup: PopupPanel = null
+var _hovered_compare_item: String = ""
+var _hovered_compare_row: Control = null
 
 const _SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket"]
 const _SLOT_LABELS: Dictionary = {
@@ -208,6 +213,8 @@ func _refresh_slot_buttons() -> void:
 			_companion_btn.modulate = Color(1.0, 1.0, 0.5)
 
 func _refresh_picker() -> void:
+	_hide_compare_tooltip()
+	_hovered_compare_item = ""
 	for child in _picker_list.get_children():
 		child.queue_free()
 
@@ -372,6 +379,25 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 	equip_btn.pressed.connect(_on_equip.bind(item_id))
 	row.add_child(equip_btn)
 
+	# Compare against the currently equipped item in this slot: hold Shift while
+	# hovering on desktop, or tap-and-hold on mobile (no Shift key there).
+	if not is_equipped:
+		row.mouse_filter = Control.MOUSE_FILTER_PASS
+		row.mouse_entered.connect(func() -> void:
+			_hovered_compare_item = item_id
+			_hovered_compare_row = row
+			if Input.is_key_pressed(KEY_SHIFT):
+				_show_compare_tooltip(item_id, w, row))
+		row.mouse_exited.connect(func() -> void:
+			if _hovered_compare_item == item_id:
+				_hovered_compare_item = ""
+				_hovered_compare_row = null
+				_hide_compare_tooltip())
+
+		var lpd := LongPressDetector.new()
+		row.add_child(lpd)
+		lpd.long_pressed.connect(func() -> void: _show_compare_tooltip(item_id, w, row))
+
 	return row
 
 # -------------------------------------------------------------------------
@@ -421,7 +447,86 @@ func _on_unequip() -> void:
 func _on_close() -> void:
 	closed.emit()
 
+# -------------------------------------------------------------------------
+# Compare tooltip (Shift+hover on desktop, tap-and-hold on mobile)
+# -------------------------------------------------------------------------
+
+func _hide_compare_tooltip() -> void:
+	if _compare_popup != null and is_instance_valid(_compare_popup):
+		_compare_popup.queue_free()
+	_compare_popup = null
+
+func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Control) -> void:
+	_hide_compare_tooltip()
+
+	var sm := SceneManager.save_manager
+	var equipped_id: String = sm.get_equipped_by_slot(candidate.slot)
+	var equipped: WeaponData = WeaponRegistry.get_weapon(equipped_id) if equipped_id != "" else null
+
+	var candidate_lvl: int = 0
+	var equipped_lvl: int = 0
+	if candidate.slot == "weapon":
+		candidate_lvl = int(sm.get_owned_weapon_by_id(item_id).get("upgrade_level", 0))
+		if equipped_id != "":
+			equipped_lvl = int(sm.get_owned_weapon_by_id(equipped_id).get("upgrade_level", 0))
+
+	var popup := PopupPanel.new()
+	add_child(popup)
+	_compare_popup = popup
+
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", int(_ref * 0.008))
+	vb.custom_minimum_size = Vector2(_ref * 0.34, 0)
+	popup.add_child(vb)
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Compare — %s" % _SLOT_LABELS.get(candidate.slot, candidate.slot.capitalize())
+	title_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(title_lbl)
+
+	var equipped_lbl := Label.new()
+	equipped_lbl.text = "Equipped: %s\n%s" % [
+		(equipped.display_name if equipped != null else "(empty)"),
+		(UpgradeDefs.get_display_string(equipped, equipped_lvl) if equipped != null else "—"),
+	]
+	equipped_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
+	equipped_lbl.modulate = Color(0.75, 0.75, 0.75)
+	equipped_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(equipped_lbl)
+
+	vb.add_child(HSeparator.new())
+
+	var candidate_lbl := Label.new()
+	candidate_lbl.text = "%s\n%s" % [
+		candidate.display_name,
+		UpgradeDefs.get_display_string(candidate, candidate_lvl),
+	]
+	candidate_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
+	candidate_lbl.modulate = Color(0.6, 1.0, 0.7)
+	candidate_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vb.add_child(candidate_lbl)
+
+	if equipped != null and equipped.battle_effect_type == candidate.battle_effect_type:
+		var delta: int = candidate.battle_effect_value - equipped.battle_effect_value
+		if delta != 0:
+			var delta_lbl := Label.new()
+			delta_lbl.text = "%+d vs equipped" % delta
+			delta_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
+			delta_lbl.modulate = Color(0.4, 1.0, 0.5) if delta > 0 else Color(1.0, 0.45, 0.4)
+			vb.add_child(delta_lbl)
+
+	popup.popup(Rect2i(anchor.get_screen_transform().origin as Vector2i, Vector2i(int(_ref * 0.34), 0)))
+
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.keycode == KEY_SHIFT:
+		if _hovered_compare_item != "" and _hovered_compare_row != null:
+			if event.pressed:
+				var w: WeaponData = WeaponRegistry.get_weapon(_hovered_compare_item)
+				if w != null:
+					_show_compare_tooltip(_hovered_compare_item, w, _hovered_compare_row)
+			else:
+				_hide_compare_tooltip()
 	if hub_mode:
 		return
 	if event.is_action_pressed("character"):

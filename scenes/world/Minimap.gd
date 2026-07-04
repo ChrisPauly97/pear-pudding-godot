@@ -217,9 +217,10 @@ func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,
 	for id in nodes:
 		if str(id) == skip_id:
 			continue
-		var n: Node3D = nodes[id]
-		if not is_instance_valid(n):
+		var raw = nodes[id]
+		if not is_instance_valid(raw):
 			continue
+		var n: Node3D = raw
 		var off: Vector3 = n.position - origin
 		# Rotate +45° to match the isometric camera's −45° azimuth:
 		# iso screen-right = world NE (+x,0,−z), iso screen-up = world NW (−x,0,−z).
@@ -239,9 +240,10 @@ func _draw_enemy_nodes(canvas: Control, origin: Vector3) -> void:
 	for id in _enemy_nodes:
 		if str(id) == "roaming_boss":
 			continue
-		var n: Node3D = _enemy_nodes[id]
-		if not is_instance_valid(n):
+		var raw = _enemy_nodes[id]
+		if not is_instance_valid(raw):
 			continue
+		var n: Node3D = raw
 		var off: Vector3 = n.position - origin
 		var rx: float = (off.x - off.z) * ROT45
 		var ry: float = (off.x + off.z) * ROT45

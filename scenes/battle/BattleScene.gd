@@ -632,7 +632,7 @@ func _do_play_card(card: CardInstance, player_idx: int) -> bool:
 	else:
 		ok = _state.players[player_idx].play_card(card)
 	if ok:
-		GameBus.card_played.emit(card.card_id, "spell", -1)
+		GameBus.card_played.emit(card.template_id, "spell", -1)
 	return ok
 
 func _apply_ui_sizes() -> void:
@@ -744,10 +744,33 @@ func _input(event: InputEvent) -> void:
 ## Wire _player_board_view as the native drop target for hand-card drags.
 ## Called once from _ready() after the board node is ready.
 func _setup_board_drop_zone() -> void:
+	# MOUSE_FILTER_STOP is required so the HBoxContainer (which defaults to
+	# MOUSE_FILTER_IGNORE) actually receives drop events from hand-card drags.
+	_player_board_view.mouse_filter = Control.MOUSE_FILTER_STOP
 	_player_board_view.set_drag_forwarding(
 		func(_pos: Vector2) -> Variant: return null,
 		func(pos: Vector2, data: Variant) -> bool: return _board_can_drop(pos, data),
 		func(pos: Vector2, data: Variant) -> void: _board_drop(pos, data)
+	)
+	# Wire the enemy hero as a drop target for attack drags ({"attacker": card}).
+	_enemy_hero_view.set_drag_forwarding(
+		func(_pos: Vector2) -> Variant: return null,
+		func(_pos: Vector2, data: Variant) -> bool:
+			if not (data is Dictionary) or not data.has("attacker"):
+				return false
+			var attacker: CardInstance = data["attacker"] as CardInstance
+			if attacker == null or not attacker.can_attack():
+				return false
+			for ec: CardInstance in _state.players[_opp_idx()].board.get_cards():
+				if ec.keywords.has(Keywords.WARD):
+					return false
+			return true,
+		func(_pos: Vector2, data: Variant) -> void:
+			if not (data is Dictionary) or not data.has("attacker"):
+				return
+			var attacker: CardInstance = data["attacker"] as CardInstance
+			if attacker != null:
+				_attempt_attack(attacker, null)
 	)
 
 ## Called by Godot when the dragged card is released over _player_board_view.
@@ -760,7 +783,7 @@ func _board_drop(local_pos: Vector2, data: Variant) -> void:
 	_hand_drag_card = null
 	_refresh_player_board()
 
-	var global_pos: Vector2 = _player_board_view.to_global(local_pos)
+	var global_pos: Vector2 = _player_board_view.global_position + local_pos
 	var is_enemy_targeted: bool = SpellEffectResolver.ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
 	var is_friendly_targeted: bool = SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
 	var is_slot_targeted: bool = SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(played_card.spell_effect)
@@ -988,7 +1011,7 @@ func _do_play_card_at_slot(card: CardInstance, player_idx: int, slot_idx: int) -
 	else:
 		ok = _state.players[player_idx].play_card_at_slot(card, slot_idx)
 	if ok:
-		GameBus.card_played.emit(card.card_id, "board", slot_idx)
+		GameBus.card_played.emit(card.template_id, "board", slot_idx)
 	return ok
 
 func _enter_slot_select_mode(card: CardInstance) -> void:
@@ -1459,8 +1482,37 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 		)
 	elif zone_id == "board" and _state.current_player_idx == _my_idx():
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_board_card_input(event, card))
+		# Drag-to-attack: dragging a board card returns {"attacker": card} so it can
+		# be dropped onto an enemy card panel or the enemy hero view.
+		panel.set_drag_forwarding(
+			func(_pos: Vector2) -> Variant:
+				if not _can_local_act() or not card.can_attack():
+					return null
+				return {"attacker": card},
+			func(_pos: Vector2, _data: Variant) -> bool: return false,
+			func(_pos: Vector2, _data: Variant) -> void: pass
+		)
 	elif zone_id == "enemy_board":
 		panel.gui_input.connect(func(event: InputEvent) -> void: _on_enemy_card_input(event, card))
+		# Accept attack drags ({"attacker": card}) dropped onto enemy minions.
+		panel.set_drag_forwarding(
+			func(_pos: Vector2) -> Variant: return null,
+			func(_pos: Vector2, data: Variant) -> bool:
+				if not (data is Dictionary) or not data.has("attacker"):
+					return false
+				var attacker: CardInstance = data["attacker"] as CardInstance
+				if attacker == null or not attacker.can_attack():
+					return false
+				var valid: Array[CardInstance] = _view.get_ward_valid_targets(
+					_state.players[_opp_idx()].board.get_cards())
+				return valid.has(card),
+			func(_pos: Vector2, data: Variant) -> void:
+				if not (data is Dictionary) or not data.has("attacker"):
+					return
+				var attacker: CardInstance = data["attacker"] as CardInstance
+				if attacker != null:
+					_attempt_attack(attacker, card)
+		)
 	# Right-click inspect — not on enemy hand (hidden information)
 	if zone_id != "enemy_hand":
 		panel.gui_input.connect(func(event: InputEvent) -> void:
@@ -1481,6 +1533,8 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(_vh * 0.10, _vh * 0.19)
+	# Prevent HBoxContainer from expanding cards horizontally beyond minimum_size.
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if zone_id == "enemy_hand":
 		var back_style := StyleBoxFlat.new()
 		back_style.bg_color = Color(0.15, 0.10, 0.28)
@@ -1628,7 +1682,7 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 			attacker.battle_kills += 1
 			_state.players[_opp_idx()].board.remove_card(target)
 			_state.players[_opp_idx()].discard.append(target)
-		GameBus.card_attacked.emit(attacker.card_id, target.card_id)
+		GameBus.card_attacked.emit(attacker.template_id, target.template_id)
 	else:
 		if _capture_tracker != null:
 			_capture_tracker.note_minion_attacked_hero(0)
@@ -1638,7 +1692,7 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 		attacker.attack_count -= 1
 		_fx.flash_node(_enemy_hero_view, Color(1.0, 0.3, 0.3, 1.0))
 		_fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
-		GameBus.card_attacked.emit(attacker.card_id, "hero")
+		GameBus.card_attacked.emit(attacker.template_id, "hero")
 	if not attacker.is_alive():
 		_state.players[_my_idx()].board.remove_card(attacker)
 		_state.players[_my_idx()].discard.append(attacker)
