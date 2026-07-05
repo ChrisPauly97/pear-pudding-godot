@@ -19,6 +19,10 @@ var wager_coins: int = 0
 var puzzle_mode: bool = false
 var puzzle_data_id: String = ""
 
+# Scripted story battle (GID-108): fixed decks, deterministic draw order, no mid-battle save.
+var scripted_battle: bool = false
+var scripted_battle_id: String = ""
+
 # Ranked PvP opt-in (GID-102 / TID-373). Distinct from `friendly_duel`, which is the
 # single-player NPC wager-duel mode (disables capture-tracking / companion bonuses) and
 # is unrelated to co-op `_pvp` battles. When true, the duel's outcome moves both
@@ -302,6 +306,39 @@ func load_puzzle(p: Resource) -> void:
 	current_player_idx = 0
 	turn_number = 1
 
+## Builds a GameState seeded from a ScriptedBattleData resource (GID-108).
+## Both sides get a fixed, deterministic draw deck (no shuffle) — see
+## PlayerState.build_scripted_deck(). Unlike load_puzzle(), this is a real
+## deck-and-draw battle: the opening hand is drawn from the ordered deck rather
+## than placed directly, so the normal turn/draw/attack loop plays out exactly
+## as authored.
+func load_scripted_battle(d: Resource) -> void:
+	const SBD = preload("res://game_logic/battle/ScriptedBattleData.gd")
+
+	var sdata: SBD = d as SBD
+	if sdata == null:
+		push_error("GameState.load_scripted_battle: invalid ScriptedBattleData resource")
+		return
+
+	scripted_battle = true
+	scripted_battle_id = sdata.battle_id
+
+	players[0].hero.health = sdata.player_hero_hp
+	players[0].hero.max_health = sdata.player_hero_hp
+	players[0].build_scripted_deck(sdata.player_deck_order)
+	players[0].draw_opening_hand(sdata.opening_hand_count)
+
+	players[1].hero.health = sdata.enemy_hero_hp
+	players[1].hero.max_health = sdata.enemy_hero_hp
+	players[1].build_scripted_deck(sdata.enemy_deck_order)
+	players[1].draw_opening_hand(sdata.enemy_opening_hand_count)
+
+	current_player_idx = 0
+	turn_number = 1
+	player_turn_numbers.clear()
+	player_turn_numbers.append(1)
+	player_turn_numbers.append(0)
+
 ## Sets battlefield context on this GameState and propagates to all PlayerStates.
 ## Call once after building a new GameState for a non-resumed battle.
 func set_battlefield_context(biome: int, night: bool) -> void:
@@ -371,6 +408,8 @@ func to_dict() -> Dictionary:
 		"wager_coins": wager_coins,
 		"puzzle_mode": puzzle_mode,
 		"puzzle_data_id": puzzle_data_id,
+		"scripted_battle": scripted_battle,
+		"scripted_battle_id": scripted_battle_id,
 		"battlefield_biome": battlefield_biome,
 		"is_night": is_night,
 		"coop_battle": coop_battle,
@@ -393,6 +432,8 @@ func from_dict(d: Dictionary) -> void:
 	wager_coins = int(d.get("wager_coins", 0))
 	puzzle_mode = bool(d.get("puzzle_mode", false))
 	puzzle_data_id = str(d.get("puzzle_data_id", ""))
+	scripted_battle = bool(d.get("scripted_battle", false))
+	scripted_battle_id = str(d.get("scripted_battle_id", ""))
 	battlefield_biome = int(d.get("battlefield_biome", -1))
 	is_night = bool(d.get("is_night", false))
 	ranked = bool(d.get("ranked", false))
