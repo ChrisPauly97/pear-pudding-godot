@@ -14,6 +14,7 @@ enum State {
 	SKILL_TREE,   # kept for backwards-compat; no longer used by routing
 	PACK_OPEN,
 	BOUNTY_BOARD,
+	MAILBOX,
 	BLACKSMITH,
 	MENU_HUB,
 }
@@ -57,6 +58,7 @@ var _achievements_scene_packed := preload("res://scenes/ui/AchievementsScene.tsc
 var _run_summary_scene_packed := preload("res://scenes/ui/RunSummaryScene.tscn")
 var _spire_draft_scene_packed := preload("res://scenes/ui/SpireDraftScene.tscn")
 var _bounty_board_scene_packed := preload("res://scenes/ui/BountyBoardScene.tscn")
+var _mailbox_scene_packed := preload("res://scenes/ui/MailboxScene.tscn")
 var _blacksmith_scene_packed := preload("res://scenes/ui/BlacksmithScene.tscn")
 
 var _state: State = State.MENU
@@ -123,6 +125,7 @@ func _ready() -> void:
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 	GameBus.shop_requested.connect(_on_shop_requested)
 	GameBus.bounty_board_requested.connect(_on_bounty_board_requested)
+	GameBus.mailbox_requested.connect(_on_mailbox_requested)
 	GameBus.blacksmith_requested.connect(_on_blacksmith_requested)
 	GameBus.traveling_shop_requested.connect(_on_traveling_shop_requested)
 	GameBus.journal_requested.connect(_on_journal_requested)
@@ -1367,6 +1370,9 @@ func _on_traveling_shop_requested(stock: Array[String], price: int) -> void:
 
 func _on_bounty_board_requested() -> void:
 	_open_overlay(_bounty_board_scene_packed, State.BOUNTY_BOARD)
+
+func _on_mailbox_requested() -> void:
+	_open_overlay(_mailbox_scene_packed, State.MAILBOX)
 
 func _on_blacksmith_requested() -> void:
 	_open_overlay(_blacksmith_scene_packed, State.BLACKSMITH)

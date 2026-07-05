@@ -21,7 +21,7 @@ Scope boundary (researched call sites of `add_card_instance`, 2026-07-04):
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-411 | Mailbox persistence & reward routing in SaveManager | agent | done | — |
-| TID-412 | Mailbox world entity + interaction wiring across maps | agent | pending | TID-411 |
+| TID-412 | Mailbox world entity + interaction wiring across maps | agent | done | TID-411 |
 | TID-413 | Mailbox overlay UI (claim/sell/scrap) | agent | pending | TID-412 |
 
 ## Acceptance Criteria

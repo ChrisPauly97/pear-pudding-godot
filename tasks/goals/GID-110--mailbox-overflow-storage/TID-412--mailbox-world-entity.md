@@ -2,7 +2,7 @@
 
 **Goal:** GID-110
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-411
 
 ## Lock
@@ -57,12 +57,22 @@ Mailbox is structurally closer to **Waystone** (a standalone tracked entity type
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `scenes/world/entities/MailboxNPC.gd` (extends `WorldEntityBase.gd`, distinct postbox look) + `MailboxNPC.tscn` + `.gd.uid` sidecar.
+2. `scenes/world/WorldScene.gd`: add `_mailbox_nodes`/`_active_mailbox_data` tracking dicts, `_MailboxScene` preload, `_NAMED_MAP_MAILBOX_LOCATIONS`, `_spawn_named_map_mailboxes()` (called from `_ready()` after `_spawn_named_map_waystones()`), `_find_nearby_mailbox()`, label-switch case (`"MAIL"`), interact-dispatch case emitting `GameBus.mailbox_requested`.
+3. `autoloads/GameBus.gd`: add `signal mailbox_requested`.
+4. `autoloads/SceneManager.gd`: add `State.MAILBOX`, `_mailbox_scene_packed` preload, connect signal, `_on_mailbox_requested()`.
+5. Create a minimal placeholder `scenes/ui/MailboxScene.gd` (extends `BaseOverlay.gd`) + `.tscn` so the signal chain is testable; TID-413 replaces its contents in place.
 
 ## Changes Made
 
-_Filled after Build phase._
+- New entity: `scenes/world/entities/MailboxNPC.gd` (extends `WorldEntityBase.gd`, procedural post + red mailbox box + flag, `Label3D` "Mailbox", `init_from_data`/`get_dialogue`, `add_to_group("interactable")`) + `MailboxNPC.tscn` + `.gd.uid`/embedded scene uid.
+- `scenes/world/WorldScene.gd`: `_mailbox_nodes`/`_active_mailbox_data` tracking dicts, `_MailboxScene` preload, `_NAMED_MAP_MAILBOX_LOCATIONS` (`madrian`, `maykalene`, `blancogov`, `player_home`), `_spawn_named_map_mailboxes()` (called from `_ready()` after `_spawn_named_map_waystones()`; guarded by `home_owned` for `player_home`), `_find_nearby_mailbox()`, `"MAIL"` interact label, and interact dispatch emitting `GameBus.mailbox_requested`.
+- `autoloads/GameBus.gd`: added `signal mailbox_requested`.
+- `autoloads/SceneManager.gd`: added `State.MAILBOX`, `_mailbox_scene_packed` preload, connected `GameBus.mailbox_requested` to new `_on_mailbox_requested()` which opens the overlay.
+- Placeholder overlay: `scenes/ui/MailboxScene.gd` (extends `BaseOverlay.gd`, backdrop/panel/title/close button) + `.tscn` + `.gd.uid` — proves the signal chain end to end; TID-413 replaces its body in place.
+
+**Verification note:** same sandbox limitation as TID-411 — Godot headless binary could not be installed (403 on the GitHub release download), so `godot --headless --editor --quit` was not run. Verified by manual review against the Waystone precedent this mirrors line-for-line (tracking dicts, injection-only spawn, interact-range lookup, label switch, dispatch).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+_Deferred to end of goal — see GID-110 goal.md._
