@@ -576,6 +576,24 @@ func recv_spire_draft_choice(payload: Array) -> void:
 		world_scene._on_spire_draft_choice_received(payload)
 
 
+## Client → host: a client engaged the co-op Spire floor boss. edata is the raw
+## EnemyNPC.engage() payload. Mirrors submit_siege_boss_engaged. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_spire_boss_engaged(edata: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_spire_boss_engaged_submitted"):
+		world_scene._on_spire_boss_engaged_submitted(sender, edata)
+
+
+## Authority → all: the co-op Spire run has ended (defeat). Carries final stats
+## + party roster (WorldScene._on_coop_spire_battle_ended's payload shape).
+## Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_coop_spire_run_ended(payload: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_coop_spire_run_ended_received"):
+		world_scene._on_coop_spire_run_ended_received(payload)
+
+
 # ── Draft duels — sealed-deck PvP (GID-104 / TID-385) ────────────────────────
 # Deterministic shared-seed model: the challenger generates one integer seed;
 # both peers derive the IDENTICAL sequence of 1-of-3 pick rounds locally via

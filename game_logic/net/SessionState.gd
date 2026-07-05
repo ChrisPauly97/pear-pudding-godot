@@ -30,7 +30,9 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ## v8 — adds `auctions` array for the async card auction house (TID-378).
 ## v9 — adds `weather_id` (synced co-op weather, TID-382) and a `night_hunts`
 ##      PvE leaderboard (party night hunt kill tallies, TID-383).
-const CURRENT_SESSION_VERSION: int = 9
+## v10 — adds a `coop_spire` PvE leaderboard (best floor reached in a co-op
+##       Endless Spire run, GID-106 / TID-391).
+const CURRENT_SESSION_VERSION: int = 10
 
 ## Cap applied to each PvE leaderboard array by record_pve_score (top N kept).
 const PVE_LEADERBOARD_CAP: int = 20
@@ -84,10 +86,15 @@ var stash: Dictionary = {"cards": [], "coins": 0}
 # Authority-owned, session-scoped best-score boards. Distinct from the PvP
 # `get_leaderboard()` ranked-rating board above (TID-370/373) — this is PvE
 # achievement (Endless Spire runs, co-op boss clears), never touches rating.
-# Shape: {spire: Array, coop_clears: Array, night_hunts: Array}, each entry
-# {token, name, value, day}. night_hunts (TID-383) tracks a member's best
-# single-night spectral-kill tally.
-var leaderboards: Dictionary = {"spire": [], "coop_clears": [], "night_hunts": []}
+# Shape: {spire: Array, coop_clears: Array, night_hunts: Array, coop_spire: Array},
+# each entry {token, name, value, day}. night_hunts (TID-383) tracks a member's
+# best single-night spectral-kill tally. coop_spire (TID-391) tracks a member's
+# best floor reached in a co-op Endless Spire run — value semantics mirror the
+# solo `spire` board exactly (floors_cleared), just scoped to co-op sessions;
+# richer than the generic `coop_clears` party-size signal (BID-031).
+var leaderboards: Dictionary = {
+	"spire": [], "coop_clears": [], "night_hunts": [], "coop_spire": [],
+}
 
 # --- Loot distribution mode (GID-102 / TID-381) -----------------------------
 # Host-only session setting; LOOT_MODE_FIRST_OPENER (default) or LOOT_MODE_NEED_GREED.
@@ -167,18 +174,20 @@ func from_dict(data: Dictionary) -> void:
 	auctions = (auc as Array).duplicate(true) if auc is Array else []
 
 
-## Always returns a dict with "spire", "coop_clears" and "night_hunts" Array keys,
-## discarding any garbage-typed input so a corrupt/legacy file can never crash a
-## caller that assumes the shape (mirrors the tolerant fallback pattern used
-## throughout this file).
+## Always returns a dict with "spire", "coop_clears", "night_hunts" and
+## "coop_spire" Array keys, discarding any garbage-typed input so a corrupt/legacy
+## file can never crash a caller that assumes the shape (mirrors the tolerant
+## fallback pattern used throughout this file).
 static func _sanitized_leaderboards(raw: Dictionary) -> Dictionary:
 	var spire: Variant = raw.get("spire", [])
 	var coop: Variant = raw.get("coop_clears", [])
 	var hunts: Variant = raw.get("night_hunts", [])
+	var coop_spire: Variant = raw.get("coop_spire", [])
 	return {
 		"spire": (spire as Array).duplicate(true) if spire is Array else [],
 		"coop_clears": (coop as Array).duplicate(true) if coop is Array else [],
 		"night_hunts": (hunts as Array).duplicate(true) if hunts is Array else [],
+		"coop_spire": (coop_spire as Array).duplicate(true) if coop_spire is Array else [],
 	}
 
 
@@ -249,6 +258,13 @@ static func _apply_migrations(data: Dictionary) -> void:
 		if lb9 is Dictionary and not (lb9 as Dictionary).has("night_hunts"):
 			(lb9 as Dictionary)["night_hunts"] = []
 		data["version"] = 9
+	if ver < 10:
+		# v10: add the coop_spire PvE leaderboard (best floor reached in a co-op
+		# Endless Spire run).
+		var lb10: Variant = data.get("leaderboards", {})
+		if lb10 is Dictionary and not (lb10 as Dictionary).has("coop_spire"):
+			(lb10 as Dictionary)["coop_spire"] = []
+		data["version"] = 10
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 
@@ -425,7 +441,7 @@ func get_leaderboard(limit: int = 10) -> Array:
 # task asks for a standalone {token, name, value, day} entry shape).
 
 ## Valid board names for `record_pve_score` / `get_pve_leaderboard`.
-const _PVE_BOARDS: Array[String] = ["spire", "coop_clears", "night_hunts"]
+const _PVE_BOARDS: Array[String] = ["spire", "coop_clears", "night_hunts", "coop_spire"]
 
 ## Insert-or-update `token`'s best score on `board`, then re-sort (desc by value,
 ## ties broken by earliest `day` so an established record isn't bumped by a later
@@ -471,12 +487,13 @@ func get_pve_leaderboard(board: String, limit: int = PVE_LEADERBOARD_CAP) -> Arr
 	return rows.duplicate(true)
 
 
-## The full {spire, coop_clears, night_hunts} snapshot sent over the wire (all
-## boards together, same "send the whole cached thing" pattern as
+## The full {spire, coop_clears, night_hunts, coop_spire} snapshot sent over the
+## wire (all boards together, same "send the whole cached thing" pattern as
 ## recv_party_bounties_snapshot).
 func get_pve_leaderboards_snapshot() -> Dictionary:
 	return {
 		"spire": get_pve_leaderboard("spire"),
 		"coop_clears": get_pve_leaderboard("coop_clears"),
 		"night_hunts": get_pve_leaderboard("night_hunts"),
+		"coop_spire": get_pve_leaderboard("coop_spire"),
 	}

@@ -13,7 +13,7 @@ Co-op sessions today are transient shared-world experiences (up to 4 players in 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-390 | Co-op Spire — shared run & alternating draft | agent | done (headless import + test run unverified in-sandbox — see note below) | — |
-| TID-391 | Co-op Spire — joint floor battles & leaderboard | agent | pending | TID-390 |
+| TID-391 | Co-op Spire — joint floor battles & leaderboard | agent | done (headless import + test run unverified in-sandbox — see note below) | TID-390 |
 | TID-392 | Party guildhall interior & entry | agent | pending | — |
 | TID-393 | Guildhall trophies, garden & stash chest | agent | pending | TID-392 |
 
@@ -39,3 +39,16 @@ inference site verified against a concretely-typed RHS, every RPC/handler name
 cross-checked end-to-end) and caught one real bug before it shipped (see TID-390's
 Changes Made). **Run `godot --headless --editor --quit` and `godot --headless --path . -s
 tests/runner.gd` before merging** — same caveat pattern as GID-102/103/105/110.
+
+**TID-391:** same sandbox constraint (HTTP 403 reconfirmed this session, no Godot binary
+available). Manual review caught a genuine design gap in TID-390's shipped code —
+`SceneManager.is_coop_spire_active()` never becomes true on a non-host peer (no call site
+for `set_coop_spire_run_mirror` existed) — routed around via a map-name-based check
+(`WorldScene._in_coop_spire_floor()`) rather than deep-fixing the mirror, and corrected the
+inaccurate doc claim this left behind. Also traced the exact tree-detachment timing of
+`GameBus.coop_pve_battle_ended` and deferred all `get_tree()`-touching work in the new
+handlers to `_enter_tree()` (a pending-flag pattern mirroring the existing
+`_pvp_ended_pending_broadcast`) rather than assuming it would work mid-detachment. Filed
+BID-044 for a suspected analogous (pre-existing, unfixed) race in the co-op siege-boss
+engage path. **Run `godot --headless --editor --quit` and
+`godot --headless --path . -s tests/runner.gd` before merging.**

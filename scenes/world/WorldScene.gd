@@ -80,6 +80,7 @@ const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 const _SpireDraftSync    = preload("res://game_logic/net/SpireDraftSync.gd")
 const _SpireDraft        = preload("res://game_logic/spire/SpireDraft.gd")
 const _SpireDraftScene   = preload("res://scenes/ui/SpireDraftScene.tscn")
+const _RunSummaryScene   = preload("res://scenes/ui/RunSummaryScene.tscn")
 # Session tournaments (GID-104 / TID-386)
 const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
 # Downed & rescue in shared dungeons (GID-105 / TID-389)
@@ -146,6 +147,17 @@ var _coop_spire_draft_overlay: Node = null  # transient SpireDraftScene instance
 # _coop_spire_draft_active because that dict only exists on the authority — a
 # client picker must resolve card_id -> card_idx from what it was actually shown.
 var _pending_coop_spire_draft: Dictionary = {}
+# TID-391: the co-op Spire run-ended summary overlay (RunSummaryScene instance in
+# coop mode), nil when closed. Instantiated as a child overlay — never
+# change_scene_to_node, which would kick the whole co-op session to the main menu.
+var _coop_spire_summary_overlay: Node = null
+# TID-391: set by _on_coop_spire_battle_ended/_on_coop_spire_run_ended_received,
+# which run while this WorldScene is still detached from the tree (the joint
+# battle removed it, same as PvP). get_tree() is unsafe to call off-tree, so the
+# actual tree-touching work (opening the next floor's draft, or the run summary
+# overlay) is deferred to _enter_tree(), once we're reattached and it's safe.
+var _pending_coop_spire_draft_floor: int = -1
+var _pending_coop_spire_run_ended_payload: Dictionary = {}
 # Co-op story mode (GID-098): true once a map transition is in flight on this
 # WorldScene instance so duplicate recv_map_transition packets are ignored.
 var _coop_map_transitioning: bool = false
@@ -698,6 +710,10 @@ func _ready() -> void:
 	# "connected permanently" reasoning (WorldScene detaches during the battle).
 	if not GameBus.coop_pve_battle_ended.is_connected(_on_coop_siege_battle_ended):
 		GameBus.coop_pve_battle_ended.connect(_on_coop_siege_battle_ended)
+	# GID-106 (TID-391): co-op Endless Spire joint floor battles — same joint-PvE
+	# signal, same "connected permanently" reasoning.
+	if not GameBus.coop_pve_battle_ended.is_connected(_on_coop_spire_battle_ended):
+		GameBus.coop_pve_battle_ended.connect(_on_coop_spire_battle_ended)
 	# Spire runs happen while WorldScene is loaded (no battle-detach involved), but the
 	# connection is still made once here (not in _setup_coop) so a Spire run that starts
 	# before any co-op session is active still reaches this handler once co-op does start.
@@ -724,6 +740,12 @@ func _enter_tree() -> void:
 				_pvp_ante_peer0, _pvp_ante_peer1)
 		_pvp_ante_peer0 = -1
 		_pvp_ante_peer1 = -1
+	# GID-106 (TID-391): same "pending flag flushed on _enter_tree" pattern as
+	# _pvp_ended_pending_broadcast above — the co-op Spire battle-end handlers run
+	# while this WorldScene is still detached (removed from the tree during the
+	# joint battle), so any get_tree()-touching work (showing the draft overlay or
+	# the run summary) is deferred until we're reattached and get_tree() is safe.
+	_flush_pending_coop_spire_post_battle()
 
 func _exit_tree() -> void:
 	_teardown_coop()
@@ -913,6 +935,10 @@ func _on_coop_session_ended() -> void:
 	if _coop_spire_draft_overlay != null and is_instance_valid(_coop_spire_draft_overlay):
 		_coop_spire_draft_overlay.queue_free()
 	_coop_spire_draft_overlay = null
+	# TID-391: same cleanup for the run-ended summary overlay, if one is showing.
+	if _coop_spire_summary_overlay != null and is_instance_valid(_coop_spire_summary_overlay):
+		_coop_spire_summary_overlay.queue_free()
+	_coop_spire_summary_overlay = null
 	if _party_panel != null and is_instance_valid(_party_panel):
 		_party_panel.queue_free()
 	_party_panel = null
@@ -1310,6 +1336,15 @@ func _broadcast_local_avatar(delta: float) -> void:
 func _coop_world_authority() -> bool:
 	return _coop_active and NetworkManager.is_active() and NetworkManager.is_host()
 
+## True on EVERY peer (host and clients alike) while a co-op Spire floor map is
+## loaded. Deliberately NOT SceneManager.is_coop_spire_active() — that flag lives
+## on the per-process SceneManager autoload and is only ever set true by the host
+## (enter_spire_coop is host-only), so a client's own copy would always read false.
+## map_name is reliable on every peer since it reflects the map that peer actually
+## loaded, regardless of who initiated the transition.
+func _in_coop_spire_floor() -> bool:
+	return NetworkManager.is_active() and map_name.begins_with("spire_floor_")
+
 ## Local player engaged an enemy. Authority broadcasts its removal to all peers;
 ## a client submits the intent and lets the authority fan it out. Either way the
 ## engaging peer already removed the node locally (EnemyNPC.engage queue_free'd it).
@@ -1325,6 +1360,12 @@ func _on_enemy_engaged_coop(edata: Dictionary) -> void:
 	# normal single-player-battle path entirely.
 	if _coop_siege_active and eid.begins_with("siege_boss_"):
 		_coop_engage_siege_boss(edata)
+		return
+	# GID-106 (TID-391): the co-op Endless Spire floor boss is likewise a joint
+	# battle for the whole party. SceneManager._on_enemy_engaged already skips its
+	# own solo-battle path for this exact id while on a co-op Spire floor map.
+	if _in_coop_spire_floor() and eid == "spire_enemy":
+		_coop_engage_spire_boss(edata)
 		return
 	_coop_last_engaged_enemy_id = eid
 	if NetworkManager.is_host():
@@ -2051,6 +2092,12 @@ func _on_map_transition_received(target_map: String, door_id: String) -> void:
 	_coop_map_transitioning = true
 	if target_map.is_empty():
 		SceneManager.exit_map()
+	elif target_map.begins_with("spire_floor_") or map_name.begins_with("spire_floor_"):
+		# Co-op Endless Spire (TID-391): entering, advancing floors, and the final
+		# return to madrian are all one-way automatic moves — see
+		# enter_coop_map_no_stack's doc comment for why the normal stack-pushing
+		# enter_map() would leave map_stack permanently polluted here.
+		SceneManager.enter_coop_map_no_stack(target_map, door_id)
 	else:
 		SceneManager.enter_map(target_map, door_id)
 
@@ -2295,7 +2342,7 @@ func _start_coop_spire() -> void:
 	var target_map: String = SceneManager.enter_spire_coop(picker_order)
 	_coop_map_transitioning = true
 	_net_sync.rpc("recv_map_transition", target_map, "")
-	SceneManager.enter_map(target_map, "")
+	SceneManager.enter_coop_map_no_stack(target_map, "")
 
 
 ## Authority-only entry point (the TID-391 hook): opens one draft round for
@@ -2406,7 +2453,10 @@ func _tick_coop_spire_draft(delta: float) -> void:
 
 
 ## Authority: commit the picked card to the shared run deck, advance the picker
-## rotation, and broadcast the resolved choice + next picker's turn.
+## rotation, and broadcast the resolved choice + next picker's turn. Then (TID-391)
+## advances the run to the next floor and broadcasts the map transition there —
+## co-op floor advancement is fully automatic, unlike solo Spire's authored exit
+## door (see SceneManager.exit_map()'s co-op-spire no-op branch).
 func _resolve_coop_spire_draft(card_idx: int) -> void:
 	var options: Array[String] = []
 	options.assign(_coop_spire_draft_active.get("options", []))
@@ -2428,6 +2478,17 @@ func _resolve_coop_spire_draft(card_idx: int) -> void:
 	if _net_sync != null:
 		_net_sync.rpc("recv_spire_draft_choice", payload)
 	_on_spire_draft_choice_received(payload)
+	if not _coop_world_authority():
+		return
+	SceneManager.advance_coop_spire_floor()
+	var next_run: Dictionary = SceneManager.get_coop_spire_run()
+	var next_floor: int = int(next_run.get("floor", 1))
+	var next_seed: int = int(next_run.get("seed", 0))
+	var target_map: String = "spire_floor_%d_%d" % [next_floor, next_seed]
+	_coop_map_transitioning = true
+	if _net_sync != null:
+		_net_sync.rpc("recv_map_transition", target_map, "")
+	SceneManager.enter_coop_map_no_stack(target_map, "")
 
 
 ## Any peer: close the draft overlay if open and show a toast naming the card +
@@ -2445,6 +2506,141 @@ func _on_spire_draft_choice_received(payload: Array) -> void:
 	var card_name: String = str(tmpl.get("name", card_id))
 	var next_name: String = str(result.get("next_active_picker_name", "Player"))
 	GameBus.hud_message_requested.emit("Drafted %s! Next up: %s" % [card_name, next_name])
+
+
+## Local player engaged the co-op Spire floor boss (TID-391). A client relays the
+## intent to the host; the host starts the joint battle directly. Mirrors
+## _coop_engage_siege_boss exactly.
+func _coop_engage_spire_boss(edata: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		if _net_sync != null:
+			_net_sync.rpc_id(1, "submit_spire_boss_engaged", edata)
+		return
+	_coop_start_spire_boss_battle(edata)
+
+
+## Host: a client engaged the Spire boss — start the joint battle for everyone.
+func _on_spire_boss_engaged_submitted(_sender: int, edata: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	_coop_start_spire_boss_battle(edata)
+
+
+## Host-only: every ally fights with the same shared, collaboratively-drafted
+## deck (PlayerState.build_deck shuffles independently per call, so allies still
+## get different draw orders). Boss HP/tier scaling by party size happens inside
+## BattleScene._build_coop_pve_state, exactly like siege — edata is passed through
+## unscaled.
+func _coop_start_spire_boss_battle(edata: Dictionary) -> void:
+	if not NetworkManager.is_host() or _net_sync == null:
+		return
+	var boss_eid: String = str(edata.get("id", ""))
+	if boss_eid != "":
+		_coop_remove_enemy_node(boss_eid)
+		_net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_ENEMY_REMOVED, boss_eid))
+	var shared_deck: Array = SceneManager.get_coop_spire_run().get("shared_deck", [])
+	var abs_peer_ids: Array[int] = [multiplayer.get_unique_id()]
+	var clients: Array = multiplayer.get_peers()
+	clients.sort()
+	for pid in clients:
+		abs_peer_ids.append(int(pid))
+	var all_decks: Array = []
+	for _pid in abs_peer_ids:
+		all_decks.append(shared_deck.duplicate())
+	for i in range(abs_peer_ids.size()):
+		var pid: int = abs_peer_ids[i]
+		if pid != multiplayer.get_unique_id():
+			_net_sync.rpc_id(pid, "notify_coop_pve_start", i, all_decks, edata)
+	SceneManager.enter_coop_pve_battle(0, all_decks, edata)
+
+
+## Any peer: the joint Spire floor battle ended. No-op unless a co-op Spire run is
+## actually active (coop_pve_battle_ended fires for any joint PvE battle — siege,
+## Spire, future modes). This handler fires while WorldScene is still detached
+## from the tree (the joint battle removed it, same as PvP) — the pure/host-only
+## data-layer work (ending the run, submitting the leaderboard score) is safe to
+## do immediately, but everything that touches the tree or sends an RPC is
+## captured into a pending field and deferred to _enter_tree() via
+## _flush_pending_coop_spire_post_battle, once reattachment makes that safe.
+func _on_coop_spire_battle_ended(did_win: bool) -> void:
+	if not _in_coop_spire_floor():
+		return
+	if did_win:
+		if _coop_world_authority():
+			var run: Dictionary = SceneManager.get_coop_spire_run()
+			_pending_coop_spire_draft_floor = int(run.get("floor", 1))
+	elif _coop_world_authority():
+		var stats: Dictionary = SceneManager.end_coop_spire_run()
+		var floors_cleared: int = int(stats.get("floors_cleared", 0))
+		var party_size: int = multiplayer.get_peers().size() + 1
+		var roster: Array = [MpProfile.get_display_name()]
+		for identity in _remote_identities.values():
+			roster.append(str((identity as Dictionary).get("name", "Player")))
+		_submit_pve_score("coop_spire", floors_cleared)  # host-only, pure SessionStore write
+		_pending_coop_spire_run_ended_payload = {
+			"floors_cleared": floors_cleared,
+			"party_size": party_size,
+			"roster": roster,
+		}
+	if is_inside_tree():
+		_flush_pending_coop_spire_post_battle()
+
+
+## Runs any deferred co-op-Spire post-battle work that needed the tree (opening
+## the next floor's draft, or the run-ended summary + its RPC broadcast). Called
+## from _enter_tree() once this WorldScene is confirmed reattached, and also
+## inline if the peer already happens to be in the tree (defensive; in practice
+## the joint-battle end always fires while detached, same as PvP).
+func _flush_pending_coop_spire_post_battle() -> void:
+	if _pending_coop_spire_draft_floor >= 0:
+		var floor_num: int = _pending_coop_spire_draft_floor
+		_pending_coop_spire_draft_floor = -1
+		_start_coop_spire_draft(floor_num)
+	if not _pending_coop_spire_run_ended_payload.is_empty():
+		var payload: Dictionary = _pending_coop_spire_run_ended_payload
+		_pending_coop_spire_run_ended_payload = {}
+		if _net_sync != null:
+			_net_sync.rpc("recv_coop_spire_run_ended", payload)
+		_on_coop_spire_run_ended_received(payload)
+
+
+## Any peer: show the co-op Spire run summary as a WorldScene overlay (the shared
+## world/session stays alive underneath — unlike solo Spire's change_scene_to_node,
+## which would kick the whole co-op session to the main menu). "Continue" routes
+## everyone back to madrian via the standard shared map transition. Also reached
+## directly via the recv_coop_spire_run_ended RPC on non-authority peers —
+## NetSync's dispatch requires this WorldScene's fixed node path to resolve, which
+## in practice means it's attached, matching the same "connected permanently, RPC
+## arrives once reattached" assumption every other cross-battle broadcast in this
+## file already relies on (leaderboard/party-bounty/siege-reward RPCs, etc.) —
+## not a new risk introduced here.
+func _on_coop_spire_run_ended_received(payload: Dictionary) -> void:
+	SceneManager.set_coop_spire_run_mirror({"active": false})
+	if _coop_spire_summary_overlay != null and is_instance_valid(_coop_spire_summary_overlay):
+		_coop_spire_summary_overlay.queue_free()
+	var overlay := _RunSummaryScene.instantiate()
+	overlay.coop_stats = {
+		"floors_cleared": int(payload.get("floors_cleared", 0)),
+		"party_size": int(payload.get("party_size", 1)),
+		"roster": payload.get("roster", []),
+	}
+	get_tree().current_scene.add_child(overlay)
+	overlay.continue_pressed.connect(_on_coop_spire_summary_continue)
+	_coop_spire_summary_overlay = overlay
+
+
+## "Continue" pressed on the co-op Spire run summary — broadcast + perform the
+## shared transition back to madrian (same TID-355 mechanism as every other
+## shared-map exit) and free the overlay.
+func _on_coop_spire_summary_continue() -> void:
+	if _coop_spire_summary_overlay != null and is_instance_valid(_coop_spire_summary_overlay):
+		_coop_spire_summary_overlay.queue_free()
+	_coop_spire_summary_overlay = null
+	if _coop_active and _net_sync != null and not _coop_map_transitioning:
+		_coop_map_transitioning = true
+		_net_sync.rpc("recv_map_transition", "madrian", "")
+	SceneManager.enter_coop_map_no_stack("madrian", "")
 
 # ── Co-op Town Siege (GID-103 / TID-384) ──────────────────────────────────────
 #

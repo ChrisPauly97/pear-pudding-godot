@@ -447,8 +447,10 @@ func test_leaderboards_defaults_to_empty_both_boards() -> void:
 	assert_true(s.leaderboards is Dictionary)
 	assert_true(s.leaderboards.get("spire", null) is Array)
 	assert_true(s.leaderboards.get("coop_clears", null) is Array)
+	assert_true(s.leaderboards.get("coop_spire", null) is Array)
 	assert_true(s.leaderboards["spire"].is_empty())
 	assert_true(s.leaderboards["coop_clears"].is_empty())
+	assert_true(s.leaderboards["coop_spire"].is_empty())
 
 
 func test_record_pve_score_inserts_new_entry() -> void:
@@ -539,14 +541,18 @@ func test_pve_leaderboards_round_trip() -> void:
 	var s := SessionState.new()
 	s.record_pve_score("spire", "tokA", "Ada", 12, 4)
 	s.record_pve_score("coop_clears", "tokB", "Bram", 3, 2)
+	s.record_pve_score("coop_spire", "tokC", "Cato", 6, 5)
 	var restored := SessionState.new()
 	restored.from_dict(s.to_dict())
 	var spire: Array = restored.get_pve_leaderboard("spire")
 	var coop: Array = restored.get_pve_leaderboard("coop_clears")
+	var coop_spire: Array = restored.get_pve_leaderboard("coop_spire")
 	assert_eq(spire.size(), 1)
 	assert_eq(int(spire[0]["value"]), 12)
 	assert_eq(coop.size(), 1)
 	assert_eq(int(coop[0]["value"]), 3)
+	assert_eq(coop_spire.size(), 1)
+	assert_eq(int(coop_spire[0]["value"]), 6)
 
 
 func test_pve_leaderboards_snapshot_shape() -> void:
@@ -555,8 +561,21 @@ func test_pve_leaderboards_snapshot_shape() -> void:
 	var snap: Dictionary = s.get_pve_leaderboards_snapshot()
 	assert_true(snap.has("spire"))
 	assert_true(snap.has("coop_clears"))
+	assert_true(snap.has("coop_spire"))
 	assert_eq((snap["spire"] as Array).size(), 1)
 	assert_true((snap["coop_clears"] as Array).is_empty())
+	assert_true((snap["coop_spire"] as Array).is_empty())
+
+
+func test_coop_spire_leaderboard_value_is_floors_cleared_style() -> void:
+	# TID-391 / BID-031: the coop_spire board's value is a plain floors-cleared
+	# int (mirrors the solo spire board), not an encoded party-size composite.
+	var s := SessionState.new()
+	s.record_pve_score("coop_spire", "tokA", "Ada", 4, 1)
+	s.record_pve_score("coop_spire", "tokA", "Ada", 9, 2)
+	var lb: Array = s.get_pve_leaderboard("coop_spire")
+	assert_eq(lb.size(), 1, "same token updates in place")
+	assert_eq(int(lb[0]["value"]), 9, "better floor count replaces the stored best")
 
 
 func test_migration_v6_backfills_leaderboards_field() -> void:
@@ -599,6 +618,36 @@ func test_pve_leaderboards_garbage_field_falls_back_to_empty_boards() -> void:
 	assert_true(s.leaderboards.get("coop_clears", null) is Array)
 	assert_true(s.get_pve_leaderboard("spire").is_empty())
 	assert_true(s.get_pve_leaderboard("coop_clears").is_empty())
+
+
+func test_migration_v10_backfills_coop_spire_board() -> void:
+	var data: Dictionary = {
+		"version": 9,
+		"session_id": "old",
+		"members": {},
+		"leaderboards": {"spire": [], "coop_clears": [], "night_hunts": []},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_true(s.leaderboards.get("coop_spire", null) is Array)
+	assert_true(s.get_pve_leaderboard("coop_spire").is_empty())
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_migration_v10_preserves_existing_coop_spire_board() -> void:
+	var data: Dictionary = {
+		"version": 9,
+		"session_id": "old",
+		"members": {},
+		"leaderboards": {
+			"spire": [], "coop_clears": [], "night_hunts": [],
+			"coop_spire": [{"token": "t", "name": "N", "value": 4, "day": 1}],
+		},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_eq(s.get_pve_leaderboard("coop_spire").size(), 1)
+	assert_eq(int(s.get_pve_leaderboard("coop_spire")[0]["value"]), 4)
 
 
 # ---------------------------------------------------------------------------
