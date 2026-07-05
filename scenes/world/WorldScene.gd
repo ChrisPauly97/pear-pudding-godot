@@ -47,6 +47,7 @@ const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
 const _WildernessCampScene = preload("res://scenes/world/entities/WildernessCamp.tscn")
+const _MaitelnFollowerScene = preload("res://scenes/world/entities/MaitelnFollower.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _MailboxScene      = preload("res://scenes/world/entities/MailboxNPC.tscn")
@@ -291,6 +292,7 @@ var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
 var _wilderness_camp_node: Node3D = null
+var _maiteln_node: Node3D = null
 var _shrine_nodes: Array[Node3D] = []
 var _siege_raider_nodes: Array[Node3D] = []
 var _siege_banner: Label = null
@@ -690,6 +692,9 @@ func _ready() -> void:
 	# before any co-op session is active still reaches this handler once co-op does start.
 	if not GameBus.spire_run_ended.is_connected(_on_spire_run_ended_leaderboard):
 		GameBus.spire_run_ended.connect(_on_spire_run_ended_leaderboard)
+
+	if not NetworkManager.is_dedicated_server():
+		_refresh_maiteln_presence()
 
 	_setup_coop()
 	_initial_ready_done = true
@@ -1903,6 +1908,14 @@ func _on_story_flags_snapshot_received(flags: Dictionary) -> void:
 ## Called when GameBus.story_flag_set fires locally (any setter).
 ## Routes the flag change through the authority so the whole party stays in sync.
 func _on_local_story_flag_set(key: String) -> void:
+	# Maiteln's journey presence (GID-108 / TID-403) is gated on several Chapter 1
+	# flags that can flip while this exact map/WorldScene instance stays loaded
+	# (rabbit hunt won, fire learned, temple council resolved) — re-evaluate on
+	# every flag change so he appears/disappears immediately, not just on the
+	# next map load. Runs before the co-op-only early return below: single-player
+	# needs this too.
+	if not NetworkManager.is_dedicated_server():
+		_refresh_maiteln_presence()
 	if not _coop_active or _net_sync == null or not NetworkManager.is_active():
 		return
 	if _coop_story_flag_syncing:
@@ -3305,6 +3318,51 @@ func _find_nearby_wilderness_camp(px: float, pz: float, range_dist: float) -> No
 		return _wilderness_camp_node
 	return null
 
+## Maiteln's travelling presence (GID-108 / TID-403). Named story maps always
+## qualify; the open world only qualifies during the TID-402 camp-beat window
+## (not general sandbox presence).
+const _MAITELN_NAMED_MAPS: Array[String] = [
+	"madrian", "maykalene", "farsyth_mansion", "blancogov", "blancogov_temple",
+]
+
+func _maiteln_should_be_present() -> bool:
+	var sm := SceneManager.save_manager
+	if not sm.get_story_flag("story_intro_complete"):
+		return false
+	if sm.get_story_flag("chapter1_complete"):
+		return false
+	if _MAITELN_NAMED_MAPS.has(map_name):
+		return true
+	if map_name == "main":
+		return sm.get_story_flag("chapter1_left_madrian") and not sm.get_story_flag("chapter1_learned_fire")
+	return false
+
+## Spawns/frees the Maiteln follower to match _maiteln_should_be_present().
+## Call on map load and whenever a relevant story flag changes mid-session.
+func _refresh_maiteln_presence() -> void:
+	var should_be_present: bool = _maiteln_should_be_present()
+	if is_instance_valid(_maiteln_node):
+		if not should_be_present:
+			_maiteln_node.queue_free()
+			_maiteln_node = null
+		return
+	_maiteln_node = null
+	if should_be_present and _player != null:
+		var node := _MaitelnFollowerScene.instantiate() as Node3D
+		_entity_root.add_child(node)
+		if node.has_method("setup"):
+			node.setup(_player, self)
+		_maiteln_node = node
+
+func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
+	if not is_instance_valid(_maiteln_node):
+		return null
+	var ddx: float = _maiteln_node.position.x - px
+	var ddz: float = _maiteln_node.position.z - pz
+	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
+		return _maiteln_node
+	return null
+
 func _spawn_named_map_shrines() -> void:
 	if world_map == null:
 		return
@@ -4003,6 +4061,7 @@ func _check_interactions() -> void:
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
 	var wilderness_camp := _find_nearby_wilderness_camp(px, pz, IsoConst.INTERACT_RANGE)
+	var maiteln := _find_nearby_maiteln(px, pz, IsoConst.INTERACT_RANGE)
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
 	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
 	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
@@ -4013,7 +4072,7 @@ func _check_interactions() -> void:
 	# Landmarks auto-trigger on approach (no button press needed)
 	_check_nearby_landmark(px, pz)
 	var mana_well := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
-	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or wilderness_camp != null or shrine != null or digspot != null or not waystone.is_empty() or not mailbox.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
+	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or wilderness_camp != null or maiteln != null or shrine != null or digspot != null or not waystone.is_empty() or not mailbox.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
 	var interact_label: String = "USE"
 	if downed_pid != -1:
 		interact_label = "REVIVE"
@@ -4025,6 +4084,8 @@ func _check_interactions() -> void:
 		interact_label = "ENTER"
 	elif wilderness_camp != null:
 		interact_label = "CAMP"
+	elif maiteln != null:
+		interact_label = "TALK"
 	elif not npc.is_empty():
 		match str(npc.get("npc_type", "")):
 			"merchant", "traveling_merchant": interact_label = "SHOP"
@@ -4460,6 +4521,11 @@ func _handle_interact() -> void:
 	var wilderness_camp := _find_nearby_wilderness_camp(px, pz, IsoConst.INTERACT_RANGE)
 	if wilderness_camp != null and wilderness_camp.has_method("interact"):
 		wilderness_camp.interact()
+		return
+
+	var maiteln := _find_nearby_maiteln(px, pz, IsoConst.INTERACT_RANGE)
+	if maiteln != null and maiteln.has_method("interact"):
+		maiteln.interact()
 		return
 
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)

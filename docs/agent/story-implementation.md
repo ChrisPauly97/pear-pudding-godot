@@ -130,6 +130,46 @@ The rabbit-hunt battle content itself is `data/scripted_battles/rabbit_hunt.tres
 resource exists for the "Wild Rabbit"; the scripted-battle framework builds the enemy deck
 directly from `ScriptedBattleData.enemy_deck_order`, so an `EnemyRegistry` entry would be unused.
 
+### Maiteln Journey Presence (GID-108 / TID-403)
+
+`scenes/world/entities/MaitelnFollower.gd` (+ `.tscn`) is a visual/narrative companion avatar,
+distinct from the battle-companion system (`data/companions/maiteln.tres`). `WorldScene` owns
+all spawn/despawn gating via `_maiteln_should_be_present()`: present whenever
+`story_intro_complete` is set and `chapter1_complete` is not, AND either the current map is one
+of `madrian` / `maykalene` / `farsyth_mansion` / `blancogov` / `blancogov_temple`, or the map is
+`main` during the TID-402 camp-beat window (`chapter1_left_madrian` set,
+`chapter1_learned_fire` not yet set) — never general open-world sandbox presence.
+`_refresh_maiteln_presence()` (spawn-or-free to match the gate) runs once at the tail of
+`_ready()` and again from `_on_local_story_flag_set()` (already fires on every local
+`story_flag_set`), so he appears/disappears immediately when a relevant flag flips mid-session,
+not just on the next map load.
+
+**Movement:** `MaitelnFollower._process()` lerps toward a fixed world-space offset from the
+player's position (`AvatarSync.interp()`, reusing the co-op avatar smoothing helper), snapping
+instantly instead of lerping when the gap exceeds ~8 tiles (map transition, fast travel, a
+door) — the "teleport when too far" simplification instead of pathfinding/walkable-tile
+clamping. Y is recomputed from `WorldScene.get_terrain_height()` every frame, never lerped
+(mirrors `RemotePlayer`'s Y-recompute pattern).
+
+**Ambient lines:** `interact()` (same generic USE-prompt/tap system as scrolls/shrines/the
+wilderness camp — mobile parity for free) looks up
+`ObjectiveTracker.current_objective(story_flags)`'s label against a small const dict of
+Scottish-register flavor lines (one per Chapter 1 objective state), falling back to a generic
+line for an unmapped/empty label.
+
+**Hidden in battles for free:** `SceneManager` fully detaches the `WorldScene` node from the
+tree while a battle overlay is active, so every `_entity_root` child (Maiteln included) stops
+processing and rendering with zero extra code.
+
+**Known simplifications (not fixed, intentionally deferred):**
+- The static madrian Maiteln NPC (fixed recruitment dialogue from the map file) is untouched;
+  the follower can briefly coexist with it between recruiting and leaving madrian, since the
+  research notes explicitly include madrian in the follower's map list.
+- Co-op: this is a **solo-only** follower — each client renders their own local instance
+  independently, not synced. TID-408 (per its design rule 4) is the task that will replace this
+  with a single authority-owned, network-synced Maiteln (mirroring `RemotePlayer` avatar sync,
+  `map_name` carried in the payload).
+
 ---
 
 ## Integrations with Other Features
