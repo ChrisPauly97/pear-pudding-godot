@@ -48,7 +48,7 @@ func test_scroll_isfig_shadow_registered() -> void:
 	sr.free()
 
 func test_scroll_count_includes_isfig() -> void:
-	assert_eq(ScrollRegistryScript.SCROLL_COUNT, 9)
+	assert_eq(ScrollRegistryScript.SCROLL_COUNT, 11)
 
 # ── Single-grant guard ────────────────────────────────────────────────────────
 

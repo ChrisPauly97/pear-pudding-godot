@@ -19,8 +19,10 @@ extends Node
 const _BLANCOGOV        := preload("res://assets/maps/blancogov.tres")
 const _BLANCOGOV_TEMPLE := preload("res://assets/maps/blancogov_temple.tres")
 const _FARSYTH_MANSION  := preload("res://assets/maps/farsyth_mansion.tres")
+const _LARIK            := preload("res://assets/maps/larik.tres")
 const _MADRIAN          := preload("res://assets/maps/madrian.tres")
 const _MAIN             := preload("res://assets/maps/main.tres")
+const _MARSAX_HOLD      := preload("res://assets/maps/marsax_hold.tres")
 const _MAYKALENE        := preload("res://assets/maps/maykalene.tres")
 const _PLAYER_HOME      := preload("res://assets/maps/player_home.tres")
 
@@ -28,8 +30,10 @@ const _BUNDLED: Dictionary = {
 	"blancogov":        _BLANCOGOV,
 	"blancogov_temple": _BLANCOGOV_TEMPLE,
 	"farsyth_mansion":  _FARSYTH_MANSION,
+	"larik":            _LARIK,
 	"madrian":          _MADRIAN,
 	"main":             _MAIN,
+	"marsax_hold":      _MARSAX_HOLD,
 	"maykalene":        _MAYKALENE,
 	"player_home":      _PLAYER_HOME,
 }
