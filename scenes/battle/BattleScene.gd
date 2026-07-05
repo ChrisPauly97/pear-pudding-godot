@@ -3348,7 +3348,7 @@ func _apply_coop_pve_rewards(card_id: String, rarity: String, stats: Dictionary,
 	var atk: int = int(stats.get("attack", -1))
 	var hp: int = int(stats.get("health", -1))
 	var cst: int = int(stats.get("cost", -1))
-	sm.add_card_instance(card_id, rarity, atk, hp, cst)
+	sm.grant_card_reward(card_id, rarity, atk, hp, cst)
 
 ## Co-op PvE retry sync (mirrors _process for PvP).
 var _coop_sync_retry_accum: float = 0.0

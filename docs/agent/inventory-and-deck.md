@@ -96,6 +96,41 @@ The player presses `I` in the world view:
 
 ---
 
+## Mailbox: Overflow Storage for Bag-Full Card Rewards (GID-110)
+
+### The problem
+
+Before GID-110, `add_card_instance()` returned `""` and **silently dropped** any card reward whenever `is_bag_full()` was true. Every automatic reward call site (battle wins, chest/dig/burial-mound/world-item loot, landmark discovery, achievements, pack opening, story/quest/duel rewards, siege victory) was vulnerable to silent loss with no player-facing indication.
+
+### The fix — `grant_card_reward()` and the Mailbox overflow queue
+
+`SaveManager.grant_card_reward(template_id, rarity, attack=-1, health=-1, cost=-1) -> String` is a drop-in replacement for `add_card_instance()` at every **automatic** reward call site (same signature, same return-a-uid contract). Instead of dropping the card when the bag is full, it appends the instance to `SaveManager.mailbox_cards: Array[Dictionary]` — a separate persisted array that never counts against `bag_size` and is not indexed in `_uid_index` until claimed — and emits `GameBus.card_routed_to_mailbox(template_id: String)` so the player gets a toast (`"<name> couldn't fit in your bag — sent to the mailbox."`, wired in `SceneManager._ready()` next to the existing `bag_full` handler).
+
+**Player-initiated spends keep blocking as before** — `add_card_instance()` is unchanged and is still called directly by `ShopScene`, `InventoryScene` crafting, and `SaveManager.combine_cards()` (a full bag is the correct UX for a deliberate purchase/craft). Deterministic startup seeding (`new_game()`, `ensure_coop_deck()`, `adopt_session_character()`) also keeps calling `add_card_instance()` directly.
+
+### Mailbox API (`autoloads/SaveManager.gd`)
+
+```gdscript
+SaveManager.grant_card_reward(template_id, rarity, attack=-1, health=-1, cost=-1) -> String
+SaveManager.get_mailbox_instances() -> Array[Dictionary]
+SaveManager.claim_mailbox_card(uid: String) -> bool        # false if uid missing or bag still full
+SaveManager.claim_all_mailbox_cards() -> int               # claims until full or empty; returns count claimed
+SaveManager.sell_mailbox_card(uid: String) -> void          # gold via IsoConst.RARITY_CONFIG, same as sell_card_instance
+SaveManager.scrap_mailbox_card(uid: String) -> void         # essence, same as scrap_card_instance
+```
+
+`mailbox_cards` persists in `save.json` (save version 41; migration `[41, {"mailbox_cards": []}]` backfills old saves) and round-trips through `export_session_character()`/`adopt_session_character()` for co-op session characters.
+
+### World entity (`scenes/world/entities/MailboxNPC.gd`)
+
+The Mailbox is a physical interactable, not a menu tab — structurally mirrors **Waystone** (own tracking dicts `_mailbox_nodes`/`_active_mailbox_data` on `WorldScene`, own interact-range check `_find_nearby_mailbox()`), not the generic NPC pipeline. It's injection-only (no `MailboxData` resource type on named-map `.tres` files): `WorldScene._spawn_named_map_mailboxes()` places one near spawn on `madrian`, `maykalene`, `blancogov`, and `player_home` (gated on `SaveManager.home_owned` — safe to check at map-load time since home purchase always completes at the door panel before `enter_map("player_home", ...)` runs). Interacting emits `GameBus.mailbox_requested`, which `SceneManager` routes to the `MailboxScene` overlay (`State.MAILBOX`), following the same `_open_overlay()` pattern as every other world-triggered overlay (compare `bounty_board_requested`).
+
+### Overlay UI (`scenes/ui/MailboxScene.gd`)
+
+Extends `BaseOverlay.gd`. Renders `SaveManager.get_mailbox_instances()` as the same Diablo-3-style cube-tile grid used by `InventoryScene`'s backpack (tile/detail-popup code is duplicated, not shared, since the two scenes' action sets diverge — Claim/Sell/Scrap here vs. Add-to-deck/Combine/Rename there). Tapping a tile opens a non-modal detail popup with rolled stats and Claim / Sell / Scrap buttons; a header-level **Claim All** button drains the queue until the bag fills or it's empty. Claim is a no-op with a "Bag is full" toast when `SaveManager.is_bag_full()`.
+
+---
+
 ## Equipment System
 
 ### Overview

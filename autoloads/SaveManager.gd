@@ -31,6 +31,10 @@ var coins: int = 0
 var owned_cards: Array[Dictionary] = []
 var _uid_index: Dictionary = {}  # uid -> Dictionary reference for O(1) lookups
 
+# Overflow queue for card rewards that couldn't fit in the bag when granted.
+# Never counts against bag_size; not indexed in _uid_index until claimed.
+var mailbox_cards: Array[Dictionary] = []
+
 # Cards currently in the active battle deck — list of UIDs from owned_cards.
 # This mirrors loadouts[active_loadout].cards and is kept in sync at all times.
 var player_deck: Array[String] = []
@@ -330,6 +334,7 @@ func new_game() -> void:
 	]
 	var extra_ids: Array[String] = ["dawn_acolyte", "dusk_wraith"]
 	owned_cards.clear()
+	mailbox_cards.clear()
 	_uid_index.clear()
 	player_deck.clear()
 	for tid: String in deck_ids:
@@ -472,6 +477,11 @@ func adopt_session_character(record: Dictionary) -> void:
 		var u: String = str(inst.get("uid", ""))
 		if u != "":
 			_uid_index[u] = inst
+	mailbox_cards.clear()
+	var raw_mailbox: Array = record.get("mailbox_cards", [])
+	for c: Variant in raw_mailbox:
+		if c is Dictionary:
+			mailbox_cards.append(c)
 	player_deck.assign(record.get("player_deck", []))
 	var deck_copy: Array[String] = []
 	deck_copy.assign(player_deck)
@@ -499,6 +509,7 @@ func adopt_session_character(record: Dictionary) -> void:
 func export_session_character() -> Dictionary:
 	return {
 		"owned_cards": owned_cards.duplicate(true),
+		"mailbox_cards": mailbox_cards.duplicate(true),
 		"player_deck": player_deck.duplicate(),
 		"coins": coins,
 		"essence": essence,
@@ -511,7 +522,7 @@ func export_session_character() -> Dictionary:
 		"redemption_points": redemption_points,
 	}
 
-const CURRENT_SAVE_VERSION: int = 40
+const CURRENT_SAVE_VERSION: int = 41
 
 # Each entry is [target_version, payload] where payload is either:
 #   Dictionary — {field: default} backfill applied when ver < target
@@ -629,6 +640,7 @@ static func _apply_migrations(data: Dictionary) -> void:
 		[38, {"blight_cleansed_hearts": []}],
 		[39, {"discovered_landmarks": []}],
 		[40, {"collected_mana_wells": []}],
+		[41, {"mailbox_cards": []}],
 	]
 	for entry: Array in table:
 		var target: int = entry[0]
@@ -780,6 +792,7 @@ func load_save() -> bool:
 		var _uid: String = str(_card.get("uid", ""))
 		if _uid != "":
 			_uid_index[_uid] = _card
+	mailbox_cards.assign(data.get("mailbox_cards", []))
 	player_deck.assign(data.get("player_deck", []))
 	# Load loadouts; fall back to wrapping player_deck if absent.
 	var raw_loadouts: Array = data.get("loadouts", [])
@@ -908,6 +921,7 @@ func save() -> void:
 	var data := {
 		"version": CURRENT_SAVE_VERSION,
 		"owned_cards": owned_cards,
+		"mailbox_cards": mailbox_cards,
 		"player_deck": player_deck,
 		"loadouts": loadouts,
 		"active_loadout": active_loadout,
@@ -1047,7 +1061,7 @@ func reset_pity() -> void:
 ## add_card_instance() directly instead.
 func add_cards_to_deck(card_ids: Array[String]) -> void:
 	for tid: String in card_ids:
-		add_card_instance(tid, "common")
+		grant_card_reward(tid, "common")
 	if card_ids.size() > 0:
 		increment_progress("cards_earned", card_ids.size())
 
@@ -1056,7 +1070,7 @@ func grant_achievement_card(card_id: String) -> void:
 	for inst: Dictionary in owned_cards:
 		if str(inst.get("template_id", "")) == card_id:
 			return
-	add_card_instance(card_id, "common")
+	grant_card_reward(card_id, "common")
 
 func set_active_deck(new_deck: Array[String]) -> void:
 	player_deck.assign(new_deck)
@@ -1102,6 +1116,97 @@ func add_card_instance(template_id: String, rarity: String, attack: int = -1, he
 		GameBus.tutorial_popup_requested.emit("card_rarity")
 	_dirty = true
 	return uid
+
+## Routes an automatic reward (battle win, chest, dig, achievement, story/quest, pack) into
+## owned_cards, or into the mailbox overflow queue when the bag is full, instead of dropping
+## it. Same call signature as add_card_instance so callers are a mechanical rename. Always
+## returns the generated uid — the card exists either way, just not always in the bag yet.
+## Player-initiated spends (shop, craft, combine) should keep calling add_card_instance,
+## which still blocks on a full bag.
+func grant_card_reward(template_id: String, rarity: String, attack: int = -1, health: int = -1, cost: int = -1) -> String:
+	var tmpl: Dictionary = CardRegistry.get_template(template_id)
+	var atk: int = attack if attack >= 0 else int(tmpl.get("attack", 0))
+	var hp: int  = health if health >= 0 else int(tmpl.get("health", 0))
+	var c: int   = cost   if cost   >= 0 else int(tmpl.get("cost", 1))
+	var uid: String = _gen_uid(template_id)
+	var inst_dict: Dictionary = _CardInstanceUtil.make(uid, template_id, rarity, atk, hp, c)
+	if is_bag_full():
+		mailbox_cards.append(inst_dict)
+		GameBus.card_routed_to_mailbox.emit(template_id)
+		_dirty = true
+		return uid
+	owned_cards.append(inst_dict)
+	_uid_index[uid] = inst_dict
+	if rarity != "common":
+		GameBus.tutorial_popup_requested.emit("card_rarity")
+	_dirty = true
+	return uid
+
+## Returns all card instances currently held in the mailbox overflow queue.
+func get_mailbox_instances() -> Array[Dictionary]:
+	return mailbox_cards
+
+## Moves a mailbox card into the bag. Returns false (no-op) if the uid isn't in the
+## mailbox or the bag is still full.
+func claim_mailbox_card(uid: String) -> bool:
+	if is_bag_full():
+		return false
+	var idx: int = -1
+	for i in range(mailbox_cards.size()):
+		if str(mailbox_cards[i].get("uid", "")) == uid:
+			idx = i
+			break
+	if idx < 0:
+		return false
+	var inst: Dictionary = mailbox_cards[idx]
+	mailbox_cards.remove_at(idx)
+	owned_cards.append(inst)
+	_uid_index[uid] = inst
+	_dirty = true
+	return true
+
+## Claims as many mailbox cards as fit in the bag. Returns the number claimed.
+func claim_all_mailbox_cards() -> int:
+	var claimed: int = 0
+	while not mailbox_cards.is_empty():
+		var uid: String = str(mailbox_cards[0].get("uid", ""))
+		if not claim_mailbox_card(uid):
+			break
+		claimed += 1
+	return claimed
+
+## Sells a mailbox card for gold. No-op if uid not found.
+func sell_mailbox_card(uid: String) -> void:
+	var idx: int = -1
+	for i in range(mailbox_cards.size()):
+		if str(mailbox_cards[i].get("uid", "")) == uid:
+			idx = i
+			break
+	if idx < 0:
+		return
+	var rarity: String = str(mailbox_cards[idx].get("rarity", "common"))
+	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+	add_coins(int(cfg.get("sell_gold", 0)))
+	mailbox_cards.remove_at(idx)
+	_dirty = true
+
+## Scraps a mailbox card for essence. No-op if uid not found.
+func scrap_mailbox_card(uid: String) -> void:
+	var idx: int = -1
+	for i in range(mailbox_cards.size()):
+		if str(mailbox_cards[i].get("uid", "")) == uid:
+			idx = i
+			break
+	if idx < 0:
+		return
+	var rarity: String = str(mailbox_cards[idx].get("rarity", "common"))
+	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
+	if essence == 0:
+		GameBus.tutorial_popup_requested.emit("essence")
+	essence += int(cfg.get("scrap_essence", 0))
+	GameBus.essence_changed.emit(essence)
+	mailbox_cards.remove_at(idx)
+	_dirty = true
 
 ## Removes a card instance by UID from owned_cards, player_deck, and all loadouts.
 func remove_card_instance(uid: String) -> void:
@@ -1731,7 +1836,7 @@ func _check_bestiary_complete() -> void:
 		return
 	bestiary_complete_rewarded = true
 	add_coins(500)
-	add_card_instance("soul_harvest", "legendary")
+	grant_card_reward("soul_harvest", "legendary")
 	set_story_flag("bestiary_complete")
 
 func set_respawn_point(map: String, x: float, z: float) -> void:

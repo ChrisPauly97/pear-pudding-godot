@@ -282,7 +282,7 @@ func _collect() -> void:
 	if _is_coin:
 		SceneManager.save_manager.add_coins(_coin_amount)
 	else:
-		SceneManager.save_manager.add_card_instance(card_id, _rarity, _rolled_attack, _rolled_health, _rolled_cost)
+		SceneManager.save_manager.grant_card_reward(card_id, _rarity, _rolled_attack, _rolled_health, _rolled_cost)
 	# Disable collision before tweening — physics can't invert a zero-scale basis
 	var col := find_child("CollisionShape3D", true, false) as CollisionShape3D
 	if col:

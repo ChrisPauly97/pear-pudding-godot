@@ -48,6 +48,7 @@ const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
+const _MailboxScene      = preload("res://scenes/world/entities/MailboxNPC.tscn")
 const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 const _RatingMath        = preload("res://game_logic/net/RatingMath.gd")
@@ -293,6 +294,8 @@ var _siege_raider_nodes: Array[Node3D] = []
 var _siege_banner: Label = null
 var _waystone_nodes: Dictionary = {}    # id -> Node3D
 var _active_waystone_data: Dictionary = {}  # id -> Dictionary
+var _mailbox_nodes: Dictionary = {}    # id -> Node3D
+var _active_mailbox_data: Dictionary = {}  # id -> Dictionary
 var _garden_plot_nodes: Array[Node3D] = []  # ordered by plot_idx
 var _tile_meshes: Node3D
 var _wall_meshes: Node3D
@@ -531,6 +534,7 @@ func _ready() -> void:
 		_spawn_named_map_scrolls()
 		_spawn_named_map_shrines()
 		_spawn_named_map_waystones()
+		_spawn_named_map_mailboxes()
 		_spawn_named_map_rivals()
 		if map_name == "player_home":
 			_spawn_player_home_trophies()
@@ -3343,6 +3347,44 @@ func _spawn_named_map_waystones() -> void:
 		_waystone_nodes[wid] = node
 		_active_waystone_data[wid] = w_dict
 
+# Named-map mailbox locations (near spawn, one per town/home map). Injected — there
+# is no MailboxData resource type on the .tres maps, unlike waystones.
+const _NAMED_MAP_MAILBOX_LOCATIONS: Array[String] = ["madrian", "maykalene", "blancogov", "player_home"]
+
+func _spawn_named_map_mailboxes() -> void:
+	if world_map == null:
+		return
+	if not _NAMED_MAP_MAILBOX_LOCATIONS.has(map_name):
+		return
+	if map_name == "player_home" and not SceneManager.save_manager.home_owned:
+		return
+	var tx: int = world_map.player_spawn_x + 5 if world_map.has_player_spawn() else 10
+	var tz: int = world_map.player_spawn_z if world_map.has_player_spawn() else 8
+	tx = clamp(tx, 1, WorldMap.MAP_WIDTH - 2)
+	tz = clamp(tz, 1, WorldMap.MAP_HEIGHT - 2)
+	var mid: String = "map:%s" % map_name
+	var mx: float = float(tx) * WorldMap.TILE_SIZE
+	var mz: float = float(tz) * WorldMap.TILE_SIZE
+	var my: float = get_terrain_height(mx, mz) + 0.55
+	var m_dict: Dictionary = {"id": mid, "x": mx, "z": mz}
+	var node := _MailboxScene.instantiate() as Node3D
+	_entity_root.add_child(node)
+	node.position = Vector3(mx, my, mz)
+	if node.has_method("init_from_data"):
+		node.init_from_data(m_dict)
+	_mailbox_nodes[mid] = node
+	_active_mailbox_data[mid] = m_dict
+
+func _find_nearby_mailbox(px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
+	for mid in _active_mailbox_data:
+		var m: Dictionary = _active_mailbox_data[mid]
+		var ddx: float = float(m.get("x", 0.0)) - px
+		var ddz: float = float(m.get("z", 0.0)) - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return m
+	return {}
+
 ## Checks if a siege is active for this named map and spawns raiders + siege banner if so.
 func _check_siege_spawn(p_map_name: String) -> void:
 	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
@@ -3462,7 +3504,7 @@ func _discover_landmark(lid: String, l_data: Dictionary) -> void:
 	rng.seed = (cx * 73856093) ^ (cz * 19349663) ^ WORLD_SEED
 	rng.seed = rng.seed & 0x7FFFFFFF
 	var card_id: String = card_ids[rng.randi_range(0, card_ids.size() - 1)]
-	sm.add_card_instance(card_id, "rare")
+	sm.grant_card_reward(card_id, "rare")
 	GameBus.hud_message_requested.emit("You discovered %s! +50 coins, +1 card." % display_name)
 
 func _refresh_blight_tints() -> void:
@@ -3931,13 +3973,14 @@ func _check_interactions() -> void:
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
 	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
 	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
+	var mailbox := _find_nearby_mailbox(px, pz, IsoConst.INTERACT_RANGE)
 	var garden_plot := _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
 	var burial_mound := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
 	var blight_heart := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
 	# Landmarks auto-trigger on approach (no button press needed)
 	_check_nearby_landmark(px, pz)
 	var mana_well := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
-	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
+	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or not mailbox.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
 	var interact_label: String = "USE"
 	if downed_pid != -1:
 		interact_label = "REVIVE"
@@ -3964,6 +4007,8 @@ func _check_interactions() -> void:
 		interact_label = "DIG"
 	elif not waystone.is_empty():
 		interact_label = "WARP"
+	elif not mailbox.is_empty():
+		interact_label = "MAIL"
 	elif garden_plot != null:
 		interact_label = "TEND"
 	elif burial_mound != null:
@@ -4419,6 +4464,11 @@ func _handle_interact() -> void:
 			var wnode := _valid_node3d(_waystone_nodes.get(wid))
 			if wnode != null and wnode.has_method("mark_activated"):
 				wnode.mark_activated()
+		return
+
+	var mailbox := _find_nearby_mailbox(px, pz, IsoConst.INTERACT_RANGE)
+	if not mailbox.is_empty():
+		GameBus.mailbox_requested.emit()
 		return
 
 	var garden_plot := _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)

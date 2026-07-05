@@ -14,11 +14,13 @@ enum State {
 	SKILL_TREE,   # kept for backwards-compat; no longer used by routing
 	PACK_OPEN,
 	BOUNTY_BOARD,
+	MAILBOX,
 	BLACKSMITH,
 	MENU_HUB,
 }
 
 const _PackOpenSceneScript = preload("res://scenes/ui/PackOpenScene.gd")
+const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
 const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
@@ -57,6 +59,7 @@ var _achievements_scene_packed := preload("res://scenes/ui/AchievementsScene.tsc
 var _run_summary_scene_packed := preload("res://scenes/ui/RunSummaryScene.tscn")
 var _spire_draft_scene_packed := preload("res://scenes/ui/SpireDraftScene.tscn")
 var _bounty_board_scene_packed := preload("res://scenes/ui/BountyBoardScene.tscn")
+var _mailbox_scene_packed := preload("res://scenes/ui/MailboxScene.tscn")
 var _blacksmith_scene_packed := preload("res://scenes/ui/BlacksmithScene.tscn")
 
 var _state: State = State.MENU
@@ -123,6 +126,7 @@ func _ready() -> void:
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 	GameBus.shop_requested.connect(_on_shop_requested)
 	GameBus.bounty_board_requested.connect(_on_bounty_board_requested)
+	GameBus.mailbox_requested.connect(_on_mailbox_requested)
 	GameBus.blacksmith_requested.connect(_on_blacksmith_requested)
 	GameBus.traveling_shop_requested.connect(_on_traveling_shop_requested)
 	GameBus.journal_requested.connect(_on_journal_requested)
@@ -139,6 +143,9 @@ func _ready() -> void:
 	GameBus.pack_purchased.connect(_on_pack_purchased)
 	GameBus.bag_full.connect(func() -> void:
 		GameBus.hud_message_requested.emit("Bag full! Sell or scrap cards to make room."))
+	GameBus.card_routed_to_mailbox.connect(func(template_id: String) -> void:
+		var card_name: String = str(CardRegistry.get_template(template_id).get("name", template_id))
+		GameBus.hud_message_requested.emit("%s couldn't fit in your bag — sent to the mailbox." % card_name))
 	GameBus.siege_defeated.connect(func(coins_lost: int) -> void:
 		show_toast("Siege Lost", "The town fell. Lost %d coins." % coins_lost))
 	_maybe_boot_dedicated_server()
@@ -805,7 +812,7 @@ func _on_duel_won() -> void:
 	if not _current_champion_reward.is_empty() and not _current_duel_npc_id.is_empty():
 		if not save_manager.defeated_duelists.has(_current_duel_npc_id):
 			grant_card = _current_champion_reward
-			save_manager.add_card_instance(grant_card, "legendary")
+			save_manager.grant_card_reward(grant_card, "legendary")
 			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 			save_manager.set_story_flag("champion_blancogov_defeated")
 	_current_champion_reward = ""
@@ -869,7 +876,7 @@ func _on_puzzle_solved(puzzle_id: String) -> void:
 	if not save_manager.is_puzzle_solved(puzzle_id):
 		var pdata: PD = PuzzleRegistry.get_puzzle(puzzle_id) as PD
 		if pdata != null and not pdata.reward_card_id.is_empty():
-			save_manager.add_card_instance(pdata.reward_card_id, "rare")
+			save_manager.grant_card_reward(pdata.reward_card_id, "rare")
 			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 		save_manager.mark_puzzle_solved(puzzle_id)
 	save_manager.save()
@@ -965,14 +972,14 @@ func _on_battle_won(result: Dictionary) -> void:
 				for card_id: String in chest_cards:
 					var rarity: String = CardDropUtil.effective_rarity(card_id, CardDropUtil.roll_rarity(3))
 					var stats: Dictionary = CardDropUtil.roll_stats(card_id, rarity)
-					save_manager.add_card_instance(card_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+					save_manager.grant_card_reward(card_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
 					session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 		var mimic_drop_pool: Array[String] = EnemyRegistry.get_drop_pool("mimic")
 		if not mimic_drop_pool.is_empty():
 			var bonus_card: String = mimic_drop_pool[randi() % mimic_drop_pool.size()]
 			var b_rarity: String = CardDropUtil.effective_rarity(bonus_card, CardDropUtil.roll_rarity(2))
 			var b_stats: Dictionary = CardDropUtil.roll_stats(bonus_card, b_rarity)
-			save_manager.add_card_instance(bonus_card, b_rarity, int(b_stats.get("attack", -1)), int(b_stats.get("health", -1)), int(b_stats.get("cost", -1)))
+			save_manager.grant_card_reward(bonus_card, b_rarity, int(b_stats.get("attack", -1)), int(b_stats.get("health", -1)), int(b_stats.get("cost", -1)))
 			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 		var mimic_coins: int = EnemyRegistry.get_coin_reward("mimic")
 		save_manager.add_coins(mimic_coins)
@@ -1028,7 +1035,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		else:
 			rarity = CardDropUtil.effective_rarity(reward, CardDropUtil.roll_rarity(drop_tier))
 			stats = CardDropUtil.roll_stats(reward, rarity)
-		save_manager.add_card_instance(reward, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+		save_manager.grant_card_reward(reward, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
 		session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	var weapon_reward: String = str(result.get("weapon_reward", ""))
 	if weapon_reward != "":
@@ -1037,7 +1044,7 @@ func _on_battle_won(result: Dictionary) -> void:
 	var sig_capture: String = str(result.get("signature_capture", ""))
 	if sig_capture != "":
 		var sig_stats: Dictionary = CardDropUtil.roll_stats(sig_capture, "rare")
-		save_manager.add_card_instance(sig_capture, "rare", int(sig_stats.get("attack", -1)), int(sig_stats.get("health", -1)), int(sig_stats.get("cost", -1)))
+		save_manager.grant_card_reward(sig_capture, "rare", int(sig_stats.get("attack", -1)), int(sig_stats.get("health", -1)), int(sig_stats.get("cost", -1)))
 		save_manager.mark_signature_captured(sig_capture)
 		session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	# Boss battles emit card_rewards (list of all drop_pool cards)
@@ -1055,7 +1062,7 @@ func _on_battle_won(result: Dictionary) -> void:
 			else:
 				r_rarity = CardDropUtil.effective_rarity(rs, CardDropUtil.roll_rarity(drop_tier))
 				r_stats = CardDropUtil.roll_stats(rs, r_rarity)
-			save_manager.add_card_instance(rs, r_rarity, int(r_stats.get("attack", -1)), int(r_stats.get("health", -1)), int(r_stats.get("cost", -1)))
+			save_manager.grant_card_reward(rs, r_rarity, int(r_stats.get("attack", -1)), int(r_stats.get("health", -1)), int(r_stats.get("cost", -1)))
 			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	# Award coins based on enemy type, multiplied by active gambit reward factor.
 	if enemy_type != "":
@@ -1071,7 +1078,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		if enemy_type == "rival_isfig_3":
 			if not save_manager.rival_defeated:
 				save_manager.set_rival_defeated()
-				save_manager.add_card_instance("isfig_shadow_echo", "legendary")
+				save_manager.grant_card_reward("isfig_shadow_echo", "legendary")
 				save_manager.mark_scroll_collected("scroll_isfig_shadow")
 				GameBus.story_scroll_collected.emit("scroll_isfig_shadow")
 		else:
@@ -1368,6 +1375,9 @@ func _on_traveling_shop_requested(stock: Array[String], price: int) -> void:
 func _on_bounty_board_requested() -> void:
 	_open_overlay(_bounty_board_scene_packed, State.BOUNTY_BOARD)
 
+func _on_mailbox_requested() -> void:
+	_open_overlay(_mailbox_scene_packed, State.MAILBOX)
+
 func _on_blacksmith_requested() -> void:
 	_open_overlay(_blacksmith_scene_packed, State.BLACKSMITH)
 
@@ -1393,7 +1403,7 @@ func _apply_siege_victory_rewards(town: String) -> void:
 		var reward_id: String = all_ids[randi() % all_ids.size()]
 		var rarity: String = _CardDropUtil.roll_rarity(3)   # tier 3 = rare-or-better weighted
 		var stats: Dictionary = _CardDropUtil.roll_stats(reward_id, rarity)
-		save_manager.add_card_instance(reward_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+		save_manager.grant_card_reward(reward_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
 		session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	GameBus.siege_victory.emit()
 	show_toast("Siege Defeated!", "%s thanks you! +%d coins + rare card" % [town.capitalize(), SIEGE_VICTORY_COINS])

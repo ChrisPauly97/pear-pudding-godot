@@ -16,6 +16,7 @@ signal ghost_duel_ended(did_win: bool)
 signal inventory_requested
 signal shop_requested
 signal bounty_board_requested
+signal mailbox_requested
 signal journal_requested
 signal character_requested
 
@@ -55,6 +56,7 @@ signal achievement_unlocked(achievement_id: String)
 signal essence_changed(new_amount: int)
 signal equipment_dropped(equip_id: String)
 signal bag_full
+signal card_routed_to_mailbox(template_id: String)
 
 # Progression signals
 signal level_up(new_level: int)

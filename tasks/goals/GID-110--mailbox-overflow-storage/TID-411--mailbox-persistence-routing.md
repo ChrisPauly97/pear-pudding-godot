@@ -2,7 +2,7 @@
 
 **Goal:** GID-110
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -89,12 +89,25 @@ Sell/Scrap from the mailbox (needed by TID-413) can reuse the *existing* `sell_c
 
 ## Plan
 
-_Written during Plan phase._
+1. `autoloads/SaveManager.gd`: add `mailbox_cards: Array[Dictionary] = []` field near `owned_cards`.
+2. Add `grant_card_reward()`, `get_mailbox_instances()`, `claim_mailbox_card()`, `claim_all_mailbox_cards()`, `sell_mailbox_card()`, `scrap_mailbox_card()`.
+3. Wire persistence: `save()` dict, `load_save()` assign, `export_session_character()`/`adopt_session_character()` round-trip, `new_game()` / `_new_game_reduced` reset.
+4. Bump `CURRENT_SAVE_VERSION` 40→41 and add migration `[41, {"mailbox_cards": []}]`.
+5. Add `signal card_routed_to_mailbox(template_id: String)` to `GameBus.gd`.
+6. Migrate the automatic-reward call sites listed in Research Notes from `add_card_instance` to `grant_card_reward` (mechanical rename, same args).
+7. Add `tests/unit/test_mailbox.gd` covering routing, claim, claim-all-stops-at-capacity, sell/scrap-from-mailbox, save/load round-trip.
+8. Run headless editor import + test runner.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SaveManager.gd`: added `mailbox_cards: Array[Dictionary]` field; `grant_card_reward()` (routes to `mailbox_cards` when `is_bag_full()`, otherwise identical to `add_card_instance`'s success path); `get_mailbox_instances()`, `claim_mailbox_card(uid)`, `claim_all_mailbox_cards()`, `sell_mailbox_card(uid)`, `scrap_mailbox_card(uid)`.
+- Persistence: `mailbox_cards` added to `save()`/`load_save()`, `export_session_character()`/`adopt_session_character()`, cleared in `new_game()`. Bumped `CURRENT_SAVE_VERSION` 40→41 with migration `[41, {"mailbox_cards": []}]`.
+- Added `signal card_routed_to_mailbox(template_id: String)` to `autoloads/GameBus.gd`.
+- Migrated all in-scope automatic-reward call sites from `add_card_instance` to `grant_card_reward`: `scenes/battle/BattleScene.gd` (`_apply_coop_pve_rewards`), `scenes/world/WorldScene.gd` (`_discover_landmark`), `scenes/ui/PackOpenScene.gd`, `scenes/world/entities/DigSpot.gd`, `scenes/world/entities/BurialMound.gd`, `scenes/world/entities/WorldItem.gd`, `autoloads/SaveManager.gd` (`add_cards_to_deck`, `grant_achievement_card`, `_check_bestiary_complete`), and 7 reward sites in `autoloads/SceneManager.gd` (champion duel win, puzzle solved, mimic chest cards, boss/mob card rewards incl. multi-reward loop, signature capture, rival finale legendary, siege victory reward). Left `ShopScene.gd`, `InventoryScene.gd` craft, `combine_cards`, and all deterministic startup seeding (`new_game`, `ensure_coop_deck`, `adopt_session_character`) on `add_card_instance` per scope boundary.
+- Added `tests/unit/test_mailbox.gd` (8 tests): routing on full/non-full bag, claim success/failure, claim-all capacity stop, sell/scrap-from-mailbox currency + removal, save/load round-trip.
+
+**Verification note:** this sandbox's egress policy returns 403 for `github.com/godotengine/godot/releases/...`, so the Godot headless binary could not be installed to run `godot --headless --editor --quit` or `tests/runner.gd` (same limitation hit by GID-102/103/105). Changes were verified by manual code review and cross-checking against the existing `add_card_instance`/`sell_card_instance`/`scrap_card_instance` patterns they mirror. A human or CI run should execute the headless import and test suite before merging.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+_Deferred to end of goal — see GID-110 goal.md for the consolidated docs/agent/inventory-and-deck.md update covering all three tasks._
