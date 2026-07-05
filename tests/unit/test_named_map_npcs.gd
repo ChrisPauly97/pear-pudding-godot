@@ -167,3 +167,34 @@ func test_blancogov_city_dweller_flag_gated_on_temple_council() -> void:
 	assert_eq(str(n.get("flag_key", "")), "chapter1_temple_council")
 	assert_eq(str(n.get("after_dialogue", "")),
 		"The bells rang thrice — the alliance is called. First time in my lifetime.")
+
+
+# ---------------------------------------------------------------------------
+# Chapter 1 ending (GID-108 / TID-405)
+# ---------------------------------------------------------------------------
+
+func test_blancogov_temple_king_eldar_uses_custom_npc_type() -> void:
+	# King Eldar's dialogue is entirely custom-driven (WorldScene
+	# _handle_king_eldar_interaction) since his 4 narrative states don't fit
+	# the 2-state MapNpc flag_key/after_dialogue schema — flag_key must be
+	# empty so the generic auto-set-on-interact path never fires for him.
+	var wm: RefCounted = WorldMapScript.new("blancogov_temple")
+	var n: Dictionary = _npc_by_id(wm, "npc_1")
+	assert_eq(str(n.get("npc_type", "")), "chapter1_king_eldar")
+	assert_eq(str(n.get("flag_key", "")), "")
+
+
+func test_blancogov_temple_queen_flag_gated_on_spoke_queen() -> void:
+	var wm: RefCounted = WorldMapScript.new("blancogov_temple")
+	var n: Dictionary = _npc_by_id(wm, "npc_2")
+	assert_eq(str(n.get("flag_key", "")), "chapter1_spoke_queen")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"Rest here whenever the road wears you thin, young Saimtar.")
+
+
+func test_blancogov_temple_scargroth_flag_gated_on_spoke_scargroth() -> void:
+	var wm: RefCounted = WorldMapScript.new("blancogov_temple")
+	var n: Dictionary = _npc_by_id(wm, "npc_3")
+	assert_eq(str(n.get("flag_key", "")), "chapter1_spoke_scargroth")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"I've been reading the old registers. There is a name from Larik you should see.")

@@ -25,8 +25,16 @@ Story flags persist correctly (GID-001) and NPC dialogue tables exist in story.m
 
 ## Acceptance Criteria
 
-- [ ] NPC dialogue in all 5 named maps changes correctly based on story flags
-- [ ] FLAG directive in map files is parsed and passed to TownspersonNPC nodes
-- [ ] Chapter 1 victory condition is triggered at the defined point
-- [ ] An ending overlay/scene plays and sets the chapter1_complete flag
-- [ ] All tests pass headless
+- [x] NPC dialogue in all 5 named maps changes correctly based on story flags (GID-108 / TID-404;
+      King Eldar/Queen/Scargroth in blancogov_temple via GID-108 / TID-405)
+- [x] FLAG directive in map files is parsed and passed to TownspersonNPC nodes (superseded by the
+      GID-017 `.tres` migration — `MapNpc.flag_key`/`after_dialogue` fields, same effect)
+- [x] Chapter 1 victory condition is triggered at the defined point (GID-108 / TID-405 —
+      `WorldScene._handle_king_eldar_interaction`/`_trigger_chapter1_ending`)
+- [x] An ending overlay/scene plays and sets the chapter1_complete flag (GID-108 / TID-405 —
+      `scenes/ui/ChapterEndingOverlay.gd`)
+- [ ] All tests pass headless — not run in this sandbox (no Godot binary; see TID-405 Changes
+      Made); recommended before merge
+
+All engineering criteria are satisfied via GID-108 (TID-404 + TID-405). This goal is resolved
+pending a headless test confirmation.

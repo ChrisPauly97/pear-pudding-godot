@@ -102,12 +102,15 @@ func test_reached_blancogov_returns_enter_temple() -> void:
 
 # ── chapter1_temple_council ───────────────────────────────────────────────────
 
-func test_temple_council_returns_empty() -> void:
+func test_temple_council_returns_speak_with_queen_and_scargroth() -> void:
 	var obj: Dictionary = ObjectiveTracker.current_objective(
 		_flags(["story_intro_complete", "chapter1_left_madrian", "chapter1_camp_night",
 			"chapter1_learned_fire", "chapter1_warned_farsyth", "chapter1_received_letter",
 			"chapter1_reached_blancogov", "chapter1_temple_council"]))
-	assert_true(obj.is_empty(), "After speaking to King Eldar, no further objective")
+	assert_eq(obj.get("label", ""), "Speak with the Queen and Scargroth, then the King")
+	assert_eq(obj.get("map", ""), "blancogov_temple")
+	assert_eq(int(obj.get("tx", -99)), 42)
+	assert_eq(int(obj.get("tz", -99)), 15)
 
 
 # ── chapter1_complete ─────────────────────────────────────────────────────────

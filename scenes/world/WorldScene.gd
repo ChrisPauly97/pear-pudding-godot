@@ -233,6 +233,7 @@ var _stash_cache: Dictionary = {"cards": [], "coins": 0}  # last-known stash sna
 const _AuctionTransfer = preload("res://game_logic/net/AuctionTransfer.gd")
 const _AuctionSync = preload("res://game_logic/net/AuctionSync.gd")
 const _AuctionHouseOverlay = preload("res://scenes/ui/AuctionHouseOverlay.gd")
+const _ChapterEndingOverlay = preload("res://scenes/ui/ChapterEndingOverlay.gd")
 var _auction_btn: Button = null           # "Auction" HUD button (always visible in co-op)
 var _auction_overlay: Node = null         # AuctionHouseOverlay instance, nil when closed
 var _auction_cache: Array = []            # last-known listings snapshot
@@ -4500,6 +4501,9 @@ func _handle_interact() -> void:
 		if str(npc.get("npc_type", "")) == "trophy_pedestal":
 			_show_trophy_info(npc)
 			return
+		if str(npc.get("npc_type", "")) == "chapter1_king_eldar":
+			_handle_king_eldar_interaction(npc)
+			return
 		var nid: String = str(npc.get("id", ""))
 		var nnode := _valid_node3d(_npc_nodes.get(nid))
 		var dlg: String
@@ -5140,6 +5144,46 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 
 func _show_dialogue(text: String) -> void:
 	_world_hud.show_dialogue(text)
+
+## Chapter 1 ending trigger (GID-108 / TID-405). King Eldar's dialogue is entirely
+## custom (npc_type "chapter1_king_eldar" bypasses the generic MapNpc flag_key
+## auto-set path — see WorldScene._handle_interact()) because it needs four
+## states the 2-state MapNpc schema can't express: first meeting / council in
+## session / ending trigger / post-ending epilogue.
+func _handle_king_eldar_interaction(npc: Dictionary) -> void:
+	var sm := SceneManager.save_manager
+	if sm.get_story_flag("chapter1_complete"):
+		_show_dialogue("The realm owes its warning to a servant boy from Larik. Remember that, all of you.")
+		return
+	if not sm.get_story_flag("chapter1_temple_council"):
+		sm.set_story_flag("chapter1_temple_council")
+		_show_dialogue(str(npc.get("dialogue", "...")))
+		return
+	if sm.get_story_flag("chapter1_spoke_queen") and sm.get_story_flag("chapter1_spoke_scargroth"):
+		_trigger_chapter1_ending()
+		return
+	_show_dialogue("The council has heard the prophecy. We act at dawn.")
+
+## Sets chapter1_complete and shows the three-page ending narration overlay.
+## No scene transition — the player is already in the world (blancogov_temple);
+## "return to the world as a playable epilogue" just means closing the overlay.
+## Setting the flag fires _refresh_maiteln_presence() for free via the existing
+## _on_local_story_flag_set hook (TID-403), hiding the follower with no new code.
+func _trigger_chapter1_ending() -> void:
+	SceneManager.save_manager.set_story_flag("chapter1_complete")
+	var pages: Array[String] = [
+		"The council resolves — the old alliance is re-sworn, riders will carry the warning to every lord.",
+		"Maiteln, quietly proud, tells Saimtar he has earned his place at his side.",
+		"Scargroth pulls Saimtar aside: \"There is a name from Larik in the old registers you should see.\"",
+	]
+	var overlay := _ChapterEndingOverlay.new()
+	overlay.setup(pages)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var layer := CanvasLayer.new()
+	layer.layer = 999
+	get_tree().root.add_child(layer)
+	layer.add_child(overlay)
+	overlay.closed.connect(func() -> void: layer.queue_free())
 
 func _show_duel_offer_panel(npc: Dictionary) -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size

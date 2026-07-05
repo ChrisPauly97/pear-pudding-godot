@@ -8,7 +8,8 @@ static func current_objective(flags: Dictionary) -> Dictionary:
 	if flags.get("chapter1_complete", false):
 		return {}
 	if flags.get("chapter1_temple_council", false):
-		return {}
+		return {"label": "Speak with the Queen and Scargroth, then the King",
+			"map": "blancogov_temple", "tx": 42, "tz": 15}
 	if flags.get("chapter1_reached_blancogov", false):
 		return {"label": "Enter the Temple", "map": "blancogov_temple", "tx": 42, "tz": 15}
 	if flags.get("chapter1_received_letter", false):

@@ -170,6 +170,54 @@ processing and rendering with zero extra code.
   with a single authority-owned, network-synced Maiteln (mirroring `RemotePlayer` avatar sync,
   `map_name` carried in the payload).
 
+### Chapter 1 Ending (GID-108 / TID-405)
+
+King Eldar (`blancogov_temple` npc_1) has `npc_type = "chapter1_king_eldar"`, a dedicated marker
+in `WorldScene._handle_interact()`'s npc dispatch chain (same pattern as `merchant` /
+`blacksmith` / `bounty_board` / `stable` / `duelist` / `rest_site` / `bed` / `trophy_pedestal`)
+that bypasses the generic `TownspersonNPC.get_dialogue()` + `MapNpc.flag_key` auto-set path
+entirely. His interaction needs four states that don't fit the 2-state `MapNpc` schema:
+
+1. `chapter1_complete` already set → epilogue line.
+2. `chapter1_temple_council` not yet set → sets it (first meeting, "the council is assembling"),
+   shows his static `dialogue`.
+3. `chapter1_temple_council` set AND both `chapter1_spoke_queen` and `chapter1_spoke_scargroth`
+   set → `WorldScene._trigger_chapter1_ending()`.
+4. Otherwise (council met, Queen/Scargroth not both spoken to yet) → an interim "council has
+   heard the prophecy" line.
+
+Queen (npc_2) and Scargroth (npc_3) use the ordinary `flag_key` mechanism —
+`chapter1_spoke_queen` / `chapter1_spoke_scargroth` respectively, set automatically the first
+time each is talked to (safe: unlike `chapter1_complete`, these are single-condition flags with
+no compound gate). **Known simplification:** their `after_dialogue` is story.md's *post-ending*
+epilogue line, shown as soon as they've been spoken to once rather than only after
+`chapter1_complete` — the 2-state schema can't express three states, and the intended flow
+(Queen → Scargroth → King Eldar, all in one visit) makes the gap narratively negligible.
+
+`_trigger_chapter1_ending()` sets `chapter1_complete` (which fires `_refresh_maiteln_presence()`
+for free via the TID-403 `_on_local_story_flag_set` hook — the follower disappears with no new
+code) and shows `scenes/ui/ChapterEndingOverlay.gd`, a new `BaseOverlay`-derived paged narration
+overlay (`extends "res://scenes/ui/BaseOverlay.gd"`, path-string per the CLAUDE.md class_name
+preload rule) with the three approved story.md pages. No scene transition — the player is
+already in the world, so "return to the world as a playable epilogue" is simply closing the
+overlay; the epilogue reactivity comes entirely from the TID-404 flag-gated dialogue lines that
+key off `chapter1_complete` across the other named maps.
+
+**Bug fix carried from TID-401** (found while reviewing `BaseOverlay` for this task):
+`BaseOverlay._close()` only emits the `closed` signal — it does not free the node. The caller
+must connect `closed` to free the wrapping `CanvasLayer` (`SceneManager._on_tutorial_popup_requested`
+already did this correctly). `BattleScene._maybe_show_scripted_tutorial_step` (TID-401) did not,
+so the scripted-battle tutorial popup's "Got it" button was dead — fixed alongside this task's
+own overlay wiring.
+
+`ObjectiveTracker.current_objective()`'s `chapter1_temple_council` branch now returns
+`{"label": "Speak with the Queen and Scargroth, then the King", "map": "blancogov_temple", "tx": 42, "tz": 15}`
+instead of `{}` (previously a dead end).
+
+The `chapter1_done` achievement (`game_logic/AchievementRegistry.gd`, `flag_key: "chapter1_complete"`)
+fires automatically through the existing `SaveManager.set_story_flag` → `check_flag_achievement`
+path — no new code needed.
+
 ---
 
 ## Integrations with Other Features
