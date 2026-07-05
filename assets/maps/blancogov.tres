@@ -29,10 +29,10 @@ script = ExtResource("3_mapnpc")
 entity_id = "npc_1"
 tile_x = 49
 tile_z = 9
-dialogue = "Halt! State your business at the gates of Blancogov. No entry without authorisation!"
+dialogue = "Halt! State your business. No entry without authorisation!"
 npc_type = ""
-flag_key = ""
-after_dialogue = ""
+flag_key = "chapter1_received_letter"
+after_dialogue = "Welcome back. The council awaits within — proceed."
 dialogue_group = "Halt! State your business at the gates of Blancogov. No entry without authorisation for any of you!"
 
 [sub_resource type="Resource" id="MapNpc_2"]
@@ -42,8 +42,8 @@ tile_x = 49
 tile_z = 72
 dialogue = "The great temple of King Eldar lies at the road's end. The council has been summoned — something stirs."
 npc_type = ""
-flag_key = ""
-after_dialogue = ""
+flag_key = "chapter1_temple_council"
+after_dialogue = "The bells rang thrice — the alliance is called. First time in my lifetime."
 
 [sub_resource type="Resource" id="MapNpc_3"]
 script = ExtResource("3_mapnpc")

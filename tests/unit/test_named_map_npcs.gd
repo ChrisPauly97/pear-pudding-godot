@@ -106,3 +106,64 @@ func test_fallback_map_generates_all_entity_types() -> void:
 		"default map should have procedural chests")
 	assert_true(wm.npcs.size() > 0,
 		"default map should have procedural NPCs")
+
+
+# ---------------------------------------------------------------------------
+# Flag-gated dialogue content pass (GID-108 / TID-404)
+# ---------------------------------------------------------------------------
+
+func _npc_by_id(wm: RefCounted, id: String) -> Dictionary:
+	for n in wm.npcs:
+		if str(n.get("id", "")) == id:
+			return n
+	return {}
+
+
+func test_madrian_maiteln_flag_gated_after_recruitment() -> void:
+	var wm: RefCounted = WorldMapScript.new("madrian")
+	var n: Dictionary = _npc_by_id(wm, "npc_1")
+	assert_eq(str(n.get("flag_key", "")), "story_intro_complete")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"The road waits, wee Saimtar. South, past the wilds — Maykalene first.")
+
+
+func test_madrian_master_flag_gated_after_recruitment() -> void:
+	var wm: RefCounted = WorldMapScript.new("madrian")
+	var n: Dictionary = _npc_by_id(wm, "npc_2")
+	assert_eq(str(n.get("flag_key", "")), "story_intro_complete")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"Running off with that old trickster? Good riddance — but your bed will be gone when you crawl back.")
+
+
+func test_maykalene_townsperson_innkeeper_guard_flag_gated_on_warned_farsyth() -> void:
+	var wm: RefCounted = WorldMapScript.new("maykalene")
+	for id in ["npc_1", "npc_2", "npc_3"]:
+		var n: Dictionary = _npc_by_id(wm, id)
+		assert_eq(str(n.get("flag_key", "")), "chapter1_warned_farsyth",
+			"maykalene %s should gate on chapter1_warned_farsyth" % id)
+		assert_true(str(n.get("after_dialogue", "")).length() > 0,
+			"maykalene %s should have an after_dialogue line" % id)
+
+
+func test_farsyth_mansion_lord_farsyth_after_dialogue_matches_story() -> void:
+	var wm: RefCounted = WorldMapScript.new("farsyth_mansion")
+	var n: Dictionary = _npc_by_id(wm, "npc_2")
+	assert_eq(str(n.get("flag_key", "")), "chapter1_warned_farsyth")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"Ride hard for Blancogov. Every hour you save may save a village.")
+
+
+func test_blancogov_gate_guard_flag_gated_on_received_letter() -> void:
+	var wm: RefCounted = WorldMapScript.new("blancogov")
+	var n: Dictionary = _npc_by_id(wm, "npc_1")
+	assert_eq(str(n.get("flag_key", "")), "chapter1_received_letter")
+	assert_eq(str(n.get("dialogue", "")),
+		"Halt! State your business. No entry without authorisation!")
+
+
+func test_blancogov_city_dweller_flag_gated_on_temple_council() -> void:
+	var wm: RefCounted = WorldMapScript.new("blancogov")
+	var n: Dictionary = _npc_by_id(wm, "npc_2")
+	assert_eq(str(n.get("flag_key", "")), "chapter1_temple_council")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"The bells rang thrice — the alliance is called. First time in my lifetime.")

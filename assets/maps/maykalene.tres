@@ -31,8 +31,8 @@ tile_x = 50
 tile_z = 65
 dialogue = "Welcome to Maykalene! Fine white-washed houses and a warm inn await you."
 npc_type = ""
-flag_key = ""
-after_dialogue = ""
+flag_key = "chapter1_warned_farsyth"
+after_dialogue = "Word from the mansion is grim — riders left for Marsax and Temlar at first light."
 dialogue_group = "Welcome to Maykalene! Fine white-washed houses and a warm inn await you all."
 
 [sub_resource type="Resource" id="MapNpc_2"]
@@ -42,8 +42,8 @@ tile_x = 57
 tile_z = 51
 dialogue = "Best broth and cocoa in all the land! A warm meal and soft bed within!"
 npc_type = ""
-flag_key = ""
-after_dialogue = ""
+flag_key = "chapter1_warned_farsyth"
+after_dialogue = "You're the lad who came with Maiteln? Broth's on the house — dark times make short bills."
 dialogue_group = "Best broth and cocoa in all the land! Warm meals and soft beds for your whole party within!"
 
 [sub_resource type="Resource" id="MapNpc_3"]
@@ -53,8 +53,8 @@ tile_x = 50
 tile_z = 94
 dialogue = "Ah, Maiteln! Lord Farsyth is not busy at the moment. Go straight in if you have news of the prophecy."
 npc_type = ""
-flag_key = ""
-after_dialogue = ""
+flag_key = "chapter1_warned_farsyth"
+after_dialogue = "The lord is with his war-scribes. He said you're to pass unannounced, always."
 dialogue_group = "Ah, Maiteln! Lord Farsyth is not busy at the moment. Bring your companions inside — he will see you all if you have news of the prophecy."
 
 [sub_resource type="Resource" id="MapNpc_4"]

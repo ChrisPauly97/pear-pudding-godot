@@ -86,7 +86,7 @@ tile_z = 36
 dialogue = "I am a wizard of old. If you come with me you will never have to worry about your master again and I will take you on an adventure. My name is Maiteln. Will you come with me?"
 npc_type = ""
 flag_key = "story_intro_complete"
-after_dialogue = "Come, we must make haste before your master notices we are gone."
+after_dialogue = "The road waits, wee Saimtar. South, past the wilds — Maykalene first."
 dialogue_group = "I am a wizard of old. If you will all come with me, none of you need worry about that master again — I will take you all on an adventure. My name is Maiteln. Will you join me?"
 
 [sub_resource type="Resource" id="MapNpc_2"]
@@ -96,8 +96,8 @@ tile_x = 11
 tile_z = 14
 dialogue = "Boy! Get back to your chores this instant or you will be punished!"
 npc_type = ""
-flag_key = ""
-after_dialogue = ""
+flag_key = "story_intro_complete"
+after_dialogue = "Running off with that old trickster? Good riddance — but your bed will be gone when you crawl back."
 dialogue_group = "All of you! Get back to your chores this instant or you will all be punished!"
 
 [sub_resource type="Resource" id="MapNpc_3"]
