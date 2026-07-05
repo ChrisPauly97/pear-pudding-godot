@@ -103,6 +103,15 @@ var _current_champion_reward: String = ""
 # Enemy type for the current co-op PvE battle (for achievement tracking)
 var _coop_pve_enemy_type: String = ""
 
+# Co-op Endless Spire run (GID-106 / TID-390). Transient, in-memory only — never
+# persisted to save.json or the session file (mirrors SaveManager.spire_run's shape
+# but lives here because it must survive floor-to-floor map transitions, which
+# destroy/recreate WorldScene). Authoritative on the host; every peer keeps a
+# locally-mirrored copy kept in sync via NetSync broadcasts (same model as
+# WorldScene's _leaderboard_rows/_remote_identities caches). picker_order/picker_idx
+# are only meaningful on the host — clients never read them.
+var _coop_spire_run: Dictionary = {"active": false}
+
 ## Points at the SaveManager autoload so all systems share one instance.
 ## The autoload is registered before SceneManager in project.godot.
 var save_manager: Node
@@ -1588,4 +1597,88 @@ func _restore_spire_entry_point() -> void:
 	else:
 		current_map = "madrian"
 		save_manager.current_map = "madrian"
+
+# ── Co-op Endless Spire (GID-106 / TID-390) ─────────────────────────────────
+# Mirrors the single-player enter_spire/start_spire_run/advance_spire_floor/
+# add_drafted_card/end_spire_run shape above, but entirely transient — see the
+# _coop_spire_run field comment. WorldScene._start_coop_spire() is the only caller
+# of enter_spire_coop(); it is host-only (enforced by the caller, matching
+# _start_dungeon_crawl's defensive precedent).
+
+func is_coop_spire_active() -> bool:
+	return bool(_coop_spire_run.get("active", false))
+
+func get_coop_spire_run() -> Dictionary:
+	return _coop_spire_run
+
+## Starts (or resumes) a co-op Spire run. `picker_order` is the draft turn rotation,
+## built by the caller from currently-connected session tokens (host + peers present
+## at run start — late joiners simply aren't in the rotation, a v1 scope decision
+## mirroring the loot-roll "present = connected" simplification). Broadcasting the
+## map transition and loading the floor locally is the caller's job (reuses the
+## existing recv_map_transition RPC verbatim, exactly like _start_dungeon_crawl) —
+## this function only owns the run's data.
+func enter_spire_coop(picker_order: Array[String] = []) -> String:
+	if is_coop_spire_active():
+		var run: Dictionary = _coop_spire_run
+		var floor: int = int(run.get("floor", 1))
+		var run_seed: int = int(run.get("seed", 0))
+		return "spire_floor_%d_%d" % [floor, run_seed]
+	var seed: int = randi()
+	_coop_spire_run = {
+		"active": true,
+		"floor": 1,
+		"seed": seed,
+		"shared_deck": [],
+		"hero_hp": 30,
+		"picker_order": picker_order.duplicate(),
+		"picker_idx": 0,
+	}
+	return "spire_floor_1_%d" % seed
+
+## Appends a drafted card to the shared run deck (no-op if the run is inactive).
+## Mirrors SaveManager.add_drafted_card.
+func add_coop_drafted_card(card_id: String) -> void:
+	if not is_coop_spire_active():
+		return
+	var deck: Array = _coop_spire_run.get("shared_deck", [])
+	deck.append(card_id)
+	_coop_spire_run["shared_deck"] = deck
+
+## Advances the picker rotation to the next member's turn (mod party size).
+## No-op if the run is inactive or the rotation is empty.
+func advance_coop_spire_picker() -> void:
+	if not is_coop_spire_active():
+		return
+	var order: Array = _coop_spire_run.get("picker_order", [])
+	if order.is_empty():
+		return
+	var idx: int = int(_coop_spire_run.get("picker_idx", 0))
+	_coop_spire_run["picker_idx"] = (idx + 1) % order.size()
+
+## Bumps the run to the next floor (mirrors SaveManager.advance_spire_floor, minus
+## the SaveManager-only enemies_defeated counter, which has no co-op equivalent here).
+func advance_coop_spire_floor() -> void:
+	if not is_coop_spire_active():
+		return
+	_coop_spire_run["floor"] = int(_coop_spire_run.get("floor", 1)) + 1
+
+## Ends the run and returns its final stats (mirrors SaveManager.end_spire_run's
+## return shape, minus the coin-reward/story-flag side effects — those are
+## single-player-save concepts with no session equivalent; TID-391 owns whatever
+## session-scoped reward/leaderboard submission replaces them).
+func end_coop_spire_run() -> Dictionary:
+	var floors_cleared: int = int(_coop_spire_run.get("floor", 1)) - 1
+	var stats: Dictionary = {
+		"floors_cleared": floors_cleared,
+		"seed": int(_coop_spire_run.get("seed", 0)),
+		"shared_deck": (_coop_spire_run.get("shared_deck", []) as Array).duplicate(),
+	}
+	_coop_spire_run = {"active": false}
+	return stats
+
+## Lets a non-host peer overwrite its local mirror wholesale from a host broadcast.
+## Clients never mutate _coop_spire_run directly.
+func set_coop_spire_run_mirror(run: Dictionary) -> void:
+	_coop_spire_run = run.duplicate(true)
 	save_manager.sync_stacks(map_stack, door_stack)

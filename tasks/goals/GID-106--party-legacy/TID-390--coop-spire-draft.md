@@ -2,14 +2,14 @@
 
 **Goal:** GID-106
 **Type:** agent
-**Status:** in-progress
+**Status:** done
 **Depends On:** —
 
 ## Lock
 
-**Session:** claude/GID-106--party-legacy
-**Acquired:** 2026-07-05T15:12:40Z
-**Expires:** 2026-07-05T15:42:40Z
+**Session:** none
+**Acquired:** —
+**Expires:** —
 
 ## Context
 
@@ -201,8 +201,113 @@ full `godot --headless --path . -s tests/runner.gd` run before committing.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`game_logic/net/SpireDraftSync.gd`** (new, + `.uid`) — pure, scene-free wire helper
+  mirroring `LootRoll.gd`'s style: `encode_draft_start`/`decode_draft_start` (floor,
+  options, active picker token+name) and `encode_draft_choice`/`decode_draft_choice`
+  (resolved card_id, next active picker token+name). Garbage-tolerant, fully-defaulted
+  decoders. No wire helper for the client→authority pick itself —
+  `submit_spire_draft_choice(card_idx: int)` is a plain RPC param, mirroring
+  `submit_loot_roll_choice`'s precedent.
+- **`autoloads/SceneManager.gd`** — new transient `_coop_spire_run: Dictionary` field
+  (never persisted; survives floor-to-floor map transitions, which destroy/recreate
+  WorldScene — the reason it can't live on WorldScene the way Co-op Siege's state
+  does) and 8 new methods mirroring the single-player `enter_spire`/`start_spire_run`/
+  `advance_spire_floor`/`add_drafted_card`/`end_spire_run` shape: `is_coop_spire_active`,
+  `get_coop_spire_run`, `enter_spire_coop(picker_order)` (starts fresh or resumes,
+  returns the target floor map name embedding a fresh `randi()` seed — reuses the
+  `_start_dungeon_crawl` seed-in-map-name trick, no new wire field), `add_coop_drafted_card`,
+  `advance_coop_spire_picker` (rotation, mod party size), `advance_coop_spire_floor`,
+  `end_coop_spire_run` (returns stats), `set_coop_spire_run_mirror` (non-host peers
+  overwrite their local cache from a broadcast).
+- **`scenes/world/NetSync.gd`** — 3 new reliable RPCs, exact style of the existing
+  loot-roll trio: `recv_spire_draft_start(payload)`, `submit_spire_draft_choice(card_idx)`,
+  `recv_spire_draft_choice(payload)`.
+- **`scenes/world/WorldScene.gd`**:
+  - New consts: `_SpireDraftSync`, `_SpireDraft`, `_SpireDraftScene` (the `.tscn`,
+    not the `.gd` — `.instantiate()` is a `PackedScene` method) preloads.
+  - New state: `_coop_spire_draft_active` (authority-only in-flight round),
+    `_COOP_SPIRE_DRAFT_TIMEOUT = 30.0`, `_coop_spire_draft_overlay`, and
+    `_pending_coop_spire_draft` (every peer's own locally-received draft-start
+    payload — needed separately from `_coop_spire_draft_active` because that dict
+    only exists on the authority; a client picker resolving `card_id -> card_idx`
+    from the wrong dict would silently no-op its own submit — caught and fixed
+    during review before this was ever run).
+  - `_start_coop_spire()` (Party panel action, host-only): mirrors
+    `_start_dungeon_crawl()` exactly, builds `picker_order` from
+    `_session_token_by_peer` + the host's own token, calls
+    `SceneManager.enter_spire_coop`, broadcasts via the existing
+    `recv_map_transition` RPC.
+  - `_start_coop_spire_draft(floor)` (authority-only, **the TID-391 hook** — nothing
+    calls this yet in this task, intentionally, mirroring how TID-355 built
+    `recv_map_transition` before TID-380 became its first real caller): seeds the RNG
+    from `run.seed + floor` (byte-identical to single-player's `SpireDraftScene.setup`),
+    generates 3 options via `SpireDraft.generate_picks`, broadcasts the prompt.
+  - `_on_spire_draft_start_received`, `_submit_coop_spire_draft_choice`,
+    `_on_spire_draft_choice_submitted` (validates sender == expected active picker
+    token, silently ignored otherwise), `_tick_coop_spire_draft` (30s auto-pick,
+    ticked from `_process` alongside `_tick_loot_rolls`), `_resolve_coop_spire_draft`
+    (commits the card via `SceneManager.add_coop_drafted_card`, advances the picker
+    rotation, broadcasts the result), `_on_spire_draft_choice_received` (toast).
+  - `_on_coop_session_ended`: clears the in-flight draft round/overlay/pending-payload
+    state (same cleanup list as the other session-scoped systems there).
+- **`scenes/ui/PartyPanel.gd`**: `show_spire`/`on_spire` fields + one more
+  `_add_action_button(grid, "Co-op Spire", on_spire, true)` call, same shape as
+  `show_dungeon_crawl`/`on_dungeon_crawl`. `WorldScene._open_party_panel()` wires
+  `show_spire = NetworkManager.is_host()`, `on_spire = _start_coop_spire`.
+- **`scenes/ui/SpireDraftScene.gd`**: new `setup_coop(floor, options, is_my_turn,
+  picker_name)` entry point alongside the existing `setup(floor)` — skips RNG/pick
+  generation (uses the broadcast `options` verbatim so every peer renders identical
+  cards), adds a turn banner ("Your turn!" / "Waiting for `<name>`…"), and disables
+  the Pick buttons for every peer except the active picker. `_on_pick` branches on
+  `_is_coop`: the single-player persistence side effects
+  (`SaveManager.add_drafted_card`, `GameBus.spire_card_drafted`) never fire in co-op —
+  co-op persistence is `SceneManager.add_coop_drafted_card`, applied by `WorldScene`
+  only after the authority resolves the pick. Single-player `setup(floor)` path is
+  completely unchanged.
+- **`tests/unit/test_spire_draft_sync.gd`** (new, 14 cases) — encode/decode round-trip
+  for both wire helpers, garbage/null/non-container/short-array tolerance, mirrors
+  `test_loot_roll.gd`'s structure.
+- **`tests/unit/test_scene_manager_state.gd`** — extended the existing save/restore
+  `before_each`/`after_each` pattern to also snapshot `SceneManager._coop_spire_run`,
+  and added 15 new cases covering `enter_spire_coop` (fresh start, resume without
+  resetting progress, seed-embedded target map name), `add_coop_drafted_card`,
+  `advance_coop_spire_picker` (wraparound), `advance_coop_spire_floor`,
+  `end_coop_spire_run` (stats + active-flag clear), and `set_coop_spire_run_mirror`.
+
+### Validation
+
+**Could not run `godot --headless --editor --quit` or the test suite in this
+sandbox.** The CLAUDE.md-documented install recipe
+(`wget .../Godot_v4.6-stable_linux.x86_64.zip`) failed with HTTP 403 — the agent
+proxy's egress policy blocks this host for this session (confirmed via
+`$HTTPS_PROXY/__agentproxy/status`; per the proxy's own guidance, a 403 is an
+organization policy denial that must be reported, not retried or routed around).
+No cached Godot binary exists elsewhere in this environment either.
+
+In lieu of the automated check, did a thorough manual review instead:
+diff-level brace/paren/bracket balance (confirmed the diff introduces exactly
+matched counts in every touched file; `WorldScene.gd`'s raw total was already
+off-by-one before this change, from a pre-existing comment/string, not
+introduced here), indentation (no space-for-tab lines in any new/changed
+line), no duplicate function/const/var declarations, every `:=` inference
+site checked against a concretely-typed RHS (`Label.new()`,
+`RandomNumberGenerator.new()`, `PackedScene.instantiate()` — none Variant),
+and every RPC/handler name cross-checked end-to-end (NetSync forwarder ↔
+WorldScene handler ↔ call sites). Caught and fixed one real logic bug this
+way before it could ship: a client's own draft-choice submit was reading
+`_coop_spire_draft_active` (authority-only) instead of a client-visible
+pending-payload cache, which would have silently no-op'd every non-host
+picker's turn.
+
+**This needs a real headless import + `tests/runner.gd` run before merging** —
+flagging this exactly like GID-102/103/105/110's precedent in `tasks/index.md`.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md`: added a new `## Party Legacy (GID-106)` top-level
+  section with a `### Co-op Endless Spire — shared run & alternating draft (TID-390)`
+  subsection (entry point, transient `SceneManager._coop_spire_run` state ownership
+  and why it can't live on WorldScene/SessionState, the draft engine's pure helper +
+  RPCs + authority flow + UI reuse, the client-index-resolution bug/fix, and the
+  Tests list) — explicitly calling out that floor battles + leaderboard submission
+  are TID-391, so the doc doesn't imply a feature that isn't wired yet.

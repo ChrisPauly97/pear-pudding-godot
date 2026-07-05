@@ -2327,3 +2327,116 @@ PvE battle engine.
 - **Known limitation** — siege progress is not persisted to `SessionState`; if
   the party leaves madrian mid-siege the event silently ends (see Limitations
   above).
+
+## Party Legacy (GID-106)
+
+Gives a persistent co-op session long-run identity through a shared roguelike
+mode (this section) and a physical guildhall home (TID-392/393, a later task
+in this goal).
+
+### Co-op Endless Spire — shared run & alternating draft (TID-390)
+
+Adapts the single-player Endless Spire (GID-038 — escalating boss floors, a
+3-card-1 draft between each) for a party: the same seed-based floor
+composition, but the run deck is **shared and built collaboratively** via
+authority-orchestrated alternating draft picks (one pick per floor clear,
+rotating among members), reusing the loot-roll prompt-session pattern
+(TID-381 above).
+
+**Scope note:** this task delivers the entry point, shared-seed run start, and
+the full draft-orchestration engine below. **Floor battles (via the GID-099
+joint PvE battle engine) and PvE-leaderboard submission are TID-391** — the
+next task in this goal. `WorldScene._start_coop_spire_draft(floor)` is the one
+hook TID-391 calls once it has a real floor-win condition; nothing calls it
+yet, mirroring how TID-355 built `recv_map_transition` before TID-380 became
+its first real caller (see "Shared dungeon crawl" above).
+
+**Entry point — host-only Party panel action, not a HUD button** (same
+rationale as "Dungeon Crawl": host-only avoids a race where two peers start two
+different runs at once). `PartyPanel.gd` gained `show_spire`/`on_spire`;
+`WorldScene._start_coop_spire()` mirrors `_start_dungeon_crawl()`'s exact
+shape and reuses the **existing, untouched** `recv_map_transition` RPC
+(TID-355) — the seed needs no new wire field since it is embedded directly in
+the target map name (`"spire_floor_1_<seed>"`), and `WorldScene._ready`'s
+existing `spire_floor_` parsing already regenerates the identical floor on
+every peer (`SpireFloorGen.generate` is a pure function of `(floor, seed)`,
+same determinism guarantee `DungeonGen` relies on for the dungeon crawl).
+
+**Run state — `SceneManager._coop_spire_run` (transient, in-memory only,
+never persisted to save.json or the session file).** A co-op Spire run cannot
+live only on `WorldScene` instance fields the way Co-op Siege's state does,
+because floor-to-floor progression **is** a map transition — it would destroy
+the run every time a peer advanced a floor. `SceneManager` is an autoload, so
+it survives scene changes; the shape mirrors single-player's
+`SaveManager.spire_run` (`active, floor, seed, shared_deck, hero_hp`) plus two
+co-op-only fields, `picker_order: Array[String]` (the draft turn rotation,
+built once at run start from the host + currently-connected peers' tokens —
+late joiners simply aren't in the rotation, a v1 scope decision mirroring the
+loot-roll "present = connected" simplification) and `picker_idx`. Both are
+meaningful only on the host; every other peer keeps a locally-mirrored copy
+(same "authoritative on host, mirrored elsewhere" model as
+`_leaderboard_rows`/`_remote_identities`), updated via the draft-choice
+broadcast below rather than mutated directly (`SceneManager.set_coop_spire_run_mirror`).
+
+API: `is_coop_spire_active()` / `get_coop_spire_run()` (read accessors),
+`enter_spire_coop(picker_order)` (starts fresh or resumes, returns the target
+map name), `add_coop_drafted_card(card_id)`, `advance_coop_spire_picker()`,
+`advance_coop_spire_floor()`, `end_coop_spire_run()` — all pure dictionary
+mutations, unit-tested in `tests/unit/test_scene_manager_state.gd` alongside
+the pre-existing `SceneManager` state-machine tests.
+
+**Draft orchestration — reuses the loot-roll authority-arbitrated model.**
+Unlike single-player (no turn concept) and unlike a full "loop to a target
+deck size" (the Research Notes for this task overstated this — the actual
+single-player `SpireDraftScene._on_pick` resolves exactly **one** pick per
+floor clear), a co-op round is a single request/response: the authority picks
+whoever's turn it is, broadcasts 3 options, and either the active picker
+responds or a 30s timeout auto-picks the first option.
+
+- **Pure wire helper — `game_logic/net/SpireDraftSync.gd`** (mirrors
+  `LootRoll.gd`'s style; unit-tested in `tests/unit/test_spire_draft_sync.gd`):
+  `encode_draft_start`/`decode_draft_start` (floor, options, active picker
+  token+name) and `encode_draft_choice`/`decode_draft_choice` (resolved
+  card_id, next active picker token+name). The client→authority pick itself
+  needs no wire helper — `submit_spire_draft_choice(card_idx: int)` is a plain
+  RPC param, mirroring `submit_loot_roll_choice`'s precedent.
+- **RPCs — `NetSync.gd`** (reliable, same trio shape as the loot-roll RPCs):
+  `recv_spire_draft_start(payload)`, `submit_spire_draft_choice(card_idx)`,
+  `recv_spire_draft_choice(payload)`.
+- **Authority flow — `WorldScene.gd`**: `_start_coop_spire_draft(floor)` seeds
+  an RNG from `run.seed + floor` (byte-identical seeding to single-player's
+  `SpireDraftScene.setup`) so options are deterministic, resolves the current
+  picker from `picker_order[picker_idx]`, broadcasts the prompt (self-applies
+  locally + RPCs to others, the same "call local handler directly for self,
+  RPC to others" idiom used elsewhere), and starts a
+  `_COOP_SPIRE_DRAFT_TIMEOUT = 30.0`s auto-pick timer (`_tick_coop_spire_draft`,
+  ticked from `_process` alongside `_tick_loot_rolls`). `_on_spire_draft_choice_submitted`
+  validates the sender matches the expected active picker's token (a mismatch
+  is silently ignored, mirroring the loot-roll "unexpected sender" tolerance)
+  before resolving.
+- **UI — reuses `SpireDraftScene`, not a new scene.** `setup_coop(floor,
+  options, is_my_turn, picker_name)` skips the RNG/generation path entirely
+  (uses the broadcast `options` verbatim so every peer renders identical
+  cards, never regenerating locally) and adds a turn banner: "Your turn!" with
+  all 3 Pick buttons enabled, or a disabled "Waiting for `<name>`…" state for
+  everyone else. `_on_pick` branches on co-op mode: the single-player
+  persistence side effects (`SaveManager.add_drafted_card`,
+  `GameBus.spire_card_drafted`) never fire in co-op — the co-op grant path is
+  `SceneManager.add_coop_drafted_card`, applied by `WorldScene` only after the
+  authority resolves the pick (never by the picker's own client directly, so
+  the deck can never diverge from what the authority actually recorded).
+- **Client → authority index resolution.** A client's own `_submit_coop_spire_draft_choice`
+  resolves `card_id -> card_idx` from **its own locally-received** draft-start
+  payload (`_pending_coop_spire_draft`, a `WorldScene` field cleared once the
+  round resolves) — not from the authority-only `_coop_spire_draft_active`
+  dict, which does not exist on a client. Reading the wrong dict here would
+  make a client picker's own submit silently no-op.
+
+**Tests:** `tests/unit/test_spire_draft_sync.gd` (wire round-trips + garbage
+tolerance) and the `SceneManager` co-op-spire additions in
+`tests/unit/test_scene_manager_state.gd` (run start/resume, drafted-card
+accrual, picker rotation wraparound, floor advance, end-run stats, mirror
+overwrite). No WorldScene-level orchestration test was added — same precedent
+as the loot-roll task ("test the pure contract... out of scope for a pure
+test"), since exercising the RPC round-trip requires the full multiplayer
+loopback harness.

@@ -15,6 +15,7 @@ var _saved_map_stack: Array[String] = []
 var _saved_door_stack: Array[String] = []
 var _saved_current_map: String = ""
 var _saved_proximity_blocked: bool = false
+var _saved_coop_spire_run: Dictionary = {}
 
 func before_each() -> void:
 	_saved_state = SceneManager._state
@@ -22,6 +23,7 @@ func before_each() -> void:
 	_saved_door_stack.assign(SceneManager.door_stack)
 	_saved_current_map = SceneManager.current_map
 	_saved_proximity_blocked = SceneManager._proximity_engage_blocked
+	_saved_coop_spire_run = SceneManager._coop_spire_run.duplicate(true)
 
 func after_each() -> void:
 	SceneManager._state = _saved_state
@@ -29,6 +31,7 @@ func after_each() -> void:
 	SceneManager.door_stack.assign(_saved_door_stack)
 	SceneManager.current_map = _saved_current_map
 	SceneManager._proximity_engage_blocked = _saved_proximity_blocked
+	SceneManager._coop_spire_run = _saved_coop_spire_run.duplicate(true)
 
 # ---------------------------------------------------------------------------
 # Initial state
@@ -156,6 +159,111 @@ func test_proximity_blocked_cleared_manually() -> void:
 	assert_false(SceneManager.can_proximity_engage())
 	SceneManager._proximity_engage_blocked = false
 	assert_true(SceneManager.can_proximity_engage())
+
+# ---------------------------------------------------------------------------
+# Co-op Endless Spire run state (GID-106 / TID-390) — transient, in-memory only.
+# ---------------------------------------------------------------------------
+
+func test_coop_spire_inactive_by_default() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	assert_false(SceneManager.is_coop_spire_active())
+
+func test_enter_spire_coop_marks_active() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.enter_spire_coop(["tok_a", "tok_b"])
+	assert_true(SceneManager.is_coop_spire_active())
+
+func test_enter_spire_coop_sets_floor_to_one() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.enter_spire_coop(["tok_a"])
+	assert_eq(int(SceneManager.get_coop_spire_run().get("floor", 0)), 1)
+
+func test_enter_spire_coop_stores_picker_order() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.enter_spire_coop(["tok_a", "tok_b"])
+	var order: Array = SceneManager.get_coop_spire_run().get("picker_order", [])
+	assert_eq(order, ["tok_a", "tok_b"])
+
+func test_enter_spire_coop_shared_deck_starts_empty() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.enter_spire_coop(["tok_a"])
+	assert_eq((SceneManager.get_coop_spire_run().get("shared_deck", []) as Array).size(), 0)
+
+func test_enter_spire_coop_returns_floor_one_map_name_with_seed() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	var target_map: String = SceneManager.enter_spire_coop(["tok_a"])
+	var seed: int = int(SceneManager.get_coop_spire_run().get("seed", -1))
+	assert_eq(target_map, "spire_floor_1_%d" % seed)
+
+func test_enter_spire_coop_resumes_existing_run_without_resetting_it() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.enter_spire_coop(["tok_a"])
+	SceneManager.add_coop_drafted_card("ghost")
+	SceneManager.advance_coop_spire_floor()
+	var target_map: String = SceneManager.enter_spire_coop(["tok_b"])  # picker_order ignored on resume
+	assert_eq(target_map, "spire_floor_2_%d" % int(SceneManager.get_coop_spire_run().get("seed", -1)))
+	assert_eq((SceneManager.get_coop_spire_run().get("shared_deck", []) as Array).size(), 1)
+	assert_eq(SceneManager.get_coop_spire_run().get("picker_order", []), ["tok_a"])
+
+func test_add_coop_drafted_card_appends_to_shared_deck() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.enter_spire_coop(["tok_a"])
+	SceneManager.add_coop_drafted_card("skeleton")
+	var deck: Array = SceneManager.get_coop_spire_run().get("shared_deck", [])
+	assert_eq(deck, ["skeleton"])
+
+func test_add_coop_drafted_card_noop_when_inactive() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.add_coop_drafted_card("ghost")
+	assert_false(SceneManager.is_coop_spire_active())
+
+func test_advance_coop_spire_picker_wraps_around() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.enter_spire_coop(["tok_a", "tok_b"])
+	SceneManager.advance_coop_spire_picker()
+	assert_eq(int(SceneManager.get_coop_spire_run().get("picker_idx", -1)), 1)
+	SceneManager.advance_coop_spire_picker()
+	assert_eq(int(SceneManager.get_coop_spire_run().get("picker_idx", -1)), 0)
+
+func test_advance_coop_spire_picker_noop_when_inactive() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.advance_coop_spire_picker()
+	assert_false(SceneManager.is_coop_spire_active())
+
+func test_advance_coop_spire_floor_increments_floor() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.enter_spire_coop(["tok_a"])
+	SceneManager.advance_coop_spire_floor()
+	assert_eq(int(SceneManager.get_coop_spire_run().get("floor", 0)), 2)
+
+func test_end_coop_spire_run_clears_active_flag() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.enter_spire_coop(["tok_a"])
+	SceneManager.end_coop_spire_run()
+	assert_false(SceneManager.is_coop_spire_active())
+
+func test_end_coop_spire_run_returns_floors_cleared() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.enter_spire_coop(["tok_a"])
+	SceneManager.advance_coop_spire_floor()
+	SceneManager.advance_coop_spire_floor()
+	var stats: Dictionary = SceneManager.end_coop_spire_run()
+	assert_eq(int(stats.get("floors_cleared", -1)), 2)
+
+func test_end_coop_spire_run_returns_shared_deck() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.enter_spire_coop(["tok_a"])
+	SceneManager.add_coop_drafted_card("ghost")
+	SceneManager.add_coop_drafted_card("zombie")
+	var stats: Dictionary = SceneManager.end_coop_spire_run()
+	var deck: Array = stats.get("shared_deck", [])
+	assert_eq(deck, ["ghost", "zombie"])
+
+func test_set_coop_spire_run_mirror_overwrites_local_state() -> void:
+	SceneManager._coop_spire_run = {"active": false}
+	SceneManager.set_coop_spire_run_mirror({"active": true, "floor": 5, "seed": 99})
+	assert_true(SceneManager.is_coop_spire_active())
+	assert_eq(int(SceneManager.get_coop_spire_run().get("floor", 0)), 5)
 
 func get_suite_name() -> String:
 	return "SceneManagerState"
