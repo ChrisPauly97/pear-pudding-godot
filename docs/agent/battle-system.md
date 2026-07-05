@@ -724,6 +724,115 @@ Static constructor that seeds a battle state from PuzzleData:
 
 ---
 
+## Scripted Story Battles (GID-108 / TID-401)
+
+Fully deterministic tutorial battles used as a recurring story device — a real
+deck-and-draw battle (unlike Puzzle Battle Mode's frozen board) where both
+sides' decks, draw order, and opening hand are authored exactly, so the
+mechanic being taught always plays out the same way. First consumer: the
+Chapter 1 rabbit-hunt battle (TID-402); second: the Chapter 2 ambush (TID-407).
+
+### Data Resource
+
+**`game_logic/battle/ScriptedBattleData.gd`** — `extends Resource`
+
+| Field | Type | Description |
+|---|---|---|
+| `battle_id` | String | Unique key (matches ScriptedBattleRegistry) |
+| `title` | String | Display name; also the popup title for tutorial_steps |
+| `player_deck_order` | Array[String] | Card IDs, first-drawn-first |
+| `opening_hand_count` | int | Cards drawn into the opening hand (typically 1) |
+| `player_hero_hp` | int | Player hero HP |
+| `enemy_deck_order` | Array[String] | Fixed weak enemy deck, same draw-order convention |
+| `enemy_opening_hand_count` | int | Enemy opening hand size |
+| `enemy_hero_hp` | int | Enemy hero HP |
+| `tutorial_steps` | Array[String] | `"<player_turn_number>:<text>"` — Maiteln guidance shown once at the start of the player's Nth turn |
+| `reward_card_id` | String | Card awarded on victory ("" = none) |
+| `completion_flag` | String | Story flag set on victory ("" = none) |
+
+`validate() -> Array[String]` checks for unknown card ids, malformed
+`tutorial_steps` entries, and an `opening_hand_count` exceeding the deck size.
+
+**`autoloads/ScriptedBattleRegistry.gd`** — autoloaded node + static methods,
+same const-preload + `_ensure_loaded()` pattern as `PuzzleRegistry`:
+`get_battle(id) -> ScriptedBattleData`, `all_ids() -> Array[String]`.
+`scripted_test` is a dev/test fixture, always registered.
+
+### Determinism Mechanism
+
+`PlayerState.build_scripted_deck(draw_order: Array[String], dark_aligned: bool = false)`
+builds `draw_deck` in `draw_order`, then calls `draw_deck.reverse()` — no
+`shuffle()`. Since `PlayerState.draw_card()` draws via `draw_deck.pop_back()`,
+this guarantees `draw_order[0]` is drawn first, `draw_order[1]` second, etc.
+No difficulty scaling is applied (unlike `build_deck()`) — a fixed weak enemy
+is authored directly via card choice.
+
+`GameState.load_scripted_battle(d: Resource)` sets `scripted_battle: bool` /
+`scripted_battle_id: String` (serialized in `to_dict`/`from_dict` for parity
+with `puzzle_mode`/`puzzle_data_id`, though mid-battle save is disabled for
+this mode too — see below), sets both heroes' HP, builds each side's scripted
+deck, and draws each side's opening hand. Unlike `load_puzzle()` there is no
+board pre-population — this is a real turn/draw/attack battle, just fully
+authored.
+
+### BattleScene Integration
+
+- `scripted_data: Resource` is set by `SceneManager` before `_ready()` (mirrors
+  `puzzle_data`). `_ready()` branches on it exactly like the `puzzle_data`
+  branch: builds a fresh `GameState`, calls `load_scripted_battle()`.
+- Mid-battle save is disabled: the `puzzle_mode_fn` Callable passed to
+  `BattlePauseUI.setup()` returns `_state.puzzle_mode or _state.scripted_battle`.
+- Capture tracker, weather banner, Battlefield Resonance UI, the companion HUD,
+  the potion button, and the once-per-battle companion draw/mana passives are
+  all excluded (same reasoning as the existing `puzzle_mode` exclusions — these
+  systems assume a normal infinite-world battle and would undermine
+  determinism or just be noise).
+- The generic first-battle tutorial overlay and the `"tap_and_hold"` tutorial
+  popup are skipped for scripted battles (the scripted battle teaches via its
+  own turn-keyed popups instead).
+- **Turn-keyed tutorial popups:** `BattleScene._maybe_show_scripted_tutorial_step(player_turn_number)`
+  matches `tutorial_steps` entries against `_state.player_turn_numbers[0]` and
+  shows a direct `TutorialPopup` instantiation (title = `ScriptedBattleData.title`,
+  body = the step's text). Deliberately **not** routed through
+  `GameBus.tutorial_popup_requested` / `TutorialRegistry` — that path gates on
+  a global "seen once ever" flag keyed to static tutorial ids, the wrong fit
+  for one-off per-battle scripted content. Called once in `_ready()` (covers
+  the player's first turn, before any `end_turn()` has fired) and again from
+  `_on_turn_ended(0)` for every subsequent player turn. A per-turn dedupe dict
+  (`_scripted_tutorial_turns_shown`) guards against a step firing twice.
+- `_check_game_over()` has a `scripted_battle` branch (checked in the same
+  position as the existing `puzzle_mode`/`friendly_duel`/`ghost_duel` early
+  returns): both win and loss show `BattleResultUI.show_scripted_result(did_win, battle_id)`,
+  whose Continue button emits `GameBus.scripted_battle_ended(battle_id, did_win)`.
+  There is **no retry-in-place loop** in the framework — a loss simply returns
+  to the world, same as any other exit. "Impossible to soft-lock" is a content
+  guarantee (TID-402's fixed deck must be constructed so it cannot lose), not
+  a framework mechanism.
+
+### Entry / Exit Signals
+
+`GameBus.scripted_battle_requested(battle_id: String)` — emit this from any
+world trigger (NPC interaction, entity, etc.) to start a scripted battle.
+`SceneManager._on_scripted_battle_requested()` mirrors `_on_puzzle_requested`:
+looks up the battle via `ScriptedBattleRegistry`, transitions into
+`BattleScene` with `.scripted_data` set.
+
+`GameBus.scripted_battle_ended(battle_id: String, did_win: bool)` —
+`SceneManager._on_scripted_battle_ended()` mirrors `_on_puzzle_solved`: on a
+win, sets `completion_flag` via `save_manager.set_story_flag()` (once) and
+grants `reward_card_id` via `save_manager.grant_card_reward(id, "rare")` (same
+rarity convention as puzzle rewards) if non-empty; either way saves and
+restores the world.
+
+### Co-op Note
+
+This framework covers single-player only. TID-408's design rules already
+specify the co-op approach for scripted tutorial battles (joint battle with
+per-seat scripted decks, or a solo-fight-and-share-flag fallback) — no co-op
+wiring exists yet; it is TID-408's responsibility to consume.
+
+---
+
 ## Companion System (GID-041, TID-159)
 
 One equipped companion grants a single passive battle effect. Excluded from puzzle battles and friendly duels; allowed in Spire runs.

@@ -93,6 +93,23 @@ func build_deck_from_instances(insts: Array[Dictionary]) -> void:
 		draw_deck.append(ci)
 	draw_deck.shuffle()
 
+## Builds a fully deterministic draw deck for scripted story battles (GID-108).
+## draw_order is first-drawn-first; internally reversed so draw_card()'s
+## pop_back() yields draw_order[0] first, draw_order[1] second, etc. No shuffle,
+## no difficulty scaling — the fixed weak deck is authored directly by card choice.
+func build_scripted_deck(draw_order: Array[String], dark_aligned: bool = false) -> void:
+	draw_deck.clear()
+	discard.clear()
+	hand.clear()
+	pending_auto_spells.clear()
+	var face: String = "dark" if dark_aligned else "light"
+	for cid in draw_order:
+		var tmpl: Dictionary = CardRegistry.get_template_for_face(cid, face)
+		if tmpl.is_empty():
+			continue
+		draw_deck.append(CardInstance.new(tmpl))
+	draw_deck.reverse()
+
 func draw_card() -> CardInstance:
 	if draw_deck.is_empty():
 		fatigue_counter += 1

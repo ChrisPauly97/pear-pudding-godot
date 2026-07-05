@@ -137,6 +137,8 @@ func _ready() -> void:
 	GameBus.tutorial_popup_requested.connect(_on_tutorial_popup_requested)
 	GameBus.puzzle_requested.connect(_on_puzzle_requested)
 	GameBus.puzzle_solved.connect(_on_puzzle_solved)
+	GameBus.scripted_battle_requested.connect(_on_scripted_battle_requested)
+	GameBus.scripted_battle_ended.connect(_on_scripted_battle_ended)
 	GameBus.fragment_collected.connect(_on_fragment_collected)
 	GameBus.treasure_map_assembled.connect(_on_treasure_map_assembled)
 	GameBus.treasure_excavated.connect(_on_treasure_excavated)
@@ -886,6 +888,43 @@ func _on_puzzle_solved(puzzle_id: String) -> void:
 	_restore_world()
 
 func return_from_puzzle() -> void:
+	save_manager.save()
+	if _battle_overlay != null:
+		_battle_overlay.queue_free()
+		_battle_overlay = null
+	_restore_world()
+
+## Scripted story battles (GID-108) — fixed-deck tutorial battles like the rabbit
+## hunt. See ScriptedBattleData / ScriptedBattleRegistry / GameState.load_scripted_battle.
+func _on_scripted_battle_requested(battle_id: String) -> void:
+	var sdata: Resource = ScriptedBattleRegistry.get_battle(battle_id)
+	if sdata == null:
+		push_error("SceneManager: scripted battle not found: " + battle_id)
+		return
+	_flush_position_save()
+	var captured_sdata: Resource = sdata
+	TransitionManager.transition(func() -> void:
+		if get_tree().current_scene != null:
+			_saved_world_scene = get_tree().current_scene
+			get_tree().root.remove_child(_saved_world_scene)
+		_battle_overlay = _battle_scene_packed.instantiate()
+		_battle_overlay.scripted_data = captured_sdata
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
+	_state = State.BATTLE
+
+func _on_scripted_battle_ended(battle_id: String, did_win: bool) -> void:
+	if _state != State.BATTLE:
+		return
+	if did_win:
+		const SBD = preload("res://game_logic/battle/ScriptedBattleData.gd")
+		var sdata: SBD = ScriptedBattleRegistry.get_battle(battle_id)
+		if sdata != null:
+			if not sdata.completion_flag.is_empty() and not save_manager.get_story_flag(sdata.completion_flag):
+				save_manager.set_story_flag(sdata.completion_flag)
+			if not sdata.reward_card_id.is_empty():
+				save_manager.grant_card_reward(sdata.reward_card_id, "rare")
+				session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	save_manager.save()
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()

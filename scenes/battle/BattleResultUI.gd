@@ -514,6 +514,44 @@ func show_ghost_duel_result(did_win: bool, coin_reward: int) -> void:
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
+## Scripted story battle result (GID-108) — fixed-deck tutorial battles like the
+## rabbit hunt. battle_id is passed straight through to scripted_battle_ended so
+## SceneManager can look up the completion flag / reward without BattleResultUI
+## needing to know about ScriptedBattleData.
+func show_scripted_result(did_win: bool, battle_id: String) -> void:
+	if _float_layer:
+		_float_layer.hide()
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92)
+	overlay.add_theme_stylebox_override("panel", style)
+
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+
+	var title_lbl := Label.new()
+	title_lbl.text = "Victory!" if did_win else "Defeated"
+	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.06))
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.modulate = Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4)
+	vbox.add_child(title_lbl)
+
+	var btn := Button.new()
+	btn.text = "Continue"
+	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
+	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	btn.pressed.connect(func() -> void:
+		overlay.queue_free()
+		GameBus.scripted_battle_ended.emit(battle_id, did_win)
+	)
+	vbox.add_child(btn)
+
+	overlay.add_child(vbox)
+	_parent.add_child(overlay)
+
 ## PvP duel-style result (GID-091 / TID-368). did_win is from the local peer's
 ## perspective; coins_delta is the net coin change from any wager (positive = won,
 ## negative = lost, 0 = unwagered). The Continue button emits pvp_battle_ended,

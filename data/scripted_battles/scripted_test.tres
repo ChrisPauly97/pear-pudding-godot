@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ScriptedBattleData" load_steps=2 format=3 uid="uid://glnw1krlfepo"]
+
+[ext_resource type="Script" path="res://game_logic/battle/ScriptedBattleData.gd" id="1_scripteddata"]
+
+[resource]
+script = ExtResource("1_scripteddata")
+battle_id = "scripted_test"
+title = "Test Scripted Battle"
+player_deck_order = ["ghost", "skeleton", "ghost", "zombie", "skeleton", "ghoul"]
+opening_hand_count = 1
+player_hero_hp = 30
+enemy_deck_order = ["ghost", "ghost"]
+enemy_opening_hand_count = 1
+enemy_hero_hp = 5
+tutorial_steps = ["1:Draw your first card and play it.", "2:Try attacking with your minion."]
+reward_card_id = "ghost"
+completion_flag = ""

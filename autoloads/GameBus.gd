@@ -76,6 +76,10 @@ signal spire_run_ended(stats: Dictionary)
 signal puzzle_requested(puzzle_id: String)
 signal puzzle_solved(puzzle_id: String)
 
+# Scripted story battle signals (GID-108)
+signal scripted_battle_requested(battle_id: String)
+signal scripted_battle_ended(battle_id: String, did_win: bool)
+
 # World event signals
 signal world_event_started(event_id: String)
 signal world_event_ended(event_id: String)

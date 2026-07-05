@@ -1,6 +1,7 @@
 extends Control
 
 const GameState = preload("res://game_logic/battle/GameState.gd")
+const ScriptedBattleData = preload("res://game_logic/battle/ScriptedBattleData.gd")
 const BasicAI = preload("res://ai/BasicAI.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -14,6 +15,7 @@ const SkillData = preload("res://data/SkillData.gd")
 const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
 const CompanionData = preload("res://data/CompanionData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
+const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const WeatherBanner = preload("res://scenes/battle/WeatherBanner.gd")
@@ -41,6 +43,13 @@ var _result_ui: BattleResultUI
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
 var puzzle_data: Resource = null  # PuzzleData set by SceneManager before _ready
+
+# ── Scripted story battles (GID-108) ─────────────────────────────────────────
+# Fixed-deck tutorial battles (rabbit hunt, Ch2 ambush). All inert unless
+# SceneManager sets scripted_data = a ScriptedBattleData resource before _ready.
+var scripted_data: Resource = null
+var _scripted_data_ref: Resource = null  # retained for turn-keyed tutorial popups
+var _scripted_tutorial_turns_shown: Dictionary = {}  # int turn_number -> true, dedupe
 
 # ── Ghost duels (GID-102 / TID-377) ──────────────────────────────────────────
 # All inert unless SceneManager sets _ghost_duel = true before _ready (via
@@ -265,7 +274,7 @@ func _ready() -> void:
 	_pause_ui = BattlePauseUI.new()
 	_result_ui = BattleResultUI.new()
 	_pause_ui.setup(self, _vh, _float_layer, _make_battle_save,
-		func() -> bool: return _state.puzzle_mode)
+		func() -> bool: return _state.puzzle_mode or _state.scripted_battle)
 	_result_ui.setup(self, _vh, _float_layer, _collect_veterancy_data)
 	var _saved_battle: Dictionary = SceneManager.save_manager.pending_battle_state
 	if puzzle_data != null:
@@ -273,6 +282,12 @@ func _ready() -> void:
 		_state = GameState.new()
 		_resolver.setup(_state)
 		_state.load_puzzle(puzzle_data)
+		_wire_gamebus_emitter()
+	elif scripted_data != null:
+		_scripted_data_ref = scripted_data
+		_state = GameState.new()
+		_resolver.setup(_state)
+		_state.load_scripted_battle(scripted_data)
 		_wire_gamebus_emitter()
 	elif _pvp:
 		_setup_pvp_battle()
@@ -396,7 +411,7 @@ func _ready() -> void:
 	_view.set_battle_state(_state, enemy_data)
 
 	# Initialise capture tracker for the current enemy (no-op for puzzles/duels/PvP/ghost duels).
-	if not _state.puzzle_mode and not _state.friendly_duel and not _pvp and not _ghost_duel:
+	if not _state.puzzle_mode and not _state.friendly_duel and not _pvp and not _ghost_duel and not _state.scripted_battle:
 		var _ct_enemy_type: String = str(enemy_data.get("enemy_type", ""))
 		var _ct_condition: String = EnemyRegistry.get_capture_condition(_ct_enemy_type)
 		var _ct_param: int = EnemyRegistry.get_capture_param(_ct_enemy_type)
@@ -437,23 +452,25 @@ func _ready() -> void:
 		_run_ai_turn.call_deferred()
 
 	# Show weather banner if a modifier is active
-	if _battle_weather != "" and not _state.puzzle_mode:
+	if _battle_weather != "" and not _state.puzzle_mode and not _state.scripted_battle:
 		var banner: WeatherBanner = WeatherBanner.new()
 		add_child(banner)
 		banner.setup(_battle_weather)
 
 	# Battlefield Resonance UI (GID-059)
-	if not _state.puzzle_mode:
+	if not _state.puzzle_mode and not _state.scripted_battle:
 		_add_battlefield_info_label()
 		_add_slot_highlights()
 		_show_battlefield_banner.call_deferred()
 
 	AudioManager.play_music("res://assets/audio/music/battle.ogg")
 
-	if not SceneManager.save_manager.get_story_flag("tutorial_battle_tip"):
-		_show_battle_tutorial()
-
-	GameBus.tutorial_popup_requested.emit("tap_and_hold")
+	if not _state.scripted_battle:
+		if not SceneManager.save_manager.get_story_flag("tutorial_battle_tip"):
+			_show_battle_tutorial()
+		GameBus.tutorial_popup_requested.emit("tap_and_hold")
+	else:
+		_maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
 
 func _wire_gamebus_emitter() -> void:
 	_state.inject_gamebus_emitter(func(pid: int, dmg: int) -> void:
@@ -534,9 +551,9 @@ func _apply_companion_battle_start(player: PlayerState) -> void:
 
 ## Draw extra card(s) from the companion's draw_card passive.
 ## Called at the start of every player turn (initial setup + each subsequent player turn).
-## No-op in puzzle_mode, friendly_duel, or when no draw_card companion is active.
+## No-op in puzzle_mode, friendly_duel, scripted_battle, or when no draw_card companion is active.
 func _apply_companion_turn_start() -> void:
-	if _state.puzzle_mode or _state.friendly_duel:
+	if _state.puzzle_mode or _state.friendly_duel or _state.scripted_battle:
 		return
 	var companion_id: String = SceneManager.save_manager.active_companion
 	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
@@ -550,7 +567,7 @@ func _apply_companion_turn_start() -> void:
 ## Add a compact companion display to SidePanel (name + passive description).
 ## No-op if no companion is equipped or the companion is not unlocked.
 func _add_companion_hud() -> void:
-	if _state.puzzle_mode:
+	if _state.puzzle_mode or _state.scripted_battle:
 		return
 	var companion_id: String = SceneManager.save_manager.active_companion
 	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
@@ -728,6 +745,37 @@ func _dismiss_battle_tutorial() -> void:
 		_tutorial_overlay.queue_free()
 		_tutorial_overlay = null
 	SceneManager.save_manager.set_story_flag("tutorial_battle_tip")
+
+## Scripted story battles (GID-108): shows the Maiteln guidance line authored for
+## the player's Nth turn, if any. Direct TutorialPopup instantiation — deliberately
+## NOT routed through GameBus.tutorial_popup_requested / TutorialRegistry, which
+## gate on a global "seen once ever" flag keyed to static tutorial ids and are the
+## wrong fit for one-off, per-battle scripted content. Dedupes per turn number so
+## a re-entrant call (e.g. _ready() and _on_turn_ended both covering turn 1) never
+## shows the same step twice.
+func _maybe_show_scripted_tutorial_step(player_turn_number: int) -> void:
+	if _scripted_data_ref == null:
+		return
+	if _scripted_tutorial_turns_shown.has(player_turn_number):
+		return
+	var sdata: ScriptedBattleData = _scripted_data_ref as ScriptedBattleData
+	if sdata == null:
+		return
+	for step: String in sdata.tutorial_steps:
+		var parts: PackedStringArray = step.split(":", true, 1)
+		if parts.size() != 2 or not parts[0].is_valid_int():
+			continue
+		if int(parts[0]) != player_turn_number:
+			continue
+		_scripted_tutorial_turns_shown[player_turn_number] = true
+		var popup := _TutorialPopupScript.new()
+		popup.setup(sdata.title, parts[1])
+		popup.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var layer := CanvasLayer.new()
+		layer.layer = 999
+		layer.add_child(popup)
+		add_child(layer)
+		return
 
 # -------------------------------------------------------------------------
 # Drag/Drop — native Godot drag-and-drop API (mouse + touch transparent)
@@ -1121,7 +1169,7 @@ func _add_hero_power_button() -> void:
 	$SidePanel.add_child(_hero_power_btn)
 
 func _add_potion_button() -> void:
-	if _state.puzzle_mode:
+	if _state.puzzle_mode or _state.scripted_battle:
 		return
 	var has_any: bool = false
 	for potion_id: String in SceneManager.save_manager.potions:
@@ -1774,6 +1822,8 @@ func _on_turn_ended(player_idx: int) -> void:
 			_fx.trigger_fx(snap_as)
 			_refresh_all()
 			_check_game_over()
+			if _state.scripted_battle:
+				_maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
 	elif player_idx == 1:
 		if _potion_btn != null:
 			_potion_btn.disabled = true
@@ -1895,6 +1945,16 @@ func _check_game_over() -> void:
 				AudioManager.play_sfx("battle_win")
 				_fx.haptic(120)
 				_show_puzzle_victory()
+			return
+		if _state.scripted_battle:
+			var scripted_id: String = _state.scripted_battle_id
+			if w == 0:
+				AudioManager.play_sfx("battle_win")
+				_fx.haptic(120)
+			else:
+				AudioManager.play_sfx("battle_lose")
+				_fx.haptic(80)
+			_result_ui.show_scripted_result(w == 0, scripted_id)
 			return
 		GameBus.battle_ended.emit(w)
 		if _ghost_duel:
