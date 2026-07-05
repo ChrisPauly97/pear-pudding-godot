@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ScriptedBattleData" load_steps=2 format=3 uid="uid://454enmehik8w"]
+
+[ext_resource type="Script" path="res://game_logic/battle/ScriptedBattleData.gd" id="1_scripteddata"]
+
+[resource]
+script = ExtResource("1_scripteddata")
+battle_id = "scout_ambush"
+title = "Scouts in the Grass"
+player_deck_order = ["ghost", "ember_cinder", "skeleton", "dawn_soothing_touch", "zombie", "ghoul"]
+opening_hand_count = 1
+player_hero_hp = 30
+enemy_deck_order = ["skeleton", "zombie", "ghoul"]
+enemy_opening_hand_count = 1
+enemy_hero_hp = 12
+tutorial_steps = ["1:A spell card, next turn — no summoning sickness to wait out. Cheap and immediate.", "2:That one strikes the enemy hero direct. Spells hit hard and fast, but they're gone after one use.", "4:Some spells help you instead — that one mends your own wounds. Read the card before you play it."]
+reward_card_id = ""
+completion_flag = "chapter2_ambush_survived"

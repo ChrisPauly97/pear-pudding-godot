@@ -115,18 +115,94 @@ func test_temple_council_returns_speak_with_queen_and_scargroth() -> void:
 
 # ── chapter1_complete ─────────────────────────────────────────────────────────
 
-func test_chapter1_complete_returns_empty() -> void:
+func test_chapter1_complete_returns_speak_to_king_eldar() -> void:
+	# Chapter 2 continues from here (GID-108 / TID-407) — chapter1_complete no
+	# longer means "the end"; it means "go get charged for the westward ride."
 	var obj: Dictionary = ObjectiveTracker.current_objective(
 		_flags(["story_intro_complete", "chapter1_left_madrian", "chapter1_camp_night",
 			"chapter1_learned_fire", "chapter1_warned_farsyth", "chapter1_received_letter",
 			"chapter1_reached_blancogov", "chapter1_temple_council",
 			"chapter1_complete"]))
-	assert_true(obj.is_empty(), "After chapter1_complete, objective should be empty")
+	assert_eq(obj.get("label", ""), "Speak to King Eldar")
+	assert_eq(obj.get("map", ""), "blancogov_temple")
 
 
 # ── Robustness: chapter1_complete alone ──────────────────────────────────────
 
-func test_chapter1_complete_alone_returns_empty() -> void:
+func test_chapter1_complete_alone_returns_speak_to_king_eldar() -> void:
 	var obj: Dictionary = ObjectiveTracker.current_objective(
 		_flags(["chapter1_complete"]))
-	assert_true(obj.is_empty(), "chapter1_complete overrides all other missing flags")
+	assert_eq(obj.get("label", ""), "Speak to King Eldar",
+		"chapter1_complete overrides all other missing Chapter 1 flags")
+
+
+# ── Chapter 2 (GID-108 / TID-407) ─────────────────────────────────────────────
+
+func _ch2_flags(extra: Array) -> Array:
+	var base: Array = ["story_intro_complete", "chapter1_left_madrian", "chapter1_camp_night",
+		"chapter1_learned_fire", "chapter1_warned_farsyth", "chapter1_received_letter",
+		"chapter1_reached_blancogov", "chapter1_temple_council", "chapter1_complete"]
+	return base + extra
+
+
+func test_chapter2_charged_returns_travel_to_larik() -> void:
+	var obj: Dictionary = ObjectiveTracker.current_objective(
+		_flags(_ch2_flags(["chapter2_charged"])))
+	assert_eq(obj.get("label", ""), "Travel west to Larik")
+	assert_eq(obj.get("map", ""), "larik")
+	assert_eq(int(obj.get("tx", -99)), 50)
+	assert_eq(int(obj.get("tz", -99)), 90)
+
+
+func test_chapter2_reached_larik_returns_search_larik() -> void:
+	var obj: Dictionary = ObjectiveTracker.current_objective(
+		_flags(_ch2_flags(["chapter2_charged", "chapter2_reached_larik"])))
+	assert_eq(obj.get("label", ""), "Search Larik for answers")
+	assert_eq(obj.get("map", ""), "larik")
+
+
+func test_chapter2_found_letter_returns_continue_west() -> void:
+	var obj: Dictionary = ObjectiveTracker.current_objective(
+		_flags(_ch2_flags(["chapter2_charged", "chapter2_reached_larik", "chapter2_found_letter"])))
+	assert_eq(obj.get("label", ""), "Continue west toward Marsax Hold")
+	assert_eq(int(obj.get("tx", 0)), -1, "Ambush wildcard: tx should be -1")
+	assert_eq(int(obj.get("tz", 0)), -1, "Ambush wildcard: tz should be -1")
+
+
+func test_chapter2_ambush_survived_returns_defend_hold() -> void:
+	var obj: Dictionary = ObjectiveTracker.current_objective(
+		_flags(_ch2_flags(["chapter2_charged", "chapter2_reached_larik", "chapter2_found_letter",
+			"chapter2_ambush_survived"])))
+	assert_eq(obj.get("label", ""), "Defend Marsax Hold")
+	assert_eq(obj.get("map", ""), "marsax_hold")
+
+
+func test_chapter2_siege_won_returns_search_hold() -> void:
+	var obj: Dictionary = ObjectiveTracker.current_objective(
+		_flags(_ch2_flags(["chapter2_charged", "chapter2_reached_larik", "chapter2_found_letter",
+			"chapter2_ambush_survived", "chapter2_siege_won"])))
+	assert_eq(obj.get("label", ""), "Search the hold for clues")
+
+
+func test_chapter2_traitor_seal_returns_infiltrate_warcamp() -> void:
+	var obj: Dictionary = ObjectiveTracker.current_objective(
+		_flags(_ch2_flags(["chapter2_charged", "chapter2_reached_larik", "chapter2_found_letter",
+			"chapter2_ambush_survived", "chapter2_siege_won", "chapter2_traitor_seal"])))
+	assert_eq(obj.get("label", ""), "Infiltrate the war-camp")
+	assert_eq(obj.get("map", ""), "marsax_hold")
+
+
+func test_chapter2_warcamp_cleared_returns_empty() -> void:
+	var obj: Dictionary = ObjectiveTracker.current_objective(
+		_flags(_ch2_flags(["chapter2_charged", "chapter2_reached_larik", "chapter2_found_letter",
+			"chapter2_ambush_survived", "chapter2_siege_won", "chapter2_traitor_seal",
+			"chapter2_warcamp_cleared"])))
+	assert_true(obj.is_empty(), "Cliffhanger fires automatically; no next objective yet")
+
+
+func test_chapter2_complete_returns_empty() -> void:
+	var obj: Dictionary = ObjectiveTracker.current_objective(
+		_flags(_ch2_flags(["chapter2_charged", "chapter2_reached_larik", "chapter2_found_letter",
+			"chapter2_ambush_survived", "chapter2_siege_won", "chapter2_traitor_seal",
+			"chapter2_warcamp_cleared", "chapter2_complete"])))
+	assert_true(obj.is_empty())

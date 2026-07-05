@@ -47,6 +47,7 @@ const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
 const _WildernessCampScene = preload("res://scenes/world/entities/WildernessCamp.tscn")
+const _ScoutAmbushScene = preload("res://scenes/world/entities/ScoutAmbush.tscn")
 const _MaitelnFollowerScene = preload("res://scenes/world/entities/MaitelnFollower.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
@@ -293,6 +294,7 @@ var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
 var _wilderness_camp_node: Node3D = null
+var _scout_ambush_node: Node3D = null
 var _maiteln_node: Node3D = null
 var _shrine_nodes: Array[Node3D] = []
 var _siege_raider_nodes: Array[Node3D] = []
@@ -478,6 +480,10 @@ func _ready() -> void:
 				world_map = WorldMap.new(map_name)
 			else:
 				world_map = DungeonGen.generate(map_name, dseed)
+			# Chapter 2 beat 6 (GID-108 / TID-407): the war-camp dungeon door
+			# (assets/maps/marsax_hold.tres) always targets this fixed seed.
+			if map_name == "dungeon_731906":
+				_inject_warcamp_boss(world_map)
 		elif map_name.begins_with("spire_floor_"):
 			if MapRegistry.get_map(map_name) != null:
 				world_map = WorldMap.new(map_name)
@@ -529,6 +535,7 @@ func _ready() -> void:
 		if not NetworkManager.is_dedicated_server():
 			_spawn_open_world_rival_enc2()
 			_spawn_wilderness_camp()
+			_spawn_scout_ambush()
 			if map_name == "main":
 				_spawn_return_portal()
 	else:
@@ -545,10 +552,14 @@ func _ready() -> void:
 		if map_name == "player_home":
 			_spawn_player_home_trophies()
 			_spawn_player_home_garden()
+		_check_story_siege_trigger(map_name)
 		_check_siege_spawn(map_name)
 		# Set chapter1_reached_blancogov when the player enters blancogov
 		if map_name == "blancogov" or map_name == "blancogov_temple":
 			SceneManager.save_manager.set_story_flag("chapter1_reached_blancogov")
+		# Chapter 2 beat 2 (GID-108 / TID-407): set on first entry to larik.
+		if map_name == "larik":
+			SceneManager.save_manager.set_story_flag("chapter2_reached_larik")
 
 	# Re-enter any battle that was interrupted (e.g. app quit mid-fight).
 	# Dedicated server has no local player, so this is skipped.
@@ -3319,6 +3330,67 @@ func _find_nearby_wilderness_camp(px: float, pz: float, range_dist: float) -> No
 		return _wilderness_camp_node
 	return null
 
+## Chapter 2 beat 3 scripted ambush (GID-108 / TID-407) — spawns near the player
+## once per open-world load, same "no fixed position" pattern as
+## _spawn_wilderness_camp(). Gone for good once chapter2_ambush_survived is set
+## (the entity is one-shot: interacting with it immediately starts the battle,
+## and ScriptedBattleRegistry/SceneManager set the completion flag on victory).
+func _spawn_scout_ambush() -> void:
+	var sm := SceneManager.save_manager
+	if not sm.get_story_flag("chapter2_found_letter"):
+		return
+	if sm.get_story_flag("chapter2_ambush_survived"):
+		return
+	if _scout_ambush_node != null and is_instance_valid(_scout_ambush_node):
+		return
+	var wx: float = _player.position.x - 3.0 * IsoConst.TILE_SIZE
+	var wz: float = _player.position.z + 4.0 * IsoConst.TILE_SIZE
+	var wy: float = get_terrain_height(wx, wz)
+	var node := _ScoutAmbushScene.instantiate() as Node3D
+	_entity_root.add_child(node)
+	node.position = Vector3(wx, wy, wz)
+	_scout_ambush_node = node
+
+func _find_nearby_scout_ambush(px: float, pz: float, range_dist: float) -> Node3D:
+	if not is_instance_valid(_scout_ambush_node):
+		return null
+	var ddx: float = _scout_ambush_node.position.x - px
+	var ddz: float = _scout_ambush_node.position.z - pz
+	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
+		return _scout_ambush_node
+	return null
+
+## Chapter 2 beat 6 (GID-108 / TID-407) — DungeonGen has no boss-room concept
+## at all (grepped, confirmed), so the war-camp's boss is injected directly
+## into the freshly loaded WorldMap's enemies list before chunk distribution.
+## Safe to call on every visit (fresh-gen or loaded-from-save): the enemy-spawn
+## pipeline (ChunkRenderer.is_enemy_defeated) already skips already-defeated
+## enemies by id, so re-injecting the same dict each time is harmless once
+## he's dead — his defeated state lives in SaveManager.defeated_enemies, never
+## written back into the dungeon's saved .tres.
+## Placement heuristic (not a hard guarantee): DungeonGen (DW=80, DH=60) lays
+## rooms left-to-right in ROOM_COUNT columns with z centred on DH/2 ± jitter
+## (see DungeonGen._gen_sequential_rooms) — tile (70, 30) sits in the rightmost
+## column (the "final room", deepest from the start-room spawn) at the
+## statistical z-centre every room jitters around. It is not guaranteed to
+## land on carved floor for every seed, but it's a far better bet than a blind
+## coordinate, and this dungeon's seed is fixed (731906) so it's the same
+## outcome every time — verify visually once Godot is available.
+func _inject_warcamp_boss(wm: WorldMap) -> void:
+	if wm == null:
+		return
+	var bx: float = 70.0 * IsoConst.TILE_SIZE
+	var bz: float = 30.0 * IsoConst.TILE_SIZE
+	wm.enemies.append({
+		"id": "martarquas_warleader_boss",
+		"x": bx,
+		"z": bz,
+		"alive": true,
+		"tracking": false,
+		"enemy_type": "martarquas_warleader",
+		"enemy_deck": EnemyRegistry.get_deck("martarquas_warleader"),
+	})
+
 ## Maiteln's travelling presence (GID-108 / TID-403). Named story maps always
 ## qualify; the open world only qualifies during the TID-402 camp-beat window
 ## (not general sandbox presence).
@@ -3477,6 +3549,24 @@ func _find_nearby_mailbox(px: float, pz: float, range_dist: float) -> Dictionary
 	return {}
 
 ## Checks if a siege is active for this named map and spawns raiders + siege banner if so.
+## Chapter 2 beat 4 (GID-108 / TID-407) — deterministically starts the same
+## GID-054 siege gauntlet the random daily-chance mechanic uses, the first time
+## the player enters marsax_hold with the story flags in the right state.
+## Reuses 100% of the existing raider/wave/victory machinery; the only new
+## pieces are this trigger and the chapter2_siege_won hook in
+## SceneManager._on_battle_won's siege-victory branch.
+func _check_story_siege_trigger(p_map_name: String) -> void:
+	if p_map_name != "marsax_hold":
+		return
+	var sm := SceneManager.save_manager
+	if not sm.get_story_flag("chapter2_ambush_survived"):
+		return
+	if sm.get_story_flag("chapter2_siege_won"):
+		return
+	if not sm.get_active_siege().is_empty():
+		return
+	sm.start_siege("marsax_hold")
+
 func _check_siege_spawn(p_map_name: String) -> void:
 	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 	if not _SiegeDefs.is_siege_town(p_map_name):
@@ -3502,10 +3592,25 @@ func _spawn_siege_raiders(p_map_name: String, stage: int) -> void:
 		if node == null:
 			continue
 		var world_y: float = get_terrain_height(gate_pos.x + off.x, gate_pos.z + off.y) + 0.5
-		node.position = Vector3(gate_pos.x + off.x, world_y, gate_pos.z + off.y)
-		node.set("enemy_type", enemy_type)
-		_entity_root.add_child(node)
 		var raider_id: String = "siege_raider_%d_%d" % [stage, i]
+		# BID-041 fix: node.set("enemy_type", enemy_type) was a silent no-op —
+		# EnemyNPC has no such property, only enemy_data (set via init_from_data),
+		# so every raider always fell back to "undead_basic" regardless of stage
+		# or town. init_from_data with a proper edata dict (mirrors
+		# _spawn_rival_at's exact pattern) is what actually wires the enemy type.
+		var edata: Dictionary = {
+			"id": raider_id,
+			"x": gate_pos.x + off.x,
+			"z": gate_pos.z + off.y,
+			"alive": true,
+			"tracking": false,
+			"enemy_type": enemy_type,
+			"enemy_deck": EnemyRegistry.get_deck(enemy_type),
+		}
+		node.position = Vector3(gate_pos.x + off.x, world_y, gate_pos.z + off.y)
+		if node.has_method("init_from_data"):
+			node.init_from_data(edata)
+		_entity_root.add_child(node)
 		_enemy_nodes[raider_id] = node
 		_siege_raider_nodes.append(node)
 
@@ -4062,6 +4167,7 @@ func _check_interactions() -> void:
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
 	var wilderness_camp := _find_nearby_wilderness_camp(px, pz, IsoConst.INTERACT_RANGE)
+	var scout_ambush := _find_nearby_scout_ambush(px, pz, IsoConst.INTERACT_RANGE)
 	var maiteln := _find_nearby_maiteln(px, pz, IsoConst.INTERACT_RANGE)
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
 	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
@@ -4073,7 +4179,7 @@ func _check_interactions() -> void:
 	# Landmarks auto-trigger on approach (no button press needed)
 	_check_nearby_landmark(px, pz)
 	var mana_well := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
-	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or wilderness_camp != null or maiteln != null or shrine != null or digspot != null or not waystone.is_empty() or not mailbox.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
+	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or wilderness_camp != null or scout_ambush != null or maiteln != null or shrine != null or digspot != null or not waystone.is_empty() or not mailbox.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
 	var interact_label: String = "USE"
 	if downed_pid != -1:
 		interact_label = "REVIVE"
@@ -4085,6 +4191,8 @@ func _check_interactions() -> void:
 		interact_label = "ENTER"
 	elif wilderness_camp != null:
 		interact_label = "CAMP"
+	elif scout_ambush != null:
+		interact_label = "ATTACK"
 	elif maiteln != null:
 		interact_label = "TALK"
 	elif not npc.is_empty():
@@ -4525,6 +4633,11 @@ func _handle_interact() -> void:
 	var wilderness_camp := _find_nearby_wilderness_camp(px, pz, IsoConst.INTERACT_RANGE)
 	if wilderness_camp != null and wilderness_camp.has_method("interact"):
 		wilderness_camp.interact()
+		return
+
+	var scout_ambush := _find_nearby_scout_ambush(px, pz, IsoConst.INTERACT_RANGE)
+	if scout_ambush != null and scout_ambush.has_method("interact"):
+		scout_ambush.interact()
 		return
 
 	var maiteln := _find_nearby_maiteln(px, pz, IsoConst.INTERACT_RANGE)
@@ -5153,6 +5266,12 @@ func _show_dialogue(text: String) -> void:
 func _handle_king_eldar_interaction(npc: Dictionary) -> void:
 	var sm := SceneManager.save_manager
 	if sm.get_story_flag("chapter1_complete"):
+		# Chapter 2 beat 1 — the council's charge (GID-108 / TID-407): fires once,
+		# the first time King Eldar is spoken to after the Chapter 1 ending.
+		if not sm.get_story_flag("chapter2_charged"):
+			sm.set_story_flag("chapter2_charged")
+			_show_dialogue("Maiteln, Saimtar — you two ride west. Past Larik, to Lord Marsax. Ride swift, and ride true.")
+			return
 		_show_dialogue("The realm owes its warning to a servant boy from Larik. Remember that, all of you.")
 		return
 	if not sm.get_story_flag("chapter1_temple_council"):
@@ -5296,6 +5415,13 @@ func _on_scroll_collected(scroll_id: String) -> void:
 	var scroll: Dictionary = ScrollRegistry.get_scroll(scroll_id)
 	var title: String = scroll.get("title", scroll_id) if not scroll.is_empty() else scroll_id
 	_show_tip("Lore scroll found: " + title)
+	# Chapter 2 beats 2 & 5 (GID-108 / TID-407): these two scrolls are also story
+	# beats. A generic flag-on-collect field doesn't exist on MapScroll/
+	# ScrollRegistry — two one-off hooks don't justify adding one.
+	if scroll_id == "scroll_larik_letter":
+		SceneManager.save_manager.set_story_flag("chapter2_found_letter")
+	elif scroll_id == "scroll_traitor_seal":
+		SceneManager.save_manager.set_story_flag("chapter2_traitor_seal")
 	if SceneManager.save_manager.collected_scrolls.size() >= ScrollRegistry.SCROLL_COUNT:
 		GameBus.all_scrolls_collected.emit()
 

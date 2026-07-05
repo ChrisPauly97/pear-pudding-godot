@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="EnemyData" load_steps=2 format=3 uid="uid://fdvr6kxgnrci"]
+
+[ext_resource type="Script" path="res://data/EnemyData.gd" id="1_warleader"]
+
+[resource]
+script = ExtResource("1_warleader")
+id = "martarquas_warleader"
+display_name = "Martarquas War-Leader"
+deck = PackedStringArray("ghost", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul", "ghoul")
+drop_pool = PackedStringArray("ghost", "skeleton", "zombie", "ghoul")
+coin_reward = 0
+is_boss = true
+boss_hp = 45
+phase2_deck = PackedStringArray("skeleton", "zombie", "zombie", "ghoul", "ghoul", "ghoul")
+difficulty_tier = 4
+lore_text = "The war-leader who drove the muster on Marsax hold. Steal his plans and the tribe's whole campaign unravels — but he does not give ground easily."

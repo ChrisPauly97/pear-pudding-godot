@@ -14,6 +14,7 @@ const _E_UNDEAD_HORDE         := preload("res://data/enemies/undead_horde.tres")
 const _E_MARTARQUAS_RAIDER_1  := preload("res://data/enemies/martarquas_raider_1.tres")
 const _E_MARTARQUAS_RAIDER_2  := preload("res://data/enemies/martarquas_raider_2.tres")
 const _E_MARTARQUAS_RAIDER_3  := preload("res://data/enemies/martarquas_raider_3.tres")
+const _E_MARTARQUAS_WARLEADER := preload("res://data/enemies/martarquas_warleader.tres")
 const _E_RIVAL_ISFIG_1        := preload("res://data/enemies/rival_isfig_1.tres")
 const _E_RIVAL_ISFIG_2        := preload("res://data/enemies/rival_isfig_2.tres")
 const _E_RIVAL_ISFIG_3        := preload("res://data/enemies/rival_isfig_3.tres")
@@ -164,6 +165,17 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 3,
 			"lore_text": "The siege commander — where lesser raiders hesitated, this one drove them forward. Defeat the Warlord and the siege collapses. The town will owe you a debt it cannot easily repay.",
+		},
+		"martarquas_warleader": {
+			"display_name": "Martarquas War-Leader",
+			"deck": ["ghost", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul", "ghoul"],
+			"drop_pool": ["ghost", "skeleton", "zombie", "ghoul"],
+			"coin_reward": 0,
+			"is_boss": true,
+			"boss_hp": 45,
+			"phase2_deck": ["skeleton", "zombie", "zombie", "ghoul", "ghoul", "ghoul"],
+			"difficulty_tier": 4,
+			"lore_text": "The war-leader who drove the muster on Marsax hold. Steal his plans and the tribe's whole campaign unravels — but he does not give ground easily.",
 		},
 		"rival_isfig_1": {
 			"display_name": "Isfig",

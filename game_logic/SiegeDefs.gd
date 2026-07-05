@@ -6,9 +6,12 @@ const SIEGE_SPAWN_CHANCE: int = 8   # ~8% daily probability once gating conditio
 # World-space gate positions per named town (tile coords × TILE_SIZE = 2.0).
 # Raiders spawn clustered around these positions.
 const TOWN_GATES: Dictionary = {
-	"madrian":   Vector3(10.0, 0.0, 16.0),   # tile (5, 8)
-	"maykalene": Vector3(24.0, 0.0, 12.0),   # tile (12, 6)
-	"blancogov": Vector3(16.0, 0.0, 8.0),    # tile (8, 4)
+	"madrian":     Vector3(10.0, 0.0, 16.0),   # tile (5, 8)
+	"maykalene":   Vector3(24.0, 0.0, 12.0),   # tile (12, 6)
+	"blancogov":   Vector3(16.0, 0.0, 8.0),    # tile (8, 4)
+	# GID-108 / TID-407 — Chapter 2 story siege: the west-wall breach the hold
+	# was already overrun through (see assets/maps/marsax_hold.tres).
+	"marsax_hold": Vector3(50.0, 0.0, 100.0),  # tile (25, 50)
 }
 
 # Gate positions that qualify as "named towns" for siege purposes.

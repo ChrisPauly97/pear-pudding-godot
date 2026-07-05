@@ -21,7 +21,7 @@ tile_x = 20
 tile_z = 50
 target_map = "dungeon_731906"
 target_door_id = ""
-flag_key = ""
+flag_key = "chapter2_traitor_seal"
 
 [sub_resource type="Resource" id="MapNpc_1"]
 script = ExtResource("3_mapnpc")

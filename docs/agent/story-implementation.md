@@ -218,6 +218,78 @@ The `chapter1_done` achievement (`game_logic/AchievementRegistry.gd`, `flag_key:
 fires automatically through the existing `SaveManager.set_story_flag` → `check_flag_achievement`
 path — no new code needed.
 
+### Chapter 2: The Road to Larik (GID-108 / TID-406, TID-407)
+
+Flags, in progression order: `chapter2_charged` → `chapter2_reached_larik` →
+`chapter2_found_letter` → `chapter2_ambush_survived` → `chapter2_siege_won` →
+`chapter2_traitor_seal` → `chapter2_warcamp_cleared` → `chapter2_complete`.
+`ObjectiveTracker.current_objective()` checks all of them most-advanced-first, ahead of the
+Chapter 1 branches (`chapter1_complete` no longer means "the end" — it now returns "Speak to
+King Eldar", the entry point into beat 1).
+
+Every beat reuses an existing mechanism rather than building a parallel one:
+
+1. **The council's charge** — a 5th state added to `WorldScene._handle_king_eldar_interaction()`
+   (see Chapter 1 Ending above): the first time King Eldar is spoken to after `chapter1_complete`,
+   sets `chapter2_charged` and shows a one-off line, then falls through to the epilogue line.
+2. **Return to Larik** — `chapter2_reached_larik` sets on first entry to `map_name == "larik"`
+   (mirrors the `chapter1_reached_blancogov` on-map-enter pattern). The hidden-letter scroll
+   (`scroll_larik_letter`, placed by TID-406 in `larik.tres`) sets `chapter2_found_letter` on
+   collection — a scroll-id special case in `WorldScene._on_scroll_collected()` (no generic
+   flag-on-collect field exists on `MapScroll`; not worth adding for two one-off hooks).
+3. **Scouts in the grass** — `data/scripted_battles/scout_ambush.tres` (TID-401 framework),
+   introducing 2 low-cost GID-076 spell cards (`ember_cinder`, `dawn_soothing_touch`) among
+   minions. `scenes/world/entities/ScoutAmbush.gd` (+ `.tscn`) is the same
+   tap-then-trigger-a-scripted-battle shape as `WildernessCamp` (TID-402), spawned by
+   `WorldScene._spawn_scout_ambush()` when `chapter2_found_letter` is set and
+   `chapter2_ambush_survived` isn't. Completion flag set via
+   `ScriptedBattleData.completion_flag`, same as the rabbit hunt.
+4. **Marsax hold besieged** — reuses the GID-054 siege gauntlet wholesale instead of a parallel
+   story-siege system. `"marsax_hold"` added to `SiegeDefs.TOWN_GATES`;
+   `WorldScene._check_story_siege_trigger()` calls `save_manager.start_siege("marsax_hold")` once
+   on map entry (`chapter2_ambush_survived` set, `chapter2_siege_won` not, no siege already
+   active), right before the existing `_check_siege_spawn()`. `SceneManager._on_battle_won`'s
+   final-stage-victory branch sets `chapter2_siege_won` when the winning siege's town is
+   `"marsax_hold"`.
+   - **BID-041 fixed opportunistically** (found while wiring this beat, affects the pre-existing
+     random single-player siege too, not just this one): `_spawn_siege_raiders()` called
+     `node.set("enemy_type", enemy_type)` — `EnemyNPC` has no such property, so every raider
+     silently fell back to `"undead_basic"` regardless of stage or town. Replaced with a proper
+     `init_from_data(edata)` call (mirrors `_spawn_rival_at`'s exact pattern).
+5. **The traitor's seal** — collecting `scroll_traitor_seal` (placed by TID-406 in
+   `marsax_hold.tres`) sets `chapter2_traitor_seal`, same special case as the letter. Collectible
+   immediately rather than gated behind `chapter2_siege_won` — `MapScroll.flag_key` exists on the
+   resource but nothing anywhere enforces it (checked); wiring enforcement for one scroll wasn't
+   worth it here.
+6. **The war-camp** — `data/enemies/martarquas_warleader.tres` (`is_boss = true`, `boss_hp = 45`,
+   a `phase2_deck`) is a real `EnemyRegistry` entry (unlike the scripted-battle enemies) because
+   the war-camp boss uses the normal `enemy_engaged` pipeline, not the scripted-battle framework.
+   `DungeonGen` has **no boss-room concept** (confirmed by grep), so
+   `WorldScene._ready()`'s dungeon-load branch special-cases `map_name == "dungeon_731906"`
+   (the war-camp door's fixed seed, from TID-406) to append one boss enemy dict directly to the
+   freshly-loaded `WorldMap.enemies` — the existing chunk-based enemy-spawn pipeline handles the
+   rest. Safe to re-inject on every visit: `ChunkRenderer.is_enemy_defeated()` already skips
+   already-defeated enemies by id, and defeat state lives in `SaveManager.defeated_enemies`, never
+   the dungeon's saved `.tres`. **Placement is a documented heuristic, not a hard guarantee** —
+   see the code comment on `_inject_warcamp_boss()` for the room-layout reasoning (tile (70, 30),
+   the statistical z-centre of `DungeonGen`'s rightmost/deepest room column). The dungeon door
+   itself (`assets/maps/marsax_hold.tres`) is gated behind `chapter2_traitor_seal` via the
+   already-enforced `MapDoor.flag_key` mechanism (confirmed in `WorldScene._find_nearby_door`).
+   Defeating the boss (`enemy_type == "martarquas_warleader"` in `SceneManager._on_battle_won`)
+   sets `chapter2_warcamp_cleared`.
+7. **Cliffhanger** — immediately after the war-camp boss win, `SceneManager._show_chapter2_cliffhanger()`
+   reuses `scenes/ui/ChapterEndingOverlay.gd` verbatim (preloaded from `SceneManager.gd` this
+   time, not `WorldScene.gd` — the class has no scene-specific dependency) with story.md's three
+   cliffhanger pages; closing it sets `chapter2_complete`.
+
+**Not implemented (per research notes, explicitly deferred):** an Isfig Chapter 2 cameo — noted
+for a future goal.
+
+**Co-op:** none of the above has co-op arbitration — every flag site uses the same unwrapped
+`SceneManager.save_manager.set_story_flag()` path every Chapter 1 flag already uses. TID-408 is
+the task that adds shared-flag arbitration and joint-battle seating across all of Chapters 1 & 2
+at once.
+
 ---
 
 ## Integrations with Other Features

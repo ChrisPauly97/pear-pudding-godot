@@ -20,7 +20,7 @@ Chapter 1's plumbing (flags, ObjectiveTracker, 5 named maps, Isfig rival arc, sc
 | TID-404 | Flag-gated dialogue content pass across all named maps | agent | done | TID-400 |
 | TID-405 | Chapter 1 ending scene + post-council epilogue world reactivity | agent | done | TID-400 |
 | TID-406 | Chapter 2 named maps skeleton (larik, marsax_hold, war-camp dungeon entry) | agent | done | TID-400 |
-| TID-407 | Chapter 2 flags, objectives, beat wiring & scripted ambush battle | agent | pending | TID-405, TID-406 |
+| TID-407 | Chapter 2 flags, objectives, beat wiring & scripted ambush battle | agent | done | TID-405, TID-406 |
 | TID-408 | Co-op compatibility pass — Chapters 1 & 2 with up to 4 players | agent | pending | TID-402, TID-405, TID-407 |
 
 ## Acceptance Criteria
