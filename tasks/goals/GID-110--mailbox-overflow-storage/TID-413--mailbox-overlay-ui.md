@@ -2,7 +2,7 @@
 
 **Goal:** GID-110
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-412
 
 ## Lock
@@ -44,12 +44,19 @@ Claim should be disabled/no-op with a "Bag is full" message (reuse `GameBus.hud_
 
 ## Plan
 
-_Written during Plan phase._
+1. Replace the TID-412 placeholder `scenes/ui/MailboxScene.gd` with the real overlay: header (title + Close), count label, Claim All button, scrollable cube-tile grid over `SaveManager.get_mailbox_instances()`.
+2. Duplicate (not import) the tile/detail-popup pattern from `InventoryScene.gd`, adapted to Claim/Sell/Scrap actions instead of Add-to-deck/Combine/Rename.
+3. Claim is a no-op with a "Bag is full" toast when `is_bag_full()`.
+4. Wire the overflow toast: `GameBus.card_routed_to_mailbox` connected in `autoloads/SceneManager.gd` next to the existing `bag_full` handler (fires regardless of whether the overlay is open).
+5. Empty-state label when the mailbox has no cards.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/ui/MailboxScene.gd`: full rewrite (was the TID-412 placeholder). Cube-tile grid (`_make_card_tile`) + non-modal detail popup (`_show_instance_detail`) with Claim / Sell / Scrap actions, `Claim All` button, empty-state label, Close button. Same `.tscn`/`State.MAILBOX` wiring from TID-412 untouched.
+- `autoloads/SceneManager.gd`: added file-scope `const CardRegistry` preload (needed for the toast's card display name — previously only locally aliased as `_CardRegistry` inside one function); connected `GameBus.card_routed_to_mailbox` next to the existing `GameBus.bag_full` handler, emitting `"<name> couldn't fit in your bag — sent to the mailbox."` via `hud_message_requested`.
+
+**Verification note:** same sandbox limitation as TID-411/412 — the Godot headless binary could not be installed (403 on the GitHub release download used to fetch it), so neither `godot --headless --editor --quit` nor `tests/runner.gd` could be run in this session. All three GID-110 tasks were verified by manual code review against this codebase's existing InventoryScene/BaseOverlay/Waystone/BountyBoard patterns, which they mirror closely. **A human or CI run should execute the headless import and full test suite before merging** — this is the one acceptance criterion ("no new parse/compile errors") this session could not check directly.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+Added a "Mailbox (GID-110)" section to `docs/agent/inventory-and-deck.md` covering the overflow queue, routing API, world entity placement, and overlay UI (see that file's diff in this commit).

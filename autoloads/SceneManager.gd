@@ -20,6 +20,7 @@ enum State {
 }
 
 const _PackOpenSceneScript = preload("res://scenes/ui/PackOpenScene.gd")
+const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
 const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
@@ -142,6 +143,9 @@ func _ready() -> void:
 	GameBus.pack_purchased.connect(_on_pack_purchased)
 	GameBus.bag_full.connect(func() -> void:
 		GameBus.hud_message_requested.emit("Bag full! Sell or scrap cards to make room."))
+	GameBus.card_routed_to_mailbox.connect(func(template_id: String) -> void:
+		var card_name: String = str(CardRegistry.get_template(template_id).get("name", template_id))
+		GameBus.hud_message_requested.emit("%s couldn't fit in your bag — sent to the mailbox." % card_name))
 	GameBus.siege_defeated.connect(func(coins_lost: int) -> void:
 		show_toast("Siege Lost", "The town fell. Lost %d coins." % coins_lost))
 	_maybe_boot_dedicated_server()

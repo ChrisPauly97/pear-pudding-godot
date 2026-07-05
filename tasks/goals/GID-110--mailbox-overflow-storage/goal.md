@@ -22,15 +22,19 @@ Scope boundary (researched call sites of `add_card_instance`, 2026-07-04):
 |----|------|------|--------|------------|
 | TID-411 | Mailbox persistence & reward routing in SaveManager | agent | done | — |
 | TID-412 | Mailbox world entity + interaction wiring across maps | agent | done | TID-411 |
-| TID-413 | Mailbox overlay UI (claim/sell/scrap) | agent | pending | TID-412 |
+| TID-413 | Mailbox overlay UI (claim/sell/scrap) | agent | done | TID-412 |
 
 ## Acceptance Criteria
 
-- [ ] A card reward that can't fit in the bag is stored in `SaveManager.mailbox_cards` instead of being discarded, and this persists across save/load (with migration default for old saves).
-- [ ] All in-scope automatic-reward call sites use the new routing function instead of the old drop-on-full behavior; out-of-scope call sites (shop, craft, combine) are unchanged.
-- [ ] A "Mailbox" interactable NPC-type entity exists and can be interacted with on madrian, maykalene, and blancogov.
-- [ ] The Mailbox also appears inside the player's home interior map once `SaveManager.home_owned` is true (guarded at map-load time — home purchase always happens at the door before the interior map loads, so no dynamic mid-session re-spawn hook is needed; confirmed via `WorldScene._show_house_door_panel`).
-- [ ] Interacting with the Mailbox opens an overlay listing every held card (cube-tile grid, consistent with the current `InventoryScene` backpack presentation) with working Claim, Claim All, Sell, and Scrap actions.
-- [ ] A toast/HUD message notifies the player when a reward is routed to the Mailbox during play.
-- [ ] `godot --headless --editor --quit` reports no new parse/compile errors.
-- [ ] Unit tests cover the mailbox grant/claim logic (mirroring `tests/unit/test_bag_slots.gd`).
+- [x] A card reward that can't fit in the bag is stored in `SaveManager.mailbox_cards` instead of being discarded, and this persists across save/load (with migration default for old saves).
+- [x] All in-scope automatic-reward call sites use the new routing function instead of the old drop-on-full behavior; out-of-scope call sites (shop, craft, combine) are unchanged.
+- [x] A "Mailbox" interactable NPC-type entity exists and can be interacted with on madrian, maykalene, and blancogov.
+- [x] The Mailbox also appears inside the player's home interior map once `SaveManager.home_owned` is true (guarded at map-load time — home purchase always happens at the door before the interior map loads, so no dynamic mid-session re-spawn hook is needed; confirmed via `WorldScene._show_house_door_panel`).
+- [x] Interacting with the Mailbox opens an overlay listing every held card (cube-tile grid, consistent with the current `InventoryScene` backpack presentation) with working Claim, Claim All, Sell, and Scrap actions.
+- [x] A toast/HUD message notifies the player when a reward is routed to the Mailbox during play.
+- [ ] `godot --headless --editor --quit` reports no new parse/compile errors. **Unverified in this sandbox** — GitHub release downloads are blocked by egress policy (403), so the Godot headless binary could not be installed. Verified by manual code review only; needs a human/CI run before merge (see TID-413 Changes Made).
+- [x] Unit tests cover the mailbox grant/claim logic (mirroring `tests/unit/test_bag_slots.gd`) — see `tests/unit/test_mailbox.gd` (8 tests). Not executed in-sandbox for the same reason as above.
+
+## Verification Status
+
+**done (headless import + test run unverified in-sandbox — see note below)**, matching the precedent set by GID-102/103/105/107. This sandbox's egress policy returns 403 for `github.com/godotengine/godot/releases/...`, so the Godot 4.6 headless binary could not be installed to run `godot --headless --editor --quit` or `tests/runner.gd`. All three tasks were implemented by closely mirroring existing, working patterns (Waystone injection, BountyBoard signal chain, InventoryScene tile/popup, `add_card_instance`/`sell_card_instance`/`scrap_card_instance`) and manually reviewed line-by-line. A human or CI run should execute both checks before merging to main.
