@@ -32,7 +32,9 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ##      PvE leaderboard (party night hunt kill tallies, TID-383).
 ## v10 — adds a `coop_spire` PvE leaderboard (best floor reached in a co-op
 ##       Endless Spire run, GID-106 / TID-391).
-const CURRENT_SESSION_VERSION: int = 10
+## v11 — adds `guildhall_state` {purchased, members_inside} for the party
+##       guildhall session home base (GID-106 / TID-392).
+const CURRENT_SESSION_VERSION: int = 11
 
 ## Cap applied to each PvE leaderboard array by record_pve_score (top N kept).
 const PVE_LEADERBOARD_CAP: int = 20
@@ -108,6 +110,17 @@ var loot_mode: String = LOOT_MODE_FIRST_OPENER
 # same re-key mechanic as the party stash. See AuctionTransfer.gd.
 var auctions: Array = []
 
+# --- Party guildhall (GID-106 / TID-392) ------------------------------------
+# Session-owned home base, separate from the single-player Player Home.
+# `purchased` is always true — the guildhall is a free feature unlock, not a
+# purchasable good like the home, so every session (fresh or migrated) simply
+# has one; the field exists for shape symmetry with a possible future paywall,
+# not as a live gate. `members_inside` (member tokens currently in the
+# guildhall) is carried in the shape for a future member-list UI but not
+# actively populated yet — map-scoped avatar sync already renders who's
+# actually present, for free. TID-393 expands this dict with `garden_plots`.
+var guildhall_state: Dictionary = {"purchased": true, "members_inside": []}
+
 
 # ---------------------------------------------------------------------------
 # Serialization
@@ -132,6 +145,7 @@ func to_dict() -> Dictionary:
 		"leaderboards": leaderboards.duplicate(true),
 		"loot_mode": loot_mode,
 		"auctions": auctions.duplicate(true),
+		"guildhall_state": guildhall_state.duplicate(true),
 	}
 
 
@@ -172,6 +186,21 @@ func from_dict(data: Dictionary) -> void:
 	loot_mode = lm if lm == LOOT_MODE_NEED_GREED else LOOT_MODE_FIRST_OPENER
 	var auc: Variant = data.get("auctions", [])
 	auctions = (auc as Array).duplicate(true) if auc is Array else []
+	var gh: Variant = data.get("guildhall_state", {})
+	guildhall_state = _sanitized_guildhall_state(gh as Dictionary if gh is Dictionary else {})
+
+
+## Always returns a dict with "purchased" (bool) and "members_inside"
+## (Array[String]) keys, discarding any garbage-typed input (mirrors the
+## tolerant fallback pattern used throughout this file). `purchased` defaults
+## true even for a garbage/missing field — the guildhall is never actually
+## un-purchasable, so there is no meaningful "not purchased" fallback state.
+static func _sanitized_guildhall_state(raw: Dictionary) -> Dictionary:
+	var members_inside: Variant = raw.get("members_inside", [])
+	return {
+		"purchased": bool(raw.get("purchased", true)),
+		"members_inside": (members_inside as Array).duplicate(true) if members_inside is Array else [],
+	}
 
 
 ## Always returns a dict with "spire", "coop_clears", "night_hunts" and
@@ -265,6 +294,11 @@ static func _apply_migrations(data: Dictionary) -> void:
 		if lb10 is Dictionary and not (lb10 as Dictionary).has("coop_spire"):
 			(lb10 as Dictionary)["coop_spire"] = []
 		data["version"] = 10
+	if ver < 11:
+		# v11: add guildhall_state (auto-unlocked, no coin cost).
+		if not data.has("guildhall_state"):
+			data["guildhall_state"] = {"purchased": true, "members_inside": []}
+		data["version"] = 11
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 
@@ -497,3 +531,14 @@ func get_pve_leaderboards_snapshot() -> Dictionary:
 		"night_hunts": get_pve_leaderboard("night_hunts"),
 		"coop_spire": get_pve_leaderboard("coop_spire"),
 	}
+
+
+# ---------------------------------------------------------------------------
+# Party guildhall (GID-106 / TID-392)
+# ---------------------------------------------------------------------------
+
+## Always true today — the guildhall is a free, always-unlocked feature, not a
+## purchasable good. Kept as a method (not a raw field read) so a future
+## paywall/unlock condition has a single call site to change.
+func has_guildhall() -> bool:
+	return bool(guildhall_state.get("purchased", true))

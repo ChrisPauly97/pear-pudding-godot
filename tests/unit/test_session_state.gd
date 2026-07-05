@@ -651,6 +651,62 @@ func test_migration_v10_preserves_existing_coop_spire_board() -> void:
 
 
 # ---------------------------------------------------------------------------
+# Party guildhall (GID-106 / TID-392)
+# ---------------------------------------------------------------------------
+
+func test_guildhall_defaults_to_purchased_and_empty() -> void:
+	var s := SessionState.new()
+	assert_true(s.has_guildhall())
+	assert_true(s.guildhall_state.get("members_inside", null) is Array)
+	assert_true(s.guildhall_state["members_inside"].is_empty())
+
+
+func test_guildhall_state_round_trip() -> void:
+	var s := SessionState.new()
+	s.guildhall_state["members_inside"] = ["tokA", "tokB"]
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
+	assert_true(restored.has_guildhall())
+	assert_eq(restored.guildhall_state["members_inside"], ["tokA", "tokB"])
+
+
+func test_guildhall_state_garbage_field_falls_back_to_defaults() -> void:
+	var data: Dictionary = {
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"guildhall_state": "not-a-dict",
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_true(s.has_guildhall(), "purchased always defaults true, even from garbage input")
+	assert_true(s.guildhall_state["members_inside"].is_empty())
+
+
+func test_migration_v11_backfills_guildhall_state() -> void:
+	var data: Dictionary = {
+		"version": 10,
+		"session_id": "old",
+		"members": {},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_true(s.has_guildhall())
+	assert_true(s.guildhall_state.get("members_inside", null) is Array)
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_migration_v11_preserves_existing_guildhall_state() -> void:
+	var data: Dictionary = {
+		"version": 10,
+		"session_id": "old",
+		"members": {},
+		"guildhall_state": {"purchased": true, "members_inside": ["tokC"]},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_eq(s.guildhall_state["members_inside"], ["tokC"])
+
+
+# ---------------------------------------------------------------------------
 # Ghost duel snapshot (GID-102 / TID-377)
 # ---------------------------------------------------------------------------
 

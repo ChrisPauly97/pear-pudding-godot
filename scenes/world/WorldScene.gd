@@ -1270,6 +1270,10 @@ func _open_party_panel() -> void:
 	# Crawl (avoids a race where two peers start two different runs at once).
 	panel.show_spire = NetworkManager.is_host()
 	panel.on_spire = _start_coop_spire
+	# Guildhall (GID-106 / TID-392): host-only trigger — same rationale as Dungeon
+	# Crawl / Co-op Spire above.
+	panel.show_guildhall = NetworkManager.is_host()
+	panel.on_guildhall = _start_guildhall
 	_hud.add_child(panel)
 	panel.closed.connect(func() -> void: _party_panel = null)
 	_party_panel = panel
@@ -2308,6 +2312,33 @@ func _start_dungeon_crawl() -> void:
 	_coop_map_transitioning = true
 	_net_sync.rpc("recv_map_transition", target_map, "")
 	SceneManager.enter_map(target_map, "")
+
+# ── Party Guildhall (GID-106 / TID-392) ──────────────────────────────────────
+# A session-owned home base, separate from the single-player Player Home.
+# Unlike the co-op Spire (a one-way run through many auto-generated floors),
+# the guildhall is a normal single-room sub-map exactly like player_home: entry
+# uses the standard stack-pushing enter_map() (not enter_coop_map_no_stack), so
+# the map's authored exit door (target_map="") pops back to madrian through the
+# existing generic door-interact + exit_map() machinery — no new code needed
+# for the exit, late-joiner redirect (TID-355), or map-scoped avatar sync
+# (TID-352), all of which are already fully map-name-agnostic.
+
+## Host-only: broadcasts + performs the shared transition into the guildhall.
+## Mirrors _start_dungeon_crawl exactly.
+func _start_guildhall() -> void:
+	if not NetworkManager.is_host():
+		return  # defensive: don't trust client-side button visibility alone
+	if not _coop_active or _net_sync == null or _coop_map_transitioning:
+		return
+	# has_guildhall() is always true post-migration (auto-unlocked, no purchase
+	# flow) — this is a defensive guard, not a real gate.
+	if SessionStore.is_open():
+		var st = SessionStore.get_state()
+		if st != null and not st.has_guildhall():
+			return
+	_coop_map_transitioning = true
+	_net_sync.rpc("recv_map_transition", "guildhall", "")
+	SceneManager.enter_map("guildhall", "")
 
 # ── Co-op Endless Spire (GID-106 / TID-390) ──────────────────────────────────
 #

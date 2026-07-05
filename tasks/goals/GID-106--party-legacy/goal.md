@@ -14,7 +14,7 @@ Co-op sessions today are transient shared-world experiences (up to 4 players in 
 |----|------|------|--------|------------|
 | TID-390 | Co-op Spire — shared run & alternating draft | agent | done (headless import + test run unverified in-sandbox — see note below) | — |
 | TID-391 | Co-op Spire — joint floor battles & leaderboard | agent | done (headless import + test run unverified in-sandbox — see note below) | TID-390 |
-| TID-392 | Party guildhall interior & entry | agent | pending | — |
+| TID-392 | Party guildhall interior & entry | agent | done (headless import + test run unverified in-sandbox — see note below) | — |
 | TID-393 | Guildhall trophies, garden & stash chest | agent | pending | TID-392 |
 
 ## Acceptance Criteria
@@ -52,3 +52,11 @@ handlers to `_enter_tree()` (a pending-flag pattern mirroring the existing
 BID-044 for a suspected analogous (pre-existing, unfixed) race in the co-op siege-boss
 engage path. **Run `godot --headless --editor --quit` and
 `godot --headless --path . -s tests/runner.gd` before merging.**
+
+**TID-392:** same sandbox constraint (HTTP 403 reconfirmed again this session). Generated
+`assets/maps/guildhall.tres` with a throwaway script reusing `scripts/convert_maps.py`'s
+`write_tres()` directly (hand-built data dict, no `.txt` source needed) since the in-game
+map editor isn't available either; verified the resulting tile/height arrays parse to
+exactly 10000 entries each with a Python parity check. **Run `godot --headless --editor
+--quit` and `godot --headless --path . -s tests/runner.gd` before merging** (also to confirm
+the new `.tres` actually loads/imports cleanly, which cannot be verified without Godot).

@@ -2331,8 +2331,7 @@ PvE battle engine.
 ## Party Legacy (GID-106)
 
 Gives a persistent co-op session long-run identity through a shared roguelike
-mode (this section) and a physical guildhall home (TID-392/393, a later task
-in this goal).
+mode (TID-390/391 above) and a physical guildhall home (TID-392/393, below).
 
 ### Co-op Endless Spire — shared run & alternating draft (TID-390)
 
@@ -2589,3 +2588,66 @@ deliberate simplification matching the task's own guidance.
 value-overwrite semantics). No new WorldScene-level orchestration test — the
 battle-routing/tree-deferral logic requires the full multiplayer + SceneTree
 harness, same precedent as TID-390's draft engine above.
+
+### Party guildhall — interior map & entry (TID-392)
+
+A session-owned home base, separate from the single-player Player Home
+(GID-046) — it reflects the party's collective identity, not any one
+player's house.
+
+**Map — `assets/maps/guildhall.tres`.** Same structure as `player_home.tres`
+(100×100 grid, `WALL=1` everywhere except a carved room): floor at tile
+x:40–60, z:45–61, `spawn_x/z = (50, 59)`, one `MapDoor`
+(`entity_id="guildhall_exit"`, `target_map=""`) at `(50, 46)`. No bed NPC —
+the guildhall is a meeting space, not a rest location. Generated with a
+throwaway script that calls `scripts/convert_maps.py`'s `write_tres()`
+directly with a hand-built data dict (skipping its `.txt`-parsing step,
+which isn't needed for a from-scratch room) — the practical way to produce a
+new `.tres` in this exact format without a running Godot editor. Registered
+in `autoloads/MapRegistry.gd`'s `_BUNDLED` dict exactly like every other
+named map (`const _GUILDHALL` + one dict entry).
+
+**Entry point — host-only Party Panel action "Guildhall".** `PartyPanel.gd`
+gained `show_guildhall`/`on_guildhall` (identical shape to `show_spire`/
+`on_spire`); `WorldScene._start_guildhall()` mirrors `_start_dungeon_crawl()`
+exactly: broadcast `recv_map_transition("guildhall", "")`, then local
+`SceneManager.enter_map("guildhall", "")`.
+
+**Deliberately the *normal* stack-pushing `enter_map()`, not
+`enter_coop_map_no_stack` (TID-391).** The Spire's no-stack helper exists
+because a Spire run is a one-way chain of many auto-generated floors with no
+"go back" concept. The guildhall is the opposite: a single room entered and
+exited repeatedly, exactly like `player_home`. Using the normal `enter_map()`
+pushes `"madrian"` onto `map_stack` on entry, so the map's authored exit door
+(`target_map=""`) works through the **existing, completely generic**
+door-interact → `recv_map_transition("", "")` → `SceneManager.exit_map()` →
+pop-`map_stack` chain — no guildhall-specific exit code was needed at all.
+Late-joiner redirect (TID-355, keyed on `SessionState.current_map`) and
+map-scoped avatar sync (TID-352, `AvatarSync`'s `map` field) are both already
+entirely map-name-agnostic, so entering "guildhall" gets a rejoining member
+landing back inside, and every peer rendering each other correctly, for
+free — zero new code in either system.
+
+**`SessionState.guildhall_state`** (v10→v11): `{purchased: bool,
+members_inside: Array[String]}`. `purchased` is always `true` — the
+guildhall is a free feature unlock, not a purchasable good like the
+single-player home, so the class-default and the migration backfill both
+set it unconditionally; `has_guildhall()` is a thin accessor kept for API
+symmetry with a *possible* future paywall, not a live gate today.
+`members_inside` is carried in the shape (and TID-393 needs this same dict
+for `garden_plots`) but is **not actively populated in this task** — wiring
+it to avatar map-enter/leave events would duplicate what `AvatarSync`'s
+per-peer `map_name` field already renders, for a cosmetic-only payoff;
+scope-cut, not an oversight.
+
+**Single-player unchanged.** The guildhall button only ever appears inside
+the Party Panel, which itself only opens in an active co-op session; the
+map asset is bundled by `MapRegistry` like any other but is never referenced
+by any single-player code path.
+
+**Tests:** `tests/unit/test_session_state.gd` gained `guildhall_state`
+coverage (defaults, round-trip, garbage-field fallback, v11 migration
+backfill/preservation), mirroring the `coop_spire` additions from TID-391.
+No WorldScene-level test — `_start_guildhall()` is a thin broadcast + normal
+`enter_map()` call, exercising it requires the full SceneTree/multiplayer
+harness like every other Party Panel action in this file.
