@@ -76,6 +76,10 @@ const _LootRoll          = preload("res://game_logic/net/LootRoll.gd")
 const _CardDropUtil      = preload("res://game_logic/CardDropUtil.gd")
 const _CardInstanceUtil  = preload("res://game_logic/CardInstanceUtil.gd")
 const _SessionState      = preload("res://game_logic/net/SessionState.gd")
+# Co-op Endless Spire alternating draft (GID-106 / TID-390)
+const _SpireDraftSync    = preload("res://game_logic/net/SpireDraftSync.gd")
+const _SpireDraft        = preload("res://game_logic/spire/SpireDraft.gd")
+const _SpireDraftScene   = preload("res://scenes/ui/SpireDraftScene.tscn")
 # Session tournaments (GID-104 / TID-386)
 const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
 # Downed & rescue in shared dungeons (GID-105 / TID-389)
@@ -130,6 +134,18 @@ const _LOOT_ROLL_TIMEOUT: float = 15.0
 # Client (or host's own local UI): the currently-shown roll prompt, or {} when none.
 var _pending_loot_roll: Dictionary = {}
 var _loot_roll_panel: Node = null   # transient Need/Greed/Pass panel (CanvasLayer), nil when closed
+# Co-op Endless Spire alternating draft (GID-106 / TID-390). Authority only:
+# non-empty while a draft round is in flight (a single floor's one-pick round —
+# this task's scope; a full floor-by-floor loop is TID-391's job). Shape:
+# {floor, options: Array[String], active_picker_token, active_picker_name, timer}.
+var _coop_spire_draft_active: Dictionary = {}
+const _COOP_SPIRE_DRAFT_TIMEOUT: float = 30.0
+var _coop_spire_draft_overlay: Node = null  # transient SpireDraftScene instance, nil when closed
+# Any peer (including the authority's own local UI): the currently-shown draft
+# prompt's decoded payload, or {} when none. Needed separately from
+# _coop_spire_draft_active because that dict only exists on the authority — a
+# client picker must resolve card_id -> card_idx from what it was actually shown.
+var _pending_coop_spire_draft: Dictionary = {}
 # Co-op story mode (GID-098): true once a map transition is in flight on this
 # WorldScene instance so duplicate recv_map_transition packets are ignored.
 var _coop_map_transitioning: bool = false
@@ -889,6 +905,14 @@ func _on_coop_session_ended() -> void:
 	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
 		_loot_roll_panel.queue_free()
 	_loot_roll_panel = null
+	# Co-op Endless Spire (GID-106 / TID-390): session gone — the run itself lives on
+	# SceneManager (survives this WorldScene instance), but any in-flight draft round
+	# on THIS instance is aborted, matching the loot-roll precedent above.
+	_coop_spire_draft_active = {}
+	_pending_coop_spire_draft = {}
+	if _coop_spire_draft_overlay != null and is_instance_valid(_coop_spire_draft_overlay):
+		_coop_spire_draft_overlay.queue_free()
+	_coop_spire_draft_overlay = null
 	if _party_panel != null and is_instance_valid(_party_panel):
 		_party_panel.queue_free()
 	_party_panel = null
@@ -1216,6 +1240,10 @@ func _open_party_panel() -> void:
 	# Dungeon Crawl: host-only trigger — mirrors the old _ensure_dungeon_button() gate.
 	panel.show_dungeon_crawl = NetworkManager.is_host()
 	panel.on_dungeon_crawl = _start_dungeon_crawl
+	# Co-op Spire (GID-106 / TID-390): host-only trigger — same rationale as Dungeon
+	# Crawl (avoids a race where two peers start two different runs at once).
+	panel.show_spire = NetworkManager.is_host()
+	panel.on_spire = _start_coop_spire
 	_hud.add_child(panel)
 	panel.closed.connect(func() -> void: _party_panel = null)
 	_party_panel = panel
@@ -2233,6 +2261,190 @@ func _start_dungeon_crawl() -> void:
 	_coop_map_transitioning = true
 	_net_sync.rpc("recv_map_transition", target_map, "")
 	SceneManager.enter_map(target_map, "")
+
+# ── Co-op Endless Spire (GID-106 / TID-390) ──────────────────────────────────
+#
+# Adapts the single-player Endless Spire (GID-038) for a party: same seed-based
+# floor composition, but the run deck is shared and built collaboratively via
+# authority-orchestrated alternating draft picks (one pick per floor clear,
+# rotating among members), reusing the loot-roll prompt-session pattern
+# (TID-381). The run itself is entirely transient state living on
+# SceneManager._coop_spire_run (see that file for why — it must survive
+# floor-to-floor map transitions, which destroy/recreate this WorldScene).
+#
+# Scope note: this task delivers the entry point, shared-seed run start, and the
+# full draft-orchestration engine below. _start_coop_spire_draft(floor) is the
+# public hook TID-391 calls once it has a real floor-win condition (via the
+# joint PvE battle engine, GID-099) — nothing calls it yet in this task, mirroring
+# how TID-355 built recv_map_transition before TID-380 became its first real caller.
+
+## Host-only: starts (or resumes) a co-op Spire run and broadcasts the floor-1 (or
+## current-floor, if resuming) map transition so every peer follows in — reuses
+## the existing recv_map_transition RPC verbatim, exactly like _start_dungeon_crawl.
+func _start_coop_spire() -> void:
+	if not NetworkManager.is_host():
+		return  # defensive: don't trust client-side button visibility alone
+	if not _coop_active or _net_sync == null or _coop_map_transitioning:
+		return
+	var picker_order: Array[String] = []
+	if not SceneManager.is_coop_spire_active():
+		picker_order.append(MpProfile.get_token())
+		for token in _session_token_by_peer.values():
+			if not picker_order.has(str(token)):
+				picker_order.append(str(token))
+	var target_map: String = SceneManager.enter_spire_coop(picker_order)
+	_coop_map_transitioning = true
+	_net_sync.rpc("recv_map_transition", target_map, "")
+	SceneManager.enter_map(target_map, "")
+
+
+## Authority-only entry point (the TID-391 hook): opens one draft round for
+## `floor`, seeding the RNG identically to single-player's SpireDraftScene.setup
+## (run seed + floor) so the 3 options are deterministic and reproducible.
+func _start_coop_spire_draft(floor_num: int) -> void:
+	if not _coop_world_authority():
+		return
+	if not _coop_spire_draft_active.is_empty():
+		return  # a round is already in flight — never open a second one
+	var run: Dictionary = SceneManager.get_coop_spire_run()
+	if not bool(run.get("active", false)):
+		return
+	var picker_order: Array = run.get("picker_order", [])
+	if picker_order.is_empty():
+		return
+	var picker_idx: int = int(run.get("picker_idx", 0))
+	var active_picker_token: String = str(picker_order[picker_idx % picker_order.size()])
+	var active_picker_name: String = _display_name_for_token(active_picker_token)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(run.get("seed", 0)) + floor_num
+	var pool_templates: Dictionary = {}
+	for id: String in _CardRegistry.get_all_ids():
+		pool_templates[id] = _CardRegistry.get_template(id)
+	var options: Array[String] = _SpireDraft.new().generate_picks(floor_num, rng, pool_templates)
+	_coop_spire_draft_active = {
+		"floor": floor_num,
+		"options": options,
+		"active_picker_token": active_picker_token,
+		"active_picker_name": active_picker_name,
+		"timer": 0.0,
+	}
+	var payload: Dictionary = _SpireDraftSync.encode_draft_start(
+		floor_num, options, active_picker_token, active_picker_name)
+	if _net_sync != null:
+		_net_sync.rpc("recv_spire_draft_start", payload)
+	_on_spire_draft_start_received(payload)  # authority also sees its own prompt
+
+
+## Any peer (including the authority itself): show the draft overlay — interactive
+## if it's this peer's turn, a disabled "waiting" banner otherwise. Reuses
+## SpireDraftScene (setup_coop), not a new scene.
+func _on_spire_draft_start_received(payload: Dictionary) -> void:
+	var start: Dictionary = _SpireDraftSync.decode_draft_start(payload)
+	var options: Array[String] = []
+	options.assign(start.get("options", []))
+	if options.is_empty():
+		return
+	if _coop_spire_draft_overlay != null and is_instance_valid(_coop_spire_draft_overlay):
+		_coop_spire_draft_overlay.queue_free()
+	_pending_coop_spire_draft = start
+	var active_picker_token: String = str(start.get("active_picker_token", ""))
+	var is_my_turn: bool = active_picker_token == MpProfile.get_token()
+	var overlay := _SpireDraftScene.instantiate()
+	get_tree().current_scene.add_child(overlay)
+	overlay.setup_coop(
+		int(start.get("floor", 1)), options, is_my_turn, str(start.get("active_picker_name", "Player")))
+	if is_my_turn:
+		overlay.picked.connect(_submit_coop_spire_draft_choice)
+	_coop_spire_draft_overlay = overlay
+
+
+## Local player (the active picker) chose a card. Resolves card_id -> card_idx from
+## what was actually broadcast to THIS peer (never from _coop_spire_draft_active,
+## which only exists on the authority), then sends the index to the authority, or
+## applies it directly if this peer IS the authority.
+func _submit_coop_spire_draft_choice(card_id: String) -> void:
+	if _coop_spire_draft_overlay != null and is_instance_valid(_coop_spire_draft_overlay):
+		_coop_spire_draft_overlay.queue_free()
+	_coop_spire_draft_overlay = null
+	var options: Array[String] = []
+	options.assign(_pending_coop_spire_draft.get("options", []))
+	_pending_coop_spire_draft = {}
+	var card_idx: int = options.find(card_id)
+	if card_idx < 0:
+		return
+	if NetworkManager.is_host():
+		_on_spire_draft_choice_submitted(multiplayer.get_unique_id(), card_idx)
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_spire_draft_choice", card_idx)
+
+
+## Authority: record the active picker's choice (a sender mismatch is silently
+## ignored — mirrors the loot-roll "unexpected sender" tolerance), resolve the
+## pick, advance the rotation, and broadcast the result.
+func _on_spire_draft_choice_submitted(sender: int, card_idx: int) -> void:
+	if not _coop_world_authority():
+		return
+	if _coop_spire_draft_active.is_empty():
+		return
+	var expected_token: String = str(_coop_spire_draft_active.get("active_picker_token", ""))
+	var sender_token: String = str(_session_token_by_peer.get(sender,
+		MpProfile.get_token() if sender == multiplayer.get_unique_id() else ""))
+	if sender_token == "" or sender_token != expected_token:
+		return
+	_resolve_coop_spire_draft(card_idx)
+
+
+## Ticked from _process while a draft round is in flight (authority only). An
+## unresponsive active picker auto-picks the first option once the timeout elapses.
+func _tick_coop_spire_draft(delta: float) -> void:
+	if not _coop_world_authority() or _coop_spire_draft_active.is_empty():
+		return
+	var t: float = float(_coop_spire_draft_active.get("timer", 0.0)) + delta
+	_coop_spire_draft_active["timer"] = t
+	if t >= _COOP_SPIRE_DRAFT_TIMEOUT:
+		_resolve_coop_spire_draft(0)
+
+
+## Authority: commit the picked card to the shared run deck, advance the picker
+## rotation, and broadcast the resolved choice + next picker's turn.
+func _resolve_coop_spire_draft(card_idx: int) -> void:
+	var options: Array[String] = []
+	options.assign(_coop_spire_draft_active.get("options", []))
+	_coop_spire_draft_active = {}
+	if options.is_empty():
+		return
+	var idx: int = clampi(card_idx, 0, options.size() - 1)
+	var card_id: String = options[idx]
+	SceneManager.add_coop_drafted_card(card_id)
+	SceneManager.advance_coop_spire_picker()
+	var run: Dictionary = SceneManager.get_coop_spire_run()
+	var picker_order: Array = run.get("picker_order", [])
+	var next_token: String = ""
+	var next_name: String = "Player"
+	if not picker_order.is_empty():
+		next_token = str(picker_order[int(run.get("picker_idx", 0)) % picker_order.size()])
+		next_name = _display_name_for_token(next_token)
+	var payload: Array = _SpireDraftSync.encode_draft_choice(card_id, next_token, next_name)
+	if _net_sync != null:
+		_net_sync.rpc("recv_spire_draft_choice", payload)
+	_on_spire_draft_choice_received(payload)
+
+
+## Any peer: close the draft overlay if open and show a toast naming the card +
+## next picker.
+func _on_spire_draft_choice_received(payload: Array) -> void:
+	if _coop_spire_draft_overlay != null and is_instance_valid(_coop_spire_draft_overlay):
+		_coop_spire_draft_overlay.queue_free()
+	_coop_spire_draft_overlay = null
+	_pending_coop_spire_draft = {}
+	var result: Dictionary = _SpireDraftSync.decode_draft_choice(payload)
+	var card_id: String = str(result.get("card_id", ""))
+	if card_id == "":
+		return
+	var tmpl: Dictionary = _CardRegistry.get_template(card_id)
+	var card_name: String = str(tmpl.get("name", card_id))
+	var next_name: String = str(result.get("next_active_picker_name", "Player"))
+	GameBus.hud_message_requested.emit("Drafted %s! Next up: %s" % [card_name, next_name])
 
 # ── Co-op Town Siege (GID-103 / TID-384) ──────────────────────────────────────
 #
@@ -3867,6 +4079,9 @@ func _process(delta: float) -> void:
 		# Party loot rolls (GID-102 / TID-381): authority-only timeout ticker; inert
 		# unless a roll is actually in flight (need/greed mode opted in).
 		_tick_loot_rolls(delta)
+		# Co-op Endless Spire draft (GID-106 / TID-390): authority-only timeout ticker;
+		# inert unless a draft round is actually in flight.
+		_tick_coop_spire_draft(delta)
 		# Downed & rescue (GID-105 / TID-389): live countdown on the local banner.
 		if _coop_downed and _downed_banner != null and is_instance_valid(_downed_banner):
 			var elapsed: float = (Time.get_ticks_msec() / 1000.0) - _downed_started_at

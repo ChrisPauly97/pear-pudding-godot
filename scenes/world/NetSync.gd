@@ -547,6 +547,35 @@ func recv_loot_roll_result(payload: Dictionary) -> void:
 		world_scene._on_loot_roll_result_received(payload)
 
 
+# ── Co-op Endless Spire alternating draft (GID-106 / TID-390) ────────────────
+
+## Authority → all: open a draft prompt for a floor. payload is
+## SpireDraftSync.encode_draft_start() output. Reliable — a dropped draft-start
+## would leave the whole party stuck (nobody can pick, the run can't progress).
+@rpc("any_peer", "reliable", "call_remote")
+func recv_spire_draft_start(payload: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_spire_draft_start_received"):
+		world_scene._on_spire_draft_start_received(payload)
+
+
+## Client → authority: the active picker's chosen card index (0..2 into the
+## broadcast options). Sent as a plain int, mirroring submit_loot_roll_choice's
+## plain-RPC-params precedent. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_spire_draft_choice(card_idx: int) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_spire_draft_choice_submitted"):
+		world_scene._on_spire_draft_choice_submitted(sender, card_idx)
+
+
+## Authority → all: the resolved pick + next picker's turn. payload is
+## SpireDraftSync.encode_draft_choice() output. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_spire_draft_choice(payload: Array) -> void:
+	if world_scene != null and world_scene.has_method("_on_spire_draft_choice_received"):
+		world_scene._on_spire_draft_choice_received(payload)
+
+
 # ── Draft duels — sealed-deck PvP (GID-104 / TID-385) ────────────────────────
 # Deterministic shared-seed model: the challenger generates one integer seed;
 # both peers derive the IDENTICAL sequence of 1-of-3 pick rounds locally via

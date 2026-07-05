@@ -1,8 +1,8 @@
 ## Party panel (GID-107 / TID-395): a single discoverable entry point for the
 ## always-on co-op HUD affordances that used to be individually HUD-positioned
 ## buttons — Roster, Loot Mode, Stash, Leaderboard, Ghost Duels, Team Duel,
-## Dungeon Crawl. Each action keeps its exact prior gating/behavior; this is a
-## placement/discoverability change, not a feature change.
+## Dungeon Crawl, Co-op Spire. Each action keeps its exact prior gating/behavior;
+## this is a placement/discoverability change, not a feature change.
 ##
 ## Script-only overlay (matches GhostDuelOverlay / PartyStashOverlay / Leaderboard
 ## Overlay): extends BaseOverlay by path string, instantiated via .new(), built
@@ -38,6 +38,9 @@ var on_team_duel: Callable = Callable()
 
 var show_dungeon_crawl: bool = false
 var on_dungeon_crawl: Callable = Callable()
+
+var show_spire: bool = false
+var on_spire: Callable = Callable()
 
 var _roster_vbox: VBoxContainer = null
 var _loot_btn: Button = null
@@ -120,6 +123,8 @@ func _build_ui() -> void:
 		_add_action_button(grid, "Team Duel (2v2)", on_team_duel, true)
 	if show_dungeon_crawl:
 		_add_action_button(grid, "Dungeon Crawl", on_dungeon_crawl, true)
+	if show_spire:
+		_add_action_button(grid, "Co-op Spire", on_spire, true)
 
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER

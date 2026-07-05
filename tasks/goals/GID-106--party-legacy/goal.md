@@ -12,7 +12,7 @@ Co-op sessions today are transient shared-world experiences (up to 4 players in 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-390 | Co-op Spire — shared run & alternating draft | agent | pending | — |
+| TID-390 | Co-op Spire — shared run & alternating draft | agent | done (headless import + test run unverified in-sandbox — see note below) | — |
 | TID-391 | Co-op Spire — joint floor battles & leaderboard | agent | pending | TID-390 |
 | TID-392 | Party guildhall interior & entry | agent | pending | — |
 | TID-393 | Guildhall trophies, garden & stash chest | agent | pending | TID-392 |
@@ -26,3 +26,16 @@ Co-op sessions today are transient shared-world experiences (up to 4 players in 
 - [ ] Guildhall renders trophies auto-populated from session's joint boss clears (`coop_clears` leaderboard), shared garden plots advancing on session `days_elapsed`, and a physical stash chest entity that opens `PartyStashOverlay`
 - [ ] Single-player unchanged byte-for-byte; all co-op code guarded by `NetworkManager.is_active()`
 - [ ] Unit suite passes; headless import check clean (`godot --headless --editor --quit`)
+
+## Notes
+
+**TID-390:** the sandbox this task ran in has no Godot binary, and the documented install
+recipe (downloading the Godot 4.6 release zip) is blocked by the environment's egress
+policy (HTTP 403 from the agent proxy — an organization policy denial, not a transient
+failure, so per the proxy's own guidance it was not retried or routed around). The
+headless import check and `tests/runner.gd` run could not be executed. A thorough manual
+review was done instead (balance/indentation/duplicate-symbol checks, every `:=`
+inference site verified against a concretely-typed RHS, every RPC/handler name
+cross-checked end-to-end) and caught one real bug before it shipped (see TID-390's
+Changes Made). **Run `godot --headless --editor --quit` and `godot --headless --path . -s
+tests/runner.gd` before merging** — same caveat pattern as GID-102/103/105/110.
