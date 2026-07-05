@@ -2651,3 +2651,87 @@ backfill/preservation), mirroring the `coop_spire` additions from TID-391.
 No WorldScene-level test — `_start_guildhall()` is a thin broadcast + normal
 `enter_map()` call, exercising it requires the full SceneTree/multiplayer
 harness like every other Party Panel action in this file.
+
+### Guildhall trophies, garden & stash chest (TID-393)
+
+Furnishes the guildhall (TID-392) with three systems, all spawned only when
+`map_name == "guildhall"` (called right after `_setup_coop()`, not inline with
+the other named-map spawns, so `_net_sync` already exists — see below).
+
+**Trophies need no new sync at all.** `WorldScene._pve_leaderboards` is
+already a continuously-current cache on every peer (broadcast on every
+`record_pve_score` write and sent at late-join, TID-379). `_spawn_guildhall_trophies()`
+just reads `_pve_leaderboards["coop_clears"]` (up to 3 rows, already
+best-first) and spawns a pedestal per row via the existing
+`_make_trophy_pedestal`/`register_npc("trophy_pedestal", ...)` machinery
+(GID-046) — the generic `trophy_pedestal` npc_type dispatch in
+`_handle_interact()` needed zero changes. A `coop_clears` row is
+`{token, name, value, day}` (party size at win time, not a boss/floor
+description, and at most one row per token) — the pedestal label is built
+from what actually exists (`"<name>'s Clear — Party of <value>"`), and a slot
+with no entry is skipped entirely rather than shown as an unearned "???"
+placeholder (that GID-046 pattern is for a fixed predicate-driven list; this
+is a dynamic top-N).
+
+**Garden — `SessionStore` is authority-only, so `GardenPlot` cannot read it
+directly (a client's `SessionStore.is_open()` is always false).** Instead,
+`WorldScene` keeps `_guildhall_garden_cache: Dictionary` (`{plots, plants}`)
+synced via the exact `_pve_leaderboards` request/broadcast pattern:
+`submit_guildhall_garden_request` (client → host, sent once per map entry)
+→ `recv_guildhall_garden_update` (host → one/all, `_broadcast_guildhall_garden`,
+mirrors `_broadcast_pve_leaderboards`). `GardenPlot` gained `session_mode: bool`
+and `set_session_state(plot_data, days_elapsed)` — WorldScene *pushes* the
+cache into each spawned plot (`_refresh_guildhall_garden_visuals`) rather than
+the plot pulling from `SessionStore` itself; `get_plot_data()`/`get_growth_stage()`
+branch on `session_mode` to use the pushed data (`GardenDefs.growth_stage`,
+a pure function) instead of `SceneManager.save_manager`. Current day comes
+from the existing `_coop_current_days_elapsed()` helper (already
+correct on every peer via the GID-103 world-clock sync — no new day-sync
+plumbing needed).
+
+**Deliberate simplifications (deviating from the task's Research Notes, which
+assumed session-scoped seed/plant *card-instance* transfer via
+`StashTransfer` — that class only handles cards/coins; `SaveManager.seeds`/
+`plants` are actually plain `Dictionary[id, int]` counters, the wrong shape
+for that API):**
+- **Planting is free** in the guildhall garden — no session seed economy is
+  modeled (would need new fields on `SessionState.members[token]` character
+  records that don't exist today, for a feature explicitly framed as
+  cosmetic). Any member can plant any `GardenDefs.SEEDS` id in an empty plot.
+- **Harvested yield goes into a new, dedicated `guildhall_state.plants: Dictionary`
+  pool** (`plant_id -> count`), not `SessionState.stash` — the stash's shape
+  (`{cards, coins}`) has no concept of arbitrary item counts, and extending
+  it would touch already-shipped, more deeply-integrated stash/auction code
+  for a cosmetic feature.
+- Two mutation RPCs, client → host: `submit_session_plant(plot_idx, seed_id)`,
+  `submit_session_harvest(plot_idx)` (plain params, mirrors
+  `submit_spire_draft_choice`'s precedent). The authority validates (plot
+  actually empty / actually mature — a stale or duplicate submit is silently
+  ignored) before mutating `guildhall_state` and broadcasting.
+- `_show_garden_plot_panel` branches on `plot.session_mode`: no
+  "(owned: N)" seed count, Plant is never disabled, and the plant/harvest
+  buttons call `_submit_session_plant`/`_submit_session_harvest` instead of
+  `SaveManager`/`GameBus.plant_harvested` (which stays solo-only).
+
+**Ordering gotcha found during this task:** the player-home trophy/garden
+spawn calls run *inline* with the rest of `_ready()`'s named-map setup,
+**before** `_setup_coop()` (which creates `_net_sync`) — harmless for
+single-player (no networking involved) but would silently break a client's
+`submit_guildhall_garden_request` RPC if the guildhall spawns were placed the
+same way (`_net_sync` would still be null). The guildhall spawn calls are
+therefore made **after** `_setup_coop()` instead, with a comment flagging why.
+
+**Stash chest — a pure UI-routing entity, no new sync.** A procedural
+chest mesh + `Label3D` ("Guild Stash"), registered via the same
+`register_npc`/`_active_npc_data` mechanism as trophies with
+`npc_type = "stash_chest"` — one new case in the existing npc_type dispatch
+chains in both `_check_interactions()` (prompt label "STASH") and
+`_handle_interact()` (calls the already-fully-wired `_toggle_stash_overlay()`,
+TID-376). Reusing the generic NPC proximity/prompt system means the on-screen
+tap target (mobile parity) came for free, exactly like every other
+interactable in this file.
+
+**Tests:** `tests/unit/test_session_state.gd` gained `garden_plots`/`plants`
+coverage (defaults, round-trip, 3-slot padding/truncation, v12 migration
+backfill/preservation). No WorldScene-level test for the spawn/RPC flow —
+same precedent as every other WorldScene orchestration function in this file.

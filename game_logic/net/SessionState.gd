@@ -34,7 +34,9 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ##       Endless Spire run, GID-106 / TID-391).
 ## v11 — adds `guildhall_state` {purchased, members_inside} for the party
 ##       guildhall session home base (GID-106 / TID-392).
-const CURRENT_SESSION_VERSION: int = 11
+## v12 — adds `garden_plots`/`plants` to `guildhall_state` for the shared
+##       guildhall garden (GID-106 / TID-393).
+const CURRENT_SESSION_VERSION: int = 12
 
 ## Cap applied to each PvE leaderboard array by record_pve_score (top N kept).
 const PVE_LEADERBOARD_CAP: int = 20
@@ -110,7 +112,7 @@ var loot_mode: String = LOOT_MODE_FIRST_OPENER
 # same re-key mechanic as the party stash. See AuctionTransfer.gd.
 var auctions: Array = []
 
-# --- Party guildhall (GID-106 / TID-392) ------------------------------------
+# --- Party guildhall (GID-106 / TID-392/393) --------------------------------
 # Session-owned home base, separate from the single-player Player Home.
 # `purchased` is always true — the guildhall is a free feature unlock, not a
 # purchasable good like the home, so every session (fresh or migrated) simply
@@ -118,8 +120,20 @@ var auctions: Array = []
 # not as a live gate. `members_inside` (member tokens currently in the
 # guildhall) is carried in the shape for a future member-list UI but not
 # actively populated yet — map-scoped avatar sync already renders who's
-# actually present, for free. TID-393 expands this dict with `garden_plots`.
-var guildhall_state: Dictionary = {"purchased": true, "members_inside": []}
+# actually present, for free.
+# `garden_plots` (TID-393): 3 entries, same shape as SaveManager.garden_plots
+# ({seed_id, planted_day} or {} when empty) — a session-scoped shared garden,
+# authority-owned. Planting is free in the co-op garden (no seed economy is
+# modeled for sessions — a deliberate simplification, see TID-393 Plan Notes);
+# `plants` (plant_id -> count) is a small dedicated pool harvested yield is
+# added to, kept separate from `stash` (which only models cards/coins) rather
+# than extending that already-shipped shape.
+var guildhall_state: Dictionary = {
+	"purchased": true,
+	"members_inside": [],
+	"garden_plots": [{}, {}, {}],
+	"plants": {},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -190,16 +204,29 @@ func from_dict(data: Dictionary) -> void:
 	guildhall_state = _sanitized_guildhall_state(gh as Dictionary if gh is Dictionary else {})
 
 
-## Always returns a dict with "purchased" (bool) and "members_inside"
-## (Array[String]) keys, discarding any garbage-typed input (mirrors the
+## Always returns a dict with "purchased" (bool), "members_inside"
+## (Array[String]), "garden_plots" (Array of exactly 3 Dictionaries) and
+## "plants" (Dictionary) keys, discarding any garbage-typed input (mirrors the
 ## tolerant fallback pattern used throughout this file). `purchased` defaults
 ## true even for a garbage/missing field — the guildhall is never actually
 ## un-purchasable, so there is no meaningful "not purchased" fallback state.
 static func _sanitized_guildhall_state(raw: Dictionary) -> Dictionary:
 	var members_inside: Variant = raw.get("members_inside", [])
+	var plots_v: Variant = raw.get("garden_plots", [])
+	var plots: Array = (plots_v as Array).duplicate(true) if plots_v is Array else []
+	while plots.size() < 3:
+		plots.append({})
+	if plots.size() > 3:
+		plots = plots.slice(0, 3)
+	for i in range(plots.size()):
+		if not (plots[i] is Dictionary):
+			plots[i] = {}
+	var plants_v: Variant = raw.get("plants", {})
 	return {
 		"purchased": bool(raw.get("purchased", true)),
 		"members_inside": (members_inside as Array).duplicate(true) if members_inside is Array else [],
+		"garden_plots": plots,
+		"plants": (plants_v as Dictionary).duplicate(true) if plants_v is Dictionary else {},
 	}
 
 
@@ -299,6 +326,16 @@ static func _apply_migrations(data: Dictionary) -> void:
 		if not data.has("guildhall_state"):
 			data["guildhall_state"] = {"purchased": true, "members_inside": []}
 		data["version"] = 11
+	if ver < 12:
+		# v12: add garden_plots/plants inside guildhall_state.
+		var gh12: Variant = data.get("guildhall_state", {})
+		if gh12 is Dictionary:
+			var gh12_dict: Dictionary = gh12 as Dictionary
+			if not gh12_dict.has("garden_plots"):
+				gh12_dict["garden_plots"] = [{}, {}, {}]
+			if not gh12_dict.has("plants"):
+				gh12_dict["plants"] = {}
+		data["version"] = 12
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 

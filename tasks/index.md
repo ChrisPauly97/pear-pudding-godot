@@ -109,7 +109,7 @@
 | [GID-103](goals/GID-103--shared-world-life/goal.md) | Shared World Life — Synced Clock, Weather, Night Hunts & Town Siege | done (unit suite + headless import unverified in-sandbox — see goal.md note) | 3 / 3 |
 | [GID-104](goals/GID-104--competitive-formats/goal.md) | Competitive Formats — Draft Duels, Tournaments & Spectator Wagers | done | 3 / 3 |
 | [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | done (unit suite + headless import unverified in-sandbox — see goal.md note) | 2 / 2 |
-| [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | in-progress (TID-390/391/392 need headless test run — see goal.md note) | 3 / 4 |
+| [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | done (unit suite + headless import unverified in-sandbox — see goal.md note) | 4 / 4 |
 | [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | done (needs headless test run + visual verification — see TID-398) | 5 / 5 |
 | [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | in-progress | 3 / 10 |
 | [GID-109](goals/GID-109--keybindings-settings/goal.md) | Desktop Keybindings Settings Page | done | 2 / 2 |

@@ -679,6 +679,43 @@ func test_guildhall_state_garbage_field_falls_back_to_defaults() -> void:
 	s.from_dict(data)
 	assert_true(s.has_guildhall(), "purchased always defaults true, even from garbage input")
 	assert_true(s.guildhall_state["members_inside"].is_empty())
+	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
+	assert_true(s.guildhall_state["plants"].is_empty())
+
+
+func test_guildhall_garden_plots_default_to_three_empty_slots() -> void:
+	var s := SessionState.new()
+	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
+	for plot in s.guildhall_state["garden_plots"]:
+		assert_true((plot as Dictionary).is_empty())
+	assert_true(s.guildhall_state["plants"].is_empty())
+
+
+func test_guildhall_garden_state_round_trip() -> void:
+	var s := SessionState.new()
+	s.guildhall_state["garden_plots"][1] = {"seed_id": "sunpetal", "planted_day": 4}
+	s.guildhall_state["plants"] = {"sunpetal_bloom": 3}
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
+	assert_eq(restored.guildhall_state["garden_plots"][1], {"seed_id": "sunpetal", "planted_day": 4})
+	assert_true((restored.guildhall_state["garden_plots"][0] as Dictionary).is_empty())
+	assert_eq(int(restored.guildhall_state["plants"]["sunpetal_bloom"]), 3)
+
+
+func test_guildhall_garden_plots_padded_and_truncated_to_three() -> void:
+	var s := SessionState.new()
+	s.from_dict({
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"guildhall_state": {"purchased": true, "members_inside": [], "garden_plots": [{}], "plants": {}},
+	})
+	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
+	var s2 := SessionState.new()
+	s2.from_dict({
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"guildhall_state": {"purchased": true, "members_inside": [],
+			"garden_plots": [{}, {}, {}, {"seed_id": "extra"}], "plants": {}},
+	})
+	assert_eq(s2.guildhall_state["garden_plots"].size(), 3)
 
 
 func test_migration_v11_backfills_guildhall_state() -> void:
@@ -704,6 +741,37 @@ func test_migration_v11_preserves_existing_guildhall_state() -> void:
 	var s := SessionState.new()
 	s.from_dict(data)
 	assert_eq(s.guildhall_state["members_inside"], ["tokC"])
+
+
+func test_migration_v12_backfills_garden_plots_and_plants() -> void:
+	var data: Dictionary = {
+		"version": 11,
+		"session_id": "old",
+		"members": {},
+		"guildhall_state": {"purchased": true, "members_inside": []},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
+	assert_true(s.guildhall_state["plants"].is_empty())
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_migration_v12_preserves_existing_garden_plots_and_plants() -> void:
+	var data: Dictionary = {
+		"version": 11,
+		"session_id": "old",
+		"members": {},
+		"guildhall_state": {
+			"purchased": true, "members_inside": [],
+			"garden_plots": [{"seed_id": "sunpetal", "planted_day": 2}, {}, {}],
+			"plants": {"sunpetal_bloom": 5},
+		},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_eq(s.guildhall_state["garden_plots"][0], {"seed_id": "sunpetal", "planted_day": 2})
+	assert_eq(int(s.guildhall_state["plants"]["sunpetal_bloom"]), 5)
 
 
 # ---------------------------------------------------------------------------

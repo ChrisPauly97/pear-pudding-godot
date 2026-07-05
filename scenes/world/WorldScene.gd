@@ -325,6 +325,11 @@ var _active_waystone_data: Dictionary = {}  # id -> Dictionary
 var _mailbox_nodes: Dictionary = {}    # id -> Node3D
 var _active_mailbox_data: Dictionary = {}  # id -> Dictionary
 var _garden_plot_nodes: Array[Node3D] = []  # ordered by plot_idx
+# Guildhall garden (GID-106 / TID-393): SessionStore is authority-only, so this
+# cache mirrors _pve_leaderboards' pattern — kept current via request/broadcast
+# RPCs, then pushed into each spawned GardenPlot (session_mode = true) node.
+var _guildhall_garden_cache: Dictionary = {"plots": [{}, {}, {}], "plants": {}}
+var _guildhall_stash_chest_node: Node3D = null
 var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
@@ -721,6 +726,14 @@ func _ready() -> void:
 		GameBus.spire_run_ended.connect(_on_spire_run_ended_leaderboard)
 
 	_setup_coop()
+	# Guildhall furnishings (GID-106 / TID-393): must run after _setup_coop() so
+	# _net_sync exists — a client's garden snapshot request needs it. The map
+	# itself is only ever entered from an active co-op session (TID-392), so
+	# NetworkManager.is_active() here is a defensive guard, not a live gate.
+	if map_name == "guildhall" and NetworkManager.is_active():
+		_spawn_guildhall_trophies()
+		_spawn_guildhall_garden()
+		_spawn_guildhall_stash_chest()
 	_initial_ready_done = true
 
 # Re-establish co-op when the world is re-attached after a PvP battle detached it
@@ -4440,6 +4453,7 @@ func _check_interactions() -> void:
 			"stable": interact_label = "STABLE"
 			"duelist": interact_label = "DUEL"
 			"rest_site", "bed": interact_label = "REST"
+			"stash_chest": interact_label = "STASH"
 			_: interact_label = "TALK"
 	elif scroll != null:
 		interact_label = "READ"
@@ -4845,6 +4859,9 @@ func _handle_interact() -> void:
 			return
 		if str(npc.get("npc_type", "")) == "trophy_pedestal":
 			_show_trophy_info(npc)
+			return
+		if str(npc.get("npc_type", "")) == "stash_chest":
+			_toggle_stash_overlay()
 			return
 		var nid: String = str(npc.get("id", ""))
 		var nnode := _valid_node3d(_npc_nodes.get(nid))
@@ -5375,6 +5392,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 	title.add_theme_font_size_override("font_size", int(vh * 0.045))
 	vbox.add_child(title)
 
+	var session_mode: bool = bool(plot.session_mode)
 	var plot_data: Dictionary = plot.get_plot_data()
 	var stage: int = plot.get_growth_stage() if not plot_data.is_empty() else 0
 
@@ -5395,7 +5413,10 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 			var row := HBoxContainer.new()
 			vbox.add_child(row)
 			var lbl := Label.new()
-			lbl.text = "%s — %d days  (owned: %d)" % [sname, days, seed_count]
+			# The co-op guildhall garden is free to plant (no session seed
+			# economy is modeled, TID-393) — the owned-count only applies solo.
+			lbl.text = ("%s — %d days" % [sname, days]) if session_mode \
+				else "%s — %d days  (owned: %d)" % [sname, days, seed_count]
 			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			lbl.add_theme_font_size_override("font_size", font_size)
 			row.add_child(lbl)
@@ -5403,18 +5424,25 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 			plant_btn.text = "Plant"
 			plant_btn.custom_minimum_size = Vector2(vh * 0.14, btn_h)
 			plant_btn.add_theme_font_size_override("font_size", font_size)
-			plant_btn.disabled = seed_count <= 0
+			plant_btn.disabled = false if session_mode else seed_count <= 0
 			var captured_seed_id: String = seed_id
 			var captured_sname: String = sname
-			plant_btn.pressed.connect(func() -> void:
-				if sm.remove_seeds(captured_seed_id, 1):
-					sm.set_plot(plot.plot_idx, captured_seed_id, sm.days_elapsed)
-					plot.refresh_visual()
+			if session_mode:
+				plant_btn.pressed.connect(func() -> void:
+					_submit_session_plant(int(plot.plot_idx), captured_seed_id)
 					SceneManager.show_toast("Planted!", captured_sname + " planted.")
 					panel.queue_free()
-			)
+				)
+			else:
+				plant_btn.pressed.connect(func() -> void:
+					if sm.remove_seeds(captured_seed_id, 1):
+						sm.set_plot(plot.plot_idx, captured_seed_id, sm.days_elapsed)
+						plot.refresh_visual()
+						SceneManager.show_toast("Planted!", captured_sname + " planted.")
+						panel.queue_free()
+				)
 			row.add_child(plant_btn)
-			if seed_count > 0:
+			if session_mode or seed_count > 0:
 				has_any_seed = true
 
 		if not has_any_seed:
@@ -5431,7 +5459,8 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 		var sname: String = str(sdata.get("display_name", seed_id))
 		var growth_days: int = int(sdata.get("growth_days", 2))
 		var planted_day: int = int(plot_data.get("planted_day", 0))
-		var days_left: int = max(0, planted_day + growth_days - sm.days_elapsed)
+		var current_days: int = _coop_current_days_elapsed() if session_mode else sm.days_elapsed
+		var days_left: int = max(0, planted_day + growth_days - current_days)
 		var info := Label.new()
 		info.text = "%s growing — ready in %d day(s)" % [sname, days_left]
 		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -5456,13 +5485,20 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 		harvest_btn.text = "Harvest (%d× %s)" % [yield_count, sname]
 		harvest_btn.custom_minimum_size = Vector2(0, btn_h)
 		harvest_btn.add_theme_font_size_override("font_size", font_size)
-		harvest_btn.pressed.connect(func() -> void:
-			sm.add_plants(plant_id, yield_count)
-			sm.clear_plot(plot.plot_idx)
-			GameBus.plant_harvested.emit(plot.plot_idx, yield_count)
-			SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
-			panel.queue_free()
-		)
+		if session_mode:
+			harvest_btn.pressed.connect(func() -> void:
+				_submit_session_harvest(int(plot.plot_idx))
+				SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
+				panel.queue_free()
+			)
+		else:
+			harvest_btn.pressed.connect(func() -> void:
+				sm.add_plants(plant_id, yield_count)
+				sm.clear_plot(plot.plot_idx)
+				GameBus.plant_harvested.emit(plot.plot_idx, yield_count)
+				SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
+				panel.queue_free()
+			)
 		vbox.add_child(harvest_btn)
 
 	var cancel_btn := Button.new()
@@ -5471,6 +5507,242 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 	cancel_btn.add_theme_font_size_override("font_size", font_size)
 	cancel_btn.pressed.connect(func() -> void: panel.queue_free())
 	vbox.add_child(cancel_btn)
+
+# ── Party Guildhall furnishings (GID-106 / TID-393) ──────────────────────────
+# Trophies, garden, and a stash chest, furnishing the otherwise-empty guildhall
+# (TID-392). All spawned only when map_name == "guildhall" and
+# NetworkManager.is_active() (see _ready()'s named-map branch).
+
+## Up to 3 pedestals from the already-synced _pve_leaderboards["coop_clears"]
+## cache (party-size clears leaderboard, TID-391) — no new RPC needed. A slot
+## with no entry is skipped entirely (dynamic top-N, not a fixed earned/unearned
+## predicate list like the player-home trophies).
+func _spawn_guildhall_trophies() -> void:
+	var rows: Array = _pve_leaderboards.get("coop_clears", [])
+	var tile_positions: Array[Vector2i] = [
+		Vector2i(44, 50),
+		Vector2i(50, 50),
+		Vector2i(56, 50),
+	]
+	for i: int in range(mini(rows.size(), tile_positions.size())):
+		var row: Dictionary = rows[i]
+		var name_str: String = str(row.get("name", "A party"))
+		var value: int = int(row.get("value", 0))
+		var day: int = int(row.get("day", 0))
+		var display_name: String = "%s's Clear — Party of %d" % [name_str, value]
+		var tp: Vector2i = tile_positions[i]
+		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
+		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
+		var terrain_y: float = get_terrain_height(wx, wz)
+		var npc_data: Dictionary = {
+			"id": "guildhall_trophy_%d" % i,
+			"x": wx, "z": wz,
+			"npc_type": "trophy_pedestal",
+			"dialogue": "%s (Day %d)" % [display_name, day],
+			"flag_key": "",
+		}
+		var pedestal := _make_trophy_pedestal(true, display_name)
+		pedestal.position = Vector3(wx, terrain_y, wz)
+		_entity_root.add_child(pedestal)
+		register_npc("guildhall_trophy_%d" % i, pedestal, npc_data)
+
+## 3 session-scoped garden plots (session_mode = true). The host builds its
+## cache directly from SessionStore; a client requests a fresh snapshot since
+## SessionStore can't be read locally (see class doc comment on
+## _guildhall_garden_cache).
+func _spawn_guildhall_garden() -> void:
+	_garden_plot_nodes.clear()
+	var tile_positions: Array[Vector2i] = [
+		Vector2i(46, 54),
+		Vector2i(50, 54),
+		Vector2i(54, 54),
+	]
+	for i: int in range(tile_positions.size()):
+		var tp: Vector2i = tile_positions[i]
+		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
+		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
+		var terrain_y: float = get_terrain_height(wx, wz)
+		var plot: Node3D = _GardenPlotScript.new()
+		plot.init_from_data({"plot_idx": i})
+		plot.session_mode = true
+		plot.position = Vector3(wx, terrain_y, wz)
+		_entity_root.add_child(plot)
+		_garden_plot_nodes.append(plot)
+	if NetworkManager.is_host():
+		if SessionStore.is_open():
+			var st = SessionStore.get_state()
+			if st != null:
+				var gh: Dictionary = st.guildhall_state
+				_guildhall_garden_cache = {
+					"plots": (gh.get("garden_plots", []) as Array).duplicate(true),
+					"plants": (gh.get("plants", {}) as Dictionary).duplicate(true),
+				}
+		_refresh_guildhall_garden_visuals()
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_guildhall_garden_request")
+
+## A procedural chest entity that routes to the existing party stash overlay
+## (TID-376) — a physical anchor for a resource that's already always
+## reachable via the HUD, reinforcing that it's shared. No new RPC: opening
+## the overlay is a pure local UI action.
+func _spawn_guildhall_stash_chest() -> void:
+	var tx: int = 50
+	var tz: int = 48
+	var wx: float = float(tx) * IsoConst.TILE_SIZE
+	var wz: float = float(tz) * IsoConst.TILE_SIZE
+	var terrain_y: float = get_terrain_height(wx, wz)
+
+	var root := Node3D.new()
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.55, 0.38, 0.15)
+
+	var base_mesh := BoxMesh.new()
+	base_mesh.size = Vector3(0.9, 0.55, 0.6)
+	var base := MeshInstance3D.new()
+	base.mesh = base_mesh
+	base.material_override = mat
+	base.position = Vector3(0.0, 0.275, 0.0)
+	root.add_child(base)
+
+	var lid_mesh := BoxMesh.new()
+	lid_mesh.size = Vector3(0.95, 0.2, 0.65)
+	var lid := MeshInstance3D.new()
+	lid.mesh = lid_mesh
+	lid.material_override = mat
+	lid.position = Vector3(0.0, 0.65, 0.0)
+	root.add_child(lid)
+
+	var lbl := Label3D.new()
+	lbl.text = "Guild Stash"
+	lbl.font_size = 26
+	lbl.pixel_size = 0.020
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.no_depth_test = true
+	lbl.position = Vector3(0.0, 1.1, 0.0)
+	lbl.modulate = Color(0.95, 0.85, 0.5)
+	root.add_child(lbl)
+
+	root.position = Vector3(wx, terrain_y, wz)
+	_entity_root.add_child(root)
+	_guildhall_stash_chest_node = root
+	register_npc("guildhall_stash_chest", root, {
+		"id": "guildhall_stash_chest",
+		"x": wx, "z": wz,
+		"npc_type": "stash_chest",
+		"dialogue": "",
+		"flag_key": "",
+	})
+
+## Pushes the current cache into every spawned plot (session_mode) node.
+func _refresh_guildhall_garden_visuals() -> void:
+	var plots: Array = _guildhall_garden_cache.get("plots", [])
+	var days: int = _coop_current_days_elapsed()
+	for i in range(_garden_plot_nodes.size()):
+		var plot: Node3D = _garden_plot_nodes[i]
+		if not is_instance_valid(plot) or not plot.has_method("set_session_state"):
+			continue
+		var data: Dictionary = plots[i] if i < plots.size() and plots[i] is Dictionary else {}
+		plot.set_session_state(data, days)
+
+## Host: a client asked for a fresh guildhall garden snapshot (entering the map).
+func _on_guildhall_garden_request_submitted(sender: int) -> void:
+	_broadcast_guildhall_garden(sender)
+
+## Host-only: push the current guildhall garden state to one peer (0 = all).
+func _broadcast_guildhall_garden(target_peer: int = 0) -> void:
+	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var payload: Dictionary = {
+		"plots": (gh.get("garden_plots", []) as Array).duplicate(true),
+		"plants": (gh.get("plants", {}) as Dictionary).duplicate(true),
+	}
+	_guildhall_garden_cache = payload
+	if target_peer == 0:
+		_net_sync.rpc("recv_guildhall_garden_update", payload)
+	else:
+		_net_sync.rpc_id(target_peer, "recv_guildhall_garden_update", payload)
+	_refresh_guildhall_garden_visuals()
+
+## Any peer: receive a guildhall garden snapshot and refresh plot visuals.
+func _on_guildhall_garden_update_received(payload: Dictionary) -> void:
+	_guildhall_garden_cache = payload
+	_refresh_guildhall_garden_visuals()
+
+## Local player (any peer) picked a seed for an empty plot.
+func _submit_session_plant(plot_idx: int, seed_id: String) -> void:
+	if NetworkManager.is_host():
+		_on_session_plant_submitted(multiplayer.get_unique_id(), plot_idx, seed_id)
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_session_plant", plot_idx, seed_id)
+
+## Host: plant a seed in the shared guildhall garden (free — no session seed
+## economy is modeled, TID-393 Plan Notes) and broadcast the result.
+func _on_session_plant_submitted(_sender: int, plot_idx: int, seed_id: String) -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	if not GardenDefs.SEEDS.has(seed_id):
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var plots: Array = gh.get("garden_plots", [])
+	if plot_idx < 0 or plot_idx >= plots.size():
+		return
+	if not (plots[plot_idx] as Dictionary).is_empty():
+		return  # already planted — ignore a stale/duplicate submit
+	plots[plot_idx] = {"seed_id": seed_id, "planted_day": _coop_current_days_elapsed()}
+	gh["garden_plots"] = plots
+	st.guildhall_state = gh
+	SessionStore.mark_dirty()
+	_broadcast_guildhall_garden()
+
+## Local player (any peer) harvested a mature plot.
+func _submit_session_harvest(plot_idx: int) -> void:
+	if NetworkManager.is_host():
+		_on_session_harvest_submitted(multiplayer.get_unique_id(), plot_idx)
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_session_harvest", plot_idx)
+
+## Host: harvest a mature shared guildhall plot into the session's dedicated
+## `plants` pool (not the party stash — see TID-393 Plan Notes) and broadcast.
+func _on_session_harvest_submitted(_sender: int, plot_idx: int) -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var plots: Array = gh.get("garden_plots", [])
+	if plot_idx < 0 or plot_idx >= plots.size():
+		return
+	var plot_data: Dictionary = plots[plot_idx]
+	if plot_data.is_empty():
+		return
+	var seed_id: String = str(plot_data.get("seed_id", ""))
+	var sdata: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
+	if sdata.is_empty():
+		return
+	var growth_days: int = int(sdata.get("growth_days", 2))
+	var planted_day: int = int(plot_data.get("planted_day", 0))
+	var stage: int = GardenDefs.growth_stage(planted_day, growth_days, _coop_current_days_elapsed())
+	if stage < 3:
+		return  # not mature yet — ignore a stale/duplicate submit
+	var plant_id: String = str(sdata.get("plant_id", ""))
+	var yield_count: int = int(sdata.get("yield", 1))
+	var plants: Dictionary = gh.get("plants", {})
+	plants[plant_id] = int(plants.get(plant_id, 0)) + yield_count
+	gh["plants"] = plants
+	plots[plot_idx] = {}
+	gh["garden_plots"] = plots
+	st.guildhall_state = gh
+	SessionStore.mark_dirty()
+	_broadcast_guildhall_garden()
 
 # ── Dialogue ───────────────────────────────────────────────────────────────
 
