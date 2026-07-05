@@ -38,6 +38,8 @@ if SaveManager.story_flags.get("chapter1_warned_farsyth", false):
 |---|---|---|
 | `story_intro_complete` | bool | Player speaks to Maiteln in Madrian |
 | `chapter1_left_madrian` | bool | Player exits Madrian map |
+| `chapter1_camp_night` | bool | Player wins the rabbit-hunt scripted tutorial battle at the first wilderness camp (GID-108 / TID-402) |
+| `chapter1_learned_fire` | bool | Player interacts with the wilderness camp a second time, after `chapter1_camp_night` (GID-108 / TID-402) |
 | `chapter1_warned_farsyth` | bool | Player speaks to Lord Farsyth in farsyth_mansion |
 | `chapter1_received_letter` | bool | Isfig open-world encounter triggered |
 | `chapter1_reached_blancogov` | bool | Player enters blancogov map |
@@ -84,7 +86,9 @@ It checks flags in reverse-progression order (most-advanced first) and returns t
 |---|---|---|---|
 | _(none)_ | Speak to Maiteln | madrian | (45, 36) |
 | `story_intro_complete` | Leave Madrian | madrian | (50, 50) |
-| `chapter1_left_madrian` | Find Lord Farsyth | farsyth_mansion | (49, 20) |
+| `chapter1_left_madrian` | Make camp for the night | main | (−1, −1) wildcard |
+| `chapter1_camp_night` | Learn to make fire | main | (−1, −1) wildcard |
+| `chapter1_learned_fire` | Find Lord Farsyth | farsyth_mansion | (49, 20) |
 | `chapter1_warned_farsyth` | Encounter Isfig | main | (−1, −1) wildcard |
 | `chapter1_received_letter` | Reach Blancogov | blancogov | (49, 9) |
 | `chapter1_reached_blancogov` | Enter the Temple | blancogov_temple | (42, 15) |
@@ -96,6 +100,35 @@ It checks flags in reverse-progression order (most-advanced first) and returns t
 **CompassRibbon integration** (`WorldScene.gd`): A gold marker (`Color(1.0, 0.8, 0.0)`) is added with id `"objective"`. Its `get_pos` lambda calls `current_objective()` every frame and returns null when: the objective is for a different map, or coordinates are wildcard.
 
 **MapViewOverlay integration**: When the overlay opens, it calls `current_objective()` once and shows `"Objective: <label>"` in gold above the close hint if an objective is active.
+
+### Wilderness Camp (GID-108 / TID-402)
+
+The first-night camp (`docs/human/story.md` Chapter 1 beat 2) is a two-stage interactable
+entity, `scenes/world/entities/WildernessCamp.gd` (+ `.tscn`), spawned by
+`WorldScene._spawn_wilderness_camp()` right alongside `_spawn_open_world_rival_enc2()` — same
+"no fixed position, spawns near the player once per open-world load" pattern, gated on
+`chapter1_left_madrian` being set and `chapter1_learned_fire` not yet set. Procedural visuals
+(unshaded log + emissive flame meshes — see `scenes/world/entities/WorldItem.gd`'s note that
+all geometry in this game is unshaded, so no `OmniLight3D` is used).
+
+Uses the same generic USE-prompt / tap-to-interact system as scrolls, shrines, and dig spots
+(`WorldScene._check_interactions()` / `_handle_interact()`), which gives it mobile parity for
+free. `interact()`:
+
+1. **Before `chapter1_camp_night`:** toasts a flavor line via `GameBus.hud_message_requested`,
+   then emits `GameBus.scripted_battle_requested("rabbit_hunt")` — the Chapter 1 tutorial
+   battle (see `docs/agent/battle-system.md` "Scripted Story Battles"). Victory sets
+   `chapter1_camp_night` via the `ScriptedBattleData.completion_flag` mechanism (no bespoke
+   code needed here).
+2. **After `chapter1_camp_night`, before `chapter1_learned_fire`:** toasts the fire-making
+   line, sets `chapter1_learned_fire` directly via `SceneManager.save_manager.set_story_flag()`,
+   then `queue_free()`s itself — its narrative purpose is served.
+3. **Fallback:** a flavor-only toast if both flags are somehow already set (stale node from an
+   earlier session; should be unreachable since stage 2 frees the node).
+
+The rabbit-hunt battle content itself is `data/scripted_battles/rabbit_hunt.tres` — no `EnemyData`
+resource exists for the "Wild Rabbit"; the scripted-battle framework builds the enemy deck
+directly from `ScriptedBattleData.enemy_deck_order`, so an `EnemyRegistry` entry would be unused.
 
 ---
 

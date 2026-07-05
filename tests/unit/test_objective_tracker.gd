@@ -32,10 +32,33 @@ func test_intro_complete_returns_leave_madrian() -> void:
 
 # ── chapter1_left_madrian ─────────────────────────────────────────────────────
 
-func test_left_madrian_returns_find_lord_farsyth() -> void:
+func test_left_madrian_returns_make_camp() -> void:
 	var obj: Dictionary = ObjectiveTracker.current_objective(
 		_flags(["story_intro_complete", "chapter1_left_madrian"]))
-	assert_eq(obj.get("label", ""), "Find Lord Farsyth", "After leaving madrian, go to Farsyth")
+	assert_eq(obj.get("label", ""), "Make camp for the night", "After leaving madrian, make camp")
+	assert_eq(obj.get("map", ""), "main")
+	assert_eq(int(obj.get("tx", 0)), -1, "Camp wildcard: tx should be -1")
+	assert_eq(int(obj.get("tz", 0)), -1, "Camp wildcard: tz should be -1")
+
+
+# ── chapter1_camp_night ───────────────────────────────────────────────────────
+
+func test_camp_night_returns_learn_fire() -> void:
+	var obj: Dictionary = ObjectiveTracker.current_objective(
+		_flags(["story_intro_complete", "chapter1_left_madrian", "chapter1_camp_night"]))
+	assert_eq(obj.get("label", ""), "Learn to make fire", "After the rabbit hunt, learn fire-making")
+	assert_eq(obj.get("map", ""), "main")
+	assert_eq(int(obj.get("tx", 0)), -1, "Fire wildcard: tx should be -1")
+	assert_eq(int(obj.get("tz", 0)), -1, "Fire wildcard: tz should be -1")
+
+
+# ── chapter1_learned_fire ─────────────────────────────────────────────────────
+
+func test_learned_fire_returns_find_lord_farsyth() -> void:
+	var obj: Dictionary = ObjectiveTracker.current_objective(
+		_flags(["story_intro_complete", "chapter1_left_madrian",
+			"chapter1_camp_night", "chapter1_learned_fire"]))
+	assert_eq(obj.get("label", ""), "Find Lord Farsyth", "After learning fire, go to Farsyth")
 	assert_eq(obj.get("map", ""), "farsyth_mansion")
 	assert_eq(int(obj.get("tx", -99)), 49)
 	assert_eq(int(obj.get("tz", -99)), 20)
@@ -45,7 +68,8 @@ func test_left_madrian_returns_find_lord_farsyth() -> void:
 
 func test_warned_farsyth_returns_encounter_isfig() -> void:
 	var obj: Dictionary = ObjectiveTracker.current_objective(
-		_flags(["story_intro_complete", "chapter1_left_madrian", "chapter1_warned_farsyth"]))
+		_flags(["story_intro_complete", "chapter1_left_madrian", "chapter1_camp_night",
+			"chapter1_learned_fire", "chapter1_warned_farsyth"]))
 	assert_eq(obj.get("label", ""), "Encounter Isfig", "After warning Farsyth, encounter Isfig")
 	assert_eq(int(obj.get("tx", 0)), -1, "Isfig wildcard: tx should be -1")
 	assert_eq(int(obj.get("tz", 0)), -1, "Isfig wildcard: tz should be -1")
@@ -55,8 +79,8 @@ func test_warned_farsyth_returns_encounter_isfig() -> void:
 
 func test_received_letter_returns_reach_blancogov() -> void:
 	var obj: Dictionary = ObjectiveTracker.current_objective(
-		_flags(["story_intro_complete", "chapter1_left_madrian",
-			"chapter1_warned_farsyth", "chapter1_received_letter"]))
+		_flags(["story_intro_complete", "chapter1_left_madrian", "chapter1_camp_night",
+			"chapter1_learned_fire", "chapter1_warned_farsyth", "chapter1_received_letter"]))
 	assert_eq(obj.get("label", ""), "Reach Blancogov")
 	assert_eq(obj.get("map", ""), "blancogov")
 	assert_eq(int(obj.get("tx", -99)), 49)
@@ -67,8 +91,8 @@ func test_received_letter_returns_reach_blancogov() -> void:
 
 func test_reached_blancogov_returns_enter_temple() -> void:
 	var obj: Dictionary = ObjectiveTracker.current_objective(
-		_flags(["story_intro_complete", "chapter1_left_madrian",
-			"chapter1_warned_farsyth", "chapter1_received_letter",
+		_flags(["story_intro_complete", "chapter1_left_madrian", "chapter1_camp_night",
+			"chapter1_learned_fire", "chapter1_warned_farsyth", "chapter1_received_letter",
 			"chapter1_reached_blancogov"]))
 	assert_eq(obj.get("label", ""), "Enter the Temple")
 	assert_eq(obj.get("map", ""), "blancogov_temple")
@@ -80,8 +104,8 @@ func test_reached_blancogov_returns_enter_temple() -> void:
 
 func test_temple_council_returns_empty() -> void:
 	var obj: Dictionary = ObjectiveTracker.current_objective(
-		_flags(["story_intro_complete", "chapter1_left_madrian",
-			"chapter1_warned_farsyth", "chapter1_received_letter",
+		_flags(["story_intro_complete", "chapter1_left_madrian", "chapter1_camp_night",
+			"chapter1_learned_fire", "chapter1_warned_farsyth", "chapter1_received_letter",
 			"chapter1_reached_blancogov", "chapter1_temple_council"]))
 	assert_true(obj.is_empty(), "After speaking to King Eldar, no further objective")
 
@@ -90,8 +114,8 @@ func test_temple_council_returns_empty() -> void:
 
 func test_chapter1_complete_returns_empty() -> void:
 	var obj: Dictionary = ObjectiveTracker.current_objective(
-		_flags(["story_intro_complete", "chapter1_left_madrian",
-			"chapter1_warned_farsyth", "chapter1_received_letter",
+		_flags(["story_intro_complete", "chapter1_left_madrian", "chapter1_camp_night",
+			"chapter1_learned_fire", "chapter1_warned_farsyth", "chapter1_received_letter",
 			"chapter1_reached_blancogov", "chapter1_temple_council",
 			"chapter1_complete"]))
 	assert_true(obj.is_empty(), "After chapter1_complete, objective should be empty")

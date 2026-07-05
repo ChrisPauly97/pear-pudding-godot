@@ -46,6 +46,7 @@ const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
 const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
+const _WildernessCampScene = preload("res://scenes/world/entities/WildernessCamp.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _MailboxScene      = preload("res://scenes/world/entities/MailboxNPC.tscn")
@@ -289,6 +290,7 @@ var _draft_opp_done: bool = false
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
+var _wilderness_camp_node: Node3D = null
 var _shrine_nodes: Array[Node3D] = []
 var _siege_raider_nodes: Array[Node3D] = []
 var _siege_banner: Label = null
@@ -523,6 +525,7 @@ func _ready() -> void:
 		_csm.build_initial_infinite(_inf_ref)
 		if not NetworkManager.is_dedicated_server():
 			_spawn_open_world_rival_enc2()
+			_spawn_wilderness_camp()
 			if map_name == "main":
 				_spawn_return_portal()
 	else:
@@ -3273,6 +3276,35 @@ func _find_nearby_scroll(px: float, pz: float, range_dist: float) -> Node3D:
 			return s
 	return null
 
+## First-night wilderness camp (GID-108 / TID-402) — spawns near the player once
+## per open-world load, exactly the same "no fixed position, respawn each fresh
+## load" pattern as _spawn_open_world_rival_enc2(). Gone for good once
+## chapter1_learned_fire is set (the entity frees itself on that transition).
+func _spawn_wilderness_camp() -> void:
+	var sm := SceneManager.save_manager
+	if not sm.get_story_flag("chapter1_left_madrian"):
+		return
+	if sm.get_story_flag("chapter1_learned_fire"):
+		return
+	if _wilderness_camp_node != null and is_instance_valid(_wilderness_camp_node):
+		return
+	var wx: float = _player.position.x + 3.0 * IsoConst.TILE_SIZE
+	var wz: float = _player.position.z - 4.0 * IsoConst.TILE_SIZE
+	var wy: float = get_terrain_height(wx, wz)
+	var node := _WildernessCampScene.instantiate() as Node3D
+	_entity_root.add_child(node)
+	node.position = Vector3(wx, wy, wz)
+	_wilderness_camp_node = node
+
+func _find_nearby_wilderness_camp(px: float, pz: float, range_dist: float) -> Node3D:
+	if not is_instance_valid(_wilderness_camp_node):
+		return null
+	var ddx: float = _wilderness_camp_node.position.x - px
+	var ddz: float = _wilderness_camp_node.position.z - pz
+	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
+		return _wilderness_camp_node
+	return null
+
 func _spawn_named_map_shrines() -> void:
 	if world_map == null:
 		return
@@ -3970,6 +4002,7 @@ func _check_interactions() -> void:
 	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
+	var wilderness_camp := _find_nearby_wilderness_camp(px, pz, IsoConst.INTERACT_RANGE)
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
 	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
 	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
@@ -3980,7 +4013,7 @@ func _check_interactions() -> void:
 	# Landmarks auto-trigger on approach (no button press needed)
 	_check_nearby_landmark(px, pz)
 	var mana_well := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
-	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or not mailbox.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
+	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or wilderness_camp != null or shrine != null or digspot != null or not waystone.is_empty() or not mailbox.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
 	var interact_label: String = "USE"
 	if downed_pid != -1:
 		interact_label = "REVIVE"
@@ -3990,6 +4023,8 @@ func _check_interactions() -> void:
 		interact_label = "OPEN"
 	elif not door.is_empty():
 		interact_label = "ENTER"
+	elif wilderness_camp != null:
+		interact_label = "CAMP"
 	elif not npc.is_empty():
 		match str(npc.get("npc_type", "")):
 			"merchant", "traveling_merchant": interact_label = "SHOP"
@@ -4420,6 +4455,11 @@ func _handle_interact() -> void:
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
 	if scroll != null and scroll.has_method("interact"):
 		scroll.interact()
+		return
+
+	var wilderness_camp := _find_nearby_wilderness_camp(px, pz, IsoConst.INTERACT_RANGE)
+	if wilderness_camp != null and wilderness_camp.has_method("interact"):
+		wilderness_camp.interact()
 		return
 
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)

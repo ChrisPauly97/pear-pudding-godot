@@ -16,8 +16,14 @@ static func current_objective(flags: Dictionary) -> Dictionary:
 	if flags.get("chapter1_warned_farsyth", false):
 		# Isfig encounter is a scripted open-world event with no fixed tile.
 		return {"label": "Encounter Isfig", "map": "main", "tx": -1, "tz": -1}
-	if flags.get("chapter1_left_madrian", false):
+	if flags.get("chapter1_learned_fire", false):
 		return {"label": "Find Lord Farsyth", "map": "farsyth_mansion", "tx": 49, "tz": 20}
+	if flags.get("chapter1_camp_night", false):
+		# Fire-making lesson is a scripted open-world event with no fixed tile.
+		return {"label": "Learn to make fire", "map": "main", "tx": -1, "tz": -1}
+	if flags.get("chapter1_left_madrian", false):
+		# Rabbit-hunt camp is a scripted open-world event with no fixed tile.
+		return {"label": "Make camp for the night", "map": "main", "tx": -1, "tz": -1}
 	if flags.get("story_intro_complete", false):
 		return {"label": "Leave Madrian", "map": "madrian", "tx": 50, "tz": 50}
 	return {"label": "Speak to Maiteln", "map": "madrian", "tx": 45, "tz": 36}
