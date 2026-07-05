@@ -66,7 +66,7 @@ func interact() -> void:
 			var rarity: String = CardDropUtil.roll_rarity(1)
 			rarity = CardDropUtil.effective_rarity(card_id, rarity)
 			var stats: Dictionary = CardDropUtil.roll_stats(card_id, rarity)
-			sm.add_card_instance(card_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+			sm.grant_card_reward(card_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
 	else:
 		var essence_amount: int = rng.randi_range(1, 3)
 		sm.essence += essence_amount

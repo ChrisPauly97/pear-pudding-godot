@@ -3462,7 +3462,7 @@ func _discover_landmark(lid: String, l_data: Dictionary) -> void:
 	rng.seed = (cx * 73856093) ^ (cz * 19349663) ^ WORLD_SEED
 	rng.seed = rng.seed & 0x7FFFFFFF
 	var card_id: String = card_ids[rng.randi_range(0, card_ids.size() - 1)]
-	sm.add_card_instance(card_id, "rare")
+	sm.grant_card_reward(card_id, "rare")
 	GameBus.hud_message_requested.emit("You discovered %s! +50 coins, +1 card." % display_name)
 
 func _refresh_blight_tints() -> void:

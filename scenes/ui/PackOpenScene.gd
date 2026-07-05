@@ -182,7 +182,7 @@ func _populate_face(idx: int) -> void:
 	var card_name: String = str(tmpl.get("name", template_id))
 
 	# Add card to the player's collection.
-	SceneManager.save_manager.add_card_instance(template_id, rarity, atk, hp, cost)
+	SceneManager.save_manager.grant_card_reward(template_id, rarity, atk, hp, cost)
 
 	# Reset pity counter if a legendary was obtained.
 	if rarity == "legendary":

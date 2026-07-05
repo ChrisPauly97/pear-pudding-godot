@@ -55,6 +55,7 @@ signal achievement_unlocked(achievement_id: String)
 signal essence_changed(new_amount: int)
 signal equipment_dropped(equip_id: String)
 signal bag_full
+signal card_routed_to_mailbox(template_id: String)
 
 # Progression signals
 signal level_up(new_level: int)
