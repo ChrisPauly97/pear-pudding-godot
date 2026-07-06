@@ -1467,7 +1467,7 @@ func _on_target_chosen_hero() -> void:
 	_check_game_over()
 	_dismiss_battle_tutorial()
 
-func _make_card_ghost(card: CardInstance) -> Control:
+func _make_card_ghost(card: CardInstance) -> PanelContainer:
 	var panel := _make_card_view(card, "ghost")
 	panel.modulate.a = 0.75
 	# Fixed size already set inside _make_card_view

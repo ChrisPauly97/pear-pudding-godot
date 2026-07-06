@@ -13,12 +13,14 @@ All card rendering in BattleScene and InventoryScene uses `StyleBoxFlat` with a 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-017 | Pixel-art card frame shader and BattleScene integration | agent | done | — |
-| TID-018 | Card illustration textures in InventoryScene | agent | pending | TID-017 |
+| TID-018 | Card illustration textures in InventoryScene | agent | done | TID-017 |
 
 ## Acceptance Criteria
 
-- [ ] Cards in the battle hand and on the board display a decorative frame rather than a plain rect
-- [ ] Card frame is consistent across BattleScene and InventoryScene
-- [ ] `CardData` has an optional `illustration: Texture2D` field; cards without one show a colour fill
-- [ ] Card name, cost, attack, and health text remain legible over the frame
-- [ ] No performance regression — frame is a single material/shader, not per-pixel GDScript drawing
+**Note:** TID-017's `card_frame.gdshader` approach was superseded by TID-319 (`GID-089`), which delivered the same visual goal — decorative borders + per-card illustration art — through `StyleBoxFlat` borders and a `TextureRect` illustration layer instead of a shader. See TID-017/TID-018 Changes Made for details.
+
+- [x] Cards in the battle hand and on the board display a decorative frame rather than a plain rect (`StyleBoxFlat` border via `CardViewBuilder.apply_card_style`)
+- [x] Card frame is consistent across BattleScene and InventoryScene (both use bordered `StyleBoxFlat` panels; both show `CardData.illustration` when present)
+- [x] `CardData` has an optional `illustration: Texture2D` field; cards without one show a colour fill
+- [x] Card name, cost, attack, and health text remain legible over the frame
+- [x] No performance regression — illustrations are generated once and cached (`TextureGen`), not drawn per-pixel per-frame

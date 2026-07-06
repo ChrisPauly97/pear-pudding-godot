@@ -2,7 +2,7 @@
 
 **Goal:** GID-008
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-017
 
 ## Lock
@@ -32,12 +32,13 @@ TID-017 adds the card frame shader and `CardData.illustration` field. This task 
 
 ## Plan
 
-_Written during Plan phase._
+By the time this task was picked back up, TID-017's shader (`card_frame.gdshader`) had been superseded by **TID-319** (`GID-089`), which already gives `InventoryScene`'s `_make_card_tile()` grid cubes a `StyleBoxFlat` rarity border and reads `CardData.illustration` (now populated by `TextureGen.card_illustration()`) — the frame-material half of this task's original goal no longer applies. The one real gap left was that `InventoryScene` never actually *displayed* the illustration texture anywhere. Added it to `_show_instance_detail()` (the hover/long-press detail popup), which is the natural full-size inspect view, using the same `TextureRect` approach `CardViewBuilder.build_card_vbox()` already uses in battle.
 
 ## Changes Made
 
-_Filled after Build phase._
+- **`scenes/ui/InventoryScene.gd`** — `_show_instance_detail()` now looks up `tmpl.get("illustration")` and, if present, inserts a `TextureRect` (`STRETCH_KEEP_ASPECT_CENTERED`) above the name/stats row of the popup.
+- No shader/material files added — `CardFrameMaterial.gd` and `card_frame.gdshader` from the original branch were dropped as superseded (see TID-017 Changes Made).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- **`docs/agent/battle-system.md`** — "Card Illustration Art (TID-319)" subsection now mentions the InventoryScene detail popup alongside the battle-hand rendering.
