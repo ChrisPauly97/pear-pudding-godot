@@ -42,6 +42,9 @@ var on_dungeon_crawl: Callable = Callable()
 var show_spire: bool = false
 var on_spire: Callable = Callable()
 
+var show_guildhall: bool = false
+var on_guildhall: Callable = Callable()
+
 var _roster_vbox: VBoxContainer = null
 var _loot_btn: Button = null
 
@@ -125,6 +128,8 @@ func _build_ui() -> void:
 		_add_action_button(grid, "Dungeon Crawl", on_dungeon_crawl, true)
 	if show_spire:
 		_add_action_button(grid, "Co-op Spire", on_spire, true)
+	if show_guildhall:
+		_add_action_button(grid, "Guildhall", on_guildhall, true)
 
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER

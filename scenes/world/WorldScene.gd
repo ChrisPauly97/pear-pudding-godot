@@ -80,6 +80,7 @@ const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 const _SpireDraftSync    = preload("res://game_logic/net/SpireDraftSync.gd")
 const _SpireDraft        = preload("res://game_logic/spire/SpireDraft.gd")
 const _SpireDraftScene   = preload("res://scenes/ui/SpireDraftScene.tscn")
+const _RunSummaryScene   = preload("res://scenes/ui/RunSummaryScene.tscn")
 # Session tournaments (GID-104 / TID-386)
 const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
 # Downed & rescue in shared dungeons (GID-105 / TID-389)
@@ -146,6 +147,17 @@ var _coop_spire_draft_overlay: Node = null  # transient SpireDraftScene instance
 # _coop_spire_draft_active because that dict only exists on the authority — a
 # client picker must resolve card_id -> card_idx from what it was actually shown.
 var _pending_coop_spire_draft: Dictionary = {}
+# TID-391: the co-op Spire run-ended summary overlay (RunSummaryScene instance in
+# coop mode), nil when closed. Instantiated as a child overlay — never
+# change_scene_to_node, which would kick the whole co-op session to the main menu.
+var _coop_spire_summary_overlay: Node = null
+# TID-391: set by _on_coop_spire_battle_ended/_on_coop_spire_run_ended_received,
+# which run while this WorldScene is still detached from the tree (the joint
+# battle removed it, same as PvP). get_tree() is unsafe to call off-tree, so the
+# actual tree-touching work (opening the next floor's draft, or the run summary
+# overlay) is deferred to _enter_tree(), once we're reattached and it's safe.
+var _pending_coop_spire_draft_floor: int = -1
+var _pending_coop_spire_run_ended_payload: Dictionary = {}
 # Co-op story mode (GID-098): true once a map transition is in flight on this
 # WorldScene instance so duplicate recv_map_transition packets are ignored.
 var _coop_map_transitioning: bool = false
@@ -313,6 +325,11 @@ var _active_waystone_data: Dictionary = {}  # id -> Dictionary
 var _mailbox_nodes: Dictionary = {}    # id -> Node3D
 var _active_mailbox_data: Dictionary = {}  # id -> Dictionary
 var _garden_plot_nodes: Array[Node3D] = []  # ordered by plot_idx
+# Guildhall garden (GID-106 / TID-393): SessionStore is authority-only, so this
+# cache mirrors _pve_leaderboards' pattern — kept current via request/broadcast
+# RPCs, then pushed into each spawned GardenPlot (session_mode = true) node.
+var _guildhall_garden_cache: Dictionary = {"plots": [{}, {}, {}], "plants": {}}
+var _guildhall_stash_chest_node: Node3D = null
 var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
@@ -698,6 +715,10 @@ func _ready() -> void:
 	# "connected permanently" reasoning (WorldScene detaches during the battle).
 	if not GameBus.coop_pve_battle_ended.is_connected(_on_coop_siege_battle_ended):
 		GameBus.coop_pve_battle_ended.connect(_on_coop_siege_battle_ended)
+	# GID-106 (TID-391): co-op Endless Spire joint floor battles — same joint-PvE
+	# signal, same "connected permanently" reasoning.
+	if not GameBus.coop_pve_battle_ended.is_connected(_on_coop_spire_battle_ended):
+		GameBus.coop_pve_battle_ended.connect(_on_coop_spire_battle_ended)
 	# Spire runs happen while WorldScene is loaded (no battle-detach involved), but the
 	# connection is still made once here (not in _setup_coop) so a Spire run that starts
 	# before any co-op session is active still reaches this handler once co-op does start.
@@ -705,6 +726,14 @@ func _ready() -> void:
 		GameBus.spire_run_ended.connect(_on_spire_run_ended_leaderboard)
 
 	_setup_coop()
+	# Guildhall furnishings (GID-106 / TID-393): must run after _setup_coop() so
+	# _net_sync exists — a client's garden snapshot request needs it. The map
+	# itself is only ever entered from an active co-op session (TID-392), so
+	# NetworkManager.is_active() here is a defensive guard, not a live gate.
+	if map_name == "guildhall" and NetworkManager.is_active():
+		_spawn_guildhall_trophies()
+		_spawn_guildhall_garden()
+		_spawn_guildhall_stash_chest()
 	_initial_ready_done = true
 
 # Re-establish co-op when the world is re-attached after a PvP battle detached it
@@ -724,6 +753,12 @@ func _enter_tree() -> void:
 				_pvp_ante_peer0, _pvp_ante_peer1)
 		_pvp_ante_peer0 = -1
 		_pvp_ante_peer1 = -1
+	# GID-106 (TID-391): same "pending flag flushed on _enter_tree" pattern as
+	# _pvp_ended_pending_broadcast above — the co-op Spire battle-end handlers run
+	# while this WorldScene is still detached (removed from the tree during the
+	# joint battle), so any get_tree()-touching work (showing the draft overlay or
+	# the run summary) is deferred until we're reattached and get_tree() is safe.
+	_flush_pending_coop_spire_post_battle()
 
 func _exit_tree() -> void:
 	_teardown_coop()
@@ -913,6 +948,10 @@ func _on_coop_session_ended() -> void:
 	if _coop_spire_draft_overlay != null and is_instance_valid(_coop_spire_draft_overlay):
 		_coop_spire_draft_overlay.queue_free()
 	_coop_spire_draft_overlay = null
+	# TID-391: same cleanup for the run-ended summary overlay, if one is showing.
+	if _coop_spire_summary_overlay != null and is_instance_valid(_coop_spire_summary_overlay):
+		_coop_spire_summary_overlay.queue_free()
+	_coop_spire_summary_overlay = null
 	if _party_panel != null and is_instance_valid(_party_panel):
 		_party_panel.queue_free()
 	_party_panel = null
@@ -1244,6 +1283,10 @@ func _open_party_panel() -> void:
 	# Crawl (avoids a race where two peers start two different runs at once).
 	panel.show_spire = NetworkManager.is_host()
 	panel.on_spire = _start_coop_spire
+	# Guildhall (GID-106 / TID-392): host-only trigger — same rationale as Dungeon
+	# Crawl / Co-op Spire above.
+	panel.show_guildhall = NetworkManager.is_host()
+	panel.on_guildhall = _start_guildhall
 	_hud.add_child(panel)
 	panel.closed.connect(func() -> void: _party_panel = null)
 	_party_panel = panel
@@ -1310,6 +1353,15 @@ func _broadcast_local_avatar(delta: float) -> void:
 func _coop_world_authority() -> bool:
 	return _coop_active and NetworkManager.is_active() and NetworkManager.is_host()
 
+## True on EVERY peer (host and clients alike) while a co-op Spire floor map is
+## loaded. Deliberately NOT SceneManager.is_coop_spire_active() — that flag lives
+## on the per-process SceneManager autoload and is only ever set true by the host
+## (enter_spire_coop is host-only), so a client's own copy would always read false.
+## map_name is reliable on every peer since it reflects the map that peer actually
+## loaded, regardless of who initiated the transition.
+func _in_coop_spire_floor() -> bool:
+	return NetworkManager.is_active() and map_name.begins_with("spire_floor_")
+
 ## Local player engaged an enemy. Authority broadcasts its removal to all peers;
 ## a client submits the intent and lets the authority fan it out. Either way the
 ## engaging peer already removed the node locally (EnemyNPC.engage queue_free'd it).
@@ -1325,6 +1377,12 @@ func _on_enemy_engaged_coop(edata: Dictionary) -> void:
 	# normal single-player-battle path entirely.
 	if _coop_siege_active and eid.begins_with("siege_boss_"):
 		_coop_engage_siege_boss(edata)
+		return
+	# GID-106 (TID-391): the co-op Endless Spire floor boss is likewise a joint
+	# battle for the whole party. SceneManager._on_enemy_engaged already skips its
+	# own solo-battle path for this exact id while on a co-op Spire floor map.
+	if _in_coop_spire_floor() and eid == "spire_enemy":
+		_coop_engage_spire_boss(edata)
 		return
 	_coop_last_engaged_enemy_id = eid
 	if NetworkManager.is_host():
@@ -2051,6 +2109,12 @@ func _on_map_transition_received(target_map: String, door_id: String) -> void:
 	_coop_map_transitioning = true
 	if target_map.is_empty():
 		SceneManager.exit_map()
+	elif target_map.begins_with("spire_floor_") or map_name.begins_with("spire_floor_"):
+		# Co-op Endless Spire (TID-391): entering, advancing floors, and the final
+		# return to madrian are all one-way automatic moves — see
+		# enter_coop_map_no_stack's doc comment for why the normal stack-pushing
+		# enter_map() would leave map_stack permanently polluted here.
+		SceneManager.enter_coop_map_no_stack(target_map, door_id)
 	else:
 		SceneManager.enter_map(target_map, door_id)
 
@@ -2262,6 +2326,33 @@ func _start_dungeon_crawl() -> void:
 	_net_sync.rpc("recv_map_transition", target_map, "")
 	SceneManager.enter_map(target_map, "")
 
+# ── Party Guildhall (GID-106 / TID-392) ──────────────────────────────────────
+# A session-owned home base, separate from the single-player Player Home.
+# Unlike the co-op Spire (a one-way run through many auto-generated floors),
+# the guildhall is a normal single-room sub-map exactly like player_home: entry
+# uses the standard stack-pushing enter_map() (not enter_coop_map_no_stack), so
+# the map's authored exit door (target_map="") pops back to madrian through the
+# existing generic door-interact + exit_map() machinery — no new code needed
+# for the exit, late-joiner redirect (TID-355), or map-scoped avatar sync
+# (TID-352), all of which are already fully map-name-agnostic.
+
+## Host-only: broadcasts + performs the shared transition into the guildhall.
+## Mirrors _start_dungeon_crawl exactly.
+func _start_guildhall() -> void:
+	if not NetworkManager.is_host():
+		return  # defensive: don't trust client-side button visibility alone
+	if not _coop_active or _net_sync == null or _coop_map_transitioning:
+		return
+	# has_guildhall() is always true post-migration (auto-unlocked, no purchase
+	# flow) — this is a defensive guard, not a real gate.
+	if SessionStore.is_open():
+		var st = SessionStore.get_state()
+		if st != null and not st.has_guildhall():
+			return
+	_coop_map_transitioning = true
+	_net_sync.rpc("recv_map_transition", "guildhall", "")
+	SceneManager.enter_map("guildhall", "")
+
 # ── Co-op Endless Spire (GID-106 / TID-390) ──────────────────────────────────
 #
 # Adapts the single-player Endless Spire (GID-038) for a party: same seed-based
@@ -2295,7 +2386,7 @@ func _start_coop_spire() -> void:
 	var target_map: String = SceneManager.enter_spire_coop(picker_order)
 	_coop_map_transitioning = true
 	_net_sync.rpc("recv_map_transition", target_map, "")
-	SceneManager.enter_map(target_map, "")
+	SceneManager.enter_coop_map_no_stack(target_map, "")
 
 
 ## Authority-only entry point (the TID-391 hook): opens one draft round for
@@ -2406,7 +2497,10 @@ func _tick_coop_spire_draft(delta: float) -> void:
 
 
 ## Authority: commit the picked card to the shared run deck, advance the picker
-## rotation, and broadcast the resolved choice + next picker's turn.
+## rotation, and broadcast the resolved choice + next picker's turn. Then (TID-391)
+## advances the run to the next floor and broadcasts the map transition there —
+## co-op floor advancement is fully automatic, unlike solo Spire's authored exit
+## door (see SceneManager.exit_map()'s co-op-spire no-op branch).
 func _resolve_coop_spire_draft(card_idx: int) -> void:
 	var options: Array[String] = []
 	options.assign(_coop_spire_draft_active.get("options", []))
@@ -2428,6 +2522,17 @@ func _resolve_coop_spire_draft(card_idx: int) -> void:
 	if _net_sync != null:
 		_net_sync.rpc("recv_spire_draft_choice", payload)
 	_on_spire_draft_choice_received(payload)
+	if not _coop_world_authority():
+		return
+	SceneManager.advance_coop_spire_floor()
+	var next_run: Dictionary = SceneManager.get_coop_spire_run()
+	var next_floor: int = int(next_run.get("floor", 1))
+	var next_seed: int = int(next_run.get("seed", 0))
+	var target_map: String = "spire_floor_%d_%d" % [next_floor, next_seed]
+	_coop_map_transitioning = true
+	if _net_sync != null:
+		_net_sync.rpc("recv_map_transition", target_map, "")
+	SceneManager.enter_coop_map_no_stack(target_map, "")
 
 
 ## Any peer: close the draft overlay if open and show a toast naming the card +
@@ -2445,6 +2550,141 @@ func _on_spire_draft_choice_received(payload: Array) -> void:
 	var card_name: String = str(tmpl.get("name", card_id))
 	var next_name: String = str(result.get("next_active_picker_name", "Player"))
 	GameBus.hud_message_requested.emit("Drafted %s! Next up: %s" % [card_name, next_name])
+
+
+## Local player engaged the co-op Spire floor boss (TID-391). A client relays the
+## intent to the host; the host starts the joint battle directly. Mirrors
+## _coop_engage_siege_boss exactly.
+func _coop_engage_spire_boss(edata: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		if _net_sync != null:
+			_net_sync.rpc_id(1, "submit_spire_boss_engaged", edata)
+		return
+	_coop_start_spire_boss_battle(edata)
+
+
+## Host: a client engaged the Spire boss — start the joint battle for everyone.
+func _on_spire_boss_engaged_submitted(_sender: int, edata: Dictionary) -> void:
+	if not NetworkManager.is_host():
+		return
+	_coop_start_spire_boss_battle(edata)
+
+
+## Host-only: every ally fights with the same shared, collaboratively-drafted
+## deck (PlayerState.build_deck shuffles independently per call, so allies still
+## get different draw orders). Boss HP/tier scaling by party size happens inside
+## BattleScene._build_coop_pve_state, exactly like siege — edata is passed through
+## unscaled.
+func _coop_start_spire_boss_battle(edata: Dictionary) -> void:
+	if not NetworkManager.is_host() or _net_sync == null:
+		return
+	var boss_eid: String = str(edata.get("id", ""))
+	if boss_eid != "":
+		_coop_remove_enemy_node(boss_eid)
+		_net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_ENEMY_REMOVED, boss_eid))
+	var shared_deck: Array = SceneManager.get_coop_spire_run().get("shared_deck", [])
+	var abs_peer_ids: Array[int] = [multiplayer.get_unique_id()]
+	var clients: Array = multiplayer.get_peers()
+	clients.sort()
+	for pid in clients:
+		abs_peer_ids.append(int(pid))
+	var all_decks: Array = []
+	for _pid in abs_peer_ids:
+		all_decks.append(shared_deck.duplicate())
+	for i in range(abs_peer_ids.size()):
+		var pid: int = abs_peer_ids[i]
+		if pid != multiplayer.get_unique_id():
+			_net_sync.rpc_id(pid, "notify_coop_pve_start", i, all_decks, edata)
+	SceneManager.enter_coop_pve_battle(0, all_decks, edata)
+
+
+## Any peer: the joint Spire floor battle ended. No-op unless a co-op Spire run is
+## actually active (coop_pve_battle_ended fires for any joint PvE battle — siege,
+## Spire, future modes). This handler fires while WorldScene is still detached
+## from the tree (the joint battle removed it, same as PvP) — the pure/host-only
+## data-layer work (ending the run, submitting the leaderboard score) is safe to
+## do immediately, but everything that touches the tree or sends an RPC is
+## captured into a pending field and deferred to _enter_tree() via
+## _flush_pending_coop_spire_post_battle, once reattachment makes that safe.
+func _on_coop_spire_battle_ended(did_win: bool) -> void:
+	if not _in_coop_spire_floor():
+		return
+	if did_win:
+		if _coop_world_authority():
+			var run: Dictionary = SceneManager.get_coop_spire_run()
+			_pending_coop_spire_draft_floor = int(run.get("floor", 1))
+	elif _coop_world_authority():
+		var stats: Dictionary = SceneManager.end_coop_spire_run()
+		var floors_cleared: int = int(stats.get("floors_cleared", 0))
+		var party_size: int = multiplayer.get_peers().size() + 1
+		var roster: Array = [MpProfile.get_display_name()]
+		for identity in _remote_identities.values():
+			roster.append(str((identity as Dictionary).get("name", "Player")))
+		_submit_pve_score("coop_spire", floors_cleared)  # host-only, pure SessionStore write
+		_pending_coop_spire_run_ended_payload = {
+			"floors_cleared": floors_cleared,
+			"party_size": party_size,
+			"roster": roster,
+		}
+	if is_inside_tree():
+		_flush_pending_coop_spire_post_battle()
+
+
+## Runs any deferred co-op-Spire post-battle work that needed the tree (opening
+## the next floor's draft, or the run-ended summary + its RPC broadcast). Called
+## from _enter_tree() once this WorldScene is confirmed reattached, and also
+## inline if the peer already happens to be in the tree (defensive; in practice
+## the joint-battle end always fires while detached, same as PvP).
+func _flush_pending_coop_spire_post_battle() -> void:
+	if _pending_coop_spire_draft_floor >= 0:
+		var floor_num: int = _pending_coop_spire_draft_floor
+		_pending_coop_spire_draft_floor = -1
+		_start_coop_spire_draft(floor_num)
+	if not _pending_coop_spire_run_ended_payload.is_empty():
+		var payload: Dictionary = _pending_coop_spire_run_ended_payload
+		_pending_coop_spire_run_ended_payload = {}
+		if _net_sync != null:
+			_net_sync.rpc("recv_coop_spire_run_ended", payload)
+		_on_coop_spire_run_ended_received(payload)
+
+
+## Any peer: show the co-op Spire run summary as a WorldScene overlay (the shared
+## world/session stays alive underneath — unlike solo Spire's change_scene_to_node,
+## which would kick the whole co-op session to the main menu). "Continue" routes
+## everyone back to madrian via the standard shared map transition. Also reached
+## directly via the recv_coop_spire_run_ended RPC on non-authority peers —
+## NetSync's dispatch requires this WorldScene's fixed node path to resolve, which
+## in practice means it's attached, matching the same "connected permanently, RPC
+## arrives once reattached" assumption every other cross-battle broadcast in this
+## file already relies on (leaderboard/party-bounty/siege-reward RPCs, etc.) —
+## not a new risk introduced here.
+func _on_coop_spire_run_ended_received(payload: Dictionary) -> void:
+	SceneManager.set_coop_spire_run_mirror({"active": false})
+	if _coop_spire_summary_overlay != null and is_instance_valid(_coop_spire_summary_overlay):
+		_coop_spire_summary_overlay.queue_free()
+	var overlay := _RunSummaryScene.instantiate()
+	overlay.coop_stats = {
+		"floors_cleared": int(payload.get("floors_cleared", 0)),
+		"party_size": int(payload.get("party_size", 1)),
+		"roster": payload.get("roster", []),
+	}
+	get_tree().current_scene.add_child(overlay)
+	overlay.continue_pressed.connect(_on_coop_spire_summary_continue)
+	_coop_spire_summary_overlay = overlay
+
+
+## "Continue" pressed on the co-op Spire run summary — broadcast + perform the
+## shared transition back to madrian (same TID-355 mechanism as every other
+## shared-map exit) and free the overlay.
+func _on_coop_spire_summary_continue() -> void:
+	if _coop_spire_summary_overlay != null and is_instance_valid(_coop_spire_summary_overlay):
+		_coop_spire_summary_overlay.queue_free()
+	_coop_spire_summary_overlay = null
+	if _coop_active and _net_sync != null and not _coop_map_transitioning:
+		_coop_map_transitioning = true
+		_net_sync.rpc("recv_map_transition", "madrian", "")
+	SceneManager.enter_coop_map_no_stack("madrian", "")
 
 # ── Co-op Town Siege (GID-103 / TID-384) ──────────────────────────────────────
 #
@@ -4213,6 +4453,7 @@ func _check_interactions() -> void:
 			"stable": interact_label = "STABLE"
 			"duelist": interact_label = "DUEL"
 			"rest_site", "bed": interact_label = "REST"
+			"stash_chest": interact_label = "STASH"
 			_: interact_label = "TALK"
 	elif scroll != null:
 		interact_label = "READ"
@@ -4618,6 +4859,9 @@ func _handle_interact() -> void:
 			return
 		if str(npc.get("npc_type", "")) == "trophy_pedestal":
 			_show_trophy_info(npc)
+			return
+		if str(npc.get("npc_type", "")) == "stash_chest":
+			_toggle_stash_overlay()
 			return
 		var nid: String = str(npc.get("id", ""))
 		var nnode := _valid_node3d(_npc_nodes.get(nid))
@@ -5148,6 +5392,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 	title.add_theme_font_size_override("font_size", int(vh * 0.045))
 	vbox.add_child(title)
 
+	var session_mode: bool = bool(plot.session_mode)
 	var plot_data: Dictionary = plot.get_plot_data()
 	var stage: int = plot.get_growth_stage() if not plot_data.is_empty() else 0
 
@@ -5168,7 +5413,10 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 			var row := HBoxContainer.new()
 			vbox.add_child(row)
 			var lbl := Label.new()
-			lbl.text = "%s — %d days  (owned: %d)" % [sname, days, seed_count]
+			# The co-op guildhall garden is free to plant (no session seed
+			# economy is modeled, TID-393) — the owned-count only applies solo.
+			lbl.text = ("%s — %d days" % [sname, days]) if session_mode \
+				else "%s — %d days  (owned: %d)" % [sname, days, seed_count]
 			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			lbl.add_theme_font_size_override("font_size", font_size)
 			row.add_child(lbl)
@@ -5176,18 +5424,25 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 			plant_btn.text = "Plant"
 			plant_btn.custom_minimum_size = Vector2(vh * 0.14, btn_h)
 			plant_btn.add_theme_font_size_override("font_size", font_size)
-			plant_btn.disabled = seed_count <= 0
+			plant_btn.disabled = false if session_mode else seed_count <= 0
 			var captured_seed_id: String = seed_id
 			var captured_sname: String = sname
-			plant_btn.pressed.connect(func() -> void:
-				if sm.remove_seeds(captured_seed_id, 1):
-					sm.set_plot(plot.plot_idx, captured_seed_id, sm.days_elapsed)
-					plot.refresh_visual()
+			if session_mode:
+				plant_btn.pressed.connect(func() -> void:
+					_submit_session_plant(int(plot.plot_idx), captured_seed_id)
 					SceneManager.show_toast("Planted!", captured_sname + " planted.")
 					panel.queue_free()
-			)
+				)
+			else:
+				plant_btn.pressed.connect(func() -> void:
+					if sm.remove_seeds(captured_seed_id, 1):
+						sm.set_plot(plot.plot_idx, captured_seed_id, sm.days_elapsed)
+						plot.refresh_visual()
+						SceneManager.show_toast("Planted!", captured_sname + " planted.")
+						panel.queue_free()
+				)
 			row.add_child(plant_btn)
-			if seed_count > 0:
+			if session_mode or seed_count > 0:
 				has_any_seed = true
 
 		if not has_any_seed:
@@ -5204,7 +5459,8 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 		var sname: String = str(sdata.get("display_name", seed_id))
 		var growth_days: int = int(sdata.get("growth_days", 2))
 		var planted_day: int = int(plot_data.get("planted_day", 0))
-		var days_left: int = max(0, planted_day + growth_days - sm.days_elapsed)
+		var current_days: int = _coop_current_days_elapsed() if session_mode else sm.days_elapsed
+		var days_left: int = max(0, planted_day + growth_days - current_days)
 		var info := Label.new()
 		info.text = "%s growing — ready in %d day(s)" % [sname, days_left]
 		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -5229,13 +5485,20 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 		harvest_btn.text = "Harvest (%d× %s)" % [yield_count, sname]
 		harvest_btn.custom_minimum_size = Vector2(0, btn_h)
 		harvest_btn.add_theme_font_size_override("font_size", font_size)
-		harvest_btn.pressed.connect(func() -> void:
-			sm.add_plants(plant_id, yield_count)
-			sm.clear_plot(plot.plot_idx)
-			GameBus.plant_harvested.emit(plot.plot_idx, yield_count)
-			SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
-			panel.queue_free()
-		)
+		if session_mode:
+			harvest_btn.pressed.connect(func() -> void:
+				_submit_session_harvest(int(plot.plot_idx))
+				SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
+				panel.queue_free()
+			)
+		else:
+			harvest_btn.pressed.connect(func() -> void:
+				sm.add_plants(plant_id, yield_count)
+				sm.clear_plot(plot.plot_idx)
+				GameBus.plant_harvested.emit(plot.plot_idx, yield_count)
+				SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
+				panel.queue_free()
+			)
 		vbox.add_child(harvest_btn)
 
 	var cancel_btn := Button.new()
@@ -5244,6 +5507,242 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 	cancel_btn.add_theme_font_size_override("font_size", font_size)
 	cancel_btn.pressed.connect(func() -> void: panel.queue_free())
 	vbox.add_child(cancel_btn)
+
+# ── Party Guildhall furnishings (GID-106 / TID-393) ──────────────────────────
+# Trophies, garden, and a stash chest, furnishing the otherwise-empty guildhall
+# (TID-392). All spawned only when map_name == "guildhall" and
+# NetworkManager.is_active() (see _ready()'s named-map branch).
+
+## Up to 3 pedestals from the already-synced _pve_leaderboards["coop_clears"]
+## cache (party-size clears leaderboard, TID-391) — no new RPC needed. A slot
+## with no entry is skipped entirely (dynamic top-N, not a fixed earned/unearned
+## predicate list like the player-home trophies).
+func _spawn_guildhall_trophies() -> void:
+	var rows: Array = _pve_leaderboards.get("coop_clears", [])
+	var tile_positions: Array[Vector2i] = [
+		Vector2i(44, 50),
+		Vector2i(50, 50),
+		Vector2i(56, 50),
+	]
+	for i: int in range(mini(rows.size(), tile_positions.size())):
+		var row: Dictionary = rows[i]
+		var name_str: String = str(row.get("name", "A party"))
+		var value: int = int(row.get("value", 0))
+		var day: int = int(row.get("day", 0))
+		var display_name: String = "%s's Clear — Party of %d" % [name_str, value]
+		var tp: Vector2i = tile_positions[i]
+		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
+		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
+		var terrain_y: float = get_terrain_height(wx, wz)
+		var npc_data: Dictionary = {
+			"id": "guildhall_trophy_%d" % i,
+			"x": wx, "z": wz,
+			"npc_type": "trophy_pedestal",
+			"dialogue": "%s (Day %d)" % [display_name, day],
+			"flag_key": "",
+		}
+		var pedestal := _make_trophy_pedestal(true, display_name)
+		pedestal.position = Vector3(wx, terrain_y, wz)
+		_entity_root.add_child(pedestal)
+		register_npc("guildhall_trophy_%d" % i, pedestal, npc_data)
+
+## 3 session-scoped garden plots (session_mode = true). The host builds its
+## cache directly from SessionStore; a client requests a fresh snapshot since
+## SessionStore can't be read locally (see class doc comment on
+## _guildhall_garden_cache).
+func _spawn_guildhall_garden() -> void:
+	_garden_plot_nodes.clear()
+	var tile_positions: Array[Vector2i] = [
+		Vector2i(46, 54),
+		Vector2i(50, 54),
+		Vector2i(54, 54),
+	]
+	for i: int in range(tile_positions.size()):
+		var tp: Vector2i = tile_positions[i]
+		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
+		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
+		var terrain_y: float = get_terrain_height(wx, wz)
+		var plot: Node3D = _GardenPlotScript.new()
+		plot.init_from_data({"plot_idx": i})
+		plot.session_mode = true
+		plot.position = Vector3(wx, terrain_y, wz)
+		_entity_root.add_child(plot)
+		_garden_plot_nodes.append(plot)
+	if NetworkManager.is_host():
+		if SessionStore.is_open():
+			var st = SessionStore.get_state()
+			if st != null:
+				var gh: Dictionary = st.guildhall_state
+				_guildhall_garden_cache = {
+					"plots": (gh.get("garden_plots", []) as Array).duplicate(true),
+					"plants": (gh.get("plants", {}) as Dictionary).duplicate(true),
+				}
+		_refresh_guildhall_garden_visuals()
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_guildhall_garden_request")
+
+## A procedural chest entity that routes to the existing party stash overlay
+## (TID-376) — a physical anchor for a resource that's already always
+## reachable via the HUD, reinforcing that it's shared. No new RPC: opening
+## the overlay is a pure local UI action.
+func _spawn_guildhall_stash_chest() -> void:
+	var tx: int = 50
+	var tz: int = 48
+	var wx: float = float(tx) * IsoConst.TILE_SIZE
+	var wz: float = float(tz) * IsoConst.TILE_SIZE
+	var terrain_y: float = get_terrain_height(wx, wz)
+
+	var root := Node3D.new()
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.55, 0.38, 0.15)
+
+	var base_mesh := BoxMesh.new()
+	base_mesh.size = Vector3(0.9, 0.55, 0.6)
+	var base := MeshInstance3D.new()
+	base.mesh = base_mesh
+	base.material_override = mat
+	base.position = Vector3(0.0, 0.275, 0.0)
+	root.add_child(base)
+
+	var lid_mesh := BoxMesh.new()
+	lid_mesh.size = Vector3(0.95, 0.2, 0.65)
+	var lid := MeshInstance3D.new()
+	lid.mesh = lid_mesh
+	lid.material_override = mat
+	lid.position = Vector3(0.0, 0.65, 0.0)
+	root.add_child(lid)
+
+	var lbl := Label3D.new()
+	lbl.text = "Guild Stash"
+	lbl.font_size = 26
+	lbl.pixel_size = 0.020
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.no_depth_test = true
+	lbl.position = Vector3(0.0, 1.1, 0.0)
+	lbl.modulate = Color(0.95, 0.85, 0.5)
+	root.add_child(lbl)
+
+	root.position = Vector3(wx, terrain_y, wz)
+	_entity_root.add_child(root)
+	_guildhall_stash_chest_node = root
+	register_npc("guildhall_stash_chest", root, {
+		"id": "guildhall_stash_chest",
+		"x": wx, "z": wz,
+		"npc_type": "stash_chest",
+		"dialogue": "",
+		"flag_key": "",
+	})
+
+## Pushes the current cache into every spawned plot (session_mode) node.
+func _refresh_guildhall_garden_visuals() -> void:
+	var plots: Array = _guildhall_garden_cache.get("plots", [])
+	var days: int = _coop_current_days_elapsed()
+	for i in range(_garden_plot_nodes.size()):
+		var plot: Node3D = _garden_plot_nodes[i]
+		if not is_instance_valid(plot) or not plot.has_method("set_session_state"):
+			continue
+		var data: Dictionary = plots[i] if i < plots.size() and plots[i] is Dictionary else {}
+		plot.set_session_state(data, days)
+
+## Host: a client asked for a fresh guildhall garden snapshot (entering the map).
+func _on_guildhall_garden_request_submitted(sender: int) -> void:
+	_broadcast_guildhall_garden(sender)
+
+## Host-only: push the current guildhall garden state to one peer (0 = all).
+func _broadcast_guildhall_garden(target_peer: int = 0) -> void:
+	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var payload: Dictionary = {
+		"plots": (gh.get("garden_plots", []) as Array).duplicate(true),
+		"plants": (gh.get("plants", {}) as Dictionary).duplicate(true),
+	}
+	_guildhall_garden_cache = payload
+	if target_peer == 0:
+		_net_sync.rpc("recv_guildhall_garden_update", payload)
+	else:
+		_net_sync.rpc_id(target_peer, "recv_guildhall_garden_update", payload)
+	_refresh_guildhall_garden_visuals()
+
+## Any peer: receive a guildhall garden snapshot and refresh plot visuals.
+func _on_guildhall_garden_update_received(payload: Dictionary) -> void:
+	_guildhall_garden_cache = payload
+	_refresh_guildhall_garden_visuals()
+
+## Local player (any peer) picked a seed for an empty plot.
+func _submit_session_plant(plot_idx: int, seed_id: String) -> void:
+	if NetworkManager.is_host():
+		_on_session_plant_submitted(multiplayer.get_unique_id(), plot_idx, seed_id)
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_session_plant", plot_idx, seed_id)
+
+## Host: plant a seed in the shared guildhall garden (free — no session seed
+## economy is modeled, TID-393 Plan Notes) and broadcast the result.
+func _on_session_plant_submitted(_sender: int, plot_idx: int, seed_id: String) -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	if not GardenDefs.SEEDS.has(seed_id):
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var plots: Array = gh.get("garden_plots", [])
+	if plot_idx < 0 or plot_idx >= plots.size():
+		return
+	if not (plots[plot_idx] as Dictionary).is_empty():
+		return  # already planted — ignore a stale/duplicate submit
+	plots[plot_idx] = {"seed_id": seed_id, "planted_day": _coop_current_days_elapsed()}
+	gh["garden_plots"] = plots
+	st.guildhall_state = gh
+	SessionStore.mark_dirty()
+	_broadcast_guildhall_garden()
+
+## Local player (any peer) harvested a mature plot.
+func _submit_session_harvest(plot_idx: int) -> void:
+	if NetworkManager.is_host():
+		_on_session_harvest_submitted(multiplayer.get_unique_id(), plot_idx)
+	elif _net_sync != null:
+		_net_sync.rpc_id(1, "submit_session_harvest", plot_idx)
+
+## Host: harvest a mature shared guildhall plot into the session's dedicated
+## `plants` pool (not the party stash — see TID-393 Plan Notes) and broadcast.
+func _on_session_harvest_submitted(_sender: int, plot_idx: int) -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var plots: Array = gh.get("garden_plots", [])
+	if plot_idx < 0 or plot_idx >= plots.size():
+		return
+	var plot_data: Dictionary = plots[plot_idx]
+	if plot_data.is_empty():
+		return
+	var seed_id: String = str(plot_data.get("seed_id", ""))
+	var sdata: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
+	if sdata.is_empty():
+		return
+	var growth_days: int = int(sdata.get("growth_days", 2))
+	var planted_day: int = int(plot_data.get("planted_day", 0))
+	var stage: int = GardenDefs.growth_stage(planted_day, growth_days, _coop_current_days_elapsed())
+	if stage < 3:
+		return  # not mature yet — ignore a stale/duplicate submit
+	var plant_id: String = str(sdata.get("plant_id", ""))
+	var yield_count: int = int(sdata.get("yield", 1))
+	var plants: Dictionary = gh.get("plants", {})
+	plants[plant_id] = int(plants.get(plant_id, 0)) + yield_count
+	gh["plants"] = plants
+	plots[plot_idx] = {}
+	gh["garden_plots"] = plots
+	st.guildhall_state = gh
+	SessionStore.mark_dirty()
+	_broadcast_guildhall_garden()
 
 # ── Dialogue ───────────────────────────────────────────────────────────────
 

@@ -507,6 +507,45 @@ func submit_pve_leaderboard_request() -> void:
 		world_scene._on_pve_leaderboard_request_submitted(sender)
 
 
+## Guildhall garden (GID-106 / TID-393). SessionStore is authority-only, so
+## clients need this pushed to them exactly like the PvE leaderboard snapshot
+## above — same request/broadcast shape.
+
+## Client → authority: request a fresh guildhall garden snapshot (sent on
+## entering the guildhall map). Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_guildhall_garden_request() -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_guildhall_garden_request_submitted"):
+		world_scene._on_guildhall_garden_request_submitted(sender)
+
+
+## Authority → one or all peers: the current {plots, plants} guildhall garden
+## snapshot. Reliable — fired on request and after every plant/harvest.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_guildhall_garden_update(payload: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_guildhall_garden_update_received"):
+		world_scene._on_guildhall_garden_update_received(payload)
+
+
+## Client → authority: plant a seed in an empty guildhall garden plot (free —
+## no session seed economy is modeled). Plain params, mirrors
+## submit_spire_draft_choice's precedent. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_session_plant(plot_idx: int, seed_id: String) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_session_plant_submitted"):
+		world_scene._on_session_plant_submitted(sender, plot_idx, seed_id)
+
+
+## Client → authority: harvest a mature guildhall garden plot. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_session_harvest(plot_idx: int) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_session_harvest_submitted"):
+		world_scene._on_session_harvest_submitted(sender, plot_idx)
+
+
 # ── Party loot rolls (GID-102 / TID-381) ─────────────────────────────────────
 
 ## Authority → all same-session members: open a Need/Greed/Pass prompt for a chest's
@@ -574,6 +613,24 @@ func submit_spire_draft_choice(card_idx: int) -> void:
 func recv_spire_draft_choice(payload: Array) -> void:
 	if world_scene != null and world_scene.has_method("_on_spire_draft_choice_received"):
 		world_scene._on_spire_draft_choice_received(payload)
+
+
+## Client → host: a client engaged the co-op Spire floor boss. edata is the raw
+## EnemyNPC.engage() payload. Mirrors submit_siege_boss_engaged. Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func submit_spire_boss_engaged(edata: Dictionary) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	if world_scene != null and world_scene.has_method("_on_spire_boss_engaged_submitted"):
+		world_scene._on_spire_boss_engaged_submitted(sender, edata)
+
+
+## Authority → all: the co-op Spire run has ended (defeat). Carries final stats
+## + party roster (WorldScene._on_coop_spire_battle_ended's payload shape).
+## Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_coop_spire_run_ended(payload: Dictionary) -> void:
+	if world_scene != null and world_scene.has_method("_on_coop_spire_run_ended_received"):
+		world_scene._on_coop_spire_run_ended_received(payload)
 
 
 # ── Draft duels — sealed-deck PvP (GID-104 / TID-385) ────────────────────────

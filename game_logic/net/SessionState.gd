@@ -30,7 +30,13 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ## v8 — adds `auctions` array for the async card auction house (TID-378).
 ## v9 — adds `weather_id` (synced co-op weather, TID-382) and a `night_hunts`
 ##      PvE leaderboard (party night hunt kill tallies, TID-383).
-const CURRENT_SESSION_VERSION: int = 9
+## v10 — adds a `coop_spire` PvE leaderboard (best floor reached in a co-op
+##       Endless Spire run, GID-106 / TID-391).
+## v11 — adds `guildhall_state` {purchased, members_inside} for the party
+##       guildhall session home base (GID-106 / TID-392).
+## v12 — adds `garden_plots`/`plants` to `guildhall_state` for the shared
+##       guildhall garden (GID-106 / TID-393).
+const CURRENT_SESSION_VERSION: int = 12
 
 ## Cap applied to each PvE leaderboard array by record_pve_score (top N kept).
 const PVE_LEADERBOARD_CAP: int = 20
@@ -84,10 +90,15 @@ var stash: Dictionary = {"cards": [], "coins": 0}
 # Authority-owned, session-scoped best-score boards. Distinct from the PvP
 # `get_leaderboard()` ranked-rating board above (TID-370/373) — this is PvE
 # achievement (Endless Spire runs, co-op boss clears), never touches rating.
-# Shape: {spire: Array, coop_clears: Array, night_hunts: Array}, each entry
-# {token, name, value, day}. night_hunts (TID-383) tracks a member's best
-# single-night spectral-kill tally.
-var leaderboards: Dictionary = {"spire": [], "coop_clears": [], "night_hunts": []}
+# Shape: {spire: Array, coop_clears: Array, night_hunts: Array, coop_spire: Array},
+# each entry {token, name, value, day}. night_hunts (TID-383) tracks a member's
+# best single-night spectral-kill tally. coop_spire (TID-391) tracks a member's
+# best floor reached in a co-op Endless Spire run — value semantics mirror the
+# solo `spire` board exactly (floors_cleared), just scoped to co-op sessions;
+# richer than the generic `coop_clears` party-size signal (BID-031).
+var leaderboards: Dictionary = {
+	"spire": [], "coop_clears": [], "night_hunts": [], "coop_spire": [],
+}
 
 # --- Loot distribution mode (GID-102 / TID-381) -----------------------------
 # Host-only session setting; LOOT_MODE_FIRST_OPENER (default) or LOOT_MODE_NEED_GREED.
@@ -100,6 +111,29 @@ var loot_mode: String = LOOT_MODE_FIRST_OPENER
 # inside the listing dict (removed from the seller's owned_cards on list),
 # same re-key mechanic as the party stash. See AuctionTransfer.gd.
 var auctions: Array = []
+
+# --- Party guildhall (GID-106 / TID-392/393) --------------------------------
+# Session-owned home base, separate from the single-player Player Home.
+# `purchased` is always true — the guildhall is a free feature unlock, not a
+# purchasable good like the home, so every session (fresh or migrated) simply
+# has one; the field exists for shape symmetry with a possible future paywall,
+# not as a live gate. `members_inside` (member tokens currently in the
+# guildhall) is carried in the shape for a future member-list UI but not
+# actively populated yet — map-scoped avatar sync already renders who's
+# actually present, for free.
+# `garden_plots` (TID-393): 3 entries, same shape as SaveManager.garden_plots
+# ({seed_id, planted_day} or {} when empty) — a session-scoped shared garden,
+# authority-owned. Planting is free in the co-op garden (no seed economy is
+# modeled for sessions — a deliberate simplification, see TID-393 Plan Notes);
+# `plants` (plant_id -> count) is a small dedicated pool harvested yield is
+# added to, kept separate from `stash` (which only models cards/coins) rather
+# than extending that already-shipped shape.
+var guildhall_state: Dictionary = {
+	"purchased": true,
+	"members_inside": [],
+	"garden_plots": [{}, {}, {}],
+	"plants": {},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +159,7 @@ func to_dict() -> Dictionary:
 		"leaderboards": leaderboards.duplicate(true),
 		"loot_mode": loot_mode,
 		"auctions": auctions.duplicate(true),
+		"guildhall_state": guildhall_state.duplicate(true),
 	}
 
 
@@ -165,20 +200,50 @@ func from_dict(data: Dictionary) -> void:
 	loot_mode = lm if lm == LOOT_MODE_NEED_GREED else LOOT_MODE_FIRST_OPENER
 	var auc: Variant = data.get("auctions", [])
 	auctions = (auc as Array).duplicate(true) if auc is Array else []
+	var gh: Variant = data.get("guildhall_state", {})
+	guildhall_state = _sanitized_guildhall_state(gh as Dictionary if gh is Dictionary else {})
 
 
-## Always returns a dict with "spire", "coop_clears" and "night_hunts" Array keys,
-## discarding any garbage-typed input so a corrupt/legacy file can never crash a
-## caller that assumes the shape (mirrors the tolerant fallback pattern used
-## throughout this file).
+## Always returns a dict with "purchased" (bool), "members_inside"
+## (Array[String]), "garden_plots" (Array of exactly 3 Dictionaries) and
+## "plants" (Dictionary) keys, discarding any garbage-typed input (mirrors the
+## tolerant fallback pattern used throughout this file). `purchased` defaults
+## true even for a garbage/missing field — the guildhall is never actually
+## un-purchasable, so there is no meaningful "not purchased" fallback state.
+static func _sanitized_guildhall_state(raw: Dictionary) -> Dictionary:
+	var members_inside: Variant = raw.get("members_inside", [])
+	var plots_v: Variant = raw.get("garden_plots", [])
+	var plots: Array = (plots_v as Array).duplicate(true) if plots_v is Array else []
+	while plots.size() < 3:
+		plots.append({})
+	if plots.size() > 3:
+		plots = plots.slice(0, 3)
+	for i in range(plots.size()):
+		if not (plots[i] is Dictionary):
+			plots[i] = {}
+	var plants_v: Variant = raw.get("plants", {})
+	return {
+		"purchased": bool(raw.get("purchased", true)),
+		"members_inside": (members_inside as Array).duplicate(true) if members_inside is Array else [],
+		"garden_plots": plots,
+		"plants": (plants_v as Dictionary).duplicate(true) if plants_v is Dictionary else {},
+	}
+
+
+## Always returns a dict with "spire", "coop_clears", "night_hunts" and
+## "coop_spire" Array keys, discarding any garbage-typed input so a corrupt/legacy
+## file can never crash a caller that assumes the shape (mirrors the tolerant
+## fallback pattern used throughout this file).
 static func _sanitized_leaderboards(raw: Dictionary) -> Dictionary:
 	var spire: Variant = raw.get("spire", [])
 	var coop: Variant = raw.get("coop_clears", [])
 	var hunts: Variant = raw.get("night_hunts", [])
+	var coop_spire: Variant = raw.get("coop_spire", [])
 	return {
 		"spire": (spire as Array).duplicate(true) if spire is Array else [],
 		"coop_clears": (coop as Array).duplicate(true) if coop is Array else [],
 		"night_hunts": (hunts as Array).duplicate(true) if hunts is Array else [],
+		"coop_spire": (coop_spire as Array).duplicate(true) if coop_spire is Array else [],
 	}
 
 
@@ -249,6 +314,28 @@ static func _apply_migrations(data: Dictionary) -> void:
 		if lb9 is Dictionary and not (lb9 as Dictionary).has("night_hunts"):
 			(lb9 as Dictionary)["night_hunts"] = []
 		data["version"] = 9
+	if ver < 10:
+		# v10: add the coop_spire PvE leaderboard (best floor reached in a co-op
+		# Endless Spire run).
+		var lb10: Variant = data.get("leaderboards", {})
+		if lb10 is Dictionary and not (lb10 as Dictionary).has("coop_spire"):
+			(lb10 as Dictionary)["coop_spire"] = []
+		data["version"] = 10
+	if ver < 11:
+		# v11: add guildhall_state (auto-unlocked, no coin cost).
+		if not data.has("guildhall_state"):
+			data["guildhall_state"] = {"purchased": true, "members_inside": []}
+		data["version"] = 11
+	if ver < 12:
+		# v12: add garden_plots/plants inside guildhall_state.
+		var gh12: Variant = data.get("guildhall_state", {})
+		if gh12 is Dictionary:
+			var gh12_dict: Dictionary = gh12 as Dictionary
+			if not gh12_dict.has("garden_plots"):
+				gh12_dict["garden_plots"] = [{}, {}, {}]
+			if not gh12_dict.has("plants"):
+				gh12_dict["plants"] = {}
+		data["version"] = 12
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 
@@ -425,7 +512,7 @@ func get_leaderboard(limit: int = 10) -> Array:
 # task asks for a standalone {token, name, value, day} entry shape).
 
 ## Valid board names for `record_pve_score` / `get_pve_leaderboard`.
-const _PVE_BOARDS: Array[String] = ["spire", "coop_clears", "night_hunts"]
+const _PVE_BOARDS: Array[String] = ["spire", "coop_clears", "night_hunts", "coop_spire"]
 
 ## Insert-or-update `token`'s best score on `board`, then re-sort (desc by value,
 ## ties broken by earliest `day` so an established record isn't bumped by a later
@@ -471,12 +558,24 @@ func get_pve_leaderboard(board: String, limit: int = PVE_LEADERBOARD_CAP) -> Arr
 	return rows.duplicate(true)
 
 
-## The full {spire, coop_clears, night_hunts} snapshot sent over the wire (all
-## boards together, same "send the whole cached thing" pattern as
+## The full {spire, coop_clears, night_hunts, coop_spire} snapshot sent over the
+## wire (all boards together, same "send the whole cached thing" pattern as
 ## recv_party_bounties_snapshot).
 func get_pve_leaderboards_snapshot() -> Dictionary:
 	return {
 		"spire": get_pve_leaderboard("spire"),
 		"coop_clears": get_pve_leaderboard("coop_clears"),
 		"night_hunts": get_pve_leaderboard("night_hunts"),
+		"coop_spire": get_pve_leaderboard("coop_spire"),
 	}
+
+
+# ---------------------------------------------------------------------------
+# Party guildhall (GID-106 / TID-392)
+# ---------------------------------------------------------------------------
+
+## Always true today — the guildhall is a free, always-unlocked feature, not a
+## purchasable good. Kept as a method (not a raw field read) so a future
+## paywall/unlock condition has a single call site to change.
+func has_guildhall() -> bool:
+	return bool(guildhall_state.get("purchased", true))

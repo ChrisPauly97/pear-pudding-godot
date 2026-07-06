@@ -2,7 +2,7 @@
 
 **Goal:** GID-106
 **Type:** agent
-**Status:** pending
+**Status:** done (headless import + test run unverified in-sandbox — see Validation note)
 **Depends On:** TID-392
 
 ## Lock
@@ -33,12 +33,208 @@ The guildhall (TID-392) is now a place the party can gather, but it is empty —
 
 ## Plan
 
-_Written during Plan phase._
+**Verified against actual code (several Research Notes assumptions don't hold):**
+
+- **Trophies need no new sync.** `WorldScene._pve_leaderboards: Dictionary`
+  (`{"spire": [], "coop_clears": [], "night_hunts": [], "coop_spire": []}`) is
+  already a continuously-kept-current cache on **every** peer — broadcast on
+  every `record_pve_score` write and sent at late-join
+  (`_broadcast_pve_leaderboards`). Trophies just read
+  `_pve_leaderboards.get("coop_clears", [])` directly; no new RPC needed.
+- **`coop_clears` entries are `{token, name, value, day}` (party size at win
+  time, not a boss/floor description) and at most one row per token** (`record_pve_score`
+  is insert-or-update-per-token, re-sorted desc by value). There is no
+  "boss/floor info" to display and no real notion of "3 most recent clears" —
+  the board is a *best-score* leaderboard, not a clear history log. Adapting:
+  show up to 3 pedestals from `get_pve_leaderboard("coop_clears", 3)`
+  (already best-first), labelled from what actually exists
+  (`"<name>'s Clear — Party of <value>"`). A slot with no entry is skipped
+  entirely (not shown as an unearned "???" placeholder — that GID-046 pattern
+  is for a fixed predicate-driven trophy *list*; this is a dynamic top-N).
+- **`SessionStore` is authority-only — clients cannot read it at all**
+  (`SessionStore.is_open()` is always false on a client; confirmed from its
+  own doc comment: "Clients never call open()/_write() — only the authority
+  persists"). So `GardenPlot` (which the Research Notes proposed should read
+  session state directly) **cannot** pull garden data from `SessionStore` the
+  way it pulls from `SaveManager` today — this needs the same
+  authority-computes-broadcasts-cache model already used for
+  `_pve_leaderboards`/`_leaderboard_rows`/`_remote_identities`, not a direct
+  read.
+- **`_coop_current_days_elapsed()`** (`WorldScene.gd:1588-1591`) already
+  exists and returns the correct value on every peer (host reads
+  `SessionStore` directly; client reads `_coop_env_days_elapsed`, kept
+  current by the existing GID-103 world-clock sync) — reused as-is for
+  growth-stage math, no new day-sync plumbing needed.
+- **Seeds/plants are plain `Dictionary[id, int]` counters** (`SaveManager.seeds`/
+  `SaveManager.plants`, `add_seeds`/`remove_seeds`/`add_plants`/`remove_plants`
+  at `SaveManager.gd:1929-1949`), **not card instances** — `StashTransfer.gd`
+  (which only handles card-instance/coin transfer with the party stash) is
+  the wrong tool for this; the Research Notes' "`StashTransfer.deposit_seeds`/
+  `withdraw_plants`" call sites don't exist and aren't the right shape to add.
+
+**Decisions:**
+
+1. **No session-scoped seed *economy*.** Modeling "a member deposits personal
+   seeds into a session pool to fund planting" would require adding seed
+   fields to `SessionState.members[token]` character records (they don't
+   carry any today) and a deposit UI that doesn't exist — real net-new scope
+   for a feature explicitly framed as cosmetic/no-new-game-loops. Instead:
+   **planting in the guildhall garden is free** — any member picks any
+   `GardenDefs.SEEDS` id for an empty plot, no seed consumed. This is a
+   deliberate, documented co-op-only simplification (solo's garden still
+   consumes owned seeds unchanged).
+2. **Harvested yield goes into a new, small, dedicated
+   `guildhall_state.plants: Dictionary` pool** (`plant_id -> count`) — **not**
+   the existing `SessionState.stash` (`{cards, coins}`). Research Notes
+   suggested reusing the stash ("shared garden feeds the shared stash"), but
+   the stash's shape has no concept of arbitrary item counts, and extending
+   it would touch already-shipped, more deeply-integrated stash/auction code
+   for a cosmetic feature. A dedicated pool is simpler and lower-risk;
+   documented as a deliberate deviation from the Research Notes' suggestion.
+3. **Garden sync mirrors the PvE-leaderboard pattern exactly**: a WorldScene
+   cache (`_guildhall_garden_cache: Dictionary = {"plots": Array, "plants": Dictionary}`),
+   kept current via a request/response + broadcast RPC trio
+   (`submit_guildhall_garden_request` / `recv_guildhall_garden_update`,
+   same shape as `submit_pve_leaderboard_request`/`recv_pve_leaderboards`),
+   plus two mutation RPCs (`submit_session_plant(plot_idx, seed_id)`,
+   `submit_session_harvest(plot_idx)`, client → host, mirroring
+   `submit_spire_draft_choice`'s plain-params style). `GardenPlot` gains
+   `session_mode: bool` + a `set_session_state(plot_data, days_elapsed)`
+   setter the WorldScene pushes into it (not a self-pull from `SessionStore`)
+   — `get_plot_data()`/`get_growth_stage()` branch on `session_mode` to use
+   the pushed data instead of `SceneManager.save_manager`.
+4. **Trophies and the stash chest need no request/response** — trophies read
+   the already-synced `_pve_leaderboards` cache directly at spawn time (a
+   snapshot, not live-updating while standing in the room — acceptable, a
+   trophy render is not expected to change mid-visit); the stash chest is a
+   pure UI-routing entity (`_toggle_stash_overlay()`, already fully wired,
+   already session-synced by TID-376).
+5. **Stash chest interact wiring** goes through the same `_check_interactions()`
+   / `_handle_interact()` dispatch every other entity uses, so it gets the
+   on-screen tap prompt for free (mobile parity) — not a special case.
+
+**Implementation outline:**
+
+1. **`game_logic/net/SessionState.gd`** — expand `guildhall_state` (v11→v12):
+   add `garden_plots: Array` (3× `{}`, same shape as `SaveManager.garden_plots`)
+   and `plants: Dictionary` inside it. Update `_sanitized_guildhall_state`
+   + migration.
+2. **`scenes/world/entities/GardenPlot.gd`** — `session_mode: bool`,
+   `_session_plot_data: Dictionary`, `_session_days_elapsed: int`,
+   `set_session_state(data, days_elapsed)`; `get_plot_data()`/
+   `get_growth_stage()` branch on `session_mode` (pure `GardenDefs.growth_stage`
+   call for the stage, no `SaveManager` touch in that branch).
+3. **`scenes/world/NetSync.gd`** — 4 new reliable RPCs:
+   `submit_guildhall_garden_request()`, `recv_guildhall_garden_update(payload)`,
+   `submit_session_plant(plot_idx, seed_id)`, `submit_session_harvest(plot_idx)`.
+4. **`scenes/world/WorldScene.gd`**:
+   - `_ready()`'s named-map branch: `if map_name == "guildhall" and
+     NetworkManager.is_active(): _spawn_guildhall_trophies();
+     _spawn_guildhall_garden(); _spawn_guildhall_stash_chest()`.
+   - `_spawn_guildhall_trophies()`: up to 3 pedestals from
+     `_pve_leaderboards["coop_clears"]`, reusing `_make_trophy_pedestal`.
+   - `_spawn_guildhall_garden()`: 3 `GardenPlot` nodes (`session_mode = true`),
+     reuses `_garden_plot_nodes` (already exists, shared with the player-home
+     path — mutually exclusive per current map). Host builds its cache
+     directly from `SessionStore`; a client requests one via
+     `submit_guildhall_garden_request`.
+   - `_spawn_guildhall_stash_chest()`: procedural chest mesh + `Label3D`
+     ("Guild Stash"), tracked in a new `_guildhall_stash_chest_node` field.
+   - `_check_interactions()` / `_handle_interact()`: new
+     `_find_nearby_guildhall_stash_chest()` check (label "STASH") calling
+     `_toggle_stash_overlay()`.
+   - `_show_garden_plot_panel()`: branch on `plot.session_mode` — plant
+     button always enabled (no seed cost/count), calls
+     `_submit_session_plant`/`_submit_session_harvest` instead of
+     `sm.*`/`GameBus.plant_harvested.emit`.
+   - RPC handlers + `_broadcast_guildhall_garden(target_peer := 0)` (mirrors
+     `_broadcast_pve_leaderboards` exactly) + `_on_guildhall_garden_update_received`
+     (updates cache, pushes into each spawned `GardenPlot` via
+     `set_session_state`).
+5. **Tests** — extend `tests/unit/test_session_state.gd` with
+   `garden_plots`/`plants` coverage (defaults, round-trip, v12 migration).
+   No WorldScene-level test for the RPC/spawn flow — same precedent as every
+   other WorldScene orchestration function in this file (requires the full
+   SceneTree/multiplayer harness).
+6. **Validation** — same sandbox constraint (no Godot binary, HTTP 403
+   reconfirmed).
 
 ## Changes Made
 
 _Filled after Build phase._
 
+## Changes Made
+
+- **`game_logic/net/SessionState.gd`** — `guildhall_state` (v11→v12) gains
+  `garden_plots: Array` (3× `{}`, same shape as `SaveManager.garden_plots`)
+  and `plants: Dictionary`; `_sanitized_guildhall_state` pads/truncates
+  `garden_plots` to exactly 3 entries and coerces non-Dictionary slots;
+  migration backfills both fields.
+- **`scenes/world/entities/GardenPlot.gd`** — `session_mode: bool`,
+  `set_session_state(plot_data, days_elapsed)` (pushed by `WorldScene`, since
+  `SessionStore` is authority-only and a client cannot read it directly);
+  `get_plot_data()`/`get_growth_stage()` branch on `session_mode` to use the
+  pushed data + `GardenDefs.growth_stage` instead of `SceneManager.save_manager`.
+- **`scenes/world/NetSync.gd`** — 4 new reliable RPCs:
+  `submit_guildhall_garden_request()`, `recv_guildhall_garden_update(payload)`
+  (mirror the PvE-leaderboard request/broadcast pair exactly), and
+  `submit_session_plant(plot_idx, seed_id)` / `submit_session_harvest(plot_idx)`
+  (plain-params, mirror `submit_spire_draft_choice`'s precedent).
+- **`scenes/world/WorldScene.gd`**:
+  - `_ready()`: guildhall furnishing spawns (`_spawn_guildhall_trophies`,
+    `_spawn_guildhall_garden`, `_spawn_guildhall_stash_chest`) moved to run
+    **after** `_setup_coop()` (not inline with the player-home spawns) so
+    `_net_sync` exists before a client's garden-snapshot request needs it —
+    a real ordering bug caught during Build, not present in the original
+    Plan.
+  - `_spawn_guildhall_trophies()`: up to 3 pedestals from the already-synced
+    `_pve_leaderboards["coop_clears"]` cache, reusing `_make_trophy_pedestal`/
+    `register_npc`.
+  - `_spawn_guildhall_garden()`: 3 `GardenPlot` nodes (`session_mode = true`,
+    reuses the existing `_garden_plot_nodes` array); host builds its cache
+    directly from `SessionStore`, a client requests one via
+    `submit_guildhall_garden_request`.
+  - `_spawn_guildhall_stash_chest()`: procedural chest + `Label3D`, registered
+    as an NPC (`npc_type = "stash_chest"`).
+  - `_check_interactions()` / `_handle_interact()`: one new `"stash_chest"`
+    case in each existing npc_type dispatch chain (prompt label "STASH",
+    action calls `_toggle_stash_overlay()`) — no new proximity-detection code.
+  - `_show_garden_plot_panel()`: branches on `plot.session_mode` — free
+    planting (no owned-seed-count gate), calls `_submit_session_plant`/
+    `_submit_session_harvest` instead of `SaveManager`/`GameBus.plant_harvested`
+    in that branch; solo behavior is byte-for-byte unchanged in the `else`.
+  - New: `_refresh_guildhall_garden_visuals`, `_broadcast_guildhall_garden`,
+    `_on_guildhall_garden_request_submitted`, `_on_guildhall_garden_update_received`,
+    `_submit_session_plant`/`_on_session_plant_submitted`,
+    `_submit_session_harvest`/`_on_session_harvest_submitted` (the last two
+    validate plot state server-side — a stale/duplicate submit is a no-op).
+- **`tests/unit/test_session_state.gd`** — `garden_plots`/`plants` coverage:
+  defaults, round-trip, 3-slot padding/truncation, garbage-field fallback,
+  v12 migration backfill + preservation (7 new cases).
+
+### Validation
+
+**Could not run `godot --headless --editor --quit` or `tests/runner.gd`** —
+same sandbox constraint as every task in this goal (HTTP 403 reconfirmed).
+Manual review: brace/paren/bracket balance check across every touched file
+(`WorldScene.gd`'s pre-existing off-by-one, documented since TID-390, is
+unchanged — this diff's opens/closes are exactly matched); no duplicate
+function declarations; every `:=` inference site checked against a
+concretely-typed RHS; traced `_ready()`'s call ordering carefully enough to
+catch the `_net_sync`-not-yet-created bug described above before it shipped
+(the player-home precedent this was modeled on never needed `_net_sync`, so
+the ordering issue wasn't obvious from that template alone).
+
+**Needs a real headless import + `tests/runner.gd` run before merging** —
+same flag as every other task in this goal.
+
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md`: added a new `### Guildhall trophies,
+  garden & stash chest (TID-393)` subsection under "Party Legacy (GID-106)"
+  (trophy reuse of the already-synced PvE leaderboard cache, the garden's
+  authority-only-`SessionStore` constraint and its request/broadcast sync
+  model, the deliberate free-planting/dedicated-`plants`-pool simplifications
+  and why they deviate from the task's Research Notes, the `_setup_coop()`
+  ordering bug found during Build, the stash chest's zero-new-sync reuse of
+  `_toggle_stash_overlay`, and test coverage).

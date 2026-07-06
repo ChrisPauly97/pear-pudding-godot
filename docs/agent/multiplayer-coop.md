@@ -2331,8 +2331,7 @@ PvE battle engine.
 ## Party Legacy (GID-106)
 
 Gives a persistent co-op session long-run identity through a shared roguelike
-mode (this section) and a physical guildhall home (TID-392/393, a later task
-in this goal).
+mode (TID-390/391 above) and a physical guildhall home (TID-392/393, below).
 
 ### Co-op Endless Spire — shared run & alternating draft (TID-390)
 
@@ -2375,8 +2374,25 @@ late joiners simply aren't in the rotation, a v1 scope decision mirroring the
 loot-roll "present = connected" simplification) and `picker_idx`. Both are
 meaningful only on the host; every other peer keeps a locally-mirrored copy
 (same "authoritative on host, mirrored elsewhere" model as
-`_leaderboard_rows`/`_remote_identities`), updated via the draft-choice
-broadcast below rather than mutated directly (`SceneManager.set_coop_spire_run_mirror`).
+`_leaderboard_rows`/`_remote_identities`), mutated only via
+`SceneManager.set_coop_spire_run_mirror` — never directly.
+
+**Correction (TID-391):** this task originally documented the client-side
+mirror as "updated via the draft-choice broadcast," but no call site for
+`set_coop_spire_run_mirror` actually existed anywhere in the shipped code —
+`is_coop_spire_active()` was therefore **always false on every non-host
+peer**. TID-391 does not fix this generally; it routes around it. Every
+place that needs to know "is a co-op Spire run active *on this peer*"
+(engage-routing, battle-end handling) checks `WorldScene._in_coop_spire_floor()`
+instead — `NetworkManager.is_active() and map_name.begins_with("spire_floor_")`,
+which is accurate on every peer since `map_name` reflects the map that peer
+actually loaded, regardless of who initiated the transition.
+`SceneManager.is_coop_spire_active()`/`get_coop_spire_run()` remain
+host-authoritative-only reads, used only from code that already knows it's
+running on the host (`_coop_world_authority()`-gated). The mirror is now set
+exactly once, at run end (`set_coop_spire_run_mirror({"active": false})`, from
+`WorldScene._on_coop_spire_run_ended_received`), purely so a stale local copy
+can never wedge a future read — not as a continuously-synced cache.
 
 API: `is_coop_spire_active()` / `get_coop_spire_run()` (read accessors),
 `enter_spire_coop(picker_order)` (starts fresh or resumes, returns the target
@@ -2440,3 +2456,282 @@ overwrite). No WorldScene-level orchestration test was added — same precedent
 as the loot-roll task ("test the pure contract... out of scope for a pure
 test"), since exercising the RPC round-trip requires the full multiplayer
 loopback harness.
+
+### Co-op Endless Spire — joint floor battles & leaderboard (TID-391)
+
+Closes the loop TID-390 left open: floor battles now actually happen, the run
+advances automatically floor-to-floor, and it ends with a synced summary +
+leaderboard entry. Nothing about the draft engine above changed.
+
+**Floor battle routing — reuses the GID-099 joint PvE engine as-is.** Each
+Spire floor map has exactly one enemy entity, fixed id `"spire_enemy"`
+(`SpireFloorGen.generate`). `WorldScene._on_enemy_engaged_coop` gets one more
+branch, immediately after the co-op-siege-boss branch: while
+`_in_coop_spire_floor()` (see the correction above — map-name-based, not
+`SceneManager.is_coop_spire_active()`) and `eid == "spire_enemy"`, engagement
+routes to `_coop_engage_spire_boss` / `_coop_start_spire_boss_battle`, an exact
+mirror of `_coop_engage_siege_boss` / `_coop_start_siege_boss_battle`: gather
+`abs_peer_ids`, RPC each client `notify_coop_pve_start`, then
+`SceneManager.enter_coop_pve_battle(0, all_decks, edata)` locally. The one
+difference from siege: every ally's deck is the **same**
+`SceneManager.get_coop_spire_run().shared_deck` (duplicated per ally —
+`PlayerState.build_deck` shuffles independently per call, so allies still draw
+in different orders), not a per-peer deck. Boss HP/tier scaling by party size
+is unchanged (`CoopBattleScaling`, inside `BattleScene._build_coop_pve_state`).
+
+**Deck-format fix (BattleScene.gd).** `_build_coop_pve_state`'s `ally_setup`
+callable previously only recognized `Array[Dictionary]` deck entries (owned
+card instances, siege's shape) and silently fell back to a hardcoded starter
+deck for anything else — meaning a plain card-id `Array[String]` (the Spire
+shared draft deck's actual shape) was ignored. Added a `String` branch:
+`ally.build_deck(ids)`.
+
+**Race avoided: `EnemyNPC.engage()` → `GameBus.enemy_engaged` has two
+independent listeners** — `SceneManager._on_enemy_engaged` (solo battle,
+connected first, at autoload boot) and `WorldScene._on_enemy_engaged_coop`
+(joint-battle routing, connected later, per-map). Since `SceneManager`'s
+listener always runs first and has no coop-awareness, it would otherwise flip
+`_state` to `BATTLE` and start a **solo** battle before the joint-battle route
+even gets a chance (`enter_coop_pve_battle` itself no-ops once `_state !=
+State.WORLD`). Fixed for Spire specifically: `_on_enemy_engaged` gained a guard
+skipping the solo path when `NetworkManager.is_active() and
+current_map.begins_with("spire_floor_") and enemy_data.id == "spire_enemy"`.
+The *analogous* risk in the pre-existing co-op siege-boss path was found during
+this research but left unfixed — logged as **BID-044** (siege is a separate,
+already-shipped, already-"unverified in-sandbox" feature; fixing it without a
+real headless run available was judged riskier than leaving a documented gap).
+
+**Automatic floor-to-floor advancement — no reliance on the arena's authored
+exit door.** Solo Spire's exit door is single-player-only machinery
+(`SceneManager.exit_map()` special-cases it via `save_manager.is_spire_active()`,
+always false in co-op). Instead, `WorldScene._resolve_coop_spire_draft`
+(TID-390's existing draft-resolution function) now also calls
+`SceneManager.advance_coop_spire_floor()` and broadcasts+performs the next
+floor's map transition, immediately after the picked card is committed — no
+map-authoring, no new RPC, same `recv_map_transition` mechanism `_start_coop_spire`
+already uses. `exit_map()` gained a matching no-op branch (`NetworkManager.is_active()
+and current_map.begins_with("spire_floor_")`) so a peer who still reaches the
+now-vestigial exit door gets an inert no-op instead of falling through to
+`go_to_menu()` (co-op's `map_stack` doesn't hold the entries solo Spire relies on
+there).
+
+**`map_stack` hygiene — `SceneManager.enter_coop_map_no_stack`.** The co-op
+Spire's entry, every floor-to-floor advance, and the final return to madrian
+are all one-way automatic transitions with no "go back" concept — using the
+normal `enter_map()` for all of them (as `_start_coop_spire` originally did)
+would push a floor name onto `map_stack` on every single transition, forever
+(nothing ever pops them, since the exit-door path is now a no-op). A new
+`SceneManager.enter_coop_map_no_stack(target_map, door_id)` mirrors
+`_advance_spire_floor`'s existing non-pushing pattern; `_start_coop_spire`,
+`_resolve_coop_spire_draft`'s floor-advance, `_on_coop_spire_summary_continue`'s
+return-to-madrian, and the generic `_on_map_transition_received` follower path
+(keyed on `target_map`/`map_name` starting with `"spire_floor_"`) all use it.
+
+**Run end (defeat) — authority ends the run, submits the leaderboard score,
+and broadcasts a synced summary.** On a floor loss,
+`WorldScene._on_coop_spire_battle_ended` (authority only) calls
+`SceneManager.end_coop_spire_run()`, submits `floors_cleared` to a **new**
+`"coop_spire"` PvE leaderboard board (`SessionState` v9→v10; see below), and
+broadcasts `NetSync.recv_coop_spire_run_ended(payload)` — `{floors_cleared,
+party_size, roster}` — to every peer. On a floor **win**, the same handler
+instead opens the next floor's draft (`_start_coop_spire_draft`, TID-390's
+previously-uncalled hook — this closes that gap).
+
+**Deferred until reattached — `_flush_pending_coop_spire_post_battle`.** The
+joint battle detaches `WorldScene` from the tree exactly like PvP; `_on_coop_spire_battle_ended`
+runs mid-detachment (same call chain as the pre-existing
+`_on_coop_pve_battle_ended_leaderboard`/`_on_coop_siege_battle_ended`
+listeners on the same signal), where `get_tree()` is unsafe. Anything that
+touches the tree (opening the draft overlay, RPC-broadcasting + showing the
+run summary) is captured into two pending fields
+(`_pending_coop_spire_draft_floor`, `_pending_coop_spire_run_ended_payload`)
+and flushed from `_enter_tree()` once reattachment completes — the same
+"pending flag flushed on `_enter_tree()`" pattern already used by
+`_pvp_ended_pending_broadcast`. Purely host-only, tree-free data work (ending
+the run, submitting the leaderboard score) still happens immediately, matching
+the existing "connected permanently" precedent for RPC/data-only side effects.
+
+**Leaderboard — new `"coop_spire"` board, not a reuse of `"coop_clears"`.**
+`"coop_clears"` (TID-379) stays untouched — it's the generic party-size signal
+shared by *every* joint PvE battle type (siege included); changing its
+semantics would be an unrelated behavior change. `"coop_spire"`'s value is a
+plain `floors_cleared` int, mirroring the solo `"spire"` board's own value
+semantics exactly — directly satisfies BID-031's ask for a signal richer than
+party size, with no new encoding scheme. Added via the exact `night_hunts`
+(v9) precedent: `_PVE_BOARDS`, default `leaderboards` dict,
+`_sanitized_leaderboards`, `get_pve_leaderboards_snapshot`,
+`CURRENT_SESSION_VERSION` 9→10. No new `LeaderboardOverlay` tab — `night_hunts`
+already set the precedent that a PvE board doesn't need one yet.
+
+**Run summary — `RunSummaryScene` gains a co-op mode, shown as a WorldScene
+overlay.** Solo Spire's summary always `change_scene_to_node`s, which would
+exit the entire co-op session — wrong here. `RunSummaryScene` gained a
+`coop_stats: Dictionary` field (checked before `spire_stats` in `_ready`) and a
+`continue_pressed` signal; `_build_coop_spire_ui()` shows floors cleared,
+party size, and the party roster (from `_remote_identities` + the local
+player's own name), with a **"Continue"** button instead of "Return to Menu".
+`WorldScene._on_coop_spire_run_ended_received` instantiates it as a child of
+`get_tree().current_scene` (same pattern as the draft overlay) rather than
+replacing the scene tree; pressing Continue performs the standard shared
+`recv_map_transition("madrian", "")` and frees the overlay — the co-op session
+itself is never touched.
+
+**Mid-run disconnect.** Not specially handled beyond what already existed: an
+absent active picker's turn auto-resolves via the existing 30s timeout
+(TID-390), and a mid-battle disconnect is covered by the joint-battle's
+existing reused PvP disconnect handlers. The run's final leaderboard value
+reflects whoever's left in the party at run end, not who started it — a
+deliberate simplification matching the task's own guidance.
+
+**Tests:** `tests/unit/test_session_state.gd` gained `coop_spire` coverage
+(defaults, round-trip, snapshot shape, v10 migration backfill/preservation,
+value-overwrite semantics). No new WorldScene-level orchestration test — the
+battle-routing/tree-deferral logic requires the full multiplayer + SceneTree
+harness, same precedent as TID-390's draft engine above.
+
+### Party guildhall — interior map & entry (TID-392)
+
+A session-owned home base, separate from the single-player Player Home
+(GID-046) — it reflects the party's collective identity, not any one
+player's house.
+
+**Map — `assets/maps/guildhall.tres`.** Same structure as `player_home.tres`
+(100×100 grid, `WALL=1` everywhere except a carved room): floor at tile
+x:40–60, z:45–61, `spawn_x/z = (50, 59)`, one `MapDoor`
+(`entity_id="guildhall_exit"`, `target_map=""`) at `(50, 46)`. No bed NPC —
+the guildhall is a meeting space, not a rest location. Generated with a
+throwaway script that calls `scripts/convert_maps.py`'s `write_tres()`
+directly with a hand-built data dict (skipping its `.txt`-parsing step,
+which isn't needed for a from-scratch room) — the practical way to produce a
+new `.tres` in this exact format without a running Godot editor. Registered
+in `autoloads/MapRegistry.gd`'s `_BUNDLED` dict exactly like every other
+named map (`const _GUILDHALL` + one dict entry).
+
+**Entry point — host-only Party Panel action "Guildhall".** `PartyPanel.gd`
+gained `show_guildhall`/`on_guildhall` (identical shape to `show_spire`/
+`on_spire`); `WorldScene._start_guildhall()` mirrors `_start_dungeon_crawl()`
+exactly: broadcast `recv_map_transition("guildhall", "")`, then local
+`SceneManager.enter_map("guildhall", "")`.
+
+**Deliberately the *normal* stack-pushing `enter_map()`, not
+`enter_coop_map_no_stack` (TID-391).** The Spire's no-stack helper exists
+because a Spire run is a one-way chain of many auto-generated floors with no
+"go back" concept. The guildhall is the opposite: a single room entered and
+exited repeatedly, exactly like `player_home`. Using the normal `enter_map()`
+pushes `"madrian"` onto `map_stack` on entry, so the map's authored exit door
+(`target_map=""`) works through the **existing, completely generic**
+door-interact → `recv_map_transition("", "")` → `SceneManager.exit_map()` →
+pop-`map_stack` chain — no guildhall-specific exit code was needed at all.
+Late-joiner redirect (TID-355, keyed on `SessionState.current_map`) and
+map-scoped avatar sync (TID-352, `AvatarSync`'s `map` field) are both already
+entirely map-name-agnostic, so entering "guildhall" gets a rejoining member
+landing back inside, and every peer rendering each other correctly, for
+free — zero new code in either system.
+
+**`SessionState.guildhall_state`** (v10→v11): `{purchased: bool,
+members_inside: Array[String]}`. `purchased` is always `true` — the
+guildhall is a free feature unlock, not a purchasable good like the
+single-player home, so the class-default and the migration backfill both
+set it unconditionally; `has_guildhall()` is a thin accessor kept for API
+symmetry with a *possible* future paywall, not a live gate today.
+`members_inside` is carried in the shape (and TID-393 needs this same dict
+for `garden_plots`) but is **not actively populated in this task** — wiring
+it to avatar map-enter/leave events would duplicate what `AvatarSync`'s
+per-peer `map_name` field already renders, for a cosmetic-only payoff;
+scope-cut, not an oversight.
+
+**Single-player unchanged.** The guildhall button only ever appears inside
+the Party Panel, which itself only opens in an active co-op session; the
+map asset is bundled by `MapRegistry` like any other but is never referenced
+by any single-player code path.
+
+**Tests:** `tests/unit/test_session_state.gd` gained `guildhall_state`
+coverage (defaults, round-trip, garbage-field fallback, v11 migration
+backfill/preservation), mirroring the `coop_spire` additions from TID-391.
+No WorldScene-level test — `_start_guildhall()` is a thin broadcast + normal
+`enter_map()` call, exercising it requires the full SceneTree/multiplayer
+harness like every other Party Panel action in this file.
+
+### Guildhall trophies, garden & stash chest (TID-393)
+
+Furnishes the guildhall (TID-392) with three systems, all spawned only when
+`map_name == "guildhall"` (called right after `_setup_coop()`, not inline with
+the other named-map spawns, so `_net_sync` already exists — see below).
+
+**Trophies need no new sync at all.** `WorldScene._pve_leaderboards` is
+already a continuously-current cache on every peer (broadcast on every
+`record_pve_score` write and sent at late-join, TID-379). `_spawn_guildhall_trophies()`
+just reads `_pve_leaderboards["coop_clears"]` (up to 3 rows, already
+best-first) and spawns a pedestal per row via the existing
+`_make_trophy_pedestal`/`register_npc("trophy_pedestal", ...)` machinery
+(GID-046) — the generic `trophy_pedestal` npc_type dispatch in
+`_handle_interact()` needed zero changes. A `coop_clears` row is
+`{token, name, value, day}` (party size at win time, not a boss/floor
+description, and at most one row per token) — the pedestal label is built
+from what actually exists (`"<name>'s Clear — Party of <value>"`), and a slot
+with no entry is skipped entirely rather than shown as an unearned "???"
+placeholder (that GID-046 pattern is for a fixed predicate-driven list; this
+is a dynamic top-N).
+
+**Garden — `SessionStore` is authority-only, so `GardenPlot` cannot read it
+directly (a client's `SessionStore.is_open()` is always false).** Instead,
+`WorldScene` keeps `_guildhall_garden_cache: Dictionary` (`{plots, plants}`)
+synced via the exact `_pve_leaderboards` request/broadcast pattern:
+`submit_guildhall_garden_request` (client → host, sent once per map entry)
+→ `recv_guildhall_garden_update` (host → one/all, `_broadcast_guildhall_garden`,
+mirrors `_broadcast_pve_leaderboards`). `GardenPlot` gained `session_mode: bool`
+and `set_session_state(plot_data, days_elapsed)` — WorldScene *pushes* the
+cache into each spawned plot (`_refresh_guildhall_garden_visuals`) rather than
+the plot pulling from `SessionStore` itself; `get_plot_data()`/`get_growth_stage()`
+branch on `session_mode` to use the pushed data (`GardenDefs.growth_stage`,
+a pure function) instead of `SceneManager.save_manager`. Current day comes
+from the existing `_coop_current_days_elapsed()` helper (already
+correct on every peer via the GID-103 world-clock sync — no new day-sync
+plumbing needed).
+
+**Deliberate simplifications (deviating from the task's Research Notes, which
+assumed session-scoped seed/plant *card-instance* transfer via
+`StashTransfer` — that class only handles cards/coins; `SaveManager.seeds`/
+`plants` are actually plain `Dictionary[id, int]` counters, the wrong shape
+for that API):**
+- **Planting is free** in the guildhall garden — no session seed economy is
+  modeled (would need new fields on `SessionState.members[token]` character
+  records that don't exist today, for a feature explicitly framed as
+  cosmetic). Any member can plant any `GardenDefs.SEEDS` id in an empty plot.
+- **Harvested yield goes into a new, dedicated `guildhall_state.plants: Dictionary`
+  pool** (`plant_id -> count`), not `SessionState.stash` — the stash's shape
+  (`{cards, coins}`) has no concept of arbitrary item counts, and extending
+  it would touch already-shipped, more deeply-integrated stash/auction code
+  for a cosmetic feature.
+- Two mutation RPCs, client → host: `submit_session_plant(plot_idx, seed_id)`,
+  `submit_session_harvest(plot_idx)` (plain params, mirrors
+  `submit_spire_draft_choice`'s precedent). The authority validates (plot
+  actually empty / actually mature — a stale or duplicate submit is silently
+  ignored) before mutating `guildhall_state` and broadcasting.
+- `_show_garden_plot_panel` branches on `plot.session_mode`: no
+  "(owned: N)" seed count, Plant is never disabled, and the plant/harvest
+  buttons call `_submit_session_plant`/`_submit_session_harvest` instead of
+  `SaveManager`/`GameBus.plant_harvested` (which stays solo-only).
+
+**Ordering gotcha found during this task:** the player-home trophy/garden
+spawn calls run *inline* with the rest of `_ready()`'s named-map setup,
+**before** `_setup_coop()` (which creates `_net_sync`) — harmless for
+single-player (no networking involved) but would silently break a client's
+`submit_guildhall_garden_request` RPC if the guildhall spawns were placed the
+same way (`_net_sync` would still be null). The guildhall spawn calls are
+therefore made **after** `_setup_coop()` instead, with a comment flagging why.
+
+**Stash chest — a pure UI-routing entity, no new sync.** A procedural
+chest mesh + `Label3D` ("Guild Stash"), registered via the same
+`register_npc`/`_active_npc_data` mechanism as trophies with
+`npc_type = "stash_chest"` — one new case in the existing npc_type dispatch
+chains in both `_check_interactions()` (prompt label "STASH") and
+`_handle_interact()` (calls the already-fully-wired `_toggle_stash_overlay()`,
+TID-376). Reusing the generic NPC proximity/prompt system means the on-screen
+tap target (mobile parity) came for free, exactly like every other
+interactable in this file.
+
+**Tests:** `tests/unit/test_session_state.gd` gained `garden_plots`/`plants`
+coverage (defaults, round-trip, 3-slot padding/truncation, v12 migration
+backfill/preservation). No WorldScene-level test for the spawn/RPC flow —
+same precedent as every other WorldScene orchestration function in this file.

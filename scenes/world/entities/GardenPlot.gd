@@ -4,6 +4,16 @@ const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 
 var plot_idx: int = 0
 
+## Co-op guildhall garden (GID-106 / TID-393). When true, get_plot_data()/
+## get_growth_stage() use the pushed session state below instead of
+## SceneManager.save_manager — SessionStore is authority-only and cannot be
+## read directly by a client, so WorldScene pushes its synced cache in via
+## set_session_state() whenever it changes (mirrors the _pve_leaderboards
+## cache pattern) rather than this node pulling on its own.
+var session_mode: bool = false
+var _session_plot_data: Dictionary = {}
+var _session_days_elapsed: int = 0
+
 var _soil: MeshInstance3D
 var _plant: MeshInstance3D
 var _label: Label3D
@@ -70,24 +80,35 @@ func _ready() -> void:
 func _on_plant_harvested(_idx: int, _count: int) -> void:
 	refresh_visual()
 
+## Called by WorldScene whenever its synced guildhall garden cache updates.
+func set_session_state(plot_data: Dictionary, days_elapsed: int) -> void:
+	_session_plot_data = plot_data if plot_data is Dictionary else {}
+	_session_days_elapsed = days_elapsed
+	refresh_visual()
+
 func get_growth_stage() -> int:
+	if session_mode:
+		if _session_plot_data.is_empty() or not _session_plot_data.has("seed_id"):
+			return 0
+		var seed_id: String = str(_session_plot_data.get("seed_id", ""))
+		var seed_def: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
+		var growth_days: int = int(seed_def.get("growth_days", 2))
+		var planted_day: int = int(_session_plot_data.get("planted_day", 0))
+		return GardenDefs.growth_stage(planted_day, growth_days, _session_days_elapsed)
 	var sm: Node = SceneManager.save_manager
 	return sm.get_plot_growth_stage(plot_idx)
 
 func get_plot_data() -> Dictionary:
+	if session_mode:
+		return _session_plot_data
 	var sm: Node = SceneManager.save_manager
 	if plot_idx < 0 or plot_idx >= sm.garden_plots.size():
 		return {}
 	return sm.garden_plots[plot_idx]
 
 func refresh_visual() -> void:
-	var sm: Node = SceneManager.save_manager
 	var plot: Dictionary = get_plot_data()
-	var stage: int
-	if plot.is_empty():
-		stage = 0
-	else:
-		stage = sm.get_plot_growth_stage(plot_idx)
+	var stage: int = 0 if plot.is_empty() else get_growth_stage()
 	if stage == _last_stage:
 		return
 	_last_stage = stage
