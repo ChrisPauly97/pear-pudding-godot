@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="ScriptedBattleData" load_steps=2 format=3 uid="uid://j17ngv0sosg2"]
+
+[ext_resource type="Script" path="res://game_logic/battle/ScriptedBattleData.gd" id="1_scripteddata"]
+
+[resource]
+script = ExtResource("1_scripteddata")
+battle_id = "rabbit_hunt"
+title = "The Rabbit Hunt"
+player_deck_order = ["ghost", "skeleton", "ghost", "zombie", "skeleton", "ghoul"]
+opening_hand_count = 1
+player_hero_hp = 30
+enemy_deck_order = ["ghost", "ghost"]
+enemy_opening_hand_count = 1
+enemy_hero_hp = 8
+tutorial_steps = ["1:That wee ghost costs 1 mana — drag it to a slot.", "2:Minions cannae strike the turn they're summoned — patience.", "3:Now attack! Drag your ghost onto the beast."]
+reward_card_id = ""
+completion_flag = "chapter1_camp_night"

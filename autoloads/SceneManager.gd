@@ -24,6 +24,7 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
 const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
+const _ChapterEndingOverlay = preload("res://scenes/ui/ChapterEndingOverlay.gd")
 const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 const _CoopNightHunts = preload("res://game_logic/CoopNightHunts.gd")
@@ -1014,7 +1015,12 @@ func _on_battle_won(result: Dictionary) -> void:
 			_show_siege_interstitial(_siege_stage + 1, _siege_hero_hp)
 			return
 		else:
-			_apply_siege_victory_rewards(str(_siege.get("town", "")))
+			var _siege_town: String = str(_siege.get("town", ""))
+			_apply_siege_victory_rewards(_siege_town)
+			# Chapter 2 beat 4 (GID-108 / TID-407): the story siege at marsax_hold
+			# reuses this exact victory path — only the completion flag is new.
+			if _siege_town == "marsax_hold":
+				save_manager.set_story_flag("chapter2_siege_won")
 			save_manager.end_siege_victory()
 			save_manager.save()
 			if _battle_overlay != null:
@@ -1189,6 +1195,30 @@ func _on_battle_won(result: Dictionary) -> void:
 		if wem != null:
 			wem.end_event("roaming_boss")
 	_restore_world()
+	# Chapter 2 beats 6 → 7 (GID-108 / TID-407): defeating the war-camp boss sets
+	# chapter2_warcamp_cleared and immediately shows the cliffhanger narration
+	# (reuses TID-405's ChapterEndingOverlay verbatim); closing it sets
+	# chapter2_complete.
+	if enemy_type == "martarquas_warleader":
+		save_manager.set_story_flag("chapter2_warcamp_cleared")
+		_show_chapter2_cliffhanger()
+
+func _show_chapter2_cliffhanger() -> void:
+	var pages: Array[String] = [
+		"By firelight, Maiteln reads the stolen muster plans: the tribe will not strike Blancogov. They march on the lords, one by one, before the alliance can gather.",
+		"Maiteln, grim: every route, every garrison, every weakness — written in a steady court hand. The traitor knows the alliance's every move.",
+		"And beneath the last page, in a script Saimtar knew like his own name — a list of the taken. His parents' names were not struck through.",
+	]
+	var overlay := _ChapterEndingOverlay.new()
+	overlay.setup(pages, "Chapter 2 Complete")
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var layer := CanvasLayer.new()
+	layer.layer = 999
+	get_tree().root.add_child(layer)
+	layer.add_child(overlay)
+	overlay.closed.connect(func() -> void:
+		layer.queue_free()
+		save_manager.set_story_flag("chapter2_complete"))
 
 func _on_battle_lost() -> void:
 	if _state != State.BATTLE:

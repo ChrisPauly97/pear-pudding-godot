@@ -23,7 +23,7 @@
 | [GID-017](goals/GID-017--native-map-storage/goal.md) | Native Godot Map Storage Migration | done | 8 / 8 |
 | [GID-018](goals/GID-018--card-content-depth/goal.md) | Card Content Depth — Dawn & Dusk Branches | done | 4 / 4 |
 | [GID-019](goals/GID-019--battle-depth/goal.md) | Battle Depth — Targeting, Intent & Status Effects | done | 5 / 5 |
-| [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | done (TID-067 superseded by GID-108) | 4 / 5 |
+| [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | done (TID-067 superseded by GID-108/TID-405; all criteria satisfied) | 4 / 5 |
 | [GID-021](goals/GID-021--enemy-boss-variety/goal.md) | Enemy & Boss Variety | pending | 1 / 5 |
 | [GID-022](goals/GID-022--weapon-system-content/goal.md) | Weapon System Content | done | 4 / 4 |
 | [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | done | 5 / 5 |
@@ -111,7 +111,7 @@
 | [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | done (unit suite + headless import unverified in-sandbox — see goal.md note) | 2 / 2 |
 | [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | done (unit suite + headless import unverified in-sandbox — see goal.md note) | 4 / 4 |
 | [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | done (needs headless test run + visual verification — see TID-398) | 5 / 5 |
-| [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | in-progress | 3 / 10 |
+| [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | in-progress | 9 / 10 |
 | [GID-109](goals/GID-109--keybindings-settings/goal.md) | Desktop Keybindings Settings Page | done | 2 / 2 |
 | [GID-110](goals/GID-110--mailbox-overflow-storage/goal.md) | Mailbox — Overflow Storage for Bag-Full Card Rewards | done (headless import + test run unverified in-sandbox — see goal.md note) | 3 / 3 |
 
@@ -151,7 +151,6 @@
 | [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
 | [BID-040](backlog/BID-040--rally-blocked-inside-own-dungeon.md) | Rally waystones inherit the fast-travel dungeon block, so a player can't rally to teammates while already inside a shared dungeon crawl — exactly when it's most needed | design-gap | GID-105 / TID-388 |
-| [BID-041](backlog/BID-041--siege-raiders-set-enemy-type-noop.md) | Single-player siege raiders' `node.set("enemy_type", ...)` is a silent no-op (no such property) — every raider always fights as fallback "undead_basic" regardless of stage | code-smell | GID-103 / TID-384 |
 | [BID-042](backlog/BID-042--auction-button-not-in-party-panel.md) | Auction House button is the same shape of always-on co-op clutter as Stash/Leaderboard but wasn't in GID-107's original consolidation list (shipped after the goal was written) | design-gap | GID-107 / TID-395 |
 | [BID-043](backlog/BID-043--siege-draft-tournament-buttons-not-migrated.md) | Siege/Draft Duel/Tournament HUD buttons not yet migrated to the GID-107 registry; Siege and Tournament buttons visually overlap (both centered at the same y) | code-smell / design-gap | GID-107 / TID-398 |
 | [BID-044](backlog/BID-044--siege-boss-engage-signal-race.md) | Co-op siege boss engage may race `SceneManager._on_enemy_engaged` (solo battle) vs `WorldScene._on_enemy_engaged_coop` (joint battle) — signal connection order suggests the host could get a solo duel while clients get a joint battle | code-smell (suspected correctness bug) | GID-106 / TID-391 |
@@ -169,6 +168,7 @@
 | [BID-023](archive/backlog/BID-023--head-did-not-compile-godot46.md) | Branch HEAD did not compile under Godot 4.6 (`//` in TextureGen, 2-arg `Object.get()` in CardRegistry) | code-smell | Resolved by GID-094 / TID-341 |
 | [BID-026](archive/backlog/BID-026--coop-pve-host-attack-wrong-opponent-index.md) | Co-op PvE host/ally attacks resolved against the wrong opponent index | code-smell | Resolved by GID-102 / TID-371 |
 | [BID-039](archive/backlog/BID-039--session-days-elapsed-never-advances.md) | SessionState.days_elapsed never advanced by any co-op tick | gap (feature dependency) | Resolved by GID-103 / TID-382 |
+| [BID-041](archive/backlog/BID-041--siege-raiders-set-enemy-type-noop.md) | Single-player siege raiders' `node.set("enemy_type", ...)` is a silent no-op (no such property) — every raider always fights as fallback "undead_basic" regardless of stage | code-smell | Resolved by GID-108 / TID-407 |
 
 ## Archive
 

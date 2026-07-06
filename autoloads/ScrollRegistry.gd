@@ -1,6 +1,6 @@
 extends Node
 
-const SCROLL_COUNT: int = 9
+const SCROLL_COUNT: int = 11
 
 const _SCROLLS: Array = [
 	{
@@ -56,6 +56,18 @@ const _SCROLLS: Array = [
 		"title": "Isfig's Shadow",
 		"lore_text": "Maiteln's shadow stood against you three times, and three times you prevailed. When the final blow was struck, Isfig smiled — not in defeat, but in recognition. He had seen something in you that even Maiteln had missed. Without a word, he walked east. No one saw him again. But some say the shadow he left behind fights on — in you.",
 		"audio_path": "res://assets/audio/narration/scroll_isfig_shadow.ogg",
+	},
+	{
+		"id": "scroll_larik_letter",
+		"title": "The Larik Letter",
+		"lore_text": "If you read this, we could not stay. They came in the night with the tribe's mark — and a councilman's seal. Do not follow us, Saimtar. Grow strong, and forgive us. — Father",
+		"audio_path": "res://assets/audio/narration/scroll_larik_letter.ogg",
+	},
+	{
+		"id": "scroll_traitor_seal",
+		"title": "The Traitor's Seal",
+		"lore_text": "Orders of muster, sealed in wax. The sigil is not Martarquas — it is a chair on the king's own council.",
+		"audio_path": "res://assets/audio/narration/scroll_traitor_seal.ogg",
 	},
 ]
 

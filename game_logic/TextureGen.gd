@@ -424,6 +424,10 @@ static func npc_merchant(is_traveling: bool = false) -> ImageTexture:
 		return _cached("npc_merch_t", _gen_humanoid.bind(230,191,153, 115,38,166, 75,20,110))
 	return     _cached("npc_merch",   _gen_humanoid.bind(230,191,153, 191,158,26, 140,100,10))
 
+## Old wizard — pale/white head (age + beard), deep indigo robe, dark grey trim.
+static func npc_maiteln() -> ImageTexture:
+	return _cached("npc_maiteln", _gen_humanoid.bind(225,220,212, 55,45,110, 65,60,80))
+
 static func _gen_humanoid(hr: int, hg: int, hb: int,
 		br: int, bg: int, bb: int,
 		lr: int, lg: int, lb: int) -> ImageTexture:

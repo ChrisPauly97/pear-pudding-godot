@@ -775,6 +775,9 @@ func _maybe_show_scripted_tutorial_step(player_turn_number: int) -> void:
 		layer.layer = 999
 		layer.add_child(popup)
 		add_child(layer)
+		# BaseOverlay._close() only emits `closed` — the caller must free the
+		# wrapper (see SceneManager._on_tutorial_popup_requested for the precedent).
+		popup.closed.connect(func() -> void: layer.queue_free())
 		return
 
 # -------------------------------------------------------------------------

@@ -46,6 +46,9 @@ const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
 const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
+const _WildernessCampScene = preload("res://scenes/world/entities/WildernessCamp.tscn")
+const _ScoutAmbushScene = preload("res://scenes/world/entities/ScoutAmbush.tscn")
+const _MaitelnFollowerScene = preload("res://scenes/world/entities/MaitelnFollower.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _MailboxScene      = preload("res://scenes/world/entities/MailboxNPC.tscn")
@@ -259,6 +262,7 @@ var _stash_cache: Dictionary = {"cards": [], "coins": 0}  # last-known stash sna
 const _AuctionTransfer = preload("res://game_logic/net/AuctionTransfer.gd")
 const _AuctionSync = preload("res://game_logic/net/AuctionSync.gd")
 const _AuctionHouseOverlay = preload("res://scenes/ui/AuctionHouseOverlay.gd")
+const _ChapterEndingOverlay = preload("res://scenes/ui/ChapterEndingOverlay.gd")
 var _auction_btn: Button = null           # "Auction" HUD button (always visible in co-op)
 var _auction_overlay: Node = null         # AuctionHouseOverlay instance, nil when closed
 var _auction_cache: Array = []            # last-known listings snapshot
@@ -317,6 +321,9 @@ var _draft_opp_done: bool = false
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
+var _wilderness_camp_node: Node3D = null
+var _scout_ambush_node: Node3D = null
+var _maiteln_node: Node3D = null
 var _shrine_nodes: Array[Node3D] = []
 var _siege_raider_nodes: Array[Node3D] = []
 var _siege_banner: Label = null
@@ -506,6 +513,10 @@ func _ready() -> void:
 				world_map = WorldMap.new(map_name)
 			else:
 				world_map = DungeonGen.generate(map_name, dseed)
+			# Chapter 2 beat 6 (GID-108 / TID-407): the war-camp dungeon door
+			# (assets/maps/marsax_hold.tres) always targets this fixed seed.
+			if map_name == "dungeon_731906":
+				_inject_warcamp_boss(world_map)
 		elif map_name.begins_with("spire_floor_"):
 			if MapRegistry.get_map(map_name) != null:
 				world_map = WorldMap.new(map_name)
@@ -556,6 +567,8 @@ func _ready() -> void:
 		_csm.build_initial_infinite(_inf_ref)
 		if not NetworkManager.is_dedicated_server():
 			_spawn_open_world_rival_enc2()
+			_spawn_wilderness_camp()
+			_spawn_scout_ambush()
 			if map_name == "main":
 				_spawn_return_portal()
 	else:
@@ -572,10 +585,14 @@ func _ready() -> void:
 		if map_name == "player_home":
 			_spawn_player_home_trophies()
 			_spawn_player_home_garden()
+		_check_story_siege_trigger(map_name)
 		_check_siege_spawn(map_name)
 		# Set chapter1_reached_blancogov when the player enters blancogov
 		if map_name == "blancogov" or map_name == "blancogov_temple":
 			SceneManager.save_manager.set_story_flag("chapter1_reached_blancogov")
+		# Chapter 2 beat 2 (GID-108 / TID-407): set on first entry to larik.
+		if map_name == "larik":
+			SceneManager.save_manager.set_story_flag("chapter2_reached_larik")
 
 	# Re-enter any battle that was interrupted (e.g. app quit mid-fight).
 	# Dedicated server has no local player, so this is skipped.
@@ -724,6 +741,9 @@ func _ready() -> void:
 	# before any co-op session is active still reaches this handler once co-op does start.
 	if not GameBus.spire_run_ended.is_connected(_on_spire_run_ended_leaderboard):
 		GameBus.spire_run_ended.connect(_on_spire_run_ended_leaderboard)
+
+	if not NetworkManager.is_dedicated_server():
+		_refresh_maiteln_presence()
 
 	_setup_coop()
 	# Guildhall furnishings (GID-106 / TID-393): must run after _setup_coop() so
@@ -1986,6 +2006,14 @@ func _on_story_flags_snapshot_received(flags: Dictionary) -> void:
 ## Called when GameBus.story_flag_set fires locally (any setter).
 ## Routes the flag change through the authority so the whole party stays in sync.
 func _on_local_story_flag_set(key: String) -> void:
+	# Maiteln's journey presence (GID-108 / TID-403) is gated on several Chapter 1
+	# flags that can flip while this exact map/WorldScene instance stays loaded
+	# (rabbit hunt won, fire learned, temple council resolved) — re-evaluate on
+	# every flag change so he appears/disappears immediately, not just on the
+	# next map load. Runs before the co-op-only early return below: single-player
+	# needs this too.
+	if not NetworkManager.is_dedicated_server():
+		_refresh_maiteln_presence()
 	if not _coop_active or _net_sync == null or not NetworkManager.is_active():
 		return
 	if _coop_story_flag_syncing:
@@ -3725,6 +3753,141 @@ func _find_nearby_scroll(px: float, pz: float, range_dist: float) -> Node3D:
 			return s
 	return null
 
+## First-night wilderness camp (GID-108 / TID-402) — spawns near the player once
+## per open-world load, exactly the same "no fixed position, respawn each fresh
+## load" pattern as _spawn_open_world_rival_enc2(). Gone for good once
+## chapter1_learned_fire is set (the entity frees itself on that transition).
+func _spawn_wilderness_camp() -> void:
+	var sm := SceneManager.save_manager
+	if not sm.get_story_flag("chapter1_left_madrian"):
+		return
+	if sm.get_story_flag("chapter1_learned_fire"):
+		return
+	if _wilderness_camp_node != null and is_instance_valid(_wilderness_camp_node):
+		return
+	var wx: float = _player.position.x + 3.0 * IsoConst.TILE_SIZE
+	var wz: float = _player.position.z - 4.0 * IsoConst.TILE_SIZE
+	var wy: float = get_terrain_height(wx, wz)
+	var node := _WildernessCampScene.instantiate() as Node3D
+	_entity_root.add_child(node)
+	node.position = Vector3(wx, wy, wz)
+	_wilderness_camp_node = node
+
+func _find_nearby_wilderness_camp(px: float, pz: float, range_dist: float) -> Node3D:
+	if not is_instance_valid(_wilderness_camp_node):
+		return null
+	var ddx: float = _wilderness_camp_node.position.x - px
+	var ddz: float = _wilderness_camp_node.position.z - pz
+	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
+		return _wilderness_camp_node
+	return null
+
+## Chapter 2 beat 3 scripted ambush (GID-108 / TID-407) — spawns near the player
+## once per open-world load, same "no fixed position" pattern as
+## _spawn_wilderness_camp(). Gone for good once chapter2_ambush_survived is set
+## (the entity is one-shot: interacting with it immediately starts the battle,
+## and ScriptedBattleRegistry/SceneManager set the completion flag on victory).
+func _spawn_scout_ambush() -> void:
+	var sm := SceneManager.save_manager
+	if not sm.get_story_flag("chapter2_found_letter"):
+		return
+	if sm.get_story_flag("chapter2_ambush_survived"):
+		return
+	if _scout_ambush_node != null and is_instance_valid(_scout_ambush_node):
+		return
+	var wx: float = _player.position.x - 3.0 * IsoConst.TILE_SIZE
+	var wz: float = _player.position.z + 4.0 * IsoConst.TILE_SIZE
+	var wy: float = get_terrain_height(wx, wz)
+	var node := _ScoutAmbushScene.instantiate() as Node3D
+	_entity_root.add_child(node)
+	node.position = Vector3(wx, wy, wz)
+	_scout_ambush_node = node
+
+func _find_nearby_scout_ambush(px: float, pz: float, range_dist: float) -> Node3D:
+	if not is_instance_valid(_scout_ambush_node):
+		return null
+	var ddx: float = _scout_ambush_node.position.x - px
+	var ddz: float = _scout_ambush_node.position.z - pz
+	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
+		return _scout_ambush_node
+	return null
+
+## Chapter 2 beat 6 (GID-108 / TID-407) — DungeonGen has no boss-room concept
+## at all (grepped, confirmed), so the war-camp's boss is injected directly
+## into the freshly loaded WorldMap's enemies list before chunk distribution.
+## Safe to call on every visit (fresh-gen or loaded-from-save): the enemy-spawn
+## pipeline (ChunkRenderer.is_enemy_defeated) already skips already-defeated
+## enemies by id, so re-injecting the same dict each time is harmless once
+## he's dead — his defeated state lives in SaveManager.defeated_enemies, never
+## written back into the dungeon's saved .tres.
+## Placement heuristic (not a hard guarantee): DungeonGen (DW=80, DH=60) lays
+## rooms left-to-right in ROOM_COUNT columns with z centred on DH/2 ± jitter
+## (see DungeonGen._gen_sequential_rooms) — tile (70, 30) sits in the rightmost
+## column (the "final room", deepest from the start-room spawn) at the
+## statistical z-centre every room jitters around. It is not guaranteed to
+## land on carved floor for every seed, but it's a far better bet than a blind
+## coordinate, and this dungeon's seed is fixed (731906) so it's the same
+## outcome every time — verify visually once Godot is available.
+func _inject_warcamp_boss(wm: WorldMap) -> void:
+	if wm == null:
+		return
+	var bx: float = 70.0 * IsoConst.TILE_SIZE
+	var bz: float = 30.0 * IsoConst.TILE_SIZE
+	wm.enemies.append({
+		"id": "martarquas_warleader_boss",
+		"x": bx,
+		"z": bz,
+		"alive": true,
+		"tracking": false,
+		"enemy_type": "martarquas_warleader",
+		"enemy_deck": EnemyRegistry.get_deck("martarquas_warleader"),
+	})
+
+## Maiteln's travelling presence (GID-108 / TID-403). Named story maps always
+## qualify; the open world only qualifies during the TID-402 camp-beat window
+## (not general sandbox presence).
+const _MAITELN_NAMED_MAPS: Array[String] = [
+	"madrian", "maykalene", "farsyth_mansion", "blancogov", "blancogov_temple",
+]
+
+func _maiteln_should_be_present() -> bool:
+	var sm := SceneManager.save_manager
+	if not sm.get_story_flag("story_intro_complete"):
+		return false
+	if sm.get_story_flag("chapter1_complete"):
+		return false
+	if _MAITELN_NAMED_MAPS.has(map_name):
+		return true
+	if map_name == "main":
+		return sm.get_story_flag("chapter1_left_madrian") and not sm.get_story_flag("chapter1_learned_fire")
+	return false
+
+## Spawns/frees the Maiteln follower to match _maiteln_should_be_present().
+## Call on map load and whenever a relevant story flag changes mid-session.
+func _refresh_maiteln_presence() -> void:
+	var should_be_present: bool = _maiteln_should_be_present()
+	if is_instance_valid(_maiteln_node):
+		if not should_be_present:
+			_maiteln_node.queue_free()
+			_maiteln_node = null
+		return
+	_maiteln_node = null
+	if should_be_present and _player != null:
+		var node := _MaitelnFollowerScene.instantiate() as Node3D
+		_entity_root.add_child(node)
+		if node.has_method("setup"):
+			node.setup(_player, self)
+		_maiteln_node = node
+
+func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
+	if not is_instance_valid(_maiteln_node):
+		return null
+	var ddx: float = _maiteln_node.position.x - px
+	var ddz: float = _maiteln_node.position.z - pz
+	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
+		return _maiteln_node
+	return null
+
 func _spawn_named_map_shrines() -> void:
 	if world_map == null:
 		return
@@ -3838,6 +4001,24 @@ func _find_nearby_mailbox(px: float, pz: float, range_dist: float) -> Dictionary
 	return {}
 
 ## Checks if a siege is active for this named map and spawns raiders + siege banner if so.
+## Chapter 2 beat 4 (GID-108 / TID-407) — deterministically starts the same
+## GID-054 siege gauntlet the random daily-chance mechanic uses, the first time
+## the player enters marsax_hold with the story flags in the right state.
+## Reuses 100% of the existing raider/wave/victory machinery; the only new
+## pieces are this trigger and the chapter2_siege_won hook in
+## SceneManager._on_battle_won's siege-victory branch.
+func _check_story_siege_trigger(p_map_name: String) -> void:
+	if p_map_name != "marsax_hold":
+		return
+	var sm := SceneManager.save_manager
+	if not sm.get_story_flag("chapter2_ambush_survived"):
+		return
+	if sm.get_story_flag("chapter2_siege_won"):
+		return
+	if not sm.get_active_siege().is_empty():
+		return
+	sm.start_siege("marsax_hold")
+
 func _check_siege_spawn(p_map_name: String) -> void:
 	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 	if not _SiegeDefs.is_siege_town(p_map_name):
@@ -3863,10 +4044,25 @@ func _spawn_siege_raiders(p_map_name: String, stage: int) -> void:
 		if node == null:
 			continue
 		var world_y: float = get_terrain_height(gate_pos.x + off.x, gate_pos.z + off.y) + 0.5
-		node.position = Vector3(gate_pos.x + off.x, world_y, gate_pos.z + off.y)
-		node.set("enemy_type", enemy_type)
-		_entity_root.add_child(node)
 		var raider_id: String = "siege_raider_%d_%d" % [stage, i]
+		# BID-041 fix: node.set("enemy_type", enemy_type) was a silent no-op —
+		# EnemyNPC has no such property, only enemy_data (set via init_from_data),
+		# so every raider always fell back to "undead_basic" regardless of stage
+		# or town. init_from_data with a proper edata dict (mirrors
+		# _spawn_rival_at's exact pattern) is what actually wires the enemy type.
+		var edata: Dictionary = {
+			"id": raider_id,
+			"x": gate_pos.x + off.x,
+			"z": gate_pos.z + off.y,
+			"alive": true,
+			"tracking": false,
+			"enemy_type": enemy_type,
+			"enemy_deck": EnemyRegistry.get_deck(enemy_type),
+		}
+		node.position = Vector3(gate_pos.x + off.x, world_y, gate_pos.z + off.y)
+		if node.has_method("init_from_data"):
+			node.init_from_data(edata)
+		_entity_root.add_child(node)
 		_enemy_nodes[raider_id] = node
 		_siege_raider_nodes.append(node)
 
@@ -4425,6 +4621,9 @@ func _check_interactions() -> void:
 	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
+	var wilderness_camp := _find_nearby_wilderness_camp(px, pz, IsoConst.INTERACT_RANGE)
+	var scout_ambush := _find_nearby_scout_ambush(px, pz, IsoConst.INTERACT_RANGE)
+	var maiteln := _find_nearby_maiteln(px, pz, IsoConst.INTERACT_RANGE)
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
 	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
 	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
@@ -4435,7 +4634,7 @@ func _check_interactions() -> void:
 	# Landmarks auto-trigger on approach (no button press needed)
 	_check_nearby_landmark(px, pz)
 	var mana_well := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
-	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or shrine != null or digspot != null or not waystone.is_empty() or not mailbox.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
+	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or wilderness_camp != null or scout_ambush != null or maiteln != null or shrine != null or digspot != null or not waystone.is_empty() or not mailbox.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
 	var interact_label: String = "USE"
 	if downed_pid != -1:
 		interact_label = "REVIVE"
@@ -4445,6 +4644,12 @@ func _check_interactions() -> void:
 		interact_label = "OPEN"
 	elif not door.is_empty():
 		interact_label = "ENTER"
+	elif wilderness_camp != null:
+		interact_label = "CAMP"
+	elif scout_ambush != null:
+		interact_label = "ATTACK"
+	elif maiteln != null:
+		interact_label = "TALK"
 	elif not npc.is_empty():
 		match str(npc.get("npc_type", "")):
 			"merchant", "traveling_merchant": interact_label = "SHOP"
@@ -4860,6 +5065,9 @@ func _handle_interact() -> void:
 		if str(npc.get("npc_type", "")) == "trophy_pedestal":
 			_show_trophy_info(npc)
 			return
+		if str(npc.get("npc_type", "")) == "chapter1_king_eldar":
+			_handle_king_eldar_interaction(npc)
+			return
 		if str(npc.get("npc_type", "")) == "stash_chest":
 			_toggle_stash_overlay()
 			return
@@ -4879,6 +5087,21 @@ func _handle_interact() -> void:
 	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
 	if scroll != null and scroll.has_method("interact"):
 		scroll.interact()
+		return
+
+	var wilderness_camp := _find_nearby_wilderness_camp(px, pz, IsoConst.INTERACT_RANGE)
+	if wilderness_camp != null and wilderness_camp.has_method("interact"):
+		wilderness_camp.interact()
+		return
+
+	var scout_ambush := _find_nearby_scout_ambush(px, pz, IsoConst.INTERACT_RANGE)
+	if scout_ambush != null and scout_ambush.has_method("interact"):
+		scout_ambush.interact()
+		return
+
+	var maiteln := _find_nearby_maiteln(px, pz, IsoConst.INTERACT_RANGE)
+	if maiteln != null and maiteln.has_method("interact"):
+		maiteln.interact()
 		return
 
 	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
@@ -5749,6 +5972,52 @@ func _on_session_harvest_submitted(_sender: int, plot_idx: int) -> void:
 func _show_dialogue(text: String) -> void:
 	_world_hud.show_dialogue(text)
 
+## Chapter 1 ending trigger (GID-108 / TID-405). King Eldar's dialogue is entirely
+## custom (npc_type "chapter1_king_eldar" bypasses the generic MapNpc flag_key
+## auto-set path — see WorldScene._handle_interact()) because it needs four
+## states the 2-state MapNpc schema can't express: first meeting / council in
+## session / ending trigger / post-ending epilogue.
+func _handle_king_eldar_interaction(npc: Dictionary) -> void:
+	var sm := SceneManager.save_manager
+	if sm.get_story_flag("chapter1_complete"):
+		# Chapter 2 beat 1 — the council's charge (GID-108 / TID-407): fires once,
+		# the first time King Eldar is spoken to after the Chapter 1 ending.
+		if not sm.get_story_flag("chapter2_charged"):
+			sm.set_story_flag("chapter2_charged")
+			_show_dialogue("Maiteln, Saimtar — you two ride west. Past Larik, to Lord Marsax. Ride swift, and ride true.")
+			return
+		_show_dialogue("The realm owes its warning to a servant boy from Larik. Remember that, all of you.")
+		return
+	if not sm.get_story_flag("chapter1_temple_council"):
+		sm.set_story_flag("chapter1_temple_council")
+		_show_dialogue(str(npc.get("dialogue", "...")))
+		return
+	if sm.get_story_flag("chapter1_spoke_queen") and sm.get_story_flag("chapter1_spoke_scargroth"):
+		_trigger_chapter1_ending()
+		return
+	_show_dialogue("The council has heard the prophecy. We act at dawn.")
+
+## Sets chapter1_complete and shows the three-page ending narration overlay.
+## No scene transition — the player is already in the world (blancogov_temple);
+## "return to the world as a playable epilogue" just means closing the overlay.
+## Setting the flag fires _refresh_maiteln_presence() for free via the existing
+## _on_local_story_flag_set hook (TID-403), hiding the follower with no new code.
+func _trigger_chapter1_ending() -> void:
+	SceneManager.save_manager.set_story_flag("chapter1_complete")
+	var pages: Array[String] = [
+		"The council resolves — the old alliance is re-sworn, riders will carry the warning to every lord.",
+		"Maiteln, quietly proud, tells Saimtar he has earned his place at his side.",
+		"Scargroth pulls Saimtar aside: \"There is a name from Larik in the old registers you should see.\"",
+	]
+	var overlay := _ChapterEndingOverlay.new()
+	overlay.setup(pages)
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var layer := CanvasLayer.new()
+	layer.layer = 999
+	get_tree().root.add_child(layer)
+	layer.add_child(overlay)
+	overlay.closed.connect(func() -> void: layer.queue_free())
+
 func _show_duel_offer_panel(npc: Dictionary) -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
@@ -5860,6 +6129,13 @@ func _on_scroll_collected(scroll_id: String) -> void:
 	var scroll: Dictionary = ScrollRegistry.get_scroll(scroll_id)
 	var title: String = scroll.get("title", scroll_id) if not scroll.is_empty() else scroll_id
 	_show_tip("Lore scroll found: " + title)
+	# Chapter 2 beats 2 & 5 (GID-108 / TID-407): these two scrolls are also story
+	# beats. A generic flag-on-collect field doesn't exist on MapScroll/
+	# ScrollRegistry — two one-off hooks don't justify adding one.
+	if scroll_id == "scroll_larik_letter":
+		SceneManager.save_manager.set_story_flag("chapter2_found_letter")
+	elif scroll_id == "scroll_traitor_seal":
+		SceneManager.save_manager.set_story_flag("chapter2_traitor_seal")
 	if SceneManager.save_manager.collected_scrolls.size() >= ScrollRegistry.SCROLL_COUNT:
 		GameBus.all_scrolls_collected.emit()
 

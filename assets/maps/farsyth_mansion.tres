@@ -34,7 +34,7 @@ tile_z = 20
 dialogue = "The Martarquas tribe rising again? By the gods, this is dire news. I shall send word to Lords Marsax, Ramtorous and Temlar at once. You must warn King Eldar in Blancogov!"
 npc_type = ""
 flag_key = "chapter1_warned_farsyth"
-after_dialogue = "Safe travels, Maiteln. Warn King Eldar swiftly."
+after_dialogue = "Ride hard for Blancogov. Every hour you save may save a village."
 dialogue_group = "The Martarquas tribe rising again? By the gods, this is dire news. I shall send word to Lords Marsax, Ramtorous and Temlar at once. You must all ride to warn King Eldar in Blancogov!"
 
 [sub_resource type="Resource" id="MapScroll_1"]

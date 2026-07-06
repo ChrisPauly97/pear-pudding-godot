@@ -106,3 +106,170 @@ func test_fallback_map_generates_all_entity_types() -> void:
 		"default map should have procedural chests")
 	assert_true(wm.npcs.size() > 0,
 		"default map should have procedural NPCs")
+
+
+# ---------------------------------------------------------------------------
+# Flag-gated dialogue content pass (GID-108 / TID-404)
+# ---------------------------------------------------------------------------
+
+func _npc_by_id(wm: RefCounted, id: String) -> Dictionary:
+	for n in wm.npcs:
+		if str(n.get("id", "")) == id:
+			return n
+	return {}
+
+
+func test_madrian_maiteln_flag_gated_after_recruitment() -> void:
+	var wm: RefCounted = WorldMapScript.new("madrian")
+	var n: Dictionary = _npc_by_id(wm, "npc_1")
+	assert_eq(str(n.get("flag_key", "")), "story_intro_complete")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"The road waits, wee Saimtar. South, past the wilds — Maykalene first.")
+
+
+func test_madrian_master_flag_gated_after_recruitment() -> void:
+	var wm: RefCounted = WorldMapScript.new("madrian")
+	var n: Dictionary = _npc_by_id(wm, "npc_2")
+	assert_eq(str(n.get("flag_key", "")), "story_intro_complete")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"Running off with that old trickster? Good riddance — but your bed will be gone when you crawl back.")
+
+
+func test_maykalene_townsperson_innkeeper_guard_flag_gated_on_warned_farsyth() -> void:
+	var wm: RefCounted = WorldMapScript.new("maykalene")
+	for id in ["npc_1", "npc_2", "npc_3"]:
+		var n: Dictionary = _npc_by_id(wm, id)
+		assert_eq(str(n.get("flag_key", "")), "chapter1_warned_farsyth",
+			"maykalene %s should gate on chapter1_warned_farsyth" % id)
+		assert_true(str(n.get("after_dialogue", "")).length() > 0,
+			"maykalene %s should have an after_dialogue line" % id)
+
+
+func test_farsyth_mansion_lord_farsyth_after_dialogue_matches_story() -> void:
+	var wm: RefCounted = WorldMapScript.new("farsyth_mansion")
+	var n: Dictionary = _npc_by_id(wm, "npc_2")
+	assert_eq(str(n.get("flag_key", "")), "chapter1_warned_farsyth")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"Ride hard for Blancogov. Every hour you save may save a village.")
+
+
+func test_blancogov_gate_guard_flag_gated_on_received_letter() -> void:
+	var wm: RefCounted = WorldMapScript.new("blancogov")
+	var n: Dictionary = _npc_by_id(wm, "npc_1")
+	assert_eq(str(n.get("flag_key", "")), "chapter1_received_letter")
+	assert_eq(str(n.get("dialogue", "")),
+		"Halt! State your business. No entry without authorisation!")
+
+
+func test_blancogov_city_dweller_flag_gated_on_temple_council() -> void:
+	var wm: RefCounted = WorldMapScript.new("blancogov")
+	var n: Dictionary = _npc_by_id(wm, "npc_2")
+	assert_eq(str(n.get("flag_key", "")), "chapter1_temple_council")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"The bells rang thrice — the alliance is called. First time in my lifetime.")
+
+
+# ---------------------------------------------------------------------------
+# Chapter 1 ending (GID-108 / TID-405)
+# ---------------------------------------------------------------------------
+
+func test_blancogov_temple_king_eldar_uses_custom_npc_type() -> void:
+	# King Eldar's dialogue is entirely custom-driven (WorldScene
+	# _handle_king_eldar_interaction) since his 4 narrative states don't fit
+	# the 2-state MapNpc flag_key/after_dialogue schema — flag_key must be
+	# empty so the generic auto-set-on-interact path never fires for him.
+	var wm: RefCounted = WorldMapScript.new("blancogov_temple")
+	var n: Dictionary = _npc_by_id(wm, "npc_1")
+	assert_eq(str(n.get("npc_type", "")), "chapter1_king_eldar")
+	assert_eq(str(n.get("flag_key", "")), "")
+
+
+func test_blancogov_temple_queen_flag_gated_on_spoke_queen() -> void:
+	var wm: RefCounted = WorldMapScript.new("blancogov_temple")
+	var n: Dictionary = _npc_by_id(wm, "npc_2")
+	assert_eq(str(n.get("flag_key", "")), "chapter1_spoke_queen")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"Rest here whenever the road wears you thin, young Saimtar.")
+
+
+func test_blancogov_temple_scargroth_flag_gated_on_spoke_scargroth() -> void:
+	var wm: RefCounted = WorldMapScript.new("blancogov_temple")
+	var n: Dictionary = _npc_by_id(wm, "npc_3")
+	assert_eq(str(n.get("flag_key", "")), "chapter1_spoke_scargroth")
+	assert_eq(str(n.get("after_dialogue", "")),
+		"I've been reading the old registers. There is a name from Larik you should see.")
+
+
+# ---------------------------------------------------------------------------
+# Chapter 2 named map skeletons (GID-108 / TID-406)
+# ---------------------------------------------------------------------------
+
+func test_larik_loads_from_file_not_fallback() -> void:
+	var wm: RefCounted = WorldMapScript.new("larik")
+	assert_false(wm.is_fallback, "larik should load from its .tres, not fallback")
+
+
+func test_larik_has_player_spawn() -> void:
+	var wm: RefCounted = WorldMapScript.new("larik")
+	assert_true(wm.has_player_spawn())
+	assert_eq(wm.player_spawn_x, 50)
+	assert_eq(wm.player_spawn_z, 90)
+
+
+func test_larik_has_two_npcs_one_scroll_two_doors() -> void:
+	var wm: RefCounted = WorldMapScript.new("larik")
+	assert_eq(wm.npcs.size(), 2)
+	assert_eq(wm.scrolls.size(), 1)
+	assert_eq(wm.doors.size(), 2)
+
+
+func test_larik_scroll_is_the_letter() -> void:
+	var wm: RefCounted = WorldMapScript.new("larik")
+	assert_eq(str(wm.scrolls[0].get("scroll_id", "")), "scroll_larik_letter")
+
+
+func test_larik_has_door_to_marsax_hold() -> void:
+	var wm: RefCounted = WorldMapScript.new("larik")
+	var found: bool = false
+	for d in wm.doors:
+		if str(d.get("target_map", "")) == "marsax_hold":
+			found = true
+	assert_true(found, "larik should have a door leading to marsax_hold")
+
+
+func test_marsax_hold_loads_from_file_not_fallback() -> void:
+	var wm: RefCounted = WorldMapScript.new("marsax_hold")
+	assert_false(wm.is_fallback, "marsax_hold should load from its .tres, not fallback")
+
+
+func test_marsax_hold_has_player_spawn() -> void:
+	var wm: RefCounted = WorldMapScript.new("marsax_hold")
+	assert_true(wm.has_player_spawn())
+	assert_eq(wm.player_spawn_x, 50)
+	assert_eq(wm.player_spawn_z, 90)
+
+
+func test_marsax_hold_has_two_npcs_one_scroll_two_doors() -> void:
+	var wm: RefCounted = WorldMapScript.new("marsax_hold")
+	assert_eq(wm.npcs.size(), 2)
+	assert_eq(wm.scrolls.size(), 1)
+	assert_eq(wm.doors.size(), 2)
+
+
+func test_marsax_hold_scroll_is_the_traitor_seal() -> void:
+	var wm: RefCounted = WorldMapScript.new("marsax_hold")
+	assert_eq(str(wm.scrolls[0].get("scroll_id", "")), "scroll_traitor_seal")
+
+
+func test_marsax_hold_has_war_camp_dungeon_door() -> void:
+	# target_map must be "dungeon_<integer>" — WorldScene._ready() parses
+	# everything after "dungeon_" (8 chars) as an int seed via map_name.substr(8).
+	var wm: RefCounted = WorldMapScript.new("marsax_hold")
+	var found: bool = false
+	for d in wm.doors:
+		var target: String = str(d.get("target_map", ""))
+		if target.begins_with("dungeon_"):
+			found = true
+			assert_true(target.substr(8).is_valid_int(),
+				"dungeon door target_map suffix must be a valid integer seed")
+	assert_true(found, "marsax_hold should have a door into the war-camp dungeon")

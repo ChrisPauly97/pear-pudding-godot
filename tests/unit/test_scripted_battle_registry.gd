@@ -28,3 +28,39 @@ func test_scripted_test_has_nonempty_player_deck_order() -> void:
 func test_scripted_test_validates_clean() -> void:
 	var sd := _sb("scripted_test")
 	assert_eq(sd.validate().size(), 0)
+
+
+# ---------------------------------------------------------------------------
+# rabbit_hunt (GID-108 / TID-402)
+# ---------------------------------------------------------------------------
+
+func test_rabbit_hunt_registered_and_valid() -> void:
+	var sd := _sb("rabbit_hunt")
+	assert_ne(sd, null)
+	assert_eq(sd.validate().size(), 0)
+
+
+func test_rabbit_hunt_completion_flag() -> void:
+	var sd := _sb("rabbit_hunt")
+	assert_eq(sd.completion_flag, "chapter1_camp_night")
+
+
+# ---------------------------------------------------------------------------
+# scout_ambush (GID-108 / TID-407)
+# ---------------------------------------------------------------------------
+
+func test_scout_ambush_registered_and_valid() -> void:
+	var sd := _sb("scout_ambush")
+	assert_ne(sd, null)
+	assert_eq(sd.validate().size(), 0)
+
+
+func test_scout_ambush_completion_flag() -> void:
+	var sd := _sb("scout_ambush")
+	assert_eq(sd.completion_flag, "chapter2_ambush_survived")
+
+
+func test_scout_ambush_deck_includes_spell_cards() -> void:
+	var sd := _sb("scout_ambush")
+	assert_true(sd.player_deck_order.has("ember_cinder"))
+	assert_true(sd.player_deck_order.has("dawn_soothing_touch"))

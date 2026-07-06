@@ -21,9 +21,9 @@ entity_id = "npc_1"
 tile_x = 42
 tile_z = 15
 dialogue = "Maiteln! We are glad you came so swiftly. The council is assembling. The Martarquas threat must be answered together."
-npc_type = ""
-flag_key = "chapter1_temple_council"
-after_dialogue = "The council has heard the prophecy. We act at dawn."
+npc_type = "chapter1_king_eldar"
+flag_key = ""
+after_dialogue = ""
 dialogue_group = "Maiteln! We are glad you all came so swiftly. The council is assembling. The Martarquas threat must be answered together."
 
 [sub_resource type="Resource" id="MapNpc_2"]
@@ -33,8 +33,8 @@ tile_x = 58
 tile_z = 15
 dialogue = "Welcome, Maiteln, and your young companion. You are most welcome here. Please take a seat in one of the red satin oak chairs."
 npc_type = ""
-flag_key = ""
-after_dialogue = ""
+flag_key = "chapter1_spoke_queen"
+after_dialogue = "Rest here whenever the road wears you thin, young Saimtar."
 dialogue_group = "Welcome, Maiteln, and your companions. You are all most welcome here. Please take your seats in the red satin oak chairs."
 
 [sub_resource type="Resource" id="MapNpc_3"]
@@ -44,8 +44,8 @@ tile_x = 50
 tile_z = 30
 dialogue = "The letter was urgent for good reason. The prophecy cannot be ignored. All lords must be present before we act."
 npc_type = ""
-flag_key = ""
-after_dialogue = ""
+flag_key = "chapter1_spoke_scargroth"
+after_dialogue = "I've been reading the old registers. There is a name from Larik you should see."
 
 [sub_resource type="Resource" id="MapScroll_1"]
 script = ExtResource("4_mapscroll")

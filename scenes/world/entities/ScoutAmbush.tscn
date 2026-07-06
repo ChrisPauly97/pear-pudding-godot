@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://p5ju94b6y2tq"]
+
+[ext_resource type="Script" path="res://scenes/world/entities/ScoutAmbush.gd" id="1"]
+
+[node name="ScoutAmbush" type="Node3D"]
+script = ExtResource("1")
