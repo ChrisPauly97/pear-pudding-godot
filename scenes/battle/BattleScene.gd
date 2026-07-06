@@ -3239,11 +3239,18 @@ func _build_coop_pve_state() -> void:
 		func(ally_idx: int, ally: PlayerState) -> void:
 			var deck_arr: Array = _coop_ally_decks[ally_idx] if ally_idx < _coop_ally_decks.size() else []
 			var insts: Array[Dictionary] = []
+			var ids: Array[String] = []
 			for inst in deck_arr:
 				if inst is Dictionary:
 					insts.append(inst)
+				elif inst is String:
+					ids.append(inst)
 			if insts.size() > 0:
 				ally.build_deck_from_instances(insts)
+			elif ids.size() > 0:
+				# Plain card-id deck (e.g. a co-op Endless Spire shared draft deck) —
+				# every ally shuffles their own independent draw order from the same ids.
+				ally.build_deck(ids)
 			else:
 				ally.build_deck(fallback)
 			ally.draw_opening_hand(4)

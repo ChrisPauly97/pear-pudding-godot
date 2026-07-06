@@ -1,10 +1,14 @@
 ## Draft-pick overlay shown after each Spire floor victory.
 ##
-## Usage:
+## Usage (single-player):
 ##   var draft := SpireDraftScene.instantiate()
 ##   add_child(draft)
 ##   draft.setup(floor_number)
 ##   draft.picked.connect(_on_draft_picked)   # receives the chosen card_id
+##
+## Usage (co-op alternating draft, GID-106 / TID-390):
+##   draft.setup_coop(floor_number, broadcast_options, is_my_turn, active_picker_name)
+##   if is_my_turn: draft.picked.connect(_submit_coop_spire_draft_choice)
 extends Control
 
 signal picked(card_id: String)
@@ -18,6 +22,14 @@ var _ref: float = 0.0
 var _card_panels: HBoxContainer = null
 var _floor_number: int = 1
 var _draft_logic: RefCounted = null
+
+# Co-op alternating draft (GID-106 / TID-390). _is_coop gates the single-player
+# persistence side effects in _on_pick (the co-op grant path is
+# SceneManager.add_coop_drafted_card, driven by WorldScene, not
+# SaveManager.add_drafted_card / GameBus.spire_card_drafted).
+var _is_coop: bool = false
+var _coop_is_my_turn: bool = false
+var _coop_picker_name: String = ""
 
 func _ready() -> void:
 	mouse_filter = MOUSE_FILTER_STOP
@@ -37,6 +49,18 @@ func setup(floor: int) -> void:
 		pool_templates[id] = CardRegistry.get_template(id)
 	var picks: Array[String] = _draft_logic.generate_picks(floor, rng, pool_templates)
 	_build_ui(picks)
+
+## Co-op entry point (WorldScene._on_spire_draft_start_received): unlike setup(),
+## `options` are pre-broadcast by the authority — never regenerated locally, so
+## every peer renders identical cards. `is_my_turn` gates interactivity: only the
+## active picker's buttons are enabled; everyone else sees a disabled "waiting" banner.
+func setup_coop(floor: int, options: Array[String], is_my_turn: bool, picker_name: String) -> void:
+	_floor_number = floor
+	_draft_logic = SpireDraft.new()  # still needed for card_tier() lookups in _make_card_panel
+	_is_coop = true
+	_coop_is_my_turn = is_my_turn
+	_coop_picker_name = picker_name
+	_build_ui(options)
 
 func _build_ui(picks: Array[String]) -> void:
 	# Dark backdrop
@@ -71,6 +95,16 @@ func _build_ui(picks: Array[String]) -> void:
 	title.add_theme_font_size_override("font_size", int(_ref * 0.038))
 	title.modulate = Color(1.0, 0.88, 0.4)
 	root_vbox.add_child(title)
+
+	# Co-op turn banner: "Your turn!" or "Waiting for <name>…" — every peer sees the
+	# same 3 cards, but only the active picker's buttons are interactive.
+	if _is_coop:
+		var turn_banner := Label.new()
+		turn_banner.text = "Your turn!" if _coop_is_my_turn else "Waiting for %s…" % _coop_picker_name
+		turn_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		turn_banner.add_theme_font_size_override("font_size", int(_ref * 0.026))
+		turn_banner.modulate = Color(0.6, 1.0, 0.6) if _coop_is_my_turn else Color(0.85, 0.85, 0.85)
+		root_vbox.add_child(turn_banner)
 
 	var sep := HSeparator.new()
 	root_vbox.add_child(sep)
@@ -173,18 +207,29 @@ func _make_card_panel(card_id: String) -> Control:
 		spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		vbox.add_child(spacer)
 
-	# Pick button
+	# Pick button — disabled for every peer except the active picker during a co-op round.
 	var pick_btn := Button.new()
 	pick_btn.text = "Pick"
 	pick_btn.custom_minimum_size = Vector2(0.0, _ref * 0.055)
 	pick_btn.add_theme_font_size_override("font_size", int(_ref * 0.023))
 	pick_btn.modulate = tier_color
+	pick_btn.disabled = _is_coop and not _coop_is_my_turn
 	pick_btn.pressed.connect(_on_pick.bind(card_id))
 	vbox.add_child(pick_btn)
 
 	return outer_panel
 
 func _on_pick(card_id: String) -> void:
+	if _is_coop:
+		# Defensive: the button is already disabled for a non-active picker, but
+		# never emit/free on a stray signal. Co-op persistence (SceneManager.
+		# add_coop_drafted_card) is driven by WorldScene after the authority
+		# resolves the pick — this scene never touches SaveManager/GameBus in co-op.
+		if not _coop_is_my_turn:
+			return
+		picked.emit(card_id)
+		queue_free()
+		return
 	SceneManager.save_manager.add_drafted_card(card_id)
 	GameBus.spire_card_drafted.emit(card_id)
 	picked.emit(card_id)

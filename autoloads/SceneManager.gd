@@ -104,6 +104,15 @@ var _current_champion_reward: String = ""
 # Enemy type for the current co-op PvE battle (for achievement tracking)
 var _coop_pve_enemy_type: String = ""
 
+# Co-op Endless Spire run (GID-106 / TID-390). Transient, in-memory only — never
+# persisted to save.json or the session file (mirrors SaveManager.spire_run's shape
+# but lives here because it must survive floor-to-floor map transitions, which
+# destroy/recreate WorldScene). Authoritative on the host; every peer keeps a
+# locally-mirrored copy kept in sync via NetSync broadcasts (same model as
+# WorldScene's _leaderboard_rows/_remote_identities caches). picker_order/picker_idx
+# are only meaningful on the host — clients never read them.
+var _coop_spire_run: Dictionary = {"active": false}
+
 ## Points at the SaveManager autoload so all systems share one instance.
 ## The autoload is registered before SceneManager in project.godot.
 var save_manager: Node
@@ -347,6 +356,16 @@ func exit_map() -> void:
 	if save_manager.is_spire_active() and current_map.begins_with("spire_floor_"):
 		_advance_spire_floor()
 		return
+	# Co-op Endless Spire (GID-106 / TID-391): floor advancement is fully automatic
+	# right after the shared draft resolves (WorldScene._resolve_coop_spire_draft) —
+	# the arena's authored exit door is single-player-only machinery and is never
+	# meant to drive co-op progression. Treat it as an inert no-op rather than
+	# falling through to the empty-map_stack go_to_menu() below. Checked via
+	# NetworkManager (accurate on every peer) rather than is_coop_spire_active()
+	# (only ever true on the host — see that function's doc comment) since any
+	# peer, not just the host, could reach this door.
+	if NetworkManager.is_active() and current_map.begins_with("spire_floor_"):
+		return
 	if map_stack.is_empty():
 		go_to_menu()
 		return
@@ -407,6 +426,16 @@ func _flush_position_save() -> void:
 
 func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	if _state != State.WORLD:
+		return
+	# Co-op Endless Spire (GID-106 / TID-391): the Spire boss is a joint battle for
+	# the whole party, not a solo fight — WorldScene._on_enemy_engaged_coop routes it
+	# to enter_coop_pve_battle instead. Skip here so this handler never races that
+	# routing and starts a solo battle underneath it (see BID-044 for the analogous,
+	# unresolved risk in the pre-existing co-op siege boss path). Checked via
+	# current_map (accurate on every peer) rather than is_coop_spire_active() (only
+	# ever true on the host — see that function's doc comment).
+	if NetworkManager.is_active() and current_map.begins_with("spire_floor_") \
+			and str(enemy_data.get("id", "")) == "spire_enemy":
 		return
 	if save_manager.player_deck.size() < IsoConst.DECK_MIN:
 		GameBus.hud_message_requested.emit("Deck too small — add at least %d cards first." % IsoConst.DECK_MIN)
@@ -689,9 +718,11 @@ func session_token_for_peer(peer_id: int) -> String:
 ## All N allies fight a single shared boss together. The authority (host or dedicated
 ## server) owns the canonical GameState; each client sends intents and renders the
 ## mirror. local_ally_idx is 0 for the host, 1..N-1 for each additional ally client.
-## all_ally_decks is an Array of N Arrays[Dictionary] (deck instances per ally, indexed
-## by ally_idx); only the authority uses all N; clients supply their own at idx 0 of
-## the outer array (the host re-orders by ally_idx).
+## all_ally_decks is an Array of N per-ally deck Arrays, indexed by ally_idx; only
+## the authority uses all N. Each inner Array is either owned card instances
+## (Array[Dictionary], e.g. siege's per-peer decks) or plain card-id Strings (e.g.
+## the co-op Endless Spire's shared draft deck, TID-391 — BattleScene's
+## _build_coop_pve_state branches on element type).
 ## enemy_data is the boss enemy_data dict (same shape as NPC-battle enemy_data).
 func enter_coop_pve_battle(local_ally_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
 	if _state != State.WORLD:
@@ -1657,4 +1688,101 @@ func _restore_spire_entry_point() -> void:
 	else:
 		current_map = "madrian"
 		save_manager.current_map = "madrian"
+
+# ── Co-op Endless Spire (GID-106 / TID-390) ─────────────────────────────────
+# Mirrors the single-player enter_spire/start_spire_run/advance_spire_floor/
+# add_drafted_card/end_spire_run shape above, but entirely transient — see the
+# _coop_spire_run field comment. WorldScene._start_coop_spire() is the only caller
+# of enter_spire_coop(); it is host-only (enforced by the caller, matching
+# _start_dungeon_crawl's defensive precedent).
+
+func is_coop_spire_active() -> bool:
+	return bool(_coop_spire_run.get("active", false))
+
+func get_coop_spire_run() -> Dictionary:
+	return _coop_spire_run
+
+## Starts (or resumes) a co-op Spire run. `picker_order` is the draft turn rotation,
+## built by the caller from currently-connected session tokens (host + peers present
+## at run start — late joiners simply aren't in the rotation, a v1 scope decision
+## mirroring the loot-roll "present = connected" simplification). Broadcasting the
+## map transition and loading the floor locally is the caller's job (reuses the
+## existing recv_map_transition RPC verbatim, exactly like _start_dungeon_crawl) —
+## this function only owns the run's data.
+func enter_spire_coop(picker_order: Array[String] = []) -> String:
+	if is_coop_spire_active():
+		var run: Dictionary = _coop_spire_run
+		var floor: int = int(run.get("floor", 1))
+		var run_seed: int = int(run.get("seed", 0))
+		return "spire_floor_%d_%d" % [floor, run_seed]
+	var seed: int = randi()
+	_coop_spire_run = {
+		"active": true,
+		"floor": 1,
+		"seed": seed,
+		"shared_deck": [],
+		"hero_hp": 30,
+		"picker_order": picker_order.duplicate(),
+		"picker_idx": 0,
+	}
+	return "spire_floor_1_%d" % seed
+
+## Appends a drafted card to the shared run deck (no-op if the run is inactive).
+## Mirrors SaveManager.add_drafted_card.
+func add_coop_drafted_card(card_id: String) -> void:
+	if not is_coop_spire_active():
+		return
+	var deck: Array = _coop_spire_run.get("shared_deck", [])
+	deck.append(card_id)
+	_coop_spire_run["shared_deck"] = deck
+
+## Advances the picker rotation to the next member's turn (mod party size).
+## No-op if the run is inactive or the rotation is empty.
+func advance_coop_spire_picker() -> void:
+	if not is_coop_spire_active():
+		return
+	var order: Array = _coop_spire_run.get("picker_order", [])
+	if order.is_empty():
+		return
+	var idx: int = int(_coop_spire_run.get("picker_idx", 0))
+	_coop_spire_run["picker_idx"] = (idx + 1) % order.size()
+
+## Bumps the run to the next floor (mirrors SaveManager.advance_spire_floor, minus
+## the SaveManager-only enemies_defeated counter, which has no co-op equivalent here).
+func advance_coop_spire_floor() -> void:
+	if not is_coop_spire_active():
+		return
+	_coop_spire_run["floor"] = int(_coop_spire_run.get("floor", 1)) + 1
+
+## Ends the run and returns its final stats (mirrors SaveManager.end_spire_run's
+## return shape, minus the coin-reward/story-flag side effects — those are
+## single-player-save concepts with no session equivalent; TID-391 owns whatever
+## session-scoped reward/leaderboard submission replaces them).
+func end_coop_spire_run() -> Dictionary:
+	var floors_cleared: int = int(_coop_spire_run.get("floor", 1)) - 1
+	var stats: Dictionary = {
+		"floors_cleared": floors_cleared,
+		"seed": int(_coop_spire_run.get("seed", 0)),
+		"shared_deck": (_coop_spire_run.get("shared_deck", []) as Array).duplicate(),
+	}
+	_coop_spire_run = {"active": false}
+	return stats
+
+## Enters a map without pushing the current map onto map_stack (mirrors
+## _advance_spire_floor's pattern above). TID-391 uses this for the co-op Spire's
+## automatic floor-to-floor transitions and the final return to madrian — all
+## fully automatic, one-way moves with no "go back" concept. Using the normal
+## enter_map() for a whole run would leave map_stack permanently polluted with a
+## chain of floor names nothing ever pops (exit_map()'s co-op-spire branch is a
+## deliberate no-op, so they'd never be popped there either).
+func enter_coop_map_no_stack(target_map: String, target_door_id: String = "") -> void:
+	current_map = target_map
+	save_manager.sync_stacks(map_stack, door_stack)
+	save_manager.save()
+	_load_world(target_map, target_door_id)
+
+## Lets a non-host peer overwrite its local mirror wholesale from a host broadcast.
+## Clients never mutate _coop_spire_run directly.
+func set_coop_spire_run_mirror(run: Dictionary) -> void:
+	_coop_spire_run = run.duplicate(true)
 	save_manager.sync_stacks(map_stack, door_stack)

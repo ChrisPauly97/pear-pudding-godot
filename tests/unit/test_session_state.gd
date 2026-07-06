@@ -447,8 +447,10 @@ func test_leaderboards_defaults_to_empty_both_boards() -> void:
 	assert_true(s.leaderboards is Dictionary)
 	assert_true(s.leaderboards.get("spire", null) is Array)
 	assert_true(s.leaderboards.get("coop_clears", null) is Array)
+	assert_true(s.leaderboards.get("coop_spire", null) is Array)
 	assert_true(s.leaderboards["spire"].is_empty())
 	assert_true(s.leaderboards["coop_clears"].is_empty())
+	assert_true(s.leaderboards["coop_spire"].is_empty())
 
 
 func test_record_pve_score_inserts_new_entry() -> void:
@@ -539,14 +541,18 @@ func test_pve_leaderboards_round_trip() -> void:
 	var s := SessionState.new()
 	s.record_pve_score("spire", "tokA", "Ada", 12, 4)
 	s.record_pve_score("coop_clears", "tokB", "Bram", 3, 2)
+	s.record_pve_score("coop_spire", "tokC", "Cato", 6, 5)
 	var restored := SessionState.new()
 	restored.from_dict(s.to_dict())
 	var spire: Array = restored.get_pve_leaderboard("spire")
 	var coop: Array = restored.get_pve_leaderboard("coop_clears")
+	var coop_spire: Array = restored.get_pve_leaderboard("coop_spire")
 	assert_eq(spire.size(), 1)
 	assert_eq(int(spire[0]["value"]), 12)
 	assert_eq(coop.size(), 1)
 	assert_eq(int(coop[0]["value"]), 3)
+	assert_eq(coop_spire.size(), 1)
+	assert_eq(int(coop_spire[0]["value"]), 6)
 
 
 func test_pve_leaderboards_snapshot_shape() -> void:
@@ -555,8 +561,21 @@ func test_pve_leaderboards_snapshot_shape() -> void:
 	var snap: Dictionary = s.get_pve_leaderboards_snapshot()
 	assert_true(snap.has("spire"))
 	assert_true(snap.has("coop_clears"))
+	assert_true(snap.has("coop_spire"))
 	assert_eq((snap["spire"] as Array).size(), 1)
 	assert_true((snap["coop_clears"] as Array).is_empty())
+	assert_true((snap["coop_spire"] as Array).is_empty())
+
+
+func test_coop_spire_leaderboard_value_is_floors_cleared_style() -> void:
+	# TID-391 / BID-031: the coop_spire board's value is a plain floors-cleared
+	# int (mirrors the solo spire board), not an encoded party-size composite.
+	var s := SessionState.new()
+	s.record_pve_score("coop_spire", "tokA", "Ada", 4, 1)
+	s.record_pve_score("coop_spire", "tokA", "Ada", 9, 2)
+	var lb: Array = s.get_pve_leaderboard("coop_spire")
+	assert_eq(lb.size(), 1, "same token updates in place")
+	assert_eq(int(lb[0]["value"]), 9, "better floor count replaces the stored best")
 
 
 func test_migration_v6_backfills_leaderboards_field() -> void:
@@ -599,6 +618,160 @@ func test_pve_leaderboards_garbage_field_falls_back_to_empty_boards() -> void:
 	assert_true(s.leaderboards.get("coop_clears", null) is Array)
 	assert_true(s.get_pve_leaderboard("spire").is_empty())
 	assert_true(s.get_pve_leaderboard("coop_clears").is_empty())
+
+
+func test_migration_v10_backfills_coop_spire_board() -> void:
+	var data: Dictionary = {
+		"version": 9,
+		"session_id": "old",
+		"members": {},
+		"leaderboards": {"spire": [], "coop_clears": [], "night_hunts": []},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_true(s.leaderboards.get("coop_spire", null) is Array)
+	assert_true(s.get_pve_leaderboard("coop_spire").is_empty())
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_migration_v10_preserves_existing_coop_spire_board() -> void:
+	var data: Dictionary = {
+		"version": 9,
+		"session_id": "old",
+		"members": {},
+		"leaderboards": {
+			"spire": [], "coop_clears": [], "night_hunts": [],
+			"coop_spire": [{"token": "t", "name": "N", "value": 4, "day": 1}],
+		},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_eq(s.get_pve_leaderboard("coop_spire").size(), 1)
+	assert_eq(int(s.get_pve_leaderboard("coop_spire")[0]["value"]), 4)
+
+
+# ---------------------------------------------------------------------------
+# Party guildhall (GID-106 / TID-392)
+# ---------------------------------------------------------------------------
+
+func test_guildhall_defaults_to_purchased_and_empty() -> void:
+	var s := SessionState.new()
+	assert_true(s.has_guildhall())
+	assert_true(s.guildhall_state.get("members_inside", null) is Array)
+	assert_true(s.guildhall_state["members_inside"].is_empty())
+
+
+func test_guildhall_state_round_trip() -> void:
+	var s := SessionState.new()
+	s.guildhall_state["members_inside"] = ["tokA", "tokB"]
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
+	assert_true(restored.has_guildhall())
+	assert_eq(restored.guildhall_state["members_inside"], ["tokA", "tokB"])
+
+
+func test_guildhall_state_garbage_field_falls_back_to_defaults() -> void:
+	var data: Dictionary = {
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"guildhall_state": "not-a-dict",
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_true(s.has_guildhall(), "purchased always defaults true, even from garbage input")
+	assert_true(s.guildhall_state["members_inside"].is_empty())
+	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
+	assert_true(s.guildhall_state["plants"].is_empty())
+
+
+func test_guildhall_garden_plots_default_to_three_empty_slots() -> void:
+	var s := SessionState.new()
+	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
+	for plot in s.guildhall_state["garden_plots"]:
+		assert_true((plot as Dictionary).is_empty())
+	assert_true(s.guildhall_state["plants"].is_empty())
+
+
+func test_guildhall_garden_state_round_trip() -> void:
+	var s := SessionState.new()
+	s.guildhall_state["garden_plots"][1] = {"seed_id": "sunpetal", "planted_day": 4}
+	s.guildhall_state["plants"] = {"sunpetal_bloom": 3}
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
+	assert_eq(restored.guildhall_state["garden_plots"][1], {"seed_id": "sunpetal", "planted_day": 4})
+	assert_true((restored.guildhall_state["garden_plots"][0] as Dictionary).is_empty())
+	assert_eq(int(restored.guildhall_state["plants"]["sunpetal_bloom"]), 3)
+
+
+func test_guildhall_garden_plots_padded_and_truncated_to_three() -> void:
+	var s := SessionState.new()
+	s.from_dict({
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"guildhall_state": {"purchased": true, "members_inside": [], "garden_plots": [{}], "plants": {}},
+	})
+	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
+	var s2 := SessionState.new()
+	s2.from_dict({
+		"version": SessionState.CURRENT_SESSION_VERSION,
+		"guildhall_state": {"purchased": true, "members_inside": [],
+			"garden_plots": [{}, {}, {}, {"seed_id": "extra"}], "plants": {}},
+	})
+	assert_eq(s2.guildhall_state["garden_plots"].size(), 3)
+
+
+func test_migration_v11_backfills_guildhall_state() -> void:
+	var data: Dictionary = {
+		"version": 10,
+		"session_id": "old",
+		"members": {},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_true(s.has_guildhall())
+	assert_true(s.guildhall_state.get("members_inside", null) is Array)
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_migration_v11_preserves_existing_guildhall_state() -> void:
+	var data: Dictionary = {
+		"version": 10,
+		"session_id": "old",
+		"members": {},
+		"guildhall_state": {"purchased": true, "members_inside": ["tokC"]},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_eq(s.guildhall_state["members_inside"], ["tokC"])
+
+
+func test_migration_v12_backfills_garden_plots_and_plants() -> void:
+	var data: Dictionary = {
+		"version": 11,
+		"session_id": "old",
+		"members": {},
+		"guildhall_state": {"purchased": true, "members_inside": []},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_eq(s.guildhall_state["garden_plots"].size(), 3)
+	assert_true(s.guildhall_state["plants"].is_empty())
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_migration_v12_preserves_existing_garden_plots_and_plants() -> void:
+	var data: Dictionary = {
+		"version": 11,
+		"session_id": "old",
+		"members": {},
+		"guildhall_state": {
+			"purchased": true, "members_inside": [],
+			"garden_plots": [{"seed_id": "sunpetal", "planted_day": 2}, {}, {}],
+			"plants": {"sunpetal_bloom": 5},
+		},
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_eq(s.guildhall_state["garden_plots"][0], {"seed_id": "sunpetal", "planted_day": 2})
+	assert_eq(int(s.guildhall_state["plants"]["sunpetal_bloom"]), 5)
 
 
 # ---------------------------------------------------------------------------

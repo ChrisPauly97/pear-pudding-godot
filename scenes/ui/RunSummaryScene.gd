@@ -5,6 +5,18 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 # Set before adding to tree to show Spire-specific stats instead of session stats.
 var spire_stats: Dictionary = {}
 
+# Set before adding to tree (GID-106 / TID-391) to show the co-op Endless Spire
+# run summary instead: {floors_cleared, party_size, roster: Array[String]}. Used
+# when this scene is instantiated as a WorldScene child overlay rather than via
+# change_scene_to_node — the co-op session stays alive underneath.
+var coop_stats: Dictionary = {}
+
+## Emitted only in coop mode when the player presses "Continue" (there is no
+## "Return to Menu" for a co-op run — leaving the world entirely isn't the right
+## action while the shared session is still live). The caller (WorldScene) does
+## the actual shared map transition back to madrian.
+signal continue_pressed
+
 var _vh: float = 0.0
 var _vw: float = 0.0
 var _ref: float = 0.0
@@ -13,7 +25,9 @@ func _ready() -> void:
 	_vh = get_viewport().get_visible_rect().size.y
 	_vw = get_viewport().get_visible_rect().size.x
 	_ref = minf(_vh, _vw)
-	if not spire_stats.is_empty():
+	if not coop_stats.is_empty():
+		_build_coop_spire_ui()
+	elif not spire_stats.is_empty():
 		_build_spire_ui()
 	else:
 		_build_ui()
@@ -243,3 +257,107 @@ func _build_spire_ui() -> void:
 	menu_btn.add_theme_font_size_override("font_size", int(_ref * 0.028))
 	menu_btn.pressed.connect(_on_menu)
 	btn_wrap.add_child(menu_btn)
+
+## Co-op Endless Spire run summary (GID-106 / TID-391). Shown as a WorldScene
+## child overlay (never change_scene_to_node — that would exit the whole co-op
+## session). "Continue" replaces "Return to Menu": the shared session stays
+## alive and the party heads back to madrian together.
+func _build_coop_spire_ui() -> void:
+	var bg := ColorRect.new()
+	bg.color = Color(0.06, 0.04, 0.12, 1.0)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
+
+	var panel_w: float = minf(_vw * 0.88, _vh * 0.72)
+	var panel_h: float = _vh * 0.80
+
+	var outer := PanelContainer.new()
+	outer.custom_minimum_size = Vector2(panel_w, panel_h)
+	outer.size = Vector2(panel_w, panel_h)
+	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
+	add_child(outer)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left",   int(_vw * 0.025))
+	margin.add_theme_constant_override("margin_right",  int(_vw * 0.025))
+	margin.add_theme_constant_override("margin_top",    int(_ref * 0.025))
+	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
+	outer.add_child(margin)
+
+	var root_vbox := VBoxContainer.new()
+	root_vbox.add_theme_constant_override("separation", int(_ref * 0.016))
+	margin.add_child(root_vbox)
+
+	var floors_cleared: int = int(coop_stats.get("floors_cleared", 0))
+
+	var title := Label.new()
+	title.text = "Party Endless Spire"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", int(_ref * 0.048))
+	title.modulate = Color(0.75, 0.5, 1.0)
+	root_vbox.add_child(title)
+
+	var subtitle := Label.new()
+	subtitle.text = "Floor %d" % floors_cleared if floors_cleared > 0 else "The party fell before the first floor"
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", int(_ref * 0.028))
+	subtitle.modulate = Color(0.85, 0.85, 0.85)
+	root_vbox.add_child(subtitle)
+
+	root_vbox.add_child(HSeparator.new())
+
+	var stat_rows: Array = [
+		["Floors Cleared", str(floors_cleared)],
+		["Party Size", str(int(coop_stats.get("party_size", 1)))],
+	]
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", int(_vw * 0.04))
+	grid.add_theme_constant_override("v_separation", int(_ref * 0.012))
+	root_vbox.add_child(grid)
+	for row: Array in stat_rows:
+		var key_lbl := Label.new()
+		key_lbl.text = str(row[0])
+		key_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
+		key_lbl.modulate = Color(0.75, 0.75, 0.75)
+		grid.add_child(key_lbl)
+
+		var val_lbl := Label.new()
+		val_lbl.text = str(row[1])
+		val_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
+		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		grid.add_child(val_lbl)
+
+	var roster: Array = coop_stats.get("roster", [])
+	if roster.size() > 0:
+		root_vbox.add_child(HSeparator.new())
+		var roster_header := Label.new()
+		roster_header.text = "The Party"
+		roster_header.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		roster_header.modulate = Color(0.75, 0.75, 0.75)
+		root_vbox.add_child(roster_header)
+
+		var names_vbox2 := VBoxContainer.new()
+		names_vbox2.add_theme_constant_override("separation", int(_ref * 0.006))
+		root_vbox.add_child(names_vbox2)
+		for member_name in roster:
+			var name_lbl := Label.new()
+			name_lbl.text = "  • %s" % str(member_name)
+			name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
+			names_vbox2.add_child(name_lbl)
+
+	root_vbox.add_child(HSeparator.new())
+
+	var spacer2 := Control.new()
+	spacer2.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root_vbox.add_child(spacer2)
+
+	var btn_wrap2 := CenterContainer.new()
+	root_vbox.add_child(btn_wrap2)
+
+	var continue_btn := Button.new()
+	continue_btn.text = "Continue"
+	continue_btn.custom_minimum_size = Vector2(_ref * 0.32, _ref * 0.07)
+	continue_btn.add_theme_font_size_override("font_size", int(_ref * 0.028))
+	continue_btn.pressed.connect(func() -> void: continue_pressed.emit())
+	btn_wrap2.add_child(continue_btn)
