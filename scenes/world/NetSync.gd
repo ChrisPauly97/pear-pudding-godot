@@ -186,6 +186,24 @@ func recv_story_flags_snapshot(flags: Dictionary) -> void:
 		world_scene._on_story_flags_snapshot_received(flags)
 
 
+## Authority → all: a chapter-ending/cliffhanger narration overlay should show now,
+## with an optional story flag to set when it's closed. Reliable — a one-shot
+## cinematic beat, not worth losing to an unreliable channel.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_narration_overlay(pages: Array, title: String, completion_flag: String) -> void:
+	if world_scene != null and world_scene.has_method("_on_narration_overlay_received"):
+		world_scene._on_narration_overlay_received(pages, title, completion_flag)
+
+
+## Authority → client: Maiteln's follower position, low-Hz (mirrors recv_avatar).
+## payload is [x: float, z: float, map_name: String] — the map is carried so
+## receivers can apply the CLAUDE.md cross-map-ghost filter (GID-096/TID-352).
+@rpc("any_peer", "unreliable_ordered", "call_remote")
+func recv_maiteln_state(payload: Array) -> void:
+	if world_scene != null and world_scene.has_method("_on_maiteln_state_received"):
+		world_scene._on_maiteln_state_received(payload)
+
+
 # ── Rally waystones (GID-105 / TID-388) ──────────────────────────────────────
 
 ## Rallying peer → target peer: "I'm rallying to you" hero-moment notice. Reliable —

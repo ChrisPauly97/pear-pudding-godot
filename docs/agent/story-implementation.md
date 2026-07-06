@@ -165,10 +165,12 @@ processing and rendering with zero extra code.
 - The static madrian Maiteln NPC (fixed recruitment dialogue from the map file) is untouched;
   the follower can briefly coexist with it between recruiting and leaving madrian, since the
   research notes explicitly include madrian in the follower's map list.
-- Co-op: this is a **solo-only** follower — each client renders their own local instance
-  independently, not synced. TID-408 (per its design rule 4) is the task that will replace this
-  with a single authority-owned, network-synced Maiteln (mirroring `RemotePlayer` avatar sync,
-  `map_name` carried in the payload).
+- Co-op (fixed by GID-108 / TID-408): the follower now has a `networked` mode — the co-op
+  authority's copy still runs the follow-the-player logic above and broadcasts its position;
+  every other peer's copy is a passive puppet (`set_net_state`) that lerps toward the received
+  `[x, z, map_name]` and is hidden/shown by the map filter, so there is exactly one Maiteln per
+  session instead of one independent copy per client. See `docs/agent/multiplayer-coop.md`
+  "Story Arc Co-op Compatibility (GID-108 / TID-408)" for the full design.
 
 ### Chapter 1 Ending (GID-108 / TID-405)
 
@@ -285,10 +287,15 @@ Every beat reuses an existing mechanism rather than building a parallel one:
 **Not implemented (per research notes, explicitly deferred):** an Isfig Chapter 2 cameo — noted
 for a future goal.
 
-**Co-op:** none of the above has co-op arbitration — every flag site uses the same unwrapped
-`SceneManager.save_manager.set_story_flag()` path every Chapter 1 flag already uses. TID-408 is
-the task that adds shared-flag arbitration and joint-battle seating across all of Chapters 1 & 2
-at once.
+**Co-op (GID-108 / TID-408):** every flag above rides the shared-flag arbitration for free (all
+use the ordinary `set_story_flag()` path GID-098/TID-356 already arbitrates). Three real gaps
+were found and fixed: the cliffhanger overlay now broadcasts to the whole party instead of only
+the winning client (`GameBus.narration_overlay_requested`), the marsax_hold story siege is now
+host-resolved instead of every peer starting a private local siege, and the war-camp boss fight
+was confirmed to already share correctly via the generic co-op door-transition + enemy
+engage-lock machinery (no joint multi-seat battle — a documented v1 fallback, same shape as the
+tutorial-battle fallback used elsewhere in this goal). See `docs/agent/multiplayer-coop.md`
+"Story Arc Co-op Compatibility (GID-108 / TID-408)" for the full breakdown.
 
 ---
 

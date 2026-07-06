@@ -93,11 +93,19 @@ func test_event_kinds_are_distinct() -> void:
 		WorldObjectSync.EV_ENEMY_REMOVED,
 		WorldObjectSync.EV_ENEMY_DEFEATED,
 		WorldObjectSync.EV_CHEST_OPENED,
+		WorldObjectSync.EV_SCROLL_COLLECTED,
 	]
 	var seen: Array = []
 	for k in kinds:
 		assert_does_not_have(seen, k, "duplicate event kind %s" % k)
 		seen.append(k)
+
+
+func test_event_scroll_collected_kind() -> void:
+	var d: Dictionary = WorldObjectSync.decode_event(
+		WorldObjectSync.encode_event(WorldObjectSync.EV_SCROLL_COLLECTED, "scroll_larik_letter"))
+	assert_eq(str(d["kind"]), "scroll_collected")
+	assert_eq(str(d["id"]), "scroll_larik_letter")
 
 
 # ---------------------------------------------------------------------------
@@ -114,18 +122,22 @@ func test_snapshot_round_trip() -> void:
 	assert_has(removed, "orc_2")
 	assert_eq(opened.size(), 1)
 	assert_has(opened, "dc_1")
+	# 3rd element omitted by the caller: defaults to empty (GID-108 / TID-408).
+	assert_eq((d["collected_scrolls"] as Array).size(), 0)
 
 
 func test_snapshot_empty_round_trip() -> void:
 	var d: Dictionary = WorldObjectSync.decode_snapshot(WorldObjectSync.encode_snapshot([], []))
 	assert_eq((d["removed_enemies"] as Array).size(), 0)
 	assert_eq((d["opened_objects"] as Array).size(), 0)
+	assert_eq((d["collected_scrolls"] as Array).size(), 0)
 
 
 func test_snapshot_decode_garbage_defaults() -> void:
 	var d: Dictionary = WorldObjectSync.decode_snapshot([])
 	assert_eq((d["removed_enemies"] as Array).size(), 0)
 	assert_eq((d["opened_objects"] as Array).size(), 0)
+	assert_eq((d["collected_scrolls"] as Array).size(), 0)
 
 
 func test_snapshot_coerces_ids_to_strings() -> void:
@@ -135,3 +147,13 @@ func test_snapshot_coerces_ids_to_strings() -> void:
 		WorldObjectSync.encode_snapshot([123, "x"], [456]))
 	assert_has(d["removed_enemies"], "123")
 	assert_has(d["opened_objects"], "456")
+
+
+func test_snapshot_includes_collected_scrolls() -> void:
+	var payload: Array = WorldObjectSync.encode_snapshot(
+		["orc_1"], ["dc_1"], ["scroll_larik_letter", "scroll_traitor_seal"])
+	var d: Dictionary = WorldObjectSync.decode_snapshot(payload)
+	var scrolls: Array = d["collected_scrolls"]
+	assert_eq(scrolls.size(), 2)
+	assert_has(scrolls, "scroll_larik_letter")
+	assert_has(scrolls, "scroll_traitor_seal")

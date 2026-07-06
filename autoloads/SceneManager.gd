@@ -24,7 +24,6 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
 const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
-const _ChapterEndingOverlay = preload("res://scenes/ui/ChapterEndingOverlay.gd")
 const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 const _CoopNightHunts = preload("res://game_logic/CoopNightHunts.gd")
@@ -1203,22 +1202,17 @@ func _on_battle_won(result: Dictionary) -> void:
 		save_manager.set_story_flag("chapter2_warcamp_cleared")
 		_show_chapter2_cliffhanger()
 
+## Co-op (GID-108 / TID-408, design rule 3): routed through GameBus so WorldScene
+## (the sole listener) both shows it locally and broadcasts it to the rest of the
+## party in a co-op session, instead of building the overlay directly here where
+## no _net_sync reference exists.
 func _show_chapter2_cliffhanger() -> void:
 	var pages: Array[String] = [
 		"By firelight, Maiteln reads the stolen muster plans: the tribe will not strike Blancogov. They march on the lords, one by one, before the alliance can gather.",
 		"Maiteln, grim: every route, every garrison, every weakness — written in a steady court hand. The traitor knows the alliance's every move.",
 		"And beneath the last page, in a script Saimtar knew like his own name — a list of the taken. His parents' names were not struck through.",
 	]
-	var overlay := _ChapterEndingOverlay.new()
-	overlay.setup(pages, "Chapter 2 Complete")
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var layer := CanvasLayer.new()
-	layer.layer = 999
-	get_tree().root.add_child(layer)
-	layer.add_child(overlay)
-	overlay.closed.connect(func() -> void:
-		layer.queue_free()
-		save_manager.set_story_flag("chapter2_complete"))
+	GameBus.narration_overlay_requested.emit(pages, "Chapter 2 Complete", "chapter2_complete")
 
 func _on_battle_lost() -> void:
 	if _state != State.BATTLE:

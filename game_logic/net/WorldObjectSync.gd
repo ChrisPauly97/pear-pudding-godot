@@ -11,6 +11,7 @@ const EV_ENEMY_ENGAGED: String = "enemy_engaged"     # client → authority: I e
 const EV_ENEMY_REMOVED: String = "enemy_removed"     # authority → peers: drop enemy id
 const EV_ENEMY_DEFEATED: String = "enemy_defeated"   # → authority: persist enemy id as defeated
 const EV_CHEST_OPENED: String = "chest_opened"       # opener/authority: chest id is now open
+const EV_SCROLL_COLLECTED: String = "scroll_collected"  # collector/authority: story scroll id collected (GID-108 / TID-408)
 
 
 ## Pack a discrete world event into [kind, id].
@@ -25,19 +26,24 @@ static func decode_event(payload: Array) -> Dictionary:
 	return {"kind": str(payload[0]), "id": str(payload[1])}
 
 
-## Pack a late-join world snapshot: the set of already-removed enemy ids and
-## already-opened object ids. Layout: [removed_enemy_ids, opened_object_ids].
-static func encode_snapshot(removed_enemies: Array, opened_objects: Array) -> Array:
-	return [_to_str_array(removed_enemies), _to_str_array(opened_objects)]
+## Pack a late-join world snapshot: the set of already-removed enemy ids,
+## already-opened object ids, and already-collected story scroll ids (GID-108 /
+## TID-408). Layout: [removed_enemy_ids, opened_object_ids, collected_scroll_ids].
+## The 3rd element is optional on the wire (older senders omit it); decode_snapshot
+## defaults it to [] so this stays backward compatible.
+static func encode_snapshot(removed_enemies: Array, opened_objects: Array, collected_scrolls: Array = []) -> Array:
+	return [_to_str_array(removed_enemies), _to_str_array(opened_objects), _to_str_array(collected_scrolls)]
 
 
-## Unpack a snapshot into {removed_enemies: Array[String], opened_objects: Array[String]}.
+## Unpack a snapshot into {removed_enemies, opened_objects, collected_scrolls} (each Array[String]).
 static func decode_snapshot(payload: Array) -> Dictionary:
 	var removed: Array = payload[0] if payload.size() > 0 and payload[0] is Array else []
 	var opened: Array = payload[1] if payload.size() > 1 and payload[1] is Array else []
+	var scrolls: Array = payload[2] if payload.size() > 2 and payload[2] is Array else []
 	return {
 		"removed_enemies": _to_str_array(removed),
 		"opened_objects": _to_str_array(opened),
+		"collected_scrolls": _to_str_array(scrolls),
 	}
 
 
