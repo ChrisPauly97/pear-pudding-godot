@@ -119,13 +119,15 @@ func is_ally(idx: int) -> bool:
 	return coop_battle and idx >= 0 and idx < players.size() - 1
 
 ## Returns the alive ally PlayerState with the lowest hero HP.
-## Prefers the first alive ally if all have equal HP (or none is alive).
+## Prefers any alive ally over a dead one, then the lowest HP among alive allies.
+## Falls back to players[0] only if the whole party is dead (shouldn't happen
+## mid-battle — that condition ends the game, see is_game_over()).
 func _get_lowest_hp_ally() -> PlayerState:
 	var result: PlayerState = players[0]
 	var lowest: int = players[0].hero.health
 	for i in range(players.size() - 1):
 		var p: PlayerState = players[i]
-		if p.hero.is_alive() and p.hero.health < lowest:
+		if p.hero.is_alive() and (not result.hero.is_alive() or p.hero.health < lowest):
 			lowest = p.hero.health
 			result = p
 	return result

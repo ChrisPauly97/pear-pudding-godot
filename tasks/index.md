@@ -114,6 +114,7 @@
 | [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | done (headless test run unverified — no Godot binary in sandbox) | 10 / 10 |
 | [GID-109](goals/GID-109--keybindings-settings/goal.md) | Desktop Keybindings Settings Page | done | 2 / 2 |
 | [GID-110](goals/GID-110--mailbox-overflow-storage/goal.md) | Mailbox — Overflow Storage for Bag-Full Card Rewards | done (headless import + test run unverified in-sandbox — see goal.md note) | 3 / 3 |
+| [GID-111](goals/GID-111--coop-boss-targeting-fix/goal.md) | Co-op Boss Targeting Fix — Dead Ally Retargeting | done (headless test run unverified in-sandbox — see goal.md note) | 1 / 1 |
 
 ## Backlog
 
@@ -139,7 +140,6 @@
 | [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | GID-096 |
 | [BID-025](backlog/BID-025--opponent-champion-stats-host-only.md) | Opponent PvP champion stats (wins/losses/streak) recorded host-only; non-host members show 0 in the leaderboard | design-inconsistency | GID-102 / TID-370 |
 | [BID-027](backlog/BID-027--coop-pve-boss-ai-turn-hardcoded-index.md) | Co-op PvE boss AI turn execution hardcodes player index 1 (board-diff/emergence/weather bookkeeping only) | code-smell | GID-102 / TID-371 |
-| [BID-028](backlog/BID-028--coop-pve-lowest-hp-ally-stuck-on-dead.md) | `_get_lowest_hp_ally` can get stuck targeting a dead ally instead of retargeting to an alive one | code-smell | GID-102 / TID-371 |
 | [BID-029](backlog/BID-029--wager-challenge-button-missing.md) | `_request_wager_challenge` has zero callers — no UI exists to *initiate* a custom-ante wager, only to accept one | code-smell | GID-102 / TID-373 |
 | [BID-030](backlog/BID-030--trading-unique-check-not-enforced.md) | Card trading never actually enforces the unique-card block despite docs/task notes claiming it does | logic-gap | GID-102 / TID-376 |
 | [BID-031](backlog/BID-031--coop-clear-value-lacks-boss-tier-and-timing.md) | Co-op boss clear leaderboard value has no boss-tier or timing signal, using party size as a low-signal proxy | design-gap | GID-102 / TID-379 |
@@ -167,6 +167,7 @@
 | [BID-022](archive/backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md) | Spec lists multiplayer as out-of-scope, but co-op + PvP shipped | spec-gap | Resolved by GID-094 / TID-344 |
 | [BID-023](archive/backlog/BID-023--head-did-not-compile-godot46.md) | Branch HEAD did not compile under Godot 4.6 (`//` in TextureGen, 2-arg `Object.get()` in CardRegistry) | code-smell | Resolved by GID-094 / TID-341 |
 | [BID-026](archive/backlog/BID-026--coop-pve-host-attack-wrong-opponent-index.md) | Co-op PvE host/ally attacks resolved against the wrong opponent index | code-smell | Resolved by GID-102 / TID-371 |
+| [BID-028](archive/backlog/BID-028--coop-pve-lowest-hp-ally-stuck-on-dead.md) | `_get_lowest_hp_ally` can get stuck targeting a dead ally instead of retargeting to an alive one | code-smell | Resolved by GID-111 / TID-414 |
 | [BID-039](archive/backlog/BID-039--session-days-elapsed-never-advances.md) | SessionState.days_elapsed never advanced by any co-op tick | gap (feature dependency) | Resolved by GID-103 / TID-382 |
 | [BID-041](archive/backlog/BID-041--siege-raiders-set-enemy-type-noop.md) | Single-player siege raiders' `node.set("enemy_type", ...)` is a silent no-op (no such property) — every raider always fights as fallback "undead_basic" regardless of stage | code-smell | Resolved by GID-108 / TID-407 |
 

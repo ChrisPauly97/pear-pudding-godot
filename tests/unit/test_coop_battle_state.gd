@@ -156,6 +156,16 @@ func test_boss_targets_lowest_hp_ally() -> void:
 	assert_eq(gs.opponent().player_id, gs.players[0].player_id)
 
 
+func test_boss_retargets_away_from_dead_ally() -> void:
+	var gs := _coop(2)
+	# Ally 0 is dead; ally 1 is alive. The boss must not get stuck on the dead ally.
+	gs.players[0].hero.health = 0
+	gs.players[1].hero.health = 20
+	gs.end_turn()
+	gs.end_turn()  # boss turn
+	assert_eq(gs.opponent().player_id, gs.players[1].player_id)
+
+
 # ---------------------------------------------------------------------------
 # Win / loss conditions
 # ---------------------------------------------------------------------------

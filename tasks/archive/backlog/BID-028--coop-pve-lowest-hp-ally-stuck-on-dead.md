@@ -1,4 +1,9 @@
-# BID-028: `_get_lowest_hp_ally` can get stuck targeting a dead ally (not fixed)
+# BID-028: `_get_lowest_hp_ally` can get stuck targeting a dead ally (resolved)
+
+**Resolved by:** GID-111 / TID-414 — `_get_lowest_hp_ally()` now mirrors
+`_get_lowest_hp_enemy_team_member`'s dead-vs-alive preference logic; regression
+test `test_boss_retargets_away_from_dead_ally` added to
+`tests/unit/test_coop_battle_state.gd`.
 
 **Category:** code-smell
 **Discovered During:** GID-102 / TID-371 (2v2 team duels) — while writing the parallel
