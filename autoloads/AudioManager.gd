@@ -1,5 +1,7 @@
 extends Node
 
+const _SfxGen = preload("res://game_logic/SfxGen.gd")
+
 # Ambient sound paths per biome (index matches IsoConst biome IDs / InfiniteWorldGen biomes).
 # Placeholder paths: gracefully skipped if the file doesn't exist.
 const AMBIENCE_PATHS: Array[String] = [
@@ -20,11 +22,16 @@ const SFX_PATHS: Dictionary = {
 	"battle_win":   "res://assets/audio/sfx/battle_win.wav",
 	"battle_lose":  "res://assets/audio/sfx/battle_lose.wav",
 	"enemy_engage": "res://assets/audio/sfx/enemy_engage.wav",
+	"enemy_alert":  "res://assets/audio/sfx/enemy_alert.wav",
 	"chest_open":   "res://assets/audio/sfx/chest_open.wav",
 	"scroll_pickup": "res://assets/audio/sfx/scroll_pickup.wav",
 	"door_enter":   "res://assets/audio/sfx/door_enter.wav",
 	"footstep":       "res://assets/audio/sfx/footstep.wav",
 	"nightfall_ambient": "res://assets/audio/sfx/nightfall.wav",
+	"ui_click":     "res://assets/audio/sfx/ui_click.wav",
+	"land":         "res://assets/audio/sfx/land.wav",
+	"dig_success":  "res://assets/audio/sfx/dig_success.wav",
+	"waystone_travel": "res://assets/audio/sfx/waystone_travel.wav",
 }
 
 var _players: Array[AudioStreamPlayer] = []
@@ -49,6 +56,12 @@ func _ready() -> void:
 			var stream := load(path) as AudioStream
 			if stream != null:
 				_sfx_cache[key] = stream
+	# Any key without a real file asset falls back to a procedurally
+	# synthesized sound (game_logic/SfxGen.gd) — see CLAUDE.md "Android:
+	# Always preload()" and TID-425: no external audio assets required.
+	for key: String in _SfxGen.all_keys():
+		if not _sfx_cache.has(key):
+			_sfx_cache[key] = _SfxGen.get_sfx(key)
 	for i in _POOL_SIZE:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -175,11 +188,11 @@ func set_ambience(biome_id: int) -> void:
 	if biome_id < 0 or biome_id >= AMBIENCE_PATHS.size():
 		return
 	var path: String = AMBIENCE_PATHS[biome_id]
-	if not ResourceLoader.exists(path):
-		return
-	var stream: AudioStream = load(path) as AudioStream
+	var stream: AudioStream = null
+	if ResourceLoader.exists(path):
+		stream = load(path) as AudioStream
 	if stream == null:
-		return
+		stream = _SfxGen.get_ambience(biome_id)
 	new_p.stream = stream
 	new_p.volume_db = linear_to_db(0.0001)
 	new_p.play()
