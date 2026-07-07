@@ -36,7 +36,7 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ##       guildhall session home base (GID-106 / TID-392).
 ## v12 — adds `garden_plots`/`plants` to `guildhall_state` for the shared
 ##       guildhall garden (GID-106 / TID-393).
-const CURRENT_SESSION_VERSION: int = 12
+const CURRENT_SESSION_VERSION: int = 13
 
 ## Cap applied to each PvE leaderboard array by record_pve_score (top N kept).
 const PVE_LEADERBOARD_CAP: int = 20
@@ -71,6 +71,9 @@ var weather_id: String = ""
 var defeated_enemies: Array = []
 var opened_chests: Array = []
 var story_flags: Dictionary = {}
+# Story scrolls collected by any session member (GID-108 / TID-408) — mirrors
+# opened_chests exactly: first collector's pickup is shared to the whole party.
+var collected_scrolls: Array = []
 
 # --- Roster: token -> character record dict ---------------------------------
 var members: Dictionary = {}
@@ -153,6 +156,7 @@ func to_dict() -> Dictionary:
 		"defeated_enemies": defeated_enemies.duplicate(),
 		"opened_chests": opened_chests.duplicate(),
 		"story_flags": story_flags.duplicate(true),
+		"collected_scrolls": collected_scrolls.duplicate(),
 		"members": members.duplicate(true),
 		"party_bounties": party_bounties.duplicate(true),
 		"stash": stash.duplicate(true),
@@ -180,6 +184,8 @@ func from_dict(data: Dictionary) -> void:
 	opened_chests = (oc as Array).duplicate() if oc is Array else []
 	var sf: Variant = data.get("story_flags", {})
 	story_flags = (sf as Dictionary).duplicate(true) if sf is Dictionary else {}
+	var cs: Variant = data.get("collected_scrolls", [])
+	collected_scrolls = (cs as Array).duplicate() if cs is Array else []
 	var mem: Variant = data.get("members", {})
 	members = (mem as Dictionary).duplicate(true) if mem is Dictionary else {}
 	var pb: Variant = data.get("party_bounties", [])
@@ -336,6 +342,11 @@ static func _apply_migrations(data: Dictionary) -> void:
 			if not gh12_dict.has("plants"):
 				gh12_dict["plants"] = {}
 		data["version"] = 12
+	if ver < 13:
+		# v13: add collected_scrolls (GID-108 / TID-408 shared story-scroll pickups).
+		if not data.has("collected_scrolls"):
+			data["collected_scrolls"] = []
+		data["version"] = 13
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 

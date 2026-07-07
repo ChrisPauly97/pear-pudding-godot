@@ -2735,3 +2735,105 @@ interactable in this file.
 coverage (defaults, round-trip, 3-slot padding/truncation, v12 migration
 backfill/preservation). No WorldScene-level test for the spawn/RPC flow —
 same precedent as every other WorldScene orchestration function in this file.
+
+## Story Arc Co-op Compatibility (GID-108 / TID-408)
+
+A pass over the Chapter 1 & 2 story content (TID-401–407) checking each piece
+against the co-op contracts GID-098 already established. Per-rule findings:
+
+**Already free, zero new code (rules 1, 2, 7, 8):**
+- **Shared story flags.** Every new flag (`chapter1_camp_night`,
+  `chapter1_learned_fire`, `chapter1_spoke_queen`/`_scargroth`,
+  `chapter1_complete`, all `chapter2_*`) is set via the ordinary
+  `SaveManager.set_story_flag()`, so it rides the existing TID-356 arbitration
+  (`_on_local_story_flag_set` → host broadcast/idempotent submit → all peers +
+  `SessionState.story_flags`) automatically.
+- **Scripted tutorial battles** (rabbit hunt, Ch2 ambush) are per-client local
+  entities (`WildernessCamp`, `ScoutAmbush`) with no world-object id; each
+  interacting player fights their own local scripted battle and the victory
+  flag shares via the point above. This is the "solo fight, shared flag"
+  fallback the design explicitly sanctions — `WildernessCamp.interact()`
+  already re-checks flags fresh each visit, so a teammate arriving after
+  someone else resolved the beat sees the correct next stage, not a repeat.
+- **War-camp dungeon boss** (Chapter 2 beat 6, `dungeon_731906`, fixed seed):
+  the war-camp door is an ordinary door, and `_handle_interact()`'s door
+  branch already broadcasts `recv_map_transition` for *any* door in co-op —
+  no boss-specific plumbing needed. `_inject_warcamp_boss()` runs
+  unconditionally in every peer's `WorldScene._ready()` (not host-gated), so
+  every peer's deterministic dungeon regen gets the identical boss entry.
+  Combat then rides the already map-agnostic GID-096 enemy engage-lock
+  (confirmed by TID-380's own research) — one shared, engage-locked boss;
+  first engager fights it solo, the party shares the defeat +
+  `chapter2_warcamp_cleared`/`chapter2_complete` flags. This is the same
+  "solo fight, shared outcome" shape as the tutorial-battle fallback above,
+  not a true multi-seat joint battle (`enter_coop_pve_battle` is not wired
+  here) — a deliberate v1 scope, not an oversight.
+- **Solo saves stay clean.** `SaveManager.adopt_session_character()` sets
+  `_loaded = false`, so `save()` is a no-op for the whole co-op session; the
+  ephemeral session character can never write through to a member's real
+  disk-backed solo save, regardless of how many flags/scrolls this task syncs.
+
+**New code (rules 3, 4, 5, 6):**
+- **Narration overlays** (Chapter 1 ending, Chapter 2 cliffhanger) previously
+  built `ChapterEndingOverlay` directly and only the triggering client ever
+  saw it. `GameBus.narration_overlay_requested(pages, title, completion_flag)`
+  is the new single entry point — `WorldScene._on_narration_overlay_requested`
+  shows the overlay locally and, in co-op, broadcasts
+  `recv_narration_overlay` so every peer sees the same cinematic at the same
+  time; `completion_flag` (optional) is set on close via the ordinary
+  idempotent `set_story_flag()`. `SceneManager._show_chapter2_cliffhanger()`
+  now just emits the signal (it has no `_net_sync` reference of its own).
+- **Maiteln's travelling presence** (TID-403) was a real per-client
+  duplication bug, not just a v1 gap: every client independently spawned and
+  drove its own `MaitelnFollower` following its own local player. Fixed by
+  giving `MaitelnFollower` a `networked` mode: the co-op authority's copy runs
+  the existing local follow-the-player logic unchanged and the rest of
+  `WorldScene` treats it as the single source of truth, broadcasting
+  `[x, z, map_name]` at the same 15 Hz cadence as avatar sync
+  (`_broadcast_maiteln_state`/`recv_maiteln_state`); every other peer's copy
+  is a passive puppet (`set_net_state`) that only lerps toward the received
+  position and is hidden/shown per the map-name filter (the CLAUDE.md
+  cross-map-ghost invariant, TID-352). Simplification: "follows the party" is
+  implemented as "follows the authority's own player," not a true multi-player
+  centroid — sufficient to fix the actual bug (exactly one Maiteln, position
+  synced, no divergence) without new centroid math.
+- **Story scrolls** (`scroll_larik_letter`, `scroll_traitor_seal`, and every
+  other lore scroll) previously called `SaveManager.mark_scroll_collected()`
+  purely locally — only the two scroll-specific *story flags* rode the
+  shared-flag sync; the journal entry / "found" tip / all-scrolls-collected
+  check did not. Mirrors the GID-096 shared-chest model exactly: a new
+  `WorldObjectSync.EV_SCROLL_COLLECTED` event reuses the existing generic
+  `recv_world_event`/`submit_world_event` RPC pair (no new RPC). The
+  collector's client calls `_broadcast_scroll_collected_coop`; the authority
+  persists into the new `SessionState.collected_scrolls` (mirrors
+  `opened_chests`, `to_dict`/`from_dict` + a v13 migration, no special
+  handling needed since `from_dict` already defaults missing keys) and fans
+  out to the rest of the party via `_coop_apply_scroll_collected`, which
+  re-runs `mark_scroll_collected()` + re-emits `story_scroll_collected` so
+  every peer gets the same tip/flags/completion check a real local pickup
+  would produce. `_coop_scroll_syncing` guards against re-broadcasting a
+  broadcast. `WorldObjectSync.encode_snapshot`/`decode_snapshot` grew an
+  optional 3rd `collected_scrolls` element (backward compatible — existing
+  2-arg call sites/tests are unaffected) so a late joiner's snapshot includes
+  already-collected scrolls.
+- **Story siege at marsax_hold** (Chapter 2 beat 4) called the single-player
+  `SaveManager.start_siege()` path with zero co-op awareness — every peer who
+  walked into marsax_hold with the right flags would start their own private
+  local siege. GID-103 only wired a *synced* siege engine (`CoopSiege.gd`) for
+  madrian, not marsax_hold, so this task applies the design's own sanctioned
+  fallback: `_check_story_siege_trigger()` now only starts the siege when
+  `_coop_world_authority()` (or solo play) — the host runs it, and
+  `chapter2_siege_won` still reaches the whole party via the shared-flag
+  sync. A true synced marsax_hold siege reusing `CoopSiege` is future work,
+  not a blocker for Chapter 2.
+
+**Tests:** `tests/unit/test_world_sync.gd` gained `EV_SCROLL_COLLECTED`
+coverage and 3-element-snapshot coverage (round-trip, empty, garbage-default).
+`tests/unit/test_session_state.gd` gained `collected_scrolls` round-trip +
+v13 migration coverage. No dedicated `MaitelnFollower` networked-mode test —
+it's a `Node3D` whose new behavior only matters via `_process`/live scene-tree
+timing, and this codebase has no precedent for unit-testing that shape of
+entity script directly (same scope cut already accepted for other
+WorldScene-orchestrated entities in this file); the logic was instead
+manually traced against the shipped `RemotePlayer`/`AvatarSync` pattern it
+mirrors.

@@ -17,6 +17,7 @@ func _make_populated() -> SessionState:
 	s.defeated_enemies = ["enemy_1", "enemy_2"]
 	s.opened_chests = ["chest_7"]
 	s.story_flags = {"chapter1_left_madrian": true}
+	s.collected_scrolls = ["scroll_larik_letter"]
 	s.ensure_member("tokenA", "Saimtar")
 	return s
 
@@ -45,6 +46,7 @@ func test_round_trip_preserves_world_progress_collections() -> void:
 	assert_has(restored.defeated_enemies, "enemy_2")
 	assert_has(restored.opened_chests, "chest_7")
 	assert_true(restored.story_flags.get("chapter1_left_madrian", false))
+	assert_has(restored.collected_scrolls, "scroll_larik_letter")
 
 
 func test_round_trip_preserves_members() -> void:
@@ -211,6 +213,16 @@ func test_migration_v2_adds_party_bounties() -> void:
 	var s := SessionState.new()
 	s.from_dict(data)
 	assert_true(s.party_bounties is Array)
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_migration_v13_adds_collected_scrolls() -> void:
+	# Simulate a pre-TID-408 session with no collected_scrolls field at all.
+	var data: Dictionary = {"version": 12, "session_id": "old", "members": {}}
+	var s := SessionState.new()
+	s.from_dict(data)
+	assert_true(s.collected_scrolls is Array)
+	assert_eq(s.collected_scrolls.size(), 0)
 	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
 
 

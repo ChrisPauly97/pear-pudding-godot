@@ -118,6 +118,9 @@ var _party_roster_rows: Array = []         # cached roster row data fed into _pa
 var _net_sync: Node = null
 var _coop_active: bool = false
 var _net_broadcast_accum: float = 0.0
+# Maiteln follower position broadcast (GID-108 / TID-408) — authority only, same
+# cadence as the local avatar stream.
+var _maiteln_broadcast_accum: float = 0.0
 # Persistent session (GID-095 / TID-346) — character adopted from the authority's
 # SessionState; persist-back snapshots batched at _SESSION_SNAPSHOT_INTERVAL.
 var _session_adopted: bool = false
@@ -127,6 +130,9 @@ const _SESSION_SNAPSHOT_INTERVAL: float = 5.0
 # Co-op world-object sync (GID-096) — guarded by _coop_active; inert single-player.
 var _coop_removed_enemies: Dictionary = {}  # enemy id -> true (engaged/defeated this session)
 var _coop_opened_objects: Dictionary = {}   # object id -> true (chest opened this session)
+# Shared story scrolls (GID-108 / TID-408) — mirrors _coop_opened_objects exactly.
+var _coop_collected_scrolls: Dictionary = {}  # scroll id -> true (collected by anyone this session)
+var _coop_scroll_syncing: bool = false        # reentry guard, mirrors _coop_story_flag_syncing
 var _coop_last_engaged_enemy_id: String = ""  # id of the enemy the local battle is against
 var _coop_enemy_targets: Dictionary = {}    # enemy id -> Vector2(x,z) interp target (clients)
 var _enemy_pos_accum: float = 0.0
@@ -640,6 +646,7 @@ func _ready() -> void:
 		GameBus.hud_message_requested.connect(func(text: String) -> void: _world_hud.show_dialogue(text))
 		GameBus.story_scroll_collected.connect(_on_scroll_collected)
 		GameBus.waystone_activated.connect(_on_waystone_activated)
+		GameBus.narration_overlay_requested.connect(_on_narration_overlay_requested)
 
 	# DungeonSessionUI owns dungeon room overlay panels and hero HP tracking.
 	if not NetworkManager.is_dedicated_server():
@@ -945,6 +952,7 @@ func _on_coop_session_ended() -> void:
 	# _setup_session / the join snapshot).
 	_coop_removed_enemies.clear()
 	_coop_opened_objects.clear()
+	_coop_collected_scrolls.clear()
 	_coop_enemy_targets.clear()
 	_coop_last_engaged_enemy_id = ""
 	# Party loot rolls (GID-102 / TID-381) are session-scoped too.
@@ -1082,7 +1090,7 @@ func _setup_session() -> void:
 	# progress (defeated enemies / opened chests) so a resumed host world matches
 	# what was left behind (GID-096).
 	if st != null:
-		_coop_apply_world_progress(st.defeated_enemies, st.opened_chests)
+		_coop_apply_world_progress(st.defeated_enemies, st.opened_chests, st.collected_scrolls)
 		for eid in st.defeated_enemies:
 			_coop_removed_enemies[str(eid)] = true
 		for cid in st.opened_chests:
@@ -1360,6 +1368,35 @@ func _broadcast_local_avatar(delta: float) -> void:
 		_player.position.x, _player.position.z, flip_h, moving, map_name, _coop_downed)
 	_net_sync.rpc("recv_avatar", payload)
 
+## Co-op (GID-108 / TID-408): the authority's own Maiteln follower is the single
+## source of truth; broadcast its position (with map_name for the cross-map
+## filter) at the same low cadence as the local avatar. A no-op on clients and
+## whenever no Maiteln is currently present.
+func _broadcast_maiteln_state(delta: float) -> void:
+	if not _coop_world_authority() or _net_sync == null:
+		return
+	if not is_instance_valid(_maiteln_node):
+		return
+	_maiteln_broadcast_accum += delta
+	if _maiteln_broadcast_accum < _NET_BROADCAST_INTERVAL:
+		return
+	_maiteln_broadcast_accum = 0.0
+	_net_sync.rpc("recv_maiteln_state", [_maiteln_node.position.x, _maiteln_node.position.z, map_name])
+
+## Client: apply the authority's Maiteln position, filtered to our own map (the
+## same invariant AvatarSync enforces for RemotePlayer avatars — see CLAUDE.md
+## "Co-op avatar sync was map-blind").
+func _on_maiteln_state_received(payload: Array) -> void:
+	if not _coop_active or _coop_world_authority() or not is_instance_valid(_maiteln_node):
+		return
+	if payload.size() < 3:
+		return
+	var sender_map: String = str(payload[2])
+	var same_map: bool = sender_map == "" or sender_map == map_name
+	_maiteln_node.visible = same_map
+	if same_map and _maiteln_node.has_method("set_net_state"):
+		_maiteln_node.set_net_state(float(payload[0]), float(payload[1]))
+
 # ── Co-op world-object sync (GID-096) ─────────────────────────────────────────
 # The authority (host) owns the canonical lifecycle of shared world objects
 # (enemies, chests). Enemies/chests are spawned deterministically from the shared
@@ -1502,6 +1539,8 @@ func _on_world_event_received(_sender: int, payload: Array) -> void:
 			_coop_remove_enemy_node(id)
 		_WorldObjectSync.EV_CHEST_OPENED:
 			_coop_mark_chest_opened_node(id)
+		_WorldObjectSync.EV_SCROLL_COLLECTED:
+			_coop_apply_scroll_collected(id)
 
 ## NetSync → authority: apply a client's world-event intent (host only).
 func _on_world_event_submitted(sender: int, payload: Array) -> void:
@@ -1530,13 +1569,20 @@ func _on_world_event_submitted(sender: int, payload: Array) -> void:
 				if int(pid) != sender:
 					_net_sync.rpc_id(int(pid), "recv_world_event",
 						_WorldObjectSync.encode_event(_WorldObjectSync.EV_CHEST_OPENED, id))
+		_WorldObjectSync.EV_SCROLL_COLLECTED:
+			_coop_record_scroll_collected(id)
+			_coop_apply_scroll_collected(id)
+			for pid in multiplayer.get_peers():
+				if int(pid) != sender:
+					_net_sync.rpc_id(int(pid), "recv_world_event",
+						_WorldObjectSync.encode_event(_WorldObjectSync.EV_SCROLL_COLLECTED, id))
 
-## Host: send the current removed/opened snapshot to a just-joined peer.
+## Host: send the current removed/opened/collected snapshot to a just-joined peer.
 func _send_world_snapshot_to_peer(peer_id: int) -> void:
 	if not _coop_world_authority() or _net_sync == null:
 		return
 	var payload: Array = _WorldObjectSync.encode_snapshot(
-		_coop_removed_enemies.keys(), _coop_opened_objects.keys())
+		_coop_removed_enemies.keys(), _coop_opened_objects.keys(), _coop_collected_scrolls.keys())
 	_net_sync.rpc_id(peer_id, "recv_world_snapshot", payload)
 
 ## Client: reconcile freshly-spawned nodes to the authority's snapshot on join.
@@ -1545,7 +1591,8 @@ func _on_world_snapshot_received(payload: Array) -> void:
 		return
 	var snap: Dictionary = _WorldObjectSync.decode_snapshot(payload)
 	_coop_apply_world_progress(
-		snap.get("removed_enemies", []), snap.get("opened_objects", []))
+		snap.get("removed_enemies", []), snap.get("opened_objects", []),
+		snap.get("collected_scrolls", []))
 
 # ── Synced world clock & weather (GID-103 / TID-382) ──────────────────────────
 # The authority (host) is the single source of truth for time_of_day/days_elapsed/
@@ -2070,11 +2117,13 @@ func _on_story_flag_submitted(sender: int, key: String, value: bool) -> void:
 
 ## Remove already-resolved enemy nodes and flip opened chests. Shared by host resume
 ## (_setup_session) and client join (_on_world_snapshot_received).
-func _coop_apply_world_progress(removed_enemies: Array, opened_objects: Array) -> void:
+func _coop_apply_world_progress(removed_enemies: Array, opened_objects: Array, collected_scrolls: Array = []) -> void:
 	for eid in removed_enemies:
 		_coop_remove_enemy_node(str(eid))
 	for cid in opened_objects:
 		_coop_mark_chest_opened_node(str(cid))
+	for sid in collected_scrolls:
+		_coop_apply_scroll_collected(str(sid))
 
 ## Host: broadcast positions for any live shared enemy at a low Hz (inert while all
 ## enemies are static, as on every current co-op map). Called from _process.
@@ -3877,6 +3926,14 @@ func _refresh_maiteln_presence() -> void:
 		_entity_root.add_child(node)
 		if node.has_method("setup"):
 			node.setup(_player, self)
+		# Co-op (GID-108 / TID-408, design rule 4): exactly one Maiteln, position
+		# owned by the authority. A non-authority client's copy is a networked
+		# puppet — hidden until the first same-map packet arrives (mirrors the
+		# RemotePlayer cross-map-ghost fix, TID-352) instead of independently
+		# following its own local player.
+		if _coop_active and not _coop_world_authority() and node.has_method("set_networked"):
+			node.set_networked(true)
+			node.visible = false
 		_maiteln_node = node
 
 func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
@@ -4009,6 +4066,13 @@ func _find_nearby_mailbox(px: float, pz: float, range_dist: float) -> Dictionary
 ## SceneManager._on_battle_won's siege-victory branch.
 func _check_story_siege_trigger(p_map_name: String) -> void:
 	if p_map_name != "marsax_hold":
+		return
+	# Co-op (GID-108 / TID-408, design rule 6): the synced siege engine (GID-103's
+	# CoopSiege) only wired up madrian. Until a marsax_hold variant exists, this
+	# story siege is host-resolved — only the authority starts it, so 4 peers
+	# walking in don't each spawn their own private local siege. The victory flag
+	# still reaches everyone via the existing shared-flag arbitration (rule 1).
+	if _coop_active and not _coop_world_authority():
 		return
 	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("chapter2_ambush_survived"):
@@ -4500,6 +4564,7 @@ func _process(delta: float) -> void:
 	# dedicated-server mode (no local player) as well as in normal sessions.
 	if _coop_active:
 		_broadcast_local_avatar(delta)
+		_broadcast_maiteln_state(delta)
 		_update_challenge_proximity()
 		_update_draft_duel_proximity()
 		_update_tournament_button_visibility()
@@ -6009,14 +6074,42 @@ func _trigger_chapter1_ending() -> void:
 		"Maiteln, quietly proud, tells Saimtar he has earned his place at his side.",
 		"Scargroth pulls Saimtar aside: \"There is a name from Larik in the old registers you should see.\"",
 	]
+	GameBus.narration_overlay_requested.emit(pages, "", "")
+
+## Co-op (GID-108 / TID-408, design rule 3): the sole handler for narration
+## overlays. Shows the overlay locally for every peer and, only for the peer
+## whose local trigger caused it (i.e. not a co-op-received replay), broadcasts
+## it to the rest of the party so everyone sees the same cinematic beat at the
+## same time. Late-join/absent members simply never receive it and inherit the
+## shared completion flag on the next story-flag sync instead (rule 1).
+func _on_narration_overlay_requested(pages: Array, title: String, completion_flag: String) -> void:
+	_show_narration_overlay(pages, title, completion_flag)
+	if _coop_active and _net_sync != null and NetworkManager.is_active():
+		_net_sync.rpc("recv_narration_overlay", pages, title, completion_flag)
+
+## Called by NetSync when the authority's narration broadcast arrives.
+func _on_narration_overlay_received(pages: Array, title: String, completion_flag: String) -> void:
+	if not _coop_active:
+		return
+	_show_narration_overlay(pages, title, completion_flag)
+
+func _show_narration_overlay(pages: Array, title: String, completion_flag: String) -> void:
+	var typed_pages: Array[String] = []
+	typed_pages.assign(pages)
 	var overlay := _ChapterEndingOverlay.new()
-	overlay.setup(pages)
+	if title.is_empty():
+		overlay.setup(typed_pages)
+	else:
+		overlay.setup(typed_pages, title)
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var layer := CanvasLayer.new()
 	layer.layer = 999
 	get_tree().root.add_child(layer)
 	layer.add_child(overlay)
-	overlay.closed.connect(func() -> void: layer.queue_free())
+	overlay.closed.connect(func() -> void:
+		layer.queue_free()
+		if not completion_flag.is_empty():
+			SceneManager.save_manager.set_story_flag(completion_flag))
 
 func _show_duel_offer_panel(npc: Dictionary) -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
@@ -6138,6 +6231,43 @@ func _on_scroll_collected(scroll_id: String) -> void:
 		SceneManager.save_manager.set_story_flag("chapter2_traitor_seal")
 	if SceneManager.save_manager.collected_scrolls.size() >= ScrollRegistry.SCROLL_COUNT:
 		GameBus.all_scrolls_collected.emit()
+	# Co-op (GID-108 / TID-408, design rule 5): mirror the GID-096 shared-chest
+	# model — the collector's pickup (this tip/flags/completion check) is granted
+	# to every session member. Skipped when this call is itself the result of
+	# applying a co-op-received pickup, to avoid re-broadcasting a broadcast.
+	if not _coop_scroll_syncing:
+		_broadcast_scroll_collected_coop(scroll_id)
+
+func _broadcast_scroll_collected_coop(scroll_id: String) -> void:
+	if not _coop_active or _net_sync == null or not NetworkManager.is_active():
+		return
+	if NetworkManager.is_host():
+		_coop_record_scroll_collected(scroll_id)
+		_net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_SCROLL_COLLECTED, scroll_id))
+	else:
+		_net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_SCROLL_COLLECTED, scroll_id))
+
+## Host-only: persist a collected scroll into the session file.
+func _coop_record_scroll_collected(scroll_id: String) -> void:
+	_coop_collected_scrolls[scroll_id] = true
+	var st = SessionStore.get_state()
+	if st != null and not st.collected_scrolls.has(scroll_id):
+		st.collected_scrolls.append(scroll_id)
+		SessionStore.mark_dirty()
+
+## Apply a scroll pickup that originated elsewhere (a teammate, or a snapshot
+## replay) to this peer's own SaveManager, re-running the same tip/flag/
+## completion logic in _on_scroll_collected as a real local pickup would.
+func _coop_apply_scroll_collected(scroll_id: String) -> void:
+	_coop_collected_scrolls[scroll_id] = true
+	if SceneManager.save_manager.collected_scrolls.has(scroll_id):
+		return
+	_coop_scroll_syncing = true
+	SceneManager.save_manager.mark_scroll_collected(scroll_id)
+	GameBus.story_scroll_collected.emit(scroll_id)
+	_coop_scroll_syncing = false
 
 # ── Card item spawning ──────────────────────────────────────────────────────
 

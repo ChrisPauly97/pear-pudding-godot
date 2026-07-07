@@ -79,6 +79,10 @@ signal puzzle_solved(puzzle_id: String)
 # Scripted story battle signals (GID-108)
 signal scripted_battle_requested(battle_id: String)
 signal scripted_battle_ended(battle_id: String, did_win: bool)
+# Story narration overlay (GID-108 / TID-408) — WorldScene is the sole listener; it
+# shows the overlay locally and, in co-op, broadcasts it to the rest of the party.
+# completion_flag may be "" (no flag to set on close).
+signal narration_overlay_requested(pages: Array, title: String, completion_flag: String)
 
 # World event signals
 signal world_event_started(event_id: String)

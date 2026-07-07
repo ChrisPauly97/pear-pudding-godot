@@ -21,16 +21,16 @@ Chapter 1's plumbing (flags, ObjectiveTracker, 5 named maps, Isfig rival arc, sc
 | TID-405 | Chapter 1 ending scene + post-council epilogue world reactivity | agent | done | TID-400 |
 | TID-406 | Chapter 2 named maps skeleton (larik, marsax_hold, war-camp dungeon entry) | agent | done | TID-400 |
 | TID-407 | Chapter 2 flags, objectives, beat wiring & scripted ambush battle | agent | done | TID-405, TID-406 |
-| TID-408 | Co-op compatibility pass — Chapters 1 & 2 with up to 4 players | agent | pending | TID-402, TID-405, TID-407 |
+| TID-408 | Co-op compatibility pass — Chapters 1 & 2 with up to 4 players | agent | done | TID-402, TID-405, TID-407 |
 
 ## Acceptance Criteria
 
-- [ ] The rabbit-hunt tutorial battle plays with a fixed 6-card deck, opening hand of 1, scripted draw order (ghost → skeleton → ghost → zombie → skeleton → ghoul), and Maiteln tutorial popups; it is impossible to soft-lock and sets `chapter1_camp_night`
-- [ ] Night camp and fire-making morning beats trigger on the road after `chapter1_left_madrian`, before Maykalene
-- [ ] Maiteln visibly accompanies the player on story maps and camps with objective-keyed ambient lines
-- [ ] All NPCs in the flag-gated dialogue table (docs/human/story.md) show correct before/after lines
-- [ ] Chapter 1 ending plays via narration overlay at King Eldar after council conditions are met, sets `chapter1_complete`, and returns to a playable epilogue world with war-preparation dialogue
-- [ ] Chapter 2 maps (larik, marsax_hold) load, are registered in MapRegistry, and Chapter 2 beats 1–7 are playable through `chapter2_complete` with objectives shown in ObjectiveTracker
-- [ ] The Chapter 2 scripted ambush battle reuses the TID-401 framework to introduce spell cards
-- [ ] In a co-op session (up to 4 players), all new story beats follow the GID-098 shared-spine rules: any member's trigger advances the party exactly once, narration overlays show on all clients, exactly one synced Maiteln follows the party, and co-op progress never writes through to personal solo saves (TID-408 design rules)
-- [ ] All tests pass headless (`godot --headless --path . -s tests/runner.gd`)
+- [x] The rabbit-hunt tutorial battle plays with a fixed 6-card deck, opening hand of 1, scripted draw order (ghost → skeleton → ghost → zombie → skeleton → ghoul), and Maiteln tutorial popups; it is impossible to soft-lock and sets `chapter1_camp_night`
+- [x] Night camp and fire-making morning beats trigger on the road after `chapter1_left_madrian`, before Maykalene
+- [x] Maiteln visibly accompanies the player on story maps and camps with objective-keyed ambient lines
+- [x] All NPCs in the flag-gated dialogue table (docs/human/story.md) show correct before/after lines
+- [x] Chapter 1 ending plays via narration overlay at King Eldar after council conditions are met, sets `chapter1_complete`, and returns to a playable epilogue world with war-preparation dialogue
+- [x] Chapter 2 maps (larik, marsax_hold) load, are registered in MapRegistry, and Chapter 2 beats 1–7 are playable through `chapter2_complete` with objectives shown in ObjectiveTracker
+- [x] The Chapter 2 scripted ambush battle reuses the TID-401 framework to introduce spell cards
+- [x] In a co-op session (up to 4 players), all new story beats follow the GID-098 shared-spine rules: any member's trigger advances the party exactly once, narration overlays show on all clients, exactly one synced Maiteln follows the party, and co-op progress never writes through to personal solo saves (TID-408 design rules)
+- [ ] All tests pass headless (`godot --headless --path . -s tests/runner.gd`) — **unverified in this sandbox**: no Godot binary available (outbound download blocked). Every task in this goal was validated by manual line-by-line review instead (see each task's Changes Made / Validation section). Next session with Godot available should run the full headless import + test suite before trusting GID-108 in production.

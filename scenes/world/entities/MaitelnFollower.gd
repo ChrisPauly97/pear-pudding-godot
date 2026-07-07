@@ -35,11 +35,30 @@ const _FALLBACK_LINE: String = "Keep your wits about ye — the road's long yet.
 var _player_ref: Node3D = null
 var world_scene: Node3D = null  # set via setup(); mirrors RemotePlayer.world_scene
 
+## Co-op (GID-108 / TID-408, design rule 4): exactly one Maiteln per session. The
+## authority's copy runs the normal follow-the-player logic below and broadcasts
+## its resulting position; every other client's copy is "networked" — it ignores
+## _player_ref entirely and just lerps toward the last position fed by
+## set_net_state(), so there is only ever one authoritative Maiteln, not one per
+## client. WorldScene owns the map-filter/visibility decision (CLAUDE.md
+## cross-map-ghost invariant), not this script.
+var _networked: bool = false
+var _net_target: Vector3 = Vector3.ZERO
+
 func setup(player_node: Node3D, world_scene_ref: Node3D) -> void:
 	_player_ref = player_node
 	world_scene = world_scene_ref
 	if is_instance_valid(_player_ref):
 		position = _player_ref.position + _FOLLOW_OFFSET
+
+func set_networked(v: bool) -> void:
+	_networked = v
+	if v:
+		_net_target = position
+
+## Fed by WorldScene when a co-op position packet arrives (authority → client only).
+func set_net_state(x: float, z: float) -> void:
+	_net_target = Vector3(x, position.y, z)
 
 func _ready() -> void:
 	var sprite := Sprite3D.new()
@@ -62,6 +81,18 @@ func _ready() -> void:
 	add_child(lbl)
 
 func _process(delta: float) -> void:
+	if _networked:
+		var to_net: Vector3 = _net_target - position
+		if to_net.x * to_net.x + to_net.z * to_net.z > _SNAP_DISTANCE_SQ:
+			position.x = _net_target.x
+			position.z = _net_target.z
+		else:
+			var net_pos: Vector3 = _AvatarSync.interp(position, _net_target, delta, _FOLLOW_RATE)
+			position.x = net_pos.x
+			position.z = net_pos.z
+		if world_scene != null and world_scene.has_method("get_terrain_height"):
+			position.y = world_scene.get_terrain_height(position.x, position.z)
+		return
 	if not is_instance_valid(_player_ref):
 		return
 	var target := Vector3(_player_ref.position.x + _FOLLOW_OFFSET.x, position.y,
