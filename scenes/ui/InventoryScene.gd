@@ -642,6 +642,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	var card_name: String = tmpl.get("name", tid)
 	var disp_name: String = VeterancyUtil.display_name(inst, card_name)
 	var is_dual: bool = str(tmpl.get("dual_card_id", "")) != ""
+	var illustration: Texture2D = tmpl.get("illustration") as Texture2D
 
 	var rolled_atk: int  = int(inst.get("attack", int(tmpl.get("attack", 0))))
 	var rolled_hp: int   = int(inst.get("health", int(tmpl.get("health", 0))))
@@ -655,6 +656,14 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	vb.add_theme_constant_override("separation", int(_ref * 0.008))
 	vb.custom_minimum_size = Vector2(_ref * 0.34, 0)
 	popup.add_child(vb)
+
+	if illustration != null:
+		var art := TextureRect.new()
+		art.texture = illustration
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.custom_minimum_size = Vector2(0.0, _ref * 0.14)
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		vb.add_child(art)
 
 	var title_row := HBoxContainer.new()
 	title_row.add_theme_constant_override("separation", int(_ref * 0.006))
