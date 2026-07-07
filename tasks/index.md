@@ -117,6 +117,7 @@
 | [GID-111](goals/GID-111--coop-boss-targeting-fix/goal.md) | Co-op Boss Targeting Fix — Dead Ally Retargeting | done (headless test run unverified in-sandbox — see goal.md note) | 1 / 1 |
 | [GID-112](goals/GID-112--battle-ai-depth/goal.md) | Battle AI Depth — Enemy Personas & Real Decision-Making | pending | 0 / 5 |
 | [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | pending | 0 / 5 |
+| [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | pending | 0 / 5 |
 
 ## Backlog
 
@@ -156,6 +157,7 @@
 | [BID-042](backlog/BID-042--auction-button-not-in-party-panel.md) | Auction House button is the same shape of always-on co-op clutter as Stash/Leaderboard but wasn't in GID-107's original consolidation list (shipped after the goal was written) | design-gap | GID-107 / TID-395 |
 | [BID-043](backlog/BID-043--siege-draft-tournament-buttons-not-migrated.md) | Siege/Draft Duel/Tournament HUD buttons not yet migrated to the GID-107 registry; Siege and Tournament buttons visually overlap (both centered at the same y) | code-smell / design-gap | GID-107 / TID-398 |
 | [BID-044](backlog/BID-044--siege-boss-engage-signal-race.md) | Co-op siege boss engage may race `SceneManager._on_enemy_engaged` (solo battle) vs `WorldScene._on_enemy_engaged_coop` (joint battle) — signal connection order suggests the host could get a solo duel while clients get a joint battle | code-smell (suspected correctness bug) | GID-106 / TID-391 |
+| [BID-045](backlog/BID-045--enemy-alert-sfx-key-unregistered.md) | `enemy_alert` SFX key played by WorldScene but never registered in AudioManager.SFX_PATHS — being resolved by GID-114 / TID-425 | code-smell | GID-114 research |
 
 ## Resolved Backlog
 
