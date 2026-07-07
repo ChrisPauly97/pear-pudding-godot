@@ -156,6 +156,7 @@
 | [BID-042](backlog/BID-042--auction-button-not-in-party-panel.md) | Auction House button is the same shape of always-on co-op clutter as Stash/Leaderboard but wasn't in GID-107's original consolidation list (shipped after the goal was written) | design-gap | GID-107 / TID-395 |
 | [BID-043](backlog/BID-043--siege-draft-tournament-buttons-not-migrated.md) | Siege/Draft Duel/Tournament HUD buttons not yet migrated to the GID-107 registry; Siege and Tournament buttons visually overlap (both centered at the same y) | code-smell / design-gap | GID-107 / TID-398 |
 | [BID-044](backlog/BID-044--siege-boss-engage-signal-race.md) | Co-op siege boss engage may race `SceneManager._on_enemy_engaged` (solo battle) vs `WorldScene._on_enemy_engaged_coop` (joint battle) — signal connection order suggests the host could get a solo duel while clients get a joint battle | code-smell (suspected correctness bug) | GID-106 / TID-391 |
+| [BID-045](backlog/BID-045--basicai-doc-claims-sorting-that-doesnt-exist.md) | `battle-system.md` claims BasicAI sorts plays by cost ascending and attacks the lowest-HP target; the code does neither (raw hand/board order) | doc-gap | GID-112 research |
 
 ## Resolved Backlog
 
