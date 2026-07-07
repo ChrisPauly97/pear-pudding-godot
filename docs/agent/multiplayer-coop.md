@@ -1849,6 +1849,10 @@ boss, play wraps back to ally 0.
 - Ally turn → always returns the boss (`players[N-1]`).
 - Boss turn → returns the **alive ally with the lowest hero HP** (`_get_lowest_hp_ally()`);
   BasicAI is reused unchanged because it calls `state.opponent()` to find its target.
+  Any alive ally is preferred over a dead one regardless of HP value (mirrors
+  `_get_lowest_hp_enemy_team_member`'s dead-vs-alive preference) — the boss never
+  gets stuck "targeting" an ally that already died earlier in the battle (GID-111 /
+  TID-414, fixes BID-028).
 
 **Win/loss conditions:**
 - Boss dead → party wins; `winner()` returns `0` (ally side).
