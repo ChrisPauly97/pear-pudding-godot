@@ -49,6 +49,13 @@ Physics:
 - Jumping adds an upward impulse when `is_on_floor()` and Space is pressed
 - `move_and_slide()` handles terrain collision via the `HeightMapShape3D` from `TerrainMath`
 
+### Locomotion Feel (TID-428)
+
+- **Accel/decel:** `velocity.x`/`velocity.z` ramp toward the target via `move_toward(velocity.x, dir.x * move_speed, accel * delta)` instead of snapping — `ACCEL = 40.0` while there's steering intent (manual input or an active tap-to-move path), `DECEL = 50.0` once intent drops to zero. ACCEL applies for the *entire* path-following duration (not just the first tick), so the waypoint-arrival check (`_WP_ARRIVE_DIST_SQ`) keeps full steering authority and doesn't orbit the destination under a sluggish decel. `_is_moving` (drives the walk/idle swap) is keyed off steering intent (`dir`), never residual velocity, so idle doesn't lag the actual stop.
+- **Walk dust:** `_dust_particles` now emits whenever `_is_moving and is_on_floor()`, on foot or mounted — previously mount-only. Two `ParticleProcessMaterial` presets (`_dust_mat_foot` lighter/fewer, `_dust_mat_mount` heavier) are swapped (plus `amount` 10 vs 20) by `_update_mount_visuals()` on mount toggle only, not per-frame.
+- **Landing feedback:** a frame-to-frame airborne→grounded transition (`_was_on_floor` tracked each `_physics_process`) with fall speed ≥ `_LAND_FALL_SPEED` (4.0 u/s) triggers `_on_landed()`: a dedicated one-shot `_landing_dust` burst (`GPUParticles3D.restart()`), `play_sfx("land")`, and a sprite squash (`_squash_sprite(1.08, 0.9, 0.15)`). Jump takeoff gets a symmetric stretch (`0.94, 1.06`). `_squash_sprite` tweens `scale` as a `Vector3` — `AnimatedSprite3D` is a `Node3D`, so scale is never `Vector2` (CLAUDE.md sprite-scale caution).
+- **Anim-synced footsteps:** `_footstep_timer` is gone. `_sprite.frame_changed` (connected once in `_build_sprite()`) fires `play_sfx("footstep")` on the walk animation's contact frames (0 and 2 of the 4-frame cycle), suppressed while mounted. At `ANIM_FPS = 6`, that's a step every ~0.33s while walking, now locked to the actual foot-down frame instead of an independent timer.
+
 ### Sprite Animation
 
 The `Sprite3D` uses `BILLBOARD_ENABLED` so it always faces the camera:
