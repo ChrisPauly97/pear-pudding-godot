@@ -869,15 +869,20 @@ func _board_drop(local_pos: Vector2, data: Variant) -> void:
 				_send_intent(BattleNetProtocol.encode_play_card_at_slot(hi, target_slot_idx))
 				_dismiss_battle_tutorial()
 			return
+		var from_panel: Control = _hand_panel_node(played_card)
+		var from_rect: Rect2 = from_panel.get_global_rect() if from_panel != null else Rect2()
+		var to_pos: Vector2 = _slot_panel_center(_player_board_view, target_slot_idx)
 		if _do_play_card_at_slot(played_card, _my_idx(), target_slot_idx):
 			AudioManager.play_sfx("card_play")
 			_fx.haptic(20)
+			_hide_hand_panel(from_panel)
 			if played_card.emergence_effect != "":
 				var snap_em := _fx.snapshot()
 				_resolver.resolve_emergence(played_card, _my_idx())
 				_fx.trigger_fx(snap_em)
 			else:
 				_apply_weather_to_summoned(played_card, _my_idx())
+			await _animate_card_travel(played_card, from_rect, to_pos)
 			_refresh_all()
 			_check_game_over()
 			_dismiss_battle_tutorial()
@@ -1095,15 +1100,20 @@ func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
 						_send_intent(BattleNetProtocol.encode_play_card_at_slot(hi, slot_idx))
 						_dismiss_battle_tutorial()
 					return
+				var from_panel: Control = _hand_panel_node(card)
+				var from_rect: Rect2 = from_panel.get_global_rect() if from_panel != null else Rect2()
+				var to_pos: Vector2 = _slot_panel_center(_player_board_view, slot_idx)
 				if _do_play_card_at_slot(card, _my_idx(), slot_idx):
 					AudioManager.play_sfx("card_play")
 					_fx.haptic(20)
+					_hide_hand_panel(from_panel)
 					if card.emergence_effect != "":
 						var snap_se := _fx.snapshot()
 						_resolver.resolve_emergence(card, _my_idx())
 						_fx.trigger_fx(snap_se)
 					else:
 						_apply_weather_to_summoned(card, _my_idx())
+					await _animate_card_travel(card, from_rect, to_pos)
 					_refresh_all()
 					_check_game_over()
 					_dismiss_battle_tutorial()
@@ -1473,6 +1483,55 @@ func _make_card_ghost(card: CardInstance) -> PanelContainer:
 	# Fixed size already set inside _make_card_view
 	return panel
 
+## Finds `card`'s current panel in the local player's hand row by hand-array
+## index (hand panels carry no per-card meta, unlike board slots). Must be
+## called before the card is removed from hand (state mutation).
+func _hand_panel_node(card: CardInstance) -> Control:
+	var idx: int = _state.players[_my_idx()].hand.find(card)
+	var children := _player_hand_view.get_children()
+	if idx < 0 or idx >= children.size():
+		return null
+	return children[idx] as Control
+
+## Hides the stale hand panel immediately once a card has left hand for the
+## board, so the travel ghost doesn't read as a duplicate card until the next
+## `_refresh_all()` rebuild frees it.
+func _hide_hand_panel(panel: Control) -> void:
+	if panel != null and is_instance_valid(panel):
+		panel.visible = false
+
+## Global center of the (possibly still-empty) slot panel at `slot_idx` in
+## `zone_view` — stable regardless of whether the slot is filled yet.
+func _slot_panel_center(zone_view: Node, slot_idx: int) -> Vector2:
+	for child in zone_view.get_children():
+		if child is Control and int(child.get_meta("slot_idx", -1)) == slot_idx:
+			return (child as Control).get_global_rect().get_center()
+	return (zone_view as Control).get_global_rect().get_center()
+
+## Ghost-tweens a card from its hand position to its new board slot so playing
+## a minion reads as a placement instead of a teleport (TID-426). `from_rect`
+## must be captured before `_do_play_card_at_slot` mutates hand/board state.
+func _animate_card_travel(card: CardInstance, from_rect: Rect2, to_pos: Vector2) -> void:
+	if _float_layer == null or not is_instance_valid(_float_layer):
+		return
+	if from_rect.size == Vector2.ZERO:
+		return
+	var ghost: PanelContainer = _make_card_ghost(card)
+	ghost.position = from_rect.position
+	ghost.size = from_rect.size
+	ghost.pivot_offset = from_rect.size * 0.5
+	ghost.scale = Vector2(0.85, 0.85)
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_float_layer.add_child(ghost)
+	var dur: float = BattleFx.scaled_duration(0.2, _speed_scale)
+	var tw: Tween = ghost.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(ghost, "position", to_pos - from_rect.size * 0.5, dur).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ghost, "scale", Vector2(1.0, 1.0), dur)
+	await tw.finished
+	if is_instance_valid(ghost):
+		ghost.queue_free()
+
 # -------------------------------------------------------------------------
 # UI Refresh
 # -------------------------------------------------------------------------
@@ -1712,15 +1771,22 @@ func _attempt_attack(attacker: CardInstance, target: CardInstance) -> void:
 			_send_intent(BattleNetProtocol.encode_attack(a_slot, t_slot, target_pidx))
 		_refresh_all()
 		return
-	_execute_attack(attacker, target)
+	await _execute_attack(attacker, target)
 
 ## Resolves a player minion attack against target (CardInstance) or the enemy hero (null).
 ## Handles damage, counterattack, death removal, FX, and the card_attacked signal.
+## Async: lunges the attacker into the target before mutating state, with a
+## brief hit-stop on big/lethal hits, then animates any resulting death(s)
+## before the board rebuilds (TID-426). All durations respect `_speed_scale`.
 func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 	AudioManager.play_sfx("attack")
 	var attacker_panel := _fx.get_card_panel(attacker, false)
 	var snap := _fx.snapshot()
 	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome)
+	var target_panel_pre: Control = _fx.get_card_panel(target, true) if target != null else null
+	var target_pos: Vector2 = target_panel_pre.get_global_rect().get_center() if target_panel_pre != null else _fx.pos_of_hero(true)
+	var is_big_hit: bool = attacker_dmg >= 5 or (target != null and attacker_dmg >= target.health)
+	await _fx.animate_attack(attacker_panel, target_pos, _speed_scale, 0.06 if is_big_hit else 0.0)
 	if target != null:
 		var target_dmg: int = BattlefieldRules.modify_damage(target.attack, _state.battlefield_biome)
 		target.take_damage(attacker_dmg)
@@ -1747,11 +1813,35 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 	if not attacker.is_alive():
 		_state.players[_my_idx()].board.remove_card(attacker)
 		_state.players[_my_idx()].discard.append(attacker)
+	await _animate_deaths_from_snapshot(snap)
 	_fx.spawn_float_labels(snap)
 	_fx.check_shake(snap)
 	_dragged_card.clear()
 	_refresh_all()
 	_check_game_over()
+
+## Diff-based death animation: any non-hero id present in `snap` but no
+## longer among the currently-alive board cards gets a death beat before the
+## next `_refresh_all()` rebuilds the zone out from under it. Shared by the
+## player-attack path and the AI-turn loop.
+func _animate_deaths_from_snapshot(snap: Array[Dictionary]) -> void:
+	var alive_ids: Array[String] = []
+	for i in range(2):
+		for c: CardInstance in _state.players[i].board.get_cards():
+			alive_ids.append(c.instance_id)
+	var dead_ids: Array[String] = BattleFx.detect_deaths(snap, alive_ids)
+	if dead_ids.is_empty():
+		return
+	var anims: Array = []
+	for entry: Dictionary in snap:
+		var eid: String = str(entry["id"])
+		if not dead_ids.has(eid):
+			continue
+		var panel: Control = _fx.find_panel_by_snapshot_entry(entry)
+		if panel != null:
+			anims.append(_fx.animate_death(panel, _speed_scale))
+	for a in anims:
+		await a
 
 # -------------------------------------------------------------------------
 # Turn / AI
@@ -1899,6 +1989,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 			_resolver.resolve_emergence(c, 1)
 			_apply_weather_to_summoned(c, 1)
 	_fx.trigger_fx(snap_ai)
+	await _animate_deaths_from_snapshot(snap_ai)
 	_refresh_all()
 	if _state.is_game_over():
 		_check_game_over()
