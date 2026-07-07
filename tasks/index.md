@@ -115,6 +115,8 @@
 | [GID-109](goals/GID-109--keybindings-settings/goal.md) | Desktop Keybindings Settings Page | done | 2 / 2 |
 | [GID-110](goals/GID-110--mailbox-overflow-storage/goal.md) | Mailbox — Overflow Storage for Bag-Full Card Rewards | done (headless import + test run unverified in-sandbox — see goal.md note) | 3 / 3 |
 | [GID-111](goals/GID-111--coop-boss-targeting-fix/goal.md) | Co-op Boss Targeting Fix — Dead Ally Retargeting | done (headless test run unverified in-sandbox — see goal.md note) | 1 / 1 |
+| [GID-112](goals/GID-112--battle-ai-depth/goal.md) | Battle AI Depth — Enemy Personas & Real Decision-Making | pending | 0 / 5 |
+| [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | pending | 0 / 5 |
 
 ## Backlog
 
