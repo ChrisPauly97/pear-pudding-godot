@@ -150,6 +150,7 @@ func snapshot() -> Array[Dictionary]:
 		var hero: HeroState = _state.players[i].hero
 		result.append({"id": "hero_%d" % i, "hp": hero.health, "pos": pos_of_hero(i == 1)})
 		var zv: Node = _enemy_board_view if i == 1 else _player_board_view
+		var zone_name: String = "enemy_board" if i == 1 else "board"
 		var fallback: Vector2 = _scene_root.get_viewport().get_visible_rect().size * 0.5
 		for si in range(ZoneState.SLOT_COUNT):
 			var card: CardInstance = _state.players[i].board.slots[si]
@@ -160,8 +161,44 @@ func snapshot() -> Array[Dictionary]:
 				if child is Control and int(child.get_meta("slot_idx", -1)) == si:
 					panel_pos = (child as Control).get_global_rect().get_center()
 					break
-			result.append({"id": card.instance_id, "hp": card.health, "pos": panel_pos})
+			result.append({
+				"id": card.instance_id, "hp": card.health, "pos": panel_pos,
+				"zone": zone_name, "slot_idx": si,
+			})
 	return result
+
+## Locates the still-live board panel a snapshot entry referred to, by zone +
+## slot_idx recorded at snapshot time. Works even after the underlying
+## CardInstance has been removed from ZoneState.slots (e.g. it died), as long
+## as `_refresh_all()` hasn't rebuilt the zone yet — the panel/meta survive.
+func find_panel_by_snapshot_entry(entry: Dictionary) -> Control:
+	if not entry.has("zone") or not entry.has("slot_idx"):
+		return null
+	var zv: Node = _enemy_board_view if entry["zone"] == "enemy_board" else _player_board_view
+	var target_slot: int = int(entry["slot_idx"])
+	for child in zv.get_children():
+		if child is Control and int(child.get_meta("slot_idx", -1)) == target_slot:
+			return child as Control
+	return null
+
+## Pure: given a pre-mutation snapshot and the set of card instance ids still
+## alive post-mutation, returns the ids of non-hero entries that died.
+static func detect_deaths(snap: Array[Dictionary], alive_ids: Array[String]) -> Array[String]:
+	var alive_set: Dictionary = {}
+	for id: String in alive_ids:
+		alive_set[id] = true
+	var dead: Array[String] = []
+	for entry: Dictionary in snap:
+		var eid: String = str(entry["id"])
+		if eid.begins_with("hero_"):
+			continue
+		if not alive_set.has(eid):
+			dead.append(eid)
+	return dead
+
+## Pure: scales a base animation duration by the battle-speed setting.
+static func scaled_duration(base: float, speed_scale: float) -> float:
+	return maxf(0.01, base * speed_scale)
 
 func spawn_float_labels(snap: Array[Dictionary]) -> void:
 	var cur_hp: Dictionary = {}
@@ -260,6 +297,64 @@ func flash_from_snapshot(snap: Array[Dictionary]) -> void:
 								break
 						found_panel = true
 						break
+
+# -------------------------------------------------------------------------
+# Impact motion — attacker lunge, hit-stop, death (TID-426)
+# -------------------------------------------------------------------------
+
+## Lunges `attacker_panel` ~60% of the way toward `target_pos` and back, with
+## an optional hit-stop pause at the apex for big/lethal hits. All durations
+## are scaled by `speed_scale` (battle fast-mode). Safe if the panel is freed
+## mid-tween (board rebuild, battle end).
+func animate_attack(attacker_panel: Control, target_pos: Vector2, speed_scale: float = 1.0, hit_stop: float = 0.0) -> void:
+	if attacker_panel == null or not is_instance_valid(attacker_panel):
+		return
+	var origin: Vector2 = attacker_panel.global_position
+	var center: Vector2 = attacker_panel.get_global_rect().get_center()
+	var lunge_pos: Vector2 = origin + (target_pos - center) * 0.6
+	var prev_z: int = attacker_panel.z_index
+	attacker_panel.z_index = 10
+	var tw_in: Tween = attacker_panel.create_tween()
+	tw_in.tween_property(attacker_panel, "global_position", lunge_pos, scaled_duration(0.12, speed_scale)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await tw_in.finished
+	if not is_instance_valid(attacker_panel):
+		return
+	if hit_stop > 0.0:
+		await get_tree().create_timer(scaled_duration(hit_stop, speed_scale), false).timeout
+	if not is_instance_valid(attacker_panel):
+		return
+	var tw_out: Tween = attacker_panel.create_tween()
+	tw_out.tween_property(attacker_panel, "global_position", origin, scaled_duration(0.15, speed_scale)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	await tw_out.finished
+	if is_instance_valid(attacker_panel):
+		attacker_panel.z_index = prev_z
+
+## Shrinks/fades/rotates a ghost copy of `panel` in `_float_layer` so a death
+## reads as a beat instead of a pop when `_refresh_all()` removes it.
+func animate_death(panel: Control, speed_scale: float = 1.0) -> void:
+	if panel == null or not is_instance_valid(panel):
+		return
+	if _float_layer == null or not is_instance_valid(_float_layer):
+		return
+	var ghost: Control = panel.duplicate() as Control
+	if ghost == null:
+		return
+	ghost.position = panel.get_global_rect().position
+	ghost.size = panel.size
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_float_layer.add_child(ghost)
+	ghost.pivot_offset = ghost.size * 0.5
+	var tw: Tween = ghost.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(ghost, "scale", Vector2(0.1, 0.1), scaled_duration(0.25, speed_scale))
+	tw.tween_property(ghost, "modulate:a", 0.0, scaled_duration(0.25, speed_scale))
+	tw.tween_property(ghost, "rotation", deg_to_rad(25.0), scaled_duration(0.25, speed_scale))
+	await tw.finished
+	if is_instance_valid(ghost):
+		ghost.queue_free()
+
+func get_tree() -> SceneTree:
+	return _scene_root.get_tree()
 
 # -------------------------------------------------------------------------
 # Haptic + screen shake

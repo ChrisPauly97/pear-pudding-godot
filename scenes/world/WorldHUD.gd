@@ -8,6 +8,7 @@ const CompassRibbon    = preload("res://scenes/ui/CompassRibbon.gd")
 const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const SaveManager      = preload("res://autoloads/SaveManager.gd")
 const CantripManager   = preload("res://game_logic/world/CantripManager.gd")
+const UiFx             = preload("res://scenes/ui/UiFx.gd")
 
 var _hud: CanvasLayer
 var _world_scene: Node3D
@@ -196,6 +197,7 @@ func register_action(id: String, label: String, zone: String, callback: Callable
 	_actions[id] = {"button": btn, "callback": callback, "visible_when": visible_when}
 	if visible_when.is_valid():
 		btn.visible = bool(visible_when.call())
+	UiFx.attach(btn)
 	return btn
 
 func unregister_action(id: String) -> void:

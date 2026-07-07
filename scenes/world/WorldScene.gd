@@ -40,6 +40,7 @@ const _TexWallTop:   Texture2D = preload("res://assets/textures/pixel_art/wall_t
 
 # Preload entity scenes — avoids filesystem hits during spawning
 const _OverworldPauseOverlay = preload("res://scenes/ui/OverworldPauseOverlay.gd")
+const UiFx = preload("res://scenes/ui/UiFx.gd")
 const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
@@ -2792,6 +2793,7 @@ func _ensure_siege_button() -> void:
 	_siege_btn.visible = NetworkManager.is_host() and not _coop_siege_active
 	_siege_btn.pressed.connect(_start_coop_siege)
 	_hud.add_child(_siege_btn)
+	UiFx.attach(_siege_btn)
 
 ## Host-only: derive a shared siege id and broadcast the start so every peer
 ## begins the identical wave sequence.
@@ -3053,6 +3055,7 @@ func _ensure_challenge_button() -> void:
 		context_zone.add_child(_ranked_toggle_btn)
 	else:
 		_hud.add_child(_ranked_toggle_btn)
+	UiFx.attach(_ranked_toggle_btn)
 
 ## Shows/hides the challenge button based on proximity to a remote player. Called
 ## each frame from _process while co-op is active. GID-107 / TID-396 priority rule:
@@ -6560,6 +6563,7 @@ func _ensure_social_buttons() -> void:
 			social_zone.add_child(_ping_btn)
 		else:
 			_hud.add_child(_ping_btn)
+		UiFx.attach(_ping_btn)
 	# Trade / Spectate (GID-107 / TID-396): registered into WorldHUD.ZONE_CONTEXT —
 	# the shared contextual bar — instead of each computing its own raw position.
 	if _trade_window_mine == null or not is_instance_valid(_trade_window_mine):
@@ -6584,6 +6588,7 @@ func _ensure_social_buttons() -> void:
 		_auction_btn.position = Vector2(vp.x * 0.012, vh * 0.144)
 		_auction_btn.pressed.connect(_toggle_auction_overlay)
 		_hud.add_child(_auction_btn)
+		UiFx.attach(_auction_btn)
 
 
 ## Ghost Duels (GID-102 / TID-377). Host-only: gated on SessionStore.is_open()
@@ -6905,6 +6910,7 @@ func _ensure_chat_ui() -> void:
 		_chat_send_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
 		_chat_send_btn.pressed.connect(_submit_chat_input)
 		_hud.add_child(_chat_send_btn)
+		UiFx.attach(_chat_send_btn)
 
 
 func _toggle_chat_quick_panel() -> void:
@@ -8385,6 +8391,7 @@ func _ensure_draft_duel_button() -> void:
 	_draft_duel_btn.hide()
 	_draft_duel_btn.pressed.connect(_request_draft_duel)
 	_hud.add_child(_draft_duel_btn)
+	UiFx.attach(_draft_duel_btn)
 
 ## Shows/hides the draft-duel button. Piggybacks on the proximity result
 ## (_challenge_target_peer) computed by _update_challenge_proximity, which runs
@@ -8637,6 +8644,7 @@ func _ensure_tournament_button() -> void:
 	_tournament_btn.hide()
 	_tournament_btn.pressed.connect(_start_tournament)
 	_hud.add_child(_tournament_btn)
+	UiFx.attach(_tournament_btn)
 
 
 ## Shows the tournament button only for the host with 2-3 connected clients

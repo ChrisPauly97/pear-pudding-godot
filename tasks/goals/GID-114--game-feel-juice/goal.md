@@ -18,11 +18,11 @@ A game-feel audit (July 2026) compared the game against the polish staples that 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-425 | Procedural SFX synthesis & biome ambience (un-mute the game) | agent | pending | — |
-| TID-426 | Battle impact animation layer: lunge, hit-stop, death & card-travel tweens | agent | pending | — |
-| TID-427 | World interaction ceremonies: chest open, enemy engage beat, pickup flourishes | agent | pending | TID-425 |
-| TID-428 | Locomotion feel: accel/decel, walk dust, landing feedback, anim-synced footsteps | agent | pending | — |
-| TID-429 | UI micro-interactions: button press feedback + click SFX, drag lift, reward count-up | agent | pending | TID-425 |
+| TID-425 | Procedural SFX synthesis & biome ambience (un-mute the game) | agent | done | — |
+| TID-426 | Battle impact animation layer: lunge, hit-stop, death & card-travel tweens | agent | done | — |
+| TID-427 | World interaction ceremonies: chest open, enemy engage beat, pickup flourishes | agent | done | TID-425 |
+| TID-428 | Locomotion feel: accel/decel, walk dust, landing feedback, anim-synced footsteps | agent | done | — |
+| TID-429 | UI micro-interactions: button press feedback + click SFX, drag lift, reward count-up | agent | done | TID-425 |
 
 ## Acceptance Criteria
 
@@ -32,3 +32,15 @@ A game-feel audit (July 2026) compared the game against the polish staples that 
 - [ ] Player movement accelerates and decelerates smoothly (no single-frame start/stop); walking emits subtle dust; landing after a jump shows dust/squash feedback; footsteps sync to walk animation frames
 - [ ] Buttons across HUD and overlays give press feedback (scale/color) and an audible click; the dragged hand card's source panel dims; victory coin/XP totals count up; feedback respects accessibility toggles (screen shake, haptics)
 - [ ] All tests pass headless; headless editor import is clean after every task
+
+**Status note:** all 5 tasks are implemented per the criteria above, but
+none could be verified in this session — the Godot 4.6 headless binary
+could not be installed (downloading it from `github.com/godotengine/godot/
+releases` is blocked by this environment's proxy egress policy). The
+checkboxes above are left unchecked until a session with headless Godot
+access runs `godot --headless --editor --quit` (parse-error check) and
+`godot --headless --path . -s tests/runner.gd` (full suite, including 4 new
+test files this goal added), plus a manual playthrough of: battle
+(attack/death/card-play), world (chest/enemy-engage/scroll/dig/waystone),
+locomotion (walk/jump/land/mount), and UI (HUD buttons/overlays/drag/victory
+screen).

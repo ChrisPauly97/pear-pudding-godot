@@ -1650,6 +1650,7 @@ func show_toast(title: String, desc: String) -> void:
 func teleport_to_waystone(waystone_id: String) -> void:
 	if _state != State.WORLD:
 		return
+	AudioManager.play_sfx("waystone_travel")
 	if waystone_id.begins_with("map:"):
 		var target_map: String = waystone_id.substr(4)
 		enter_map(target_map, "")

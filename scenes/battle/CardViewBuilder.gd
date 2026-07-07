@@ -194,6 +194,13 @@ func _make_empty_slot_panel(slot_idx: int, zone_id: String) -> PanelContainer:
 func _setup_empty_slot_panel(panel: PanelContainer, slot_idx: int, zone_id: String) -> void:
 	panel.set_meta("is_empty_slot", true)
 	panel.custom_minimum_size = _slot_size()
+	# Same reuse-safety reset as update_card_view() — a board slot panel is a
+	# stable identity that toggles between "card" and "empty" indefinitely, so
+	# any transient modulate/scale from an in-flight animation must not leak
+	# into the empty state (TID-429).
+	panel.visible = true
+	panel.modulate = Color.WHITE
+	panel.scale = Vector2.ONE
 	for ch in panel.get_children():
 		if not ch is LongPressDetector:
 			ch.queue_free()
@@ -270,6 +277,14 @@ func format_card_stats(card: CardInstance, cost: int) -> String:
 func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
 	if bool(panel.get_meta("is_card_back", false)):
 		return
+	# A reused panel can carry transient per-instance visual state from its
+	# previous card — drag-lift dimming (TID-429), a hidden hand panel mid
+	# card-travel (TID-426), or an in-flight lunge scale — none of which
+	# `update_card_view` otherwise touches. Reset before it might get
+	# reassigned to a completely different card.
+	panel.visible = true
+	panel.modulate = Color.WHITE
+	panel.scale = Vector2.ONE
 	var vbox: VBoxContainer = panel.get_child(0) as VBoxContainer
 	var name_lbl: Label = vbox.get_node_or_null("NameLabel") as Label if vbox else null
 	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")

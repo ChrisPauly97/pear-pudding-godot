@@ -3,6 +3,7 @@ extends Control
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
 const MultiplayerLobbyScene = preload("res://scenes/ui/MultiplayerLobbyScene.gd")
+const UiFx = preload("res://scenes/ui/UiFx.gd")
 
 var _title: Label
 var _continue_btn: Button
@@ -38,6 +39,7 @@ func _add_btn(label: String, cb: Callable) -> Button:
 	btn.pressed.connect(cb)
 	add_child(btn)
 	_buttons.append(btn)
+	UiFx.attach(btn)
 	return btn
 
 func _notification(what: int) -> void:

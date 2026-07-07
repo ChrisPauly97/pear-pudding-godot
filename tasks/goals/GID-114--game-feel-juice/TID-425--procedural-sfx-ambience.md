@@ -2,7 +2,7 @@
 
 **Goal:** GID-114
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -97,12 +97,62 @@ streams have `loop_mode = LOOP_FORWARD`.
 
 ## Plan
 
-_Written during Plan phase._
+1. Create `game_logic/SfxGen.gd` (pure logic, static, mirrors `TextureGen.gd`'s
+   `class_name` + `static var _cache` pattern) with sample-level primitives
+   (sine/sweep/saw/square/noise, one-pole low/high-pass, attack-decay envelope,
+   mix/mix_at/concat, seamless-loop crossfade) and a `_build(key)` /
+   `_build_ambience(biome_id)` dispatcher covering every key in the Research
+   Notes plus the 4 new keys (`ui_click`, `land`, `dig_success`,
+   `waystone_travel`) and the previously-unregistered `enemy_alert` (BID-045).
+2. Wire `AudioManager._ready()` to fill any `_sfx_cache` miss from
+   `SfxGen.get_sfx()` after the file-based load loop (file wins if present).
+3. Wire `AudioManager.set_ambience()` to fall back to `SfxGen.get_ambience()`
+   when no `AMBIENCE_PATHS` file exists.
+4. Register `enemy_alert` + the 4 new keys in `SFX_PATHS` (override slots for
+   future real files) and create `assets/audio/ambience/` (was missing).
+5. Add `tests/unit/test_sfx_gen.gd` asserting every key/biome produces valid
+   non-empty mono 16-bit PCM data with the correct loop mode and sample
+   bounds.
+6. Update `assets/audio/sfx/README.md` and add `assets/audio/ambience/README.md`
+   documenting the synth-fallback behavior.
+7. Resolve BID-045 (enemy_alert key) as part of this task.
+
+No approval pause needed — research notes were fully specified and this is an
+additive, self-contained module with no risk to existing systems beyond the
+two small `AudioManager` call sites.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Added `game_logic/SfxGen.gd` (+ `.uid`): procedural synthesis of all 17 SFX
+  keys and 5 biome ambience loops as `AudioStreamWAV`, cached forever per key.
+- `autoloads/AudioManager.gd`: preloaded `SfxGen`; `_ready()` now fills any
+  `_sfx_cache` miss from `SfxGen.get_sfx()`; `set_ambience()` falls back to
+  `SfxGen.get_ambience(biome_id)` when no ambience file exists; registered
+  `enemy_alert`, `ui_click`, `land`, `dig_success`, `waystone_travel` in
+  `SFX_PATHS`.
+- Created `assets/audio/ambience/` directory (did not previously exist) with a
+  README documenting the synth fallback; updated `assets/audio/sfx/README.md`
+  to reflect that every key now has a fallback and list the full key set.
+- Added `tests/unit/test_sfx_gen.gd` (+ `.uid`): 7 tests covering non-empty
+  data, mono/16-bit/mix-rate format, cache identity, unknown-key/out-of-range
+  fallback safety, loop-forward mode + correct `loop_end`, and 16-bit sample
+  amplitude bounds.
+- **Backlog resolved:** BID-045 (`enemy_alert` unregistered) — fixed by
+  registering the key; moved to `tasks/archive/backlog/` and `tasks/index.md`
+  updated.
+- **Verification caveat:** the Godot 4.6 headless binary could not be
+  installed in this session — downloading it from
+  `github.com/godotengine/godot/releases` is blocked by this environment's
+  proxy egress policy (403, reported per proxy README rather than worked
+  around). The headless editor import and `tests/runner.gd` suite were **not**
+  run to confirm this compiles/passes. Code was written carefully against
+  existing patterns (`TextureGen.gd` for static/`class_name` conventions,
+  `PackedByteArray.encode_s16` per CLAUDE.md) but needs a real headless run
+  before merge to be fully confident.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `assets/audio/sfx/README.md` — rewritten to describe the synth-fallback
+  system and list all 17 keys (was: 8 keys, "silent no-op" framing).
+- `assets/audio/ambience/README.md` — new file, same treatment for the 5
+  biome ambience slots.

@@ -43,7 +43,7 @@ static func get_dig_site(world_seed: int, treasure_counter: int) -> Vector2i
 
 - Spawned by `ChunkRenderer._spawn_entities()` when the active (non-completed) dig site tile falls inside the chunk being built
 - Visual: brown earth mound (0.5×0.5×0.5) + gold stake (0.06×0.8×0.06) above at y=0.9
-- `dig()` method: rolls coins (50–200), picks random card at tier-3 rarity, awards via `SaveManager`, calls `SaveManager.complete_treasure()`, queues self for free
+- `dig()` method (async, TID-427): rolls coins (50–200), picks random card at tier-3 rarity, awards via `SaveManager`, calls `SaveManager.complete_treasure()` — all synchronous/instant, same as before — then plays `dig_success` SFX and `await`s `_animate_dig_success()` (a one-shot dirt-colored `GPUParticles3D` burst held for 0.5s) before `queue_free()`. Only the mound's visual disappearance is delayed; the reward is granted immediately.
 - WorldScene tracks the single active `DigSpot` node via `_digspot_node`; `register_digspot()` sets it; `_find_nearby_digspot()` checks proximity; `_handle_interact()` calls `dig()`
 
 ### Map Overlay Marker (`scenes/ui/MapViewOverlay.gd`)

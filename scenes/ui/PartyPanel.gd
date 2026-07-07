@@ -149,6 +149,7 @@ func _add_action_button(grid: GridContainer, label: String, cb: Callable, close_
 			_close()
 	)
 	grid.add_child(btn)
+	_attach_button_fx(btn)
 	return btn
 
 
@@ -202,6 +203,7 @@ func _add_roster_row(row: Dictionary) -> void:
 					on_add_friend.call(token, clean_name, color)
 			)
 		hb.add_child(btn)
+		_attach_button_fx(btn)
 
 
 func _notification(what: int) -> void:

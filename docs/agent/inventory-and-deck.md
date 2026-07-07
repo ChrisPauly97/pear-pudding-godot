@@ -85,6 +85,17 @@ When the player opens a chest (`Chest.gd` triggers `GameBus.chest_opened(card_id
 2. Calls `SaveManager.add_card(card_id)` which appends one ID to `owned_cards`
 3. The world entity is flagged as opened in `SaveManager.opened_chests` to prevent re-granting
 
+**Open ceremony (TID-427):** `Chest.mark_opened()` (the actual-open path, called
+by `WorldScene` on interact) hinges a per-instance lid `MeshInstance3D` open
+(`_lid_hinge`, `TRANS_BACK`/`EASE_OUT`, 0.3s) and spawns a one-shot gold
+`GPUParticles3D` burst, then darkens the body material same as before.
+`Chest.init_from_data()` (save-restore path for an already-opened chest) calls
+`_show_opened()` instead, which sets both the lid rotation and body material
+instantly — no animation. The lid is built in `_ready()`, which runs *after*
+`init_from_data()` (Godot calls `init_from_data` pre-`add_child`), so `_ready()`
+re-applies `_show_opened()` once the lid exists if the chest was restored
+already-opened.
+
 The card ID is chosen randomly from the full card pool weighted by rarity (currently uniform).
 
 ### Accessing the Inventory

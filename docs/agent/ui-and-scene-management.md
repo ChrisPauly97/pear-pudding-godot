@@ -154,6 +154,28 @@ A button that needs a `.toggled` connection (`toggle_mode = true`) rather than a
 
 `WorldHUD.is_touch_on_hud_button(pos)` recurses into zone `Container` children (not just direct `_hud` children) so the Android tap-to-move guard still sees every registered button.
 
+### Button press feedback + overlay pop (`scenes/ui/UiFx.gd`, TID-429)
+
+`UiFx.attach(btn: BaseButton)` wires scale-on-press feedback (pivot-centered,
+~0.93 down on `button_down`, back to 1.0 on `button_up`, `TRANS_QUAD`/
+`EASE_OUT`, 0.08s) plus a `ui_click` SFX, skipped automatically when the
+button is `disabled` (Godot doesn't fire `button_down` for a disabled
+`BaseButton` anyway). Idempotent via a `has_meta("_uifx_attached")` guard, so
+it's safe to call from a registry that re-registers the same button.
+`register_action()` calls it for every HUD action; the remaining
+hand-built HUD buttons (`_siege_btn`, `_auction_btn`, `_draft_duel_btn`,
+`_tournament_btn`, `_ranked_toggle_btn`, `_ping_btn`, `_chat_send_btn` — the
+same allow-list `test_hud_registry_guardrail.gd` tracks) call it explicitly
+right after construction. `BaseOverlay` exposes `_attach_button_fx(btn)` as a
+convenience wrapper for subclasses (used by `PartyPanel`'s action grid and
+roster-row friend buttons); `UiUtil.make_close_button()` /
+`make_rarity_selector()` call `UiFx.attach()` directly, covering every
+overlay that uses those shared factories. `MenuScene._add_btn()` and
+`BattleScene`'s End Turn/Menu buttons attach it too. `UiFx.pop_in(panel)`
+(scale 0.96→1.0 + fade 0→1 over 0.12s, doesn't touch `mouse_filter`) is
+called from `BaseOverlay._build_centered_panel()` — every overlay built on
+top of it gets the open pop for free.
+
 ### Party panel (`scenes/ui/PartyPanel.gd`)
 
 A single "Party" button in `ZONE_NAV` opens a `BaseOverlay`-based panel (same pattern as `GhostDuelOverlay`/`LeaderboardOverlay`/`PartyStashOverlay`: `extends BaseOverlay` by path string, `.new()`-instantiated, built from plain data/Callables the caller supplies rather than reaching into `WorldScene` internals). It consolidates the always-on co-op affordances that used to be individually-positioned buttons:
