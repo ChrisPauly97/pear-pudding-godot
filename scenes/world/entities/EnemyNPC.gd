@@ -40,11 +40,18 @@ func init_from_data(data: Dictionary) -> void:
 		_is_boss = EnemyRegistry.get_is_boss(etype)
 	_add_difficulty_pip(etype)
 
+## Async: shows a brief "!" alert beat before the battle transition, instead
+## of vanishing into the fight with no warning (TID-427). `_alive` flips to
+## false first, same as before, so re-entry (another interact/proximity hit
+## while the beat is playing) is still a safe no-op.
 func engage() -> void:
 	if not _alive:
 		return
 	_alive = false
 	enemy_data["alive"] = false
+	_show_alert()
+	AudioManager.play_sfx("enemy_alert")
+	await get_tree().create_timer(0.4, false).timeout
 	var edata := enemy_data.duplicate()
 	var etype: String = str(edata.get("enemy_type", "undead_basic"))
 	if not edata.has("enemy_deck"):
@@ -55,6 +62,20 @@ func engage() -> void:
 	AudioManager.play_sfx("enemy_engage")
 	GameBus.enemy_engaged.emit(edata)
 	queue_free()
+
+func _show_alert() -> void:
+	var lbl := Label3D.new()
+	lbl.text = "!"
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.no_depth_test = true
+	lbl.modulate = Color(1.0, 0.15, 0.15)
+	lbl.font_size = 56
+	lbl.pixel_size = 0.01
+	lbl.position = Vector3(0.0, 1.9, 0.0)
+	lbl.scale = Vector3.ZERO
+	add_child(lbl)
+	var tw: Tween = lbl.create_tween()
+	tw.tween_property(lbl, "scale", Vector3.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func mark_defeated() -> void:
 	_alive = false

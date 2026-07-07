@@ -2,7 +2,7 @@
 
 **Goal:** GID-114
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-425
 
 ## Lock
@@ -97,12 +97,87 @@ exactly once with the same payload after the beat — await in test via
 
 ## Plan
 
-_Written during Plan phase._
+1. `Chest.gd`: add a per-instance lid hinge (`Node3D` + `MeshInstance3D`,
+   distinct name to avoid `find_child("MeshInstance3D")` ambiguity with the
+   body mesh) built in `_ready()`. `mark_opened()` → `_animate_open()` tweens
+   the hinge open (`TRANS_BACK`/`EASE_OUT`) and spawns a one-shot gold
+   `GPUParticles3D` burst; `init_from_data()`/save-restore keeps the instant
+   `_show_opened()` path (material + lid snapped open, no tween). Split the
+   material swap into `_set_opened_material()` so `_animate_open()` doesn't
+   also snap the lid rotation and stomp its own tween.
+2. `EnemyNPC.gd`: make `engage()` async — flip `_alive=false` and show a
+   billboard `"!"` `Label3D` alert + `enemy_alert` SFX first, `await` a 0.4s
+   beat, then do the existing deck/boss resolution + `enemy_engage` SFX +
+   `GameBus.enemy_engaged.emit()` + `queue_free()`. No movement to freeze
+   (`tracking` only gates the proximity `Area3D`, there's no chase AI yet).
+3. `StoryScroll.gd`: `interact()` calls `_animate_pickup()` (tween the node's
+   own position/scale, not a material fade — mesh material is a shared
+   static resource) before `queue_free()`.
+4. `DigSpot.gd`: `dig()` grants the reward synchronously as before, then
+   plays `dig_success` and `await`s a one-shot dirt-particle burst before
+   `queue_free()`.
+5. `SceneManager.teleport_to_waystone()`: play `waystone_travel` SFX at the
+   top (covers both the `map:` and `world:` teleport branches).
+6. Door SFX (`door_enter`) needed no code change — already wired, just
+   silent until TID-425 landed.
+7. Update `docs/agent/enemies-and-npcs.md`, `story-narration-scrolls.md`,
+   `treasure-maps.md`, `waystone-fast-travel.md`, `inventory-and-deck.md`.
+
+No approval pause — research notes fully specified each ceremony and the
+existing chest/particle/tween patterns from TID-425/426/428 were direct
+templates.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/entities/Chest.gd`: added `_lid_hinge`/`LidMesh` (per-instance,
+  distinct name), `_build_lid()`, `_animate_open()` (lid swing + gold burst),
+  `_spawn_gold_burst()`, `_set_opened_material()`. `_ready()` re-applies
+  `_show_opened()` if the chest was restored already-opened, since
+  `init_from_data()` runs *before* `_ready()` (so the lid doesn't exist yet
+  when the restore path first calls `_show_opened()`).
+- `scenes/world/entities/EnemyNPC.gd`: `engage()` is now async with a 0.4s
+  alert beat (`_show_alert()` + `enemy_alert` SFX) before the actual battle
+  transition; `_alive` still flips to `false` on the first line, so re-entry
+  during the beat stays a safe no-op. Signal *emission* is delayed, not
+  listener order (BID-044 co-op siege race untouched).
+- `scenes/world/entities/StoryScroll.gd`: `interact()` now floats/shrinks the
+  scroll via `_animate_pickup()` before freeing.
+- `scenes/world/entities/DigSpot.gd`: `dig()` now bursts dirt particles via
+  `_animate_dig_success()` before freeing; reward grant timing unchanged.
+- `autoloads/SceneManager.gd`: `teleport_to_waystone()` plays
+  `waystone_travel` SFX.
+- **Bug caught and fixed during build:** the first draft of
+  `Chest._animate_open()` called the (then-single) `_show_opened()` after
+  starting the lid tween; `_show_opened()` also set `_lid_hinge.rotation.x`
+  directly, which — because a `Tween` reads its "from" value lazily on its
+  first tick, not at `tween_property()` call time — made the lid snap open
+  instantly instead of animating. Fixed by splitting the material swap into
+  `_set_opened_material()` (used by `_animate_open()`) separate from
+  `_show_opened()` (material + instant lid snap, restore-path only).
+- **Scope/testing note:** no new unit tests — every touched entity
+  (`Chest`/`EnemyNPC`/`StoryScroll`/`DigSpot`) is a `Node3D` with heavy
+  autoload dependencies (`AudioManager`, `SaveManager`, `GameBus`,
+  `SceneManager`, `EnemyRegistry`/`CardRegistry`), which
+  `test_hud_registry_guardrail.gd`'s own comment documents as unsuited to
+  headless unit instantiation in this codebase (source-text scan preferred
+  over live scene-tree tests for exactly this reason) — consistent with
+  that precedent, this task adds no test file.
+- **Verification caveat:** same as the rest of GID-114 — the Godot headless
+  binary could not be installed in this session (proxy blocks the release
+  download). This task in particular needs a manual playthrough (open a
+  chest, engage an enemy, pick up a scroll, dig a treasure site, fast-travel)
+  plus a headless editor import, since none of it is unit-testable per the
+  note above.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/inventory-and-deck.md` — added a "Open ceremony (TID-427)"
+  note under "Chest Card Drops".
+- `docs/agent/enemies-and-npcs.md` — rewrote the `engage()` method
+  description to cover the async alert beat.
+- `docs/agent/story-narration-scrolls.md` — updated `interact()` description
+  with the pickup flourish.
+- `docs/agent/treasure-maps.md` — updated `dig()` description with the
+  particle burst + delayed free.
+- `docs/agent/waystone-fast-travel.md` — updated the Asset Requirements line
+  (was "No audio SFX added in v1").

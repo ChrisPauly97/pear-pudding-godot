@@ -20,7 +20,7 @@ A game-feel audit (July 2026) compared the game against the polish staples that 
 |----|------|------|--------|------------|
 | TID-425 | Procedural SFX synthesis & biome ambience (un-mute the game) | agent | done | — |
 | TID-426 | Battle impact animation layer: lunge, hit-stop, death & card-travel tweens | agent | done | — |
-| TID-427 | World interaction ceremonies: chest open, enemy engage beat, pickup flourishes | agent | pending | TID-425 |
+| TID-427 | World interaction ceremonies: chest open, enemy engage beat, pickup flourishes | agent | done | TID-425 |
 | TID-428 | Locomotion feel: accel/decel, walk dust, landing feedback, anim-synced footsteps | agent | done | — |
 | TID-429 | UI micro-interactions: button press feedback + click SFX, drag lift, reward count-up | agent | pending | TID-425 |
 

@@ -41,4 +41,15 @@ func interact() -> void:
 	GameBus.story_scroll_collected.emit(_scroll_id)
 	AudioManager.play_sfx("scroll_pickup")
 	AudioManager.play_narration(_scroll_id)
-	queue_free()
+	_animate_pickup()
+
+## Floats the scroll up and shrinks it away instead of an instant pop
+## (TID-427). Tweens the node itself (position/scale) rather than a color
+## fade — the mesh material is a shared static resource, so mutating its
+## alpha per-instance would fade every scroll in the world at once.
+func _animate_pickup() -> void:
+	var tw: Tween = create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(self, "position:y", position.y + 0.6, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(self, "scale", Vector3.ZERO, 0.4).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(queue_free)

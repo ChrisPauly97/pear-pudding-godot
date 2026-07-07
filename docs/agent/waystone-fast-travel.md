@@ -163,4 +163,4 @@ Also added: `SceneManager.show_toast(title, desc)` — thin wrapper around `_toa
 
 - `scenes/world/entities/Waystone.tscn` — minimal scene, no external assets
 - `scenes/world/entities/Waystone.gd` — procedural material/mesh, no textures
-- No audio SFX added in v1; toast notification is the activation feedback
+- Activation feedback is a toast; teleport itself plays the `waystone_travel` SFX (`SceneManager.teleport_to_waystone()`, TID-427) plus the existing `TransitionManager` 0.2s scene fade — no new visual asset needed

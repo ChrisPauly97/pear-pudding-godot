@@ -58,4 +58,31 @@ func dig() -> void:
 	var stats: Dictionary = CardDropUtil.roll_stats(card_id, rarity)
 	sm.grant_card_reward(card_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
 	sm.complete_treasure(coins, card_id)
+	AudioManager.play_sfx("dig_success")
+	await _animate_dig_success()
 	queue_free()
+
+## Dirt-colored one-shot burst so the mound doesn't just vanish the instant
+## the reward is granted (TID-427). Reward application above stays
+## synchronous/instant; only the visual disappearance is delayed.
+func _animate_dig_success() -> void:
+	var burst := GPUParticles3D.new()
+	burst.amount = 14
+	burst.lifetime = 0.5
+	burst.one_shot = true
+	burst.emitting = true
+	burst.position = Vector3(0.0, 0.5, 0.0)
+	var pm := ParticleProcessMaterial.new()
+	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	pm.emission_sphere_radius = 0.3
+	pm.direction = Vector3(0.0, 1.0, 0.0)
+	pm.spread = 70.0
+	pm.initial_velocity_min = 0.8
+	pm.initial_velocity_max = 1.8
+	pm.gravity = Vector3(0.0, -5.0, 0.0)
+	pm.scale_min = 0.05
+	pm.scale_max = 0.10
+	pm.color = Color(0.45, 0.30, 0.15)
+	burst.process_material = pm
+	add_child(burst)
+	await get_tree().create_timer(0.5, false).timeout

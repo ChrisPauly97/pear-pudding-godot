@@ -48,7 +48,7 @@ A `Node3D` that:
 1. Builds a gold cylinder mesh + soft OmniLight3D glow in `_ready()`
 2. `setup(scroll_id, player)` — auto-frees if already collected
 3. `_process()` — tracks proximity (`_near_player` flag) for E-key prompt
-4. `interact()` — marks collected, emits `GameBus.story_scroll_collected`, plays `scroll_pickup` SFX, calls `AudioManager.play_narration(scroll_id)`, then `queue_free()`
+4. `interact()` — marks collected, emits `GameBus.story_scroll_collected`, plays `scroll_pickup` SFX, calls `AudioManager.play_narration(scroll_id)`, then `_animate_pickup()` (TID-427): tweens the node's own `position:y` up + `scale` to zero over 0.4s (not a color/alpha fade — the mesh material is a shared static resource, so per-instance alpha mutation would fade every scroll in the world at once), then `queue_free()` on completion. A second interact during the ~0.4s flourish is a safe no-op (`SaveManager.is_scroll_collected()` guard fires first).
 
 #### Named map placement
 
