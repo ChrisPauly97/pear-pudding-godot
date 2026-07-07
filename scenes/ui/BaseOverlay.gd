@@ -1,6 +1,8 @@
 extends Control
 class_name BaseOverlay
 
+const UiFx = preload("res://scenes/ui/UiFx.gd")
+
 signal closed
 
 var _vh: float = 0.0
@@ -39,6 +41,7 @@ func _build_centered_panel(w: float, h: float) -> PanelContainer:
 	panel.position = Vector2((_vw - w) * 0.5, (_vh - h) * 0.5)
 	panel.mouse_filter = MOUSE_FILTER_STOP
 	add_child(panel)
+	UiFx.pop_in(panel)
 	return panel
 
 # Applies the standard dark-glass styled border to a PanelContainer.
@@ -73,6 +76,11 @@ func _build_margin_vbox(parent: Control, margin_frac: float = 0.015, sep_frac: f
 
 func _close() -> void:
 	closed.emit()
+
+## Convenience so subclasses don't need their own UiFx preload just to opt a
+## button into press feedback (scale + click SFX, TID-429).
+func _attach_button_fx(btn: BaseButton) -> void:
+	UiFx.attach(btn)
 
 # Attach mouse-drag-to-scroll behaviour to any ScrollContainer.
 # Works on the container's background and on child controls that let events

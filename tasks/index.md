@@ -117,7 +117,7 @@
 | [GID-111](goals/GID-111--coop-boss-targeting-fix/goal.md) | Co-op Boss Targeting Fix — Dead Ally Retargeting | done (headless test run unverified in-sandbox — see goal.md note) | 1 / 1 |
 | [GID-112](goals/GID-112--battle-ai-depth/goal.md) | Battle AI Depth — Enemy Personas & Real Decision-Making | pending | 0 / 5 |
 | [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | pending | 0 / 5 |
-| [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | in-progress | 4 / 5 |
+| [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | needs-verification | 5 / 5 |
 
 ## Backlog
 

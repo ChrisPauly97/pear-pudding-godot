@@ -26,6 +26,7 @@ const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const CaptureTracker = preload("res://game_logic/battle/CaptureTracker.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const BattleFx = preload("res://scenes/battle/BattleFx.gd")
+const UiFx = preload("res://scenes/ui/UiFx.gd")
 const CardViewBuilder = preload("res://scenes/battle/CardViewBuilder.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
 const BattlePauseUI = preload("res://scenes/battle/BattlePauseUI.gd")
@@ -420,6 +421,8 @@ func _ready() -> void:
 
 	_end_turn_btn.pressed.connect(_on_end_turn)
 	_menu_btn.pressed.connect(_pause_ui.confirm_return_to_menu)
+	UiFx.attach(_end_turn_btn)
+	UiFx.attach(_menu_btn)
 	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
 	_setup_board_drop_zone()
 	_pause_ui.add_pause_button($SidePanel)
@@ -1421,9 +1424,18 @@ func _notification(what: int) -> void:
 		if _pause_ui != null and not _pause_ui.is_paused():
 			_pause_ui.show_pause()
 	elif what == NOTIFICATION_DRAG_END:
-		# Native drag ended (dropped outside any drop zone or cancelled).
-		# Clear the slot-highlight state that was set when the drag started.
+		# Native drag ended (dropped outside any drop zone, cancelled, or a
+		# successful drop — this notification fires in all three cases).
+		# Clear the slot-highlight state that was set when the drag started,
+		# and restore the source hand panel's lift-dim (TID-429) — a
+		# successful play already hides that panel separately
+		# (_hide_hand_panel), so restoring modulate here is harmless either
+		# way and the next _refresh_all() would reset it regardless
+		# (update_card_view() always resets modulate/visible/scale on reuse).
 		if _hand_drag_card != null:
+			var dragged_panel: Control = _hand_panel_node(_hand_drag_card)
+			if dragged_panel != null and is_instance_valid(dragged_panel):
+				dragged_panel.modulate.a = 1.0
 			_hand_drag_card = null
 			_refresh_player_board()
 
@@ -1584,7 +1596,10 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 				if not _state.players[_my_idx()].can_play(card):
 					return null
 				_hand_drag_card = card
-				panel.set_drag_preview(_make_card_ghost(card))
+				var ghost: PanelContainer = _make_card_ghost(card)
+				ghost.scale = Vector2(1.05, 1.05)
+				panel.set_drag_preview(ghost)
+				panel.modulate.a = 0.45
 				_refresh_player_board()
 				return {"card": card},
 			func(_pos: Vector2, _data: Variant) -> bool: return false,

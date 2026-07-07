@@ -5,8 +5,11 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const UiFx = preload("res://scenes/ui/UiFx.gd")
 
 const _BOSS_BANNER_DURATION: float = 2.5
+const _COUNT_UP_DURATION: float = 0.5
+const _COUNT_UP_MAX_STEPS: int = 8
 
 var _parent: Node
 var _vh: float = 0.0
@@ -65,6 +68,40 @@ func show_phase2_banner() -> void:
 	_boss_banner = lbl
 	start_banner_fade(lbl)
 
+# -------------------------------------------------------------------------
+# Reward count-up (TID-429)
+# -------------------------------------------------------------------------
+
+## Pure: the intermediate values a reward counter ticks through on its way to
+## `target` (at most `max_steps`, always ending exactly on `target`). Kept
+## static/pure so it's unit-testable without an overlay/label/tween.
+static func count_up_steps(target: int, max_steps: int = _COUNT_UP_MAX_STEPS) -> Array[int]:
+	var steps: Array[int] = []
+	if target <= 0:
+		steps.append(0)
+		return steps
+	var n: int = mini(max_steps, target)
+	for i in range(1, n + 1):
+		steps.append(int(round(float(target) * float(i) / float(n))))
+	steps[steps.size() - 1] = target
+	return steps
+
+## Ticks `lbl.text` from 0 to `target` over `duration`, formatting each step
+## with `fmt % value` (e.g. "+ %d Coins"), with a click tick per step.
+func _animate_count_up(lbl: Label, target: int, fmt: String, duration: float = _COUNT_UP_DURATION) -> void:
+	var steps: Array[int] = count_up_steps(target)
+	lbl.text = fmt % 0
+	var tw: Tween = lbl.create_tween()
+	var step_dur: float = duration / float(steps.size())
+	for v: int in steps:
+		var captured_v: int = v
+		tw.tween_interval(step_dur)
+		tw.tween_callback(func() -> void:
+			if is_instance_valid(lbl):
+				lbl.text = fmt % captured_v
+				AudioManager.play_sfx("ui_click")
+		)
+
 func start_banner_fade(banner: Control) -> void:
 	var tween := _parent.create_tween()
 	tween.tween_interval(_BOSS_BANNER_DURATION - 0.5)
@@ -121,19 +158,19 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 
 	if coins_earned > 0:
 		var coins_lbl := Label.new()
-		coins_lbl.text = "+ %d Coins" % coins_earned
 		coins_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
 		coins_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		coins_lbl.modulate = Color(1.0, 0.85, 0.3)
 		vbox.add_child(coins_lbl)
+		_animate_count_up(coins_lbl, coins_earned, "+ %d Coins")
 
 	if xp_earned > 0:
 		var xp_lbl := Label.new()
-		xp_lbl.text = "+ %d XP" % xp_earned
 		xp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
 		xp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		xp_lbl.modulate = Color(0.5, 1.0, 0.7)
 		vbox.add_child(xp_lbl)
+		_animate_count_up(xp_lbl, xp_earned, "+ %d XP")
 
 	if weapon_reward_id != "":
 		var weapon: WeaponData = WeaponRegistry.get_weapon(weapon_reward_id)
@@ -180,6 +217,7 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 		})
 	)
 	vbox.add_child(btn)
+	UiFx.attach(btn)
 
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
@@ -265,6 +303,7 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 		})
 	)
 	vbox.add_child(btn)
+	UiFx.attach(btn)
 
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
@@ -315,19 +354,19 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 
 	if coins_earned > 0:
 		var coins_lbl := Label.new()
-		coins_lbl.text = "+ %d Coins" % coins_earned
 		coins_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
 		coins_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		coins_lbl.modulate = Color(1.0, 0.85, 0.3)
 		vbox.add_child(coins_lbl)
+		_animate_count_up(coins_lbl, coins_earned, "+ %d Coins")
 
 	if xp_earned > 0:
 		var xp_lbl := Label.new()
-		xp_lbl.text = "+ %d XP" % xp_earned
 		xp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
 		xp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		xp_lbl.modulate = Color(0.5, 1.0, 0.7)
 		vbox.add_child(xp_lbl)
+		_animate_count_up(xp_lbl, xp_earned, "+ %d XP")
 
 	if weapon_reward_id != "":
 		var weapon: WeaponData = WeaponRegistry.get_weapon(weapon_reward_id)
@@ -367,6 +406,7 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 		})
 	)
 	vbox.add_child(btn)
+	UiFx.attach(btn)
 
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
@@ -410,6 +450,7 @@ func show_duel_victory(wager: int) -> void:
 		GameBus.duel_won.emit()
 	)
 	vbox.add_child(btn)
+	UiFx.attach(btn)
 
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
@@ -454,6 +495,7 @@ func show_duel_loss(wager: int) -> void:
 		GameBus.duel_lost.emit()
 	)
 	vbox.add_child(btn)
+	UiFx.attach(btn)
 
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
@@ -510,6 +552,7 @@ func show_ghost_duel_result(did_win: bool, coin_reward: int) -> void:
 		GameBus.ghost_duel_ended.emit(did_win)
 	)
 	vbox.add_child(btn)
+	UiFx.attach(btn)
 
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
@@ -548,6 +591,7 @@ func show_scripted_result(did_win: bool, battle_id: String) -> void:
 		GameBus.scripted_battle_ended.emit(battle_id, did_win)
 	)
 	vbox.add_child(btn)
+	UiFx.attach(btn)
 
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
@@ -617,6 +661,7 @@ func show_pvp_result(did_win: bool, coins_delta: int = 0, wager_note: String = "
 		GameBus.pvp_battle_ended.emit(did_win)
 	)
 	vbox.add_child(btn)
+	UiFx.attach(btn)
 
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
@@ -656,6 +701,7 @@ func show_puzzle_fail_overlay(hint_text: String) -> void:
 	btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
 	btn.pressed.connect(func() -> void: overlay.queue_free())
 	vbox.add_child(btn)
+	UiFx.attach(btn)
 
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)
@@ -696,6 +742,7 @@ func show_puzzle_victory_overlay() -> void:
 		SceneManager.return_from_puzzle()
 	)
 	vbox.add_child(btn)
+	UiFx.attach(btn)
 
 	overlay.add_child(vbox)
 	_parent.add_child(overlay)

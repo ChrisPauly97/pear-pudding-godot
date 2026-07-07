@@ -1,5 +1,7 @@
 extends Object
 
+const _UiFx = preload("res://scenes/ui/UiFx.gd")
+
 # ---------------------------------------------------------------------------
 # Rarity
 # ---------------------------------------------------------------------------
@@ -61,6 +63,7 @@ static func make_close_button(vh: float, on_pressed: Callable) -> Button:
 	btn.custom_minimum_size = Vector2(vh * 0.22, vh * 0.065)
 	btn.add_theme_font_size_override("font_size", int(vh * 0.028))
 	btn.pressed.connect(on_pressed)
+	_UiFx.attach(btn)
 	return btn
 
 # ---------------------------------------------------------------------------
@@ -83,4 +86,5 @@ static func make_rarity_selector(current_rarity: String, ref: float, on_select: 
 			btn.modulate = Color(0.50, 0.50, 0.50)
 		btn.pressed.connect(on_select.bind(rarity))
 		row.add_child(btn)
+		_UiFx.attach(btn)
 	return row
