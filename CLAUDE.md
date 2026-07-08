@@ -1,689 +1,282 @@
 # CLAUDE.md — Pear Pudding TCG
 
 ## Read Order
-
 Before any task, read in this order:
 1. `docs/human/specification.md`
 2. `docs/human/workflow.md`
 3. Relevant design docs in `docs/agent/`
 
 ## Ownership
-
 - `docs/human/` — Human-owned. Never edit.
 - `docs/agent/` — Agent-owned. Keep exhaustive and current.
 - `tasks/` — Agent-managed. Follow workflow rules.
 
 ## Workflow
-
 All functional code changes follow the task lifecycle in `docs/human/workflow.md`.
 
 ## Commands
-
 - `/new-goal` — Research and create a goal with tasks
 - `/work-task` — Execute a single task
 
 ---
 
-## Map Storage: Native Godot .tres Resources
-
-Maps are stored as `.tres` resource files in `assets/maps/`. The 6 built-in maps are preloaded by `autoloads/MapRegistry.gd`, which Godot automatically includes in exports. No bundling step is needed.
-
-**Whenever you add a new built-in map:**
-1. Create `assets/maps/<name>.tres` (use the in-game editor or write a converter script).
-2. Add a `const _NAME := preload("res://assets/maps/<name>.tres")` line to `MapRegistry.gd`.
-3. Add the name to the `_BUNDLED` dictionary in `MapRegistry.gd`.
-
-Godot's export system tracks the preload dependencies and includes the `.tres` files in the APK/PCK automatically.
+## Map Storage
+Maps are `.tres` files in `assets/maps/`, preloaded by `autoloads/MapRegistry.gd`. To add a built-in map:
+1. Create `assets/maps/<name>.tres`
+2. Add `const _NAME := preload("res://assets/maps/<name>.tres")` to `MapRegistry.gd`
+3. Add name to `_BUNDLED` dictionary in `MapRegistry.gd`
 
 ---
 
-## GDScript: Variant Inference Errors
+## GDScript: Variant Inference — Use Explicit Types
 
-### The problem
-GDScript's `:=` operator infers the variable type from the right-hand side. If the RHS returns `Variant` (untyped), Godot 4 with strict mode treats this as a compile error:
+`:=` on a Variant RHS is a strict-mode parse error. Always annotate:
 
-```
-Parse Error: Cannot infer the type of "x" variable because the value doesn't have a set type.
-Parse Error: The variable type is being inferred from a Variant value, so it will be typed as Variant. (Warning treated as error.)
-```
+| Expression | Fix |
+|---|---|
+| `array[i]`, `max()`, `min()`, `lerp()`, `clamp()` | `var x: int = ...` |
+| Untyped array index | Use `Array[int]` typed array |
 
-### Common causes
-| Expression | Returns | Fix |
-|---|---|---|
-| `array[i]` | Variant | `var x: int = array[i]` |
-| `max(a, b)` | Variant | `var x: int = max(a, b)` |
-| `min(a, b)` | Variant | `var x: float = min(a, b)` |
-| `lerp(a, b, t)` | Variant | `var x: float = lerp(a, b, t)` |
-| `clamp(v, a, b)` | Variant | `var x: int = clamp(v, a, b)` |
-| Typed array `Array[int]` index | int | OK with `:=` |
-
-### The fix
-Use explicit type annotation whenever the RHS is one of the above:
 ```gdscript
-# Bad — Variant inference error
-var step := max(1, (max_depth - 20) / 8)
-var d := chest_depths[i] + rng.randi_range(-5, 5)
-
-# Good — explicit type
-var step: int = max(1, (max_depth - 20) / 8)
-var d: int = chest_depths[i] + rng.randi_range(-5, 5)
-```
-
-Use typed arrays to allow `:=` on indexed access:
-```gdscript
-# Bad
-var depths := [10, 20, 30]
-var d := depths[i]  # Variant error
-
-# Good
+var step: int = max(1, depth / 8)          # not :=
 var depths: Array[int] = [10, 20, 30]
-var d := depths[i]  # OK — inferred as int
-```
-
-Dictionary values are always plain `Array` — use `assign()` to convert to a typed array:
-```gdscript
-# Bad — dict value is plain Array
-player.build_deck(enemy_data["enemy_deck"])  # runtime type error
-
-# Good — assign() copies into the typed array
+var d := depths[i]                          # OK — typed array
 var deck: Array[String] = []
-deck.assign(enemy_data["enemy_deck"])
-player.build_deck(deck)
-```
-
-Array literals are always plain `Array` — annotate them when passing to a typed parameter:
-```gdscript
-# Bad — passes plain Array to a func expecting Array[String]
-var deck := ["ghost", "skeleton"]
-player.build_deck(deck)  # runtime type error
-
-# Good
-var deck: Array[String] = ["ghost", "skeleton"]
-player.build_deck(deck)
+deck.assign(enemy_data["enemy_deck"])       # dict values are plain Array
 ```
 
 ---
 
-## GDScript: `as Node3D` / `as Node` on a Freed Instance Crashes Before You Can Check It
+## GDScript: Freed Node Dictionary Crash
 
-### The problem
-Casting a `Variant` that holds a freed object reference — e.g. `var n: Node3D = my_dict.get(id) as Node3D` — throws `SCRIPT ERROR: Trying to cast a freed object` (or `Trying to assign invalid previously freed instance`) **at the cast/assignment itself**, before execution ever reaches an `is_instance_valid(n)` check on the next line. This bit `WorldScene.gd` and `Minimap.gd` repeatedly: any dictionary that tracks spawned nodes by id (`_enemy_nodes`, `_chest_nodes`, `_remote_player_nodes`, `_door_nodes`, `_npc_nodes`, `_waystone_nodes`, `_burial_mound_nodes`, `_mana_well_nodes`, `_blight_heart_nodes`, `_coop_night_hunt_nodes`, `_nocturnal_enemies[...]["node"]`, minimap's `_enemy_nodes`/group dicts) can end up holding a stale entry after the node was `queue_free()`'d elsewhere (chunk unload, coop despawn, enemy defeat) without the dict entry being erased in lockstep. The very next frame that reads the dict and types the result crashes, even though the code "correctly" checks validity right after.
+Casting a freed object ref crashes **at the cast**, before any validity check. Dicts tracking nodes by id can hold stale refs after `queue_free()`.
 
 ```gdscript
-# Bad — crashes immediately if _enemy_nodes[eid] is a freed reference
+# Bad — crashes if freed
 var node: Node3D = _enemy_nodes.get(eid) as Node3D
-if is_instance_valid(node):
-    ...
 
-# Also bad — same crash, just moved one line down
-var raw: Object = _enemy_nodes[id]   # typed assignment still throws
-if not is_instance_valid(raw):
-    continue
-```
-
-### The fix
-Check `is_instance_valid()` on the **untyped** value first — before any typed variable, cast, or even an `Object`-typed assignment touches it — and only bind the typed variable once validity is confirmed:
-
-```gdscript
-# Good — validity check happens on the untyped Variant, no typed touch until safe
+# Good — check untyped first
 func _valid_node3d(v) -> Node3D:
-    if is_instance_valid(v):
-        return v
-    return null
+    return v if is_instance_valid(v) else null
 
 var node: Node3D = _valid_node3d(_enemy_nodes.get(eid))
-if node != null:
-    ...
 ```
 
-Reuse `WorldScene._valid_node3d()` / `_valid_node()` for this rather than re-deriving the pattern inline. Any new dictionary that tracks live scene nodes by id needs the same treatment the first time it's read back after nodes can be freed out from under it.
+Reuse `WorldScene._valid_node3d()` / `_valid_node()`. Any dict tracking live nodes needs this pattern.
 
 ---
 
-## GDScript: class_name — Always preload, Never Rely on Global Registration
+## GDScript: class_name — Always preload
 
-### The problem
-`class_name Foo` registers a global identifier, but **only after Godot's editor scanner has seen the file**. This fails in two situations:
-
-1. **New files created by Claude** — the editor hasn't scanned them yet, so `Foo` is not registered.
-2. **Load-order races at runtime** — even for existing, committed scripts, if a file is loaded before the class_name's defining script has been parsed in the current session, `Foo` is not available. This caused a real crash: `DiagnosticsScene.gd` called `BaseOverlay._make_dark_glass_style()` via the class_name. When SceneManager loaded `MenuScene` → `DiagnosticsScene` at battle start, `BaseOverlay` wasn't registered yet, causing a compile failure that propagated all the way up to SceneManager and crashed both combat start and the collect-rewards button.
-
-```
-Parse Error: Identifier "BaseOverlay" not declared in the current scope.
-ERROR: Failed to load script 'res://autoloads/SceneManager.gd' with error 'Compilation failed'
-```
-
-### The fix
-**Always `preload` the script in the file that uses it.** Never call static methods or reference a class_name without a preload in the same file.
+`class_name` registration depends on editor scan order — new files and load-order races both fail. Always `preload` instead:
 
 ```gdscript
-# Bad — relies on class_name registration order
+# Bad
 BaseOverlay.attach_drag_scroll(_scroll)
-BaseOverlay._make_dark_glass_style()
 
-# Good — explicit preload, always works
+# Good
 const _BaseOverlay = preload("res://scenes/ui/BaseOverlay.gd")
 _BaseOverlay.attach_drag_scroll(_scroll)
-_BaseOverlay._make_dark_glass_style()
 ```
 
-**Exception — inherited statics:** If a file `extends "res://scenes/ui/BaseOverlay.gd"` (via path string, not class_name), inherited static methods can be called without a qualifier because the parent is already loaded as a dependency:
+**Exception:** If `extends "res://path/to/Foo.gd"`, inherited statics work without qualifier.
 
-```gdscript
-# OK — DiagnosticsScene extends BaseOverlay via path string, so the static is inherited
-extends "res://scenes/ui/BaseOverlay.gd"
-panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
-```
-
-### Rule of thumb
-If a file calls `Foo.some_method()` and does not have `extends "res://path/to/Foo.gd"` at the top, it **must** have `const Foo = preload("res://path/to/Foo.gd")` (or equivalent) at the top.
+**Rule:** Calling `Foo.method()` without `extends "res://...Foo.gd"` requires `const Foo = preload(...)`.
 
 ---
 
-## GDScript: Always Validate Compilation — Parse Errors Cascade Through preload()
+## GDScript: Always Validate Compilation
 
-### The problem
-A single parse/compile error in one `.gd` file silently breaks **every** scene
-that `preload`s it, directly or transitively. Because `WorldScene.gd` preloads a
-long chain (`WorldMap`, `ChunkRenderer`, `MapViewOverlay`, …), one bad line in any
-of them makes the whole world fail to load: **blue screen, no terrain, no
-collision, map overlay won't open, map editor crashes**. The symptoms look like a
-rendering or physics bug, but the root cause is a script that never compiled.
-
-These errors are invisible without running Godot — the file looks fine, and tests
-that don't touch the broken script still pass. Real cases that shipped this way:
-
-| Bug | Broke | Cascaded into |
-|---|---|---|
-| `hmap.cell_size = step` — `HeightMapShape3D` has no `cell_size` (runtime error aborts the function before its `return`) | `TerrainMath.build_terrain_mesh` returned a dict missing `mesh`/`hmap` | no terrain mesh, no collision |
-| Bare `CHUNK_SIZE` after the local `const CHUNK_SIZE` was deleted | `WorldMap.gd` parse error | `WorldScene` + `MapEditorScene` (both preload it) |
-| `ChunkRenderer.prepare_terrain()` — self-reference to a `class_name` the file doesn't declare | `ChunkRenderer.gd` parse error | `WorldScene` |
-| `attach_drag_scroll()` called in a scene that doesn't `extends BaseOverlay` | `MapViewOverlay` / `BlacksmithScene` parse error | `WorldScene` (preloads `MapViewOverlay`) |
-
-### The rule — run a headless import after ANY GDScript edit
-The single check that catches all of the above is a full-project editor import
-(autoloads loaded, every script compiled, `preload` chains followed):
+One parse error silently breaks every scene that `preload`s it. Run after **any** `.gd` edit:
 
 ```bash
 godot --headless --editor --quit 2>&1 | \
   grep -iE "Parse Error|Compile Error|Failed to load script" | \
-  grep -viE "imported/|Make sure resources"   # filter first-import texture noise
+  grep -viE "imported/|Make sure resources"
 ```
 
-Empty output = clean. Any line is a real error to fix **before** committing.
-`--check-only --script <file>` validates a single file but reports false
-positives for autoloads (`SceneManager`, `AudioManager`, …) and `class_name`
-globals, because it doesn't load them — prefer the full import for the verdict.
-Install Godot per *Running Tests: Installing Godot* below if the binary is absent.
-
-### Specific pitfalls these errors come from
-- **Removing a `const` alias** (dead-code cleanup): grep the whole file for the
-  bare name first — `grep -nE "[^.]CHUNK_SIZE"` — a missed usage is a parse error.
-  Constants like `CHUNK_SIZE` must be referenced as `IsoConst.CHUNK_SIZE` unless
-  the file declares a local alias.
-- **Calling a script's own static method as `ClassName.method()`** only works if
-  the file declares `class_name ClassName`. Inside the same file, call it
-  unqualified (`method()`).
-- **Calling an inherited method** (e.g. `attach_drag_scroll`, `_build_backdrop`)
-  only works if the scene `extends "res://scenes/ui/BaseOverlay.gd"`. For scenes
-  that can't (different base like `CanvasLayer`), make the helper a `static func`
-  and call it as `BaseOverlay.attach_drag_scroll(...)`.
-- **Setting an engine property that doesn't exist** (`HeightMapShape3D.cell_size`)
-  throws at runtime and aborts the function mid-way — verify the property exists
-  in the Godot docs for the class before assigning it.
+Empty output = clean. Common pitfalls:
+- Removing a `const` alias — grep for bare usages first
+- `ClassName.method()` inside the same file — call unqualified
+- Inherited methods only work if the scene `extends` the right base
+- Setting non-existent engine properties (verify in Godot docs first)
 
 ---
 
-## Camera: Isometric Follow Without look_at
+## Camera: Isometric Follow
 
-### The problem
-`camera.look_at(target, Vector3.UP)` overrides the camera's rotation every frame, destroying the baked isometric rotation in the `.tscn`.
-
-### The fix
-Never call `look_at` on the isometric camera. The camera rotation is fixed — only update its position:
+Never call `look_at` — it destroys the baked iso rotation. Only move position:
 
 ```gdscript
-# Bad — destroys iso rotation
-_camera.position = _player.position + Vector3(0, 20, 20)
-_camera.look_at(_player.position, Vector3.UP)
-
-# Good — preserves iso rotation
-_camera.position = _player.position + Vector3(20, 20, 20)
+_camera.position = _player.position + Vector3(20, 20, 20)  # opposite of look dir (-1,-1,-1)
 ```
-
-### Why (20, 20, 20)?
-The camera's look direction is `(-0.577, -0.577, -0.577)` (i.e. `(-1,-1,-1)` normalized). To center the view on the player, the camera must be offset in the exact opposite direction: `(+1,+1,+1)` normalized × distance. At distance ~34.6 units that gives offset `(20, 20, 20)`. Using `(0, 20, 20)` shifts the view center 20 units off in X, putting the map off-screen.
 
 ---
 
-## Sprite3D: Depth Clipping Into Floor
+## Sprite3D: Depth Clipping
 
-### The problem
-A `Sprite3D` with `billboard = BILLBOARD_ENABLED` has its origin at the texture centre. If the origin Y is too low, the bottom half of the sprite dips below `y = 0` (the tile plane) and gets clipped by the opaque tile geometry.
-
-### The fix
-Position the sprite so its bottom edge clears the floor:
-
-```gdscript
-# sprite is 48px tall at pixel_size=0.04 → 1.92 world units, half = 0.96
-sprite.position = Vector3(0, 1.1, 0)  # bottom edge at y = 0.14, above tiles at y = 0
-```
-
-General formula: `sprite.position.y = pixel_height * pixel_size * 0.5 + small_margin`
+Billboard sprites clip below `y=0` if origin is too low.
+Formula: `sprite.position.y = pixel_height * pixel_size * 0.5 + small_margin`
 
 ---
 
 ## Grass / Environmental Physics
 
-Grass blades should respond to **actual forces**, not random baked-in directions:
-- **Natural variation** — tiny ±random offset (≤0.08 units) just to break up perfect symmetry
-- **Wind** — a `wind_direction: vec2` uniform shared by all blades; spatial turbulence noise modulates it slightly per blade
-- **Player displacement** — pass `player_pos: vec3` each frame via `set_shader_parameter`; blades within `player_radius` get pushed radially away
+Grass shaders: `wind_direction: vec2` uniform + `player_pos: vec3` per-frame. Blades within `player_radius` push radially. Update from `_process()`, not physics.
 
-Update player pos every frame from `_process()` — not from physics — to keep it smooth:
-```gdscript
-_grass.set_player_pos(_player.position)
-```
-
-## Geometry Shaders
-
-Godot 4 **does not support geometry shaders**. Use these alternatives:
-
-- **Grass / foliage density:** fragment shader with fBm noise on tile planes
-- **Outlines:** second material pass with back-face culling flipped, vertex expansion in vertex stage
-- **Procedural geometry:** `ArrayMesh` built on the CPU
-- **Particles / trails:** `GPUParticles3D` with trail settings
+Godot 4 has **no geometry shaders**. Use: fragment shader (foliage), `ArrayMesh` (procedural geo), `GPUParticles3D` (trails).
 
 ---
 
-## UI Sizing: Relative to Viewport, Never Fixed Pixels
+## UI Sizing: Relative to Viewport
 
-### The problem
-Hard-coded pixel sizes (e.g. `custom_minimum_size = Vector2(80, 30)`) produce tiny, unusable controls on typical resolutions. Buttons in tool UIs like the map editor have been too small because of this.
-
-### The fix
-Always size UI controls as a fraction of the viewport:
+Never hard-code pixel sizes:
 
 ```gdscript
-# Bad — fixed pixels, looks tiny at 1080p+
-button.custom_minimum_size = Vector2(80, 30)
-
-# Good — relative to viewport height
 var vh: float = get_viewport().get_visible_rect().size.y
 button.custom_minimum_size = Vector2(vh * 0.12, vh * 0.05)
 ```
 
-### Recommended fractions
 | Control | Width | Height |
 |---|---|---|
-| Standard button | 12–18 % vh | 5–6 % vh |
-| Icon/square button | 5–6 % vh | 5–6 % vh |
-| Panel / sidebar | 20–25 % vw | — |
-| Font size | — | 2–2.5 % vh |
+| Standard button | 12–18% vh | 5–6% vh |
+| Icon/square button | 5–6% vh | 5–6% vh |
+| Panel/sidebar | 20–25% vw | — |
+| Font size | — | 2–2.5% vh |
 
-Use `get_viewport().get_visible_rect().size` — not `DisplayServer.window_get_size()` — so it respects sub-viewports and editor embeds.
-
-Re-apply sizes in `_notification(NOTIFICATION_RESIZED)` if the window can be resized at runtime.
+Re-apply in `_notification(NOTIFICATION_RESIZED)`.
 
 ---
 
-## HUD Buttons: Always Use the Action Registry
+## HUD Buttons: Use the Action Registry
 
-### The problem
-Every multiplayer/social task from GID-090 through GID-102 added its own `Button.new()` directly to `WorldScene.gd`'s HUD `CanvasLayer` with a hand-picked `position = Vector2(vh*..., vw*...)`, because there was no shared placement primitive to plug into. By GID-107 this had produced 39 `Button.new()` call sites and multiple silent pixel overlaps (Leaderboard on top of Pause, Challenge on top of the Android USE button, Ranked toggle on top of Trade, Siege on top of Tournament — see `docs/agent/ui-and-scene-management.md` "HUD Action Registry & Party Panel" for the fixed list and `tasks/backlog/BID-043*.md` for the ones still unmigrated).
-
-### The fix
-Never call `Button.new()` and `_hud.add_child(...)` directly for a new always-on or proximity-gated HUD button. Go through `WorldHUD`'s zone/action registry instead:
+Never `Button.new()` + `_hud.add_child()` directly — causes silent position overlaps:
 
 ```gdscript
-# Bad — hand-picked position, one more silent collision waiting to happen
+# Bad
 var btn := Button.new()
-btn.text = "New Feature"
 btn.position = Vector2(vh * 0.5, vh * 0.72)
-btn.pressed.connect(_on_new_feature_pressed)
 _hud.add_child(btn)
 
-# Good — registered into a zone Container that auto-stacks, overlap impossible
+# Good
 _new_feature_btn = _world_hud.register_action(
     "new_feature", "New Feature", WorldHUD.ZONE_CONTEXT, _on_new_feature_pressed)
 ```
 
-If the button needs a `.toggled` connection (`toggle_mode = true`) rather than a plain `.pressed` callback, build it directly but still parent it into a zone via `_world_hud.get_zone_container(WorldHUD.ZONE_CONTEXT)` — see `_ensure_challenge_button()`'s Ranked toggle for the pattern.
-
-An always-on or session-scoped button (not proximity-gated) almost always belongs inside the **Party panel** (`scenes/ui/PartyPanel.gd`) instead of the HUD directly — add a `show_*`/`on_*` pair in `WorldScene._open_party_panel()` rather than a new zone action. `tests/unit/test_hud_registry_guardrail.gd` fails the build if a new unreviewed `_hud.add_child(<Button>)` call appears in `WorldScene.gd`.
+Always-on buttons usually belong in `PartyPanel.gd`, not the HUD. `test_hud_registry_guardrail.gd` fails if a bare `_hud.add_child(<Button>)` appears in `WorldScene.gd`.
 
 ---
 
 ## Mobile / Desktop Feature Parity
 
-### The rule
-Every interactive feature must be reachable on **both** desktop (keyboard/mouse) and mobile (touch). Never ship a keyboard-only feature without a touch equivalent, and vice versa.
-
-### Pattern
-| Desktop trigger | Mobile equivalent |
-|---|---|
-| Key press (`map_view` → M) | Tap the minimap to open the map overlay |
-| Key press (`inventory` → I) | Inventory button in HUD |
-| Key press (`interact` → E) | Tap prompt on screen |
-| WASD movement | Virtual joystick overlay |
-
-### Implementation checklist
-- If you add a key binding, add a visible tap target for the same action (button, labelled icon, or existing HUD element with a `pressed` signal).
-- The minimap tap button is a `flat = true` Button layered above the minimap ring in `Minimap.gd`; its `pressed` signal emits `tapped` which WorldScene connects to `_open_map_view()`.
-- Do not rely on `_unhandled_input` alone for features users need on Android — `Button.pressed` and touch-screen equivalents are required.
+Every feature needs both keyboard/mouse and touch equivalents. If you add a key binding, add a tap target. Don't rely on `_unhandled_input` alone for Android.
 
 ---
 
 ## Godot Resource .uid Files
 
-### The problem
-Every Godot resource file (`.gdshader`, `.tres`, `.material`, etc.) needs a companion `.uid` file. The Godot editor generates these when it scans the project. Files created by Claude via code tools **skip that scan**, so they have no `.uid`. On Android exports, `load("res://path/to/file.gdshader")` can return `null` for untracked files.
-
-### The fix — three parts
-
-**1. Always create the `.uid` sidecar immediately after creating a resource file:**
+Every `.gdshader`, `.tres`, `.material`, `.theme`, `.gdextension` needs a `.uid` sidecar. Create immediately after the resource:
 
 ```
-# Format: uid:// followed by exactly 12 lowercase alphanumeric characters
-uid://a1b2c3d4e5f6
+uid://a1b2c3d4e5f6   # exactly 12 lowercase alphanumeric chars
 ```
 
-Generate a random 12-char string using `python3 -c "import random,string; print('uid://'+''.join(random.choices(string.ascii_lowercase+string.digits,k=12)))"`.
+Generate: `python3 -c "import random,string; print('uid://'+''.join(random.choices(string.ascii_lowercase+string.digits,k=12)))"`
 
-**2. Use `preload()` not `load()` for shaders and resources in scripts:**
-
-```gdscript
-# Bad — runtime load, can return null if file untracked
-mat.shader = load("res://assets/shaders/terrain.gdshader") as Shader
-
-# Good — compile-time, guaranteed in export packs
-const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
-mat.shader = _TerrainShader
-```
-
-**3. The CI workflow already runs `godot --headless --editor --quit` before export** (line 163 of `.github/workflows/android-build.yml`). This scans the project and fills in any missing `.uid` files for the build. The `.uid` file committed to git is still needed so the local editor and the CI both use the same stable UID.
-
-### Which file types need .uid files
-`.gdshader`, `.tres`, `.material`, `.theme`, `.gdextension`, and any binary resource Godot imports (textures, audio, meshes). Plain `.gd` scripts and `.tscn` scenes manage their own UIDs inside the file itself — no separate sidecar needed.
+Always `preload()` resources, never `load()`. CI headless import fills missing UIDs, but commit the sidecar for stable local IDs. (Plain `.gd` and `.tscn` files don't need sidecars.)
 
 ---
 
-## Android: Always preload() .tres Files — Never Use ResourceLoader.load()
+## Android: Always preload() .tres Files
 
-### The rule
-**Never use `ResourceLoader.load()` or `DirAccess` to load `.tres` files at runtime on Android.**
-
-`DirAccess.open("res://...")` directory scanning is unreliable inside an Android APK/PCK. More critically, `ResourceLoader.load()` with a dynamic string path is invisible to Godot's export dependency scanner — the files will not be packaged in the APK and will silently fail to load.
-
-### The fix
-Always use `preload()` constants. This creates a compile-time dependency chain that Godot's scanner follows, guaranteeing the files are in the APK.
+Never `ResourceLoader.load()` or `DirAccess` for `.tres` on Android — dynamic paths aren't packaged in the APK:
 
 ```gdscript
-# Bad — dynamic string load, files missing from Android APK
-var dir := DirAccess.open("res://data/skills")
+# Bad
 var res := ResourceLoader.load("res://data/skills/" + fname)
 
-# Good — explicit preloads, always packaged
+# Good — one const per file
 const _SKILL_A := preload("res://data/skills/ember_searing_focus.tres")
-const _SKILL_B := preload("res://data/skills/dawn_clarity.tres")
-# …one const per file; add a new line whenever a new .tres is created
 ```
 
-For registries that load many `.tres` files (e.g. `SkillRegistry.gd`), declare all resources as `const` preloads at the top, then iterate them in `_ensure_loaded()`:
-
-```gdscript
-const _S_EMBER_SEARING_FOCUS := preload("res://data/skills/ember_searing_focus.tres")
-# …
-
-static func _ensure_loaded() -> void:
-    var all: Array = [_S_EMBER_SEARING_FOCUS, ...]
-    for res in all:
-        var skill: SkillData = res as SkillData
-        if skill != null:
-            _skills[skill.id] = skill
-```
-
-The dependency chain only works if the registry script itself is preloaded (directly or transitively) from a scene or autoload that Godot's scanner starts from.
+Declare all resources as `const` preloads; iterate them in `_ensure_loaded()`.
 
 ---
 
-## TerrainMath: No Duplicate Terrain Code
+## TerrainMath
 
-### The problem
-Terrain height computation, mesh building, wall mesh building, and entity spawning were
-duplicated between WorldScene (named-map path) and ChunkRenderer (infinite-chunk path).
-Any bug fix or parameter change had to be applied in 2–3 places.
-
-### The fix
-All shared terrain logic lives in `game_logic/TerrainMath.gd`. Both paths delegate to it
-via `Callable`-based tile lookups:
-
-```gdscript
-# Named-map path — WorldScene passes WorldMap.get_tile directly
-var hfield := TerrainMath.compute_height_field(
-    world_map.get_tile, 0.0, 0.0, nvx, nvz, step, HILL_RAMP_R, HILL_PEAK_H)
-
-# Infinite-chunk path — ChunkRenderer passes a lambda over the packed tile grid
-var grid_tile_lookup := func(ttx: int, ttz: int) -> int:
-    var li: int = (ttz - grid_min_z) * grid_w + (ttx - grid_min_x)
-    if li < 0 or li >= tile_grid.size():
-        return IsoConst.TILE_WALL
-    return tile_grid[li]
-var hfield := TerrainMath.compute_height_field(
-    grid_tile_lookup, chunk_origin.x, chunk_origin.z, nvx, nvz, step, CURVE_R, PLATEAU_H)
-```
-
-Never duplicate terrain algorithms — add new methods to `TerrainMath` instead.
+All terrain logic lives in `game_logic/TerrainMath.gd`. Both named-map and infinite-chunk paths delegate via `Callable` tile lookups. Never duplicate terrain algorithms.
 
 ---
 
-## Canonical Constants: IsoConst Is the Source of Truth
+## Constants: IsoConst Is the Source of Truth
 
-### The problem
-Tile type constants (`TILE_GRASS`, `TILE_WALL`, `TILE_HILL`), `TILE_SIZE`, `CHUNK_SIZE`,
-and `WALL_FACE_H` were defined in multiple files. Changing one without updating the others
-caused terrain rendering bugs.
-
-### The fix
-All gameplay constants live in `autoloads/IsoConst.gd`. Other files reference them via
-`IsoConst.TILE_SIZE`, etc. `WorldMap` re-exports them as aliases (`const TILE_WALL: int = IsoConst.TILE_WALL`)
-for backward compatibility — never add new copies elsewhere.
+All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in `autoloads/IsoConst.gd`. Reference as `IsoConst.TILE_SIZE`. Never add copies elsewhere.
 
 ---
 
-## Running Tests: Installing Godot
+## Running Tests
 
-### The problem
-Tests require the Godot 4 headless binary. If `godot` is not available in your environment,
-tests cannot run.
-
-### Installing Godot headless
+Install Godot headless:
 ```bash
-# Download Godot 4 headless (Linux 64-bit)
 wget -q https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_linux.x86_64.zip -O /tmp/godot.zip
 unzip -o /tmp/godot.zip -d /tmp/godot
 cp /tmp/godot/Godot_v4.6-stable_linux.x86_64 /usr/local/bin/godot
 chmod +x /usr/local/bin/godot
-rm -rf /tmp/godot /tmp/godot.zip
 ```
 
-### Running tests
-```bash
-# From the project root
-godot --headless --path . -s tests/runner.gd
-```
-
-Exit code 0 means all tests passed, 1 means one or more failed.
+Run: `godot --headless --path . -s tests/runner.gd` (exit 0 = pass)
 
 ---
 
 ## Named Map Player Spawn vs. Saved Position
 
-### The rule
-`WorldScene._spawn_player()` uses `save_manager.current_map == map_name` as the
-guard to decide whether to restore a saved player position. **Do not add additional
-guards** (e.g., `not world_map.has_player_spawn()`) to this branch — they break
-save restoration for maps that define an explicit SPAWN marker.
+`_spawn_player()` uses `save_manager.current_map == map_name` to restore saved position. **Don't add extra guards** — `current_map` is only set to the target map on `continue_game()`, so fresh entry paths naturally fall through to spawn/door position.
 
-### Why the guard works without extras
-`save_manager.current_map` is written by `update_position(map_name, x, z)`, which
-WorldScene calls from `_process` as the player moves. When entering a map fresh
-(new game, door, waystone), `save_manager.current_map` still points to the **previous**
-map at the time `_spawn_player` runs, so the condition is `false` and the spawn /
-door position is used. Only a `continue_game()` load restores `current_map` to the
-target map, making the condition `true` and restoring the saved coordinates.
-
-### Entry-path summary
-
-| Entry path | `current_map` at spawn time | Position used |
-|---|---|---|
-| New game → enter madrian | `"main"` (set by `new_game()`) | Spawn marker |
-| Continue game in madrian | `"madrian"` (loaded from save) | Saved x/z |
-| Door with target_door_id | any | Door position (first branch) |
-| Waystone → enter madrian | `"main"` (world position flushed) | Spawn marker |
-| Exit dungeon back to madrian | `"dungeon_*"` (last dungeon pos) | Spawn marker |
+| Entry path | Position used |
+|---|---|
+| New game / door / waystone | Spawn marker or door position |
+| Continue game (same map) | Saved x/z |
 
 ---
 
 ## Bug Fix Learnings
 
-When a bug is fixed, record the root cause and the invariant it violated here so
-future changes don't reintroduce it. Keep entries concise: one paragraph max.
+### Named map position not restored (claude/character-position-save-bug-0glsz2)
+Removed `not world_map.has_player_spawn()` guard — it broke save restoration for maps with SPAWN markers. `current_map == map_name` is sufficient.
 
-### Named map position not restored on reload (fixed in claude/character-position-save-bug-0glsz2)
+### Dead signal connect aborted `_ready` (claude/game-multiplayer-networking-fb94pj)
+Never `connect` to a GameBus signal without confirming it still exists in `GameBus.gd`. A throwing statement at the tail of `_ready` silently kills everything appended after it.
 
-`_spawn_player` guarded save-position restore with `not world_map.has_player_spawn()`.
-Maps that define a SPAWN marker (madrian, maykalene, and any future town maps) always
-fell through to the spawn default on `continue_game`, ignoring the persisted `player_x/z`.
-Fix: remove the `has_player_spawn()` guard; `current_map == map_name` is sufficient and
-correct for all entry paths (see table above).
+### Re-hosting failed — stale ENet peer (GID-092 / TID-337)
+Always `close()` a `MultiplayerPeer` before dropping it. Nulling alone leaks the bound port.
 
-### WorldScene `_ready` aborted on a stale dead-signal connect (fixed in claude/game-multiplayer-networking-fb94pj)
+### Cold co-op had no deck (GID-092 / TID-335)
+Features reachable without `new_game()`/`load()` must not assume save-backed state exists. Seed a transient default.
 
-`WorldScene._ready` ended with `GameBus.map_transition_requested.connect(...)`, but that
-signal was deleted as dead code back in TID-236. Accessing the non-existent signal threw
-at runtime and aborted `_ready` *at that line* — invisible for a long time because it was
-the last statement, so nothing was lost. When GID-090 appended `_setup_coop()` after it,
-co-op setup silently never ran (no `NetSync`, hosting "did nothing"). Fix: removed the
-dead connect line. Invariant: never `connect` to a GameBus signal without confirming it is
-still declared in `GameBus.gd`; appending to the tail of a long `_ready` can resurrect a
-latent abort — keep `_ready` free of throwing statements.
+### PvP client lost signal on `GameState` replacement (GID-092 / TID-336)
+Reconnect signals whenever you replace a cached state object created via `from_dict`.
 
-### Re-hosting failed on a stale, un-closed ENet peer (fixed in GID-092 / TID-337)
+### Python idioms in GDScript (GID-094 / TID-341)
+Use `/` not `//` for int division. `Object.get()` takes one arg — no default. Run headless import after every `.gd` edit.
 
-`NetworkManager.leave()` set `multiplayer.multiplayer_peer = null` but never called
-`peer.close()`. Nulling the reference does not immediately release the OS-level ENet server
-socket — it stays bound to the port until the peer is garbage-collected — so the next
-`host()` on the same port intermittently failed with "address in use" (the **Host Game**
-button "only worked once"). Fix: a shared `_reset_session()` that `close()`s the peer before
-nulling it, called from `leave()` and at the top of `host()`/`join()`. Invariant: always
-`close()` a `MultiplayerPeer`/`PacketPeerUDP` before dropping it — nulling alone leaks the
-bound port.
+### Co-op avatar cross-map ghosts (GID-096 / TID-352)
+Sync layers must carry a map discriminator in the payload and filter on receive. Entry-point gating alone is insufficient.
 
-### Cold co-op had no deck, blocking PvP (fixed in GID-092 / TID-335)
+### Stale co-op session leaked into New Game (claude/single-player-multiplayer-bug-wlaoij)
+`go_to_menu()` must call `NetworkManager.leave()`. State flags must be reset by every exit path, not just defensively re-checked at entry.
 
-Co-op launched from the menu never ran `new_game()`/`load()`, so `player_deck` was empty and
-the PvP `DECK_MIN` challenge gate blocked every battle. Fix: `SaveManager.ensure_coop_deck()`
-(called from `SceneManager.enter_map_coop`) seeds a transient starter deck in-memory, guarded
-by `not _loaded` so it never runs for a real game and never persists (`save()` is a no-op
-until `_loaded`). Invariant: a feature reachable without starting/loading a game must not
-assume save-backed state (deck, coins, flags) exists — seed a transient default or guard the
-access.
+### 140 GodotBody3D RIDs leaked on exit — detached world orphaned at quit (claude/p11godotbody3d-rid-leak-vd2ny6)
+SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene into `SceneManager._saved_world_scene`; quitting mid-battle left it an orphan and leaked every physics body in it. `SceneManager._exit_tree()` frees the orphan with an immediate `free()` (`queue_free()` never flushes at shutdown). Any stash holding a detached node needs the same explicit shutdown free.
 
-### PvP client renders a mirror on a fresh GameState — reconnect its signals (GID-092 / TID-336)
-
-The thin PvP client rebuilds `_state` from each host mirror via `GameState.from_dict`, which
-creates a **new** object. The `turn_ended` connection made once in `_ready` pointed at the
-discarded placeholder, so it was silently lost after the first mirror. Reconnect signals
-whenever you replace a cached state object. Note `GameState.new()` already seeds two full
-default players, so the client always has a valid placeholder to render before the first
-mirror — there is no "bare state" to crash on.
-
-### Branch HEAD didn't compile under Godot 4.6 — Python idioms in GDScript (fixed in GID-094 / TID-341)
-
-The headless import surfaced three pre-existing parse errors that cascaded through
-`preload` chains and broke the whole project: `TextureGen.gd` used Python-style `//`
-integer division (`i//2`) — GDScript has no `//`, and `/` on two ints is already
-integer division — and `CardRegistry.gd` called `res.get("card_class", "")` on a
-Resource — `Object.get()` takes ONE argument; only `Dictionary.get(key, default)`
-takes a default. Both are accepted by older GDScript analyzers but rejected by 4.6's
-stricter parser. Invariant: GDScript is not Python — use `/` (not `//`) for int
-division, and never pass a default to `Object.get()` (guard the `null` return
-explicitly, as is done for `id`). Always run the headless import after any `.gd`
-edit; a single parse error blocks every dependent scene.
-
-### Co-op avatar sync was map-blind — cross-map ghosts (fixed in GID-096 / TID-352)
-
-Co-op is pinned to a single shared map (madrian) **only at the lobby entry point**
-(`enter_map_coop("madrian")`), but the avatar sync layer never knew the map: the
-`AvatarSync` payload carried no map id, `NetSync`'s path `/root/WorldScene/NetSync` resolves
-on *any* map, and `_setup_coop` re-runs on every map load gated only by
-`NetworkManager.is_active()`. So when one player walked into `main` through a door, both
-peers kept rendering each other's avatar at coordinates belonging to a different map. Fix:
-thread the sender's `map_name` through `AvatarSync.encode/decode` (optional 5th element,
-defaulted for legacy payloads) and filter on receive — show/feed an avatar only when its map
-equals the local `map_name`, otherwise hide it (don't free; it holds its last same-map
-position for instant re-convergence). New avatars spawn `visible = false` until the first
-same-map packet. Invariant: a feature whose correctness depends on a shared map/world/seed
-must enforce that contract **in the sync layer** (carry the discriminator in the payload and
-filter on receive), not just at the entry point — the RPC transport is context-blind.
-
-### New Game inherited a stale co-op session — chat/party/achievements leaked into single-player (fixed in claude/single-player-multiplayer-bug-wlaoij)
-
-`WorldScene._setup_coop()` gates all co-op wiring (chat, Party panel, `NetSync`/avatar sync,
-`_setup_session()`) on a single check: `NetworkManager.is_active()`. That check is correct in
-principle, but nothing ever flipped it back to `false` on the way out of an active co-op
-world — `SceneManager.go_to_menu()`/`go_to_menu_direct()` (the only two functions that land on
-`MenuScene`, reached from pause-menu "Quit to Menu", battle pause "Quit", Game Over, and
-Spire/Run-Summary "Return to Menu") never called `NetworkManager.leave()`. So
-`multiplayer.multiplayer_peer` stayed assigned and connected indefinitely after returning to
-the menu. The next **New Game** loaded a fresh `WorldScene`, whose `_setup_coop()` saw the
-stale `true` and wired up co-op — showing chat/party UI in what the player believed was a
-solo game, and (if the stale role was host) `_setup_session()` re-adopted the old co-op
-session character via `SaveManager.adopt_session_character()`, which forces `_loaded = false`
-and silently clobbered the just-created single-player save, disabling its persistence.
-Fix: `go_to_menu()`/`go_to_menu_direct()` now call `NetworkManager.leave()` whenever
-`is_active()` is true, before doing anything else. Invariant: a state flag read by "am I in
-co-op?" gates (`is_active()`) must be reset by every path that exits that state, not just
-defensively re-checked by the next entry path (`host()`/`join()` already reset stale peers
-defensively — that's not a substitute for tearing down on exit).
-
-### 140 GodotBody3D RIDs leaked on exit — detached world scene orphaned at quit (fixed in claude/p11godotbody3d-rid-leak-vd2ny6)
-
-Every battle/puzzle detaches WorldScene from the tree (`get_tree().root.remove_child`)
-and parks it in `SceneManager._saved_world_scene`. SceneTree teardown at quit only frees
-nodes **inside** the tree, so exiting the app mid-battle (window close, Android back-quit)
-left the detached world as an orphan — every `StaticBody3D`/`CharacterBody3D` in it
-(2 terrain bodies per loaded chunk, plus player and entities) leaked its physics RID,
-printed as `140 RID allocations of type 'P11GodotBody3D' were leaked on exit`. Fix:
-`SceneManager._exit_tree()` frees the orphan with an immediate `free()` (`queue_free()`
-is useless at shutdown — no more frames run to flush it). Invariant: any long-lived
-reference that holds a node **detached** from the tree must be freed explicitly on
-shutdown (`_exit_tree` on the autoload that owns it); never assume engine teardown
-collects orphans.
-
-### Nocturnal enemy despawn fade crashed with "modulate:a does not exist" (fixed same session as automation bridge setup)
-
-`_despawn_nocturnal_enemies` tweened `"modulate:a"` directly on the enemy's `Node3D` root to
-fade it out at dawn. `Node3D` has no `modulate` property — only `CanvasItem`-derived nodes like
-`Sprite3D` do — so every dawn transition logged one `tween_property` error per still-alive
-nocturnal enemy and skipped the fade (falling through to an immediate, jarring `queue_free`).
-The spawn path two functions above it already documents this exact caveat inline ("Tint the
-Sprite3D child (Node3D has no modulate; Sprite3D does)") and looks up the `Sprite3D` child
-before touching `modulate`, but the despawn path never applied the same lookup. Fix: despawn
-now does the same `get_node_or_null("Sprite3D")` / child-scan lookup and tweens the sprite's
-`modulate:a`, falling back to instant `queue_free()` only if no sprite child exists. Invariant:
-never tween or set `modulate` on a bare `Node3D` — always resolve to its `Sprite3D`/`CanvasItem`
-child first; grep for other `tween_property(.*modulate` call sites against `Node3D`-typed
-variables when touching fade/tint code.
+### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
+`Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.
 
 ---
 
 ## Documentation: docs/agent/ Directory
 
-Agent-owned feature documentation lives in `docs/agent/`. Each file covers **Key Features**, **How It Works**, **Integrations with Other Features**, and **Asset Requirements**.
-
-When adding a new major feature or system, create a corresponding `.md` file in `docs/agent/` and add a row to this table.
+Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, and Asset Requirements. Add a row when adding a major feature.
 
 | File | Feature |
 |---|---|
@@ -708,14 +301,14 @@ When adding a new major feature or system, create a corresponding `.md` file in 
 | [docs/agent/home-garden-potions.md](docs/agent/home-garden-potions.md) | Home garden plots, seed growth via days_elapsed, plant harvest, potion crafting, one-per-battle potion use |
 | [docs/agent/tap-to-move.md](docs/agent/tap-to-move.md) | Tap/click pathfinding: A* Pathfinder, screen-to-tile raycast, destination marker, path following |
 | [docs/agent/rideable-mounts.md](docs/agent/rideable-mounts.md) | Mount purchase flow, speed multiplier, HUD button, auto-dismount/remount rules, sprite + dust visuals |
-| [docs/agent/card-packs.md](docs/agent/card-packs.md) | Card Packs & Pack Opening | Pack tiers, roll logic, pity counter, tap-to-flip ceremony UI, SceneManager routing |
-| [docs/agent/bounty-board.md](docs/agent/bounty-board.md) | Bounty Board Contracts | BountyGen, daily seeded generation, SaveManager fields, rollover logic |
-| [docs/agent/night-hunts.md](docs/agent/night-hunts.md) | Night Hunts | Spectral enemy spawning, nocturnal system, drop boost, minimap coloring, tutorial |
-| [docs/agent/card-cantrips.md](docs/agent/card-cantrips.md) | Card Cantrips | Ghost Phase, Skeleton Dig, CantripManager, burial mound spawning, cooldown persistence |
-| [docs/agent/blight-system.md](docs/agent/blight-system.md) | Creeping Blight | BlightField pure logic, terrain shader tint, enemy buff, BlightHeart entity, cleansing, Redemption Points |
-| [docs/agent/ancient-colossi.md](docs/agent/ancient-colossi.md) | Ancient Colossi | Landmark placement, 5 biome variants, CPU ArrayMesh structures, name generator, discovery system, Journal tab |
-| [docs/agent/ley-lines.md](docs/agent/ley-lines.md) | Ley Lines | Simplex noise bands, UV2 terrain glow, speed boost, Attuned battle buff, Mana Wells |
-| [docs/agent/app-diagnostics.md](docs/agent/app-diagnostics.md) | App Diagnostics Log Screen | AppLog ring buffer, auto-logged GameBus signals, DiagnosticsScene overlay, pause & menu entry points |
-| [docs/agent/multiplayer-coop.md](docs/agent/multiplayer-coop.md) | Co-op Multiplayer + PvP card battles | NetworkManager transport (up to 4 players, GID-094), RemotePlayer avatars + named/colored identity (MpProfile/PlayerIdentity handshake), NetSync/AvatarSync + deterministic spawn fan-out, session roster, lobby + LAN discovery; PvP (GID-091): BattleNetProtocol wire format, BattleNetSync relay, host-authoritative state mirroring, challenge handshake, duel-style rewards; Competitive formats (GID-104): sealed-deck draft duels (DraftDuelGen shared-seed), host-run round-robin session tournaments (TournamentSync), spectator coin wagers (WagerSync) |
-| [docs/agent/visual-polish.md](docs/agent/visual-polish.md) | Visual Polish — World Art, Atmosphere & Props | ProceduralSkyMaterial sky/fog, biome color grade, vignette, GPU-instanced prop scatter, interactable highlight rings, card illustration art |
+| [docs/agent/card-packs.md](docs/agent/card-packs.md) | Pack tiers, roll logic, pity counter, tap-to-flip ceremony UI, SceneManager routing |
+| [docs/agent/bounty-board.md](docs/agent/bounty-board.md) | BountyGen, daily seeded generation, SaveManager fields, rollover logic |
+| [docs/agent/night-hunts.md](docs/agent/night-hunts.md) | Spectral enemy spawning, nocturnal system, drop boost, minimap coloring, tutorial |
+| [docs/agent/card-cantrips.md](docs/agent/card-cantrips.md) | Ghost Phase, Skeleton Dig, CantripManager, burial mound spawning, cooldown persistence |
+| [docs/agent/blight-system.md](docs/agent/blight-system.md) | BlightField pure logic, terrain shader tint, enemy buff, BlightHeart entity, cleansing, Redemption Points |
+| [docs/agent/ancient-colossi.md](docs/agent/ancient-colossi.md) | Landmark placement, 5 biome variants, CPU ArrayMesh structures, name generator, discovery system, Journal tab |
+| [docs/agent/ley-lines.md](docs/agent/ley-lines.md) | Simplex noise bands, UV2 terrain glow, speed boost, Attuned battle buff, Mana Wells |
+| [docs/agent/app-diagnostics.md](docs/agent/app-diagnostics.md) | AppLog ring buffer, auto-logged GameBus signals, DiagnosticsScene overlay, pause & menu entry points |
+| [docs/agent/multiplayer-coop.md](docs/agent/multiplayer-coop.md) | NetworkManager transport (4 players), RemotePlayer avatars, NetSync/AvatarSync, PvP (BattleNetProtocol/Sync), draft duels, tournaments, wagers |
+| [docs/agent/visual-polish.md](docs/agent/visual-polish.md) | ProceduralSkyMaterial, biome color grade, vignette, GPU-instanced props, highlight rings, card art |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

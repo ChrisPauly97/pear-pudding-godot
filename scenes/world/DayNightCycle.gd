@@ -129,9 +129,9 @@ func _apply_lighting(weather_tint: Color) -> void:
 			sm.sky_horizon_color     = sky
 			sm.ground_horizon_color  = sky.darkened(0.25)
 		if _world_env.environment.fog_enabled:
-			_world_env.environment.fog_light_color = sky.lerp(Color(0.15, 0.18, 0.30), 0.35)
+			_world_env.environment.fog_light_color = sky.lerp(Color(0.20, 0.20, 0.22), 0.25)
 
-	var base_ambient: Color = Color(0.1, 0.12, 0.22).lerp(Color(0.6, 0.65, 0.7), t_day)
+	var base_ambient: Color = Color(0.10, 0.10, 0.15).lerp(Color(0.65, 0.63, 0.60), t_day)
 	var ambient_color: Color = Color(
 		base_ambient.r * weather_tint.r,
 		base_ambient.g * weather_tint.g,

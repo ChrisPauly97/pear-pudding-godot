@@ -330,15 +330,17 @@ func animate_attack(attacker_panel: Control, target_pos: Vector2, speed_scale: f
 		attacker_panel.z_index = prev_z
 
 ## Shrinks/fades/rotates a ghost copy of `panel` in `_float_layer` so a death
-## reads as a beat instead of a pop when `_refresh_all()` removes it.
-func animate_death(panel: Control, speed_scale: float = 1.0) -> void:
+## reads as a beat instead of a pop when `_refresh_all()` removes it. Not a
+## coroutine — starts the tween immediately and returns it so callers can fire
+## several deaths in parallel and await each returned Tween's `finished`.
+func animate_death(panel: Control, speed_scale: float = 1.0) -> Tween:
 	if panel == null or not is_instance_valid(panel):
-		return
+		return null
 	if _float_layer == null or not is_instance_valid(_float_layer):
-		return
+		return null
 	var ghost: Control = panel.duplicate() as Control
 	if ghost == null:
-		return
+		return null
 	ghost.position = panel.get_global_rect().position
 	ghost.size = panel.size
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -349,9 +351,10 @@ func animate_death(panel: Control, speed_scale: float = 1.0) -> void:
 	tw.tween_property(ghost, "scale", Vector2(0.1, 0.1), scaled_duration(0.25, speed_scale))
 	tw.tween_property(ghost, "modulate:a", 0.0, scaled_duration(0.25, speed_scale))
 	tw.tween_property(ghost, "rotation", deg_to_rad(25.0), scaled_duration(0.25, speed_scale))
-	await tw.finished
-	if is_instance_valid(ghost):
-		ghost.queue_free()
+	tw.finished.connect(func() -> void:
+		if is_instance_valid(ghost):
+			ghost.queue_free())
+	return tw
 
 func get_tree() -> SceneTree:
 	return _scene_root.get_tree()
