@@ -119,6 +119,7 @@
 | [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | pending | 0 / 5 |
 | [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | needs-verification | 5 / 5 |
 | [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | pending | 0 / 5 |
+| [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | pending | 0 / 4 |
 
 ## Backlog
 
@@ -159,6 +160,8 @@
 | ~~[BID-043](backlog/BID-043--siege-draft-tournament-buttons-not-migrated.md)~~ | ~~Siege/Draft Duel/Tournament HUD buttons not yet migrated to the GID-107 registry; Siege and Tournament buttons visually overlap (both centered at the same y)~~ | ~~code-smell / design-gap~~ | Promoted to GID-115 / TID-433 |
 | ~~[BID-044](backlog/BID-044--siege-boss-engage-signal-race.md)~~ | ~~Co-op siege boss engage may race `SceneManager._on_enemy_engaged` (solo battle) vs `WorldScene._on_enemy_engaged_coop` (joint battle) — signal connection order suggests the host could get a solo duel while clients get a joint battle~~ | ~~code-smell (suspected correctness bug)~~ | Promoted to GID-115 / TID-430 |
 | [BID-046](backlog/BID-046--backlog-index-drift.md) | Backlog index drift — duplicate BID-018 id, BID-018/019/021 unindexed, enemy-registry BID-018 already fixed at HEAD | doc-gap | GID-115 research |
+| [BID-047](backlog/BID-047--stale-duplicate-tid081-file.md) | Orphaned duplicate `TID-081--background-music-loop.md` sits alongside the completed `TID-081--background-music-loop-integration.md` — being resolved by GID-116 / TID-437 | code-smell | GID-116 research |
+| [BID-048](backlog/BID-048--dungeon-music-plays-in-towns.md) | `dungeon.ogg` plays for every named map, including peaceful towns (madrian, maykalene), not just dungeons | design-inconsistency | GID-116 research |
 
 ## Resolved Backlog
 
