@@ -161,6 +161,19 @@ func _ready() -> void:
 		show_toast("Siege Lost", "The town fell. Lost %d coins." % coins_lost))
 	_maybe_boot_dedicated_server()
 
+## Shutdown cleanup. During battles/puzzles the WorldScene is detached from the
+## tree and held only by _saved_world_scene (see _start_battle and friends).
+## SceneTree teardown frees in-tree nodes only — an orphan detached scene is
+## never freed, so quitting mid-battle (window close, Android back-quit) leaked
+## every physics body in the detached world: "N RID allocations of type
+## 'GodotBody3D' were leaked on exit". Free it here with free(), not
+## queue_free() — no more frames run this late, a queued free never executes.
+func _exit_tree() -> void:
+	if _saved_world_scene != null and is_instance_valid(_saved_world_scene) \
+			and not _saved_world_scene.is_inside_tree():
+		_saved_world_scene.free()
+	_saved_world_scene = null
+
 ## Dedicated server boot (GID-097 / TID-352).
 ## Invocation: godot --headless -- --server [--port N] [--map NAME]
 ## Parses user args, sets NetworkManager server-mode, hosts on the given port with

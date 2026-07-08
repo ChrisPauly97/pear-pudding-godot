@@ -266,6 +266,9 @@ Sync layers must carry a map discriminator in the payload and filter on receive.
 ### Stale co-op session leaked into New Game (claude/single-player-multiplayer-bug-wlaoij)
 `go_to_menu()` must call `NetworkManager.leave()`. State flags must be reset by every exit path, not just defensively re-checked at entry.
 
+### 140 GodotBody3D RIDs leaked on exit — detached world orphaned at quit (claude/p11godotbody3d-rid-leak-vd2ny6)
+SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene into `SceneManager._saved_world_scene`; quitting mid-battle left it an orphan and leaked every physics body in it. `SceneManager._exit_tree()` frees the orphan with an immediate `free()` (`queue_free()` never flushes at shutdown). Any stash holding a detached node needs the same explicit shutdown free.
+
 ### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
 `Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.
 
