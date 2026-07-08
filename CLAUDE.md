@@ -648,6 +648,20 @@ co-op?" gates (`is_active()`) must be reset by every path that exits that state,
 defensively re-checked by the next entry path (`host()`/`join()` already reset stale peers
 defensively — that's not a substitute for tearing down on exit).
 
+### 140 GodotBody3D RIDs leaked on exit — detached world scene orphaned at quit (fixed in claude/p11godotbody3d-rid-leak-vd2ny6)
+
+Every battle/puzzle detaches WorldScene from the tree (`get_tree().root.remove_child`)
+and parks it in `SceneManager._saved_world_scene`. SceneTree teardown at quit only frees
+nodes **inside** the tree, so exiting the app mid-battle (window close, Android back-quit)
+left the detached world as an orphan — every `StaticBody3D`/`CharacterBody3D` in it
+(2 terrain bodies per loaded chunk, plus player and entities) leaked its physics RID,
+printed as `140 RID allocations of type 'P11GodotBody3D' were leaked on exit`. Fix:
+`SceneManager._exit_tree()` frees the orphan with an immediate `free()` (`queue_free()`
+is useless at shutdown — no more frames run to flush it). Invariant: any long-lived
+reference that holds a node **detached** from the tree must be freed explicitly on
+shutdown (`_exit_tree` on the autoload that owns it); never assume engine teardown
+collects orphans.
+
 ### Nocturnal enemy despawn fade crashed with "modulate:a does not exist" (fixed same session as automation bridge setup)
 
 `_despawn_nocturnal_enemies` tweened `"modulate:a"` directly on the enemy's `Node3D` root to

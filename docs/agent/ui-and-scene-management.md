@@ -277,6 +277,8 @@ get_tree().root.add_child(_world_node)   # restore world
 
 This keeps all world state (chunk cache, player position, NPC nodes) alive during the battle without re-loading.
 
+**Shutdown caveat:** while detached, the world is an *orphan* node — SceneTree teardown only frees in-tree nodes, so quitting mid-battle (window close, Android back-quit) would leak every physics body in the detached WorldScene (`N RID allocations of type 'GodotBody3D' were leaked on exit`). `SceneManager._exit_tree()` frees the orphan `_saved_world_scene` with an immediate `free()` on shutdown (`queue_free()` would never run that late). Any future code that stashes a detached node holding physics bodies/RIDs needs the same shutdown hook.
+
 ### Map Transitions
 
 `SceneManager.enter_map(map_name, target_door_id)`:
