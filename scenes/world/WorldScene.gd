@@ -5,7 +5,7 @@ const WorldMap        = preload("res://game_logic/world/WorldMap.gd")
 const DungeonGen      = preload("res://game_logic/world/DungeonGen.gd")
 const SpireFloorGen   = preload("res://game_logic/spire/SpireFloorGen.gd")
 const GrassBlades     = preload("res://scenes/world/GrassBlades.gd")
-const VirtualJoystick = preload("res://scenes/ui/VirtualJoystick.gd")
+const VirtualJoystickScript = preload("res://scenes/ui/VirtualJoystick.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const ChunkStreamingManager = preload("res://scenes/world/ChunkStreamingManager.gd")
 const DungeonSessionUI  = preload("res://scenes/world/DungeonSessionUI.gd")
@@ -448,11 +448,11 @@ func _setup_environment() -> void:
 	# Distance fog for horizon depth
 	env.fog_enabled            = true
 	env.fog_density            = 0.004
-	env.fog_aerial_perspective = 0.3
-	env.fog_sky_affect         = 0.7
-	env.fog_light_color        = Color(0.70, 0.85, 1.0)
+	env.fog_aerial_perspective = 0.15
+	env.fog_sky_affect         = 0.45
+	env.fog_light_color        = Color(0.80, 0.82, 0.85)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.6, 0.65, 0.7)
+	env.ambient_light_color = Color(0.65, 0.63, 0.60)
 	env.ambient_light_energy = 1.0
 	# Filmic tone mapping lifts shadow detail and prevents blown highlights
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
@@ -468,10 +468,10 @@ func _setup_environment() -> void:
 	_world_env = WorldEnvironment.new()
 	_world_env.environment = env
 	add_child(_world_env)
-	# Fill light: soft sky-blue from above-opposite, no shadows, lifts black areas
+	# Fill light: soft neutral bounce from above-opposite, no shadows, lifts black areas
 	_fill_light = DirectionalLight3D.new()
-	_fill_light.light_color = Color(0.55, 0.65, 0.85)
-	_fill_light.light_energy = 0.5
+	_fill_light.light_color = Color(0.78, 0.77, 0.80)
+	_fill_light.light_energy = 0.35
 	_fill_light.shadow_enabled = false
 	_fill_light.rotation_degrees = Vector3(60.0, 45.0, 0.0)
 	add_child(_fill_light)
@@ -611,7 +611,7 @@ func _ready() -> void:
 		_interact_label.hide()
 		_interact_label.text = "[Tap] Interact" if OS.has_feature("android") else "[E] Interact"
 
-		var joystick := VirtualJoystick.new()
+		var joystick := VirtualJoystickScript.new()
 		_hud.add_child(joystick)
 		_joystick_ref = joystick
 

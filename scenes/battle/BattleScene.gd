@@ -1847,16 +1847,18 @@ func _animate_deaths_from_snapshot(snap: Array[Dictionary]) -> void:
 	var dead_ids: Array[String] = BattleFx.detect_deaths(snap, alive_ids)
 	if dead_ids.is_empty():
 		return
-	var anims: Array = []
+	var anims: Array[Tween] = []
 	for entry: Dictionary in snap:
 		var eid: String = str(entry["id"])
 		if not dead_ids.has(eid):
 			continue
 		var panel: Control = _fx.find_panel_by_snapshot_entry(entry)
 		if panel != null:
-			anims.append(_fx.animate_death(panel, _speed_scale))
-	for a in anims:
-		await a
+			var tw: Tween = _fx.animate_death(panel, _speed_scale)
+			if tw != null:
+				anims.append(tw)
+	for tw: Tween in anims:
+		await tw.finished
 
 # -------------------------------------------------------------------------
 # Turn / AI
