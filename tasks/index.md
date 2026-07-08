@@ -118,6 +118,7 @@
 | [GID-112](goals/GID-112--battle-ai-depth/goal.md) | Battle AI Depth — Enemy Personas & Real Decision-Making | pending | 0 / 5 |
 | [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | pending | 0 / 5 |
 | [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | needs-verification | 5 / 5 |
+| [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | pending | 0 / 5 |
 
 ## Backlog
 
@@ -144,19 +145,20 @@
 | [BID-025](backlog/BID-025--opponent-champion-stats-host-only.md) | Opponent PvP champion stats (wins/losses/streak) recorded host-only; non-host members show 0 in the leaderboard | design-inconsistency | GID-102 / TID-370 |
 | [BID-027](backlog/BID-027--coop-pve-boss-ai-turn-hardcoded-index.md) | Co-op PvE boss AI turn execution hardcodes player index 1 (board-diff/emergence/weather bookkeeping only) | code-smell | GID-102 / TID-371 |
 | [BID-029](backlog/BID-029--wager-challenge-button-missing.md) | `_request_wager_challenge` has zero callers — no UI exists to *initiate* a custom-ante wager, only to accept one | code-smell | GID-102 / TID-373 |
-| [BID-030](backlog/BID-030--trading-unique-check-not-enforced.md) | Card trading never actually enforces the unique-card block despite docs/task notes claiming it does | logic-gap | GID-102 / TID-376 |
+| ~~[BID-030](backlog/BID-030--trading-unique-check-not-enforced.md)~~ | ~~Card trading never actually enforces the unique-card block despite docs/task notes claiming it does~~ | ~~logic-gap~~ | Promoted to GID-115 / TID-432 |
 | [BID-031](backlog/BID-031--coop-clear-value-lacks-boss-tier-and-timing.md) | Co-op boss clear leaderboard value has no boss-tier or timing signal, using party size as a low-signal proxy | design-gap | GID-102 / TID-379 |
 | [BID-032](backlog/BID-032--ghost-duels-host-only-entry-point.md) | Ghost duels are host-only — a client has no local SessionState to pick a ghost opponent from | feature-gap | GID-102 / TID-377 |
 | [BID-033](backlog/BID-033--no-session-scoped-equipment-inventory.md) | No session-scoped equipment inventory — chest equipment drops can't be roll-granted under need/greed | design-gap | GID-102 / TID-381 |
-| [BID-034](backlog/BID-034--pvp-challenge-handshakes-no-timeout.md) | PvP challenge handshakes (duel/wager/draft) have no timeout — pending state sticks until disconnect | code-smell | GID-104 / TID-385 |
-| [BID-035](backlog/BID-035--draft-duel-resume-lacks-deck-override.md) | resume_pvp_battle drops the draft-duel deck override — resumed host rebuilds from collection | logic-gap | GID-104 / TID-385 |
+| ~~[BID-034](backlog/BID-034--pvp-challenge-handshakes-no-timeout.md)~~ | ~~PvP challenge handshakes (duel/wager/draft) have no timeout — pending state sticks until disconnect~~ | ~~code-smell~~ | Promoted to GID-115 / TID-431 |
+| ~~[BID-035](backlog/BID-035--draft-duel-resume-lacks-deck-override.md)~~ | ~~resume_pvp_battle drops the draft-duel deck override — resumed host rebuilds from collection~~ | ~~logic-gap~~ | Promoted to GID-115 / TID-434 |
 | [BID-036](backlog/BID-036--spectator-wager-house-banked-payout.md) | Spectator wager settlement is house-banked (can mint coins); walkover forfeits refund instead of paying | design-gap | GID-104 / TID-387 |
 | [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
 | [BID-040](backlog/BID-040--rally-blocked-inside-own-dungeon.md) | Rally waystones inherit the fast-travel dungeon block, so a player can't rally to teammates while already inside a shared dungeon crawl — exactly when it's most needed | design-gap | GID-105 / TID-388 |
 | [BID-042](backlog/BID-042--auction-button-not-in-party-panel.md) | Auction House button is the same shape of always-on co-op clutter as Stash/Leaderboard but wasn't in GID-107's original consolidation list (shipped after the goal was written) | design-gap | GID-107 / TID-395 |
-| [BID-043](backlog/BID-043--siege-draft-tournament-buttons-not-migrated.md) | Siege/Draft Duel/Tournament HUD buttons not yet migrated to the GID-107 registry; Siege and Tournament buttons visually overlap (both centered at the same y) | code-smell / design-gap | GID-107 / TID-398 |
-| [BID-044](backlog/BID-044--siege-boss-engage-signal-race.md) | Co-op siege boss engage may race `SceneManager._on_enemy_engaged` (solo battle) vs `WorldScene._on_enemy_engaged_coop` (joint battle) — signal connection order suggests the host could get a solo duel while clients get a joint battle | code-smell (suspected correctness bug) | GID-106 / TID-391 |
+| ~~[BID-043](backlog/BID-043--siege-draft-tournament-buttons-not-migrated.md)~~ | ~~Siege/Draft Duel/Tournament HUD buttons not yet migrated to the GID-107 registry; Siege and Tournament buttons visually overlap (both centered at the same y)~~ | ~~code-smell / design-gap~~ | Promoted to GID-115 / TID-433 |
+| ~~[BID-044](backlog/BID-044--siege-boss-engage-signal-race.md)~~ | ~~Co-op siege boss engage may race `SceneManager._on_enemy_engaged` (solo battle) vs `WorldScene._on_enemy_engaged_coop` (joint battle) — signal connection order suggests the host could get a solo duel while clients get a joint battle~~ | ~~code-smell (suspected correctness bug)~~ | Promoted to GID-115 / TID-430 |
+| [BID-046](backlog/BID-046--backlog-index-drift.md) | Backlog index drift — duplicate BID-018 id, BID-018/019/021 unindexed, enemy-registry BID-018 already fixed at HEAD | doc-gap | GID-115 research |
 
 ## Resolved Backlog
 
