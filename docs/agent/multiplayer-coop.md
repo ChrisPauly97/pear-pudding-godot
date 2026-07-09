@@ -698,8 +698,15 @@ never executes any of it.
   `_transfer_card_in_session` (removes instance from giver's `owned_cards`/`player_deck`,
   re-keys UID into receiver's namespace, adds to receiver's `owned_cards`) → broadcasts
   `recv_trade_update(completed)` to both; on decline, `cancelled`.
-- Unique cards (`is_unique = true`) are blocked from trading. All persistence goes
-  through `SessionStore.mark_dirty()` — never `save_slot_*.json`.
+- Unique cards (`is_unique = true`) are blocked from trading, enforced at three
+  layers via `TradeSync.is_card_instance_unique()` (template lookup, mirrors
+  `StashTransfer`/`AuctionTransfer`): (1) `_open_trade_offer` skips unique cards
+  when picking the offer card client-side; (2) `_on_trade_offer_submitted`
+  rejects the offer authority-side if the resolved card is unique, so a
+  modified client can't bypass the block; (3) `_transfer_card_in_session`
+  refuses the move as defense in depth even if a unique uid somehow reaches it
+  (TID-432). All persistence goes through `SessionStore.mark_dirty()` — never
+  `save_slot_*.json`.
 
 #### Chat (GID-102 / TID-374)
 

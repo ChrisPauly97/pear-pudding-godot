@@ -7032,11 +7032,15 @@ func _open_trade_offer() -> void:
 	if deck.is_empty():
 		_show_tip("No cards in deck to trade.")
 		return
-	var top_card: Variant = deck[0]
-	if not (top_card is Dictionary):
-		_show_tip("No valid card to gift.")
+	var top_card: Dictionary = {}
+	for c: Variant in deck:
+		if c is Dictionary and not _TradeSync.is_card_instance_unique(c as Dictionary):
+			top_card = c as Dictionary
+			break
+	if top_card.is_empty():
+		_show_tip("No tradeable cards — unique cards can't be traded.")
 		return
-	var card_uid: String = str((top_card as Dictionary).get("uid", ""))
+	var card_uid: String = str(top_card.get("uid", ""))
 	if card_uid == "":
 		_show_tip("No valid card UID.")
 		return
@@ -7074,7 +7078,7 @@ func _on_trade_offer_submitted(sender: int, payload: Dictionary) -> void:
 		var owned: Array = rec.get("owned_cards", []) as Array
 		for card: Variant in owned:
 			if card is Dictionary and str((card as Dictionary).get("uid", "")) == card_uid:
-				valid = true
+				valid = not _TradeSync.is_card_instance_unique(card as Dictionary)
 				break
 	if not valid:
 		var cancel: Dictionary = _TradeSync.encode_update(
@@ -7138,14 +7142,18 @@ func _transfer_card_in_session(st: RefCounted, giver_token: String, target_token
 	var g_owned: Array = g_rec.get("owned_cards", []) as Array
 	var g_deck: Array = g_rec.get("player_deck", []) as Array
 	var card_inst: Dictionary = {}
+	var found_idx: int = -1
 	for i: int in range(g_owned.size() - 1, -1, -1):
 		var c: Variant = g_owned[i]
 		if c is Dictionary and str((c as Dictionary).get("uid", "")) == card_uid:
+			found_idx = i
 			card_inst = (c as Dictionary).duplicate(true)
-			g_owned.remove_at(i)
 			break
-	if card_inst.is_empty():
+	if found_idx == -1:
 		return
+	if _TradeSync.is_card_instance_unique(card_inst):
+		return
+	g_owned.remove_at(found_idx)
 	g_deck.erase(card_uid)
 	g_rec["owned_cards"] = g_owned
 	g_rec["player_deck"] = g_deck
