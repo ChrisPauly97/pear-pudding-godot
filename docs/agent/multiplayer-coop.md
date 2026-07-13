@@ -305,6 +305,21 @@ race where the host broadcasts before the client's scene exists).
    down (`_setup_coop`/`_teardown_coop` are idempotent and re-run from
    `_enter_tree` on world re-attach). Both peers return to the same madrian.
 
+**Challenge handshake timeout (GID-115 / TID-431, fixes BID-034):** every
+challenge/wager/draft-duel handshake — and the dedicated-server relay
+(`_pvp_relay_challenger_id`) — arms a `Time.get_ticks_msec()` timestamp when its
+pending state is set and clears it back to `-1` wherever that state is
+otherwise cleared. `WorldScene._check_challenge_timeouts()` polls all of them
+once per frame (from `_process`, alongside `_update_challenge_proximity`) via
+the pure, unit-tested `game_logic/net/ChallengeTimeout.has_expired()` (30s
+window); on expiry it reuses the flow's own decline/abort path
+(`_decline_challenge` / `_decline_wager_challenge` / `_decline_draft_duel` /
+`_abort_draft_duel` / `_on_relay_pvp_response`) so the reset, RPC
+notification, and toast all happen in one place. Previously an unanswered
+challenge left the holder's pending state (and, for the dedicated-server
+relay, *every* future challenge on the whole server) stuck until the peer
+disconnected — a self-inflicted soft-lock reachable by simply not responding.
+
 ### Rewards & end states
 
 PvP duels support an **optional ante (wager)**: during the challenge handshake, either
@@ -1179,6 +1194,11 @@ it needs a stateful start/pick/ack RPC set that determinism makes unnecessary.
    gate** — a draft duel needs no collection at all.
 2. Target sees an Accept/Decline panel (`_show_draft_accept_panel`); a peer
    already mid-handshake auto-declines so the challenger isn't left hanging.
+   If neither side answers, both the challenger's `_draft_peer` and the
+   target's `_pending_draft_from` independently time out after 30s (see the
+   shared challenge-handshake timeout note under PvP Card Battles above) —
+   the timeout is disarmed the moment `_start_draft` makes the duel active, so
+   it can never fire mid-pick or mid-battle.
 3. On accept, **both peers locally** open `scenes/ui/DraftDuelPickScene.gd` (new,
    built fully in code like `PackOpenScene` — no `.tscn`; viewport-relative,
    portrait-stacking, modeled on `SpireDraftScene`) seeded with the agreed seed.

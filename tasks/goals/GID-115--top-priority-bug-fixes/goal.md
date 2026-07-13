@@ -43,7 +43,7 @@ see BID-046 for the backlog-hygiene follow-up.
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-430 | Fix co-op siege boss engage race (solo vs joint battle desync) | agent | done | — |
-| TID-431 | Add timeout to PvP challenge handshakes | agent | pending | — |
+| TID-431 | Add timeout to PvP challenge handshakes | agent | done | — |
 | TID-432 | Enforce unique-card block in co-op trading | agent | done | — |
 | TID-433 | Migrate Siege/Draft/Tournament buttons to HUD registry, fixing overlap | agent | pending | — |
 | TID-434 | Thread draft-deck override through PvP resume | agent | pending | — |
@@ -53,7 +53,7 @@ All five tasks are independent and can be worked in any order.
 ## Acceptance Criteria
 
 - [x] Engaging the co-op siege boss starts a joint battle on the host and all clients — never a solo duel on the host (TID-430)
-- [ ] An unanswered duel/wager/draft challenge resets the challenger's pending state after a timeout with a "No response" toast, and a new challenge can then be issued (TID-431)
+- [x] An unanswered duel/wager/draft challenge resets the challenger's pending state after a timeout with a "No response" toast, and a new challenge can then be issued (TID-431)
 - [x] A unique card cannot be offered, submitted, or transferred in a co-op trade — checked client-side and authority-side (TID-432)
 - [ ] Siege, Draft Duel, and Tournament buttons render via the WorldHUD zone/party-panel registry with no pixel overlap in any reachable state; the guardrail test allow-list shrinks accordingly (TID-433)
 - [ ] A host resuming a draft duel plays with the drafted deck, not its collection deck (TID-434)
