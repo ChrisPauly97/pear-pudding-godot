@@ -2,7 +2,7 @@
 
 **Goal:** GID-117
 **Type:** human-action
-**Status:** pending
+**Status:** done
 **Depends On:** TID-439
 
 ## Lock
@@ -42,12 +42,18 @@ confirm done. Agent then marks this task done and updates goal/index status.
 
 ## Plan
 
-_Written during Plan phase._
+Draft presented to the user in-session (2026-07-13). The user replied "just insert that
+pls, i give you permission" — explicit, one-off permission for the agent to edit the
+human-owned spec on the user's behalf.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Inserted a `## Positioning` section (elevator pitch + positioning statement, marked as
+  drafted by GID-117/TID-442 and inserted with explicit user permission) directly under
+  `## Overview` in `docs/human/specification.md`. This does not change the standing rule:
+  `docs/human/` remains human-owned and the agent edited it only under this task's
+  explicit grant.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- None beyond the spec insertion; the analysis source lives in `docs/agent/game-appeal.md`.
