@@ -2,7 +2,7 @@
 
 **Goal:** GID-117
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -64,12 +64,25 @@ cite the GID/system that backs it. No code changes in this task.
 
 ## Plan
 
-_Written during Plan phase._
+1. Write `docs/agent/game-appeal.md` with the five sections from Research Notes
+   (thesis, motivation mapping, personas, differentiation, honest weaknesses), grounding
+   every claim in a shipped GID and the feature docs read during research
+   (soulbinding.md, card-cantrips.md, multiplayer-coop.md, meta-progression.md,
+   GID-059/060 goal files).
+2. Add an index row to `docs/agent/docsplan.md` and to the docs table in `CLAUDE.md`.
+3. Leave a "First-Session Hook Visibility" placeholder section for TID-440 to fill.
+4. No `.gd` edits → no headless run needed. Update statuses, release lock, commit.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `docs/agent/game-appeal.md` — 7 sections: thesis, motivation mapping (5
+  motivations × shipped systems with GID citations), 3 target player personas,
+  differentiation vs. Hearthstone-likes / Zelda-likes / monster-collectors / mobile indie
+  RPGs, retention layer, honest weaknesses (6, each pointing at the task or goal that
+  addresses it), and a §7 "First-Session Hook Visibility" placeholder for TID-440.
+- No `.gd` changes — headless run not required.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/docsplan.md` — added game-appeal.md row to the document index.
+- `CLAUDE.md` — added game-appeal.md row to the docs/agent table.
