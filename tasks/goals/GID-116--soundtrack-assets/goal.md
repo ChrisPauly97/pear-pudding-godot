@@ -27,7 +27,7 @@ Creative direction to match (from `docs/human/specification.md` and `docs/human/
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-435 | Research & curate CC0/CC-BY soundtrack shortlist per music slot | agent | pending | — |
+| TID-435 | Research & curate CC0/CC-BY soundtrack shortlist per music slot | agent | done | — |
 | TID-436 | Acquire & place licensed audio files at assets/audio/music/*.ogg | human-action | pending | TID-435 |
 | TID-437 | Wire attribution, verify integration, update docs, clean up stale duplicate task | agent | pending | TID-436 |
 | TID-438 | Amend specification.md Out-of-Scope bullet to drop "music" | human-action | pending | — |
