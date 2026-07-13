@@ -120,7 +120,7 @@
 | [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | needs-verification | 5 / 5 |
 | [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | pending | 0 / 5 |
 | [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | pending | 0 / 4 |
-| [GID-117](goals/GID-117--game-appeal/goal.md) | Game Appeal — Articulate & Prove "Why Play This" | pending | 3 / 4 |
+| [GID-117](goals/GID-117--game-appeal/goal.md) | Game Appeal — Articulate & Prove "Why Play This" | done (headless test run unverified in-sandbox — see goal.md note) | 5 / 5 |
 
 ## Backlog
 
@@ -163,7 +163,6 @@
 | [BID-046](backlog/BID-046--backlog-index-drift.md) | Backlog index drift — duplicate BID-018 id, BID-018/019/021 unindexed, enemy-registry BID-018 already fixed at HEAD | doc-gap | GID-115 research |
 | [BID-047](backlog/BID-047--stale-duplicate-tid081-file.md) | Orphaned duplicate `TID-081--background-music-loop.md` sits alongside the completed `TID-081--background-music-loop-integration.md` — being resolved by GID-116 / TID-437 | code-smell | GID-116 research |
 | [BID-048](backlog/BID-048--dungeon-music-plays-in-towns.md) | `dungeon.ogg` plays for every named map, including peaceful towns (madrian, maykalene), not just dungeons | design-inconsistency | GID-116 research |
-| [BID-049](backlog/BID-049--new-game-debug-progression-values.md) | `new_game()` seeds late-game debug values — xp 11250, level 15, 14 skill points, 3000 coins — bypassing the early progression arc | code-smell | GID-117 / TID-440 |
 | [BID-050](backlog/BID-050--hidden-cantrip-undiscoverable.md) | Locked cantrips render no button at all, so the deck-shapes-the-world mechanic is undiscoverable until accidentally unlocked | design-gap | GID-117 / TID-440 |
 
 ## Resolved Backlog
@@ -182,6 +181,7 @@
 | [BID-039](archive/backlog/BID-039--session-days-elapsed-never-advances.md) | SessionState.days_elapsed never advanced by any co-op tick | gap (feature dependency) | Resolved by GID-103 / TID-382 |
 | [BID-041](archive/backlog/BID-041--siege-raiders-set-enemy-type-noop.md) | Single-player siege raiders' `node.set("enemy_type", ...)` is a silent no-op (no such property) — every raider always fights as fallback "undead_basic" regardless of stage | code-smell | Resolved by GID-108 / TID-407 |
 | [BID-045](archive/backlog/BID-045--enemy-alert-sfx-key-unregistered.md) | `enemy_alert` SFX key played by WorldScene but never registered in AudioManager.SFX_PATHS | code-smell | Resolved by GID-114 / TID-425 |
+| [BID-049](archive/backlog/BID-049--new-game-debug-progression-values.md) | `new_game()` seeded late-game debug values (xp 11250, level 15, 14 skill points, 3000 coins) — now a true level-1 default with opt-in Head Start toggle | code-smell | Resolved by GID-117 / TID-443 |
 
 ## Archive
 

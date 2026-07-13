@@ -167,10 +167,12 @@ battles. Line numbers are as of the audit commit._
    Veterancy teaching is deliberately deferred — surfacing it at first rank-up would be a
    separate, later task.
 
-**Incidental finding:** `SaveManager.new_game()` seeds `xp = 11250`, `level = 15`,
-`skill_points = 14`, `coins = 3000` — late-game values that bypass the entire early
-progression arc and contradict the tutorial's own coins/skill-tree guidance. Introduced via
-PR #290 (GID-092 co-op bugfixes merge). Logged as BID-049; likely leaked debug state.
+**Incidental finding (resolved by TID-443):** `SaveManager.new_game()` seeded `xp = 11250`,
+`level = 15`, `skill_points = 14`, `coins = 3000` — late-game values that bypassed the
+entire early progression arc, introduced via PR #290 (GID-092 co-op bugfixes merge). Logged
+as BID-049 and fixed: new games now default to a true level-1 start, with the boosted state
+preserved as an opt-in "Head Start (debug)" toggle on the biome-selection screen per user
+request.
 
 ---
 

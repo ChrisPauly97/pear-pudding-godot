@@ -272,11 +272,11 @@ const _BIOME_SEEDS: Array[int] = [42, 73856135, 100033, 19349705, 294967337]
 func start_new_game() -> void:
 	start_new_game_with_biome(0)   # default: Grasslands
 
-func start_new_game_with_biome(biome_id: int) -> void:
+func start_new_game_with_biome(biome_id: int, head_start: bool = false) -> void:
 	_exit_world_cleanup()
 	save_manager.world_seed = _BIOME_SEEDS[clamp(biome_id, 0, _BIOME_SEEDS.size() - 1)]
 	save_manager.starting_biome = biome_id
-	save_manager.new_game()
+	save_manager.new_game(head_start)
 	_apply_audio_settings()
 	_reset_session_stats()
 	enter_map("madrian", "")

@@ -31,12 +31,12 @@ goals found the answer exists mechanically but not verbally, and is invisible ex
 | TID-440 | First-session hook audit — trace new-game → first-reward code path | agent | done | TID-439 |
 | TID-441 | Surface signature hooks in first session (soulbind/cantrip teasers) | agent | done (headless run unverified in-sandbox) | TID-440 |
 | TID-442 | Elevator pitch & positioning statement for specification.md | human-action | done (inserted by agent with explicit user permission) | TID-439 |
-| TID-443 | New-game baseline fix + optional Head Start toggle (BID-049) | agent | pending | — |
+| TID-443 | New-game baseline fix + optional Head Start toggle (BID-049) | agent | done (headless run unverified in-sandbox) | — |
 
 ## Acceptance Criteria
 
-- [ ] `docs/agent/game-appeal.md` exists: player motivations served, target player profiles, unique hooks vs. genre neighbors (Hearthstone-likes, Zelda-likes, monster-collectors), and honest weaknesses — each claim grounded in a shipped GID
-- [ ] The first-session audit documents, with file/line references, when each signature hook (soulbinding, cantrips, resonance, veterancy, co-op) first becomes visible to a brand-new player; gaps logged as backlog items
-- [ ] At least one signature hook is teased within the first session (e.g., first victory hints at soulbinding, tutorial mentions cantrips), with mobile/desktop parity per CLAUDE.md
-- [ ] A drafted elevator pitch + positioning statement has been presented to the user for inclusion in `docs/human/specification.md` (human-owned — agent drafts, human pastes)
-- [ ] All tests pass headless; headless import shows no parse/compile errors after any `.gd` edit
+- [x] `docs/agent/game-appeal.md` exists: player motivations served, target player profiles, unique hooks vs. genre neighbors (Hearthstone-likes, Zelda-likes, monster-collectors), and honest weaknesses — each claim grounded in a shipped GID
+- [x] The first-session audit documents, with file/line references, when each signature hook (soulbinding, cantrips, resonance, veterancy, co-op) first becomes visible to a brand-new player; gaps logged as backlog items (BID-049 — resolved by TID-443; BID-050)
+- [x] At least one signature hook is teased within the first session (soulbinding popup on first uncaptured-signature victory; cantrips popup on first visible cantrip button), with mobile/desktop parity per CLAUDE.md (both reuse the GID-031 TutorialPopup pipeline)
+- [x] A drafted elevator pitch + positioning statement was presented to the user and, with their explicit permission, inserted into `docs/human/specification.md` (TID-442)
+- [ ] All tests pass headless; headless import shows no parse/compile errors after any `.gd` edit — **unverified in-sandbox** (no Godot binary; proxy blocks the release download). Run `godot --headless --editor --quit` and `godot --headless --path . -s tests/runner.gd` in CI or a Godot-capable session; new suites: `test_hook_teasers.gd`, `test_new_game_baseline.gd`
