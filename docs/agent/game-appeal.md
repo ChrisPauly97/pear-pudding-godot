@@ -142,8 +142,35 @@ Stated plainly so downstream work targets them rather than the pitch papering ov
 
 ## 7. First-Session Hook Visibility
 
-_To be filled by TID-440: table of hook | first visible moment | file:line | verdict
-(visible / late / invisible), plus ranked recommendations for TID-441._
+_Audited by TID-440 (2026-07-13). "First session" = new game → tutorial → first few free-roam
+battles. Line numbers are as of the audit commit._
+
+| Hook | First visible moment | Evidence | Verdict |
+|---|---|---|---|
+| Soulbinding | First free-roam victory over `undead_basic` (tier 1, signature `sig_wanderer`, condition `win_by_turn` 9) renders a "Soulbind: … — MET / not met" status line; a fast first win can even capture the signature outright | `autoloads/EnemyRegistry.gd:46-48`, `scenes/battle/BattleResultUI.gd:187`, gating at `scenes/battle/BattleScene.gd:415` | **Visible but never explained** — one cryptic line, no tutorial entry, no advance mention that capture conditions exist |
+| Cantrips — Skeleton Dig | `[D] Dig` HUD button visible from first world entry: starter deck holds 9 Skeleton-family cards (3× skeleton/zombie/ghoul) vs. threshold 4 | `autoloads/SaveManager.gd:330-336` (starter deck), `scenes/world/WorldHUD.gd:140-141` (availability-gated visibility), `game_logic/world/CantripManager.gd` families | **Visible but unexplained** — nothing says what Dig is, that it's deck-derived, or that burial mounds exist |
+| Cantrips — Ghost Phase | Never in first session: starter deck has only 3 Ghost-family cards (threshold 4); the button is hidden entirely until the deck qualifies | same as above; `_ghost_btn.visible = CantripManager.is_available(...)` | **Invisible and undiscoverable** — a hidden button can't teach that the mechanic exists (→ BID-050) |
+| Battlefield Resonance | Suppressed in the scripted first battle (`_state.scripted_battle` guard); the battlefield banner with rule text shows from the first *free-roam* battle onward | `scenes/battle/BattleScene.gd:464-467` | **Visible from battle two** — banner carries its own rule text, so acceptably self-explaining |
+| Veteran cards | Rank chevron/title appears only when an instance reaches rank 1 (`IsoConst.VETERANCY_RANKS` thresholds — several kills/survivals on one specific card) | `game_logic/VeterancyUtil.gd:8-23` | **Invisible in first session** by design (it's a slow-burn system), but no hint it exists |
+| Co-op / PvP | "Co-op (Beta)" button on the main menu | `scenes/ui/MenuScene.gd:23` | **Visible** |
+| Tutorial coverage | `TutorialRegistry` has 9 entries (skill_tree, coins, essence, mana, card_rarity, tap_and_hold, spire_intro, night_hunts, party_panel) — none covers soulbinding, cantrips, resonance, or veterancy | `game_logic/TutorialRegistry.gd:3-41` | **Gap confirmed** — the four differentiators are exactly the four systems the guide system skips |
+
+**Ranked recommendations for TID-441:**
+1. **Soulbinding teaser (highest leverage, cheapest):** add a `TutorialRegistry` entry and a
+   one-time popup the first time the hunt-status line renders on a victory screen — the UI
+   moment already exists; it just needs one sentence of explanation.
+2. **Cantrip discovery popup:** one-time popup the first time a cantrip button becomes
+   visible (fires on first world entry for Dig, given the starter deck), explaining that
+   deck composition unlocks world abilities — which also plants the seed that a
+   ghost-heavy deck unlocks Phase, mitigating BID-050 without new UI.
+3. **No action needed** for resonance (self-labelling banner) or co-op (menu button).
+   Veterancy teaching is deliberately deferred — surfacing it at first rank-up would be a
+   separate, later task.
+
+**Incidental finding:** `SaveManager.new_game()` seeds `xp = 11250`, `level = 15`,
+`skill_points = 14`, `coins = 3000` — late-game values that bypass the entire early
+progression arc and contradict the tutorial's own coins/skill-tree guidance. Introduced via
+PR #290 (GID-092 co-op bugfixes merge). Logged as BID-049; likely leaked debug state.
 
 ---
 

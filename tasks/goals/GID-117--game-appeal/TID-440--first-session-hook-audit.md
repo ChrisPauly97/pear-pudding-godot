@@ -2,7 +2,7 @@
 
 **Goal:** GID-117
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-439
 
 ## Lock
@@ -53,12 +53,34 @@ GID-108 via `autoloads/ScriptedBattleRegistry.gd` / `game_logic/battle/ScriptedB
 
 ## Plan
 
-_Written during Plan phase._
+1. Trace starter state (`SaveManager.new_game()`), tutorial coverage
+   (`TutorialRegistry._DATA`), enemy signature assignments (`EnemyRegistry`), cantrip
+   button gating (`WorldHUD._create_cantrip_buttons`), resonance banner gating
+   (`BattleScene._ready`), veterancy thresholds (`VeterancyUtil`), and menu co-op entry.
+2. Fill `docs/agent/game-appeal.md` §7 with the hook-visibility table + ranked
+   recommendations for TID-441.
+3. Log gaps as backlog items; update index. Read-only for game code.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Filled `docs/agent/game-appeal.md` §7: per-hook visibility table (soulbinding,
+  Skeleton Dig, Ghost Phase, resonance, veterancy, co-op, tutorial coverage) with
+  file:line evidence and verdicts, plus ranked TID-441 recommendations:
+  (1) soulbinding teaser popup, (2) cantrip discovery popup; resonance and co-op need
+  no action; veterancy teaching deferred.
+- Key facts established: tier-1 `undead_basic` carries `sig_wanderer` (`win_by_turn` 9),
+  so the soulbind status line renders on the very first free-roam victory but is never
+  explained; starter deck (9 Skeleton-family / 3 Ghost-family cards) makes `[D] Dig`
+  visible from world entry while Ghost Phase is hidden entirely; the scripted first
+  battle suppresses the resonance banner; `TutorialRegistry` covers none of the four
+  differentiator systems.
+- Logged **BID-049** — `new_game()` seeds `xp = 11250`, `level = 15`, `skill_points = 14`,
+  `coins = 3000` (suspected debug leak via PR #290 / GID-092 merge, progression-breaking).
+- Logged **BID-050** — locked cantrips render no button, making the mechanic
+  undiscoverable.
+- No `.gd` changes.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/game-appeal.md` §7 (audit table + recommendations + incidental finding).
+- `tasks/index.md` backlog table: added BID-049, BID-050.
