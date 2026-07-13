@@ -212,7 +212,7 @@ var _active_team_duel_peer_ids: Array[int] = []
 var _active_team_duel_teams: Array = []
 # Session tournaments (GID-104 / TID-386): host-run round-robin bracket. Guarded
 # end-to-end by _tournament_active so it never touches normal PvP/team-duel state.
-var _tournament_btn: Button = null
+# Triggered from the Party panel (GID-115 / TID-433), not a standalone HUD button.
 var _tournament_panel_outer: Control = null   # outer panel Control, nil when never built
 var _tournament_panel: VBoxContainer = null   # inner row container
 var _tournament_active: bool = false          # true while a bracket is in progress (both host+clients)
@@ -301,7 +301,7 @@ var _coop_night_hunt_day: int = -1
 var _coop_night_hunt_nodes: Dictionary = {}  # id -> Node3D
 var _coop_night_hunt_kills: int = 0          # resets at dawn
 # GID-103 (TID-384): Co-op Town Siege — host-only trigger; escalating waves + joint boss.
-var _siege_btn: Button = null
+# Triggered from the Party panel (GID-115 / TID-433), not a standalone HUD button.
 var _coop_siege_active: bool = false
 var _coop_siege_id: int = 0
 var _coop_siege_wave: int = -1               # -1 = not started; >= WAVE_COUNT = boss phase
@@ -831,10 +831,9 @@ func _setup_coop() -> void:
 		_ensure_draft_duel_button()
 		_ensure_social_buttons()
 		_ensure_chat_ui()
-		_ensure_tournament_button()
-		_ensure_siege_button()
-		# Party panel (GID-107 / TID-395): single entry point for Roster, Loot Mode,
-		# Stash, Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl.
+		# Party panel (GID-107 / TID-395; Siege/Tournament added GID-115 / TID-433):
+		# single entry point for Roster, Loot Mode, Stash, Leaderboard, Ghost Duels,
+		# Team Duel, Dungeon Crawl, Siege, Tournament.
 		_world_hud.register_action("party", "Party", WorldHUD.ZONE_NAV, _open_party_panel)
 		# Discoverability (GID-107 / TID-398): players used to the old scattered
 		# buttons need a one-time nudge to the new consolidated entry point.
@@ -1322,6 +1321,19 @@ func _open_party_panel() -> void:
 	# Crawl / Co-op Spire above.
 	panel.show_guildhall = NetworkManager.is_host()
 	panel.on_guildhall = _start_guildhall
+	# Siege (GID-103, migrated GID-115 / TID-433): host-only trigger, only on a
+	# siege-supported map, hidden while a siege is already in progress — mirrors
+	# the old _ensure_siege_button() gate exactly.
+	panel.show_siege = _CoopSiege.supports_map(map_name) and NetworkManager.is_host() \
+		and not _coop_siege_active
+	panel.on_siege = _start_coop_siege
+	# Tournament (GID-104, migrated GID-115 / TID-433): host-only, needs 2-3
+	# connected clients (3-4 total) — mirrors the old
+	# _update_tournament_button_visibility() condition exactly.
+	panel.show_tournament = NetworkManager.is_host() and not NetworkManager.is_dedicated_server() \
+		and SceneManager._state == SceneManager.State.WORLD and not _tournament_active \
+		and multiplayer.get_peers().size() >= 2 and _pending_challenge_from == -1
+	panel.on_tournament = _start_tournament
 	_hud.add_child(panel)
 	panel.closed.connect(func() -> void: _party_panel = null)
 	_party_panel = panel
@@ -2781,26 +2793,6 @@ func _on_coop_spire_summary_continue() -> void:
 # whole party fights it together; victory splits gold + a card among every
 # session member.
 
-## Creates the hidden "Siege" HUD button. Visible only for the host, and only on
-## a map with a known town-gate anchor (SiegeDefs.TOWN_GATES).
-func _ensure_siege_button() -> void:
-	if not _CoopSiege.supports_map(map_name):
-		return
-	if _siege_btn != null and is_instance_valid(_siege_btn):
-		_siege_btn.visible = NetworkManager.is_host() and not _coop_siege_active
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_siege_btn = Button.new()
-	_siege_btn.text = "Siege"
-	_siege_btn.tooltip_text = "Trigger a party siege defense event"
-	_siege_btn.custom_minimum_size = Vector2(vp.y * 0.22, vp.y * 0.06)
-	_siege_btn.add_theme_font_size_override("font_size", int(vp.y * 0.024))
-	_siege_btn.position = Vector2((vp.x - vp.y * 0.22) * 0.5, vp.y * 0.63)
-	_siege_btn.visible = NetworkManager.is_host() and not _coop_siege_active
-	_siege_btn.pressed.connect(_start_coop_siege)
-	_hud.add_child(_siege_btn)
-	UiFx.attach(_siege_btn)
-
 ## Host-only: derive a shared siege id and broadcast the start so every peer
 ## begins the identical wave sequence.
 func _start_coop_siege() -> void:
@@ -2824,8 +2816,6 @@ func _on_siege_started_received(siege_id: int) -> void:
 	_coop_siege_active = true
 	_coop_siege_id = siege_id
 	_coop_siege_wave = 0
-	if _siege_btn != null and is_instance_valid(_siege_btn):
-		_siege_btn.visible = false
 	GameBus.hud_message_requested.emit("The town is under siege!")
 	_coop_spawn_siege_wave()
 
@@ -2948,14 +2938,10 @@ func _coop_start_siege_boss_battle(edata: Dictionary) -> void:
 		var pid: int = abs_peer_ids[i]
 		if pid != multiplayer.get_unique_id():
 			_net_sync.rpc_id(pid, "notify_coop_pve_start", i, all_decks, edata)
-	if _siege_btn != null and is_instance_valid(_siege_btn):
-		_siege_btn.hide()
 	SceneManager.enter_coop_pve_battle(0, all_decks, edata)
 
 ## Client: the host started the joint siege-boss battle — enter with our index.
 func _on_notify_coop_pve_start(my_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
-	if _siege_btn != null and is_instance_valid(_siege_btn):
-		_siege_btn.hide()
 	SceneManager.enter_coop_pve_battle(my_idx, all_ally_decks, enemy_data)
 
 ## Any peer: the joint siege-boss battle ended — reset siege UI/state; the host
@@ -2971,8 +2957,6 @@ func _on_coop_siege_battle_ended(did_win: bool) -> void:
 	if _siege_banner != null and is_instance_valid(_siege_banner):
 		_siege_banner.queue_free()
 		_siege_banner = null
-	if _siege_btn != null and is_instance_valid(_siege_btn):
-		_siege_btn.visible = NetworkManager.is_host()
 	if did_win:
 		if NetworkManager.is_host():
 			_finish_coop_siege_victory()
@@ -4607,7 +4591,6 @@ func _process(delta: float) -> void:
 		_update_challenge_proximity()
 		_update_draft_duel_proximity()
 		_check_challenge_timeouts()
-		_update_tournament_button_visibility()
 		_tick_tournament(delta)
 		_tick_session_persist(delta)
 		# World-object sync (GID-096): host streams enemy positions; clients smooth.
@@ -8427,21 +8410,17 @@ func _on_party_bounties_snapshot_received(bounties: Array) -> void:
 # single-player never reaches any of it.
 
 ## Creates the hidden "Draft Duel" HUD button (mobile + desktop parity — a
-## Button.pressed tap/click target, no keybind). Sits below the ranked toggle.
+## Button.pressed tap/click target, no keybind). Registered into the shared
+## ZONE_CONTEXT zone (GID-115 / TID-433) — sits below the Challenge/Ranked-toggle
+## pair, same zone the world-interact prompt takes priority over.
 func _ensure_draft_duel_button() -> void:
 	if _draft_duel_btn != null and is_instance_valid(_draft_duel_btn):
 		return
 	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_draft_duel_btn = Button.new()
-	_draft_duel_btn.text = "Draft Duel"
+	_draft_duel_btn = _world_hud.register_action("draft_duel", "Draft Duel",
+		WorldHUD.ZONE_CONTEXT, _request_draft_duel, Callable(), Vector2(vp.y * 0.20, vp.y * 0.05))
 	_draft_duel_btn.tooltip_text = "Sealed-deck duel: both players draft %d cards from identical seeded packs. No collection advantage; drafted cards last one duel." % _DraftDuelGen.NUM_ROUNDS
-	_draft_duel_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
-	_draft_duel_btn.add_theme_font_size_override("font_size", int(vp.y * 0.020))
-	_draft_duel_btn.position = Vector2((vp.x - vp.y * 0.20) * 0.5, vp.y * 0.935)
 	_draft_duel_btn.hide()
-	_draft_duel_btn.pressed.connect(_request_draft_duel)
-	_hud.add_child(_draft_duel_btn)
-	UiFx.attach(_draft_duel_btn)
 
 ## Shows/hides the draft-duel button. Piggybacks on the proximity result
 ## (_challenge_target_peer) computed by _update_challenge_proximity, which runs
@@ -8691,33 +8670,6 @@ func _abort_draft_duel(reason: String = "") -> void:
 # _tournament_active / NetworkManager.is_active() so single-player and normal
 # co-op PvP are untouched.
 
-func _ensure_tournament_button() -> void:
-	if _tournament_btn != null and is_instance_valid(_tournament_btn):
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_tournament_btn = Button.new()
-	_tournament_btn.text = "Tournament"
-	_tournament_btn.custom_minimum_size = Vector2(vp.y * 0.28, vp.y * 0.07)
-	_tournament_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	_tournament_btn.position = Vector2((vp.x - vp.y * 0.28) * 0.5, vp.y * 0.63)
-	_tournament_btn.hide()
-	_tournament_btn.pressed.connect(_start_tournament)
-	_hud.add_child(_tournament_btn)
-	UiFx.attach(_tournament_btn)
-
-
-## Shows the tournament button only for the host with 2-3 connected clients
-## (3-4 total players). Mirrors _update_team_duel_button_visibility.
-func _update_tournament_button_visibility() -> void:
-	if _tournament_btn == null or not is_instance_valid(_tournament_btn):
-		return
-	if not NetworkManager.is_host() or NetworkManager.is_dedicated_server() \
-			or SceneManager._state != SceneManager.State.WORLD or _tournament_active:
-		_tournament_btn.hide()
-		return
-	_tournament_btn.visible = multiplayer.get_peers().size() >= 2 and _pending_challenge_from == -1
-
-
 ## Host: builds the bracket from every connected peer (host + all clients),
 ## deducts the flat ante from every participant (host locally; clients via
 ## notify_tournament_start doing the same on their side — the existing
@@ -8765,8 +8717,6 @@ func _start_tournament() -> void:
 	_tournament_decks = decks
 	_tournament_ante = TOURNAMENT_ANTE_COINS
 	_tournament_pending_result = {}
-	if _tournament_btn != null and is_instance_valid(_tournament_btn):
-		_tournament_btn.hide()
 	for pid in peer_ids:
 		if pid != host_id:
 			_net_sync.rpc_id(pid, "notify_tournament_start",
@@ -8800,8 +8750,6 @@ func _start_current_tournament_match() -> void:
 	_net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket(_tournament_bracket))
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		_challenge_btn.hide()
-	if _tournament_btn != null and is_instance_valid(_tournament_btn):
-		_tournament_btn.hide()
 	# Duel-active + auto-spectate broadcasts to everyone not in this match
 	# (reuses the TID-367 spectate plumbing; _enter_tree clears it after the match
 	# via the _pvp_ended_pending_broadcast pattern).

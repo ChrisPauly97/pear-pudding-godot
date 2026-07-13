@@ -1,8 +1,9 @@
-## Party panel (GID-107 / TID-395): a single discoverable entry point for the
-## always-on co-op HUD affordances that used to be individually HUD-positioned
-## buttons — Roster, Loot Mode, Stash, Leaderboard, Ghost Duels, Team Duel,
-## Dungeon Crawl, Co-op Spire. Each action keeps its exact prior gating/behavior;
-## this is a placement/discoverability change, not a feature change.
+## Party panel (GID-107 / TID-395; Siege/Tournament added GID-115 / TID-433): a
+## single discoverable entry point for the always-on co-op HUD affordances that
+## used to be individually HUD-positioned buttons — Roster, Loot Mode, Stash,
+## Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl, Co-op Spire, Guildhall,
+## Siege, Tournament. Each action keeps its exact prior gating/behavior; this is
+## a placement/discoverability change, not a feature change.
 ##
 ## Script-only overlay (matches GhostDuelOverlay / PartyStashOverlay / Leaderboard
 ## Overlay): extends BaseOverlay by path string, instantiated via .new(), built
@@ -44,6 +45,12 @@ var on_spire: Callable = Callable()
 
 var show_guildhall: bool = false
 var on_guildhall: Callable = Callable()
+
+var show_siege: bool = false
+var on_siege: Callable = Callable()
+
+var show_tournament: bool = false
+var on_tournament: Callable = Callable()
 
 var _roster_vbox: VBoxContainer = null
 var _loot_btn: Button = null
@@ -130,6 +137,10 @@ func _build_ui() -> void:
 		_add_action_button(grid, "Co-op Spire", on_spire, true)
 	if show_guildhall:
 		_add_action_button(grid, "Guildhall", on_guildhall, true)
+	if show_siege:
+		_add_action_button(grid, "Siege", on_siege, true)
+	if show_tournament:
+		_add_action_button(grid, "Tournament", on_tournament, true)
 
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
