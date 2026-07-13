@@ -2,7 +2,7 @@
 
 **Goal:** GID-115
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -58,12 +58,58 @@ live at HEAD: `is_unique` appears nowhere in `scenes/world/WorldScene.gd`.
 
 ## Plan
 
-_Written during Plan phase._
+1. Add `TradeSync.is_card_instance_unique(card_inst: Dictionary) -> bool` — a pure,
+   scene-free helper resolving `template_id -> CardRegistry.get_template().is_unique`,
+   mirroring `StashTransfer`/`AuctionTransfer`. Shared by all three call sites and unit
+   testable without a scene.
+2. `_open_trade_offer` (client-side): scan the deck for the first non-unique card
+   instead of blindly taking `deck[0]`; if every card is unique (or deck empty of
+   tradeable cards), show a tip and refuse to submit an offer.
+3. `_on_trade_offer_submitted` (authority-side): once the offered uid is resolved to
+   an owned card instance, `valid` is only set true if that instance is not unique —
+   a modified client offering a unique card's uid directly is rejected the same way
+   an unowned uid already was (cancelled update back to the initiator).
+4. `_transfer_card_in_session` (defense in depth): resolve the card instance first
+   (without mutating `g_owned`/`g_deck` yet), bail out before any removal if it is
+   unique, then perform the move as before.
+5. Add `tests/unit/test_trade_sync.gd` covering `is_card_instance_unique` (normal vs.
+   unique vs. missing template_id) plus encode/decode roundtrips (previously
+   untested).
+6. Update `docs/agent/multiplayer-coop.md` "Card trading & gifting" to describe the
+   three enforcement layers instead of the previously-false one-line claim.
+7. Archive `BID-030` and update `tasks/index.md`.
+
+No scene/UI changes needed — `_show_tip` already existed and is reused for the new
+"no tradeable cards" message.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/net/TradeSync.gd` — added `_CardRegistry` preload and the static
+  `is_card_instance_unique()` helper.
+- `scenes/world/WorldScene.gd`:
+  - `_open_trade_offer` — picks the first non-unique card in the deck; shows
+    "No tradeable cards — unique cards can't be traded." if none qualify.
+  - `_on_trade_offer_submitted` — `valid` now also requires the resolved card
+    instance to be non-unique (authority-side bypass block).
+  - `_transfer_card_in_session` — resolves `found_idx`/`card_inst` first, returns
+    early on a unique card before any mutation, then removes/transfers as before.
+- `tests/unit/test_trade_sync.gd` — new unit test suite (auto-discovered by
+  `tests/runner.gd`): `is_card_instance_unique` (normal/unique/missing-template
+  cases) + `encode_offer`/`decode_offer`/`encode_update`/`decode_update` roundtrips.
+- Archived `tasks/backlog/BID-030--trading-unique-check-not-enforced.md` to
+  `tasks/archive/backlog/` and updated `tasks/index.md`.
+
+**Verification note:** No Godot binary is available in this sandbox and the 4.6-stable
+release download is blocked by the outbound proxy (403), so `godot --headless
+--editor --quit` and the unit test runner could not be executed here. The three edits
+were re-read in full post-edit to confirm brace/tab structure and type-correctness by
+hand; the new test file follows the exact structure of `test_stash_transfer.gd`
+(already passing in CI). Recommend running the headless import + `tests/runner.gd`
+in CI or a Godot-enabled environment before merge, per the goal's acceptance
+criteria.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md` — "Card trading & gifting" now documents the three
+  enforcement layers (client-side pick, authority-side reject, defense-in-depth on
+  transfer) instead of the previously-inaccurate one-line claim.

@@ -3,10 +3,21 @@
 ## All payloads are JSON-primitive Dictionaries for RPC safety.
 extends RefCounted
 
+const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
+
 ## Trade status values sent in recv_trade_update payloads.
 const STATUS_PROPOSED:  String = "proposed"
 const STATUS_COMPLETED: String = "completed"
 const STATUS_CANCELLED: String = "cancelled"
+
+
+## True if a resolved card instance dict (from owned_cards, with a
+## `template_id` field) is unique per its template — mirrors
+## StashTransfer/AuctionTransfer's `is_unique` check exactly (TID-432).
+## Unique cards are blocked from trading, same as crafting/selling/stashing.
+static func is_card_instance_unique(card_inst: Dictionary) -> bool:
+	var template_id: String = str(card_inst.get("template_id", ""))
+	return bool(_CardRegistry.get_template(template_id).get("is_unique", false))
 
 
 ## Encode a trade offer. The authority echoes this back with STATUS_PROPOSED so
