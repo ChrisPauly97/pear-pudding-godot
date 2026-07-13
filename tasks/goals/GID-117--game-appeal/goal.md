@@ -29,7 +29,7 @@ goals found the answer exists mechanically but not verbally, and is invisible ex
 |----|------|------|--------|------------|
 | TID-439 | Player appeal analysis doc (docs/agent/game-appeal.md) | agent | done | — |
 | TID-440 | First-session hook audit — trace new-game → first-reward code path | agent | done | TID-439 |
-| TID-441 | Surface signature hooks in first session (soulbind/cantrip teasers) | agent | pending | TID-440 |
+| TID-441 | Surface signature hooks in first session (soulbind/cantrip teasers) | agent | done (headless run unverified in-sandbox) | TID-440 |
 | TID-442 | Elevator pitch & positioning statement for specification.md | human-action | pending | TID-439 |
 
 ## Acceptance Criteria
