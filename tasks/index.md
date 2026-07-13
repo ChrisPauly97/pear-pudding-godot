@@ -118,7 +118,7 @@
 | [GID-112](goals/GID-112--battle-ai-depth/goal.md) | Battle AI Depth — Enemy Personas & Real Decision-Making | pending | 0 / 5 |
 | [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | pending | 0 / 5 |
 | [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | needs-verification | 5 / 5 |
-| [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | pending | 3 / 5 |
+| [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | pending | 4 / 5 |
 | [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | pending | 0 / 4 |
 
 ## Backlog
@@ -151,7 +151,7 @@
 | [BID-032](backlog/BID-032--ghost-duels-host-only-entry-point.md) | Ghost duels are host-only — a client has no local SessionState to pick a ghost opponent from | feature-gap | GID-102 / TID-377 |
 | [BID-033](backlog/BID-033--no-session-scoped-equipment-inventory.md) | No session-scoped equipment inventory — chest equipment drops can't be roll-granted under need/greed | design-gap | GID-102 / TID-381 |
 | ~~[BID-034](archive/backlog/BID-034--pvp-challenge-handshakes-no-timeout.md)~~ | ~~PvP challenge handshakes (duel/wager/draft) have no timeout — pending state sticks until disconnect~~ | ~~code-smell~~ | Resolved by GID-115 / TID-431 |
-| ~~[BID-035](backlog/BID-035--draft-duel-resume-lacks-deck-override.md)~~ | ~~resume_pvp_battle drops the draft-duel deck override — resumed host rebuilds from collection~~ | ~~logic-gap~~ | Promoted to GID-115 / TID-434 |
+| ~~[BID-035](archive/backlog/BID-035--draft-duel-resume-lacks-deck-override.md)~~ | ~~resume_pvp_battle drops the draft-duel deck override — resumed host rebuilds from collection~~ | ~~logic-gap~~ | Resolved by GID-115 / TID-434 |
 | [BID-036](backlog/BID-036--spectator-wager-house-banked-payout.md) | Spectator wager settlement is house-banked (can mint coins); walkover forfeits refund instead of paying | design-gap | GID-104 / TID-387 |
 | [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |

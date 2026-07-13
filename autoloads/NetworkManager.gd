@@ -156,9 +156,16 @@ var _pvp_resume: Dictionary = {}
 
 ## Record enough to re-enter the same duel: local_idx (0 host-side convention is
 ## never used here — only client idx 1 calls this), the opponent's deck snapshot, and
-## any active wager so a resumed duel keeps its stakes.
-func set_pvp_resume(local_idx: int, opponent_deck: Array, ante_coins: int) -> void:
-	_pvp_resume = {"local_idx": local_idx, "opponent_deck": opponent_deck, "ante_coins": ante_coins}
+## any active wager so a resumed duel keeps its stakes. local_deck_override (GID-115 /
+## TID-434, fixes BID-035) carries a non-empty drafted deck through the resume so a
+## reconnect never silently falls back to SaveManager.get_deck_instances() — inert
+## today (only the deck-building duel-host side ever consumes it and that side never
+## takes this resume path), but threading it through keeps this record symmetric with
+## enter_pvp_battle's full parameter set for whenever that invariant changes.
+func set_pvp_resume(local_idx: int, opponent_deck: Array, ante_coins: int,
+		local_deck_override: Array = []) -> void:
+	_pvp_resume = {"local_idx": local_idx, "opponent_deck": opponent_deck,
+		"ante_coins": ante_coins, "local_deck_override": local_deck_override}
 
 func clear_pvp_resume() -> void:
 	_pvp_resume = {}

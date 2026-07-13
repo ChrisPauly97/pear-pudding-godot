@@ -462,7 +462,8 @@ func _on_connection_succeeded() -> void:
 		SceneManager.resume_pvp_battle(
 			int(resume.get("local_idx", 1)),
 			resume.get("opponent_deck", []),
-			int(resume.get("ante_coins", 0)))
+			int(resume.get("ante_coins", 0)),
+			resume.get("local_deck_override", []))
 		return
 	_set_status("Connected — entering Madrian…")
 	SceneManager.enter_map_coop(_COOP_MAP)

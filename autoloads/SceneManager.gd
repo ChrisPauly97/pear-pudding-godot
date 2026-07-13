@@ -668,11 +668,17 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 ## map (giving enter_pvp_battle a real "_saved_world_scene" to detach/restore later)
 ## and waits for that transition to actually finish before stacking the battle
 ## transition on top (TransitionManager.transition() is fire-and-forget async).
-func resume_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int) -> void:
+## local_deck_override (GID-115 / TID-434, fixes BID-035): threaded straight through to
+## enter_pvp_battle so a resumed draft duel never silently falls back to the persisted
+## collection — see NetworkManager.set_pvp_resume's doc comment for why this is
+## currently inert (only client idx 1 ever resumes, and only the duel-host side
+## consumes the override) but kept symmetric for correctness.
+func resume_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int,
+		local_deck_override: Array = []) -> void:
 	enter_map_coop("madrian")
 	while _state != State.WORLD:
 		await get_tree().process_frame
-	enter_pvp_battle(local_player_idx, opponent_deck, ante_coins)
+	enter_pvp_battle(local_player_idx, opponent_deck, ante_coins, "", false, local_deck_override)
 
 ## Dedicated-server variant of enter_pvp_battle (GID-097 / TID-353).
 ## The server is the headless referee: _local_player_idx = -1 (no local player),

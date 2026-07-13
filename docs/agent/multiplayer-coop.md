@@ -385,22 +385,28 @@ stable channel reconnect can actually use.
 **Design — the reconnecting client decides locally, the host/referee just waits:**
 
 - **Client-side resume memory — `NetworkManager.set_pvp_resume(local_idx, opponent_deck,
-  ante_coins)` / `clear_pvp_resume()` / `has_pvp_resume()` / `get_pvp_resume()`.** A
-  small in-memory (never persisted to disk) record set by `BattleScene._setup_pvp_battle`
-  for the client side only (not the host/referee — only a disconnected client
-  reconnects in this slice). Survives `_reset_session()` (called by `join()`/`host()` to
-  tear down a stale peer before reconnecting) — **only an explicit `leave()` clears
-  it**, so the record outlives the very disconnect it exists to recover from.
+  ante_coins, local_deck_override = [])` / `clear_pvp_resume()` / `has_pvp_resume()` /
+  `get_pvp_resume()`.** A small in-memory (never persisted to disk) record set by
+  `BattleScene._setup_pvp_battle` for the client side only (not the host/referee — only
+  a disconnected client reconnects in this slice). Survives `_reset_session()` (called
+  by `join()`/`host()` to tear down a stale peer before reconnecting) — **only an
+  explicit `leave()` clears it**, so the record outlives the very disconnect it exists
+  to recover from. `local_deck_override` (GID-115 / TID-434, fixes BID-035) threads
+  `pvp_local_deck_override` through the record so a resumed draft duel never silently
+  rebuilds from the persisted collection — currently inert in practice (only the
+  duel-host side ever *consumes* the override via `_build_pvp_decks`, and that side
+  never takes this resume path; see the doc comment on `set_pvp_resume` for the exact
+  reasoning) but kept symmetric with `enter_pvp_battle`'s full parameter set.
 - **`MultiplayerLobbyScene._on_connection_succeeded`**: checks
   `NetworkManager.has_pvp_resume()` first; if set, calls
-  `SceneManager.resume_pvp_battle(local_idx, opponent_deck, ante_coins)` instead of the
-  normal `enter_map_coop` landing.
+  `SceneManager.resume_pvp_battle(local_idx, opponent_deck, ante_coins,
+  local_deck_override)` instead of the normal `enter_map_coop` landing.
 - **`SceneManager.resume_pvp_battle`**: the reconnecting client has no current
   WorldScene to give `enter_pvp_battle` a `_saved_world_scene` to detach/restore later,
   so it first lands in the shared map (`enter_map_coop("madrian")`), `await`s the state
   actually reaching `State.WORLD` (`TransitionManager.transition` is fire-and-forget
   async, so this can't be a synchronous follow-up call), then calls the normal
-  `enter_pvp_battle`.
+  `enter_pvp_battle`, forwarding `local_deck_override` through.
 - **Host/referee grace window — `BattleScene._on_pvp_peer_disconnected`**: resolves the
   disconnecting peer's combatant index (listen-server: always 1, the sole client;
   referee: `_pvp_peer_to_idx.get(pid)`), records `_pvp_reconnect_idx`, and starts a
