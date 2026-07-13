@@ -265,5 +265,28 @@ func test_set_coop_spire_run_mirror_overwrites_local_state() -> void:
 	assert_true(SceneManager.is_coop_spire_active())
 	assert_eq(int(SceneManager.get_coop_spire_run().get("floor", 0)), 5)
 
+# ---------------------------------------------------------------------------
+# _is_coop_joint_battle_enemy (TID-430 / BID-044) — pure predicate deciding
+# whether an engaged enemy routes to a joint co-op battle instead of a solo
+# duel. NetworkManager.is_active() gating happens in the caller and is not
+# exercised here (see _on_enemy_engaged).
+# ---------------------------------------------------------------------------
+
+func test_joint_battle_enemy_false_for_normal_enemy() -> void:
+	assert_false(SceneManager._is_coop_joint_battle_enemy({"id": "zombie_3"}, "madrian"))
+
+func test_joint_battle_enemy_true_for_siege_boss_on_any_map() -> void:
+	assert_true(SceneManager._is_coop_joint_battle_enemy({"id": "siege_boss_1"}, "madrian"))
+
+func test_joint_battle_enemy_true_for_spire_enemy_on_spire_floor_map() -> void:
+	assert_true(SceneManager._is_coop_joint_battle_enemy({"id": "spire_enemy"}, "spire_floor_3_42"))
+
+func test_joint_battle_enemy_false_for_spire_enemy_id_off_spire_map() -> void:
+	# Same enemy id, but current_map isn't a Spire floor — must not match.
+	assert_false(SceneManager._is_coop_joint_battle_enemy({"id": "spire_enemy"}, "madrian"))
+
+func test_joint_battle_enemy_false_for_missing_id() -> void:
+	assert_false(SceneManager._is_coop_joint_battle_enemy({}, "spire_floor_1_1"))
+
 func get_suite_name() -> String:
 	return "SceneManagerState"

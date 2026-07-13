@@ -2511,6 +2511,12 @@ The *analogous* risk in the pre-existing co-op siege-boss path was found during
 this research but left unfixed — logged as **BID-044** (siege is a separate,
 already-shipped, already-"unverified in-sandbox" feature; fixing it without a
 real headless run available was judged riskier than leaving a documented gap).
+**Resolved by GID-115 / TID-430**: the two inline guards were generalized into
+one pure predicate, `SceneManager._is_coop_joint_battle_enemy(enemy_data,
+current_map_name)`, covering both the Spire floor boss and any `siege_boss_*`
+id (the only place that prefix is generated is `CoopSiege.gd`, so the id alone
+is a sufficient, map-independent discriminator) — `_on_enemy_engaged` now skips
+the solo path for both under a single `NetworkManager.is_active()` gate.
 
 **Automatic floor-to-floor advancement — no reliance on the arena's authored
 exit door.** Solo Spire's exit door is single-player-only machinery

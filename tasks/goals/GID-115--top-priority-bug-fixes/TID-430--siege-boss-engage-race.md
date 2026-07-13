@@ -2,7 +2,7 @@
 
 **Goal:** GID-115
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -61,12 +61,50 @@ Town Siege feature (GID-103) in co-op.
 
 ## Plan
 
-_Written during Plan phase._
+1. Generalize the existing GID-106 Spire guard in `SceneManager._on_enemy_engaged`
+   into a pure static predicate `_is_coop_joint_battle_enemy(enemy_data,
+   current_map_name) -> bool` covering both the Spire floor boss and the
+   `siege_boss_*` id prefix (the only place that prefix is generated is
+   `CoopSiege.gd::_boss_id`, so the id alone is a sufficient, map-independent
+   discriminator — matches the task's suggested fix shape).
+2. Replace the two separate inline guards with one call to the predicate, still
+   gated on `NetworkManager.is_active()` in the caller (so single-player sieges/
+   Spire keep using the solo path — no active co-op session ever satisfies
+   `is_active()`).
+3. This handler is connected once at autoload boot and runs identically on host
+   and client (`EnemyNPC.engage()` / `BlightHeart` emit `GameBus.enemy_engaged`
+   locally on whichever peer touches the enemy), so the fix covers both without
+   extra client-specific handling.
+4. Add unit tests for the new pure predicate in
+   `tests/unit/test_scene_manager_state.gd` (normal enemy, siege boss on any map,
+   Spire enemy on/off a Spire floor map, missing id) — `NetworkManager.is_active()`
+   itself isn't stubbed/tested since it depends on a live `MultiplayerPeer` state
+   that isn't practical to fake in a headless unit test; extracting the predicate
+   keeps the actually-interesting map/id logic fully covered.
+5. Archive `BID-044` and update `tasks/index.md`.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/SceneManager.gd` — added `static func _is_coop_joint_battle_enemy()`
+  and rewrote `_on_enemy_engaged`'s co-op guard to call it once instead of two
+  separate inline checks (one of which was BID-044's missing siege-boss guard).
+- `tests/unit/test_scene_manager_state.gd` — 5 new cases for
+  `_is_coop_joint_battle_enemy` (auto-discovered by `tests/runner.gd`).
+- Archived `tasks/backlog/BID-044--siege-boss-engage-signal-race.md` to
+  `tasks/archive/backlog/` and updated `tasks/index.md`.
+
+**Verification note:** same sandbox constraint as the rest of this goal — no
+Godot binary available and the 4.6-stable release download returns HTTP 403
+from the outbound proxy, so `godot --headless --editor --quit` and
+`tests/runner.gd` could not be run here. The diff was re-read in full to confirm
+the predicate is a straight generalization of the pre-existing, already-shipped
+Spire guard (GID-106/TID-391) plus the previously-missing siege-boss case;
+recommend running the headless import + test suite in CI before merge.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/multiplayer-coop.md` — the GID-106/TID-391 research note that
+  documented BID-044 as a found-but-deliberately-unfixed gap now records the
+  resolution: the two inline guards were generalized into
+  `SceneManager._is_coop_joint_battle_enemy()`, covering both the Spire boss
+  and the siege boss under one `NetworkManager.is_active()` gate.
