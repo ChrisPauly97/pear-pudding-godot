@@ -138,7 +138,20 @@ This means any old save file continues to work after a game update.
 
 ### New Game
 
-`SaveManager.new_game(biome: String)` resets all fields to defaults, sets `world_seed` to a fresh random integer, and sets `starting_biome`. The file is written immediately (not deferred) so the new state is committed before `WorldScene` loads.
+`SaveManager.new_game(head_start: bool = false)` resets all fields to a true level-1
+baseline: `xp = 0`, `level = 1`, `skill_points = 0`, `coins = 50`, starter deck of 12
+commons (3× ghost/skeleton/zombie/ghoul) plus 2 extra owned cards. `world_seed` and
+`starting_biome` are set by `SceneManager.start_new_game_with_biome` *before* calling
+`new_game()`, so they are deliberately not reset inside it. The file is written
+immediately (not deferred) so the new state is committed before `WorldScene` loads.
+
+**Head Start (TID-443 / BID-049):** passing `head_start = true` seeds a boosted start —
+`xp = 11250`, `level = 15`, `skill_points = 14`, `coins = 5000` (values kept consistent
+with the `xp_for_level` curve: `_compute_level(11250) == 15`). Opt-in via the
+"Head Start (debug)" `CheckButton` on `BiomeSelectionScene`, threaded through
+`SceneManager.start_new_game_with_biome(biome_id, head_start)`. These were previously the
+*unconditional* new-game values (debug state leaked via PR #290); the toggle preserves
+them as a user-requested option.
 
 ---
 

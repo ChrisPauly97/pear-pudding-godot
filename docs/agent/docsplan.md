@@ -29,6 +29,7 @@ This directory contains one Markdown file per major game feature. Each file foll
 | [treasure-maps.md](treasure-maps.md) | Treasure map fragments, deterministic dig sites, DigSpot entity, map overlay marker |
 | [waystone-fast-travel.md](waystone-fast-travel.md) | Waystone entities, ID scheme, save tracking, placement (named maps + seeded chunks), fast-travel UI, teleport routing |
 | [card-cantrips.md](card-cantrips.md) | Deck-derived overworld abilities: Ghost Phase (wall pass) and Skeleton Dig (burial mounds) |
+| [game-appeal.md](game-appeal.md) | Appeal analysis: player motivations, personas, differentiation, honest weaknesses, first-session hook visibility |
 
 ---
 

@@ -94,6 +94,7 @@ All signature cards: `is_unique = true`, `can_craft = false`.
 - **GameBus** — uses `battle_won` signal with new optional key `"signature_capture"`; no new signals needed
 - **Battle persistence (GID-034)** — tracker flags are NOT persisted in `pending_battle_state`; a fled-and-resumed battle resets the tracker (same precedent as `_hero_power_used`)
 - **Bestiary (GID-045)** — no dependency; signatures could surface as a third reveal tier later
+- **Tutorial popups (GID-031/GID-117)** — `BattleScene._check_game_over` emits `tutorial_popup_requested("soulbinding")` whenever an uncaptured signature renders on the victory screen (soulbind overlay or hunt-status line); once-per-save via the `seen_tutorial_soulbinding` story flag. Tier-1 `undead_basic` carries `sig_wanderer`, so the teaser is reachable on the first free-roam victory
 
 ## Asset Requirements
 

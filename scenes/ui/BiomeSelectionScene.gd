@@ -18,6 +18,8 @@ const _TAGLINES: Array[String] = [
 	"Towering peaks,\nbitter cold.",
 ]
 
+var _head_start_check: CheckButton = null
+
 const _CARD_BG: Array[Color] = [
 	Color(0.10, 0.28, 0.05),   # Grasslands
 	Color(0.05, 0.15, 0.04),   # Forest
@@ -90,6 +92,18 @@ func _ready() -> void:
 	back_btn.pressed.connect(_on_back)
 	bottom_bar.add_child(back_btn)
 
+	# Head Start toggle (BID-049 / GID-117): opt-in boosted start — level 15,
+	# 14 skill points, 5000 coins. Off by default for a true level-1 fresh start.
+	var mid_pad := Control.new()
+	mid_pad.custom_minimum_size = Vector2(int(ref * 0.04), 0)
+	bottom_bar.add_child(mid_pad)
+
+	_head_start_check = CheckButton.new()
+	_head_start_check.text = "Head Start (debug): Lv 15, 5000 coins"
+	_head_start_check.custom_minimum_size = Vector2(0, int(ref * 0.07))
+	_head_start_check.add_theme_font_size_override("font_size", int(ref * 0.024))
+	bottom_bar.add_child(_head_start_check)
+
 func _make_card(biome_id: int, card_w: float, card_h: float, ref: float) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(card_w, card_h)
@@ -159,7 +173,8 @@ func _make_card(biome_id: int, card_w: float, card_h: float, ref: float) -> Pane
 	return panel
 
 func _on_biome_chosen(biome_id: int) -> void:
-	SceneManager.start_new_game_with_biome(biome_id)
+	var head_start: bool = _head_start_check != null and _head_start_check.button_pressed
+	SceneManager.start_new_game_with_biome(biome_id, head_start)
 
 func _on_back() -> void:
 	get_tree().change_scene_to_file("res://scenes/ui/SlotSelectScene.tscn")
