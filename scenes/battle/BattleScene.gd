@@ -2149,6 +2149,10 @@ func _check_game_over() -> void:
 					_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win, dawn_win, dusk_win)
 				else:
 					_result_ui.show_victory(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win, dawn_win, dusk_win)
+				# First-session soulbinding teaser (GID-117): explain the hunt line the
+				# first time an uncaptured signature surfaces on a victory screen.
+				if not _ct_sig.is_empty() and not _ct_captured:
+					GameBus.tutorial_popup_requested.emit("soulbinding")
 		else:
 			AudioManager.play_sfx("battle_lose")
 			_fx.haptic(80)

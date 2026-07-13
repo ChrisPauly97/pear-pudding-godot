@@ -139,6 +139,7 @@ func _create_cantrip_buttons(vh: float, _font_size: int) -> void:
 	# initial state explicitly since deck_ids was already computed here.
 	_ghost_btn.visible = CantripManager.is_available("ghost_phase", deck_ids)
 	_dig_btn.visible = CantripManager.is_available("skeleton_dig", deck_ids)
+	_maybe_teach_cantrips()
 
 func _current_deck_ids() -> Array[String]:
 	var sm := SceneManager.save_manager
@@ -147,6 +148,13 @@ func _current_deck_ids() -> Array[String]:
 func refresh_action_cluster() -> void:
 	refresh_visibility("cantrip_ghost_phase")
 	refresh_visibility("cantrip_skeleton_dig")
+	_maybe_teach_cantrips()
+
+## First-session cantrip teaser (GID-117). Once-per-save dedupe lives in
+## SceneManager._on_tutorial_popup_requested via the seen_tutorial_cantrips flag.
+func _maybe_teach_cantrips() -> void:
+	if (_ghost_btn != null and _ghost_btn.visible) or (_dig_btn != null and _dig_btn.visible):
+		GameBus.tutorial_popup_requested.emit("cantrips")
 
 # ── HUD Action Registry (GID-107) ───────────────────────────────────────────
 
