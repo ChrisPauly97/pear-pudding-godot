@@ -266,6 +266,9 @@ Sync layers must carry a map discriminator in the payload and filter on receive.
 ### Stale co-op session leaked into New Game (claude/single-player-multiplayer-bug-wlaoij)
 `go_to_menu()` must call `NetworkManager.leave()`. State flags must be reset by every exit path, not just defensively re-checked at entry.
 
+### Fresh launch started New Game in co-op (claude/game-launch-multiplayer-bug-2312bs)
+Godot assigns a default `OfflineMultiplayerPeer` to `multiplayer` on launch; it reports `CONNECTION_CONNECTED` and `is_server() == true` despite no `host()`/`join()`. Any "is a session active?" check must exclude it — use `NetworkManager.is_active()` / `is_session_peer()`, never raw peer-null or connection-status checks.
+
 ### 140 GodotBody3D RIDs leaked on exit — detached world orphaned at quit (claude/p11godotbody3d-rid-leak-vd2ny6)
 SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene into `SceneManager._saved_world_scene`; quitting mid-battle left it an orphan and leaked every physics body in it. `SceneManager._exit_tree()` frees the orphan with an immediate `free()` (`queue_free()` never flushes at shutdown). Any stash holding a detached node needs the same explicit shutdown free.
 
