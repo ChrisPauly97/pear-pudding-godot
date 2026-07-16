@@ -121,7 +121,7 @@
 | [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | done (headless test run + editor import unverified in-sandbox — see goal.md note) | 5 / 5 |
 | [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | in-progress | 1 / 4 |
 | [GID-117](goals/GID-117--game-appeal/goal.md) | Game Appeal — Articulate & Prove "Why Play This" | done (headless test run unverified in-sandbox — see goal.md note) | 5 / 5 |
-| [GID-118](goals/GID-118--art-sprite-assets/goal.md) | Open-Source Character, Enemy & World Art Sprites | in-progress | 3 / 4 |
+| [GID-118](goals/GID-118--art-sprite-assets/goal.md) | Open-Source Character, Enemy & World Art Sprites | done | 4 / 4 |
 
 ## Backlog
 

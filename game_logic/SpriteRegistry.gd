@@ -30,6 +30,28 @@ const _NPC_MERCHANT       := preload("res://assets/textures/characters/npc_merch
 const _NPC_MERCHANT_TRAV  := preload("res://assets/textures/characters/npc_merchant_traveling.png")
 const _NPC_MAITELN        := preload("res://assets/textures/characters/npc_maiteln.png")
 
+const _MOUNT_HORSE        := preload("res://assets/textures/characters/mount_horse.png")
+
+const _PROP_ROCK          := preload("res://assets/textures/props/prop_rock.png")
+const _PROP_FLOWER        := preload("res://assets/textures/props/prop_flower.png")
+const _PROP_MUSHROOM      := preload("res://assets/textures/props/prop_mushroom.png")
+const _PROP_FERN          := preload("res://assets/textures/props/prop_fern.png")
+const _PROP_CACTUS        := preload("res://assets/textures/props/prop_cactus.png")
+const _PROP_THORN         := preload("res://assets/textures/props/prop_thorn.png")
+const _PROP_ASH_PILE      := preload("res://assets/textures/props/prop_ash_pile.png")
+const _PROP_EMBER         := preload("res://assets/textures/props/prop_ember.png")
+const _PROP_BOULDER       := preload("res://assets/textures/props/prop_boulder.png")
+const _PROP_LICHEN        := preload("res://assets/textures/props/prop_lichen.png")
+
+const _CARD_GHOST         := preload("res://assets/textures/cards/card_ghost.png")
+const _CARD_SKELETON      := preload("res://assets/textures/cards/card_skeleton.png")
+const _CARD_ZOMBIE        := preload("res://assets/textures/cards/card_zombie.png")
+const _CARD_GHOUL         := preload("res://assets/textures/cards/card_ghoul.png")
+const _RUNE_DAWN          := preload("res://assets/textures/cards/rune_dawn.png")
+const _RUNE_DUSK          := preload("res://assets/textures/cards/rune_dusk.png")
+const _RUNE_EMBER         := preload("res://assets/textures/cards/rune_ember.png")
+const _RUNE_ASH           := preload("res://assets/textures/cards/rune_ash.png")
+
 ## World pixel size for character sprites. The 0x72 pack's humanoids are
 ## 16-36 px tall (vs the old fixed 32 px silhouettes); 0.05 keeps mid-size
 ## sprites at roughly the old world height while preserving the pack's
@@ -85,6 +107,44 @@ static func maiteln_texture() -> Texture2D:
 ## Martarquas scout sprite for ScoutAmbush (raider archetype).
 static func raider_texture() -> Texture2D:
 	return _ENEMY_RAIDER
+
+static func mount_texture() -> Texture2D:
+	return _MOUNT_HORSE
+
+## Maps a BiomeDef.PROP_SETS key to its texture. Returns null for unknown keys
+## (caller falls back to TextureGen.prop()). Key strings must match PROP_SETS/
+## TextureGen exactly — the biome props use "ash_pile", not "ash".
+static func prop_texture(key: String) -> Texture2D:
+	match key:
+		"rock":     return _PROP_ROCK
+		"flower":   return _PROP_FLOWER
+		"mushroom": return _PROP_MUSHROOM
+		"fern":     return _PROP_FERN
+		"cactus":   return _PROP_CACTUS
+		"thorn":    return _PROP_THORN
+		"ash_pile": return _PROP_ASH_PILE
+		"ember":    return _PROP_EMBER
+		"boulder":  return _PROP_BOULDER
+		"lichen":   return _PROP_LICHEN
+	return null
+
+## Maps a card illustration key + magic branch to its texture.
+## illus_key is "ghost"/"skeleton"/"zombie"/"ghoul" for minions, or "spell"
+## (any non-creature key) for spell cards, which route by magic_branch
+## instead. Returns null for an unrecognized key/branch combination —
+## caller falls back to TextureGen.card_illustration().
+static func card_illustration_texture(illus_key: String, magic_branch: String) -> Texture2D:
+	match illus_key:
+		"ghost":    return _CARD_GHOST
+		"skeleton": return _CARD_SKELETON
+		"zombie":   return _CARD_ZOMBIE
+		"ghoul":    return _CARD_GHOUL
+	match magic_branch:
+		"dawn":  return _RUNE_DAWN
+		"dusk":  return _RUNE_DUSK
+		"ember": return _RUNE_EMBER
+		"ash":   return _RUNE_ASH
+	return null
 
 ## Applies a registry texture to a Sprite3D: texture, pixel size, and the
 ## feet-at-y=0 position computed from the real texture height (never assume

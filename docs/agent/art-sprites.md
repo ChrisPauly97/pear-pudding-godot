@@ -181,10 +181,10 @@ Verbatim attribution / license capture (for the CREDITS file — TID-446/447):
 | Asset | Path | Notes |
 |---|---|---|
 | Character/NPC/enemy sprites | `assets/textures/characters/*.png` | Wired by TID-446 (SpriteRegistry + fallback to TextureGen) |
-| Prop sprites ×10 | `assets/textures/props/prop_<key>.png` | Wired by TID-447 into ChunkRenderer instancing |
-| Mount sprite | `assets/textures/characters/mount_horse.png` | Wired by TID-447; `test_mount_dismount_visuals.gd` must be updated |
-| Card art + runes | `assets/textures/cards/*.png` | Wired by TID-447 via CardRegistry |
-| CREDITS entries | repo CREDITS file (location established by GID-116/TID-437) | Author, license, URL per sprite; verbatim CC-BY text for game-icons.net |
+| Prop sprites ×10 | `assets/textures/props/prop_<key>.png` | Wired by TID-447 (SpriteRegistry.prop_texture, ChunkRenderer instancing unchanged) |
+| Mount sprite | `assets/textures/characters/mount_horse.png` | Wired by TID-447 (SpriteRegistry.mount_texture, Player.gd) |
+| Card art + runes | `assets/textures/cards/*.png` | Wired by TID-447 (SpriteRegistry.card_illustration_texture, CardRegistry) |
+| CREDITS entries | repo root `CREDITS.md` | Author, license, URL per sprite; verbatim CC-BY text for game-icons.net; per-slot index table |
 
 Integration notes for TID-446/447:
 - Literal `const` preloads only (Android rule) — one per PNG; dictionaries with literal
@@ -213,4 +213,28 @@ Integration notes for TID-446/447:
   `MerchantNPC.gd`, `MaitelnFollower.gd`. Billboard/alpha-cut/nearest settings kept.
 - Attribution: root `CREDITS.md` created (TID-437 will merge music credits into it).
 - Walk frames on disk are NOT wired (static Sprite3D call sites) — backlog BID-051.
-- **Still procedural (TID-447):** props, mount, card illustrations + runes.
+
+## Integration Status (TID-447, 2026-07-16)
+
+**Props, mount, and card illustrations are now INTEGRATED**, extending the same
+`SpriteRegistry` (not a second registry, per the task's own instruction):
+
+- `prop_texture(key)` — 10 literal preloads keyed by the exact `BiomeDef.PROP_SETS`
+  strings (`ash_pile`, matching the TID-445 correction, not the original `ash` draft).
+  `ChunkRenderer._build_props()` tries the registry first, then `TextureGen.prop()`;
+  the MultiMesh instancing path (shared material's `albedo_texture`) is untouched
+  either way, so instancing performance is unaffected.
+- `mount_texture()` — `mount_horse.png`. `Player.gd`'s mount sprite now computes its
+  feet-at-y=0 offset from the real texture height instead of a hardcoded `0.6`
+  (the old constant assumed `TextureGen`'s 24 px silhouette; the real sprite is a
+  different size). `test_mount_dismount_visuals.gd` needed **no changes** — its two
+  `TextureGen.mount_horse()` assertions test that fallback function directly, not
+  Player's rendered sprite, and the visibility assertions don't touch texture identity.
+- `card_illustration_texture(illus_key, magic_branch)` — `illus_key` is
+  `"ghost"/"skeleton"/"zombie"/"ghoul"` for minions or `"spell"` (routed by
+  `magic_branch`: `dawn`/`dusk`/`ember`/`ash`, the only 4 branches in `data/cards/`)
+  for spells. `CardRegistry._ensure_loaded()` tries the registry first, then falls
+  back to `TextureGen.card_illustration()`.
+- All slots now traceable in `CREDITS.md`'s new per-slot index table.
+- **Nothing left procedural except the fallback path itself** — GID-118 goal is
+  functionally complete (walk-frame animation, BID-051, remains optional future scope).

@@ -4,6 +4,7 @@ const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 const BiomeDef      = preload("res://game_logic/world/BiomeDef.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const BlightField   = preload("res://game_logic/world/BlightField.gd")
 const LandmarkMesh  = preload("res://game_logic/world/LandmarkMesh.gd")
 
@@ -340,7 +341,10 @@ func _build_props(_biome: int, prop_positions: Dictionary) -> void:
 		var positions: Array = prop_positions[pt_key] as Array
 		if positions.is_empty():
 			continue
-		var tex: ImageTexture = TextureGen.prop(str(pt_key))
+		var key_str: String = str(pt_key)
+		var tex: Texture2D = _SpriteRegistry.prop_texture(key_str)
+		if tex == null:
+			tex = TextureGen.prop(key_str)
 		if tex == null:
 			continue
 		var mat := StandardMaterial3D.new()
