@@ -126,10 +126,19 @@ func _reset_session() -> void:
 		multiplayer.multiplayer_peer = null
 
 
-## True when a peer is assigned and not in the DISCONNECTED state.
+## True when a real network peer is assigned and not in the DISCONNECTED state.
 func is_active() -> bool:
-	var peer: MultiplayerPeer = multiplayer.multiplayer_peer
-	if peer == null:
+	return is_session_peer(multiplayer.multiplayer_peer)
+
+
+## True when `peer` represents a real network session. The engine assigns a
+## default OfflineMultiplayerPeer on launch, which reports CONNECTION_CONNECTED
+## (and is_server() == true) despite no host()/join() ever having run — treating
+## it as a session made a fresh app launch's first New Game start in co-op mode
+## until something called leave() and nulled the peer. Only an ENet (or future
+## Steam) peer counts as a session.
+static func is_session_peer(peer: MultiplayerPeer) -> bool:
+	if peer == null or peer is OfflineMultiplayerPeer:
 		return false
 	return peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED
 
