@@ -42,20 +42,20 @@ see BID-046 for the backlog-hygiene follow-up.
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-430 | Fix co-op siege boss engage race (solo vs joint battle desync) | agent | pending | — |
-| TID-431 | Add timeout to PvP challenge handshakes | agent | pending | — |
+| TID-430 | Fix co-op siege boss engage race (solo vs joint battle desync) | agent | done | — |
+| TID-431 | Add timeout to PvP challenge handshakes | agent | done | — |
 | TID-432 | Enforce unique-card block in co-op trading | agent | done | — |
-| TID-433 | Migrate Siege/Draft/Tournament buttons to HUD registry, fixing overlap | agent | pending | — |
-| TID-434 | Thread draft-deck override through PvP resume | agent | pending | — |
+| TID-433 | Migrate Siege/Draft/Tournament buttons to HUD registry, fixing overlap | agent | done | — |
+| TID-434 | Thread draft-deck override through PvP resume | agent | done | — |
 
 All five tasks are independent and can be worked in any order.
 
 ## Acceptance Criteria
 
-- [ ] Engaging the co-op siege boss starts a joint battle on the host and all clients — never a solo duel on the host (TID-430)
-- [ ] An unanswered duel/wager/draft challenge resets the challenger's pending state after a timeout with a "No response" toast, and a new challenge can then be issued (TID-431)
+- [x] Engaging the co-op siege boss starts a joint battle on the host and all clients — never a solo duel on the host (TID-430)
+- [x] An unanswered duel/wager/draft challenge resets the challenger's pending state after a timeout with a "No response" toast, and a new challenge can then be issued (TID-431)
 - [x] A unique card cannot be offered, submitted, or transferred in a co-op trade — checked client-side and authority-side (TID-432)
-- [ ] Siege, Draft Duel, and Tournament buttons render via the WorldHUD zone/party-panel registry with no pixel overlap in any reachable state; the guardrail test allow-list shrinks accordingly (TID-433)
-- [ ] A host resuming a draft duel plays with the drafted deck, not its collection deck (TID-434)
-- [ ] `godot --headless --editor --quit` reports no parse/compile errors after each task
-- [ ] Unit test suite passes (or failures are documented as pre-existing per BID-018/BID-019/BID-021)
+- [x] Siege, Draft Duel, and Tournament buttons render via the WorldHUD zone/party-panel registry with no pixel overlap in any reachable state; the guardrail test allow-list shrinks accordingly (TID-433)
+- [x] A host resuming a draft duel plays with the drafted deck, not its collection deck (TID-434) — see TID-434's Changes Made: this path is currently unreachable (only client idx 1 ever resumes; only the duel-host side consumes the override), but the override is now threaded through symmetrically end-to-end for correctness
+- [ ] `godot --headless --editor --quit` reports no parse/compile errors after each task — **unverified in this sandbox**: no Godot binary available and the 4.6-stable release download is blocked by the outbound proxy (403) in every task of this goal; every edit was manually re-read post-change for brace/tab/type correctness instead. Recommend running this in CI before merge.
+- [ ] Unit test suite passes (or failures are documented as pre-existing per BID-018/BID-019/BID-021) — **unverified in this sandbox** for the same reason; new suites added this goal (`test_trade_sync`, `test_scene_manager_state` additions, `test_challenge_timeout`, `test_pvp_resume`) follow the exact structure of already-passing sibling suites but have not been executed here.

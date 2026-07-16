@@ -26,10 +26,7 @@ const _WORLD_HUD_PATH := "res://scenes/world/WorldHUD.gd"
 ## NEW entry to silence this test is a signal to first check whether the new
 ## button should go through the registry instead.
 const _ALLOWED_DIRECT_HUD_CHILDREN: Array[String] = [
-	"_siege_btn",         # GID-103; predates GID-107's scope — see BID-043
 	"_auction_btn",       # GID-102/TID-378; predates GID-107's scope — see BID-042
-	"_draft_duel_btn",    # GID-104; predates GID-107's scope — see BID-043
-	"_tournament_btn",    # GID-104; predates GID-107's scope — see BID-043
 	"_chat_send_btn",     # TID-397 deliberately left in place: separate free-text
 	                       # row, not one of the three social-strip trigger buttons
 	"_ranked_toggle_btn", # defensive fallback only; primary path is zone-registered
@@ -37,6 +34,11 @@ const _ALLOWED_DIRECT_HUD_CHILDREN: Array[String] = [
 	"_ping_btn",           # defensive fallback only; primary path is zone-registered
 	                       # (needs `.toggled`, not `.pressed` — see _ensure_social_buttons)
 ]
+# GID-115 / TID-433: _siege_btn and _tournament_btn were removed entirely (their
+# triggers moved to the Party panel — see WorldScene._open_party_panel and
+# PartyPanel.gd's show_siege/show_tournament); _draft_duel_btn now goes through
+# WorldHUD.register_action() like _challenge_btn. None are direct _hud children
+# anymore, so none belong in the allow-list above.
 
 var _world_scene_src: String = ""
 var _world_hud_src: String = ""

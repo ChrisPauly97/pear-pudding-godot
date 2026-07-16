@@ -121,7 +121,7 @@ Tab cycling (`[`/`]`) is handled in MenuHubScene's `_input()` which also re-decl
 
 ### The problem it solves
 
-Every multiplayer/social task from GID-090 through GID-102 added its own `Button.new()` directly to `WorldScene.gd`'s HUD `CanvasLayer`, hand-positioned with `Vector2(vh*..., vw*...)` math, because there was no shared placement primitive. By the time GID-107 shipped this had produced 39 `Button.new()` call sites and several silent pixel overlaps: Leaderboard on top of Pause, Challenge-to-Battle on top of the Android USE button, the Ranked toggle on top of Trade, and (found later, still unmigrated — see `tasks/backlog/BID-043*.md`) Siege on top of Tournament.
+Every multiplayer/social task from GID-090 through GID-102 added its own `Button.new()` directly to `WorldScene.gd`'s HUD `CanvasLayer`, hand-positioned with `Vector2(vh*..., vw*...)` math, because there was no shared placement primitive. By the time GID-107 shipped this had produced 39 `Button.new()` call sites and several silent pixel overlaps: Leaderboard on top of Pause, Challenge-to-Battle on top of the Android USE button, the Ranked toggle on top of Trade, and (found later, at the time still unmigrated — since resolved by GID-115 / TID-433, see below) Siege on top of Tournament.
 
 ### WorldHUD zones (`scenes/world/WorldHUD.gd`)
 
@@ -132,7 +132,7 @@ Each zone is a real `Container` node (`VBoxContainer` or `HBoxContainer`) childe
 | `ZONE_SYSTEM` | top-left `(vh*0.01, vh*0.01)` | Pause |
 | `ZONE_NAV` | top-right, under the minimap | Menu/Bag, Mount, **Party** |
 | `ZONE_ABILITY` | left column, `(vh*0.01, vh*0.17)` | Ghost Phase / Skeleton Dig cantrips |
-| `ZONE_CONTEXT` | bottom-center, `(vw*0.5 - vh*0.17, vh*0.80)` | Interact (Android), Challenge/Ranked, Trade, Spectate |
+| `ZONE_CONTEXT` | bottom-center, `(vw*0.5 - vh*0.17, vh*0.80)` | Interact (Android), Challenge/Ranked, Draft Duel, Trade, Spectate |
 | `ZONE_SOCIAL` | bottom-right, `(vw - vh*0.32, vh*0.87)` | Emote, Ping, Chat |
 
 ### API
@@ -163,9 +163,9 @@ button is `disabled` (Godot doesn't fire `button_down` for a disabled
 `BaseButton` anyway). Idempotent via a `has_meta("_uifx_attached")` guard, so
 it's safe to call from a registry that re-registers the same button.
 `register_action()` calls it for every HUD action; the remaining
-hand-built HUD buttons (`_siege_btn`, `_auction_btn`, `_draft_duel_btn`,
-`_tournament_btn`, `_ranked_toggle_btn`, `_ping_btn`, `_chat_send_btn` — the
-same allow-list `test_hud_registry_guardrail.gd` tracks) call it explicitly
+hand-built HUD buttons (`_auction_btn`, `_ranked_toggle_btn`, `_ping_btn`,
+`_chat_send_btn` — the same allow-list `test_hud_registry_guardrail.gd`
+tracks) call it explicitly
 right after construction. `BaseOverlay` exposes `_attach_button_fx(btn)` as a
 convenience wrapper for subclasses (used by `PartyPanel`'s action grid and
 roster-row friend buttons); `UiUtil.make_close_button()` /
@@ -189,10 +189,14 @@ A single "Party" button in `ZONE_NAV` opens a `BaseOverlay`-based panel (same pa
 | Ghost Duels | Host + `SessionStore.is_open()` | A client never opens `SessionStore` locally, so this naturally stays hidden for clients. |
 | Team Duel (2v2) | Host, not dedicated server, `State.WORLD`, ≥3 connected clients, no pending challenge | Mirrors the old `_update_team_duel_button_visibility()` condition exactly. |
 | Dungeon Crawl | Host only | Host is the seed authority (avoids two peers racing to open different dungeons). |
+| Co-op Spire | Host only | Same rationale as Dungeon Crawl. |
+| Guildhall | Host only | Same rationale as Dungeon Crawl / Co-op Spire. |
+| Siege | Host, siege-supported map (`CoopSiege.supports_map`), no siege already active | GID-115 / TID-433: migrated from the standalone `_siege_btn`, which used to overlap Tournament (both centered at the same `y = vh*0.63`) — mirrors `_ensure_siege_button()`'s old gate exactly. |
+| Tournament | Host, not dedicated server, `State.WORLD`, ≥2 connected clients, no pending challenge | GID-115 / TID-433: migrated from the standalone `_tournament_btn` — mirrors `_update_tournament_button_visibility()`'s old gate exactly. |
 
 Each section's `show_*` flag is computed fresh in `WorldScene._open_party_panel()` from the exact condition its old standalone button used — opening the panel is a placement change, not a behavior change. Pressing most actions closes the panel first (`close_after = true` in `PartyPanel._add_action_button`) so it doesn't visually stack behind the overlay it just opened; Loot Mode is the one exception (stays open so the label refresh is visible immediately).
 
-The Auction House button (`_auction_btn`) and the Siege/Draft Duel/Tournament buttons are the same shape of always-on/host-gated clutter but were not in GID-107's original scope (Auction/Siege/Draft/Tournament all shipped from GID-102–105, overlapping with or after GID-107's authoring) — see `tasks/backlog/BID-042*.md` and `BID-043*.md`.
+The Auction House button (`_auction_btn`) is the same shape of always-on/host-gated clutter but was not in GID-107's original scope and has no overlap bug, so it's deliberately left as a standalone allow-listed exception — see `tasks/backlog/BID-042*.md`. Draft Duel (proximity-gated, not session-scoped like the other Party-panel actions above) was migrated instead to `ZONE_CONTEXT` via `register_action()`, alongside Challenge — see the table above.
 
 ### Contextual action bar (`ZONE_CONTEXT`)
 
@@ -206,7 +210,7 @@ Emote, Ping, and Chat trigger buttons, left-to-right in that registration order.
 
 ### Anti-clutter regression test
 
-`tests/unit/test_hud_registry_guardrail.gd` scans `WorldScene.gd`'s source text for `_hud.add_child(<Button-typed var>)` calls and fails if any identifier isn't in its `_ALLOWED_DIRECT_HUD_CHILDREN` allow-list (the pre-existing, reviewed exceptions: Siege/Auction/Draft Duel/Tournament buttons, the Chat send button, and the two `.toggled`-based fallback parents). Adding a new HUD button that bypasses the registry fails this test; the fix is either to use `register_action()`/`get_zone_container()`, or — if genuinely justified — add a reviewed entry to the allow-list.
+`tests/unit/test_hud_registry_guardrail.gd` scans `WorldScene.gd`'s source text for `_hud.add_child(<Button-typed var>)` calls and fails if any identifier isn't in its `_ALLOWED_DIRECT_HUD_CHILDREN` allow-list (the pre-existing, reviewed exceptions: the Auction button, the Chat send button, and the two `.toggled`-based fallback parents — Siege/Draft Duel/Tournament were removed from the allow-list once GID-115 / TID-433 migrated them). Adding a new HUD button that bypasses the registry fails this test; the fix is either to use `register_action()`/`get_zone_container()`, or — if genuinely justified — add a reviewed entry to the allow-list.
 
 ---
 

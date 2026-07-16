@@ -305,6 +305,21 @@ race where the host broadcasts before the client's scene exists).
    down (`_setup_coop`/`_teardown_coop` are idempotent and re-run from
    `_enter_tree` on world re-attach). Both peers return to the same madrian.
 
+**Challenge handshake timeout (GID-115 / TID-431, fixes BID-034):** every
+challenge/wager/draft-duel handshake — and the dedicated-server relay
+(`_pvp_relay_challenger_id`) — arms a `Time.get_ticks_msec()` timestamp when its
+pending state is set and clears it back to `-1` wherever that state is
+otherwise cleared. `WorldScene._check_challenge_timeouts()` polls all of them
+once per frame (from `_process`, alongside `_update_challenge_proximity`) via
+the pure, unit-tested `game_logic/net/ChallengeTimeout.has_expired()` (30s
+window); on expiry it reuses the flow's own decline/abort path
+(`_decline_challenge` / `_decline_wager_challenge` / `_decline_draft_duel` /
+`_abort_draft_duel` / `_on_relay_pvp_response`) so the reset, RPC
+notification, and toast all happen in one place. Previously an unanswered
+challenge left the holder's pending state (and, for the dedicated-server
+relay, *every* future challenge on the whole server) stuck until the peer
+disconnected — a self-inflicted soft-lock reachable by simply not responding.
+
 ### Rewards & end states
 
 PvP duels support an **optional ante (wager)**: during the challenge handshake, either
@@ -370,22 +385,28 @@ stable channel reconnect can actually use.
 **Design — the reconnecting client decides locally, the host/referee just waits:**
 
 - **Client-side resume memory — `NetworkManager.set_pvp_resume(local_idx, opponent_deck,
-  ante_coins)` / `clear_pvp_resume()` / `has_pvp_resume()` / `get_pvp_resume()`.** A
-  small in-memory (never persisted to disk) record set by `BattleScene._setup_pvp_battle`
-  for the client side only (not the host/referee — only a disconnected client
-  reconnects in this slice). Survives `_reset_session()` (called by `join()`/`host()` to
-  tear down a stale peer before reconnecting) — **only an explicit `leave()` clears
-  it**, so the record outlives the very disconnect it exists to recover from.
+  ante_coins, local_deck_override = [])` / `clear_pvp_resume()` / `has_pvp_resume()` /
+  `get_pvp_resume()`.** A small in-memory (never persisted to disk) record set by
+  `BattleScene._setup_pvp_battle` for the client side only (not the host/referee — only
+  a disconnected client reconnects in this slice). Survives `_reset_session()` (called
+  by `join()`/`host()` to tear down a stale peer before reconnecting) — **only an
+  explicit `leave()` clears it**, so the record outlives the very disconnect it exists
+  to recover from. `local_deck_override` (GID-115 / TID-434, fixes BID-035) threads
+  `pvp_local_deck_override` through the record so a resumed draft duel never silently
+  rebuilds from the persisted collection — currently inert in practice (only the
+  duel-host side ever *consumes* the override via `_build_pvp_decks`, and that side
+  never takes this resume path; see the doc comment on `set_pvp_resume` for the exact
+  reasoning) but kept symmetric with `enter_pvp_battle`'s full parameter set.
 - **`MultiplayerLobbyScene._on_connection_succeeded`**: checks
   `NetworkManager.has_pvp_resume()` first; if set, calls
-  `SceneManager.resume_pvp_battle(local_idx, opponent_deck, ante_coins)` instead of the
-  normal `enter_map_coop` landing.
+  `SceneManager.resume_pvp_battle(local_idx, opponent_deck, ante_coins,
+  local_deck_override)` instead of the normal `enter_map_coop` landing.
 - **`SceneManager.resume_pvp_battle`**: the reconnecting client has no current
   WorldScene to give `enter_pvp_battle` a `_saved_world_scene` to detach/restore later,
   so it first lands in the shared map (`enter_map_coop("madrian")`), `await`s the state
   actually reaching `State.WORLD` (`TransitionManager.transition` is fire-and-forget
   async, so this can't be a synchronous follow-up call), then calls the normal
-  `enter_pvp_battle`.
+  `enter_pvp_battle`, forwarding `local_deck_override` through.
 - **Host/referee grace window — `BattleScene._on_pvp_peer_disconnected`**: resolves the
   disconnecting peer's combatant index (listen-server: always 1, the sole client;
   referee: `_pvp_peer_to_idx.get(pid)`), records `_pvp_reconnect_idx`, and starts a
@@ -1179,6 +1200,11 @@ it needs a stateful start/pick/ack RPC set that determinism makes unnecessary.
    gate** — a draft duel needs no collection at all.
 2. Target sees an Accept/Decline panel (`_show_draft_accept_panel`); a peer
    already mid-handshake auto-declines so the challenger isn't left hanging.
+   If neither side answers, both the challenger's `_draft_peer` and the
+   target's `_pending_draft_from` independently time out after 30s (see the
+   shared challenge-handshake timeout note under PvP Card Battles above) —
+   the timeout is disarmed the moment `_start_draft` makes the duel active, so
+   it can never fire mid-pick or mid-battle.
 3. On accept, **both peers locally** open `scenes/ui/DraftDuelPickScene.gd` (new,
    built fully in code like `PackOpenScene` — no `.tscn`; viewport-relative,
    portrait-stacking, modeled on `SpireDraftScene`) seeded with the agreed seed.
@@ -2511,6 +2537,12 @@ The *analogous* risk in the pre-existing co-op siege-boss path was found during
 this research but left unfixed — logged as **BID-044** (siege is a separate,
 already-shipped, already-"unverified in-sandbox" feature; fixing it without a
 real headless run available was judged riskier than leaving a documented gap).
+**Resolved by GID-115 / TID-430**: the two inline guards were generalized into
+one pure predicate, `SceneManager._is_coop_joint_battle_enemy(enemy_data,
+current_map_name)`, covering both the Spire floor boss and any `siege_boss_*`
+id (the only place that prefix is generated is `CoopSiege.gd`, so the id alone
+is a sufficient, map-independent discriminator) — `_on_enemy_engaged` now skips
+the solo path for both under a single `NetworkManager.is_active()` gate.
 
 **Automatic floor-to-floor advancement — no reliance on the arena's authored
 exit door.** Solo Spire's exit door is single-player-only machinery

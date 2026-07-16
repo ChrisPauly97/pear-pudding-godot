@@ -436,18 +436,35 @@ func _flush_position_save() -> void:
 	if scene and scene.has_method("flush_save_position"):
 		scene.flush_save_position()
 
+## True when `enemy_data` identifies an enemy that a co-op session routes to a
+## *joint* party battle (WorldScene._on_enemy_engaged_coop) rather than a solo
+## duel — the Endless Spire floor boss (GID-106 / TID-391) and the Town Siege
+## boss (BID-044 / TID-430). Pure and map/id-only so it's unit-testable without
+## a live NetworkManager session; callers still gate on NetworkManager.is_active()
+## since single-player instances of these enemies legitimately use the solo path.
+static func _is_coop_joint_battle_enemy(enemy_data: Dictionary, current_map_name: String) -> bool:
+	var eid: String = str(enemy_data.get("id", ""))
+	if current_map_name.begins_with("spire_floor_") and eid == "spire_enemy":
+		return true
+	if eid.begins_with("siege_boss_"):
+		return true
+	return false
+
 func _on_enemy_engaged(enemy_data: Dictionary) -> void:
 	if _state != State.WORLD:
 		return
-	# Co-op Endless Spire (GID-106 / TID-391): the Spire boss is a joint battle for
-	# the whole party, not a solo fight — WorldScene._on_enemy_engaged_coop routes it
-	# to enter_coop_pve_battle instead. Skip here so this handler never races that
-	# routing and starts a solo battle underneath it (see BID-044 for the analogous,
-	# unresolved risk in the pre-existing co-op siege boss path). Checked via
+	# Co-op Endless Spire boss / Town Siege boss: both are joint battles for the
+	# whole party, not solo fights — WorldScene._on_enemy_engaged_coop routes them
+	# to enter_coop_pve_battle instead. Skip here so this handler (connected first,
+	# at autoload boot) never races that routing and starts a solo battle
+	# underneath it; without this guard enter_coop_pve_battle's
+	# `_state == State.WORLD` check silently no-ops and the host ends up dueling
+	# the boss alone while clients enter the joint battle (BID-044). Checked via
 	# current_map (accurate on every peer) rather than is_coop_spire_active() (only
-	# ever true on the host — see that function's doc comment).
-	if NetworkManager.is_active() and current_map.begins_with("spire_floor_") \
-			and str(enemy_data.get("id", "")) == "spire_enemy":
+	# ever true on the host — see that function's doc comment). Single-player
+	# instances of these enemies have no active co-op session, so
+	# NetworkManager.is_active() correctly leaves them on the solo path.
+	if NetworkManager.is_active() and _is_coop_joint_battle_enemy(enemy_data, current_map):
 		return
 	if save_manager.player_deck.size() < IsoConst.DECK_MIN:
 		GameBus.hud_message_requested.emit("Deck too small — add at least %d cards first." % IsoConst.DECK_MIN)
@@ -651,11 +668,17 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 ## map (giving enter_pvp_battle a real "_saved_world_scene" to detach/restore later)
 ## and waits for that transition to actually finish before stacking the battle
 ## transition on top (TransitionManager.transition() is fire-and-forget async).
-func resume_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int) -> void:
+## local_deck_override (GID-115 / TID-434, fixes BID-035): threaded straight through to
+## enter_pvp_battle so a resumed draft duel never silently falls back to the persisted
+## collection — see NetworkManager.set_pvp_resume's doc comment for why this is
+## currently inert (only client idx 1 ever resumes, and only the duel-host side
+## consumes the override) but kept symmetric for correctness.
+func resume_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int,
+		local_deck_override: Array = []) -> void:
 	enter_map_coop("madrian")
 	while _state != State.WORLD:
 		await get_tree().process_frame
-	enter_pvp_battle(local_player_idx, opponent_deck, ante_coins)
+	enter_pvp_battle(local_player_idx, opponent_deck, ante_coins, "", false, local_deck_override)
 
 ## Dedicated-server variant of enter_pvp_battle (GID-097 / TID-353).
 ## The server is the headless referee: _local_player_idx = -1 (no local player),

@@ -2401,7 +2401,8 @@ func _setup_pvp_battle() -> void:
 		# connection_succeeded instead of landing in the normal shared world. Only the
 		# client reconnects in this slice (a dropped host/referee still ends the duel
 		# for everyone, per the existing session_ended semantics).
-		NetworkManager.set_pvp_resume(_local_player_idx, pvp_opponent_deck, pvp_ante_coins)
+		NetworkManager.set_pvp_resume(_local_player_idx, pvp_opponent_deck, pvp_ante_coins,
+			pvp_local_deck_override)
 		# Announce once so a host/referee with a pending grace window (this peer
 		# reconnecting after a drop) can verify + resume immediately; harmless no-op
 		# on a fresh (non-reconnect) duel start since no grace window is pending.

@@ -192,11 +192,14 @@ var _challenge_target_peer: int = -1     # nearby remote peer eligible to challe
 var _pending_challenge_from: int = -1    # incoming challenge awaiting our response
 var _pending_challenge_deck: Array = []  # challenger's deck stored until we accept
 var _pending_challenge_ranked: bool = false  # GID-102 (TID-373): challenger's ranked opt-in
+var _pending_challenge_armed_at: int = -1  # TID-431: Time.get_ticks_msec() when set, -1 = idle
 var _challenge_accept_panel: Node = null
 const _CHALLENGE_RANGE: float = 3.0      # tiles; proximity to show the prompt
+const _ChallengeTimeout = preload("res://game_logic/net/ChallengeTimeout.gd")
 # Dedicated-server PvP routing (GID-097 / TID-353) — server tracks pending challenge
 var _session_dedicated: bool = false      # client: true when connected to a dedicated server
 var _pvp_relay_challenger_id: int = -1   # server: peer_id of the challenger awaiting response
+var _pvp_relay_challenger_armed_at: int = -1  # TID-431: relay-side timeout arm timestamp
 var _pvp_relay_challenger_deck: Array = [] # server: challenger's deck
 var _pvp_relay_target_id: int = -1       # server: peer_id of the challenged player
 # Team PvP duels (GID-102 / TID-371): host-only trigger, visible at 4 players (host
@@ -209,7 +212,7 @@ var _active_team_duel_peer_ids: Array[int] = []
 var _active_team_duel_teams: Array = []
 # Session tournaments (GID-104 / TID-386): host-run round-robin bracket. Guarded
 # end-to-end by _tournament_active so it never touches normal PvP/team-duel state.
-var _tournament_btn: Button = null
+# Triggered from the Party panel (GID-115 / TID-433), not a standalone HUD button.
 var _tournament_panel_outer: Control = null   # outer panel Control, nil when never built
 var _tournament_panel: VBoxContainer = null   # inner row container
 var _tournament_active: bool = false          # true while a bracket is in progress (both host+clients)
@@ -246,6 +249,7 @@ var _spectate_btn: Button = null         # shown to non-participants while duel 
 var _pending_wager_from: int = -1        # peer_id of an incoming wagered challenge
 var _pending_wager_deck: Array = []      # challenger's deck for a wagered challenge
 var _pending_wager_coins: int = 0        # ante for the pending wagered challenge
+var _pending_wager_armed_at: int = -1    # TID-431: Time.get_ticks_msec() when set, -1 = idle
 var _pvp_ante_coins: int = 0             # ante for the active duel (escrowed on start)
 var _pvp_ante_peer0: int = -1           # host peer in the active wager
 var _pvp_ante_peer1: int = -1           # client peer in the active wager
@@ -297,7 +301,7 @@ var _coop_night_hunt_day: int = -1
 var _coop_night_hunt_nodes: Dictionary = {}  # id -> Node3D
 var _coop_night_hunt_kills: int = 0          # resets at dawn
 # GID-103 (TID-384): Co-op Town Siege — host-only trigger; escalating waves + joint boss.
-var _siege_btn: Button = null
+# Triggered from the Party panel (GID-115 / TID-433), not a standalone HUD button.
 var _coop_siege_active: bool = false
 var _coop_siege_id: int = 0
 var _coop_siege_wave: int = -1               # -1 = not started; >= WAVE_COUNT = boss phase
@@ -315,8 +319,10 @@ const _DraftDuelPickScene = preload("res://scenes/ui/DraftDuelPickScene.gd")
 var _draft_duel_btn: Button = null      # proximity-gated HUD button (mobile + desktop)
 var _pending_draft_from: int = -1       # incoming draft challenge awaiting our response
 var _pending_draft_seed: int = 0        # seed carried by that pending challenge
+var _pending_draft_from_armed_at: int = -1  # TID-431: Time.get_ticks_msec() when set, -1 = idle
 var _draft_accept_panel: Node = null    # Accept/Decline prompt (CanvasLayer)
 var _draft_peer: int = -1               # opponent peer for the outgoing/active draft
+var _draft_peer_armed_at: int = -1      # TID-431: armed only while awaiting accept (not mid-duel)
 var _draft_seed: int = 0                # agreed shared seed for the active draft
 var _draft_picking: bool = false        # true once the pick overlay is open
 var _draft_picker: Node = null          # DraftDuelPickScene instance, nil when closed
@@ -825,10 +831,9 @@ func _setup_coop() -> void:
 		_ensure_draft_duel_button()
 		_ensure_social_buttons()
 		_ensure_chat_ui()
-		_ensure_tournament_button()
-		_ensure_siege_button()
-		# Party panel (GID-107 / TID-395): single entry point for Roster, Loot Mode,
-		# Stash, Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl.
+		# Party panel (GID-107 / TID-395; Siege/Tournament added GID-115 / TID-433):
+		# single entry point for Roster, Loot Mode, Stash, Leaderboard, Ghost Duels,
+		# Team Duel, Dungeon Crawl, Siege, Tournament.
 		_world_hud.register_action("party", "Party", WorldHUD.ZONE_NAV, _open_party_panel)
 		# Discoverability (GID-107 / TID-398): players used to the old scattered
 		# buttons need a one-time nudge to the new consolidated entry point.
@@ -1316,6 +1321,19 @@ func _open_party_panel() -> void:
 	# Crawl / Co-op Spire above.
 	panel.show_guildhall = NetworkManager.is_host()
 	panel.on_guildhall = _start_guildhall
+	# Siege (GID-103, migrated GID-115 / TID-433): host-only trigger, only on a
+	# siege-supported map, hidden while a siege is already in progress — mirrors
+	# the old _ensure_siege_button() gate exactly.
+	panel.show_siege = _CoopSiege.supports_map(map_name) and NetworkManager.is_host() \
+		and not _coop_siege_active
+	panel.on_siege = _start_coop_siege
+	# Tournament (GID-104, migrated GID-115 / TID-433): host-only, needs 2-3
+	# connected clients (3-4 total) — mirrors the old
+	# _update_tournament_button_visibility() condition exactly.
+	panel.show_tournament = NetworkManager.is_host() and not NetworkManager.is_dedicated_server() \
+		and SceneManager._state == SceneManager.State.WORLD and not _tournament_active \
+		and multiplayer.get_peers().size() >= 2 and _pending_challenge_from == -1
+	panel.on_tournament = _start_tournament
 	_hud.add_child(panel)
 	panel.closed.connect(func() -> void: _party_panel = null)
 	_party_panel = panel
@@ -2775,26 +2793,6 @@ func _on_coop_spire_summary_continue() -> void:
 # whole party fights it together; victory splits gold + a card among every
 # session member.
 
-## Creates the hidden "Siege" HUD button. Visible only for the host, and only on
-## a map with a known town-gate anchor (SiegeDefs.TOWN_GATES).
-func _ensure_siege_button() -> void:
-	if not _CoopSiege.supports_map(map_name):
-		return
-	if _siege_btn != null and is_instance_valid(_siege_btn):
-		_siege_btn.visible = NetworkManager.is_host() and not _coop_siege_active
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_siege_btn = Button.new()
-	_siege_btn.text = "Siege"
-	_siege_btn.tooltip_text = "Trigger a party siege defense event"
-	_siege_btn.custom_minimum_size = Vector2(vp.y * 0.22, vp.y * 0.06)
-	_siege_btn.add_theme_font_size_override("font_size", int(vp.y * 0.024))
-	_siege_btn.position = Vector2((vp.x - vp.y * 0.22) * 0.5, vp.y * 0.63)
-	_siege_btn.visible = NetworkManager.is_host() and not _coop_siege_active
-	_siege_btn.pressed.connect(_start_coop_siege)
-	_hud.add_child(_siege_btn)
-	UiFx.attach(_siege_btn)
-
 ## Host-only: derive a shared siege id and broadcast the start so every peer
 ## begins the identical wave sequence.
 func _start_coop_siege() -> void:
@@ -2818,8 +2816,6 @@ func _on_siege_started_received(siege_id: int) -> void:
 	_coop_siege_active = true
 	_coop_siege_id = siege_id
 	_coop_siege_wave = 0
-	if _siege_btn != null and is_instance_valid(_siege_btn):
-		_siege_btn.visible = false
 	GameBus.hud_message_requested.emit("The town is under siege!")
 	_coop_spawn_siege_wave()
 
@@ -2942,14 +2938,10 @@ func _coop_start_siege_boss_battle(edata: Dictionary) -> void:
 		var pid: int = abs_peer_ids[i]
 		if pid != multiplayer.get_unique_id():
 			_net_sync.rpc_id(pid, "notify_coop_pve_start", i, all_decks, edata)
-	if _siege_btn != null and is_instance_valid(_siege_btn):
-		_siege_btn.hide()
 	SceneManager.enter_coop_pve_battle(0, all_decks, edata)
 
 ## Client: the host started the joint siege-boss battle — enter with our index.
 func _on_notify_coop_pve_start(my_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
-	if _siege_btn != null and is_instance_valid(_siege_btn):
-		_siege_btn.hide()
 	SceneManager.enter_coop_pve_battle(my_idx, all_ally_decks, enemy_data)
 
 ## Any peer: the joint siege-boss battle ended — reset siege UI/state; the host
@@ -2965,8 +2957,6 @@ func _on_coop_siege_battle_ended(did_win: bool) -> void:
 	if _siege_banner != null and is_instance_valid(_siege_banner):
 		_siege_banner.queue_free()
 		_siege_banner = null
-	if _siege_btn != null and is_instance_valid(_siege_btn):
-		_siege_btn.visible = NetworkManager.is_host()
 	if did_win:
 		if NetworkManager.is_host():
 			_finish_coop_siege_victory()
@@ -3194,6 +3184,7 @@ func _on_battle_requested(from_id: int, challenger_deck: Array, ranked: bool = f
 	_pending_challenge_from = from_id
 	_pending_challenge_deck = challenger_deck
 	_pending_challenge_ranked = ranked
+	_pending_challenge_armed_at = Time.get_ticks_msec()
 	_show_challenge_accept_panel(from_id, ranked)
 
 ## Challenger learns the response.
@@ -3219,6 +3210,7 @@ func _on_relay_pvp_request(sender_id: int, target_peer_id: int, challenger_deck:
 	_pvp_relay_challenger_id = sender_id
 	_pvp_relay_challenger_deck = challenger_deck
 	_pvp_relay_target_id = target_peer_id
+	_pvp_relay_challenger_armed_at = Time.get_ticks_msec()
 	if _net_sync != null:
 		_net_sync.rpc_id(target_peer_id, "request_battle", challenger_deck)
 
@@ -3235,6 +3227,7 @@ func _on_relay_pvp_response(sender_id: int, challenger_id: int, accepted: bool, 
 	_pvp_relay_challenger_id = -1
 	_pvp_relay_challenger_deck = []
 	_pvp_relay_target_id = -1
+	_pvp_relay_challenger_armed_at = -1
 	if not accepted:
 		if _net_sync != null:
 			_net_sync.rpc_id(challenger, "respond_battle", false, [])
@@ -3323,11 +3316,13 @@ func _accept_challenge(from_id: int) -> void:
 				_net_sync.rpc_id(from_id, "respond_battle", false, [])
 		_pending_challenge_from = -1
 		_pending_challenge_ranked = false
+		_pending_challenge_armed_at = -1
 		return
 	var opp_deck: Array = _pending_challenge_deck
 	_pending_challenge_from = -1
 	_pending_challenge_deck = []
 	_pending_challenge_ranked = false
+	_pending_challenge_armed_at = -1
 	if _net_sync != null:
 		if _session_dedicated:
 			# Server will send notify_pvp_start to both peers — don't call _enter_pvp here.
@@ -3349,6 +3344,31 @@ func _decline_challenge(from_id: int) -> void:
 			_net_sync.rpc_id(from_id, "respond_battle", false, [])
 	_pending_challenge_from = -1
 	_pending_challenge_deck = []
+	_pending_challenge_armed_at = -1
+
+# ── TID-431 (BID-034): challenge handshake timeouts ───────────────────────────
+# An unanswered duel/wager/draft-duel challenge (or a stuck dedicated-server
+# relay) previously left the holder's pending state set forever — buttons
+# stayed hidden and no new challenge could be issued until the peer
+# disconnected. Polled once per frame from _process while co-op is active;
+# each flow reuses its own existing decline/abort path so the reset, RPC
+# notification, and armed_at clearing all happen in exactly one place.
+
+func _check_challenge_timeouts() -> void:
+	var now: int = Time.get_ticks_msec()
+	if _ChallengeTimeout.has_expired(_pending_challenge_armed_at, now):
+		_show_tip("Challenge expired — no response in time.")
+		_decline_challenge(_pending_challenge_from)
+	if _ChallengeTimeout.has_expired(_pending_wager_armed_at, now):
+		_show_tip("Wagered challenge expired — no response in time.")
+		_decline_wager_challenge(_pending_wager_from)
+	if _ChallengeTimeout.has_expired(_pending_draft_from_armed_at, now):
+		_show_tip("Draft duel challenge expired — no response in time.")
+		_decline_draft_duel(_pending_draft_from)
+	if _ChallengeTimeout.has_expired(_draft_peer_armed_at, now):
+		_abort_draft_duel("No response to your draft duel challenge.")
+	if _ChallengeTimeout.has_expired(_pvp_relay_challenger_armed_at, now):
+		_on_relay_pvp_response(_pvp_relay_target_id, _pvp_relay_challenger_id, false, [])
 
 ## Both peers route into SceneManager. The co-op host is always the battle
 ## authority (canonical player 0); the client is player 1.
@@ -4570,7 +4590,7 @@ func _process(delta: float) -> void:
 		_broadcast_maiteln_state(delta)
 		_update_challenge_proximity()
 		_update_draft_duel_proximity()
-		_update_tournament_button_visibility()
+		_check_challenge_timeouts()
 		_tick_tournament(delta)
 		_tick_session_persist(delta)
 		# World-object sync (GID-096): host streams enemy positions; clients smooth.
@@ -7723,6 +7743,7 @@ func _on_battle_wager_requested(sender: int, challenger_deck: Array, ante_coins:
 	_pending_wager_from = sender
 	_pending_wager_deck = challenger_deck
 	_pending_wager_coins = ante_coins
+	_pending_wager_armed_at = Time.get_ticks_msec()
 	_show_wager_accept_panel(sender, ante_coins)
 
 
@@ -7779,6 +7800,7 @@ func _accept_wager_challenge(from_id: int, ante_coins: int) -> void:
 		_pending_wager_from = -1
 		_pending_wager_deck = []
 		_pending_wager_coins = 0
+		_pending_wager_armed_at = -1
 		return
 	var my_deck: Array = _local_deck_for_net()
 	if my_deck.size() < IsoConst.DECK_MIN:
@@ -7788,11 +7810,13 @@ func _accept_wager_challenge(from_id: int, ante_coins: int) -> void:
 		_pending_wager_from = -1
 		_pending_wager_deck = []
 		_pending_wager_coins = 0
+		_pending_wager_armed_at = -1
 		return
 	var opp_deck: Array = _pending_wager_deck
 	_pending_wager_from = -1
 	_pending_wager_deck = []
 	_pending_wager_coins = 0
+	_pending_wager_armed_at = -1
 	if _net_sync != null:
 		_net_sync.rpc_id(from_id, "respond_battle_wager", true, my_deck, ante_coins)
 	_enter_pvp_wagered(ante_coins, opp_deck)
@@ -7805,6 +7829,7 @@ func _decline_wager_challenge(from_id: int) -> void:
 	_pending_wager_from = -1
 	_pending_wager_deck = []
 	_pending_wager_coins = 0
+	_pending_wager_armed_at = -1
 
 
 func _on_battle_wager_responded(_sender: int, accepted: bool, responder_deck: Array, ante_coins: int) -> void:
@@ -8385,21 +8410,17 @@ func _on_party_bounties_snapshot_received(bounties: Array) -> void:
 # single-player never reaches any of it.
 
 ## Creates the hidden "Draft Duel" HUD button (mobile + desktop parity — a
-## Button.pressed tap/click target, no keybind). Sits below the ranked toggle.
+## Button.pressed tap/click target, no keybind). Registered into the shared
+## ZONE_CONTEXT zone (GID-115 / TID-433) — sits below the Challenge/Ranked-toggle
+## pair, same zone the world-interact prompt takes priority over.
 func _ensure_draft_duel_button() -> void:
 	if _draft_duel_btn != null and is_instance_valid(_draft_duel_btn):
 		return
 	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_draft_duel_btn = Button.new()
-	_draft_duel_btn.text = "Draft Duel"
+	_draft_duel_btn = _world_hud.register_action("draft_duel", "Draft Duel",
+		WorldHUD.ZONE_CONTEXT, _request_draft_duel, Callable(), Vector2(vp.y * 0.20, vp.y * 0.05))
 	_draft_duel_btn.tooltip_text = "Sealed-deck duel: both players draft %d cards from identical seeded packs. No collection advantage; drafted cards last one duel." % _DraftDuelGen.NUM_ROUNDS
-	_draft_duel_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
-	_draft_duel_btn.add_theme_font_size_override("font_size", int(vp.y * 0.020))
-	_draft_duel_btn.position = Vector2((vp.x - vp.y * 0.20) * 0.5, vp.y * 0.935)
 	_draft_duel_btn.hide()
-	_draft_duel_btn.pressed.connect(_request_draft_duel)
-	_hud.add_child(_draft_duel_btn)
-	UiFx.attach(_draft_duel_btn)
 
 ## Shows/hides the draft-duel button. Piggybacks on the proximity result
 ## (_challenge_target_peer) computed by _update_challenge_proximity, which runs
@@ -8425,6 +8446,7 @@ func _request_draft_duel() -> void:
 	var seed_val: int = randi()
 	_draft_peer = _challenge_target_peer
 	_draft_seed = seed_val
+	_draft_peer_armed_at = Time.get_ticks_msec()
 	_net_sync.rpc_id(_draft_peer, "request_draft_duel", _DraftDuelGen.encode_seed(seed_val))
 	_show_tip("Draft duel challenge sent…")
 
@@ -8440,6 +8462,7 @@ func _on_draft_duel_requested(from_id: int, payload: Dictionary) -> void:
 		return
 	_pending_draft_from = from_id
 	_pending_draft_seed = int(decoded["seed"])
+	_pending_draft_from_armed_at = Time.get_ticks_msec()
 	_show_draft_accept_panel(from_id)
 
 ## Challenger learns the response. On accept, the echoed seed payload is used
@@ -8451,6 +8474,7 @@ func _on_draft_duel_responded(from_id: int, accepted: bool, payload: Dictionary)
 		_show_tip("Draft duel declined.")
 		_draft_peer = -1
 		_draft_seed = 0
+		_draft_peer_armed_at = -1
 		return
 	var decoded: Dictionary = _DraftDuelGen.decode_seed(payload)
 	var seed_val: int = int(decoded["seed"]) if bool(decoded["valid"]) else _draft_seed
@@ -8514,6 +8538,7 @@ func _accept_draft_duel(from_id: int) -> void:
 	var seed_val: int = _pending_draft_seed
 	_pending_draft_from = -1
 	_pending_draft_seed = 0
+	_pending_draft_from_armed_at = -1
 	if _net_sync != null:
 		_net_sync.rpc_id(from_id, "respond_draft_duel", true, _DraftDuelGen.encode_seed(seed_val))
 	_start_draft(from_id, seed_val)
@@ -8522,6 +8547,7 @@ func _decline_draft_duel(from_id: int) -> void:
 	_dismiss_draft_panel()
 	_pending_draft_from = -1
 	_pending_draft_seed = 0
+	_pending_draft_from_armed_at = -1
 	if _net_sync != null:
 		_net_sync.rpc_id(from_id, "respond_draft_duel", false, {})
 
@@ -8530,6 +8556,7 @@ func _decline_draft_duel(from_id: int) -> void:
 func _start_draft(peer_id: int, seed_val: int) -> void:
 	_draft_peer = peer_id
 	_draft_seed = seed_val
+	_draft_peer_armed_at = -1  # TID-431: duel now active/underway — stop timing it out
 	_draft_picking = true
 	_draft_local_deck = []
 	_draft_opp_deck = []
@@ -8605,6 +8632,7 @@ func _maybe_enter_draft_duel() -> void:
 func _reset_draft_state() -> void:
 	_draft_peer = -1
 	_draft_seed = 0
+	_draft_peer_armed_at = -1
 	_draft_picking = false
 	_draft_local_deck = []
 	_draft_opp_deck = []
@@ -8619,6 +8647,7 @@ func _abort_draft_duel_for_peer(pid: int) -> void:
 		_dismiss_draft_panel()
 		_pending_draft_from = -1
 		_pending_draft_seed = 0
+		_pending_draft_from_armed_at = -1
 
 func _abort_draft_duel(reason: String = "") -> void:
 	if _draft_peer == -1 and _pending_draft_from == -1 and _draft_picker == null:
@@ -8627,6 +8656,7 @@ func _abort_draft_duel(reason: String = "") -> void:
 	_dismiss_draft_panel()
 	_pending_draft_from = -1
 	_pending_draft_seed = 0
+	_pending_draft_from_armed_at = -1
 	_reset_draft_state()
 	if reason != "":
 		_show_tip(reason)
@@ -8639,33 +8669,6 @@ func _abort_draft_duel(reason: String = "") -> void:
 # game_logic/net/TournamentSync.gd; everything here is guarded end-to-end by
 # _tournament_active / NetworkManager.is_active() so single-player and normal
 # co-op PvP are untouched.
-
-func _ensure_tournament_button() -> void:
-	if _tournament_btn != null and is_instance_valid(_tournament_btn):
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_tournament_btn = Button.new()
-	_tournament_btn.text = "Tournament"
-	_tournament_btn.custom_minimum_size = Vector2(vp.y * 0.28, vp.y * 0.07)
-	_tournament_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	_tournament_btn.position = Vector2((vp.x - vp.y * 0.28) * 0.5, vp.y * 0.63)
-	_tournament_btn.hide()
-	_tournament_btn.pressed.connect(_start_tournament)
-	_hud.add_child(_tournament_btn)
-	UiFx.attach(_tournament_btn)
-
-
-## Shows the tournament button only for the host with 2-3 connected clients
-## (3-4 total players). Mirrors _update_team_duel_button_visibility.
-func _update_tournament_button_visibility() -> void:
-	if _tournament_btn == null or not is_instance_valid(_tournament_btn):
-		return
-	if not NetworkManager.is_host() or NetworkManager.is_dedicated_server() \
-			or SceneManager._state != SceneManager.State.WORLD or _tournament_active:
-		_tournament_btn.hide()
-		return
-	_tournament_btn.visible = multiplayer.get_peers().size() >= 2 and _pending_challenge_from == -1
-
 
 ## Host: builds the bracket from every connected peer (host + all clients),
 ## deducts the flat ante from every participant (host locally; clients via
@@ -8714,8 +8717,6 @@ func _start_tournament() -> void:
 	_tournament_decks = decks
 	_tournament_ante = TOURNAMENT_ANTE_COINS
 	_tournament_pending_result = {}
-	if _tournament_btn != null and is_instance_valid(_tournament_btn):
-		_tournament_btn.hide()
 	for pid in peer_ids:
 		if pid != host_id:
 			_net_sync.rpc_id(pid, "notify_tournament_start",
@@ -8749,8 +8750,6 @@ func _start_current_tournament_match() -> void:
 	_net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket(_tournament_bracket))
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		_challenge_btn.hide()
-	if _tournament_btn != null and is_instance_valid(_tournament_btn):
-		_tournament_btn.hide()
 	# Duel-active + auto-spectate broadcasts to everyone not in this match
 	# (reuses the TID-367 spectate plumbing; _enter_tree clears it after the match
 	# via the _pvp_ended_pending_broadcast pattern).
