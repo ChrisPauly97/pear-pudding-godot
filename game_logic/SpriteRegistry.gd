@@ -29,6 +29,10 @@ const _NPC_TOWNSPERSON_3  := preload("res://assets/textures/characters/npc_towns
 const _NPC_MERCHANT       := preload("res://assets/textures/characters/npc_merchant.png")
 const _NPC_MERCHANT_TRAV  := preload("res://assets/textures/characters/npc_merchant_traveling.png")
 const _NPC_MAITELN        := preload("res://assets/textures/characters/npc_maiteln.png")
+const _NPC_MAITELN_WALK_1 := preload("res://assets/textures/characters/npc_maiteln_walk_1.png")
+const _NPC_MAITELN_WALK_2 := preload("res://assets/textures/characters/npc_maiteln_walk_2.png")
+const _NPC_MAITELN_WALK_3 := preload("res://assets/textures/characters/npc_maiteln_walk_3.png")
+const _NPC_MAITELN_WALK_4 := preload("res://assets/textures/characters/npc_maiteln_walk_4.png")
 
 const _MOUNT_HORSE        := preload("res://assets/textures/characters/mount_horse.png")
 
@@ -103,6 +107,12 @@ static func merchant_texture(is_traveling: bool) -> Texture2D:
 
 static func maiteln_texture() -> Texture2D:
 	return _NPC_MAITELN
+
+## 4-frame walk cycle for Maiteln's AnimatedSprite3D (BID-051). Empty if the
+## walk PNGs are ever removed — caller checks size before building animation
+## frames and falls back to a static Sprite3D.
+static func maiteln_walk_frames() -> Array[Texture2D]:
+	return [_NPC_MAITELN_WALK_1, _NPC_MAITELN_WALK_2, _NPC_MAITELN_WALK_3, _NPC_MAITELN_WALK_4]
 
 ## Martarquas scout sprite for ScoutAmbush (raider archetype).
 static func raider_texture() -> Texture2D:

@@ -212,7 +212,8 @@ Integration notes for TID-446/447:
 - Call sites converted: `EnemyNPC.gd`, `ScoutAmbush.gd`, `TownspersonNPC.gd`,
   `MerchantNPC.gd`, `MaitelnFollower.gd`. Billboard/alpha-cut/nearest settings kept.
 - Attribution: root `CREDITS.md` created (TID-437 will merge music credits into it).
-- Walk frames on disk are NOT wired (static Sprite3D call sites) — backlog BID-051.
+- Walk frames on disk were NOT wired at the time (static Sprite3D call sites) —
+  see the BID-051 resolution below; Maiteln now animates.
 
 ## Integration Status (TID-447, 2026-07-16)
 
@@ -236,5 +237,41 @@ Integration notes for TID-446/447:
   for spells. `CardRegistry._ensure_loaded()` tries the registry first, then falls
   back to `TextureGen.card_illustration()`.
 - All slots now traceable in `CREDITS.md`'s new per-slot index table.
-- **Nothing left procedural except the fallback path itself** — GID-118 goal is
-  functionally complete (walk-frame animation, BID-051, remains optional future scope).
+- **Nothing left procedural except the fallback path itself** — all sprite
+  slots (enemies, NPCs, props, mount, card illustrations) render real,
+  license-clean pixel art. `TextureGen`'s procedural generators remain wired
+  as the runtime fallback for every slot, never deleted.
+
+## BID-051 Resolution: Maiteln Walk Animation (2026-07-16)
+
+Investigated wiring the walk-frame PNGs shipped by TID-445 for every entity.
+Reading `EnemyNPC.gd`, `ScoutAmbush.gd`, `TownspersonNPC.gd`, and
+`MerchantNPC.gd` confirmed none of them have any `_process()` movement — they
+are placed once and never move, so animating a walk cycle on them would show
+a pointless idle-twitch. **Only `MaitelnFollower` visibly moves** (follows the
+player / lerps toward a networked position), so only he was wired:
+`SpriteRegistry.maiteln_walk_frames()` (4 literal preloads) feeds a
+`SpriteFrames`-based `AnimatedSprite3D` built by
+`MaitelnFollower._build_animated_sprite()` (mirrors `AvatarSprite.build()`'s
+idle/walk pattern), swapping in for the old static `Sprite3D` with the same
+registry-then-`TextureGen` fallback chain. `_process()` computes an
+"is moving this frame" flag from the squared distance to the current
+follow/network target (with a small epsilon so settling into place reads as
+idle, not walk) and mirrors `Player.gd`'s screen-space `flip_h` heuristic.
+The other entities' walk PNGs remain unwired on disk — not a gap, just
+unused until/unless those entities ever gain wander movement.
+
+## What "all textures use sprites" Does and Doesn't Cover
+
+GID-118's scope was every `TextureGen` slot that draws a **placeholder
+silhouette**: enemies, NPCs, props, the mount, and card illustrations. All of
+those are now real sprites. Two things are deliberately **outside** that
+scope and remain procedural, because they aren't silhouette placeholders:
+
+- **Terrain tiles** (`grass_pixel.png`, `hill_side/top_pixel.png`,
+  `wall_side/top_pixel.png`) — already real hand-made art from before this
+  goal, unrelated to `TextureGen`.
+- **`TextureGen.path()`** — a Simplex-noise-generated dirt-path texture fed to
+  a terrain shader parameter (`WorldScene.gd:4557`, `path_texture`). This is a
+  procedural ground-texture pattern, not a sprite; GID-118 never scoped it and
+  no licensed replacement was researched.
