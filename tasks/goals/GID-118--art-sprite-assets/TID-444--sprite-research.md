@@ -2,7 +2,7 @@
 
 **Goal:** GID-118
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -67,12 +67,48 @@ Add a `docs/agent/art-sprites.md` row to the docs index table in `CLAUDE.md`.
 
 ## Plan
 
-_Written during Plan phase._
+1. WebSearch research per slot group, prioritising single-artist/pack families for style
+   coherence: Kenney (CC0) for a baseline, itch.io CC0 packs (0x72 etc.), OpenGameArt
+   per-asset checks, game-icons.net for card art. Direct page fetches are proxy-blocked,
+   so licenses are verified via search snippets and flagged verified/unconfirmed.
+2. Fix the sprite manifest: enemy archetype set covering all data/enemies/*.tres +
+   infinite-world spawns, NPC slots, optional player swap, 10 prop keys, mount,
+   4 card archetypes + spell runes; assign target repo paths.
+3. Write `docs/agent/art-sprites.md` (Key Features, Sprite Manifest, Shortlist Per Slot
+   Group with primary+backup, Acquisition Instructions for TID-445, Asset Requirements
+   with TID-446/447 integration notes) mirroring audio-soundtrack.md.
+4. Add the docs-index row to `CLAUDE.md`.
+5. Update statuses (task file, goal.md, tasks/index.md), release lock, commit
+   `TID-444: ...` on the working branch.
+
+Research-only: no code or binary assets touched.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `docs/agent/art-sprites.md`: sprite manifest (17 slot groups → target repo
+  paths), two coherent CC0 style families with a recommendation (Family A: 0x72
+  DungeonTileset II for humanoids; Kenney Tiny Town/Dungeon for props; clintbellanger
+  Tiny Creatures for the mount; game-icons.net CC-BY 3.0 for spell runes), primary +
+  backup per slot group, acquisition/cropping instructions for TID-445, and
+  integration notes for TID-446/447.
+- Added the new doc's row to the docs index table in `CLAUDE.md`.
+- No code or binary assets touched (research-only task, as scoped).
+
+Key research findings:
+- Same sandbox constraint as TID-435: all asset sites 403 through the proxy; licenses
+  verified via search snippets and flagged verified vs unconfirmed in the doc.
+- License-verified CC0: 0x72 DungeonTileset II, Kenney Tiny Dungeon/Tiny Town,
+  clintbellanger Tiny Creatures. License-verified CC-BY 3.0: game-icons.net (with the
+  site's stated attribution form). Danaida Free Pixel Plants is commercial-use-OK per
+  page but exact license text unconfirmed — backup only.
+- Card creature art needs no third-party source: cropping/nearest-upscaling monster
+  sprites from the chosen humanoid family keeps style coherent at zero license cost.
+- Two decisions deferred to the human at TID-445: which style family (A recommended),
+  and whether the player wizard swaps to the pack's wizard frames.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- New: `docs/agent/art-sprites.md` (manifest, shortlist, acquisition, attribution).
+- `CLAUDE.md`: added docs-index row for the new file.
+- `docs/agent/enemies-and-npcs.md` / `visual-polish.md` deliberately untouched —
+  updating them is TID-446/447 scope, after sprites actually land.
