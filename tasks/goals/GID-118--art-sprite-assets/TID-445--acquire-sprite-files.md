@@ -2,12 +2,20 @@
 
 **Goal:** GID-118
 **Type:** human-action
-**Status:** pending
+**Status:** done
 **Depends On:** TID-444
+
+## Lock
+
+- Session: none
+- Acquired: —
+- Expires: —
 
 ## Context
 
 Sandbox sessions cannot download binaries from asset sites (proxy 403 for curl AND WebFetch — confirmed during GID-116 and TID-435). A human must download the packs chosen in TID-444, do any sheet-cropping/renaming, and commit the PNGs at the manifest paths.
+
+**Update (2026-07-16, execution):** the proxy block was gone when this task ran — direct downloads from itch.io, kenney.nl, opengameart.org, and game-icons.net all succeeded from the sandbox. The agent session executed the acquisition itself; no human download step was needed.
 
 ## Research Notes
 
@@ -26,10 +34,32 @@ This task is marked done once the files are committed and the licenses/attributi
 
 _Human applies the steps directly; no agent Plan/Build phase._
 
+_(Actual: agent executed directly after confirming the proxy block was lifted — same steps, Pillow/cairosvg for cropping/recoloring/rasterizing instead of ImageMagick.)_
+
 ## Changes Made
 
-_Filled in by the human once files are placed (include captured attribution texts)._
+**Style decision:** Family A (0x72 DungeonTileset II) adopted for all humanoids, per the doc's recommendation. The optional player-wizard swap was **deferred** — `assets/textures/pixel_art/wizard_walk_{1-4}_pixel.png` is untouched and `wizzard_m` was assigned to Maiteln. Revisit during TID-446 if the user wants the swap.
+
+**73 PNGs placed** (34 manifest slots + 39 optional walk-animation frames):
+
+- `assets/textures/characters/` — 9 enemy archetypes (`enemy_{undead,undead_elite,ghoul,raider,warleader,duelist,rival,terror,mimic}.png`) with `_walk_{1-4}` frames (mimic: `_walk_{1-3}`); 3 townsperson variants, merchant + traveling variant, Maiteln (+walk frames); `mount_horse.png` (32×32).
+- `assets/textures/props/` — all 10 keys: `prop_{rock,flower,mushroom,fern,cactus,thorn,ash_pile,ember,boulder,lichen}.png` (16×16, transparent). Note the key is `ash_pile` (matches `BiomeDef.PROP_SETS` / `TextureGen`), not `ash` as the manifest draft said.
+- `assets/textures/cards/` — `card_{ghost,skeleton,zombie,ghoul}.png` and `rune_{dawn,dusk,ember,ash}.png`, all 32×32.
+
+Exact slot → source-frame mapping is documented in `docs/agent/art-sprites.md` § "Acquisition Results". Deviations from the draft shortlist, all visually verified against rendered contact sheets: ghoul uses 0x72 `swampy` (the pack's `zombie` is a plant-stump sprite), card_zombie uses `big_zombie` content-cropped to 32×32, card_ghost uses Kenney Tiny Dungeon's white ghost, mount is Tiny Creatures' horse `tile_0051` nearest-upscaled ×2. Tiny Creatures tiles had an opaque black square background — keyed to transparent, keeping the pack's contour outline. Undead-elite and boulder are license-clean recolors (CC0).
+
+**Captured licenses / attributions (verbatim, for TID-446/447 → CREDITS):**
+
+| Source | URL | License (verified at download, 2026-07-16) | Attribution |
+|---|---|---|---|
+| 0x72 — 16x16 DungeonTileset II v1.7 | https://0x72.itch.io/dungeontileset-ii | CC0-1.0 (page links "Creative Commons Zero v1.0 Universal") | None required; courtesy: `0x72 — DungeonTilesetII` |
+| Kenney — Tiny Town 1.1 | https://kenney.nl/assets/tiny-town | CC0 (pack License.txt) | None required; courtesy: `Kenney (www.kenney.nl)` |
+| Kenney — Tiny Dungeon 1.0 | https://kenney.nl/assets/tiny-dungeon | CC0 (pack License.txt) | None required; courtesy: `Kenney (www.kenney.nl)` |
+| Clint Bellanger — Tiny Creatures 1.0 | https://opengameart.org/content/tiny-creatures | CC0 (pack License.txt) | Not mandatory; author asks: credit `Clint Bellanger` (clintbellanger.net) |
+| Danaida — Free Pixel Plants 16x16 | https://danaida.itch.io/free-pixel-plants-16x16 | CC0 per author's page comment "It's CC0." (no formal license block on page) | None required; courtesy: `Danaida` |
+| game-icons.net (icons: Sunrise, Sunset by Delapouite; Burning embers, Dust cloud by Lorc) | https://game-icons.net | **CC-BY 3.0** — https://creativecommons.org/licenses/by/3.0/ | **REQUIRED:** `Icons made by Delapouite and Lorc. Available on https://game-icons.net` |
 
 ## Documentation Updates
 
-—
+- `docs/agent/art-sprites.md` — added "Acquisition Results (TID-445)" section (actual slot → source mapping, style decision, deferred player swap, verbatim attribution capture); corrected manifest rows (`prop_ash_pile` key, mount 32×32).
+- `tasks/goals/GID-118--art-sprite-assets/goal.md` and `tasks/index.md` — TID-445 marked done.
