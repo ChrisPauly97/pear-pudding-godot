@@ -2,6 +2,7 @@ extends "res://scenes/world/entities/WorldEntityBase.gd"
 
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 var enemy_data: Dictionary = {}
 var _alive: bool = true
@@ -12,12 +13,17 @@ var engage_cooldown: float = 0.0
 
 func _ready() -> void:
 	var sprite := Sprite3D.new()
-	sprite.texture = TextureGen.enemy(_is_roaming_boss, _is_boss)
+	var etype: String = str(enemy_data.get("enemy_type", ""))
+	var tex: Texture2D = _SpriteRegistry.enemy_texture(etype, _is_roaming_boss, _is_boss)
+	if tex != null:
+		_SpriteRegistry.setup_sprite(sprite, tex)
+	else:
+		sprite.texture = TextureGen.enemy(_is_roaming_boss, _is_boss)
+		sprite.pixel_size = 0.04
+		sprite.position = Vector3(0.0, 0.69, 0.0)
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.pixel_size = 0.04
 	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	sprite.position = Vector3(0.0, 0.69, 0.0)
 	add_child(sprite)
 	if _is_roaming_boss:
 		scale = Vector3(1.5, 1.5, 1.5)

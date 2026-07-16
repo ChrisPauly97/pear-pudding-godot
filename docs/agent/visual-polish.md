@@ -65,4 +65,10 @@ All 6 interactable entities call `add_to_group("interactable")` in `_ready()` an
 
 ## Asset Requirements
 
-All textures are generated procedurally at runtime via `TextureGen._cached()`. No `.png`, `.gdshader`, or `.uid` sidecar files are needed for any visual polish feature.
+Originally all textures were generated procedurally at runtime via `TextureGen._cached()`.
+Since GID-118, **character/enemy/NPC sprites use real pixel art** from
+`assets/textures/characters/*.png` via `game_logic/SpriteRegistry.gd` (see
+`docs/agent/art-sprites.md`); `TextureGen` remains the fallback for unmapped types
+and still generates props, mount, and card illustrations until TID-447 wires those
+slots. No `.gdshader` or `.uid` sidecars are needed (PNGs get `.import` sidecars from
+the editor/headless import; those are committed).

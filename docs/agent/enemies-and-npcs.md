@@ -223,6 +223,21 @@ This means defeated enemies stay gone across sessions.
 
 ---
 
+## Sprite Selection (GID-118)
+
+`EnemyNPC._ready()` maps `enemy_data["enemy_type"]` to a real sprite via
+`SpriteRegistry.enemy_texture(etype, is_roaming_boss, is_boss)` (preloaded, literal
+paths — Android rule). Roaming bosses always get the terror sprite; unknown boss
+types get the warleader; unknown/empty regular types return `null` and the old
+`TextureGen.enemy()` silhouette is used (graceful fallback). Sprite world size uses
+`SpriteRegistry.CHAR_PIXEL_SIZE` (0.05) and the feet-at-y=0 formula from the real
+texture height (pack sprites are 16–36 px, not a fixed 32). Boss node `scale`
+treatment (1.3× / 1.5×) is unchanged. TownspersonNPC picks 1 of 3 variants by
+hashing the NPC id+name (stable per NPC); ScoutAmbush uses the raider texture at
+0.04 pixel size (visibly smaller than a full raider, matching the old ratio) and
+keeps its green lurk tint. Walk frames exist on disk (`*_walk_{1-4}.png`) but are
+NOT wired — see backlog BID-051.
+
 ## Asset Requirements
 
 | Asset | Path | Notes |
@@ -231,8 +246,9 @@ This means defeated enemies stay gone across sessions.
 | `EnemyRegistry.gd` | `autoloads/EnemyRegistry.gd` | Autoload singleton; registered in `project.godot` |
 | EnemyNPC scene | `scenes/world/entities/EnemyNPC.tscn` | `CharacterBody3D` + `Sprite3D` + `CollisionShape3D` |
 | TownspersonNPC scene | `scenes/world/entities/TownspersonNPC.tscn` | Static NPC with dialogue label |
-| Enemy sprite texture | `assets/textures/pixel_art/` | Per-enemy-type sprite; falls back to placeholder if missing |
-| NPC sprite texture | `assets/textures/pixel_art/` | Townsperson sprite |
+| Enemy sprite textures | `assets/textures/characters/enemy_*.png` | Per-archetype real pixel art (GID-118), mapped from `enemy_type` by `game_logic/SpriteRegistry.gd`; unknown types fall back to `TextureGen.enemy()` |
+| NPC sprite textures | `assets/textures/characters/npc_*.png` | Townsperson (3 stable hash-picked variants), merchant (+traveling), Maiteln; fallback to `TextureGen.npc_*()` |
+| Spectre sprite | `assets/textures/characters/enemy_spectre.png` | Shared by all 3 night-hunt spectre tiers; WorldScene's spectral node modulate differentiates them |
 
 ---
 

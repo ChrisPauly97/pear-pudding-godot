@@ -121,7 +121,7 @@
 | [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | done (headless test run + editor import unverified in-sandbox — see goal.md note) | 5 / 5 |
 | [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | in-progress | 1 / 4 |
 | [GID-117](goals/GID-117--game-appeal/goal.md) | Game Appeal — Articulate & Prove "Why Play This" | done (headless test run unverified in-sandbox — see goal.md note) | 5 / 5 |
-| [GID-118](goals/GID-118--art-sprite-assets/goal.md) | Open-Source Character, Enemy & World Art Sprites | in-progress | 2 / 4 |
+| [GID-118](goals/GID-118--art-sprite-assets/goal.md) | Open-Source Character, Enemy & World Art Sprites | in-progress | 3 / 4 |
 
 ## Backlog
 
@@ -165,6 +165,8 @@
 | [BID-047](backlog/BID-047--stale-duplicate-tid081-file.md) | Orphaned duplicate `TID-081--background-music-loop.md` sits alongside the completed `TID-081--background-music-loop-integration.md` — being resolved by GID-116 / TID-437 | code-smell | GID-116 research |
 | [BID-048](backlog/BID-048--dungeon-music-plays-in-towns.md) | `dungeon.ogg` plays for every named map, including peaceful towns (madrian, maykalene), not just dungeons | design-inconsistency | GID-116 research |
 | [BID-050](backlog/BID-050--hidden-cantrip-undiscoverable.md) | Locked cantrips render no button at all, so the deck-shapes-the-world mechanic is undiscoverable until accidentally unlocked | design-gap | GID-117 / TID-440 |
+| [BID-051](backlog/BID-051--character-walk-frames-not-wired.md) | Walk-animation frames shipped by TID-445 are on disk but not wired (static Sprite3D call sites); MaitelnFollower is the most visible candidate | enhancement | GID-118 / TID-446 |
+| [BID-052](backlog/BID-052--auction-mailbox-test-failures-godot47.md) | 7 pre-existing auction/mailbox test failures at HEAD, observed under Godot 4.7.1 (4.6 unavailable in sandbox) — may be engine drift; re-check under pinned 4.6 | code-smell | GID-118 / TID-446 |
 
 ## Resolved Backlog
 

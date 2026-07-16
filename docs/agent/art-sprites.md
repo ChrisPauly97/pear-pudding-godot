@@ -192,3 +192,25 @@ Integration notes for TID-446/447:
 - Keep `TEXTURE_FILTER_NEAREST`, billboard, alpha-cut settings; feet-at-y=0 formula
   reads texture height — do not hard-code 32.
 - Run headless parse/import check after every `.gd` edit; full test runner at the end.
+
+## Integration Status (TID-446, 2026-07-16)
+
+**Characters/enemies/NPCs are INTEGRATED** via `game_logic/SpriteRegistry.gd`
+(RefCounted, statics, one literal preload per PNG):
+
+- `enemy_texture(etype, is_roaming_boss, is_boss)` — covers every `EnemyRegistry` id
+  including `undead_horde` and the night-hunt `spectre_wisp/haunt/dread` tiers (a gap
+  in the original manifest — fixed by adding `enemy_spectre.png`, Kenney Tiny Dungeon
+  white ghost `tile_0121`, CC0; the spectral node modulate in WorldScene differentiates
+  tiers). Roaming boss → terror; unknown boss → warleader; unknown regular type →
+  `null` → caller falls back to `TextureGen.enemy()`.
+- `townsperson_texture(seed)` (3 variants, stable hash), `merchant_texture(is_traveling)`,
+  `maiteln_texture()`, `raider_texture()` (ScoutAmbush, 0.04 px size + green tint).
+- `setup_sprite(sprite, tex, pixel_size=CHAR_PIXEL_SIZE)` sets texture/pixel size and
+  the feet-at-y=0 position from the real texture height. `CHAR_PIXEL_SIZE = 0.05`
+  (pack humanoids are 16–36 px vs the old fixed 32 px at 0.04).
+- Call sites converted: `EnemyNPC.gd`, `ScoutAmbush.gd`, `TownspersonNPC.gd`,
+  `MerchantNPC.gd`, `MaitelnFollower.gd`. Billboard/alpha-cut/nearest settings kept.
+- Attribution: root `CREDITS.md` created (TID-437 will merge music credits into it).
+- Walk frames on disk are NOT wired (static Sprite3D call sites) — backlog BID-051.
+- **Still procedural (TID-447):** props, mount, card illustrations + runes.

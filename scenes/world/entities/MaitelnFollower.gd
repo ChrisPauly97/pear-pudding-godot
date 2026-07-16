@@ -7,6 +7,7 @@ extends Node3D
 ## (see _maiteln_should_be_present()); this script only moves and answers taps.
 
 const TextureGen = preload("res://game_logic/TextureGen.gd")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _AvatarSync = preload("res://game_logic/net/AvatarSync.gd")
 const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 
@@ -62,12 +63,16 @@ func set_net_state(x: float, z: float) -> void:
 
 func _ready() -> void:
 	var sprite := Sprite3D.new()
-	sprite.texture = TextureGen.npc_maiteln()
+	var tex: Texture2D = _SpriteRegistry.maiteln_texture()
+	if tex != null:
+		_SpriteRegistry.setup_sprite(sprite, tex)
+	else:
+		sprite.texture = TextureGen.npc_maiteln()
+		sprite.pixel_size = 0.04
+		sprite.position = Vector3(0.0, 0.69, 0.0)
 	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.pixel_size = 0.04
 	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
 	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	sprite.position = Vector3(0.0, 0.69, 0.0)
 	add_child(sprite)
 
 	var lbl := Label3D.new()
