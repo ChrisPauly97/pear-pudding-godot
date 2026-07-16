@@ -28,7 +28,7 @@ Creative direction: classic pixel-art RPG in 3D isometric; Hobbit/Redwall warmth
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-444 | Research & curate CC0/CC-BY sprite shortlist per art slot | agent | pending | — |
+| TID-444 | Research & curate CC0/CC-BY sprite shortlist per art slot | agent | done | — |
 | TID-445 | Acquire & place licensed sprite files under assets/textures/ | human-action | pending | TID-444 |
 | TID-446 | Wire character/enemy/NPC sprites into entity builders + attribution | agent | pending | TID-445 |
 | TID-447 | Wire prop, mount & card illustration sprites + attribution | agent | pending | TID-445 |
