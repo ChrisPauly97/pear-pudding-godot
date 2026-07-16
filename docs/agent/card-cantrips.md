@@ -63,6 +63,7 @@ Collision layers restored: `collision_layer = 1`, `collision_mask = 2 | 4` (terr
 | InfiniteWorldGen | Burial mounds in `ChunkData.burial_mounds: Array[Dictionary]` |
 | ChunkRenderer | Preloads `_BurialMoundScene`, calls `world_scene.register_burial_mound()` |
 | WorldScene | HUD buttons, G/D key handling, entity registration/teardown |
+| TutorialRegistry | `"cantrips"` teaser popup (GID-117): `WorldHUD._maybe_teach_cantrips()` emits `tutorial_popup_requested("cantrips")` when a cantrip button is visible (initial build + `refresh_action_cluster`); once-per-save via `seen_tutorial_cantrips` story flag. Fires on first world entry — the starter deck's 9 Skeleton-family cards already unlock Dig |
 
 ## Asset Requirements
 

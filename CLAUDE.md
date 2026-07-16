@@ -311,4 +311,6 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/app-diagnostics.md](docs/agent/app-diagnostics.md) | AppLog ring buffer, auto-logged GameBus signals, DiagnosticsScene overlay, pause & menu entry points |
 | [docs/agent/multiplayer-coop.md](docs/agent/multiplayer-coop.md) | NetworkManager transport (4 players), RemotePlayer avatars, NetSync/AvatarSync, PvP (BattleNetProtocol/Sync), draft duels, tournaments, wagers |
 | [docs/agent/visual-polish.md](docs/agent/visual-polish.md) | ProceduralSkyMaterial, biome color grade, vignette, GPU-instanced props, highlight rings, card art |
+| [docs/agent/audio-soundtrack.md](docs/agent/audio-soundtrack.md) | Curated CC0/CC-BY music shortlist per slot (7 slots), acquisition/conversion steps, attribution requirements |
+| [docs/agent/game-appeal.md](docs/agent/game-appeal.md) | Appeal analysis: player motivations, personas, differentiation, weaknesses, first-session hook visibility |
 | [docs/human/story.md](docs/human/story.md) | Story bible: characters, chapters, NPC dialogue, map specs (human-owned) |

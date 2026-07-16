@@ -37,6 +37,14 @@ const _DATA: Dictionary = {
 		"title": "Party",
 		"body": "The Party button gathers everything you share with your co-op session in one place: the roster, loot rules, the shared stash, the leaderboard, Ghost Duels, Team Duel, and Dungeon Crawl.",
 	},
+	"soulbinding": {
+		"title": "Soulbinding",
+		"body": "Every enemy type guards a signature card you can't buy or craft — you can only capture it by winning in a special way.\n\nThe Soulbind line on the victory screen shows this enemy's capture condition. Win while meeting it and the signature card joins your collection forever.",
+	},
+	"cantrips": {
+		"title": "Deck Abilities",
+		"body": "Your deck shapes the world. Carry 4 or more cards of a family and you unlock an overworld ability — its button appears on the left of the screen.\n\n4+ Skeleton-family cards let you Dig buried mounds for loot. 4+ Ghost-family cards let you Phase through walls.",
+	},
 }
 
 static func get_entry(popup_id: String) -> Dictionary:

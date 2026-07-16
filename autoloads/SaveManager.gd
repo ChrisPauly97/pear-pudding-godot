@@ -326,7 +326,9 @@ func _gen_uid(template_id: String) -> String:
 	_uid_counter += 1
 	return "%s_%d_%d" % [template_id, Time.get_ticks_msec(), _uid_counter]
 
-func new_game() -> void:
+## head_start: opt-in boosted start (BID-049 / GID-117) — level 15 with spendable skill
+## points and a large coin float. Default is a true level-1 fresh start.
+func new_game(head_start: bool = false) -> void:
 	var deck_ids: Array[String] = [
 		"ghost", "skeleton", "zombie", "ghoul",
 		"ghost", "skeleton", "zombie", "ghoul",
@@ -343,7 +345,7 @@ func new_game() -> void:
 	for tid: String in extra_ids:
 		add_card_instance(tid, "common")
 	essence = 0
-	coins = 3000
+	coins = 5000 if head_start else 50
 	current_map = "main"
 	player_x = 0.0
 	player_z = 0.0
@@ -372,9 +374,10 @@ func new_game() -> void:
 	unlocked_achievements = []
 	visited_biomes = []
 	visited_dungeon_rooms = []
-	xp = 11250
-	level = 15
-	skill_points = 14
+	# Head start: xp/level/skill_points kept mutually consistent — _compute_level(11250) == 15.
+	xp = 11250 if head_start else 0
+	level = 15 if head_start else 1
+	skill_points = 14 if head_start else 0
 	unlocked_skills = []
 	magic_type = ""
 	corruption_points = 0

@@ -2,7 +2,7 @@
 
 **Goal:** GID-116
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -86,12 +86,45 @@ Add a row for this new file to the docs/agent index table in `CLAUDE.md` (projec
 
 ## Plan
 
-_Written during Plan phase._
+1. WebSearch/WebFetch research per slot: prioritise CC0 catalogs (OpenGameArt CC0 filter,
+   itch.io CC0 packs, Kevin MacLeod CC-BY 4.0 as fallback) and verify each candidate's
+   license on its actual source page before shortlisting.
+2. For each of the 7 slots, record a primary + backup pick with: track name, artist,
+   license, direct URL, verbatim attribution text (if CC-BY), and whether format
+   conversion to `.ogg` is needed.
+3. Write `docs/agent/audio-soundtrack.md` in the prescribed structure (Key Features,
+   Shortlist Per Slot, Acquisition Instructions for TID-436, Asset Requirements).
+4. Add a `docs/agent/audio-soundtrack.md` row to the docs index table in `CLAUDE.md`.
+5. Update statuses (task file, goal.md, tasks/index.md), release lock, commit
+   `TID-435: ...` on the working branch.
+
+No code or binary assets are touched — research-only per task definition.
 
 ## Changes Made
 
-_Filled after Build phase._
+- Created `docs/agent/audio-soundtrack.md`: primary + backup pick for all 7 slots, each
+  with source URL, license, attribution text, and conversion flag; acquisition
+  instructions for TID-436; asset requirements + TID-437 integration notes.
+- Added the new doc's row to the docs index table in `CLAUDE.md`.
+- No code or binary assets touched (research-only task, as scoped).
+
+Key research findings:
+- Licenses were verified via web-search snippets only: **every asset site tried
+  (opengameart.org, incompetech.com, itch.io, freemusicarchive.org, commons.wikimedia.org)
+  returns 403 through the sandbox proxy — even via WebFetch**, stronger than the
+  curl-only block noted in goal.md. The doc flags each pick as license-verified or
+  unconfirmed and instructs the human to confirm the page's license tag at download time.
+- All-CC0 path exists for 3 slots (grasslands, desert, battle); forest/mountains/dungeon
+  primaries are CC-BY 3.0 (Matthew Pablo ×2, cynicmusic); scorched primary is Kevin
+  MacLeod CC-BY.
+- Two primaries (`mountains`, `dungeon`) are already `.ogg` and explicitly loop-ready;
+  the rest need `ffmpeg` conversion from `.mp3`.
+- Avoided Matthew Pablo's "Heroic Demise" (battle candidate) — its page adds a
+  "contact me before use" request on top of CC-BY 3.0.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- New: `docs/agent/audio-soundtrack.md` (shortlist, acquisition, attribution).
+- `CLAUDE.md`: added docs-index row for the new file.
+- `docs/agent/audio-manager.md` deliberately untouched — updating it to reflect real
+  music assets is TID-437's scope, after the files actually land in TID-436.

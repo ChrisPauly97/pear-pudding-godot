@@ -11,6 +11,16 @@ Pear Pudding TCG is a 3D isometric open-world RPG built in Godot 4 where the pla
 
 ---
 
+## Positioning
+
+*(Drafted by GID-117 / TID-442; inserted with explicit user permission, 2026-07-13.)*
+
+**Elevator pitch:** Pear Pudding TCG is an open-world isometric RPG where every fight is a card battle, every enemy can be soulbound into your deck, and the deck you build changes how you explore the world — solo or with up to three friends.
+
+**Positioning:** For mobile players who love collecting and deck-building but find pure card games worldless and pure RPGs deckless, Pear Pudding TCG fuses the two layers in both directions: enemies are skill-gated captures, biomes and time of day rewrite battle rules, cards earn ranks and titles from their own history, and deck composition unlocks exploration abilities. Unlike Hearthstone-likes, it has a living world. Unlike monster-collectors, a capture is a trophy of skill, not luck. And unlike nearly anything at this scope, it ships 4-player shared-world co-op with joint battles, PvP, drafts, and tournaments.
+
+---
+
 ## Goals
 
 - A complete, shippable game on Android (primary platform) and desktop
