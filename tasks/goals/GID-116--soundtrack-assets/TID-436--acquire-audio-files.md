@@ -1,8 +1,8 @@
 # TID-436: Acquire & Place Licensed Audio Files at assets/audio/music/*.ogg
 
 **Goal:** GID-116
-**Type:** human-action
-**Status:** pending
+**Type:** human-action (completed by agent — see Changes Made)
+**Status:** done
 **Depends On:** TID-435
 
 ## Lock
@@ -43,4 +43,44 @@ An agent session cannot download binary files from general internet asset sites 
 
 ## Changes Made
 
-_Filled in by the human once files are placed._
+**Completed by agent session `claude/work-task-tid-436-50bw8x` on 2026-07-16.** This task
+was typed `human-action` solely because the TID-435 session's outbound proxy returned 403
+for asset sites. This session's proxy allows those hosts (verified: opengameart.org and
+incompetech.com both return 200), so the agent performed the acquisition directly,
+following the doc's instructions including on-page license verification.
+
+All 7 slots use the **primary pick** from `docs/agent/audio-soundtrack.md`. Licenses were
+re-verified from each source page's license tag at download time (2026-07-16):
+
+| File | Track | Author | License (on-page) | Source URL |
+|---|---|---|---|---|
+| `grasslands.ogg` | GrassLands Theme | DST | CC0 | https://opengameart.org/content/grasslands-theme |
+| `forest.ogg` | Woodland Fantasy | Matthew Pablo | CC-BY 3.0 | https://opengameart.org/content/woodland-fantasy |
+| `desert.ogg` | Desert Theme | Tarush Singhal | CC0 | https://opengameart.org/content/desert-theme-0 |
+| `scorched.ogg` | Dark Times | Kevin MacLeod (incompetech.com) | **CC-BY 4.0** (page confirms 4.0) | https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100747 |
+| `mountains.ogg` | Unforgiving Himalayas (Looping) | **Eric Matyas (soundimage.org)** — shortlist wrongly said Matthew Pablo | CC-BY 3.0 | https://opengameart.org/content/unforgiving-himalayas-looping |
+| `dungeon.ogg` | Crystal Cave + Mysterious Ambience | cynicmusic (pixelsphere.org / The Cynic Project) | CC-BY 3.0 (chosen from CC-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0 multi-license) | https://opengameart.org/content/crystal-cave-mysterious-ambience-seamless-loop |
+| `battle.ogg` | Battle Theme A | cynicmusic | CC0 | https://opengameart.org/content/battle-theme-a |
+
+**Verbatim attribution notices copied from the source pages (for TID-437's CREDITS file):**
+- Woodland Fantasy: "Please read this page for attribution instructions: http://www.matthewpablo.com/services" — use `Music: "Woodland Fantasy" by Matthew Pablo — https://matthewpablo.com — CC-BY 3.0`
+- Unforgiving Himalayas: `Please credit as: "UNFORGIVING HIMALAYAS" by Eric Matyas www.soundimage.org`
+- Crystal Cave: `Credit pixelsphere.org / The Cynic Project. Please link to cynicmusic's website and, as a courtesy not a requirement, notify him if you use the music.`
+- Dark Times (incompetech standard form): `"Dark Times" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/`
+- CC0 courtesy credits: DST, Tarush Singhal, cynicmusic.com / pixelsphere.org.
+
+**Processing applied:**
+- MP3 sources converted with `ffmpeg -c:a libvorbis -q:a 5` (grasslands, forest, desert, scorched, battle).
+- `mountains.ogg` and `dungeon.ogg` were already Ogg Vorbis — copied as-is, renamed only.
+- Loop-seam check via `silencedetect` (−45 dB, ≥1.5 s): forest had a 7.6 s silent tail
+  (trimmed to 143.5 s with 1 s fade-out); scorched had 4.1 s leading / 3.5 s trailing
+  silence (cut to 4.0 s→180.6 s of the source with 1 s fade-out). Both re-cut from the
+  original MP3s to avoid a double lossy re-encode. All other tracks: no silence regions.
+- Final durations: grasslands 164 s, forest 143 s, desert 126 s, scorched 177 s,
+  mountains 140 s, dungeon 86 s, battle 96 s. Total ~22 MB.
+
+## Documentation Updates
+
+- `docs/agent/audio-soundtrack.md`: corrected the mountains author (Eric Matyas, not
+  Matthew Pablo), pinned Dark Times to CC-BY 4.0, and added an "Acquired Files" section
+  recording the final picks and processing so TID-437 can write CREDITS from it.
