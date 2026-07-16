@@ -181,10 +181,10 @@ Verbatim attribution / license capture (for the CREDITS file — TID-446/447):
 | Asset | Path | Notes |
 |---|---|---|
 | Character/NPC/enemy sprites | `assets/textures/characters/*.png` | Wired by TID-446 (SpriteRegistry + fallback to TextureGen) |
-| Prop sprites ×10 | `assets/textures/props/prop_<key>.png` | Wired by TID-447 into ChunkRenderer instancing |
-| Mount sprite | `assets/textures/characters/mount_horse.png` | Wired by TID-447; `test_mount_dismount_visuals.gd` must be updated |
-| Card art + runes | `assets/textures/cards/*.png` | Wired by TID-447 via CardRegistry |
-| CREDITS entries | repo CREDITS file (location established by GID-116/TID-437) | Author, license, URL per sprite; verbatim CC-BY text for game-icons.net |
+| Prop sprites ×10 | `assets/textures/props/prop_<key>.png` | Wired by TID-447 (SpriteRegistry.prop_texture, ChunkRenderer instancing unchanged) |
+| Mount sprite | `assets/textures/characters/mount_horse.png` | Wired by TID-447 (SpriteRegistry.mount_texture, Player.gd) |
+| Card art + runes | `assets/textures/cards/*.png` | Wired by TID-447 (SpriteRegistry.card_illustration_texture, CardRegistry) |
+| CREDITS entries | repo root `CREDITS.md` | Author, license, URL per sprite; verbatim CC-BY text for game-icons.net; per-slot index table |
 
 Integration notes for TID-446/447:
 - Literal `const` preloads only (Android rule) — one per PNG; dictionaries with literal
@@ -192,3 +192,86 @@ Integration notes for TID-446/447:
 - Keep `TEXTURE_FILTER_NEAREST`, billboard, alpha-cut settings; feet-at-y=0 formula
   reads texture height — do not hard-code 32.
 - Run headless parse/import check after every `.gd` edit; full test runner at the end.
+
+## Integration Status (TID-446, 2026-07-16)
+
+**Characters/enemies/NPCs are INTEGRATED** via `game_logic/SpriteRegistry.gd`
+(RefCounted, statics, one literal preload per PNG):
+
+- `enemy_texture(etype, is_roaming_boss, is_boss)` — covers every `EnemyRegistry` id
+  including `undead_horde` and the night-hunt `spectre_wisp/haunt/dread` tiers (a gap
+  in the original manifest — fixed by adding `enemy_spectre.png`, Kenney Tiny Dungeon
+  white ghost `tile_0121`, CC0; the spectral node modulate in WorldScene differentiates
+  tiers). Roaming boss → terror; unknown boss → warleader; unknown regular type →
+  `null` → caller falls back to `TextureGen.enemy()`.
+- `townsperson_texture(seed)` (3 variants, stable hash), `merchant_texture(is_traveling)`,
+  `maiteln_texture()`, `raider_texture()` (ScoutAmbush, 0.04 px size + green tint).
+- `setup_sprite(sprite, tex, pixel_size=CHAR_PIXEL_SIZE)` sets texture/pixel size and
+  the feet-at-y=0 position from the real texture height. `CHAR_PIXEL_SIZE = 0.05`
+  (pack humanoids are 16–36 px vs the old fixed 32 px at 0.04).
+- Call sites converted: `EnemyNPC.gd`, `ScoutAmbush.gd`, `TownspersonNPC.gd`,
+  `MerchantNPC.gd`, `MaitelnFollower.gd`. Billboard/alpha-cut/nearest settings kept.
+- Attribution: root `CREDITS.md` created (TID-437 will merge music credits into it).
+- Walk frames on disk were NOT wired at the time (static Sprite3D call sites) —
+  see the BID-051 resolution below; Maiteln now animates.
+
+## Integration Status (TID-447, 2026-07-16)
+
+**Props, mount, and card illustrations are now INTEGRATED**, extending the same
+`SpriteRegistry` (not a second registry, per the task's own instruction):
+
+- `prop_texture(key)` — 10 literal preloads keyed by the exact `BiomeDef.PROP_SETS`
+  strings (`ash_pile`, matching the TID-445 correction, not the original `ash` draft).
+  `ChunkRenderer._build_props()` tries the registry first, then `TextureGen.prop()`;
+  the MultiMesh instancing path (shared material's `albedo_texture`) is untouched
+  either way, so instancing performance is unaffected.
+- `mount_texture()` — `mount_horse.png`. `Player.gd`'s mount sprite now computes its
+  feet-at-y=0 offset from the real texture height instead of a hardcoded `0.6`
+  (the old constant assumed `TextureGen`'s 24 px silhouette; the real sprite is a
+  different size). `test_mount_dismount_visuals.gd` needed **no changes** — its two
+  `TextureGen.mount_horse()` assertions test that fallback function directly, not
+  Player's rendered sprite, and the visibility assertions don't touch texture identity.
+- `card_illustration_texture(illus_key, magic_branch)` — `illus_key` is
+  `"ghost"/"skeleton"/"zombie"/"ghoul"` for minions or `"spell"` (routed by
+  `magic_branch`: `dawn`/`dusk`/`ember`/`ash`, the only 4 branches in `data/cards/`)
+  for spells. `CardRegistry._ensure_loaded()` tries the registry first, then falls
+  back to `TextureGen.card_illustration()`.
+- All slots now traceable in `CREDITS.md`'s new per-slot index table.
+- **Nothing left procedural except the fallback path itself** — all sprite
+  slots (enemies, NPCs, props, mount, card illustrations) render real,
+  license-clean pixel art. `TextureGen`'s procedural generators remain wired
+  as the runtime fallback for every slot, never deleted.
+
+## BID-051 Resolution: Maiteln Walk Animation (2026-07-16)
+
+Investigated wiring the walk-frame PNGs shipped by TID-445 for every entity.
+Reading `EnemyNPC.gd`, `ScoutAmbush.gd`, `TownspersonNPC.gd`, and
+`MerchantNPC.gd` confirmed none of them have any `_process()` movement — they
+are placed once and never move, so animating a walk cycle on them would show
+a pointless idle-twitch. **Only `MaitelnFollower` visibly moves** (follows the
+player / lerps toward a networked position), so only he was wired:
+`SpriteRegistry.maiteln_walk_frames()` (4 literal preloads) feeds a
+`SpriteFrames`-based `AnimatedSprite3D` built by
+`MaitelnFollower._build_animated_sprite()` (mirrors `AvatarSprite.build()`'s
+idle/walk pattern), swapping in for the old static `Sprite3D` with the same
+registry-then-`TextureGen` fallback chain. `_process()` computes an
+"is moving this frame" flag from the squared distance to the current
+follow/network target (with a small epsilon so settling into place reads as
+idle, not walk) and mirrors `Player.gd`'s screen-space `flip_h` heuristic.
+The other entities' walk PNGs remain unwired on disk — not a gap, just
+unused until/unless those entities ever gain wander movement.
+
+## What "all textures use sprites" Does and Doesn't Cover
+
+GID-118's scope was every `TextureGen` slot that draws a **placeholder
+silhouette**: enemies, NPCs, props, the mount, and card illustrations. All of
+those are now real sprites. Two things are deliberately **outside** that
+scope and remain procedural, because they aren't silhouette placeholders:
+
+- **Terrain tiles** (`grass_pixel.png`, `hill_side/top_pixel.png`,
+  `wall_side/top_pixel.png`) — already real hand-made art from before this
+  goal, unrelated to `TextureGen`.
+- **`TextureGen.path()`** — a Simplex-noise-generated dirt-path texture fed to
+  a terrain shader parameter (`WorldScene.gd:4557`, `path_texture`). This is a
+  procedural ground-texture pattern, not a sprite; GID-118 never scoped it and
+  no licensed replacement was researched.

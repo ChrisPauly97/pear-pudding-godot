@@ -30,15 +30,15 @@ Creative direction: classic pixel-art RPG in 3D isometric; Hobbit/Redwall warmth
 |----|------|------|--------|------------|
 | TID-444 | Research & curate CC0/CC-BY sprite shortlist per art slot | agent | done | — |
 | TID-445 | Acquire & place licensed sprite files under assets/textures/ | human-action | done | TID-444 |
-| TID-446 | Wire character/enemy/NPC sprites into entity builders + attribution | agent | pending | TID-445 |
-| TID-447 | Wire prop, mount & card illustration sprites + attribution | agent | pending | TID-445 |
+| TID-446 | Wire character/enemy/NPC sprites into entity builders + attribution | agent | done | TID-445 |
+| TID-447 | Wire prop, mount & card illustration sprites + attribution | agent | done | TID-445 |
 
 ## Acceptance Criteria
 
-- [ ] `docs/agent/art-sprites.md` exists with a sprite manifest (slot → file path → source) and a curated shortlist (primary + backup) per slot group: enemy archetypes, NPCs, props, mount, card illustrations — each with direct source URL, license, and required attribution text
+- [x] `docs/agent/art-sprites.md` exists with a sprite manifest (slot → file path → source) and a curated shortlist (primary + backup) per slot group: enemy archetypes, NPCs, props, mount, card illustrations — each with direct source URL, license, and required attribution text — TID-444, extended by TID-445/446/447
 - [x] All manifest sprite files exist under `assets/textures/` and are correctly licensed (CC0 preferred; CC-BY acceptable with attribution; no NC/paid) — TID-445, licenses re-verified at download
-- [ ] Enemy types render with distinct per-archetype sprites (mapped from `EnemyRegistry` type), not one shared silhouette; NPCs (townsperson, merchant, Maiteln) have real sprites
-- [ ] Props, mount, and card illustrations use real sprites; `TextureGen` remains as graceful fallback when a file is absent
-- [ ] A `CREDITS`/attribution file documents author, license, and source URL for every included sprite (extending the pattern GID-116/TID-437 establishes)
-- [ ] Headless editor import and parse checks are clean after all changes
-- [ ] `docs/agent/enemies-and-npcs.md` and `docs/agent/visual-polish.md` updated to reflect real sprite assets
+- [x] Enemy types render with distinct per-archetype sprites (mapped from `EnemyRegistry` type), not one shared silhouette; NPCs (townsperson, merchant, Maiteln) have real sprites — TID-446 (SpriteRegistry)
+- [x] Props, mount, and card illustrations use real sprites; `TextureGen` remains as graceful fallback when a file is absent — TID-447 (SpriteRegistry extended)
+- [x] A `CREDITS`/attribution file documents author, license, and source URL for every included sprite — TID-446 created root `CREDITS.md`; TID-447 added a per-slot index table (TID-437 to merge music credits in)
+- [x] Headless editor import and parse checks are clean after all changes — verified after TID-446 and again after TID-447
+- [x] `docs/agent/enemies-and-npcs.md` and `docs/agent/visual-polish.md` updated to reflect real sprite assets — TID-446/447

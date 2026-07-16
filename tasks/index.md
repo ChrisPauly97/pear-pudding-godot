@@ -121,7 +121,7 @@
 | [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | done (headless test run + editor import unverified in-sandbox — see goal.md note) | 5 / 5 |
 | [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | in-progress | 2 / 4 |
 | [GID-117](goals/GID-117--game-appeal/goal.md) | Game Appeal — Articulate & Prove "Why Play This" | done (headless test run unverified in-sandbox — see goal.md note) | 5 / 5 |
-| [GID-118](goals/GID-118--art-sprite-assets/goal.md) | Open-Source Character, Enemy & World Art Sprites | in-progress | 2 / 4 |
+| [GID-118](goals/GID-118--art-sprite-assets/goal.md) | Open-Source Character, Enemy & World Art Sprites | done | 4 / 4 |
 
 ## Backlog
 
@@ -171,6 +171,8 @@
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
 | [BID-001](backlog/BID-001--tutorial-onboarding.md) | Tutorial / Onboarding for New Players | spec-gap | ad-hoc review → promoted to GID-012 |
+| ~~[BID-051](archive/backlog/BID-051--character-walk-frames-not-wired.md)~~ | ~~Walk-animation frames shipped by TID-445 were on disk but not wired~~ | ~~enhancement~~ | Resolved: MaitelnFollower wired (only entity that visibly moves; enemies/NPCs confirmed fully static, frames left unwired for them) |
+| ~~[BID-052](archive/backlog/BID-052--auction-mailbox-test-failures-godot47.md)~~ | ~~7 pre-existing auction/mailbox test failures, suspected Godot 4.7 engine drift~~ | ~~code-smell~~ | Resolved: not engine drift — 2 test-authoring bugs (wrong helper / wrong card index), root-caused by reading the implementation and fixed directly |
 | [BID-003](archive/backlog/BID-003--maykalene-concatenated-door-scroll.md) | maykalene.txt DOOR+SCROLL lines were concatenated; scroll_martarquas_first_war was never spawned | code-smell | GID-017 / TID-047 |
 | [BID-004](archive/backlog/BID-004--orphaned-chestopenscene-uid.md) | Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen) | code-smell | Resolved by GID-075 |
 | [BID-007](archive/backlog/BID-007--card-registry-test-count-stale.md) | test_card_registry asserts 40 cards but registry preloads 46 | code-smell | Resolved by GID-075 |

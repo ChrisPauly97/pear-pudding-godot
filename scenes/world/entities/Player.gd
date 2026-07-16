@@ -2,6 +2,7 @@ extends CharacterBody3D
 
 const MountRegistry = preload("res://game_logic/MountRegistry.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
 
 const SPEED: float = 6.0
@@ -119,7 +120,8 @@ func _build_sprite() -> void:
 
 	# Mount sprite: sits below player sprite, only visible while mounted
 	_mount_sprite = Sprite3D.new()
-	_mount_sprite.texture = TextureGen.mount_horse()
+	var mount_tex: Texture2D = _SpriteRegistry.mount_texture()
+	_mount_sprite.texture = mount_tex if mount_tex != null else TextureGen.mount_horse()
 	_mount_sprite.pixel_size = PIXEL_SIZE
 	_mount_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	_mount_sprite.shaded = false
@@ -128,8 +130,11 @@ func _build_sprite() -> void:
 	_mount_sprite.no_depth_test = false
 	_mount_sprite.double_sided = true
 	_mount_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# 24px tall at PIXEL_SIZE=0.05 → 1.2 world units; half = 0.6; sits just below the player
-	_mount_sprite.position = Vector3(0.0, 0.6, 0.01)
+	# Feet-at-y=0 from the real texture height (CLAUDE.md Sprite3D rule) — don't
+	# assume a fixed pixel height, the real mount_horse.png differs from the old
+	# TextureGen fallback's 24px.
+	var mount_tex_h: float = float(_mount_sprite.texture.get_height())
+	_mount_sprite.position = Vector3(0.0, mount_tex_h * PIXEL_SIZE * 0.5, 0.01)
 	_mount_sprite.visible = false
 	add_child(_mount_sprite)
 

@@ -272,7 +272,10 @@ func test_settle_expired_with_bid_sells_to_highest_bidder() -> void:
 
 func test_settle_expired_without_bid_returns_card_to_seller() -> void:
 	var auctions: Array = _listed_auctions(120, 3)
-	var members: Dictionary = {"tokSeller": _member("tokSeller", "unused", _NORMAL_CARD_ID, 0)}
+	# Bare (card-less) seller record: _member() would seed an unrelated
+	# pre-existing card, making the post-settle count 2 instead of the
+	# returned card alone.
+	var members: Dictionary = {"tokSeller": _bare_member("tokSeller", 0)}
 	var result: Dictionary = AuctionTransfer.settle_expired(auctions, members, 5)
 	var listing: Dictionary = result["auctions"][0]
 	assert_eq(str(listing.get("status", "")), AuctionSync.STATUS_EXPIRED)
@@ -289,8 +292,9 @@ func test_settle_expired_bidder_who_can_no_longer_afford_it_falls_back_to_seller
 	# Bidder spent their coins elsewhere in the meantime (bid was record-only, not escrowed).
 	var poorer_bidder: Dictionary = bidder.duplicate(true)
 	poorer_bidder["coins"] = 10
+	# Bare (card-less) seller record — see test_settle_expired_without_bid_returns_card_to_seller.
 	var members: Dictionary = {
-		"tokSeller": _member("tokSeller", "unused", _NORMAL_CARD_ID, 0),
+		"tokSeller": _bare_member("tokSeller", 0),
 		"tokBidder": poorer_bidder,
 	}
 	var result: Dictionary = AuctionTransfer.settle_expired(bid_result["auctions"], members, 5)
