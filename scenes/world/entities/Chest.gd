@@ -1,14 +1,16 @@
 extends Node3D
 
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 var chest_data: Dictionary = {}
 var _opened: bool = false
 var _ring: MeshInstance3D = null
-var _lid_hinge: Node3D = null
+var _sprite: Sprite3D = null    # non-null when SpriteRegistry art is available
+var _lid_hinge: Node3D = null   # fallback-only: procedural hinge-swing lid
 const _LID_OPEN_ANGLE: float = -70.0
 
-# Shared across all chest instances — created once
+# Shared across all fallback chest instances — created once
 static var _opened_mat: StandardMaterial3D
 static var _wood_mat: StandardMaterial3D
 static var _gold_mat: StandardMaterial3D
@@ -32,6 +34,19 @@ static func _ensure_shared_resources() -> void:
 func _ready() -> void:
 	add_to_group("interactable")
 	_ring = _WEB.build_highlight_ring(self, 0.5)
+
+	# init_from_data() runs before _ready() (TerrainMath.spawn_entity calls it
+	# pre-add_child), so `_opened` already reflects the real state (fresh chest
+	# = false, save-restored = true) by the time the visual is built below.
+	if _SpriteRegistry.chest_closed_texture() != null:
+		_sprite = Sprite3D.new()
+		_SpriteRegistry.setup_sprite(_sprite, _SpriteRegistry.chest_open_texture() if _opened else _SpriteRegistry.chest_closed_texture())
+		_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+		_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		add_child(_sprite)
+		return
+
 	_ensure_shared_resources()
 
 	# Re-use the existing MeshInstance3D (so visibility range from ChunkRenderer sticks)
@@ -49,10 +64,6 @@ func _ready() -> void:
 	add_child(lock)
 
 	_build_lid()
-	# init_from_data() runs before _ready() (TerrainMath.spawn_entity calls it
-	# pre-add_child), so a chest restored as already-opened had `_opened` set
-	# but no `_lid_hinge` to apply it to yet. Re-apply the instant visual now
-	# that the lid exists — no-op (harmless) for a fresh, unopened chest.
 	if _opened:
 		_show_opened()
 
@@ -92,9 +103,16 @@ func set_highlighted(on: bool) -> void:
 		_ring.visible = on
 
 func _animate_open() -> void:
+	if _sprite != null:
+		_sprite.texture = _SpriteRegistry.chest_open_texture()
+		var tw: Tween = _sprite.create_tween()
+		tw.tween_property(_sprite, "scale", Vector3(1.15, 0.85, 1.0), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(_sprite, "scale", Vector3.ONE, 0.18)
+		_spawn_gold_burst()
+		return
 	if _lid_hinge != null:
-		var tw: Tween = _lid_hinge.create_tween()
-		tw.tween_property(_lid_hinge, "rotation:x", deg_to_rad(_LID_OPEN_ANGLE), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		var hinge_tw: Tween = _lid_hinge.create_tween()
+		hinge_tw.tween_property(_lid_hinge, "rotation:x", deg_to_rad(_LID_OPEN_ANGLE), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_spawn_gold_burst()
 	# Material only — NOT _show_opened(), which would also set the lid's
 	# rotation instantly and stomp the tween started above (a Tween reads its
@@ -135,10 +153,15 @@ func _set_opened_material() -> void:
 	if mi is MeshInstance3D:
 		mi.material_override = _opened_mat
 
-## Instant "already opened" visual — no lid tween, no particles. Used for
-## save-restored chests (`init_from_data`, and again from `_ready()` once the
-## lid exists — see the comment there).
+## Instant "already opened" visual — no tween, no particles. Used by
+## `init_from_data()` for save-restored chests. In sprite mode this only
+## matters if called after `_sprite` exists — `_ready()` already reads
+## `_opened` directly when building the sprite, so the common (pre-`_ready()`)
+## call here is a harmless no-op.
 func _show_opened() -> void:
+	if _sprite != null:
+		_sprite.texture = _SpriteRegistry.chest_open_texture()
+		return
 	_set_opened_material()
 	if _lid_hinge != null:
 		_lid_hinge.rotation.x = deg_to_rad(_LID_OPEN_ANGLE)
