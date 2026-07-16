@@ -51,7 +51,7 @@ do occasionally change. Anything marked *unconfirmed* below must be checked on-p
   - Format/conversion needed: **yes** — `.mp3`.
 
 ### scorched.ogg — tense, low drones, embers-and-ash (tension, not horror)
-- **Primary pick:** Dark Times — Kevin MacLeod (incompetech.com) — **CC-BY** (catalog-wide license; *confirm 3.0 vs 4.0 wording on page*) — https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100747
+- **Primary pick:** Dark Times — Kevin MacLeod (incompetech.com) — **CC-BY 4.0** (confirmed on page during TID-436) — https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100747
   - Dark, tense underscore without horror shrieks — matches the "embers and ash, not grimdark" brief. Preview before committing; if it reads too grim, swap with the backup.
   - Attribution text: `"Dark Times" Kevin MacLeod (incompetech.com). Licensed under Creative Commons: By Attribution 3.0/4.0 License.` (use the exact text the incompetech page generates).
   - Format/conversion needed: **yes** — `.mp3`.
@@ -61,9 +61,9 @@ do occasionally change. Anything marked *unconfirmed* below must be checked on-p
   - Also considered: Dark Ambient Loop 13 (https://opengameart.org/content/dark-ambient-loop-13) — seamless drone loop, 48 kHz 24-bit WAV, but its license tag could not be confirmed from search snippets (*unconfirmed — check page*).
 
 ### mountains.ogg — grand, echoing, brass/horns, sense of scale
-- **Primary pick:** Unforgiving Himalayas (Looping) — Matthew Pablo — **CC-BY 3.0** (license verified) — https://opengameart.org/content/unforgiving-himalayas-looping
-  - "Soaring above jagged peaks"; explicitly looping.
-  - Attribution text: `Music: "Unforgiving Himalayas" by Matthew Pablo — https://matthewpablo.com — CC-BY 3.0` (confirm exact requested wording on page).
+- **Primary pick:** Unforgiving Himalayas (Looping) — **Eric Matyas (soundimage.org)** — **CC-BY 3.0** (license verified) — https://opengameart.org/content/unforgiving-himalayas-looping
+  - "Soaring above jagged peaks"; explicitly looping. *(Correction during TID-436: the original shortlist misattributed this to Matthew Pablo; the source page credits Eric Matyas.)*
+  - Attribution text (verbatim from page): `Please credit as: "UNFORGIVING HIMALAYAS" by Eric Matyas www.soundimage.org`
   - Format/conversion needed: **no** — file is already `unforgiving_himalayas_looping.ogg`; just rename to `mountains.ogg`.
 - **Backup pick:** Five Armies — Kevin MacLeod (incompetech.com) — **CC-BY** (catalog-wide license; *confirm on page*) — search "Five Armies" at https://incompetech.com/music/royalty-free/music.html
   - Grand orchestral brass. Attribution: incompetech standard form as above.
@@ -87,10 +87,32 @@ do occasionally change. Anything marked *unconfirmed* below must be checked on-p
   - Loops seamlessly; downloadable as intro / loop / intro+loop — use the **loop** variant (AudioManager restarts the whole file on `finished`, so an intro would replay every loop).
   - Format/conversion needed: check page (loop variant format).
 
-## Acquisition Instructions (for TID-436)
+## Acquired Files (TID-436, done 2026-07-16)
 
-Sandbox sessions cannot download from these sites (proxy 403) — a human must do this
-on their own machine.
+TID-436 was completed by an agent session: unlike the TID-435 research session, its
+outbound proxy allowed opengameart.org and incompetech.com, so the files were downloaded,
+license-checked on-page, converted, and committed directly. **All 7 slots use the primary
+pick.** Final record (TID-437 writes CREDITS from this + the verbatim attribution lines
+in the shortlist above):
+
+| File | Track — Author | License | Processing |
+|---|---|---|---|
+| `grasslands.ogg` | GrassLands Theme — DST | CC0 | mp3 → ogg (`-q:a 5`), 164 s |
+| `forest.ogg` | Woodland Fantasy — Matthew Pablo | CC-BY 3.0 | mp3 → ogg; 7.6 s silent tail trimmed (143.5 s, 1 s fade) |
+| `desert.ogg` | Desert Theme — Tarush Singhal | CC0 | mp3 → ogg, 126 s |
+| `scorched.ogg` | Dark Times — Kevin MacLeod | CC-BY 4.0 | mp3 → ogg; 4.1 s lead / 3.5 s tail silence trimmed (177 s, 1 s fade) |
+| `mountains.ogg` | Unforgiving Himalayas (Looping) — Eric Matyas | CC-BY 3.0 | already ogg, renamed only, 140 s |
+| `dungeon.ogg` | Crystal Cave + Mysterious Ambience — cynicmusic | CC-BY 3.0 (of multi-license) | already ogg (`music_jewels.ogg`), renamed only, 86 s |
+| `battle.ogg` | Battle Theme A — cynicmusic | CC0 | mp3 → ogg, 96 s |
+
+Loop seams verified with `silencedetect` (−45 dB, ≥1.5 s): zero silence regions in every
+committed file.
+
+## Acquisition Instructions (original plan for TID-436; kept for provenance)
+
+Written when sandbox sessions could not download from these sites (proxy 403). The
+2026-07-16 session's proxy allowed the downloads, so the steps below were executed by
+the agent rather than a human.
 
 1. For each slot, open the **primary pick** URL, confirm the license tag on the page
    matches the license above, and download the audio file. If the license has changed
