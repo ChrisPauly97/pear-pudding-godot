@@ -25,7 +25,6 @@ const MountRegistry      = preload("res://game_logic/MountRegistry.gd")
 const TrophyRegistry     = preload("res://game_logic/TrophyRegistry.gd")
 const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
-const TextureGen = preload("res://game_logic/TextureGen.gd")
 const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 const CantripManager = preload("res://game_logic/world/CantripManager.gd")
@@ -37,6 +36,7 @@ const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_s
 const _TexHillTop:   Texture2D = preload("res://assets/textures/pixel_art/hill_top_pixel.png")
 const _TexWallSide:  Texture2D = preload("res://assets/textures/pixel_art/wall_side_pixel.png")
 const _TexWallTop:   Texture2D = preload("res://assets/textures/pixel_art/wall_top_pixel.png")
+const _TexPath:      Texture2D = preload("res://assets/textures/pixel_art/path_pixel.png")
 
 # Preload entity scenes — avoids filesystem hits during spawning
 const _OverworldPauseOverlay = preload("res://scenes/ui/OverworldPauseOverlay.gd")
@@ -4554,7 +4554,7 @@ func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	mat.set_shader_parameter("hill_texture",      _TexHillTop)
 	mat.set_shader_parameter("wall_side_texture", _TexWallSide)
 	mat.set_shader_parameter("wall_top_texture",  _TexWallTop)
-	mat.set_shader_parameter("path_texture",      TextureGen.path())
+	mat.set_shader_parameter("path_texture",      _TexPath)
 	mat.set_shader_parameter("uv_scale", 0.5)
 	return mat
 

@@ -51,6 +51,18 @@ All map data is stored in typed `extends Resource` classes. Each class has a `.u
 
 Entity positions in `.tres` files are stored in **tile coordinates** (`tile_x`, `tile_z`). `WorldMap.load_from_resource()` converts these to **world coordinates** (`x = float(tile_x) * TILE_SIZE`) at load time.
 
+**Door visual (GID-118):** every `MapDoor`-spawned entity (player home, guildhall,
+shops, dungeon/ruin entries, the spire) renders as a billboard `Sprite3D` via
+`SpriteRegistry.door_texture()` (0x72 pack door art), falling back to the
+original flat-colored `BoxMesh` if missing. The spire door's purple tint is a
+`Sprite3D.modulate` in sprite mode (a `Sprite3D` material swap in fallback
+mode) — `Door.gd` stores `_is_spire` from `init_from_data()` (which always
+runs before `_ready()`) and applies the tint once the visual actually exists
+in `_ready()`. This also fixed a latent bug: the old code applied the spire
+material inside `init_from_data()`, but `_ready()` ran afterward and
+unconditionally overwrote it with the default brown material — so the spire
+door's purple tint never actually rendered before this fix.
+
 ---
 
 ## How It Works

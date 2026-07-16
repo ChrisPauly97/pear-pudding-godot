@@ -130,10 +130,10 @@ No geometry shader is used (Godot 4 does not support them). The visual density i
 | Grass shader | `assets/shaders/grass.gdshader` | FBM noise grass layer; requires `.uid` sidecar |
 | Grass blade shader | `assets/shaders/grass_blade.gdshader` | Variant for individual blade rendering |
 | Grass cluster shader | `assets/shaders/grass_cluster.gdshader` | Variant for cluster rendering |
-| Grass pixel texture | `assets/textures/pixel_art/grass_pixel.png` | Sampled in terrain shader grass layer |
-| Hill side texture | `assets/textures/pixel_art/hill_side_pixel.png` | Steep slope faces |
-| Hill top texture | `assets/textures/pixel_art/hill_top_pixel.png` | Plateau surfaces |
-| Wall side texture | `assets/textures/pixel_art/wall_side_pixel.png` | Vertical wall faces |
-| Wall top texture | `assets/textures/pixel_art/wall_top_pixel.png` | Top of walls |
-| Path texture | generated at runtime by `TextureGen.path()` | Brown packed-earth; no PNG file or .uid sidecar needed |
+| Grass pixel texture | `assets/textures/pixel_art/grass_pixel.png` | Sampled in terrain shader grass layer. Real sprite art (GID-118): Kenney Tiny Town `tile_0001`, seamless-tiled — see `CREDITS.md` |
+| Hill side texture | `assets/textures/pixel_art/hill_side_pixel.png` | Steep slope faces. Real sprite art (GID-118): Kenney Tiny Dungeon `tile_0049`, seamless-tiled |
+| Hill top texture | `assets/textures/pixel_art/hill_top_pixel.png` | Plateau surfaces. Original hand-drawn art, unchanged by GID-118 |
+| Wall side texture | `assets/textures/pixel_art/wall_side_pixel.png` | Vertical wall faces. Real sprite art (GID-118): 0x72 `wall_mid` brick tile, seamless-tiled |
+| Wall top texture | `assets/textures/pixel_art/wall_top_pixel.png` | Top of walls. Real sprite art (GID-118): 0x72 `floor_1` stone tile, seamless-tiled |
+| Path texture | `assets/textures/pixel_art/path_pixel.png` | Real sprite art (GID-118): Kenney Tiny Dungeon `tile_0048` flat packed-earth. Replaced the old `TextureGen.path()` procedural noise generator, which was removed (no remaining callers) |
 | `.uid` sidecars | `assets/shaders/*.uid` | Required for Android export; must be committed alongside each shader |

@@ -85,16 +85,27 @@ When the player opens a chest (`Chest.gd` triggers `GameBus.chest_opened(card_id
 2. Calls `SaveManager.add_card(card_id)` which appends one ID to `owned_cards`
 3. The world entity is flagged as opened in `SaveManager.opened_chests` to prevent re-granting
 
-**Open ceremony (TID-427):** `Chest.mark_opened()` (the actual-open path, called
-by `WorldScene` on interact) hinges a per-instance lid `MeshInstance3D` open
-(`_lid_hinge`, `TRANS_BACK`/`EASE_OUT`, 0.3s) and spawns a one-shot gold
-`GPUParticles3D` burst, then darkens the body material same as before.
-`Chest.init_from_data()` (save-restore path for an already-opened chest) calls
-`_show_opened()` instead, which sets both the lid rotation and body material
-instantly — no animation. The lid is built in `_ready()`, which runs *after*
-`init_from_data()` (Godot calls `init_from_data` pre-`add_child`), so `_ready()`
-re-applies `_show_opened()` once the lid exists if the chest was restored
-already-opened.
+**Visual (GID-118/TID-447+):** `Chest.gd` renders as a billboard `Sprite3D`
+using `SpriteRegistry.chest_closed_texture()` / `chest_open_texture()` (0x72
+pack chest frames — see `docs/agent/art-sprites.md`), falling back to the
+original procedural `BoxMesh` body + hinged lid + flat materials if the
+registry has no art. `_ready()` reads `_opened` (already set by
+`init_from_data()`, which always runs first) to pick the correct starting
+texture directly — no lid-geometry timing dance needed in sprite mode.
+
+**Open ceremony (TID-427, sprite mode):** `Chest.mark_opened()` swaps the
+sprite texture to the open frame and plays a quick squash/settle scale tween
+(mirroring `Player._squash_sprite`), plus the same one-shot gold
+`GPUParticles3D` burst as before. `Chest.init_from_data()`'s save-restore path
+for an already-opened chest just sets the open texture directly (no tween).
+
+**Fallback mode (no sprite art):** `Chest.mark_opened()` hinges a per-instance
+lid `MeshInstance3D` open (`_lid_hinge`, `TRANS_BACK`/`EASE_OUT`, 0.3s) and
+darkens the body material, same as originally shipped. `_show_opened()` sets
+both the lid rotation and body material instantly for save-restored chests.
+The lid is built in `_ready()`, which runs *after* `init_from_data()` (Godot
+calls `init_from_data` pre-`add_child`), so `_ready()` re-applies
+`_show_opened()` once the lid exists if the chest was restored already-opened.
 
 The card ID is chosen randomly from the full card pool weighted by rarity (currently uniform).
 

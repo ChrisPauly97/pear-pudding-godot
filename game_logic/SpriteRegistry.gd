@@ -56,6 +56,10 @@ const _RUNE_DUSK          := preload("res://assets/textures/cards/rune_dusk.png"
 const _RUNE_EMBER         := preload("res://assets/textures/cards/rune_ember.png")
 const _RUNE_ASH           := preload("res://assets/textures/cards/rune_ash.png")
 
+const _CHEST_CLOSED       := preload("res://assets/textures/props/chest_closed.png")
+const _CHEST_OPEN         := preload("res://assets/textures/props/chest_open.png")
+const _DOOR               := preload("res://assets/textures/props/door.png")
+
 ## World pixel size for character sprites. The 0x72 pack's humanoids are
 ## 16-36 px tall (vs the old fixed 32 px silhouettes); 0.05 keeps mid-size
 ## sprites at roughly the old world height while preserving the pack's
@@ -155,6 +159,21 @@ static func card_illustration_texture(illus_key: String, magic_branch: String) -
 		"ember": return _RUNE_EMBER
 		"ash":   return _RUNE_ASH
 	return null
+
+## Closed-chest sprite (with lock) — Chest.gd's unopened / default pose.
+static func chest_closed_texture() -> Texture2D:
+	return _CHEST_CLOSED
+
+## Open-chest sprite (revealing contents) — Chest.gd's opened pose.
+static func chest_open_texture() -> Texture2D:
+	return _CHEST_OPEN
+
+## Door portal sprite (Door.gd) — used for every map-transition door
+## (player home, guildhall, shops, dungeon/ruin entries). The spire door's
+## purple tint is applied as a Sprite3D modulate by the caller, not baked
+## into a separate texture.
+static func door_texture() -> Texture2D:
+	return _DOOR
 
 ## Applies a registry texture to a Sprite3D: texture, pixel size, and the
 ## feet-at-y=0 position computed from the real texture height (never assume

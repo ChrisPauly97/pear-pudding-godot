@@ -12,47 +12,8 @@ static func _cached(key: String, generator: Callable) -> ImageTexture:
 	_cache[key] = tex
 	return tex
 
-static func path(seed: int = 77777) -> ImageTexture:
-	return _cached("path_%d" % seed, _make_path_tex.bind(seed))
-
 static func mount_horse() -> ImageTexture:
 	return _cached("mount_horse", _gen_mount_horse)
-
-# ── Shared helper: noise + gradient → ImageTexture (synchronous) ─────────
-
-static func _noise_to_texture(noise: FastNoiseLite, grad: Gradient, size: int) -> ImageTexture:
-	var data := PackedByteArray()
-	data.resize(size * size * 4)
-	for y in range(size):
-		for x in range(size):
-			var v: float = (noise.get_noise_2d(float(x), float(y)) + 1.0) * 0.5
-			var col: Color = grad.sample(v)
-			var off: int = (y * size + x) * 4
-			data[off]     = int(col.r * 255.0)
-			data[off + 1] = int(col.g * 255.0)
-			data[off + 2] = int(col.b * 255.0)
-			data[off + 3] = 255
-	var img := Image.create_from_data(size, size, false, Image.FORMAT_RGBA8, data)
-	img.generate_mipmaps()
-	return ImageTexture.create_from_image(img)
-
-# ── Path: brown packed-earth for town road tiles ─────────────────────────
-
-static func _make_path_tex(seed: int) -> ImageTexture:
-	var noise := FastNoiseLite.new()
-	noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
-	noise.seed = seed
-	noise.frequency = 0.18
-
-	var grad := Gradient.new()
-	grad.offsets = PackedFloat32Array([0.0, 0.3, 0.7, 1.0])
-	grad.colors = PackedColorArray([
-		Color8(105, 80,  45, 255),   # dark packed earth
-		Color8(130, 100, 58, 255),   # mid earth
-		Color8(148, 118, 68, 255),   # light earth / gravel
-		Color8(160, 130, 78, 255),   # pale sandy path
-	])
-	return _noise_to_texture(noise, grad, 64)
 
 # ── Mount horse: simple 48×24 brown silhouette ───────────────────────────
 

@@ -9,13 +9,13 @@ Third-party assets used by Pear Pudding TCG, with author, license, and source.
 
 - **Source:** https://0x72.itch.io/dungeontileset-ii
 - **License:** CC0-1.0 (Creative Commons Zero v1.0 Universal) — no attribution required; credited with thanks.
-- **Used for:** enemy sprites (skeleton/undead, undead elite recolor, swampy ghoul, masked-orc raider, ogre warleader, necromancer duelist, elf rival, big-demon roaming terror, mimic chest), NPC sprites (townsperson variants, merchant, Maiteln), card illustrations (skeleton, zombie, ghoul), plus their walk frames under `assets/textures/characters/` and `assets/textures/cards/`.
+- **Used for:** enemy sprites (skeleton/undead, undead elite recolor, swampy ghoul, masked-orc raider, ogre warleader, necromancer duelist, elf rival, big-demon roaming terror, mimic chest), NPC sprites (townsperson variants, merchant, Maiteln), card illustrations (skeleton, zombie, ghoul), plus their walk frames under `assets/textures/characters/` and `assets/textures/cards/`; the world terrain's wall-side (`wall_mid`) and wall-top (`floor_1`) tile textures, the chest closed/open sprites, and the door sprite.
 
 ### Kenney — Tiny Town (1.1) & Tiny Dungeon (1.0)
 
 - **Source:** https://kenney.nl/assets/tiny-town , https://kenney.nl/assets/tiny-dungeon
 - **License:** CC0 (Creative Commons Zero) — no attribution required; credited with thanks.
-- **Used for:** mushroom prop (Tiny Town), ghost card illustration and spectre enemy sprite (Tiny Dungeon).
+- **Used for:** mushroom prop and the world terrain's grass tile (Tiny Town); ghost card illustration, spectre enemy sprite, and the world terrain's hill-side (dirt) and path/road tiles (Tiny Dungeon).
 
 ### Clint Bellanger — Tiny Creatures (1.0)
 
@@ -67,3 +67,10 @@ remains as a runtime fallback wherever a slot's texture is missing.
 | Card: ghost | `cards/card_ghost.png` | Kenney Tiny Dungeon |
 | Card: skeleton / zombie / ghoul | `cards/card_{skeleton,zombie,ghoul}.png` | 0x72 |
 | Rune: dawn / dusk / ember / ash | `cards/rune_{dawn,dusk,ember,ash}.png` | game-icons.net (CC BY 3.0) |
+| Terrain: grass (ground) | `pixel_art/grass_pixel.png` | Kenney Tiny Town (`tile_0001`) |
+| Terrain: hill side (dirt slope) | `pixel_art/hill_side_pixel.png` | Kenney Tiny Dungeon (`tile_0049`) |
+| Terrain: wall side | `pixel_art/wall_side_pixel.png` | 0x72 (`wall_mid`) |
+| Terrain: wall top | `pixel_art/wall_top_pixel.png` | 0x72 (`floor_1`) |
+| Terrain: path / road | `pixel_art/path_pixel.png` | Kenney Tiny Dungeon (`tile_0048`) |
+| Chest: closed / open | `props/chest_{closed,open}.png` | 0x72 (`chest_full_open_anim_f0`/`f2`) |
+| Door (all map-transition doors) | `props/door.png` | 0x72 (`doors_leaf_closed`) |
