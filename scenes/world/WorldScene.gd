@@ -466,9 +466,11 @@ func _setup_environment() -> void:
 	# Bloom so emissive materials (items, coins) visibly glow.
 	# Threshold must stay above the lit-terrain luminance (~1.0 at midday) so
 	# only true emissives bloom — 0.5 made the entire sunlit ground glow.
+	# glow_bloom must stay 0: any positive value adds glow to pixels BELOW the
+	# threshold too, hazing the whole screen regardless of glow_hdr_threshold.
 	env.glow_enabled = true
-	env.glow_bloom = 0.25
-	env.glow_intensity = 1.5
+	env.glow_bloom = 0.0
+	env.glow_intensity = 1.0
 	env.glow_strength = 1.2
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
 	env.glow_hdr_threshold = 1.2

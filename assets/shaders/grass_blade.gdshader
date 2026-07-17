@@ -102,7 +102,7 @@ void fragment() {
 
 	ALBEDO = col;
 	// Match terrain's emission floor so grass doesn't go pitch-black in shadow
-	EMISSION = col * 0.15;
+	EMISSION = col * 0.08;
 	ROUGHNESS = 1.0;
 	METALLIC = 0.0;
 	// Hard cutoff at tip instead of smooth fade
