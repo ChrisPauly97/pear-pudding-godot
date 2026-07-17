@@ -16,6 +16,9 @@ static var _wood_mat: StandardMaterial3D
 static var _gold_mat: StandardMaterial3D
 static var _body_mesh: BoxMesh
 static var _lock_mesh: BoxMesh
+# Shared by every open ceremony (not fallback-only) — building a fresh
+# ParticleProcessMaterial per open contributed to the chest-open hitch.
+static var _burst_mat: ParticleProcessMaterial
 
 static func _ensure_shared_resources() -> void:
 	if _wood_mat != null:
@@ -121,24 +124,25 @@ func _animate_open() -> void:
 	_set_opened_material()
 
 func _spawn_gold_burst() -> void:
+	if _burst_mat == null:
+		_burst_mat = ParticleProcessMaterial.new()
+		_burst_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+		_burst_mat.emission_sphere_radius = 0.15
+		_burst_mat.direction = Vector3(0.0, 1.0, 0.0)
+		_burst_mat.spread = 40.0
+		_burst_mat.initial_velocity_min = 1.0
+		_burst_mat.initial_velocity_max = 2.0
+		_burst_mat.gravity = Vector3(0.0, -6.0, 0.0)
+		_burst_mat.scale_min = 0.04
+		_burst_mat.scale_max = 0.08
+		_burst_mat.color = Color(0.9, 0.75, 0.1)
 	var burst := GPUParticles3D.new()
 	burst.amount = 12
 	burst.lifetime = 0.6
 	burst.one_shot = true
 	burst.emitting = true
 	burst.position = Vector3(0.0, 0.45, 0.0)
-	var pm := ParticleProcessMaterial.new()
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	pm.emission_sphere_radius = 0.15
-	pm.direction = Vector3(0.0, 1.0, 0.0)
-	pm.spread = 40.0
-	pm.initial_velocity_min = 1.0
-	pm.initial_velocity_max = 2.0
-	pm.gravity = Vector3(0.0, -6.0, 0.0)
-	pm.scale_min = 0.04
-	pm.scale_max = 0.08
-	pm.color = Color(0.9, 0.75, 0.1)
-	burst.process_material = pm
+	burst.process_material = _burst_mat
 	add_child(burst)
 	get_tree().create_timer(burst.lifetime + 0.2, false).timeout.connect(func() -> void:
 		if is_instance_valid(burst):

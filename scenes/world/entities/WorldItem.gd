@@ -39,8 +39,8 @@ func setup_coin(amount: int, start_pos: Vector3, land_pos: Vector3) -> void:
 
 # ── Rarity helpers ──────────────────────────────────────────────────────────
 
-func _get_glow_color() -> Color:
-	match _rarity:
+static func _glow_color_for(rarity: String) -> Color:
+	match rarity:
 		"common":
 			return Color(0.85, 0.85, 0.85)
 		"rare":
@@ -52,32 +52,55 @@ func _get_glow_color() -> Color:
 		_:
 			return Color(0.85, 0.85, 0.85)
 
-# ── Visual construction ─────────────────────────────────────────────────────
+# ── Shared visual resources ─────────────────────────────────────────────────
+# A chest spill spawns up to ~8 items at once; building fresh materials,
+# meshes, and gradient textures for each contributed to the chest-open hitch.
+# Everything below is identical per rarity (or globally), so build once and
+# share across all WorldItem instances. Shared materials are never mutated
+# per-instance.
 
-func _build_visual() -> void:
-	var tmpl: Dictionary = CardRegistry.get_template(card_id)
-	var card_color: Color = tmpl.get("color", Color.WHITE)
-	var card_name: String = tmpl.get("name", card_id)
+static var _card_mesh: BoxMesh
+static var _halo_mesh: QuadMesh
+static var _beam_mesh: QuadMesh
+static var _coin_mesh: CylinderMesh
+static var _coin_halo_mesh: QuadMesh
+static var _coin_mat: StandardMaterial3D
+static var _coin_halo_mat: StandardMaterial3D
+static var _halo_mats: Dictionary = {}   # rarity -> StandardMaterial3D
+static var _beam_mats: Dictionary = {}   # rarity -> StandardMaterial3D
+static var _body_mats: Dictionary = {}   # "html_color|rarity" -> StandardMaterial3D
 
-	# Card body — thin flat box in card proportions
+static func _ensure_card_meshes() -> void:
+	if _card_mesh != null:
+		return
+	_card_mesh = BoxMesh.new()
+	_card_mesh.size = Vector3(0.28, 0.40, 0.03)
+	_halo_mesh = QuadMesh.new()
+	_halo_mesh.size = Vector2(0.7, 0.7)
+	_beam_mesh = QuadMesh.new()
+	_beam_mesh.size = Vector2(0.18, 4.0)
+
+static func _get_body_mat(card_color: Color, rarity: String) -> StandardMaterial3D:
+	var key: String = card_color.to_html() + "|" + rarity
+	var cached: StandardMaterial3D = _body_mats.get(key)
+	if cached != null:
+		return cached
 	# Emission feeds the bloom post-process so the card visibly glows.
 	# (All geometry in this game is unshaded so OmniLight3D has no effect.)
-	var glow_color: Color = _get_glow_color()
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = card_color
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.emission_enabled = true
-	mat.emission = glow_color
+	mat.emission = _glow_color_for(rarity)
 	mat.emission_energy_multiplier = 2.5
+	_body_mats[key] = mat
+	return mat
 
-	var bm := BoxMesh.new()
-	bm.size = Vector3(0.28, 0.40, 0.03)
-	var mi := MeshInstance3D.new()
-	mi.mesh = bm
-	mi.material_override = mat
-	add_child(mi)
-
-	# Glow halo ring — flat cylinder behind the card so the rarity colour bleeds out
+static func _get_halo_mat(rarity: String) -> StandardMaterial3D:
+	var cached: StandardMaterial3D = _halo_mats.get(rarity)
+	if cached != null:
+		return cached
+	var glow_color: Color = _glow_color_for(rarity)
 	var halo_mat := StandardMaterial3D.new()
 	halo_mat.albedo_color = glow_color
 	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -85,15 +108,14 @@ func _build_visual() -> void:
 	halo_mat.emission = glow_color
 	halo_mat.emission_energy_multiplier = 3.5
 	halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	var halo_mesh := QuadMesh.new()
-	halo_mesh.size = Vector2(0.7, 0.7)
-	var halo_mi := MeshInstance3D.new()
-	halo_mi.mesh = halo_mesh
-	halo_mi.material_override = halo_mat
-	halo_mi.position = Vector3(0, 0, -0.05)
-	add_child(halo_mi)
+	_halo_mats[rarity] = halo_mat
+	return halo_mat
 
-	# Light beam — tall thin quad that fades out toward the top, always faces camera
+static func _get_beam_mat(rarity: String) -> StandardMaterial3D:
+	var cached: StandardMaterial3D = _beam_mats.get(rarity)
+	if cached != null:
+		return cached
+	var glow_color: Color = _glow_color_for(rarity)
 	var beam_mat := StandardMaterial3D.new()
 	beam_mat.albedo_color = glow_color
 	beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -112,11 +134,35 @@ func _build_visual() -> void:
 	beam_tex.fill_from = Vector2(0.5, 1.0)
 	beam_tex.fill_to   = Vector2(0.5, 0.0)
 	beam_mat.albedo_texture = beam_tex
-	var beam_mesh := QuadMesh.new()
-	beam_mesh.size = Vector2(0.18, 4.0)
+	_beam_mats[rarity] = beam_mat
+	return beam_mat
+
+# ── Visual construction ─────────────────────────────────────────────────────
+
+func _build_visual() -> void:
+	var tmpl: Dictionary = CardRegistry.get_template(card_id)
+	var card_color: Color = tmpl.get("color", Color.WHITE)
+	var card_name: String = tmpl.get("name", card_id)
+
+	_ensure_card_meshes()
+
+	# Card body — thin flat box in card proportions
+	var mi := MeshInstance3D.new()
+	mi.mesh = _card_mesh
+	mi.material_override = _get_body_mat(card_color, _rarity)
+	add_child(mi)
+
+	# Glow halo ring — billboard quad behind the card so the rarity colour bleeds out
+	var halo_mi := MeshInstance3D.new()
+	halo_mi.mesh = _halo_mesh
+	halo_mi.material_override = _get_halo_mat(_rarity)
+	halo_mi.position = Vector3(0, 0, -0.05)
+	add_child(halo_mi)
+
+	# Light beam — tall thin quad that fades out toward the top, always faces camera
 	var beam_mi := MeshInstance3D.new()
-	beam_mi.mesh = beam_mesh
-	beam_mi.material_override = beam_mat
+	beam_mi.mesh = _beam_mesh
+	beam_mi.material_override = _get_beam_mat(_rarity)
 	beam_mi.position = Vector3(0, 2.25, -0.06)
 	add_child(beam_mi)
 
@@ -154,42 +200,46 @@ func _build_visual() -> void:
 
 	set_process_unhandled_input(true)
 
-func _build_coin_visual() -> void:
+static func _ensure_coin_resources() -> void:
+	if _coin_mat != null:
+		return
 	# Gold coin disc — flat cylinder with strong emission for bloom
 	var coin_color: Color = Color(1.0, 0.82, 0.1)
 	var coin_glow: Color  = Color(1.0, 0.65, 0.0)
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = coin_color
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.emission_enabled = true
-	mat.emission = coin_glow
-	mat.emission_energy_multiplier = 3.0
+	_coin_mat = StandardMaterial3D.new()
+	_coin_mat.albedo_color = coin_color
+	_coin_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_coin_mat.emission_enabled = true
+	_coin_mat.emission = coin_glow
+	_coin_mat.emission_energy_multiplier = 3.0
+	_coin_mesh = CylinderMesh.new()
+	_coin_mesh.top_radius = 0.18
+	_coin_mesh.bottom_radius = 0.18
+	_coin_mesh.height = 0.06
+	_coin_mesh.radial_segments = 16
+	# Large billboard glow halo behind coin — same approach as cards
+	_coin_halo_mat = StandardMaterial3D.new()
+	_coin_halo_mat.albedo_color = coin_glow
+	_coin_halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_coin_halo_mat.emission_enabled = true
+	_coin_halo_mat.emission = coin_glow
+	_coin_halo_mat.emission_energy_multiplier = 4.0
+	_coin_halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	_coin_halo_mesh = QuadMesh.new()
+	_coin_halo_mesh.size = Vector2(0.65, 0.65)
 
-	var cm := CylinderMesh.new()
-	cm.top_radius = 0.18
-	cm.bottom_radius = 0.18
-	cm.height = 0.06
-	cm.radial_segments = 16
+func _build_coin_visual() -> void:
+	_ensure_coin_resources()
 	var mi := MeshInstance3D.new()
-	mi.mesh = cm
-	mi.material_override = mat
+	mi.mesh = _coin_mesh
+	mi.material_override = _coin_mat
 	# Tilt the coin so it shows its face
 	mi.rotation_degrees = Vector3(80.0, 0.0, 0.0)
 	add_child(mi)
 
-	# Large billboard glow halo behind coin — same approach as cards
-	var halo_mat := StandardMaterial3D.new()
-	halo_mat.albedo_color = coin_glow
-	halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	halo_mat.emission_enabled = true
-	halo_mat.emission = coin_glow
-	halo_mat.emission_energy_multiplier = 4.0
-	halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	var halo_mesh := QuadMesh.new()
-	halo_mesh.size = Vector2(0.65, 0.65)
 	var halo_mi := MeshInstance3D.new()
-	halo_mi.mesh = halo_mesh
-	halo_mi.material_override = halo_mat
+	halo_mi.mesh = _coin_halo_mesh
+	halo_mi.material_override = _coin_halo_mat
 	halo_mi.position = Vector3(0, 0, -0.04)
 	add_child(halo_mi)
 
