@@ -461,7 +461,9 @@ func update_keyword_badges(hbox: HBoxContainer, card: CardInstance) -> void:
 # Hero view building
 # -------------------------------------------------------------------------
 
-func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
+## hand_count: opponent hand size shown on the enemy panel (GID-119 / TID-448 —
+## replaces the face-down enemy hand row). -1 hides the line (player panel).
+func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool, hand_count: int = -1) -> void:
 	var vbox: VBoxContainer = hero_node.get_child(0) as VBoxContainer if hero_node.get_child_count() > 0 else null
 	if not vbox:
 		vbox = VBoxContainer.new()
@@ -493,7 +495,15 @@ func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 		vbox.add_child(name_lbl)
 		vbox.add_child(hp_lbl)
 		vbox.add_child(bar)
-		if not is_enemy:
+		if is_enemy:
+			var hand_lbl := Label.new()
+			hand_lbl.name = "HandLabel"
+			hand_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
+			hand_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			hand_lbl.modulate = Color(0.85, 0.82, 0.95)
+			hand_lbl.visible = false
+			vbox.add_child(hand_lbl)
+		else:
 			var mana_lbl := Label.new()
 			mana_lbl.name = "ManaLabel"
 			mana_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
@@ -512,6 +522,11 @@ func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool) -> void:
 	var mana_lbl: Label = vbox.get_node_or_null("ManaLabel") as Label
 	if mana_lbl:
 		mana_lbl.text = "Mana  %d / %d" % [hero.mana, hero.max_mana]
+	var hand_lbl_u: Label = vbox.get_node_or_null("HandLabel") as Label
+	if hand_lbl_u:
+		hand_lbl_u.visible = hand_count >= 0
+		if hand_count >= 0:
+			hand_lbl_u.text = "Cards in hand: %d" % hand_count
 	var hero_status_row: HBoxContainer = vbox.get_node_or_null("StatusRow") as HBoxContainer
 	if hero_status_row:
 		_fx.update_status_icons_hero(hero_status_row, hero)

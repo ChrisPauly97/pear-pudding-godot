@@ -21,8 +21,8 @@ layout_mode = 1
 anchors_preset = -1
 anchor_left = 0.0
 anchor_top = 0.0
-anchor_right = 1.0
-anchor_bottom = 0.45
+anchor_right = 0.86
+anchor_bottom = 0.38
 
 [node name="EnemyHandView" type="HBoxContainer" parent="EnemyArea"]
 layout_mode = 2
@@ -37,9 +37,9 @@ layout_mode = 2
 
 [node name="Divider" type="HSeparator" parent="."]
 layout_mode = 1
-anchor_top = 0.5
-anchor_bottom = 0.5
-anchor_right = 1.0
+anchor_top = 0.38
+anchor_bottom = 0.38
+anchor_right = 0.86
 offset_top = -2.0
 offset_bottom = 2.0
 
@@ -47,8 +47,8 @@ offset_bottom = 2.0
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 0.0
-anchor_top = 0.5
-anchor_right = 1.0
+anchor_top = 0.38
+anchor_right = 0.86
 anchor_bottom = 1.0
 
 [node name="PlayerBoardView" type="HBoxContainer" parent="PlayerArea"]
@@ -64,7 +64,7 @@ alignment = 1
 [node name="SidePanel" type="VBoxContainer" parent="."]
 layout_mode = 1
 anchors_preset = -1
-anchor_left = 0.8
+anchor_left = 0.86
 anchor_top = 0.0
 anchor_right = 1.0
 anchor_bottom = 1.0

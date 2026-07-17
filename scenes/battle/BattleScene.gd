@@ -657,13 +657,16 @@ func _do_play_card(card: CardInstance, player_idx: int) -> bool:
 
 func _apply_ui_sizes() -> void:
 	var hero_h: float = _vh * 0.10
-	var board_h: float = _vh * 0.20
-	_enemy_hand_view.custom_minimum_size   = Vector2(0, board_h)
+	var board_h: float = _vh * 0.27
+	# The enemy hand row (face-down card backs) is collapsed on all layouts —
+	# the count is shown on the enemy hero panel instead (GID-119 / TID-448).
+	_enemy_hand_view.visible = false
+	_enemy_hand_view.custom_minimum_size   = Vector2.ZERO
 	_enemy_hero_view.custom_minimum_size   = Vector2(0, hero_h)
 	_enemy_board_view.custom_minimum_size  = Vector2(0, board_h)
 	_player_board_view.custom_minimum_size = Vector2(0, board_h)
 	_player_hero_view.custom_minimum_size  = Vector2(0, hero_h)
-	_player_hand_view.custom_minimum_size  = Vector2(0, board_h)
+	_player_hand_view.custom_minimum_size  = Vector2(0, _vh * 0.24)
 	# Centre the board slots horizontally
 	if _enemy_board_view is BoxContainer:
 		(_enemy_board_view as BoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1556,11 +1559,11 @@ func _refresh_all() -> void:
 		_dragged_card, _hand_drag_card,
 		_slot_targeting_spell, _slot_select_card
 	)
-	_view.refresh_zone(_enemy_hand_view, _state.players[_opp_idx()].hand, "enemy_hand")
 	_view.refresh_board_zone(_enemy_board_view, _state.players[_opp_idx()].board, "enemy_board")
 	_view.refresh_board_zone(_player_board_view, _state.players[_my_idx()].board, "board")
 	_view.refresh_zone(_player_hand_view, _state.players[_my_idx()].hand, "hand")
-	_view.refresh_hero(_enemy_hero_view, _state.players[_opp_idx()].hero, true)
+	_view.refresh_hero(_enemy_hero_view, _state.players[_opp_idx()].hero, true,
+		_state.players[_opp_idx()].hand.size())
 	_view.refresh_hero(_player_hero_view, _state.players[_my_idx()].hero, false)
 	_update_status()
 	if _coop_pve:
