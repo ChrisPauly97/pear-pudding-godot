@@ -699,6 +699,10 @@ func _apply_ui_sizes() -> void:
 	_end_turn_btn.add_theme_font_size_override("font_size", _font(0.035))
 	_menu_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.07)
 	_menu_btn.add_theme_font_size_override("font_size", _font(0.028))
+	# One system control in battle (GID-120 / TID-457): the pause menu already
+	# carries Return to Menu / Flee / Settings, so the dedicated Menu button is
+	# redundant chrome. Wiring stays intact; only visibility changes.
+	_menu_btn.visible = false
 	_turn_label.add_theme_font_size_override("font_size", _font(0.022))
 	_mana_label.add_theme_font_size_override("font_size", _font(0.022))
 	($SidePanel as VBoxContainer).add_theme_constant_override("separation", int(_vh * 0.025))

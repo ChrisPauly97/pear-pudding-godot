@@ -177,7 +177,14 @@ func _init_zones(vh: float, vw: float, btn_w: float, btn_h: float) -> void:
 	_add_zone(ZONE_NAV, Vector2(nav_x, minimap_bottom), false, vh * 0.005)
 	_add_zone(ZONE_ABILITY, Vector2(vh * 0.01 + il, vh * 0.17 + it), false, vh * 0.005)
 	_add_zone(ZONE_CONTEXT, Vector2(vw * 0.5 - vh * 0.17, vh * 0.80 - ib), false, vh * 0.005)
-	_add_zone(ZONE_SOCIAL, Vector2(vw - vh * 0.32 - ir, vh * 0.87 - ib), true, vh * 0.01)
+	_add_zone(ZONE_SOCIAL, Vector2(vw - vh * 0.56 - ir, vh * 0.87 - ib), true, vh * 0.01)
+	# SOCIAL grows leftward from the corner: fixed width + END alignment, so
+	# expanding the collapsed cluster (TID-457) never pushes buttons off-screen.
+	var social_box: BoxContainer = _zones.get(ZONE_SOCIAL) as BoxContainer
+	if social_box != null:
+		social_box.custom_minimum_size = Vector2(vh * 0.55, 0)
+		social_box.size = Vector2(vh * 0.55, 0)
+		social_box.alignment = BoxContainer.ALIGNMENT_END
 
 func _add_zone(zone_id: String, pos: Vector2, horizontal: bool, sep: float) -> void:
 	var box: Container = HBoxContainer.new() if horizontal else VBoxContainer.new()
@@ -217,8 +224,44 @@ func register_action(id: String, label: String, zone: String, callback: Callable
 	_actions[id] = {"button": btn, "callback": callback, "visible_when": visible_when}
 	if visible_when.is_valid():
 		btn.visible = bool(visible_when.call())
+	# Social actions sit behind a single 💬 toggle (GID-120 / TID-457) so the
+	# steady-state co-op HUD shows one button, not a cluster.
+	if zone == ZONE_SOCIAL:
+		_ensure_social_toggle()
+		btn.visible = _social_expanded
 	UiFx.attach(btn)
 	return btn
+
+# ── Social zone collapse (GID-120 / TID-457) ────────────────────────────────
+
+var _social_expanded: bool = false
+var _social_toggle: Button = null
+
+func _ensure_social_toggle() -> void:
+	if _social_toggle != null and is_instance_valid(_social_toggle):
+		return
+	var zone_box: Container = _zones.get(ZONE_SOCIAL) as Container
+	if zone_box == null:
+		return
+	_social_toggle = Button.new()
+	_social_toggle.text = "💬"
+	_social_toggle.tooltip_text = "Social (chat, emotes)"
+	_social_toggle.custom_minimum_size = Vector2(_vh * 0.06, _vh * 0.06)
+	_social_toggle.add_theme_font_size_override("font_size", int(_vh * 0.028 * _ts))
+	_social_toggle.pressed.connect(_toggle_social_zone)
+	zone_box.add_child(_social_toggle)
+	UiFx.attach(_social_toggle)
+
+func _toggle_social_zone() -> void:
+	_social_expanded = not _social_expanded
+	var zone_box: Container = _zones.get(ZONE_SOCIAL) as Container
+	if zone_box == null:
+		return
+	for child in zone_box.get_children():
+		if child == _social_toggle:
+			continue
+		if child is Control:
+			(child as Control).visible = _social_expanded
 
 func unregister_action(id: String) -> void:
 	var entry: Dictionary = _actions.get(id, {})
