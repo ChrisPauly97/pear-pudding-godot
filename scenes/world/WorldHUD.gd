@@ -20,6 +20,8 @@ var _vh: float = 0.0
 var _vw: float = 0.0
 # Display safe-area insets (GID-120 / TID-455), set in setup().
 var _ins: Dictionary = {}
+# "text_scale" setting multiplier (GID-120 / TID-456), set in setup().
+var _ts: float = 1.0
 
 # ── HUD Action Registry (GID-107) ───────────────────────────────────────────
 # Zones are real Container nodes that auto-stack their (visible) children, so
@@ -65,13 +67,14 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 	_interact_label = interact_label
 	_world_scene = world_scene
 	_ins = _UiUtil.safe_insets(hud.get_viewport())
+	_ts = _UiUtil.text_scale()
 
 	var vp: Vector2 = hud.get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 	var vw: float = vp.x
 	_vh = vh
 	_vw = vw
-	var font_size: int = int(vh * 0.03)
+	var font_size: int = int(vh * 0.03 * _ts)
 	var btn_w: float = vh * 0.14
 	var btn_h: float = vh * 0.07
 
@@ -91,7 +94,7 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 		_interact_btn = register_action("interact", "USE", ZONE_CONTEXT,
 			func() -> void: _world_scene.call("_handle_interact"),
 			Callable(), Vector2(vh * 0.18, vh * 0.08))
-		_interact_btn.add_theme_font_size_override("font_size", int(vh * 0.032))
+		_interact_btn.add_theme_font_size_override("font_size", int(vh * 0.032 * _ts))
 		_interact_btn.hide()
 
 	GameBus.xp_changed.connect(_on_xp_changed)
@@ -132,13 +135,13 @@ func _create_cantrip_buttons(vh: float, _font_size: int) -> void:
 		func() -> void: _world_scene.call("_activate_ghost_phase"),
 		func() -> bool: return CantripManager.is_available("ghost_phase", _current_deck_ids()),
 		Vector2(cantrip_btn_w, cantrip_btn_h))
-	_ghost_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
+	_ghost_btn.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
 
 	_dig_btn = register_action("cantrip_skeleton_dig", "[D] Dig", ZONE_ABILITY,
 		func() -> void: _world_scene.call("_activate_skeleton_dig"),
 		func() -> bool: return CantripManager.is_available("skeleton_dig", _current_deck_ids()),
 		Vector2(cantrip_btn_w, cantrip_btn_h))
-	_dig_btn.add_theme_font_size_override("font_size", int(vh * 0.025))
+	_dig_btn.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
 	# visible_when above is only re-evaluated on demand (refresh_action_cluster); set the
 	# initial state explicitly since deck_ids was already computed here.
 	_ghost_btn.visible = CantripManager.is_available("ghost_phase", deck_ids)
@@ -299,7 +302,7 @@ func _create_xp_bar(vh: float) -> void:
 	_hud.add_child(xp_row)
 
 	_level_label = Label.new()
-	_level_label.add_theme_font_size_override("font_size", int(vh * 0.028))
+	_level_label.add_theme_font_size_override("font_size", int(vh * 0.028 * _ts))
 	_level_label.custom_minimum_size = Vector2(vh * 0.08, 0)
 	xp_row.add_child(_level_label)
 
@@ -309,7 +312,7 @@ func _create_xp_bar(vh: float) -> void:
 	xp_row.add_child(_xp_bar)
 
 	_xp_label = Label.new()
-	_xp_label.add_theme_font_size_override("font_size", int(vh * 0.025))
+	_xp_label.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
 	xp_row.add_child(_xp_label)
 
 func _create_ley_indicator(vh: float) -> void:
@@ -317,7 +320,7 @@ func _create_ley_indicator(vh: float) -> void:
 		return
 	_ley_indicator = Label.new()
 	_ley_indicator.text = "~ Attuned ~"
-	_ley_indicator.add_theme_font_size_override("font_size", int(vh * 0.025))
+	_ley_indicator.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
 	_ley_indicator.add_theme_color_override("font_color", Color(0.1, 0.95, 1.0))
 	_ley_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_ley_indicator.set_anchor_and_offset(SIDE_LEFT, 0.5, -vh * 0.12)

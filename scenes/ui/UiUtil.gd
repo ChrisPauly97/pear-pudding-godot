@@ -95,10 +95,22 @@ static func effect_summary(battle_effect_type: String, battle_effect_value: int,
 # Label factories
 # ---------------------------------------------------------------------------
 
+## The "text_scale" accessibility setting (GID-070), clamped. Resolved through
+## the scene tree root so it stays callable from static context (GID-120 /
+## TID-456); falls back to 1.0 when SceneManager/SaveManager aren't up yet.
+static func text_scale() -> float:
+	var tree: SceneTree = Engine.get_main_loop() as SceneTree
+	if tree == null or tree.root == null:
+		return 1.0
+	var save_mgr: Node = tree.root.get_node_or_null("SaveManager")
+	if save_mgr == null:
+		return 1.0
+	return clampf(float(save_mgr.call("get_setting", "text_scale", 1.0)), 0.5, 2.0)
+
 static func make_title_label(text: String, vh: float) -> Label:
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.038))
+	lbl.add_theme_font_size_override("font_size", int(vh * 0.038 * text_scale()))
 	lbl.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	return lbl
@@ -106,7 +118,7 @@ static func make_title_label(text: String, vh: float) -> Label:
 static func make_body_label(text: String, vh: float) -> Label:
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.022))
+	lbl.add_theme_font_size_override("font_size", int(vh * 0.022 * text_scale()))
 	lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	return lbl
 

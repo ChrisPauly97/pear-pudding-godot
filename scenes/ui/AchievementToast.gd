@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _queue: Array[String] = []
 var _text_queue: Array = []  # Array of [title, desc] pairs for non-achievement messages
@@ -45,20 +46,21 @@ func _build_panel() -> void:
 	header_row.add_theme_constant_override("separation", int(_vw * 0.006))
 	vbox.add_child(header_row)
 
+	var ts: float = _UiUtil.text_scale()
 	var icon_lbl := Label.new()
 	icon_lbl.text = "Achievement!"
-	icon_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	icon_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020 * ts))
 	icon_lbl.modulate = Color(1.0, 0.85, 0.2)
 	header_row.add_child(icon_lbl)
 
 	_label_title = Label.new()
 	_label_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_label_title.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_label_title.add_theme_font_size_override("font_size", int(_vh * 0.022 * ts))
 	_label_title.text = ""
 	vbox.add_child(_label_title)
 
 	_label_desc = Label.new()
-	_label_desc.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	_label_desc.add_theme_font_size_override("font_size", int(_vh * 0.020 * ts))
 	_label_desc.modulate = Color(0.8, 0.8, 0.8)
 	_label_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_label_desc.text = ""
