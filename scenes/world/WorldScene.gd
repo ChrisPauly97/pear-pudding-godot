@@ -4626,11 +4626,15 @@ func _process(delta: float) -> void:
 
 	if _player == null:
 		return
-	# Software floor: snap player back to terrain surface if physics misses it.
+	# Software floor: rescue the player only when physics has genuinely lost
+	# the terrain (chunk collider not built yet, or tunneled through). Never
+	# fire while is_on_floor() — the analytic smoothstep height sits up to
+	# ~0.4 units above the HeightMapShape3D facets on steep hills, and
+	# snapping every frame there (plus cancel_fall) caused the jerky climb.
 	var rx: float = _player.position.x
 	var rz: float = _player.position.z
 	var floor_y: float = get_terrain_height(rx, rz)
-	if _player.position.y < floor_y:
+	if not _player.is_on_floor() and _player.position.y < floor_y - 0.05:
 		_player.position = Vector3(rx, floor_y, rz)
 		_player.cancel_fall()
 		_smooth_camera_target = _player.position + Vector3(20, 20, 20)

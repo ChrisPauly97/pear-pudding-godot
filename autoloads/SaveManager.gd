@@ -224,6 +224,13 @@ var _dirty: bool = false
 var _uid_counter: int = 0
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
 
+# In-flight WorkerThreadPool task id for the background save flush, or -1.
+# The 2s batched flush serialises/signs/writes off the main thread — a mature
+# save is a multi-hundred-KB JSON + SHA-256 HMAC + backup copy, which caused a
+# visible gameplay hitch (worst around chest openings, where every loot pickup
+# re-dirties the save). Only one background write runs at a time.
+var _async_save_task: int = -1
+
 # Slot that provided the live achievement data (set by load_save/new_game; never
 # cleared by adopt_session_character so co-op sessions can still persist achievements).
 var _achievement_slot: int = -1
@@ -268,6 +275,7 @@ func get_slot_metadata(slot: int) -> Dictionary:
 	}
 
 func delete_save_slot(slot: int) -> void:
+	_await_async_save()  # don't let a background flush resurrect the file
 	var path: String = _get_slot_path(slot)
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
@@ -277,11 +285,40 @@ func delete_save_slot(slot: int) -> void:
 
 func _flush_if_dirty() -> void:
 	if _dirty and _loaded:
+		if _async_save_task != -1:
+			return  # previous background write still running — keep _dirty, retry next tick
+		_dirty = false
+		_save_async()
+	if _achievement_dirty and _achievement_slot >= 0 and not _loaded:
+		_achievement_dirty = false
+		_flush_achievements(_achievement_slot)
+
+## Synchronous flush for shutdown/backgrounding — the process may die before a
+## background task or deferred call ever runs, so everything happens inline.
+func _flush_now() -> void:
+	_await_async_save()
+	if _dirty and _loaded:
 		_dirty = false
 		save()
 	if _achievement_dirty and _achievement_slot >= 0 and not _loaded:
 		_achievement_dirty = false
 		_flush_achievements(_achievement_slot)
+
+## Dispatch a background save: deep-copy the state snapshot on the main thread
+## (mutation-safe), then stringify + sign + write on a worker thread.
+func _save_async() -> void:
+	var data: Dictionary = _collect_save_data().duplicate(true)
+	last_saved = str(data.get("last_saved", ""))
+	_async_save_task = WorkerThreadPool.add_task(
+		_write_save_payload.bind(data, active_slot), false, "SaveManager background flush")
+
+func _on_async_save_done() -> void:
+	_async_save_task = -1
+
+func _await_async_save() -> void:
+	if _async_save_task != -1:
+		WorkerThreadPool.wait_for_task_completion(_async_save_task)
+		_async_save_task = -1
 
 ## Write only achievement fields into the on-disk save for the given slot.
 ## Used during co-op sessions where _loaded = false blocks the normal save() path.
@@ -310,7 +347,7 @@ func _notification(what: int) -> void:
 			or what == NOTIFICATION_EXIT_TREE \
 			or what == NOTIFICATION_APPLICATION_PAUSED \
 			or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
-		_flush_if_dirty()
+		_flush_now()
 
 # -------------------------------------------------------------------------
 # Public API
@@ -913,15 +950,27 @@ func load_save() -> bool:
 	_loaded = true
 	return true
 
+## Immediate synchronous save — used by explicit save points (scene
+## transitions, battle end, pause menu, shutdown). The 2s batched flush goes
+## through _save_async() instead so gameplay never blocks on serialisation.
 func save() -> void:
 	if not _loaded:
 		return
+	_await_async_save()  # never two writers on the same slot's tmp file
+	var data: Dictionary = _collect_save_data()
+	last_saved = str(data.get("last_saved", ""))
+	_write_save_payload(data, active_slot)
+
+## Assemble the full save dictionary from live state. Main thread only — the
+## returned dict holds references into live arrays/dicts, so a background
+## writer must deep-copy it first.
+func _collect_save_data() -> Dictionary:
 	# Sync active loadout from player_deck before serialising.
 	if active_loadout >= 0 and active_loadout < loadouts.size():
 		var synced: Array[String] = []
 		synced.assign(player_deck)
 		loadouts[active_loadout]["cards"] = synced
-	var data := {
+	return {
 		"version": CURRENT_SAVE_VERSION,
 		"owned_cards": owned_cards,
 		"mailbox_cards": mailbox_cards,
@@ -1010,11 +1059,18 @@ func save() -> void:
 		"collected_mana_wells": collected_mana_wells,
 		"last_saved": Time.get_datetime_string_from_system(false, true),
 	}
-	var save_path: String = _get_slot_path(active_slot)
-	var tmp_path: String = _get_slot_tmp_path(active_slot)
-	var bak_path: String = _get_slot_bak_path(active_slot)
+
+## Serialise, sign, and atomically write a save snapshot. Safe to run on a
+## worker thread: touches only its arguments, pure path helpers, and the
+## filesystem. Single-flight is guaranteed by _async_save_task + save()'s
+## _await_async_save(), so two writers never race on the same tmp file.
+func _write_save_payload(data: Dictionary, slot: int) -> void:
+	var save_path: String = _get_slot_path(slot)
+	var tmp_path: String = _get_slot_tmp_path(slot)
+	var bak_path: String = _get_slot_bak_path(slot)
 	var tmp := FileAccess.open(tmp_path, FileAccess.WRITE)
 	if not tmp:
+		call_deferred("_on_async_save_done")
 		return
 	var inner_json: String = JSON.stringify(data, "\t")
 	tmp.store_string(JSON.stringify({"hmac": _sign(inner_json), "payload": inner_json}))
@@ -1022,7 +1078,7 @@ func save() -> void:
 	if FileAccess.file_exists(save_path):
 		DirAccess.copy_absolute(save_path, bak_path)
 	DirAccess.rename_absolute(tmp_path, save_path)
-	last_saved = str(data.get("last_saved", ""))
+	call_deferred("_on_async_save_done")
 
 # -------------------------------------------------------------------------
 # State mutators (each auto-saves)

@@ -18,6 +18,11 @@ const LOAD_RADIUS:        int = 6
 const UNLOAD_RADIUS:      int = 7
 const CACHE_EVICT_RADIUS: int = 10
 const MAX_CHUNK_JOBS:     int = 4
+# Kicking a job does main-thread prep (3×3 neighbour tile gen, 529-tile
+# snapshot, entity generation) — cap how many kicks land on one frame so a
+# chunk-boundary crossing doesn't stack up to 4 preps in a single frame.
+# Workers still saturate within 2 frames.
+const MAX_KICKS_PER_FRAME: int = 2
 
 # ── Chunk lifecycle state ──────────────────────────────────────────────────────
 var _chunk_data_cache: Dictionary = {}        # Vector2i -> ChunkData (RefCounted)
@@ -31,6 +36,9 @@ var _chunk_queued: Dictionary = {}            # Vector2i -> true (O(1) membershi
 var _chunk_queue_dirty: bool = false
 var _chunk_build_queue: Array[Vector2i] = []
 var _last_player_chunk: Vector2i = Vector2i(-9999, -9999)
+# Renderers whose visual is live but physics build is deferred to a later
+# frame (ChunkRenderer phase 2) — drained one per frame by process_streaming.
+var _physics_pending: Array[ChunkRenderer] = []
 
 # Direction-change throttle for re-triggering chunk updates mid-turn
 var _last_move_dir: Vector2 = Vector2.ZERO
@@ -102,7 +110,18 @@ func process_streaming(player_pos: Vector3, player_vel: Vector3, camera_frustum:
 		var look_dir: Vector2 = vel_xz.normalized() if vel_xz.length_squared() > 0.25 else Vector2.ZERO
 		_update_chunks(player_pos, camera_frustum, look_dir)
 	_kick_chunk_jobs()
+	_drain_deferred_physics()
 	_commit_chunk_results()
+
+## Build physics for at most one committed chunk per frame. Splitting the
+## heightmap-collision + wall-box creation off the commit frame halves the
+## worst-case frame cost of a chunk landing (ChunkRenderer phase 1/2 design).
+func _drain_deferred_physics() -> void:
+	while not _physics_pending.is_empty():
+		var renderer: ChunkRenderer = _physics_pending.pop_front()
+		if is_instance_valid(renderer) and not renderer.is_queued_for_deletion():
+			renderer.build_physics()
+			return
 
 ## Returns the chunk coordinate the player was last seen in.
 func get_last_player_chunk() -> Vector2i:
@@ -319,8 +338,9 @@ func _kick_chunk_jobs() -> void:
 		_chunk_queue_dirty = false
 
 	var i: int = 0
+	var kicked: int = 0
 	while i < _chunk_build_queue.size():
-		if _chunk_data_pending.size() >= MAX_CHUNK_JOBS:
+		if _chunk_data_pending.size() >= MAX_CHUNK_JOBS or kicked >= MAX_KICKS_PER_FRAME:
 			break
 		var key: Vector2i = _chunk_build_queue[i]
 		if _chunk_renderers.has(key) or _chunk_data_pending.has(key):
@@ -349,6 +369,7 @@ func _kick_chunk_jobs() -> void:
 				key, chunk_data, snap[0], snap[1], snap[2], snap[3], snap[4], _world_seed))
 		_chunk_task_ids.append(task_id)
 		_chunk_task_id_map[key] = task_id
+		kicked += 1
 
 func _commit_chunk_results() -> void:
 	_chunk_build_mutex.lock()
@@ -376,7 +397,9 @@ func _commit_chunk_results() -> void:
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
 	add_child(renderer)
 	renderer.build_visual(chunk, key, _world_scene, _terrain_mat, result["terrain_res"])
-	renderer.build_physics()
+	# Physics is deferred to a later frame (_drain_deferred_physics) — the
+	# WorldScene software floor covers the gap if the player outruns it.
+	_physics_pending.append(renderer)
 	_chunk_renderers[key] = renderer
 	chunk_committed.emit(key, chunk)
 

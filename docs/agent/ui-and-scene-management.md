@@ -484,6 +484,20 @@ HUD elements are constructed by `WorldHUD.gd` (owned and set up by WorldScene). 
 - **Minimap** — circular, diameter `vh * 0.20` (top-right corner). See Minimap section.
 - **Compass ribbon** — `vh * 0.04` tall, `vw * 0.40` wide, centred at the top of the screen (`vh * 0.01` from top). See Compass Ribbon section below.
 
+### Minimap (`scenes/world/Minimap.gd`)
+
+WoW-style circular minimap in the top-right HUD corner (diameter `vh * 0.20`), with an entity-dot overlay and a tap target that opens the full-map view.
+
+**Rendering:**
+- A `SubViewport` with `own_world_3d = false` shares the live `World3D`; a top-down orthographic `Camera3D` at y=200 (pitch −90°, yaw +45° so minimap-up = isometric screen-up) sees `VIEW_RADIUS` 64 world units to the circle edge.
+- **Supersampled 2×** (`SUPERSAMPLE`): the viewport renders at display size × 2 and the `SubViewportContainer` scales it back down — the linear minification anti-aliases terrain edges and props.
+- **Environment override on the minimap camera**: the shared world environment's distance fog reads as a grey haze from 200 units up and its glow pass is wasted at map scale, so the camera carries its own `Environment` — flat dark background, no fog, no glow, constant bright ambient (map stays readable at night).
+- **Grass excluded**: all grass MMIs live on `GrassBlades.RENDER_LAYER` (layer 2); the minimap camera's `cull_mask` masks it out. The terrain's own grass texture is the readable top-down signal; blade instances are noise and GPU cost.
+- Refreshes at ~15 Hz (`_MINIMAP_UPDATE_EVERY` = every 4th frame, `UPDATE_ONCE` mode); the dot overlay redraws every frame (cheap CanvasItem draws, antialiased).
+- A canvas shader clips the square texture to a disc with a smoothstep edge; a gold ring border draws on top.
+
+**Dots:** player (white, centre), enemies (red; spectral blue when nocturnal), chests (gold), doors (blue), NPCs (green), waypoint (cyan, clamped to edge when outside), roaming boss (large red, edge indicator when out of range).
+
 ### Compass Ribbon (`scenes/ui/CompassRibbon.gd`)
 
 A horizontal `Control` node parented to the HUD `CanvasLayer`. It shows cardinal-direction tick marks (W/S/E/N) and coloured dot markers registered by other systems.

@@ -10,7 +10,12 @@ signal tapped
 
 ## World units from player centre to the edge of the circular view.
 const VIEW_RADIUS: float = 64.0
+## Render-target oversampling factor: the SubViewport renders at display size ×
+## this, and the container scales it back down — the linear minification acts
+## as anti-aliasing, so terrain edges and props stop shimmering.
+const SUPERSAMPLE: int = 2
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 
 var _mini_cam: Camera3D
 var _mini_viewport: SubViewport
@@ -47,9 +52,9 @@ class _RingBorder extends Control:
 		var r: float = float(ring_sz) * 0.5
 		var center := Vector2(r, r)
 		# Outer gold ring
-		draw_arc(center, r - 1.5, 0.0, TAU, 64, Color(0.72, 0.60, 0.22, 1.0), 4.0)
+		draw_arc(center, r - 1.5, 0.0, TAU, 64, Color(0.72, 0.60, 0.22, 1.0), 4.0, true)
 		# Inner dark bevel for depth
-		draw_arc(center, r - 5.5, 0.0, TAU, 64, Color(0.12, 0.10, 0.04, 0.75), 1.5)
+		draw_arc(center, r - 5.5, 0.0, TAU, 64, Color(0.12, 0.10, 0.04, 0.75), 1.5, true)
 
 
 # ── Circle-clip shader: cuts the rectangular texture into a disc ───────────────
@@ -58,7 +63,7 @@ shader_type canvas_item;
 void fragment() {
 	vec2 c = UV - vec2(0.5, 0.5);
 	COLOR = texture(TEXTURE, UV);
-	COLOR.a *= step(length(c) * 2.0, 0.98);
+	COLOR.a *= 1.0 - smoothstep(0.955, 0.985, length(c) * 2.0);
 }
 """
 
@@ -95,8 +100,9 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 	hud.add_child(bg)
 
 	# ── SubViewport that shares the main scene's World3D ──────────────────────
+	var vp_px: int = sz * SUPERSAMPLE
 	var viewport := SubViewport.new()
-	viewport.size = Vector2i(sz, sz)
+	viewport.size = Vector2i(vp_px, vp_px)
 	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	viewport.own_world_3d = false   # share the live World3D — sees the same geometry
 	_mini_viewport = viewport
@@ -108,11 +114,32 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 	# with isometric screen-up (world NW = (−1,0,−1)).
 	_mini_cam.rotation_degrees = Vector3(-90.0, 45.0, 0.0)
 	_mini_cam.position = Vector3(0.0, 200.0, 0.0)
+	_mini_cam.near = 1.0
+	_mini_cam.far = 400.0
+	# The shared World3D environment is tuned for the isometric camera — its
+	# distance fog reads as a grey haze from 200 units straight up, and its glow
+	# post-process is wasted work at minimap scale. Override with a clean
+	# environment: no fog, no glow, flat dark background, and a constant bright
+	# ambient so the map stays readable at night.
+	var mini_env := Environment.new()
+	mini_env.background_mode = Environment.BG_COLOR
+	mini_env.background_color = Color(0.04, 0.07, 0.03)
+	mini_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	mini_env.ambient_light_color = Color(0.75, 0.75, 0.75)
+	mini_env.ambient_light_energy = 1.0
+	_mini_cam.environment = mini_env
+	# Grass blades live on their own render layer — from the top the terrain's
+	# baked grass texture is the readable signal; thousands of blade instances
+	# are pure noise and GPU cost at map scale.
+	_mini_cam.cull_mask = 0xFFFFF & ~_GrassBlades.RENDER_LAYER
 	viewport.add_child(_mini_cam)
 
 	# ── SubViewportContainer with circle-clip shader ───────────────────────────
+	# Sized to the oversampled render target, scaled back down for display —
+	# the linear downsample is what smooths the picture.
 	var container := SubViewportContainer.new()
-	container.size = Vector2(float(sz), float(sz))
+	container.size = Vector2(float(vp_px), float(vp_px))
+	container.scale = Vector2.ONE / float(SUPERSAMPLE)
 	container.position = Vector2(px, py)
 	container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	container.add_child(viewport)
@@ -174,7 +201,7 @@ func _on_draw(canvas: Control) -> void:
 	var origin: Vector3 = _player.position
 
 	# White dot at centre = player
-	canvas.draw_circle(center, 5.0, Color(1.0, 1.0, 1.0))
+	canvas.draw_circle(center, 5.0, Color(1.0, 1.0, 1.0), true, -1.0, true)
 
 	_draw_enemy_nodes(canvas, origin)
 	_draw_group(canvas, _chest_nodes, origin, Color(1.00, 0.85, 0.10), 4.0)
@@ -210,8 +237,8 @@ func _draw_waypoint(canvas: Control, origin: Vector3) -> void:
 	var from_center: Vector2 = dot - center
 	if from_center.length() > _half * 0.94:
 		dot = center + from_center.normalized() * (_half * 0.88)
-	canvas.draw_circle(dot, 5.0, Color(0.20, 0.80, 1.00))
-	canvas.draw_arc(dot, 7.0, 0.0, TAU, 12, Color(0.20, 0.80, 1.00, 0.70), 1.5)
+	canvas.draw_circle(dot, 5.0, Color(0.20, 0.80, 1.00), true, -1.0, true)
+	canvas.draw_arc(dot, 7.0, 0.0, TAU, 12, Color(0.20, 0.80, 1.00, 0.70), 1.5, true)
 
 
 func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,
@@ -233,7 +260,7 @@ func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,
 		var dot := Vector2(_half + rx * _scale, _half + ry * _scale)
 		# Only draw dots that fall inside the circle
 		if (dot - center).length() <= _half * 0.94:
-			canvas.draw_circle(dot, radius, color)
+			canvas.draw_circle(dot, radius, color, true, -1.0, true)
 
 func _draw_enemy_nodes(canvas: Control, origin: Vector3) -> void:
 	var center := Vector2(_half, _half)
@@ -253,7 +280,7 @@ func _draw_enemy_nodes(canvas: Control, origin: Vector3) -> void:
 		var dot := Vector2(_half + rx * _scale, _half + ry * _scale)
 		if (dot - center).length() <= _half * 0.94:
 			var color: Color = SPECTRE_COLOR if n.get_meta("is_nocturnal", false) else ENEMY_COLOR
-			canvas.draw_circle(dot, 4.0, color)
+			canvas.draw_circle(dot, 4.0, color, true, -1.0, true)
 
 func _draw_boss_dot(canvas: Control, boss_pos: Vector3, origin: Vector3,
 		center: Vector2) -> void:
@@ -265,8 +292,8 @@ func _draw_boss_dot(canvas: Control, boss_pos: Vector3, origin: Vector3,
 	var dot := Vector2(_half + rx * _scale, _half + ry * _scale)
 	var from_center: Vector2 = dot - center
 	if from_center.length() <= _half * 0.94:
-		canvas.draw_circle(dot, 7.0, BOSS_COLOR)
+		canvas.draw_circle(dot, 7.0, BOSS_COLOR, true, -1.0, true)
 	else:
 		# Edge indicator: clamp to minimap border, slightly faded
 		var edge: Vector2 = center + from_center.normalized() * (_half * 0.88)
-		canvas.draw_circle(edge, 5.0, Color(BOSS_COLOR.r, BOSS_COLOR.g, BOSS_COLOR.b, 0.65))
+		canvas.draw_circle(edge, 5.0, Color(BOSS_COLOR.r, BOSS_COLOR.g, BOSS_COLOR.b, 0.65), true, -1.0, true)

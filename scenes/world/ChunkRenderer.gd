@@ -337,6 +337,34 @@ func _build_grass(world_scene: Node3D, grass_data: Dictionary) -> void:
 
 # ── Props ──────────────────────────────────────────────────
 
+# Shared per prop type across all chunks — the textures were already cached,
+# but every chunk commit also built a fresh material + quad mesh per type,
+# adding avoidable main-thread work to each chunk landing.
+static var _prop_visual_cache: Dictionary = {}  # prop key -> {"mat": ..., "mesh": ...}
+
+static func _get_prop_visual(key_str: String) -> Dictionary:
+	var cached: Dictionary = _prop_visual_cache.get(key_str, {})
+	if not cached.is_empty():
+		return cached
+	var tex: Texture2D = _SpriteRegistry.prop_texture(key_str)
+	if tex == null:
+		tex = TextureGen.prop(key_str)
+	if tex == null:
+		return {}
+	var mat := StandardMaterial3D.new()
+	mat.albedo_texture = tex
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	mat.alpha_scissor_threshold = 0.5
+	mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.disable_receive_shadows = true
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.5, 0.5)
+	var entry: Dictionary = {"mat": mat, "mesh": quad}
+	_prop_visual_cache[key_str] = entry
+	return entry
+
 func _build_props(_biome: int, prop_positions: Dictionary) -> void:
 	if prop_positions.is_empty():
 		return
@@ -345,21 +373,11 @@ func _build_props(_biome: int, prop_positions: Dictionary) -> void:
 		if positions.is_empty():
 			continue
 		var key_str: String = str(pt_key)
-		var tex: Texture2D = _SpriteRegistry.prop_texture(key_str)
-		if tex == null:
-			tex = TextureGen.prop(key_str)
-		if tex == null:
+		var visual: Dictionary = _get_prop_visual(key_str)
+		if visual.is_empty():
 			continue
-		var mat := StandardMaterial3D.new()
-		mat.albedo_texture = tex
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-		mat.alpha_scissor_threshold = 0.5
-		mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-		mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mat.disable_receive_shadows = true
-		var quad := QuadMesh.new()
-		quad.size = Vector2(0.5, 0.5)
+		var mat: StandardMaterial3D = visual["mat"]
+		var quad: QuadMesh = visual["mesh"]
 		var mm := MultiMesh.new()
 		mm.transform_format = MultiMesh.TRANSFORM_3D
 		mm.instance_count = positions.size()
@@ -525,13 +543,11 @@ func _spawn_entities(world_scene: Node3D) -> void:
 			wy = world_scene.get_terrain_height(wx, wz)
 		var landmark_root := Node3D.new()
 		landmark_root.name = "Landmark_" + lid
-		# Mesh
+		# Mesh — deterministic per (variant, biome), so cache instead of
+		# re-running the SurfaceTool build on the main thread per commit.
 		var mi := MeshInstance3D.new()
-		mi.mesh = LandmarkMesh.build(variant, biome)
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = LandmarkMesh._stone_color(biome)
-		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		mi.material_override = mat
+		mi.mesh = _get_landmark_mesh(variant, biome)
+		mi.material_override = _get_landmark_mat(biome)
 		landmark_root.add_child(mi)
 		# Collision (approximation around structure base)
 		var col_size: Vector3 = LandmarkMesh.collision_size(variant)
@@ -553,6 +569,29 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		if world_scene.has_method("register_landmark"):
 			world_scene.register_landmark(lid, l_data)
 
+
+# Landmark meshes/materials are deterministic per (variant, biome) — share them.
+static var _landmark_mesh_cache: Dictionary = {}  # "variant|biome" -> ArrayMesh
+static var _landmark_mat_cache: Dictionary = {}   # biome -> StandardMaterial3D
+
+static func _get_landmark_mesh(variant: String, biome: int) -> ArrayMesh:
+	var key: String = variant + "|" + str(biome)
+	var cached: ArrayMesh = _landmark_mesh_cache.get(key)
+	if cached != null:
+		return cached
+	var mesh: ArrayMesh = LandmarkMesh.build(variant, biome)
+	_landmark_mesh_cache[key] = mesh
+	return mesh
+
+static func _get_landmark_mat(biome: int) -> StandardMaterial3D:
+	var cached: StandardMaterial3D = _landmark_mat_cache.get(biome)
+	if cached != null:
+		return cached
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = LandmarkMesh._stone_color(biome)
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_landmark_mat_cache[biome] = mat
+	return mat
 
 func _set_visibility_range(node: Node3D) -> void:
 	# Apply to all GeometryInstance3D descendants so that multi-mesh entities

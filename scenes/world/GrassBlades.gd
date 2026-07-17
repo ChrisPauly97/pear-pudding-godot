@@ -43,6 +43,11 @@ const SEGMENTS         := 3  # quads along the blade height
 # ~55 (margin included) is pure vertex cost for zero visible blades.
 const VISIBILITY_END: float = 55.0
 
+# Render layer for all grass MMIs (layer 2 as a bitmask). The main camera's
+# default cull_mask includes it; the minimap camera excludes it — at map scale
+# blade instances are noise and GPU cost over the terrain's own grass texture.
+const RENDER_LAYER: int = 1 << 1
+
 # Tall grass patches: tiles grouped into cells of TALL_PATCH_CELL world units;
 # a hash of the cell position determines if it grows tall grass (~18% of cells).
 const TALL_PATCH_CELL:    float = 6.0   # world units per patch cell (≈3 tiles)
@@ -245,6 +250,7 @@ func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i) -> void:
 	# Thousands of 2px-wide blades re-rendered into the shadow map cost a full
 	# extra geometry pass for a shadow that reads as noise at 0.2 opacity.
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.layers = RENDER_LAYER
 	add_child(mmi)
 	_chunk_mmis[chunk_key] = mmi
 
@@ -265,6 +271,7 @@ func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i) -> void:
 	cmmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 	# Billboard quads cast misshapen shadows — disable to avoid diamond artifacts.
 	cmmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	cmmi.layers = RENDER_LAYER
 	add_child(cmmi)
 	_cluster_mmis[chunk_key] = cmmi
 
@@ -356,6 +363,7 @@ func _build_chunk_mmi(centres: Array[Vector2], chunk_key: Vector2i, rng: RandomN
 	# Thousands of 2px-wide blades re-rendered into the shadow map cost a full
 	# extra geometry pass for a shadow that reads as noise at 0.2 opacity.
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.layers = RENDER_LAYER
 	add_child(mmi)
 	_chunk_mmis[chunk_key] = mmi
 
@@ -418,6 +426,7 @@ func _build_chunk_clusters(centres: Array[Vector2], chunk_key: Vector2i, rng: Ra
 	mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 	# Billboard quads cast misshapen shadows — disable to avoid diamond artifacts.
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mmi.layers = RENDER_LAYER
 	add_child(mmi)
 	_cluster_mmis[chunk_key] = mmi
 

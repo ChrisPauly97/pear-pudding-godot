@@ -49,6 +49,16 @@ Physics:
 - Jumping adds an upward impulse when `is_on_floor()` and Space is pressed
 - `move_and_slide()` handles terrain collision via the `HeightMapShape3D` from `TerrainMath`
 
+### Slope Handling (hill climbing)
+
+Generated hills reach ~72° at max height (Mountains `max_hill_h` 7 × `HILL_FACE_H` 1.0 blended over `HILL_CURVE_R` 3.5). Three `CharacterBody3D` settings in `Player._ready()` make them walkable and smooth:
+
+- `floor_max_angle = deg_to_rad(75.0)` — the default 45° treated steep hill faces as walls; the player only ascended because the WorldScene software floor teleported them upward, stalling velocity each time. Wall faces are vertical (90°) and stay unwalkable.
+- `floor_snap_length = 0.6` — sticks the body to the surface on descents and over crests instead of repeated micro-falls.
+- `floor_constant_speed = true` — uniform movement speed regardless of slope.
+
+The **WorldScene software floor** (`_process`) is a rescue for physics genuinely losing the terrain (chunk collider not yet built, tunneling). It fires only when `not _player.is_on_floor()` **and** the player is > 0.05 below the analytic height. It must never fire while grounded: the analytic smoothstep height sits up to ~0.4 units above the `HeightMapShape3D` facets on steep hills (the collision/visual mesh interpolates linearly between 1-unit-spaced vertices), so an unconditioned `y < floor_y` check triggers every frame on slopes. `Player.cancel_fall()` zeroes only vertical velocity — horizontal is preserved so a rescue doesn't stop the player dead.
+
 ### Locomotion Feel (TID-428)
 
 - **Accel/decel:** `velocity.x`/`velocity.z` ramp toward the target via `move_toward(velocity.x, dir.x * move_speed, accel * delta)` instead of snapping — `ACCEL = 40.0` while there's steering intent (manual input or an active tap-to-move path), `DECEL = 50.0` once intent drops to zero. ACCEL applies for the *entire* path-following duration (not just the first tick), so the waypoint-arrival check (`_WP_ARRIVE_DIST_SQ`) keeps full steering authority and doesn't orbit the destination under a sluggish decel. `_is_moving` (drives the walk/idle swap) is keyed off steering intent (`dir`), never residual velocity, so idle doesn't lag the actual stop.
@@ -81,6 +91,8 @@ if player_chunk != last_chunk:
 2. Schedule mesh build on `WorkerThreadPool` (up to 4 concurrent) if not yet rendered
 3. For each chunk beyond **unload radius 7**, free the `ChunkRenderer` node
 4. Evict `ChunkData` from `_chunk_data_cache` beyond **eviction radius 10**
+
+**Frame pacing** (`ChunkStreamingManager`): job *kicks* carry main-thread prep cost (3×3 neighbour tile generation, a 529-tile grid snapshot, entity generation), so at most `MAX_KICKS_PER_FRAME` (2) jobs are dispatched per frame even when 4 worker slots are free. Commits are paced one per frame, and each commit builds only the **visual** phase; the physics phase (`HeightMapShape3D` + merged wall boxes, `ChunkRenderer.build_physics()`) is deferred to a later frame and drained one per frame by `_drain_deferred_physics()`. The WorldScene software floor covers the rare case of the player outrunning a pending collider. Synchronous builds (startup 5×5 ring, named maps) still build physics immediately.
 
 ### Mobile Controls
 

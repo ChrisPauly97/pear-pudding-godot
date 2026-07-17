@@ -51,24 +51,18 @@ The file is a flat JSON object:
 
 ### Dirty Flag and Batched Writes
 
-```gdscript
-var _dirty: bool = false
-var _save_timer: float = 0.0
-const SAVE_INTERVAL: float = 2.0
+Every mutating method (`add_card`, `update_position`, `mark_enemy_defeated`, etc.) sets `_dirty = true`. A 2-second `Timer` (`SAVE_INTERVAL`) calls `_flush_if_dirty()`, which clears the flag and dispatches the write — preventing per-frame I/O.
 
-func mark_dirty() -> void:
-    _dirty = true
+### Background (Async) Flush
 
-func _process(delta: float) -> void:
-    if _dirty:
-        _save_timer += delta
-        if _save_timer >= SAVE_INTERVAL:
-            _flush()
-            _dirty = false
-            _save_timer = 0.0
-```
+The batched flush is **asynchronous** — a full save is a multi-hundred-KB pretty-printed JSON plus an HMAC-SHA256 signature, a payload-escaping outer stringify, a `.bak` copy, and an atomic tmp-rename. Doing that on the main thread caused visible gameplay hitches (worst around chest openings, where every loot pickup re-dirties the save). The split:
 
-Every mutating method (`add_card`, `set_player_position`, `mark_enemy_defeated`, etc.) calls `mark_dirty()`. The actual `FileAccess` write is deferred, preventing per-frame I/O.
+- `_flush_if_dirty()` (2 s timer) → `_save_async()`: deep-copies the state snapshot on the main thread (`_collect_save_data().duplicate(true)` — mutation-safe), then runs `_write_save_payload()` on a `WorkerThreadPool` task. `_async_save_task` holds the task id; only one background write runs at a time (if one is still in flight, the flag stays set and the next tick retries).
+- `save()` (public, synchronous): used by explicit save points — scene transitions, battle end, pause menu. Waits for any in-flight background write (`_await_async_save()`), then writes inline. Never two writers on the same slot's tmp file.
+- `_flush_now()` (shutdown path): `NOTIFICATION_WM_CLOSE_REQUEST` / `EXIT_TREE` / `APPLICATION_PAUSED` / `FOCUS_OUT` flush fully inline, because the process may die before a background task or deferred call ever runs.
+- `_collect_save_data()` assembles the save Dictionary from live state (references, not copies) — main thread only.
+- `_write_save_payload(data, slot)` is thread-safe: it touches only its arguments, pure path helpers, and the filesystem, and reports completion via `call_deferred`.
+- `delete_save_slot()` also waits for an in-flight write so a background flush can't resurrect a just-deleted file.
 
 ### Field Descriptions
 

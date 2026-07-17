@@ -275,6 +275,12 @@ SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene i
 ### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
 `Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.
 
+### Jerky hill climbing — analytic height vs. collision facets (claude/hill-climbing-chest-lag-5m7vov)
+`get_terrain_height()` (smoothstep) sits up to ~0.4 units above the `HeightMapShape3D` facets on steep hills. Any "snap player to terrain" check must be gated on `not is_on_floor()` plus a tolerance, or it teleports every frame on slopes. Steep generated hills reach ~72° — `CharacterBody3D` needs `floor_max_angle` ≈ 75°, `floor_snap_length`, and `floor_constant_speed`, or physics treats them as walls.
+
+### Chest-open hitch — synchronous batched save flush (claude/hill-climbing-chest-lag-5m7vov)
+The 2 s dirty flush ran stringify + HMAC + backup copy + write on the main thread; loot pickups re-dirty the save so chests triggered it repeatedly. Flush now snapshots via `duplicate(true)` and writes on a `WorkerThreadPool` task (single-flight; sync `_flush_now()` at shutdown). Never add main-thread `JSON.stringify` of whole-save data to hot paths. Also: share static materials/meshes/textures for burst-spawned nodes (`WorldItem`, chest gold burst) instead of rebuilding per spawn.
+
 ---
 
 ## Documentation: docs/agent/ Directory
