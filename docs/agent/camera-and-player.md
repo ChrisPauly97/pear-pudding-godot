@@ -92,6 +92,8 @@ if player_chunk != last_chunk:
 3. For each chunk beyond **unload radius 7**, free the `ChunkRenderer` node
 4. Evict `ChunkData` from `_chunk_data_cache` beyond **eviction radius 10**
 
+**Frame pacing** (`ChunkStreamingManager`): job *kicks* carry main-thread prep cost (3×3 neighbour tile generation, a 529-tile grid snapshot, entity generation), so at most `MAX_KICKS_PER_FRAME` (2) jobs are dispatched per frame even when 4 worker slots are free. Commits are paced one per frame, and each commit builds only the **visual** phase; the physics phase (`HeightMapShape3D` + merged wall boxes, `ChunkRenderer.build_physics()`) is deferred to a later frame and drained one per frame by `_drain_deferred_physics()`. The WorldScene software floor covers the rare case of the player outrunning a pending collider. Synchronous builds (startup 5×5 ring, named maps) still build physics immediately.
+
 ### Mobile Controls
 
 `VirtualJoystick` (`scenes/ui/VirtualJoystick.gd`) is added to the HUD when `DisplayServer.is_touchscreen_available()` returns `true`:
