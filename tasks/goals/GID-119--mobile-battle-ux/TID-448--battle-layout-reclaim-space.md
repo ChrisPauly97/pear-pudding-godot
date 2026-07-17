@@ -55,6 +55,11 @@ its buttons overlap the rightmost board slot and hand card.
   the opponent hand count into `refresh_hero`.
 - `CardViewBuilder.refresh_hero(hero_node, hero, is_enemy, hand_count)`: new optional
   param; enemy panel shows a persistent `HandLabel` ("Cards in hand: N").
+- **Co-op/team amendment:** those modes anchor an ally status bar at the top
+  (`PRESET_TOP_WIDE`, 8% vh) that previously overlapped the harmless card-back row.
+  In `_coop_pve` / `_team_pvp` the collapsed hand row stays visible as an empty
+  spacer (8.5% vh), rows compress (hero 8%, boards 22%, hand 20%), and
+  `CardViewBuilder.set_card_scale(0.85)` shrinks cards so everything fits.
 
 ## Documentation Updates
 

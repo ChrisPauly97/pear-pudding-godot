@@ -48,8 +48,12 @@ shadow at 3.5% vh.
   marker label in `refresh_hero`.
 - `BattleScene`: `_text_scale` read from settings in `_ready`; `_font()` helper; all
   font-size overrides in battle chrome converted.
-- `BattleFx`: `set_text_scale()`; float labels bigger with outline; intent banner and
-  status icon fonts scaled.
+- `BattleFx`: optional `text_scale` setup param; float labels bigger with outline;
+  intent banner and status icon fonts scaled.
+- `CardInspectOverlay`: reads the setting itself in `show_card()` (it is also opened
+  from Shop/Inventory), `_font()` applied to all its font sites.
+- Scope cut: BattlePauseUI / BattleResultUI / GambitPickerOverlay keep base sizes
+  (large-font overlays).
 
 ## Documentation Updates
 
