@@ -671,17 +671,23 @@ func _font(pct: float) -> int:
 	return int(_vh * pct * _text_scale)
 
 func _apply_ui_sizes() -> void:
-	var hero_h: float = _vh * 0.10
-	var board_h: float = _vh * 0.27
+	# Co-op PvE and team PvP draw an ally status bar across the top of the
+	# screen (PRESET_TOP_WIDE, 8% vh) — reserve that band and compress the rest.
+	var top_bar: bool = _coop_pve or _team_pvp
+	if top_bar:
+		_view.set_card_scale(0.85)
+	var hero_h: float = _vh * (0.08 if top_bar else 0.10)
+	var board_h: float = _vh * (0.22 if top_bar else 0.27)
 	# The enemy hand row (face-down card backs) is collapsed on all layouts —
 	# the count is shown on the enemy hero panel instead (GID-119 / TID-448).
-	_enemy_hand_view.visible = false
-	_enemy_hand_view.custom_minimum_size   = Vector2.ZERO
+	# In top-bar modes it stays visible as an empty spacer under the bar.
+	_enemy_hand_view.visible = top_bar
+	_enemy_hand_view.custom_minimum_size   = Vector2(0, _vh * 0.085 if top_bar else 0.0)
 	_enemy_hero_view.custom_minimum_size   = Vector2(0, hero_h)
 	_enemy_board_view.custom_minimum_size  = Vector2(0, board_h)
 	_player_board_view.custom_minimum_size = Vector2(0, board_h)
 	_player_hero_view.custom_minimum_size  = Vector2(0, hero_h)
-	_player_hand_view.custom_minimum_size  = Vector2(0, _vh * 0.24)
+	_player_hand_view.custom_minimum_size  = Vector2(0, _vh * (0.20 if top_bar else 0.24))
 	# Centre the board slots horizontally
 	if _enemy_board_view is BoxContainer:
 		(_enemy_board_view as BoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER

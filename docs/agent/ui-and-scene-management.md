@@ -341,7 +341,7 @@ Overlay (extends Control, emits `closed`) showing volume and accessibility contr
 
 **Accessibility & Comfort section:**
 - **Screen Shake** `CheckButton` — persists `"screen_shake"` (default `true`); `BattleScene._trigger_shake()` checks this before shaking
-- **Text Scale** `OptionButton` (Small=0.85 / Normal=1.0 / Large=1.25) — persists `"text_scale"` (default `1.0`)
+- **Text Scale** `OptionButton` (Small=0.85 / Normal=1.0 / Large=1.25) — persists `"text_scale"` (default `1.0`). Consumed since GID-119 / TID-451 by the battle UI: `BattleScene`, `CardViewBuilder`, `BattleFx`, and `CardInspectOverlay` each expose a `_font(pct)` helper = `int(vh * pct * text_scale)` (clamped 0.5–2.0) and route every battle font-size override through it. Other scenes do not consume it yet.
 - **Haptics** `CheckButton` (shown only on `OS.has_feature("mobile")`) — persists `"haptics"` (default `true`); `BattleScene._haptic(ms)` checks before calling `Input.vibrate_handheld(ms)`
 
 **Battle section (GID-069 TID-254):**
