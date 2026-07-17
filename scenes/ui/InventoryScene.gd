@@ -605,11 +605,15 @@ func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 		chev_lbl.position = Vector2(tile_size - _ref * 0.03, tile_size - _ref * 0.022)
 		cube.add_child(chev_lbl)
 
-	cube.pressed.connect(func() -> void:
+	# Scroll-safe tap (GID-120 / TID-454): a scroll gesture ending on a tile must
+	# not silently edit the working deck; a tile-started drag scrolls the grid.
+	var owning_scroll: ScrollContainer = _deck_scroll if in_deck else _collection_scroll
+	var on_tap: Callable = func() -> void:
 		if in_deck:
 			_on_remove_by_uid(uid)
 		else:
-			_on_add_by_uid(uid))
+			_on_add_by_uid(uid)
+	_UiUtil.bind_scroll_safe_press(cube, on_tap, owning_scroll)
 
 	var lpd := LongPressDetector.new()
 	cube.add_child(lpd)

@@ -10,6 +10,7 @@ signal tapped
 
 ## World units from player centre to the edge of the circular view.
 const VIEW_RADIUS: float = 64.0
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _mini_cam: Camera3D
 var _mini_viewport: SubViewport
@@ -79,9 +80,11 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 	_half  = float(sz) * 0.5
 	_scale = float(sz) / (VIEW_RADIUS * 2.0)
 
+	# Safe-area insets keep the minimap clear of cutouts (GID-120 / TID-455).
+	var ins: Dictionary = _UiUtil.safe_insets(world.get_viewport())
 	var margin: float = vh * 0.01
-	var px: float = vw - float(sz) - margin
-	var py: float = margin   # top-right corner
+	var px: float = vw - float(sz) - margin - float(ins.get("right", 0.0))
+	var py: float = margin + float(ins.get("top", 0.0))   # top-right corner
 
 	# ── Dark background ────────────────────────────────────────────────────────
 	var bg := ColorRect.new()

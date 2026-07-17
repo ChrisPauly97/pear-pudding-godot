@@ -53,12 +53,18 @@ const _EMERGENCE_LABELS: Dictionary = {
 }
 
 var _card: CardInstance = null
+# Multiplier from the "text_scale" accessibility setting (GID-119 / TID-451).
+var _ts: float = 1.0
 
 func _ready() -> void:
 	super._ready()
 
+func _font(pct: float) -> int:
+	return int(_vh * pct * _ts)
+
 func show_card(card: CardInstance) -> void:
 	_card = card
+	_ts = clampf(float(SceneManager.save_manager.get_setting("text_scale", 1.0)), 0.5, 2.0)
 	_build_ui()
 
 func _build_ui() -> void:
@@ -84,7 +90,7 @@ func _build_single_face_ui() -> void:
 	var close_btn := Button.new()
 	close_btn.text = "Close"
 	close_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.055)
-	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	close_btn.add_theme_font_size_override("font_size", _font(0.025))
 	close_btn.pressed.connect(_close)
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -112,7 +118,7 @@ func _build_dual_face_ui() -> void:
 	# Header
 	var header_lbl := Label.new()
 	header_lbl.text = "Dual-Faced Card"
-	header_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	header_lbl.add_theme_font_size_override("font_size", _font(0.028))
 	header_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 	header_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	outer_vbox.add_child(header_lbl)
@@ -133,7 +139,7 @@ func _build_dual_face_ui() -> void:
 	var close_btn := Button.new()
 	close_btn.text = "Close"
 	close_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.055)
-	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	close_btn.add_theme_font_size_override("font_size", _font(0.025))
 	close_btn.pressed.connect(_close)
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -171,7 +177,7 @@ func _build_face_panel(parent: HBoxContainer, tmpl: Dictionary, card: CardInstan
 	# Face tag
 	var tag_lbl := Label.new()
 	tag_lbl.text = face_label + (" (Active)" if is_active else "")
-	tag_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	tag_lbl.add_theme_font_size_override("font_size", _font(0.019))
 	tag_lbl.add_theme_color_override("font_color", Color(0.4, 1.0, 0.6) if is_active else Color(0.65, 0.65, 0.75))
 	tag_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(tag_lbl)
@@ -188,7 +194,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 	# Name
 	var name_lbl := Label.new()
 	name_lbl.text = str(tmpl.get("name", "?")) if not tmpl.is_empty() else (card.name if card != null else "?")
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.030))
+	name_lbl.add_theme_font_size_override("font_size", _font(0.030))
 	name_lbl.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	container.add_child(name_lbl)
@@ -205,7 +211,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 			class_text += " / " + mb_val.capitalize()
 	var class_lbl := Label.new()
 	class_lbl.text = class_text
-	class_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	class_lbl.add_theme_font_size_override("font_size", _font(0.018))
 	class_lbl.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
 	class_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	container.add_child(class_lbl)
@@ -219,7 +225,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 		stats_lbl.text = "Cost %d   ·   %d / %d" % [cost_v, atk_v, hp_v]
 	else:
 		stats_lbl.text = "Cost %d" % cost_v
-	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	stats_lbl.add_theme_font_size_override("font_size", _font(0.022))
 	stats_lbl.add_theme_color_override("font_color", Color.WHITE)
 	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	container.add_child(stats_lbl)
@@ -231,7 +237,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 	var desc: String = str(tmpl.get("description", "")) if not tmpl.is_empty() else (card.description if card != null else "")
 	var desc_lbl := Label.new()
 	desc_lbl.text = desc
-	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+	desc_lbl.add_theme_font_size_override("font_size", _font(0.019))
 	desc_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -244,7 +250,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 		var effect_lbl := Label.new()
 		var template_str: String = _SPELL_EFFECT_LABELS.get(se, se)
 		effect_lbl.text = template_str.replace("[power]", str(sp))
-		effect_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+		effect_lbl.add_theme_font_size_override("font_size", _font(0.018))
 		effect_lbl.add_theme_color_override("font_color", Color(0.6, 1.0, 0.8))
 		effect_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		effect_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -268,7 +274,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 				base_desc += " (" + ("Active" if card.shroud_active else "Consumed") + ")"
 			var kw_lbl := Label.new()
 			kw_lbl.text = kw.capitalize() + " — " + base_desc
-			kw_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
+			kw_lbl.add_theme_font_size_override("font_size", _font(0.017))
 			kw_lbl.add_theme_color_override("font_color", Color(0.75, 1.0, 0.8))
 			kw_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			kw_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -283,7 +289,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 		var em_lbl := Label.new()
 		var em_tmpl: String = str(_EMERGENCE_LABELS.get(ee, ee))
 		em_lbl.text = em_tmpl.replace("[power]", str(ep))
-		em_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+		em_lbl.add_theme_font_size_override("font_size", _font(0.018))
 		em_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 		em_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		em_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -299,7 +305,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 				continue
 			var st_lbl := Label.new()
 			st_lbl.text = "%s: %d" % [labels[i], card.get_status_value(effects[i])]
-			st_lbl.add_theme_font_size_override("font_size", int(_vh * 0.019))
+			st_lbl.add_theme_font_size_override("font_size", _font(0.019))
 			st_lbl.add_theme_color_override("font_color", colors[i])
 			st_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			container.add_child(st_lbl)

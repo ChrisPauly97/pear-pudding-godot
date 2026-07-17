@@ -174,6 +174,66 @@ func _exit_tree() -> void:
 		_saved_world_scene.free()
 	_saved_world_scene = null
 
+# ── Android back gesture (GID-120 / TID-453) ────────────────────────────────
+# quit_on_go_back is disabled in project.godot, so the OS back request lands
+# here. Everywhere except the main menu it synthesizes an Escape press —
+# `pause` and `ui_cancel` are both Escape-bound, so WorldScene pause,
+# BattleScene pause, BaseOverlay._close(), and MenuHub close all just work.
+# At the main menu, quit only on a second back press within 2 seconds.
+
+var _back_quit_deadline_ms: int = 0
+var _back_quit_toast: CanvasLayer = null
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		_handle_back_request()
+
+func _handle_back_request() -> void:
+	if _state != State.MENU:
+		_synthesize_escape()
+		return
+	if Time.get_ticks_msec() <= _back_quit_deadline_ms:
+		get_tree().quit()
+		return
+	_back_quit_deadline_ms = Time.get_ticks_msec() + 2000
+	_show_back_quit_toast()
+
+func _synthesize_escape() -> void:
+	var press := InputEventKey.new()
+	press.keycode = KEY_ESCAPE
+	press.physical_keycode = KEY_ESCAPE
+	press.pressed = true
+	Input.parse_input_event(press)
+	var release := InputEventKey.new()
+	release.keycode = KEY_ESCAPE
+	release.physical_keycode = KEY_ESCAPE
+	release.pressed = false
+	Input.parse_input_event(release)
+
+func _show_back_quit_toast() -> void:
+	if _back_quit_toast != null and is_instance_valid(_back_quit_toast):
+		return
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var layer := CanvasLayer.new()
+	layer.layer = 250
+	var lbl := Label.new()
+	lbl.text = "Press back again to exit"
+	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	lbl.add_theme_color_override("font_color", Color.WHITE)
+	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
+	lbl.add_theme_constant_override("shadow_offset_x", 2)
+	lbl.add_theme_constant_override("shadow_offset_y", 2)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.size = Vector2(vp.x * 0.5, vp.y * 0.06)
+	lbl.position = Vector2(vp.x * 0.25, vp.y * 0.82)
+	layer.add_child(lbl)
+	add_child(layer)
+	_back_quit_toast = layer
+	get_tree().create_timer(2.0).timeout.connect(func() -> void:
+		if _back_quit_toast != null and is_instance_valid(_back_quit_toast):
+			_back_quit_toast.queue_free()
+		_back_quit_toast = null)
+
 ## Dedicated server boot (GID-097 / TID-352).
 ## Invocation: godot --headless -- --server [--port N] [--map NAME]
 ## Parses user args, sets NetworkManager server-mode, hosts on the given port with

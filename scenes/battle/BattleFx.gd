@@ -16,6 +16,8 @@ var _player_board_view: Control
 var _scene_root: Control
 var _intent_panel: Control = null
 var _is_shaking: bool = false
+# Multiplier from the "text_scale" setting (GID-119 / TID-451).
+var _text_scale: float = 1.0
 
 func setup(
 	p_vh: float,
@@ -24,7 +26,8 @@ func setup(
 	p_player_hero: Control,
 	p_enemy_board: Control,
 	p_player_board: Control,
-	p_root: Control
+	p_root: Control,
+	p_text_scale: float = 1.0
 ) -> void:
 	_vh = p_vh
 	_float_layer = p_float_layer
@@ -33,6 +36,10 @@ func setup(
 	_enemy_board_view = p_enemy_board
 	_player_board_view = p_player_board
 	_scene_root = p_root
+	_text_scale = p_text_scale
+
+func _font(pct: float) -> int:
+	return int(_vh * pct * _text_scale)
 
 func set_game_state(state: GameState) -> void:
 	_state = state
@@ -54,7 +61,7 @@ func show_intent_banner(text: String) -> void:
 	panel.add_theme_stylebox_override("panel", style)
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	lbl.add_theme_font_size_override("font_size", _font(0.022))
 	lbl.add_theme_color_override("font_color", Color.WHITE)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	panel.add_child(lbl)
@@ -126,14 +133,14 @@ func _update_status_icons_impl(hbox: HBoxContainer, entity) -> void:
 	var effects: Array[String] = ["poison", "armor", "freeze", "stun"]
 	var colors: Array[Color] = [Color.GREEN, Color.CORNFLOWER_BLUE, Color.CYAN, Color.YELLOW]
 	var abbrevs: Array[String] = ["P", "A", "F", "S"]
-	var icon_sz: float = _vh * 0.022
+	var icon_sz: int = _font(0.022)
 	for i in range(effects.size()):
 		if not entity.has_status(effects[i]):
 			continue
 		var lbl := Label.new()
 		lbl.text = "%s%d" % [abbrevs[i], entity.get_status_value(effects[i])]
 		lbl.add_theme_color_override("font_color", colors[i])
-		lbl.add_theme_font_size_override("font_size", int(icon_sz))
+		lbl.add_theme_font_size_override("font_size", icon_sz)
 		hbox.add_child(lbl)
 
 # -------------------------------------------------------------------------
@@ -222,14 +229,14 @@ func spawn_float_labels(snap: Array[Dictionary]) -> void:
 func spawn_float_label(pos: Vector2, text: String, color: Color) -> void:
 	if _float_layer == null or not is_instance_valid(_float_layer):
 		return
-	var font_sz: int = int(_vh * 0.035) if _vh > 0.0 else 18
+	var font_sz: int = _font(0.040) if _vh > 0.0 else 18
 	var lbl := Label.new()
 	lbl.text = text
 	lbl.add_theme_font_size_override("font_size", font_sz)
 	lbl.add_theme_color_override("font_color", color)
-	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
-	lbl.add_theme_constant_override("shadow_offset_x", 2)
-	lbl.add_theme_constant_override("shadow_offset_y", 2)
+	# Thick outline beats a 2px shadow for legibility over a busy board.
+	lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	lbl.add_theme_constant_override("outline_size", maxi(2, int(_vh * 0.006)))
 	lbl.position = pos - Vector2(15.0, 10.0)
 	_float_layer.add_child(lbl)
 	var tw: Tween = lbl.create_tween()

@@ -90,6 +90,7 @@ static func attach_drag_scroll(scroll: ScrollContainer) -> void:
 	var drag_start := [0.0]
 	var scroll_start := [0]
 	var dragging := [false]
+	var last_motion_ms := [0]
 
 	scroll.gui_input.connect(func(ev: InputEvent) -> void:
 		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
@@ -97,10 +98,20 @@ static func attach_drag_scroll(scroll: ScrollContainer) -> void:
 				drag_start[0] = ev.position.y
 				scroll_start[0] = scroll.scroll_vertical
 				dragging[0] = false
+				last_motion_ms[0] = Time.get_ticks_msec()
 			else:
 				dragging[0] = false
 		elif ev is InputEventMouseMotion:
 			if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+				# A press consumed by a child button never reaches this handler —
+				# adopt such a gesture on its first motion instead of scrolling
+				# from the previous gesture's stale origin (GID-120 / TID-454).
+				var now: int = Time.get_ticks_msec()
+				if now - int(last_motion_ms[0]) > 150:
+					drag_start[0] = ev.position.y
+					scroll_start[0] = scroll.scroll_vertical
+					dragging[0] = false
+				last_motion_ms[0] = now
 				var dy: float = ev.position.y - drag_start[0]
 				if dragging[0] or absf(dy) > 8.0:
 					dragging[0] = true

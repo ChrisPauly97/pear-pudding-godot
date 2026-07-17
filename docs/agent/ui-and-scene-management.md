@@ -61,6 +61,54 @@ All 9 modal overlays extend BaseOverlay (as of GID-073): `InventoryScene`, `Shop
 
 ---
 
+## Mobile World & Menu UX (GID-120)
+
+### Android back gesture (TID-453)
+
+`application/config/quit_on_go_back=false` in project.godot; SceneManager's
+`_notification` handles `NOTIFICATION_WM_GO_BACK_REQUEST`. Outside the main menu it
+synthesizes an Escape key press/release via `Input.parse_input_event` — Escape is
+bound to both `pause` and `ui_cancel`, so WorldScene pause, BattleScene pause,
+`BaseOverlay._close()`, and MenuHub close all handle it unchanged. At `State.MENU`,
+back quits only on a second press within 2 s ("Press back again to exit" toast).
+
+### Scroll-safe taps (TID-454)
+
+`UiUtil.bind_scroll_safe_press(btn, callback, scroll, slop)` — buttons capture the
+pointer once pressed, so scroll gestures that start on a button used to neither
+scroll nor differ from taps. The helper fires `callback` only when the press
+travelled less than `slop`, and pans `scroll` itself otherwise. Used by
+InventoryScene deck/collection tiles and ShopScene Buy buttons. **Any new tappable
+row inside a drag-scrolled list whose tap has side effects (deck edit, purchase)
+must use this helper, not `pressed.connect`.** `BaseOverlay.attach_drag_scroll`
+re-initializes its gesture origin after >150 ms without motion so child-consumed
+presses can't produce scroll jumps.
+
+### Display safe-area insets (TID-455)
+
+`UiUtil.safe_insets(viewport)` → `{left, top, right, bottom}` canvas-px floats from
+`DisplayServer.get_display_safe_area()` (zeros on desktop/editor). Consumers:
+WorldHUD `_init_zones` (+ coord label, XP bar), VirtualJoystick `_edge_margin`,
+Minimap corner position, BattleScene SidePanel `offset_right`. Edge-anchored UI
+added later should apply these too.
+
+### text_scale coverage (TID-456)
+
+`UiUtil.text_scale()` resolves the setting from static context (SaveManager autoload
+via `Engine.get_main_loop()`). Applied in `make_title_label`/`make_body_label`,
+all WorldHUD fonts (`_ts` member), and AchievementToast. Battle files have their own
+`_font()` helpers (GID-119).
+
+### Button consolidation (TID-457)
+
+- Battle: the tscn `MenuButton` is hidden (`_apply_ui_sizes`) — the pause menu
+  already carries Return to Menu / Flee / Settings.
+- ZONE_SOCIAL is collapsed behind a persistent "💬" toggle: `register_action`
+  hides new social-zone buttons while `_social_expanded` is false; the zone box is
+  fixed-width with `ALIGNMENT_END` so expansion grows leftward from the corner.
+
+---
+
 ## Menu Hub (GID-081)
 
 ### MenuHubScene (`scenes/ui/MenuHubScene.gd`)
@@ -341,7 +389,7 @@ Overlay (extends Control, emits `closed`) showing volume and accessibility contr
 
 **Accessibility & Comfort section:**
 - **Screen Shake** `CheckButton` — persists `"screen_shake"` (default `true`); `BattleScene._trigger_shake()` checks this before shaking
-- **Text Scale** `OptionButton` (Small=0.85 / Normal=1.0 / Large=1.25) — persists `"text_scale"` (default `1.0`)
+- **Text Scale** `OptionButton` (Small=0.85 / Normal=1.0 / Large=1.25) — persists `"text_scale"` (default `1.0`). Consumed since GID-119 / TID-451 by the battle UI: `BattleScene`, `CardViewBuilder`, `BattleFx`, and `CardInspectOverlay` each expose a `_font(pct)` helper = `int(vh * pct * text_scale)` (clamped 0.5–2.0) and route every battle font-size override through it. Other scenes do not consume it yet.
 - **Haptics** `CheckButton` (shown only on `OS.has_feature("mobile")`) — persists `"haptics"` (default `true`); `BattleScene._haptic(ms)` checks before calling `Input.vibrate_handheld(ms)`
 
 **Battle section (GID-069 TID-254):**

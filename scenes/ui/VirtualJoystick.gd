@@ -3,6 +3,7 @@ extends Control
 # All sizing is computed from viewport height in _ready() so controls scale
 # correctly across phones, tablets, and varying DPI rather than using fixed px.
 const DEADZONE: float = 0.25
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _base_r: float       # joystick outer ring radius
 var _knob_r: float       # joystick knob radius
@@ -28,6 +29,12 @@ func _ready() -> void:
 	_jump_r      = vh * 0.060
 	_interact_r  = vh * 0.055
 	_edge_margin = vh * 0.118   # ≈180 px at 1520 px vh
+	# Keep thumb controls out of display cutouts / rounded corners
+	# (GID-120 / TID-455). Both bottom corners host controls, so take the
+	# largest relevant inset.
+	var ins: Dictionary = _UiUtil.safe_insets(get_viewport())
+	_edge_margin += maxf(float(ins.get("bottom", 0.0)),
+		maxf(float(ins.get("left", 0.0)), float(ins.get("right", 0.0))))
 
 func _get_joy_center() -> Vector2:
 	return get_viewport_rect().size - Vector2(_edge_margin, _edge_margin)

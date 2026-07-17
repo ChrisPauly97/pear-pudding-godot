@@ -635,6 +635,74 @@ else:
 
 ---
 
+## Mobile Battle UX & Accessibility (GID-119)
+
+Landscape phones make viewport height (vh) the scarce resource; this goal reworked the
+battle screen around that.
+
+### Layout (TID-448)
+
+- `BattleScene.tscn`: EnemyArea spans anchors 0–0.38, PlayerArea 0.38–1.0, and all
+  content containers (plus the Divider) end at `anchor_right = 0.86`. `SidePanel`
+  occupies 0.86–1.0 — side-panel controls can no longer overlap board slots or hand
+  cards.
+- The **enemy hand row is collapsed** (`_apply_ui_sizes` hides `EnemyHandView`).
+  The opponent's hand size shows as a "Cards in hand: N" line on the enemy hero panel:
+  `CardViewBuilder.refresh_hero(hero_node, hero, is_enemy, hand_count)` — the fourth
+  arg defaults to -1 (hidden); `_refresh_all()` passes `players[_opp_idx()].hand.size()`.
+  The `"enemy_hand"` zone id / card-back path still exists but has no callers.
+- Row heights: hero panels 10% vh, boards 27% vh, player hand 24% vh.
+
+### Card size + hand fan (TID-449)
+
+- **`CardViewBuilder.card_size()`** (`vh*0.135 × vh*0.24`) is the single source of
+  truth for card/slot panels — `_slot_size()`, `refresh_board_zone`, and
+  `BattleScene._make_card_view` all delegate to it. Do not reintroduce inline sizes.
+- `refresh_zone` calls `_apply_hand_separation` for the `"hand"` zone: when
+  count × card width exceeds the row width, HBox separation goes negative so the hand
+  fans (later children draw on top), clamped to ≤55% overlap.
+- Card faces carry gameplay text only: spell/emergence ability text stays (green/amber),
+  minion flavor `description` is no longer rendered on faces (`DescLabel` hidden) — the
+  long-press inspect overlay still shows it.
+
+### Tap-first casting (TID-450)
+
+- `_on_hand_card_tap` mirrors `_board_drop` routing, so every card class is playable
+  without a drag: minions → slot-select (TID-293), slot spells → slot targeting, ally
+  spells (`_coop_pve`) → ally targeting, enemy/friendly-targeted spells →
+  `_enter_targeting_mode` (same empty-board guards as the drag path; guard failures
+  fall back to inspect), untargeted spells → `_show_cast_confirm(card)`.
+- `_show_cast_confirm` is a centered Cast/Cancel panel (`_cast_confirm_layer`, layer
+  150) — untargeted spells resolve instantly, so a bare tap must not cast unprompted.
+  Drag-drops skip the confirm (deliberate gesture) but share the same
+  `_cast_confirmed_spell(card)` path, which handles the PvP-client intent relay.
+- The targeting `✕ Cancel` button is `vh*0.20 × vh*0.07`.
+
+### Readability & accessibility (TID-451)
+
+- The `"text_scale"` setting (GID-070; Small 0.85 / Normal 1.0 / Large 1.25) is now
+  consumed: `BattleScene`, `CardViewBuilder`, `BattleFx` (via setup params) and
+  `CardInspectOverlay` (reads the setting itself — it is also used by Shop/Inventory)
+  each have `_font(pct) -> int(vh * pct * scale)`. **All battle font-size overrides in
+  those four files must go through `_font()`.** BattlePauseUI / BattleResultUI /
+  GambitPickerOverlay keep base sizes (large-font overlays, deliberate scope cut).
+- Non-color targeting cue: `CardViewBuilder._target_mark(panel, font_sz)` lazily
+  attaches a centered "◎ TARGET" overlay Label (white, black outline, mouse-ignored);
+  `apply_card_style` shows it on spell-targetable minions and ward-valid attack
+  targets, `refresh_hero` on the attackable/spell-targetable enemy hero.
+- Float damage/heal labels: 4% vh with a black outline (was 3.5% + 2px shadow).
+- Card-face fonts: name 2.0% vh, stats 2.2%, ability 1.7%, keyword badges 2.0%,
+  empty-slot numbers 3.0%.
+
+### Tutorials (TID-452)
+
+- First-battle overlay copy teaches tap-to-play / tap-to-attack / hold-to-inspect.
+- `TutorialRegistry` gained `tap_to_cast`; `BattleScene._ready` emits `tap_and_hold`
+  on the first battle and `tap_to_cast` on the next (gated on the
+  `seen_tutorial_tap_and_hold` story flag) so popups never stack.
+
+---
+
 ## Puzzle Battle Mode (GID-040)
 
 Handcrafted "win-this-turn" puzzles found at glowing shrines in named maps. Each puzzle teaches a keyword interaction and rewards a rare card on first solve.
