@@ -123,6 +123,7 @@
 | [GID-117](goals/GID-117--game-appeal/goal.md) | Game Appeal — Articulate & Prove "Why Play This" | done (headless test run unverified in-sandbox — see goal.md note) | 5 / 5 |
 | [GID-118](goals/GID-118--art-sprite-assets/goal.md) | Open-Source Character, Enemy & World Art Sprites | done | 4 / 4 |
 | [GID-119](goals/GID-119--mobile-battle-ux/goal.md) | Mobile Battle UX & Accessibility | done (headless validation unverified in-sandbox — see goal.md note) | 5 / 5 |
+| [GID-120](goals/GID-120--mobile-world-menu-ux/goal.md) | Mobile World & Menu UX | done (headless validation unverified in-sandbox — see goal.md note) | 5 / 5 |
 
 ## Backlog
 
