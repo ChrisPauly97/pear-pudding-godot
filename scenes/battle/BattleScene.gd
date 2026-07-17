@@ -477,7 +477,12 @@ func _ready() -> void:
 	if not _state.scripted_battle:
 		if not SceneManager.save_manager.get_story_flag("tutorial_battle_tip"):
 			_show_battle_tutorial()
-		GameBus.tutorial_popup_requested.emit("tap_and_hold")
+		# One popup per battle entry: tap_and_hold on the first, tap_to_cast on
+		# the next (GID-119 / TID-452) — both are one-shot via seen flags.
+		if SceneManager.save_manager.get_story_flag("seen_tutorial_tap_and_hold"):
+			GameBus.tutorial_popup_requested.emit("tap_to_cast")
+		else:
+			GameBus.tutorial_popup_requested.emit("tap_and_hold")
 	else:
 		_maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
 
@@ -739,7 +744,7 @@ func _show_battle_tutorial() -> void:
 	margin.add_child(vbox)
 
 	var label := Label.new()
-	label.text = "Drag a card from your hand to the board to play it.\nTap an enemy minion to attack with your minion."
+	label.text = "Tap a card, then tap a green slot to play it.\nTap your minion, then tap an enemy to attack.\nHold any card to see its details. (Dragging works too.)"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", font_size)
