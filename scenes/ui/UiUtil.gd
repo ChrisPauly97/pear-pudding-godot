@@ -3,6 +3,36 @@ extends Object
 const _UiFx = preload("res://scenes/ui/UiFx.gd")
 
 # ---------------------------------------------------------------------------
+# Scroll-safe taps (GID-120 / TID-454)
+# ---------------------------------------------------------------------------
+
+## Connects `callback` to fire only on a clean tap of `btn`. Buttons capture the
+## pointer once pressed, so a scroll gesture starting on a button neither
+## scrolls the list nor differs from a tap on release. This guard drops the
+## press when the finger travels beyond `slop`, and (when `scroll` is given)
+## forwards the pan so tile-started drags still scroll the list.
+static func bind_scroll_safe_press(btn: BaseButton, callback: Callable,
+		scroll: ScrollContainer = null, slop: float = 14.0) -> void:
+	var start := [Vector2.ZERO]
+	var scroll_start := [0]
+	var moved := [false]
+	btn.button_down.connect(func() -> void:
+		start[0] = btn.get_global_mouse_position()
+		scroll_start[0] = scroll.scroll_vertical if scroll != null else 0
+		moved[0] = false)
+	btn.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseMotion and btn.button_pressed:
+			var pos: Vector2 = btn.get_global_mouse_position()
+			if moved[0] or pos.distance_to(start[0] as Vector2) > slop:
+				moved[0] = true
+				if scroll != null:
+					var dy: float = pos.y - (start[0] as Vector2).y
+					scroll.scroll_vertical = int(scroll_start[0]) - int(dy))
+	btn.pressed.connect(func() -> void:
+		if not bool(moved[0]):
+			callback.call())
+
+# ---------------------------------------------------------------------------
 # Rarity
 # ---------------------------------------------------------------------------
 

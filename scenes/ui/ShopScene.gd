@@ -229,7 +229,8 @@ func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int
 	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
 	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	buy_btn.disabled = coins < price
-	buy_btn.pressed.connect(_on_buy_equipment.bind(eid, weapon.slot, price))
+	# Scroll-safe (GID-120 / TID-454): never buy from a scroll gesture's release.
+	_UiUtil.bind_scroll_safe_press(buy_btn, _on_buy_equipment.bind(eid, weapon.slot, price), _shop_scroll)
 	row.add_child(buy_btn)
 
 	return row
@@ -324,7 +325,8 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
 	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	buy_btn.disabled = coins < price
-	buy_btn.pressed.connect(_on_buy_card.bind(id, price))
+	# Scroll-safe (GID-120 / TID-454): never buy from a scroll gesture's release.
+	_UiUtil.bind_scroll_safe_press(buy_btn, _on_buy_card.bind(id, price), _shop_scroll)
 	row.add_child(buy_btn)
 
 	var lpd := LongPressDetector.new()
