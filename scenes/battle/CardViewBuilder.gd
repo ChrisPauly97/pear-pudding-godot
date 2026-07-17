@@ -127,6 +127,25 @@ func refresh_zone(zone_node: Node, cards: Array[CardInstance], zone_id: String) 
 			zone_node.add_child(card_view)
 	for i in range(needed, existing.size()):
 		existing[i].queue_free()
+	if zone_id == "hand" and zone_node is HBoxContainer:
+		_apply_hand_separation(zone_node as HBoxContainer, needed)
+
+## Fans the hand when card_count × card_width exceeds the row width: negative
+## HBox separation overlaps cards (later children draw on top, Hearthstone-style)
+## instead of letting them overflow off-screen (GID-119 / TID-449).
+func _apply_hand_separation(hand_box: HBoxContainer, count: int) -> void:
+	var sep: int = 4
+	if count > 1:
+		var avail: float = hand_box.size.x
+		if avail <= 0.0:
+			avail = _vh * 1.5  # first refresh runs before layout; ≈ content-column width at 16:9
+		var card_w: float = card_size().x
+		var total: float = card_w * float(count) + 4.0 * float(count - 1)
+		if total > avail:
+			var overlap: float = (card_w * float(count) - avail) / float(count - 1)
+			var max_overlap: float = card_w * 0.55
+			sep = -int(ceil(minf(overlap, max_overlap)))
+	hand_box.add_theme_constant_override("separation", sep)
 
 func refresh_board_zone(zone_node: Node, zone_state: ZoneState, zone_id: String) -> void:
 	var existing: Array[Node] = []
@@ -162,7 +181,7 @@ func refresh_board_zone(zone_node: Node, zone_state: ZoneState, zone_id: String)
 					style.corner_radius_bottom_right = 4
 					panel.add_theme_stylebox_override("panel", style)
 					panel.set_meta("card_style", style)
-				panel.custom_minimum_size = Vector2(_vh * 0.10, _vh * 0.19)
+				panel.custom_minimum_size = card_size()
 			update_card_view(panel as PanelContainer, card, zone_id)
 			_apply_slot_enhancement_border(panel, enh)
 		else:
@@ -175,8 +194,13 @@ func refresh_board_zone(zone_node: Node, zone_state: ZoneState, zone_id: String)
 			else:
 				_apply_empty_slot_style(panel as PanelContainer, i, zone_id, enh)
 
+## Single source of truth for battle card / board slot size (GID-119 / TID-449).
+## ~13.5% vh wide ≈ a real thumb target on a landscape phone.
+func card_size() -> Vector2:
+	return Vector2(_vh * 0.135, _vh * 0.24)
+
 func _slot_size() -> Vector2:
-	return Vector2(_vh * 0.10, _vh * 0.19)
+	return card_size()
 
 func _make_empty_slot_panel(slot_idx: int, zone_id: String) -> PanelContainer:
 	var panel := PanelContainer.new()
@@ -214,7 +238,7 @@ func _setup_empty_slot_panel(panel: PanelContainer, slot_idx: int, zone_id: Stri
 	panel.set_meta("card_style", style)
 	var lbl := Label.new()
 	lbl.text = str(slot_idx + 1)
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	lbl.add_theme_font_size_override("font_size", int(_vh * 0.030))
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -305,11 +329,12 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 		var desc_lbl: Label = vbox.get_node_or_null("DescLabel") as Label
 		if desc_lbl:
 			var ability_text: String = get_card_ability_text(card)
+			desc_lbl.visible = ability_text != ""
 			if ability_text != "":
 				desc_lbl.text = ability_text
 				desc_lbl.add_theme_color_override("font_color", get_card_ability_color(card))
 			else:
-				desc_lbl.text = card.description
+				desc_lbl.text = ""
 				desc_lbl.remove_theme_color_override("font_color")
 		var kw_row: HBoxContainer = vbox.get_node_or_null("KeywordRow") as HBoxContainer
 		if kw_row:
@@ -345,8 +370,9 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	var name_lbl := Label.new()
 	name_lbl.name = "NameLabel"
 	name_lbl.text = card.name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var tmpl_for_illus: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
 	var illus: Texture2D = tmpl_for_illus.get("illustration") as Texture2D
 	if illus != null:
@@ -354,23 +380,27 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 		art.name = "IllustrationRect"
 		art.texture = illus
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art.custom_minimum_size = Vector2(0.0, _vh * 0.06)
+		art.custom_minimum_size = Vector2(0.0, _vh * 0.07)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		vbox.add_child(art)
 	var stats_lbl := Label.new()
 	stats_lbl.name = "StatsLabel"
 	stats_lbl.text = format_card_stats(card, card.cost)
-	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.016))
+	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
 	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var desc_lbl := Label.new()
 	desc_lbl.name = "DescLabel"
+	# Card faces only carry gameplay text (spell/emergence abilities). Minion
+	# flavor text is unreadable at card size and lives in the long-press inspect
+	# overlay instead (GID-119 / TID-449).
 	var ability_text: String = get_card_ability_text(card)
 	if ability_text != "":
 		desc_lbl.text = ability_text
 		desc_lbl.add_theme_color_override("font_color", get_card_ability_color(card))
 	else:
-		desc_lbl.text = card.description
-	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.014))
+		desc_lbl.text = ""
+		desc_lbl.visible = false
+	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(name_lbl)
 	vbox.add_child(stats_lbl)
@@ -444,7 +474,7 @@ func update_keyword_badges(hbox: HBoxContainer, card: CardInstance) -> void:
 		Color(1.0,  0.6, 0.15),
 		Color(0.8,  0.8, 0.88),
 	]
-	var font_sz: int = int(_vh * 0.018)
+	var font_sz: int = int(_vh * 0.020)
 	for i in range(kw_keys.size()):
 		var kw: String = kw_keys[i]
 		if not card.keywords.has(kw):

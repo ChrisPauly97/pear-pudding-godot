@@ -1660,7 +1660,7 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 
 func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(_vh * 0.10, _vh * 0.19)
+	panel.custom_minimum_size = _view.card_size()
 	# Prevent HBoxContainer from expanding cards horizontally beyond minimum_size.
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if zone_id == "enemy_hand":
