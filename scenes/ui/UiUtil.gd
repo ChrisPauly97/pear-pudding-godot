@@ -3,6 +3,32 @@ extends Object
 const _UiFx = preload("res://scenes/ui/UiFx.gd")
 
 # ---------------------------------------------------------------------------
+# Display safe area (GID-120 / TID-455)
+# ---------------------------------------------------------------------------
+
+## Safe-area insets in canvas coordinates: {left, top, right, bottom} floats.
+## Landscape phones put camera cutouts / rounded corners at the screen edges;
+## edge-anchored UI adds these to stay tappable. Zero on displays without
+## cutouts (desktop, editor, headless).
+static func safe_insets(viewport: Viewport) -> Dictionary:
+	var zero: Dictionary = {"left": 0.0, "top": 0.0, "right": 0.0, "bottom": 0.0}
+	if viewport == null:
+		return zero
+	var screen_size: Vector2i = DisplayServer.screen_get_size()
+	var safe: Rect2i = DisplayServer.get_display_safe_area()
+	if screen_size.x <= 0 or screen_size.y <= 0 or safe.size.x <= 0 or safe.size.y <= 0:
+		return zero
+	var vp_size: Vector2 = viewport.get_visible_rect().size
+	var sx: float = vp_size.x / float(screen_size.x)
+	var sy: float = vp_size.y / float(screen_size.y)
+	return {
+		"left":   maxf(0.0, float(safe.position.x)) * sx,
+		"top":    maxf(0.0, float(safe.position.y)) * sy,
+		"right":  maxf(0.0, float(screen_size.x - safe.position.x - safe.size.x)) * sx,
+		"bottom": maxf(0.0, float(screen_size.y - safe.position.y - safe.size.y)) * sy,
+	}
+
+# ---------------------------------------------------------------------------
 # Scroll-safe taps (GID-120 / TID-454)
 # ---------------------------------------------------------------------------
 

@@ -27,6 +27,7 @@ const CaptureTracker = preload("res://game_logic/battle/CaptureTracker.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const BattleFx = preload("res://scenes/battle/BattleFx.gd")
 const UiFx = preload("res://scenes/ui/UiFx.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const CardViewBuilder = preload("res://scenes/battle/CardViewBuilder.gd")
 const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd")
 const BattlePauseUI = preload("res://scenes/battle/BattlePauseUI.gd")
@@ -701,6 +702,9 @@ func _apply_ui_sizes() -> void:
 	_turn_label.add_theme_font_size_override("font_size", _font(0.022))
 	_mana_label.add_theme_font_size_override("font_size", _font(0.022))
 	($SidePanel as VBoxContainer).add_theme_constant_override("separation", int(_vh * 0.025))
+	# Keep the side-panel controls out of display cutouts (GID-120 / TID-455).
+	var ins: Dictionary = _UiUtil.safe_insets(get_viewport())
+	($SidePanel as Control).offset_right = -float(ins.get("right", 0.0))
 
 # -------------------------------------------------------------------------
 # First-battle tutorial overlay

@@ -9,6 +9,7 @@ const ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 const SaveManager      = preload("res://autoloads/SaveManager.gd")
 const CantripManager   = preload("res://game_logic/world/CantripManager.gd")
 const UiFx             = preload("res://scenes/ui/UiFx.gd")
+const _UiUtil          = preload("res://scenes/ui/UiUtil.gd")
 
 var _hud: CanvasLayer
 var _world_scene: Node3D
@@ -17,6 +18,8 @@ var _map_name: String
 var _interact_label: Label  # the @onready tscn node passed in from WorldScene
 var _vh: float = 0.0
 var _vw: float = 0.0
+# Display safe-area insets (GID-120 / TID-455), set in setup().
+var _ins: Dictionary = {}
 
 # ── HUD Action Registry (GID-107) ───────────────────────────────────────────
 # Zones are real Container nodes that auto-stack their (visible) children, so
@@ -61,6 +64,7 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 	_map_name = map_name
 	_interact_label = interact_label
 	_world_scene = world_scene
+	_ins = _UiUtil.safe_insets(hud.get_viewport())
 
 	var vp: Vector2 = hud.get_viewport().get_visible_rect().size
 	var vh: float = vp.y
@@ -159,13 +163,18 @@ func _maybe_teach_cantrips() -> void:
 # ── HUD Action Registry (GID-107) ───────────────────────────────────────────
 
 func _init_zones(vh: float, vw: float, btn_w: float, btn_h: float) -> void:
-	var minimap_bottom: float = vh * 0.01 + vh * 0.20 + vh * 0.01
-	var nav_x: float = vw - btn_w * 1.3 - vh * 0.01
-	_add_zone(ZONE_SYSTEM, Vector2(vh * 0.01, vh * 0.01), false, vh * 0.01)
+	# Push edge-anchored zones inside the display safe area (GID-120 / TID-455).
+	var il: float = float(_ins.get("left", 0.0))
+	var it: float = float(_ins.get("top", 0.0))
+	var ir: float = float(_ins.get("right", 0.0))
+	var ib: float = float(_ins.get("bottom", 0.0))
+	var minimap_bottom: float = vh * 0.01 + vh * 0.20 + vh * 0.01 + it
+	var nav_x: float = vw - btn_w * 1.3 - vh * 0.01 - ir
+	_add_zone(ZONE_SYSTEM, Vector2(vh * 0.01 + il, vh * 0.01 + it), false, vh * 0.01)
 	_add_zone(ZONE_NAV, Vector2(nav_x, minimap_bottom), false, vh * 0.005)
-	_add_zone(ZONE_ABILITY, Vector2(vh * 0.01, vh * 0.17), false, vh * 0.005)
-	_add_zone(ZONE_CONTEXT, Vector2(vw * 0.5 - vh * 0.17, vh * 0.80), false, vh * 0.005)
-	_add_zone(ZONE_SOCIAL, Vector2(vw - vh * 0.32, vh * 0.87), true, vh * 0.01)
+	_add_zone(ZONE_ABILITY, Vector2(vh * 0.01 + il, vh * 0.17 + it), false, vh * 0.005)
+	_add_zone(ZONE_CONTEXT, Vector2(vw * 0.5 - vh * 0.17, vh * 0.80 - ib), false, vh * 0.005)
+	_add_zone(ZONE_SOCIAL, Vector2(vw - vh * 0.32 - ir, vh * 0.87 - ib), true, vh * 0.01)
 
 func _add_zone(zone_id: String, pos: Vector2, horizontal: bool, sep: float) -> void:
 	var box: Container = HBoxContainer.new() if horizontal else VBoxContainer.new()
@@ -278,12 +287,14 @@ func _create_coord_label(vh: float, font_size: int) -> void:
 	_coord_label.add_theme_color_override("font_shadow_color", Color.BLACK)
 	_coord_label.add_theme_constant_override("shadow_offset_x", 1)
 	_coord_label.add_theme_constant_override("shadow_offset_y", 1)
-	_coord_label.position = Vector2(vh * 0.01, vh * 0.11)
+	_coord_label.position = Vector2(vh * 0.01 + float(_ins.get("left", 0.0)),
+		vh * 0.11 + float(_ins.get("top", 0.0)))
 	_hud.add_child(_coord_label)
 
 func _create_xp_bar(vh: float) -> void:
 	var xp_row := HBoxContainer.new()
-	xp_row.position = Vector2(vh * 0.01, vh * 0.88)
+	xp_row.position = Vector2(vh * 0.01 + float(_ins.get("left", 0.0)),
+		vh * 0.88 - float(_ins.get("bottom", 0.0)))
 	xp_row.add_theme_constant_override("separation", int(vh * 0.008))
 	_hud.add_child(xp_row)
 
