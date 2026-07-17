@@ -204,6 +204,8 @@ var _float_layer: CanvasLayer = null
 # Click-to-target for board-card attacks (select attacker, then click enemy)
 var _dragged_card: Dictionary = {}  # {card: CardInstance}
 var _vh: float = 0.0
+# Multiplier from the "text_scale" accessibility setting (GID-119 / TID-451).
+var _text_scale: float = 1.0
 
 # Drag-to-play: populated when native drag starts so CardViewBuilder can highlight slots.
 # Cleared in NOTIFICATION_DRAG_END and after a successful drop.
@@ -264,13 +266,14 @@ func _ready() -> void:
 	_float_layer.layer = 128
 	add_child(_float_layer)
 	_vh = get_viewport().get_visible_rect().size.y
+	_text_scale = clampf(float(SceneManager.save_manager.get_setting("text_scale", 1.0)), 0.5, 2.0)
 	_fx = BattleFx.new()
 	_fx.setup(_vh, _float_layer,
 		_enemy_hero_view, _player_hero_view,
 		_enemy_board_view, _player_board_view,
-		self)
+		self, _text_scale)
 	_view = CardViewBuilder.new()
-	_view.setup(_vh, _fx, _bind_card_input, _on_empty_slot_input, _make_card_view)
+	_view.setup(_vh, _fx, _bind_card_input, _on_empty_slot_input, _make_card_view, _text_scale)
 	var _bs: String = str(SceneManager.save_manager.get_setting("battle_speed", "normal"))
 	_speed_scale = 0.45 if _bs == "fast" else 1.0
 	_apply_ui_sizes()
@@ -439,7 +442,7 @@ func _ready() -> void:
 		_give_up_btn = Button.new()
 		_give_up_btn.text = "Give Up"
 		_give_up_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.07)
-		_give_up_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+		_give_up_btn.add_theme_font_size_override("font_size", _font(0.025))
 		_give_up_btn.pressed.connect(_on_puzzle_give_up)
 		$SidePanel.add_child(_give_up_btn)
 	_state.turn_ended.connect(_on_turn_ended)
@@ -604,13 +607,13 @@ func _add_companion_hud() -> void:
 
 	var name_lbl := Label.new()
 	name_lbl.text = companion.display_name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	name_lbl.add_theme_font_size_override("font_size", _font(0.02))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	portrait_row.add_child(name_lbl)
 
 	var passive_lbl := Label.new()
 	passive_lbl.text = companion.description
-	passive_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	passive_lbl.add_theme_font_size_override("font_size", _font(0.017))
 	passive_lbl.modulate = Color(0.85, 1.0, 0.85)
 	passive_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(passive_lbl)
@@ -658,6 +661,10 @@ func _do_play_card(card: CardInstance, player_idx: int) -> bool:
 		GameBus.card_played.emit(card.template_id, "spell", -1)
 	return ok
 
+## Font size helper: pct of viewport height × the "text_scale" setting.
+func _font(pct: float) -> int:
+	return int(_vh * pct * _text_scale)
+
 func _apply_ui_sizes() -> void:
 	var hero_h: float = _vh * 0.10
 	var board_h: float = _vh * 0.27
@@ -677,11 +684,11 @@ func _apply_ui_sizes() -> void:
 		(_player_board_view as BoxContainer).alignment = BoxContainer.ALIGNMENT_CENTER
 	# Side panel buttons — large, easy to tap on mobile
 	_end_turn_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.10)
-	_end_turn_btn.add_theme_font_size_override("font_size", int(_vh * 0.035))
+	_end_turn_btn.add_theme_font_size_override("font_size", _font(0.035))
 	_menu_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.07)
-	_menu_btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
-	_turn_label.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	_mana_label.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_menu_btn.add_theme_font_size_override("font_size", _font(0.028))
+	_turn_label.add_theme_font_size_override("font_size", _font(0.022))
+	_mana_label.add_theme_font_size_override("font_size", _font(0.022))
 	($SidePanel as VBoxContainer).add_theme_constant_override("separation", int(_vh * 0.025))
 
 # -------------------------------------------------------------------------
@@ -690,7 +697,7 @@ func _apply_ui_sizes() -> void:
 
 func _show_battle_tutorial() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var font_size: int = int(_vh * 0.025)
+	var font_size: int = _font(0.025)
 	var panel_w: float = vp.x * 0.65
 	var panel_h: float = _vh * 0.32
 
@@ -917,7 +924,7 @@ func _show_cancel_btn(label: String = "✕ Cancel", callback: Callable = Callabl
 	_cancel_btn.text = label
 	# Big thumb target — it is the only way out of targeting mode on touch.
 	_cancel_btn.custom_minimum_size = Vector2(vh * 0.20, vh * 0.07)
-	_cancel_btn.add_theme_font_size_override("font_size", int(vh * 0.030))
+	_cancel_btn.add_theme_font_size_override("font_size", _font(0.030))
 	_cancel_btn.position = Vector2((vw - vh * 0.20) * 0.5, vh * 0.02)
 	var cb: Callable = callback if callback.is_valid() else _hide_cancel_btn
 	_cancel_btn.pressed.connect(cb)
@@ -1172,7 +1179,7 @@ func _add_hero_power_button() -> void:
 	_hero_power_btn = Button.new()
 	_hero_power_btn.text = active_skill.display_name
 	_hero_power_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.05)
-	_hero_power_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	_hero_power_btn.add_theme_font_size_override("font_size", _font(0.02))
 	_hero_power_btn.pressed.connect(_use_hero_power)
 	$SidePanel.add_child(_hero_power_btn)
 
@@ -1189,7 +1196,7 @@ func _add_potion_button() -> void:
 	_potion_btn = Button.new()
 	_potion_btn.text = "Potion"
 	_potion_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.05)
-	_potion_btn.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	_potion_btn.add_theme_font_size_override("font_size", _font(0.02))
 	_potion_btn.pressed.connect(_on_potion_button_pressed)
 	$SidePanel.add_child(_potion_btn)
 
@@ -1216,7 +1223,7 @@ func _add_gambit_badge() -> void:
 	_gambit_badge = PanelContainer.new()
 	var badge_lbl := Label.new()
 	badge_lbl.text = "Gambit: %s" % str(gdata.get("name", gambit_id))
-	badge_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	badge_lbl.add_theme_font_size_override("font_size", _font(0.018))
 	badge_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	_gambit_badge.add_child(badge_lbl)
 	$SidePanel.add_child(_gambit_badge)
@@ -1277,7 +1284,7 @@ func _show_potion_picker() -> void:
 
 	var title_lbl := Label.new()
 	title_lbl.text = "Use a Potion"
-	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	title_lbl.add_theme_font_size_override("font_size", _font(0.026))
 	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title_lbl)
 
@@ -1292,13 +1299,13 @@ func _show_potion_picker() -> void:
 		row.add_theme_constant_override("separation", int(_vh * 0.012))
 		var lbl := Label.new()
 		lbl.text = "%s  ×%d" % [display_name, count]
-		lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		lbl.add_theme_font_size_override("font_size", _font(0.022))
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(lbl)
 		var use_btn := Button.new()
 		use_btn.text = "Use"
 		use_btn.custom_minimum_size = Vector2(_vh * 0.1, _vh * 0.055)
-		use_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		use_btn.add_theme_font_size_override("font_size", _font(0.022))
 		var pid: String = potion_id
 		use_btn.pressed.connect(func() -> void:
 			layer.queue_free()
@@ -1310,7 +1317,7 @@ func _show_potion_picker() -> void:
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
 	cancel_btn.custom_minimum_size = Vector2(panel_w * 0.5, _vh * 0.055)
-	cancel_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	cancel_btn.add_theme_font_size_override("font_size", _font(0.022))
 	cancel_btn.pressed.connect(layer.queue_free)
 	var center := CenterContainer.new()
 	center.add_child(cancel_btn)
@@ -1786,21 +1793,21 @@ func _show_cast_confirm(card: CardInstance) -> void:
 	var name_lbl := Label.new()
 	name_lbl.text = card.name
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	name_lbl.add_theme_font_size_override("font_size", _font(0.028))
 	vbox.add_child(name_lbl)
 
 	var ability_lbl := Label.new()
 	ability_lbl.text = _view.get_card_ability_text(card)
 	ability_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	ability_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	ability_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	ability_lbl.add_theme_font_size_override("font_size", _font(0.022))
 	ability_lbl.add_theme_color_override("font_color", _view.get_card_ability_color(card))
 	vbox.add_child(ability_lbl)
 
 	var cast_btn := Button.new()
 	cast_btn.text = "Cast (%d mana)" % _state.players[_my_idx()].effective_cost(card)
 	cast_btn.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.08)
-	cast_btn.add_theme_font_size_override("font_size", int(_vh * 0.030))
+	cast_btn.add_theme_font_size_override("font_size", _font(0.030))
 	cast_btn.pressed.connect(func() -> void:
 		_hide_cast_confirm()
 		_cast_confirmed_spell(card))
@@ -1809,7 +1816,7 @@ func _show_cast_confirm(card: CardInstance) -> void:
 	var cancel_btn := Button.new()
 	cancel_btn.text = "Cancel"
 	cancel_btn.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.06)
-	cancel_btn.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	cancel_btn.add_theme_font_size_override("font_size", _font(0.024))
 	cancel_btn.pressed.connect(_hide_cast_confirm)
 	vbox.add_child(cancel_btn)
 
@@ -2072,7 +2079,7 @@ func _on_fatigue_damage(pid: int, dmg: int) -> void:
 	var pos: Vector2 = _fx.pos_of_hero(is_enemy)
 	var lbl := Label.new()
 	lbl.text = "Fatigue! -%d" % dmg
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	lbl.add_theme_font_size_override("font_size", _font(0.025))
 	lbl.add_theme_color_override("font_color", Color(1.0, 0.55, 0.0))
 	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
 	lbl.add_theme_constant_override("shadow_offset_x", 2)
@@ -2343,7 +2350,7 @@ func _add_battlefield_info_label() -> void:
 	var sun_moon: String = "☽" if night else "☀"
 	var info_lbl := Label.new()
 	info_lbl.text = "%s %s" % [BattlefieldRules.get_biome_name(biome), sun_moon]
-	info_lbl.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	info_lbl.add_theme_font_size_override("font_size", _font(0.02))
 	info_lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.6))
 	info_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	$SidePanel.add_child(info_lbl)
@@ -2362,7 +2369,7 @@ func _add_slot_highlights() -> void:
 			overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			var slot_lbl := Label.new()
 			slot_lbl.text = "★"
-			slot_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
+			slot_lbl.add_theme_font_size_override("font_size", _font(0.018))
 			slot_lbl.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0, 0.7))
 			slot_lbl.set_meta("bf_slot_idx", si)
 			board_view.add_child(overlay)
@@ -2396,12 +2403,12 @@ func _show_battlefield_banner() -> void:
 	var title_lbl := Label.new()
 	var time_str: String = "Night" if night else "Day"
 	title_lbl.text = "%s — %s" % [BattlefieldRules.get_biome_name(biome), time_str]
-	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	title_lbl.add_theme_font_size_override("font_size", _font(0.028))
 	title_lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.6))
 	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var rule_lbl := Label.new()
 	rule_lbl.text = BattlefieldRules.get_rule_text(biome)
-	rule_lbl.add_theme_font_size_override("font_size", int(_vh * 0.021))
+	rule_lbl.add_theme_font_size_override("font_size", _font(0.021))
 	rule_lbl.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0))
 	rule_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rule_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -3313,7 +3320,7 @@ func _build_wager_panel() -> void:
 
 	var title := Label.new()
 	title.text = "Spectator Bet"
-	title.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	title.add_theme_font_size_override("font_size", _font(0.024))
 	vbox.add_child(title)
 
 	var side_row := HBoxContainer.new()
@@ -3334,32 +3341,32 @@ func _build_wager_panel() -> void:
 	_wager_minus_btn = Button.new()
 	_wager_minus_btn.text = "-"
 	_wager_minus_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
-	_wager_minus_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	_wager_minus_btn.add_theme_font_size_override("font_size", _font(0.025))
 	_wager_minus_btn.pressed.connect(func() -> void: _adjust_wager_amount(-_WAGER_STEP))
 	amount_row.add_child(_wager_minus_btn)
 	_wager_amount_label = Label.new()
 	_wager_amount_label.text = str(_wager_amount)
-	_wager_amount_label.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	_wager_amount_label.add_theme_font_size_override("font_size", _font(0.025))
 	_wager_amount_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_wager_amount_label.custom_minimum_size = Vector2(_vh * 0.07, 0)
 	amount_row.add_child(_wager_amount_label)
 	_wager_plus_btn = Button.new()
 	_wager_plus_btn.text = "+"
 	_wager_plus_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
-	_wager_plus_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
+	_wager_plus_btn.add_theme_font_size_override("font_size", _font(0.025))
 	_wager_plus_btn.pressed.connect(func() -> void: _adjust_wager_amount(_WAGER_STEP))
 	amount_row.add_child(_wager_plus_btn)
 
 	_wager_place_btn = Button.new()
 	_wager_place_btn.text = "Place Bet"
 	_wager_place_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.055)
-	_wager_place_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	_wager_place_btn.add_theme_font_size_override("font_size", _font(0.022))
 	_wager_place_btn.pressed.connect(_on_wager_place_pressed)
 	vbox.add_child(_wager_place_btn)
 
 	_wager_status_label = Label.new()
 	_wager_status_label.text = "Bets close after turn %d." % WagerSync.CUTOFF_TURN
-	_wager_status_label.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	_wager_status_label.add_theme_font_size_override("font_size", _font(0.018))
 	vbox.add_child(_wager_status_label)
 	_clamp_wager_amount()
 	_update_wager_panel()
@@ -3371,7 +3378,7 @@ func _make_wager_side_button(label_text: String, group: ButtonGroup) -> Button:
 	b.toggle_mode = true
 	b.button_group = group
 	b.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.055)
-	b.add_theme_font_size_override("font_size", int(_vh * 0.02))
+	b.add_theme_font_size_override("font_size", _font(0.02))
 	return b
 
 

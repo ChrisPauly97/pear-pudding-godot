@@ -13,6 +13,8 @@ const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 # Fixed references — set once at setup
 var _vh: float
 var _fx: BattleFx
+# Multiplier from the "text_scale" setting (GID-119 / TID-451).
+var _text_scale: float = 1.0
 # Callables back into BattleScene (avoid circular dependency at parse time)
 var _bind_card_input_fn: Callable   # BattleScene._bind_card_input(panel, card, zone_id)
 var _on_empty_slot_fn: Callable     # BattleScene._on_empty_slot_input(event, slot_idx)
@@ -82,13 +84,18 @@ func setup(
 	fx: BattleFx,
 	bind_card_input_fn: Callable,
 	on_empty_slot_fn: Callable,
-	make_card_view_fn: Callable
+	make_card_view_fn: Callable,
+	text_scale: float = 1.0
 ) -> void:
 	_vh = vh
 	_fx = fx
 	_bind_card_input_fn = bind_card_input_fn
 	_on_empty_slot_fn = on_empty_slot_fn
 	_make_card_view_fn = make_card_view_fn
+	_text_scale = text_scale
+
+func _font(pct: float) -> int:
+	return int(_vh * pct * _text_scale)
 
 func set_battle_state(state: GameState, enemy_data: Dictionary) -> void:
 	_state = state
@@ -238,7 +245,7 @@ func _setup_empty_slot_panel(panel: PanelContainer, slot_idx: int, zone_id: Stri
 	panel.set_meta("card_style", style)
 	var lbl := Label.new()
 	lbl.text = str(slot_idx + 1)
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.030))
+	lbl.add_theme_font_size_override("font_size", _font(0.030))
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -370,7 +377,7 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	var name_lbl := Label.new()
 	name_lbl.name = "NameLabel"
 	name_lbl.text = card.name
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	name_lbl.add_theme_font_size_override("font_size", _font(0.020))
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var tmpl_for_illus: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
@@ -386,7 +393,7 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	var stats_lbl := Label.new()
 	stats_lbl.name = "StatsLabel"
 	stats_lbl.text = format_card_stats(card, card.cost)
-	stats_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	stats_lbl.add_theme_font_size_override("font_size", _font(0.022))
 	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var desc_lbl := Label.new()
 	desc_lbl.name = "DescLabel"
@@ -400,7 +407,7 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 	else:
 		desc_lbl.text = ""
 		desc_lbl.visible = false
-	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.017))
+	desc_lbl.add_theme_font_size_override("font_size", _font(0.017))
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(name_lbl)
 	vbox.add_child(stats_lbl)
@@ -463,6 +470,36 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 		style.border_width_bottom = 3
 		style.border_width_left = 3
 		style.border_width_right = 3
+	# Non-color targeting cue (GID-119 / TID-451): colored borders alone fail
+	# colorblind players, so every valid target also carries an explicit marker.
+	var show_mark: bool = false
+	if zone_id == "enemy_board" and _targeting_active and not _targeting_friendly:
+		show_mark = true
+	elif zone_id == "board" and _targeting_active and _targeting_friendly:
+		show_mark = true
+	elif zone_id == "enemy_board" and not _dragged_card.is_empty():
+		var mark_targets: Array[CardInstance] = get_ward_valid_targets(_state.players[1].board.get_cards())
+		show_mark = mark_targets.has(card)
+	_target_mark(panel, _font(0.018)).visible = show_mark
+
+## Lazily attaches a centered "◎ TARGET" overlay label to a panel. Overlay, not
+## a vbox row — it must never shift the card layout when it toggles.
+func _target_mark(panel: Control, font_sz: int) -> Label:
+	var mark: Label = panel.get_node_or_null("TargetMark") as Label
+	if mark == null:
+		mark = Label.new()
+		mark.name = "TargetMark"
+		mark.text = "◎ TARGET"
+		mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mark.add_theme_font_size_override("font_size", font_sz)
+		mark.add_theme_color_override("font_color", Color.WHITE)
+		mark.add_theme_color_override("font_outline_color", Color.BLACK)
+		mark.add_theme_constant_override("outline_size", maxi(2, int(_vh * 0.005)))
+		mark.visible = false
+		panel.add_child(mark)
+	return mark
 
 func update_keyword_badges(hbox: HBoxContainer, card: CardInstance) -> void:
 	for child in hbox.get_children():
@@ -474,7 +511,7 @@ func update_keyword_badges(hbox: HBoxContainer, card: CardInstance) -> void:
 		Color(1.0,  0.6, 0.15),
 		Color(0.8,  0.8, 0.88),
 	]
-	var font_sz: int = int(_vh * 0.020)
+	var font_sz: int = _font(0.020)
 	for i in range(kw_keys.size()):
 		var kw: String = kw_keys[i]
 		if not card.keywords.has(kw):
@@ -508,13 +545,13 @@ func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool, hand_count: 
 				name_lbl.text = "ENEMY"
 		else:
 			name_lbl.text = "YOU"
-		name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		name_lbl.add_theme_font_size_override("font_size", _font(0.022))
 		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_lbl.modulate = Color(1.0, 0.55, 0.55) if is_enemy else Color(0.55, 1.0, 0.75)
 
 		var hp_lbl := Label.new()
 		hp_lbl.name = "HPLabel"
-		hp_lbl.add_theme_font_size_override("font_size", int(_vh * 0.025))
+		hp_lbl.add_theme_font_size_override("font_size", _font(0.025))
 		hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 		var bar := ProgressBar.new()
@@ -528,7 +565,7 @@ func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool, hand_count: 
 		if is_enemy:
 			var hand_lbl := Label.new()
 			hand_lbl.name = "HandLabel"
-			hand_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
+			hand_lbl.add_theme_font_size_override("font_size", _font(0.020))
 			hand_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			hand_lbl.modulate = Color(0.85, 0.82, 0.95)
 			hand_lbl.visible = false
@@ -536,7 +573,7 @@ func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool, hand_count: 
 		else:
 			var mana_lbl := Label.new()
 			mana_lbl.name = "ManaLabel"
-			mana_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+			mana_lbl.add_theme_font_size_override("font_size", _font(0.022))
 			mana_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			vbox.add_child(mana_lbl)
 		var hero_sr := HBoxContainer.new()
@@ -574,6 +611,9 @@ func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool, hand_count: 
 				break
 	var is_attack_targetable: bool = is_enemy and not _dragged_card.is_empty() and not ward_blocks_hero
 	var is_spell_targetable: bool = is_enemy and _targeting_active and not _targeting_friendly
+	if hero_node is Control:
+		_target_mark(hero_node as Control, _font(0.022)).visible = \
+			is_attack_targetable or is_spell_targetable
 	if is_enemy:
 		if is_spell_targetable:
 			style.bg_color = Color(0.1, 0.35, 0.45)
