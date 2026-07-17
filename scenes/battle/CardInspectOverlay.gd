@@ -191,6 +191,20 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 	color_bar.color = tmpl.get("color", Color(0.4, 0.4, 0.4)) if not tmpl.is_empty() else Color(0.4, 0.4, 0.4)
 	container.add_child(color_bar)
 
+	# Illustration — same texture the small card view shows, enlarged.
+	# 32×32 pixel art needs nearest filtering or it smears at this size.
+	var illus: Texture2D = null
+	if not tmpl.is_empty():
+		illus = tmpl.get("illustration") as Texture2D
+	if illus != null:
+		var art := TextureRect.new()
+		art.texture = illus
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		art.custom_minimum_size = Vector2(0.0, _vh * (0.14 if show_status else 0.09))
+		container.add_child(art)
+
 	# Name
 	var name_lbl := Label.new()
 	name_lbl.text = str(tmpl.get("name", "?")) if not tmpl.is_empty() else (card.name if card != null else "?")
