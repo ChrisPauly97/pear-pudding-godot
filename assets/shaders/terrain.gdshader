@@ -178,7 +178,8 @@ void fragment() {
 	ALBEDO = tinted_col;
 
 	// Soft emission floor keeps cast shadows from going pitch-black.
-	vec3 base_emission = tinted_col * 0.15;
+	// Keep low — this adds straight onto lit albedo, brightening midday too.
+	vec3 base_emission = tinted_col * 0.08;
 	// Ley line glow: cyan emissive pulse on non-wall ground.
 	if (v_ley > 0.01 && !is_wall) {
 		float pulse = 0.8 + 0.2 * sin(TIME * 0.8);
