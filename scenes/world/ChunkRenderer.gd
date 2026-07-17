@@ -47,9 +47,12 @@ static func _get_biome_mat(template: ShaderMaterial, biome: int) -> ShaderMateri
 	if _biome_mat_cache.has(key):
 		return _biome_mat_cache[key]
 	var mat: ShaderMaterial = template.duplicate()
-	var gt: Color = BiomeDef.GRASS_TINT[biome]
-	var ht: Color = BiomeDef.HILL_TINT[biome]
-	var wt: Color = BiomeDef.WALL_TINT[biome]
+	# The tint uniforms are plain vec3 (no source_color hint), so the shader
+	# multiplies them in linear space — convert from sRGB here or the authored
+	# BiomeDef colors render brighter than intended.
+	var gt: Color = BiomeDef.GRASS_TINT[biome].srgb_to_linear()
+	var ht: Color = BiomeDef.HILL_TINT[biome].srgb_to_linear()
+	var wt: Color = BiomeDef.WALL_TINT[biome].srgb_to_linear()
 	mat.set_shader_parameter("grass_tint", Vector3(gt.r, gt.g, gt.b))
 	mat.set_shader_parameter("hill_tint",  Vector3(ht.r, ht.g, ht.b))
 	mat.set_shader_parameter("wall_tint",  Vector3(wt.r, wt.g, wt.b))

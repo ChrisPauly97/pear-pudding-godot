@@ -459,17 +459,19 @@ func _setup_environment() -> void:
 	env.fog_light_color        = Color(0.80, 0.82, 0.85)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.65, 0.63, 0.60)
-	env.ambient_light_energy = 1.0
+	env.ambient_light_energy = 0.7
 	# Filmic tone mapping lifts shadow detail and prevents blown highlights
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.0
-	# Bloom so emissive materials (items, coins) visibly glow
+	# Bloom so emissive materials (items, coins) visibly glow.
+	# Threshold must stay above the lit-terrain luminance (~1.0 at midday) so
+	# only true emissives bloom — 0.5 made the entire sunlit ground glow.
 	env.glow_enabled = true
 	env.glow_bloom = 0.25
 	env.glow_intensity = 1.5
 	env.glow_strength = 1.2
 	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-	env.glow_hdr_threshold = 0.5
+	env.glow_hdr_threshold = 1.2
 	env.glow_hdr_luminance_cap = 12.0
 	_world_env = WorldEnvironment.new()
 	_world_env.environment = env

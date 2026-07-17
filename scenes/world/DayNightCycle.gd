@@ -100,7 +100,9 @@ func _apply_lighting(weather_tint: Color) -> void:
 	var t_day: float = clampf(sun_h * 2.0 + 0.1, 0.0, 1.0)
 	var t_horizon: float = clampf(1.0 - abs(sun_h) * 5.0, 0.0, 1.0)
 
-	var sun_energy: float = clampf(sun_h * 1.5, 0.0, 1.5)
+	# Cap below 1.5: sun + ambient + fill light stack multiplicatively on albedo;
+	# 1.5 pushed midday terrain past 2.5x albedo and over the glow threshold.
+	var sun_energy: float = clampf(sun_h * 1.5, 0.0, 1.1)
 	var sun_color: Color = Color(1.0, 0.95, 0.85).lerp(Color(1.0, 0.45, 0.1), t_horizon)
 
 	if not is_equal_approx(sun_energy, _cached_sun_energy):
@@ -136,7 +138,7 @@ func _apply_lighting(weather_tint: Color) -> void:
 		base_ambient.r * weather_tint.r,
 		base_ambient.g * weather_tint.g,
 		base_ambient.b * weather_tint.b)
-	var ambient_energy: float = lerpf(0.35, 1.0, t_day)
+	var ambient_energy: float = lerpf(0.35, 0.7, t_day)
 	if not ambient_color.is_equal_approx(_cached_ambient_color):
 		_world_env.environment.ambient_light_color = ambient_color
 		_cached_ambient_color = ambient_color
