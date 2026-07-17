@@ -36,7 +36,12 @@ const BLADES_TALL_PER_TILE := 180  # tall patch tiles
 const CLUSTERS_PER_TILE    := 3    # billboard cluster quads per tile
 const BLADE_WIDTH      := 0.20
 const BLADE_HEIGHT     := 0.40
-const SEGMENTS         := 4  # quads along the blade height
+const SEGMENTS         := 3  # quads along the blade height
+
+# Draw distance for grass MMIs. The orthogonal camera (size 15, offset
+# (20,20,20)) never sees ground further than ~45 units away, so anything past
+# ~55 (margin included) is pure vertex cost for zero visible blades.
+const VISIBILITY_END: float = 55.0
 
 # Tall grass patches: tiles grouped into cells of TALL_PATCH_CELL world units;
 # a hash of the cell position determines if it grows tall grass (~18% of cells).
@@ -235,8 +240,11 @@ func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i) -> void:
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.material_override = _mat
-	mmi.visibility_range_end = 70.0
+	mmi.visibility_range_end = VISIBILITY_END
 	mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	# Thousands of 2px-wide blades re-rendered into the shadow map cost a full
+	# extra geometry pass for a shadow that reads as noise at 0.2 opacity.
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mmi)
 	_chunk_mmis[chunk_key] = mmi
 
@@ -253,8 +261,10 @@ func commit_grass_buffers(grass_data: Dictionary, chunk_key: Vector2i) -> void:
 	var cmmi := MultiMeshInstance3D.new()
 	cmmi.multimesh = cmm
 	cmmi.material_override = _cluster_mat
-	cmmi.visibility_range_end = 70.0
+	cmmi.visibility_range_end = VISIBILITY_END
 	cmmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	# Billboard quads cast misshapen shadows — disable to avoid diamond artifacts.
+	cmmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(cmmi)
 	_cluster_mmis[chunk_key] = cmmi
 
@@ -341,8 +351,11 @@ func _build_chunk_mmi(centres: Array[Vector2], chunk_key: Vector2i, rng: RandomN
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.material_override = _mat
-	mmi.visibility_range_end = 70.0
+	mmi.visibility_range_end = VISIBILITY_END
 	mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+	# Thousands of 2px-wide blades re-rendered into the shadow map cost a full
+	# extra geometry pass for a shadow that reads as noise at 0.2 opacity.
+	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mmi)
 	_chunk_mmis[chunk_key] = mmi
 
@@ -401,7 +414,7 @@ func _build_chunk_clusters(centres: Array[Vector2], chunk_key: Vector2i, rng: Ra
 	var mmi := MultiMeshInstance3D.new()
 	mmi.multimesh = mm
 	mmi.material_override = _cluster_mat
-	mmi.visibility_range_end = 70.0
+	mmi.visibility_range_end = VISIBILITY_END
 	mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 	# Billboard quads cast misshapen shadows — disable to avoid diamond artifacts.
 	mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -561,7 +574,7 @@ func _make_blade_mesh() -> ArrayMesh:
 	var normals := PackedVector3Array()
 	var indices := PackedInt32Array()
 
-	var width_profile: Array[float] = [1.0, 0.72, 0.38, 0.10]
+	var width_profile: Array[float] = [1.0, 0.62, 0.24]
 
 	for row in range(SEGMENTS):
 		var t := float(row) / float(SEGMENTS)
