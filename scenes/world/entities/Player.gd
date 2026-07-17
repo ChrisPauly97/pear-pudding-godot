@@ -45,6 +45,16 @@ const _WP_ARRIVE_DIST_SQ: float = 0.3 * 0.3  # arrive when within 0.3 world unit
 func _ready() -> void:
 	collision_layer = 1       # player layer
 	collision_mask  = 2 | 4   # collide with terrain (2) + walls (4)
+	# Slope handling: generated hills reach ~72° at max height (Mountains
+	# max_hill_h 7 blended over HILL_CURVE_R 3.5), so the default 45°
+	# floor_max_angle treated steep hill faces as walls and climbing relied on
+	# the WorldScene software-floor teleport (which stalls the player). Treat
+	# them as walkable floor, snap to the surface on descents/crests instead
+	# of micro-falling, and keep slope speed uniform. Wall faces are vertical
+	# (90°) and stay unwalkable.
+	floor_max_angle = deg_to_rad(75.0)
+	floor_snap_length = 0.6
+	floor_constant_speed = true
 	_build_sprite()
 	GameBus.mount_state_changed.connect(_on_mount_state_changed)
 	_update_mount_visuals(SaveManager.is_mounted)
@@ -310,9 +320,12 @@ func _update_mount_visuals(mounted: bool) -> void:
 		_dust_particles.process_material = _dust_mat_mount if mounted else _dust_mat_foot
 		_dust_particles.amount = 20 if mounted else 10
 
+## Zeroes only the vertical fall — horizontal velocity is preserved so a
+## terrain rescue (WorldScene software floor) doesn't stop the player dead
+## mid-stride and force a full re-acceleration.
 func cancel_fall() -> void:
 	_velocity_y = 0.0
-	velocity = Vector3.ZERO
+	velocity.y = 0.0
 
 func _scan_interactables() -> void:
 	var closest: Node3D = null
