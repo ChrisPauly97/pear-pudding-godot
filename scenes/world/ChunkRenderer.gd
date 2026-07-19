@@ -95,8 +95,11 @@ static func prepare_terrain(
 			return 1
 		return height_grid[li]
 
-	var hfield: PackedFloat32Array = TerrainMath.compute_height_field(
-			grid_tile_lookup, grid_height_lookup,
+	# Height field via the packed-grid fast path — direct array indexing instead
+	# of ~53k Callable invocations per chunk (GID-121 / TID-458). The lambdas above
+	# stay for the mesh builders and prop scatter (~2-3k calls, not worth the churn).
+	var hfield: PackedFloat32Array = TerrainMath.compute_height_field_grid(
+			tile_grid, height_grid, grid_min_x, grid_min_z, grid_w,
 			chunk_origin.x, chunk_origin.z,
 			nvx, nvz, step,
 			IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
