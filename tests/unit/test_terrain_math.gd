@@ -225,3 +225,85 @@ func test_build_terrain_mesh_hmap_data_matches_input() -> void:
 		0.0, 0.0, nvx, nvz, IsoConst.TILE_SIZE, 2.0)
 	var hmap: HeightMapShape3D = result["hmap"] as HeightMapShape3D
 	assert_almost_eq(hmap.map_data[4], 1.5, 0.001)
+
+
+# ---------------------------------------------------------------------------
+# Packed-grid fast paths (GID-121) — must match the Callable variants exactly
+# ---------------------------------------------------------------------------
+
+const _PG_W: int = 12  # packed test grid is _PG_W × _PG_W, origin tile (0,0)
+
+# Mixed terrain: hill at (5,5) h=3, wall at (2,8), cracked wall at (9,3) h=2.
+func _make_packed_grids() -> Array:
+	var tile_grid := PackedInt32Array()
+	var height_grid := PackedInt32Array()
+	tile_grid.resize(_PG_W * _PG_W)
+	height_grid.resize(_PG_W * _PG_W)
+	tile_grid.fill(IsoConst.TILE_GRASS)
+	height_grid.fill(0)
+	tile_grid[5 * _PG_W + 5] = IsoConst.TILE_HILL
+	height_grid[5 * _PG_W + 5] = 3
+	tile_grid[8 * _PG_W + 2] = IsoConst.TILE_WALL
+	tile_grid[3 * _PG_W + 9] = IsoConst.TILE_CRACKED
+	height_grid[3 * _PG_W + 9] = 2
+	return [tile_grid, height_grid]
+
+# Callable lookups over the same data, with the same out-of-range fallbacks the
+# packed variants use (tile → TILE_WALL, height → 1).
+func _packed_tile_lookup(grids: Array) -> Callable:
+	var tile_grid: PackedInt32Array = grids[0]
+	return func(x: int, z: int) -> int:
+		if x < 0 or x >= _PG_W or z < 0 or z >= _PG_W:
+			return IsoConst.TILE_WALL
+		return tile_grid[z * _PG_W + x]
+
+func _packed_height_lookup(grids: Array) -> Callable:
+	var height_grid: PackedInt32Array = grids[1]
+	return func(x: int, z: int) -> int:
+		if x < 0 or x >= _PG_W or z < 0 or z >= _PG_W:
+			return 1
+		return height_grid[z * _PG_W + x]
+
+
+func test_compute_height_field_grid_matches_callable_variant() -> void:
+	var grids: Array = _make_packed_grids()
+	var tile_size: float = IsoConst.TILE_SIZE
+	var origin_x: float = 3.0 * tile_size
+	var origin_z: float = 3.0 * tile_size
+	var nvx: int = 9
+	var nvz: int = 9
+	var step: float = tile_size * 0.5
+	var expected: PackedFloat32Array = TerrainMath.compute_height_field(
+		_packed_tile_lookup(grids), _packed_height_lookup(grids),
+		origin_x, origin_z, nvx, nvz, step,
+		IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
+	var actual: PackedFloat32Array = TerrainMath.compute_height_field_grid(
+		grids[0], grids[1], 0, 0, _PG_W,
+		origin_x, origin_z, nvx, nvz, step,
+		IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
+	assert_eq(actual.size(), expected.size())
+	for i in range(expected.size()):
+		if absf(actual[i] - expected[i]) > 0.0001:
+			_fail("height field mismatch at index %d: grid=%f callable=%f" % [i, actual[i], expected[i]])
+			return
+
+
+func test_get_height_at_grid_matches_callable_variant() -> void:
+	var grids: Array = _make_packed_grids()
+	var tile_size: float = IsoConst.TILE_SIZE
+	# Hill centre, hill skirt, near-wall (suppression), plain grass, grid edge.
+	var probes: Array[Vector2] = [
+		Vector2(5.5, 5.5), Vector2(6.5, 6.0), Vector2(3.2, 7.8),
+		Vector2(1.0, 1.0), Vector2(10.9, 10.9), Vector2(4.0, 5.0),
+	]
+	for p in probes:
+		var wx: float = p.x * tile_size
+		var wz: float = p.y * tile_size
+		var expected: float = TerrainMath.get_height_at(
+			wx, wz, _packed_tile_lookup(grids), _packed_height_lookup(grids),
+			IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
+		var actual: float = TerrainMath.get_height_at_grid(
+			wx, wz, grids[0], grids[1], 0, 0, _PG_W,
+			IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
+		assert_almost_eq(actual, expected, 0.0001,
+			"point query mismatch at tile (%.1f, %.1f)" % [p.x, p.y])
