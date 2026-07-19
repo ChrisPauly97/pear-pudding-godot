@@ -98,14 +98,15 @@ Uniforms set per material instance:
 - `path_tint` — defaults to `vec3(1,1,1)` (no biome override; paths are always brown)
 - `grass_texture`, `hill_side_texture`, `hill_top_texture`, `wall_side_texture`, `wall_top_texture`, `path_texture`
 
-### Grass Shader (`assets/shaders/grass.gdshader`)
+### Grass Blades & Clusters (`scenes/world/GrassBlades.gd`)
 
-Separate `MeshInstance3D` on top of flat grass tiles:
-- Fragment shader applies layered fBm (fractal Brownian motion) noise to produce procedural blade variation
-- Wind uniform `wind_direction: vec2` + turbulence noise offsets UV slightly per-pixel per frame
-- Player position `player_pos: vec3` passed every frame; blades within `player_radius` shift UV radially outward
+Per-chunk `MultiMeshInstance3D`s built on worker threads (infinite world only — named maps have no blade grass):
+- **Blades:** real 3-segment tapered meshes (7 verts each), 16 per short-grass tile / 40 per tall-patch tile (12% of 3-tile cells are tall). `grass_blade.gdshader` animates wind sway, player push, and persistent trample (sliding 64×64 trample map window) in the vertex stage.
+- **Clusters:** 6 billboard quads per tile (`grass_cluster.gdshader`, 5 blade silhouettes drawn in the fragment stage) carry most of the apparent density cheaply.
+- **Both shaders are `unshaded`** — per-pixel lighting on grass was the dominant mobile GPU cost. Day/night response comes from the `grass_day_tint` global shader parameter (sun + ambient + moon approximation) written at 2 Hz by `DayNightCycle`. Neither casts shadows, and both cull at 55 units (`VISIBILITY_END` — the ortho gameplay camera never sees ground past ~45 units).
+- Shared globals (`player_pos`, `player_move_dir`, `trample_*`, `grass_day_tint`) are registered via `GrassBlades._ensure_global_param()` so one `RenderingServer` write reaches every chunk.
 
-No geometry shader is used (Godot 4 does not support them). The visual density is achieved entirely in the fragment stage on a flat plane.
+No geometry shader is used (Godot 4 does not support them). Keep blade counts at mobile budget — blade vertex work scales linearly with density and was the primary open-world frame cost when set higher.
 
 ---
 
