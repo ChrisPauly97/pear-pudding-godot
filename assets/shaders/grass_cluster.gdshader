@@ -12,11 +12,15 @@ uniform vec4  color_tip  : source_color = vec4(0.46, 0.64, 0.24, 1.0);
 uniform float wind_strength  : hint_range(0.0, 1.0) = 0.28;
 uniform vec2  wind_direction                         = vec2(1.0, 0.35);
 
+// Sun+ambient approximation so unshaded clusters still follow day/night.
+global uniform vec3 grass_day_tint;
+
 void vertex() {
 	// Y-axis billboard: rotate the quad around world Y to face the camera,
 	// keeping it upright (no look_at tilt). Extract camera XZ direction from
 	// the inverse view matrix, flatten to Y=0, then rebuild the local axes.
-	vec3 cam_world = (inverse(VIEW_MATRIX) * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	// INV_VIEW_MATRIX is engine-provided — never call inverse() per vertex.
+	vec3 cam_world = INV_VIEW_MATRIX[3].xyz;
 	vec3 world_pos = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	vec3 to_cam = cam_world - world_pos;
 	to_cam.y = 0.0;
@@ -76,7 +80,7 @@ void fragment() {
 		col = color_tip.rgb;
 	}
 
-	ALBEDO = col;
+	ALBEDO = col * grass_day_tint;
 	ALPHA  = a * step(UV.y, 0.92);
 	// Low threshold keeps material in the opaque pass so clusters depth-test
 	// correctly against the player and terrain.

@@ -7,6 +7,8 @@ signal day_passed
 signal night_started
 signal dawn_arrived
 
+const _GrassBlades = preload("res://scenes/world/GrassBlades.gd")
+
 var _sun: DirectionalLight3D
 var _moon: DirectionalLight3D
 var _world_env: WorldEnvironment
@@ -24,6 +26,7 @@ var _cached_moon_energy: float = -1.0
 var _cached_sky_color: Color = Color.BLACK
 var _cached_ambient_color: Color = Color.BLACK
 var _cached_ambient_energy: float = -1.0
+var _cached_grass_tint: Color = Color.BLACK
 
 var _prev_was_night: bool = false
 var _sky_mat: ProceduralSkyMaterial = null
@@ -55,6 +58,10 @@ func setup(sun: DirectionalLight3D, moon: DirectionalLight3D,
 	_day_duration = day_duration
 	_time_of_day = initial_time
 	_prev_was_night = is_night(_time_of_day)
+	# Register before the first _apply_lighting write — grass chunks may not
+	# have initialised the shared grass globals yet at this point.
+	_GrassBlades._ensure_global_param(
+		"grass_day_tint", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3.ONE)
 
 func get_time_of_day() -> float:
 	return _time_of_day
@@ -107,6 +114,8 @@ func _apply_lighting(weather_tint: Color) -> void:
 
 	if not is_equal_approx(sun_energy, _cached_sun_energy):
 		_sun.light_energy = sun_energy
+		# A zero-energy light still costs per-pixel shading work — hide it.
+		_sun.visible = sun_energy > 0.001
 		_cached_sun_energy = sun_energy
 	if not sun_color.is_equal_approx(_cached_sun_color):
 		_sun.light_color = sun_color
@@ -116,6 +125,7 @@ func _apply_lighting(weather_tint: Color) -> void:
 	var moon_energy: float = clampf(moon_h * 0.35, 0.0, 0.35)
 	if not is_equal_approx(moon_energy, _cached_moon_energy):
 		_moon.light_energy = moon_energy
+		_moon.visible = moon_energy > 0.001
 		_cached_moon_energy = moon_energy
 
 	var sky: Color
@@ -145,3 +155,16 @@ func _apply_lighting(weather_tint: Color) -> void:
 	if not is_equal_approx(ambient_energy, _cached_ambient_energy):
 		_world_env.environment.ambient_light_energy = ambient_energy
 		_cached_ambient_energy = ambient_energy
+
+	# Approximate the lit-grass brightness for the unshaded grass shaders:
+	# ambient + most of the sun's contribution + a lift from the moon at night.
+	# Capped at 1.25 so daytime grass stays vivid without crossing the bloom
+	# threshold once multiplied by the authored blade colors.
+	var grass_tint: Color = Color(
+		minf(1.25, ambient_color.r * ambient_energy + sun_color.r * sun_energy * 0.85 + moon_energy * 0.5),
+		minf(1.25, ambient_color.g * ambient_energy + sun_color.g * sun_energy * 0.85 + moon_energy * 0.5),
+		minf(1.25, ambient_color.b * ambient_energy + sun_color.b * sun_energy * 0.85 + moon_energy * 0.6))
+	if not grass_tint.is_equal_approx(_cached_grass_tint):
+		_cached_grass_tint = grass_tint
+		RenderingServer.global_shader_parameter_set(
+			"grass_day_tint", Vector3(grass_tint.r, grass_tint.g, grass_tint.b))

@@ -31,9 +31,12 @@ var _trample_origin_z: float = 0.0  # world-space Z of pixel (0,0) in trample ma
 var _trample_timer:    float = 0.0  # throttle trample updates
 const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visible difference
 
-const BLADES_PER_TILE      := 65   # short grass tiles
-const BLADES_TALL_PER_TILE := 180  # tall patch tiles
-const CLUSTERS_PER_TILE    := 3    # billboard cluster quads per tile
+# Mobile-budget densities: real blade geometry is the single biggest GPU cost
+# in grass biomes (each blade = 7 shaded verts), so keep counts low and let the
+# 4-vert billboard clusters carry apparent density instead.
+const BLADES_PER_TILE      := 16   # short grass tiles
+const BLADES_TALL_PER_TILE := 40   # tall patch tiles
+const CLUSTERS_PER_TILE    := 6    # billboard cluster quads per tile
 const BLADE_WIDTH      := 0.20
 const BLADE_HEIGHT     := 0.40
 const SEGMENTS         := 3  # quads along the blade height
@@ -51,7 +54,7 @@ const RENDER_LAYER: int = 1 << 1
 # Tall grass patches: tiles grouped into cells of TALL_PATCH_CELL world units;
 # a hash of the cell position determines if it grows tall grass (~18% of cells).
 const TALL_PATCH_CELL:    float = 6.0   # world units per patch cell (≈3 tiles)
-const TALL_PATCH_DENSITY: float = 0.18  # fraction of cells that become tall patches
+const TALL_PATCH_DENSITY: float = 0.12  # fraction of cells that become tall patches
 
 # Integer hash mapped to [0,1) — used for deterministic patch classification.
 static func _hash_pos(px: float, pz: float) -> float:
@@ -88,6 +91,8 @@ func _init_material() -> void:
 	# One set-call from update_player() reaches every chunk without per-chunk overhead.
 	_ensure_global_param("player_pos",       RenderingServer.GLOBAL_VAR_TYPE_VEC3,    Vector3(-9999, 0, -9999))
 	_ensure_global_param("player_move_dir",  RenderingServer.GLOBAL_VAR_TYPE_VEC2,    Vector2.ZERO)
+	# Day/night brightness for the unshaded grass shaders — written by DayNightCycle.
+	_ensure_global_param("grass_day_tint",   RenderingServer.GLOBAL_VAR_TYPE_VEC3,    Vector3.ONE)
 	_ensure_global_param("trample_origin_x", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,   0.0)
 	_ensure_global_param("trample_origin_z", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,   0.0)
 	_ensure_global_param("trample_map",      RenderingServer.GLOBAL_VAR_TYPE_SAMPLER2D, null)
@@ -208,8 +213,8 @@ static func prepare_buffers(centres: Array[Vector2], chunk_key: Vector2i) -> Dic
 				sx = crng.randf_range(0.45, 0.65)
 				sy = crng.randf_range(0.50, 0.85)
 			else:
-				sx = crng.randf_range(0.38, 0.55)
-				sy = crng.randf_range(0.18, 0.28)
+				sx = crng.randf_range(0.45, 0.65)
+				sy = crng.randf_range(0.24, 0.38)
 			var off: int = idx * 12
 			cluster_buf[off]    = sx;  cluster_buf[off+1]  = 0.0; cluster_buf[off+2]  = 0.0; cluster_buf[off+3]  = px
 			cluster_buf[off+4]  = 0.0; cluster_buf[off+5]  = sy;  cluster_buf[off+6]  = 0.0; cluster_buf[off+7]  = 0.01
@@ -402,8 +407,8 @@ func _build_chunk_clusters(centres: Array[Vector2], chunk_key: Vector2i, rng: Ra
 				sx = rng.randf_range(0.45, 0.65)
 				sy = rng.randf_range(0.50, 0.85)
 			else:
-				sx = rng.randf_range(0.38, 0.55)
-				sy = rng.randf_range(0.18, 0.28)
+				sx = rng.randf_range(0.45, 0.65)
+				sy = rng.randf_range(0.24, 0.38)
 			var off: int = idx * 12
 			buf[off]    = sx;  buf[off+1]  = 0.0; buf[off+2]  = 0.0; buf[off+3]  = px
 			buf[off+4]  = 0.0; buf[off+5]  = sy;  buf[off+6]  = 0.0; buf[off+7]  = 0.01

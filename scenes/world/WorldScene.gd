@@ -504,6 +504,11 @@ func _setup_vignette() -> void:
 func _ready() -> void:
 	_setup_environment()
 	_sun.shadow_opacity = 0.2
+	# At 0.2 opacity the sun shadow is barely perceptible, but it still costs a
+	# full extra scene render into the shadow map plus per-pixel shadow taps on
+	# every shaded material — too expensive for phone GPUs.
+	if OS.has_feature("mobile"):
+		_sun.shadow_enabled = false
 	_tile_meshes = Node3D.new()
 	_tile_meshes.name = "TileGrid"
 	add_child(_tile_meshes)
