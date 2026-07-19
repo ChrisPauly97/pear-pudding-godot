@@ -3,6 +3,7 @@ extends Node3D
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const ChunkRenderer    = preload("res://scenes/world/ChunkRenderer.gd")
 const GrassBlades      = preload("res://scenes/world/GrassBlades.gd")
+const TerrainMath      = preload("res://game_logic/TerrainMath.gd")
 
 ## Emitted when the player enters a new chunk; world scene updates music/ambience/save.
 signal player_chunk_changed(chunk: Vector2i, biome_id: int)
@@ -44,6 +45,20 @@ var _physics_pending: Array[ChunkRenderer] = []
 var _last_move_dir: Vector2 = Vector2.ZERO
 var _last_dir_update_time: float = -999.0
 
+# ── Height-query grid cache (GID-121 / TID-460) ────────────────────────────────
+# Packed tile/height snapshot answering steady-state get_height_world() calls via
+# direct array indexing instead of ~49 Callable → Dictionary lookups per query.
+# Infinite worlds: covers the player's chunk ±1, refreshed on chunk crossing.
+# Named maps: covers the whole map + margin, built once at setup.
+var _hq_tiles: PackedInt32Array = PackedInt32Array()
+var _hq_heights: PackedInt32Array = PackedInt32Array()
+var _hq_min_x: int = 0
+var _hq_min_z: int = 0
+var _hq_w: int = 0                       # 0 = cache not built
+var _hq_center: Vector2i = Vector2i(-9999, -9999)  # player chunk the window is centred on
+# Point queries scan tiles vtx±_hq_tc — must match TerrainMath.get_height_at.
+var _hq_tc: int = int(ceil(IsoConst.HILL_CURVE_R / IsoConst.TILE_SIZE)) + 1
+
 # ── Config (set via setup()) ───────────────────────────────────────────────────
 var _world_seed: int = 42
 var _is_infinite: bool = false
@@ -61,6 +76,9 @@ func setup(world_seed: int, is_infinite: bool, world_map: RefCounted,
 	_world_map = world_map
 	_terrain_mat = terrain_mat
 	_world_scene = world_scene
+	if not _is_infinite:
+		# Named maps never change size — snapshot the whole map (plus margin) once.
+		_refresh_height_query_grid()
 
 ## Infinite-world startup: update chunks around player_pos, then sync-build the
 ## inner 5×5 ring; the remaining queued chunks stream in via process_streaming().
@@ -230,6 +248,51 @@ func _snapshot_region(min_tx: int, min_tz: int, w: int, h: int) -> Array:
 					height_grid[dst_row + lx] = src_heights[src_row + lx]
 	return [tile_grid, height_grid]
 
+## Rebuilds the height-query grid cache. Infinite worlds: player chunk ±1.
+## Named maps: whole map + a TILE_CHECK margin (out-of-bounds cells read through
+## WorldMap.get_tile/get_height, which return TILE_WALL/1 — the same fallbacks
+## TerrainMath.get_height_at_grid uses, so results are identical everywhere).
+func _refresh_height_query_grid() -> void:
+	if _is_infinite:
+		if _last_player_chunk == Vector2i(-9999, -9999):
+			return
+		var cs: int = IsoConst.CHUNK_SIZE
+		_hq_min_x = (_last_player_chunk.x - 1) * cs
+		_hq_min_z = (_last_player_chunk.y - 1) * cs
+		_hq_w = cs * 3
+		_hq_center = _last_player_chunk
+	else:
+		if _world_map == null:
+			return
+		var tc: int = ChunkRenderer.TILE_CHECK
+		var side: int = maxi(int(_world_map.MAP_WIDTH), int(_world_map.MAP_HEIGHT)) + tc * 2
+		_hq_min_x = -tc
+		_hq_min_z = -tc
+		_hq_w = side
+	var snap: Array = _snapshot_region(_hq_min_x, _hq_min_z, _hq_w, _hq_w)
+	_hq_tiles = snap[0]
+	_hq_heights = snap[1]
+
+## Terrain height at a world position. Fast path: direct packed-grid indexing when
+## the query's 7×7 tile neighbourhood fits inside the cached grid (always true for
+## steady-state queries near the player / anywhere on a named map). Falls back to
+## the Callable path — identical results, just slower — for far-away queries such
+## as entity placement during chunk commits.
+func get_height_world(wx: float, wz: float) -> float:
+	if _hq_w > 0:
+		var vtx: int = floori(wx / IsoConst.TILE_SIZE)
+		var vtz: int = floori(wz / IsoConst.TILE_SIZE)
+		if vtx - _hq_tc >= _hq_min_x and vtx + _hq_tc < _hq_min_x + _hq_w \
+				and vtz - _hq_tc >= _hq_min_z and vtz + _hq_tc < _hq_min_z + _hq_w:
+			return TerrainMath.get_height_at_grid(wx, wz, _hq_tiles, _hq_heights,
+					_hq_min_x, _hq_min_z, _hq_w,
+					IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
+	if _is_infinite:
+		return TerrainMath.get_height_at(wx, wz, get_tile_global, get_height_global,
+				IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
+	return TerrainMath.get_height_at(wx, wz, _world_map.get_tile, _world_map.get_height,
+			IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
+
 ## Rebuilds terrain meshes in the 3×3 chunk neighbourhood of tile (tx, tz).
 ## Called after map-editor tile edits.
 func rebuild_terrain_around_tile(tx: int, tz: int) -> void:
@@ -243,6 +306,8 @@ func rebuild_terrain_around_tile(tx: int, tz: int) -> void:
 				continue
 			var snap := snapshot_tile_grid_for(key)
 			renderer.rebuild_terrain(snap, _world_seed)
+	# Tile data changed — the height-query cache may now be stale.
+	_refresh_height_query_grid()
 
 ## Iterates all active renderers. callback receives (key: Vector2i, renderer: ChunkRenderer).
 func for_each_renderer(callback: Callable) -> void:
@@ -349,6 +414,8 @@ func _update_chunks(player_pos: Vector3, camera_frustum: Array[Plane], look_dir:
 		_chunk_data_cache.erase(key)
 
 	_last_player_chunk = player_chunk
+	if _is_infinite and _hq_center != player_chunk:
+		_refresh_height_query_grid()
 
 # Track last-seen biome to detect changes inside _update_chunks.
 var _last_biome: int = -1
