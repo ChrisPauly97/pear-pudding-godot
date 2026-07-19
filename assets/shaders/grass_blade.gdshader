@@ -1,5 +1,9 @@
 shader_type spatial;
-render_mode cull_disabled, alpha_to_coverage;
+// unshaded: blades cover a large share of screen pixels in grass biomes and
+// per-pixel lighting (3 directional lights + shadow taps) was a dominant
+// mobile GPU cost. Day/night response comes from grass_day_tint instead,
+// written at 2 Hz by DayNightCycle.
+render_mode cull_disabled, alpha_to_coverage, unshaded;
 
 // --- Color palette ---
 // Tuned to blend with the terrain's flat-grass procedural base (~0.44, 0.62, 0.25).
@@ -15,6 +19,8 @@ uniform vec2  wind_direction                          = vec2(1.0, 0.35);
 // Global so any system can update them once and all chunks see the new value.
 global uniform vec3  player_pos;
 global uniform vec2  player_move_dir;
+// Sun+ambient approximation so unshaded blades still follow day/night.
+global uniform vec3  grass_day_tint;
 uniform float player_radius : hint_range(0.0, 2.0) = 0.3;
 uniform float player_push   : hint_range(0.0, 2.0) = 0.5;
 
@@ -85,11 +91,6 @@ void vertex() {
 }
 
 void fragment() {
-	// Double-sided lighting: flip normal when viewing the back face
-	if (!FRONT_FACING) {
-		NORMAL = -NORMAL;
-	}
-
 	// Three flat color bands — pixel art style, no gradient blending
 	vec3 col;
 	if (UV.y < 0.33) {
@@ -100,11 +101,7 @@ void fragment() {
 		col = color_tip.rgb;
 	}
 
-	ALBEDO = col;
-	// Match terrain's emission floor so grass doesn't go pitch-black in shadow
-	EMISSION = col * 0.08;
-	ROUGHNESS = 1.0;
-	METALLIC = 0.0;
+	ALBEDO = col * grass_day_tint;
 	// Hard cutoff at tip instead of smooth fade
 	ALPHA = step(UV.y, 0.92);
 	// Low threshold keeps this material in Godot's opaque pass (depth writes,
