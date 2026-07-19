@@ -3500,14 +3500,15 @@ func _spawn_player() -> void:
 func get_tile_global(wtx: int, wtz: int) -> int:
 	return _csm.get_tile_global(wtx, wtz)
 
-func _get_height_global(wtx: int, wtz: int) -> int:
-	return _csm.get_height_global(wtx, wtz)
-
 # Compute terrain height at a world position using the shared smoothstep algorithm.
+# Delegates to the ChunkStreamingManager's cached packed grid (GID-121 / TID-460) —
+# steady-state per-frame callers (software floor, followers, remote avatars) resolve
+# via direct array indexing instead of ~49 Callable → Dictionary lookups per query.
 func get_terrain_height(wx: float, wz: float) -> float:
-	if _is_infinite:
-		return TerrainMath.get_height_at(wx, wz, get_tile_global, _get_height_global,
-				IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
+	if _csm != null:
+		return _csm.get_height_world(wx, wz)
+	# Pre-setup fallback: only named-map callers can land here (the infinite path
+	# has always required _csm — get_tile_global delegates to it).
 	return TerrainMath.get_height_at(wx, wz, world_map.get_tile, world_map.get_height,
 			IsoConst.HILL_CURVE_R, IsoConst.HILL_PEAK_H)
 

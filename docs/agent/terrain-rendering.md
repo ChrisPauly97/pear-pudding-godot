@@ -30,6 +30,36 @@ var hfield := TerrainMath.compute_height_field(
     grid_tile_lookup, chunk_origin.x, chunk_origin.z, nvx, nvz, step, CURVE_R, PLATEAU_H)
 ```
 
+#### Packed-Grid Fast Paths (GID-121)
+
+The Callable-per-tile variants cost ~53k dynamic calls per chunk (7×7 neighbourhood
+scan × 33×33 vertices), which dominated chunk prep and per-frame height queries on
+mobile. TerrainMath therefore also exposes packed variants with **identical output**
+that index `PackedInt32Array` tile/height grids directly:
+
+| Function | Used by | Replaces |
+|---|---|---|
+| `compute_height_field_grid(tile_grid, height_grid, grid_min_x, grid_min_z, grid_w, origin_x, origin_z, nvx, nvz, step, curve_r, peak_h)` | `ChunkRenderer.prepare_terrain` (worker thread + sync startup builds) | `compute_height_field` on the chunk-prep path |
+| `get_height_at_grid(wx, wz, tile_grid, height_grid, grid_min_x, grid_min_z, grid_w, curve_r, peak_h)` | `ChunkStreamingManager.get_height_world` (steady-state per-frame queries) | `get_height_at` when the query neighbourhood fits the cached grid |
+
+Out-of-range grid reads fall back to `TILE_WALL` / height `1` — the same values
+`WorldMap` returns out of bounds and the old snapshot lambdas returned outside the
+snapshot, so both variants are drop-in equivalent. The Callable variants remain the
+API for callers without a packed grid (named-map mesh builders, prop scatter,
+far-from-player fallback queries); per CLAUDE.md, both live only in TerrainMath.
+
+**Snapshot & height-query caches (`scenes/world/ChunkStreamingManager.gd`):**
+- `snapshot_tile_grid_for(key)` block-copies rows straight out of each covered
+  `ChunkData.tiles/heights` packed array (one cache lookup per chunk, ≤3×3 chunks)
+  instead of calling `get_tile_global`/`get_height_global` per tile — this runs on
+  the main thread at chunk-kick time, so it was the walking-hitch hot spot.
+- `get_height_world(wx, wz)` answers `WorldScene.get_terrain_height` from a cached
+  packed grid: player chunk ±1 for infinite worlds (refreshed on chunk crossing),
+  the whole map + `TILE_CHECK` margin for named maps (built once in `setup`).
+  Refreshed by `rebuild_terrain_around_tile` after tile edits (cracked-wall break).
+  Queries whose 7×7 tile neighbourhood falls outside the cached grid (e.g. entity
+  placement in far chunks during commit) take the Callable fallback — same result.
+
 #### Height Field Computation
 
 1. **Vertex grid:** vertex density = 2 (sample every 0.5 tiles); `nvx = chunk_tiles * 2 + 1` vertices per axis.
