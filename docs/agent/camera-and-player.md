@@ -65,6 +65,18 @@ The **WorldScene software floor** (`_process`) is a rescue for physics genuinely
 - **Walk dust:** `_dust_particles` now emits whenever `_is_moving and is_on_floor()`, on foot or mounted — previously mount-only. Two `ParticleProcessMaterial` presets (`_dust_mat_foot` lighter/fewer, `_dust_mat_mount` heavier) are swapped (plus `amount` 10 vs 20) by `_update_mount_visuals()` on mount toggle only, not per-frame.
 - **Landing feedback:** a frame-to-frame airborne→grounded transition (`_was_on_floor` tracked each `_physics_process`) with fall speed ≥ `_LAND_FALL_SPEED` (4.0 u/s) triggers `_on_landed()`: a dedicated one-shot `_landing_dust` burst (`GPUParticles3D.restart()`), `play_sfx("land")`, and a sprite squash (`_squash_sprite(1.08, 0.9, 0.15)`). Jump takeoff gets a symmetric stretch (`0.94, 1.06`). `_squash_sprite` tweens `scale` as a `Vector3` — `AnimatedSprite3D` is a `Node3D`, so scale is never `Vector2` (CLAUDE.md sprite-scale caution).
 - **Anim-synced footsteps:** `_footstep_timer` is gone. `_sprite.frame_changed` (connected once in `_build_sprite()`) fires `play_sfx("footstep")` on the walk animation's contact frames (0 and 2 of the 4-frame cycle), suppressed while mounted. At `ANIM_FPS = 6`, that's a step every ~0.33s while walking, now locked to the actual foot-down frame instead of an independent timer.
+- **Jump buffer & coyote time (TID-464):** the jump condition is
+  `_jump_buffer_timer > 0.0 and _coyote_timer > 0.0`, not a same-frame
+  `is_action_just_pressed and is_on_floor()` match. `_coyote_timer` resets to
+  `_COYOTE_TIME` (0.12s) every frame `_was_on_floor` is true and otherwise
+  ticks down, so a jump pressed just after walking off a ledge still fires.
+  `_jump_buffer_timer` resets to `_JUMP_BUFFER_TIME` (0.12s) on
+  `is_action_just_pressed("jump")` and otherwise ticks down, so a jump
+  pressed just before landing still fires on touchdown. Both timers are
+  consumed (`= 0.0`) the instant a jump fires, so one buffered press can't
+  double-jump across two landings. This only widens the input timing window
+  — `floor_max_angle`/`floor_snap_length`/`floor_constant_speed` (the slope
+  rules above) are unchanged.
 
 ### Sprite Animation
 

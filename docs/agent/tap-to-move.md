@@ -6,7 +6,10 @@
 - Visible pulsing torus destination marker placed at the target tile.
 - Manual joystick/WASD input always cancels the active path immediately.
 - Path cancelled automatically on battle start (`enemy_engaged`), map transition, or new tap.
-- No-op for wall tiles or unreachable targets (silent rejection — no marker placed).
+- Rejected taps (wall tile / unreachable) show a text tip **and** a brief red
+  marker at the tapped tile (TID-462).
+- Tapping directly on a chest/door/NPC/waystone/etc. auto-fires the normal
+  interaction once the player arrives, without a second tap on USE (TID-461).
 
 ## How It Works
 
@@ -87,6 +90,54 @@ Works for both named maps and the infinite world because tiles are always on the
 `_place_dest_marker()` attaches a looping `Tween` that pulses scale between 0.85 and 1.2 over 0.45 s.
 
 Marker is freed by `_clear_dest_marker()`, called on: new tap, `cancel_path()` from Player, battle start, or map change. `_process()` polls `player._has_active_path` each frame; when it becomes false, `_clear_dest_marker()` is called automatically.
+
+### Reject Marker (TID-462)
+
+A tap that resolves to a wall tile or an unreachable tile calls
+`_show_reject_marker(tile)` in addition to the existing `_show_tip(...)` text
+tip. `_make_reject_marker()` builds the same `TorusMesh` shape as the
+destination marker but red/orange (`Color(1.0, 0.25, 0.2)`, unshaded,
+emissive) and transient: it scales up to 1.4 while fading to alpha 0 over
+~0.4s via a one-shot `Tween`, then `queue_free()`s itself. It is independent
+of `_dest_marker`/`_dest_tween` — a rejected tap never touches the real
+destination-marker lifecycle, so a reject flash can't cancel or interfere
+with an in-progress path.
+
+### Tap-to-Interact on Arrival (TID-461)
+
+Tapping a walkable tile that is itself near an interactable (chest, door,
+NPC, waystone, mailbox, scroll, shrine, digspot, garden plot, burial mound,
+blight heart, mana well, enemy, wilderness camp, scout ambush, Maiteln)
+walks the player there and then automatically fires the same interaction
+E/USE would — no second tap needed.
+
+**Detection:** `_tile_has_interactable(wx, wz)` mirrors
+`_check_interactions()`'s `has_entity` boolean check, but against the
+*tapped tile's* world center instead of the live player position, reusing
+the same `_find_nearby_*` finder battery (door at `INTERACT_RANGE * 2.0`,
+everything else at `INTERACT_RANGE`). `_handle_tap_to_move()` sets
+`_pending_tap_interact` from this check once a valid path is found, before
+placing the marker.
+
+**Arrival:** `Player.gd` emits a `path_arrived` signal — separate from
+`cancel_path()` — only in the natural-arrival branch of
+`_physics_process()` (waypoint index overflow). Manual-input override and
+the `enemy_engaged`-triggered cancellation both call bare `cancel_path()`
+and never emit `path_arrived`, so overriding a walk with WASD or getting
+ambushed mid-route never auto-fires a stale queued interaction.
+`WorldScene._spawn_player()` connects `path_arrived` dynamically
+(`_player.connect("path_arrived", ...)` — `_player` is statically typed
+`CharacterBody3D`, so this uses the same dynamic-dispatch pattern as the
+rest of the Player-specific API in this file) to
+`_on_player_path_arrived()`, which calls the existing `_handle_interact()`
+exactly once when `_pending_tap_interact` is set and neither an overlay is
+open nor the player is downed (co-op). `_handle_interact()`'s own
+priority-ordered dispatch (door → enemy → chest → npc → …) is untouched —
+this only automates pressing the button, never re-implements what it does.
+
+`_pending_tap_interact` is also cleared by `_clear_dest_marker()`, so
+battle-start, map-transition, and new-tap cancellations can't leave a stale
+queued interaction around.
 
 ### Path Following (`scenes/world/entities/Player.gd`)
 
