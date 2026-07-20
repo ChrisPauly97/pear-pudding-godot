@@ -48,6 +48,11 @@ static func is_available(cantrip_id: String, template_ids: Array[String]) -> boo
 		return false
 	return _count_family(template_ids, family) >= get_threshold(cantrip_id)
 
+## Public count for progress readouts (e.g. "3/4 Ghost cards") on a locked
+## cantrip button — BID-050 discoverability fix.
+static func count_family(cantrip_id: String, template_ids: Array[String]) -> int:
+	return _count_family(template_ids, _get_family(cantrip_id))
+
 ## Returns all cantrip IDs available given the current deck.
 static func available_cantrips(template_ids: Array[String]) -> Array[String]:
 	var result: Array[String] = []

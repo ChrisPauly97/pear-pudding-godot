@@ -70,6 +70,28 @@ func test_available_cantrips_returns_both() -> void:
 
 
 # ---------------------------------------------------------------------------
+# count_family (TID-463 / BID-050 locked-cantrip progress readout)
+# ---------------------------------------------------------------------------
+
+func test_count_family_empty_deck() -> void:
+	var ids: Array[String] = []
+	assert_eq(CantripManager.count_family("ghost_phase", ids), 0)
+
+func test_count_family_below_threshold() -> void:
+	var ids: Array[String] = ["ghost", "ghost", "ghost", "skeleton"]
+	assert_eq(CantripManager.count_family("ghost_phase", ids), 3)
+
+func test_count_family_counts_mixed_family_members() -> void:
+	var ids: Array[String] = ["ghost", "dusk_wraith", "shrouded_wraith", "surge_spirit", "skeleton"]
+	assert_eq(CantripManager.count_family("ghost_phase", ids), 4)
+
+func test_count_family_ignores_other_families() -> void:
+	var ids: Array[String] = ["skeleton", "zombie", "ghoul", "blitz_ghoul"]
+	assert_eq(CantripManager.count_family("ghost_phase", ids), 0)
+	assert_eq(CantripManager.count_family("skeleton_dig", ids), 4)
+
+
+# ---------------------------------------------------------------------------
 # Thresholds and cooldowns
 # ---------------------------------------------------------------------------
 

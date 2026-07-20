@@ -28,3 +28,16 @@ composition unlocks abilities). A fuller fix would show locked cantrips as a dis
 button with a progress hint (e.g. "Ghost Phase — 3/4 Ghost cards"), following the
 viewport-relative sizing and action-registry rules in CLAUDE.md. Decide after TID-441 lands
 whether the popup alone is sufficient.
+
+## Resolved (GID-122 / TID-463)
+
+Implemented the suggested resolution, with one adjustment: the button stays **enabled**
+rather than `disabled` — a Godot `Button` with `disabled = true` never fires `pressed`, so
+a truly disabled button couldn't explain itself to a curious tap. Both cantrip buttons are
+now always registered visible (`register_action(..., Callable(), ...)` — no
+`visible_when` toggle); `WorldHUD._update_cantrip_button_state()` dims a locked button
+(`modulate` alpha 0.5) and appends a live progress count to its label (e.g.
+`"[G] Phase (3/4)"`) via the new `CantripManager.count_family()` public wrapper. Tapping a
+locked button still routes to the existing `_activate_ghost_phase()` /
+`_activate_skeleton_dig()` guard, which already emits a "requires N+ family cards" HUD
+message — so the fix needed no new dispatch logic, only a visibility/labeling change.

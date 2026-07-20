@@ -6,6 +6,11 @@
 - **Skeleton Dig**: player digs buried mounds spawned in ~10% of open-world chunks. Requires ≥4 Skeleton-family cards in deck. 10-second cooldown. Rewards: 10–30 coins + 60% card / 40% essence.
 - HUD buttons `[G] Phase` and `[D] Dig` (left side of screen), plus keyboard keys G and D.
 - Both keys also work on desktop; the HUD buttons are the mobile touch targets.
+- Buttons are **always visible** (TID-463 / BID-050), even when locked: a
+  locked button is dimmed and shows a family-card progress count
+  (`"[G] Phase (3/4)"`); it stays clickable so a curious tap still surfaces
+  the "requires N+ family cards" HUD message via the existing
+  `_activate_ghost_phase()` / `_activate_skeleton_dig()` guard.
 - Cooldowns persist in `SaveManager.cantrip_cooldowns` (Dictionary: cantrip_id → Unix expiry float).
 - Dug mounds persist in `SaveManager.dug_mounds` (Array[String] of mound IDs).
 
@@ -19,6 +24,7 @@ Pure static utility — no mutable state, headless-testable.
 |---|---|
 | `is_available(cantrip_id, template_ids)` | Returns true if deck has ≥threshold family cards |
 | `available_cantrips(template_ids)` | Returns all unlocked cantrip IDs |
+| `count_family(cantrip_id, template_ids)` | Current family-card count, for the locked-button progress readout (TID-463) |
 | `get_threshold(cantrip_id)` | Returns the deck-count threshold (4 for both cantrips) |
 | `get_cooldown(cantrip_id)` | Returns cooldown duration in seconds |
 | `is_on_cooldown(cantrip_id, cooldowns, current_time)` | Returns true if expiry > current_time |
