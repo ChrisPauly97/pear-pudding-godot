@@ -1,5 +1,11 @@
 extends CharacterBody3D
 
+## Emitted only when an active tap-to-move path completes by natural arrival
+## at the final waypoint — never on manual-input override or enemy_engaged
+## cancellation (both of those call cancel_path() directly without this
+## signal). WorldScene listens to auto-fire a queued interaction (TID-461).
+signal path_arrived
+
 const MountRegistry = preload("res://game_logic/MountRegistry.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
@@ -11,6 +17,12 @@ const GRAVITY: float = -20.0
 const ACCEL: float = 40.0
 const DECEL: float = 50.0
 const _LAND_FALL_SPEED: float = 4.0   # min downward speed (u/s) to count as a "landing"
+
+# Jump forgiveness windows (TID-464): a jump press just before landing, or
+# just after walking off a ledge, still jumps instead of requiring a
+# same-frame press/is_on_floor match.
+const _COYOTE_TIME: float = 0.12
+const _JUMP_BUFFER_TIME: float = 0.12
 
 # Individual walk frame textures (pixel art versions)
 const _WalkTex1: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_1_pixel.png")
@@ -30,6 +42,8 @@ var _dust_mat_foot: ParticleProcessMaterial
 var _landing_dust: GPUParticles3D
 var _is_moving: bool = false
 var _was_on_floor: bool = true
+var _coyote_timer: float = 0.0
+var _jump_buffer_timer: float = 0.0
 
 var _highlight_timer: float = 0.0
 var _highlighted_node: Node3D = null
@@ -230,6 +244,7 @@ func _physics_process(delta: float) -> void:
 			_path_wp_index += 1
 			if _path_wp_index >= _path_waypoints.size():
 				cancel_path()
+				path_arrived.emit()
 		else:
 			dir = delta_v.normalized()
 
@@ -252,9 +267,23 @@ func _physics_process(delta: float) -> void:
 		_velocity_y = 0.0
 	var fall_speed: float = _velocity_y
 
-	if Input.is_action_just_pressed("jump") and _was_on_floor:
+	# Jump forgiveness windows (TID-464): coyote time keeps a jump press valid
+	# for a short window after walking off a ledge; the jump buffer keeps a
+	# press valid for a short window before landing. Both must be non-expired
+	# for a jump to fire, and both are consumed immediately so one buffered
+	# press can't double-fire across two landings.
+	_coyote_timer = maxf(_coyote_timer - delta, 0.0)
+	_jump_buffer_timer = maxf(_jump_buffer_timer - delta, 0.0)
+	if _was_on_floor:
+		_coyote_timer = _COYOTE_TIME
+	if Input.is_action_just_pressed("jump"):
+		_jump_buffer_timer = _JUMP_BUFFER_TIME
+
+	if _jump_buffer_timer > 0.0 and _coyote_timer > 0.0:
 		_velocity_y = JUMP_VELOCITY
 		_squash_sprite(0.94, 1.06, 0.12)
+		_jump_buffer_timer = 0.0
+		_coyote_timer = 0.0
 
 	velocity.y = _velocity_y
 	move_and_slide()

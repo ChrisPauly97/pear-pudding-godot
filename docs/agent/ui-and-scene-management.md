@@ -463,12 +463,12 @@ HUD elements are constructed by `WorldHUD.gd` (owned and set up by WorldScene). 
 - **Mount button** — right side below Menu button, hidden until the player owns a mount on the main map. Calls `_toggle_mount()`.
 
 **Action cluster (TID-298):**
-- **[G] Phase** cantrip button — left side at `vh*0.17`. Calls `_activate_ghost_phase()`. Visible only when `CantripManager.is_available("ghost_phase", deck_ids)`. Refreshed on `GameBus.inventory_changed`.
-- **[D] Dig** cantrip button — left side below Phase. Calls `_activate_skeleton_dig()`. Gated on `CantripManager.is_available("skeleton_dig", deck_ids)`.
+- **[G] Phase** cantrip button — left side at `vh*0.17`. Calls `_activate_ghost_phase()`. Always visible (TID-463 / BID-050); dimmed with a "(count/threshold)" progress label when `CantripManager.is_available("ghost_phase", deck_ids)` is false, full brightness and plain label when true. Refreshed on `GameBus.inventory_changed`.
+- **[D] Dig** cantrip button — left side below Phase. Calls `_activate_skeleton_dig()`. Same always-visible dimmed/progress-labeled pattern, gated on `CantripManager.is_available("skeleton_dig", deck_ids)`.
 - `WorldHUD.refresh_action_cluster()` rechecks availability and updates visibility; connected to `GameBus.inventory_changed`.
 
 **Informational elements (unchanged):**
-- **Interact prompt** — on desktop: `_interact_label` Label (`"[E] Interact"`); on Android: `_interact_btn` Button (`"USE"`, `vh * 0.18 × vh * 0.08`) positioned center-bottom at `vh * 0.80`. Both are hidden until the player is within `INTERACT_RANGE` of a door, chest, NPC, or scroll. On Android the button calls `_handle_interact()` directly when tapped.
+- **Interact prompt** — on desktop: `_interact_label` Label; on Android: `_interact_btn` Button (`vh * 0.18 × vh * 0.08`) positioned center-bottom at `vh * 0.80`. Both are hidden until the player is within `INTERACT_RANGE` of one of the ~17 interactable types `WorldScene._check_interactions()` scans (door, enemy, chest, npc, scroll, waystone, mailbox, shrine, digspot, garden plot, burial mound, blight heart, mana well, wilderness camp, scout ambush, Maiteln, downed peer). The label is contextual, not a generic "Interact" — `_check_interactions()` computes a specific verb per type (`"OPEN"`, `"TALK"`, `"ATTACK"`, `"ENTER"`, `"SHOP"`, `"WARP"`, `"DIG"`, etc., with `"REVIVE"` and per-NPC-type overrides taking priority) and passes it to `show_interact_prompt(has_entity, label)`. On Android the button calls `_handle_interact()` directly when tapped. `WorldScene._handle_tap_to_move()` can also auto-fire `_handle_interact()` once a tap-to-move path aimed at one of these interactables completes (TID-461; see `docs/agent/tap-to-move.md`).
 - **Map name label** — displayed for 3 seconds on map load, then fades. Font `vh * 0.032`.
 - **Coin counter** — reads `SaveManager.coins` each frame. Font `vh * 0.03`.
 - **Level label** — `"Lv.X"` bottom-left, font `vh * 0.028`.

@@ -125,6 +125,7 @@
 | [GID-119](goals/GID-119--mobile-battle-ux/goal.md) | Mobile Battle UX & Accessibility | done (headless validation unverified in-sandbox — see goal.md note) | 5 / 5 |
 | [GID-120](goals/GID-120--mobile-world-menu-ux/goal.md) | Mobile World & Menu UX | done (headless validation unverified in-sandbox — see goal.md note) | 5 / 5 |
 | [GID-121](goals/GID-121--mobile-terrain-cpu-hotpaths/goal.md) | Mobile Terrain CPU Hot Paths | done (headless validation unverified in-sandbox — see goal.md note) | 3 / 3 |
+| [GID-122](goals/GID-122--gameplay-fluidity/goal.md) | Gameplay Fluidity & Intuition | done (headless validation unverified in-sandbox — see goal.md note) | 5 / 5 |
 
 ## Backlog
 
@@ -141,7 +142,6 @@
 | ~~[BID-011](backlog/BID-011--persistence-test-coverage.md)~~ | ~~No test coverage for SaveManager migrations/flush or SceneManager state machine~~ | ~~doc-gap~~ | Promoted to GID-085 / TID-305, TID-306 |
 | ~~[BID-012](backlog/BID-012--battle-integration-test-gaps.md)~~ | ~~No BattleScene-level tests for keywords/AI paths; unreachable hero freeze/stun ticks~~ | ~~doc-gap~~ | Promoted to GID-085 / TID-307 |
 | ~~[BID-013](backlog/BID-013--godot-version-drift.md)~~ | ~~CI builds on Godot 4.6 but CLAUDE.md/spec say 4.4.1~~ | ~~doc-gap~~ | Promoted to GID-087 / TID-310 |
-| ~~[BID-014](backlog/BID-014--camera-follow-stutter.md)~~ | ~~Camera follows physics body from _process without interpolation (stutter at 90/120 Hz)~~ | ~~code-smell~~ | Promoted to GID-084 / TID-303, TID-304 |
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded — **out of scope for v1** | spec-gap | GID-070 research |
 | ~~[BID-016](archive/backlog/BID-016--flag-gated-dialogue-content.md)~~ | ~~Flag-gated NPC dialogue content not yet authored~~ | ~~human-action-deferred~~ | Resolved by GID-108 (story pack approved into story.md) |
 | ~~[BID-017](backlog/BID-017--corruption-redemption-points-never-accrue.md)~~ | ~~add_corruption_points / add_redemption_points never called — currencies may never accrue~~ | ~~design-inconsistency~~ | Promoted to GID-086 / TID-308, TID-309 |
@@ -167,7 +167,6 @@
 | [BID-046](backlog/BID-046--backlog-index-drift.md) | Backlog index drift — duplicate BID-018 id, BID-018/019/021 unindexed, enemy-registry BID-018 already fixed at HEAD | doc-gap | GID-115 research |
 | [BID-047](backlog/BID-047--stale-duplicate-tid081-file.md) | Orphaned duplicate `TID-081--background-music-loop.md` sits alongside the completed `TID-081--background-music-loop-integration.md` — being resolved by GID-116 / TID-437 | code-smell | GID-116 research |
 | [BID-048](backlog/BID-048--dungeon-music-plays-in-towns.md) | `dungeon.ogg` plays for every named map, including peaceful towns (madrian, maykalene), not just dungeons | design-inconsistency | GID-116 research |
-| [BID-050](backlog/BID-050--hidden-cantrip-undiscoverable.md) | Locked cantrips render no button at all, so the deck-shapes-the-world mechanic is undiscoverable until accidentally unlocked | design-gap | GID-117 / TID-440 |
 
 ## Resolved Backlog
 
@@ -178,6 +177,7 @@
 | ~~[BID-052](archive/backlog/BID-052--auction-mailbox-test-failures-godot47.md)~~ | ~~7 pre-existing auction/mailbox test failures, suspected Godot 4.7 engine drift~~ | ~~code-smell~~ | Resolved: not engine drift — 2 test-authoring bugs (wrong helper / wrong card index), root-caused by reading the implementation and fixed directly |
 | [BID-003](archive/backlog/BID-003--maykalene-concatenated-door-scroll.md) | maykalene.txt DOOR+SCROLL lines were concatenated; scroll_martarquas_first_war was never spawned | code-smell | GID-017 / TID-047 |
 | [BID-004](archive/backlog/BID-004--orphaned-chestopenscene-uid.md) | Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen) | code-smell | Resolved by GID-075 |
+| ~~[BID-014](archive/backlog/BID-014--camera-follow-stutter.md)~~ | ~~Camera follows physics body from _process without interpolation (stutter at 90/120 Hz)~~ | ~~code-smell~~ | Resolved by GID-084 / TID-303, TID-304; archived by GID-122 / TID-465 |
 | [BID-007](archive/backlog/BID-007--card-registry-test-count-stale.md) | test_card_registry asserts 40 cards but registry preloads 46 | code-smell | Resolved by GID-075 |
 | [BID-016](archive/backlog/BID-016--flag-gated-dialogue-content.md) | Flag-gated NPC dialogue content not yet authored | human-action-deferred | Resolved by GID-108 (approved story pack) |
 | [BID-022](archive/backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md) | Spec lists multiplayer as out-of-scope, but co-op + PvP shipped | spec-gap | Resolved by GID-094 / TID-344 |
@@ -188,6 +188,7 @@
 | [BID-041](archive/backlog/BID-041--siege-raiders-set-enemy-type-noop.md) | Single-player siege raiders' `node.set("enemy_type", ...)` is a silent no-op (no such property) — every raider always fights as fallback "undead_basic" regardless of stage | code-smell | Resolved by GID-108 / TID-407 |
 | [BID-045](archive/backlog/BID-045--enemy-alert-sfx-key-unregistered.md) | `enemy_alert` SFX key played by WorldScene but never registered in AudioManager.SFX_PATHS | code-smell | Resolved by GID-114 / TID-425 |
 | [BID-049](archive/backlog/BID-049--new-game-debug-progression-values.md) | `new_game()` seeded late-game debug values (xp 11250, level 15, 14 skill points, 3000 coins) — now a true level-1 default with opt-in Head Start toggle | code-smell | Resolved by GID-117 / TID-443 |
+| [BID-050](archive/backlog/BID-050--hidden-cantrip-undiscoverable.md) | Locked cantrips render no button at all, so the deck-shapes-the-world mechanic is undiscoverable until accidentally unlocked | design-gap | Resolved by GID-122 / TID-463 |
 
 ## Archive
 

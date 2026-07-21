@@ -429,6 +429,9 @@ var _fast_travel_layer: CanvasLayer = null
 # Tap-to-move
 var _dest_marker: Node3D = null
 var _dest_tween: Tween = null
+# Set when a tap resolves near an interactable (TID-461); consumed by
+# _on_player_path_arrived() to auto-fire _handle_interact() on arrival.
+var _pending_tap_interact: bool = false
 var _joystick_ref: Node = null
 var _tap_start_screen: Vector2 = Vector2.ZERO
 var _tap_touch_index: int = -2  # -2 = no tracked tap; -1 reserved for mouse
@@ -3485,6 +3488,11 @@ func _spawn_player() -> void:
 
 	_player = _create_player_node()
 	_player.position = Vector3(px, get_terrain_height(px, pz), pz)
+	# Dynamic connect (TID-461): _player is statically typed CharacterBody3D,
+	# matching the existing has_method()/call() pattern this file uses for
+	# the rest of the Player-specific API.
+	if _player.has_signal("path_arrived") and not _player.is_connected("path_arrived", _on_player_path_arrived):
+		_player.connect("path_arrived", _on_player_path_arrived)
 	_entity_root.add_child(_player)
 	_smooth_camera_target = _player.position + Vector3(20, 20, 20)
 	_camera.position = _smooth_camera_target
@@ -6418,16 +6426,75 @@ func _handle_tap_to_move(screen_pos: Vector2) -> void:
 		or tile_type == IsoConst.TILE_PATH)
 	if not is_walkable:
 		_show_tip("Can't go there")
+		_show_reject_marker(tile)
 		return
 	var player_tile: Vector2i = IsoConst.world_to_tile(_player.position.x, _player.position.z)
 	var path: Array[Vector2i] = Pathfinder.find_path(
 		Callable(self, "get_tile_global"), player_tile, tile, 64)
 	if path.is_empty():
 		_show_tip("Can't reach that tile")
+		_show_reject_marker(tile)
 		return
+	# TID-461: if the tapped tile is itself near an interactable, queue an
+	# auto-interact for when the path completes (natural arrival only —
+	# see Player.path_arrived / _on_player_path_arrived()).
+	var wx: float = (float(tile.x) + 0.5) * IsoConst.TILE_SIZE
+	var wz: float = (float(tile.y) + 0.5) * IsoConst.TILE_SIZE
+	_pending_tap_interact = _tile_has_interactable(wx, wz)
 	_place_dest_marker(tile)
 	if _player.has_method("set_destination_path"):
 		_player.call("set_destination_path", path)
+
+## Mirrors _check_interactions()'s "has_entity" check but against an
+## arbitrary world point instead of the live player position, so a tap can be
+## classified as "aimed at an interactable" before the player ever walks
+## there. Deliberately does not replicate any of _handle_interact()'s
+## per-type dispatch — that stays the single source of truth.
+func _tile_has_interactable(wx: float, wz: float) -> bool:
+	if not _find_nearby_door(wx, wz, IsoConst.INTERACT_RANGE * 2.0).is_empty():
+		return true
+	if _find_nearby_enemy(wx, wz, IsoConst.INTERACT_RANGE) != null:
+		return true
+	if not _find_nearby_chest(wx, wz, IsoConst.INTERACT_RANGE).is_empty():
+		return true
+	if not _find_nearby_npc(wx, wz, IsoConst.INTERACT_RANGE).is_empty():
+		return true
+	if _find_nearby_scroll(wx, wz, IsoConst.INTERACT_RANGE) != null:
+		return true
+	if _find_nearby_wilderness_camp(wx, wz, IsoConst.INTERACT_RANGE) != null:
+		return true
+	if _find_nearby_scout_ambush(wx, wz, IsoConst.INTERACT_RANGE) != null:
+		return true
+	if _find_nearby_maiteln(wx, wz, IsoConst.INTERACT_RANGE) != null:
+		return true
+	if _find_nearby_shrine(wx, wz, IsoConst.INTERACT_RANGE) != null:
+		return true
+	if _find_nearby_digspot(wx, wz, IsoConst.INTERACT_RANGE) != null:
+		return true
+	if not _find_nearby_waystone(wx, wz, IsoConst.INTERACT_RANGE).is_empty():
+		return true
+	if not _find_nearby_mailbox(wx, wz, IsoConst.INTERACT_RANGE).is_empty():
+		return true
+	if _find_nearby_garden_plot(wx, wz, IsoConst.INTERACT_RANGE) != null:
+		return true
+	if _find_nearby_burial_mound(wx, wz, IsoConst.INTERACT_RANGE) != null:
+		return true
+	if _find_nearby_blight_heart(wx, wz, IsoConst.INTERACT_RANGE) != null:
+		return true
+	if _find_nearby_mana_well(wx, wz, IsoConst.INTERACT_RANGE) != null:
+		return true
+	return false
+
+## Connected to Player.path_arrived (TID-461). Fires the normal interact
+## dispatch once, exactly as if the player had pressed E/USE on arrival —
+## only when the tap that started this path was aimed at an interactable and
+## nothing (overlay, downed state) blocks interaction right now.
+func _on_player_path_arrived() -> void:
+	var should_interact: bool = _pending_tap_interact and not _coop_downed \
+		and not SceneManager.has_open_overlay()
+	_pending_tap_interact = false
+	if should_interact:
+		_handle_interact()
 
 # Convert a screen position to the nearest tile coordinate via analytic
 # ray–plane intersection with the y=0 tile plane.
@@ -6484,6 +6551,48 @@ func _make_dest_marker() -> Node3D:
 	root.add_child(mesh_inst)
 	return root
 
+## TID-462: brief red/orange flash at a tapped tile that resolved to a wall
+## or an unreachable destination. Independent of _dest_marker/_dest_tween —
+## a rejected tap must never cancel or interfere with an in-progress path.
+## CAUTION (CLAUDE.md): Node3D has no modulate — fade via the material's
+## albedo_color alpha instead, not a "modulate:a" tween on the root/mesh.
+func _show_reject_marker(tile: Vector2i) -> void:
+	var wx: float = (float(tile.x) + 0.5) * IsoConst.TILE_SIZE
+	var wz: float = (float(tile.y) + 0.5) * IsoConst.TILE_SIZE
+	var marker: Node3D = _make_reject_marker()
+	marker.position = Vector3(wx, 0.08, wz)
+	add_child(marker)
+	var mesh_inst: MeshInstance3D = marker.get_child(0) as MeshInstance3D
+	var mat: StandardMaterial3D = mesh_inst.material_override as StandardMaterial3D
+	var tw: Tween = marker.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(marker, "scale", Vector3(1.4, 1.0, 1.4), 0.4).set_trans(Tween.TRANS_SINE)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
+	tw.set_parallel(false)
+	tw.tween_callback(marker.queue_free)
+
+func _make_reject_marker() -> Node3D:
+	var root := Node3D.new()
+	root.name = "RejectMarker"
+	var mesh_inst := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.50
+	torus.outer_radius = 0.72
+	torus.rings = 12
+	torus.ring_segments = 16
+	mesh_inst.mesh = torus
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(1.0, 0.25, 0.2, 0.90)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.emission_enabled = true
+	mat.emission = Color(1.0, 0.25, 0.2)
+	mat.emission_energy_multiplier = 1.8
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mesh_inst.material_override = mat
+	root.add_child(mesh_inst)
+	return root
+
 ## Safely coerce a tracking-dict value to Node3D. `as Node3D` on a Variant
 ## holding a freed object throws "Trying to cast a freed object" immediately,
 ## before is_instance_valid() can be checked — this checks validity first.
@@ -6506,6 +6615,7 @@ func _clear_dest_marker() -> void:
 		_dest_marker.hide()
 	if _player != null and _player.has_method("cancel_path"):
 		_player.call("cancel_path")
+	_pending_tap_interact = false
 
 # ── Return portal (TID-339) ───────────────────────────────────────────────
 # Spawns a visible "Return to Town" portal in the main overworld near the
