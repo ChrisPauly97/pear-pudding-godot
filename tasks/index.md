@@ -127,7 +127,7 @@
 | [GID-121](goals/GID-121--mobile-terrain-cpu-hotpaths/goal.md) | Mobile Terrain CPU Hot Paths | done | 3 / 3 |
 | [GID-122](goals/GID-122--gameplay-fluidity/goal.md) | Gameplay Fluidity & Intuition | done | 5 / 5 |
 | [GID-123](goals/GID-123--repo-health-ci/goal.md) | Repository Health — CI Test Gate & Reproducible Dev Setup | done | 1 / 1 |
-| [GID-124](goals/GID-124--backlog-cleanup-batch/goal.md) | Backlog Cleanup Batch — Music, AI Signals, Rally & Auction | done | 4 / 4 |
+| [GID-124](goals/GID-124--backlog-cleanup-batch/goal.md) | Backlog Cleanup Batch — Music, AI Signals, Rally & Auction | done | 5 / 5 |
 
 ## Backlog
 
@@ -148,7 +148,6 @@ files in `tasks/archive/backlog/`.
 | [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
 | [BID-053](backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job is `continue-on-error` — 638 pre-existing problems (357 are `class-definitions-order`); two `.gdlintrc` rules that contradicted CLAUDE.md were fixed, cutting the count from >1000 | code-smell | GID-123 / TID-466 |
-| [BID-056](backlog/BID-056--three-more-unemitted-gamebus-signals.md) | `exited_to_world`, `world_event_started`, `world_event_ended` are declared on GameBus but never emitted — same class as BID-006, missed by it | code-smell | GID-123 research |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` is 9154 lines / 401 functions — 13% of all GDScript in one file, 9x the project's own `max-file-lines`; it refilled after GID-072 because nothing enforces the decomposition | code-smell | GID-123 research |
 
 ## Resolved Backlog
@@ -160,6 +159,7 @@ files in `tasks/archive/backlog/`.
 | [BID-003](archive/backlog/BID-003--maykalene-concatenated-door-scroll.md) | maykalene.txt DOOR+SCROLL lines were concatenated; scroll_martarquas_first_war was never spawned | code-smell | GID-017 / TID-047 |
 | [BID-004](archive/backlog/BID-004--orphaned-chestopenscene-uid.md) | Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen) | code-smell | Resolved by GID-075 |
 | [BID-005](archive/backlog/BID-005--rolled-stats-not-used-in-battle.md) | Player's per-instance rolled card stats never applied in battle | design-inconsistency | Promoted to GID-083 / TID-302 |
+| [BID-056](archive/backlog/BID-056--unemitted-gamebus-signals.md) | `exited_to_world` declared but never emitted (2 of the 3 originally filed were false positives — string-form `emit_signal` was missed by the audit grep) | code-smell | Resolved by GID-124 / TID-471 |
 | [BID-006](archive/backlog/BID-006--gamebus-battle-signals-never-emitted.md) | GameBus card_played / card_attacked / battle_ended declared but never emitted | code-smell | Resolved by GID-124 |
 | [BID-007](archive/backlog/BID-007--card-registry-test-count-stale.md) | test_card_registry asserts 40 cards but registry preloads 46 | code-smell | Resolved by GID-075 |
 | [BID-008](archive/backlog/BID-008--is-unique-dropped-from-template-dict.md) | CardData.to_template_dict() omits is_unique; sell/scrap guard never triggers | code-smell | Resolved by GID-061 / TID-219 |

@@ -721,6 +721,11 @@ func _ready() -> void:
 		GameBus.entered_named_map.emit(map_name)
 		if map_name.begins_with("dungeon_"):
 			_dungeon_session_ui.reset_hero_hp()
+	else:
+		# Counterpart to entered_named_map above (BID-056). Declared since the
+		# ambient-audio signals landed but never emitted, so any subscriber saw
+		# the player enter named maps and never come back out.
+		GameBus.exited_to_world.emit()
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)
 	GameBus.blight_changed.connect(_refresh_blight_tints)
