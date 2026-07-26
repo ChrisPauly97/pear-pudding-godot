@@ -53,12 +53,7 @@ func show_intent_banner(text: String) -> void:
 	hide_intent_banner()
 	var vp: Vector2 = _scene_root.get_viewport().get_visible_rect().size
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.18, 0.88)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
+	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.88), 8)
 	panel.add_theme_stylebox_override("panel", style)
 	var lbl := _UiUtil.make_label(text, int(_font(0.022)))
 	lbl.add_theme_color_override("font_color", Color.WHITE)

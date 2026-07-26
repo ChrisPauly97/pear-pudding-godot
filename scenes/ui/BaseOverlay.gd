@@ -48,17 +48,7 @@ func _build_centered_panel(w: float, h: float) -> PanelContainer:
 # Applies the standard dark-glass styled border to a PanelContainer.
 # Call this after _build_centered_panel() when the scene needs it.
 static func _make_dark_glass_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.14, 0.98)
-	style.corner_radius_top_left    = 12
-	style.corner_radius_top_right   = 12
-	style.corner_radius_bottom_left = 12
-	style.corner_radius_bottom_right = 12
-	style.border_color = Color(0.4, 0.4, 0.6, 0.7)
-	style.border_width_top    = 2
-	style.border_width_bottom = 2
-	style.border_width_left   = 2
-	style.border_width_right  = 2
+	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.14, 0.98), 12, Color(0.4, 0.4, 0.6, 0.7), 2)
 	return style
 
 # Adds a MarginContainer + VBoxContainer inside parent and returns the VBox.

@@ -4280,12 +4280,7 @@ func _open_fast_travel_panel() -> void:
 	var panel_w: float = vp.x * 0.55
 	var panel_h: float = vh * 0.62
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.10, 0.96)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
+	var style := _UiUtil.make_style(Color(0.05, 0.05, 0.10, 0.96), 10)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, panel_h)
 	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
@@ -5222,12 +5217,7 @@ func _show_spire_entrance_panel() -> void:
 	var panel_w: float = vp.x * 0.64
 	var panel_h: float = vh * 0.40
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.04, 0.14, 0.96)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
+	var style := _UiUtil.make_style(Color(0.06, 0.04, 0.14, 0.96), 10)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, panel_h)
 	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
@@ -5293,12 +5283,7 @@ func _show_house_door_panel() -> void:
 	var panel_w: float = vp.x * 0.60
 	var panel_h: float = vh * 0.32
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.04, 0.14, 0.96)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
+	var style := _UiUtil.make_style(Color(0.06, 0.04, 0.14, 0.96), 10)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, panel_h)
 	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
@@ -5397,12 +5382,7 @@ func _show_stable_panel() -> void:
 	var panel_w: float = vp.x * 0.60
 	var panel_h: float = vh * 0.36
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.04, 0.14, 0.96)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
+	var style := _UiUtil.make_style(Color(0.06, 0.04, 0.14, 0.96), 10)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, panel_h)
 	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
@@ -6020,12 +6000,7 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 	var panel_w: float = vp.x * 0.6
 	var panel_h: float = vh * 0.38
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.18, 0.96)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
+	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.96), 10)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, panel_h)
 	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
@@ -6634,12 +6609,7 @@ func _show_emote_wheel() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.1, 0.90)
-	style.corner_radius_top_left    = 8
-	style.corner_radius_top_right   = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
+	var style := _UiUtil.make_style(Color(0.05, 0.05, 0.1, 0.90), 8)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.position = Vector2(vp.x - vh * 0.52, vh * 0.66)
 	_hud.add_child(panel)
@@ -6809,12 +6779,7 @@ func _ensure_chat_ui() -> void:
 		outer.name = "ChatLogPanel"
 		outer.position = Vector2(vp.x * 0.012, vh * 0.16)
 		outer.custom_minimum_size = Vector2(vp.x * 0.26, vh * 0.30)
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.04, 0.04, 0.08, 0.78)
-		style.corner_radius_top_left    = 6
-		style.corner_radius_top_right   = 6
-		style.corner_radius_bottom_left = 6
-		style.corner_radius_bottom_right = 6
+		var style := _UiUtil.make_style(Color(0.04, 0.04, 0.08, 0.78), 6)
 		outer.add_theme_stylebox_override("panel", style)
 		_hud.add_child(outer)
 		_chat_log_panel = outer
@@ -6866,12 +6831,7 @@ func _show_chat_quick_panel() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.1, 0.90)
-	style.corner_radius_top_left    = 8
-	style.corner_radius_top_right   = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
+	var style := _UiUtil.make_style(Color(0.05, 0.05, 0.1, 0.90), 8)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.position = Vector2(vp.x - vh * 0.40, vh * 0.66)
 	_hud.add_child(panel)
@@ -8129,12 +8089,7 @@ func _build_party_bounty_panel() -> void:
 	var outer := PanelContainer.new()
 	outer.name = "PartyBountyPanel"
 	outer.position = Vector2(vp.x * 0.012, vp.y * 0.50)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.04, 0.08, 0.88)
-	style.corner_radius_top_left    = 6
-	style.corner_radius_top_right   = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
+	var style := _UiUtil.make_style(Color(0.04, 0.04, 0.08, 0.88), 6)
 	outer.add_theme_stylebox_override("panel", style)
 	_hud.add_child(outer)
 	var vbox := _UiUtil.make_vbox(int(vh * 0.006), outer)
@@ -8254,12 +8209,7 @@ func _on_party_bounties_snapshot_received(bounties: Array) -> void:
 		var outer := PanelContainer.new()
 		outer.name = "PartyBountyPanel"
 		outer.position = Vector2(vp.x * 0.012, vp.y * 0.50)
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.04, 0.04, 0.08, 0.88)
-		style.corner_radius_top_left    = 6
-		style.corner_radius_top_right   = 6
-		style.corner_radius_bottom_left = 6
-		style.corner_radius_bottom_right = 6
+		var style := _UiUtil.make_style(Color(0.04, 0.04, 0.08, 0.88), 6)
 		outer.add_theme_stylebox_override("panel", style)
 		_hud.add_child(outer)
 		var vbox := _UiUtil.make_vbox(int(vh * 0.006), outer)
@@ -8808,12 +8758,7 @@ func _build_tournament_panel() -> void:
 	var outer := PanelContainer.new()
 	outer.name = "TournamentPanel"
 	outer.position = Vector2(vp.x * 0.76, vp.y * 0.34)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.04, 0.08, 0.88)
-	style.corner_radius_top_left    = 6
-	style.corner_radius_top_right   = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
+	var style := _UiUtil.make_style(Color(0.04, 0.04, 0.08, 0.88), 6)
 	outer.add_theme_stylebox_override("panel", style)
 	_hud.add_child(outer)
 	var vbox := _UiUtil.make_vbox(int(vp.y * 0.006), outer)

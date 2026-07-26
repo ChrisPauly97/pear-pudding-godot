@@ -1354,12 +1354,7 @@ func _show_defeat_overlay() -> void:
 	var panel_w: float = vp.x * 0.58
 	var panel_h: float = vh * 0.50
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.04, 0.04, 0.97)
-	style.corner_radius_top_left    = 12
-	style.corner_radius_top_right   = 12
-	style.corner_radius_bottom_left = 12
-	style.corner_radius_bottom_right = 12
+	var style := _UiUtil.make_style(Color(0.08, 0.04, 0.04, 0.97), 12)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, panel_h)
 	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)

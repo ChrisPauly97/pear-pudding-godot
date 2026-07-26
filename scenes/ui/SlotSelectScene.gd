@@ -41,17 +41,7 @@ func _make_slot_row(slot: int, ref: float, vp: Vector2) -> Control:
 	var meta: Dictionary = SaveManager.get_slot_metadata(slot) if has else {}
 
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.10, 0.10, 0.18, 0.95)
-	style.corner_radius_top_left    = 8
-	style.corner_radius_top_right   = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	style.border_color = Color(0.35, 0.35, 0.55, 0.6)
-	style.border_width_top    = 1
-	style.border_width_bottom = 1
-	style.border_width_left   = 1
-	style.border_width_right  = 1
+	var style := _UiUtil.make_style(Color(0.10, 0.10, 0.18, 0.95), 8, Color(0.35, 0.35, 0.55, 0.6), 1)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(vp.x * 0.65, ref * 0.12)
 
@@ -129,12 +119,7 @@ func _confirm_delete(slot: int) -> void:
 	var dlg_w: float = vp.x * 0.52
 	var dlg_h: float = ref * 0.26
 	var dialog := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.12, 0.05, 0.05, 0.98)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
+	var style := _UiUtil.make_style(Color(0.12, 0.05, 0.05, 0.98), 10)
 	dialog.add_theme_stylebox_override("panel", style)
 	dialog.custom_minimum_size = Vector2(dlg_w, dlg_h)
 	dialog.position = Vector2((vp.x - dlg_w) * 0.5, (vh - dlg_h) * 0.5)

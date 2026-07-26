@@ -30,17 +30,7 @@ func setup(weather_id: String) -> void:
 	var panel_h: float = vh * 0.055
 
 	_panel = PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.15, 0.80)
-	style.corner_radius_top_left    = 6
-	style.corner_radius_top_right   = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
-	style.border_color = Color(0.4, 0.6, 0.9, 0.7)
-	style.border_width_top    = 1
-	style.border_width_bottom = 1
-	style.border_width_left   = 1
-	style.border_width_right  = 1
+	var style := _UiUtil.make_style(Color(0.05, 0.05, 0.15, 0.80), 6, Color(0.4, 0.6, 0.9, 0.7), 1)
 	_panel.add_theme_stylebox_override("panel", style)
 	_panel.custom_minimum_size = Vector2(panel_w, panel_h)
 	_panel.position = Vector2((vw - panel_w) * 0.5, vh * 0.005)

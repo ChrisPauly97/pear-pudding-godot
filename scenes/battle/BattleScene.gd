@@ -717,12 +717,7 @@ func _show_battle_tutorial() -> void:
 	layer.add_child(backdrop)
 
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.18, 0.95)
-	style.corner_radius_top_left = 10
-	style.corner_radius_top_right = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
+	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.95), 10)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, panel_h)
 	panel.size = Vector2(panel_w, panel_h)
@@ -1236,12 +1231,7 @@ func _show_potion_picker() -> void:
 
 	var panel_w: float = minf(vp.x * 0.7, _vh * 0.55)
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.18, 0.97)
-	style.corner_radius_top_left = 10
-	style.corner_radius_top_right = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
+	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.97), 10)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, 0)
 	panel.position = Vector2((vp.x - panel_w) * 0.5, vp.y * 0.3)
@@ -1616,12 +1606,7 @@ func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	# Prevent HBoxContainer from expanding cards horizontally beyond minimum_size.
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if zone_id == "enemy_hand":
-		var back_style := StyleBoxFlat.new()
-		back_style.bg_color = Color(0.15, 0.10, 0.28)
-		back_style.corner_radius_top_left = 4
-		back_style.corner_radius_top_right = 4
-		back_style.corner_radius_bottom_left = 4
-		back_style.corner_radius_bottom_right = 4
+		var back_style := _UiUtil.make_style(Color(0.15, 0.10, 0.28), 4)
 		panel.add_theme_stylebox_override("panel", back_style)
 		panel.set_meta("is_card_back", true)
 		return panel
@@ -2312,17 +2297,7 @@ func _show_battlefield_banner() -> void:
 	var night: bool = _state.is_night
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.16, 0.88)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	style.border_color = Color(0.4, 0.9, 1.0, 0.6)
-	style.border_width_top = 2
-	style.border_width_bottom = 2
-	style.border_width_left = 2
-	style.border_width_right = 2
+	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.16, 0.88), 8, Color(0.4, 0.9, 1.0, 0.6), 2)
 	panel.add_theme_stylebox_override("panel", style)
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER

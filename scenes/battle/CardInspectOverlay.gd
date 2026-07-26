@@ -132,12 +132,7 @@ func _build_face_panel(parent: HBoxContainer, tmpl: Dictionary, card: CardInstan
 	var face_panel := PanelContainer.new()
 	face_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	face_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var fs := StyleBoxFlat.new()
-	fs.bg_color = Color(0.08, 0.08, 0.18, 0.9)
-	fs.corner_radius_top_left = 6
-	fs.corner_radius_top_right = 6
-	fs.corner_radius_bottom_left = 6
-	fs.corner_radius_bottom_right = 6
+	var fs := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.9), 6)
 	if is_active:
 		fs.border_color = Color(0.4, 1.0, 0.6)
 		fs.set_border_width_all(3)
