@@ -105,90 +105,98 @@
 | [GID-099](goals/GID-099--coop-joint-battle-engine/goal.md) | Co-op Joint Battle Engine | done | 3 / 3 |
 | [GID-100](goals/GID-100--coop-battle-design/goal.md) | Co-op Battle Design — Square Battlefield & Cross-Board Cards | done | 3 / 3 |
 | [GID-101](goals/GID-101--mp-social-rewards/goal.md) | Multiplayer Social & Rewards | done | 5 / 5 |
-| [GID-102](goals/GID-102--mp-depth-competitive-social-async-coop/goal.md) | Multiplayer Depth — Competitive, Social, Async & Co-op Content | done (TID-378 unit suite unverified in-sandbox — see goal.md note) | 12 / 12 |
-| [GID-103](goals/GID-103--shared-world-life/goal.md) | Shared World Life — Synced Clock, Weather, Night Hunts & Town Siege | done (unit suite + headless import unverified in-sandbox — see goal.md note) | 3 / 3 |
+| [GID-102](goals/GID-102--mp-depth-competitive-social-async-coop/goal.md) | Multiplayer Depth — Competitive, Social, Async & Co-op Content | done | 12 / 12 |
+| [GID-103](goals/GID-103--shared-world-life/goal.md) | Shared World Life — Synced Clock, Weather, Night Hunts & Town Siege | done | 3 / 3 |
 | [GID-104](goals/GID-104--competitive-formats/goal.md) | Competitive Formats — Draft Duels, Tournaments & Spectator Wagers | done | 3 / 3 |
-| [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | done (unit suite + headless import unverified in-sandbox — see goal.md note) | 2 / 2 |
-| [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | done (unit suite + headless import unverified in-sandbox — see goal.md note) | 4 / 4 |
+| [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | done | 2 / 2 |
+| [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | done | 4 / 4 |
 | [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | done (needs headless test run + visual verification — see TID-398) | 5 / 5 |
 | [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | done (headless test run unverified — no Godot binary in sandbox) | 10 / 10 |
 | [GID-109](goals/GID-109--keybindings-settings/goal.md) | Desktop Keybindings Settings Page | done | 2 / 2 |
-| [GID-110](goals/GID-110--mailbox-overflow-storage/goal.md) | Mailbox — Overflow Storage for Bag-Full Card Rewards | done (headless import + test run unverified in-sandbox — see goal.md note) | 3 / 3 |
-| [GID-111](goals/GID-111--coop-boss-targeting-fix/goal.md) | Co-op Boss Targeting Fix — Dead Ally Retargeting | done (headless test run unverified in-sandbox — see goal.md note) | 1 / 1 |
+| [GID-110](goals/GID-110--mailbox-overflow-storage/goal.md) | Mailbox — Overflow Storage for Bag-Full Card Rewards | done | 3 / 3 |
+| [GID-111](goals/GID-111--coop-boss-targeting-fix/goal.md) | Co-op Boss Targeting Fix — Dead Ally Retargeting | done | 1 / 1 |
 | [GID-112](goals/GID-112--battle-ai-depth/goal.md) | Battle AI Depth — Enemy Personas & Real Decision-Making | pending | 0 / 5 |
 | [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | pending | 0 / 5 |
 | [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | needs-verification | 5 / 5 |
-| [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | done (headless test run + editor import unverified in-sandbox — see goal.md note) | 5 / 5 |
+| [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | done | 5 / 5 |
 | [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | in-progress | 2 / 4 |
-| [GID-117](goals/GID-117--game-appeal/goal.md) | Game Appeal — Articulate & Prove "Why Play This" | done (headless test run unverified in-sandbox — see goal.md note) | 5 / 5 |
+| [GID-117](goals/GID-117--game-appeal/goal.md) | Game Appeal — Articulate & Prove "Why Play This" | done | 5 / 5 |
 | [GID-118](goals/GID-118--art-sprite-assets/goal.md) | Open-Source Character, Enemy & World Art Sprites | done | 4 / 4 |
-| [GID-119](goals/GID-119--mobile-battle-ux/goal.md) | Mobile Battle UX & Accessibility | done (headless validation unverified in-sandbox — see goal.md note) | 5 / 5 |
-| [GID-120](goals/GID-120--mobile-world-menu-ux/goal.md) | Mobile World & Menu UX | done (headless validation unverified in-sandbox — see goal.md note) | 5 / 5 |
-| [GID-121](goals/GID-121--mobile-terrain-cpu-hotpaths/goal.md) | Mobile Terrain CPU Hot Paths | done (headless validation unverified in-sandbox — see goal.md note) | 3 / 3 |
-| [GID-122](goals/GID-122--gameplay-fluidity/goal.md) | Gameplay Fluidity & Intuition | done (headless validation unverified in-sandbox — see goal.md note) | 5 / 5 |
+| [GID-119](goals/GID-119--mobile-battle-ux/goal.md) | Mobile Battle UX & Accessibility | done | 5 / 5 |
+| [GID-120](goals/GID-120--mobile-world-menu-ux/goal.md) | Mobile World & Menu UX | done | 5 / 5 |
+| [GID-121](goals/GID-121--mobile-terrain-cpu-hotpaths/goal.md) | Mobile Terrain CPU Hot Paths | done | 3 / 3 |
+| [GID-122](goals/GID-122--gameplay-fluidity/goal.md) | Gameplay Fluidity & Intuition | done | 5 / 5 |
+| [GID-123](goals/GID-123--repo-health-ci/goal.md) | Repository Health — CI Test Gate & Reproducible Dev Setup | done | 1 / 1 |
+| [GID-124](goals/GID-124--backlog-cleanup-batch/goal.md) | Backlog Cleanup Batch — Music, AI Signals, Rally & Auction | done | 4 / 4 |
 
 ## Backlog
 
+Open items only. Resolved items live in **Resolved Backlog** below and their
+files in `tasks/archive/backlog/`.
+
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
-| ~~[BID-002](backlog/BID-002--voice-acting-spec-conflict.md)~~ | ~~"Voice acting" out-of-scope conflicts with narration scroll audio~~ | ~~spec-gap~~ | Promoted to GID-087 / TID-311 |
-| ~~[BID-004](archive/backlog/BID-004--orphaned-chestopenscene-uid.md)~~ | ~~Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen)~~ | ~~code-smell~~ | Resolved by GID-075 |
-| ~~[BID-005](backlog/BID-005--rolled-stats-not-used-in-battle.md)~~ | ~~Player's per-instance rolled card stats never applied in battle~~ | ~~design-inconsistency~~ | Promoted to GID-083 / TID-302 |
-| [BID-006](backlog/BID-006--gamebus-battle-signals-never-emitted.md) | GameBus card_played / card_attacked / battle_ended declared but never emitted | code-smell | GID-060/061 research |
-| ~~[BID-007](archive/backlog/BID-007--card-registry-test-count-stale.md)~~ | ~~test_card_registry asserts 40 cards but registry preloads 46~~ | ~~code-smell~~ | Resolved by GID-075 |
-| ~~[BID-008](backlog/BID-008--is-unique-dropped-from-template-dict.md)~~ | ~~CardData.to_template_dict() omits is_unique; sell/scrap guard never triggers~~ | ~~code-smell~~ | Resolved by GID-061 / TID-219 |
-| ~~[BID-009](archive/backlog/BID-009--shared-theme-overlay-dedup.md)~~ | ~~No shared Theme; overlay boilerplate copy-pasted across 8 UI scenes~~ | ~~code-smell~~ | Resolved by GID-073 |
-| ~~[BID-010](backlog/BID-010--native-drag-drop-gamebus-coupling.md)~~ | ~~Hand-rolled battle drag-to-play; GameState reaches into SceneTree for GameBus~~ | ~~code-smell~~ | Promoted to GID-088 / TID-312, TID-313 |
-| ~~[BID-011](backlog/BID-011--persistence-test-coverage.md)~~ | ~~No test coverage for SaveManager migrations/flush or SceneManager state machine~~ | ~~doc-gap~~ | Promoted to GID-085 / TID-305, TID-306 |
-| ~~[BID-012](backlog/BID-012--battle-integration-test-gaps.md)~~ | ~~No BattleScene-level tests for keywords/AI paths; unreachable hero freeze/stun ticks~~ | ~~doc-gap~~ | Promoted to GID-085 / TID-307 |
-| ~~[BID-013](backlog/BID-013--godot-version-drift.md)~~ | ~~CI builds on Godot 4.6 but CLAUDE.md/spec say 4.4.1~~ | ~~doc-gap~~ | Promoted to GID-087 / TID-310 |
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded — **out of scope for v1** | spec-gap | GID-070 research |
-| ~~[BID-016](archive/backlog/BID-016--flag-gated-dialogue-content.md)~~ | ~~Flag-gated NPC dialogue content not yet authored~~ | ~~human-action-deferred~~ | Resolved by GID-108 (story pack approved into story.md) |
-| ~~[BID-017](backlog/BID-017--corruption-redemption-points-never-accrue.md)~~ | ~~add_corruption_points / add_redemption_points never called — currencies may never accrue~~ | ~~design-inconsistency~~ | Promoted to GID-086 / TID-308, TID-309 |
-| ~~[BID-020](backlog/BID-020--always-visible-cantrip-buttons.md)~~ | ~~Cantrip HUD buttons always built regardless of unlock state~~ | ~~code-smell~~ | Resolved by GID-081 / TID-298 |
-| ~~[BID-022](archive/backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md)~~ | ~~Spec lists multiplayer as out-of-scope, but co-op + PvP shipped~~ | ~~spec-gap~~ | Resolved by GID-094 / TID-344 |
 | [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | GID-096 |
 | [BID-025](backlog/BID-025--opponent-champion-stats-host-only.md) | Opponent PvP champion stats (wins/losses/streak) recorded host-only; non-host members show 0 in the leaderboard | design-inconsistency | GID-102 / TID-370 |
 | [BID-027](backlog/BID-027--coop-pve-boss-ai-turn-hardcoded-index.md) | Co-op PvE boss AI turn execution hardcodes player index 1 (board-diff/emergence/weather bookkeeping only) | code-smell | GID-102 / TID-371 |
 | [BID-029](backlog/BID-029--wager-challenge-button-missing.md) | `_request_wager_challenge` has zero callers — no UI exists to *initiate* a custom-ante wager, only to accept one | code-smell | GID-102 / TID-373 |
-| ~~[BID-030](archive/backlog/BID-030--trading-unique-check-not-enforced.md)~~ | ~~Card trading never actually enforces the unique-card block despite docs/task notes claiming it does~~ | ~~logic-gap~~ | Resolved by GID-115 / TID-432 |
 | [BID-031](backlog/BID-031--coop-clear-value-lacks-boss-tier-and-timing.md) | Co-op boss clear leaderboard value has no boss-tier or timing signal, using party size as a low-signal proxy | design-gap | GID-102 / TID-379 |
 | [BID-032](backlog/BID-032--ghost-duels-host-only-entry-point.md) | Ghost duels are host-only — a client has no local SessionState to pick a ghost opponent from | feature-gap | GID-102 / TID-377 |
 | [BID-033](backlog/BID-033--no-session-scoped-equipment-inventory.md) | No session-scoped equipment inventory — chest equipment drops can't be roll-granted under need/greed | design-gap | GID-102 / TID-381 |
-| ~~[BID-034](archive/backlog/BID-034--pvp-challenge-handshakes-no-timeout.md)~~ | ~~PvP challenge handshakes (duel/wager/draft) have no timeout — pending state sticks until disconnect~~ | ~~code-smell~~ | Resolved by GID-115 / TID-431 |
-| ~~[BID-035](archive/backlog/BID-035--draft-duel-resume-lacks-deck-override.md)~~ | ~~resume_pvp_battle drops the draft-duel deck override — resumed host rebuilds from collection~~ | ~~logic-gap~~ | Resolved by GID-115 / TID-434 |
 | [BID-036](backlog/BID-036--spectator-wager-house-banked-payout.md) | Spectator wager settlement is house-banked (can mint coins); walkover forfeits refund instead of paying | design-gap | GID-104 / TID-387 |
 | [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
-| [BID-040](backlog/BID-040--rally-blocked-inside-own-dungeon.md) | Rally waystones inherit the fast-travel dungeon block, so a player can't rally to teammates while already inside a shared dungeon crawl — exactly when it's most needed | design-gap | GID-105 / TID-388 |
-| [BID-042](backlog/BID-042--auction-button-not-in-party-panel.md) | Auction House button is the same shape of always-on co-op clutter as Stash/Leaderboard but wasn't in GID-107's original consolidation list (shipped after the goal was written) | design-gap | GID-107 / TID-395 |
-| ~~[BID-043](archive/backlog/BID-043--siege-draft-tournament-buttons-not-migrated.md)~~ | ~~Siege/Draft Duel/Tournament HUD buttons not yet migrated to the GID-107 registry; Siege and Tournament buttons visually overlap (both centered at the same y)~~ | ~~code-smell / design-gap~~ | Resolved by GID-115 / TID-433 |
-| ~~[BID-044](archive/backlog/BID-044--siege-boss-engage-signal-race.md)~~ | ~~Co-op siege boss engage may race `SceneManager._on_enemy_engaged` (solo battle) vs `WorldScene._on_enemy_engaged_coop` (joint battle) — signal connection order suggests the host could get a solo duel while clients get a joint battle~~ | ~~code-smell (suspected correctness bug)~~ | Resolved by GID-115 / TID-430 |
-| [BID-046](backlog/BID-046--backlog-index-drift.md) | Backlog index drift — duplicate BID-018 id, BID-018/019/021 unindexed, enemy-registry BID-018 already fixed at HEAD | doc-gap | GID-115 research |
-| [BID-047](backlog/BID-047--stale-duplicate-tid081-file.md) | Orphaned duplicate `TID-081--background-music-loop.md` sits alongside the completed `TID-081--background-music-loop-integration.md` — being resolved by GID-116 / TID-437 | code-smell | GID-116 research |
-| [BID-048](backlog/BID-048--dungeon-music-plays-in-towns.md) | `dungeon.ogg` plays for every named map, including peaceful towns (madrian, maykalene), not just dungeons | design-inconsistency | GID-116 research |
+| [BID-053](backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job is `continue-on-error` — 638 pre-existing problems (357 are `class-definitions-order`); two `.gdlintrc` rules that contradicted CLAUDE.md were fixed, cutting the count from >1000 | code-smell | GID-123 / TID-466 |
+| [BID-056](backlog/BID-056--three-more-unemitted-gamebus-signals.md) | `exited_to_world`, `world_event_started`, `world_event_ended` are declared on GameBus but never emitted — same class as BID-006, missed by it | code-smell | GID-123 research |
+| [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` is 9154 lines / 401 functions — 13% of all GDScript in one file, 9x the project's own `max-file-lines`; it refilled after GID-072 because nothing enforces the decomposition | code-smell | GID-123 research |
 
 ## Resolved Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
-| [BID-001](backlog/BID-001--tutorial-onboarding.md) | Tutorial / Onboarding for New Players | spec-gap | ad-hoc review → promoted to GID-012 |
-| ~~[BID-051](archive/backlog/BID-051--character-walk-frames-not-wired.md)~~ | ~~Walk-animation frames shipped by TID-445 were on disk but not wired~~ | ~~enhancement~~ | Resolved: MaitelnFollower wired (only entity that visibly moves; enemies/NPCs confirmed fully static, frames left unwired for them) |
-| ~~[BID-052](archive/backlog/BID-052--auction-mailbox-test-failures-godot47.md)~~ | ~~7 pre-existing auction/mailbox test failures, suspected Godot 4.7 engine drift~~ | ~~code-smell~~ | Resolved: not engine drift — 2 test-authoring bugs (wrong helper / wrong card index), root-caused by reading the implementation and fixed directly |
+| [BID-001](archive/backlog/BID-001--tutorial-onboarding.md) | Tutorial / Onboarding for New Players | spec-gap | ad-hoc review → promoted to GID-012 |
+| [BID-002](archive/backlog/BID-002--voice-acting-spec-conflict.md) | "Voice acting" out-of-scope conflicts with narration scroll audio | spec-gap | Promoted to GID-087 / TID-311 |
 | [BID-003](archive/backlog/BID-003--maykalene-concatenated-door-scroll.md) | maykalene.txt DOOR+SCROLL lines were concatenated; scroll_martarquas_first_war was never spawned | code-smell | GID-017 / TID-047 |
 | [BID-004](archive/backlog/BID-004--orphaned-chestopenscene-uid.md) | Orphaned .uid sidecars with no matching scripts (ChestOpenScene, BundledMaps, ProceduralGen) | code-smell | Resolved by GID-075 |
-| ~~[BID-014](archive/backlog/BID-014--camera-follow-stutter.md)~~ | ~~Camera follows physics body from _process without interpolation (stutter at 90/120 Hz)~~ | ~~code-smell~~ | Resolved by GID-084 / TID-303, TID-304; archived by GID-122 / TID-465 |
+| [BID-005](archive/backlog/BID-005--rolled-stats-not-used-in-battle.md) | Player's per-instance rolled card stats never applied in battle | design-inconsistency | Promoted to GID-083 / TID-302 |
+| [BID-006](archive/backlog/BID-006--gamebus-battle-signals-never-emitted.md) | GameBus card_played / card_attacked / battle_ended declared but never emitted | code-smell | Resolved by GID-124 |
 | [BID-007](archive/backlog/BID-007--card-registry-test-count-stale.md) | test_card_registry asserts 40 cards but registry preloads 46 | code-smell | Resolved by GID-075 |
+| [BID-008](archive/backlog/BID-008--is-unique-dropped-from-template-dict.md) | CardData.to_template_dict() omits is_unique; sell/scrap guard never triggers | code-smell | Resolved by GID-061 / TID-219 |
+| [BID-009](archive/backlog/BID-009--shared-theme-overlay-dedup.md) | No shared Theme; overlay boilerplate copy-pasted across 8 UI scenes | code-smell | Resolved by GID-073 |
+| [BID-010](archive/backlog/BID-010--native-drag-drop-gamebus-coupling.md) | Hand-rolled battle drag-to-play; GameState reaches into SceneTree for GameBus | code-smell | Promoted to GID-088 / TID-312, TID-313 |
+| [BID-011](archive/backlog/BID-011--persistence-test-coverage.md) | No test coverage for SaveManager migrations/flush or SceneManager state machine | doc-gap | Promoted to GID-085 / TID-305, TID-306 |
+| [BID-012](archive/backlog/BID-012--battle-integration-test-gaps.md) | No BattleScene-level tests for keywords/AI paths; unreachable hero freeze/stun ticks | doc-gap | Promoted to GID-085 / TID-307 |
+| [BID-013](archive/backlog/BID-013--godot-version-drift.md) | CI builds on Godot 4.6 but CLAUDE.md/spec say 4.4.1 | doc-gap | Promoted to GID-087 / TID-310 |
+| [BID-014](archive/backlog/BID-014--camera-follow-stutter.md) | Camera follows physics body from _process without interpolation (stutter at 90/120 Hz) | code-smell | Resolved by GID-084 / TID-303, TID-304; archived by GID-122 / TID-465 |
 | [BID-016](archive/backlog/BID-016--flag-gated-dialogue-content.md) | Flag-gated NPC dialogue content not yet authored | human-action-deferred | Resolved by GID-108 (approved story pack) |
+| [BID-017](archive/backlog/BID-017--corruption-redemption-points-never-accrue.md) | add_corruption_points / add_redemption_points never called — currencies may never accrue | design-inconsistency | Promoted to GID-086 / TID-308, TID-309 |
+| [BID-018](archive/backlog/BID-018--enemy-registry-uses-dirAccess-android.md) | enemy registry uses dirAccess android | — | — |
+| [BID-019](archive/backlog/BID-019--bestiary-completion-test-failures.md) | bestiary completion test failures | — | — |
+| [BID-020](archive/backlog/BID-020--always-visible-cantrip-buttons.md) | Cantrip HUD buttons always built regardless of unlock state | code-smell | Resolved by GID-081 / TID-298 |
+| [BID-021](archive/backlog/BID-021--dungeon-gen-test-failures.md) | dungeon gen test failures | — | — |
 | [BID-022](archive/backlog/BID-022--spec-multiplayer-out-of-scope-conflict.md) | Spec lists multiplayer as out-of-scope, but co-op + PvP shipped | spec-gap | Resolved by GID-094 / TID-344 |
 | [BID-023](archive/backlog/BID-023--head-did-not-compile-godot46.md) | Branch HEAD did not compile under Godot 4.6 (`//` in TextureGen, 2-arg `Object.get()` in CardRegistry) | code-smell | Resolved by GID-094 / TID-341 |
 | [BID-026](archive/backlog/BID-026--coop-pve-host-attack-wrong-opponent-index.md) | Co-op PvE host/ally attacks resolved against the wrong opponent index | code-smell | Resolved by GID-102 / TID-371 |
 | [BID-028](archive/backlog/BID-028--coop-pve-lowest-hp-ally-stuck-on-dead.md) | `_get_lowest_hp_ally` can get stuck targeting a dead ally instead of retargeting to an alive one | code-smell | Resolved by GID-111 / TID-414 |
+| [BID-030](archive/backlog/BID-030--trading-unique-check-not-enforced.md) | Card trading never actually enforces the unique-card block despite docs/task notes claiming it does | logic-gap | Resolved by GID-115 / TID-432 |
+| [BID-034](archive/backlog/BID-034--pvp-challenge-handshakes-no-timeout.md) | PvP challenge handshakes (duel/wager/draft) have no timeout — pending state sticks until disconnect | code-smell | Resolved by GID-115 / TID-431 |
+| [BID-035](archive/backlog/BID-035--draft-duel-resume-lacks-deck-override.md) | resume_pvp_battle drops the draft-duel deck override — resumed host rebuilds from collection | logic-gap | Resolved by GID-115 / TID-434 |
 | [BID-039](archive/backlog/BID-039--session-days-elapsed-never-advances.md) | SessionState.days_elapsed never advanced by any co-op tick | gap (feature dependency) | Resolved by GID-103 / TID-382 |
+| [BID-040](archive/backlog/BID-040--rally-blocked-inside-own-dungeon.md) | Rally waystones inherited the fast-travel dungeon block, so a player could not rally to teammates from inside a shared dungeon | design-gap | Resolved by GID-124 |
 | [BID-041](archive/backlog/BID-041--siege-raiders-set-enemy-type-noop.md) | Single-player siege raiders' `node.set("enemy_type", ...)` is a silent no-op (no such property) — every raider always fights as fallback "undead_basic" regardless of stage | code-smell | Resolved by GID-108 / TID-407 |
+| [BID-042](archive/backlog/BID-042--auction-button-not-in-party-panel.md) | Auction House button was always-on co-op clutter not migrated by GID-107 | design-gap | Resolved by GID-124 |
+| [BID-043](archive/backlog/BID-043--siege-draft-tournament-buttons-not-migrated.md) | Siege/Draft Duel/Tournament HUD buttons not yet migrated to the GID-107 registry; Siege and Tournament buttons visually overlap (both centered at the same y) | code-smell / design-gap | Resolved by GID-115 / TID-433 |
+| [BID-044](archive/backlog/BID-044--siege-boss-engage-signal-race.md) | Co-op siege boss engage may race `SceneManager._on_enemy_engaged` (solo battle) vs `WorldScene._on_enemy_engaged_coop` (joint battle) — signal connection order suggests the host could get a solo duel while clients get a joint battle | code-smell (suspected correctness bug) | Resolved by GID-115 / TID-430 |
 | [BID-045](archive/backlog/BID-045--enemy-alert-sfx-key-unregistered.md) | `enemy_alert` SFX key played by WorldScene but never registered in AudioManager.SFX_PATHS | code-smell | Resolved by GID-114 / TID-425 |
+| [BID-046](archive/backlog/BID-046--backlog-index-drift.md) | Backlog index drift — duplicate BID-018 id, BID-018/019/021 unindexed, enemy-registry BID-018 already fixed at HEAD | doc-gap | GID-115 research |
+| [BID-047](archive/backlog/BID-047--stale-duplicate-tid081-file.md) | Orphaned duplicate `TID-081--background-music-loop.md` sits alongside the completed `TID-081--background-music-loop-integration.md` — being resolved by GID-116 / TID-437 | code-smell | GID-116 research |
+| [BID-048](archive/backlog/BID-048--dungeon-music-plays-in-towns.md) | `dungeon.ogg` played for every named map, including peaceful towns | design-inconsistency | Resolved by GID-124 |
 | [BID-049](archive/backlog/BID-049--new-game-debug-progression-values.md) | `new_game()` seeded late-game debug values (xp 11250, level 15, 14 skill points, 3000 coins) — now a true level-1 default with opt-in Head Start toggle | code-smell | Resolved by GID-117 / TID-443 |
 | [BID-050](archive/backlog/BID-050--hidden-cantrip-undiscoverable.md) | Locked cantrips render no button at all, so the deck-shapes-the-world mechanic is undiscoverable until accidentally unlocked | design-gap | Resolved by GID-122 / TID-463 |
+| [BID-051](archive/backlog/BID-051--character-walk-frames-not-wired.md) | Walk-animation frames shipped by TID-445 were on disk but not wired | enhancement | Resolved: MaitelnFollower wired (only entity that visibly moves; enemies/NPCs confirmed fully static, frames left unwired for them) |
+| [BID-052](archive/backlog/BID-052--auction-mailbox-test-failures-godot47.md) | 7 pre-existing auction/mailbox test failures, suspected Godot 4.7 engine drift | code-smell | Resolved: not engine drift — 2 test-authoring bugs (wrong helper / wrong card index), root-caused by reading the implementation and fixed directly |
+| [BID-054](archive/backlog/BID-054--test-runner-preexisting-suite-failures.md) | test runner preexisting suite failures | — | — |
 
 ## Archive
 

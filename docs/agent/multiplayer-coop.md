@@ -928,9 +928,10 @@ move.
   `LeaderboardOverlay`): **Sell** (my sellable collection, a +/- price stepper per
   row, "List" button), **Browse** (other members' active listings — a "Bid +25"
   stepper button and a "Buyout" button per row), **My Listings** (my own listings
-  across every status, with "Cancel" on active ones). Opened via an always-visible
-  "Auction" HUD button next to Stash/Ghost Duels — touch/click target, mobile +
-  desktop parity.
+  across every status, with "Cancel" on active ones). Opened via the "Auction"
+  action in the Party panel (`scenes/ui/PartyPanel.gd`, `show_auction`/
+  `on_auction` — folded in by BID-042, same always-on/session-global placement
+  as Stash/Leaderboard) — touch/click target, mobile + desktop parity.
 - **Authority-only writes**: clients never mutate `SessionState` directly; only the
   authority does, via `SessionStore` — same isolation invariant as trading/stash.
 
@@ -2125,13 +2126,20 @@ rather than adding a new screen.
 - **UI**: `MapViewOverlay.setup()` takes an optional 10th `rally_targets`
   param; `_build_fast_travel_panel()` appends a "Rally To" title + one button
   per target (`"Rally to <name> (<map>)"`, tinted to the target's avatar
-  color) below the existing waystone list, in the same scrollable vbox —
-  blocked by the same `is_blocked` flag (battle / inside a dungeon... except
-  rally is explicitly meant to reach a party member *inside* a dungeon crawl,
-  so note this inherits the pre-existing waystone-panel dungeon block, a minor
-  known limitation logged for a future task rather than reworked here).
+  color) below the existing waystone list, in the same scrollable vbox.
   Pressing a button emits `rally_requested(peer_id)`, which WorldScene connects
   to `_rally_to_peer`.
+- **Gating (BID-040 fix)**: waystone buttons and the "Rally To" section use
+  *separate* block flags. Waystones keep `is_blocked` (mid-battle OR
+  `current_map.begins_with("dungeon_")`) — you still can't fast-travel out of
+  a dungeon to an arbitrary waystone. Rally uses `is_rally_blocked`
+  (mid-battle only), since rally is explicitly meant to reach a party member
+  *inside* a dungeon crawl (e.g. one player auto-respawned at the entrance per
+  TID-389 while the rest pushed on) — that's exactly when it's most needed.
+  Cross-map rally out of a dungeon needs no extra map-stack handling: it reuses
+  the same `recv_map_transition` + `SceneManager.enter_map()` path as the
+  Dungeon Crawl button below, which already pushes the current map (dungeon
+  included) onto `map_stack` correctly.
 - **Same-map rally**: instant — `_player.global_position` is set directly to
   the target `RemotePlayer`'s `global_position`.
 - **Cross-map rally**: reuses the TID-355 followed-transition mechanism

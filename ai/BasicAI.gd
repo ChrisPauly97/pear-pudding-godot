@@ -20,7 +20,14 @@ static func decide_turn(state: GameState) -> Array[Callable]:
 		var c := card as CardInstance
 		actions.append(func():
 			if c in ai.hand and ai.can_play(c):
-				ai.play_card(c)
+				if ai.play_card(c):
+					# Mirrors BattleScene._do_play_card()/_do_play_card_at_slot(),
+					# which emit card_played for the human player's own plays
+					# (BID-006) — the AI opponent's plays need the same signal.
+					if c.card_class == "spell":
+						GameBus.card_played.emit(c.template_id, "spell", -1)
+					else:
+						GameBus.card_played.emit(c.template_id, "board", ai.board.slots.find(c))
 		)
 
 	# One Callable per board slot — targets are resolved at execution time so a
@@ -41,6 +48,10 @@ static func decide_turn(state: GameState) -> Array[Callable]:
 				state.opponent().hero.take_damage(BattlefieldRules.modify_damage(mc.attack, state.battlefield_biome))
 				mc.take_damage(BattlefieldRules.modify_damage(state.opponent().hero.attack, state.battlefield_biome))
 				mc.attack_count -= 1
+				# Mirrors BattleScene._execute_attack()/_resolve_remote_attack(),
+				# which emit card_attacked for player-initiated attacks (BID-006) —
+				# the AI opponent's attacks need the same signal.
+				GameBus.card_attacked.emit(mc.template_id, "hero")
 				if not mc.is_alive():
 					ai.board.remove_card(mc)
 					ai.discard.append(mc)
@@ -49,6 +60,7 @@ static func decide_turn(state: GameState) -> Array[Callable]:
 				tgt.take_damage(BattlefieldRules.modify_damage(mc.attack, state.battlefield_biome))
 				mc.take_damage(BattlefieldRules.modify_damage(tgt.attack, state.battlefield_biome))
 				mc.attack_count -= 1
+				GameBus.card_attacked.emit(mc.template_id, tgt.template_id)
 				if not tgt.is_alive():
 					state.opponent().board.remove_card(tgt)
 					state.opponent().discard.append(tgt)

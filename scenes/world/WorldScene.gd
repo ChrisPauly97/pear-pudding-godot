@@ -274,7 +274,6 @@ const _AuctionTransfer = preload("res://game_logic/net/AuctionTransfer.gd")
 const _AuctionSync = preload("res://game_logic/net/AuctionSync.gd")
 const _AuctionHouseOverlay = preload("res://scenes/ui/AuctionHouseOverlay.gd")
 const _ChapterEndingOverlay = preload("res://scenes/ui/ChapterEndingOverlay.gd")
-var _auction_btn: Button = null           # "Auction" HUD button (always visible in co-op)
 var _auction_overlay: Node = null         # AuctionHouseOverlay instance, nil when closed
 var _auction_cache: Array = []            # last-known listings snapshot
 var _pvp_ended_pending_broadcast: bool = false  # set in pvp_battle_ended; cleared on _enter_tree
@@ -376,6 +375,14 @@ const _BIOME_MUSIC: Array = [
 	"res://assets/audio/music/scorched.ogg",
 	"res://assets/audio/music/mountains.ogg",
 ]
+
+# BID-048: dungeon.ogg used to play for every non-infinite named map, including
+# peaceful towns (madrian, maykalene, ...). Procedurally generated dungeons/
+# spire floors never set MapData.music_track, so they still fall through to
+# _DUNGEON_MUSIC below; every hand-authored town/story map instead falls back
+# to _TOWN_MUSIC_DEFAULT unless it sets its own `music_track` override.
+const _DUNGEON_MUSIC: String = "res://assets/audio/music/dungeon.ogg"
+const _TOWN_MUSIC_DEFAULT: String = "res://assets/audio/music/grasslands.ogg"
 var _terrain_mat: ShaderMaterial
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 var _interact_timer: float = 0.0
@@ -709,7 +716,7 @@ func _ready() -> void:
 		GameBus.weather_changed.connect(_on_weather_changed)
 
 	if not _is_infinite:
-		AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
+		AudioManager.play_music(_named_map_music_track())
 		AudioManager.set_ambience(-1)  # -1 = named map / no biome ambience
 		GameBus.entered_named_map.emit(map_name)
 		if map_name.begins_with("dungeon_"):
@@ -1312,6 +1319,12 @@ func _open_party_panel() -> void:
 	panel.on_stash = _toggle_stash_overlay
 	panel.show_leaderboard = true
 	panel.on_leaderboard = _toggle_leaderboard_overlay
+	# Auction (GID-102 / TID-378; folded in by BID-042): same always-on,
+	# session-global gating as Stash/Leaderboard above — was left as a
+	# standalone HUD button when GID-107 shipped the panel; not proximity-gated,
+	# so it belongs here the same way.
+	panel.show_auction = true
+	panel.on_auction = _toggle_auction_overlay
 	# Ghost Duels: host-only, gated on SessionStore.is_open() (see _ensure_ghost_duel_button's
 	# old comment — a client never opens SessionStore locally).
 	panel.show_ghost_duels = SessionStore.is_open()
@@ -5465,6 +5478,18 @@ func _on_enemy_engaged_for_mount(_enemy_data: Dictionary) -> void:
 	if SceneManager.save_manager.is_mounted:
 		SceneManager.save_manager.auto_dismiss_mount()
 
+## Music track for the current non-infinite (named) map (BID-048). Data-driven:
+## prefers the map's own MapData.music_track override (threaded through
+## WorldMap.load_from_resource()); falls back to dungeon.ogg only for actual
+## procedurally generated dungeons/spire floors, and to a peaceful default for
+## every other (hand-authored town/story) named map.
+func _named_map_music_track() -> String:
+	if world_map != null and world_map.music_track != "":
+		return world_map.music_track
+	if map_name.begins_with("dungeon_") or map_name.begins_with("spire_floor_"):
+		return _DUNGEON_MUSIC
+	return _TOWN_MUSIC_DEFAULT
+
 func _on_battle_won(_result: Dictionary) -> void:
 	# Co-op (GID-096): a victory over a shared enemy persists its defeat into the
 	# session file (stays gone after reconnect). A loss isn't persisted, so the
@@ -5478,7 +5503,7 @@ func _on_battle_won(_result: Dictionary) -> void:
 			var biome_name: String = BountyGen_cls.BIOME_NAMES[_current_biome]
 			SceneManager.save_manager.increment_bounty_progress("defeat_in_biome", {"biome_name": biome_name})
 	else:
-		AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
+		AudioManager.play_music(_named_map_music_track())
 	var sm := SceneManager.save_manager
 	if sm.active_mount != "" and sm.current_map == "main":
 		sm.summon_mount(sm.active_mount)
@@ -6718,21 +6743,9 @@ func _ensure_social_buttons() -> void:
 		_spectate_btn = _world_hud.register_action("spectate", "Spectate Duel", WorldHUD.ZONE_CONTEXT,
 			_request_spectate, Callable(), Vector2(vh * 0.28, vh * 0.06))
 		_spectate_btn.hide()
-	# Leaderboard and Stash (GID-102 / TID-373, TID-376): now Party-panel actions
-	# (GID-107 / TID-395) instead of their own standalone always-visible buttons.
-	# Auction house button (GID-102 / TID-378): always visible while co-op is active
-	# (global to the session, same as Stash). Placed on the next row down since the
-	# Stash/Ghost-Duels row is already occupied at vh * 0.078.
-	if _auction_btn == null or not is_instance_valid(_auction_btn):
-		_auction_btn = Button.new()
-		_auction_btn.text = "Auction"
-		_auction_btn.tooltip_text = "Buy and sell cards asynchronously with the party"
-		_auction_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.055)
-		_auction_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
-		_auction_btn.position = Vector2(vp.x * 0.012, vh * 0.144)
-		_auction_btn.pressed.connect(_toggle_auction_overlay)
-		_hud.add_child(_auction_btn)
-		UiFx.attach(_auction_btn)
+	# Leaderboard, Stash, and Auction (GID-102 / TID-373, TID-376, TID-378): now
+	# Party-panel actions (GID-107 / TID-395; Auction folded in by BID-042)
+	# instead of their own standalone always-visible buttons.
 
 
 ## Ghost Duels (GID-102 / TID-377). Host-only: gated on SessionStore.is_open()
