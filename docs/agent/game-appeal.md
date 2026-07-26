@@ -133,8 +133,11 @@ Stated plainly so downstream work targets them rather than the pitch papering ov
    play needs port-forwarding/VPN; Android hosting discovery is limited (spec,
    Connectivity constraints). The co-op pitch must be framed as "play with *your* people,"
    not matchmaking.
-5. **Audio/music gap.** Music hooks exist but all 7 tracks are missing files until GID-116
-   lands assets; first impressions currently carry no soundtrack.
+5. ~~**Audio/music gap.**~~ **Resolved.** All 7 tracks landed with GID-116 / TID-436 and are
+   committed under `assets/audio/music/` (~22 MB); attribution is recorded in `CREDITS.md`
+   (GID-116 / TID-437). Named towns no longer play dungeon music (GID-124 / TID-467). The
+   remaining gap is *variety*, not presence: every hand-authored town shares one peaceful
+   track, so a distinct bed for a location under siege is still worth having.
 6. **Placeholder feel in places.** Visual polish shipped broadly (GID-070/089/114), but
    the pixel-art-in-3D aesthetic still varies in finish between old and new systems.
 

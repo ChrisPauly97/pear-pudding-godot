@@ -119,7 +119,7 @@
 | [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | pending | 0 / 5 |
 | [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | needs-verification | 5 / 5 |
 | [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | done | 5 / 5 |
-| [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | in-progress | 2 / 4 |
+| [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | in-progress (TID-438 awaits human spec edit) | 3 / 4 |
 | [GID-117](goals/GID-117--game-appeal/goal.md) | Game Appeal — Articulate & Prove "Why Play This" | done | 5 / 5 |
 | [GID-118](goals/GID-118--art-sprite-assets/goal.md) | Open-Source Character, Enemy & World Art Sprites | done | 4 / 4 |
 | [GID-119](goals/GID-119--mobile-battle-ux/goal.md) | Mobile Battle UX & Accessibility | done | 5 / 5 |

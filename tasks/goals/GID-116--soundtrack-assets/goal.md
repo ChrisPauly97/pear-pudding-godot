@@ -29,15 +29,15 @@ Creative direction to match (from `docs/human/specification.md` and `docs/human/
 |----|------|------|--------|------------|
 | TID-435 | Research & curate CC0/CC-BY soundtrack shortlist per music slot | agent | done | — |
 | TID-436 | Acquire & place licensed audio files at assets/audio/music/*.ogg | human-action | done (agent-completed; proxy allowed downloads this session) | TID-435 |
-| TID-437 | Wire attribution, verify integration, update docs, clean up stale duplicate task | agent | pending | TID-436 |
+| TID-437 | Wire attribution, verify integration, update docs, clean up stale duplicate task | agent | done | TID-436 |
 | TID-438 | Amend specification.md Out-of-Scope bullet to drop "music" | human-action | pending | — |
 
 ## Acceptance Criteria
 
-- [ ] `docs/agent/audio-soundtrack.md` exists with a curated shortlist (primary + backup) per slot: grasslands, forest, desert, scorched, mountains, dungeon, battle — each with direct source URL, license, and required attribution text
+- [x] `docs/agent/audio-soundtrack.md` exists with a curated shortlist (primary + backup) per slot: grasslands, forest, desert, scorched, mountains, dungeon, battle — each with direct source URL, license, and required attribution text
 - [x] All 7 `.ogg` files exist at `assets/audio/music/` and are correctly licensed for use (CC0 preferred; CC-BY acceptable with attribution) — TID-436, licenses re-verified on-page at download time
-- [ ] A `CREDITS`/attribution file documents author, license, and source URL for every included track, satisfying any CC-BY attribution requirements
-- [ ] Headless editor import is clean after adding the files (no import errors)
-- [ ] `docs/agent/audio-manager.md` updated to reflect real music assets and where credits live
-- [ ] Stale duplicate task file `tasks/goals/GID-023--game-feel-polish/TID-081--background-music-loop.md` removed
+- [x] A `CREDITS`/attribution file documents author, license, and source URL for every included track, satisfying any CC-BY attribution requirements
+- [x] Headless editor import is clean after adding the files (no import errors)
+- [x] `docs/agent/audio-manager.md` updated to reflect real music assets and where credits live
+- [x] Stale duplicate task file `tasks/goals/GID-023--game-feel-polish/TID-081--background-music-loop.md` removed
 - [ ] `docs/human/specification.md` Out-of-Scope bullet updated (human-applied) to drop "music" while keeping "voice acting" out of scope
