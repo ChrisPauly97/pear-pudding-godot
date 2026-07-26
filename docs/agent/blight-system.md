@@ -109,6 +109,6 @@ The heart node `queue_free()`s itself in `engage()`, and `mark_heart_cleansed` m
 
 ## Asset Requirements
 
-- `scenes/world/entities/BlightHeart.tscn` + `BlightHeart.gd` + `.uid` sidecars — all committed.
+- `scenes/world/entities/BlightHeart.tscn` + `BlightHeart.gd` + `.uid` sidecars — all committed. Since GID-123 the heart renders `assets/textures/props/blight_heart.png` (purple 0x72 skull on crystal spikes) as a 1.5-unit billboard sprite; the pulsing sphere meshes remain as fallback, and the aura/pulse tween applies to either visual.
 - `game_logic/world/BlightField.gd` + `.uid` sidecar — all committed.
 - `assets/shaders/terrain.gdshader` — already had a `.uid` sidecar; no new sidecar needed.

@@ -126,6 +126,7 @@
 | [GID-120](goals/GID-120--mobile-world-menu-ux/goal.md) | Mobile World & Menu UX | done (headless validation unverified in-sandbox — see goal.md note) | 5 / 5 |
 | [GID-121](goals/GID-121--mobile-terrain-cpu-hotpaths/goal.md) | Mobile Terrain CPU Hot Paths | done (headless validation unverified in-sandbox — see goal.md note) | 3 / 3 |
 | [GID-122](goals/GID-122--gameplay-fluidity/goal.md) | Gameplay Fluidity & Intuition | done (headless validation unverified in-sandbox — see goal.md note) | 5 / 5 |
+| [GID-123](goals/GID-123--world-proportions-and-location-art/goal.md) | World Proportions, Player Hero Sprite & Location Art | done | 3 / 3 |
 
 ## Backlog
 

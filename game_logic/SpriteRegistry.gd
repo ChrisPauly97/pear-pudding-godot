@@ -60,6 +60,13 @@ const _CHEST_CLOSED       := preload("res://assets/textures/props/chest_closed.p
 const _CHEST_OPEN         := preload("res://assets/textures/props/chest_open.png")
 const _DOOR               := preload("res://assets/textures/props/door.png")
 
+const _WAYSTONE_DORMANT   := preload("res://assets/textures/props/waystone_dormant.png")
+const _WAYSTONE_ACTIVE    := preload("res://assets/textures/props/waystone_active.png")
+const _MANA_WELL          := preload("res://assets/textures/props/mana_well.png")
+const _PUZZLE_SHRINE      := preload("res://assets/textures/props/puzzle_shrine.png")
+const _BURIAL_MOUND       := preload("res://assets/textures/props/burial_mound.png")
+const _BLIGHT_HEART       := preload("res://assets/textures/props/blight_heart.png")
+
 ## World pixel size for character sprites. The 0x72 pack's humanoids are
 ## 16-36 px tall (vs the old fixed 32 px silhouettes); 0.05 keeps mid-size
 ## sprites at roughly the old world height while preserving the pack's
@@ -68,6 +75,21 @@ const CHAR_PIXEL_SIZE: float = 0.05
 
 ## Small lift so billboard sprites never clip below y=0 (CLAUDE.md rule).
 const FEET_MARGIN: float = 0.05
+
+## Target world heights (units) so every entity is proportional to the
+## player (elf_m hero, 28 px at 0.05 = 1.4 units). A flat pixel size made
+## 16 px pack sprites render at half the player's height — scale by target
+## height instead, keeping an intentional hierarchy: chest-sized mimics,
+## person-sized enemies/NPCs, towering bosses.
+const PLAYER_HEIGHT: float = 1.4
+const HEIGHT_SMALL_UNDEAD: float = 1.15   # skeletons, ghouls (16 px sources)
+const HEIGHT_SPECTRE: float = 1.05        # floaty night-hunt ghosts
+const HEIGHT_MIMIC: float = 0.85          # disguised as a chest (chest = 0.8)
+const HEIGHT_SOLDIER: float = 1.25        # raiders, duelists (23 px sources)
+const HEIGHT_RIVAL: float = 1.4           # rival duelist — mirrors the player
+const HEIGHT_BOSS: float = 1.9            # warleader/terror, before node scale
+const HEIGHT_NPC: float = 1.4             # townsfolk, Maiteln
+const HEIGHT_MERCHANT: float = 1.3
 
 ## Maps an EnemyRegistry type id to its archetype texture.
 ## Returns null for unknown/empty ids — caller falls back to TextureGen.enemy().
@@ -98,6 +120,31 @@ static func enemy_texture(etype: String, is_roaming_boss: bool = false, is_boss:
 	if is_boss:
 		return _ENEMY_WARLEADER
 	return null
+
+## Target world height for an enemy sprite, matching enemy_texture()'s
+## archetype routing. Keeps every enemy proportional to the player
+## regardless of the source sprite's pixel height.
+static func enemy_world_height(etype: String, is_roaming_boss: bool = false, is_boss: bool = false) -> float:
+	if is_roaming_boss:
+		return HEIGHT_BOSS
+	match etype:
+		"undead_basic", "undead_horde", "undead_elite", "ghoul_pack":
+			return HEIGHT_SMALL_UNDEAD
+		"martarquas_raider_1", "martarquas_raider_2", "martarquas_raider_3":
+			return HEIGHT_SOLDIER
+		"duelist_novice", "duelist_adept", "duelist_champion":
+			return HEIGHT_SOLDIER
+		"rival_isfig_1", "rival_isfig_2", "rival_isfig_3":
+			return HEIGHT_RIVAL
+		"mimic":
+			return HEIGHT_MIMIC
+		"martarquas_warleader", "roaming_terror":
+			return HEIGHT_BOSS
+		"spectre_wisp", "spectre_haunt", "spectre_dread":
+			return HEIGHT_SPECTRE
+	if is_boss:
+		return HEIGHT_BOSS
+	return HEIGHT_SOLDIER
 
 ## Stable townsperson variant: same seed always yields the same look.
 static func townsperson_texture(variant_seed: int) -> Texture2D:
@@ -175,6 +222,22 @@ static func chest_open_texture() -> Texture2D:
 static func door_texture() -> Texture2D:
 	return _DOOR
 
+## Dormant (cool stone) / active (gold runes) fast-travel obelisk sprites.
+static func waystone_texture(active: bool) -> Texture2D:
+	return _WAYSTONE_ACTIVE if active else _WAYSTONE_DORMANT
+
+static func mana_well_texture() -> Texture2D:
+	return _MANA_WELL
+
+static func puzzle_shrine_texture() -> Texture2D:
+	return _PUZZLE_SHRINE
+
+static func burial_mound_texture() -> Texture2D:
+	return _BURIAL_MOUND
+
+static func blight_heart_texture() -> Texture2D:
+	return _BLIGHT_HEART
+
 ## Applies a registry texture to a Sprite3D: texture, pixel size, and the
 ## feet-at-y=0 position computed from the real texture height (never assume
 ## a fixed 32 px — pack sprites range 16-36 px).
@@ -182,3 +245,9 @@ static func setup_sprite(sprite: Sprite3D, tex: Texture2D, pixel_size: float = C
 	sprite.texture = tex
 	sprite.pixel_size = pixel_size
 	sprite.position = Vector3(0.0, float(tex.get_height()) * pixel_size * 0.5 + FEET_MARGIN, 0.0)
+
+## Like setup_sprite, but scales the sprite to a target world height
+## instead of a fixed pixel size — source sprites range 16-48 px, so a
+## flat pixel size breaks proportions between them.
+static func setup_sprite_height(sprite: Sprite3D, tex: Texture2D, world_height: float) -> void:
+	setup_sprite(sprite, tex, world_height / float(tex.get_height()))

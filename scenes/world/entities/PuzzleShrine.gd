@@ -1,7 +1,13 @@
 extends Node3D
 
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+
+## Idol sprite target height — shoulder-high stone shrine.
+const _SHRINE_HEIGHT: float = 1.3
+
 var _puzzle_id: String = ""
 var _player: Node3D = null
+var _sprite: Sprite3D = null    # non-null when SpriteRegistry art is available
 
 static var _shrine_mat: StandardMaterial3D
 static var _shrine_mesh: PrismMesh
@@ -18,13 +24,21 @@ static func _ensure_shared_resources() -> void:
 	_shrine_mesh.size = Vector3(0.45, 0.7, 0.45)
 
 func _ready() -> void:
-	_ensure_shared_resources()
-
-	var body := MeshInstance3D.new()
-	body.mesh = _shrine_mesh
-	body.material_override = _shrine_mat
-	body.position = Vector3(0.0, 0.35, 0.0)
-	add_child(body)
+	var tex: Texture2D = _SpriteRegistry.puzzle_shrine_texture()
+	if tex != null:
+		_sprite = Sprite3D.new()
+		_SpriteRegistry.setup_sprite_height(_sprite, tex, _SHRINE_HEIGHT)
+		_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+		_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		add_child(_sprite)
+	else:
+		_ensure_shared_resources()
+		var body := MeshInstance3D.new()
+		body.mesh = _shrine_mesh
+		body.material_override = _shrine_mat
+		body.position = Vector3(0.0, 0.35, 0.0)
+		add_child(body)
 
 	var glow := OmniLight3D.new()
 	glow.light_color = Color(0.4, 0.6, 1.0)
@@ -40,6 +54,12 @@ func setup(puzzle_id: String, player_node: Node3D) -> void:
 		_dim_solved()
 
 func _dim_solved() -> void:
+	if _sprite != null:
+		_sprite.modulate = Color(0.5, 0.5, 0.55)
+		for child in get_children():
+			if child is OmniLight3D:
+				child.light_energy = 0.2
+		return
 	if _shrine_mat == null:
 		return
 	var mat := _shrine_mat.duplicate() as StandardMaterial3D

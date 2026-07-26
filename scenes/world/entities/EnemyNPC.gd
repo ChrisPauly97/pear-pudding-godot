@@ -16,7 +16,8 @@ func _ready() -> void:
 	var etype: String = str(enemy_data.get("enemy_type", ""))
 	var tex: Texture2D = _SpriteRegistry.enemy_texture(etype, _is_roaming_boss, _is_boss)
 	if tex != null:
-		_SpriteRegistry.setup_sprite(sprite, tex)
+		_SpriteRegistry.setup_sprite_height(sprite, tex,
+			_SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss))
 	else:
 		sprite.texture = TextureGen.enemy(_is_roaming_boss, _is_boss)
 		sprite.pixel_size = 0.04

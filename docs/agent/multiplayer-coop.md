@@ -1543,8 +1543,9 @@ peers as a `GameBus.hud_message_requested` toast, consistent with other recent f
 
 ## Asset Requirements
 
-No new art. RemotePlayer reuses the existing wizard walk textures
-(`assets/textures/pixel_art/wizard_walk_*_pixel.png`) via `AvatarSprite.build()`.
+No new art. RemotePlayer reuses the player-hero textures
+(`assets/textures/characters/player_hero{,_walk_1-4}.png`, 0x72 `elf_m` since
+GID-123) via `AvatarSprite.build()`.
 The name tag is a procedural `Label3D` and the roster/lobby swatches are procedural
 `ColorRect`/`StyleBoxFlat` — no textures. `RemotePlayer.tscn` and all new scripts
 (`MpProfile.gd`, `PlayerIdentity.gd`) have `.uid` sidecars.

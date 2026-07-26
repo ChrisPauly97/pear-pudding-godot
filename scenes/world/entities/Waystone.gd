@@ -1,9 +1,15 @@
 extends Node3D
 
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+
+## Obelisk sprite target height (world units) — a monument, taller than
+## the 1.4-unit player but well below boss scale.
+const _OBELISK_HEIGHT: float = 1.9
 
 var waystone_data: Dictionary = {}
 var _ring: MeshInstance3D = null
+var _sprite: Sprite3D = null    # non-null when SpriteRegistry art is available
 
 static var _dormant_mat: StandardMaterial3D
 static var _active_mat: StandardMaterial3D
@@ -24,11 +30,22 @@ static func _ensure_shared_resources() -> void:
 func _ready() -> void:
 	add_to_group("interactable")
 	_ring = _WEB.build_highlight_ring(self, 0.7)
-	_ensure_shared_resources()
 	var mi: MeshInstance3D = find_child("MeshInstance3D", true, false) as MeshInstance3D
+	var tex: Texture2D = _SpriteRegistry.waystone_texture(bool(waystone_data.get("active", false)))
+	if tex != null:
+		_sprite = Sprite3D.new()
+		_SpriteRegistry.setup_sprite_height(_sprite, tex, _OBELISK_HEIGHT)
+		_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+		_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		add_child(_sprite)
+		if mi:
+			mi.visible = false
+		return
+	_ensure_shared_resources()
 	if mi:
 		mi.mesh = _pillar_mesh
-		mi.material_override = _dormant_mat
+		mi.material_override = _dormant_mat if not waystone_data.get("active", false) else _active_mat
 		mi.position = Vector3(0.0, 0.75, 0.0)
 
 func set_highlighted(on: bool) -> void:
@@ -50,6 +67,9 @@ func mark_activated() -> void:
 	GameBus.waystone_activated.emit(wid)
 
 func _set_active_visual() -> void:
+	if _sprite != null:
+		_sprite.texture = _SpriteRegistry.waystone_texture(true)
+		return
 	_ensure_shared_resources()
 	var mi := find_child("MeshInstance3D", true, false)
 	if mi is MeshInstance3D:

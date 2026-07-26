@@ -2,6 +2,11 @@
 ## Spawned at ley line intersections on TILE_GRASS tiles; one-time collectible.
 extends Node3D
 
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+
+## Fountain sprite target height — waist-high shrine object.
+const _WELL_HEIGHT: float = 1.1
+
 static var _well_mat: StandardMaterial3D
 static var _well_mesh: CylinderMesh
 static var _crystal_mat: StandardMaterial3D
@@ -32,6 +37,15 @@ static func _ensure_shared_resources() -> void:
 	_crystal_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 
 func _ready() -> void:
+	var tex: Texture2D = _SpriteRegistry.mana_well_texture()
+	if tex != null:
+		var sprite := Sprite3D.new()
+		_SpriteRegistry.setup_sprite_height(sprite, tex, _WELL_HEIGHT)
+		sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+		sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		add_child(sprite)
+		return
 	_ensure_shared_resources()
 	var base_inst := MeshInstance3D.new()
 	base_inst.mesh = _well_mesh

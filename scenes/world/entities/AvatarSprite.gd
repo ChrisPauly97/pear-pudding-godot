@@ -1,4 +1,4 @@
-## Shared builder for the wizard walk AnimatedSprite3D.
+## Shared builder for the player-hero walk AnimatedSprite3D.
 ##
 ## Used by Player._build_sprite() and RemotePlayer to avoid duplicating
 ## the sprite construction. Returns a fully-configured AnimatedSprite3D
@@ -7,10 +7,13 @@
 ## Callers: preload("res://scenes/world/entities/AvatarSprite.gd")
 extends RefCounted
 
-const _WalkTex1: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_1_pixel.png")
-const _WalkTex2: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_2_pixel.png")
-const _WalkTex3: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_3_pixel.png")
-const _WalkTex4: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_4_pixel.png")
+# 0x72 DungeonTilesetII "elf_m" hero frames (CC0) — same art as Player.gd
+# so remote co-op avatars match the local player.
+const _IdleTex:  Texture2D = preload("res://assets/textures/characters/player_hero.png")
+const _WalkTex1: Texture2D = preload("res://assets/textures/characters/player_hero_walk_1.png")
+const _WalkTex2: Texture2D = preload("res://assets/textures/characters/player_hero_walk_2.png")
+const _WalkTex3: Texture2D = preload("res://assets/textures/characters/player_hero_walk_3.png")
+const _WalkTex4: Texture2D = preload("res://assets/textures/characters/player_hero_walk_4.png")
 
 const ANIM_FPS: float = 6.0
 const PIXEL_SIZE: float = 0.05
@@ -24,7 +27,7 @@ static func build() -> AnimatedSprite3D:
 	sf.add_animation("idle")
 	sf.set_animation_loop("idle", true)
 	sf.set_animation_speed("idle", ANIM_FPS)
-	sf.add_frame("idle", _WalkTex1)
+	sf.add_frame("idle", _IdleTex)
 
 	sf.add_animation("walk")
 	sf.set_animation_loop("walk", true)
