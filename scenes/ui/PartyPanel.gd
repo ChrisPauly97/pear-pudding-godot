@@ -12,7 +12,6 @@
 ## social overlays already are.
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 ## Roster rows: Array of {text: String, color: Color, token: String,
 ## clean_name: String, is_friend: bool}. Mirrors the old
@@ -91,17 +90,13 @@ func _build_ui() -> void:
 	outer_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", int(_ref * 0.02))
+	var content := _UiUtil.make_vbox(int(_ref * 0.02), scroll)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(content)
 
 	# ── Roster ──
 	var roster_title := _UiUtil.make_label("Roster", int(_vh * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, content)
 
-	_roster_vbox = VBoxContainer.new()
-	_roster_vbox.add_theme_constant_override("separation", int(_vh * 0.008))
-	content.add_child(_roster_vbox)
+	_roster_vbox = _UiUtil.make_vbox(int(_vh * 0.008), content)
 	_render_roster()
 
 	content.add_child(_UiUtil.make_separator())
@@ -167,9 +162,7 @@ func _render_roster() -> void:
 
 
 func _add_roster_row(row: Dictionary) -> void:
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.015))
-	_roster_vbox.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.015), _roster_vbox)
 
 	var color: Color = row.get("color", Color.WHITE)
 	var swatch := ColorRect.new()

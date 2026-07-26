@@ -6,7 +6,6 @@ const CompanionRegistry = preload("res://autoloads/CompanionRegistry.gd")
 const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var hub_mode: bool = false
 
@@ -47,9 +46,7 @@ func _build_ui() -> void:
 		margin.add_theme_constant_override("margin_top", m)
 		margin.add_theme_constant_override("margin_bottom", m)
 		add_child(margin)
-		root_vbox = VBoxContainer.new()
-		root_vbox.add_theme_constant_override("separation", int(_ref * 0.012))
-		margin.add_child(root_vbox)
+		root_vbox = _UiUtil.make_vbox(int(_ref * 0.012), margin)
 	else:
 		_build_backdrop(0.78)
 		var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
@@ -58,8 +55,7 @@ func _build_ui() -> void:
 		root_vbox = _build_margin_vbox(outer, 0.015, 0.012)
 
 	# ---- Header bar ----------------------------------------------------------
-	var header := HBoxContainer.new()
-	root_vbox.add_child(header)
+	var header := _UiUtil.make_hbox(0, root_vbox)
 
 	var title_lbl := _UiUtil.make_label("Character", int(_ref * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header)
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -70,17 +66,14 @@ func _build_ui() -> void:
 	# ---- Main content --------------------------------------------------------
 	var content: BoxContainer
 	if is_portrait:
-		content = VBoxContainer.new()
-		content.add_theme_constant_override("separation", int(_ref * 0.01))
+		content = _UiUtil.make_vbox(int(_ref * 0.01))
 	else:
-		content = HBoxContainer.new()
-		content.add_theme_constant_override("separation", int(_vw * 0.015))
+		content = _UiUtil.make_hbox(int(_vw * 0.015))
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_vbox.add_child(content)
 
 	# ---- Left: avatar + slot buttons -----------------------------------------
-	var left_vbox := VBoxContainer.new()
-	left_vbox.add_theme_constant_override("separation", int(_ref * 0.010))
+	var left_vbox := _UiUtil.make_vbox(int(_ref * 0.010))
 	if is_portrait:
 		left_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	else:
@@ -121,11 +114,9 @@ func _build_ui() -> void:
 		content.add_child(VSeparator.new())
 
 	# ---- Right: picker -------------------------------------------------------
-	var right_vbox := VBoxContainer.new()
+	var right_vbox := _UiUtil.make_vbox(int(_ref * 0.008), content)
 	right_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	right_vbox.add_theme_constant_override("separation", int(_ref * 0.008))
-	content.add_child(right_vbox)
 	_picker_panel = right_vbox
 
 	_picker_title = _UiUtil.make_label("← Select a slot", int(_ref * 0.024), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_CENTER, right_vbox)
@@ -135,10 +126,8 @@ func _build_ui() -> void:
 	right_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	_picker_list = VBoxContainer.new()
+	_picker_list = _UiUtil.make_vbox(int(_ref * 0.007), scroll)
 	_picker_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_picker_list.add_theme_constant_override("separation", int(_ref * 0.007))
-	scroll.add_child(_picker_list)
 
 	_unequip_btn = _UiUtil.make_button("Unequip", Vector2(_ref * 0.16, _ref * 0.065), int(_ref * 0.022), _on_unequip, right_vbox)
 	_unequip_btn.disabled = true
@@ -233,16 +222,12 @@ func _refresh_companion_picker() -> void:
 
 func _make_companion_row(c: CompanionData, is_active: bool) -> HBoxContainer:
 	var unlocked: bool = CompanionRegistry.is_unlocked(c.companion_id)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
-	var info_vbox := VBoxContainer.new()
+	var info_vbox := _UiUtil.make_vbox(int(_ref * 0.002), row)
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info_vbox.add_theme_constant_override("separation", int(_ref * 0.002))
-	row.add_child(info_vbox)
 
-	var name_row := HBoxContainer.new()
-	info_vbox.add_child(name_row)
+	var name_row := _UiUtil.make_hbox(0, info_vbox)
 
 	var name_lbl := _UiUtil.make_label(c.display_name, int(_ref * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -279,16 +264,12 @@ func _companion_locked_text(c: CompanionData) -> String:
 	return "Locked — complete story objectives to unlock."
 
 func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
-	var info_vbox := VBoxContainer.new()
+	var info_vbox := _UiUtil.make_vbox(int(_ref * 0.002), row)
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info_vbox.add_theme_constant_override("separation", int(_ref * 0.002))
-	row.add_child(info_vbox)
 
-	var name_row := HBoxContainer.new()
-	info_vbox.add_child(name_row)
+	var name_row := _UiUtil.make_hbox(0, info_vbox)
 
 	var name_lbl := Label.new()
 	var disp_name: String = w.display_name
@@ -414,10 +395,8 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	add_child(popup)
 	_compare_popup = popup
 
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", int(_ref * 0.008))
+	var vb := _UiUtil.make_vbox(int(_ref * 0.008), popup)
 	vb.custom_minimum_size = Vector2(_ref * 0.34, 0)
-	popup.add_child(vb)
 
 	var title_lbl := _UiUtil.make_label("Compare — %s" % _SLOT_LABELS.get(candidate.slot, candidate.slot.capitalize()), int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
 

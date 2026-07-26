@@ -85,9 +85,7 @@ func _build_round_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.02))
 	outer.add_child(margin)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.018))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.018), margin)
 
 	var title := _UiUtil.make_label("Draft Duel — Pick %d of %d" % [_round_idx + 1, _rounds.size()], int(_ref * 0.038), Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
@@ -100,12 +98,10 @@ func _build_round_ui() -> void:
 	var is_portrait: bool = _vw < _vh
 	var cards_container: BoxContainer
 	if is_portrait:
-		var vb := VBoxContainer.new()
-		vb.add_theme_constant_override("separation", int(_ref * 0.012))
+		var vb := _UiUtil.make_vbox(int(_ref * 0.012))
 		cards_container = vb
 	else:
-		var hb := HBoxContainer.new()
-		hb.add_theme_constant_override("separation", int(_vw * 0.015))
+		var hb := _UiUtil.make_hbox(int(_vw * 0.015))
 		cards_container = hb
 	cards_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_vbox.add_child(cards_container)
@@ -151,13 +147,9 @@ func _make_card_panel(card_id: String) -> Control:
 	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.012))
 	outer_panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_ref * 0.008))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_ref * 0.008), margin)
 
-	var name_row := HBoxContainer.new()
-	name_row.add_theme_constant_override("separation", int(_vw * 0.008))
-	vbox.add_child(name_row)
+	var name_row := _UiUtil.make_hbox(int(_vw * 0.008), vbox)
 
 	var swatch := ColorRect.new()
 	swatch.color = card_color

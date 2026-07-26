@@ -1,5 +1,4 @@
 extends "res://scenes/ui/BaseOverlay.gd"
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 ## Chapter-ending narration overlay (GID-108 / TID-405) — reuses the BaseOverlay
 ## dark-glass panel style. Shows `_pages` one at a time with a Next/Continue
@@ -41,9 +40,8 @@ func _ready() -> void:
 	_body_lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(_body_lbl)
 
-	var btn_row := HBoxContainer.new()
+	var btn_row := _UiUtil.make_hbox(0, vbox)
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_child(btn_row)
 
 	_next_btn = Button.new()
 	_next_btn.custom_minimum_size = Vector2(_ref * 0.2, _ref * 0.065)

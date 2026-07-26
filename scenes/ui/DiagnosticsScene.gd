@@ -1,5 +1,4 @@
 extends "res://scenes/ui/BaseOverlay.gd"
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const _LEVEL_COLORS: Dictionary = {
 	"INFO":  "green",
@@ -40,9 +39,7 @@ func _ready() -> void:
 
 	_populate()
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(_vh * 0.015))
-	vbox.add_child(hbox)
+	var hbox := _UiUtil.make_hbox(int(_vh * 0.015), vbox)
 
 	var clear_btn := _UiUtil.make_button("Clear", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.026), _on_clear, hbox)
 

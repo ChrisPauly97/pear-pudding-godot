@@ -531,9 +531,8 @@ func update_mount_btn() -> void:
 
 func build_bounty_tracker() -> void:
 	var vh: float = _hud.get_viewport().get_visible_rect().size.y
-	_bounty_tracker = VBoxContainer.new()
+	_bounty_tracker = _UiUtil.make_vbox(0, _hud)
 	_bounty_tracker.position = Vector2(vh * 0.01, vh * 0.07)
-	_hud.add_child(_bounty_tracker)
 	refresh_bounty_tracker()
 
 func refresh_bounty_tracker() -> void:

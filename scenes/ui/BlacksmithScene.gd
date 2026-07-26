@@ -45,13 +45,10 @@ func _build_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.015))
 	outer.add_child(margin)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.012))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.012), margin)
 
 	# Header row
-	var header := HBoxContainer.new()
-	root_vbox.add_child(header)
+	var header := _UiUtil.make_hbox(0, root_vbox)
 
 	var title_lbl := _UiUtil.make_label("Blacksmith", int(_ref * 0.032), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header)
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -59,9 +56,7 @@ func _build_ui() -> void:
 	var close_btn := _UiUtil.make_button("Close  [C]" if not OS.has_feature("android") else "Close", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_close, header)
 
 	# Currency display
-	var currency_row := HBoxContainer.new()
-	currency_row.add_theme_constant_override("separation", int(_vw * 0.03))
-	root_vbox.add_child(currency_row)
+	var currency_row := _UiUtil.make_hbox(int(_vw * 0.03), root_vbox)
 
 	_coin_label = Label.new()
 	_coin_label.add_theme_font_size_override("font_size", int(_ref * 0.024))
@@ -80,10 +75,8 @@ func _build_ui() -> void:
 	root_vbox.add_child(_weapon_scroll)
 	_BaseOverlay.attach_drag_scroll(_weapon_scroll)
 
-	_weapon_list = VBoxContainer.new()
+	_weapon_list = _UiUtil.make_vbox(int(_ref * 0.010), _weapon_scroll)
 	_weapon_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_weapon_list.add_theme_constant_override("separation", int(_ref * 0.010))
-	_weapon_scroll.add_child(_weapon_list)
 
 func _refresh() -> void:
 	var saved_scroll: int = _weapon_scroll.scroll_vertical if _weapon_scroll else 0
@@ -114,15 +107,13 @@ func _refresh() -> void:
 		_weapon_scroll.scroll_vertical = saved_scroll
 
 func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: Node) -> VBoxContainer:
-	var outer := VBoxContainer.new()
-	outer.add_theme_constant_override("separation", int(_ref * 0.004))
+	var outer := _UiUtil.make_vbox(int(_ref * 0.004))
 
 	var sep := HSeparator.new()
 	outer.add_child(sep)
 
 	# Name + level
-	var name_row := HBoxContainer.new()
-	outer.add_child(name_row)
+	var name_row := _UiUtil.make_hbox(0, outer)
 
 	var name_lbl := Label.new()
 	var level_suffix: String = "" if level == 0 else " +%d" % level
@@ -154,9 +145,7 @@ func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: Node) -> 
 		var max_lbl := _UiUtil.make_label("  MAX LEVEL", int(_ref * 0.020), Color(1.0, 0.85, 0.1), HORIZONTAL_ALIGNMENT_LEFT, outer)
 
 	# Action buttons row
-	var btn_row := HBoxContainer.new()
-	btn_row.add_theme_constant_override("separation", int(_vw * 0.010))
-	outer.add_child(btn_row)
+	var btn_row := _UiUtil.make_hbox(int(_vw * 0.010), outer)
 
 	# Upgrade button
 	var upgrade_btn := Button.new()

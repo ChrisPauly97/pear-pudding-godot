@@ -1,5 +1,4 @@
 extends "res://scenes/ui/BaseOverlay.gd"
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _title: String = ""
 var _body: String = ""
@@ -29,9 +28,8 @@ func _ready() -> void:
 	body_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body_lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	var btn_row := HBoxContainer.new()
+	var btn_row := _UiUtil.make_hbox(0, vbox)
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_child(btn_row)
 
 	var btn := _UiUtil.make_button("Got it", Vector2(_vh * 0.18, _vh * 0.065), int(_vh * 0.022), _close, btn_row)
 

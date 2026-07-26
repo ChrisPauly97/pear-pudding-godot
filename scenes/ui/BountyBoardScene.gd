@@ -40,9 +40,7 @@ func _build_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", pad)
 	outer.add_child(margin)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.015))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.015), margin)
 
 	# Header
 	var title := _UiUtil.make_label("Daily Bounties", 0, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
@@ -55,9 +53,7 @@ func _build_ui() -> void:
 	root_vbox.add_child(sep)
 
 	# Bounty rows
-	_rows_container = VBoxContainer.new()
-	_rows_container.add_theme_constant_override("separation", int(_ref * 0.012))
-	root_vbox.add_child(_rows_container)
+	_rows_container = _UiUtil.make_vbox(int(_ref * 0.012), root_vbox)
 
 	_populate_rows()
 
@@ -111,8 +107,7 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 	var count: int = int(bounty.get("count", 1))
 	var reward: int = int(bounty.get("reward", 0))
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(_ref * 0.01))
+	var hbox := _UiUtil.make_hbox(int(_ref * 0.01))
 
 	# Description label
 	var desc := _UiUtil.make_label(_format_bounty_desc(btype, target, count), int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hbox)

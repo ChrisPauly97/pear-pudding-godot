@@ -7,7 +7,6 @@ const _CardDropUtil     = preload("res://game_logic/CardDropUtil.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const CardInstance      = preload("res://game_logic/battle/CardInstance.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
-const _UiUtil           = preload("res://scenes/ui/UiUtil.gd")
 const VeterancyUtil     = preload("res://game_logic/VeterancyUtil.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
@@ -67,9 +66,7 @@ func _build_ui() -> void:
 		margin.add_theme_constant_override("margin_top", m)
 		margin.add_theme_constant_override("margin_bottom", m)
 		add_child(margin)
-		wrapper = VBoxContainer.new()
-		wrapper.add_theme_constant_override("separation", int(_ref * 0.008))
-		margin.add_child(wrapper)
+		wrapper = _UiUtil.make_vbox(int(_ref * 0.008), margin)
 	else:
 		_build_backdrop(0.78)
 		var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
@@ -78,9 +75,7 @@ func _build_ui() -> void:
 		wrapper = _build_margin_vbox(outer, 0.015, 0.008)
 
 	# ---- Tab bar ----
-	var tab_bar := HBoxContainer.new()
-	tab_bar.add_theme_constant_override("separation", int(_vw * 0.008))
-	wrapper.add_child(tab_bar)
+	var tab_bar := _UiUtil.make_hbox(int(_vw * 0.008), wrapper)
 
 	_tab_cards_btn = _UiUtil.make_button("Cards", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_tab_cards, tab_bar)
 
@@ -93,12 +88,10 @@ func _build_ui() -> void:
 	# ====================================================================
 	var root_box: BoxContainer
 	if is_portrait:
-		var vb := VBoxContainer.new()
-		vb.add_theme_constant_override("separation", int(_ref * 0.008))
+		var vb := _UiUtil.make_vbox(int(_ref * 0.008))
 		root_box = vb
 	else:
-		var hb := HBoxContainer.new()
-		hb.add_theme_constant_override("separation", int(_vw * 0.012))
+		var hb := _UiUtil.make_hbox(int(_vw * 0.012))
 		root_box = hb
 	root_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_cards_panel = root_box
@@ -133,9 +126,7 @@ func _build_ui() -> void:
 	left_vbox.add_child(_essence_label)
 
 	# ---- Filter row ----
-	var filter_row := HBoxContainer.new()
-	filter_row.add_theme_constant_override("separation", int(_ref * 0.005))
-	left_vbox.add_child(filter_row)
+	var filter_row := _UiUtil.make_hbox(int(_ref * 0.005), left_vbox)
 	_build_filter_buttons(filter_row)
 
 	_collection_scroll = ScrollContainer.new()
@@ -146,10 +137,8 @@ func _build_ui() -> void:
 	left_vbox.add_child(left_scroll)
 	attach_drag_scroll(left_scroll)
 
-	_collection_list = VBoxContainer.new()
+	_collection_list = _UiUtil.make_vbox(int(_ref * 0.008), left_scroll)
 	_collection_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_collection_list.add_theme_constant_override("separation", int(_ref * 0.008))
-	left_scroll.add_child(_collection_list)
 
 	if not is_portrait:
 		root_box.add_child(VSeparator.new())
@@ -163,14 +152,10 @@ func _build_ui() -> void:
 	root_box.add_child(right_vbox)
 
 	# ---- Loadout tab row ----
-	_loadout_tab_row = HBoxContainer.new()
-	_loadout_tab_row.add_theme_constant_override("separation", int(_ref * 0.005))
-	right_vbox.add_child(_loadout_tab_row)
+	_loadout_tab_row = _UiUtil.make_hbox(int(_ref * 0.005), right_vbox)
 
 	# ---- Loadout action row (Rename / Copy / Delete) ----
-	_loadout_action_row = HBoxContainer.new()
-	_loadout_action_row.add_theme_constant_override("separation", int(_ref * 0.006))
-	right_vbox.add_child(_loadout_action_row)
+	_loadout_action_row = _UiUtil.make_hbox(int(_ref * 0.006), right_vbox)
 
 	_rename_btn = _UiUtil.make_button("Rename", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020), _on_rename_loadout, _loadout_action_row)
 
@@ -194,27 +179,21 @@ func _build_ui() -> void:
 	right_vbox.add_child(right_scroll)
 	attach_drag_scroll(right_scroll)
 
-	_deck_list = VBoxContainer.new()
+	_deck_list = _UiUtil.make_vbox(int(_ref * 0.008), right_scroll)
 	_deck_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_deck_list.add_theme_constant_override("separation", int(_ref * 0.008))
-	right_scroll.add_child(_deck_list)
 
 	# ---- Buttons ----
 	if is_portrait:
-		var btn_hbox := HBoxContainer.new()
-		btn_hbox.add_theme_constant_override("separation", int(_vw * 0.04))
+		var btn_hbox := _UiUtil.make_hbox(int(_vw * 0.04), root_box)
 		btn_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-		root_box.add_child(btn_hbox)
 
 		var save_btn := _UiUtil.make_button("Save Deck", Vector2(_vw * 0.35, _ref * 0.065), int(_ref * 0.022), _on_save, btn_hbox)
 
 		if not hub_mode:
 			var close_btn := _UiUtil.make_button("Close", Vector2(_vw * 0.35, _ref * 0.065), int(_ref * 0.022), _on_close, btn_hbox)
 	else:
-		var btn_vbox := VBoxContainer.new()
-		btn_vbox.add_theme_constant_override("separation", int(_ref * 0.012))
+		var btn_vbox := _UiUtil.make_vbox(int(_ref * 0.012), root_box)
 		btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-		root_box.add_child(btn_vbox)
 
 		var save_btn := _UiUtil.make_button("Save Deck", Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_save, btn_vbox)
 
@@ -224,8 +203,7 @@ func _build_ui() -> void:
 	# ====================================================================
 	# CRAFT PANEL
 	# ====================================================================
-	var craft_box := VBoxContainer.new()
-	craft_box.add_theme_constant_override("separation", int(_ref * 0.008))
+	var craft_box := _UiUtil.make_vbox(int(_ref * 0.008))
 	craft_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	craft_box.visible = false
 	_craft_panel = craft_box
@@ -237,20 +215,16 @@ func _build_ui() -> void:
 	_craft_essence_label.modulate = Color(0.5, 0.85, 1.0)
 	craft_box.add_child(_craft_essence_label)
 
-	_craft_rarity_row = HBoxContainer.new()
-	_craft_rarity_row.add_theme_constant_override("separation", int(_ref * 0.006))
+	_craft_rarity_row = _UiUtil.make_hbox(int(_ref * 0.006), craft_box)
 	_craft_rarity_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	craft_box.add_child(_craft_rarity_row)
 
 	var craft_scroll := ScrollContainer.new()
 	craft_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	craft_box.add_child(craft_scroll)
 	attach_drag_scroll(craft_scroll)
 
-	_craft_list = VBoxContainer.new()
+	_craft_list = _UiUtil.make_vbox(int(_ref * 0.006), craft_scroll)
 	_craft_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_craft_list.add_theme_constant_override("separation", int(_ref * 0.006))
-	craft_scroll.add_child(_craft_list)
 
 	if not hub_mode:
 		var craft_close_btn := _UiUtil.make_button("Close  [I]" if not OS.has_feature("android") else "Close", Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_close, craft_box)
@@ -498,11 +472,7 @@ func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 	cube.custom_minimum_size = Vector2(tile_size, tile_size)
 	cube.focus_mode = Control.FOCUS_NONE
 
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = card_color
-	sb.border_color = _UiUtil.rarity_color(rarity)
-	sb.set_border_width_all(maxi(2, int(_ref * 0.006)))
-	sb.set_corner_radius_all(int(_ref * 0.012))
+	var sb := _UiUtil.make_style(card_color, int(_ref * 0.012), _UiUtil.rarity_color(rarity), int(maxi(2, int(_ref * 0.006))))
 	cube.add_theme_stylebox_override("normal", sb)
 	cube.add_theme_stylebox_override("hover", sb)
 	cube.add_theme_stylebox_override("pressed", sb)
@@ -570,10 +540,8 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	add_child(popup)
 	_detail_popup = popup
 
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", int(_ref * 0.008))
+	var vb := _UiUtil.make_vbox(int(_ref * 0.008), popup)
 	vb.custom_minimum_size = Vector2(_ref * 0.34, 0)
-	popup.add_child(vb)
 
 	if illustration != null:
 		var art := TextureRect.new()
@@ -583,9 +551,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		vb.add_child(art)
 
-	var title_row := HBoxContainer.new()
-	title_row.add_theme_constant_override("separation", int(_ref * 0.006))
-	vb.add_child(title_row)
+	var title_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
 
 	var name_lbl := _UiUtil.make_label(disp_name + (" ◑" if is_dual else ""), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, title_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -600,9 +566,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 		var sell_gold: int  = int(cfg.get("sell_gold", 0))
 		var scrap_ess: int  = int(cfg.get("scrap_essence", 0))
 
-		var action_row := HBoxContainer.new()
-		action_row.add_theme_constant_override("separation", int(_ref * 0.006))
-		vb.add_child(action_row)
+		var action_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
 
 		var sell_btn := _UiUtil.make_button("Sell +%dg" % sell_gold, Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020))
 		sell_btn.modulate = Color(1.0, 0.9, 0.3)
@@ -639,9 +603,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 					_refresh_cards())
 				vb.add_child(combine_btn)
 
-		var rename_row := HBoxContainer.new()
-		rename_row.add_theme_constant_override("separation", int(_ref * 0.006))
-		vb.add_child(rename_row)
+		var rename_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
 
 		var rename_edit := LineEdit.new()
 		rename_edit.text = str(inst.get("custom_name", ""))
@@ -680,12 +642,9 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 	var rolled_hp: int   = int(inst.get("health", int(tmpl.get("health", 0))))
 	var rolled_cost: int = int(inst.get("cost",   int(tmpl.get("cost",   0))))
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_ref * 0.003))
+	var vbox := _UiUtil.make_vbox(int(_ref * 0.003))
 
-	var top_row := HBoxContainer.new()
-	top_row.add_theme_constant_override("separation", int(_vw * 0.008))
-	vbox.add_child(top_row)
+	var top_row := _UiUtil.make_hbox(int(_vw * 0.008), vbox)
 
 	var swatch := ColorRect.new()
 	swatch.color = card_color
@@ -738,8 +697,7 @@ func _make_craft_row(recipe: Object, player_essence: int) -> HBoxContainer:
 	var card_color: Color = tmpl.get("color", Color(0.3, 0.3, 0.35))
 	var card_name: String = tmpl.get("name", tid)
 
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
 	var swatch := ColorRect.new()
 	swatch.color = card_color
@@ -770,8 +728,7 @@ func _do_craft(template_id: String, rarity: String, cost: int) -> void:
 	_refresh_craft()
 
 func _make_potion_craft_row(potion_id: String, recipe_data: Dictionary, player_essence: int) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
 	var sm := SceneManager.save_manager
 	var display_name: String = str(recipe_data.get("display_name", potion_id))
@@ -963,10 +920,8 @@ func _on_rename_loadout() -> void:
 	var popup := PopupPanel.new()
 	add_child(popup)
 
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", int(_ref * 0.012))
+	var vb := _UiUtil.make_vbox(int(_ref * 0.012), popup)
 	vb.custom_minimum_size = Vector2(_ref * 0.5, 0)
-	popup.add_child(vb)
 
 	var title_lbl := _UiUtil.make_label("Rename Loadout", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
 
@@ -977,10 +932,8 @@ func _on_rename_loadout() -> void:
 	edit.custom_minimum_size = Vector2(0, _ref * 0.065)
 	vb.add_child(edit)
 
-	var btn_row := HBoxContainer.new()
+	var btn_row := _UiUtil.make_hbox(int(_ref * 0.012), vb)
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.add_theme_constant_override("separation", int(_ref * 0.012))
-	vb.add_child(btn_row)
 
 	var ok_btn := _UiUtil.make_button("OK", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022))
 	ok_btn.pressed.connect(func() -> void:
@@ -1018,18 +971,14 @@ func _on_del_loadout() -> void:
 	var popup := PopupPanel.new()
 	add_child(popup)
 
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", int(_ref * 0.012))
+	var vb := _UiUtil.make_vbox(int(_ref * 0.012), popup)
 	vb.custom_minimum_size = Vector2(_ref * 0.5, 0)
-	popup.add_child(vb)
 
 	var lbl := _UiUtil.make_label("Delete '%s'?\nThis cannot be undone." % loadout_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var btn_row := HBoxContainer.new()
+	var btn_row := _UiUtil.make_hbox(int(_ref * 0.012), vb)
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.add_theme_constant_override("separation", int(_ref * 0.012))
-	vb.add_child(btn_row)
 
 	var yes_btn := _UiUtil.make_button("Yes, Delete", Vector2(_ref * 0.16, _ref * 0.065), int(_ref * 0.022))
 	yes_btn.modulate = Color(1.0, 0.4, 0.4)

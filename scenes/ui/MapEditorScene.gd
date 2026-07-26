@@ -201,9 +201,7 @@ func _make_marker(mat: StandardMaterial3D, pos: Vector3) -> MeshInstance3D:
 # --- Mobile toolbar ---
 
 func _make_style(color: Color, border: bool) -> StyleBoxFlat:
-	var s := StyleBoxFlat.new()
-	s.bg_color = color
-	s.set_corner_radius_all(8)
+	var s := _UiUtil.make_style(color, 8)
 	s.content_margin_top = 6.0
 	s.content_margin_bottom = 6.0
 	s.content_margin_left = 4.0
@@ -225,15 +223,11 @@ func _build_mobile_toolbar() -> void:
 	panel_style.bg_color = Color(0.1, 0.1, 0.1, 0.88)
 	_toolbar.add_theme_stylebox_override("panel", panel_style)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 6)
-	_toolbar.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(6, _toolbar)
 
 	var mode_names: Array[String] = ["Grass", "Wall", "Hill", "Enemy", "Chest", "Door", "Spawn", "Erase"]
 
-	var mode_row := HBoxContainer.new()
-	mode_row.add_theme_constant_override("separation", 5)
-	vbox.add_child(mode_row)
+	var mode_row := _UiUtil.make_hbox(5, vbox)
 
 	var vh: float = get_viewport().get_visible_rect().size.y
 	var btn_h: float  = vh * 0.06
@@ -261,9 +255,7 @@ func _build_mobile_toolbar() -> void:
 		_mode_buttons.append(btn)
 		mode_row.add_child(btn)
 
-	var ctrl_row := HBoxContainer.new()
-	ctrl_row.add_theme_constant_override("separation", 5)
-	vbox.add_child(ctrl_row)
+	var ctrl_row := _UiUtil.make_hbox(5, vbox)
 
 	var h_minus := _UiUtil.make_button("H-", Vector2(sq_w, btn_h), 0, _height_down, ctrl_row)
 

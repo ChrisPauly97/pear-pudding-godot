@@ -1,5 +1,4 @@
 extends "res://scenes/ui/BaseOverlay.gd"
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal gambit_chosen(gambit_id: String)
 

@@ -13,7 +13,6 @@
 ## on NOTIFICATION_RESIZED.
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 ## rows: Array of {token, name, rating} — the caller (WorldScene) builds this from
 ## SessionStore.get_state().members, excluding the local host's own token. Kept as
@@ -61,10 +60,8 @@ func _build_ui() -> void:
 	outer_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	_rows_vbox = VBoxContainer.new()
-	_rows_vbox.add_theme_constant_override("separation", int(_ref * 0.015))
+	_rows_vbox = _UiUtil.make_vbox(int(_ref * 0.015), scroll)
 	_rows_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_rows_vbox)
 
 	_render_rows()
 
@@ -86,9 +83,7 @@ func _render_rows() -> void:
 
 
 func _add_row(row: Dictionary) -> void:
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.02))
-	_rows_vbox.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.02), _rows_vbox)
 
 	var name_lbl := _UiUtil.make_label(str(row.get("name", "Player")), int(_vh * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.custom_minimum_size = Vector2(_vw * 0.28, 0)

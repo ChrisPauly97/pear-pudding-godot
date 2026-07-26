@@ -38,13 +38,9 @@ func _build_panel() -> void:
 	inner.add_theme_constant_override("margin_bottom", int(_vh * 0.008))
 	_panel.add_child(inner)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.004))
-	inner.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.004), inner)
 
-	var header_row := HBoxContainer.new()
-	header_row.add_theme_constant_override("separation", int(_vw * 0.006))
-	vbox.add_child(header_row)
+	var header_row := _UiUtil.make_hbox(int(_vw * 0.006), vbox)
 
 	var ts: float = _UiUtil.text_scale()
 	var icon_lbl := _UiUtil.make_label("Achievement!", int(_vh * 0.020 * ts), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_LEFT, header_row)

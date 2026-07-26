@@ -524,8 +524,7 @@ func update_keyword_badges(hbox: HBoxContainer, card: CardInstance) -> void:
 func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool, hand_count: int = -1) -> void:
 	var vbox: VBoxContainer = hero_node.get_child(0) as VBoxContainer if hero_node.get_child_count() > 0 else null
 	if not vbox:
-		vbox = VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", int(_vh * 0.004))
+		vbox = _UiUtil.make_vbox(int(_vh * 0.004))
 
 		var name_lbl := Label.new()
 		name_lbl.name = "NameLabel"
@@ -567,9 +566,8 @@ func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool, hand_count: 
 			mana_lbl.add_theme_font_size_override("font_size", _font(0.022))
 			mana_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			vbox.add_child(mana_lbl)
-		var hero_sr := HBoxContainer.new()
+		var hero_sr := _UiUtil.make_hbox(0, vbox)
 		hero_sr.name = "StatusRow"
-		vbox.add_child(hero_sr)
 		hero_node.add_child(vbox)
 
 	var hp_lbl: Label = vbox.get_node("HPLabel") as Label

@@ -43,9 +43,7 @@ func show_rest_site_panel(npc_data: Dictionary) -> void:
 	panel.custom_minimum_size = Vector2(vw * 0.6, vh * 0.5)
 	_hud.add_child(panel)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.015))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.015), panel)
 
 	var title := _UiUtil.make_label("Rest Site", int(vh * 0.05), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -88,9 +86,7 @@ func show_cull_panel() -> void:
 	panel.custom_minimum_size = Vector2(vw * 0.8, vh * 0.75)
 	_hud.add_child(panel)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.01))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.01), panel)
 
 	var title := _UiUtil.make_label("Choose a card to remove from your deck:", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -99,10 +95,8 @@ func show_cull_panel() -> void:
 	scroll.custom_minimum_size = Vector2(0, vh * 0.55)
 	vbox.add_child(scroll)
 
-	var card_list := VBoxContainer.new()
-	card_list.add_theme_constant_override("separation", int(vh * 0.008))
+	var card_list := _UiUtil.make_vbox(int(vh * 0.008), scroll)
 	card_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(card_list)
 
 	var deck_copy: Array[String] = []
 	deck_copy.assign(SceneManager.save_manager.player_deck)
@@ -166,9 +160,7 @@ func show_event_panel(npc_data: Dictionary) -> void:
 	panel.custom_minimum_size = Vector2(vw * 0.8, vh * 0.65)
 	_hud.add_child(panel)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.015))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.015), panel)
 
 	var event_text := _UiUtil.make_label(str(event.get("text", "Something happens.")), int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	event_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

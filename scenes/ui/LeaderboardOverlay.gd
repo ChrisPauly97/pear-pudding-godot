@@ -14,7 +14,6 @@
 ## same as the Trade/Spectate/Emote buttons (mobile + desktop parity, CLAUDE.md).
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 ## Tab indices — order matches the tab button row.
 const TAB_RANKED: int = 0
@@ -48,10 +47,8 @@ func _build_ui() -> void:
 	_title_lbl = _UiUtil.make_title_label(_title_for_tab(_active_tab), _vh)
 	outer_vbox.add_child(_title_lbl)
 
-	var tab_row := HBoxContainer.new()
+	var tab_row := _UiUtil.make_hbox(int(_ref * 0.015), outer_vbox)
 	tab_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	tab_row.add_theme_constant_override("separation", int(_ref * 0.015))
-	outer_vbox.add_child(tab_row)
 	_tab_buttons = []
 	_add_tab_button(tab_row, "Ranked", TAB_RANKED)
 	_add_tab_button(tab_row, "Spire", TAB_SPIRE)
@@ -60,9 +57,7 @@ func _build_ui() -> void:
 
 	outer_vbox.add_child(_UiUtil.make_separator())
 
-	_header_hbox = HBoxContainer.new()
-	_header_hbox.add_theme_constant_override("separation", int(_ref * 0.02))
-	outer_vbox.add_child(_header_hbox)
+	_header_hbox = _UiUtil.make_hbox(int(_ref * 0.02), outer_vbox)
 	_build_header()
 
 	var scroll := ScrollContainer.new()
@@ -72,10 +67,8 @@ func _build_ui() -> void:
 	outer_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	_rows_vbox = VBoxContainer.new()
-	_rows_vbox.add_theme_constant_override("separation", int(_ref * 0.012))
+	_rows_vbox = _UiUtil.make_vbox(int(_ref * 0.012), scroll)
 	_rows_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_rows_vbox)
 
 	_render_rows()
 
@@ -185,9 +178,7 @@ func _render_rows() -> void:
 			_add_row(i + 1, row as Dictionary)
 
 func _add_row(rank: int, row: Dictionary) -> void:
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.02))
-	_rows_vbox.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.02), _rows_vbox)
 
 	var rank_lbl := _UiUtil.make_label("#%d" % rank, int(_vh * 0.022))
 	rank_lbl.custom_minimum_size = Vector2(_vw * 0.08, 0)

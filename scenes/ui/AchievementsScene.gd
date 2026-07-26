@@ -1,7 +1,6 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
 const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 func _ready() -> void:
 	super._ready()
@@ -18,8 +17,7 @@ func _build_ui() -> void:
 	var root_vbox := _build_margin_vbox(outer, 0.015, 0.012)
 
 	# Title + close row
-	var header_row := HBoxContainer.new()
-	root_vbox.add_child(header_row)
+	var header_row := _UiUtil.make_hbox(0, root_vbox)
 
 	var title := _UiUtil.make_label("Achievements", int(_vh * 0.038), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header_row)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -32,10 +30,8 @@ func _build_ui() -> void:
 	root_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	var list := VBoxContainer.new()
+	var list := _UiUtil.make_vbox(int(_vh * 0.010), scroll)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", int(_vh * 0.010))
-	scroll.add_child(list)
 
 	var unlocked: Array[String] = SceneManager.save_manager.unlocked_achievements
 	var progress: Dictionary = SceneManager.save_manager.achievement_progress
@@ -57,17 +53,13 @@ func _make_row(a: Dictionary, is_unlocked: bool, current: int) -> Control:
 	inner.add_theme_constant_override("margin_bottom", int(_vh * 0.008))
 	row.add_child(inner)
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(_vw * 0.010))
-	inner.add_child(hbox)
+	var hbox := _UiUtil.make_hbox(int(_vw * 0.010), inner)
 
 	# Lock / check icon
 	var icon := _UiUtil.make_label("[OK]" if is_unlocked else "[  ]", int(_vh * 0.022), Color(0.3, 1.0, 0.3) if is_unlocked else Color(0.5, 0.5, 0.5), HORIZONTAL_ALIGNMENT_LEFT, hbox)
 
-	var text_vbox := VBoxContainer.new()
+	var text_vbox := _UiUtil.make_vbox(int(_vh * 0.003), hbox)
 	text_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text_vbox.add_theme_constant_override("separation", int(_vh * 0.003))
-	hbox.add_child(text_vbox)
 
 	var name_lbl := _UiUtil.make_label(str(a.get("name", "")), int(_vh * 0.022))
 	if not is_unlocked:

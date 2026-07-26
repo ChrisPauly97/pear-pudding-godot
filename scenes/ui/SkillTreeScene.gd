@@ -2,7 +2,6 @@ extends "res://scenes/ui/BaseOverlay.gd"
 
 const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _points_label: Label
 var _skill_container: Control
@@ -41,10 +40,8 @@ func _build_magic_choice() -> void:
 		margin.add_theme_constant_override("margin_top", m)
 		margin.add_theme_constant_override("margin_bottom", m)
 		add_child(margin)
-		vbox = VBoxContainer.new()
+		vbox = _UiUtil.make_vbox(int(_ref * 0.025), margin)
 		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-		vbox.add_theme_constant_override("separation", int(_ref * 0.025))
-		margin.add_child(vbox)
 	else:
 		_build_backdrop(0.88)
 		var panel_w: float = _vw * 0.82
@@ -58,10 +55,8 @@ func _build_magic_choice() -> void:
 	var sub := _UiUtil.make_label("This choice is permanent. Your skill trees will be drawn from the magic type you select.", int(_ref * 0.022), Color(0.72, 0.72, 0.72), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(_vw * 0.05))
+	var hbox := _UiUtil.make_hbox(int(_vw * 0.05), vbox)
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_child(hbox)
 
 	hbox.add_child(_make_choice_column(
 		"Light", Color(1.0, 1.0, 0.55),
@@ -74,8 +69,7 @@ func _build_magic_choice() -> void:
 
 func _make_choice_column(header: String, header_color: Color, desc: String,
 		btn_label: String, choice: String) -> VBoxContainer:
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", int(_ref * 0.014))
+	var col := _UiUtil.make_vbox(int(_ref * 0.014))
 
 	var lbl := _UiUtil.make_label(header, int(_ref * 0.034), header_color, HORIZONTAL_ALIGNMENT_CENTER, col)
 
@@ -157,9 +151,7 @@ func _build_ui() -> void:
 		margin.add_theme_constant_override("margin_top", m)
 		margin.add_theme_constant_override("margin_bottom", m)
 		add_child(margin)
-		root_vbox = VBoxContainer.new()
-		root_vbox.add_theme_constant_override("separation", int(_ref * 0.010))
-		margin.add_child(root_vbox)
+		root_vbox = _UiUtil.make_vbox(int(_ref * 0.010), margin)
 	else:
 		_build_backdrop(0.78)
 		var panel_w: float = _vw * 0.96
@@ -168,14 +160,10 @@ func _build_ui() -> void:
 		root_vbox = _build_margin_vbox(outer, 0.03, 0.010)
 
 	# ── Header: title + stats on the left, big X close on the right ──
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", int(_vw * 0.02))
-	root_vbox.add_child(header)
+	var header := _UiUtil.make_hbox(int(_vw * 0.02), root_vbox)
 
-	var title_stack := VBoxContainer.new()
+	var title_stack := _UiUtil.make_vbox(int(_ref * 0.004), header)
 	title_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_stack.add_theme_constant_override("separation", int(_ref * 0.004))
-	header.add_child(title_stack)
 
 	var title_lbl := _UiUtil.make_label("Skill Tree", int(_ref * 0.032), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, title_stack)
 
@@ -194,9 +182,7 @@ func _build_ui() -> void:
 		header.add_child(close_btn)
 
 	# ── Tab bar ──
-	var tab_bar := HBoxContainer.new()
-	tab_bar.add_theme_constant_override("separation", int(_vw * 0.015))
-	root_vbox.add_child(tab_bar)
+	var tab_bar := _UiUtil.make_hbox(int(_vw * 0.015), root_vbox)
 
 	_tab_buttons.clear()
 	var tab_w: float = (_vw * 0.90 - _vw * 0.015 * 2) / 3.0
@@ -326,9 +312,7 @@ func _make_skill_node(sk: SkillData, w: float, h: float, is_cross: bool = false)
 	inner.add_theme_constant_override("margin_bottom", int(_ref * 0.008))
 	panel.add_child(inner)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_ref * 0.005))
-	inner.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_ref * 0.005), inner)
 
 	var name_lbl := _UiUtil.make_label(sk.display_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -1,5 +1,6 @@
 extends Control
 class_name BaseOverlay
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 
@@ -69,9 +70,7 @@ func _build_margin_vbox(parent: Control, margin_frac: float = 0.015, sep_frac: f
 	margin.add_theme_constant_override("margin_top",    m)
 	margin.add_theme_constant_override("margin_bottom", m)
 	parent.add_child(margin)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_ref * sep_frac))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_ref * sep_frac), margin)
 	return vbox
 
 func _close() -> void:

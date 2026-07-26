@@ -586,14 +586,11 @@ func _add_companion_hud() -> void:
 	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
 	if companion == null:
 		return
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.003))
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.003))
 	$SidePanel.add_child(vbox)
 	_companion_hud = vbox
 
-	var portrait_row := HBoxContainer.new()
-	portrait_row.add_theme_constant_override("separation", int(_vh * 0.005))
-	vbox.add_child(portrait_row)
+	var portrait_row := _UiUtil.make_hbox(int(_vh * 0.005), vbox)
 
 	if companion.portrait != null:
 		var tex := TextureRect.new()
@@ -741,10 +738,8 @@ func _show_battle_tutorial() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.02), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.02))
-	margin.add_child(vbox)
 
 	var label := _UiUtil.make_label("Tap a card, then tap a green slot to play it.\nTap your minion, then tap an enemy to attack.\nHold any card to see its details. (Dragging works too.)", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1266,9 +1261,7 @@ func _show_potion_picker() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.015))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.015), margin)
 
 	var title_lbl := _UiUtil.make_label("Use a Potion", int(_font(0.026)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -1279,8 +1272,7 @@ func _show_potion_picker() -> void:
 			continue
 		var potion_data: Dictionary = GardenDefs.POTIONS[potion_id]
 		var display_name: String = str(potion_data.get("display_name", potion_id))
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", int(_vh * 0.012))
+		var row := _UiUtil.make_hbox(int(_vh * 0.012))
 		var lbl := _UiUtil.make_label("%s  ×%d" % [display_name, count], int(_font(0.022)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var use_btn := _UiUtil.make_button("Use", Vector2(_vh * 0.1, _vh * 0.055), int(_font(0.022)))
@@ -1745,9 +1737,7 @@ func _show_cast_confirm(card: CardInstance) -> void:
 	layer.add_child(center)
 
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.10, 0.10, 0.20, 0.97)
-	style.set_corner_radius_all(10)
+	var style := _UiUtil.make_style(Color(0.10, 0.10, 0.20, 0.97), 10)
 	panel.add_theme_stylebox_override("panel", style)
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	panel.custom_minimum_size = Vector2(minf(vp.x * 0.5, _vh * 0.75), 0)
@@ -1760,9 +1750,7 @@ func _show_cast_confirm(card: CardInstance) -> void:
 	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.02))
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.015))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.015), margin)
 
 	var name_lbl := _UiUtil.make_label(card.name, int(_font(0.028)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -3265,15 +3253,11 @@ func _build_wager_panel() -> void:
 	panel.position = Vector2(_vh * 0.02, _vh * 0.14)
 	_float_layer.add_child(panel)
 	_wager_panel = panel
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.012))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.012), panel)
 
 	var title := _UiUtil.make_label("Spectator Bet", int(_font(0.024)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 
-	var side_row := HBoxContainer.new()
-	side_row.add_theme_constant_override("separation", int(_vh * 0.01))
-	vbox.add_child(side_row)
+	var side_row := _UiUtil.make_hbox(int(_vh * 0.01), vbox)
 	var group := ButtonGroup.new()
 	_wager_side_a_btn = _make_wager_side_button(_wager_side_name(WagerSync.SIDE_A), group)
 	_wager_side_a_btn.button_pressed = true
@@ -3283,9 +3267,7 @@ func _build_wager_panel() -> void:
 	_wager_side_b_btn.pressed.connect(func() -> void: _wager_side = WagerSync.SIDE_B)
 	side_row.add_child(_wager_side_b_btn)
 
-	var amount_row := HBoxContainer.new()
-	amount_row.add_theme_constant_override("separation", int(_vh * 0.01))
-	vbox.add_child(amount_row)
+	var amount_row := _UiUtil.make_hbox(int(_vh * 0.01), vbox)
 	_wager_minus_btn = _UiUtil.make_button("-", Vector2(_vh * 0.055, _vh * 0.055), int(_font(0.025)), func() -> void: _adjust_wager_amount(-_WAGER_STEP), amount_row)
 	_wager_amount_label = _UiUtil.make_label(str(_wager_amount), int(_font(0.025)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, amount_row)
 	_wager_amount_label.custom_minimum_size = Vector2(_vh * 0.07, 0)

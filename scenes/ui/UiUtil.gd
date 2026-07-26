@@ -129,13 +129,22 @@ static func make_label(text: String, font_size: int = 0, tint: Color = Color.WHI
 	return lbl
 
 ## HBox/VBox in one call — `separation` is the only constant these ever override.
-static func make_box(vertical: bool, separation: int = 0, parent: Node = null) -> BoxContainer:
-	var box: BoxContainer = VBoxContainer.new() if vertical else HBoxContainer.new()
+## Split in two so `:=` still infers the concrete container type at call sites.
+static func make_hbox(separation: int = 0, parent: Node = null) -> HBoxContainer:
+	var box := HBoxContainer.new()
+	_init_box(box, separation, parent)
+	return box
+
+static func make_vbox(separation: int = 0, parent: Node = null) -> VBoxContainer:
+	var box := VBoxContainer.new()
+	_init_box(box, separation, parent)
+	return box
+
+static func _init_box(box: BoxContainer, separation: int, parent: Node) -> void:
 	if separation > 0:
 		box.add_theme_constant_override("separation", separation)
 	if parent != null:
 		parent.add_child(box)
-	return box
 
 ## Rounded StyleBoxFlat with a uniform corner radius and optional uniform border
 ## — the only shape the game's panels and badges use.

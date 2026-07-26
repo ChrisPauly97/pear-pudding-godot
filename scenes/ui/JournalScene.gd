@@ -2,7 +2,6 @@ extends "res://scenes/ui/BaseOverlay.gd"
 
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var hub_mode: bool = false
 
@@ -38,9 +37,7 @@ func _build_ui() -> void:
 		margin.add_theme_constant_override("margin_top", m)
 		margin.add_theme_constant_override("margin_bottom", m)
 		add_child(margin)
-		root_vbox = VBoxContainer.new()
-		root_vbox.add_theme_constant_override("separation", int(_ref * 0.01))
-		margin.add_child(root_vbox)
+		root_vbox = _UiUtil.make_vbox(int(_ref * 0.01), margin)
 	else:
 		_build_backdrop(0.78)
 		var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
@@ -49,8 +46,7 @@ func _build_ui() -> void:
 		root_vbox = _build_margin_vbox(outer, 0.015, 0.01)
 
 	# ── Header row ────────────────────────────────────────────────────────────
-	var header_row := HBoxContainer.new()
-	root_vbox.add_child(header_row)
+	var header_row := _UiUtil.make_hbox(0, root_vbox)
 
 	_header_label = Label.new()
 	_header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -61,9 +57,7 @@ func _build_ui() -> void:
 		var close_btn := _UiUtil.make_button("X", Vector2(_vh * 0.055, _vh * 0.055), int(_vh * 0.028), _close, header_row)
 
 	# ── Tab bar ───────────────────────────────────────────────────────────────
-	var tab_bar := HBoxContainer.new()
-	tab_bar.add_theme_constant_override("separation", 0)
-	root_vbox.add_child(tab_bar)
+	var tab_bar := _UiUtil.make_hbox(0, root_vbox)
 
 	_tab_scrolls_btn = _UiUtil.make_button("Scrolls", Vector2(0, _vh * 0.05), int(_vh * 0.022), _on_tab_selected.bind("scrolls"), tab_bar)
 	_tab_scrolls_btn.flat = true
@@ -106,10 +100,8 @@ func _build_ui() -> void:
 	left_panel.add_child(left_scroll)
 	attach_drag_scroll(left_scroll)
 
-	_scroll_list = VBoxContainer.new()
+	_scroll_list = _UiUtil.make_vbox(int(_vh * 0.008), left_scroll)
 	_scroll_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_scroll_list.add_theme_constant_override("separation", int(_vh * 0.008))
-	left_scroll.add_child(_scroll_list)
 
 	# Right panel — detail view
 	var right_panel := PanelContainer.new()
@@ -124,9 +116,7 @@ func _build_ui() -> void:
 	right_margin.add_theme_constant_override("margin_bottom", int(_vh * 0.015))
 	right_panel.add_child(right_margin)
 
-	var detail_vbox := VBoxContainer.new()
-	detail_vbox.add_theme_constant_override("separation", int(_vh * 0.012))
-	right_margin.add_child(detail_vbox)
+	var detail_vbox := _UiUtil.make_vbox(int(_vh * 0.012), right_margin)
 
 	_title_label = Label.new()
 	_title_label.add_theme_font_size_override("font_size", int(_vh * 0.035))

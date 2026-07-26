@@ -15,7 +15,6 @@
 ## authority double-checks via AuctionTransfer.list_card regardless).
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _AuctionSync = preload("res://game_logic/net/AuctionSync.gd")
 
@@ -62,10 +61,8 @@ func _build_ui() -> void:
 	_title_lbl = _UiUtil.make_title_label(_title_for_tab(_active_tab), _vh)
 	outer_vbox.add_child(_title_lbl)
 
-	var tab_row := HBoxContainer.new()
+	var tab_row := _UiUtil.make_hbox(int(_ref * 0.015), outer_vbox)
 	tab_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	tab_row.add_theme_constant_override("separation", int(_ref * 0.015))
-	outer_vbox.add_child(tab_row)
 	_tab_buttons = []
 	_add_tab_button(tab_row, "Sell", TAB_SELL)
 	_add_tab_button(tab_row, "Browse", TAB_BROWSE)
@@ -81,10 +78,8 @@ func _build_ui() -> void:
 	outer_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	_rows_vbox = VBoxContainer.new()
-	_rows_vbox.add_theme_constant_override("separation", int(_ref * 0.014))
+	_rows_vbox = _UiUtil.make_vbox(int(_ref * 0.014), scroll)
 	_rows_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_rows_vbox)
 
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -176,9 +171,7 @@ func _render_sell_rows() -> void:
 
 func _add_sell_row(inst: Dictionary) -> void:
 	var uid: String = str(inst.get("uid", ""))
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.015))
-	_rows_vbox.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.015), _rows_vbox)
 
 	var name_lbl := _UiUtil.make_label("%s (%s)" % [str(inst.get("template_id", "?")), str(inst.get("rarity", "common"))], int(_vh * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -239,9 +232,7 @@ func _add_browse_row(listing: Dictionary) -> void:
 	var buyout: int = int(listing.get("buyout", 0))
 	var bid: int = int(listing.get("bid", 0))
 
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.015))
-	_rows_vbox.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.015), _rows_vbox)
 
 	var name_lbl := _UiUtil.make_label("%s — %s" % [str(card.get("template_id", "?")), str(listing.get("seller_name", "Player"))], int(_vh * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -290,9 +281,7 @@ func _add_mine_row(listing: Dictionary) -> void:
 	var bid: int = int(listing.get("bid", 0))
 	var is_active: bool = status == _AuctionSync.STATUS_ACTIVE
 
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.015))
-	_rows_vbox.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.015), _rows_vbox)
 
 	var card_name: String = str(card.get("template_id", "?")) if is_active else str(listing.get("id", "?"))
 	var name_lbl := _UiUtil.make_label("%s — %s" % [card_name, status.capitalize()], int(_vh * 0.020))

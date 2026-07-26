@@ -1,5 +1,4 @@
 extends "res://scenes/ui/BaseOverlay.gd"
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -101,8 +100,7 @@ func _build_dual_face_ui() -> void:
 	var panel := _build_centered_panel(total_w, panel_h)
 	panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
 
-	var outer_vbox := VBoxContainer.new()
-	outer_vbox.add_theme_constant_override("separation", int(_vh * 0.012))
+	var outer_vbox := _UiUtil.make_vbox(int(_vh * 0.012))
 	var outer_margin := MarginContainer.new()
 	outer_margin.add_theme_constant_override("margin_left",   int(_vh * 0.018))
 	outer_margin.add_theme_constant_override("margin_right",  int(_vh * 0.018))
@@ -119,10 +117,8 @@ func _build_dual_face_ui() -> void:
 	outer_vbox.add_child(header_lbl)
 
 	# Two face panels side by side
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(_vh * 0.012))
+	var hbox := _UiUtil.make_hbox(int(_vh * 0.012), outer_vbox)
 	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	outer_vbox.add_child(hbox)
 
 	var light_tmpl: Dictionary = CardRegistry.get_template_for_face(_card.dual_card_id, "light")
 	var dark_tmpl: Dictionary = CardRegistry.get_template_for_face(_card.dual_card_id, "dark")
@@ -161,9 +157,7 @@ func _build_face_panel(parent: HBoxContainer, tmpl: Dictionary, card: CardInstan
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	face_panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.006))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.006), margin)
 
 	# Face tag
 	var tag_lbl := _UiUtil.make_label(face_label + (" (Active)" if is_active else ""), int(_font(0.019)))

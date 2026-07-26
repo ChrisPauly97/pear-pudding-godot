@@ -2027,15 +2027,11 @@ func _show_loot_roll_panel(start: Dictionary) -> void:
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	layer.add_child(panel)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.02))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.02), panel)
 	var lbl := _UiUtil.make_label("Loot roll! Tier %d chest — %d card(s).\nNeed, Greed, or Pass?" % [tier, card_ids.size()], int(vh * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(vh * 0.025), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vh * 0.025))
-	vbox.add_child(row)
 	var need_btn := _UiUtil.make_button("Need", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024), _submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_NEED), row)
 	var greed_btn := _UiUtil.make_button("Greed", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024), _submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_GREED), row)
 	var pass_btn := _UiUtil.make_button("Pass", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024), _submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_PASS), row)
@@ -3257,9 +3253,7 @@ func _show_challenge_accept_panel(from_id: int, ranked: bool = false) -> void:
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	layer.add_child(panel)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vp.y * 0.025))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vp.y * 0.025), panel)
 
 	var lbl := Label.new()
 	lbl.text = "A player challenges you to a RANKED card battle!" if ranked \
@@ -3270,10 +3264,8 @@ func _show_challenge_accept_panel(from_id: int, ranked: bool = false) -> void:
 		lbl.modulate = Color(1.0, 0.85, 0.3)
 	vbox.add_child(lbl)
 
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(vp.y * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vp.y * 0.03))
-	vbox.add_child(row)
 
 	var accept_btn := _UiUtil.make_button("Accept", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026), _accept_challenge.bind(from_id), row)
 
@@ -4308,9 +4300,7 @@ func _open_fast_travel_panel() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.018))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.018), margin)
 
 	var title := _UiUtil.make_label("Fast Travel", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	title.add_theme_color_override("font_color", Color(0.40, 0.90, 1.00))
@@ -4334,10 +4324,8 @@ func _open_fast_travel_panel() -> void:
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		vbox.add_child(scroll)
 
-		var btn_vbox := VBoxContainer.new()
+		var btn_vbox := _UiUtil.make_vbox(int(vh * 0.010), scroll)
 		btn_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		btn_vbox.add_theme_constant_override("separation", int(vh * 0.010))
-		scroll.add_child(btn_vbox)
 
 		var btn_h: float = vh * 0.060
 		for wid: String in activated:
@@ -5259,10 +5247,8 @@ func _show_spire_entrance_panel() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(vh * 0.022), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(vh * 0.022))
-	margin.add_child(vbox)
 
 	var title := _UiUtil.make_label("The Endless Spire", int(vh * 0.038), Color(0.85, 0.50, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -5277,10 +5263,8 @@ func _show_spire_entrance_panel() -> void:
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(desc)
 
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vh * 0.03))
-	vbox.add_child(row)
 
 	var enter_btn := _UiUtil.make_button("Resume (Floor %d)" % curr_floor if is_active else "Enter", Vector2(vh * 0.20, vh * 0.07), int(vh * 0.028))
 	enter_btn.modulate = Color(0.85, 0.50, 1.0)
@@ -5338,19 +5322,15 @@ func _show_house_door_panel() -> void:
 	margin.add_theme_constant_override("margin_bottom", int(vh * 0.02))
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.015))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.015), margin)
 
 	var title := _UiUtil.make_label("House For Sale", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var desc := _UiUtil.make_label("Purchase this cozy home for %d coins.\nCurrent balance: %d coins." % [_HOUSE_PRICE, sm.coins], int(vh * 0.027), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var hbox := HBoxContainer.new()
+	var hbox := _UiUtil.make_hbox(int(vh * 0.02), vbox)
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", int(vh * 0.02))
-	vbox.add_child(hbox)
 
 	var buy_btn := _UiUtil.make_button("Buy (%d coins)" % _HOUSE_PRICE, Vector2(vh * 0.26, vh * 0.065), int(vh * 0.027), Callable(), hbox)
 	buy_btn.disabled = sm.coins < _HOUSE_PRICE
@@ -5451,9 +5431,7 @@ func _show_stable_panel() -> void:
 	margin.add_theme_constant_override("margin_bottom", int(vh * 0.02))
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.015))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.015), margin)
 
 	var title := _UiUtil.make_label("Madrian Stables", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -5483,10 +5461,8 @@ func _show_stable_panel() -> void:
 	level_lbl.add_theme_font_size_override("font_size", int(vh * 0.025))
 	vbox.add_child(level_lbl)
 
-	var hbox := HBoxContainer.new()
+	var hbox := _UiUtil.make_hbox(int(vh * 0.02), vbox)
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", int(vh * 0.02))
-	vbox.add_child(hbox)
 
 	var buy_btn := _UiUtil.make_button("Buy (%d coins)" % MOUNT_PRICE, Vector2(vh * 0.28, vh * 0.065), int(vh * 0.027), Callable(), hbox)
 	buy_btn.disabled = not level_ok or not coins_ok
@@ -5623,9 +5599,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 	panel.custom_minimum_size = Vector2(vw * 0.7, vh * 0.5)
 	_hud.add_child(panel)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.012))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.012), panel)
 
 	var title := _UiUtil.make_label("Garden Plot %d" % (int(plot.plot_idx) + 1), int(vh * 0.045), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -5643,8 +5617,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 			var sdata: Dictionary = GardenDefs.SEEDS[seed_id]
 			var sname: String = str(sdata.get("display_name", seed_id))
 			var days: int = int(sdata.get("growth_days", 2))
-			var row := HBoxContainer.new()
-			vbox.add_child(row)
+			var row := _UiUtil.make_hbox(0, vbox)
 			var lbl := Label.new()
 			# The co-op guildhall garden is free to plant (no session seed
 			# economy is modeled, TID-393) — the owned-count only applies solo.
@@ -6087,10 +6060,8 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(vh * 0.022), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(vh * 0.022))
-	margin.add_child(vbox)
 
 	var offer_lbl := Label.new()
 	if gate_remaining > 0:
@@ -6107,10 +6078,8 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 	offer_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(offer_lbl)
 
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vh * 0.03))
-	vbox.add_child(row)
 
 	if gate_remaining == 0 and player_coins >= wager:
 		var duel_btn := _UiUtil.make_button("Duel!", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.028))
@@ -6877,10 +6846,8 @@ func _ensure_chat_ui() -> void:
 		var scroll := ScrollContainer.new()
 		scroll.custom_minimum_size = Vector2(vp.x * 0.26, vh * 0.30)
 		outer.add_child(scroll)
-		var vbox := VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", int(vh * 0.004))
+		var vbox := _UiUtil.make_vbox(int(vh * 0.004), scroll)
 		vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		scroll.add_child(vbox)
 		_chat_log_vbox = vbox
 
 	# HUD toggle button: opens the quick-chat row and reveals the free-text input
@@ -7187,9 +7154,7 @@ func _show_trade_accept_panel(trade_id: String, offer: Dictionary) -> void:
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	layer.add_child(panel)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.02))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.02), panel)
 	var lbl := Label.new()
 	var card_uid: String = str(offer.get("card_uid", "unknown"))
 	lbl.text = "Trade offer received!\nCard: %s\nAccept?" % card_uid
@@ -7197,10 +7162,8 @@ func _show_trade_accept_panel(trade_id: String, offer: Dictionary) -> void:
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(lbl)
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vh * 0.03))
-	vbox.add_child(row)
 	var captured_id: String = trade_id
 	var accept_btn := _UiUtil.make_button("Accept", Vector2(vh * 0.18, vh * 0.06), int(vh * 0.024))
 	accept_btn.pressed.connect(func() -> void:
@@ -7730,15 +7693,11 @@ func _show_wager_accept_panel(from_id: int, ante_coins: int) -> void:
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	layer.add_child(panel)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.025))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.025), panel)
 	var lbl := _UiUtil.make_label("Wagered duel challenge!\nAnte: %d coins each. Accept?" % ante_coins, int(vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vh * 0.03))
-	vbox.add_child(row)
 	var accept_btn := _UiUtil.make_button("Accept (%d coins)" % ante_coins, Vector2(vh * 0.26, vh * 0.07), int(vh * 0.024), _accept_wager_challenge.bind(from_id, ante_coins), row)
 	var decline_btn := _UiUtil.make_button("Decline", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.024), _decline_wager_challenge.bind(from_id), row)
 
@@ -8203,9 +8162,7 @@ func _build_party_bounty_panel() -> void:
 	style.corner_radius_bottom_right = 6
 	outer.add_theme_stylebox_override("panel", style)
 	_hud.add_child(outer)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.006))
-	outer.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.006), outer)
 	_party_bounty_panel = vbox
 	_refresh_party_bounty_panel()
 
@@ -8330,9 +8287,7 @@ func _on_party_bounties_snapshot_received(bounties: Array) -> void:
 		style.corner_radius_bottom_right = 6
 		outer.add_theme_stylebox_override("panel", style)
 		_hud.add_child(outer)
-		var vbox := VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", int(vh * 0.006))
-		outer.add_child(vbox)
+		var vbox := _UiUtil.make_vbox(int(vh * 0.006), outer)
 		_party_bounty_panel = vbox
 	# Populate from snapshot
 	for c in _party_bounty_panel.get_children():
@@ -8446,16 +8401,12 @@ func _show_draft_accept_panel(from_id: int) -> void:
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	layer.add_child(panel)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vp.y * 0.025))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vp.y * 0.025), panel)
 
 	var lbl := _UiUtil.make_label("A player challenges you to a DRAFT DUEL!\nBoth of you draft %d cards from identical sealed packs." % _DraftDuelGen.NUM_ROUNDS, int(vp.y * 0.026), Color(0.6, 0.9, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(vp.y * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vp.y * 0.03))
-	vbox.add_child(row)
 
 	var accept_btn := _UiUtil.make_button("Accept", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026), _accept_draft_duel.bind(from_id), row)
 
@@ -8890,9 +8841,7 @@ func _build_tournament_panel() -> void:
 	style.corner_radius_bottom_right = 6
 	outer.add_theme_stylebox_override("panel", style)
 	_hud.add_child(outer)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vp.y * 0.006))
-	outer.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vp.y * 0.006), outer)
 	_tournament_panel_outer = outer
 	_tournament_panel = vbox
 	_refresh_tournament_panel()

@@ -1,6 +1,5 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 # Keybindings capture state
 var _capture_action: String = ""
@@ -33,10 +32,8 @@ func _build_ui() -> void:
 	outer_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_ref * 0.025))
+	var vbox := _UiUtil.make_vbox(int(_ref * 0.025), scroll)
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(vbox)
 
 	# — Audio —
 	var audio_lbl := _UiUtil.make_label("Audio", int(_vh * 0.03))
@@ -115,17 +112,13 @@ func _scale_to_index(scale: float) -> int:
 	return 1
 
 func _add_slider_row(parent: VBoxContainer, label_text: String, initial: float, on_change: Callable) -> void:
-	var row := VBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vh * 0.008))
-	parent.add_child(row)
+	var row := _UiUtil.make_vbox(int(_vh * 0.008), parent)
 
 	var lbl := _UiUtil.make_body_label(label_text, _vh)
 	lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
 	row.add_child(lbl)
 
-	var slider_row := HBoxContainer.new()
-	slider_row.add_theme_constant_override("separation", int(_vh * 0.02))
-	row.add_child(slider_row)
+	var slider_row := _UiUtil.make_hbox(int(_vh * 0.02), row)
 
 	var slider := HSlider.new()
 	slider.min_value = 0.0
@@ -147,9 +140,7 @@ func _add_slider_row(parent: VBoxContainer, label_text: String, initial: float, 
 	)
 
 func _add_toggle_row(parent: VBoxContainer, label_text: String, initial: bool, on_change: Callable) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vh * 0.02))
-	parent.add_child(row)
+	var row := _UiUtil.make_hbox(int(_vh * 0.02), parent)
 
 	var lbl := _UiUtil.make_label(label_text, int(_vh * 0.028))
 	lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
@@ -163,9 +154,7 @@ func _add_toggle_row(parent: VBoxContainer, label_text: String, initial: bool, o
 	row.add_child(chk)
 
 func _add_option_row(parent: VBoxContainer, label_text: String, options: Array, initial_idx: int, on_change: Callable) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vh * 0.02))
-	parent.add_child(row)
+	var row := _UiUtil.make_hbox(int(_vh * 0.02), parent)
 
 	var lbl := _UiUtil.make_label(label_text, int(_vh * 0.028))
 	lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
@@ -190,16 +179,13 @@ func _build_keybindings_section(parent: VBoxContainer) -> void:
 	kb_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
 	parent.add_child(kb_lbl)
 
-	_kb_vbox = VBoxContainer.new()
-	_kb_vbox.add_theme_constant_override("separation", int(_ref * 0.015))
-	parent.add_child(_kb_vbox)
+	_kb_vbox = _UiUtil.make_vbox(int(_ref * 0.015), parent)
 
 	_rebuild_keybinding_rows()
 
 	# Reset to Defaults button
-	var reset_row := HBoxContainer.new()
+	var reset_row := _UiUtil.make_hbox(0, parent)
 	reset_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	parent.add_child(reset_row)
 
 	var reset_btn := _UiUtil.make_button("Reset to Defaults", Vector2(_vh * 0.28, _vh * 0.05), int(_vh * 0.026), _on_reset_keybindings, reset_row)
 
@@ -236,9 +222,7 @@ func _rebuild_keybinding_rows() -> void:
 	var overrides: Dictionary = SceneManager.save_manager.get_setting("keybindings", {})
 
 	for action: String in SceneManager.REBINDABLE_ACTIONS:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", int(_vh * 0.012))
-		_kb_vbox.add_child(row)
+		var row := _UiUtil.make_hbox(int(_vh * 0.012), _kb_vbox)
 
 		var name_lbl := _UiUtil.make_label(_action_display_name(action), int(_vh * 0.028))
 		name_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))

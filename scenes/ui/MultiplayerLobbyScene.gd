@@ -5,7 +5,6 @@
 ## overlay (instantiated via .new()), matching SettingsScene/DiagnosticsScene.
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const _COOP_MAP: String = "madrian"
 
@@ -83,9 +82,7 @@ func _build_ui() -> void:
 	outer_margin.add_theme_constant_override("margin_bottom", m)
 	panel.add_child(outer_margin)
 
-	var outer_vbox := VBoxContainer.new()
-	outer_vbox.add_theme_constant_override("separation", int(_ref * 0.015))
-	outer_margin.add_child(outer_vbox)
+	var outer_vbox := _UiUtil.make_vbox(int(_ref * 0.015), outer_margin)
 
 	# Scrollable content area.
 	var scroll := ScrollContainer.new()
@@ -95,10 +92,8 @@ func _build_ui() -> void:
 	outer_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(_ref * 0.03), scroll)
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_theme_constant_override("separation", int(_ref * 0.03))
-	scroll.add_child(vbox)
 
 	vbox.add_child(_UiUtil.make_title_label("Co-op (Beta)", _vh))
 	vbox.add_child(_UiUtil.make_separator())
@@ -121,9 +116,7 @@ func _build_ui() -> void:
 	vbox.add_child(_name_edit)
 
 	vbox.add_child(_UiUtil.make_body_label("Your color", _vh))
-	_swatch_row = HBoxContainer.new()
-	_swatch_row.add_theme_constant_override("separation", int(_ref * 0.012))
-	vbox.add_child(_swatch_row)
+	_swatch_row = _UiUtil.make_hbox(int(_ref * 0.012), vbox)
 	_build_swatches()
 
 	vbox.add_child(_UiUtil.make_separator())
@@ -138,10 +131,8 @@ func _build_ui() -> void:
 	var friends: Array = MpProfile.get_friends()
 	if not friends.is_empty():
 		vbox.add_child(_UiUtil.make_body_label("Friends", _vh))
-		_friends_box = VBoxContainer.new()
-		_friends_box.add_theme_constant_override("separation", int(_ref * 0.012))
+		_friends_box = _UiUtil.make_vbox(int(_ref * 0.012), vbox)
 		_friends_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		vbox.add_child(_friends_box)
 		_populate_friends(friends)
 		vbox.add_child(_UiUtil.make_separator())
 
@@ -150,19 +141,15 @@ func _build_ui() -> void:
 	var recent: Array = MpProfile.get_recent_servers()
 	if not recent.is_empty():
 		vbox.add_child(_UiUtil.make_body_label("Rejoin a recent server", _vh))
-		_recent_box = VBoxContainer.new()
-		_recent_box.add_theme_constant_override("separation", int(_ref * 0.012))
+		_recent_box = _UiUtil.make_vbox(int(_ref * 0.012), vbox)
 		_recent_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		vbox.add_child(_recent_box)
 		_populate_recent(recent)
 		vbox.add_child(_UiUtil.make_separator())
 
 	# Discovery: scan the LAN and list hosts to tap-join.
 	vbox.add_child(_make_button("Find Games", _on_find))
-	_results_box = VBoxContainer.new()
-	_results_box.add_theme_constant_override("separation", int(_ref * 0.012))
+	_results_box = _UiUtil.make_vbox(int(_ref * 0.012), vbox)
 	_results_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(_results_box)
 	_populate_results()
 
 	vbox.add_child(_UiUtil.make_separator())
@@ -231,9 +218,7 @@ func _build_swatches() -> void:
 	for preset in _COLOR_PRESETS:
 		var btn := Button.new()
 		btn.custom_minimum_size = Vector2(sz, sz)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = preset
-		sb.set_corner_radius_all(int(sz * 0.18))
+		var sb := _UiUtil.make_style(preset, int(sz * 0.18))
 		if preset.is_equal_approx(current):
 			sb.border_color = Color.WHITE
 			sb.set_border_width_all(max(2, int(sz * 0.12)))
@@ -380,8 +365,7 @@ func _populate_friends(friends: Array) -> void:
 		var status: String = "Online here" if online_tokens.has(token) else \
 			"Last seen %s" % str(fd.get("last_seen", "—"))
 
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", int(_ref * 0.012))
+		var row := _UiUtil.make_hbox(int(_ref * 0.012))
 		var swatch := ColorRect.new()
 		swatch.color = col
 		var sz: float = _vh * 0.03

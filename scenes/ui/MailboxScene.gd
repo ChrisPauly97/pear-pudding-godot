@@ -7,7 +7,6 @@ extends "res://scenes/ui/BaseOverlay.gd"
 ## Add-to-deck/Combine/Rename).
 
 const CardRegistry  = preload("res://autoloads/CardRegistry.gd")
-const _UiUtil       = preload("res://scenes/ui/UiUtil.gd")
 
 var _grid_scroll: ScrollContainer
 var _grid: GridContainer
@@ -29,8 +28,7 @@ func _build_ui() -> void:
 	outer.add_theme_stylebox_override("panel", _make_dark_glass_style())
 	var wrapper := _build_margin_vbox(outer, 0.015, 0.010)
 
-	var header := HBoxContainer.new()
-	wrapper.add_child(header)
+	var header := _UiUtil.make_hbox(0, wrapper)
 
 	var title_lbl := _UiUtil.make_label("Mailbox", int(_ref * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header)
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -97,11 +95,7 @@ func _make_card_tile(inst: Dictionary) -> Control:
 	cube.custom_minimum_size = Vector2(tile_size, tile_size)
 	cube.focus_mode = Control.FOCUS_NONE
 
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = card_color
-	sb.border_color = _UiUtil.rarity_color(rarity)
-	sb.set_border_width_all(maxi(2, int(_ref * 0.006)))
-	sb.set_corner_radius_all(int(_ref * 0.012))
+	var sb := _UiUtil.make_style(card_color, int(_ref * 0.012), _UiUtil.rarity_color(rarity), int(maxi(2, int(_ref * 0.006))))
 	cube.add_theme_stylebox_override("normal", sb)
 	cube.add_theme_stylebox_override("hover", sb)
 	cube.add_theme_stylebox_override("pressed", sb)
@@ -138,14 +132,10 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	add_child(popup)
 	_detail_popup = popup
 
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", int(_ref * 0.008))
+	var vb := _UiUtil.make_vbox(int(_ref * 0.008), popup)
 	vb.custom_minimum_size = Vector2(_ref * 0.32, 0)
-	popup.add_child(vb)
 
-	var title_row := HBoxContainer.new()
-	title_row.add_theme_constant_override("separation", int(_ref * 0.006))
-	vb.add_child(title_row)
+	var title_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
 
 	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, title_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -158,9 +148,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	var sell_gold: int  = int(cfg.get("sell_gold", 0))
 	var scrap_ess: int  = int(cfg.get("scrap_essence", 0))
 
-	var action_row := HBoxContainer.new()
-	action_row.add_theme_constant_override("separation", int(_ref * 0.006))
-	vb.add_child(action_row)
+	var action_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
 
 	var claim_btn := _UiUtil.make_button("Claim", Vector2(_ref * 0.12, _ref * 0.06), int(_ref * 0.020))
 	claim_btn.modulate = Color(0.5, 1.0, 0.5)

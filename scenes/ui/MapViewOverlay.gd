@@ -321,9 +321,8 @@ func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
 	add_child(_travel_panel)
 	_BaseOverlay.attach_drag_scroll(_travel_panel)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(0, _travel_panel)
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_travel_panel.add_child(vbox)
 
 	var activated: Array[String] = SceneManager.save_manager.activated_waystones
 	if activated.is_empty():

@@ -55,9 +55,7 @@ func _build_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
 	outer.add_child(margin)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.018))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.018), margin)
 
 	# Title
 	var title := _UiUtil.make_label("Session Summary", int(_ref * 0.045), Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
@@ -134,9 +132,7 @@ func _build_spire_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
 	outer.add_child(margin)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.016))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.016), margin)
 
 	var floors_cleared: int = int(spire_stats.get("floors_cleared", 0))
 
@@ -178,9 +174,7 @@ func _build_spire_ui() -> void:
 		root_vbox.add_child(HSeparator.new())
 		var deck_header := _UiUtil.make_label("Cards Drafted", int(_ref * 0.022), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, root_vbox)
 
-		var names_vbox := VBoxContainer.new()
-		names_vbox.add_theme_constant_override("separation", int(_ref * 0.006))
-		root_vbox.add_child(names_vbox)
+		var names_vbox := _UiUtil.make_vbox(int(_ref * 0.006), root_vbox)
 
 		var show_count: int = mini(draft_ids.size(), 8)
 		for i: int in range(show_count):
@@ -228,9 +222,7 @@ func _build_coop_spire_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
 	outer.add_child(margin)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.016))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.016), margin)
 
 	var floors_cleared: int = int(coop_stats.get("floors_cleared", 0))
 
@@ -259,9 +251,7 @@ func _build_coop_spire_ui() -> void:
 		root_vbox.add_child(HSeparator.new())
 		var roster_header := _UiUtil.make_label("The Party", int(_ref * 0.022), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, root_vbox)
 
-		var names_vbox2 := VBoxContainer.new()
-		names_vbox2.add_theme_constant_override("separation", int(_ref * 0.006))
-		root_vbox.add_child(names_vbox2)
+		var names_vbox2 := _UiUtil.make_vbox(int(_ref * 0.006), root_vbox)
 		for member_name in roster:
 			var name_lbl := _UiUtil.make_label("  • %s" % str(member_name), int(_ref * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, names_vbox2)
 

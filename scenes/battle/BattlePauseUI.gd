@@ -77,10 +77,8 @@ func show_pause() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.025), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.025))
-	margin.add_child(vbox)
 
 	var title := _UiUtil.make_label("Paused", int(_vh * 0.05))
 	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
@@ -153,10 +151,8 @@ func confirm_return_to_menu() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dialog.add_child(margin)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.022), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.022))
-	margin.add_child(vbox)
 
 	var lbl := _UiUtil.make_label("Return to menu?\nYour battle will be saved.", int(_vh * 0.026))
 	lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.85))
@@ -164,10 +160,8 @@ func confirm_return_to_menu() -> void:
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(lbl)
 
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(_vh * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(_vh * 0.03))
-	vbox.add_child(row)
 
 	var yes_btn := _UiUtil.make_button("Yes, leave", Vector2(_vh * 0.18, _vh * 0.065), int(_vh * 0.026))
 	yes_btn.process_mode = Node.PROCESS_MODE_ALWAYS

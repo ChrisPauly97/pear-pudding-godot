@@ -61,9 +61,7 @@ func _ready() -> void:
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(center)
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(ref * 0.022))
-	center.add_child(hbox)
+	var hbox := _UiUtil.make_hbox(int(ref * 0.022), center)
 
 	var card_w: float = ref * 0.19
 	var card_h: float = ref * 0.62
@@ -72,11 +70,9 @@ func _ready() -> void:
 		hbox.add_child(_make_card(i, card_w, card_h, ref))
 
 	# Bottom bar — back button left-aligned, fixed height
-	var bottom_bar := HBoxContainer.new()
+	var bottom_bar := _UiUtil.make_hbox(0, root)
 	bottom_bar.custom_minimum_size = Vector2(0, int(ref * 0.11))
 	bottom_bar.alignment = BoxContainer.ALIGNMENT_BEGIN
-	bottom_bar.add_theme_constant_override("separation", 0)
-	root.add_child(bottom_bar)
 
 	var left_pad := Control.new()
 	left_pad.custom_minimum_size = Vector2(int(ref * 0.03), 0)
@@ -109,9 +105,7 @@ func _make_card(biome_id: int, card_w: float, card_h: float, ref: float) -> Pane
 		style.set_corner_radius(corner, 6)
 	panel.add_theme_stylebox_override("panel", style)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(ref * 0.012))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(ref * 0.012), panel)
 
 	# Color swatch strip at top
 	var swatch := ColorRect.new()

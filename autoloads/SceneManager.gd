@@ -1412,10 +1412,8 @@ func _show_defeat_overlay() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(vh * 0.028), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(vh * 0.028))
-	margin.add_child(vbox)
 
 	var title := _UiUtil.make_label("Defeated", int(vh * 0.055))
 	title.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
@@ -1590,9 +1588,7 @@ func _show_siege_interstitial(next_stage: int, hero_hp: int) -> void:
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	layer.add_child(panel)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 12)
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(12, panel)
 
 	var vh: float = get_viewport().get_visible_rect().size.y
 	var title_lbl := _UiUtil.make_label(_SiegeDefs.get_stage_name(next_stage), int(vh * 0.04), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)

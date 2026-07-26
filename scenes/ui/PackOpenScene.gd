@@ -52,10 +52,8 @@ func _build_ui() -> void:
 
 	var sub := _UiUtil.make_label("Tap each card to reveal", int(_ref * 0.022), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_CENTER, root)
 
-	var cards_row := HBoxContainer.new()
+	var cards_row := _UiUtil.make_hbox(int(_vw * 0.03), root)
 	cards_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	cards_row.add_theme_constant_override("separation", int(_vw * 0.03))
-	root.add_child(cards_row)
 
 	var card_h: float = _ref * 0.30
 	var card_w: float = card_h * 0.65
@@ -64,10 +62,8 @@ func _build_ui() -> void:
 		var slot := _make_card_slot(i, card_w, card_h)
 		cards_row.add_child(slot)
 
-	var btn_row := HBoxContainer.new()
+	var btn_row := _UiUtil.make_hbox(int(_vw * 0.03), root)
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.add_theme_constant_override("separation", int(_vw * 0.03))
-	root.add_child(btn_row)
 
 	_reveal_all_btn = _UiUtil.make_button("Reveal All", Vector2(_vw * 0.18, _ref * 0.065), int(_ref * 0.022), _on_reveal_all, btn_row)
 

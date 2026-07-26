@@ -9,7 +9,6 @@ const WeaponData = preload("res://data/WeaponData.gd")
 const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 
 const CARD_PRICE: int = 15
@@ -62,10 +61,8 @@ func _build_ui() -> void:
 	root_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	_shop_list = VBoxContainer.new()
+	_shop_list = _UiUtil.make_vbox(int(_ref * 0.008), scroll)
 	_shop_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_shop_list.add_theme_constant_override("separation", int(_ref * 0.008))
-	scroll.add_child(_shop_list)
 
 	# Close button
 	var close_btn := _UiUtil.make_button("Leave Shop", Vector2(_vw * 0.12, _ref * 0.065), int(_ref * 0.022), _on_close)
@@ -191,8 +188,7 @@ func _add_equipment_section(slot: String, owned: Array[String], coins: int, disc
 		var none_lbl := _UiUtil.make_label("No %s available." % slot, int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _shop_list)
 
 func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
 	var info_lbl := _UiUtil.make_label("%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -208,8 +204,7 @@ func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int
 	return row
 
 func _make_card_rarity_selector() -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 1)
+	var row := _UiUtil.make_hbox(1)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	for rarity: String in IsoConst.RARITY_ORDER:
 		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
@@ -245,8 +240,7 @@ func _weapon_price(weapon: WeaponData) -> int:
 
 func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 		price: int = CARD_PRICE) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
 	# Colour swatch
 	var swatch := ColorRect.new()
@@ -287,8 +281,7 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 	return row
 
 func _make_weapon_row(wid: String, weapon: WeaponData, price: int, coins: int) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
 	# Name + effect
 	var info_lbl := _UiUtil.make_label("%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
@@ -346,11 +339,9 @@ func _show_inspect(card_id: String) -> void:
 	_inspect_overlay = overlay
 
 func _make_pack_row(pack_id: String, pack_def: Dictionary, coins: int) -> VBoxContainer:
-	var outer := VBoxContainer.new()
-	outer.add_theme_constant_override("separation", int(_ref * 0.004))
+	var outer := _UiUtil.make_vbox(int(_ref * 0.004))
 
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
 	var pack_name: String = str(pack_def.get("name", pack_id))
 	var price: int = int(pack_def.get("price", 0))
@@ -393,8 +384,7 @@ func _on_buy_pack(pack_id: String, price: int) -> void:
 	GameBus.pack_purchased.emit(pack_id, rolled)
 
 func _make_seed_row(seed_id: String, seed_data: Dictionary, coins: int) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
 	var sm := SceneManager.save_manager
 	var owned_count: int = int(sm.seeds.get(seed_id, 0))

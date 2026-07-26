@@ -48,10 +48,8 @@ func _build_ui() -> void:
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.025), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.025))
-	margin.add_child(vbox)
 
 	var title := _UiUtil.make_label("Paused", int(_vh * 0.05))
 	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))

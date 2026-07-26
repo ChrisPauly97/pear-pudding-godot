@@ -16,9 +16,8 @@ func _ready() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(ref * 0.035))
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(ref * 0.035))
 	vbox.custom_minimum_size = Vector2(vp.x * 0.7, ref * 0.85)
 	vbox.position = Vector2((vp.x - vp.x * 0.7) * 0.5, (vh - ref * 0.85) * 0.5)
 	add_child(vbox)
@@ -56,9 +55,7 @@ func _make_slot_row(slot: int, ref: float, vp: Vector2) -> Control:
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(vp.x * 0.65, ref * 0.12)
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(ref * 0.015))
-	panel.add_child(hbox)
+	var hbox := _UiUtil.make_hbox(int(ref * 0.015), panel)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left",   int(ref * 0.02))
@@ -69,15 +66,12 @@ func _make_slot_row(slot: int, ref: float, vp: Vector2) -> Control:
 	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.add_child(margin)
 
-	var inner_hbox := HBoxContainer.new()
+	var inner_hbox := _UiUtil.make_hbox(int(ref * 0.015), margin)
 	inner_hbox.alignment = BoxContainer.ALIGNMENT_BEGIN
-	inner_hbox.add_theme_constant_override("separation", int(ref * 0.015))
-	margin.add_child(inner_hbox)
 
-	var info_vbox := VBoxContainer.new()
+	var info_vbox := _UiUtil.make_vbox(0, inner_hbox)
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	info_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	inner_hbox.add_child(info_vbox)
 
 	var slot_lbl := _UiUtil.make_label("Slot %d" % slot, int(ref * 0.028))
 	slot_lbl.add_theme_color_override("font_color", Color(0.8, 0.8, 1.0))
@@ -95,10 +89,8 @@ func _make_slot_row(slot: int, ref: float, vp: Vector2) -> Control:
 	detail_lbl.add_theme_color_override("font_color", Color(0.65, 0.65, 0.65))
 	info_vbox.add_child(detail_lbl)
 
-	var btn_vbox := VBoxContainer.new()
+	var btn_vbox := _UiUtil.make_vbox(int(ref * 0.008), inner_hbox)
 	btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_vbox.add_theme_constant_override("separation", int(ref * 0.008))
-	inner_hbox.add_child(btn_vbox)
 
 	if has:
 		var load_btn := _UiUtil.make_button("Continue", Vector2(ref * 0.18, ref * 0.048), int(ref * 0.022), func() -> void: _on_load_slot(slot), btn_vbox)
@@ -153,18 +145,15 @@ func _confirm_delete(slot: int) -> void:
 	dialog.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(dialog)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(ref * 0.02))
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(ref * 0.02))
 	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dialog.add_child(vbox)
 
 	var lbl := _UiUtil.make_label("Delete Slot %d?\nThis cannot be undone." % slot, int(ref * 0.028), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(ref * 0.02), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(ref * 0.02))
-	vbox.add_child(row)
 
 	var yes_btn := _UiUtil.make_button("Delete", Vector2(ref * 0.18, ref * 0.055), int(ref * 0.026))
 	yes_btn.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))

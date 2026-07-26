@@ -14,7 +14,6 @@
 ## StashTransfer.deposit_card regardless — defense in depth).
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 ## Set by WorldScene right after instantiation so button presses can call back.
@@ -50,10 +49,8 @@ func _build_ui() -> void:
 	_build_coins_row(outer_vbox)
 	outer_vbox.add_child(_UiUtil.make_separator())
 
-	var columns := HBoxContainer.new()
+	var columns := _UiUtil.make_hbox(int(_ref * 0.025), outer_vbox)
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	columns.add_theme_constant_override("separation", int(_ref * 0.025))
-	outer_vbox.add_child(columns)
 
 	var my_col := _build_column(columns, "My Collection")
 	_my_cards_vbox = my_col
@@ -70,10 +67,8 @@ func _build_ui() -> void:
 
 
 func _build_column(parent: HBoxContainer, title: String) -> VBoxContainer:
-	var col := VBoxContainer.new()
+	var col := _UiUtil.make_vbox(int(_ref * 0.01), parent)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_theme_constant_override("separation", int(_ref * 0.01))
-	parent.add_child(col)
 
 	var title_lbl := _UiUtil.make_label(title, int(_vh * 0.026))
 	title_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
@@ -87,18 +82,14 @@ func _build_column(parent: HBoxContainer, title: String) -> VBoxContainer:
 	col.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	var rows_vbox := VBoxContainer.new()
-	rows_vbox.add_theme_constant_override("separation", int(_ref * 0.01))
+	var rows_vbox := _UiUtil.make_vbox(int(_ref * 0.01), scroll)
 	rows_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(rows_vbox)
 	return rows_vbox
 
 
 func _build_coins_row(parent: VBoxContainer) -> void:
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(_ref * 0.02), parent)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(_ref * 0.02))
-	parent.add_child(row)
 
 	var lbl := _UiUtil.make_label("Stash Coins:", int(_vh * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 
@@ -165,9 +156,7 @@ func _add_empty_label(parent: VBoxContainer, text: String) -> void:
 
 
 func _add_card_row(parent: VBoxContainer, inst: Dictionary, is_mine: bool) -> void:
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.015))
-	parent.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.015), parent)
 
 	var name_lbl := Label.new()
 	var tmpl_id: String = str(inst.get("template_id", "?"))
