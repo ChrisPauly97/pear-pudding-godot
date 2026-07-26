@@ -217,15 +217,32 @@ All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in 
 
 ## Running Tests
 
-Install Godot headless:
+One command sets up everything (installs Godot, imports the project). Idempotent:
+
 ```bash
-wget -q https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_linux.x86_64.zip -O /tmp/godot.zip
-unzip -o /tmp/godot.zip -d /tmp/godot
-cp /tmp/godot/Godot_v4.6-stable_linux.x86_64 /usr/local/bin/godot
-chmod +x /usr/local/bin/godot
+bash scripts/setup-dev-env.sh
 ```
 
+It also runs automatically as a `SessionStart` hook (`.claude/settings.json`).
+
 Run: `godot --headless --path . -s tests/runner.gd` (exit 0 = pass)
+
+### You MUST import before the first test run
+
+`.godot/` is gitignored, so a fresh clone has never been imported — and Godot
+cannot `preload()` a `.png`/`.tres` that has no import metadata. Skipping the
+import makes **~38 tests fail with parse errors that look exactly like real
+bugs** (`CardRegistry` silently loads 1 card instead of 105, and the cascade
+hits card/battle/AI/scripted-battle suites).
+
+If you see a wall of unexplained failures, run the import before debugging:
+
+```bash
+godot --headless --editor --quit
+```
+
+CI (`.github/workflows/tests.yml`) does the import, gates on parse errors, then
+runs the suite on every push.
 
 ---
 
