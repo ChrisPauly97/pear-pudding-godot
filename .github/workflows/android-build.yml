@@ -120,8 +120,22 @@ jobs:
 
       - name: Import project assets
         run: |
-          godot --headless --path "$GITHUB_WORKSPACE" --editor --quit 2>&1 || true
+          godot --headless --path "$GITHUB_WORKSPACE" --editor --quit 2>&1 | tee /tmp/import.log || true
           echo "--- import scan complete ---"
+
+      # Without this, a parse error only surfaces at runtime on-device: the
+      # export still succeeds and ships an APK whose scripts fail to load.
+      # Same gate as .github/workflows/tests.yml.
+      - name: Fail on parse / compile errors
+        run: |
+          ERRORS=$(grep -iE "Parse Error|Compile Error|Failed to load script" /tmp/import.log \
+            | grep -viE "imported/|Make sure resources" || true)
+          if [ -n "$ERRORS" ]; then
+            echo "::error::Import produced parse/compile errors — refusing to ship a broken APK:"
+            echo "$ERRORS"
+            exit 1
+          fi
+          echo "Import clean — no parse or compile errors."
 
       - name: Export APK
         run: |
