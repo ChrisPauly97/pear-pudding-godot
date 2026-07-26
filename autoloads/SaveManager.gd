@@ -219,6 +219,52 @@ var potions: Dictionary = {}  # potion_id -> count
 
 var last_saved: String = ""
 
+## Every persisted field, mapped to the value a missing or malformed entry falls
+## back to. `save()` and `load_save()` both walk this one table, so a field can
+## no longer be written without being restored (or the reverse). The default's
+## type drives the coercion on load: Arrays are filled with `assign()` so the
+## member's element type survives JSON's untyped Arrays, Dictionaries are taken
+## by reference from the parsed save, everything else goes through
+## `type_convert`. Fields needing derivation (`level`), clamping
+## (`skill_points`, `active_loadout`) or normalisation (`loadouts`,
+## `player_deck`) are fixed up after the pass — see `_restore_derived_fields`.
+## `test_save_manager` asserts every key here is a real property.
+const PERSISTED_FIELDS: Dictionary = {
+	"owned_cards": [], "mailbox_cards": [], "player_deck": [], "loadouts": [],
+	"active_loadout": 0, "essence": 0, "coins": 0,
+	"current_map": "main", "player_x": 0.0, "player_z": 0.0,
+	"map_stack": [], "door_stack": [],
+	"defeated_enemies": [], "opened_chests": [], "defeated_duelists": [],
+	"pending_battle_enemy_data": {}, "in_battle_enemy_id": "", "pending_battle_state": {},
+	"time_of_day": 0.4, "world_seed": 42, "starting_biome": 0,
+	"story_flags": {}, "days_elapsed": 0, "last_respawn_day": 0,
+	"equipped_weapon": "", "owned_weapons": [],
+	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "",
+	"owned_armor": [], "owned_rings": [], "owned_trinkets": [],
+	"collected_scrolls": [], "settings": {},
+	"achievement_progress": {}, "unlocked_achievements": [],
+	"visited_biomes": [], "visited_dungeon_rooms": [],
+	"xp": 0, "skill_points": 0, "unlocked_skills": [],
+	"magic_type": "", "corruption_points": 0, "redemption_points": 0,
+	"spire_run": {"active": false}, "spire_best_floor": 0, "solved_puzzles": [],
+	"world_events": {}, "weather": {"id": "", "duration": 0.0, "biome_id": 0},
+	"treasure_fragments": 0, "active_treasure": {}, "treasures_completed": 0,
+	"activated_waystones": [], "bestiary": {}, "bestiary_complete_rewarded": false,
+	"home_owned": false, "respawn_map": "", "respawn_x": 0.0, "respawn_z": 0.0,
+	"owned_mounts": [], "active_mount": "", "is_mounted": false,
+	"packs_since_legendary": 0, "active_companion": "", "waypoint": {},
+	"bounty_day": 0, "offered_bounties": [], "active_bounties": [],
+	# 0 means "absent" — _restore_derived_fields substitutes IsoConst's default,
+	# which can't be referenced from a const expression (IsoConst is an autoload).
+	"bag_size": 0,
+	"siege": {}, "last_siege_day": 0, "town_discounts": {},
+	"rival_encounters_won": 0, "rival_defeated": false,
+	"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {},
+	"captured_signatures": [], "cantrip_cooldowns": {}, "dug_mounds": [],
+	"blight_cleansed_hearts": [], "discovered_landmarks": [],
+	"collected_mana_wells": [], "last_saved": "",
+}
+
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
@@ -818,6 +864,49 @@ func _read_save_json(path: String):
 		return inner
 	return outer
 
+## Restores one PERSISTED_FIELDS entry, coercing to the default's type. Const
+## defaults are deep-copied before use — a const collection is read-only, and
+## assigning one to a member would make that member read-only too.
+func _restore_field(data: Dictionary, key: String, def: Variant) -> void:
+	var raw: Variant = data.get(key, null)
+	if def is Array:
+		var arr: Array = get(key)
+		arr.assign(raw if raw is Array else (def as Array).duplicate(true))
+	elif def is Dictionary:
+		set(key, raw if raw is Dictionary else (def as Dictionary).duplicate(true))
+	else:
+		set(key, type_convert(raw if raw != null else def, typeof(def)))
+
+## Second load pass for the fields the generic table walk can't express:
+## loadouts need typed inner card arrays, player_deck mirrors the active
+## loadout, level is derived from xp, and skill_points/active_loadout are
+## clamped against it.
+func _restore_derived_fields(data: Dictionary) -> void:
+	_uid_index.clear()
+	for card: Dictionary in owned_cards:
+		var uid: String = str(card.get("uid", ""))
+		if uid != "":
+			_uid_index[uid] = card
+
+	var raw_loadouts: Array = data.get("loadouts", [])
+	loadouts = []
+	for entry: Variant in raw_loadouts:
+		if entry is Dictionary:
+			var cards: Array[String] = []
+			cards.assign((entry as Dictionary).get("cards", []))
+			loadouts.append({"name": str((entry as Dictionary).get("name", "Deck")), "cards": cards})
+	if loadouts.is_empty():
+		var fallback: Array[String] = []
+		fallback.assign(player_deck)
+		loadouts = [{"name": "Deck 1", "cards": fallback}]
+	active_loadout = clampi(active_loadout, 0, loadouts.size() - 1)
+	player_deck.assign(loadouts[active_loadout].get("cards", []))
+
+	level = maxi(1, _compute_level(xp))
+	skill_points = mini(skill_points, maxi(0, level - 1))
+	if bag_size <= 0:
+		bag_size = IsoConst.BAG_SIZE_DEFAULT
+
 func load_save() -> bool:
 	var parsed = _read_save_json(_get_slot_path(active_slot))
 	if parsed == null:
@@ -826,126 +915,9 @@ func load_save() -> bool:
 		return false
 	var data: Dictionary = parsed
 	_apply_migrations(data)
-	owned_cards.assign(data.get("owned_cards", []))
-	_uid_index.clear()
-	for _card: Dictionary in owned_cards:
-		var _uid: String = str(_card.get("uid", ""))
-		if _uid != "":
-			_uid_index[_uid] = _card
-	mailbox_cards.assign(data.get("mailbox_cards", []))
-	player_deck.assign(data.get("player_deck", []))
-	# Load loadouts; fall back to wrapping player_deck if absent.
-	var raw_loadouts: Array = data.get("loadouts", [])
-	loadouts = []
-	for _lo: Variant in raw_loadouts:
-		if not _lo is Dictionary:
-			continue
-		var lo: Dictionary = _lo as Dictionary
-		var lo_cards: Array[String] = []
-		lo_cards.assign(lo.get("cards", []))
-		loadouts.append({"name": str(lo.get("name", "Deck")), "cards": lo_cards})
-	if loadouts.is_empty():
-		var fallback: Array[String] = []
-		fallback.assign(player_deck)
-		loadouts = [{"name": "Deck 1", "cards": fallback}]
-	active_loadout = int(data.get("active_loadout", 0))
-	active_loadout = clampi(active_loadout, 0, loadouts.size() - 1)
-	# Keep player_deck in sync with the active loadout.
-	player_deck.assign(loadouts[active_loadout].get("cards", []))
-	essence = int(data.get("essence", 0))
-	coins = int(data.get("coins", 0))
-	current_map = str(data.get("current_map", "main"))
-	player_x = float(data.get("player_x", 0.0))
-	player_z = float(data.get("player_z", 0.0))
-	map_stack.assign(data.get("map_stack", []))
-	door_stack.assign(data.get("door_stack", []))
-	defeated_enemies.assign(data.get("defeated_enemies", []))
-	opened_chests.assign(data.get("opened_chests", []))
-	defeated_duelists.assign(data.get("defeated_duelists", []))
-	var pbed = data.get("pending_battle_enemy_data", {})
-	pending_battle_enemy_data = pbed if pbed is Dictionary else {}
-	in_battle_enemy_id = str(data.get("in_battle_enemy_id", ""))
-	var pbs = data.get("pending_battle_state", {})
-	pending_battle_state = pbs if pbs is Dictionary else {}
-	time_of_day = float(data.get("time_of_day", 0.4))
-	world_seed = int(data.get("world_seed", 42))
-	starting_biome = int(data.get("starting_biome", 0))
-	var sf = data.get("story_flags", {})
-	story_flags = sf if sf is Dictionary else {}
-	days_elapsed = int(data.get("days_elapsed", 0))
-	last_respawn_day = int(data.get("last_respawn_day", 0))
-	equipped_weapon = str(data.get("equipped_weapon", ""))
-	owned_weapons.assign(data.get("owned_weapons", []))
-	equipped_armor = str(data.get("equipped_armor", ""))
-	equipped_ring = str(data.get("equipped_ring", ""))
-	equipped_trinket = str(data.get("equipped_trinket", ""))
-	owned_armor.assign(data.get("owned_armor", []))
-	owned_rings.assign(data.get("owned_rings", []))
-	owned_trinkets.assign(data.get("owned_trinkets", []))
-	collected_scrolls.assign(data.get("collected_scrolls", []))
-	var sv = data.get("settings", {})
-	settings = sv if sv is Dictionary else {}
-	var ap = data.get("achievement_progress", {})
-	achievement_progress = ap if ap is Dictionary else {}
-	unlocked_achievements.assign(data.get("unlocked_achievements", []))
-	visited_biomes.assign(data.get("visited_biomes", []))
-	visited_dungeon_rooms.assign(data.get("visited_dungeon_rooms", []))
-	xp = int(data.get("xp", 0))
-	level = max(1, _compute_level(xp))
-	skill_points = min(int(data.get("skill_points", 0)), max(0, level - 1))
-	unlocked_skills.assign(data.get("unlocked_skills", []))
-	magic_type = str(data.get("magic_type", ""))
-	corruption_points = int(data.get("corruption_points", 0))
-	redemption_points = int(data.get("redemption_points", 0))
-	var sr = data.get("spire_run", {"active": false})
-	spire_run = sr if sr is Dictionary else {"active": false}
-	spire_best_floor = int(data.get("spire_best_floor", 0))
-	solved_puzzles.assign(data.get("solved_puzzles", []))
-	var we = data.get("world_events", {})
-	world_events = we if we is Dictionary else {}
-	var wd = data.get("weather", {"id": "", "duration": 0.0, "biome_id": 0})
-	weather = wd if wd is Dictionary else {"id": "", "duration": 0.0, "biome_id": 0}
-	treasure_fragments = int(data.get("treasure_fragments", 0))
-	var at = data.get("active_treasure", {})
-	active_treasure = at if at is Dictionary else {}
-	treasures_completed = int(data.get("treasures_completed", 0))
-	activated_waystones.assign(data.get("activated_waystones", []))
-	var bst = data.get("bestiary", {})
-	bestiary = bst if bst is Dictionary else {}
-	bestiary_complete_rewarded = bool(data.get("bestiary_complete_rewarded", false))
-	home_owned = bool(data.get("home_owned", false))
-	respawn_map = str(data.get("respawn_map", ""))
-	respawn_x = float(data.get("respawn_x", 0.0))
-	respawn_z = float(data.get("respawn_z", 0.0))
-	owned_mounts.assign(data.get("owned_mounts", []))
-	active_mount = str(data.get("active_mount", ""))
-	is_mounted = bool(data.get("is_mounted", false))
-	packs_since_legendary = int(data.get("packs_since_legendary", 0))
-	active_companion = str(data.get("active_companion", ""))
-	var wp = data.get("waypoint", {})
-	waypoint = wp if wp is Dictionary else {}
-	bounty_day = int(data.get("bounty_day", 0))
-	offered_bounties.assign(data.get("offered_bounties", []))
-	active_bounties.assign(data.get("active_bounties", []))
-	bag_size = int(data.get("bag_size", IsoConst.BAG_SIZE_DEFAULT))
-	var sg = data.get("siege", {})
-	siege = sg if sg is Dictionary else {}
-	last_siege_day = int(data.get("last_siege_day", 0))
-	var td = data.get("town_discounts", {})
-	town_discounts = td if td is Dictionary else {}
-	rival_encounters_won = int(data.get("rival_encounters_won", 0))
-	rival_defeated = bool(data.get("rival_defeated", false))
-	garden_plots.assign(data.get("garden_plots", [{}, {}, {}]))
-	var gsd = data.get("seeds", {}); seeds = gsd if gsd is Dictionary else {}
-	var gpd = data.get("plants", {}); plants = gpd if gpd is Dictionary else {}
-	var gpotd = data.get("potions", {}); potions = gpotd if gpotd is Dictionary else {}
-	captured_signatures.assign(data.get("captured_signatures", []))
-	var cc = data.get("cantrip_cooldowns", {}); cantrip_cooldowns = cc if cc is Dictionary else {}
-	dug_mounds.assign(data.get("dug_mounds", []))
-	blight_cleansed_hearts.assign(data.get("blight_cleansed_hearts", []))
-	discovered_landmarks.assign(data.get("discovered_landmarks", []))
-	collected_mana_wells.assign(data.get("collected_mana_wells", []))
-	last_saved = str(data.get("last_saved", ""))
+	for key: String in PERSISTED_FIELDS:
+		_restore_field(data, key, PERSISTED_FIELDS[key])
+	_restore_derived_fields(data)
 	_achievement_slot = active_slot
 	_loaded = true
 	return true
@@ -970,95 +942,11 @@ func _collect_save_data() -> Dictionary:
 		var synced: Array[String] = []
 		synced.assign(player_deck)
 		loadouts[active_loadout]["cards"] = synced
-	return {
-		"version": CURRENT_SAVE_VERSION,
-		"owned_cards": owned_cards,
-		"mailbox_cards": mailbox_cards,
-		"player_deck": player_deck,
-		"loadouts": loadouts,
-		"active_loadout": active_loadout,
-		"essence": essence,
-		"coins": coins,
-		"current_map": current_map,
-		"player_x": player_x,
-		"player_z": player_z,
-		"map_stack": map_stack,
-		"door_stack": door_stack,
-		"defeated_enemies": defeated_enemies,
-		"opened_chests": opened_chests,
-		"defeated_duelists": defeated_duelists,
-		"pending_battle_enemy_data": pending_battle_enemy_data,
-		"in_battle_enemy_id": in_battle_enemy_id,
-		"pending_battle_state": pending_battle_state,
-		"time_of_day": time_of_day,
-		"world_seed": world_seed,
-		"starting_biome": starting_biome,
-		"story_flags": story_flags,
-		"days_elapsed": days_elapsed,
-		"last_respawn_day": last_respawn_day,
-		"equipped_weapon": equipped_weapon,
-		"owned_weapons": owned_weapons,
-		"equipped_armor": equipped_armor,
-		"equipped_ring": equipped_ring,
-		"equipped_trinket": equipped_trinket,
-		"owned_armor": owned_armor,
-		"owned_rings": owned_rings,
-		"owned_trinkets": owned_trinkets,
-		"collected_scrolls": collected_scrolls,
-		"settings": settings,
-		"achievement_progress": achievement_progress,
-		"unlocked_achievements": unlocked_achievements,
-		"visited_biomes": visited_biomes,
-		"visited_dungeon_rooms": visited_dungeon_rooms,
-		"xp": xp,
-		"level": level,
-		"skill_points": skill_points,
-		"unlocked_skills": unlocked_skills,
-		"magic_type": magic_type,
-		"corruption_points": corruption_points,
-		"redemption_points": redemption_points,
-		"spire_run": spire_run,
-		"spire_best_floor": spire_best_floor,
-		"solved_puzzles": solved_puzzles,
-		"world_events": world_events,
-		"weather": weather,
-		"treasure_fragments": treasure_fragments,
-		"active_treasure": active_treasure,
-		"treasures_completed": treasures_completed,
-		"activated_waystones": activated_waystones,
-		"bestiary": bestiary,
-		"bestiary_complete_rewarded": bestiary_complete_rewarded,
-		"home_owned": home_owned,
-		"respawn_map": respawn_map,
-		"respawn_x": respawn_x,
-		"respawn_z": respawn_z,
-		"owned_mounts": owned_mounts,
-		"active_mount": active_mount,
-		"is_mounted": is_mounted,
-		"packs_since_legendary": packs_since_legendary,
-		"active_companion": active_companion,
-		"waypoint": waypoint,
-		"bounty_day": bounty_day,
-		"offered_bounties": offered_bounties,
-		"active_bounties": active_bounties,
-		"bag_size": bag_size,
-		"siege": siege,
-		"last_siege_day": last_siege_day,
-		"town_discounts": town_discounts,
-		"rival_encounters_won": rival_encounters_won,
-		"rival_defeated": rival_defeated,
-		"garden_plots": garden_plots,
-		"seeds": seeds,
-		"plants": plants,
-		"potions": potions,
-		"captured_signatures": captured_signatures,
-		"cantrip_cooldowns": cantrip_cooldowns,
-		"dug_mounds": dug_mounds,
-		"blight_cleansed_hearts": blight_cleansed_hearts,
-		"discovered_landmarks": discovered_landmarks,
-		"collected_mana_wells": collected_mana_wells,
-		"last_saved": Time.get_datetime_string_from_system(false, true),
-	}
+	var data: Dictionary = {"version": CURRENT_SAVE_VERSION, "level": level}
+	for key: String in PERSISTED_FIELDS:
+		data[key] = get(key)
+	data["last_saved"] = Time.get_datetime_string_from_system(false, true)
+	return data
 
 ## Serialise, sign, and atomically write a save snapshot. Safe to run on a
 ## worker thread: touches only its arguments, pure path helpers, and the
