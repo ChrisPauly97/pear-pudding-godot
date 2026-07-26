@@ -472,9 +472,7 @@ func _exit_world_cleanup() -> void:
 	if _saved_world_scene != null:
 		_saved_world_scene.queue_free()
 		_saved_world_scene = null
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	for overlay: Node in _overlays.values():
 		if overlay != null:
 			overlay.queue_free()
@@ -661,11 +659,7 @@ func _on_ghost_duel_ended(did_win: bool) -> void:
 	if did_win:
 		save_manager.add_coins(GHOST_DUEL_COIN_REWARD)
 		session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + GHOST_DUEL_COIN_REWARD
-	save_manager.clear_pending_battle_state()
-	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_finish_battle(false)
 	_restore_world()
 
 # ── PvP card battles (GID-091) ────────────────────────────────────────────────
@@ -875,9 +869,7 @@ func enter_team_battle(local_player_idx: int, team_assignments: Array, all_decks
 func _on_team_battle_ended(_did_win: bool) -> void:
 	if _state != State.BATTLE:
 		return
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	if _saved_world_scene != null and NetworkManager.is_active():
 		_restore_world()
 	else:
@@ -897,9 +889,7 @@ func _on_coop_pve_battle_ended(did_win: bool) -> void:
 		save_manager.increment_progress("battles_won", 1)
 		save_manager.check_deck_achievements(save_manager.player_deck)
 	_coop_pve_enemy_type = ""
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	if _saved_world_scene != null and NetworkManager.is_active():
 		_restore_world()
 	else:
@@ -914,9 +904,7 @@ func _on_coop_pve_battle_ended(did_win: bool) -> void:
 func _on_pvp_battle_ended(_did_win: bool) -> void:
 	if _state != State.BATTLE:
 		return
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	if _saved_world_scene != null and NetworkManager.is_active():
 		_restore_world()
 	elif NetworkManager.is_dedicated_server():
@@ -947,11 +935,7 @@ func _on_duel_won() -> void:
 	if not _current_duel_npc_id.is_empty():
 		save_manager.mark_duelist_defeated(_current_duel_npc_id)
 		_current_duel_npc_id = ""
-	save_manager.clear_pending_battle_state()
-	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_finish_battle(false)
 	_restore_world()
 	if grant_card != "":
 		GameBus.hud_message_requested.emit("Champion defeated! %s added to your collection." % grant_card)
@@ -961,12 +945,24 @@ func _on_duel_lost() -> void:
 		return
 	_current_duel_npc_id = ""
 	_current_champion_reward = ""
-	save_manager.clear_pending_battle_state()
-	save_manager.save()
+	_finish_battle(false)
+	_restore_world()
+
+## Frees the battle overlay if one is up. Every battle exit path ends here.
+func _dismiss_battle_overlay() -> void:
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
-	_restore_world()
+
+## Standard battle teardown: clear the in-progress battle fields, persist, and
+## drop the overlay. `clear_pending` also discards the queued encounter — a
+## defeat that offers Retry keeps it, every other exit drops it.
+func _finish_battle(clear_pending: bool = true) -> void:
+	if clear_pending:
+		save_manager.clear_pending_battle()
+	save_manager.clear_pending_battle_state()
+	save_manager.save()
+	_dismiss_battle_overlay()
 
 func _restore_world() -> void:
 	_proximity_engage_blocked = true
@@ -1008,16 +1004,12 @@ func _on_puzzle_solved(puzzle_id: String) -> void:
 			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 		save_manager.mark_puzzle_solved(puzzle_id)
 	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	_restore_world()
 
 func return_from_puzzle() -> void:
 	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	_restore_world()
 
 ## Scripted story battles (GID-108) — fixed-deck tutorial battles like the rabbit
@@ -1052,9 +1044,7 @@ func _on_scripted_battle_ended(battle_id: String, did_win: bool) -> void:
 				save_manager.grant_card_reward(sdata.reward_card_id, "rare")
 				session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	_restore_world()
 
 func _on_battle_won(result: Dictionary) -> void:
@@ -1079,12 +1069,7 @@ func _on_battle_won(result: Dictionary) -> void:
 			save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": spire_enemy_type})
 		save_manager.increment_progress("battles_won", 1)
 		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
-		save_manager.clear_pending_battle()
-		save_manager.clear_pending_battle_state()
-		save_manager.save()
-		if _battle_overlay != null:
-			_battle_overlay.queue_free()
-			_battle_overlay = null
+		_finish_battle()
 		_restore_world()
 		_show_spire_draft(curr_floor)
 		return
@@ -1102,9 +1087,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		if _siege_stage < 2:
 			save_manager.advance_siege_stage()
 			save_manager.save()
-			if _battle_overlay != null:
-				_battle_overlay.queue_free()
-				_battle_overlay = null
+			_dismiss_battle_overlay()
 			_restore_world()
 			_show_siege_interstitial(_siege_stage + 1, _siege_hero_hp)
 			return
@@ -1117,9 +1100,7 @@ func _on_battle_won(result: Dictionary) -> void:
 				save_manager.set_story_flag("chapter2_siege_won")
 			save_manager.end_siege_victory()
 			save_manager.save()
-			if _battle_overlay != null:
-				_battle_overlay.queue_free()
-				_battle_overlay = null
+			_dismiss_battle_overlay()
 			_restore_world()
 			return
 	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
@@ -1162,12 +1143,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		save_manager.increment_progress("battles_won", 1)
 		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
 		_current_battle_enemy_id = ""
-		save_manager.clear_pending_battle()
-		save_manager.clear_pending_battle_state()
-		save_manager.save()
-		if _battle_overlay != null:
-			_battle_overlay.queue_free()
-			_battle_overlay = null
+		_finish_battle()
 		_restore_world()
 		return
 	var drop_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
@@ -1277,12 +1253,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		save_manager.add_corruption_points(5)
 		GameBus.blight_changed.emit()
 		GameBus.hud_message_requested.emit("The blight recedes… +5 Corruption Points.")
-	save_manager.clear_pending_battle()
-	save_manager.clear_pending_battle_state()
-	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_finish_battle()
 	# End the roaming boss world event if the defeated enemy was the roaming terror.
 	if enemy_type == "roaming_terror":
 		var wem: Node = get_node_or_null("/root/WorldEventManager")
@@ -1321,9 +1292,7 @@ func _on_battle_lost() -> void:
 	if NetworkManager.is_active() and current_map.begins_with("dungeon_"):
 		save_manager.clear_pending_battle()
 		save_manager.clear_pending_battle_state()
-		if _battle_overlay != null:
-			_battle_overlay.queue_free()
-			_battle_overlay = null
+		_dismiss_battle_overlay()
 		TransitionManager.transition(func() -> void:
 			if _saved_world_scene != null:
 				get_tree().root.add_child(_saved_world_scene)
@@ -1345,12 +1314,7 @@ func _on_battle_lost() -> void:
 		_restore_spire_entry_point()
 		var stats: Dictionary = save_manager.end_spire_run()
 		GameBus.spire_run_ended.emit(stats)
-		save_manager.clear_pending_battle()
-		save_manager.clear_pending_battle_state()
-		save_manager.save()
-		if _battle_overlay != null:
-			_battle_overlay.queue_free()
-			_battle_overlay = null
+		_finish_battle()
 		if _saved_world_scene != null:
 			_saved_world_scene.queue_free()
 			_saved_world_scene = null
@@ -1363,9 +1327,7 @@ func _on_battle_lost() -> void:
 	# Regular battle loss: keep world alive and show defeat overlay with Retry/Respawn/Menu.
 	_defeat_pending_enemy_data = save_manager.pending_battle_enemy_data.duplicate()
 	save_manager.clear_pending_battle_state()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	# Restore world to tree without clearing pending_battle (needed for Retry).
 	TransitionManager.transition(func() -> void:
 		if _saved_world_scene != null:
@@ -1460,12 +1422,7 @@ func _on_battle_fled() -> void:
 	if _battle_overlay != null and bool(_battle_overlay.get("_pvp")):
 		_battle_overlay.call("_pvp_surrender")
 		return
-	save_manager.clear_pending_battle()
-	save_manager.clear_pending_battle_state()
-	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_finish_battle()
 	_restore_world()
 
 func has_open_overlay() -> bool:
