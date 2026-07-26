@@ -44,6 +44,53 @@ func _find_card_owner(card: CardInstance, fallback: PlayerState) -> PlayerState:
 			return p
 	return fallback
 
+## The minion the caster picked, or `owner`'s leading minion when a single-target
+## spell resolves without a pick (AI casts, auto-spells). Null if the board is empty.
+func _pick(explicit_target: Dictionary, owner: PlayerState) -> CardInstance:
+	var t: CardInstance = explicit_target.get("card", null) as CardInstance
+	if t != null:
+		return t
+	var cards := owner.board.get_cards()
+	return cards[0] if not cards.is_empty() else null
+
+## Moves `card` to its real owner's discard once it has died.
+func _bury_if_dead(card: CardInstance, fallback: PlayerState) -> void:
+	if card.is_alive():
+		return
+	var owner := _find_card_owner(card, fallback)
+	owner.board.remove_card(card)
+	owner.discard.append(card)
+
+## Clears every dead minion off `player`'s board into their discard.
+func _sweep_dead(player: PlayerState) -> void:
+	for t in player.board.get_cards().duplicate():
+		if not t.is_alive():
+			player.board.remove_card(t)
+			player.discard.append(t)
+
+## Ally targeted by a co-op support card; falls back to the caster when the
+## "pidx" hint is absent (solo / 2-player context). The last player slot is the
+## shared PvE boss, so it is never a valid ally.
+func _ally(explicit_target: Dictionary, caster_pid: int) -> PlayerState:
+	var pidx: int = clampi(int(explicit_target.get("pidx", caster_pid)), 0, _state.players.size() - 2)
+	return _state.players[pidx]
+
+## Revives the newest minion in `player`'s discard onto their board.
+func _revive_last_minion(player: PlayerState) -> void:
+	for i in range(player.discard.size() - 1, -1, -1):
+		var t := player.discard[i] as CardInstance
+		if t.card_class == "minion" and not player.board.is_full():
+			t.health = t.max_health
+			t.summoning_sick = true
+			player.board.add_card(t)
+			player.discard.remove_at(i)
+			return
+
+## Appends `kw` to `card`'s keywords if it isn't already there.
+static func _grant(card: CardInstance, kw: String) -> void:
+	if not card.keywords.has(kw):
+		card.keywords.append(kw)
+
 ## Fires when a minion with an emergence_effect is placed on the board.
 func resolve_emergence(card: CardInstance, caster_pid: int) -> void:
 	if card.emergence_effect == "":
@@ -83,316 +130,176 @@ func resolve_spell(card: CardInstance, caster_pid: int, explicit_target: Diction
 	# old "_state.players[1 - caster_pid]" to co-op-PvE (boss) and team battles (lowest-HP
 	# enemy-team member) without changing 2-player behavior (opponent() == players[1-idx] there).
 	var opponent: PlayerState = _state.opponent()
-	var _spell_dmg: int = BattlefieldRules.modify_damage(card.spell_power, _state.battlefield_biome)
+	var caster: PlayerState = _state.players[caster_pid]
+	var power: int = card.spell_power
+	var _spell_dmg: int = BattlefieldRules.modify_damage(power, _state.battlefield_biome)
+	# Single-target arms resolve their subject once here; `null` means the
+	# relevant board was empty, which every arm below treats as a no-op.
+	var foe: CardInstance = _pick(explicit_target, opponent)
+	var friend: CardInstance = _pick(explicit_target, caster)
 	match card.spell_effect:
 		"deal_damage_single":
-			var target_card: CardInstance = explicit_target.get("card", null) as CardInstance
-			if target_card != null:
-				target_card.take_damage(_spell_dmg)
-				if not target_card.is_alive():
-					var owner := _find_card_owner(target_card, opponent)
-					owner.board.remove_card(target_card)
-					owner.discard.append(target_card)
-			elif explicit_target.get("type", "") == "hero":
+			if explicit_target.get("card", null) == null and explicit_target.get("type", "") == "hero":
 				var hero_owner: PlayerState = opponent
 				if explicit_target.has("pidx"):
 					hero_owner = _state.players[int(explicit_target["pidx"])]
 				hero_owner.hero.take_damage(_spell_dmg)
+			elif foe == null:
+				opponent.hero.take_damage(_spell_dmg)
 			else:
-				var targets := opponent.board.get_cards()
-				if targets.is_empty():
-					opponent.hero.take_damage(_spell_dmg)
-				else:
-					targets[0].take_damage(_spell_dmg)
-					if not targets[0].is_alive():
-						opponent.board.remove_card(targets[0])
-						opponent.discard.append(targets[0])
-		"deal_damage_all":
+				foe.take_damage(_spell_dmg)
+				_bury_if_dead(foe, opponent)
+		"deal_damage_all", "deal_damage_all_full":
 			for t in opponent.board.get_cards():
 				t.take_damage(_spell_dmg)
-			for t in opponent.board.get_cards().duplicate():
-				if not t.is_alive():
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
+			_sweep_dead(opponent)
+			if card.spell_effect == "deal_damage_all_full":
+				opponent.hero.take_damage(_spell_dmg)
 		"deal_damage_random":
 			var targets := opponent.board.get_cards()
 			if targets.is_empty():
 				opponent.hero.take_damage(_spell_dmg)
 			else:
-				var idx: int = randi() % targets.size()
-				targets[idx].take_damage(_spell_dmg)
-				if not targets[idx].is_alive():
-					opponent.board.remove_card(targets[idx])
-					opponent.discard.append(targets[idx])
+				var hit: CardInstance = targets[randi() % targets.size()]
+				hit.take_damage(_spell_dmg)
+				_bury_if_dead(hit, opponent)
 		"debuff_attack":
 			for t in opponent.board.get_cards():
-				t.attack = maxi(0, t.attack - card.spell_power)
+				t.attack = maxi(0, t.attack - power)
 		"destroy_low_hp":
 			for t in opponent.board.get_cards().duplicate():
-				if t.health <= card.spell_power:
+				if t.health <= power:
 					opponent.board.remove_card(t)
 					opponent.discard.append(t)
 		"resurrect_last":
-			var caster: PlayerState = _state.players[caster_pid]
-			for i in range(caster.discard.size() - 1, -1, -1):
-				var t := caster.discard[i] as CardInstance
-				if t.card_class == "minion" and not caster.board.is_full():
-					t.health = t.max_health
-					t.summoning_sick = true
-					caster.board.add_card(t)
-					caster.discard.remove_at(i)
-					break
+			_revive_last_minion(caster)
 		"heal_single":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				t.health = mini(t.max_health, t.health + card.spell_power)
+			if friend != null:
+				friend.health = mini(friend.max_health, friend.health + power)
 		"heal_all":
-			var caster: PlayerState = _state.players[caster_pid]
 			for t in caster.board.get_cards():
-				t.health = mini(t.max_health, t.health + card.spell_power)
+				t.health = mini(t.max_health, t.health + power)
 		"shield_minion":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				t.apply_status("armor", t.get_status_value("armor") + card.spell_power)
+			if friend != null:
+				friend.apply_status("armor", friend.get_status_value("armor") + power)
 		"buff_attack":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				t.attack += card.spell_power
+			if friend != null:
+				friend.attack += power
 		"lifesteal_hit":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var targets := opponent.board.get_cards()
-				if not targets.is_empty():
-					t = targets[0]
-			if t != null:
-				t.take_damage(_spell_dmg)
+			if foe != null:
+				foe.take_damage(_spell_dmg)
 				caster.hero.health = mini(caster.hero.max_health, caster.hero.health + _spell_dmg)
-				if not t.is_alive():
-					var ls_owner := _find_card_owner(t, opponent)
-					ls_owner.board.remove_card(t)
-					ls_owner.discard.append(t)
+				_bury_if_dead(foe, opponent)
 		"mana_drain":
-			opponent.hero.mana = maxi(0, opponent.hero.mana - card.spell_power)
+			opponent.hero.mana = maxi(0, opponent.hero.mana - power)
 		"curse_minion":
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var targets := opponent.board.get_cards()
-				if not targets.is_empty():
-					t = targets[0]
-			if t != null:
-				t.attack = maxi(0, t.attack - card.spell_power)
-				t.health -= _spell_dmg
-				if not t.is_alive():
-					var cm_owner := _find_card_owner(t, opponent)
-					cm_owner.board.remove_card(t)
-					cm_owner.discard.append(t)
+			if foe != null:
+				foe.attack = maxi(0, foe.attack - power)
+				foe.health -= _spell_dmg
+				_bury_if_dead(foe, opponent)
 		"draw_card":
-			var caster: PlayerState = _state.players[caster_pid]
-			for _i in range(card.spell_power):
+			for _i in range(power):
 				caster.draw_card()
-		"bless_slot":
-			var caster: PlayerState = _state.players[caster_pid]
+		"bless_slot", "ward_slot":
 			var slot: int = caster.board.first_empty_slot()
 			if slot >= 0:
-				caster.board.enhance_slot(slot, "atk_bonus", card.spell_power)
-		"ward_slot":
-			var caster: PlayerState = _state.players[caster_pid]
-			var slot: int = caster.board.first_empty_slot()
-			if slot >= 0:
-				caster.board.enhance_slot(slot, "shroud", 1)
+				if card.spell_effect == "bless_slot":
+					caster.board.enhance_slot(slot, "atk_bonus", power)
+				else:
+					caster.board.enhance_slot(slot, "shroud", 1)
 		"extra_turn":
 			extra_turn_granted = true
 		"destroy_all_draw_3":
-			var caster: PlayerState = _state.players[caster_pid]
-			for t in _state.players[0].board.get_cards().duplicate():
-				_state.players[0].board.remove_card(t)
-				_state.players[0].discard.append(t)
-			for t in _state.players[1].board.get_cards().duplicate():
-				_state.players[1].board.remove_card(t)
-				_state.players[1].discard.append(t)
+			for p: PlayerState in [_state.players[0], _state.players[1]]:
+				for t in p.board.get_cards().duplicate():
+					p.board.remove_card(t)
+					p.discard.append(t)
 			for _i in range(3):
 				caster.draw_card()
 		# ── 20 new effects (TID-279) ──────────────────────────────────────
 		"deal_damage_hero":
 			opponent.hero.take_damage(_spell_dmg)
 		"apply_poison_single":
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var targets := opponent.board.get_cards()
-				if not targets.is_empty():
-					t = targets[0]
-			if t != null:
-				t.apply_status("poison", card.spell_power)
+			if foe != null:
+				foe.apply_status("poison", power)
 		"apply_poison_all":
 			for t in opponent.board.get_cards():
-				t.apply_status("poison", card.spell_power)
+				t.apply_status("poison", power)
 		"grant_surge":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				if not t.keywords.has(Keywords.SURGE):
-					t.keywords.append(Keywords.SURGE)
-				t.summoning_sick = false
+			if friend != null:
+				_grant(friend, Keywords.SURGE)
+				friend.summoning_sick = false
 		"double_attack":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				t.attack_count = 1
-				t.summoning_sick = false
+			if friend != null:
+				friend.attack_count = 1
+				friend.summoning_sick = false
 		"buff_attack_all":
-			var caster: PlayerState = _state.players[caster_pid]
 			for t in caster.board.get_cards():
-				t.attack += card.spell_power
+				t.attack += power
 		"heal_hero":
-			var caster: PlayerState = _state.players[caster_pid]
-			caster.hero.heal(card.spell_power)
+			caster.hero.heal(power)
 		"armor_hero":
-			var caster: PlayerState = _state.players[caster_pid]
-			caster.hero.apply_status("armor", card.spell_power)
+			caster.hero.apply_status("armor", power)
 		"grant_ward":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				if not t.keywords.has(Keywords.WARD):
-					t.keywords.append(Keywords.WARD)
+			if friend != null:
+				_grant(friend, Keywords.WARD)
 		"grant_shroud":
-			var caster: PlayerState = _state.players[caster_pid]
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var friendlies := caster.board.get_cards()
-				if not friendlies.is_empty():
-					t = friendlies[0]
-			if t != null:
-				if not t.keywords.has(Keywords.SHROUD):
-					t.keywords.append(Keywords.SHROUD)
-				t.shroud_active = true
+			if friend != null:
+				_grant(friend, Keywords.SHROUD)
+				friend.shroud_active = true
 		"grant_ward_all":
-			var caster: PlayerState = _state.players[caster_pid]
 			for t in caster.board.get_cards():
-				if not t.keywords.has(Keywords.WARD):
-					t.keywords.append(Keywords.WARD)
+				_grant(t, Keywords.WARD)
 		"bind_minion":
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var targets := opponent.board.get_cards()
-				if not targets.is_empty():
-					t = targets[0]
-			if t != null:
-				t.keywords.clear()
-				t.shroud_active = false
+			if foe != null:
+				foe.keywords.clear()
+				foe.shroud_active = false
 		"buff_health_all":
-			var caster: PlayerState = _state.players[caster_pid]
 			for t in caster.board.get_cards():
-				t.health += card.spell_power
-				t.max_health += card.spell_power
+				t.health += power
+				t.max_health += power
 		"enemy_discard":
 			opponent.hand.shuffle()
-			var discard_count: int = mini(card.spell_power, opponent.hand.size())
-			for _i in range(discard_count):
+			for _i in range(mini(power, opponent.hand.size())):
 				opponent.discard.append(opponent.hand.pop_back())
 		"freeze_single":
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var targets := opponent.board.get_cards()
-				if not targets.is_empty():
-					t = targets[0]
-			if t != null:
-				t.apply_status("freeze", 1)
+			if foe != null:
+				foe.apply_status("freeze", 1)
 		"freeze_all":
 			for t in opponent.board.get_cards():
 				t.apply_status("freeze", 1)
 		"drain_hero":
-			var caster: PlayerState = _state.players[caster_pid]
 			opponent.hero.take_damage(_spell_dmg)
 			caster.hero.heal(_spell_dmg)
 		"stun_single":
-			var t: CardInstance = explicit_target.get("card", null) as CardInstance
-			if t == null:
-				var targets := opponent.board.get_cards()
-				if not targets.is_empty():
-					t = targets[0]
-			if t != null:
-				t.apply_status("stun", card.spell_power)
-				t.out_of_play = card.spell_power
+			if foe != null:
+				foe.apply_status("stun", power)
+				foe.out_of_play = power
 		"summon_token":
-			var caster: PlayerState = _state.players[caster_pid]
 			var tmpl: Dictionary = CardRegistry.get_template("skeleton")
 			if not tmpl.is_empty():
-				for _i in range(card.spell_power):
+				for _i in range(power):
 					if caster.board.is_full():
 						break
 					var token := CardInstance.new(tmpl)
 					token.summoning_sick = true
 					caster.board.add_card(token)
-		"deal_damage_all_full":
-			for t in opponent.board.get_cards():
-				t.take_damage(_spell_dmg)
-			for t in opponent.board.get_cards().duplicate():
-				if not t.is_alive():
-					opponent.board.remove_card(t)
-					opponent.discard.append(t)
-			opponent.hero.take_damage(_spell_dmg)
 		# ── Co-op PvE support cards (GID-100) ────────────────────────────────
-		# explicit_target carries {"pidx": <ally_player_idx>}. Falls back to
-		# caster_pid when pidx is absent (e.g., solo / 2-player context).
 		"ally_heal_hero":
-			var tpid: int = clamp(int(explicit_target.get("pidx", caster_pid)), 0, _state.players.size() - 2)
-			_state.players[tpid].hero.heal(card.spell_power)
+			_ally(explicit_target, caster_pid).hero.heal(power)
 		"ally_grant_ward_board":
-			var tpid: int = clamp(int(explicit_target.get("pidx", caster_pid)), 0, _state.players.size() - 2)
-			for t in _state.players[tpid].board.get_cards():
-				if not t.keywords.has(Keywords.WARD):
-					t.keywords.append(Keywords.WARD)
+			for t in _ally(explicit_target, caster_pid).board.get_cards():
+				_grant(t, Keywords.WARD)
 		"ally_buff_minion_all":
-			var tpid: int = clamp(int(explicit_target.get("pidx", caster_pid)), 0, _state.players.size() - 2)
-			for t in _state.players[tpid].board.get_cards():
-				t.attack += card.spell_power
-				t.health += card.spell_power
-				t.max_health += card.spell_power
+			for t in _ally(explicit_target, caster_pid).board.get_cards():
+				t.attack += power
+				t.health += power
+				t.max_health += power
 		"ally_grant_mana":
-			var tpid: int = clamp(int(explicit_target.get("pidx", caster_pid)), 0, _state.players.size() - 2)
-			_state.players[tpid].hero.mana = mini(
-				_state.players[tpid].hero.mana + card.spell_power,
-				_state.players[tpid].hero.max_mana)
+			var ally_hero := _ally(explicit_target, caster_pid).hero
+			ally_hero.mana = mini(ally_hero.mana + power, ally_hero.max_mana)
 		"ally_revive":
-			var tpid: int = clamp(int(explicit_target.get("pidx", caster_pid)), 0, _state.players.size() - 2)
-			var ally: PlayerState = _state.players[tpid]
-			for i in range(ally.discard.size() - 1, -1, -1):
-				var t := ally.discard[i] as CardInstance
-				if t.card_class == "minion" and not ally.board.is_full():
-					t.health = t.max_health
-					t.summoning_sick = true
-					ally.board.add_card(t)
-					ally.discard.remove_at(i)
-					break
+			_revive_last_minion(_ally(explicit_target, caster_pid))
 	if capture_tracker != null and caster_pid == 0:
 		var _ct_board_after: int = _state.players[1].board.get_cards().size()
 		capture_tracker.note_spell_resolved(0, _ct_board_before, _ct_board_after)

@@ -146,6 +146,18 @@ static func _init_box(box: BoxContainer, separation: int, parent: Node) -> void:
 	if parent != null:
 		parent.add_child(box)
 
+## MarginContainer with all four insets set — the only way the game uses one.
+static func make_margin(left: int, top: int, right: int, bottom: int,
+		parent: Node = null) -> MarginContainer:
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", left)
+	margin.add_theme_constant_override("margin_top", top)
+	margin.add_theme_constant_override("margin_right", right)
+	margin.add_theme_constant_override("margin_bottom", bottom)
+	if parent != null:
+		parent.add_child(margin)
+	return margin
+
 ## Rounded StyleBoxFlat with a uniform corner radius and optional uniform border
 ## — the only shape the game's panels and badges use.
 static func make_style(bg: Color, radius: int = 0, border_color: Color = Color(0, 0, 0, 0),

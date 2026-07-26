@@ -730,13 +730,8 @@ func _show_battle_tutorial() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(panel_w * 0.06))
-	margin.add_theme_constant_override("margin_right",  int(panel_w * 0.06))
-	margin.add_theme_constant_override("margin_top",    int(panel_h * 0.08))
-	margin.add_theme_constant_override("margin_bottom", int(panel_h * 0.08))
+	var margin := _UiUtil.make_margin(int(panel_w * 0.06), int(panel_h * 0.08), int(panel_w * 0.06), int(panel_h * 0.08), panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
 
 	var vbox := _UiUtil.make_vbox(int(_vh * 0.02), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1253,13 +1248,8 @@ func _show_potion_picker() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.025))
+	var margin := _UiUtil.make_margin(int(_vh * 0.025), int(_vh * 0.025), int(_vh * 0.025), int(_vh * 0.025), panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
 
 	var vbox := _UiUtil.make_vbox(int(_vh * 0.015), margin)
 
@@ -1743,12 +1733,7 @@ func _show_cast_confirm(card: CardInstance) -> void:
 	panel.custom_minimum_size = Vector2(minf(vp.x * 0.5, _vh * 0.75), 0)
 	center.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.02))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.02))
-	panel.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vh * 0.025), int(_vh * 0.02), int(_vh * 0.025), int(_vh * 0.02), panel)
 
 	var vbox := _UiUtil.make_vbox(int(_vh * 0.015), margin)
 

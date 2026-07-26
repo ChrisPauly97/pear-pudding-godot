@@ -305,12 +305,7 @@ func _make_skill_node(sk: SkillData, w: float, h: float, is_cross: bool = false)
 	elif not is_cross and not prereqs_met:
 		panel.modulate = Color(0.55, 0.55, 0.55)
 
-	var inner := MarginContainer.new()
-	inner.add_theme_constant_override("margin_left",   int(_vw * 0.008))
-	inner.add_theme_constant_override("margin_right",  int(_vw * 0.008))
-	inner.add_theme_constant_override("margin_top",    int(_ref * 0.008))
-	inner.add_theme_constant_override("margin_bottom", int(_ref * 0.008))
-	panel.add_child(inner)
+	var inner := _UiUtil.make_margin(int(_vw * 0.008), int(_ref * 0.008), int(_vw * 0.008), int(_ref * 0.008), panel)
 
 	var vbox := _UiUtil.make_vbox(int(_ref * 0.005), inner)
 

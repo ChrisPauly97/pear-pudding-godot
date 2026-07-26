@@ -57,11 +57,7 @@ func _make_slot_row(slot: int, ref: float, vp: Vector2) -> Control:
 
 	var hbox := _UiUtil.make_hbox(int(ref * 0.015), panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(ref * 0.02))
-	margin.add_theme_constant_override("margin_right",  int(ref * 0.02))
-	margin.add_theme_constant_override("margin_top",    int(ref * 0.01))
-	margin.add_theme_constant_override("margin_bottom", int(ref * 0.01))
+	var margin := _UiUtil.make_margin(int(ref * 0.02), int(ref * 0.01), int(ref * 0.02), int(ref * 0.01))
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.add_child(margin)

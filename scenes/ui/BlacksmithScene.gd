@@ -38,12 +38,7 @@ func _build_ui() -> void:
 	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
 	add_child(outer)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.015))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.015))
-	margin.add_theme_constant_override("margin_top",    int(_ref * 0.015))
-	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.015))
-	outer.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vw * 0.015), int(_ref * 0.015), int(_vw * 0.015), int(_ref * 0.015), outer)
 
 	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.012), margin)
 

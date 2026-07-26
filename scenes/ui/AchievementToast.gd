@@ -31,12 +31,7 @@ func _build_panel() -> void:
 	_panel.position = Vector2(_vw + 10.0, margin)
 	add_child(_panel)
 
-	var inner := MarginContainer.new()
-	inner.add_theme_constant_override("margin_left",   int(_vw * 0.01))
-	inner.add_theme_constant_override("margin_right",  int(_vw * 0.01))
-	inner.add_theme_constant_override("margin_top",    int(_vh * 0.008))
-	inner.add_theme_constant_override("margin_bottom", int(_vh * 0.008))
-	_panel.add_child(inner)
+	var inner := _UiUtil.make_margin(int(_vw * 0.01), int(_vh * 0.008), int(_vw * 0.01), int(_vh * 0.008), _panel)
 
 	var vbox := _UiUtil.make_vbox(int(_vh * 0.004), inner)
 

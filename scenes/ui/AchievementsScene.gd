@@ -46,12 +46,7 @@ func _make_row(a: Dictionary, is_unlocked: bool, current: int) -> Control:
 	var row := PanelContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var inner := MarginContainer.new()
-	inner.add_theme_constant_override("margin_left",   int(_vw * 0.01))
-	inner.add_theme_constant_override("margin_right",  int(_vw * 0.01))
-	inner.add_theme_constant_override("margin_top",    int(_vh * 0.008))
-	inner.add_theme_constant_override("margin_bottom", int(_vh * 0.008))
-	row.add_child(inner)
+	var inner := _UiUtil.make_margin(int(_vw * 0.01), int(_vh * 0.008), int(_vw * 0.01), int(_vh * 0.008), row)
 
 	var hbox := _UiUtil.make_hbox(int(_vw * 0.010), inner)
 

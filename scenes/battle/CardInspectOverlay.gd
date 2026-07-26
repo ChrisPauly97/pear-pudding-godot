@@ -101,13 +101,8 @@ func _build_dual_face_ui() -> void:
 	panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
 
 	var outer_vbox := _UiUtil.make_vbox(int(_vh * 0.012))
-	var outer_margin := MarginContainer.new()
-	outer_margin.add_theme_constant_override("margin_left",   int(_vh * 0.018))
-	outer_margin.add_theme_constant_override("margin_right",  int(_vh * 0.018))
-	outer_margin.add_theme_constant_override("margin_top",    int(_vh * 0.018))
-	outer_margin.add_theme_constant_override("margin_bottom", int(_vh * 0.018))
+	var outer_margin := _UiUtil.make_margin(int(_vh * 0.018), int(_vh * 0.018), int(_vh * 0.018), int(_vh * 0.018), panel)
 	outer_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(outer_margin)
 	outer_margin.add_child(outer_vbox)
 
 	# Header
@@ -149,13 +144,8 @@ func _build_face_panel(parent: HBoxContainer, tmpl: Dictionary, card: CardInstan
 	face_panel.add_theme_stylebox_override("panel", fs)
 	parent.add_child(face_panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vh * 0.012))
-	margin.add_theme_constant_override("margin_right",  int(_vh * 0.012))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.012))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.012))
+	var margin := _UiUtil.make_margin(int(_vh * 0.012), int(_vh * 0.012), int(_vh * 0.012), int(_vh * 0.012), face_panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	face_panel.add_child(margin)
 
 	var vbox := _UiUtil.make_vbox(int(_vh * 0.006), margin)
 

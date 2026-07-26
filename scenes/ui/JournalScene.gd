@@ -109,12 +109,7 @@ func _build_ui() -> void:
 	right_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	panels_box.add_child(right_panel)
 
-	var right_margin := MarginContainer.new()
-	right_margin.add_theme_constant_override("margin_left",   int(_vw * 0.015))
-	right_margin.add_theme_constant_override("margin_right",  int(_vw * 0.015))
-	right_margin.add_theme_constant_override("margin_top",    int(_vh * 0.015))
-	right_margin.add_theme_constant_override("margin_bottom", int(_vh * 0.015))
-	right_panel.add_child(right_margin)
+	var right_margin := _UiUtil.make_margin(int(_vw * 0.015), int(_vh * 0.015), int(_vw * 0.015), int(_vh * 0.015), right_panel)
 
 	var detail_vbox := _UiUtil.make_vbox(int(_vh * 0.012), right_margin)
 

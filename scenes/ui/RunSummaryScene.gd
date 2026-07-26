@@ -48,12 +48,7 @@ func _build_ui() -> void:
 	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
 	add_child(outer)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_ref * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
-	outer.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vw * 0.025), int(_ref * 0.025), int(_vw * 0.025), int(_ref * 0.025), outer)
 
 	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.018), margin)
 
@@ -125,12 +120,7 @@ func _build_spire_ui() -> void:
 	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
 	add_child(outer)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_ref * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
-	outer.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vw * 0.025), int(_ref * 0.025), int(_vw * 0.025), int(_ref * 0.025), outer)
 
 	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.016), margin)
 
@@ -215,12 +205,7 @@ func _build_coop_spire_ui() -> void:
 	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
 	add_child(outer)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_ref * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
-	outer.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vw * 0.025), int(_ref * 0.025), int(_vw * 0.025), int(_ref * 0.025), outer)
 
 	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.016), margin)
 

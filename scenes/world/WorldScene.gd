@@ -4292,13 +4292,8 @@ func _open_fast_travel_panel() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.03))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
+	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
 
 	var vbox := _UiUtil.make_vbox(int(vh * 0.018), margin)
 
@@ -5239,13 +5234,8 @@ func _show_spire_entrance_panel() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.03))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
+	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
 
 	var vbox := _UiUtil.make_vbox(int(vh * 0.022), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -5315,12 +5305,7 @@ func _show_house_door_panel() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.02))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.02))
-	panel.add_child(margin)
+	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.02), int(vh * 0.03), int(vh * 0.02), panel)
 
 	var vbox := _UiUtil.make_vbox(int(vh * 0.015), margin)
 
@@ -5424,12 +5409,7 @@ func _show_stable_panel() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.02))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.02))
-	panel.add_child(margin)
+	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.02), int(vh * 0.03), int(vh * 0.02), panel)
 
 	var vbox := _UiUtil.make_vbox(int(vh * 0.015), margin)
 
@@ -6052,13 +6032,8 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.03))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
+	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
 
 	var vbox := _UiUtil.make_vbox(int(vh * 0.022), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
