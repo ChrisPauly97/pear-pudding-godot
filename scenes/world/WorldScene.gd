@@ -411,6 +411,14 @@ var _smooth_camera_target: Vector3 = Vector3.ZERO
 var WORLD_SEED: int = 42  # overwritten in _ready() for infinite worlds
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
+## HUD prompt verb per NPC type; anything unlisted falls back to "TALK".
+const _NPC_PROMPT_LABELS: Dictionary = {
+	"merchant": "SHOP", "traveling_merchant": "SHOP",
+	"blacksmith": "FORGE", "bounty_board": "BOARD", "stable": "STABLE",
+	"duelist": "DUEL", "rest_site": "REST", "bed": "REST",
+	"stash_chest": "STASH",
+}
+
 @onready var _camera: Camera3D = $Camera3D
 @onready var _hud: CanvasLayer = $HUD
 @onready var _interact_label: Label = $HUD/InteractPrompt
@@ -4603,92 +4611,80 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("mount"):
 		_toggle_mount()
 
+## The HUD prompt label for whatever the player can reach, or "" when nothing
+## is in range. Probes run in _handle_interact's priority order and stop at the
+## first hit, so a tick usually costs one proximity scan instead of seventeen.
+func _interact_prompt_label(px: float, pz: float) -> String:
+	var r: float = IsoConst.INTERACT_RANGE
+	if _find_nearby_downed_peer(px, pz, r) != -1:
+		return "REVIVE"
+	if _find_nearby_enemy(px, pz, r) != null:
+		return "ATTACK"
+	if not _find_nearby_chest(px, pz, r).is_empty():
+		return "OPEN"
+	if not _find_nearby_door(px, pz, r * 2.0).is_empty():
+		return "ENTER"
+	if _find_nearby_wilderness_camp(px, pz, r) != null:
+		return "CAMP"
+	if _find_nearby_scout_ambush(px, pz, r) != null:
+		return "ATTACK"
+	if _find_nearby_maiteln(px, pz, r) != null:
+		return "TALK"
+	var npc := _find_nearby_npc(px, pz, r)
+	if not npc.is_empty():
+		return str(_NPC_PROMPT_LABELS.get(str(npc.get("npc_type", "")), "TALK"))
+	if _find_nearby_scroll(px, pz, r) != null:
+		return "READ"
+	if _find_nearby_shrine(px, pz, r) != null:
+		return "PRAY"
+	if _find_nearby_digspot(px, pz, r) != null:
+		return "DIG"
+	if not _find_nearby_waystone(px, pz, r).is_empty():
+		return "WARP"
+	if not _find_nearby_mailbox(px, pz, r).is_empty():
+		return "MAIL"
+	if _find_nearby_garden_plot(px, pz, r) != null:
+		return "TEND"
+	if _find_nearby_burial_mound(px, pz, r) != null:
+		return "DIG"
+	if _find_nearby_blight_heart(px, pz, r) != null:
+		return "CLEANSE"
+	if _find_nearby_mana_well(px, pz, r) != null:
+		return "FILL"
+	return ""
+
+## One-time "press E to …" hints. Each probe runs only while its flag is still
+## unset, so this costs nothing once the player has seen all three.
+func _show_first_interact_tips(px: float, pz: float) -> void:
+	var sm := SceneManager.save_manager
+	var r: float = IsoConst.INTERACT_RANGE
+	var tap: bool = OS.has_feature("android")
+	if not sm.get_story_flag("tutorial_npc_tip") and not _find_nearby_npc(px, pz, r).is_empty():
+		sm.set_story_flag("tutorial_npc_tip")
+		_show_tip("Tap to talk" if tap else "Press E to talk to NPCs")
+	elif not sm.get_story_flag("tutorial_chest_tip") and not _find_nearby_chest(px, pz, r).is_empty():
+		sm.set_story_flag("tutorial_chest_tip")
+		_show_tip("Tap to open chests" if tap else "Press E to open chests")
+	elif not sm.get_story_flag("tutorial_enemy_tip") and _find_nearby_enemy(px, pz, r) != null:
+		sm.set_story_flag("tutorial_enemy_tip")
+		_show_tip("Some enemies attack on sight — others wait. %s to challenge any enemy."
+			% ("Tap" if tap else "Press E"))
+
 func _check_interactions() -> void:
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
-	# Downed & rescue (GID-105 / TID-389): a downed player is frozen and cannot
-	# interact with anything (chests/NPCs/doors/enemies are all unreachable anyway
-	# since they can't move, but this is a defensive guard for whatever happened
-	# to be in range at the moment of defeat).
+	# Downed & rescue (GID-105 / TID-389): frozen — cannot interact with anything
+	# (chests/NPCs/doors/enemies are all unreachable anyway since the player can't
+	# move, but this is a defensive guard for whatever was in range at defeat).
 	if _coop_downed:
 		_world_hud.show_interact_prompt(false, "USE")
 		return
-	var downed_pid: int = _find_nearby_downed_peer(px, pz, IsoConst.INTERACT_RANGE)
-	var enemy := _find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
-	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
-	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
-	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
-	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
-	var wilderness_camp := _find_nearby_wilderness_camp(px, pz, IsoConst.INTERACT_RANGE)
-	var scout_ambush := _find_nearby_scout_ambush(px, pz, IsoConst.INTERACT_RANGE)
-	var maiteln := _find_nearby_maiteln(px, pz, IsoConst.INTERACT_RANGE)
-	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
-	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
-	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
-	var mailbox := _find_nearby_mailbox(px, pz, IsoConst.INTERACT_RANGE)
-	var garden_plot := _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
-	var burial_mound := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
-	var blight_heart := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
-	# Landmarks auto-trigger on approach (no button press needed)
+	# Landmarks auto-trigger on approach (no button press needed).
 	_check_nearby_landmark(px, pz)
-	var mana_well := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
-	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or wilderness_camp != null or scout_ambush != null or maiteln != null or shrine != null or digspot != null or not waystone.is_empty() or not mailbox.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
-	var interact_label: String = "USE"
-	if downed_pid != -1:
-		interact_label = "REVIVE"
-	elif enemy != null:
-		interact_label = "ATTACK"
-	elif not chest.is_empty():
-		interact_label = "OPEN"
-	elif not door.is_empty():
-		interact_label = "ENTER"
-	elif wilderness_camp != null:
-		interact_label = "CAMP"
-	elif scout_ambush != null:
-		interact_label = "ATTACK"
-	elif maiteln != null:
-		interact_label = "TALK"
-	elif not npc.is_empty():
-		match str(npc.get("npc_type", "")):
-			"merchant", "traveling_merchant": interact_label = "SHOP"
-			"blacksmith": interact_label = "FORGE"
-			"bounty_board": interact_label = "BOARD"
-			"stable": interact_label = "STABLE"
-			"duelist": interact_label = "DUEL"
-			"rest_site", "bed": interact_label = "REST"
-			"stash_chest": interact_label = "STASH"
-			_: interact_label = "TALK"
-	elif scroll != null:
-		interact_label = "READ"
-	elif shrine != null:
-		interact_label = "PRAY"
-	elif digspot != null:
-		interact_label = "DIG"
-	elif not waystone.is_empty():
-		interact_label = "WARP"
-	elif not mailbox.is_empty():
-		interact_label = "MAIL"
-	elif garden_plot != null:
-		interact_label = "TEND"
-	elif burial_mound != null:
-		interact_label = "DIG"
-	elif blight_heart != null:
-		interact_label = "CLEANSE"
-	elif mana_well != null:
-		interact_label = "FILL"
-	_world_hud.show_interact_prompt(has_entity and not SceneManager.has_open_overlay(), interact_label)
-
-	var is_android: bool = OS.has_feature("android")
-	if not npc.is_empty() and not SceneManager.save_manager.get_story_flag("tutorial_npc_tip"):
-		SceneManager.save_manager.set_story_flag("tutorial_npc_tip")
-		_show_tip("Tap to talk" if is_android else "Press E to talk to NPCs")
-	elif not chest.is_empty() and not SceneManager.save_manager.get_story_flag("tutorial_chest_tip"):
-		SceneManager.save_manager.set_story_flag("tutorial_chest_tip")
-		_show_tip("Tap to open chests" if is_android else "Press E to open chests")
-	elif enemy != null and not SceneManager.save_manager.get_story_flag("tutorial_enemy_tip"):
-		SceneManager.save_manager.set_story_flag("tutorial_enemy_tip")
-		var interact_key: String = "Tap" if OS.has_feature("android") else "Press E"
-		_show_tip("Some enemies attack on sight — others wait. %s to challenge any enemy." % interact_key)
+	var label: String = _interact_prompt_label(px, pz)
+	_world_hud.show_interact_prompt(label != "" and not SceneManager.has_open_overlay(),
+		label if label != "" else "USE")
+	_show_first_interact_tips(px, pz)
 
 func _open_map_view() -> void:
 	if _is_infinite:
