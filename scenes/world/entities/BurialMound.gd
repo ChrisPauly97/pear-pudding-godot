@@ -5,6 +5,10 @@ extends Node3D
 const CantripManager = preload("res://game_logic/world/CantripManager.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+
+## Gravestone-on-mound sprite target height — knee-to-waist-high marker.
+const _MOUND_HEIGHT: float = 0.95
 
 static var _mound_mat: StandardMaterial3D
 static var _mound_mesh: CylinderMesh
@@ -24,6 +28,15 @@ var _mound_id: String = ""
 var _dug: bool = false
 
 func _ready() -> void:
+	var tex: Texture2D = _SpriteRegistry.burial_mound_texture()
+	if tex != null:
+		var sprite := Sprite3D.new()
+		_SpriteRegistry.setup_sprite_height(sprite, tex, _MOUND_HEIGHT)
+		sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+		sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		add_child(sprite)
+		return
 	_ensure_shared_resources()
 	var mesh_inst := MeshInstance3D.new()
 	mesh_inst.mesh = _mound_mesh

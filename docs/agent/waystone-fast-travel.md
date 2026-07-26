@@ -161,6 +161,6 @@ Also added: `SceneManager.show_toast(title, desc)` — thin wrapper around `_toa
 
 ## Asset Requirements
 
-- `scenes/world/entities/Waystone.tscn` — minimal scene, no external assets
-- `scenes/world/entities/Waystone.gd` — procedural material/mesh, no textures
+- `scenes/world/entities/Waystone.tscn` — minimal scene
+- `scenes/world/entities/Waystone.gd` — renders `assets/textures/props/waystone_{dormant,active}.png` (0x72 `column` recolors, GID-123) as a billboard obelisk sprite at 1.9 world units; the old procedural box mesh remains as fallback if the textures are ever missing
 - Activation feedback is a toast; teleport itself plays the `waystone_travel` SFX (`SceneManager.teleport_to_waystone()`, TID-427) plus the existing `TransitionManager` 0.2s scene fade — no new visual asset needed

@@ -261,6 +261,67 @@ idle, not walk) and mirrors `Player.gd`'s screen-space `flip_h` heuristic.
 The other entities' walk PNGs remain unwired on disk — not a gap, just
 unused until/unless those entities ever gain wander movement.
 
+## GID-123: World Proportions, Player Hero Swap, Location Sprites (2026-07-26)
+
+### Proportional entity scaling (TID-466)
+
+The flat `CHAR_PIXEL_SIZE = 0.05` made sprite world-height proportional to
+source pixel-height: 16 px skeletons rendered at 0.8 units vs the 32 px
+player's 1.6 — half the player's height. `SpriteRegistry` now scales by
+**target world height** instead:
+
+- `setup_sprite_height(sprite, tex, world_height)` — computes
+  `pixel_size = world_height / tex_height`, then reuses `setup_sprite()`
+  (feet-at-y=0 formula unchanged).
+- `enemy_world_height(etype, is_roaming_boss, is_boss)` — mirrors
+  `enemy_texture()`'s routing; `HEIGHT_*` consts document the hierarchy:
+  player 1.4, small undead 1.15, spectres 1.05, mimic 0.85 (chest = 0.8),
+  raiders/duelists 1.25, rival 1.4 (the player's mirror), bosses 1.9
+  (before EnemyNPC's ×1.3/×1.5 node scale), NPCs 1.4, merchant 1.3.
+- Call sites: `EnemyNPC`, `TownspersonNPC`, `MerchantNPC`. `ScoutAmbush`
+  keeps its deliberate smaller size; chest/door keep natural size.
+- `CHAR_PIXEL_SIZE` remains the default for `setup_sprite()` callers.
+
+### Player hero swap (TID-467)
+
+The player is now 0x72's **`elf_m`** (16×28 idle + 4 run frames) at
+`assets/textures/characters/player_hero{,_walk_1-4}.png` — a young
+adventurer matching Saimtar (11-year-old protagonist; the old TID-445 idea
+of giving the player `wizzard_m` was rejected because the white-bearded
+wizard is story-correct for **Maiteln**, who keeps it). `Player.gd` and
+`AvatarSprite.gd` (RemotePlayer co-op avatars) both use the new frames with
+a dedicated idle texture; the hand-made `wizard_walk_*_pixel.png` files
+remain on disk but are no longer referenced. Because `elf_m` was the rival's
+sprite, `enemy_rival{,_walk_1-4}.png` were regenerated as a **hostile
+recolor** (crimson tunic, violet hair, red eyes) — thematically the rival
+is now literally the player's dark mirror.
+
+### Waystone + rare-location sprites (TID-468)
+
+Five entities that still drew flat-colored primitive meshes now render
+real pixel art (same registry-then-mesh-fallback chain as Chest/Door):
+
+| Entity | File (`assets/textures/props/`) | Source | Height |
+|---|---|---|---|
+| Waystone dormant/active | `waystone_{dormant,active}.png` (16×48) | 0x72 `column`, cool-stone recolor; active adds hand-pixelled gold runes | 1.9 |
+| Mana well | `mana_well.png` (16×32) | Kenney TD statue 20 + basin 32, teal→cyan | 1.1 |
+| Puzzle shrine | `puzzle_shrine.png` (16×32) | Kenney TD statue 19 + 31, blue recolor | 1.3 |
+| Burial mound | `burial_mound.png` (16×22) | Kenney TD gravestone 65 + hand-pixelled dirt mound | 0.95 |
+| Blight heart | `blight_heart.png` (16×24) | 0x72 `skull` purple recolor + hand-pixelled crystal spikes | 1.5 |
+
+Integration notes:
+- `Waystone.gd` swaps dormant→active by texture (`waystone_texture(active)`);
+  the scene's `MeshInstance3D` is hidden, not removed, and the whole mesh
+  path stays as fallback.
+- `PuzzleShrine.gd` keeps its `OmniLight3D`; solved state dims via sprite
+  `modulate` instead of a material duplicate.
+- `BlightHeart.gd` keeps the aura sphere + pulse tween, but the sprite
+  pulse is capped at 1.05 so center-scaling never pushes the bottom edge
+  below y=0 (mesh fallback keeps 1.12).
+- Sprite sheets came straight from the packs this session (proxy allowed
+  itch.io/kenney.nl downloads); recolors are exact palette maps, documented
+  in CREDITS.md.
+
 ## What "all textures use sprites" Does and Doesn't Cover
 
 GID-118's scope was every `TextureGen` slot that draws a **placeholder
