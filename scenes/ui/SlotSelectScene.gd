@@ -1,6 +1,7 @@
 extends Control
 
 const NUM_SLOTS: int = 3
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -22,9 +23,7 @@ func _ready() -> void:
 	vbox.position = Vector2((vp.x - vp.x * 0.7) * 0.5, (vh - ref * 0.85) * 0.5)
 	add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Select Save Slot"
-	title.add_theme_font_size_override("font_size", int(ref * 0.055))
+	var title := _UiUtil.make_label("Select Save Slot", int(ref * 0.055))
 	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
@@ -32,11 +31,7 @@ func _ready() -> void:
 	for slot: int in range(1, NUM_SLOTS + 1):
 		vbox.add_child(_make_slot_row(slot, ref, vp))
 
-	var back_btn := Button.new()
-	back_btn.text = "Back"
-	back_btn.custom_minimum_size = Vector2(ref * 0.22, ref * 0.055)
-	back_btn.add_theme_font_size_override("font_size", int(ref * 0.026))
-	back_btn.pressed.connect(_on_back)
+	var back_btn := _UiUtil.make_button("Back", Vector2(ref * 0.22, ref * 0.055), int(ref * 0.026), _on_back)
 	var back_row := HBoxContainer.new()
 	back_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	back_row.add_child(back_btn)
@@ -84,9 +79,7 @@ func _make_slot_row(slot: int, ref: float, vp: Vector2) -> Control:
 	info_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner_hbox.add_child(info_vbox)
 
-	var slot_lbl := Label.new()
-	slot_lbl.text = "Slot %d" % slot
-	slot_lbl.add_theme_font_size_override("font_size", int(ref * 0.028))
+	var slot_lbl := _UiUtil.make_label("Slot %d" % slot, int(ref * 0.028))
 	slot_lbl.add_theme_color_override("font_color", Color(0.8, 0.8, 1.0))
 	info_vbox.add_child(slot_lbl)
 
@@ -108,27 +101,14 @@ func _make_slot_row(slot: int, ref: float, vp: Vector2) -> Control:
 	inner_hbox.add_child(btn_vbox)
 
 	if has:
-		var load_btn := Button.new()
-		load_btn.text = "Continue"
-		load_btn.custom_minimum_size = Vector2(ref * 0.18, ref * 0.048)
-		load_btn.add_theme_font_size_override("font_size", int(ref * 0.022))
-		load_btn.pressed.connect(func() -> void: _on_load_slot(slot))
-		btn_vbox.add_child(load_btn)
+		var load_btn := _UiUtil.make_button("Continue", Vector2(ref * 0.18, ref * 0.048), int(ref * 0.022), func() -> void: _on_load_slot(slot), btn_vbox)
 
-		var del_btn := Button.new()
-		del_btn.text = "Delete"
-		del_btn.custom_minimum_size = Vector2(ref * 0.18, ref * 0.048)
-		del_btn.add_theme_font_size_override("font_size", int(ref * 0.022))
+		var del_btn := _UiUtil.make_button("Delete", Vector2(ref * 0.18, ref * 0.048), int(ref * 0.022))
 		del_btn.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 		del_btn.pressed.connect(func() -> void: _confirm_delete(slot))
 		btn_vbox.add_child(del_btn)
 	else:
-		var new_btn := Button.new()
-		new_btn.text = "New Game"
-		new_btn.custom_minimum_size = Vector2(ref * 0.18, ref * 0.048)
-		new_btn.add_theme_font_size_override("font_size", int(ref * 0.022))
-		new_btn.pressed.connect(func() -> void: _on_new_game_slot(slot))
-		btn_vbox.add_child(new_btn)
+		var new_btn := _UiUtil.make_button("New Game", Vector2(ref * 0.18, ref * 0.048), int(ref * 0.022), func() -> void: _on_new_game_slot(slot), btn_vbox)
 
 	return panel
 
@@ -179,21 +159,14 @@ func _confirm_delete(slot: int) -> void:
 	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dialog.add_child(vbox)
 
-	var lbl := Label.new()
-	lbl.text = "Delete Slot %d?\nThis cannot be undone." % slot
-	lbl.add_theme_font_size_override("font_size", int(ref * 0.028))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(lbl)
+	var lbl := _UiUtil.make_label("Delete Slot %d?\nThis cannot be undone." % slot, int(ref * 0.028), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(ref * 0.02))
 	vbox.add_child(row)
 
-	var yes_btn := Button.new()
-	yes_btn.text = "Delete"
-	yes_btn.custom_minimum_size = Vector2(ref * 0.18, ref * 0.055)
-	yes_btn.add_theme_font_size_override("font_size", int(ref * 0.026))
+	var yes_btn := _UiUtil.make_button("Delete", Vector2(ref * 0.18, ref * 0.055), int(ref * 0.026))
 	yes_btn.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
 	yes_btn.pressed.connect(func() -> void:
 		SaveManager.delete_save_slot(slot)
@@ -202,12 +175,7 @@ func _confirm_delete(slot: int) -> void:
 	)
 	row.add_child(yes_btn)
 
-	var no_btn := Button.new()
-	no_btn.text = "Cancel"
-	no_btn.custom_minimum_size = Vector2(ref * 0.18, ref * 0.055)
-	no_btn.add_theme_font_size_override("font_size", int(ref * 0.026))
-	no_btn.pressed.connect(func() -> void: layer.queue_free())
-	row.add_child(no_btn)
+	var no_btn := _UiUtil.make_button("Cancel", Vector2(ref * 0.18, ref * 0.055), int(ref * 0.026), func() -> void: layer.queue_free(), row)
 
 func _refresh() -> void:
 	# Reload the scene to reflect slot changes

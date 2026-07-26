@@ -32,30 +32,17 @@ func _build_ui() -> void:
 	var header := HBoxContainer.new()
 	wrapper.add_child(header)
 
-	var title_lbl := Label.new()
-	title_lbl.text = "Mailbox"
-	title_lbl.add_theme_font_size_override("font_size", int(_ref * 0.03))
+	var title_lbl := _UiUtil.make_label("Mailbox", int(_ref * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header)
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title_lbl)
 
-	var close_btn := Button.new()
-	close_btn.text = "Close  [C]" if not OS.has_feature("android") else "Close"
-	close_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-	close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	close_btn.pressed.connect(_close)
-	header.add_child(close_btn)
+	var close_btn := _UiUtil.make_button("Close  [C]" if not OS.has_feature("android") else "Close", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _close, header)
 
 	_count_label = Label.new()
 	_count_label.add_theme_font_size_override("font_size", int(_ref * 0.020))
 	_count_label.modulate = Color(0.8, 0.8, 0.8)
 	wrapper.add_child(_count_label)
 
-	_claim_all_btn = Button.new()
-	_claim_all_btn.text = "Claim All"
-	_claim_all_btn.custom_minimum_size = Vector2(_ref * 0.18, _ref * 0.06)
-	_claim_all_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
-	_claim_all_btn.pressed.connect(_on_claim_all)
-	wrapper.add_child(_claim_all_btn)
+	_claim_all_btn = _UiUtil.make_button("Claim All", Vector2(_ref * 0.18, _ref * 0.06), int(_ref * 0.020), _on_claim_all, wrapper)
 
 	_grid_scroll = ScrollContainer.new()
 	_grid_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -77,12 +64,7 @@ func _refresh() -> void:
 	_claim_all_btn.disabled = instances.is_empty()
 
 	if instances.is_empty():
-		var empty_lbl := Label.new()
-		empty_lbl.text = "Mailbox is empty"
-		empty_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		empty_lbl.modulate = Color(0.6, 0.6, 0.6)
-		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_grid.add_child(empty_lbl)
+		var empty_lbl := _UiUtil.make_label("Mailbox is empty", int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _grid)
 		return
 
 	var sorted: Array[Dictionary] = instances.duplicate()
@@ -125,10 +107,7 @@ func _make_card_tile(inst: Dictionary) -> Control:
 	cube.add_theme_stylebox_override("pressed", sb)
 	cube.add_theme_stylebox_override("focus", sb)
 
-	var badge_lbl := Label.new()
-	badge_lbl.text = _UiUtil.rarity_badge(rarity)
-	badge_lbl.add_theme_font_size_override("font_size", int(_ref * 0.016))
-	badge_lbl.modulate = _UiUtil.rarity_color(rarity)
+	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.016), _UiUtil.rarity_color(rarity))
 	badge_lbl.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	badge_lbl.position = Vector2(_ref * 0.006, _ref * 0.004)
 	cube.add_child(badge_lbl)
@@ -168,23 +147,12 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	title_row.add_theme_constant_override("separation", int(_ref * 0.006))
 	vb.add_child(title_row)
 
-	var name_lbl := Label.new()
-	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
+	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, title_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_row.add_child(name_lbl)
 
-	var badge_lbl := Label.new()
-	badge_lbl.text = _UiUtil.rarity_badge(rarity)
-	badge_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	badge_lbl.modulate = _UiUtil.rarity_color(rarity)
-	title_row.add_child(badge_lbl)
+	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity), HORIZONTAL_ALIGNMENT_LEFT, title_row)
 
-	var stats_lbl := Label.new()
-	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp]
-	stats_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	stats_lbl.modulate = _UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55)
-	vb.add_child(stats_lbl)
+	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp], int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55), HORIZONTAL_ALIGNMENT_LEFT, vb)
 
 	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
 	var sell_gold: int  = int(cfg.get("sell_gold", 0))
@@ -194,10 +162,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	action_row.add_theme_constant_override("separation", int(_ref * 0.006))
 	vb.add_child(action_row)
 
-	var claim_btn := Button.new()
-	claim_btn.text = "Claim"
-	claim_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.06)
-	claim_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+	var claim_btn := _UiUtil.make_button("Claim", Vector2(_ref * 0.12, _ref * 0.06), int(_ref * 0.020))
 	claim_btn.modulate = Color(0.5, 1.0, 0.5)
 	claim_btn.pressed.connect(func() -> void:
 		if SceneManager.save_manager.is_bag_full():
@@ -208,10 +173,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 		_refresh())
 	action_row.add_child(claim_btn)
 
-	var sell_btn := Button.new()
-	sell_btn.text = "Sell +%dg" % sell_gold
-	sell_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.06)
-	sell_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+	var sell_btn := _UiUtil.make_button("Sell +%dg" % sell_gold, Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020))
 	sell_btn.modulate = Color(1.0, 0.9, 0.3)
 	sell_btn.pressed.connect(func() -> void:
 		SceneManager.save_manager.sell_mailbox_card(uid)
@@ -219,10 +181,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 		_refresh())
 	action_row.add_child(sell_btn)
 
-	var scrap_btn := Button.new()
-	scrap_btn.text = "Scrap +%de" % scrap_ess
-	scrap_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.06)
-	scrap_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+	var scrap_btn := _UiUtil.make_button("Scrap +%de" % scrap_ess, Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020))
 	scrap_btn.modulate = Color(0.5, 0.85, 1.0)
 	scrap_btn.pressed.connect(func() -> void:
 		SceneManager.save_manager.scrap_mailbox_card(uid)

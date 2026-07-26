@@ -75,9 +75,7 @@ func _build_column(parent: HBoxContainer, title: String) -> VBoxContainer:
 	col.add_theme_constant_override("separation", int(_ref * 0.01))
 	parent.add_child(col)
 
-	var title_lbl := Label.new()
-	title_lbl.text = title
-	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	var title_lbl := _UiUtil.make_label(title, int(_vh * 0.026))
 	title_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
 	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(title_lbl)
@@ -102,31 +100,20 @@ func _build_coins_row(parent: VBoxContainer) -> void:
 	row.add_theme_constant_override("separation", int(_ref * 0.02))
 	parent.add_child(row)
 
-	var lbl := Label.new()
-	lbl.text = "Stash Coins:"
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.024))
-	row.add_child(lbl)
+	var lbl := _UiUtil.make_label("Stash Coins:", int(_vh * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 
-	_coins_label = Label.new()
-	_coins_label.text = "0"
-	_coins_label.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	_coins_label = _UiUtil.make_label("0", int(_vh * 0.024))
 	_coins_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	row.add_child(_coins_label)
 
-	var deposit_btn := Button.new()
-	deposit_btn.text = "Deposit %d" % _COIN_STEP
-	deposit_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.055)
-	deposit_btn.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	var deposit_btn := _UiUtil.make_button("Deposit %d" % _COIN_STEP, Vector2(_vh * 0.16, _vh * 0.055), int(_vh * 0.020))
 	deposit_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_stash_deposit_coins"):
 			world_scene.request_stash_deposit_coins(_COIN_STEP)
 	)
 	row.add_child(deposit_btn)
 
-	var withdraw_btn := Button.new()
-	withdraw_btn.text = "Withdraw %d" % _COIN_STEP
-	withdraw_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.055)
-	withdraw_btn.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	var withdraw_btn := _UiUtil.make_button("Withdraw %d" % _COIN_STEP, Vector2(_vh * 0.18, _vh * 0.055), int(_vh * 0.020))
 	withdraw_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_stash_withdraw_coins"):
 			world_scene.request_stash_withdraw_coins(_COIN_STEP)
@@ -174,11 +161,7 @@ func _render_lists() -> void:
 
 
 func _add_empty_label(parent: VBoxContainer, text: String) -> void:
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
-	lbl.modulate = Color(0.7, 0.7, 0.7)
-	parent.add_child(lbl)
+	var lbl := _UiUtil.make_label(text, int(_vh * 0.020), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, parent)
 
 
 func _add_card_row(parent: VBoxContainer, inst: Dictionary, is_mine: bool) -> void:
@@ -194,10 +177,7 @@ func _add_card_row(parent: VBoxContainer, inst: Dictionary, is_mine: bool) -> vo
 	hb.add_child(name_lbl)
 
 	var uid: String = str(inst.get("uid", ""))
-	var action_btn := Button.new()
-	action_btn.text = "Deposit" if is_mine else "Withdraw"
-	action_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.05)
-	action_btn.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	var action_btn := _UiUtil.make_button("Deposit" if is_mine else "Withdraw", Vector2(_vh * 0.16, _vh * 0.05), int(_vh * 0.018))
 	if is_mine:
 		action_btn.pressed.connect(func() -> void:
 			if world_scene != null and world_scene.has_method("request_stash_deposit_card"):

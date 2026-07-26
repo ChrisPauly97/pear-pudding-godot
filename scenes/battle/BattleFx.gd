@@ -5,6 +5,7 @@ const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _state: GameState
 var _vh: float
@@ -59,9 +60,7 @@ func show_intent_banner(text: String) -> void:
 	style.corner_radius_bottom_left = 8
 	style.corner_radius_bottom_right = 8
 	panel.add_theme_stylebox_override("panel", style)
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", _font(0.022))
+	var lbl := _UiUtil.make_label(text, int(_font(0.022)))
 	lbl.add_theme_color_override("font_color", Color.WHITE)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	panel.add_child(lbl)
@@ -230,9 +229,7 @@ func spawn_float_label(pos: Vector2, text: String, color: Color) -> void:
 	if _float_layer == null or not is_instance_valid(_float_layer):
 		return
 	var font_sz: int = _font(0.040) if _vh > 0.0 else 18
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", font_sz)
+	var lbl := _UiUtil.make_label(text, int(font_sz))
 	lbl.add_theme_color_override("font_color", color)
 	# Thick outline beats a 2px shadow for legibility over a busy board.
 	lbl.add_theme_color_override("font_outline_color", Color.BLACK)

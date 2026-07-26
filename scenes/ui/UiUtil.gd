@@ -92,6 +92,65 @@ static func effect_summary(battle_effect_type: String, battle_effect_value: int,
 	return battle_effect_type
 
 # ---------------------------------------------------------------------------
+# Widget factories
+#
+# Every UI scene builds its controls in code at viewport-relative sizes, so the
+# same five lines (new → text → custom_minimum_size → font size → connect →
+# reparent) appeared at ~500 call sites. These collapse that to one call.
+# Sizes and font sizes are already-resolved pixel values — the caller still
+# owns the `vh`/`ref` fractions, which vary per screen.
+# ---------------------------------------------------------------------------
+
+static func make_button(text: String, size: Vector2, font_size: int = 0,
+		on_pressed: Callable = Callable(), parent: Node = null) -> Button:
+	var btn := Button.new()
+	btn.text = text
+	btn.custom_minimum_size = size
+	if font_size > 0:
+		btn.add_theme_font_size_override("font_size", font_size)
+	if on_pressed.is_valid():
+		btn.pressed.connect(on_pressed)
+	if parent != null:
+		parent.add_child(btn)
+	return btn
+
+static func make_label(text: String, font_size: int = 0, tint: Color = Color.WHITE,
+		align: HorizontalAlignment = HORIZONTAL_ALIGNMENT_LEFT, parent: Node = null) -> Label:
+	var lbl := Label.new()
+	lbl.text = text
+	if font_size > 0:
+		lbl.add_theme_font_size_override("font_size", font_size)
+	if tint != Color.WHITE:
+		lbl.modulate = tint
+	if align != HORIZONTAL_ALIGNMENT_LEFT:
+		lbl.horizontal_alignment = align
+	if parent != null:
+		parent.add_child(lbl)
+	return lbl
+
+## HBox/VBox in one call — `separation` is the only constant these ever override.
+static func make_box(vertical: bool, separation: int = 0, parent: Node = null) -> BoxContainer:
+	var box: BoxContainer = VBoxContainer.new() if vertical else HBoxContainer.new()
+	if separation > 0:
+		box.add_theme_constant_override("separation", separation)
+	if parent != null:
+		parent.add_child(box)
+	return box
+
+## Rounded StyleBoxFlat with a uniform corner radius and optional uniform border
+## — the only shape the game's panels and badges use.
+static func make_style(bg: Color, radius: int = 0, border_color: Color = Color(0, 0, 0, 0),
+		border_width: int = 0) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	if radius > 0:
+		style.set_corner_radius_all(radius)
+	if border_width > 0:
+		style.border_color = border_color
+		style.set_border_width_all(border_width)
+	return style
+
+# ---------------------------------------------------------------------------
 # Label factories
 # ---------------------------------------------------------------------------
 

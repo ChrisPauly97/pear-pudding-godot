@@ -95,6 +95,7 @@ const _CoopNightHunts    = preload("res://game_logic/CoopNightHunts.gd")
 const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
 const _CardRegistry      = preload("res://autoloads/CardRegistry.gd")
 const _ENV_BROADCAST_INTERVAL: float = 3.0  # host: low-Hz clock/weather broadcast
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -2029,34 +2030,15 @@ func _show_loot_roll_panel(start: Dictionary) -> void:
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", int(vh * 0.02))
 	panel.add_child(vbox)
-	var lbl := Label.new()
-	lbl.text = "Loot roll! Tier %d chest — %d card(s).\nNeed, Greed, or Pass?" % [tier, card_ids.size()]
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.026))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var lbl := _UiUtil.make_label("Loot roll! Tier %d chest — %d card(s).\nNeed, Greed, or Pass?" % [tier, card_ids.size()], int(vh * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(lbl)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(vh * 0.025))
 	vbox.add_child(row)
-	var need_btn := Button.new()
-	need_btn.text = "Need"
-	need_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
-	need_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	need_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_NEED))
-	row.add_child(need_btn)
-	var greed_btn := Button.new()
-	greed_btn.text = "Greed"
-	greed_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
-	greed_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	greed_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_GREED))
-	row.add_child(greed_btn)
-	var pass_btn := Button.new()
-	pass_btn.text = "Pass"
-	pass_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
-	pass_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	pass_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_PASS))
-	row.add_child(pass_btn)
+	var need_btn := _UiUtil.make_button("Need", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024), _submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_NEED), row)
+	var greed_btn := _UiUtil.make_button("Greed", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024), _submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_GREED), row)
+	var pass_btn := _UiUtil.make_button("Pass", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024), _submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_PASS), row)
 
 # ── Co-op story mode — shared story flags (GID-098 / TID-356) ────────────────
 
@@ -3042,12 +3024,9 @@ func _ensure_challenge_button() -> void:
 	# the shared contextual zone — a touch/click target like every other HUD toggle
 	# (no separate keybind needed). Built directly (not via register_action) since it
 	# needs a `.toggled` connection, not a simple `.pressed` callback.
-	_ranked_toggle_btn = Button.new()
+	_ranked_toggle_btn = _UiUtil.make_button("Ranked: OFF", Vector2(vp.y * 0.20, vp.y * 0.05), int(vp.y * 0.020))
 	_ranked_toggle_btn.toggle_mode = true
-	_ranked_toggle_btn.text = "Ranked: OFF"
 	_ranked_toggle_btn.tooltip_text = "When ON, this duel counts toward your ranked rating."
-	_ranked_toggle_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
-	_ranked_toggle_btn.add_theme_font_size_override("font_size", int(vp.y * 0.020))
 	_ranked_toggle_btn.hide()
 	_ranked_toggle_btn.toggled.connect(func(on: bool) -> void:
 		_ranked_toggle_on = on
@@ -3296,19 +3275,9 @@ func _show_challenge_accept_panel(from_id: int, ranked: bool = false) -> void:
 	row.add_theme_constant_override("separation", int(vp.y * 0.03))
 	vbox.add_child(row)
 
-	var accept_btn := Button.new()
-	accept_btn.text = "Accept"
-	accept_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
-	accept_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	accept_btn.pressed.connect(_accept_challenge.bind(from_id))
-	row.add_child(accept_btn)
+	var accept_btn := _UiUtil.make_button("Accept", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026), _accept_challenge.bind(from_id), row)
 
-	var decline_btn := Button.new()
-	decline_btn.text = "Decline"
-	decline_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
-	decline_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	decline_btn.pressed.connect(_decline_challenge.bind(from_id))
-	row.add_child(decline_btn)
+	var decline_btn := _UiUtil.make_button("Decline", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026), _decline_challenge.bind(from_id), row)
 
 func _dismiss_challenge_panel() -> void:
 	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
@@ -4177,14 +4146,9 @@ func _setup_siege_banner(p_map_name: String) -> void:
 		return
 	var vh: float = get_viewport().get_visible_rect().size.y
 	var vw: float = get_viewport().get_visible_rect().size.x
-	_siege_banner = Label.new()
-	_siege_banner.text = "%s Under Attack!" % p_map_name.capitalize().replace("_", " ")
-	_siege_banner.add_theme_font_size_override("font_size", int(vh * 0.03))
-	_siege_banner.modulate = Color(1.0, 0.3, 0.1)
-	_siege_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_siege_banner = _UiUtil.make_label("%s Under Attack!" % p_map_name.capitalize().replace("_", " "), int(vh * 0.03), Color(1.0, 0.3, 0.1), HORIZONTAL_ALIGNMENT_CENTER, _hud)
 	_siege_banner.position = Vector2((vw - vh * 0.6) * 0.5, vh * 0.005)
 	_siege_banner.custom_minimum_size = Vector2(vh * 0.6, int(vh * 0.04))
-	_hud.add_child(_siege_banner)
 
 func register_waystone(wid: String, node: Node3D, w_data: Dictionary) -> void:
 	_waystone_nodes[wid] = node
@@ -4348,28 +4312,19 @@ func _open_fast_travel_panel() -> void:
 	vbox.add_theme_constant_override("separation", int(vh * 0.018))
 	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Fast Travel"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.035))
+	var title := _UiUtil.make_label("Fast Travel", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	title.add_theme_color_override("font_color", Color(0.40, 0.90, 1.00))
 	vbox.add_child(title)
 
 	var is_blocked: bool = SceneManager.current_map.begins_with("dungeon_")
 	var activated: Array[String] = SceneManager.save_manager.activated_waystones
 	if activated.is_empty():
-		var empty_lbl := Label.new()
-		empty_lbl.text = "No waystones activated yet.\nFind and interact with a waystone pillar to unlock fast travel."
-		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_lbl.add_theme_font_size_override("font_size", int(vh * 0.022))
+		var empty_lbl := _UiUtil.make_label("No waystones activated yet.\nFind and interact with a waystone pillar to unlock fast travel.", int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(empty_lbl)
 	elif is_blocked:
-		var block_lbl := Label.new()
-		block_lbl.text = "Fast travel is unavailable inside dungeons."
-		block_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		block_lbl.add_theme_font_size_override("font_size", int(vh * 0.022))
+		var block_lbl := _UiUtil.make_label("Fast travel is unavailable inside dungeons.", int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 		block_lbl.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 		block_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(block_lbl)
@@ -4386,10 +4341,7 @@ func _open_fast_travel_panel() -> void:
 
 		var btn_h: float = vh * 0.060
 		for wid: String in activated:
-			var btn := Button.new()
-			btn.text = _waystone_friendly_label(wid)
-			btn.custom_minimum_size = Vector2(0, btn_h)
-			btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+			var btn := _UiUtil.make_button(_waystone_friendly_label(wid), Vector2(0, btn_h), int(vh * 0.024))
 			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			var captured_id: String = wid
 			btn.pressed.connect(func() -> void:
@@ -4399,10 +4351,7 @@ func _open_fast_travel_panel() -> void:
 			)
 			btn_vbox.add_child(btn)
 
-	var close_btn := Button.new()
-	close_btn.text = "Close  [Esc]" if not OS.has_feature("android") else "Close"
-	close_btn.custom_minimum_size = Vector2(vh * 0.20, vh * 0.06)
-	close_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	var close_btn := _UiUtil.make_button("Close  [Esc]" if not OS.has_feature("android") else "Close", Vector2(vh * 0.20, vh * 0.06), int(vh * 0.024))
 	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	close_btn.pressed.connect(func() -> void:
 		_fast_travel_layer = null
@@ -5315,12 +5264,7 @@ func _show_spire_entrance_panel() -> void:
 	vbox.add_theme_constant_override("separation", int(vh * 0.022))
 	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "The Endless Spire"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.038))
-	title.modulate = Color(0.85, 0.50, 1.0)
-	vbox.add_child(title)
+	var title := _UiUtil.make_label("The Endless Spire", int(vh * 0.038), Color(0.85, 0.50, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var desc := Label.new()
 	if is_active:
@@ -5338,10 +5282,7 @@ func _show_spire_entrance_panel() -> void:
 	row.add_theme_constant_override("separation", int(vh * 0.03))
 	vbox.add_child(row)
 
-	var enter_btn := Button.new()
-	enter_btn.text = "Resume (Floor %d)" % curr_floor if is_active else "Enter"
-	enter_btn.custom_minimum_size = Vector2(vh * 0.20, vh * 0.07)
-	enter_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
+	var enter_btn := _UiUtil.make_button("Resume (Floor %d)" % curr_floor if is_active else "Enter", Vector2(vh * 0.20, vh * 0.07), int(vh * 0.028))
 	enter_btn.modulate = Color(0.85, 0.50, 1.0)
 	enter_btn.pressed.connect(func() -> void:
 		layer.queue_free()
@@ -5349,12 +5290,7 @@ func _show_spire_entrance_panel() -> void:
 	)
 	row.add_child(enter_btn)
 
-	var leave_btn := Button.new()
-	leave_btn.text = "Leave"
-	leave_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.07)
-	leave_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
-	leave_btn.pressed.connect(func() -> void: layer.queue_free())
-	row.add_child(leave_btn)
+	var leave_btn := _UiUtil.make_button("Leave", Vector2(vh * 0.16, vh * 0.07), int(vh * 0.028), func() -> void: layer.queue_free(), row)
 
 # ── Player Home ────────────────────────────────────────────────────────────
 
@@ -5406,36 +5342,20 @@ func _show_house_door_panel() -> void:
 	vbox.add_theme_constant_override("separation", int(vh * 0.015))
 	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "House For Sale"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.035))
-	vbox.add_child(title)
+	var title := _UiUtil.make_label("House For Sale", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var desc := Label.new()
-	desc.text = "Purchase this cozy home for %d coins.\nCurrent balance: %d coins." % [_HOUSE_PRICE, sm.coins]
-	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var desc := _UiUtil.make_label("Purchase this cozy home for %d coins.\nCurrent balance: %d coins." % [_HOUSE_PRICE, sm.coins], int(vh * 0.027), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.add_theme_font_size_override("font_size", int(vh * 0.027))
-	vbox.add_child(desc)
 
 	var hbox := HBoxContainer.new()
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	hbox.add_theme_constant_override("separation", int(vh * 0.02))
 	vbox.add_child(hbox)
 
-	var buy_btn := Button.new()
-	buy_btn.text = "Buy (%d coins)" % _HOUSE_PRICE
-	buy_btn.custom_minimum_size = Vector2(vh * 0.26, vh * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
+	var buy_btn := _UiUtil.make_button("Buy (%d coins)" % _HOUSE_PRICE, Vector2(vh * 0.26, vh * 0.065), int(vh * 0.027), Callable(), hbox)
 	buy_btn.disabled = sm.coins < _HOUSE_PRICE
-	hbox.add_child(buy_btn)
 
-	var cancel_btn := Button.new()
-	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.065)
-	cancel_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
-	hbox.add_child(cancel_btn)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(vh * 0.16, vh * 0.065), int(vh * 0.027), Callable(), hbox)
 
 	cancel_btn.pressed.connect(func() -> void: layer.queue_free())
 	buy_btn.pressed.connect(func() -> void:
@@ -5535,11 +5455,7 @@ func _show_stable_panel() -> void:
 	vbox.add_theme_constant_override("separation", int(vh * 0.015))
 	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Madrian Stables"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.035))
-	vbox.add_child(title)
+	var title := _UiUtil.make_label("Madrian Stables", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var mount: Dictionary = MountRegistry.get_mount("stable_horse")
 	var desc := Label.new()
@@ -5572,18 +5488,10 @@ func _show_stable_panel() -> void:
 	hbox.add_theme_constant_override("separation", int(vh * 0.02))
 	vbox.add_child(hbox)
 
-	var buy_btn := Button.new()
-	buy_btn.text = "Buy (%d coins)" % MOUNT_PRICE
-	buy_btn.custom_minimum_size = Vector2(vh * 0.28, vh * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
+	var buy_btn := _UiUtil.make_button("Buy (%d coins)" % MOUNT_PRICE, Vector2(vh * 0.28, vh * 0.065), int(vh * 0.027), Callable(), hbox)
 	buy_btn.disabled = not level_ok or not coins_ok
-	hbox.add_child(buy_btn)
 
-	var cancel_btn := Button.new()
-	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.065)
-	cancel_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
-	hbox.add_child(cancel_btn)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(vh * 0.16, vh * 0.065), int(vh * 0.027), Callable(), hbox)
 
 	cancel_btn.pressed.connect(func() -> void: layer.queue_free())
 	buy_btn.pressed.connect(func() -> void:
@@ -5719,11 +5627,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 	vbox.add_theme_constant_override("separation", int(vh * 0.012))
 	panel.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Garden Plot %d" % (int(plot.plot_idx) + 1)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.045))
-	vbox.add_child(title)
+	var title := _UiUtil.make_label("Garden Plot %d" % (int(plot.plot_idx) + 1), int(vh * 0.045), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var session_mode: bool = bool(plot.session_mode)
 	var plot_data: Dictionary = plot.get_plot_data()
@@ -5731,11 +5635,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 
 	if plot_data.is_empty():
 		# Empty plot — seed picker
-		var info := Label.new()
-		info.text = "Choose a seed to plant:"
-		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		info.add_theme_font_size_override("font_size", font_size)
-		vbox.add_child(info)
+		var info := _UiUtil.make_label("Choose a seed to plant:", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 		var has_any_seed: bool = false
 		for seed_id in GardenDefs.SEEDS:
@@ -5753,10 +5653,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			lbl.add_theme_font_size_override("font_size", font_size)
 			row.add_child(lbl)
-			var plant_btn := Button.new()
-			plant_btn.text = "Plant"
-			plant_btn.custom_minimum_size = Vector2(vh * 0.14, btn_h)
-			plant_btn.add_theme_font_size_override("font_size", font_size)
+			var plant_btn := _UiUtil.make_button("Plant", Vector2(vh * 0.14, btn_h), int(font_size))
 			plant_btn.disabled = false if session_mode else seed_count <= 0
 			var captured_seed_id: String = seed_id
 			var captured_sname: String = sname
@@ -5779,11 +5676,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 				has_any_seed = true
 
 		if not has_any_seed:
-			var hint := Label.new()
-			hint.text = "No seeds — buy some from a merchant."
-			hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			hint.add_theme_font_size_override("font_size", font_size)
-			vbox.add_child(hint)
+			var hint := _UiUtil.make_label("No seeds — buy some from a merchant.", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	elif stage < 3:
 		# Growing — show info
@@ -5794,12 +5687,8 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 		var planted_day: int = int(plot_data.get("planted_day", 0))
 		var current_days: int = _coop_current_days_elapsed() if session_mode else sm.days_elapsed
 		var days_left: int = max(0, planted_day + growth_days - current_days)
-		var info := Label.new()
-		info.text = "%s growing — ready in %d day(s)" % [sname, days_left]
-		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var info := _UiUtil.make_label("%s growing — ready in %d day(s)" % [sname, days_left], int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		info.add_theme_font_size_override("font_size", font_size)
-		vbox.add_child(info)
 
 	else:
 		# Mature — show harvest button
@@ -5808,16 +5697,9 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 		var sname: String = str(sdata.get("display_name", seed_id))
 		var plant_id: String = str(sdata.get("plant_id", ""))
 		var yield_count: int = int(sdata.get("yield", 1))
-		var info := Label.new()
-		info.text = "%s is ready to harvest!" % sname
-		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		info.add_theme_font_size_override("font_size", font_size)
-		vbox.add_child(info)
+		var info := _UiUtil.make_label("%s is ready to harvest!" % sname, int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-		var harvest_btn := Button.new()
-		harvest_btn.text = "Harvest (%d× %s)" % [yield_count, sname]
-		harvest_btn.custom_minimum_size = Vector2(0, btn_h)
-		harvest_btn.add_theme_font_size_override("font_size", font_size)
+		var harvest_btn := _UiUtil.make_button("Harvest (%d× %s)" % [yield_count, sname], Vector2(0, btn_h), int(font_size))
 		if session_mode:
 			harvest_btn.pressed.connect(func() -> void:
 				_submit_session_harvest(int(plot.plot_idx))
@@ -5834,12 +5716,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 			)
 		vbox.add_child(harvest_btn)
 
-	var cancel_btn := Button.new()
-	cancel_btn.text = "Close"
-	cancel_btn.custom_minimum_size = Vector2(0, btn_h)
-	cancel_btn.add_theme_font_size_override("font_size", font_size)
-	cancel_btn.pressed.connect(func() -> void: panel.queue_free())
-	vbox.add_child(cancel_btn)
+	var cancel_btn := _UiUtil.make_button("Close", Vector2(0, btn_h), int(font_size), func() -> void: panel.queue_free(), vbox)
 
 # ── Party Guildhall furnishings (GID-106 / TID-393) ──────────────────────────
 # Trophies, garden, and a stash chest, furnishing the otherwise-empty guildhall
@@ -6236,10 +6113,7 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 	vbox.add_child(row)
 
 	if gate_remaining == 0 and player_coins >= wager:
-		var duel_btn := Button.new()
-		duel_btn.text = "Duel!"
-		duel_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.07)
-		duel_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
+		var duel_btn := _UiUtil.make_button("Duel!", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.028))
 		duel_btn.pressed.connect(func() -> void:
 			layer.queue_free()
 			var enemy_deck: Array[String] = EnemyRegistry.get_deck(enemy_id)
@@ -6253,12 +6127,7 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 		)
 		row.add_child(duel_btn)
 
-	var decline_btn := Button.new()
-	decline_btn.text = "Decline"
-	decline_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.07)
-	decline_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
-	decline_btn.pressed.connect(func() -> void: layer.queue_free())
-	row.add_child(decline_btn)
+	var decline_btn := _UiUtil.make_button("Decline", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.028), func() -> void: layer.queue_free(), row)
 
 func _show_tip(text: String) -> void:
 	_world_hud.show_tip(text)
@@ -6695,12 +6564,9 @@ func _ensure_social_buttons() -> void:
 		# Built directly (not via register_action) since it needs a `.toggled`
 		# connection, not a simple `.pressed` callback — same reasoning as the
 		# Ranked toggle in _ensure_challenge_button().
-		_ping_btn = Button.new()
-		_ping_btn.text = "Ping"
+		_ping_btn = _UiUtil.make_button("Ping", Vector2(vh * 0.10, vh * 0.06), int(vh * 0.024))
 		_ping_btn.tooltip_text = "Toggle ping mode — tap the world to place a ping"
 		_ping_btn.toggle_mode = true
-		_ping_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.06)
-		_ping_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
 		_ping_btn.toggled.connect(func(on: bool) -> void: _ping_mode_active = on)
 		var social_zone: Container = _world_hud.get_zone_container(WorldHUD.ZONE_SOCIAL)
 		if social_zone != null:
@@ -6724,14 +6590,9 @@ func _ensure_social_buttons() -> void:
 	# (global to the session, same as Stash). Placed on the next row down since the
 	# Stash/Ghost-Duels row is already occupied at vh * 0.078.
 	if _auction_btn == null or not is_instance_valid(_auction_btn):
-		_auction_btn = Button.new()
-		_auction_btn.text = "Auction"
+		_auction_btn = _UiUtil.make_button("Auction", Vector2(vh * 0.16, vh * 0.055), int(vh * 0.020), _toggle_auction_overlay, _hud)
 		_auction_btn.tooltip_text = "Buy and sell cards asynchronously with the party"
-		_auction_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.055)
-		_auction_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
 		_auction_btn.position = Vector2(vp.x * 0.012, vh * 0.144)
-		_auction_btn.pressed.connect(_toggle_auction_overlay)
-		_hud.add_child(_auction_btn)
 		UiFx.attach(_auction_btn)
 
 
@@ -6847,10 +6708,7 @@ func _show_emote_wheel() -> void:
 	var emote_ids: Array[String] = _SocialSync.EMOTE_IDS
 	for eid: String in emote_ids:
 		var label: String = str(_SocialSync.EMOTE_LABELS.get(eid, eid))
-		var btn := Button.new()
-		btn.text = label
-		btn.custom_minimum_size = Vector2(vh * 0.14, vh * 0.055)
-		btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+		var btn := _UiUtil.make_button(label, Vector2(vh * 0.14, vh * 0.055), int(vh * 0.020))
 		var captured: String = eid
 		btn.pressed.connect(func() -> void:
 			if _emote_wheel_panel != null and is_instance_valid(_emote_wheel_panel):
@@ -7047,13 +6905,8 @@ func _ensure_chat_ui() -> void:
 		_chat_input.text_submitted.connect(func(_t: String) -> void: _submit_chat_input())
 		_hud.add_child(_chat_input)
 	if _chat_send_btn == null or not is_instance_valid(_chat_send_btn):
-		_chat_send_btn = Button.new()
-		_chat_send_btn.text = "Send"
-		_chat_send_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.05)
+		_chat_send_btn = _UiUtil.make_button("Send", Vector2(vh * 0.10, vh * 0.05), int(vh * 0.020), _submit_chat_input, _hud)
 		_chat_send_btn.position = Vector2(vp.x * 0.32, vh * 0.93)
-		_chat_send_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
-		_chat_send_btn.pressed.connect(_submit_chat_input)
-		_hud.add_child(_chat_send_btn)
 		UiFx.attach(_chat_send_btn)
 
 
@@ -7088,10 +6941,7 @@ func _show_chat_quick_panel() -> void:
 	panel.add_child(grid)
 	var presets: Array[String] = _ChatSync.QUICK_PRESETS
 	for preset: String in presets:
-		var btn := Button.new()
-		btn.text = preset
-		btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.055)
-		btn.add_theme_font_size_override("font_size", int(vh * 0.018))
+		var btn := _UiUtil.make_button(preset, Vector2(vh * 0.18, vh * 0.055), int(vh * 0.018))
 		var captured: String = preset
 		btn.pressed.connect(func() -> void:
 			if _chat_quick_panel != null and is_instance_valid(_chat_quick_panel):
@@ -7154,9 +7004,7 @@ func _append_chat_line(sender_name: String, color: Color, text: String) -> void:
 	if _chat_log_vbox == null or not is_instance_valid(_chat_log_vbox):
 		return
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var lbl := Label.new()
-	lbl.text = "[%s] %s: %s" % [Time.get_time_string_from_system().substr(0, 5), sender_name, text]
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.016))
+	var lbl := _UiUtil.make_label("[%s] %s: %s" % [Time.get_time_string_from_system().substr(0, 5), sender_name, text], int(vh * 0.016))
 	lbl.add_theme_color_override("font_color", color)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_chat_log_vbox.add_child(lbl)
@@ -7354,10 +7202,7 @@ func _show_trade_accept_panel(trade_id: String, offer: Dictionary) -> void:
 	row.add_theme_constant_override("separation", int(vh * 0.03))
 	vbox.add_child(row)
 	var captured_id: String = trade_id
-	var accept_btn := Button.new()
-	accept_btn.text = "Accept"
-	accept_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.06)
-	accept_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	var accept_btn := _UiUtil.make_button("Accept", Vector2(vh * 0.18, vh * 0.06), int(vh * 0.024))
 	accept_btn.pressed.connect(func() -> void:
 		layer.queue_free()
 		if NetworkManager.is_host():
@@ -7366,10 +7211,7 @@ func _show_trade_accept_panel(trade_id: String, offer: Dictionary) -> void:
 			_net_sync.rpc_id(1, "submit_trade_confirm", captured_id, true)
 	)
 	row.add_child(accept_btn)
-	var decline_btn := Button.new()
-	decline_btn.text = "Decline"
-	decline_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.06)
-	decline_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	var decline_btn := _UiUtil.make_button("Decline", Vector2(vh * 0.18, vh * 0.06), int(vh * 0.024))
 	decline_btn.pressed.connect(func() -> void:
 		layer.queue_free()
 		if NetworkManager.is_host():
@@ -7891,28 +7733,14 @@ func _show_wager_accept_panel(from_id: int, ante_coins: int) -> void:
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", int(vh * 0.025))
 	panel.add_child(vbox)
-	var lbl := Label.new()
-	lbl.text = "Wagered duel challenge!\nAnte: %d coins each. Accept?" % ante_coins
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.03))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var lbl := _UiUtil.make_label("Wagered duel challenge!\nAnte: %d coins each. Accept?" % ante_coins, int(vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(lbl)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(vh * 0.03))
 	vbox.add_child(row)
-	var accept_btn := Button.new()
-	accept_btn.text = "Accept (%d coins)" % ante_coins
-	accept_btn.custom_minimum_size = Vector2(vh * 0.26, vh * 0.07)
-	accept_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	accept_btn.pressed.connect(_accept_wager_challenge.bind(from_id, ante_coins))
-	row.add_child(accept_btn)
-	var decline_btn := Button.new()
-	decline_btn.text = "Decline"
-	decline_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.07)
-	decline_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	decline_btn.pressed.connect(_decline_wager_challenge.bind(from_id))
-	row.add_child(decline_btn)
+	var accept_btn := _UiUtil.make_button("Accept (%d coins)" % ante_coins, Vector2(vh * 0.26, vh * 0.07), int(vh * 0.024), _accept_wager_challenge.bind(from_id, ante_coins), row)
+	var decline_btn := _UiUtil.make_button("Decline", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.024), _decline_wager_challenge.bind(from_id), row)
 
 
 func _accept_wager_challenge(from_id: int, ante_coins: int) -> void:
@@ -8388,9 +8216,7 @@ func _refresh_party_bounty_panel() -> void:
 	for c in _party_bounty_panel.get_children():
 		c.queue_free()
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var title := Label.new()
-	title.text = "Party Bounties"
-	title.add_theme_font_size_override("font_size", int(vh * 0.020))
+	var title := _UiUtil.make_label("Party Bounties", int(vh * 0.020))
 	title.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
 	_party_bounty_panel.add_child(title)
 	if NetworkManager.is_host() and SessionStore.is_open():
@@ -8512,9 +8338,7 @@ func _on_party_bounties_snapshot_received(bounties: Array) -> void:
 	for c in _party_bounty_panel.get_children():
 		c.queue_free()
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var title := Label.new()
-	title.text = "Party Bounties"
-	title.add_theme_font_size_override("font_size", int(vh * 0.020))
+	var title := _UiUtil.make_label("Party Bounties", int(vh * 0.020))
 	title.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
 	_party_bounty_panel.add_child(title)
 	for b: Variant in bounties:
@@ -8626,31 +8450,16 @@ func _show_draft_accept_panel(from_id: int) -> void:
 	vbox.add_theme_constant_override("separation", int(vp.y * 0.025))
 	panel.add_child(vbox)
 
-	var lbl := Label.new()
-	lbl.text = "A player challenges you to a DRAFT DUEL!\nBoth of you draft %d cards from identical sealed packs." % _DraftDuelGen.NUM_ROUNDS
-	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.modulate = Color(0.6, 0.9, 1.0)
-	vbox.add_child(lbl)
+	var lbl := _UiUtil.make_label("A player challenges you to a DRAFT DUEL!\nBoth of you draft %d cards from identical sealed packs." % _DraftDuelGen.NUM_ROUNDS, int(vp.y * 0.026), Color(0.6, 0.9, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(vp.y * 0.03))
 	vbox.add_child(row)
 
-	var accept_btn := Button.new()
-	accept_btn.text = "Accept"
-	accept_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
-	accept_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	accept_btn.pressed.connect(_accept_draft_duel.bind(from_id))
-	row.add_child(accept_btn)
+	var accept_btn := _UiUtil.make_button("Accept", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026), _accept_draft_duel.bind(from_id), row)
 
-	var decline_btn := Button.new()
-	decline_btn.text = "Decline"
-	decline_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
-	decline_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	decline_btn.pressed.connect(_decline_draft_duel.bind(from_id))
-	row.add_child(decline_btn)
+	var decline_btn := _UiUtil.make_button("Decline", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026), _decline_draft_duel.bind(from_id), row)
 
 func _dismiss_draft_panel() -> void:
 	if _draft_accept_panel != null and is_instance_valid(_draft_accept_panel):
@@ -9101,9 +8910,7 @@ func _refresh_tournament_panel() -> void:
 	for c in _tournament_panel.get_children():
 		c.queue_free()
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var title := Label.new()
-	title.text = "Tournament — Pot: %d" % int(_tournament_bracket.get("pot", 0))
-	title.add_theme_font_size_override("font_size", int(vh * 0.020))
+	var title := _UiUtil.make_label("Tournament — Pot: %d" % int(_tournament_bracket.get("pot", 0)), int(vh * 0.020))
 	title.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
 	_tournament_panel.add_child(title)
 	var names: Array = _tournament_bracket.get("names", [])
@@ -9134,8 +8941,6 @@ func _refresh_tournament_panel() -> void:
 	if finished:
 		var wi: int = int(_tournament_bracket.get("winner_idx", -1))
 		if wi >= 0 and wi < names.size():
-			var win_lbl := Label.new()
-			win_lbl.text = "Winner: %s" % str(names[wi])
-			win_lbl.add_theme_font_size_override("font_size", int(vh * 0.018))
+			var win_lbl := _UiUtil.make_label("Winner: %s" % str(names[wi]), int(vh * 0.018))
 			win_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 			_tournament_panel.add_child(win_lbl)

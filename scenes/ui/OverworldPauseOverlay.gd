@@ -2,6 +2,7 @@ extends CanvasLayer
 
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal resumed
 signal quit_to_menu
@@ -52,45 +53,23 @@ func _build_ui() -> void:
 	vbox.add_theme_constant_override("separation", int(_vh * 0.025))
 	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Paused"
-	title.add_theme_font_size_override("font_size", int(_vh * 0.05))
+	var title := _UiUtil.make_label("Paused", int(_vh * 0.05))
 	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
-	var resume_btn := Button.new()
-	resume_btn.text = "Resume"
-	resume_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
-	resume_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	var resume_btn := _UiUtil.make_button("Resume", Vector2(_vh * 0.3, _vh * 0.07), int(_vh * 0.03), _on_resume, vbox)
 	resume_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	resume_btn.pressed.connect(_on_resume)
-	vbox.add_child(resume_btn)
 	resume_btn.grab_focus()
 
-	var settings_btn := Button.new()
-	settings_btn.text = "Settings"
-	settings_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
-	settings_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	var settings_btn := _UiUtil.make_button("Settings", Vector2(_vh * 0.3, _vh * 0.07), int(_vh * 0.03), _on_settings, vbox)
 	settings_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	settings_btn.pressed.connect(_on_settings)
-	vbox.add_child(settings_btn)
 
-	var diag_btn := Button.new()
-	diag_btn.text = "Diagnostics"
-	diag_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
-	diag_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	var diag_btn := _UiUtil.make_button("Diagnostics", Vector2(_vh * 0.3, _vh * 0.07), int(_vh * 0.03), _on_diagnostics, vbox)
 	diag_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	diag_btn.pressed.connect(_on_diagnostics)
-	vbox.add_child(diag_btn)
 
-	var save_quit_btn := Button.new()
-	save_quit_btn.text = "Save & Quit"
-	save_quit_btn.custom_minimum_size = Vector2(_vh * 0.3, _vh * 0.07)
-	save_quit_btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	var save_quit_btn := _UiUtil.make_button("Save & Quit", Vector2(_vh * 0.3, _vh * 0.07), int(_vh * 0.03), _on_save_quit, vbox)
 	save_quit_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	save_quit_btn.pressed.connect(_on_save_quit)
-	vbox.add_child(save_quit_btn)
 
 func _on_resume() -> void:
 	get_tree().paused = false

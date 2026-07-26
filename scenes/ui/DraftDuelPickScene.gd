@@ -14,6 +14,7 @@
 ##
 ## Mobile/desktop parity: every pick is a Button (touch + mouse); no keybinds.
 extends Control
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal draft_finished(deck: Array)
 
@@ -88,20 +89,10 @@ func _build_round_ui() -> void:
 	root_vbox.add_theme_constant_override("separation", int(_ref * 0.018))
 	margin.add_child(root_vbox)
 
-	var title := Label.new()
-	title.text = "Draft Duel — Pick %d of %d" % [_round_idx + 1, _rounds.size()]
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(_ref * 0.038))
-	title.modulate = Color(1.0, 0.88, 0.4)
-	root_vbox.add_child(title)
+	var title := _UiUtil.make_label("Draft Duel — Pick %d of %d" % [_round_idx + 1, _rounds.size()], int(_ref * 0.038), Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
-	var subtitle := Label.new()
-	subtitle.text = "Both players draft from the same sealed pool. Drafted cards last for this duel only."
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", int(_ref * 0.018))
-	subtitle.modulate = Color(0.75, 0.75, 0.75)
+	var subtitle := _UiUtil.make_label("Both players draft from the same sealed pool. Drafted cards last for this duel only.", int(_ref * 0.018), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	root_vbox.add_child(subtitle)
 
 	root_vbox.add_child(HSeparator.new())
 
@@ -173,17 +164,10 @@ func _make_card_panel(card_id: String) -> Control:
 	swatch.custom_minimum_size = Vector2(_ref * 0.035, _ref * 0.035)
 	name_row.add_child(swatch)
 
-	var name_lbl := Label.new()
-	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.026))
+	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, name_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_row.add_child(name_lbl)
 
-	var tier_lbl := Label.new()
-	tier_lbl.text = _tier_label(tier)
-	tier_lbl.modulate = tier_color
-	tier_lbl.add_theme_font_size_override("font_size", int(_ref * 0.02))
-	vbox.add_child(tier_lbl)
+	var tier_lbl := _UiUtil.make_label(_tier_label(tier), int(_ref * 0.02), tier_color, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 
 	var stats_lbl := Label.new()
 	if cls == "minion" or cls == "legendary":
@@ -195,25 +179,16 @@ func _make_card_panel(card_id: String) -> Control:
 	vbox.add_child(stats_lbl)
 
 	if desc != "":
-		var desc_lbl := Label.new()
-		desc_lbl.text = desc
-		desc_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
-		desc_lbl.modulate = Color(0.70, 0.70, 0.70)
+		var desc_lbl := _UiUtil.make_label(desc, int(_ref * 0.018), Color(0.70, 0.70, 0.70), HORIZONTAL_ALIGNMENT_LEFT, vbox)
 		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc_lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		vbox.add_child(desc_lbl)
 	else:
 		var spacer := Control.new()
 		spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		vbox.add_child(spacer)
 
-	var pick_btn := Button.new()
-	pick_btn.text = "Pick"
-	pick_btn.custom_minimum_size = Vector2(0.0, _ref * 0.055)
-	pick_btn.add_theme_font_size_override("font_size", int(_ref * 0.023))
+	var pick_btn := _UiUtil.make_button("Pick", Vector2(0.0, _ref * 0.055), int(_ref * 0.023), _on_pick.bind(card_id), vbox)
 	pick_btn.modulate = tier_color
-	pick_btn.pressed.connect(_on_pick.bind(card_id))
-	vbox.add_child(pick_btn)
 
 	return outer_panel
 
@@ -246,13 +221,9 @@ func _show_waiting() -> void:
 	panel.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
 	add_child(panel)
 	_content_root = panel
-	var lbl := Label.new()
-	lbl.text = "Deck drafted! Waiting for your opponent to finish…"
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var lbl := _UiUtil.make_label("Deck drafted! Waiting for your opponent to finish…", int(_ref * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, panel)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", int(_ref * 0.026))
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	panel.add_child(lbl)
 
 func _tier_color(tier: int) -> Color:
 	match tier:

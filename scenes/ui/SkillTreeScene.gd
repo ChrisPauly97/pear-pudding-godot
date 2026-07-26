@@ -2,6 +2,7 @@ extends "res://scenes/ui/BaseOverlay.gd"
 
 const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _points_label: Label
 var _skill_container: Control
@@ -52,19 +53,10 @@ func _build_magic_choice() -> void:
 		vbox = _build_margin_vbox(outer, 0.04, 0.025)
 		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var title := Label.new()
-	title.text = "Choose Your Path"
-	title.add_theme_font_size_override("font_size", int(_ref * 0.045))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
+	var title := _UiUtil.make_label("Choose Your Path", int(_ref * 0.045), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var sub := Label.new()
-	sub.text = "This choice is permanent. Your skill trees will be drawn from the magic type you select."
-	sub.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	sub.modulate = Color(0.72, 0.72, 0.72)
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var sub := _UiUtil.make_label("This choice is permanent. Your skill trees will be drawn from the magic type you select.", int(_ref * 0.022), Color(0.72, 0.72, 0.72), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(sub)
 
 	var hbox := HBoxContainer.new()
 	hbox.add_theme_constant_override("separation", int(_vw * 0.05))
@@ -85,29 +77,14 @@ func _make_choice_column(header: String, header_color: Color, desc: String,
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", int(_ref * 0.014))
 
-	var lbl := Label.new()
-	lbl.text = header
-	lbl.add_theme_font_size_override("font_size", int(_ref * 0.034))
-	lbl.modulate = header_color
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(lbl)
+	var lbl := _UiUtil.make_label(header, int(_ref * 0.034), header_color, HORIZONTAL_ALIGNMENT_CENTER, col)
 
-	var desc_lbl := Label.new()
-	desc_lbl.text = desc
-	desc_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	desc_lbl.modulate = Color(0.8, 0.8, 0.8)
-	desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var desc_lbl := _UiUtil.make_label(desc, int(_ref * 0.022), Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, col)
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_lbl.custom_minimum_size = Vector2(_vw * 0.28, 0)
-	col.add_child(desc_lbl)
 
-	var btn := Button.new()
-	btn.text = btn_label
-	btn.custom_minimum_size = Vector2(_vw * 0.28, _ref * 0.07)
-	btn.add_theme_font_size_override("font_size", int(_ref * 0.024))
+	var btn := _UiUtil.make_button(btn_label, Vector2(_vw * 0.28, _ref * 0.07), int(_ref * 0.024), _on_magic_chosen.bind(choice), col)
 	btn.modulate = header_color
-	btn.pressed.connect(_on_magic_chosen.bind(choice))
-	col.add_child(btn)
 
 	return col
 
@@ -200,10 +177,7 @@ func _build_ui() -> void:
 	title_stack.add_theme_constant_override("separation", int(_ref * 0.004))
 	header.add_child(title_stack)
 
-	var title_lbl := Label.new()
-	title_lbl.text = "Skill Tree"
-	title_lbl.add_theme_font_size_override("font_size", int(_ref * 0.032))
-	title_stack.add_child(title_lbl)
+	var title_lbl := _UiUtil.make_label("Skill Tree", int(_ref * 0.032), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, title_stack)
 
 	_points_label = Label.new()
 	_points_label.add_theme_font_size_override("font_size", int(_ref * 0.018))
@@ -227,13 +201,8 @@ func _build_ui() -> void:
 	_tab_buttons.clear()
 	var tab_w: float = (_vw * 0.90 - _vw * 0.015 * 2) / 3.0
 	for i in 3:
-		var tb := Button.new()
-		tb.text = _tab_label(i)
-		tb.custom_minimum_size = Vector2(tab_w, _ref * 0.055)
-		tb.add_theme_font_size_override("font_size", int(_ref * 0.021))
+		var tb := _UiUtil.make_button(_tab_label(i), Vector2(tab_w, _ref * 0.055), int(_ref * 0.021), _set_tab.bind(i), tab_bar)
 		tb.modulate = _tab_color(i) if i == _active_tab else Color(0.5, 0.5, 0.5)
-		tb.pressed.connect(_set_tab.bind(i))
-		tab_bar.add_child(tb)
 		_tab_buttons.append(tb)
 
 	# ── Skill area ──
@@ -361,32 +330,17 @@ func _make_skill_node(sk: SkillData, w: float, h: float, is_cross: bool = false)
 	vbox.add_theme_constant_override("separation", int(_ref * 0.005))
 	inner.add_child(vbox)
 
-	var name_lbl := Label.new()
-	name_lbl.text = sk.display_name
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var name_lbl := _UiUtil.make_label(sk.display_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(name_lbl)
 
-	var type_lbl := Label.new()
-	type_lbl.text = sk.skill_type.capitalize()
-	type_lbl.add_theme_font_size_override("font_size", int(_ref * 0.016))
-	type_lbl.modulate = Color(0.7, 0.85, 1.0) if sk.skill_type == "active" else Color(0.85, 1.0, 0.7)
-	vbox.add_child(type_lbl)
+	var type_lbl := _UiUtil.make_label(sk.skill_type.capitalize(), int(_ref * 0.016), Color(0.7, 0.85, 1.0) if sk.skill_type == "active" else Color(0.85, 1.0, 0.7), HORIZONTAL_ALIGNMENT_LEFT, vbox)
 
-	var desc_lbl := Label.new()
-	desc_lbl.text = sk.description
-	desc_lbl.add_theme_font_size_override("font_size", int(_ref * 0.016))
-	desc_lbl.modulate = Color(0.8, 0.8, 0.8)
+	var desc_lbl := _UiUtil.make_label(sk.description, int(_ref * 0.016), Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(desc_lbl)
 
 	if is_unlocked:
-		var check_lbl := Label.new()
-		check_lbl.text = "Unlocked"
-		check_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
-		check_lbl.modulate = Color(0.3, 0.95, 0.4)
-		vbox.add_child(check_lbl)
+		var check_lbl := _UiUtil.make_label("Unlocked", int(_ref * 0.018), Color(0.3, 0.95, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	else:
 		var unlock_btn := Button.new()
 		unlock_btn.custom_minimum_size = Vector2(0, _ref * 0.045)

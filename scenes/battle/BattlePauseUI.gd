@@ -1,6 +1,7 @@
 extends RefCounted
 
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _parent: Node
 var _vh: float = 0.0
@@ -19,13 +20,8 @@ func setup(parent: Node, vh: float, float_layer: CanvasLayer,
 	_puzzle_mode_fn = puzzle_mode_fn
 
 func add_pause_button(side_panel: Control) -> void:
-	var pause_btn := Button.new()
-	pause_btn.text = "II"
-	pause_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
-	pause_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	var pause_btn := _UiUtil.make_button("II", Vector2(_vh * 0.055, _vh * 0.055), int(_vh * 0.022), toggle, side_panel)
 	pause_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	pause_btn.pressed.connect(toggle)
-	side_panel.add_child(pause_btn)
 	side_panel.move_child(pause_btn, 0)
 
 func is_paused() -> bool:
@@ -86,9 +82,7 @@ func show_pause() -> void:
 	vbox.add_theme_constant_override("separation", int(_vh * 0.025))
 	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Paused"
-	title.add_theme_font_size_override("font_size", int(_vh * 0.05))
+	var title := _UiUtil.make_label("Paused", int(_vh * 0.05))
 	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
@@ -96,37 +90,17 @@ func show_pause() -> void:
 	var btn_size: Vector2 = Vector2(_vh * 0.3, _vh * 0.07)
 	var btn_font: int = int(_vh * 0.03)
 
-	var resume_btn := Button.new()
-	resume_btn.text = "Resume"
-	resume_btn.custom_minimum_size = btn_size
-	resume_btn.add_theme_font_size_override("font_size", btn_font)
+	var resume_btn := _UiUtil.make_button("Resume", btn_size, int(btn_font), hide_pause, vbox)
 	resume_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	resume_btn.pressed.connect(hide_pause)
-	vbox.add_child(resume_btn)
 
-	var settings_btn := Button.new()
-	settings_btn.text = "Settings"
-	settings_btn.custom_minimum_size = btn_size
-	settings_btn.add_theme_font_size_override("font_size", btn_font)
+	var settings_btn := _UiUtil.make_button("Settings", btn_size, int(btn_font), open_settings, vbox)
 	settings_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	settings_btn.pressed.connect(open_settings)
-	vbox.add_child(settings_btn)
 
-	var flee_btn := Button.new()
-	flee_btn.text = "Flee Battle"
-	flee_btn.custom_minimum_size = btn_size
-	flee_btn.add_theme_font_size_override("font_size", btn_font)
+	var flee_btn := _UiUtil.make_button("Flee Battle", btn_size, int(btn_font), on_flee_pressed, vbox)
 	flee_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	flee_btn.pressed.connect(on_flee_pressed)
-	vbox.add_child(flee_btn)
 
-	var menu_btn := Button.new()
-	menu_btn.text = "Return to Menu"
-	menu_btn.custom_minimum_size = btn_size
-	menu_btn.add_theme_font_size_override("font_size", btn_font)
+	var menu_btn := _UiUtil.make_button("Return to Menu", btn_size, int(btn_font), confirm_return_to_menu, vbox)
 	menu_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	menu_btn.pressed.connect(confirm_return_to_menu)
-	vbox.add_child(menu_btn)
 
 func hide_pause() -> void:
 	if not _paused:
@@ -184,9 +158,7 @@ func confirm_return_to_menu() -> void:
 	vbox.add_theme_constant_override("separation", int(_vh * 0.022))
 	margin.add_child(vbox)
 
-	var lbl := Label.new()
-	lbl.text = "Return to menu?\nYour battle will be saved."
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	var lbl := _UiUtil.make_label("Return to menu?\nYour battle will be saved.", int(_vh * 0.026))
 	lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.85))
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -197,10 +169,7 @@ func confirm_return_to_menu() -> void:
 	row.add_theme_constant_override("separation", int(_vh * 0.03))
 	vbox.add_child(row)
 
-	var yes_btn := Button.new()
-	yes_btn.text = "Yes, leave"
-	yes_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.065)
-	yes_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	var yes_btn := _UiUtil.make_button("Yes, leave", Vector2(_vh * 0.18, _vh * 0.065), int(_vh * 0.026))
 	yes_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	yes_btn.pressed.connect(func() -> void:
 		var is_puzzle: bool = _puzzle_mode_fn.call() if _puzzle_mode_fn.is_valid() else false
@@ -212,10 +181,5 @@ func confirm_return_to_menu() -> void:
 	)
 	row.add_child(yes_btn)
 
-	var no_btn := Button.new()
-	no_btn.text = "Cancel"
-	no_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.065)
-	no_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	var no_btn := _UiUtil.make_button("Cancel", Vector2(_vh * 0.18, _vh * 0.065), int(_vh * 0.026), dialog.queue_free, row)
 	no_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	no_btn.pressed.connect(dialog.queue_free)
-	row.add_child(no_btn)

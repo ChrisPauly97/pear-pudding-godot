@@ -1,6 +1,7 @@
 ## Displays the active weather and its battle modifier in the BattleScene HUD.
 ## Shown at battle start if weather is active; hidden when weather is clear.
 extends Control
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const _MODIFIER_TEXTS: Dictionary = {
 	"rain":       "RAIN: Ghosts gain +1 HP on summon",
@@ -46,11 +47,8 @@ func setup(weather_id: String) -> void:
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_panel)
 
-	_label = Label.new()
-	_label.text = str(_MODIFIER_TEXTS.get(weather_id, weather_id))
-	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_label = _UiUtil.make_label(str(_MODIFIER_TEXTS.get(weather_id, weather_id)), int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_label.add_theme_font_size_override("font_size", int(vh * 0.022))
 	_label.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0))
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel.add_child(_label)

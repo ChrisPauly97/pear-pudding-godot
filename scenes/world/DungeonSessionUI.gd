@@ -1,4 +1,5 @@
 extends Node
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 # Manages dungeon-room overlay panels (rest sites, culling, random events)
 # and tracks hero HP across dungeon rooms within a single session.
@@ -46,39 +47,20 @@ func show_rest_site_panel(npc_data: Dictionary) -> void:
 	vbox.add_theme_constant_override("separation", int(vh * 0.015))
 	panel.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Rest Site"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.05))
-	vbox.add_child(title)
+	var title := _UiUtil.make_label("Rest Site", int(vh * 0.05), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var hp_label := Label.new()
-	hp_label.text = "Hero HP: %d / 30" % _dungeon_hero_hp
-	hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hp_label.add_theme_font_size_override("font_size", font_size)
-	vbox.add_child(hp_label)
+	var hp_label := _UiUtil.make_label("Hero HP: %d / 30" % _dungeon_hero_hp, int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var rest_btn := Button.new()
-	rest_btn.text = "Rest — Recover 8 HP"
-	rest_btn.custom_minimum_size = Vector2(0, btn_h)
-	rest_btn.add_theme_font_size_override("font_size", font_size)
+	var rest_btn := _UiUtil.make_button("Rest — Recover 8 HP", Vector2(0, btn_h), int(font_size))
 	rest_btn.disabled = _dungeon_hero_hp >= 30
 	if rest_btn.disabled:
 		rest_btn.tooltip_text = "Already at full health"
 	vbox.add_child(rest_btn)
 
-	var cull_btn := Button.new()
-	cull_btn.text = "Cull — Remove a card from deck"
-	cull_btn.custom_minimum_size = Vector2(0, btn_h)
-	cull_btn.add_theme_font_size_override("font_size", font_size)
+	var cull_btn := _UiUtil.make_button("Cull — Remove a card from deck", Vector2(0, btn_h), int(font_size), Callable(), vbox)
 	cull_btn.disabled = SceneManager.save_manager.player_deck.size() < 2
-	vbox.add_child(cull_btn)
 
-	var leave_btn := Button.new()
-	leave_btn.text = "Leave"
-	leave_btn.custom_minimum_size = Vector2(0, btn_h)
-	leave_btn.add_theme_font_size_override("font_size", font_size)
-	vbox.add_child(leave_btn)
+	var leave_btn := _UiUtil.make_button("Leave", Vector2(0, btn_h), int(font_size), Callable(), vbox)
 
 	rest_btn.pressed.connect(func() -> void:
 		_dungeon_hero_hp = mini(_dungeon_hero_hp + 8, 30)
@@ -110,12 +92,8 @@ func show_cull_panel() -> void:
 	vbox.add_theme_constant_override("separation", int(vh * 0.01))
 	panel.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Choose a card to remove from your deck:"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var title := _UiUtil.make_label("Choose a card to remove from your deck:", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	title.add_theme_font_size_override("font_size", font_size)
-	vbox.add_child(title)
 
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0, vh * 0.55)
@@ -133,12 +111,8 @@ func show_cull_panel() -> void:
 		var cid: String = deck_copy[ci]
 		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(cid)
 		var display_name: String = str(inst.get("template_id", cid)).capitalize().replace("_", " ") if not inst.is_empty() else cid.capitalize().replace("_", " ")
-		var btn := Button.new()
-		btn.text = display_name
-		btn.custom_minimum_size = Vector2(0, btn_h)
-		btn.add_theme_font_size_override("font_size", font_size)
+		var btn := _UiUtil.make_button(display_name, Vector2(0, btn_h), int(font_size), Callable(), card_list)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		card_list.add_child(btn)
 		btn.pressed.connect(func() -> void:
 			var new_deck: Array[String] = []
 			var removed_once: bool = false
@@ -152,11 +126,7 @@ func show_cull_panel() -> void:
 			_say("Removed %s from your deck." % display_name)
 		)
 
-	var cancel_btn := Button.new()
-	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(0, btn_h)
-	cancel_btn.add_theme_font_size_override("font_size", font_size)
-	vbox.add_child(cancel_btn)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(0, btn_h), int(font_size), Callable(), vbox)
 	cancel_btn.pressed.connect(func() -> void: panel.queue_free())
 
 # ── Random event panel ─────────────────────────────────────────────────────
@@ -200,11 +170,8 @@ func show_event_panel(npc_data: Dictionary) -> void:
 	vbox.add_theme_constant_override("separation", int(vh * 0.015))
 	panel.add_child(vbox)
 
-	var event_text := Label.new()
-	event_text.text = str(event.get("text", "Something happens."))
+	var event_text := _UiUtil.make_label(str(event.get("text", "Something happens.")), int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	event_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	event_text.add_theme_font_size_override("font_size", font_size)
-	vbox.add_child(event_text)
 
 	var choices: Array = event.get("choices", [])
 	for choice_idx in range(choices.size()):
@@ -212,11 +179,7 @@ func show_event_panel(npc_data: Dictionary) -> void:
 		if not (choice is Dictionary):
 			continue
 		var captured: Dictionary = choice
-		var btn := Button.new()
-		btn.text = str(captured.get("label", "Choose"))
-		btn.custom_minimum_size = Vector2(0, btn_h)
-		btn.add_theme_font_size_override("font_size", font_size)
-		vbox.add_child(btn)
+		var btn := _UiUtil.make_button(str(captured.get("label", "Choose")), Vector2(0, btn_h), int(font_size), Callable(), vbox)
 		btn.pressed.connect(func() -> void:
 			panel.queue_free()
 			SceneManager.save_manager.mark_dungeon_room_used(room_key)

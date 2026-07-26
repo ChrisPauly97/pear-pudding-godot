@@ -85,12 +85,7 @@ func _build_ui() -> void:
 	outer_vbox.add_child(btn_row)
 
 func _add_tab_button(parent: HBoxContainer, text: String, tab: int) -> void:
-	var btn := Button.new()
-	btn.text = text
-	btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.05)
-	btn.add_theme_font_size_override("font_size", int(_vh * 0.020))
-	btn.pressed.connect(func() -> void: _select_tab(tab))
-	parent.add_child(btn)
+	var btn := _UiUtil.make_button(text, Vector2(_vh * 0.16, _vh * 0.05), int(_vh * 0.020), func() -> void: _select_tab(tab), parent)
 	_tab_buttons.append(btn)
 
 func _select_tab(tab: int) -> void:
@@ -136,9 +131,7 @@ func _build_header() -> void:
 		_add_header_cell(_header_hbox, "Day", 0.22)
 
 func _add_header_cell(parent: HBoxContainer, text: String, width_frac: float) -> void:
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	var lbl := _UiUtil.make_label(text, int(_vh * 0.022))
 	lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
 	lbl.custom_minimum_size = Vector2(_vw * width_frac, 0)
 	parent.add_child(lbl)
@@ -184,11 +177,7 @@ func _render_rows() -> void:
 		c.queue_free()
 	var rows: Array = _current_rows()
 	if rows.is_empty():
-		var empty_lbl := Label.new()
-		empty_lbl.text = _empty_message_for_tab()
-		empty_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-		empty_lbl.modulate = Color(0.7, 0.7, 0.7)
-		_rows_vbox.add_child(empty_lbl)
+		var empty_lbl := _UiUtil.make_label(_empty_message_for_tab(), int(_vh * 0.022), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, _rows_vbox)
 		return
 	for i in range(rows.size()):
 		var row: Variant = rows[i]
@@ -200,46 +189,27 @@ func _add_row(rank: int, row: Dictionary) -> void:
 	hb.add_theme_constant_override("separation", int(_ref * 0.02))
 	_rows_vbox.add_child(hb)
 
-	var rank_lbl := Label.new()
-	rank_lbl.text = "#%d" % rank
-	rank_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	var rank_lbl := _UiUtil.make_label("#%d" % rank, int(_vh * 0.022))
 	rank_lbl.custom_minimum_size = Vector2(_vw * 0.08, 0)
 	if rank == 1:
 		rank_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	hb.add_child(rank_lbl)
 
-	var name_lbl := Label.new()
-	name_lbl.text = str(row.get("name", "Player"))
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	var name_lbl := _UiUtil.make_label(str(row.get("name", "Player")), int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.custom_minimum_size = Vector2(_vw * 0.40, 0)
-	hb.add_child(name_lbl)
 
 	if _active_tab == TAB_RANKED:
-		var rating_lbl := Label.new()
-		rating_lbl.text = str(int(row.get("rating", 1000)))
-		rating_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		var rating_lbl := _UiUtil.make_label(str(int(row.get("rating", 1000))), int(_vh * 0.022), Color(0.6, 1.0, 0.6), HORIZONTAL_ALIGNMENT_LEFT, hb)
 		rating_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
-		rating_lbl.modulate = Color(0.6, 1.0, 0.6)
-		hb.add_child(rating_lbl)
 
-		var wl_lbl := Label.new()
-		wl_lbl.text = "%d-%d" % [int(row.get("wins", 0)), int(row.get("losses", 0))]
-		wl_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		var wl_lbl := _UiUtil.make_label("%d-%d" % [int(row.get("wins", 0)), int(row.get("losses", 0))], int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 		wl_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
-		hb.add_child(wl_lbl)
 	else:
-		var value_lbl := Label.new()
-		value_lbl.text = str(int(row.get("value", 0)))
-		value_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		var value_lbl := _UiUtil.make_label(str(int(row.get("value", 0))), int(_vh * 0.022), Color(0.6, 1.0, 0.6), HORIZONTAL_ALIGNMENT_LEFT, hb)
 		value_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
-		value_lbl.modulate = Color(0.6, 1.0, 0.6)
-		hb.add_child(value_lbl)
 
-		var day_lbl := Label.new()
-		day_lbl.text = str(int(row.get("day", 0)))
-		day_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		var day_lbl := _UiUtil.make_label(str(int(row.get("day", 0))), int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 		day_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
-		hb.add_child(day_lbl)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_inside_tree():

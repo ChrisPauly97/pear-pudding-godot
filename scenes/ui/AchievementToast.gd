@@ -47,24 +47,13 @@ func _build_panel() -> void:
 	vbox.add_child(header_row)
 
 	var ts: float = _UiUtil.text_scale()
-	var icon_lbl := Label.new()
-	icon_lbl.text = "Achievement!"
-	icon_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020 * ts))
-	icon_lbl.modulate = Color(1.0, 0.85, 0.2)
-	header_row.add_child(icon_lbl)
+	var icon_lbl := _UiUtil.make_label("Achievement!", int(_vh * 0.020 * ts), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_LEFT, header_row)
 
-	_label_title = Label.new()
+	_label_title = _UiUtil.make_label("", int(_vh * 0.022 * ts), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	_label_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_label_title.add_theme_font_size_override("font_size", int(_vh * 0.022 * ts))
-	_label_title.text = ""
-	vbox.add_child(_label_title)
 
-	_label_desc = Label.new()
-	_label_desc.add_theme_font_size_override("font_size", int(_vh * 0.020 * ts))
-	_label_desc.modulate = Color(0.8, 0.8, 0.8)
+	_label_desc = _UiUtil.make_label("", int(_vh * 0.020 * ts), Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	_label_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_label_desc.text = ""
-	vbox.add_child(_label_desc)
 
 func show_text(title: String, desc: String) -> void:
 	_text_queue.append([title, desc])

@@ -4,6 +4,7 @@ const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
 const MultiplayerLobbyScene = preload("res://scenes/ui/MultiplayerLobbyScene.gd")
 const UiFx = preload("res://scenes/ui/UiFx.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _title: Label
 var _continue_btn: Button
@@ -12,9 +13,7 @@ var _buttons: Array[Button] = []
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
-	_title = Label.new()
-	_title.text = "Pear Pudding TCG"
-	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title = _UiUtil.make_label("Pear Pudding TCG", 0, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_title)
 
@@ -100,10 +99,8 @@ func _add_version_label() -> void:
 		return
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var ref: float = minf(vp.y, vp.x)
-	var ver_lbl := Label.new()
-	ver_lbl.text = "v" + version
+	var ver_lbl := _UiUtil.make_label("v" + version, int(ref * 0.022))
 	ver_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ver_lbl.add_theme_font_size_override("font_size", int(ref * 0.022))
 	ver_lbl.add_theme_color_override("font_color", Color(0.55, 0.55, 0.65))
 	ver_lbl.position = Vector2(ref * 0.015, vp.y - ref * 0.045)
 	add_child(ver_lbl)

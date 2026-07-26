@@ -250,11 +250,7 @@ func _on_pick_color(c: Color) -> void:
 
 
 func _make_button(text: String, cb: Callable) -> Button:
-	var btn := Button.new()
-	btn.text = text
-	btn.custom_minimum_size = Vector2(0.0, _vh * 0.075)
-	btn.add_theme_font_size_override("font_size", int(_vh * 0.03))
-	btn.pressed.connect(cb)
+	var btn := _UiUtil.make_button(text, Vector2(0.0, _vh * 0.075), int(_vh * 0.03), cb)
 	return btn
 
 

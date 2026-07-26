@@ -1,4 +1,5 @@
 extends "res://scenes/ui/BaseOverlay.gd"
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 ## Chapter-ending narration overlay (GID-108 / TID-405) — reuses the BaseOverlay
 ## dark-glass panel style. Shows `_pages` one at a time with a Next/Continue
@@ -28,12 +29,7 @@ func _ready() -> void:
 
 	var vbox := _build_margin_vbox(panel, 0.03, 0.025)
 
-	var title_lbl := Label.new()
-	title_lbl.text = _title
-	title_lbl.add_theme_font_size_override("font_size", int(_ref * 0.04))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_lbl.modulate = Color(1.0, 0.85, 0.4)
-	vbox.add_child(title_lbl)
+	var title_lbl := _UiUtil.make_label(_title, int(_ref * 0.04), Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var sep := HSeparator.new()
 	vbox.add_child(sep)

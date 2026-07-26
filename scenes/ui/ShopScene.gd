@@ -45,11 +45,7 @@ func _build_ui() -> void:
 	var root_vbox := _build_margin_vbox(outer, 0.015, 0.012)
 
 	# Title
-	_title_lbl = Label.new()
-	_title_lbl.text = _custom_title if _custom_title != "" else "Merchant's Wares"
-	_title_lbl.add_theme_font_size_override("font_size", int(_ref * 0.032))
-	_title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	root_vbox.add_child(_title_lbl)
+	_title_lbl = _UiUtil.make_label(_custom_title if _custom_title != "" else "Merchant's Wares", int(_ref * 0.032), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	# Coin display
 	_coin_label = Label.new()
@@ -72,11 +68,7 @@ func _build_ui() -> void:
 	scroll.add_child(_shop_list)
 
 	# Close button
-	var close_btn := Button.new()
-	close_btn.text = "Leave Shop"
-	close_btn.custom_minimum_size = Vector2(_vw * 0.12, _ref * 0.065)
-	close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	close_btn.pressed.connect(_on_close)
+	var close_btn := _UiUtil.make_button("Leave Shop", Vector2(_vw * 0.12, _ref * 0.065), int(_ref * 0.022), _on_close)
 	var btn_wrapper := CenterContainer.new()
 	btn_wrapper.add_child(close_btn)
 	root_vbox.add_child(btn_wrapper)
@@ -157,12 +149,7 @@ func _refresh() -> void:
 		any_weapon = true
 
 	if not any_weapon:
-		var none_lbl := Label.new()
-		none_lbl.text = "No weapons available."
-		none_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		none_lbl.modulate = Color(0.6, 0.6, 0.6)
-		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_shop_list.add_child(none_lbl)
+		var none_lbl := _UiUtil.make_label("No weapons available.", int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _shop_list)
 
 	# ---- Armor section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Armor —"))
@@ -201,33 +188,18 @@ func _add_equipment_section(slot: String, owned: Array[String], coins: int, disc
 		_shop_list.add_child(row)
 		any_item = true
 	if not any_item:
-		var none_lbl := Label.new()
-		none_lbl.text = "No %s available." % slot
-		none_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		none_lbl.modulate = Color(0.6, 0.6, 0.6)
-		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_shop_list.add_child(none_lbl)
+		var none_lbl := _UiUtil.make_label("No %s available." % slot, int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _shop_list)
 
 func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", int(_vw * 0.008))
 
-	var info_lbl := Label.new()
-	info_lbl.text = "%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)]
-	info_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var info_lbl := _UiUtil.make_label("%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info_lbl)
 
-	var price_lbl := Label.new()
-	price_lbl.text = "%d coins" % price
-	price_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
-	row.add_child(price_lbl)
+	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022), Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
 
-	var buy_btn := Button.new()
-	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022))
 	buy_btn.disabled = coins < price
 	# Scroll-safe (GID-120 / TID-454): never buy from a scroll gesture's release.
 	_UiUtil.bind_scroll_safe_press(buy_btn, _on_buy_equipment.bind(eid, weapon.slot, price), _shop_scroll)
@@ -244,10 +216,7 @@ func _make_card_rarity_selector() -> HBoxContainer:
 		var ess: int = int(cfg.get("craft_essence", 10))
 		var base: int = CARD_PRICE
 		var rarity_price: int = maxi(base, int(base * ess / 10))
-		var btn := Button.new()
-		btn.text = "%s  %dg" % [_UiUtil.rarity_badge(rarity), rarity_price]
-		btn.custom_minimum_size = Vector2(_ref * 0.16, _ref * 0.058)
-		btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		var btn := _UiUtil.make_button("%s  %dg" % [_UiUtil.rarity_badge(rarity), rarity_price], Vector2(_ref * 0.16, _ref * 0.058), int(_ref * 0.020))
 		if rarity == _shop_card_rarity:
 			btn.modulate = _UiUtil.rarity_color(rarity)
 		else:
@@ -259,11 +228,7 @@ func _make_card_rarity_selector() -> HBoxContainer:
 	return row
 
 func _make_section_header(text: String) -> Label:
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.modulate = Color(0.75, 0.85, 1.0)
+	var lbl := _UiUtil.make_label(text, int(_ref * 0.022), Color(0.75, 0.85, 1.0), HORIZONTAL_ALIGNMENT_CENTER)
 	return lbl
 
 func _weapon_price(weapon: WeaponData) -> int:
@@ -295,35 +260,21 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 	var cost: int = tmpl.get("cost", 0)
 	var atk: int  = tmpl.get("attack", 0)
 	var hp: int   = tmpl.get("health", 0)
-	var info_lbl := Label.new()
-	info_lbl.text = "%s   cost %d  %d/%d" % [name_str, cost, atk, hp]
-	info_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var info_lbl := _UiUtil.make_label("%s   cost %d  %d/%d" % [name_str, cost, atk, hp], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info_lbl)
 
 	# Owned count
 	var owned_count: int = 0
 	for inst: Dictionary in SceneManager.save_manager.owned_cards:
 		if str(inst.get("template_id", "")) == id:
 			owned_count += 1
-	var own_lbl := Label.new()
-	own_lbl.text = "own: %d" % owned_count
-	own_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
-	own_lbl.modulate = Color(0.65, 0.65, 0.65)
-	row.add_child(own_lbl)
+	var own_lbl := _UiUtil.make_label("own: %d" % owned_count, int(_ref * 0.020), Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_LEFT, row)
 
 	# Price label
-	var price_lbl := Label.new()
-	price_lbl.text = "%d coins" % price
-	price_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
-	row.add_child(price_lbl)
+	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022), Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
 
 	# Buy button
-	var buy_btn := Button.new()
-	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022))
 	buy_btn.disabled = coins < price
 	# Scroll-safe (GID-120 / TID-454): never buy from a scroll gesture's release.
 	_UiUtil.bind_scroll_safe_press(buy_btn, _on_buy_card.bind(id, price), _shop_scroll)
@@ -340,27 +291,15 @@ func _make_weapon_row(wid: String, weapon: WeaponData, price: int, coins: int) -
 	row.add_theme_constant_override("separation", int(_vw * 0.008))
 
 	# Name + effect
-	var info_lbl := Label.new()
-	info_lbl.text = "%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)]
-	info_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var info_lbl := _UiUtil.make_label("%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info_lbl)
 
 	# Price label
-	var price_lbl := Label.new()
-	price_lbl.text = "%d coins" % price
-	price_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
-	row.add_child(price_lbl)
+	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022), Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
 
 	# Buy button
-	var buy_btn := Button.new()
-	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022), _on_buy_weapon.bind(wid, price), row)
 	buy_btn.disabled = coins < price
-	buy_btn.pressed.connect(_on_buy_weapon.bind(wid, price))
-	row.add_child(buy_btn)
 
 	return row
 
@@ -416,25 +355,13 @@ func _make_pack_row(pack_id: String, pack_def: Dictionary, coins: int) -> VBoxCo
 	var pack_name: String = str(pack_def.get("name", pack_id))
 	var price: int = int(pack_def.get("price", 0))
 
-	var info_lbl := Label.new()
-	info_lbl.text = "%s  — 3 cards" % pack_name
-	info_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var info_lbl := _UiUtil.make_label("%s  — 3 cards" % pack_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info_lbl)
 
-	var price_lbl := Label.new()
-	price_lbl.text = "%d coins" % price
-	price_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3)
-	row.add_child(price_lbl)
+	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022), Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
 
-	var buy_btn := Button.new()
-	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022), _on_buy_pack.bind(pack_id, price), row)
 	buy_btn.disabled = coins < price
-	buy_btn.pressed.connect(_on_buy_pack.bind(pack_id, price))
-	row.add_child(buy_btn)
 
 	outer.add_child(row)
 
@@ -472,25 +399,13 @@ func _make_seed_row(seed_id: String, seed_data: Dictionary, coins: int) -> HBoxC
 	var sm := SceneManager.save_manager
 	var owned_count: int = int(sm.seeds.get(seed_id, 0))
 
-	var info_lbl := Label.new()
-	info_lbl.text = "%s  —  own: %d" % [str(seed_data.get("display_name", seed_id)), owned_count]
-	info_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var info_lbl := _UiUtil.make_label("%s  —  own: %d" % [str(seed_data.get("display_name", seed_id)), owned_count], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info_lbl)
 
-	var price_lbl := Label.new()
-	price_lbl.text = "%d coins" % SEED_PRICE
-	price_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	price_lbl.modulate = Color(1.0, 0.85, 0.1) if coins >= SEED_PRICE else Color(0.9, 0.3, 0.3)
-	row.add_child(price_lbl)
+	var price_lbl := _UiUtil.make_label("%d coins" % SEED_PRICE, int(_ref * 0.022), Color(1.0, 0.85, 0.1) if coins >= SEED_PRICE else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
 
-	var buy_btn := Button.new()
-	buy_btn.text = "Buy"
-	buy_btn.custom_minimum_size = Vector2(_vw * 0.08, _ref * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022), _on_buy_seed.bind(seed_id), row)
 	buy_btn.disabled = coins < SEED_PRICE
-	buy_btn.pressed.connect(_on_buy_seed.bind(seed_id))
-	row.add_child(buy_btn)
 
 	return row
 

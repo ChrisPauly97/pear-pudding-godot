@@ -82,19 +82,9 @@ func _build_ui() -> void:
 	tab_bar.add_theme_constant_override("separation", int(_vw * 0.008))
 	wrapper.add_child(tab_bar)
 
-	_tab_cards_btn = Button.new()
-	_tab_cards_btn.text = "Cards"
-	_tab_cards_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-	_tab_cards_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	_tab_cards_btn.pressed.connect(_on_tab_cards)
-	tab_bar.add_child(_tab_cards_btn)
+	_tab_cards_btn = _UiUtil.make_button("Cards", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_tab_cards, tab_bar)
 
-	_tab_craft_btn = Button.new()
-	_tab_craft_btn.text = "Craft"
-	_tab_craft_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-	_tab_craft_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	_tab_craft_btn.pressed.connect(_on_tab_craft)
-	tab_bar.add_child(_tab_craft_btn)
+	_tab_craft_btn = _UiUtil.make_button("Craft", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_tab_craft, tab_bar)
 
 	var scroll_min_h: float = _ref * 0.25 if is_portrait else 0.0
 
@@ -122,11 +112,7 @@ func _build_ui() -> void:
 		left_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_box.add_child(left_vbox)
 
-	var col_title := Label.new()
-	col_title.text = "Collection"
-	col_title.add_theme_font_size_override("font_size", int(_ref * 0.026))
-	col_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	left_vbox.add_child(col_title)
+	var col_title := _UiUtil.make_label("Collection", int(_ref * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
 
 	_slot_label = Label.new()
 	_slot_label.add_theme_font_size_override("font_size", int(_ref * 0.020))
@@ -186,39 +172,19 @@ func _build_ui() -> void:
 	_loadout_action_row.add_theme_constant_override("separation", int(_ref * 0.006))
 	right_vbox.add_child(_loadout_action_row)
 
-	_rename_btn = Button.new()
-	_rename_btn.text = "Rename"
-	_rename_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.055)
-	_rename_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
-	_rename_btn.pressed.connect(_on_rename_loadout)
-	_loadout_action_row.add_child(_rename_btn)
+	_rename_btn = _UiUtil.make_button("Rename", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020), _on_rename_loadout, _loadout_action_row)
 
-	_dup_btn = Button.new()
-	_dup_btn.text = "Copy"
-	_dup_btn.custom_minimum_size = Vector2(_ref * 0.10, _ref * 0.055)
-	_dup_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
-	_dup_btn.pressed.connect(_on_dup_loadout)
-	_loadout_action_row.add_child(_dup_btn)
+	_dup_btn = _UiUtil.make_button("Copy", Vector2(_ref * 0.10, _ref * 0.055), int(_ref * 0.020), _on_dup_loadout, _loadout_action_row)
 
-	_del_btn = Button.new()
-	_del_btn.text = "Delete"
-	_del_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.055)
-	_del_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+	_del_btn = _UiUtil.make_button("Delete", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020), _on_del_loadout, _loadout_action_row)
 	_del_btn.modulate = Color(1.0, 0.4, 0.4)
-	_del_btn.pressed.connect(_on_del_loadout)
-	_loadout_action_row.add_child(_del_btn)
 
 	_deck_count_label = Label.new()
 	_deck_count_label.add_theme_font_size_override("font_size", int(_ref * 0.026))
 	_deck_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	right_vbox.add_child(_deck_count_label)
 
-	var autofill_btn := Button.new()
-	autofill_btn.text = "Auto-Fill"
-	autofill_btn.custom_minimum_size = Vector2(_ref * 0.18, _ref * 0.055)
-	autofill_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
-	autofill_btn.pressed.connect(_on_auto_fill)
-	right_vbox.add_child(autofill_btn)
+	var autofill_btn := _UiUtil.make_button("Auto-Fill", Vector2(_ref * 0.18, _ref * 0.055), int(_ref * 0.020), _on_auto_fill, right_vbox)
 
 	_deck_scroll = ScrollContainer.new()
 	var right_scroll: ScrollContainer = _deck_scroll
@@ -240,40 +206,20 @@ func _build_ui() -> void:
 		btn_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 		root_box.add_child(btn_hbox)
 
-		var save_btn := Button.new()
-		save_btn.text = "Save Deck"
-		save_btn.custom_minimum_size = Vector2(_vw * 0.35, _ref * 0.065)
-		save_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		save_btn.pressed.connect(_on_save)
-		btn_hbox.add_child(save_btn)
+		var save_btn := _UiUtil.make_button("Save Deck", Vector2(_vw * 0.35, _ref * 0.065), int(_ref * 0.022), _on_save, btn_hbox)
 
 		if not hub_mode:
-			var close_btn := Button.new()
-			close_btn.text = "Close"
-			close_btn.custom_minimum_size = Vector2(_vw * 0.35, _ref * 0.065)
-			close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-			close_btn.pressed.connect(_on_close)
-			btn_hbox.add_child(close_btn)
+			var close_btn := _UiUtil.make_button("Close", Vector2(_vw * 0.35, _ref * 0.065), int(_ref * 0.022), _on_close, btn_hbox)
 	else:
 		var btn_vbox := VBoxContainer.new()
 		btn_vbox.add_theme_constant_override("separation", int(_ref * 0.012))
 		btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 		root_box.add_child(btn_vbox)
 
-		var save_btn := Button.new()
-		save_btn.text = "Save Deck"
-		save_btn.custom_minimum_size = Vector2(_vw * 0.1, _ref * 0.065)
-		save_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		save_btn.pressed.connect(_on_save)
-		btn_vbox.add_child(save_btn)
+		var save_btn := _UiUtil.make_button("Save Deck", Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_save, btn_vbox)
 
 		if not hub_mode:
-			var close_btn := Button.new()
-			close_btn.text = "Close  [I]" if not OS.has_feature("android") else "Close"
-			close_btn.custom_minimum_size = Vector2(_vw * 0.1, _ref * 0.065)
-			close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-			close_btn.pressed.connect(_on_close)
-			btn_vbox.add_child(close_btn)
+			var close_btn := _UiUtil.make_button("Close  [I]" if not OS.has_feature("android") else "Close", Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_close, btn_vbox)
 
 	# ====================================================================
 	# CRAFT PANEL
@@ -307,12 +253,7 @@ func _build_ui() -> void:
 	craft_scroll.add_child(_craft_list)
 
 	if not hub_mode:
-		var craft_close_btn := Button.new()
-		craft_close_btn.text = "Close  [I]" if not OS.has_feature("android") else "Close"
-		craft_close_btn.custom_minimum_size = Vector2(_vw * 0.1, _ref * 0.065)
-		craft_close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		craft_close_btn.pressed.connect(_on_close)
-		craft_box.add_child(craft_close_btn)
+		var craft_close_btn := _UiUtil.make_button("Close  [I]" if not OS.has_feature("android") else "Close", Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_close, craft_box)
 
 # -------------------------------------------------------------------------
 # Refresh
@@ -333,11 +274,8 @@ func _rebuild_loadout_bar() -> void:
 	var at_cap: bool = names.size() >= sm.MAX_LOADOUTS
 
 	for i in range(names.size()):
-		var tab_btn := Button.new()
-		tab_btn.text = names[i]
+		var tab_btn := _UiUtil.make_button(names[i], Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020))
 		tab_btn.flat = true
-		tab_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.055)
-		tab_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
 		var is_valid: bool
 		if i == active_idx:
 			is_valid = _working_deck.size() >= IsoConst.DECK_MIN and _working_deck.size() <= IsoConst.DECK_MAX
@@ -350,13 +288,8 @@ func _rebuild_loadout_bar() -> void:
 		tab_btn.pressed.connect(_on_loadout_tab.bind(i))
 		_loadout_tab_row.add_child(tab_btn)
 
-	var new_btn := Button.new()
-	new_btn.text = "+"
-	new_btn.custom_minimum_size = Vector2(_ref * 0.055, _ref * 0.055)
-	new_btn.add_theme_font_size_override("font_size", int(_ref * 0.025))
+	var new_btn := _UiUtil.make_button("+", Vector2(_ref * 0.055, _ref * 0.055), int(_ref * 0.025), _on_new_loadout, _loadout_tab_row)
 	new_btn.disabled = at_cap
-	new_btn.pressed.connect(_on_new_loadout)
-	_loadout_tab_row.add_child(new_btn)
 
 	_del_btn.disabled = names.size() <= 1
 	_dup_btn.disabled = at_cap
@@ -421,12 +354,7 @@ func _refresh_cards() -> void:
 		for inst: Dictionary in avail:
 			grid.add_child(_make_card_tile(inst, false))
 	else:
-		var empty_lbl := Label.new()
-		empty_lbl.text = "No spare cards"
-		empty_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
-		empty_lbl.modulate = Color(0.6, 0.6, 0.6)
-		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_collection_list.add_child(empty_lbl)
+		var empty_lbl := _UiUtil.make_label("No spare cards", int(_ref * 0.020), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _collection_list)
 
 	# ---- Deck list ----
 	if not deck_insts.is_empty():
@@ -469,13 +397,9 @@ func _build_filter_buttons(row: HBoxContainer) -> void:
 		var lbl_text: String = str(spec[0])
 		var kind: String = str(spec[1])
 		var val: String = str(spec[2])
-		var btn := Button.new()
-		btn.text = lbl_text
-		btn.custom_minimum_size = Vector2(0.0, btn_h)
-		btn.add_theme_font_size_override("font_size", btn_fs)
+		var btn := _UiUtil.make_button(lbl_text, Vector2(0.0, btn_h), int(btn_fs), Callable(), row)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.pressed.connect(_on_filter_btn.bind(kind, val, btn))
-		row.add_child(btn)
 		_filter_btns.append(btn)
 	_update_filter_visuals()
 
@@ -551,11 +475,7 @@ func _stat_range_text(rolled: int, base: int, rarity: String) -> String:
 	return "%d (%d–%d)" % [disp, min_val, max_val]
 
 func _make_section_label(text: String) -> Label:
-	var lbl := Label.new()
-	lbl.text = "— %s —" % text
-	lbl.add_theme_font_size_override("font_size", int(_ref * 0.019))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.modulate = Color(0.60, 0.72, 0.92)
+	var lbl := _UiUtil.make_label("— %s —" % text, int(_ref * 0.019), Color(0.60, 0.72, 0.92), HORIZONTAL_ALIGNMENT_CENTER)
 	return lbl
 
 # Diablo-3-style cube: one tile per owned instance. Hover (desktop) or
@@ -588,19 +508,13 @@ func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 	cube.add_theme_stylebox_override("pressed", sb)
 	cube.add_theme_stylebox_override("focus", sb)
 
-	var badge_lbl := Label.new()
-	badge_lbl.text = _UiUtil.rarity_badge(rarity)
-	badge_lbl.add_theme_font_size_override("font_size", int(_ref * 0.016))
-	badge_lbl.modulate = _UiUtil.rarity_color(rarity)
+	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.016), _UiUtil.rarity_color(rarity))
 	badge_lbl.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	badge_lbl.position = Vector2(_ref * 0.006, _ref * 0.004)
 	cube.add_child(badge_lbl)
 
 	if rank > 0:
-		var chev_lbl := Label.new()
-		chev_lbl.text = VeterancyUtil.rank_chevrons(rank)
-		chev_lbl.add_theme_font_size_override("font_size", int(_ref * 0.014))
-		chev_lbl.modulate = Color(1.0, 0.82, 0.2)
+		var chev_lbl := _UiUtil.make_label(VeterancyUtil.rank_chevrons(rank), int(_ref * 0.014), Color(1.0, 0.82, 0.2))
 		chev_lbl.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 		chev_lbl.position = Vector2(tile_size - _ref * 0.03, tile_size - _ref * 0.022)
 		cube.add_child(chev_lbl)
@@ -673,23 +587,12 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	title_row.add_theme_constant_override("separation", int(_ref * 0.006))
 	vb.add_child(title_row)
 
-	var name_lbl := Label.new()
-	name_lbl.text = disp_name + (" ◑" if is_dual else "")
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
+	var name_lbl := _UiUtil.make_label(disp_name + (" ◑" if is_dual else ""), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, title_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_row.add_child(name_lbl)
 
-	var badge_lbl := Label.new()
-	badge_lbl.text = _UiUtil.rarity_badge(rarity)
-	badge_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	badge_lbl.modulate = _UiUtil.rarity_color(rarity)
-	title_row.add_child(badge_lbl)
+	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity), HORIZONTAL_ALIGNMENT_LEFT, title_row)
 
-	var stats_lbl := Label.new()
-	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp]
-	stats_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	stats_lbl.modulate = _UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55)
-	vb.add_child(stats_lbl)
+	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp], int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55), HORIZONTAL_ALIGNMENT_LEFT, vb)
 
 	var is_unique: bool = bool(tmpl.get("is_unique", false))
 	if not is_unique:
@@ -701,10 +604,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 		action_row.add_theme_constant_override("separation", int(_ref * 0.006))
 		vb.add_child(action_row)
 
-		var sell_btn := Button.new()
-		sell_btn.text = "Sell +%dg" % sell_gold
-		sell_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.06)
-		sell_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		var sell_btn := _UiUtil.make_button("Sell +%dg" % sell_gold, Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020))
 		sell_btn.modulate = Color(1.0, 0.9, 0.3)
 		sell_btn.pressed.connect(func() -> void:
 			SceneManager.save_manager.sell_card_instance(uid)
@@ -712,10 +612,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 			_refresh_cards())
 		action_row.add_child(sell_btn)
 
-		var scrap_btn := Button.new()
-		scrap_btn.text = "Scrap +%de" % scrap_ess
-		scrap_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.06)
-		scrap_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		var scrap_btn := _UiUtil.make_button("Scrap +%de" % scrap_ess, Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020))
 		scrap_btn.modulate = Color(0.5, 0.85, 1.0)
 		scrap_btn.pressed.connect(func() -> void:
 			SceneManager.save_manager.scrap_card_instance(uid)
@@ -733,10 +630,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 			var next_idx: int = IsoConst.RARITY_ORDER.find("common") + 1
 			if next_idx < IsoConst.RARITY_ORDER.size():
 				var next_rarity: String = IsoConst.RARITY_ORDER[next_idx]
-				var combine_btn := Button.new()
-				combine_btn.text = "Combine 3× → %s" % _UiUtil.rarity_badge(next_rarity)
-				combine_btn.custom_minimum_size = Vector2(_ref * 0.22, _ref * 0.06)
-				combine_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+				var combine_btn := _UiUtil.make_button("Combine 3× → %s" % _UiUtil.rarity_badge(next_rarity), Vector2(_ref * 0.22, _ref * 0.06), int(_ref * 0.020))
 				combine_btn.modulate = _UiUtil.rarity_color(next_rarity)
 				combine_btn.disabled = avail_count < 3
 				combine_btn.pressed.connect(func() -> void:
@@ -758,10 +652,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 		rename_edit.add_theme_font_size_override("font_size", int(_ref * 0.020))
 		rename_row.add_child(rename_edit)
 
-		var rename_btn := Button.new()
-		rename_btn.text = "Rename"
-		rename_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.06)
-		rename_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		var rename_btn := _UiUtil.make_button("Rename", Vector2(_ref * 0.12, _ref * 0.06), int(_ref * 0.020))
 		rename_btn.pressed.connect(func() -> void:
 			SceneManager.save_manager.set_card_custom_name(uid, rename_edit.text)
 			_hide_instance_detail()
@@ -801,36 +692,20 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 	swatch.custom_minimum_size = Vector2(_ref * 0.03, _ref * 0.03)
 	top_row.add_child(swatch)
 
-	var name_lbl := Label.new()
-	name_lbl.text = disp_name
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var name_lbl := _UiUtil.make_label(disp_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, top_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_row.add_child(name_lbl)
 
 	if rank > 0:
-		var chev_lbl := Label.new()
-		chev_lbl.text = VeterancyUtil.rank_chevrons(rank)
-		chev_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
-		chev_lbl.modulate = Color(1.0, 0.82, 0.2)
-		top_row.add_child(chev_lbl)
+		var chev_lbl := _UiUtil.make_label(VeterancyUtil.rank_chevrons(rank), int(_ref * 0.018), Color(1.0, 0.82, 0.2), HORIZONTAL_ALIGNMENT_LEFT, top_row)
 	if is_dual:
-		var dual_badge := Label.new()
-		dual_badge.text = "◑"
-		dual_badge.add_theme_font_size_override("font_size", int(_ref * 0.022))
+		var dual_badge := _UiUtil.make_label("◑", int(_ref * 0.022))
 		dual_badge.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 		dual_badge.tooltip_text = "Dual-faced card"
 		top_row.add_child(dual_badge)
 
-	var badge_lbl := Label.new()
-	badge_lbl.text = _UiUtil.rarity_badge(rarity)
-	badge_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	badge_lbl.modulate = _UiUtil.rarity_color(rarity)
-	top_row.add_child(badge_lbl)
+	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity), HORIZONTAL_ALIGNMENT_LEFT, top_row)
 
-	var rm_btn := Button.new()
-	rm_btn.text = "−"
-	rm_btn.custom_minimum_size = Vector2(_ref * 0.065, _ref * 0.065)
-	rm_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var rm_btn := _UiUtil.make_button("−", Vector2(_ref * 0.065, _ref * 0.065), int(_ref * 0.022))
 	if _working_deck.size() <= IsoConst.DECK_MIN:
 		if OS.has_feature("android"):
 			rm_btn.modulate = Color(1, 1, 1, 0.4)
@@ -843,11 +718,7 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 		rm_btn.pressed.connect(_on_remove_by_uid.bind(uid))
 	top_row.add_child(rm_btn)
 
-	var stats_lbl := Label.new()
-	stats_lbl.text = "Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp]
-	stats_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	stats_lbl.modulate = _UiUtil.rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55)
-	vbox.add_child(stats_lbl)
+	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp], int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55), HORIZONTAL_ALIGNMENT_LEFT, vbox)
 
 	var lpd := LongPressDetector.new()
 	vbox.add_child(lpd)
@@ -875,33 +746,16 @@ func _make_craft_row(recipe: Object, player_essence: int) -> HBoxContainer:
 	swatch.custom_minimum_size = Vector2(_ref * 0.028, _ref * 0.028)
 	row.add_child(swatch)
 
-	var name_lbl := Label.new()
-	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(name_lbl)
 
-	var badge_lbl := Label.new()
-	badge_lbl.text = _UiUtil.rarity_badge(rarity)
-	badge_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	badge_lbl.modulate = _UiUtil.rarity_color(rarity)
-	row.add_child(badge_lbl)
+	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity), HORIZONTAL_ALIGNMENT_LEFT, row)
 
-	var cost_lbl := Label.new()
-	cost_lbl.text = "%de" % cost
-	cost_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	cost_lbl.modulate = Color(0.5, 0.85, 1.0)
+	var cost_lbl := _UiUtil.make_label("%de" % cost, int(_ref * 0.022), Color(0.5, 0.85, 1.0), HORIZONTAL_ALIGNMENT_RIGHT, row)
 	cost_lbl.custom_minimum_size = Vector2(_ref * 0.06, 0)
-	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(cost_lbl)
 
-	var craft_btn := Button.new()
-	craft_btn.text = "Craft"
-	craft_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.065)
-	craft_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var craft_btn := _UiUtil.make_button("Craft", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022), _do_craft.bind(tid, rarity, cost), row)
 	craft_btn.disabled = player_essence < cost
-	craft_btn.pressed.connect(_do_craft.bind(tid, rarity, cost))
-	row.add_child(craft_btn)
 
 	return row
 
@@ -934,28 +788,15 @@ func _make_potion_craft_row(potion_id: String, recipe_data: Dictionary, player_e
 		if owned < required:
 			can_afford_ingredients = false
 
-	var info_lbl := Label.new()
-	info_lbl.text = "%s  (%s)" % [display_name, ", ".join(parts)]
-	info_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var info_lbl := _UiUtil.make_label("%s  (%s)" % [display_name, ", ".join(parts)], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(info_lbl)
 
-	var cost_lbl := Label.new()
-	cost_lbl.text = "%de" % essence_cost
-	cost_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	cost_lbl.modulate = Color(0.5, 0.85, 1.0)
+	var cost_lbl := _UiUtil.make_label("%de" % essence_cost, int(_ref * 0.022), Color(0.5, 0.85, 1.0), HORIZONTAL_ALIGNMENT_RIGHT, row)
 	cost_lbl.custom_minimum_size = Vector2(_ref * 0.06, 0)
-	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(cost_lbl)
 
 	var can_craft: bool = can_afford_ingredients and player_essence >= essence_cost
-	var craft_btn := Button.new()
-	craft_btn.text = "Craft"
-	craft_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.065)
-	craft_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var craft_btn := _UiUtil.make_button("Craft", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022), _do_craft_potion.bind(potion_id, essence_cost, ingredients), row)
 	craft_btn.disabled = not can_craft
-	craft_btn.pressed.connect(_do_craft_potion.bind(potion_id, essence_cost, ingredients))
-	row.add_child(craft_btn)
 
 	return row
 
@@ -979,23 +820,11 @@ func _show_confirm(action_row: HBoxContainer, confirm_row: HBoxContainer, label:
 		child.queue_free()
 	confirm_row.visible = true
 
-	var lbl := Label.new()
-	lbl.text = "%s?" % label
-	lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	lbl.modulate = Color(1.0, 0.6, 0.3)
-	confirm_row.add_child(lbl)
+	var lbl := _UiUtil.make_label("%s?" % label, int(_ref * 0.022), Color(1.0, 0.6, 0.3), HORIZONTAL_ALIGNMENT_LEFT, confirm_row)
 
-	var yes_btn := Button.new()
-	yes_btn.text = "Yes"
-	yes_btn.custom_minimum_size = Vector2(_ref * 0.10, _ref * 0.065)
-	yes_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	yes_btn.pressed.connect(on_confirm)
-	confirm_row.add_child(yes_btn)
+	var yes_btn := _UiUtil.make_button("Yes", Vector2(_ref * 0.10, _ref * 0.065), int(_ref * 0.022), on_confirm, confirm_row)
 
-	var no_btn := Button.new()
-	no_btn.text = "No"
-	no_btn.custom_minimum_size = Vector2(_ref * 0.10, _ref * 0.065)
-	no_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var no_btn := _UiUtil.make_button("No", Vector2(_ref * 0.10, _ref * 0.065), int(_ref * 0.022))
 	no_btn.pressed.connect(func() -> void:
 		confirm_row.visible = false
 		action_row.visible = true)
@@ -1048,10 +877,7 @@ func _refresh_craft() -> void:
 	for rarity: String in IsoConst.RARITY_ORDER:
 		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
 		var ess_cost: int = int(cfg.get("craft_essence", 0))
-		var sel_btn := Button.new()
-		sel_btn.text = "%s %de" % [_UiUtil.rarity_badge(rarity), ess_cost]
-		sel_btn.custom_minimum_size = Vector2(_ref * 0.17, _ref * 0.058)
-		sel_btn.add_theme_font_size_override("font_size", int(_ref * 0.020))
+		var sel_btn := _UiUtil.make_button("%s %de" % [_UiUtil.rarity_badge(rarity), ess_cost], Vector2(_ref * 0.17, _ref * 0.058), int(_ref * 0.020))
 		if rarity == _craft_rarity:
 			sel_btn.modulate = _UiUtil.rarity_color(rarity)
 		else:
@@ -1078,12 +904,7 @@ func _refresh_craft() -> void:
 		_craft_list.add_child(_make_craft_row(recipe, player_essence))
 
 	# Potions section
-	var potion_header := Label.new()
-	potion_header.text = "— Potions —"
-	potion_header.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	potion_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	potion_header.modulate = Color(0.75, 0.85, 1.0)
-	_craft_list.add_child(potion_header)
+	var potion_header := _UiUtil.make_label("— Potions —", int(_ref * 0.022), Color(0.75, 0.85, 1.0), HORIZONTAL_ALIGNMENT_CENTER, _craft_list)
 
 	var potion_recipes: Dictionary = GardenDefs.POTION_RECIPES
 	for potion_id: String in potion_recipes:
@@ -1147,11 +968,7 @@ func _on_rename_loadout() -> void:
 	vb.custom_minimum_size = Vector2(_ref * 0.5, 0)
 	popup.add_child(vb)
 
-	var title_lbl := Label.new()
-	title_lbl.text = "Rename Loadout"
-	title_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vb.add_child(title_lbl)
+	var title_lbl := _UiUtil.make_label("Rename Loadout", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
 
 	var edit := LineEdit.new()
 	edit.text = current_name
@@ -1165,10 +982,7 @@ func _on_rename_loadout() -> void:
 	btn_row.add_theme_constant_override("separation", int(_ref * 0.012))
 	vb.add_child(btn_row)
 
-	var ok_btn := Button.new()
-	ok_btn.text = "OK"
-	ok_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.065)
-	ok_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var ok_btn := _UiUtil.make_button("OK", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022))
 	ok_btn.pressed.connect(func() -> void:
 		var new_name: String = edit.text.strip_edges()
 		if new_name.length() > 0:
@@ -1177,12 +991,7 @@ func _on_rename_loadout() -> void:
 		popup.queue_free())
 	btn_row.add_child(ok_btn)
 
-	var cancel_btn := Button.new()
-	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.065)
-	cancel_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	cancel_btn.pressed.connect(func() -> void: popup.queue_free())
-	btn_row.add_child(cancel_btn)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022), func() -> void: popup.queue_free(), btn_row)
 
 	popup.popup_centered()
 	# Shift to top half so the Android keyboard doesn't cover the input field.
@@ -1214,22 +1023,15 @@ func _on_del_loadout() -> void:
 	vb.custom_minimum_size = Vector2(_ref * 0.5, 0)
 	popup.add_child(vb)
 
-	var lbl := Label.new()
-	lbl.text = "Delete '%s'?\nThis cannot be undone." % loadout_name
-	lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var lbl := _UiUtil.make_label("Delete '%s'?\nThis cannot be undone." % loadout_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vb.add_child(lbl)
 
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	btn_row.add_theme_constant_override("separation", int(_ref * 0.012))
 	vb.add_child(btn_row)
 
-	var yes_btn := Button.new()
-	yes_btn.text = "Yes, Delete"
-	yes_btn.custom_minimum_size = Vector2(_ref * 0.16, _ref * 0.065)
-	yes_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var yes_btn := _UiUtil.make_button("Yes, Delete", Vector2(_ref * 0.16, _ref * 0.065), int(_ref * 0.022))
 	yes_btn.modulate = Color(1.0, 0.4, 0.4)
 	yes_btn.pressed.connect(func() -> void:
 		popup.queue_free()
@@ -1238,12 +1040,7 @@ func _on_del_loadout() -> void:
 		_refresh_cards())
 	btn_row.add_child(yes_btn)
 
-	var no_btn := Button.new()
-	no_btn.text = "Cancel"
-	no_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-	no_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	no_btn.pressed.connect(func() -> void: popup.queue_free())
-	btn_row.add_child(no_btn)
+	var no_btn := _UiUtil.make_button("Cancel", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), func() -> void: popup.queue_free(), btn_row)
 
 	popup.popup_centered()
 

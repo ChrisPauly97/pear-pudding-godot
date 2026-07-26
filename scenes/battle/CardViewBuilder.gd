@@ -9,6 +9,7 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const BattleFx = preload("res://scenes/battle/BattleFx.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 # Fixed references — set once at setup
 var _vh: float
@@ -249,15 +250,10 @@ func _setup_empty_slot_panel(panel: PanelContainer, slot_idx: int, zone_id: Stri
 	style.set_corner_radius_all(4)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.set_meta("card_style", style)
-	var lbl := Label.new()
-	lbl.text = str(slot_idx + 1)
-	lbl.add_theme_font_size_override("font_size", _font(0.030))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var lbl := _UiUtil.make_label(str(slot_idx + 1), int(_font(0.030)), Color(0.45, 0.45, 0.55, 0.8) if is_enemy else Color(0.5, 0.5, 0.6), HORIZONTAL_ALIGNMENT_CENTER, panel)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	lbl.modulate = Color(0.45, 0.45, 0.55, 0.8) if is_enemy else Color(0.5, 0.5, 0.6)
-	panel.add_child(lbl)
 	for conn in panel.gui_input.get_connections():
 		panel.gui_input.disconnect(conn["callable"])
 	if not is_enemy:
@@ -380,11 +376,8 @@ func get_card_ability_color(card: CardInstance) -> Color:
 
 func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxContainer:
 	var vbox := VBoxContainer.new()
-	var name_lbl := Label.new()
+	var name_lbl := _UiUtil.make_label(card.name, int(_font(0.020)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	name_lbl.name = "NameLabel"
-	name_lbl.text = card.name
-	name_lbl.add_theme_font_size_override("font_size", _font(0.020))
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var tmpl_for_illus: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
 	var illus: Texture2D = tmpl_for_illus.get("illustration") as Texture2D
@@ -396,11 +389,8 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 		art.custom_minimum_size = Vector2(0.0, _vh * 0.07)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		vbox.add_child(art)
-	var stats_lbl := Label.new()
+	var stats_lbl := _UiUtil.make_label(format_card_stats(card, card.cost), int(_font(0.022)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	stats_lbl.name = "StatsLabel"
-	stats_lbl.text = format_card_stats(card, card.cost)
-	stats_lbl.add_theme_font_size_override("font_size", _font(0.022))
-	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var desc_lbl := Label.new()
 	desc_lbl.name = "DescLabel"
 	# Card faces only carry gameplay text (spell/emergence abilities). Minion
@@ -493,13 +483,10 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 func _target_mark(panel: Control, font_sz: int) -> Label:
 	var mark: Label = panel.get_node_or_null("TargetMark") as Label
 	if mark == null:
-		mark = Label.new()
+		mark = _UiUtil.make_label("◎ TARGET", int(font_sz), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 		mark.name = "TargetMark"
-		mark.text = "◎ TARGET"
-		mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		mark.add_theme_font_size_override("font_size", font_sz)
 		mark.add_theme_color_override("font_color", Color.WHITE)
 		mark.add_theme_color_override("font_outline_color", Color.BLACK)
 		mark.add_theme_constant_override("outline_size", maxi(2, int(_vh * 0.005)))
@@ -524,9 +511,7 @@ func update_keyword_badges(hbox: HBoxContainer, card: CardInstance) -> void:
 			continue
 		if kw == Keywords.SHROUD and not card.shroud_active:
 			continue
-		var lbl := Label.new()
-		lbl.text = kw_labels[i]
-		lbl.add_theme_font_size_override("font_size", font_sz)
+		var lbl := _UiUtil.make_label(kw_labels[i], int(font_sz))
 		lbl.add_theme_color_override("font_color", kw_colors[i])
 		hbox.add_child(lbl)
 

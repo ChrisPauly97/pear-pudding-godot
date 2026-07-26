@@ -78,11 +78,7 @@ func _render_rows() -> void:
 	for c in _rows_vbox.get_children():
 		c.queue_free()
 	if _rows.is_empty():
-		var empty_lbl := Label.new()
-		empty_lbl.text = "No other party members in this session yet."
-		empty_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-		empty_lbl.modulate = Color(0.7, 0.7, 0.7)
-		_rows_vbox.add_child(empty_lbl)
+		var empty_lbl := _UiUtil.make_label("No other party members in this session yet.", int(_vh * 0.022), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, _rows_vbox)
 		return
 	for row: Variant in _rows:
 		if row is Dictionary:
@@ -94,24 +90,14 @@ func _add_row(row: Dictionary) -> void:
 	hb.add_theme_constant_override("separation", int(_ref * 0.02))
 	_rows_vbox.add_child(hb)
 
-	var name_lbl := Label.new()
-	name_lbl.text = str(row.get("name", "Player"))
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	var name_lbl := _UiUtil.make_label(str(row.get("name", "Player")), int(_vh * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.custom_minimum_size = Vector2(_vw * 0.28, 0)
-	hb.add_child(name_lbl)
 
-	var rating_lbl := Label.new()
-	rating_lbl.text = "Rating: %d" % int(row.get("rating", 1000))
-	rating_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	var rating_lbl := _UiUtil.make_label("Rating: %d" % int(row.get("rating", 1000)), int(_vh * 0.022), Color(0.7, 0.85, 1.0), HORIZONTAL_ALIGNMENT_LEFT, hb)
 	rating_lbl.custom_minimum_size = Vector2(_vw * 0.18, 0)
-	rating_lbl.modulate = Color(0.7, 0.85, 1.0)
-	hb.add_child(rating_lbl)
 
 	var token: String = str(row.get("token", ""))
-	var duel_btn := Button.new()
-	duel_btn.text = "Ghost Duel"
-	duel_btn.custom_minimum_size = Vector2(_vw * 0.16, _vh * 0.06)
-	duel_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	var duel_btn := _UiUtil.make_button("Ghost Duel", Vector2(_vw * 0.16, _vh * 0.06), int(_vh * 0.022))
 	duel_btn.pressed.connect(func() -> void:
 		if on_duel_requested.is_valid():
 			on_duel_requested.call(token)

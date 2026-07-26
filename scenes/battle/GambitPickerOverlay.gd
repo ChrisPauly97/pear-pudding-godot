@@ -1,4 +1,5 @@
 extends "res://scenes/ui/BaseOverlay.gd"
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal gambit_chosen(gambit_id: String)
 
@@ -17,18 +18,10 @@ func _ready() -> void:
 
 	var vbox: VBoxContainer = _build_margin_vbox(panel, 0.025, 0.018)
 
-	var title := Label.new()
-	title.text = "Choose a Gambit (optional)"
-	title.add_theme_font_size_override("font_size", int(_vh * 0.032))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
+	var title := _UiUtil.make_label("Choose a Gambit (optional)", int(_vh * 0.032), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var sub := Label.new()
-	sub.text = "Accept a handicap for better rewards — or skip for a normal fight."
-	sub.add_theme_font_size_override("font_size", int(_vh * 0.020))
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var sub := _UiUtil.make_label("Accept a handicap for better rewards — or skip for a normal fight.", int(_vh * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(sub)
 
 	vbox.add_child(HSeparator.new())
 
@@ -37,10 +30,7 @@ func _ready() -> void:
 		var gname: String = str(gdata.get("name", gid))
 		var gdesc: String = str(gdata.get("desc", ""))
 		var gmult: float = float(gdata.get("multiplier", 1.0))
-		var btn := Button.new()
-		btn.text = "%s — %s  (×%.1f coins & rarity)" % [gname, gdesc, gmult]
-		btn.custom_minimum_size = Vector2(panel_w * 0.85, _vh * 0.065)
-		btn.add_theme_font_size_override("font_size", int(_vh * 0.020))
+		var btn := _UiUtil.make_button("%s — %s  (×%.1f coins & rarity)" % [gname, gdesc, gmult], Vector2(panel_w * 0.85, _vh * 0.065), int(_vh * 0.020))
 		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		var captured_gid: String = gid
 		btn.pressed.connect(func() -> void: _pick(captured_gid))
@@ -48,12 +38,7 @@ func _ready() -> void:
 
 	vbox.add_child(HSeparator.new())
 
-	var no_btn := Button.new()
-	no_btn.text = "No Gambit  —  Normal Battle"
-	no_btn.custom_minimum_size = Vector2(panel_w * 0.85, _vh * 0.065)
-	no_btn.add_theme_font_size_override("font_size", int(_vh * 0.024))
-	no_btn.pressed.connect(func() -> void: _pick(""))
-	vbox.add_child(no_btn)
+	var no_btn := _UiUtil.make_button("No Gambit  —  Normal Battle", Vector2(panel_w * 0.85, _vh * 0.065), int(_vh * 0.024), func() -> void: _pick(""), vbox)
 
 	_auto_skip_check = CheckBox.new()
 	_auto_skip_check.text = "Don't ask again (always skip gambits)"

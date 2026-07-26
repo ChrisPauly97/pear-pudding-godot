@@ -42,6 +42,7 @@ const REBINDABLE_ACTIONS: Array[String] = [
 # Ghost duels (GID-102 / TID-377): flat, modest, clearly-async coin reward on win.
 # No rating change ever (see enter_ghost_duel doc comment) — coins only.
 const GHOST_DUEL_COIN_REWARD: int = 25
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
@@ -216,9 +217,7 @@ func _show_back_quit_toast() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var layer := CanvasLayer.new()
 	layer.layer = 250
-	var lbl := Label.new()
-	lbl.text = "Press back again to exit"
-	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	var lbl := _UiUtil.make_label("Press back again to exit", int(vp.y * 0.026))
 	lbl.add_theme_color_override("font_color", Color.WHITE)
 	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
 	lbl.add_theme_constant_override("shadow_offset_x", 2)
@@ -1418,35 +1417,18 @@ func _show_defeat_overlay() -> void:
 	vbox.add_theme_constant_override("separation", int(vh * 0.028))
 	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Defeated"
-	title.add_theme_font_size_override("font_size", int(vh * 0.055))
+	var title := _UiUtil.make_label("Defeated", int(vh * 0.055))
 	title.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
 	var has_retry: bool = not _defeat_pending_enemy_data.is_empty()
 	if has_retry:
-		var retry_btn := Button.new()
-		retry_btn.text = "Retry Battle"
-		retry_btn.custom_minimum_size = Vector2(vh * 0.32, vh * 0.07)
-		retry_btn.add_theme_font_size_override("font_size", int(vh * 0.03))
-		retry_btn.pressed.connect(_on_defeat_retry)
-		vbox.add_child(retry_btn)
+		var retry_btn := _UiUtil.make_button("Retry Battle", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_retry, vbox)
 
-	var respawn_btn := Button.new()
-	respawn_btn.text = "Respawn in World"
-	respawn_btn.custom_minimum_size = Vector2(vh * 0.32, vh * 0.07)
-	respawn_btn.add_theme_font_size_override("font_size", int(vh * 0.03))
-	respawn_btn.pressed.connect(_on_defeat_respawn)
-	vbox.add_child(respawn_btn)
+	var respawn_btn := _UiUtil.make_button("Respawn in World", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_respawn, vbox)
 
-	var menu_btn := Button.new()
-	menu_btn.text = "Return to Menu"
-	menu_btn.custom_minimum_size = Vector2(vh * 0.32, vh * 0.07)
-	menu_btn.add_theme_font_size_override("font_size", int(vh * 0.03))
-	menu_btn.pressed.connect(_on_defeat_menu)
-	vbox.add_child(menu_btn)
+	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_menu, vbox)
 
 func _on_defeat_retry() -> void:
 	if _defeat_overlay != null:
@@ -1613,18 +1595,9 @@ func _show_siege_interstitial(next_stage: int, hero_hp: int) -> void:
 	panel.add_child(vbox)
 
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var title_lbl := Label.new()
-	title_lbl.text = _SiegeDefs.get_stage_name(next_stage)
-	title_lbl.add_theme_font_size_override("font_size", int(vh * 0.04))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title_lbl)
+	var title_lbl := _UiUtil.make_label(_SiegeDefs.get_stage_name(next_stage), int(vh * 0.04), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var hp_lbl := Label.new()
-	hp_lbl.text = "Hero HP: %d / 30" % hero_hp
-	hp_lbl.add_theme_font_size_override("font_size", int(vh * 0.03))
-	hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hp_lbl.modulate = Color(0.9, 0.3, 0.3) if hero_hp <= 10 else Color(1.0, 1.0, 1.0)
-	vbox.add_child(hp_lbl)
+	var hp_lbl := _UiUtil.make_label("Hero HP: %d / 30" % hero_hp, int(vh * 0.03), Color(0.9, 0.3, 0.3) if hero_hp <= 10 else Color(1.0, 1.0, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	# Dismiss automatically and chain the next raider battle.
 	get_tree().create_timer(2.0, false).timeout.connect(func() -> void:
