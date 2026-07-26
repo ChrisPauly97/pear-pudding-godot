@@ -2015,19 +2015,10 @@ func _show_loot_roll_panel(start: Dictionary) -> void:
 	var tier: int = int(item.get("tier", 1))
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
-	var layer := CanvasLayer.new()
-	layer.layer = 183
-	add_child(layer)
+	var prompt: Dictionary = _build_prompt(183, 0.02)
+	var layer: CanvasLayer = prompt["layer"]
 	_loot_roll_panel = layer
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	layer.add_child(panel)
-	var vbox := _UiUtil.make_vbox(int(vh * 0.02), panel)
+	var vbox: VBoxContainer = prompt["vbox"]
 	var lbl := _UiUtil.make_label("Loot roll! Tier %d chest — %d card(s).\nNeed, Greed, or Pass?" % [tier, card_ids.size()], int(vh * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var row := _UiUtil.make_hbox(int(vh * 0.025), vbox)
@@ -3239,21 +3230,10 @@ func _show_challenge_accept_panel(from_id: int, ranked: bool = false) -> void:
 	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
 		_challenge_accept_panel.queue_free()
 	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var layer := CanvasLayer.new()
-	layer.layer = 180
-	add_child(layer)
+	var prompt: Dictionary = _build_prompt(180, 0.025)
+	var layer: CanvasLayer = prompt["layer"]
 	_challenge_accept_panel = layer
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	layer.add_child(panel)
-	var vbox := _UiUtil.make_vbox(int(vp.y * 0.025), panel)
+	var vbox: VBoxContainer = prompt["vbox"]
 
 	var lbl := Label.new()
 	lbl.text = "A player challenges you to a RANKED card battle!" if ranked \
@@ -4266,31 +4246,12 @@ func _open_fast_travel_panel() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 
-	var layer := CanvasLayer.new()
-	layer.layer = 50
-	_hud.add_child(layer)
-	_fast_travel_layer = layer
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = vp.x * 0.55
 	var panel_h: float = vh * 0.62
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.05, 0.05, 0.10, 0.96), 10)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), panel)
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-
-	var vbox := _UiUtil.make_vbox(int(vh * 0.018), margin)
+	var modal: Dictionary = _build_modal(0.55, 0.62, Color(0.05, 0.05, 0.10, 0.96), 0.018)
+	var layer: CanvasLayer = modal["layer"]
+	var backdrop: ColorRect = modal["backdrop"]
+	var vbox: VBoxContainer = modal["vbox"]
+	_fast_travel_layer = layer
 
 	var title := _UiUtil.make_label("Fast Travel", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	title.add_theme_color_override("font_color", Color(0.40, 0.90, 1.00))
@@ -5204,30 +5165,9 @@ func _show_spire_entrance_panel() -> void:
 	if is_active:
 		curr_floor = int(SceneManager.save_manager.get_spire_run().get("floor", 1))
 
-	var layer := CanvasLayer.new()
-	layer.layer = 50
-	_hud.add_child(layer)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = vp.x * 0.64
-	var panel_h: float = vh * 0.40
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.06, 0.04, 0.14, 0.96), 10)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), panel)
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-
-	var vbox := _UiUtil.make_vbox(int(vh * 0.022), margin)
+	var modal: Dictionary = _build_modal(0.64, 0.40, Color(0.06, 0.04, 0.14, 0.96), 0.022)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	var title := _UiUtil.make_label("The Endless Spire", int(vh * 0.038), Color(0.85, 0.50, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
@@ -5270,29 +5210,9 @@ func _show_house_door_panel() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 
-	var layer := CanvasLayer.new()
-	layer.layer = 50
-	_hud.add_child(layer)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = vp.x * 0.60
-	var panel_h: float = vh * 0.32
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.06, 0.04, 0.14, 0.96), 10)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.02), int(vh * 0.03), int(vh * 0.02), panel)
-
-	var vbox := _UiUtil.make_vbox(int(vh * 0.015), margin)
+	var modal: Dictionary = _build_modal(0.60, 0.32, Color(0.06, 0.04, 0.14, 0.96), 0.015, 0.02)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
 
 	var title := _UiUtil.make_label("House For Sale", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -5369,29 +5289,9 @@ func _show_stable_panel() -> void:
 		_show_dialogue("You already own a Stable Horse!")
 		return
 
-	var layer := CanvasLayer.new()
-	layer.layer = 50
-	_hud.add_child(layer)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = vp.x * 0.60
-	var panel_h: float = vh * 0.36
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.06, 0.04, 0.14, 0.96), 10)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.02), int(vh * 0.03), int(vh * 0.02), panel)
-
-	var vbox := _UiUtil.make_vbox(int(vh * 0.015), margin)
+	var modal: Dictionary = _build_modal(0.60, 0.36, Color(0.06, 0.04, 0.14, 0.96), 0.015, 0.02)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
 
 	var title := _UiUtil.make_label("Madrian Stables", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -5987,30 +5887,9 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 			if not defeated.has(rid):
 				gate_remaining += 1
 
-	var layer := CanvasLayer.new()
-	layer.layer = 50
-	_hud.add_child(layer)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.5)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = vp.x * 0.6
-	var panel_h: float = vh * 0.38
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.96), 10)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), panel)
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-
-	var vbox := _UiUtil.make_vbox(int(vh * 0.022), margin)
+	var modal: Dictionary = _build_modal(0.6, 0.38, Color(0.08, 0.08, 0.18, 0.96), 0.022, 0.03, 0.5)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	var offer_lbl := Label.new()
@@ -6047,6 +5926,65 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 		row.add_child(duel_btn)
 
 	var decline_btn := _UiUtil.make_button("Decline", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.028), func() -> void: layer.queue_free(), row)
+
+## The lightweight accept/decline prompt the co-op request panels use: a
+## CanvasLayer at `layer_index` on this scene, a dimming backdrop, and a
+## content-hugging centred panel. Returns {"layer", "vbox"} — free the layer to
+## dismiss. Distinct from _build_modal, which sizes its panel to the viewport.
+func _build_prompt(layer_index: int, sep_frac: float) -> Dictionary:
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var layer := CanvasLayer.new()
+	layer.layer = layer_index
+	add_child(layer)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	layer.add_child(panel)
+	return {"layer": layer, "vbox": _UiUtil.make_vbox(int(vh * sep_frac), panel)}
+
+## The standard centred modal used by the world interaction prompts: a
+## CanvasLayer above the HUD, a dimming backdrop, a dark rounded panel sized to
+## `w_frac` x `h_frac` of the viewport, and the margin + VBox body the caller
+## fills. Returns {"layer", "backdrop", "panel", "vbox"} — free the layer to
+## dismiss the modal.
+func _build_modal(w_frac: float, h_frac: float, bg: Color, sep_frac: float,
+		margin_v_frac: float = 0.03, dim: float = 0.55) -> Dictionary:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	_hud.add_child(layer)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, dim)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel_w: float = vp.x * w_frac
+	var panel_h: float = vh * h_frac
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _UiUtil.make_style(bg, 10))
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(panel)
+
+	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * margin_v_frac),
+		int(vh * 0.03), int(vh * margin_v_frac), panel)
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	return {
+		"layer": layer,
+		"backdrop": backdrop,
+		"panel": panel,
+		"vbox": _UiUtil.make_vbox(int(vh * sep_frac), margin),
+	}
 
 func _show_tip(text: String) -> void:
 	_world_hud.show_tip(text)
@@ -7078,18 +7016,9 @@ func _on_trade_update_received(payload: Dictionary) -> void:
 func _show_trade_accept_panel(trade_id: String, offer: Dictionary) -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
-	var layer := CanvasLayer.new()
-	layer.layer = 182
-	add_child(layer)
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	layer.add_child(panel)
-	var vbox := _UiUtil.make_vbox(int(vh * 0.02), panel)
+	var prompt: Dictionary = _build_prompt(182, 0.02)
+	var layer: CanvasLayer = prompt["layer"]
+	var vbox: VBoxContainer = prompt["vbox"]
 	var lbl := Label.new()
 	var card_uid: String = str(offer.get("card_uid", "unknown"))
 	lbl.text = "Trade offer received!\nCard: %s\nAccept?" % card_uid
@@ -7616,19 +7545,10 @@ func _show_wager_accept_panel(from_id: int, ante_coins: int) -> void:
 		_challenge_accept_panel.queue_free()
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
-	var layer := CanvasLayer.new()
-	layer.layer = 181
-	add_child(layer)
+	var prompt: Dictionary = _build_prompt(181, 0.025)
+	var layer: CanvasLayer = prompt["layer"]
 	_challenge_accept_panel = layer
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	layer.add_child(panel)
-	var vbox := _UiUtil.make_vbox(int(vh * 0.025), panel)
+	var vbox: VBoxContainer = prompt["vbox"]
 	var lbl := _UiUtil.make_label("Wagered duel challenge!\nAnte: %d coins each. Accept?" % ante_coins, int(vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
@@ -8312,21 +8232,10 @@ func _show_draft_accept_panel(from_id: int) -> void:
 	if _draft_accept_panel != null and is_instance_valid(_draft_accept_panel):
 		_draft_accept_panel.queue_free()
 	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var layer := CanvasLayer.new()
-	layer.layer = 180
-	add_child(layer)
+	var prompt: Dictionary = _build_prompt(180, 0.025)
+	var layer: CanvasLayer = prompt["layer"]
 	_draft_accept_panel = layer
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	layer.add_child(panel)
-	var vbox := _UiUtil.make_vbox(int(vp.y * 0.025), panel)
+	var vbox: VBoxContainer = prompt["vbox"]
 
 	var lbl := _UiUtil.make_label("A player challenges you to a DRAFT DUEL!\nBoth of you draft %d cards from identical sealed packs." % _DraftDuelGen.NUM_ROUNDS, int(vp.y * 0.026), Color(0.6, 0.9, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
