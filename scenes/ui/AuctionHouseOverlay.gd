@@ -63,11 +63,8 @@ func _build_ui() -> void:
 
 	var tab_row := _UiUtil.make_hbox(int(_ref * 0.015), outer_vbox)
 	tab_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_tab_buttons = []
-	_add_tab_button(tab_row, "Sell", TAB_SELL)
-	_add_tab_button(tab_row, "Browse", TAB_BROWSE)
-	_add_tab_button(tab_row, "My Listings", TAB_MINE)
-	_refresh_tab_styles()
+	_tab_buttons = _UiUtil.make_tab_row(tab_row, ["Sell", "Browse", "My Listings"],
+		Vector2(_vh * 0.18, _vh * 0.05), int(_vh * 0.020), _select_tab, _active_tab)
 
 	outer_vbox.add_child(_UiUtil.make_separator())
 
@@ -84,28 +81,13 @@ func _build_ui() -> void:
 	_render_rows()
 
 
-func _add_tab_button(parent: HBoxContainer, text: String, tab: int) -> void:
-	var btn := _UiUtil.make_button(text, Vector2(_vh * 0.18, _vh * 0.05), int(_vh * 0.020), func() -> void: _select_tab(tab), parent)
-	_tab_buttons.append(btn)
-
-
+## make_tab_row already filtered out re-clicks of the active tab and restyled the
+## buttons; this only has to re-render for the new tab.
 func _select_tab(tab: int) -> void:
-	if tab == _active_tab:
-		return
 	_active_tab = tab
-	_refresh_tab_styles()
 	if _title_lbl != null:
 		_title_lbl.text = _title_for_tab(_active_tab)
 	_render_rows()
-
-
-func _refresh_tab_styles() -> void:
-	for i in range(_tab_buttons.size()):
-		var btn: Button = _tab_buttons[i]
-		if i == _active_tab:
-			btn.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
-		else:
-			btn.remove_theme_color_override("font_color")
 
 
 func _title_for_tab(tab: int) -> String:

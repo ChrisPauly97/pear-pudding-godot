@@ -216,6 +216,41 @@ static func make_body_label(text: String, vh: float) -> Label:
 static func make_separator() -> HSeparator:
 	return HSeparator.new()
 
+# ---------------------------------------------------------------------------
+# Tab strip
+# ---------------------------------------------------------------------------
+
+## A row of mutually exclusive tab buttons, in `labels` order — button i selects
+## tab i. The active tab is tracked internally: clicking it again is a no-op, and
+## `on_select` fires with the new index only when the tab actually changes, so
+## callers just re-render in the callback.
+##
+## Overlays that rebuild their whole UI on resize pass their remembered index as
+## `active` to come back up on the same tab.
+static func make_tab_row(parent: Node, labels: Array[String], size: Vector2,
+		font_size: int, on_select: Callable, active: int = 0) -> Array[Button]:
+	var buttons: Array[Button] = []
+	# Boxed so the click closures share one current-tab value.
+	var current := [active]
+	for i in range(labels.size()):
+		var tab: int = i
+		buttons.append(make_button(labels[i], size, font_size, func() -> void:
+			if tab == int(current[0]):
+				return
+			current[0] = tab
+			highlight_tab(buttons, tab)
+			on_select.call(tab), parent))
+	highlight_tab(buttons, active)
+	return buttons
+
+## Gold font on the active tab, theme default on the rest.
+static func highlight_tab(buttons: Array[Button], active: int) -> void:
+	for i in range(buttons.size()):
+		if i == active:
+			buttons[i].add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
+		else:
+			buttons[i].remove_theme_color_override("font_color")
+
 static func make_close_button(vh: float, on_pressed: Callable) -> Button:
 	var btn := Button.new()
 	btn.text = "Close"

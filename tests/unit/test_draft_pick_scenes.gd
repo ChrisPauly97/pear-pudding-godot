@@ -26,7 +26,12 @@ func after_each() -> void:
 	_spawned.clear()
 
 
-## Adds `node` under the scene root so _ready() runs and viewport metrics resolve.
+## Parents `node` under the scene root and registers it for teardown.
+##
+## The unit runner is synchronous, so nothing added here actually enters the tree
+## and _ready() never fires — viewport metrics stay 0 and no backdrop is built.
+## That is fine for these scenes: both build their cards from setup()/setup_coop(),
+## and the labels and buttons this suite inspects are created regardless of size.
 func _mount(node: Node) -> Node:
 	var tree := Engine.get_main_loop() as SceneTree
 	tree.root.add_child(node)
