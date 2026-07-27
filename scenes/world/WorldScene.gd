@@ -1918,37 +1918,7 @@ func _process(delta: float) -> void:
 	# Co-op and time ticks run before the player null-check so they work in
 	# dedicated-server mode (no local player) as well as in normal sessions.
 	if _coop_active:
-		coop_session._broadcast_local_avatar(delta)
-		coop_session._broadcast_maiteln_state(delta)
-		coop_pvp._update_challenge_proximity()
-		coop_pvp._update_draft_duel_proximity()
-		coop_pvp._check_challenge_timeouts()
-		coop_pvp._tick_tournament(delta)
-		coop_session._tick_session_persist(delta)
-		# World-object sync (GID-096): host streams enemy positions; clients smooth.
-		coop_session._broadcast_enemy_positions(delta)
-		coop_session._interp_synced_enemies(delta)
-		# GID-101: social features tick
-		coop_social._tick_emote_self(delta)
-		coop_social._tick_ping_markers(delta)
-		coop_social._update_social_proximity()
-		# Party loot rolls (GID-102 / TID-381): authority-only timeout ticker; inert
-		# unless a roll is actually in flight (need/greed mode opted in).
-		coop_activities._tick_loot_rolls(delta)
-		# Co-op Endless Spire draft (GID-106 / TID-390): authority-only timeout ticker;
-		# inert unless a draft round is actually in flight.
-		coop_activities._tick_coop_spire_draft(delta)
-		# Downed & rescue (GID-105 / TID-389): live countdown on the local banner.
-		if _coop_downed and _downed_banner != null and is_instance_valid(_downed_banner):
-			var elapsed: float = (Time.get_ticks_msec() / 1000.0) - _downed_started_at
-			var remaining: float = _DownedSync.remaining_time(elapsed)
-			_downed_banner.text = "Downed — waiting for rescue… (%ds)" % int(ceil(remaining))
-		# Shared world life (GID-103): synced clock/weather, party night hunts, and
-		# the co-op siege wave watcher. Map-scoped and host/authority gated
-		# internally; single-player never reaches these.
-		coop_session._tick_env_sync(delta)
-		coop_activities._coop_update_night_hunts(delta)
-		coop_activities._coop_tick_siege(delta)
+		_tick_coop(delta)
 	if _dnc:
 		_dnc.tick(delta, _weather_tint)
 
@@ -2032,6 +2002,44 @@ func _process(delta: float) -> void:
 ## The HUD prompt label for whatever the player can reach, or "" when nothing
 ## is in range. Probes run in _handle_interact's priority order and stop at the
 ## first hit, so a tick usually costs one proximity scan instead of seventeen.
+
+## Per-frame co-op work, in the order it has always run. The modules are ticked
+## interleaved rather than grouped by module because that is the order these
+## have always executed in and none of them is provably order-independent.
+## Every one is internally gated (host/authority, map scope, feature opt-in), so
+## this is cheap when nothing is in flight.
+func _tick_coop(delta: float) -> void:
+	coop_session._broadcast_local_avatar(delta)
+	coop_session._broadcast_maiteln_state(delta)
+	coop_pvp._update_challenge_proximity()
+	coop_pvp._update_draft_duel_proximity()
+	coop_pvp._check_challenge_timeouts()
+	coop_pvp._tick_tournament(delta)
+	coop_session._tick_session_persist(delta)
+	# World-object sync (GID-096): host streams enemy positions; clients smooth.
+	coop_session._broadcast_enemy_positions(delta)
+	coop_session._interp_synced_enemies(delta)
+	# GID-101: social features tick
+	coop_social._tick_emote_self(delta)
+	coop_social._tick_ping_markers(delta)
+	coop_social._update_social_proximity()
+	# Party loot rolls (GID-102 / TID-381): authority-only timeout ticker; inert
+	# unless a roll is actually in flight (need/greed mode opted in).
+	coop_activities._tick_loot_rolls(delta)
+	# Co-op Endless Spire draft (GID-106 / TID-390): authority-only timeout ticker;
+	# inert unless a draft round is actually in flight.
+	coop_activities._tick_coop_spire_draft(delta)
+	# Downed & rescue (GID-105 / TID-389): live countdown on the local banner.
+	if _coop_downed and _downed_banner != null and is_instance_valid(_downed_banner):
+		var elapsed: float = (Time.get_ticks_msec() / 1000.0) - _downed_started_at
+		var remaining: float = _DownedSync.remaining_time(elapsed)
+		_downed_banner.text = "Downed — waiting for rescue… (%ds)" % int(ceil(remaining))
+	# Shared world life (GID-103): synced clock/weather, party night hunts, and
+	# the co-op siege wave watcher. Map-scoped and host/authority gated
+	# internally; single-player never reaches these.
+	coop_session._tick_env_sync(delta)
+	coop_activities._coop_update_night_hunts(delta)
+	coop_activities._coop_tick_siege(delta)
 func _interact_prompt_label(px: float, pz: float) -> String:
 	var r: float = IsoConst.INTERACT_RANGE
 	if coop_session._find_nearby_downed_peer(px, pz, r) != -1:
