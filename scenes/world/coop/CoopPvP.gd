@@ -798,7 +798,7 @@ func _toggle_leaderboard_overlay() -> void:
 	if _world._leaderboard_overlay.has_method("refresh_pve_rows"):
 		_world._leaderboard_overlay.refresh_pve_rows(_world._pve_leaderboards)
 	if NetworkManager.is_host():
-		_world._broadcast_pve_leaderboards()
+		_world.coop_activities._broadcast_pve_leaderboards()
 	elif _world._net_sync != null:
 		_world._net_sync.rpc_id(1, "submit_pve_leaderboard_request")
 
