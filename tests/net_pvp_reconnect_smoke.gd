@@ -82,7 +82,15 @@ func _run() -> bool:
 	print("  [PASS] duel started, first client synced (seq=%d)" % int(client_battle.get("_last_applied_seq")))
 
 	# --- simulate the client dropping mid-duel ---
-	host_battle.call("_on_pvp_peer_disconnected", first_client_id)
+	# The disconnect handler lives on the BattleNet module (BattleScene's
+	# networked surface), where NetworkManager.peer_disconnected is connected in
+	# production; the state it sets (_pvp_ended, _pvp_reconnect_idx) is read back
+	# off the BattleScene node below, which is where it still lives.
+	var host_net: Node = host_battle.get("battle_net")
+	if host_net == null:
+		print("  [FAIL] host battle has no battle_net module")
+		return false
+	host_net.call("_on_pvp_peer_disconnected", first_client_id)
 	if bool(host_battle.get("_pvp_ended")):
 		print("  [FAIL] host forfeited immediately instead of starting a grace window")
 		return false

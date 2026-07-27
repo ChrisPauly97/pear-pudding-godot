@@ -788,7 +788,7 @@ func _toggle_leaderboard_overlay() -> void:
 		_world._leaderboard_overlay = null
 		return
 	_world._leaderboard_overlay = _LeaderboardOverlay.new()
-	add_child(_world._leaderboard_overlay)
+	_world.add_child(_world._leaderboard_overlay)
 	_world._leaderboard_overlay.closed.connect(func() -> void: _world._leaderboard_overlay = null)
 	_world._leaderboard_overlay.refresh_rows(_world._leaderboard_rows)
 	if NetworkManager.is_host():
@@ -953,7 +953,7 @@ func _start_draft(peer_id: int, seed_val: int) -> void:
 		_draft_duel_btn.hide()
 	var layer := CanvasLayer.new()
 	layer.layer = 190
-	add_child(layer)
+	_world.add_child(layer)
 	_draft_picker_layer = layer
 	var picker := _DraftDuelPickScene.new()
 	layer.add_child(picker)
