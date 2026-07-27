@@ -1,9 +1,10 @@
-## Party panel (GID-107 / TID-395; Siege/Tournament added GID-115 / TID-433): a
-## single discoverable entry point for the always-on co-op HUD affordances that
-## used to be individually HUD-positioned buttons — Roster, Loot Mode, Stash,
-## Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl, Co-op Spire, Guildhall,
-## Siege, Tournament. Each action keeps its exact prior gating/behavior; this is
-## a placement/discoverability change, not a feature change.
+## Party panel (GID-107 / TID-395; Siege/Tournament added GID-115 / TID-433;
+## Auction folded in BID-042): a single discoverable entry point for the
+## always-on co-op HUD affordances that used to be individually HUD-positioned
+## buttons — Roster, Loot Mode, Stash, Leaderboard, Auction, Ghost Duels, Team
+## Duel, Dungeon Crawl, Co-op Spire, Guildhall, Siege, Tournament. Each action
+## keeps its exact prior gating/behavior; this is a placement/discoverability
+## change, not a feature change.
 ##
 ## Script-only overlay (matches GhostDuelOverlay / PartyStashOverlay / Leaderboard
 ## Overlay): extends BaseOverlay by path string, instantiated via .new(), built
@@ -30,6 +31,9 @@ var on_stash: Callable = Callable()
 
 var show_leaderboard: bool = false
 var on_leaderboard: Callable = Callable()
+
+var show_auction: bool = false
+var on_auction: Callable = Callable()
 
 var show_ghost_duels: bool = false
 var on_ghost_duels: Callable = Callable()
@@ -127,6 +131,8 @@ func _build_ui() -> void:
 		_add_action_button(grid, "Stash", on_stash, true)
 	if show_leaderboard:
 		_add_action_button(grid, "Leaderboard", on_leaderboard, true)
+	if show_auction:
+		_add_action_button(grid, "Auction", on_auction, true)
 	if show_ghost_duels:
 		_add_action_button(grid, "Ghost Duels", on_ghost_duels, true)
 	if show_team_duel:

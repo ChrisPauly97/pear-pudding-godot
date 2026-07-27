@@ -18,16 +18,23 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 # Helpers
 # ---------------------------------------------------------------------------
 
-func _tmpl(id: String = "ghost", cost: int = 1, attack: int = 1, health: int = 2) -> Dictionary:
+func _tmpl(id: String = "ghost", cost: int = 1, attack: int = 1, health: int = 2, card_class: String = "minion") -> Dictionary:
 	return {
 		"id": id, "name": id.capitalize(), "cost": cost,
 		"attack": attack, "health": health,
-		"card_class": "minion", "description": "",
+		"card_class": card_class, "description": "",
 	}
 
 
-func _card(cost: int = 1, attack: int = 1, health: int = 2) -> CardInstance:
-	return CardInstance.new(_tmpl("ghost", cost, attack, health))
+func _card(cost: int = 1, attack: int = 1, health: int = 2, card_class: String = "minion") -> CardInstance:
+	return CardInstance.new(_tmpl("ghost", cost, attack, health, card_class))
+
+
+## Ward-keyword minion, for mandatory-Ward-targeting tests (GID-112).
+func _ward_card(cost: int = 1, attack: int = 1, health: int = 2) -> CardInstance:
+	var tmpl := _tmpl("warden", cost, attack, health)
+	tmpl["keywords"] = ["ward"]
+	return CardInstance.new(tmpl)
 
 
 ## Build a fresh GameState and return it.

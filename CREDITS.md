@@ -1,7 +1,60 @@
 # Credits & Attribution
 
 Third-party assets used by Pear Pudding TCG, with author, license, and source.
-(Music credits will be added by the soundtrack integration task — GID-116/TID-437.)
+
+## Music
+
+All seven tracks live at `assets/audio/music/`. Sources and licenses were
+verified on-page at download time (2026-07-16, TID-436); see
+`docs/agent/audio-soundtrack.md` for the full shortlist and processing notes.
+
+**Four tracks are CC-BY and their attribution below is a licence condition, not
+a courtesy.** It must be reproduced in any distributed build — in-game credits,
+store listing, or accompanying documentation. Do not remove these lines when
+swapping a track; remove the track first.
+
+### Required attribution (CC-BY)
+
+- **"Woodland Fantasy"** by **Matthew Pablo** — https://matthewpablo.com —
+  CC BY 3.0. Source: https://opengameart.org/content/woodland-fantasy
+  *(used as `forest.ogg`)*
+- **"Dark Times"** — Kevin MacLeod (incompetech.com). Licensed under Creative
+  Commons: By Attribution 4.0 License. http://creativecommons.org/licenses/by/4.0/
+  Source: https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1100747
+  *(used as `scorched.ogg`)*
+- **"UNFORGIVING HIMALAYAS"** by **Eric Matyas** — www.soundimage.org —
+  CC BY 3.0. Source: https://opengameart.org/content/unforgiving-himalayas-looping
+  *(used as `mountains.ogg`)*
+- **"Crystal Cave (Mysterious Ambience)"** by **cynicmusic** —
+  https://pixelsphere.org / The Cynic Project — CC BY 3.0 (chosen from the
+  source's CC-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0 multi-licence).
+  Source: https://opengameart.org/content/crystal-cave-mysterious-ambience-seamless-loop
+  *(used as `dungeon.ogg`)*
+
+### CC0 (courtesy credit, not required)
+
+- **"GrassLands Theme"** by **DST** — CC0.
+  https://opengameart.org/content/grasslands-theme *(`grasslands.ogg`)*
+- **"Desert Theme"** by **Tarush Singhal** — CC0.
+  https://opengameart.org/content/desert-theme-0 *(`desert.ogg`)*
+- **"Battle Theme A"** by **cynicmusic** (https://pixelsphere.org) — CC0.
+  https://opengameart.org/content/battle-theme-a *(`battle.ogg`)*
+
+### Per-slot index
+
+| Slot | File | Track | Author | License |
+|---|---|---|---|---|
+| Biome: Grasslands | `music/grasslands.ogg` | GrassLands Theme | DST | CC0 |
+| Biome: Forest | `music/forest.ogg` | Woodland Fantasy | Matthew Pablo | **CC BY 3.0** |
+| Biome: Desert | `music/desert.ogg` | Desert Theme | Tarush Singhal | CC0 |
+| Biome: Scorched | `music/scorched.ogg` | Dark Times | Kevin MacLeod | **CC BY 4.0** |
+| Biome: Mountains | `music/mountains.ogg` | Unforgiving Himalayas | Eric Matyas | **CC BY 3.0** |
+| Dungeons / spire | `music/dungeon.ogg` | Crystal Cave | cynicmusic | **CC BY 3.0** |
+| Battle | `music/battle.ogg` | Battle Theme A | cynicmusic | CC0 |
+
+Named towns and story maps use `grasslands.ogg` as their peaceful default via
+`MapData.music_track` (GID-125 / TID-470); only procedurally generated dungeons
+and spire floors fall through to `dungeon.ogg`.
 
 ## Art / Sprites
 

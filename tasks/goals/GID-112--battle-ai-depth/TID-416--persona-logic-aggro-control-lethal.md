@@ -2,7 +2,7 @@
 
 **Goal:** GID-112
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-415
 
 ## Lock
@@ -62,8 +62,28 @@ _Written during Plan phase._
 
 ## Changes Made
 
-_Filled after Build phase._
+Three additions to `ai/BasicAI.gd`:
 
-## Documentation Updates
+**`_pick_attack_target(mc, state, persona)`** — the single targeting decision,
+shared by `decide_turn` (execution time) and `describe_turn` (banner text) so
+the two can never disagree. Precedence: Ward > lethal > persona.
 
-_What was updated in agent docs._
+**`_has_lethal(state)`** — the check the goal identified as missing entirely.
+Sums biome-modified attack across every `can_attack()` board minion and compares
+against `opponent.hero.armor + health`. Returns `false` outright when any
+opposing Ward minion is alive, since the hero is not a legal target and no
+persona may bypass that. Re-evaluated per attacker inside each deferred
+Callable, so an earlier attack that clears a Ward opens the lethal line
+mid-turn.
+
+**`_pick_favorable_trade(mc, state, targets)`** — control's trade filter: the
+attack must kill the target, and the attacker must either survive the
+counterattack or be trading down into a strictly bigger attacker.
+
+**`_ordered_hand(ai, persona)`** — aggro sorts by attack descending, control
+puts minions before spells. Ordering alone produces "hold a card": every play
+Callable re-checks `can_play` at execution time, so a card ordered last is
+simply unaffordable once earlier plays spend the mana.
+
+The `GameBus.card_played` / `card_attacked` emissions added by GID-125 / TID-471
+were preserved through the refactor and still fire exactly once per action.

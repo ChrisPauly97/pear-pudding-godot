@@ -2,7 +2,7 @@
 
 **Goal:** GID-116
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-436
 
 ## Lock
@@ -31,12 +31,76 @@ Once the 7 `.ogg` files exist at `assets/audio/music/` (TID-436), no code change
 
 ## Plan
 
-_Written during Plan phase._
+1. Write the Music section of `CREDITS.md` from TID-436's verified licence table.
+2. Add a Music Channel section to `docs/agent/audio-manager.md`.
+3. Verify headless import is clean with the audio present.
+4. Delete the stale duplicate `TID-081--background-music-loop.md` (BID-047).
+5. Correct the now-stale "no soundtrack" weakness in `docs/agent/game-appeal.md`.
 
 ## Changes Made
 
-_Filled after Build phase._
+### `CREDITS.md` — Music section (the licence obligation)
+
+Removed the "music credits will be added by GID-116/TID-437" placeholder and
+wrote the real section from TID-436's on-page-verified table.
+
+**Four of the seven tracks are CC-BY, so their attribution is a licence
+condition, not a courtesy** — this was the actual outstanding obligation, and
+until now the repo shipped the audio with no attribution at all:
+
+| File | Track | Author | Licence |
+|---|---|---|---|
+| `forest.ogg` | Woodland Fantasy | Matthew Pablo | CC BY 3.0 |
+| `scorched.ogg` | Dark Times | Kevin MacLeod | CC BY 4.0 |
+| `mountains.ogg` | Unforgiving Himalayas | Eric Matyas | CC BY 3.0 |
+| `dungeon.ogg` | Crystal Cave | cynicmusic | CC BY 3.0 |
+
+Each uses the verbatim notice the source page requires (Kevin MacLeod's
+standard incompetech form, Eric Matyas's "please credit as" wording, etc.),
+captured by TID-436. The three CC0 tracks (DST, Tarush Singhal, cynicmusic) are
+listed as courtesy credit and marked as not required, so a future editor can
+tell which lines are legally load-bearing. Added an explicit note that the
+CC-BY block must survive into any distributed build and that a track should be
+removed before its attribution is.
+
+Also added a per-slot index table mapping each file to its track, author and
+licence.
+
+### `docs/agent/audio-manager.md`
+
+The doc covered the SFX pool and narration channel but had **no music section
+at all** — `play_music` / `stop_music` / `set/get_music_volume` and the
+`_music_player` were entirely undocumented. Added a Music Channel section
+covering the API, the auto-loop via the `finished` signal, the
+idempotent-on-same-path behaviour, the 7-slot table with what selects each, and
+a pointer to `CREDITS.md` as the authoritative attribution record. Added a
+Music row to Asset Requirements.
+
+### `docs/agent/game-appeal.md`
+
+Weakness #5 ("all 7 tracks are missing files ... first impressions currently
+carry no soundtrack") was stale — the files landed in TID-436. Marked resolved
+and replaced with the accurate residual gap: every hand-authored town shares one
+peaceful track, so per-location variety (e.g. a town under siege) is still worth
+having.
+
+### BID-047 (stale duplicate task file)
+
+`tasks/goals/GID-023--game-feel-polish/TID-081--background-music-loop.md`
+deleted; BID-047 archived and its index row moved to Resolved Backlog. Done
+ahead of this task as part of GID-124's backlog reconciliation.
+
+## Verification
+
+- `godot --headless --editor --quit` — clean, zero parse/compile errors, and
+  **zero `invalid UID` warnings**; all 7 `.ogg` files have their `.import`
+  sidecars generated.
+- Full suite green at the time of this change.
+- Audited every tracked `.gdshader`/`.tres`/`.material`/`.theme`/`.gdextension`
+  for a `.uid` sidecar: 0 missing. (Audio files correctly need none.)
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `CREDITS.md` — new Music section (required + courtesy attribution, per-slot index).
+- `docs/agent/audio-manager.md` — new Music Channel section; Asset Requirements row.
+- `docs/agent/game-appeal.md` — weakness #5 marked resolved, residual gap stated.

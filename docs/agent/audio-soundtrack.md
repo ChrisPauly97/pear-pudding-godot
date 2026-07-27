@@ -6,7 +6,7 @@
   - `AudioManager.play_music(path)` (autoloads/AudioManager.gd) — dedicated `_music_player`,
     same-track guard, graceful no-op via `ResourceLoader.exists()`, auto-loop by replaying
     on the `finished` signal.
-  - `WorldScene.gd` — `_BIOME_MUSIC` maps biome id → `res://assets/audio/music/{grasslands,forest,desert,scorched,mountains}.ogg`; every non-infinite (named) map plays `res://assets/audio/music/dungeon.ogg` (towns AND dungeons share this one track — see BID-048 for the future split).
+  - `WorldScene.gd` — `_BIOME_MUSIC` maps biome id → `res://assets/audio/music/{grasslands,forest,desert,scorched,mountains}.ogg`. Non-infinite (named) maps go through `_named_map_music_track()` (BID-048, fixed): it prefers the map's own `MapData.music_track` override (all bundled hand-authored maps — towns, mansions, temples, holds — are set to `grasslands.ogg`), and falls back to `dungeon.ogg` only for procedurally generated maps (`dungeon_*` / `spire_floor_*`), which never set `music_track`.
   - `BattleScene.gd` — plays `res://assets/audio/music/battle.ogg` at end of `_ready()`.
 - Curated shortlist below is CC0-first, CC-BY fallback. No NC/paid/stock licenses.
 - Attribution obligations are recorded verbatim per pick; TID-437 collects them into a
@@ -69,7 +69,7 @@ do occasionally change. Anything marked *unconfirmed* below must be checked on-p
   - Grand orchestral brass. Attribution: incompetech standard form as above.
   - Format/conversion needed: **yes** — `.mp3`.
 
-### dungeon.ogg — calm-but-mysterious; must NOT read as threatening (also plays in peaceful towns — see BID-048)
+### dungeon.ogg — calm-but-mysterious; must NOT read as threatening (was also playing in peaceful towns — fixed by BID-048; now dungeon-only)
 - **Primary pick:** Crystal Cave + Mysterious Ambience (seamless loop) — cynicmusic (Alex Smith) — **CC-BY 3.0** (also offered CC-BY-SA 3.0 / GPL 3.0; use CC-BY 3.0) (license verified) — https://opengameart.org/content/crystal-cave-mysterious-ambience-seamless-loop
   - "Bells, arpeggios, relaxing, enchanting" — mysterious without menace, safe for towns.
   - Attribution text: `Music: "Crystal Cave + Mysterious Ambience" by cynicmusic — cynicmusic.com / pixelsphere.org — CC-BY 3.0` (confirm exact requested wording on page).
@@ -144,7 +144,7 @@ the agent rather than a human.
 | Asset | Path | Notes |
 |---|---|---|
 | Biome music ×5 | `assets/audio/music/{grasslands,forest,desert,scorched,mountains}.ogg` | Played by `WorldScene` `_BIOME_MUSIC` on biome change |
-| Named-map music | `assets/audio/music/dungeon.ogg` | Played on every non-infinite map (towns + dungeons); BID-048 tracks splitting |
+| Named-map music | `assets/audio/music/dungeon.ogg` (procedural dungeons/spire floors) + `grasslands.ogg` (hand-authored towns/story maps, via `MapData.music_track`) | Selected per-map by `WorldScene._named_map_music_track()` (BID-048, fixed) |
 | Battle music | `assets/audio/music/battle.ogg` | Played by `BattleScene._ready()` |
 | Credits file | repo root (TID-437) | Author, license, source URL per track; verbatim CC-BY attribution |
 

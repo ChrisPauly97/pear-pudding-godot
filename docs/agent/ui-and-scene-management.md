@@ -211,7 +211,7 @@ button is `disabled` (Godot doesn't fire `button_down` for a disabled
 `BaseButton` anyway). Idempotent via a `has_meta("_uifx_attached")` guard, so
 it's safe to call from a registry that re-registers the same button.
 `register_action()` calls it for every HUD action; the remaining
-hand-built HUD buttons (`_auction_btn`, `_ranked_toggle_btn`, `_ping_btn`,
+hand-built HUD buttons (`_ranked_toggle_btn`, `_ping_btn`,
 `_chat_send_btn` — the same allow-list `test_hud_registry_guardrail.gd`
 tracks) call it explicitly
 right after construction. `BaseOverlay` exposes `_attach_button_fx(btn)` as a
@@ -234,6 +234,7 @@ A single "Party" button in `ZONE_NAV` opens a `BaseOverlay`-based panel (same pa
 | Loot Mode toggle | Host + `SessionStore.is_open()` | `_on_loot_mode_toggle_pressed()` unchanged; label refreshed via `refresh_loot_label()`. |
 | Stash | co-op active | Opens `PartyStashOverlay` (Party panel closes first). |
 | Leaderboard | co-op active | Opens `LeaderboardOverlay`. |
+| Auction | co-op active | Opens `AuctionHouseOverlay`. BID-042: folded in from the standalone `_auction_btn` (GID-102 / TID-378), the same always-on/session-global shape as Stash/Leaderboard above; the old `_hud.add_child(_auction_btn)` call site is gone, no allow-list entry needed anymore. |
 | Ghost Duels | Host + `SessionStore.is_open()` | A client never opens `SessionStore` locally, so this naturally stays hidden for clients. |
 | Team Duel (2v2) | Host, not dedicated server, `State.WORLD`, ≥3 connected clients, no pending challenge | Mirrors the old `_update_team_duel_button_visibility()` condition exactly. |
 | Dungeon Crawl | Host only | Host is the seed authority (avoids two peers racing to open different dungeons). |
@@ -244,7 +245,7 @@ A single "Party" button in `ZONE_NAV` opens a `BaseOverlay`-based panel (same pa
 
 Each section's `show_*` flag is computed fresh in `WorldScene._open_party_panel()` from the exact condition its old standalone button used — opening the panel is a placement change, not a behavior change. Pressing most actions closes the panel first (`close_after = true` in `PartyPanel._add_action_button`) so it doesn't visually stack behind the overlay it just opened; Loot Mode is the one exception (stays open so the label refresh is visible immediately).
 
-The Auction House button (`_auction_btn`) is the same shape of always-on/host-gated clutter but was not in GID-107's original scope and has no overlap bug, so it's deliberately left as a standalone allow-listed exception — see `tasks/backlog/BID-042*.md`. Draft Duel (proximity-gated, not session-scoped like the other Party-panel actions above) was migrated instead to `ZONE_CONTEXT` via `register_action()`, alongside Challenge — see the table above.
+Draft Duel (proximity-gated, not session-scoped like the other Party-panel actions above) was migrated instead to `ZONE_CONTEXT` via `register_action()`, alongside Challenge — see the table above.
 
 ### Contextual action bar (`ZONE_CONTEXT`)
 

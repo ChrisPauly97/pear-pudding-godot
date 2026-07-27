@@ -276,6 +276,7 @@ Between defeating the enemy and walking to the exit door, `SceneManager._show_sp
 | **SaveManager** | Persistence | `map_stack`, `current_map`, `player_x/z` saved to `save.json` |
 | **MapEditorScene** | Editor | Calls `WorldMap.new(name)` to load, `save_to_file(name)` to save `.tres` to `user://maps/` |
 | **EnemyRegistry** | Entity typing | `WorldMap.load_from_resource()` resolves `MapEnemy.enemy_type` via `EnemyRegistry.get_deck()` |
+| **AudioManager** | Music selection | `MapData.music_track` is threaded through `WorldMap.load_from_resource()`/`to_map_data()`; `WorldScene._named_map_music_track()` plays it when set, else `dungeon.ogg` for `dungeon_*`/`spire_floor_*` maps, else a peaceful default (`grasslands.ogg`) for hand-authored maps (BID-048) |
 
 ---
 

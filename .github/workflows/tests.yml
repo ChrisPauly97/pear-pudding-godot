@@ -1,0 +1,93 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+# A newer push to the same branch supersedes an in-flight run.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.6-stable
+
+jobs:
+  test:
+    name: Headless import + test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Godot binary
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: ~/godot-bin
+          key: godot-${{ env.GODOT_VERSION }}-linux-x86_64
+
+      - name: Download Godot ${{ env.GODOT_VERSION }}
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot-bin
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip" -O /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          mv "/tmp/godot/Godot_v${GODOT_VERSION}_linux.x86_64" ~/godot-bin/godot
+          chmod +x ~/godot-bin/godot
+
+      - name: Add Godot to PATH
+        run: echo "$HOME/godot-bin" >> "$GITHUB_PATH"
+
+      # The project ships no .godot/ directory, so every clean checkout must
+      # import before any PNG/.tres preload() can resolve. Skipping this makes
+      # ~30 tests fail with parse errors that look like real bugs.
+      - name: Import project (headless)
+        run: godot --headless --editor --quit 2>&1 | tee /tmp/import.log || true
+
+      # A single parse error silently breaks every scene that preloads the file,
+      # so this is gated separately from the test run for a clearer failure.
+      - name: Fail on parse / compile errors
+        run: |
+          ERRORS=$(grep -iE "Parse Error|Compile Error|Failed to load script" /tmp/import.log \
+            | grep -viE "imported/|Make sure resources" || true)
+          if [ -n "$ERRORS" ]; then
+            echo "::error::Import produced parse/compile errors:"
+            echo "$ERRORS"
+            exit 1
+          fi
+          echo "Import clean — no parse or compile errors."
+
+      - name: Run test suite
+        run: godot --headless --path . -s tests/runner.gd
+
+  lint:
+    name: gdlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install gdtoolkit
+        run: pip install gdtoolkit
+
+      # Advisory only for now: the existing tree has pre-existing lint debt.
+      # Flip continue-on-error off once the backlog is clear.
+      - name: Run gdlint
+        continue-on-error: true
+        run: gdlint $(git ls-files '*.gd')

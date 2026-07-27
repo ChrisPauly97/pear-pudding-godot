@@ -26,7 +26,6 @@ const _WORLD_HUD_PATH := "res://scenes/world/WorldHUD.gd"
 ## NEW entry to silence this test is a signal to first check whether the new
 ## button should go through the registry instead.
 const _ALLOWED_DIRECT_HUD_CHILDREN: Array[String] = [
-	"_auction_btn",       # GID-102/TID-378; predates GID-107's scope — see BID-042
 	"_chat_send_btn",     # TID-397 deliberately left in place: separate free-text
 	                       # row, not one of the three social-strip trigger buttons
 	"_ranked_toggle_btn", # defensive fallback only; primary path is zone-registered
@@ -39,6 +38,9 @@ const _ALLOWED_DIRECT_HUD_CHILDREN: Array[String] = [
 # PartyPanel.gd's show_siege/show_tournament); _draft_duel_btn now goes through
 # WorldHUD.register_action() like _challenge_btn. None are direct _hud children
 # anymore, so none belong in the allow-list above.
+# BID-042: _auction_btn was likewise removed entirely — folded into the Party
+# panel alongside Stash/Leaderboard (PartyPanel.gd's show_auction/on_auction),
+# so it no longer needs an allow-list entry either.
 
 var _world_scene_src: String = ""
 var _world_hud_src: String = ""

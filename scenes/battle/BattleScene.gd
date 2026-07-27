@@ -2120,8 +2120,17 @@ func _battle_delay(base: float) -> void:
 func _run_ai_turn() -> void:
 	_ai_thinking = true
 	_end_turn_btn.disabled = true
-	var actions := BasicAI.decide_turn(_state)
-	_fx.show_intent_banner(BasicAI.describe_turn(_state))
+	# GID-112: persona + difficulty tier are looked up from EnemyRegistry (not
+	# stored in enemy_data) so every AI-driven battle — regular fights,
+	# duelists, rivals, martarquas, mimic, co-op siege boss — picks up the
+	# right persona/tier from a single source of truth. Empty/unknown
+	# enemy_type falls back to "basic"/tier 1 (EnemyRegistry defaults), so
+	# this stays safe if ever reached with an empty enemy_data.
+	var ai_enemy_type: String = str(enemy_data.get("enemy_type", ""))
+	var ai_persona: String = EnemyRegistry.get_ai_persona(ai_enemy_type)
+	var ai_tier: int = EnemyRegistry.get_difficulty_tier(ai_enemy_type)
+	var actions := BasicAI.decide_turn(_state, ai_persona)
+	_fx.show_intent_banner(BasicAI.describe_turn(_state, ai_persona, ai_tier))
 	await _battle_delay(1.5)
 	_execute_ai_actions(actions, 0)
 

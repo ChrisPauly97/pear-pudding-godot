@@ -35,6 +35,41 @@ AudioManager.play_sfx("footstep")    # no-op if footstep.wav is missing
 2. Place the `.wav` file at the declared path.
 3. Open the project in the Godot editor once so it generates the `.import` sidecar.
 
+### Music Channel
+
+A dedicated `_music_player: AudioStreamPlayer` (default volume 0.5 linear),
+separate from the SFX pool, auto-looping via its `finished` signal:
+
+```gdscript
+AudioManager.play_music(path: String) -> void   # no-op if already playing that path
+AudioManager.stop_music() -> void
+AudioManager.set_music_volume(linear: float) -> void
+AudioManager.get_music_volume() -> float
+```
+
+`play_music()` is idempotent for the currently playing track, so callers can
+re-issue it on every scene entry without restarting the music.
+
+All 7 tracks shipped in GID-116 / TID-436 and are present at
+`assets/audio/music/`. **Four are CC-BY and carry mandatory attribution** —
+see `CREDITS.md` ("Music"), which is the authoritative attribution record;
+`docs/agent/audio-soundtrack.md` holds the shortlist and processing notes.
+
+| Slot | File | Chosen by |
+|---|---|---|
+| Grasslands / named towns | `music/grasslands.ogg` | `_BIOME_MUSIC[0]`, and the named-map default |
+| Forest | `music/forest.ogg` | `_BIOME_MUSIC[1]` |
+| Desert | `music/desert.ogg` | `_BIOME_MUSIC[2]` |
+| Scorched | `music/scorched.ogg` | `_BIOME_MUSIC[3]` |
+| Mountains | `music/mountains.ogg` | `_BIOME_MUSIC[4]` |
+| Dungeons / spire floors | `music/dungeon.ogg` | `WorldScene._named_map_music_track()` fallback |
+| Battle | `music/battle.ogg` | `BattleScene._ready()` |
+
+Named-map selection is data-driven (GID-125 / TID-470): `MapData.music_track`
+wins if set, else `dungeon.ogg` for `dungeon_*` / `spire_floor_*`, else the
+peaceful default. Giving a town its own track is a one-line `.tres` change —
+add the file, set `music_track`, and add its row to `CREDITS.md`.
+
 ### Narration Channel
 
 A dedicated `_narration_player: AudioStreamPlayer` (volume −3 dB) plays long-form scroll narration without competing with the SFX pool:
@@ -74,4 +109,5 @@ TID-010 wires battle SFX; TID-011 wires world exploration SFX.
 |---|---|---|
 | `AudioManager.gd` | `autoloads/AudioManager.gd` | Autoload; registered in `project.godot` |
 | SFX wav files | `assets/audio/sfx/*.wav` | Optional — missing files are silent no-ops |
+| Music ogg files | `assets/audio/music/*.ogg` | **Present** (7 tracks, GID-116). 4 are CC-BY — attribution in `CREDITS.md` is a licence condition |
 | Narration ogg files | `assets/audio/narration/<scroll_id>.ogg` | Optional — missing files are silent no-ops |
