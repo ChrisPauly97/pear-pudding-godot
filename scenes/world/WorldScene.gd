@@ -430,32 +430,7 @@ func _ready() -> void:
 	_build_grass_blades_node()
 
 	if not _is_infinite:
-		if map_name.begins_with("dungeon_"):
-			var dseed: int = int(map_name.substr(8))
-			# Use the saved .tres if this dungeon was already generated, otherwise
-			# generate fresh and save it (DungeonGen.generate calls save_to_file).
-			if MapRegistry.get_map(map_name) != null:
-				world_map = WorldMap.new(map_name)
-			else:
-				world_map = DungeonGen.generate(map_name, dseed)
-			# Chapter 2 beat 6 (GID-108 / TID-407): the war-camp dungeon door
-			# (assets/maps/marsax_hold.tres) always targets this fixed seed.
-			if map_name == "dungeon_731906":
-				_inject_warcamp_boss(world_map)
-		elif map_name.begins_with("spire_floor_"):
-			if MapRegistry.get_map(map_name) != null:
-				world_map = WorldMap.new(map_name)
-			else:
-				var parts: PackedStringArray = map_name.split("_")
-				var sp_floor: int = int(parts[2]) if parts.size() > 2 else 1
-				var sp_seed: int  = int(parts[3]) if parts.size() > 3 else 0
-				world_map = SpireFloorGen.generate(sp_floor, sp_seed)
-		else:
-			world_map = WorldMap.new(map_name)
-			if world_map.is_fallback:
-				# Deferred so the dialogue label exists and the world is visible
-				_show_dialogue.call_deferred(
-					"Map '%s' could not be loaded — using a generated map instead." % map_name)
+		_load_named_map()
 
 	# ChunkStreamingManager owns all chunk lifecycle state and thread work.
 	# Created after world_map is ready so it receives the correct reference.
@@ -619,6 +594,65 @@ func _ready() -> void:
 		# ambient-audio signals landed but never emitted, so any subscriber saw
 		# the player enter named maps and never come back out.
 		GameBus.exited_to_world.emit()
+	_wire_gamebus_signals()
+
+	if not NetworkManager.is_dedicated_server():
+		_refresh_maiteln_presence()
+
+	coop_session._setup_coop()
+	# Guildhall furnishings (GID-106 / TID-393): must run after _setup_coop() so
+	# _net_sync exists — a client's garden snapshot request needs it. The map
+	# itself is only ever entered from an active co-op session (TID-392), so
+	# NetworkManager.is_active() here is a defensive guard, not a live gate.
+	if map_name == "guildhall" and NetworkManager.is_active():
+		_spawn_guildhall_trophies()
+		_spawn_guildhall_garden()
+		_spawn_guildhall_stash_chest()
+	_initial_ready_done = true
+
+# Re-establish co-op when the world is re-attached after a PvP battle detached it
+# (SceneManager keeps the WorldScene alive but removes it from the tree, which runs
+# _exit_tree → _teardown_coop). On first load _ready handles setup, so this only
+# fires on re-entry.
+
+## Every GameBus connection this scene keeps for its whole lifetime.
+## Deliberately not in _setup_coop: WorldScene is detached (but still alive)
+## during a PvP or joint-PvE battle, so a connection made only while a session
+## is active would miss the battle-ended signal that arrives while it is out of
+## the tree. The is_connected() guards make re-entry idempotent.
+
+## Resolves `world_map` for a non-infinite map. Procedural dungeon and spire
+## floors are generated on first visit and re-read from their saved .tres on
+## every later one; everything else is a hand-authored map resource.
+func _load_named_map() -> void:
+	if map_name.begins_with("dungeon_"):
+		var dseed: int = int(map_name.substr(8))
+		# Use the saved .tres if this dungeon was already generated, otherwise
+		# generate fresh and save it (DungeonGen.generate calls save_to_file).
+		if MapRegistry.get_map(map_name) != null:
+			world_map = WorldMap.new(map_name)
+		else:
+			world_map = DungeonGen.generate(map_name, dseed)
+		# Chapter 2 beat 6 (GID-108 / TID-407): the war-camp dungeon door
+		# (assets/maps/marsax_hold.tres) always targets this fixed seed.
+		if map_name == "dungeon_731906":
+			_inject_warcamp_boss(world_map)
+	elif map_name.begins_with("spire_floor_"):
+		if MapRegistry.get_map(map_name) != null:
+			world_map = WorldMap.new(map_name)
+		else:
+			var parts: PackedStringArray = map_name.split("_")
+			var sp_floor: int = int(parts[2]) if parts.size() > 2 else 1
+			var sp_seed: int  = int(parts[3]) if parts.size() > 3 else 0
+			world_map = SpireFloorGen.generate(sp_floor, sp_seed)
+	else:
+		world_map = WorldMap.new(map_name)
+		if world_map.is_fallback:
+			# Deferred so the dialogue label exists and the world is visible
+			_show_dialogue.call_deferred(
+				"Map '%s' could not be loaded — using a generated map instead." % map_name)
+
+func _wire_gamebus_signals() -> void:
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)
 	GameBus.blight_changed.connect(_refresh_blight_tints)
@@ -673,24 +707,6 @@ func _ready() -> void:
 	if not GameBus.spire_run_ended.is_connected(coop_activities._on_spire_run_ended_leaderboard):
 		GameBus.spire_run_ended.connect(coop_activities._on_spire_run_ended_leaderboard)
 
-	if not NetworkManager.is_dedicated_server():
-		_refresh_maiteln_presence()
-
-	coop_session._setup_coop()
-	# Guildhall furnishings (GID-106 / TID-393): must run after _setup_coop() so
-	# _net_sync exists — a client's garden snapshot request needs it. The map
-	# itself is only ever entered from an active co-op session (TID-392), so
-	# NetworkManager.is_active() here is a defensive guard, not a live gate.
-	if map_name == "guildhall" and NetworkManager.is_active():
-		_spawn_guildhall_trophies()
-		_spawn_guildhall_garden()
-		_spawn_guildhall_stash_chest()
-	_initial_ready_done = true
-
-# Re-establish co-op when the world is re-attached after a PvP battle detached it
-# (SceneManager keeps the WorldScene alive but removes it from the tree, which runs
-# _exit_tree → _teardown_coop). On first load _ready handles setup, so this only
-# fires on re-entry.
 func _enter_tree() -> void:
 	if _initial_ready_done and not _coop_active and NetworkManager.is_active():
 		coop_session._setup_coop()
