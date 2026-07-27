@@ -18,17 +18,21 @@ static func encode(x: float, z: float, flip_h: bool, moving: bool, map: String =
 
 
 ## Unpack a received payload back into named fields.
-## Returns {x, z, flip_h, moving, map, downed}. Explicit type vars guard against
-## Variant inference; `map` defaults to "" and `downed` defaults to false for
-## short/garbage/legacy 4- or 5-element payloads.
-static func decode(payload: Array) -> Dictionary:
-	var x: float = payload[0]
-	var z: float = payload[1]
-	var flip_h: bool = payload[2]
-	var moving: bool = payload[3]
-	var map: String = str(payload[4]) if payload.size() > 4 else ""
-	var downed: bool = bool(payload[5]) if payload.size() > 5 else false
-	return {"x": x, "z": z, "flip_h": flip_h, "moving": moving, "map": map, "downed": downed}
+## Returns {x, z, flip_h, moving, map, downed}. Every field is bounds-checked and
+## defaulted: this decodes packets straight off the wire, so a truncated or
+## malformed payload from any peer must not fault the handler. `map` and `downed`
+## are also absent from legacy 4- and 5-element payloads. Matches the
+## garbage-tolerant contract every other *Sync decoder in this directory follows.
+static func decode(payload: Variant) -> Dictionary:
+	var arr: Array = payload as Array if payload is Array else []
+	return {
+		"x": float(arr[0]) if arr.size() > 0 else 0.0,
+		"z": float(arr[1]) if arr.size() > 1 else 0.0,
+		"flip_h": bool(arr[2]) if arr.size() > 2 else false,
+		"moving": bool(arr[3]) if arr.size() > 3 else false,
+		"map": str(arr[4]) if arr.size() > 4 else "",
+		"downed": bool(arr[5]) if arr.size() > 5 else false,
+	}
 
 
 ## Smooth-step a remote avatar's current position toward the latest received target.
