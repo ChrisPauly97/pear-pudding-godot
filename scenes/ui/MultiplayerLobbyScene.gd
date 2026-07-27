@@ -55,9 +55,7 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_node_ready():
 		_save_name()  # don't lose an unsaved edit across the rebuild
-		_vh = get_viewport().get_visible_rect().size.y
-		_vw = get_viewport().get_visible_rect().size.x
-		_ref = minf(_vh, _vw)
+		_refresh_metrics()
 		var keep_ip: String = _ip_edit.text if _ip_edit != null else "127.0.0.1"
 		var keep_status: String = _status_lbl.text if _status_lbl != null else ""
 		for c in get_children():

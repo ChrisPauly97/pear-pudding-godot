@@ -103,9 +103,4 @@ func _add_row(row: Dictionary) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_inside_tree():
-		_vh = get_viewport().get_visible_rect().size.y
-		_vw = get_viewport().get_visible_rect().size.x
-		_ref = minf(_vh, _vw)
-		for c in get_children():
-			c.queue_free()
-		_build_ui()
+		_rebuild_ui()

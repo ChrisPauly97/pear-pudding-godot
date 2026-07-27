@@ -13,9 +13,7 @@ var _ref: float = 0.0   # min(_vh, _vw) — prevents oversizing on portrait phon
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_STOP
-	_vh = get_viewport().get_visible_rect().size.y
-	_vw = get_viewport().get_visible_rect().size.x
-	_ref = minf(_vh, _vw)
+	_refresh_metrics()
 
 # Returns a full-screen dark backdrop. Optionally closes overlay on tap when
 # close_on_tap is true.
@@ -62,6 +60,21 @@ func _build_margin_vbox(parent: Control, margin_frac: float = 0.015, sep_frac: f
 	parent.add_child(margin)
 	var vbox := _UiUtil.make_vbox(int(_ref * sep_frac), margin)
 	return vbox
+
+## Recomputes the viewport metrics every builder reads.
+func _refresh_metrics() -> void:
+	_vh = get_viewport().get_visible_rect().size.y
+	_vw = get_viewport().get_visible_rect().size.x
+	_ref = minf(_vh, _vw)
+
+## Discards the whole tree and re-runs `_build_ui()` at the new viewport size.
+## Overlays that build everything in `_build_ui()` route their NOTIFICATION_RESIZED
+## here; ones that must carry unsaved state across the rebuild handle it themselves.
+func _rebuild_ui() -> void:
+	_refresh_metrics()
+	for c in get_children():
+		c.queue_free()
+	call("_build_ui")
 
 func _close() -> void:
 	closed.emit()

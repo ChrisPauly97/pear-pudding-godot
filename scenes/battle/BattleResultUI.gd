@@ -114,23 +114,32 @@ func start_banner_fade(banner: Control) -> void:
 # Victory / defeat overlays
 # -------------------------------------------------------------------------
 
+## The full-screen result card every battle outcome shares: a flat-tinted panel
+## over the board with a centred VBox body already parented to it. Returns
+## {"overlay": PanelContainer, "vbox": VBoxContainer}; the caller fills the box
+## and reparents the overlay when done.
+func _build_result_overlay(bg: Color, sep_frac: float = 0.03,
+		hide_floats: bool = true) -> Dictionary:
+	if hide_floats and _float_layer:
+		_float_layer.hide()
+	var overlay := PanelContainer.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_theme_stylebox_override("panel", _UiUtil.make_style(bg))
+	var vbox := VBoxContainer.new()
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", int(_vh * sep_frac))
+	overlay.add_child(vbox)
+	return {"overlay": overlay, "vbox": vbox}
+
 func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 		sig_card_id: String = "", condition_text_arg: String = "", condition_met: bool = false,
 		reward_rarity: String = "", reward_stats: Dictionary = {},
 		coins_earned: int = 0, xp_earned: int = 0, hero_hp: int = 0,
 		dawn_played: int = 0, dusk_played: int = 0) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.1, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+	var result: Dictionary = _build_result_overlay(Color(0.05, 0.05, 0.1, 0.92))
+	var overlay: PanelContainer = result["overlay"]
+	var vbox: VBoxContainer = result["vbox"]
 
 	var title_lbl := _UiUtil.make_label("Victory!", int(_vh * 0.06), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -203,24 +212,14 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 	vbox.add_child(btn)
 	UiFx.attach(btn)
 
-	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
 func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_arg: String, hero_hp: int = 0,
 		dawn_played: int = 0, dusk_played: int = 0,
 		reward_rarity: String = "", reward_stats: Dictionary = {}) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.02, 0.12, 0.95)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.028))
+	var result: Dictionary = _build_result_overlay(Color(0.05, 0.02, 0.12, 0.95), 0.028)
+	var overlay: PanelContainer = result["overlay"]
+	var vbox: VBoxContainer = result["vbox"]
 
 	var title_lbl := _UiUtil.make_label("Victory!", int(_vh * 0.06), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -262,25 +261,15 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 	vbox.add_child(btn)
 	UiFx.attach(btn)
 
-	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
 func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "",
 		rarities: Array[String] = [], stats_list: Array[Dictionary] = [],
 		coins_earned: int = 0, xp_earned: int = 0, hero_hp: int = 0,
 		dawn_played: int = 0, dusk_played: int = 0) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.1, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.025))
+	var result: Dictionary = _build_result_overlay(Color(0.05, 0.05, 0.1, 0.92), 0.025)
+	var overlay: PanelContainer = result["overlay"]
+	var vbox: VBoxContainer = result["vbox"]
 
 	var title_lbl := _UiUtil.make_label("Boss Defeated!", int(_vh * 0.06), Color(1.0, 0.75, 0.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -353,22 +342,12 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 	vbox.add_child(btn)
 	UiFx.attach(btn)
 
-	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
 func show_duel_victory(wager: int) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.1, 0.05, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+	var result: Dictionary = _build_result_overlay(Color(0.05, 0.1, 0.05, 0.92))
+	var overlay: PanelContainer = result["overlay"]
+	var vbox: VBoxContainer = result["vbox"]
 
 	var title_lbl := _UiUtil.make_label("Duel Won!", int(_vh * 0.06), Color(0.4, 1.0, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -384,22 +363,12 @@ func show_duel_victory(wager: int) -> void:
 	vbox.add_child(btn)
 	UiFx.attach(btn)
 
-	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
 func show_duel_loss(wager: int) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.05, 0.05, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+	var result: Dictionary = _build_result_overlay(Color(0.1, 0.05, 0.05, 0.92))
+	var overlay: PanelContainer = result["overlay"]
+	var vbox: VBoxContainer = result["vbox"]
 
 	var title_lbl := _UiUtil.make_label("Duel Lost", int(_vh * 0.06), Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -416,7 +385,6 @@ func show_duel_loss(wager: int) -> void:
 	vbox.add_child(btn)
 	UiFx.attach(btn)
 
-	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
 ## Ghost duel result (GID-102 / TID-377): a local, single-player battle against an
@@ -428,18 +396,9 @@ func show_duel_loss(wager: int) -> void:
 ## so mashing Continue can't double-award). The Continue button emits
 ## ghost_duel_ended; SceneManager restores the world exactly like an NPC duel.
 func show_ghost_duel_result(did_win: bool, coin_reward: int) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+	var result: Dictionary = _build_result_overlay(Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92))
+	var overlay: PanelContainer = result["overlay"]
+	var vbox: VBoxContainer = result["vbox"]
 
 	var title_lbl := _UiUtil.make_label("Ghost Duel Won!" if did_win else "Ghost Duel Lost", int(_vh * 0.06), Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -456,7 +415,6 @@ func show_ghost_duel_result(did_win: bool, coin_reward: int) -> void:
 	vbox.add_child(btn)
 	UiFx.attach(btn)
 
-	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
 ## Scripted story battle result (GID-108) — fixed-deck tutorial battles like the
@@ -464,18 +422,9 @@ func show_ghost_duel_result(did_win: bool, coin_reward: int) -> void:
 ## SceneManager can look up the completion flag / reward without BattleResultUI
 ## needing to know about ScriptedBattleData.
 func show_scripted_result(did_win: bool, battle_id: String) -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+	var result: Dictionary = _build_result_overlay(Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92))
+	var overlay: PanelContainer = result["overlay"]
+	var vbox: VBoxContainer = result["vbox"]
 
 	var title_lbl := _UiUtil.make_label("Victory!" if did_win else "Defeated", int(_vh * 0.06), Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -487,7 +436,6 @@ func show_scripted_result(did_win: bool, battle_id: String) -> void:
 	vbox.add_child(btn)
 	UiFx.attach(btn)
 
-	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
 ## PvP duel-style result (GID-091 / TID-368). did_win is from the local peer's
@@ -498,18 +446,9 @@ func show_scripted_result(did_win: bool, battle_id: String) -> void:
 ## +N coins" / "Bet lost: -N coins" / refund). "" (default) adds nothing, so
 ## every existing combatant call site renders exactly as before.
 func show_pvp_result(did_win: bool, coins_delta: int = 0, wager_note: String = "") -> void:
-	if _float_layer:
-		_float_layer.hide()
-	var overlay := PanelContainer.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+	var result: Dictionary = _build_result_overlay(Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92))
+	var overlay: PanelContainer = result["overlay"]
+	var vbox: VBoxContainer = result["vbox"]
 
 	var title_lbl := _UiUtil.make_label("Victory!" if did_win else "Defeated", int(_vh * 0.06), Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -540,21 +479,13 @@ func show_pvp_result(did_win: bool, coins_delta: int = 0, wager_note: String = "
 	vbox.add_child(btn)
 	UiFx.attach(btn)
 
-	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
 func show_puzzle_fail_overlay(hint_text: String) -> void:
-	var overlay := PanelContainer.new()
+	var result: Dictionary = _build_result_overlay(Color(0.1, 0.05, 0.05, 0.88), 0.03, false)
+	var overlay: PanelContainer = result["overlay"]
 	overlay.name = "PuzzleFailOverlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.1, 0.05, 0.05, 0.88)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+	var vbox: VBoxContainer = result["vbox"]
 
 	var lbl := _UiUtil.make_label("Not quite — try again!", int(_vh * 0.05), Color(1.0, 0.5, 0.3), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -565,21 +496,13 @@ func show_puzzle_fail_overlay(hint_text: String) -> void:
 	var btn := _UiUtil.make_button("Try Again", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025), func() -> void: overlay.queue_free(), vbox)
 	UiFx.attach(btn)
 
-	overlay.add_child(vbox)
 	_parent.add_child(overlay)
 
 func show_puzzle_victory_overlay() -> void:
-	var overlay := PanelContainer.new()
+	var result: Dictionary = _build_result_overlay(Color(0.04, 0.10, 0.04, 0.92), 0.03, false)
+	var overlay: PanelContainer = result["overlay"]
 	overlay.name = "PuzzleVictoryOverlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.10, 0.04, 0.92)
-	overlay.add_theme_stylebox_override("panel", style)
-
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.03))
+	var vbox: VBoxContainer = result["vbox"]
 
 	var title_lbl := _UiUtil.make_label("Puzzle Solved!", int(_vh * 0.06), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
@@ -593,5 +516,4 @@ func show_puzzle_victory_overlay() -> void:
 	vbox.add_child(btn)
 	UiFx.attach(btn)
 
-	overlay.add_child(vbox)
 	_parent.add_child(overlay)

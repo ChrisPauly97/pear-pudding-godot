@@ -2556,14 +2556,21 @@ func _on_pvp_state(payload: Dictionary) -> void:
 		return
 	_last_applied_seq = seq
 	_pvp_pending = false
-	var state_dict: Dictionary = decoded["state"]
+	_adopt_mirrored_state(decoded["state"])
+	# Spectator wagers (GID-104 / TID-387): each mirror carries turn_number, so the
+	# cutoff ("Bets Closed") is evaluated locally on every state update.
+	if _pvp_spectating:
+		_update_wager_panel()
+
+## Replaces the local GameState with an authority mirror and re-points every
+## helper that caches a GameState reference (GID-040 pattern). from_dict builds
+## a brand-new GameState, so its turn_ended signal must be reconnected too — the
+## connection made in _ready was to the state this one replaces.
+func _adopt_mirrored_state(state_dict: Dictionary) -> void:
 	_state = GameState.new()
 	_state.from_dict(state_dict)
 	_wire_gamebus_emitter()
 	_bump_card_next_id(_state)
-	# Re-wire the helpers that cache a GameState reference (GID-040 pattern).
-	# from_dict built a brand-new GameState, so its turn_ended signal must be
-	# reconnected — the original connection in _ready was to the now-discarded state.
 	if not _state.turn_ended.is_connected(_on_turn_ended):
 		_state.turn_ended.connect(_on_turn_ended)
 	_resolver.setup(_state)
@@ -2571,10 +2578,6 @@ func _on_pvp_state(payload: Dictionary) -> void:
 	_view.set_battle_state(_state, enemy_data)
 	_refresh_all()
 	_refresh_potion_button()
-	# Spectator wagers (GID-104 / TID-387): each mirror carries turn_number, so the
-	# cutoff ("Bets Closed") is evaluated locally on every state update.
-	if _pvp_spectating:
-		_update_wager_panel()
 
 ## Authority: validate + apply a client intent, then re-render (broadcast happens
 ## in _check_game_over). In referee mode both players send intents; in
@@ -3380,18 +3383,7 @@ func _on_coop_state(payload: Dictionary) -> void:
 		return
 	_last_applied_seq = seq
 	_pvp_pending = false
-	var state_dict: Dictionary = decoded["state"]
-	_state = GameState.new()
-	_state.from_dict(state_dict)
-	_wire_gamebus_emitter()
-	_bump_card_next_id(_state)
-	if not _state.turn_ended.is_connected(_on_turn_ended):
-		_state.turn_ended.connect(_on_turn_ended)
-	_resolver.setup(_state)
-	_fx.set_game_state(_state)
-	_view.set_battle_state(_state, enemy_data)
-	_refresh_all()
-	_refresh_potion_button()
+	_adopt_mirrored_state(decoded["state"])
 
 ## Authority: validate + apply an ally client's intent for the co-op battle.
 func _on_coop_intent(sender: int, payload: Dictionary) -> void:
@@ -3611,18 +3603,7 @@ func _on_team_state(payload: Dictionary) -> void:
 		return
 	_last_applied_seq = seq
 	_pvp_pending = false
-	var state_dict: Dictionary = decoded["state"]
-	_state = GameState.new()
-	_state.from_dict(state_dict)
-	_wire_gamebus_emitter()
-	_bump_card_next_id(_state)
-	if not _state.turn_ended.is_connected(_on_turn_ended):
-		_state.turn_ended.connect(_on_turn_ended)
-	_resolver.setup(_state)
-	_fx.set_game_state(_state)
-	_view.set_battle_state(_state, enemy_data)
-	_refresh_all()
-	_refresh_potion_button()
+	_adopt_mirrored_state(decoded["state"])
 
 ## Authority: validate + apply a team participant's intent.
 func _on_team_intent(sender: int, payload: Dictionary) -> void:
