@@ -44,6 +44,13 @@ const _NetSyncScriptPath: String = "res://scenes/world/NetSync.gd"
 const _WorldScenePath: String = "res://scenes/world/WorldScene.tscn"
 const _NetSyncScript = preload("res://scenes/world/NetSync.gd")
 
+## Files outside scenes/world/ that reach the WorldScene node by name. The
+## overlays under scenes/ui/ are handed a CoopSocial module as `world_scene`, so
+## they are deliberately not listed — only callers that hold the real scene are.
+const _EXTERNAL_CALLER_FILES: Array[String] = [
+	"res://autoloads/SceneManager.gd",
+]
+
 ## Handlers known to be unsafe to invoke cold, with the concrete reason — found by
 ## reading the handler + the *Sync helper it calls, not guessed. Still required to
 ## pass the existence check in part 3a (checked without calling it); only skipped
@@ -114,6 +121,7 @@ func _run() -> bool:
 	ok = _check(ws.get("_minimap") != null, "_minimap (Minimap) built") and ok
 	ok = _check(ws.get("_csm") != null, "_csm (ChunkStreamingManager) built") and ok
 	ok = _check(ws.get("_dnc") != null, "_dnc (DayNightCycle) built") and ok
+	ok = _check_external_entry_points(ws) and ok
 	ok = _check(ws.get("_entity_root") != null, "_entity_root (Entities Node3D) built") and ok
 	var player: Object = ws.get("_player")
 	ok = _check(player != null and is_instance_valid(player), "_player spawned") and ok
@@ -235,6 +243,33 @@ func _resolve_owner(ws: Node, net_sync: Node, handler: String) -> Object:
 
 func _handler_resolves(ws: Node, net_sync: Node, handler: String) -> bool:
 	return _resolve_owner(ws, net_sync, handler) != null
+
+
+## Scripts outside scenes/world/ reach the WorldScene *node* by
+## `has_method("x")` before calling it. A `has_method()` guard that fails is
+## silent — the call is simply skipped — so moving such a method into a co-op
+## module breaks the caller with no error anywhere. (That is exactly what
+## happened to `enter_downed_state`: a downed co-op player stopped entering the
+## downed state, and nothing reported it.) Every probed name must therefore
+## resolve on WorldScene itself, whatever the implementation does behind it.
+func _check_external_entry_points(ws: Node) -> bool:
+	var probes: Dictionary = {}   # method name -> file that probes for it
+	for path: String in _EXTERNAL_CALLER_FILES:
+		var f := FileAccess.open(path, FileAccess.READ)
+		if f == null:
+			continue
+		var src: String = f.get_as_text()
+		f.close()
+		var re := RegEx.new()
+		re.compile("(_saved_world_scene|world_scene|ws)\\s*(?:!=\\s*null\\s+and\\s+\\1\\s*)?\\.has_method\\(\"(\\w+)\"\\)")
+		for m in re.search_all(src):
+			probes[m.get_string(2)] = path
+	var missing: Array[String] = []
+	for name: String in probes:
+		if not ws.has_method(name):
+			missing.append("%s (probed by %s)" % [name, probes[name]])
+	return _check(missing.is_empty(),
+		"every world-scene method probed by has_method() outside scenes/world/ resolves on WorldScene (missing: %s)" % [missing])
 
 
 ## Builds one synthesized dummy argument per parameter `handler` declares on
