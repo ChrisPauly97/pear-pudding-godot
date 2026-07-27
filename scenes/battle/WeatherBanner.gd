@@ -1,6 +1,7 @@
 ## Displays the active weather and its battle modifier in the BattleScene HUD.
 ## Shown at battle start if weather is active; hidden when weather is clear.
 extends Control
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const _MODIFIER_TEXTS: Dictionary = {
 	"rain":       "RAIN: Ghosts gain +1 HP on summon",
@@ -29,28 +30,15 @@ func setup(weather_id: String) -> void:
 	var panel_h: float = vh * 0.055
 
 	_panel = PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.15, 0.80)
-	style.corner_radius_top_left    = 6
-	style.corner_radius_top_right   = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
-	style.border_color = Color(0.4, 0.6, 0.9, 0.7)
-	style.border_width_top    = 1
-	style.border_width_bottom = 1
-	style.border_width_left   = 1
-	style.border_width_right  = 1
+	var style := _UiUtil.make_style(Color(0.05, 0.05, 0.15, 0.80), 6, Color(0.4, 0.6, 0.9, 0.7), 1)
 	_panel.add_theme_stylebox_override("panel", style)
 	_panel.custom_minimum_size = Vector2(panel_w, panel_h)
 	_panel.position = Vector2((vw - panel_w) * 0.5, vh * 0.005)
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_panel)
 
-	_label = Label.new()
-	_label.text = str(_MODIFIER_TEXTS.get(weather_id, weather_id))
-	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_label = _UiUtil.make_label(str(_MODIFIER_TEXTS.get(weather_id, weather_id)), int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_label.add_theme_font_size_override("font_size", int(vh * 0.022))
 	_label.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0))
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel.add_child(_label)

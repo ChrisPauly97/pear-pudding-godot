@@ -9,22 +9,10 @@ var _alive: bool = true
 var _is_boss: bool = false
 var _is_roaming_boss: bool = false
 var _tracking: bool = false
-var engage_cooldown: float = 0.0
 
 func _ready() -> void:
-	var sprite := Sprite3D.new()
 	var etype: String = str(enemy_data.get("enemy_type", ""))
-	var tex: Texture2D = _SpriteRegistry.enemy_texture(etype, _is_roaming_boss, _is_boss)
-	if tex != null:
-		_SpriteRegistry.setup_sprite_height(sprite, tex,
-			_SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss))
-	else:
-		sprite.texture = TextureGen.enemy(_is_roaming_boss, _is_boss)
-		sprite.pixel_size = 0.04
-		sprite.position = Vector3(0.0, 0.69, 0.0)
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	var sprite: Sprite3D = _SpriteRegistry.make_billboard(_SpriteRegistry.enemy_texture(etype, _is_roaming_boss, _is_boss), TextureGen.enemy(_is_roaming_boss, _is_boss), _SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss))
 	add_child(sprite)
 	if _is_roaming_boss:
 		scale = Vector3(1.5, 1.5, 1.5)
@@ -32,10 +20,6 @@ func _ready() -> void:
 		scale = Vector3(1.3, 1.3, 1.3)
 	if _tracking:
 		_setup_proximity_area()
-
-func _process(delta: float) -> void:
-	if engage_cooldown > 0.0:
-		engage_cooldown -= delta
 
 func init_from_data(data: Dictionary) -> void:
 	enemy_data = data
@@ -106,8 +90,6 @@ func _on_body_entered(body: Node3D) -> void:
 	if not _alive or not _tracking:
 		return
 	if not body is CharacterBody3D:
-		return
-	if engage_cooldown > 0.0:
 		return
 	if not SceneManager.can_proximity_engage():
 		return

@@ -24,7 +24,6 @@ const _BOSS_MAX_INTERVAL: float = 1500.0   # 25 min
 const _MERCHANT_ID: String = "traveling_merchant"
 const _MERCHANT_MIN_INTERVAL: float = 600.0   # 10 min
 const _MERCHANT_MAX_INTERVAL: float = 1200.0  # 20 min
-const _MERCHANT_PRICE: int = 30               # premium above town shop (15)
 
 # ── Card shower ───────────────────────────────────────────────────────────────
 const _SHOWER_ID: String = "card_shower"
@@ -53,6 +52,16 @@ const _MERCHANT_CARD_POOL: Array[String] = [
 ]
 
 
+## The active save's world seed, resolved through the tree so this stays usable
+## from static context. Falls back to the default seed before a save is loaded.
+static func _active_world_seed() -> int:
+	var sm_node: Node = Engine.get_main_loop().get_root().get_node_or_null("SceneManager")
+	if sm_node != null:
+		var save_mgr: Variant = sm_node.get("save_manager")
+		if save_mgr is Node:
+			return int((save_mgr as Node).get("world_seed"))
+	return 42
+
 static func register_all(world_scene: Node) -> void:
 	var wem: Node = Engine.get_main_loop().get_root().get_node_or_null("WorldEventManager")
 	if wem == null:
@@ -79,12 +88,7 @@ static func _spawn_roaming_boss(world_scene: Node, wem: Node) -> void:
 		wem.call("end_event", _BOSS_ID)
 		return
 
-	var sm_node: Node = Engine.get_main_loop().get_root().get_node_or_null("SceneManager")
-	var world_seed: int = 42
-	if sm_node != null:
-		var save_mgr: Variant = sm_node.get("save_manager")
-		if save_mgr is Node:
-			world_seed = int((save_mgr as Node).get("world_seed"))
+	var world_seed: int = _active_world_seed()
 
 	var spawn_pos: Vector3 = _WorldEventManager.find_spawn_tile(
 		player.position, 20.0, 40.0, world_seed)
@@ -140,12 +144,7 @@ static func _spawn_traveling_merchant(world_scene: Node, wem: Node) -> void:
 		wem.call("end_event", _MERCHANT_ID)
 		return
 
-	var sm_node: Node = Engine.get_main_loop().get_root().get_node_or_null("SceneManager")
-	var world_seed: int = 42
-	if sm_node != null:
-		var save_mgr: Variant = sm_node.get("save_manager")
-		if save_mgr is Node:
-			world_seed = int((save_mgr as Node).get("world_seed"))
+	var world_seed: int = _active_world_seed()
 
 	var spawn_pos: Vector3 = _WorldEventManager.find_spawn_tile(
 		player.position, 15.0, 30.0, world_seed)
@@ -221,12 +220,7 @@ static func _spawn_card_shower(world_scene: Node, wem: Node) -> void:
 		wem.call("end_event", _SHOWER_ID)
 		return
 
-	var sm_node: Node = Engine.get_main_loop().get_root().get_node_or_null("SceneManager")
-	var world_seed: int = 42
-	if sm_node != null:
-		var save_mgr: Variant = sm_node.get("save_manager")
-		if save_mgr is Node:
-			world_seed = int((save_mgr as Node).get("world_seed"))
+	var world_seed: int = _active_world_seed()
 
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(Time.get_unix_time_from_system())

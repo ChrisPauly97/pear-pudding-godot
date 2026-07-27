@@ -1,4 +1,5 @@
 extends Control
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
 
@@ -51,22 +52,16 @@ func _ready() -> void:
 	root.add_child(top_pad)
 
 	# Title
-	var title := Label.new()
-	title.text = "Choose Your World"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var title := _UiUtil.make_label("Choose Your World", int(ref * 0.062), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, root)
 	title.custom_minimum_size = Vector2(0, int(ref * 0.12))
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(ref * 0.062))
-	root.add_child(title)
 
 	# CenterContainer holds the card row and expands to fill remaining space
 	var center := CenterContainer.new()
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(center)
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(ref * 0.022))
-	center.add_child(hbox)
+	var hbox := _UiUtil.make_hbox(int(ref * 0.022), center)
 
 	var card_w: float = ref * 0.19
 	var card_h: float = ref * 0.62
@@ -75,22 +70,15 @@ func _ready() -> void:
 		hbox.add_child(_make_card(i, card_w, card_h, ref))
 
 	# Bottom bar — back button left-aligned, fixed height
-	var bottom_bar := HBoxContainer.new()
+	var bottom_bar := _UiUtil.make_hbox(0, root)
 	bottom_bar.custom_minimum_size = Vector2(0, int(ref * 0.11))
 	bottom_bar.alignment = BoxContainer.ALIGNMENT_BEGIN
-	bottom_bar.add_theme_constant_override("separation", 0)
-	root.add_child(bottom_bar)
 
 	var left_pad := Control.new()
 	left_pad.custom_minimum_size = Vector2(int(ref * 0.03), 0)
 	bottom_bar.add_child(left_pad)
 
-	var back_btn := Button.new()
-	back_btn.text = "Back"
-	back_btn.custom_minimum_size = Vector2(int(ref * 0.16), int(ref * 0.07))
-	back_btn.add_theme_font_size_override("font_size", int(ref * 0.028))
-	back_btn.pressed.connect(_on_back)
-	bottom_bar.add_child(back_btn)
+	var back_btn := _UiUtil.make_button("Back", Vector2(int(ref * 0.16), int(ref * 0.07)), int(ref * 0.028), _on_back, bottom_bar)
 
 	# Head Start toggle (BID-049 / GID-117): opt-in boosted start — level 15,
 	# 14 skill points, 5000 coins. Off by default for a true level-1 fresh start.
@@ -117,9 +105,7 @@ func _make_card(biome_id: int, card_w: float, card_h: float, ref: float) -> Pane
 		style.set_corner_radius(corner, 6)
 	panel.add_theme_stylebox_override("panel", style)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(ref * 0.012))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(ref * 0.012), panel)
 
 	# Color swatch strip at top
 	var swatch := ColorRect.new()
@@ -129,10 +115,7 @@ func _make_card(biome_id: int, card_w: float, card_h: float, ref: float) -> Pane
 	vbox.add_child(swatch)
 
 	# Biome name
-	var name_lbl := Label.new()
-	name_lbl.text = _NAMES[biome_id]
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.add_theme_font_size_override("font_size", int(ref * 0.030))
+	var name_lbl := _UiUtil.make_label(_NAMES[biome_id], int(ref * 0.030), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	name_lbl.add_theme_color_override("font_color", Color.WHITE)
 	vbox.add_child(name_lbl)
 
@@ -142,11 +125,8 @@ func _make_card(biome_id: int, card_w: float, card_h: float, ref: float) -> Pane
 	vbox.add_child(sep)
 
 	# Tagline
-	var tag_lbl := Label.new()
-	tag_lbl.text = _TAGLINES[biome_id]
-	tag_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var tag_lbl := _UiUtil.make_label(_TAGLINES[biome_id], int(ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	tag_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	tag_lbl.add_theme_font_size_override("font_size", int(ref * 0.022))
 	tag_lbl.add_theme_color_override("font_color", Color(0.82, 0.82, 0.82))
 	vbox.add_child(tag_lbl)
 
@@ -156,11 +136,8 @@ func _make_card(biome_id: int, card_w: float, card_h: float, ref: float) -> Pane
 	vbox.add_child(spacer)
 
 	# "Venture Here" button
-	var btn := Button.new()
-	btn.text = "Venture Here"
-	btn.custom_minimum_size = Vector2(0, int(ref * 0.065))
+	var btn := _UiUtil.make_button("Venture Here", Vector2(0, int(ref * 0.065)), int(ref * 0.024))
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.add_theme_font_size_override("font_size", int(ref * 0.024))
 	var captured_id := biome_id
 	btn.pressed.connect(func() -> void: _on_biome_chosen(captured_id))
 	vbox.add_child(btn)

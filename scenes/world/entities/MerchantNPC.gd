@@ -9,17 +9,7 @@ var _is_traveling: bool = false
 func _ready() -> void:
 	add_to_group("interactable")
 	_ring = build_highlight_ring(self, 0.55)
-	var sprite := Sprite3D.new()
-	var tex: Texture2D = _SpriteRegistry.merchant_texture(_is_traveling)
-	if tex != null:
-		_SpriteRegistry.setup_sprite_height(sprite, tex, _SpriteRegistry.HEIGHT_MERCHANT)
-	else:
-		sprite.texture = TextureGen.npc_merchant(_is_traveling)
-		sprite.pixel_size = 0.04
-		sprite.position = Vector3(0.0, 0.69, 0.0)
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	var sprite: Sprite3D = _SpriteRegistry.make_billboard(_SpriteRegistry.merchant_texture(_is_traveling), TextureGen.npc_merchant(_is_traveling), _SpriteRegistry.HEIGHT_MERCHANT)
 	add_child(sprite)
 	_add_name_label()
 
@@ -28,15 +18,7 @@ func init_from_data(data: Dictionary) -> void:
 	_is_traveling = bool(data.get("is_traveling", false))
 
 func _add_name_label() -> void:
-	var lbl := Label3D.new()
-	lbl.text = "Traveling Merchant" if _is_traveling else "Merchant"
-	lbl.font_size = 32
-	lbl.pixel_size = 0.025
-	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lbl.no_depth_test = true
-	lbl.position = Vector3(0.0, 2.0, 0.0)
-	lbl.modulate = Color(0.85, 0.6, 1.0) if _is_traveling else Color(1.0, 0.85, 0.1)
-	add_child(lbl)
+	add_child(_SpriteRegistry.make_name_label("Traveling Merchant" if _is_traveling else "Merchant", Color(0.85, 0.6, 1.0) if _is_traveling else Color(1.0, 0.85, 0.1)))
 
 func get_dialogue() -> String:
 	if _is_traveling:

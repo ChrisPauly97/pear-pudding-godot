@@ -29,17 +29,10 @@ func _build_ui() -> void:
 	var is_portrait: bool = _vw < _vh
 	var root_vbox: VBoxContainer
 	if hub_mode:
-		var margin := MarginContainer.new()
-		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var m: int = int(_ref * 0.015)
-		margin.add_theme_constant_override("margin_left", m)
-		margin.add_theme_constant_override("margin_right", m)
-		margin.add_theme_constant_override("margin_top", m)
-		margin.add_theme_constant_override("margin_bottom", m)
-		add_child(margin)
-		root_vbox = VBoxContainer.new()
-		root_vbox.add_theme_constant_override("separation", int(_ref * 0.01))
-		margin.add_child(root_vbox)
+		var margin := _UiUtil.make_margin(m, m, m, m, self)
+		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+		root_vbox = _UiUtil.make_vbox(int(_ref * 0.01), margin)
 	else:
 		_build_backdrop(0.78)
 		var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
@@ -48,8 +41,7 @@ func _build_ui() -> void:
 		root_vbox = _build_margin_vbox(outer, 0.015, 0.01)
 
 	# ── Header row ────────────────────────────────────────────────────────────
-	var header_row := HBoxContainer.new()
-	root_vbox.add_child(header_row)
+	var header_row := _UiUtil.make_hbox(0, root_vbox)
 
 	_header_label = Label.new()
 	_header_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -57,44 +49,22 @@ func _build_ui() -> void:
 	header_row.add_child(_header_label)
 
 	if not hub_mode:
-		var close_btn := Button.new()
-		close_btn.text = "X"
-		close_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
-		close_btn.add_theme_font_size_override("font_size", int(_vh * 0.028))
-		close_btn.pressed.connect(_close)
-		header_row.add_child(close_btn)
+		var close_btn := _UiUtil.make_button("X", Vector2(_vh * 0.055, _vh * 0.055), int(_vh * 0.028), _close, header_row)
 
 	# ── Tab bar ───────────────────────────────────────────────────────────────
-	var tab_bar := HBoxContainer.new()
-	tab_bar.add_theme_constant_override("separation", 0)
-	root_vbox.add_child(tab_bar)
+	var tab_bar := _UiUtil.make_hbox(0, root_vbox)
 
-	_tab_scrolls_btn = Button.new()
-	_tab_scrolls_btn.text = "Scrolls"
+	_tab_scrolls_btn = _UiUtil.make_button("Scrolls", Vector2(0, _vh * 0.05), int(_vh * 0.022), _on_tab_selected.bind("scrolls"), tab_bar)
 	_tab_scrolls_btn.flat = true
 	_tab_scrolls_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_tab_scrolls_btn.custom_minimum_size = Vector2(0, _vh * 0.05)
-	_tab_scrolls_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	_tab_scrolls_btn.pressed.connect(_on_tab_selected.bind("scrolls"))
-	tab_bar.add_child(_tab_scrolls_btn)
 
-	_tab_bestiary_btn = Button.new()
-	_tab_bestiary_btn.text = "Bestiary"
+	_tab_bestiary_btn = _UiUtil.make_button("Bestiary", Vector2(0, _vh * 0.05), int(_vh * 0.022), _on_tab_selected.bind("bestiary"), tab_bar)
 	_tab_bestiary_btn.flat = true
 	_tab_bestiary_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_tab_bestiary_btn.custom_minimum_size = Vector2(0, _vh * 0.05)
-	_tab_bestiary_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	_tab_bestiary_btn.pressed.connect(_on_tab_selected.bind("bestiary"))
-	tab_bar.add_child(_tab_bestiary_btn)
 
-	_tab_discoveries_btn = Button.new()
-	_tab_discoveries_btn.text = "Discoveries"
+	_tab_discoveries_btn = _UiUtil.make_button("Discoveries", Vector2(0, _vh * 0.05), int(_vh * 0.022), _on_tab_selected.bind("discoveries"), tab_bar)
 	_tab_discoveries_btn.flat = true
 	_tab_discoveries_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_tab_discoveries_btn.custom_minimum_size = Vector2(0, _vh * 0.05)
-	_tab_discoveries_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	_tab_discoveries_btn.pressed.connect(_on_tab_selected.bind("discoveries"))
-	tab_bar.add_child(_tab_discoveries_btn)
 
 	# ── Treasure status row ───────────────────────────────────────────────────
 	_treasure_label = Label.new()
@@ -125,10 +95,8 @@ func _build_ui() -> void:
 	left_panel.add_child(left_scroll)
 	attach_drag_scroll(left_scroll)
 
-	_scroll_list = VBoxContainer.new()
+	_scroll_list = _UiUtil.make_vbox(int(_vh * 0.008), left_scroll)
 	_scroll_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_scroll_list.add_theme_constant_override("separation", int(_vh * 0.008))
-	left_scroll.add_child(_scroll_list)
 
 	# Right panel — detail view
 	var right_panel := PanelContainer.new()
@@ -136,16 +104,9 @@ func _build_ui() -> void:
 	right_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	panels_box.add_child(right_panel)
 
-	var right_margin := MarginContainer.new()
-	right_margin.add_theme_constant_override("margin_left",   int(_vw * 0.015))
-	right_margin.add_theme_constant_override("margin_right",  int(_vw * 0.015))
-	right_margin.add_theme_constant_override("margin_top",    int(_vh * 0.015))
-	right_margin.add_theme_constant_override("margin_bottom", int(_vh * 0.015))
-	right_panel.add_child(right_margin)
+	var right_margin := _UiUtil.make_margin(int(_vw * 0.015), int(_vh * 0.015), int(_vw * 0.015), int(_vh * 0.015), right_panel)
 
-	var detail_vbox := VBoxContainer.new()
-	detail_vbox.add_theme_constant_override("separation", int(_vh * 0.012))
-	right_margin.add_child(detail_vbox)
+	var detail_vbox := _UiUtil.make_vbox(int(_vh * 0.012), right_margin)
 
 	_title_label = Label.new()
 	_title_label.add_theme_font_size_override("font_size", int(_vh * 0.035))
@@ -160,11 +121,7 @@ func _build_ui() -> void:
 	_lore_label.add_theme_font_size_override("normal_font_size", int(_vh * 0.022))
 	detail_vbox.add_child(_lore_label)
 
-	_replay_btn = Button.new()
-	_replay_btn.text = "Replay Narration"
-	_replay_btn.custom_minimum_size = Vector2(_vw * 0.18, _vh * 0.06)
-	_replay_btn.add_theme_font_size_override("font_size", int(_vh * 0.025))
-	_replay_btn.pressed.connect(_on_replay_pressed)
+	_replay_btn = _UiUtil.make_button("Replay Narration", Vector2(_vw * 0.18, _vh * 0.06), int(_vh * 0.025), _on_replay_pressed)
 	_replay_btn.hide()
 	detail_vbox.add_child(_replay_btn)
 
@@ -211,20 +168,12 @@ func _populate_scroll_list() -> void:
 		if not SaveManager.is_scroll_collected(sid):
 			continue
 		any_found = true
-		var btn := Button.new()
-		btn.text = scroll["title"]
-		btn.custom_minimum_size = Vector2(_vw * 0.22, _vh * 0.06)
-		btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		var btn := _UiUtil.make_button(scroll["title"], Vector2(_vw * 0.22, _vh * 0.06), int(_vh * 0.022), _on_scroll_selected.bind(sid), _scroll_list)
 		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		btn.pressed.connect(_on_scroll_selected.bind(sid))
-		_scroll_list.add_child(btn)
 
 	if not any_found:
-		var empty_lbl := Label.new()
-		empty_lbl.text = "No lore scrolls found yet."
-		empty_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		var empty_lbl := _UiUtil.make_label("No lore scrolls found yet.", int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, _scroll_list)
 		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_scroll_list.add_child(empty_lbl)
 
 func _on_scroll_selected(scroll_id: String) -> void:
 	_selected_id = scroll_id
@@ -256,20 +205,14 @@ func _populate_discoveries_list() -> void:
 		child.queue_free()
 	var discovered: Array[String] = SaveManager.discovered_landmarks
 	if discovered.is_empty():
-		var empty_lbl := Label.new()
-		empty_lbl.text = "No landmarks discovered yet.\nExplore the world to find ancient colossi and ruins."
-		empty_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+		var empty_lbl := _UiUtil.make_label("No landmarks discovered yet.\nExplore the world to find ancient colossi and ruins.", int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, _scroll_list)
 		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_scroll_list.add_child(empty_lbl)
 		return
 	var world_seed: int = SaveManager.world_seed
 	for lid: String in discovered:
 		var display_name: String = LandmarkNames.name_from_id(lid, world_seed)
-		var btn := Button.new()
-		btn.text = display_name
+		var btn := _UiUtil.make_button(display_name, Vector2(_vw * 0.22, _vh * 0.06), int(_vh * 0.020))
 		btn.flat = true
-		btn.custom_minimum_size = Vector2(_vw * 0.22, _vh * 0.06)
-		btn.add_theme_font_size_override("font_size", int(_vh * 0.020))
 		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		btn.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5))
 		btn.pressed.connect(_on_discovery_selected.bind(lid))

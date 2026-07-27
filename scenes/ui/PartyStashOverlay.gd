@@ -14,7 +14,6 @@
 ## StashTransfer.deposit_card regardless — defense in depth).
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 ## Set by WorldScene right after instantiation so button presses can call back.
@@ -50,10 +49,8 @@ func _build_ui() -> void:
 	_build_coins_row(outer_vbox)
 	outer_vbox.add_child(_UiUtil.make_separator())
 
-	var columns := HBoxContainer.new()
+	var columns := _UiUtil.make_hbox(int(_ref * 0.025), outer_vbox)
 	columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	columns.add_theme_constant_override("separation", int(_ref * 0.025))
-	outer_vbox.add_child(columns)
 
 	var my_col := _build_column(columns, "My Collection")
 	_my_cards_vbox = my_col
@@ -70,14 +67,10 @@ func _build_ui() -> void:
 
 
 func _build_column(parent: HBoxContainer, title: String) -> VBoxContainer:
-	var col := VBoxContainer.new()
+	var col := _UiUtil.make_vbox(int(_ref * 0.01), parent)
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_theme_constant_override("separation", int(_ref * 0.01))
-	parent.add_child(col)
 
-	var title_lbl := Label.new()
-	title_lbl.text = title
-	title_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	var title_lbl := _UiUtil.make_label(title, int(_vh * 0.026))
 	title_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
 	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(title_lbl)
@@ -89,44 +82,29 @@ func _build_column(parent: HBoxContainer, title: String) -> VBoxContainer:
 	col.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	var rows_vbox := VBoxContainer.new()
-	rows_vbox.add_theme_constant_override("separation", int(_ref * 0.01))
+	var rows_vbox := _UiUtil.make_vbox(int(_ref * 0.01), scroll)
 	rows_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(rows_vbox)
 	return rows_vbox
 
 
 func _build_coins_row(parent: VBoxContainer) -> void:
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(_ref * 0.02), parent)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(_ref * 0.02))
-	parent.add_child(row)
 
-	var lbl := Label.new()
-	lbl.text = "Stash Coins:"
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.024))
-	row.add_child(lbl)
+	var lbl := _UiUtil.make_label("Stash Coins:", int(_vh * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 
-	_coins_label = Label.new()
-	_coins_label.text = "0"
-	_coins_label.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	_coins_label = _UiUtil.make_label("0", int(_vh * 0.024))
 	_coins_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	row.add_child(_coins_label)
 
-	var deposit_btn := Button.new()
-	deposit_btn.text = "Deposit %d" % _COIN_STEP
-	deposit_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.055)
-	deposit_btn.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	var deposit_btn := _UiUtil.make_button("Deposit %d" % _COIN_STEP, Vector2(_vh * 0.16, _vh * 0.055), int(_vh * 0.020))
 	deposit_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_stash_deposit_coins"):
 			world_scene.request_stash_deposit_coins(_COIN_STEP)
 	)
 	row.add_child(deposit_btn)
 
-	var withdraw_btn := Button.new()
-	withdraw_btn.text = "Withdraw %d" % _COIN_STEP
-	withdraw_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.055)
-	withdraw_btn.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	var withdraw_btn := _UiUtil.make_button("Withdraw %d" % _COIN_STEP, Vector2(_vh * 0.18, _vh * 0.055), int(_vh * 0.020))
 	withdraw_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_stash_withdraw_coins"):
 			world_scene.request_stash_withdraw_coins(_COIN_STEP)
@@ -174,17 +152,11 @@ func _render_lists() -> void:
 
 
 func _add_empty_label(parent: VBoxContainer, text: String) -> void:
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
-	lbl.modulate = Color(0.7, 0.7, 0.7)
-	parent.add_child(lbl)
+	var lbl := _UiUtil.make_label(text, int(_vh * 0.020), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, parent)
 
 
 func _add_card_row(parent: VBoxContainer, inst: Dictionary, is_mine: bool) -> void:
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.015))
-	parent.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.015), parent)
 
 	var name_lbl := Label.new()
 	var tmpl_id: String = str(inst.get("template_id", "?"))
@@ -194,10 +166,7 @@ func _add_card_row(parent: VBoxContainer, inst: Dictionary, is_mine: bool) -> vo
 	hb.add_child(name_lbl)
 
 	var uid: String = str(inst.get("uid", ""))
-	var action_btn := Button.new()
-	action_btn.text = "Deposit" if is_mine else "Withdraw"
-	action_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.05)
-	action_btn.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	var action_btn := _UiUtil.make_button("Deposit" if is_mine else "Withdraw", Vector2(_vh * 0.16, _vh * 0.05), int(_vh * 0.018))
 	if is_mine:
 		action_btn.pressed.connect(func() -> void:
 			if world_scene != null and world_scene.has_method("request_stash_deposit_card"):
@@ -213,9 +182,4 @@ func _add_card_row(parent: VBoxContainer, inst: Dictionary, is_mine: bool) -> vo
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_inside_tree():
-		_vh = get_viewport().get_visible_rect().size.y
-		_vw = get_viewport().get_visible_rect().size.x
-		_ref = minf(_vh, _vw)
-		for c in get_children():
-			c.queue_free()
-		_build_ui()
+		_rebuild_ui()

@@ -1,4 +1,5 @@
 extends Control
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal closed
 
@@ -39,14 +40,10 @@ func _build_ui() -> void:
 	margin.add_theme_constant_override("margin_bottom", pad)
 	outer.add_child(margin)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.015))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.015), margin)
 
 	# Header
-	var title := Label.new()
-	title.text = "Daily Bounties"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var title := _UiUtil.make_label("Daily Bounties", 0, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	var title_font_size: int = int(_ref * 0.028)
 	title.add_theme_font_size_override("font_size", title_font_size)
 	root_vbox.add_child(title)
@@ -56,9 +53,7 @@ func _build_ui() -> void:
 	root_vbox.add_child(sep)
 
 	# Bounty rows
-	_rows_container = VBoxContainer.new()
-	_rows_container.add_theme_constant_override("separation", int(_ref * 0.012))
-	root_vbox.add_child(_rows_container)
+	_rows_container = _UiUtil.make_vbox(int(_ref * 0.012), root_vbox)
 
 	_populate_rows()
 
@@ -68,12 +63,8 @@ func _build_ui() -> void:
 	root_vbox.add_child(spacer)
 
 	# Close button
-	var close_btn := Button.new()
-	close_btn.text = "Close"
-	close_btn.custom_minimum_size = Vector2(_ref * 0.12, _ref * 0.05)
+	var close_btn := _UiUtil.make_button("Close", Vector2(_ref * 0.12, _ref * 0.05), 0, _close, root_vbox)
 	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	close_btn.pressed.connect(_close)
-	root_vbox.add_child(close_btn)
 
 func _populate_rows() -> void:
 	for child in _rows_container.get_children():
@@ -116,26 +107,18 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 	var count: int = int(bounty.get("count", 1))
 	var reward: int = int(bounty.get("reward", 0))
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(_ref * 0.01))
+	var hbox := _UiUtil.make_hbox(int(_ref * 0.01))
 
 	# Description label
-	var desc := Label.new()
-	desc.text = _format_bounty_desc(btype, target, count)
+	var desc := _UiUtil.make_label(_format_bounty_desc(btype, target, count), int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hbox)
 	desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	desc.add_theme_font_size_override("font_size", int(_ref * 0.022))
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hbox.add_child(desc)
 
 	# Reward / progress in center
 	var mid_vbox := VBoxContainer.new()
 	mid_vbox.custom_minimum_size = Vector2(_ref * 0.10, 0.0)
 
-	var reward_lbl := Label.new()
-	reward_lbl.text = "+%d coins" % reward
-	reward_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
-	reward_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	mid_vbox.add_child(reward_lbl)
+	var reward_lbl := _UiUtil.make_label("+%d coins" % reward, int(_ref * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, mid_vbox)
 
 	hbox.add_child(mid_vbox)
 
@@ -145,9 +128,7 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 
 	match state:
 		"not_accepted":
-			var btn := Button.new()
-			btn.text = "Accept"
-			btn.custom_minimum_size = btn_size
+			var btn := _UiUtil.make_button("Accept", btn_size)
 			if SceneManager.save_manager.get_active_bounties().size() >= 3:
 				btn.disabled = true
 				btn.tooltip_text = "Max 3 active bounties"
@@ -158,29 +139,17 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 			hbox.add_child(btn)
 		"in_progress":
 			var progress: int = int(active_entry.get("progress", 0))
-			var prog_lbl := Label.new()
-			prog_lbl.text = "In Progress\n%d / %d" % [progress, count]
-			prog_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
-			prog_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			prog_lbl.modulate = Color(0.7, 0.7, 0.7)
+			var prog_lbl := _UiUtil.make_label("In Progress\n%d / %d" % [progress, count], int(_ref * 0.018), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_CENTER, hbox)
 			prog_lbl.custom_minimum_size = btn_size
-			hbox.add_child(prog_lbl)
 		"complete_unclaimed":
-			var btn := Button.new()
-			btn.text = "Claim"
-			btn.custom_minimum_size = btn_size
+			var btn := _UiUtil.make_button("Claim", btn_size)
 			var _bid_cap := bid
 			var _reward_cap := reward
 			btn.pressed.connect(func() -> void: _on_claim_pressed(_bid_cap, _reward_cap))
 			hbox.add_child(btn)
 		"claimed":
-			var done_lbl := Label.new()
-			done_lbl.text = "Claimed"
-			done_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
-			done_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			done_lbl.modulate = Color(0.5, 0.5, 0.5)
+			var done_lbl := _UiUtil.make_label("Claimed", int(_ref * 0.018), Color(0.5, 0.5, 0.5), HORIZONTAL_ALIGNMENT_CENTER, hbox)
 			done_lbl.custom_minimum_size = btn_size
-			hbox.add_child(done_lbl)
 
 	return hbox
 

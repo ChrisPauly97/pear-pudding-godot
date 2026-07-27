@@ -1,5 +1,6 @@
 extends Control
 class_name BaseOverlay
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 
@@ -12,9 +13,7 @@ var _ref: float = 0.0   # min(_vh, _vw) — prevents oversizing on portrait phon
 func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = MOUSE_FILTER_STOP
-	_vh = get_viewport().get_visible_rect().size.y
-	_vw = get_viewport().get_visible_rect().size.x
-	_ref = minf(_vh, _vw)
+	_refresh_metrics()
 
 # Returns a full-screen dark backdrop. Optionally closes overlay on tap when
 # close_on_tap is true.
@@ -35,44 +34,47 @@ func _build_backdrop(alpha: float = 0.78, close_on_tap: bool = false) -> ColorRe
 # StyleBoxFlat — most scenes use Godot's default panel style, so none is applied
 # here. Call _make_dark_glass_style() if the scene needs the dark bordered look.
 func _build_centered_panel(w: float, h: float) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(w, h)
-	panel.size = Vector2(w, h)
-	panel.position = Vector2((_vw - w) * 0.5, (_vh - h) * 0.5)
+	var panel := _UiUtil.make_centered_panel(w, h, _vw, _vh, self)
 	panel.mouse_filter = MOUSE_FILTER_STOP
-	add_child(panel)
 	UiFx.pop_in(panel)
 	return panel
 
 # Applies the standard dark-glass styled border to a PanelContainer.
 # Call this after _build_centered_panel() when the scene needs it.
 static func _make_dark_glass_style() -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.14, 0.98)
-	style.corner_radius_top_left    = 12
-	style.corner_radius_top_right   = 12
-	style.corner_radius_bottom_left = 12
-	style.corner_radius_bottom_right = 12
-	style.border_color = Color(0.4, 0.4, 0.6, 0.7)
-	style.border_width_top    = 2
-	style.border_width_bottom = 2
-	style.border_width_left   = 2
-	style.border_width_right  = 2
-	return style
+	return _UiUtil.make_style(Color(0.08, 0.08, 0.14, 0.98), 12, Color(0.4, 0.4, 0.6, 0.7), 2)
 
 # Adds a MarginContainer + VBoxContainer inside parent and returns the VBox.
 func _build_margin_vbox(parent: Control, margin_frac: float = 0.015, sep_frac: float = 0.012) -> VBoxContainer:
-	var margin := MarginContainer.new()
 	var m: int = int(_ref * margin_frac)
-	margin.add_theme_constant_override("margin_left",   m)
-	margin.add_theme_constant_override("margin_right",  m)
-	margin.add_theme_constant_override("margin_top",    m)
-	margin.add_theme_constant_override("margin_bottom", m)
-	parent.add_child(margin)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_ref * sep_frac))
-	margin.add_child(vbox)
-	return vbox
+	var margin := _UiUtil.make_margin(m, m, m, m, parent)
+	return _UiUtil.make_vbox(int(_ref * sep_frac), margin)
+
+## Recomputes the viewport metrics every builder reads.
+func _refresh_metrics() -> void:
+	_vh = get_viewport().get_visible_rect().size.y
+	_vw = get_viewport().get_visible_rect().size.x
+	_ref = minf(_vh, _vw)
+
+## Discards the whole tree and re-runs `_build_ui()` at the new viewport size.
+## Overlays that build everything in `_build_ui()` route their NOTIFICATION_RESIZED
+## here; ones that must carry unsaved state across the rebuild handle it themselves.
+func _rebuild_ui() -> void:
+	_refresh_metrics()
+	for c in get_children():
+		c.queue_free()
+	call("_build_ui")
+
+## A vertical-only ScrollContainer that fills its parent and already has the
+## drag-to-scroll gesture wired. Every list overlay wants exactly this.
+func _build_scroll(parent: Control) -> ScrollContainer:
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	parent.add_child(scroll)
+	attach_drag_scroll(scroll)
+	return scroll
 
 func _close() -> void:
 	closed.emit()

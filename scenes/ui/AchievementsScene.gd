@@ -17,21 +17,12 @@ func _build_ui() -> void:
 	var root_vbox := _build_margin_vbox(outer, 0.015, 0.012)
 
 	# Title + close row
-	var header_row := HBoxContainer.new()
-	root_vbox.add_child(header_row)
+	var header_row := _UiUtil.make_hbox(0, root_vbox)
 
-	var title := Label.new()
-	title.text = "Achievements"
+	var title := _UiUtil.make_label("Achievements", int(_vh * 0.038), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header_row)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.add_theme_font_size_override("font_size", int(_vh * 0.038))
-	header_row.add_child(title)
 
-	var close_btn := Button.new()
-	close_btn.text = "X"
-	close_btn.custom_minimum_size = Vector2(_vh * 0.065, _vh * 0.065)
-	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.024))
-	close_btn.pressed.connect(_close)
-	header_row.add_child(close_btn)
+	var close_btn := _UiUtil.make_button("X", Vector2(_vh * 0.065, _vh * 0.065), int(_vh * 0.024), _close, header_row)
 
 	# Scrollable list
 	var scroll := ScrollContainer.new()
@@ -39,10 +30,8 @@ func _build_ui() -> void:
 	root_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	var list := VBoxContainer.new()
+	var list := _UiUtil.make_vbox(int(_vh * 0.010), scroll)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", int(_vh * 0.010))
-	scroll.add_child(list)
 
 	var unlocked: Array[String] = SceneManager.save_manager.unlocked_achievements
 	var progress: Dictionary = SceneManager.save_manager.achievement_progress
@@ -57,60 +46,33 @@ func _make_row(a: Dictionary, is_unlocked: bool, current: int) -> Control:
 	var row := PanelContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var inner := MarginContainer.new()
-	inner.add_theme_constant_override("margin_left",   int(_vw * 0.01))
-	inner.add_theme_constant_override("margin_right",  int(_vw * 0.01))
-	inner.add_theme_constant_override("margin_top",    int(_vh * 0.008))
-	inner.add_theme_constant_override("margin_bottom", int(_vh * 0.008))
-	row.add_child(inner)
+	var inner := _UiUtil.make_margin(int(_vw * 0.01), int(_vh * 0.008), int(_vw * 0.01), int(_vh * 0.008), row)
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(_vw * 0.010))
-	inner.add_child(hbox)
+	var hbox := _UiUtil.make_hbox(int(_vw * 0.010), inner)
 
 	# Lock / check icon
-	var icon := Label.new()
-	icon.text = "[OK]" if is_unlocked else "[  ]"
-	icon.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	icon.modulate = Color(0.3, 1.0, 0.3) if is_unlocked else Color(0.5, 0.5, 0.5)
-	hbox.add_child(icon)
+	var icon := _UiUtil.make_label("[OK]" if is_unlocked else "[  ]", int(_vh * 0.022), Color(0.3, 1.0, 0.3) if is_unlocked else Color(0.5, 0.5, 0.5), HORIZONTAL_ALIGNMENT_LEFT, hbox)
 
-	var text_vbox := VBoxContainer.new()
+	var text_vbox := _UiUtil.make_vbox(int(_vh * 0.003), hbox)
 	text_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text_vbox.add_theme_constant_override("separation", int(_vh * 0.003))
-	hbox.add_child(text_vbox)
 
-	var name_lbl := Label.new()
-	name_lbl.text = str(a.get("name", ""))
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	var name_lbl := _UiUtil.make_label(str(a.get("name", "")), int(_vh * 0.022))
 	if not is_unlocked:
 		name_lbl.modulate = Color(0.55, 0.55, 0.55)
 	text_vbox.add_child(name_lbl)
 
-	var desc_lbl := Label.new()
-	desc_lbl.text = str(a.get("description", ""))
-	desc_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	desc_lbl.modulate = Color(0.65, 0.65, 0.65)
+	var desc_lbl := _UiUtil.make_label(str(a.get("description", "")), int(_vh * 0.022), Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_LEFT, text_vbox)
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	text_vbox.add_child(desc_lbl)
 
 	# Progress
 	var target: int = int(a.get("target_value", 1))
 	if target > 1 and not is_unlocked:
-		var prog_lbl := Label.new()
-		prog_lbl.text = "%d / %d" % [mini(current, target), target]
-		prog_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-		prog_lbl.modulate = Color(0.7, 0.85, 1.0)
-		text_vbox.add_child(prog_lbl)
+		var prog_lbl := _UiUtil.make_label("%d / %d" % [mini(current, target), target], int(_vh * 0.022), Color(0.7, 0.85, 1.0), HORIZONTAL_ALIGNMENT_LEFT, text_vbox)
 
 	# Reward indicator
 	var reward_id: String = str(a.get("reward_card_id", ""))
 	if reward_id != "":
-		var reward_lbl := Label.new()
-		reward_lbl.text = "Reward: Legendary card"
-		reward_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-		reward_lbl.modulate = Color(1.0, 0.8, 0.2) if is_unlocked else Color(0.5, 0.4, 0.1)
-		text_vbox.add_child(reward_lbl)
+		var reward_lbl := _UiUtil.make_label("Reward: Legendary card", int(_vh * 0.022), Color(1.0, 0.8, 0.2) if is_unlocked else Color(0.5, 0.4, 0.1), HORIZONTAL_ALIGNMENT_LEFT, text_vbox)
 
 	return row
 

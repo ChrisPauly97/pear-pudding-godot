@@ -16,6 +16,7 @@ extends SceneTree
 
 const _BattlePacked := "res://scenes/battle/BattleScene.tscn"
 const _Proto = preload("res://game_logic/net/BattleNetProtocol.gd")
+const _Harness = preload("res://tests/net_harness.gd")
 
 const _PORT: int = 24575
 
@@ -32,55 +33,35 @@ func _go() -> void:
 
 func _run() -> bool:
 	# --- Referee peer (server, peer_id=1) ---
-	var server_peer := ENetMultiplayerPeer.new()
-	var serr: Error = server_peer.create_server(_PORT, 4)
-	if serr != OK:
-		print("  [FAIL] create_server returned %d (loopback sockets may be blocked)" % serr)
+	var srv: Dictionary = _Harness.start_server(self, _PORT, 4)
+	if srv.is_empty():
 		return false
-	var mp_server := SceneMultiplayer.new()
-	var server_root := Node.new()
-	server_root.name = "SrvRoot"
-	root.add_child(server_root)
-	set_multiplayer(mp_server, server_root.get_path())
-	mp_server.multiplayer_peer = server_peer
+	var server_peer: ENetMultiplayerPeer = srv["peer"]
+	var mp_server: SceneMultiplayer = srv["mp"]
+	var server_root: Node = srv["root"]
 
 	var server_connected_peers: Array[int] = []
 	mp_server.peer_connected.connect(func(id: int) -> void: server_connected_peers.append(id))
 
 	# --- Client A peer (will be player 0) ---
-	var peer_a := ENetMultiplayerPeer.new()
-	if peer_a.create_client("127.0.0.1", _PORT) != OK:
-		print("  [FAIL] create_client A failed")
+	var cli_a: Dictionary = _Harness.start_client(self, _PORT, "CliA", "  [FAIL] create_client A failed")
+	if cli_a.is_empty():
 		return false
-	var mp_a := SceneMultiplayer.new()
-	var root_a := Node.new()
-	root_a.name = "CliA"
-	root.add_child(root_a)
-	set_multiplayer(mp_a, root_a.get_path())
-	mp_a.multiplayer_peer = peer_a
+	var peer_a: ENetMultiplayerPeer = cli_a["peer"]
+	var mp_a: SceneMultiplayer = cli_a["mp"]
+	var root_a: Node = cli_a["root"]
 
 	# --- Client B peer (will be player 1) ---
-	var peer_b := ENetMultiplayerPeer.new()
-	if peer_b.create_client("127.0.0.1", _PORT) != OK:
-		print("  [FAIL] create_client B failed")
+	var cli_b: Dictionary = _Harness.start_client(self, _PORT, "CliB", "  [FAIL] create_client B failed")
+	if cli_b.is_empty():
 		return false
-	var mp_b := SceneMultiplayer.new()
-	var root_b := Node.new()
-	root_b.name = "CliB"
-	root.add_child(root_b)
-	set_multiplayer(mp_b, root_b.get_path())
-	mp_b.multiplayer_peer = peer_b
+	var peer_b: ENetMultiplayerPeer = cli_b["peer"]
+	var mp_b: SceneMultiplayer = cli_b["mp"]
+	var root_b: Node = cli_b["root"]
 
 	# Poll until fully connected — wait for peer_connected signals AND unique IDs.
-	var fully_connected := false
-	for _i in range(800):
-		mp_server.poll()
-		mp_a.poll()
-		mp_b.poll()
-		if server_connected_peers.size() >= 2 and mp_a.get_unique_id() > 0 and mp_b.get_unique_id() > 0:
-			fully_connected = true
-			break
-		OS.delay_msec(10)
+	var fully_connected: bool = _Harness.pump([mp_server, mp_a, mp_b], 800, 10, func() -> bool:
+		return server_connected_peers.size() >= 2 and mp_a.get_unique_id() > 0 and mp_b.get_unique_id() > 0)
 	if not fully_connected:
 		print("  [FAIL] not fully connected within timeout (server_peers=%d)" % server_connected_peers.size())
 		return false
@@ -186,9 +167,7 @@ func _run() -> bool:
 	print("  [PASS] referee applied client A end_turn; turn flipped to player %d" % cur_idx)
 	print("  [PASS] both clients received updated mirror (A seq=%d, B seq=%d)" % [final_a_seq, final_b_seq])
 
-	peer_a.close()
-	peer_b.close()
-	server_peer.close()
+	_Harness.teardown([peer_a, peer_b, server_peer], [])
 	return true
 
 

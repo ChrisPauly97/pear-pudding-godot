@@ -87,11 +87,7 @@ func _build_single_face_ui() -> void:
 	var inner := _build_margin_vbox(panel, 0.025, 0.016)
 	_build_face_body(inner, CardRegistry.get_template(_card.template_id if _card != null else ""), _card, true)
 
-	var close_btn := Button.new()
-	close_btn.text = "Close"
-	close_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.055)
-	close_btn.add_theme_font_size_override("font_size", _font(0.025))
-	close_btn.pressed.connect(_close)
+	var close_btn := _UiUtil.make_button("Close", Vector2(_vh * 0.18, _vh * 0.055), int(_font(0.025)), _close)
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	btn_row.add_child(close_btn)
@@ -104,30 +100,20 @@ func _build_dual_face_ui() -> void:
 	var panel := _build_centered_panel(total_w, panel_h)
 	panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
 
-	var outer_vbox := VBoxContainer.new()
-	outer_vbox.add_theme_constant_override("separation", int(_vh * 0.012))
-	var outer_margin := MarginContainer.new()
-	outer_margin.add_theme_constant_override("margin_left",   int(_vh * 0.018))
-	outer_margin.add_theme_constant_override("margin_right",  int(_vh * 0.018))
-	outer_margin.add_theme_constant_override("margin_top",    int(_vh * 0.018))
-	outer_margin.add_theme_constant_override("margin_bottom", int(_vh * 0.018))
+	var outer_vbox := _UiUtil.make_vbox(int(_vh * 0.012))
+	var outer_margin := _UiUtil.make_margin(int(_vh * 0.018), int(_vh * 0.018), int(_vh * 0.018), int(_vh * 0.018), panel)
 	outer_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(outer_margin)
 	outer_margin.add_child(outer_vbox)
 
 	# Header
-	var header_lbl := Label.new()
-	header_lbl.text = "Dual-Faced Card"
-	header_lbl.add_theme_font_size_override("font_size", _font(0.028))
+	var header_lbl := _UiUtil.make_label("Dual-Faced Card", int(_font(0.028)))
 	header_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 	header_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	outer_vbox.add_child(header_lbl)
 
 	# Two face panels side by side
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(_vh * 0.012))
+	var hbox := _UiUtil.make_hbox(int(_vh * 0.012), outer_vbox)
 	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	outer_vbox.add_child(hbox)
 
 	var light_tmpl: Dictionary = CardRegistry.get_template_for_face(_card.dual_card_id, "light")
 	var dark_tmpl: Dictionary = CardRegistry.get_template_for_face(_card.dual_card_id, "dark")
@@ -136,11 +122,7 @@ func _build_dual_face_ui() -> void:
 	_build_face_panel(hbox, light_tmpl, _card, active == "light", "Light")
 	_build_face_panel(hbox, dark_tmpl, _card, active == "dark", "Dark")
 
-	var close_btn := Button.new()
-	close_btn.text = "Close"
-	close_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.055)
-	close_btn.add_theme_font_size_override("font_size", _font(0.025))
-	close_btn.pressed.connect(_close)
+	var close_btn := _UiUtil.make_button("Close", Vector2(_vh * 0.18, _vh * 0.055), int(_font(0.025)), _close)
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	btn_row.add_child(close_btn)
@@ -150,34 +132,20 @@ func _build_face_panel(parent: HBoxContainer, tmpl: Dictionary, card: CardInstan
 	var face_panel := PanelContainer.new()
 	face_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	face_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var fs := StyleBoxFlat.new()
-	fs.bg_color = Color(0.08, 0.08, 0.18, 0.9)
-	fs.corner_radius_top_left = 6
-	fs.corner_radius_top_right = 6
-	fs.corner_radius_bottom_left = 6
-	fs.corner_radius_bottom_right = 6
+	var fs := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.9), 6)
 	if is_active:
 		fs.border_color = Color(0.4, 1.0, 0.6)
 		fs.set_border_width_all(3)
 	face_panel.add_theme_stylebox_override("panel", fs)
 	parent.add_child(face_panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vh * 0.012))
-	margin.add_theme_constant_override("margin_right",  int(_vh * 0.012))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.012))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.012))
+	var margin := _UiUtil.make_margin(int(_vh * 0.012), int(_vh * 0.012), int(_vh * 0.012), int(_vh * 0.012), face_panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	face_panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.006))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.006), margin)
 
 	# Face tag
-	var tag_lbl := Label.new()
-	tag_lbl.text = face_label + (" (Active)" if is_active else "")
-	tag_lbl.add_theme_font_size_override("font_size", _font(0.019))
+	var tag_lbl := _UiUtil.make_label(face_label + (" (Active)" if is_active else ""), int(_font(0.019)))
 	tag_lbl.add_theme_color_override("font_color", Color(0.4, 1.0, 0.6) if is_active else Color(0.65, 0.65, 0.75))
 	tag_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(tag_lbl)
@@ -206,9 +174,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 		container.add_child(art)
 
 	# Name
-	var name_lbl := Label.new()
-	name_lbl.text = str(tmpl.get("name", "?")) if not tmpl.is_empty() else (card.name if card != null else "?")
-	name_lbl.add_theme_font_size_override("font_size", _font(0.030))
+	var name_lbl := _UiUtil.make_label(str(tmpl.get("name", "?")) if not tmpl.is_empty() else (card.name if card != null else "?"), int(_font(0.030)))
 	name_lbl.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	container.add_child(name_lbl)
@@ -223,9 +189,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 			class_text += "  ·  " + mt.capitalize()
 		if mb_val != "":
 			class_text += " / " + mb_val.capitalize()
-	var class_lbl := Label.new()
-	class_lbl.text = class_text
-	class_lbl.add_theme_font_size_override("font_size", _font(0.018))
+	var class_lbl := _UiUtil.make_label(class_text, int(_font(0.018)))
 	class_lbl.add_theme_color_override("font_color", Color(0.7, 0.85, 1.0))
 	class_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	container.add_child(class_lbl)
@@ -249,9 +213,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 
 	# Description
 	var desc: String = str(tmpl.get("description", "")) if not tmpl.is_empty() else (card.description if card != null else "")
-	var desc_lbl := Label.new()
-	desc_lbl.text = desc
-	desc_lbl.add_theme_font_size_override("font_size", _font(0.019))
+	var desc_lbl := _UiUtil.make_label(desc, int(_font(0.019)))
 	desc_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -286,9 +248,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 			var base_desc: String = str(kw_descs.get(kw, kw))
 			if kw == Keywords.SHROUD and card != null and show_status:
 				base_desc += " (" + ("Active" if card.shroud_active else "Consumed") + ")"
-			var kw_lbl := Label.new()
-			kw_lbl.text = kw.capitalize() + " — " + base_desc
-			kw_lbl.add_theme_font_size_override("font_size", _font(0.017))
+			var kw_lbl := _UiUtil.make_label(kw.capitalize() + " — " + base_desc, int(_font(0.017)))
 			kw_lbl.add_theme_color_override("font_color", Color(0.75, 1.0, 0.8))
 			kw_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			kw_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -317,9 +277,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 		for i in range(effects.size()):
 			if not card.has_status(effects[i]):
 				continue
-			var st_lbl := Label.new()
-			st_lbl.text = "%s: %d" % [labels[i], card.get_status_value(effects[i])]
-			st_lbl.add_theme_font_size_override("font_size", _font(0.019))
+			var st_lbl := _UiUtil.make_label("%s: %d" % [labels[i], card.get_status_value(effects[i])], int(_font(0.019)))
 			st_lbl.add_theme_color_override("font_color", colors[i])
 			st_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			container.add_child(st_lbl)

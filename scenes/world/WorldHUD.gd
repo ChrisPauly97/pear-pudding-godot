@@ -266,13 +266,8 @@ func _ensure_social_toggle() -> void:
 	var zone_box: Container = _zones.get(ZONE_SOCIAL) as Container
 	if zone_box == null:
 		return
-	_social_toggle = Button.new()
-	_social_toggle.text = "💬"
+	_social_toggle = _UiUtil.make_button("💬", Vector2(_vh * 0.06, _vh * 0.06), int(_vh * 0.028 * _ts), _toggle_social_zone, zone_box)
 	_social_toggle.tooltip_text = "Social (chat, emotes)"
-	_social_toggle.custom_minimum_size = Vector2(_vh * 0.06, _vh * 0.06)
-	_social_toggle.add_theme_font_size_override("font_size", int(_vh * 0.028 * _ts))
-	_social_toggle.pressed.connect(_toggle_social_zone)
-	zone_box.add_child(_social_toggle)
 	UiFx.attach(_social_toggle)
 
 func _toggle_social_zone() -> void:
@@ -384,9 +379,7 @@ func _create_xp_bar(vh: float) -> void:
 func _create_ley_indicator(vh: float) -> void:
 	if not _is_infinite:
 		return
-	_ley_indicator = Label.new()
-	_ley_indicator.text = "~ Attuned ~"
-	_ley_indicator.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
+	_ley_indicator = _UiUtil.make_label("~ Attuned ~", int(vh * 0.025 * _ts))
 	_ley_indicator.add_theme_color_override("font_color", Color(0.1, 0.95, 1.0))
 	_ley_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_ley_indicator.set_anchor_and_offset(SIDE_LEFT, 0.5, -vh * 0.12)
@@ -538,9 +531,8 @@ func update_mount_btn() -> void:
 
 func build_bounty_tracker() -> void:
 	var vh: float = _hud.get_viewport().get_visible_rect().size.y
-	_bounty_tracker = VBoxContainer.new()
+	_bounty_tracker = _UiUtil.make_vbox(0, _hud)
 	_bounty_tracker.position = Vector2(vh * 0.01, vh * 0.07)
-	_hud.add_child(_bounty_tracker)
 	refresh_bounty_tracker()
 
 func refresh_bounty_tracker() -> void:

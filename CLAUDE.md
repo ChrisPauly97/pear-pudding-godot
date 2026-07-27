@@ -148,6 +148,39 @@ Re-apply in `_notification(NOTIFICATION_RESIZED)`.
 
 ---
 
+## UI: Build Widgets Through the Factories
+
+Never write out `Button.new()` + text + size + font + connect + `add_child` by
+hand — `UiUtil` has a one-call factory for every shape the game uses. Sizes and
+font sizes stay caller-owned (they're viewport fractions); the factory only
+removes the boilerplate.
+
+```gdscript
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")   # inherited by BaseOverlay subclasses
+
+_UiUtil.make_button(text, Vector2(w, h), font_size, on_pressed, parent)
+_UiUtil.make_label(text, font_size, tint, align, parent)
+_UiUtil.make_hbox(separation, parent) / make_vbox(separation, parent)
+_UiUtil.make_margin(left, top, right, bottom, parent)
+_UiUtil.make_centered_panel(w, h, vw, vh, parent)
+_UiUtil.make_style(bg, radius, border_color, border_width)   # rounded StyleBoxFlat
+```
+
+`BaseOverlay` subclasses additionally inherit `_refresh_metrics()`,
+`_rebuild_ui()` (free children + re-run `_build_ui()` on resize),
+`_build_scroll(parent)`, `_build_centered_panel()` and `_build_margin_vbox()`.
+
+`WorldScene` has `_build_modal(w_frac, h_frac, bg, sep_frac, …)` for a
+viewport-sized interaction panel and `_build_prompt(layer_index, sep_frac)` for
+a content-hugging accept/decline prompt; both return `{"layer", "vbox"}`. Free
+the layer to dismiss.
+
+`BattleResultUI._build_result_overlay(bg, sep_frac)` is the shared full-screen
+result card. World entities get their billboard and name tag from
+`SpriteRegistry.make_billboard()` / `make_name_label()`.
+
+---
+
 ## HUD Buttons: Use the Action Registry
 
 Never `Button.new()` + `_hud.add_child()` directly — causes silent position overlaps:
@@ -163,7 +196,7 @@ _new_feature_btn = _world_hud.register_action(
     "new_feature", "New Feature", WorldHUD.ZONE_CONTEXT, _on_new_feature_pressed)
 ```
 
-Always-on buttons usually belong in `PartyPanel.gd`, not the HUD. `test_hud_registry_guardrail.gd` fails if a bare `_hud.add_child(<Button>)` appears in `WorldScene.gd`.
+Always-on buttons usually belong in `PartyPanel.gd`, not the HUD. `test_hud_registry_guardrail.gd` fails if a bare `_hud.add_child(<Button>)` (or `_world._hud.add_child(...)`) appears in `WorldScene.gd` or any `scenes/world/coop/*.gd` module.
 
 ---
 
@@ -212,6 +245,64 @@ All terrain logic lives in `game_logic/TerrainMath.gd`. Both named-map and infin
 ## Constants: IsoConst Is the Source of Truth
 
 All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in `autoloads/IsoConst.gd`. Reference as `IsoConst.TILE_SIZE`. Never add copies elsewhere.
+
+---
+
+## Save Fields: One Table Drives Both Directions
+
+Adding a persisted field means adding **one** entry to
+`SaveManager.PERSISTED_FIELDS` (field name → the default a missing or malformed
+value falls back to) plus the `var` declaration. `load_save()` and
+`_collect_save_data()` both walk that table, so a field can't be written without
+being restored. `test_save_manager` asserts every key is a real property and
+that a save → JSON → restore round-trip preserves values.
+
+Only genuinely derived fields get bespoke handling, in `_restore_derived_fields`
+(`loadouts`, `player_deck`, `level`, `skill_points`, `bag_size`). Enemy battle
+data lives **only** in `EnemyRegistry._ensure_loaded()` — there are no
+`.tres` enemy resources.
+
+---
+
+## WorldScene Co-op Modules
+
+The co-op/session surface lives in four sibling child nodes under
+`scenes/world/coop/`, not in `WorldScene.gd`:
+
+| Module | Owns |
+|---|---|
+| `CoopSession.gd` | join/leave, identity + character handshakes, roster, world-object sync, synced clock/weather, story flags, map transitions, rally, downed & rescue, dungeon crawl, guildhall |
+| `CoopActivities.gd` | night hunts, loot rolls, co-op Spire, town siege, PvE leaderboards, party bounties |
+| `CoopPvP.gd` | challenge handshake + timeouts, team duels, referee routing, spectating, wagers, ranked/leaderboard, draft duels, tournaments |
+| `CoopSocial.gd` | emotes, pings, chat, trading/gifting, party stash, auction house |
+
+Rules:
+- Each module is a `Node` with a `_world` back-reference, created in
+  `WorldScene._ready()` via `_ensure_coop_modules()` and registered with
+  `NetSync.register_handler()`. They are inert outside a session.
+- Reach the world as `_world.<name>`; reach a sibling as
+  `_world.coop_pvp.<name>`. **State two modules share stays on WorldScene** —
+  the graph is a star, not a mesh.
+- New RPCs need no NetSync change beyond the `_route("_on_x", [...])` line;
+  `_route` tries WorldScene, then each registered module, and pushes a warning
+  if nothing handles it.
+- **Member access resolves at runtime**, so a wrong `_world.X` is invisible to
+  the parse check. `tests/world_scene_smoke.gd` is the guard: it drives all 77
+  handlers through the real `_route`. Run it after touching any of this:
+  `godot --headless --path . -s tests/world_scene_smoke.gd`
+
+---
+
+## WorldScene: Proximity Scans
+
+Never write a fresh `dx*dx + dz*dz <= r*r` loop. Use `_node_in_range(node, …)`,
+`_first_node_in_range(nodes, …)` (Array or id → node Dictionary, optional
+`require_visible`) or `_first_data_in_range(table, …)` (id → `{x, z}` dicts).
+
+`_check_interactions` picks the HUD prompt via `_interact_prompt_label`, which
+probes in `_handle_interact`'s priority order and **stops at the first hit** —
+add new interactables to both, in the same position, and never make the label
+pass scan everything eagerly again.
 
 ---
 

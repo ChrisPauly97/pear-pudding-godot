@@ -13,7 +13,6 @@
 ## social overlays already are.
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 ## Roster rows: Array of {text: String, color: Color, token: String,
 ## clean_name: String, is_friend: bool}. Mirrors the old
@@ -95,29 +94,19 @@ func _build_ui() -> void:
 	outer_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", int(_ref * 0.02))
+	var content := _UiUtil.make_vbox(int(_ref * 0.02), scroll)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(content)
 
 	# ── Roster ──
-	var roster_title := Label.new()
-	roster_title.text = "Roster"
-	roster_title.add_theme_font_size_override("font_size", int(_vh * 0.026))
-	content.add_child(roster_title)
+	var roster_title := _UiUtil.make_label("Roster", int(_vh * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, content)
 
-	_roster_vbox = VBoxContainer.new()
-	_roster_vbox.add_theme_constant_override("separation", int(_vh * 0.008))
-	content.add_child(_roster_vbox)
+	_roster_vbox = _UiUtil.make_vbox(int(_vh * 0.008), content)
 	_render_roster()
 
 	content.add_child(_UiUtil.make_separator())
 
 	# ── Actions ──
-	var actions_title := Label.new()
-	actions_title.text = "Actions"
-	actions_title.add_theme_font_size_override("font_size", int(_vh * 0.026))
-	content.add_child(actions_title)
+	var actions_title := _UiUtil.make_label("Actions", int(_vh * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, content)
 
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -155,10 +144,7 @@ func _build_ui() -> void:
 
 
 func _add_action_button(grid: GridContainer, label: String, cb: Callable, close_after: bool) -> Button:
-	var btn := Button.new()
-	btn.text = label
-	btn.custom_minimum_size = Vector2(_ref * 0.28, _ref * 0.065)
-	btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var btn := _UiUtil.make_button(label, Vector2(_ref * 0.28, _ref * 0.065), int(_ref * 0.022))
 	btn.pressed.connect(func() -> void:
 		if cb.is_valid():
 			cb.call()
@@ -174,11 +160,7 @@ func _render_roster() -> void:
 	for c in _roster_vbox.get_children():
 		c.queue_free()
 	if roster_rows.is_empty():
-		var empty_lbl := Label.new()
-		empty_lbl.text = "Just you so far."
-		empty_lbl.add_theme_font_size_override("font_size", int(_vh * 0.02))
-		empty_lbl.modulate = Color(0.7, 0.7, 0.7)
-		_roster_vbox.add_child(empty_lbl)
+		var empty_lbl := _UiUtil.make_label("Just you so far.", int(_vh * 0.02), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, _roster_vbox)
 		return
 	for row: Variant in roster_rows:
 		if row is Dictionary:
@@ -186,9 +168,7 @@ func _render_roster() -> void:
 
 
 func _add_roster_row(row: Dictionary) -> void:
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.015))
-	_roster_vbox.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.015), _roster_vbox)
 
 	var color: Color = row.get("color", Color.WHITE)
 	var swatch := ColorRect.new()
@@ -196,10 +176,7 @@ func _add_roster_row(row: Dictionary) -> void:
 	swatch.custom_minimum_size = Vector2(_vh * 0.022, _vh * 0.022)
 	hb.add_child(swatch)
 
-	var lbl := Label.new()
-	lbl.text = str(row.get("text", ""))
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-	hb.add_child(lbl)
+	var lbl := _UiUtil.make_label(str(row.get("text", "")), int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 
 	var token: String = str(row.get("token", ""))
 	if token != "":
@@ -225,9 +202,4 @@ func _add_roster_row(row: Dictionary) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_inside_tree():
-		_vh = get_viewport().get_visible_rect().size.y
-		_vw = get_viewport().get_visible_rect().size.x
-		_ref = minf(_vh, _vw)
-		for c in get_children():
-			c.queue_free()
-		_build_ui()
+		_rebuild_ui()

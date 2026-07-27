@@ -1,4 +1,5 @@
 extends Control
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal closed
 
@@ -47,23 +48,12 @@ func _build_ui() -> void:
 	root.add_theme_constant_override("separation", int(_ref * 0.025))
 	add_child(root)
 
-	var title := Label.new()
-	title.text = "Pack Opening"
-	title.add_theme_font_size_override("font_size", int(_ref * 0.04))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	root.add_child(title)
+	var title := _UiUtil.make_label("Pack Opening", int(_ref * 0.04), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, root)
 
-	var sub := Label.new()
-	sub.text = "Tap each card to reveal"
-	sub.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.modulate = Color(0.7, 0.7, 0.7)
-	root.add_child(sub)
+	var sub := _UiUtil.make_label("Tap each card to reveal", int(_ref * 0.022), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_CENTER, root)
 
-	var cards_row := HBoxContainer.new()
+	var cards_row := _UiUtil.make_hbox(int(_vw * 0.03), root)
 	cards_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	cards_row.add_theme_constant_override("separation", int(_vw * 0.03))
-	root.add_child(cards_row)
 
 	var card_h: float = _ref * 0.30
 	var card_w: float = card_h * 0.65
@@ -72,25 +62,13 @@ func _build_ui() -> void:
 		var slot := _make_card_slot(i, card_w, card_h)
 		cards_row.add_child(slot)
 
-	var btn_row := HBoxContainer.new()
+	var btn_row := _UiUtil.make_hbox(int(_vw * 0.03), root)
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.add_theme_constant_override("separation", int(_vw * 0.03))
-	root.add_child(btn_row)
 
-	_reveal_all_btn = Button.new()
-	_reveal_all_btn.text = "Reveal All"
-	_reveal_all_btn.custom_minimum_size = Vector2(_vw * 0.18, _ref * 0.065)
-	_reveal_all_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	_reveal_all_btn.pressed.connect(_on_reveal_all)
-	btn_row.add_child(_reveal_all_btn)
+	_reveal_all_btn = _UiUtil.make_button("Reveal All", Vector2(_vw * 0.18, _ref * 0.065), int(_ref * 0.022), _on_reveal_all, btn_row)
 
-	_done_btn = Button.new()
-	_done_btn.text = "Done"
-	_done_btn.custom_minimum_size = Vector2(_vw * 0.18, _ref * 0.065)
-	_done_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	_done_btn.pressed.connect(_on_done)
+	_done_btn = _UiUtil.make_button("Done", Vector2(_vw * 0.18, _ref * 0.065), int(_ref * 0.022), _on_done, btn_row)
 	_done_btn.visible = false
-	btn_row.add_child(_done_btn)
 
 func _make_card_slot(idx: int, card_w: float, card_h: float) -> Control:
 	var wrapper := Control.new()
@@ -108,9 +86,7 @@ func _make_card_slot(idx: int, card_w: float, card_h: float) -> Control:
 	back.set_anchors_preset(Control.PRESET_FULL_RECT)
 	visual.add_child(back)
 
-	var back_lbl := Label.new()
-	back_lbl.text = "?"
-	back_lbl.add_theme_font_size_override("font_size", int(card_h * 0.28))
+	var back_lbl := _UiUtil.make_label("?", int(card_h * 0.28))
 	back_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
 	back_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	back_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -194,31 +170,14 @@ func _populate_face(idx: int) -> void:
 
 	var face: VBoxContainer = _card_face_contents[idx]
 
-	var rarity_lbl := Label.new()
-	rarity_lbl.text = rarity.to_upper()
-	rarity_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
-	rarity_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rarity_lbl.modulate = rc
-	face.add_child(rarity_lbl)
+	var rarity_lbl := _UiUtil.make_label(rarity.to_upper(), int(_ref * 0.018), rc, HORIZONTAL_ALIGNMENT_CENTER, face)
 
-	var name_lbl := Label.new()
-	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, face)
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	face.add_child(name_lbl)
 
-	var cost_lbl := Label.new()
-	cost_lbl.text = "Cost: %d" % cost
-	cost_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
-	cost_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	face.add_child(cost_lbl)
+	var cost_lbl := _UiUtil.make_label("Cost: %d" % cost, int(_ref * 0.018), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, face)
 
-	var stats_lbl := Label.new()
-	stats_lbl.text = "%d / %d" % [atk, hp]
-	stats_lbl.add_theme_font_size_override("font_size", int(_ref * 0.025))
-	stats_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	face.add_child(stats_lbl)
+	var stats_lbl := _UiUtil.make_label("%d / %d" % [atk, hp], int(_ref * 0.025), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, face)
 
 func _rarity_color(rarity: String) -> Color:
 	match rarity:

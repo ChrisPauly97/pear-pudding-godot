@@ -1,6 +1,7 @@
 extends Node3D
 
 const WorldMap = preload("res://game_logic/world/WorldMap.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _world_map: WorldMap
 var _current_map_name: String = "main"
@@ -200,9 +201,7 @@ func _make_marker(mat: StandardMaterial3D, pos: Vector3) -> MeshInstance3D:
 # --- Mobile toolbar ---
 
 func _make_style(color: Color, border: bool) -> StyleBoxFlat:
-	var s := StyleBoxFlat.new()
-	s.bg_color = color
-	s.set_corner_radius_all(8)
+	var s := _UiUtil.make_style(color, 8)
 	s.content_margin_top = 6.0
 	s.content_margin_bottom = 6.0
 	s.content_margin_left = 4.0
@@ -224,15 +223,11 @@ func _build_mobile_toolbar() -> void:
 	panel_style.bg_color = Color(0.1, 0.1, 0.1, 0.88)
 	_toolbar.add_theme_stylebox_override("panel", panel_style)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 6)
-	_toolbar.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(6, _toolbar)
 
 	var mode_names: Array[String] = ["Grass", "Wall", "Hill", "Enemy", "Chest", "Door", "Spawn", "Erase"]
 
-	var mode_row := HBoxContainer.new()
-	mode_row.add_theme_constant_override("separation", 5)
-	vbox.add_child(mode_row)
+	var mode_row := _UiUtil.make_hbox(5, vbox)
 
 	var vh: float = get_viewport().get_visible_rect().size.y
 	var btn_h: float  = vh * 0.06
@@ -248,9 +243,7 @@ func _build_mobile_toolbar() -> void:
 		_btn_normal_styles.append(normal_style)
 		_btn_active_styles.append(active_style)
 
-		var btn := Button.new()
-		btn.text = mode_names[i]
-		btn.custom_minimum_size = Vector2(wide_w, btn_h)
+		var btn := _UiUtil.make_button(mode_names[i], Vector2(wide_w, btn_h))
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.add_theme_stylebox_override("normal", normal_style)
 		btn.add_theme_stylebox_override("hover", _make_style(col, false))
@@ -262,52 +255,28 @@ func _build_mobile_toolbar() -> void:
 		_mode_buttons.append(btn)
 		mode_row.add_child(btn)
 
-	var ctrl_row := HBoxContainer.new()
-	ctrl_row.add_theme_constant_override("separation", 5)
-	vbox.add_child(ctrl_row)
+	var ctrl_row := _UiUtil.make_hbox(5, vbox)
 
-	var h_minus := Button.new()
-	h_minus.text = "H-"
-	h_minus.custom_minimum_size = Vector2(sq_w, btn_h)
-	h_minus.pressed.connect(_height_down)
-	ctrl_row.add_child(h_minus)
+	var h_minus := _UiUtil.make_button("H-", Vector2(sq_w, btn_h), 0, _height_down, ctrl_row)
 
-	_height_label = Label.new()
-	_height_label.text = "H:1"
+	_height_label = _UiUtil.make_label("H:1", 0, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	_height_label.custom_minimum_size = Vector2(lbl_w, btn_h)
-	_height_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_height_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_height_label.add_theme_color_override("font_color", Color.WHITE)
 	_height_label.add_theme_font_size_override("font_size", 18)
 	ctrl_row.add_child(_height_label)
 
-	var h_plus := Button.new()
-	h_plus.text = "H+"
-	h_plus.custom_minimum_size = Vector2(sq_w, btn_h)
-	h_plus.pressed.connect(_height_up)
-	ctrl_row.add_child(h_plus)
+	var h_plus := _UiUtil.make_button("H+", Vector2(sq_w, btn_h), 0, _height_up, ctrl_row)
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ctrl_row.add_child(spacer)
 
-	var save_btn := Button.new()
-	save_btn.text = "Save"
-	save_btn.custom_minimum_size = Vector2(wide_w, btn_h)
-	save_btn.pressed.connect(_save_map)
-	ctrl_row.add_child(save_btn)
+	var save_btn := _UiUtil.make_button("Save", Vector2(wide_w, btn_h), 0, _save_map, ctrl_row)
 
-	var new_btn := Button.new()
-	new_btn.text = "New"
-	new_btn.custom_minimum_size = Vector2(wide_w, btn_h)
-	new_btn.pressed.connect(_new_map_dialog)
-	ctrl_row.add_child(new_btn)
+	var new_btn := _UiUtil.make_button("New", Vector2(wide_w, btn_h), 0, _new_map_dialog, ctrl_row)
 
-	var open_btn := Button.new()
-	open_btn.text = "Open"
-	open_btn.custom_minimum_size = Vector2(wide_w, btn_h)
-	open_btn.pressed.connect(_show_map_list)
-	ctrl_row.add_child(open_btn)
+	var open_btn := _UiUtil.make_button("Open", Vector2(wide_w, btn_h), 0, _show_map_list, ctrl_row)
 
 	_hud.add_child(_toolbar)
 	_refresh_mode_buttons()

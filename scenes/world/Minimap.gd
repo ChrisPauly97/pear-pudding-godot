@@ -216,6 +216,22 @@ func _on_draw(canvas: Control) -> void:
 			_draw_boss_dot(canvas, boss.position, origin, center)
 
 
+## World-space point projected into minimap canvas space. The +45° rotation
+## matches the isometric camera's −45° azimuth: iso screen-right is world NE
+## (+x, 0, −z) and iso screen-up is world NW (−x, 0, −z).
+func _to_minimap(world_pos: Vector3, origin: Vector3) -> Vector2:
+	const ROT45: float = 0.7071067811865476
+	var off: Vector3 = world_pos - origin
+	return Vector2(_half + (off.x - off.z) * ROT45 * _scale,
+		_half + (off.x + off.z) * ROT45 * _scale)
+
+## True when `dot` falls inside the minimap's circular mask. Compares squared
+## lengths — this runs once per tracked entity per frame.
+func _inside_minimap(dot: Vector2, center: Vector2) -> bool:
+	var limit: float = _half * 0.94
+	return dot.distance_squared_to(center) <= limit * limit
+
+
 func _draw_waypoint(canvas: Control, origin: Vector3) -> void:
 	var wp: Dictionary = SceneManager.save_manager.waypoint
 	if wp.is_empty():
@@ -227,16 +243,11 @@ func _draw_waypoint(canvas: Control, origin: Vector3) -> void:
 	var tz: int = int(wp.get("tz", 0))
 	var wx: float = float(tx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 	var wz: float = float(tz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-	var off: Vector3 = Vector3(wx, 0.0, wz) - origin
-	const ROT45: float = 0.7071067811865476
-	var rx: float = (off.x - off.z) * ROT45
-	var ry: float = (off.x + off.z) * ROT45
 	var center := Vector2(_half, _half)
-	var dot := Vector2(_half + rx * _scale, _half + ry * _scale)
+	var dot: Vector2 = _to_minimap(Vector3(wx, 0.0, wz), origin)
 	# Clamp to minimap circle edge if outside
-	var from_center: Vector2 = dot - center
-	if from_center.length() > _half * 0.94:
-		dot = center + from_center.normalized() * (_half * 0.88)
+	if not _inside_minimap(dot, center):
+		dot = center + (dot - center).normalized() * (_half * 0.88)
 	canvas.draw_circle(dot, 5.0, Color(0.20, 0.80, 1.00), true, -1.0, true)
 	canvas.draw_arc(dot, 7.0, 0.0, TAU, 12, Color(0.20, 0.80, 1.00, 0.70), 1.5, true)
 
@@ -250,21 +261,12 @@ func _draw_group(canvas: Control, nodes: Dictionary, origin: Vector3,
 		var raw = nodes[id]
 		if not is_instance_valid(raw):
 			continue
-		var n: Node3D = raw
-		var off: Vector3 = n.position - origin
-		# Rotate +45° to match the isometric camera's −45° azimuth:
-		# iso screen-right = world NE (+x,0,−z), iso screen-up = world NW (−x,0,−z).
-		const ROT45: float = 0.7071067811865476
-		var rx: float = (off.x - off.z) * ROT45
-		var ry: float = (off.x + off.z) * ROT45
-		var dot := Vector2(_half + rx * _scale, _half + ry * _scale)
-		# Only draw dots that fall inside the circle
-		if (dot - center).length() <= _half * 0.94:
+		var dot: Vector2 = _to_minimap((raw as Node3D).position, origin)
+		if _inside_minimap(dot, center):
 			canvas.draw_circle(dot, radius, color, true, -1.0, true)
 
 func _draw_enemy_nodes(canvas: Control, origin: Vector3) -> void:
 	var center := Vector2(_half, _half)
-	const ROT45: float = 0.7071067811865476
 	const ENEMY_COLOR: Color = Color(0.95, 0.20, 0.20)
 	const SPECTRE_COLOR: Color = Color(0.55, 0.75, 1.00)
 	for id in _enemy_nodes:
@@ -274,26 +276,19 @@ func _draw_enemy_nodes(canvas: Control, origin: Vector3) -> void:
 		if not is_instance_valid(raw):
 			continue
 		var n: Node3D = raw
-		var off: Vector3 = n.position - origin
-		var rx: float = (off.x - off.z) * ROT45
-		var ry: float = (off.x + off.z) * ROT45
-		var dot := Vector2(_half + rx * _scale, _half + ry * _scale)
-		if (dot - center).length() <= _half * 0.94:
-			var color: Color = SPECTRE_COLOR if n.get_meta("is_nocturnal", false) else ENEMY_COLOR
-			canvas.draw_circle(dot, 4.0, color, true, -1.0, true)
+		var dot: Vector2 = _to_minimap(n.position, origin)
+		if _inside_minimap(dot, center):
+			canvas.draw_circle(dot, 4.0,
+				SPECTRE_COLOR if n.get_meta("is_nocturnal", false) else ENEMY_COLOR,
+				true, -1.0, true)
 
 func _draw_boss_dot(canvas: Control, boss_pos: Vector3, origin: Vector3,
 		center: Vector2) -> void:
-	const ROT45: float = 0.7071067811865476
 	const BOSS_COLOR: Color = Color(1.0, 0.08, 0.08)
-	var off: Vector3 = boss_pos - origin
-	var rx: float = (off.x - off.z) * ROT45
-	var ry: float = (off.x + off.z) * ROT45
-	var dot := Vector2(_half + rx * _scale, _half + ry * _scale)
-	var from_center: Vector2 = dot - center
-	if from_center.length() <= _half * 0.94:
+	var dot: Vector2 = _to_minimap(boss_pos, origin)
+	if _inside_minimap(dot, center):
 		canvas.draw_circle(dot, 7.0, BOSS_COLOR, true, -1.0, true)
 	else:
 		# Edge indicator: clamp to minimap border, slightly faded
-		var edge: Vector2 = center + from_center.normalized() * (_half * 0.88)
+		var edge: Vector2 = center + (dot - center).normalized() * (_half * 0.88)
 		canvas.draw_circle(edge, 5.0, Color(BOSS_COLOR.r, BOSS_COLOR.g, BOSS_COLOR.b, 0.65), true, -1.0, true)

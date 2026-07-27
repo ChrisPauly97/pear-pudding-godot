@@ -1,4 +1,5 @@
 extends Control
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal closed
 
@@ -31,44 +32,22 @@ func _build_ui() -> void:
 
 	var panel_w: float = minf(_vw * 0.90, _vh * 0.70)
 	var panel_h: float = _vh * 0.85
-	var outer := PanelContainer.new()
-	outer.custom_minimum_size = Vector2(panel_w, panel_h)
-	outer.size = Vector2(panel_w, panel_h)
-	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
-	add_child(outer)
+	var outer := _UiUtil.make_centered_panel(panel_w, panel_h, _vw, _vh, self)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.015))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.015))
-	margin.add_theme_constant_override("margin_top",    int(_ref * 0.015))
-	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.015))
-	outer.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vw * 0.015), int(_ref * 0.015), int(_vw * 0.015), int(_ref * 0.015), outer)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.012))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.012), margin)
 
 	# Header row
-	var header := HBoxContainer.new()
-	root_vbox.add_child(header)
+	var header := _UiUtil.make_hbox(0, root_vbox)
 
-	var title_lbl := Label.new()
-	title_lbl.text = "Blacksmith"
-	title_lbl.add_theme_font_size_override("font_size", int(_ref * 0.032))
+	var title_lbl := _UiUtil.make_label("Blacksmith", int(_ref * 0.032), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header)
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title_lbl)
 
-	var close_btn := Button.new()
-	close_btn.text = "Close  [C]" if not OS.has_feature("android") else "Close"
-	close_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-	close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	close_btn.pressed.connect(_on_close)
-	header.add_child(close_btn)
+	var close_btn := _UiUtil.make_button("Close  [C]" if not OS.has_feature("android") else "Close", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_close, header)
 
 	# Currency display
-	var currency_row := HBoxContainer.new()
-	currency_row.add_theme_constant_override("separation", int(_vw * 0.03))
-	root_vbox.add_child(currency_row)
+	var currency_row := _UiUtil.make_hbox(int(_vw * 0.03), root_vbox)
 
 	_coin_label = Label.new()
 	_coin_label.add_theme_font_size_override("font_size", int(_ref * 0.024))
@@ -87,10 +66,8 @@ func _build_ui() -> void:
 	root_vbox.add_child(_weapon_scroll)
 	_BaseOverlay.attach_drag_scroll(_weapon_scroll)
 
-	_weapon_list = VBoxContainer.new()
+	_weapon_list = _UiUtil.make_vbox(int(_ref * 0.010), _weapon_scroll)
 	_weapon_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_weapon_list.add_theme_constant_override("separation", int(_ref * 0.010))
-	_weapon_scroll.add_child(_weapon_list)
 
 func _refresh() -> void:
 	var saved_scroll: int = _weapon_scroll.scroll_vertical if _weapon_scroll else 0
@@ -103,12 +80,7 @@ func _refresh() -> void:
 
 	var owned: Array[Dictionary] = sm.owned_weapons
 	if owned.is_empty():
-		var none_lbl := Label.new()
-		none_lbl.text = "You own no weapons yet."
-		none_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		none_lbl.modulate = Color(0.6, 0.6, 0.6)
-		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_weapon_list.add_child(none_lbl)
+		var none_lbl := _UiUtil.make_label("You own no weapons yet.", int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _weapon_list)
 		if _weapon_scroll and saved_scroll > 0:
 			_weapon_scroll.scroll_vertical = saved_scroll
 		return
@@ -126,15 +98,13 @@ func _refresh() -> void:
 		_weapon_scroll.scroll_vertical = saved_scroll
 
 func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: Node) -> VBoxContainer:
-	var outer := VBoxContainer.new()
-	outer.add_theme_constant_override("separation", int(_ref * 0.004))
+	var outer := _UiUtil.make_vbox(int(_ref * 0.004))
 
 	var sep := HSeparator.new()
 	outer.add_child(sep)
 
 	# Name + level
-	var name_row := HBoxContainer.new()
-	outer.add_child(name_row)
+	var name_row := _UiUtil.make_hbox(0, outer)
 
 	var name_lbl := Label.new()
 	var level_suffix: String = "" if level == 0 else " +%d" % level
@@ -145,18 +115,10 @@ func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: Node) -> 
 
 	var equipped_id: String = sm.equipped_weapon
 	if equipped_id == wid:
-		var eq_lbl := Label.new()
-		eq_lbl.text = "[E]"
-		eq_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		eq_lbl.modulate = Color(0.4, 1.0, 0.5)
-		name_row.add_child(eq_lbl)
+		var eq_lbl := _UiUtil.make_label("[E]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT, name_row)
 
 	# Current stats
-	var cur_lbl := Label.new()
-	cur_lbl.text = "  Current: %s" % UpgradeDefs.get_display_string(weapon, level)
-	cur_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
-	cur_lbl.modulate = Color(0.9, 1.0, 0.7)
-	outer.add_child(cur_lbl)
+	var cur_lbl := _UiUtil.make_label("  Current: %s" % UpgradeDefs.get_display_string(weapon, level), int(_ref * 0.020), Color(0.9, 1.0, 0.7), HORIZONTAL_ALIGNMENT_LEFT, outer)
 
 	# Next-level preview or max label
 	if level < UpgradeDefs.MAX_LEVEL:
@@ -171,16 +133,10 @@ func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: Node) -> 
 		next_lbl.modulate = Color(0.7, 0.85, 1.0)
 		outer.add_child(next_lbl)
 	else:
-		var max_lbl := Label.new()
-		max_lbl.text = "  MAX LEVEL"
-		max_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
-		max_lbl.modulate = Color(1.0, 0.85, 0.1)
-		outer.add_child(max_lbl)
+		var max_lbl := _UiUtil.make_label("  MAX LEVEL", int(_ref * 0.020), Color(1.0, 0.85, 0.1), HORIZONTAL_ALIGNMENT_LEFT, outer)
 
 	# Action buttons row
-	var btn_row := HBoxContainer.new()
-	btn_row.add_theme_constant_override("separation", int(_vw * 0.010))
-	outer.add_child(btn_row)
+	var btn_row := _UiUtil.make_hbox(int(_vw * 0.010), outer)
 
 	# Upgrade button
 	var upgrade_btn := Button.new()

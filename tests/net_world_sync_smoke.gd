@@ -20,6 +20,7 @@ extends SceneTree
 const _NetSync = preload("res://scenes/world/NetSync.gd")
 const _WorldObjectSync = preload("res://game_logic/net/WorldObjectSync.gd")
 const _EnemySync = preload("res://game_logic/net/EnemySync.gd")
+const _Harness = preload("res://tests/net_harness.gd")
 
 const _PORT: int = 24573
 const _SESSION_ID: String = "smoke_worldsync_pptcg"
@@ -106,39 +107,23 @@ func _run() -> bool:
 
 
 func _socket_phase() -> bool:
-	var server_peer := ENetMultiplayerPeer.new()
-	if server_peer.create_server(_PORT, 4) != OK:
-		print("  [FAIL] create_server failed (loopback blocked?)")
+	var srv: Dictionary = _Harness.start_server(self, _PORT, 4, "ServerRoot", "  [FAIL] create_server failed (loopback blocked?)")
+	if srv.is_empty():
 		return false
-	var mp_server := SceneMultiplayer.new()
-	var server_root := Node.new()
-	server_root.name = "ServerRoot"
-	root.add_child(server_root)
-	set_multiplayer(mp_server, server_root.get_path())
-	mp_server.multiplayer_peer = server_peer
+	var server_peer: ENetMultiplayerPeer = srv["peer"]
+	var mp_server: SceneMultiplayer = srv["mp"]
+	var server_root: Node = srv["root"]
 	var host_netsync: Node = _build_world(server_root, false)
 
-	var client_peer := ENetMultiplayerPeer.new()
-	if client_peer.create_client("127.0.0.1", _PORT) != OK:
-		print("  [FAIL] create_client failed")
+	var cli: Dictionary = _Harness.start_client(self, _PORT, "ClientRoot", "  [FAIL] create_client failed")
+	if cli.is_empty():
 		return false
-	var mp_client := SceneMultiplayer.new()
-	var client_root := Node.new()
-	client_root.name = "ClientRoot"
-	root.add_child(client_root)
-	set_multiplayer(mp_client, client_root.get_path())
-	mp_client.multiplayer_peer = client_peer
+	var client_peer: ENetMultiplayerPeer = cli["peer"]
+	var mp_client: SceneMultiplayer = cli["mp"]
+	var client_root: Node = cli["root"]
 	_build_world(client_root, true)
 
-	var connected := false
-	for _i in range(400):
-		mp_server.poll()
-		mp_client.poll()
-		if mp_server.get_peers().size() > 0:
-			connected = true
-			break
-		OS.delay_msec(10)
-	if not connected:
+	if not _Harness.wait_connected(mp_server, mp_client):
 		print("  [FAIL] peers did not connect")
 		_teardown(server_root, client_root, server_peer, client_peer)
 		return false
@@ -154,15 +139,9 @@ func _socket_phase() -> bool:
 	host_netsync.rpc("recv_enemy_positions", _EnemySync.encode_batch([
 		_EnemySync.encode_state("orc_9", 5.0, -2.0, true)]))
 
-	var ok := false
-	for _j in range(300):
-		mp_server.poll()
-		mp_client.poll()
-		if _client_stub.events.size() >= 2 and not _client_stub.snapshot.is_empty() \
-				and not _client_stub.positions.is_empty():
-			ok = true
-			break
-		OS.delay_msec(10)
+	var ok: bool = _Harness.pump([mp_server, mp_client], 300, 10, func() -> bool:
+		return _client_stub.events.size() >= 2 and not _client_stub.snapshot.is_empty() \
+			and not _client_stub.positions.is_empty())
 	_teardown(server_root, client_root, server_peer, client_peer)
 	if not ok:
 		print("  [FAIL] world-sync packets did not all arrive over the socket")
@@ -216,10 +195,7 @@ func _build_world(parent: Node, is_client: bool) -> Node:
 
 
 func _teardown(server_root: Node, client_root: Node, server_peer: MultiplayerPeer, client_peer: MultiplayerPeer) -> void:
-	client_peer.close()
-	server_peer.close()
-	client_root.queue_free()
-	server_root.queue_free()
+	_Harness.teardown([client_peer, server_peer], [client_root, server_root])
 
 
 func _cleanup() -> void:

@@ -10,6 +10,7 @@
 ##   draft.setup_coop(floor_number, broadcast_options, is_my_turn, active_picker_name)
 ##   if is_my_turn: draft.picked.connect(_submit_coop_spire_draft_choice)
 extends Control
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal picked(card_id: String)
 
@@ -19,7 +20,6 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 var _vh: float = 0.0
 var _vw: float = 0.0
 var _ref: float = 0.0
-var _card_panels: HBoxContainer = null
 var _floor_number: int = 1
 var _draft_logic: RefCounted = null
 
@@ -77,34 +77,17 @@ func _build_ui(picks: Array[String]) -> void:
 	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
 	add_child(outer)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.02))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.02))
-	margin.add_theme_constant_override("margin_top",    int(_ref * 0.02))
-	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.02))
-	outer.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vw * 0.02), int(_ref * 0.02), int(_vw * 0.02), int(_ref * 0.02), outer)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.018))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.018), margin)
 
 	# Title
-	var title := Label.new()
-	title.text = "Floor %d — Choose a Card" % _floor_number
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(_ref * 0.038))
-	title.modulate = Color(1.0, 0.88, 0.4)
-	root_vbox.add_child(title)
+	var title := _UiUtil.make_label("Floor %d — Choose a Card" % _floor_number, int(_ref * 0.038), Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	# Co-op turn banner: "Your turn!" or "Waiting for <name>…" — every peer sees the
 	# same 3 cards, but only the active picker's buttons are interactive.
 	if _is_coop:
-		var turn_banner := Label.new()
-		turn_banner.text = "Your turn!" if _coop_is_my_turn else "Waiting for %s…" % _coop_picker_name
-		turn_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		turn_banner.add_theme_font_size_override("font_size", int(_ref * 0.026))
-		turn_banner.modulate = Color(0.6, 1.0, 0.6) if _coop_is_my_turn else Color(0.85, 0.85, 0.85)
-		root_vbox.add_child(turn_banner)
+		var turn_banner := _UiUtil.make_label("Your turn!" if _coop_is_my_turn else "Waiting for %s…" % _coop_picker_name, int(_ref * 0.026), Color(0.6, 1.0, 0.6) if _coop_is_my_turn else Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	var sep := HSeparator.new()
 	root_vbox.add_child(sep)
@@ -113,12 +96,10 @@ func _build_ui(picks: Array[String]) -> void:
 	var is_portrait: bool = _vw < _vh
 	var cards_container: BoxContainer
 	if is_portrait:
-		var vb := VBoxContainer.new()
-		vb.add_theme_constant_override("separation", int(_ref * 0.012))
+		var vb := _UiUtil.make_vbox(int(_ref * 0.012))
 		cards_container = vb
 	else:
-		var hb := HBoxContainer.new()
-		hb.add_theme_constant_override("separation", int(_vw * 0.015))
+		var hb := _UiUtil.make_hbox(int(_vw * 0.015))
 		cards_container = hb
 	cards_container.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_vbox.add_child(cards_container)
@@ -149,39 +130,23 @@ func _make_card_panel(card_id: String) -> Control:
 	outer_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	outer_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.012))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.012))
-	margin.add_theme_constant_override("margin_top",    int(_ref * 0.012))
-	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.012))
-	outer_panel.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vw * 0.012), int(_ref * 0.012), int(_vw * 0.012), int(_ref * 0.012), outer_panel)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_ref * 0.008))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_ref * 0.008), margin)
 
 	# Colour swatch + name row
-	var name_row := HBoxContainer.new()
-	name_row.add_theme_constant_override("separation", int(_vw * 0.008))
-	vbox.add_child(name_row)
+	var name_row := _UiUtil.make_hbox(int(_vw * 0.008), vbox)
 
 	var swatch := ColorRect.new()
 	swatch.color = card_color
 	swatch.custom_minimum_size = Vector2(_ref * 0.035, _ref * 0.035)
 	name_row.add_child(swatch)
 
-	var name_lbl := Label.new()
-	name_lbl.text = card_name
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.026))
+	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, name_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_row.add_child(name_lbl)
 
 	# Tier badge
-	var tier_lbl := Label.new()
-	tier_lbl.text = _tier_label(tier)
-	tier_lbl.modulate = tier_color
-	tier_lbl.add_theme_font_size_override("font_size", int(_ref * 0.02))
-	vbox.add_child(tier_lbl)
+	var tier_lbl := _UiUtil.make_label(_tier_label(tier), int(_ref * 0.02), tier_color, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 
 	# Stats row
 	var stats_lbl := Label.new()
@@ -195,27 +160,18 @@ func _make_card_panel(card_id: String) -> Control:
 
 	# Description
 	if desc != "":
-		var desc_lbl := Label.new()
-		desc_lbl.text = desc
-		desc_lbl.add_theme_font_size_override("font_size", int(_ref * 0.018))
-		desc_lbl.modulate = Color(0.70, 0.70, 0.70)
+		var desc_lbl := _UiUtil.make_label(desc, int(_ref * 0.018), Color(0.70, 0.70, 0.70), HORIZONTAL_ALIGNMENT_LEFT, vbox)
 		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc_lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		vbox.add_child(desc_lbl)
 	else:
 		var spacer := Control.new()
 		spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		vbox.add_child(spacer)
 
 	# Pick button — disabled for every peer except the active picker during a co-op round.
-	var pick_btn := Button.new()
-	pick_btn.text = "Pick"
-	pick_btn.custom_minimum_size = Vector2(0.0, _ref * 0.055)
-	pick_btn.add_theme_font_size_override("font_size", int(_ref * 0.023))
+	var pick_btn := _UiUtil.make_button("Pick", Vector2(0.0, _ref * 0.055), int(_ref * 0.023), _on_pick.bind(card_id), vbox)
 	pick_btn.modulate = tier_color
 	pick_btn.disabled = _is_coop and not _coop_is_my_turn
-	pick_btn.pressed.connect(_on_pick.bind(card_id))
-	vbox.add_child(pick_btn)
 
 	return outer_panel
 

@@ -1,6 +1,5 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 # Keybindings capture state
 var _capture_action: String = ""
@@ -26,22 +25,13 @@ func _build_ui() -> void:
 	outer_vbox.add_child(_UiUtil.make_separator())
 
 	# Scrollable settings area
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	outer_vbox.add_child(scroll)
-	attach_drag_scroll(scroll)
+	var scroll := _build_scroll(outer_vbox)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_ref * 0.025))
+	var vbox := _UiUtil.make_vbox(int(_ref * 0.025), scroll)
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(vbox)
 
 	# — Audio —
-	var audio_lbl := Label.new()
-	audio_lbl.text = "Audio"
-	audio_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	var audio_lbl := _UiUtil.make_label("Audio", int(_vh * 0.03))
 	audio_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
 	vbox.add_child(audio_lbl)
 
@@ -60,9 +50,7 @@ func _build_ui() -> void:
 	vbox.add_child(_UiUtil.make_separator())
 
 	# — Accessibility & Comfort —
-	var access_lbl := Label.new()
-	access_lbl.text = "Accessibility & Comfort"
-	access_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	var access_lbl := _UiUtil.make_label("Accessibility & Comfort", int(_vh * 0.03))
 	access_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
 	vbox.add_child(access_lbl)
 
@@ -88,9 +76,7 @@ func _build_ui() -> void:
 	vbox.add_child(_UiUtil.make_separator())
 
 	# — Battle —
-	var battle_lbl := Label.new()
-	battle_lbl.text = "Battle"
-	battle_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	var battle_lbl := _UiUtil.make_label("Battle", int(_vh * 0.03))
 	battle_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
 	vbox.add_child(battle_lbl)
 
@@ -121,17 +107,13 @@ func _scale_to_index(scale: float) -> int:
 	return 1
 
 func _add_slider_row(parent: VBoxContainer, label_text: String, initial: float, on_change: Callable) -> void:
-	var row := VBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vh * 0.008))
-	parent.add_child(row)
+	var row := _UiUtil.make_vbox(int(_vh * 0.008), parent)
 
 	var lbl := _UiUtil.make_body_label(label_text, _vh)
 	lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
 	row.add_child(lbl)
 
-	var slider_row := HBoxContainer.new()
-	slider_row.add_theme_constant_override("separation", int(_vh * 0.02))
-	row.add_child(slider_row)
+	var slider_row := _UiUtil.make_hbox(int(_vh * 0.02), row)
 
 	var slider := HSlider.new()
 	slider.min_value = 0.0
@@ -142,9 +124,7 @@ func _add_slider_row(parent: VBoxContainer, label_text: String, initial: float, 
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	slider_row.add_child(slider)
 
-	var val_lbl := Label.new()
-	val_lbl.text = "%d%%" % int(initial * 100)
-	val_lbl.add_theme_font_size_override("font_size", int(_vh * 0.026))
+	var val_lbl := _UiUtil.make_label("%d%%" % int(initial * 100), int(_vh * 0.026))
 	val_lbl.add_theme_color_override("font_color", Color(0.7, 0.9, 1.0))
 	val_lbl.custom_minimum_size = Vector2(_vh * 0.07, 0)
 	slider_row.add_child(val_lbl)
@@ -155,13 +135,9 @@ func _add_slider_row(parent: VBoxContainer, label_text: String, initial: float, 
 	)
 
 func _add_toggle_row(parent: VBoxContainer, label_text: String, initial: bool, on_change: Callable) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vh * 0.02))
-	parent.add_child(row)
+	var row := _UiUtil.make_hbox(int(_vh * 0.02), parent)
 
-	var lbl := Label.new()
-	lbl.text = label_text
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	var lbl := _UiUtil.make_label(label_text, int(_vh * 0.028))
 	lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(lbl)
@@ -173,13 +149,9 @@ func _add_toggle_row(parent: VBoxContainer, label_text: String, initial: bool, o
 	row.add_child(chk)
 
 func _add_option_row(parent: VBoxContainer, label_text: String, options: Array, initial_idx: int, on_change: Callable) -> void:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vh * 0.02))
-	parent.add_child(row)
+	var row := _UiUtil.make_hbox(int(_vh * 0.02), parent)
 
-	var lbl := Label.new()
-	lbl.text = label_text
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+	var lbl := _UiUtil.make_label(label_text, int(_vh * 0.028))
 	lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(lbl)
@@ -198,29 +170,19 @@ func _add_option_row(parent: VBoxContainer, label_text: String, options: Array, 
 # ---------------------------------------------------------------------------
 
 func _build_keybindings_section(parent: VBoxContainer) -> void:
-	var kb_lbl := Label.new()
-	kb_lbl.text = "Keybindings"
-	kb_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	var kb_lbl := _UiUtil.make_label("Keybindings", int(_vh * 0.03))
 	kb_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
 	parent.add_child(kb_lbl)
 
-	_kb_vbox = VBoxContainer.new()
-	_kb_vbox.add_theme_constant_override("separation", int(_ref * 0.015))
-	parent.add_child(_kb_vbox)
+	_kb_vbox = _UiUtil.make_vbox(int(_ref * 0.015), parent)
 
 	_rebuild_keybinding_rows()
 
 	# Reset to Defaults button
-	var reset_row := HBoxContainer.new()
+	var reset_row := _UiUtil.make_hbox(0, parent)
 	reset_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	parent.add_child(reset_row)
 
-	var reset_btn := Button.new()
-	reset_btn.text = "Reset to Defaults"
-	reset_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
-	reset_btn.custom_minimum_size = Vector2(_vh * 0.28, _vh * 0.05)
-	reset_btn.pressed.connect(_on_reset_keybindings)
-	reset_row.add_child(reset_btn)
+	var reset_btn := _UiUtil.make_button("Reset to Defaults", Vector2(_vh * 0.28, _vh * 0.05), int(_vh * 0.026), _on_reset_keybindings, reset_row)
 
 ## Returns a human-readable name for a physical keycode.
 func _key_label(physical_keycode: int) -> String:
@@ -255,13 +217,9 @@ func _rebuild_keybinding_rows() -> void:
 	var overrides: Dictionary = SceneManager.save_manager.get_setting("keybindings", {})
 
 	for action: String in SceneManager.REBINDABLE_ACTIONS:
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", int(_vh * 0.012))
-		_kb_vbox.add_child(row)
+		var row := _UiUtil.make_hbox(int(_vh * 0.012), _kb_vbox)
 
-		var name_lbl := Label.new()
-		name_lbl.text = _action_display_name(action)
-		name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
+		var name_lbl := _UiUtil.make_label(_action_display_name(action), int(_vh * 0.028))
 		name_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(name_lbl)
@@ -277,12 +235,7 @@ func _rebuild_keybinding_rows() -> void:
 		row.add_child(key_lbl)
 
 		# Change button
-		var change_btn := Button.new()
-		change_btn.text = "Change"
-		change_btn.add_theme_font_size_override("font_size", int(_vh * 0.024))
-		change_btn.custom_minimum_size = Vector2(_vh * 0.15, _vh * 0.05)
-		change_btn.pressed.connect(_start_capture.bind(action, key_lbl))
-		row.add_child(change_btn)
+		var change_btn := _UiUtil.make_button("Change", Vector2(_vh * 0.15, _vh * 0.05), int(_vh * 0.024), _start_capture.bind(action, key_lbl), row)
 
 func _start_capture(action: String, key_lbl: Label) -> void:
 	_capture_action = action
@@ -302,9 +255,7 @@ func _show_capture_overlay(action: String) -> void:
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	_capture_overlay.add_child(vbox)
 
-	var prompt := Label.new()
-	prompt.text = "Press any key for «%s»…\n(Esc to cancel)" % _action_display_name(action)
-	prompt.add_theme_font_size_override("font_size", int(_vh * 0.03))
+	var prompt := _UiUtil.make_label("Press any key for «%s»…\n(Esc to cancel)" % _action_display_name(action), int(_vh * 0.03))
 	prompt.add_theme_color_override("font_color", Color(1.0, 1.0, 0.8))
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	prompt.autowrap_mode = TextServer.AUTOWRAP_WORD

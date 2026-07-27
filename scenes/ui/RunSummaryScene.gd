@@ -1,6 +1,7 @@
 extends Control
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 # Set before adding to tree to show Spire-specific stats instead of session stats.
 var spire_stats: Dictionary = {}
@@ -41,30 +42,14 @@ func _build_ui() -> void:
 	var panel_w: float = minf(_vw * 0.88, _vh * 0.70)
 	var panel_h: float = _vh * 0.85
 
-	var outer := PanelContainer.new()
-	outer.custom_minimum_size = Vector2(panel_w, panel_h)
-	outer.size = Vector2(panel_w, panel_h)
-	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
-	add_child(outer)
+	var outer := _UiUtil.make_centered_panel(panel_w, panel_h, _vw, _vh, self)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_ref * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
-	outer.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vw * 0.025), int(_ref * 0.025), int(_vw * 0.025), int(_ref * 0.025), outer)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.018))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.018), margin)
 
 	# Title
-	var title := Label.new()
-	title.text = "Session Summary"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(_ref * 0.045))
-	title.modulate = Color(1.0, 0.88, 0.4)
-	root_vbox.add_child(title)
+	var title := _UiUtil.make_label("Session Summary", int(_ref * 0.045), Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	# Separator
 	var sep := HSeparator.new()
@@ -94,17 +79,9 @@ func _build_ui() -> void:
 	root_vbox.add_child(grid)
 
 	for row: Array in stat_rows:
-		var key_lbl := Label.new()
-		key_lbl.text = str(row[0])
-		key_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
-		key_lbl.modulate = Color(0.75, 0.75, 0.75)
-		grid.add_child(key_lbl)
+		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, grid)
 
-		var val_lbl := Label.new()
-		val_lbl.text = str(row[1])
-		val_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
-		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		grid.add_child(val_lbl)
+		var val_lbl := _UiUtil.make_label(str(row[1]), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, grid)
 
 	# Separator
 	var sep2 := HSeparator.new()
@@ -119,12 +96,7 @@ func _build_ui() -> void:
 	var btn_wrap := CenterContainer.new()
 	root_vbox.add_child(btn_wrap)
 
-	var menu_btn := Button.new()
-	menu_btn.text = "Return to Menu"
-	menu_btn.custom_minimum_size = Vector2(_ref * 0.32, _ref * 0.07)
-	menu_btn.add_theme_font_size_override("font_size", int(_ref * 0.028))
-	menu_btn.pressed.connect(_on_menu)
-	btn_wrap.add_child(menu_btn)
+	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(_ref * 0.32, _ref * 0.07), int(_ref * 0.028), _on_menu, btn_wrap)
 
 func _on_menu() -> void:
 	SceneManager.go_to_menu_direct()
@@ -138,48 +110,22 @@ func _build_spire_ui() -> void:
 	var panel_w: float = minf(_vw * 0.88, _vh * 0.72)
 	var panel_h: float = _vh * 0.88
 
-	var outer := PanelContainer.new()
-	outer.custom_minimum_size = Vector2(panel_w, panel_h)
-	outer.size = Vector2(panel_w, panel_h)
-	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
-	add_child(outer)
+	var outer := _UiUtil.make_centered_panel(panel_w, panel_h, _vw, _vh, self)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_ref * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
-	outer.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vw * 0.025), int(_ref * 0.025), int(_vw * 0.025), int(_ref * 0.025), outer)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.016))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.016), margin)
 
 	var floors_cleared: int = int(spire_stats.get("floors_cleared", 0))
 
 	# Title
-	var title := Label.new()
-	title.text = "Endless Spire"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(_ref * 0.048))
-	title.modulate = Color(0.75, 0.5, 1.0)
-	root_vbox.add_child(title)
+	var title := _UiUtil.make_label("Endless Spire", int(_ref * 0.048), Color(0.75, 0.5, 1.0), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
-	var subtitle := Label.new()
-	subtitle.text = "Floor %d" % floors_cleared if floors_cleared > 0 else "Fallen before the first floor"
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", int(_ref * 0.028))
-	subtitle.modulate = Color(0.85, 0.85, 0.85)
-	root_vbox.add_child(subtitle)
+	var subtitle := _UiUtil.make_label("Floor %d" % floors_cleared if floors_cleared > 0 else "Fallen before the first floor", int(_ref * 0.028), Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	# New record badge
 	if bool(spire_stats.get("is_new_record", false)) and floors_cleared > 0:
-		var record_lbl := Label.new()
-		record_lbl.text = "New Record!"
-		record_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		record_lbl.add_theme_font_size_override("font_size", int(_ref * 0.026))
-		record_lbl.modulate = Color(1.0, 0.85, 0.2)
-		root_vbox.add_child(record_lbl)
+		var record_lbl := _UiUtil.make_label("New Record!", int(_ref * 0.026), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	root_vbox.add_child(HSeparator.new())
 
@@ -200,47 +146,26 @@ func _build_spire_ui() -> void:
 	root_vbox.add_child(grid)
 
 	for row: Array in stat_rows:
-		var key_lbl := Label.new()
-		key_lbl.text = str(row[0])
-		key_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
-		key_lbl.modulate = Color(0.75, 0.75, 0.75)
-		grid.add_child(key_lbl)
+		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, grid)
 
-		var val_lbl := Label.new()
-		val_lbl.text = str(row[1])
-		val_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
-		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		grid.add_child(val_lbl)
+		var val_lbl := _UiUtil.make_label(str(row[1]), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, grid)
 
 	# Draft deck list (up to 8 cards)
 	var draft_ids: Array = spire_stats.get("draft_deck_ids", [])
 	if draft_ids.size() > 0:
 		root_vbox.add_child(HSeparator.new())
-		var deck_header := Label.new()
-		deck_header.text = "Cards Drafted"
-		deck_header.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		deck_header.modulate = Color(0.75, 0.75, 0.75)
-		root_vbox.add_child(deck_header)
+		var deck_header := _UiUtil.make_label("Cards Drafted", int(_ref * 0.022), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, root_vbox)
 
-		var names_vbox := VBoxContainer.new()
-		names_vbox.add_theme_constant_override("separation", int(_ref * 0.006))
-		root_vbox.add_child(names_vbox)
+		var names_vbox := _UiUtil.make_vbox(int(_ref * 0.006), root_vbox)
 
 		var show_count: int = mini(draft_ids.size(), 8)
 		for i: int in range(show_count):
 			var cid: String = str(draft_ids[i])
 			var tmpl: Dictionary = CardRegistry.get_template(cid)
 			var card_name: String = str(tmpl.get("name", cid)) if not tmpl.is_empty() else cid
-			var card_lbl := Label.new()
-			card_lbl.text = "  • %s" % card_name
-			card_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
-			names_vbox.add_child(card_lbl)
+			var card_lbl := _UiUtil.make_label("  • %s" % card_name, int(_ref * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, names_vbox)
 		if draft_ids.size() > 8:
-			var more_lbl := Label.new()
-			more_lbl.text = "  + %d more" % (draft_ids.size() - 8)
-			more_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
-			more_lbl.modulate = Color(0.65, 0.65, 0.65)
-			names_vbox.add_child(more_lbl)
+			var more_lbl := _UiUtil.make_label("  + %d more" % (draft_ids.size() - 8), int(_ref * 0.020), Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_LEFT, names_vbox)
 
 	root_vbox.add_child(HSeparator.new())
 
@@ -251,12 +176,7 @@ func _build_spire_ui() -> void:
 	var btn_wrap := CenterContainer.new()
 	root_vbox.add_child(btn_wrap)
 
-	var menu_btn := Button.new()
-	menu_btn.text = "Return to Menu"
-	menu_btn.custom_minimum_size = Vector2(_ref * 0.32, _ref * 0.07)
-	menu_btn.add_theme_font_size_override("font_size", int(_ref * 0.028))
-	menu_btn.pressed.connect(_on_menu)
-	btn_wrap.add_child(menu_btn)
+	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(_ref * 0.32, _ref * 0.07), int(_ref * 0.028), _on_menu, btn_wrap)
 
 ## Co-op Endless Spire run summary (GID-106 / TID-391). Shown as a WorldScene
 ## child overlay (never change_scene_to_node — that would exit the whole co-op
@@ -271,38 +191,17 @@ func _build_coop_spire_ui() -> void:
 	var panel_w: float = minf(_vw * 0.88, _vh * 0.72)
 	var panel_h: float = _vh * 0.80
 
-	var outer := PanelContainer.new()
-	outer.custom_minimum_size = Vector2(panel_w, panel_h)
-	outer.size = Vector2(panel_w, panel_h)
-	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
-	add_child(outer)
+	var outer := _UiUtil.make_centered_panel(panel_w, panel_h, _vw, _vh, self)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vw * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_ref * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_ref * 0.025))
-	outer.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vw * 0.025), int(_ref * 0.025), int(_vw * 0.025), int(_ref * 0.025), outer)
 
-	var root_vbox := VBoxContainer.new()
-	root_vbox.add_theme_constant_override("separation", int(_ref * 0.016))
-	margin.add_child(root_vbox)
+	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.016), margin)
 
 	var floors_cleared: int = int(coop_stats.get("floors_cleared", 0))
 
-	var title := Label.new()
-	title.text = "Party Endless Spire"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(_ref * 0.048))
-	title.modulate = Color(0.75, 0.5, 1.0)
-	root_vbox.add_child(title)
+	var title := _UiUtil.make_label("Party Endless Spire", int(_ref * 0.048), Color(0.75, 0.5, 1.0), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
-	var subtitle := Label.new()
-	subtitle.text = "Floor %d" % floors_cleared if floors_cleared > 0 else "The party fell before the first floor"
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", int(_ref * 0.028))
-	subtitle.modulate = Color(0.85, 0.85, 0.85)
-	root_vbox.add_child(subtitle)
+	var subtitle := _UiUtil.make_label("Floor %d" % floors_cleared if floors_cleared > 0 else "The party fell before the first floor", int(_ref * 0.028), Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	root_vbox.add_child(HSeparator.new())
 
@@ -316,35 +215,18 @@ func _build_coop_spire_ui() -> void:
 	grid.add_theme_constant_override("v_separation", int(_ref * 0.012))
 	root_vbox.add_child(grid)
 	for row: Array in stat_rows:
-		var key_lbl := Label.new()
-		key_lbl.text = str(row[0])
-		key_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
-		key_lbl.modulate = Color(0.75, 0.75, 0.75)
-		grid.add_child(key_lbl)
+		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, grid)
 
-		var val_lbl := Label.new()
-		val_lbl.text = str(row[1])
-		val_lbl.add_theme_font_size_override("font_size", int(_ref * 0.024))
-		val_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		grid.add_child(val_lbl)
+		var val_lbl := _UiUtil.make_label(str(row[1]), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, grid)
 
 	var roster: Array = coop_stats.get("roster", [])
 	if roster.size() > 0:
 		root_vbox.add_child(HSeparator.new())
-		var roster_header := Label.new()
-		roster_header.text = "The Party"
-		roster_header.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		roster_header.modulate = Color(0.75, 0.75, 0.75)
-		root_vbox.add_child(roster_header)
+		var roster_header := _UiUtil.make_label("The Party", int(_ref * 0.022), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, root_vbox)
 
-		var names_vbox2 := VBoxContainer.new()
-		names_vbox2.add_theme_constant_override("separation", int(_ref * 0.006))
-		root_vbox.add_child(names_vbox2)
+		var names_vbox2 := _UiUtil.make_vbox(int(_ref * 0.006), root_vbox)
 		for member_name in roster:
-			var name_lbl := Label.new()
-			name_lbl.text = "  • %s" % str(member_name)
-			name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
-			names_vbox2.add_child(name_lbl)
+			var name_lbl := _UiUtil.make_label("  • %s" % str(member_name), int(_ref * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, names_vbox2)
 
 	root_vbox.add_child(HSeparator.new())
 
@@ -355,9 +237,4 @@ func _build_coop_spire_ui() -> void:
 	var btn_wrap2 := CenterContainer.new()
 	root_vbox.add_child(btn_wrap2)
 
-	var continue_btn := Button.new()
-	continue_btn.text = "Continue"
-	continue_btn.custom_minimum_size = Vector2(_ref * 0.32, _ref * 0.07)
-	continue_btn.add_theme_font_size_override("font_size", int(_ref * 0.028))
-	continue_btn.pressed.connect(func() -> void: continue_pressed.emit())
-	btn_wrap2.add_child(continue_btn)
+	var continue_btn := _UiUtil.make_button("Continue", Vector2(_ref * 0.32, _ref * 0.07), int(_ref * 0.028), func() -> void: continue_pressed.emit(), btn_wrap2)

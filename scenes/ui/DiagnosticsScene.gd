@@ -19,10 +19,7 @@ func _ready() -> void:
 
 	var vbox := _build_margin_vbox(panel, 0.018, 0.012)
 
-	var title := Label.new()
-	title.text = "Diagnostics"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(_vh * 0.038))
+	var title := _UiUtil.make_label("Diagnostics", int(_vh * 0.038), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	title.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	vbox.add_child(title)
 
@@ -42,27 +39,15 @@ func _ready() -> void:
 
 	_populate()
 
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", int(_vh * 0.015))
-	vbox.add_child(hbox)
+	var hbox := _UiUtil.make_hbox(int(_vh * 0.015), vbox)
 
-	var clear_btn := Button.new()
-	clear_btn.text = "Clear"
-	clear_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
-	clear_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
-	clear_btn.pressed.connect(_on_clear)
-	hbox.add_child(clear_btn)
+	var clear_btn := _UiUtil.make_button("Clear", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.026), _on_clear, hbox)
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.add_child(spacer)
 
-	var close_btn := Button.new()
-	close_btn.text = "Close"
-	close_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.06)
-	close_btn.add_theme_font_size_override("font_size", int(_vh * 0.026))
-	close_btn.pressed.connect(_close)
-	hbox.add_child(close_btn)
+	var close_btn := _UiUtil.make_button("Close", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.026), _close, hbox)
 
 func _populate() -> void:
 	_rich.clear()

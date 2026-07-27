@@ -19,6 +19,17 @@ enum State {
 	MENU_HUB,
 }
 
+## enemy_data for a player-vs-player battle: BattleScene builds both sides from
+## the PvP decks, so every drop/reward field stays inert. Duplicated per launch
+## because BattleScene writes into the dict it is handed.
+const PVP_ENEMY_DATA: Dictionary = {
+	"display_name": "Player",
+	"enemy_type": "",
+	"is_boss": false,
+	"drop_pool": [],
+	"coin_reward": 0,
+}
+
 const _PackOpenSceneScript = preload("res://scenes/ui/PackOpenScene.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
@@ -42,6 +53,7 @@ const REBINDABLE_ACTIONS: Array[String] = [
 # Ghost duels (GID-102 / TID-377): flat, modest, clearly-async coin reward on win.
 # No rating change ever (see enter_ghost_duel doc comment) — coins only.
 const GHOST_DUEL_COIN_REWARD: int = 25
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
@@ -49,12 +61,7 @@ var current_map: String = ""
 var _world_scene_packed := preload("res://scenes/world/WorldScene.tscn")
 var _battle_scene_packed := preload("res://scenes/battle/BattleScene.tscn")
 var _menu_scene_packed := preload("res://scenes/ui/MenuScene.tscn")
-var _gameover_scene_packed := preload("res://scenes/ui/GameOverScene.tscn")
-var _inventory_scene_packed := preload("res://scenes/ui/InventoryScene.tscn")
 var _shop_scene_packed := preload("res://scenes/ui/ShopScene.tscn")
-var _character_scene_packed := preload("res://scenes/ui/CharacterScene.tscn")
-var _skill_tree_scene_packed := preload("res://scenes/ui/SkillTreeScene.tscn")
-var _journal_scene_packed := preload("res://scenes/ui/JournalScene.tscn")
 var _achievements_scene_packed := preload("res://scenes/ui/AchievementsScene.tscn")
 var _run_summary_scene_packed := preload("res://scenes/ui/RunSummaryScene.tscn")
 var _spire_draft_scene_packed := preload("res://scenes/ui/SpireDraftScene.tscn")
@@ -216,9 +223,7 @@ func _show_back_quit_toast() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var layer := CanvasLayer.new()
 	layer.layer = 250
-	var lbl := Label.new()
-	lbl.text = "Press back again to exit"
-	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.026))
+	var lbl := _UiUtil.make_label("Press back again to exit", int(vp.y * 0.026))
 	lbl.add_theme_color_override("font_color", Color.WHITE)
 	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
 	lbl.add_theme_constant_override("shadow_offset_x", 2)
@@ -473,9 +478,7 @@ func _exit_world_cleanup() -> void:
 	if _saved_world_scene != null:
 		_saved_world_scene.queue_free()
 		_saved_world_scene = null
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	for overlay: Node in _overlays.values():
 		if overlay != null:
 			overlay.queue_free()
@@ -662,11 +665,7 @@ func _on_ghost_duel_ended(did_win: bool) -> void:
 	if did_win:
 		save_manager.add_coins(GHOST_DUEL_COIN_REWARD)
 		session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + GHOST_DUEL_COIN_REWARD
-	save_manager.clear_pending_battle_state()
-	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_finish_battle(false)
 	_restore_world()
 
 # ── PvP card battles (GID-091) ────────────────────────────────────────────────
@@ -698,26 +697,13 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 	var captured_ranked: bool = ranked
 	var captured_local_deck: Array = local_deck_override
 	TransitionManager.transition(func() -> void:
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
-		_battle_overlay.set("_pvp", true)
-		_battle_overlay.set("_local_player_idx", captured_idx)
-		_battle_overlay.set("pvp_opponent_deck", captured_deck)
-		_battle_overlay.set("pvp_ante_coins", captured_ante)
-		_battle_overlay.set("pvp_opponent_token", captured_token)
-		_battle_overlay.set("pvp_ranked", captured_ranked)
-		_battle_overlay.set("pvp_local_deck_override", captured_local_deck)
-		_battle_overlay.enemy_data = {
-			"display_name": "Player",
-			"enemy_type": "",
-			"is_boss": false,
-			"drop_pool": [],
-			"coin_reward": 0,
-		}
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
+		_swap_world_for_pvp_battle(func(b: Node) -> void:
+			b.set("_local_player_idx", captured_idx)
+			b.set("pvp_opponent_deck", captured_deck)
+			b.set("pvp_ante_coins", captured_ante)
+			b.set("pvp_opponent_token", captured_token)
+			b.set("pvp_ranked", captured_ranked)
+			b.set("pvp_local_deck_override", captured_local_deck)))
 	_state = State.BATTLE
 
 ## Resumes a PvP duel after a reconnect (GID-102 / TID-372). Called from
@@ -749,25 +735,12 @@ func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: 
 	if _state != State.WORLD:
 		return
 	TransitionManager.transition(func() -> void:
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
-		_battle_overlay.set("_pvp", true)
-		_battle_overlay.set("_local_player_idx", -1)       # no local player
-		_battle_overlay.set("pvp_player0_deck", deck_a)
-		_battle_overlay.set("pvp_player1_deck", deck_b)
-		_battle_overlay.set("_pvp_peer_to_idx", {peer_a_id: 0, peer_b_id: 1})
-		_battle_overlay.set("_pvp_idx_to_token", {0: token_a, 1: token_b})
-		_battle_overlay.enemy_data = {
-			"display_name": "Player",
-			"enemy_type": "",
-			"is_boss": false,
-			"drop_pool": [],
-			"coin_reward": 0,
-		}
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
+		_swap_world_for_pvp_battle(func(b: Node) -> void:
+			b.set("_local_player_idx", -1)       # no local player
+			b.set("pvp_player0_deck", deck_a)
+			b.set("pvp_player1_deck", deck_b)
+			b.set("_pvp_peer_to_idx", {peer_a_id: 0, peer_b_id: 1})
+			b.set("_pvp_idx_to_token", {0: token_a, 1: token_b})))
 	_state = State.BATTLE
 
 ## Enters a PvP battle as a read-only spectator (GID-101 / TID-367). The spectator
@@ -777,22 +750,9 @@ func enter_pvp_spectator() -> void:
 	if _state != State.WORLD:
 		return
 	TransitionManager.transition(func() -> void:
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
-		_battle_overlay.set("_pvp", true)
-		_battle_overlay.set("_local_player_idx", 0)   # neutral — same as host perspective
-		_battle_overlay.set("_pvp_spectating", true)
-		_battle_overlay.enemy_data = {
-			"display_name": "Player",
-			"enemy_type": "",
-			"is_boss": false,
-			"drop_pool": [],
-			"coin_reward": 0,
-		}
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
+		_swap_world_for_pvp_battle(func(b: Node) -> void:
+			b.set("_local_player_idx", 0)   # neutral — same as host perspective
+			b.set("_pvp_spectating", true)))
 	_state = State.BATTLE
 
 
@@ -860,13 +820,7 @@ func enter_team_battle(local_player_idx: int, team_assignments: Array, all_decks
 		_battle_overlay.set("_local_player_idx", captured_idx)
 		_battle_overlay.set("_team_assignments", captured_teams)
 		_battle_overlay.set("_team_decks", captured_decks)
-		_battle_overlay.enemy_data = {
-			"display_name": "Player",
-			"enemy_type": "",
-			"is_boss": false,
-			"drop_pool": [],
-			"coin_reward": 0,
-		}
+		_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
 		get_tree().root.add_child(_battle_overlay)
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
@@ -876,9 +830,7 @@ func enter_team_battle(local_player_idx: int, team_assignments: Array, all_decks
 func _on_team_battle_ended(_did_win: bool) -> void:
 	if _state != State.BATTLE:
 		return
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	if _saved_world_scene != null and NetworkManager.is_active():
 		_restore_world()
 	else:
@@ -898,9 +850,7 @@ func _on_coop_pve_battle_ended(did_win: bool) -> void:
 		save_manager.increment_progress("battles_won", 1)
 		save_manager.check_deck_achievements(save_manager.player_deck)
 	_coop_pve_enemy_type = ""
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	if _saved_world_scene != null and NetworkManager.is_active():
 		_restore_world()
 	else:
@@ -915,9 +865,7 @@ func _on_coop_pve_battle_ended(did_win: bool) -> void:
 func _on_pvp_battle_ended(_did_win: bool) -> void:
 	if _state != State.BATTLE:
 		return
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	if _saved_world_scene != null and NetworkManager.is_active():
 		_restore_world()
 	elif NetworkManager.is_dedicated_server():
@@ -948,11 +896,7 @@ func _on_duel_won() -> void:
 	if not _current_duel_npc_id.is_empty():
 		save_manager.mark_duelist_defeated(_current_duel_npc_id)
 		_current_duel_npc_id = ""
-	save_manager.clear_pending_battle_state()
-	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_finish_battle(false)
 	_restore_world()
 	if grant_card != "":
 		GameBus.hud_message_requested.emit("Champion defeated! %s added to your collection." % grant_card)
@@ -962,12 +906,39 @@ func _on_duel_lost() -> void:
 		return
 	_current_duel_npc_id = ""
 	_current_champion_reward = ""
-	save_manager.clear_pending_battle_state()
-	save_manager.save()
+	_finish_battle(false)
+	_restore_world()
+
+## Frees the battle overlay if one is up. Every battle exit path ends here.
+## Detaches the world scene and promotes a fresh networked BattleScene, running
+## `configure` on it in between. The node name is fixed because BattleNetSync's
+## RPC path is /root/BattleScene/BattleNetSync on every peer. Callers wrap this
+## in a TransitionManager.transition and set State.BATTLE themselves.
+func _swap_world_for_pvp_battle(configure: Callable) -> void:
+	_saved_world_scene = get_tree().current_scene
+	get_tree().root.remove_child(_saved_world_scene)
+	_battle_overlay = _battle_scene_packed.instantiate()
+	_battle_overlay.name = "BattleScene"
+	_battle_overlay.set("_pvp", true)
+	configure.call(_battle_overlay)
+	_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
+	get_tree().root.add_child(_battle_overlay)
+	get_tree().current_scene = _battle_overlay
+
+func _dismiss_battle_overlay() -> void:
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
 		_battle_overlay = null
-	_restore_world()
+
+## Standard battle teardown: clear the in-progress battle fields, persist, and
+## drop the overlay. `clear_pending` also discards the queued encounter — a
+## defeat that offers Retry keeps it, every other exit drops it.
+func _finish_battle(clear_pending: bool = true) -> void:
+	if clear_pending:
+		save_manager.clear_pending_battle()
+	save_manager.clear_pending_battle_state()
+	save_manager.save()
+	_dismiss_battle_overlay()
 
 func _restore_world() -> void:
 	_proximity_engage_blocked = true
@@ -1009,16 +980,12 @@ func _on_puzzle_solved(puzzle_id: String) -> void:
 			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 		save_manager.mark_puzzle_solved(puzzle_id)
 	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	_restore_world()
 
 func return_from_puzzle() -> void:
 	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	_restore_world()
 
 ## Scripted story battles (GID-108) — fixed-deck tutorial battles like the rabbit
@@ -1053,9 +1020,7 @@ func _on_scripted_battle_ended(battle_id: String, did_win: bool) -> void:
 				save_manager.grant_card_reward(sdata.reward_card_id, "rare")
 				session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
 	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	_restore_world()
 
 func _on_battle_won(result: Dictionary) -> void:
@@ -1080,12 +1045,7 @@ func _on_battle_won(result: Dictionary) -> void:
 			save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": spire_enemy_type})
 		save_manager.increment_progress("battles_won", 1)
 		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
-		save_manager.clear_pending_battle()
-		save_manager.clear_pending_battle_state()
-		save_manager.save()
-		if _battle_overlay != null:
-			_battle_overlay.queue_free()
-			_battle_overlay = null
+		_finish_battle()
 		_restore_world()
 		_show_spire_draft(curr_floor)
 		return
@@ -1103,9 +1063,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		if _siege_stage < 2:
 			save_manager.advance_siege_stage()
 			save_manager.save()
-			if _battle_overlay != null:
-				_battle_overlay.queue_free()
-				_battle_overlay = null
+			_dismiss_battle_overlay()
 			_restore_world()
 			_show_siege_interstitial(_siege_stage + 1, _siege_hero_hp)
 			return
@@ -1118,9 +1076,7 @@ func _on_battle_won(result: Dictionary) -> void:
 				save_manager.set_story_flag("chapter2_siege_won")
 			save_manager.end_siege_victory()
 			save_manager.save()
-			if _battle_overlay != null:
-				_battle_overlay.queue_free()
-				_battle_overlay = null
+			_dismiss_battle_overlay()
 			_restore_world()
 			return
 	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
@@ -1163,12 +1119,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		save_manager.increment_progress("battles_won", 1)
 		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
 		_current_battle_enemy_id = ""
-		save_manager.clear_pending_battle()
-		save_manager.clear_pending_battle_state()
-		save_manager.save()
-		if _battle_overlay != null:
-			_battle_overlay.queue_free()
-			_battle_overlay = null
+		_finish_battle()
 		_restore_world()
 		return
 	var drop_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
@@ -1278,12 +1229,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		save_manager.add_corruption_points(5)
 		GameBus.blight_changed.emit()
 		GameBus.hud_message_requested.emit("The blight recedes… +5 Corruption Points.")
-	save_manager.clear_pending_battle()
-	save_manager.clear_pending_battle_state()
-	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_finish_battle()
 	# End the roaming boss world event if the defeated enemy was the roaming terror.
 	if enemy_type == "roaming_terror":
 		var wem: Node = get_node_or_null("/root/WorldEventManager")
@@ -1322,9 +1268,7 @@ func _on_battle_lost() -> void:
 	if NetworkManager.is_active() and current_map.begins_with("dungeon_"):
 		save_manager.clear_pending_battle()
 		save_manager.clear_pending_battle_state()
-		if _battle_overlay != null:
-			_battle_overlay.queue_free()
-			_battle_overlay = null
+		_dismiss_battle_overlay()
 		TransitionManager.transition(func() -> void:
 			if _saved_world_scene != null:
 				get_tree().root.add_child(_saved_world_scene)
@@ -1346,12 +1290,7 @@ func _on_battle_lost() -> void:
 		_restore_spire_entry_point()
 		var stats: Dictionary = save_manager.end_spire_run()
 		GameBus.spire_run_ended.emit(stats)
-		save_manager.clear_pending_battle()
-		save_manager.clear_pending_battle_state()
-		save_manager.save()
-		if _battle_overlay != null:
-			_battle_overlay.queue_free()
-			_battle_overlay = null
+		_finish_battle()
 		if _saved_world_scene != null:
 			_saved_world_scene.queue_free()
 			_saved_world_scene = null
@@ -1364,9 +1303,7 @@ func _on_battle_lost() -> void:
 	# Regular battle loss: keep world alive and show defeat overlay with Retry/Respawn/Menu.
 	_defeat_pending_enemy_data = save_manager.pending_battle_enemy_data.duplicate()
 	save_manager.clear_pending_battle_state()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_dismiss_battle_overlay()
 	# Restore world to tree without clearing pending_battle (needed for Retry).
 	TransitionManager.transition(func() -> void:
 		if _saved_world_scene != null:
@@ -1393,60 +1330,31 @@ func _show_defeat_overlay() -> void:
 	var panel_w: float = vp.x * 0.58
 	var panel_h: float = vh * 0.50
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.04, 0.04, 0.97)
-	style.corner_radius_top_left    = 12
-	style.corner_radius_top_right   = 12
-	style.corner_radius_bottom_left = 12
-	style.corner_radius_bottom_right = 12
+	var style := _UiUtil.make_style(Color(0.08, 0.04, 0.04, 0.97), 12)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, panel_h)
 	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.03))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
+	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(vh * 0.028), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(vh * 0.028))
-	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "Defeated"
-	title.add_theme_font_size_override("font_size", int(vh * 0.055))
+	var title := _UiUtil.make_label("Defeated", int(vh * 0.055))
 	title.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
 	var has_retry: bool = not _defeat_pending_enemy_data.is_empty()
 	if has_retry:
-		var retry_btn := Button.new()
-		retry_btn.text = "Retry Battle"
-		retry_btn.custom_minimum_size = Vector2(vh * 0.32, vh * 0.07)
-		retry_btn.add_theme_font_size_override("font_size", int(vh * 0.03))
-		retry_btn.pressed.connect(_on_defeat_retry)
-		vbox.add_child(retry_btn)
+		var retry_btn := _UiUtil.make_button("Retry Battle", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_retry, vbox)
 
-	var respawn_btn := Button.new()
-	respawn_btn.text = "Respawn in World"
-	respawn_btn.custom_minimum_size = Vector2(vh * 0.32, vh * 0.07)
-	respawn_btn.add_theme_font_size_override("font_size", int(vh * 0.03))
-	respawn_btn.pressed.connect(_on_defeat_respawn)
-	vbox.add_child(respawn_btn)
+	var respawn_btn := _UiUtil.make_button("Respawn in World", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_respawn, vbox)
 
-	var menu_btn := Button.new()
-	menu_btn.text = "Return to Menu"
-	menu_btn.custom_minimum_size = Vector2(vh * 0.32, vh * 0.07)
-	menu_btn.add_theme_font_size_override("font_size", int(vh * 0.03))
-	menu_btn.pressed.connect(_on_defeat_menu)
-	vbox.add_child(menu_btn)
+	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_menu, vbox)
 
 func _on_defeat_retry() -> void:
 	if _defeat_overlay != null:
@@ -1485,12 +1393,7 @@ func _on_battle_fled() -> void:
 	if _battle_overlay != null and bool(_battle_overlay.get("_pvp")):
 		_battle_overlay.call("_pvp_surrender")
 		return
-	save_manager.clear_pending_battle()
-	save_manager.clear_pending_battle_state()
-	save_manager.save()
-	if _battle_overlay != null:
-		_battle_overlay.queue_free()
-		_battle_overlay = null
+	_finish_battle()
 	_restore_world()
 
 func has_open_overlay() -> bool:
@@ -1608,23 +1511,12 @@ func _show_siege_interstitial(next_stage: int, hero_hp: int) -> void:
 	panel.set_anchors_preset(Control.PRESET_CENTER)
 	layer.add_child(panel)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 12)
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(12, panel)
 
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var title_lbl := Label.new()
-	title_lbl.text = _SiegeDefs.get_stage_name(next_stage)
-	title_lbl.add_theme_font_size_override("font_size", int(vh * 0.04))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title_lbl)
+	var title_lbl := _UiUtil.make_label(_SiegeDefs.get_stage_name(next_stage), int(vh * 0.04), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var hp_lbl := Label.new()
-	hp_lbl.text = "Hero HP: %d / 30" % hero_hp
-	hp_lbl.add_theme_font_size_override("font_size", int(vh * 0.03))
-	hp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hp_lbl.modulate = Color(0.9, 0.3, 0.3) if hero_hp <= 10 else Color(1.0, 1.0, 1.0)
-	vbox.add_child(hp_lbl)
+	var hp_lbl := _UiUtil.make_label("Hero HP: %d / 30" % hero_hp, int(vh * 0.03), Color(0.9, 0.3, 0.3) if hero_hp <= 10 else Color(1.0, 1.0, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	# Dismiss automatically and chain the next raider battle.
 	get_tree().create_timer(2.0, false).timeout.connect(func() -> void:

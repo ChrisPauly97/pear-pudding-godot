@@ -17,6 +17,7 @@
 extends SceneTree
 
 const _NetSync = preload("res://scenes/world/NetSync.gd")
+const _Harness = preload("res://tests/net_harness.gd")
 
 const _PORT: int = 24571
 const _SESSION_ID: String = "smoke_session_pptcg"
@@ -161,16 +162,12 @@ var _store: Node = null
 ## the host, and pump frames until the client receives its character record. Returns
 ## false on any socket/timeout failure. Tears the peers down before returning.
 func _socket_handshake(_is_reconnect: bool) -> bool:
-	var server_peer := ENetMultiplayerPeer.new()
-	if server_peer.create_server(_PORT, 4) != OK:
-		print("  [FAIL] create_server failed (loopback blocked?)")
+	var srv: Dictionary = _Harness.start_server(self, _PORT, 4, "ServerRoot", "  [FAIL] create_server failed (loopback blocked?)")
+	if srv.is_empty():
 		return false
-	var mp_server := SceneMultiplayer.new()
-	var server_root := Node.new()
-	server_root.name = "ServerRoot"
-	root.add_child(server_root)
-	set_multiplayer(mp_server, server_root.get_path())
-	mp_server.multiplayer_peer = server_peer
+	var server_peer: ENetMultiplayerPeer = srv["peer"]
+	var mp_server: SceneMultiplayer = srv["mp"]
+	var server_root: Node = srv["root"]
 	var host_world := Node.new()
 	host_world.name = "WorldScene"
 	server_root.add_child(host_world)
@@ -184,16 +181,12 @@ func _socket_handshake(_is_reconnect: bool) -> bool:
 	host_world.add_child(host_stub)
 	host_netsync.set("world_scene", host_stub)
 
-	var client_peer := ENetMultiplayerPeer.new()
-	if client_peer.create_client("127.0.0.1", _PORT) != OK:
-		print("  [FAIL] create_client failed")
+	var cli: Dictionary = _Harness.start_client(self, _PORT, "ClientRoot", "  [FAIL] create_client failed")
+	if cli.is_empty():
 		return false
-	var mp_client := SceneMultiplayer.new()
-	var client_root := Node.new()
-	client_root.name = "ClientRoot"
-	root.add_child(client_root)
-	set_multiplayer(mp_client, client_root.get_path())
-	mp_client.multiplayer_peer = client_peer
+	var client_peer: ENetMultiplayerPeer = cli["peer"]
+	var mp_client: SceneMultiplayer = cli["mp"]
+	var client_root: Node = cli["root"]
 	var client_world := Node.new()
 	client_world.name = "WorldScene"
 	client_root.add_child(client_world)
@@ -207,29 +200,14 @@ func _socket_handshake(_is_reconnect: bool) -> bool:
 	_last_client_stub = client_stub
 
 	# Wait for connect.
-	var connected := false
-	for _i in range(400):
-		mp_server.poll()
-		mp_client.poll()
-		if mp_server.get_peers().size() > 0:
-			connected = true
-			break
-		OS.delay_msec(10)
-	if not connected:
+	if not _Harness.wait_connected(mp_server, mp_client):
 		print("  [FAIL] peers did not connect")
 		_teardown(server_root, client_root, server_peer, client_peer)
 		return false
 
 	# Client → host identity (token A); host replies with the character record.
 	client_netsync.rpc_id(1, "recv_identity", [_TOKEN_A, "Saimtar", "ffffff"], false)
-	var got := false
-	for _j in range(300):
-		mp_server.poll()
-		mp_client.poll()
-		if not client_stub.got_record.is_empty():
-			got = true
-			break
-		OS.delay_msec(10)
+	var got: bool = _Harness.pump([mp_server, mp_client], 300, 10, func() -> bool: return not client_stub.got_record.is_empty())
 	_teardown(server_root, client_root, server_peer, client_peer)
 	if not got:
 		print("  [FAIL] character record did not arrive over the socket")
@@ -238,10 +216,7 @@ func _socket_handshake(_is_reconnect: bool) -> bool:
 
 
 func _teardown(server_root: Node, client_root: Node, server_peer: MultiplayerPeer, client_peer: MultiplayerPeer) -> void:
-	client_peer.close()
-	server_peer.close()
-	client_root.queue_free()
-	server_root.queue_free()
+	_Harness.teardown([client_peer, server_peer], [client_root, server_root])
 
 
 func _cleanup() -> void:

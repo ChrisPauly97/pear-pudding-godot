@@ -13,7 +13,6 @@
 ## on NOTIFICATION_RESIZED.
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 ## rows: Array of {token, name, rating} — the caller (WorldScene) builds this from
 ## SessionStore.get_state().members, excluding the local host's own token. Kept as
@@ -54,17 +53,10 @@ func _build_ui() -> void:
 		"Battle an AI-piloted snapshot of a party member's deck — even while they're offline.", _vh))
 	outer_vbox.add_child(_UiUtil.make_separator())
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	outer_vbox.add_child(scroll)
-	attach_drag_scroll(scroll)
+	var scroll := _build_scroll(outer_vbox)
 
-	_rows_vbox = VBoxContainer.new()
-	_rows_vbox.add_theme_constant_override("separation", int(_ref * 0.015))
+	_rows_vbox = _UiUtil.make_vbox(int(_ref * 0.015), scroll)
 	_rows_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_rows_vbox)
 
 	_render_rows()
 
@@ -78,11 +70,7 @@ func _render_rows() -> void:
 	for c in _rows_vbox.get_children():
 		c.queue_free()
 	if _rows.is_empty():
-		var empty_lbl := Label.new()
-		empty_lbl.text = "No other party members in this session yet."
-		empty_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
-		empty_lbl.modulate = Color(0.7, 0.7, 0.7)
-		_rows_vbox.add_child(empty_lbl)
+		var empty_lbl := _UiUtil.make_label("No other party members in this session yet.", int(_vh * 0.022), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, _rows_vbox)
 		return
 	for row: Variant in _rows:
 		if row is Dictionary:
@@ -90,28 +78,16 @@ func _render_rows() -> void:
 
 
 func _add_row(row: Dictionary) -> void:
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.02))
-	_rows_vbox.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.02), _rows_vbox)
 
-	var name_lbl := Label.new()
-	name_lbl.text = str(row.get("name", "Player"))
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.024))
+	var name_lbl := _UiUtil.make_label(str(row.get("name", "Player")), int(_vh * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.custom_minimum_size = Vector2(_vw * 0.28, 0)
-	hb.add_child(name_lbl)
 
-	var rating_lbl := Label.new()
-	rating_lbl.text = "Rating: %d" % int(row.get("rating", 1000))
-	rating_lbl.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	var rating_lbl := _UiUtil.make_label("Rating: %d" % int(row.get("rating", 1000)), int(_vh * 0.022), Color(0.7, 0.85, 1.0), HORIZONTAL_ALIGNMENT_LEFT, hb)
 	rating_lbl.custom_minimum_size = Vector2(_vw * 0.18, 0)
-	rating_lbl.modulate = Color(0.7, 0.85, 1.0)
-	hb.add_child(rating_lbl)
 
 	var token: String = str(row.get("token", ""))
-	var duel_btn := Button.new()
-	duel_btn.text = "Ghost Duel"
-	duel_btn.custom_minimum_size = Vector2(_vw * 0.16, _vh * 0.06)
-	duel_btn.add_theme_font_size_override("font_size", int(_vh * 0.022))
+	var duel_btn := _UiUtil.make_button("Ghost Duel", Vector2(_vw * 0.16, _vh * 0.06), int(_vh * 0.022))
 	duel_btn.pressed.connect(func() -> void:
 		if on_duel_requested.is_valid():
 			on_duel_requested.call(token)
@@ -122,9 +98,4 @@ func _add_row(row: Dictionary) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_inside_tree():
-		_vh = get_viewport().get_visible_rect().size.y
-		_vw = get_viewport().get_visible_rect().size.x
-		_ref = minf(_vh, _vw)
-		for c in get_children():
-			c.queue_free()
-		_build_ui()
+		_rebuild_ui()

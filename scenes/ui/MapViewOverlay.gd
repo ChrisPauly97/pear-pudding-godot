@@ -4,6 +4,7 @@
 extends CanvasLayer
 
 const _BaseOverlay = preload("res://scenes/ui/BaseOverlay.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal closed
 ## Emitted when the player taps a "Rally To" entry (GID-105 / TID-388). WorldScene
@@ -135,9 +136,7 @@ func setup(world_map, map_name: String, player: CharacterBody3D,
 
 	# ── Title label ───────────────────────────────────────────────────────────
 	var font_size: int = int(vh * 0.025)
-	var title := Label.new()
-	title.text = map_name.capitalize().replace("_", " ")
-	title.add_theme_font_size_override("font_size", font_size)
+	var title := _UiUtil.make_label(map_name.capitalize().replace("_", " "), int(font_size))
 	title.add_theme_color_override("font_color", Color.WHITE)
 	title.add_theme_color_override("font_shadow_color", Color.BLACK)
 	title.add_theme_constant_override("shadow_offset_x", 1)
@@ -148,9 +147,7 @@ func setup(world_map, map_name: String, player: CharacterBody3D,
 	add_child(title)
 
 	# ── Close hint ────────────────────────────────────────────────────────────
-	var hint := Label.new()
-	hint.text = "Tap minimap to close" if OS.has_feature("android") else "[M] or [Esc] to close"
-	hint.add_theme_font_size_override("font_size", int(vh * 0.020))
+	var hint := _UiUtil.make_label("Tap minimap to close" if OS.has_feature("android") else "[M] or [Esc] to close", int(vh * 0.020))
 	hint.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.size = Vector2(_panel_size, int(vh * 0.030))
@@ -161,9 +158,7 @@ func setup(world_map, map_name: String, player: CharacterBody3D,
 	var obj: Dictionary = _ObjectiveTracker.current_objective(
 		SceneManager.save_manager.story_flags)
 	if not obj.is_empty():
-		var obj_label := Label.new()
-		obj_label.text = "Objective: " + str(obj.get("label", ""))
-		obj_label.add_theme_font_size_override("font_size", int(vh * 0.020))
+		var obj_label := _UiUtil.make_label("Objective: " + str(obj.get("label", "")), int(vh * 0.020))
 		obj_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 		obj_label.add_theme_color_override("font_shadow_color", Color.BLACK)
 		obj_label.add_theme_constant_override("shadow_offset_x", 1)
@@ -175,10 +170,7 @@ func setup(world_map, map_name: String, player: CharacterBody3D,
 		add_child(obj_label)
 
 	# ── Clear-waypoint button ─────────────────────────────────────────────────
-	var clr_btn := Button.new()
-	clr_btn.text = "Clear Waypoint"
-	clr_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.05)
-	clr_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
+	var clr_btn := _UiUtil.make_button("Clear Waypoint", Vector2(vh * 0.16, vh * 0.05), int(vh * 0.020))
 	clr_btn.position = Vector2(_panel_pos.x + _panel_size - vh * 0.17,
 		_panel_pos.y + _panel_size + int(vh * 0.008))
 	clr_btn.pressed.connect(_clear_waypoint)
@@ -313,9 +305,7 @@ func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
 	add_child(bg)
 
 	var font_size: int = int(vh * 0.022)
-	var title_lbl := Label.new()
-	title_lbl.text = "Fast Travel"
-	title_lbl.add_theme_font_size_override("font_size", int(vh * 0.025))
+	var title_lbl := _UiUtil.make_label("Fast Travel", int(vh * 0.025))
 	title_lbl.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0))
 	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_lbl.size = Vector2(panel_w, int(vh * 0.038))
@@ -339,15 +329,12 @@ func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
 	add_child(_travel_panel)
 	_BaseOverlay.attach_drag_scroll(_travel_panel)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(0, _travel_panel)
 	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_travel_panel.add_child(vbox)
 
 	var activated: Array[String] = SceneManager.save_manager.activated_waystones
 	if activated.is_empty():
-		var empty_lbl := Label.new()
-		empty_lbl.text = "No waystones activated yet."
-		empty_lbl.add_theme_font_size_override("font_size", font_size)
+		var empty_lbl := _UiUtil.make_label("No waystones activated yet.", int(font_size))
 		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		empty_lbl.custom_minimum_size = Vector2(panel_w - vh * 0.04, 0)
@@ -357,10 +344,7 @@ func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
 		var btn_w: float = panel_w - vh * 0.04
 		for wid: String in activated:
 			var label: String = _friendly_label(wid)
-			var btn := Button.new()
-			btn.text = label
-			btn.custom_minimum_size = Vector2(btn_w, btn_h)
-			btn.add_theme_font_size_override("font_size", font_size)
+			var btn := _UiUtil.make_button(label, Vector2(btn_w, btn_h), int(font_size))
 			if is_blocked:
 				btn.disabled = true
 				btn.modulate = Color(0.5, 0.5, 0.5)
@@ -370,9 +354,7 @@ func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
 			vbox.add_child(btn)
 
 	if is_blocked:
-		var block_lbl := Label.new()
-		block_lbl.text = "Waystone travel unavailable\nduring battles\nor in dungeons."
-		block_lbl.add_theme_font_size_override("font_size", int(vh * 0.019))
+		var block_lbl := _UiUtil.make_label("Waystone travel unavailable\nduring battles\nor in dungeons.", int(vh * 0.019))
 		block_lbl.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 		block_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		block_lbl.position = Vector2(px, py + panel_h - vh * 0.09)
@@ -382,9 +364,7 @@ func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
 	# Rally To (GID-105 / TID-388): connected party members, appended below the
 	# waystone list in the same scrollable vbox. Empty outside co-op.
 	if not _rally_targets.is_empty():
-		var rally_title := Label.new()
-		rally_title.text = "Rally To"
-		rally_title.add_theme_font_size_override("font_size", int(vh * 0.023))
+		var rally_title := _UiUtil.make_label("Rally To", int(vh * 0.023))
 		rally_title.add_theme_color_override("font_color", Color(1.0, 0.75, 0.30))
 		rally_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		rally_title.custom_minimum_size = Vector2(panel_w - vh * 0.04, int(vh * 0.03))

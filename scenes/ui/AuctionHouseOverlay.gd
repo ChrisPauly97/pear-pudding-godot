@@ -15,7 +15,6 @@
 ## authority double-checks via AuctionTransfer.list_card regardless).
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _AuctionSync = preload("res://game_logic/net/AuctionSync.gd")
 
@@ -62,10 +61,8 @@ func _build_ui() -> void:
 	_title_lbl = _UiUtil.make_title_label(_title_for_tab(_active_tab), _vh)
 	outer_vbox.add_child(_title_lbl)
 
-	var tab_row := HBoxContainer.new()
+	var tab_row := _UiUtil.make_hbox(int(_ref * 0.015), outer_vbox)
 	tab_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	tab_row.add_theme_constant_override("separation", int(_ref * 0.015))
-	outer_vbox.add_child(tab_row)
 	_tab_buttons = []
 	_add_tab_button(tab_row, "Sell", TAB_SELL)
 	_add_tab_button(tab_row, "Browse", TAB_BROWSE)
@@ -74,17 +71,10 @@ func _build_ui() -> void:
 
 	outer_vbox.add_child(_UiUtil.make_separator())
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	outer_vbox.add_child(scroll)
-	attach_drag_scroll(scroll)
+	var scroll := _build_scroll(outer_vbox)
 
-	_rows_vbox = VBoxContainer.new()
-	_rows_vbox.add_theme_constant_override("separation", int(_ref * 0.014))
+	_rows_vbox = _UiUtil.make_vbox(int(_ref * 0.014), scroll)
 	_rows_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_rows_vbox)
 
 	var btn_row := HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -95,12 +85,7 @@ func _build_ui() -> void:
 
 
 func _add_tab_button(parent: HBoxContainer, text: String, tab: int) -> void:
-	var btn := Button.new()
-	btn.text = text
-	btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.05)
-	btn.add_theme_font_size_override("font_size", int(_vh * 0.020))
-	btn.pressed.connect(func() -> void: _select_tab(tab))
-	parent.add_child(btn)
+	var btn := _UiUtil.make_button(text, Vector2(_vh * 0.18, _vh * 0.05), int(_vh * 0.020), func() -> void: _select_tab(tab), parent)
 	_tab_buttons.append(btn)
 
 
@@ -157,11 +142,7 @@ func _render_rows() -> void:
 
 
 func _add_empty_label(text: String) -> void:
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
-	lbl.modulate = Color(0.7, 0.7, 0.7)
-	_rows_vbox.add_child(lbl)
+	var lbl := _UiUtil.make_label(text, int(_vh * 0.020), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, _rows_vbox)
 
 
 # ---------------------------------------------------------------------------
@@ -185,48 +166,34 @@ func _render_sell_rows() -> void:
 
 func _add_sell_row(inst: Dictionary) -> void:
 	var uid: String = str(inst.get("uid", ""))
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.015))
-	_rows_vbox.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.015), _rows_vbox)
 
-	var name_lbl := Label.new()
-	name_lbl.text = "%s (%s)" % [str(inst.get("template_id", "?")), str(inst.get("rarity", "common"))]
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	var name_lbl := _UiUtil.make_label("%s (%s)" % [str(inst.get("template_id", "?")), str(inst.get("rarity", "common"))], int(_vh * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hb.add_child(name_lbl)
 
 	if not _list_prices.has(uid):
 		_list_prices[uid] = _DEFAULT_PRICE
 
-	var price_lbl := Label.new()
-	price_lbl.text = "%d coins" % int(_list_prices[uid])
+	var price_lbl := _UiUtil.make_label("%d coins" % int(_list_prices[uid]), int(_vh * 0.020))
 	price_lbl.custom_minimum_size = Vector2(_vh * 0.14, 0)
-	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
 	price_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	hb.add_child(price_lbl)
 
-	var minus_btn := Button.new()
-	minus_btn.text = "-"
-	minus_btn.custom_minimum_size = Vector2(_vh * 0.05, _vh * 0.05)
+	var minus_btn := _UiUtil.make_button("-", Vector2(_vh * 0.05, _vh * 0.05))
 	minus_btn.pressed.connect(func() -> void:
 		_list_prices[uid] = max(_PRICE_STEP, int(_list_prices[uid]) - _PRICE_STEP)
 		price_lbl.text = "%d coins" % int(_list_prices[uid])
 	)
 	hb.add_child(minus_btn)
 
-	var plus_btn := Button.new()
-	plus_btn.text = "+"
-	plus_btn.custom_minimum_size = Vector2(_vh * 0.05, _vh * 0.05)
+	var plus_btn := _UiUtil.make_button("+", Vector2(_vh * 0.05, _vh * 0.05))
 	plus_btn.pressed.connect(func() -> void:
 		_list_prices[uid] = int(_list_prices[uid]) + _PRICE_STEP
 		price_lbl.text = "%d coins" % int(_list_prices[uid])
 	)
 	hb.add_child(plus_btn)
 
-	var list_btn := Button.new()
-	list_btn.text = "List"
-	list_btn.custom_minimum_size = Vector2(_vh * 0.12, _vh * 0.05)
-	list_btn.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	var list_btn := _UiUtil.make_button("List", Vector2(_vh * 0.12, _vh * 0.05), int(_vh * 0.018))
 	list_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_auction_list"):
 			world_scene.request_auction_list(uid, int(_list_prices[uid]))
@@ -260,36 +227,22 @@ func _add_browse_row(listing: Dictionary) -> void:
 	var buyout: int = int(listing.get("buyout", 0))
 	var bid: int = int(listing.get("bid", 0))
 
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.015))
-	_rows_vbox.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.015), _rows_vbox)
 
-	var name_lbl := Label.new()
-	name_lbl.text = "%s — %s" % [str(card.get("template_id", "?")), str(listing.get("seller_name", "Player"))]
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	var name_lbl := _UiUtil.make_label("%s — %s" % [str(card.get("template_id", "?")), str(listing.get("seller_name", "Player"))], int(_vh * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hb.add_child(name_lbl)
 
-	var bid_lbl := Label.new()
-	bid_lbl.text = "Bid: %d" % bid if bid > 0 else "No bids"
+	var bid_lbl := _UiUtil.make_label("Bid: %d" % bid if bid > 0 else "No bids", int(_vh * 0.018), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	bid_lbl.custom_minimum_size = Vector2(_vh * 0.14, 0)
-	bid_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
-	hb.add_child(bid_lbl)
 
-	var bid_btn := Button.new()
-	bid_btn.text = "Bid %d" % (bid + _BID_STEP)
-	bid_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.05)
-	bid_btn.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	var bid_btn := _UiUtil.make_button("Bid %d" % (bid + _BID_STEP), Vector2(_vh * 0.14, _vh * 0.05), int(_vh * 0.018))
 	bid_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_auction_bid"):
 			world_scene.request_auction_bid(id, bid + _BID_STEP)
 	)
 	hb.add_child(bid_btn)
 
-	var buyout_btn := Button.new()
-	buyout_btn.text = "Buyout %d" % buyout
-	buyout_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.05)
-	buyout_btn.add_theme_font_size_override("font_size", int(_vh * 0.018))
+	var buyout_btn := _UiUtil.make_button("Buyout %d" % buyout, Vector2(_vh * 0.16, _vh * 0.05), int(_vh * 0.018))
 	buyout_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_auction_buyout"):
 			world_scene.request_auction_buyout(id)
@@ -323,30 +276,20 @@ func _add_mine_row(listing: Dictionary) -> void:
 	var bid: int = int(listing.get("bid", 0))
 	var is_active: bool = status == _AuctionSync.STATUS_ACTIVE
 
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", int(_ref * 0.015))
-	_rows_vbox.add_child(hb)
+	var hb := _UiUtil.make_hbox(int(_ref * 0.015), _rows_vbox)
 
 	var card_name: String = str(card.get("template_id", "?")) if is_active else str(listing.get("id", "?"))
-	var name_lbl := Label.new()
-	name_lbl.text = "%s — %s" % [card_name, status.capitalize()]
-	name_lbl.add_theme_font_size_override("font_size", int(_vh * 0.020))
+	var name_lbl := _UiUtil.make_label("%s — %s" % [card_name, status.capitalize()], int(_vh * 0.020))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if not is_active:
 		name_lbl.modulate = Color(0.7, 0.7, 0.7)
 	hb.add_child(name_lbl)
 
-	var price_lbl := Label.new()
-	price_lbl.text = "Buyout %d, bid %d" % [buyout, bid]
+	var price_lbl := _UiUtil.make_label("Buyout %d, bid %d" % [buyout, bid], int(_vh * 0.018), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	price_lbl.custom_minimum_size = Vector2(_vh * 0.22, 0)
-	price_lbl.add_theme_font_size_override("font_size", int(_vh * 0.018))
-	hb.add_child(price_lbl)
 
 	if is_active:
-		var cancel_btn := Button.new()
-		cancel_btn.text = "Cancel"
-		cancel_btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.05)
-		cancel_btn.add_theme_font_size_override("font_size", int(_vh * 0.018))
+		var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_vh * 0.14, _vh * 0.05), int(_vh * 0.018))
 		cancel_btn.pressed.connect(func() -> void:
 			if world_scene != null and world_scene.has_method("request_auction_cancel"):
 				world_scene.request_auction_cancel(id)
@@ -356,9 +299,4 @@ func _add_mine_row(listing: Dictionary) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_RESIZED and is_inside_tree():
-		_vh = get_viewport().get_visible_rect().size.y
-		_vw = get_viewport().get_visible_rect().size.x
-		_ref = minf(_vh, _vw)
-		for c in get_children():
-			c.queue_free()
-		_build_ui()
+		_rebuild_ui()

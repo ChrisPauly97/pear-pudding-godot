@@ -440,11 +440,7 @@ func _ready() -> void:
 
 	if _state.puzzle_mode:
 		_end_turn_btn.text = "Check"
-		_give_up_btn = Button.new()
-		_give_up_btn.text = "Give Up"
-		_give_up_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.07)
-		_give_up_btn.add_theme_font_size_override("font_size", _font(0.025))
-		_give_up_btn.pressed.connect(_on_puzzle_give_up)
+		_give_up_btn = _UiUtil.make_button("Give Up", Vector2(_vh * 0.16, _vh * 0.07), int(_font(0.025)), _on_puzzle_give_up)
 		$SidePanel.add_child(_give_up_btn)
 	_state.turn_ended.connect(_on_turn_ended)
 	GameBus.fatigue_damage.connect(_on_fatigue_damage)
@@ -590,14 +586,11 @@ func _add_companion_hud() -> void:
 	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
 	if companion == null:
 		return
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.003))
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.003))
 	$SidePanel.add_child(vbox)
 	_companion_hud = vbox
 
-	var portrait_row := HBoxContainer.new()
-	portrait_row.add_theme_constant_override("separation", int(_vh * 0.005))
-	vbox.add_child(portrait_row)
+	var portrait_row := _UiUtil.make_hbox(int(_vh * 0.005), vbox)
 
 	if companion.portrait != null:
 		var tex := TextureRect.new()
@@ -611,18 +604,11 @@ func _add_companion_hud() -> void:
 		placeholder.custom_minimum_size = Vector2(_vh * 0.045, _vh * 0.045)
 		portrait_row.add_child(placeholder)
 
-	var name_lbl := Label.new()
-	name_lbl.text = companion.display_name
-	name_lbl.add_theme_font_size_override("font_size", _font(0.02))
+	var name_lbl := _UiUtil.make_label(companion.display_name, int(_font(0.02)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, portrait_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	portrait_row.add_child(name_lbl)
 
-	var passive_lbl := Label.new()
-	passive_lbl.text = companion.description
-	passive_lbl.add_theme_font_size_override("font_size", _font(0.017))
-	passive_lbl.modulate = Color(0.85, 1.0, 0.85)
+	var passive_lbl := _UiUtil.make_label(companion.description, int(_font(0.017)), Color(0.85, 1.0, 0.85), HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	passive_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(passive_lbl)
 
 ## Apply init-time weather modifiers (ash_fall poison) and reset snow discount tracking.
 func _apply_weather_battle_init() -> void:
@@ -731,12 +717,7 @@ func _show_battle_tutorial() -> void:
 	layer.add_child(backdrop)
 
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.18, 0.95)
-	style.corner_radius_top_left = 10
-	style.corner_radius_top_right = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
+	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.95), 10)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, panel_h)
 	panel.size = Vector2(panel_w, panel_h)
@@ -744,33 +725,18 @@ func _show_battle_tutorial() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(panel_w * 0.06))
-	margin.add_theme_constant_override("margin_right",  int(panel_w * 0.06))
-	margin.add_theme_constant_override("margin_top",    int(panel_h * 0.08))
-	margin.add_theme_constant_override("margin_bottom", int(panel_h * 0.08))
+	var margin := _UiUtil.make_margin(int(panel_w * 0.06), int(panel_h * 0.08), int(panel_w * 0.06), int(panel_h * 0.08), panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.02), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(_vh * 0.02))
-	margin.add_child(vbox)
 
-	var label := Label.new()
-	label.text = "Tap a card, then tap a green slot to play it.\nTap your minion, then tap an enemy to attack.\nHold any card to see its details. (Dragging works too.)"
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var label := _UiUtil.make_label("Tap a card, then tap a green slot to play it.\nTap your minion, then tap an enemy to attack.\nHold any card to see its details. (Dragging works too.)", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", Color.WHITE)
 	vbox.add_child(label)
 
-	var btn := Button.new()
-	btn.text = "Got it"
-	btn.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.06)
-	btn.add_theme_font_size_override("font_size", font_size)
-	btn.pressed.connect(_dismiss_battle_tutorial)
-	vbox.add_child(btn)
+	var btn := _UiUtil.make_button("Got it", Vector2(_vh * 0.14, _vh * 0.06), int(font_size), _dismiss_battle_tutorial, vbox)
 
 	_tutorial_overlay = layer
 	get_tree().create_timer(TUTORIAL_DURATION, false).timeout.connect(_dismiss_battle_tutorial)
@@ -1027,9 +993,7 @@ func _build_coop_arena_layout() -> void:
 		if pidx == boss_idx:
 			continue
 		var ps: PlayerState = _state.players[pidx]
-		var btn := Button.new()
-		btn.text = "P%d  HP:%d/%d  Mana:%d" % [pidx + 1, ps.hero.health, ps.hero.max_health, ps.hero.mana]
-		btn.custom_minimum_size = Vector2(_vh * 0.20, _vh * 0.06)
+		var btn := _UiUtil.make_button("P%d  HP:%d/%d  Mana:%d" % [pidx + 1, ps.hero.health, ps.hero.max_health, ps.hero.mana], Vector2(_vh * 0.20, _vh * 0.06))
 		if _ally_targeting_active:
 			var cap_pidx: int = pidx  # capture for lambda
 			btn.pressed.connect(func() -> void:
@@ -1195,11 +1159,7 @@ func _add_hero_power_button() -> void:
 	var active_skill: SkillData = _get_active_skill()
 	if active_skill == null:
 		return
-	_hero_power_btn = Button.new()
-	_hero_power_btn.text = active_skill.display_name
-	_hero_power_btn.custom_minimum_size = Vector2(_vh * 0.18, _vh * 0.05)
-	_hero_power_btn.add_theme_font_size_override("font_size", _font(0.02))
-	_hero_power_btn.pressed.connect(_use_hero_power)
+	_hero_power_btn = _UiUtil.make_button(active_skill.display_name, Vector2(_vh * 0.18, _vh * 0.05), int(_font(0.02)), _use_hero_power)
 	$SidePanel.add_child(_hero_power_btn)
 
 func _add_potion_button() -> void:
@@ -1212,11 +1172,7 @@ func _add_potion_button() -> void:
 			break
 	if not has_any:
 		return
-	_potion_btn = Button.new()
-	_potion_btn.text = "Potion"
-	_potion_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.05)
-	_potion_btn.add_theme_font_size_override("font_size", _font(0.02))
-	_potion_btn.pressed.connect(_on_potion_button_pressed)
+	_potion_btn = _UiUtil.make_button("Potion", Vector2(_vh * 0.16, _vh * 0.05), int(_font(0.02)), _on_potion_button_pressed)
 	$SidePanel.add_child(_potion_btn)
 
 func _apply_gambit_handicaps(gambit_id: String) -> void:
@@ -1240,9 +1196,7 @@ func _add_gambit_badge() -> void:
 	if gdata.is_empty():
 		return
 	_gambit_badge = PanelContainer.new()
-	var badge_lbl := Label.new()
-	badge_lbl.text = "Gambit: %s" % str(gdata.get("name", gambit_id))
-	badge_lbl.add_theme_font_size_override("font_size", _font(0.018))
+	var badge_lbl := _UiUtil.make_label("Gambit: %s" % str(gdata.get("name", gambit_id)), int(_font(0.018)))
 	badge_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	_gambit_badge.add_child(badge_lbl)
 	$SidePanel.add_child(_gambit_badge)
@@ -1277,35 +1231,19 @@ func _show_potion_picker() -> void:
 
 	var panel_w: float = minf(vp.x * 0.7, _vh * 0.55)
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.18, 0.97)
-	style.corner_radius_top_left = 10
-	style.corner_radius_top_right = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
+	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.97), 10)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.custom_minimum_size = Vector2(panel_w, 0)
 	panel.position = Vector2((vp.x - panel_w) * 0.5, vp.y * 0.3)
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.025))
+	var margin := _UiUtil.make_margin(int(_vh * 0.025), int(_vh * 0.025), int(_vh * 0.025), int(_vh * 0.025), panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.015))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.015), margin)
 
-	var title_lbl := Label.new()
-	title_lbl.text = "Use a Potion"
-	title_lbl.add_theme_font_size_override("font_size", _font(0.026))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title_lbl)
+	var title_lbl := _UiUtil.make_label("Use a Potion", int(_font(0.026)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var sm := SceneManager.save_manager
 	for potion_id: String in GardenDefs.POTIONS:
@@ -1314,17 +1252,10 @@ func _show_potion_picker() -> void:
 			continue
 		var potion_data: Dictionary = GardenDefs.POTIONS[potion_id]
 		var display_name: String = str(potion_data.get("display_name", potion_id))
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", int(_vh * 0.012))
-		var lbl := Label.new()
-		lbl.text = "%s  ×%d" % [display_name, count]
-		lbl.add_theme_font_size_override("font_size", _font(0.022))
+		var row := _UiUtil.make_hbox(int(_vh * 0.012))
+		var lbl := _UiUtil.make_label("%s  ×%d" % [display_name, count], int(_font(0.022)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row.add_child(lbl)
-		var use_btn := Button.new()
-		use_btn.text = "Use"
-		use_btn.custom_minimum_size = Vector2(_vh * 0.1, _vh * 0.055)
-		use_btn.add_theme_font_size_override("font_size", _font(0.022))
+		var use_btn := _UiUtil.make_button("Use", Vector2(_vh * 0.1, _vh * 0.055), int(_font(0.022)))
 		var pid: String = potion_id
 		use_btn.pressed.connect(func() -> void:
 			layer.queue_free()
@@ -1333,11 +1264,7 @@ func _show_potion_picker() -> void:
 		row.add_child(use_btn)
 		vbox.add_child(row)
 
-	var cancel_btn := Button.new()
-	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(panel_w * 0.5, _vh * 0.055)
-	cancel_btn.add_theme_font_size_override("font_size", _font(0.022))
-	cancel_btn.pressed.connect(layer.queue_free)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(panel_w * 0.5, _vh * 0.055), int(_font(0.022)), layer.queue_free)
 	var center := CenterContainer.new()
 	center.add_child(cancel_btn)
 	vbox.add_child(center)
@@ -1679,24 +1606,13 @@ func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	# Prevent HBoxContainer from expanding cards horizontally beyond minimum_size.
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if zone_id == "enemy_hand":
-		var back_style := StyleBoxFlat.new()
-		back_style.bg_color = Color(0.15, 0.10, 0.28)
-		back_style.corner_radius_top_left = 4
-		back_style.corner_radius_top_right = 4
-		back_style.corner_radius_bottom_left = 4
-		back_style.corner_radius_bottom_right = 4
+		var back_style := _UiUtil.make_style(Color(0.15, 0.10, 0.28), 4)
 		panel.add_theme_stylebox_override("panel", back_style)
 		panel.set_meta("is_card_back", true)
 		return panel
 	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")
 	panel.add_child(_view.build_card_vbox(card, is_board_zone))
-	var style := StyleBoxFlat.new()
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
-	panel.add_theme_stylebox_override("panel", style)
-	panel.set_meta("card_style", style)
+	var style: StyleBoxFlat = CardViewBuilder.attach_card_style(panel)
 	_view.apply_card_style(panel, card, zone_id)
 	_bind_card_input(panel, card, zone_id)
 	if zone_id == "hand" and card.dual_card_id != "" and not _flipped_dual_ids.has(card.instance_id):
@@ -1790,54 +1706,30 @@ func _show_cast_confirm(card: CardInstance) -> void:
 	layer.add_child(center)
 
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.10, 0.10, 0.20, 0.97)
-	style.set_corner_radius_all(10)
+	var style := _UiUtil.make_style(Color(0.10, 0.10, 0.20, 0.97), 10)
 	panel.add_theme_stylebox_override("panel", style)
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	panel.custom_minimum_size = Vector2(minf(vp.x * 0.5, _vh * 0.75), 0)
 	center.add_child(panel)
 
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_right",  int(_vh * 0.025))
-	margin.add_theme_constant_override("margin_top",    int(_vh * 0.02))
-	margin.add_theme_constant_override("margin_bottom", int(_vh * 0.02))
-	panel.add_child(margin)
+	var margin := _UiUtil.make_margin(int(_vh * 0.025), int(_vh * 0.02), int(_vh * 0.025), int(_vh * 0.02), panel)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.015))
-	margin.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.015), margin)
 
-	var name_lbl := Label.new()
-	name_lbl.text = card.name
-	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_lbl.add_theme_font_size_override("font_size", _font(0.028))
-	vbox.add_child(name_lbl)
+	var name_lbl := _UiUtil.make_label(card.name, int(_font(0.028)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var ability_lbl := Label.new()
-	ability_lbl.text = _view.get_card_ability_text(card)
-	ability_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var ability_lbl := _UiUtil.make_label(_view.get_card_ability_text(card), int(_font(0.022)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	ability_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	ability_lbl.add_theme_font_size_override("font_size", _font(0.022))
 	ability_lbl.add_theme_color_override("font_color", _view.get_card_ability_color(card))
 	vbox.add_child(ability_lbl)
 
-	var cast_btn := Button.new()
-	cast_btn.text = "Cast (%d mana)" % _state.players[_my_idx()].effective_cost(card)
-	cast_btn.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.08)
-	cast_btn.add_theme_font_size_override("font_size", _font(0.030))
+	var cast_btn := _UiUtil.make_button("Cast (%d mana)" % _state.players[_my_idx()].effective_cost(card), Vector2(_vh * 0.22, _vh * 0.08), int(_font(0.030)))
 	cast_btn.pressed.connect(func() -> void:
 		_hide_cast_confirm()
 		_cast_confirmed_spell(card))
 	vbox.add_child(cast_btn)
 
-	var cancel_btn := Button.new()
-	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(_vh * 0.22, _vh * 0.06)
-	cancel_btn.add_theme_font_size_override("font_size", _font(0.024))
-	cancel_btn.pressed.connect(_hide_cast_confirm)
-	vbox.add_child(cancel_btn)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_vh * 0.22, _vh * 0.06), int(_font(0.024)), _hide_cast_confirm, vbox)
 
 func _hide_cast_confirm() -> void:
 	if _cast_confirm_layer != null and is_instance_valid(_cast_confirm_layer):
@@ -2096,9 +1988,7 @@ func _on_turn_ended(player_idx: int) -> void:
 func _on_fatigue_damage(pid: int, dmg: int) -> void:
 	var is_enemy: bool = (pid == 1)
 	var pos: Vector2 = _fx.pos_of_hero(is_enemy)
-	var lbl := Label.new()
-	lbl.text = "Fatigue! -%d" % dmg
-	lbl.add_theme_font_size_override("font_size", _font(0.025))
+	var lbl := _UiUtil.make_label("Fatigue! -%d" % dmg, int(_font(0.025)))
 	lbl.add_theme_color_override("font_color", Color(1.0, 0.55, 0.0))
 	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
 	lbl.add_theme_constant_override("shadow_offset_x", 2)
@@ -2376,9 +2266,7 @@ func _add_battlefield_info_label() -> void:
 		return
 	var night: bool = _state.is_night
 	var sun_moon: String = "☽" if night else "☀"
-	var info_lbl := Label.new()
-	info_lbl.text = "%s %s" % [BattlefieldRules.get_biome_name(biome), sun_moon]
-	info_lbl.add_theme_font_size_override("font_size", _font(0.02))
+	var info_lbl := _UiUtil.make_label("%s %s" % [BattlefieldRules.get_biome_name(biome), sun_moon], int(_font(0.02)))
 	info_lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.6))
 	info_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	$SidePanel.add_child(info_lbl)
@@ -2395,9 +2283,7 @@ func _add_slot_highlights() -> void:
 			var overlay := ColorRect.new()
 			overlay.color = tint
 			overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var slot_lbl := Label.new()
-			slot_lbl.text = "★"
-			slot_lbl.add_theme_font_size_override("font_size", _font(0.018))
+			var slot_lbl := _UiUtil.make_label("★", int(_font(0.018)))
 			slot_lbl.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0, 0.7))
 			slot_lbl.set_meta("bf_slot_idx", si)
 			board_view.add_child(overlay)
@@ -2414,17 +2300,7 @@ func _show_battlefield_banner() -> void:
 	var night: bool = _state.is_night
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.16, 0.88)
-	style.corner_radius_top_left = 8
-	style.corner_radius_top_right = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	style.border_color = Color(0.4, 0.9, 1.0, 0.6)
-	style.border_width_top = 2
-	style.border_width_bottom = 2
-	style.border_width_left = 2
-	style.border_width_right = 2
+	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.16, 0.88), 8, Color(0.4, 0.9, 1.0, 0.6), 2)
 	panel.add_theme_stylebox_override("panel", style)
 	var vbox := VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -2434,9 +2310,7 @@ func _show_battlefield_banner() -> void:
 	title_lbl.add_theme_font_size_override("font_size", _font(0.028))
 	title_lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.6))
 	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var rule_lbl := Label.new()
-	rule_lbl.text = BattlefieldRules.get_rule_text(biome)
-	rule_lbl.add_theme_font_size_override("font_size", _font(0.021))
+	var rule_lbl := _UiUtil.make_label(BattlefieldRules.get_rule_text(biome), int(_font(0.021)))
 	rule_lbl.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0))
 	rule_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	rule_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2502,10 +2376,6 @@ func _is_pvp_client() -> bool:
 	return (_pvp or _coop_pve or _team_pvp) and not multiplayer.is_server()
 
 
-## True when this peer is a read-only spectator (TID-367). Spectators mirror
-## the state but never send intents; all input gates check this.
-func _is_spectator() -> bool:
-	return _pvp_spectating
 
 ## True when local input is allowed: it's our turn, AI/round-trip not pending,
 ## and we have a local player (not the headless referee, _local_player_idx = -1).
@@ -2685,14 +2555,21 @@ func _on_pvp_state(payload: Dictionary) -> void:
 		return
 	_last_applied_seq = seq
 	_pvp_pending = false
-	var state_dict: Dictionary = decoded["state"]
+	_adopt_mirrored_state(decoded["state"])
+	# Spectator wagers (GID-104 / TID-387): each mirror carries turn_number, so the
+	# cutoff ("Bets Closed") is evaluated locally on every state update.
+	if _pvp_spectating:
+		_update_wager_panel()
+
+## Replaces the local GameState with an authority mirror and re-points every
+## helper that caches a GameState reference (GID-040 pattern). from_dict builds
+## a brand-new GameState, so its turn_ended signal must be reconnected too — the
+## connection made in _ready was to the state this one replaces.
+func _adopt_mirrored_state(state_dict: Dictionary) -> void:
 	_state = GameState.new()
 	_state.from_dict(state_dict)
 	_wire_gamebus_emitter()
 	_bump_card_next_id(_state)
-	# Re-wire the helpers that cache a GameState reference (GID-040 pattern).
-	# from_dict built a brand-new GameState, so its turn_ended signal must be
-	# reconnected — the original connection in _ready was to the now-discarded state.
 	if not _state.turn_ended.is_connected(_on_turn_ended):
 		_state.turn_ended.connect(_on_turn_ended)
 	_resolver.setup(_state)
@@ -2700,10 +2577,6 @@ func _on_pvp_state(payload: Dictionary) -> void:
 	_view.set_battle_state(_state, enemy_data)
 	_refresh_all()
 	_refresh_potion_button()
-	# Spectator wagers (GID-104 / TID-387): each mirror carries turn_number, so the
-	# cutoff ("Bets Closed") is evaluated locally on every state update.
-	if _pvp_spectating:
-		_update_wager_panel()
 
 ## Authority: validate + apply a client intent, then re-render (broadcast happens
 ## in _check_game_over). In referee mode both players send intents; in
@@ -3342,18 +3215,11 @@ func _build_wager_panel() -> void:
 	panel.position = Vector2(_vh * 0.02, _vh * 0.14)
 	_float_layer.add_child(panel)
 	_wager_panel = panel
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(_vh * 0.012))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(_vh * 0.012), panel)
 
-	var title := Label.new()
-	title.text = "Spectator Bet"
-	title.add_theme_font_size_override("font_size", _font(0.024))
-	vbox.add_child(title)
+	var title := _UiUtil.make_label("Spectator Bet", int(_font(0.024)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 
-	var side_row := HBoxContainer.new()
-	side_row.add_theme_constant_override("separation", int(_vh * 0.01))
-	vbox.add_child(side_row)
+	var side_row := _UiUtil.make_hbox(int(_vh * 0.01), vbox)
 	var group := ButtonGroup.new()
 	_wager_side_a_btn = _make_wager_side_button(_wager_side_name(WagerSync.SIDE_A), group)
 	_wager_side_a_btn.button_pressed = true
@@ -3363,50 +3229,23 @@ func _build_wager_panel() -> void:
 	_wager_side_b_btn.pressed.connect(func() -> void: _wager_side = WagerSync.SIDE_B)
 	side_row.add_child(_wager_side_b_btn)
 
-	var amount_row := HBoxContainer.new()
-	amount_row.add_theme_constant_override("separation", int(_vh * 0.01))
-	vbox.add_child(amount_row)
-	_wager_minus_btn = Button.new()
-	_wager_minus_btn.text = "-"
-	_wager_minus_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
-	_wager_minus_btn.add_theme_font_size_override("font_size", _font(0.025))
-	_wager_minus_btn.pressed.connect(func() -> void: _adjust_wager_amount(-_WAGER_STEP))
-	amount_row.add_child(_wager_minus_btn)
-	_wager_amount_label = Label.new()
-	_wager_amount_label.text = str(_wager_amount)
-	_wager_amount_label.add_theme_font_size_override("font_size", _font(0.025))
-	_wager_amount_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var amount_row := _UiUtil.make_hbox(int(_vh * 0.01), vbox)
+	_wager_minus_btn = _UiUtil.make_button("-", Vector2(_vh * 0.055, _vh * 0.055), int(_font(0.025)), func() -> void: _adjust_wager_amount(-_WAGER_STEP), amount_row)
+	_wager_amount_label = _UiUtil.make_label(str(_wager_amount), int(_font(0.025)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, amount_row)
 	_wager_amount_label.custom_minimum_size = Vector2(_vh * 0.07, 0)
-	amount_row.add_child(_wager_amount_label)
-	_wager_plus_btn = Button.new()
-	_wager_plus_btn.text = "+"
-	_wager_plus_btn.custom_minimum_size = Vector2(_vh * 0.055, _vh * 0.055)
-	_wager_plus_btn.add_theme_font_size_override("font_size", _font(0.025))
-	_wager_plus_btn.pressed.connect(func() -> void: _adjust_wager_amount(_WAGER_STEP))
-	amount_row.add_child(_wager_plus_btn)
+	_wager_plus_btn = _UiUtil.make_button("+", Vector2(_vh * 0.055, _vh * 0.055), int(_font(0.025)), func() -> void: _adjust_wager_amount(_WAGER_STEP), amount_row)
 
-	_wager_place_btn = Button.new()
-	_wager_place_btn.text = "Place Bet"
-	_wager_place_btn.custom_minimum_size = Vector2(_vh * 0.16, _vh * 0.055)
-	_wager_place_btn.add_theme_font_size_override("font_size", _font(0.022))
-	_wager_place_btn.pressed.connect(_on_wager_place_pressed)
-	vbox.add_child(_wager_place_btn)
+	_wager_place_btn = _UiUtil.make_button("Place Bet", Vector2(_vh * 0.16, _vh * 0.055), int(_font(0.022)), _on_wager_place_pressed, vbox)
 
-	_wager_status_label = Label.new()
-	_wager_status_label.text = "Bets close after turn %d." % WagerSync.CUTOFF_TURN
-	_wager_status_label.add_theme_font_size_override("font_size", _font(0.018))
-	vbox.add_child(_wager_status_label)
+	_wager_status_label = _UiUtil.make_label("Bets close after turn %d." % WagerSync.CUTOFF_TURN, int(_font(0.018)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	_clamp_wager_amount()
 	_update_wager_panel()
 
 
 func _make_wager_side_button(label_text: String, group: ButtonGroup) -> Button:
-	var b := Button.new()
-	b.text = label_text
+	var b := _UiUtil.make_button(label_text, Vector2(_vh * 0.14, _vh * 0.055), int(_font(0.02)))
 	b.toggle_mode = true
 	b.button_group = group
-	b.custom_minimum_size = Vector2(_vh * 0.14, _vh * 0.055)
-	b.add_theme_font_size_override("font_size", _font(0.02))
 	return b
 
 
@@ -3543,18 +3382,7 @@ func _on_coop_state(payload: Dictionary) -> void:
 		return
 	_last_applied_seq = seq
 	_pvp_pending = false
-	var state_dict: Dictionary = decoded["state"]
-	_state = GameState.new()
-	_state.from_dict(state_dict)
-	_wire_gamebus_emitter()
-	_bump_card_next_id(_state)
-	if not _state.turn_ended.is_connected(_on_turn_ended):
-		_state.turn_ended.connect(_on_turn_ended)
-	_resolver.setup(_state)
-	_fx.set_game_state(_state)
-	_view.set_battle_state(_state, enemy_data)
-	_refresh_all()
-	_refresh_potion_button()
+	_adopt_mirrored_state(decoded["state"])
 
 ## Authority: validate + apply an ally client's intent for the co-op battle.
 func _on_coop_intent(sender: int, payload: Dictionary) -> void:
@@ -3774,18 +3602,7 @@ func _on_team_state(payload: Dictionary) -> void:
 		return
 	_last_applied_seq = seq
 	_pvp_pending = false
-	var state_dict: Dictionary = decoded["state"]
-	_state = GameState.new()
-	_state.from_dict(state_dict)
-	_wire_gamebus_emitter()
-	_bump_card_next_id(_state)
-	if not _state.turn_ended.is_connected(_on_turn_ended):
-		_state.turn_ended.connect(_on_turn_ended)
-	_resolver.setup(_state)
-	_fx.set_game_state(_state)
-	_view.set_battle_state(_state, enemy_data)
-	_refresh_all()
-	_refresh_potion_button()
+	_adopt_mirrored_state(decoded["state"])
 
 ## Authority: validate + apply a team participant's intent.
 func _on_team_intent(sender: int, payload: Dictionary) -> void:

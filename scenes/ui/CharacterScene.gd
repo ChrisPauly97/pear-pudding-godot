@@ -38,17 +38,10 @@ func _build_ui() -> void:
 	var is_portrait: bool = _vw < _vh
 	var root_vbox: VBoxContainer
 	if hub_mode:
-		var margin := MarginContainer.new()
-		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var m: int = int(_ref * 0.012)
-		margin.add_theme_constant_override("margin_left", m)
-		margin.add_theme_constant_override("margin_right", m)
-		margin.add_theme_constant_override("margin_top", m)
-		margin.add_theme_constant_override("margin_bottom", m)
-		add_child(margin)
-		root_vbox = VBoxContainer.new()
-		root_vbox.add_theme_constant_override("separation", int(_ref * 0.012))
-		margin.add_child(root_vbox)
+		var margin := _UiUtil.make_margin(m, m, m, m, self)
+		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+		root_vbox = _UiUtil.make_vbox(int(_ref * 0.012), margin)
 	else:
 		_build_backdrop(0.78)
 		var panel_w: float = _vw * 0.95 if is_portrait else _vw * 0.86
@@ -57,37 +50,25 @@ func _build_ui() -> void:
 		root_vbox = _build_margin_vbox(outer, 0.015, 0.012)
 
 	# ---- Header bar ----------------------------------------------------------
-	var header := HBoxContainer.new()
-	root_vbox.add_child(header)
+	var header := _UiUtil.make_hbox(0, root_vbox)
 
-	var title_lbl := Label.new()
-	title_lbl.text = "Character"
-	title_lbl.add_theme_font_size_override("font_size", int(_ref * 0.03))
+	var title_lbl := _UiUtil.make_label("Character", int(_ref * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header)
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title_lbl)
 
 	if not hub_mode:
-		var close_btn := Button.new()
-		close_btn.text = "Close  [C]" if not OS.has_feature("android") else "Close"
-		close_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-		close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		close_btn.pressed.connect(_on_close)
-		header.add_child(close_btn)
+		var close_btn := _UiUtil.make_button("Close  [C]" if not OS.has_feature("android") else "Close", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_close, header)
 
 	# ---- Main content --------------------------------------------------------
 	var content: BoxContainer
 	if is_portrait:
-		content = VBoxContainer.new()
-		content.add_theme_constant_override("separation", int(_ref * 0.01))
+		content = _UiUtil.make_vbox(int(_ref * 0.01))
 	else:
-		content = HBoxContainer.new()
-		content.add_theme_constant_override("separation", int(_vw * 0.015))
+		content = _UiUtil.make_hbox(int(_vw * 0.015))
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_vbox.add_child(content)
 
 	# ---- Left: avatar + slot buttons -----------------------------------------
-	var left_vbox := VBoxContainer.new()
-	left_vbox.add_theme_constant_override("separation", int(_ref * 0.010))
+	var left_vbox := _UiUtil.make_vbox(int(_ref * 0.010))
 	if is_portrait:
 		left_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	else:
@@ -102,18 +83,9 @@ func _build_ui() -> void:
 	avatar_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	left_vbox.add_child(avatar_rect)
 
-	var avatar_lbl := Label.new()
-	avatar_lbl.text = "Saimtar"
-	avatar_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	avatar_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	avatar_lbl.modulate = Color(0.8, 0.8, 0.8)
-	left_vbox.add_child(avatar_lbl)
+	var avatar_lbl := _UiUtil.make_label("Saimtar", int(_ref * 0.022), Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
 
-	var equip_hdr := Label.new()
-	equip_hdr.text = "Equipment"
-	equip_hdr.add_theme_font_size_override("font_size", int(_ref * 0.024))
-	equip_hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	left_vbox.add_child(equip_hdr)
+	var equip_hdr := _UiUtil.make_label("Equipment", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
 
 	for slot in _SLOTS:
 		var btn := Button.new()
@@ -124,11 +96,7 @@ func _build_ui() -> void:
 		left_vbox.add_child(btn)
 		_slot_btns[slot] = btn
 
-	var companion_hdr := Label.new()
-	companion_hdr.text = "Companion"
-	companion_hdr.add_theme_font_size_override("font_size", int(_ref * 0.024))
-	companion_hdr.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	left_vbox.add_child(companion_hdr)
+	var companion_hdr := _UiUtil.make_label("Companion", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
 
 	_companion_btn = Button.new()
 	_companion_btn.custom_minimum_size = Vector2(0, _ref * 0.065)
@@ -141,37 +109,23 @@ func _build_ui() -> void:
 		content.add_child(VSeparator.new())
 
 	# ---- Right: picker -------------------------------------------------------
-	var right_vbox := VBoxContainer.new()
+	var right_vbox := _UiUtil.make_vbox(int(_ref * 0.008), content)
 	right_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	right_vbox.add_theme_constant_override("separation", int(_ref * 0.008))
-	content.add_child(right_vbox)
 	_picker_panel = right_vbox
 
-	_picker_title = Label.new()
-	_picker_title.text = "← Select a slot"
-	_picker_title.add_theme_font_size_override("font_size", int(_ref * 0.024))
-	_picker_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_picker_title.modulate = Color(0.7, 0.7, 0.7)
-	right_vbox.add_child(_picker_title)
+	_picker_title = _UiUtil.make_label("← Select a slot", int(_ref * 0.024), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_CENTER, right_vbox)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	right_vbox.add_child(scroll)
 	attach_drag_scroll(scroll)
 
-	_picker_list = VBoxContainer.new()
+	_picker_list = _UiUtil.make_vbox(int(_ref * 0.007), scroll)
 	_picker_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_picker_list.add_theme_constant_override("separation", int(_ref * 0.007))
-	scroll.add_child(_picker_list)
 
-	_unequip_btn = Button.new()
-	_unequip_btn.text = "Unequip"
-	_unequip_btn.custom_minimum_size = Vector2(_ref * 0.16, _ref * 0.065)
-	_unequip_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	_unequip_btn = _UiUtil.make_button("Unequip", Vector2(_ref * 0.16, _ref * 0.065), int(_ref * 0.022), _on_unequip, right_vbox)
 	_unequip_btn.disabled = true
-	_unequip_btn.pressed.connect(_on_unequip)
-	right_vbox.add_child(_unequip_btn)
 
 # -------------------------------------------------------------------------
 # Refresh
@@ -235,12 +189,7 @@ func _refresh_picker() -> void:
 	_unequip_btn.disabled = equipped_id == ""
 
 	if owned.is_empty():
-		var none_lbl := Label.new()
-		none_lbl.text = "No %s items owned yet." % label_name.to_lower()
-		none_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		none_lbl.modulate = Color(0.6, 0.6, 0.6)
-		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_picker_list.add_child(none_lbl)
+		var none_lbl := _UiUtil.make_label("No %s items owned yet." % label_name.to_lower(), int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _picker_list)
 		return
 
 	for item_id in owned:
@@ -257,12 +206,7 @@ func _refresh_companion_picker() -> void:
 	_unequip_btn.disabled = active_id == ""
 	var all_ids: Array[String] = CompanionRegistry.all_ids()
 	if all_ids.is_empty():
-		var none_lbl := Label.new()
-		none_lbl.text = "No companions available yet."
-		none_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		none_lbl.modulate = Color(0.6, 0.6, 0.6)
-		none_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_picker_list.add_child(none_lbl)
+		var none_lbl := _UiUtil.make_label("No companions available yet.", int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _picker_list)
 		return
 	for cid in all_ids:
 		var c: CompanionData = CompanionRegistry.get_companion(cid)
@@ -273,31 +217,21 @@ func _refresh_companion_picker() -> void:
 
 func _make_companion_row(c: CompanionData, is_active: bool) -> HBoxContainer:
 	var unlocked: bool = CompanionRegistry.is_unlocked(c.companion_id)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
-	var info_vbox := VBoxContainer.new()
+	var info_vbox := _UiUtil.make_vbox(int(_ref * 0.002), row)
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info_vbox.add_theme_constant_override("separation", int(_ref * 0.002))
-	row.add_child(info_vbox)
 
-	var name_row := HBoxContainer.new()
-	info_vbox.add_child(name_row)
+	var name_row := _UiUtil.make_hbox(0, info_vbox)
 
-	var name_lbl := Label.new()
-	name_lbl.text = c.display_name
-	name_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
+	var name_lbl := _UiUtil.make_label(c.display_name, int(_ref * 0.022))
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if not unlocked:
 		name_lbl.modulate = Color(0.5, 0.5, 0.5)
 	name_row.add_child(name_lbl)
 
 	if is_active:
-		var eq_lbl := Label.new()
-		eq_lbl.text = "[A]"
-		eq_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		eq_lbl.modulate = Color(0.4, 1.0, 0.5)
-		name_row.add_child(eq_lbl)
+		var eq_lbl := _UiUtil.make_label("[A]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT, name_row)
 
 	var desc_lbl := Label.new()
 	if unlocked:
@@ -310,13 +244,8 @@ func _make_companion_row(c: CompanionData, is_active: bool) -> HBoxContainer:
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_vbox.add_child(desc_lbl)
 
-	var equip_btn := Button.new()
-	equip_btn.text = "Active" if is_active else "Equip"
+	var equip_btn := _UiUtil.make_button("Active" if is_active else "Equip", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_equip_companion.bind(c.companion_id), row)
 	equip_btn.disabled = is_active or not unlocked
-	equip_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-	equip_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	equip_btn.pressed.connect(_on_equip_companion.bind(c.companion_id))
-	row.add_child(equip_btn)
 
 	return row
 
@@ -330,16 +259,12 @@ func _companion_locked_text(c: CompanionData) -> String:
 	return "Locked — complete story objectives to unlock."
 
 func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(_vw * 0.008))
+	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
-	var info_vbox := VBoxContainer.new()
+	var info_vbox := _UiUtil.make_vbox(int(_ref * 0.002), row)
 	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info_vbox.add_theme_constant_override("separation", int(_ref * 0.002))
-	row.add_child(info_vbox)
 
-	var name_row := HBoxContainer.new()
-	info_vbox.add_child(name_row)
+	var name_row := _UiUtil.make_hbox(0, info_vbox)
 
 	var name_lbl := Label.new()
 	var disp_name: String = w.display_name
@@ -354,11 +279,7 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 	name_row.add_child(name_lbl)
 
 	if is_equipped:
-		var eq_lbl := Label.new()
-		eq_lbl.text = "[E]"
-		eq_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		eq_lbl.modulate = Color(0.4, 1.0, 0.5)
-		name_row.add_child(eq_lbl)
+		var eq_lbl := _UiUtil.make_label("[E]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT, name_row)
 
 	var effect_lbl := Label.new()
 	var sm := SceneManager.save_manager
@@ -371,13 +292,8 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 	effect_lbl.modulate = Color(0.9, 1.0, 0.7)
 	info_vbox.add_child(effect_lbl)
 
-	var equip_btn := Button.new()
-	equip_btn.text = "Equipped" if is_equipped else "Equip"
+	var equip_btn := _UiUtil.make_button("Equipped" if is_equipped else "Equip", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_equip.bind(item_id), row)
 	equip_btn.disabled = is_equipped
-	equip_btn.custom_minimum_size = Vector2(_ref * 0.14, _ref * 0.065)
-	equip_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	equip_btn.pressed.connect(_on_equip.bind(item_id))
-	row.add_child(equip_btn)
 
 	# Compare against the currently equipped item in this slot: hold Shift while
 	# hovering on desktop, or tap-and-hold on mobile (no Shift key there).
@@ -474,16 +390,10 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	add_child(popup)
 	_compare_popup = popup
 
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", int(_ref * 0.008))
+	var vb := _UiUtil.make_vbox(int(_ref * 0.008), popup)
 	vb.custom_minimum_size = Vector2(_ref * 0.34, 0)
-	popup.add_child(vb)
 
-	var title_lbl := Label.new()
-	title_lbl.text = "Compare — %s" % _SLOT_LABELS.get(candidate.slot, candidate.slot.capitalize())
-	title_lbl.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vb.add_child(title_lbl)
+	var title_lbl := _UiUtil.make_label("Compare — %s" % _SLOT_LABELS.get(candidate.slot, candidate.slot.capitalize()), int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
 
 	var equipped_lbl := Label.new()
 	equipped_lbl.text = "Equipped: %s\n%s" % [
@@ -510,11 +420,7 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	if equipped != null and equipped.battle_effect_type == candidate.battle_effect_type:
 		var delta: int = candidate.battle_effect_value - equipped.battle_effect_value
 		if delta != 0:
-			var delta_lbl := Label.new()
-			delta_lbl.text = "%+d vs equipped" % delta
-			delta_lbl.add_theme_font_size_override("font_size", int(_ref * 0.020))
-			delta_lbl.modulate = Color(0.4, 1.0, 0.5) if delta > 0 else Color(1.0, 0.45, 0.4)
-			vb.add_child(delta_lbl)
+			var delta_lbl := _UiUtil.make_label("%+d vs equipped" % delta, int(_ref * 0.020), Color(0.4, 1.0, 0.5) if delta > 0 else Color(1.0, 0.45, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vb)
 
 	popup.popup(Rect2i(anchor.get_screen_transform().origin as Vector2i, Vector2i(int(_ref * 0.34), 0)))
 

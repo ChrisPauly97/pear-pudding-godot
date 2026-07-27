@@ -240,3 +240,75 @@ func test_valid_unwrapped_json_is_parsed() -> void:
 	assert_not_null(result)
 	assert_true(result is Dictionary)
 	assert_eq(int((result as Dictionary).get("coins", -1)), 50)
+
+# ---------------------------------------------------------------------------
+# PERSISTED_FIELDS table (the single source of truth for save/load)
+# ---------------------------------------------------------------------------
+
+## The table drives save/load through set()/get(), which fail silently on a
+## typo'd name — this test is what turns that back into a hard error.
+func test_every_persisted_field_is_a_real_property() -> void:
+	var sm := SaveManagerScript.new()
+	var declared: Dictionary = {}
+	for prop: Dictionary in sm.get_property_list():
+		declared[str(prop["name"])] = true
+	for key: String in SaveManagerScript.PERSISTED_FIELDS:
+		assert_true(declared.has(key), "PERSISTED_FIELDS key '%s' is not a SaveManager property" % key)
+
+## A field written by save() but never restored (or the reverse) is the exact
+## bug the table exists to prevent; assert the walk covers both directions.
+func test_collect_save_data_covers_every_persisted_field() -> void:
+	var sm := SaveManagerScript.new()
+	sm._loaded = true
+	var data: Dictionary = sm._collect_save_data()
+	for key: String in SaveManagerScript.PERSISTED_FIELDS:
+		assert_true(data.has(key), "save output is missing '%s'" % key)
+
+## Round-trips every field through _collect_save_data -> JSON -> _restore_field
+## so a default whose type disagrees with its property shows up here.
+func test_save_load_round_trips_every_field() -> void:
+	var writer := SaveManagerScript.new()
+	writer._loaded = true
+	writer.coins = 1234
+	writer.current_map = "dungeon_7"
+	writer.player_x = 12.5
+	writer.is_mounted = true
+	writer.story_flags = {"met_isfig": true}
+	writer.activated_waystones.assign(["ws_a", "ws_b"])
+	writer.bag_size = 27
+	var json: Dictionary = JSON.parse_string(JSON.stringify(writer._collect_save_data()))
+
+	var reader := SaveManagerScript.new()
+	for key: String in SaveManagerScript.PERSISTED_FIELDS:
+		reader._restore_field(json, key, SaveManagerScript.PERSISTED_FIELDS[key])
+	reader._restore_derived_fields(json)
+	assert_eq(reader.coins, 1234)
+	assert_eq(reader.current_map, "dungeon_7")
+	assert_eq(reader.player_x, 12.5)
+	assert_true(reader.is_mounted)
+	assert_true(bool(reader.story_flags.get("met_isfig", false)))
+	assert_eq(reader.activated_waystones.size(), 2)
+	assert_eq(reader.activated_waystones[1], "ws_b")
+	assert_eq(reader.bag_size, 27)
+
+## A save with no entry for a field must leave the property at its declared
+## default rather than at whatever the previous slot held.
+func test_restore_field_falls_back_to_table_default() -> void:
+	var sm := SaveManagerScript.new()
+	sm.coins = 999
+	sm.weather = {"id": "storm"}
+	for key: String in SaveManagerScript.PERSISTED_FIELDS:
+		sm._restore_field({}, key, SaveManagerScript.PERSISTED_FIELDS[key])
+	assert_eq(sm.coins, 0)
+	assert_eq(str(sm.weather.get("id", "unset")), "")
+
+## The const defaults are read-only; a shallow hand-off would make the restored
+## member read-only too and crash the first writer to touch it.
+func test_dictionary_default_is_writable_after_restore() -> void:
+	var sm := SaveManagerScript.new()
+	sm._restore_field({}, "story_flags", SaveManagerScript.PERSISTED_FIELDS["story_flags"])
+	sm.story_flags["chapter_1"] = true
+	assert_true(bool(sm.story_flags.get("chapter_1", false)))
+	sm._restore_field({}, "garden_plots", SaveManagerScript.PERSISTED_FIELDS["garden_plots"])
+	(sm.garden_plots[0] as Dictionary)["seed"] = "pear"
+	assert_eq(str((sm.garden_plots[0] as Dictionary).get("seed", "")), "pear")

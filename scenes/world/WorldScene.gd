@@ -20,7 +20,6 @@ const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
 const WeaponRegistry  = preload("res://autoloads/WeaponRegistry.gd")
 const EnemyRegistry   = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponData      = preload("res://data/WeaponData.gd")
-const SaveManager        = preload("res://autoloads/SaveManager.gd")
 const MountRegistry      = preload("res://game_logic/MountRegistry.gd")
 const TrophyRegistry     = preload("res://game_logic/TrophyRegistry.gd")
 const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
@@ -29,7 +28,6 @@ const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 const CantripManager = preload("res://game_logic/world/CantripManager.gd")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
-const _BurialMoundScene = preload("res://scenes/world/entities/BurialMound.tscn")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
 const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_side_pixel.png")
@@ -40,11 +38,8 @@ const _TexPath:      Texture2D = preload("res://assets/textures/pixel_art/path_p
 
 # Preload entity scenes — avoids filesystem hits during spawning
 const _OverworldPauseOverlay = preload("res://scenes/ui/OverworldPauseOverlay.gd")
-const UiFx = preload("res://scenes/ui/UiFx.gd")
 const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
-const _ChestScene        = preload("res://scenes/world/entities/Chest.tscn")
-const _DoorScene         = preload("res://scenes/world/entities/Door.tscn")
 const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
 const _WildernessCampScene = preload("res://scenes/world/entities/WildernessCamp.tscn")
@@ -55,46 +50,29 @@ const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _MailboxScene      = preload("res://scenes/world/entities/MailboxNPC.tscn")
 const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
-const _RatingMath        = preload("res://game_logic/net/RatingMath.gd")
-const _LeaderboardOverlay = preload("res://scenes/ui/LeaderboardOverlay.gd")
 # Party panel (GID-107 / TID-395): consolidated entry point for the always-on
 # co-op HUD affordances (Roster, Loot Mode, Stash, Leaderboard, Ghost Duels,
 # Team Duel, Dungeon Crawl) that used to each be an individually-positioned button.
-const _PartyPanel        = preload("res://scenes/ui/PartyPanel.gd")
 
 # Co-op multiplayer (GID-090)
-const _NetSyncScript     = preload("res://scenes/world/NetSync.gd")
-const _RemotePlayerScene = preload("res://scenes/world/entities/RemotePlayer.tscn")
-const _AvatarSync        = preload("res://game_logic/net/AvatarSync.gd")
-const _PlayerIdentity    = preload("res://game_logic/net/PlayerIdentity.gd")
+const _CoopSocial = preload("res://scenes/world/coop/CoopSocial.gd")
+const _CoopPvP = preload("res://scenes/world/coop/CoopPvP.gd")
+const _CoopActivities = preload("res://scenes/world/coop/CoopActivities.gd")
+const _CoopSession = preload("res://scenes/world/coop/CoopSession.gd")
 const _NET_BROADCAST_INTERVAL: float = 1.0 / 15.0  # 15 Hz avatar broadcast
 # Co-op world-object sync (GID-096)
-const _EnemySync         = preload("res://game_logic/net/EnemySync.gd")
 const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
 const _ENEMY_POS_INTERVAL: float = 1.0 / 5.0  # 5 Hz enemy position broadcast (host)
 # Ghost duels (GID-102 / TID-377): async solo battle vs. an AI-piloted snapshot of
 # another session member's deck. Zero live networking (no NetSync RPC involved).
-const _GhostDuelOverlay  = preload("res://scenes/ui/GhostDuelOverlay.gd")
 # Party loot rolls (GID-102 / TID-381)
-const _LootRoll          = preload("res://game_logic/net/LootRoll.gd")
-const _CardDropUtil      = preload("res://game_logic/CardDropUtil.gd")
-const _CardInstanceUtil  = preload("res://game_logic/CardInstanceUtil.gd")
-const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 # Co-op Endless Spire alternating draft (GID-106 / TID-390)
-const _SpireDraftSync    = preload("res://game_logic/net/SpireDraftSync.gd")
-const _SpireDraft        = preload("res://game_logic/spire/SpireDraft.gd")
-const _SpireDraftScene   = preload("res://scenes/ui/SpireDraftScene.tscn")
-const _RunSummaryScene   = preload("res://scenes/ui/RunSummaryScene.tscn")
 # Session tournaments (GID-104 / TID-386)
-const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
 # Downed & rescue in shared dungeons (GID-105 / TID-389)
 const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
 # Shared world life (GID-103): synced clock/weather, party night hunts, co-op siege
-const _EnvSync           = preload("res://game_logic/net/EnvSync.gd")
-const _CoopNightHunts    = preload("res://game_logic/CoopNightHunts.gd")
-const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
-const _CardRegistry      = preload("res://autoloads/CardRegistry.gd")
 const _ENV_BROADCAST_INTERVAL: float = 3.0  # host: low-Hz clock/weather broadcast
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
@@ -113,30 +91,19 @@ var _chest_nodes: Dictionary = {}   # id -> Node3D
 # Co-op multiplayer (GID-090) — guarded by _coop_active; inert in single-player
 var _remote_player_nodes: Dictionary = {}  # peer_id -> RemotePlayer Node3D
 var _remote_identities: Dictionary = {}    # peer_id -> {token, name, color} (TID-342)
-var _remote_player_maps: Dictionary = {}   # peer_id -> last-known map name (TID-352)
-var _party_panel: Node = null              # Party panel overlay (GID-107); roster lives inside it
-var _party_roster_rows: Array = []         # cached roster row data fed into _party_panel
 var _net_sync: Node = null
 var _coop_active: bool = false
-var _net_broadcast_accum: float = 0.0
 # Maiteln follower position broadcast (GID-108 / TID-408) — authority only, same
 # cadence as the local avatar stream.
-var _maiteln_broadcast_accum: float = 0.0
 # Persistent session (GID-095 / TID-346) — character adopted from the authority's
 # SessionState; persist-back snapshots batched at _SESSION_SNAPSHOT_INTERVAL.
-var _session_adopted: bool = false
 var _session_token_by_peer: Dictionary = {}  # host: peer_id -> identity token
-var _session_snapshot_accum: float = 0.0
 const _SESSION_SNAPSHOT_INTERVAL: float = 5.0
 # Co-op world-object sync (GID-096) — guarded by _coop_active; inert single-player.
 var _coop_removed_enemies: Dictionary = {}  # enemy id -> true (engaged/defeated this session)
-var _coop_opened_objects: Dictionary = {}   # object id -> true (chest opened this session)
 # Shared story scrolls (GID-108 / TID-408) — mirrors _coop_opened_objects exactly.
 var _coop_collected_scrolls: Dictionary = {}  # scroll id -> true (collected by anyone this session)
 var _coop_scroll_syncing: bool = false        # reentry guard, mirrors _coop_story_flag_syncing
-var _coop_last_engaged_enemy_id: String = ""  # id of the enemy the local battle is against
-var _coop_enemy_targets: Dictionary = {}    # enemy id -> Vector2(x,z) interp target (clients)
-var _enemy_pos_accum: float = 0.0
 # Party loot rolls (GID-102 / TID-381) — opt-in need/greed alternative to first-opener-takes.
 # Authority only: roll_id -> {chest_id, item, tier, participants: Array[String],
 # choices: {token: "need"|"greed"|"pass"}, timer: float}. Empty on clients and when unused.
@@ -166,170 +133,86 @@ var _coop_spire_summary_overlay: Node = null
 # battle removed it, same as PvP). get_tree() is unsafe to call off-tree, so the
 # actual tree-touching work (opening the next floor's draft, or the run summary
 # overlay) is deferred to _enter_tree(), once we're reattached and it's safe.
-var _pending_coop_spire_draft_floor: int = -1
-var _pending_coop_spire_run_ended_payload: Dictionary = {}
 # Co-op story mode (GID-098): true once a map transition is in flight on this
 # WorldScene instance so duplicate recv_map_transition packets are ignored.
 var _coop_map_transitioning: bool = false
 # Rally waystones (GID-105 / TID-388) — guarded by NetworkManager.is_active().
-var _last_rally_time: float = -999.0
 const _RALLY_COOLDOWN: float = 3.0
 # Downed & rescue in shared dungeons (GID-105 / TID-389) — guarded by _coop_active
 # and current_map.begins_with("dungeon_"); inert everywhere else.
 var _coop_downed: bool = false                # true while the LOCAL player is downed
-var _coop_downed_peers: Dictionary = {}       # peer_id -> bool, mirrored via the avatar stream
 var _dungeon_spawn_pos: Vector3 = Vector3.ZERO  # cached on entry to a "dungeon_*" map
 var _downed_banner: Label = null
 var _downed_started_at: float = 0.0
 # Co-op story mode (GID-098): guard against re-entering the network broadcast
 # while processing our own GameBus.story_flag_set echo.
-var _coop_story_flag_syncing: bool = false
 var _initial_ready_done: bool = false  # so _enter_tree re-setup only runs on re-entry
 # PvP challenges (GID-091)
-var _challenge_btn: Button = null
-var _challenge_target_peer: int = -1     # nearby remote peer eligible to challenge
 # Shared dungeon crawl (GID-102 / TID-380) — host-only trigger, now a Party-panel action.
 var _pending_challenge_from: int = -1    # incoming challenge awaiting our response
-var _pending_challenge_deck: Array = []  # challenger's deck stored until we accept
-var _pending_challenge_ranked: bool = false  # GID-102 (TID-373): challenger's ranked opt-in
-var _pending_challenge_armed_at: int = -1  # TID-431: Time.get_ticks_msec() when set, -1 = idle
-var _challenge_accept_panel: Node = null
 const _CHALLENGE_RANGE: float = 3.0      # tiles; proximity to show the prompt
-const _ChallengeTimeout = preload("res://game_logic/net/ChallengeTimeout.gd")
 # Dedicated-server PvP routing (GID-097 / TID-353) — server tracks pending challenge
 var _session_dedicated: bool = false      # client: true when connected to a dedicated server
-var _pvp_relay_challenger_id: int = -1   # server: peer_id of the challenger awaiting response
-var _pvp_relay_challenger_armed_at: int = -1  # TID-431: relay-side timeout arm timestamp
-var _pvp_relay_challenger_deck: Array = [] # server: challenger's deck
-var _pvp_relay_target_id: int = -1       # server: peer_id of the challenged player
 # Team PvP duels (GID-102 / TID-371): host-only trigger, visible at 4 players (host
 # + 3 clients), now a Party-panel action. No accept/decline — keeps team-formation
 # UI minimal (see task notes).
 # Host-only: remembers the formation of the duel it started so _on_team_battle_ended_coop
 # can resolve all 4 participants' tokens for the rating update. Empty when no team
 # duel is in flight (the host itself never started one, or it already finished).
-var _active_team_duel_peer_ids: Array[int] = []
-var _active_team_duel_teams: Array = []
 # Session tournaments (GID-104 / TID-386): host-run round-robin bracket. Guarded
 # end-to-end by _tournament_active so it never touches normal PvP/team-duel state.
 # Triggered from the Party panel (GID-115 / TID-433), not a standalone HUD button.
-var _tournament_panel_outer: Control = null   # outer panel Control, nil when never built
-var _tournament_panel: VBoxContainer = null   # inner row container
 var _tournament_active: bool = false          # true while a bracket is in progress (both host+clients)
 var _tournament_bracket: Dictionary = {}      # TournamentSync bracket dict; kept after finish for the panel
 var _tournament_peer_ids: Array[int] = []     # host-only: participant idx -> peer id
-var _tournament_tokens: Array[String] = []    # host-only: participant idx -> identity token
-var _tournament_decks: Array = []             # host-only: participant idx -> deck instances
-var _tournament_ante: int = 0                 # host-only: ante used to build the current bracket
-var _tournament_pending_result: Dictionary = {}  # host-only: {} or {"winner_participant_idx": int}
-var _tournament_current_is_host_match: bool = false  # host-only: is the in-flight match one the host is playing?
-var _tournament_canonical_to_participant: Dictionary = {}  # host-only: {0: participant_idx, 1: participant_idx}
-var _tournament_match_countdown: float = 0.0  # host-only: seconds until the next match starts (lets peers return to world + read the bracket)
 const TOURNAMENT_ANTE_COINS: int = 25  # flat per-player entry fee; pot = ante * players
 # GID-101 — Social & Rewards ──────────────────────────────────────────────────
 # TID-365: Emotes & pings
-const _SocialSync = preload("res://game_logic/net/SocialSync.gd")
-var _emote_wheel_panel: Control = null   # the radial preset panel; nil when closed
 var _ping_mode_active: bool = false      # true while player has ping mode toggled on
-var _ping_btn: Button = null             # HUD toggle button for ping mode
-var _emote_btn: Button = null            # HUD button that opens the emote wheel
-var _ping_markers: Array[Node3D] = []    # active world-space ping markers
-var _emote_timer_self: float = 0.0      # local avatar emote bubble countdown
-var _emote_label_self: Label3D = null   # local avatar emote bubble
 # TID-366: Card trading
-const _TradeSync = preload("res://game_logic/net/TradeSync.gd")
-var _trade_window: Node = null           # the two-sided trade UI, nil when closed
-var _pending_trade: Dictionary = {}      # active trade offer held by authority
-var _trade_window_mine: Button = null    # "Trade" HUD button (proximity-gated)
-var _trade_target_peer: int = -1         # peer we'd trade with (nearest in range)
 # TID-367: Spectating
 var _pvp_active_peers: Array[int] = []  # host: peer_ids currently in a PvP duel
-var _spectate_btn: Button = null         # shown to non-participants while duel active
 # TID-368: Wagered duels & champion record
-var _pending_wager_from: int = -1        # peer_id of an incoming wagered challenge
-var _pending_wager_deck: Array = []      # challenger's deck for a wagered challenge
-var _pending_wager_coins: int = 0        # ante for the pending wagered challenge
-var _pending_wager_armed_at: int = -1    # TID-431: Time.get_ticks_msec() when set, -1 = idle
-var _pvp_ante_coins: int = 0             # ante for the active duel (escrowed on start)
 var _pvp_ante_peer0: int = -1           # host peer in the active wager
 var _pvp_ante_peer1: int = -1           # client peer in the active wager
 # TID-369: Shared party bounties
-var _party_bounty_panel: VBoxContainer = null   # HUD panel showing shared progress
 # TID-374: Party chat
-const _ChatSync = preload("res://game_logic/net/ChatSync.gd")
-var _chat_log_panel: Control = null        # outer panel (always visible while in co-op)
-var _chat_log_vbox: VBoxContainer = null   # scrolling log of chat lines
-var _chat_lines: Array[Dictionary] = []    # retained {name, color, text} rows, capped
-var _chat_quick_panel: Control = null      # quick-chat preset button row; nil when closed
 var _chat_input: LineEdit = null           # free-text input (desktop always-visible; mobile behind toggle)
-var _chat_send_btn: Button = null          # send button next to the free-text input
-var _chat_toggle_btn: Button = null        # HUD button: opens quick-chat row + reveals input (mobile parity)
 # GID-102 / TID-376: Shared party stash
-const _StashTransfer = preload("res://game_logic/net/StashTransfer.gd")
-const _PartyStashOverlay = preload("res://scenes/ui/PartyStashOverlay.gd")
-var _stash_overlay: Node = null           # PartyStashOverlay instance, nil when closed
-var _stash_cache: Dictionary = {"cards": [], "coins": 0}  # last-known stash snapshot
 # GID-102 / TID-378: Async card auction house
-const _AuctionTransfer = preload("res://game_logic/net/AuctionTransfer.gd")
-const _AuctionSync = preload("res://game_logic/net/AuctionSync.gd")
-const _AuctionHouseOverlay = preload("res://scenes/ui/AuctionHouseOverlay.gd")
 const _ChapterEndingOverlay = preload("res://scenes/ui/ChapterEndingOverlay.gd")
-var _auction_overlay: Node = null         # AuctionHouseOverlay instance, nil when closed
-var _auction_cache: Array = []            # last-known listings snapshot
 var _pvp_ended_pending_broadcast: bool = false  # set in pvp_battle_ended; cleared on _enter_tree
 # GID-102 (TID-373): Ranked UI & leaderboard
 var _leaderboard_rows: Array = []        # cached SessionState.get_leaderboard() rows
 var _leaderboard_overlay: Node = null    # LeaderboardOverlay instance, nil when closed
-var _ranked_toggle_btn: Button = null    # "Ranked" opt-in toggle next to the challenge button
-var _ranked_toggle_on: bool = false      # local challenger's ranked opt-in state
-var _pvp_ranked: bool = false            # ranked flag captured for the active duel (both peers)
 # GID-102 (TID-379): PvE leaderboards (Endless Spire + co-op boss clears). Distinct
 # cache/RPC names from the TID-373 ranked-rating board above — never touches rating.
 var _pve_leaderboards: Dictionary = {"spire": [], "coop_clears": [], "night_hunts": []}  # cached snapshot
 # GID-103 (TID-382): Synced world clock & weather — host-only rolling/broadcast state.
 # Clients mirror the authority's days_elapsed/weather here since they have no
 # SessionStore of their own to read from.
-var _coop_env_broadcast_timer: float = 0.0
-var _coop_weather_timer: float = 0.0
-var _coop_weather_rng: RandomNumberGenerator = null
-var _coop_env_days_elapsed: int = 0
-var _coop_env_weather_id: String = ""
 # GID-103 (TID-383): Party Night Hunts — deterministic spectral spawns on synced night.
-var _coop_night_hunt_active: bool = false
-var _coop_night_hunt_day: int = -1
-var _coop_night_hunt_nodes: Dictionary = {}  # id -> Node3D
 var _coop_night_hunt_kills: int = 0          # resets at dawn
 # GID-103 (TID-384): Co-op Town Siege — host-only trigger; escalating waves + joint boss.
 # Triggered from the Party panel (GID-115 / TID-433), not a standalone HUD button.
 var _coop_siege_active: bool = false
-var _coop_siege_id: int = 0
 var _coop_siege_wave: int = -1               # -1 = not started; >= WAVE_COUNT = boss phase
 var _coop_siege_wave_nodes: Dictionary = {}  # id -> Node3D (current wave only)
 # TID-377: Ghost duels — host-only Party-panel action + overlay (SessionStore is
 # only ever open on the authority; a client has no local SessionState to list
 # opponents from).
-var _ghost_duel_overlay: Node = null
 # GID-104 (TID-385): Draft duels — sealed-deck PvP. Both peers derive identical
 # 1-of-3 pick rounds from one shared seed (DraftDuelGen); only the two finished
 # TRANSIENT decks cross the wire. Drafted cards never touch owned_cards /
 # SaveManager / SessionState. All state below is inert in single-player.
-const _DraftDuelGen = preload("res://game_logic/net/DraftDuelGen.gd")
-const _DraftDuelPickScene = preload("res://scenes/ui/DraftDuelPickScene.gd")
-var _draft_duel_btn: Button = null      # proximity-gated HUD button (mobile + desktop)
-var _pending_draft_from: int = -1       # incoming draft challenge awaiting our response
-var _pending_draft_seed: int = 0        # seed carried by that pending challenge
-var _pending_draft_from_armed_at: int = -1  # TID-431: Time.get_ticks_msec() when set, -1 = idle
-var _draft_accept_panel: Node = null    # Accept/Decline prompt (CanvasLayer)
-var _draft_peer: int = -1               # opponent peer for the outgoing/active draft
-var _draft_peer_armed_at: int = -1      # TID-431: armed only while awaiting accept (not mid-duel)
-var _draft_seed: int = 0                # agreed shared seed for the active draft
-var _draft_picking: bool = false        # true once the pick overlay is open
-var _draft_picker: Node = null          # DraftDuelPickScene instance, nil when closed
-var _draft_picker_layer: Node = null    # its CanvasLayer wrapper
-var _draft_local_deck: Array = []       # my finished transient deck (instance dicts)
-var _draft_opp_deck: Array = []         # opponent's finished transient deck
-var _draft_local_done: bool = false
-var _draft_opp_done: bool = false
+# Co-op feature modules (child nodes, created in _setup_coop). Each holds a
+# `_world` back-reference to this scene and is registered with NetSync as an RPC
+# handler target, so the `_on_*` entry points resolve exactly as they did when
+# they lived here. See CLAUDE.md "WorldScene co-op modules".
+var coop_social: Node = null
+var coop_pvp: Node = null
+var coop_activities: Node = null
+var coop_session: Node = null
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -393,7 +276,6 @@ var _card_shower_items: Array[Node3D] = []
 # Nocturnal spawn system (GID-055 Night Hunts)
 var _nocturnal_enemies: Dictionary = {}        # spawn_id -> {"node": Node3D, "chunk": Vector2i}
 var _nocturnal_spawn_timer: float = 0.0
-var _nocturnal_spawn_interval: float = 45.0   # randomised each spawn
 var _night_cue_played: bool = false
 var _night_hunt_tutorial_shown_session: bool = false
 var _nocturnal_id_counter: int = 0
@@ -416,6 +298,14 @@ var _smooth_camera_target: Vector3 = Vector3.ZERO
 
 var WORLD_SEED: int = 42  # overwritten in _ready() for infinite worlds
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
+
+## HUD prompt verb per NPC type; anything unlisted falls back to "TALK".
+const _NPC_PROMPT_LABELS: Dictionary = {
+	"merchant": "SHOP", "traveling_merchant": "SHOP",
+	"blacksmith": "FORGE", "bounty_board": "BOARD", "stable": "STABLE",
+	"duelist": "DUEL", "rest_site": "REST", "bed": "REST",
+	"stash_chest": "STASH",
+}
 
 @onready var _camera: Camera3D = $Camera3D
 @onready var _hud: CanvasLayer = $HUD
@@ -512,6 +402,9 @@ func _setup_vignette() -> void:
 	add_child(cl)
 
 func _ready() -> void:
+	# Before anything else wires signals to them (the GameBus connections below
+	# target module methods directly).
+	_ensure_coop_modules()
 	_setup_environment()
 	_sun.shadow_opacity = 0.2
 	# At 0.2 opacity the sun shadow is barely perceptible, but it still costs a
@@ -738,7 +631,7 @@ func _ready() -> void:
 
 	# Co-op (GID-096): when the local player engages a shared enemy, tell the
 	# authority so it is removed for everyone (engage-locks). Inert single-player.
-	GameBus.enemy_engaged.connect(_on_enemy_engaged_coop)
+	GameBus.enemy_engaged.connect(coop_session._on_enemy_engaged_coop)
 
 	# Cancel tap-to-move path when battle or menu interrupts movement.
 	GameBus.enemy_engaged.connect(func(_enemy_data: Dictionary) -> void: _clear_dest_marker())
@@ -747,43 +640,43 @@ func _ready() -> void:
 
 	# GID-101 (TID-368): champion record + wager payout when PvP ends. Connected
 	# permanently (not in _setup_coop) because WorldScene is detached during battle.
-	if not GameBus.pvp_battle_ended.is_connected(_on_pvp_battle_ended_coop):
-		GameBus.pvp_battle_ended.connect(_on_pvp_battle_ended_coop)
+	if not GameBus.pvp_battle_ended.is_connected(coop_pvp._on_pvp_battle_ended_coop):
+		GameBus.pvp_battle_ended.connect(coop_pvp._on_pvp_battle_ended_coop)
 
 	# GID-104 (TID-386): session tournaments — a referee'd match's real winner
 	# (the host isn't a combatant) arrives via this dedicated signal instead of
 	# pvp_battle_ended's plain bool. Same "connected permanently" reasoning.
-	if not GameBus.pvp_referee_match_ended.is_connected(_on_pvp_referee_match_ended):
-		GameBus.pvp_referee_match_ended.connect(_on_pvp_referee_match_ended)
+	if not GameBus.pvp_referee_match_ended.is_connected(coop_pvp._on_pvp_referee_match_ended):
+		GameBus.pvp_referee_match_ended.connect(coop_pvp._on_pvp_referee_match_ended)
 
 	# GID-102 (TID-371): ranked rating for team duels. Same "connected permanently" reasoning.
-	if not GameBus.team_battle_ended.is_connected(_on_team_battle_ended_coop):
-		GameBus.team_battle_ended.connect(_on_team_battle_ended_coop)
+	if not GameBus.team_battle_ended.is_connected(coop_pvp._on_team_battle_ended_coop):
+		GameBus.team_battle_ended.connect(coop_pvp._on_team_battle_ended_coop)
 
 	# GID-102 (TID-379): PvE leaderboard submission. Connected permanently (same
 	# "WorldScene detaches during battle" reasoning as pvp_battle_ended above) so a
 	# co-op boss clear is recorded regardless of which map/battle state re-attaches us.
-	if not GameBus.coop_pve_battle_ended.is_connected(_on_coop_pve_battle_ended_leaderboard):
-		GameBus.coop_pve_battle_ended.connect(_on_coop_pve_battle_ended_leaderboard)
+	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_coop_pve_battle_ended_leaderboard):
+		GameBus.coop_pve_battle_ended.connect(coop_activities._on_coop_pve_battle_ended_leaderboard)
 	# GID-103 (TID-384): co-op Town Siege finale is the first caller of the joint PvE
 	# engine — reset siege UI/state and grant party rewards on the outcome. Same
 	# "connected permanently" reasoning (WorldScene detaches during the battle).
-	if not GameBus.coop_pve_battle_ended.is_connected(_on_coop_siege_battle_ended):
-		GameBus.coop_pve_battle_ended.connect(_on_coop_siege_battle_ended)
+	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_coop_siege_battle_ended):
+		GameBus.coop_pve_battle_ended.connect(coop_activities._on_coop_siege_battle_ended)
 	# GID-106 (TID-391): co-op Endless Spire joint floor battles — same joint-PvE
 	# signal, same "connected permanently" reasoning.
-	if not GameBus.coop_pve_battle_ended.is_connected(_on_coop_spire_battle_ended):
-		GameBus.coop_pve_battle_ended.connect(_on_coop_spire_battle_ended)
+	if not GameBus.coop_pve_battle_ended.is_connected(coop_activities._on_coop_spire_battle_ended):
+		GameBus.coop_pve_battle_ended.connect(coop_activities._on_coop_spire_battle_ended)
 	# Spire runs happen while WorldScene is loaded (no battle-detach involved), but the
 	# connection is still made once here (not in _setup_coop) so a Spire run that starts
 	# before any co-op session is active still reaches this handler once co-op does start.
-	if not GameBus.spire_run_ended.is_connected(_on_spire_run_ended_leaderboard):
-		GameBus.spire_run_ended.connect(_on_spire_run_ended_leaderboard)
+	if not GameBus.spire_run_ended.is_connected(coop_activities._on_spire_run_ended_leaderboard):
+		GameBus.spire_run_ended.connect(coop_activities._on_spire_run_ended_leaderboard)
 
 	if not NetworkManager.is_dedicated_server():
 		_refresh_maiteln_presence()
 
-	_setup_coop()
+	coop_session._setup_coop()
 	# Guildhall furnishings (GID-106 / TID-393): must run after _setup_coop() so
 	# _net_sync exists — a client's garden snapshot request needs it. The map
 	# itself is only ever entered from an active co-op session (TID-392), so
@@ -800,7 +693,7 @@ func _ready() -> void:
 # fires on re-entry.
 func _enter_tree() -> void:
 	if _initial_ready_done and not _coop_active and NetworkManager.is_active():
-		_setup_coop()
+		coop_session._setup_coop()
 	# GID-101 (TID-367/368): broadcast pvp-clear to spectators now that the world is
 	# back in the tree and _net_sync is valid again.
 	if _pvp_ended_pending_broadcast and _net_sync != null and _coop_active:
@@ -816,10 +709,14 @@ func _enter_tree() -> void:
 	# while this WorldScene is still detached (removed from the tree during the
 	# joint battle), so any get_tree()-touching work (showing the draft overlay or
 	# the run summary) is deferred until we're reattached and get_tree() is safe.
-	_flush_pending_coop_spire_post_battle()
+	# Null on the very first _enter_tree — that runs before _ready, which is where
+	# the modules are created. There is nothing pending to flush on a first entry
+	# anyway; this only matters on the re-entry after a detached co-op battle.
+	if coop_activities != null:
+		coop_activities._flush_pending_coop_spire_post_battle()
 
 func _exit_tree() -> void:
-	_teardown_coop()
+	coop_session._teardown_coop()
 	if _csm != null:
 		_csm.exit_cleanup()
 	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
@@ -830,1173 +727,29 @@ func _exit_tree() -> void:
 # All of this is inert unless a NetworkManager session is active when the world
 # loads. Single-player behaviour is unchanged.
 
-func _setup_coop() -> void:
-	if not NetworkManager.is_active():
-		return
-	if _coop_active:
-		return
-	_coop_active = true
-
-	# Fixed-name RPC relay child. Path /root/WorldScene/NetSync matches on both
-	# peers. Reused across a PvP battle detach (not freed in _teardown_coop).
-	if _net_sync == null or not is_instance_valid(_net_sync):
-		_net_sync = _NetSyncScript.new()
-		_net_sync.name = "NetSync"
-		_net_sync.set("world_scene", self)
-		add_child(_net_sync)
-
-	NetworkManager.peer_connected.connect(_on_coop_peer_connected)
-	NetworkManager.peer_disconnected.connect(_on_coop_peer_disconnected)
-	NetworkManager.session_ended.connect(_on_coop_session_ended)
-
-	# Dedicated server has no player, no HUD, no identity to share.
-	if not NetworkManager.is_dedicated_server():
-		_ensure_challenge_button()
-		_ensure_draft_duel_button()
-		_ensure_social_buttons()
-		_ensure_chat_ui()
-		# Party panel (GID-107 / TID-395; Siege/Tournament added GID-115 / TID-433):
-		# single entry point for Roster, Loot Mode, Stash, Leaderboard, Ghost Duels,
-		# Team Duel, Dungeon Crawl, Siege, Tournament.
-		_world_hud.register_action("party", "Party", WorldHUD.ZONE_NAV, _open_party_panel)
-		# Discoverability (GID-107 / TID-398): players used to the old scattered
-		# buttons need a one-time nudge to the new consolidated entry point.
-		# SceneManager dedups via the "seen_tutorial_party_panel" flag, so this is
-		# safe to emit every time co-op becomes active (matches the "night_hunts"
-		# precedent — emitter just emits, the handler owns the seen-once logic).
-		GameBus.tutorial_popup_requested.emit("party_panel")
-	# GID-101 (TID-369): host initialises party bounties; all peers build the HUD.
-	_setup_party_bounties()
-	if not NetworkManager.is_dedicated_server():
-		_build_party_bounty_panel()
-
-	# Host: surface the LAN IP so the other player knows what to type into
-	# "Join by IP" (only shown on the first co-op entry, not on battle re-attach).
-	if NetworkManager.is_host() and not NetworkManager.is_dedicated_server() and not _initial_ready_done:
-		var lan_ip: String = NetworkManager.get_lan_ip()
-		if lan_ip != "":
-			SceneManager.show_toast("Hosting", "Other player: Join by IP  →  %s" % lan_ip)
-
-	# Spawn avatars for peers already connected when this world loads (the
-	# client-joining-host case; the host's peer is already present).
-	for pid in multiplayer.get_peers():
-		_spawn_remote_player(int(pid))
-
-	# Persistent session (GID-095 / TID-346): the host (authority) opens its session
-	# file and adopts its own character; clients adopt on the character handshake.
-	_setup_session()
-
-	# Co-op story mode (GID-098): sync story flag changes through the authority.
-	if not GameBus.story_flag_set.is_connected(_on_local_story_flag_set):
-		GameBus.story_flag_set.connect(_on_local_story_flag_set)
-
-	# Identity handshake (TID-342): broadcast this peer's identity to everyone
-	# already in-world. Dedicated server has no player identity to share.
-	if not NetworkManager.is_dedicated_server():
-		_refresh_coop_roster()
-		_send_local_identity(false, 0)
-
-func _teardown_coop() -> void:
-	if not _coop_active:
-		return
-	if NetworkManager.peer_connected.is_connected(_on_coop_peer_connected):
-		NetworkManager.peer_connected.disconnect(_on_coop_peer_connected)
-	if NetworkManager.peer_disconnected.is_connected(_on_coop_peer_disconnected):
-		NetworkManager.peer_disconnected.disconnect(_on_coop_peer_disconnected)
-	if NetworkManager.session_ended.is_connected(_on_coop_session_ended):
-		NetworkManager.session_ended.disconnect(_on_coop_session_ended)
-	if GameBus.story_flag_set.is_connected(_on_local_story_flag_set):
-		GameBus.story_flag_set.disconnect(_on_local_story_flag_set)
-	# Keep _net_sync alive across a battle detach so the RPC node persists; set
-	# inactive so re-entry (_enter_tree) re-runs setup and reconnects signals.
-	_coop_active = false
-
-func _spawn_remote_player(pid: int) -> void:
-	if _remote_player_nodes.has(pid):
-		return
-	# Seed near the local player but fan out by a deterministic per-peer ring offset
-	# so up to 4 avatars don't stack on the shared SPAWN tile before packets flow.
-	var base_x: float = _player.position.x if _player != null else 0.0
-	var base_z: float = _player.position.z if _player != null else 0.0
-	var off: Vector2 = _AvatarSync.spawn_offset(pid, IsoConst.TILE_SIZE)
-	var spawn_x: float = base_x + off.x
-	var spawn_z: float = base_z + off.y
-	var rp: Node3D = _RemotePlayerScene.instantiate() as Node3D
-	rp.set("world_scene", self)
-	rp.init_from_data({"peer_id": pid, "x": spawn_x, "z": spawn_z})
-	# Map-scoped sync (TID-352): hidden until the first packet confirms the peer is on
-	# our map, so a peer on a different map never flashes a cross-map ghost on load.
-	rp.visible = false
-	_entity_root.add_child(rp)
-	_remote_player_nodes[pid] = rp
-	# Apply identity if it already arrived before the avatar spawned (lazy ordering).
-	if _remote_identities.has(pid):
-		_apply_identity_to_avatar(pid)
-
-func _on_coop_peer_connected(pid: int) -> void:
-	_spawn_remote_player(pid)
-
-func _on_coop_peer_disconnected(pid: int) -> void:
-	var rp: Node = _valid_node(_remote_player_nodes.get(pid))
-	if is_instance_valid(rp):
-		rp.queue_free()
-	_remote_player_nodes.erase(pid)
-	_remote_identities.erase(pid)
-	_remote_player_maps.erase(pid)
-	_session_token_by_peer.erase(pid)
-	# Downed & rescue (GID-105 / TID-389): a disconnected peer can't be revived or
-	# time out anymore — drop their entry so a stale revive request can't match it.
-	_coop_downed_peers.erase(pid)
-	# Draft duel (GID-104 / TID-385): abort a draft in flight with this peer.
-	_abort_draft_duel_for_peer(pid)
-	# Flush so the leaving player's last persisted snapshot is on disk (host only).
-	if NetworkManager.is_host():
-		SessionStore.flush_now()
-	# GID-104 (TID-386): a tournament participant disconnecting mid-bracket has no
-	# resume/refund path in v1 (documented gap) — abort cleanly rather than leave
-	# the bracket stuck forever waiting for a match that can never finish.
-	if _tournament_active and NetworkManager.is_host() and _tournament_peer_ids.has(pid):
-		_reset_tournament_state()
-		_tournament_bracket = {}
-		if _net_sync != null:
-			_net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket({}))
-		_refresh_tournament_panel()
-		GameBus.hud_message_requested.emit("Tournament aborted — a player disconnected.")
-	_refresh_coop_roster()
-
-func _on_coop_session_ended() -> void:
-	for pid in _remote_player_nodes.keys():
-		var rp: Node = _valid_node(_remote_player_nodes[pid])
-		if is_instance_valid(rp):
-			rp.queue_free()
-	_remote_player_nodes.clear()
-	_remote_identities.clear()
-	_remote_player_maps.clear()
-	_session_token_by_peer.clear()
-	# Downed & rescue (GID-105 / TID-389) is session-scoped state.
-	_coop_downed_peers.clear()
-	if _coop_downed:
-		_exit_downed_state()
-	# Co-op world-object sync state (GID-096) is session-scoped; clear it so a fresh
-	# session starts from the deterministic spawn (persisted progress reloads via
-	# _setup_session / the join snapshot).
-	_coop_removed_enemies.clear()
-	_coop_opened_objects.clear()
-	_coop_collected_scrolls.clear()
-	_coop_enemy_targets.clear()
-	_coop_last_engaged_enemy_id = ""
-	# Party loot rolls (GID-102 / TID-381) are session-scoped too.
-	_loot_rolls_active.clear()
-	_pending_loot_roll = {}
-	# Draft duel (GID-104 / TID-385): session gone — abort any draft in flight.
-	_abort_draft_duel()
-	# Session tournaments (GID-104 / TID-386) are session-scoped: a bracket cannot
-	# outlive the session that scheduled it. No refunds in v1 (documented gap).
-	_reset_tournament_state()
-	_tournament_bracket = {}
-	_refresh_tournament_panel()
-	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
-		_loot_roll_panel.queue_free()
-	_loot_roll_panel = null
-	# Co-op Endless Spire (GID-106 / TID-390): session gone — the run itself lives on
-	# SceneManager (survives this WorldScene instance), but any in-flight draft round
-	# on THIS instance is aborted, matching the loot-roll precedent above.
-	_coop_spire_draft_active = {}
-	_pending_coop_spire_draft = {}
-	if _coop_spire_draft_overlay != null and is_instance_valid(_coop_spire_draft_overlay):
-		_coop_spire_draft_overlay.queue_free()
-	_coop_spire_draft_overlay = null
-	# TID-391: same cleanup for the run-ended summary overlay, if one is showing.
-	if _coop_spire_summary_overlay != null and is_instance_valid(_coop_spire_summary_overlay):
-		_coop_spire_summary_overlay.queue_free()
-	_coop_spire_summary_overlay = null
-	if _party_panel != null and is_instance_valid(_party_panel):
-		_party_panel.queue_free()
-	_party_panel = null
-	# Authority owns the session file: flush + close it on session end (host left /
-	# server stopped). On clients SessionStore is never open, so this is a no-op.
-	if SessionStore.is_open():
-		SessionStore.close(true)
-	_session_adopted = false
-	_refresh_coop_roster()
-	# Shared world life (GID-103) is session-scoped: clear the night hunt and
-	# siege state so a fresh session starts clean.
-	_coop_despawn_night_hunt()
-	_coop_siege_active = false
-	_coop_siege_wave = -1
-	_coop_siege_wave_nodes.clear()
-	if _siege_banner != null and is_instance_valid(_siege_banner):
-		_siege_banner.queue_free()
-	_siege_banner = null
-	_coop_env_weather_id = ""
-	_coop_weather_rng = null
-	_coop_active = false
-
-# ── Player identity handshake (GID-094 / TID-342) ─────────────────────────────
-
-## Broadcast (target_peer == 0) or unicast this peer's identity. `is_reply` marks
-## the one-shot direct answer so the exchange terminates after one round-trip.
-func _send_local_identity(is_reply: bool, target_peer: int) -> void:
-	if not _coop_active or _net_sync == null or not NetworkManager.is_active():
-		return
-	var payload: Array = _PlayerIdentity.encode(
-		MpProfile.get_token(), MpProfile.get_display_name(), MpProfile.get_color())
-	if target_peer == 0:
-		_net_sync.rpc("recv_identity", payload, is_reply)
-	else:
-		_net_sync.rpc_id(target_peer, "recv_identity", payload, is_reply)
-
-## Called by NetSync when a peer's identity packet arrives.
-func _on_identity_received(sender: int, payload: Array, is_reply: bool) -> void:
-	var d: Dictionary = _PlayerIdentity.decode(payload)
-	_remote_identities[sender] = d
-	_apply_identity_to_avatar(sender)
-	_refresh_coop_roster()
-	# Authority: now that we know this peer's token, resolve + send its session
-	# character (resume or fresh starter). GID-095 / TID-346.
-	if NetworkManager.is_host():
-		_send_character_to_peer(sender, str(d.get("token", "")), str(d.get("name", "Player")))
-		# World-object snapshot (GID-096): reconcile the joiner's freshly-spawned
-		# enemies/chests to the live + persisted removed/opened sets.
-		_send_world_snapshot_to_peer(sender)
-		# Co-op story mode (GID-098): send the shared story flags so the new peer
-		# has the same story state as the rest of the party.
-		_send_story_flags_snapshot_to_peer(sender)
-		# Co-op story mode (GID-098): if the party has already moved beyond the
-		# default lobby map, redirect the late joiner to the party's current map.
-		if SessionStore.is_open() and _net_sync != null:
-			var st = SessionStore.get_state()
-			if st != null and st.current_map != "" and st.current_map != map_name:
-				_net_sync.rpc_id(sender, "recv_map_transition", st.current_map, "")
-	# Answer an initiator's broadcast exactly once so it learns our identity too.
-	if not is_reply:
-		_send_local_identity(true, sender)
-
-## Push a stored identity onto the matching RemotePlayer avatar, if spawned.
-func _apply_identity_to_avatar(pid: int) -> void:
-	var rp: Node = _valid_node(_remote_player_nodes.get(pid))
-	if not is_instance_valid(rp) or not rp.has_method("set_player_identity"):
-		return
-	var d: Dictionary = _remote_identities.get(pid, {})
-	var nm: String = str(d.get("name", "Player"))
-	var col: Color = d.get("color", Color.WHITE)
-	rp.set_player_identity(nm, col)
-
-# ── Persistent session character (GID-095 / TID-346) ──────────────────────────
-# The authority (host) owns SessionStore and the per-player character roster, keyed
-# by the GID-094 identity token. The host adopts its own character here; each client
-# adopts the record the host sends on the identity handshake. All guarded by
-# _coop_active / NetworkManager.is_host(); inert in single-player and on clients.
-
-func _setup_session() -> void:
-	# Re-entry after a PvP battle keeps the same WorldScene (SessionStore stays open),
-	# so only the first co-op entry initialises + adopts.
-	if _session_adopted:
-		return
-	if not NetworkManager.is_host():
-		return  # clients adopt later, in _on_character_received
-	SessionStore.open(MpProfile.get_host_session_id(),
-		"%s's world" % MpProfile.get_display_name())
-	var st = SessionStore.get_state()
-	if st != null:
-		st.current_map = map_name
-		st.world_seed = SceneManager.save_manager.world_seed
-		SessionStore.mark_dirty()
-		# GID-103 (TID-382): resume the host's own clock from the persisted session
-		# value (a fresh session's default 0.4 matches _dnc's own default, so this is
-		# a no-op the first time a session file is created).
-		if _dnc != null:
-			_dnc.set_time_of_day(st.time_of_day)
-	var token: String = MpProfile.get_token()
-	var resume: bool = st != null and st.has_member(token)
-	var rec: Dictionary = SessionStore.ensure_member(token, MpProfile.get_display_name())
-	if rec.is_empty():
-		return
-	SceneManager.save_manager.adopt_session_character(rec)
-	if resume:
-		_restore_session_position(rec)
-	_session_adopted = true
-	# Reconcile the deterministically-spawned world to the session's persisted
-	# progress (defeated enemies / opened chests) so a resumed host world matches
-	# what was left behind (GID-096).
-	if st != null:
-		_coop_apply_world_progress(st.defeated_enemies, st.opened_chests, st.collected_scrolls)
-		for eid in st.defeated_enemies:
-			_coop_removed_enemies[str(eid)] = true
-		for cid in st.opened_chests:
-			_coop_opened_objects[str(cid)] = true
-		# Co-op story mode (GID-098): restore session story flags so the host
-		# re-entering a saved co-op session sees the correct story state.
-		if not st.story_flags.is_empty():
-			_coop_story_flag_syncing = true
-			for key in st.story_flags:
-				SceneManager.save_manager.story_flags[str(key)] = bool(st.story_flags[key])
-			_coop_story_flag_syncing = false
-		# GID-102 (TID-373): seed the host's own leaderboard cache immediately so the
-		# roster badge + leaderboard panel are populated even before any peer joins or
-		# any duel has been played this session (e.g. a solo host re-entering a session
-		# with existing ranked history).
-		_leaderboard_rows = st.get_leaderboard(20) if st != null else []
-		# GID-102 (TID-379): same seeding for the PvE leaderboards cache.
-		_pve_leaderboards = st.get_pve_leaderboards_snapshot() if st != null else \
-			{"spire": [], "coop_clears": []}
-
-## Client: adopt the character record the host resolved for our token. On a resume
-## the host flags it so we also restore our saved position.
-func _on_character_received(record: Dictionary, resume: bool) -> void:
-	if record.is_empty():
-		return
-	SceneManager.save_manager.adopt_session_character(record)
-	if resume:
-		_restore_session_position(record)
-	_session_adopted = true
-	_refresh_coop_roster()
-
-## Host: a client pushed its latest character snapshot — persist it under its token.
-func _on_character_submitted(sender: int, record: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		return
-	var token: String = str(_session_token_by_peer.get(sender, ""))
-	if token == "":
-		token = str(record.get("token", ""))
-	if token == "":
-		return
-	SessionStore.update_member(token, record)
-
-## Host: resolve (or create) the character for a just-identified client and send it.
-## Called from _on_identity_received once the client's token is known.
-func _send_character_to_peer(peer_id: int, token: String, member_name: String) -> void:
-	if not NetworkManager.is_host() or _net_sync == null:
-		return
-	if token == "" or not SessionStore.is_open():
-		return
-	_session_token_by_peer[peer_id] = token
-	var st = SessionStore.get_state()
-	var resume: bool = st != null and st.has_member(token)
-	var rec: Dictionary = SessionStore.ensure_member(token, member_name)
-	if rec.is_empty():
-		return
-	_net_sync.rpc_id(peer_id, "recv_character", rec, resume)
-	if NetworkManager.is_dedicated_server():
-		_net_sync.rpc_id(peer_id, "set_session_flags", {"dedicated": true})
-	# GID-101 (TID-369): send party bounties snapshot so joining client is in sync.
-	if st != null and not (st.party_bounties as Array).is_empty():
-		_net_sync.rpc_id(peer_id, "recv_party_bounties_snapshot", st.party_bounties)
-	# GID-102 (TID-373): send the current leaderboard so the joining client's roster
-	# badges + leaderboard panel start populated instead of showing "—" until the
-	# next duel ends.
-	if st != null:
-		_net_sync.rpc_id(peer_id, "recv_leaderboard", st.get_leaderboard(20))
-	# GID-102 (TID-376): send the current stash snapshot so the joining client's
-	# panel starts populated instead of showing stale/empty until the next change.
-	if st != null:
-		_net_sync.rpc_id(peer_id, "recv_stash_update", st.stash)
-		# GID-102 (TID-379): send the current PvE leaderboards snapshot alongside it so
-		# a joining client's Spire/Co-op-clears tabs start populated too.
-		_net_sync.rpc_id(peer_id, "recv_pve_leaderboards", st.get_pve_leaderboards_snapshot())
-		# GID-102 (TID-378): send the current auction listings snapshot so a joining
-		# client's Auction House panel starts populated instead of empty.
-		_net_sync.rpc_id(peer_id, "recv_auction_update", st.auctions)
-		# GID-103 (TID-382): send the current clock/weather so a late joiner never
-		# sees a mismatched sky before the next low-Hz broadcast tick.
-		if _dnc != null:
-			_net_sync.rpc_id(peer_id, "recv_env_state",
-				_EnvSync.encode(_dnc.get_time_of_day(), st.days_elapsed, st.weather_id))
-
-## Move the local player to the position stored in a session record (same map only).
-func _restore_session_position(record: Dictionary) -> void:
-	if _player == null or str(record.get("map", "")) != map_name:
-		return
-	var x: float = float(record.get("x", 0.0))
-	var z: float = float(record.get("z", 0.0))
-	_player.position = Vector3(x, get_terrain_height(x, z), z)
-
-## Build a session record from the local in-memory character + current position.
-func _build_local_character_record() -> Dictionary:
-	var rec: Dictionary = SceneManager.save_manager.export_session_character()
-	rec["token"] = MpProfile.get_token()
-	rec["display_name"] = MpProfile.get_display_name()
-	rec["map"] = map_name
-	rec["x"] = _player.position.x if _player != null else 0.0
-	rec["z"] = _player.position.z if _player != null else 0.0
-	return rec
-
-## Persist-back tick (called from _process at _SESSION_SNAPSHOT_INTERVAL): host writes
-## its own member directly; clients send an intent the host merges + persists.
-func _tick_session_persist(delta: float) -> void:
-	if not _coop_active or not _session_adopted or not NetworkManager.is_active():
-		return
-	_session_snapshot_accum += delta
-	if _session_snapshot_accum < _SESSION_SNAPSHOT_INTERVAL:
-		return
-	_session_snapshot_accum = 0.0
-	var rec: Dictionary = _build_local_character_record()
-	if NetworkManager.is_host():
-		SessionStore.update_member(MpProfile.get_token(), rec)
-		_sweep_expired_auctions()
-	elif _net_sync != null:
-		_net_sync.rpc_id(1, "submit_character", rec)
-
-# ── In-world session roster (GID-094 / TID-342) ───────────────────────────────
-# GID-107 (TID-395): the roster no longer builds its own always-visible HUD panel —
-# it recomputes _party_roster_rows and, if the Party panel is currently open,
-# pushes the update into it. The row data/shape is unchanged from the old
-# _add_roster_row() calls, just collected into an Array[Dictionary] instead of
-# built straight into Control nodes.
-
-## Rebuild the roster row data: local player first, then each connected remote.
-func _refresh_coop_roster() -> void:
-	_party_roster_rows.clear()
-	if _coop_active:
-		# Rating badge (GID-102 / TID-373): looked up from the cached leaderboard rows by
-		# identity token; shows "—" until the first snapshot arrives.
-		var my_rating: String = _rating_badge_for_token(MpProfile.get_token())
-		_party_roster_rows.append({
-			"text": "%s (you)  [%s]" % [MpProfile.get_display_name(), my_rating],
-			"color": MpProfile.get_color(),
-			"token": "",
-		})
-		for pid in _remote_player_nodes.keys():
-			var d: Dictionary = _remote_identities.get(pid, {})
-			var nm: String = str(d.get("name", "Player"))
-			var col: Color = d.get("color", Color(0.7, 0.85, 1.0))
-			var token: String = str(d.get("token", ""))
-			# Friends list (GID-102 / TID-375): a friend currently in-session is "seen now".
-			if token != "":
-				MpProfile.touch_friend_last_seen(token)
-			var clean_name: String = nm
-			# Rating badge (GID-102 / TID-373): looked up from the cached leaderboard rows.
-			var rating_badge: String = _rating_badge_for_token(token)
-			nm += "  [%s]" % rating_badge
-			# Map-scoped sync (TID-352): peers on another map are greyed + "(elsewhere)".
-			var peer_map: String = str(_remote_player_maps.get(pid, map_name))
-			if peer_map != "" and peer_map != map_name:
-				nm += " (elsewhere)"
-				col = col.darkened(0.45)
-			_party_roster_rows.append({
-				"text": nm,
-				"color": col,
-				"token": token,
-				"clean_name": clean_name,
-				"is_friend": MpProfile.is_friend(token) if token != "" else false,
-			})
-	if _party_panel != null and is_instance_valid(_party_panel):
-		_party_panel.refresh_roster(_party_roster_rows)
-
-## Party loot rolls (GID-102 / TID-381): host-only toggle between the default
-## first-opener-takes rule and the opt-in need/greed roll. Now a Party-panel
-## action (GID-107 / TID-395) rather than its own always-visible HUD button.
-func _loot_mode_label_text() -> String:
-	return "Loot: Need/Greed" if _coop_loot_mode_is_need_greed() else "Loot: First-Opener"
-
-func _on_loot_mode_toggle_pressed() -> void:
-	if not NetworkManager.is_host() or not SessionStore.is_open():
-		return
-	var new_mode: String = _SessionState.LOOT_MODE_FIRST_OPENER
-	if not _coop_loot_mode_is_need_greed():
-		new_mode = _SessionState.LOOT_MODE_NEED_GREED
-	SessionStore.set_loot_mode(new_mode)
-	if _party_panel != null and is_instance_valid(_party_panel):
-		_party_panel.refresh_loot_label(_loot_mode_label_text())
-	GameBus.hud_message_requested.emit(
-		"Loot mode: %s" % ("Need/Greed" if new_mode == _SessionState.LOOT_MODE_NEED_GREED else "First-Opener"))
-
-## Opens (or closes, if already open) the Party panel (GID-107 / TID-395):
-## Roster, Loot Mode, Stash, Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl —
-## each section keeps the exact gating/behavior its old standalone button had.
-func _open_party_panel() -> void:
-	if _party_panel != null and is_instance_valid(_party_panel):
-		_party_panel.queue_free()
-		_party_panel = null
-		return
-	var panel := _PartyPanel.new()
-	panel.roster_rows = _party_roster_rows
-	panel.on_add_friend = func(token: String, clean_name: String, color: Color) -> void:
-		MpProfile.add_friend(token, clean_name, color.to_html(false))
-		_refresh_coop_roster()
-	# Loot mode (host-only, same gate as the old button's press-handler check).
-	panel.show_loot_mode = NetworkManager.is_host() and SessionStore.is_open()
-	panel.loot_mode_label = _loot_mode_label_text()
-	panel.on_loot_mode_toggle = _on_loot_mode_toggle_pressed
-	# Stash / Leaderboard: always available while co-op is active (global to the
-	# session, not proximity-gated) — matches the old buttons' gating exactly.
-	panel.show_stash = true
-	panel.on_stash = _toggle_stash_overlay
-	panel.show_leaderboard = true
-	panel.on_leaderboard = _toggle_leaderboard_overlay
-	# Auction (GID-102 / TID-378; folded in by BID-042): same always-on,
-	# session-global gating as Stash/Leaderboard above — was left as a
-	# standalone HUD button when GID-107 shipped the panel; not proximity-gated,
-	# so it belongs here the same way.
-	panel.show_auction = true
-	panel.on_auction = _toggle_auction_overlay
-	# Ghost Duels: host-only, gated on SessionStore.is_open() (see _ensure_ghost_duel_button's
-	# old comment — a client never opens SessionStore locally).
-	panel.show_ghost_duels = SessionStore.is_open()
-	panel.on_ghost_duels = _toggle_ghost_duel_overlay
-	# Team Duel: host-only, needs 3 connected clients (4 total) — mirrors the old
-	# _update_team_duel_button_visibility() condition exactly.
-	panel.show_team_duel = NetworkManager.is_host() and not NetworkManager.is_dedicated_server() \
-		and SceneManager._state == SceneManager.State.WORLD \
-		and multiplayer.get_peers().size() >= 3 and _pending_challenge_from == -1
-	panel.on_team_duel = _start_team_duel
-	# Dungeon Crawl: host-only trigger — mirrors the old _ensure_dungeon_button() gate.
-	panel.show_dungeon_crawl = NetworkManager.is_host()
-	panel.on_dungeon_crawl = _start_dungeon_crawl
-	# Co-op Spire (GID-106 / TID-390): host-only trigger — same rationale as Dungeon
-	# Crawl (avoids a race where two peers start two different runs at once).
-	panel.show_spire = NetworkManager.is_host()
-	panel.on_spire = _start_coop_spire
-	# Guildhall (GID-106 / TID-392): host-only trigger — same rationale as Dungeon
-	# Crawl / Co-op Spire above.
-	panel.show_guildhall = NetworkManager.is_host()
-	panel.on_guildhall = _start_guildhall
-	# Siege (GID-103, migrated GID-115 / TID-433): host-only trigger, only on a
-	# siege-supported map, hidden while a siege is already in progress — mirrors
-	# the old _ensure_siege_button() gate exactly.
-	panel.show_siege = _CoopSiege.supports_map(map_name) and NetworkManager.is_host() \
-		and not _coop_siege_active
-	panel.on_siege = _start_coop_siege
-	# Tournament (GID-104, migrated GID-115 / TID-433): host-only, needs 2-3
-	# connected clients (3-4 total) — mirrors the old
-	# _update_tournament_button_visibility() condition exactly.
-	panel.show_tournament = NetworkManager.is_host() and not NetworkManager.is_dedicated_server() \
-		and SceneManager._state == SceneManager.State.WORLD and not _tournament_active \
-		and multiplayer.get_peers().size() >= 2 and _pending_challenge_from == -1
-	panel.on_tournament = _start_tournament
-	_hud.add_child(panel)
-	panel.closed.connect(func() -> void: _party_panel = null)
-	_party_panel = panel
-
-# Called by NetSync when a remote avatar packet arrives.
-func _on_avatar_received(sender: int, payload: Array) -> void:
-	var rp: Node = _valid_node(_remote_player_nodes.get(sender))
-	if not is_instance_valid(rp):
-		# Packet arrived before the connect signal was processed — spawn now.
-		_spawn_remote_player(sender)
-		rp = _valid_node(_remote_player_nodes.get(sender))
-	var d: Dictionary = _AvatarSync.decode(payload)
-	# Map-scoped avatar sync (TID-352): only render a peer that is on our map. An
-	# empty map (legacy/garbage payload) is treated as same-map so nothing regresses.
-	var sender_map: String = str(d.get("map", ""))
-	var prev_map: String = str(_remote_player_maps.get(sender, ""))
-	_remote_player_maps[sender] = sender_map
-	if prev_map != sender_map:
-		_refresh_coop_roster()
-	var same_map: bool = sender_map == "" or sender_map == map_name
-	# Downed & rescue (GID-105 / TID-389): mirror the sender's downed flag regardless
-	# of map (cheap bookkeeping) but only apply the visual tint when they're rendered.
-	var sender_downed: bool = bool(d.get("downed", false))
-	_coop_downed_peers[sender] = sender_downed
-	if not is_instance_valid(rp):
-		return
-	(rp as Node3D).visible = same_map
-	if rp.has_method("set_downed"):
-		rp.set_downed(sender_downed)
-	# Only feed position while on the same map; otherwise the avatar holds its last
-	# same-map position so re-convergence resumes cleanly (no cross-map coordinates).
-	if same_map and rp.has_method("set_net_state"):
-		rp.set_net_state(d["x"], d["z"], d["flip_h"], d["moving"])
-
-# Broadcast the local avatar's state at 15 Hz. Called from _process.
-func _broadcast_local_avatar(delta: float) -> void:
-	if not _coop_active or _net_sync == null or _player == null:
-		return
-	if not NetworkManager.is_active():
-		return
-	_net_broadcast_accum += delta
-	if _net_broadcast_accum < _NET_BROADCAST_INTERVAL:
-		return
-	_net_broadcast_accum = 0.0
-	var flip_h: bool = false
-	var spr: AnimatedSprite3D = _player.get("_sprite") as AnimatedSprite3D
-	if spr != null:
-		flip_h = spr.flip_h
-	var moving: bool = bool(_player.get("_is_moving"))
-	var payload: Array = _AvatarSync.encode(
-		_player.position.x, _player.position.z, flip_h, moving, map_name, _coop_downed)
-	_net_sync.rpc("recv_avatar", payload)
-
-## Co-op (GID-108 / TID-408): the authority's own Maiteln follower is the single
-## source of truth; broadcast its position (with map_name for the cross-map
-## filter) at the same low cadence as the local avatar. A no-op on clients and
-## whenever no Maiteln is currently present.
-func _broadcast_maiteln_state(delta: float) -> void:
-	if not _coop_world_authority() or _net_sync == null:
-		return
-	if not is_instance_valid(_maiteln_node):
-		return
-	_maiteln_broadcast_accum += delta
-	if _maiteln_broadcast_accum < _NET_BROADCAST_INTERVAL:
-		return
-	_maiteln_broadcast_accum = 0.0
-	_net_sync.rpc("recv_maiteln_state", [_maiteln_node.position.x, _maiteln_node.position.z, map_name])
-
-## Client: apply the authority's Maiteln position, filtered to our own map (the
-## same invariant AvatarSync enforces for RemotePlayer avatars — see CLAUDE.md
-## "Co-op avatar sync was map-blind").
-func _on_maiteln_state_received(payload: Array) -> void:
-	if not _coop_active or _coop_world_authority() or not is_instance_valid(_maiteln_node):
-		return
-	if payload.size() < 3:
-		return
-	var sender_map: String = str(payload[2])
-	var same_map: bool = sender_map == "" or sender_map == map_name
-	_maiteln_node.visible = same_map
-	if same_map and _maiteln_node.has_method("set_net_state"):
-		_maiteln_node.set_net_state(float(payload[0]), float(payload[1]))
-
-# ── Co-op world-object sync (GID-096) ─────────────────────────────────────────
-# The authority (host) owns the canonical lifecycle of shared world objects
-# (enemies, chests). Enemies/chests are spawned deterministically from the shared
-# map on every peer, so only *discrete* state changes are synced: an enemy engaged
-# (removed for all — engage-locks), an enemy defeated (persisted to the session
-# file), a chest opened (reflected for all + persisted). Positions are correct by
-# construction; a low-Hz position stream exists for future moving enemies. All
-# guarded by _coop_active; single-player hits none of this.
-
-## True only when a co-op session is live and this peer is the authority (host).
-func _coop_world_authority() -> bool:
-	return _coop_active and NetworkManager.is_active() and NetworkManager.is_host()
-
-## True on EVERY peer (host and clients alike) while a co-op Spire floor map is
-## loaded. Deliberately NOT SceneManager.is_coop_spire_active() — that flag lives
-## on the per-process SceneManager autoload and is only ever set true by the host
-## (enter_spire_coop is host-only), so a client's own copy would always read false.
-## map_name is reliable on every peer since it reflects the map that peer actually
-## loaded, regardless of who initiated the transition.
-func _in_coop_spire_floor() -> bool:
-	return NetworkManager.is_active() and map_name.begins_with("spire_floor_")
-
-## Local player engaged an enemy. Authority broadcasts its removal to all peers;
-## a client submits the intent and lets the authority fan it out. Either way the
-## engaging peer already removed the node locally (EnemyNPC.engage queue_free'd it).
-## Records the id so a subsequent battle win can persist the defeat.
-func _on_enemy_engaged_coop(edata: Dictionary) -> void:
-	if not _coop_active or _net_sync == null or not NetworkManager.is_active():
-		return
-	var eid: String = str(edata.get("id", ""))
-	if eid == "":
-		return
-	# GID-103 (TID-384): the siege finale boss is a joint battle for the whole
-	# party, not a solo engage-lock fight — route it separately and skip the
-	# normal single-player-battle path entirely.
-	if _coop_siege_active and eid.begins_with("siege_boss_"):
-		_coop_engage_siege_boss(edata)
-		return
-	# GID-106 (TID-391): the co-op Endless Spire floor boss is likewise a joint
-	# battle for the whole party. SceneManager._on_enemy_engaged already skips its
-	# own solo-battle path for this exact id while on a co-op Spire floor map.
-	if _in_coop_spire_floor() and eid == "spire_enemy":
-		_coop_engage_spire_boss(edata)
-		return
-	_coop_last_engaged_enemy_id = eid
-	if NetworkManager.is_host():
-		_coop_removed_enemies[eid] = true
-		_net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
-			_WorldObjectSync.EV_ENEMY_REMOVED, eid))
-	else:
-		_net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
-			_WorldObjectSync.EV_ENEMY_ENGAGED, eid))
-
-## Persist a co-op battle victory against a shared enemy. Host writes the session
-## file directly; a client submits the defeat for the host to persist. Called from
-## _on_battle_won when a session is active.
-func _coop_persist_enemy_defeat() -> void:
-	if not _coop_active or not NetworkManager.is_active():
-		return
-	var eid: String = _coop_last_engaged_enemy_id
-	_coop_last_engaged_enemy_id = ""
-	if eid == "":
-		return
-	if NetworkManager.is_host():
-		_coop_record_enemy_defeated(eid)
-	elif _net_sync != null:
-		_net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
-			_WorldObjectSync.EV_ENEMY_DEFEATED, eid))
-	# GID-103 (TID-383): tally + announce a party night-hunt kill and record it to
-	# the session's night_hunts leaderboard (best single-night tally per member).
-	if eid.begins_with("night_hunt_"):
-		_coop_night_hunt_kills += 1
-		_submit_pve_score("night_hunts", _coop_night_hunt_kills)
-		GameBus.hud_message_requested.emit("Spectral kill! (%d tonight)" % _coop_night_hunt_kills)
-		if _coop_night_hunt_kills == 5:
-			GameBus.hud_message_requested.emit("The party has defeated 5 spectral enemies tonight!")
-
-## Host-only: record a defeated enemy into the session file (resumes on reconnect).
-func _coop_record_enemy_defeated(eid: String) -> void:
-	_coop_removed_enemies[eid] = true
-	var st = SessionStore.get_state()
-	if st != null and not st.defeated_enemies.has(eid):
-		st.defeated_enemies.append(eid)
-		SessionStore.mark_dirty()
-
-## Local player opened a chest. Authority persists + broadcasts; a client submits the
-## intent. The opener keeps the loot (first-opener-takes); peers only flip it open.
-func _on_chest_opened_coop(cid: String) -> void:
-	if not _coop_active or _net_sync == null or not NetworkManager.is_active() or cid == "":
-		return
-	_coop_opened_objects[cid] = true
-	if NetworkManager.is_host():
-		_coop_record_chest_opened(cid)
-		_net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
-			_WorldObjectSync.EV_CHEST_OPENED, cid))
-	else:
-		_net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
-			_WorldObjectSync.EV_CHEST_OPENED, cid))
-
-## Host-only: persist an opened chest into the session file.
-func _coop_record_chest_opened(cid: String) -> void:
-	_coop_opened_objects[cid] = true
-	var st = SessionStore.get_state()
-	if st != null and not st.opened_chests.has(cid):
-		st.opened_chests.append(cid)
-		SessionStore.mark_dirty()
-
-## Remove a shared enemy node locally (a peer reflecting the authority's removal).
-func _coop_remove_enemy_node(eid: String) -> void:
-	_coop_removed_enemies[eid] = true
-	_coop_enemy_targets.erase(eid)
-	var node: Node3D = _valid_node3d(_enemy_nodes.get(eid))
-	if is_instance_valid(node):
-		if node.has_method("mark_defeated"):
-			node.mark_defeated()
-		else:
-			node.queue_free()
-	_enemy_nodes.erase(eid)
-
-## Flip a shared chest node to opened locally (no loot — first-opener already took it).
-func _coop_mark_chest_opened_node(cid: String) -> void:
-	_coop_opened_objects[cid] = true
-	if _active_chest_data.has(cid):
-		(_active_chest_data[cid] as Dictionary)["opened"] = true
-	var node: Node3D = _valid_node3d(_chest_nodes.get(cid))
-	if is_instance_valid(node) and node.has_method("mark_opened"):
-		node.mark_opened()
-
-## NetSync → peer: apply a discrete world event from the authority.
-func _on_world_event_received(_sender: int, payload: Array) -> void:
-	if not _coop_active:
-		return
-	var ev: Dictionary = _WorldObjectSync.decode_event(payload)
-	var kind: String = str(ev.get("kind", ""))
-	var id: String = str(ev.get("id", ""))
-	if id == "":
-		return
-	match kind:
-		_WorldObjectSync.EV_ENEMY_REMOVED:
-			_coop_remove_enemy_node(id)
-		_WorldObjectSync.EV_CHEST_OPENED:
-			_coop_mark_chest_opened_node(id)
-		_WorldObjectSync.EV_SCROLL_COLLECTED:
-			_coop_apply_scroll_collected(id)
-
-## NetSync → authority: apply a client's world-event intent (host only).
-func _on_world_event_submitted(sender: int, payload: Array) -> void:
-	if not _coop_world_authority():
-		return
-	var ev: Dictionary = _WorldObjectSync.decode_event(payload)
-	var kind: String = str(ev.get("kind", ""))
-	var id: String = str(ev.get("id", ""))
-	if id == "":
-		return
-	match kind:
-		_WorldObjectSync.EV_ENEMY_ENGAGED:
-			# A client engaged a shared enemy: drop it on the host and fan the
-			# removal out to every other peer (the sender already removed its own).
-			_coop_remove_enemy_node(id)
-			for pid in multiplayer.get_peers():
-				if int(pid) != sender:
-					_net_sync.rpc_id(int(pid), "recv_world_event",
-						_WorldObjectSync.encode_event(_WorldObjectSync.EV_ENEMY_REMOVED, id))
-		_WorldObjectSync.EV_ENEMY_DEFEATED:
-			_coop_record_enemy_defeated(id)
-		_WorldObjectSync.EV_CHEST_OPENED:
-			_coop_record_chest_opened(id)
-			_coop_mark_chest_opened_node(id)
-			for pid in multiplayer.get_peers():
-				if int(pid) != sender:
-					_net_sync.rpc_id(int(pid), "recv_world_event",
-						_WorldObjectSync.encode_event(_WorldObjectSync.EV_CHEST_OPENED, id))
-		_WorldObjectSync.EV_SCROLL_COLLECTED:
-			_coop_record_scroll_collected(id)
-			_coop_apply_scroll_collected(id)
-			for pid in multiplayer.get_peers():
-				if int(pid) != sender:
-					_net_sync.rpc_id(int(pid), "recv_world_event",
-						_WorldObjectSync.encode_event(_WorldObjectSync.EV_SCROLL_COLLECTED, id))
-
-## Host: send the current removed/opened/collected snapshot to a just-joined peer.
-func _send_world_snapshot_to_peer(peer_id: int) -> void:
-	if not _coop_world_authority() or _net_sync == null:
-		return
-	var payload: Array = _WorldObjectSync.encode_snapshot(
-		_coop_removed_enemies.keys(), _coop_opened_objects.keys(), _coop_collected_scrolls.keys())
-	_net_sync.rpc_id(peer_id, "recv_world_snapshot", payload)
-
-## Client: reconcile freshly-spawned nodes to the authority's snapshot on join.
-func _on_world_snapshot_received(payload: Array) -> void:
-	if not _coop_active:
-		return
-	var snap: Dictionary = _WorldObjectSync.decode_snapshot(payload)
-	_coop_apply_world_progress(
-		snap.get("removed_enemies", []), snap.get("opened_objects", []),
-		snap.get("collected_scrolls", []))
-
-# ── Synced world clock & weather (GID-103 / TID-382) ──────────────────────────
-# The authority (host) is the single source of truth for time_of_day/days_elapsed/
-# weather. Its own local DayNightCycle (_dnc) already advances every frame — this
-# section only adds the low-Hz broadcast (+ the co-op-only weather roll, since
-# WeatherManager is hard-gated to the "main" infinite-world map). Clients apply the
-# broadcast read-only to their own _dnc and to weather visuals. Guarded by
-# _coop_active + not _is_infinite (co-op stays on finite named maps); single-player
-# and the infinite world are completely untouched.
-
-## Host-only: roll/broadcast tick, called every frame from _process while co-op is
-## active. A no-op on clients (they only ever receive recv_env_state) and on the
-## infinite world (WeatherManager already owns weather there).
-func _tick_env_sync(delta: float) -> void:
-	if _is_infinite or not _coop_world_authority() or _dnc == null:
-		return
-	_coop_weather_timer -= delta
-	var weather_rolled: bool = false
-	if _coop_weather_timer <= 0.0:
-		_coop_weather_timer = _coop_roll_weather()
-		weather_rolled = true
-	_coop_env_broadcast_timer -= delta
-	if weather_rolled or _coop_env_broadcast_timer <= 0.0:
-		_coop_env_broadcast_timer = _ENV_BROADCAST_INTERVAL
-		_broadcast_env_state()
-
-## Host-only: pick the next weather id + duration, apply it locally, and persist it.
-## Returns the seconds until the next reroll.
-func _coop_roll_weather() -> float:
-	if _coop_weather_rng == null:
-		_coop_weather_rng = RandomNumberGenerator.new()
-		var seed_val: int = 0
-		if SessionStore.is_open():
-			seed_val = SessionStore.get_state().world_seed
-		_coop_weather_rng.seed = seed_val if seed_val != 0 else randi()
-	var weather_id: String = _EnvSync.roll_weather(_coop_weather_rng)
-	var duration: float = _EnvSync.roll_duration(_coop_weather_rng, weather_id)
-	if SessionStore.is_open():
-		SessionStore.get_state().weather_id = weather_id
-		SessionStore.mark_dirty()
-	_on_weather_changed(weather_id, duration)
-	return duration
-
-## Host-only: broadcast the current clock/weather to every peer.
-func _broadcast_env_state() -> void:
-	if not _coop_world_authority() or _net_sync == null or _dnc == null:
-		return
-	var days: int = 0
-	var weather_id: String = ""
-	if SessionStore.is_open():
-		var st = SessionStore.get_state()
-		days = st.days_elapsed
-		weather_id = st.weather_id
-	_net_sync.rpc("recv_env_state", _EnvSync.encode(_dnc.get_time_of_day(), days, weather_id))
-
-## Any peer: apply the authority's clock/weather broadcast (or late-join snapshot).
-func _on_env_state_received(payload: Array) -> void:
-	if not _coop_active:
-		return
-	var d: Dictionary = _EnvSync.decode(payload)
-	if _dnc != null:
-		_dnc.set_time_of_day(float(d.get("time_of_day", 0.4)))
-	_coop_env_days_elapsed = int(d.get("days_elapsed", 0))
-	var weather_id: String = str(d.get("weather_id", ""))
-	if weather_id != _coop_env_weather_id:
-		_coop_env_weather_id = weather_id
-		if not _is_infinite:
-			_on_weather_changed(weather_id, 0.0)
-
-## The current shared co-op day counter, read from the authoritative SessionStore on
-## the host or from the last-received broadcast on a client. Used to key the
-## deterministic night-hunt/siege plans so every peer computes the same result.
-func _coop_current_days_elapsed() -> int:
-	if NetworkManager.is_host() and SessionStore.is_open():
-		return SessionStore.get_state().days_elapsed
-	return _coop_env_days_elapsed
-
-# ── Party Night Hunts (GID-103 / TID-383) ─────────────────────────────────────
-# Deterministic spectral spawns on the shared co-op map at synced night — reuses
-# the GID-096 engage-lock/defeat sync generically (the spawn id alone keys it, no
-# new event kind or RPC needed: EnemyNPC.engage() emits enemy_data["id"], and
-# _on_enemy_engaged_coop already handles any id). Guarded by _coop_active + not
-# _is_infinite — the infinite world keeps its own single-player nocturnal system
-# (GID-055) untouched.
-
-## Called every frame from _process while co-op is active. Spawns/despawns the
-## whole nightly hunt as the synced clock crosses the night/day boundary.
-func _coop_update_night_hunts(_delta: float) -> void:
-	if not _coop_active or _is_infinite or not _CoopNightHunts.supports_map(map_name):
-		return
-	var is_night: bool = _dnc != null and _dnc.is_night_now()
-	var days: int = _coop_current_days_elapsed()
-	if is_night:
-		if not _coop_night_hunt_active or _coop_night_hunt_day != days:
-			_coop_spawn_night_hunt(days)
-	elif _coop_night_hunt_active:
-		_coop_despawn_night_hunt()
-
-## Spawn tonight's deterministic spectral enemies. Every peer computes the exact
-## same plan independently (see CoopNightHunts.generate_hunt) — nothing is
-## broadcast for the spawn itself, only the later engage/defeat events.
-func _coop_spawn_night_hunt(days: int) -> void:
-	if _coop_night_hunt_active:
-		_coop_despawn_night_hunt()
-	_coop_night_hunt_active = true
-	_coop_night_hunt_day = days
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
-	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(map_name, Vector3.ZERO)
-	var plan: Array[Dictionary] = _CoopNightHunts.generate_hunt(map_name, days)
-	var spawned_any: bool = false
-	for entry: Dictionary in plan:
-		var eid: String = str(entry.get("id", ""))
-		if eid == "" or _coop_removed_enemies.has(eid):
-			continue  # already engaged/defeated earlier tonight (e.g. re-entering the map)
-		var off: Vector2 = entry.get("offset", Vector2.ZERO)
-		var wx: float = gate.x + off.x
-		var wz: float = gate.z + off.y
-		var wy: float = get_terrain_height(wx, wz) + 0.5
-		var node: Node3D = _EnemyScene.instantiate() as Node3D
-		if node == null:
-			continue
-		node.set_meta("is_nocturnal", true)
-		node.call("init_from_data", {
-			"id": eid,
-			"enemy_type": str(entry.get("enemy_type", "spectre_wisp")),
-			"tracking": true,
-		})
-		node.position = Vector3(wx, wy, wz)
-		node.modulate = Color(0.7, 0.85, 1.0, 0.85)
-		_entity_root.add_child(node)
-		_enemy_nodes[eid] = node
-		_coop_night_hunt_nodes[eid] = node
-		spawned_any = true
-	if spawned_any:
-		GameBus.hud_message_requested.emit("The party hears spectral howls on the wind…")
-
-## Dawn (or map exit): clear tonight's surviving hunt nodes and reset the tally.
-func _coop_despawn_night_hunt() -> void:
-	for eid: String in _coop_night_hunt_nodes.keys():
-		var n: Node3D = _valid_node3d(_coop_night_hunt_nodes[eid])
-		if is_instance_valid(n):
-			n.queue_free()
-		_enemy_nodes.erase(eid)
-	_coop_night_hunt_nodes.clear()
-	_coop_night_hunt_active = false
-	_coop_night_hunt_kills = 0
-
-# ── Party loot rolls (GID-102 / TID-381) ──────────────────────────────────────
-# Opt-in need/greed alternative to the GID-096 first-opener-takes chest rule.
-# Guarded by _coop_active + the session's loot_mode; completely inert (and this whole
-# section unreached) when the mode is left at the default "first_opener".
-
-## True when a co-op session has need/greed loot mode enabled. Reads the live
-## SessionState on the host; a client mirrors the flag locally when it receives
-## a roll-start broadcast (there's nothing to read before the first roll on a client,
-## which is fine — a client never decides to start a roll, only the authority does).
-func _coop_loot_mode_is_need_greed() -> bool:
-	if not SessionStore.is_open():
-		return false
-	return SessionStore.get_loot_mode() == _SessionState.LOOT_MODE_NEED_GREED
-
-## Opener (host or client) triggers a roll for a just-opened chest's drop. The chest's
-## position/card ids/tier are re-derived from _active_chest_data[cid] rather than sent
-## over the wire — chests are deterministically spawned from the same map data on every
-## peer (the GID-096 invariant), so the authority already knows the exact same values the
-## opener does without needing a payload for the item shape.
-func _start_loot_roll(cid: String, chest_tier: int) -> void:
-	if _coop_world_authority():
-		_authority_open_loot_roll(cid, chest_tier)
-	elif _net_sync != null:
-		_net_sync.rpc_id(1, "submit_loot_roll_request", cid, chest_tier)
-
-## Client → authority: "a chest I opened should start a need/greed roll." The chest-open
-## itself is already synced via the existing EV_CHEST_OPENED path; this only carries the
-## tier (the id is enough for the host to re-derive position/card ids locally).
-func _on_loot_roll_request_submitted(sender: int, cid: String, chest_tier: int) -> void:
-	if not _coop_world_authority():
-		return
-	_authority_open_loot_roll(cid, chest_tier)
-
-
-## Authority: build the roll session for a chest's resolved drop and broadcast the prompt
-## to every connected session member (present = connected to the session; a same-map/
-## proximity filter was judged out of scope for v1 — documented in the task).
-func _authority_open_loot_roll(cid: String, chest_tier: int) -> void:
-	if _loot_roll_by_chest(cid) != "":
-		return  # a roll for this chest is already in flight — never double-grant
-	var chest_data: Dictionary = _active_chest_data.get(cid, {}) as Dictionary
-	var chest_card_ids: Array[String] = []
-	chest_card_ids.assign(chest_data.get("card_ids", []))
-	var roll_id: String = "roll_%s_%d" % [cid, Time.get_ticks_msec()]
-	var participants: Array = []
-	participants.append(MpProfile.get_token())
-	for token in _session_token_by_peer.values():
-		if not participants.has(token):
-			participants.append(str(token))
-	_loot_rolls_active[roll_id] = {
-		"chest_id": cid,
-		"card_ids": chest_card_ids,
-		"tier": chest_tier,
-		"participants": participants,
-		"choices": {},
-		"timer": 0.0,
-	}
-	var item: Dictionary = {"card_ids": chest_card_ids, "tier": chest_tier}
-	var payload: Dictionary = _LootRoll.encode_start(roll_id, item, participants)
+## Creates the co-op feature modules and, once NetSync exists, registers them as
+## its RPC handler targets. Called from _ready (so _ready's own GameBus wiring
+## has something to connect to) and again from _setup_coop. Idempotent: a PvP
+## battle detaches and re-adds WorldScene without tearing the modules down.
+## The modules are inert outside a session, so creating them always is free.
+func _ensure_coop_modules() -> void:
+	coop_social = _ensure_coop_module(coop_social, _CoopSocial, "CoopSocial")
+	coop_pvp = _ensure_coop_module(coop_pvp, _CoopPvP, "CoopPvP")
+	coop_activities = _ensure_coop_module(coop_activities, _CoopActivities, "CoopActivities")
+	coop_session = _ensure_coop_module(coop_session, _CoopSession, "CoopSession")
+
+func _ensure_coop_module(existing: Node, script: GDScript, node_name: String) -> Node:
+	var mod: Node = existing
+	if mod == null or not is_instance_valid(mod):
+		mod = script.new()
+		mod.name = node_name
+		mod.set("_world", self)
+		add_child(mod)
 	if _net_sync != null:
-		_net_sync.rpc("recv_loot_roll_start", payload)
-	_on_loot_roll_start_received(payload)  # authority also sees its own prompt
+		_net_sync.call("register_handler", mod)
+	return mod
 
 
-## Find the in-flight roll_id for a chest id, or "" if none (authority only; empty dict
-## on clients so this is always "").
-func _loot_roll_by_chest(cid: String) -> String:
-	for rid in _loot_rolls_active.keys():
-		if str((_loot_rolls_active[rid] as Dictionary).get("chest_id", "")) == cid:
-			return str(rid)
-	return ""
-
-
-## Any peer (including the authority itself): show the Need/Greed/Pass prompt.
-func _on_loot_roll_start_received(payload: Dictionary) -> void:
-	var start: Dictionary = _LootRoll.decode_start(payload)
-	if str(start.get("roll_id", "")) == "":
-		return
-	_pending_loot_roll = start
-	_show_loot_roll_panel(start)
-
-
-## Local player picked Need/Greed/Pass. Sends the choice to the authority (or applies
-## it directly if this peer IS the authority).
-func _submit_loot_roll_choice(roll_id: String, choice: String) -> void:
-	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
-		_loot_roll_panel.queue_free()
-		_loot_roll_panel = null
-	_pending_loot_roll = {}
-	if NetworkManager.is_host():
-		_on_loot_roll_choice_submitted(multiplayer.get_unique_id(), roll_id, choice)
-	elif _net_sync != null:
-		var payload: Array = _LootRoll.encode_choice(roll_id, choice)
-		_net_sync.rpc_id(1, "submit_loot_roll_choice", payload[0], payload[1])
-
-
-## Authority: record a participant's choice. Resolves early once every expected
-## participant has responded (rather than always waiting out the full timeout).
-func _on_loot_roll_choice_submitted(sender: int, roll_id: String, choice: String) -> void:
-	if not _coop_world_authority():
-		return
-	if not _loot_rolls_active.has(roll_id):
-		return
-	var roll: Dictionary = _loot_rolls_active[roll_id]
-	var token: String = str(_session_token_by_peer.get(sender,
-		MpProfile.get_token() if sender == multiplayer.get_unique_id() else ""))
-	if token == "":
-		return
-	var choices: Dictionary = roll.get("choices", {})
-	choices[token] = _LootRoll.normalize_choice(choice)
-	roll["choices"] = choices
-	_loot_rolls_active[roll_id] = roll
-	var participants: Array = roll.get("participants", [])
-	if choices.size() >= participants.size():
-		_settle_loot_roll(roll_id)
-
-
-## Ticked from _process while any roll is in flight (authority only). Missing
-## responses auto-pass once the timeout elapses.
-func _tick_loot_rolls(delta: float) -> void:
-	if not _coop_world_authority() or _loot_rolls_active.is_empty():
-		return
-	for roll_id in _loot_rolls_active.keys().duplicate():
-		var roll: Dictionary = _loot_rolls_active[roll_id]
-		var t: float = float(roll.get("timer", 0.0)) + delta
-		roll["timer"] = t
-		_loot_rolls_active[roll_id] = roll
-		if t >= _LOOT_ROLL_TIMEOUT:
-			_settle_loot_roll(str(roll_id))
-
-
-## Authority: resolve the winner (missing participants auto-pass), grant the loot to
-## the winner's session character, persist, and broadcast the result. No item is ever
-## granted twice — the roll is removed from _loot_rolls_active before any grant happens.
-func _settle_loot_roll(roll_id: String) -> void:
-	if not _loot_rolls_active.has(roll_id):
-		return
-	var roll: Dictionary = _loot_rolls_active[roll_id]
-	_loot_rolls_active.erase(roll_id)
-	var participants: Array = roll.get("participants", [])
-	var choices: Dictionary = (roll.get("choices", {}) as Dictionary).duplicate()
-	for token in participants:
-		if not choices.has(str(token)):
-			choices[str(token)] = _LootRoll.CHOICE_PASS
-	var rng := RandomNumberGenerator.new()
-	rng.randomize()
-	var outcome: Dictionary = _LootRoll.resolve_winner(choices, rng)
-	var winner_token: String = str(outcome.get("winner_token", ""))
-	var rolls: Dictionary = outcome.get("rolls", {})
-	if winner_token != "":
-		var chest_card_ids: Array[String] = []
-		chest_card_ids.assign(roll.get("card_ids", []))
-		_grant_chest_loot_to_token(winner_token, chest_card_ids, int(roll.get("tier", 1)))
-	var payload: Dictionary = _LootRoll.encode_result(roll_id, winner_token, rolls)
-	if _net_sync != null:
-		_net_sync.rpc("recv_loot_roll_result", payload)
-	_on_loot_roll_result_received(payload)
-
-
-## Authority: grant a resolved chest's cards + a flat coin reward directly into the
-## winner's GID-095 session character record (they may not be the local player, so this
-## reuses the direct-SessionStore-write pattern from _transfer_card_in_session /
-## party-bounty rewards rather than the physical WorldItem pickup path, which only ever
-## grants to the local opener). Equipment drops are out of scope for the roll path — no
-## session-scoped equipment inventory exists to grant to an arbitrary winner (see BID).
-func _grant_chest_loot_to_token(token: String, card_ids: Array[String], tier: int) -> void:
-	var st = SessionStore.get_state()
-	if st == null or token == "":
-		return
-	var rec: Dictionary = st.get_member(token)
-	if rec.is_empty():
-		return
-	var owned: Array = rec.get("owned_cards", []) as Array
-	var counter: int = owned.size()
-	for cid_tpl: String in card_ids:
-		var rarity: String = _CardDropUtil.effective_rarity(cid_tpl, _CardDropUtil.roll_rarity(tier))
-		var stats: Dictionary = _CardDropUtil.roll_stats(cid_tpl, rarity)
-		var uid: String = "%s_%s_roll_%d" % [cid_tpl, token, counter]
-		counter += 1
-		owned.append(_CardInstanceUtil.make(
-			uid, cid_tpl, rarity,
-			int(stats.get("attack", 0)), int(stats.get("health", 0)), int(stats.get("cost", 1))))
-	rec["owned_cards"] = owned
-	rec["coins"] = int(rec.get("coins", 0)) + randi_range(5, 20) * 3
-	st.update_member(token, rec)
-	SessionStore.mark_dirty()
-
-
-## Any peer: announce the winner (toast) and close the prompt if one was open.
-func _on_loot_roll_result_received(payload: Dictionary) -> void:
-	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
-		_loot_roll_panel.queue_free()
-		_loot_roll_panel = null
-	_pending_loot_roll = {}
-	var result: Dictionary = _LootRoll.decode_result(payload)
-	var winner_token: String = str(result.get("winner_token", ""))
-	if winner_token == "":
-		GameBus.hud_message_requested.emit("Loot roll: everyone passed — nothing claimed.")
-		return
-	var winner_name: String = _display_name_for_token(winner_token)
-	GameBus.hud_message_requested.emit("%s won the loot roll!" % winner_name)
-
-
-## Public accessor for SceneManager.session_token_for_peer (GID-104 / TID-387),
-## called from BattleScene while this scene is detached from the tree during a PvP
-## battle/spectate session (spectator-wager escrow needs to resolve a spectator's
-## peer_id to their GID-095 session token). Returns "" for an unresolved peer (e.g.
-## the identity handshake hasn't completed) — callers must treat that as ineligible.
 func get_session_token_for_peer(peer_id: int) -> String:
 	var token: String = str(_session_token_by_peer.get(peer_id, ""))
 	# Local-peer convenience branch: only touch `multiplayer` while inside the tree —
@@ -2022,1103 +775,8 @@ func _display_name_for_token(token: String) -> String:
 
 ## Build the transient Need/Greed/Pass prompt panel. Viewport-relative, mobile/desktop
 ## parity (all three choices are tappable buttons — no keyboard-only path).
-func _show_loot_roll_panel(start: Dictionary) -> void:
-	if _loot_roll_panel != null and is_instance_valid(_loot_roll_panel):
-		_loot_roll_panel.queue_free()
-		_loot_roll_panel = null
-	var roll_id: String = str(start.get("roll_id", ""))
-	var item: Dictionary = start.get("item", {})
-	var card_ids: Array = item.get("card_ids", [])
-	var tier: int = int(item.get("tier", 1))
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var layer := CanvasLayer.new()
-	layer.layer = 183
-	add_child(layer)
-	_loot_roll_panel = layer
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	layer.add_child(panel)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.02))
-	panel.add_child(vbox)
-	var lbl := Label.new()
-	lbl.text = "Loot roll! Tier %d chest — %d card(s).\nNeed, Greed, or Pass?" % [tier, card_ids.size()]
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.026))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(lbl)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vh * 0.025))
-	vbox.add_child(row)
-	var need_btn := Button.new()
-	need_btn.text = "Need"
-	need_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
-	need_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	need_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_NEED))
-	row.add_child(need_btn)
-	var greed_btn := Button.new()
-	greed_btn.text = "Greed"
-	greed_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
-	greed_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	greed_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_GREED))
-	row.add_child(greed_btn)
-	var pass_btn := Button.new()
-	pass_btn.text = "Pass"
-	pass_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.06)
-	pass_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	pass_btn.pressed.connect(_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_PASS))
-	row.add_child(pass_btn)
 
-# ── Co-op story mode — shared story flags (GID-098 / TID-356) ────────────────
 
-## Host: send current session story flags to a just-joined peer.
-func _send_story_flags_snapshot_to_peer(peer_id: int) -> void:
-	if not _coop_world_authority() or _net_sync == null or not SessionStore.is_open():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	_net_sync.rpc_id(peer_id, "recv_story_flags_snapshot", st.story_flags.duplicate())
-
-## Client: apply the session story flags on join so NPCs/gates are consistent.
-func _on_story_flags_snapshot_received(flags: Dictionary) -> void:
-	if not _coop_active:
-		return
-	_coop_story_flag_syncing = true
-	for key in flags:
-		var val: bool = bool(flags[key])
-		SceneManager.save_manager.story_flags[key] = val
-		if val:
-			GameBus.story_flag_set.emit(str(key))
-	_coop_story_flag_syncing = false
-
-## Called when GameBus.story_flag_set fires locally (any setter).
-## Routes the flag change through the authority so the whole party stays in sync.
-func _on_local_story_flag_set(key: String) -> void:
-	# Maiteln's journey presence (GID-108 / TID-403) is gated on several Chapter 1
-	# flags that can flip while this exact map/WorldScene instance stays loaded
-	# (rabbit hunt won, fire learned, temple council resolved) — re-evaluate on
-	# every flag change so he appears/disappears immediately, not just on the
-	# next map load. Runs before the co-op-only early return below: single-player
-	# needs this too.
-	if not NetworkManager.is_dedicated_server():
-		_refresh_maiteln_presence()
-	if not _coop_active or _net_sync == null or not NetworkManager.is_active():
-		return
-	if _coop_story_flag_syncing:
-		return
-	var value: bool = SceneManager.save_manager.get_story_flag(key)
-	if NetworkManager.is_host():
-		# Apply to session state and broadcast to all clients.
-		if SessionStore.is_open():
-			var st = SessionStore.get_state()
-			if st != null:
-				st.story_flags[key] = value
-				SessionStore.mark_dirty()
-		_coop_story_flag_syncing = true
-		_net_sync.rpc("recv_story_flag", key, value)
-		_coop_story_flag_syncing = false
-	else:
-		# Submit intent to authority; the authority will broadcast back to everyone.
-		_net_sync.rpc_id(1, "submit_story_flag", key, value)
-
-## Any peer: the authority broadcast a flag change — apply locally.
-func _on_story_flag_received(key: String, value: bool) -> void:
-	if not _coop_active:
-		return
-	_coop_story_flag_syncing = true
-	SceneManager.save_manager.story_flags[key] = value
-	if value:
-		GameBus.story_flag_set.emit(key)
-	if SessionStore.is_open():
-		var st = SessionStore.get_state()
-		if st != null:
-			st.story_flags[key] = value
-			SessionStore.mark_dirty()
-	_coop_story_flag_syncing = false
-
-## Authority: a client wants to set a flag — arbitrate (idempotent) and broadcast.
-func _on_story_flag_submitted(sender: int, key: String, value: bool) -> void:
-	if not _coop_world_authority() or _net_sync == null:
-		return
-	# Idempotency: if the flag is already this value, skip side-effects.
-	if SessionStore.is_open():
-		var st = SessionStore.get_state()
-		if st != null and st.story_flags.get(key, false) == value:
-			return
-		if st != null:
-			st.story_flags[key] = value
-			SessionStore.mark_dirty()
-	_coop_story_flag_syncing = true
-	SceneManager.save_manager.story_flags[key] = value
-	if value:
-		GameBus.story_flag_set.emit(key)
-	# Broadcast to all peers (including the submitter so their SaveManager is synced).
-	_net_sync.rpc("recv_story_flag", key, value)
-	_coop_story_flag_syncing = false
-
-## Remove already-resolved enemy nodes and flip opened chests. Shared by host resume
-## (_setup_session) and client join (_on_world_snapshot_received).
-func _coop_apply_world_progress(removed_enemies: Array, opened_objects: Array, collected_scrolls: Array = []) -> void:
-	for eid in removed_enemies:
-		_coop_remove_enemy_node(str(eid))
-	for cid in opened_objects:
-		_coop_mark_chest_opened_node(str(cid))
-	for sid in collected_scrolls:
-		_coop_apply_scroll_collected(str(sid))
-
-## Host: broadcast positions for any live shared enemy at a low Hz (inert while all
-## enemies are static, as on every current co-op map). Called from _process.
-func _broadcast_enemy_positions(delta: float) -> void:
-	if not _coop_world_authority() or _net_sync == null or _enemy_nodes.is_empty():
-		return
-	_enemy_pos_accum += delta
-	if _enemy_pos_accum < _ENEMY_POS_INTERVAL:
-		return
-	_enemy_pos_accum = 0.0
-	var states: Array = []
-	for eid in _enemy_nodes.keys():
-		var raw = _enemy_nodes.get(eid)
-		if is_instance_valid(raw):
-			var node: Node3D = raw
-			states.append(_EnemySync.encode_state(
-				str(eid), node.position.x, node.position.z, true))
-	if not states.is_empty():
-		_net_sync.rpc("recv_enemy_positions", _EnemySync.encode_batch(states))
-
-## Client: store the latest authority positions; _process interpolates toward them.
-func _on_enemy_positions_received(payload: Array) -> void:
-	if not _coop_active or NetworkManager.is_host():
-		return
-	for st: Dictionary in _EnemySync.decode_batch(payload):
-		var eid: String = str(st.get("id", ""))
-		if eid == "" or _coop_removed_enemies.has(eid):
-			continue
-		_coop_enemy_targets[eid] = Vector2(float(st.get("x", 0.0)), float(st.get("z", 0.0)))
-
-## Client: smooth shared enemies toward their last synced position (no-op for static
-## enemies, where target == spawn). Called from _process.
-func _interp_synced_enemies(delta: float) -> void:
-	if _coop_enemy_targets.is_empty():
-		return
-	for eid in _coop_enemy_targets.keys():
-		var node: Node3D = _valid_node3d(_enemy_nodes.get(eid))
-		if not is_instance_valid(node):
-			_coop_enemy_targets.erase(eid)
-			continue
-		var tgt2: Vector2 = _coop_enemy_targets[eid]
-		var target: Vector3 = Vector3(tgt2.x, get_terrain_height(tgt2.x, tgt2.y), tgt2.y)
-		node.position = _EnemySync.interp(node.position, target, delta, 12.0)
-
-# ── Co-op story mode — map transitions (GID-098 / TID-355) ───────────────────
-
-## Received from any peer: follow them to target_map / door_id.
-## Guards against double-transition on the same WorldScene instance.
-func _on_map_transition_received(target_map: String, door_id: String) -> void:
-	if not _coop_active:
-		return
-	if _coop_map_transitioning:
-		return
-	# A peer already on the destination map (e.g. everyone but the rallier, in a
-	# rally-to-peer broadcast — GID-105 / TID-388) has nothing to follow; re-entering
-	# would needlessly reload the map and reset their position to the spawn/door
-	# default.
-	if not target_map.is_empty() and target_map == map_name:
-		return
-	_coop_map_transitioning = true
-	if target_map.is_empty():
-		SceneManager.exit_map()
-	elif target_map.begins_with("spire_floor_") or map_name.begins_with("spire_floor_"):
-		# Co-op Endless Spire (TID-391): entering, advancing floors, and the final
-		# return to madrian are all one-way automatic moves — see
-		# enter_coop_map_no_stack's doc comment for why the normal stack-pushing
-		# enter_map() would leave map_stack permanently polluted here.
-		SceneManager.enter_coop_map_no_stack(target_map, door_id)
-	else:
-		SceneManager.enter_map(target_map, door_id)
-
-# ── Rally waystones (GID-105 / TID-388) ──────────────────────────────────────
-# Lets any connected party member teleport instantly to a teammate from the
-# fast-travel UI — same-map is an instant local position sync, cross-map reuses
-# the TID-355 followed-transition mechanism (so the rest of the party, if any,
-# converges too). Guarded by NetworkManager.is_active(); single-player fast
-# travel sees no rally section at all (MapViewOverlay._rally_targets is empty).
-
-## Connected session members eligible for rally-to: everyone whose last-known
-## map we've learned (skips late-joiners whose location hasn't arrived yet).
-func _build_rally_targets() -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	if not NetworkManager.is_active():
-		return out
-	for pid in _remote_identities.keys():
-		var peer_map: String = str(_remote_player_maps.get(pid, ""))
-		if peer_map == "":
-			continue
-		var ident: Dictionary = _remote_identities[pid]
-		out.append({
-			"peer_id": int(pid),
-			"name": str(ident.get("name", "Player")),
-			"color": ident.get("color", Color.WHITE),
-			"map": peer_map,
-		})
-	return out
-
-## Rally to a connected teammate. Same-map: instant local position sync.
-## Cross-map: broadcast the existing followed-transition RPC + follow locally.
-func _rally_to_peer(peer_id: int) -> void:
-	if not NetworkManager.is_active() or _player == null:
-		return
-	var now: float = Time.get_ticks_msec() / 1000.0
-	if now - _last_rally_time < _RALLY_COOLDOWN:
-		GameBus.hud_message_requested.emit("Rally is on cooldown.")
-		return
-	var target_map: String = str(_remote_player_maps.get(peer_id, ""))
-	if target_map == "":
-		return
-	var target_name: String = str(_remote_identities.get(peer_id, {}).get("name", "Player"))
-	_last_rally_time = now
-	GameBus.hud_message_requested.emit("Rallying to %s…" % target_name)
-	if _net_sync != null:
-		_net_sync.rpc_id(peer_id, "recv_rally_notice", MpProfile.get_display_name())
-	if target_map == map_name:
-		var rp: Node3D = _valid_node3d(_remote_player_nodes.get(peer_id))
-		if rp != null and is_instance_valid(rp):
-			_player.global_position = rp.global_position
-		return
-	if _coop_map_transitioning:
-		return
-	_coop_map_transitioning = true
-	if _net_sync != null:
-		_net_sync.rpc("recv_map_transition", target_map, "")
-	SceneManager.enter_map(target_map, "")
-
-## A teammate is rallying to us — surface a hero-moment toast.
-func _on_rally_notice_received(rallier_name: String) -> void:
-	GameBus.hud_message_requested.emit("%s is rallying to you!" % rallier_name)
-
-# ── Downed & rescue in shared dungeons (GID-105 / TID-389) ───────────────────
-# A PvE loss inside a co-op shared dungeon ("dungeon_*") leaves the player downed
-# (frozen in place) instead of routing to the single-player defeat screen
-# (SceneManager._on_battle_lost intercepts before that path). A teammate can
-# revive them via the same interact prompt pattern as chests/NPCs; otherwise a
-# self-managed timeout auto-respawns them at the dungeon entrance. The downed
-# flag itself rides the existing AvatarSync stream (see _on_avatar_received);
-# only the revive action needs host arbitration, to avoid two teammates racing
-# to revive the same target.
-
-## Called by SceneManager (via _saved_world_scene.call) right after the world is
-## restored following a co-op-dungeon PvE loss.
-func enter_downed_state() -> void:
-	if not _coop_active or _player == null:
-		return
-	_coop_downed = true
-	_coop_downed_peers[NetworkManager.local_id()] = true
-	_downed_started_at = Time.get_ticks_msec() / 1000.0
-	_player.set_physics_process(false)
-	_set_player_alpha(0.55)
-	_show_downed_banner()
-	GameBus.hud_message_requested.emit("Downed! Waiting for rescue…")
-	get_tree().create_timer(_DownedSync.RESCUE_TIMEOUT, false).timeout.connect(_on_downed_timeout)
-
-## Fires RESCUE_TIMEOUT seconds after enter_downed_state(). No-ops if already
-## revived (a stale timer from a downed period that already ended).
-func _on_downed_timeout() -> void:
-	if not _coop_downed:
-		return
-	GameBus.hud_message_requested.emit("Respawning at the dungeon entrance…")
-	if _player != null:
-		_player.position = _dungeon_spawn_pos
-	_exit_downed_state()
-
-## Un-freeze the local player and clear downed bookkeeping (revived or timed out).
-func _exit_downed_state() -> void:
-	_coop_downed = false
-	_coop_downed_peers[NetworkManager.local_id()] = false
-	if _player != null:
-		_player.set_physics_process(true)
-		_set_player_alpha(1.0)
-	_hide_downed_banner()
-
-func _show_downed_banner() -> void:
-	if _downed_banner != null and is_instance_valid(_downed_banner):
-		_downed_banner.show()
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_downed_banner = Label.new()
-	_downed_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_downed_banner.add_theme_font_size_override("font_size", int(vp.y * 0.030))
-	_downed_banner.add_theme_color_override("font_color", Color(0.75, 0.80, 1.0))
-	_downed_banner.custom_minimum_size = Vector2(vp.x * 0.6, vp.y * 0.06)
-	_downed_banner.position = Vector2(vp.x * 0.2, vp.y * 0.12)
-	_hud.add_child(_downed_banner)
-
-func _hide_downed_banner() -> void:
-	if _downed_banner != null and is_instance_valid(_downed_banner):
-		_downed_banner.queue_free()
-		_downed_banner = null
-
-## Nearest downed teammate within range, or -1. Local player is never a valid
-## target here — you cannot revive yourself.
-func _find_nearby_downed_peer(px: float, pz: float, range_dist: float) -> int:
-	if not _coop_active:
-		return -1
-	for pid in _remote_player_nodes.keys():
-		if not bool(_coop_downed_peers.get(pid, false)):
-			continue
-		var rp: Node3D = _valid_node3d(_remote_player_nodes[pid])
-		if not is_instance_valid(rp) or not rp.visible:
-			continue
-		var d: float = Vector2(rp.position.x, rp.position.z).distance_to(Vector2(px, pz))
-		if d <= range_dist:
-			return int(pid)
-	return -1
-
-## Local player interacted with a downed teammate. Host applies directly;
-## a client submits the request for the host to arbitrate.
-func _request_revive(peer_id: int) -> void:
-	if NetworkManager.is_host():
-		_authority_apply_revive(peer_id)
-	elif _net_sync != null:
-		_net_sync.rpc_id(1, "submit_revive_request", peer_id)
-
-## Host-only: validate and apply a revive, then broadcast it. A stale request
-## (target already respawned via timeout, or already revived) is silently
-## discarded — DownedSync.can_revive centralizes that check.
-func _authority_apply_revive(peer_id: int) -> void:
-	if not NetworkManager.is_host():
-		return
-	if not _DownedSync.can_revive(bool(_coop_downed_peers.get(peer_id, false))):
-		return
-	_coop_downed_peers[peer_id] = false
-	if peer_id == NetworkManager.local_id():
-		_exit_downed_state()
-	else:
-		var rp: Node3D = _valid_node3d(_remote_player_nodes.get(peer_id))
-		if rp != null and is_instance_valid(rp) and rp.has_method("set_downed"):
-			rp.set_downed(false)
-	GameBus.hud_message_requested.emit("Revived!")
-	if _net_sync != null:
-		_net_sync.rpc("recv_revive", peer_id)
-
-## NetSync → host: a client's revive request.
-func _on_revive_request_submitted(_sender: int, peer_id: int) -> void:
-	_authority_apply_revive(peer_id)
-
-## NetSync → peer: the host confirmed a revive.
-func _on_revive_received(peer_id: int) -> void:
-	if not _coop_active:
-		return
-	_coop_downed_peers[peer_id] = false
-	if peer_id == NetworkManager.local_id():
-		_exit_downed_state()
-		GameBus.hud_message_requested.emit("Revived!")
-	else:
-		var rp: Node3D = _valid_node3d(_remote_player_nodes.get(peer_id))
-		if rp != null and is_instance_valid(rp) and rp.has_method("set_downed"):
-			rp.set_downed(false)
-
-# ── Shared dungeon crawl (GID-102 / TID-380) ──────────────────────────────────
-#
-# madrian (and any other co-op-supported named map) has no authored dungeon
-# door, so the party has no way to reach DungeonGen's procedural dungeons
-# together. This adds a host-only HUD trigger that picks a shared seed and
-# broadcasts the same "dungeon_<seed>" map name via the existing TID-355
-# recv_map_transition RPC — no new sync RPC needed, since DungeonGen is a pure
-# function of (name, seed) and WorldScene's dungeon-load branch only inspects
-# the map_name string, not how it was constructed.
-
-## Host-only: derive a shared seed and broadcast the transition so every peer
-## follows into the identical generated dungeon.
-func _start_dungeon_crawl() -> void:
-	if not NetworkManager.is_host():
-		return  # defensive: don't trust client-side button visibility alone
-	if not _coop_active or _net_sync == null or _coop_map_transitioning:
-		return
-	var seed_val: int = randi()
-	if SessionStore.is_open():
-		var st = SessionStore.get_state()
-		# world_seed + days_elapsed: reopening the crawl on the same in-game day
-		# reproduces the same dungeon; a new day yields a fresh one.
-		seed_val = hash(str(st.world_seed) + "_dungeon_" + str(st.days_elapsed))
-	var target_map: String = "dungeon_%d" % seed_val
-	_coop_map_transitioning = true
-	_net_sync.rpc("recv_map_transition", target_map, "")
-	SceneManager.enter_map(target_map, "")
-
-# ── Party Guildhall (GID-106 / TID-392) ──────────────────────────────────────
-# A session-owned home base, separate from the single-player Player Home.
-# Unlike the co-op Spire (a one-way run through many auto-generated floors),
-# the guildhall is a normal single-room sub-map exactly like player_home: entry
-# uses the standard stack-pushing enter_map() (not enter_coop_map_no_stack), so
-# the map's authored exit door (target_map="") pops back to madrian through the
-# existing generic door-interact + exit_map() machinery — no new code needed
-# for the exit, late-joiner redirect (TID-355), or map-scoped avatar sync
-# (TID-352), all of which are already fully map-name-agnostic.
-
-## Host-only: broadcasts + performs the shared transition into the guildhall.
-## Mirrors _start_dungeon_crawl exactly.
-func _start_guildhall() -> void:
-	if not NetworkManager.is_host():
-		return  # defensive: don't trust client-side button visibility alone
-	if not _coop_active or _net_sync == null or _coop_map_transitioning:
-		return
-	# has_guildhall() is always true post-migration (auto-unlocked, no purchase
-	# flow) — this is a defensive guard, not a real gate.
-	if SessionStore.is_open():
-		var st = SessionStore.get_state()
-		if st != null and not st.has_guildhall():
-			return
-	_coop_map_transitioning = true
-	_net_sync.rpc("recv_map_transition", "guildhall", "")
-	SceneManager.enter_map("guildhall", "")
-
-# ── Co-op Endless Spire (GID-106 / TID-390) ──────────────────────────────────
-#
-# Adapts the single-player Endless Spire (GID-038) for a party: same seed-based
-# floor composition, but the run deck is shared and built collaboratively via
-# authority-orchestrated alternating draft picks (one pick per floor clear,
-# rotating among members), reusing the loot-roll prompt-session pattern
-# (TID-381). The run itself is entirely transient state living on
-# SceneManager._coop_spire_run (see that file for why — it must survive
-# floor-to-floor map transitions, which destroy/recreate this WorldScene).
-#
-# Scope note: this task delivers the entry point, shared-seed run start, and the
-# full draft-orchestration engine below. _start_coop_spire_draft(floor) is the
-# public hook TID-391 calls once it has a real floor-win condition (via the
-# joint PvE battle engine, GID-099) — nothing calls it yet in this task, mirroring
-# how TID-355 built recv_map_transition before TID-380 became its first real caller.
-
-## Host-only: starts (or resumes) a co-op Spire run and broadcasts the floor-1 (or
-## current-floor, if resuming) map transition so every peer follows in — reuses
-## the existing recv_map_transition RPC verbatim, exactly like _start_dungeon_crawl.
-func _start_coop_spire() -> void:
-	if not NetworkManager.is_host():
-		return  # defensive: don't trust client-side button visibility alone
-	if not _coop_active or _net_sync == null or _coop_map_transitioning:
-		return
-	var picker_order: Array[String] = []
-	if not SceneManager.is_coop_spire_active():
-		picker_order.append(MpProfile.get_token())
-		for token in _session_token_by_peer.values():
-			if not picker_order.has(str(token)):
-				picker_order.append(str(token))
-	var target_map: String = SceneManager.enter_spire_coop(picker_order)
-	_coop_map_transitioning = true
-	_net_sync.rpc("recv_map_transition", target_map, "")
-	SceneManager.enter_coop_map_no_stack(target_map, "")
-
-
-## Authority-only entry point (the TID-391 hook): opens one draft round for
-## `floor`, seeding the RNG identically to single-player's SpireDraftScene.setup
-## (run seed + floor) so the 3 options are deterministic and reproducible.
-func _start_coop_spire_draft(floor_num: int) -> void:
-	if not _coop_world_authority():
-		return
-	if not _coop_spire_draft_active.is_empty():
-		return  # a round is already in flight — never open a second one
-	var run: Dictionary = SceneManager.get_coop_spire_run()
-	if not bool(run.get("active", false)):
-		return
-	var picker_order: Array = run.get("picker_order", [])
-	if picker_order.is_empty():
-		return
-	var picker_idx: int = int(run.get("picker_idx", 0))
-	var active_picker_token: String = str(picker_order[picker_idx % picker_order.size()])
-	var active_picker_name: String = _display_name_for_token(active_picker_token)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = int(run.get("seed", 0)) + floor_num
-	var pool_templates: Dictionary = {}
-	for id: String in _CardRegistry.get_all_ids():
-		pool_templates[id] = _CardRegistry.get_template(id)
-	var options: Array[String] = _SpireDraft.new().generate_picks(floor_num, rng, pool_templates)
-	_coop_spire_draft_active = {
-		"floor": floor_num,
-		"options": options,
-		"active_picker_token": active_picker_token,
-		"active_picker_name": active_picker_name,
-		"timer": 0.0,
-	}
-	var payload: Dictionary = _SpireDraftSync.encode_draft_start(
-		floor_num, options, active_picker_token, active_picker_name)
-	if _net_sync != null:
-		_net_sync.rpc("recv_spire_draft_start", payload)
-	_on_spire_draft_start_received(payload)  # authority also sees its own prompt
-
-
-## Any peer (including the authority itself): show the draft overlay — interactive
-## if it's this peer's turn, a disabled "waiting" banner otherwise. Reuses
-## SpireDraftScene (setup_coop), not a new scene.
-func _on_spire_draft_start_received(payload: Dictionary) -> void:
-	var start: Dictionary = _SpireDraftSync.decode_draft_start(payload)
-	var options: Array[String] = []
-	options.assign(start.get("options", []))
-	if options.is_empty():
-		return
-	if _coop_spire_draft_overlay != null and is_instance_valid(_coop_spire_draft_overlay):
-		_coop_spire_draft_overlay.queue_free()
-	_pending_coop_spire_draft = start
-	var active_picker_token: String = str(start.get("active_picker_token", ""))
-	var is_my_turn: bool = active_picker_token == MpProfile.get_token()
-	var overlay := _SpireDraftScene.instantiate()
-	get_tree().current_scene.add_child(overlay)
-	overlay.setup_coop(
-		int(start.get("floor", 1)), options, is_my_turn, str(start.get("active_picker_name", "Player")))
-	if is_my_turn:
-		overlay.picked.connect(_submit_coop_spire_draft_choice)
-	_coop_spire_draft_overlay = overlay
-
-
-## Local player (the active picker) chose a card. Resolves card_id -> card_idx from
-## what was actually broadcast to THIS peer (never from _coop_spire_draft_active,
-## which only exists on the authority), then sends the index to the authority, or
-## applies it directly if this peer IS the authority.
-func _submit_coop_spire_draft_choice(card_id: String) -> void:
-	if _coop_spire_draft_overlay != null and is_instance_valid(_coop_spire_draft_overlay):
-		_coop_spire_draft_overlay.queue_free()
-	_coop_spire_draft_overlay = null
-	var options: Array[String] = []
-	options.assign(_pending_coop_spire_draft.get("options", []))
-	_pending_coop_spire_draft = {}
-	var card_idx: int = options.find(card_id)
-	if card_idx < 0:
-		return
-	if NetworkManager.is_host():
-		_on_spire_draft_choice_submitted(multiplayer.get_unique_id(), card_idx)
-	elif _net_sync != null:
-		_net_sync.rpc_id(1, "submit_spire_draft_choice", card_idx)
-
-
-## Authority: record the active picker's choice (a sender mismatch is silently
-## ignored — mirrors the loot-roll "unexpected sender" tolerance), resolve the
-## pick, advance the rotation, and broadcast the result.
-func _on_spire_draft_choice_submitted(sender: int, card_idx: int) -> void:
-	if not _coop_world_authority():
-		return
-	if _coop_spire_draft_active.is_empty():
-		return
-	var expected_token: String = str(_coop_spire_draft_active.get("active_picker_token", ""))
-	var sender_token: String = str(_session_token_by_peer.get(sender,
-		MpProfile.get_token() if sender == multiplayer.get_unique_id() else ""))
-	if sender_token == "" or sender_token != expected_token:
-		return
-	_resolve_coop_spire_draft(card_idx)
-
-
-## Ticked from _process while a draft round is in flight (authority only). An
-## unresponsive active picker auto-picks the first option once the timeout elapses.
-func _tick_coop_spire_draft(delta: float) -> void:
-	if not _coop_world_authority() or _coop_spire_draft_active.is_empty():
-		return
-	var t: float = float(_coop_spire_draft_active.get("timer", 0.0)) + delta
-	_coop_spire_draft_active["timer"] = t
-	if t >= _COOP_SPIRE_DRAFT_TIMEOUT:
-		_resolve_coop_spire_draft(0)
-
-
-## Authority: commit the picked card to the shared run deck, advance the picker
-## rotation, and broadcast the resolved choice + next picker's turn. Then (TID-391)
-## advances the run to the next floor and broadcasts the map transition there —
-## co-op floor advancement is fully automatic, unlike solo Spire's authored exit
-## door (see SceneManager.exit_map()'s co-op-spire no-op branch).
-func _resolve_coop_spire_draft(card_idx: int) -> void:
-	var options: Array[String] = []
-	options.assign(_coop_spire_draft_active.get("options", []))
-	_coop_spire_draft_active = {}
-	if options.is_empty():
-		return
-	var idx: int = clampi(card_idx, 0, options.size() - 1)
-	var card_id: String = options[idx]
-	SceneManager.add_coop_drafted_card(card_id)
-	SceneManager.advance_coop_spire_picker()
-	var run: Dictionary = SceneManager.get_coop_spire_run()
-	var picker_order: Array = run.get("picker_order", [])
-	var next_token: String = ""
-	var next_name: String = "Player"
-	if not picker_order.is_empty():
-		next_token = str(picker_order[int(run.get("picker_idx", 0)) % picker_order.size()])
-		next_name = _display_name_for_token(next_token)
-	var payload: Array = _SpireDraftSync.encode_draft_choice(card_id, next_token, next_name)
-	if _net_sync != null:
-		_net_sync.rpc("recv_spire_draft_choice", payload)
-	_on_spire_draft_choice_received(payload)
-	if not _coop_world_authority():
-		return
-	SceneManager.advance_coop_spire_floor()
-	var next_run: Dictionary = SceneManager.get_coop_spire_run()
-	var next_floor: int = int(next_run.get("floor", 1))
-	var next_seed: int = int(next_run.get("seed", 0))
-	var target_map: String = "spire_floor_%d_%d" % [next_floor, next_seed]
-	_coop_map_transitioning = true
-	if _net_sync != null:
-		_net_sync.rpc("recv_map_transition", target_map, "")
-	SceneManager.enter_coop_map_no_stack(target_map, "")
-
-
-## Any peer: close the draft overlay if open and show a toast naming the card +
-## next picker.
-func _on_spire_draft_choice_received(payload: Array) -> void:
-	if _coop_spire_draft_overlay != null and is_instance_valid(_coop_spire_draft_overlay):
-		_coop_spire_draft_overlay.queue_free()
-	_coop_spire_draft_overlay = null
-	_pending_coop_spire_draft = {}
-	var result: Dictionary = _SpireDraftSync.decode_draft_choice(payload)
-	var card_id: String = str(result.get("card_id", ""))
-	if card_id == "":
-		return
-	var tmpl: Dictionary = _CardRegistry.get_template(card_id)
-	var card_name: String = str(tmpl.get("name", card_id))
-	var next_name: String = str(result.get("next_active_picker_name", "Player"))
-	GameBus.hud_message_requested.emit("Drafted %s! Next up: %s" % [card_name, next_name])
-
-
-## Local player engaged the co-op Spire floor boss (TID-391). A client relays the
-## intent to the host; the host starts the joint battle directly. Mirrors
-## _coop_engage_siege_boss exactly.
-func _coop_engage_spire_boss(edata: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		if _net_sync != null:
-			_net_sync.rpc_id(1, "submit_spire_boss_engaged", edata)
-		return
-	_coop_start_spire_boss_battle(edata)
-
-
-## Host: a client engaged the Spire boss — start the joint battle for everyone.
-func _on_spire_boss_engaged_submitted(_sender: int, edata: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		return
-	_coop_start_spire_boss_battle(edata)
-
-
-## Host-only: every ally fights with the same shared, collaboratively-drafted
-## deck (PlayerState.build_deck shuffles independently per call, so allies still
-## get different draw orders). Boss HP/tier scaling by party size happens inside
-## BattleScene._build_coop_pve_state, exactly like siege — edata is passed through
-## unscaled.
-func _coop_start_spire_boss_battle(edata: Dictionary) -> void:
-	if not NetworkManager.is_host() or _net_sync == null:
-		return
-	var boss_eid: String = str(edata.get("id", ""))
-	if boss_eid != "":
-		_coop_remove_enemy_node(boss_eid)
-		_net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
-			_WorldObjectSync.EV_ENEMY_REMOVED, boss_eid))
-	var shared_deck: Array = SceneManager.get_coop_spire_run().get("shared_deck", [])
-	var abs_peer_ids: Array[int] = [multiplayer.get_unique_id()]
-	var clients: Array = multiplayer.get_peers()
-	clients.sort()
-	for pid in clients:
-		abs_peer_ids.append(int(pid))
-	var all_decks: Array = []
-	for _pid in abs_peer_ids:
-		all_decks.append(shared_deck.duplicate())
-	for i in range(abs_peer_ids.size()):
-		var pid: int = abs_peer_ids[i]
-		if pid != multiplayer.get_unique_id():
-			_net_sync.rpc_id(pid, "notify_coop_pve_start", i, all_decks, edata)
-	SceneManager.enter_coop_pve_battle(0, all_decks, edata)
-
-
-## Any peer: the joint Spire floor battle ended. No-op unless a co-op Spire run is
-## actually active (coop_pve_battle_ended fires for any joint PvE battle — siege,
-## Spire, future modes). This handler fires while WorldScene is still detached
-## from the tree (the joint battle removed it, same as PvP) — the pure/host-only
-## data-layer work (ending the run, submitting the leaderboard score) is safe to
-## do immediately, but everything that touches the tree or sends an RPC is
-## captured into a pending field and deferred to _enter_tree() via
-## _flush_pending_coop_spire_post_battle, once reattachment makes that safe.
-func _on_coop_spire_battle_ended(did_win: bool) -> void:
-	if not _in_coop_spire_floor():
-		return
-	if did_win:
-		if _coop_world_authority():
-			var run: Dictionary = SceneManager.get_coop_spire_run()
-			_pending_coop_spire_draft_floor = int(run.get("floor", 1))
-	elif _coop_world_authority():
-		var stats: Dictionary = SceneManager.end_coop_spire_run()
-		var floors_cleared: int = int(stats.get("floors_cleared", 0))
-		var party_size: int = multiplayer.get_peers().size() + 1
-		var roster: Array = [MpProfile.get_display_name()]
-		for identity in _remote_identities.values():
-			roster.append(str((identity as Dictionary).get("name", "Player")))
-		_submit_pve_score("coop_spire", floors_cleared)  # host-only, pure SessionStore write
-		_pending_coop_spire_run_ended_payload = {
-			"floors_cleared": floors_cleared,
-			"party_size": party_size,
-			"roster": roster,
-		}
-	if is_inside_tree():
-		_flush_pending_coop_spire_post_battle()
-
-
-## Runs any deferred co-op-Spire post-battle work that needed the tree (opening
-## the next floor's draft, or the run-ended summary + its RPC broadcast). Called
-## from _enter_tree() once this WorldScene is confirmed reattached, and also
-## inline if the peer already happens to be in the tree (defensive; in practice
-## the joint-battle end always fires while detached, same as PvP).
-func _flush_pending_coop_spire_post_battle() -> void:
-	if _pending_coop_spire_draft_floor >= 0:
-		var floor_num: int = _pending_coop_spire_draft_floor
-		_pending_coop_spire_draft_floor = -1
-		_start_coop_spire_draft(floor_num)
-	if not _pending_coop_spire_run_ended_payload.is_empty():
-		var payload: Dictionary = _pending_coop_spire_run_ended_payload
-		_pending_coop_spire_run_ended_payload = {}
-		if _net_sync != null:
-			_net_sync.rpc("recv_coop_spire_run_ended", payload)
-		_on_coop_spire_run_ended_received(payload)
-
-
-## Any peer: show the co-op Spire run summary as a WorldScene overlay (the shared
-## world/session stays alive underneath — unlike solo Spire's change_scene_to_node,
-## which would kick the whole co-op session to the main menu). "Continue" routes
-## everyone back to madrian via the standard shared map transition. Also reached
-## directly via the recv_coop_spire_run_ended RPC on non-authority peers —
-## NetSync's dispatch requires this WorldScene's fixed node path to resolve, which
-## in practice means it's attached, matching the same "connected permanently, RPC
-## arrives once reattached" assumption every other cross-battle broadcast in this
-## file already relies on (leaderboard/party-bounty/siege-reward RPCs, etc.) —
-## not a new risk introduced here.
-func _on_coop_spire_run_ended_received(payload: Dictionary) -> void:
-	SceneManager.set_coop_spire_run_mirror({"active": false})
-	if _coop_spire_summary_overlay != null and is_instance_valid(_coop_spire_summary_overlay):
-		_coop_spire_summary_overlay.queue_free()
-	var overlay := _RunSummaryScene.instantiate()
-	overlay.coop_stats = {
-		"floors_cleared": int(payload.get("floors_cleared", 0)),
-		"party_size": int(payload.get("party_size", 1)),
-		"roster": payload.get("roster", []),
-	}
-	get_tree().current_scene.add_child(overlay)
-	overlay.continue_pressed.connect(_on_coop_spire_summary_continue)
-	_coop_spire_summary_overlay = overlay
-
-
-## "Continue" pressed on the co-op Spire run summary — broadcast + perform the
-## shared transition back to madrian (same TID-355 mechanism as every other
-## shared-map exit) and free the overlay.
-func _on_coop_spire_summary_continue() -> void:
-	if _coop_spire_summary_overlay != null and is_instance_valid(_coop_spire_summary_overlay):
-		_coop_spire_summary_overlay.queue_free()
-	_coop_spire_summary_overlay = null
-	if _coop_active and _net_sync != null and not _coop_map_transitioning:
-		_coop_map_transitioning = true
-		_net_sync.rpc("recv_map_transition", "madrian", "")
-	SceneManager.enter_coop_map_no_stack("madrian", "")
-
-# ── Co-op Town Siege (GID-103 / TID-384) ──────────────────────────────────────
-#
-# Host-only trigger (same precedent as the Dungeon Crawl button above): a
-# deterministic siege id seeds WAVE_COUNT escalating raider waves, each spawned
-# identically on every peer (CoopSiege.generate_wave) and synced purely through
-# the existing GID-096 engage-lock events — no new spawn RPC needed, only "advance
-# to wave N" / "start the boss phase" broadcasts. The finale boss hands off to the
-# GID-099 joint PvE battle engine (this is that engine's first caller) so the
-# whole party fights it together; victory splits gold + a card among every
-# session member.
-
-## Host-only: derive a shared siege id and broadcast the start so every peer
-## begins the identical wave sequence.
-func _start_coop_siege() -> void:
-	if not NetworkManager.is_host() or _net_sync == null:
-		return
-	if not _coop_active or _coop_siege_active or not _CoopSiege.supports_map(map_name):
-		return
-	var siege_id: int = randi()
-	if SessionStore.is_open():
-		var st = SessionStore.get_state()
-		# world_seed + days_elapsed: retriggering later the same day reproduces the
-		# same waves; a new day yields a fresh sequence (mirrors _start_dungeon_crawl).
-		siege_id = hash(str(st.world_seed) + "_siege_" + str(st.days_elapsed))
-	_net_sync.rpc("recv_siege_started", siege_id)
-	_on_siege_started_received(siege_id)
-
-## Any peer: a siege has begun — reset local state and spawn wave 0.
-func _on_siege_started_received(siege_id: int) -> void:
-	if not _coop_active:
-		return
-	_coop_siege_active = true
-	_coop_siege_id = siege_id
-	_coop_siege_wave = 0
-	GameBus.hud_message_requested.emit("The town is under siege!")
-	_coop_spawn_siege_wave()
-
-## Spawn the current wave's deterministic raiders (identical on every peer).
-func _coop_spawn_siege_wave() -> void:
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
-	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(map_name, Vector3.ZERO)
-	var plan: Array[Dictionary] = _CoopSiege.generate_wave(map_name, _coop_siege_id, _coop_siege_wave)
-	_coop_siege_wave_nodes.clear()
-	for entry: Dictionary in plan:
-		var eid: String = str(entry.get("id", ""))
-		if eid == "" or _coop_removed_enemies.has(eid):
-			continue
-		var off: Vector2 = entry.get("offset", Vector2.ZERO)
-		var wx: float = gate.x + off.x
-		var wz: float = gate.z + off.y
-		var wy: float = get_terrain_height(wx, wz) + 0.5
-		var node: Node3D = _EnemyScene.instantiate() as Node3D
-		if node == null:
-			continue
-		node.call("init_from_data", {"id": eid, "enemy_type": str(entry.get("enemy_type", "martarquas_raider_1"))})
-		node.position = Vector3(wx, wy, wz)
-		_entity_root.add_child(node)
-		_enemy_nodes[eid] = node
-		_coop_siege_wave_nodes[eid] = node
-	GameBus.hud_message_requested.emit(
-		"Wave %d of %d: Siege intensifies…" % [_coop_siege_wave + 1, _CoopSiege.WAVE_COUNT])
-
-## Any peer: the host advanced to a new raider wave.
-func _on_siege_wave_received(siege_id: int, wave: int) -> void:
-	if not _coop_active or siege_id != _coop_siege_id:
-		return
-	_coop_siege_wave = wave
-	_coop_spawn_siege_wave()
-
-## Any peer: every raider wave is cleared — spawn the finale boss.
-func _on_siege_boss_phase_received(siege_id: int) -> void:
-	if not _coop_active or siege_id != _coop_siege_id:
-		return
-	_coop_siege_wave = _CoopSiege.WAVE_COUNT
-	_coop_siege_wave_nodes.clear()
-	GameBus.hud_message_requested.emit("The Siege Commander arrives!")
-	var boss_id: String = _CoopSiege.boss_id(siege_id)
-	if _coop_removed_enemies.has(boss_id):
-		return  # already resolved (e.g. a re-delivered broadcast on late reconciliation)
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
-	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(map_name, Vector3.ZERO)
-	var node: Node3D = _EnemyScene.instantiate() as Node3D
-	if node == null:
-		return
-	var wy: float = get_terrain_height(gate.x, gate.z) + 0.5
-	node.position = Vector3(gate.x, wy, gate.z)
-	node.call("init_from_data", {"id": boss_id, "enemy_type": _CoopSiege.boss_enemy_type(), "tracking": false})
-	_entity_root.add_child(node)
-	_enemy_nodes[boss_id] = node
-
-## Host-only: watches the current wave's engage-lock state; called every frame
-## from _process while a siege is active.
-func _coop_tick_siege(_delta: float) -> void:
-	if not _coop_world_authority() or not _coop_siege_active:
-		return
-	if _coop_siege_wave < 0 or _coop_siege_wave >= _CoopSiege.WAVE_COUNT:
-		return  # boss phase already reached, or not started
-	if _coop_siege_wave_nodes.is_empty():
-		return
-	for eid in _coop_siege_wave_nodes.keys():
-		if not _coop_removed_enemies.has(eid):
-			return  # a raider from this wave is still standing somewhere
-	_coop_siege_wave_nodes.clear()
-	_coop_siege_wave += 1
-	if _coop_siege_wave >= _CoopSiege.WAVE_COUNT:
-		_net_sync.rpc("recv_siege_boss_phase", _coop_siege_id)
-		_on_siege_boss_phase_received(_coop_siege_id)
-	else:
-		_net_sync.rpc("recv_siege_wave", _coop_siege_id, _coop_siege_wave)
-		_on_siege_wave_received(_coop_siege_id, _coop_siege_wave)
-
-## Local player engaged the siege boss. A client relays the intent to the host;
-## the host starts the joint battle directly.
-func _coop_engage_siege_boss(edata: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		if _net_sync != null:
-			_net_sync.rpc_id(1, "submit_siege_boss_engaged", edata)
-		return
-	_coop_start_siege_boss_battle(edata)
-
-## Host: a client engaged the siege boss — start the joint battle for everyone.
-func _on_siege_boss_engaged_submitted(_sender: int, edata: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		return
-	_coop_start_siege_boss_battle(edata)
-
-## Host-only: gathers every connected member's deck and starts the joint PvE
-## battle (GID-099). Boss HP/tier scaling by party size happens inside
-## BattleScene._build_coop_pve_state — edata is passed through unscaled, exactly
-## like a normal EnemyNPC.engage() payload.
-func _coop_start_siege_boss_battle(edata: Dictionary) -> void:
-	if not NetworkManager.is_host() or _net_sync == null:
-		return
-	var boss_eid: String = str(edata.get("id", ""))
-	if boss_eid != "":
-		# Remove the boss node locally too: if a CLIENT engaged it, the host's own
-		# copy is still standing (only the engager's local node freed itself via
-		# EnemyNPC.engage()). RPCs in this codebase are declared "call_remote" (never
-		# self-invoking), so the broadcast below reaches every *other* peer but not
-		# this one — _coop_remove_enemy_node covers the host's own copy and is a
-		# harmless no-op if it's already gone (the host-engaged case).
-		_coop_remove_enemy_node(boss_eid)
-		_net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
-			_WorldObjectSync.EV_ENEMY_REMOVED, boss_eid))
-	var abs_peer_ids: Array[int] = [multiplayer.get_unique_id()]
-	var clients: Array = multiplayer.get_peers()
-	clients.sort()
-	for pid in clients:
-		abs_peer_ids.append(int(pid))
-	var all_decks: Array = []
-	for pid in abs_peer_ids:
-		all_decks.append(_team_deck_for_peer(pid))
-	for i in range(abs_peer_ids.size()):
-		var pid: int = abs_peer_ids[i]
-		if pid != multiplayer.get_unique_id():
-			_net_sync.rpc_id(pid, "notify_coop_pve_start", i, all_decks, edata)
-	SceneManager.enter_coop_pve_battle(0, all_decks, edata)
-
-## Client: the host started the joint siege-boss battle — enter with our index.
-func _on_notify_coop_pve_start(my_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
-	SceneManager.enter_coop_pve_battle(my_idx, all_ally_decks, enemy_data)
-
-## Any peer: the joint siege-boss battle ended — reset siege UI/state; the host
-## additionally distributes victory rewards to the whole party. A no-op unless a
-## siege was actually active (coop_pve_battle_ended may fire for future non-siege
-## joint battles too, once something else calls enter_coop_pve_battle).
-func _on_coop_siege_battle_ended(did_win: bool) -> void:
-	if not _coop_siege_active:
-		return
-	_coop_siege_active = false
-	_coop_siege_wave = -1
-	_coop_siege_wave_nodes.clear()
-	if _siege_banner != null and is_instance_valid(_siege_banner):
-		_siege_banner.queue_free()
-		_siege_banner = null
-	if did_win:
-		if NetworkManager.is_host():
-			_finish_coop_siege_victory()
-	else:
-		GameBus.hud_message_requested.emit("The siege defense failed…")
-
-## Host-only: split gold + a random rare-or-better card across every session
-## member, record the clear to the co-op leaderboard, and push refreshed
-## character records so connected peers see their reward immediately.
-func _finish_coop_siege_victory() -> void:
-	if not NetworkManager.is_host() or not SessionStore.is_open():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	const SIEGE_COINS: int = 150
-	var tokens: Array[String] = [MpProfile.get_token()]
-	for pid in multiplayer.get_peers():
-		var tok: String = str(_session_token_by_peer.get(int(pid), ""))
-		if tok != "" and not tokens.has(tok):
-			tokens.append(tok)
-	var all_ids: Array[String] = _CardRegistry.get_all_ids()
-	for token: String in tokens:
-		var rec: Dictionary = st.get_member(token)
-		if rec.is_empty():
-			continue
-		rec["coins"] = int(rec.get("coins", 0)) + SIEGE_COINS
-		if not all_ids.is_empty():
-			var reward_id: String = all_ids[randi() % all_ids.size()]
-			var rarity: String = _CardDropUtil.roll_rarity(3)  # tier 3 = rare-or-better weighted
-			var stats: Dictionary = _CardDropUtil.roll_stats(reward_id, rarity)
-			var owned: Array = rec.get("owned_cards", [])
-			var uid: String = "%s_%s_siege_%d" % [reward_id, token, Time.get_ticks_msec()]
-			owned.append(_CardInstanceUtil.make(uid, reward_id, rarity,
-				int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1))))
-			rec["owned_cards"] = owned
-		st.update_member(token, rec)
-	# Note: the co-op boss-clear leaderboard entry itself is recorded generically by
-	# _on_coop_pve_battle_ended_leaderboard (permanently connected to the same
-	# GameBus.coop_pve_battle_ended signal for every joint PvE battle) — recording it
-	# again here would double-submit to the "coop_clears" board.
-	SessionStore.mark_dirty()
-	# Push refreshed character records so connected peers see their new coins/card
-	# without waiting for their next unrelated sync (mirrors _send_character_to_peer).
-	for pid in multiplayer.get_peers():
-		var tok: String = str(_session_token_by_peer.get(int(pid), ""))
-		if tok == "":
-			continue
-		var rec2: Dictionary = st.get_member(tok)
-		if not rec2.is_empty() and _net_sync != null:
-			_net_sync.rpc_id(int(pid), "recv_character", rec2, true)
-	var host_rec: Dictionary = st.get_member(MpProfile.get_token())
-	if not host_rec.is_empty():
-		SceneManager.save_manager.adopt_session_character(host_rec)
-	GameBus.hud_message_requested.emit("Party earned %d gold and defeated the Siege!" % SIEGE_COINS)
-
-# ── PvP challenge handshake (GID-091) ─────────────────────────────────────────
-
-## Creates the hidden "Challenge to Battle" contextual-bar action (GID-107 / TID-396:
-## registered into WorldHUD.ZONE_CONTEXT so it can never pixel-overlap the Android
-## USE/Interact button or the other proximity-gated social actions, which share the
-## same zone). Mobile + desktop parity.
-func _ensure_challenge_button() -> void:
-	if _challenge_btn != null and is_instance_valid(_challenge_btn):
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_challenge_btn = _world_hud.register_action("challenge", "Challenge to Battle",
-		WorldHUD.ZONE_CONTEXT, _request_challenge, Callable(), Vector2(vp.y * 0.34, vp.y * 0.07))
-	_challenge_btn.hide()
-	# Ranked opt-in toggle (GID-102 / TID-373): stacks below the challenge button in
-	# the shared contextual zone — a touch/click target like every other HUD toggle
-	# (no separate keybind needed). Built directly (not via register_action) since it
-	# needs a `.toggled` connection, not a simple `.pressed` callback.
-	_ranked_toggle_btn = Button.new()
-	_ranked_toggle_btn.toggle_mode = true
-	_ranked_toggle_btn.text = "Ranked: OFF"
-	_ranked_toggle_btn.tooltip_text = "When ON, this duel counts toward your ranked rating."
-	_ranked_toggle_btn.custom_minimum_size = Vector2(vp.y * 0.20, vp.y * 0.05)
-	_ranked_toggle_btn.add_theme_font_size_override("font_size", int(vp.y * 0.020))
-	_ranked_toggle_btn.hide()
-	_ranked_toggle_btn.toggled.connect(func(on: bool) -> void:
-		_ranked_toggle_on = on
-		_ranked_toggle_btn.text = "Ranked: ON" if on else "Ranked: OFF")
-	var context_zone: Container = _world_hud.get_zone_container(WorldHUD.ZONE_CONTEXT)
-	if context_zone != null:
-		context_zone.add_child(_ranked_toggle_btn)
-	else:
-		_hud.add_child(_ranked_toggle_btn)
-	UiFx.attach(_ranked_toggle_btn)
-
-## Shows/hides the challenge button based on proximity to a remote player. Called
-## each frame from _process while co-op is active. GID-107 / TID-396 priority rule:
-## the world-interact prompt (door/chest/NPC/scroll) always wins the shared
-## contextual slot over a social action — interacting with the world is the more
-## frequent, lower-friction action.
-func _update_challenge_proximity() -> void:
-	if _challenge_btn == null or not is_instance_valid(_challenge_btn):
-		return
-	if _world_hud != null and _world_hud.is_interact_visible():
-		_challenge_btn.hide()
-		if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
-			_ranked_toggle_btn.hide()
-		return
-	# Suppress while a challenge is pending or we're not in the world.
-	if _pending_challenge_from != -1 or SceneManager._state != SceneManager.State.WORLD:
-		_challenge_btn.hide()
-		if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
-			_ranked_toggle_btn.hide()
-		return
-	if _player == null:
-		_challenge_btn.hide()
-		if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
-			_ranked_toggle_btn.hide()
-		return
-	var range_world: float = _CHALLENGE_RANGE * IsoConst.TILE_SIZE
-	var nearest_pid: int = -1
-	var nearest_d: float = range_world
-	for pid in _remote_player_nodes.keys():
-		var rp: Node3D = _valid_node3d(_remote_player_nodes[pid])
-		if not is_instance_valid(rp):
-			continue
-		var d: float = Vector2(rp.position.x, rp.position.z).distance_to(
-			Vector2(_player.position.x, _player.position.z))
-		if d <= nearest_d:
-			nearest_d = d
-			nearest_pid = int(pid)
-	_challenge_target_peer = nearest_pid
-	_challenge_btn.visible = nearest_pid != -1
-	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
-		_ranked_toggle_btn.visible = nearest_pid != -1
-
-## Local deck as a plain Array of Dictionaries for RPC transmission.
 func _local_deck_for_net() -> Array:
 	var out: Array = []
 	for inst in SceneManager.save_manager.get_deck_instances():
@@ -3126,308 +784,8 @@ func _local_deck_for_net() -> Array:
 	return out
 
 ## Send a challenge to the nearby peer.
-func _request_challenge() -> void:
-	if _challenge_target_peer == -1 or _net_sync == null:
-		return
-	var my_deck: Array = _local_deck_for_net()
-	if my_deck.size() < IsoConst.DECK_MIN:
-		_show_tip("Your deck is too small to duel — add at least %d cards." % IsoConst.DECK_MIN)
-		return
-	if _session_dedicated:
-		# Dedicated server: route through the server referee (peer_id 1). Ranked toggle
-		# is not threaded through the dedicated-server relay path in this task — out of
-		# scope (see TID-373 task file); always casual on a dedicated server for now.
-		_net_sync.rpc_id(1, "relay_pvp_request", _challenge_target_peer, my_deck)
-	else:
-		_net_sync.rpc_id(_challenge_target_peer, "request_battle", my_deck, _ranked_toggle_on)
-	_show_tip("Ranked challenge sent…" if _ranked_toggle_on else "Challenge sent…")
 
-# ── Team PvP duels (GID-102 / TID-371) ────────────────────────────────────────
-# GID-107 (TID-395): Team Duel is now a Party-panel action (see _open_party_panel's
-# show_team_duel, computed fresh on open) instead of its own standalone HUD button.
 
-## Host-only: resolves a connected peer's current deck as instances for the team duel.
-## The host's own deck comes straight from SaveManager; a client's deck is read from
-## its already-synced GID-095 session character record — no extra RPC round-trip needed.
-func _team_deck_for_peer(pid: int) -> Array:
-	if pid == multiplayer.get_unique_id():
-		return _local_deck_for_net()
-	var token: String = str(_session_token_by_peer.get(pid, ""))
-	if token == "" or not SessionStore.is_open():
-		return []
-	var st = SessionStore.get_state()
-	if st == null:
-		return []
-	var rec: Dictionary = st.get_member(token)
-	if rec.is_empty():
-		return []
-	var by_uid: Dictionary = {}
-	for inst in rec.get("owned_cards", []):
-		if inst is Dictionary:
-			by_uid[str(inst.get("uid", ""))] = inst
-	var out: Array = []
-	for uid in rec.get("player_deck", []):
-		if by_uid.has(str(uid)):
-			out.append(by_uid[str(uid)])
-	return out
-
-## Host: assigns teams from the connected 4-peer session and starts a 2v2 duel for
-## everyone immediately — no individual accept/decline (keeps team-formation UI
-## minimal, per the task notes). Host + the first-sorted client form team 0; the other
-## two clients form team 1. Absolute GameState indices: [host, client_b, host's
-## partner, client_c] so the interleaved [teamA_0,teamB_0,teamA_1,teamB_1] layout in
-## GameState.setup_team_battle puts the host's chosen partner on the host's team.
-func _start_team_duel() -> void:
-	if not NetworkManager.is_host() or _net_sync == null:
-		return
-	var clients: Array = multiplayer.get_peers()
-	if clients.size() < 3:
-		_show_tip("Need 4 players for a team duel.")
-		return
-	clients.sort()
-	var host_id: int = multiplayer.get_unique_id()
-	var abs_peer_ids: Array[int] = [host_id, int(clients[1]), int(clients[0]), int(clients[2])]
-	var team_assignments: Array = [0, 1, 0, 1]
-	var all_decks: Array = []
-	for pid in abs_peer_ids:
-		all_decks.append(_team_deck_for_peer(pid))
-	for i in range(abs_peer_ids.size()):
-		var pid: int = abs_peer_ids[i]
-		if pid != host_id:
-			_net_sync.rpc_id(pid, "notify_team_duel_start", i, team_assignments, all_decks)
-	if _challenge_btn != null and is_instance_valid(_challenge_btn):
-		_challenge_btn.hide()
-	_active_team_duel_peer_ids = abs_peer_ids
-	_active_team_duel_teams = team_assignments
-	SceneManager.enter_team_battle(0, team_assignments, all_decks)
-
-## Client: the host started a team duel — enter it with the assigned absolute index.
-func _on_notify_team_duel_start(my_idx: int, team_assignments: Array, all_decks: Array) -> void:
-	if _challenge_btn != null and is_instance_valid(_challenge_btn):
-		_challenge_btn.hide()
-	SceneManager.enter_team_battle(my_idx, team_assignments, all_decks)
-
-## Incoming challenge — show an Accept/Decline prompt.
-func _on_battle_requested(from_id: int, challenger_deck: Array, ranked: bool = false) -> void:
-	if _pending_challenge_from != -1:
-		return  # already handling one
-	_pending_challenge_from = from_id
-	_pending_challenge_deck = challenger_deck
-	_pending_challenge_ranked = ranked
-	_pending_challenge_armed_at = Time.get_ticks_msec()
-	_show_challenge_accept_panel(from_id, ranked)
-
-## Challenger learns the response.
-func _on_battle_responded(_from_id: int, accepted: bool, responder_deck: Array, ranked: bool = false) -> void:
-	if not accepted:
-		_show_tip("Challenge declined.")
-		return
-	_enter_pvp(responder_deck, ranked)
-
-# ── Dedicated-server PvP routing (GID-097 / TID-353) ──────────────────────────
-
-## Client handler: server told us we're in a dedicated-server session.
-func _on_session_flags(flags: Dictionary) -> void:
-	_session_dedicated = bool(flags.get("dedicated", false))
-
-## Server handler: client A wants to challenge client B.
-## Stores the pending challenge and relays the request to B as a normal request_battle.
-func _on_relay_pvp_request(sender_id: int, target_peer_id: int, challenger_deck: Array) -> void:
-	if not NetworkManager.is_dedicated_server():
-		return
-	if _pvp_relay_challenger_id != -1:
-		return  # a challenge is already pending
-	_pvp_relay_challenger_id = sender_id
-	_pvp_relay_challenger_deck = challenger_deck
-	_pvp_relay_target_id = target_peer_id
-	_pvp_relay_challenger_armed_at = Time.get_ticks_msec()
-	if _net_sync != null:
-		_net_sync.rpc_id(target_peer_id, "request_battle", challenger_deck)
-
-## Server handler: the challenged peer accepted or declined.
-## On accept: launch a headless referee BattleScene and notify both clients.
-func _on_relay_pvp_response(sender_id: int, challenger_id: int, accepted: bool, responder_deck: Array) -> void:
-	if not NetworkManager.is_dedicated_server():
-		return
-	if _pvp_relay_challenger_id != challenger_id or _pvp_relay_target_id != sender_id:
-		return  # stale or mismatched response
-	var challenger: int = _pvp_relay_challenger_id
-	var target: int = _pvp_relay_target_id
-	var deck_a: Array = _pvp_relay_challenger_deck.duplicate()
-	_pvp_relay_challenger_id = -1
-	_pvp_relay_challenger_deck = []
-	_pvp_relay_target_id = -1
-	_pvp_relay_challenger_armed_at = -1
-	if not accepted:
-		if _net_sync != null:
-			_net_sync.rpc_id(challenger, "respond_battle", false, [])
-		return
-	# Notify both clients: each will call enter_pvp_battle with their role.
-	if _net_sync != null:
-		_net_sync.rpc_id(challenger, "notify_pvp_start", 0, responder_deck)
-		_net_sync.rpc_id(target, "notify_pvp_start", 1, deck_a)
-	# Launch the headless referee on the server itself. Tokens (GID-102 / TID-372) let
-	# the referee verify a later reconnect from either combatant.
-	var token_a: String = str(_session_token_by_peer.get(challenger, ""))
-	var token_b: String = str(_session_token_by_peer.get(target, ""))
-	SceneManager.enter_pvp_referee(deck_a, responder_deck, challenger, target, token_a, token_b)
-
-## Client handler: server assigned us a player index; start the PvP battle.
-func _on_notify_pvp_start(my_player_idx: int, opponent_deck: Array) -> void:
-	if NetworkManager.is_dedicated_server():
-		return
-	SceneManager.enter_pvp_battle(my_player_idx, opponent_deck)
-
-func _show_challenge_accept_panel(from_id: int, ranked: bool = false) -> void:
-	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
-		_challenge_accept_panel.queue_free()
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var layer := CanvasLayer.new()
-	layer.layer = 180
-	add_child(layer)
-	_challenge_accept_panel = layer
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	layer.add_child(panel)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vp.y * 0.025))
-	panel.add_child(vbox)
-
-	var lbl := Label.new()
-	lbl.text = "A player challenges you to a RANKED card battle!" if ranked \
-		else "A player challenges you to a card battle!"
-	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.03))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	if ranked:
-		lbl.modulate = Color(1.0, 0.85, 0.3)
-	vbox.add_child(lbl)
-
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vp.y * 0.03))
-	vbox.add_child(row)
-
-	var accept_btn := Button.new()
-	accept_btn.text = "Accept"
-	accept_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
-	accept_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	accept_btn.pressed.connect(_accept_challenge.bind(from_id))
-	row.add_child(accept_btn)
-
-	var decline_btn := Button.new()
-	decline_btn.text = "Decline"
-	decline_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
-	decline_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	decline_btn.pressed.connect(_decline_challenge.bind(from_id))
-	row.add_child(decline_btn)
-
-func _dismiss_challenge_panel() -> void:
-	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
-		_challenge_accept_panel.queue_free()
-	_challenge_accept_panel = null
-
-func _accept_challenge(from_id: int) -> void:
-	_dismiss_challenge_panel()
-	var my_deck: Array = _local_deck_for_net()
-	var ranked: bool = _pending_challenge_ranked
-	if my_deck.size() < IsoConst.DECK_MIN:
-		_show_tip("Your deck is too small to duel.")
-		if _net_sync != null:
-			if _session_dedicated:
-				_net_sync.rpc_id(1, "relay_pvp_response", from_id, false, [])
-			else:
-				_net_sync.rpc_id(from_id, "respond_battle", false, [])
-		_pending_challenge_from = -1
-		_pending_challenge_ranked = false
-		_pending_challenge_armed_at = -1
-		return
-	var opp_deck: Array = _pending_challenge_deck
-	_pending_challenge_from = -1
-	_pending_challenge_deck = []
-	_pending_challenge_ranked = false
-	_pending_challenge_armed_at = -1
-	if _net_sync != null:
-		if _session_dedicated:
-			# Server will send notify_pvp_start to both peers — don't call _enter_pvp here.
-			_net_sync.rpc_id(1, "relay_pvp_response", from_id, true, my_deck)
-			return
-		_net_sync.rpc_id(from_id, "respond_battle", true, my_deck, ranked)
-	# Record the opponent peer so the host's spectator + rating (TID-370) paths know
-	# who it dueled when accepting an incoming challenge (not just when challenging).
-	_challenge_target_peer = from_id
-	_enter_pvp(opp_deck, ranked)
-
-func _decline_challenge(from_id: int) -> void:
-	_dismiss_challenge_panel()
-	_pending_challenge_ranked = false
-	if _net_sync != null:
-		if _session_dedicated:
-			_net_sync.rpc_id(1, "relay_pvp_response", from_id, false, [])
-		else:
-			_net_sync.rpc_id(from_id, "respond_battle", false, [])
-	_pending_challenge_from = -1
-	_pending_challenge_deck = []
-	_pending_challenge_armed_at = -1
-
-# ── TID-431 (BID-034): challenge handshake timeouts ───────────────────────────
-# An unanswered duel/wager/draft-duel challenge (or a stuck dedicated-server
-# relay) previously left the holder's pending state set forever — buttons
-# stayed hidden and no new challenge could be issued until the peer
-# disconnected. Polled once per frame from _process while co-op is active;
-# each flow reuses its own existing decline/abort path so the reset, RPC
-# notification, and armed_at clearing all happen in exactly one place.
-
-func _check_challenge_timeouts() -> void:
-	var now: int = Time.get_ticks_msec()
-	if _ChallengeTimeout.has_expired(_pending_challenge_armed_at, now):
-		_show_tip("Challenge expired — no response in time.")
-		_decline_challenge(_pending_challenge_from)
-	if _ChallengeTimeout.has_expired(_pending_wager_armed_at, now):
-		_show_tip("Wagered challenge expired — no response in time.")
-		_decline_wager_challenge(_pending_wager_from)
-	if _ChallengeTimeout.has_expired(_pending_draft_from_armed_at, now):
-		_show_tip("Draft duel challenge expired — no response in time.")
-		_decline_draft_duel(_pending_draft_from)
-	if _ChallengeTimeout.has_expired(_draft_peer_armed_at, now):
-		_abort_draft_duel("No response to your draft duel challenge.")
-	if _ChallengeTimeout.has_expired(_pvp_relay_challenger_armed_at, now):
-		_on_relay_pvp_response(_pvp_relay_target_id, _pvp_relay_challenger_id, false, [])
-
-## Both peers route into SceneManager. The co-op host is always the battle
-## authority (canonical player 0); the client is player 1.
-## ranked (GID-102 / TID-373): agreed by both peers via the request_battle/respond_battle
-## handshake before either calls this, so both pass the same value into enter_pvp_battle.
-func _enter_pvp(opponent_deck: Array, ranked: bool = false) -> void:
-	if _challenge_btn != null and is_instance_valid(_challenge_btn):
-		_challenge_btn.hide()
-	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
-		_ranked_toggle_btn.hide()
-	_pvp_ranked = ranked
-	var local_idx: int = 0 if NetworkManager.is_host() else 1
-	# GID-101 (TID-367): host broadcasts duel-start to spectators
-	if NetworkManager.is_host() and _net_sync != null:
-		var my_id: int = multiplayer.get_unique_id()
-		_pvp_ante_peer0 = my_id
-		_pvp_ante_peer1 = _challenge_target_peer
-		for pid in multiplayer.get_peers():
-			var p: int = int(pid)
-			if p != _challenge_target_peer:
-				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _challenge_target_peer)
-	# GID-102 (TID-372): opponent's identity token, so the host can verify a later
-	# reconnect. Only meaningful on the host's own call (_session_token_by_peer is
-	# host-side only); harmless empty string on the client's own call.
-	var opp_token: String = str(_session_token_by_peer.get(_challenge_target_peer, ""))
-	SceneManager.enter_pvp_battle(local_idx, opponent_deck, 0, opp_token, ranked)
-
-## Returns the biome and time context at the moment of engagement (GID-059).
-## Called by SceneManager._on_enemy_engaged() to stamp context into enemy_data.
 func get_battlefield_context() -> Dictionary:
 	var sm := SceneManager.save_manager
 	var px: float = _player.position.x if _player != null else 0.0
@@ -3458,8 +816,6 @@ func _update_hud() -> void:
 	_world_hud.refresh_xp_bar()
 	_world_hud.update_xp_label()
 
-func _refresh_xp_bar() -> void:
-	_world_hud.refresh_xp_bar()
 
 # ── Infinite world: chunk streaming ────────────────────────────────────────
 
@@ -3850,16 +1206,48 @@ func _spawn_named_map_scrolls() -> void:
 		if is_instance_valid(node):
 			_scroll_nodes.append(node)
 
-func _find_nearby_scroll(px: float, pz: float, range_dist: float) -> Node3D:
+## `v` when it is a live Node3D within `range_dist` of (px, pz), else null.
+## The proximity family below all measure on the XZ plane — vertical distance
+## never gates an interaction.
+func _node_in_range(v, px: float, pz: float, range_dist: float) -> Node3D:
+	var n: Node3D = _valid_node3d(v)
+	if n == null:
+		return null
+	var ddx: float = n.position.x - px
+	var ddz: float = n.position.z - pz
+	return n if ddx * ddx + ddz * ddz <= range_dist * range_dist else null
+
+## The first live node within `range_dist` of (px, pz), scanning either an Array
+## of nodes or an id -> node Dictionary. `require_visible` additionally skips
+## hidden nodes (buried mounds are spawned hidden until revealed).
+func _first_node_in_range(nodes, px: float, pz: float, range_dist: float,
+		require_visible: bool = false) -> Node3D:
 	var range_sq: float = range_dist * range_dist
-	for s in _scroll_nodes:
-		if not is_instance_valid(s):
+	var values: Array = (nodes as Dictionary).values() if nodes is Dictionary else nodes
+	for raw in values:
+		var n: Node3D = _valid_node3d(raw)
+		if n == null or (require_visible and not n.visible):
 			continue
-		var ddx: float = s.position.x - px
-		var ddz: float = s.position.z - pz
+		var ddx: float = n.position.x - px
+		var ddz: float = n.position.z - pz
 		if ddx * ddx + ddz * ddz <= range_sq:
-			return s
+			return n
 	return null
+
+## The first entry of an id -> {"x", "z", ...} table within `range_dist` of
+## (px, pz), or {} when nothing is close enough.
+func _first_data_in_range(table: Dictionary, px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
+	for key in table:
+		var d: Dictionary = table[key]
+		var ddx: float = float(d.get("x", 0.0)) - px
+		var ddz: float = float(d.get("z", 0.0)) - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return d
+	return {}
+
+func _find_nearby_scroll(px: float, pz: float, range_dist: float) -> Node3D:
+	return _first_node_in_range(_scroll_nodes, px, pz, range_dist)
 
 ## First-night wilderness camp (GID-108 / TID-402) — spawns near the player once
 ## per open-world load, exactly the same "no fixed position, respawn each fresh
@@ -3882,13 +1270,7 @@ func _spawn_wilderness_camp() -> void:
 	_wilderness_camp_node = node
 
 func _find_nearby_wilderness_camp(px: float, pz: float, range_dist: float) -> Node3D:
-	if not is_instance_valid(_wilderness_camp_node):
-		return null
-	var ddx: float = _wilderness_camp_node.position.x - px
-	var ddz: float = _wilderness_camp_node.position.z - pz
-	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
-		return _wilderness_camp_node
-	return null
+	return _node_in_range(_wilderness_camp_node, px, pz, range_dist)
 
 ## Chapter 2 beat 3 scripted ambush (GID-108 / TID-407) — spawns near the player
 ## once per open-world load, same "no fixed position" pattern as
@@ -3912,13 +1294,7 @@ func _spawn_scout_ambush() -> void:
 	_scout_ambush_node = node
 
 func _find_nearby_scout_ambush(px: float, pz: float, range_dist: float) -> Node3D:
-	if not is_instance_valid(_scout_ambush_node):
-		return null
-	var ddx: float = _scout_ambush_node.position.x - px
-	var ddz: float = _scout_ambush_node.position.z - pz
-	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
-		return _scout_ambush_node
-	return null
+	return _node_in_range(_scout_ambush_node, px, pz, range_dist)
 
 ## Chapter 2 beat 6 (GID-108 / TID-407) — DungeonGen has no boss-room concept
 ## at all (grepped, confirmed), so the war-camp's boss is injected directly
@@ -3990,19 +1366,13 @@ func _refresh_maiteln_presence() -> void:
 		# puppet — hidden until the first same-map packet arrives (mirrors the
 		# RemotePlayer cross-map-ghost fix, TID-352) instead of independently
 		# following its own local player.
-		if _coop_active and not _coop_world_authority() and node.has_method("set_networked"):
+		if _coop_active and not coop_session._coop_world_authority() and node.has_method("set_networked"):
 			node.set_networked(true)
 			node.visible = false
 		_maiteln_node = node
 
 func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
-	if not is_instance_valid(_maiteln_node):
-		return null
-	var ddx: float = _maiteln_node.position.x - px
-	var ddz: float = _maiteln_node.position.z - pz
-	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
-		return _maiteln_node
-	return null
+	return _node_in_range(_maiteln_node, px, pz, range_dist)
 
 func _spawn_named_map_shrines() -> void:
 	if world_map == null:
@@ -4020,15 +1390,7 @@ func _spawn_named_map_shrines() -> void:
 			_shrine_nodes.append(node)
 
 func _find_nearby_shrine(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
-	for sh in _shrine_nodes:
-		if not is_instance_valid(sh):
-			continue
-		var ddx: float = sh.position.x - px
-		var ddz: float = sh.position.z - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return sh
-	return null
+	return _first_node_in_range(_shrine_nodes, px, pz, range_dist)
 
 # Named-map waystone positions (near spawn, one per town map).
 # Used when the map's .tres data has no waystones array populated.
@@ -4107,14 +1469,7 @@ func _spawn_named_map_mailboxes() -> void:
 	_active_mailbox_data[mid] = m_dict
 
 func _find_nearby_mailbox(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for mid in _active_mailbox_data:
-		var m: Dictionary = _active_mailbox_data[mid]
-		var ddx: float = float(m.get("x", 0.0)) - px
-		var ddz: float = float(m.get("z", 0.0)) - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return m
-	return {}
+	return _first_data_in_range(_active_mailbox_data, px, pz, range_dist)
 
 ## Checks if a siege is active for this named map and spawns raiders + siege banner if so.
 ## Chapter 2 beat 4 (GID-108 / TID-407) — deterministically starts the same
@@ -4131,7 +1486,7 @@ func _check_story_siege_trigger(p_map_name: String) -> void:
 	# story siege is host-resolved — only the authority starts it, so 4 peers
 	# walking in don't each spawn their own private local siege. The victory flag
 	# still reaches everyone via the existing shared-flag arbitration (rule 1).
-	if _coop_active and not _coop_world_authority():
+	if _coop_active and not coop_session._coop_world_authority():
 		return
 	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("chapter2_ambush_survived"):
@@ -4195,14 +1550,9 @@ func _setup_siege_banner(p_map_name: String) -> void:
 		return
 	var vh: float = get_viewport().get_visible_rect().size.y
 	var vw: float = get_viewport().get_visible_rect().size.x
-	_siege_banner = Label.new()
-	_siege_banner.text = "%s Under Attack!" % p_map_name.capitalize().replace("_", " ")
-	_siege_banner.add_theme_font_size_override("font_size", int(vh * 0.03))
-	_siege_banner.modulate = Color(1.0, 0.3, 0.1)
-	_siege_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_siege_banner = _UiUtil.make_label("%s Under Attack!" % p_map_name.capitalize().replace("_", " "), int(vh * 0.03), Color(1.0, 0.3, 0.1), HORIZONTAL_ALIGNMENT_CENTER, _hud)
 	_siege_banner.position = Vector2((vw - vh * 0.6) * 0.5, vh * 0.005)
 	_siege_banner.custom_minimum_size = Vector2(vh * 0.6, int(vh * 0.04))
-	_hud.add_child(_siege_banner)
 
 func register_waystone(wid: String, node: Node3D, w_data: Dictionary) -> void:
 	_waystone_nodes[wid] = node
@@ -4221,28 +1571,10 @@ func register_mana_well(wid: String, node: Node3D) -> void:
 	_mana_well_nodes[wid] = node
 
 func _find_nearby_mana_well(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
-	for wid: String in _mana_well_nodes:
-		var wnode: Node3D = _valid_node3d(_mana_well_nodes[wid])
-		if not is_instance_valid(wnode):
-			continue
-		var ddx: float = wnode.position.x - px
-		var ddz: float = wnode.position.z - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return wnode
-	return null
+	return _first_node_in_range(_mana_well_nodes, px, pz, range_dist)
 
 func _find_nearby_blight_heart(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
-	for hid: String in _blight_heart_nodes:
-		var hnode: Node3D = _valid_node3d(_blight_heart_nodes[hid])
-		if not is_instance_valid(hnode):
-			continue
-		var ddx: float = hnode.position.x - px
-		var ddz: float = hnode.position.z - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return hnode
-	return null
+	return _first_node_in_range(_blight_heart_nodes, px, pz, range_dist)
 
 const LANDMARK_DISCOVERY_RANGE: float = 9.0
 
@@ -4287,26 +1619,10 @@ func _refresh_blight_tints() -> void:
 	)
 
 func _find_nearby_burial_mound(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
-	for mid in _burial_mound_nodes:
-		var mnode: Node3D = _valid_node3d(_burial_mound_nodes[mid])
-		if not is_instance_valid(mnode) or not mnode.visible:
-			continue
-		var ddx: float = mnode.position.x - px
-		var ddz: float = mnode.position.z - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return mnode
-	return null
+	return _first_node_in_range(_burial_mound_nodes, px, pz, range_dist, true)
 
 func _find_nearby_waystone(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for wid in _active_waystone_data:
-		var w: Dictionary = _active_waystone_data[wid]
-		var ddx: float = float(w.get("x", 0.0)) - px
-		var ddz: float = float(w.get("z", 0.0)) - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return w
-	return {}
+	return _first_data_in_range(_active_waystone_data, px, pz, range_dist)
 
 func _on_waystone_activated(waystone_id: String) -> void:
 	var w_data: Dictionary = _active_waystone_data.get(waystone_id, {})
@@ -4328,66 +1644,26 @@ func _open_fast_travel_panel() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 
-	var layer := CanvasLayer.new()
-	layer.layer = 50
-	_hud.add_child(layer)
+	var panel_h: float = vh * 0.62
+	var modal: Dictionary = _build_modal(0.55, 0.62, Color(0.05, 0.05, 0.10, 0.96), 0.018)
+	var layer: CanvasLayer = modal["layer"]
+	var backdrop: ColorRect = modal["backdrop"]
+	var vbox: VBoxContainer = modal["vbox"]
 	_fast_travel_layer = layer
 
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = vp.x * 0.55
-	var panel_h: float = vh * 0.62
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.10, 0.96)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.03))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.018))
-	margin.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "Fast Travel"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.035))
+	var title := _UiUtil.make_label("Fast Travel", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	title.add_theme_color_override("font_color", Color(0.40, 0.90, 1.00))
 	vbox.add_child(title)
 
 	var is_blocked: bool = SceneManager.current_map.begins_with("dungeon_")
 	var activated: Array[String] = SceneManager.save_manager.activated_waystones
 	if activated.is_empty():
-		var empty_lbl := Label.new()
-		empty_lbl.text = "No waystones activated yet.\nFind and interact with a waystone pillar to unlock fast travel."
-		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_lbl.add_theme_font_size_override("font_size", int(vh * 0.022))
+		var empty_lbl := _UiUtil.make_label("No waystones activated yet.\nFind and interact with a waystone pillar to unlock fast travel.", int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(empty_lbl)
 	elif is_blocked:
-		var block_lbl := Label.new()
-		block_lbl.text = "Fast travel is unavailable inside dungeons."
-		block_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		block_lbl.add_theme_font_size_override("font_size", int(vh * 0.022))
+		var block_lbl := _UiUtil.make_label("Fast travel is unavailable inside dungeons.", int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 		block_lbl.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 		block_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		vbox.add_child(block_lbl)
@@ -4397,17 +1673,12 @@ func _open_fast_travel_panel() -> void:
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		vbox.add_child(scroll)
 
-		var btn_vbox := VBoxContainer.new()
+		var btn_vbox := _UiUtil.make_vbox(int(vh * 0.010), scroll)
 		btn_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		btn_vbox.add_theme_constant_override("separation", int(vh * 0.010))
-		scroll.add_child(btn_vbox)
 
 		var btn_h: float = vh * 0.060
 		for wid: String in activated:
-			var btn := Button.new()
-			btn.text = _waystone_friendly_label(wid)
-			btn.custom_minimum_size = Vector2(0, btn_h)
-			btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+			var btn := _UiUtil.make_button(_waystone_friendly_label(wid), Vector2(0, btn_h), int(vh * 0.024))
 			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			var captured_id: String = wid
 			btn.pressed.connect(func() -> void:
@@ -4417,10 +1688,7 @@ func _open_fast_travel_panel() -> void:
 			)
 			btn_vbox.add_child(btn)
 
-	var close_btn := Button.new()
-	close_btn.text = "Close  [Esc]" if not OS.has_feature("android") else "Close"
-	close_btn.custom_minimum_size = Vector2(vh * 0.20, vh * 0.06)
-	close_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
+	var close_btn := _UiUtil.make_button("Close  [Esc]" if not OS.has_feature("android") else "Close", Vector2(vh * 0.20, vh * 0.06), int(vh * 0.024))
 	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	close_btn.pressed.connect(func() -> void:
 		_fast_travel_layer = null
@@ -4553,14 +1821,10 @@ func _find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
 	return best
 
 func _find_nearby_digspot(px: float, pz: float, range_dist: float) -> Node3D:
-	if _digspot_node == null or not is_instance_valid(_digspot_node):
+	if not is_instance_valid(_digspot_node):
 		_digspot_node = null
 		return null
-	var ddx: float = _digspot_node.position.x - px
-	var ddz: float = _digspot_node.position.z - pz
-	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
-		return _digspot_node
-	return null
+	return _node_in_range(_digspot_node, px, pz, range_dist)
 
 func _break_cracked_wall(tx: int, tz: int) -> void:
 	world_map.set_tile(tx, tz, IsoConst.TILE_GRASS)
@@ -4573,14 +1837,7 @@ func _rebuild_terrain_around_tile(tx: int, tz: int) -> void:
 	_csm.rebuild_terrain_around_tile(tx, tz)
 
 func _find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for nid in _active_npc_data:
-		var n: Dictionary = _active_npc_data[nid]
-		var ddx: float = float(n.get("x", 0.0)) - px
-		var ddz: float = float(n.get("z", 0.0)) - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return n
-	return {}
+	return _first_data_in_range(_active_npc_data, px, pz, range_dist)
 
 func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
@@ -4622,26 +1879,26 @@ func _process(delta: float) -> void:
 	# Co-op and time ticks run before the player null-check so they work in
 	# dedicated-server mode (no local player) as well as in normal sessions.
 	if _coop_active:
-		_broadcast_local_avatar(delta)
-		_broadcast_maiteln_state(delta)
-		_update_challenge_proximity()
-		_update_draft_duel_proximity()
-		_check_challenge_timeouts()
-		_tick_tournament(delta)
-		_tick_session_persist(delta)
+		coop_session._broadcast_local_avatar(delta)
+		coop_session._broadcast_maiteln_state(delta)
+		coop_pvp._update_challenge_proximity()
+		coop_pvp._update_draft_duel_proximity()
+		coop_pvp._check_challenge_timeouts()
+		coop_pvp._tick_tournament(delta)
+		coop_session._tick_session_persist(delta)
 		# World-object sync (GID-096): host streams enemy positions; clients smooth.
-		_broadcast_enemy_positions(delta)
-		_interp_synced_enemies(delta)
+		coop_session._broadcast_enemy_positions(delta)
+		coop_session._interp_synced_enemies(delta)
 		# GID-101: social features tick
-		_tick_emote_self(delta)
-		_tick_ping_markers(delta)
-		_update_social_proximity()
+		coop_social._tick_emote_self(delta)
+		coop_social._tick_ping_markers(delta)
+		coop_social._update_social_proximity()
 		# Party loot rolls (GID-102 / TID-381): authority-only timeout ticker; inert
 		# unless a roll is actually in flight (need/greed mode opted in).
-		_tick_loot_rolls(delta)
+		coop_activities._tick_loot_rolls(delta)
 		# Co-op Endless Spire draft (GID-106 / TID-390): authority-only timeout ticker;
 		# inert unless a draft round is actually in flight.
-		_tick_coop_spire_draft(delta)
+		coop_activities._tick_coop_spire_draft(delta)
 		# Downed & rescue (GID-105 / TID-389): live countdown on the local banner.
 		if _coop_downed and _downed_banner != null and is_instance_valid(_downed_banner):
 			var elapsed: float = (Time.get_ticks_msec() / 1000.0) - _downed_started_at
@@ -4650,9 +1907,9 @@ func _process(delta: float) -> void:
 		# Shared world life (GID-103): synced clock/weather, party night hunts, and
 		# the co-op siege wave watcher. Map-scoped and host/authority gated
 		# internally; single-player never reaches these.
-		_tick_env_sync(delta)
-		_coop_update_night_hunts(delta)
-		_coop_tick_siege(delta)
+		coop_session._tick_env_sync(delta)
+		coop_activities._coop_update_night_hunts(delta)
+		coop_activities._coop_tick_siege(delta)
 	if _dnc:
 		_dnc.tick(delta, _weather_tint)
 
@@ -4733,92 +1990,80 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("mount"):
 		_toggle_mount()
 
+## The HUD prompt label for whatever the player can reach, or "" when nothing
+## is in range. Probes run in _handle_interact's priority order and stop at the
+## first hit, so a tick usually costs one proximity scan instead of seventeen.
+func _interact_prompt_label(px: float, pz: float) -> String:
+	var r: float = IsoConst.INTERACT_RANGE
+	if coop_session._find_nearby_downed_peer(px, pz, r) != -1:
+		return "REVIVE"
+	if _find_nearby_enemy(px, pz, r) != null:
+		return "ATTACK"
+	if not _find_nearby_chest(px, pz, r).is_empty():
+		return "OPEN"
+	if not _find_nearby_door(px, pz, r * 2.0).is_empty():
+		return "ENTER"
+	if _find_nearby_wilderness_camp(px, pz, r) != null:
+		return "CAMP"
+	if _find_nearby_scout_ambush(px, pz, r) != null:
+		return "ATTACK"
+	if _find_nearby_maiteln(px, pz, r) != null:
+		return "TALK"
+	var npc := _find_nearby_npc(px, pz, r)
+	if not npc.is_empty():
+		return str(_NPC_PROMPT_LABELS.get(str(npc.get("npc_type", "")), "TALK"))
+	if _find_nearby_scroll(px, pz, r) != null:
+		return "READ"
+	if _find_nearby_shrine(px, pz, r) != null:
+		return "PRAY"
+	if _find_nearby_digspot(px, pz, r) != null:
+		return "DIG"
+	if not _find_nearby_waystone(px, pz, r).is_empty():
+		return "WARP"
+	if not _find_nearby_mailbox(px, pz, r).is_empty():
+		return "MAIL"
+	if _find_nearby_garden_plot(px, pz, r) != null:
+		return "TEND"
+	if _find_nearby_burial_mound(px, pz, r) != null:
+		return "DIG"
+	if _find_nearby_blight_heart(px, pz, r) != null:
+		return "CLEANSE"
+	if _find_nearby_mana_well(px, pz, r) != null:
+		return "FILL"
+	return ""
+
+## One-time "press E to …" hints. Each probe runs only while its flag is still
+## unset, so this costs nothing once the player has seen all three.
+func _show_first_interact_tips(px: float, pz: float) -> void:
+	var sm := SceneManager.save_manager
+	var r: float = IsoConst.INTERACT_RANGE
+	var tap: bool = OS.has_feature("android")
+	if not sm.get_story_flag("tutorial_npc_tip") and not _find_nearby_npc(px, pz, r).is_empty():
+		sm.set_story_flag("tutorial_npc_tip")
+		_show_tip("Tap to talk" if tap else "Press E to talk to NPCs")
+	elif not sm.get_story_flag("tutorial_chest_tip") and not _find_nearby_chest(px, pz, r).is_empty():
+		sm.set_story_flag("tutorial_chest_tip")
+		_show_tip("Tap to open chests" if tap else "Press E to open chests")
+	elif not sm.get_story_flag("tutorial_enemy_tip") and _find_nearby_enemy(px, pz, r) != null:
+		sm.set_story_flag("tutorial_enemy_tip")
+		_show_tip("Some enemies attack on sight — others wait. %s to challenge any enemy."
+			% ("Tap" if tap else "Press E"))
+
 func _check_interactions() -> void:
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
-	# Downed & rescue (GID-105 / TID-389): a downed player is frozen and cannot
-	# interact with anything (chests/NPCs/doors/enemies are all unreachable anyway
-	# since they can't move, but this is a defensive guard for whatever happened
-	# to be in range at the moment of defeat).
+	# Downed & rescue (GID-105 / TID-389): frozen — cannot interact with anything
+	# (chests/NPCs/doors/enemies are all unreachable anyway since the player can't
+	# move, but this is a defensive guard for whatever was in range at defeat).
 	if _coop_downed:
 		_world_hud.show_interact_prompt(false, "USE")
 		return
-	var downed_pid: int = _find_nearby_downed_peer(px, pz, IsoConst.INTERACT_RANGE)
-	var enemy := _find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
-	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
-	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
-	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
-	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
-	var wilderness_camp := _find_nearby_wilderness_camp(px, pz, IsoConst.INTERACT_RANGE)
-	var scout_ambush := _find_nearby_scout_ambush(px, pz, IsoConst.INTERACT_RANGE)
-	var maiteln := _find_nearby_maiteln(px, pz, IsoConst.INTERACT_RANGE)
-	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
-	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
-	var waystone := _find_nearby_waystone(px, pz, IsoConst.INTERACT_RANGE)
-	var mailbox := _find_nearby_mailbox(px, pz, IsoConst.INTERACT_RANGE)
-	var garden_plot := _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
-	var burial_mound := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
-	var blight_heart := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
-	# Landmarks auto-trigger on approach (no button press needed)
+	# Landmarks auto-trigger on approach (no button press needed).
 	_check_nearby_landmark(px, pz)
-	var mana_well := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
-	var has_entity: bool = downed_pid != -1 or enemy != null or not chest.is_empty() or not door.is_empty() or not npc.is_empty() or scroll != null or wilderness_camp != null or scout_ambush != null or maiteln != null or shrine != null or digspot != null or not waystone.is_empty() or not mailbox.is_empty() or garden_plot != null or burial_mound != null or blight_heart != null or mana_well != null
-	var interact_label: String = "USE"
-	if downed_pid != -1:
-		interact_label = "REVIVE"
-	elif enemy != null:
-		interact_label = "ATTACK"
-	elif not chest.is_empty():
-		interact_label = "OPEN"
-	elif not door.is_empty():
-		interact_label = "ENTER"
-	elif wilderness_camp != null:
-		interact_label = "CAMP"
-	elif scout_ambush != null:
-		interact_label = "ATTACK"
-	elif maiteln != null:
-		interact_label = "TALK"
-	elif not npc.is_empty():
-		match str(npc.get("npc_type", "")):
-			"merchant", "traveling_merchant": interact_label = "SHOP"
-			"blacksmith": interact_label = "FORGE"
-			"bounty_board": interact_label = "BOARD"
-			"stable": interact_label = "STABLE"
-			"duelist": interact_label = "DUEL"
-			"rest_site", "bed": interact_label = "REST"
-			"stash_chest": interact_label = "STASH"
-			_: interact_label = "TALK"
-	elif scroll != null:
-		interact_label = "READ"
-	elif shrine != null:
-		interact_label = "PRAY"
-	elif digspot != null:
-		interact_label = "DIG"
-	elif not waystone.is_empty():
-		interact_label = "WARP"
-	elif not mailbox.is_empty():
-		interact_label = "MAIL"
-	elif garden_plot != null:
-		interact_label = "TEND"
-	elif burial_mound != null:
-		interact_label = "DIG"
-	elif blight_heart != null:
-		interact_label = "CLEANSE"
-	elif mana_well != null:
-		interact_label = "FILL"
-	_world_hud.show_interact_prompt(has_entity and not SceneManager.has_open_overlay(), interact_label)
-
-	var is_android: bool = OS.has_feature("android")
-	if not npc.is_empty() and not SceneManager.save_manager.get_story_flag("tutorial_npc_tip"):
-		SceneManager.save_manager.set_story_flag("tutorial_npc_tip")
-		_show_tip("Tap to talk" if is_android else "Press E to talk to NPCs")
-	elif not chest.is_empty() and not SceneManager.save_manager.get_story_flag("tutorial_chest_tip"):
-		SceneManager.save_manager.set_story_flag("tutorial_chest_tip")
-		_show_tip("Tap to open chests" if is_android else "Press E to open chests")
-	elif enemy != null and not SceneManager.save_manager.get_story_flag("tutorial_enemy_tip"):
-		SceneManager.save_manager.set_story_flag("tutorial_enemy_tip")
-		var interact_key: String = "Tap" if OS.has_feature("android") else "Press E"
-		_show_tip("Some enemies attack on sight — others wait. %s to challenge any enemy." % interact_key)
+	var label: String = _interact_prompt_label(px, pz)
+	_world_hud.show_interact_prompt(label != "" and not SceneManager.has_open_overlay(),
+		label if label != "" else "USE")
+	_show_first_interact_tips(px, pz)
 
 func _open_map_view() -> void:
 	if _is_infinite:
@@ -4832,9 +2077,9 @@ func _open_map_view() -> void:
 	_map_overlay.setup(world_map, map_name, _player,
 		_npc_nodes, _active_npc_data,
 		_enemy_nodes, _chest_nodes, _door_nodes, _waystone_nodes,
-		_build_rally_targets())
+		coop_session._build_rally_targets())
 	_map_overlay.closed.connect(func() -> void: _map_overlay = null)
-	_map_overlay.rally_requested.connect(_rally_to_peer)
+	_map_overlay.rally_requested.connect(coop_session._rally_to_peer)
 
 func _open_pause() -> void:
 	if _pause_overlay != null:
@@ -5046,9 +2291,9 @@ func _handle_interact() -> void:
 	var px: float = _player.position.x
 	var pz: float = _player.position.z
 
-	var downed_pid: int = _find_nearby_downed_peer(px, pz, IsoConst.INTERACT_RANGE)
+	var downed_pid: int = coop_session._find_nearby_downed_peer(px, pz, IsoConst.INTERACT_RANGE)
 	if downed_pid != -1:
-		_request_revive(downed_pid)
+		coop_session._request_revive(downed_pid)
 		return
 
 	var door := _find_nearby_door(px, pz, IsoConst.INTERACT_RANGE * 2.0)
@@ -5122,7 +2367,7 @@ func _handle_interact() -> void:
 			node.mark_opened()
 		# Co-op (GID-096): reflect + persist the open for all players (this opener
 		# keeps the loot below; peers only see the chest flip open). Inert solo.
-		_on_chest_opened_coop(cid)
+		coop_session._on_chest_opened_coop(cid)
 		var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
 		var chest_card_ids: Array[String] = []
 		chest_card_ids.assign(chest.get("card_ids", []))
@@ -5136,8 +2381,8 @@ func _handle_interact() -> void:
 		# co-op session, the opener does NOT keep the loot below — the authority
 		# opens a roll among present session members and grants it to the winner
 		# instead. Default (first-opener-takes) and single-player are unchanged.
-		if _coop_active and _coop_loot_mode_is_need_greed():
-			_start_loot_roll(cid, chest_tier)
+		if _coop_active and coop_activities._coop_loot_mode_is_need_greed():
+			coop_activities._start_loot_roll(cid, chest_tier)
 			return
 		# 20% chance to drop a map fragment instead of normal loot (only if no active map)
 		var sm := SceneManager.save_manager
@@ -5197,7 +2442,7 @@ func _handle_interact() -> void:
 			_handle_king_eldar_interaction(npc)
 			return
 		if str(npc.get("npc_type", "")) == "stash_chest":
-			_toggle_stash_overlay()
+			coop_social._toggle_stash_overlay()
 			return
 		var nid: String = str(npc.get("id", ""))
 		var nnode := _valid_node3d(_npc_nodes.get(nid))
@@ -5295,50 +2540,12 @@ func _show_spire_entrance_panel() -> void:
 	if is_active:
 		curr_floor = int(SceneManager.save_manager.get_spire_run().get("floor", 1))
 
-	var layer := CanvasLayer.new()
-	layer.layer = 50
-	_hud.add_child(layer)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = vp.x * 0.64
-	var panel_h: float = vh * 0.40
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.04, 0.14, 0.96)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.03))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
-
-	var vbox := VBoxContainer.new()
+	var modal: Dictionary = _build_modal(0.64, 0.40, Color(0.06, 0.04, 0.14, 0.96), 0.022)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(vh * 0.022))
-	margin.add_child(vbox)
 
-	var title := Label.new()
-	title.text = "The Endless Spire"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.038))
-	title.modulate = Color(0.85, 0.50, 1.0)
-	vbox.add_child(title)
+	var title := _UiUtil.make_label("The Endless Spire", int(vh * 0.038), Color(0.85, 0.50, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var desc := Label.new()
 	if is_active:
@@ -5351,15 +2558,10 @@ func _show_spire_entrance_panel() -> void:
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(desc)
 
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vh * 0.03))
-	vbox.add_child(row)
 
-	var enter_btn := Button.new()
-	enter_btn.text = "Resume (Floor %d)" % curr_floor if is_active else "Enter"
-	enter_btn.custom_minimum_size = Vector2(vh * 0.20, vh * 0.07)
-	enter_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
+	var enter_btn := _UiUtil.make_button("Resume (Floor %d)" % curr_floor if is_active else "Enter", Vector2(vh * 0.20, vh * 0.07), int(vh * 0.028))
 	enter_btn.modulate = Color(0.85, 0.50, 1.0)
 	enter_btn.pressed.connect(func() -> void:
 		layer.queue_free()
@@ -5367,12 +2569,7 @@ func _show_spire_entrance_panel() -> void:
 	)
 	row.add_child(enter_btn)
 
-	var leave_btn := Button.new()
-	leave_btn.text = "Leave"
-	leave_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.07)
-	leave_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
-	leave_btn.pressed.connect(func() -> void: layer.queue_free())
-	row.add_child(leave_btn)
+	var leave_btn := _UiUtil.make_button("Leave", Vector2(vh * 0.16, vh * 0.07), int(vh * 0.028), func() -> void: layer.queue_free(), row)
 
 # ── Player Home ────────────────────────────────────────────────────────────
 
@@ -5388,72 +2585,22 @@ func _show_house_door_panel() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
 
-	var layer := CanvasLayer.new()
-	layer.layer = 50
-	_hud.add_child(layer)
+	var modal: Dictionary = _build_modal(0.60, 0.32, Color(0.06, 0.04, 0.14, 0.96), 0.015, 0.02)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
 
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
+	var title := _UiUtil.make_label("House For Sale", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var panel_w: float = vp.x * 0.60
-	var panel_h: float = vh * 0.32
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.04, 0.14, 0.96)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.02))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.02))
-	panel.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.015))
-	margin.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "House For Sale"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.035))
-	vbox.add_child(title)
-
-	var desc := Label.new()
-	desc.text = "Purchase this cozy home for %d coins.\nCurrent balance: %d coins." % [_HOUSE_PRICE, sm.coins]
-	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	var desc := _UiUtil.make_label("Purchase this cozy home for %d coins.\nCurrent balance: %d coins." % [_HOUSE_PRICE, sm.coins], int(vh * 0.027), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc.add_theme_font_size_override("font_size", int(vh * 0.027))
-	vbox.add_child(desc)
 
-	var hbox := HBoxContainer.new()
+	var hbox := _UiUtil.make_hbox(int(vh * 0.02), vbox)
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", int(vh * 0.02))
-	vbox.add_child(hbox)
 
-	var buy_btn := Button.new()
-	buy_btn.text = "Buy (%d coins)" % _HOUSE_PRICE
-	buy_btn.custom_minimum_size = Vector2(vh * 0.26, vh * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
+	var buy_btn := _UiUtil.make_button("Buy (%d coins)" % _HOUSE_PRICE, Vector2(vh * 0.26, vh * 0.065), int(vh * 0.027), Callable(), hbox)
 	buy_btn.disabled = sm.coins < _HOUSE_PRICE
-	hbox.add_child(buy_btn)
 
-	var cancel_btn := Button.new()
-	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.065)
-	cancel_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
-	hbox.add_child(cancel_btn)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(vh * 0.16, vh * 0.065), int(vh * 0.027), Callable(), hbox)
 
 	cancel_btn.pressed.connect(func() -> void: layer.queue_free())
 	buy_btn.pressed.connect(func() -> void:
@@ -5499,7 +2646,7 @@ func _on_battle_won(_result: Dictionary) -> void:
 	# Co-op (GID-096): a victory over a shared enemy persists its defeat into the
 	# session file (stays gone after reconnect). A loss isn't persisted, so the
 	# enemy returns on reconnect — matching single-player. Inert single-player.
-	_coop_persist_enemy_defeat()
+	coop_session._coop_persist_enemy_defeat()
 	if _is_infinite and _current_biome >= 0:
 		AudioManager.play_music(_BIOME_MUSIC[_current_biome])
 		AudioManager.set_ambience(_current_biome)
@@ -5529,47 +2676,11 @@ func _show_stable_panel() -> void:
 		_show_dialogue("You already own a Stable Horse!")
 		return
 
-	var layer := CanvasLayer.new()
-	layer.layer = 50
-	_hud.add_child(layer)
+	var modal: Dictionary = _build_modal(0.60, 0.36, Color(0.06, 0.04, 0.14, 0.96), 0.015, 0.02)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
 
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = vp.x * 0.60
-	var panel_h: float = vh * 0.36
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.06, 0.04, 0.14, 0.96)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.02))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.02))
-	panel.add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.015))
-	margin.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "Madrian Stables"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.035))
-	vbox.add_child(title)
+	var title := _UiUtil.make_label("Madrian Stables", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var mount: Dictionary = MountRegistry.get_mount("stable_horse")
 	var desc := Label.new()
@@ -5597,23 +2708,13 @@ func _show_stable_panel() -> void:
 	level_lbl.add_theme_font_size_override("font_size", int(vh * 0.025))
 	vbox.add_child(level_lbl)
 
-	var hbox := HBoxContainer.new()
+	var hbox := _UiUtil.make_hbox(int(vh * 0.02), vbox)
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", int(vh * 0.02))
-	vbox.add_child(hbox)
 
-	var buy_btn := Button.new()
-	buy_btn.text = "Buy (%d coins)" % MOUNT_PRICE
-	buy_btn.custom_minimum_size = Vector2(vh * 0.28, vh * 0.065)
-	buy_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
+	var buy_btn := _UiUtil.make_button("Buy (%d coins)" % MOUNT_PRICE, Vector2(vh * 0.28, vh * 0.065), int(vh * 0.027), Callable(), hbox)
 	buy_btn.disabled = not level_ok or not coins_ok
-	hbox.add_child(buy_btn)
 
-	var cancel_btn := Button.new()
-	cancel_btn.text = "Cancel"
-	cancel_btn.custom_minimum_size = Vector2(vh * 0.16, vh * 0.065)
-	cancel_btn.add_theme_font_size_override("font_size", int(vh * 0.027))
-	hbox.add_child(cancel_btn)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(vh * 0.16, vh * 0.065), int(vh * 0.027), Callable(), hbox)
 
 	cancel_btn.pressed.connect(func() -> void: layer.queue_free())
 	buy_btn.pressed.connect(func() -> void:
@@ -5723,15 +2824,7 @@ func _spawn_player_home_garden() -> void:
 		_garden_plot_nodes.append(plot)
 
 func _find_nearby_garden_plot(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
-	for plot in _garden_plot_nodes:
-		if not is_instance_valid(plot):
-			continue
-		var ddx: float = plot.position.x - px
-		var ddz: float = plot.position.z - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return plot
-	return null
+	return _first_node_in_range(_garden_plot_nodes, px, pz, range_dist)
 
 func _show_garden_plot_panel(plot: Node3D) -> void:
 	var sm := SceneManager.save_manager
@@ -5745,15 +2838,9 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 	panel.custom_minimum_size = Vector2(vw * 0.7, vh * 0.5)
 	_hud.add_child(panel)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.012))
-	panel.add_child(vbox)
+	var vbox := _UiUtil.make_vbox(int(vh * 0.012), panel)
 
-	var title := Label.new()
-	title.text = "Garden Plot %d" % (int(plot.plot_idx) + 1)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", int(vh * 0.045))
-	vbox.add_child(title)
+	var title := _UiUtil.make_label("Garden Plot %d" % (int(plot.plot_idx) + 1), int(vh * 0.045), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var session_mode: bool = bool(plot.session_mode)
 	var plot_data: Dictionary = plot.get_plot_data()
@@ -5761,11 +2848,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 
 	if plot_data.is_empty():
 		# Empty plot — seed picker
-		var info := Label.new()
-		info.text = "Choose a seed to plant:"
-		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		info.add_theme_font_size_override("font_size", font_size)
-		vbox.add_child(info)
+		var info := _UiUtil.make_label("Choose a seed to plant:", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 		var has_any_seed: bool = false
 		for seed_id in GardenDefs.SEEDS:
@@ -5773,8 +2856,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 			var sdata: Dictionary = GardenDefs.SEEDS[seed_id]
 			var sname: String = str(sdata.get("display_name", seed_id))
 			var days: int = int(sdata.get("growth_days", 2))
-			var row := HBoxContainer.new()
-			vbox.add_child(row)
+			var row := _UiUtil.make_hbox(0, vbox)
 			var lbl := Label.new()
 			# The co-op guildhall garden is free to plant (no session seed
 			# economy is modeled, TID-393) — the owned-count only applies solo.
@@ -5783,10 +2865,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			lbl.add_theme_font_size_override("font_size", font_size)
 			row.add_child(lbl)
-			var plant_btn := Button.new()
-			plant_btn.text = "Plant"
-			plant_btn.custom_minimum_size = Vector2(vh * 0.14, btn_h)
-			plant_btn.add_theme_font_size_override("font_size", font_size)
+			var plant_btn := _UiUtil.make_button("Plant", Vector2(vh * 0.14, btn_h), int(font_size))
 			plant_btn.disabled = false if session_mode else seed_count <= 0
 			var captured_seed_id: String = seed_id
 			var captured_sname: String = sname
@@ -5809,11 +2888,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 				has_any_seed = true
 
 		if not has_any_seed:
-			var hint := Label.new()
-			hint.text = "No seeds — buy some from a merchant."
-			hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			hint.add_theme_font_size_override("font_size", font_size)
-			vbox.add_child(hint)
+			var hint := _UiUtil.make_label("No seeds — buy some from a merchant.", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	elif stage < 3:
 		# Growing — show info
@@ -5822,14 +2897,10 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 		var sname: String = str(sdata.get("display_name", seed_id))
 		var growth_days: int = int(sdata.get("growth_days", 2))
 		var planted_day: int = int(plot_data.get("planted_day", 0))
-		var current_days: int = _coop_current_days_elapsed() if session_mode else sm.days_elapsed
+		var current_days: int = coop_session._coop_current_days_elapsed() if session_mode else sm.days_elapsed
 		var days_left: int = max(0, planted_day + growth_days - current_days)
-		var info := Label.new()
-		info.text = "%s growing — ready in %d day(s)" % [sname, days_left]
-		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var info := _UiUtil.make_label("%s growing — ready in %d day(s)" % [sname, days_left], int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		info.add_theme_font_size_override("font_size", font_size)
-		vbox.add_child(info)
 
 	else:
 		# Mature — show harvest button
@@ -5838,16 +2909,9 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 		var sname: String = str(sdata.get("display_name", seed_id))
 		var plant_id: String = str(sdata.get("plant_id", ""))
 		var yield_count: int = int(sdata.get("yield", 1))
-		var info := Label.new()
-		info.text = "%s is ready to harvest!" % sname
-		info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		info.add_theme_font_size_override("font_size", font_size)
-		vbox.add_child(info)
+		var info := _UiUtil.make_label("%s is ready to harvest!" % sname, int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-		var harvest_btn := Button.new()
-		harvest_btn.text = "Harvest (%d× %s)" % [yield_count, sname]
-		harvest_btn.custom_minimum_size = Vector2(0, btn_h)
-		harvest_btn.add_theme_font_size_override("font_size", font_size)
+		var harvest_btn := _UiUtil.make_button("Harvest (%d× %s)" % [yield_count, sname], Vector2(0, btn_h), int(font_size))
 		if session_mode:
 			harvest_btn.pressed.connect(func() -> void:
 				_submit_session_harvest(int(plot.plot_idx))
@@ -5864,12 +2928,7 @@ func _show_garden_plot_panel(plot: Node3D) -> void:
 			)
 		vbox.add_child(harvest_btn)
 
-	var cancel_btn := Button.new()
-	cancel_btn.text = "Close"
-	cancel_btn.custom_minimum_size = Vector2(0, btn_h)
-	cancel_btn.add_theme_font_size_override("font_size", font_size)
-	cancel_btn.pressed.connect(func() -> void: panel.queue_free())
-	vbox.add_child(cancel_btn)
+	var cancel_btn := _UiUtil.make_button("Close", Vector2(0, btn_h), int(font_size), func() -> void: panel.queue_free(), vbox)
 
 # ── Party Guildhall furnishings (GID-106 / TID-393) ──────────────────────────
 # Trophies, garden, and a stash chest, furnishing the otherwise-empty guildhall
@@ -6000,7 +3059,7 @@ func _spawn_guildhall_stash_chest() -> void:
 ## Pushes the current cache into every spawned plot (session_mode) node.
 func _refresh_guildhall_garden_visuals() -> void:
 	var plots: Array = _guildhall_garden_cache.get("plots", [])
-	var days: int = _coop_current_days_elapsed()
+	var days: int = coop_session._coop_current_days_elapsed()
 	for i in range(_garden_plot_nodes.size()):
 		var plot: Node3D = _garden_plot_nodes[i]
 		if not is_instance_valid(plot) or not plot.has_method("set_session_state"):
@@ -6059,7 +3118,7 @@ func _on_session_plant_submitted(_sender: int, plot_idx: int, seed_id: String) -
 		return
 	if not (plots[plot_idx] as Dictionary).is_empty():
 		return  # already planted — ignore a stale/duplicate submit
-	plots[plot_idx] = {"seed_id": seed_id, "planted_day": _coop_current_days_elapsed()}
+	plots[plot_idx] = {"seed_id": seed_id, "planted_day": coop_session._coop_current_days_elapsed()}
 	gh["garden_plots"] = plots
 	st.guildhall_state = gh
 	SessionStore.mark_dirty()
@@ -6093,7 +3152,7 @@ func _on_session_harvest_submitted(_sender: int, plot_idx: int) -> void:
 		return
 	var growth_days: int = int(sdata.get("growth_days", 2))
 	var planted_day: int = int(plot_data.get("planted_day", 0))
-	var stage: int = GardenDefs.growth_stage(planted_day, growth_days, _coop_current_days_elapsed())
+	var stage: int = GardenDefs.growth_stage(planted_day, growth_days, coop_session._coop_current_days_elapsed())
 	if stage < 3:
 		return  # not mature yet — ignore a stale/duplicate submit
 	var plant_id: String = str(sdata.get("plant_id", ""))
@@ -6207,43 +3266,10 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 			if not defeated.has(rid):
 				gate_remaining += 1
 
-	var layer := CanvasLayer.new()
-	layer.layer = 50
-	_hud.add_child(layer)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.5)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = vp.x * 0.6
-	var panel_h: float = vh * 0.38
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.08, 0.08, 0.18, 0.96)
-	style.corner_radius_top_left    = 10
-	style.corner_radius_top_right   = 10
-	style.corner_radius_bottom_left = 10
-	style.corner_radius_bottom_right = 10
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left",   int(vh * 0.03))
-	margin.add_theme_constant_override("margin_right",  int(vh * 0.03))
-	margin.add_theme_constant_override("margin_top",    int(vh * 0.03))
-	margin.add_theme_constant_override("margin_bottom", int(vh * 0.03))
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	panel.add_child(margin)
-
-	var vbox := VBoxContainer.new()
+	var modal: Dictionary = _build_modal(0.6, 0.38, Color(0.08, 0.08, 0.18, 0.96), 0.022, 0.03, 0.5)
+	var layer: CanvasLayer = modal["layer"]
+	var vbox: VBoxContainer = modal["vbox"]
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", int(vh * 0.022))
-	margin.add_child(vbox)
 
 	var offer_lbl := Label.new()
 	if gate_remaining > 0:
@@ -6260,16 +3286,11 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 	offer_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(offer_lbl)
 
-	var row := HBoxContainer.new()
+	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vh * 0.03))
-	vbox.add_child(row)
 
 	if gate_remaining == 0 and player_coins >= wager:
-		var duel_btn := Button.new()
-		duel_btn.text = "Duel!"
-		duel_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.07)
-		duel_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
+		var duel_btn := _UiUtil.make_button("Duel!", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.028))
 		duel_btn.pressed.connect(func() -> void:
 			layer.queue_free()
 			var enemy_deck: Array[String] = EnemyRegistry.get_deck(enemy_id)
@@ -6283,12 +3304,66 @@ func _show_duel_offer_panel(npc: Dictionary) -> void:
 		)
 		row.add_child(duel_btn)
 
-	var decline_btn := Button.new()
-	decline_btn.text = "Decline"
-	decline_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.07)
-	decline_btn.add_theme_font_size_override("font_size", int(vh * 0.028))
-	decline_btn.pressed.connect(func() -> void: layer.queue_free())
-	row.add_child(decline_btn)
+	var decline_btn := _UiUtil.make_button("Decline", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.028), func() -> void: layer.queue_free(), row)
+
+## The lightweight accept/decline prompt the co-op request panels use: a
+## CanvasLayer at `layer_index` on this scene, a dimming backdrop, and a
+## content-hugging centred panel. Returns {"layer", "vbox"} — free the layer to
+## dismiss. Distinct from _build_modal, which sizes its panel to the viewport.
+func _build_prompt(layer_index: int, sep_frac: float) -> Dictionary:
+	var vh: float = get_viewport().get_visible_rect().size.y
+	var layer := CanvasLayer.new()
+	layer.layer = layer_index
+	add_child(layer)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	layer.add_child(panel)
+	return {"layer": layer, "vbox": _UiUtil.make_vbox(int(vh * sep_frac), panel)}
+
+## The standard centred modal used by the world interaction prompts: a
+## CanvasLayer above the HUD, a dimming backdrop, a dark rounded panel sized to
+## `w_frac` x `h_frac` of the viewport, and the margin + VBox body the caller
+## fills. Returns {"layer", "backdrop", "panel", "vbox"} — free the layer to
+## dismiss the modal.
+func _build_modal(w_frac: float, h_frac: float, bg: Color, sep_frac: float,
+		margin_v_frac: float = 0.03, dim: float = 0.55) -> Dictionary:
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	_hud.add_child(layer)
+
+	var backdrop := ColorRect.new()
+	backdrop.color = Color(0.0, 0.0, 0.0, dim)
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(backdrop)
+
+	var panel_w: float = vp.x * w_frac
+	var panel_h: float = vh * h_frac
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", _UiUtil.make_style(bg, 10))
+	panel.custom_minimum_size = Vector2(panel_w, panel_h)
+	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	layer.add_child(panel)
+
+	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * margin_v_frac),
+		int(vh * 0.03), int(vh * margin_v_frac), panel)
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	return {
+		"layer": layer,
+		"backdrop": backdrop,
+		"panel": panel,
+		"vbox": _UiUtil.make_vbox(int(vh * sep_frac), margin),
+	}
 
 func _show_tip(text: String) -> void:
 	_world_hud.show_tip(text)
@@ -6447,7 +3522,7 @@ func _handle_tap_to_move(screen_pos: Vector2) -> void:
 		return
 	# GID-101 (TID-365): ping mode intercepts taps and creates a world-space ping.
 	if _ping_mode_active and _coop_active:
-		_handle_ping_tap(screen_pos)
+		coop_social._handle_ping_tap(screen_pos)
 		return
 	var tile: Vector2i = _screen_to_tile(screen_pos)
 	var tile_type: int = get_tile_global(tile.x, tile.y)
@@ -6710,2450 +3785,4 @@ func _spawn_return_portal() -> void:
 # TID-368: Wagered duels & champion record
 # TID-369: Shared party bounties
 
-func _ensure_social_buttons() -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	# Social strip (GID-107 / TID-397): Emote / Ping / Chat share one compact,
-	# registry-backed cluster (WorldHUD.ZONE_SOCIAL) instead of three buttons that
-	# happen to share a y-coordinate by hand-picked position.
-	if _emote_btn == null or not is_instance_valid(_emote_btn):
-		_emote_btn = _world_hud.register_action("emote", ":)", WorldHUD.ZONE_SOCIAL,
-			_toggle_emote_wheel, Callable(), Vector2(vh * 0.08, vh * 0.06))
-		_emote_btn.tooltip_text = "Emote"
-		_emote_btn.add_theme_font_size_override("font_size", int(vh * 0.026))
-	if _ping_btn == null or not is_instance_valid(_ping_btn):
-		# Built directly (not via register_action) since it needs a `.toggled`
-		# connection, not a simple `.pressed` callback — same reasoning as the
-		# Ranked toggle in _ensure_challenge_button().
-		_ping_btn = Button.new()
-		_ping_btn.text = "Ping"
-		_ping_btn.tooltip_text = "Toggle ping mode — tap the world to place a ping"
-		_ping_btn.toggle_mode = true
-		_ping_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.06)
-		_ping_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-		_ping_btn.toggled.connect(func(on: bool) -> void: _ping_mode_active = on)
-		var social_zone: Container = _world_hud.get_zone_container(WorldHUD.ZONE_SOCIAL)
-		if social_zone != null:
-			social_zone.add_child(_ping_btn)
-		else:
-			_hud.add_child(_ping_btn)
-		UiFx.attach(_ping_btn)
-	# Trade / Spectate (GID-107 / TID-396): registered into WorldHUD.ZONE_CONTEXT —
-	# the shared contextual bar — instead of each computing its own raw position.
-	if _trade_window_mine == null or not is_instance_valid(_trade_window_mine):
-		_trade_window_mine = _world_hud.register_action("trade", "Trade", WorldHUD.ZONE_CONTEXT,
-			_open_trade_offer, Callable(), Vector2(vh * 0.22, vh * 0.06))
-		_trade_window_mine.hide()
-	if _spectate_btn == null or not is_instance_valid(_spectate_btn):
-		_spectate_btn = _world_hud.register_action("spectate", "Spectate Duel", WorldHUD.ZONE_CONTEXT,
-			_request_spectate, Callable(), Vector2(vh * 0.28, vh * 0.06))
-		_spectate_btn.hide()
-	# Leaderboard, Stash, and Auction (GID-102 / TID-373, TID-376, TID-378): now
-	# Party-panel actions (GID-107 / TID-395; Auction folded in by BID-042)
-	# instead of their own standalone always-visible buttons.
 
-
-## Ghost Duels (GID-102 / TID-377). Host-only: gated on SessionStore.is_open()
-## rather than NetworkManager.is_active() — a client never opens SessionStore
-## locally (see WorldScene._setup_session). Now a Party-panel action (GID-107 /
-## TID-395) whose show_ghost_duels condition reproduces this same gate on open.
-
-## Builds the {token, name, rating} row list from the host's own SessionState and
-## opens (or closes) the GhostDuelOverlay. The local host's own token is excluded
-## — dueling your own live snapshot is a no-op curiosity, not the intended use.
-func _toggle_ghost_duel_overlay() -> void:
-	if _ghost_duel_overlay != null and is_instance_valid(_ghost_duel_overlay):
-		_ghost_duel_overlay.queue_free()
-		_ghost_duel_overlay = null
-		return
-	if not SessionStore.is_open():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var local_token: String = MpProfile.get_token()
-	var rows: Array = []
-	for token in st.members.keys():
-		var t: String = str(token)
-		if t == local_token:
-			continue
-		var rec: Dictionary = st.get_member(t)
-		if rec.is_empty():
-			continue
-		rows.append({
-			"token": t,
-			"name": str(rec.get("display_name", "Player")),
-			"rating": int(rec.get("pvp_rating", 1000)),
-		})
-	var overlay := _GhostDuelOverlay.new()
-	overlay.set_rows(rows)
-	overlay.on_duel_requested = func(token: String) -> void:
-		var snapshot: Dictionary = st.get_ghost_snapshot(token)
-		if snapshot.is_empty():
-			GameBus.hud_message_requested.emit("That ghost's deck couldn't be resolved.")
-			return
-		SceneManager.enter_ghost_duel(snapshot)
-	overlay.closed.connect(func() -> void:
-		_ghost_duel_overlay = null
-		overlay.queue_free())
-	_hud.add_child(overlay)
-	_ghost_duel_overlay = overlay
-
-
-## GID-107 / TID-396 priority rule: the world-interact prompt always wins the shared
-## contextual slot over Trade/Spectate, same as it does over Challenge above.
-func _update_social_proximity() -> void:
-	if _player == null:
-		return
-	if _world_hud != null and _world_hud.is_interact_visible():
-		if _trade_window_mine != null and is_instance_valid(_trade_window_mine):
-			_trade_window_mine.hide()
-		if _spectate_btn != null and is_instance_valid(_spectate_btn):
-			_spectate_btn.hide()
-		return
-	var range_world: float = _CHALLENGE_RANGE * IsoConst.TILE_SIZE
-	var nearest_pid: int = -1
-	var nearest_d: float = range_world
-	for pid in _remote_player_nodes.keys():
-		var rp: Node3D = _valid_node3d(_remote_player_nodes[pid])
-		if not is_instance_valid(rp) or not rp.visible:
-			continue
-		var d: float = Vector2(rp.position.x, rp.position.z).distance_to(
-			Vector2(_player.position.x, _player.position.z))
-		if d < nearest_d:
-			nearest_d = d
-			nearest_pid = int(pid)
-	_trade_target_peer = nearest_pid
-	if _trade_window_mine != null and is_instance_valid(_trade_window_mine):
-		_trade_window_mine.visible = nearest_pid != -1 and _pending_challenge_from == -1 \
-			and _pending_wager_from == -1
-	if _spectate_btn != null and is_instance_valid(_spectate_btn):
-		_spectate_btn.visible = _pvp_active_peers.size() >= 2
-
-
-# ── TID-365: Emotes ────────────────────────────────────────────────────────────
-
-func _toggle_emote_wheel() -> void:
-	if _emote_wheel_panel != null and is_instance_valid(_emote_wheel_panel):
-		_emote_wheel_panel.queue_free()
-		_emote_wheel_panel = null
-		return
-	_show_emote_wheel()
-
-
-func _show_emote_wheel() -> void:
-	if _emote_wheel_panel != null and is_instance_valid(_emote_wheel_panel):
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.1, 0.90)
-	style.corner_radius_top_left    = 8
-	style.corner_radius_top_right   = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	panel.add_theme_stylebox_override("panel", style)
-	panel.position = Vector2(vp.x - vh * 0.52, vh * 0.66)
-	_hud.add_child(panel)
-	_emote_wheel_panel = panel
-	var grid := GridContainer.new()
-	grid.columns = 3
-	grid.add_theme_constant_override("h_separation", int(vh * 0.010))
-	grid.add_theme_constant_override("v_separation", int(vh * 0.010))
-	panel.add_child(grid)
-	var emote_ids: Array[String] = _SocialSync.EMOTE_IDS
-	for eid: String in emote_ids:
-		var label: String = str(_SocialSync.EMOTE_LABELS.get(eid, eid))
-		var btn := Button.new()
-		btn.text = label
-		btn.custom_minimum_size = Vector2(vh * 0.14, vh * 0.055)
-		btn.add_theme_font_size_override("font_size", int(vh * 0.020))
-		var captured: String = eid
-		btn.pressed.connect(func() -> void:
-			if _emote_wheel_panel != null and is_instance_valid(_emote_wheel_panel):
-				_emote_wheel_panel.queue_free()
-				_emote_wheel_panel = null
-			_send_emote(captured)
-		)
-		grid.add_child(btn)
-
-
-func _send_emote(emote_id: String) -> void:
-	if _net_sync == null or not _coop_active:
-		return
-	var payload: Array = _SocialSync.encode_emote(emote_id, map_name)
-	_net_sync.rpc("recv_emote", payload)
-	var label_text: String = str(_SocialSync.EMOTE_LABELS.get(emote_id, emote_id))
-	_show_emote_self(label_text)
-
-
-func _show_emote_self(text: String) -> void:
-	if _emote_label_self == null or not is_instance_valid(_emote_label_self):
-		_emote_label_self = Label3D.new()
-		_emote_label_self.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		_emote_label_self.font_size = 28
-		_emote_label_self.modulate = Color(1.0, 1.0, 0.8)
-		if _player != null:
-			_player.add_child(_emote_label_self)
-			_emote_label_self.position = Vector3(0.0, 2.0, 0.0)
-	if _emote_label_self != null and is_instance_valid(_emote_label_self):
-		_emote_label_self.text = text
-		_emote_label_self.visible = true
-	_emote_timer_self = _SocialSync.EMOTE_DURATION
-
-
-func _tick_emote_self(delta: float) -> void:
-	if _emote_timer_self > 0.0:
-		_emote_timer_self -= delta
-		if _emote_timer_self <= 0.0 and _emote_label_self != null \
-				and is_instance_valid(_emote_label_self):
-			_emote_label_self.visible = false
-
-
-func _on_emote_received(sender: int, payload: Array) -> void:
-	var d: Dictionary = _SocialSync.decode_emote(payload)
-	var sender_map: String = str(d.get("map", ""))
-	if sender_map != "" and sender_map != map_name:
-		return
-	var rp: Node = _valid_node(_remote_player_nodes.get(sender))
-	if not is_instance_valid(rp):
-		return
-	var emote_id: String = str(d.get("emote_id", ""))
-	var label_text: String = str(_SocialSync.EMOTE_LABELS.get(emote_id, emote_id))
-	if rp.has_method("show_emote"):
-		rp.call("show_emote", label_text)
-
-
-# ── TID-365: World-space pings ─────────────────────────────────────────────────
-
-func _handle_ping_tap(screen_pos: Vector2) -> void:
-	if _camera == null:
-		return
-	var ray_origin: Vector3 = _camera.project_ray_origin(screen_pos)
-	var ray_dir: Vector3 = _camera.project_ray_normal(screen_pos)
-	if abs(ray_dir.y) < 0.0001:
-		return
-	var t: float = -ray_origin.y / ray_dir.y
-	var world_pos: Vector3 = ray_origin + t * ray_dir
-	var my_col: Color = MpProfile.get_color()
-	var hex: String = "#%02x%02x%02x" % [
-		int(my_col.r * 255), int(my_col.g * 255), int(my_col.b * 255)]
-	_send_ping(world_pos.x, world_pos.z, _SocialSync.PING_PLACE, hex)
-
-
-func _send_ping(wx: float, wz: float, kind: String, color_hex: String) -> void:
-	if _net_sync == null or not _coop_active:
-		return
-	var payload: Array = _SocialSync.encode_ping(wx, wz, kind, color_hex, map_name)
-	_net_sync.rpc("recv_ping", payload)
-	_spawn_ping_marker(wx, wz, kind, color_hex)
-
-
-func _on_ping_received(sender: int, payload: Array) -> void:
-	var d: Dictionary = _SocialSync.decode_ping(payload)
-	var sender_map: String = str(d.get("map", ""))
-	if sender_map != "" and sender_map != map_name:
-		return
-	var wx: float = float(d.get("x", 0.0))
-	var wz: float = float(d.get("z", 0.0))
-	var kind: String = str(d.get("kind", _SocialSync.PING_PLACE))
-	var col_hex: String = str(d.get("color_hex", "#ffffff"))
-	_spawn_ping_marker(wx, wz, kind, col_hex)
-
-
-func _spawn_ping_marker(wx: float, wz: float, _kind: String, color_hex: String) -> Node3D:
-	var wy: float = get_terrain_height(wx, wz) + 0.3
-	var root := Node3D.new()
-	root.position = Vector3(wx, wy, wz)
-	_entity_root.add_child(root)
-	var mesh_inst := MeshInstance3D.new()
-	var torus := TorusMesh.new()
-	torus.inner_radius = 0.30
-	torus.outer_radius = 0.45
-	torus.rings = 10
-	torus.ring_segments = 12
-	mesh_inst.mesh = torus
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	var c: Color = Color.html(color_hex)
-	mat.albedo_color = Color(c.r, c.g, c.b, 0.9)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.emission_enabled = true
-	mat.emission = Color(c.r, c.g, c.b)
-	mat.emission_energy_multiplier = 1.5
-	mesh_inst.material_override = mat
-	root.add_child(mesh_inst)
-	var tw: Tween = create_tween().set_loops(3)
-	tw.tween_property(root, "scale", Vector3(1.4, 1.0, 1.4), 0.4)
-	tw.tween_property(root, "scale", Vector3(0.8, 1.0, 0.8), 0.4)
-	root.set_meta("ping_timer", _SocialSync.PING_DURATION)
-	_ping_markers.append(root)
-	return root
-
-
-func _tick_ping_markers(delta: float) -> void:
-	var to_remove: Array[Node3D] = []
-	for m: Node3D in _ping_markers:
-		if not is_instance_valid(m):
-			to_remove.append(m)
-			continue
-		var t: float = float(m.get_meta("ping_timer", 0.0)) - delta
-		m.set_meta("ping_timer", t)
-		if t <= 0.0:
-			m.queue_free()
-			to_remove.append(m)
-	for m: Node3D in to_remove:
-		_ping_markers.erase(m)
-
-
-# ── TID-374: Party chat ──────────────────────────────────────────────────────
-# Quick-chat presets (reuses the emote-wheel GridContainer pattern) plus an
-# optional free-text LineEdit, with a scrolling log panel. The log panel stays
-# always-visible while in co-op (simplest option, matches the always-visible
-# party bounty panel) rather than auto-fading — no extra show/hide state to
-# manage, and chat is low-frequency enough that it won't clutter the screen.
-
-func _ensure_chat_ui() -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-
-	# Scrolling log panel, upper-left-ish (clear of the party bounty panel which
-	# sits at vp.y * 0.50; chat log sits above it).
-	if _chat_log_panel == null or not is_instance_valid(_chat_log_panel):
-		var outer := PanelContainer.new()
-		outer.name = "ChatLogPanel"
-		outer.position = Vector2(vp.x * 0.012, vh * 0.16)
-		outer.custom_minimum_size = Vector2(vp.x * 0.26, vh * 0.30)
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.04, 0.04, 0.08, 0.78)
-		style.corner_radius_top_left    = 6
-		style.corner_radius_top_right   = 6
-		style.corner_radius_bottom_left = 6
-		style.corner_radius_bottom_right = 6
-		outer.add_theme_stylebox_override("panel", style)
-		_hud.add_child(outer)
-		_chat_log_panel = outer
-		var scroll := ScrollContainer.new()
-		scroll.custom_minimum_size = Vector2(vp.x * 0.26, vh * 0.30)
-		outer.add_child(scroll)
-		var vbox := VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", int(vh * 0.004))
-		vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		scroll.add_child(vbox)
-		_chat_log_vbox = vbox
-
-	# HUD toggle button: opens the quick-chat row and reveals the free-text input
-	# (mobile parity — desktop also has the Enter-key shortcut below). Part of the
-	# social strip (GID-107 / TID-397) alongside Emote/Ping — see _ensure_social_buttons().
-	if _chat_toggle_btn == null or not is_instance_valid(_chat_toggle_btn):
-		_chat_toggle_btn = _world_hud.register_action("chat", "Chat", WorldHUD.ZONE_SOCIAL,
-			_toggle_chat_quick_panel, Callable(), Vector2(vh * 0.10, vh * 0.06))
-		_chat_toggle_btn.tooltip_text = "Open chat (or press Enter)"
-		_chat_toggle_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-
-	# Free-text input + send button. Visible by default on desktop; mobile
-	# users reveal it via the Chat HUD button (parity is satisfied either way
-	# since both platforms can always tap "Chat" — desktop additionally gets
-	# the Enter-key shortcut to focus it directly).
-	if _chat_input == null or not is_instance_valid(_chat_input):
-		_chat_input = LineEdit.new()
-		_chat_input.placeholder_text = "Say something…"
-		_chat_input.custom_minimum_size = Vector2(vp.x * 0.30, vh * 0.05)
-		_chat_input.position = Vector2(vp.x * 0.012, vh * 0.93)
-		_chat_input.add_theme_font_size_override("font_size", int(vh * 0.020))
-		_chat_input.text_submitted.connect(func(_t: String) -> void: _submit_chat_input())
-		_hud.add_child(_chat_input)
-	if _chat_send_btn == null or not is_instance_valid(_chat_send_btn):
-		_chat_send_btn = Button.new()
-		_chat_send_btn.text = "Send"
-		_chat_send_btn.custom_minimum_size = Vector2(vh * 0.10, vh * 0.05)
-		_chat_send_btn.position = Vector2(vp.x * 0.32, vh * 0.93)
-		_chat_send_btn.add_theme_font_size_override("font_size", int(vh * 0.020))
-		_chat_send_btn.pressed.connect(_submit_chat_input)
-		_hud.add_child(_chat_send_btn)
-		UiFx.attach(_chat_send_btn)
-
-
-func _toggle_chat_quick_panel() -> void:
-	if _chat_quick_panel != null and is_instance_valid(_chat_quick_panel):
-		_chat_quick_panel.queue_free()
-		_chat_quick_panel = null
-		return
-	_show_chat_quick_panel()
-
-
-func _show_chat_quick_panel() -> void:
-	if _chat_quick_panel != null and is_instance_valid(_chat_quick_panel):
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var panel := PanelContainer.new()
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.05, 0.1, 0.90)
-	style.corner_radius_top_left    = 8
-	style.corner_radius_top_right   = 8
-	style.corner_radius_bottom_left = 8
-	style.corner_radius_bottom_right = 8
-	panel.add_theme_stylebox_override("panel", style)
-	panel.position = Vector2(vp.x - vh * 0.40, vh * 0.66)
-	_hud.add_child(panel)
-	_chat_quick_panel = panel
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", int(vh * 0.010))
-	grid.add_theme_constant_override("v_separation", int(vh * 0.010))
-	panel.add_child(grid)
-	var presets: Array[String] = _ChatSync.QUICK_PRESETS
-	for preset: String in presets:
-		var btn := Button.new()
-		btn.text = preset
-		btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.055)
-		btn.add_theme_font_size_override("font_size", int(vh * 0.018))
-		var captured: String = preset
-		btn.pressed.connect(func() -> void:
-			if _chat_quick_panel != null and is_instance_valid(_chat_quick_panel):
-				_chat_quick_panel.queue_free()
-				_chat_quick_panel = null
-			_send_chat_quick(captured)
-		)
-		grid.add_child(btn)
-	# Mobile parity: opening the quick-chat row also surfaces the free-text
-	# entry point, so a touch-only user can reach both from one "Chat" tap.
-	if _chat_input != null and is_instance_valid(_chat_input):
-		_chat_input.grab_focus()
-
-
-func _submit_chat_input() -> void:
-	if _chat_input == null or not is_instance_valid(_chat_input):
-		return
-	var raw: String = _chat_input.text
-	_chat_input.text = ""
-	if raw.strip_edges() == "":
-		return
-	_send_chat_text(raw)
-
-
-func _send_chat_quick(preset: String) -> void:
-	if _net_sync == null or not _coop_active:
-		return
-	var payload: Array = _ChatSync.encode_quick(preset, map_name)
-	_net_sync.rpc("recv_chat", payload)
-	var d: Dictionary = _ChatSync.decode(payload)
-	_append_chat_line(MpProfile.get_display_name(), MpProfile.get_color(), str(d.get("text", preset)))
-
-
-func _send_chat_text(raw_text: String) -> void:
-	if _net_sync == null or not _coop_active:
-		return
-	var payload: Array = _ChatSync.encode_text(raw_text, map_name)
-	_net_sync.rpc("recv_chat", payload)
-	var d: Dictionary = _ChatSync.decode(payload)
-	_append_chat_line(MpProfile.get_display_name(), MpProfile.get_color(), str(d.get("text", "")))
-
-
-## Same-map filter mirrors `_on_emote_received`: a message from a peer on a
-## different map is dropped rather than shown-but-tagged, for HUD consistency
-## with how emotes already behave (an off-map peer's expression never appears).
-func _on_chat_received(sender: int, payload: Array) -> void:
-	var d: Dictionary = _ChatSync.decode(payload)
-	var sender_map: String = str(d.get("map", ""))
-	if sender_map != "" and sender_map != map_name:
-		return
-	var id: Dictionary = _remote_identities.get(sender, {})
-	var nm: String = str(id.get("name", "Player"))
-	var col: Color = id.get("color", Color(0.7, 0.85, 1.0))
-	_append_chat_line(nm, col, str(d.get("text", "")))
-
-
-func _append_chat_line(sender_name: String, color: Color, text: String) -> void:
-	if text == "":
-		return
-	if _chat_log_vbox == null or not is_instance_valid(_chat_log_vbox):
-		return
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var lbl := Label.new()
-	lbl.text = "[%s] %s: %s" % [Time.get_time_string_from_system().substr(0, 5), sender_name, text]
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.016))
-	lbl.add_theme_color_override("font_color", color)
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_chat_log_vbox.add_child(lbl)
-	_chat_lines.append({"name": sender_name, "color": color, "text": text})
-	while _chat_lines.size() > _ChatSync.LOG_MAX_LINES:
-		_chat_lines.pop_front()
-		if _chat_log_vbox.get_child_count() > 0:
-			_chat_log_vbox.get_child(0).queue_free()
-
-
-# ── TID-366: Card trading & gifting ─────────────────────────────────────────────
-
-func _open_trade_offer() -> void:
-	if _trade_target_peer == -1 or _net_sync == null:
-		return
-	var deck: Array = _local_deck_for_net()
-	if deck.is_empty():
-		_show_tip("No cards in deck to trade.")
-		return
-	var top_card: Dictionary = {}
-	for c: Variant in deck:
-		if c is Dictionary and not _TradeSync.is_card_instance_unique(c as Dictionary):
-			top_card = c as Dictionary
-			break
-	if top_card.is_empty():
-		_show_tip("No tradeable cards — unique cards can't be traded.")
-		return
-	var card_uid: String = str(top_card.get("uid", ""))
-	if card_uid == "":
-		_show_tip("No valid card UID.")
-		return
-	var trade_id: String = "%d_%d_%d" % [
-		multiplayer.get_unique_id(), _trade_target_peer, Time.get_ticks_msec()]
-	var payload: Dictionary = _TradeSync.encode_offer(
-		trade_id,
-		multiplayer.get_unique_id(),
-		_trade_target_peer,
-		card_uid,
-		0, 0)
-	if NetworkManager.is_host():
-		_on_trade_offer_submitted(multiplayer.get_unique_id(), payload)
-	else:
-		_net_sync.rpc_id(1, "submit_trade_offer", payload)
-	_show_tip("Trade offer sent…")
-
-
-func _on_trade_offer_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		return
-	var offer: Dictionary = _TradeSync.decode_offer(payload)
-	if offer.is_empty():
-		return
-	var trade_id: String = str(offer.get("trade_id", ""))
-	var target_peer: int = int(offer.get("target_peer", -1))
-	var initiator_peer: int = int(offer.get("initiator_peer", sender))
-	var card_uid: String = str(offer.get("card_uid", ""))
-	var token_init: String = str(_session_token_by_peer.get(initiator_peer,
-		MpProfile.get_token() if initiator_peer == multiplayer.get_unique_id() else ""))
-	var st = SessionStore.get_state()
-	var valid: bool = false
-	if st != null and token_init != "":
-		var rec: Dictionary = st.get_member(token_init)
-		var owned: Array = rec.get("owned_cards", []) as Array
-		for card: Variant in owned:
-			if card is Dictionary and str((card as Dictionary).get("uid", "")) == card_uid:
-				valid = not _TradeSync.is_card_instance_unique(card as Dictionary)
-				break
-	if not valid:
-		var cancel: Dictionary = _TradeSync.encode_update(
-			trade_id, _TradeSync.STATUS_CANCELLED, {})
-		if _net_sync != null:
-			_net_sync.rpc_id(initiator_peer, "recv_trade_update", cancel)
-		return
-	_pending_trade = offer
-	var update: Dictionary = _TradeSync.encode_update(
-		trade_id, _TradeSync.STATUS_PROPOSED, offer)
-	if target_peer == multiplayer.get_unique_id():
-		_on_trade_update_received(update)
-	elif _net_sync != null:
-		_net_sync.rpc_id(target_peer, "recv_trade_update", update)
-
-
-func _on_trade_confirm_submitted(sender: int, trade_id: String, confirmed: bool) -> void:
-	if not NetworkManager.is_host():
-		return
-	if str(_pending_trade.get("trade_id", "")) != trade_id:
-		return
-	var offer: Dictionary = _pending_trade.duplicate(true)
-	_pending_trade = {}
-	var init_p: int = int(offer.get("initiator_peer", -1))
-	var tgt_p: int = int(offer.get("target_peer", -1))
-	if not confirmed:
-		var cancel: Dictionary = _TradeSync.encode_update(
-			trade_id, _TradeSync.STATUS_CANCELLED, {})
-		if init_p == multiplayer.get_unique_id():
-			_on_trade_update_received(cancel)
-		elif _net_sync != null:
-			_net_sync.rpc_id(init_p, "recv_trade_update", cancel)
-		return
-	var card_uid: String = str(offer.get("card_uid", ""))
-	var st = SessionStore.get_state()
-	if st != null:
-		var token_i: String = str(_session_token_by_peer.get(init_p,
-			MpProfile.get_token() if init_p == multiplayer.get_unique_id() else ""))
-		var token_t: String = str(_session_token_by_peer.get(tgt_p,
-			MpProfile.get_token() if tgt_p == multiplayer.get_unique_id() else ""))
-		_transfer_card_in_session(st, token_i, token_t, card_uid)
-	var complete: Dictionary = _TradeSync.encode_update(
-		trade_id, _TradeSync.STATUS_COMPLETED, offer)
-	if init_p == multiplayer.get_unique_id():
-		_on_trade_update_received(complete)
-	elif _net_sync != null:
-		_net_sync.rpc_id(init_p, "recv_trade_update", complete)
-	if tgt_p == multiplayer.get_unique_id():
-		_on_trade_update_received(complete)
-	elif _net_sync != null:
-		_net_sync.rpc_id(tgt_p, "recv_trade_update", complete)
-
-
-func _transfer_card_in_session(st: RefCounted, giver_token: String, target_token: String, card_uid: String) -> void:
-	if giver_token == "" or target_token == "":
-		return
-	var g_rec: Dictionary = st.get_member(giver_token)
-	var t_rec: Dictionary = st.get_member(target_token)
-	if g_rec.is_empty() or t_rec.is_empty():
-		return
-	var g_owned: Array = g_rec.get("owned_cards", []) as Array
-	var g_deck: Array = g_rec.get("player_deck", []) as Array
-	var card_inst: Dictionary = {}
-	var found_idx: int = -1
-	for i: int in range(g_owned.size() - 1, -1, -1):
-		var c: Variant = g_owned[i]
-		if c is Dictionary and str((c as Dictionary).get("uid", "")) == card_uid:
-			found_idx = i
-			card_inst = (c as Dictionary).duplicate(true)
-			break
-	if found_idx == -1:
-		return
-	if _TradeSync.is_card_instance_unique(card_inst):
-		return
-	g_owned.remove_at(found_idx)
-	g_deck.erase(card_uid)
-	g_rec["owned_cards"] = g_owned
-	g_rec["player_deck"] = g_deck
-	var new_uid: String = card_uid + "_gift_" + target_token.substr(0, 4)
-	card_inst["uid"] = new_uid
-	var t_owned: Array = t_rec.get("owned_cards", []) as Array
-	t_owned.append(card_inst)
-	t_rec["owned_cards"] = t_owned
-	st.update_member(giver_token, g_rec)
-	st.update_member(target_token, t_rec)
-	SessionStore.mark_dirty()
-
-
-func _on_trade_update_received(payload: Dictionary) -> void:
-	var update: Dictionary = _TradeSync.decode_update(payload)
-	var status: String = str(update.get("status", ""))
-	var trade_id: String = str(update.get("trade_id", ""))
-	match status:
-		_TradeSync.STATUS_PROPOSED:
-			var detail: Dictionary = update.get("detail", {}) as Dictionary
-			_show_trade_accept_panel(trade_id, detail)
-		_TradeSync.STATUS_COMPLETED:
-			SceneManager.show_toast("Trade Complete", "Card transferred successfully!")
-		_TradeSync.STATUS_CANCELLED:
-			_show_tip("Trade cancelled.")
-
-
-func _show_trade_accept_panel(trade_id: String, offer: Dictionary) -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var layer := CanvasLayer.new()
-	layer.layer = 182
-	add_child(layer)
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	layer.add_child(panel)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.02))
-	panel.add_child(vbox)
-	var lbl := Label.new()
-	var card_uid: String = str(offer.get("card_uid", "unknown"))
-	lbl.text = "Trade offer received!\nCard: %s\nAccept?" % card_uid
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.026))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(lbl)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vh * 0.03))
-	vbox.add_child(row)
-	var captured_id: String = trade_id
-	var accept_btn := Button.new()
-	accept_btn.text = "Accept"
-	accept_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.06)
-	accept_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	accept_btn.pressed.connect(func() -> void:
-		layer.queue_free()
-		if NetworkManager.is_host():
-			_on_trade_confirm_submitted(multiplayer.get_unique_id(), captured_id, true)
-		elif _net_sync != null:
-			_net_sync.rpc_id(1, "submit_trade_confirm", captured_id, true)
-	)
-	row.add_child(accept_btn)
-	var decline_btn := Button.new()
-	decline_btn.text = "Decline"
-	decline_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.06)
-	decline_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	decline_btn.pressed.connect(func() -> void:
-		layer.queue_free()
-		if NetworkManager.is_host():
-			_on_trade_confirm_submitted(multiplayer.get_unique_id(), captured_id, false)
-		elif _net_sync != null:
-			_net_sync.rpc_id(1, "submit_trade_confirm", captured_id, false)
-	)
-	row.add_child(decline_btn)
-
-
-# ── GID-102 / TID-376: Shared party stash ───────────────────────────────────────
-# A session-owned chest any member can deposit into / withdraw from — unlike trading,
-# this is global to the session (no proximity gate). Transfer logic delegates to the
-# pure, unit-tested StashTransfer helper; only the authority mutates SessionState.
-
-## Resolve the local token for `peer_id` — the identity token map for remote peers,
-## or our own MpProfile token when the sender is us (host acting on its own behalf).
-func _stash_token_for_peer(peer_id: int) -> String:
-	return str(_session_token_by_peer.get(peer_id,
-		MpProfile.get_token() if peer_id == multiplayer.get_unique_id() else ""))
-
-
-func _on_stash_deposit_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var token: String = _stash_token_for_peer(sender)
-	if token == "" or not st.has_member(token):
-		return
-	var member_rec: Dictionary = st.get_member(token)
-	var kind: String = str(payload.get("kind", "card"))
-	var result: Dictionary
-	if kind == "coins":
-		result = _StashTransfer.deposit_coins(st.stash, member_rec, int(payload.get("amount", 0)))
-	else:
-		result = _StashTransfer.deposit_card(st.stash, member_rec, str(payload.get("card_uid", "")))
-	if not bool(result.get("ok", false)):
-		if kind != "coins":
-			_show_tip("Could not deposit that card.")
-		return
-	st.stash = result.get("stash", st.stash)
-	var updated_member: Dictionary = result.get("member", member_rec)
-	st.update_member(token, updated_member)
-	SessionStore.mark_dirty()
-	_apply_updated_member_to_actor(sender, updated_member)
-	_broadcast_stash_update()
-
-
-func _on_stash_withdraw_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var token: String = _stash_token_for_peer(sender)
-	if token == "" or not st.has_member(token):
-		return
-	var member_rec: Dictionary = st.get_member(token)
-	var kind: String = str(payload.get("kind", "card"))
-	var result: Dictionary
-	if kind == "coins":
-		result = _StashTransfer.withdraw_coins(st.stash, member_rec, int(payload.get("amount", 0)))
-	else:
-		result = _StashTransfer.withdraw_card(st.stash, member_rec, str(payload.get("card_uid", "")), token)
-	if not bool(result.get("ok", false)):
-		if kind != "coins":
-			_show_tip("Could not withdraw that card.")
-		return
-	st.stash = result.get("stash", st.stash)
-	var updated_member2: Dictionary = result.get("member", member_rec)
-	st.update_member(token, updated_member2)
-	SessionStore.mark_dirty()
-	_apply_updated_member_to_actor(sender, updated_member2)
-	_broadcast_stash_update()
-
-
-## Keeps the acting peer's in-memory character (SaveManager fields / adopted session
-## character) in sync with the record `StashTransfer` just mutated, so the next
-## periodic persist-back tick (`_tick_session_persist`) doesn't clobber the stash
-## change with stale in-memory data — the host re-adopts directly; a remote client
-## gets an updated `recv_character` mirror (resume flag false: this isn't a reconnect,
-## just a refresh, so no position restore).
-func _apply_updated_member_to_actor(sender: int, updated_member: Dictionary) -> void:
-	if sender == multiplayer.get_unique_id():
-		SceneManager.save_manager.adopt_session_character(updated_member)
-	elif _net_sync != null:
-		_net_sync.rpc_id(sender, "recv_character", updated_member, false)
-
-
-## Host: push the current stash snapshot to one peer (target_peer == 0 broadcasts to all).
-func _broadcast_stash_update(target_peer: int = 0) -> void:
-	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	_stash_cache = st.stash
-	if target_peer == 0:
-		_net_sync.rpc("recv_stash_update", st.stash)
-	else:
-		_net_sync.rpc_id(target_peer, "recv_stash_update", st.stash)
-	if NetworkManager.is_host():
-		_refresh_stash_overlay()
-
-
-## Any peer: receive a stash snapshot (initial push, post-transfer update, or the
-## late-join send) and refresh the overlay if it's open.
-func _on_stash_update_received(snapshot: Dictionary) -> void:
-	_stash_cache = snapshot
-	_refresh_stash_overlay()
-
-
-func _refresh_stash_overlay() -> void:
-	if _stash_overlay != null and is_instance_valid(_stash_overlay) \
-			and _stash_overlay.has_method("refresh"):
-		_stash_overlay.refresh(_my_collection_for_stash_ui(), _stash_cache)
-
-
-## My current owned-card collection for the stash UI's "deposit" column.
-func _my_collection_for_stash_ui() -> Array:
-	var out: Array = []
-	for inst in SceneManager.save_manager.owned_cards:
-		out.append(inst)
-	return out
-
-
-## Opens (or closes, if already open) the party stash overlay. HUD button, always
-## visible while co-op is active — global to the session (mobile/desktop parity).
-func _toggle_stash_overlay() -> void:
-	if _stash_overlay != null and is_instance_valid(_stash_overlay):
-		_stash_overlay.queue_free()
-		_stash_overlay = null
-		return
-	_stash_overlay = _PartyStashOverlay.new()
-	_stash_overlay.world_scene = self
-	add_child(_stash_overlay)
-	_stash_overlay.closed.connect(func() -> void: _stash_overlay = null)
-	_stash_overlay.refresh(_my_collection_for_stash_ui(), _stash_cache)
-
-
-## Called by PartyStashOverlay when the player presses "Deposit" on a card.
-func request_stash_deposit_card(card_uid: String) -> void:
-	if _net_sync == null:
-		return
-	var payload: Dictionary = {"kind": "card", "card_uid": card_uid, "amount": 0}
-	if NetworkManager.is_host():
-		_on_stash_deposit_submitted(multiplayer.get_unique_id(), payload)
-	else:
-		_net_sync.rpc_id(1, "submit_stash_deposit", payload)
-
-
-## Called by PartyStashOverlay when the player presses "Withdraw" on a stash card.
-func request_stash_withdraw_card(stash_uid: String) -> void:
-	if _net_sync == null:
-		return
-	var payload: Dictionary = {"kind": "card", "card_uid": stash_uid, "amount": 0}
-	if NetworkManager.is_host():
-		_on_stash_withdraw_submitted(multiplayer.get_unique_id(), payload)
-	else:
-		_net_sync.rpc_id(1, "submit_stash_withdraw", payload)
-
-
-## Called by PartyStashOverlay's coin deposit stepper.
-func request_stash_deposit_coins(amount: int) -> void:
-	if _net_sync == null or amount <= 0:
-		return
-	var payload: Dictionary = {"kind": "coins", "card_uid": "", "amount": amount}
-	if NetworkManager.is_host():
-		_on_stash_deposit_submitted(multiplayer.get_unique_id(), payload)
-	else:
-		_net_sync.rpc_id(1, "submit_stash_deposit", payload)
-
-
-## Called by PartyStashOverlay's coin withdraw stepper.
-func request_stash_withdraw_coins(amount: int) -> void:
-	if _net_sync == null or amount <= 0:
-		return
-	var payload: Dictionary = {"kind": "coins", "card_uid": "", "amount": amount}
-	if NetworkManager.is_host():
-		_on_stash_withdraw_submitted(multiplayer.get_unique_id(), payload)
-	else:
-		_net_sync.rpc_id(1, "submit_stash_withdraw", payload)
-
-
-# ── GID-102 / TID-378: Async card auction house ──────────────────────────────────
-# Global to the session, same as the stash — no proximity gate. Transfer logic
-# delegates to the pure, unit-tested AuctionTransfer helper; only the authority
-# mutates SessionState. Reuses _stash_token_for_peer for sender -> token lookup.
-
-func _on_auction_list_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var token: String = _stash_token_for_peer(sender)
-	if token == "" or not st.has_member(token):
-		return
-	var intent: Dictionary = _AuctionSync.decode_list_intent(payload)
-	var member_rec: Dictionary = st.get_member(token)
-	var expires_day: int = st.days_elapsed + _AuctionSync.LISTING_DURATION_DAYS
-	var list_card_uid: String = str(intent.get("card_uid", ""))
-	var list_buyout: int = int(intent.get("buyout", 0))
-	var result: Dictionary = _AuctionTransfer.list_card(
-		st.auctions, member_rec, token, list_card_uid, list_buyout, expires_day)
-	if not bool(result.get("ok", false)):
-		_show_tip("Could not list that card.")
-		return
-	st.auctions = result.get("auctions", st.auctions)
-	var updated_member: Dictionary = result.get("member", member_rec)
-	st.update_member(token, updated_member)
-	SessionStore.mark_dirty()
-	_apply_updated_member_to_actor(sender, updated_member)
-	_broadcast_auction_update()
-
-
-func _on_auction_bid_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var token: String = _stash_token_for_peer(sender)
-	if token == "" or not st.has_member(token):
-		return
-	var intent: Dictionary = _AuctionSync.decode_bid_intent(payload)
-	var member_rec: Dictionary = st.get_member(token)
-	var bid_auction_id: String = str(intent.get("auction_id", ""))
-	var bid_amount: int = int(intent.get("amount", 0))
-	var result: Dictionary = _AuctionTransfer.place_bid(
-		st.auctions, member_rec, token, bid_auction_id, bid_amount)
-	if not bool(result.get("ok", false)):
-		_show_tip("Could not place that bid.")
-		return
-	st.auctions = result.get("auctions", st.auctions)
-	SessionStore.mark_dirty()
-	_broadcast_auction_update()
-
-
-func _on_auction_buyout_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var buyer_token: String = _stash_token_for_peer(sender)
-	if buyer_token == "" or not st.has_member(buyer_token):
-		return
-	var intent: Dictionary = _AuctionSync.decode_id_intent(payload)
-	var buyout_auction_id: String = str(intent.get("auction_id", ""))
-	var listing: Dictionary = _find_auction(st.auctions, buyout_auction_id)
-	var seller_token: String = str(listing.get("seller_token", ""))
-	if seller_token == "" or not st.has_member(seller_token):
-		_show_tip("Could not buy that listing.")
-		return
-	var buyer_rec: Dictionary = st.get_member(buyer_token)
-	var seller_rec: Dictionary = st.get_member(seller_token)
-	var result: Dictionary = _AuctionTransfer.buyout(
-		st.auctions, buyer_rec, buyer_token, seller_rec, buyout_auction_id)
-	if not bool(result.get("ok", false)):
-		_show_tip("Could not buy that listing.")
-		return
-	st.auctions = result.get("auctions", st.auctions)
-	var updated_buyer: Dictionary = result.get("buyer", buyer_rec)
-	var updated_seller: Dictionary = result.get("seller", seller_rec)
-	st.update_member(buyer_token, updated_buyer)
-	st.update_member(seller_token, updated_seller)
-	SessionStore.mark_dirty()
-	_apply_updated_member_to_actor(sender, updated_buyer)
-	_apply_updated_member_to_peer_by_token(seller_token, updated_seller)
-	_broadcast_auction_update()
-
-
-func _on_auction_cancel_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var token: String = _stash_token_for_peer(sender)
-	if token == "" or not st.has_member(token):
-		return
-	var intent: Dictionary = _AuctionSync.decode_id_intent(payload)
-	var member_rec: Dictionary = st.get_member(token)
-	var cancel_auction_id: String = str(intent.get("auction_id", ""))
-	var result: Dictionary = _AuctionTransfer.cancel(st.auctions, member_rec, token, cancel_auction_id)
-	if not bool(result.get("ok", false)):
-		_show_tip("Could not cancel that listing.")
-		return
-	st.auctions = result.get("auctions", st.auctions)
-	var updated_member: Dictionary = result.get("member", member_rec)
-	st.update_member(token, updated_member)
-	SessionStore.mark_dirty()
-	_apply_updated_member_to_actor(sender, updated_member)
-	_broadcast_auction_update()
-
-
-## Host-tick sweep (called from _tick_session_persist): settle any active listing
-## whose expires_day has passed. See AuctionTransfer.settle_expired — a listing
-## with a standing bid the bidder can still afford sells to them, otherwise the
-## card returns to the seller. Silently updates any member whose actor is
-## currently connected so their local collection stays in sync.
-func _sweep_expired_auctions() -> void:
-	var st = SessionStore.get_state()
-	if st == null or (st.auctions as Array).is_empty():
-		return
-	var result: Dictionary = _AuctionTransfer.settle_expired(st.auctions, st.members, st.days_elapsed)
-	var new_auctions: Array = result.get("auctions", st.auctions)
-	if new_auctions == st.auctions:
-		return
-	var new_members: Dictionary = result.get("members", st.members)
-	st.auctions = new_auctions
-	for token in new_members.keys():
-		var rec: Variant = new_members[token]
-		if rec is Dictionary:
-			st.update_member(str(token), rec as Dictionary)
-			_apply_updated_member_to_peer_by_token(str(token), rec as Dictionary)
-	SessionStore.mark_dirty()
-	_broadcast_auction_update()
-
-
-## Resolve the connected peer id for `token` (reverse of _stash_token_for_peer),
-## or -1 if that member isn't a currently-connected peer.
-func _peer_for_token(token: String) -> int:
-	if token == MpProfile.get_token():
-		return multiplayer.get_unique_id()
-	for peer_id in _session_token_by_peer.keys():
-		if str(_session_token_by_peer[peer_id]) == token:
-			return int(peer_id)
-	return -1
-
-
-## Like _apply_updated_member_to_actor, but resolved from a token rather than a
-## sender peer id — used when the auction settlement touches a member who isn't
-## the RPC sender (the seller on a buyout, any party on an expiry sweep).
-func _apply_updated_member_to_peer_by_token(token: String, updated_member: Dictionary) -> void:
-	var peer_id: int = _peer_for_token(token)
-	if peer_id == -1:
-		return  # not currently connected — their next reconnect adopts the persisted record
-	_apply_updated_member_to_actor(peer_id, updated_member)
-
-
-func _find_auction(auctions: Array, auction_id: String) -> Dictionary:
-	for a: Variant in auctions:
-		if a is Dictionary and str((a as Dictionary).get("id", "")) == auction_id:
-			return a as Dictionary
-	return {}
-
-
-## Host: push the current listings snapshot to one peer (target_peer == 0 broadcasts to all).
-func _broadcast_auction_update(target_peer: int = 0) -> void:
-	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	_auction_cache = _AuctionSync.decode_snapshot(st.auctions)
-	if target_peer == 0:
-		_net_sync.rpc("recv_auction_update", st.auctions)
-	else:
-		_net_sync.rpc_id(target_peer, "recv_auction_update", st.auctions)
-	if NetworkManager.is_host():
-		_refresh_auction_overlay()
-
-
-## Any peer: receive a listings snapshot (initial push, post-transfer update, or
-## the late-join send) and refresh the overlay if it's open.
-func _on_auction_update_received(snapshot: Array) -> void:
-	_auction_cache = _AuctionSync.decode_snapshot(snapshot)
-	_refresh_auction_overlay()
-
-
-func _refresh_auction_overlay() -> void:
-	if _auction_overlay != null and is_instance_valid(_auction_overlay) \
-			and _auction_overlay.has_method("refresh"):
-		_auction_overlay.refresh(_my_collection_for_stash_ui(), _auction_cache, MpProfile.get_token())
-
-
-## Opens (or closes, if already open) the auction house overlay. HUD button,
-## always visible while co-op is active — global to the session.
-func _toggle_auction_overlay() -> void:
-	if _auction_overlay != null and is_instance_valid(_auction_overlay):
-		_auction_overlay.queue_free()
-		_auction_overlay = null
-		return
-	_auction_overlay = _AuctionHouseOverlay.new()
-	_auction_overlay.world_scene = self
-	add_child(_auction_overlay)
-	_auction_overlay.closed.connect(func() -> void: _auction_overlay = null)
-	_auction_overlay.refresh(_my_collection_for_stash_ui(), _auction_cache, MpProfile.get_token())
-
-
-## Called by AuctionHouseOverlay when the player presses "List" on a card.
-func request_auction_list(card_uid: String, buyout: int) -> void:
-	if _net_sync == null or buyout <= 0:
-		return
-	var payload: Dictionary = _AuctionSync.encode_list_intent(card_uid, buyout)
-	if NetworkManager.is_host():
-		_on_auction_list_submitted(multiplayer.get_unique_id(), payload)
-	else:
-		_net_sync.rpc_id(1, "submit_auction_list", payload)
-
-
-## Called by AuctionHouseOverlay's bid stepper.
-func request_auction_bid(auction_id: String, amount: int) -> void:
-	if _net_sync == null or amount <= 0:
-		return
-	var payload: Dictionary = _AuctionSync.encode_bid_intent(auction_id, amount)
-	if NetworkManager.is_host():
-		_on_auction_bid_submitted(multiplayer.get_unique_id(), payload)
-	else:
-		_net_sync.rpc_id(1, "submit_auction_bid", payload)
-
-
-## Called by AuctionHouseOverlay's "Buyout" button.
-func request_auction_buyout(auction_id: String) -> void:
-	if _net_sync == null:
-		return
-	var payload: Dictionary = _AuctionSync.encode_id_intent(auction_id)
-	if NetworkManager.is_host():
-		_on_auction_buyout_submitted(multiplayer.get_unique_id(), payload)
-	else:
-		_net_sync.rpc_id(1, "submit_auction_buyout", payload)
-
-
-## Called by AuctionHouseOverlay's "Cancel" button (My Listings tab).
-func request_auction_cancel(auction_id: String) -> void:
-	if _net_sync == null:
-		return
-	var payload: Dictionary = _AuctionSync.encode_id_intent(auction_id)
-	if NetworkManager.is_host():
-		_on_auction_cancel_submitted(multiplayer.get_unique_id(), payload)
-	else:
-		_net_sync.rpc_id(1, "submit_auction_cancel", payload)
-
-
-# ── TID-367: PvP spectating ────────────────────────────────────────────────────
-
-func _on_pvp_active_received(in_battle: bool, peer_a: int, peer_b: int) -> void:
-	if in_battle:
-		if not _pvp_active_peers.has(peer_a):
-			_pvp_active_peers.append(peer_a)
-		if not _pvp_active_peers.has(peer_b):
-			_pvp_active_peers.append(peer_b)
-	else:
-		_pvp_active_peers.erase(peer_a)
-		_pvp_active_peers.erase(peer_b)
-	if _spectate_btn != null and is_instance_valid(_spectate_btn):
-		_spectate_btn.visible = _pvp_active_peers.size() >= 2
-
-
-func _request_spectate() -> void:
-	if _net_sync == null:
-		return
-	if NetworkManager.is_host():
-		_show_tip("You are in the duel — cannot spectate.")
-		return
-	_net_sync.rpc_id(1, "request_spectate_pvp")
-
-
-func _on_spectate_pvp_requested(sender: int) -> void:
-	if not NetworkManager.is_host():
-		return
-	if _pvp_active_peers.size() < 2:
-		return
-	if _net_sync != null:
-		_net_sync.rpc_id(sender, "recv_spectate_approved")
-
-
-func _on_spectate_approved() -> void:
-	SceneManager.enter_pvp_spectator()
-
-
-# ── TID-368: Wagered duels & champion record ──────────────────────────────────
-
-func _request_wager_challenge(ante_coins: int) -> void:
-	if _challenge_target_peer == -1 or _net_sync == null:
-		return
-	if SceneManager.save_manager.coins < ante_coins:
-		_show_tip("Not enough coins to wager (need %d)." % ante_coins)
-		return
-	var my_deck: Array = _local_deck_for_net()
-	if my_deck.size() < IsoConst.DECK_MIN:
-		_show_tip("Your deck is too small to duel.")
-		return
-	_net_sync.rpc_id(_challenge_target_peer, "request_battle_wager", my_deck, ante_coins)
-	_show_tip("Wagered challenge sent…")
-
-
-func _on_battle_wager_requested(sender: int, challenger_deck: Array, ante_coins: int) -> void:
-	if _pending_challenge_from != -1 or _pending_wager_from != -1:
-		return
-	_pending_wager_from = sender
-	_pending_wager_deck = challenger_deck
-	_pending_wager_coins = ante_coins
-	_pending_wager_armed_at = Time.get_ticks_msec()
-	_show_wager_accept_panel(sender, ante_coins)
-
-
-func _show_wager_accept_panel(from_id: int, ante_coins: int) -> void:
-	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
-		_challenge_accept_panel.queue_free()
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var layer := CanvasLayer.new()
-	layer.layer = 181
-	add_child(layer)
-	_challenge_accept_panel = layer
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	layer.add_child(panel)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.025))
-	panel.add_child(vbox)
-	var lbl := Label.new()
-	lbl.text = "Wagered duel challenge!\nAnte: %d coins each. Accept?" % ante_coins
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.03))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(lbl)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vh * 0.03))
-	vbox.add_child(row)
-	var accept_btn := Button.new()
-	accept_btn.text = "Accept (%d coins)" % ante_coins
-	accept_btn.custom_minimum_size = Vector2(vh * 0.26, vh * 0.07)
-	accept_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	accept_btn.pressed.connect(_accept_wager_challenge.bind(from_id, ante_coins))
-	row.add_child(accept_btn)
-	var decline_btn := Button.new()
-	decline_btn.text = "Decline"
-	decline_btn.custom_minimum_size = Vector2(vh * 0.18, vh * 0.07)
-	decline_btn.add_theme_font_size_override("font_size", int(vh * 0.024))
-	decline_btn.pressed.connect(_decline_wager_challenge.bind(from_id))
-	row.add_child(decline_btn)
-
-
-func _accept_wager_challenge(from_id: int, ante_coins: int) -> void:
-	_dismiss_challenge_panel()
-	if SceneManager.save_manager.coins < ante_coins:
-		_show_tip("Not enough coins for the wager.")
-		if _net_sync != null:
-			_net_sync.rpc_id(from_id, "respond_battle_wager", false, [], 0)
-		_pending_wager_from = -1
-		_pending_wager_deck = []
-		_pending_wager_coins = 0
-		_pending_wager_armed_at = -1
-		return
-	var my_deck: Array = _local_deck_for_net()
-	if my_deck.size() < IsoConst.DECK_MIN:
-		_show_tip("Your deck is too small to duel.")
-		if _net_sync != null:
-			_net_sync.rpc_id(from_id, "respond_battle_wager", false, [], 0)
-		_pending_wager_from = -1
-		_pending_wager_deck = []
-		_pending_wager_coins = 0
-		_pending_wager_armed_at = -1
-		return
-	var opp_deck: Array = _pending_wager_deck
-	_pending_wager_from = -1
-	_pending_wager_deck = []
-	_pending_wager_coins = 0
-	_pending_wager_armed_at = -1
-	if _net_sync != null:
-		_net_sync.rpc_id(from_id, "respond_battle_wager", true, my_deck, ante_coins)
-	_enter_pvp_wagered(ante_coins, opp_deck)
-
-
-func _decline_wager_challenge(from_id: int) -> void:
-	_dismiss_challenge_panel()
-	if _net_sync != null:
-		_net_sync.rpc_id(from_id, "respond_battle_wager", false, [], 0)
-	_pending_wager_from = -1
-	_pending_wager_deck = []
-	_pending_wager_coins = 0
-	_pending_wager_armed_at = -1
-
-
-func _on_battle_wager_responded(_sender: int, accepted: bool, responder_deck: Array, ante_coins: int) -> void:
-	if not accepted:
-		_show_tip("Wagered challenge declined.")
-		return
-	_enter_pvp_wagered(ante_coins, responder_deck)
-
-
-func _enter_pvp_wagered(ante: int, opp_deck: Array) -> void:
-	if _challenge_btn != null and is_instance_valid(_challenge_btn):
-		_challenge_btn.hide()
-	SceneManager.save_manager.add_coins(-ante)
-	_pvp_ante_coins = ante
-	var local_idx: int = 0 if NetworkManager.is_host() else 1
-	if NetworkManager.is_host() and _net_sync != null:
-		var my_id: int = multiplayer.get_unique_id()
-		_pvp_ante_peer0 = my_id
-		_pvp_ante_peer1 = _challenge_target_peer
-		for pid in multiplayer.get_peers():
-			var p: int = int(pid)
-			if p != _challenge_target_peer:
-				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _challenge_target_peer)
-	var opp_token: String = str(_session_token_by_peer.get(_challenge_target_peer, ""))
-	SceneManager.enter_pvp_battle(local_idx, opp_deck, ante, opp_token)
-
-
-func _on_pvp_battle_ended_coop(did_win: bool) -> void:
-	if not _coop_active:
-		return
-	# GID-104 (TID-386): tournament matches have their own bracket-scoped payout
-	# and never touch the champion-record/rating/ante-wager systems below — a
-	# tournament match is never wagered/ranked through the normal challenge flow.
-	if _tournament_active:
-		_on_tournament_pvp_ended(did_win)
-		return
-	# Wager payout (TID-368): winner gets both antes back.
-	if _pvp_ante_coins > 0:
-		if did_win:
-			SceneManager.save_manager.add_coins(_pvp_ante_coins * 2)
-		_pvp_ante_coins = 0
-	# Champion record (TID-368): update pvp stats in session record (host only).
-	if NetworkManager.is_host() and SessionStore.is_open():
-		var token: String = MpProfile.get_token()
-		var st = SessionStore.get_state()
-		if st != null:
-			var rec: Dictionary = st.get_member(token)
-			if not rec.is_empty():
-				var wins: int = int(rec.get("pvp_wins", 0))
-				var losses: int = int(rec.get("pvp_losses", 0))
-				var streak: int = int(rec.get("pvp_streak", 0))
-				var best: int = int(rec.get("pvp_best_streak", 0))
-				if did_win:
-					wins += 1
-					streak += 1
-					if streak > best:
-						best = streak
-				else:
-					losses += 1
-					streak = 0
-				rec["pvp_wins"] = wins
-				rec["pvp_losses"] = losses
-				rec["pvp_streak"] = streak
-				rec["pvp_best_streak"] = best
-				st.update_member(token, rec)
-				SessionStore.mark_dirty()
-			# Ranked rating (TID-370) — gated on the duel's ranked opt-in (GID-102 / TID-373):
-			# the authority owns both records, so it computes both combatants' ELO deltas and
-			# writes both. The host is one combatant; the opponent is the duel peer captured
-			# at battle-start (_pvp_ante_peer1). Casual (non-ranked) duels never touch rating.
-			if _pvp_ranked:
-				_update_pvp_ratings(st, token, did_win)
-				# Broadcast a fresh leaderboard snapshot now that ratings changed.
-				_broadcast_leaderboard()
-	_pvp_ranked = false
-	# Signal spectators to return to world when WorldScene re-enters the tree.
-	_pvp_ended_pending_broadcast = true
-
-
-## Host-authority ranked rating update for a finished duel (GID-102 / TID-370).
-## `host_token` is the host's own member; `_pvp_ante_peer1` identifies the opponent peer
-## (set in `_enter_pvp` / `_enter_pvp_wagered`). Both ratings move zero-sum-ish via ELO;
-## a client never rates itself, so this only runs on the host (caller already guards that).
-## Only called for ranked duels (see _on_pvp_battle_ended_coop).
-##
-## Rating-delta display (GID-102 / TID-373): BattleResultUI.show_pvp_result() is shown by
-## BattleScene._finish_pvp BEFORE GameBus.pvp_battle_ended fires, but this update only runs
-## AFTER that signal, here in WorldScene once the battle has ended — so the result screen
-## cannot know the delta at the moment it is shown without restructuring the host-authoritative
-## battle-end sequencing (out of scope / risky, see task file). Instead each combatant gets a
-## toast once back in the world: the host shows its own delta locally; the opponent's delta is
-## unicast via a tiny dedicated RPC (recv_rating_delta) right after this update, reusing the
-## existing low-risk end-of-action toast pattern (hud_message_requested).
-func _update_pvp_ratings(st, host_token: String, host_won: bool) -> void:
-	var opp_peer: int = _pvp_ante_peer1
-	if opp_peer <= 0:
-		return
-	var opp_token: String = str(_session_token_by_peer.get(opp_peer, ""))
-	if host_token == "" or opp_token == "" or host_token == opp_token:
-		return
-	var host_rec: Dictionary = st.get_member(host_token)
-	var opp_rec: Dictionary = st.get_member(opp_token)
-	if host_rec.is_empty() or opp_rec.is_empty():
-		return
-	var r_host: int = int(host_rec.get("pvp_rating", _RatingMath.START_RATING))
-	var r_opp: int = int(opp_rec.get("pvp_rating", _RatingMath.START_RATING))
-	var g_host: int = int(host_rec.get("pvp_games", 0))
-	var g_opp: int = int(opp_rec.get("pvp_games", 0))
-	var host_score: float = 1.0 if host_won else 0.0
-	var new_host_rating: int = _RatingMath.updated(r_host, r_opp, host_score, g_host)
-	var new_opp_rating: int = _RatingMath.updated(r_opp, r_host, 1.0 - host_score, g_opp)
-	var host_delta: int = new_host_rating - r_host
-	var opp_delta: int = new_opp_rating - r_opp
-	host_rec["pvp_rating"] = new_host_rating
-	host_rec["pvp_games"] = g_host + 1
-	opp_rec["pvp_rating"] = new_opp_rating
-	opp_rec["pvp_games"] = g_opp + 1
-	st.update_member(host_token, host_rec)
-	st.update_member(opp_token, opp_rec)
-	SessionStore.mark_dirty()
-	# Toast both combatants with their rating delta (TID-373). The host shows its own
-	# locally; the opponent's is unicast since only the host computed it.
-	GameBus.hud_message_requested.emit(_format_rating_delta(host_delta))
-	if _net_sync != null:
-		_net_sync.rpc_id(opp_peer, "recv_rating_delta", opp_delta)
-
-
-## "+N rating" (gold) / "-N rating" formatted as plain text for hud_message_requested
-## (that signal carries text only, no color — color is the toast UI's own styling).
-func _format_rating_delta(delta: int) -> String:
-	return "+%d rating" % delta if delta >= 0 else "%d rating" % delta
-
-
-## Client: receive our own rating delta toast from the host after a ranked duel.
-func _on_rating_delta_received(delta: int) -> void:
-	GameBus.hud_message_requested.emit(_format_rating_delta(delta))
-
-
-## Host-only: ranked rating update for a finished 2v2 team duel (GID-102 / TID-371).
-## did_win is the host's own perspective (team_assignments[0]'s result). Uses the
-## formation _start_team_duel recorded to resolve all 4 tokens, then applies a
-## "team-average expected score" ELO update per the task notes: each player's rating
-## moves against the *average* rating of the opposing team, scored 1.0/0.0 for their
-## team's win/loss (not pairwise per-opponent). A client never rates itself — this is
-## a no-op when _active_team_duel_peer_ids is empty (every non-host peer, and the host
-## itself once the formation has been consumed/cleared).
-func _on_team_battle_ended_coop(did_win: bool) -> void:
-	if not NetworkManager.is_host() or _active_team_duel_peer_ids.is_empty():
-		return
-	var peer_ids: Array[int] = _active_team_duel_peer_ids
-	var teams: Array = _active_team_duel_teams
-	_active_team_duel_peer_ids = []
-	_active_team_duel_teams = []
-	if not SessionStore.is_open():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var host_id: int = multiplayer.get_unique_id()
-	var tokens: Array[String] = []
-	for pid in peer_ids:
-		var token: String = MpProfile.get_token() if pid == host_id else str(_session_token_by_peer.get(pid, ""))
-		tokens.append(token)
-	if tokens.has(""):
-		return  # an unresolved token means a peer left mid-duel — skip the rating update
-	var recs: Array[Dictionary] = []
-	for token in tokens:
-		var rec: Dictionary = st.get_member(token)
-		if rec.is_empty():
-			return
-		recs.append(rec)
-	var team0_idxs: Array[int] = []
-	var team1_idxs: Array[int] = []
-	for i in range(teams.size()):
-		if int(teams[i]) == 0:
-			team0_idxs.append(i)
-		else:
-			team1_idxs.append(i)
-	var avg_rating := func(idxs: Array[int]) -> float:
-		var sum: int = 0
-		for i in idxs:
-			sum += int(recs[i].get("pvp_rating", _RatingMath.START_RATING))
-		return float(sum) / float(idxs.size())
-	var avg0: float = avg_rating.call(team0_idxs)
-	var avg1: float = avg_rating.call(team1_idxs)
-	var team0_won: bool = did_win  # team_assignments[0] is the host's team
-	for i in team0_idxs:
-		var r: int = int(recs[i].get("pvp_rating", _RatingMath.START_RATING))
-		var g: int = int(recs[i].get("pvp_games", 0))
-		recs[i]["pvp_rating"] = _RatingMath.updated(r, int(round(avg1)), 1.0 if team0_won else 0.0, g)
-		recs[i]["pvp_games"] = g + 1
-	for i in team1_idxs:
-		var r: int = int(recs[i].get("pvp_rating", _RatingMath.START_RATING))
-		var g: int = int(recs[i].get("pvp_games", 0))
-		recs[i]["pvp_rating"] = _RatingMath.updated(r, int(round(avg0)), 0.0 if team0_won else 1.0, g)
-		recs[i]["pvp_games"] = g + 1
-	for i in range(tokens.size()):
-		st.update_member(tokens[i], recs[i])
-	SessionStore.mark_dirty()
-
-
-# ── GID-102 (TID-373): Ranked UI & leaderboard ────────────────────────────────
-
-## Host: push the current leaderboard to one peer (target_peer == 0 broadcasts to all).
-func _broadcast_leaderboard(target_peer: int = 0) -> void:
-	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var rows: Array = st.get_leaderboard(20)
-	# Update the host's own cache too so its roster badge + overlay stay in sync.
-	_leaderboard_rows = rows
-	if target_peer == 0:
-		_net_sync.rpc("recv_leaderboard", rows)
-	else:
-		_net_sync.rpc_id(target_peer, "recv_leaderboard", rows)
-	_refresh_coop_roster()
-	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay) \
-			and _leaderboard_overlay.has_method("refresh_rows"):
-		_leaderboard_overlay.refresh_rows(_leaderboard_rows)
-
-
-## Any peer: receive a leaderboard snapshot (initial push, post-duel update, or an
-## on-demand refresh reply) and refresh the roster badges + open overlay if any.
-func _on_leaderboard_received(rows: Array) -> void:
-	_leaderboard_rows = rows
-	_refresh_coop_roster()
-	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay) \
-			and _leaderboard_overlay.has_method("refresh_rows"):
-		_leaderboard_overlay.refresh_rows(_leaderboard_rows)
-
-
-## Host: a client asked for a fresh leaderboard snapshot (e.g. opening the panel).
-func _on_leaderboard_request_submitted(sender: int) -> void:
-	_broadcast_leaderboard(sender)
-
-
-## token -> row lookup derived from the cache, for the roster badge + overlay.
-func _leaderboard_lookup_by_token() -> Dictionary:
-	var out: Dictionary = {}
-	for row in _leaderboard_rows:
-		if row is Dictionary:
-			out[str((row as Dictionary).get("token", ""))] = row
-	return out
-
-
-## Returns "1234" for a cached rating or "—" if the token isn't in the cache yet
-## (e.g. before the first leaderboard snapshot arrives).
-func _rating_badge_for_token(token: String) -> String:
-	if token == "":
-		return "—"
-	var lookup: Dictionary = _leaderboard_lookup_by_token()
-	if not lookup.has(token):
-		return "—"
-	return str(int((lookup[token] as Dictionary).get("rating", _RatingMath.START_RATING)))
-
-
-## Opens (or closes, if already open) the leaderboard overlay. Requests a fresh
-## snapshot from the host on open. HUD button + mobile/desktop parity (TID-373).
-func _toggle_leaderboard_overlay() -> void:
-	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay):
-		_leaderboard_overlay.queue_free()
-		_leaderboard_overlay = null
-		return
-	_leaderboard_overlay = _LeaderboardOverlay.new()
-	add_child(_leaderboard_overlay)
-	_leaderboard_overlay.closed.connect(func() -> void: _leaderboard_overlay = null)
-	_leaderboard_overlay.refresh_rows(_leaderboard_rows)
-	if NetworkManager.is_host():
-		_broadcast_leaderboard()
-	elif _net_sync != null:
-		_net_sync.rpc_id(1, "submit_leaderboard_request")
-	if _leaderboard_overlay.has_method("refresh_pve_rows"):
-		_leaderboard_overlay.refresh_pve_rows(_pve_leaderboards)
-	if NetworkManager.is_host():
-		_broadcast_pve_leaderboards()
-	elif _net_sync != null:
-		_net_sync.rpc_id(1, "submit_pve_leaderboard_request")
-
-
-# ── GID-102 (TID-379): PvE leaderboards — Spire + co-op boss clears ──────────
-# Distinct symbol/RPC names from the TID-373 ranked-rating board above
-# (recv_leaderboard/submit_leaderboard_request/_broadcast_leaderboard/etc.) —
-# these never touch pvp_rating. Reuses the LeaderboardOverlay's tabs (extended
-# by this task) rather than a second panel, per the task's "unified Rankings"
-# guidance.
-
-## Endless Spire is single-player; only submit a session-scoped board entry when a
-## co-op session is actually active (per task notes — a Spire run can happen with no
-## co-op session running at all, in which case this is purely a local result).
-## Offline/no-session best is intentionally NOT duplicated into MpProfile: the
-## fully-offline case is already covered by SaveManager.spire_best_floor (the "New
-## Record!" badge on RunSummaryScene reads that field already) — adding a second
-## local-best store here would just be a second source of truth for the same fact.
-func _on_spire_run_ended_leaderboard(stats: Dictionary) -> void:
-	if not NetworkManager.is_active():
-		return
-	var floors_cleared: int = int(stats.get("floors_cleared", 0))
-	if floors_cleared <= 0:
-		return
-	_submit_pve_score("spire", floors_cleared)
-
-## Co-op boss clear: submit on a party win while a co-op session is active. The
-## "value" recorded is the party size at the moment the battle ended (peers + self) —
-## a v1 simplification. Neither fastest-clear timing nor the scaled boss tier are
-## threaded from BattleScene back to WorldScene today (see BID-027), so party size is
-## the only robust, always-available proxy of "how tough a clear this was" without
-## inventing new cross-battle plumbing for this task.
-func _on_coop_pve_battle_ended_leaderboard(did_win: bool) -> void:
-	if not did_win or not NetworkManager.is_active():
-		return
-	var party_size: int = multiplayer.get_peers().size() + 1
-	_submit_pve_score("coop_clears", party_size)
-
-## Route a PvE score to the authority: host records directly via SessionStore; a
-## client sends the new submit RPC. board is "spire" or "coop_clears".
-func _submit_pve_score(board: String, value: int) -> void:
-	if NetworkManager.is_host():
-		if not SessionStore.is_open():
-			return
-		var st = SessionStore.get_state()
-		if st == null:
-			return
-		var token: String = MpProfile.get_token()
-		st.record_pve_score(board, token, MpProfile.get_display_name(), value,
-			SceneManager.save_manager.days_elapsed)
-		SessionStore.mark_dirty()
-		_broadcast_pve_leaderboards()
-	elif _net_sync != null:
-		_net_sync.rpc_id(1, "submit_pve_leaderboard_score", board, value)
-
-## Host: a client submitted a PvE score — record it (using the sender's already-known
-## session token) and broadcast the refreshed snapshot to everyone.
-func _on_pve_leaderboard_score_submitted(sender: int, board: String, value: int) -> void:
-	if not NetworkManager.is_host() or not SessionStore.is_open():
-		return
-	var token: String = str(_session_token_by_peer.get(sender, ""))
-	if token == "":
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var rec: Dictionary = st.get_member(token)
-	var member_name: String = str(rec.get("display_name", "Player"))
-	st.record_pve_score(board, token, member_name, value, SceneManager.save_manager.days_elapsed)
-	SessionStore.mark_dirty()
-	_broadcast_pve_leaderboards()
-
-## Host: push the current {spire, coop_clears} PvE snapshot to one peer (0 = all).
-func _broadcast_pve_leaderboards(target_peer: int = 0) -> void:
-	if not NetworkManager.is_host() or _net_sync == null or not SessionStore.is_open():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var snapshot: Dictionary = st.get_pve_leaderboards_snapshot()
-	_pve_leaderboards = snapshot
-	if target_peer == 0:
-		_net_sync.rpc("recv_pve_leaderboards", snapshot)
-	else:
-		_net_sync.rpc_id(target_peer, "recv_pve_leaderboards", snapshot)
-	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay) \
-			and _leaderboard_overlay.has_method("refresh_pve_rows"):
-		_leaderboard_overlay.refresh_pve_rows(_pve_leaderboards)
-
-## Any peer: receive a PvE leaderboard snapshot (late-join, post-update, or an
-## on-demand refresh reply) and refresh the overlay if open.
-func _on_pve_leaderboards_received(snapshot: Dictionary) -> void:
-	_pve_leaderboards = snapshot
-	if _leaderboard_overlay != null and is_instance_valid(_leaderboard_overlay) \
-			and _leaderboard_overlay.has_method("refresh_pve_rows"):
-		_leaderboard_overlay.refresh_pve_rows(_pve_leaderboards)
-
-## Host: a client asked for a fresh PvE leaderboard snapshot (e.g. switching tabs).
-func _on_pve_leaderboard_request_submitted(sender: int) -> void:
-	_broadcast_pve_leaderboards(sender)
-
-
-# ── TID-369: Shared party bounties ────────────────────────────────────────────
-
-func _setup_party_bounties() -> void:
-	if not NetworkManager.is_host():
-		return
-	if not SessionStore.is_open():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	const _BountyGen = preload("res://game_logic/BountyGen.gd")
-	if (st.party_bounties as Array).is_empty():
-		var day_idx: int = SceneManager.save_manager.days_elapsed
-		var raw: Array[Dictionary] = _BountyGen.generate_daily(WORLD_SEED, day_idx)
-		var bounties: Array = []
-		for b: Dictionary in raw:
-			var pb: Dictionary = b.duplicate(true)
-			pb["progress"] = 0
-			pb["contributors"] = []
-			pb["completed"] = false
-			bounties.append(pb)
-		st.party_bounties = bounties
-		SessionStore.mark_dirty()
-
-
-func _build_party_bounty_panel() -> void:
-	if _party_bounty_panel != null and is_instance_valid(_party_bounty_panel):
-		_refresh_party_bounty_panel()
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var outer := PanelContainer.new()
-	outer.name = "PartyBountyPanel"
-	outer.position = Vector2(vp.x * 0.012, vp.y * 0.50)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.04, 0.08, 0.88)
-	style.corner_radius_top_left    = 6
-	style.corner_radius_top_right   = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
-	outer.add_theme_stylebox_override("panel", style)
-	_hud.add_child(outer)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vh * 0.006))
-	outer.add_child(vbox)
-	_party_bounty_panel = vbox
-	_refresh_party_bounty_panel()
-
-
-func _refresh_party_bounty_panel() -> void:
-	if _party_bounty_panel == null or not is_instance_valid(_party_bounty_panel):
-		return
-	for c in _party_bounty_panel.get_children():
-		c.queue_free()
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var title := Label.new()
-	title.text = "Party Bounties"
-	title.add_theme_font_size_override("font_size", int(vh * 0.020))
-	title.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
-	_party_bounty_panel.add_child(title)
-	if NetworkManager.is_host() and SessionStore.is_open():
-		var st = SessionStore.get_state()
-		if st != null:
-			for b: Variant in (st.party_bounties as Array):
-				if b is Dictionary:
-					_add_bounty_row(b as Dictionary)
-
-
-func _add_bounty_row(bd: Dictionary) -> void:
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var lbl := Label.new()
-	var cnt: int = int(bd.get("count", 1))
-	var prog: int = int(bd.get("progress", 0))
-	var done: bool = bool(bd.get("completed", false))
-	lbl.text = "%s: %d/%d%s" % [
-		str(bd.get("type", "?")), prog, cnt,
-		" [done]" if done else ""]
-	lbl.add_theme_font_size_override("font_size", int(vh * 0.016))
-	if done:
-		lbl.add_theme_color_override("font_color", Color(0.5, 1.0, 0.5))
-	_party_bounty_panel.add_child(lbl)
-
-
-## Public: called by other WorldScene subsystems (battle won, chest opened) to
-## contribute party bounty progress in co-op. Works like
-## SaveManager.increment_bounty_progress but for the shared party list.
-func submit_party_bounty_progress(bounty_type: String, match_data: Dictionary) -> void:
-	if not _coop_active or _net_sync == null:
-		return
-	if NetworkManager.is_host():
-		_on_party_bounty_progress_submitted(multiplayer.get_unique_id(), bounty_type, match_data)
-	else:
-		_net_sync.rpc_id(1, "submit_party_bounty_progress", bounty_type, match_data)
-
-
-func _on_party_bounty_progress_submitted(sender: int, bounty_type: String, match_data: Dictionary) -> void:
-	if not NetworkManager.is_host() or not SessionStore.is_open():
-		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var token: String = str(_session_token_by_peer.get(sender,
-		MpProfile.get_token() if sender == multiplayer.get_unique_id() else ""))
-	for i: int in range((st.party_bounties as Array).size()):
-		var b: Variant = (st.party_bounties as Array)[i]
-		if not (b is Dictionary):
-			continue
-		var bd: Dictionary = b as Dictionary
-		if bool(bd.get("completed", false)):
-			continue
-		if str(bd.get("type", "")) != bounty_type:
-			continue
-		var target: String = str(bd.get("target", ""))
-		var matches: bool = false
-		match bounty_type:
-			"defeat_enemy_type":
-				matches = str(match_data.get("enemy_type", "")) == target
-			"defeat_in_biome":
-				matches = str(match_data.get("biome", "")) == target
-			"open_chests":
-				matches = true
-		if not matches:
-			continue
-		var progress: int = int(bd.get("progress", 0))
-		progress += 1
-		bd["progress"] = progress
-		var contributors: Array = bd.get("contributors", []) as Array
-		if not contributors.has(token):
-			contributors.append(token)
-		bd["contributors"] = contributors
-		var count: int = int(bd.get("count", 1))
-		if progress >= count:
-			bd["completed"] = true
-			SceneManager.save_manager.add_coins(int(bd.get("reward", 0)))
-		(st.party_bounties as Array)[i] = bd
-		SessionStore.mark_dirty()
-		var update_payload: Dictionary = {
-			"bounty_id": str(bd.get("id", "")),
-			"progress": progress,
-			"count": count,
-			"completed": bool(bd.get("completed", false)),
-		}
-		if _net_sync != null:
-			_net_sync.rpc("recv_party_bounty_update", update_payload)
-		_refresh_party_bounty_panel()
-		break
-
-
-func _on_party_bounty_update_received(payload: Dictionary) -> void:
-	# Clients update their local HUD row. The snapshot drives initial state;
-	# incremental updates patch one row at a time.
-	_refresh_party_bounty_panel()
-
-
-func _on_party_bounties_snapshot_received(bounties: Array) -> void:
-	# Client: received full party bounty list from host on join.
-	if _party_bounty_panel == null or not is_instance_valid(_party_bounty_panel):
-		# Build panel first time
-		var vp: Vector2 = get_viewport().get_visible_rect().size
-		var vh: float = vp.y
-		var outer := PanelContainer.new()
-		outer.name = "PartyBountyPanel"
-		outer.position = Vector2(vp.x * 0.012, vp.y * 0.50)
-		var style := StyleBoxFlat.new()
-		style.bg_color = Color(0.04, 0.04, 0.08, 0.88)
-		style.corner_radius_top_left    = 6
-		style.corner_radius_top_right   = 6
-		style.corner_radius_bottom_left = 6
-		style.corner_radius_bottom_right = 6
-		outer.add_theme_stylebox_override("panel", style)
-		_hud.add_child(outer)
-		var vbox := VBoxContainer.new()
-		vbox.add_theme_constant_override("separation", int(vh * 0.006))
-		outer.add_child(vbox)
-		_party_bounty_panel = vbox
-	# Populate from snapshot
-	for c in _party_bounty_panel.get_children():
-		c.queue_free()
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var title := Label.new()
-	title.text = "Party Bounties"
-	title.add_theme_font_size_override("font_size", int(vh * 0.020))
-	title.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
-	_party_bounty_panel.add_child(title)
-	for b: Variant in bounties:
-		if b is Dictionary:
-			_add_bounty_row(b as Dictionary)
-
-
-# ── Draft duels — sealed-deck PvP (GID-104 / TID-385) ─────────────────────────
-# Deterministic shared-seed model: the challenger generates one seed; both peers
-# derive the IDENTICAL 1-of-3 pick rounds locally (DraftDuelGen.generate_rounds),
-# so no per-pick relay is needed — each side picks independently and only the two
-# finished TRANSIENT decks cross the wire (submit_draft_duel_deck), once each.
-# Drafted decks live only in the resulting duel's GameState; they are never
-# written to owned_cards, SaveManager, or SessionState. Always casual: never
-# ranked (fair-format ratings would need their own ladder), never wagered.
-# Everything here is guarded by the co-op HUD entry points (_setup_coop), so
-# single-player never reaches any of it.
-
-## Creates the hidden "Draft Duel" HUD button (mobile + desktop parity — a
-## Button.pressed tap/click target, no keybind). Registered into the shared
-## ZONE_CONTEXT zone (GID-115 / TID-433) — sits below the Challenge/Ranked-toggle
-## pair, same zone the world-interact prompt takes priority over.
-func _ensure_draft_duel_button() -> void:
-	if _draft_duel_btn != null and is_instance_valid(_draft_duel_btn):
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	_draft_duel_btn = _world_hud.register_action("draft_duel", "Draft Duel",
-		WorldHUD.ZONE_CONTEXT, _request_draft_duel, Callable(), Vector2(vp.y * 0.20, vp.y * 0.05))
-	_draft_duel_btn.tooltip_text = "Sealed-deck duel: both players draft %d cards from identical seeded packs. No collection advantage; drafted cards last one duel." % _DraftDuelGen.NUM_ROUNDS
-	_draft_duel_btn.hide()
-
-## Shows/hides the draft-duel button. Piggybacks on the proximity result
-## (_challenge_target_peer) computed by _update_challenge_proximity, which runs
-## immediately before this in _process. Hidden while any challenge/draft is
-## pending, and on dedicated servers (draft routing is listen-server only in v1).
-func _update_draft_duel_proximity() -> void:
-	if _draft_duel_btn == null or not is_instance_valid(_draft_duel_btn):
-		return
-	if _draft_peer != -1 or _pending_draft_from != -1 or _pending_challenge_from != -1 \
-			or _session_dedicated or SceneManager._state != SceneManager.State.WORLD:
-		_draft_duel_btn.hide()
-		return
-	_draft_duel_btn.visible = _challenge_target_peer != -1
-
-## Send a draft-duel challenge to the nearby peer, carrying a freshly rolled seed.
-## No DECK_MIN gate — a draft duel needs no collection at all (that's the point).
-func _request_draft_duel() -> void:
-	if _challenge_target_peer == -1 or _net_sync == null or _draft_peer != -1:
-		return
-	if _session_dedicated:
-		_show_tip("Draft duels aren't available on dedicated servers yet.")
-		return
-	var seed_val: int = randi()
-	_draft_peer = _challenge_target_peer
-	_draft_seed = seed_val
-	_draft_peer_armed_at = Time.get_ticks_msec()
-	_net_sync.rpc_id(_draft_peer, "request_draft_duel", _DraftDuelGen.encode_seed(seed_val))
-	_show_tip("Draft duel challenge sent…")
-
-## Incoming draft challenge — show an Accept/Decline prompt (auto-decline if busy
-## so the challenger isn't left hanging on a peer already in another handshake).
-func _on_draft_duel_requested(from_id: int, payload: Dictionary) -> void:
-	if _pending_challenge_from != -1 or _pending_draft_from != -1 or _draft_peer != -1:
-		if _net_sync != null:
-			_net_sync.rpc_id(from_id, "respond_draft_duel", false, {})
-		return
-	var decoded: Dictionary = _DraftDuelGen.decode_seed(payload)
-	if not bool(decoded["valid"]):
-		return
-	_pending_draft_from = from_id
-	_pending_draft_seed = int(decoded["seed"])
-	_pending_draft_from_armed_at = Time.get_ticks_msec()
-	_show_draft_accept_panel(from_id)
-
-## Challenger learns the response. On accept, the echoed seed payload is used
-## (defensively falling back to the seed we sent) and both peers start drafting.
-func _on_draft_duel_responded(from_id: int, accepted: bool, payload: Dictionary) -> void:
-	if from_id != _draft_peer or _draft_picking:
-		return
-	if not accepted:
-		_show_tip("Draft duel declined.")
-		_draft_peer = -1
-		_draft_seed = 0
-		_draft_peer_armed_at = -1
-		return
-	var decoded: Dictionary = _DraftDuelGen.decode_seed(payload)
-	var seed_val: int = int(decoded["seed"]) if bool(decoded["valid"]) else _draft_seed
-	_start_draft(from_id, seed_val)
-
-func _show_draft_accept_panel(from_id: int) -> void:
-	if _draft_accept_panel != null and is_instance_valid(_draft_accept_panel):
-		_draft_accept_panel.queue_free()
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var layer := CanvasLayer.new()
-	layer.layer = 180
-	add_child(layer)
-	_draft_accept_panel = layer
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	layer.add_child(panel)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vp.y * 0.025))
-	panel.add_child(vbox)
-
-	var lbl := Label.new()
-	lbl.text = "A player challenges you to a DRAFT DUEL!\nBoth of you draft %d cards from identical sealed packs." % _DraftDuelGen.NUM_ROUNDS
-	lbl.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.modulate = Color(0.6, 0.9, 1.0)
-	vbox.add_child(lbl)
-
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(vp.y * 0.03))
-	vbox.add_child(row)
-
-	var accept_btn := Button.new()
-	accept_btn.text = "Accept"
-	accept_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
-	accept_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	accept_btn.pressed.connect(_accept_draft_duel.bind(from_id))
-	row.add_child(accept_btn)
-
-	var decline_btn := Button.new()
-	decline_btn.text = "Decline"
-	decline_btn.custom_minimum_size = Vector2(vp.y * 0.2, vp.y * 0.07)
-	decline_btn.add_theme_font_size_override("font_size", int(vp.y * 0.026))
-	decline_btn.pressed.connect(_decline_draft_duel.bind(from_id))
-	row.add_child(decline_btn)
-
-func _dismiss_draft_panel() -> void:
-	if _draft_accept_panel != null and is_instance_valid(_draft_accept_panel):
-		_draft_accept_panel.queue_free()
-	_draft_accept_panel = null
-
-func _accept_draft_duel(from_id: int) -> void:
-	_dismiss_draft_panel()
-	var seed_val: int = _pending_draft_seed
-	_pending_draft_from = -1
-	_pending_draft_seed = 0
-	_pending_draft_from_armed_at = -1
-	if _net_sync != null:
-		_net_sync.rpc_id(from_id, "respond_draft_duel", true, _DraftDuelGen.encode_seed(seed_val))
-	_start_draft(from_id, seed_val)
-
-func _decline_draft_duel(from_id: int) -> void:
-	_dismiss_draft_panel()
-	_pending_draft_from = -1
-	_pending_draft_seed = 0
-	_pending_draft_from_armed_at = -1
-	if _net_sync != null:
-		_net_sync.rpc_id(from_id, "respond_draft_duel", false, {})
-
-## Both peers: open the local pick overlay with the agreed shared seed. From here
-## on there is zero network traffic until a peer finishes its last pick.
-func _start_draft(peer_id: int, seed_val: int) -> void:
-	_draft_peer = peer_id
-	_draft_seed = seed_val
-	_draft_peer_armed_at = -1  # TID-431: duel now active/underway — stop timing it out
-	_draft_picking = true
-	_draft_local_deck = []
-	_draft_opp_deck = []
-	_draft_local_done = false
-	_draft_opp_done = false
-	# Shared bookkeeping with the normal challenge path: the host's battle-end
-	# champion-record path resolves the opponent via _challenge_target_peer.
-	_challenge_target_peer = peer_id
-	if _challenge_btn != null and is_instance_valid(_challenge_btn):
-		_challenge_btn.hide()
-	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
-		_ranked_toggle_btn.hide()
-	if _draft_duel_btn != null and is_instance_valid(_draft_duel_btn):
-		_draft_duel_btn.hide()
-	var layer := CanvasLayer.new()
-	layer.layer = 190
-	add_child(layer)
-	_draft_picker_layer = layer
-	var picker := _DraftDuelPickScene.new()
-	layer.add_child(picker)
-	picker.draft_finished.connect(_on_local_draft_finished)
-	_draft_picker = picker
-	# setup() can finish synchronously (empty card registry edge) and cascade into
-	# _maybe_enter_draft_duel → _free_draft_picker, so it must run after the
-	# member references above are in place.
-	picker.setup(seed_val, MpProfile.get_token())
-
-func _free_draft_picker() -> void:
-	if _draft_picker_layer != null and is_instance_valid(_draft_picker_layer):
-		_draft_picker_layer.queue_free()
-	_draft_picker_layer = null
-	_draft_picker = null
-
-## Local draft complete: send my transient deck to the opponent, then start the
-## duel if theirs already arrived (whichever peer finishes second triggers entry).
-func _on_local_draft_finished(deck: Array) -> void:
-	_draft_local_deck = deck
-	_draft_local_done = true
-	if _net_sync != null and _draft_peer != -1:
-		_net_sync.rpc_id(_draft_peer, "submit_draft_duel_deck", deck)
-	_maybe_enter_draft_duel()
-
-func _on_draft_duel_deck_submitted(from_id: int, deck: Array) -> void:
-	if from_id != _draft_peer:
-		return
-	_draft_opp_deck = deck
-	_draft_opp_done = true
-	_maybe_enter_draft_duel()
-
-## Both decks ready → enter the duel. Mirrors _enter_pvp (spectator broadcast +
-## opponent token), but passes the local drafted deck as the override so the
-## battle never reads the host's persisted collection. Never ranked, no ante.
-func _maybe_enter_draft_duel() -> void:
-	if not (_draft_local_done and _draft_opp_done):
-		return
-	_free_draft_picker()
-	var local_idx: int = 0 if NetworkManager.is_host() else 1
-	_pvp_ranked = false
-	if NetworkManager.is_host() and _net_sync != null:
-		var my_id: int = multiplayer.get_unique_id()
-		_pvp_ante_peer0 = my_id
-		_pvp_ante_peer1 = _draft_peer
-		for pid in multiplayer.get_peers():
-			var p: int = int(pid)
-			if p != _draft_peer:
-				_net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _draft_peer)
-	var opp_token: String = str(_session_token_by_peer.get(_draft_peer, ""))
-	var opp_deck: Array = _draft_opp_deck
-	var my_deck: Array = _draft_local_deck
-	_reset_draft_state()
-	SceneManager.enter_pvp_battle(local_idx, opp_deck, 0, opp_token, false, my_deck)
-
-func _reset_draft_state() -> void:
-	_draft_peer = -1
-	_draft_seed = 0
-	_draft_peer_armed_at = -1
-	_draft_picking = false
-	_draft_local_deck = []
-	_draft_opp_deck = []
-	_draft_local_done = false
-	_draft_opp_done = false
-
-## Abort hooks: called from _on_coop_peer_disconnected / _on_coop_session_ended.
-func _abort_draft_duel_for_peer(pid: int) -> void:
-	if _draft_peer != -1 and pid == _draft_peer:
-		_abort_draft_duel("Draft duel cancelled — opponent disconnected.")
-	elif _pending_draft_from != -1 and pid == _pending_draft_from:
-		_dismiss_draft_panel()
-		_pending_draft_from = -1
-		_pending_draft_seed = 0
-		_pending_draft_from_armed_at = -1
-
-func _abort_draft_duel(reason: String = "") -> void:
-	if _draft_peer == -1 and _pending_draft_from == -1 and _draft_picker == null:
-		return
-	_free_draft_picker()
-	_dismiss_draft_panel()
-	_pending_draft_from = -1
-	_pending_draft_seed = 0
-	_pending_draft_from_armed_at = -1
-	_reset_draft_state()
-	if reason != "":
-		_show_tip(reason)
-# ── Session tournaments (GID-104 / TID-386) ───────────────────────────────────
-# Host-run round-robin bracket for 3-4 session players. The host is the
-# authority: it schedules matches one at a time, plays its own matches through
-# the normal enter_pvp_battle flow, referees client-vs-client matches through
-# the GID-097 enter_pvp_referee flow, auto-spectates every non-combatant, and
-# pays the pot to the bracket winner. Pure scheduling/wire logic lives in
-# game_logic/net/TournamentSync.gd; everything here is guarded end-to-end by
-# _tournament_active / NetworkManager.is_active() so single-player and normal
-# co-op PvP are untouched.
-
-## Host: builds the bracket from every connected peer (host + all clients),
-## deducts the flat ante from every participant (host locally; clients via
-## notify_tournament_start doing the same on their side — the existing
-## ante-wager precedent), broadcasts the bracket, and schedules match 1.
-func _start_tournament() -> void:
-	if not NetworkManager.is_host() or _net_sync == null or _tournament_active:
-		return
-	var clients: Array = multiplayer.get_peers()
-	if clients.size() < 2:
-		_show_tip("Need 3-4 players for a tournament.")
-		return
-	clients.sort()
-	var host_id: int = multiplayer.get_unique_id()
-	var peer_ids: Array[int] = [host_id]
-	for pid in clients:
-		peer_ids.append(int(pid))
-	var tokens: Array = []
-	var names: Array = []
-	var decks: Array = []
-	for pid in peer_ids:
-		var token: String = MpProfile.get_token() if pid == host_id \
-				else str(_session_token_by_peer.get(pid, ""))
-		if token == "":
-			_show_tip("A player's identity isn't synced yet — try again shortly.")
-			return
-		var deck: Array = _team_deck_for_peer(pid)
-		if deck.size() < IsoConst.DECK_MIN:
-			_show_tip("%s's deck is too small to duel." % _display_name_for_token(token))
-			return
-		tokens.append(token)
-		names.append(_display_name_for_token(token))
-		decks.append(deck)
-	if SceneManager.save_manager.coins < TOURNAMENT_ANTE_COINS:
-		_show_tip("Not enough coins for the ante (%d)." % TOURNAMENT_ANTE_COINS)
-		return
-	var bracket: Dictionary = _TournamentSync.new_bracket(tokens, names, TOURNAMENT_ANTE_COINS)
-	if bracket.is_empty():
-		_show_tip("Tournaments support 3-4 players.")
-		return
-	SceneManager.save_manager.add_coins(-TOURNAMENT_ANTE_COINS)
-	_tournament_active = true
-	_tournament_bracket = bracket
-	_tournament_peer_ids = peer_ids
-	_tournament_tokens.assign(tokens)
-	_tournament_decks = decks
-	_tournament_ante = TOURNAMENT_ANTE_COINS
-	_tournament_pending_result = {}
-	for pid in peer_ids:
-		if pid != host_id:
-			_net_sync.rpc_id(pid, "notify_tournament_start",
-				_TournamentSync.encode_bracket(bracket), TOURNAMENT_ANTE_COINS)
-	_build_tournament_panel()
-	GameBus.hud_message_requested.emit("Tournament started — %d matches. Pot: %d coins." % [
-		(bracket.get("matches", []) as Array).size(), int(bracket.get("pot", 0))])
-	# Brief pause before match 1 so everyone can read the bracket panel first.
-	_tournament_match_countdown = 3.0
-
-
-## Host: launches the bracket's current match. The host plays its own matches
-## (canonical GameState idx 0, the enter_pvp_battle host path); a match between
-## two clients runs through the GID-097 referee path with the host arbitrating.
-## Every peer not in the match is told to auto-spectate.
-func _start_current_tournament_match() -> void:
-	if not NetworkManager.is_host() or _net_sync == null or not _tournament_active:
-		return
-	var m: Dictionary = _TournamentSync.get_current_match(_tournament_bracket)
-	if m.is_empty():
-		return
-	var pa: int = int(m.get("a", -1))
-	var pb: int = int(m.get("b", -1))
-	if pa < 0 or pb < 0 or pa >= _tournament_peer_ids.size() or pb >= _tournament_peer_ids.size():
-		return
-	var host_id: int = multiplayer.get_unique_id()
-	var peer_a: int = _tournament_peer_ids[pa]
-	var peer_b: int = _tournament_peer_ids[pb]
-	var deck_a: Array = _tournament_decks[pa]
-	var deck_b: Array = _tournament_decks[pb]
-	_net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket(_tournament_bracket))
-	if _challenge_btn != null and is_instance_valid(_challenge_btn):
-		_challenge_btn.hide()
-	# Duel-active + auto-spectate broadcasts to everyone not in this match
-	# (reuses the TID-367 spectate plumbing; _enter_tree clears it after the match
-	# via the _pvp_ended_pending_broadcast pattern).
-	_pvp_ante_peer0 = peer_a
-	_pvp_ante_peer1 = peer_b
-	for pid in multiplayer.get_peers():
-		var p: int = int(pid)
-		if p == peer_a or p == peer_b:
-			continue
-		_net_sync.rpc_id(p, "recv_pvp_active", true, peer_a, peer_b)
-		_net_sync.rpc_id(p, "notify_tournament_spectate")
-	var names: Array = _tournament_bracket.get("names", [])
-	if pa < names.size() and pb < names.size():
-		GameBus.hud_message_requested.emit("Tournament match: %s vs %s" % [str(names[pa]), str(names[pb])])
-	if peer_a == host_id or peer_b == host_id:
-		# The host is a combatant — canonical idx 0 is always the host on this path.
-		_tournament_current_is_host_match = true
-		var host_participant: int = pa if peer_a == host_id else pb
-		var opp_participant: int = pb if peer_a == host_id else pa
-		var opp_peer: int = _tournament_peer_ids[opp_participant]
-		var opp_deck: Array = _tournament_decks[opp_participant]
-		var host_deck: Array = _tournament_decks[host_participant]
-		_tournament_canonical_to_participant = {0: host_participant, 1: opp_participant}
-		_net_sync.rpc_id(opp_peer, "notify_pvp_start", 1, host_deck)
-		var opp_token: String = str(_session_token_by_peer.get(opp_peer, ""))
-		SceneManager.enter_pvp_battle(0, opp_deck, 0, opp_token, false)
-	else:
-		# Two clients play; the listen-server host referees (GID-097 path,
-		# _local_player_idx = -1) — the winner arrives via pvp_referee_match_ended.
-		_tournament_current_is_host_match = false
-		_tournament_canonical_to_participant = {0: pa, 1: pb}
-		_net_sync.rpc_id(peer_a, "notify_pvp_start", 0, deck_b)
-		_net_sync.rpc_id(peer_b, "notify_pvp_start", 1, deck_a)
-		SceneManager.enter_pvp_referee(deck_a, deck_b, peer_a, peer_b,
-			str(_session_token_by_peer.get(peer_a, "")),
-			str(_session_token_by_peer.get(peer_b, "")))
-
-
-## All peers (routed from _on_pvp_battle_ended_coop's _tournament_active guard):
-## a tournament match this peer FOUGHT in just ended. The host captures the
-## winner for the bracket advance; every peer re-arms the duel-clear broadcast
-## exactly like the normal PvP path it replaced.
-func _on_tournament_pvp_ended(did_win: bool) -> void:
-	_pvp_ranked = false
-	_pvp_ended_pending_broadcast = true
-	if not NetworkManager.is_host():
-		return
-	if _tournament_current_is_host_match:
-		var canonical: int = 0 if did_win else 1
-		var participant: int = int(_tournament_canonical_to_participant.get(canonical, -1))
-		if participant >= 0:
-			_tournament_pending_result = {"winner_participant_idx": participant}
-
-
-## Host: a referee'd (client-vs-client) tournament match ended — the winner's
-## canonical GameState index arrives via the dedicated GID-104 signal because
-## pvp_battle_ended's bool can't express it for a non-participant. The GID-097
-## dedicated-server relay also fires this signal, but _tournament_active is
-## never true there, so it stays inert outside tournaments.
-func _on_pvp_referee_match_ended(winner_idx: int) -> void:
-	if not _tournament_active or not NetworkManager.is_host() or _tournament_current_is_host_match:
-		return
-	var participant: int = int(_tournament_canonical_to_participant.get(winner_idx, -1))
-	if participant >= 0:
-		_tournament_pending_result = {"winner_participant_idx": participant}
-
-
-## Host, from _process once WorldScene is back in the tree (a match result can
-## only be applied here — during the battle this scene is detached and _net_sync
-## is freed): drains the pending result, advances + broadcasts the bracket, and
-## either schedules the next match (short countdown so peers get back to the
-## world and read the panel) or finishes the tournament.
-func _tick_tournament(delta: float) -> void:
-	if not _tournament_active or not NetworkManager.is_host():
-		return
-	if not _tournament_pending_result.is_empty():
-		var w: int = int(_tournament_pending_result.get("winner_participant_idx", -1))
-		_tournament_pending_result = {}
-		if w >= 0:
-			_tournament_bracket = _TournamentSync.record_match_result(_tournament_bracket, w)
-			if _net_sync != null:
-				_net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket(_tournament_bracket))
-			_refresh_tournament_panel()
-			if _TournamentSync.is_finished(_tournament_bracket):
-				_finish_tournament()
-				return
-			var names: Array = _tournament_bracket.get("names", [])
-			if w < names.size():
-				GameBus.hud_message_requested.emit("%s wins the match!" % str(names[w]))
-			_tournament_match_countdown = 4.0
-		return
-	if _tournament_match_countdown > 0.0:
-		_tournament_match_countdown -= delta
-		if _tournament_match_countdown <= 0.0:
-			_start_current_tournament_match()
-
-
-## Host: pays the pot to the bracket winner — locally for the host itself,
-## otherwise straight into the winner's session member record (the
-## _grant_chest_loot_to_token direct-write pattern). Clients learn the outcome
-## from the finished bracket broadcast in _tick_tournament.
-func _finish_tournament() -> void:
-	var w: int = int(_tournament_bracket.get("winner_idx", -1))
-	var players: Array = _tournament_bracket.get("players", [])
-	var names: Array = _tournament_bracket.get("names", [])
-	var pot: int = int(_tournament_bracket.get("pot", 0))
-	if w >= 0 and w < players.size():
-		var token: String = str(players[w])
-		var wname: String = str(names[w]) if w < names.size() else "?"
-		if token == MpProfile.get_token():
-			SceneManager.save_manager.add_coins(pot)
-		elif SessionStore.is_open():
-			var st = SessionStore.get_state()
-			if st != null:
-				var rec: Dictionary = st.get_member(token)
-				if not rec.is_empty():
-					rec["coins"] = int(rec.get("coins", 0)) + pot
-					st.update_member(token, rec)
-					SessionStore.mark_dirty()
-		GameBus.hud_message_requested.emit("%s wins the tournament (+%d coins)!" % [wname, pot])
-	_reset_tournament_state()
-	_refresh_tournament_panel()
-
-
-## Clears every host-side orchestration field. Keeps _tournament_bracket so the
-## final standings stay on the panel — callers that need a blank panel (abort,
-## session end) clear the bracket themselves.
-func _reset_tournament_state() -> void:
-	_tournament_active = false
-	_tournament_peer_ids = []
-	_tournament_tokens = []
-	_tournament_decks = []
-	_tournament_ante = 0
-	_tournament_pending_result = {}
-	_tournament_current_is_host_match = false
-	_tournament_canonical_to_participant = {}
-	_tournament_match_countdown = 0.0
-
-
-## Client (notify_tournament_start): the host started a tournament that
-## includes us — deduct our ante locally (existing ante-wager precedent) and
-## build the bracket panel.
-func _on_tournament_started(bracket: Dictionary, ante: int) -> void:
-	if NetworkManager.is_host():
-		return
-	var b: Dictionary = _TournamentSync.decode_bracket(bracket)
-	if (b.get("players", []) as Array).is_empty():
-		return
-	_tournament_active = true
-	_tournament_bracket = b
-	if ante > 0:
-		SceneManager.save_manager.add_coins(-ante)
-	_build_tournament_panel()
-	GameBus.hud_message_requested.emit("Tournament started — ante %d coins. Pot: %d." % [
-		ante, int(b.get("pot", 0))])
-
-
-## Client (recv_tournament_update): bracket changed. An empty bracket means the
-## host aborted (participant disconnect); a finished one carries the winner.
-func _on_tournament_update_received(payload: Dictionary) -> void:
-	if NetworkManager.is_host():
-		return
-	var b: Dictionary = _TournamentSync.decode_bracket(payload)
-	if (b.get("players", []) as Array).is_empty():
-		if _tournament_active:
-			GameBus.hud_message_requested.emit("Tournament aborted.")
-		_tournament_active = false
-		_tournament_bracket = {}
-		_refresh_tournament_panel()
-		return
-	_tournament_bracket = b
-	if _TournamentSync.is_finished(b):
-		_tournament_active = false
-		var w: int = int(b.get("winner_idx", -1))
-		var names: Array = b.get("names", [])
-		if w >= 0 and w < names.size():
-			GameBus.hud_message_requested.emit("%s wins the tournament (+%d coins)!" % [
-				str(names[w]), int(b.get("pot", 0))])
-	_build_tournament_panel()
-
-
-## Client (notify_tournament_spectate): the host scheduled a match we're not in —
-## auto-enter the spectator view (no manual Spectate press, unlike TID-367).
-func _on_tournament_spectate_notified() -> void:
-	if not _tournament_active or NetworkManager.is_dedicated_server():
-		return
-	SceneManager.enter_pvp_spectator()
-
-
-## Bracket HUD panel (all peers) — mirrors _build_party_bounty_panel
-## structurally; right side of the screen (bounties/roster/chat own the left).
-func _build_tournament_panel() -> void:
-	if _tournament_panel != null and is_instance_valid(_tournament_panel):
-		_refresh_tournament_panel()
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var outer := PanelContainer.new()
-	outer.name = "TournamentPanel"
-	outer.position = Vector2(vp.x * 0.76, vp.y * 0.34)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.04, 0.08, 0.88)
-	style.corner_radius_top_left    = 6
-	style.corner_radius_top_right   = 6
-	style.corner_radius_bottom_left = 6
-	style.corner_radius_bottom_right = 6
-	outer.add_theme_stylebox_override("panel", style)
-	_hud.add_child(outer)
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", int(vp.y * 0.006))
-	outer.add_child(vbox)
-	_tournament_panel_outer = outer
-	_tournament_panel = vbox
-	_refresh_tournament_panel()
-
-
-func _refresh_tournament_panel() -> void:
-	if _tournament_panel == null or not is_instance_valid(_tournament_panel):
-		return
-	if (_tournament_bracket.get("players", []) as Array).is_empty():
-		if _tournament_panel_outer != null and is_instance_valid(_tournament_panel_outer):
-			_tournament_panel_outer.hide()
-		return
-	if _tournament_panel_outer != null and is_instance_valid(_tournament_panel_outer):
-		_tournament_panel_outer.show()
-	for c in _tournament_panel.get_children():
-		c.queue_free()
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var title := Label.new()
-	title.text = "Tournament — Pot: %d" % int(_tournament_bracket.get("pot", 0))
-	title.add_theme_font_size_override("font_size", int(vh * 0.020))
-	title.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
-	_tournament_panel.add_child(title)
-	var names: Array = _tournament_bracket.get("names", [])
-	var matches: Array = _tournament_bracket.get("matches", [])
-	var cur: int = int(_tournament_bracket.get("current_match", 0))
-	var finished: bool = bool(_tournament_bracket.get("finished", false))
-	for i in range(matches.size()):
-		var mv: Variant = matches[i]
-		if not (mv is Dictionary):
-			continue
-		var md: Dictionary = mv
-		var a: int = int(md.get("a", -1))
-		var b: int = int(md.get("b", -1))
-		var name_a: String = str(names[a]) if a >= 0 and a < names.size() else "?"
-		var name_b: String = str(names[b]) if b >= 0 and b < names.size() else "?"
-		var lbl := Label.new()
-		if bool(md.get("done", false)):
-			var w: int = int(md.get("winner", -1))
-			var wname: String = str(names[w]) if w >= 0 and w < names.size() else "?"
-			lbl.text = "%s def. %s" % [wname, name_b if w == a else name_a]
-			lbl.add_theme_color_override("font_color", Color(0.5, 1.0, 0.5))
-		else:
-			lbl.text = "%s vs %s" % [name_a, name_b]
-			if i == cur and not finished:
-				lbl.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
-		lbl.add_theme_font_size_override("font_size", int(vh * 0.016))
-		_tournament_panel.add_child(lbl)
-	if finished:
-		var wi: int = int(_tournament_bracket.get("winner_idx", -1))
-		if wi >= 0 and wi < names.size():
-			var win_lbl := Label.new()
-			win_lbl.text = "Winner: %s" % str(names[wi])
-			win_lbl.add_theme_font_size_override("font_size", int(vh * 0.018))
-			win_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
-			_tournament_panel.add_child(win_lbl)

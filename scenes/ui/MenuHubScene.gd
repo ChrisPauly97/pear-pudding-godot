@@ -1,6 +1,5 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _InventoryScenePacked  := preload("res://scenes/ui/InventoryScene.tscn")
 const _CharacterScenePacked  := preload("res://scenes/ui/CharacterScene.tscn")
 const _SkillTreeScenePacked  := preload("res://scenes/ui/SkillTreeScene.tscn")
@@ -39,26 +38,14 @@ func _build_ui() -> void:
 	panel.add_child(outer_vbox)
 
 	# ---- Tab bar ----
-	var tab_row := HBoxContainer.new()
+	var tab_row := _UiUtil.make_hbox(int(_ref * 0.004), outer_vbox)
 	tab_row.custom_minimum_size = Vector2(0.0, _ref * 0.072)
-	tab_row.add_theme_constant_override("separation", int(_ref * 0.004))
-	outer_vbox.add_child(tab_row)
 
 	# Close button on the LEFT so it never collides with the minimap (top-right).
-	var close_btn := Button.new()
-	close_btn.text = "Close"
-	close_btn.custom_minimum_size = Vector2(_ref * 0.15, _ref * 0.065)
-	close_btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-	close_btn.pressed.connect(_close)
-	tab_row.add_child(close_btn)
+	var close_btn := _UiUtil.make_button("Close", Vector2(_ref * 0.15, _ref * 0.065), int(_ref * 0.022), _close, tab_row)
 
 	for tab_id: String in _TABS:
-		var btn := Button.new()
-		btn.text = _TAB_LABELS[tab_id]
-		btn.custom_minimum_size = Vector2(_ref * 0.20, _ref * 0.065)
-		btn.add_theme_font_size_override("font_size", int(_ref * 0.022))
-		btn.pressed.connect(show_tab.bind(tab_id))
-		tab_row.add_child(btn)
+		var btn := _UiUtil.make_button(_TAB_LABELS[tab_id], Vector2(_ref * 0.20, _ref * 0.065), int(_ref * 0.022), show_tab.bind(tab_id), tab_row)
 		_tab_buttons[tab_id] = btn
 
 	# ---- Content area ----
