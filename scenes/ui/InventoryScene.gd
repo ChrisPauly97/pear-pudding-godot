@@ -435,22 +435,7 @@ func _on_auto_fill() -> void:
 # Row helpers
 # -------------------------------------------------------------------------
 
-func _stat_range_text(rolled: int, base: int, rarity: String) -> String:
-	var disp: int = rolled if rolled >= 0 else base
-	if base <= 0:
-		return str(max(disp, 0))
-	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
-	var mult: float = float(cfg.get("multiplier", 1.0))
-	var var_: float = float(cfg.get("variance", 0.0))
-	var min_val: int = roundi(float(base) * mult * (1.0 - var_))
-	var max_val: int = roundi(float(base) * mult * (1.0 + var_))
-	if min_val == max_val:
-		return str(disp)
-	return "%d (%d–%d)" % [disp, min_val, max_val]
 
-func _make_section_label(text: String) -> Label:
-	var lbl := _UiUtil.make_label("— %s —" % text, int(_ref * 0.019), Color(0.60, 0.72, 0.92), HORIZONTAL_ALIGNMENT_CENTER)
-	return lbl
 
 # Diablo-3-style cube: one tile per owned instance. Hover (desktop) or
 # tap-and-hold (mobile) opens the detail popup with rolled stats + actions.
@@ -771,21 +756,6 @@ func _do_craft_potion(potion_id: String, essence_cost: int, ingredients: Diction
 	GameBus.potion_crafted.emit(potion_id)
 	_refresh_craft()
 
-func _show_confirm(action_row: HBoxContainer, confirm_row: HBoxContainer, label: String, on_confirm: Callable) -> void:
-	action_row.visible = false
-	for child in confirm_row.get_children():
-		child.queue_free()
-	confirm_row.visible = true
-
-	var lbl := _UiUtil.make_label("%s?" % label, int(_ref * 0.022), Color(1.0, 0.6, 0.3), HORIZONTAL_ALIGNMENT_LEFT, confirm_row)
-
-	var yes_btn := _UiUtil.make_button("Yes", Vector2(_ref * 0.10, _ref * 0.065), int(_ref * 0.022), on_confirm, confirm_row)
-
-	var no_btn := _UiUtil.make_button("No", Vector2(_ref * 0.10, _ref * 0.065), int(_ref * 0.022))
-	no_btn.pressed.connect(func() -> void:
-		confirm_row.visible = false
-		action_row.visible = true)
-	confirm_row.add_child(no_btn)
 
 # -------------------------------------------------------------------------
 # Deck mutation actions

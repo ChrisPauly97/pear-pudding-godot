@@ -24,7 +24,6 @@ const _BOSS_MAX_INTERVAL: float = 1500.0   # 25 min
 const _MERCHANT_ID: String = "traveling_merchant"
 const _MERCHANT_MIN_INTERVAL: float = 600.0   # 10 min
 const _MERCHANT_MAX_INTERVAL: float = 1200.0  # 20 min
-const _MERCHANT_PRICE: int = 30               # premium above town shop (15)
 
 # ── Card shower ───────────────────────────────────────────────────────────────
 const _SHOWER_ID: String = "card_shower"

@@ -119,15 +119,6 @@ static func _sine_sweep(freq_a: float, freq_b: float, dur: float, amp: float = 0
 		out[i] = sin(phase) * amp
 	return out
 
-static func _saw(freq: float, dur: float, amp: float = 0.3) -> PackedFloat32Array:
-	var n: int = int(dur * MIX_RATE)
-	var out := PackedFloat32Array()
-	out.resize(n)
-	for i in n:
-		var t: float = float(i) / float(MIX_RATE)
-		var phase: float = fmod(t * freq, 1.0)
-		out[i] = (phase * 2.0 - 1.0) * amp
-	return out
 
 static func _saw_sweep(freq_a: float, freq_b: float, dur: float, amp: float = 0.3) -> PackedFloat32Array:
 	var n: int = int(dur * MIX_RATE)
@@ -160,12 +151,6 @@ static func _noise(dur: float, amp: float, seed_val: int) -> PackedFloat32Array:
 		out[i] = r.randf_range(-amp, amp)
 	return out
 
-static func _silence(dur: float) -> PackedFloat32Array:
-	var n: int = int(dur * MIX_RATE)
-	var out := PackedFloat32Array()
-	out.resize(n)
-	out.fill(0.0)
-	return out
 
 ## One-pole low-pass — softens noise into a dull rumble/breeze.
 static func _lowpass(samples: PackedFloat32Array, alpha: float) -> PackedFloat32Array:

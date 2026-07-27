@@ -2373,10 +2373,6 @@ func _is_pvp_client() -> bool:
 	return (_pvp or _coop_pve or _team_pvp) and not multiplayer.is_server()
 
 
-## True when this peer is a read-only spectator (TID-367). Spectators mirror
-## the state but never send intents; all input gates check this.
-func _is_spectator() -> bool:
-	return _pvp_spectating
 
 ## True when local input is allowed: it's our turn, AI/round-trip not pending,
 ## and we have a local player (not the headless referee, _local_player_idx = -1).

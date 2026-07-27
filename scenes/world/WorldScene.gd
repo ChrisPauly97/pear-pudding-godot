@@ -239,7 +239,6 @@ var _emote_timer_self: float = 0.0      # local avatar emote bubble countdown
 var _emote_label_self: Label3D = null   # local avatar emote bubble
 # TID-366: Card trading
 const _TradeSync = preload("res://game_logic/net/TradeSync.gd")
-var _trade_window: Node = null           # the two-sided trade UI, nil when closed
 var _pending_trade: Dictionary = {}      # active trade offer held by authority
 var _trade_window_mine: Button = null    # "Trade" HUD button (proximity-gated)
 var _trade_target_peer: int = -1         # peer we'd trade with (nearest in range)
@@ -387,7 +386,6 @@ var _card_shower_items: Array[Node3D] = []
 # Nocturnal spawn system (GID-055 Night Hunts)
 var _nocturnal_enemies: Dictionary = {}        # spawn_id -> {"node": Node3D, "chunk": Vector2i}
 var _nocturnal_spawn_timer: float = 0.0
-var _nocturnal_spawn_interval: float = 45.0   # randomised each spawn
 var _night_cue_played: bool = false
 var _night_hunt_tutorial_shown_session: bool = false
 var _nocturnal_id_counter: int = 0
@@ -3389,8 +3387,6 @@ func _update_hud() -> void:
 	_world_hud.refresh_xp_bar()
 	_world_hud.update_xp_label()
 
-func _refresh_xp_bar() -> void:
-	_world_hud.refresh_xp_bar()
 
 # ── Infinite world: chunk streaming ────────────────────────────────────────
 
@@ -7512,18 +7508,6 @@ func _on_spectate_approved() -> void:
 
 # ── TID-368: Wagered duels & champion record ──────────────────────────────────
 
-func _request_wager_challenge(ante_coins: int) -> void:
-	if _challenge_target_peer == -1 or _net_sync == null:
-		return
-	if SceneManager.save_manager.coins < ante_coins:
-		_show_tip("Not enough coins to wager (need %d)." % ante_coins)
-		return
-	var my_deck: Array = _local_deck_for_net()
-	if my_deck.size() < IsoConst.DECK_MIN:
-		_show_tip("Your deck is too small to duel.")
-		return
-	_net_sync.rpc_id(_challenge_target_peer, "request_battle_wager", my_deck, ante_coins)
-	_show_tip("Wagered challenge sent…")
 
 
 func _on_battle_wager_requested(sender: int, challenger_deck: Array, ante_coins: int) -> void:

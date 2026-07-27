@@ -2,23 +2,6 @@ extends Node
 
 const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
 
-# Keep preloads so the export scanner packages these .tres files in the APK.
-const _E_DUELIST_ADEPT        := preload("res://data/enemies/duelist_adept.tres")
-const _E_DUELIST_CHAMPION     := preload("res://data/enemies/duelist_champion.tres")
-const _E_DUELIST_NOVICE       := preload("res://data/enemies/duelist_novice.tres")
-const _E_GHOUL_PACK           := preload("res://data/enemies/ghoul_pack.tres")
-const _E_ROAMING_TERROR       := preload("res://data/enemies/roaming_terror.tres")
-const _E_UNDEAD_BASIC         := preload("res://data/enemies/undead_basic.tres")
-const _E_UNDEAD_ELITE         := preload("res://data/enemies/undead_elite.tres")
-const _E_UNDEAD_HORDE         := preload("res://data/enemies/undead_horde.tres")
-const _E_MARTARQUAS_RAIDER_1  := preload("res://data/enemies/martarquas_raider_1.tres")
-const _E_MARTARQUAS_RAIDER_2  := preload("res://data/enemies/martarquas_raider_2.tres")
-const _E_MARTARQUAS_RAIDER_3  := preload("res://data/enemies/martarquas_raider_3.tres")
-const _E_MARTARQUAS_WARLEADER := preload("res://data/enemies/martarquas_warleader.tres")
-const _E_RIVAL_ISFIG_1        := preload("res://data/enemies/rival_isfig_1.tres")
-const _E_RIVAL_ISFIG_2        := preload("res://data/enemies/rival_isfig_2.tres")
-const _E_RIVAL_ISFIG_3        := preload("res://data/enemies/rival_isfig_3.tres")
-const _E_MIMIC                := preload("res://data/enemies/mimic.tres")
 
 static var _enemies: Dictionary = {}
 static var _loaded: bool = false

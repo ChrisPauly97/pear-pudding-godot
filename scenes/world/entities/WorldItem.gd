@@ -10,7 +10,6 @@ var _rolled_cost: int = -1
 var _collected: bool = false
 var _landed: bool = false
 var _player_nearby: bool = false
-var _bob_time: float = 0.0
 var _prompt_label: Label3D = null
 
 # Coin mode

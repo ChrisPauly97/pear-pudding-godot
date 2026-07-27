@@ -20,7 +20,6 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 var _vh: float = 0.0
 var _vw: float = 0.0
 var _ref: float = 0.0
-var _card_panels: HBoxContainer = null
 var _floor_number: int = 1
 var _draft_logic: RefCounted = null
 
