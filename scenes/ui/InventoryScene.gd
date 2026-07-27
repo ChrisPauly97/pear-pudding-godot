@@ -130,6 +130,7 @@ func _build_ui() -> void:
 		left_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
 	left_vbox.add_child(left_scroll)
 	attach_drag_scroll(left_scroll)
+	left_scroll.set_drag_forwarding(Callable(), _can_drop_into_collection, _drop_into_collection)
 
 	_collection_list = _UiUtil.make_vbox(int(_ref * 0.008), left_scroll)
 	_collection_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -172,6 +173,7 @@ func _build_ui() -> void:
 		right_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
 	right_vbox.add_child(right_scroll)
 	attach_drag_scroll(right_scroll)
+	right_scroll.set_drag_forwarding(Callable(), _can_drop_into_deck, _drop_into_deck)
 
 	_deck_list = _UiUtil.make_vbox(int(_ref * 0.008), right_scroll)
 	_deck_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -478,6 +480,8 @@ func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 			_on_add_by_uid(uid)
 	_UiUtil.bind_scroll_safe_press(cube, on_tap, owning_scroll)
 
+	_make_card_draggable(cube, uid, in_deck, card_color)
+
 	var lpd := LongPressDetector.new()
 	cube.add_child(lpd)
 	lpd.long_pressed.connect(func() -> void: _show_instance_detail(inst, cube))
@@ -486,6 +490,71 @@ func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 	cube.mouse_exited.connect(func() -> void: _hide_instance_detail())
 
 	return cube
+
+# -------------------------------------------------------------------------
+# Drag and drop between the collection and the deck
+#
+# Tapping a card still moves it — that is the fast path and the only one that
+# works with a single touch. Dragging exists because tapping gives no sense of
+# where the card went, which reads as the card vanishing.
+#
+# Sideways drags start a card drag; up/down drags stay a list scroll. That split
+# is deliberate: the collection sits left of the deck, so "move this card over
+# there" is naturally horizontal, and TID-454 made tile-started vertical drags
+# scroll the grid on touch. Starting a card drag on any movement would take that
+# back and leave the grid un-scrollable from a tile.
+# -------------------------------------------------------------------------
+
+const _DRAG_KIND := "inv_card"
+
+## Where each in-flight press began, so _get_drag_data can tell a sideways drag
+## from a scroll. Keyed by the control being pressed.
+var _press_origin: Dictionary = {}
+
+func _make_card_draggable(ctrl: Control, uid: String, in_deck: bool, tint: Color) -> void:
+	ctrl.button_down.connect(func() -> void:
+		_press_origin[ctrl] = ctrl.get_local_mouse_position())
+	ctrl.set_drag_forwarding(
+		func(at: Vector2) -> Variant: return _drag_card(ctrl, at, uid, in_deck, tint),
+		Callable(), Callable())
+
+func _drag_card(ctrl: Control, at: Vector2, uid: String, in_deck: bool, tint: Color) -> Variant:
+	var origin: Vector2 = _press_origin.get(ctrl, at)
+	var delta: Vector2 = at - origin
+	if absf(delta.y) > absf(delta.x):
+		return null   # vertical gesture — let the ScrollContainer have it
+	_hide_instance_detail()
+	# set_drag_preview needs a live viewport; skip it out of tree so the rules
+	# above stay unit-testable without standing up the whole panel.
+	if ctrl.is_inside_tree():
+		var preview := ColorRect.new()
+		preview.color = Color(tint.r, tint.g, tint.b, 0.85)
+		preview.custom_minimum_size = Vector2(_ref * 0.08, _ref * 0.08)
+		preview.size = preview.custom_minimum_size
+		var holder := Control.new()
+		holder.add_child(preview)
+		preview.position = -preview.size * 0.5
+		ctrl.set_drag_preview(holder)
+	return {"kind": _DRAG_KIND, "uid": uid, "from_deck": in_deck}
+
+func _is_card_drag(data: Variant, from_deck: bool) -> bool:
+	return data is Dictionary \
+		and str((data as Dictionary).get("kind", "")) == _DRAG_KIND \
+		and bool((data as Dictionary).get("from_deck", false)) == from_deck
+
+## Drop onto the deck side: only accepts a card coming from the collection.
+func _can_drop_into_deck(_at: Vector2, data: Variant) -> bool:
+	return _is_card_drag(data, false)
+
+func _drop_into_deck(_at: Vector2, data: Variant) -> void:
+	_on_add_by_uid(str((data as Dictionary).get("uid", "")))
+
+## Drop onto the collection side: only accepts a card coming from the deck.
+func _can_drop_into_collection(_at: Vector2, data: Variant) -> bool:
+	return _is_card_drag(data, true)
+
+func _drop_into_collection(_at: Vector2, data: Variant) -> void:
+	_on_remove_by_uid(str((data as Dictionary).get("uid", "")))
 
 # -------------------------------------------------------------------------
 # Instance detail popup (hover / tap-and-hold)
@@ -625,10 +694,14 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 
 	var top_row := _UiUtil.make_hbox(int(_vw * 0.008), vbox)
 
-	var swatch := ColorRect.new()
-	swatch.color = card_color
-	swatch.custom_minimum_size = Vector2(_ref * 0.03, _ref * 0.03)
-	top_row.add_child(swatch)
+	var swatch_btn := Button.new()
+	swatch_btn.custom_minimum_size = Vector2(_ref * 0.03, _ref * 0.03)
+	swatch_btn.focus_mode = Control.FOCUS_NONE
+	swatch_btn.tooltip_text = "Drag sideways to remove from the deck"
+	var swatch_sb := _UiUtil.make_style(card_color, int(_ref * 0.004))
+	for st: String in ["normal", "hover", "pressed", "focus"]:
+		swatch_btn.add_theme_stylebox_override(st, swatch_sb)
+	top_row.add_child(swatch_btn)
 
 	var name_lbl := _UiUtil.make_label(disp_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, top_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -657,6 +730,11 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 	top_row.add_child(rm_btn)
 
 	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp], int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+
+	# The row is a plain VBox, not a Button, so it has no button_down to record a
+	# press origin — drag it from the swatch, which is the card's colour chip and
+	# the natural grab handle.
+	_make_card_draggable(swatch_btn, uid, true, card_color)
 
 	var lpd := LongPressDetector.new()
 	vbox.add_child(lpd)
