@@ -697,20 +697,13 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 	var captured_ranked: bool = ranked
 	var captured_local_deck: Array = local_deck_override
 	TransitionManager.transition(func() -> void:
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
-		_battle_overlay.set("_pvp", true)
-		_battle_overlay.set("_local_player_idx", captured_idx)
-		_battle_overlay.set("pvp_opponent_deck", captured_deck)
-		_battle_overlay.set("pvp_ante_coins", captured_ante)
-		_battle_overlay.set("pvp_opponent_token", captured_token)
-		_battle_overlay.set("pvp_ranked", captured_ranked)
-		_battle_overlay.set("pvp_local_deck_override", captured_local_deck)
-		_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
+		_swap_world_for_pvp_battle(func(b: Node) -> void:
+			b.set("_local_player_idx", captured_idx)
+			b.set("pvp_opponent_deck", captured_deck)
+			b.set("pvp_ante_coins", captured_ante)
+			b.set("pvp_opponent_token", captured_token)
+			b.set("pvp_ranked", captured_ranked)
+			b.set("pvp_local_deck_override", captured_local_deck)))
 	_state = State.BATTLE
 
 ## Resumes a PvP duel after a reconnect (GID-102 / TID-372). Called from
@@ -742,19 +735,12 @@ func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: 
 	if _state != State.WORLD:
 		return
 	TransitionManager.transition(func() -> void:
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
-		_battle_overlay.set("_pvp", true)
-		_battle_overlay.set("_local_player_idx", -1)       # no local player
-		_battle_overlay.set("pvp_player0_deck", deck_a)
-		_battle_overlay.set("pvp_player1_deck", deck_b)
-		_battle_overlay.set("_pvp_peer_to_idx", {peer_a_id: 0, peer_b_id: 1})
-		_battle_overlay.set("_pvp_idx_to_token", {0: token_a, 1: token_b})
-		_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
+		_swap_world_for_pvp_battle(func(b: Node) -> void:
+			b.set("_local_player_idx", -1)       # no local player
+			b.set("pvp_player0_deck", deck_a)
+			b.set("pvp_player1_deck", deck_b)
+			b.set("_pvp_peer_to_idx", {peer_a_id: 0, peer_b_id: 1})
+			b.set("_pvp_idx_to_token", {0: token_a, 1: token_b})))
 	_state = State.BATTLE
 
 ## Enters a PvP battle as a read-only spectator (GID-101 / TID-367). The spectator
@@ -764,16 +750,9 @@ func enter_pvp_spectator() -> void:
 	if _state != State.WORLD:
 		return
 	TransitionManager.transition(func() -> void:
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
-		_battle_overlay.set("_pvp", true)
-		_battle_overlay.set("_local_player_idx", 0)   # neutral — same as host perspective
-		_battle_overlay.set("_pvp_spectating", true)
-		_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
+		_swap_world_for_pvp_battle(func(b: Node) -> void:
+			b.set("_local_player_idx", 0)   # neutral — same as host perspective
+			b.set("_pvp_spectating", true)))
 	_state = State.BATTLE
 
 
@@ -931,6 +910,21 @@ func _on_duel_lost() -> void:
 	_restore_world()
 
 ## Frees the battle overlay if one is up. Every battle exit path ends here.
+## Detaches the world scene and promotes a fresh networked BattleScene, running
+## `configure` on it in between. The node name is fixed because BattleNetSync's
+## RPC path is /root/BattleScene/BattleNetSync on every peer. Callers wrap this
+## in a TransitionManager.transition and set State.BATTLE themselves.
+func _swap_world_for_pvp_battle(configure: Callable) -> void:
+	_saved_world_scene = get_tree().current_scene
+	get_tree().root.remove_child(_saved_world_scene)
+	_battle_overlay = _battle_scene_packed.instantiate()
+	_battle_overlay.name = "BattleScene"
+	_battle_overlay.set("_pvp", true)
+	configure.call(_battle_overlay)
+	_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
+	get_tree().root.add_child(_battle_overlay)
+	get_tree().current_scene = _battle_overlay
+
 func _dismiss_battle_overlay() -> void:
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()

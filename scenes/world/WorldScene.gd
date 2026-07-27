@@ -7053,15 +7053,27 @@ func _stash_token_for_peer(peer_id: int) -> String:
 		MpProfile.get_token() if peer_id == multiplayer.get_unique_id() else ""))
 
 
-func _on_stash_deposit_submitted(sender: int, payload: Dictionary) -> void:
+## Authority-side guard shared by every session-scoped RPC (party stash, auction
+## house): the receiver must be the host, the session must be open, and the
+## sender must resolve to a known member. Returns {"state", "token"}, or {} when
+## the RPC must be ignored — an unauthenticated sender is dropped silently.
+func _session_actor(sender: int) -> Dictionary:
 	if not NetworkManager.is_host():
-		return
+		return {}
 	var st = SessionStore.get_state()
 	if st == null:
-		return
+		return {}
 	var token: String = _stash_token_for_peer(sender)
 	if token == "" or not st.has_member(token):
+		return {}
+	return {"state": st, "token": token}
+
+func _on_stash_deposit_submitted(sender: int, payload: Dictionary) -> void:
+	var actor: Dictionary = _session_actor(sender)
+	if actor.is_empty():
 		return
+	var st = actor["state"]
+	var token: String = actor["token"]
 	var member_rec: Dictionary = st.get_member(token)
 	var kind: String = str(payload.get("kind", "card"))
 	var result: Dictionary
@@ -7082,14 +7094,11 @@ func _on_stash_deposit_submitted(sender: int, payload: Dictionary) -> void:
 
 
 func _on_stash_withdraw_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
+	var actor: Dictionary = _session_actor(sender)
+	if actor.is_empty():
 		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var token: String = _stash_token_for_peer(sender)
-	if token == "" or not st.has_member(token):
-		return
+	var st = actor["state"]
+	var token: String = actor["token"]
 	var member_rec: Dictionary = st.get_member(token)
 	var kind: String = str(payload.get("kind", "card"))
 	var result: Dictionary
@@ -7223,14 +7232,11 @@ func request_stash_withdraw_coins(amount: int) -> void:
 # mutates SessionState. Reuses _stash_token_for_peer for sender -> token lookup.
 
 func _on_auction_list_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
+	var actor: Dictionary = _session_actor(sender)
+	if actor.is_empty():
 		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var token: String = _stash_token_for_peer(sender)
-	if token == "" or not st.has_member(token):
-		return
+	var st = actor["state"]
+	var token: String = actor["token"]
 	var intent: Dictionary = _AuctionSync.decode_list_intent(payload)
 	var member_rec: Dictionary = st.get_member(token)
 	var expires_day: int = st.days_elapsed + _AuctionSync.LISTING_DURATION_DAYS
@@ -7250,14 +7256,11 @@ func _on_auction_list_submitted(sender: int, payload: Dictionary) -> void:
 
 
 func _on_auction_bid_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
+	var actor: Dictionary = _session_actor(sender)
+	if actor.is_empty():
 		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var token: String = _stash_token_for_peer(sender)
-	if token == "" or not st.has_member(token):
-		return
+	var st = actor["state"]
+	var token: String = actor["token"]
 	var intent: Dictionary = _AuctionSync.decode_bid_intent(payload)
 	var member_rec: Dictionary = st.get_member(token)
 	var bid_auction_id: String = str(intent.get("auction_id", ""))
@@ -7273,14 +7276,11 @@ func _on_auction_bid_submitted(sender: int, payload: Dictionary) -> void:
 
 
 func _on_auction_buyout_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
+	var actor: Dictionary = _session_actor(sender)
+	if actor.is_empty():
 		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var buyer_token: String = _stash_token_for_peer(sender)
-	if buyer_token == "" or not st.has_member(buyer_token):
-		return
+	var st = actor["state"]
+	var buyer_token: String = actor["token"]
 	var intent: Dictionary = _AuctionSync.decode_id_intent(payload)
 	var buyout_auction_id: String = str(intent.get("auction_id", ""))
 	var listing: Dictionary = _find_auction(st.auctions, buyout_auction_id)
@@ -7307,14 +7307,11 @@ func _on_auction_buyout_submitted(sender: int, payload: Dictionary) -> void:
 
 
 func _on_auction_cancel_submitted(sender: int, payload: Dictionary) -> void:
-	if not NetworkManager.is_host():
+	var actor: Dictionary = _session_actor(sender)
+	if actor.is_empty():
 		return
-	var st = SessionStore.get_state()
-	if st == null:
-		return
-	var token: String = _stash_token_for_peer(sender)
-	if token == "" or not st.has_member(token):
-		return
+	var st = actor["state"]
+	var token: String = actor["token"]
 	var intent: Dictionary = _AuctionSync.decode_id_intent(payload)
 	var member_rec: Dictionary = st.get_member(token)
 	var cancel_auction_id: String = str(intent.get("auction_id", ""))
