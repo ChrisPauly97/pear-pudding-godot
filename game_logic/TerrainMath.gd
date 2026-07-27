@@ -128,15 +128,17 @@ static func get_height_at_grid(wx: float, wz: float,
 	var nearest_wall_sq: float = INF   # unbounded — for hill-suppression check
 	var nearest_hill_peak: float = peak_h
 	for dtz in range(-tile_check, tile_check + 1):
+		# Row bounds and offset are constant across the inner loop — this is the
+		# innermost loop of chunk prep, so they are hoisted out of it.
+		var ttz: int = vtz + dtz
+		var lgz: int = ttz - grid_min_z
+		var row_in: bool = lgz >= 0 and lgz < grid_w
+		var row_off: int = lgz * grid_w
 		for dtx in range(-tile_check, tile_check + 1):
 			var ttx: int = vtx + dtx
-			var ttz: int = vtz + dtz
-			var gx: int = ttx - grid_min_x
-			var gz: int = ttz - grid_min_z
-			var tile_type: int = IsoConst.TILE_WALL
-			var in_grid: bool = gx >= 0 and gx < grid_w and gz >= 0 and gz < grid_w
-			if in_grid:
-				tile_type = tile_grid[gz * grid_w + gx]
+			var lgx: int = ttx - grid_min_x
+			var in_grid: bool = row_in and lgx >= 0 and lgx < grid_w
+			var tile_type: int = tile_grid[row_off + lgx] if in_grid else IsoConst.TILE_WALL
 			var is_wall_type: bool = tile_type == IsoConst.TILE_WALL or tile_type == IsoConst.TILE_CRACKED
 			if tile_type != IsoConst.TILE_HILL and not is_wall_type:
 				continue
@@ -148,7 +150,7 @@ static func get_height_at_grid(wx: float, wz: float,
 			if tile_type == IsoConst.TILE_HILL:
 				if dist_sq < min_dist_sq_hill:
 					min_dist_sq_hill = dist_sq
-					var hh: int = height_grid[gz * grid_w + gx] if in_grid else 1
+					var hh: int = height_grid[row_off + lgx] if in_grid else 1
 					nearest_hill_peak = float(hh) * IsoConst.HILL_FACE_H if hh > 0 else peak_h
 			else:  # TILE_WALL or TILE_CRACKED
 				if dist_sq < nearest_wall_sq:
@@ -162,7 +164,8 @@ static func get_height_at_grid(wx: float, wz: float,
 		h = nearest_hill_peak * t
 	return h
 
-## Compute a packed height field for a grid of vertices.
+## Compute a packed height field for a grid of vertices — get_height_at sampled
+## once per vertex, so the smoothstep algorithm lives in exactly one place.
 ## tile_lookup: Callable(ttx: int, ttz: int) -> int — returns tile type
 ## height_lookup: Callable(ttx: int, ttz: int) -> int — returns tile height level
 ## origin_x, origin_z: world-space origin of the grid
@@ -175,117 +178,36 @@ static func compute_height_field(
 		origin_x: float, origin_z: float,
 		nvx: int, nvz: int, step: float,
 		curve_r: float, peak_h: float) -> PackedFloat32Array:
-	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
-	var hill_r_sq: float = curve_r * curve_r
-	var inv_hill_r: float = 1.0 / curve_r
-
 	var hfield := PackedFloat32Array()
 	hfield.resize(nvx * nvz)
 	for iz in range(nvz):
 		for ix in range(nvx):
-			var gx: float = origin_x + ix * step
-			var gz: float = origin_z + iz * step
-			var vtx: int = floori(gx / IsoConst.TILE_SIZE)
-			var vtz: int = floori(gz / IsoConst.TILE_SIZE)
-			var min_dist_sq_hill: float = hill_r_sq
-			var nearest_wall_sq: float = INF   # unbounded — for hill-suppression check
-			var nearest_hill_peak: float = peak_h
-			for dtz in range(-tile_check, tile_check + 1):
-				for dtx in range(-tile_check, tile_check + 1):
-					var ttx: int = vtx + dtx
-					var ttz: int = vtz + dtz
-					var tile_type: int = tile_lookup.call(ttx, ttz)
-					var is_wall_type2: bool = tile_type == IsoConst.TILE_WALL or tile_type == IsoConst.TILE_CRACKED
-					if tile_type != IsoConst.TILE_HILL and not is_wall_type2:
-						continue
-					var near_x: float = clamp(gx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
-					var near_z: float = clamp(gz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
-					var ddx: float = gx - near_x
-					var ddz: float = gz - near_z
-					var dist_sq: float = ddx * ddx + ddz * ddz
-					if tile_type == IsoConst.TILE_HILL:
-						if dist_sq < min_dist_sq_hill:
-							min_dist_sq_hill = dist_sq
-							var hh: int = height_lookup.call(ttx, ttz)
-							nearest_hill_peak = float(hh) * IsoConst.HILL_FACE_H if hh > 0 else peak_h
-					else:  # TILE_WALL or TILE_CRACKED
-						if dist_sq < nearest_wall_sq:
-							nearest_wall_sq = dist_sq
-
-			var h: float = 0.0
-			# Suppress hill smoothing within one tile of any wall so walls always
-			# sit on flat ground and the wall face quads are fully visible.
-			var wall_tile_sq: float = IsoConst.TILE_SIZE * IsoConst.TILE_SIZE
-			if min_dist_sq_hill < hill_r_sq and nearest_wall_sq >= wall_tile_sq:
-				var t: float = 1.0 - sqrt(min_dist_sq_hill) * inv_hill_r
-				t = t * t * (3.0 - 2.0 * t)
-				h = nearest_hill_peak * t
-			hfield[iz * nvx + ix] = h
+			hfield[iz * nvx + ix] = get_height_at(
+				origin_x + ix * step, origin_z + iz * step,
+				tile_lookup, height_lookup, curve_r, peak_h)
 	return hfield
 
-## Packed-grid fast path of compute_height_field: identical output, but reads the
-## tile/height data via direct PackedInt32Array indexing instead of one Callable
-## per scanned tile (~53k dynamic calls per chunk otherwise — the dominant cost of
-## chunk prep, see GID-121). Out-of-range grid reads fall back to TILE_WALL / 1,
-## matching the snapshot lambdas this replaces; with the snapshot margin
-## (TILE_CHECK) the scan never actually leaves the grid.
+## Packed-grid fast path of compute_height_field: identical output, but samples
+## get_height_at_grid, which reads the tile/height data via direct
+## PackedInt32Array indexing instead of one Callable per scanned tile (~53k
+## dynamic calls per chunk otherwise — the dominant cost of chunk prep, see
+## GID-121). Out-of-range grid reads fall back to TILE_WALL / 1, matching the
+## snapshot lambdas this replaces; with the snapshot margin (TILE_CHECK) the scan
+## never actually leaves the grid.
 static func compute_height_field_grid(
 		tile_grid: PackedInt32Array, height_grid: PackedInt32Array,
 		grid_min_x: int, grid_min_z: int, grid_w: int,
 		origin_x: float, origin_z: float,
 		nvx: int, nvz: int, step: float,
 		curve_r: float, peak_h: float) -> PackedFloat32Array:
-	var tile_check: int = int(ceil(curve_r / IsoConst.TILE_SIZE)) + 1
-	var hill_r_sq: float = curve_r * curve_r
-	var inv_hill_r: float = 1.0 / curve_r
-	var wall_tile_sq: float = IsoConst.TILE_SIZE * IsoConst.TILE_SIZE
-
 	var hfield := PackedFloat32Array()
 	hfield.resize(nvx * nvz)
 	for iz in range(nvz):
 		for ix in range(nvx):
-			var gx: float = origin_x + ix * step
-			var gz: float = origin_z + iz * step
-			var vtx: int = floori(gx / IsoConst.TILE_SIZE)
-			var vtz: int = floori(gz / IsoConst.TILE_SIZE)
-			var min_dist_sq_hill: float = hill_r_sq
-			var nearest_wall_sq: float = INF   # unbounded — for hill-suppression check
-			var nearest_hill_peak: float = peak_h
-			for dtz in range(-tile_check, tile_check + 1):
-				var ttz: int = vtz + dtz
-				var lgz: int = ttz - grid_min_z
-				var row_in: bool = lgz >= 0 and lgz < grid_w
-				var row_off: int = lgz * grid_w
-				for dtx in range(-tile_check, tile_check + 1):
-					var ttx: int = vtx + dtx
-					var lgx: int = ttx - grid_min_x
-					var in_grid: bool = row_in and lgx >= 0 and lgx < grid_w
-					var tile_type: int = tile_grid[row_off + lgx] if in_grid else IsoConst.TILE_WALL
-					var is_wall_type: bool = tile_type == IsoConst.TILE_WALL or tile_type == IsoConst.TILE_CRACKED
-					if tile_type != IsoConst.TILE_HILL and not is_wall_type:
-						continue
-					var near_x: float = clamp(gx, float(ttx) * IsoConst.TILE_SIZE, float(ttx + 1) * IsoConst.TILE_SIZE)
-					var near_z: float = clamp(gz, float(ttz) * IsoConst.TILE_SIZE, float(ttz + 1) * IsoConst.TILE_SIZE)
-					var ddx: float = gx - near_x
-					var ddz: float = gz - near_z
-					var dist_sq: float = ddx * ddx + ddz * ddz
-					if tile_type == IsoConst.TILE_HILL:
-						if dist_sq < min_dist_sq_hill:
-							min_dist_sq_hill = dist_sq
-							var hh: int = height_grid[row_off + lgx] if in_grid else 1
-							nearest_hill_peak = float(hh) * IsoConst.HILL_FACE_H if hh > 0 else peak_h
-					else:  # TILE_WALL or TILE_CRACKED
-						if dist_sq < nearest_wall_sq:
-							nearest_wall_sq = dist_sq
-
-			var h: float = 0.0
-			# Suppress hill smoothing within one tile of any wall so walls always
-			# sit on flat ground and the wall face quads are fully visible.
-			if min_dist_sq_hill < hill_r_sq and nearest_wall_sq >= wall_tile_sq:
-				var t: float = 1.0 - sqrt(min_dist_sq_hill) * inv_hill_r
-				t = t * t * (3.0 - 2.0 * t)
-				h = nearest_hill_peak * t
-			hfield[iz * nvx + ix] = h
+			hfield[iz * nvx + ix] = get_height_at_grid(
+				origin_x + ix * step, origin_z + iz * step,
+				tile_grid, height_grid, grid_min_x, grid_min_z, grid_w,
+				curve_r, peak_h)
 	return hfield
 
 # ── Terrain mesh building ─────────────────────────────────────────────────

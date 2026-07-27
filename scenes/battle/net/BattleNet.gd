@@ -57,9 +57,15 @@ var _wager_side_b_btn: Button = null
 var _wager_status_label: Label = null
 var _wagers_settled: bool = false     # authority: one-shot settlement guard
 
-func _setup_pvp_battle() -> void:
+## The opening every networked battle mode shares: a fresh canonical GameState
+## bound to the resolver, and the BattleNetSync relay node.
+##
+## The relay is parented to the battle scene, never to this module — its node
+## path is the RPC address both peers resolve, so reparenting it would silently
+## break every call. SpellEffectResolver.setup() only stores the state reference,
+## so callers are free to configure the state after this returns.
+func _build_net_state() -> void:
 	_battle._state = GameState.new()
-	_battle._state.ranked = _battle.pvp_ranked
 	_battle._resolver.setup(_battle._state)
 	_battle._wire_gamebus_emitter()
 	_battle._net = _BattleNetSyncScript.new()
@@ -67,6 +73,10 @@ func _setup_pvp_battle() -> void:
 	_battle.add_child(_battle._net)
 	_battle._net.battle_scene = _battle
 	_battle._net.call("register_handler", self)
+
+func _setup_pvp_battle() -> void:
+	_build_net_state()
+	_battle._state.ranked = _battle.pvp_ranked
 	if _battle._pvp_spectating:
 		# Spectator: send request_spectate so the host registers us and sends the state.
 		_connect_pvp_net_signals()
@@ -978,14 +988,7 @@ func _update_wager_panel() -> void:
 ## the scaled boss; each client waits for the first sync_coop_state mirror.
 
 func _setup_coop_pve_battle() -> void:
-	_battle._state = GameState.new()
-	_battle._resolver.setup(_battle._state)
-	_battle._wire_gamebus_emitter()
-	_battle._net = _BattleNetSyncScript.new()
-	_battle._net.name = "BattleNetSync"
-	_battle.add_child(_battle._net)
-	_battle._net.battle_scene = _battle
-	_battle._net.call("register_handler", self)
+	_build_net_state()
 	_connect_pvp_net_signals()  # reuse PvP disconnect handlers
 	if _battle._is_pvp_host():
 		_build_coop_pve_state()
@@ -1208,14 +1211,7 @@ func _process_coop_sync(delta: float) -> void:
 ## decks and starts turn 1; clients wait for the first sync_team_state mirror.
 
 func _setup_team_battle() -> void:
-	_battle._state = GameState.new()
-	_battle._resolver.setup(_battle._state)
-	_battle._wire_gamebus_emitter()
-	_battle._net = _BattleNetSyncScript.new()
-	_battle._net.name = "BattleNetSync"
-	_battle.add_child(_battle._net)
-	_battle._net.battle_scene = _battle
-	_battle._net.call("register_handler", self)
+	_build_net_state()
 	_connect_pvp_net_signals()  # reuse PvP disconnect handlers
 	if _battle._is_pvp_host():
 		_build_team_battle_state()
