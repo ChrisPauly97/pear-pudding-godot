@@ -2072,6 +2072,11 @@ func _check_boss_phase2() -> void:
 	_refresh_all()
 	_result_ui.show_phase2_banner()
 
+## The sound + haptic every battle outcome plays, win or lose.
+func _play_outcome_feedback(did_win: bool) -> void:
+	AudioManager.play_sfx("battle_win" if did_win else "battle_lose")
+	_fx.haptic(120 if did_win else 80)
+
 func _check_game_over() -> void:
 	if _pvp:
 		battle_net._pvp_check_game_over()
@@ -2090,110 +2095,101 @@ func _check_game_over() -> void:
 		var w := _state.winner()
 		if _state.puzzle_mode:
 			if w == 0:
-				AudioManager.play_sfx("battle_win")
-				_fx.haptic(120)
+				_play_outcome_feedback(true)
 				_show_puzzle_victory()
 			return
 		if _state.scripted_battle:
 			var scripted_id: String = _state.scripted_battle_id
-			if w == 0:
-				AudioManager.play_sfx("battle_win")
-				_fx.haptic(120)
-			else:
-				AudioManager.play_sfx("battle_lose")
-				_fx.haptic(80)
+			_play_outcome_feedback(w == 0)
 			_result_ui.show_scripted_result(w == 0, scripted_id)
 			return
 		GameBus.battle_ended.emit(w)
 		if _ghost_duel:
-			if w == 0:
-				AudioManager.play_sfx("battle_win")
-				_fx.haptic(120)
-			else:
-				AudioManager.play_sfx("battle_lose")
-				_fx.haptic(80)
+			_play_outcome_feedback(w == 0)
 			_result_ui.show_ghost_duel_result(w == 0, _ghost_duel_reward)
 			return
 		if _state.friendly_duel:
 			if w == 0:
-				AudioManager.play_sfx("battle_win")
-				_fx.haptic(120)
+				_play_outcome_feedback(true)
 				_result_ui.show_duel_victory(_state.wager_coins)
 			else:
-				AudioManager.play_sfx("battle_lose")
-				_fx.haptic(80)
+				_play_outcome_feedback(false)
 				_result_ui.show_duel_loss(_state.wager_coins)
 			return
 		if w == 0:
-			AudioManager.play_sfx("battle_win")
-			_fx.haptic(120)
-			var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
-			var is_boss_win: bool = bool(enemy_data.get("is_boss", false))
-			var gambit_id_win: String = str(enemy_data.get("gambit_id", ""))
-			var pool: Array[String] = EnemyRegistry.get_drop_pool(enemy_type)
-			# Compute drop tier here so the overlay can display the rolled rarity.
-			var drop_tier_win: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
-			if is_boss_win:
-				drop_tier_win = 4
-			elif EnemyRegistry.get_night_drop_boost(enemy_type):
-				drop_tier_win = mini(drop_tier_win + 1, 4)
-			drop_tier_win = mini(drop_tier_win + Gambits.get_rarity_tier_bonus(gambit_id_win), 4)
-			var coins_win: int = EnemyRegistry.get_coin_reward(enemy_type) if enemy_type != "" else 0
-			var xp_win: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss_win)
-			var hero_hp_win: int = _state.players[0].hero.health
-			var dawn_win: int = _state.players[0].dawn_cards_played
-			var dusk_win: int = _state.players[0].dusk_cards_played
-			if is_boss_win:
-				var weapon_pool: Array[String] = []
-				for pid in pool:
-					if WeaponRegistry.has_weapon(pid):
-						weapon_pool.append(pid)
-				if weapon_pool.is_empty():
-					var all_ids: Array[String] = WeaponRegistry.get_all_ids()
-					var owned_w: Array[String] = SceneManager.save_manager.get_owned_by_slot("weapon")
-					for wid in all_ids:
-						if not owned_w.has(wid):
-							weapon_pool.append(wid)
-				var weapon_reward_id: String = ""
-				if not weapon_pool.is_empty():
-					weapon_reward_id = weapon_pool[randi() % weapon_pool.size()]
-				# Pre-roll rarities for all boss reward cards.
-				var boss_rarities: Array[String] = []
-				var boss_stats_list: Array[Dictionary] = []
-				for cid: String in pool:
-					var br: String = CardDropUtil.effective_rarity(cid, CardDropUtil.roll_rarity(drop_tier_win))
-					boss_rarities.append(br)
-					boss_stats_list.append(CardDropUtil.roll_stats(cid, br))
-				_result_ui.show_victory_boss(pool, weapon_reward_id, boss_rarities, boss_stats_list, coins_win, xp_win, hero_hp_win, dawn_win, dusk_win)
-			else:
-				var reward_card_id: String = ""
-				if pool.size() > 0:
-					reward_card_id = pool[randi() % pool.size()]
-				# Pre-roll rarity for the card reward.
-				var rolled_rarity: String = ""
-				var rolled_stats: Dictionary = {}
-				if reward_card_id != "":
-					rolled_rarity = CardDropUtil.effective_rarity(reward_card_id, CardDropUtil.roll_rarity(drop_tier_win))
-					rolled_stats = CardDropUtil.roll_stats(reward_card_id, rolled_rarity)
-				# Check soulbind capture condition.
-				var _ct_sig: String = EnemyRegistry.get_signature_card(enemy_type)
-				var _ct_captured: bool = SceneManager.save_manager.is_signature_captured(_ct_sig)
-				var _ct_met: bool = _capture_tracker != null and not _ct_sig.is_empty() and _capture_tracker.is_satisfied(_state)
-				if not _ct_sig.is_empty() and not _ct_captured and _ct_met:
-					_result_ui.show_soulbind(reward_card_id, _ct_sig, _capture_tracker.condition_text(), hero_hp_win, dawn_win, dusk_win, rolled_rarity, rolled_stats)
-				elif not _ct_sig.is_empty() and not _ct_captured:
-					var _ct_text: String = _capture_tracker.condition_text() if _capture_tracker != null else ""
-					_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win, dawn_win, dusk_win)
-				else:
-					_result_ui.show_victory(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win, dawn_win, dusk_win)
-				# First-session soulbinding teaser (GID-117): explain the hunt line the
-				# first time an uncaptured signature surfaces on a victory screen.
-				if not _ct_sig.is_empty() and not _ct_captured:
-					GameBus.tutorial_popup_requested.emit("soulbinding")
+			_play_outcome_feedback(true)
+			_show_standard_victory()
 		else:
-			AudioManager.play_sfx("battle_lose")
-			_fx.haptic(80)
+			_play_outcome_feedback(false)
 			GameBus.battle_lost.emit()
+
+## Rolls and presents the reward screen for an ordinary (non-puzzle, non-scripted,
+## non-ghost, non-friendly) win. Boss fights drop the whole pool plus a weapon;
+## everything else drops one card, with the soulbind capture check on top.
+func _show_standard_victory() -> void:
+	var enemy_type: String = str(enemy_data.get("enemy_type", "undead_basic"))
+	var is_boss_win: bool = bool(enemy_data.get("is_boss", false))
+	var gambit_id_win: String = str(enemy_data.get("gambit_id", ""))
+	var pool: Array[String] = EnemyRegistry.get_drop_pool(enemy_type)
+	# Compute drop tier here so the overlay can display the rolled rarity.
+	var drop_tier_win: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
+	if is_boss_win:
+		drop_tier_win = 4
+	elif EnemyRegistry.get_night_drop_boost(enemy_type):
+		drop_tier_win = mini(drop_tier_win + 1, 4)
+	drop_tier_win = mini(drop_tier_win + Gambits.get_rarity_tier_bonus(gambit_id_win), 4)
+	var coins_win: int = EnemyRegistry.get_coin_reward(enemy_type) if enemy_type != "" else 0
+	var xp_win: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss_win)
+	var hero_hp_win: int = _state.players[0].hero.health
+	var dawn_win: int = _state.players[0].dawn_cards_played
+	var dusk_win: int = _state.players[0].dusk_cards_played
+	if is_boss_win:
+		var weapon_pool: Array[String] = []
+		for pid in pool:
+			if WeaponRegistry.has_weapon(pid):
+				weapon_pool.append(pid)
+		if weapon_pool.is_empty():
+			var all_ids: Array[String] = WeaponRegistry.get_all_ids()
+			var owned_w: Array[String] = SceneManager.save_manager.get_owned_by_slot("weapon")
+			for wid in all_ids:
+				if not owned_w.has(wid):
+					weapon_pool.append(wid)
+		var weapon_reward_id: String = ""
+		if not weapon_pool.is_empty():
+			weapon_reward_id = weapon_pool[randi() % weapon_pool.size()]
+		# Pre-roll rarities for all boss reward cards.
+		var boss_rarities: Array[String] = []
+		var boss_stats_list: Array[Dictionary] = []
+		for cid: String in pool:
+			var br: String = CardDropUtil.effective_rarity(cid, CardDropUtil.roll_rarity(drop_tier_win))
+			boss_rarities.append(br)
+			boss_stats_list.append(CardDropUtil.roll_stats(cid, br))
+		_result_ui.show_victory_boss(pool, weapon_reward_id, boss_rarities, boss_stats_list, coins_win, xp_win, hero_hp_win, dawn_win, dusk_win)
+	else:
+		var reward_card_id: String = ""
+		if pool.size() > 0:
+			reward_card_id = pool[randi() % pool.size()]
+		# Pre-roll rarity for the card reward.
+		var rolled_rarity: String = ""
+		var rolled_stats: Dictionary = {}
+		if reward_card_id != "":
+			rolled_rarity = CardDropUtil.effective_rarity(reward_card_id, CardDropUtil.roll_rarity(drop_tier_win))
+			rolled_stats = CardDropUtil.roll_stats(reward_card_id, rolled_rarity)
+		# Check soulbind capture condition.
+		var _ct_sig: String = EnemyRegistry.get_signature_card(enemy_type)
+		var _ct_captured: bool = SceneManager.save_manager.is_signature_captured(_ct_sig)
+		var _ct_met: bool = _capture_tracker != null and not _ct_sig.is_empty() and _capture_tracker.is_satisfied(_state)
+		if not _ct_sig.is_empty() and not _ct_captured and _ct_met:
+			_result_ui.show_soulbind(reward_card_id, _ct_sig, _capture_tracker.condition_text(), hero_hp_win, dawn_win, dusk_win, rolled_rarity, rolled_stats)
+		elif not _ct_sig.is_empty() and not _ct_captured:
+			var _ct_text: String = _capture_tracker.condition_text() if _capture_tracker != null else ""
+			_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win, dawn_win, dusk_win)
+		else:
+			_result_ui.show_victory(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win, dawn_win, dusk_win)
+		# First-session soulbinding teaser (GID-117): explain the hunt line the
+		# first time an uncaptured signature surfaces on a victory screen.
+		if not _ct_sig.is_empty() and not _ct_captured:
+			GameBus.tutorial_popup_requested.emit("soulbinding")
 
 func _collect_veterancy_data() -> Dictionary:
 	var data: Dictionary = {}
