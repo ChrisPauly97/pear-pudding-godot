@@ -9,7 +9,6 @@ var _alive: bool = true
 var _is_boss: bool = false
 var _is_roaming_boss: bool = false
 var _tracking: bool = false
-var engage_cooldown: float = 0.0
 
 func _ready() -> void:
 	var etype: String = str(enemy_data.get("enemy_type", ""))
@@ -21,10 +20,6 @@ func _ready() -> void:
 		scale = Vector3(1.3, 1.3, 1.3)
 	if _tracking:
 		_setup_proximity_area()
-
-func _process(delta: float) -> void:
-	if engage_cooldown > 0.0:
-		engage_cooldown -= delta
 
 func init_from_data(data: Dictionary) -> void:
 	enemy_data = data
@@ -95,8 +90,6 @@ func _on_body_entered(body: Node3D) -> void:
 	if not _alive or not _tracking:
 		return
 	if not body is CharacterBody3D:
-		return
-	if engage_cooldown > 0.0:
 		return
 	if not SceneManager.can_proximity_engage():
 		return

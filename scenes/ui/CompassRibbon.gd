@@ -66,6 +66,15 @@ func set_current_map(map_name: String) -> void:
 # Update & draw
 # ---------------------------------------------------------------------------
 
+## Cardinal marks drawn every frame, in atan2 radians (0 = East, +π/2 = +Z).
+## The ribbon centre is the fixed isometric NE facing, so North sits off-centre.
+const _CARDINAL_TICKS: Array = [
+	[-PI,       "W"],
+	[-PI * 0.5, "S"],
+	[0.0,       "E"],
+	[PI * 0.5,  "N"],
+]
+
 func _process(_delta: float) -> void:
 	if _player == null:
 		return
@@ -97,15 +106,7 @@ func _draw() -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(cx - 2.0, h * 0.98),
 		"^", HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1.0, 1.0, 1.0, 0.45))
 
-	# Cardinal ticks — W, S, (NE center), E, N
-	# Bearings in radians using atan2 convention (0=East, π/2=+Z, −π/2=−Z)
-	var ticks: Array = [
-		[-PI,        "W"],
-		[-PI * 0.5,  "S"],
-		[0.0,        "E"],
-		[PI * 0.5,   "N"],
-	]
-	for tick: Array in ticks:
+	for tick: Array in _CARDINAL_TICKS:
 		var tx: float = bearing_to_ribbon_x(tick[0], w)
 		draw_line(Vector2(tx, 0.0), Vector2(tx, h * 0.45), Color(0.75, 0.75, 0.75, 0.85), 1.0)
 		draw_string(ThemeDB.fallback_font, Vector2(tx - 4.0, h * 0.98),
