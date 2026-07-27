@@ -300,6 +300,22 @@ var _smooth_camera_target: Vector3 = Vector3.ZERO
 var WORLD_SEED: int = 42  # overwritten in _ready() for infinite worlds
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
+## The single interaction priority order, highest first. Both the HUD prompt
+## (_interact_prompt_label) and the button action (_handle_interact, plus the
+## _try_simple_interaction table it delegates to) probe in exactly this order and
+## stop at the first hit; test_interact_priority asserts both still do.
+##
+## Hostile entities sit at the bottom: with anything peaceful in reach the player
+## gets that instead, so you can take a door, open a chest or read a scroll with
+## an enemy standing next to you rather than being forced into the fight. A
+## downed teammate outranks everything — the rescue window is short.
+const INTERACT_PRIORITY: PackedStringArray = [
+	"downed_peer",
+	"door", "chest", "npc", "scroll", "wilderness_camp", "maiteln", "shrine",
+	"digspot", "burial_mound", "mana_well", "waystone", "mailbox", "garden_plot",
+	"blight_heart", "scout_ambush", "enemy",
+]
+
 ## HUD prompt verb per NPC type; anything unlisted falls back to "TALK".
 const _NPC_PROMPT_LABELS: Dictionary = {
 	"merchant": "SHOP", "traveling_merchant": "SHOP",
@@ -2045,39 +2061,40 @@ func _interact_prompt_label(px: float, pz: float) -> String:
 	var r: float = IsoConst.INTERACT_RANGE
 	if coop_session._find_nearby_downed_peer(px, pz, r) != -1:
 		return "REVIVE"
-	if _find_nearby_enemy(px, pz, r) != null:
-		return "ATTACK"
-	if not _find_nearby_chest(px, pz, r).is_empty():
-		return "OPEN"
 	if not _find_nearby_door(px, pz, r * 2.0).is_empty():
 		return "ENTER"
-	if _find_nearby_wilderness_camp(px, pz, r) != null:
-		return "CAMP"
-	if _find_nearby_scout_ambush(px, pz, r) != null:
-		return "ATTACK"
-	if _find_nearby_maiteln(px, pz, r) != null:
-		return "TALK"
+	if not _find_nearby_chest(px, pz, r).is_empty():
+		return "OPEN"
 	var npc := _find_nearby_npc(px, pz, r)
 	if not npc.is_empty():
 		return str(_NPC_PROMPT_LABELS.get(str(npc.get("npc_type", "")), "TALK"))
 	if _find_nearby_scroll(px, pz, r) != null:
 		return "READ"
+	if _find_nearby_wilderness_camp(px, pz, r) != null:
+		return "CAMP"
+	if _find_nearby_maiteln(px, pz, r) != null:
+		return "TALK"
 	if _find_nearby_shrine(px, pz, r) != null:
 		return "PRAY"
 	if _find_nearby_digspot(px, pz, r) != null:
 		return "DIG"
+	if _find_nearby_burial_mound(px, pz, r) != null:
+		return "DIG"
+	if _find_nearby_mana_well(px, pz, r) != null:
+		return "FILL"
 	if not _find_nearby_waystone(px, pz, r).is_empty():
 		return "WARP"
 	if not _find_nearby_mailbox(px, pz, r).is_empty():
 		return "MAIL"
 	if _find_nearby_garden_plot(px, pz, r) != null:
 		return "TEND"
-	if _find_nearby_burial_mound(px, pz, r) != null:
-		return "DIG"
+	# Hostile entities last — see INTERACT_PRIORITY.
 	if _find_nearby_blight_heart(px, pz, r) != null:
 		return "CLEANSE"
-	if _find_nearby_mana_well(px, pz, r) != null:
-		return "FILL"
+	if _find_nearby_scout_ambush(px, pz, r) != null:
+		return "ATTACK"
+	if _find_nearby_enemy(px, pz, r) != null:
+		return "ATTACK"
 	return ""
 
 ## One-time "press E to …" hints. Each probe runs only while its flag is still
@@ -2343,12 +2360,10 @@ func _try_simple_interaction(px: float, pz: float) -> bool:
 	for entry: Array in [
 		[_find_nearby_scroll, "interact"],
 		[_find_nearby_wilderness_camp, "interact"],
-		[_find_nearby_scout_ambush, "interact"],
 		[_find_nearby_maiteln, "interact"],
 		[_find_nearby_shrine, "interact"],
 		[_find_nearby_digspot, "dig"],
 		[_find_nearby_burial_mound, "interact"],
-		[_find_nearby_blight_heart, "engage"],
 	]:
 		var finder: Callable = entry[0]
 		var method: String = entry[1]
@@ -2400,17 +2415,6 @@ func _handle_interact() -> void:
 				_coop_map_transitioning = true
 				_net_sync.rpc("recv_map_transition", target_map, tdoor)
 			SceneManager.enter_map(target_map, tdoor)
-		return
-
-	var enemy := _find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
-	if enemy != null and enemy.has_method("engage"):
-		if enemy.get("enemy_data") != null:
-			var etype: String = str(enemy.enemy_data.get("enemy_type", ""))
-			if etype.begins_with("rival_"):
-				var dlg: String = str(enemy.enemy_data.get("pre_battle_dialogue", ""))
-				if dlg != "":
-					_show_dialogue(dlg)
-		enemy.engage()
 		return
 
 	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
@@ -2471,6 +2475,31 @@ func _handle_interact() -> void:
 ## Opens a chest the player is standing at: springs the mimic ambush, or marks
 ## it open, syncs that to the party, and spawns its loot — or starts a
 ## need/greed roll instead when the session is in that mode.
+
+	# Hostile entities are probed last, so anything peaceful in reach wins: you can
+	# take a door, open a chest or read a scroll with an enemy standing next to you
+	# instead of being forced into the fight. See INTERACT_PRIORITY.
+	var blight_heart_node := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
+	if blight_heart_node != null and blight_heart_node.has_method("engage"):
+		blight_heart_node.engage()
+		return
+
+	var scout_ambush_node := _find_nearby_scout_ambush(px, pz, IsoConst.INTERACT_RANGE)
+	if scout_ambush_node != null and scout_ambush_node.has_method("interact"):
+		scout_ambush_node.interact()
+		return
+
+	var enemy := _find_nearby_enemy(px, pz, IsoConst.INTERACT_RANGE)
+	if enemy != null and enemy.has_method("engage"):
+		if enemy.get("enemy_data") != null:
+			var etype: String = str(enemy.enemy_data.get("enemy_type", ""))
+			if etype.begins_with("rival_"):
+				var dlg: String = str(enemy.enemy_data.get("pre_battle_dialogue", ""))
+				if dlg != "":
+					_show_dialogue(dlg)
+		enemy.engage()
+		return
+
 func _open_chest(chest: Dictionary, px: float, pz: float) -> void:
 	if chest.get("is_mimic", false):
 		AudioManager.play_sfx("enemy_alert")

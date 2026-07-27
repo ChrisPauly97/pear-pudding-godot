@@ -16,23 +16,10 @@
 extends "res://tests/framework/test_case.gd"
 
 const _WORLD_SCENE_PATH := "res://scenes/world/WorldScene.gd"
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 
-## Order in which _interact_prompt_label() probes, first hit wins.
-const _LABEL_ORDER: Array[String] = [
-	"downed_peer", "enemy", "chest", "door", "wilderness_camp", "scout_ambush",
-	"maiteln", "npc", "scroll", "shrine", "digspot", "waystone", "mailbox",
-	"garden_plot", "burial_mound", "blight_heart", "mana_well",
-]
-
-## Order in which _handle_interact() (plus _try_simple_interaction, which it
-## delegates the uniform "call one method" cases to) probes, first hit wins.
-const _HANDLER_ORDER: Array[String] = [
-	"downed_peer", "door", "enemy", "chest", "npc",
-	# _try_simple_interaction's eight, spliced in at its call site:
-	"scroll", "wilderness_camp", "scout_ambush", "maiteln", "shrine", "digspot",
-	"burial_mound", "blight_heart",
-	"mana_well", "waystone", "mailbox", "garden_plot",
-]
+## The order both chains must follow, read from WorldScene.INTERACT_PRIORITY at
+## runtime so the constant is the single source of truth rather than a copy.
 
 var _src: String = ""
 
@@ -70,30 +57,37 @@ func test_source_readable() -> void:
 	assert_false(_src.is_empty(), "could not read " + _WORLD_SCENE_PATH)
 
 
-func test_prompt_label_probe_order_is_unchanged() -> void:
-	assert_eq(_probe_order("_interact_prompt_label"), _LABEL_ORDER,
-		"_interact_prompt_label's probe order changed — update _LABEL_ORDER here and "
-		+ "check whether _handle_interact needs the same change")
+## Both chains must follow WorldScene.INTERACT_PRIORITY exactly. Before this was
+## enforced they had silently drifted apart, so an enemy and a door in range gave
+## an "ATTACK" prompt but a door on press.
+func test_prompt_label_follows_the_priority_constant() -> void:
+	var want: Array[String] = []
+	want.assign(_WorldScene.INTERACT_PRIORITY)
+	assert_eq(_probe_order("_interact_prompt_label"), want,
+		"_interact_prompt_label no longer probes in WorldScene.INTERACT_PRIORITY order")
 
 
-func test_handle_interact_probe_order_is_unchanged() -> void:
+func test_handle_interact_follows_the_priority_constant() -> void:
+	var want: Array[String] = []
+	want.assign(_WorldScene.INTERACT_PRIORITY)
 	var simple: Array[String] = _probe_order("_try_simple_interaction")
-	assert_eq(_probe_order("_handle_interact", {"_try_simple_interaction": simple}), _HANDLER_ORDER,
-		"_handle_interact's probe order changed — update _HANDLER_ORDER here and "
-		+ "check whether _interact_prompt_label needs the same change")
+	assert_eq(_probe_order("_handle_interact", {"_try_simple_interaction": simple}), want,
+		"_handle_interact no longer probes in WorldScene.INTERACT_PRIORITY order")
 
 
 ## Neither chain may gain or lose an interactable without the other.
-func test_both_chains_cover_the_same_interactables() -> void:
-	var only_label: Array[String] = []
-	for n: String in _LABEL_ORDER:
-		if not _HANDLER_ORDER.has(n):
-			only_label.append(n)
-	var only_handler: Array[String] = []
-	for n: String in _HANDLER_ORDER:
-		if not _LABEL_ORDER.has(n):
-			only_handler.append(n)
-	assert_true(only_label.is_empty(),
-		"interactables the HUD prompts for but the button never handles: %s" % [only_label])
-	assert_true(only_handler.is_empty(),
-		"interactables the button handles but the HUD never prompts for: %s" % [only_handler])
+## Hostile entities must stay at the bottom: the gameplay rule is that anything
+## peaceful in reach beats a fight.
+func test_hostile_interactables_are_probed_last() -> void:
+	var hostile: Array[String] = ["enemy", "scout_ambush", "blight_heart"]
+	var order: Array[String] = []
+	order.assign(_WorldScene.INTERACT_PRIORITY)
+	var first_hostile: int = order.size()
+	for i in range(order.size()):
+		if hostile.has(order[i]):
+			first_hostile = i
+			break
+	for i in range(first_hostile, order.size()):
+		assert_true(hostile.has(order[i]),
+			"'%s' is peaceful but is probed after a hostile entity — everything "
+			% order[i] + "peaceful must outrank every hostile one")

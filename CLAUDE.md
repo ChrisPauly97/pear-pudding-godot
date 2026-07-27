@@ -316,12 +316,18 @@ Never write a fresh `dx*dx + dz*dz <= r*r` loop. Use `_node_in_range(node, …)`
 the button runs `_handle_interact`. Both **stop at the first hit** — never make
 the label pass scan everything eagerly again.
 
-The two chains are separate and **do not currently probe in the same order**
-(with an enemy and a door both in range the HUD reads "ATTACK" but the button
-enters the door). `test_interact_priority` pins both orders so they can't drift
-further unnoticed; add a new interactable to both chains and update that test.
-The eight entities whose interaction is just "call one method" live in
-`_try_simple_interaction`'s table rather than as open-coded branches.
+Both chains follow **one order**: `WorldScene.INTERACT_PRIORITY`.
+`test_interact_priority` asserts they do, so they can't drift apart.
+
+**Hostile entities (`enemy`, `scout_ambush`, `blight_heart`) are probed last** —
+anything peaceful in reach wins, so the player can take a door, open a chest or
+read a scroll with an enemy standing next to them instead of being forced into
+the fight. A downed teammate outranks everything. The test also enforces that no
+peaceful entry sits below a hostile one.
+
+Adding an interactable means: one entry in `INTERACT_PRIORITY`, a branch in each
+chain at that position. Entities whose interaction is just "call one method" go
+in `_try_simple_interaction`'s table instead of an open-coded branch.
 
 ---
 
