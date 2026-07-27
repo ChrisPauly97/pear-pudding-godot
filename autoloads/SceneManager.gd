@@ -19,6 +19,17 @@ enum State {
 	MENU_HUB,
 }
 
+## enemy_data for a player-vs-player battle: BattleScene builds both sides from
+## the PvP decks, so every drop/reward field stays inert. Duplicated per launch
+## because BattleScene writes into the dict it is handed.
+const PVP_ENEMY_DATA: Dictionary = {
+	"display_name": "Player",
+	"enemy_type": "",
+	"is_boss": false,
+	"drop_pool": [],
+	"coin_reward": 0,
+}
+
 const _PackOpenSceneScript = preload("res://scenes/ui/PackOpenScene.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
@@ -702,13 +713,7 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 		_battle_overlay.set("pvp_opponent_token", captured_token)
 		_battle_overlay.set("pvp_ranked", captured_ranked)
 		_battle_overlay.set("pvp_local_deck_override", captured_local_deck)
-		_battle_overlay.enemy_data = {
-			"display_name": "Player",
-			"enemy_type": "",
-			"is_boss": false,
-			"drop_pool": [],
-			"coin_reward": 0,
-		}
+		_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
 		get_tree().root.add_child(_battle_overlay)
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
@@ -752,13 +757,7 @@ func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: 
 		_battle_overlay.set("pvp_player1_deck", deck_b)
 		_battle_overlay.set("_pvp_peer_to_idx", {peer_a_id: 0, peer_b_id: 1})
 		_battle_overlay.set("_pvp_idx_to_token", {0: token_a, 1: token_b})
-		_battle_overlay.enemy_data = {
-			"display_name": "Player",
-			"enemy_type": "",
-			"is_boss": false,
-			"drop_pool": [],
-			"coin_reward": 0,
-		}
+		_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
 		get_tree().root.add_child(_battle_overlay)
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
@@ -777,13 +776,7 @@ func enter_pvp_spectator() -> void:
 		_battle_overlay.set("_pvp", true)
 		_battle_overlay.set("_local_player_idx", 0)   # neutral — same as host perspective
 		_battle_overlay.set("_pvp_spectating", true)
-		_battle_overlay.enemy_data = {
-			"display_name": "Player",
-			"enemy_type": "",
-			"is_boss": false,
-			"drop_pool": [],
-			"coin_reward": 0,
-		}
+		_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
 		get_tree().root.add_child(_battle_overlay)
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE
@@ -853,13 +846,7 @@ func enter_team_battle(local_player_idx: int, team_assignments: Array, all_decks
 		_battle_overlay.set("_local_player_idx", captured_idx)
 		_battle_overlay.set("_team_assignments", captured_teams)
 		_battle_overlay.set("_team_decks", captured_decks)
-		_battle_overlay.enemy_data = {
-			"display_name": "Player",
-			"enemy_type": "",
-			"is_boss": false,
-			"drop_pool": [],
-			"coin_reward": 0,
-		}
+		_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
 		get_tree().root.add_child(_battle_overlay)
 		get_tree().current_scene = _battle_overlay)
 	_state = State.BATTLE

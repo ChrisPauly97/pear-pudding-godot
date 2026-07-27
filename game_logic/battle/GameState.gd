@@ -4,6 +4,8 @@ extends RefCounted
 signal turn_ended(player_id: int)
 
 const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
+const CR = preload("res://autoloads/CardRegistry.gd")
+const CI = preload("res://game_logic/battle/CardInstance.gd")
 
 var players: Array[PlayerState] = []
 var current_player_idx: int = 0
@@ -232,10 +234,31 @@ func winner() -> int:
 
 ## Builds a GameState seeded from a PuzzleData resource.
 ## Board minions have no summoning sickness. No deck; no enemy turn.
+## Instantiates a card template as a ready-to-act CardInstance. Returns null for
+## an empty id or an id the registry doesn't know — puzzle and scripted battle
+## data are hand-authored, so both are expected inputs rather than errors.
+static func _make_ready_card(cid: String) -> CI:
+	if cid.is_empty():
+		return null
+	var tmpl: Dictionary = CR.get_template(cid)
+	if tmpl.is_empty():
+		return null
+	var ci := CI.new(tmpl)
+	ci.summoning_sick = false
+	return ci
+
+## Fills `board`'s first slots from `card_ids`, skipping unknown ids. Board
+## minions placed by a scenario have already "landed", so they can attack.
+static func _fill_board(board, card_ids: Array) -> void:
+	for i in range(mini(card_ids.size(), 5)):
+		var ci: CI = _make_ready_card(str(card_ids[i]))
+		if ci == null:
+			continue
+		ci.attack_count = 1
+		board.slots[i] = ci
+
 func load_puzzle(p: Resource) -> void:
 	const PD = preload("res://game_logic/battle/PuzzleData.gd")
-	const CR = preload("res://autoloads/CardRegistry.gd")
-	const CI = preload("res://game_logic/battle/CardInstance.gd")
 
 	var pdata: PD = p as PD
 	if pdata == null:
@@ -254,26 +277,11 @@ func load_puzzle(p: Resource) -> void:
 	players[0].hero.max_mana = pdata.player_mana
 
 	for cid: String in pdata.player_hand:
-		if cid.is_empty():
-			continue
-		var tmpl: Dictionary = CR.get_template(cid)
-		if tmpl.is_empty():
-			continue
-		var ci := CI.new(tmpl)
-		ci.summoning_sick = false
-		players[0].hand.append(ci)
+		var ci: CI = _make_ready_card(cid)
+		if ci != null:
+			players[0].hand.append(ci)
 
-	for i in range(mini(pdata.player_board.size(), 5)):
-		var cid: String = pdata.player_board[i]
-		if cid.is_empty():
-			continue
-		var tmpl: Dictionary = CR.get_template(cid)
-		if tmpl.is_empty():
-			continue
-		var ci := CI.new(tmpl)
-		ci.summoning_sick = false
-		ci.attack_count = 1
-		players[0].board.slots[i] = ci
+	_fill_board(players[0].board, pdata.player_board)
 
 	# --- Enemy (pid 1) ---
 	players[1].draw_deck.clear()
@@ -281,17 +289,7 @@ func load_puzzle(p: Resource) -> void:
 	players[1].hero.health = pdata.enemy_hero_hp
 	players[1].hero.max_health = pdata.enemy_hero_hp
 
-	for i in range(mini(pdata.enemy_board.size(), 5)):
-		var cid: String = pdata.enemy_board[i]
-		if cid.is_empty():
-			continue
-		var tmpl: Dictionary = CR.get_template(cid)
-		if tmpl.is_empty():
-			continue
-		var ci := CI.new(tmpl)
-		ci.summoning_sick = false
-		ci.attack_count = 1
-		players[1].board.slots[i] = ci
+	_fill_board(players[1].board, pdata.enemy_board)
 
 	# Apply keyword buffs to enemy board slots: format "slot_idx:keyword"
 	for buff: String in pdata.enemy_board_buffs:
