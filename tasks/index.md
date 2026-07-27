@@ -126,8 +126,9 @@
 | [GID-120](goals/GID-120--mobile-world-menu-ux/goal.md) | Mobile World & Menu UX | done | 5 / 5 |
 | [GID-121](goals/GID-121--mobile-terrain-cpu-hotpaths/goal.md) | Mobile Terrain CPU Hot Paths | done | 3 / 3 |
 | [GID-122](goals/GID-122--gameplay-fluidity/goal.md) | Gameplay Fluidity & Intuition | done | 5 / 5 |
-| [GID-123](goals/GID-123--repo-health-ci/goal.md) | Repository Health — CI Test Gate & Reproducible Dev Setup | done | 1 / 1 |
-| [GID-124](goals/GID-124--backlog-cleanup-batch/goal.md) | Backlog Cleanup Batch — Music, AI Signals, Rally & Auction | done | 5 / 5 |
+| [GID-123](goals/GID-123--world-proportions-and-location-art/goal.md) | World Proportions, Player Hero Sprite & Location Art | done | 3 / 3 |
+| [GID-124](goals/GID-124--repo-health-ci/goal.md) | Repository Health — CI Test Gate & Reproducible Dev Setup | done | 1 / 1 |
+| [GID-125](goals/GID-125--backlog-cleanup-batch/goal.md) | Backlog Cleanup Batch — Music, AI Signals, Rally & Auction | done | 5 / 5 |
 
 ## Backlog
 
@@ -148,6 +149,7 @@ files in `tasks/archive/backlog/`.
 | [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
 | [BID-053](backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job is `continue-on-error` — 638 pre-existing problems (357 are `class-definitions-order`); two `.gdlintrc` rules that contradicted CLAUDE.md were fixed, cutting the count from >1000 | code-smell | GID-123 / TID-466 |
+| [BID-057](backlog/BID-057--duplicate-tid-352.md) | TID-352 is used by two different completed tasks (GID-096 and GID-097); pre-dates this branch, filed rather than renumbered | doc-gap | GID-124 merge audit |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` is 9154 lines / 401 functions — 13% of all GDScript in one file, 9x the project's own `max-file-lines`; it refilled after GID-072 because nothing enforces the decomposition | code-smell | GID-123 research |
 
 ## Resolved Backlog

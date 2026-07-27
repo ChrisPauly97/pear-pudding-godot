@@ -1,6 +1,6 @@
-# TID-469: Rally From Inside a Shared Dungeon
+# TID-472: Rally From Inside a Shared Dungeon
 
-Goal: [GID-124](goal.md) · Backlog: BID-040 · Type: agent · Status: done
+Goal: [GID-125](goal.md) · Backlog: BID-040 · Type: agent · Status: done
 
 ## Problem
 

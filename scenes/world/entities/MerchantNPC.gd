@@ -12,7 +12,7 @@ func _ready() -> void:
 	var sprite := Sprite3D.new()
 	var tex: Texture2D = _SpriteRegistry.merchant_texture(_is_traveling)
 	if tex != null:
-		_SpriteRegistry.setup_sprite(sprite, tex)
+		_SpriteRegistry.setup_sprite_height(sprite, tex, _SpriteRegistry.HEIGHT_MERCHANT)
 	else:
 		sprite.texture = TextureGen.npc_merchant(_is_traveling)
 		sprite.pixel_size = 0.04

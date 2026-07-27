@@ -24,11 +24,13 @@ const _LAND_FALL_SPEED: float = 4.0   # min downward speed (u/s) to count as a "
 const _COYOTE_TIME: float = 0.12
 const _JUMP_BUFFER_TIME: float = 0.12
 
-# Individual walk frame textures (pixel art versions)
-const _WalkTex1: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_1_pixel.png")
-const _WalkTex2: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_2_pixel.png")
-const _WalkTex3: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_3_pixel.png")
-const _WalkTex4: Texture2D = preload("res://assets/textures/pixel_art/wizard_walk_4_pixel.png")
+# Player hero frames — 0x72 DungeonTilesetII "elf_m" (CC0): a young
+# adventurer matching Saimtar; Maiteln keeps the old-wizard sprite.
+const _IdleTex:  Texture2D = preload("res://assets/textures/characters/player_hero.png")
+const _WalkTex1: Texture2D = preload("res://assets/textures/characters/player_hero_walk_1.png")
+const _WalkTex2: Texture2D = preload("res://assets/textures/characters/player_hero_walk_2.png")
+const _WalkTex3: Texture2D = preload("res://assets/textures/characters/player_hero_walk_3.png")
+const _WalkTex4: Texture2D = preload("res://assets/textures/characters/player_hero_walk_4.png")
 
 const ANIM_FPS: float = 6.0        # walking animation speed
 const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite scale
@@ -109,7 +111,7 @@ func _build_sprite() -> void:
 	sf.add_animation("idle")
 	sf.set_animation_loop("idle", true)
 	sf.set_animation_speed("idle", ANIM_FPS)
-	sf.add_frame("idle", _WalkTex1)
+	sf.add_frame("idle", _IdleTex)
 
 	sf.add_animation("walk")
 	sf.set_animation_loop("walk", true)

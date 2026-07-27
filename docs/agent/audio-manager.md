@@ -65,7 +65,7 @@ see `CREDITS.md` ("Music"), which is the authoritative attribution record;
 | Dungeons / spire floors | `music/dungeon.ogg` | `WorldScene._named_map_music_track()` fallback |
 | Battle | `music/battle.ogg` | `BattleScene._ready()` |
 
-Named-map selection is data-driven (GID-124 / TID-467): `MapData.music_track`
+Named-map selection is data-driven (GID-125 / TID-470): `MapData.music_track`
 wins if set, else `dungeon.ogg` for `dungeon_*` / `spire_floor_*`, else the
 peaceful default. Giving a town its own track is a one-line `.tres` change —
 add the file, set `music_track`, and add its row to `CREDITS.md`.

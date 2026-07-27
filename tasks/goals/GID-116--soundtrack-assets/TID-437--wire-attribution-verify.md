@@ -88,7 +88,7 @@ having.
 
 `tasks/goals/GID-023--game-feel-polish/TID-081--background-music-loop.md`
 deleted; BID-047 archived and its index row moved to Resolved Backlog. Done
-ahead of this task as part of GID-123's backlog reconciliation.
+ahead of this task as part of GID-124's backlog reconciliation.
 
 ## Verification
 

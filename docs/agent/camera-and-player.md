@@ -135,7 +135,7 @@ if player_chunk != last_chunk:
 | Asset | Path | Notes |
 |---|---|---|
 | Player scene | `scenes/world/entities/Player.tscn` | `CharacterBody3D` + `Sprite3D` + `CollisionShape3D` |
-| Walking frames | `assets/textures/pixel_art/wizard_walk_0.png` … `wizard_walk_3.png` | 4 frames, 32 px wide, 48 px tall |
+| Hero frames | `assets/textures/characters/player_hero.png` (idle) + `player_hero_walk_1-4.png` | 0x72 `elf_m`, 16×28, GID-123 (old hand-made wizard frames remain on disk, unreferenced) |
 | WorldScene | `scenes/world/WorldScene.tscn` | Contains `Camera3D`, `DirectionalLight3D`, player spawn marker |
 | ChunkRenderer scene | `scenes/world/ChunkRenderer.tscn` | Template instantiated per loaded chunk |
 | VirtualJoystick scene | `scenes/ui/VirtualJoystick.tscn` | Touchscreen overlay; added at runtime when touchscreen detected |

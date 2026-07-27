@@ -16,7 +16,7 @@ func _ready() -> void:
 	var variant_seed: int = hash(str(npc_data.get("id", "")) + _extract_name())
 	var tex: Texture2D = _SpriteRegistry.townsperson_texture(variant_seed)
 	if tex != null:
-		_SpriteRegistry.setup_sprite(sprite, tex)
+		_SpriteRegistry.setup_sprite_height(sprite, tex, _SpriteRegistry.HEIGHT_NPC)
 	else:
 		sprite.texture = TextureGen.npc_townsperson()
 		sprite.pixel_size = 0.04

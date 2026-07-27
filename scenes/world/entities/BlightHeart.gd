@@ -4,6 +4,10 @@
 extends Node3D
 
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+
+## Crystal-cluster sprite target height — boss-sized landmark.
+const _HEART_HEIGHT: float = 1.5
 
 static var _heart_mat: StandardMaterial3D
 static var _heart_mesh: SphereMesh
@@ -39,21 +43,36 @@ var _pulse_tween: Tween = null
 
 func _ready() -> void:
 	_ensure_shared_resources()
-	var core := MeshInstance3D.new()
-	core.mesh = _heart_mesh
-	core.material_override = _heart_mat
-	core.position = Vector3(0.0, 1.0, 0.0)
-	add_child(core)
+	var tex: Texture2D = _SpriteRegistry.blight_heart_texture()
+	var core: Node3D
+	if tex != null:
+		var sprite := Sprite3D.new()
+		_SpriteRegistry.setup_sprite_height(sprite, tex, _HEART_HEIGHT)
+		sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+		sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		add_child(sprite)
+		core = sprite
+	else:
+		var mesh_inst := MeshInstance3D.new()
+		mesh_inst.mesh = _heart_mesh
+		mesh_inst.material_override = _heart_mat
+		mesh_inst.position = Vector3(0.0, 1.0, 0.0)
+		add_child(mesh_inst)
+		core = mesh_inst
 
 	var aura := MeshInstance3D.new()
 	aura.mesh = _glow_mesh
 	aura.material_override = _glow_mat
-	aura.position = Vector3(0.0, 1.0, 0.0)
+	aura.position = Vector3(0.0, _HEART_HEIGHT * 0.5, 0.0) if tex != null else Vector3(0.0, 1.0, 0.0)
 	add_child(aura)
 
+	# Sprite pulse stays within FEET_MARGIN (center-scaling moves the bottom
+	# edge down by (s-1)*h/2 — 1.12 would push it below y=0 and clip).
+	var pulse: float = 1.05 if tex != null else 1.12
 	_pulse_tween = create_tween()
 	_pulse_tween.set_loops()
-	_pulse_tween.tween_property(core, "scale", Vector3(1.12, 1.12, 1.12), 0.9)
+	_pulse_tween.tween_property(core, "scale", Vector3(pulse, pulse, pulse), 0.9)
 	_pulse_tween.tween_property(core, "scale", Vector3(1.0, 1.0, 1.0), 0.9)
 
 func init_from_data(data: Dictionary) -> void:

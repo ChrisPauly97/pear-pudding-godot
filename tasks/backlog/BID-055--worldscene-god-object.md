@@ -1,7 +1,7 @@
 # BID-055: `WorldScene.gd` is a 9154-line god object with 401 functions
 
 Category: code-smell / design-gap
-Discovered during: GID-123 research (code-health survey)
+Discovered during: GID-124 research (code-health survey)
 
 ## Summary
 

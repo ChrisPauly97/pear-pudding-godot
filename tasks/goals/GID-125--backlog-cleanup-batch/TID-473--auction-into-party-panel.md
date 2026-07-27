@@ -1,6 +1,6 @@
-# TID-470: Auction Button Into PartyPanel
+# TID-473: Auction Button Into PartyPanel
 
-Goal: [GID-124](goal.md) · Backlog: BID-042 · Type: agent · Status: done
+Goal: [GID-125](goal.md) · Backlog: BID-042 · Type: agent · Status: done
 
 ## Problem
 

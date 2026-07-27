@@ -85,5 +85,5 @@ puts minions before spells. Ordering alone produces "hold a card": every play
 Callable re-checks `can_play` at execution time, so a card ordered last is
 simply unaffordable once earlier plays spend the mana.
 
-The `GameBus.card_played` / `card_attacked` emissions added by GID-124 / TID-468
+The `GameBus.card_played` / `card_attacked` emissions added by GID-125 / TID-471
 were preserved through the refactor and still fire exactly once per action.

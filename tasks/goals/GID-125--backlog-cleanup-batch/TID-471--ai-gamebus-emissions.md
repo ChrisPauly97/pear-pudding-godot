@@ -1,6 +1,6 @@
-# TID-468: AI Opponent GameBus Emissions
+# TID-471: AI Opponent GameBus Emissions
 
-Goal: [GID-124](goal.md) · Backlog: BID-006 · Type: agent · Status: done
+Goal: [GID-125](goal.md) · Backlog: BID-006 · Type: agent · Status: done
 
 ## Problem
 

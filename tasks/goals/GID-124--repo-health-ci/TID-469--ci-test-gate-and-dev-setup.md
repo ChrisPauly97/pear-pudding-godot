@@ -1,6 +1,6 @@
-# TID-466: CI Test Gate, Reproducible Dev Setup & Import-Trap Docs
+# TID-469: CI Test Gate, Reproducible Dev Setup & Import-Trap Docs
 
-Goal: [GID-123](goal.md)
+Goal: [GID-124](goal.md)
 Type: agent
 Status: done
 
@@ -142,7 +142,7 @@ historical record; this task's verification supersedes them.
 ## Documentation Updates
 
 - `CLAUDE.md` — Running Tests section rewritten (above).
-- `tasks/index.md` — GID-123 row added; Backlog/Resolved tables rebuilt;
+- `tasks/index.md` — GID-124 row added; Backlog/Resolved tables rebuilt;
   stale verification caveats cleared.
 
 ## Backlog Discovered

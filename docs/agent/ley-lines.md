@@ -63,6 +63,5 @@ A cyan `Label` (`_ley_indicator`) is added to the HUD in `_update_hud` when `_is
 
 ## Asset Requirements
 
-- No new textures or audio assets required.
 - `scenes/world/entities/ManaWell.tscn` + `.uid` sidecar (`uid://f6svk3gkwd7d`).
-- `scenes/world/entities/ManaWell.gd` (procedural mesh — no external assets).
+- `scenes/world/entities/ManaWell.gd` — renders `assets/textures/props/mana_well.png` (Kenney Tiny Dungeon statue/basin, cyan recolor, GID-123) as a 1.1-unit billboard sprite; the procedural well/crystal meshes remain as fallback.

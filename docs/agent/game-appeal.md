@@ -135,7 +135,7 @@ Stated plainly so downstream work targets them rather than the pitch papering ov
    not matchmaking.
 5. ~~**Audio/music gap.**~~ **Resolved.** All 7 tracks landed with GID-116 / TID-436 and are
    committed under `assets/audio/music/` (~22 MB); attribution is recorded in `CREDITS.md`
-   (GID-116 / TID-437). Named towns no longer play dungeon music (GID-124 / TID-467). The
+   (GID-116 / TID-437). Named towns no longer play dungeon music (GID-125 / TID-470). The
    remaining gap is *variety*, not presence: every hand-authored town shares one peaceful
    track, so a distinct bed for a location under siege is still worth having.
 6. **Placeholder feel in places.** Visual polish shipped broadly (GID-070/089/114), but

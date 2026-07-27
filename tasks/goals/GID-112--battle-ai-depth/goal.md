@@ -51,7 +51,7 @@ tutorial-tier (`difficulty_tier == 1`) enemies; only scale it down for tier ≥ 
 TID-415 through TID-418 were implemented in a sub-session that was terminated
 mid-task by an account spend limit. The parent session verified the delivered
 code (clean headless import, suite green, `_has_lethal` confirmed wired into
-`_pick_attack_target`, `GameBus` emissions from GID-124/TID-468 preserved), then
+`_pick_attack_target`, `GameBus` emissions from GID-125/TID-471 preserved), then
 completed the outstanding work itself: TID-419's test suite, the
 `docs/agent/enemies-and-npcs.md` persona table, and this bookkeeping.
 

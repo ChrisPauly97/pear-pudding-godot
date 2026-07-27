@@ -1,8 +1,8 @@
 # BID-056: GameBus signals declared but never emitted
 
 Category: code-smell
-Discovered during: GID-123 research (GameBus declared-vs-used audit)
-Status: **resolved** by GID-124 / TID-471
+Discovered during: GID-124 research (GameBus declared-vs-used audit)
+Status: **resolved** by GID-125 / TID-474
 
 ## Correction to the original filing
 
@@ -35,7 +35,7 @@ Five call sites use `emit_signal("name", ...)` rather than `name.emit(...)`. The
 string form is **not compile-checked**: a typo emits nothing and raises nothing,
 failing completely silently. All five currently name valid signals.
 
-## Resolution — see GID-124 / TID-471
+## Resolution — see GID-125 / TID-474
 
 - `WorldScene._ready()` emits `exited_to_world` on the infinite-world branch.
 - `AppLog` subscribes, for symmetry with `entered_named_map`.

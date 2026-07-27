@@ -1,4 +1,4 @@
-# GID-123: Repository Health — CI Test Gate & Reproducible Dev Setup
+# GID-124: Repository Health — CI Test Gate & Reproducible Dev Setup
 
 ## Objective
 
@@ -56,7 +56,7 @@ highly repeatable — an agent would reasonably start "fixing" 38 phantom bugs.
 
 | Task | Title | Status |
 |------|-------|--------|
-| [TID-466](TID-466--ci-test-gate-and-dev-setup.md) | CI test gate, reproducible dev setup, import-trap docs | done |
+| [TID-469](TID-469--ci-test-gate-and-dev-setup.md) | CI test gate, reproducible dev setup, import-trap docs | done |
 
 ## Acceptance Criteria
 

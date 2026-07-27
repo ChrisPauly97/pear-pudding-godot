@@ -53,7 +53,7 @@ swapping a track; remove the track first.
 | Battle | `music/battle.ogg` | Battle Theme A | cynicmusic | CC0 |
 
 Named towns and story maps use `grasslands.ogg` as their peaceful default via
-`MapData.music_track` (GID-124 / TID-467); only procedurally generated dungeons
+`MapData.music_track` (GID-125 / TID-470); only procedurally generated dungeons
 and spire floors fall through to `dungeon.ogg`.
 
 ## Art / Sprites
@@ -62,13 +62,13 @@ and spire floors fall through to `dungeon.ogg`.
 
 - **Source:** https://0x72.itch.io/dungeontileset-ii
 - **License:** CC0-1.0 (Creative Commons Zero v1.0 Universal) — no attribution required; credited with thanks.
-- **Used for:** enemy sprites (skeleton/undead, undead elite recolor, swampy ghoul, masked-orc raider, ogre warleader, necromancer duelist, elf rival, big-demon roaming terror, mimic chest), NPC sprites (townsperson variants, merchant, Maiteln), card illustrations (skeleton, zombie, ghoul), plus their walk frames under `assets/textures/characters/` and `assets/textures/cards/`; the world terrain's wall-side (`wall_mid`) and wall-top (`floor_1`) tile textures, the chest closed/open sprites, and the door sprite.
+- **Used for:** the player hero (`elf_m` idle/run frames), enemy sprites (skeleton/undead, undead elite recolor, swampy ghoul, masked-orc raider, ogre warleader, necromancer duelist, elf rival — a hostile recolor of `elf_m`, big-demon roaming terror, mimic chest), NPC sprites (townsperson variants, merchant, Maiteln), card illustrations (skeleton, zombie, ghoul), plus their walk frames under `assets/textures/characters/` and `assets/textures/cards/`; the world terrain's wall-side (`wall_mid`) and wall-top (`floor_1`) tile textures, the chest closed/open sprites, the door sprite, the waystone obelisk (`column`, recolored — dormant/active gold-rune variants), and the blight heart's skull (`skull`, purple recolor on hand-pixelled crystal spikes).
 
 ### Kenney — Tiny Town (1.1) & Tiny Dungeon (1.0)
 
 - **Source:** https://kenney.nl/assets/tiny-town , https://kenney.nl/assets/tiny-dungeon
 - **License:** CC0 (Creative Commons Zero) — no attribution required; credited with thanks.
-- **Used for:** mushroom prop and the world terrain's grass tile (Tiny Town); ghost card illustration, spectre enemy sprite, and the world terrain's hill-side (dirt) and path/road tiles (Tiny Dungeon).
+- **Used for:** mushroom prop and the world terrain's grass tile (Tiny Town); ghost card illustration, spectre enemy sprite, the world terrain's hill-side (dirt) and path/road tiles, the mana well and puzzle shrine statues (statue/fountain tiles 19/20/31/32, cyan/blue recolors), and the burial-mound gravestone (tile 65, on a hand-pixelled dirt mound) (Tiny Dungeon).
 
 ### Clint Bellanger — Tiny Creatures (1.0)
 
@@ -97,13 +97,14 @@ remains as a runtime fallback wherever a slot's texture is missing.
 
 | Slot | File | Source |
 |---|---|---|
+| Player hero (idle + walk ×4) | `characters/player_hero{,_walk_1-4}.png` | 0x72 (`elf_m`) |
 | Enemy: undead / undead (horde) | `characters/enemy_undead.png` | 0x72 |
 | Enemy: undead elite | `characters/enemy_undead_elite.png` | 0x72 (recolor) |
 | Enemy: ghoul | `characters/enemy_ghoul.png` | 0x72 |
 | Enemy: raider (+ScoutAmbush) | `characters/enemy_raider.png` | 0x72 |
 | Enemy: warleader | `characters/enemy_warleader.png` | 0x72 |
 | Enemy: duelist | `characters/enemy_duelist.png` | 0x72 |
-| Enemy: rival | `characters/enemy_rival.png` | 0x72 |
+| Enemy: rival | `characters/enemy_rival.png` | 0x72 (`elf_m` hostile recolor) |
 | Enemy: terror (+roaming boss) | `characters/enemy_terror.png` | 0x72 |
 | Enemy: mimic | `characters/enemy_mimic.png` | 0x72 |
 | Enemy: spectre (wisp/haunt/dread) | `characters/enemy_spectre.png` | Kenney Tiny Dungeon |
@@ -127,3 +128,8 @@ remains as a runtime fallback wherever a slot's texture is missing.
 | Terrain: path / road | `pixel_art/path_pixel.png` | Kenney Tiny Dungeon (`tile_0048`) |
 | Chest: closed / open | `props/chest_{closed,open}.png` | 0x72 (`chest_full_open_anim_f0`/`f2`) |
 | Door (all map-transition doors) | `props/door.png` | 0x72 (`doors_leaf_closed`) |
+| Waystone: dormant / active | `props/waystone_{dormant,active}.png` | 0x72 (`column` recolors, gold runes hand-pixelled) |
+| Mana well | `props/mana_well.png` | Kenney Tiny Dungeon (tiles 20+32, cyan recolor) |
+| Puzzle shrine | `props/puzzle_shrine.png` | Kenney Tiny Dungeon (tiles 19+31, blue recolor) |
+| Burial mound | `props/burial_mound.png` | Kenney Tiny Dungeon (tile 65 + hand-pixelled mound) |
+| Blight heart | `props/blight_heart.png` | 0x72 (`skull` purple recolor + hand-pixelled crystals) |

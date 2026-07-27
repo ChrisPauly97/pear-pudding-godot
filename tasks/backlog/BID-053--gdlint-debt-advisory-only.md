@@ -1,7 +1,7 @@
 # BID-053: gdlint job is advisory-only due to pre-existing lint debt
 
 Category: code-smell
-Discovered during: GID-123 / TID-466
+Discovered during: GID-124 / TID-469
 
 ## Summary
 
@@ -11,7 +11,7 @@ too much pre-existing debt to gate on today.
 
 ## Context
 
-Two config bugs were fixed as part of TID-466, which cut the reported problem
+Two config bugs were fixed as part of TID-469, which cut the reported problem
 count from >1000 to 638:
 
 - `constant-name` was overridden to `[A-Z][A-Z0-9_]*`, dropping the optional

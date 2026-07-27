@@ -1,6 +1,6 @@
-# TID-471: `exited_to_world` Emission + GameBus Coverage Guardrail
+# TID-474: `exited_to_world` Emission + GameBus Coverage Guardrail
 
-Goal: [GID-124](goal.md) · Backlog: BID-056 · Type: agent · Status: done
+Goal: [GID-125](goal.md) · Backlog: BID-056 · Type: agent · Status: done
 
 ## Problem
 
