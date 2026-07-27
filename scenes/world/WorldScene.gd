@@ -7537,32 +7537,31 @@ func _show_wager_accept_panel(from_id: int, ante_coins: int) -> void:
 	var decline_btn := _UiUtil.make_button("Decline", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.024), _decline_wager_challenge.bind(from_id), row)
 
 
+## Drops the queued wager offer. Every path out of the wager prompt — accepted,
+## declined, or refused for lack of coins/cards — clears all four fields.
+func _clear_pending_wager() -> void:
+	_pending_wager_from = -1
+	_pending_wager_deck = []
+	_pending_wager_coins = 0
+	_pending_wager_armed_at = -1
+
 func _accept_wager_challenge(from_id: int, ante_coins: int) -> void:
 	_dismiss_challenge_panel()
 	if SceneManager.save_manager.coins < ante_coins:
 		_show_tip("Not enough coins for the wager.")
 		if _net_sync != null:
 			_net_sync.rpc_id(from_id, "respond_battle_wager", false, [], 0)
-		_pending_wager_from = -1
-		_pending_wager_deck = []
-		_pending_wager_coins = 0
-		_pending_wager_armed_at = -1
+		_clear_pending_wager()
 		return
 	var my_deck: Array = _local_deck_for_net()
 	if my_deck.size() < IsoConst.DECK_MIN:
 		_show_tip("Your deck is too small to duel.")
 		if _net_sync != null:
 			_net_sync.rpc_id(from_id, "respond_battle_wager", false, [], 0)
-		_pending_wager_from = -1
-		_pending_wager_deck = []
-		_pending_wager_coins = 0
-		_pending_wager_armed_at = -1
+		_clear_pending_wager()
 		return
 	var opp_deck: Array = _pending_wager_deck
-	_pending_wager_from = -1
-	_pending_wager_deck = []
-	_pending_wager_coins = 0
-	_pending_wager_armed_at = -1
+	_clear_pending_wager()
 	if _net_sync != null:
 		_net_sync.rpc_id(from_id, "respond_battle_wager", true, my_deck, ante_coins)
 	_enter_pvp_wagered(ante_coins, opp_deck)
@@ -7572,10 +7571,7 @@ func _decline_wager_challenge(from_id: int) -> void:
 	_dismiss_challenge_panel()
 	if _net_sync != null:
 		_net_sync.rpc_id(from_id, "respond_battle_wager", false, [], 0)
-	_pending_wager_from = -1
-	_pending_wager_deck = []
-	_pending_wager_coins = 0
-	_pending_wager_armed_at = -1
+	_clear_pending_wager()
 
 
 func _on_battle_wager_responded(_sender: int, accepted: bool, responder_deck: Array, ante_coins: int) -> void:

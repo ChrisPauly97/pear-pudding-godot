@@ -1612,13 +1612,7 @@ func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 		return panel
 	var is_board_zone: bool = (zone_id == "board" or zone_id == "enemy_board")
 	panel.add_child(_view.build_card_vbox(card, is_board_zone))
-	var style := StyleBoxFlat.new()
-	style.corner_radius_top_left = 4
-	style.corner_radius_top_right = 4
-	style.corner_radius_bottom_left = 4
-	style.corner_radius_bottom_right = 4
-	panel.add_theme_stylebox_override("panel", style)
-	panel.set_meta("card_style", style)
+	var style: StyleBoxFlat = CardViewBuilder.attach_card_style(panel)
 	_view.apply_card_style(panel, card, zone_id)
 	_bind_card_input(panel, card, zone_id)
 	if zone_id == "hand" and card.dual_card_id != "" and not _flipped_dual_ids.has(card.instance_id):

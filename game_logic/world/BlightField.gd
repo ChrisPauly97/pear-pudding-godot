@@ -75,18 +75,21 @@ static func _get_hearts_in_range(cx: int, cz: int, world_seed: int, cleansed_hea
 static func blighted_radius(days_elapsed: int) -> float:
 	return minf(INITIAL_RADIUS + float(days_elapsed) * SPREAD_RATE, MAX_RADIUS)
 
+# Chunk-space distance from (cx, cz) to the nearest uncleansed heart, or INF
+# when no heart is in range.
+static func _nearest_heart_distance(cx: int, cz: int, world_seed: int, cleansed_hearts: Array) -> float:
+	var min_dist: float = INF
+	for h: Dictionary in _get_hearts_in_range(cx, cz, world_seed, cleansed_hearts):
+		var dx: int = cx - int(h.get("cx", 0))
+		var dz: int = cz - int(h.get("cz", 0))
+		var dist: float = sqrt(float(dx * dx + dz * dz))
+		if dist < min_dist:
+			min_dist = dist
+	return min_dist
+
 # Returns true if chunk (cx, cz) is within any active heart's blight radius.
 static func is_blighted(cx: int, cz: int, world_seed: int, days_elapsed: int, cleansed_hearts: Array) -> bool:
-	var radius: float = blighted_radius(days_elapsed)
-	for h: Dictionary in _get_hearts_in_range(cx, cz, world_seed, cleansed_hearts):
-		var hcx: int = int(h.get("cx", 0))
-		var hcz: int = int(h.get("cz", 0))
-		var dx: int = cx - hcx
-		var dz: int = cz - hcz
-		var dist: float = sqrt(float(dx * dx + dz * dz))
-		if dist < radius:
-			return true
-	return false
+	return _nearest_heart_distance(cx, cz, world_seed, cleansed_hearts) < blighted_radius(days_elapsed)
 
 # Returns 0–1: how deeply blighted is chunk (cx, cz)?
 # 1.0 at the heart, 0.0 at or beyond the radius edge.
@@ -94,15 +97,7 @@ static func blight_intensity(cx: int, cz: int, world_seed: int, days_elapsed: in
 	var radius: float = blighted_radius(days_elapsed)
 	if radius <= 0.0:
 		return 0.0
-	var min_dist: float = INF
-	for h: Dictionary in _get_hearts_in_range(cx, cz, world_seed, cleansed_hearts):
-		var hcx: int = int(h.get("cx", 0))
-		var hcz: int = int(h.get("cz", 0))
-		var dx: int = cx - hcx
-		var dz: int = cz - hcz
-		var dist: float = sqrt(float(dx * dx + dz * dz))
-		if dist < min_dist:
-			min_dist = dist
+	var min_dist: float = _nearest_heart_distance(cx, cz, world_seed, cleansed_hearts)
 	if min_dist >= radius:
 		return 0.0
 	return clampf(1.0 - min_dist / radius, 0.0, 1.0)
@@ -112,10 +107,8 @@ static func get_nearest_heart(cx: int, cz: int, world_seed: int, cleansed_hearts
 	var min_dist: float = INF
 	var nearest: Dictionary = {}
 	for h: Dictionary in _get_hearts_in_range(cx, cz, world_seed, cleansed_hearts):
-		var hcx: int = int(h.get("cx", 0))
-		var hcz: int = int(h.get("cz", 0))
-		var dx: int = cx - hcx
-		var dz: int = cz - hcz
+		var dx: int = cx - int(h.get("cx", 0))
+		var dz: int = cz - int(h.get("cz", 0))
 		var dist: float = sqrt(float(dx * dx + dz * dz))
 		if dist < min_dist:
 			min_dist = dist

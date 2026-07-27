@@ -182,13 +182,7 @@ func refresh_board_zone(zone_node: Node, zone_state: ZoneState, zone_id: String)
 				if not bool(panel.get_meta("is_card_back", false)):
 					var is_board_zone: bool = true
 					panel.add_child(build_card_vbox(card, is_board_zone))
-					var style := StyleBoxFlat.new()
-					style.corner_radius_top_left = 4
-					style.corner_radius_top_right = 4
-					style.corner_radius_bottom_left = 4
-					style.corner_radius_bottom_right = 4
-					panel.add_theme_stylebox_override("panel", style)
-					panel.set_meta("card_style", style)
+					attach_card_style(panel)
 				panel.custom_minimum_size = card_size()
 			update_card_view(panel as PanelContainer, card, zone_id)
 			_apply_slot_enhancement_border(panel, enh)
@@ -420,16 +414,20 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 		vbox.add_child(sr)
 	return vbox
 
-func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
+## Attaches (or reuses) the rounded StyleBoxFlat that carries a card panel's
+## border. Kept in the panel's "card_style" meta so recolouring a card mutates
+## the live box instead of allocating a new one every refresh.
+static func attach_card_style(panel: PanelContainer) -> StyleBoxFlat:
 	var style: StyleBoxFlat = panel.get_meta("card_style", null) as StyleBoxFlat
 	if style == null:
-		style = StyleBoxFlat.new()
-		style.corner_radius_top_left = 4
-		style.corner_radius_top_right = 4
-		style.corner_radius_bottom_left = 4
-		style.corner_radius_bottom_right = 4
+		style = StyleBoxFlat.new()   # bg_color left at the engine default until apply_card_style runs
+		style.set_corner_radius_all(4)
 		panel.add_theme_stylebox_override("panel", style)
 		panel.set_meta("card_style", style)
+	return style
+
+func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
+	var style: StyleBoxFlat = attach_card_style(panel)
 	style.border_width_top = 0
 	style.border_width_bottom = 0
 	style.border_width_left = 0
