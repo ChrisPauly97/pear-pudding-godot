@@ -10,6 +10,7 @@ extends RefCounted
 # 0x72 DungeonTilesetII "elf_m" hero frames (CC0) — same art as Player.gd
 # so remote co-op avatars match the local player.
 const _IdleTex:  Texture2D = preload("res://assets/textures/characters/player_hero.png")
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const _WalkTex1: Texture2D = preload("res://assets/textures/characters/player_hero_walk_1.png")
 const _WalkTex2: Texture2D = preload("res://assets/textures/characters/player_hero_walk_2.png")
 const _WalkTex3: Texture2D = preload("res://assets/textures/characters/player_hero_walk_3.png")
@@ -22,31 +23,15 @@ const PIXEL_SIZE: float = 0.05
 ## Build and return a configured AnimatedSprite3D.
 ## The sprite is not yet added to the scene tree — caller must add_child() it.
 static func build() -> AnimatedSprite3D:
-	var sf := SpriteFrames.new()
+	var walk: Array[Texture2D] = [_WalkTex1, _WalkTex2, _WalkTex3, _WalkTex4]
+	var sf: SpriteFrames = _SpriteRegistry.make_idle_walk_frames(_IdleTex, walk, ANIM_FPS)
 
-	sf.add_animation("idle")
-	sf.set_animation_loop("idle", true)
-	sf.set_animation_speed("idle", ANIM_FPS)
-	sf.add_frame("idle", _IdleTex)
-
-	sf.add_animation("walk")
-	sf.set_animation_loop("walk", true)
-	sf.set_animation_speed("walk", ANIM_FPS)
-	sf.add_frame("walk", _WalkTex1)
-	sf.add_frame("walk", _WalkTex2)
-	sf.add_frame("walk", _WalkTex3)
-	sf.add_frame("walk", _WalkTex4)
-
-	if sf.has_animation("default"):
-		sf.remove_animation("default")
 
 	var sprite := AnimatedSprite3D.new()
 	sprite.sprite_frames = sf
 	sprite.pixel_size = PIXEL_SIZE
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_SpriteRegistry.apply_billboard_flags(sprite)
 	sprite.shaded = false
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	sprite.no_depth_test = false
 	sprite.double_sided = true
 	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

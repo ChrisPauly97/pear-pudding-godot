@@ -28,9 +28,7 @@ func _ready() -> void:
 	if tex != null:
 		_sprite = Sprite3D.new()
 		_SpriteRegistry.setup_sprite(_sprite, tex)
-		_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-		_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_SpriteRegistry.apply_billboard_flags(_sprite)
 		if _is_spire:
 			_sprite.modulate = Color(0.75, 0.45, 1.0)
 		add_child(_sprite)

@@ -1,4 +1,5 @@
 extends "res://scenes/world/entities/WorldEntityBase.gd"
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 var npc_data: Dictionary = {}
 
@@ -42,15 +43,7 @@ func init_from_data(data: Dictionary) -> void:
 	npc_data = data
 
 func _add_label() -> void:
-	var lbl := Label3D.new()
-	lbl.text = "Bounty Board"
-	lbl.font_size = 28
-	lbl.pixel_size = 0.022
-	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lbl.no_depth_test = true
-	lbl.position = Vector3(0.0, 1.9, 0.0)
-	lbl.modulate = Color(1.0, 0.90, 0.4)
-	add_child(lbl)
+	add_child(_SpriteRegistry.make_name_label("Bounty Board", Color(1.0, 0.90, 0.4), 1.9, 28, 0.022))
 
 func get_dialogue() -> String:
 	return "Contracts are posted daily. Check back each morning."

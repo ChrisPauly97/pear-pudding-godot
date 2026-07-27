@@ -264,10 +264,11 @@ data lives **only** in `EnemyRegistry._ensure_loaded()` — there are no
 
 ---
 
-## WorldScene Co-op Modules
+## Scene Modules (WorldScene / BattleScene)
 
-The co-op/session surface lives in four sibling child nodes under
-`scenes/world/coop/`, not in `WorldScene.gd`:
+Both big scenes delegate their networked surface to child-node modules. The
+co-op/session surface lives in four siblings under `scenes/world/coop/`, and
+BattleScene's PvP/co-op surface in `scenes/battle/net/BattleNet.gd`:
 
 | Module | Owns |
 |---|---|
@@ -276,8 +277,10 @@ The co-op/session surface lives in four sibling child nodes under
 | `CoopPvP.gd` | challenge handshake + timeouts, team duels, referee routing, spectating, wagers, ranked/leaderboard, draft duels, tournaments |
 | `CoopSocial.gd` | emotes, pings, chat, trading/gifting, party stash, auction house |
 
+| `net/BattleNet.gd` | PvP duels, spectating, spectator wagers, co-op PvE joint battle, team duels (back-reference `_battle`) |
+
 Rules:
-- Each module is a `Node` with a `_world` back-reference, created in
+- Each module is a `Node` with a `_world` (or `_battle`) back-reference, created in
   `WorldScene._ready()` via `_ensure_coop_modules()` and registered with
   `NetSync.register_handler()`. They are inert outside a session.
 - Reach the world as `_world.<name>`; reach a sibling as
@@ -286,9 +289,19 @@ Rules:
 - New RPCs need no NetSync change beyond the `_route("_on_x", [...])` line;
   `_route` tries WorldScene, then each registered module, and pushes a warning
   if nothing handles it.
+- **Never write a bare `add_child(x)` or pass bare `self`** inside a module.
+  `add_child` would reparent onto the module (changing an RPC node path, or the
+  rect a Control's anchors resolve against) and `self` is the module, not the
+  scene. Use `_world.add_child(x)` / `_battle`. `test_scene_module_guardrail`
+  fails on both.
+- Anything another script calls on the *scene node* (`SceneManager` probes with
+  `has_method`, or `.set()`s a property before the scene enters the tree) must
+  resolve on the scene — keep a forwarder there. A failed `has_method` guard is
+  silent.
 - **Member access resolves at runtime**, so a wrong `_world.X` is invisible to
   the parse check. `tests/world_scene_smoke.gd` is the guard: it drives all 77
-  handlers through the real `_route`. Run it after touching any of this:
+  handlers through the real `_route`. Run it, plus the PvP smoke tests (they
+  stand up real BattleScenes), after touching any of this:
   `godot --headless --path . -s tests/world_scene_smoke.gd`
 
 ---
@@ -299,10 +312,22 @@ Never write a fresh `dx*dx + dz*dz <= r*r` loop. Use `_node_in_range(node, …)`
 `_first_node_in_range(nodes, …)` (Array or id → node Dictionary, optional
 `require_visible`) or `_first_data_in_range(table, …)` (id → `{x, z}` dicts).
 
-`_check_interactions` picks the HUD prompt via `_interact_prompt_label`, which
-probes in `_handle_interact`'s priority order and **stops at the first hit** —
-add new interactables to both, in the same position, and never make the label
-pass scan everything eagerly again.
+`_check_interactions` picks the HUD prompt via `_interact_prompt_label`; pressing
+the button runs `_handle_interact`. Both **stop at the first hit** — never make
+the label pass scan everything eagerly again.
+
+Both chains follow **one order**: `WorldScene.INTERACT_PRIORITY`.
+`test_interact_priority` asserts they do, so they can't drift apart.
+
+**Hostile entities (`enemy`, `scout_ambush`, `blight_heart`) are probed last** —
+anything peaceful in reach wins, so the player can take a door, open a chest or
+read a scroll with an enemy standing next to them instead of being forced into
+the fight. A downed teammate outranks everything. The test also enforces that no
+peaceful entry sits below a hostile one.
+
+Adding an interactable means: one entry in `INTERACT_PRIORITY`, a branch in each
+chain at that position. Entities whose interaction is just "call one method" go
+in `_try_simple_interaction`'s table instead of an open-coded branch.
 
 ---
 

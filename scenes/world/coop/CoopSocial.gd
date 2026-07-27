@@ -805,7 +805,7 @@ func _toggle_stash_overlay() -> void:
 		return
 	_stash_overlay = _PartyStashOverlay.new()
 	_stash_overlay.world_scene = self
-	add_child(_stash_overlay)
+	_world.add_child(_stash_overlay)
 	_stash_overlay.closed.connect(func() -> void: _stash_overlay = null)
 	_stash_overlay.refresh(_my_collection_for_stash_ui(), _stash_cache)
 
@@ -1050,7 +1050,7 @@ func _toggle_auction_overlay() -> void:
 		return
 	_auction_overlay = _AuctionHouseOverlay.new()
 	_auction_overlay.world_scene = self
-	add_child(_auction_overlay)
+	_world.add_child(_auction_overlay)
 	_auction_overlay.closed.connect(func() -> void: _auction_overlay = null)
 	_auction_overlay.refresh(_my_collection_for_stash_ui(), _auction_cache, MpProfile.get_token())
 

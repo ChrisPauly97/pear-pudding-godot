@@ -1,4 +1,5 @@
 extends "res://scenes/world/entities/WorldEntityBase.gd"
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 var mailbox_data: Dictionary = {}
 
@@ -53,15 +54,7 @@ func init_from_data(data: Dictionary) -> void:
 	mailbox_data = data
 
 func _add_label() -> void:
-	var lbl := Label3D.new()
-	lbl.text = "Mailbox"
-	lbl.font_size = 28
-	lbl.pixel_size = 0.022
-	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lbl.no_depth_test = true
-	lbl.position = Vector3(0.0, 1.6, 0.0)
-	lbl.modulate = Color(1.0, 0.85, 0.6)
-	add_child(lbl)
+	add_child(_SpriteRegistry.make_name_label("Mailbox", Color(1.0, 0.85, 0.6), 1.6, 28, 0.022))
 
 func get_dialogue() -> String:
 	return "Overflow rewards land here when your bag is full."

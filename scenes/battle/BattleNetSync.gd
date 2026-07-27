@@ -14,35 +14,55 @@ extends Node
 ## Back-reference set by BattleScene after this node is created.
 var battle_scene: Node = null
 
+## Extra RPC handler targets — BattleScene's net module. Tried in registration
+## order after `battle_scene` itself, so moving a handler out of BattleScene
+## needs no change here. Mirrors NetSync's arrangement for the world scene.
+var _handlers: Array[Node] = []
+
+## Registers a module as an RPC handler target. Idempotent.
+func register_handler(node: Node) -> void:
+	if node != null and not _handlers.has(node):
+		_handlers.append(node)
+
+## Routes `method` to whichever target declares it: BattleScene first, then the
+## registered modules. Warns when nothing handles it, which only happens if a
+## handler was renamed without updating its caller.
+func _route(method: String, args: Array) -> bool:
+	if battle_scene != null and is_instance_valid(battle_scene) and battle_scene.has_method(method):
+		battle_scene.callv(method, args)
+		return true
+	for h in _handlers:
+		if is_instance_valid(h) and h.has_method(method):
+			h.callv(method, args)
+			return true
+	push_warning("BattleNetSync: no handler for %s" % method)
+	return false
+
 
 ## Client -> host: a single relayed human action (BattleNetProtocol intent dict).
 @rpc("any_peer", "reliable", "call_remote")
 func send_intent(payload: Dictionary) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
-	if battle_scene != null and battle_scene.has_method("_on_pvp_intent"):
-		battle_scene._on_pvp_intent(sender, payload)
+	_route("_on_pvp_intent", [sender, payload])
 
 
 ## Host -> client: full-state mirror (BattleNetProtocol.encode_state output).
 @rpc("any_peer", "reliable", "call_remote")
 func sync_state(payload: Dictionary) -> void:
-	if battle_scene != null and battle_scene.has_method("_on_pvp_state"):
-		battle_scene._on_pvp_state(payload)
+	_route("_on_pvp_state", [payload])
 
 
 ## Host -> client: end-of-battle notification {"winner_idx": int, "forfeit": bool}.
 @rpc("any_peer", "reliable", "call_remote")
 func pvp_ended(payload: Dictionary) -> void:
-	if battle_scene != null and battle_scene.has_method("_on_pvp_ended"):
-		battle_scene._on_pvp_ended(payload)
+	_route("_on_pvp_ended", [payload])
 
 
 ## Client -> host: "my BattleScene is up, send me the current state." Resolves the
 ## startup race where the host's initial broadcast can precede the client's scene.
 @rpc("any_peer", "reliable", "call_remote")
 func request_sync() -> void:
-	if battle_scene != null and battle_scene.has_method("_on_pvp_sync_request"):
-		battle_scene._on_pvp_sync_request()
+	_route("_on_pvp_sync_request", [])
 
 
 ## Client -> host/referee: "I'm token X, possibly reconnecting." Sent once at duel
@@ -52,8 +72,7 @@ func request_sync() -> void:
 @rpc("any_peer", "reliable", "call_remote")
 func announce_reconnect(token: String) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
-	if battle_scene != null and battle_scene.has_method("_on_reconnect_announced"):
-		battle_scene._on_reconnect_announced(sender, token)
+	_route("_on_reconnect_announced", [sender, token])
 
 
 # ── Co-op PvE battle RPCs (GID-099) ──────────────────────────────────────────
@@ -66,15 +85,13 @@ func announce_reconnect(token: String) -> void:
 @rpc("any_peer", "reliable", "call_remote")
 func send_coop_intent(payload: Dictionary) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
-	if battle_scene != null and battle_scene.has_method("_on_coop_intent"):
-		battle_scene._on_coop_intent(sender, payload)
+	_route("_on_coop_intent", [sender, payload])
 
 
 ## Host → all ally clients: full-state mirror (BattleNetProtocol.encode_state output).
 @rpc("any_peer", "reliable", "call_remote")
 func sync_coop_state(payload: Dictionary) -> void:
-	if battle_scene != null and battle_scene.has_method("_on_coop_state"):
-		battle_scene._on_coop_state(payload)
+	_route("_on_coop_state", [payload])
 
 
 ## Host → all ally clients: battle ended.
@@ -82,15 +99,13 @@ func sync_coop_state(payload: Dictionary) -> void:
 ##           "stats": Dictionary, "coins": int, "xp": int}
 @rpc("any_peer", "reliable", "call_remote")
 func coop_battle_ended(payload: Dictionary) -> void:
-	if battle_scene != null and battle_scene.has_method("_on_coop_battle_ended"):
-		battle_scene._on_coop_battle_ended(payload)
+	_route("_on_coop_battle_ended", [payload])
 
 
 ## Ally client → host: "my co-op BattleScene is ready, send me the current state."
 @rpc("any_peer", "reliable", "call_remote")
 func request_coop_sync() -> void:
-	if battle_scene != null and battle_scene.has_method("_on_coop_sync_request"):
-		battle_scene._on_coop_sync_request()
+	_route("_on_coop_sync_request", [])
 
 
 # ── Duel spectating (GID-101 / TID-367) ──────────────────────────────────────
@@ -100,16 +115,14 @@ func request_coop_sync() -> void:
 @rpc("any_peer", "reliable", "call_remote")
 func request_spectate() -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
-	if battle_scene != null and battle_scene.has_method("_on_spectate_request"):
-		battle_scene._on_spectate_request(sender)
+	_route("_on_spectate_request", [sender])
 
 
 ## Spectator → host: "I'm leaving the spectator view."
 @rpc("any_peer", "reliable", "call_remote")
 func stop_spectate() -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
-	if battle_scene != null and battle_scene.has_method("_on_stop_spectate"):
-		battle_scene._on_stop_spectate(sender)
+	_route("_on_stop_spectate", [sender])
 
 
 # ── Spectator wagers (GID-104 / TID-387) ─────────────────────────────────────
@@ -121,22 +134,19 @@ func stop_spectate() -> void:
 @rpc("any_peer", "reliable", "call_remote")
 func submit_spectator_bet(payload: Dictionary) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
-	if battle_scene != null and battle_scene.has_method("_on_wager_bet_submitted"):
-		battle_scene._on_wager_bet_submitted(sender, payload)
+	_route("_on_wager_bet_submitted", [sender, payload])
 
 
 ## Host → spectator: bet accepted/rejected + the spectator's current escrow state.
 @rpc("any_peer", "reliable", "call_remote")
 func recv_wager_ack(accepted: bool, reason: String, side: String, amount: int, remaining_coins: int) -> void:
-	if battle_scene != null and battle_scene.has_method("_on_wager_ack"):
-		battle_scene._on_wager_ack(accepted, reason, side, amount, remaining_coins)
+	_route("_on_wager_ack", [accepted, reason, side, amount, remaining_coins])
 
 
 ## Host → spectator: final settlement. payload = WagerSync.encode_settlement(...).
 @rpc("any_peer", "reliable", "call_remote")
 func recv_wager_settlement(payload: Dictionary) -> void:
-	if battle_scene != null and battle_scene.has_method("_on_wager_settlement"):
-		battle_scene._on_wager_settlement(payload)
+	_route("_on_wager_settlement", [payload])
 
 
 # ── Team PvP duels (GID-102 / TID-371) ───────────────────────────────────────
@@ -147,26 +157,22 @@ func recv_wager_settlement(payload: Dictionary) -> void:
 @rpc("any_peer", "reliable", "call_remote")
 func send_team_intent(payload: Dictionary) -> void:
 	var sender: int = multiplayer.get_remote_sender_id()
-	if battle_scene != null and battle_scene.has_method("_on_team_intent"):
-		battle_scene._on_team_intent(sender, payload)
+	_route("_on_team_intent", [sender, payload])
 
 
 ## Host → all team-battle clients: full-state mirror (BattleNetProtocol.encode_state output).
 @rpc("any_peer", "reliable", "call_remote")
 func sync_team_state(payload: Dictionary) -> void:
-	if battle_scene != null and battle_scene.has_method("_on_team_state"):
-		battle_scene._on_team_state(payload)
+	_route("_on_team_state", [payload])
 
 
 ## Host → all team-battle clients: battle ended. payload: {"winning_team": int}.
 @rpc("any_peer", "reliable", "call_remote")
 func team_battle_ended(payload: Dictionary) -> void:
-	if battle_scene != null and battle_scene.has_method("_on_team_battle_ended"):
-		battle_scene._on_team_battle_ended(payload)
+	_route("_on_team_battle_ended", [payload])
 
 
 ## Team participant client → host: "my BattleScene is ready, send me the current state."
 @rpc("any_peer", "reliable", "call_remote")
 func request_team_sync() -> void:
-	if battle_scene != null and battle_scene.has_method("_on_team_sync_request"):
-		battle_scene._on_team_sync_request()
+	_route("_on_team_sync_request", [])

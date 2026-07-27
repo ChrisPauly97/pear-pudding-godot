@@ -106,32 +106,15 @@ func cancel_path() -> void:
 
 func _build_sprite() -> void:
 	# Build a SpriteFrames resource with idle (frame 0) and walk (all 4 frames).
-	var sf := SpriteFrames.new()
+	var walk: Array[Texture2D] = [_WalkTex1, _WalkTex2, _WalkTex3, _WalkTex4]
+	var sf: SpriteFrames = _SpriteRegistry.make_idle_walk_frames(_IdleTex, walk, ANIM_FPS)
 
-	sf.add_animation("idle")
-	sf.set_animation_loop("idle", true)
-	sf.set_animation_speed("idle", ANIM_FPS)
-	sf.add_frame("idle", _IdleTex)
-
-	sf.add_animation("walk")
-	sf.set_animation_loop("walk", true)
-	sf.set_animation_speed("walk", ANIM_FPS)
-	sf.add_frame("walk", _WalkTex1)
-	sf.add_frame("walk", _WalkTex2)
-	sf.add_frame("walk", _WalkTex3)
-	sf.add_frame("walk", _WalkTex4)
-
-	# SpriteFrames starts with a default "default" animation — remove it.
-	if sf.has_animation("default"):
-		sf.remove_animation("default")
 
 	_sprite = AnimatedSprite3D.new()
 	_sprite.sprite_frames = sf
 	_sprite.pixel_size = PIXEL_SIZE
-	_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_SpriteRegistry.apply_billboard_flags(_sprite)
 	_sprite.shaded = false
-	_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	_sprite.no_depth_test = false
 	_sprite.double_sided = true
 	_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -149,10 +132,8 @@ func _build_sprite() -> void:
 	var mount_tex: Texture2D = _SpriteRegistry.mount_texture()
 	_mount_sprite.texture = mount_tex if mount_tex != null else TextureGen.mount_horse()
 	_mount_sprite.pixel_size = PIXEL_SIZE
-	_mount_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_SpriteRegistry.apply_billboard_flags(_mount_sprite)
 	_mount_sprite.shaded = false
-	_mount_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	_mount_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	_mount_sprite.no_depth_test = false
 	_mount_sprite.double_sided = true
 	_mount_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

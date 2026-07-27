@@ -31,6 +31,7 @@ const PVP_ENEMY_DATA: Dictionary = {
 }
 
 const _PackOpenSceneScript = preload("res://scenes/ui/PackOpenScene.gd")
+const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
@@ -78,15 +79,14 @@ var _pack_open_overlay: Node = null
 var _saved_world_scene: Node = null
 
 # Ephemeral session statistics — reset on new/continue game, not persisted.
-var session_stats: Dictionary = {
-	"battles_won": 0,
-	"battles_lost": 0,
-	"enemies_defeated": 0,
-	"cards_earned": 0,
-	"coins_earned": 0,
-	"chests_opened": 0,
-	"session_start_msec": 0,
-}
+## Per-run tally shown on the run-summary screen. `_reset_session_stats()` is
+## the only writer of the whole dict; individual counters go through
+## `_bump_session_stat()`.
+const _SESSION_STAT_KEYS: PackedStringArray = [
+	"battles_won", "battles_lost", "enemies_defeated",
+	"cards_earned", "coins_earned", "chests_opened",
+]
+var session_stats: Dictionary = _fresh_session_stats(0)
 
 var _toast: CanvasLayer = null
 var _menu_hub_layer: CanvasLayer = null
@@ -393,16 +393,19 @@ func continue_game() -> void:
 	_reset_session_stats()
 	_load_world(save_manager.current_map, "")
 
+## Zeroes every counter and stamps the run's start time.
 func _reset_session_stats() -> void:
-	session_stats = {
-		"battles_won": 0,
-		"battles_lost": 0,
-		"enemies_defeated": 0,
-		"cards_earned": 0,
-		"coins_earned": 0,
-		"chests_opened": 0,
-		"session_start_msec": Time.get_ticks_msec(),
-	}
+	session_stats = _fresh_session_stats(Time.get_ticks_msec())
+
+static func _fresh_session_stats(start_msec: int) -> Dictionary:
+	var d: Dictionary = {"session_start_msec": start_msec}
+	for k: String in _SESSION_STAT_KEYS:
+		d[k] = 0
+	return d
+
+## Adds `amount` to one run counter, defaulting a missing key to 0.
+func _bump_session_stat(key: String, amount: int) -> void:
+	session_stats[key] = int(session_stats.get(key, 0)) + amount
 
 func enter_map(map_name: String, target_door_id: String = "") -> void:
 	_flush_position_save()
@@ -664,7 +667,7 @@ func _on_ghost_duel_ended(did_win: bool) -> void:
 		return
 	if did_win:
 		save_manager.add_coins(GHOST_DUEL_COIN_REWARD)
-		session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + GHOST_DUEL_COIN_REWARD
+		_bump_session_stat("coins_earned", GHOST_DUEL_COIN_REWARD)
 	_finish_battle(false)
 	_restore_world()
 
@@ -890,7 +893,7 @@ func _on_duel_won() -> void:
 		if not save_manager.defeated_duelists.has(_current_duel_npc_id):
 			grant_card = _current_champion_reward
 			save_manager.grant_card_reward(grant_card, "legendary")
-			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+			_bump_session_stat("cards_earned", 1)
 			save_manager.set_story_flag("champion_blancogov_defeated")
 	_current_champion_reward = ""
 	if not _current_duel_npc_id.is_empty():
@@ -977,7 +980,7 @@ func _on_puzzle_solved(puzzle_id: String) -> void:
 		var pdata: PD = PuzzleRegistry.get_puzzle(puzzle_id) as PD
 		if pdata != null and not pdata.reward_card_id.is_empty():
 			save_manager.grant_card_reward(pdata.reward_card_id, "rare")
-			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+			_bump_session_stat("cards_earned", 1)
 		save_manager.mark_puzzle_solved(puzzle_id)
 	save_manager.save()
 	_dismiss_battle_overlay()
@@ -1018,109 +1021,28 @@ func _on_scripted_battle_ended(battle_id: String, did_win: bool) -> void:
 				save_manager.set_story_flag(sdata.completion_flag)
 			if not sdata.reward_card_id.is_empty():
 				save_manager.grant_card_reward(sdata.reward_card_id, "rare")
-				session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+				_bump_session_stat("cards_earned", 1)
 	save_manager.save()
 	_dismiss_battle_overlay()
 	_restore_world()
 
+## Victory dispatch. The spire run, the siege gauntlet and a mimic chest each
+## replace the standard reward flow wholesale rather than adding to it, so
+## each gets its own handler and reports whether it consumed the result.
 func _on_battle_won(result: Dictionary) -> void:
 	if _state != State.BATTLE:
 		return
-	# Spire run: skip standard card/coin rewards; save hero HP; show draft overlay.
-	if save_manager.is_spire_active():
-		var hero_hp: int = int(result.get("hero_hp", 30))
-		save_manager.set_spire_hero_hp(hero_hp)
-		var spire_run: Dictionary = save_manager.get_spire_run()
-		var curr_floor: int = int(spire_run.get("floor", 1))
-		var run_seed: int = int(spire_run.get("seed", 0))
-		save_manager.set_story_flag("spire_floor_%d_%d_cleared" % [curr_floor, run_seed])
-		var spire_enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
-		if not _current_battle_enemy_id.is_empty():
-			save_manager.mark_enemy_defeated(_current_battle_enemy_id)
-			save_manager.increment_progress("enemies_defeated", 1)
-			session_stats["enemies_defeated"] = int(session_stats.get("enemies_defeated", 0)) + 1
-			_current_battle_enemy_id = ""
-		if spire_enemy_type != "":
-			save_manager.record_enemy_defeated(spire_enemy_type)
-			save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": spire_enemy_type})
-		save_manager.increment_progress("battles_won", 1)
-		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
-		_finish_battle()
-		_restore_world()
-		_show_spire_draft(curr_floor)
+	if _spire_battle_won(result):
 		return
-	# Siege gauntlet: skip standard rewards; chain stages or apply siege victory.
-	var _siege: Dictionary = save_manager.get_active_siege()
-	if not _siege.is_empty():
-		var _siege_hero_hp: int = int(result.get("hero_hp", 30))
-		save_manager.set_siege_hero_hp(_siege_hero_hp)
-		var _siege_stage: int = int(_siege.get("stage", 0))
-		save_manager.increment_progress("battles_won", 1)
-		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
-		_current_battle_enemy_id = ""
-		save_manager.clear_pending_battle()
-		save_manager.clear_pending_battle_state()
-		if _siege_stage < 2:
-			save_manager.advance_siege_stage()
-			save_manager.save()
-			_dismiss_battle_overlay()
-			_restore_world()
-			_show_siege_interstitial(_siege_stage + 1, _siege_hero_hp)
-			return
-		else:
-			var _siege_town: String = str(_siege.get("town", ""))
-			_apply_siege_victory_rewards(_siege_town)
-			# Chapter 2 beat 4 (GID-108 / TID-407): the story siege at marsax_hold
-			# reuses this exact victory path — only the completion flag is new.
-			if _siege_town == "marsax_hold":
-				save_manager.set_story_flag("chapter2_siege_won")
-			save_manager.end_siege_victory()
-			save_manager.save()
-			_dismiss_battle_overlay()
-			_restore_world()
-			return
-	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
+	if _siege_battle_won(result):
+		return
 	# Read enemy context before clearing pending_battle.
 	var enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
 	var is_boss: bool = bool(save_manager.pending_battle_enemy_data.get("is_boss", false))
 	var gambit_id: String = str(save_manager.pending_battle_enemy_data.get("gambit_id", ""))
 	var is_rival: bool = enemy_type.begins_with("rival_")
 	var captured_enemy_id: String = _current_battle_enemy_id
-	# Mimic chest victory: open the chest, grant loot directly to inventory, restore world.
-	if enemy_type == "mimic" and not captured_enemy_id.is_empty():
-		var mimic_chest_id: String = captured_enemy_id
-		var wmap_node: Variant = _saved_world_scene.get("world_map") if _saved_world_scene != null else null
-		if wmap_node != null:
-			var mimic_chest: Dictionary = wmap_node.find_chest_by_id(mimic_chest_id)
-			if not mimic_chest.is_empty():
-				mimic_chest["opened"] = true
-				var chest_cards: Array[String] = []
-				chest_cards.assign(mimic_chest.get("card_ids", []))
-				for card_id: String in chest_cards:
-					var rarity: String = CardDropUtil.effective_rarity(card_id, CardDropUtil.roll_rarity(3))
-					var stats: Dictionary = CardDropUtil.roll_stats(card_id, rarity)
-					save_manager.grant_card_reward(card_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
-					session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
-		var mimic_drop_pool: Array[String] = EnemyRegistry.get_drop_pool("mimic")
-		if not mimic_drop_pool.is_empty():
-			var bonus_card: String = mimic_drop_pool[randi() % mimic_drop_pool.size()]
-			var b_rarity: String = CardDropUtil.effective_rarity(bonus_card, CardDropUtil.roll_rarity(2))
-			var b_stats: Dictionary = CardDropUtil.roll_stats(bonus_card, b_rarity)
-			save_manager.grant_card_reward(bonus_card, b_rarity, int(b_stats.get("attack", -1)), int(b_stats.get("health", -1)), int(b_stats.get("cost", -1)))
-			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
-		var mimic_coins: int = EnemyRegistry.get_coin_reward("mimic")
-		save_manager.add_coins(mimic_coins)
-		session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + mimic_coins
-		save_manager.mark_chest_opened(mimic_chest_id)
-		save_manager.record_enemy_defeated("mimic")
-		save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": "mimic"})
-		save_manager.increment_progress("enemies_defeated", 1)
-		session_stats["enemies_defeated"] = int(session_stats.get("enemies_defeated", 0)) + 1
-		save_manager.increment_progress("battles_won", 1)
-		session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
-		_current_battle_enemy_id = ""
-		_finish_battle()
-		_restore_world()
+	if _mimic_battle_won(enemy_type, captured_enemy_id):
 		return
 	var drop_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
 	if is_boss:
@@ -1138,14 +1060,14 @@ func _on_battle_won(result: Dictionary) -> void:
 		if not is_rival and not is_nocturnal:
 			save_manager.mark_enemy_defeated(_current_battle_enemy_id)
 		save_manager.increment_progress("enemies_defeated", 1)
-		session_stats["enemies_defeated"] = int(session_stats.get("enemies_defeated", 0)) + 1
+		_bump_session_stat("enemies_defeated", 1)
 		_current_battle_enemy_id = ""
 	if enemy_type != "" and not is_rival and not is_nocturnal:
 		save_manager.record_enemy_defeated(enemy_type)
 		save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": enemy_type})
 	save_manager.increment_progress("battles_won", 1)
 	save_manager.check_deck_achievements(save_manager.player_deck)
-	session_stats["battles_won"] = int(session_stats.get("battles_won", 0)) + 1
+	_bump_session_stat("battles_won", 1)
 	var reward: String = str(result.get("card_reward", ""))
 	if reward != "":
 		# Use pre-rolled rarity/stats from BattleScene if present; otherwise roll now.
@@ -1158,7 +1080,7 @@ func _on_battle_won(result: Dictionary) -> void:
 			rarity = CardDropUtil.effective_rarity(reward, CardDropUtil.roll_rarity(drop_tier))
 			stats = CardDropUtil.roll_stats(reward, rarity)
 		save_manager.grant_card_reward(reward, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
-		session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+		_bump_session_stat("cards_earned", 1)
 	var weapon_reward: String = str(result.get("weapon_reward", ""))
 	if weapon_reward != "":
 		save_manager.add_weapon(weapon_reward)
@@ -1168,7 +1090,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		var sig_stats: Dictionary = CardDropUtil.roll_stats(sig_capture, "rare")
 		save_manager.grant_card_reward(sig_capture, "rare", int(sig_stats.get("attack", -1)), int(sig_stats.get("health", -1)), int(sig_stats.get("cost", -1)))
 		save_manager.mark_signature_captured(sig_capture)
-		session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+		_bump_session_stat("cards_earned", 1)
 	# Boss battles emit card_rewards (list of all drop_pool cards)
 	var rewards: Array = result.get("card_rewards", [])
 	var pre_rolled: Array = result.get("reward_rarities", [])
@@ -1185,16 +1107,16 @@ func _on_battle_won(result: Dictionary) -> void:
 				r_rarity = CardDropUtil.effective_rarity(rs, CardDropUtil.roll_rarity(drop_tier))
 				r_stats = CardDropUtil.roll_stats(rs, r_rarity)
 			save_manager.grant_card_reward(rs, r_rarity, int(r_stats.get("attack", -1)), int(r_stats.get("health", -1)), int(r_stats.get("cost", -1)))
-			session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+			_bump_session_stat("cards_earned", 1)
 	# Award coins based on enemy type, multiplied by active gambit reward factor.
 	if enemy_type != "":
 		var coins: int = Gambits.apply_reward_multiplier(EnemyRegistry.get_coin_reward(enemy_type), gambit_id)
 		save_manager.add_coins(coins)
-		session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + coins
+		_bump_session_stat("coins_earned", coins)
 	# Award XP based on enemy type (table lives in EnemyRegistry).
 	var xp_amount: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss)
 	save_manager.add_xp(xp_amount)
-	session_stats["xp_earned"] = int(session_stats.get("xp_earned", 0)) + xp_amount
+	_bump_session_stat("xp_earned", xp_amount)
 	# Rival encounter win: don't count as standard kill; update rival progress instead.
 	if is_rival:
 		if enemy_type == "rival_isfig_3":
@@ -1248,6 +1170,106 @@ func _on_battle_won(result: Dictionary) -> void:
 ## (the sole listener) both shows it locally and broadcasts it to the rest of the
 ## party in a co-op session, instead of building the overlay directly here where
 ## no _net_sync reference exists.
+
+## Spire floor cleared: no card/coin rewards, save hero HP, show the draft.
+func _spire_battle_won(result: Dictionary) -> bool:
+	if not save_manager.is_spire_active():
+		return false
+	var hero_hp: int = int(result.get("hero_hp", 30))
+	save_manager.set_spire_hero_hp(hero_hp)
+	var spire_run: Dictionary = save_manager.get_spire_run()
+	var curr_floor: int = int(spire_run.get("floor", 1))
+	var run_seed: int = int(spire_run.get("seed", 0))
+	save_manager.set_story_flag("spire_floor_%d_%d_cleared" % [curr_floor, run_seed])
+	var spire_enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
+	if not _current_battle_enemy_id.is_empty():
+		save_manager.mark_enemy_defeated(_current_battle_enemy_id)
+		save_manager.increment_progress("enemies_defeated", 1)
+		_bump_session_stat("enemies_defeated", 1)
+		_current_battle_enemy_id = ""
+	if spire_enemy_type != "":
+		save_manager.record_enemy_defeated(spire_enemy_type)
+		save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": spire_enemy_type})
+	save_manager.increment_progress("battles_won", 1)
+	_bump_session_stat("battles_won", 1)
+	_finish_battle()
+	_restore_world()
+	_show_spire_draft(curr_floor)
+	return true
+	return true
+
+## Siege gauntlet stage cleared: chain to the next stage or apply the victory.
+func _siege_battle_won(result: Dictionary) -> bool:
+	var _siege: Dictionary = save_manager.get_active_siege()
+	if _siege.is_empty():
+		return false
+	var _siege_hero_hp: int = int(result.get("hero_hp", 30))
+	save_manager.set_siege_hero_hp(_siege_hero_hp)
+	var _siege_stage: int = int(_siege.get("stage", 0))
+	save_manager.increment_progress("battles_won", 1)
+	_bump_session_stat("battles_won", 1)
+	_current_battle_enemy_id = ""
+	save_manager.clear_pending_battle()
+	save_manager.clear_pending_battle_state()
+	if _siege_stage < 2:
+		save_manager.advance_siege_stage()
+		save_manager.save()
+		_dismiss_battle_overlay()
+		_restore_world()
+		_show_siege_interstitial(_siege_stage + 1, _siege_hero_hp)
+		return true
+	else:
+		var _siege_town: String = str(_siege.get("town", ""))
+		_apply_siege_victory_rewards(_siege_town)
+		# Chapter 2 beat 4 (GID-108 / TID-407): the story siege at marsax_hold
+		# reuses this exact victory path — only the completion flag is new.
+		if _siege_town == "marsax_hold":
+			save_manager.set_story_flag("chapter2_siege_won")
+		save_manager.end_siege_victory()
+		save_manager.save()
+		_dismiss_battle_overlay()
+		_restore_world()
+		return true
+
+## Mimic chest victory: open the chest, grant its loot straight to the bag.
+func _mimic_battle_won(enemy_type: String, captured_enemy_id: String) -> bool:
+	if enemy_type != "mimic" or captured_enemy_id.is_empty():
+		return false
+	var mimic_chest_id: String = captured_enemy_id
+	var wmap_node: Variant = _saved_world_scene.get("world_map") if _saved_world_scene != null else null
+	if wmap_node != null:
+		var mimic_chest: Dictionary = wmap_node.find_chest_by_id(mimic_chest_id)
+		if not mimic_chest.is_empty():
+			mimic_chest["opened"] = true
+			var chest_cards: Array[String] = []
+			chest_cards.assign(mimic_chest.get("card_ids", []))
+			for card_id: String in chest_cards:
+				var rarity: String = CardDropUtil.effective_rarity(card_id, CardDropUtil.roll_rarity(3))
+				var stats: Dictionary = CardDropUtil.roll_stats(card_id, rarity)
+				save_manager.grant_card_reward(card_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+				_bump_session_stat("cards_earned", 1)
+	var mimic_drop_pool: Array[String] = EnemyRegistry.get_drop_pool("mimic")
+	if not mimic_drop_pool.is_empty():
+		var bonus_card: String = mimic_drop_pool[randi() % mimic_drop_pool.size()]
+		var b_rarity: String = CardDropUtil.effective_rarity(bonus_card, CardDropUtil.roll_rarity(2))
+		var b_stats: Dictionary = CardDropUtil.roll_stats(bonus_card, b_rarity)
+		save_manager.grant_card_reward(bonus_card, b_rarity, int(b_stats.get("attack", -1)), int(b_stats.get("health", -1)), int(b_stats.get("cost", -1)))
+		_bump_session_stat("cards_earned", 1)
+	var mimic_coins: int = EnemyRegistry.get_coin_reward("mimic")
+	save_manager.add_coins(mimic_coins)
+	_bump_session_stat("coins_earned", mimic_coins)
+	save_manager.mark_chest_opened(mimic_chest_id)
+	save_manager.record_enemy_defeated("mimic")
+	save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": "mimic"})
+	save_manager.increment_progress("enemies_defeated", 1)
+	_bump_session_stat("enemies_defeated", 1)
+	save_manager.increment_progress("battles_won", 1)
+	_bump_session_stat("battles_won", 1)
+	_current_battle_enemy_id = ""
+	_finish_battle()
+	_restore_world()
+	return true
+	return true
 func _show_chapter2_cliffhanger() -> void:
 	var pages: Array[String] = [
 		"By firelight, Maiteln reads the stolen muster plans: the tribe will not strike Blancogov. They march on the lords, one by one, before the alliance can gather.",
@@ -1260,7 +1282,7 @@ func _on_battle_lost() -> void:
 	if _state != State.BATTLE:
 		return
 	_current_battle_enemy_id = ""
-	session_stats["battles_lost"] = int(session_stats.get("battles_lost", 0)) + 1
+	_bump_session_stat("battles_lost", 1)
 	# Downed & rescue in shared co-op dungeons (GID-105 / TID-389): a PvE loss inside
 	# a shared dungeon crawl leaves the player downed/revivable instead of routing to
 	# the single-player defeat screen below. Checked first — siege/spire are solo
@@ -1490,14 +1512,14 @@ func _apply_siege_victory_rewards(town: String) -> void:
 	const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 	const SIEGE_VICTORY_COINS: int = 150
 	save_manager.add_coins(SIEGE_VICTORY_COINS)
-	session_stats["coins_earned"] = int(session_stats.get("coins_earned", 0)) + SIEGE_VICTORY_COINS
+	_bump_session_stat("coins_earned", SIEGE_VICTORY_COINS)
 	var all_ids: Array[String] = _CardRegistry.get_all_ids()
 	if not all_ids.is_empty():
 		var reward_id: String = all_ids[randi() % all_ids.size()]
 		var rarity: String = _CardDropUtil.roll_rarity(3)   # tier 3 = rare-or-better weighted
 		var stats: Dictionary = _CardDropUtil.roll_stats(reward_id, rarity)
 		save_manager.grant_card_reward(reward_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
-		session_stats["cards_earned"] = int(session_stats.get("cards_earned", 0)) + 1
+		_bump_session_stat("cards_earned", 1)
 	GameBus.siege_victory.emit()
 	show_toast("Siege Defeated!", "%s thanks you! +%d coins + rare card" % [town.capitalize(), SIEGE_VICTORY_COINS])
 

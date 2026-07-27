@@ -83,9 +83,7 @@ func _ready() -> void:
 			_static_sprite.texture = TextureGen.npc_maiteln()
 			_static_sprite.pixel_size = 0.04
 			_static_sprite.position = Vector3(0.0, 0.69, 0.0)
-		_static_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		_static_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-		_static_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_SpriteRegistry.apply_billboard_flags(_static_sprite)
 		add_child(_static_sprite)
 
 	add_child(_SpriteRegistry.make_name_label("Maiteln", Color(0.75, 0.85, 1.0)))
@@ -94,24 +92,11 @@ func _ready() -> void:
 ## mirroring AvatarSprite.build()'s pattern (BID-051: Maiteln is the only
 ## non-player entity that visibly moves, so he's the only one worth animating).
 func _build_animated_sprite(idle_tex: Texture2D, walk_frames: Array[Texture2D]) -> AnimatedSprite3D:
-	var sf := SpriteFrames.new()
-	sf.add_animation("idle")
-	sf.set_animation_loop("idle", true)
-	sf.set_animation_speed("idle", ANIM_FPS)
-	sf.add_frame("idle", idle_tex)
-	sf.add_animation("walk")
-	sf.set_animation_loop("walk", true)
-	sf.set_animation_speed("walk", ANIM_FPS)
-	for frame in walk_frames:
-		sf.add_frame("walk", frame)
-	if sf.has_animation("default"):
-		sf.remove_animation("default")
+	var sf: SpriteFrames = _SpriteRegistry.make_idle_walk_frames(idle_tex, walk_frames, ANIM_FPS)
 	var anim := AnimatedSprite3D.new()
 	anim.sprite_frames = sf
 	anim.pixel_size = _SpriteRegistry.CHAR_PIXEL_SIZE
-	anim.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	anim.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	anim.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	_SpriteRegistry.apply_billboard_flags(anim)
 	anim.position = Vector3(0.0, float(idle_tex.get_height()) * _SpriteRegistry.CHAR_PIXEL_SIZE * 0.5 + _SpriteRegistry.FEET_MARGIN, 0.0)
 	anim.play("idle")
 	return anim

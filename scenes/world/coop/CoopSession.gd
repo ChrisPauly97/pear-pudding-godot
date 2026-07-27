@@ -60,8 +60,8 @@ func _setup_coop() -> void:
 	if _world._net_sync == null or not is_instance_valid(_world._net_sync):
 		_world._net_sync = _NetSyncScript.new()
 		_world._net_sync.name = "NetSync"
-		_world._net_sync.set("world_scene", self)
-		add_child(_world._net_sync)
+		_world._net_sync.set("world_scene", _world)
+		_world.add_child(_world._net_sync)
 	_world._ensure_coop_modules()
 
 	NetworkManager.peer_connected.connect(_on_coop_peer_connected)
@@ -141,7 +141,7 @@ func _spawn_remote_player(pid: int) -> void:
 	var spawn_x: float = base_x + off.x
 	var spawn_z: float = base_z + off.y
 	var rp: Node3D = _RemotePlayerScene.instantiate() as Node3D
-	rp.set("world_scene", self)
+	rp.set("world_scene", _world)
 	rp.init_from_data({"peer_id": pid, "x": spawn_x, "z": spawn_z})
 	# Map-scoped sync (TID-352): hidden until the first packet confirms the peer is on
 	# our map, so a peer on a different map never flashes a cross-map ghost on load.
