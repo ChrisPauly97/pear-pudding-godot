@@ -455,44 +455,7 @@ func _ready() -> void:
 	else:
 		_spawn_player()
 
-	if _is_infinite:
-		var floor_body := StaticBody3D.new()
-		floor_body.collision_layer = 2
-		floor_body.collision_mask = 0
-		var floor_col := CollisionShape3D.new()
-		floor_col.shape = WorldBoundaryShape3D.new()
-		floor_body.add_child(floor_col)
-		add_child(floor_body)
-		var _inf_ref: Vector3 = _player.position if _player != null else _server_ref_pos
-		_csm.build_initial_infinite(_inf_ref)
-		if not NetworkManager.is_dedicated_server():
-			_spawn_open_world_rival_enc2()
-			_spawn_wilderness_camp()
-			_spawn_scout_ambush()
-			if map_name == "main":
-				_spawn_return_portal()
-	else:
-		# Named map: load all chunks covering the 100×100 tile map synchronously
-		var max_cx: int = (WorldMap.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
-		var max_cz: int = (WorldMap.MAP_HEIGHT + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
-		var _named_ref: Vector3 = _player.position if _player != null else _server_ref_pos
-		_csm.build_all_named_map(max_cx, max_cz, _named_ref)
-		_spawn_named_map_scrolls()
-		_spawn_named_map_shrines()
-		_spawn_named_map_waystones()
-		_spawn_named_map_mailboxes()
-		_spawn_named_map_rivals()
-		if map_name == "player_home":
-			_spawn_player_home_trophies()
-			_spawn_player_home_garden()
-		_check_story_siege_trigger(map_name)
-		_check_siege_spawn(map_name)
-		# Set chapter1_reached_blancogov when the player enters blancogov
-		if map_name == "blancogov" or map_name == "blancogov_temple":
-			SceneManager.save_manager.set_story_flag("chapter1_reached_blancogov")
-		# Chapter 2 beat 2 (GID-108 / TID-407): set on first entry to larik.
-		if map_name == "larik":
-			SceneManager.save_manager.set_story_flag("chapter2_reached_larik")
+	_populate_world(_server_ref_pos)
 
 	# Re-enter any battle that was interrupted (e.g. app quit mid-fight).
 	# Dedicated server has no local player, so this is skipped.
@@ -501,46 +464,7 @@ func _ready() -> void:
 		GameBus.enemy_engaged.emit.call_deferred(SceneManager.save_manager.pending_battle_enemy_data)
 
 	if not NetworkManager.is_dedicated_server():
-		_interact_label.hide()
-		_interact_label.text = "[Tap] Interact" if OS.has_feature("android") else "[E] Interact"
-
-		var joystick := VirtualJoystickScript.new()
-		_hud.add_child(joystick)
-		_joystick_ref = joystick
-
-		var vh: float = get_viewport().get_visible_rect().size.y
-		_map_label.add_theme_font_size_override("font_size", int(vh * 0.032))
-		_coin_label.add_theme_font_size_override("font_size", int(vh * 0.03))
-		_interact_label.add_theme_font_size_override("font_size", int(vh * 0.03))
-
-		# WorldHUD owns all dynamically-created buttons, labels, and display state.
-		_world_hud = WorldHUD.new()
-		_world_hud.name = "WorldHUD"
-		add_child(_world_hud)
-		_world_hud.setup(_hud, _is_infinite, map_name, _interact_label, self)
-		_world_hud.build_bounty_tracker()
-
-		# Must run after _world_hud exists — _update_hud refreshes the XP bar via it.
-		_update_hud()
-
-		if not SceneManager.save_manager.get_story_flag("tutorial_inventory_tip"):
-			SceneManager.save_manager.set_story_flag("tutorial_inventory_tip")
-			var inv_tip: String = "Tap the Inventory button to manage your deck." \
-				if OS.has_feature("android") else "Press B or tap Bag to manage your deck."
-			_world_hud.show_tip.call_deferred(inv_tip)
-
-		_minimap = Minimap.new()
-		add_child(_minimap)
-		_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
-		if _is_infinite:
-			_minimap.tapped.connect(_open_fast_travel_panel)
-		else:
-			_minimap.tapped.connect(_open_map_view)
-
-		GameBus.hud_message_requested.connect(func(text: String) -> void: _world_hud.show_dialogue(text))
-		GameBus.story_scroll_collected.connect(_on_scroll_collected)
-		GameBus.waystone_activated.connect(_on_waystone_activated)
-		GameBus.narration_overlay_requested.connect(_on_narration_overlay_requested)
+		_build_player_hud()
 
 	# DungeonSessionUI owns dungeon room overlay panels and hero HP tracking.
 	if not NetworkManager.is_dedicated_server():
@@ -624,6 +548,96 @@ func _ready() -> void:
 ## Resolves `world_map` for a non-infinite map. Procedural dungeon and spire
 ## floors are generated on first visit and re-read from their saved .tres on
 ## every later one; everything else is a hand-authored map resource.
+
+## Fills the world once terrain streaming is up: the infinite world gets its
+## boundary floor and the first ring of chunks; a named map loads every chunk
+## covering its fixed grid and spawns its authored entities. `server_ref_pos`
+## stands in for the player position on a dedicated server, which has none.
+func _populate_world(server_ref_pos: Vector3) -> void:
+	if _is_infinite:
+		var floor_body := StaticBody3D.new()
+		floor_body.collision_layer = 2
+		floor_body.collision_mask = 0
+		var floor_col := CollisionShape3D.new()
+		floor_col.shape = WorldBoundaryShape3D.new()
+		floor_body.add_child(floor_col)
+		add_child(floor_body)
+		var _inf_ref: Vector3 = _player.position if _player != null else server_ref_pos
+		_csm.build_initial_infinite(_inf_ref)
+		if not NetworkManager.is_dedicated_server():
+			_spawn_open_world_rival_enc2()
+			_spawn_wilderness_camp()
+			_spawn_scout_ambush()
+			if map_name == "main":
+				_spawn_return_portal()
+	else:
+		# Named map: load all chunks covering the 100×100 tile map synchronously
+		var max_cx: int = (WorldMap.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
+		var max_cz: int = (WorldMap.MAP_HEIGHT + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
+		var _named_ref: Vector3 = _player.position if _player != null else server_ref_pos
+		_csm.build_all_named_map(max_cx, max_cz, _named_ref)
+		_spawn_named_map_scrolls()
+		_spawn_named_map_shrines()
+		_spawn_named_map_waystones()
+		_spawn_named_map_mailboxes()
+		_spawn_named_map_rivals()
+		if map_name == "player_home":
+			_spawn_player_home_trophies()
+			_spawn_player_home_garden()
+		_check_story_siege_trigger(map_name)
+		_check_siege_spawn(map_name)
+		# Set chapter1_reached_blancogov when the player enters blancogov
+		if map_name == "blancogov" or map_name == "blancogov_temple":
+			SceneManager.save_manager.set_story_flag("chapter1_reached_blancogov")
+		# Chapter 2 beat 2 (GID-108 / TID-407): set on first entry to larik.
+		if map_name == "larik":
+			SceneManager.save_manager.set_story_flag("chapter2_reached_larik")
+
+## Builds everything the local player sees: joystick, HUD labels, WorldHUD,
+## minimap, and the HUD-facing GameBus connections. Never runs on a dedicated
+## server, which has no player and no HUD.
+func _build_player_hud() -> void:
+	_interact_label.hide()
+	_interact_label.text = "[Tap] Interact" if OS.has_feature("android") else "[E] Interact"
+
+	var joystick := VirtualJoystickScript.new()
+	_hud.add_child(joystick)
+	_joystick_ref = joystick
+
+	var vh: float = get_viewport().get_visible_rect().size.y
+	_map_label.add_theme_font_size_override("font_size", int(vh * 0.032))
+	_coin_label.add_theme_font_size_override("font_size", int(vh * 0.03))
+	_interact_label.add_theme_font_size_override("font_size", int(vh * 0.03))
+
+	# WorldHUD owns all dynamically-created buttons, labels, and display state.
+	_world_hud = WorldHUD.new()
+	_world_hud.name = "WorldHUD"
+	add_child(_world_hud)
+	_world_hud.setup(_hud, _is_infinite, map_name, _interact_label, self)
+	_world_hud.build_bounty_tracker()
+
+	# Must run after _world_hud exists — _update_hud refreshes the XP bar via it.
+	_update_hud()
+
+	if not SceneManager.save_manager.get_story_flag("tutorial_inventory_tip"):
+		SceneManager.save_manager.set_story_flag("tutorial_inventory_tip")
+		var inv_tip: String = "Tap the Inventory button to manage your deck." \
+			if OS.has_feature("android") else "Press B or tap Bag to manage your deck."
+		_world_hud.show_tip.call_deferred(inv_tip)
+
+	_minimap = Minimap.new()
+	add_child(_minimap)
+	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
+	if _is_infinite:
+		_minimap.tapped.connect(_open_fast_travel_panel)
+	else:
+		_minimap.tapped.connect(_open_map_view)
+
+	GameBus.hud_message_requested.connect(func(text: String) -> void: _world_hud.show_dialogue(text))
+	GameBus.story_scroll_collected.connect(_on_scroll_collected)
+	GameBus.waystone_activated.connect(_on_waystone_activated)
+	GameBus.narration_overlay_requested.connect(_on_narration_overlay_requested)
+
 func _load_named_map() -> void:
 	if map_name.begins_with("dungeon_"):
 		var dseed: int = int(map_name.substr(8))
@@ -2392,61 +2406,7 @@ func _handle_interact() -> void:
 
 	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
 	if not chest.is_empty() and not chest.get("opened", false):
-		if chest.get("is_mimic", false):
-			AudioManager.play_sfx("enemy_alert")
-			SceneManager.show_toast("It's a Mimic!", "Prepare for battle!")
-			var mimic_deck: Array[String] = []
-			mimic_deck.assign(EnemyRegistry.get_deck("mimic"))
-			var mimic_data: Dictionary = {
-				"id": str(chest.get("id", "mimic_0")),
-				"x": chest.get("x", px),
-				"z": chest.get("z", pz),
-				"alive": true, "tracking": false,
-				"enemy_type": "mimic",
-				"enemy_deck": mimic_deck,
-			}
-			GameBus.enemy_engaged.emit(mimic_data)
-			return
-		chest["opened"] = true
-		AudioManager.play_sfx("chest_open")
-		if OS.has_feature("mobile") and bool(SceneManager.save_manager.get_setting("haptics", true)):
-			Input.vibrate_handheld(40)
-		var cid: String = str(chest.get("id", ""))
-		SceneManager.save_manager.mark_chest_opened(cid)
-		SceneManager.save_manager.increment_bounty_progress("open_chests", {})
-		SceneManager.session_stats["chests_opened"] = int(SceneManager.session_stats.get("chests_opened", 0)) + 1
-		var node := _valid_node3d(_chest_nodes.get(cid))
-		if node and node.has_method("mark_opened"):
-			node.mark_opened()
-		# Co-op (GID-096): reflect + persist the open for all players (this opener
-		# keeps the loot below; peers only see the chest flip open). Inert solo.
-		coop_session._on_chest_opened_coop(cid)
-		var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
-		var chest_card_ids: Array[String] = []
-		chest_card_ids.assign(chest.get("card_ids", []))
-		# Tier: treasure rooms (dtr_) = 3, dungeon chests (dc_) = 2, world chests = 1
-		var chest_tier: int = 1
-		if cid.begins_with("dtr_"):
-			chest_tier = 3
-		elif cid.begins_with("dc_"):
-			chest_tier = 2
-		# Party loot rolls (GID-102 / TID-381): when need/greed mode is on for this
-		# co-op session, the opener does NOT keep the loot below — the authority
-		# opens a roll among present session members and grants it to the winner
-		# instead. Default (first-opener-takes) and single-player are unchanged.
-		if _coop_active and coop_activities._coop_loot_mode_is_need_greed():
-			coop_activities._start_loot_roll(cid, chest_tier)
-			return
-		# 20% chance to drop a map fragment instead of normal loot (only if no active map)
-		var sm := SceneManager.save_manager
-		if _is_infinite and sm.active_treasure.is_empty() and randf() < 0.20:
-			sm.collect_treasure_fragment()
-		else:
-			_spawn_card_items(chest_card_ids, chest_pos, chest_tier)
-			_spawn_coin_piles(chest_pos)
-			# Treasure rooms (dtr_ prefix) have a 40% weapon drop chance vs standard 15%
-			var weapon_chance: float = 0.40 if cid.begins_with("dtr_") else 0.15
-			_maybe_drop_equipment_from_chest(weapon_chance)
+		_open_chest(chest, px, pz)
 		return
 
 	if not _is_infinite and world_map != null:
@@ -2457,57 +2417,7 @@ func _handle_interact() -> void:
 
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	if not npc.is_empty():
-		if str(npc.get("npc_type", "")) == "traveling_merchant":
-			var stock: Array[String] = []
-			var raw: Variant = npc.get("merchant_stock", [])
-			if raw is Array:
-				stock.assign(raw as Array)
-			GameBus.traveling_shop_requested.emit(stock, 30)
-			return
-		if str(npc.get("npc_type", "")) == "merchant":
-			GameBus.shop_requested.emit()
-			return
-		if str(npc.get("npc_type", "")) == "blacksmith":
-			GameBus.blacksmith_requested.emit()
-			return
-		if str(npc.get("npc_type", "")) == "bounty_board":
-			GameBus.bounty_board_requested.emit()
-			return
-		if str(npc.get("npc_type", "")) == "stable":
-			_show_stable_panel()
-			return
-		if str(npc.get("npc_type", "")) == "duelist":
-			_show_duel_offer_panel(npc)
-			return
-		if str(npc.get("npc_type", "")) == "rest_site":
-			_dungeon_session_ui.show_rest_site_panel(npc)
-			return
-		if str(npc.get("npc_type", "")) == "event_room":
-			_dungeon_session_ui.show_event_panel(npc)
-			return
-		if str(npc.get("npc_type", "")) == "bed":
-			_handle_bed_interaction()
-			return
-		if str(npc.get("npc_type", "")) == "trophy_pedestal":
-			_show_trophy_info(npc)
-			return
-		if str(npc.get("npc_type", "")) == "chapter1_king_eldar":
-			_handle_king_eldar_interaction(npc)
-			return
-		if str(npc.get("npc_type", "")) == "stash_chest":
-			coop_social._toggle_stash_overlay()
-			return
-		var nid: String = str(npc.get("id", ""))
-		var nnode := _valid_node3d(_npc_nodes.get(nid))
-		var dlg: String
-		if nnode != null and nnode.has_method("get_dialogue"):
-			dlg = nnode.get_dialogue()
-			var fk: String = str(npc.get("flag_key", ""))
-			if fk != "":
-				SceneManager.save_manager.set_story_flag(fk)
-		else:
-			dlg = str(npc.get("dialogue", "..."))
-		_show_dialogue(dlg)
+		_interact_with_npc(npc)
 		return
 
 	if _try_simple_interaction(px, pz):
@@ -2547,6 +2457,123 @@ func _handle_interact() -> void:
 		_show_garden_plot_panel(garden_plot)
 
 # ── Spire entrance ─────────────────────────────────────────────────────────
+
+
+## Opens a chest the player is standing at: springs the mimic ambush, or marks
+## it open, syncs that to the party, and spawns its loot — or starts a
+## need/greed roll instead when the session is in that mode.
+func _open_chest(chest: Dictionary, px: float, pz: float) -> void:
+	if chest.get("is_mimic", false):
+		AudioManager.play_sfx("enemy_alert")
+		SceneManager.show_toast("It's a Mimic!", "Prepare for battle!")
+		var mimic_deck: Array[String] = []
+		mimic_deck.assign(EnemyRegistry.get_deck("mimic"))
+		var mimic_data: Dictionary = {
+			"id": str(chest.get("id", "mimic_0")),
+			"x": chest.get("x", px),
+			"z": chest.get("z", pz),
+			"alive": true, "tracking": false,
+			"enemy_type": "mimic",
+			"enemy_deck": mimic_deck,
+		}
+		GameBus.enemy_engaged.emit(mimic_data)
+		return
+	chest["opened"] = true
+	AudioManager.play_sfx("chest_open")
+	if OS.has_feature("mobile") and bool(SceneManager.save_manager.get_setting("haptics", true)):
+		Input.vibrate_handheld(40)
+	var cid: String = str(chest.get("id", ""))
+	SceneManager.save_manager.mark_chest_opened(cid)
+	SceneManager.save_manager.increment_bounty_progress("open_chests", {})
+	SceneManager.session_stats["chests_opened"] = int(SceneManager.session_stats.get("chests_opened", 0)) + 1
+	var node := _valid_node3d(_chest_nodes.get(cid))
+	if node and node.has_method("mark_opened"):
+		node.mark_opened()
+	# Co-op (GID-096): reflect + persist the open for all players (this opener
+	# keeps the loot below; peers only see the chest flip open). Inert solo.
+	coop_session._on_chest_opened_coop(cid)
+	var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
+	var chest_card_ids: Array[String] = []
+	chest_card_ids.assign(chest.get("card_ids", []))
+	# Tier: treasure rooms (dtr_) = 3, dungeon chests (dc_) = 2, world chests = 1
+	var chest_tier: int = 1
+	if cid.begins_with("dtr_"):
+		chest_tier = 3
+	elif cid.begins_with("dc_"):
+		chest_tier = 2
+	# Party loot rolls (GID-102 / TID-381): when need/greed mode is on for this
+	# co-op session, the opener does NOT keep the loot below — the authority
+	# opens a roll among present session members and grants it to the winner
+	# instead. Default (first-opener-takes) and single-player are unchanged.
+	if _coop_active and coop_activities._coop_loot_mode_is_need_greed():
+		coop_activities._start_loot_roll(cid, chest_tier)
+		return
+	# 20% chance to drop a map fragment instead of normal loot (only if no active map)
+	var sm := SceneManager.save_manager
+	if _is_infinite and sm.active_treasure.is_empty() and randf() < 0.20:
+		sm.collect_treasure_fragment()
+	else:
+		_spawn_card_items(chest_card_ids, chest_pos, chest_tier)
+		_spawn_coin_piles(chest_pos)
+		# Treasure rooms (dtr_ prefix) have a 40% weapon drop chance vs standard 15%
+		var weapon_chance: float = 0.40 if cid.begins_with("dtr_") else 0.15
+		_maybe_drop_equipment_from_chest(weapon_chance)
+	return
+
+## Runs the interaction for whichever NPC type the player is standing at.
+func _interact_with_npc(npc: Dictionary) -> void:
+	if str(npc.get("npc_type", "")) == "traveling_merchant":
+		var stock: Array[String] = []
+		var raw: Variant = npc.get("merchant_stock", [])
+		if raw is Array:
+			stock.assign(raw as Array)
+		GameBus.traveling_shop_requested.emit(stock, 30)
+		return
+	if str(npc.get("npc_type", "")) == "merchant":
+		GameBus.shop_requested.emit()
+		return
+	if str(npc.get("npc_type", "")) == "blacksmith":
+		GameBus.blacksmith_requested.emit()
+		return
+	if str(npc.get("npc_type", "")) == "bounty_board":
+		GameBus.bounty_board_requested.emit()
+		return
+	if str(npc.get("npc_type", "")) == "stable":
+		_show_stable_panel()
+		return
+	if str(npc.get("npc_type", "")) == "duelist":
+		_show_duel_offer_panel(npc)
+		return
+	if str(npc.get("npc_type", "")) == "rest_site":
+		_dungeon_session_ui.show_rest_site_panel(npc)
+		return
+	if str(npc.get("npc_type", "")) == "event_room":
+		_dungeon_session_ui.show_event_panel(npc)
+		return
+	if str(npc.get("npc_type", "")) == "bed":
+		_handle_bed_interaction()
+		return
+	if str(npc.get("npc_type", "")) == "trophy_pedestal":
+		_show_trophy_info(npc)
+		return
+	if str(npc.get("npc_type", "")) == "chapter1_king_eldar":
+		_handle_king_eldar_interaction(npc)
+		return
+	if str(npc.get("npc_type", "")) == "stash_chest":
+		coop_social._toggle_stash_overlay()
+		return
+	var nid: String = str(npc.get("id", ""))
+	var nnode := _valid_node3d(_npc_nodes.get(nid))
+	var dlg: String
+	if nnode != null and nnode.has_method("get_dialogue"):
+		dlg = nnode.get_dialogue()
+		var fk: String = str(npc.get("flag_key", ""))
+		if fk != "":
+			SceneManager.save_manager.set_story_flag(fk)
+	else:
+		dlg = str(npc.get("dialogue", "..."))
+	_show_dialogue(dlg)
+	return
 
 func _show_spire_entrance_panel() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
