@@ -434,6 +434,12 @@ func exit_map() -> void:
 	_flush_position_save()
 	# Spire: exiting a floor loads the next floor rather than popping the map stack.
 	if save_manager.is_spire_active() and current_map.begins_with("spire_floor_"):
+		# The draft overlay doesn't pause world input, so the player can reach the
+		# exit door with a pick still owed. Advancing would rebuild the scene and
+		# take the unclaimed card with it, so hold the door until they pick.
+		if is_spire_draft_open():
+			GameBus.hud_message_requested.emit("Choose a card before climbing higher.")
+			return
 		_advance_spire_floor()
 		return
 	# Co-op Endless Spire (GID-106 / TID-391): floor advancement is fully automatic
@@ -486,9 +492,9 @@ func _exit_world_cleanup() -> void:
 		if overlay != null:
 			overlay.queue_free()
 	_overlays.clear()
-	if _spire_draft_overlay != null:
+	if is_instance_valid(_spire_draft_overlay):
 		_spire_draft_overlay.queue_free()
-		_spire_draft_overlay = null
+	_spire_draft_overlay = null
 	if _pack_open_overlay != null:
 		_pack_open_overlay.queue_free()
 		_pack_open_overlay = null
@@ -943,7 +949,17 @@ func _finish_battle(clear_pending: bool = true) -> void:
 	save_manager.save()
 	_dismiss_battle_overlay()
 
-func _restore_world() -> void:
+## Re-attaches the world scene that was detached for a battle/puzzle.
+##
+## `after` runs *inside* the transition callback, once `current_scene` is the
+## live WorldScene again. Anything that parents an overlay to `current_scene`
+## must go through it: TransitionManager.transition() awaits a 0.2 s fade before
+## running its callback, so a caller that does `_restore_world()` then
+## `current_scene.add_child(overlay)` on the next line is still looking at the
+## already-`queue_free()`d battle overlay and the overlay dies with it at the end
+## of the frame (the Spire draft never appearing after a floor win — see
+## tests/spire_draft_smoke.gd).
+func _restore_world(after: Callable = Callable()) -> void:
 	_proximity_engage_blocked = true
 	get_tree().create_timer(2.0, false).timeout.connect(
 		func() -> void: _proximity_engage_blocked = false)
@@ -952,7 +968,9 @@ func _restore_world() -> void:
 			get_tree().root.add_child(_saved_world_scene)
 			get_tree().current_scene = _saved_world_scene
 			_saved_world_scene = null
-		_state = State.WORLD)
+		_state = State.WORLD
+		if after.is_valid():
+			after.call())
 
 func _on_puzzle_requested(puzzle_id: String) -> void:
 	const PuzzleRegistry_cls = preload("res://autoloads/PuzzleRegistry.gd")
@@ -1193,9 +1211,9 @@ func _spire_battle_won(result: Dictionary) -> bool:
 	save_manager.increment_progress("battles_won", 1)
 	_bump_session_stat("battles_won", 1)
 	_finish_battle()
-	_restore_world()
-	_show_spire_draft(curr_floor)
-	return true
+	# The draft is deferred into _restore_world's post-swap callback so it parents
+	# to the live WorldScene rather than the dying battle overlay.
+	_restore_world(_show_spire_draft.bind(curr_floor))
 	return true
 
 ## Siege gauntlet stage cleared: chain to the next stage or apply the victory.
@@ -1611,11 +1629,26 @@ func enter_spire() -> void:
 		GameBus.tutorial_popup_requested.emit("spire_intro")
 		enter_map("spire_floor_1_%d" % seed, "")
 
+## Shows the post-floor draft. Only ever called from _restore_world's post-swap
+## callback (see _spire_battle_won) — parenting it to a `current_scene` that is
+## still the battle overlay silently destroys it.
 func _show_spire_draft(floor: int) -> void:
+	if is_spire_draft_open():
+		return
+	var host: Node = get_tree().current_scene
+	if host == null or not host.is_inside_tree():
+		push_warning("SceneManager: no live scene to host the Spire draft — skipping floor %d draft." % floor)
+		return
 	_spire_draft_overlay = _spire_draft_scene_packed.instantiate()
-	get_tree().current_scene.add_child(_spire_draft_overlay)
+	host.add_child(_spire_draft_overlay)
 	_spire_draft_overlay.setup(floor)
 	_spire_draft_overlay.picked.connect(_on_spire_draft_picked)
+
+## True while the player still owes a pick. The overlay has no cancel path, so
+## this is also what keeps the exit door from advancing the floor out from under
+## an unclaimed draft (see exit_map).
+func is_spire_draft_open() -> bool:
+	return is_instance_valid(_spire_draft_overlay)
 
 func _on_spire_draft_picked(_card_id: String) -> void:
 	_spire_draft_overlay = null  # SpireDraftScene.queue_free()s itself in _on_pick

@@ -78,6 +78,7 @@ jobs:
         run: |
           godot --headless --path . -s tests/world_scene_smoke.gd
           godot --headless --path . -s tests/menu_hub_smoke.gd
+          godot --headless --path . -s tests/spire_draft_smoke.gd
 
   lint:
     name: gdlint
