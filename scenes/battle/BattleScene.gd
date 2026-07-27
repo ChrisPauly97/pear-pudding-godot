@@ -308,110 +308,7 @@ func _ready() -> void:
 		_bump_card_next_id(_state)
 		SceneManager.save_manager.clear_pending_battle_state()
 	else:
-		_state = GameState.new()
-		_resolver.setup(_state)
-		_wire_gamebus_emitter()
-
-		# Player deck: spire run uses its run-local draft deck; otherwise use the
-		# persistent player deck. Floor 1 starter gives 8 basics before any pick.
-		var player_deck: Array[String] = []
-		if SceneManager.save_manager.is_spire_active():
-			var draft: Array = SceneManager.save_manager.get_spire_run().get("draft_deck", [])
-			if draft.size() > 0:
-				player_deck.assign(draft)
-			else:
-				player_deck = ["ghost", "ghost", "skeleton", "skeleton",
-							   "zombie", "zombie", "ghoul", "ghoul"]
-		elif SceneManager.save_manager.player_deck.size() > 0:
-			# Use per-instance build so rolled stats and rank bonuses apply (GID-060).
-			_state.players[0].build_deck_from_instances(SceneManager.save_manager.get_deck_instances())
-		else:
-			player_deck = ["ghost", "skeleton", "zombie", "ghoul",
-						   "ghost", "skeleton", "zombie", "ghoul",
-						   "ghost", "skeleton", "zombie", "ghoul"]
-		if not player_deck.is_empty():
-			var _dark_aligned: bool = CardRegistry.is_dark_aligned()
-			_state.players[0].build_deck(player_deck, 0, _dark_aligned)
-		_apply_equipment_effects(_state.players[0])
-		_apply_passive_skills(_state.players[0])
-		_state.players[0].draw_opening_hand(4)
-		# Spire run: hero HP persists across floors (damage carries over).
-		if SceneManager.save_manager.is_spire_active():
-			var _spire_hp: int = int(SceneManager.save_manager.get_spire_run().get("hero_hp", 30))
-			if _spire_hp > 0:
-				_state.players[0].hero.health = mini(_spire_hp, _state.players[0].hero.max_health)
-		# Siege gauntlet: hero HP carries over from the previous stage.
-		var _siege_state: Dictionary = SceneManager.save_manager.get_active_siege()
-		if not _siege_state.is_empty():
-			var _siege_hp: int = int(_siege_state.get("hero_hp", 30))
-			if _siege_hp > 0:
-				_state.players[0].hero.health = _siege_hp
-				_state.players[0].hero.max_health = _siege_hp
-
-		# Enemy deck — scale card stats by enemy difficulty tier
-		var _enemy_type: String = str(enemy_data.get("enemy_type", ""))
-		var _enemy_tier: int = EnemyRegistry.get_difficulty_tier(_enemy_type) if _enemy_type != "" else 1
-		if bool(enemy_data.get("is_boss", false)):
-			_enemy_tier = 4
-		# Emboldened Foe gambit: set bonus before build_deck so it is applied to the draw_deck
-		# and persists for boss phase-2 rebuild via PlayerState.minion_attack_bonus.
-		var _gambit_id: String = str(enemy_data.get("gambit_id", ""))
-		if _gambit_id == "emboldened_foe":
-			_state.players[1].minion_attack_bonus = 1
-		if enemy_data.has("enemy_deck"):
-			var enemy_deck: Array[String] = []
-			enemy_deck.assign(enemy_data["enemy_deck"])
-			_state.players[1].build_deck(enemy_deck, _enemy_tier)
-			_state.players[1].draw_opening_hand(4)
-
-		# Boss setup: override enemy hero HP and show name banner
-		if bool(enemy_data.get("is_boss", false)):
-			var bhp: int = int(enemy_data.get("boss_hp", 0))
-			if bhp > 0:
-				_state.players[1].hero.health = bhp
-				_state.players[1].hero.max_health = bhp
-			_result_ui.show_boss_banner(enemy_data)
-
-		# Blighted zone buff: non-blight-heart enemies get +5 HP in blighted chunks.
-		if bool(enemy_data.get("is_blighted", false)) and not enemy_data.has("blight_heart_id"):
-			_state.players[1].hero.health += 5
-			_state.players[1].hero.max_health += 5
-			GameBus.hud_message_requested.emit("The blight empowers your foe…")
-
-		# Apply remaining gambit handicaps now that all decks and HP are set.
-		_apply_gambit_handicaps(_gambit_id)
-
-		# start_turn draws 1 card + bonus_draw (from passive_draw skills/equipment).
-		# bonus_mana (from passive_mana skills) was set above, so gain_mana_for_turn
-		# already uses it: max_mana = mini(10, 1 + bonus_mana).
-		_state.players[0].start_turn(1)
-		# Attuned buff (GID-068): +1 mana on turn 1 when engaged on a ley line.
-		if bool(enemy_data.get("player_attuned", false)):
-			_state.players[0].hero.mana = mini(10, _state.players[0].hero.mana + 1)
-			GameBus.hud_message_requested.emit("Attuned: +1 mana this turn.")
-		if duel_wager > 0:
-			_state.friendly_duel = true
-			_state.wager_coins = duel_wager
-
-		# Apply weather modifiers (only in infinite world)
-		_battle_weather = WeatherManager.current_weather if SceneManager.save_manager.current_map == "main" else ""
-		_apply_weather_battle_init()
-
-		# Battlefield Resonance context (GID-059): stamp biome + is_night into GameState.
-		var _bf_biome: int = int(enemy_data.get("battlefield_biome", -1))
-		var _bf_night: bool = bool(enemy_data.get("battlefield_is_night", false))
-		_state.set_battlefield_context(_bf_biome, _bf_night)
-
-		# Companion passive: battle-start effects (extra_mana, hero_armor) and
-		# first turn-start draw (draw_card). Excluded in puzzle and duel modes.
-		_apply_companion_battle_start(_state.players[0])
-		_apply_companion_turn_start()
-		# Flush auto-resolve spells collected from opening hand + turn-1 draw.
-		# Must run after enemy deck is built so spells target the real enemy.
-		_resolver.flush_auto_spells(0)
-
-	_fx.set_game_state(_state)
-	_view.set_battle_state(_state, enemy_data)
+		_setup_solo_battle()
 
 	# Initialise capture tracker for the current enemy (no-op for puzzles/duels/PvP/ghost duels).
 	if not _state.puzzle_mode and not _state.friendly_duel and not _pvp and not _ghost_duel and not _state.scripted_battle:
@@ -477,6 +374,118 @@ func _ready() -> void:
 			GameBus.tutorial_popup_requested.emit("tap_and_hold")
 	else:
 		_maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
+
+
+## Builds an ordinary single-player battle: the player deck (spire draft, saved
+## collection, or the starter fallback), equipment and passive-skill effects,
+## the opening hand, carried-over hero HP for spire and siege runs, and the
+## tier-scaled enemy deck. The networked and scripted modes each build their own
+## state above and never reach here.
+func _setup_solo_battle() -> void:
+	_state = GameState.new()
+	_resolver.setup(_state)
+	_wire_gamebus_emitter()
+
+	# Player deck: spire run uses its run-local draft deck; otherwise use the
+	# persistent player deck. Floor 1 starter gives 8 basics before any pick.
+	var player_deck: Array[String] = []
+	if SceneManager.save_manager.is_spire_active():
+		var draft: Array = SceneManager.save_manager.get_spire_run().get("draft_deck", [])
+		if draft.size() > 0:
+			player_deck.assign(draft)
+		else:
+			player_deck = ["ghost", "ghost", "skeleton", "skeleton",
+						   "zombie", "zombie", "ghoul", "ghoul"]
+	elif SceneManager.save_manager.player_deck.size() > 0:
+		# Use per-instance build so rolled stats and rank bonuses apply (GID-060).
+		_state.players[0].build_deck_from_instances(SceneManager.save_manager.get_deck_instances())
+	else:
+		player_deck = ["ghost", "skeleton", "zombie", "ghoul",
+					   "ghost", "skeleton", "zombie", "ghoul",
+					   "ghost", "skeleton", "zombie", "ghoul"]
+	if not player_deck.is_empty():
+		var _dark_aligned: bool = CardRegistry.is_dark_aligned()
+		_state.players[0].build_deck(player_deck, 0, _dark_aligned)
+	_apply_equipment_effects(_state.players[0])
+	_apply_passive_skills(_state.players[0])
+	_state.players[0].draw_opening_hand(4)
+	# Spire run: hero HP persists across floors (damage carries over).
+	if SceneManager.save_manager.is_spire_active():
+		var _spire_hp: int = int(SceneManager.save_manager.get_spire_run().get("hero_hp", 30))
+		if _spire_hp > 0:
+			_state.players[0].hero.health = mini(_spire_hp, _state.players[0].hero.max_health)
+	# Siege gauntlet: hero HP carries over from the previous stage.
+	var _siege_state: Dictionary = SceneManager.save_manager.get_active_siege()
+	if not _siege_state.is_empty():
+		var _siege_hp: int = int(_siege_state.get("hero_hp", 30))
+		if _siege_hp > 0:
+			_state.players[0].hero.health = _siege_hp
+			_state.players[0].hero.max_health = _siege_hp
+
+	# Enemy deck — scale card stats by enemy difficulty tier
+	var _enemy_type: String = str(enemy_data.get("enemy_type", ""))
+	var _enemy_tier: int = EnemyRegistry.get_difficulty_tier(_enemy_type) if _enemy_type != "" else 1
+	if bool(enemy_data.get("is_boss", false)):
+		_enemy_tier = 4
+	# Emboldened Foe gambit: set bonus before build_deck so it is applied to the draw_deck
+	# and persists for boss phase-2 rebuild via PlayerState.minion_attack_bonus.
+	var _gambit_id: String = str(enemy_data.get("gambit_id", ""))
+	if _gambit_id == "emboldened_foe":
+		_state.players[1].minion_attack_bonus = 1
+	if enemy_data.has("enemy_deck"):
+		var enemy_deck: Array[String] = []
+		enemy_deck.assign(enemy_data["enemy_deck"])
+		_state.players[1].build_deck(enemy_deck, _enemy_tier)
+		_state.players[1].draw_opening_hand(4)
+
+	# Boss setup: override enemy hero HP and show name banner
+	if bool(enemy_data.get("is_boss", false)):
+		var bhp: int = int(enemy_data.get("boss_hp", 0))
+		if bhp > 0:
+			_state.players[1].hero.health = bhp
+			_state.players[1].hero.max_health = bhp
+		_result_ui.show_boss_banner(enemy_data)
+
+	# Blighted zone buff: non-blight-heart enemies get +5 HP in blighted chunks.
+	if bool(enemy_data.get("is_blighted", false)) and not enemy_data.has("blight_heart_id"):
+		_state.players[1].hero.health += 5
+		_state.players[1].hero.max_health += 5
+		GameBus.hud_message_requested.emit("The blight empowers your foe…")
+
+	# Apply remaining gambit handicaps now that all decks and HP are set.
+	_apply_gambit_handicaps(_gambit_id)
+
+	# start_turn draws 1 card + bonus_draw (from passive_draw skills/equipment).
+	# bonus_mana (from passive_mana skills) was set above, so gain_mana_for_turn
+	# already uses it: max_mana = mini(10, 1 + bonus_mana).
+	_state.players[0].start_turn(1)
+	# Attuned buff (GID-068): +1 mana on turn 1 when engaged on a ley line.
+	if bool(enemy_data.get("player_attuned", false)):
+		_state.players[0].hero.mana = mini(10, _state.players[0].hero.mana + 1)
+		GameBus.hud_message_requested.emit("Attuned: +1 mana this turn.")
+	if duel_wager > 0:
+		_state.friendly_duel = true
+		_state.wager_coins = duel_wager
+
+	# Apply weather modifiers (only in infinite world)
+	_battle_weather = WeatherManager.current_weather if SceneManager.save_manager.current_map == "main" else ""
+	_apply_weather_battle_init()
+
+	# Battlefield Resonance context (GID-059): stamp biome + is_night into GameState.
+	var _bf_biome: int = int(enemy_data.get("battlefield_biome", -1))
+	var _bf_night: bool = bool(enemy_data.get("battlefield_is_night", false))
+	_state.set_battlefield_context(_bf_biome, _bf_night)
+
+	# Companion passive: battle-start effects (extra_mana, hero_armor) and
+	# first turn-start draw (draw_card). Excluded in puzzle and duel modes.
+	_apply_companion_battle_start(_state.players[0])
+	_apply_companion_turn_start()
+	# Flush auto-resolve spells collected from opening hand + turn-1 draw.
+	# Must run after enemy deck is built so spells target the real enemy.
+	_resolver.flush_auto_spells(0)
+
+	_fx.set_game_state(_state)
+	_view.set_battle_state(_state, enemy_data)
 
 func _wire_gamebus_emitter() -> void:
 	_state.inject_gamebus_emitter(func(pid: int, dmg: int) -> void:
