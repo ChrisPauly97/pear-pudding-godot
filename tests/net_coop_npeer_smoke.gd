@@ -15,6 +15,7 @@ extends SceneTree
 const _NetSync = preload("res://scenes/world/NetSync.gd")
 const _AvatarSync = preload("res://game_logic/net/AvatarSync.gd")
 const _PlayerIdentity = preload("res://game_logic/net/PlayerIdentity.gd")
+const _Harness = preload("res://tests/net_harness.gd")
 
 const _PORT: int = 24568
 
@@ -45,10 +46,9 @@ func _go() -> void:
 
 func _run() -> bool:
 	# --- Host ---
-	var server_peer := ENetMultiplayerPeer.new()
-	var serr: Error = server_peer.create_server(_PORT, 3)  # 3 clients (TID-341 cap)
-	if serr != OK:
-		print("  [FAIL] create_server returned %d (loopback may be blocked)" % serr)
+	var server_peer: ENetMultiplayerPeer = _Harness.make_server_peer(_PORT, 3,  # 3 clients (TID-341 cap)
+		"  [FAIL] create_server returned %d (loopback may be blocked)")
+	if server_peer == null:
 		return false
 	var host := _make_peer("Host", server_peer)
 
@@ -101,23 +101,15 @@ func _run() -> bool:
 # --- helpers ---
 
 func _make_client() -> ENetMultiplayerPeer:
-	var peer := ENetMultiplayerPeer.new()
-	var err: Error = peer.create_client("127.0.0.1", _PORT)
-	if err != OK:
-		print("  [FAIL] create_client returned %d" % err)
-		return null
-	return peer
+	return _Harness.make_client_peer(_PORT)
 
 ## Build a subtree (WorldScene/NetSync + Stub) scoped to its own SceneMultiplayer.
 func _make_peer(label: String, peer: MultiplayerPeer) -> Dictionary:
 	if peer == null:
 		return {}
-	var mp := SceneMultiplayer.new()
-	var p_root := Node.new()
-	p_root.name = "%sRoot" % label
-	root.add_child(p_root)
-	set_multiplayer(mp, p_root.get_path())
-	mp.multiplayer_peer = peer
+	var sub: Dictionary = _Harness.make_peer_subtree(self, peer, "%sRoot" % label)
+	var mp: SceneMultiplayer = sub["mp"]
+	var p_root: Node = sub["root"]
 	var world := Node.new()
 	world.name = "WorldScene"
 	p_root.add_child(world)

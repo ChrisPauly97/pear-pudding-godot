@@ -16,6 +16,7 @@
 extends SceneTree
 
 const _NetSync = preload("res://scenes/world/NetSync.gd")
+const _Harness = preload("res://tests/net_harness.gd")
 
 const _PORT: int = 24574
 
@@ -99,91 +100,47 @@ func _go() -> void:
 
 func _run() -> bool:
 	# --- Server (peer 1) ---
-	var server_peer := ENetMultiplayerPeer.new()
-	var serr: Error = server_peer.create_server(_PORT, 4)
-	if serr != OK:
-		print("  [FAIL] create_server returned %d (loopback sockets may be blocked)" % serr)
+	var srv: Dictionary = _Harness.start_server(self, _PORT, 4)
+	if srv.is_empty():
 		return false
-	var mp_server := SceneMultiplayer.new()
-	var server_root := Node.new()
-	server_root.name = "SrvRoot"
-	root.add_child(server_root)
-	set_multiplayer(mp_server, server_root.get_path())
-	mp_server.multiplayer_peer = server_peer
+	var server_peer: ENetMultiplayerPeer = srv["peer"]
+	var mp_server: SceneMultiplayer = srv["mp"]
+	var server_root: Node = srv["root"]
 
-	var server_world := Node.new()
-	server_world.name = "WorldScene"
-	server_root.add_child(server_world)
-	var server_netsync: Node = _NetSync.new()
-	server_netsync.name = "NetSync"
-	server_world.add_child(server_netsync)
 	var server_stub := _ServerStub.new()
-	server_stub.name = "Stub"
+	var server_netsync: Node = _build_world(server_root, server_stub, "Stub")
 	server_stub.net_sync = server_netsync
-	server_world.add_child(server_stub)
-	server_netsync.set("world_scene", server_stub)
 
 	# Track connected peers by signal so we know the moment they are RPC-ready.
 	var server_connected_peers: Array[int] = []
 	mp_server.peer_connected.connect(func(id: int) -> void: server_connected_peers.append(id))
 
 	# --- Client A ---
-	var peer_a := ENetMultiplayerPeer.new()
-	if peer_a.create_client("127.0.0.1", _PORT) != OK:
-		print("  [FAIL] create_client A failed")
+	var cli_a: Dictionary = _Harness.start_client(self, _PORT, "CliA", "  [FAIL] create_client A failed")
+	if cli_a.is_empty():
 		return false
-	var mp_a := SceneMultiplayer.new()
-	var root_a := Node.new()
-	root_a.name = "CliA"
-	root.add_child(root_a)
-	set_multiplayer(mp_a, root_a.get_path())
-	mp_a.multiplayer_peer = peer_a
+	var peer_a: ENetMultiplayerPeer = cli_a["peer"]
+	var mp_a: SceneMultiplayer = cli_a["mp"]
+	var root_a: Node = cli_a["root"]
 
-	var world_a := Node.new()
-	world_a.name = "WorldScene"
-	root_a.add_child(world_a)
-	var netsync_a: Node = _NetSync.new()
-	netsync_a.name = "NetSync"
-	world_a.add_child(netsync_a)
 	var stub_a := _ClientAStub.new()
-	stub_a.name = "StubA"
-	world_a.add_child(stub_a)
-	netsync_a.set("world_scene", stub_a)
+	var netsync_a: Node = _build_world(root_a, stub_a, "StubA")
 
 	# --- Client B ---
-	var peer_b := ENetMultiplayerPeer.new()
-	if peer_b.create_client("127.0.0.1", _PORT) != OK:
-		print("  [FAIL] create_client B failed")
+	var cli_b: Dictionary = _Harness.start_client(self, _PORT, "CliB", "  [FAIL] create_client B failed")
+	if cli_b.is_empty():
 		return false
-	var mp_b := SceneMultiplayer.new()
-	var root_b := Node.new()
-	root_b.name = "CliB"
-	root.add_child(root_b)
-	set_multiplayer(mp_b, root_b.get_path())
-	mp_b.multiplayer_peer = peer_b
+	var peer_b: ENetMultiplayerPeer = cli_b["peer"]
+	var mp_b: SceneMultiplayer = cli_b["mp"]
+	var root_b: Node = cli_b["root"]
 
-	var world_b := Node.new()
-	world_b.name = "WorldScene"
-	root_b.add_child(world_b)
-	var netsync_b: Node = _NetSync.new()
-	netsync_b.name = "NetSync"
-	world_b.add_child(netsync_b)
 	var stub_b := _ClientBStub.new()
-	stub_b.name = "StubB"
-	world_b.add_child(stub_b)
-	netsync_b.set("world_scene", stub_b)
+	var netsync_b: Node = _build_world(root_b, stub_b, "StubB")
 
 	# Poll until the server has seen peer_connected for both clients and both
 	# clients know their own unique IDs (> 0 means the handshake completed).
-	var fully_connected := false
-	for _i in range(800):
-		mp_server.poll()
-		mp_a.poll()
-		mp_b.poll()
-		if server_connected_peers.size() >= 2 and mp_a.get_unique_id() > 0 and mp_b.get_unique_id() > 0:
-			fully_connected = true
-			break
-		OS.delay_msec(10)
+	var fully_connected: bool = _Harness.pump([mp_server, mp_a, mp_b], 800, 10, func() -> bool:
+		return server_connected_peers.size() >= 2 and mp_a.get_unique_id() > 0 and mp_b.get_unique_id() > 0)
 	if not fully_connected:
 		print("  [FAIL] not fully connected within timeout (server_peers=%d, a_id=%d, b_id=%d)"
 			% [server_connected_peers.size(), mp_a.get_unique_id(), mp_b.get_unique_id()])
@@ -195,13 +152,7 @@ func _run() -> bool:
 
 	# --- Step 1: server sends set_session_flags to client A ---
 	server_netsync.rpc_id(peer_a_id, "set_session_flags", {"dedicated": true})
-	for _j in range(300):
-		mp_server.poll()
-		mp_a.poll()
-		mp_b.poll()
-		if not stub_a.session_flags.is_empty():
-			break
-		OS.delay_msec(10)
+	_Harness.pump([mp_server, mp_a, mp_b], 300, 10, func() -> bool: return not stub_a.session_flags.is_empty())
 	if not bool(stub_a.session_flags.get("dedicated", false)):
 		print("  [FAIL] client A did not receive set_session_flags with dedicated=true (got %s)" % str(stub_a.session_flags))
 		return false
@@ -211,13 +162,7 @@ func _run() -> bool:
 	var deck_a: Array = ["ghost", "skeleton"]
 	netsync_a.rpc_id(1, "relay_pvp_request", peer_b_id, deck_a)
 
-	for _k in range(300):
-		mp_server.poll()
-		mp_a.poll()
-		mp_b.poll()
-		if stub_b.challenger_id_seen >= 0:
-			break
-		OS.delay_msec(10)
+	_Harness.pump([mp_server, mp_a, mp_b], 300, 10, func() -> bool: return stub_b.challenger_id_seen >= 0)
 	if stub_b.challenger_id_seen < 0:
 		print("  [FAIL] client B did not receive request_battle from relay")
 		return false
@@ -230,13 +175,8 @@ func _run() -> bool:
 	var deck_b: Array = ["wraith", "zombie"]
 	netsync_b.rpc_id(1, "relay_pvp_response", peer_a_id, true, deck_b)
 
-	for _l in range(300):
-		mp_server.poll()
-		mp_a.poll()
-		mp_b.poll()
-		if stub_a.notify_player_idx >= 0 and stub_b.notify_player_idx >= 0:
-			break
-		OS.delay_msec(10)
+	_Harness.pump([mp_server, mp_a, mp_b], 300, 10, func() -> bool:
+		return stub_a.notify_player_idx >= 0 and stub_b.notify_player_idx >= 0)
 
 	if stub_a.notify_player_idx < 0:
 		print("  [FAIL] client A did not receive notify_pvp_start")
@@ -262,7 +202,20 @@ func _run() -> bool:
 
 	print("  [PASS] notify_pvp_start delivered to both clients with correct idx + opponent decks")
 
-	peer_a.close()
-	peer_b.close()
-	server_peer.close()
+	_Harness.teardown([peer_a, peer_b, server_peer], [])
 	return true
+
+
+# Builds WorldScene/NetSync under `parent`, wires `stub` (named `stub_name`) as
+# the NetSync's world_scene, and returns the NetSync node.
+func _build_world(parent: Node, stub: Node, stub_name: String) -> Node:
+	var world := Node.new()
+	world.name = "WorldScene"
+	parent.add_child(world)
+	var netsync: Node = _NetSync.new()
+	netsync.name = "NetSync"
+	world.add_child(netsync)
+	stub.name = stub_name
+	world.add_child(stub)
+	netsync.set("world_scene", stub)
+	return netsync

@@ -12,6 +12,8 @@
 ## Exit code 0 = pass, 1 = fail.
 extends SceneTree
 
+const _Harness = preload("res://tests/net_harness.gd")
+
 const _PORT: int = 24570
 const _BattlePacked := "res://scenes/battle/BattleScene.tscn"
 
@@ -28,41 +30,21 @@ func _go() -> void:
 
 func _run() -> bool:
 	# --- server subtree + peer ---
-	var server_peer := ENetMultiplayerPeer.new()
-	var serr: Error = server_peer.create_server(_PORT, 4)
-	if serr != OK:
-		print("  [FAIL] create_server returned %d (loopback sockets may be blocked)" % serr)
+	var srv: Dictionary = _Harness.start_server(self, _PORT, 4)
+	if srv.is_empty():
 		return false
-	var mp_server := SceneMultiplayer.new()
-	var server_root := Node.new()
-	server_root.name = "SrvRoot"
-	root.add_child(server_root)
-	set_multiplayer(mp_server, server_root.get_path())
-	mp_server.multiplayer_peer = server_peer
+	var mp_server: SceneMultiplayer = srv["mp"]
+	var server_root: Node = srv["root"]
 
 	# --- client subtree + peer ---
-	var client_peer := ENetMultiplayerPeer.new()
-	var cerr: Error = client_peer.create_client("127.0.0.1", _PORT)
-	if cerr != OK:
-		print("  [FAIL] create_client returned %d" % cerr)
+	var cli: Dictionary = _Harness.start_client(self, _PORT)
+	if cli.is_empty():
 		return false
-	var mp_client := SceneMultiplayer.new()
-	var client_root := Node.new()
-	client_root.name = "CliRoot"
-	root.add_child(client_root)
-	set_multiplayer(mp_client, client_root.get_path())
-	mp_client.multiplayer_peer = client_peer
+	var mp_client: SceneMultiplayer = cli["mp"]
+	var client_root: Node = cli["root"]
 
 	# Poll until connected.
-	var connected := false
-	for _i in range(400):
-		mp_server.poll()
-		mp_client.poll()
-		if mp_server.get_peers().size() > 0:
-			connected = true
-			break
-		OS.delay_msec(10)
-	if not connected:
+	if not _Harness.wait_connected(mp_server, mp_client):
 		print("  [FAIL] peers did not connect within timeout")
 		return false
 	print("  [PASS] ENet loopback connected (server sees %d peer)" % mp_server.get_peers().size())

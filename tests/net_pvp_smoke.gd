@@ -14,6 +14,7 @@ extends SceneTree
 const _BattleNetSync = preload("res://scenes/battle/BattleNetSync.gd")
 const _Proto = preload("res://game_logic/net/BattleNetProtocol.gd")
 const _GameState = preload("res://game_logic/battle/GameState.gd")
+const _Harness = preload("res://tests/net_harness.gd")
 
 const _PORT: int = 24568
 
@@ -55,47 +56,27 @@ func _go() -> void:
 
 func _run() -> bool:
 	# --- Server peer + subtree ---
-	var server_peer := ENetMultiplayerPeer.new()
-	var serr: Error = server_peer.create_server(_PORT, 4)
-	if serr != OK:
-		print("  [FAIL] create_server returned %d (loopback sockets may be blocked)" % serr)
+	var srv: Dictionary = _Harness.start_server(self, _PORT, 4)
+	if srv.is_empty():
 		return false
-	var mp_server := SceneMultiplayer.new()
-	var server_root := Node.new()
-	server_root.name = "SrvRoot"
-	root.add_child(server_root)
-	set_multiplayer(mp_server, server_root.get_path())
-	mp_server.multiplayer_peer = server_peer
+	var mp_server: SceneMultiplayer = srv["mp"]
+	var server_root: Node = srv["root"]
 	var host_stub := _HostStub.new()
 	host_stub.state = _GameState.new()
 	var server_net: Node = _build_battle(server_root, host_stub)
 	host_stub.net = server_net
 
 	# --- Client peer + subtree ---
-	var client_peer := ENetMultiplayerPeer.new()
-	var cerr: Error = client_peer.create_client("127.0.0.1", _PORT)
-	if cerr != OK:
-		print("  [FAIL] create_client returned %d" % cerr)
+	var cli: Dictionary = _Harness.start_client(self, _PORT)
+	if cli.is_empty():
 		return false
-	var mp_client := SceneMultiplayer.new()
-	var client_root := Node.new()
-	client_root.name = "CliRoot"
-	root.add_child(client_root)
-	set_multiplayer(mp_client, client_root.get_path())
-	mp_client.multiplayer_peer = client_peer
+	var mp_client: SceneMultiplayer = cli["mp"]
+	var client_root: Node = cli["root"]
 	var client_stub := _ClientStub.new()
 	var client_net: Node = _build_battle(client_root, client_stub)
 
 	# Poll until connected.
-	var connected := false
-	for _i in range(400):
-		mp_server.poll()
-		mp_client.poll()
-		if mp_server.get_peers().size() > 0:
-			connected = true
-			break
-		OS.delay_msec(10)
-	if not connected:
+	if not _Harness.wait_connected(mp_server, mp_client):
 		print("  [FAIL] peers did not connect within timeout")
 		return false
 	print("  [PASS] ENet loopback connected (server sees %d peer)" % mp_server.get_peers().size())
@@ -104,12 +85,7 @@ func _run() -> bool:
 	var before_idx: int = int(host_stub.state.current_player_idx)
 	client_net.rpc_id(1, "send_intent", _Proto.encode_end_turn())
 
-	for _j in range(200):
-		mp_server.poll()
-		mp_client.poll()
-		if not client_stub.received.is_empty():
-			break
-		OS.delay_msec(10)
+	_Harness.pump([mp_server, mp_client], 200, 10, func() -> bool: return not client_stub.received.is_empty())
 
 	if client_stub.received.is_empty():
 		print("  [FAIL] client did not receive a state mirror")
