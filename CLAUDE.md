@@ -312,10 +312,16 @@ Never write a fresh `dx*dx + dz*dz <= r*r` loop. Use `_node_in_range(node, …)`
 `_first_node_in_range(nodes, …)` (Array or id → node Dictionary, optional
 `require_visible`) or `_first_data_in_range(table, …)` (id → `{x, z}` dicts).
 
-`_check_interactions` picks the HUD prompt via `_interact_prompt_label`, which
-probes in `_handle_interact`'s priority order and **stops at the first hit** —
-add new interactables to both, in the same position, and never make the label
-pass scan everything eagerly again.
+`_check_interactions` picks the HUD prompt via `_interact_prompt_label`; pressing
+the button runs `_handle_interact`. Both **stop at the first hit** — never make
+the label pass scan everything eagerly again.
+
+The two chains are separate and **do not currently probe in the same order**
+(with an enemy and a door both in range the HUD reads "ATTACK" but the button
+enters the door). `test_interact_priority` pins both orders so they can't drift
+further unnoticed; add a new interactable to both chains and update that test.
+The eight entities whose interaction is just "call one method" live in
+`_try_simple_interaction`'s table rather than as open-coded branches.
 
 ---
 

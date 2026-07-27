@@ -2307,6 +2307,34 @@ func _on_screen_touch(touch: InputEventScreenTouch) -> void:
 			_handle_tap_to_move(touch.position)
 			get_viewport().set_input_as_handled()
 
+## Entities whose interaction is simply "call one method on the node". Probed in
+## this order and stopping at the first hit, exactly as the eight open-coded
+## branches this replaces did. Anything that needs arguments or surrounding state
+## (doors, chests, NPCs, mana wells, waystones, mailboxes, garden plots) keeps its
+## own branch in _handle_interact.
+##
+## The table is built per call rather than being a const: a Callable bound to an
+## instance method cannot be a constant, and this only runs on a button press.
+func _try_simple_interaction(px: float, pz: float) -> bool:
+	var r: float = IsoConst.INTERACT_RANGE
+	for entry: Array in [
+		[_find_nearby_scroll, "interact"],
+		[_find_nearby_wilderness_camp, "interact"],
+		[_find_nearby_scout_ambush, "interact"],
+		[_find_nearby_maiteln, "interact"],
+		[_find_nearby_shrine, "interact"],
+		[_find_nearby_digspot, "dig"],
+		[_find_nearby_burial_mound, "interact"],
+		[_find_nearby_blight_heart, "engage"],
+	]:
+		var finder: Callable = entry[0]
+		var method: String = entry[1]
+		var node: Node3D = finder.call(px, pz, r)
+		if node != null and node.has_method(method):
+			node.call(method)
+			return true
+	return false
+
 func _handle_interact() -> void:
 	if _player == null:
 		return
@@ -2482,44 +2510,7 @@ func _handle_interact() -> void:
 		_show_dialogue(dlg)
 		return
 
-	var scroll := _find_nearby_scroll(px, pz, IsoConst.INTERACT_RANGE)
-	if scroll != null and scroll.has_method("interact"):
-		scroll.interact()
-		return
-
-	var wilderness_camp := _find_nearby_wilderness_camp(px, pz, IsoConst.INTERACT_RANGE)
-	if wilderness_camp != null and wilderness_camp.has_method("interact"):
-		wilderness_camp.interact()
-		return
-
-	var scout_ambush := _find_nearby_scout_ambush(px, pz, IsoConst.INTERACT_RANGE)
-	if scout_ambush != null and scout_ambush.has_method("interact"):
-		scout_ambush.interact()
-		return
-
-	var maiteln := _find_nearby_maiteln(px, pz, IsoConst.INTERACT_RANGE)
-	if maiteln != null and maiteln.has_method("interact"):
-		maiteln.interact()
-		return
-
-	var shrine := _find_nearby_shrine(px, pz, IsoConst.INTERACT_RANGE)
-	if shrine != null and shrine.has_method("interact"):
-		shrine.interact()
-		return
-
-	var digspot := _find_nearby_digspot(px, pz, IsoConst.INTERACT_RANGE)
-	if digspot != null and digspot.has_method("dig"):
-		digspot.dig()
-		return
-
-	var burial_mound_node := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
-	if burial_mound_node != null and burial_mound_node.has_method("interact"):
-		burial_mound_node.interact()
-		return
-
-	var blight_heart_node := _find_nearby_blight_heart(px, pz, IsoConst.INTERACT_RANGE)
-	if blight_heart_node != null and blight_heart_node.has_method("engage"):
-		blight_heart_node.engage()
+	if _try_simple_interaction(px, pz):
 		return
 
 	var mana_well_node := _find_nearby_mana_well(px, pz, IsoConst.INTERACT_RANGE)
