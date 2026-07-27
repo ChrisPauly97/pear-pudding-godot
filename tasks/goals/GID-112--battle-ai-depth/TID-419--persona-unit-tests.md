@@ -2,7 +2,7 @@
 
 **Goal:** GID-112
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-416, TID-417
 
 ## Lock
@@ -61,8 +61,37 @@ _Written during Plan phase._
 
 ## Changes Made
 
-_Filled after Build phase._
+New suite `tests/unit/test_ai_personas.gd` — **23 tests**, all passing.
+`test_basic_ai.gd` keeps covering persona-independent mechanics; this suite
+covers only what personas and the lethal check change.
 
-## Documentation Updates
+Written as **contrast pairs** wherever possible: the same board is driven by two
+personas and must produce *different* outcomes. A persona test that passes under
+every persona is not testing the persona, and that was the main risk here.
 
-_What was updated in agent docs._
+Coverage:
+
+- Targeting contrast — basic trades with a minion; aggro on the identical board
+  hits the hero and leaves the minion untouched; the no-argument call still
+  behaves as basic (back-compat).
+- Control trades — takes a favorable trade, skips an unfavorable one and
+  pressures the hero instead, and trades down into a strictly bigger threat.
+- Lethal — goes face past an available minion; the one-damage-short boundary
+  case does *not*; damage is summed across several attackers; armor is counted,
+  so 5 damage into 3 health behind 4 armor is correctly not lethal.
+- Ward — blocks an otherwise-lethal line, binds aggro too, and outranks a softer
+  non-Ward target.
+- Hand order — aggro fields the bigger body from two equally-priced cards while
+  basic takes the same hand in raw order; control develops a minion and holds
+  the spell while basic casts the spell first from the identical hand.
+- Banner — tier 1 names the card; tiers 2-4 never leak it; aggro and control
+  read differently; the named target matches what the AI actually attacks; the
+  "Enemy is thinking..." fallback.
+
+One assertion failed on first run — the armor test expected the blocker at 8 HP
+when 9 - 5 = 4. That was an error in the test's arithmetic, not the AI: the
+implementation had correctly denied the lethal line and traded. Corrected.
+
+## Verification
+
+Headless import clean. Full suite **2236 passed / 0 failed** (up from 2213).

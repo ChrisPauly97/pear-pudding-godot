@@ -23,6 +23,8 @@ func _ready() -> void:
 		info("Scroll: %s" % sid))
 	GameBus.entered_named_map.connect(func(map_name: String) -> void:
 		info("Map: %s" % map_name))
+	GameBus.exited_to_world.connect(func() -> void:
+		info("Map: overworld"))
 	GameBus.world_event_started.connect(func(eid: String) -> void:
 		info("Event started: %s" % eid))
 	GameBus.world_event_ended.connect(func(eid: String) -> void:

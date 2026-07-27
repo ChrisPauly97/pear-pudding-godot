@@ -555,6 +555,12 @@ func _open_party_panel() -> void:
 	panel.on_stash = _world.coop_social._toggle_stash_overlay
 	panel.show_leaderboard = true
 	panel.on_leaderboard = _world.coop_pvp._toggle_leaderboard_overlay
+	# Auction (GID-102 / TID-378; folded in by BID-042): same always-on,
+	# session-global gating as Stash/Leaderboard above — was left as a
+	# standalone HUD button when GID-107 shipped the panel; not proximity-gated,
+	# so it belongs here the same way.
+	panel.show_auction = true
+	panel.on_auction = _world.coop_social._toggle_auction_overlay
 	# Ghost Duels: host-only, gated on SessionStore.is_open() (see _ensure_ghost_duel_button's
 	# old comment — a client never opens SessionStore locally).
 	panel.show_ghost_duels = SessionStore.is_open()

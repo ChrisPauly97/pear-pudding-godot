@@ -24,7 +24,6 @@ const _StashTransfer = preload("res://game_logic/net/StashTransfer.gd")
 const _TradeSync = preload("res://game_logic/net/TradeSync.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
-var _auction_btn: Button = null           # "Auction" HUD button (always visible in co-op)
 var _auction_cache: Array = []            # last-known listings snapshot
 var _auction_overlay: Node = null         # AuctionHouseOverlay instance, nil when closed
 var _chat_lines: Array[Dictionary] = []    # retained {name, color, text} rows, capped
@@ -81,16 +80,9 @@ func _ensure_social_buttons() -> void:
 		_world.coop_pvp._spectate_btn = _world._world_hud.register_action("spectate", "Spectate Duel", WorldHUD.ZONE_CONTEXT,
 			_world.coop_pvp._request_spectate, Callable(), Vector2(vh * 0.28, vh * 0.06))
 		_world.coop_pvp._spectate_btn.hide()
-	# Leaderboard and Stash (GID-102 / TID-373, TID-376): now Party-panel actions
-	# (GID-107 / TID-395) instead of their own standalone always-visible buttons.
-	# Auction house button (GID-102 / TID-378): always visible while co-op is active
-	# (global to the session, same as Stash). Placed on the next row down since the
-	# Stash/Ghost-Duels row is already occupied at vh * 0.078.
-	if _auction_btn == null or not is_instance_valid(_auction_btn):
-		_auction_btn = _UiUtil.make_button("Auction", Vector2(vh * 0.16, vh * 0.055), int(vh * 0.020), _toggle_auction_overlay, _world._hud)
-		_auction_btn.tooltip_text = "Buy and sell cards asynchronously with the party"
-		_auction_btn.position = Vector2(vp.x * 0.012, vh * 0.144)
-		UiFx.attach(_auction_btn)
+	# Leaderboard, Stash, and Auction (GID-102 / TID-373, TID-376, TID-378): now
+	# Party-panel actions (GID-107 / TID-395; Auction folded in by BID-042)
+	# instead of their own standalone always-visible buttons.
 
 
 ## Ghost Duels (GID-102 / TID-377). Host-only: gated on SessionStore.is_open()

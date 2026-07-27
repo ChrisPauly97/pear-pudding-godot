@@ -2,7 +2,7 @@
 
 **Goal:** GID-112
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -76,8 +76,17 @@ _Written during Plan phase._
 
 ## Changes Made
 
-_Filled after Build phase._
+Added the persona constants and threading. `ai/BasicAI.gd` gained
+`PERSONA_BASIC` / `PERSONA_AGGRO` / `PERSONA_CONTROL` and an optional
+`persona: String = PERSONA_BASIC` parameter on `decide_turn` — defaulted so
+every existing caller and test keeps the pre-goal behaviour untouched.
 
-## Documentation Updates
+`autoloads/EnemyRegistry.gd` gained an `ai_persona` field on all 20 enemy
+entries plus `get_ai_persona(type_id) -> String`, which falls back to `"basic"`
+for unknown or empty type ids (puzzle mode and any caller without an enemy type
+therefore keeps the predictable AI).
 
-_What was updated in agent docs._
+`scenes/battle/BattleScene._run_ai_turn()` looks persona and difficulty tier up
+from `EnemyRegistry` rather than from `enemy_data`, so every AI-driven battle —
+regular fights, duelists, rivals, martarquas, mimic, co-op siege boss — resolves
+from one source of truth.

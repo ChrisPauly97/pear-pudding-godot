@@ -36,6 +36,11 @@ var player_spawn_x: int = -1
 var player_spawn_z: int = -1
 var is_fallback: bool = false   # true when map file couldn't be loaded
 
+## Per-map music override (MapData.music_track). Empty string means "no
+## override" — callers fall back to their own default (see WorldScene's
+## named-map music selection, BID-048).
+var music_track: String = ""
+
 ## p_skip_load — if true, only allocates grids without loading from MapRegistry.
 ## Used internally by MapRegistry's legacy .txt fallback to avoid recursion.
 func _init(p_name: String = "main", p_skip_load: bool = false) -> void:
@@ -192,6 +197,9 @@ func load_from_resource(data: Resource) -> void:
 	var raw_sz: Variant = data.get("spawn_z")
 	player_spawn_x = int(raw_sx) if raw_sx != null else 5
 	player_spawn_z = int(raw_sz) if raw_sz != null else 5
+
+	var raw_music: Variant = data.get("music_track")
+	music_track = str(raw_music) if raw_music != null else ""
 
 	# Flat PackedInt32Array → 2D tile/height arrays
 	var tiles_packed: PackedInt32Array = raw_tiles
@@ -375,6 +383,7 @@ func to_map_data(p_map_name: String = "") -> Resource:
 	md.height = MAP_HEIGHT
 	md.spawn_x = player_spawn_x if player_spawn_x >= 0 else 5
 	md.spawn_z = player_spawn_z if player_spawn_z >= 0 else 5
+	md.music_track = music_track
 
 	# Pack 2D tile/height arrays into flat PackedInt32Arrays
 	md.tiles = PackedInt32Array()

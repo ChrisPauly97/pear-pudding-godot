@@ -22,8 +22,15 @@ class-variable-name: "_?[a-z][a-z0-9_]*"
 class-load-variable-name: "_[a-z][a-z0-9_]*|[A-Z][a-zA-Z0-9]*"
 
 function-variable-name: "_?[a-z][a-z0-9_]*"
-function-preload-variable-name: "[A-Z][a-zA-Z0-9]*"
-function-load-variable-name: "[A-Z][a-zA-Z0-9]*"
-constant-name: "[A-Z][A-Z0-9_]*"
+function-preload-variable-name: "_?[A-Z][a-zA-Z0-9]*"
+function-load-variable-name: "_?[A-Z][a-zA-Z0-9]*"
+
+# Leading underscore is allowed on private constants (_POOL_SIZE).
+constant-name: "_?[A-Z][A-Z0-9_]*"
+
+# CLAUDE.md mandates `const _BaseOverlay = preload(...)` over bare class_name
+# references, so preload constants are private PascalCase (_SpriteRegistry) as
+# well as SCREAMING_SNAKE (_C_ARCANE_SEAL) and plain PascalCase (CardInstance).
+load-constant-name: "_?[A-Z][A-Za-z0-9_]*"
 enum-name: "[A-Z][a-zA-Z0-9]*"
 enum-element-name: "[A-Z][A-Z0-9_]*"

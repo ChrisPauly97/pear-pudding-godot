@@ -25,6 +25,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 1,
+			"ai_persona": "basic",
 			"lore_text": "Drawn forth by ancient dark rites, these shambling dead roam the wilds seeking the warmth of the living. They are slow but relentless, overwhelming lone travelers with sheer numbers.",
 			"signature_card": "sig_wanderer",
 			"capture_condition": "win_by_turn",
@@ -39,6 +40,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 2,
+			"ai_persona": "aggro",
 			"lore_text": "Where one undead wanders, a horde is never far behind. These pack hunters press forward in relentless waves, making up in numbers what they lack in cunning.",
 			"signature_card": "sig_shambler",
 			"capture_condition": "spell_final_blow",
@@ -53,6 +55,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 4,
+			"ai_persona": "control",
 			"lore_text": "A champion re-risen by Martarquas sorcery, the Undead Warlord retains fragments of its battle tactics. It fights with brutal efficiency — a grim echo of the soldier it once was.",
 			"signature_card": "sig_warlord",
 			"capture_condition": "hero_hp_at_most",
@@ -67,6 +70,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 3,
+			"ai_persona": "aggro",
 			"lore_text": "Once a fierce warrior in life, the Ghoul Pack Leader still commands through primal instinct, driving its kin with savage coordination. Its bite carries a rot that weakens even the stoutest heart.",
 			"signature_card": "sig_pack_leader",
 			"capture_condition": "no_minion_hero_attacks",
@@ -81,6 +85,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 1,
+			"ai_persona": "basic",
 			"lore_text": "A young card duelist eager to prove themselves on the Blancogov tournament circuit. Their deck is simple, but they fight with an enthusiasm that belies their rank.",
 		},
 		"duelist_adept": {
@@ -92,6 +97,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 2,
+			"ai_persona": "aggro",
 			"lore_text": "A seasoned competitor with dozens of tournament wins behind them. They read the board well and know how to manage resources to outlast less patient opponents.",
 		},
 		"duelist_champion": {
@@ -103,6 +109,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 3,
+			"ai_persona": "control",
 			"lore_text": "The undefeated champion of the Blancogov card tournament. Years of dedicated study and thousands of matches have honed their deck to a razor's edge — they have not lost in three seasons.",
 		},
 		"roaming_terror": {
@@ -114,6 +121,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 50,
 			"phase2_deck": ["void_wyrm", "void_wyrm", "soul_rend", "soul_rend", "dusk_vampire", "dusk_vampire", "drain", "wither", "dark_pact", "blitz_ghoul", "blitz_ghoul", "ghoul", "ghoul", "ghoul", "void_creeper", "void_creeper"],
 			"difficulty_tier": 4,
+			"ai_persona": "control",
 			"lore_text": "An ancient horror that drifts the borderlands, drawn by conflict and chaos. When the Martarquas surge, this creature follows in their wake — and grows more dangerous as it is wounded.",
 		},
 		"martarquas_raider_1": {
@@ -125,6 +133,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 1,
+			"ai_persona": "aggro",
 			"lore_text": "A Martarquas footsoldier, freshly blooded on raids through the border villages. Their early confidence hides a lack of experience — overcome them and the tribe's advance falters.",
 		},
 		"martarquas_raider_2": {
@@ -136,6 +145,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 2,
+			"ai_persona": "aggro",
 			"lore_text": "A veteran of many raids, this Martarquas warrior fights with practiced brutality. The town guard has already fallen back — it falls to you to hold the gate.",
 		},
 		"martarquas_raider_3": {
@@ -147,6 +157,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 3,
+			"ai_persona": "aggro",
 			"lore_text": "The siege commander — where lesser raiders hesitated, this one drove them forward. Defeat the Warlord and the siege collapses. The town will owe you a debt it cannot easily repay.",
 		},
 		"martarquas_warleader": {
@@ -158,6 +169,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 45,
 			"phase2_deck": ["skeleton", "zombie", "zombie", "ghoul", "ghoul", "ghoul"],
 			"difficulty_tier": 4,
+			"ai_persona": "control",
 			"lore_text": "The war-leader who drove the muster on Marsax hold. Steal his plans and the tribe's whole campaign unravels — but he does not give ground easily.",
 		},
 		"rival_isfig_1": {
@@ -169,6 +181,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 1,
+			"ai_persona": "control",
 			"lore_text": "A sharp-eyed young man who seems to know more about Saimtar's journey than he lets on. He smiles as he challenges you to a duel — not out of malice, but to measure you.",
 		},
 		"rival_isfig_2": {
@@ -180,6 +193,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 2,
+			"ai_persona": "control",
 			"lore_text": "He has followed you across the wilds, watching and adapting. The easy smile is gone; this time he means to stop you — or find out once and for all what you carry that Scargroth's letter warned him about.",
 		},
 		"rival_isfig_3": {
@@ -191,6 +205,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 3,
+			"ai_persona": "control",
 			"lore_text": "Standing in the shadow of the temple, Isfig speaks Maiteln's name with a cold familiarity that turns your blood to ice. Whatever he once was, he has chosen his side — and it is not yours.",
 		},
 		"spectre_wisp": {
@@ -202,6 +217,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 1,
+			"ai_persona": "basic",
 			"night_drop_boost": true,
 			"lore_text": "A lost soul drawn out by darkness, trailing cold light through the night mist. Where one wisp drifts, the veil between worlds has grown thin.",
 		},
@@ -214,6 +230,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 2,
+			"ai_persona": "aggro",
 			"night_drop_boost": true,
 			"lore_text": "A vengeful spirit anchored to the mortal world by unfinished purpose, the Phantom strikes with cold malice and retreats into shadow before the blow can be answered.",
 		},
@@ -226,6 +243,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 3,
+			"ai_persona": "control",
 			"night_drop_boost": true,
 			"lore_text": "A Wraith of apex terror, born when sorrow and power collapse into a single point. It hunts not for sustenance but for the sheer extinguishing of light — it is drawn to those who carry hope.",
 		},
@@ -238,6 +256,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 2,
+			"ai_persona": "basic",
 			"lore_text": "Not every treasure chest holds gold. Some hold teeth. The Mimic waits in perfect stillness, indistinguishable from its surroundings — until you reach inside.",
 		},
 		"blight_heart": {
@@ -249,6 +268,7 @@ static func _ensure_loaded() -> void:
 			"boss_hp": 40,
 			"phase2_deck": [],
 			"difficulty_tier": 4,
+			"ai_persona": "control",
 			"lore_text": "A pulsing node of corrupted essence, the Blight Heart anchors the spreading darkness to this land. Destroy it and the corruption will slowly recede — but it will not yield without a fierce fight.",
 		},
 	}
@@ -322,6 +342,15 @@ static func type_for_depth(depth: int, max_depth: int) -> String:
 	elif pct < 0.66:
 		return "undead_horde"
 	return "ghoul_pack"
+
+## Returns the AI persona ("basic" | "aggro" | "control") for an enemy type
+## (GID-112). Falls back to "basic" if unknown so puzzle mode / any caller
+## that passes an empty or unrecognised type_id gets today's predictable AI.
+static func get_ai_persona(type_id: String) -> String:
+	_ensure_loaded()
+	if _enemies.has(type_id):
+		return str(_enemies[type_id].get("ai_persona", "basic"))
+	return "basic"
 
 ## Returns the difficulty tier (1–4) for an enemy type. Falls back to 1 if unknown.
 static func get_difficulty_tier(type_id: String) -> int:

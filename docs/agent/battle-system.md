@@ -39,7 +39,7 @@ GameState          — root object; owns two PlayerState instances, tracks whose
    - *Play card*: costs mana equal to `CardData.cost`; card moves from hand to an empty board slot; new `CardInstance` is created with `summoning_sick = true`.
    - *Attack with minion*: target is any enemy minion or the enemy hero; damage is applied to both combatants; destroyed minions move to discard.
    - *Attack hero directly*: if no enemy minions block, or player targets hero explicitly.
-4. **AI turn** — `BasicAI` evaluates board state, plays affordable cards greedily (lowest cost first), then attacks with every available minion (targets minions before hero).
+4. **AI turn** — `BasicAI` evaluates board state and acts according to the enemy's persona (GID-112: `basic` / `aggro` / `control`, see BasicAI Logic below), taking a lethal line over its heuristic whenever one is available.
 5. **Win check** — after any damage event, if either hero drops to 0 HP `GameState` emits `battle_ended` with the result.
 
 ### Deck Fatigue (GID-077)
@@ -157,7 +157,7 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
 **Ward** — Targeting constraint. When any entity (player or AI) selects an attack target:
 - Among the defender's minions, only Ward minions may be targeted while any Ward minion is alive.
 - The enemy hero cannot be attacked while any Ward minion is alive on that side.
-- Implementation: `CardViewBuilder.get_ward_valid_targets()` filters enemy minions to Ward-bearing ones when present; `_on_enemy_card_input` rejects clicks on non-Ward targets (keeps attacker selected); `_on_enemy_hero_input` early-returns when Ward minions live. `BasicAI.decide_turn/describe_turn` collect `ward_targets` and use them as the target list when non-empty.
+- Implementation: `CardViewBuilder.get_ward_valid_targets()` filters enemy minions to Ward-bearing ones when present; `_on_enemy_card_input` rejects clicks on non-Ward targets (keeps attacker selected); `_on_enemy_hero_input` early-returns when Ward minions live. `BasicAI._pick_attack_target()` (shared by `decide_turn` and `describe_turn`) uses `ward_targets` as the target list when non-empty, ahead of both persona preference and the lethal check.
 
 **Surge** — On placement. `PlayerState.play_card()`: after `board.add_card(card)`, if `card.keywords.has(Keywords.SURGE)`, set `card.summoning_sick = false`. No other change — `can_attack()` already checks `summoning_sick`.
 
@@ -165,13 +165,69 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
 
 ### BasicAI Logic (`ai/BasicAI.gd`)
 
-```
-1. Collect playable cards (cost ≤ current mana), sort by cost ascending
-2. For each card: play it into the first empty slot, subtract mana; repeat until no affordable cards or no empty slots
-3. For each non-sick minion with attacks_this_turn == 0:
-   a. If enemy has minions → attack the weakest (lowest HP) minion
-   b. Otherwise → attack enemy hero directly
-```
+`decide_turn(state, persona)` returns one `Callable` per hand slot and per board
+slot. Decisions are deferred to execution time so plays and attacks read current
+state — this prevents double-discard corruption and stale-plan silent failures.
+
+#### Personas (GID-112)
+
+Before GID-112 every enemy in the game — from a tier-1 Undead Wanderer to a boss
+— ran the same greedy strategy: cheapest card first, attack the first available
+target, and **no lethal check anywhere**, so the AI could be one attack from
+killing the player's hero and never notice.
+
+Persona is assigned per enemy type via the `ai_persona` field in
+`EnemyRegistry._enemies`, read back through `EnemyRegistry.get_ai_persona(type_id)`
+(defaults to `"basic"` for unknown/empty types, so puzzle mode and any caller
+without an enemy type keeps the old predictable AI). `BattleScene._run_ai_turn()`
+looks up persona and `difficulty_tier` from the registry rather than from
+`enemy_data`, so every AI-driven battle — regular fights, duelists, rivals,
+martarquas, mimic, co-op siege boss — resolves from one source of truth.
+
+| Persona | Hand order | Attack targeting |
+|---|---|---|
+| `basic` | raw hand order (pre-goal behaviour) | first target in board-slot order, else hero |
+| `aggro` | highest attack first, then cheapest | always the hero, never trades |
+| `control` | minions before spells, then cheapest | only *favorable* trades, else the hero |
+
+A "favorable" trade (`_pick_favorable_trade`) kills the target **and** either the
+attacker survives the counterattack or the target hits harder than the attacker
+(worth trading down into a bigger threat).
+
+Hand ordering alone produces the "hold a card" behaviour — every play Callable
+re-checks `can_play` at execution time, so a card ordered last simply is not
+affordable once earlier plays have spent the mana. No extra gating logic.
+
+#### Lethal check
+
+`_has_lethal(state)` sums the biome-modified attack of every board minion that
+`can_attack()` and compares it against `opponent.hero.armor + health`. When it
+returns true, **every persona** abandons its heuristic and goes face.
+
+Two rules constrain it:
+
+- **Ward outranks lethal.** If any opposing minion has Ward, `_has_lethal`
+  returns `false` immediately — the hero is not a legal target, and no persona
+  may bypass that (see Keyword Game Logic above).
+- **Armor counts.** Lethal is measured against `armor + health`, not health.
+
+It is re-evaluated per attacker inside each deferred Callable, so an earlier
+attack that clears a blocking Ward minion opens the lethal line mid-turn.
+
+#### Intent banner tier scaling
+
+`describe_turn(state, persona, difficulty_tier)` shares `_pick_attack_target`
+with `decide_turn`, so **the banner can never disagree with what the AI does**.
+Tier gates only specificity:
+
+- **Tier 1** — names the exact card and target ("Enemy attacks Blocker with
+  Attacker"). Preserves the teaching value for tutorial-tier fights.
+- **Tier ≥ 2** — a vaguer, persona-flavoured line that never names the card or
+  target ("The enemy is pressing the attack…"), restoring tension once a player
+  understands the system.
+
+Covered by `tests/unit/test_ai_personas.gd` (23 tests), written as contrast
+pairs: the same board driven by two personas must produce different outcomes.
 
 ### Slot Enhancement System (GID-079)
 
@@ -365,7 +421,7 @@ All victory, defeat, and puzzle overlays live in `BattleResultUI` (extends RefCo
 - **Spell targeting (TID-058, TID-141):** `SpellEffectResolver.ENEMY_TARGETED_EFFECTS = ["deal_damage_single", "curse_minion", "lifesteal_hit"]` and `SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS = ["heal_single", "shield_minion", "buff_attack"]`. These constants are co-located with the resolver so targeting UI and match arms stay in sync. Dragging one of these spells to the board enters targeting mode: enemy effects cyan-highlight the enemy board (and hero for `deal_damage_single`); friendly effects cyan-highlight the player's own board. `_targeting_friendly` flag distinguishes the two modes. If no valid targets exist (friendly board empty, or enemy board empty for non-hero spells) targeting is skipped and the spell auto-resolves. All six spells honour the `explicit_target` dict in `SpellEffectResolver.resolve_spell()`; slot-0 fallback kept for AI auto-resolve path.
 - **Enemy intent banner (TID-059):** before AI actions execute, a centered panel shows what the AI plans (e.g. "Enemy will play Ghost"); hides when actions complete
 - **Battle SFX (TID-080):** Full coverage — `card_draw` plays at player turn start (after game-over check in `_on_turn_ended(0)`); `card_play` plays on card drop; `spell_resolve` plays at the top of `_resolve_spell_effect` (covers player, AI, and auto-resolved spells); `attack` plays on all minion attacks; `battle_win`/`battle_lose` play at game end. All SFX are registered in `AudioManager.SFX_PATHS`; AudioManager silently no-ops if the wav file is absent.
-- **Background music (TID-081):** `AudioManager.play_music(path)` loads an OGG file, plays it at −6 dB (≈0.5 linear), and loops via `finished` signal reconnect; same-track guard prevents restarts; graceful no-op if file absent. `BattleScene._ready()` calls `AudioManager.play_music("res://assets/audio/music/battle.ogg")`. `WorldScene` detects biome changes in `_update_chunks()` via `InfiniteWorldGen.biome_for_chunk()` and plays the matching track from `_BIOME_MUSIC` (grasslands / forest / desert / scorched / mountains). Named-map worlds play `dungeon.ogg`. On `GameBus.battle_won`, WorldScene resumes the correct world track (biome or dungeon). All music files are under `assets/audio/music/*.ogg`; absent files are silently skipped.
+- **Background music (TID-081):** `AudioManager.play_music(path)` loads an OGG file, plays it at −6 dB (≈0.5 linear), and loops via `finished` signal reconnect; same-track guard prevents restarts; graceful no-op if file absent. `BattleScene._ready()` calls `AudioManager.play_music("res://assets/audio/music/battle.ogg")`. `WorldScene` detects biome changes in `_update_chunks()` via `InfiniteWorldGen.biome_for_chunk()` and plays the matching track from `_BIOME_MUSIC` (grasslands / forest / desert / scorched / mountains). Named-map worlds play via `WorldScene._named_map_music_track()` (BID-048, fixed): the map's `MapData.music_track` override if set (all bundled town/story maps use `grasslands.ogg`), else `dungeon.ogg` for procedural `dungeon_*`/`spire_floor_*` maps only. On `GameBus.battle_won`, WorldScene resumes the correct world track (biome or named-map). All music files are under `assets/audio/music/*.ogg`; absent files are silently skipped.
 - **Status effect processing (TID-061):** at start of each player's turn, poison ticks (damage = value, decrement), freeze decrements, hero stun decrements; minion stun handled by `CardInstance.start_turn()` via `out_of_play`
 - **Screen shake (TID-079):** `_trigger_shake(magnitude, duration)` tweens the BattleScene root Control's `position` through random ±magnitude offsets every 0.05s for the specified duration, then snaps back to origin. `_is_shaking` flag prevents overlapping shakes. `_check_shake_from_snapshot(snap)` evaluates the HP-diff snapshot: hero death triggers a 10px/0.35s shake; any single-step hit of ≥5 HP triggers a 5px/0.2s shake. Called at all 8 snapshot sites.
 - **Hit flash (TID-078):** `_flash_node(node, color)` instantly sets a node's `modulate` to the flash color then tweens back to white over 0.25s. Red `(1, 0.3, 0.3)` for damage, green `(0.3, 1, 0.5)` for healing. At direct attack sites the target/attacker panels are captured before damage and flashed immediately (before `remove_card`, so dying minions flash too). At spell/AI/status sites `_flash_from_snapshot()` reuses the HP-diff snapshot to flash all surviving cards/heroes that had HP changes.
@@ -536,7 +592,7 @@ XP is NOT multiplied by gambits. `session_stats["coins_earned"]` records the pos
 | **EnemyRegistry** | Drop pool | `EnemyRegistry.get_drop_pool(enemy_type)` returns cards that may drop; BattleScene picks one at random and shows the victory overlay |
 | **Inventory / Deck** | Deck source | Player's active battle deck is built from `SaveManager.player_deck` (managed in InventoryScene) |
 | **Gambits** | Pre-battle | `Gambits.gd` catalogue + `GambitPickerOverlay.gd` picker shown before each battle (GID-063); gambit_id stored in `enemy_data` |
-| **GameBus signals** | Both | `card_played(card_id, type, slot_idx)` — emitted by `BattleScene._do_play_card()` (type="spell") and `_do_play_card_at_slot()` (type="board") on successful play. `card_attacked(attacker_id, target_id_or_"hero")` — emitted by `BattleScene._execute_attack()` on every attack. `battle_ended(winner_id)` — emitted by `BattleScene._check_game_over()` when a hero dies. `turn_ended(player_id)` — `GameState` emits its own `turn_ended` signal; `BattleScene._on_turn_ended()` relays it to `GameBus.turn_ended` for external subscribers. `status_applied`, `status_ticked` — available for future subscribers. |
+| **GameBus signals** | Both | `card_played(card_id, type, slot_idx)` — emitted by `BattleScene._do_play_card()` (type="spell") and `_do_play_card_at_slot()` (type="board") on successful player/PvP-relayed plays, and by `BasicAI.decide_turn()`'s play Callables for the single-player AI opponent's own plays. `card_attacked(attacker_id, target_id_or_"hero")` — emitted by `BattleScene._execute_attack()` (local player) and `_resolve_remote_attack()` (PvP/co-op relayed) on every attack, and by `BasicAI.decide_turn()`'s attack Callables for the AI opponent. `battle_ended(winner_id)` — emitted by `BattleScene._check_game_over()` when a hero dies in a standard single-player battle (PvP/co-op/team/puzzle/scripted battles use their own dedicated `*_battle_ended` signals instead). `turn_ended(player_id)` — `GameState` emits its own `turn_ended` signal; `BattleScene._on_turn_ended()` relays it to `GameBus.turn_ended` for external subscribers. `status_applied`, `status_ticked` — available for future subscribers. No current subscribers to `card_played`/`card_attacked`/`battle_ended` — wired for future consumers (capture tracking, veterancy attribution, achievements, diagnostics). |
 | **Veterancy (GID-060)** | Post-battle | `battle_won` result carries `"veterancy"` dict; SceneManager applies it via `SaveManager.record_veterancy`; see Veterancy Kill Attribution section above |
 | **PvP (GID-091)** | Networked battle | When `_pvp` is true the same engine runs host-authoritative: `_local_player_idx` selects perspective (0=host, 1=client), `BasicAI` is disabled, the host applies its own + the client's relayed intents to the canonical `GameState` and broadcasts `to_dict()`, the client renders the mirror. Single-player paths are unchanged. See PvP subsection below + `docs/agent/multiplayer-coop.md`. |
 

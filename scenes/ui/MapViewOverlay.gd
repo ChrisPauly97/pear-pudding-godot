@@ -314,6 +314,14 @@ func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
 
 	var is_blocked: bool = SceneManager._state != SceneManager.State.WORLD or \
 		SceneManager.current_map.begins_with("dungeon_")
+	# Rally (BID-040 / GID-105 follow-up): unlike waystone fast travel, rally is
+	# useful precisely when the local player is already inside a shared dungeon
+	# (e.g. auto-respawned at the entrance after TID-389 while the party pushed
+	# on). Only block rally mid-battle — WorldScene._rally_to_peer reuses the
+	# same recv_map_transition + SceneManager.enter_map path as the Dungeon Crawl
+	# button, which already handles map-stack/save bookkeeping correctly when
+	# leaving a dungeon map.
+	var is_rally_blocked: bool = SceneManager._state != SceneManager.State.WORLD
 
 	_travel_panel = ScrollContainer.new()
 	_travel_panel.size = Vector2(panel_w - vh * 0.02, panel_h - vh * 0.055)
@@ -346,7 +354,7 @@ func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
 			vbox.add_child(btn)
 
 	if is_blocked:
-		var block_lbl := _UiUtil.make_label("Travel unavailable\nduring battles\nor in dungeons.", int(vh * 0.019))
+		var block_lbl := _UiUtil.make_label("Waystone travel unavailable\nduring battles\nor in dungeons.", int(vh * 0.019))
 		block_lbl.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 		block_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		block_lbl.position = Vector2(px, py + panel_h - vh * 0.09)
@@ -374,7 +382,7 @@ func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
 			btn.add_theme_color_override("font_color", t_col)
 			btn.custom_minimum_size = Vector2(btn_w, btn_h)
 			btn.add_theme_font_size_override("font_size", font_size)
-			if is_blocked:
+			if is_rally_blocked:
 				btn.disabled = true
 				btn.modulate = Color(0.5, 0.5, 0.5)
 			else:

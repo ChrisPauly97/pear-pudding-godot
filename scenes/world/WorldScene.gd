@@ -258,6 +258,14 @@ const _BIOME_MUSIC: Array = [
 	"res://assets/audio/music/scorched.ogg",
 	"res://assets/audio/music/mountains.ogg",
 ]
+
+# BID-048: dungeon.ogg used to play for every non-infinite named map, including
+# peaceful towns (madrian, maykalene, ...). Procedurally generated dungeons/
+# spire floors never set MapData.music_track, so they still fall through to
+# _DUNGEON_MUSIC below; every hand-authored town/story map instead falls back
+# to _TOWN_MUSIC_DEFAULT unless it sets its own `music_track` override.
+const _DUNGEON_MUSIC: String = "res://assets/audio/music/dungeon.ogg"
+const _TOWN_MUSIC_DEFAULT: String = "res://assets/audio/music/grasslands.ogg"
 var _terrain_mat: ShaderMaterial
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 var _interact_timer: float = 0.0
@@ -601,11 +609,16 @@ func _ready() -> void:
 		GameBus.weather_changed.connect(_on_weather_changed)
 
 	if not _is_infinite:
-		AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
+		AudioManager.play_music(_named_map_music_track())
 		AudioManager.set_ambience(-1)  # -1 = named map / no biome ambience
 		GameBus.entered_named_map.emit(map_name)
 		if map_name.begins_with("dungeon_"):
 			_dungeon_session_ui.reset_hero_hp()
+	else:
+		# Counterpart to entered_named_map above (BID-056). Declared since the
+		# ambient-audio signals landed but never emitted, so any subscriber saw
+		# the player enter named maps and never come back out.
+		GameBus.exited_to_world.emit()
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)
 	GameBus.blight_changed.connect(_refresh_blight_tints)
@@ -2617,6 +2630,18 @@ func _on_enemy_engaged_for_mount(_enemy_data: Dictionary) -> void:
 	if SceneManager.save_manager.is_mounted:
 		SceneManager.save_manager.auto_dismiss_mount()
 
+## Music track for the current non-infinite (named) map (BID-048). Data-driven:
+## prefers the map's own MapData.music_track override (threaded through
+## WorldMap.load_from_resource()); falls back to dungeon.ogg only for actual
+## procedurally generated dungeons/spire floors, and to a peaceful default for
+## every other (hand-authored town/story) named map.
+func _named_map_music_track() -> String:
+	if world_map != null and world_map.music_track != "":
+		return world_map.music_track
+	if map_name.begins_with("dungeon_") or map_name.begins_with("spire_floor_"):
+		return _DUNGEON_MUSIC
+	return _TOWN_MUSIC_DEFAULT
+
 func _on_battle_won(_result: Dictionary) -> void:
 	# Co-op (GID-096): a victory over a shared enemy persists its defeat into the
 	# session file (stays gone after reconnect). A loss isn't persisted, so the
@@ -2630,7 +2655,7 @@ func _on_battle_won(_result: Dictionary) -> void:
 			var biome_name: String = BountyGen_cls.BIOME_NAMES[_current_biome]
 			SceneManager.save_manager.increment_bounty_progress("defeat_in_biome", {"biome_name": biome_name})
 	else:
-		AudioManager.play_music("res://assets/audio/music/dungeon.ogg")
+		AudioManager.play_music(_named_map_music_track())
 	var sm := SceneManager.save_manager
 	if sm.active_mount != "" and sm.current_map == "main":
 		sm.summon_mount(sm.active_mount)
