@@ -267,6 +267,14 @@ static func make_name_label(text: String, tint: Color) -> Label3D:
 	lbl.modulate = tint
 	return lbl
 
+## The three render flags every world sprite shares: face the camera, cut alpha
+## with an opaque prepass (so sprites depth-sort against terrain instead of
+## blending), and sample nearest-neighbour to keep the pixel art crisp.
+static func apply_billboard_flags(sprite: SpriteBase3D) -> void:
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+
 ## Builds a world-entity billboard: the registry texture scaled to `world_height`
 ## when one exists, otherwise `fallback_tex` at the legacy generated-art size.
 ## Applies the billboard/alpha/filter settings every world sprite shares.

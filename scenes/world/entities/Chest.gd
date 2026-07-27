@@ -44,9 +44,7 @@ func _ready() -> void:
 	if _SpriteRegistry.chest_closed_texture() != null:
 		_sprite = Sprite3D.new()
 		_SpriteRegistry.setup_sprite(_sprite, _SpriteRegistry.chest_open_texture() if _opened else _SpriteRegistry.chest_closed_texture())
-		_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-		_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_SpriteRegistry.apply_billboard_flags(_sprite)
 		add_child(_sprite)
 		return
 

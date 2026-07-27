@@ -113,10 +113,8 @@ func _build_sprite() -> void:
 	_sprite = AnimatedSprite3D.new()
 	_sprite.sprite_frames = sf
 	_sprite.pixel_size = PIXEL_SIZE
-	_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_SpriteRegistry.apply_billboard_flags(_sprite)
 	_sprite.shaded = false
-	_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	_sprite.no_depth_test = false
 	_sprite.double_sided = true
 	_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -134,10 +132,8 @@ func _build_sprite() -> void:
 	var mount_tex: Texture2D = _SpriteRegistry.mount_texture()
 	_mount_sprite.texture = mount_tex if mount_tex != null else TextureGen.mount_horse()
 	_mount_sprite.pixel_size = PIXEL_SIZE
-	_mount_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_SpriteRegistry.apply_billboard_flags(_mount_sprite)
 	_mount_sprite.shaded = false
-	_mount_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	_mount_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	_mount_sprite.no_depth_test = false
 	_mount_sprite.double_sided = true
 	_mount_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

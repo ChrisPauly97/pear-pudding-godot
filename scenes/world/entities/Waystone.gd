@@ -35,9 +35,7 @@ func _ready() -> void:
 	if tex != null:
 		_sprite = Sprite3D.new()
 		_SpriteRegistry.setup_sprite_height(_sprite, tex, _OBELISK_HEIGHT)
-		_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-		_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_SpriteRegistry.apply_billboard_flags(_sprite)
 		add_child(_sprite)
 		if mi:
 			mi.visible = false

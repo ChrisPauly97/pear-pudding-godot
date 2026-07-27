@@ -19,9 +19,7 @@ func _ready() -> void:
 		sprite.texture = TextureGen.enemy()
 		sprite.pixel_size = 0.03
 		sprite.position = Vector3(0.0, 0.5, 0.0)
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	_SpriteRegistry.apply_billboard_flags(sprite)
 	sprite.modulate = Color(0.55, 0.7, 0.4)
 	add_child(sprite)
 

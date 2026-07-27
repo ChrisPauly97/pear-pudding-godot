@@ -48,9 +48,7 @@ func _ready() -> void:
 	if tex != null:
 		var sprite := Sprite3D.new()
 		_SpriteRegistry.setup_sprite_height(sprite, tex, _HEART_HEIGHT)
-		sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-		sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_SpriteRegistry.apply_billboard_flags(sprite)
 		add_child(sprite)
 		core = sprite
 	else:

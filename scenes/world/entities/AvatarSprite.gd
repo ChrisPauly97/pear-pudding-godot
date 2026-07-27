@@ -30,10 +30,8 @@ static func build() -> AnimatedSprite3D:
 	var sprite := AnimatedSprite3D.new()
 	sprite.sprite_frames = sf
 	sprite.pixel_size = PIXEL_SIZE
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_SpriteRegistry.apply_billboard_flags(sprite)
 	sprite.shaded = false
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	sprite.no_depth_test = false
 	sprite.double_sided = true
 	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

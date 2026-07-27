@@ -83,9 +83,7 @@ func _ready() -> void:
 			_static_sprite.texture = TextureGen.npc_maiteln()
 			_static_sprite.pixel_size = 0.04
 			_static_sprite.position = Vector3(0.0, 0.69, 0.0)
-		_static_sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		_static_sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-		_static_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		_SpriteRegistry.apply_billboard_flags(_static_sprite)
 		add_child(_static_sprite)
 
 	add_child(_SpriteRegistry.make_name_label("Maiteln", Color(0.75, 0.85, 1.0)))
@@ -98,9 +96,7 @@ func _build_animated_sprite(idle_tex: Texture2D, walk_frames: Array[Texture2D]) 
 	var anim := AnimatedSprite3D.new()
 	anim.sprite_frames = sf
 	anim.pixel_size = _SpriteRegistry.CHAR_PIXEL_SIZE
-	anim.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	anim.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	anim.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	_SpriteRegistry.apply_billboard_flags(anim)
 	anim.position = Vector3(0.0, float(idle_tex.get_height()) * _SpriteRegistry.CHAR_PIXEL_SIZE * 0.5 + _SpriteRegistry.FEET_MARGIN, 0.0)
 	anim.play("idle")
 	return anim
