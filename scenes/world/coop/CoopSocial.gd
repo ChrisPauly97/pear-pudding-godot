@@ -77,10 +77,10 @@ func _ensure_social_buttons() -> void:
 		_trade_window_mine = _world._world_hud.register_action("trade", "Trade", WorldHUD.ZONE_CONTEXT,
 			_open_trade_offer, Callable(), Vector2(vh * 0.22, vh * 0.06))
 		_trade_window_mine.hide()
-	if _world._spectate_btn == null or not is_instance_valid(_world._spectate_btn):
-		_world._spectate_btn = _world._world_hud.register_action("spectate", "Spectate Duel", WorldHUD.ZONE_CONTEXT,
-			_world._request_spectate, Callable(), Vector2(vh * 0.28, vh * 0.06))
-		_world._spectate_btn.hide()
+	if _world.coop_pvp._spectate_btn == null or not is_instance_valid(_world.coop_pvp._spectate_btn):
+		_world.coop_pvp._spectate_btn = _world._world_hud.register_action("spectate", "Spectate Duel", WorldHUD.ZONE_CONTEXT,
+			_world.coop_pvp._request_spectate, Callable(), Vector2(vh * 0.28, vh * 0.06))
+		_world.coop_pvp._spectate_btn.hide()
 	# Leaderboard and Stash (GID-102 / TID-373, TID-376): now Party-panel actions
 	# (GID-107 / TID-395) instead of their own standalone always-visible buttons.
 	# Auction house button (GID-102 / TID-378): always visible while co-op is active
@@ -150,8 +150,8 @@ func _update_social_proximity() -> void:
 	if _world._world_hud != null and _world._world_hud.is_interact_visible():
 		if _trade_window_mine != null and is_instance_valid(_trade_window_mine):
 			_trade_window_mine.hide()
-		if _world._spectate_btn != null and is_instance_valid(_world._spectate_btn):
-			_world._spectate_btn.hide()
+		if _world.coop_pvp._spectate_btn != null and is_instance_valid(_world.coop_pvp._spectate_btn):
+			_world.coop_pvp._spectate_btn.hide()
 		return
 	var range_world: float = _world._CHALLENGE_RANGE * IsoConst.TILE_SIZE
 	var nearest_pid: int = -1
@@ -168,9 +168,9 @@ func _update_social_proximity() -> void:
 	_trade_target_peer = nearest_pid
 	if _trade_window_mine != null and is_instance_valid(_trade_window_mine):
 		_trade_window_mine.visible = nearest_pid != -1 and _world._pending_challenge_from == -1 \
-			and _world._pending_wager_from == -1
-	if _world._spectate_btn != null and is_instance_valid(_world._spectate_btn):
-		_world._spectate_btn.visible = _world._pvp_active_peers.size() >= 2
+			and _world.coop_pvp._pending_wager_from == -1
+	if _world.coop_pvp._spectate_btn != null and is_instance_valid(_world.coop_pvp._spectate_btn):
+		_world.coop_pvp._spectate_btn.visible = _world._pvp_active_peers.size() >= 2
 
 
 # ── TID-365: Emotes ────────────────────────────────────────────────────────────
