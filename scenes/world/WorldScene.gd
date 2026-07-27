@@ -3777,16 +3777,48 @@ func _spawn_named_map_scrolls() -> void:
 		if is_instance_valid(node):
 			_scroll_nodes.append(node)
 
-func _find_nearby_scroll(px: float, pz: float, range_dist: float) -> Node3D:
+## `v` when it is a live Node3D within `range_dist` of (px, pz), else null.
+## The proximity family below all measure on the XZ plane — vertical distance
+## never gates an interaction.
+func _node_in_range(v, px: float, pz: float, range_dist: float) -> Node3D:
+	var n: Node3D = _valid_node3d(v)
+	if n == null:
+		return null
+	var ddx: float = n.position.x - px
+	var ddz: float = n.position.z - pz
+	return n if ddx * ddx + ddz * ddz <= range_dist * range_dist else null
+
+## The first live node within `range_dist` of (px, pz), scanning either an Array
+## of nodes or an id -> node Dictionary. `require_visible` additionally skips
+## hidden nodes (buried mounds are spawned hidden until revealed).
+func _first_node_in_range(nodes, px: float, pz: float, range_dist: float,
+		require_visible: bool = false) -> Node3D:
 	var range_sq: float = range_dist * range_dist
-	for s in _scroll_nodes:
-		if not is_instance_valid(s):
+	var values: Array = (nodes as Dictionary).values() if nodes is Dictionary else nodes
+	for raw in values:
+		var n: Node3D = _valid_node3d(raw)
+		if n == null or (require_visible and not n.visible):
 			continue
-		var ddx: float = s.position.x - px
-		var ddz: float = s.position.z - pz
+		var ddx: float = n.position.x - px
+		var ddz: float = n.position.z - pz
 		if ddx * ddx + ddz * ddz <= range_sq:
-			return s
+			return n
 	return null
+
+## The first entry of an id -> {"x", "z", ...} table within `range_dist` of
+## (px, pz), or {} when nothing is close enough.
+func _first_data_in_range(table: Dictionary, px: float, pz: float, range_dist: float) -> Dictionary:
+	var range_sq: float = range_dist * range_dist
+	for key in table:
+		var d: Dictionary = table[key]
+		var ddx: float = float(d.get("x", 0.0)) - px
+		var ddz: float = float(d.get("z", 0.0)) - pz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return d
+	return {}
+
+func _find_nearby_scroll(px: float, pz: float, range_dist: float) -> Node3D:
+	return _first_node_in_range(_scroll_nodes, px, pz, range_dist)
 
 ## First-night wilderness camp (GID-108 / TID-402) — spawns near the player once
 ## per open-world load, exactly the same "no fixed position, respawn each fresh
@@ -3809,13 +3841,7 @@ func _spawn_wilderness_camp() -> void:
 	_wilderness_camp_node = node
 
 func _find_nearby_wilderness_camp(px: float, pz: float, range_dist: float) -> Node3D:
-	if not is_instance_valid(_wilderness_camp_node):
-		return null
-	var ddx: float = _wilderness_camp_node.position.x - px
-	var ddz: float = _wilderness_camp_node.position.z - pz
-	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
-		return _wilderness_camp_node
-	return null
+	return _node_in_range(_wilderness_camp_node, px, pz, range_dist)
 
 ## Chapter 2 beat 3 scripted ambush (GID-108 / TID-407) — spawns near the player
 ## once per open-world load, same "no fixed position" pattern as
@@ -3839,13 +3865,7 @@ func _spawn_scout_ambush() -> void:
 	_scout_ambush_node = node
 
 func _find_nearby_scout_ambush(px: float, pz: float, range_dist: float) -> Node3D:
-	if not is_instance_valid(_scout_ambush_node):
-		return null
-	var ddx: float = _scout_ambush_node.position.x - px
-	var ddz: float = _scout_ambush_node.position.z - pz
-	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
-		return _scout_ambush_node
-	return null
+	return _node_in_range(_scout_ambush_node, px, pz, range_dist)
 
 ## Chapter 2 beat 6 (GID-108 / TID-407) — DungeonGen has no boss-room concept
 ## at all (grepped, confirmed), so the war-camp's boss is injected directly
@@ -3923,13 +3943,7 @@ func _refresh_maiteln_presence() -> void:
 		_maiteln_node = node
 
 func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
-	if not is_instance_valid(_maiteln_node):
-		return null
-	var ddx: float = _maiteln_node.position.x - px
-	var ddz: float = _maiteln_node.position.z - pz
-	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
-		return _maiteln_node
-	return null
+	return _node_in_range(_maiteln_node, px, pz, range_dist)
 
 func _spawn_named_map_shrines() -> void:
 	if world_map == null:
@@ -3947,15 +3961,7 @@ func _spawn_named_map_shrines() -> void:
 			_shrine_nodes.append(node)
 
 func _find_nearby_shrine(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
-	for sh in _shrine_nodes:
-		if not is_instance_valid(sh):
-			continue
-		var ddx: float = sh.position.x - px
-		var ddz: float = sh.position.z - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return sh
-	return null
+	return _first_node_in_range(_shrine_nodes, px, pz, range_dist)
 
 # Named-map waystone positions (near spawn, one per town map).
 # Used when the map's .tres data has no waystones array populated.
@@ -4034,14 +4040,7 @@ func _spawn_named_map_mailboxes() -> void:
 	_active_mailbox_data[mid] = m_dict
 
 func _find_nearby_mailbox(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for mid in _active_mailbox_data:
-		var m: Dictionary = _active_mailbox_data[mid]
-		var ddx: float = float(m.get("x", 0.0)) - px
-		var ddz: float = float(m.get("z", 0.0)) - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return m
-	return {}
+	return _first_data_in_range(_active_mailbox_data, px, pz, range_dist)
 
 ## Checks if a siege is active for this named map and spawns raiders + siege banner if so.
 ## Chapter 2 beat 4 (GID-108 / TID-407) — deterministically starts the same
@@ -4143,28 +4142,10 @@ func register_mana_well(wid: String, node: Node3D) -> void:
 	_mana_well_nodes[wid] = node
 
 func _find_nearby_mana_well(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
-	for wid: String in _mana_well_nodes:
-		var wnode: Node3D = _valid_node3d(_mana_well_nodes[wid])
-		if not is_instance_valid(wnode):
-			continue
-		var ddx: float = wnode.position.x - px
-		var ddz: float = wnode.position.z - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return wnode
-	return null
+	return _first_node_in_range(_mana_well_nodes, px, pz, range_dist)
 
 func _find_nearby_blight_heart(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
-	for hid: String in _blight_heart_nodes:
-		var hnode: Node3D = _valid_node3d(_blight_heart_nodes[hid])
-		if not is_instance_valid(hnode):
-			continue
-		var ddx: float = hnode.position.x - px
-		var ddz: float = hnode.position.z - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return hnode
-	return null
+	return _first_node_in_range(_blight_heart_nodes, px, pz, range_dist)
 
 const LANDMARK_DISCOVERY_RANGE: float = 9.0
 
@@ -4209,26 +4190,10 @@ func _refresh_blight_tints() -> void:
 	)
 
 func _find_nearby_burial_mound(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
-	for mid in _burial_mound_nodes:
-		var mnode: Node3D = _valid_node3d(_burial_mound_nodes[mid])
-		if not is_instance_valid(mnode) or not mnode.visible:
-			continue
-		var ddx: float = mnode.position.x - px
-		var ddz: float = mnode.position.z - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return mnode
-	return null
+	return _first_node_in_range(_burial_mound_nodes, px, pz, range_dist, true)
 
 func _find_nearby_waystone(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for wid in _active_waystone_data:
-		var w: Dictionary = _active_waystone_data[wid]
-		var ddx: float = float(w.get("x", 0.0)) - px
-		var ddz: float = float(w.get("z", 0.0)) - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return w
-	return {}
+	return _first_data_in_range(_active_waystone_data, px, pz, range_dist)
 
 func _on_waystone_activated(waystone_id: String) -> void:
 	var w_data: Dictionary = _active_waystone_data.get(waystone_id, {})
@@ -4427,14 +4392,10 @@ func _find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
 	return best
 
 func _find_nearby_digspot(px: float, pz: float, range_dist: float) -> Node3D:
-	if _digspot_node == null or not is_instance_valid(_digspot_node):
+	if not is_instance_valid(_digspot_node):
 		_digspot_node = null
 		return null
-	var ddx: float = _digspot_node.position.x - px
-	var ddz: float = _digspot_node.position.z - pz
-	if ddx * ddx + ddz * ddz <= range_dist * range_dist:
-		return _digspot_node
-	return null
+	return _node_in_range(_digspot_node, px, pz, range_dist)
 
 func _break_cracked_wall(tx: int, tz: int) -> void:
 	world_map.set_tile(tx, tz, IsoConst.TILE_GRASS)
@@ -4447,14 +4408,7 @@ func _rebuild_terrain_around_tile(tx: int, tz: int) -> void:
 	_csm.rebuild_terrain_around_tile(tx, tz)
 
 func _find_nearby_npc(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	for nid in _active_npc_data:
-		var n: Dictionary = _active_npc_data[nid]
-		var ddx: float = float(n.get("x", 0.0)) - px
-		var ddz: float = float(n.get("z", 0.0)) - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return n
-	return {}
+	return _first_data_in_range(_active_npc_data, px, pz, range_dist)
 
 func _make_terrain_material(_seed: int = 0) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
@@ -5429,15 +5383,7 @@ func _spawn_player_home_garden() -> void:
 		_garden_plot_nodes.append(plot)
 
 func _find_nearby_garden_plot(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
-	for plot in _garden_plot_nodes:
-		if not is_instance_valid(plot):
-			continue
-		var ddx: float = plot.position.x - px
-		var ddz: float = plot.position.z - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
-			return plot
-	return null
+	return _first_node_in_range(_garden_plot_nodes, px, pz, range_dist)
 
 func _show_garden_plot_panel(plot: Node3D) -> void:
 	var sm := SceneManager.save_manager
