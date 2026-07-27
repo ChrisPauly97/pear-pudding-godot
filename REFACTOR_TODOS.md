@@ -29,5 +29,7 @@ Done:
 
 Still open:
 - [ ] **SceneManager as formal state machine** — see the item above
+- [ ] **`WorldScene.gd` is still 3.7k lines** — the remaining bulk is nocturnal spawns, cantrips, dialogue, home/garden and tap-to-move; each is a candidate for the same module treatment
+- [ ] **Cross-module reaches** — a handful of `_world.coop_pvp.X` references remain (spectate button, leaderboard overlay). Where two modules genuinely share state it belongs on WorldScene or in a small shared object
 - [ ] **`EnemyRegistry` is still a GDScript literal** — `CardRegistry` is `.tres`-driven and `EnemyRegistry` is not. Migrating means moving the current dictionary's values (drop pools, capture/signature data) into resources; the old `.tres` files were stale, so they were deleted rather than adopted silently
-- [ ] **`WorldScene.gd` is ~8.6k lines** — the co-op/session RPC surface (~2k lines) is the obvious first extraction
+- [x] **`WorldScene.gd` god object** — split to 3.7k lines; the co-op surface moved to four `scenes/world/coop/*.gd` sibling modules (Session / Activities / PvP / Social). NetSync gained `register_handler`/`_route` so RPC dispatch is module-agnostic

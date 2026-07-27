@@ -264,6 +264,35 @@ data lives **only** in `EnemyRegistry._ensure_loaded()` — there are no
 
 ---
 
+## WorldScene Co-op Modules
+
+The co-op/session surface lives in four sibling child nodes under
+`scenes/world/coop/`, not in `WorldScene.gd`:
+
+| Module | Owns |
+|---|---|
+| `CoopSession.gd` | join/leave, identity + character handshakes, roster, world-object sync, synced clock/weather, story flags, map transitions, rally, downed & rescue, dungeon crawl, guildhall |
+| `CoopActivities.gd` | night hunts, loot rolls, co-op Spire, town siege, PvE leaderboards, party bounties |
+| `CoopPvP.gd` | challenge handshake + timeouts, team duels, referee routing, spectating, wagers, ranked/leaderboard, draft duels, tournaments |
+| `CoopSocial.gd` | emotes, pings, chat, trading/gifting, party stash, auction house |
+
+Rules:
+- Each module is a `Node` with a `_world` back-reference, created in
+  `WorldScene._ready()` via `_ensure_coop_modules()` and registered with
+  `NetSync.register_handler()`. They are inert outside a session.
+- Reach the world as `_world.<name>`; reach a sibling as
+  `_world.coop_pvp.<name>`. **State two modules share stays on WorldScene** —
+  the graph is a star, not a mesh.
+- New RPCs need no NetSync change beyond the `_route("_on_x", [...])` line;
+  `_route` tries WorldScene, then each registered module, and pushes a warning
+  if nothing handles it.
+- **Member access resolves at runtime**, so a wrong `_world.X` is invisible to
+  the parse check. `tests/world_scene_smoke.gd` is the guard: it drives all 77
+  handlers through the real `_route`. Run it after touching any of this:
+  `godot --headless --path . -s tests/world_scene_smoke.gd`
+
+---
+
 ## WorldScene: Proximity Scans
 
 Never write a fresh `dx*dx + dz*dz <= r*r` loop. Use `_node_in_range(node, …)`,
