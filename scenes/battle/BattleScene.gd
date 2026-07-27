@@ -1149,10 +1149,7 @@ func _show_card_inspect(card: CardInstance) -> void:
 	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
 		return
 	var overlay: CardInspectOverlay = CardInspectOverlay.new()
-	add_child(overlay)
-	move_child(overlay, get_child_count() - 1)
-	overlay.show_card(card)
-	overlay.closed.connect(func() -> void: _inspect_overlay = null)
+	overlay.present(self, card, func() -> void: _inspect_overlay = null)
 	_inspect_overlay = overlay
 
 # -------------------------------------------------------------------------

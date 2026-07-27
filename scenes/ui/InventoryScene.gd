@@ -1,11 +1,9 @@
-extends "res://scenes/ui/BaseOverlay.gd"
+extends "res://scenes/ui/CardBrowserOverlay.gd"
 
 const CardRegistry      = preload("res://autoloads/CardRegistry.gd")
 const CraftingRegistry  = preload("res://autoloads/CraftingRegistry.gd")
 const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
 const _CardDropUtil     = preload("res://game_logic/CardDropUtil.gd")
-const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
-const CardInstance      = preload("res://game_logic/battle/CardInstance.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const VeterancyUtil     = preload("res://game_logic/VeterancyUtil.gd")
 
@@ -36,7 +34,6 @@ var _craft_list: VBoxContainer
 var _craft_essence_label: Label
 var _craft_rarity_row: HBoxContainer
 var _craft_rarity: String = "common"
-var _inspect_overlay: Control = null
 
 var _loadout_tab_row: HBoxContainer
 var _loadout_action_row: HBoxContainer
@@ -832,20 +829,6 @@ func _refresh_craft() -> void:
 	for potion_id: String in potion_recipes:
 		var recipe_data: Dictionary = potion_recipes[potion_id]
 		_craft_list.add_child(_make_potion_craft_row(potion_id, recipe_data, player_essence))
-
-func _show_inspect(card_id: String) -> void:
-	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
-		return
-	var tmpl: Dictionary = CardRegistry.get_template(card_id)
-	if tmpl.is_empty():
-		return
-	var card: CardInstance = CardInstance.new(tmpl)
-	var overlay := CardInspectOverlay.new()
-	add_child(overlay)
-	move_child(overlay, get_child_count() - 1)
-	overlay.show_card(card)
-	overlay.closed.connect(func() -> void: _inspect_overlay = null)
-	_inspect_overlay = overlay
 
 func _on_save() -> void:
 	SceneManager.save_manager.set_active_deck(_working_deck)

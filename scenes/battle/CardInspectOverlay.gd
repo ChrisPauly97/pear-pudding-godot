@@ -15,6 +15,18 @@ func _ready() -> void:
 func _font(pct: float) -> int:
 	return int(_vh * pct * _ts)
 
+## Puts this overlay on screen over `host` and shows `card`.
+##
+## The move_child is what makes this the topmost child: hosts add the overlay
+## while their own content already exists, and without it the overlay draws
+## underneath. `on_closed` fires when the player dismisses it — hosts use it to
+## drop their reference so the next inspect request is allowed through.
+func present(host: Node, card: CardInstance, on_closed: Callable) -> void:
+	host.add_child(self)
+	host.move_child(self, host.get_child_count() - 1)
+	show_card(card)
+	closed.connect(on_closed)
+
 func show_card(card: CardInstance) -> void:
 	_card = card
 	_ts = clampf(float(SceneManager.save_manager.get_setting("text_scale", 1.0)), 0.5, 2.0)

@@ -1,4 +1,4 @@
-extends "res://scenes/ui/BaseOverlay.gd"
+extends "res://scenes/ui/CardBrowserOverlay.gd"
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
@@ -6,8 +6,6 @@ const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const PackDefs = preload("res://game_logic/PackDefs.gd")
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
-const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
-const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 
@@ -29,7 +27,6 @@ var _coin_label: Label
 var _title_lbl: Label
 var _shop_list: VBoxContainer
 var _shop_scroll: ScrollContainer
-var _inspect_overlay: Control = null
 
 func _ready() -> void:
 	super._ready()
@@ -323,20 +320,6 @@ func _on_buy_equipment(item_id: String, slot: String, price: int) -> void:
 	sm.add_coins(-price)
 	sm.add_equipment(item_id, slot)
 	_refresh()
-
-func _show_inspect(card_id: String) -> void:
-	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
-		return
-	var tmpl: Dictionary = CardRegistry.get_template(card_id)
-	if tmpl.is_empty():
-		return
-	var card: CardInstance = CardInstance.new(tmpl)
-	var overlay := CardInspectOverlay.new()
-	add_child(overlay)
-	move_child(overlay, get_child_count() - 1)
-	overlay.show_card(card)
-	overlay.closed.connect(func() -> void: _inspect_overlay = null)
-	_inspect_overlay = overlay
 
 func _make_pack_row(pack_id: String, pack_def: Dictionary, coins: int) -> VBoxContainer:
 	var outer := _UiUtil.make_vbox(int(_ref * 0.004))
