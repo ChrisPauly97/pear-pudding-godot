@@ -23,12 +23,8 @@ static var _burst_mat: ParticleProcessMaterial
 static func _ensure_shared_resources() -> void:
 	if _wood_mat != null:
 		return
-	_wood_mat = StandardMaterial3D.new()
-	_wood_mat.albedo_color = Color(0.55, 0.35, 0.10)
-	_wood_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_gold_mat = StandardMaterial3D.new()
-	_gold_mat.albedo_color = Color(0.90, 0.75, 0.10)
-	_gold_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_wood_mat = _WEB.unshaded_material(Color(0.55, 0.35, 0.10))
+	_gold_mat = _WEB.unshaded_material(Color(0.90, 0.75, 0.10))
 	_body_mesh = BoxMesh.new()
 	_body_mesh.size = Vector3(0.6, 0.4, 0.45)
 	_lock_mesh = BoxMesh.new()

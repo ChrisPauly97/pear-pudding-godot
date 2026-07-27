@@ -14,9 +14,7 @@ static var _door_mesh: BoxMesh
 static func _ensure_shared_resources() -> void:
 	if _door_mat != null:
 		return
-	_door_mat = StandardMaterial3D.new()
-	_door_mat.albedo_color = Color(0.45, 0.28, 0.10)
-	_door_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_door_mat = _WEB.unshaded_material(Color(0.45, 0.28, 0.10))
 	_door_mesh = BoxMesh.new()
 	_door_mesh.size = Vector3(1.8, 1.8, 0.1)
 

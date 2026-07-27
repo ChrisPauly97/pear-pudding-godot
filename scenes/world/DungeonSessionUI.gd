@@ -13,12 +13,6 @@ func setup(hud: CanvasLayer, dialogue_cb: Callable) -> void:
 	_hud = hud
 	_dialogue_cb = dialogue_cb
 
-func get_hero_hp() -> int:
-	return _dungeon_hero_hp
-
-func set_hero_hp(val: int) -> void:
-	_dungeon_hero_hp = val
-
 func reset_hero_hp() -> void:
 	_dungeon_hero_hp = 30
 

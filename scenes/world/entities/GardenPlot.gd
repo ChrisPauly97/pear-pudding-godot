@@ -1,4 +1,5 @@
 extends Node3D
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
 
@@ -28,21 +29,11 @@ static var _flower_mat: StandardMaterial3D
 static func _ensure_mats() -> void:
 	if _soil_mat != null:
 		return
-	_soil_mat = StandardMaterial3D.new()
-	_soil_mat.albedo_color = Color(0.45, 0.28, 0.10)
-	_soil_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_stage1_mat = StandardMaterial3D.new()
-	_stage1_mat.albedo_color = Color(0.35, 0.70, 0.20)
-	_stage1_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_stage2_mat = StandardMaterial3D.new()
-	_stage2_mat.albedo_color = Color(0.20, 0.65, 0.15)
-	_stage2_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_stage3_mat = StandardMaterial3D.new()
-	_stage3_mat.albedo_color = Color(0.10, 0.55, 0.10)
-	_stage3_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_flower_mat = StandardMaterial3D.new()
-	_flower_mat.albedo_color = Color(0.95, 0.85, 0.10)
-	_flower_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_soil_mat = _WEB.unshaded_material(Color(0.45, 0.28, 0.10))
+	_stage1_mat = _WEB.unshaded_material(Color(0.35, 0.70, 0.20))
+	_stage2_mat = _WEB.unshaded_material(Color(0.20, 0.65, 0.15))
+	_stage3_mat = _WEB.unshaded_material(Color(0.10, 0.55, 0.10))
+	_flower_mat = _WEB.unshaded_material(Color(0.95, 0.85, 0.10))
 
 func init_from_data(data: Dictionary) -> void:
 	plot_idx = int(data.get("plot_idx", 0))

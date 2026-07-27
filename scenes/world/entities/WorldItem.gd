@@ -1,4 +1,5 @@
 extends Node3D
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
@@ -205,9 +206,7 @@ static func _ensure_coin_resources() -> void:
 	# Gold coin disc — flat cylinder with strong emission for bloom
 	var coin_color: Color = Color(1.0, 0.82, 0.1)
 	var coin_glow: Color  = Color(1.0, 0.65, 0.0)
-	_coin_mat = StandardMaterial3D.new()
-	_coin_mat.albedo_color = coin_color
-	_coin_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_coin_mat = _WEB.unshaded_material(coin_color)
 	_coin_mat.emission_enabled = true
 	_coin_mat.emission = coin_glow
 	_coin_mat.emission_energy_multiplier = 3.0
@@ -217,9 +216,7 @@ static func _ensure_coin_resources() -> void:
 	_coin_mesh.height = 0.06
 	_coin_mesh.radial_segments = 16
 	# Large billboard glow halo behind coin — same approach as cards
-	_coin_halo_mat = StandardMaterial3D.new()
-	_coin_halo_mat.albedo_color = coin_glow
-	_coin_halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_coin_halo_mat = _WEB.unshaded_material(coin_glow)
 	_coin_halo_mat.emission_enabled = true
 	_coin_halo_mat.emission = coin_glow
 	_coin_halo_mat.emission_energy_multiplier = 4.0

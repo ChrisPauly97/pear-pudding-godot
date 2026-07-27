@@ -3,54 +3,7 @@ extends "res://scenes/ui/BaseOverlay.gd"
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
-
-# Mirrors CardViewBuilder.SPELL_EFFECT_LABELS and EMERGENCE_LABELS (TID-140, TID-142). Keep both in sync.
-const _SPELL_EFFECT_LABELS: Dictionary = {
-	"deal_damage_single":  "Deal [power] damage to one target",
-	"deal_damage_all":     "Deal [power] damage to all enemy minions",
-	"deal_damage_random":  "Deal [power] damage to a random enemy",
-	"debuff_attack":       "Reduce all enemy minion attack by [power]",
-	"destroy_low_hp":      "Destroy all enemy minions with [power] or less HP",
-	"resurrect_last":      "Resurrect the last friendly minion that died",
-	"heal_single":         "Restore [power] HP to a friendly minion",
-	"heal_all":            "Restore [power] HP to all friendly minions",
-	"shield_minion":       "Give [power] armor to a friendly minion",
-	"buff_attack":         "Give a friendly minion +[power] attack",
-	"lifesteal_hit":       "Deal [power] damage; restore that much HP to your hero",
-	"mana_drain":          "Remove [power] mana from the enemy hero",
-	"curse_minion":        "Reduce an enemy minion's attack and HP by [power]",
-	"draw_card":           "Draw [power] card(s)",
-	"bless_slot":          "Bless a board slot — the next minion placed there gains +[power] ATK",
-	"ward_slot":           "Ward a board slot — the next minion placed there gains Shroud",
-	"deal_damage_hero":    "Deal [power] damage to the enemy hero",
-	"apply_poison_single": "Poison a minion for [power] damage per turn",
-	"apply_poison_all":    "Poison all enemy minions for [power] damage per turn",
-	"grant_surge":         "Give a friendly minion Surge",
-	"double_attack":       "A friendly minion attacks twice this turn",
-	"buff_attack_all":     "Give all your minions +[power] attack",
-	"heal_hero":           "Restore [power] HP to your hero",
-	"armor_hero":          "Give your hero [power] armor",
-	"grant_ward":          "Give a friendly minion Ward",
-	"grant_shroud":        "Give a friendly minion Shroud",
-	"grant_ward_all":      "Give all your minions Ward",
-	"bind_minion":         "Strip all keywords from an enemy minion",
-	"buff_health_all":     "Give all your minions +[power] health",
-	"enemy_discard":       "Enemy discards [power] random card(s)",
-	"freeze_single":       "Freeze an enemy minion for 1 turn",
-	"freeze_all":          "Freeze all enemy minions for 1 turn",
-	"drain_hero":          "Deal [power] to the enemy hero; restore that much HP to yours",
-	"stun_single":         "Stun an enemy minion for [power] turn(s)",
-	"summon_token":        "Summon [power] 1/1 Skeleton token(s)",
-	"deal_damage_all_full":"Deal [power] damage to all enemy minions and their hero",
-}
-
-const _EMERGENCE_LABELS: Dictionary = {
-	"emergence_deal_damage":   "Emergence: Deal [power] damage to the enemy hero",
-	"emergence_heal_hero":     "Emergence: Restore [power] HP to your hero",
-	"emergence_draw":          "Emergence: Draw [power] card(s)",
-	"emergence_buff_friendly": "Emergence: Give a friendly minion +[power] attack",
-	"emergence_apply_poison":  "Emergence: Poison a random enemy minion for [power]",
-}
+const SpellEffectLabels = preload("res://game_logic/battle/SpellEffectLabels.gd")
 
 var _card: CardInstance = null
 # Multiplier from the "text_scale" accessibility setting (GID-119 / TID-451).
@@ -61,6 +14,18 @@ func _ready() -> void:
 
 func _font(pct: float) -> int:
 	return int(_vh * pct * _ts)
+
+## Puts this overlay on screen over `host` and shows `card`.
+##
+## The move_child is what makes this the topmost child: hosts add the overlay
+## while their own content already exists, and without it the overlay draws
+## underneath. `on_closed` fires when the player dismisses it — hosts use it to
+## drop their reference so the next inspect request is allowed through.
+func present(host: Node, card: CardInstance, on_closed: Callable) -> void:
+	host.add_child(self)
+	host.move_child(self, host.get_child_count() - 1)
+	show_card(card)
+	closed.connect(on_closed)
 
 func show_card(card: CardInstance) -> void:
 	_card = card
@@ -224,8 +189,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 	var sp: int = int(tmpl.get("spell_power", 0)) if not tmpl.is_empty() else (card.spell_power if card != null else 0)
 	if cc == "spell" and se != "":
 		var effect_lbl := Label.new()
-		var template_str: String = _SPELL_EFFECT_LABELS.get(se, se)
-		effect_lbl.text = template_str.replace("[power]", str(sp))
+		effect_lbl.text = SpellEffectLabels.spell(se, sp)
 		effect_lbl.add_theme_font_size_override("font_size", _font(0.018))
 		effect_lbl.add_theme_color_override("font_color", Color(0.6, 1.0, 0.8))
 		effect_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -261,8 +225,7 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 		var em_sep := HSeparator.new()
 		container.add_child(em_sep)
 		var em_lbl := Label.new()
-		var em_tmpl: String = str(_EMERGENCE_LABELS.get(ee, ee))
-		em_lbl.text = em_tmpl.replace("[power]", str(ep))
+		em_lbl.text = SpellEffectLabels.emergence(ee, ep)
 		em_lbl.add_theme_font_size_override("font_size", _font(0.018))
 		em_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 		em_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

@@ -1,6 +1,7 @@
 ## Burial mound entity for GID-065 Skeleton Dig cantrip.
 ## Spawned in ~10% of chunks; interactive only when player has ≥4 Skeleton-family cards.
 extends Node3D
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 const CantripManager = preload("res://game_logic/world/CantripManager.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
@@ -20,9 +21,7 @@ static func _ensure_shared_resources() -> void:
 	_mound_mesh.top_radius = 0.7
 	_mound_mesh.bottom_radius = 1.1
 	_mound_mesh.height = 0.35
-	_mound_mat = StandardMaterial3D.new()
-	_mound_mat.albedo_color = Color(0.38, 0.26, 0.11)
-	_mound_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_mound_mat = _WEB.unshaded_material(Color(0.38, 0.26, 0.11))
 
 var _mound_id: String = ""
 var _dug: bool = false

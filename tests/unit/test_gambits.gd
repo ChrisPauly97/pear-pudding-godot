@@ -28,11 +28,6 @@ func _player_with_minions(count: int = 3, atk: int = 2) -> PlayerState:
 		p.draw_deck.append(CardInstance.new(_tmpl("ghost_%d" % i, atk, 3)))
 	return p
 
-func _player_with_spell() -> PlayerState:
-	var p: PlayerState = _player()
-	p.draw_deck.append(CardInstance.new(_tmpl("spell_a", 0, 0, "spell")))
-	return p
-
 # ---------------------------------------------------------------------------
 # 1. Catalogue integrity
 # ---------------------------------------------------------------------------

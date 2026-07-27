@@ -57,9 +57,15 @@ var _wager_side_b_btn: Button = null
 var _wager_status_label: Label = null
 var _wagers_settled: bool = false     # authority: one-shot settlement guard
 
-func _setup_pvp_battle() -> void:
+## The opening every networked battle mode shares: a fresh canonical GameState
+## bound to the resolver, and the BattleNetSync relay node.
+##
+## The relay is parented to the battle scene, never to this module — its node
+## path is the RPC address both peers resolve, so reparenting it would silently
+## break every call. SpellEffectResolver.setup() only stores the state reference,
+## so callers are free to configure the state after this returns.
+func _build_net_state() -> void:
 	_battle._state = GameState.new()
-	_battle._state.ranked = _battle.pvp_ranked
 	_battle._resolver.setup(_battle._state)
 	_battle._wire_gamebus_emitter()
 	_battle._net = _BattleNetSyncScript.new()
@@ -67,6 +73,10 @@ func _setup_pvp_battle() -> void:
 	_battle.add_child(_battle._net)
 	_battle._net.battle_scene = _battle
 	_battle._net.call("register_handler", self)
+
+func _setup_pvp_battle() -> void:
+	_build_net_state()
+	_battle._state.ranked = _battle.pvp_ranked
 	if _battle._pvp_spectating:
 		# Spectator: send request_spectate so the host registers us and sends the state.
 		_connect_pvp_net_signals()
@@ -978,14 +988,7 @@ func _update_wager_panel() -> void:
 ## the scaled boss; each client waits for the first sync_coop_state mirror.
 
 func _setup_coop_pve_battle() -> void:
-	_battle._state = GameState.new()
-	_battle._resolver.setup(_battle._state)
-	_battle._wire_gamebus_emitter()
-	_battle._net = _BattleNetSyncScript.new()
-	_battle._net.name = "BattleNetSync"
-	_battle.add_child(_battle._net)
-	_battle._net.battle_scene = _battle
-	_battle._net.call("register_handler", self)
+	_build_net_state()
 	_connect_pvp_net_signals()  # reuse PvP disconnect handlers
 	if _battle._is_pvp_host():
 		_build_coop_pve_state()
@@ -1047,35 +1050,46 @@ func _on_coop_state(payload: Dictionary) -> void:
 	if not _accept_state_mirror(payload):
 		return
 
-## Authority: validate + apply an ally client's intent for the co-op battle.
-
-func _on_coop_intent(sender: int, payload: Dictionary) -> void:
-	if not _battle._is_pvp_host() or not _battle._coop_pve:
+## Authority-side handling of one participant's intent in an N-player battle.
+##
+## Co-op PvE and team duels run the same wire protocol over different tables, so
+## they share this and pass their own mode flag, peer→index map, state broadcast
+## and game-over check. Any intent the authority rejects — wrong peer, out of
+## turn — answers with a state broadcast, which snaps the sender back onto the
+## canonical state rather than leaving them desynced.
+func _handle_participant_intent(sender: int, payload: Dictionary, mode_active: bool,
+		peer_to_idx: Dictionary, broadcast: Callable, check_game_over: Callable) -> void:
+	if not _battle._is_pvp_host() or not mode_active:
 		return
 	var intent: Dictionary = BattleNetProtocol.decode_intent(payload)
 	var t: String = str(intent["type"])
 	if t == "":
 		return
-	# Map peer → ally_idx. Host-as-ally-0 never sends intents to itself.
-	var acting_idx: int = int(_coop_peer_to_idx.get(sender, -1))
+	# Map peer → participant idx. The host never sends intents to itself.
+	var acting_idx: int = int(peer_to_idx.get(sender, -1))
 	if acting_idx < 0:
 		return
 	if t == BattleNetProtocol.INTENT_SURRENDER:
-		# Ally surrenders: mark that ally dead (spectating) and broadcast.
+		# Surrender: mark that participant dead (spectating) and broadcast.
 		_battle._state.players[acting_idx].hero.health = 0
-		_broadcast_coop_state()
-		_coop_pve_check_game_over()
+		broadcast.call()
+		check_game_over.call()
 		return
 	if _battle._state.current_player_idx != acting_idx:
-		_broadcast_coop_state()
+		broadcast.call()
 		return
-	# Resolve opponent index for this intent (always the boss in ally turns).
 	var changed: bool = _apply_remote_intent(intent, acting_idx)
 	if changed:
 		_battle._refresh_all()
-		_coop_pve_check_game_over()
+		check_game_over.call()
 	else:
-		_broadcast_coop_state()
+		broadcast.call()
+
+## Authority: validate + apply an ally client's intent for the co-op battle.
+
+func _on_coop_intent(sender: int, payload: Dictionary) -> void:
+	_handle_participant_intent(sender, payload, _battle._coop_pve,
+		_coop_peer_to_idx, _broadcast_coop_state, _coop_pve_check_game_over)
 
 ## Host: a client asked for the current co-op state — send it.
 
@@ -1208,14 +1222,7 @@ func _process_coop_sync(delta: float) -> void:
 ## decks and starts turn 1; clients wait for the first sync_team_state mirror.
 
 func _setup_team_battle() -> void:
-	_battle._state = GameState.new()
-	_battle._resolver.setup(_battle._state)
-	_battle._wire_gamebus_emitter()
-	_battle._net = _BattleNetSyncScript.new()
-	_battle._net.name = "BattleNetSync"
-	_battle.add_child(_battle._net)
-	_battle._net.battle_scene = _battle
-	_battle._net.call("register_handler", self)
+	_build_net_state()
 	_connect_pvp_net_signals()  # reuse PvP disconnect handlers
 	if _battle._is_pvp_host():
 		_build_team_battle_state()
@@ -1275,29 +1282,8 @@ func _on_team_state(payload: Dictionary) -> void:
 ## Authority: validate + apply a team participant's intent.
 
 func _on_team_intent(sender: int, payload: Dictionary) -> void:
-	if not _battle._is_pvp_host() or not _battle._team_pvp:
-		return
-	var intent: Dictionary = BattleNetProtocol.decode_intent(payload)
-	var t: String = str(intent["type"])
-	if t == "":
-		return
-	var acting_idx: int = int(_team_peer_to_idx.get(sender, -1))
-	if acting_idx < 0:
-		return
-	if t == BattleNetProtocol.INTENT_SURRENDER:
-		_battle._state.players[acting_idx].hero.health = 0
-		_broadcast_team_state()
-		_team_check_game_over()
-		return
-	if _battle._state.current_player_idx != acting_idx:
-		_broadcast_team_state()
-		return
-	var changed: bool = _apply_remote_intent(intent, acting_idx)
-	if changed:
-		_battle._refresh_all()
-		_team_check_game_over()
-	else:
-		_broadcast_team_state()
+	_handle_participant_intent(sender, payload, _battle._team_pvp,
+		_team_peer_to_idx, _broadcast_team_state, _team_check_game_over)
 
 ## Host: a client asked for the current team-battle state — send it.
 

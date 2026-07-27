@@ -1,11 +1,9 @@
-extends "res://scenes/ui/BaseOverlay.gd"
+extends "res://scenes/ui/CardBrowserOverlay.gd"
 
 const CardRegistry      = preload("res://autoloads/CardRegistry.gd")
 const CraftingRegistry  = preload("res://autoloads/CraftingRegistry.gd")
 const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
 const _CardDropUtil     = preload("res://game_logic/CardDropUtil.gd")
-const CardInspectOverlay = preload("res://scenes/battle/CardInspectOverlay.gd")
-const CardInstance      = preload("res://game_logic/battle/CardInstance.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const VeterancyUtil     = preload("res://game_logic/VeterancyUtil.gd")
 
@@ -36,7 +34,6 @@ var _craft_list: VBoxContainer
 var _craft_essence_label: Label
 var _craft_rarity_row: HBoxContainer
 var _craft_rarity: String = "common"
-var _inspect_overlay: Control = null
 
 var _loadout_tab_row: HBoxContainer
 var _loadout_action_row: HBoxContainer
@@ -60,7 +57,9 @@ func _build_ui() -> void:
 	if hub_mode:
 		var m: int = int(_ref * 0.010)
 		var margin := _UiUtil.make_margin(m, m, m, m, self)
-		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+		# _and_offsets_: the plain preset sets anchors but leaves the offsets, so the
+		# margin stays at its minimum size instead of filling the hub content area.
+		margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		wrapper = _UiUtil.make_vbox(int(_ref * 0.008), margin)
 	else:
 		_build_backdrop(0.78)
@@ -131,6 +130,7 @@ func _build_ui() -> void:
 		left_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
 	left_vbox.add_child(left_scroll)
 	attach_drag_scroll(left_scroll)
+	left_scroll.set_drag_forwarding(Callable(), _can_drop_into_collection, _drop_into_collection)
 
 	_collection_list = _UiUtil.make_vbox(int(_ref * 0.008), left_scroll)
 	_collection_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -173,6 +173,7 @@ func _build_ui() -> void:
 		right_scroll.custom_minimum_size = Vector2(0.0, scroll_min_h)
 	right_vbox.add_child(right_scroll)
 	attach_drag_scroll(right_scroll)
+	right_scroll.set_drag_forwarding(Callable(), _can_drop_into_deck, _drop_into_deck)
 
 	_deck_list = _UiUtil.make_vbox(int(_ref * 0.008), right_scroll)
 	_deck_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -479,14 +480,89 @@ func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 			_on_add_by_uid(uid)
 	_UiUtil.bind_scroll_safe_press(cube, on_tap, owning_scroll)
 
+	_make_card_draggable(cube, uid, in_deck, card_color)
+
 	var lpd := LongPressDetector.new()
 	cube.add_child(lpd)
 	lpd.long_pressed.connect(func() -> void: _show_instance_detail(inst, cube))
 
-	cube.mouse_entered.connect(func() -> void: _show_instance_detail(inst, cube))
-	cube.mouse_exited.connect(func() -> void: _hide_instance_detail())
+	# Right-click is the quick desktop path to the same detail panel that
+	# long-press opens on touch. Hover used to open it and mouse_exited used to
+	# close it, which made the Sell/Scrap buttons impossible to reach: the panel
+	# opened over the tile, so moving the pointer towards a button left the tile
+	# and destroyed the panel under the cursor.
+	cube.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed \
+				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_RIGHT:
+			_show_instance_detail(inst, cube)
+			cube.accept_event())
 
 	return cube
+
+# -------------------------------------------------------------------------
+# Drag and drop between the collection and the deck
+#
+# Tapping a card still moves it — that is the fast path and the only one that
+# works with a single touch. Dragging exists because tapping gives no sense of
+# where the card went, which reads as the card vanishing.
+#
+# Sideways drags start a card drag; up/down drags stay a list scroll. That split
+# is deliberate: the collection sits left of the deck, so "move this card over
+# there" is naturally horizontal, and TID-454 made tile-started vertical drags
+# scroll the grid on touch. Starting a card drag on any movement would take that
+# back and leave the grid un-scrollable from a tile.
+# -------------------------------------------------------------------------
+
+const _DRAG_KIND := "inv_card"
+
+## Where each in-flight press began, so _get_drag_data can tell a sideways drag
+## from a scroll. Keyed by the control being pressed.
+var _press_origin: Dictionary = {}
+
+func _make_card_draggable(ctrl: Control, uid: String, in_deck: bool, tint: Color) -> void:
+	ctrl.button_down.connect(func() -> void:
+		_press_origin[ctrl] = ctrl.get_local_mouse_position())
+	ctrl.set_drag_forwarding(
+		func(at: Vector2) -> Variant: return _drag_card(ctrl, at, uid, in_deck, tint),
+		Callable(), Callable())
+
+func _drag_card(ctrl: Control, at: Vector2, uid: String, in_deck: bool, tint: Color) -> Variant:
+	var origin: Vector2 = _press_origin.get(ctrl, at)
+	var delta: Vector2 = at - origin
+	if absf(delta.y) > absf(delta.x):
+		return null   # vertical gesture — let the ScrollContainer have it
+	_hide_instance_detail()
+	# set_drag_preview needs a live viewport; skip it out of tree so the rules
+	# above stay unit-testable without standing up the whole panel.
+	if ctrl.is_inside_tree():
+		var preview := ColorRect.new()
+		preview.color = Color(tint.r, tint.g, tint.b, 0.85)
+		preview.custom_minimum_size = Vector2(_ref * 0.08, _ref * 0.08)
+		preview.size = preview.custom_minimum_size
+		var holder := Control.new()
+		holder.add_child(preview)
+		preview.position = -preview.size * 0.5
+		ctrl.set_drag_preview(holder)
+	return {"kind": _DRAG_KIND, "uid": uid, "from_deck": in_deck}
+
+func _is_card_drag(data: Variant, from_deck: bool) -> bool:
+	return data is Dictionary \
+		and str((data as Dictionary).get("kind", "")) == _DRAG_KIND \
+		and bool((data as Dictionary).get("from_deck", false)) == from_deck
+
+## Drop onto the deck side: only accepts a card coming from the collection.
+func _can_drop_into_deck(_at: Vector2, data: Variant) -> bool:
+	return _is_card_drag(data, false)
+
+func _drop_into_deck(_at: Vector2, data: Variant) -> void:
+	_on_add_by_uid(str((data as Dictionary).get("uid", "")))
+
+## Drop onto the collection side: only accepts a card coming from the deck.
+func _can_drop_into_collection(_at: Vector2, data: Variant) -> bool:
+	return _is_card_drag(data, true)
+
+func _drop_into_collection(_at: Vector2, data: Variant) -> void:
+	_on_remove_by_uid(str((data as Dictionary).get("uid", "")))
 
 # -------------------------------------------------------------------------
 # Instance detail popup (hover / tap-and-hold)
@@ -601,7 +677,26 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 			_refresh_cards())
 		rename_row.add_child(rename_btn)
 
-	popup.popup(Rect2i(anchor.get_screen_transform().origin as Vector2i, Vector2i(int(_ref * 0.34), 0)))
+	var close_btn := _UiUtil.make_button("Close", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020),
+		_hide_instance_detail, vb)
+	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	# Beside the tile, not over it — the panel has buttons the player has to be
+	# able to travel to without crossing back out of it. Clamped so a tile near
+	# the right or bottom edge does not push the panel off screen.
+	var w: int = int(_ref * 0.34)
+	var tile_rect: Rect2 = anchor.get_screen_transform() * Rect2(Vector2.ZERO, anchor.size)
+	var screen: Vector2 = get_viewport().get_visible_rect().size
+	var px: float = tile_rect.end.x + _ref * 0.01
+	if px + float(w) > screen.x:
+		px = tile_rect.position.x - float(w) - _ref * 0.01
+	# Height comes from the content's own minimum size: Window.size still reads 0
+	# on this frame and even a deferred read lands before the popup lays out, so
+	# clamping afterwards never actually moved it. Without this, a card low in
+	# the grid opens a panel whose Sell/Scrap row sits below the screen edge.
+	var content_h: float = vb.get_combined_minimum_size().y + _ref * 0.04
+	var py: float = clampf(tile_rect.position.y, 0.0, maxf(0.0, screen.y - content_h))
+	popup.popup(Rect2i(Vector2i(int(maxf(px, 0.0)), int(py)), Vector2i(w, 0)))
 
 # Individual deck slot for a rare/epic/legendary card — shows its rolled stats.
 func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
@@ -626,10 +721,14 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 
 	var top_row := _UiUtil.make_hbox(int(_vw * 0.008), vbox)
 
-	var swatch := ColorRect.new()
-	swatch.color = card_color
-	swatch.custom_minimum_size = Vector2(_ref * 0.03, _ref * 0.03)
-	top_row.add_child(swatch)
+	var swatch_btn := Button.new()
+	swatch_btn.custom_minimum_size = Vector2(_ref * 0.03, _ref * 0.03)
+	swatch_btn.focus_mode = Control.FOCUS_NONE
+	swatch_btn.tooltip_text = "Drag sideways to remove from the deck"
+	var swatch_sb := _UiUtil.make_style(card_color, int(_ref * 0.004))
+	for st: String in ["normal", "hover", "pressed", "focus"]:
+		swatch_btn.add_theme_stylebox_override(st, swatch_sb)
+	top_row.add_child(swatch_btn)
 
 	var name_lbl := _UiUtil.make_label(disp_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, top_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -658,6 +757,11 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 	top_row.add_child(rm_btn)
 
 	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp], int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+
+	# The row is a plain VBox, not a Button, so it has no button_down to record a
+	# press origin — drag it from the swatch, which is the card's colour chip and
+	# the natural grab handle.
+	_make_card_draggable(swatch_btn, uid, true, card_color)
 
 	var lpd := LongPressDetector.new()
 	vbox.add_child(lpd)
@@ -832,20 +936,6 @@ func _refresh_craft() -> void:
 	for potion_id: String in potion_recipes:
 		var recipe_data: Dictionary = potion_recipes[potion_id]
 		_craft_list.add_child(_make_potion_craft_row(potion_id, recipe_data, player_essence))
-
-func _show_inspect(card_id: String) -> void:
-	if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
-		return
-	var tmpl: Dictionary = CardRegistry.get_template(card_id)
-	if tmpl.is_empty():
-		return
-	var card: CardInstance = CardInstance.new(tmpl)
-	var overlay := CardInspectOverlay.new()
-	add_child(overlay)
-	move_child(overlay, get_child_count() - 1)
-	overlay.show_card(card)
-	overlay.closed.connect(func() -> void: _inspect_overlay = null)
-	_inspect_overlay = overlay
 
 func _on_save() -> void:
 	SceneManager.save_manager.set_active_deck(_working_deck)

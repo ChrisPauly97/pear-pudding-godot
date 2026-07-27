@@ -36,3 +36,22 @@ Still open:
 - [ ] **`EnemyRegistry` is still a GDScript literal** — `CardRegistry` is `.tres`-driven and `EnemyRegistry` is not. Migrating means moving the current dictionary's values (drop pools, capture/signature data) into resources; the old `.tres` files were stale, so they were deleted rather than adopted silently
 - [x] **`BattleScene.gd` god object** — split to 2.4k lines; the PvP/co-op/spectating/wager surface moved to `scenes/battle/net/BattleNet.gd`, with `BattleNetSync` gaining the same `register_handler`/`_route` dispatch
 - [x] **`WorldScene.gd` god object** — split to 3.8k lines; the co-op surface moved to four `scenes/world/coop/*.gd` sibling modules (Session / Activities / PvP / Social). NetSync gained `register_handler`/`_route` so RPC dispatch is module-agnostic
+
+### Second deduplication pass
+
+Done:
+- [x] **Draft-pick overlays** — `SpireDraftScene` and `DraftDuelPickScene` were ~85% identical; the panel, card tiles and tier badges moved to `scenes/ui/DraftPickBase.gd`, leaving `_tier_for` / `_pick_disabled` as the only differences
+- [x] **Overlay tab strips** — `UiUtil.make_tab_row` owns the buttons, the active-tab tracking and the re-click guard; `LeaderboardOverlay` / `AuctionHouseOverlay` keep only their re-render
+- [x] **Networked battle setup** — `BattleNet._build_net_state` replaces the same nine lines in the PvP, co-op-PvE and team-duel entry points
+- [x] **Participant intent handling** — `BattleNet._handle_participant_intent` replaces the twin 26-line `_on_coop_intent` / `_on_team_intent` authority routines
+- [x] **TerrainMath height** — the two height-field builders now sample the matching point query, so the scan and smoothstep exist once per lookup style instead of four times (measured: no regression on chunk prep)
+- [x] **Spell wording** — `game_logic/battle/SpellEffectLabels.gd` replaces the twin tables in `CardViewBuilder` / `CardInspectOverlay`, which had already drifted; writing the guard surfaced seven effects real cards use that had no label at all
+- [x] **Card inspect** — `CardInspectOverlay.present()` plus `scenes/ui/CardBrowserOverlay.gd` replace three copies of the open sequence
+- [x] **Grass buffers** — deleted `GrassBlades.build_chunk` / `_build_chunk_mmi` / `_build_chunk_clusters`, an uncalled second copy of the blade placement math
+- [x] **Entity materials** — `WorldEntityBase.unshaded_material()` replaces the 3-line idiom at 23 sites across 11 world entities
+- [x] **Tap markers** — one `WorldScene._make_tap_marker(name, tint)` for the destination ring and the rejected-tap flash
+
+Deliberately left duplicated (extracting would cost more than it saves):
+- **`ChunkStreamingManager.get_tile_global` / `get_height_global`** — the shared part is the chunk-cache lookup, and both are passed as `Callable`s into the pathfinder and the 49-sample height scan. Any extraction returning a chunk-plus-local-coords pair allocates per call, in exactly the path GID-121 optimised
+- **`TextureGen._gen_prop_*`** — hand-tuned pixel art. The common shape needs ~11 positional arguments, so a shared helper would make the art harder to tune, not easier
+- **Seed-cached noise getters** (`TerrainMath._get_ley_noise_a/_b`, `InfiniteWorldGen._get_biome_noise`) — the bulk is the per-cache static guard, which cannot be shared without coupling the two modules for about nine lines

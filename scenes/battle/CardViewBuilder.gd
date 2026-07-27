@@ -1,6 +1,7 @@
 extends RefCounted
 
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
+const SpellEffectLabels = preload("res://game_logic/battle/SpellEffectLabels.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
@@ -32,53 +33,6 @@ var _dragged_card: Dictionary = {}
 var _hand_drag_card: CardInstance = null
 var _slot_targeting_spell: CardInstance = null
 var _slot_select_card: CardInstance = null
-
-const SPELL_EFFECT_LABELS: Dictionary = {
-	"deal_damage_single":  "Deal [power] damage to a target",
-	"deal_damage_all":     "Deal [power] damage to all enemy minions",
-	"deal_damage_random":  "Deal [power] damage to a random enemy",
-	"debuff_attack":       "Reduce all enemy minion attack by [power]",
-	"destroy_low_hp":      "Destroy all enemy minions with [power] or less HP",
-	"resurrect_last":      "Resurrect the last friendly minion that died",
-	"heal_single":         "Restore [power] HP to a friendly minion",
-	"heal_all":            "Restore [power] HP to all friendly minions",
-	"shield_minion":       "Give [power] armor to a friendly minion",
-	"buff_attack":         "Give a friendly minion +[power] attack",
-	"lifesteal_hit":       "Deal [power] damage; restore that much HP to your hero",
-	"mana_drain":          "Remove [power] mana from the enemy hero",
-	"curse_minion":        "Reduce an enemy minion's attack and HP by [power]",
-	"draw_card":           "Draw [power] card(s)",
-	"bless_slot":          "Bless a board slot — the next minion placed there gains +[power] ATK",
-	"ward_slot":           "Ward a board slot — the next minion placed there gains Shroud",
-	"deal_damage_hero":    "Deal [power] damage to the enemy hero",
-	"apply_poison_single": "Poison a minion for [power] damage per turn",
-	"apply_poison_all":    "Poison all enemy minions for [power] damage per turn",
-	"grant_surge":         "Give a friendly minion Surge",
-	"double_attack":       "A friendly minion attacks twice this turn",
-	"buff_attack_all":     "Give all your minions +[power] attack",
-	"heal_hero":           "Restore [power] HP to your hero",
-	"armor_hero":          "Give your hero [power] armor",
-	"grant_ward":          "Give a friendly minion Ward",
-	"grant_shroud":        "Give a friendly minion Shroud",
-	"grant_ward_all":      "Give all your minions Ward",
-	"bind_minion":         "Strip all keywords from an enemy minion",
-	"buff_health_all":     "Give all your minions +[power] health",
-	"enemy_discard":       "Enemy discards [power] random card(s)",
-	"freeze_single":       "Freeze an enemy minion for 1 turn",
-	"freeze_all":          "Freeze all enemy minions for 1 turn",
-	"drain_hero":          "Deal [power] to the enemy hero; restore that much HP to yours",
-	"stun_single":         "Stun an enemy minion for [power] turn(s)",
-	"summon_token":        "Summon [power] 1/1 Skeleton token(s)",
-	"deal_damage_all_full":"Deal [power] damage to all enemy minions and their hero",
-}
-
-const EMERGENCE_LABELS: Dictionary = {
-	"emergence_deal_damage":   "Emergence: Deal [power] damage to the enemy hero",
-	"emergence_heal_hero":     "Emergence: Restore [power] HP to your hero",
-	"emergence_draw":          "Emergence: Draw [power] card(s)",
-	"emergence_buff_friendly": "Emergence: Give a friendly minion +[power] attack",
-	"emergence_apply_poison":  "Emergence: Poison a random enemy minion for [power]",
-}
 
 func setup(
 	vh: float,
@@ -356,11 +310,9 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 
 func get_card_ability_text(card: CardInstance) -> String:
 	if card.card_class == "spell" and card.spell_effect != "":
-		var tmpl: String = str(SPELL_EFFECT_LABELS.get(card.spell_effect, card.spell_effect))
-		return tmpl.replace("[power]", str(card.spell_power))
+		return SpellEffectLabels.spell(card.spell_effect, card.spell_power)
 	if card.emergence_effect != "":
-		var tmpl: String = str(EMERGENCE_LABELS.get(card.emergence_effect, card.emergence_effect))
-		return tmpl.replace("[power]", str(card.emergence_power))
+		return SpellEffectLabels.emergence(card.emergence_effect, card.emergence_power)
 	return ""
 
 func get_card_ability_color(card: CardInstance) -> Color:
