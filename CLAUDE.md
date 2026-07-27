@@ -264,10 +264,11 @@ data lives **only** in `EnemyRegistry._ensure_loaded()` — there are no
 
 ---
 
-## WorldScene Co-op Modules
+## Scene Modules (WorldScene / BattleScene)
 
-The co-op/session surface lives in four sibling child nodes under
-`scenes/world/coop/`, not in `WorldScene.gd`:
+Both big scenes delegate their networked surface to child-node modules. The
+co-op/session surface lives in four siblings under `scenes/world/coop/`, and
+BattleScene's PvP/co-op surface in `scenes/battle/net/BattleNet.gd`:
 
 | Module | Owns |
 |---|---|
@@ -276,8 +277,10 @@ The co-op/session surface lives in four sibling child nodes under
 | `CoopPvP.gd` | challenge handshake + timeouts, team duels, referee routing, spectating, wagers, ranked/leaderboard, draft duels, tournaments |
 | `CoopSocial.gd` | emotes, pings, chat, trading/gifting, party stash, auction house |
 
+| `net/BattleNet.gd` | PvP duels, spectating, spectator wagers, co-op PvE joint battle, team duels (back-reference `_battle`) |
+
 Rules:
-- Each module is a `Node` with a `_world` back-reference, created in
+- Each module is a `Node` with a `_world` (or `_battle`) back-reference, created in
   `WorldScene._ready()` via `_ensure_coop_modules()` and registered with
   `NetSync.register_handler()`. They are inert outside a session.
 - Reach the world as `_world.<name>`; reach a sibling as
@@ -286,9 +289,19 @@ Rules:
 - New RPCs need no NetSync change beyond the `_route("_on_x", [...])` line;
   `_route` tries WorldScene, then each registered module, and pushes a warning
   if nothing handles it.
+- **Never write a bare `add_child(x)` or pass bare `self`** inside a module.
+  `add_child` would reparent onto the module (changing an RPC node path, or the
+  rect a Control's anchors resolve against) and `self` is the module, not the
+  scene. Use `_world.add_child(x)` / `_battle`. `test_scene_module_guardrail`
+  fails on both.
+- Anything another script calls on the *scene node* (`SceneManager` probes with
+  `has_method`, or `.set()`s a property before the scene enters the tree) must
+  resolve on the scene — keep a forwarder there. A failed `has_method` guard is
+  silent.
 - **Member access resolves at runtime**, so a wrong `_world.X` is invisible to
   the parse check. `tests/world_scene_smoke.gd` is the guard: it drives all 77
-  handlers through the real `_route`. Run it after touching any of this:
+  handlers through the real `_route`. Run it, plus the PvP smoke tests (they
+  stand up real BattleScenes), after touching any of this:
   `godot --headless --path . -s tests/world_scene_smoke.gd`
 
 ---
