@@ -18,6 +18,16 @@
 ## Callers: preload("res://game_logic/net/StashTransfer.gd").
 extends RefCounted
 
+## Index of the instance carrying `card_uid` inside an owned-cards array, or -1.
+## Instances arrive as plain dicts inside a Variant Array (they come off the
+## wire), so the `is Dictionary` check is load-bearing.
+static func find_owned_index(owned: Array, card_uid: String) -> int:
+	for i: int in range(owned.size()):
+		var c: Variant = owned[i]
+		if c is Dictionary and str((c as Dictionary).get("uid", "")) == card_uid:
+			return i
+	return -1
+
 const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 
@@ -34,16 +44,10 @@ static func deposit_card(stash: Dictionary, member_rec: Dictionary, card_uid: St
 		return {"ok": false, "reason": "no_uid", "stash": stash_out, "member": member_out}
 
 	var owned: Array = member_out.get("owned_cards", []) as Array
-	var card_inst: Dictionary = {}
-	var found_idx: int = -1
-	for i: int in range(owned.size()):
-		var c: Variant = owned[i]
-		if c is Dictionary and str((c as Dictionary).get("uid", "")) == card_uid:
-			found_idx = i
-			card_inst = (c as Dictionary).duplicate(true)
-			break
+	var found_idx: int = find_owned_index(owned, card_uid)
 	if found_idx == -1:
 		return {"ok": false, "reason": "not_found", "stash": stash_out, "member": member_out}
+	var card_inst: Dictionary = (owned[found_idx] as Dictionary).duplicate(true)
 
 	var template_id: String = str(card_inst.get("template_id", ""))
 	var tmpl: Dictionary = _CardRegistry.get_template(template_id)

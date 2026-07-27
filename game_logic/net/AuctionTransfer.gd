@@ -17,6 +17,7 @@ extends RefCounted
 
 const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _AuctionSync = preload("res://game_logic/net/AuctionSync.gd")
+const _StashTransfer = preload("res://game_logic/net/StashTransfer.gd")
 
 ## Highest-bidder settlement (buyout or expiry) never fails on a coin edge case
 ## silently — the bid is only ever "record-only" (never escrowed from the
@@ -41,16 +42,10 @@ static func list_card(
 		return {"ok": false, "reason": "invalid_price", "auctions": auctions_out, "member": member_out}
 
 	var owned: Array = member_out.get("owned_cards", []) as Array
-	var card_inst: Dictionary = {}
-	var found_idx: int = -1
-	for i: int in range(owned.size()):
-		var c: Variant = owned[i]
-		if c is Dictionary and str((c as Dictionary).get("uid", "")) == card_uid:
-			found_idx = i
-			card_inst = (c as Dictionary).duplicate(true)
-			break
+	var found_idx: int = _StashTransfer.find_owned_index(owned, card_uid)
 	if found_idx == -1:
 		return {"ok": false, "reason": "not_found", "auctions": auctions_out, "member": member_out}
+	var card_inst: Dictionary = (owned[found_idx] as Dictionary).duplicate(true)
 
 	var template_id: String = str(card_inst.get("template_id", ""))
 	var tmpl: Dictionary = _CardRegistry.get_template(template_id)

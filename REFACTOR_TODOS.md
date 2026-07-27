@@ -13,3 +13,21 @@ Items are roughly ordered by priority — foundational / bug-preventing work fir
 - [ ] **SceneManager as formal state machine** — replace the map-stack + overlay approach with defined states (`WorldState`, `BattleState`, `MenuState`) and explicit enter/exit transitions
 - [x] **Test world generation** — make `InfiniteWorldGen`, `TerrainMath`, and `ChunkData` have zero `Node` dependencies and add unit test coverage on par with the battle system
 - [x] **Single grass shader uniform source** — replace per-instance `set_shader_parameter` calls in `GrassBlades.gd` with Godot global shader parameters so all chunks react to world state without per-chunk updates
+
+---
+
+## Deduplication pass (claude/simplify-deduplicate-code-70c8k5)
+
+Done:
+- [x] **UI widget factories** — `UiUtil.make_button/make_label/make_hbox/make_vbox/make_margin/make_centered_panel/make_style` replace ~600 hand-written construction blocks
+- [x] **Modal scaffolds** — `WorldScene._build_modal` / `_build_prompt`, `BattleResultUI._build_result_overlay`, `BaseOverlay._build_scroll` / `_rebuild_ui`
+- [x] **Save/load symmetry** — `SaveManager.PERSISTED_FIELDS` drives both directions; covered by round-trip tests
+- [x] **Net smoke-test harness** — `tests/net_harness.gd` holds the shared ENet loopback bootstrap
+- [x] **Proximity scans** — `WorldScene._node_in_range` / `_first_node_in_range` / `_first_data_in_range`; `_check_interactions` short-circuits instead of running all 17 probes
+- [x] **Battle teardown / launch** — `SceneManager._finish_battle`, `_dismiss_battle_overlay`, `_swap_world_for_pvp_battle`
+- [x] **Dead data** — removed `data/enemies/*.tres` + `data/EnemyData.gd` (never read; had drifted from `EnemyRegistry`)
+
+Still open:
+- [ ] **SceneManager as formal state machine** — see the item above
+- [ ] **`EnemyRegistry` is still a GDScript literal** — `CardRegistry` is `.tres`-driven and `EnemyRegistry` is not. Migrating means moving the current dictionary's values (drop pools, capture/signature data) into resources; the old `.tres` files were stale, so they were deleted rather than adopted silently
+- [ ] **`WorldScene.gd` is ~8.6k lines** — the co-op/session RPC surface (~2k lines) is the obvious first extraction
