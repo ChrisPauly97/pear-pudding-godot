@@ -1,4 +1,5 @@
 extends Node3D
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 const WorldEvents     = preload("res://game_logic/WorldEvents.gd")
 const WorldMap        = preload("res://game_logic/world/WorldMap.gd")
@@ -2838,15 +2839,7 @@ func _make_trophy_pedestal(earned: bool, display_name: String) -> Node3D:
 	top.position = Vector3(0.0, 0.75, 0.0)
 	root.add_child(top)
 
-	var lbl := Label3D.new()
-	lbl.text = display_name if earned else "???"
-	lbl.font_size = 28
-	lbl.pixel_size = 0.022
-	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lbl.no_depth_test = true
-	lbl.position = Vector3(0.0, 1.4, 0.0)
-	lbl.modulate = Color(1.0, 0.9, 0.3) if earned else Color(0.5, 0.5, 0.5)
-	root.add_child(lbl)
+	root.add_child(_SpriteRegistry.make_name_label(display_name if earned else "???", Color(1.0, 0.9, 0.3) if earned else Color(0.5, 0.5, 0.5), 1.4, 28, 0.022))
 
 	return root
 
@@ -3086,15 +3079,7 @@ func _spawn_guildhall_stash_chest() -> void:
 	lid.position = Vector3(0.0, 0.65, 0.0)
 	root.add_child(lid)
 
-	var lbl := Label3D.new()
-	lbl.text = "Guild Stash"
-	lbl.font_size = 26
-	lbl.pixel_size = 0.020
-	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lbl.no_depth_test = true
-	lbl.position = Vector3(0.0, 1.1, 0.0)
-	lbl.modulate = Color(0.95, 0.85, 0.5)
-	root.add_child(lbl)
+	root.add_child(_SpriteRegistry.make_name_label("Guild Stash", Color(0.95, 0.85, 0.5), 1.1, 26, 0.020))
 
 	root.position = Vector3(wx, terrain_y, wz)
 	_entity_root.add_child(root)

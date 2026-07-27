@@ -255,15 +255,17 @@ static func make_idle_walk_frames(idle_tex: Texture2D, walk_texs: Array[Texture2
 		sf.remove_animation("default")
 	return sf
 
-## The floating name tag every world NPC carries above its sprite.
-static func make_name_label(text: String, tint: Color) -> Label3D:
+## The floating name tag world entities carry above their sprite. The defaults
+## are the NPC size; props and pickups override them for their smaller signs.
+static func make_name_label(text: String, tint: Color, height: float = 2.0,
+		font_size: int = 32, pixel_size: float = 0.025) -> Label3D:
 	var lbl := Label3D.new()
 	lbl.text = text
-	lbl.font_size = 32
-	lbl.pixel_size = 0.025
+	lbl.font_size = font_size
+	lbl.pixel_size = pixel_size
 	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	lbl.no_depth_test = true
-	lbl.position = Vector3(0.0, 2.0, 0.0)
+	lbl.position = Vector3(0.0, height, 0.0)
 	lbl.modulate = tint
 	return lbl
 
