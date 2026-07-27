@@ -71,12 +71,7 @@ func _build_ui() -> void:
 
 	outer_vbox.add_child(_UiUtil.make_separator())
 
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	outer_vbox.add_child(scroll)
-	attach_drag_scroll(scroll)
+	var scroll := _build_scroll(outer_vbox)
 
 	_rows_vbox = _UiUtil.make_vbox(int(_ref * 0.014), scroll)
 	_rows_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL

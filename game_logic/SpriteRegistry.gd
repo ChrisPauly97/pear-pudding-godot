@@ -238,6 +238,22 @@ static func burial_mound_texture() -> Texture2D:
 static func blight_heart_texture() -> Texture2D:
 	return _BLIGHT_HEART
 
+## Builds a world-entity billboard: the registry texture scaled to `world_height`
+## when one exists, otherwise `fallback_tex` at the legacy generated-art size.
+## Applies the billboard/alpha/filter settings every world sprite shares.
+static func make_billboard(tex: Texture2D, fallback_tex: Texture2D, world_height: float) -> Sprite3D:
+	var sprite := Sprite3D.new()
+	if tex != null:
+		setup_sprite_height(sprite, tex, world_height)
+	else:
+		sprite.texture = fallback_tex
+		sprite.pixel_size = 0.04
+		sprite.position = Vector3(0.0, 0.69, 0.0)
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
+	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	return sprite
+
 ## Applies a registry texture to a Sprite3D: texture, pixel size, and the
 ## feet-at-y=0 position computed from the real texture height (never assume
 ## a fixed 32 px — pack sprites range 16-36 px).

@@ -11,19 +11,9 @@ var _dialogue_group: String = ""
 func _ready() -> void:
 	add_to_group("interactable")
 	_ring = build_highlight_ring(self, 0.55)
-	var sprite := Sprite3D.new()
 	# Stable per-NPC look: same id/name always picks the same variant.
 	var variant_seed: int = hash(str(npc_data.get("id", "")) + _extract_name())
-	var tex: Texture2D = _SpriteRegistry.townsperson_texture(variant_seed)
-	if tex != null:
-		_SpriteRegistry.setup_sprite_height(sprite, tex, _SpriteRegistry.HEIGHT_NPC)
-	else:
-		sprite.texture = TextureGen.npc_townsperson()
-		sprite.pixel_size = 0.04
-		sprite.position = Vector3(0.0, 0.69, 0.0)
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	var sprite: Sprite3D = _SpriteRegistry.make_billboard(_SpriteRegistry.townsperson_texture(variant_seed), TextureGen.npc_townsperson(), _SpriteRegistry.HEIGHT_NPC)
 	add_child(sprite)
 	_add_name_label()
 

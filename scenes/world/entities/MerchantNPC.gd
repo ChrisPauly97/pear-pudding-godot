@@ -9,17 +9,7 @@ var _is_traveling: bool = false
 func _ready() -> void:
 	add_to_group("interactable")
 	_ring = build_highlight_ring(self, 0.55)
-	var sprite := Sprite3D.new()
-	var tex: Texture2D = _SpriteRegistry.merchant_texture(_is_traveling)
-	if tex != null:
-		_SpriteRegistry.setup_sprite_height(sprite, tex, _SpriteRegistry.HEIGHT_MERCHANT)
-	else:
-		sprite.texture = TextureGen.npc_merchant(_is_traveling)
-		sprite.pixel_size = 0.04
-		sprite.position = Vector3(0.0, 0.69, 0.0)
-	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_OPAQUE_PREPASS
-	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	var sprite: Sprite3D = _SpriteRegistry.make_billboard(_SpriteRegistry.merchant_texture(_is_traveling), TextureGen.npc_merchant(_is_traveling), _SpriteRegistry.HEIGHT_MERCHANT)
 	add_child(sprite)
 	_add_name_label()
 

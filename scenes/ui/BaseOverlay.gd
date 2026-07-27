@@ -46,20 +46,13 @@ func _build_centered_panel(w: float, h: float) -> PanelContainer:
 # Applies the standard dark-glass styled border to a PanelContainer.
 # Call this after _build_centered_panel() when the scene needs it.
 static func _make_dark_glass_style() -> StyleBoxFlat:
-	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.14, 0.98), 12, Color(0.4, 0.4, 0.6, 0.7), 2)
-	return style
+	return _UiUtil.make_style(Color(0.08, 0.08, 0.14, 0.98), 12, Color(0.4, 0.4, 0.6, 0.7), 2)
 
 # Adds a MarginContainer + VBoxContainer inside parent and returns the VBox.
 func _build_margin_vbox(parent: Control, margin_frac: float = 0.015, sep_frac: float = 0.012) -> VBoxContainer:
-	var margin := MarginContainer.new()
 	var m: int = int(_ref * margin_frac)
-	margin.add_theme_constant_override("margin_left",   m)
-	margin.add_theme_constant_override("margin_right",  m)
-	margin.add_theme_constant_override("margin_top",    m)
-	margin.add_theme_constant_override("margin_bottom", m)
-	parent.add_child(margin)
-	var vbox := _UiUtil.make_vbox(int(_ref * sep_frac), margin)
-	return vbox
+	var margin := _UiUtil.make_margin(m, m, m, m, parent)
+	return _UiUtil.make_vbox(int(_ref * sep_frac), margin)
 
 ## Recomputes the viewport metrics every builder reads.
 func _refresh_metrics() -> void:
@@ -75,6 +68,17 @@ func _rebuild_ui() -> void:
 	for c in get_children():
 		c.queue_free()
 	call("_build_ui")
+
+## A vertical-only ScrollContainer that fills its parent and already has the
+## drag-to-scroll gesture wired. Every list overlay wants exactly this.
+func _build_scroll(parent: Control) -> ScrollContainer:
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	parent.add_child(scroll)
+	attach_drag_scroll(scroll)
+	return scroll
 
 func _close() -> void:
 	closed.emit()

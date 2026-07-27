@@ -1093,16 +1093,19 @@ func grant_card_reward(template_id: String, rarity: String, attack: int = -1, he
 func get_mailbox_instances() -> Array[Dictionary]:
 	return mailbox_cards
 
+## Position of `uid` in the mailbox, or -1 when it isn't there.
+func _mailbox_index(uid: String) -> int:
+	for i in range(mailbox_cards.size()):
+		if str(mailbox_cards[i].get("uid", "")) == uid:
+			return i
+	return -1
+
 ## Moves a mailbox card into the bag. Returns false (no-op) if the uid isn't in the
 ## mailbox or the bag is still full.
 func claim_mailbox_card(uid: String) -> bool:
 	if is_bag_full():
 		return false
-	var idx: int = -1
-	for i in range(mailbox_cards.size()):
-		if str(mailbox_cards[i].get("uid", "")) == uid:
-			idx = i
-			break
+	var idx: int = _mailbox_index(uid)
 	if idx < 0:
 		return false
 	var inst: Dictionary = mailbox_cards[idx]
@@ -1124,11 +1127,7 @@ func claim_all_mailbox_cards() -> int:
 
 ## Sells a mailbox card for gold. No-op if uid not found.
 func sell_mailbox_card(uid: String) -> void:
-	var idx: int = -1
-	for i in range(mailbox_cards.size()):
-		if str(mailbox_cards[i].get("uid", "")) == uid:
-			idx = i
-			break
+	var idx: int = _mailbox_index(uid)
 	if idx < 0:
 		return
 	var rarity: String = str(mailbox_cards[idx].get("rarity", "common"))
@@ -1139,11 +1138,7 @@ func sell_mailbox_card(uid: String) -> void:
 
 ## Scraps a mailbox card for essence. No-op if uid not found.
 func scrap_mailbox_card(uid: String) -> void:
-	var idx: int = -1
-	for i in range(mailbox_cards.size()):
-		if str(mailbox_cards[i].get("uid", "")) == uid:
-			idx = i
-			break
+	var idx: int = _mailbox_index(uid)
 	if idx < 0:
 		return
 	var rarity: String = str(mailbox_cards[idx].get("rarity", "common"))
