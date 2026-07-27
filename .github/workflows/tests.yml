@@ -69,6 +69,16 @@ jobs:
       - name: Run test suite
         run: godot --headless --path . -s tests/runner.gd
 
+      # The unit runner is synchronous, so it can never call _ready() on a
+      # mounted node or let a layout settle. These two stand up the real scenes
+      # and drive frames, which is the only way layout and RPC-dispatch bugs
+      # surface — both classes look like clean passes to the suite above.
+      # The net_*_smoke tests are deliberately not here: they need ENet loopback.
+      - name: Run scene smoke tests
+        run: |
+          godot --headless --path . -s tests/world_scene_smoke.gd
+          godot --headless --path . -s tests/menu_hub_smoke.gd
+
   lint:
     name: gdlint
     runs-on: ubuntu-latest

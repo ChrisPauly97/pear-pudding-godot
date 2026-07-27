@@ -40,7 +40,9 @@ func _build_ui() -> void:
 	if hub_mode:
 		var m: int = int(_ref * 0.012)
 		var margin := _UiUtil.make_margin(m, m, m, m, self)
-		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+		# _and_offsets_: the plain preset sets anchors but leaves the offsets, so the
+		# margin stays at its minimum size instead of filling the hub content area.
+		margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		root_vbox = _UiUtil.make_vbox(int(_ref * 0.012), margin)
 	else:
 		_build_backdrop(0.78)
