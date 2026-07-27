@@ -10,6 +10,9 @@
 ## (bypassing the registry) must be an already-reviewed, explicitly allow-listed
 ## exception.
 ##
+## Scans WorldScene.gd together with every scenes/world/coop/*.gd module, since
+## the co-op HUD buttons now live in the modules.
+##
 ## Static source-text scan, not live scene-tree introspection — WorldScene has
 ## heavy autoload/tree dependencies unsuited to headless unit instantiation, so
 ## this mirrors test_card_registry.gd's precedent: a simple, reliable text-level
@@ -18,6 +21,10 @@ extends "res://tests/framework/test_case.gd"
 
 const _WORLD_SCENE_PATH := "res://scenes/world/WorldScene.gd"
 const _WORLD_HUD_PATH := "res://scenes/world/WorldHUD.gd"
+## WorldScene's co-op feature modules. The HUD buttons this guard exists for now
+## live in these files as often as in WorldScene itself, and they reach the HUD
+## as `_world._hud`, so the scan has to cover them or it silently passes.
+const _COOP_MODULE_DIR := "res://scenes/world/coop"
 
 ## Button-typed instance vars still added directly to `_hud` rather than through
 ## WorldHUD.register_action() / get_zone_container(). Each entry here is a
@@ -46,7 +53,26 @@ var _world_hud_src: String = ""
 
 func before_all() -> void:
 	_world_scene_src = _read_file(_WORLD_SCENE_PATH)
+	for fname in _coop_module_files():
+		_world_scene_src += "\n" + _read_file(fname)
 	_world_hud_src = _read_file(_WORLD_HUD_PATH)
+
+
+## Every co-op module script, so a button added in one of them is still caught.
+func _coop_module_files() -> Array[String]:
+	var out: Array[String] = []
+	var dir := DirAccess.open(_COOP_MODULE_DIR)
+	if dir == null:
+		return out
+	dir.list_dir_begin()
+	var fname := dir.get_next()
+	while fname != "":
+		if fname.ends_with(".gd"):
+			out.append(_COOP_MODULE_DIR + "/" + fname)
+		fname = dir.get_next()
+	dir.list_dir_end()
+	out.sort()
+	return out
 
 
 func _read_file(path: String) -> String:
@@ -90,7 +116,7 @@ func test_no_unreviewed_direct_hud_button_children() -> void:
 	assert_gt(button_vars.size(), 0, "expected to find at least one 'var _x: Button' declaration")
 
 	var re := RegEx.new()
-	re.compile("_hud\\.add_child\\((_\\w+)\\)")
+	re.compile("(?:_world\\.)?_hud\\.add_child\\((_\\w+)\\)")
 	var offenders: Array[String] = []
 	for m in re.search_all(_world_scene_src):
 		var ident: String = m.get_string(1)
