@@ -196,7 +196,7 @@ _new_feature_btn = _world_hud.register_action(
     "new_feature", "New Feature", WorldHUD.ZONE_CONTEXT, _on_new_feature_pressed)
 ```
 
-Always-on buttons usually belong in `PartyPanel.gd`, not the HUD. `test_hud_registry_guardrail.gd` fails if a bare `_hud.add_child(<Button>)` appears in `WorldScene.gd`.
+Always-on buttons usually belong in `PartyPanel.gd`, not the HUD. `test_hud_registry_guardrail.gd` fails if a bare `_hud.add_child(<Button>)` (or `_world._hud.add_child(...)`) appears in `WorldScene.gd` or any `scenes/world/coop/*.gd` module.
 
 ---
 
