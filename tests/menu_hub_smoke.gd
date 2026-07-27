@@ -107,6 +107,89 @@ func _run() -> bool:
 		else:
 			ok = false
 
+	ok = await _check_card_detail_panel(hub) and ok
+
 	hub.queue_free()
 	await process_frame
+	return ok
+
+
+## Card tiles are the square Buttons in the collection grid.
+func _card_tiles(n: Node, out: Array[Node]) -> Array[Node]:
+	for c in n.get_children():
+		if c is Button and (c as Button).custom_minimum_size.x > 40.0:
+			out.append(c)
+		_card_tiles(c, out)
+	return out
+
+
+func _buttons(n: Node, out: Array[String]) -> Array[String]:
+	for c in n.get_children():
+		if c is Button:
+			out.append((c as Button).text)
+		_buttons(c, out)
+	return out
+
+
+## Selling and scrapping live only on the per-card detail panel, so if that panel
+## cannot be opened and kept open there is no way to disenchant a card at all.
+## It used to open directly over the card tile and be torn down by that tile's
+## mouse_exited, which meant moving the pointer towards Sell destroyed the panel
+## under the cursor. Neither failure raises an error.
+func _check_card_detail_panel(hub: Node) -> bool:
+	hub.call("show_tab", "deck")
+	await process_frame
+	await process_frame
+	var inv: Node = hub.get("_active_page")
+	if not _check(inv != null and is_instance_valid(inv), "deck tab is open for the detail check"):
+		return false
+
+	# Tiles sit inside a GridContainer, not directly under the list VBox.
+	var tiles: Array[Node] = _card_tiles(inv.get("_collection_list") as Node, [])
+	if not _check(not tiles.is_empty(), "collection has a card tile to inspect"):
+		return false
+
+	var sm: Node = root.get_node_or_null("SceneManager")
+	var deck: Array = inv.get("_working_deck")
+	var target: Dictionary = {}
+	for inst: Dictionary in sm.get("save_manager").call("get_owned_instances"):
+		if not deck.has(str(inst.get("uid", ""))):
+			target = inst
+			break
+	if not _check(not target.is_empty(), "found a collection card not already in the deck"):
+		return false
+
+	inv.call("_show_instance_detail", target, tiles[0])
+	for i in range(8):
+		await process_frame
+
+	var popup: Window = inv.get("_detail_popup") as Window
+	var ok: bool = _check(popup != null and is_instance_valid(popup) and popup.visible,
+		"card detail panel opens and stays open")
+	if not ok:
+		return false
+
+	var labels: Array[String] = _buttons(popup, [] as Array[String])
+	var has_sell: bool = false
+	var has_scrap: bool = false
+	for t: String in labels:
+		if t.begins_with("Sell"):
+			has_sell = true
+		if t.begins_with("Scrap"):
+			has_scrap = true
+	ok = _check(has_sell, "detail panel offers Sell (found %s)" % [labels]) and ok
+	ok = _check(has_scrap, "detail panel offers Scrap (found %s)" % [labels]) and ok
+	ok = _check(labels.has("Close"), "detail panel can be dismissed (found %s)" % [labels]) and ok
+
+	# Beside the tile, not over it — otherwise the pointer cannot reach the
+	# buttons without leaving the tile that owns the panel.
+	var tile_rect: Rect2 = (tiles[0] as Control).get_global_rect()
+	var panel_rect := Rect2(Vector2(popup.position), Vector2(popup.size))
+	ok = _check(not panel_rect.intersects(tile_rect),
+		"detail panel does not cover its own card tile (tile %s, panel %s)" % [tile_rect, panel_rect]) and ok
+
+	var screen: Vector2 = (inv as Control).get_viewport().get_visible_rect().size
+	ok = _check(panel_rect.position.x >= 0.0 and panel_rect.position.y >= 0.0
+			and panel_rect.position.x <= screen.x and panel_rect.position.y <= screen.y,
+		"detail panel opens on screen (panel %s, screen %s)" % [panel_rect, screen]) and ok
 	return ok

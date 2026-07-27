@@ -486,8 +486,16 @@ func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 	cube.add_child(lpd)
 	lpd.long_pressed.connect(func() -> void: _show_instance_detail(inst, cube))
 
-	cube.mouse_entered.connect(func() -> void: _show_instance_detail(inst, cube))
-	cube.mouse_exited.connect(func() -> void: _hide_instance_detail())
+	# Right-click is the quick desktop path to the same detail panel that
+	# long-press opens on touch. Hover used to open it and mouse_exited used to
+	# close it, which made the Sell/Scrap buttons impossible to reach: the panel
+	# opened over the tile, so moving the pointer towards a button left the tile
+	# and destroyed the panel under the cursor.
+	cube.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed \
+				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_RIGHT:
+			_show_instance_detail(inst, cube)
+			cube.accept_event())
 
 	return cube
 
@@ -669,7 +677,26 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 			_refresh_cards())
 		rename_row.add_child(rename_btn)
 
-	popup.popup(Rect2i(anchor.get_screen_transform().origin as Vector2i, Vector2i(int(_ref * 0.34), 0)))
+	var close_btn := _UiUtil.make_button("Close", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020),
+		_hide_instance_detail, vb)
+	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	# Beside the tile, not over it — the panel has buttons the player has to be
+	# able to travel to without crossing back out of it. Clamped so a tile near
+	# the right or bottom edge does not push the panel off screen.
+	var w: int = int(_ref * 0.34)
+	var tile_rect: Rect2 = anchor.get_screen_transform() * Rect2(Vector2.ZERO, anchor.size)
+	var screen: Vector2 = get_viewport().get_visible_rect().size
+	var px: float = tile_rect.end.x + _ref * 0.01
+	if px + float(w) > screen.x:
+		px = tile_rect.position.x - float(w) - _ref * 0.01
+	# Height comes from the content's own minimum size: Window.size still reads 0
+	# on this frame and even a deferred read lands before the popup lays out, so
+	# clamping afterwards never actually moved it. Without this, a card low in
+	# the grid opens a panel whose Sell/Scrap row sits below the screen edge.
+	var content_h: float = vb.get_combined_minimum_size().y + _ref * 0.04
+	var py: float = clampf(tile_rect.position.y, 0.0, maxf(0.0, screen.y - content_h))
+	popup.popup(Rect2i(Vector2i(int(maxf(px, 0.0)), int(py)), Vector2i(w, 0)))
 
 # Individual deck slot for a rare/epic/legendary card — shows its rolled stats.
 func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
