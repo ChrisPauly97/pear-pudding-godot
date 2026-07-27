@@ -238,6 +238,23 @@ static func burial_mound_texture() -> Texture2D:
 static func blight_heart_texture() -> Texture2D:
 	return _BLIGHT_HEART
 
+## Builds the idle+walk SpriteFrames every animated world character uses: one
+## looping idle frame and a looping walk cycle, both at `fps`, with Godot's
+## implicit "default" animation removed.
+static func make_idle_walk_frames(idle_tex: Texture2D, walk_texs: Array[Texture2D],
+		fps: float) -> SpriteFrames:
+	var sf := SpriteFrames.new()
+	for anim: String in ["idle", "walk"]:
+		sf.add_animation(anim)
+		sf.set_animation_loop(anim, true)
+		sf.set_animation_speed(anim, fps)
+	sf.add_frame("idle", idle_tex)
+	for tex: Texture2D in walk_texs:
+		sf.add_frame("walk", tex)
+	if sf.has_animation("default"):
+		sf.remove_animation("default")
+	return sf
+
 ## The floating name tag every world NPC carries above its sprite.
 static func make_name_label(text: String, tint: Color) -> Label3D:
 	var lbl := Label3D.new()

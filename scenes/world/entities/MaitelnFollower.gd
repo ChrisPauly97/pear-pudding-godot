@@ -94,18 +94,7 @@ func _ready() -> void:
 ## mirroring AvatarSprite.build()'s pattern (BID-051: Maiteln is the only
 ## non-player entity that visibly moves, so he's the only one worth animating).
 func _build_animated_sprite(idle_tex: Texture2D, walk_frames: Array[Texture2D]) -> AnimatedSprite3D:
-	var sf := SpriteFrames.new()
-	sf.add_animation("idle")
-	sf.set_animation_loop("idle", true)
-	sf.set_animation_speed("idle", ANIM_FPS)
-	sf.add_frame("idle", idle_tex)
-	sf.add_animation("walk")
-	sf.set_animation_loop("walk", true)
-	sf.set_animation_speed("walk", ANIM_FPS)
-	for frame in walk_frames:
-		sf.add_frame("walk", frame)
-	if sf.has_animation("default"):
-		sf.remove_animation("default")
+	var sf: SpriteFrames = _SpriteRegistry.make_idle_walk_frames(idle_tex, walk_frames, ANIM_FPS)
 	var anim := AnimatedSprite3D.new()
 	anim.sprite_frames = sf
 	anim.pixel_size = _SpriteRegistry.CHAR_PIXEL_SIZE

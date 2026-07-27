@@ -106,24 +106,9 @@ func cancel_path() -> void:
 
 func _build_sprite() -> void:
 	# Build a SpriteFrames resource with idle (frame 0) and walk (all 4 frames).
-	var sf := SpriteFrames.new()
+	var walk: Array[Texture2D] = [_WalkTex1, _WalkTex2, _WalkTex3, _WalkTex4]
+	var sf: SpriteFrames = _SpriteRegistry.make_idle_walk_frames(_IdleTex, walk, ANIM_FPS)
 
-	sf.add_animation("idle")
-	sf.set_animation_loop("idle", true)
-	sf.set_animation_speed("idle", ANIM_FPS)
-	sf.add_frame("idle", _IdleTex)
-
-	sf.add_animation("walk")
-	sf.set_animation_loop("walk", true)
-	sf.set_animation_speed("walk", ANIM_FPS)
-	sf.add_frame("walk", _WalkTex1)
-	sf.add_frame("walk", _WalkTex2)
-	sf.add_frame("walk", _WalkTex3)
-	sf.add_frame("walk", _WalkTex4)
-
-	# SpriteFrames starts with a default "default" animation — remove it.
-	if sf.has_animation("default"):
-		sf.remove_animation("default")
 
 	_sprite = AnimatedSprite3D.new()
 	_sprite.sprite_frames = sf

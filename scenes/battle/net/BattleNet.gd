@@ -203,18 +203,27 @@ func _broadcast_state() -> void:
 
 ## Client/spectator: receive and apply an authoritative state mirror.
 
-func _on_pvp_state(payload: Dictionary) -> void:
-	if not (_battle._is_pvp_client() or _battle._pvp_spectating):
-		return
+## Decodes an authority state broadcast and adopts it, unless the packet is
+## malformed or is a mirror we have already applied (sequence numbers only ever
+## move forward, and a late duplicate would roll the board backwards). Returns
+## whether the mirror was adopted.
+func _accept_state_mirror(payload: Dictionary) -> bool:
 	var decoded: Dictionary = BattleNetProtocol.decode_state(payload)
 	if not bool(decoded["valid"]):
-		return
+		return false
 	var seq: int = int(decoded["seq"])
 	if seq <= _battle._last_applied_seq:
-		return
+		return false
 	_battle._last_applied_seq = seq
 	_battle._pvp_pending = false
 	_adopt_mirrored_state(decoded["state"])
+	return true
+
+func _on_pvp_state(payload: Dictionary) -> void:
+	if not (_battle._is_pvp_client() or _battle._pvp_spectating):
+		return
+	if not _accept_state_mirror(payload):
+		return
 	# Spectator wagers (GID-104 / TID-387): each mirror carries turn_number, so the
 	# cutoff ("Bets Closed") is evaluated locally on every state update.
 	if _battle._pvp_spectating:
@@ -1035,15 +1044,8 @@ func _build_coop_pve_state() -> void:
 func _on_coop_state(payload: Dictionary) -> void:
 	if not _battle._is_pvp_client():
 		return
-	var decoded: Dictionary = BattleNetProtocol.decode_state(payload)
-	if not bool(decoded["valid"]):
+	if not _accept_state_mirror(payload):
 		return
-	var seq: int = int(decoded["seq"])
-	if seq <= _battle._last_applied_seq:
-		return
-	_battle._last_applied_seq = seq
-	_battle._pvp_pending = false
-	_adopt_mirrored_state(decoded["state"])
 
 ## Authority: validate + apply an ally client's intent for the co-op battle.
 
@@ -1267,15 +1269,8 @@ func _build_team_battle_state() -> void:
 func _on_team_state(payload: Dictionary) -> void:
 	if not _battle._is_pvp_client():
 		return
-	var decoded: Dictionary = BattleNetProtocol.decode_state(payload)
-	if not bool(decoded["valid"]):
+	if not _accept_state_mirror(payload):
 		return
-	var seq: int = int(decoded["seq"])
-	if seq <= _battle._last_applied_seq:
-		return
-	_battle._last_applied_seq = seq
-	_battle._pvp_pending = false
-	_adopt_mirrored_state(decoded["state"])
 
 ## Authority: validate + apply a team participant's intent.
 
