@@ -727,6 +727,15 @@ func _exit_tree() -> void:
 # All of this is inert unless a NetworkManager session is active when the world
 # loads. Single-player behaviour is unchanged.
 
+## Public entry points other scripts call on the WorldScene *node* itself, kept
+## here as one-line forwarders after the co-op split. SceneManager reaches these
+## through `has_method()` on the detached world scene, so they must resolve on
+## WorldScene — a module-only definition fails the has_method() guard and is
+## silently skipped rather than erroring.
+func enter_downed_state() -> void:
+	if coop_session != null:
+		coop_session.enter_downed_state()
+
 ## Creates the co-op feature modules and, once NetSync exists, registers them as
 ## its RPC handler targets. Called from _ready (so _ready's own GameBus wiring
 ## has something to connect to) and again from _setup_coop. Idempotent: a PvP
