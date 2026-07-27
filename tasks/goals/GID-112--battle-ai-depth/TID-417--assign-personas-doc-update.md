@@ -2,7 +2,7 @@
 
 **Goal:** GID-112
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-416
 
 ## Lock
@@ -70,8 +70,19 @@ _Written during Plan phase._
 
 ## Changes Made
 
-_Filled after Build phase._
+Assigned `ai_persona` across all 20 `EnemyRegistry` entries, roughly by fantasy:
 
-## Documentation Updates
+- `aggro` — undead_horde, ghoul_pack, duelist_adept, all three martarquas
+  raiders, spectre_phantom.
+- `control` — undead_elite, duelist_champion, roaming_terror,
+  martarquas_warleader, all three Isfig rival stages, spectre_wraith,
+  blight_heart.
+- `basic` — undead_basic, duelist_novice, spectre_wisp, mimic (tier-1 and
+  gimmick fights keep the readable, teachable AI).
 
-_What was updated in agent docs._
+`docs/agent/battle-system.md` rewritten around the AI: the BasicAI Logic section
+now documents personas, the lethal check and its two constraints (Ward outranks
+lethal; armor counts), and banner tier scaling. Also corrected two stale claims
+elsewhere in that doc — the Turn Sequence bullet still described the old
+"greedy, lowest cost first" AI, and the Ward section still described
+`decide_turn`/`describe_turn` each collecting `ward_targets` separately.

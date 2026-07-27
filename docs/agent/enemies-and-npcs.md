@@ -38,6 +38,27 @@ func type_for_biome(biome: String, distance: float) -> String:
         _:            return "undead_basic"
 ```
 
+### AI Personas (GID-112)
+
+Every entry in `EnemyRegistry._enemies` carries an `ai_persona` field, read back
+through `EnemyRegistry.get_ai_persona(type_id)` and consumed by `BasicAI` — see
+"BasicAI Logic" in `docs/agent/battle-system.md` for what each persona does.
+Unknown or empty type ids fall back to `"basic"`.
+
+| Persona | Enemy types |
+|---|---|
+| `basic` | `undead_basic`, `duelist_novice`, `spectre_wisp`, `mimic` |
+| `aggro` | `undead_horde`, `ghoul_pack`, `duelist_adept`, `martarquas_raider_1/2/3`, `spectre_phantom` |
+| `control` | `undead_elite`, `duelist_champion`, `roaming_terror`, `martarquas_warleader`, `rival_isfig_1/2/3`, `spectre_wraith`, `blight_heart` |
+
+Assignment follows role rather than raw tier: hordes and raiders press forward
+(`aggro`); commanders, rivals and the apex spectral/blight enemies play the board
+(`control`); tier-1 and gimmick encounters stay `basic` so early fights remain
+readable and teachable.
+
+`difficulty_tier` (already present on every entry) separately drives Enemy Intent
+banner specificity — tier 1 names the exact card and target, tier ≥ 2 does not.
+
 ### EnemyData Resource
 
 Each `data/enemies/<type>.tres` stores:

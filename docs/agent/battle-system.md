@@ -39,7 +39,7 @@ GameState          — root object; owns two PlayerState instances, tracks whose
    - *Play card*: costs mana equal to `CardData.cost`; card moves from hand to an empty board slot; new `CardInstance` is created with `summoning_sick = true`.
    - *Attack with minion*: target is any enemy minion or the enemy hero; damage is applied to both combatants; destroyed minions move to discard.
    - *Attack hero directly*: if no enemy minions block, or player targets hero explicitly.
-4. **AI turn** — `BasicAI` evaluates board state, plays affordable cards greedily (lowest cost first), then attacks with every available minion (targets minions before hero).
+4. **AI turn** — `BasicAI` evaluates board state and acts according to the enemy's persona (GID-112: `basic` / `aggro` / `control`, see BasicAI Logic below), taking a lethal line over its heuristic whenever one is available.
 5. **Win check** — after any damage event, if either hero drops to 0 HP `GameState` emits `battle_ended` with the result.
 
 ### Deck Fatigue (GID-077)
@@ -157,7 +157,7 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
 **Ward** — Targeting constraint. When any entity (player or AI) selects an attack target:
 - Among the defender's minions, only Ward minions may be targeted while any Ward minion is alive.
 - The enemy hero cannot be attacked while any Ward minion is alive on that side.
-- Implementation: `CardViewBuilder.get_ward_valid_targets()` filters enemy minions to Ward-bearing ones when present; `_on_enemy_card_input` rejects clicks on non-Ward targets (keeps attacker selected); `_on_enemy_hero_input` early-returns when Ward minions live. `BasicAI.decide_turn/describe_turn` collect `ward_targets` and use them as the target list when non-empty.
+- Implementation: `CardViewBuilder.get_ward_valid_targets()` filters enemy minions to Ward-bearing ones when present; `_on_enemy_card_input` rejects clicks on non-Ward targets (keeps attacker selected); `_on_enemy_hero_input` early-returns when Ward minions live. `BasicAI._pick_attack_target()` (shared by `decide_turn` and `describe_turn`) uses `ward_targets` as the target list when non-empty, ahead of both persona preference and the lethal check.
 
 **Surge** — On placement. `PlayerState.play_card()`: after `board.add_card(card)`, if `card.keywords.has(Keywords.SURGE)`, set `card.summoning_sick = false`. No other change — `can_attack()` already checks `summoning_sick`.
 
@@ -165,13 +165,69 @@ All keyword logic uses `const Keywords = preload("res://game_logic/battle/Keywor
 
 ### BasicAI Logic (`ai/BasicAI.gd`)
 
-```
-1. Collect playable cards (cost ≤ current mana), sort by cost ascending
-2. For each card: play it into the first empty slot, subtract mana; repeat until no affordable cards or no empty slots
-3. For each non-sick minion with attacks_this_turn == 0:
-   a. If enemy has minions → attack the weakest (lowest HP) minion
-   b. Otherwise → attack enemy hero directly
-```
+`decide_turn(state, persona)` returns one `Callable` per hand slot and per board
+slot. Decisions are deferred to execution time so plays and attacks read current
+state — this prevents double-discard corruption and stale-plan silent failures.
+
+#### Personas (GID-112)
+
+Before GID-112 every enemy in the game — from a tier-1 Undead Wanderer to a boss
+— ran the same greedy strategy: cheapest card first, attack the first available
+target, and **no lethal check anywhere**, so the AI could be one attack from
+killing the player's hero and never notice.
+
+Persona is assigned per enemy type via the `ai_persona` field in
+`EnemyRegistry._enemies`, read back through `EnemyRegistry.get_ai_persona(type_id)`
+(defaults to `"basic"` for unknown/empty types, so puzzle mode and any caller
+without an enemy type keeps the old predictable AI). `BattleScene._run_ai_turn()`
+looks up persona and `difficulty_tier` from the registry rather than from
+`enemy_data`, so every AI-driven battle — regular fights, duelists, rivals,
+martarquas, mimic, co-op siege boss — resolves from one source of truth.
+
+| Persona | Hand order | Attack targeting |
+|---|---|---|
+| `basic` | raw hand order (pre-goal behaviour) | first target in board-slot order, else hero |
+| `aggro` | highest attack first, then cheapest | always the hero, never trades |
+| `control` | minions before spells, then cheapest | only *favorable* trades, else the hero |
+
+A "favorable" trade (`_pick_favorable_trade`) kills the target **and** either the
+attacker survives the counterattack or the target hits harder than the attacker
+(worth trading down into a bigger threat).
+
+Hand ordering alone produces the "hold a card" behaviour — every play Callable
+re-checks `can_play` at execution time, so a card ordered last simply is not
+affordable once earlier plays have spent the mana. No extra gating logic.
+
+#### Lethal check
+
+`_has_lethal(state)` sums the biome-modified attack of every board minion that
+`can_attack()` and compares it against `opponent.hero.armor + health`. When it
+returns true, **every persona** abandons its heuristic and goes face.
+
+Two rules constrain it:
+
+- **Ward outranks lethal.** If any opposing minion has Ward, `_has_lethal`
+  returns `false` immediately — the hero is not a legal target, and no persona
+  may bypass that (see Keyword Game Logic above).
+- **Armor counts.** Lethal is measured against `armor + health`, not health.
+
+It is re-evaluated per attacker inside each deferred Callable, so an earlier
+attack that clears a blocking Ward minion opens the lethal line mid-turn.
+
+#### Intent banner tier scaling
+
+`describe_turn(state, persona, difficulty_tier)` shares `_pick_attack_target`
+with `decide_turn`, so **the banner can never disagree with what the AI does**.
+Tier gates only specificity:
+
+- **Tier 1** — names the exact card and target ("Enemy attacks Blocker with
+  Attacker"). Preserves the teaching value for tutorial-tier fights.
+- **Tier ≥ 2** — a vaguer, persona-flavoured line that never names the card or
+  target ("The enemy is pressing the attack…"), restoring tension once a player
+  understands the system.
+
+Covered by `tests/unit/test_ai_personas.gd` (23 tests), written as contrast
+pairs: the same board driven by two personas must produce different outcomes.
 
 ### Slot Enhancement System (GID-079)
 

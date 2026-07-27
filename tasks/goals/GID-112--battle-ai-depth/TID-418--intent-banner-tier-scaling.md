@@ -2,7 +2,7 @@
 
 **Goal:** GID-112
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-417
 
 ## Lock
@@ -61,8 +61,14 @@ _Written during Plan phase._
 
 ## Changes Made
 
-_Filled after Build phase._
+`describe_turn(state, persona, difficulty_tier)` now gates specificity on tier
+while sharing `_pick_attack_target` with `decide_turn`, so the banner can never
+contradict the plan — it is only less specific.
 
-## Documentation Updates
+- **Tier 1** keeps the exact wording ("Enemy attacks Blocker with Attacker"),
+  preserving the teaching value the goal explicitly did not want to lose.
+- **Tier >= 2** returns a persona-flavoured line via `_vague_action_text()` that
+  never names the card or target, restoring tension for experienced players.
 
-_What was updated in agent docs._
+Tier comes from `EnemyRegistry.get_difficulty_tier()`, which already existed and
+was already assigned on every enemy — no new data was needed.

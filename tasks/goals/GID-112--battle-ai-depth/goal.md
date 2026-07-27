@@ -31,17 +31,33 @@ tutorial-tier (`difficulty_tier == 1`) enemies; only scale it down for tier ≥ 
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-415 | AI persona framework + shared lethal check in BasicAI | agent | pending | — |
-| TID-416 | Implement Aggro / Control persona decision logic | agent | pending | TID-415 |
-| TID-417 | Assign personas per enemy type/boss/rival + doc update | agent | pending | TID-416 |
-| TID-418 | Scale Enemy Intent banner specificity by difficulty tier | agent | pending | TID-417 |
-| TID-419 | Unit tests for lethal check + persona decisions | agent | pending | TID-416, TID-417 |
+| TID-415 | AI persona framework + shared lethal check in BasicAI | agent | done | — |
+| TID-416 | Implement Aggro / Control persona decision logic | agent | done | TID-415 |
+| TID-417 | Assign personas per enemy type/boss/rival + doc update | agent | done | TID-416 |
+| TID-418 | Scale Enemy Intent banner specificity by difficulty tier | agent | done | TID-417 |
+| TID-419 | Unit tests for lethal check + persona decisions | agent | done | TID-416, TID-417 |
 
 ## Acceptance Criteria
 
-- [ ] `BasicAI` supports at least three personas (`basic`, `aggro`, `control`) selected per enemy via `enemy_data`/`EnemyRegistry`, without changing the deferred-Callable execution pattern that avoids double-discard bugs.
-- [ ] All personas check for lethal (a sequence of plays/attacks that can drop the player hero to ≤0 this turn) before falling back to their normal heuristic, and take it when available.
-- [ ] Every enemy type in `EnemyRegistry` (including duelists, bosses, rivals, roaming boss) has an assigned persona reflecting its lore/role, documented in `docs/agent/battle-system.md` and `docs/agent/enemies-and-npcs.md`.
-- [ ] Enemy Intent banner keeps exact card/target wording for `difficulty_tier == 1` enemies; tier ≥ 2 enemies show vaguer, persona-flavored text that doesn't reveal the exact target.
-- [ ] `tests/unit/test_basic_ai.gd` covers lethal detection and each persona's distinguishing behavior; existing tests (puzzle mode, `basic` persona parity with old behavior) still pass.
-- [ ] PvP battles (`_pvp` guarded, AI disabled entirely) and Puzzle Battle Mode (AI turn skipped) are unaffected — confirm no new code path executes for either.
+- [x] `BasicAI` supports at least three personas (`basic`, `aggro`, `control`) selected per enemy via `enemy_data`/`EnemyRegistry`, without changing the deferred-Callable execution pattern that avoids double-discard bugs.
+- [x] All personas check for lethal (a sequence of plays/attacks that can drop the player hero to ≤0 this turn) before falling back to their normal heuristic, and take it when available.
+- [x] Every enemy type in `EnemyRegistry` (including duelists, bosses, rivals, roaming boss) has an assigned persona reflecting its lore/role, documented in `docs/agent/battle-system.md` and `docs/agent/enemies-and-npcs.md`.
+- [x] Enemy Intent banner keeps exact card/target wording for `difficulty_tier == 1` enemies; tier ≥ 2 enemies show vaguer, persona-flavored text that doesn't reveal the exact target.
+- [x] `tests/unit/test_basic_ai.gd` covers lethal detection and each persona's distinguishing behavior; existing tests (puzzle mode, `basic` persona parity with old behavior) still pass.
+- [x] PvP battles (`_pvp` guarded, AI disabled entirely) and Puzzle Battle Mode (AI turn skipped) are unaffected — confirm no new code path executes for either.
+
+## Completion Note
+
+TID-415 through TID-418 were implemented in a sub-session that was terminated
+mid-task by an account spend limit. The parent session verified the delivered
+code (clean headless import, suite green, `_has_lethal` confirmed wired into
+`_pick_attack_target`, `GameBus` emissions from GID-124/TID-468 preserved), then
+completed the outstanding work itself: TID-419's test suite, the
+`docs/agent/enemies-and-npcs.md` persona table, and this bookkeeping.
+
+Acceptance criterion 6 was verified by reading every `_run_ai_turn()` call site:
+the solo path returns early on `if _pvp`, both non-boss call sites are guarded on
+`not _state.puzzle_mode`, and the co-op boss path additionally requires
+`_is_pvp_host()`. No new code path executes for PvP or Puzzle mode.
+
+Final: headless import clean, **2236 passed / 0 failed** (2213 before TID-419).
