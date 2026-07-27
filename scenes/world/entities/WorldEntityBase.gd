@@ -2,6 +2,19 @@ extends Node3D
 
 var _ring: MeshInstance3D = null
 
+## A flat-shaded material in `color` — the look every procedural world entity
+## uses for its fallback geometry (posts, lids, plinths, markers). Unshaded keeps
+## them readable at the fixed isometric angle, where a lit material just reads as
+## a muddy gradient.
+##
+## Callers that need more (transparency, emission) set it on the returned
+## material; this only covers the two lines all 20-odd of them share.
+static func unshaded_material(color: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	return mat
+
 static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh

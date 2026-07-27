@@ -3685,7 +3685,7 @@ func _place_dest_marker(tile: Vector2i) -> void:
 	var wy: float = 0.08  # just above the tile surface
 
 	if _dest_marker == null or not is_instance_valid(_dest_marker):
-		_dest_marker = _make_dest_marker()
+		_dest_marker = _make_tap_marker("DestMarker", Color(0.25, 1.0, 0.55))
 		add_child(_dest_marker)
 
 	_dest_marker.position = Vector3(wx, wy, wz)
@@ -3699,9 +3699,15 @@ func _place_dest_marker(tile: Vector2i) -> void:
 	_dest_tween.tween_property(_dest_marker, "scale",
 		Vector3(0.85, 1.0, 0.85), 0.45).set_trans(Tween.TRANS_SINE)
 
-func _make_dest_marker() -> Node3D:
+## The glowing ring dropped on a tapped tile: green for the destination the
+## player is walking to, red for a tap that resolved to a wall.
+##
+## The material is deliberately built per call rather than shared — the reject
+## flash fades this exact StandardMaterial3D's albedo alpha, and a shared one
+## would fade every marker on screen (and stay faded for the next).
+func _make_tap_marker(node_name: String, tint: Color) -> Node3D:
 	var root := Node3D.new()
-	root.name = "DestMarker"
+	root.name = node_name
 	var mesh_inst := MeshInstance3D.new()
 	var torus := TorusMesh.new()
 	torus.inner_radius = 0.50
@@ -3711,10 +3717,10 @@ func _make_dest_marker() -> Node3D:
 	mesh_inst.mesh = torus
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(0.25, 1.0, 0.55, 0.90)
+	mat.albedo_color = Color(tint.r, tint.g, tint.b, 0.90)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	mat.emission_enabled = true
-	mat.emission = Color(0.25, 1.0, 0.55)
+	mat.emission = tint
 	mat.emission_energy_multiplier = 1.8
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	mesh_inst.material_override = mat
@@ -3729,7 +3735,7 @@ func _make_dest_marker() -> Node3D:
 func _show_reject_marker(tile: Vector2i) -> void:
 	var wx: float = (float(tile.x) + 0.5) * IsoConst.TILE_SIZE
 	var wz: float = (float(tile.y) + 0.5) * IsoConst.TILE_SIZE
-	var marker: Node3D = _make_reject_marker()
+	var marker: Node3D = _make_tap_marker("RejectMarker", Color(1.0, 0.25, 0.2))
 	marker.position = Vector3(wx, 0.08, wz)
 	add_child(marker)
 	var mesh_inst: MeshInstance3D = marker.get_child(0) as MeshInstance3D
@@ -3740,28 +3746,6 @@ func _show_reject_marker(tile: Vector2i) -> void:
 	tw.tween_property(mat, "albedo_color:a", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
 	tw.set_parallel(false)
 	tw.tween_callback(marker.queue_free)
-
-func _make_reject_marker() -> Node3D:
-	var root := Node3D.new()
-	root.name = "RejectMarker"
-	var mesh_inst := MeshInstance3D.new()
-	var torus := TorusMesh.new()
-	torus.inner_radius = 0.50
-	torus.outer_radius = 0.72
-	torus.rings = 12
-	torus.ring_segments = 16
-	mesh_inst.mesh = torus
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(1.0, 0.25, 0.2, 0.90)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.emission_enabled = true
-	mat.emission = Color(1.0, 0.25, 0.2)
-	mat.emission_energy_multiplier = 1.8
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mesh_inst.material_override = mat
-	root.add_child(mesh_inst)
-	return root
 
 ## Safely coerce a tracking-dict value to Node3D. `as Node3D` on a Variant
 ## holding a freed object throws "Trying to cast a freed object" immediately,

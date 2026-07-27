@@ -1,4 +1,5 @@
 extends Node3D
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -15,12 +16,8 @@ static func _ensure_shared_resources() -> void:
 	_body_mesh.size = Vector3(0.5, 0.5, 0.5)
 	_stake_mesh = BoxMesh.new()
 	_stake_mesh.size = Vector3(0.06, 0.8, 0.06)
-	_dig_mat = StandardMaterial3D.new()
-	_dig_mat.albedo_color = Color(0.55, 0.35, 0.10)   # brown earth
-	_dig_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_marker_mat = StandardMaterial3D.new()
-	_marker_mat.albedo_color = Color(0.90, 0.75, 0.10)  # gold marker
-	_marker_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_dig_mat = _WEB.unshaded_material(Color(0.55, 0.35, 0.10))  # brown earth
+	_marker_mat = _WEB.unshaded_material(Color(0.90, 0.75, 0.10))  # gold marker
 
 var _site_x: int = 0
 var _site_z: int = 0

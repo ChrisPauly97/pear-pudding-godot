@@ -11,12 +11,8 @@ static var _board_mesh: BoxMesh
 static func _ensure_shared_resources() -> void:
 	if _post_mat != null:
 		return
-	_post_mat = StandardMaterial3D.new()
-	_post_mat.albedo_color = Color(0.45, 0.30, 0.15)
-	_post_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_board_mat = StandardMaterial3D.new()
-	_board_mat.albedo_color = Color(0.60, 0.40, 0.18)
-	_board_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_post_mat = unshaded_material(Color(0.45, 0.30, 0.15))
+	_board_mat = unshaded_material(Color(0.60, 0.40, 0.18))
 	_post_mesh = BoxMesh.new()
 	_post_mesh.size = Vector3(0.12, 1.4, 0.12)
 	_board_mesh = BoxMesh.new()

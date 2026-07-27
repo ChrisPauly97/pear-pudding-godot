@@ -18,12 +18,8 @@ static var _pillar_mesh: BoxMesh
 static func _ensure_shared_resources() -> void:
 	if _dormant_mat != null:
 		return
-	_dormant_mat = StandardMaterial3D.new()
-	_dormant_mat.albedo_color = Color(0.6, 0.6, 0.65)
-	_dormant_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_active_mat = StandardMaterial3D.new()
-	_active_mat.albedo_color = Color(1.0, 0.95, 0.3)
-	_active_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_dormant_mat = _WEB.unshaded_material(Color(0.6, 0.6, 0.65))
+	_active_mat = _WEB.unshaded_material(Color(1.0, 0.95, 0.3))
 	_pillar_mesh = BoxMesh.new()
 	_pillar_mesh.size = Vector3(1.0, 1.5, 1.0)
 

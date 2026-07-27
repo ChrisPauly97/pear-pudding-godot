@@ -1,4 +1,5 @@
 extends Node3D
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 var _scroll_id: String = ""
 var _player: Node3D = null
@@ -10,9 +11,7 @@ static var _scroll_mesh: CylinderMesh
 static func _ensure_shared_resources() -> void:
 	if _scroll_mat != null:
 		return
-	_scroll_mat = StandardMaterial3D.new()
-	_scroll_mat.albedo_color = Color(0.85, 0.75, 0.45)
-	_scroll_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_scroll_mat = _WEB.unshaded_material(Color(0.85, 0.75, 0.45))
 	_scroll_mesh = CylinderMesh.new()
 	_scroll_mesh.top_radius = 0.07
 	_scroll_mesh.bottom_radius = 0.07

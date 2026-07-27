@@ -1,4 +1,5 @@
 extends Node3D
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 ## First-night wilderness camp on the road out of Madrian (GID-108 / TID-402).
 ## Interacting triggers the rabbit-hunt scripted battle (see docs/human/story.md
@@ -16,17 +17,13 @@ static var _flame_mesh: CylinderMesh
 static func _ensure_shared_resources() -> void:
 	if _log_mat != null:
 		return
-	_log_mat = StandardMaterial3D.new()
-	_log_mat.albedo_color = Color(0.35, 0.22, 0.12)
-	_log_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_log_mat = _WEB.unshaded_material(Color(0.35, 0.22, 0.12))
 	_log_mesh = CylinderMesh.new()
 	_log_mesh.top_radius = 0.06
 	_log_mesh.bottom_radius = 0.06
 	_log_mesh.height = 0.5
 
-	_flame_mat = StandardMaterial3D.new()
-	_flame_mat.albedo_color = Color(1.0, 0.55, 0.15)
-	_flame_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_flame_mat = _WEB.unshaded_material(Color(1.0, 0.55, 0.15))
 	_flame_mat.emission_enabled = true
 	_flame_mat.emission = Color(1.0, 0.45, 0.05)
 	_flame_mesh = CylinderMesh.new()
