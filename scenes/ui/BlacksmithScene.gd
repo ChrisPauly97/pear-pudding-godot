@@ -32,11 +32,7 @@ func _build_ui() -> void:
 
 	var panel_w: float = minf(_vw * 0.90, _vh * 0.70)
 	var panel_h: float = _vh * 0.85
-	var outer := PanelContainer.new()
-	outer.custom_minimum_size = Vector2(panel_w, panel_h)
-	outer.size = Vector2(panel_w, panel_h)
-	outer.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
-	add_child(outer)
+	var outer := _UiUtil.make_centered_panel(panel_w, panel_h, _vw, _vh, self)
 
 	var margin := _UiUtil.make_margin(int(_vw * 0.015), int(_ref * 0.015), int(_vw * 0.015), int(_ref * 0.015), outer)
 

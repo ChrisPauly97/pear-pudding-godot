@@ -88,15 +88,7 @@ func _ready() -> void:
 		_static_sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 		add_child(_static_sprite)
 
-	var lbl := Label3D.new()
-	lbl.text = "Maiteln"
-	lbl.font_size = 32
-	lbl.pixel_size = 0.025
-	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lbl.no_depth_test = true
-	lbl.position = Vector3(0.0, 2.0, 0.0)
-	lbl.modulate = Color(0.75, 0.85, 1.0)
-	add_child(lbl)
+	add_child(_SpriteRegistry.make_name_label("Maiteln", Color(0.75, 0.85, 1.0)))
 
 ## Builds an idle/walk AnimatedSprite3D from one idle frame + 4 walk frames,
 ## mirroring AvatarSprite.build()'s pattern (BID-051: Maiteln is the only

@@ -25,15 +25,7 @@ func init_from_data(data: Dictionary) -> void:
 
 func _add_name_label() -> void:
 	var npc_name: String = _extract_name()
-	var lbl := Label3D.new()
-	lbl.text = npc_name
-	lbl.font_size = 32
-	lbl.pixel_size = 0.025
-	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	lbl.no_depth_test = true
-	lbl.position = Vector3(0.0, 2.0, 0.0)
-	lbl.modulate = Color.YELLOW
-	add_child(lbl)
+	add_child(_SpriteRegistry.make_name_label(npc_name, Color.YELLOW))
 
 func _extract_name() -> String:
 	var dlg: String = str(npc_data.get("dialogue", ""))

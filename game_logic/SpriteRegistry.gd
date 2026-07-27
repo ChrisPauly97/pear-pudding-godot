@@ -238,6 +238,18 @@ static func burial_mound_texture() -> Texture2D:
 static func blight_heart_texture() -> Texture2D:
 	return _BLIGHT_HEART
 
+## The floating name tag every world NPC carries above its sprite.
+static func make_name_label(text: String, tint: Color) -> Label3D:
+	var lbl := Label3D.new()
+	lbl.text = text
+	lbl.font_size = 32
+	lbl.pixel_size = 0.025
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.no_depth_test = true
+	lbl.position = Vector3(0.0, 2.0, 0.0)
+	lbl.modulate = tint
+	return lbl
+
 ## Builds a world-entity billboard: the registry texture scaled to `world_height`
 ## when one exists, otherwise `fallback_tex` at the legacy generated-art size.
 ## Applies the billboard/alpha/filter settings every world sprite shares.

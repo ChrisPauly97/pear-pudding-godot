@@ -58,14 +58,9 @@ func _build_ui() -> void:
 	var is_portrait: bool = _vw < _vh
 	var wrapper: VBoxContainer
 	if hub_mode:
-		var margin := MarginContainer.new()
-		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var m: int = int(_ref * 0.010)
-		margin.add_theme_constant_override("margin_left", m)
-		margin.add_theme_constant_override("margin_right", m)
-		margin.add_theme_constant_override("margin_top", m)
-		margin.add_theme_constant_override("margin_bottom", m)
-		add_child(margin)
+		var margin := _UiUtil.make_margin(m, m, m, m, self)
+		margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 		wrapper = _UiUtil.make_vbox(int(_ref * 0.008), margin)
 	else:
 		_build_backdrop(0.78)

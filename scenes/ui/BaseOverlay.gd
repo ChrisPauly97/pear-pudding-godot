@@ -34,12 +34,8 @@ func _build_backdrop(alpha: float = 0.78, close_on_tap: bool = false) -> ColorRe
 # StyleBoxFlat — most scenes use Godot's default panel style, so none is applied
 # here. Call _make_dark_glass_style() if the scene needs the dark bordered look.
 func _build_centered_panel(w: float, h: float) -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(w, h)
-	panel.size = Vector2(w, h)
-	panel.position = Vector2((_vw - w) * 0.5, (_vh - h) * 0.5)
+	var panel := _UiUtil.make_centered_panel(w, h, _vw, _vh, self)
 	panel.mouse_filter = MOUSE_FILTER_STOP
-	add_child(panel)
 	UiFx.pop_in(panel)
 	return panel
 

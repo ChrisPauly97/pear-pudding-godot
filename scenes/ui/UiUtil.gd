@@ -146,6 +146,17 @@ static func _init_box(box: BoxContainer, separation: int, parent: Node) -> void:
 	if parent != null:
 		parent.add_child(box)
 
+## Panel of exactly `w` x `h`, centred in a `vw` x `vh` viewport.
+static func make_centered_panel(w: float, h: float, vw: float, vh: float,
+		parent: Node = null) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(w, h)
+	panel.size = Vector2(w, h)
+	panel.position = Vector2((vw - w) * 0.5, (vh - h) * 0.5)
+	if parent != null:
+		parent.add_child(panel)
+	return panel
+
 ## MarginContainer with all four insets set — the only way the game uses one.
 static func make_margin(left: int, top: int, right: int, bottom: int,
 		parent: Node = null) -> MarginContainer:
