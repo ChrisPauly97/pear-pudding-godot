@@ -734,7 +734,7 @@ func _broadcast_leaderboard(target_peer: int = 0) -> void:
 		_world._net_sync.rpc("recv_leaderboard", rows)
 	else:
 		_world._net_sync.rpc_id(target_peer, "recv_leaderboard", rows)
-	_world._refresh_coop_roster()
+	_world.coop_session._refresh_coop_roster()
 	if _world._leaderboard_overlay != null and is_instance_valid(_world._leaderboard_overlay) \
 			and _world._leaderboard_overlay.has_method("refresh_rows"):
 		_world._leaderboard_overlay.refresh_rows(_world._leaderboard_rows)
@@ -745,7 +745,7 @@ func _broadcast_leaderboard(target_peer: int = 0) -> void:
 
 func _on_leaderboard_received(rows: Array) -> void:
 	_world._leaderboard_rows = rows
-	_world._refresh_coop_roster()
+	_world.coop_session._refresh_coop_roster()
 	if _world._leaderboard_overlay != null and is_instance_valid(_world._leaderboard_overlay) \
 			and _world._leaderboard_overlay.has_method("refresh_rows"):
 		_world._leaderboard_overlay.refresh_rows(_world._leaderboard_rows)

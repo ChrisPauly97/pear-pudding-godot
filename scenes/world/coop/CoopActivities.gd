@@ -39,7 +39,7 @@ func _coop_update_night_hunts(_delta: float) -> void:
 	if not _world._coop_active or _world._is_infinite or not _CoopNightHunts.supports_map(_world.map_name):
 		return
 	var is_night: bool = _world._dnc != null and _world._dnc.is_night_now()
-	var days: int = _world._coop_current_days_elapsed()
+	var days: int = _world.coop_session._coop_current_days_elapsed()
 	if is_night:
 		if not _coop_night_hunt_active or _coop_night_hunt_day != days:
 			_coop_spawn_night_hunt(days)
@@ -119,7 +119,7 @@ func _coop_loot_mode_is_need_greed() -> bool:
 ## opener does without needing a payload for the item shape.
 
 func _start_loot_roll(cid: String, chest_tier: int) -> void:
-	if _world._coop_world_authority():
+	if _world.coop_session._coop_world_authority():
 		_authority_open_loot_roll(cid, chest_tier)
 	elif _world._net_sync != null:
 		_world._net_sync.rpc_id(1, "submit_loot_roll_request", cid, chest_tier)
@@ -129,7 +129,7 @@ func _start_loot_roll(cid: String, chest_tier: int) -> void:
 ## tier (the id is enough for the host to re-derive position/card ids locally).
 
 func _on_loot_roll_request_submitted(sender: int, cid: String, chest_tier: int) -> void:
-	if not _world._coop_world_authority():
+	if not _world.coop_session._coop_world_authority():
 		return
 	_authority_open_loot_roll(cid, chest_tier)
 
@@ -204,7 +204,7 @@ func _submit_loot_roll_choice(roll_id: String, choice: String) -> void:
 ## participant has responded (rather than always waiting out the full timeout).
 
 func _on_loot_roll_choice_submitted(sender: int, roll_id: String, choice: String) -> void:
-	if not _world._coop_world_authority():
+	if not _world.coop_session._coop_world_authority():
 		return
 	if not _world._loot_rolls_active.has(roll_id):
 		return
@@ -226,7 +226,7 @@ func _on_loot_roll_choice_submitted(sender: int, roll_id: String, choice: String
 ## responses auto-pass once the timeout elapses.
 
 func _tick_loot_rolls(delta: float) -> void:
-	if not _world._coop_world_authority() or _world._loot_rolls_active.is_empty():
+	if not _world.coop_session._coop_world_authority() or _world._loot_rolls_active.is_empty():
 		return
 	for roll_id in _world._loot_rolls_active.keys().duplicate():
 		var roll: Dictionary = _world._loot_rolls_active[roll_id]
@@ -366,7 +366,7 @@ func _start_coop_spire() -> void:
 ## (run seed + floor) so the 3 options are deterministic and reproducible.
 
 func _start_coop_spire_draft(floor_num: int) -> void:
-	if not _world._coop_world_authority():
+	if not _world.coop_session._coop_world_authority():
 		return
 	if not _world._coop_spire_draft_active.is_empty():
 		return  # a round is already in flight — never open a second one
@@ -449,7 +449,7 @@ func _submit_coop_spire_draft_choice(card_id: String) -> void:
 ## pick, advance the rotation, and broadcast the result.
 
 func _on_spire_draft_choice_submitted(sender: int, card_idx: int) -> void:
-	if not _world._coop_world_authority():
+	if not _world.coop_session._coop_world_authority():
 		return
 	if _world._coop_spire_draft_active.is_empty():
 		return
@@ -465,7 +465,7 @@ func _on_spire_draft_choice_submitted(sender: int, card_idx: int) -> void:
 ## unresponsive active picker auto-picks the first option once the timeout elapses.
 
 func _tick_coop_spire_draft(delta: float) -> void:
-	if not _world._coop_world_authority() or _world._coop_spire_draft_active.is_empty():
+	if not _world.coop_session._coop_world_authority() or _world._coop_spire_draft_active.is_empty():
 		return
 	var t: float = float(_world._coop_spire_draft_active.get("timer", 0.0)) + delta
 	_world._coop_spire_draft_active["timer"] = t
@@ -500,7 +500,7 @@ func _resolve_coop_spire_draft(card_idx: int) -> void:
 	if _world._net_sync != null:
 		_world._net_sync.rpc("recv_spire_draft_choice", payload)
 	_on_spire_draft_choice_received(payload)
-	if not _world._coop_world_authority():
+	if not _world.coop_session._coop_world_authority():
 		return
 	SceneManager.advance_coop_spire_floor()
 	var next_run: Dictionary = SceneManager.get_coop_spire_run()
@@ -562,7 +562,7 @@ func _coop_start_spire_boss_battle(edata: Dictionary) -> void:
 		return
 	var boss_eid: String = str(edata.get("id", ""))
 	if boss_eid != "":
-		_world._coop_remove_enemy_node(boss_eid)
+		_world.coop_session._coop_remove_enemy_node(boss_eid)
 		_world._net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
 			_WorldObjectSync.EV_ENEMY_REMOVED, boss_eid))
 	var shared_deck: Array = SceneManager.get_coop_spire_run().get("shared_deck", [])
@@ -591,13 +591,13 @@ func _coop_start_spire_boss_battle(edata: Dictionary) -> void:
 ## _flush_pending_coop_spire_post_battle, once reattachment makes that safe.
 
 func _on_coop_spire_battle_ended(did_win: bool) -> void:
-	if not _world._in_coop_spire_floor():
+	if not _world.coop_session._in_coop_spire_floor():
 		return
 	if did_win:
-		if _world._coop_world_authority():
+		if _world.coop_session._coop_world_authority():
 			var run: Dictionary = SceneManager.get_coop_spire_run()
 			_pending_coop_spire_draft_floor = int(run.get("floor", 1))
-	elif _world._coop_world_authority():
+	elif _world.coop_session._coop_world_authority():
 		var stats: Dictionary = SceneManager.end_coop_spire_run()
 		var floors_cleared: int = int(stats.get("floors_cleared", 0))
 		var party_size: int = multiplayer.get_peers().size() + 1
@@ -771,7 +771,7 @@ func _on_siege_boss_phase_received(siege_id: int) -> void:
 ## from _process while a siege is active.
 
 func _coop_tick_siege(_delta: float) -> void:
-	if not _world._coop_world_authority() or not _world._coop_siege_active:
+	if not _world.coop_session._coop_world_authority() or not _world._coop_siege_active:
 		return
 	if _world._coop_siege_wave < 0 or _world._coop_siege_wave >= _CoopSiege.WAVE_COUNT:
 		return  # boss phase already reached, or not started
@@ -822,7 +822,7 @@ func _coop_start_siege_boss_battle(edata: Dictionary) -> void:
 		# self-invoking), so the broadcast below reaches every *other* peer but not
 		# this one — _coop_remove_enemy_node covers the host's own copy and is a
 		# harmless no-op if it's already gone (the host-engaged case).
-		_world._coop_remove_enemy_node(boss_eid)
+		_world.coop_session._coop_remove_enemy_node(boss_eid)
 		_world._net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
 			_WorldObjectSync.EV_ENEMY_REMOVED, boss_eid))
 	var abs_peer_ids: Array[int] = [multiplayer.get_unique_id()]
