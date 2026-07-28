@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://he202s05wmgp"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_bloom_germinate"]
+
+[resource]
+script = ExtResource("1_bloom_germinate")
+id = "bloom_germinate"
+card_name = "Germinate"
+cost = 2
+attack = 0
+health = 0
+card_class = "spell"
+description = "Every root you left in the soil answers at once."
+color = Color(0.45, 0.9, 0.5, 1)
+magic_type = "verdant"
+magic_branch = "bloom"
+spell_effect = "heal_all"
+spell_power = 3

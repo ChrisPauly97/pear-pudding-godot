@@ -63,6 +63,23 @@ const BRANCH_COLORS: Dictionary = {
 	"fracture": Color(0.9, 0.45, 0.75),
 }
 
+## Per-branch tint for the procedural pixel-art spell rune (TextureGen).
+##
+## Deliberately separate from BRANCH_COLORS: a rune is 32×32 pixel art that needs
+## saturated, high-contrast colour, while BRANCH_COLORS has to stay legible as a
+## UI tint behind white label text. The four original values are the ones
+## TextureGen shipped with and are preserved exactly.
+const RUNE_COLORS: Dictionary = {
+	"ember":    Color(1.0, 0.35, 0.05),
+	"dawn":     Color(1.0, 0.9, 0.4),
+	"dusk":     Color(0.55, 0.1, 0.9),
+	"ash":      Color(0.55, 0.55, 0.65),
+	"bloom":    Color(0.2, 0.85, 0.3),
+	"thorn":    Color(0.65, 0.85, 0.1),
+	"flux":     Color(0.15, 0.7, 1.0),
+	"fracture": Color(0.95, 0.2, 0.65),
+}
+
 ## Each type's *signature* branch — the one whose cards accrue that type's
 ## cross-magic currency when played. Exactly one per type.
 ##
@@ -120,6 +137,11 @@ static func type_color(magic_type: String) -> Color:
 
 static func branch_color(branch: String) -> Color:
 	return BRANCH_COLORS.get(branch, Color.WHITE) as Color
+
+## Rune tint for `branch`. Falls back to the pale blue TextureGen has always
+## used for cards with no magic branch.
+static func branch_rune_color(branch: String) -> Color:
+	return RUNE_COLORS.get(branch, Color(0.5, 0.8, 1.0)) as Color
 
 ## The two-line blurb shown under a type's name in the choose-your-path modal,
 ## e.g. "Ember & Dawn\nFire, healing, and clarity".

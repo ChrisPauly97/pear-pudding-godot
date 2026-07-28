@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://zo4lg4ofiixi"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_fracture_fault"]
+
+[resource]
+script = ExtResource("1_fracture_fault")
+id = "fracture_fault"
+card_name = "Fault"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "The ground under it stops agreeing to hold."
+color = Color(0.9, 0.45, 0.75, 1)
+magic_type = "rift"
+magic_branch = "fracture"
+spell_effect = "stun_single"
+spell_power = 1

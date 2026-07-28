@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://vdwx9owuqfh4"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_bloom_verdant_bulwark"]
+
+[resource]
+script = ExtResource("1_bloom_verdant_bulwark")
+id = "bloom_verdant_bulwark"
+card_name = "Verdant Bulwark"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Bark closes over every wound your line is carrying."
+color = Color(0.45, 0.9, 0.5, 1)
+magic_type = "verdant"
+magic_branch = "bloom"
+spell_effect = "buff_health_all"
+spell_power = 2
