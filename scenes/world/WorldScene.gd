@@ -669,12 +669,16 @@ func _load_named_map() -> void:
 		if map_name == "dungeon_731906":
 			_inject_warcamp_boss(world_map)
 	elif map_name.begins_with("spire_floor_"):
+		var parts: PackedStringArray = map_name.split("_")
+		var sp_floor: int = int(parts[2]) if parts.size() > 2 else 1
+		var sp_seed: int  = int(parts[3]) if parts.size() > 3 else 0
+		# An uncleared floor must have its enemy — see prepare_spire_floor. Runs
+		# before the map is distributed into chunks, since ChunkRenderer consults
+		# defeated_enemies as it spawns.
+		SceneManager.save_manager.prepare_spire_floor(sp_floor, sp_seed)
 		if MapRegistry.get_map(map_name) != null:
 			world_map = WorldMap.new(map_name)
 		else:
-			var parts: PackedStringArray = map_name.split("_")
-			var sp_floor: int = int(parts[2]) if parts.size() > 2 else 1
-			var sp_seed: int  = int(parts[3]) if parts.size() > 3 else 0
 			world_map = SpireFloorGen.generate(sp_floor, sp_seed)
 	else:
 		world_map = WorldMap.new(map_name)

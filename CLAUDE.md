@@ -408,6 +408,9 @@ SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene i
 ### Spire draft never appeared — overlay parented to the dying battle scene (claude/drafting-dungeon-stuck-bug-yi20li)
 `_restore_world()` defers its scene swap behind `TransitionManager`'s 0.2 s fade, so the line *after* it still sees the battle overlay `_finish_battle()` just `queue_free()`d. `_spire_battle_won` added `SpireDraftScene` to that `current_scene`, so it was destroyed at end of frame — clear a floor, no draft, same deck forever. `_restore_world(after: Callable)` now runs post-swap work inside the transition; overlays go there or attach to `get_tree().root`, never to `current_scene` on the next line. Also: a dict/var holding a freed node needs `is_instance_valid`, not `!= null`.
 
+### Spire floor 2+ was an empty locked room — one enemy id reused per floor (claude/drafting-dungeon-stuck-bug-yi20li)
+`SpireFloorGen` gave every floor's enemy the literal id `"spire_enemy"`, and `SaveManager.defeated_enemies` is a **permanent, map-agnostic** list. Beating floor 1 therefore marked every later floor's enemy defeated: `ChunkRenderer._spawn_entities` skipped the spawn, the cleared flag never got set, and the exit door (whose only `flag_key` is that flag) stayed locked — a floor you could neither win nor leave. Ids for per-instance entities must be unique per instance (`enemy_id_for(floor, run_seed)`); check them with a prefix helper, never `==`, since old saves/`user://maps/` files keep the legacy id. Entity state that is per-run scenery does not belong in a permanent save list — prune it at run boundaries, and repair on load (`prepare_spire_floor`) so already-broken saves recover.
+
 ### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
 `Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.
 

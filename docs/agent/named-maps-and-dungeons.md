@@ -223,6 +223,14 @@ elif map_name.begins_with("spire_floor_"):
 | 7–9 | `ghoul_pack` | floor 7 is boss |
 | 10+ | `undead_elite` | every floor % 7 == 0 is boss |
 
+### Floor enemy ids
+
+Each floor's enemy id comes from `SpireFloorGen.enemy_id_for(floor, run_seed)` → `"spire_enemy_<N>_<seed>"`. **It must stay unique per floor.** `SaveManager.defeated_enemies` is a permanent, map-agnostic list, so the shared literal `"spire_enemy"` this generator originally emitted meant clearing floor 1 marked every later floor's enemy defeated: `ChunkRenderer._spawn_entities` skipped the spawn, the arena came up empty, the cleared flag was never set, and the exit door (whose `flag_key` is that flag) stayed locked — a floor that could be neither won nor left. Anything keyed by enemy id (co-op defeat sync, bounty progress) had the same cross-floor bleed.
+
+Use `SpireFloorGen.is_spire_enemy_id(eid)` rather than an equality check anywhere that routes or prunes by id — saves and `user://maps/` floors written before this change still carry the bare literal.
+
+`SaveManager.prepare_spire_floor(floor, run_seed)` runs from `WorldScene._load_named_map`'s spire branch, before the map is distributed into chunks: if the floor's cleared flag is unset the player still owes that fight, so every Spire kill is dropped from `defeated_enemies` to guarantee the spawn. This is also the repair path for saves already stuck on an empty floor. A cleared floor is left alone so standing on one you already beat doesn't resurrect it. `_clear_spire_enemy_defeats()` additionally runs at each run boundary (`start_spire_run`, `advance_spire_floor`, `end_spire_run`) so per-run ids never accumulate in the permanent list.
+
 ### Exit door flow
 
 The door has `flag_key = "spire_floor_<N>_<seed>_cleared"`. `SceneManager._on_battle_won()` sets this flag after a Spire battle win. The door becomes interactable only after the flag is set.

@@ -14,6 +14,8 @@
 ## This test uses real frames and real timers instead.
 extends SceneTree
 
+const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
+
 var _pass_count: int = 0
 var _fail_count: int = 0
 
@@ -54,6 +56,10 @@ func _run() -> bool:
 		return false
 
 	const RUN_SEED: int = 4242
+	# SpireFloorGen persists each floor to user://maps/, so a leftover file from a
+	# previous run would be loaded instead of generated — and an old one still
+	# carries the pre-fix shared enemy id. Start from nothing.
+	_purge_generated_floors(RUN_SEED)
 	save.call("start_spire_run", RUN_SEED)
 	sm.map_stack.push_back("madrian")
 	sm.door_stack.push_back("")
@@ -74,12 +80,18 @@ func _run() -> bool:
 	current_scene = battle
 	sm.set("_battle_overlay", battle)
 	sm.set("_state", 2)  # State.BATTLE
+	# What WorldScene's engage path sets. Without it _spire_battle_won never calls
+	# mark_enemy_defeated, and the cross-floor spawn suppression below can't
+	# reproduce — the check would pass for the wrong reason.
+	sm.set("_current_battle_enemy_id", _SpireFloorGen.enemy_id_for(1, RUN_SEED))
 
 	sm._on_battle_won({"hero_hp": 21})
 	await create_timer(_TRANSITION_WAIT).timeout
 
 	var ok: bool = _check(save.call("get_story_flag", "spire_floor_1_%d_cleared" % RUN_SEED),
 		"floor-cleared flag set (unlocks the arena's exit door)")
+	ok = _check(save.call("is_enemy_defeated", _SpireFloorGen.enemy_id_for(1, RUN_SEED)),
+		"floor 1's enemy recorded as defeated") and ok
 	ok = _check(current_scene == world, "world scene restored as current_scene") and ok
 
 	var overlay: Variant = sm.get("_spire_draft_overlay")
@@ -120,7 +132,63 @@ func _run() -> bool:
 	ok = _check(int(save.call("get_spire_run").get("floor", 0)) == 2, "exit door advances to floor 2") and ok
 	ok = _check(sm.current_map == "spire_floor_2_%d" % RUN_SEED, "floor 2 map loaded") and ok
 
+	# Floor 2 must actually have an enemy. Every floor used to emit the literal id
+	# "spire_enemy", and defeated_enemies is a permanent, map-agnostic list — so
+	# beating floor 1 suppressed the spawn on every floor after it.
+	# ChunkRenderer._spawn_entities skipped it, the cleared flag was never set and
+	# the exit door (its only flag_key) stayed locked: an empty arena with no way
+	# forward and no way out.
+	ok = _check(not save.call("is_enemy_defeated", _SpireFloorGen.enemy_id_for(2, RUN_SEED)),
+		"floor 2's enemy is not pre-marked defeated") and ok
+	ok = _check(_spawned_enemy_count() > 0, "floor 2 spawned its enemy") and ok
+	ok = _check(not save.call("get_story_flag", "spire_floor_2_%d_cleared" % RUN_SEED),
+		"floor 2 starts uncleared (its door is locked until the kill)") and ok
+
+	return _check_legacy_save_repair(save) and ok
+
+
+## Repairs-an-old-save check: a save written before SpireFloorGen.enemy_id_for()
+## carries the shared "spire_enemy" kill, and its user://maps/ floors still use
+## that id. Loading an uncleared floor must clear it so the arena isn't empty.
+func _check_legacy_save_repair(save: Object) -> bool:
+	save.call("start_spire_run", 999)
+	save.call("mark_enemy_defeated", "spire_enemy")
+	save.call("mark_enemy_defeated", "map_some_real_enemy")
+	save.call("prepare_spire_floor", 2, 999)
+	var ok: bool = _check(not save.call("is_enemy_defeated", "spire_enemy"),
+		"legacy shared 'spire_enemy' kill cleared when an uncleared floor loads")
+	ok = _check(save.call("is_enemy_defeated", "map_some_real_enemy"),
+		"non-Spire kills are left untouched by the repair") and ok
+
+	# A floor the player already beat and is standing on must not resurrect.
+	save.call("set_story_flag", "spire_floor_3_999_cleared")
+	save.call("mark_enemy_defeated", _SpireFloorGen.enemy_id_for(3, 999))
+	save.call("prepare_spire_floor", 3, 999)
+	ok = _check(save.call("is_enemy_defeated", _SpireFloorGen.enemy_id_for(3, 999)),
+		"a cleared floor's enemy stays defeated") and ok
 	return ok
+
+
+## Deletes any previously generated floor maps for `run_seed`.
+func _purge_generated_floors(run_seed: int) -> void:
+	var dir: DirAccess = DirAccess.open("user://maps")
+	if dir == null:
+		return
+	for fname: String in dir.get_files():
+		if fname.begins_with("spire_floor_") and fname.contains("_%d." % run_seed):
+			dir.remove(fname)
+
+
+## Live enemy nodes under the current world scene.
+func _spawned_enemy_count() -> int:
+	var world: Node = current_scene
+	if world == null:
+		return 0
+	var count: int = 0
+	for n: Node in _walk(world):
+		if n.get("enemy_data") != null and n.has_method("engage"):
+			count += 1
+	return count
 
 
 ## Total descendants under `n` — an overlay that built nothing has almost none.

@@ -38,6 +38,7 @@ const _AchievementToastScript = preload("res://scenes/ui/AchievementToast.gd")
 const _TutorialPopupScript = preload("res://scenes/ui/TutorialPopup.gd")
 const TutorialRegistry = preload("res://game_logic/TutorialRegistry.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
+const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
 const _CoopNightHunts = preload("res://game_logic/CoopNightHunts.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const _GambitPickerOverlay = preload("res://scenes/battle/GambitPickerOverlay.gd")
@@ -516,7 +517,9 @@ func _flush_position_save() -> void:
 ## since single-player instances of these enemies legitimately use the solo path.
 static func _is_coop_joint_battle_enemy(enemy_data: Dictionary, current_map_name: String) -> bool:
 	var eid: String = str(enemy_data.get("id", ""))
-	if current_map_name.begins_with("spire_floor_") and eid == "spire_enemy":
+	# Prefix, not equality: floor enemies carry a per-floor id (SpireFloorGen.
+	# enemy_id_for), and pre-existing maps still carry the bare "spire_enemy".
+	if current_map_name.begins_with("spire_floor_") and _SpireFloorGen.is_spire_enemy_id(eid):
 		return true
 	if eid.begins_with("siege_boss_"):
 		return true

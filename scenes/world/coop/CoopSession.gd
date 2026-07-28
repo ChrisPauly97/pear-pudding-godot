@@ -25,6 +25,7 @@ const _PartyPanel        = preload("res://scenes/ui/PartyPanel.gd")
 const _PlayerIdentity    = preload("res://game_logic/net/PlayerIdentity.gd")
 const _RemotePlayerScene = preload("res://scenes/world/entities/RemotePlayer.tscn")
 const _SessionState      = preload("res://game_logic/net/SessionState.gd")
+const _SpireFloorGen     = preload("res://game_logic/spire/SpireFloorGen.gd")
 const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
 const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
 
@@ -725,7 +726,7 @@ func _on_enemy_engaged_coop(edata: Dictionary) -> void:
 	# GID-106 (TID-391): the co-op Endless Spire floor boss is likewise a joint
 	# battle for the whole party. SceneManager._on_enemy_engaged already skips its
 	# own solo-battle path for this exact id while on a co-op Spire floor map.
-	if _in_coop_spire_floor() and eid == "spire_enemy":
+	if _in_coop_spire_floor() and _SpireFloorGen.is_spire_enemy_id(eid):
 		_world.coop_activities._coop_engage_spire_boss(edata)
 		return
 	_coop_last_engaged_enemy_id = eid

@@ -27,6 +27,22 @@ static func map_name_for(floor: int, run_seed: int) -> String:
 static func cleared_flag_for(floor: int, run_seed: int) -> String:
 	return "spire_floor_%d_%d_cleared" % [floor, run_seed]
 
+## Every floor's enemy id must be unique. SaveManager.defeated_enemies is a
+## permanent, map-agnostic list, so a shared literal id ("spire_enemy", as this
+## generator used to emit) meant beating floor 1 marked *every* later floor's
+## enemy defeated: ChunkRenderer._spawn_entities skipped it, the arena came up
+## empty, the cleared flag was never set and the exit door stayed locked — an
+## unwinnable, unleavable floor. Anything else keyed by enemy id (co-op defeat
+## sync, bounty progress) had the same cross-floor bleed.
+static func enemy_id_for(floor: int, run_seed: int) -> String:
+	return "spire_enemy_%d_%d" % [floor, run_seed]
+
+## True for any Spire floor enemy id, old ("spire_enemy") or per-floor. Callers
+## that route or prune by id must accept both — saves and user://maps/ .tres
+## files written before enemy_id_for() still carry the bare literal.
+static func is_spire_enemy_id(enemy_id: String) -> bool:
+	return enemy_id.begins_with("spire_enemy")
+
 ## Enemy type ladder: 1-3 basic, 4-6 horde, 7-9 pack, 10+ elite; boss on floor % 7 == 0.
 static func pick_enemy_type(floor: int) -> String:
 	if is_boss_floor(floor):
@@ -76,7 +92,7 @@ static func generate(floor: int, run_seed: int) -> _WorldMap:
 	var etype: String = pick_enemy_type(floor)
 	var deck: Array[String] = _EnemyRegistry.get_deck(etype)
 	var enemy_entry: Dictionary = {
-		"id": "spire_enemy",
+		"id": enemy_id_for(floor, run_seed),
 		"x": float(ecx) * ts + ts * 0.5,
 		"z": float(ecz) * ts + ts * 0.5,
 		"alive": true, "tracking": true,

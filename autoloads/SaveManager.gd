@@ -4,6 +4,7 @@ const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _CardInstanceUtil = preload("res://game_logic/CardInstanceUtil.gd")
+const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
 
 signal coins_changed(new_amount: int)
 
@@ -1632,7 +1633,39 @@ func is_spire_active() -> bool:
 func get_spire_run() -> Dictionary:
 	return spire_run
 
+## Drops every Spire floor enemy from the permanent defeated_enemies list.
+##
+## Floor arenas are per-run scenery, not persistent world state, so their kills
+## have no business outliving the floor. Called at each run boundary (start,
+## floor advance, run end). It is also the repair path for saves written before
+## SpireFloorGen.enemy_id_for(): those carry a single shared "spire_enemy" entry
+## that suppressed the enemy on every later floor, leaving an empty arena with a
+## locked exit door and no way to progress.
+func _clear_spire_enemy_defeats() -> void:
+	var kept: Array[String] = []
+	for eid: String in defeated_enemies:
+		if not _SpireFloorGen.is_spire_enemy_id(eid):
+			kept.append(eid)
+	if kept.size() == defeated_enemies.size():
+		return
+	defeated_enemies.assign(kept)
+	_dirty = true
+
+## Called as a Spire floor map loads, before it is distributed into chunks.
+##
+## A floor whose cleared flag is unset is a fight the player still owes, so its
+## enemy must exist — clear any Spire kill that would suppress the spawn.
+## Without this a floor can come up empty with its exit door still locked
+## (flag_key never set), which is unwinnable and unleavable: the door is the only
+## exit and it only opens on the kill. A cleared floor is left alone so standing
+## on one you already beat doesn't resurrect it.
+func prepare_spire_floor(floor: int, run_seed: int) -> void:
+	if get_story_flag(_SpireFloorGen.cleared_flag_for(floor, run_seed)):
+		return
+	_clear_spire_enemy_defeats()
+
 func start_spire_run(seed: int) -> void:
+	_clear_spire_enemy_defeats()
 	spire_run = {
 		"active": true,
 		"floor": 1,
@@ -1647,6 +1680,9 @@ func start_spire_run(seed: int) -> void:
 func advance_spire_floor() -> void:
 	if not is_spire_active():
 		return
+	# The floor we're leaving is gone for good — drop its kill (and any stale
+	# shared-id entry from an older save) so the next arena spawns its enemy.
+	_clear_spire_enemy_defeats()
 	spire_run["floor"] = int(spire_run.get("floor", 1)) + 1
 	spire_run["enemies_defeated"] = int(spire_run.get("enemies_defeated", 0)) + 1
 	_dirty = true
@@ -1665,6 +1701,7 @@ func add_drafted_card(card_id: String) -> void:
 ## Returned dict: floors_cleared, enemies_defeated, cards_drafted, seed,
 ##                coins_earned, is_new_record, best_floor, draft_deck_ids.
 func end_spire_run() -> Dictionary:
+	_clear_spire_enemy_defeats()
 	var floors_cleared: int = int(spire_run.get("floor", 1)) - 1
 	var enemies_defeated: int = int(spire_run.get("enemies_defeated", 0))
 	var cards_drafted: int = int(spire_run.get("cards_drafted", 0))
