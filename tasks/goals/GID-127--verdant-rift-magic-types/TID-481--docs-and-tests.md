@@ -1,6 +1,6 @@
-# TID-479: Agent Docs + Regression Tests
+# TID-481: Agent Docs + Regression Tests
 
-Goal: [GID-126](goal.md) · Type: agent · Status: done
+Goal: [GID-127](goal.md) · Type: agent · Status: done
 
 ## Problem
 

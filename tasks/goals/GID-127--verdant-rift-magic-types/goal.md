@@ -1,4 +1,4 @@
-# GID-126: Verdant & Rift Magic Types
+# GID-127: Verdant & Rift Magic Types
 
 ## Objective
 
@@ -38,7 +38,7 @@ The existing system is hard-coded binary in five separate places:
 
 Each of these has to become table-driven before a third and fourth type can
 exist. That generalization — not the new content — is the risky part of the
-goal, so it lands first and alone (TID-475).
+goal, so it lands first and alone (TID-477).
 
 ### Design decisions
 
@@ -75,11 +75,11 @@ non-home type's cross-purchasable skills" — 6 entries for any starting choice.
 
 | Task | Title | Status |
 |------|-------|--------|
-| [TID-475](TID-475--magic-types-registry.md) | MagicTypes registry + generalized skill tree UI | done |
-| [TID-476](TID-476--verdant-rift-skills.md) | 24 Bloom / Thorn / Flux / Fracture skill resources | done |
-| [TID-477](TID-477--verdant-rift-cards.md) | 12 Verdant & Rift spell cards + branch rune colors | done |
-| [TID-478](TID-478--battlefield-affinity-currency.md) | Branch affinity table + cross-magic currency accrual | done |
-| [TID-479](TID-479--docs-and-tests.md) | Agent docs + regression tests | done |
+| [TID-477](TID-477--magic-types-registry.md) | MagicTypes registry + generalized skill tree UI | done |
+| [TID-478](TID-478--verdant-rift-skills.md) | 24 Bloom / Thorn / Flux / Fracture skill resources | done |
+| [TID-479](TID-479--verdant-rift-cards.md) | 12 Verdant & Rift spell cards + branch rune colors | done |
+| [TID-480](TID-480--battlefield-affinity-currency.md) | Branch affinity table + cross-magic currency accrual | done |
+| [TID-481](TID-481--docs-and-tests.md) | Agent docs + regression tests | done |
 
 ## Acceptance Criteria
 

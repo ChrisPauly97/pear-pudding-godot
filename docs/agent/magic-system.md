@@ -6,8 +6,8 @@
   `game_logic/MagicTypes.gd`
 - **Light** — Ember (direct damage) and Dawn (healing, restoration)
 - **Dark** — Dusk (lifesteal, drain) and Ash (disruption, necromancy)
-- **Verdant** — Bloom (sustain, ramp) and Thorn (retribution, attrition) *(GID-126)*
-- **Rift** — Flux (tempo, transmutation) and Fracture (removal, disruption) *(GID-126)*
+- **Verdant** — Bloom (sustain, ramp) and Thorn (retribution, attrition) *(GID-127)*
+- **Rift** — Flux (tempo, transmutation) and Fracture (removal, disruption) *(GID-127)*
 - The player picks one type as their home path; it gates their two skill trees
 - Cards of this system are **spell** type: they cost mana, apply a targeted or
   area effect, and do not occupy board slots
@@ -52,7 +52,7 @@ currency code changes.
 The currency a player spends is set by **their own** type, not by what they are
 buying — a Light player corrupts themselves to reach into any other type. Two
 currencies cover four types by alignment (the table above). This is exactly the
-rule Light and Dark already followed; GID-126 named it rather than changing it.
+rule Light and Dark already followed; GID-127 named it rather than changing it.
 
 Currency accrues from playing your type's **signature branch** cards in a won
 battle: `PlayerState.branch_cards_played` → `cross_currency_earned()` →
@@ -81,7 +81,7 @@ first-card discount, floor 0.
 
 ## Cosmology — Essence, Veins and the Four Draws
 
-*(GID-127. The unifying frame. Every claim here exists to explain a mechanic that
+*(GID-128. The unifying frame. Every claim here exists to explain a mechanic that
 is already implemented — see the table at the end of this section.)*
 
 ### Essence
@@ -258,7 +258,7 @@ you would assume.
 > conjures horses, smooths roads, tidies rooms and cooks — and never duels. It
 > keeps the story's only wizard consistent with a type system he does not fit,
 > without adding a fifth type or any balance surface. Formal story canon needs
-> human approval — see `tasks/goals/GID-127--magic-cosmology/TID-481--orphan-doc-lore-hooks.md`.
+> human approval — see `tasks/goals/GID-128--magic-cosmology/TID-483--orphan-doc-lore-hooks.md`.
 
 ### Mechanics this frame explains
 
@@ -399,7 +399,7 @@ Rift magic is what leaks through where the world does not quite meet itself. Pra
 
 ---
 
-## Card Roster — Verdant & Rift (GID-126)
+## Card Roster — Verdant & Rift (GID-127)
 
 Every card reuses a `spell_effect` that `SpellEffectResolver` already implements,
 so the branches needed no new resolver arms, labels or targeting entries.
@@ -510,7 +510,7 @@ These patterns are defined here for TID-022 and TID-023 to reference when writin
 | **GameState** | Spell execution | `play_card()` must branch on `card_type == "spell"` to apply effects rather than placing on board |
 | **BattleScene UI** | Display | Spell cards render without attack/health; drop targets are enemy board slots and heroes |
 | **SaveManager / Deck** | Player deck | Spell card IDs stored in `player_deck` like minions |
-| **MagicTypes** | Source of truth | Types, branches, colours, signature branches, currency mapping (GID-126) |
+| **MagicTypes** | Source of truth | Types, branches, colours, signature branches, currency mapping (GID-127) |
 | **SkillTreeScene** | Path choice + trees | Builds the choose-your-path modal and all three tabs from `MagicTypes` |
 | **BattlefieldRules** | Cost rules | `BRANCH_AFFINITY` drives the −1 mana discount per signature branch |
 | **PlayerState** | Currency accrual | `branch_cards_played` → `cross_currency_earned()` at battle end |

@@ -432,7 +432,7 @@ func test_neutral_play_card_no_slot_keywords() -> void:
 	assert_false(card.keywords.has(Keywords.WARD))
 
 # ---------------------------------------------------------------------------
-# 9. Biome branch affinity — Verdant / Rift (GID-126)
+# 9. Biome branch affinity — Verdant / Rift (GID-127)
 #
 # Light and Dark branches discount on time of day (section 7 above); Verdant and
 # Rift branches discount on biome instead, so a card can never get both.

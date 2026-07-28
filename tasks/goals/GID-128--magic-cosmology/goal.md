@@ -1,4 +1,4 @@
-# GID-127: Magic Cosmology — Tying the Orphan Systems Together
+# GID-128: Magic Cosmology — Tying the Orphan Systems Together
 
 ## Objective
 
@@ -9,7 +9,7 @@ type system cannot express.
 
 ## Context
 
-Raised by the user (2026-07-28), immediately after GID-126 shipped Verdant and
+Raised by the user (2026-07-28), immediately after GID-127 shipped Verdant and
 Rift: *"any other types of magic we could add? gaps in the lore around magic we
 can fill in?"* — then, after the research below was presented: *"okay do that and
 tie it all together."*
@@ -42,7 +42,7 @@ accepted — was no, for two reasons:
 1. **The alignment math.** Four types split 2 life / 2 entropy, which is what
    lets two currencies (corruption / redemption) cover all four. A fifth forces
    either a third currency or a 3/2 split. Types are cheapest to add in pairs.
-2. **The space is covered.** Post-GID-126, the obvious candidates collide with
+2. **The space is covered.** Post-GID-127, the obvious candidates collide with
    what exists: Storm/Tempest overlaps Flux's tempo, Void/Umbral overlaps Rift,
    Grave overlaps Ash, Ward overlaps Dawn.
 
@@ -67,8 +67,8 @@ frame explains" table in `docs/agent/magic-system.md`.
 
 | Task | Title | Status |
 |------|-------|--------|
-| [TID-480](TID-480--cosmology-lore.md) | Cosmology section in magic-system.md | done |
-| [TID-481](TID-481--orphan-doc-lore-hooks.md) | Lore hooks in the four orphan docs + story.md proposal | done |
+| [TID-482](TID-482--cosmology-lore.md) | Cosmology section in magic-system.md | done |
+| [TID-483](TID-483--orphan-doc-lore-hooks.md) | Lore hooks in the four orphan docs + story.md proposal | done |
 
 ## Acceptance Criteria
 

@@ -223,15 +223,27 @@ elif map_name.begins_with("spire_floor_"):
 | 7–9 | `ghoul_pack` | floor 7 is boss |
 | 10+ | `undead_elite` | every floor % 7 == 0 is boss |
 
+### Floor enemy ids
+
+Each floor's enemy id comes from `SpireFloorGen.enemy_id_for(floor, run_seed)` → `"spire_enemy_<N>_<seed>"`. **It must stay unique per floor.** `SaveManager.defeated_enemies` is a permanent, map-agnostic list, so the shared literal `"spire_enemy"` this generator originally emitted meant clearing floor 1 marked every later floor's enemy defeated: `ChunkRenderer._spawn_entities` skipped the spawn, the arena came up empty, the cleared flag was never set, and the exit door (whose `flag_key` is that flag) stayed locked — a floor that could be neither won nor left. Anything keyed by enemy id (co-op defeat sync, bounty progress) had the same cross-floor bleed.
+
+Use `SpireFloorGen.is_spire_enemy_id(eid)` rather than an equality check anywhere that routes or prunes by id — saves and `user://maps/` floors written before this change still carry the bare literal.
+
+`SaveManager.prepare_spire_floor(floor, run_seed)` runs from `WorldScene._load_named_map`'s spire branch, before the map is distributed into chunks: if the floor's cleared flag is unset the player still owes that fight, so every Spire kill is dropped from `defeated_enemies` to guarantee the spawn. This is also the repair path for saves already stuck on an empty floor. A cleared floor is left alone so standing on one you already beat doesn't resurrect it. `_clear_spire_enemy_defeats()` additionally runs at each run boundary (`start_spire_run`, `advance_spire_floor`, `end_spire_run`) so per-run ids never accumulate in the permanent list.
+
 ### Exit door flow
 
 The door has `flag_key = "spire_floor_<N>_<seed>_cleared"`. `SceneManager._on_battle_won()` sets this flag after a Spire battle win. The door becomes interactable only after the flag is set.
 
 Interacting with the door calls `SceneManager.exit_map()`. If `is_spire_active()` and `current_map.begins_with("spire_floor_")`, `exit_map()` calls `_advance_spire_floor()` instead of popping the map stack — this loads `spire_floor_<N+1>_<seed>` as the new current map.
 
+The door is additionally held while `SceneManager.is_spire_draft_open()` — the draft overlay is a plain `Control` and doesn't pause world input, so the player can reach the door with a pick still owed. Advancing there would rebuild the scene and take the unclaimed card with it, so `exit_map()` emits a HUD nudge and returns instead.
+
 ### Draft integration
 
 Between defeating the enemy and walking to the exit door, `SceneManager._show_spire_draft(floor)` displays `SpireDraftScene` as a modal overlay. The player picks one card (added to `spire_run.draft_deck`), then the overlay closes, leaving the Spire floor world visible with the exit door now unlocked.
+
+**The draft must be shown from `_restore_world`'s post-swap callback, never inline after it.** `_restore_world(after: Callable)` defers its scene swap behind `TransitionManager`'s 0.2 s fade, so on the line after the call `get_tree().current_scene` is still the battle overlay that `_finish_battle()` just `queue_free()`d. Parenting the draft there makes it a child of a dying node and it is destroyed at the end of the frame — the floor clears, no draft ever appears, and the run continues on the same deck. `_spire_battle_won` therefore calls `_restore_world(_show_spire_draft.bind(curr_floor))`; the callback runs inside the transition, once `current_scene` is the live `WorldScene`. `tests/spire_draft_smoke.gd` drives the whole sequence with real frames and fails if the ordering regresses.
 
 ### Hero HP carry-over
 

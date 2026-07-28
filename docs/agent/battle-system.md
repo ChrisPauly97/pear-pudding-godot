@@ -629,8 +629,11 @@ Additive layer on the existing engine, fully guarded by `_pvp`:
 | Enemy data resources | `data/enemies/*.tres` | `EnemyData` resource with id, display_name, deck (Array of card id strings) |
 | BattleScene scene | `scenes/battle/BattleScene.tscn` | Root scene for battle UI overlay |
 | Card illustrations | Generated in-memory by `TextureGen.card_illustration()` | Optional per-card `Texture2D` assigned to `CardData.illustration` via `CardRegistry`; falls back to solid color fill when absent |
+| Battle backdrop shader | `assets/shaders/battle_backdrop.gdshader` (+ `.uid`) | Paints the `Background` rect. Reuses `assets/textures/pixel_art/*.png` and `assets/textures/props/prop_*.png` — no art of its own. See Battlefield Backdrop below |
 
-No 3D geometry or shaders are required — the battle system is a 2D UI overlay.
+No 3D geometry is required — the battle system is a 2D UI overlay. The single
+shader it does use is the backdrop, and the scene degrades to its original flat
+background colour without it.
 
 ---
 
@@ -1144,9 +1147,40 @@ Applied in `BattleScene._apply_desert_scorch()` called from `_on_turn_ended()` i
 - **Slot highlights**: translucent teal overlay panels on affected slots (Forest 0 & 4, Mountains 2), on both boards.
 - **Discounted card cost**: cost displayed in green in hand; green border on hand cards with active discount.
 
+### Battlefield Backdrop (GID-126)
+
+The same `battlefield_biome` + `is_night` pair also paints the battle's
+background, so the board is laid out on the ground the encounter started on
+rather than on a flat colour. `BattleScene._setup_backdrop()` runs
+unconditionally in `_ready()` (unlike the Resonance *UI* above, which skips
+puzzle and scripted battles) and hands `$Background` to
+`BattleBackdrop.apply()`. Full description in `docs/agent/visual-polish.md`;
+the short version:
+
+- The view is overhead — a patch of ground the cards sit on. A landscape seen
+  edge-on was tried first (TID-475) and fought the flat card layout.
+- Biome id `-1` — every dungeon, named map, puzzle, scripted and PvP battle —
+  maps to a deliberate neutral look (a torchlit flagstone vault), not to a
+  fallback.
+- The lit battle line is drawn on `BattleScene.tscn`'s own `Divider` anchor
+  (0.38), and the trodden arena is sized to the card area (which ends at
+  x = 0.86, where the side panel starts). `test_battle_backdrop` asserts both
+  stay in step with the layout.
+- `$Background` keeps its flat `color`, so a missing shader degrades to the
+  pre-GID-126 look.
+
 ### Test Coverage
 
 `tests/unit/test_battlefield_rules.gd` — 55 tests covering: rules table integrity, all 5 biome rules, both time-of-day cost modifiers, floor-0 clamp, stacking, mid-battle persistence (round-trip), and the neutral dungeon path.
+
+`tests/unit/test_battle_backdrop.gd` — 17 tests covering the backdrop palette's
+completeness across all 5 biomes plus the neutral sentinel, uniform wiring
+(every uniform the shader declares must actually be written — a misspelled
+parameter name is a silent no-op in Godot), that the shader *compiles* at all
+(a failed shader still loads as a Resource and still accepts every parameter,
+so nothing else would notice), night darkening, colour ranges, the
+`prop_scale ≤ 0.5` bound the single-cell prop lookup depends on, and the
+arena/divider agreement with the scene layout.
 
 ---
 

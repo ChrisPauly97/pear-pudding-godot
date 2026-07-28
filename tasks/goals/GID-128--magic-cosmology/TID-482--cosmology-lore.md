@@ -1,6 +1,6 @@
-# TID-480: Cosmology Section in magic-system.md
+# TID-482: Cosmology Section in magic-system.md
 
-Goal: [GID-127](goal.md) · Type: agent · Status: done
+Goal: [GID-128](goal.md) · Type: agent · Status: done
 
 ## Problem
 
@@ -67,4 +67,4 @@ the type system cannot express.
 
 ## Documentation Updates
 
-`docs/agent/magic-system.md`. Orphan-doc hooks in TID-481.
+`docs/agent/magic-system.md`. Orphan-doc hooks in TID-483.

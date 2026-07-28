@@ -1,4 +1,4 @@
-## Unit tests for the magic type registry (GID-126).
+## Unit tests for the magic type registry (GID-127).
 ##
 ## MagicTypes is the single source of truth for four types, eight branches, their
 ## colours and the cross-magic currency economy. Nothing at runtime fails loudly
@@ -95,7 +95,7 @@ func test_cross_currency_falls_back_for_unset_type() -> void:
 	assert_true(_CURRENCIES.has(MagicTypes.cross_currency("")))
 
 # ---------------------------------------------------------------------------
-# 4. Light / Dark regression — GID-126 must not change existing saves
+# 4. Light / Dark regression — GID-127 must not change existing saves
 # ---------------------------------------------------------------------------
 
 func test_light_and_dark_are_unchanged() -> void:

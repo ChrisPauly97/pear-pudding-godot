@@ -1,6 +1,6 @@
-# TID-481: Lore Hooks in the Orphan Docs + story.md Proposal
+# TID-483: Lore Hooks in the Orphan Docs + story.md Proposal
 
-Goal: [GID-127](goal.md) · Type: agent (+ one human-action proposal) · Status: done
+Goal: [GID-128](goal.md) · Type: agent (+ one human-action proposal) · Status: done
 
 ## Problem
 

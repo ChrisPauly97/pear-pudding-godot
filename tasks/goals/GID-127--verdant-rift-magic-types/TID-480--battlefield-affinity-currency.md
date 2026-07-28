@@ -1,6 +1,6 @@
-# TID-478: Branch Affinity Table + Cross-Magic Currency Accrual
+# TID-480: Branch Affinity Table + Cross-Magic Currency Accrual
 
-Goal: [GID-126](goal.md) · Type: agent · Status: done
+Goal: [GID-127](goal.md) · Type: agent · Status: done
 
 ## Problem
 
@@ -64,4 +64,4 @@ spends", and Dawn is Light's signature branch.
 ## Documentation Updates
 
 `docs/agent/battle-system.md`, `docs/agent/magic-system.md`,
-`docs/agent/skill-trees.md` (TID-479).
+`docs/agent/skill-trees.md` (TID-481).

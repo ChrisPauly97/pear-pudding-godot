@@ -1,6 +1,6 @@
-# TID-475: MagicTypes Registry + Generalized Skill Tree UI
+# TID-477: MagicTypes Registry + Generalized Skill Tree UI
 
-Goal: [GID-126](goal.md) · Type: agent · Status: done
+Goal: [GID-127](goal.md) · Type: agent · Status: done
 
 ## Problem
 
@@ -51,4 +51,4 @@ for no benefit.
 
 ## Documentation Updates
 
-`docs/agent/skill-trees.md`, `docs/agent/magic-system.md` (TID-479).
+`docs/agent/skill-trees.md`, `docs/agent/magic-system.md` (TID-481).

@@ -1,6 +1,6 @@
-# TID-477: Verdant & Rift Spell Cards + Branch Rune Colors
+# TID-479: Verdant & Rift Spell Cards + Branch Rune Colors
 
-Goal: [GID-126](goal.md) · Type: agent · Status: done
+Goal: [GID-127](goal.md) · Type: agent · Status: done
 
 ## Problem
 
@@ -54,4 +54,4 @@ only work left to upgrade them.
 ## Documentation Updates
 
 `docs/agent/magic-system.md`, `docs/agent/art-sprites.md`,
-`docs/agent/battle-system.md` (TID-479).
+`docs/agent/battle-system.md` (TID-481).

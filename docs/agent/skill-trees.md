@@ -95,7 +95,7 @@ Between each vertically-linked pair (parent → child in same column), a `ColorR
 **Cross-magic tab:** wraps a 2-column `GridContainer` child inside `_skill_container`. No connector bars — cross-magic skills have no prerequisite relationships in this view.
 
 **Constants in SkillTreeScene:** only `_ROWS: int = 3`. The branch tables moved to
-`MagicTypes` in GID-126 — `SkillTreeScene` calls `MagicTypes.branches_for()`,
+`MagicTypes` in GID-127 — `SkillTreeScene` calls `MagicTypes.branches_for()`,
 `branch_color()`, `all_types()` and `cross_currency()` instead of holding copies.
 
 **Cross-currency mapping** (`MagicTypes.cross_currency`) — set by the buyer's own
@@ -109,7 +109,7 @@ type, not by what they are buying:
 | Rift | entropy | `redemption_points` ("RP") |
 
 Two currencies cover four types by alignment. Light and Dark behave exactly as
-they did before GID-126.
+they did before GID-127.
 
 **Currency accrual** — playing a type's *signature* branch card in a won battle
 earns that type's currency at `MagicTypes.POINTS_PER_CARD` each:
@@ -127,7 +127,7 @@ earns that type's currency at `MagicTypes.POINTS_PER_CARD` each:
 |---|---|---|---|
 | `skill_points` | `int` | 0 | v12 |
 | `unlocked_skills` | `Array[String]` | `[]` | v12 |
-| `magic_type` | `String` | `""` | v13 (four valid values since GID-126) |
+| `magic_type` | `String` | `""` | v13 (four valid values since GID-127) |
 | `corruption_points` | `int` | 0 | v13 |
 | `redemption_points` | `int` | 0 | v13 |
 

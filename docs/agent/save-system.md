@@ -85,7 +85,7 @@ The batched flush is **asynchronous** — a full save is a multi-hundred-KB pret
 | `level` | `int` | Current level (derived from XP); added v12 |
 | `skill_points` | `int` | Unspent skill points from level-ups; added v12 |
 | `unlocked_skills` | `Array[String]` | Skill IDs that have been purchased; added v12 |
-| `magic_type` | `String` | Player's home magic type: `"light"`, `"dark"`, `"verdant"`, `"rift"`, or `""` (not yet chosen). Valid values come from `MagicTypes.TYPES`; added v13, extended to four types by GID-126 (no migration — the field is a free-form string and old saves already hold `"light"`/`"dark"`) |
+| `magic_type` | `String` | Player's home magic type: `"light"`, `"dark"`, `"verdant"`, `"rift"`, or `""` (not yet chosen). Valid values come from `MagicTypes.TYPES`; added v13, extended to four types by GID-127 (no migration — the field is a free-form string and old saves already hold `"light"`/`"dark"`) |
 | `corruption_points` | `int` | Cross-magic currency spent by **life-aligned** players (Light, Verdant). Earned by playing Dawn / Bloom cards; added v13 |
 | `redemption_points` | `int` | Cross-magic currency spent by **entropy-aligned** players (Dark, Rift). Earned by playing Dusk / Fracture cards; added v13 |
 | `pending_battle_state` | `Dictionary` | Serialized `GameState` snapshot of an in-progress battle; `{}` when not in a battle. Set by `set_pending_battle_state()`, cleared by `clear_pending_battle_state()` on win/loss; added v14 |

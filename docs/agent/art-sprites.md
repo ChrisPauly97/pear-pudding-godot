@@ -236,10 +236,10 @@ Integration notes for TID-446/447:
   `magic_branch`) for spells. `CardRegistry._ensure_loaded()` tries the registry
   first, then falls back to `TextureGen.card_illustration()`.
 
-### Outstanding: Verdant & Rift rune art (GID-126)
+### Outstanding: Verdant & Rift rune art (GID-127)
 
 Hand-drawn runes exist for the four original branches only — `rune_dawn`,
-`rune_dusk`, `rune_ember`, `rune_ash`. The four branches added by GID-126 fall
+`rune_dusk`, `rune_ember`, `rune_ash`. The four branches added by GID-127 fall
 through to the procedural path, which tints `TextureGen._gen_card_spell_rune()`
 with `MagicTypes.RUNE_COLORS`, so those cards render correctly today — just
 procedurally rather than hand-drawn.

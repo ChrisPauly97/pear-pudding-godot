@@ -1,6 +1,6 @@
-# TID-476: Bloom / Thorn / Flux / Fracture Skill Resources
+# TID-478: Bloom / Thorn / Flux / Fracture Skill Resources
 
-Goal: [GID-126](goal.md) · Type: agent · Status: done
+Goal: [GID-127](goal.md) · Type: agent · Status: done
 
 ## Problem
 
@@ -47,4 +47,4 @@ already applies all four passive and all four active types generically by
 
 ## Documentation Updates
 
-`docs/agent/skill-trees.md` (TID-479).
+`docs/agent/skill-trees.md` (TID-481).
