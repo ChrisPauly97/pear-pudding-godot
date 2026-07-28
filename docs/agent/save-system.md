@@ -85,9 +85,9 @@ The batched flush is **asynchronous** — a full save is a multi-hundred-KB pret
 | `level` | `int` | Current level (derived from XP); added v12 |
 | `skill_points` | `int` | Unspent skill points from level-ups; added v12 |
 | `unlocked_skills` | `Array[String]` | Skill IDs that have been purchased; added v12 |
-| `magic_type` | `String` | Player's home magic type: `"light"`, `"dark"`, or `""` (not yet chosen); added v13 |
-| `corruption_points` | `int` | Currency earned via dark dialogue choices, spent on cross-magic light skills; added v13 |
-| `redemption_points` | `int` | Currency earned via light dialogue choices, spent on cross-magic dark skills; added v13 |
+| `magic_type` | `String` | Player's home magic type: `"light"`, `"dark"`, `"verdant"`, `"rift"`, or `""` (not yet chosen). Valid values come from `MagicTypes.TYPES`; added v13, extended to four types by GID-126 (no migration — the field is a free-form string and old saves already hold `"light"`/`"dark"`) |
+| `corruption_points` | `int` | Cross-magic currency spent by **life-aligned** players (Light, Verdant). Earned by playing Dawn / Bloom cards; added v13 |
+| `redemption_points` | `int` | Cross-magic currency spent by **entropy-aligned** players (Dark, Rift). Earned by playing Dusk / Fracture cards; added v13 |
 | `pending_battle_state` | `Dictionary` | Serialized `GameState` snapshot of an in-progress battle; `{}` when not in a battle. Set by `set_pending_battle_state()`, cleared by `clear_pending_battle_state()` on win/loss; added v14 |
 | `spire_run` | `Dictionary` | Active Endless Spire run record. Keys: `active` (bool), `floor` (int, 1-based), `draft_deck` (Array of card ID strings), `hero_hp` (int), `seed` (int), `enemies_defeated` (int), `cards_drafted` (int). Default `{"active": false}` means no run in progress; added v16 |
 

@@ -242,6 +242,28 @@ All terrain logic lives in `game_logic/TerrainMath.gd`. Both named-map and infin
 
 ---
 
+## Magic Types: MagicTypes Is the Source of Truth
+
+All four magic types (`light`, `dark`, `verdant`, `rift`), their eight branches,
+branch colours, signature branches and cross-magic currency mapping live in
+`game_logic/MagicTypes.gd`. Never re-list branch names in a `match` or a local
+dictionary — `SkillTreeScene`, `TextureGen` and `BattlefieldRules` all read the
+tables.
+
+```gdscript
+const MagicTypes = preload("res://game_logic/MagicTypes.gd")
+
+for b: String in MagicTypes.branches_for(save_manager.magic_type): ...
+var col: Color = MagicTypes.branch_color(sk.magic_branch)
+```
+
+Adding a type: one `TYPES` entry, two `BRANCH_COLORS` + two `RUNE_COLORS`
+entries, plus its skill/card `.tres` files. `test_magic_types` fails if the
+tables disagree, if a branch has no skills, or if a card's `magic_type` does not
+match its branch's owner.
+
+---
+
 ## Constants: IsoConst Is the Source of Truth
 
 All tile/size constants (`TILE_GRASS`, `TILE_SIZE`, `CHUNK_SIZE`, etc.) live in `autoloads/IsoConst.gd`. Reference as `IsoConst.TILE_SIZE`. Never add copies elsewhere.
@@ -444,6 +466,7 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/signals-and-constants.md](docs/agent/signals-and-constants.md) | GameBus signals, IsoConst values, decoupling patterns |
 | [docs/agent/story-implementation.md](docs/agent/story-implementation.md) | Story flags, dialogue gating, SaveManager fields, SceneManager entry point |
 | [docs/agent/story-narration-scrolls.md](docs/agent/story-narration-scrolls.md) | Lore scroll entities, ScrollRegistry, narration audio, Journal UI, achievement hook |
+| [docs/agent/magic-system.md](docs/agent/magic-system.md) | Four magic types + eight branches, MagicTypes registry, branch affinity, cross-magic currency, spell card rosters |
 | [docs/agent/skill-trees.md](docs/agent/skill-trees.md) | Branch skill trees, magic type selection, corruption/redemption currencies, cross-magic unlock |
 | [docs/agent/treasure-maps.md](docs/agent/treasure-maps.md) | Treasure map fragments, deterministic dig sites, DigSpot entity, map overlay marker |
 | [docs/agent/waystone-fast-travel.md](docs/agent/waystone-fast-travel.md) | Waystone entities, ID scheme, save tracking, placement, fast-travel UI, teleport routing |

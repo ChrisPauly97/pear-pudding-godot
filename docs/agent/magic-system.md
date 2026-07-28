@@ -2,12 +2,80 @@
 
 ## Key Features
 
-- Two top-level magic axes: **Light** and **Dark**, each with two sub-branches
-- **Ember** (Light) — direct-damage spells; aggressive burn cards available in this release
-- **Dawn** (Light) — healing and restoration; lore-defined, no cards in this release
-- **Dusk** (Dark) — lifesteal and drain; lore-defined, no cards in this release
-- **Ash** (Dark) — disruption and necromancy; resurrection and debuff cards available in this release
-- Cards of this system are **spell** type: they cost mana, apply a targeted or area effect, and do not occupy board slots
+- **Four top-level magic types**, two sub-branches each, declared in one table:
+  `game_logic/MagicTypes.gd`
+- **Light** — Ember (direct damage) and Dawn (healing, restoration)
+- **Dark** — Dusk (lifesteal, drain) and Ash (disruption, necromancy)
+- **Verdant** — Bloom (sustain, ramp) and Thorn (retribution, attrition) *(GID-126)*
+- **Rift** — Flux (tempo, transmutation) and Fracture (removal, disruption) *(GID-126)*
+- The player picks one type as their home path; it gates their two skill trees
+- Cards of this system are **spell** type: they cost mana, apply a targeted or
+  area effect, and do not occupy board slots
+
+---
+
+## MagicTypes.gd — the source of truth
+
+Everything that needs to know what a magic type *is* reads from
+`game_logic/MagicTypes.gd`. Nothing else holds a copy of the branch list.
+
+| Table | Contents |
+|---|---|
+| `TYPES` | Per type: `display`, `branches` (2, in tab order), `color`, `tagline`, `cross_currency` |
+| `BRANCH_COLORS` | Per-branch UI tint — skill tree tabs and connector bars |
+| `RUNE_COLORS` | Per-branch pixel-art tint for the procedural spell rune (saturated; deliberately not the same values as `BRANCH_COLORS`, which must stay legible behind white label text) |
+| `CURRENCY_BRANCHES` | Each type's one signature branch |
+| `POINTS_PER_CARD` | Cross-magic points earned per signature-branch card played |
+
+Accessors: `all_types()`, `is_valid_type()`, `branches_for()`, `type_for_branch()`,
+`display_name()`, `tagline()`, `type_color()`, `branch_color()`,
+`branch_rune_color()`, `branch_summary()`, `cross_currency()`,
+`currency_for_branch()`.
+
+`type_for_branch()` is derived by scanning `TYPES` rather than stored, so a branch
+can never be listed under one type and attributed to another.
+`test_magic_types.gd` asserts the tables agree in both directions.
+
+**Adding a fifth type** means one `TYPES` entry, two `BRANCH_COLORS` entries, two
+`RUNE_COLORS` entries, and its skill/card resources. No UI, battle-rule or
+currency code changes.
+
+| Type | Branches | Alignment | Spends | Signature branch |
+|---|---|---|---|---|
+| Light | Ember, Dawn | life | corruption | Dawn |
+| Dark | Dusk, Ash | entropy | redemption | Dusk |
+| Verdant | Bloom, Thorn | life | corruption | Bloom |
+| Rift | Flux, Fracture | entropy | redemption | Fracture |
+
+### Cross-magic currency
+
+The currency a player spends is set by **their own** type, not by what they are
+buying — a Light player corrupts themselves to reach into any other type. Two
+currencies cover four types by alignment (the table above). This is exactly the
+rule Light and Dark already followed; GID-126 named it rather than changing it.
+
+Currency accrues from playing your type's **signature branch** cards in a won
+battle: `PlayerState.branch_cards_played` → `cross_currency_earned()` →
+`BattleResultUI` result dict (`corruption_earned` / `redemption_earned`) →
+`SceneManager` → `SaveManager.add_corruption_points()` /
+`add_redemption_points()`.
+
+### Battlefield affinity
+
+Each type's signature branch costs 1 less mana under one battlefield condition,
+defined in `BattlefieldRules.BRANCH_AFFINITY`. Light and Dark use the **time of
+day** axis; Verdant and Rift use the **biome** axis, so the two never stack on one
+card. The other four branches have no affinity.
+
+| Branch | Condition |
+|---|---|
+| Dawn | daytime |
+| Dusk | night |
+| Bloom | Forest biome |
+| Fracture | Scorched biome |
+
+Stacking order in `effective_cost()`: branch affinity first, then the Grasslands
+first-card discount, floor 0.
 
 ---
 
@@ -21,55 +89,128 @@ Light magic draws from warmth, radiance, and living energy. Its practitioners fe
 
 Dark magic flows from cold, vacuum, and entropy. To touch it is to feel a hollow behind the sternum, a stillness that precedes collapse. Dark is not evil; it is the silence after sound, the space that lets things be defined. It equalises, absorbs, and unmakes. Where Light energy is additive, Dark is subtractive — it removes warmth, removes structure, removes the last HP that stood between a minion and the discard pile.
 
+### Verdant Magic
+
+Verdant magic is the oldest of the four and the least interested in the mage holding it. Where Light and Dark are argued about, Verdant simply continues: it was here before the argument and expects to outlast it. To channel it is to feel patient pressure, the slow insistence of a root splitting stone. It does not heal so much as *keep going* — a Verdant mage does not undo the wound, they grow past it. And it is not gentle. Everything that grows also competes, and everything that competes eventually develops something sharp. The same magic that closes a wound puts thorns on the vine.
+
+### Rift Magic
+
+Rift magic is what leaks through where the world does not quite meet itself. Practitioners describe it as arriving a half-second before you decide to use it. It has no substance of its own; it borrows — motion from one place and spends it in another, a turn from later and takes it now, structure from a thing that was relying on that structure. Rift mages are rarely accused of cruelty, because cruelty implies intent toward the thing you are unmaking, and a Rift mage is usually thinking about something else. It is the only one of the four that no temple claims, which its practitioners consider a fair trade.
+
 ---
 
 ## Sub-Branch Profiles
 
-### Ember (Light sub-branch)
+### Ember (Light)
 
 **Personality:** Aggressive, impatient, spectacular. Ember mages are often impulsive — they solve problems by making them smaller, then making what remains into ash.
 
-**Playstyle:** Direct damage to single targets and sweeping low-damage splashes. Ember spells trade efficiency for immediacy: they do not linger, do not resurrect, and do not wait. A hand full of Ember spells is a clock ticking down for the opponent.
+**Playstyle:** Direct damage to single targets and sweeping low-damage splashes. Ember spells trade efficiency for immediacy: they do not linger, do not resurrect, and do not wait.
 
 **Colour palette:** Bright orange-gold flame, deep red embers, white-hot core.
 
-**Cards in this release:** Spark, Flicker, Ember, Scorch.
-
 ---
 
-### Dawn (Light sub-branch)
+### Dawn (Light — signature)
 
 **Personality:** Patient, restorative, understated. Dawn mages let the battle come to them; they outlast rather than overpower.
 
-**Playstyle:** Healing, stat boosts, shield effects. Dawn spells let a player recover from a bad trade and maintain board presence through attrition. No cards are implemented in this release; the branch is defined so lore and UI colour treatment are consistent.
+**Playstyle:** Healing, stat boosts, shield effects. Dawn spells let a player recover from a bad trade and maintain board presence through attrition.
 
 **Colour palette:** Pale gold, silver-white, soft pink dawn tones.
 
-**Cards in this release:** None (lore only).
+**Affinity:** −1 mana during the day.
 
 ---
 
-### Dusk (Dark sub-branch)
+### Dusk (Dark — signature)
 
 **Personality:** Calculating, patient, parasitic. Dusk mages pay attention to what opponents have left; they drain rather than destroy.
 
-**Playstyle:** Lifesteal, mana taxation, slow-burn attrition. Dusk answers board flooding with incremental drain effects. No cards are implemented in this release; the branch is defined so lore and UI colour treatment are consistent.
+**Playstyle:** Lifesteal, mana taxation, slow-burn attrition. Dusk answers board flooding with incremental drain effects.
 
 **Colour palette:** Deep violet, midnight blue, faint cold glow.
 
-**Cards in this release:** None (lore only).
+**Affinity:** −1 mana at night.
 
 ---
 
-### Ash (Dark sub-branch)
+### Ash (Dark)
 
-**Personality:** Fatalistic, cyclical, unsettling. Ash mages view destruction as a precondition for return. They are patient in a different way from Dusk — they wait for things to die so they can bring them back.
+**Personality:** Fatalistic, cyclical, unsettling. Ash mages view destruction as a precondition for return. They wait for things to die so they can bring them back.
 
-**Playstyle:** Disruption (attack debuffs, targeted low-damage pings), and a single resurrection spell. Ash rewards a player who lets things die on purpose. Alight is the payoff for board decisions made several turns earlier.
+**Playstyle:** Disruption (attack debuffs, targeted low-damage pings) and resurrection. Ash rewards a player who lets things die on purpose.
 
 **Colour palette:** Charcoal grey, bone white, dull orange residual heat.
 
-**Cards in this release:** Ash, Brittle, Char, Alight.
+---
+
+### Bloom (Verdant — signature)
+
+**Personality:** Unhurried to the point of rudeness. Bloom mages are the ones still setting up on turn six, and the ones still standing on turn twelve.
+
+**Playstyle:** Board-wide sustain and ramp. Bloom does not answer a threat; it makes the threat insufficient. Heals, mass health buffs, and mass Ward, backed by a skill tree that is mostly max-HP and mana.
+
+**Colour palette:** New-growth green, wet bark, pale sap yellow.
+
+**Affinity:** −1 mana in the Forest biome.
+
+---
+
+### Thorn (Verdant)
+
+**Personality:** Defensive but not passive. Thorn mages consider "leave me alone" to be a complete threat.
+
+**Playstyle:** Retribution and attrition — board-wide poison, board-wide attack buffs, and scattered damage. Thorn wants a wide board that hurts to attack into, and a clock the opponent cannot outrun.
+
+**Colour palette:** Yellow-green bramble, dry stem, dark thorn tips.
+
+---
+
+### Flux (Rift)
+
+**Personality:** Distracted, quick, hard to pin down in conversation or on the board.
+
+**Playstyle:** Tempo and card flow — draw, single-target burst, and letting one minion act twice. Flux converts an information advantage into a turn advantage.
+
+**Colour palette:** Pale cyan, refracted white, thin blue edge-glow.
+
+---
+
+### Fracture (Rift — signature)
+
+**Personality:** Clinical. Fracture mages do not describe what they do as destruction; they describe it as noticing.
+
+**Playstyle:** Removal and disruption — stripping keywords, stunning, forcing discards. Fracture answers the opponent's best card by making it stop being their best card.
+
+**Colour palette:** Magenta seam-light, black fracture lines, dull grey shard.
+
+**Affinity:** −1 mana in the Scorched biome.
+
+---
+
+## Card Roster — Verdant & Rift (GID-126)
+
+Every card reuses a `spell_effect` that `SpellEffectResolver` already implements,
+so the branches needed no new resolver arms, labels or targeting entries.
+
+| Branch | Card | Cost | Effect |
+|---|---|---|---|
+| Bloom | Germinate | 2 | `heal_all` 3 |
+| Bloom | Verdant Bulwark | 3 | `buff_health_all` 2 |
+| Bloom | Blooming Ward | 5 | `grant_ward_all` |
+| Thorn | Bramble Snare | 3 | `apply_poison_all` 1 |
+| Thorn | Thorn Volley | 3 | `deal_damage_random` 3 |
+| Thorn | Wild Growth | 4 | `buff_attack_all` 2 |
+| Flux | Displace | 2 | `draw_card` 2 |
+| Flux | Kinetic Bolt | 3 | `deal_damage_single` 4 |
+| Flux | Momentum | 4 | `double_attack` |
+| Fracture | Unmake | 3 | `bind_minion` |
+| Fracture | Fault | 3 | `stun_single` 1 |
+| Fracture | Shardfall | 4 | `enemy_discard` 2 |
+
+These reach shops, drafts, drops and crafting through the normal
+`CardRegistry.get_all_ids()` paths — no per-feature wiring.
 
 ---
 
@@ -117,8 +258,8 @@ The following fields must be added to `data/CardData.gd`:
 | Field | Type | Values |
 |-------|------|--------|
 | `card_type` | `String` | `"minion"` (existing default) or `"spell"` |
-| `magic_type` | `String` | `"light"`, `"dark"`, or `""` (for non-magic minions) |
-| `magic_branch` | `String` | `"ember"`, `"dawn"`, `"dusk"`, `"ash"`, or `""` |
+| `magic_type` | `String` | Any key of `MagicTypes.TYPES` — `"light"`, `"dark"`, `"verdant"`, `"rift"` — or `""` (for non-magic minions) |
+| `magic_branch` | `String` | Any of the eight branches, or `""` |
 
 `to_template_dict()` must include all three new fields so `CardInstance` and UI code can read them.
 
@@ -159,6 +300,11 @@ These patterns are defined here for TID-022 and TID-023 to reference when writin
 | **GameState** | Spell execution | `play_card()` must branch on `card_type == "spell"` to apply effects rather than placing on board |
 | **BattleScene UI** | Display | Spell cards render without attack/health; drop targets are enemy board slots and heroes |
 | **SaveManager / Deck** | Player deck | Spell card IDs stored in `player_deck` like minions |
+| **MagicTypes** | Source of truth | Types, branches, colours, signature branches, currency mapping (GID-126) |
+| **SkillTreeScene** | Path choice + trees | Builds the choose-your-path modal and all three tabs from `MagicTypes` |
+| **BattlefieldRules** | Cost rules | `BRANCH_AFFINITY` drives the −1 mana discount per signature branch |
+| **PlayerState** | Currency accrual | `branch_cards_played` → `cross_currency_earned()` at battle end |
+| **TextureGen** | Card art | Spell rune tinted from `MagicTypes.RUNE_COLORS` |
 
 ---
 
@@ -166,6 +312,11 @@ These patterns are defined here for TID-022 and TID-023 to reference when writin
 
 | Asset | Path | Notes |
 |-------|------|-------|
+| MagicTypes registry | `game_logic/MagicTypes.gd` | Static tables; preload, not an autoload |
 | Ember spell cards (×4) | `data/cards/spell_*.tres` + `.uid` | Spark, Flicker, Ember, Scorch |
 | Ash spell cards (×4) | `data/cards/spell_*.tres` + `.uid` | Ash, Brittle, Char, Alight |
+| Verdant spell cards (×6) | `data/cards/bloom_*.tres`, `thorn_*.tres` + `.uid` | See the Card Roster table above |
+| Rift spell cards (×6) | `data/cards/flux_*.tres`, `fracture_*.tres` + `.uid` | See the Card Roster table above |
+| Verdant / Rift skills (×24) | `data/skills/{bloom,thorn,flux,fracture}_*.tres` + `.uid` | 6 per branch; preloaded in `SkillRegistry` |
+| Branch rune PNGs (×4) | `assets/textures/cards/rune_{bloom,thorn,flux,fracture}.png` | **Outstanding.** Procedural fallback covers them today — see `docs/agent/art-sprites.md` |
 | CardData schema | `data/CardData.gd` | Extended with `card_type`, `magic_type`, `magic_branch` |

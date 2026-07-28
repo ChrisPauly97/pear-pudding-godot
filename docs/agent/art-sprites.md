@@ -233,9 +233,27 @@ Integration notes for TID-446/447:
   Player's rendered sprite, and the visibility assertions don't touch texture identity.
 - `card_illustration_texture(illus_key, magic_branch)` — `illus_key` is
   `"ghost"/"skeleton"/"zombie"/"ghoul"` for minions or `"spell"` (routed by
-  `magic_branch`: `dawn`/`dusk`/`ember`/`ash`, the only 4 branches in `data/cards/`)
-  for spells. `CardRegistry._ensure_loaded()` tries the registry first, then falls
-  back to `TextureGen.card_illustration()`.
+  `magic_branch`) for spells. `CardRegistry._ensure_loaded()` tries the registry
+  first, then falls back to `TextureGen.card_illustration()`.
+
+### Outstanding: Verdant & Rift rune art (GID-126)
+
+Hand-drawn runes exist for the four original branches only — `rune_dawn`,
+`rune_dusk`, `rune_ember`, `rune_ash`. The four branches added by GID-126 fall
+through to the procedural path, which tints `TextureGen._gen_card_spell_rune()`
+with `MagicTypes.RUNE_COLORS`, so those cards render correctly today — just
+procedurally rather than hand-drawn.
+
+| Asset | Path | Branch tint |
+|---|---|---|
+| `rune_bloom.png` | `assets/textures/cards/` | `Color(0.2, 0.85, 0.3)` |
+| `rune_thorn.png` | `assets/textures/cards/` | `Color(0.65, 0.85, 0.1)` |
+| `rune_flux.png` | `assets/textures/cards/` | `Color(0.15, 0.7, 1.0)` |
+| `rune_fracture.png` | `assets/textures/cards/` | `Color(0.95, 0.2, 0.65)` |
+
+To upgrade: drop the four 32×32 PNGs in, add four `preload` constants and four
+`match` arms to `SpriteRegistry.card_illustration_texture()`. No call-site change —
+the fallback is already wired.
 - All slots now traceable in `CREDITS.md`'s new per-slot index table.
 - **Nothing left procedural except the fallback path itself** — all sprite
   slots (enemies, NPCs, props, mount, card illustrations) render real,

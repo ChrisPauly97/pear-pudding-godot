@@ -432,6 +432,48 @@ func test_neutral_play_card_no_slot_keywords() -> void:
 	assert_false(card.keywords.has(Keywords.WARD))
 
 # ---------------------------------------------------------------------------
+# 9. Biome branch affinity — Verdant / Rift (GID-126)
+#
+# Light and Dark branches discount on time of day (section 7 above); Verdant and
+# Rift branches discount on biome instead, so a card can never get both.
+# ---------------------------------------------------------------------------
+
+func test_bloom_card_cost_reduced_in_forest() -> void:
+	assert_eq(BattlefieldRules.effective_cost(3, "bloom", BiomeDef.FOREST, false, true), 2)
+
+func test_bloom_card_unchanged_outside_forest() -> void:
+	assert_eq(BattlefieldRules.effective_cost(3, "bloom", BiomeDef.DESERT, false, true), 3)
+
+func test_bloom_card_unaffected_by_time_of_day() -> void:
+	# Time of day is the Light/Dark axis — it must not touch a Verdant card.
+	assert_eq(BattlefieldRules.effective_cost(3, "bloom", BiomeDef.DESERT, true, true), 3)
+
+func test_fracture_card_cost_reduced_in_scorched() -> void:
+	assert_eq(BattlefieldRules.effective_cost(3, "fracture", BiomeDef.SCORCHED, false, true), 2)
+
+func test_fracture_card_unchanged_in_forest() -> void:
+	assert_eq(BattlefieldRules.effective_cost(3, "fracture", BiomeDef.FOREST, false, true), 3)
+
+func test_thorn_and_flux_have_no_affinity() -> void:
+	# One affinity branch per magic type: thorn and flux are the plain branches,
+	# exactly as ember and ash are for Light and Dark.
+	for biome: int in [BiomeDef.GRASSLANDS, BiomeDef.FOREST, BiomeDef.DESERT,
+			BiomeDef.SCORCHED, BiomeDef.MOUNTAINS, -1]:
+		assert_eq(BattlefieldRules.effective_cost(3, "thorn", biome, false, true), 3)
+		assert_eq(BattlefieldRules.effective_cost(3, "flux", biome, true, true), 3)
+
+func test_bloom_stacks_with_grasslands_first_card() -> void:
+	# Grasslands is not Bloom's affinity biome, so only the first-card discount applies.
+	assert_eq(BattlefieldRules.effective_cost(3, "bloom", BiomeDef.GRASSLANDS, false, false), 2)
+
+func test_branch_affinity_text_only_for_affinity_branches() -> void:
+	assert_true(BattlefieldRules.branch_affinity_text("bloom") != "")
+	assert_true(BattlefieldRules.branch_affinity_text("fracture") != "")
+	assert_eq(BattlefieldRules.branch_affinity_text("thorn"), "")
+	assert_eq(BattlefieldRules.branch_affinity_text("ember"), "")
+	assert_eq(BattlefieldRules.branch_affinity_text(""), "")
+
+# ---------------------------------------------------------------------------
 # Suite name
 # ---------------------------------------------------------------------------
 
