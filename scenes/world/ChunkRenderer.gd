@@ -428,6 +428,12 @@ func _spawn_entities(world_scene: Node3D) -> void:
 			world_scene.register_door(d_data["id"], node, d_data)
 
 	for n_data in _chunk_data.npcs:
+		# NPCs the story has moved on (MapNpc.hide_flag_key) are simply not spawned.
+		# WorldScene._despawn_flag_hidden_npcs() covers the flag flipping while the
+		# map is already loaded.
+		var hide_flag: String = str(n_data.get("hide_flag_key", ""))
+		if hide_flag != "" and SceneManager.save_manager.get_story_flag(hide_flag):
+			continue
 		var _npc_type_str: String = str(n_data.get("npc_type", ""))
 		var scene_to_use: PackedScene
 		if _npc_type_str == "merchant":

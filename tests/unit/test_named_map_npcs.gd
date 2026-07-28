@@ -273,3 +273,71 @@ func test_marsax_hold_has_war_camp_dungeon_door() -> void:
 			assert_true(target.substr(8).is_valid_int(),
 				"dungeon door target_map suffix must be a valid integer seed")
 	assert_true(found, "marsax_hold should have a door into the war-camp dungeon")
+
+
+# ---------------------------------------------------------------------------
+# Cast changes driven by story flags, and injected-entity placement
+# ---------------------------------------------------------------------------
+
+const _WorldSceneScript = preload("res://scenes/world/WorldScene.gd")
+
+
+## Maiteln joins the party the moment story_intro_complete is set, so the
+## villager standing on his Madrian tile has to leave with him.
+func test_madrian_maiteln_npc_hidden_once_recruited() -> void:
+	var wm: RefCounted = WorldMapScript.new("madrian")
+	var n: Dictionary = _npc_by_id(wm, "npc_1")
+	assert_eq(str(n.get("hide_flag_key", "")), "story_intro_complete")
+
+
+func test_other_madrian_npcs_have_no_hide_flag() -> void:
+	var wm: RefCounted = WorldMapScript.new("madrian")
+	for n in wm.npcs:
+		if str(n.get("id", "")) == "npc_1":
+			continue
+		assert_eq(str(n.get("hide_flag_key", "")), "",
+			"NPC %s should stay on the map" % n["id"])
+
+
+## The mailbox is injected rather than authored, so nothing in the .tres stops it
+## landing on top of an NPC — it used to sit exactly on Maiteln's tile (45, 36).
+func test_injected_mailbox_tile_is_clear_of_authored_entities() -> void:
+	for map in ["madrian", "maykalene", "blancogov"]:
+		var wm: RefCounted = WorldMapScript.new(map)
+		var tile: Vector2i = wm.pick_free_tile_near_spawn(
+			_WorldSceneScript._MAILBOX_TILE_OFFSETS,
+			_WorldSceneScript._MAILBOX_CLEARANCE_TILES)
+		var wx: float = float(tile.x) * WorldMapScript.TILE_SIZE
+		var wz: float = float(tile.y) * WorldMapScript.TILE_SIZE
+		for n in wm.npcs:
+			var ddx: float = float(n.get("x", 0.0)) - wx
+			var ddz: float = float(n.get("z", 0.0)) - wz
+			assert_true(ddx * ddx + ddz * ddz > 1.0,
+				"%s mailbox at %s overlaps NPC %s" % [map, tile, n.get("id", "")])
+
+
+func test_injected_mailbox_tile_is_walkable() -> void:
+	var wm: RefCounted = WorldMapScript.new("madrian")
+	var tile: Vector2i = wm.pick_free_tile_near_spawn(
+		_WorldSceneScript._MAILBOX_TILE_OFFSETS,
+		_WorldSceneScript._MAILBOX_CLEARANCE_TILES)
+	var t: int = wm.get_tile(tile.x, tile.y)
+	assert_true(t != WorldMapScript.TILE_WALL and t != WorldMapScript.TILE_CRACKED,
+		"mailbox tile %s must not be a wall" % tile)
+
+
+## extra_occupied stands in for entities injected at runtime (the waystone), which
+## are absent from the map's own arrays.
+func test_pick_free_tile_avoids_extra_occupied() -> void:
+	var wm: RefCounted = WorldMapScript.new("madrian")
+	var plain: Vector2i = wm.pick_free_tile_near_spawn(
+		_WorldSceneScript._MAILBOX_TILE_OFFSETS,
+		_WorldSceneScript._MAILBOX_CLEARANCE_TILES)
+	var blocker: Array = [{
+		"x": float(plain.x) * WorldMapScript.TILE_SIZE,
+		"z": float(plain.y) * WorldMapScript.TILE_SIZE,
+	}]
+	var moved: Vector2i = wm.pick_free_tile_near_spawn(
+		_WorldSceneScript._MAILBOX_TILE_OFFSETS,
+		_WorldSceneScript._MAILBOX_CLEARANCE_TILES, blocker)
+	assert_ne(moved, plain, "an occupied candidate must be skipped")

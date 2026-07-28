@@ -140,9 +140,28 @@ of `madrian` / `maykalene` / `farsyth_mansion` / `blancogov` / `blancogov_temple
 `main` during the TID-402 camp-beat window (`chapter1_left_madrian` set,
 `chapter1_learned_fire` not yet set) — never general open-world sandbox presence.
 `_refresh_maiteln_presence()` (spawn-or-free to match the gate) runs once at the tail of
-`_ready()` and again from `_on_local_story_flag_set()` (already fires on every local
-`story_flag_set`), so he appears/disappears immediately when a relevant flag flips mid-session,
-not just on the next map load.
+`_ready()` and again from `WorldScene._on_story_flag_set_for_cast()`, so he appears/disappears
+immediately when a relevant flag flips mid-session, not just on the next map load.
+
+That handler is wired in `WorldScene._wire_gamebus_signals()`, **not** in
+`CoopSession._setup_coop()` where it used to live: `_setup_coop()` returns immediately when no
+session is active, so a single-player run never got the live refresh and only saw the change
+after a map reload. `CoopSession._on_local_story_flag_set()` now does nothing but the co-op
+sync it is named for.
+
+**He stops standing in Madrian once recruited.** `MapNpc.hide_flag_key` is a generic
+"this NPC leaves their post once the flag is set" gate, and Madrian's `npc_1` — the Maiteln who
+offers to take you away — carries `hide_flag_key = "story_intro_complete"`, the same flag that
+makes the follower appear. `ChunkRenderer` skips spawning any NPC whose hide flag is already
+set; `WorldScene._despawn_flag_hidden_npcs()` (same `_on_story_flag_set_for_cast()` handler)
+frees one whose flag flips while the map is loaded — which is exactly the case here, since the
+player sets it by talking to him. Note Madrian's `npc_2` (the master) shares `story_intro_complete`
+as its *dialogue* flag, so talking to him first also completes the intro; Maiteln then joins as a
+follower at the player's shoulder rather than being lost.
+
+**No name tag.** Unlike every other world entity, `MaitelnFollower` builds no
+`SpriteRegistry.make_name_label()` — he is beside the player for a whole chapter, so a permanent
+floating label is clutter rather than identification.
 
 **Movement:** `MaitelnFollower._process()` lerps toward a fixed world-space offset from the
 player's position (`AvatarSync.interp()`, reusing the co-op avatar smoothing helper), snapping
@@ -197,7 +216,7 @@ epilogue line, shown as soon as they've been spoken to once rather than only aft
 (Queen → Scargroth → King Eldar, all in one visit) makes the gap narratively negligible.
 
 `_trigger_chapter1_ending()` sets `chapter1_complete` (which fires `_refresh_maiteln_presence()`
-for free via the TID-403 `_on_local_story_flag_set` hook — the follower disappears with no new
+for free via the TID-403 `_on_story_flag_set_for_cast` hook — the follower disappears with no new
 code) and shows `scenes/ui/ChapterEndingOverlay.gd`, a new `BaseOverlay`-derived paged narration
 overlay (`extends "res://scenes/ui/BaseOverlay.gd"`, path-string per the CLAUDE.md class_name
 preload rule) with the three approved story.md pages. No scene transition — the player is

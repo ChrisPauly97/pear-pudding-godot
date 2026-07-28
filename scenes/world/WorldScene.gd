@@ -687,6 +687,12 @@ func _wire_gamebus_signals() -> void:
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)
 	GameBus.blight_changed.connect(_refresh_blight_tints)
+	# Story-driven cast changes (Maiteln joining/leaving, NPCs who leave their
+	# post) have to land while this same map instance stays loaded. Wired here,
+	# not in CoopSession._setup_coop — that returns early outside a session, so
+	# single-player used to see the change only after a map reload.
+	if not NetworkManager.is_dedicated_server():
+		GameBus.story_flag_set.connect(_on_story_flag_set_for_cast)
 
 	# Auto-remount when returning to the overworld from a named map
 	if map_name == "main":
@@ -1430,6 +1436,28 @@ func _refresh_maiteln_presence() -> void:
 func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
 	return _node_in_range(_maiteln_node, px, pz, range_dist)
 
+## Any story flag change can move the cast around: Maiteln's follower is gated on
+## several Chapter 1 flags, and NPCs carrying MapNpc.hide_flag_key leave their
+## post when theirs is set. Both have to react on the flag, not just on the next
+## map load — the player is standing right there when it flips.
+func _on_story_flag_set_for_cast(_key: String) -> void:
+	_refresh_maiteln_presence()
+	_despawn_flag_hidden_npcs()
+
+## Removes already-spawned NPCs whose MapNpc.hide_flag_key is now set. The spawn
+## side of the same rule lives in ChunkRenderer, which skips them outright.
+func _despawn_flag_hidden_npcs() -> void:
+	for nid in _active_npc_data.keys():
+		var d: Dictionary = _active_npc_data[nid]
+		var hide_flag: String = str(d.get("hide_flag_key", ""))
+		if hide_flag == "" or not SceneManager.save_manager.get_story_flag(hide_flag):
+			continue
+		var node: Node3D = _valid_node3d(_npc_nodes.get(nid))
+		if node != null:
+			node.queue_free()
+		_npc_nodes.erase(nid)
+		_active_npc_data.erase(nid)
+
 func _spawn_named_map_shrines() -> void:
 	if world_map == null:
 		return
@@ -1500,6 +1528,17 @@ func _spawn_named_map_waystones() -> void:
 # is no MailboxData resource type on the .tres maps, unlike waystones.
 const _NAMED_MAP_MAILBOX_LOCATIONS: Array[String] = ["madrian", "maykalene", "blancogov", "player_home"]
 
+## Tile offsets from the map spawn, tried in order, when placing the injected
+## mailbox. The first walkable one clear of everything the map already placed
+## wins. A fixed spawn+(5, 0) used to be the only candidate, which stood the
+## Madrian mailbox on Maiteln's exact NPC tile (45, 36).
+const _MAILBOX_TILE_OFFSETS: Array[Vector2i] = [
+	Vector2i(5, 0), Vector2i(5, -3), Vector2i(5, 3), Vector2i(2, -4),
+	Vector2i(2, 4), Vector2i(-3, -3), Vector2i(-3, 3), Vector2i(-5, 0),
+]
+## How far the injected mailbox stays clear of an authored entity, in tiles.
+const _MAILBOX_CLEARANCE_TILES: float = 2.0
+
 func _spawn_named_map_mailboxes() -> void:
 	if world_map == null:
 		return
@@ -1507,10 +1546,13 @@ func _spawn_named_map_mailboxes() -> void:
 		return
 	if map_name == "player_home" and not SceneManager.save_manager.home_owned:
 		return
-	var tx: int = world_map.player_spawn_x + 5 if world_map.has_player_spawn() else 10
-	var tz: int = world_map.player_spawn_z if world_map.has_player_spawn() else 8
-	tx = clamp(tx, 1, WorldMap.MAP_WIDTH - 2)
-	tz = clamp(tz, 1, WorldMap.MAP_HEIGHT - 2)
+	# Waystones come from _active_waystone_data rather than world_map.waystones:
+	# town maps get theirs injected too, and _spawn_named_map_waystones() has
+	# already run by here, so the table is the complete picture.
+	var tile: Vector2i = world_map.pick_free_tile_near_spawn(
+		_MAILBOX_TILE_OFFSETS, _MAILBOX_CLEARANCE_TILES, _active_waystone_data.values())
+	var tx: int = tile.x
+	var tz: int = tile.y
 	var mid: String = "map:%s" % map_name
 	var mx: float = float(tx) * WorldMap.TILE_SIZE
 	var mz: float = float(tz) * WorldMap.TILE_SIZE

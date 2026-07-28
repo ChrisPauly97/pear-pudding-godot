@@ -35,8 +35,30 @@ const _WalkTex4: Texture2D = preload("res://assets/textures/characters/player_he
 const ANIM_FPS: float = 6.0        # walking animation speed
 const PIXEL_SIZE: float = 0.05     # larger per-pixel size to match 32px sprite scale
 
+# ── Riding pose ───────────────────────────────────────────────────────────────
+# World sprites use ALPHA_CUT_OPAQUE_PREPASS (SpriteRegistry.apply_billboard_flags),
+# so two overlapping billboards are resolved by the depth buffer, not by blend
+# order. The mount sprite used to sit 1 cm *toward* the camera, which meant the
+# horse won every overlapping pixel and the rider vanished entirely.
+#
+# The iso camera is orthographic and permanently offset by (20, 20, 20), so a
+# translation along the normalised (1, 1, 1) axis is pure depth: it changes what
+# wins the depth test without moving a single pixel on screen. Lifting the rider
+# along that axis while mounted puts him in front of the horse and nothing else.
+const _CAM_AXIS := Vector3(0.5773502691896258, 0.5773502691896258, 0.5773502691896258)
+const _RIDE_DEPTH_LIFT: float = 0.2
+## World units the rider rises so his hips land on the horse's back (the saddle
+## line sits ~0.9 above the hooves in mount_horse.png; the hero's crotch is ~0.3
+## above his feet).
+const _RIDE_LIFT: float = 0.6
+## The horse's barrel is ~3 px left of centre in the 32 px texture — nudge the
+## sprite right so the saddle, not the neck, sits under the rider. Mirrored with
+## the sprite when facing left.
+const _SADDLE_OFFSET_PX: float = 3.0
+
 var _velocity_y: float = 0.0
 var _sprite: AnimatedSprite3D
+var _sprite_base_pos: Vector3 = Vector3.ZERO   # on-foot sprite position; the ride pose offsets from it
 var _mount_sprite: Sprite3D
 var _dust_particles: GPUParticles3D
 var _dust_mat_mount: ParticleProcessMaterial
@@ -121,7 +143,8 @@ func _build_sprite() -> void:
 
 	# Position sprite so bottom edge sits at y=0 (feet on the ground)
 	var frame_h: float = _WalkTex1.get_height() * PIXEL_SIZE
-	_sprite.position = Vector3(0.0, frame_h * 0.5, 0.0)
+	_sprite_base_pos = Vector3(0.0, frame_h * 0.5, 0.0)
+	_sprite.position = _sprite_base_pos
 
 	add_child(_sprite)
 	_sprite.play("idle")
@@ -139,9 +162,11 @@ func _build_sprite() -> void:
 	_mount_sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	# Feet-at-y=0 from the real texture height (CLAUDE.md Sprite3D rule) — don't
 	# assume a fixed pixel height, the real mount_horse.png differs from the old
-	# TextureGen fallback's 24px.
+	# TextureGen fallback's 24px. Stays at z=0 (hooves flush with the ground);
+	# the rider is the one that moves, along the camera axis, when mounted.
 	var mount_tex_h: float = float(_mount_sprite.texture.get_height())
-	_mount_sprite.position = Vector3(0.0, mount_tex_h * PIXEL_SIZE * 0.5, 0.01)
+	_mount_sprite.position = Vector3(0.0, mount_tex_h * PIXEL_SIZE * 0.5, 0.0)
+	_mount_sprite.offset = Vector2(_SADDLE_OFFSET_PX, 0.0)
 	_mount_sprite.visible = false
 	add_child(_mount_sprite)
 
@@ -284,11 +309,12 @@ func _physics_process(delta: float) -> void:
 		var screen_x: float = dir.x - dir.z
 		if abs(screen_x) > 0.1:
 			_sprite.flip_h = screen_x < 0.0
-		if _sprite.animation != &"walk":
-			_sprite.play("walk")
-	else:
-		if _sprite.animation != &"idle":
-			_sprite.play("idle")
+			_set_mount_facing(_sprite.flip_h)
+	# Mounted, the horse does the travelling — the rider sits still in the saddle
+	# instead of running on the spot.
+	var want_anim: StringName = &"walk" if _is_moving and not SaveManager.is_mounted else &"idle"
+	if _sprite.animation != want_anim:
+		_sprite.play(want_anim)
 
 	# Dust particles: emit while moving on foot or mounted (material/amount
 	# swapped by _update_mount_visuals — mounted kicks more dust).
@@ -328,6 +354,13 @@ func _on_sprite_frame_changed() -> void:
 func _update_mount_visuals(mounted: bool) -> void:
 	if _mount_sprite != null:
 		_mount_sprite.visible = mounted
+	if _sprite != null:
+		# Into the saddle (up) and one depth step toward the camera, so the rider
+		# is drawn over the horse rather than inside it. See _CAM_AXIS above.
+		if mounted:
+			_sprite.position = _sprite_base_pos + Vector3.UP * _RIDE_LIFT + _CAM_AXIS * _RIDE_DEPTH_LIFT
+		else:
+			_sprite.position = _sprite_base_pos
 	if _dust_particles != null:
 		_dust_particles.process_material = _dust_mat_mount if mounted else _dust_mat_foot
 		_dust_particles.amount = 20 if mounted else 10
@@ -357,6 +390,15 @@ func _scan_interactables() -> void:
 		if closest != null and closest.has_method("set_highlighted"):
 			closest.call("set_highlighted", true)
 		_highlighted_node = closest
+
+## Keeps the horse facing the same way as its rider. `offset` is not mirrored by
+## flip_h (it shifts the quad, flip only mirrors UVs), so the saddle nudge has to
+## be negated by hand or the rider ends up on the horse's rump facing left.
+func _set_mount_facing(flipped: bool) -> void:
+	if _mount_sprite == null:
+		return
+	_mount_sprite.flip_h = flipped
+	_mount_sprite.offset = Vector2(-_SADDLE_OFFSET_PX if flipped else _SADDLE_OFFSET_PX, 0.0)
 
 func _on_mount_state_changed(mounted: bool, _mount_id: String) -> void:
 	_update_mount_visuals(mounted)

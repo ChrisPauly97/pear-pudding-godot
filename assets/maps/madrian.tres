@@ -86,6 +86,7 @@ tile_z = 36
 dialogue = "I am a wizard of old. If you come with me you will never have to worry about your master again and I will take you on an adventure. My name is Maiteln. Will you come with me?"
 npc_type = ""
 flag_key = "story_intro_complete"
+hide_flag_key = "story_intro_complete"
 after_dialogue = "The road waits, wee Saimtar. South, past the wilds — Maykalene first."
 dialogue_group = "I am a wizard of old. If you will all come with me, none of you need worry about that master again — I will take you all on an adventure. My name is Maiteln. Will you join me?"
 
