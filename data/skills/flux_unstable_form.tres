@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://avrs1a6hzp1v"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_flux_unstable_form"]
+
+[resource]
+script = ExtResource("1_flux_unstable_form")
+id = "flux_unstable_form"
+display_name = "Unstable Form"
+description = "Harder to hurt what will not hold still. +8 max HP."
+skill_type = "passive"
+effect_type = "passive_hp"
+effect_value = 8
+prerequisites = []
+tree_row = 0
+tree_col = 3
+magic_branch = "flux"
+alt_cost = 0

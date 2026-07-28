@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://vhwxnta2ltun"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_thorn_bramble_wall"]
+
+[resource]
+script = ExtResource("1_thorn_bramble_wall")
+id = "thorn_bramble_wall"
+display_name = "Bramble Wall"
+description = "A thicket closes around you between blows. +12 max HP."
+skill_type = "passive"
+effect_type = "passive_hp"
+effect_value = 12
+prerequisites = ["thorn_barbed_growth"]
+tree_row = 1
+tree_col = 0
+magic_branch = "thorn"
+alt_cost = 0

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://3tt0f8hnou4p"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_flux_reweave"]
+
+[resource]
+script = ExtResource("1_flux_reweave")
+id = "flux_reweave"
+display_name = "Reweave"
+description = "Once per battle: pull the thread back through. Draw 3 cards."
+skill_type = "active"
+effect_type = "active_draw"
+effect_value = 3
+prerequisites = ["flux_phase_shift"]
+tree_row = 2
+tree_col = 0
+magic_branch = "flux"
+alt_cost = 2

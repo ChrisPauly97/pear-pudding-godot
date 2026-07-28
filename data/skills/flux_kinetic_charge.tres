@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://fmcud8qb7e67"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_flux_kinetic_charge"]
+
+[resource]
+script = ExtResource("1_flux_kinetic_charge")
+id = "flux_kinetic_charge"
+display_name = "Kinetic Charge"
+description = "Motion you borrowed from somewhere else. +2 hero attack."
+skill_type = "passive"
+effect_type = "passive_atk"
+effect_value = 2
+prerequisites = ["flux_unstable_form"]
+tree_row = 1
+tree_col = 3
+magic_branch = "flux"
+alt_cost = 0
