@@ -10,6 +10,7 @@
 - **Interactable highlights**: Pulsing emissive ring (`CylinderMesh` + inline shader) shown on the nearest interactable within 3 world units of the player.
 - **Card illustrations**: 32×32 pixel-art textures per card archetype, wired into `CardRegistry` at load time and displayed in `CardViewBuilder`. Real sprites (GID-118/TID-447) via `SpriteRegistry.card_illustration_texture()`, falling back to `TextureGen.card_illustration()`.
 - **World terrain textures**: the shared terrain shader's grass, hill-side, wall-side, wall-top, and path/road textures are real, seamlessly-tiling sprite-pack art (GID-118) — see `docs/agent/terrain-rendering.md` Asset Requirements and `CREDITS.md`.
+- **Battle backdrop**: the card board's background is a per-biome, day/night landscape painted by one full-screen shader out of the world's own terrain tiles and prop sprites — sky, ridge silhouettes, a skyline prop line and a perspective ground plane — instead of the flat `Color(0.1, 0.1, 0.15)` rect it was through GID-125.
 - **Chest & door sprites**: `Chest.gd` and `Door.gd` render as billboard `Sprite3D`s (0x72 pack chest/door art, GID-118) instead of flat-colored `BoxMesh` geometry, falling back to the original procedural boxes if the sprites are missing. See `docs/agent/inventory-and-deck.md` (chest open ceremony) and `docs/agent/named-maps-and-dungeons.md` (door rendering).
 
 ## How It Works
@@ -47,6 +48,77 @@ All 6 interactable entities call `add_to_group("interactable")` in `_ready()` an
 
 `Player._scan_interactables()` runs at 7 Hz (`_SCAN_INTERVAL = 1/7`), iterates the `"interactable"` group, finds the nearest node within `_INTERACT_RADIUS = 3.0` world units, and calls `set_highlighted(true/false)`.
 
+### Battle Backdrop (`BattleBackdrop`, `battle_backdrop.gdshader`) — GID-126
+
+`BattleScene._setup_backdrop()` runs in `_ready()` and hands `$Background` (the
+`ColorRect` that used to *be* the background) to
+`BattleBackdrop.apply(rect, biome, is_night)`, which installs a `ShaderMaterial`
+running `assets/shaders/battle_backdrop.gdshader`. The rect keeps its flat
+`color` underneath, so a missing or stripped shader degrades to the old look
+rather than to nothing.
+
+The biome and time of day come from `GameState.battlefield_biome` /
+`is_night` — the pair Battlefield Resonance (GID-059) already stamps at
+engagement — so the backdrop needs no context of its own and cannot disagree
+with the rule the side panel is showing.
+
+**No new art.** The ground plane tiles `assets/textures/pixel_art/*.png` (the
+seamless 16×16 terrain tiles the 3-D world is built from) and the skyline is
+dressed with `assets/textures/props/prop_*.png` (the scatter sprites
+`ChunkRenderer` instances), one pair per biome, matching `BiomeDef.PROP_SETS`.
+
+**Shader bands**, in the order `fragment()` paints them:
+
+| Band | What it does |
+|---|---|
+| Sky | Vertical gradient `sky_top → sky_horizon`; 3-octave fbm cloud banks drifting on `TIME`; a hash-lattice star field gated on `night > 0`; a sun/moon disc with halo, suppressed by `celestial = 0` for roofed battlefields |
+| Ridges | Two silhouettes from a 1-D noise profile. `ridge_sharp` folds the profile about its midpoint (`1 - abs(2n-1)`), which is what turns grassland's rolling hills into scorched spires and alpine peaks out of one function. The far range is mixed toward the sky for atmospheric depth |
+| Skyline props | 30 cells across the width, ~⅔ occupied, each with jittered position, height and a coin-flip between the biome's two sprites, drawn as flat alpha silhouettes standing on the horizon. Each fragment tests three cells so neighbours can overlap |
+| Ground | The biome tile in a shallow reciprocal-depth perspective (`depth` clamped well short of the vanishing point, so it reads as ground and not a corridor), plus broad noise mottling, distance haze and a darkened foreground |
+| Board lighting | A soft warm pool over the board, and a pulsing seam along the horizon that doubles as the divider |
+| Hold-back | Vignette (weighted to darken the left/right margins, which is what the side panel's label text reads against), then a global `mix` toward `dim_color` so cards stay legible |
+
+**Palette** — `BattleBackdrop.PALETTE`, one entry per biome id plus
+`NEUTRAL = -1`. Sky stops, ridge shape, prop pair and `dim` live in the table;
+the *tints* do not — ground colour is `BiomeDef.GRASS_TINT[biome] × gain` and
+both ridges are `BiomeDef.HILL_TINT[biome]`, so the backdrop cannot drift away
+from the terrain it depicts. Only the vault, which has no biome to borrow hills
+from, sets a `ridge_base` override.
+
+Three scalars exist because a 2-D backdrop is not a lit 3-D surface:
+
+- `ground_gain` — the `BiomeDef` tints multiply lit terrain; with no light to
+  multiply, the darker biomes need lifting back into a readable range.
+- `ground_desat` — the terrain PNGs carry a strong hue of their own (the hill
+  side is orange dirt), so a snow-white mountain tint over them still reads
+  orange. Pulling the sample toward grey first is what lets one 16×16 source
+  serve several biomes.
+- `NIGHT_GROUND_GAIN` (0.45) — the tints describe sunlit terrain, so without it
+  a night battlefield keeps a noon-bright meadow under a star field.
+
+`ground_avg`, which the far field fades to instead of the aliased texel soup a
+minified un-mipmapped 16×16 tile gives, is **measured** on the CPU from the
+texture rather than guessed at a constant — a constant was far too bright for
+the dungeon's stone floor and put a glowing band across the horizon.
+
+**Cost**: no per-frame CPU work at all. `SCREEN_PIXEL_SIZE` gives the shader its
+own aspect ratio, so nothing has to be re-pushed on resize. All the fbm work
+(clouds, both ridges, props) sits inside `if (uv.y < horizon)` and never runs
+for the ~62 % of the screen below the skyline; the ground branch is one texture
+fetch plus one noise octave.
+
+**Previewing**: `tools/preview_battle_backdrop.gd` renders one PNG per variant
+(5 biomes × day/night + the vault). It needs a real or virtual display — the
+headless driver has no rasteriser, so the shader would never execute:
+
+```bash
+xvfb-run -a godot --path . --rendering-driver opengl3 --resolution 1280x720 \
+  -s tools/preview_battle_backdrop.gd -- --out=/tmp/backdrops
+```
+
+Captures pass `animate = false`, which freezes the shader clock so repeated
+runs are comparable.
+
 ### Card Illustrations (`SpriteRegistry`, `TextureGen`, `CardRegistry`, `CardViewBuilder`)
 
 `CardRegistry._ensure_loaded()` assigns illustrations after loading each card resource,
@@ -70,8 +142,19 @@ fallback for any key/branch the registry doesn't recognize.
 - `ChunkRenderer.prepare_terrain()` is a static worker-thread function — `_compute_prop_positions()` is also static, accesses only `BiomeDef` const arrays and the passed tile lookup callable.
 - `WorldEntityBase` is the shared base for all interactable NPCs; direct `Node3D` entities preload it for the static `build_highlight_ring` helper.
 - `CardRegistry` runs `_ensure_loaded()` lazily on first access; illustration assignment happens once per session at that point, cached by `TextureGen._cached()`.
+- `BattleBackdrop` consumes Battlefield Resonance's context (`GameState.battlefield_biome` / `is_night`, GID-059) and `BiomeDef`'s terrain tints and prop sets. It writes nothing back and holds no state — `apply()` is a pure function of (rect, biome, night).
+- `BattleBackdrop.HORIZON` is tied to `BattleScene.tscn`'s `Divider` anchor; `test_battle_backdrop` fails if the two drift apart.
 
 ## Asset Requirements
+
+The battle backdrop (GID-126) adds `assets/shaders/battle_backdrop.gdshader`
+and its `.uid` sidecar, and no image files at all — it reuses
+`assets/textures/pixel_art/*.png` for the ground and
+`assets/textures/props/prop_*.png` (plus `burial_mound.png` for the vault) for
+the skyline. Those PNGs are imported without mipmaps, which the shader handles
+itself by fading texel detail out with `fwidth()`; do **not** turn mipmaps on
+for them just for the backdrop, since the 3-D terrain shader samples the same
+files with `filter_nearest`.
 
 Originally all textures were generated procedurally at runtime via `TextureGen._cached()`.
 Since GID-118, **character/enemy/NPC sprites use real pixel art** from

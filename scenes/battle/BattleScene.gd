@@ -33,6 +33,7 @@ const SpellEffectResolver = preload("res://scenes/battle/SpellEffectResolver.gd"
 const BattlePauseUI = preload("res://scenes/battle/BattlePauseUI.gd")
 const BattleResultUI = preload("res://scenes/battle/BattleResultUI.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
+const BattleBackdrop = preload("res://scenes/battle/BattleBackdrop.gd")
 
 var _fx: BattleFx
 var _view: CardViewBuilder
@@ -354,6 +355,10 @@ func _ready() -> void:
 		var banner: WeatherBanner = WeatherBanner.new()
 		add_child(banner)
 		banner.setup(_battle_weather)
+
+	# Battlefield backdrop (GID-126) — unconditional: puzzle, scripted and PvP
+	# battles carry no world biome and get the neutral roofed-vault look.
+	_setup_backdrop()
 
 	# Battlefield Resonance UI (GID-059)
 	if not _state.puzzle_mode and not _state.scripted_battle:
@@ -2255,6 +2260,20 @@ func _apply_desert_scorch() -> void:
 					_state.players[pid].board.remove_card(c)
 					_state.players[pid].discard.append(c)
 				break
+
+## Paints the Background rect with the biome-aware battle backdrop (GID-126).
+## Reads the same biome + day/night pair Battlefield Resonance stamped into
+## GameState, so the scenery always matches the ground the encounter began on.
+## The rect keeps its flat colour underneath as the fallback, so a missing
+## shader degrades to the pre-GID-126 look rather than to nothing.
+func _setup_backdrop() -> void:
+	var bg := get_node_or_null("Background") as ColorRect
+	if bg == null:
+		return
+	var biome: int = _state.battlefield_biome if _state != null else BattleBackdrop.NEUTRAL
+	var night: bool = _state.is_night if _state != null else false
+	BattleBackdrop.apply(bg, biome, night)
+
 
 ## Adds a persistent compact label in SidePanel showing biome name and day/night indicator.
 func _add_battlefield_info_label() -> void:
