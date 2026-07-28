@@ -1008,14 +1008,9 @@ func _on_story_flags_snapshot_received(flags: Dictionary) -> void:
 ## Routes the flag change through the authority so the whole party stays in sync.
 
 func _on_local_story_flag_set(key: String) -> void:
-	# Maiteln's journey presence (GID-108 / TID-403) is gated on several Chapter 1
-	# flags that can flip while this exact map/WorldScene instance stays loaded
-	# (rabbit hunt won, fire learned, temple council resolved) — re-evaluate on
-	# every flag change so he appears/disappears immediately, not just on the
-	# next map load. Runs before the co-op-only early return below: single-player
-	# needs this too.
-	if not NetworkManager.is_dedicated_server():
-		_world._refresh_maiteln_presence()
+	# Re-evaluating the on-map cast (Maiteln's follower, hide_flag_key NPCs) is
+	# WorldScene._on_story_flag_set_for_cast's job — it is wired for every mode,
+	# not just co-op, because this handler only exists inside a session.
 	if not _world._coop_active or _world._net_sync == null or not NetworkManager.is_active():
 		return
 	if _coop_story_flag_syncing:

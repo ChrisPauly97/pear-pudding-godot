@@ -53,6 +53,27 @@ The second trigger fires whenever a fresh WorldScene is created for "main" (e.g.
   sprite's height differs from the old procedural fallback's. Shown/hidden via
   `_update_mount_visuals()` which is called from `_on_mount_state_changed()` connected
   to `GameBus.mount_state_changed`.
+- **The riding pose.** World sprites use `ALPHA_CUT_OPAQUE_PREPASS`
+  (`SpriteRegistry.apply_billboard_flags`), so two overlapping billboards are
+  resolved by the **depth buffer**, not by blend order. The mount sprite used to
+  sit at local `z = 0.01` — 1 cm toward the camera — so the horse won every
+  overlapping pixel and the rider disappeared completely while mounted. Three
+  things make the rider sit on the horse instead:
+  - `mount_horse.png` shipped with an **opaque** `#3f2631` background baked in
+    (a 16×16 tile upscaled 2×), which alpha-cut could not discard — a solid
+    1.6 × 1.6 block over the player. The background is now transparent.
+  - `_update_mount_visuals()` moves the *rider*, not the horse: up by
+    `_RIDE_LIFT` (0.6) into the saddle, plus `_RIDE_DEPTH_LIFT` (0.2) along
+    `_CAM_AXIS` — the normalised (1, 1, 1) the orthographic iso camera is
+    permanently offset along. A translation on that axis is **pure depth**: it
+    decides the depth test without moving a pixel on screen. Anything that needs
+    one billboard reliably in front of another at the same spot should use it.
+  - `_mount_sprite.offset.x = _SADDLE_OFFSET_PX` (3 px) slides the horse right so
+    its barrel, not its neck, is under the rider. `offset` is **not** mirrored by
+    `flip_h` (flip only mirrors UVs), so `_set_mount_facing()` negates it by hand
+    when the player turns left, keeping horse and rider facing the same way.
+  - While mounted the rider holds the `idle` animation — the horse does the
+    travelling, so a walk cycle in the saddle read as running on the spot.
 - **Dust particles** (`_dust_particles: GPUParticles3D`): 20 particles, 0.6 s lifetime, brownish colour, sphere emission radius 0.4. `emitting` toggled every physics frame: `is_mounted and _is_moving`.
 
 ### TextureGen.mount_horse()

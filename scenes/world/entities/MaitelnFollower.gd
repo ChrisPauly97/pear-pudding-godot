@@ -86,7 +86,9 @@ func _ready() -> void:
 		_SpriteRegistry.apply_billboard_flags(_static_sprite)
 		add_child(_static_sprite)
 
-	add_child(_SpriteRegistry.make_name_label("Maiteln", Color(0.75, 0.85, 1.0)))
+	# No name tag. He walks at the player's shoulder the whole chapter, so the
+	# floating label other NPCs need is permanent screen clutter here — and at
+	# the shared 32 pt / 0.025 px size it was wider than he is tall.
 
 ## Builds an idle/walk AnimatedSprite3D from one idle frame + 4 walk frames,
 ## mirroring AvatarSprite.build()'s pattern (BID-051: Maiteln is the only

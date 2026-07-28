@@ -12,6 +12,10 @@ extends Resource
 @export var npc_type: String = ""
 ## Story flag key. If set, dialogue shows before the flag; after_dialogue shows after.
 @export var flag_key: String = ""
+## Story flag that removes this NPC from the map entirely. Used for characters who
+## leave their post once the story moves them on — Madrian's Maiteln joins the
+## party as a follower, so the villager standing on his old tile has to go.
+@export var hide_flag_key: String = ""
 ## Dialogue shown after flag_key has been set in SaveManager.
 @export var after_dialogue: String = ""
 ## For duelist NPCs: the EnemyRegistry type ID used in the duel battle.

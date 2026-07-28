@@ -115,6 +115,56 @@ func is_wall_at_world(wx: float, wz: float) -> bool:
 func has_player_spawn() -> bool:
 	return player_spawn_x >= 0 and player_spawn_z >= 0
 
+## Picks a placement tile for an entity the map itself doesn't author (the
+## mailbox; waystones on maps whose .tres lists none): the first entry of
+## `offsets` — tile deltas from the map spawn, tried in order — that is walkable
+## and at least `clearance_tiles` from everything already on the map.
+## `extra_occupied` takes {"x", "z"} dicts for entities injected at runtime and
+## therefore absent from this map's own arrays.
+##
+## Falls back to the first merely-walkable candidate, then to the spawn tile, so
+## a dense map still gets its entity somewhere sane. A single hard-coded offset
+## used to be the whole algorithm, which put Madrian's mailbox on Maiteln's tile.
+func pick_free_tile_near_spawn(offsets: Array[Vector2i], clearance_tiles: float,
+		extra_occupied: Array = []) -> Vector2i:
+	var sx: int = player_spawn_x if has_player_spawn() else 5
+	var sz: int = player_spawn_z if has_player_spawn() else 8
+	var range_sq: float = pow(clearance_tiles * TILE_SIZE, 2.0)
+	var occupied: Array[Dictionary] = []
+	occupied.append_array(npcs)
+	occupied.append_array(doors)
+	occupied.append_array(chests)
+	occupied.append_array(scrolls)
+	occupied.append_array(shrines)
+	occupied.append_array(enemies)
+	occupied.append_array(waystones)
+	for extra in extra_occupied:
+		occupied.append(extra)
+	var fallback := Vector2i(-1, -1)
+	for off: Vector2i in offsets:
+		var tx: int = clampi(sx + off.x, 1, MAP_WIDTH - 2)
+		var tz: int = clampi(sz + off.y, 1, MAP_HEIGHT - 2)
+		var tile: int = get_tile(tx, tz)
+		if tile == TILE_WALL or tile == TILE_CRACKED:
+			continue
+		if fallback.x < 0:
+			fallback = Vector2i(tx, tz)
+		if not _tile_is_crowded(tx, tz, occupied, range_sq):
+			return Vector2i(tx, tz)
+	if fallback.x >= 0:
+		return fallback
+	return Vector2i(clampi(sx, 1, MAP_WIDTH - 2), clampi(sz, 1, MAP_HEIGHT - 2))
+
+func _tile_is_crowded(tx: int, tz: int, occupied: Array[Dictionary], range_sq: float) -> bool:
+	var wx: float = float(tx) * TILE_SIZE
+	var wz: float = float(tz) * TILE_SIZE
+	for e: Dictionary in occupied:
+		var ddx: float = float(e.get("x", 0.0)) - wx
+		var ddz: float = float(e.get("z", 0.0)) - wz
+		if ddx * ddx + ddz * ddz <= range_sq:
+			return true
+	return false
+
 func find_nearby_shrine(px: float, pz: float, range_dist: float) -> Dictionary:
 	var range_sq: float = range_dist * range_dist
 	for sh in shrines:
@@ -296,6 +346,7 @@ func load_from_resource(data: Resource) -> void:
 			var dialogue: Variant = r.get("dialogue")
 			var npc_type: Variant = r.get("npc_type")
 			var npc_flag: Variant = r.get("flag_key")
+			var npc_hide_flag: Variant = r.get("hide_flag_key")
 			var after_dlg: Variant = r.get("after_dialogue")
 			var duelist_eid: Variant = r.get("duelist_enemy_id")
 			var wager_c: Variant = r.get("wager_coins")
@@ -309,6 +360,7 @@ func load_from_resource(data: Resource) -> void:
 				"dialogue": str(dialogue) if dialogue != null else "...",
 				"npc_type": str(npc_type) if npc_type != null else "",
 				"flag_key": str(npc_flag) if npc_flag != null else "",
+				"hide_flag_key": str(npc_hide_flag) if npc_hide_flag != null else "",
 				"after_dialogue": str(after_dlg) if after_dlg != null else "",
 				"duelist_enemy_id": str(duelist_eid) if duelist_eid != null else "",
 				"wager_coins": int(wager_c) if wager_c != null else 0,
@@ -430,6 +482,7 @@ func to_map_data(p_map_name: String = "") -> Resource:
 		n.dialogue = str(n_dict.get("dialogue", "..."))
 		n.npc_type = str(n_dict.get("npc_type", ""))
 		n.flag_key = str(n_dict.get("flag_key", ""))
+		n.hide_flag_key = str(n_dict.get("hide_flag_key", ""))
 		n.after_dialogue = str(n_dict.get("after_dialogue", ""))
 		n.duelist_enemy_id = str(n_dict.get("duelist_enemy_id", ""))
 		n.wager_coins = int(n_dict.get("wager_coins", 0))

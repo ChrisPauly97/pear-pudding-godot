@@ -411,6 +411,15 @@ SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene i
 ### Jerky hill climbing — analytic height vs. collision facets (claude/hill-climbing-chest-lag-5m7vov)
 `get_terrain_height()` (smoothstep) sits up to ~0.4 units above the `HeightMapShape3D` facets on steep hills. Any "snap player to terrain" check must be gated on `not is_on_floor()` plus a tolerance, or it teleports every frame on slopes. Steep generated hills reach ~72° — `CharacterBody3D` needs `floor_max_angle` ≈ 75°, `floor_snap_length`, and `floor_constant_speed`, or physics treats them as walls.
 
+### Rider invisible while mounted (claude/mount-character-visibility-448ys4)
+World sprites use `ALPHA_CUT_OPAQUE_PREPASS`, so overlapping billboards are resolved by the **depth buffer**, not blend order — a sprite 1 cm toward the camera wins every shared pixel. To force one billboard in front of another at the same spot, translate along `Vector3(1,1,1).normalized()`: the iso camera is orthographic and locked to that axis, so it is pure depth with zero screen movement. Also check pack art for a baked-in opaque background (`mount_horse.png` was a 16×16 tile upscaled 2× with a `#3f2631` backdrop) — alpha-cut can't discard what isn't transparent. `SpriteBase3D.offset` is **not** mirrored by `flip_h`; negate it by hand when flipping.
+
+### Injected entity landed on an authored one (claude/mount-character-visibility-448ys4)
+Entities placed in code (mailbox, fallback waystones) are invisible to the map author, so a fixed `spawn + (dx, dz)` eventually collides — the Madrian mailbox sat on Maiteln's exact NPC tile. Use `WorldMap.pick_free_tile_near_spawn()`: candidate offsets tried in order, first walkable-and-clear one wins.
+
+### Live story-flag reactions wired only in co-op (claude/mount-character-visibility-448ys4)
+`CoopSession._setup_coop()` returns immediately outside a session, so anything connected there is dead in single-player. Signals every mode needs belong in `WorldScene._wire_gamebus_signals()`.
+
 ### Chest-open hitch — synchronous batched save flush (claude/hill-climbing-chest-lag-5m7vov)
 The 2 s dirty flush ran stringify + HMAC + backup copy + write on the main thread; loot pickups re-dirty the save so chests triggered it repeatedly. Flush now snapshots via `duplicate(true)` and writes on a `WorkerThreadPool` task (single-flight; sync `_flush_now()` at shutdown). Never add main-thread `JSON.stringify` of whole-save data to hot paths. Also: share static materials/meshes/textures for burst-spawned nodes (`WorldItem`, chest gold burst) instead of rebuilding per spawn.
 
