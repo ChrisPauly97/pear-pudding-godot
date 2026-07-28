@@ -29,15 +29,23 @@ the game already has. The second was taken, for three reasons:
    `assets/textures/props/prop_*.png` are the scatter sprites. Reusing them is
    what keeps the battle and the world looking like one game.
 
-The horizon is placed on `BattleScene.tscn`'s `Divider` anchor (0.38), so the
-line that already separates the enemy half from the player half now reads as
-the skyline rather than as a UI seam.
+`BattleScene.tscn`'s `Divider` anchor (0.38) is reused rather than drawn
+alongside: the line that already separates the enemy half from the player half
+is what gets lit.
+
+**On framing (TID-476).** TID-475 shipped this as a landscape seen edge-on —
+sky, horizon, ridges, a ground plane receding to a vanishing point. The user
+pushed back: a card board is a flat layout, so a vista behind it implies a
+camera looking *across* a scene the cards are standing up in. TID-476 re-framed
+it overhead, as the patch of ground the cards are laid out on. That is the
+shipped version; the vista is one commit back in history.
 
 ## Tasks
 
 | Task | Title | Type | Status |
 |------|-------|------|--------|
 | [TID-475](TID-475--biome-battle-backdrop.md) | Biome-aware battle backdrop | agent | done |
+| [TID-476](TID-476--top-down-backdrop.md) | Re-frame the backdrop overhead | agent | done |
 
 ## Acceptance Criteria
 
@@ -46,8 +54,9 @@ the skyline rather than as a UI seam.
       context the battle already carries — not by a second source of truth.
 - [x] Puzzle, scripted, PvP and dungeon battles, which carry no biome, get a
       deliberate neutral look rather than a broken one.
-- [x] No new art files; the ground and skyline are the game's own tiles and
-      props.
+- [x] No new art files; the ground and its scatter are the game's own tiles
+      and props.
+- [x] Framed overhead, matching the flat card layout rather than fighting it.
 - [x] Cards stay legible over it.
 - [x] Falls back to the original flat colour if the shader fails to load.
-- [x] Headless import clean; suite 2289 passed / 0 failed.
+- [x] Headless import clean; suite 2291 passed / 0 failed.

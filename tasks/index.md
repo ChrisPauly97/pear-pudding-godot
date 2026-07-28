@@ -129,7 +129,7 @@
 | [GID-123](goals/GID-123--world-proportions-and-location-art/goal.md) | World Proportions, Player Hero Sprite & Location Art | done | 3 / 3 |
 | [GID-124](goals/GID-124--repo-health-ci/goal.md) | Repository Health — CI Test Gate & Reproducible Dev Setup | done | 1 / 1 |
 | [GID-125](goals/GID-125--backlog-cleanup-batch/goal.md) | Backlog Cleanup Batch — Music, AI Signals, Rally & Auction | done | 5 / 5 |
-| [GID-126](goals/GID-126--battle-board-backdrop/goal.md) | Battle Board Backdrop | done | 1 / 1 |
+| [GID-126](goals/GID-126--battle-board-backdrop/goal.md) | Battle Board Backdrop | done | 2 / 2 |
 
 ## Backlog
 

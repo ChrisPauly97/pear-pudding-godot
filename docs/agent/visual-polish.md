@@ -10,7 +10,7 @@
 - **Interactable highlights**: Pulsing emissive ring (`CylinderMesh` + inline shader) shown on the nearest interactable within 3 world units of the player.
 - **Card illustrations**: 32×32 pixel-art textures per card archetype, wired into `CardRegistry` at load time and displayed in `CardViewBuilder`. Real sprites (GID-118/TID-447) via `SpriteRegistry.card_illustration_texture()`, falling back to `TextureGen.card_illustration()`.
 - **World terrain textures**: the shared terrain shader's grass, hill-side, wall-side, wall-top, and path/road textures are real, seamlessly-tiling sprite-pack art (GID-118) — see `docs/agent/terrain-rendering.md` Asset Requirements and `CREDITS.md`.
-- **Battle backdrop**: the card board's background is a per-biome, day/night landscape painted by one full-screen shader out of the world's own terrain tiles and prop sprites — sky, ridge silhouettes, a skyline prop line and a perspective ground plane — instead of the flat `Color(0.1, 0.1, 0.15)` rect it was through GID-125.
+- **Battle backdrop**: the card board's background is a per-biome, day/night patch of ground seen from overhead, painted by one full-screen shader out of the world's own terrain tiles and prop sprites, instead of the flat `Color(0.1, 0.1, 0.15)` rect it was through GID-125.
 - **Chest & door sprites**: `Chest.gd` and `Door.gd` render as billboard `Sprite3D`s (0x72 pack chest/door art, GID-118) instead of flat-colored `BoxMesh` geometry, falling back to the original procedural boxes if the sprites are missing. See `docs/agent/inventory-and-deck.md` (chest open ceremony) and `docs/agent/named-maps-and-dungeons.md` (door rendering).
 
 ## How It Works
@@ -62,30 +62,37 @@ The biome and time of day come from `GameState.battlefield_biome` /
 engagement — so the backdrop needs no context of its own and cannot disagree
 with the rule the side panel is showing.
 
-**No new art.** The ground plane tiles `assets/textures/pixel_art/*.png` (the
-seamless 16×16 terrain tiles the 3-D world is built from) and the skyline is
-dressed with `assets/textures/props/prop_*.png` (the scatter sprites
-`ChunkRenderer` instances), one pair per biome, matching `BiomeDef.PROP_SETS`.
+**The framing is overhead**, not a landscape behind the board. TID-475 shipped
+a horizon-and-sky vista first; it fought the layout, because the board is a
+flat arrangement of cards and the vista implied a camera looking across the
+scene the cards were standing up in. TID-476 replaced it with a patch of
+ground seen from directly above — the surface the cards are laid out on.
+Nothing in the shader is a horizon any more.
 
-**Shader bands**, in the order `fragment()` paints them:
+**No new art.** The ground tiles `assets/textures/pixel_art/*.png` (the
+seamless 16×16 terrain tiles the 3-D world is built from) and the scatter is
+`assets/textures/props/prop_*.png` (the sprites `ChunkRenderer` instances), one
+pair per biome, matching `BiomeDef.PROP_SETS`.
 
-| Band | What it does |
+**Shader layers**, in the order `fragment()` paints them:
+
+| Layer | What it does |
 |---|---|
-| Sky | Vertical gradient `sky_top → sky_horizon`; 3-octave fbm cloud banks drifting on `TIME`; a hash-lattice star field gated on `night > 0`; a sun/moon disc with halo, suppressed by `celestial = 0` for roofed battlefields |
-| Ridges | Two silhouettes from a 1-D noise profile. `ridge_sharp` folds the profile about its midpoint (`1 - abs(2n-1)`), which is what turns grassland's rolling hills into scorched spires and alpine peaks out of one function. The far range is mixed toward the sky for atmospheric depth |
-| Skyline props | 30 cells across the width, ~⅔ occupied, each with jittered position, height and a coin-flip between the biome's two sprites, drawn as flat alpha silhouettes standing on the horizon. Each fragment tests three cells so neighbours can overlap |
-| Ground | The biome tile in a shallow reciprocal-depth perspective (`depth` clamped well short of the vanishing point, so it reads as ground and not a corridor), plus broad noise mottling, distance haze and a darkened foreground |
-| Board lighting | A soft warm pool over the board, and a pulsing seam along the horizon that doubles as the divider |
+| Ground | The biome tile repeated flat in "square units" (`p = vec2(uv.x * aspect, uv.y)`), so tiles stay square on any aspect ratio. Per-tile brightness jitter plus broad value noise breaks the period |
+| Arena | A rounded-rectangle SDF under the board. Inside is tinted toward bare earth and lifted slightly; the falloff is wide and soft on purpose |
+| Props | The biome's two sprites on a jittered grid, upright, with a soft contact shadow, thinned to a quarter inside the arena so cards sit on clean ground |
+| Battle line | The enemy/player divider drawn as a line scored into the earth: thin lit core, wide soft bloom, tapered at both ends |
+| Lighting | A pool of biome-coloured light over the arena, a faint cast of the same light over everything, and drifting motes after dark |
 | Hold-back | Vignette (weighted to darken the left/right margins, which is what the side panel's label text reads against), then a global `mix` toward `dim_color` so cards stay legible |
 
 **Palette** — `BattleBackdrop.PALETTE`, one entry per biome id plus
-`NEUTRAL = -1`. Sky stops, ridge shape, prop pair and `dim` live in the table;
-the *tints* do not — ground colour is `BiomeDef.GRASS_TINT[biome] × gain` and
-both ridges are `BiomeDef.HILL_TINT[biome]`, so the backdrop cannot drift away
-from the terrain it depicts. Only the vault, which has no biome to borrow hills
-from, sets a `ridge_base` override.
+`NEUTRAL = -1`. Scatter density, light colours and `dim` live in the table; the
+*tints* do not — ground colour is `BiomeDef.GRASS_TINT[biome] × gain` and the
+trodden arena is `BiomeDef.WALL_TINT[biome]`, the game's own bare-stone/earth
+palette. Only the vault, which has no biome to borrow from, sets an
+`arena_tint` override.
 
-Three scalars exist because a 2-D backdrop is not a lit 3-D surface:
+Four scalars exist because a 2-D backdrop is not a lit 3-D surface:
 
 - `ground_gain` — the `BiomeDef` tints multiply lit terrain; with no light to
   multiply, the darker biomes need lifting back into a readable range.
@@ -93,19 +100,33 @@ Three scalars exist because a 2-D backdrop is not a lit 3-D surface:
   side is orange dirt), so a snow-white mountain tint over them still reads
   orange. Pulling the sample toward grey first is what lets one 16×16 source
   serve several biomes.
-- `NIGHT_GROUND_GAIN` (0.45) — the tints describe sunlit terrain, so without it
-  a night battlefield keeps a noon-bright meadow under a star field.
+- `NIGHT_GROUND_GAIN` (0.58) — the tints describe sunlit terrain, so without it
+  a night battlefield keeps a noon-bright meadow under a moonlit sky.
+- `NIGHT_PROP_LIGHT` / `DAY_PROP_LIGHT` — props need the same darkening as the
+  ground or they float over it instead of standing on it.
 
-`ground_avg`, which the far field fades to instead of the aliased texel soup a
+`ground_avg`, which detail fades to instead of the aliased texel soup a
 minified un-mipmapped 16×16 tile gives, is **measured** on the CPU from the
 texture rather than guessed at a constant — a constant was far too bright for
-the dungeon's stone floor and put a glowing band across the horizon.
+the dungeon's stone floor.
+
+**Things that were tried and are worse**, so they do not get reintroduced:
+
+- *Cross-fading a second, rotated sampling of the ground tile* to break the
+  repeat. On anything with strong seams — flagstones especially — you see both
+  grids at once and it reads as a rendering bug. Per-tile hash jitter does the
+  same job with one fetch.
+- *A stroked arena edge.* A crisp outline reads as a UI frame drawn over the
+  ground rather than as earth trodden flat. The edge is a wide soft falloff.
+- *Tinting the arena without lifting it.* On a biome whose bare earth is close
+  to its ground colour (sand on sand) the tint alone is invisible.
 
 **Cost**: no per-frame CPU work at all. `SCREEN_PIXEL_SIZE` gives the shader its
-own aspect ratio, so nothing has to be re-pushed on resize. All the fbm work
-(clouds, both ridges, props) sits inside `if (uv.y < horizon)` and never runs
-for the ~62 % of the screen below the skyline; the ground branch is one texture
-fetch plus one noise octave.
+own aspect ratio, so nothing has to be re-pushed on resize. The prop layer
+resolves in a single cell test and a single texture fetch — `prop_scale ≤ 0.5`
+plus the jitter bounds keep every prop wholly inside its own cell, so no
+neighbouring cell can ever reach the pixel being shaded. `test_battle_backdrop`
+enforces the `prop_scale` bound.
 
 **Previewing**: `tools/preview_battle_backdrop.gd` renders one PNG per variant
 (5 biomes × day/night + the vault). It needs a real or virtual display — the
@@ -118,6 +139,15 @@ xvfb-run -a godot --path . --rendering-driver opengl3 --resolution 1280x720 \
 
 Captures pass `animate = false`, which freezes the shader clock so repeated
 runs are comparable.
+
+**A compile guard is necessary.** A shader that fails to compile still loads as
+a `Resource` and still accepts `set_shader_parameter` for anything, so nothing
+about `apply()` looks wrong — the scene just silently shows its fallback
+colour. Godot exposes no compile status to GDScript, but a failed parse
+registers no uniforms, so `test_the_shader_actually_compiles` compares
+`Shader.get_shader_uniform_list()` against the `uniform` declarations in the
+source file. That is what caught a sampler used in a ternary, which Godot's
+shader language rejects.
 
 ### Card Illustrations (`SpriteRegistry`, `TextureGen`, `CardRegistry`, `CardViewBuilder`)
 
@@ -143,7 +173,7 @@ fallback for any key/branch the registry doesn't recognize.
 - `WorldEntityBase` is the shared base for all interactable NPCs; direct `Node3D` entities preload it for the static `build_highlight_ring` helper.
 - `CardRegistry` runs `_ensure_loaded()` lazily on first access; illustration assignment happens once per session at that point, cached by `TextureGen._cached()`.
 - `BattleBackdrop` consumes Battlefield Resonance's context (`GameState.battlefield_biome` / `is_night`, GID-059) and `BiomeDef`'s terrain tints and prop sets. It writes nothing back and holds no state — `apply()` is a pure function of (rect, biome, night).
-- `BattleBackdrop.HORIZON` is tied to `BattleScene.tscn`'s `Divider` anchor; `test_battle_backdrop` fails if the two drift apart.
+- `BattleBackdrop.DIVIDER_Y` is tied to `BattleScene.tscn`'s `Divider` anchor, and `ARENA_CENTER`/`ARENA_HALF` to the card area's extent (which ends at x = 0.86, where the side panel starts); `test_battle_backdrop` fails if either drifts.
 
 ## Asset Requirements
 

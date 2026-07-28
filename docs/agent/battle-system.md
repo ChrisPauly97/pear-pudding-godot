@@ -1148,18 +1148,22 @@ Applied in `BattleScene._apply_desert_scorch()` called from `_on_turn_ended()` i
 ### Battlefield Backdrop (GID-126)
 
 The same `battlefield_biome` + `is_night` pair also paints the battle's
-background, so the board sits on the ground the encounter started on rather
-than on a flat colour. `BattleScene._setup_backdrop()` runs unconditionally in
-`_ready()` (unlike the Resonance *UI* above, which skips puzzle and scripted
-battles) and hands `$Background` to `BattleBackdrop.apply()`. Full description
-in `docs/agent/visual-polish.md`; the short version:
+background, so the board is laid out on the ground the encounter started on
+rather than on a flat colour. `BattleScene._setup_backdrop()` runs
+unconditionally in `_ready()` (unlike the Resonance *UI* above, which skips
+puzzle and scripted battles) and hands `$Background` to
+`BattleBackdrop.apply()`. Full description in `docs/agent/visual-polish.md`;
+the short version:
 
+- The view is overhead — a patch of ground the cards sit on. A landscape seen
+  edge-on was tried first (TID-475) and fought the flat card layout.
 - Biome id `-1` — every dungeon, named map, puzzle, scripted and PvP battle —
-  maps to a deliberate neutral look (a roofed stone vault, no sun or moon),
-  not to a fallback.
-- The horizon is pinned to `BattleScene.tscn`'s `Divider` anchor (0.38), so the
-  line between the two halves of the board reads as the skyline.
-  `test_battle_backdrop` asserts the two stay in step.
+  maps to a deliberate neutral look (a torchlit flagstone vault), not to a
+  fallback.
+- The lit battle line is drawn on `BattleScene.tscn`'s own `Divider` anchor
+  (0.38), and the trodden arena is sized to the card area (which ends at
+  x = 0.86, where the side panel starts). `test_battle_backdrop` asserts both
+  stay in step with the layout.
 - `$Background` keeps its flat `color`, so a missing shader degrades to the
   pre-GID-126 look.
 
@@ -1167,11 +1171,14 @@ in `docs/agent/visual-polish.md`; the short version:
 
 `tests/unit/test_battlefield_rules.gd` — 55 tests covering: rules table integrity, all 5 biome rules, both time-of-day cost modifiers, floor-0 clamp, stacking, mid-battle persistence (round-trip), and the neutral dungeon path.
 
-`tests/unit/test_battle_backdrop.gd` — 16 tests covering the backdrop palette's
+`tests/unit/test_battle_backdrop.gd` — 17 tests covering the backdrop palette's
 completeness across all 5 biomes plus the neutral sentinel, uniform wiring
 (every uniform the shader declares must actually be written — a misspelled
-parameter name is a silent no-op in Godot), night darkening, colour ranges, and
-the horizon/divider agreement.
+parameter name is a silent no-op in Godot), that the shader *compiles* at all
+(a failed shader still loads as a Resource and still accepts every parameter,
+so nothing else would notice), night darkening, colour ranges, the
+`prop_scale ≤ 0.5` bound the single-cell prop lookup depends on, and the
+arena/divider agreement with the scene layout.
 
 ---
 

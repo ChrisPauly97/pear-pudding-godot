@@ -14,15 +14,14 @@ const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
 
 const _SHADER_PATH := "res://assets/shaders/battle_backdrop.gdshader"
 
-## Keys every PALETTE entry must carry. `ridge_base` is deliberately optional —
-## only the neutral vault, which has no biome to borrow hill colours from,
-## overrides it.
+## Keys every PALETTE entry must carry. `arena_tint` is deliberately optional —
+## only the neutral vault, which has no biome to borrow a bare-earth colour
+## from, overrides it.
 const _REQUIRED_KEYS: Array[String] = [
 	"ground", "ground_gain", "ground_desat", "ground_scale",
-	"props", "prop_h",
-	"sky_day", "sky_night",
-	"ridge_amp", "ridge_jag", "ridge_sharp",
-	"celestial", "dim",
+	"props", "prop_cells", "prop_density", "prop_scale",
+	"light_day", "light_night",
+	"dim",
 ]
 
 # ---------------------------------------------------------------------------
@@ -73,15 +72,22 @@ func test_every_palette_entry_has_every_required_key() -> void:
 				"PALETTE[%d] missing key '%s'" % [id, key])
 
 
-func test_every_palette_entry_supplies_two_sky_stops_and_two_props() -> void:
+func test_every_palette_entry_names_both_scatter_sprites() -> void:
 	for id in _all_ids():
 		var entry: Dictionary = BattleBackdrop.PALETTE[id]
-		assert_eq((entry["sky_day"] as Array).size(), 2,
-			"PALETTE[%d].sky_day must be [top, horizon]" % id)
-		assert_eq((entry["sky_night"] as Array).size(), 2,
-			"PALETTE[%d].sky_night must be [top, horizon]" % id)
 		assert_eq((entry["props"] as Array).size(), 2,
 			"PALETTE[%d].props must name both scatter sprites" % id)
+
+
+## The shader resolves the whole prop layer with a single cell test and a
+## single texture fetch, which is only correct while every prop stays inside
+## its own cell. `prop_scale > 0.5` breaks that and props start getting clipped
+## at cell boundaries.
+func test_prop_scale_keeps_props_inside_their_cell() -> void:
+	for id in _all_ids():
+		var scale: float = float(BattleBackdrop.PALETTE[id]["prop_scale"])
+		assert_true(scale > 0.0 and scale <= 0.5,
+			"PALETTE[%d].prop_scale must be in (0, 0.5], got %f" % [id, scale])
 
 
 func test_every_palette_entry_loads_its_textures() -> void:
@@ -113,6 +119,23 @@ func test_apply_installs_a_shader_material_running_the_backdrop_shader() -> void
 		"material is not running the backdrop shader")
 
 
+## A shader that fails to compile still loads as a Resource and still accepts
+## `set_shader_parameter` for anything — nothing about `apply()` would look
+## wrong. Godot exposes no compile status to GDScript, but a failed parse
+## registers no uniforms, so comparing the runtime uniform list against the
+## names in the source is the guard. (This is what caught a sampler used in a
+## ternary, which Godot's shader language rejects.)
+func test_the_shader_actually_compiles() -> void:
+	var declared: Array[String] = _shader_uniform_names()
+	assert_true(declared.size() > 0, "parsed no uniforms out of the shader source")
+	var registered: Array[String] = []
+	for u in (_applied(BiomeDef.GRASSLANDS, false).shader.get_shader_uniform_list()):
+		registered.append(str(u["name"]))
+	for name in declared:
+		assert_true(registered.has(name),
+			"uniform '%s' is declared but not registered — the shader did not compile" % name)
+
+
 ## A misspelled parameter name is silently ignored by Godot, so assert that
 ## every uniform the shader declares actually received a value.
 func test_apply_writes_every_uniform_the_shader_declares() -> void:
@@ -141,25 +164,25 @@ func test_night_darkens_the_ground_tint() -> void:
 			"biome %d ground is not darker at night" % b)
 
 
-## The vault is roofed — it must not draw a sun or a moon.
-func test_the_neutral_vault_draws_no_celestial_body() -> void:
-	var mat := _applied(BattleBackdrop.NEUTRAL, false)
-	assert_eq(float(mat.get_shader_parameter("celestial")), 0.0,
-		"the roofed vault should have no sun/moon")
-
-
-func test_open_air_biomes_draw_a_celestial_body() -> void:
-	for b in range(BiomeDef.COUNT):
-		assert_eq(float(_applied(b, false).get_shader_parameter("celestial")), 1.0,
-			"biome %d lost its sun/moon" % b)
+## Day and night must actually reach the light colour, not just the ground —
+## it is the pooled light and the battle line that carry the time of day now
+## that there is no sky to recolour.
+func test_light_tint_changes_between_day_and_night() -> void:
+	for id in _all_ids():
+		var day: Vector3 = _applied(id, false).get_shader_parameter("light_tint")
+		var night: Vector3 = _applied(id, true).get_shader_parameter("light_tint")
+		var entry: Dictionary = BattleBackdrop.PALETTE[id]
+		if entry["light_day"] == entry["light_night"]:
+			continue  # the roofed vault is torchlit around the clock
+		assert_true(day != night,
+			"biome %d serves the same light colour day and night" % id)
 
 
 ## Colour uniforms are vec3 and the ground gain can overshoot 1.0; an
 ## out-of-range component would blow out the image rather than clip.
 func test_colour_uniforms_stay_in_range() -> void:
 	var colour_params: Array[String] = [
-		"sky_top", "sky_horizon", "ridge_far", "ridge_near",
-		"ground_tint", "ground_avg", "glow_tint", "dim_color",
+		"ground_tint", "ground_avg", "arena_tint", "light_tint", "dim_color",
 	]
 	for id in _all_ids():
 		for night in [false, true]:
@@ -188,16 +211,31 @@ func test_apply_tolerates_a_null_rect() -> void:
 # 3. Derived values
 # ---------------------------------------------------------------------------
 
-## The horizon is what makes the divider read as a skyline; if BattleScene's
-## Divider anchor moves, this constant has to move with it.
-func test_horizon_matches_the_battle_scene_divider_anchor() -> void:
+## The lit battle line is drawn on the layout's own divider rather than beside
+## it; if BattleScene's Divider anchor moves, this constant has to move with it.
+func test_divider_matches_the_battle_scene_divider_anchor() -> void:
 	var scene := FileAccess.get_file_as_string("res://scenes/battle/BattleScene.tscn")
 	var re := RegEx.new()
 	re.compile("(?s)\\[node name=\"Divider\".*?anchor_top = ([0-9.]+)")
 	var m := re.search(scene)
 	assert_true(m != null, "could not find the Divider anchor in BattleScene.tscn")
-	assert_eq(float(m.get_string(1)), BattleBackdrop.HORIZON,
-		"BattleBackdrop.HORIZON drifted from the Divider anchor")
+	assert_eq(float(m.get_string(1)), BattleBackdrop.DIVIDER_Y,
+		"BattleBackdrop.DIVIDER_Y drifted from the Divider anchor")
+
+
+## The arena has to sit inside the card area — it ends at x = 0.86, where the
+## side panel begins — with ground still showing around it. An arena that runs
+## off the screen edge stops reading as a mat laid on the ground.
+func test_arena_fits_inside_the_card_area_with_a_margin() -> void:
+	var c: Vector2 = BattleBackdrop.ARENA_CENTER
+	var h: Vector2 = BattleBackdrop.ARENA_HALF
+	assert_true(c.x - h.x > 0.0, "arena runs off the left edge")
+	assert_true(c.x + h.x < 0.86, "arena runs under the side panel")
+	assert_true(c.y - h.y > 0.0, "arena runs off the top edge")
+	assert_true(c.y + h.y < 1.0, "arena runs off the bottom edge")
+	assert_true(BattleBackdrop.DIVIDER_Y > c.y - h.y
+		and BattleBackdrop.DIVIDER_Y < c.y + h.y,
+		"the battle line falls outside the arena it is scored across")
 
 
 ## ground_avg is measured from the texture rather than guessed, so it must land
