@@ -2,6 +2,7 @@ extends "res://scenes/ui/BaseOverlay.gd"
 
 const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
+const MagicTypes = preload("res://game_logic/MagicTypes.gd")
 
 var _points_label: Label
 var _skill_container: Control
@@ -11,11 +12,6 @@ var _tab_buttons: Array[Button] = []
 const _ROWS: int = 3
 
 var hub_mode: bool = false
-
-const MAGIC_BRANCHES: Dictionary = {
-	"light": ["ember", "dawn"],
-	"dark":  ["dusk",  "ash"],
-}
 
 func _ready() -> void:
 	super._ready()
@@ -47,34 +43,35 @@ func _build_magic_choice() -> void:
 		vbox = _build_margin_vbox(outer, 0.04, 0.025)
 		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var title := _UiUtil.make_label("Choose Your Path", int(_ref * 0.045), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title := _UiUtil.make_label("Choose Your Path", int(_ref * 0.042), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var sub := _UiUtil.make_label("This choice is permanent. Your skill trees will be drawn from the magic type you select.", int(_ref * 0.022), Color(0.72, 0.72, 0.72), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var sub := _UiUtil.make_label("This choice is permanent. Your skill trees will be drawn from the magic type you select.", int(_ref * 0.020), Color(0.72, 0.72, 0.72), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var hbox := _UiUtil.make_hbox(int(_vw * 0.05), vbox)
-	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	# Two columns rather than one row: four types would each be ~14% vw wide in a
+	# single HBox, which is unreadable on a phone.
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", int(_vw * 0.04))
+	grid.add_theme_constant_override("v_separation", int(_ref * 0.020))
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	vbox.add_child(grid)
 
-	hbox.add_child(_make_choice_column(
-		"Light", Color(1.0, 1.0, 0.55),
-		"Ember & Dawn\nFire, healing, and clarity",
-		"Choose Light", "light"))
-	hbox.add_child(_make_choice_column(
-		"Dark", Color(0.75, 0.5, 1.0),
-		"Dusk & Ash\nShadow, drain, and disruption",
-		"Choose Dark", "dark"))
+	for mt: String in MagicTypes.all_types():
+		grid.add_child(_make_choice_column(mt))
 
-func _make_choice_column(header: String, header_color: Color, desc: String,
-		btn_label: String, choice: String) -> VBoxContainer:
-	var col := _UiUtil.make_vbox(int(_ref * 0.014))
+func _make_choice_column(magic_type: String) -> VBoxContainer:
+	var col := _UiUtil.make_vbox(int(_ref * 0.010))
+	var header_color: Color = MagicTypes.type_color(magic_type)
 
-	var lbl := _UiUtil.make_label(header, int(_ref * 0.034), header_color, HORIZONTAL_ALIGNMENT_CENTER, col)
+	var lbl := _UiUtil.make_label(MagicTypes.display_name(magic_type), int(_ref * 0.030), header_color, HORIZONTAL_ALIGNMENT_CENTER, col)
 
-	var desc_lbl := _UiUtil.make_label(desc, int(_ref * 0.022), Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, col)
+	var desc_lbl := _UiUtil.make_label(MagicTypes.branch_summary(magic_type), int(_ref * 0.019), Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, col)
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	desc_lbl.custom_minimum_size = Vector2(_vw * 0.28, 0)
+	desc_lbl.custom_minimum_size = Vector2(_vw * 0.24, 0)
 
-	var btn := _UiUtil.make_button(btn_label, Vector2(_vw * 0.28, _ref * 0.07), int(_ref * 0.024), _on_magic_chosen.bind(choice), col)
+	var btn := _UiUtil.make_button("Choose " + MagicTypes.display_name(magic_type),
+		Vector2(_vw * 0.24, _ref * 0.060), int(_ref * 0.021), _on_magic_chosen.bind(magic_type), col)
 	btn.modulate = header_color
 
 	return col
@@ -92,16 +89,12 @@ func _on_magic_chosen(choice: String) -> void:
 # Helpers
 # -------------------------------------------------------------------------
 
-func _opposing_magic(mt: String) -> String:
-	return "dark" if mt == "light" else "light"
-
 func _branch_for_tab(tab: int) -> String:
 	if tab == 2:
 		return ""
-	var mt: String = SceneManager.save_manager.magic_type
-	var branches: Array = MAGIC_BRANCHES[mt]
+	var branches: Array[String] = MagicTypes.branches_for(SceneManager.save_manager.magic_type)
 	if tab < branches.size():
-		return str(branches[tab])
+		return branches[tab]
 	return ""
 
 func _tab_label(tab: int) -> String:
@@ -112,26 +105,25 @@ func _tab_label(tab: int) -> String:
 func _tab_color(tab: int) -> Color:
 	if tab == 2:
 		return Color(0.85, 0.85, 0.85)
-	match _branch_for_tab(tab):
-		"ember": return Color(1.0, 0.7, 0.4)
-		"dawn":  return Color(1.0, 1.0, 0.55)
-		"dusk":  return Color(0.7, 0.5, 1.0)
-		"ash":   return Color(0.65, 0.65, 0.65)
-	return Color.WHITE
+	return MagicTypes.branch_color(_branch_for_tab(tab))
 
+## Cross-purchasable skills from every magic type that is not the player's own.
 func _cross_magic_ids() -> Array[String]:
-	var opposing: String = _opposing_magic(SceneManager.save_manager.magic_type)
-	var opp_branches: Array = MAGIC_BRANCHES[opposing]
+	var home: String = SceneManager.save_manager.magic_type
 	var result: Array[String] = []
-	for b in opp_branches:
-		for sid: String in SkillRegistry.get_by_branch(str(b)):
-			var sk: SkillData = SkillRegistry.get_skill(sid)
-			if sk != null and sk.alt_cost > 0:
-				result.append(sid)
+	for mt: String in MagicTypes.all_types():
+		if mt == home:
+			continue
+		for b: String in MagicTypes.branches_for(mt):
+			for sid: String in SkillRegistry.get_by_branch(b):
+				var sk: SkillData = SkillRegistry.get_skill(sid)
+				if sk != null and sk.alt_cost > 0:
+					result.append(sid)
 	return result
 
+## The currency the player spends on cross-magic unlocks, set by their own type.
 func _cross_currency() -> String:
-	return "corruption" if SceneManager.save_manager.magic_type == "light" else "redemption"
+	return MagicTypes.cross_currency(SceneManager.save_manager.magic_type)
 
 # -------------------------------------------------------------------------
 # Main skill tree UI
@@ -306,7 +298,12 @@ func _make_skill_node(sk: SkillData, w: float, h: float, is_cross: bool = false)
 	var name_lbl := _UiUtil.make_label(sk.display_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var type_lbl := _UiUtil.make_label(sk.skill_type.capitalize(), int(_ref * 0.016), Color(0.7, 0.85, 1.0) if sk.skill_type == "active" else Color(0.85, 1.0, 0.7), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	# On a home-branch tab the branch is the tab you're looking at, but the
+	# Cross-Magic tab mixes three types — name the source there.
+	var type_text: String = sk.skill_type.capitalize()
+	if is_cross:
+		type_text = "%s · %s" % [sk.magic_branch.capitalize(), type_text]
+	var type_lbl := _UiUtil.make_label(type_text, int(_ref * 0.016), MagicTypes.branch_color(sk.magic_branch) if is_cross else (Color(0.7, 0.85, 1.0) if sk.skill_type == "active" else Color(0.85, 1.0, 0.7)), HORIZONTAL_ALIGNMENT_LEFT, vbox)
 
 	var desc_lbl := _UiUtil.make_label(sk.description, int(_ref * 0.016), Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
