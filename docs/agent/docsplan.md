@@ -24,7 +24,7 @@ This directory contains one Markdown file per major game feature. Each file foll
 | [ui-and-scene-management.md](ui-and-scene-management.md) | Scene stack, battle overlay, menus, HUD, day/night, map editor |
 | [signals-and-constants.md](signals-and-constants.md) | GameBus signal hub, IsoConst values, decoupling architecture |
 | [story-implementation.md](story-implementation.md) | Story flags, dialogue gating, SaveManager fields, SceneManager entry point |
-| [magic-system.md](magic-system.md) | Four magic types (Light/Dark/Verdant/Rift), eight sub-branches, MagicTypes registry, cross-magic currency, branch affinity, spell card rosters |
+| [magic-system.md](magic-system.md) | **Magic cosmology** — the world's unifying lore frame (essence, veins, the four draws) that ley lines, the Blight, the Colossi and cantrips all resolve against. Also: four magic types, eight sub-branches, MagicTypes registry, cross-magic currency, branch affinity, spell card rosters |
 | [meta-progression.md](meta-progression.md) | Achievements, legendary card unlock gate, run summary screen, session stats |
 | [treasure-maps.md](treasure-maps.md) | Treasure map fragments, deterministic dig sites, DigSpot entity, map overlay marker |
 | [waystone-fast-travel.md](waystone-fast-travel.md) | Waystone entities, ID scheme, save tracking, placement (named maps + seeded chunks), fast-travel UI, teleport routing |

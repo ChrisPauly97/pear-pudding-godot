@@ -466,7 +466,7 @@ Agent-owned feature docs. Each covers Key Features, How It Works, Integrations, 
 | [docs/agent/signals-and-constants.md](docs/agent/signals-and-constants.md) | GameBus signals, IsoConst values, decoupling patterns |
 | [docs/agent/story-implementation.md](docs/agent/story-implementation.md) | Story flags, dialogue gating, SaveManager fields, SceneManager entry point |
 | [docs/agent/story-narration-scrolls.md](docs/agent/story-narration-scrolls.md) | Lore scroll entities, ScrollRegistry, narration audio, Journal UI, achievement hook |
-| [docs/agent/magic-system.md](docs/agent/magic-system.md) | Four magic types + eight branches, MagicTypes registry, branch affinity, cross-magic currency, spell card rosters |
+| [docs/agent/magic-system.md](docs/agent/magic-system.md) | Magic cosmology (essence, veins, the four draws), four magic types + eight branches, MagicTypes registry, branch affinity, cross-magic currency, spell card rosters |
 | [docs/agent/skill-trees.md](docs/agent/skill-trees.md) | Branch skill trees, magic type selection, corruption/redemption currencies, cross-magic unlock |
 | [docs/agent/treasure-maps.md](docs/agent/treasure-maps.md) | Treasure map fragments, deterministic dig sites, DigSpot entity, map overlay marker |
 | [docs/agent/waystone-fast-travel.md](docs/agent/waystone-fast-travel.md) | Waystone entities, ID scheme, save tracking, placement, fast-travel UI, teleport routing |

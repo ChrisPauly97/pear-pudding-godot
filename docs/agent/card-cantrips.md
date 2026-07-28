@@ -14,6 +14,29 @@
 - Cooldowns persist in `SaveManager.cantrip_cooldowns` (Dictionary: cantrip_id → Unix expiry float).
 - Dug mounds persist in `SaveManager.dug_mounds` (Array[String] of mound IDs).
 
+## Lore
+
+*(Full frame: `docs/agent/magic-system.md` → Cosmology.)*
+
+A captured card is not a picture of a creature — it is the creature's **pattern**,
+the specific shape its essence held, bound into a form you can carry.
+
+Carry one and you have a curiosity. Carry enough of the same kind and the pattern
+begins to impose itself on the route it is riding in, which is to say on you.
+Never enough to make you the thing; enough to borrow the trick. **Four is roughly
+where it takes** — below that the pattern is noise — which is the in-fiction
+reason for the threshold both cantrips use.
+
+So a player carrying four ghosts finds walls have become negotiable, and one
+carrying four skeletons knows without deciding to exactly where the ground has
+been disturbed and what is under it. This is also why the effects are *the
+creature's* trick rather than a generic spell, and why the deck genuinely shapes
+what you can do in the world rather than only in battle.
+
+Most mages discover it by accident, while carrying something they meant to sell.
+
+---
+
 ## How It Works
 
 ### CantripManager (`game_logic/world/CantripManager.gd`)

@@ -11,6 +11,32 @@
 - **One-time discovery**: approaching within 9 world units auto-fires toast, Journal log, 50 coins, and a random rare card. Re-visits never re-reward.
 - **Journal "Discoveries" tab**: lists all found landmarks with regenerated names and biome info.
 
+## Lore
+
+*(Full frame: `docs/agent/magic-system.md` → Cosmology.)*
+
+The Colossi are what it looks like when someone tries to draw essence **without a
+draw** — not a grip but an aperture, a structure raised directly over a vein,
+wide open, meant to take everything at once and hold it.
+
+Every one of them worked. That is the part the stories leave out. They worked for
+a while, and then a thing built to hold everything at once turned out to be a
+thing that was *holding everything at once*, and stopped. Hence: ruins, in every
+variant.
+
+The **five variants share no style** because they were five separate attempts,
+not one project — the lore reason the biome variants are visually unrelated
+rather than a matched set.
+
+Procedural naming is in-fiction, not a shortcut. Nobody remembers who built them
+or what they were called. What is carved on them is what the last people living
+nearby called them, generations later, in the local idiom, guessing. That is why
+the generated name is a deterministic function of **location**: each region
+invented its own, and the one you learn depends on where you were standing when
+you learned it.
+
+---
+
 ## How It Works
 
 ### Placement pipeline (`InfiniteWorldGen.gd`)

@@ -79,6 +79,216 @@ first-card discount, floor 0.
 
 ---
 
+## Cosmology — Essence, Veins and the Four Draws
+
+*(GID-127. The unifying frame. Every claim here exists to explain a mechanic that
+is already implemented — see the table at the end of this section.)*
+
+### Essence
+
+Essence is not a metaphor in this world and not a force. It is a substance. It
+moves through the ground the way water moves through rock: slowly, along the
+paths it has already worn, pooling where it can and bleeding where it cannot.
+Living things hold a little of it. Old things hold more. Nothing makes it and,
+so far as anyone has established, nothing uses it up — it only ever moves.
+
+The practical consequence is that magic is a **plumbing** problem rather than a
+moral one. A mage is not a source. A mage is a route.
+
+### Veins
+
+Essence runs in veins, and the veins are visible if you know to look: a faint
+cyan pulse under the grass, brightest at the centre and fading to nothing at the
+edges. Nobody laid them. They are the paths the essence wore for itself, and they
+wander accordingly — they do not connect towns, they do not respect borders, and
+the only reliable thing about them is that they were there before the map was.
+
+Standing on one, you draw more easily and you move more easily. Both for the same
+reason: there is more essence passing through you than through the ground either
+side, and essence in motion **quickens** whatever it passes through. Old
+travellers walk the veins where they can. It is not superstition; it is just
+faster.
+
+Where two veins cross, more essence arrives than the crossing can carry, and the
+surplus surfaces. That pool is a **well**, and what you can carry away from it is
+the only form of essence a person can hold in their hands rather than in their
+body. Wells do not refill. The crossing keeps flowing, but the surplus that took
+an age to gather is gone the moment somebody scoops it.
+
+### The four draws
+
+There is only one essence. There are four ways to pull on it, and this is the
+part every temple gets wrong when it teaches that the types are four different
+magics. They are four different **grips**.
+
+Two of them push essence into things:
+
+- **Light** floods it in fast, and things that are flooded fast either flourish
+  or burn.
+- **Verdant** feeds it in slowly, and things that are fed slowly simply keep
+  going.
+
+Two of them pull essence out:
+
+- **Dark** draws it out of a thing and into the mage, which is why Dark mages are
+  hard to kill and unpleasant to stand near.
+- **Rift** draws it out of a thing and puts it somewhere else entirely — usually
+  somewhere the mage would rather it was, occasionally somewhere nobody
+  anticipated.
+
+This is the whole of the alignment split. **Life-aligned** types put essence in;
+**entropy-aligned** types take it out. Everything the game does with corruption
+and redemption falls out of that one distinction.
+
+### Why you only get one
+
+Nobody chooses a draw. The first real pull a person makes sets the shape of the
+channel, the way the first hard frost sets a crack in stone, and every pull after
+that follows the crack. Children who grow up near a vein tend to make that first
+pull young and without noticing. Everyone else makes it in a moment of need and
+spends the rest of their life finding out which one it was.
+
+This is why the choice is permanent, why it is made once, and why no one in the
+world will tell you it can be undone. Reaching into another type is possible.
+Becoming another type is not.
+
+### Corruption and redemption
+
+A mage who only ever pushes essence outward is running a deficit they cannot feel
+and cannot stop. It does not injure them. It hollows the channel, slowly, and the
+hollowing is what the temples named **corruption** — badly, since it has nothing
+to do with wickedness and everything to do with erosion. A mage who only ever
+draws essence in accrues the mirror of it: a surplus with nowhere to go, pressure
+against the walls of a channel shaped only to take. That one got named
+**redemption**, which is equally unhelpful and equally stuck.
+
+The mechanically important part is that **the pressure is the currency**. A
+life-aligned mage's accumulated hollowing is the only thing that will let them
+grip essence the other way round — you cannot learn to take until you have given
+enough to be empty. An entropy-aligned mage's accumulated surplus is what buys
+the reverse. Mastery of your own pole is what funds the opposite one, and a mage
+who never commits to either never accrues enough of anything to reach past their
+own two branches.
+
+Hence: practising your own type's signature branch earns the currency, and the
+currency spends on every type that is not yours.
+
+### The Blight
+
+A vein can be opened. It takes effort and it is always deliberate, and the people
+who did it were, without exception, trying to get essence out faster than a draw
+allows.
+
+An opened vein does not gush and does not stop. It bleeds — steadily, outward,
+into ground that has no channel for it. Everything caught in the spill gets more
+essence than its shape can hold: animals grow wrong and hard to kill, plants go
+first to excess and then to rot, and the land itself takes on the flat purple
+cast of something over-saturated. It is not a curse. It is a nutrient at a
+concentration that kills.
+
+The wound is called a **heart**, which is the one piece of temple terminology
+that is actually accurate — it pushes, rhythmically, and what it pushes is
+outward. Left alone the stain widens a little every day and never contracts.
+
+Closing one means going to the heart and giving essence back, in quantity,
+against the pressure. It is exhausting, it is dangerous, and it is the single
+most life-aligned act available in the world — which is exactly why what you walk
+away with is redemption. You gave. The surplus is yours.
+
+### The Colossi
+
+Five of them, that anyone has found. They do not resemble each other and they are
+not in the same style, which is the first clue that they were not one project.
+
+They are what it looks like when someone tries to draw without a draw. Not a
+grip — an aperture: a structure built directly over a vein, wide open, intended
+to take everything at once and hold it. Every one of them worked. That is the
+part that gets left out. They worked for a while, and then the thing that had
+been built to hold everything at once turned out to be a thing that was holding
+everything at once, and stopped.
+
+Nobody remembers who built them or what they were called. What you find carved on
+them is not their name — it is what the last people to live nearby called them,
+generations after, in the local idiom, guessing. That is why no two regions agree
+and why the name you learn depends entirely on where you are standing when you
+learn it.
+
+The unbuilt sites are more worrying than the ruins. A Colossus that failed is
+inert. A vein that a Colossus was built over is not.
+
+### Cantrips, or why the deck matters
+
+A captured card is not a picture of a creature. It is the creature's pattern —
+the specific shape its essence held — bound into a form you can carry.
+
+Carry one and you have a curiosity. Carry enough of the same kind and the pattern
+starts to impose itself on the route it is riding in, which is to say on you. Not
+much, and not permanently, and never enough to make you the thing. Enough to
+borrow the trick.
+
+Four is roughly where it takes. Below that the pattern is noise. At four a person
+carrying ghosts finds that walls have started to be negotiable, and a person
+carrying skeletons finds they know, without deciding to, exactly where the ground
+has been disturbed and what is under it.
+
+Every mage discovers this by accident, usually while carrying something they
+meant to sell.
+
+### Hearth — the tradition that isn't a type
+
+There is a fifth thing, and it is not a fifth draw.
+
+Most people who can touch essence at all never make the hard first pull. They
+make small ones, constantly, for small purposes, and the channel never sets into
+a crack — it stays a hundred hairline paths that each carry almost nothing. You
+cannot fight with that. You can conjure a horse with it, if you are patient. You
+can take the ache out of a bad road, warm a room, put a meal together, tidy up
+after a boy who does not.
+
+Practitioners call it **hearth-work** when they call it anything. The temples do
+not teach it, do not oppose it, and quietly rely on it. The four types produce
+mages. Hearth-work produces the person who gets the wagon there.
+
+It is worth being precise about the trade: a hearth-worker can do a hundred
+useful things badly and no destructive thing at all. When one of them tells you
+they are not much of a wizard, they are being accurate, and it does not mean what
+you would assume.
+
+> **Maiteln practises hearth-work.** This is the intended in-fiction reason he
+> conjures horses, smooths roads, tidies rooms and cooks — and never duels. It
+> keeps the story's only wizard consistent with a type system he does not fit,
+> without adding a fifth type or any balance surface. Formal story canon needs
+> human approval — see `tasks/goals/GID-127--magic-cosmology/TID-481--orphan-doc-lore-hooks.md`.
+
+### Mechanics this frame explains
+
+Each row is a number or behaviour already in the code that the cosmology now
+accounts for. The lore was written to fit these, not the other way round.
+
+| Implemented behaviour | Lore account |
+|---|---|
+| Ley lines render as cyan bands, brightest at centre, fading to nothing (`ley_intensity`) | Veins the essence wore for itself; intensity is flow density |
+| +15% move speed on a ley line | Essence in motion quickens what it passes through |
+| "Attuned" +1 mana on battle turn 1 | More essence passing through you than through the ground beside you |
+| Mana Wells spawn only at ley **intersections** (`ley_intersection_strength`) | Surplus surfaces where a crossing carries more than it can hold |
+| Mana Wells are one-time collectibles | The crossing keeps flowing; the gathered surplus does not come back |
+| Essence is the crafting currency | The only form a person can carry in their hands |
+| Blight Hearts spread outward, never contract (`SPREAD_RATE` 0.5/day) | An opened vein bleeds steadily; nothing closes it on its own |
+| Blighted enemies gain +5 HP | Over-saturation: more essence than the shape can hold |
+| Blight tints terrain purple | The colour of ground past what it can carry |
+| Cleansing a heart awards **Redemption** Points | Giving essence back against the pressure is the definitive life-aligned act |
+| Blight is a pure function of `(world_seed, days_elapsed, cleansed)` | The bleed is mechanical, not malicious — it just runs |
+| 5 Colossi variants, one per biome, no shared style | Five separate attempts, not one project |
+| Colossi are ruined | Every aperture worked, then held everything at once, then stopped |
+| Colossus names are generated from location | Nobody knows the real names; each region invented its own |
+| Cantrips need **4+** family cards | Below four the pattern is noise; four is where it imposes |
+| Ghost cards → walk through walls; Skeleton cards → find what's buried | You borrow the pattern's trick, not its nature |
+| `magic_type` is chosen once and never changes | The first pull sets the channel; the crack does not move |
+| Signature-branch cards earn the currency you spend elsewhere | Committing to your pole is what builds the pressure to reach past it |
+| Two currencies span four types | Only two directions exist: essence in, essence out |
+
+---
+
 ## Lore
 
 ### Light Magic
