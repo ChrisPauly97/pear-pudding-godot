@@ -302,9 +302,11 @@ SPIRE_FLOOR → SPIRE_FLOOR (SceneManager.exit_map detects spire_ prefix → _ad
 - If `save_manager.is_spire_active()` → resumes at `spire_floor_<floor>_<seed>` via `enter_map()`.
 - Else → `start_spire_run(randi())`, pushes `spire_floor_1_<seed>` via `enter_map()`.
 
-`exit_map()` — if `current_map.begins_with("spire_floor_")` and spire is active → calls `_advance_spire_floor()` (increments floor counter, loads next floor) instead of popping the map stack.
+`exit_map()` — if `current_map.begins_with("spire_floor_")` and spire is active → calls `_advance_spire_floor()` (increments floor counter, loads next floor) instead of popping the map stack. Held with a HUD nudge while `is_spire_draft_open()`, so an unclaimed draft can't be walked away from.
 
-`_on_battle_won()` — Spire branch: saves `hero_hp`, sets cleared flag for the exit door, shows `SpireDraftScene` overlay, skips standard card/coin rewards.
+`_on_battle_won()` — Spire branch: saves `hero_hp`, sets cleared flag for the exit door, shows `SpireDraftScene` overlay via `_restore_world(_show_spire_draft.bind(floor))`, skips standard card/coin rewards.
+
+`_restore_world(after: Callable = Callable())` — re-attaches `_saved_world_scene` behind a `TransitionManager` fade and, once `current_scene` is the world again, runs `after`. **Anything that parents an overlay to `current_scene` after a battle must go through `after`**: the swap is deferred by the 0.2 s fade, so the next line still sees the `queue_free()`d battle overlay and the new child dies with it. Overlays that attach to `get_tree().root` instead (e.g. `WorldScene._show_narration_overlay`) are unaffected.
 
 `_on_battle_lost()` — Spire branch: calls `_restore_spire_entry_point()` then `save_manager.end_spire_run()`, emits `GameBus.spire_run_ended`, shows `RunSummaryScene` with `spire_stats` set. Does NOT route to `GameOverScene`.
 

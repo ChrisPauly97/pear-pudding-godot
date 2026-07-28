@@ -405,6 +405,9 @@ Godot assigns a default `OfflineMultiplayerPeer` to `multiplayer` on launch; it 
 ### 140 GodotBody3D RIDs leaked on exit — detached world orphaned at quit (claude/p11godotbody3d-rid-leak-vd2ny6)
 SceneTree teardown only frees in-tree nodes. Battles/puzzles detach WorldScene into `SceneManager._saved_world_scene`; quitting mid-battle left it an orphan and leaked every physics body in it. `SceneManager._exit_tree()` frees the orphan with an immediate `free()` (`queue_free()` never flushes at shutdown). Any stash holding a detached node needs the same explicit shutdown free.
 
+### Spire draft never appeared — overlay parented to the dying battle scene (claude/drafting-dungeon-stuck-bug-yi20li)
+`_restore_world()` defers its scene swap behind `TransitionManager`'s 0.2 s fade, so the line *after* it still sees the battle overlay `_finish_battle()` just `queue_free()`d. `_spire_battle_won` added `SpireDraftScene` to that `current_scene`, so it was destroyed at end of frame — clear a floor, no draft, same deck forever. `_restore_world(after: Callable)` now runs post-swap work inside the transition; overlays go there or attach to `get_tree().root`, never to `current_scene` on the next line. Also: a dict/var holding a freed node needs `is_instance_valid`, not `!= null`.
+
 ### Nocturnal despawn — "modulate:a does not exist" (fixed with automation bridge)
 `Node3D` has no `modulate`. Always resolve to `Sprite3D`/`CanvasItem` child before tweening modulate.
 

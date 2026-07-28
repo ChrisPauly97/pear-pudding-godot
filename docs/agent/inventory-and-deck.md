@@ -279,7 +279,7 @@ During an Endless Spire run the player's battle deck is separate from their pers
 
 ### Draft pick flow
 
-After each floor victory the floor scene instantiates `SpireDraftScene`:
+After each floor victory `SceneManager._show_spire_draft(floor)` instantiates `SpireDraftScene` and parents it to the live `WorldScene`:
 
 ```gdscript
 var draft := preload("res://scenes/ui/SpireDraftScene.tscn").instantiate()
@@ -287,6 +287,8 @@ add_child(draft)
 draft.setup(floor_number)
 draft.picked.connect(_on_draft_picked)
 ```
+
+It is only ever called from `_restore_world(after)`'s post-swap callback — see the Draft integration section of `named-maps-and-dungeons.md` for why parenting it inline after a `_restore_world()` call silently destroys it.
 
 `SpireDraftScene` calls `SpireDraft.generate_picks(floor, rng, pool_templates)` where `pool_templates` is a `{card_id: template_dict}` Dictionary built from `CardRegistry.get_all_ids()`. This design keeps `SpireDraft` pure and testable without an autoload dependency.
 

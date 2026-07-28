@@ -229,9 +229,13 @@ The door has `flag_key = "spire_floor_<N>_<seed>_cleared"`. `SceneManager._on_ba
 
 Interacting with the door calls `SceneManager.exit_map()`. If `is_spire_active()` and `current_map.begins_with("spire_floor_")`, `exit_map()` calls `_advance_spire_floor()` instead of popping the map stack — this loads `spire_floor_<N+1>_<seed>` as the new current map.
 
+The door is additionally held while `SceneManager.is_spire_draft_open()` — the draft overlay is a plain `Control` and doesn't pause world input, so the player can reach the door with a pick still owed. Advancing there would rebuild the scene and take the unclaimed card with it, so `exit_map()` emits a HUD nudge and returns instead.
+
 ### Draft integration
 
 Between defeating the enemy and walking to the exit door, `SceneManager._show_spire_draft(floor)` displays `SpireDraftScene` as a modal overlay. The player picks one card (added to `spire_run.draft_deck`), then the overlay closes, leaving the Spire floor world visible with the exit door now unlocked.
+
+**The draft must be shown from `_restore_world`'s post-swap callback, never inline after it.** `_restore_world(after: Callable)` defers its scene swap behind `TransitionManager`'s 0.2 s fade, so on the line after the call `get_tree().current_scene` is still the battle overlay that `_finish_battle()` just `queue_free()`d. Parenting the draft there makes it a child of a dying node and it is destroyed at the end of the frame — the floor clears, no draft ever appears, and the run continues on the same deck. `_spire_battle_won` therefore calls `_restore_world(_show_spire_draft.bind(curr_floor))`; the callback runs inside the transition, once `current_scene` is the live `WorldScene`. `tests/spire_draft_smoke.gd` drives the whole sequence with real frames and fails if the ordering regresses.
 
 ### Hero HP carry-over
 
