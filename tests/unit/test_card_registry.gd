@@ -23,7 +23,10 @@ func after_all() -> void:
 # ---------------------------------------------------------------------------
 
 func test_get_all_ids_returns_all_cards() -> void:
-	assert_eq(_registry.get_all_ids().size(), 105)
+	# Bump when cards are added. The point of the exact count is to catch a card
+	# whose .tres exists but was never added to CardRegistry's preload list —
+	# a silently missing card, not a wrong number.
+	assert_eq(_registry.get_all_ids().size(), 117)
 
 
 func test_get_all_ids_contains_ghost() -> void:

@@ -1135,15 +1135,16 @@ func _on_battle_won(result: Dictionary) -> void:
 	for vet_uid: String in veterancy.keys():
 		var vdata: Dictionary = veterancy[vet_uid]
 		save_manager.record_veterancy(vet_uid, int(vdata.get("kills", 0)), bool(vdata.get("survived", true)))
-	# Branch-play currency accrual (GID-086): 1 corruption per Dawn card, 1 redemption per Dusk card.
-	const CORRUPTION_PER_CARD: int = 1
-	const REDEMPTION_PER_CARD: int = 1
-	var dawn_played: int = int(result.get("dawn_played", 0))
-	var dusk_played: int = int(result.get("dusk_played", 0))
-	if dawn_played > 0:
-		save_manager.add_corruption_points(dawn_played * CORRUPTION_PER_CARD)
-	if dusk_played > 0:
-		save_manager.add_redemption_points(dusk_played * REDEMPTION_PER_CARD)
+	# Cross-magic currency accrual (GID-086, generalized by GID-126): playing a
+	# magic type's signature-branch cards earns the currency that type spends.
+	# PlayerState.cross_currency_earned() applies the per-card rate; this only
+	# banks the totals.
+	var corruption_earned: int = int(result.get("corruption_earned", 0))
+	var redemption_earned: int = int(result.get("redemption_earned", 0))
+	if corruption_earned > 0:
+		save_manager.add_corruption_points(corruption_earned)
+	if redemption_earned > 0:
+		save_manager.add_redemption_points(redemption_earned)
 	# Blight Heart cleansing (GID-066): mark the heart purified and award corruption points.
 	var blight_heart_id: String = str(save_manager.pending_battle_enemy_data.get("blight_heart_id", ""))
 	if blight_heart_id != "":
