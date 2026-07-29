@@ -200,6 +200,37 @@ func test_chapter2_warcamp_cleared_returns_empty() -> void:
 	assert_true(obj.is_empty(), "Cliffhanger fires automatically; no next objective yet")
 
 
+func test_objective_for_map_matches_current_map() -> void:
+	var obj: Dictionary = ObjectiveTracker.objective_for_map({}, "madrian")
+	assert_eq(obj.get("label", ""), "Speak to Maiteln", "Objective on this map is returned")
+
+
+func test_objective_for_map_empty_on_other_map() -> void:
+	assert_true(ObjectiveTracker.objective_for_map({}, "blancogov").is_empty(),
+		"An objective on another map gives nothing to point at here")
+
+
+func test_objective_for_map_empty_for_wildcard_tile() -> void:
+	# "Make camp for the night" is a scripted open-world event: map main, tile (−1, −1).
+	var flags: Dictionary = _flags(["story_intro_complete", "chapter1_left_madrian"])
+	assert_true(ObjectiveTracker.objective_for_map(flags, "main").is_empty(),
+		"A wildcard-tile objective has no place to mark")
+
+
+func test_objective_world_pos_is_tile_centre() -> void:
+	var raw: Variant = ObjectiveTracker.objective_world_pos({}, "madrian")
+	assert_true(raw != null, "Maiteln's tile resolves to a world position")
+	var pos: Vector3 = raw as Vector3
+	# Tile (45, 36), entities sit on tile centres → (45.5, 36.5) × TILE_SIZE.
+	assert_almost_eq(pos.x, 45.5 * IsoConst.TILE_SIZE, 0.001, "X is the tile centre")
+	assert_almost_eq(pos.z, 36.5 * IsoConst.TILE_SIZE, 0.001, "Z is the tile centre")
+
+
+func test_objective_world_pos_null_when_nothing_to_mark() -> void:
+	assert_null(ObjectiveTracker.objective_world_pos({}, "larik"),
+		"No objective on this map → no marker position")
+
+
 func test_chapter2_complete_returns_empty() -> void:
 	var obj: Dictionary = ObjectiveTracker.current_objective(
 		_flags(_ch2_flags(["chapter2_charged", "chapter2_reached_larik", "chapter2_found_letter",

@@ -503,75 +503,48 @@ WoW-style circular minimap in the top-right HUD corner (diameter `vh * 0.20`), w
 
 ### Compass Ribbon (`scenes/ui/CompassRibbon.gd`)
 
-A horizontal `Control` node parented to the HUD `CanvasLayer`. It shows cardinal-direction tick marks (W/S/E/N) and coloured dot markers registered by other systems.
+A horizontal `Control` parented to the HUD `CanvasLayer`, top-centre (width `vw × 0.44`, band height `vh × 0.048` plus a caption line, Y `vh × 0.01`). It shows cardinal + intercardinal tick marks and the markers other systems register. The camera cannot rotate, so the ribbon never rotates either — only the markers slide as the player moves relative to their targets.
 
-**Bearing math:**
-The isometric camera faces NE (azimuth −45°), so NE is permanently at the ribbon centre. The mapping from world bearing `θ` (radians, `atan2(dz, dx)`) to ribbon local X:
-```
-ribbon_x = ribbon_width/2 + (deg(θ) + 45) / 360 * ribbon_width
-```
-Clamped to `[0, ribbon_width]`. Cardinal positions (ribbon_width = W):
-| Direction | Bearing | ribbon_x |
-|-----------|---------|----------|
-| West  | −π   | W × 0.125 |
-| South | −π/2 | W × 0.375 |
-| NE ↑  | −π/4 | W × 0.500 (centre) |
-| East  | 0    | W × 0.625 |
-| North | +π/2 | W × 0.875 |
+**Compass convention** — the same one the minimap and `Player`'s WASD mapping use:
 
-Bearings > 135° (SW/behind the camera) clamp to the right edge.
+| Direction | World axis | Bearing `atan2(dz, dx)` |
+|---|---|---|
+| North | −Z | −90° |
+| East  | +X | 0° |
+| South | +Z | +90° |
+| West  | −X | ±180° |
+
+**Bearing math** — the ribbon centre is the direction the player is *looking*: the baked `Camera3D` in `WorldScene.tscn` has forward `(−1, 0, −1)`, i.e. world **north-west**, `CompassRibbon.FACING_BEARING_DEG = −135`. Screen-right is `(+1, 0, −1)` (NE), a quarter turn clockwise, so bearings increase to the right:
+
+```
+offset   = wrapf(deg(θ) − FACING_BEARING_DEG, −180, 180)
+ribbon_x = ribbon_width/2 + offset / SPAN_DEG × ribbon_width      # SPAN_DEG = 360
+```
+
+The wrap (not a clamp) means the whole width is live and nothing piles up on an edge; a target at either edge is directly behind the camera. Cardinal positions, left → right: **SE (0) · S (⅛) · SW (¼) · W (⅜) · NW (½, centre) · N (⅝) · NE (¾) · E (⅞)**.
+
+`test_compass_bearing` re-derives the facing bearing from the `Camera3D` transform baked into `WorldScene.tscn` and asserts it matches `FACING_BEARING_DEG`, so a camera re-bake cannot silently leave the compass pointing elsewhere.
 
 **Marker API:**
 ```gdscript
-compass.add_marker("waypoint", Color.YELLOW, func() -> Variant: return world_pos)
+compass.add_marker("waypoint", Color.CYAN, get_pos)                     # plain dot
+compass.add_marker("objective", gold, get_pos, get_label, true)         # primary
 compass.remove_marker("waypoint")
 compass.set_current_map("maykalene")  # call on every map transition
 ```
-`get_pos` is a Callable returning `Vector3` (world pos) or `null` (hidden).
+- `get_pos: Callable` is polled every frame and returns a `Vector3` (world pos) or `null` to hide the marker.
+- `get_label: Callable` (optional) is polled for the caption text.
+- `primary` markers are drawn as a pulsing chevron in the upper half of the band plus a caption pill underneath carrying `"<label> — <distance>m"` (captions over ~34 chars are ellipsised). Plain markers are outlined dots. Only the story objective is primary.
 
-**Integration:**
-`WorldScene` instantiates one `CompassRibbon` in `_ready()`, passes `_player`, and calls `set_current_map(map_name)`. Other systems call `add_marker` / `remove_marker` on the compass node.
+**Integration** — `WorldHUD._create_compass()` instantiates the ribbon, passes `_player`, calls `set_current_map(map_name)` and registers the waypoint and objective markers. The objective marker's callables go through `ObjectiveTracker.objective_world_pos()` / `objective_for_map()`, the same helpers `WorldScene._refresh_objective_beacon()` uses for the in-world beacon, so ribbon and beacon can never disagree about where the objective is.
 
-**Static helpers (testable):**
-- `CompassRibbon.bearing_to_ribbon_x(bearing_rad, ribbon_width) → float`
-- `CompassRibbon.compute_bearing(fx, fz, tx, tz) → float`
+### Objective Beacon (`scenes/world/entities/ObjectiveBeacon.gd`)
 
-### Compass Ribbon (`scenes/ui/CompassRibbon.gd`)
+The in-world half of the same answer: the ribbon says which way to face, the beacon says *which thing on screen* is the objective. A `Node3D` planted on the objective's tile carrying a gold ground ring, an additive light shaft (`SHAFT_HEIGHT` 5.0, fades out inside `NEAR_DIST` so arriving doesn't leave a pillar in the player's face) and a bobbing, spinning four-sided pyramid pointing down at the tile (`no_depth_test`, so terrain between player and objective hides the target but never the pointer). It carries no text — the compass caption already names the objective, and a second world-space label collides with the NPC name tag underneath it.
 
-Horizontal 360° bearing ribbon rendered at the top-center of the HUD.  The isometric camera is fixed, so the ribbon itself never rotates — only marker dots slide left/right as the player moves relative to targets.
+Because it is an ordinary world node, it is on screen exactly when the objective is (the orthographic camera box is ~15 units).
 
-**Bearing convention**
-
-`atan2(target.z - player.z, target.x - player.x)` gives the world bearing (`0` = East/+X, `−π/2` = North/−Z).  The ribbon maps this linearly so that N/E/S/W land at equal intervals (each `ribbon_width/4` apart):
-
-| Direction | World | ribbon_x offset from center |
-|---|---|---|
-| W | −X | −3 × width/8 |
-| N | −Z | −1 × width/8 |
-| **NE** (iso screen-right) | +X, −Z | **0 (center)** |
-| E | +X | +1 × width/8 |
-| S | +Z | +3 × width/8 |
-| SW | −X, +Z | ±width/2 (edges, wrapping) |
-
-Static formula: `bearing_to_ribbon_x(bearing_rad, ribbon_center, ribbon_width)`.
-
-**Sizing** — set by `WorldScene._ready()` before calling `setup()`:
-- Width = `vw × 0.40`, height = `vh × 0.04`
-- Position: X = `(vw − width) / 2`, Y = `vh × 0.01` (top-center, clears the Menu button)
-
-**Marker API**
-
-```gdscript
-compass.add_marker("waypoint", Color.YELLOW, func() -> Vector3: return waypoint_pos)
-compass.add_marker("enemy",    Color.RED,    func() -> Vector3: return enemy.position, "maykalene")
-compass.remove_marker("waypoint")
-compass.set_current_map("madrian")  # call on every map transition
-```
-
-- `get_pos: Callable` is called every frame and must return a `Vector3` (or `null` to hide).
-- If `map` is non-empty and doesn't match `_current_map`, the marker clamps to the ribbon edge (left or right, based on direction) to indicate an off-screen target.
-
-**Integration** — `WorldScene._ready()` instantiates the ribbon after `_spawn_player()`, stores it in `_compass`, and calls `compass.set_current_map(map_name)`.  Future tasks (TID-183 waypoint, TID-184 story objective) call `add_marker()` to register their markers.
+`WorldScene` owns at most one, in `_objective_beacon`. `_refresh_objective_beacon()` creates, moves or frees it and runs on map entry (`_ready`) and on every `GameBus.story_flag_set` (via `_on_story_flag_set_for_cast`) — story flags are the only thing that moves the objective, so it never runs per frame.
 
 ### TutorialPopup (`scenes/ui/TutorialPopup.gd`)
 

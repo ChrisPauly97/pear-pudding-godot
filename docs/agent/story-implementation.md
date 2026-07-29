@@ -95,9 +95,16 @@ It checks flags in reverse-progression order (most-advanced first) and returns t
 | `chapter1_temple_council` | _(empty — chapter ending)_ | — | — |
 | `chapter1_complete` | _(empty)_ | — | — |
 
-**Wildcard objectives** (`tx == -1, tz == -1`) are open-world events with no fixed tile (e.g., the Isfig roadside encounter). The compass ribbon hides them (returns null from get_pos); the map overlay label still shows the objective text.
+**Wildcard objectives** (`tx == -1, tz == -1`) are open-world events with no fixed tile (e.g., the Isfig roadside encounter). Neither the compass marker nor the in-world beacon shows them; the map overlay label still shows the objective text.
 
-**CompassRibbon integration** (`WorldScene.gd`): A gold marker (`Color(1.0, 0.8, 0.0)`) is added with id `"objective"`. Its `get_pos` lambda calls `current_objective()` every frame and returns null when: the objective is for a different map, or coordinates are wildcard.
+**Pointing at the objective — one pair of helpers, two consumers.** `ObjectiveTracker.objective_for_map(flags, map_name)` returns the objective only when it is a real place on *this* map (empty otherwise: no objective, another map, or a wildcard tile), and `objective_world_pos()` turns that into the tile's **centre** in world space (entities sit on tile centres, so corner coordinates would put the marker a tile off-diagonal). Both consumers go through them, so they cannot disagree:
+
+| Consumer | What it draws |
+|---|---|
+| `WorldHUD._create_compass()` → `CompassRibbon` primary marker | gold chevron on the ribbon + caption `"<label> — <distance>m"` |
+| `WorldScene._refresh_objective_beacon()` → `ObjectiveBeacon` | gold ring / light shaft / down-arrow on the objective's tile |
+
+The beacon is rebuilt on map entry and on every `GameBus.story_flag_set`; the compass marker polls its callables per frame. See `docs/agent/ui-and-scene-management.md` for both.
 
 **MapViewOverlay integration**: When the overlay opens, it calls `current_objective()` once and shows `"Objective: <label>"` in gold above the close hint if an objective is active.
 

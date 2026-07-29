@@ -451,6 +451,9 @@ Entities placed in code (mailbox, fallback waystones) are invisible to the map a
 ### Chest-open hitch — synchronous batched save flush (claude/hill-climbing-chest-lag-5m7vov)
 The 2 s dirty flush ran stringify + HMAC + backup copy + write on the main thread; loot pickups re-dirty the save so chests triggered it repeatedly. Flush now snapshots via `duplicate(true)` and writes on a `WorkerThreadPool` task (single-flight; sync `_flush_now()` at shutdown). Never add main-thread `JSON.stringify` of whole-save data to hot paths. Also: share static materials/meshes/textures for burst-spawned nodes (`WorldItem`, chest gold burst) instead of rebuilding per spawn.
 
+### Compass pointed 90° off, N and S swapped (claude/objective-marker-compass-7yarde)
+Two independent errors made every bearing on the ribbon a lie. (1) The ribbon centre was bearing −45°, which is the camera's **screen-right** axis `(+1, 0, −1)`; the direction the player actually looks is `−basis.z` horizontally = `(−1, 0, −1)` = **−135°**. Screen-up is the camera's forward, never its right vector. (2) The cardinal table labelled `+Z` as North, but `−Z` is North everywhere else in the project (minimap top = world NW, `Player`'s WASD table). Fixes: `FACING_BEARING_DEG = −135`, cardinals `N = −90 / E = 0 / S = +90 / W = ±180`, and `wrapf` instead of `clamp` (the old formula collapsed every bearing past +135° onto the right edge and never used the leftmost eighth). A screen-space mapping derived from a baked camera transform must be **re-derived from that transform in a test** — `test_compass_bearing` parses `WorldScene.tscn` and asserts the two agree, because nothing else fails when they drift.
+
 ---
 
 ## Documentation: docs/agent/ Directory
