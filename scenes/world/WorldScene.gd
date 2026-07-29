@@ -50,6 +50,8 @@ const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tsc
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _MailboxScene      = preload("res://scenes/world/entities/MailboxNPC.tscn")
 const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
+const _ObjectiveBeacon   = preload("res://scenes/world/entities/ObjectiveBeacon.gd")
+const _ObjectiveTracker  = preload("res://game_logic/ObjectiveTracker.gd")
 const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 # Party panel (GID-107 / TID-395): consolidated entry point for the always-on
 # co-op HUD affordances (Roster, Loot Mode, Stash, Leaderboard, Ghost Duels,
@@ -340,6 +342,10 @@ var _minimap: Node
 var _map_overlay: Node = null
 var _fast_travel_layer: CanvasLayer = null
 
+# Story objective beacon (one at most, on the objective's tile — see
+# _refresh_objective_beacon).
+var _objective_beacon: Node3D = null
+
 # Tap-to-move
 var _dest_marker: Node3D = null
 var _dest_tween: Tween = null
@@ -539,6 +545,7 @@ func _ready() -> void:
 
 	if not NetworkManager.is_dedicated_server():
 		_refresh_maiteln_presence()
+		_refresh_objective_beacon()
 
 	coop_session._setup_coop()
 	# Guildhall furnishings (GID-106 / TID-393): must run after _setup_coop() so
@@ -1447,6 +1454,32 @@ func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
 func _on_story_flag_set_for_cast(_key: String) -> void:
 	_refresh_maiteln_presence()
 	_despawn_flag_hidden_npcs()
+	_refresh_objective_beacon()
+
+## Plants (or moves, or clears) the in-world beacon over the current story
+## objective. The compass ribbon only gives a bearing; standing in the right
+## street still left the player guessing which hut or which NPC was the target,
+## so the objective also gets a marker on the thing itself.
+##
+## Story flags are what move the objective, so this runs on map entry and on
+## every flag change — never per frame.
+func _refresh_objective_beacon() -> void:
+	if NetworkManager.is_dedicated_server():
+		return
+	var raw: Variant = _ObjectiveTracker.objective_world_pos(
+		SceneManager.save_manager.story_flags, map_name)
+	if raw == null:
+		if is_instance_valid(_objective_beacon):
+			_objective_beacon.queue_free()
+		_objective_beacon = null
+		return
+	var pos: Vector3 = raw as Vector3
+	if not is_instance_valid(_objective_beacon):
+		_objective_beacon = _ObjectiveBeacon.new()
+		_objective_beacon.name = "ObjectiveBeacon"
+		add_child(_objective_beacon)
+		_objective_beacon.setup(_player)
+	_objective_beacon.position = Vector3(pos.x, get_terrain_height(pos.x, pos.z), pos.z)
 
 ## Removes already-spawned NPCs whose MapNpc.hide_flag_key is now set. The spawn
 ## side of the same rule lives in ChunkRenderer, which skips them outright.

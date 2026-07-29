@@ -404,20 +404,17 @@ func _create_compass(map_name: String) -> void:
 		var tz: int = int(wp.get("tz", 0))
 		return Vector3(float(tx) * IsoConst.TILE_SIZE, 0.0, float(tz) * IsoConst.TILE_SIZE)
 	)
-	cr.add_marker("objective", Color(1.0, 0.8, 0.0), func() -> Variant:
-		var obj: Dictionary = ObjectiveTracker.current_objective(
-			SceneManager.save_manager.story_flags)
-		if obj.is_empty():
-			return null
-		var obj_map: String = str(obj.get("map", ""))
-		var obj_tx: int = int(obj.get("tx", -1))
-		var obj_tz: int = int(obj.get("tz", -1))
-		if obj_map != captured_map:
-			return null
-		if obj_tx == -1 or obj_tz == -1:
-			return null
-		return Vector3(float(obj_tx) * IsoConst.TILE_SIZE, 0.0, float(obj_tz) * IsoConst.TILE_SIZE)
-	)
+	# Primary marker: drawn as a labelled chevron with a live distance, not as a
+	# dot lost among the tick marks. Same ObjectiveTracker helpers the in-world
+	# beacon uses (WorldScene._refresh_objective_beacon), so the two agree.
+	var objective_pos: Callable = func() -> Variant:
+		return ObjectiveTracker.objective_world_pos(
+			SceneManager.save_manager.story_flags, captured_map)
+	var objective_label: Callable = func() -> String:
+		var obj: Dictionary = ObjectiveTracker.objective_for_map(
+			SceneManager.save_manager.story_flags, captured_map)
+		return str(obj.get("label", ""))
+	cr.add_marker("objective", Color(1.0, 0.82, 0.15), objective_pos, objective_label, true)
 
 # ── Public display API ─────────────────────────────────────────────────────
 

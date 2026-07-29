@@ -4,6 +4,34 @@
 class_name ObjectiveTracker
 extends RefCounted
 
+## The active objective, but only when it is a real place on `map_name` the
+## player can be pointed at — {} when there is none, when it belongs to another
+## map, or when it is a scripted open-world event carrying the (−1, −1) wildcard.
+##
+## Single source for every "where is the objective" caller (compass marker,
+## in-world beacon), so they can never disagree about which map or tile it is on.
+static func objective_for_map(flags: Dictionary, map_name: String) -> Dictionary:
+	var obj: Dictionary = current_objective(flags)
+	if obj.is_empty():
+		return {}
+	if str(obj.get("map", "")) != map_name:
+		return {}
+	if int(obj.get("tx", -1)) < 0 or int(obj.get("tz", -1)) < 0:
+		return {}
+	return obj
+
+## Centre of the objective's tile in world space, or null when there is nothing
+## to point at (see `objective_for_map`). Entities are spawned on tile centres,
+## so the beacon and the compass bearing both use the centre, not the corner.
+static func objective_world_pos(flags: Dictionary, map_name: String) -> Variant:
+	var obj: Dictionary = objective_for_map(flags, map_name)
+	if obj.is_empty():
+		return null
+	return Vector3(
+		(float(int(obj["tx"])) + 0.5) * IsoConst.TILE_SIZE,
+		0.0,
+		(float(int(obj["tz"])) + 0.5) * IsoConst.TILE_SIZE)
+
 static func current_objective(flags: Dictionary) -> Dictionary:
 	if flags.get("chapter2_complete", false):
 		return {}
