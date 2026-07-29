@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://w6yn4xuqy4w9"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_fracture_splintering"]
+
+[resource]
+script = ExtResource("1_fracture_splintering")
+id = "fracture_splintering"
+display_name = "Splintering"
+description = "One break becomes many on its own. +2 hero attack."
+skill_type = "passive"
+effect_type = "passive_atk"
+effect_value = 2
+prerequisites = ["fracture_hairline_crack"]
+tree_row = 1
+tree_col = 0
+magic_branch = "fracture"
+alt_cost = 0

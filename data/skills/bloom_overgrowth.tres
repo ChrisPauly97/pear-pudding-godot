@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://k62v4j7oc0cc"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_bloom_overgrowth"]
+
+[resource]
+script = ExtResource("1_bloom_overgrowth")
+id = "bloom_overgrowth"
+display_name = "Overgrowth"
+description = "Once per battle: green floods the field and restores 10 hero HP."
+skill_type = "active"
+effect_type = "active_heal"
+effect_value = 10
+prerequisites = ["bloom_deep_roots"]
+tree_row = 2
+tree_col = 0
+magic_branch = "bloom"
+alt_cost = 2

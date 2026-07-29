@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://gr4d9jewxi76"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_bloom_seedling"]
+
+[resource]
+script = ExtResource("1_bloom_seedling")
+id = "bloom_seedling"
+display_name = "Seedling"
+description = "Life gathers wherever you stand. +8 max HP."
+skill_type = "passive"
+effect_type = "passive_hp"
+effect_value = 8
+prerequisites = []
+tree_row = 0
+tree_col = 0
+magic_branch = "bloom"
+alt_cost = 0

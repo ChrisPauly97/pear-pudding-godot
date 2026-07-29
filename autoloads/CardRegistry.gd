@@ -20,6 +20,18 @@ const _C_ASH_ROT          := preload("res://data/cards/ash_rot.tres")
 const _C_ASH_WARDEN       := preload("res://data/cards/ash_warden.tres")
 const _C_ASH_WITHER_AWAY  := preload("res://data/cards/ash_wither_away.tres")
 const _C_BLESSED_LIGHT    := preload("res://data/cards/blessed_light.tres")
+const _C_BLOOM_GERMINATE       := preload("res://data/cards/bloom_germinate.tres")
+const _C_BLOOM_VERDANT_BULWARK := preload("res://data/cards/bloom_verdant_bulwark.tres")
+const _C_BLOOM_BLOOMING_WARD   := preload("res://data/cards/bloom_blooming_ward.tres")
+const _C_THORN_BRAMBLE_SNARE   := preload("res://data/cards/thorn_bramble_snare.tres")
+const _C_THORN_THORN_VOLLEY    := preload("res://data/cards/thorn_thorn_volley.tres")
+const _C_THORN_WILD_GROWTH     := preload("res://data/cards/thorn_wild_growth.tres")
+const _C_FLUX_DISPLACE         := preload("res://data/cards/flux_displace.tres")
+const _C_FLUX_KINETIC_BOLT     := preload("res://data/cards/flux_kinetic_bolt.tres")
+const _C_FLUX_MOMENTUM         := preload("res://data/cards/flux_momentum.tres")
+const _C_FRACTURE_UNMAKE       := preload("res://data/cards/fracture_unmake.tres")
+const _C_FRACTURE_FAULT        := preload("res://data/cards/fracture_fault.tres")
+const _C_FRACTURE_SHARDFALL    := preload("res://data/cards/fracture_shardfall.tres")
 const _C_BLITZ_GHOUL      := preload("res://data/cards/blitz_ghoul.tres")
 const _C_BRITTLE          := preload("res://data/cards/brittle.tres")
 const _C_BULWARK          := preload("res://data/cards/bulwark.tres")
@@ -150,6 +162,10 @@ static func _ensure_loaded() -> void:
 		_C_ASH_DEFILE, _C_ASH_DESECRATE, _C_ASH_MASS_DECAY,
 		_C_ASH_PLAGUE, _C_ASH_RAISE_DEAD, _C_ASH_ROT, _C_ASH_WITHER_AWAY,
 		_C_COOP_AEGIS, _C_COOP_MEND, _C_COOP_RALLY, _C_COOP_MANA_TITHE, _C_COOP_SECOND_WIND,
+		_C_BLOOM_GERMINATE, _C_BLOOM_VERDANT_BULWARK, _C_BLOOM_BLOOMING_WARD,
+		_C_THORN_BRAMBLE_SNARE, _C_THORN_THORN_VOLLEY, _C_THORN_WILD_GROWTH,
+		_C_FLUX_DISPLACE, _C_FLUX_KINETIC_BOLT, _C_FLUX_MOMENTUM,
+		_C_FRACTURE_UNMAKE, _C_FRACTURE_FAULT, _C_FRACTURE_SHARDFALL,
 	]
 	for preloaded in all:
 		if preloaded == null:

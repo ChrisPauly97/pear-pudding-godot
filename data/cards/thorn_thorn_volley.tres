@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://xmc52by42i6o"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_thorn_thorn_volley"]
+
+[resource]
+script = ExtResource("1_thorn_thorn_volley")
+id = "thorn_thorn_volley"
+card_name = "Thorn Volley"
+cost = 3
+attack = 0
+health = 0
+card_class = "spell"
+description = "Loosed blind into the enemy line. Something always finds something."
+color = Color(0.75, 0.85, 0.3, 1)
+magic_type = "verdant"
+magic_branch = "thorn"
+spell_effect = "deal_damage_random"
+spell_power = 3

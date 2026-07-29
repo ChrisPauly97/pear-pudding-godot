@@ -7,6 +7,30 @@
 - **Attuned battle buff**: engaging an enemy while on a ley line grants +1 mana on the first battle turn.
 - **Mana Wells**: one-time collectible entities spawned at ley line intersections; yield 15 essence.
 
+## Lore
+
+*(Full frame: `docs/agent/magic-system.md` → Cosmology.)*
+
+A ley line is a **vein** — a path essence wore for itself through the ground over
+an age. Nobody laid them, which is why they wander without reference to towns or
+borders. The cyan glow is flow density: brightest at the centre of the vein,
+fading to nothing at its edge, exactly as `ley_intensity` computes it.
+
+Both player-facing effects come from the same fact — more essence is passing
+through you than through the ground either side — and essence in motion quickens
+what it passes through. Hence the **+15% move speed** in the world and the
+**Attuned +1 mana** on the first battle turn.
+
+A **Mana Well** is where two veins cross and the crossing carries more than it
+can hold, so the surplus surfaces. This is why wells spawn only at intersections
+(`ley_intersection_strength`) and why they are **one-time** collectibles: the
+crossing keeps flowing, but the surplus that took an age to gather is gone the
+moment somebody scoops it. What you carry away is **essence** — the only form of
+it a person can hold in their hands rather than in their body, which is why it is
+the crafting currency.
+
+---
+
 ## How It Works
 
 ### Field Math (`game_logic/TerrainMath.gd`)

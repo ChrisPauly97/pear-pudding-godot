@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3 uid="uid://7oolb464g93c"]
+
+[ext_resource type="Script" path="res://data/SkillData.gd" id="1_fracture_hairline_crack"]
+
+[resource]
+script = ExtResource("1_fracture_hairline_crack")
+id = "fracture_hairline_crack"
+display_name = "Hairline Crack"
+description = "You learn where things are already failing. +1 hero attack."
+skill_type = "passive"
+effect_type = "passive_atk"
+effect_value = 1
+prerequisites = []
+tree_row = 0
+tree_col = 0
+magic_branch = "fracture"
+alt_cost = 0

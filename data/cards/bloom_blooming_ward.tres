@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://bjljp8g3t67f"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_bloom_blooming_ward"]
+
+[resource]
+script = ExtResource("1_bloom_blooming_ward")
+id = "bloom_blooming_ward"
+card_name = "Blooming Ward"
+cost = 5
+attack = 0
+health = 0
+card_class = "spell"
+description = "A canopy opens above your minions, and nothing gets through it first."
+color = Color(0.45, 0.9, 0.5, 1)
+magic_type = "verdant"
+magic_branch = "bloom"
+spell_effect = "grant_ward_all"
+spell_power = 1

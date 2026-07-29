@@ -2,6 +2,8 @@ class_name TextureGen
 
 # Generates runtime textures synchronously so they are ready the first frame.
 
+const _MagicTypes = preload("res://game_logic/MagicTypes.gd")
+
 static var _cache: Dictionary = {}
 
 ## Lookup-or-generate helper — eliminates the repeated cache pattern.
@@ -350,13 +352,9 @@ static func _gen_card_ghoul() -> ImageTexture:
 
 static func _gen_card_spell_rune(magic_branch: String) -> ImageTexture:
 	var d := _make_card_data()
-	var col: Color
-	match magic_branch:
-		"dawn":  col = Color(1.0, 0.9, 0.4)
-		"dusk":  col = Color(0.55, 0.1, 0.9)
-		"ember": col = Color(1.0, 0.35, 0.05)
-		"ash":   col = Color(0.55, 0.55, 0.65)
-		_:       col = Color(0.5, 0.8, 1.0)
+	# Rune tints come from MagicTypes.RUNE_COLORS, so a new branch is coloured by
+	# declaring it there rather than by adding a match arm here.
+	var col: Color = _MagicTypes.branch_rune_color(magic_branch)
 	var r: int = int(col.r * 220); var g: int = int(col.g * 220); var b: int = int(col.b * 220)
 	# Outer circle
 	for y in range(32):

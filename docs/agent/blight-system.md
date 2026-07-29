@@ -8,6 +8,38 @@
 - Players can cleanse a heart via a boss-tier card battle, permanently purifying its region and earning +10 Redemption Points.
 - All blight state is a pure function of `(world_seed, days_elapsed, blight_cleansed_hearts)` — no per-chunk persistence.
 
+## Lore
+
+*(Full frame: `docs/agent/magic-system.md` → Cosmology.)*
+
+The Blight is **an opened vein**. Opening one takes deliberate effort, and
+everyone who has managed it was trying to get essence out faster than an ordinary
+draw allows.
+
+An opened vein does not gush and does not stop — it bleeds, steadily, outward,
+into ground with no channel for it. This is the lore account of `SPREAD_RATE`:
+the stain widens a little every day and never contracts on its own. Everything
+caught in the spill receives more essence than its shape can hold, which is why
+blighted enemies are **harder to kill (+5 HP)** rather than corrupted or hostile
+in some new way, and why the terrain takes the flat purple cast of ground past
+what it can carry. It is not a curse; it is a nutrient at a concentration that
+kills.
+
+The wound is called a **heart** because it pushes, rhythmically, and what it
+pushes is outward.
+
+Closing one means reaching the heart and giving essence back in quantity, against
+the pressure — the single most life-aligned act available in the world. That is
+precisely why cleansing pays **Redemption Points** and not corruption: you gave,
+and the surplus is yours. See the corruption/redemption section of the cosmology
+for why that currency is the one an entropy-aligned mage spends.
+
+That the whole system is a pure function of `(world_seed, days_elapsed,
+cleansed_hearts)` is also in-fiction correct: the bleed is mechanical, not
+malicious. It simply runs.
+
+---
+
 ## How It Works
 
 ### Heart Placement — `game_logic/world/BlightField.gd`

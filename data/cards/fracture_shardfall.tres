@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://mp3wbbu4clvk"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_fracture_shardfall"]
+
+[resource]
+script = ExtResource("1_fracture_shardfall")
+id = "fracture_shardfall"
+card_name = "Shardfall"
+cost = 4
+attack = 0
+health = 0
+card_class = "spell"
+description = "Their plans come apart in their hands."
+color = Color(0.9, 0.45, 0.75, 1)
+magic_type = "rift"
+magic_branch = "fracture"
+spell_effect = "enemy_discard"
+spell_power = 2

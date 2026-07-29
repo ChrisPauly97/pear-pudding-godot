@@ -67,8 +67,10 @@ Each `CardData` resource (`data/cards/*.tres`) stores:
 - `attack: int`
 - `health: int`
 - `card_class: String` — `"minion"` (default) or `"spell"`
-- `magic_type: String` — `"light"` | `"dark"` | `""` (non-magic cards)
-- `magic_branch: String` — `"ember"` | `"dawn"` | `"dusk"` | `"ash"` | `""`
+- `magic_type: String` — `"light"` | `"dark"` | `"verdant"` | `"rift"` | `""` (non-magic cards).
+  The full table lives in `game_logic/MagicTypes.gd`; see `docs/agent/magic-system.md`.
+- `magic_branch: String` — one of the eight branches: `"ember"`/`"dawn"` (Light),
+  `"dusk"`/`"ash"` (Dark), `"bloom"`/`"thorn"` (Verdant), `"flux"`/`"fracture"` (Rift), or `""`
 - `keywords: Array[String]` — passive keyword abilities; valid values are the constants in `game_logic/battle/Keywords.gd`: `"ward"`, `"surge"`, `"shroud"`. Defaults to `[]`; omitting from a `.tres` file is safe.
 - `spell_effect: String` — canonical effect key dispatched by `SpellEffectResolver.resolve_spell`; `""` for minions. Supported values:
   - `deal_damage_single` — deal spell_power damage to first enemy minion (or hero if board empty)

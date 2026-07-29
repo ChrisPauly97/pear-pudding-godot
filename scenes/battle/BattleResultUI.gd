@@ -136,7 +136,7 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 		sig_card_id: String = "", condition_text_arg: String = "", condition_met: bool = false,
 		reward_rarity: String = "", reward_stats: Dictionary = {},
 		coins_earned: int = 0, xp_earned: int = 0, hero_hp: int = 0,
-		dawn_played: int = 0, dusk_played: int = 0) -> void:
+		currency_earned: Dictionary = {}) -> void:
 	var result: Dictionary = _build_result_overlay(Color(0.05, 0.05, 0.1, 0.92))
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
@@ -194,8 +194,7 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 	var final_stats: Dictionary = reward_stats
 	var veterancy_data: Dictionary = _collect_veterancy_fn.call() if _collect_veterancy_fn.is_valid() else {}
 	var final_hp: int = hero_hp
-	var final_dawn: int = dawn_played
-	var final_dusk: int = dusk_played
+	var final_currency: Dictionary = currency_earned.duplicate()
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
 		GameBus.battle_won.emit({
@@ -205,8 +204,8 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 			"veterancy": veterancy_data,
 			"reward_rarity": final_rarity,
 			"reward_stats": final_stats,
-			"dawn_played": final_dawn,
-			"dusk_played": final_dusk,
+			"corruption_earned": int(final_currency.get("corruption", 0)),
+			"redemption_earned": int(final_currency.get("redemption", 0)),
 		})
 	)
 	vbox.add_child(btn)
@@ -215,7 +214,7 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 	_parent.add_child(overlay)
 
 func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_arg: String, hero_hp: int = 0,
-		dawn_played: int = 0, dusk_played: int = 0,
+		currency_earned: Dictionary = {},
 		reward_rarity: String = "", reward_stats: Dictionary = {}) -> void:
 	var result: Dictionary = _build_result_overlay(Color(0.05, 0.02, 0.12, 0.95), 0.028)
 	var overlay: PanelContainer = result["overlay"]
@@ -239,8 +238,7 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 	var fc: String = reward_card_id
 	var sc: String = sig_card_id
 	var sb_hp: int = hero_hp
-	var sb_dawn: int = dawn_played
-	var sb_dusk: int = dusk_played
+	var sb_currency: Dictionary = currency_earned.duplicate()
 	var sb_rarity: String = reward_rarity
 	var sb_stats: Dictionary = reward_stats
 	var sb_veterancy: Dictionary = _collect_veterancy_fn.call() if _collect_veterancy_fn.is_valid() else {}
@@ -251,8 +249,8 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 			"weapon_reward": "",
 			"hero_hp": sb_hp,
 			"signature_capture": sc,
-			"dawn_played": sb_dawn,
-			"dusk_played": sb_dusk,
+			"corruption_earned": int(sb_currency.get("corruption", 0)),
+			"redemption_earned": int(sb_currency.get("redemption", 0)),
 			"reward_rarity": sb_rarity,
 			"reward_stats": sb_stats,
 			"veterancy": sb_veterancy,
@@ -266,7 +264,7 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "",
 		rarities: Array[String] = [], stats_list: Array[Dictionary] = [],
 		coins_earned: int = 0, xp_earned: int = 0, hero_hp: int = 0,
-		dawn_played: int = 0, dusk_played: int = 0) -> void:
+		currency_earned: Dictionary = {}) -> void:
 	var result: Dictionary = _build_result_overlay(Color(0.05, 0.05, 0.1, 0.92), 0.025)
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
@@ -324,8 +322,7 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 	var final_stats_list: Array[Dictionary] = stats_list.duplicate()
 	var veterancy_data_boss: Dictionary = _collect_veterancy_fn.call() if _collect_veterancy_fn.is_valid() else {}
 	var boss_hp: int = hero_hp
-	var boss_dawn: int = dawn_played
-	var boss_dusk: int = dusk_played
+	var boss_currency: Dictionary = currency_earned.duplicate()
 	btn.pressed.connect(func() -> void:
 		overlay.queue_free()
 		GameBus.battle_won.emit({
@@ -335,8 +332,8 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 			"veterancy": veterancy_data_boss,
 			"reward_rarities": final_rarities,
 			"reward_stats_list": final_stats_list,
-			"dawn_played": boss_dawn,
-			"dusk_played": boss_dusk,
+			"corruption_earned": int(boss_currency.get("corruption", 0)),
+			"redemption_earned": int(boss_currency.get("redemption", 0)),
 		})
 	)
 	vbox.add_child(btn)

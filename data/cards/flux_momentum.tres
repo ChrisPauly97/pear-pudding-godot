@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="CardData" load_steps=2 format=3 uid="uid://yb10ua2vdo80"]
+
+[ext_resource type="Script" path="res://data/CardData.gd" id="1_flux_momentum"]
+
+[resource]
+script = ExtResource("1_flux_momentum")
+id = "flux_momentum"
+card_name = "Momentum"
+cost = 4
+attack = 0
+health = 0
+card_class = "spell"
+description = "One minion moves through the turn twice."
+color = Color(0.4, 0.8, 1, 1)
+magic_type = "rift"
+magic_branch = "flux"
+spell_effect = "double_attack"
+spell_power = 1

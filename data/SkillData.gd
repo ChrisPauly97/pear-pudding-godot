@@ -12,7 +12,8 @@ extends Resource
 @export var prerequisites: Array[String] = []
 @export var tree_row: int = 0
 @export var tree_col: int = 0
-## "ember", "dawn", "dusk", or "ash"
+## One of the eight branches in MagicTypes.TYPES: "ember"/"dawn" (Light),
+## "dusk"/"ash" (Dark), "bloom"/"thorn" (Verdant), "flux"/"fracture" (Rift).
 @export var magic_branch: String = ""
 ## 0 = not cross-purchasable. >0 = costs this many corruption/redemption points.
 @export var alt_cost: int = 0

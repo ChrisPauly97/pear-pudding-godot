@@ -8,6 +8,7 @@ const HeroState = preload("res://game_logic/battle/HeroState.gd")
 const ZoneState = preload("res://game_logic/battle/ZoneState.gd")
 const Keywords = preload("res://game_logic/battle/Keywords.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
+const MagicTypes = preload("res://game_logic/MagicTypes.gd")
 
 var player_id: int
 var hero: HeroState
@@ -24,9 +25,9 @@ var minion_attack_bonus: int = 0
 # Injected by GameState.inject_gamebus_emitter(); call(player_id, damage)
 var gamebus_emitter: Callable = Callable()
 
-# Branch-play counters (not serialized — used at battle end to award currency points)
-var dawn_cards_played: int = 0
-var dusk_cards_played: int = 0
+# Branch-play counters, branch name → cards played (not serialized — read at
+# battle end to award cross-magic currency points).
+var branch_cards_played: Dictionary = {}
 
 # Battlefield Resonance context (GID-059) — set by GameState.set_battlefield_context().
 var battlefield_biome: int = -1
@@ -159,10 +160,7 @@ func play_card(card: CardInstance) -> bool:
 		BattlefieldRules.apply_slot_rule(card, slot_idx, battlefield_biome)
 		if card.keywords.has(Keywords.SURGE):
 			card.summoning_sick = false
-	if card.magic_branch == "dawn":
-		dawn_cards_played += 1
-	elif card.magic_branch == "dusk":
-		dusk_cards_played += 1
+	_record_branch_play(card)
 	grasslands_card_played = true
 	return true
 
@@ -183,12 +181,26 @@ func play_card_at_slot(card: CardInstance, slot_idx: int) -> bool:
 		card.summoning_sick = true
 		if card.keywords.has(Keywords.SURGE):
 			card.summoning_sick = false
-	if card.magic_branch == "dawn":
-		dawn_cards_played += 1
-	elif card.magic_branch == "dusk":
-		dusk_cards_played += 1
+	_record_branch_play(card)
 	grasslands_card_played = true
 	return true
+
+func _record_branch_play(card: CardInstance) -> void:
+	if card.magic_branch == "":
+		return
+	branch_cards_played[card.magic_branch] = int(branch_cards_played.get(card.magic_branch, 0)) + 1
+
+## Cross-magic points this player earned by playing signature-branch cards, as
+## {"corruption": int, "redemption": int}. Only a type's signature branch counts
+## — see MagicTypes.CURRENCY_BRANCHES.
+func cross_currency_earned() -> Dictionary:
+	var earned: Dictionary = {"corruption": 0, "redemption": 0}
+	for branch: String in branch_cards_played.keys():
+		var currency: String = MagicTypes.currency_for_branch(branch)
+		if currency == "":
+			continue
+		earned[currency] = int(earned[currency]) + int(branch_cards_played[branch]) * MagicTypes.POINTS_PER_CARD
+	return earned
 
 func _apply_enhancement_to_card(card: CardInstance, enh: Dictionary) -> void:
 	match enh.get("type", ""):

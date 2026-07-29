@@ -5,6 +5,30 @@ const RegistryUtil = preload("res://game_logic/RegistryUtil.gd")
 # scanner includes these files in the Android APK. Add a line here whenever a
 # new skill .tres is created.
 const _S_ASH_BONE_ARMOUR     := preload("res://data/skills/ash_bone_armour.tres")
+const _S_BLOOM_BOUNTIFUL_HARVEST   := preload("res://data/skills/bloom_bountiful_harvest.tres")
+const _S_BLOOM_DEEP_ROOTS          := preload("res://data/skills/bloom_deep_roots.tres")
+const _S_BLOOM_FIRST_SHOOTS        := preload("res://data/skills/bloom_first_shoots.tres")
+const _S_BLOOM_OVERGROWTH          := preload("res://data/skills/bloom_overgrowth.tres")
+const _S_BLOOM_SEEDLING            := preload("res://data/skills/bloom_seedling.tres")
+const _S_BLOOM_SUNWARD_REACH       := preload("res://data/skills/bloom_sunward_reach.tres")
+const _S_FLUX_KINETIC_CHARGE       := preload("res://data/skills/flux_kinetic_charge.tres")
+const _S_FLUX_LEYWARD_FOCUS        := preload("res://data/skills/flux_leyward_focus.tres")
+const _S_FLUX_MANA_SURGE           := preload("res://data/skills/flux_mana_surge.tres")
+const _S_FLUX_PHASE_SHIFT          := preload("res://data/skills/flux_phase_shift.tres")
+const _S_FLUX_REWEAVE              := preload("res://data/skills/flux_reweave.tres")
+const _S_FLUX_UNSTABLE_FORM        := preload("res://data/skills/flux_unstable_form.tres")
+const _S_FRACTURE_FAULT_LINE       := preload("res://data/skills/fracture_fault_line.tres")
+const _S_FRACTURE_HAIRLINE_CRACK   := preload("res://data/skills/fracture_hairline_crack.tres")
+const _S_FRACTURE_HOLLOW_CORE      := preload("res://data/skills/fracture_hollow_core.tres")
+const _S_FRACTURE_SCAVENGED_SHARDS := preload("res://data/skills/fracture_scavenged_shards.tres")
+const _S_FRACTURE_SHATTERWAVE      := preload("res://data/skills/fracture_shatterwave.tres")
+const _S_FRACTURE_SPLINTERING      := preload("res://data/skills/fracture_splintering.tres")
+const _S_THORN_BARBED_GROWTH       := preload("res://data/skills/thorn_barbed_growth.tres")
+const _S_THORN_BRAMBLE_WALL        := preload("res://data/skills/thorn_bramble_wall.tres")
+const _S_THORN_RAMPANT_VINES       := preload("res://data/skills/thorn_rampant_vines.tres")
+const _S_THORN_SECOND_BLOOM        := preload("res://data/skills/thorn_second_bloom.tres")
+const _S_THORN_THORNBURST          := preload("res://data/skills/thorn_thornburst.tres")
+const _S_THORN_WILD_SAP            := preload("res://data/skills/thorn_wild_sap.tres")
 const _S_ASH_BRITTLE_CURSE   := preload("res://data/skills/ash_brittle_curse.tres")
 const _S_ASH_BRITTLE_EDGE    := preload("res://data/skills/ash_brittle_edge.tres")
 const _S_ASH_CINDERHEART     := preload("res://data/skills/ash_cinderheart.tres")
@@ -45,6 +69,18 @@ static func _ensure_loaded() -> void:
 		_S_DUSK_SHADOW_WELL, _S_DUSK_SOUL_SIPHON, _S_DUSK_VOID_TEMPO,
 		_S_EMBER_BLAZING_DRAW, _S_EMBER_FLAME_TEMPO, _S_EMBER_INFERNO_SURGE,
 		_S_EMBER_PYROBLAST, _S_EMBER_SEARING_FOCUS, _S_EMBER_TORCH_BEARER,
+		_S_BLOOM_BOUNTIFUL_HARVEST, _S_BLOOM_DEEP_ROOTS,
+		_S_BLOOM_FIRST_SHOOTS, _S_BLOOM_OVERGROWTH,
+		_S_BLOOM_SEEDLING, _S_BLOOM_SUNWARD_REACH,
+		_S_THORN_BARBED_GROWTH, _S_THORN_BRAMBLE_WALL,
+		_S_THORN_RAMPANT_VINES, _S_THORN_SECOND_BLOOM,
+		_S_THORN_THORNBURST, _S_THORN_WILD_SAP,
+		_S_FLUX_KINETIC_CHARGE, _S_FLUX_LEYWARD_FOCUS,
+		_S_FLUX_MANA_SURGE, _S_FLUX_PHASE_SHIFT,
+		_S_FLUX_REWEAVE, _S_FLUX_UNSTABLE_FORM,
+		_S_FRACTURE_FAULT_LINE, _S_FRACTURE_HAIRLINE_CRACK,
+		_S_FRACTURE_HOLLOW_CORE, _S_FRACTURE_SCAVENGED_SHARDS,
+		_S_FRACTURE_SHATTERWAVE, _S_FRACTURE_SPLINTERING,
 	], "SkillRegistry")
 
 static func get_skill(id: String) -> SkillData:
