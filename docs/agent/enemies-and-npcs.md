@@ -16,27 +16,46 @@
 
 ### Enemy Types (`autoloads/EnemyRegistry.gd`)
 
-`EnemyRegistry` is an autoload that loads all `EnemyData` resources from `data/enemies/*.tres` at startup and exposes `get_enemy(type_id)` and `type_for_biome(biome, distance)`.
+`EnemyRegistry` is an autoload whose `_enemies: Dictionary` (built once in
+`_ensure_loaded()`) is the **only** source of enemy battle data — there are
+no `.tres` enemy resources (see CLAUDE.md "Save Fields"). Static getters read
+it directly: `get_deck`, `get_drop_pool`, `get_display_name`,
+`get_coin_reward`, `get_is_boss`/`is_boss`, `get_boss_hp`, `get_phase2_deck`,
+`get_difficulty_tier`, `get_ai_persona`, `get_lore_text`,
+`get_capture_condition`/`get_capture_param`, `get_signature_card`. Several of
+these (`deck`, `drop_pool`, `display_name`, `coin_reward`, `is_boss`,
+`boss_hp`, `phase2_deck`, `difficulty_tier`, `lore_text`) index the
+dictionary directly with `[]` — every entry must set all of them, even to
+empty/zero/false defaults (see any duelist entry for the non-boss shape).
+`ai_persona`, `signature_card`, `capture_condition`, and `capture_param` are
+optional (`.get()` with a fallback) — only soulbind-capture-eligible enemies
+carry the capture fields, and only enemies with a `sig_*` companion card
+(`data/cards/sig_*.tres`) carry `signature_card`.
 
-| Type ID | Deck | Coin reward | Intended zone |
-|---|---|---|---|
-| `undead_basic` | 4× Ghost + 4× Skeleton | 5 | Early game (grasslands, close to origin) |
-| `undead_horde` | 4× Skeleton + 4× Zombie | 8 | Mid game (forest, medium distance) |
-| `ghoul_pack` | 4× Zombie + 4× Ghoul | 12 | Late game (desert, scorched, far) |
-| `undead_elite` | 8× Ghoul | 20 | End game (mountains, very far) |
+`type_for_biome(biome_id: int, dist: int) -> String` looks up
+`BiomeDef.ENEMY_POOLS[biome_id]` (an `Array` of type-id strings, one per
+biome) and indexes into it with `clamp(dist / 8, 0, pool.size() - 1)` — later
+pool entries are tougher and only reachable farther from the world origin.
+See "Biome Enemy Pools" below for the current per-biome pool contents.
 
-`type_for_biome()` uses a distance threshold table per biome to return the appropriate type ID:
+| Type ID | Deck | Coin reward | Tier | Intended zone |
+|---|---|---|---|---|
+| `undead_basic` | 3× Ghost + 3× Skeleton + 3× Zombie + Ghoul | 5 | 1 | Early game (grasslands, close to origin) |
+| `undead_horde` | 4× Ghost + 3× Skeleton + 2× Zombie + 2× Ghoul | 8 | 2 | Mid game (forest, medium distance) |
+| `ghoul_pack` | 4× Ghoul + 4× Zombie + 4× Skeleton | 12 | 3 | Late game (desert, scorched, far) |
+| `undead_elite` | 5× Ghoul + 4× Zombie + 3× Skeleton | 20 | 4 | End game (mountains, very far) |
+| `wraith` (GID-021) | 6× Ghost + 2× Skeleton + 2× Ember Imp | 8 | 1 | Grasslands — fast, low-HP swarm |
+| `forest_shade` (GID-021) | 3× Skeleton + 2× Zombie + 2× Dusk Wraith + 2× Insight + Dusk Seer | 10 | 2 | Forest — evasive, card-advantage |
+| `sand_stalker` (GID-021) | 4× Skeleton + 3× Zombie + 2× Ghoul + Dagger Throw | 9 | 2 | Desert — aggressive rush |
+| `scorched_revenant` (GID-021) | 3× Zombie + 2× Ghoul + 2× Scorch + 2× Char + 2× Alight + Ember | 12 | 3 | Scorched — burn/board-wide damage |
+| `mountain_troll` (GID-021) | 6× Ghoul + 3× Zombie + 2× Restore + Wither | 15 | 3 | Mountains — high-HP, grindy |
+| `stone_golem` (GID-021) | 6× Ghoul + 3× Zombie + 2× Ash Bone Wall + Ash Arbiter — `is_boss`, `boss_hp` 40, has a `phase2_deck` | 18 | 4 | Mountains — tanky mini-boss, still a *regular* biome-pool spawn (not a TID-071 story boss) |
 
-```gdscript
-# Example (simplified)
-func type_for_biome(biome: String, distance: float) -> String:
-    match biome:
-        "grasslands": return "undead_basic" if distance < 200 else "undead_horde"
-        "forest":     return "undead_horde" if distance < 300 else "ghoul_pack"
-        "scorched":   return "ghoul_pack"   if distance < 400 else "undead_elite"
-        "mountains":  return "undead_elite"
-        _:            return "undead_basic"
-```
+Lore text, exact drop pools, and the two dedicated Chapter 1 story bosses
+(`hollow_steward`, `martarquas_vanguard` — see "Boss Battle Framework" below)
+are in `autoloads/EnemyRegistry.gd`; the design rationale for each GID-021
+deck is in `docs/human/story.md` "New Enemy Types". These 6 types are not
+yet in any biome's spawn pool — see "Biome Enemy Pools" below (TID-072).
 
 ### AI Personas (GID-112)
 
