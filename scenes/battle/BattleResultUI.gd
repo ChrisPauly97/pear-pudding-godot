@@ -17,6 +17,7 @@ var _vh: float = 0.0
 var _float_layer: CanvasLayer = null
 var _collect_veterancy_fn: Callable  # () -> Dictionary
 var _boss_banner: Control = null
+var _ambush_banner: Control = null
 
 func setup(parent: Node, vh: float, float_layer: CanvasLayer, collect_veterancy_fn: Callable) -> void:
 	_parent = parent
@@ -64,6 +65,36 @@ func show_phase2_banner() -> void:
 		_boss_banner.queue_free()
 	_boss_banner = lbl
 	start_banner_fade(lbl)
+
+## World-encounter ambush banner (GID-113 / TID-421, TID-422). Positioned
+## below the boss banner's y so a boss ambush can show both at once without
+## overlap. Owns its own field so it never fights `_boss_banner`'s
+## fade/replace bookkeeping.
+func show_ambush_banner(is_bonus: bool) -> void:
+	var vp: Vector2 = _parent.get_viewport().get_visible_rect().size
+	var font_size: int = int(_vh * 0.04)
+	var lbl := _UiUtil.make_label("Ambush!" if is_bonus else "Ambushed!", int(font_size))
+	lbl.add_theme_color_override("font_color", Color(0.4, 1.0, 0.4) if is_bonus else Color(1.0, 0.3, 0.3))
+	lbl.add_theme_color_override("font_shadow_color", Color.BLACK)
+	lbl.add_theme_constant_override("shadow_offset_x", 2)
+	lbl.add_theme_constant_override("shadow_offset_y", 2)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.size = Vector2(vp.x, font_size * 2)
+	lbl.position = Vector2(0.0, _vh * 0.16)
+	_parent.add_child(lbl)
+	_parent.move_child(lbl, _parent.get_child_count() - 1)
+	if _ambush_banner != null and is_instance_valid(_ambush_banner):
+		_ambush_banner.queue_free()
+	_ambush_banner = lbl
+	var tween: Tween = _parent.create_tween()
+	tween.tween_interval(_BOSS_BANNER_DURATION - 0.5)
+	tween.tween_property(lbl, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(func() -> void:
+		if is_instance_valid(lbl):
+			lbl.queue_free()
+		if _ambush_banner == lbl:
+			_ambush_banner = null
+	)
 
 # -------------------------------------------------------------------------
 # Reward count-up (TID-429)

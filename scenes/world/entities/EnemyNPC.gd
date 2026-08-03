@@ -79,12 +79,20 @@ func init_from_data(data: Dictionary) -> void:
 func engage() -> void:
 	if not _alive:
 		return
+	# Ambush classification (GID-113): IDLE covers both wanderers (never
+	# alerted at all) and tracking enemies caught before they noticed the
+	# player; CHASING means the enemy caught the player mid-pursuit (TID-422).
+	# ALERTED (mid-reaction) is neither — a neutral fight.
+	var player_ambush: bool = _alert_state == AlertState.IDLE
+	var enemy_ambush: bool = _alert_state == AlertState.CHASING
 	_alive = false
 	enemy_data["alive"] = false
 	_show_alert()
 	AudioManager.play_sfx("enemy_alert")
 	await get_tree().create_timer(0.4, false).timeout
 	var edata := enemy_data.duplicate()
+	edata["player_ambush"] = player_ambush
+	edata["enemy_ambush"] = enemy_ambush
 	var etype: String = str(edata.get("enemy_type", "undead_basic"))
 	if not edata.has("enemy_deck"):
 		edata["enemy_deck"] = EnemyRegistry.get_deck(etype)
