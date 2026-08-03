@@ -23,7 +23,7 @@
 | [GID-017](goals/GID-017--native-map-storage/goal.md) | Native Godot Map Storage Migration | done | 8 / 8 |
 | [GID-018](goals/GID-018--card-content-depth/goal.md) | Card Content Depth — Dawn & Dusk Branches | done | 4 / 4 |
 | [GID-019](goals/GID-019--battle-depth/goal.md) | Battle Depth — Targeting, Intent & Status Effects | done | 5 / 5 |
-| [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | done (TID-067 superseded by GID-108/TID-405; all criteria satisfied) | 4 / 5 |
+| [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | done (TID-067 superseded by GID-108/TID-405; headless tests confirmed 2026-08-03) | 4 / 5 |
 | [GID-021](goals/GID-021--enemy-boss-variety/goal.md) | Enemy & Boss Variety | done | 5 / 5 |
 | [GID-022](goals/GID-022--weapon-system-content/goal.md) | Weapon System Content | done | 4 / 4 |
 | [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | done | 5 / 5 |
@@ -110,8 +110,8 @@
 | [GID-104](goals/GID-104--competitive-formats/goal.md) | Competitive Formats — Draft Duels, Tournaments & Spectator Wagers | done | 3 / 3 |
 | [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | done | 2 / 2 |
 | [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | done | 4 / 4 |
-| [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | done (needs headless test run + visual verification — see TID-398) | 5 / 5 |
-| [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | done (headless test run unverified — no Godot binary in sandbox) | 10 / 10 |
+| [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | done (headless tests confirmed 2026-08-03; still needs an eyes-on visual overlap pass — no display in this environment) | 5 / 5 |
+| [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | done (headless tests confirmed 2026-08-03) | 10 / 10 |
 | [GID-109](goals/GID-109--keybindings-settings/goal.md) | Desktop Keybindings Settings Page | done | 2 / 2 |
 | [GID-110](goals/GID-110--mailbox-overflow-storage/goal.md) | Mailbox — Overflow Storage for Bag-Full Card Rewards | done | 3 / 3 |
 | [GID-111](goals/GID-111--coop-boss-targeting-fix/goal.md) | Co-op Boss Targeting Fix — Dead Ally Retargeting | done | 1 / 1 |

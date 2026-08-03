@@ -32,8 +32,10 @@ This goal introduces a HUD zone/action-registry framework (extending the pattern
 - [x] All always-on co-op buttons (Roster, Stash, Leaderboard, Ghost Duels, Team Duel, Dungeon Crawl, Loot-mode toggle) are reachable from a single "Party" entry point instead of being individually placed on the HUD
 - [x] Proximity-gated actions (Challenge/Ranked, Trade, Spectate, USE/Interact) share one contextual bar with no simultaneous overlap regardless of which combination is active
 - [x] Chat, Emote, and Ping are reachable from one compact social cluster with no position collisions
-- [ ] No two HUD elements occupy overlapping screen regions in any reachable combination of single-player / co-op / dungeon-crawl / PvP-pending states — **not manually verified**: this environment cannot run the Godot editor (network policy blocks the release download). Verified by code-tracing instead (every migrated button lives in an auto-stacking, overlap-proof zone Container); the one remaining known gap (Siege vs. Tournament, pre-existing/unmigrated) is logged as BID-043. Needs a real visual pass before merge.
+- [ ] No two HUD elements occupy overlapping screen regions in any reachable combination of single-player / co-op / dungeon-crawl / PvP-pending states — **still not manually/visually verified**: headless Godot has no display output, so this remains a code-tracing conclusion, not an eyes-on check (every migrated button lives in an auto-stacking, overlap-proof zone Container); the one remaining known gap (Siege vs. Tournament, pre-existing/unmigrated) is logged as BID-043. Still needs a real visual pass.
 - [x] Every consolidated action retains mobile tap parity per CLAUDE.md's Mobile/Desktop Feature Parity rule
 - [x] `docs/agent/ui-and-scene-management.md` documents the zone/action-registry system, the Party panel, and the contextual action bar
 - [x] A regression test (`tests/unit/test_hud_registry_guardrail.gd`) fails if a raw `Button.new()`/`_hud.add_child(...)` is added to WorldScene's HUD CanvasLayer outside the registry API or the reviewed allow-list
-- [ ] All tests pass headless with zero regressions — **not run**: `godot --headless --path . -s tests/runner.gd` requires the Godot binary, which this environment could not download. Needs a CI/local run before merge.
+- [x] All tests pass headless with zero regressions — confirmed 2026-08-03: headless Godot 4.6
+      available this session; `godot --headless --editor --quit` clean, `godot --headless --path
+      . -s tests/runner.gd` 2358 passed, 0 failed, 1 pending (pre-existing)
