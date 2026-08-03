@@ -54,8 +54,33 @@ See "Biome Enemy Pools" below for the current per-biome pool contents.
 Lore text, exact drop pools, and the two dedicated Chapter 1 story bosses
 (`hollow_steward`, `martarquas_vanguard` — see "Boss Battle Framework" below)
 are in `autoloads/EnemyRegistry.gd`; the design rationale for each GID-021
-deck is in `docs/human/story.md` "New Enemy Types". These 6 types are not
-yet in any biome's spawn pool — see "Biome Enemy Pools" below (TID-072).
+deck is in `docs/human/story.md` "New Enemy Types".
+
+### Biome Enemy Pools (`game_logic/world/BiomeDef.gd`, GID-021)
+
+```gdscript
+const ENEMY_POOLS: Array = [
+    ["undead_basic", "undead_horde", "wraith"],        # Grasslands
+    ["undead_basic", "forest_shade", "ghoul_pack"],     # Forest
+    ["sand_stalker", "undead_horde"],                   # Desert
+    ["scorched_revenant", "undead_elite"],              # Scorched
+    ["mountain_troll", "stone_golem"],                  # Mountains
+]
+```
+
+`EnemyRegistry.type_for_biome(biome_id, dist)` indexes `ENEMY_POOLS[biome_id]`
+with `clamp(dist / 8, 0, pool.size() - 1)` — later entries in a pool are only
+reachable farther from the world origin, so pool order matters (put the
+tougher type last). Before GID-021, every biome pool held only the original
+4 core types, and **Mountains held the same type twice**
+(`["undead_elite", "undead_elite"]`) — deep-mountain exploration had zero
+variety at all. Now every biome has a distinct pool that includes at least
+one GID-021 type. `stone_golem` (`is_boss = true`, mini-boss flavor) is a
+legitimate infinite-world spawn here despite the boss flag — same category
+as `roaming_terror` (also `is_boss = true` and world-spawnable, via
+`WorldEvents` instead of a biome pool). Only the two dedicated Chapter 1
+story bosses (`hollow_steward`, `martarquas_vanguard`, see "Chapter 1 Story
+Bosses" below) are named-map-only, never in a biome pool.
 
 ### AI Personas (GID-112)
 
