@@ -2,7 +2,7 @@
 
 **Goal:** GID-113
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -93,12 +93,105 @@ force-engages on contact. This task gives them actual chase movement and an
 
 ## Plan
 
-_Written during Plan phase._
+**Movement model:** direct-vector chase, no A*. `EnemyNPC` extends
+`WorldEntityBase` (plain `Node3D`, no physics body) — there's nothing to
+`move_and_slide()`. Each `_process(delta)` while `CHASING`, move `position`
+toward the player's `global_position` (Y zeroed) by
+`min(TRACKING_SPEED * delta, remaining_distance)`. Confirmed via
+`EnemyRegistry` that tracking enemies do include dungeon/depth placements, so
+straight-line chase can clip through dungeon walls — accepted as a known
+limitation for this foundation task (logged as BID-058, not fixed here; full
+pathfinding chase is a much larger change than "make them move at all").
+
+**Player reference:** no per-call-site wiring. `WorldScene._create_player_node()`
+already does `p.add_to_group("player")`, so `EnemyNPC` lazily resolves
+`get_tree().get_first_node_in_group("player")` itself, cached and
+revalidated with `is_instance_valid()`. This avoids touching the 8 existing
+`EnemyNPC` spawn call sites (WorldScene ×3, ChunkRenderer/TerrainMath,
+CoopActivities ×3, WorldEvents) and matches the project's preference for
+decoupling over direct references.
+
+**Awareness state:** new `enum AlertState { IDLE, ALERTED, CHASING }` on
+`EnemyNPC`, gated behind the existing `_tracking` flag (same performance gate
+as the current proximity `Area3D` — wanderers pay zero extra cost). A second
+`Area3D` (radius = new `IsoConst.ENEMY_AWARENESS_RANGE = 6.0`, mirroring
+`_setup_proximity_area()`'s pattern) fires `IDLE -> ALERTED` on player entry.
+`ALERTED` holds for `_ALERT_REACTION_TIME = 0.4s` (matches the existing
+`engage()` beat timing) before flipping to `CHASING`, giving TID-422's future
+"fair warning" indicator a state to hook. No give-up / exit handling is added
+here — TID-423 owns breaking pursuit, so state only escalates in this task.
+The existing `AUTO_BATTLE_RANGE` proximity `Area3D` is untouched and still
+fires `engage()` normally; since it's a child of the now-moving `EnemyNPC`,
+Godot's physics re-evaluates the overlap every physics tick regardless of
+which side moved, so a completed chase naturally ends in `engage()` with no
+new code.
+
+**Gating:** movement and awareness both additionally require
+`SceneManager.can_proximity_engage()` (state == WORLD, no post-battle
+immunity window) — reuses the exact guard `_on_body_entered()` already uses,
+so enemies don't advance/chase while the player is in battle/menus.
+
+**Co-op scoping (explicit decision):** chase movement and awareness are
+skipped entirely when `NetworkManager.is_active()` (co-op session active) —
+matches the "scoped out for co-op sessions initially" option the task notes
+call out. Co-op enemies remain static this task; host-authoritative chase
+sync is future work if wanted. Documented in `docs/agent/enemies-and-npcs.md`.
+
+**Constants:** add `IsoConst.ENEMY_AWARENESS_RANGE: float = 6.0` next to
+`AUTO_BATTLE_RANGE`/`TRACKING_SPEED`; update `TRACKING_SPEED`'s comment since
+it's no longer "reserved for future movement AI" — it's consumed now.
+
+**Backlog note discovered during research:** `docs/agent/enemies-and-npcs.md`,
+`docs/agent/battle-system.md`, `docs/agent/ui-and-scene-management.md`, and
+this task's own research notes all describe an `EnemyNPC.engage_cooldown`
+field ticked in `_process()` (GID-069/TID-250-251) that does not exist
+anywhere in the current `EnemyNPC.gd` — no `_process`, no `engage_cooldown`
+field. It was apparently dropped by a later refactor (likely the TID-427
+`engage()` rewrite) without updating the docs or re-adding the mechanic.
+Logging as BID-058 rather than fixing here (out of scope — this task adds the
+first real `_process()` to the file, for chase movement, and restoring a
+possibly-intentionally-removed cooldown mechanic is a separate concern).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `autoloads/IsoConst.gd`: added `ENEMY_AWARENESS_RANGE: float = 6.0`; updated
+  `TRACKING_SPEED`'s comment (no longer "reserved for future movement AI" —
+  it's consumed now).
+- `scenes/world/entities/EnemyNPC.gd`:
+  - New `enum AlertState { IDLE, ALERTED, CHASING }`, `_alert_state`,
+    `_alert_timer`, `_player_ref`, `_ALERT_REACTION_TIME = 0.4`.
+  - New `_setup_awareness_area()` (second `Area3D`, radius
+    `ENEMY_AWARENESS_RANGE`), called from `_ready()` alongside the existing
+    proximity area, gated the same way (`if _tracking`).
+  - New `_on_awareness_entered(body)`: `IDLE -> ALERTED` on player entry
+    (guarded by `_alive`, `_tracking`, co-op inactive, `can_proximity_engage()`,
+    not-already-defeated — mirrors `_on_body_entered()`'s guards).
+  - New `_process(delta)` (first one in this file): ticks `ALERTED ->
+    CHASING` after `_ALERT_REACTION_TIME`, then calls `_chase_player(delta)`
+    every frame while `CHASING`. Gated off entirely in co-op
+    (`NetworkManager.is_active()`) and outside `SceneManager.WORLD` state.
+  - New `_chase_player(delta)`: lazily resolves the player via
+    `get_tree().get_first_node_in_group("player")` (no new spawn-site wiring
+    needed — `WorldScene._create_player_node()` already adds the player to
+    that group), moves `position` toward it by `TRACKING_SPEED * delta`
+    clamped to remaining distance.
+  - The existing `AUTO_BATTLE_RANGE` proximity `Area3D`/`engage()` path is
+    unchanged; since it's a child of the now-moving `EnemyNPC`, a completed
+    chase naturally ends in `engage()` with no new code (physics re-evaluates
+    Area3D overlap regardless of which side moved).
+- Filed `tasks/backlog/BID-058--enemy-npc-engage-cooldown-missing.md`: docs in
+  three files and this task's own research notes describe an
+  `EnemyNPC.engage_cooldown` field ticked in `_process()` (GID-069) that does
+  not exist in the current file — dropped by a later refactor without a doc
+  update. Not fixed here (out of scope; this task adds the file's first real
+  `_process()`, for chase movement).
+- Verified: headless editor import clean; `tests/runner.gd` — 2337 passed, 0
+  failed, 1 pending (pre-existing).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/enemies-and-npcs.md`: rewrote "EnemyNPC Scene" section to
+  describe the awareness/pursuit system (IDLE/ALERTED/CHASING, awareness
+  radius, chase movement, co-op scoping) in place of the old "Static entity —
+  no movement AI" framing; updated the `IsoConst` integrations row for
+  `TRACKING_SPEED`/`ENEMY_AWARENESS_RANGE`.

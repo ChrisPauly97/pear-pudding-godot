@@ -52,12 +52,18 @@ const WALL_TINT: Array[Color] = [
 ]
 
 # Per-biome enemy pool: [near_type, far_type] — indexed by clamp(dist/8, 0, 1).
+## GID-021: each biome's pool is now distinct (previously mountains held the
+## same type twice — undead_elite, undead_elite — so deep-mountain exploration
+## had zero variety). stone_golem is is_boss=true (mini-boss flavor) but is a
+## legitimate infinite-world spawn here, same as roaming_terror; only the two
+## dedicated Chapter 1 story bosses (hollow_steward, martarquas_vanguard) are
+## named-map-only.
 const ENEMY_POOLS: Array = [
-	["undead_basic", "undead_horde"],    # Grasslands
-	["undead_horde", "ghoul_pack"],      # Forest
-	["undead_basic", "ghoul_pack"],      # Desert
-	["ghoul_pack",   "undead_elite"],    # Scorched
-	["undead_elite", "undead_elite"],    # Mountains
+	["undead_basic", "undead_horde", "wraith"],        # Grasslands
+	["undead_basic", "forest_shade", "ghoul_pack"],     # Forest
+	["sand_stalker", "undead_horde"],                   # Desert
+	["scorched_revenant", "undead_elite"],              # Scorched
+	["mountain_troll", "stone_golem"],                  # Mountains
 ]
 
 # Per-biome Environment.adjustment scalars (brightness, contrast, saturation).

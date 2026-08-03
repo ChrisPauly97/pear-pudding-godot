@@ -24,7 +24,7 @@
 | [GID-018](goals/GID-018--card-content-depth/goal.md) | Card Content Depth — Dawn & Dusk Branches | done | 4 / 4 |
 | [GID-019](goals/GID-019--battle-depth/goal.md) | Battle Depth — Targeting, Intent & Status Effects | done | 5 / 5 |
 | [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | done (TID-067 superseded by GID-108/TID-405; all criteria satisfied) | 4 / 5 |
-| [GID-021](goals/GID-021--enemy-boss-variety/goal.md) | Enemy & Boss Variety | pending | 1 / 5 |
+| [GID-021](goals/GID-021--enemy-boss-variety/goal.md) | Enemy & Boss Variety | done | 5 / 5 |
 | [GID-022](goals/GID-022--weapon-system-content/goal.md) | Weapon System Content | done | 4 / 4 |
 | [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | done | 5 / 5 |
 | [GID-024](goals/GID-024--meta-progression/goal.md) | Meta-Progression | done | 4 / 4 |
@@ -90,18 +90,18 @@
 | [GID-084](goals/GID-084--camera-smoothing/goal.md) | Camera Smoothing & Walk Animation | done | 2 / 2 |
 | [GID-085](goals/GID-085--test-coverage/goal.md) | Test Coverage Expansion | done | 3 / 3 |
 | [GID-086](goals/GID-086--corruption-redemption-accrual/goal.md) | Corruption & Redemption Points Accrual | done | 2 / 2 |
-| [GID-087](goals/GID-087--godot-version-spec-alignment/goal.md) | Godot Version & Spec Alignment | pending | 1 / 2 |
+| [GID-087](goals/GID-087--godot-version-spec-alignment/goal.md) | Godot Version & Spec Alignment | done | 2 / 2 |
 | [GID-088](goals/GID-088--battle-code-quality/goal.md) | Battle Code Quality — GameState Decoupling & Native Drag | done | 2 / 2 |
 | [GID-089](goals/GID-089--game-visual-polish/goal.md) | Visual Polish — World Art, Atmosphere & Props | done | 6 / 6 |
 | [GID-090](goals/GID-090--coop-multiplayer-slice/goal.md) | Co-op Multiplayer Vertical Slice | done | 8 / 8 |
-| [GID-091](goals/GID-091--pvp-card-battles/goal.md) | PvP Card Battles over Co-op | pending | 6 / 7 |
+| [GID-091](goals/GID-091--pvp-card-battles/goal.md) | PvP Card Battles over Co-op | done | 7 / 7 |
 | [GID-092](goals/GID-092--coop-multiplayer-bugfixes/goal.md) | Co-op Multiplayer Bug Fixes | done | 3 / 3 |
 | [GID-093](goals/GID-093--world-nav-ux-fixes/goal.md) | World Navigation & UX Fixes | done | 3 / 3 |
 | [GID-094](goals/GID-094--multiplayer-foundations/goal.md) | Multiplayer Foundations — N-Player Capacity & Identity | done | 4 / 4 |
 | [GID-095](goals/GID-095--persistent-mp-sessions/goal.md) | Persistent Multiplayer Sessions & Per-Player Progress | done | 4 / 4 |
 | [GID-096](goals/GID-096--coop-world-sync/goal.md) | Co-op World State Sync | done | 4 / 4 |
 | [GID-097](goals/GID-097--dedicated-server/goal.md) | Dedicated Server Option | done | 3 / 3 |
-| [GID-098](goals/GID-098--coop-story-mode/goal.md) | Co-op Story Mode | pending | 3 / 4 |
+| [GID-098](goals/GID-098--coop-story-mode/goal.md) | Co-op Story Mode | done | 4 / 4 |
 | [GID-099](goals/GID-099--coop-joint-battle-engine/goal.md) | Co-op Joint Battle Engine | done | 3 / 3 |
 | [GID-100](goals/GID-100--coop-battle-design/goal.md) | Co-op Battle Design — Square Battlefield & Cross-Board Cards | done | 3 / 3 |
 | [GID-101](goals/GID-101--mp-social-rewards/goal.md) | Multiplayer Social & Rewards | done | 5 / 5 |
@@ -116,10 +116,10 @@
 | [GID-110](goals/GID-110--mailbox-overflow-storage/goal.md) | Mailbox — Overflow Storage for Bag-Full Card Rewards | done | 3 / 3 |
 | [GID-111](goals/GID-111--coop-boss-targeting-fix/goal.md) | Co-op Boss Targeting Fix — Dead Ally Retargeting | done | 1 / 1 |
 | [GID-112](goals/GID-112--battle-ai-depth/goal.md) | Battle AI Depth — Enemy Personas & Real Decision-Making | done | 5 / 5 |
-| [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | pending | 0 / 5 |
+| [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | done | 5 / 5 |
 | [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | needs-verification | 5 / 5 |
 | [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | done | 5 / 5 |
-| [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | in-progress (TID-438 awaits human spec edit) | 3 / 4 |
+| [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | done | 4 / 4 |
 | [GID-117](goals/GID-117--game-appeal/goal.md) | Game Appeal — Articulate & Prove "Why Play This" | done | 5 / 5 |
 | [GID-118](goals/GID-118--art-sprite-assets/goal.md) | Open-Source Character, Enemy & World Art Sprites | done | 4 / 4 |
 | [GID-119](goals/GID-119--mobile-battle-ux/goal.md) | Mobile Battle UX & Accessibility | done | 5 / 5 |
@@ -153,6 +153,8 @@ files in `tasks/archive/backlog/`.
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
 | [BID-053](backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job is `continue-on-error` — 638 pre-existing problems (357 are `class-definitions-order`); two `.gdlintrc` rules that contradicted CLAUDE.md were fixed, cutting the count from >1000 | code-smell | GID-123 / TID-466 |
 | [BID-057](backlog/BID-057--duplicate-tid-352.md) | TID-352 is used by two different completed tasks (GID-096 and GID-097); pre-dates this branch, filed rather than renumbered | doc-gap | GID-124 merge audit |
+| [BID-058](backlog/BID-058--enemy-npc-engage-cooldown-missing.md) | `EnemyNPC.engage_cooldown` documented in 3 agent docs (GID-069 flee/respawn cooldown) but does not exist anywhere in `EnemyNPC.gd` — likely dropped by the TID-427 `engage()` rewrite without a doc update | code-smell / doc-gap | GID-113 / TID-420 |
+| [BID-059](backlog/BID-059--map-scrolls-shrines-music-lost-in-3-maps.md) | `madrian.tres`/`maykalene.tres`/`blancogov.tres` have their `scrolls`/`shrines`/`music_track` fields mis-placed in the `.tres` text format, silently dropped on load — every lore scroll and puzzle shrine in those 3 maps has never spawned; 2 sibling maps fixed by GID-021/TID-071 | content-bug | GID-021 / TID-071 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` is 9154 lines / 401 functions — 13% of all GDScript in one file, 9x the project's own `max-file-lines`; it refilled after GID-072 because nothing enforces the decomposition | code-smell | GID-123 research |
 
 ## Resolved Backlog

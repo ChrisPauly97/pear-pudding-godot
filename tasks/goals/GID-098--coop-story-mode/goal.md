@@ -31,19 +31,24 @@ stays on finite named maps).
 | TID-355 | Multi-map co-op — map-transition & cross-map avatar sync | agent | done | — |
 | TID-356 | Shared story progression & flag arbitration | agent | done | TID-355 |
 | TID-357 | Group-aware NPC & story dialogue system | agent | done | TID-356 |
-| TID-358 | Pluralize authored story dialogue in story.md | human-action | in-progress | TID-357 |
+| TID-358 | Pluralize authored story dialogue in story.md | human-action | done | TID-357 |
 
 ## Acceptance Criteria
 
-- [ ] A party in a co-op session can transition between named maps and dungeons
+- [x] A party in a co-op session can transition between named maps and dungeons
       together; peers on the same map render each other (cross-map filtering keeps
       peers on *different* maps hidden, but transitions are synced/followable).
-- [ ] Story flags are shared via `SessionState`, not local `SaveManager`; a story
+- [x] Story flags are shared via `SessionState`, not local `SaveManager`; a story
       beat triggered by one player advances the whole party and fires its one-time
       effect exactly once (arbitration).
-- [ ] NPC and story dialogue addresses the group when more than one player is
+- [x] NPC and story dialogue addresses the group when more than one player is
       present, and falls back to the single-player text solo.
-- [ ] The exact list of authored `story.md` lines needing pluralization is prepared
+- [x] The exact list of authored `story.md` lines needing pluralization is prepared
       for the human to apply (TID-358).
-- [ ] Single-player is byte-for-byte unchanged when no session is active; full unit
+- [x] Single-player is byte-for-byte unchanged when no session is active; full unit
       suite still passes; headless import clean.
+
+## Status: done — all 4 tasks complete. 2 NPC lines (blancogov City dweller,
+blancogov_temple Scargroth) have no `dialogue_group` authored in the map
+`.tres` yet — they fall back to singular text in co-op until a future task
+adds one; not a blocker for this goal's scope.

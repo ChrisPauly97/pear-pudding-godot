@@ -4,7 +4,7 @@
 
 - Four overworld enemy types with escalating difficulty, each carrying a specific deck composition
 - Enemy type selection driven by biome and distance from the world origin
-- Mixed engagement: aggressive enemies (`undead_elite`, `ghoul_pack`, `roaming_terror`) attack on proximity via Area3D; wanderers (`undead_basic`, `undead_horde`) wait for player interaction
+- Detection & pursuit (GID-113): tracking enemies (`undead_elite`, `ghoul_pack`, `roaming_terror`, all dungeon/depth placements) notice the player within an awareness radius, react briefly, then actively chase — with a battle-start ambush bonus/penalty depending on whether the player snuck up or got caught, a fair-warning telegraph before the catch, and a give-up radius the player can break pursuit by outrunning; wanderers (`undead_basic`, `undead_horde`) never notice at all and always give the sneaking player an ambush bonus
 - Interact-to-engage works on all enemies via E key / interact button regardless of tracking mode
 - Defeated enemies are persisted in `SaveManager` so they do not respawn on reload
 - Town-person NPCs are static, non-hostile, and display biome-flavoured dialogue on interaction
@@ -16,27 +16,71 @@
 
 ### Enemy Types (`autoloads/EnemyRegistry.gd`)
 
-`EnemyRegistry` is an autoload that loads all `EnemyData` resources from `data/enemies/*.tres` at startup and exposes `get_enemy(type_id)` and `type_for_biome(biome, distance)`.
+`EnemyRegistry` is an autoload whose `_enemies: Dictionary` (built once in
+`_ensure_loaded()`) is the **only** source of enemy battle data — there are
+no `.tres` enemy resources (see CLAUDE.md "Save Fields"). Static getters read
+it directly: `get_deck`, `get_drop_pool`, `get_display_name`,
+`get_coin_reward`, `get_is_boss`/`is_boss`, `get_boss_hp`, `get_phase2_deck`,
+`get_difficulty_tier`, `get_ai_persona`, `get_lore_text`,
+`get_capture_condition`/`get_capture_param`, `get_signature_card`. Several of
+these (`deck`, `drop_pool`, `display_name`, `coin_reward`, `is_boss`,
+`boss_hp`, `phase2_deck`, `difficulty_tier`, `lore_text`) index the
+dictionary directly with `[]` — every entry must set all of them, even to
+empty/zero/false defaults (see any duelist entry for the non-boss shape).
+`ai_persona`, `signature_card`, `capture_condition`, and `capture_param` are
+optional (`.get()` with a fallback) — only soulbind-capture-eligible enemies
+carry the capture fields, and only enemies with a `sig_*` companion card
+(`data/cards/sig_*.tres`) carry `signature_card`.
 
-| Type ID | Deck | Coin reward | Intended zone |
-|---|---|---|---|
-| `undead_basic` | 4× Ghost + 4× Skeleton | 5 | Early game (grasslands, close to origin) |
-| `undead_horde` | 4× Skeleton + 4× Zombie | 8 | Mid game (forest, medium distance) |
-| `ghoul_pack` | 4× Zombie + 4× Ghoul | 12 | Late game (desert, scorched, far) |
-| `undead_elite` | 8× Ghoul | 20 | End game (mountains, very far) |
+`type_for_biome(biome_id: int, dist: int) -> String` looks up
+`BiomeDef.ENEMY_POOLS[biome_id]` (an `Array` of type-id strings, one per
+biome) and indexes into it with `clamp(dist / 8, 0, pool.size() - 1)` — later
+pool entries are tougher and only reachable farther from the world origin.
+See "Biome Enemy Pools" below for the current per-biome pool contents.
 
-`type_for_biome()` uses a distance threshold table per biome to return the appropriate type ID:
+| Type ID | Deck | Coin reward | Tier | Intended zone |
+|---|---|---|---|---|
+| `undead_basic` | 3× Ghost + 3× Skeleton + 3× Zombie + Ghoul | 5 | 1 | Early game (grasslands, close to origin) |
+| `undead_horde` | 4× Ghost + 3× Skeleton + 2× Zombie + 2× Ghoul | 8 | 2 | Mid game (forest, medium distance) |
+| `ghoul_pack` | 4× Ghoul + 4× Zombie + 4× Skeleton | 12 | 3 | Late game (desert, scorched, far) |
+| `undead_elite` | 5× Ghoul + 4× Zombie + 3× Skeleton | 20 | 4 | End game (mountains, very far) |
+| `wraith` (GID-021) | 6× Ghost + 2× Skeleton + 2× Ember Imp | 8 | 1 | Grasslands — fast, low-HP swarm |
+| `forest_shade` (GID-021) | 3× Skeleton + 2× Zombie + 2× Dusk Wraith + 2× Insight + Dusk Seer | 10 | 2 | Forest — evasive, card-advantage |
+| `sand_stalker` (GID-021) | 4× Skeleton + 3× Zombie + 2× Ghoul + Dagger Throw | 9 | 2 | Desert — aggressive rush |
+| `scorched_revenant` (GID-021) | 3× Zombie + 2× Ghoul + 2× Scorch + 2× Char + 2× Alight + Ember | 12 | 3 | Scorched — burn/board-wide damage |
+| `mountain_troll` (GID-021) | 6× Ghoul + 3× Zombie + 2× Restore + Wither | 15 | 3 | Mountains — high-HP, grindy |
+| `stone_golem` (GID-021) | 6× Ghoul + 3× Zombie + 2× Ash Bone Wall + Ash Arbiter — `is_boss`, `boss_hp` 40, has a `phase2_deck` | 18 | 4 | Mountains — tanky mini-boss, still a *regular* biome-pool spawn (not a TID-071 story boss) |
+
+Lore text, exact drop pools, and the two dedicated Chapter 1 story bosses
+(`hollow_steward`, `martarquas_vanguard` — see "Boss Battle Framework" below)
+are in `autoloads/EnemyRegistry.gd`; the design rationale for each GID-021
+deck is in `docs/human/story.md` "New Enemy Types".
+
+### Biome Enemy Pools (`game_logic/world/BiomeDef.gd`, GID-021)
 
 ```gdscript
-# Example (simplified)
-func type_for_biome(biome: String, distance: float) -> String:
-    match biome:
-        "grasslands": return "undead_basic" if distance < 200 else "undead_horde"
-        "forest":     return "undead_horde" if distance < 300 else "ghoul_pack"
-        "scorched":   return "ghoul_pack"   if distance < 400 else "undead_elite"
-        "mountains":  return "undead_elite"
-        _:            return "undead_basic"
+const ENEMY_POOLS: Array = [
+    ["undead_basic", "undead_horde", "wraith"],        # Grasslands
+    ["undead_basic", "forest_shade", "ghoul_pack"],     # Forest
+    ["sand_stalker", "undead_horde"],                   # Desert
+    ["scorched_revenant", "undead_elite"],              # Scorched
+    ["mountain_troll", "stone_golem"],                  # Mountains
+]
 ```
+
+`EnemyRegistry.type_for_biome(biome_id, dist)` indexes `ENEMY_POOLS[biome_id]`
+with `clamp(dist / 8, 0, pool.size() - 1)` — later entries in a pool are only
+reachable farther from the world origin, so pool order matters (put the
+tougher type last). Before GID-021, every biome pool held only the original
+4 core types, and **Mountains held the same type twice**
+(`["undead_elite", "undead_elite"]`) — deep-mountain exploration had zero
+variety at all. Now every biome has a distinct pool that includes at least
+one GID-021 type. `stone_golem` (`is_boss = true`, mini-boss flavor) is a
+legitimate infinite-world spawn here despite the boss flag — same category
+as `roaming_terror` (also `is_boss = true` and world-spawnable, via
+`WorldEvents` instead of a biome pool). Only the two dedicated Chapter 1
+story bosses (`hollow_steward`, `martarquas_vanguard`, see "Chapter 1 Story
+Bosses" below) are named-map-only, never in a biome pool.
 
 ### AI Personas (GID-112)
 
@@ -102,9 +146,28 @@ Spawned by `WorldEventManager` via `game_logic/WorldEvents.gd` on a 15–25 minu
 
 `SceneManager._on_battle_won()` handles both `"card_reward"` (single string, regular) and `"card_rewards"` (list, boss).
 
+### Chapter 1 Story Bosses (GID-021)
+
+Two dedicated, once-only boss placements distinct from `roaming_terror`
+(infinite world, repeatable) and Chapter 2's `martarquas_warleader` (Marsax
+hold siege). Both are regular `MapEnemy` placements — a single `ENEMY`
+directive in the map's `.tres` — with `is_tracking() == true` so they're
+proactive, unavoidable encounters, and both get standard once-only
+persistence for free via `SaveManager.defeated_enemies` (same spawn-skip
+check every named-map enemy already gets).
+
+| ID | Display Name | Map | Tile | Special Mechanic |
+|---|---|---|---|---|
+| `hollow_steward` | The Hollow Steward | `farsyth_mansion` | (66, 55) | Phase 2 at 50% HP — a corrupted former mansion steward sheds its living disguise; ties into the pre-existing maykalene hint "Strange things happen there" and foreshadows the Traitor's reach |
+| `martarquas_vanguard` | Martarquas Vanguard | `blancogov_temple` | (55, 60) | Phase 2 at 50% HP (armored, aggressive kit) — an advance scout intercepted on the way to the council; the true climax fight of Chapter 1 |
+
+Both use the ordinary `is_boss`/`boss_hp`/`phase2_deck` fields in
+`EnemyRegistry._enemies` — no bespoke trigger wiring beyond normal
+`MapEnemy` placement and the `is_tracking()` whitelist entry.
+
 ### EnemyNPC Scene (`scenes/world/entities/EnemyNPC.gd`)
 
-Static entity — no movement AI. Engagement happens in two ways:
+Engagement happens in two ways, plus pursuit movement for tracking enemies (GID-113):
 
 **Interact-to-engage (all enemies):**
 Player presses E / taps interact button within `INTERACT_RANGE` (1.5 units). `WorldScene._handle_interact()` calls `enemy.engage()`. Works on every enemy type.
@@ -114,6 +177,23 @@ Enemies with `tracking: true` in their spawn data have an `Area3D` (sphere, radi
 - `_alive` must be true (prevents double-trigger)
 - `SceneManager.can_proximity_engage()` must be true — returns false while `_state != State.WORLD` or `_proximity_engage_blocked` is set (2 s immunity window after returning from battle)
 - `SaveManager.is_enemy_defeated(id)` must be false (already-defeated enemies with stale Area3D state)
+
+**Awareness & pursuit (tracking enemies only, GID-113):**
+Tracking enemies also get a second, larger `Area3D` (radius = `IsoConst.ENEMY_AWARENESS_RANGE` = 6.0 units), set up alongside the proximity area in `_ready()` under the same `if _tracking` gate (wanderers pay zero extra `_process` cost). `EnemyNPC._alert_state` (an `int` holding one of `EnemyAlertState.State`'s `IDLE` / `ALERTED` / `CHASING` values) drives it. The transition *rules* themselves are pure, unit-tested functions in `game_logic/world/EnemyAlertState.gd` (`extends RefCounted`, same "logic separated from the scene node" shape as `TerrainMath`/`Pathfinder`/`BattlefieldRules`) — `EnemyNPC` only holds the current state/timers and applies whatever each function returns:
+- **IDLE -> ALERTED:** the awareness `Area3D`'s `body_entered` fires `_on_awareness_entered()`, guarded the same way as `_on_body_entered()` (alive, tracking, `can_proximity_engage()`, not already defeated), plus `not NetworkManager.is_active()`. It computes the flat XZ distance to the player and calls `EnemyAlertState.check_awareness(state, distance, awareness_range)` — one canonical "is this close enough to notice" decision, even though the `Area3D`'s own physics radius already implies it. On transition, shows the same `"!"` billboard beat and `enemy_alert` SFX that `engage()` uses (`_show_alert()`, reused) — a world-space cue with no keyboard/touch-only path, so it satisfies CLAUDE.md's Mobile/Desktop Feature Parity rule as-is (TID-422).
+- **ALERTED -> CHASING:** `_process()` calls `EnemyAlertState.tick_reaction(state, alert_timer, delta, reaction_time)`; after `_ALERT_REACTION_TIME` (0.4 s — matches the `engage()` alert beat) the enemy starts moving. This reaction window is exactly the fairness gap TID-422's telegraph warns the player during.
+- **CHASING:** `_chase_player(delta, player, dist)` moves `position` directly toward the player's `global_position` (Y zeroed) at `IsoConst.TRACKING_SPEED`, clamped to the remaining distance — a straight vector, not A* pathfinding (`EnemyNPC` extends `WorldEntityBase`/`Node3D`, no physics body to `move_and_slide()`). The player reference is resolved lazily via `get_tree().get_first_node_in_group("player")` (the group `WorldScene._create_player_node()` already adds the player to) — no per-spawn-site wiring needed. **Known limitation:** straight-line movement can clip through walls in dungeons/depth placements, which are always `tracking: true` — accepted since the common case is open overworld terrain; obstacle-aware chase is future work if it proves visibly wrong in dungeons.
+- **CHASING/ALERTED -> IDLE (give-up, TID-423):** every `_process()` tick also runs `EnemyAlertState.tick_giveup(state, giveup_timer, delta, distance, giveup_range, hold_time)` against `IsoConst.ENEMY_GIVEUP_RANGE` (9.0, larger than the awareness radius). The timer accumulates only while distance stays beyond that range and resets to 0 the instant it drops back under (no boundary flicker); after `_GIVEUP_HOLD_TIME` (2.0 s) sustained, the enemy reverts to `IDLE`, shows a fading gray `"?"` billboard (`_show_giveup()`), and stops moving. Distance-only, no separate max-chase-duration cap — `IsoConst.PLAYER_SPEED` (6.0, doubled while mounted) already exceeds `TRACKING_SPEED` (2.5), so a player who actually flees always opens the gap on their own.
+- Because the `AUTO_BATTLE_RANGE` proximity `Area3D` is a child of the (now-moving) `EnemyNPC`, a completed chase naturally overlaps it and calls `engage()` with no additional code — Godot re-evaluates `Area3D` overlaps every physics tick regardless of which side moved.
+- **Co-op scoping (explicit decision):** both awareness and chase movement are skipped entirely when `NetworkManager.is_active()`. Co-op enemies stay fully static for now; host-authoritative chase sync (broadcasting position) is unimplemented future work if wanted.
+
+**Ambush bonus/penalty (TID-421, TID-422):** `EnemyNPC.engage()` calls `EnemyAlertState.classify_ambush(_alert_state)` and stamps the result onto `enemy_data` before emitting `GameBus.enemy_engaged`:
+- `player_ambush = true` when caught at `IDLE` — covers both wanderers (never alerted at all, since they get no awareness `Area3D`) and tracking enemies reached before they noticed. `BattleScene._apply_ambush_modifiers()` sets the *enemy* hero's `health`/`max_health` to `round(max_health * 0.8)` (floor 10) and shows `BattleResultUI.show_ambush_banner(true)` ("Ambush!", green).
+- `enemy_ambush = true` when caught at `CHASING` — the enemy caught the player mid-pursuit. Mirrors the same shape onto the *player's* hero HP instead, banner `"Ambushed!"` (red).
+- Caught at `ALERTED` (mid-reaction, hasn't started chasing yet) is neutral — neither flag is set, an ordinary fight.
+- The two flags are mutually exclusive by construction (different `_alert_state` values at the moment of contact) — `classify_ambush` never returns both `true`.
+- `_apply_ambush_modifiers()` is called in `BattleScene._setup_solo_battle()` right after `_apply_gambit_handicaps()`, the same fresh-battle-only call site, so — like gambit handicaps — the HP delta needs no special mid-battle save/resume handling; it's baked into `GameState` the moment it's set.
+- Applies to rivals too (`enemy_type` starting `rival_` are regular `EnemyNPC`s using the same `engage()`), but never to duel-offer-panel wagers (`WorldScene._show_duel_offer_panel`), which never call `EnemyNPC.engage()` at all — a separate, consensual `duel_requested` signal path.
 
 **Tracking split (per enemy type):**
 `EnemyRegistry.is_tracking(type_id)` encodes the aggressiveness split:
@@ -239,7 +319,9 @@ This means defeated enemies stay gone across sessions.
 | **GameBus** | Signal | `shop_requested` emitted when player interacts with a MerchantNPC; routed to `SceneManager._on_shop_requested()` |
 | **GameBus** | Signal | `duel_requested(enemy_data, wager)` emitted from duel offer panel; `duel_won` / `duel_lost` resolve wager and update `SaveManager.defeated_duelists` |
 | **ShopScene** | Overlay | Opened on `shop_requested`; lists all cards for 15 coins each; emits `closed` when player leaves |
-| **IsoConst** | Constants | `AUTO_BATTLE_RANGE` (1.5 — proximity sphere radius), `INTERACT_RANGE` (1.5 — E-key range), `TRACKING_SPEED` (2.5 — reserved for future movement AI) |
+| **IsoConst** | Constants | `AUTO_BATTLE_RANGE` (1.5 — proximity sphere radius), `INTERACT_RANGE` (1.5 — E-key range), `ENEMY_AWARENESS_RANGE` (6.0 — pursuit-trigger sphere radius, GID-113), `ENEMY_GIVEUP_RANGE` (9.0 — sustained-distance break-pursuit radius, GID-113), `TRACKING_SPEED` (2.5 — chase movement speed, consumed by `EnemyNPC._chase_player()`, GID-113) |
+| **EnemyAlertState** | Pure logic | `game_logic/world/EnemyAlertState.gd` — `check_awareness`/`tick_reaction`/`tick_giveup`/`classify_ambush`; `EnemyNPC` holds state, this holds the rules; unit-tested in `tests/unit/test_enemy_alert_state.gd` (GID-113) |
+| **BattleScene** | Consumer | Reads `enemy_data["player_ambush"]`/`["enemy_ambush"]` in `_apply_ambush_modifiers()`, called next to `_apply_gambit_handicaps()`; see `docs/agent/battle-system.md` Gambits section for the sibling mechanism |
 | **SceneManager** | Guard | `can_proximity_engage()` returns false during battle or 2 s post-battle immunity window |
 
 ---

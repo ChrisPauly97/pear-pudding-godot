@@ -2,7 +2,7 @@
 
 **Goal:** GID-113
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-421, TID-422, TID-423
 
 ## Lock
@@ -73,12 +73,86 @@ inaccurate once TID-420-423 ship.
 
 ## Plan
 
-_Written during Plan phase._
+**Retroactive extraction (per the research note's suggestion):** TID-420-423
+wrote the alert-state transition rules directly inside `EnemyNPC.gd` methods.
+This task extracts them into `game_logic/world/EnemyAlertState.gd` (`extends
+RefCounted`, static pure functions), the same "pure logic separated from the
+scene node" shape as `TerrainMath.gd`/`Pathfinder.gd`/`BattlefieldRules.gd`,
+and refactors `EnemyNPC.gd` to delegate to it — behavior-preserving, verified
+by the full suite still passing after the refactor plus the new unit tests
+exercising the extracted rules directly.
+
+- `check_awareness(state, distance, awareness_range) -> int`: IDLE -> ALERTED
+  transition rule. Also used from `_on_awareness_entered()` (computing the
+  actual flat distance at the moment the `Area3D` fires) so there is one
+  canonical "is this close enough to notice" decision instead of the
+  `Area3D`'s physics-radius check being implicitly a second copy of it.
+- `tick_reaction(state, alert_timer, delta, reaction_time) -> Dictionary`:
+  ALERTED -> CHASING after the reaction beat.
+- `tick_giveup(state, giveup_timer, delta, distance, giveup_range,
+  hold_time) -> Dictionary`: sustained-distance give-up back to IDLE.
+- `classify_ambush(state) -> Dictionary`: `{player_ambush, enemy_ambush}` at
+  contact time.
+
+`EnemyNPC.gd`'s own `AlertState` enum is removed in favor of
+`_EnemyAlertState.State`; all 12 `AlertState.X` call sites become
+`_EnemyAlertState.State.X`. `_process()`/`_on_awareness_entered()`/
+`engage()` now call the pure functions and just apply the returned
+state/timers — no behavior change, only where the decision logic lives.
+
+**Test file:** `tests/unit/test_enemy_alert_state.gd` (auto-discovered by
+`tests/runner.gd` from `tests/unit/test_*.gd`, mirrors
+`tests/unit/test_pathfinder.gd`'s `extends
+"res://tests/framework/test_case.gd"` + `const X = preload(...)` shape).
+Covers the 6 cases from Research Notes directly against
+`EnemyAlertState`'s pure functions (no scene instantiation needed):
+below/within awareness radius, reaction-timer completion, give-up
+distance+duration (including the "reset timer if player returns" case),
+`classify_ambush` for IDLE/ALERTED/CHASING, and mutual exclusivity.
+
+**Docs:** `docs/agent/enemies-and-npcs.md` — the "EnemyNPC Scene" section
+already got a substantial rewrite in TID-420's commit describing
+awareness/pursuit; this task's remaining doc work is the "Key Features"
+bullet (still describes the old binary split) and the "Integrations" table
+row for `player_ambush`/`enemy_ambush`. `docs/agent/battle-system.md` gets a
+one-line cross-reference next to the Gambits section pointing at the ambush
+mechanism, per the research note (not duplicating the Gambits table).
 
 ## Changes Made
 
-_Filled after Build phase._
+- New `game_logic/world/EnemyAlertState.gd` (`extends RefCounted`): pure
+  static functions `check_awareness`, `tick_reaction`, `tick_giveup`,
+  `classify_ambush` — the whole IDLE/ALERTED/CHASING transition rule set
+  extracted from `EnemyNPC.gd`, mirroring the `TerrainMath`/`Pathfinder`/
+  `BattlefieldRules` "pure logic separated from the scene node" pattern.
+- `scenes/world/entities/EnemyNPC.gd`: removed the local `AlertState` enum
+  in favor of `_EnemyAlertState.State`; `_process()`,
+  `_on_awareness_entered()`, and `engage()` now delegate their state
+  decisions to the pure helper instead of inlining the rules — behavior
+  unchanged (verified: same headless import clean, full suite still 0
+  failures after the refactor). Added `_flat_distance_to()` and
+  `_tick_reaction()` helpers along the way to keep `_process()` readable
+  once it's just applying returned Dictionaries.
+- New `tests/unit/test_enemy_alert_state.gd` (auto-discovered): 18 tests
+  covering all 6 Research Notes cases plus reentry-resets-timer and
+  mutual-exclusivity-across-all-3-states. Full suite: 2355 passed (2337 +
+  18 new), 0 failed, 1 pending (pre-existing), headless import clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/enemies-and-npcs.md`:
+  - "Key Features" bullet rewritten to describe detection/pursuit/ambush
+    instead of the old binary tracking/wanderer split.
+  - "Awareness & pursuit" section (TID-420's original writeup) updated to
+    describe the `EnemyAlertState` extraction, the TID-422 telegraph, the
+    TID-423 give-up mechanic, and `ENEMY_GIVEUP_RANGE`.
+  - New "Ambush bonus/penalty" subsection describing `player_ambush`/
+    `enemy_ambush`, the `BattleScene` integration point, and the
+    rival/duel-panel scope boundary.
+  - "Integrations with Other Features" table: added `EnemyAlertState` and
+    `BattleScene` (ambush consumer) rows; `IsoConst` row gained
+    `ENEMY_GIVEUP_RANGE`.
+- `docs/agent/battle-system.md`: added a short cross-reference at the end
+  of the Gambits "Tests" subsection pointing at the sibling ambush
+  mechanism in `enemies-and-npcs.md`, without duplicating the Gambit
+  catalogue table.

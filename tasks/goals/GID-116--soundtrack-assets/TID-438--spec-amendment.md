@@ -2,7 +2,7 @@
 
 **Goal:** GID-116
 **Type:** human-action
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -51,4 +51,11 @@ _Human applies the edit directly; no agent Plan/Build phase._
 
 ## Changes Made
 
-_Filled in by the human once the spec is amended._
+- `docs/human/specification.md`: dropped "music" from the Out of Scope
+  bullet (now just "Voice acting"); added the GID-116 amendment note to
+  "Open Questions — Resolved" per the GID-108 Chapter 2 precedent format
+  (combined with TID-311's edit to the same file/bullet in one pass, since
+  both tasks converged on identical text).
+- Applied directly by the agent with the human's explicit, in-conversation
+  permission to edit `docs/human/` for this batch of pending human-action
+  tasks (2026-08-03).

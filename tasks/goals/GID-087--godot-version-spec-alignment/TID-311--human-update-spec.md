@@ -2,7 +2,7 @@
 
 **Goal:** GID-087
 **Type:** human-action
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -34,4 +34,16 @@ N/A — human-authored content.
 
 ## Changes Made
 
+- `docs/human/specification.md`: engine line updated to "Godot 4.6"; the Out
+  of Scope bullet now reads "Voice acting (voiced character dialogue —
+  lip-sync, real-time conversation VO)"; added an "Open Questions —
+  Resolved" entry documenting the GID-116 music amendment and clarifying
+  that lore scroll narration audio has been in scope since GID-013.
+- Applied directly by the agent with the human's explicit, in-conversation
+  permission to edit `docs/human/` for this batch of pending human-action
+  tasks (2026-08-03) — the normal flow (agent proposes, human applies) was
+  waived for this specific request.
+
 ## Documentation Updates
+
+N/A — human-owned doc, no `docs/agent/` changes.

@@ -219,42 +219,49 @@ unresolved at the cliffhanger — fuel for Chapter 3.
 
 ## NPC Dialogue by Map
 
+*(Co-op group variants added via GID-098/TID-358, 2026-08-03 — `dialogue_group`
+text was already authored and shipped in the map `.tres` files by TID-357; this
+table is being synced to match. Shown to a co-op party of ≥2; solo play always
+gets the singular Dialogue column. A blank Group Dialogue cell means no group
+variant has been authored yet for that NPC — it still shows the singular line
+in co-op.)*
+
 ### madrian
 
-| NPC | Position | Dialogue |
-|---|---|---|
-| Maiteln | x=45, z=36 | I am a wizard of old. If you come with me you will never have to worry about your master again and I will take you on an adventure. My name is Maiteln. Will you come with me? |
-| Master | x=11, z=14 | Boy! Get back to your chores this instant or you will be punished! |
+| NPC | Position | Dialogue | Group Dialogue (co-op) |
+|---|---|---|---|
+| Maiteln | x=45, z=36 | I am a wizard of old. If you come with me you will never have to worry about your master again and I will take you on an adventure. My name is Maiteln. Will you come with me? | I am a wizard of old. If you will all come with me, none of you need worry about that master again — I will take you all on an adventure. My name is Maiteln. Will you join me? |
+| Master | x=11, z=14 | Boy! Get back to your chores this instant or you will be punished! | All of you! Get back to your chores this instant or you will all be punished! |
 
 ### maykalene
 
-| NPC | Position | Dialogue |
-|---|---|---|
-| Townsperson | x=50, z=65 | Welcome to Maykalene! Fine white-washed houses and a warm inn await you. |
-| Innkeeper | x=62, z=51 | Best broth and cocoa in all the land! A warm meal and soft bed within! |
-| Mansion guard | x=50, z=94 | Ah, Maiteln! Lord Farsyth is not busy at the moment. Go straight in if you have news of the prophecy. |
+| NPC | Position | Dialogue | Group Dialogue (co-op) |
+|---|---|---|---|
+| Townsperson | x=50, z=65 | Welcome to Maykalene! Fine white-washed houses and a warm inn await you. | Welcome to Maykalene! Fine white-washed houses and a warm inn await you all. |
+| Innkeeper | x=62, z=51 | Best broth and cocoa in all the land! A warm meal and soft bed within! | Best broth and cocoa in all the land! Warm meals and soft beds for your whole party within! |
+| Mansion guard | x=50, z=94 | Ah, Maiteln! Lord Farsyth is not busy at the moment. Go straight in if you have news of the prophecy. | Ah, Maiteln! Lord Farsyth is not busy at the moment. Bring your companions inside — he will see you all if you have news of the prophecy. |
 
 ### farsyth_mansion
 
-| NPC | Position | Dialogue |
-|---|---|---|
-| Reception guard | x=49, z=78 | Welcome, Maiteln. The lord will receive you directly — he awaits word of the prophecy. |
-| Lord Farsyth | x=49, z=20 | The Martarquas tribe rising again? By the gods, this is dire news. I shall send word to Lords Marsax, Ramtorous and Temlar at once. You must warn King Eldar in Blancogov! |
+| NPC | Position | Dialogue | Group Dialogue (co-op) |
+|---|---|---|---|
+| Reception guard | x=49, z=78 | Welcome, Maiteln. The lord will receive you directly — he awaits word of the prophecy. | Welcome, Maiteln and companions! Lord Farsyth will receive you all directly. He awaits word of the prophecy. |
+| Lord Farsyth | x=49, z=20 | The Martarquas tribe rising again? By the gods, this is dire news. I shall send word to Lords Marsax, Ramtorous and Temlar at once. You must warn King Eldar in Blancogov! | The Martarquas tribe rising again? By the gods, this is dire news. I shall send word to Lords Marsax, Ramtorous and Temlar at once. You must all ride to warn King Eldar in Blancogov! |
 
 ### blancogov
 
-| NPC | Position | Dialogue |
-|---|---|---|
-| Gate guard | x=49, z=9 | Halt! State your business at the gates of Blancogov. No entry without authorisation! |
-| City dweller | x=49, z=72 | The great temple of King Eldar lies at the road's end. The council has been summoned — something stirs. |
+| NPC | Position | Dialogue | Group Dialogue (co-op) |
+|---|---|---|---|
+| Gate guard | x=49, z=9 | Halt! State your business at the gates of Blancogov. No entry without authorisation! | Halt! State your business at the gates of Blancogov. No entry without authorisation for any of you! |
+| City dweller | x=49, z=72 | The great temple of King Eldar lies at the road's end. The council has been summoned — something stirs. | *(not yet authored)* |
 
 ### blancogov_temple
 
-| NPC | Position | Dialogue |
-|---|---|---|
-| King Eldar | x=42, z=15 | Maiteln! We are glad you came so swiftly. The council is assembling. The Martarquas threat must be answered together. |
-| Queen | x=58, z=15 | Welcome, Maiteln, and your young companion. You are most welcome here. Please take a seat in one of the red satin oak chairs. |
-| Scargroth | x=50, z=30 | The letter was urgent for good reason. The prophecy cannot be ignored. All lords must be present before we act. |
+| NPC | Position | Dialogue | Group Dialogue (co-op) |
+|---|---|---|---|
+| King Eldar | x=42, z=15 | Maiteln! We are glad you came so swiftly. The council is assembling. The Martarquas threat must be answered together. | Maiteln! We are glad you all came so swiftly. The council is assembling. The Martarquas threat must be answered together. |
+| Queen | x=58, z=15 | Welcome, Maiteln, and your young companion. You are most welcome here. Please take a seat in one of the red satin oak chairs. | Welcome, Maiteln, and your companions. You are all most welcome here. Please take your seats in the red satin oak chairs. |
+| Scargroth | x=50, z=30 | The letter was urgent for good reason. The prophecy cannot be ignored. All lords must be present before we act. | *(not yet authored)* |
 
 ### larik *(Chapter 2 — GID-108)*
 
@@ -328,25 +335,40 @@ DOOR x z target_map [door_id] — door linking to another map (__exit__ returns 
 
 ## New Enemy Types
 
-> **TODO for TID-068:** Define 6 new enemy types (aiming for 2 per biome).
-> For each, provide the fields below. The agent will create .tres files from this table.
-> Deck and drop_pool values use card IDs (e.g. ghost, skeleton, spark, ash).
+*(Filled in via GID-021/TID-068, 2026-08-03. Deck/drop pool card IDs are drawn
+from existing `data/cards/` resources — no new cards required. Enemy battle
+data is stored in `autoloads/EnemyRegistry.gd`, not `.tres` files — see
+CLAUDE.md "Save Fields" note; TID-069 adds these as registry entries.)*
 
 | ID | Display Name | Biome | Coin Reward | Deck (card IDs, quantities) | Drop Pool |
 |---|---|---|---|---|---|
-| wraith | Wraith | grasslands | 8 | (fill in) | (fill in) |
-| forest_shade | Forest Shade | forest | 10 | (fill in) | (fill in) |
-| sand_stalker | Sand Stalker | desert | 9 | (fill in) | (fill in) |
-| scorched_revenant | Scorched Revenant | scorched | 12 | (fill in) | (fill in) |
-| mountain_troll | Mountain Troll | mountains | 15 | (fill in) | (fill in) |
-| stone_golem | Stone Golem | mountains | 18 | (fill in — boss tier) | (fill in) |
+| wraith | Wraith | grasslands | 8 | ghost x6, skeleton x2, ember_imp x2 | ghost, ember_imp, spark, surge_spirit |
+| forest_shade | Forest Shade | forest | 10 | skeleton x3, zombie x2, dusk_wraith x2, insight x2, dusk_seer x1 | skeleton, dusk_wraith, insight, dusk_seer, shrouded_wraith |
+| sand_stalker | Sand Stalker | desert | 9 | skeleton x4, zombie x3, ghoul x2, dagger_throw x1 | zombie, ghoul, dagger_throw, blitz_ghoul |
+| scorched_revenant | Scorched Revenant | scorched | 12 | zombie x3, ghoul x2, scorch x2, char x2, alight x2, ember x1 | ghoul, scorch, char, ember_imp, ash_warden |
+| mountain_troll | Mountain Troll | mountains | 15 | ghoul x6, zombie x3, restore x2, wither x1 | ghoul, restore, wither, iron_revenant, veiled_paladin |
+| stone_golem | Stone Golem | mountains | 18 | ghoul x6, zombie x3, ash_bone_wall x2, ash_arbiter x1 — **boss tier** (`is_boss`, `boss_hp` 40, phase 2 at 50% HP: ghoul x4, zombie x2, ash_defile x2, ash_annihilate x2, ash_arbiter x2) | ghoul, ash_arbiter, ash_defile, iron_revenant, ancient_guardian |
+
+**Design notes (why each deck fits its archetype):** Wraith leans almost
+entirely on the cheapest minion (Ghost) plus a couple of `ember_imp` for a
+fast, low-HP swarm. Forest Shade mixes `insight`/`dusk_seer` (card-advantage
+effects) with evasive Dusk minions. Sand Stalker is minion-heavy with a
+single burst spell (`dagger_throw`) for a rush deck, no healing. Scorched
+Revenant leans on the Ember/Ash burn line (`scorch`, `char`, `alight`,
+`ember`) for board-wide damage. Mountain Troll trades tempo for `restore` and
+the heaviest base minion (Ghoul) at high volume — a slow, grinding deck.
+Stone Golem is the mini-boss capstone of the mountain pool: same tanky Ghoul
+core plus defensive Ash cards (`ash_bone_wall`, `ash_arbiter`), with a
+sharper, more aggressive Ash phase-2 kit once wounded.
 
 ### Boss Enemy Types
 
-> **TODO for TID-071:** Define the 2 boss encounters.
-> A boss is an enemy placed in a specific named map location that uses the boss framework from TID-070.
+*(Filled in via GID-021/TID-068, 2026-08-03. Both are new Chapter 1 story
+encounters, distinct from Chapter 2's `martarquas_warleader` at marsax_hold —
+see `docs/agent/enemies-and-npcs.md` "Boss Battle Framework" for the
+phase-2/HP-override mechanics referenced below.)*
 
 | ID | Display Name | Map Placement | Special Mechanic | Deck | Drop Pool |
 |---|---|---|---|---|---|
-| (mid_boss) | (name) | blancogov_temple or farsyth_mansion | (e.g. phase 2 deck swap at 50% HP) | (fill in) | (fill in) |
-| (chapter1_boss) | (name) | blancogov_temple | (e.g. hero gains armor each turn) | (fill in) | (fill in) |
+| hollow_steward | The Hollow Steward | farsyth_mansion | Phase 2 deck swap at 50% HP: a corrupted former steward of the mansion sheds its living disguise for its true spectral form. Ties into the existing maykalene hint "Strange things happen there" and foreshadows the Traitor's reach into Lord Farsyth's household. `boss_hp` 35. Deck: skeleton x4, dusk_wraith x3, dusk_seer x2, wither x2, drain x1. Phase 2: shrouded_wraith x2, dusk_wraith x3, drain x2, wither x2, dark_pact x2, skeleton x1. | skeleton x4, dusk_wraith x3, dusk_seer x2, wither x2, drain x1 | dusk_wraith, shrouded_wraith, dark_pact, dusk_seer, void_creeper |
+| martarquas_vanguard | Martarquas Vanguard | blancogov_temple | Hero gains +2 armor at the start of each of its turns — an advance scout sent ahead of the tribe's main force to test the temple's defenses right as the council assembles. The true climax fight of Chapter 1, distinct from Chapter 2's `martarquas_warleader`. `boss_hp` 40. Deck: skeleton x3, zombie x3, ghoul x3, ember_imp x2, ember x1. Phase 2: ghoul x4, blitz_ghoul x2, ember x2, scorch x2, ember_imp x2. | skeleton x3, zombie x3, ghoul x3, ember_imp x2, ember x1 | ghoul, blitz_ghoul, ember_imp, iron_revenant, duel_crown |

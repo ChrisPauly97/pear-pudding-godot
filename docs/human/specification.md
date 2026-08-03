@@ -84,7 +84,7 @@ Pear Pudding TCG is a 3D isometric open-world RPG built in Godot 4 where the pla
 
 ## Architecture & Technical Constraints
 
-- **Engine:** Godot 4.4.1 (GDScript, strict mode)
+- **Engine:** Godot 4.6 (GDScript, strict mode)
 - **Primary export:** Android (APK via GitHub Actions CI)
 - **Rendering:** 3D isometric with pixel-art sprites; no geometry shaders (Godot 4 does not support them)
 - **Terrain:** CPU-built `ArrayMesh` via `TerrainMath.gd`; grass via fragment FBM shader on flat planes
@@ -122,7 +122,7 @@ tasks/              — goal and task tracking (agent-managed)
 
 - Ranked matchmaking, global server browser, and NAT-punch relay/matchmaking service
 - More than 4 card types in v1 battle system
-- Voice acting or music
+- Voice acting (voiced character dialogue — lip-sync, real-time conversation VO)
 - Complex branching dialogue trees (single NPC line per state for now)
 - Mac / iOS export (Android + desktop only)
 
@@ -148,6 +148,19 @@ The following questions from the initial spec have been answered by completed go
   **Amended 2026-07-02 (GID-108, user-approved):** Chapter 2 ("The Road to Larik",
   see `docs/human/story.md`) is now in scope. Chapter 1 remains the v1 release gate;
   Chapter 2 ships when ready.
+- **Voice acting / audio scope:** ~~Voice acting or music~~ was fully out of scope.
+  **Amended 2026-07-08 (GID-116, user-approved):** Background music is now in scope —
+  sourced from open-source/CC-licensed tracks; see `docs/agent/audio-soundtrack.md`
+  and `assets/audio/music/CREDITS.md` for licensing. Lore scroll narration audio
+  (background ambient storytelling, not real-time character voice) has also been in
+  scope since GID-013. Voiced character dialogue (lip-sync, real-time conversation
+  VO) remains out of scope.
+- **Multiplayer / online features:** ~~Multiplayer / online features~~ was fully out
+  of scope. **Amended (GID-094, see BID-022):** LAN co-op (up to 4 players sharing
+  the madrian map) and LAN PvP card battles are now in scope; see the Multiplayer
+  section above and `docs/agent/multiplayer-coop.md`. Online/internet multiplayer
+  beyond LAN (NAT traversal, matchmaking, Steam transport), reconnection into an
+  in-progress PvP battle, and PvP wagers/ranked ladder remain out of scope.
 
 ---
 

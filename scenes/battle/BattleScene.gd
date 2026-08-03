@@ -459,6 +459,8 @@ func _setup_solo_battle() -> void:
 
 	# Apply remaining gambit handicaps now that all decks and HP are set.
 	_apply_gambit_handicaps(_gambit_id)
+	# World-encounter ambush modifiers (GID-113 / TID-421, TID-422).
+	_apply_ambush_modifiers(enemy_data)
 
 	# start_turn draws 1 card + bonus_draw (from passive_draw skills/equipment).
 	# bonus_mana (from passive_mana skills) was set above, so gain_mana_for_turn
@@ -1180,6 +1182,29 @@ func _add_potion_button() -> void:
 		return
 	_potion_btn = _UiUtil.make_button("Potion", Vector2(_vh * 0.16, _vh * 0.05), int(_font(0.02)), _on_potion_button_pressed)
 	$SidePanel.add_child(_potion_btn)
+
+## World-encounter ambush handicaps (GID-113 / TID-421, TID-422). Mirrors
+## `wounded_pride`'s shape: sets both `health` and `max_health` so the
+## handicap survives the whole match instead of being healed away by the
+## first heal card. `player_ambush`/`enemy_ambush` are mutually exclusive by
+## construction (EnemyNPC.engage() derives them from different alert-state
+## values) so only one branch below ever fires.
+const _AMBUSH_HP_PCT: float = 0.2
+const _AMBUSH_HP_MIN: int = 10
+
+func _apply_ambush_modifiers(edata: Dictionary) -> void:
+	if bool(edata.get("player_ambush", false)):
+		var enemy_hero: HeroState = _state.players[1].hero
+		var new_hp: int = maxi(_AMBUSH_HP_MIN, int(round(enemy_hero.max_health * (1.0 - _AMBUSH_HP_PCT))))
+		enemy_hero.health = new_hp
+		enemy_hero.max_health = new_hp
+		_result_ui.show_ambush_banner(true)
+	elif bool(edata.get("enemy_ambush", false)):
+		var player_hero: HeroState = _state.players[0].hero
+		var new_hp: int = maxi(_AMBUSH_HP_MIN, int(round(player_hero.max_health * (1.0 - _AMBUSH_HP_PCT))))
+		player_hero.health = new_hp
+		player_hero.max_health = new_hp
+		_result_ui.show_ambush_banner(false)
 
 func _apply_gambit_handicaps(gambit_id: String) -> void:
 	if gambit_id.is_empty():
