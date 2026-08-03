@@ -175,6 +175,12 @@ func _on_awareness_entered(body: Node3D) -> void:
 		return
 	_alert_state = AlertState.ALERTED
 	_alert_timer = 0.0
+	# Fair-warning telegraph (TID-422): same "!" beat engage() uses, reused
+	# here so the player has a visible/audible cue the moment they're
+	# spotted, before the chase even starts. World-space billboard + SFX —
+	# no keyboard/touch-only signal, satisfies Mobile/Desktop parity.
+	_show_alert()
+	AudioManager.play_sfx("enemy_alert")
 
 func _add_difficulty_pip(enemy_type: String) -> void:
 	if enemy_type == "":

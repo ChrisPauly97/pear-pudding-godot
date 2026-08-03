@@ -2,7 +2,7 @@
 
 **Goal:** GID-113
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-420
 
 ## Lock
@@ -70,12 +70,58 @@ the penalty; do not land the penalty without the warning.
 
 ## Plan
 
-_Written during Plan phase._
+**Penalty mechanism already landed:** TID-421's commit implemented
+`BattleScene._apply_ambush_modifiers()`'s `enemy_ambush` branch alongside
+`player_ambush` (same integration point, same function) — reduces the
+*player's* hero `health`/`max_health` to `round(max_health * 0.8)` (floor
+10), mirroring `player_ambush`'s enemy-HP reduction, and calls
+`BattleResultUI.show_ambush_banner(false)` ("Ambushed!", red). `EnemyNPC.
+engage()` already sets `edata["enemy_ambush"] = (_alert_state ==
+AlertState.CHASING)`. This task's remaining scope is exclusively the
+fair-warning indicator.
+
+**Fair-warning indicator:** reuse `EnemyNPC._show_alert()` (the existing "!"
+billboard pop-in, already used by `engage()`'s own beat) plus
+`AudioManager.play_sfx("enemy_alert")` — both already exist, no new SFX key
+needed (the research note's suggestion to add one was written against a
+version of the file that predates confirming `"enemy_alert"` was already
+registered in `AudioManager.SFX_PATHS`). Call both from
+`_on_awareness_entered()` right after the `IDLE -> ALERTED` transition —
+this is a 3D world-space billboard label + audio cue, inherently visible on
+both desktop and mobile with no keyboard-only or touch-only path, so it
+satisfies CLAUDE.md's Mobile/Desktop Feature Parity rule without a minimap
+addition. Skipping the minimap-ping suggestion from Research Notes as
+redundant polish, not required for parity — documented here as the Plan
+decision.
+
+**Timing check (no radius/speed retuning needed):** worst case for "enough
+time to react" is the player motionless right as `ALERTED` fires at the
+awareness-radius edge (distance ≈ `ENEMY_AWARENESS_RANGE` = 6.0). The enemy
+holds for `_ALERT_REACTION_TIME` = 0.4s, then must close
+`6.0 - AUTO_BATTLE_RANGE(1.5)` = 4.5 units at `TRACKING_SPEED` = 2.5/s ≈
+1.8s more — roughly 2.2s total before contact if the player does nothing.
+`IsoConst.PLAYER_SPEED` (6.0) already exceeds `TRACKING_SPEED` (2.5), so a
+player who reacts by simply moving away at any point during that window
+opens the distance and is never caught at all — the constants already give
+a generous, fair window. No changes to `ENEMY_AWARENESS_RANGE`,
+`AUTO_BATTLE_RANGE`, or `TRACKING_SPEED`.
+
+**Mutual exclusivity:** already guaranteed by construction (TID-420's enum +
+TID-421's `if/elif` in `_apply_ambush_modifiers`) — no additional guard
+needed here.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `scenes/world/entities/EnemyNPC.gd`: `_on_awareness_entered()` now calls
+  `_show_alert()` + `AudioManager.play_sfx("enemy_alert")` on the `IDLE ->
+  ALERTED` transition (reused existing "!" billboard/SFX, no new assets).
+- Penalty mechanism (`enemy_ambush` branch of
+  `BattleScene._apply_ambush_modifiers()`, `"Ambushed!"` banner) landed in
+  TID-421's commit since both flags share one integration point — see that
+  task's Changes Made for the code.
+- Verified: headless editor import clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- Deferred to TID-424 per the goal's task breakdown (dedicated docs task
+  covering all of TID-420–423 in one pass).

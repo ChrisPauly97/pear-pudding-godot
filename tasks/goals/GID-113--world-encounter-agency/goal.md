@@ -33,7 +33,7 @@ ambush bonuses/penalties keyed off of it, plus a way to break pursuit.
 |----|------|------|--------|------------|
 | TID-420 | Real pursuit movement for tracking enemies | agent | done | — |
 | TID-421 | Player-initiated ambush bonus (sneak attack) | agent | done | TID-420 |
-| TID-422 | Enemy-initiated ambush penalty + fair-warning indicator | agent | pending | TID-420 |
+| TID-422 | Enemy-initiated ambush penalty + fair-warning indicator | agent | done | TID-420 |
 | TID-423 | Evasion: break pursuit / outrun a chasing enemy | agent | pending | TID-420 |
 | TID-424 | Detection/ambush state machine tests + doc update | agent | pending | TID-421, TID-422, TID-423 |
 
