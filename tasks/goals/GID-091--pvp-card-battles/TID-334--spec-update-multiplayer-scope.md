@@ -2,7 +2,7 @@
 
 **Goal:** GID-091
 **Type:** human-action
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -57,7 +57,17 @@ _N/A — human-action task._
 
 ## Changes Made
 
-_Filled when the human confirms the spec edit._
+Re-checked `docs/human/specification.md` before editing: the "Multiplayer /
+online features" bullet this task describes is **already gone** from Out of
+Scope — it was resolved earlier via GID-094/TID-344 (tracked as BID-022,
+already in "Resolved Backlog" in `tasks/index.md`). No live conflict
+remained to fix.
+
+Since the spec had no explicit "Open Questions — Resolved" entry recording
+that history (unlike the Chapter 2 precedent this task's suggested wording
+was modeled on), added one while making TID-311/TID-438's edit to the same
+file in this session (explicit human permission, 2026-08-03) — see that
+combined diff. No separate edit needed for this task specifically.
 
 ## Documentation Updates
 

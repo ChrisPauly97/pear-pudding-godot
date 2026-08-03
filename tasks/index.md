@@ -90,11 +90,11 @@
 | [GID-084](goals/GID-084--camera-smoothing/goal.md) | Camera Smoothing & Walk Animation | done | 2 / 2 |
 | [GID-085](goals/GID-085--test-coverage/goal.md) | Test Coverage Expansion | done | 3 / 3 |
 | [GID-086](goals/GID-086--corruption-redemption-accrual/goal.md) | Corruption & Redemption Points Accrual | done | 2 / 2 |
-| [GID-087](goals/GID-087--godot-version-spec-alignment/goal.md) | Godot Version & Spec Alignment | pending | 1 / 2 |
+| [GID-087](goals/GID-087--godot-version-spec-alignment/goal.md) | Godot Version & Spec Alignment | done | 2 / 2 |
 | [GID-088](goals/GID-088--battle-code-quality/goal.md) | Battle Code Quality — GameState Decoupling & Native Drag | done | 2 / 2 |
 | [GID-089](goals/GID-089--game-visual-polish/goal.md) | Visual Polish — World Art, Atmosphere & Props | done | 6 / 6 |
 | [GID-090](goals/GID-090--coop-multiplayer-slice/goal.md) | Co-op Multiplayer Vertical Slice | done | 8 / 8 |
-| [GID-091](goals/GID-091--pvp-card-battles/goal.md) | PvP Card Battles over Co-op | pending | 6 / 7 |
+| [GID-091](goals/GID-091--pvp-card-battles/goal.md) | PvP Card Battles over Co-op | done | 7 / 7 |
 | [GID-092](goals/GID-092--coop-multiplayer-bugfixes/goal.md) | Co-op Multiplayer Bug Fixes | done | 3 / 3 |
 | [GID-093](goals/GID-093--world-nav-ux-fixes/goal.md) | World Navigation & UX Fixes | done | 3 / 3 |
 | [GID-094](goals/GID-094--multiplayer-foundations/goal.md) | Multiplayer Foundations — N-Player Capacity & Identity | done | 4 / 4 |
@@ -119,7 +119,7 @@
 | [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | done | 5 / 5 |
 | [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | needs-verification | 5 / 5 |
 | [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | done | 5 / 5 |
-| [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | in-progress (TID-438 awaits human spec edit) | 3 / 4 |
+| [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | done | 4 / 4 |
 | [GID-117](goals/GID-117--game-appeal/goal.md) | Game Appeal — Articulate & Prove "Why Play This" | done | 5 / 5 |
 | [GID-118](goals/GID-118--art-sprite-assets/goal.md) | Open-Source Character, Enemy & World Art Sprites | done | 4 / 4 |
 | [GID-119](goals/GID-119--mobile-battle-ux/goal.md) | Mobile Battle UX & Accessibility | done | 5 / 5 |

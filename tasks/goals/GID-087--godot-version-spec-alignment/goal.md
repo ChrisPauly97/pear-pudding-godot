@@ -15,11 +15,13 @@ Separately, `docs/human/specification.md` lists "Voice acting or music" under Ou
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-310 | Update CLAUDE.md Godot install snippet to 4.6 | agent | done | — |
-| TID-311 | Human: update specification.md engine version and narration audio scope | human-action | pending | — |
+| TID-311 | Human: update specification.md engine version and narration audio scope | human-action | done | — |
 
 ## Acceptance Criteria
 
-- [ ] CLAUDE.md "Running Tests" section installs Godot 4.6 headless
-- [ ] `docs/human/specification.md` engine line updated to 4.6
-- [ ] Spec Out of Scope section clarifies that voiced character dialogue remains out of scope; lore scroll narration audio is in scope
-- [ ] Local headless test run uses same engine version as CI
+- [x] CLAUDE.md "Running Tests" section installs Godot 4.6 headless
+- [x] `docs/human/specification.md` engine line updated to 4.6
+- [x] Spec Out of Scope section clarifies that voiced character dialogue remains out of scope; lore scroll narration audio is in scope
+- [x] Local headless test run uses same engine version as CI
+
+## Status: done — both tasks complete.

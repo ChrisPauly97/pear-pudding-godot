@@ -30,7 +30,7 @@ Creative direction to match (from `docs/human/specification.md` and `docs/human/
 | TID-435 | Research & curate CC0/CC-BY soundtrack shortlist per music slot | agent | done | — |
 | TID-436 | Acquire & place licensed audio files at assets/audio/music/*.ogg | human-action | done (agent-completed; proxy allowed downloads this session) | TID-435 |
 | TID-437 | Wire attribution, verify integration, update docs, clean up stale duplicate task | agent | done | TID-436 |
-| TID-438 | Amend specification.md Out-of-Scope bullet to drop "music" | human-action | pending | — |
+| TID-438 | Amend specification.md Out-of-Scope bullet to drop "music" | human-action | done | — |
 
 ## Acceptance Criteria
 
@@ -40,4 +40,6 @@ Creative direction to match (from `docs/human/specification.md` and `docs/human/
 - [x] Headless editor import is clean after adding the files (no import errors)
 - [x] `docs/agent/audio-manager.md` updated to reflect real music assets and where credits live
 - [x] Stale duplicate task file `tasks/goals/GID-023--game-feel-polish/TID-081--background-music-loop.md` removed
-- [ ] `docs/human/specification.md` Out-of-Scope bullet updated (human-applied) to drop "music" while keeping "voice acting" out of scope
+- [x] `docs/human/specification.md` Out-of-Scope bullet updated (human-applied) to drop "music" while keeping "voice acting" out of scope
+
+## Status: done — all 4 tasks complete.

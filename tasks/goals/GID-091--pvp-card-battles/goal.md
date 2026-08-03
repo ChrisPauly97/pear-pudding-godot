@@ -53,7 +53,7 @@ GID-090), and the Steam transport (still stubbed).
 | TID-331 | Challenge handshake & SceneManager PvP routing | agent | done | TID-330 |
 | TID-332 | PvP result, rewards policy & disconnect forfeit | agent | done | TID-331 |
 | TID-333 | Loopback PvP smoke test & agent docs | agent | done | TID-332 |
-| TID-334 | Spec update: multiplayer no longer out-of-scope | human-action | pending | — |
+| TID-334 | Spec update: multiplayer no longer out-of-scope | human-action | done | — |
 
 ## Acceptance Criteria
 
@@ -63,4 +63,6 @@ GID-090), and the Steam transport (still stubbed).
 - [ ] Walking up to the other co-op player shows a "Challenge to Battle" prompt; on mutual accept both peers enter a PvP `BattleScene`, and both return to the shared madrian world when it ends.
 - [ ] PvP outcomes award no cards/coins and don't mark enemies defeated; a synced victory/defeat overlay shows on both peers; an opponent disconnect mid-battle ends the battle as a forfeit win for the remaining player.
 - [ ] Single-player and NPC battles are unchanged (verified); a loopback two-peer smoke test exercises an intent round-trip + state mirror; `tests/runner.gd` exits 0 and a headless editor import reports no parse/compile errors.
-- [ ] `docs/agent/multiplayer-coop.md` and `docs/agent/battle-system.md` document the PvP system; the human spec's multiplayer "out of scope" line is updated (TID-334).
+- [x] `docs/agent/multiplayer-coop.md` and `docs/agent/battle-system.md` document the PvP system; the human spec's multiplayer "out of scope" line is updated (TID-334).
+
+## Status: done — all 7 tasks complete.
