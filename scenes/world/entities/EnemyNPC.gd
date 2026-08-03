@@ -4,11 +4,21 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
+## Awareness/pursuit state for tracking enemies (GID-113). IDLE = hasn't
+## noticed the player; ALERTED = noticed, brief reaction beat before giving
+## chase (TID-422 hooks its "fair warning" indicator here); CHASING = actively
+## closing the distance. TID-423 owns breaking pursuit back to IDLE.
+enum AlertState { IDLE, ALERTED, CHASING }
+const _ALERT_REACTION_TIME: float = 0.4
+
 var enemy_data: Dictionary = {}
 var _alive: bool = true
 var _is_boss: bool = false
 var _is_roaming_boss: bool = false
 var _tracking: bool = false
+var _alert_state: int = AlertState.IDLE
+var _alert_timer: float = 0.0
+var _player_ref: CharacterBody3D = null
 
 func _ready() -> void:
 	var etype: String = str(enemy_data.get("enemy_type", ""))
@@ -20,6 +30,37 @@ func _ready() -> void:
 		scale = Vector3(1.3, 1.3, 1.3)
 	if _tracking:
 		_setup_proximity_area()
+		_setup_awareness_area()
+
+## Pursuit movement and awareness are single-player only for now — co-op
+## enemies stay static (documented scoping decision, see
+## docs/agent/enemies-and-npcs.md).
+func _process(delta: float) -> void:
+	if not _alive or not _tracking:
+		return
+	if NetworkManager.is_active():
+		return
+	if not SceneManager.can_proximity_engage():
+		return
+	if _alert_state == AlertState.ALERTED:
+		_alert_timer += delta
+		if _alert_timer >= _ALERT_REACTION_TIME:
+			_alert_state = AlertState.CHASING
+	elif _alert_state == AlertState.CHASING:
+		_chase_player(delta)
+
+func _chase_player(delta: float) -> void:
+	if not is_instance_valid(_player_ref):
+		_player_ref = get_tree().get_first_node_in_group("player") as CharacterBody3D
+	if not is_instance_valid(_player_ref):
+		return
+	var to_player: Vector3 = _player_ref.global_position - global_position
+	to_player.y = 0.0
+	var dist: float = to_player.length()
+	if dist < 0.05:
+		return
+	var step: float = min(IsoConst.TRACKING_SPEED * delta, dist)
+	position += to_player.normalized() * step
 
 func init_from_data(data: Dictionary) -> void:
 	enemy_data = data
@@ -97,6 +138,35 @@ func _on_body_entered(body: Node3D) -> void:
 	if eid != "" and SceneManager.save_manager.is_enemy_defeated(eid):
 		return
 	engage()
+
+func _setup_awareness_area() -> void:
+	var area := Area3D.new()
+	area.collision_layer = 0
+	area.collision_mask = 1
+	area.monitoring = true
+	area.monitorable = false
+	var shape := CollisionShape3D.new()
+	var sphere := SphereShape3D.new()
+	sphere.radius = IsoConst.ENEMY_AWARENESS_RANGE
+	shape.shape = sphere
+	area.add_child(shape)
+	area.body_entered.connect(_on_awareness_entered)
+	add_child(area)
+
+func _on_awareness_entered(body: Node3D) -> void:
+	if not _alive or not _tracking or _alert_state != AlertState.IDLE:
+		return
+	if not body is CharacterBody3D:
+		return
+	if NetworkManager.is_active():
+		return
+	if not SceneManager.can_proximity_engage():
+		return
+	var eid: String = str(enemy_data.get("id", ""))
+	if eid != "" and SceneManager.save_manager.is_enemy_defeated(eid):
+		return
+	_alert_state = AlertState.ALERTED
+	_alert_timer = 0.0
 
 func _add_difficulty_pip(enemy_type: String) -> void:
 	if enemy_type == "":

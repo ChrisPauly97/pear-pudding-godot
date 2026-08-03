@@ -36,7 +36,8 @@ const ENTITY_VISIBILITY_END: float = 50.0  # LOD visibility range for world enti
 # Entity interaction ranges (in Godot world units)
 const AUTO_BATTLE_RANGE: float = 1.5   # enemy engages player at this distance
 const INTERACT_RANGE: float = 1.5      # E key interaction range
-const TRACKING_SPEED: float = 2.5      # enemy movement speed (world units/sec)
+const TRACKING_SPEED: float = 2.5      # enemy chase speed (world units/sec), consumed by EnemyNPC pursuit (GID-113)
+const ENEMY_AWARENESS_RANGE: float = 6.0  # tracking enemies notice the player and start pursuit at this distance
 
 # Player physics
 const PLAYER_SPEED: float = 6.0        # world units/sec

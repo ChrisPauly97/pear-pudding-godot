@@ -31,7 +31,7 @@ ambush bonuses/penalties keyed off of it, plus a way to break pursuit.
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-420 | Real pursuit movement for tracking enemies | agent | pending | — |
+| TID-420 | Real pursuit movement for tracking enemies | agent | done | — |
 | TID-421 | Player-initiated ambush bonus (sneak attack) | agent | pending | TID-420 |
 | TID-422 | Enemy-initiated ambush penalty + fair-warning indicator | agent | pending | TID-420 |
 | TID-423 | Evasion: break pursuit / outrun a chasing enemy | agent | pending | TID-420 |
@@ -39,7 +39,7 @@ ambush bonuses/penalties keyed off of it, plus a way to break pursuit.
 
 ## Acceptance Criteria
 
-- [ ] Tracking-type enemies (`is_tracking() == true`) actively move toward the player using `IsoConst.TRACKING_SPEED` once the player enters a new "awareness" radius (larger than `AUTO_BATTLE_RANGE`), instead of sitting still behind a static proximity trigger.
+- [x] Tracking-type enemies (`is_tracking() == true`) actively move toward the player using `IsoConst.TRACKING_SPEED` once the player enters a new "awareness" radius (larger than `AUTO_BATTLE_RANGE`), instead of sitting still behind a static proximity trigger. (TID-420)
 - [ ] A player who reaches interact/collision range on an enemy that has not yet noticed them (a wanderer, or a tracking enemy still outside its awareness radius / not yet alerted) gets a battle-start advantage ("Ambush!").
 - [ ] A player caught by a tracking enemy's pursuit without reacting in time gets a battle-start penalty ("Ambushed!"), with a clear, fair on-screen/audio warning before it happens (not a surprise the player had no way to see coming).
 - [ ] The player can break an active pursuit by putting enough distance/time between themselves and the chasing enemy; the enemy visibly gives up and returns to idle instead of an inevitable forced engage.

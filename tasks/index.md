@@ -116,7 +116,7 @@
 | [GID-110](goals/GID-110--mailbox-overflow-storage/goal.md) | Mailbox — Overflow Storage for Bag-Full Card Rewards | done | 3 / 3 |
 | [GID-111](goals/GID-111--coop-boss-targeting-fix/goal.md) | Co-op Boss Targeting Fix — Dead Ally Retargeting | done | 1 / 1 |
 | [GID-112](goals/GID-112--battle-ai-depth/goal.md) | Battle AI Depth — Enemy Personas & Real Decision-Making | done | 5 / 5 |
-| [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | pending | 0 / 5 |
+| [GID-113](goals/GID-113--world-encounter-agency/goal.md) | World Encounter Agency — Ambush, Evasion & Enemy Pursuit | pending | 1 / 5 |
 | [GID-114](goals/GID-114--game-feel-juice/goal.md) | Game Feel — Audio, Impact & Micro-Interaction Juice | needs-verification | 5 / 5 |
 | [GID-115](goals/GID-115--top-priority-bug-fixes/goal.md) | Top-Priority Bug Fixes — Co-op Desync, PvP Soft-Locks & Trade Integrity | done | 5 / 5 |
 | [GID-116](goals/GID-116--soundtrack-assets/goal.md) | Open-Source Soundtrack Assets | in-progress (TID-438 awaits human spec edit) | 3 / 4 |
@@ -153,6 +153,7 @@ files in `tasks/archive/backlog/`.
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
 | [BID-053](backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job is `continue-on-error` — 638 pre-existing problems (357 are `class-definitions-order`); two `.gdlintrc` rules that contradicted CLAUDE.md were fixed, cutting the count from >1000 | code-smell | GID-123 / TID-466 |
 | [BID-057](backlog/BID-057--duplicate-tid-352.md) | TID-352 is used by two different completed tasks (GID-096 and GID-097); pre-dates this branch, filed rather than renumbered | doc-gap | GID-124 merge audit |
+| [BID-058](backlog/BID-058--enemy-npc-engage-cooldown-missing.md) | `EnemyNPC.engage_cooldown` documented in 3 agent docs (GID-069 flee/respawn cooldown) but does not exist anywhere in `EnemyNPC.gd` — likely dropped by the TID-427 `engage()` rewrite without a doc update | code-smell / doc-gap | GID-113 / TID-420 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` is 9154 lines / 401 functions — 13% of all GDScript in one file, 9x the project's own `max-file-lines`; it refilled after GID-072 because nothing enforces the decomposition | code-smell | GID-123 research |
 
 ## Resolved Backlog

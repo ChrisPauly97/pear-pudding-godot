@@ -104,7 +104,7 @@ Spawned by `WorldEventManager` via `game_logic/WorldEvents.gd` on a 15–25 minu
 
 ### EnemyNPC Scene (`scenes/world/entities/EnemyNPC.gd`)
 
-Static entity — no movement AI. Engagement happens in two ways:
+Engagement happens in two ways, plus pursuit movement for tracking enemies (GID-113):
 
 **Interact-to-engage (all enemies):**
 Player presses E / taps interact button within `INTERACT_RANGE` (1.5 units). `WorldScene._handle_interact()` calls `enemy.engage()`. Works on every enemy type.
@@ -114,6 +114,15 @@ Enemies with `tracking: true` in their spawn data have an `Area3D` (sphere, radi
 - `_alive` must be true (prevents double-trigger)
 - `SceneManager.can_proximity_engage()` must be true — returns false while `_state != State.WORLD` or `_proximity_engage_blocked` is set (2 s immunity window after returning from battle)
 - `SaveManager.is_enemy_defeated(id)` must be false (already-defeated enemies with stale Area3D state)
+
+**Awareness & pursuit (tracking enemies only, GID-113):**
+Tracking enemies also get a second, larger `Area3D` (radius = `IsoConst.ENEMY_AWARENESS_RANGE` = 6.0 units), set up alongside the proximity area in `_ready()` under the same `if _tracking` gate (wanderers pay zero extra `_process` cost). `EnemyNPC._alert_state` (`AlertState` enum: `IDLE` / `ALERTED` / `CHASING`) drives it:
+- **IDLE -> ALERTED:** the awareness `Area3D`'s `body_entered` fires `_on_awareness_entered()`, guarded the same way as `_on_body_entered()` (alive, tracking, `can_proximity_engage()`, not already defeated), plus `not NetworkManager.is_active()`.
+- **ALERTED -> CHASING:** `_process()` ticks `_alert_timer`; after `_ALERT_REACTION_TIME` (0.4 s — matches the `engage()` alert beat) the enemy starts moving. This reaction window is the hook a future "fair warning" indicator (TID-422) attaches to.
+- **CHASING:** `_chase_player(delta)` moves `position` directly toward the player's `global_position` (Y zeroed) at `IsoConst.TRACKING_SPEED`, clamped to the remaining distance — a straight vector, not A* pathfinding (`EnemyNPC` extends `WorldEntityBase`/`Node3D`, no physics body to `move_and_slide()`). The player reference is resolved lazily via `get_tree().get_first_node_in_group("player")` (the group `WorldScene._create_player_node()` already adds the player to) — no per-spawn-site wiring needed. **Known limitation:** straight-line movement can clip through walls in dungeons/depth placements, which are always `tracking: true` — accepted for this foundation task since the common case is open overworld terrain; obstacle-aware chase is future work if it proves visibly wrong in dungeons.
+- There is no give-up/exit handling yet — once `ALERTED` or `CHASING`, state only escalates. Breaking pursuit back to `IDLE` is future work (TID-423).
+- Because the `AUTO_BATTLE_RANGE` proximity `Area3D` is a child of the (now-moving) `EnemyNPC`, a completed chase naturally overlaps it and calls `engage()` with no additional code — Godot re-evaluates `Area3D` overlaps every physics tick regardless of which side moved.
+- **Co-op scoping (explicit decision):** both awareness and chase movement are skipped entirely when `NetworkManager.is_active()`. Co-op enemies stay fully static for now; host-authoritative chase sync (broadcasting position) is unimplemented future work if wanted.
 
 **Tracking split (per enemy type):**
 `EnemyRegistry.is_tracking(type_id)` encodes the aggressiveness split:
@@ -239,7 +248,7 @@ This means defeated enemies stay gone across sessions.
 | **GameBus** | Signal | `shop_requested` emitted when player interacts with a MerchantNPC; routed to `SceneManager._on_shop_requested()` |
 | **GameBus** | Signal | `duel_requested(enemy_data, wager)` emitted from duel offer panel; `duel_won` / `duel_lost` resolve wager and update `SaveManager.defeated_duelists` |
 | **ShopScene** | Overlay | Opened on `shop_requested`; lists all cards for 15 coins each; emits `closed` when player leaves |
-| **IsoConst** | Constants | `AUTO_BATTLE_RANGE` (1.5 — proximity sphere radius), `INTERACT_RANGE` (1.5 — E-key range), `TRACKING_SPEED` (2.5 — reserved for future movement AI) |
+| **IsoConst** | Constants | `AUTO_BATTLE_RANGE` (1.5 — proximity sphere radius), `INTERACT_RANGE` (1.5 — E-key range), `ENEMY_AWARENESS_RANGE` (6.0 — pursuit-trigger sphere radius, GID-113), `TRACKING_SPEED` (2.5 — chase movement speed, consumed by `EnemyNPC._chase_player()`, GID-113) |
 | **SceneManager** | Guard | `can_proximity_engage()` returns false during battle or 2 s post-battle immunity window |
 
 ---
