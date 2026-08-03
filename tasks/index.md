@@ -24,7 +24,7 @@
 | [GID-018](goals/GID-018--card-content-depth/goal.md) | Card Content Depth — Dawn & Dusk Branches | done | 4 / 4 |
 | [GID-019](goals/GID-019--battle-depth/goal.md) | Battle Depth — Targeting, Intent & Status Effects | done | 5 / 5 |
 | [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | done (TID-067 superseded by GID-108/TID-405; all criteria satisfied) | 4 / 5 |
-| [GID-021](goals/GID-021--enemy-boss-variety/goal.md) | Enemy & Boss Variety | pending | 3 / 5 |
+| [GID-021](goals/GID-021--enemy-boss-variety/goal.md) | Enemy & Boss Variety | pending | 4 / 5 |
 | [GID-022](goals/GID-022--weapon-system-content/goal.md) | Weapon System Content | done | 4 / 4 |
 | [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | done | 5 / 5 |
 | [GID-024](goals/GID-024--meta-progression/goal.md) | Meta-Progression | done | 4 / 4 |
@@ -154,6 +154,7 @@ files in `tasks/archive/backlog/`.
 | [BID-053](backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job is `continue-on-error` — 638 pre-existing problems (357 are `class-definitions-order`); two `.gdlintrc` rules that contradicted CLAUDE.md were fixed, cutting the count from >1000 | code-smell | GID-123 / TID-466 |
 | [BID-057](backlog/BID-057--duplicate-tid-352.md) | TID-352 is used by two different completed tasks (GID-096 and GID-097); pre-dates this branch, filed rather than renumbered | doc-gap | GID-124 merge audit |
 | [BID-058](backlog/BID-058--enemy-npc-engage-cooldown-missing.md) | `EnemyNPC.engage_cooldown` documented in 3 agent docs (GID-069 flee/respawn cooldown) but does not exist anywhere in `EnemyNPC.gd` — likely dropped by the TID-427 `engage()` rewrite without a doc update | code-smell / doc-gap | GID-113 / TID-420 |
+| [BID-059](backlog/BID-059--map-scrolls-shrines-music-lost-in-3-maps.md) | `madrian.tres`/`maykalene.tres`/`blancogov.tres` have their `scrolls`/`shrines`/`music_track` fields mis-placed in the `.tres` text format, silently dropped on load — every lore scroll and puzzle shrine in those 3 maps has never spawned; 2 sibling maps fixed by GID-021/TID-071 | content-bug | GID-021 / TID-071 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` is 9154 lines / 401 functions — 13% of all GDScript in one file, 9x the project's own `max-file-lines`; it refilled after GID-072 because nothing enforces the decomposition | code-smell | GID-123 research |
 
 ## Resolved Backlog

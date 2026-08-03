@@ -148,6 +148,30 @@ static func _ensure_loaded() -> void:
 			"ai_persona": "control",
 			"lore_text": "Ancient stone given grim purpose by forgotten mountain rites, the Golem is less a creature than a fortress that walks. Wounding it only seems to focus its fury — the deeper into the fight, the harder it hits back.",
 		},
+		"hollow_steward": {
+			"display_name": "The Hollow Steward",
+			"deck": ["skeleton", "skeleton", "skeleton", "skeleton", "dusk_wraith", "dusk_wraith", "dusk_wraith", "dusk_seer", "dusk_seer", "wither", "wither", "drain"],
+			"drop_pool": ["dusk_wraith", "shrouded_wraith", "dark_pact", "dusk_seer", "void_creeper"],
+			"coin_reward": 25,
+			"is_boss": true,
+			"boss_hp": 35,
+			"phase2_deck": ["shrouded_wraith", "shrouded_wraith", "dusk_wraith", "dusk_wraith", "dusk_wraith", "drain", "drain", "wither", "wither", "dark_pact", "dark_pact", "skeleton"],
+			"difficulty_tier": 4,
+			"ai_persona": "control",
+			"lore_text": "Once the trusted steward of Farsyth Mansion, now a hollow thing bound to old, dark bargains. It keeps the household running out of habit alone, and turns on any who threaten to expose what it has become.",
+		},
+		"martarquas_vanguard": {
+			"display_name": "Martarquas Vanguard",
+			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul", "ghoul", "ghoul", "ember_imp", "ember_imp", "ember"],
+			"drop_pool": ["ghoul", "blitz_ghoul", "ember_imp", "iron_revenant", "duel_crown"],
+			"coin_reward": 30,
+			"is_boss": true,
+			"boss_hp": 40,
+			"phase2_deck": ["ghoul", "ghoul", "ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "ember", "ember", "scorch", "scorch", "ember_imp", "ember_imp"],
+			"difficulty_tier": 4,
+			"ai_persona": "control",
+			"lore_text": "Sent ahead of the tribe's main force to probe the temple's defenses, the Vanguard is disciplined where the raiders are reckless. It fights a measured, armored battle — testing exactly how ready the alliance really is.",
+		},
 		"duelist_novice": {
 			"display_name": "Novice Duelist",
 			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "mend"],
@@ -477,7 +501,9 @@ static func get_bestiary_enemy_ids() -> Array[String]:
 ## false = interact-only (wanderers). true = aggressive (attack on sight).
 static func is_tracking(type_id: String) -> bool:
 	return type_id == "undead_elite" or type_id == "ghoul_pack" or type_id == "roaming_terror" \
-		or type_id == "spectre_wisp" or type_id == "spectre_haunt" or type_id == "spectre_dread"
+		or type_id == "spectre_wisp" or type_id == "spectre_haunt" or type_id == "spectre_dread" \
+		or type_id == "scorched_revenant" or type_id == "mountain_troll" or type_id == "stone_golem" \
+		or type_id == "hollow_steward" or type_id == "martarquas_vanguard"
 
 ## Returns true if this enemy type boosts card drop rarity by one tier on defeat.
 static func get_night_drop_boost(type_id: String) -> bool:

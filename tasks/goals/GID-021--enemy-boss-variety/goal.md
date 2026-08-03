@@ -15,13 +15,13 @@ Only 4 enemy types exist (all "undead" variants) and all biomes spawn the same e
 | TID-068 | Human: author new enemy decks and drop pools | human-action | done | — |
 | TID-069 | Create 6 new enemy .tres files | agent | done | TID-068 |
 | TID-070 | Boss encounter framework | agent | done | — |
-| TID-071 | Add 2 boss encounters to named maps | agent | pending | TID-068, TID-070 |
+| TID-071 | Add 2 boss encounters to named maps | agent | done | TID-068, TID-070 |
 | TID-072 | Update biome spawn tables | agent | pending | TID-069 |
 
 ## Acceptance Criteria
 
-- [ ] 6 new enemy .tres files exist with distinct decks and drop pools
-- [ ] EnemyData supports a boss flag with appropriate battle presentation differences
-- [ ] 2 boss encounters are placed in named maps with correct trigger conditions
-- [ ] Each biome spawns at least 2 distinct enemy types in the infinite world
-- [ ] All tests pass headless
+- [x] 6 new enemy .tres files exist with distinct decks and drop pools (as `EnemyRegistry` entries — no live `.tres` enemy resources in this codebase, see TID-069 Plan)
+- [x] EnemyData supports a boss flag with appropriate battle presentation differences (shipped by TID-070)
+- [x] 2 boss encounters are placed in named maps with correct trigger conditions (TID-071)
+- [ ] Each biome spawns at least 2 distinct enemy types in the infinite world (TID-072, in progress)
+- [x] All tests pass headless

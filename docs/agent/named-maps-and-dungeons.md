@@ -41,6 +41,8 @@ All map data is stored in typed `extends Resource` classes. Each class has a `.u
 @export var doors: Array[Resource] = []     # cast to MapDoor at load time
 @export var npcs: Array[Resource] = []      # cast to MapNpc at load time
 @export var scrolls: Array[Resource] = []   # cast to MapScroll at load time
+@export var shrines: Array[Resource] = []   # cast to MapPuzzleShrine at load time
+@export var waystones: Array[Resource] = [] # cast to MapWaystone at load time
 @export var triggers: Array[Resource] = []  # cast to MapTrigger at load time (future)
 @export var regions: Array[Resource] = []   # cast to MapRegion at load time (future)
 @export var music_track: String = ""
@@ -50,6 +52,24 @@ All map data is stored in typed `extends Resource` classes. Each class has a `.u
 ```
 
 Entity positions in `.tres` files are stored in **tile coordinates** (`tile_x`, `tile_z`). `WorldMap.load_from_resource()` converts these to **world coordinates** (`x = float(tile_x) * TILE_SIZE`) at load time.
+
+**Hand-editing/generating `.tres` map files — a structural pitfall (GID-021,
+BID-059):** every `key = value` line in Godot's `.tres` text format attaches
+to whichever `[section]` header appeared most recently above it — a blank
+line does **not** end a section, only the next `[...]` header does. If a
+`MapData` scalar/array field (`scrolls`, `shrines`, `music_track`, etc.) is
+written *after the last `[sub_resource]` block but before `[resource]`*,
+it silently attaches to that last sub-resource instead of the top-level
+`MapData` — and since that sub-resource's script doesn't declare the
+property, Godot drops it on load with **no error, no warning**. This
+exact bug shipped in 3 of the 5 story maps (BID-059) — `scrolls.size()`
+and `shrines.size()` loaded as `0` despite the file clearly authoring
+scroll/shrine sub-resources. **Always put every top-level `MapData` field
+inside the final `[resource]` section**, never dangling before it. To
+verify a map file loads what you think it does, `load()` it directly in a
+throwaway headless script and inspect `.scrolls.size()` / `.shrines.size()`
+/ etc. — a clean headless editor import does **not** catch this class of
+bug, since misplaced-but-syntactically-valid properties parse without error.
 
 **Door visual (GID-118):** every `MapDoor`-spawned entity (player home, guildhall,
 shops, dungeon/ruin entries, the spire) renders as a billboard `Sprite3D` via

@@ -121,6 +121,25 @@ Spawned by `WorldEventManager` via `game_logic/WorldEvents.gd` on a 15–25 minu
 
 `SceneManager._on_battle_won()` handles both `"card_reward"` (single string, regular) and `"card_rewards"` (list, boss).
 
+### Chapter 1 Story Bosses (GID-021)
+
+Two dedicated, once-only boss placements distinct from `roaming_terror`
+(infinite world, repeatable) and Chapter 2's `martarquas_warleader` (Marsax
+hold siege). Both are regular `MapEnemy` placements — a single `ENEMY`
+directive in the map's `.tres` — with `is_tracking() == true` so they're
+proactive, unavoidable encounters, and both get standard once-only
+persistence for free via `SaveManager.defeated_enemies` (same spawn-skip
+check every named-map enemy already gets).
+
+| ID | Display Name | Map | Tile | Special Mechanic |
+|---|---|---|---|---|
+| `hollow_steward` | The Hollow Steward | `farsyth_mansion` | (66, 55) | Phase 2 at 50% HP — a corrupted former mansion steward sheds its living disguise; ties into the pre-existing maykalene hint "Strange things happen there" and foreshadows the Traitor's reach |
+| `martarquas_vanguard` | Martarquas Vanguard | `blancogov_temple` | (55, 60) | Phase 2 at 50% HP (armored, aggressive kit) — an advance scout intercepted on the way to the council; the true climax fight of Chapter 1 |
+
+Both use the ordinary `is_boss`/`boss_hp`/`phase2_deck` fields in
+`EnemyRegistry._enemies` — no bespoke trigger wiring beyond normal
+`MapEnemy` placement and the `is_tracking()` whitelist entry.
+
 ### EnemyNPC Scene (`scenes/world/entities/EnemyNPC.gd`)
 
 Engagement happens in two ways, plus pursuit movement for tracking enemies (GID-113):
