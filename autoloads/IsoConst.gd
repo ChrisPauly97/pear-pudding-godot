@@ -38,6 +38,7 @@ const AUTO_BATTLE_RANGE: float = 1.5   # enemy engages player at this distance
 const INTERACT_RANGE: float = 1.5      # E key interaction range
 const TRACKING_SPEED: float = 2.5      # enemy chase speed (world units/sec), consumed by EnemyNPC pursuit (GID-113)
 const ENEMY_AWARENESS_RANGE: float = 6.0  # tracking enemies notice the player and start pursuit at this distance
+const ENEMY_GIVEUP_RANGE: float = 9.0     # sustained distance beyond this breaks pursuit and resets to idle
 
 # Player physics
 const PLAYER_SPEED: float = 6.0        # world units/sec

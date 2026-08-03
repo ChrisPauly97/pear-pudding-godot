@@ -34,15 +34,15 @@ ambush bonuses/penalties keyed off of it, plus a way to break pursuit.
 | TID-420 | Real pursuit movement for tracking enemies | agent | done | — |
 | TID-421 | Player-initiated ambush bonus (sneak attack) | agent | done | TID-420 |
 | TID-422 | Enemy-initiated ambush penalty + fair-warning indicator | agent | done | TID-420 |
-| TID-423 | Evasion: break pursuit / outrun a chasing enemy | agent | pending | TID-420 |
+| TID-423 | Evasion: break pursuit / outrun a chasing enemy | agent | done | TID-420 |
 | TID-424 | Detection/ambush state machine tests + doc update | agent | pending | TID-421, TID-422, TID-423 |
 
 ## Acceptance Criteria
 
 - [x] Tracking-type enemies (`is_tracking() == true`) actively move toward the player using `IsoConst.TRACKING_SPEED` once the player enters a new "awareness" radius (larger than `AUTO_BATTLE_RANGE`), instead of sitting still behind a static proximity trigger. (TID-420)
-- [ ] A player who reaches interact/collision range on an enemy that has not yet noticed them (a wanderer, or a tracking enemy still outside its awareness radius / not yet alerted) gets a battle-start advantage ("Ambush!").
-- [ ] A player caught by a tracking enemy's pursuit without reacting in time gets a battle-start penalty ("Ambushed!"), with a clear, fair on-screen/audio warning before it happens (not a surprise the player had no way to see coming).
-- [ ] The player can break an active pursuit by putting enough distance/time between themselves and the chasing enemy; the enemy visibly gives up and returns to idle instead of an inevitable forced engage.
-- [ ] Mobile/desktop parity is preserved for any new indicator (per CLAUDE.md's Mobile/Desktop Feature Parity rule) — no keyboard-only or touch-only signal.
-- [ ] Co-op (`NetworkManager.is_active()`) behavior is either extended consistently or explicitly scoped out with a documented reason — confirm during Plan which named maps / world contexts this applies to (infinite world only, named maps only, or both) since co-op is currently pinned to a single shared named map (madrian).
+- [x] A player who reaches interact/collision range on an enemy that has not yet noticed them (a wanderer, or a tracking enemy still outside its awareness radius / not yet alerted) gets a battle-start advantage ("Ambush!"). (TID-421)
+- [x] A player caught by a tracking enemy's pursuit without reacting in time gets a battle-start penalty ("Ambushed!"), with a clear, fair on-screen/audio warning before it happens (not a surprise the player had no way to see coming). (TID-422)
+- [x] The player can break an active pursuit by putting enough distance/time between themselves and the chasing enemy; the enemy visibly gives up and returns to idle instead of an inevitable forced engage. (TID-423)
+- [x] Mobile/desktop parity is preserved for any new indicator (per CLAUDE.md's Mobile/Desktop Feature Parity rule) — no keyboard-only or touch-only signal. (billboard Label3D + SFX, TID-422/423)
+- [x] Co-op (`NetworkManager.is_active()`) behavior is either extended consistently or explicitly scoped out with a documented reason — confirm during Plan which named maps / world contexts this applies to (infinite world only, named maps only, or both) since co-op is currently pinned to a single shared named map (madrian). (scoped out entirely, TID-420)
 - [ ] `docs/agent/enemies-and-npcs.md` "Mixed engagement" section is rewritten to describe the new detection/pursuit/ambush system in place of the current binary tracking/wanderer split.

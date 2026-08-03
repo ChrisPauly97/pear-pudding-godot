@@ -10,6 +10,7 @@ const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 ## closing the distance. TID-423 owns breaking pursuit back to IDLE.
 enum AlertState { IDLE, ALERTED, CHASING }
 const _ALERT_REACTION_TIME: float = 0.4
+const _GIVEUP_HOLD_TIME: float = 2.0
 
 var enemy_data: Dictionary = {}
 var _alive: bool = true
@@ -18,6 +19,7 @@ var _is_roaming_boss: bool = false
 var _tracking: bool = false
 var _alert_state: int = AlertState.IDLE
 var _alert_timer: float = 0.0
+var _giveup_timer: float = 0.0
 var _player_ref: CharacterBody3D = null
 
 func _ready() -> void:
@@ -42,6 +44,9 @@ func _process(delta: float) -> void:
 		return
 	if not SceneManager.can_proximity_engage():
 		return
+	if _alert_state == AlertState.IDLE:
+		return
+	_update_giveup(delta)
 	if _alert_state == AlertState.ALERTED:
 		_alert_timer += delta
 		if _alert_timer >= _ALERT_REACTION_TIME:
@@ -49,18 +54,45 @@ func _process(delta: float) -> void:
 	elif _alert_state == AlertState.CHASING:
 		_chase_player(delta)
 
-func _chase_player(delta: float) -> void:
+func _resolve_player() -> CharacterBody3D:
 	if not is_instance_valid(_player_ref):
 		_player_ref = get_tree().get_first_node_in_group("player") as CharacterBody3D
-	if not is_instance_valid(_player_ref):
+	return _player_ref
+
+func _chase_player(delta: float) -> void:
+	var player: CharacterBody3D = _resolve_player()
+	if not is_instance_valid(player):
 		return
-	var to_player: Vector3 = _player_ref.global_position - global_position
+	var to_player: Vector3 = player.global_position - global_position
 	to_player.y = 0.0
 	var dist: float = to_player.length()
 	if dist < 0.05:
 		return
 	var step: float = min(IsoConst.TRACKING_SPEED * delta, dist)
 	position += to_player.normalized() * step
+
+## Breaks pursuit (TID-423): once ALERTED or CHASING, a sustained distance
+## beyond ENEMY_GIVEUP_RANGE (not a single-frame spike, to avoid flicker at
+## the boundary) reverts to IDLE — stopping movement, clearing the alert
+## timer, and re-arming TID-421's ambush bonus for the next approach.
+func _update_giveup(delta: float) -> void:
+	var player: CharacterBody3D = _resolve_player()
+	if not is_instance_valid(player):
+		return
+	var to_player: Vector3 = player.global_position - global_position
+	to_player.y = 0.0
+	if to_player.length() > IsoConst.ENEMY_GIVEUP_RANGE:
+		_giveup_timer += delta
+		if _giveup_timer >= _GIVEUP_HOLD_TIME:
+			_give_up_pursuit()
+	else:
+		_giveup_timer = 0.0
+
+func _give_up_pursuit() -> void:
+	_alert_state = AlertState.IDLE
+	_alert_timer = 0.0
+	_giveup_timer = 0.0
+	_show_giveup()
 
 func init_from_data(data: Dictionary) -> void:
 	enemy_data = data
@@ -116,6 +148,23 @@ func _show_alert() -> void:
 	add_child(lbl)
 	var tw: Tween = lbl.create_tween()
 	tw.tween_property(lbl, "scale", Vector3.ONE, 0.15).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+## Give-up relief beat (TID-423): mirrors _show_alert() but a fading gray
+## "?" instead of a popping-in red "!" — the enemy losing interest reads
+## differently from it noticing you.
+func _show_giveup() -> void:
+	var lbl := Label3D.new()
+	lbl.text = "?"
+	lbl.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	lbl.no_depth_test = true
+	lbl.modulate = Color(0.75, 0.75, 0.75, 1.0)
+	lbl.font_size = 48
+	lbl.pixel_size = 0.01
+	lbl.position = Vector3(0.0, 1.9, 0.0)
+	add_child(lbl)
+	var tw: Tween = lbl.create_tween()
+	tw.tween_property(lbl, "modulate:a", 0.0, 0.8)
+	tw.tween_callback(lbl.queue_free)
 
 func mark_defeated() -> void:
 	_alive = false
