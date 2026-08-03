@@ -31,16 +31,24 @@ A game-feel audit (July 2026) compared the game against the polish staples that 
 - [ ] Opening a chest plays a visible open animation with a particle burst; enemy engagement shows an alert beat ("!" indicator + short pause) before the battle transition; scroll pickup and dig success have visible flourishes
 - [ ] Player movement accelerates and decelerates smoothly (no single-frame start/stop); walking emits subtle dust; landing after a jump shows dust/squash feedback; footsteps sync to walk animation frames
 - [ ] Buttons across HUD and overlays give press feedback (scale/color) and an audible click; the dragged hand card's source panel dims; victory coin/XP totals count up; feedback respects accessibility toggles (screen shake, haptics)
-- [ ] All tests pass headless; headless editor import is clean after every task
+- [x] All tests pass headless; headless editor import is clean after every task
 
-**Status note:** all 5 tasks are implemented per the criteria above, but
-none could be verified in this session — the Godot 4.6 headless binary
-could not be installed (downloading it from `github.com/godotengine/godot/
-releases` is blocked by this environment's proxy egress policy). The
-checkboxes above are left unchecked until a session with headless Godot
-access runs `godot --headless --editor --quit` (parse-error check) and
-`godot --headless --path . -s tests/runner.gd` (full suite, including 4 new
-test files this goal added), plus a manual playthrough of: battle
-(attack/death/card-play), world (chest/enemy-engage/scroll/dig/waystone),
-locomotion (walk/jump/land/mount), and UI (HUD buttons/overlays/drag/victory
-screen).
+**Status note (updated 2026-08-03):** headless Godot 4.6 became available
+this session (`scripts/setup-dev-env.sh` installed it automatically) — both
+previously-blocked checks now pass: `godot --headless --editor --quit`
+(clean, no parse/compile errors) and `godot --headless --path . -s
+tests/runner.gd` (2355 passed, 0 failed, 1 pending — pre-existing). The 4
+test files this goal added (`test_sfx_gen.gd`, `test_battle_fx_impact.gd`,
+`test_battle_result_ui_count_up.gd`, `test_ui_fx.gd`) all pass, including
+`test_sfx_gen::test_all_keys_return_non_null_stream_with_data`, which
+directly exercises the "every SFX key produces real audio" claim in the
+first checkbox above (as far as an automated, non-interactive check can —
+"audible" and "distinct" to a human ear is still unverified).
+
+The remaining gap is unchanged: a **manual playthrough** (battle
+attack/death/card-play; world chest/enemy-engage/scroll/dig/waystone;
+locomotion walk/jump/land/mount; UI HUD buttons/overlays/drag/victory
+screen) has still not happened in any session — this remote environment has
+no interactive display. The 5 feel/UX checkboxes above stay unchecked until
+someone actually plays it; only the "tests pass headless" box is honestly
+checkable from this session's evidence.
