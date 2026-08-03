@@ -2,7 +2,7 @@
 
 **Goal:** GID-021
 **Type:** human-action
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -10,6 +10,13 @@
 **Session:** none
 **Acquired:** —
 **Expires:** —
+
+## Type override note
+
+Applied directly by the agent with the human's explicit, in-conversation
+permission to edit `docs/human/` for this batch of pending human-action
+tasks (2026-08-03) — the normal flow (agent presents options, human
+authors/confirms) was waived for this specific request.
 
 ## Context
 
@@ -45,8 +52,19 @@ _N/A — human action._
 
 ## Changes Made
 
-_N/A — human action._
+- `docs/human/story.md`: filled in the "New Enemy Types" table (6 enemies:
+  wraith, forest_shade, sand_stalker, scorched_revenant, mountain_troll,
+  stone_golem) and "Boss Enemy Types" table (2 bosses: hollow_steward at
+  farsyth_mansion, martarquas_vanguard at blancogov_temple) with decks, drop
+  pools, and (for the bosses) special mechanics — using only existing
+  `data/cards/` IDs, all verified present. Deck design followed each
+  enemy's archetype from `specification.md`'s "Planned Enemy Types" table
+  (fast/low-HP, evasive+draw, rush, burn/AoE, high-HP/slow, boss-tier tank);
+  the two story bosses tie into existing narrative hooks (the Farsyth
+  mansion "strange things" hint, the Traitor mystery, and a Chapter 1
+  climax fight distinct from Chapter 2's `martarquas_warleader`).
 
 ## Documentation Updates
 
-_N/A — human action._
+_N/A — human-owned doc; unblocks TID-069 (registry entries) and TID-071
+(boss map placement), both agent tasks._

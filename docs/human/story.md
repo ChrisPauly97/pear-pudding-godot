@@ -335,25 +335,40 @@ DOOR x z target_map [door_id] — door linking to another map (__exit__ returns 
 
 ## New Enemy Types
 
-> **TODO for TID-068:** Define 6 new enemy types (aiming for 2 per biome).
-> For each, provide the fields below. The agent will create .tres files from this table.
-> Deck and drop_pool values use card IDs (e.g. ghost, skeleton, spark, ash).
+*(Filled in via GID-021/TID-068, 2026-08-03. Deck/drop pool card IDs are drawn
+from existing `data/cards/` resources — no new cards required. Enemy battle
+data is stored in `autoloads/EnemyRegistry.gd`, not `.tres` files — see
+CLAUDE.md "Save Fields" note; TID-069 adds these as registry entries.)*
 
 | ID | Display Name | Biome | Coin Reward | Deck (card IDs, quantities) | Drop Pool |
 |---|---|---|---|---|---|
-| wraith | Wraith | grasslands | 8 | (fill in) | (fill in) |
-| forest_shade | Forest Shade | forest | 10 | (fill in) | (fill in) |
-| sand_stalker | Sand Stalker | desert | 9 | (fill in) | (fill in) |
-| scorched_revenant | Scorched Revenant | scorched | 12 | (fill in) | (fill in) |
-| mountain_troll | Mountain Troll | mountains | 15 | (fill in) | (fill in) |
-| stone_golem | Stone Golem | mountains | 18 | (fill in — boss tier) | (fill in) |
+| wraith | Wraith | grasslands | 8 | ghost x6, skeleton x2, ember_imp x2 | ghost, ember_imp, spark, surge_spirit |
+| forest_shade | Forest Shade | forest | 10 | skeleton x3, zombie x2, dusk_wraith x2, insight x2, dusk_seer x1 | skeleton, dusk_wraith, insight, dusk_seer, shrouded_wraith |
+| sand_stalker | Sand Stalker | desert | 9 | skeleton x4, zombie x3, ghoul x2, dagger_throw x1 | zombie, ghoul, dagger_throw, blitz_ghoul |
+| scorched_revenant | Scorched Revenant | scorched | 12 | zombie x3, ghoul x2, scorch x2, char x2, alight x2, ember x1 | ghoul, scorch, char, ember_imp, ash_warden |
+| mountain_troll | Mountain Troll | mountains | 15 | ghoul x6, zombie x3, restore x2, wither x1 | ghoul, restore, wither, iron_revenant, veiled_paladin |
+| stone_golem | Stone Golem | mountains | 18 | ghoul x6, zombie x3, ash_bone_wall x2, ash_arbiter x1 — **boss tier** (`is_boss`, `boss_hp` 40, phase 2 at 50% HP: ghoul x4, zombie x2, ash_defile x2, ash_annihilate x2, ash_arbiter x2) | ghoul, ash_arbiter, ash_defile, iron_revenant, ancient_guardian |
+
+**Design notes (why each deck fits its archetype):** Wraith leans almost
+entirely on the cheapest minion (Ghost) plus a couple of `ember_imp` for a
+fast, low-HP swarm. Forest Shade mixes `insight`/`dusk_seer` (card-advantage
+effects) with evasive Dusk minions. Sand Stalker is minion-heavy with a
+single burst spell (`dagger_throw`) for a rush deck, no healing. Scorched
+Revenant leans on the Ember/Ash burn line (`scorch`, `char`, `alight`,
+`ember`) for board-wide damage. Mountain Troll trades tempo for `restore` and
+the heaviest base minion (Ghoul) at high volume — a slow, grinding deck.
+Stone Golem is the mini-boss capstone of the mountain pool: same tanky Ghoul
+core plus defensive Ash cards (`ash_bone_wall`, `ash_arbiter`), with a
+sharper, more aggressive Ash phase-2 kit once wounded.
 
 ### Boss Enemy Types
 
-> **TODO for TID-071:** Define the 2 boss encounters.
-> A boss is an enemy placed in a specific named map location that uses the boss framework from TID-070.
+*(Filled in via GID-021/TID-068, 2026-08-03. Both are new Chapter 1 story
+encounters, distinct from Chapter 2's `martarquas_warleader` at marsax_hold —
+see `docs/agent/enemies-and-npcs.md` "Boss Battle Framework" for the
+phase-2/HP-override mechanics referenced below.)*
 
 | ID | Display Name | Map Placement | Special Mechanic | Deck | Drop Pool |
 |---|---|---|---|---|---|
-| (mid_boss) | (name) | blancogov_temple or farsyth_mansion | (e.g. phase 2 deck swap at 50% HP) | (fill in) | (fill in) |
-| (chapter1_boss) | (name) | blancogov_temple | (e.g. hero gains armor each turn) | (fill in) | (fill in) |
+| hollow_steward | The Hollow Steward | farsyth_mansion | Phase 2 deck swap at 50% HP: a corrupted former steward of the mansion sheds its living disguise for its true spectral form. Ties into the existing maykalene hint "Strange things happen there" and foreshadows the Traitor's reach into Lord Farsyth's household. `boss_hp` 35. Deck: skeleton x4, dusk_wraith x3, dusk_seer x2, wither x2, drain x1. Phase 2: shrouded_wraith x2, dusk_wraith x3, drain x2, wither x2, dark_pact x2, skeleton x1. | skeleton x4, dusk_wraith x3, dusk_seer x2, wither x2, drain x1 | dusk_wraith, shrouded_wraith, dark_pact, dusk_seer, void_creeper |
+| martarquas_vanguard | Martarquas Vanguard | blancogov_temple | Hero gains +2 armor at the start of each of its turns — an advance scout sent ahead of the tribe's main force to test the temple's defenses right as the council assembles. The true climax fight of Chapter 1, distinct from Chapter 2's `martarquas_warleader`. `boss_hp` 40. Deck: skeleton x3, zombie x3, ghoul x3, ember_imp x2, ember x1. Phase 2: ghoul x4, blitz_ghoul x2, ember x2, scorch x2, ember_imp x2. | skeleton x3, zombie x3, ghoul x3, ember_imp x2, ember x1 | ghoul, blitz_ghoul, ember_imp, iron_revenant, duel_crown |
