@@ -2,14 +2,14 @@
 
 **Goal:** GID-098
 **Type:** human-action
-**Status:** pending
+**Status:** done
 **Depends On:** TID-357
 
 ## Lock
 
-**Session:** claude/work-task-gid-102-gejm0z
-**Acquired:** 2026-06-28T15:00:00Z
-**Expires:** 2026-06-28T15:30:00Z
+**Session:** none
+**Acquired:** —
+**Expires:** —
 
 ## Context
 
@@ -38,8 +38,24 @@ NPC Dialogue by Map section, then confirms.
 
 ## Changes Made
 
-_Human confirms when applied._
+- `docs/human/story.md` "NPC Dialogue by Map" section: added a "Group
+  Dialogue (co-op)" column to all 5 per-map tables (madrian, maykalene,
+  farsyth_mansion, blancogov, blancogov_temple). Filled in for the 10 rows
+  that already have an authored `dialogue_group` value in the corresponding
+  map `.tres` (verified by grep against every `dialogue_group =` line across
+  the 5 files) — text copied verbatim from the `.tres` so the bible matches
+  what's actually shipped, not new wording invented here. The 2 rows with no
+  `dialogue_group` authored yet in the `.tres` (City dweller/blancogov,
+  Scargroth/blancogov_temple) are marked *(not yet authored)* rather than
+  guessed at.
+- Applied directly by the agent with the human's explicit, in-conversation
+  permission to edit `docs/human/` for this batch of pending human-action
+  tasks (2026-08-03) — the normal flow (agent prepares a change list, human
+  applies it) was waived for this specific request. No wording deltas need
+  reconciling back into the `.tres` files since the bible now matches them
+  exactly.
 
 ## Documentation Updates
 
-_n/a — human-owned doc._
+_n/a — human-owned doc; no `docs/agent/` changes (TID-357 already documented
+the `dialogue_group` system itself in `named-maps-and-dungeons.md`)._

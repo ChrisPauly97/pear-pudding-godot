@@ -219,42 +219,49 @@ unresolved at the cliffhanger — fuel for Chapter 3.
 
 ## NPC Dialogue by Map
 
+*(Co-op group variants added via GID-098/TID-358, 2026-08-03 — `dialogue_group`
+text was already authored and shipped in the map `.tres` files by TID-357; this
+table is being synced to match. Shown to a co-op party of ≥2; solo play always
+gets the singular Dialogue column. A blank Group Dialogue cell means no group
+variant has been authored yet for that NPC — it still shows the singular line
+in co-op.)*
+
 ### madrian
 
-| NPC | Position | Dialogue |
-|---|---|---|
-| Maiteln | x=45, z=36 | I am a wizard of old. If you come with me you will never have to worry about your master again and I will take you on an adventure. My name is Maiteln. Will you come with me? |
-| Master | x=11, z=14 | Boy! Get back to your chores this instant or you will be punished! |
+| NPC | Position | Dialogue | Group Dialogue (co-op) |
+|---|---|---|---|
+| Maiteln | x=45, z=36 | I am a wizard of old. If you come with me you will never have to worry about your master again and I will take you on an adventure. My name is Maiteln. Will you come with me? | I am a wizard of old. If you will all come with me, none of you need worry about that master again — I will take you all on an adventure. My name is Maiteln. Will you join me? |
+| Master | x=11, z=14 | Boy! Get back to your chores this instant or you will be punished! | All of you! Get back to your chores this instant or you will all be punished! |
 
 ### maykalene
 
-| NPC | Position | Dialogue |
-|---|---|---|
-| Townsperson | x=50, z=65 | Welcome to Maykalene! Fine white-washed houses and a warm inn await you. |
-| Innkeeper | x=62, z=51 | Best broth and cocoa in all the land! A warm meal and soft bed within! |
-| Mansion guard | x=50, z=94 | Ah, Maiteln! Lord Farsyth is not busy at the moment. Go straight in if you have news of the prophecy. |
+| NPC | Position | Dialogue | Group Dialogue (co-op) |
+|---|---|---|---|
+| Townsperson | x=50, z=65 | Welcome to Maykalene! Fine white-washed houses and a warm inn await you. | Welcome to Maykalene! Fine white-washed houses and a warm inn await you all. |
+| Innkeeper | x=62, z=51 | Best broth and cocoa in all the land! A warm meal and soft bed within! | Best broth and cocoa in all the land! Warm meals and soft beds for your whole party within! |
+| Mansion guard | x=50, z=94 | Ah, Maiteln! Lord Farsyth is not busy at the moment. Go straight in if you have news of the prophecy. | Ah, Maiteln! Lord Farsyth is not busy at the moment. Bring your companions inside — he will see you all if you have news of the prophecy. |
 
 ### farsyth_mansion
 
-| NPC | Position | Dialogue |
-|---|---|---|
-| Reception guard | x=49, z=78 | Welcome, Maiteln. The lord will receive you directly — he awaits word of the prophecy. |
-| Lord Farsyth | x=49, z=20 | The Martarquas tribe rising again? By the gods, this is dire news. I shall send word to Lords Marsax, Ramtorous and Temlar at once. You must warn King Eldar in Blancogov! |
+| NPC | Position | Dialogue | Group Dialogue (co-op) |
+|---|---|---|---|
+| Reception guard | x=49, z=78 | Welcome, Maiteln. The lord will receive you directly — he awaits word of the prophecy. | Welcome, Maiteln and companions! Lord Farsyth will receive you all directly. He awaits word of the prophecy. |
+| Lord Farsyth | x=49, z=20 | The Martarquas tribe rising again? By the gods, this is dire news. I shall send word to Lords Marsax, Ramtorous and Temlar at once. You must warn King Eldar in Blancogov! | The Martarquas tribe rising again? By the gods, this is dire news. I shall send word to Lords Marsax, Ramtorous and Temlar at once. You must all ride to warn King Eldar in Blancogov! |
 
 ### blancogov
 
-| NPC | Position | Dialogue |
-|---|---|---|
-| Gate guard | x=49, z=9 | Halt! State your business at the gates of Blancogov. No entry without authorisation! |
-| City dweller | x=49, z=72 | The great temple of King Eldar lies at the road's end. The council has been summoned — something stirs. |
+| NPC | Position | Dialogue | Group Dialogue (co-op) |
+|---|---|---|---|
+| Gate guard | x=49, z=9 | Halt! State your business at the gates of Blancogov. No entry without authorisation! | Halt! State your business at the gates of Blancogov. No entry without authorisation for any of you! |
+| City dweller | x=49, z=72 | The great temple of King Eldar lies at the road's end. The council has been summoned — something stirs. | *(not yet authored)* |
 
 ### blancogov_temple
 
-| NPC | Position | Dialogue |
-|---|---|---|
-| King Eldar | x=42, z=15 | Maiteln! We are glad you came so swiftly. The council is assembling. The Martarquas threat must be answered together. |
-| Queen | x=58, z=15 | Welcome, Maiteln, and your young companion. You are most welcome here. Please take a seat in one of the red satin oak chairs. |
-| Scargroth | x=50, z=30 | The letter was urgent for good reason. The prophecy cannot be ignored. All lords must be present before we act. |
+| NPC | Position | Dialogue | Group Dialogue (co-op) |
+|---|---|---|---|
+| King Eldar | x=42, z=15 | Maiteln! We are glad you came so swiftly. The council is assembling. The Martarquas threat must be answered together. | Maiteln! We are glad you all came so swiftly. The council is assembling. The Martarquas threat must be answered together. |
+| Queen | x=58, z=15 | Welcome, Maiteln, and your young companion. You are most welcome here. Please take a seat in one of the red satin oak chairs. | Welcome, Maiteln, and your companions. You are all most welcome here. Please take your seats in the red satin oak chairs. |
+| Scargroth | x=50, z=30 | The letter was urgent for good reason. The prophecy cannot be ignored. All lords must be present before we act. | *(not yet authored)* |
 
 ### larik *(Chapter 2 — GID-108)*
 
