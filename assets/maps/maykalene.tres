@@ -113,15 +113,6 @@ tile_x = 35
 tile_z = 30
 puzzle_id = "puzzle_ward_bypass"
 
-scrolls = [SubResource("MapScroll_1")]
-shrines = [SubResource("MapPuzzleShrine_1")]
-triggers = []
-regions = []
-music_track = "res://assets/audio/music/grasslands.ogg"
-difficulty = 0
-author = ""
-version = 1
-
 [resource]
 script = ExtResource("1_mapdata")
 map_name = "maykalene"
@@ -135,3 +126,12 @@ enemies = []
 chests = []
 doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2")]
 npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7")]
+scrolls = [SubResource("MapScroll_1")]
+shrines = [SubResource("MapPuzzleShrine_1")]
+waystones = []
+triggers = []
+regions = []
+music_track = "res://assets/audio/music/grasslands.ogg"
+difficulty = 0
+author = ""
+version = 1

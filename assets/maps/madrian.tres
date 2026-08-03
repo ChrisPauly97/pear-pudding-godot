@@ -211,15 +211,6 @@ tile_x = 40
 tile_z = 36
 puzzle_id = "puzzle_surge_lethal"
 
-scrolls = [SubResource("MapScroll_1")]
-shrines = [SubResource("MapPuzzleShrine_1")]
-triggers = []
-regions = []
-music_track = "res://assets/audio/music/grasslands.ogg"
-difficulty = 0
-author = ""
-version = 1
-
 
 [sub_resource type="Resource" id="MapNpc_12"]
 script = ExtResource("3_mapnpc")
@@ -244,3 +235,12 @@ enemies = []
 chests = []
 doors = [SubResource("MapDoor_1"), SubResource("MapDoor_2"), SubResource("MapDoor_3"), SubResource("MapDoor_4"), SubResource("MapDoor_5"), SubResource("MapDoor_6"), SubResource("MapDoor_7"), SubResource("MapDoor_8")]
 npcs = [SubResource("MapNpc_1"), SubResource("MapNpc_2"), SubResource("MapNpc_3"), SubResource("MapNpc_4"), SubResource("MapNpc_5"), SubResource("MapNpc_6"), SubResource("MapNpc_7"), SubResource("MapNpc_8"), SubResource("MapNpc_9"), SubResource("MapNpc_10"), SubResource("MapNpc_11"), SubResource("MapNpc_12")]
+scrolls = [SubResource("MapScroll_1")]
+shrines = [SubResource("MapPuzzleShrine_1")]
+waystones = []
+triggers = []
+regions = []
+music_track = "res://assets/audio/music/grasslands.ogg"
+difficulty = 0
+author = ""
+version = 1
