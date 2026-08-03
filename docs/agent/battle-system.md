@@ -575,6 +575,8 @@ XP is NOT multiplied by gambits. `session_stats["coins_earned"]` records the pos
 
 27 tests covering: catalogue integrity, each handicap's effect on PlayerState/HeroState, serialization round-trips for `skip_next_draw` and `minion_attack_bonus`, reward math (multiplier, rarity bonus, `roll_rarity` high-tier clamp safety), and no-gambit defaults.
 
+**Sibling mechanism — world-encounter ambush (GID-113):** `BattleScene._apply_ambush_modifiers()` is a self-contained handicap applied at the exact same call site as `_apply_gambit_handicaps()` (right after it in `_setup_solo_battle()`), but it isn't player-picked — it's derived automatically from how the player approached the enemy in the world (sneak-up vs. getting caught mid-chase). See `docs/agent/enemies-and-npcs.md` "Ambush bonus/penalty" for the full mechanism; it does not touch the Gambit catalogue or reward multipliers.
+
 ### Card Illustration Art (TID-319)
 
 `CardData.illustration: Texture2D` (nullable) is assigned at load time by `CardRegistry._ensure_loaded()` via `TextureGen.card_illustration(id, magic_branch)`, which procedurally paints a 32×32 pixel-art image per archetype (ghost, skeleton, zombie, ghoul, spell rune) and caches it. `CardViewBuilder.build_card_vbox()` shows it as a `TextureRect` ("IllustrationRect") above the stats label whenever the template has one; cards without an illustration just show the `StyleBoxFlat` colour fill applied by `apply_card_style()`. `InventoryScene._show_instance_detail()` shows the same texture at the top of the hover/long-press detail popup (TID-018).

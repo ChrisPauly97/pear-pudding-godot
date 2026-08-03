@@ -35,7 +35,7 @@ ambush bonuses/penalties keyed off of it, plus a way to break pursuit.
 | TID-421 | Player-initiated ambush bonus (sneak attack) | agent | done | TID-420 |
 | TID-422 | Enemy-initiated ambush penalty + fair-warning indicator | agent | done | TID-420 |
 | TID-423 | Evasion: break pursuit / outrun a chasing enemy | agent | done | TID-420 |
-| TID-424 | Detection/ambush state machine tests + doc update | agent | pending | TID-421, TID-422, TID-423 |
+| TID-424 | Detection/ambush state machine tests + doc update | agent | done | TID-421, TID-422, TID-423 |
 
 ## Acceptance Criteria
 
@@ -45,4 +45,6 @@ ambush bonuses/penalties keyed off of it, plus a way to break pursuit.
 - [x] The player can break an active pursuit by putting enough distance/time between themselves and the chasing enemy; the enemy visibly gives up and returns to idle instead of an inevitable forced engage. (TID-423)
 - [x] Mobile/desktop parity is preserved for any new indicator (per CLAUDE.md's Mobile/Desktop Feature Parity rule) — no keyboard-only or touch-only signal. (billboard Label3D + SFX, TID-422/423)
 - [x] Co-op (`NetworkManager.is_active()`) behavior is either extended consistently or explicitly scoped out with a documented reason — confirm during Plan which named maps / world contexts this applies to (infinite world only, named maps only, or both) since co-op is currently pinned to a single shared named map (madrian). (scoped out entirely, TID-420)
-- [ ] `docs/agent/enemies-and-npcs.md` "Mixed engagement" section is rewritten to describe the new detection/pursuit/ambush system in place of the current binary tracking/wanderer split.
+- [x] `docs/agent/enemies-and-npcs.md` "Mixed engagement" section is rewritten to describe the new detection/pursuit/ambush system in place of the current binary tracking/wanderer split. (TID-424)
+
+## Status: done — all 5 tasks and acceptance criteria complete.

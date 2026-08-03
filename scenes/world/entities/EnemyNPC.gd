@@ -3,12 +3,8 @@ extends "res://scenes/world/entities/WorldEntityBase.gd"
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
+const _EnemyAlertState = preload("res://game_logic/world/EnemyAlertState.gd")
 
-## Awareness/pursuit state for tracking enemies (GID-113). IDLE = hasn't
-## noticed the player; ALERTED = noticed, brief reaction beat before giving
-## chase (TID-422 hooks its "fair warning" indicator here); CHASING = actively
-## closing the distance. TID-423 owns breaking pursuit back to IDLE.
-enum AlertState { IDLE, ALERTED, CHASING }
 const _ALERT_REACTION_TIME: float = 0.4
 const _GIVEUP_HOLD_TIME: float = 2.0
 
@@ -17,7 +13,11 @@ var _alive: bool = true
 var _is_boss: bool = false
 var _is_roaming_boss: bool = false
 var _tracking: bool = false
-var _alert_state: int = AlertState.IDLE
+## Awareness/pursuit state for tracking enemies (GID-113): the transition
+## rules themselves live in the pure `EnemyAlertState` helper (unit-tested in
+## isolation, TID-424); this node just holds the current value/timers and
+## applies whatever the helper returns.
+var _alert_state: int = _EnemyAlertState.State.IDLE
 var _alert_timer: float = 0.0
 var _giveup_timer: float = 0.0
 var _player_ref: CharacterBody3D = null
@@ -44,30 +44,40 @@ func _process(delta: float) -> void:
 		return
 	if not SceneManager.can_proximity_engage():
 		return
-	if _alert_state == AlertState.IDLE:
+	if _alert_state == _EnemyAlertState.State.IDLE:
 		return
-	_update_giveup(delta)
-	if _alert_state == AlertState.ALERTED:
-		_alert_timer += delta
-		if _alert_timer >= _ALERT_REACTION_TIME:
-			_alert_state = AlertState.CHASING
-	elif _alert_state == AlertState.CHASING:
-		_chase_player(delta)
+	var player: CharacterBody3D = _resolve_player()
+	if not is_instance_valid(player):
+		return
+	var dist: float = _flat_distance_to(player)
+	if _update_giveup(delta, dist):
+		return
+	if _alert_state == _EnemyAlertState.State.ALERTED:
+		_tick_reaction(delta)
+	elif _alert_state == _EnemyAlertState.State.CHASING:
+		_chase_player(delta, player, dist)
 
 func _resolve_player() -> CharacterBody3D:
 	if not is_instance_valid(_player_ref):
 		_player_ref = get_tree().get_first_node_in_group("player") as CharacterBody3D
 	return _player_ref
 
-func _chase_player(delta: float) -> void:
-	var player: CharacterBody3D = _resolve_player()
-	if not is_instance_valid(player):
+func _flat_distance_to(player: CharacterBody3D) -> float:
+	var d: Vector3 = player.global_position - global_position
+	d.y = 0.0
+	return d.length()
+
+func _tick_reaction(delta: float) -> void:
+	var result: Dictionary = _EnemyAlertState.tick_reaction(
+		_alert_state, _alert_timer, delta, _ALERT_REACTION_TIME)
+	_alert_state = int(result["state"])
+	_alert_timer = float(result["alert_timer"])
+
+func _chase_player(delta: float, player: CharacterBody3D, dist: float) -> void:
+	if dist < 0.05:
 		return
 	var to_player: Vector3 = player.global_position - global_position
 	to_player.y = 0.0
-	var dist: float = to_player.length()
-	if dist < 0.05:
-		return
 	var step: float = min(IsoConst.TRACKING_SPEED * delta, dist)
 	position += to_player.normalized() * step
 
@@ -75,24 +85,18 @@ func _chase_player(delta: float) -> void:
 ## beyond ENEMY_GIVEUP_RANGE (not a single-frame spike, to avoid flicker at
 ## the boundary) reverts to IDLE — stopping movement, clearing the alert
 ## timer, and re-arming TID-421's ambush bonus for the next approach.
-func _update_giveup(delta: float) -> void:
-	var player: CharacterBody3D = _resolve_player()
-	if not is_instance_valid(player):
-		return
-	var to_player: Vector3 = player.global_position - global_position
-	to_player.y = 0.0
-	if to_player.length() > IsoConst.ENEMY_GIVEUP_RANGE:
-		_giveup_timer += delta
-		if _giveup_timer >= _GIVEUP_HOLD_TIME:
-			_give_up_pursuit()
-	else:
-		_giveup_timer = 0.0
-
-func _give_up_pursuit() -> void:
-	_alert_state = AlertState.IDLE
-	_alert_timer = 0.0
-	_giveup_timer = 0.0
-	_show_giveup()
+## Returns true if the enemy just gave up this frame (caller should skip the
+## rest of its state handling — there's nothing left to tick).
+func _update_giveup(delta: float, dist: float) -> bool:
+	var result: Dictionary = _EnemyAlertState.tick_giveup(
+		_alert_state, _giveup_timer, delta, dist, IsoConst.ENEMY_GIVEUP_RANGE, _GIVEUP_HOLD_TIME)
+	_alert_state = int(result["state"])
+	_giveup_timer = float(result["giveup_timer"])
+	if bool(result["gave_up"]):
+		_alert_timer = 0.0
+		_show_giveup()
+		return true
+	return false
 
 func init_from_data(data: Dictionary) -> void:
 	enemy_data = data
@@ -111,12 +115,9 @@ func init_from_data(data: Dictionary) -> void:
 func engage() -> void:
 	if not _alive:
 		return
-	# Ambush classification (GID-113): IDLE covers both wanderers (never
-	# alerted at all) and tracking enemies caught before they noticed the
-	# player; CHASING means the enemy caught the player mid-pursuit (TID-422).
-	# ALERTED (mid-reaction) is neither — a neutral fight.
-	var player_ambush: bool = _alert_state == AlertState.IDLE
-	var enemy_ambush: bool = _alert_state == AlertState.CHASING
+	var ambush: Dictionary = _EnemyAlertState.classify_ambush(_alert_state)
+	var player_ambush: bool = bool(ambush["player_ambush"])
+	var enemy_ambush: bool = bool(ambush["enemy_ambush"])
 	_alive = false
 	enemy_data["alive"] = false
 	_show_alert()
@@ -211,7 +212,7 @@ func _setup_awareness_area() -> void:
 	add_child(area)
 
 func _on_awareness_entered(body: Node3D) -> void:
-	if not _alive or not _tracking or _alert_state != AlertState.IDLE:
+	if not _alive or not _tracking or _alert_state != _EnemyAlertState.State.IDLE:
 		return
 	if not body is CharacterBody3D:
 		return
@@ -222,7 +223,11 @@ func _on_awareness_entered(body: Node3D) -> void:
 	var eid: String = str(enemy_data.get("id", ""))
 	if eid != "" and SceneManager.save_manager.is_enemy_defeated(eid):
 		return
-	_alert_state = AlertState.ALERTED
+	var dist: float = _flat_distance_to(body as CharacterBody3D)
+	var new_state: int = _EnemyAlertState.check_awareness(_alert_state, dist, IsoConst.ENEMY_AWARENESS_RANGE)
+	if new_state == _alert_state:
+		return
+	_alert_state = new_state
 	_alert_timer = 0.0
 	# Fair-warning telegraph (TID-422): same "!" beat engage() uses, reused
 	# here so the player has a visible/audible cue the moment they're
