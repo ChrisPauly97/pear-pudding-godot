@@ -21,6 +21,7 @@ const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _LootRoll          = preload("res://game_logic/net/LootRoll.gd")
 const _RunSummaryScene   = preload("res://scenes/ui/RunSummaryScene.tscn")
 const _SessionState      = preload("res://game_logic/net/SessionState.gd")
+const _SiegeDefs         = preload("res://game_logic/SiegeDefs.gd")
 const _SpireDraft        = preload("res://game_logic/spire/SpireDraft.gd")
 const _SpireDraftScene   = preload("res://scenes/ui/SpireDraftScene.tscn")
 const _SpireDraftSync    = preload("res://game_logic/net/SpireDraftSync.gd")
@@ -55,7 +56,6 @@ func _coop_spawn_night_hunt(days: int) -> void:
 		_coop_despawn_night_hunt()
 	_coop_night_hunt_active = true
 	_coop_night_hunt_day = days
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(_world.map_name, Vector3.ZERO)
 	var plan: Array[Dictionary] = _CoopNightHunts.generate_hunt(_world.map_name, days)
 	var spawned_any: bool = false
@@ -128,7 +128,7 @@ func _start_loot_roll(cid: String, chest_tier: int) -> void:
 ## itself is already synced via the existing EV_CHEST_OPENED path; this only carries the
 ## tier (the id is enough for the host to re-derive position/card ids locally).
 
-func _on_loot_roll_request_submitted(sender: int, cid: String, chest_tier: int) -> void:
+func _on_loot_roll_request_submitted(_sender: int, cid: String, chest_tier: int) -> void:
 	if not _world.coop_session._coop_world_authority():
 		return
 	_authority_open_loot_roll(cid, chest_tier)
@@ -714,7 +714,6 @@ func _on_siege_started_received(siege_id: int) -> void:
 ## Spawn the current wave's deterministic raiders (identical on every peer).
 
 func _coop_spawn_siege_wave() -> void:
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(_world.map_name, Vector3.ZERO)
 	var plan: Array[Dictionary] = _CoopSiege.generate_wave(_world.map_name, _coop_siege_id, _world._coop_siege_wave)
 	_world._coop_siege_wave_nodes.clear()
@@ -756,7 +755,6 @@ func _on_siege_boss_phase_received(siege_id: int) -> void:
 	var boss_id: String = _CoopSiege.boss_id(siege_id)
 	if _world._coop_removed_enemies.has(boss_id):
 		return  # already resolved (e.g. a re-delivered broadcast on late reconciliation)
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(_world.map_name, Vector3.ZERO)
 	var node: Node3D = _EnemyScene.instantiate() as Node3D
 	if node == null:
@@ -1147,7 +1145,7 @@ func _on_party_bounty_progress_submitted(sender: int, bounty_type: String, match
 		_refresh_party_bounty_panel()
 		break
 
-func _on_party_bounty_update_received(payload: Dictionary) -> void:
+func _on_party_bounty_update_received(_payload: Dictionary) -> void:
 	# Clients update their local HUD row. The snapshot drives initial state;
 	# incremental updates patch one row at a time.
 	_refresh_party_bounty_panel()

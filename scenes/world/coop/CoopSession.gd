@@ -1087,7 +1087,7 @@ func _on_story_flag_received(key: String, value: bool) -> void:
 
 ## Authority: a client wants to set a flag — arbitrate (idempotent) and broadcast.
 
-func _on_story_flag_submitted(sender: int, key: String, value: bool) -> void:
+func _on_story_flag_submitted(_sender: int, key: String, value: bool) -> void:
 	if not _coop_world_authority() or _world._net_sync == null:
 		return
 	# Idempotency: if the flag is already this value, skip side-effects.

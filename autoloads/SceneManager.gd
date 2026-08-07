@@ -1530,16 +1530,14 @@ func _on_skill_tree_requested() -> void:
 
 ## Applies siege victory rewards: 150 coins + a rare-or-better card.
 func _apply_siege_victory_rewards(town: String) -> void:
-	const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
-	const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 	const SIEGE_VICTORY_COINS: int = 150
 	save_manager.add_coins(SIEGE_VICTORY_COINS)
 	_bump_session_stat("coins_earned", SIEGE_VICTORY_COINS)
-	var all_ids: Array[String] = _CardRegistry.get_all_ids()
+	var all_ids: Array[String] = CardRegistry.get_all_ids()
 	if not all_ids.is_empty():
 		var reward_id: String = all_ids[randi() % all_ids.size()]
-		var rarity: String = _CardDropUtil.roll_rarity(3)   # tier 3 = rare-or-better weighted
-		var stats: Dictionary = _CardDropUtil.roll_stats(reward_id, rarity)
+		var rarity: String = CardDropUtil.roll_rarity(3)   # tier 3 = rare-or-better weighted
+		var stats: Dictionary = CardDropUtil.roll_stats(reward_id, rarity)
 		save_manager.grant_card_reward(reward_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
 		_bump_session_stat("cards_earned", 1)
 	GameBus.siege_victory.emit()
@@ -1657,7 +1655,7 @@ func is_spire_draft_open() -> bool:
 func _on_spire_draft_picked(_card_id: String) -> void:
 	_spire_draft_overlay = null  # SpireDraftScene.queue_free()s itself in _on_pick
 
-func _on_pack_purchased(pack_id: String, rolled_cards: Array[Dictionary]) -> void:
+func _on_pack_purchased(_pack_id: String, rolled_cards: Array[Dictionary]) -> void:
 	if _state != State.SHOP:
 		return
 	# Close the shop overlay before showing the opening ceremony.

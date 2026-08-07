@@ -4,7 +4,6 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
-const UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 
 const _BOSS_BANNER_DURATION: float = 2.5
@@ -181,7 +180,7 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 		var rarity_suffix: String = " [%s]" % reward_rarity.capitalize() if reward_rarity != "" else ""
 		reward_lbl.text = "You earned: " + card_name + rarity_suffix
 		if reward_rarity != "":
-			reward_lbl.modulate = UiUtil.rarity_color(reward_rarity)
+			reward_lbl.modulate = _UiUtil.rarity_color(reward_rarity)
 	else:
 		reward_lbl.text = "No card dropped."
 	reward_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
@@ -313,7 +312,7 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 			var rlbl := Label.new()
 			rlbl.text = card_name + (" [%s]" % rarity.capitalize() if rarity != "" else "")
 			if rarity != "":
-				rlbl.modulate = UiUtil.rarity_color(rarity)
+				rlbl.modulate = _UiUtil.rarity_color(rarity)
 			rlbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
 			rlbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			vbox.add_child(rlbl)

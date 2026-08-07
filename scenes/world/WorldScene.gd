@@ -29,6 +29,7 @@ const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 const CantripManager = preload("res://game_logic/world/CantripManager.gd")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
+const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
 const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_side_pixel.png")
@@ -1633,7 +1634,6 @@ func _check_story_siege_trigger(p_map_name: String) -> void:
 	sm.start_siege("marsax_hold")
 
 func _check_siege_spawn(p_map_name: String) -> void:
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 	if not _SiegeDefs.is_siege_town(p_map_name):
 		return
 	var active_siege: Dictionary = SceneManager.save_manager.get_active_siege()
@@ -1645,7 +1645,6 @@ func _check_siege_spawn(p_map_name: String) -> void:
 
 ## Instantiates 3 raider EnemyNPC nodes near the town gate.
 func _spawn_siege_raiders(p_map_name: String, stage: int) -> void:
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 	if not _SiegeDefs.TOWN_GATES.has(p_map_name):
 		return
 	var gate_pos: Vector3 = _SiegeDefs.TOWN_GATES[p_map_name]

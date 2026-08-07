@@ -103,7 +103,7 @@ func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
 	GameBus.bounty_completed.connect(func(_id): refresh_bounty_tracker())
 	GameBus.inventory_changed.connect(refresh_action_cluster)
 
-func _create_nav_buttons(vh: float, _vw_unused: float, font_size: int,
+func _create_nav_buttons(_vh: float, _vw_unused: float, font_size: int,
 		btn_w: float, btn_h: float) -> void:
 	# Single system/pause control replaces the Menu + II pair.
 	var pause_btn := register_action("pause", "II", ZONE_SYSTEM,
@@ -188,7 +188,7 @@ func _maybe_teach_cantrips() -> void:
 
 # ── HUD Action Registry (GID-107) ───────────────────────────────────────────
 
-func _init_zones(vh: float, vw: float, btn_w: float, btn_h: float) -> void:
+func _init_zones(vh: float, vw: float, btn_w: float, _btn_h: float) -> void:
 	# Push edge-anchored zones inside the display safe area (GID-120 / TID-455).
 	var il: float = float(_ins.get("left", 0.0))
 	var it: float = float(_ins.get("top", 0.0))

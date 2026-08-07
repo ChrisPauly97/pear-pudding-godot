@@ -5,6 +5,7 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _CardInstanceUtil = preload("res://game_logic/CardInstanceUtil.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
+const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 
 signal coins_changed(new_amount: int)
 
@@ -625,14 +626,13 @@ static func _apply_migrations(data: Dictionary) -> void:
 		d["version"] = 1
 
 	var _m10: Callable = func(d: Dictionary) -> void:
-		const CardReg = preload("res://autoloads/CardRegistry.gd")
 		var old_owned: Array = d.get("owned_cards", [])
 		var old_deck: Array = d.get("player_deck", [])
 		var new_instances: Array = []
 		var counter: int = 0
 		for item in old_owned:
 			var tid: String = str(item)
-			var tmpl: Dictionary = CardReg.get_template(tid)
+			var tmpl: Dictionary = CardRegistry.get_template(tid)
 			var uid: String = "%s_v10_%d" % [tid, counter]
 			counter += 1
 			new_instances.append({"uid": uid, "template_id": tid, "rarity": "common",
@@ -1398,7 +1398,6 @@ func get_owned_weapon_by_id(weapon_id: String) -> Dictionary:
 ## Upgrades the first matching weapon instance by one level.
 ## Deducts coins and essence; returns false if already at max or insufficient funds.
 func upgrade_weapon(weapon_id: String) -> bool:
-	const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 	for i: int in range(owned_weapons.size()):
 		if str(owned_weapons[i].get("weapon_id", "")) != weapon_id:
 			continue
@@ -1419,7 +1418,6 @@ func upgrade_weapon(weapon_id: String) -> bool:
 ## Salvages the first unequipped instance of weapon_id.
 ## Returns {coins, essence} earned, or {} if refused (equipped or not found).
 func salvage_weapon(weapon_id: String) -> Dictionary:
-	const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 	if equipped_weapon == weapon_id or equipped_armor == weapon_id \
 			or equipped_ring == weapon_id or equipped_trinket == weapon_id:
 		return {}

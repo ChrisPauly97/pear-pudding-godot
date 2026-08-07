@@ -373,7 +373,7 @@ func _build_filter_buttons(row: HBoxContainer) -> void:
 		_filter_btns.append(btn)
 	_update_filter_visuals()
 
-func _on_filter_btn(kind: String, val: String, btn: Button) -> void:
+func _on_filter_btn(kind: String, val: String, _btn: Button) -> void:
 	match kind:
 		"class":
 			_filter_class = "" if _filter_class == val else val

@@ -7,6 +7,7 @@ extends "res://tests/framework/test_case.gd"
 
 const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
+const CraftingRegistry  = preload("res://autoloads/CraftingRegistry.gd")
 
 var _sm: Node
 
@@ -152,13 +153,11 @@ func test_remove_potions_does_not_deduct_when_insufficient() -> void:
 # ---------------------------------------------------------------------------
 
 func test_crafting_registry_returns_potion_recipes() -> void:
-	const CraftingRegistry = preload("res://autoloads/CraftingRegistry.gd")
 	var recipes: Dictionary = CraftingRegistry.get_potion_recipes()
 	assert_true(recipes.has("healing_draught"))
 	assert_true(recipes.has("clarity_brew"))
 	assert_true(recipes.has("ember_tonic"))
 
 func test_crafting_registry_recipe_matches_garden_defs() -> void:
-	const CraftingRegistry = preload("res://autoloads/CraftingRegistry.gd")
 	var recipes: Dictionary = CraftingRegistry.get_potion_recipes()
 	assert_eq(recipes, GardenDefs.POTION_RECIPES)

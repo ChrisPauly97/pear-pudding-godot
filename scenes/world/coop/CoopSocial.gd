@@ -269,7 +269,7 @@ func _send_ping(wx: float, wz: float, kind: String, color_hex: String) -> void:
 	_world._net_sync.rpc("recv_ping", payload)
 	_spawn_ping_marker(wx, wz, kind, color_hex)
 
-func _on_ping_received(sender: int, payload: Array) -> void:
+func _on_ping_received(_sender: int, payload: Array) -> void:
 	var d: Dictionary = _SocialSync.decode_ping(payload)
 	var sender_map: String = str(d.get("map", ""))
 	if sender_map != "" and sender_map != _world.map_name:
@@ -545,7 +545,7 @@ func _on_trade_offer_submitted(sender: int, payload: Dictionary) -> void:
 	elif _world._net_sync != null:
 		_world._net_sync.rpc_id(target_peer, "recv_trade_update", update)
 
-func _on_trade_confirm_submitted(sender: int, trade_id: String, confirmed: bool) -> void:
+func _on_trade_confirm_submitted(_sender: int, trade_id: String, confirmed: bool) -> void:
 	if not NetworkManager.is_host():
 		return
 	if str(_pending_trade.get("trade_id", "")) != trade_id:
