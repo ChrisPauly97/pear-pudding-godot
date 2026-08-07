@@ -152,7 +152,6 @@ files in `tasks/archive/backlog/`.
 | [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
 | [BID-053](backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job is `continue-on-error` — 638 pre-existing problems (357 are `class-definitions-order`); two `.gdlintrc` rules that contradicted CLAUDE.md were fixed, cutting the count from >1000 | code-smell | GID-123 / TID-466 |
-| [BID-057](backlog/BID-057--duplicate-tid-352.md) | TID-352 is used by two different completed tasks (GID-096 and GID-097); pre-dates this branch, filed rather than renumbered | doc-gap | GID-124 merge audit |
 | [BID-058](backlog/BID-058--enemy-npc-engage-cooldown-missing.md) | `EnemyNPC.engage_cooldown` documented in 3 agent docs (GID-069 flee/respawn cooldown) but does not exist anywhere in `EnemyNPC.gd` — likely dropped by the TID-427 `engage()` rewrite without a doc update | code-smell / doc-gap | GID-113 / TID-420 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` is 9154 lines / 401 functions — 13% of all GDScript in one file, 9x the project's own `max-file-lines`; it refilled after GID-072 because nothing enforces the decomposition | code-smell | GID-123 research |
 
@@ -160,6 +159,7 @@ files in `tasks/archive/backlog/`.
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-057](archive/backlog/BID-057--duplicate-tid-352.md) | TID-352 used by two completed tasks (GID-096, GID-097) | doc-gap | Resolved: cross-reference notes added + `test_task_id_uniqueness.gd` guardrail |
 | [BID-059](archive/backlog/BID-059--map-scrolls-shrines-music-lost-in-3-maps.md) | `madrian.tres`/`maykalene.tres`/`blancogov.tres` had `scrolls`/`shrines`/`music_track` mis-placed in the `.tres` text format, silently dropped on load | content-bug | Resolved: fixed all 3, added `test_named_map_scrolls_shrines.gd` regression coverage |
 | [BID-001](archive/backlog/BID-001--tutorial-onboarding.md) | Tutorial / Onboarding for New Players | spec-gap | ad-hoc review → promoted to GID-012 |
 | [BID-002](archive/backlog/BID-002--voice-acting-spec-conflict.md) | "Voice acting" out-of-scope conflicts with narration scroll audio | spec-gap | Promoted to GID-087 / TID-311 |

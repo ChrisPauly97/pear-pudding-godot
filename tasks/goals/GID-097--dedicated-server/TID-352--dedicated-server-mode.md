@@ -1,5 +1,10 @@
 # TID-352: Dedicated headless server mode
 
+> **ID collision (BID-057):** this ID is also used by
+> `tasks/goals/GID-096--coop-world-sync/TID-352--avatar-map-awareness.md`.
+> Both predate the branch that discovered it and are complete; left
+> unrenumbered per BID-057's resolution (now in `tasks/archive/backlog/`).
+
 **Goal:** GID-097
 **Type:** agent
 **Status:** done

@@ -1,5 +1,10 @@
 # TID-352: Make avatar sync map-aware (no cross-map ghosts)
 
+> **ID collision (BID-057):** this ID is also used by
+> `tasks/goals/GID-097--dedicated-server/TID-352--dedicated-server-mode.md`.
+> Both predate the branch that discovered it and are complete; left
+> unrenumbered per BID-057's resolution (now in `tasks/archive/backlog/`).
+
 **Goal:** GID-096
 **Type:** agent
 **Status:** done
