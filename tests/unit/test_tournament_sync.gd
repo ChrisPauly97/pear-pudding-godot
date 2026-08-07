@@ -46,6 +46,63 @@ func test_payout_pot_is_ante_times_players() -> void:
 
 
 # ---------------------------------------------------------------------------
+# refund_payouts (BID-037: ante refund on abort)
+# ---------------------------------------------------------------------------
+
+func test_refund_payouts_credits_every_token_the_full_ante() -> void:
+	var payouts: Dictionary = TournamentSync.refund_payouts(["t0", "t1", "t2"], 50)
+	assert_eq(int(payouts.get("t0", -1)), 50)
+	assert_eq(int(payouts.get("t1", -1)), 50)
+	assert_eq(int(payouts.get("t2", -1)), 50)
+	assert_eq(payouts.size(), 3)
+
+
+func test_refund_payouts_is_flat_not_pooled() -> void:
+	# Unlike WagerSync.settle(), a refund never depends on how many players there
+	# are or what anyone else's stake was — every entrant just gets their own
+	# ante back, 3-player and 4-player brackets alike.
+	var payouts_3p: Dictionary = TournamentSync.refund_payouts(["a", "b", "c"], 30)
+	var payouts_4p: Dictionary = TournamentSync.refund_payouts(["a", "b", "c", "d"], 30)
+	assert_eq(int(payouts_3p.get("a", -1)), 30)
+	assert_eq(int(payouts_4p.get("a", -1)), 30)
+
+
+func test_refund_payouts_zero_ante_yields_no_payouts() -> void:
+	var payouts: Dictionary = TournamentSync.refund_payouts(["t0", "t1"], 0)
+	assert_eq(payouts.size(), 0)
+
+
+func test_refund_payouts_negative_ante_yields_no_payouts() -> void:
+	var payouts: Dictionary = TournamentSync.refund_payouts(["t0"], -10)
+	assert_eq(payouts.size(), 0)
+
+
+func test_refund_payouts_skips_empty_token() -> void:
+	var payouts: Dictionary = TournamentSync.refund_payouts(["t0", "", "t1"], 20)
+	assert_false(payouts.has(""))
+	assert_eq(payouts.size(), 2)
+
+
+func test_refund_payouts_empty_tokens_yields_no_payouts() -> void:
+	var payouts: Dictionary = TournamentSync.refund_payouts([], 50)
+	assert_eq(payouts.size(), 0)
+
+
+func test_refund_payouts_never_exceeds_original_ante_collected() -> void:
+	# Sanity check on the coin-neutral property: total refunded == ante *
+	# participant count, which is exactly what new_bracket's pot would have
+	# been minus what a clean win would have paid out — never more than what
+	# was actually collected at tournament start.
+	var tokens: Array = ["t0", "t1", "t2", "t3"]
+	var ante: int = 40
+	var payouts: Dictionary = TournamentSync.refund_payouts(tokens, ante)
+	var total: int = 0
+	for k in payouts.keys():
+		total += int(payouts[k])
+	assert_eq(total, ante * tokens.size())
+
+
+# ---------------------------------------------------------------------------
 # new_bracket
 # ---------------------------------------------------------------------------
 

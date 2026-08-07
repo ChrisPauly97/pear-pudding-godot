@@ -106,11 +106,28 @@ static func decode_bet(payload: Variant) -> Dictionary:
 ## (key is caller-defined — the authority uses session tokens). `outcome` is SIDE_A/
 ## SIDE_B (that side won) or OUTCOME_DRAW/OUTCOME_ABANDONED (refund everyone their
 ## stake). Returns {key: payout_coins} — the amount to CREDIT back to the bettor's
-## record (their stake was already deducted from it at bet-placement time). A winner
-## is credited double their stake (stake back + an equal 1:1 win); a loser is
-## credited 0 (their stake is gone); a refund credits exactly their stake.
+## record (their stake was already deducted from it at bet-placement time).
+##
+## BID-036: parimutuel (pool-based), not house-banked. The whole losing-side pool
+## is split among winners proportionally to their own stake — a winner is credited
+## their stake back plus `floor(their_stake * losing_pool / winning_pool)`; a loser
+## is credited 0. Total credited can never exceed total staked (losers contribute
+## 0, and each winner's extra share is a floor()'d fraction of the losing pool), so
+## the session can neither mint nor absorb coins — flooring only ever leaves a few
+## odd coins uncredited ("breakage", same as real-world parimutuel pools), never
+## the reverse. If nobody backed the winning side (e.g. every bettor picked the
+## loser) there is no one to hand the losing pool to, so — like a draw/abandoned
+## match — everyone is simply refunded their own stake.
 static func settle(bets: Dictionary, outcome: String) -> Dictionary:
 	var payouts: Dictionary = {}
+	if outcome == OUTCOME_DRAW or outcome == OUTCOME_ABANDONED:
+		for key in bets.keys():
+			var amount: int = _bet_amount(bets[key])
+			if amount > 0:
+				payouts[key] = amount
+		return payouts
+	var pot_winners: int = 0
+	var pot_losers: int = 0
 	for key in bets.keys():
 		var bet: Variant = bets[key]
 		if not (bet is Dictionary):
@@ -119,13 +136,39 @@ static func settle(bets: Dictionary, outcome: String) -> Dictionary:
 		var amount: int = maxi(0, int((bet as Dictionary).get("amount", 0)))
 		if side == "" or amount <= 0:
 			continue
-		var payout: int = 0
-		if outcome == OUTCOME_DRAW or outcome == OUTCOME_ABANDONED:
-			payout = amount
-		elif side == outcome:
-			payout = amount * 2
-		payouts[key] = payout
+		if side == outcome:
+			pot_winners += amount
+		else:
+			pot_losers += amount
+	if pot_winners == 0:
+		# No one backed the winning side — refund everyone rather than let the
+		# losing pool vanish with no winner to receive it.
+		for key in bets.keys():
+			var amount: int = _bet_amount(bets[key])
+			if amount > 0:
+				payouts[key] = amount
+		return payouts
+	for key in bets.keys():
+		var bet: Variant = bets[key]
+		if not (bet is Dictionary):
+			continue
+		var side: String = normalize_side(str((bet as Dictionary).get("side", "")))
+		var amount: int = maxi(0, int((bet as Dictionary).get("amount", 0)))
+		if side == "" or amount <= 0:
+			continue
+		if side != outcome:
+			payouts[key] = 0   # a valid, losing bet — explicit 0, not just absent
+			continue
+		var share: int = (amount * pot_losers) / pot_winners
+		payouts[key] = amount + share
 	return payouts
+
+
+## Shared bet-amount extraction for the refund paths above — 0 for anything malformed.
+static func _bet_amount(bet: Variant) -> int:
+	if not (bet is Dictionary):
+		return 0
+	return maxi(0, int((bet as Dictionary).get("amount", 0)))
 
 
 # ---------------------------------------------------------------------------

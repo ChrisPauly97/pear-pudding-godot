@@ -687,8 +687,10 @@ func _finish_pvp(did_win: bool) -> void:
 		# wager_note (TID-387): the spectator's settlement line ("" for combatants —
 		# the settlement RPC is sent before pvp_ended on the same reliable channel,
 		# so _wager_result_text is already populated when this runs.)
+		# spectating (BID-038): neutral "Bottom/Top Player Wins!" instead of
+		# "Victory!"/"Defeated" — a spectator was never a combatant.
 		_battle._result_ui.show_pvp_result(did_win, _battle.pvp_ante_coins if did_win else -_battle.pvp_ante_coins,
-			_wager_result_text)
+			_wager_result_text, _battle._pvp_spectating)
 	elif _battle._local_player_idx < 0:
 		GameBus.pvp_battle_ended.emit(false)
 	elif _battle._pvp_spectating:

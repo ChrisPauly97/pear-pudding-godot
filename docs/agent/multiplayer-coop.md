@@ -330,6 +330,16 @@ opp_deck, ante_coins)`. On battle end the winner's `_on_pvp_battle_ended_coop(di
 restores the pot (`add_coins(ante_coins * 2)`). For **unwagered** duels the flow is
 unchanged: no coins awarded, same "no cards/XP" result.
 
+**Initiating a wagered duel (BID-029):** `CoopPvP._request_wager_challenge(ante_coins)`
+sends the `request_battle_wager` RPC — the responder side above already worked, but
+until BID-029 nothing called it. A **"Wager Duel"** secondary action stacks below
+"Challenge to Battle" / the Ranked toggle in the shared `WorldHUD.ZONE_CONTEXT` zone
+(same proximity gating as the plain challenge button — `_hide_challenge_cluster()`
+now hides all three together). Tapping it opens a small ante-amount picker
+(`_open_wager_picker`, built with `_UiUtil`/`_build_prompt` like the accept panel): a
+±10-coin stepper and a real Send/Cancel button pair — a full touch target, not a
+long-press gesture, per the mobile/desktop parity rule.
+
 `BattleResultUI.show_pvp_result(did_win, coins_delta)` shows `"+N coins (wagered)"` in gold
 or `"-N coins (wagered)"` in red when `coins_delta != 0`. The Continue button emits
 `GameBus.pvp_battle_ended(did_win)`, which SceneManager handles by restoring the shared
@@ -465,8 +475,10 @@ SceneManager → BattleScene boundary). `WorldScene._pvp_ranked` caches the agre
 for the active duel and gates the TID-370 `_update_pvp_ratings` call in
 `_on_pvp_battle_ended_coop` — **casual duels never touch rating**. The wagered-duel
 flow (`_enter_pvp_wagered`) does not currently expose a ranked option — composing
-ranked + wagered is left for a follow-up (see BID-029, a related pre-existing gap:
-there is no HUD entry point to *initiate* a custom-ante wager at all today).
+ranked + wagered is left for a follow-up. (BID-029 fixed the separate, previously
+missing piece: a HUD entry point to *initiate* a custom-ante wager at all — see
+"Rewards & end states" above. Composing that entry point with the Ranked toggle is
+still the open follow-up.)
 
 **Leaderboard data flow.** A client never has direct `SessionStore` access, so the
 authority pushes snapshots. `WorldScene._leaderboard_rows: Array` caches the last
@@ -614,9 +626,20 @@ Non-combatant party members can **watch** an in-progress PvP duel read-only.
   non-empty. Pressing it sends `NetSync.request_spectate_pvp()` → host grants → authority
   calls `SceneManager.enter_pvp_spectator()` on the requesting peer.
 - `enter_pvp_spectator()` launches BattleScene with `_pvp_spectating = true`,
-  `_local_player_idx = 0` (host's perspective). All input is blocked (`_can_local_act()`
-  returns false); `_broadcast_state()` fans mirrors to the `_spectators` list so the
-  spectator sees live state.
+  `_local_player_idx = 0` (host's perspective, purely for board rendering — see the
+  result-overlay note below for why that value must never leak into "did I win").
+  All input is blocked (`_can_local_act()` returns false); `_broadcast_state()` fans
+  mirrors to the `_spectators` list so the spectator sees live state.
+- **Neutral result overlay (BID-038)** — because a spectator's `_local_player_idx`
+  is always `0`, `BattleNet._finish_pvp`'s `did_win` bool is really "did the
+  bottom-seat player win", not "did I win". `_finish_pvp` passes
+  `_battle._pvp_spectating` through as `show_pvp_result`'s new `spectating`
+  parameter; when true, the overlay shows a neutral **"Bottom Player Wins!" /
+  "Top Player Wins!"** title (same Bottom/Top seating language as the bet panel's
+  `_wager_side_name`) and a neutral background instead of "Victory!"/"Defeated"
+  in green/red. Covers both live spectating and tournament auto-spectate
+  (`notify_tournament_spectate` → `enter_pvp_spectator()`, GID-104/TID-386) since
+  both share the one `enter_pvp_spectator()` entry point.
 - `BattleNetSync.request_spectate()` / `stop_spectate()` register/deregister spectators
   during the battle.
 - **WorldScene detach/re-attach:** when a PvP battle starts, SceneManager removes
@@ -648,11 +671,19 @@ never executes any of it.
   - **Wire**: `encode_bet` / `decode_bet` (`{side, amount}`), `encode_settlement` /
     `decode_settlement` (`{outcome, payouts: {token: credit}}`). All decoders are
     fully defaulted and garbage-tolerant; a forged side normalizes to `""` (rejected).
-  - **Settlement math — `settle(bets, outcome)`**: returns the coins to **credit** per
-    bettor (the stake was already debited at placement). Clean win: winners get
-    `2 × stake` (1:1 payout), losers get 0. `OUTCOME_DRAW` / `OUTCOME_ABANDONED`:
-    everyone gets exactly their stake back. Note the 1:1 model is house-banked (the
-    session absorbs imbalance; it is not a parimutuel pool).
+  - **Settlement math — `settle(bets, outcome)`** (BID-036: **parimutuel**, not
+    house-banked 1:1): on a clean win, the entire losing-side pool is split among
+    winners in proportion to their own stake — a winner is credited their stake
+    back plus `floor(their_stake × losing_pool / winning_pool)`; a loser is
+    credited `0`. Total credited can never exceed total staked (losers contribute
+    0, and each winner's share only ever rounds *down*), so the session can
+    neither mint nor absorb coins — flooring just leaves a few odd coins
+    uncredited ("breakage", same as a real-world parimutuel pool). If nobody
+    backed the side that actually won (no winners to hand the pool to), everyone
+    is simply refunded their own stake, same as `OUTCOME_DRAW` /
+    `OUTCOME_ABANDONED`. The old flat 1:1 model is gone — a sole winner with no
+    opposing bets now just gets their own stake back (there is no opposing pool
+    to profit from), not a mystery double-up.
 - **RPCs — `BattleNetSync.gd`**: `submit_spectator_bet(payload)` (spectator → host),
   `recv_wager_ack(accepted, reason, side, amount, remaining_coins)` and
   `recv_wager_settlement(payload)` (host → spectator). All reliable, same relay node.
@@ -674,6 +705,18 @@ never executes any of it.
   **forfeit** and a host-side `session_ended` mid-duel settle as `OUTCOME_ABANDONED`
   (refund). Payouts are credited straight into each bettor's `SessionState` record,
   then unicast to each still-connected bettor.
+  - **BID-036 judgment call — grace-expiry still refunds all, does not pay out a
+    walkover.** A genuine disconnect-and-never-return *could* in principle pay out
+    winners of the other combatant's bets, but the grace-expiry path
+    (`_on_pvp_reconnect_grace_expired`) can't cleanly distinguish "genuinely lost
+    connection" from "a losing combatant yanked the cable to grief their own
+    bettors" — that anti-grief property is exactly why `OUTCOME_ABANDONED` refunds
+    everyone instead of forfeiting to the other side. Refunding is also the safer
+    default for a spectator: it can never be exploited to grief, only occasionally
+    under-pays a spectator who backed the player who *would* have won on a true
+    walkover. Left as-is per the BID's own guidance (a real win/grief distinction
+    isn't clean to detect, and the parimutuel payout math above — not this
+    forfeit-path judgment call — was the actual core ask).
 - **Refunds**: a disconnecting **spectator's** pending bet is refunded immediately
   (`_refund_wager_for_peer` from `_on_pvp_peer_disconnected`; they re-adopt the
   restored record on reconnect). This handler also got an opportunistic fix: on a
@@ -2121,6 +2164,22 @@ automatic front-row seat.
   start (host locally via `SaveManager.add_coins`; each client locally in
   `notify_tournament_start`, the existing ante-wager precedent). Pot
   (`ante × players`) pays out to the bracket winner at the end.
+- **Pre-start affordability handshake (BID-037)** — before anything is
+  deducted or broadcast, the host sends every client entrant
+  `request_tournament_ante_check(ante_coins)` and waits for all of them to
+  confirm `respond_tournament_ante_check(true)`. A single "no" (or a timeout,
+  or a disconnect mid-handshake) cancels the pending start outright — a 3-4
+  player bracket can't just drop one entrant and keep going, so this rejects
+  the attempt rather than silently kicking someone. Only once every entrant
+  has confirmed does the host actually commit (deduct coins, build the
+  bracket, broadcast `notify_tournament_start`).
+- **Ante refund on abort (BID-037)** — if the bracket is aborted after it
+  started (a participant disconnects mid-bracket, or the session itself tears
+  down), every participant's ante is refunded: host credited locally, each
+  other participant credited straight into its SessionStore member record
+  (the `_grant_chest_loot_to_token` / party-bounty write pattern). Refund math
+  is the pure `TournamentSync.refund_payouts(tokens, ante)` — every token gets
+  back exactly its own ante (flat, not pooled).
 - **Auto-spectate** — every peer not in the current match is pushed into the
   TID-367 spectator view via `notify_tournament_spectate` (no manual button).
 - **Bracket HUD panel** — right-side panel on all peers listing every match
@@ -2137,15 +2196,21 @@ Pure scheduling/wire logic lives in `game_logic/net/TournamentSync.gd`
 `new_bracket(tokens, names, ante)`, `get_current_match`,
 `record_match_result` (defensive: stale/duplicate winners are no-ops),
 `wins_by_participant` / `head_to_head_winner` / `compute_winner`,
-`payout_pot`, and garbage-tolerant `encode_bracket`/`decode_bracket`.
-Unit-tested in `tests/unit/test_tournament_sync.gd`.
+`payout_pot`, `refund_payouts` (BID-037), and garbage-tolerant
+`encode_bracket`/`decode_bracket`. Unit-tested in
+`tests/unit/test_tournament_sync.gd`.
 
 The host presses the **Tournament** button (visible only for the listen-server
 host with 2–3 connected clients, mirroring the Team Duel button precedent). It
 resolves every participant's token (`_session_token_by_peer` /
 `MpProfile.get_token()`), display name, and deck (`_team_deck_for_peer` — the
 GID-095 session record, no RPC round-trip), gates on `IsoConst.DECK_MIN` and
-the host's ante affordability, then builds and broadcasts the bracket.
+the host's own ante affordability, then — **BID-037** — stashes everything in
+`_tournament_pending_start` and asks every client entrant to confirm it can
+afford the ante before committing to anything (see `_start_tournament` /
+`_on_tournament_ante_check_responded` / `_commit_tournament_start` in
+`CoopPvP.gd`). Only `_commit_tournament_start()` actually deducts coins,
+builds the bracket via `TournamentSync.new_bracket`, and broadcasts it.
 
 **Match execution reuses the existing PvP plumbing wholesale.** A match the
 host plays runs through `SceneManager.enter_pvp_battle(0, opp_deck, 0,
@@ -2170,6 +2235,8 @@ direct member-record write + `SessionStore.mark_dirty()`).
 
 | RPC | Direction | Purpose |
 |---|---|---|
+| `request_tournament_ante_check(ante_coins)` | host → each entrant | BID-037: pre-start affordability query |
+| `respond_tournament_ante_check(can_afford)` | entrant → host | BID-037: affordability answer |
 | `notify_tournament_start(bracket, ante)` | host → each entrant | start + local ante deduction |
 | `recv_tournament_update(bracket)` | host → all | bracket changed / finished / aborted (empty) |
 | `notify_tournament_spectate()` | host → non-combatants | auto-enter spectator view |
@@ -2177,12 +2244,17 @@ direct member-record write + `SessionStore.mark_dirty()`).
 ### Edge Cases & Known Gaps (v1)
 
 - A participant disconnecting mid-bracket **aborts** the tournament (host
-  broadcasts an empty bracket; every peer's panel clears). Antes are **not
-  refunded** — documented gap, consistent with the no-refund wager precedent.
-- Client ante affordability is not pre-checked by the host (the client deducts
-  locally, mirroring the existing wager flow); a client can go briefly negative.
+  broadcasts an empty bracket; every peer's panel clears) and **refunds every
+  participant's ante** (BID-037 — was a documented no-refund gap through GID-104).
+- Client ante affordability **is** pre-checked by the host before it commits to
+  starting (BID-037's `request_tournament_ante_check` handshake) — a client can
+  no longer go negative from a tournament ante specifically. A peer that
+  disconnects mid-handshake (before the tournament is even marked active)
+  simply cancels the pending start; nothing was deducted yet, so there is
+  nothing to refund at that point.
 - No ranked-ELO integration — deliberately casual (see Plan decision).
-- Tournament state is session-scoped: `_on_coop_session_ended` resets it.
+- Tournament state is session-scoped: `_on_coop_session_ended` resets it
+  (also refunding antes first if a bracket was mid-flight, BID-037).
 
 ## Party Convenience & Stakes (GID-105)
 

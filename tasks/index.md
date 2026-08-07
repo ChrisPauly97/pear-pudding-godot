@@ -142,10 +142,6 @@ files in `tasks/archive/backlog/`.
 |----|---------|----------|-------------------|
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded — **out of scope for v1** | spec-gap | GID-070 research |
 | [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | GID-096 |
-| [BID-029](backlog/BID-029--wager-challenge-button-missing.md) | `_request_wager_challenge` has zero callers — no UI exists to *initiate* a custom-ante wager, only to accept one | code-smell | GID-102 / TID-373 |
-| [BID-036](backlog/BID-036--spectator-wager-house-banked-payout.md) | Spectator wager settlement is house-banked (can mint coins); walkover forfeits refund instead of paying | design-gap | GID-104 / TID-387 |
-| [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
-| [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
 | [BID-053](backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job is `continue-on-error` — `duplicated-load`/`unused-argument`/`mixed-tabs-and-spaces` fixed (-35 net), `max-line-length` investigated and left, `class-definitions-order` (~430, largest item) still needs its own dedicated pass | code-smell | GID-123 / TID-466 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
 
@@ -204,6 +200,10 @@ files in `tasks/archive/backlog/`.
 | [BID-025](archive/backlog/BID-025--opponent-champion-stats-host-only.md) | Opponent PvP champion stats (wins/losses/streak) recorded host-only; non-host members show 0 in the leaderboard | design-inconsistency | Resolved: `CoopPvP._apply_champion_result` now applied to both combatants |
 | [BID-027](archive/backlog/BID-027--coop-pve-boss-ai-turn-hardcoded-index.md) | Co-op PvE boss AI turn execution hardcodes player index 1 (board-diff/emergence/weather bookkeeping only) | code-smell | Resolved: `_execute_ai_actions` now derives the AI's index via `_opp_idx()` |
 | [BID-031](archive/backlog/BID-031--coop-clear-value-lacks-boss-tier-and-timing.md) | Co-op boss clear leaderboard value has no boss-tier or timing signal, using party size as a low-signal proxy | design-gap | Resolved: `GameBus.coop_pve_battle_ended` now carries `{boss_tier, clear_seconds}` |
+| [BID-029](archive/backlog/BID-029--wager-challenge-button-missing.md) | `_request_wager_challenge` had zero callers — no UI existed to *initiate* a custom-ante wager, only to accept one | code-smell | Resolved: added a "Wager Duel" HUD action + ante picker in `CoopPvP.gd` |
+| [BID-036](archive/backlog/BID-036--spectator-wager-house-banked-payout.md) | Spectator wager settlement was house-banked (could mint coins); walkover forfeits refund instead of paying | design-gap | Resolved: `WagerSync.settle()` rewritten to a parimutuel pool-based payout; grace-expiry refund-all kept as an intentional anti-grief measure |
+| [BID-037](archive/backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunded no antes; client ante affordability never pre-checked | design-gap | Resolved: `TournamentSync.refund_payouts` + abort-refund wiring, plus a pre-start `request_tournament_ante_check`/`respond_tournament_ante_check` handshake |
+| [BID-038](archive/backlog/BID-038--spectator-result-host-perspective.md) | Spectators saw duel results from the host's perspective ("Victory!" when the host won) | code-smell | Resolved: `BattleResultUI.show_pvp_result` gained a neutral `spectating` variant ("Bottom/Top Player Wins!") |
 
 ## Archive
 

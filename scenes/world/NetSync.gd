@@ -650,6 +650,24 @@ func notify_tournament_start(bracket: Dictionary, ante: int) -> void:
 	_route("_on_tournament_started", [bracket, ante])
 
 
+## BID-037: pre-start affordability handshake. Host → each entrant, BEFORE
+## committing to anything (deducting its own ante, building the bracket,
+## calling notify_tournament_start): "can you actually afford this ante?".
+## Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func request_tournament_ante_check(ante_coins: int) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	_route("_on_tournament_ante_check_requested", [sender, ante_coins])
+
+
+## Entrant → host: the affordability answer to request_tournament_ante_check.
+## Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func respond_tournament_ante_check(can_afford: bool) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	_route("_on_tournament_ante_check_responded", [sender, can_afford])
+
+
 ## Host → all: the bracket changed (a match started/finished, or the whole
 ## tournament finished). payload is TournamentSync.encode_bracket() output.
 ## Reliable — a dropped update would leave a peer's bracket panel stale.

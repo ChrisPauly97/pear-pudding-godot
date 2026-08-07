@@ -174,15 +174,32 @@ func _on_coop_peer_disconnected(pid: int) -> void:
 	if NetworkManager.is_host():
 		SessionStore.flush_now()
 	# GID-104 (TID-386): a tournament participant disconnecting mid-bracket has no
-	# resume/refund path in v1 (documented gap) — abort cleanly rather than leave
-	# the bracket stuck forever waiting for a match that can never finish.
+	# resume path in v1 (documented gap) — abort cleanly rather than leave the
+	# bracket stuck forever waiting for a match that can never finish.
+	# BID-037: every participant's ante is refunded on abort (harsh otherwise for
+	# a 6-match bracket) — refund BEFORE _reset_tournament_state() clears the
+	# ante/token bookkeeping it needs.
 	if _world._tournament_active and NetworkManager.is_host() and _world._tournament_peer_ids.has(pid):
+		var refunded_ante: int = _world.coop_pvp._tournament_ante
+		_world.coop_pvp._refund_tournament_antes()
 		_world.coop_pvp._reset_tournament_state()
 		_world._tournament_bracket = {}
 		if _world._net_sync != null:
 			_world._net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket({}))
 		_world.coop_pvp._refresh_tournament_panel()
-		GameBus.hud_message_requested.emit("Tournament aborted — a player disconnected.")
+		if refunded_ante > 0:
+			GameBus.hud_message_requested.emit(
+				"Tournament aborted — a player disconnected. Antes refunded (%d coins each)." % refunded_ante)
+		else:
+			GameBus.hud_message_requested.emit("Tournament aborted — a player disconnected.")
+	# BID-037: a peer we're mid-handshake with (the pre-start ante-affordability
+	# check, before the tournament is even marked active) disconnected before
+	# confirming — cancel the pending start instead of waiting on it forever.
+	if NetworkManager.is_host() and not _world.coop_pvp._tournament_pending_start.is_empty():
+		var pending_peers: Array = _world.coop_pvp._tournament_pending_start.get("peer_ids", [])
+		if pending_peers.has(pid):
+			_world.coop_pvp._tournament_pending_start = {}
+			GameBus.hud_message_requested.emit("Tournament start cancelled — a player disconnected.")
 	_refresh_coop_roster()
 
 func _on_coop_session_ended() -> void:
@@ -212,7 +229,11 @@ func _on_coop_session_ended() -> void:
 	# Draft duel (GID-104 / TID-385): session gone — abort any draft in flight.
 	_world.coop_pvp._abort_draft_duel()
 	# Session tournaments (GID-104 / TID-386) are session-scoped: a bracket cannot
-	# outlive the session that scheduled it. No refunds in v1 (documented gap).
+	# outlive the session that scheduled it. BID-037: refund antes here too (same
+	# reasoning as the single-participant-disconnect abort path) before the
+	# ante/token bookkeeping needed to do so is cleared.
+	if _world._tournament_active:
+		_world.coop_pvp._refund_tournament_antes()
 	_world.coop_pvp._reset_tournament_state()
 	_world._tournament_bracket = {}
 	_world.coop_pvp._refresh_tournament_panel()
