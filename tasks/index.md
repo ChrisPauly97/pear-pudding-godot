@@ -152,7 +152,6 @@ files in `tasks/archive/backlog/`.
 | [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
 | [BID-053](backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job is `continue-on-error` — 638 pre-existing problems (357 are `class-definitions-order`); two `.gdlintrc` rules that contradicted CLAUDE.md were fixed, cutting the count from >1000 | code-smell | GID-123 / TID-466 |
-| [BID-058](backlog/BID-058--enemy-npc-engage-cooldown-missing.md) | `EnemyNPC.engage_cooldown` documented in 3 agent docs (GID-069 flee/respawn cooldown) but does not exist anywhere in `EnemyNPC.gd` — likely dropped by the TID-427 `engage()` rewrite without a doc update | code-smell / doc-gap | GID-113 / TID-420 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` is 9154 lines / 401 functions — 13% of all GDScript in one file, 9x the project's own `max-file-lines`; it refilled after GID-072 because nothing enforces the decomposition | code-smell | GID-123 research |
 
 ## Resolved Backlog
@@ -204,6 +203,7 @@ files in `tasks/archive/backlog/`.
 | [BID-051](archive/backlog/BID-051--character-walk-frames-not-wired.md) | Walk-animation frames shipped by TID-445 were on disk but not wired | enhancement | Resolved: MaitelnFollower wired (only entity that visibly moves; enemies/NPCs confirmed fully static, frames left unwired for them) |
 | [BID-052](archive/backlog/BID-052--auction-mailbox-test-failures-godot47.md) | 7 pre-existing auction/mailbox test failures, suspected Godot 4.7 engine drift | code-smell | Resolved: not engine drift — 2 test-authoring bugs (wrong helper / wrong card index), root-caused by reading the implementation and fixed directly |
 | [BID-054](archive/backlog/BID-054--test-runner-preexisting-suite-failures.md) | test runner preexisting suite failures | — | — |
+| [BID-058](archive/backlog/BID-058--enemy-npc-engage-cooldown-missing.md) | `EnemyNPC.engage_cooldown` documented in 3 agent docs (GID-069 flee/respawn cooldown) but does not exist anywhere in `EnemyNPC.gd` — confirmed dead in both directions (no field, and `SceneManager`'s flee/respawn paths never reference it); docs corrected to describe the real global `_proximity_engage_blocked` mechanism instead of restoring unused code | code-smell / doc-gap | GID-113 / TID-420 |
 
 ## Archive
 
