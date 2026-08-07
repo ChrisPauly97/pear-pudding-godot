@@ -553,31 +553,25 @@ func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 		if did_win:
 			SceneManager.save_manager.add_coins(_pvp_ante_coins * 2)
 		_pvp_ante_coins = 0
-	# Champion record (TID-368): update pvp stats in session record (host only).
+	# Champion record (TID-368; both sides fixed by BID-025): update pvp stats in
+	# session record (host only — the host is the authority for both records).
 	if NetworkManager.is_host() and SessionStore.is_open():
 		var token: String = MpProfile.get_token()
 		var st = SessionStore.get_state()
 		if st != null:
-			var rec: Dictionary = st.get_member(token)
-			if not rec.is_empty():
-				var wins: int = int(rec.get("pvp_wins", 0))
-				var losses: int = int(rec.get("pvp_losses", 0))
-				var streak: int = int(rec.get("pvp_streak", 0))
-				var best: int = int(rec.get("pvp_best_streak", 0))
-				if did_win:
-					wins += 1
-					streak += 1
-					if streak > best:
-						best = streak
-				else:
-					losses += 1
-					streak = 0
-				rec["pvp_wins"] = wins
-				rec["pvp_losses"] = losses
-				rec["pvp_streak"] = streak
-				rec["pvp_best_streak"] = best
-				st.update_member(token, rec)
-				SessionStore.mark_dirty()
+			_apply_champion_result(st, token, did_win)
+			# BID-025: the opponent (client combatant) gets the symmetric result —
+			# without this only the host's own win/loss/streak ever moved, so every
+			# non-host member's champion record (and the leaderboard's win/loss
+			# columns, derived from it) stayed frozen at 0 no matter how many duels
+			# they played. Same opponent-peer resolution _update_pvp_ratings already
+			# uses below for rating, just unconditional (not gated on ranked).
+			var opp_peer: int = _world._pvp_ante_peer1
+			if opp_peer > 0:
+				var opp_token: String = str(_world._session_token_by_peer.get(opp_peer, ""))
+				if opp_token != "" and opp_token != token:
+					_apply_champion_result(st, opp_token, not did_win)
+			SessionStore.mark_dirty()
 			# Ranked rating (TID-370) — gated on the duel's ranked opt-in (GID-102 / TID-373):
 			# the authority owns both records, so it computes both combatants' ELO deltas and
 			# writes both. The host is one combatant; the opponent is the duel peer captured
@@ -589,6 +583,34 @@ func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 	_pvp_ranked = false
 	# Signal spectators to return to world when WorldScene re-enters the tree.
 	_world._pvp_ended_pending_broadcast = true
+
+
+## Applies one duel's win/loss/streak result to `token`'s champion record in place
+## (BID-025). A no-op if `token` has no record yet (e.g. a stale/unknown opponent
+## token). Caller is responsible for `st.update_member`/`SessionStore.mark_dirty()`
+## — kept out of this helper so `_on_pvp_battle_ended_coop` can apply it to both
+## combatants and persist once, not twice.
+func _apply_champion_result(st, token: String, won: bool) -> void:
+	var rec: Dictionary = st.get_member(token)
+	if rec.is_empty():
+		return
+	var wins: int = int(rec.get("pvp_wins", 0))
+	var losses: int = int(rec.get("pvp_losses", 0))
+	var streak: int = int(rec.get("pvp_streak", 0))
+	var best: int = int(rec.get("pvp_best_streak", 0))
+	if won:
+		wins += 1
+		streak += 1
+		if streak > best:
+			best = streak
+	else:
+		losses += 1
+		streak = 0
+	rec["pvp_wins"] = wins
+	rec["pvp_losses"] = losses
+	rec["pvp_streak"] = streak
+	rec["pvp_best_streak"] = best
+	st.update_member(token, rec)
 
 
 ## Host-authority ranked rating update for a finished duel (GID-102 / TID-370).

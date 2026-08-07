@@ -958,18 +958,27 @@ func _on_spire_run_ended_leaderboard(stats: Dictionary) -> void:
 		return
 	_submit_pve_score("spire", floors_cleared)
 
-## Co-op boss clear: submit on a party win while a co-op session is active. The
-## "value" recorded is the party size at the moment the battle ended (peers + self) —
-## a v1 simplification. Neither fastest-clear timing nor the scaled boss tier are
-## threaded from BattleScene back to WorldScene today (see BID-027), so party size is
-## the only robust, always-available proxy of "how tough a clear this was" without
-## inventing new cross-battle plumbing for this task.
-
-func _on_coop_pve_battle_ended_leaderboard(did_win: bool) -> void:
+## Co-op boss clear: submit on a party win while a co-op session is active.
+##
+## BID-031: the "value" recorded used to be raw party size (peers + self) — a v1
+## simplification that couldn't tell a party that scraped by from one that
+## curb-stomped a low-tier enemy. `result` now carries the party-scaled boss tier
+## (`CoopBattleScaling.scale_boss_tier`, computed in `BattleNet._build_coop_pve_state`)
+## and the clear duration, threaded through `GameBus.coop_pve_battle_ended` from
+## `BattleNet._build_coop_reward_payload`. Combined into a single int (rather than
+## widening the stored leaderboard entry shape, which would need a
+## `SessionState.CURRENT_SESSION_VERSION` bump + migration for one v1 leaderboard):
+## tier dominates via the x10000 multiplier, so a harder boss always outranks an
+## easier one regardless of clear time; a faster clear (lower clear_seconds) then
+## breaks ties within the same tier. `result` defaults ({} -> tier 1, 0s) keep this
+## safe against a stale caller that still only emits `did_win`.
+func _on_coop_pve_battle_ended_leaderboard(did_win: bool, result: Dictionary = {}) -> void:
 	if not did_win or not NetworkManager.is_active():
 		return
-	var party_size: int = multiplayer.get_peers().size() + 1
-	_submit_pve_score("coop_clears", party_size)
+	var boss_tier: int = int(result.get("boss_tier", 1))
+	var clear_seconds: float = float(result.get("clear_seconds", 0.0))
+	var value: int = boss_tier * 10000 - int(round(clear_seconds))
+	_submit_pve_score("coop_clears", value)
 
 ## Route a PvE score to the authority: host records directly via SessionStore; a
 ## client sends the new submit RPC. board is "spire" or "coop_clears".

@@ -33,7 +33,14 @@ signal fatigue_damage(player_id: int, damage: int)
 signal pvp_battle_ended(did_win: bool)
 # Co-op PvE joint battle (GID-099): all allies vs shared boss. did_win from local
 # perspective. SceneManager restores the shared co-op world.
-signal coop_pve_battle_ended(did_win: bool)
+# `result` (BID-031, TID-379 follow-up): {boss_tier: int, clear_seconds: float} —
+# the party-scaled boss difficulty (CoopBattleScaling.scale_boss_tier) and how long
+# the joint battle took, computed host-side in BattleNet._build_coop_reward_payload
+# and threaded through so WorldScene's coop_clears leaderboard can rank on a real
+# signal instead of the old party-size proxy. Every existing connected handler that
+# only wants `did_win` keeps working unchanged — Godot truncates extra emitted args
+# for a callable that declares fewer parameters.
+signal coop_pve_battle_ended(did_win: bool, result: Dictionary)
 # Team PvP duels (GID-102 / TID-371): 2v2, duel-style end, no rewards. did_win is
 # from the local peer's team perspective. SceneManager restores the shared co-op world.
 signal team_battle_ended(did_win: bool)

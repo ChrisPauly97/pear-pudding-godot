@@ -556,16 +556,23 @@ not inside `_setup_coop`:
   Record!" badge on `RunSummaryScene`, so a second offline-best store would just be
   a second source of truth for the same fact. The session-scoped board is the
   actual deliverable; the offline case was already solved before this task.
-- **Co-op boss clears** (`GameBus.coop_pve_battle_ended(did_win)` →
+- **Co-op boss clears** (`GameBus.coop_pve_battle_ended(did_win, result)` →
   `_on_coop_pve_battle_ended_leaderboard`): submits on a party win, while
-  `NetworkManager.is_active()`, to the `"coop_clears"` board. **Value = party size
-  at battle end** (`multiplayer.get_peers().size() + 1`) — a v1 simplification.
-  Neither the party-scaled boss tier (`CoopBattleScaling.scale_boss_tier`, computed
-  inside `BattleScene._build_coop_pve_state`) nor a clear-duration timer are
-  threaded back out to `GameBus.coop_pve_battle_ended` today, so party size is the
-  only signal reliably available at the point WorldScene can submit a score without
-  inventing new cross-battle plumbings. Logged as BID-031 for a future task to
-  enrich the ranking signal (tier and/or clear time).
+  `NetworkManager.is_active()`, to the `"coop_clears"` board. **(BID-031 fix)**
+  `result` is `{boss_tier: int, clear_seconds: float}` — the party-scaled boss tier
+  (`CoopBattleScaling.scale_boss_tier`, computed inside
+  `BattleNet._build_coop_pve_state`, stashed in `BattleNet._coop_boss_tier`) and the
+  wall-clock duration since `BattleNet._coop_battle_started_at_msec` was stamped at
+  battle setup. `BattleNet._build_coop_reward_payload` computes both (host-only) and
+  carries them through the existing `coop_battle_ended` RPC/payload so every peer's
+  local `_finish_coop_pve` can forward them into the signal — no second signal or
+  extra RPC. `_on_coop_pve_battle_ended_leaderboard` combines them into a single int,
+  `boss_tier * 10000 - round(clear_seconds)`, rather than widening the stored
+  leaderboard-entry shape (which would need a `SessionState.CURRENT_SESSION_VERSION`
+  bump + migration): tier dominates via the ×10000 multiplier, so a harder boss
+  always outranks an easier one regardless of speed; a faster clear then breaks ties
+  within the same tier. `result` defaults to `{}` (→ tier 1, 0s) so a stale caller
+  that still only emits `did_win` degrades gracefully instead of erroring.
 
 **Authority-records-then-broadcasts, same as party bounties.** `_submit_pve_score(board,
 value)` is the single routing function: on the host it calls
