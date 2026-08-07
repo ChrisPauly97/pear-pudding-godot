@@ -710,3 +710,43 @@ func submit_siege_boss_engaged(edata: Dictionary) -> void:
 @rpc("any_peer", "reliable", "call_remote")
 func notify_coop_pve_start(my_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
 	_route("_on_notify_coop_pve_start", [my_idx, all_ally_decks, enemy_data])
+
+
+# ── Ghost duels — client entry point (GID-102 / TID-377 follow-up, fixes BID-032) ──
+# A client never opens SessionStore directly (see WorldScene._setup_session), so it
+# has no local roster/snapshot to read. These two round-trips let a client resolve
+# both through the host, mirroring the existing recv_party_bounties_snapshot /
+# _send_character_to_peer host-push precedent.
+
+## Client → host: "send me the ghost-duel roster." No payload — the host resolves the
+## requester's own token from _session_token_by_peer so it can exclude their own entry.
+## Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func request_ghost_roster() -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	_route("_on_ghost_roster_requested", [sender])
+
+
+## Host → requesting client: the current ghost-duel roster. payload is the same
+## {token, name, rating} row shape the host's own overlay already builds locally from
+## SessionStore — already JSON-primitive, sent as-is (same pattern as
+## recv_party_bounties_snapshot / recv_leaderboard). Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_ghost_roster(rows: Array) -> void:
+	_route("_on_ghost_roster_received", [rows])
+
+
+## Client → host: "resolve this token's ghost snapshot for me" (the client picked a
+## roster row and pressed "Ghost Duel"). Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func request_ghost_snapshot(token: String) -> void:
+	var sender: int = multiplayer.get_remote_sender_id()
+	_route("_on_ghost_snapshot_requested", [sender, token])
+
+
+## Host → requesting client: the resolved snapshot — SessionState.get_ghost_snapshot()
+## output ({token, name, deck, rating}), or {} if the token couldn't be resolved.
+## Reliable.
+@rpc("any_peer", "reliable", "call_remote")
+func recv_ghost_snapshot(snapshot: Dictionary) -> void:
+	_route("_on_ghost_snapshot_received", [snapshot])

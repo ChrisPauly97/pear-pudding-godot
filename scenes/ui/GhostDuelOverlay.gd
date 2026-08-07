@@ -1,12 +1,14 @@
-## Ghost Duel panel (GID-102 / TID-377).
+## Ghost Duel panel (GID-102 / TID-377; client entry point added by the BID-032 follow-up).
 ##
-## Lists every known session member (from the host's own SessionStore-backed
-## SessionState) so the host can pick one to fight as an async, AI-piloted
-## snapshot of that member's deck — zero live networking, works even if that
-## member is currently offline. Host-only entry point: a client has no local
-## SessionState to read (the session file lives only on the authority), which
-## mirrors the existing host-only constraint on other session reads
-## (WorldScene._setup_session).
+## Lists every other known session member so the player can pick one to fight as an
+## async, AI-piloted snapshot of that member's deck — zero live networking during the
+## duel itself, works even if that member is currently offline. The host builds `rows`
+## immediately from its own SessionStore-backed SessionState; a client opens this empty
+## and CoopSocial fills it in once the host answers a request_ghost_roster RPC (a client
+## has no local SessionState to read directly — the session file lives only on the
+## authority — mirroring the existing host-only constraint on other session reads,
+## WorldScene._setup_session). Either way this overlay stays fully shape-agnostic: it
+## only ever sees the same {token, name, rating} row list, never SessionStore itself.
 ##
 ## Script-only overlay (instantiated via .new()), matching MultiplayerLobbyScene /
 ## SettingsScene: extends BaseOverlay by path string, viewport-relative, rebuilt
@@ -14,10 +16,11 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
 
-## rows: Array of {token, name, rating} — the caller (WorldScene) builds this from
-## SessionStore.get_state().members, excluding the local host's own token. Kept as
-## plain data (not a SessionState reference) so this overlay stays decoupled from
-## the session-storage layer.
+## rows: Array of {token, name, rating}. The host's caller (CoopSocial) builds this
+## from SessionStore.get_state().members, excluding its own token; a client's caller
+## fills it in asynchronously via set_rows() once the roster RPC round-trip answers.
+## Kept as plain data (not a SessionState reference) so this overlay stays decoupled
+## from the session-storage layer.
 var _rows: Array = []
 ## Called with a token when "Ghost Duel" is pressed; WorldScene wires this to
 ## resolve the snapshot (SessionState.get_ghost_snapshot) and call

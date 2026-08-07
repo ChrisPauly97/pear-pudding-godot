@@ -146,8 +146,6 @@ files in `tasks/archive/backlog/`.
 | [BID-027](backlog/BID-027--coop-pve-boss-ai-turn-hardcoded-index.md) | Co-op PvE boss AI turn execution hardcodes player index 1 (board-diff/emergence/weather bookkeeping only) | code-smell | GID-102 / TID-371 |
 | [BID-029](backlog/BID-029--wager-challenge-button-missing.md) | `_request_wager_challenge` has zero callers — no UI exists to *initiate* a custom-ante wager, only to accept one | code-smell | GID-102 / TID-373 |
 | [BID-031](backlog/BID-031--coop-clear-value-lacks-boss-tier-and-timing.md) | Co-op boss clear leaderboard value has no boss-tier or timing signal, using party size as a low-signal proxy | design-gap | GID-102 / TID-379 |
-| [BID-032](backlog/BID-032--ghost-duels-host-only-entry-point.md) | Ghost duels are host-only — a client has no local SessionState to pick a ghost opponent from | feature-gap | GID-102 / TID-377 |
-| [BID-033](backlog/BID-033--no-session-scoped-equipment-inventory.md) | No session-scoped equipment inventory — chest equipment drops can't be roll-granted under need/greed | design-gap | GID-102 / TID-381 |
 | [BID-036](backlog/BID-036--spectator-wager-house-banked-payout.md) | Spectator wager settlement is house-banked (can mint coins); walkover forfeits refund instead of paying | design-gap | GID-104 / TID-387 |
 | [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
 | [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
@@ -204,6 +202,8 @@ files in `tasks/archive/backlog/`.
 | [BID-052](archive/backlog/BID-052--auction-mailbox-test-failures-godot47.md) | 7 pre-existing auction/mailbox test failures, suspected Godot 4.7 engine drift | code-smell | Resolved: not engine drift — 2 test-authoring bugs (wrong helper / wrong card index), root-caused by reading the implementation and fixed directly |
 | [BID-054](archive/backlog/BID-054--test-runner-preexisting-suite-failures.md) | test runner preexisting suite failures | — | — |
 | [BID-058](archive/backlog/BID-058--enemy-npc-engage-cooldown-missing.md) | `EnemyNPC.engage_cooldown` documented in 3 agent docs (GID-069 flee/respawn cooldown) but does not exist anywhere in `EnemyNPC.gd` — confirmed dead in both directions (no field, and `SceneManager`'s flee/respawn paths never reference it); docs corrected to describe the real global `_proximity_engage_blocked` mechanism instead of restoring unused code | code-smell / doc-gap | GID-113 / TID-420 |
+| [BID-032](archive/backlog/BID-032--ghost-duels-host-only-entry-point.md) | Ghost duels are host-only — a client has no local SessionState to pick a ghost opponent from | feature-gap | Resolved: `request_ghost_roster`/`recv_ghost_roster` + `request_ghost_snapshot`/`recv_ghost_snapshot` RPCs let a client round-trip through the host |
+| [BID-033](archive/backlog/BID-033--no-session-scoped-equipment-inventory.md) | No session-scoped equipment inventory — chest equipment drops can't be roll-granted under need/greed | design-gap | Resolved: `SessionState` v14 adds `owned_weapons`/`owned_armor`/`equipped_weapon`/`equipped_armor` per character record; `_grant_chest_loot_to_token` now rolls equipment into the pool |
 
 ## Archive
 

@@ -1096,22 +1096,51 @@ default `SessionState.make_starter_character` seeds), so this reads correctly
 whether or not the TID-370 rating model has landed. Returns `{}` for a blank token,
 an unknown token, or a corrupt (non-Dictionary) member record — never throws.
 
-#### Entry point — host-only "Ghost Duels" Party-panel action
+#### Entry point — "Ghost Duels" Party-panel action (host **and** client, BID-032 fix)
 
-`_open_party_panel()`'s `show_ghost_duels` is gated on `SessionStore.is_open()`
-(not `NetworkManager.is_active()`) — a **client never opens `SessionStore`
-locally** (only the authority does, in `_setup_session`), so this is a
-**host-only** feature in the current slice: a client has no local `SessionState`
-to list opponents from. Since GID-107 this lives in the Party panel rather than
-its own always-visible HUD button (it was not proximity-gated — async, not a
-live-nearby-player interaction — so it fit the "always-on" consolidation).
-Pressing it opens `scenes/ui/GhostDuelOverlay.gd` (`extends
-BaseOverlay` by path string, `.new()`-instantiated, viewport-relative, mobile +
-desktop parity — a simple list + button, matching the task's "keep this UI
-genuinely simple" guidance), populated from `SessionStore.get_state().members`
-(excluding the local host's own token — dueling your own live snapshot is a no-op
-curiosity, not the intended use). Each row shows name + rating + a "Ghost Duel"
-button that resolves the snapshot and calls `SceneManager.enter_ghost_duel`.
+`_open_party_panel()`'s `show_ghost_duels` is gated on `NetworkManager.is_active()` — a
+plain "session is live" check, unlike every other `SessionStore.is_open()`-gated action
+in this panel. That's deliberate: a **client never opens `SessionStore` locally** (only
+the authority does, in `_setup_session`), so `CoopSocial._toggle_ghost_duel_overlay` now
+branches on `_coop_world_authority()` internally instead of gating the button itself.
+Since GID-107 this lives in the Party panel rather than its own always-visible HUD
+button (it was not proximity-gated — async, not a live-nearby-player interaction — so it
+fit the "always-on" consolidation). Pressing it opens `scenes/ui/GhostDuelOverlay.gd`
+(`extends BaseOverlay` by path string, `.new()`-instantiated, viewport-relative, mobile +
+desktop parity — a simple list + button, matching the task's "keep this UI genuinely
+simple" guidance, unchanged by the client fix — it only ever sees plain `{token, name,
+rating}` rows and never touches `SessionStore` itself). Each row shows name + rating + a
+"Ghost Duel" button that resolves the snapshot and calls `SceneManager.enter_ghost_duel`.
+
+**Host path (unchanged):** `_toggle_ghost_duel_overlay` builds the roster rows directly
+from `SessionStore.get_state().members` (excluding the local host's own token — dueling
+your own live snapshot is a no-op curiosity, not the intended use) via the new
+`_ghost_roster_rows(exclude_token)` helper, and `_request_ghost_duel(token)` resolves the
+snapshot directly via `SessionState.get_ghost_snapshot`.
+
+**Client path (new) — two round-trip RPCs on `NetSync.gd`, mirroring the existing
+`recv_party_bounties_snapshot` / `_send_character_to_peer` host-push precedent:**
+
+| RPC | Direction | Purpose |
+|---|---|---|
+| `request_ghost_roster()` | client → host | "send me the ghost-duel roster" |
+| `recv_ghost_roster(rows: Array)` | host → client | the `{token, name, rating}` rows, same shape the host's own overlay build already uses |
+| `request_ghost_snapshot(token: String)` | client → host | "resolve this token's ghost snapshot for me" |
+| `recv_ghost_snapshot(snapshot: Dictionary)` | host → client | `SessionState.get_ghost_snapshot()` output (or `{}` if unresolvable) |
+
+A client opens the overlay empty and calls `rpc_id(1, "request_ghost_roster")`;
+`CoopSocial._on_ghost_roster_requested` (host-only, guarded by `_coop_world_authority()`)
+resolves the requester's own token from `_session_token_by_peer` (so it can exclude their
+own entry, same as the host's local build) and unicasts `recv_ghost_roster` back.
+`_on_ghost_roster_received` feeds the still-open overlay via `set_rows()` — a late reply
+after the player already closed the panel is a harmless no-op. Picking a row calls
+`_request_ghost_duel(token)`, which on a client sends `request_ghost_snapshot(token)`
+instead of reading `SessionStore` directly; `_on_ghost_snapshot_requested` resolves it
+host-side and unicasts `recv_ghost_snapshot`, which `_on_ghost_snapshot_received` either
+enters (`SceneManager.enter_ghost_duel`) or reports as unresolvable via the same
+`GameBus.hud_message_requested` toast the host path already used. `GhostDuelOverlay` and
+`SceneManager.enter_ghost_duel` needed **no changes** — both were already shape-agnostic,
+exactly as anticipated in the original "suggested fix" note below.
 
 #### Entering the battle — `SceneManager.enter_ghost_duel(opponent_snapshot)`
 
@@ -1143,14 +1172,6 @@ path) and restores the world, mirroring `_on_duel_won`/`_on_duel_lost` — no ca
 drops, no enemy-defeat bookkeeping, no capture-tracker init (the capture-tracker
 guard at battle setup now also excludes `_ghost_duel`, alongside `puzzle_mode`/
 `friendly_duel`/`_pvp`).
-
-#### Known gap
-
-The ghost-duel entry point is host-only for now: a client would need its own way
-to read the session roster (there is no wire message today that hands a client
-the member list + ratings the way `recv_party_bounties_snapshot` does for
-bounties). Extending this to clients is a natural follow-up but out of scope here
-— see BID list for the corresponding backlog entry.
 
 ### Draft Duels — sealed-deck PvP (GID-104 / TID-385)
 
@@ -1466,22 +1487,71 @@ Need/Greed/Pass panel (`WorldScene._show_loot_roll_panel`, viewport-relative, th
 buttons — mobile/desktop parity with no keyboard-only path) and sends its choice back via
 `submit_loot_roll_choice`. The authority resolves early once every expected participant has
 responded, or after a `_LOOT_ROLL_TIMEOUT = 15.0`s timeout (`_tick_loot_rolls`, ticked from
-`_process`) with any missing response **auto-passed**. **Equipment drops are out of scope for
-a roll** — there is no session-scoped equipment inventory to grant to an arbitrary winner
-(see BID-033), so only cards + a flat coin reward are roll-eligible; the map-fragment branch
-is also unaffected (still resolved before the roll check, same as always).
+`_process`) with any missing response **auto-passed**. **Equipment drops are roll-eligible**
+(BID-033 fix): `SessionState` character records now carry a session-scoped `owned_weapons`
+(`Array[String]` ids) / `owned_armor` (`Array[String]`) equipment inventory — see "Session-scoped
+equipment inventory" below — so `_grant_chest_loot_to_token` can roll a chance at one piece into
+an arbitrary (possibly remote) winner exactly like the single-player/first-opener path does; the
+map-fragment branch is unaffected (still resolved before the roll check, same as always).
 
 **The authority is the only one that ever rolls the RNG** — clients only submit
 `need`/`greed`/`pass`, never a numeric value, so the outcome is tamper-proof. Need beats
 greed beats pass; ties within the same tier are broken by the highest rolled value
-(1–100). The winner's cards/coins are granted **directly into their GID-095 session
+(1–100). The winner's cards/coins/equipment are granted **directly into their GID-095 session
 character record** via `SessionStore` (`WorldScene._grant_chest_loot_to_token`) — the same
 direct-write pattern `_transfer_card_in_session` (card trading) and the party-bounty reward
 path already use for a member who may not be the local player, rather than the physical
 `WorldItem` pickup path GID-096 uses (which only ever grants to the local opener). The roll
 is removed from the in-flight map **before** any grant happens, so an item can never be
 granted twice. `recv_loot_roll_result` announces the winner (or "everyone passed") to all
-peers as a `GameBus.hud_message_requested` toast, consistent with other recent features.
+peers as a `GameBus.hud_message_requested` toast, consistent with other recent features (no
+separate toast names the equipment drop specifically — see "Session-scoped equipment
+inventory" below for why).
+
+### Session-scoped equipment inventory (BID-033)
+
+Single-player equipment ownership lived only on `SaveManager` (`owned_weapons` —
+`Array[Dictionary]` of `{weapon_id, upgrade_level}` — plus `owned_armor`/`owned_rings`/
+`owned_trinkets`, each `Array[String]`), with no `SessionState` equivalent — the reason
+the loot-roll path above originally had to skip equipment entirely. `SessionState`
+character records now carry a simplified mirror: `owned_weapons: Array[String]` (ids
+only — **no per-instance `upgrade_level`**; session equipment upgrades aren't modeled,
+the same "no seed economy" simplification already used for the guildhall garden) and
+`owned_armor: Array[String]`, plus `equipped_weapon` / `equipped_armor` (both `String`,
+mirroring `SaveManager`'s equipped-slot fields) for shape completeness. Only the
+**weapon** and **armor** slots are session-scoped for now — `owned_rings`/`owned_trinkets`
+have no session-record equivalent yet, so ring/trinket chest drops remain
+first-opener-only (out of scope for a roll) until a similar extension. Added in
+`SessionState.CURRENT_SESSION_VERSION` **v14**, with a migration that backfills all four
+fields (empty arrays / empty strings) on every existing member record.
+
+**Round-trips through the same adopt/export pair every other character field uses**
+(`SaveManager.adopt_session_character` / `export_session_character`, GID-095 / TID-346):
+`adopt_session_character` converts the record's flat `owned_weapons` ids back into
+SaveManager's own `{weapon_id, upgrade_level: 0}` instances (upgrade level always resets
+to 0 on adopt — the session shape doesn't carry it); `export_session_character` is the
+mirror image, flattening `SaveManager.get_owned_by_slot("weapon")` back to ids. Both
+directions go through the *same* isolation invariant as the rest of the character slice
+(`adopt_session_character` forces `_loaded = false`, so a session character's equipment
+can never leak into `save_slot_*.json`).
+
+**Roll logic — `game_logic/net/LootRoll.gd`'s `roll_equipment_drop(tier, weapon_ids,
+armor_ids, owned_weapon_ids, owned_armor_ids, rng)`** (pure, unit-tested, RNG-injected
+like `resolve_winner`): rolls the *same* `weapon_chance` table the single-player/
+first-opener path uses (`WorldScene._maybe_drop_equipment_from_chest` — 40% for a tier-3
+`dtr_` treasure-room chest, 15% otherwise — now named `EQUIPMENT_CHANCE_TREASURE_ROOM`/
+`EQUIPMENT_CHANCE_DEFAULT` on `LootRoll`), then picks one id from the caller-supplied
+weapon/armor catalogs, excluding the starter `rusty_dagger` and anything the recipient
+(`owned_weapon_ids`/`owned_armor_ids`) already owns. Returns `""` on a chance-miss or an
+exhausted pool. `WorldScene._roll_equipment_into_loot_grant` (via `CoopActivities.gd`) is
+the sole caller: it rolls against the **winner's own** session record ownership (so a
+roll winner never receives a duplicate they already hold), resolves the picked id's slot
+via `WeaponRegistry.get_weapon(picked).slot`, and appends it into the matching
+`owned_weapons`/`owned_armor` array in place before `_grant_chest_loot_to_token` persists
+the record. No separate wire message announces which equipment (if any) dropped — the
+winner discovers it the same way they discover their granted cards, on their next
+character sync — kept intentionally minimal per the BID's "low severity, bonus not core
+loot" framing.
 
 ### Pure helpers
 

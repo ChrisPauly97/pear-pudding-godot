@@ -36,7 +36,17 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 ##       guildhall session home base (GID-106 / TID-392).
 ## v12 — adds `garden_plots`/`plants` to `guildhall_state` for the shared
 ##       guildhall garden (GID-106 / TID-393).
-const CURRENT_SESSION_VERSION: int = 13
+## v13 — adds `collected_scrolls` (GID-108 / TID-408 shared story-scroll pickups).
+## v14 — adds `owned_weapons`/`owned_armor` (+ `equipped_weapon`/`equipped_armor`)
+##       to each character record: a session-scoped equipment inventory mirroring
+##       SaveManager's single-player fields, so the need/greed chest-loot roll can
+##       grant equipment to an arbitrary (possibly remote) winner (fixes BID-033).
+##       Simplified vs. SaveManager's shape: owned_weapons is a plain Array[String]
+##       of ids (no per-instance upgrade_level — session equipment upgrades are not
+##       modeled, matching the "no seed economy" simplification already used for the
+##       guildhall garden) and only weapon/armor slots are session-scoped; ring/
+##       trinket chest drops remain first-opener-only for now.
+const CURRENT_SESSION_VERSION: int = 14
 
 ## Cap applied to each PvE leaderboard array by record_pve_score (top N kept).
 const PVE_LEADERBOARD_CAP: int = 20
@@ -347,6 +357,24 @@ static func _apply_migrations(data: Dictionary) -> void:
 		if not data.has("collected_scrolls"):
 			data["collected_scrolls"] = []
 		data["version"] = 13
+	if ver < 14:
+		# v14: add owned_weapons/owned_armor + equipped_weapon/equipped_armor to
+		# each member character record (fixes BID-033).
+		var members_v14: Variant = data.get("members", {})
+		if members_v14 is Dictionary:
+			for token in (members_v14 as Dictionary).keys():
+				var rec_v14: Variant = (members_v14 as Dictionary)[token]
+				if rec_v14 is Dictionary:
+					var r14: Dictionary = rec_v14
+					if not r14.has("owned_weapons"):
+						r14["owned_weapons"] = []
+					if not r14.has("owned_armor"):
+						r14["owned_armor"] = []
+					if not r14.has("equipped_weapon"):
+						r14["equipped_weapon"] = ""
+					if not r14.has("equipped_armor"):
+						r14["equipped_armor"] = ""
+		data["version"] = 14
 	if ver < CURRENT_SESSION_VERSION:
 		data["version"] = CURRENT_SESSION_VERSION
 
@@ -471,6 +499,12 @@ static func make_starter_character(token: String, member_name: String) -> Dictio
 		"map": "madrian",
 		"x": 0.0,
 		"z": 0.0,
+		# Session-scoped equipment inventory (BID-033) — a fresh character owns
+		# nothing and has nothing equipped, same as a fresh single-player save.
+		"owned_weapons": [],
+		"owned_armor": [],
+		"equipped_weapon": "",
+		"equipped_armor": "",
 		# PvP champion record (GID-101 / TID-368)
 		"pvp_wins": 0,
 		"pvp_losses": 0,

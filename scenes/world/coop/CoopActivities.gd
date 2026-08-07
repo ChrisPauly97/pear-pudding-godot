@@ -26,6 +26,8 @@ const _SpireDraft        = preload("res://game_logic/spire/SpireDraft.gd")
 const _SpireDraftScene   = preload("res://scenes/ui/SpireDraftScene.tscn")
 const _SpireDraftSync    = preload("res://game_logic/net/SpireDraftSync.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _WeaponData        = preload("res://data/WeaponData.gd")
+const _WeaponRegistry    = preload("res://autoloads/WeaponRegistry.gd")
 const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
 
 var _coop_night_hunt_active: bool = false
@@ -266,12 +268,11 @@ func _settle_loot_roll(roll_id: String) -> void:
 	_on_loot_roll_result_received(payload)
 
 
-## Authority: grant a resolved chest's cards + a flat coin reward directly into the
-## winner's GID-095 session character record (they may not be the local player, so this
-## reuses the direct-SessionStore-write pattern from _transfer_card_in_session /
-## party-bounty rewards rather than the physical WorldItem pickup path, which only ever
-## grants to the local opener). Equipment drops are out of scope for the roll path — no
-## session-scoped equipment inventory exists to grant to an arbitrary winner (see BID).
+## Authority: grant a resolved chest's cards + a flat coin reward, and (BID-033) roll a
+## chance at one equipment piece, directly into the winner's GID-095 session character
+## record (they may not be the local player, so this reuses the direct-SessionStore-write
+## pattern from _transfer_card_in_session / party-bounty rewards rather than the physical
+## WorldItem pickup path, which only ever grants to the local opener).
 
 func _grant_chest_loot_to_token(token: String, card_ids: Array[String], tier: int) -> void:
 	var st = SessionStore.get_state()
@@ -292,8 +293,37 @@ func _grant_chest_loot_to_token(token: String, card_ids: Array[String], tier: in
 			int(stats.get("attack", 0)), int(stats.get("health", 0)), int(stats.get("cost", 1))))
 	rec["owned_cards"] = owned
 	rec["coins"] = int(rec.get("coins", 0)) + randi_range(5, 20) * 3
+	_roll_equipment_into_loot_grant(rec, tier)
 	st.update_member(token, rec)
 	SessionStore.mark_dirty()
+
+
+## Authority: rolls LootRoll.roll_equipment_drop against the winner's OWN session-scoped
+## ownership (rec's owned_weapons/owned_armor — BID-033) and, on a hit, appends the
+## picked id into whichever of those two arrays matches its WeaponData.slot. Mutates
+## `rec` in place; a no-op (nothing appended) on a chance-miss or an already-fully-owned
+## pool, exactly mirroring WorldScene._maybe_drop_equipment_from_chest's own silent-miss
+## behavior for the single-player/first-opener path.
+
+func _roll_equipment_into_loot_grant(rec: Dictionary, tier: int) -> void:
+	var owned_w: Array = rec.get("owned_weapons", []) as Array
+	var owned_a: Array = rec.get("owned_armor", []) as Array
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var picked: String = _LootRoll.roll_equipment_drop(
+		tier, _WeaponRegistry.get_by_slot("weapon"), _WeaponRegistry.get_by_slot("armor"),
+		owned_w, owned_a, rng)
+	if picked == "":
+		return
+	var weapon: _WeaponData = _WeaponRegistry.get_weapon(picked)
+	if weapon == null:
+		return
+	if weapon.slot == "weapon":
+		owned_w.append(picked)
+		rec["owned_weapons"] = owned_w
+	else:
+		owned_a.append(picked)
+		rec["owned_armor"] = owned_a
 
 
 ## Any peer: announce the winner (toast) and close the prompt if one was open.

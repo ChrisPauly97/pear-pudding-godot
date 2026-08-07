@@ -546,8 +546,8 @@ func ensure_coop_deck() -> void:
 
 ## Load a multiplayer **session character** (GID-095 / TID-346) into the in-memory
 ## state that co-op and PvP already read (deck, collection, coins, level, skills,
-## magic). The record comes from the authority's `SessionState` member roster — its
-## own save, scoped to the session and entirely separate from single-player.
+## magic, equipment). The record comes from the authority's `SessionState` member
+## roster — its own save, scoped to the session and entirely separate from single-player.
 ##
 ## **Isolation invariant:** this deliberately forces `_loaded = false`, so `save()`
 ## and the 2 s `_flush_if_dirty` stay no-ops for the whole session — the session
@@ -584,6 +584,27 @@ func adopt_session_character(record: Dictionary) -> void:
 	magic_type = str(record.get("magic_type", ""))
 	corruption_points = int(record.get("corruption_points", 0))
 	redemption_points = int(record.get("redemption_points", 0))
+	# Session-scoped equipment inventory (BID-033). owned_weapons in the session
+	# record is a plain Array[String] of ids (no per-instance upgrade_level — session
+	# equipment upgrades aren't modeled), converted here into SaveManager's own
+	# {weapon_id, upgrade_level: 0} instance shape so the rest of the equipment code
+	# (get_owned_by_slot, add_weapon, etc.) needs no session-aware branching.
+	equipped_weapon = str(record.get("equipped_weapon", ""))
+	owned_weapons.clear()
+	var raw_weapons: Variant = record.get("owned_weapons", [])
+	if raw_weapons is Array:
+		for wid: Variant in (raw_weapons as Array):
+			var wid_str: String = str(wid)
+			if wid_str != "" and not _has_weapon_id(wid_str):
+				owned_weapons.append({"weapon_id": wid_str, "upgrade_level": 0})
+	equipped_armor = str(record.get("equipped_armor", ""))
+	owned_armor.clear()
+	var raw_armor: Variant = record.get("owned_armor", [])
+	if raw_armor is Array:
+		for aid: Variant in (raw_armor as Array):
+			var aid_str: String = str(aid)
+			if aid_str != "" and not owned_armor.has(aid_str):
+				owned_armor.append(aid_str)
 	# Hard isolation: a session character must never persist to the single-player save.
 	_loaded = false
 	_dirty = false
@@ -594,6 +615,10 @@ func adopt_session_character(record: Dictionary) -> void:
 ## (GID-095 / TID-346). The caller attaches token / display_name / position before
 ## sending it to the authority for persist-back. Shape matches
 ## `SessionState.make_starter_character` (minus the caller-owned fields).
+##
+## `owned_weapons` is flattened to a plain Array[String] of ids via
+## `get_owned_by_slot("weapon")` — the mirror image of `adopt_session_character`'s
+## conversion back into `{weapon_id, upgrade_level: 0}` instances (BID-033).
 func export_session_character() -> Dictionary:
 	return {
 		"owned_cards": owned_cards.duplicate(true),
@@ -608,6 +633,10 @@ func export_session_character() -> Dictionary:
 		"magic_type": magic_type,
 		"corruption_points": corruption_points,
 		"redemption_points": redemption_points,
+		"owned_weapons": get_owned_by_slot("weapon"),
+		"owned_armor": owned_armor.duplicate(),
+		"equipped_weapon": equipped_weapon,
+		"equipped_armor": equipped_armor,
 	}
 
 const CURRENT_SAVE_VERSION: int = 41

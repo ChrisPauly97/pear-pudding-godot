@@ -563,9 +563,12 @@ func _open_party_panel() -> void:
 	# so it belongs here the same way.
 	panel.show_auction = true
 	panel.on_auction = _world.coop_social._toggle_auction_overlay
-	# Ghost Duels: host-only, gated on SessionStore.is_open() (see _ensure_ghost_duel_button's
-	# old comment — a client never opens SessionStore locally).
-	panel.show_ghost_duels = SessionStore.is_open()
+	# Ghost Duels: available to host and client alike while a session is active
+	# (BID-032 fix) — a client has no local SessionStore (see
+	# WorldScene._setup_session), so it resolves the roster/snapshot over the wire
+	# via CoopSocial's request_ghost_roster / request_ghost_snapshot round-trips
+	# instead of reading SessionStore directly the way the host does.
+	panel.show_ghost_duels = NetworkManager.is_active()
 	panel.on_ghost_duels = _world.coop_social._toggle_ghost_duel_overlay
 	# Team Duel: host-only, needs 3 connected clients (4 total) — mirrors the old
 	# _update_team_duel_button_visibility() condition exactly.

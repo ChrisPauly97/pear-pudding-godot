@@ -85,30 +85,31 @@ func _ensure_social_buttons() -> void:
 	# instead of their own standalone always-visible buttons.
 
 
-## Ghost Duels (GID-102 / TID-377). Host-only: gated on SessionStore.is_open()
-## rather than NetworkManager.is_active() — a client never opens SessionStore
-## locally (see WorldScene._setup_session). Now a Party-panel action (GID-107 /
-## TID-395) whose show_ghost_duels condition reproduces this same gate on open.
+## Ghost Duels (GID-102 / TID-377; client entry point added by the BID-032 follow-up).
+## Available to both host and client while a co-op session is active — the host reads
+## its own SessionStore directly (as before); a client has no local SessionState (see
+## WorldScene._setup_session), so it round-trips through the host over the new
+## request_ghost_roster / recv_ghost_roster and request_ghost_snapshot /
+## recv_ghost_snapshot RPCs (NetSync.gd) instead. Now a Party-panel action (GID-107 /
+## TID-395) whose show_ghost_duels condition mirrors this same NetworkManager.is_active()
+## gate.
 
-## Builds the {token, name, rating} row list from the host's own SessionState and
-## opens (or closes) the GhostDuelOverlay. The local host's own token is excluded
-## — dueling your own live snapshot is a no-op curiosity, not the intended use.
-
-func _toggle_ghost_duel_overlay() -> void:
-	if _ghost_duel_overlay != null and is_instance_valid(_ghost_duel_overlay):
-		_ghost_duel_overlay.queue_free()
-		_ghost_duel_overlay = null
-		return
+## Host-only: builds the {token, name, rating} roster rows from the live SessionState,
+## excluding `exclude_token` (the requester's own token — dueling your own live
+## snapshot is a no-op curiosity, not the intended use). Shared by the host's own local
+## overlay build below and the client-facing _on_ghost_roster_requested handler, so both
+## paths compute identical rows. Returns [] if SessionStore isn't open (never true for
+## an actual host mid-session, but keeps this safe to call defensively).
+func _ghost_roster_rows(exclude_token: String) -> Array:
 	if not SessionStore.is_open():
-		return
+		return []
 	var st = SessionStore.get_state()
 	if st == null:
-		return
-	var local_token: String = MpProfile.get_token()
+		return []
 	var rows: Array = []
 	for token in st.members.keys():
 		var t: String = str(token)
-		if t == local_token:
+		if t == exclude_token:
 			continue
 		var rec: Dictionary = st.get_member(t)
 		if rec.is_empty():
@@ -118,19 +119,88 @@ func _toggle_ghost_duel_overlay() -> void:
 			"name": str(rec.get("display_name", "Player")),
 			"rating": int(rec.get("pvp_rating", 1000)),
 		})
+	return rows
+
+
+## Opens (or closes) the GhostDuelOverlay. The host populates it immediately from its
+## own SessionStore; a client opens it empty and requests the roster over the wire,
+## filling it in once recv_ghost_roster answers (see _on_ghost_roster_received).
+func _toggle_ghost_duel_overlay() -> void:
+	if _ghost_duel_overlay != null and is_instance_valid(_ghost_duel_overlay):
+		_ghost_duel_overlay.queue_free()
+		_ghost_duel_overlay = null
+		return
+	if not NetworkManager.is_active():
+		return
 	var overlay := _GhostDuelOverlay.new()
-	overlay.set_rows(rows)
-	overlay.on_duel_requested = func(token: String) -> void:
-		var snapshot: Dictionary = st.get_ghost_snapshot(token)
-		if snapshot.is_empty():
-			GameBus.hud_message_requested.emit("That ghost's deck couldn't be resolved.")
-			return
-		SceneManager.enter_ghost_duel(snapshot)
+	overlay.on_duel_requested = _request_ghost_duel
 	overlay.closed.connect(func() -> void:
 		_ghost_duel_overlay = null
 		overlay.queue_free())
 	_world._hud.add_child(overlay)
 	_ghost_duel_overlay = overlay
+	if _world.coop_session._coop_world_authority():
+		overlay.set_rows(_ghost_roster_rows(MpProfile.get_token()))
+	elif _world._net_sync != null:
+		_world._net_sync.rpc_id(1, "request_ghost_roster")
+
+
+## Resolves a picked roster row's snapshot and enters the battle. Host resolves it
+## directly (SessionState.get_ghost_snapshot); a client sends request_ghost_snapshot
+## and enters once recv_ghost_snapshot answers (see _on_ghost_snapshot_received).
+func _request_ghost_duel(token: String) -> void:
+	if _world.coop_session._coop_world_authority():
+		var st = SessionStore.get_state()
+		if st == null:
+			return
+		var snapshot: Dictionary = st.get_ghost_snapshot(token)
+		if snapshot.is_empty():
+			GameBus.hud_message_requested.emit("That ghost's deck couldn't be resolved.")
+			return
+		SceneManager.enter_ghost_duel(snapshot)
+	elif _world._net_sync != null:
+		_world._net_sync.rpc_id(1, "request_ghost_snapshot", token)
+
+
+## Host: a client wants the ghost-duel roster. Resolves the requester's own token
+## (from _session_token_by_peer, populated by the identity handshake) so it can be
+## excluded, and unicasts the rows back. A no-op on a non-authority peer (shouldn't
+## happen — clients only ever rpc_id(1, ...) this — but defensive like every other
+## authority-only handler here).
+func _on_ghost_roster_requested(sender: int) -> void:
+	if not _world.coop_session._coop_world_authority():
+		return
+	var requester_token: String = str(_world._session_token_by_peer.get(sender, ""))
+	var rows: Array = _ghost_roster_rows(requester_token)
+	if _world._net_sync != null:
+		_world._net_sync.rpc_id(sender, "recv_ghost_roster", rows)
+
+
+## Client: the host answered a roster request. Feeds the overlay if it's still open;
+## a late reply after the player already closed it is a harmless no-op.
+func _on_ghost_roster_received(rows: Array) -> void:
+	if _ghost_duel_overlay != null and is_instance_valid(_ghost_duel_overlay):
+		_ghost_duel_overlay.set_rows(rows)
+
+
+## Host: a client picked a roster row and wants that opponent's ghost snapshot.
+func _on_ghost_snapshot_requested(sender: int, token: String) -> void:
+	if not _world.coop_session._coop_world_authority():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var snapshot: Dictionary = st.get_ghost_snapshot(token)
+	if _world._net_sync != null:
+		_world._net_sync.rpc_id(sender, "recv_ghost_snapshot", snapshot)
+
+
+## Client: the host resolved (or failed to resolve) the requested snapshot.
+func _on_ghost_snapshot_received(snapshot: Dictionary) -> void:
+	if snapshot.is_empty():
+		GameBus.hud_message_requested.emit("That ghost's deck couldn't be resolved.")
+		return
+	SceneManager.enter_ghost_duel(snapshot)
 
 
 ## GID-107 / TID-396 priority rule: the world-interact prompt always wins the shared
