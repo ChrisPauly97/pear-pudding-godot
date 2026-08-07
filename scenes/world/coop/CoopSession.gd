@@ -20,6 +20,7 @@ const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
 const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
 const _EnemySync         = preload("res://game_logic/net/EnemySync.gd")
 const _EnvSync           = preload("res://game_logic/net/EnvSync.gd")
+const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 const _NetSyncScript     = preload("res://scenes/world/NetSync.gd")
 const _PartyPanel        = preload("res://scenes/ui/PartyPanel.gd")
 const _PlayerIdentity    = preload("res://game_logic/net/PlayerIdentity.gd")
@@ -835,7 +836,7 @@ func _on_world_event_received(_sender: int, payload: Array) -> void:
 		_WorldObjectSync.EV_CHEST_OPENED:
 			_coop_mark_chest_opened_node(id)
 		_WorldObjectSync.EV_SCROLL_COLLECTED:
-			_world._coop_apply_scroll_collected(id)
+			_coop_apply_scroll_collected(id)
 
 ## NetSync → authority: apply a client's world-event intent (host only).
 
@@ -866,8 +867,8 @@ func _on_world_event_submitted(sender: int, payload: Array) -> void:
 					_world._net_sync.rpc_id(int(pid), "recv_world_event",
 						_WorldObjectSync.encode_event(_WorldObjectSync.EV_CHEST_OPENED, id))
 		_WorldObjectSync.EV_SCROLL_COLLECTED:
-			_world._coop_record_scroll_collected(id)
-			_world._coop_apply_scroll_collected(id)
+			_coop_record_scroll_collected(id)
+			_coop_apply_scroll_collected(id)
 			for pid in multiplayer.get_peers():
 				if int(pid) != sender:
 					_world._net_sync.rpc_id(int(pid), "recv_world_event",
@@ -891,6 +892,43 @@ func _on_world_snapshot_received(payload: Array) -> void:
 	_coop_apply_world_progress(
 		snap.get("removed_enemies", []), snap.get("opened_objects", []),
 		snap.get("collected_scrolls", []))
+
+## Co-op (GID-108 / TID-408, design rule 5): mirror the GID-096 shared-chest model —
+## a scroll pickup is granted to every session member. Called from
+## WorldScene._on_scroll_collected via the local player's own pickup.
+
+func _broadcast_scroll_collected_coop(scroll_id: String) -> void:
+	if not _world._coop_active or _world._net_sync == null or not NetworkManager.is_active():
+		return
+	if NetworkManager.is_host():
+		_coop_record_scroll_collected(scroll_id)
+		_world._net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_SCROLL_COLLECTED, scroll_id))
+	else:
+		_world._net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_SCROLL_COLLECTED, scroll_id))
+
+## Host-only: persist a collected scroll into the session file.
+
+func _coop_record_scroll_collected(scroll_id: String) -> void:
+	_world._coop_collected_scrolls[scroll_id] = true
+	var st = SessionStore.get_state()
+	if st != null and not st.collected_scrolls.has(scroll_id):
+		st.collected_scrolls.append(scroll_id)
+		SessionStore.mark_dirty()
+
+## Apply a scroll pickup that originated elsewhere (a teammate, or a snapshot
+## replay) to this peer's own SaveManager, re-running the same tip/flag/
+## completion logic in WorldScene._on_scroll_collected as a real local pickup would.
+
+func _coop_apply_scroll_collected(scroll_id: String) -> void:
+	_world._coop_collected_scrolls[scroll_id] = true
+	if SceneManager.save_manager.collected_scrolls.has(scroll_id):
+		return
+	_world._coop_scroll_syncing = true
+	SceneManager.save_manager.mark_scroll_collected(scroll_id)
+	GameBus.story_scroll_collected.emit(scroll_id)
+	_world._coop_scroll_syncing = false
 
 # ── Synced world clock & weather (GID-103 / TID-382) ──────────────────────────
 # The authority (host) is the single source of truth for time_of_day/days_elapsed/
@@ -1077,7 +1115,7 @@ func _coop_apply_world_progress(removed_enemies: Array, opened_objects: Array, c
 	for cid in opened_objects:
 		_coop_mark_chest_opened_node(str(cid))
 	for sid in collected_scrolls:
-		_world._coop_apply_scroll_collected(str(sid))
+		_coop_apply_scroll_collected(str(sid))
 
 ## Host: broadcast positions for any live shared enemy at a low Hz (inert while all
 ## enemies are static, as on every current co-op map). Called from _process.
@@ -1400,6 +1438,112 @@ func _start_guildhall() -> void:
 	_world._coop_map_transitioning = true
 	_world._net_sync.rpc("recv_map_transition", "guildhall", "")
 	SceneManager.enter_map("guildhall", "")
+
+## Host: a client asked for a fresh guildhall garden snapshot (entering the map).
+
+func _on_guildhall_garden_request_submitted(sender: int) -> void:
+	_broadcast_guildhall_garden(sender)
+
+## Host-only: push the current guildhall garden state to one peer (0 = all).
+
+func _broadcast_guildhall_garden(target_peer: int = 0) -> void:
+	if not NetworkManager.is_host() or _world._net_sync == null or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var payload: Dictionary = {
+		"plots": (gh.get("garden_plots", []) as Array).duplicate(true),
+		"plants": (gh.get("plants", {}) as Dictionary).duplicate(true),
+	}
+	_world._guildhall_garden_cache = payload
+	if target_peer == 0:
+		_world._net_sync.rpc("recv_guildhall_garden_update", payload)
+	else:
+		_world._net_sync.rpc_id(target_peer, "recv_guildhall_garden_update", payload)
+	_world._refresh_guildhall_garden_visuals()
+
+## Any peer: receive a guildhall garden snapshot and refresh plot visuals.
+
+func _on_guildhall_garden_update_received(payload: Dictionary) -> void:
+	_world._guildhall_garden_cache = payload
+	_world._refresh_guildhall_garden_visuals()
+
+## Local player (any peer) picked a seed for an empty plot.
+
+func _submit_session_plant(plot_idx: int, seed_id: String) -> void:
+	if NetworkManager.is_host():
+		_on_session_plant_submitted(multiplayer.get_unique_id(), plot_idx, seed_id)
+	elif _world._net_sync != null:
+		_world._net_sync.rpc_id(1, "submit_session_plant", plot_idx, seed_id)
+
+## Host: plant a seed in the shared guildhall garden (free — no session seed
+## economy is modeled, TID-393 Plan Notes) and broadcast the result.
+
+func _on_session_plant_submitted(_sender: int, plot_idx: int, seed_id: String) -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	if not GardenDefs.SEEDS.has(seed_id):
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var plots: Array = gh.get("garden_plots", [])
+	if plot_idx < 0 or plot_idx >= plots.size():
+		return
+	if not (plots[plot_idx] as Dictionary).is_empty():
+		return  # already planted — ignore a stale/duplicate submit
+	plots[plot_idx] = {"seed_id": seed_id, "planted_day": _coop_current_days_elapsed()}
+	gh["garden_plots"] = plots
+	st.guildhall_state = gh
+	SessionStore.mark_dirty()
+	_broadcast_guildhall_garden()
+
+## Local player (any peer) harvested a mature plot.
+
+func _submit_session_harvest(plot_idx: int) -> void:
+	if NetworkManager.is_host():
+		_on_session_harvest_submitted(multiplayer.get_unique_id(), plot_idx)
+	elif _world._net_sync != null:
+		_world._net_sync.rpc_id(1, "submit_session_harvest", plot_idx)
+
+## Host: harvest a mature shared guildhall plot into the session's dedicated
+## `plants` pool (not the party stash — see TID-393 Plan Notes) and broadcast.
+
+func _on_session_harvest_submitted(_sender: int, plot_idx: int) -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var plots: Array = gh.get("garden_plots", [])
+	if plot_idx < 0 or plot_idx >= plots.size():
+		return
+	var plot_data: Dictionary = plots[plot_idx]
+	if plot_data.is_empty():
+		return
+	var seed_id: String = str(plot_data.get("seed_id", ""))
+	var sdata: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
+	if sdata.is_empty():
+		return
+	var growth_days: int = int(sdata.get("growth_days", 2))
+	var planted_day: int = int(plot_data.get("planted_day", 0))
+	var stage: int = GardenDefs.growth_stage(planted_day, growth_days, _coop_current_days_elapsed())
+	if stage < 3:
+		return  # not mature yet — ignore a stale/duplicate submit
+	var plant_id: String = str(sdata.get("plant_id", ""))
+	var yield_count: int = int(sdata.get("yield", 1))
+	var plants: Dictionary = gh.get("plants", {})
+	plants[plant_id] = int(plants.get(plant_id, 0)) + yield_count
+	gh["plants"] = plants
+	plots[plot_idx] = {}
+	gh["garden_plots"] = plots
+	st.guildhall_state = gh
+	SessionStore.mark_dirty()
+	_broadcast_guildhall_garden()
 
 # ── Co-op Endless Spire (GID-106 / TID-390) ──────────────────────────────────
 #

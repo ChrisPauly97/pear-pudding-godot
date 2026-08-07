@@ -2741,6 +2741,16 @@ from the existing `_coop_current_days_elapsed()` helper (already
 correct on every peer via the GID-103 world-clock sync — no new day-sync
 plumbing needed).
 
+*(BID-055 slice 1 update: `_broadcast_guildhall_garden`,
+`_on_guildhall_garden_request_submitted`, `_on_guildhall_garden_update_received`,
+`_submit_session_plant`/`_on_session_plant_submitted`, and
+`_submit_session_harvest`/`_on_session_harvest_submitted` were moved off
+WorldScene into `CoopSession.gd`'s "Party Guildhall" section, reached as
+`coop_session.<fn>` — see the Scene Modules table in CLAUDE.md. `WorldScene`
+still owns the `_guildhall_garden_cache` var itself and the
+`_refresh_guildhall_garden_visuals()` UI-push, which the module reaches via
+`_world.<name>`, following the star-topology rule.)*
+
 **Deliberate simplifications (deviating from the task's Research Notes, which
 assumed session-scoped seed/plant *card-instance* transfer via
 `StashTransfer` — that class only handles cards/coins; `SaveManager.seeds`/
@@ -2760,10 +2770,11 @@ for that API):**
   `submit_spire_draft_choice`'s precedent). The authority validates (plot
   actually empty / actually mature — a stale or duplicate submit is silently
   ignored) before mutating `guildhall_state` and broadcasting.
-- `_show_garden_plot_panel` branches on `plot.session_mode`: no
-  "(owned: N)" seed count, Plant is never disabled, and the plant/harvest
-  buttons call `_submit_session_plant`/`_submit_session_harvest` instead of
-  `SaveManager`/`GameBus.plant_harvested` (which stays solo-only).
+- `_show_garden_plot_panel` (still on WorldScene) branches on
+  `plot.session_mode`: no "(owned: N)" seed count, Plant is never disabled,
+  and the plant/harvest buttons call
+  `coop_session._submit_session_plant`/`coop_session._submit_session_harvest`
+  instead of `SaveManager`/`GameBus.plant_harvested` (which stays solo-only).
 
 **Ordering gotcha found during this task:** the player-home trophy/garden
 spawn calls run *inline* with the rest of `_ready()`'s named-map setup,
@@ -2868,6 +2879,14 @@ against the co-op contracts GID-098 already established. Per-rule findings:
   optional 3rd `collected_scrolls` element (backward compatible — existing
   2-arg call sites/tests are unaffected) so a late joiner's snapshot includes
   already-collected scrolls.
+
+  *(BID-055 slice 1 update: `_broadcast_scroll_collected_coop`,
+  `_coop_record_scroll_collected`, and `_coop_apply_scroll_collected` moved
+  off WorldScene into `CoopSession.gd`'s "Co-op world-object sync" section.
+  `WorldScene._on_scroll_collected` — the local-pickup signal handler, which
+  did not move — now calls `coop_session._broadcast_scroll_collected_coop()`;
+  `_coop_active`/`_coop_scroll_syncing`/`_coop_collected_scrolls` remain
+  WorldScene-owned state, reached from the module as `_world.<name>`.)*
 - **Story siege at marsax_hold** (Chapter 2 beat 4) called the single-player
   `SaveManager.start_siege()` path with zero co-op awareness — every peer who
   walked into marsax_hold with the right flags would start their own private
