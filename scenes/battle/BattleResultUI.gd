@@ -4,7 +4,6 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
-const UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 
 const _BOSS_BANNER_DURATION: float = 2.5
@@ -181,7 +180,7 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 		var rarity_suffix: String = " [%s]" % reward_rarity.capitalize() if reward_rarity != "" else ""
 		reward_lbl.text = "You earned: " + card_name + rarity_suffix
 		if reward_rarity != "":
-			reward_lbl.modulate = UiUtil.rarity_color(reward_rarity)
+			reward_lbl.modulate = _UiUtil.rarity_color(reward_rarity)
 	else:
 		reward_lbl.text = "No card dropped."
 	reward_lbl.add_theme_font_size_override("font_size", int(_vh * 0.03))
@@ -313,7 +312,7 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 			var rlbl := Label.new()
 			rlbl.text = card_name + (" [%s]" % rarity.capitalize() if rarity != "" else "")
 			if rarity != "":
-				rlbl.modulate = UiUtil.rarity_color(rarity)
+				rlbl.modulate = _UiUtil.rarity_color(rarity)
 			rlbl.add_theme_font_size_override("font_size", int(_vh * 0.028))
 			rlbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			vbox.add_child(rlbl)
@@ -473,14 +472,29 @@ func show_scripted_result(did_win: bool, battle_id: String) -> void:
 ## wager_note (GID-104 / TID-387): a spectator's bet-settlement line ("Bet won!
 ## +N coins" / "Bet lost: -N coins" / refund). "" (default) adds nothing, so
 ## every existing combatant call site renders exactly as before.
-func show_pvp_result(did_win: bool, coins_delta: int = 0, wager_note: String = "") -> void:
-	var result: Dictionary = _build_result_overlay(Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92))
+## spectating (BID-038): a spectator always renders BattleScene with
+## _local_player_idx = 0 (host perspective — see SceneManager.enter_pvp_spectator,
+## shared by both live spectating and tournament auto-spectate/TID-386), so
+## did_win there really means "did the bottom-seat player win", not "did I win".
+## When true, shows a neutral "Bottom/Top Player Wins!" title instead of
+## "Victory!"/"Defeated" — Bottom/Top matches the exact seating convention the
+## spectator bet panel already uses (BattleNet._wager_side_name).
+func show_pvp_result(did_win: bool, coins_delta: int = 0, wager_note: String = "",
+		spectating: bool = false) -> void:
+	var bg: Color = Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92)
+	if spectating:
+		bg = Color(0.05, 0.05, 0.1, 0.92)  # neutral — no "us" to color green/red for
+	var result: Dictionary = _build_result_overlay(bg)
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
 
-	var title_lbl := _UiUtil.make_label("Victory!" if did_win else "Defeated", int(_vh * 0.06), Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	var sub_lbl := _UiUtil.make_label("You bested your rival!" if did_win else "Your rival prevailed.", int(_vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	if spectating:
+		var winner_name: String = "Bottom Player" if did_win else "Top Player"
+		var title_lbl := _UiUtil.make_label("%s Wins!" % winner_name, int(_vh * 0.06), Color(0.9, 0.85, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		var sub_lbl := _UiUtil.make_label("The duel has ended.", int(_vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	else:
+		var title_lbl := _UiUtil.make_label("Victory!" if did_win else "Defeated", int(_vh * 0.06), Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		var sub_lbl := _UiUtil.make_label("You bested your rival!" if did_win else "Your rival prevailed.", int(_vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	# Show wager result if a coin ante was staked (TID-368).
 	if coins_delta != 0:

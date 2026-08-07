@@ -71,3 +71,21 @@ script or GUT test that loads every `res://assets/maps/*.tres` and asserts
 minimum that no named map with an authored scroll/shrine sub-resource
 ends up with an empty top-level array) so this class of bug can't silently
 reappear.
+
+## Resolution (2026-08-03)
+
+Fixed in `madrian.tres`, `maykalene.tres`, `blancogov.tres` the same way
+TID-071 fixed the other 2 — moved the 8 dangling lines into `[resource]`.
+Verified via direct load-and-inspect:
+
+| Map | scrolls | shrines | music_track |
+|---|---|---|---|
+| `madrian` | 0 → 1 | 0 → 1 | "" → `grasslands.ogg` |
+| `maykalene` | 0 → 1 | 0 → 1 | "" → `grasslands.ogg` |
+| `blancogov` | 0 → 2 | 0 → 1 | "" → `grasslands.ogg` |
+
+Added the suggested regression test: `tests/unit/test_named_map_scrolls_shrines.gd`
+(3 tests, one per assertion — non-empty scrolls, non-empty shrines,
+non-empty `music_track` — across all 5 story maps). Full suite: 2358
+passed (2355 + 3 new), 0 failed, 1 pending (pre-existing); headless import
+clean.

@@ -153,7 +153,7 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 
 	return hbox
 
-func _get_state(bounty_id: String, active_entry: Dictionary, count: int) -> String:
+func _get_state(_bounty_id: String, active_entry: Dictionary, count: int) -> String:
 	if active_entry.is_empty():
 		return "not_accepted"
 	if bool(active_entry.get("claimed", false)):
@@ -183,7 +183,7 @@ func _on_accept_pressed(bounty_id: String, bounty: Dictionary) -> void:
 		SceneManager.show_toast("Bounty Accepted", desc)
 	_populate_rows()
 
-func _on_claim_pressed(bounty_id: String, reward: int) -> void:
+func _on_claim_pressed(bounty_id: String, _reward: int) -> void:
 	var paid: int = SceneManager.save_manager.claim_bounty(bounty_id)
 	if paid > 0:
 		SceneManager.show_toast("Bounty Complete!", "+%d coins" % paid)

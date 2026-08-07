@@ -226,6 +226,97 @@ func test_migration_v13_adds_collected_scrolls() -> void:
 	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
 
 
+# ---------------------------------------------------------------------------
+# Session-scoped equipment inventory (BID-033)
+# ---------------------------------------------------------------------------
+
+func test_starter_has_equipment_fields_defaulted_empty() -> void:
+	var rec: Dictionary = SessionState.make_starter_character("tok", "Ada")
+	assert_true(rec.get("owned_weapons", null) is Array)
+	assert_eq((rec.get("owned_weapons", []) as Array).size(), 0)
+	assert_true(rec.get("owned_armor", null) is Array)
+	assert_eq((rec.get("owned_armor", []) as Array).size(), 0)
+	assert_eq(str(rec.get("equipped_weapon", "x")), "")
+	assert_eq(str(rec.get("equipped_armor", "x")), "")
+
+
+func test_round_trip_preserves_equipment_fields() -> void:
+	var s := SessionState.new()
+	s.ensure_member("tok", "Ada")
+	var rec: Dictionary = s.get_member("tok")
+	rec["owned_weapons"] = ["berserker_axe", "dusk_blade"]
+	rec["owned_armor"] = ["chainmail"]
+	rec["equipped_weapon"] = "berserker_axe"
+	rec["equipped_armor"] = "chainmail"
+	s.update_member("tok", rec)
+	var restored := SessionState.new()
+	restored.from_dict(s.to_dict())
+	var r: Dictionary = restored.get_member("tok")
+	assert_eq(r.get("owned_weapons", []), ["berserker_axe", "dusk_blade"])
+	assert_eq(r.get("owned_armor", []), ["chainmail"])
+	assert_eq(str(r.get("equipped_weapon", "")), "berserker_axe")
+	assert_eq(str(r.get("equipped_armor", "")), "chainmail")
+
+
+func test_migration_v14_backfills_equipment_fields_on_existing_members() -> void:
+	# A pre-BID-033 v13 session with a member that predates the equipment fields.
+	var data: Dictionary = {
+		"version": 13,
+		"session_id": "old",
+		"members": {
+			"tokA": {
+				"token": "tokA", "display_name": "Ada", "coins": 500,
+			}
+		}
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	var rec: Dictionary = s.get_member("tokA")
+	assert_true(rec.get("owned_weapons", null) is Array, "owned_weapons backfilled to []")
+	assert_eq((rec.get("owned_weapons", ["x"]) as Array).size(), 0)
+	assert_true(rec.get("owned_armor", null) is Array, "owned_armor backfilled to []")
+	assert_eq((rec.get("owned_armor", ["x"]) as Array).size(), 0)
+	assert_eq(str(rec.get("equipped_weapon", "x")), "", "equipped_weapon backfilled to \"\"")
+	assert_eq(str(rec.get("equipped_armor", "x")), "", "equipped_armor backfilled to \"\"")
+	assert_eq(int(rec.get("coins", 0)), 500, "existing fields preserved")
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
+func test_migration_v14_preserves_existing_equipment_fields() -> void:
+	# A member record that already has equipment fields (e.g. re-migrating an
+	# already-migrated file) must not have them clobbered.
+	var data: Dictionary = {
+		"version": 13,
+		"session_id": "old",
+		"members": {
+			"tokA": {
+				"token": "tokA", "display_name": "Ada",
+				"owned_weapons": ["ember_wand"], "owned_armor": ["leather_vest"],
+				"equipped_weapon": "ember_wand", "equipped_armor": "leather_vest",
+			}
+		}
+	}
+	var s := SessionState.new()
+	s.from_dict(data)
+	var rec: Dictionary = s.get_member("tokA")
+	assert_eq(rec.get("owned_weapons", []), ["ember_wand"])
+	assert_eq(rec.get("owned_armor", []), ["leather_vest"])
+	assert_eq(str(rec.get("equipped_weapon", "")), "ember_wand")
+	assert_eq(str(rec.get("equipped_armor", "")), "leather_vest")
+
+
+func test_from_dict_versionless_still_gets_equipment_fields_default() -> void:
+	# A totally version-0 (pre-existing-field) blob should still end up with the
+	# equipment fields backfilled via the migration chain, same as any other field.
+	var data: Dictionary = {"members": {"tokA": {"token": "tokA", "display_name": "Ada"}}}
+	var s := SessionState.new()
+	s.from_dict(data)
+	var rec: Dictionary = s.get_member("tokA")
+	assert_true(rec.get("owned_weapons", null) is Array)
+	assert_true(rec.get("owned_armor", null) is Array)
+	assert_eq(int(s.to_dict().get("version", -1)), SessionState.CURRENT_SESSION_VERSION)
+
+
 func test_migration_v3_backfills_pvp_stats_on_existing_members() -> void:
 	# Simulate a v2 session with a member that has no pvp fields.
 	var data: Dictionary = {

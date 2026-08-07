@@ -156,29 +156,98 @@ func test_bet_decode_forged_side_rejected() -> void:
 
 
 # ---------------------------------------------------------------------------
-# settle — payout math
+# settle — payout math (BID-036: parimutuel, not house-banked 1:1)
 # ---------------------------------------------------------------------------
 
-func test_settle_winner_credited_double_stake() -> void:
+## A sole winner with nobody on the losing side has no pool to share — they
+## simply get their own stake back. This is the coin-neutral behavior: no
+## opposing money in the market means no possible profit for anyone.
+func test_settle_sole_winner_no_losers_gets_stake_back() -> void:
 	var bets: Dictionary = {"tok_a": {"side": "a", "amount": 10}}
 	var payouts: Dictionary = WagerSync.settle(bets, WagerSync.SIDE_A)
-	assert_eq(int(payouts.get("tok_a", -1)), 20)
+	assert_eq(int(payouts.get("tok_a", -1)), 10)
 
 
 func test_settle_loser_credited_zero() -> void:
-	var bets: Dictionary = {"tok_a": {"side": "a", "amount": 10}}
-	var payouts: Dictionary = WagerSync.settle(bets, WagerSync.SIDE_B)
-	assert_eq(int(payouts.get("tok_a", -1)), 0)
+	var bets: Dictionary = {
+		"tok_a": {"side": "a", "amount": 10},
+		"tok_b": {"side": "b", "amount": 30},
+	}
+	var payouts: Dictionary = WagerSync.settle(bets, WagerSync.SIDE_A)
+	assert_eq(int(payouts.get("tok_b", -1)), 0)
+
+
+## The whole losing-side pool goes to the sole winner, on top of their own
+## stake back (10 + 30 losing pool = 40, not the old flat-1:1 20).
+func test_settle_sole_winner_takes_entire_losing_pool() -> void:
+	var bets: Dictionary = {
+		"tok_a": {"side": "a", "amount": 10},
+		"tok_b": {"side": "b", "amount": 30},
+	}
+	var payouts: Dictionary = WagerSync.settle(bets, WagerSync.SIDE_A)
+	assert_eq(int(payouts.get("tok_a", -1)), 40)
 
 
 func test_settle_mixed_sides() -> void:
+	# Side b wins: its pool (30) splits the losing pool (10) proportionally to
+	# stake. b is the only winner so it takes the whole 10, on top of its own
+	# 30 -> 40 (not the old flat-1:1 60).
 	var bets: Dictionary = {
 		"tok_a": {"side": "a", "amount": 10},
 		"tok_b": {"side": "b", "amount": 30},
 	}
 	var payouts: Dictionary = WagerSync.settle(bets, WagerSync.SIDE_B)
 	assert_eq(int(payouts.get("tok_a", -1)), 0)
-	assert_eq(int(payouts.get("tok_b", -1)), 60)
+	assert_eq(int(payouts.get("tok_b", -1)), 40)
+
+
+## Multiple winners split the losing pool in proportion to their own stake,
+## not evenly and not flat 1:1. Winners staked 10 and 30 (25%/75% of the 40
+## winning pool) against a 20-coin losing pool -> shares of 5 and 15.
+func test_settle_multiple_winners_split_losing_pool_proportionally() -> void:
+	var bets: Dictionary = {
+		"tok_1": {"side": "a", "amount": 10},
+		"tok_2": {"side": "a", "amount": 30},
+		"tok_3": {"side": "b", "amount": 20},
+	}
+	var payouts: Dictionary = WagerSync.settle(bets, WagerSync.SIDE_A)
+	assert_eq(int(payouts.get("tok_1", -1)), 15)   # 10 stake + 5 share
+	assert_eq(int(payouts.get("tok_2", -1)), 45)   # 30 stake + 15 share
+	assert_eq(int(payouts.get("tok_3", -1)), 0)
+	var total_credited: int = int(payouts.get("tok_1", 0)) + int(payouts.get("tok_2", 0)) + int(payouts.get("tok_3", 0))
+	assert_eq(total_credited, 60)   # exactly the 60 coins escrowed — no mint, no absorption
+
+
+## floor() division can leave a few coins uncredited ("breakage", same as a
+## real-world parimutuel pool) — this must only ever round DOWN the total paid
+## out, never up, so the session can never mint coins from rounding.
+func test_settle_rounding_never_exceeds_total_staked() -> void:
+	var bets: Dictionary = {
+		"tok_1": {"side": "a", "amount": 10},
+		"tok_2": {"side": "a", "amount": 10},
+		"tok_3": {"side": "b", "amount": 25},
+	}
+	var payouts: Dictionary = WagerSync.settle(bets, WagerSync.SIDE_A)
+	# Each winner's fair share of 25 is 12.5 -> floors to 12 each = 24 total,
+	# one coin short of the full 25-coin losing pool (breakage), never over.
+	assert_eq(int(payouts.get("tok_1", -1)), 22)
+	assert_eq(int(payouts.get("tok_2", -1)), 22)
+	var total_credited: int = int(payouts.get("tok_1", 0)) + int(payouts.get("tok_2", 0))
+	assert_lte(total_credited, 45)   # 10 + 10 + 25 staked total
+
+
+## If nobody backed the side that actually won, there is no winner to hand the
+## losing pool to — refund everyone rather than let the pot vanish with no
+## recipient. This is the one case where a bettor on the losing side of the
+## real match still gets their stake back.
+func test_settle_no_winning_side_bets_refunds_everyone() -> void:
+	var bets: Dictionary = {
+		"tok_a": {"side": "a", "amount": 10},
+		"tok_b": {"side": "a", "amount": 15},
+	}
+	var payouts: Dictionary = WagerSync.settle(bets, WagerSync.SIDE_B)
+	assert_eq(int(payouts.get("tok_a", -1)), 10)
+	assert_eq(int(payouts.get("tok_b", -1)), 15)
 
 
 func test_settle_draw_refunds_exact_stake() -> void:
@@ -208,7 +277,8 @@ func test_settle_skips_garbage_bet_entries() -> void:
 	assert_false(payouts.has("tok_bad_type"))
 	assert_false(payouts.has("tok_bad_side"))
 	assert_false(payouts.has("tok_zero"))
-	assert_eq(int(payouts.get("tok_ok", -1)), 10)
+	# Sole valid winner, no valid losing-side bets -> just their stake back.
+	assert_eq(int(payouts.get("tok_ok", -1)), 5)
 
 
 func test_settle_empty_bets_yields_empty_payouts() -> void:
@@ -217,9 +287,10 @@ func test_settle_empty_bets_yields_empty_payouts() -> void:
 
 
 func test_settle_total_credit_conservation_on_clean_win() -> void:
-	# Escrow held = 10 + 30 = 40. Credits paid = winner's 20. The house (session)
-	# absorbs the loser's 30 - the winner's 10 profit... i.e. total credited (20)
-	# never exceeds total escrowed (40) for a 1:1 payout, regardless of sides.
+	# Escrow held = 10 + 30 = 40. Parimutuel: the sole winner takes the whole
+	# losing pool (40 credited here), so this case is exact conservation, not
+	# absorption — total credited can never exceed total escrowed regardless
+	# of how many winners split the pool (proportional shares only round down).
 	var bets: Dictionary = {
 		"tok_a": {"side": "a", "amount": 10},
 		"tok_b": {"side": "b", "amount": 30},
@@ -279,16 +350,23 @@ func test_settlement_decode_non_dict_payouts_tolerated() -> void:
 
 func test_full_flow_win_and_loss_net_effect() -> void:
 	# Spectator with 300 coins bets 30 on side a (stake debited → 270 held locally).
+	# A second bettor stakes 30 on side b, giving the pool a genuine opposing
+	# pool for the parimutuel split to draw from.
 	var coins: int = 300
 	var stake: int = 30
 	assert_true(WagerSync.is_valid_bet("a", stake, coins))
 	coins -= stake  # escrow debit
-	# Side a wins: credit = 2x stake → net +30 vs the original balance.
-	var payouts_win: Dictionary = WagerSync.settle({"tok": {"side": "a", "amount": stake}}, WagerSync.SIDE_A)
+	var bets: Dictionary = {
+		"tok": {"side": "a", "amount": stake},
+		"other": {"side": "b", "amount": 30},
+	}
+	# Side a wins: credit = stake back + the entire (sole opposing) losing pool
+	# → net +30 vs the original balance, same net result as flat 1:1 here.
+	var payouts_win: Dictionary = WagerSync.settle(bets, WagerSync.SIDE_A)
 	assert_eq(coins + int(payouts_win.get("tok", 0)), 330)
 	# Side b wins instead: credit 0 → net -30.
-	var payouts_loss: Dictionary = WagerSync.settle({"tok": {"side": "a", "amount": stake}}, WagerSync.SIDE_B)
+	var payouts_loss: Dictionary = WagerSync.settle(bets, WagerSync.SIDE_B)
 	assert_eq(coins + int(payouts_loss.get("tok", 0)), 270)
 	# Abandoned: refund → back to exactly 300.
-	var payouts_ref: Dictionary = WagerSync.settle({"tok": {"side": "a", "amount": stake}}, WagerSync.OUTCOME_ABANDONED)
+	var payouts_ref: Dictionary = WagerSync.settle(bets, WagerSync.OUTCOME_ABANDONED)
 	assert_eq(coins + int(payouts_ref.get("tok", 0)), 300)

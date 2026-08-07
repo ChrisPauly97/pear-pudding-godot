@@ -55,3 +55,53 @@ completeness gap worth closing so every session member can use the feature symme
 
 Originally filed as BID-025 from an isolated worktree (branched before BID-025 was claimed
 elsewhere for an unrelated finding); renumbered to BID-032 during integration.
+
+## Resolution
+
+Implemented exactly the suggested fix: two round-trip RPCs on `scenes/world/NetSync.gd`,
+both routed to `scenes/world/coop/CoopSocial.gd` (the module that already owned the
+host-only ghost-duel overlay logic):
+
+- `request_ghost_roster()` (client → host) / `recv_ghost_roster(rows: Array)` (host →
+  client) — `rows` is the same `{token, name, rating}` shape the host's own overlay
+  build already used, sent as-is (mirrors `recv_party_bounties_snapshot` /
+  `recv_leaderboard`).
+- `request_ghost_snapshot(token: String)` (client → host) / `recv_ghost_snapshot(snapshot:
+  Dictionary)` (host → client) — `snapshot` is `SessionState.get_ghost_snapshot()`'s
+  output (or `{}` if unresolvable).
+
+`CoopSocial.gd` changes:
+- `_ghost_roster_rows(exclude_token)` — new helper extracted from the old inline roster
+  build, shared by the host's local overlay open and the new `_on_ghost_roster_requested`
+  handler so both compute identical rows.
+- `_toggle_ghost_duel_overlay()` — now gated on `NetworkManager.is_active()` instead of
+  `SessionStore.is_open()`. The host still populates the overlay immediately from its own
+  `SessionStore`; a client opens it empty and sends `request_ghost_roster`.
+- `_request_ghost_duel(token)` — new helper wired as `GhostDuelOverlay.on_duel_requested`.
+  Host resolves the snapshot directly (unchanged); a client sends `request_ghost_snapshot`.
+- Four new handlers: `_on_ghost_roster_requested` / `_on_ghost_roster_received` /
+  `_on_ghost_snapshot_requested` / `_on_ghost_snapshot_received`, following the existing
+  `_on_<rpc>_requested/received` naming convention used throughout the file.
+
+`scenes/world/coop/CoopSession.gd`: `_open_party_panel()`'s `panel.show_ghost_duels` gate
+changed from `SessionStore.is_open()` to `NetworkManager.is_active()` so the Party-panel
+action now shows for clients too.
+
+`GhostDuelOverlay.gd` and `SceneManager.enter_ghost_duel` needed **no code changes** — both
+were already shape-agnostic, exactly as anticipated in the "Suggested fix" section above;
+only their doc comments were updated to describe the now-dual host/client data source.
+
+**Verification:** `godot --headless --editor --quit` parse-clean; full unit suite
+(`tests/runner.gd`) 2374 passed / 0 failed / 1 pre-existing pending; `tests/world_scene_smoke.gd`
+18/18 checks passed (confirms all 4 new RPC handlers resolve and dispatch cleanly through
+`NetSync._route()`, including a cold call with empty/default synthesized arguments); the
+existing live-networking smoke tests (`net_session_smoke.gd`, `net_coop_smoke.gd`,
+`net_coop_npeer_smoke.gd`, `net_world_sync_smoke.gd`, `net_leaderboard_smoke.gd`) still pass
+unchanged.
+
+No new unit-test file was added specifically for this RPC pair — the round-trip is thin
+enough (a request forwarded to an existing pure query, `SessionState.get_ghost_snapshot`,
+which already has full unit coverage in `test_session_state.gd`) that the smoke-test
+coverage above (real `_route()` dispatch through both new request/response handler pairs)
+was judged sufficient; a dedicated live 2-peer ghost-duel scenario test would mostly
+re-verify Godot's RPC plumbing rather than new logic.

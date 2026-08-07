@@ -35,3 +35,14 @@ Worth considering: a cheap `tests/unit/` guardrail asserting TID/GID/BID
 uniqueness across `tasks/`, in the spirit of `test_gamebus_signal_coverage.gd`.
 It would have caught the GID-123 collision the moment it was created rather than
 at merge time.
+
+## Resolution (2026-08-03)
+
+Took the "leave it" option: added a cross-reference note to both TID-352
+files' headers pointing at each other and at this item. Also added the
+suggested guardrail: `tests/unit/test_task_id_uniqueness.gd` (3 tests) scans
+`tasks/goals/` and `tasks/backlog/`+`tasks/archive/backlog/` for
+TID-/GID-/BID- prefixed filenames and asserts no duplicates except a
+documented allowlist (currently just `TID-352`). It would have caught the
+GID-123 collision this item mentions, and will catch any future one at test
+time instead of merge time.

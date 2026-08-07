@@ -32,6 +32,12 @@ const _CoopBattleScaling = preload("res://game_logic/battle/CoopBattleScaling.gd
 var _coop_ended: bool = false  # guard so the result fires once
 var _coop_peer_to_idx: Dictionary = {}
 var _coop_sync_retry_accum: float = 0.0
+# BID-031: authority-only clock + party-scaled difficulty for the coop_clears
+# leaderboard's richer {boss_tier, clear_seconds} value. Set once in
+# _build_coop_pve_state() (host-only); a client never computes these, it only
+# ever reads them back out of the reward_payload the host RPCs it.
+var _coop_battle_started_at_msec: int = 0
+var _coop_boss_tier: int = 1
 var _pvp_reconnect_timer: Timer = null
 var _pvp_sync_retry_accum: float = 0.0
 var _spectators: Array[int] = []      # host only: peer_ids watching this duel
@@ -681,8 +687,10 @@ func _finish_pvp(did_win: bool) -> void:
 		# wager_note (TID-387): the spectator's settlement line ("" for combatants —
 		# the settlement RPC is sent before pvp_ended on the same reliable channel,
 		# so _wager_result_text is already populated when this runs.)
+		# spectating (BID-038): neutral "Bottom/Top Player Wins!" instead of
+		# "Victory!"/"Defeated" — a spectator was never a combatant.
 		_battle._result_ui.show_pvp_result(did_win, _battle.pvp_ante_coins if did_win else -_battle.pvp_ante_coins,
-			_wager_result_text)
+			_wager_result_text, _battle._pvp_spectating)
 	elif _battle._local_player_idx < 0:
 		GameBus.pvp_battle_ended.emit(false)
 	elif _battle._pvp_spectating:
@@ -1008,6 +1016,11 @@ func _build_coop_pve_state() -> void:
 		base_tier = 4
 	var scaled_hp: int = _CoopBattleScaling.scale_boss_hp(boss_hp_base, n)
 	var scaled_tier: int = _CoopBattleScaling.scale_boss_tier(base_tier, n)
+	# BID-031: stamp the clear-timing start and the scaled tier the boss actually
+	# fights at, both used later by _build_coop_reward_payload for the coop_clears
+	# leaderboard's {boss_tier, clear_seconds} value.
+	_coop_battle_started_at_msec = Time.get_ticks_msec()
+	_coop_boss_tier = scaled_tier
 	var fallback: Array[String] = ["ghost", "skeleton", "zombie", "ghoul",
 		"ghost", "skeleton", "zombie", "ghoul", "ghost", "skeleton", "zombie", "ghoul"]
 	var p_idx_ref: Array[int] = [0]  # closure-safe counter
@@ -1126,10 +1139,22 @@ func _coop_pve_check_game_over() -> void:
 
 ## Computes the reward payload for the co-op battle result.
 ## Each ally gets: full coins, full XP, and the soulbound card (if won).
+##
+## BID-031: also carries `boss_tier`/`clear_seconds` — computed here (host-only,
+## the only side that ever calls this) and RPC'd to every peer via the existing
+## `coop_battle_ended` broadcast, so `_finish_coop_pve` can forward them to
+## `GameBus.coop_pve_battle_ended`'s `result` dict on every peer without a second
+## signal or an extra RPC. Included on both win/loss so a future "best attempt"
+## leaderboard entry (a loss with a good clear time) has the data available even
+## though today's `_on_coop_pve_battle_ended_leaderboard` only submits on a win.
 
 func _build_coop_reward_payload(did_win: bool) -> Dictionary:
+	var clear_seconds: float = 0.0
+	if _coop_battle_started_at_msec > 0:
+		clear_seconds = float(Time.get_ticks_msec() - _coop_battle_started_at_msec) / 1000.0
 	if not did_win:
-		return {"winner_ally": false, "card_id": "", "rarity": "", "stats": {}, "coins": 0, "xp": 0}
+		return {"winner_ally": false, "card_id": "", "rarity": "", "stats": {}, "coins": 0, "xp": 0,
+			"boss_tier": _coop_boss_tier, "clear_seconds": clear_seconds}
 	var enemy_type: String = str(_battle.enemy_data.get("enemy_type", ""))
 	var is_boss: bool = bool(_battle.enemy_data.get("is_boss", false))
 	var drop_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
@@ -1145,7 +1170,8 @@ func _build_coop_reward_payload(did_win: bool) -> Dictionary:
 		card_id = pool[randi() % pool.size()]
 		rarity = CardDropUtil.effective_rarity(card_id, CardDropUtil.roll_rarity(drop_tier))
 		stats = CardDropUtil.roll_stats(card_id, rarity)
-	return {"winner_ally": true, "card_id": card_id, "rarity": rarity, "stats": stats, "coins": coins, "xp": xp}
+	return {"winner_ally": true, "card_id": card_id, "rarity": rarity, "stats": stats, "coins": coins, "xp": xp,
+		"boss_tier": _coop_boss_tier, "clear_seconds": clear_seconds}
 
 ## Called on every peer (host from _coop_pve_check_game_over, clients from RPC).
 
@@ -1179,7 +1205,16 @@ func _finish_coop_pve(did_win: bool, payload: Dictionary) -> void:
 	var msg: String = "Party victorious!" if did_win else "The party was defeated."
 	GameBus.hud_message_requested.emit(msg)
 	await get_tree().create_timer(2.0, false).timeout
-	GameBus.coop_pve_battle_ended.emit(did_win)
+	# BID-031: forward the boss-tier/clear-time signal _build_coop_reward_payload
+	# already computed (host) and RPC'd (every peer, via `payload`) so
+	# WorldScene's coop_clears leaderboard can rank on something richer than
+	# party size. Defaults keep this safe for any payload shape that predates
+	# these fields (e.g. a saved/replayed battle payload).
+	var result: Dictionary = {
+		"boss_tier": int(payload.get("boss_tier", 1)),
+		"clear_seconds": float(payload.get("clear_seconds", 0.0)),
+	}
+	GameBus.coop_pve_battle_ended.emit(did_win, result)
 
 ## Apply the per-ally rewards from a co-op win to the local session character.
 

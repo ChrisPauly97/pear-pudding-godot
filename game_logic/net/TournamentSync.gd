@@ -45,6 +45,23 @@ static func payout_pot(ante: int, num_players: int) -> int:
 	return ante * num_players
 
 
+## BID-037: refund payouts for a bracket aborted before it could finish (a
+## participant disconnected mid-bracket, or the session itself tore down).
+## Every participant token gets back exactly their own ante — a flat refund,
+## not a settlement/payout, so unlike WagerSync.settle() there is no pool to
+## split. Returns {token: ante}; a non-positive ante or an empty token is
+## skipped (defensive — callers should never actually hit either case).
+static func refund_payouts(tokens: Array, ante: int) -> Dictionary:
+	var payouts: Dictionary = {}
+	if ante <= 0:
+		return payouts
+	for token: Variant in tokens:
+		var tok: String = str(token)
+		if tok != "":
+			payouts[tok] = ante
+	return payouts
+
+
 # ---------------------------------------------------------------------------
 # Bracket construction
 # ---------------------------------------------------------------------------

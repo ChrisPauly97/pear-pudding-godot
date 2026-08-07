@@ -33,4 +33,8 @@ Chapter 1's plumbing (flags, ObjectiveTracker, 5 named maps, Isfig rival arc, sc
 - [x] Chapter 2 maps (larik, marsax_hold) load, are registered in MapRegistry, and Chapter 2 beats 1–7 are playable through `chapter2_complete` with objectives shown in ObjectiveTracker
 - [x] The Chapter 2 scripted ambush battle reuses the TID-401 framework to introduce spell cards
 - [x] In a co-op session (up to 4 players), all new story beats follow the GID-098 shared-spine rules: any member's trigger advances the party exactly once, narration overlays show on all clients, exactly one synced Maiteln follows the party, and co-op progress never writes through to personal solo saves (TID-408 design rules)
-- [ ] All tests pass headless (`godot --headless --path . -s tests/runner.gd`) — **unverified in this sandbox**: no Godot binary available (outbound download blocked). Every task in this goal was validated by manual line-by-line review instead (see each task's Changes Made / Validation section). Next session with Godot available should run the full headless import + test suite before trusting GID-108 in production.
+- [x] All tests pass headless (`godot --headless --path . -s tests/runner.gd`) — confirmed
+      2026-08-03: headless Godot 4.6 became available this session; `godot --headless --editor
+      --quit` clean, `godot --headless --path . -s tests/runner.gd` 2358 passed, 0 failed, 1
+      pending (pre-existing). Every task's earlier manual line-by-line review is now backed by
+      an actual automated run.

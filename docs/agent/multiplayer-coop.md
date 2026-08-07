@@ -330,6 +330,16 @@ opp_deck, ante_coins)`. On battle end the winner's `_on_pvp_battle_ended_coop(di
 restores the pot (`add_coins(ante_coins * 2)`). For **unwagered** duels the flow is
 unchanged: no coins awarded, same "no cards/XP" result.
 
+**Initiating a wagered duel (BID-029):** `CoopPvP._request_wager_challenge(ante_coins)`
+sends the `request_battle_wager` RPC — the responder side above already worked, but
+until BID-029 nothing called it. A **"Wager Duel"** secondary action stacks below
+"Challenge to Battle" / the Ranked toggle in the shared `WorldHUD.ZONE_CONTEXT` zone
+(same proximity gating as the plain challenge button — `_hide_challenge_cluster()`
+now hides all three together). Tapping it opens a small ante-amount picker
+(`_open_wager_picker`, built with `_UiUtil`/`_build_prompt` like the accept panel): a
+±10-coin stepper and a real Send/Cancel button pair — a full touch target, not a
+long-press gesture, per the mobile/desktop parity rule.
+
 `BattleResultUI.show_pvp_result(did_win, coins_delta)` shows `"+N coins (wagered)"` in gold
 or `"-N coins (wagered)"` in red when `coins_delta != 0`. The Continue button emits
 `GameBus.pvp_battle_ended(did_win)`, which SceneManager handles by restoring the shared
@@ -465,8 +475,10 @@ SceneManager → BattleScene boundary). `WorldScene._pvp_ranked` caches the agre
 for the active duel and gates the TID-370 `_update_pvp_ratings` call in
 `_on_pvp_battle_ended_coop` — **casual duels never touch rating**. The wagered-duel
 flow (`_enter_pvp_wagered`) does not currently expose a ranked option — composing
-ranked + wagered is left for a follow-up (see BID-029, a related pre-existing gap:
-there is no HUD entry point to *initiate* a custom-ante wager at all today).
+ranked + wagered is left for a follow-up. (BID-029 fixed the separate, previously
+missing piece: a HUD entry point to *initiate* a custom-ante wager at all — see
+"Rewards & end states" above. Composing that entry point with the Ranked toggle is
+still the open follow-up.)
 
 **Leaderboard data flow.** A client never has direct `SessionStore` access, so the
 authority pushes snapshots. `WorldScene._leaderboard_rows: Array` caches the last
@@ -556,16 +568,23 @@ not inside `_setup_coop`:
   Record!" badge on `RunSummaryScene`, so a second offline-best store would just be
   a second source of truth for the same fact. The session-scoped board is the
   actual deliverable; the offline case was already solved before this task.
-- **Co-op boss clears** (`GameBus.coop_pve_battle_ended(did_win)` →
+- **Co-op boss clears** (`GameBus.coop_pve_battle_ended(did_win, result)` →
   `_on_coop_pve_battle_ended_leaderboard`): submits on a party win, while
-  `NetworkManager.is_active()`, to the `"coop_clears"` board. **Value = party size
-  at battle end** (`multiplayer.get_peers().size() + 1`) — a v1 simplification.
-  Neither the party-scaled boss tier (`CoopBattleScaling.scale_boss_tier`, computed
-  inside `BattleScene._build_coop_pve_state`) nor a clear-duration timer are
-  threaded back out to `GameBus.coop_pve_battle_ended` today, so party size is the
-  only signal reliably available at the point WorldScene can submit a score without
-  inventing new cross-battle plumbings. Logged as BID-031 for a future task to
-  enrich the ranking signal (tier and/or clear time).
+  `NetworkManager.is_active()`, to the `"coop_clears"` board. **(BID-031 fix)**
+  `result` is `{boss_tier: int, clear_seconds: float}` — the party-scaled boss tier
+  (`CoopBattleScaling.scale_boss_tier`, computed inside
+  `BattleNet._build_coop_pve_state`, stashed in `BattleNet._coop_boss_tier`) and the
+  wall-clock duration since `BattleNet._coop_battle_started_at_msec` was stamped at
+  battle setup. `BattleNet._build_coop_reward_payload` computes both (host-only) and
+  carries them through the existing `coop_battle_ended` RPC/payload so every peer's
+  local `_finish_coop_pve` can forward them into the signal — no second signal or
+  extra RPC. `_on_coop_pve_battle_ended_leaderboard` combines them into a single int,
+  `boss_tier * 10000 - round(clear_seconds)`, rather than widening the stored
+  leaderboard-entry shape (which would need a `SessionState.CURRENT_SESSION_VERSION`
+  bump + migration): tier dominates via the ×10000 multiplier, so a harder boss
+  always outranks an easier one regardless of speed; a faster clear then breaks ties
+  within the same tier. `result` defaults to `{}` (→ tier 1, 0s) so a stale caller
+  that still only emits `did_win` degrades gracefully instead of erroring.
 
 **Authority-records-then-broadcasts, same as party bounties.** `_submit_pve_score(board,
 value)` is the single routing function: on the host it calls
@@ -607,9 +626,20 @@ Non-combatant party members can **watch** an in-progress PvP duel read-only.
   non-empty. Pressing it sends `NetSync.request_spectate_pvp()` → host grants → authority
   calls `SceneManager.enter_pvp_spectator()` on the requesting peer.
 - `enter_pvp_spectator()` launches BattleScene with `_pvp_spectating = true`,
-  `_local_player_idx = 0` (host's perspective). All input is blocked (`_can_local_act()`
-  returns false); `_broadcast_state()` fans mirrors to the `_spectators` list so the
-  spectator sees live state.
+  `_local_player_idx = 0` (host's perspective, purely for board rendering — see the
+  result-overlay note below for why that value must never leak into "did I win").
+  All input is blocked (`_can_local_act()` returns false); `_broadcast_state()` fans
+  mirrors to the `_spectators` list so the spectator sees live state.
+- **Neutral result overlay (BID-038)** — because a spectator's `_local_player_idx`
+  is always `0`, `BattleNet._finish_pvp`'s `did_win` bool is really "did the
+  bottom-seat player win", not "did I win". `_finish_pvp` passes
+  `_battle._pvp_spectating` through as `show_pvp_result`'s new `spectating`
+  parameter; when true, the overlay shows a neutral **"Bottom Player Wins!" /
+  "Top Player Wins!"** title (same Bottom/Top seating language as the bet panel's
+  `_wager_side_name`) and a neutral background instead of "Victory!"/"Defeated"
+  in green/red. Covers both live spectating and tournament auto-spectate
+  (`notify_tournament_spectate` → `enter_pvp_spectator()`, GID-104/TID-386) since
+  both share the one `enter_pvp_spectator()` entry point.
 - `BattleNetSync.request_spectate()` / `stop_spectate()` register/deregister spectators
   during the battle.
 - **WorldScene detach/re-attach:** when a PvP battle starts, SceneManager removes
@@ -641,11 +671,19 @@ never executes any of it.
   - **Wire**: `encode_bet` / `decode_bet` (`{side, amount}`), `encode_settlement` /
     `decode_settlement` (`{outcome, payouts: {token: credit}}`). All decoders are
     fully defaulted and garbage-tolerant; a forged side normalizes to `""` (rejected).
-  - **Settlement math — `settle(bets, outcome)`**: returns the coins to **credit** per
-    bettor (the stake was already debited at placement). Clean win: winners get
-    `2 × stake` (1:1 payout), losers get 0. `OUTCOME_DRAW` / `OUTCOME_ABANDONED`:
-    everyone gets exactly their stake back. Note the 1:1 model is house-banked (the
-    session absorbs imbalance; it is not a parimutuel pool).
+  - **Settlement math — `settle(bets, outcome)`** (BID-036: **parimutuel**, not
+    house-banked 1:1): on a clean win, the entire losing-side pool is split among
+    winners in proportion to their own stake — a winner is credited their stake
+    back plus `floor(their_stake × losing_pool / winning_pool)`; a loser is
+    credited `0`. Total credited can never exceed total staked (losers contribute
+    0, and each winner's share only ever rounds *down*), so the session can
+    neither mint nor absorb coins — flooring just leaves a few odd coins
+    uncredited ("breakage", same as a real-world parimutuel pool). If nobody
+    backed the side that actually won (no winners to hand the pool to), everyone
+    is simply refunded their own stake, same as `OUTCOME_DRAW` /
+    `OUTCOME_ABANDONED`. The old flat 1:1 model is gone — a sole winner with no
+    opposing bets now just gets their own stake back (there is no opposing pool
+    to profit from), not a mystery double-up.
 - **RPCs — `BattleNetSync.gd`**: `submit_spectator_bet(payload)` (spectator → host),
   `recv_wager_ack(accepted, reason, side, amount, remaining_coins)` and
   `recv_wager_settlement(payload)` (host → spectator). All reliable, same relay node.
@@ -667,6 +705,18 @@ never executes any of it.
   **forfeit** and a host-side `session_ended` mid-duel settle as `OUTCOME_ABANDONED`
   (refund). Payouts are credited straight into each bettor's `SessionState` record,
   then unicast to each still-connected bettor.
+  - **BID-036 judgment call — grace-expiry still refunds all, does not pay out a
+    walkover.** A genuine disconnect-and-never-return *could* in principle pay out
+    winners of the other combatant's bets, but the grace-expiry path
+    (`_on_pvp_reconnect_grace_expired`) can't cleanly distinguish "genuinely lost
+    connection" from "a losing combatant yanked the cable to grief their own
+    bettors" — that anti-grief property is exactly why `OUTCOME_ABANDONED` refunds
+    everyone instead of forfeiting to the other side. Refunding is also the safer
+    default for a spectator: it can never be exploited to grief, only occasionally
+    under-pays a spectator who backed the player who *would* have won on a true
+    walkover. Left as-is per the BID's own guidance (a real win/grief distinction
+    isn't clean to detect, and the parimutuel payout math above — not this
+    forfeit-path judgment call — was the actual core ask).
 - **Refunds**: a disconnecting **spectator's** pending bet is refunded immediately
   (`_refund_wager_for_peer` from `_on_pvp_peer_disconnected`; they re-adopt the
   restored record on reconnect). This handler also got an opportunistic fix: on a
@@ -1096,22 +1146,51 @@ default `SessionState.make_starter_character` seeds), so this reads correctly
 whether or not the TID-370 rating model has landed. Returns `{}` for a blank token,
 an unknown token, or a corrupt (non-Dictionary) member record — never throws.
 
-#### Entry point — host-only "Ghost Duels" Party-panel action
+#### Entry point — "Ghost Duels" Party-panel action (host **and** client, BID-032 fix)
 
-`_open_party_panel()`'s `show_ghost_duels` is gated on `SessionStore.is_open()`
-(not `NetworkManager.is_active()`) — a **client never opens `SessionStore`
-locally** (only the authority does, in `_setup_session`), so this is a
-**host-only** feature in the current slice: a client has no local `SessionState`
-to list opponents from. Since GID-107 this lives in the Party panel rather than
-its own always-visible HUD button (it was not proximity-gated — async, not a
-live-nearby-player interaction — so it fit the "always-on" consolidation).
-Pressing it opens `scenes/ui/GhostDuelOverlay.gd` (`extends
-BaseOverlay` by path string, `.new()`-instantiated, viewport-relative, mobile +
-desktop parity — a simple list + button, matching the task's "keep this UI
-genuinely simple" guidance), populated from `SessionStore.get_state().members`
-(excluding the local host's own token — dueling your own live snapshot is a no-op
-curiosity, not the intended use). Each row shows name + rating + a "Ghost Duel"
-button that resolves the snapshot and calls `SceneManager.enter_ghost_duel`.
+`_open_party_panel()`'s `show_ghost_duels` is gated on `NetworkManager.is_active()` — a
+plain "session is live" check, unlike every other `SessionStore.is_open()`-gated action
+in this panel. That's deliberate: a **client never opens `SessionStore` locally** (only
+the authority does, in `_setup_session`), so `CoopSocial._toggle_ghost_duel_overlay` now
+branches on `_coop_world_authority()` internally instead of gating the button itself.
+Since GID-107 this lives in the Party panel rather than its own always-visible HUD
+button (it was not proximity-gated — async, not a live-nearby-player interaction — so it
+fit the "always-on" consolidation). Pressing it opens `scenes/ui/GhostDuelOverlay.gd`
+(`extends BaseOverlay` by path string, `.new()`-instantiated, viewport-relative, mobile +
+desktop parity — a simple list + button, matching the task's "keep this UI genuinely
+simple" guidance, unchanged by the client fix — it only ever sees plain `{token, name,
+rating}` rows and never touches `SessionStore` itself). Each row shows name + rating + a
+"Ghost Duel" button that resolves the snapshot and calls `SceneManager.enter_ghost_duel`.
+
+**Host path (unchanged):** `_toggle_ghost_duel_overlay` builds the roster rows directly
+from `SessionStore.get_state().members` (excluding the local host's own token — dueling
+your own live snapshot is a no-op curiosity, not the intended use) via the new
+`_ghost_roster_rows(exclude_token)` helper, and `_request_ghost_duel(token)` resolves the
+snapshot directly via `SessionState.get_ghost_snapshot`.
+
+**Client path (new) — two round-trip RPCs on `NetSync.gd`, mirroring the existing
+`recv_party_bounties_snapshot` / `_send_character_to_peer` host-push precedent:**
+
+| RPC | Direction | Purpose |
+|---|---|---|
+| `request_ghost_roster()` | client → host | "send me the ghost-duel roster" |
+| `recv_ghost_roster(rows: Array)` | host → client | the `{token, name, rating}` rows, same shape the host's own overlay build already uses |
+| `request_ghost_snapshot(token: String)` | client → host | "resolve this token's ghost snapshot for me" |
+| `recv_ghost_snapshot(snapshot: Dictionary)` | host → client | `SessionState.get_ghost_snapshot()` output (or `{}` if unresolvable) |
+
+A client opens the overlay empty and calls `rpc_id(1, "request_ghost_roster")`;
+`CoopSocial._on_ghost_roster_requested` (host-only, guarded by `_coop_world_authority()`)
+resolves the requester's own token from `_session_token_by_peer` (so it can exclude their
+own entry, same as the host's local build) and unicasts `recv_ghost_roster` back.
+`_on_ghost_roster_received` feeds the still-open overlay via `set_rows()` — a late reply
+after the player already closed the panel is a harmless no-op. Picking a row calls
+`_request_ghost_duel(token)`, which on a client sends `request_ghost_snapshot(token)`
+instead of reading `SessionStore` directly; `_on_ghost_snapshot_requested` resolves it
+host-side and unicasts `recv_ghost_snapshot`, which `_on_ghost_snapshot_received` either
+enters (`SceneManager.enter_ghost_duel`) or reports as unresolvable via the same
+`GameBus.hud_message_requested` toast the host path already used. `GhostDuelOverlay` and
+`SceneManager.enter_ghost_duel` needed **no changes** — both were already shape-agnostic,
+exactly as anticipated in the original "suggested fix" note below.
 
 #### Entering the battle — `SceneManager.enter_ghost_duel(opponent_snapshot)`
 
@@ -1143,14 +1222,6 @@ path) and restores the world, mirroring `_on_duel_won`/`_on_duel_lost` — no ca
 drops, no enemy-defeat bookkeeping, no capture-tracker init (the capture-tracker
 guard at battle setup now also excludes `_ghost_duel`, alongside `puzzle_mode`/
 `friendly_duel`/`_pvp`).
-
-#### Known gap
-
-The ghost-duel entry point is host-only for now: a client would need its own way
-to read the session roster (there is no wire message today that hands a client
-the member list + ratings the way `recv_party_bounties_snapshot` does for
-bounties). Extending this to clients is a natural follow-up but out of scope here
-— see BID list for the corresponding backlog entry.
 
 ### Draft Duels — sealed-deck PvP (GID-104 / TID-385)
 
@@ -1466,22 +1537,71 @@ Need/Greed/Pass panel (`WorldScene._show_loot_roll_panel`, viewport-relative, th
 buttons — mobile/desktop parity with no keyboard-only path) and sends its choice back via
 `submit_loot_roll_choice`. The authority resolves early once every expected participant has
 responded, or after a `_LOOT_ROLL_TIMEOUT = 15.0`s timeout (`_tick_loot_rolls`, ticked from
-`_process`) with any missing response **auto-passed**. **Equipment drops are out of scope for
-a roll** — there is no session-scoped equipment inventory to grant to an arbitrary winner
-(see BID-033), so only cards + a flat coin reward are roll-eligible; the map-fragment branch
-is also unaffected (still resolved before the roll check, same as always).
+`_process`) with any missing response **auto-passed**. **Equipment drops are roll-eligible**
+(BID-033 fix): `SessionState` character records now carry a session-scoped `owned_weapons`
+(`Array[String]` ids) / `owned_armor` (`Array[String]`) equipment inventory — see "Session-scoped
+equipment inventory" below — so `_grant_chest_loot_to_token` can roll a chance at one piece into
+an arbitrary (possibly remote) winner exactly like the single-player/first-opener path does; the
+map-fragment branch is unaffected (still resolved before the roll check, same as always).
 
 **The authority is the only one that ever rolls the RNG** — clients only submit
 `need`/`greed`/`pass`, never a numeric value, so the outcome is tamper-proof. Need beats
 greed beats pass; ties within the same tier are broken by the highest rolled value
-(1–100). The winner's cards/coins are granted **directly into their GID-095 session
+(1–100). The winner's cards/coins/equipment are granted **directly into their GID-095 session
 character record** via `SessionStore` (`WorldScene._grant_chest_loot_to_token`) — the same
 direct-write pattern `_transfer_card_in_session` (card trading) and the party-bounty reward
 path already use for a member who may not be the local player, rather than the physical
 `WorldItem` pickup path GID-096 uses (which only ever grants to the local opener). The roll
 is removed from the in-flight map **before** any grant happens, so an item can never be
 granted twice. `recv_loot_roll_result` announces the winner (or "everyone passed") to all
-peers as a `GameBus.hud_message_requested` toast, consistent with other recent features.
+peers as a `GameBus.hud_message_requested` toast, consistent with other recent features (no
+separate toast names the equipment drop specifically — see "Session-scoped equipment
+inventory" below for why).
+
+### Session-scoped equipment inventory (BID-033)
+
+Single-player equipment ownership lived only on `SaveManager` (`owned_weapons` —
+`Array[Dictionary]` of `{weapon_id, upgrade_level}` — plus `owned_armor`/`owned_rings`/
+`owned_trinkets`, each `Array[String]`), with no `SessionState` equivalent — the reason
+the loot-roll path above originally had to skip equipment entirely. `SessionState`
+character records now carry a simplified mirror: `owned_weapons: Array[String]` (ids
+only — **no per-instance `upgrade_level`**; session equipment upgrades aren't modeled,
+the same "no seed economy" simplification already used for the guildhall garden) and
+`owned_armor: Array[String]`, plus `equipped_weapon` / `equipped_armor` (both `String`,
+mirroring `SaveManager`'s equipped-slot fields) for shape completeness. Only the
+**weapon** and **armor** slots are session-scoped for now — `owned_rings`/`owned_trinkets`
+have no session-record equivalent yet, so ring/trinket chest drops remain
+first-opener-only (out of scope for a roll) until a similar extension. Added in
+`SessionState.CURRENT_SESSION_VERSION` **v14**, with a migration that backfills all four
+fields (empty arrays / empty strings) on every existing member record.
+
+**Round-trips through the same adopt/export pair every other character field uses**
+(`SaveManager.adopt_session_character` / `export_session_character`, GID-095 / TID-346):
+`adopt_session_character` converts the record's flat `owned_weapons` ids back into
+SaveManager's own `{weapon_id, upgrade_level: 0}` instances (upgrade level always resets
+to 0 on adopt — the session shape doesn't carry it); `export_session_character` is the
+mirror image, flattening `SaveManager.get_owned_by_slot("weapon")` back to ids. Both
+directions go through the *same* isolation invariant as the rest of the character slice
+(`adopt_session_character` forces `_loaded = false`, so a session character's equipment
+can never leak into `save_slot_*.json`).
+
+**Roll logic — `game_logic/net/LootRoll.gd`'s `roll_equipment_drop(tier, weapon_ids,
+armor_ids, owned_weapon_ids, owned_armor_ids, rng)`** (pure, unit-tested, RNG-injected
+like `resolve_winner`): rolls the *same* `weapon_chance` table the single-player/
+first-opener path uses (`WorldScene._maybe_drop_equipment_from_chest` — 40% for a tier-3
+`dtr_` treasure-room chest, 15% otherwise — now named `EQUIPMENT_CHANCE_TREASURE_ROOM`/
+`EQUIPMENT_CHANCE_DEFAULT` on `LootRoll`), then picks one id from the caller-supplied
+weapon/armor catalogs, excluding the starter `rusty_dagger` and anything the recipient
+(`owned_weapon_ids`/`owned_armor_ids`) already owns. Returns `""` on a chance-miss or an
+exhausted pool. `WorldScene._roll_equipment_into_loot_grant` (via `CoopActivities.gd`) is
+the sole caller: it rolls against the **winner's own** session record ownership (so a
+roll winner never receives a duplicate they already hold), resolves the picked id's slot
+via `WeaponRegistry.get_weapon(picked).slot`, and appends it into the matching
+`owned_weapons`/`owned_armor` array in place before `_grant_chest_loot_to_token` persists
+the record. No separate wire message announces which equipment (if any) dropped — the
+winner discovers it the same way they discover their granted cards, on their next
+character sync — kept intentionally minimal per the BID's "low severity, bonus not core
+loot" framing.
 
 ### Pure helpers
 
@@ -2044,6 +2164,22 @@ automatic front-row seat.
   start (host locally via `SaveManager.add_coins`; each client locally in
   `notify_tournament_start`, the existing ante-wager precedent). Pot
   (`ante × players`) pays out to the bracket winner at the end.
+- **Pre-start affordability handshake (BID-037)** — before anything is
+  deducted or broadcast, the host sends every client entrant
+  `request_tournament_ante_check(ante_coins)` and waits for all of them to
+  confirm `respond_tournament_ante_check(true)`. A single "no" (or a timeout,
+  or a disconnect mid-handshake) cancels the pending start outright — a 3-4
+  player bracket can't just drop one entrant and keep going, so this rejects
+  the attempt rather than silently kicking someone. Only once every entrant
+  has confirmed does the host actually commit (deduct coins, build the
+  bracket, broadcast `notify_tournament_start`).
+- **Ante refund on abort (BID-037)** — if the bracket is aborted after it
+  started (a participant disconnects mid-bracket, or the session itself tears
+  down), every participant's ante is refunded: host credited locally, each
+  other participant credited straight into its SessionStore member record
+  (the `_grant_chest_loot_to_token` / party-bounty write pattern). Refund math
+  is the pure `TournamentSync.refund_payouts(tokens, ante)` — every token gets
+  back exactly its own ante (flat, not pooled).
 - **Auto-spectate** — every peer not in the current match is pushed into the
   TID-367 spectator view via `notify_tournament_spectate` (no manual button).
 - **Bracket HUD panel** — right-side panel on all peers listing every match
@@ -2060,15 +2196,21 @@ Pure scheduling/wire logic lives in `game_logic/net/TournamentSync.gd`
 `new_bracket(tokens, names, ante)`, `get_current_match`,
 `record_match_result` (defensive: stale/duplicate winners are no-ops),
 `wins_by_participant` / `head_to_head_winner` / `compute_winner`,
-`payout_pot`, and garbage-tolerant `encode_bracket`/`decode_bracket`.
-Unit-tested in `tests/unit/test_tournament_sync.gd`.
+`payout_pot`, `refund_payouts` (BID-037), and garbage-tolerant
+`encode_bracket`/`decode_bracket`. Unit-tested in
+`tests/unit/test_tournament_sync.gd`.
 
 The host presses the **Tournament** button (visible only for the listen-server
 host with 2–3 connected clients, mirroring the Team Duel button precedent). It
 resolves every participant's token (`_session_token_by_peer` /
 `MpProfile.get_token()`), display name, and deck (`_team_deck_for_peer` — the
 GID-095 session record, no RPC round-trip), gates on `IsoConst.DECK_MIN` and
-the host's ante affordability, then builds and broadcasts the bracket.
+the host's own ante affordability, then — **BID-037** — stashes everything in
+`_tournament_pending_start` and asks every client entrant to confirm it can
+afford the ante before committing to anything (see `_start_tournament` /
+`_on_tournament_ante_check_responded` / `_commit_tournament_start` in
+`CoopPvP.gd`). Only `_commit_tournament_start()` actually deducts coins,
+builds the bracket via `TournamentSync.new_bracket`, and broadcasts it.
 
 **Match execution reuses the existing PvP plumbing wholesale.** A match the
 host plays runs through `SceneManager.enter_pvp_battle(0, opp_deck, 0,
@@ -2093,6 +2235,8 @@ direct member-record write + `SessionStore.mark_dirty()`).
 
 | RPC | Direction | Purpose |
 |---|---|---|
+| `request_tournament_ante_check(ante_coins)` | host → each entrant | BID-037: pre-start affordability query |
+| `respond_tournament_ante_check(can_afford)` | entrant → host | BID-037: affordability answer |
 | `notify_tournament_start(bracket, ante)` | host → each entrant | start + local ante deduction |
 | `recv_tournament_update(bracket)` | host → all | bracket changed / finished / aborted (empty) |
 | `notify_tournament_spectate()` | host → non-combatants | auto-enter spectator view |
@@ -2100,12 +2244,17 @@ direct member-record write + `SessionStore.mark_dirty()`).
 ### Edge Cases & Known Gaps (v1)
 
 - A participant disconnecting mid-bracket **aborts** the tournament (host
-  broadcasts an empty bracket; every peer's panel clears). Antes are **not
-  refunded** — documented gap, consistent with the no-refund wager precedent.
-- Client ante affordability is not pre-checked by the host (the client deducts
-  locally, mirroring the existing wager flow); a client can go briefly negative.
+  broadcasts an empty bracket; every peer's panel clears) and **refunds every
+  participant's ante** (BID-037 — was a documented no-refund gap through GID-104).
+- Client ante affordability **is** pre-checked by the host before it commits to
+  starting (BID-037's `request_tournament_ante_check` handshake) — a client can
+  no longer go negative from a tournament ante specifically. A peer that
+  disconnects mid-handshake (before the tournament is even marked active)
+  simply cancels the pending start; nothing was deducted yet, so there is
+  nothing to refund at that point.
 - No ranked-ELO integration — deliberately casual (see Plan decision).
-- Tournament state is session-scoped: `_on_coop_session_ended` resets it.
+- Tournament state is session-scoped: `_on_coop_session_ended` resets it
+  (also refunding antes first if a bracket was mid-flight, BID-037).
 
 ## Party Convenience & Stakes (GID-105)
 
@@ -2741,6 +2890,16 @@ from the existing `_coop_current_days_elapsed()` helper (already
 correct on every peer via the GID-103 world-clock sync — no new day-sync
 plumbing needed).
 
+*(BID-055 slice 1 update: `_broadcast_guildhall_garden`,
+`_on_guildhall_garden_request_submitted`, `_on_guildhall_garden_update_received`,
+`_submit_session_plant`/`_on_session_plant_submitted`, and
+`_submit_session_harvest`/`_on_session_harvest_submitted` were moved off
+WorldScene into `CoopSession.gd`'s "Party Guildhall" section, reached as
+`coop_session.<fn>` — see the Scene Modules table in CLAUDE.md. `WorldScene`
+still owns the `_guildhall_garden_cache` var itself and the
+`_refresh_guildhall_garden_visuals()` UI-push, which the module reaches via
+`_world.<name>`, following the star-topology rule.)*
+
 **Deliberate simplifications (deviating from the task's Research Notes, which
 assumed session-scoped seed/plant *card-instance* transfer via
 `StashTransfer` — that class only handles cards/coins; `SaveManager.seeds`/
@@ -2760,10 +2919,11 @@ for that API):**
   `submit_spire_draft_choice`'s precedent). The authority validates (plot
   actually empty / actually mature — a stale or duplicate submit is silently
   ignored) before mutating `guildhall_state` and broadcasting.
-- `_show_garden_plot_panel` branches on `plot.session_mode`: no
-  "(owned: N)" seed count, Plant is never disabled, and the plant/harvest
-  buttons call `_submit_session_plant`/`_submit_session_harvest` instead of
-  `SaveManager`/`GameBus.plant_harvested` (which stays solo-only).
+- `_show_garden_plot_panel` (still on WorldScene) branches on
+  `plot.session_mode`: no "(owned: N)" seed count, Plant is never disabled,
+  and the plant/harvest buttons call
+  `coop_session._submit_session_plant`/`coop_session._submit_session_harvest`
+  instead of `SaveManager`/`GameBus.plant_harvested` (which stays solo-only).
 
 **Ordering gotcha found during this task:** the player-home trophy/garden
 spawn calls run *inline* with the rest of `_ready()`'s named-map setup,
@@ -2868,6 +3028,14 @@ against the co-op contracts GID-098 already established. Per-rule findings:
   optional 3rd `collected_scrolls` element (backward compatible — existing
   2-arg call sites/tests are unaffected) so a late joiner's snapshot includes
   already-collected scrolls.
+
+  *(BID-055 slice 1 update: `_broadcast_scroll_collected_coop`,
+  `_coop_record_scroll_collected`, and `_coop_apply_scroll_collected` moved
+  off WorldScene into `CoopSession.gd`'s "Co-op world-object sync" section.
+  `WorldScene._on_scroll_collected` — the local-pickup signal handler, which
+  did not move — now calls `coop_session._broadcast_scroll_collected_coop()`;
+  `_coop_active`/`_coop_scroll_syncing`/`_coop_collected_scrolls` remain
+  WorldScene-owned state, reached from the module as `_world.<name>`.)*
 - **Story siege at marsax_hold** (Chapter 2 beat 4) called the single-player
   `SaveManager.start_siege()` path with zero co-op awareness — every peer who
   walked into marsax_hold with the right flags would start their own private

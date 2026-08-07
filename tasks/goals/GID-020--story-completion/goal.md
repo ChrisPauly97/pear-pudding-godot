@@ -33,8 +33,9 @@ Story flags persist correctly (GID-001) and NPC dialogue tables exist in story.m
       `WorldScene._handle_king_eldar_interaction`/`_trigger_chapter1_ending`)
 - [x] An ending overlay/scene plays and sets the chapter1_complete flag (GID-108 / TID-405 —
       `scenes/ui/ChapterEndingOverlay.gd`)
-- [ ] All tests pass headless — not run in this sandbox (no Godot binary; see TID-405 Changes
-      Made); recommended before merge
+- [x] All tests pass headless — confirmed 2026-08-03: headless Godot 4.6 became available this
+      session; `godot --headless --editor --quit` clean, `godot --headless --path . -s
+      tests/runner.gd` 2358 passed, 0 failed, 1 pending (pre-existing)
 
-All engineering criteria are satisfied via GID-108 (TID-404 + TID-405). This goal is resolved
-pending a headless test confirmation.
+All engineering criteria are satisfied via GID-108 (TID-404 + TID-405). Headless verification
+complete — this goal is fully resolved.

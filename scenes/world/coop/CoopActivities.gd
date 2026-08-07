@@ -21,10 +21,13 @@ const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _LootRoll          = preload("res://game_logic/net/LootRoll.gd")
 const _RunSummaryScene   = preload("res://scenes/ui/RunSummaryScene.tscn")
 const _SessionState      = preload("res://game_logic/net/SessionState.gd")
+const _SiegeDefs         = preload("res://game_logic/SiegeDefs.gd")
 const _SpireDraft        = preload("res://game_logic/spire/SpireDraft.gd")
 const _SpireDraftScene   = preload("res://scenes/ui/SpireDraftScene.tscn")
 const _SpireDraftSync    = preload("res://game_logic/net/SpireDraftSync.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _WeaponData        = preload("res://data/WeaponData.gd")
+const _WeaponRegistry    = preload("res://autoloads/WeaponRegistry.gd")
 const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
 
 var _coop_night_hunt_active: bool = false
@@ -55,7 +58,6 @@ func _coop_spawn_night_hunt(days: int) -> void:
 		_coop_despawn_night_hunt()
 	_coop_night_hunt_active = true
 	_coop_night_hunt_day = days
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(_world.map_name, Vector3.ZERO)
 	var plan: Array[Dictionary] = _CoopNightHunts.generate_hunt(_world.map_name, days)
 	var spawned_any: bool = false
@@ -128,7 +130,7 @@ func _start_loot_roll(cid: String, chest_tier: int) -> void:
 ## itself is already synced via the existing EV_CHEST_OPENED path; this only carries the
 ## tier (the id is enough for the host to re-derive position/card ids locally).
 
-func _on_loot_roll_request_submitted(sender: int, cid: String, chest_tier: int) -> void:
+func _on_loot_roll_request_submitted(_sender: int, cid: String, chest_tier: int) -> void:
 	if not _world.coop_session._coop_world_authority():
 		return
 	_authority_open_loot_roll(cid, chest_tier)
@@ -266,12 +268,11 @@ func _settle_loot_roll(roll_id: String) -> void:
 	_on_loot_roll_result_received(payload)
 
 
-## Authority: grant a resolved chest's cards + a flat coin reward directly into the
-## winner's GID-095 session character record (they may not be the local player, so this
-## reuses the direct-SessionStore-write pattern from _transfer_card_in_session /
-## party-bounty rewards rather than the physical WorldItem pickup path, which only ever
-## grants to the local opener). Equipment drops are out of scope for the roll path — no
-## session-scoped equipment inventory exists to grant to an arbitrary winner (see BID).
+## Authority: grant a resolved chest's cards + a flat coin reward, and (BID-033) roll a
+## chance at one equipment piece, directly into the winner's GID-095 session character
+## record (they may not be the local player, so this reuses the direct-SessionStore-write
+## pattern from _transfer_card_in_session / party-bounty rewards rather than the physical
+## WorldItem pickup path, which only ever grants to the local opener).
 
 func _grant_chest_loot_to_token(token: String, card_ids: Array[String], tier: int) -> void:
 	var st = SessionStore.get_state()
@@ -292,8 +293,37 @@ func _grant_chest_loot_to_token(token: String, card_ids: Array[String], tier: in
 			int(stats.get("attack", 0)), int(stats.get("health", 0)), int(stats.get("cost", 1))))
 	rec["owned_cards"] = owned
 	rec["coins"] = int(rec.get("coins", 0)) + randi_range(5, 20) * 3
+	_roll_equipment_into_loot_grant(rec, tier)
 	st.update_member(token, rec)
 	SessionStore.mark_dirty()
+
+
+## Authority: rolls LootRoll.roll_equipment_drop against the winner's OWN session-scoped
+## ownership (rec's owned_weapons/owned_armor — BID-033) and, on a hit, appends the
+## picked id into whichever of those two arrays matches its WeaponData.slot. Mutates
+## `rec` in place; a no-op (nothing appended) on a chance-miss or an already-fully-owned
+## pool, exactly mirroring WorldScene._maybe_drop_equipment_from_chest's own silent-miss
+## behavior for the single-player/first-opener path.
+
+func _roll_equipment_into_loot_grant(rec: Dictionary, tier: int) -> void:
+	var owned_w: Array = rec.get("owned_weapons", []) as Array
+	var owned_a: Array = rec.get("owned_armor", []) as Array
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var picked: String = _LootRoll.roll_equipment_drop(
+		tier, _WeaponRegistry.get_by_slot("weapon"), _WeaponRegistry.get_by_slot("armor"),
+		owned_w, owned_a, rng)
+	if picked == "":
+		return
+	var weapon: _WeaponData = _WeaponRegistry.get_weapon(picked)
+	if weapon == null:
+		return
+	if weapon.slot == "weapon":
+		owned_w.append(picked)
+		rec["owned_weapons"] = owned_w
+	else:
+		owned_a.append(picked)
+		rec["owned_armor"] = owned_a
 
 
 ## Any peer: announce the winner (toast) and close the prompt if one was open.
@@ -714,7 +744,6 @@ func _on_siege_started_received(siege_id: int) -> void:
 ## Spawn the current wave's deterministic raiders (identical on every peer).
 
 func _coop_spawn_siege_wave() -> void:
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(_world.map_name, Vector3.ZERO)
 	var plan: Array[Dictionary] = _CoopSiege.generate_wave(_world.map_name, _coop_siege_id, _world._coop_siege_wave)
 	_world._coop_siege_wave_nodes.clear()
@@ -756,7 +785,6 @@ func _on_siege_boss_phase_received(siege_id: int) -> void:
 	var boss_id: String = _CoopSiege.boss_id(siege_id)
 	if _world._coop_removed_enemies.has(boss_id):
 		return  # already resolved (e.g. a re-delivered broadcast on late reconciliation)
-	const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 	var gate: Vector3 = _SiegeDefs.TOWN_GATES.get(_world.map_name, Vector3.ZERO)
 	var node: Node3D = _EnemyScene.instantiate() as Node3D
 	if node == null:
@@ -930,18 +958,27 @@ func _on_spire_run_ended_leaderboard(stats: Dictionary) -> void:
 		return
 	_submit_pve_score("spire", floors_cleared)
 
-## Co-op boss clear: submit on a party win while a co-op session is active. The
-## "value" recorded is the party size at the moment the battle ended (peers + self) —
-## a v1 simplification. Neither fastest-clear timing nor the scaled boss tier are
-## threaded from BattleScene back to WorldScene today (see BID-027), so party size is
-## the only robust, always-available proxy of "how tough a clear this was" without
-## inventing new cross-battle plumbing for this task.
-
-func _on_coop_pve_battle_ended_leaderboard(did_win: bool) -> void:
+## Co-op boss clear: submit on a party win while a co-op session is active.
+##
+## BID-031: the "value" recorded used to be raw party size (peers + self) — a v1
+## simplification that couldn't tell a party that scraped by from one that
+## curb-stomped a low-tier enemy. `result` now carries the party-scaled boss tier
+## (`CoopBattleScaling.scale_boss_tier`, computed in `BattleNet._build_coop_pve_state`)
+## and the clear duration, threaded through `GameBus.coop_pve_battle_ended` from
+## `BattleNet._build_coop_reward_payload`. Combined into a single int (rather than
+## widening the stored leaderboard entry shape, which would need a
+## `SessionState.CURRENT_SESSION_VERSION` bump + migration for one v1 leaderboard):
+## tier dominates via the x10000 multiplier, so a harder boss always outranks an
+## easier one regardless of clear time; a faster clear (lower clear_seconds) then
+## breaks ties within the same tier. `result` defaults ({} -> tier 1, 0s) keep this
+## safe against a stale caller that still only emits `did_win`.
+func _on_coop_pve_battle_ended_leaderboard(did_win: bool, result: Dictionary = {}) -> void:
 	if not did_win or not NetworkManager.is_active():
 		return
-	var party_size: int = multiplayer.get_peers().size() + 1
-	_submit_pve_score("coop_clears", party_size)
+	var boss_tier: int = int(result.get("boss_tier", 1))
+	var clear_seconds: float = float(result.get("clear_seconds", 0.0))
+	var value: int = boss_tier * 10000 - int(round(clear_seconds))
+	_submit_pve_score("coop_clears", value)
 
 ## Route a PvE score to the authority: host records directly via SessionStore; a
 ## client sends the new submit RPC. board is "spire" or "coop_clears".
@@ -1147,7 +1184,7 @@ func _on_party_bounty_progress_submitted(sender: int, bounty_type: String, match
 		_refresh_party_bounty_panel()
 		break
 
-func _on_party_bounty_update_received(payload: Dictionary) -> void:
+func _on_party_bounty_update_received(_payload: Dictionary) -> void:
 	# Clients update their local HUD row. The snapshot drives initial state;
 	# incremental updates patch one row at a time.
 	_refresh_party_bounty_panel()

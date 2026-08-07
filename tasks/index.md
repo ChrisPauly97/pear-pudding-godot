@@ -23,7 +23,7 @@
 | [GID-017](goals/GID-017--native-map-storage/goal.md) | Native Godot Map Storage Migration | done | 8 / 8 |
 | [GID-018](goals/GID-018--card-content-depth/goal.md) | Card Content Depth — Dawn & Dusk Branches | done | 4 / 4 |
 | [GID-019](goals/GID-019--battle-depth/goal.md) | Battle Depth — Targeting, Intent & Status Effects | done | 5 / 5 |
-| [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | done (TID-067 superseded by GID-108/TID-405; all criteria satisfied) | 4 / 5 |
+| [GID-020](goals/GID-020--story-completion/goal.md) | Story Completion — NPC Dialogue & Chapter 1 Ending | done (TID-067 superseded by GID-108/TID-405; headless tests confirmed 2026-08-03) | 4 / 5 |
 | [GID-021](goals/GID-021--enemy-boss-variety/goal.md) | Enemy & Boss Variety | done | 5 / 5 |
 | [GID-022](goals/GID-022--weapon-system-content/goal.md) | Weapon System Content | done | 4 / 4 |
 | [GID-023](goals/GID-023--game-feel-polish/goal.md) | Game Feel Polish | done | 5 / 5 |
@@ -110,8 +110,8 @@
 | [GID-104](goals/GID-104--competitive-formats/goal.md) | Competitive Formats — Draft Duels, Tournaments & Spectator Wagers | done | 3 / 3 |
 | [GID-105](goals/GID-105--party-convenience-stakes/goal.md) | Party Convenience & Stakes — Rally Travel and Dungeon Rescue | done | 2 / 2 |
 | [GID-106](goals/GID-106--party-legacy/goal.md) | Party Legacy — Co-op Endless Spire & Guildhall | done | 4 / 4 |
-| [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | done (needs headless test run + visual verification — see TID-398) | 5 / 5 |
-| [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | done (headless test run unverified — no Godot binary in sandbox) | 10 / 10 |
+| [GID-107](goals/GID-107--hud-action-registry/goal.md) | Unified HUD Actions & Party Panel — One Home for Every Feature Button | done (headless tests confirmed 2026-08-03; still needs an eyes-on visual overlap pass — no display in this environment) | 5 / 5 |
+| [GID-108](goals/GID-108--story-arc-expansion/goal.md) | Story Arc Expansion — Chapters 1 & 2, Journey Beats & Scripted Tutorial Battles | done (headless tests confirmed 2026-08-03) | 10 / 10 |
 | [GID-109](goals/GID-109--keybindings-settings/goal.md) | Desktop Keybindings Settings Page | done | 2 / 2 |
 | [GID-110](goals/GID-110--mailbox-overflow-storage/goal.md) | Mailbox — Overflow Storage for Bag-Full Card Rewards | done | 3 / 3 |
 | [GID-111](goals/GID-111--coop-boss-targeting-fix/goal.md) | Co-op Boss Targeting Fix — Dead Ally Retargeting | done | 1 / 1 |
@@ -142,25 +142,15 @@ files in `tasks/archive/backlog/`.
 |----|---------|----------|-------------------|
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded — **out of scope for v1** | spec-gap | GID-070 research |
 | [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | GID-096 |
-| [BID-025](backlog/BID-025--opponent-champion-stats-host-only.md) | Opponent PvP champion stats (wins/losses/streak) recorded host-only; non-host members show 0 in the leaderboard | design-inconsistency | GID-102 / TID-370 |
-| [BID-027](backlog/BID-027--coop-pve-boss-ai-turn-hardcoded-index.md) | Co-op PvE boss AI turn execution hardcodes player index 1 (board-diff/emergence/weather bookkeeping only) | code-smell | GID-102 / TID-371 |
-| [BID-029](backlog/BID-029--wager-challenge-button-missing.md) | `_request_wager_challenge` has zero callers — no UI exists to *initiate* a custom-ante wager, only to accept one | code-smell | GID-102 / TID-373 |
-| [BID-031](backlog/BID-031--coop-clear-value-lacks-boss-tier-and-timing.md) | Co-op boss clear leaderboard value has no boss-tier or timing signal, using party size as a low-signal proxy | design-gap | GID-102 / TID-379 |
-| [BID-032](backlog/BID-032--ghost-duels-host-only-entry-point.md) | Ghost duels are host-only — a client has no local SessionState to pick a ghost opponent from | feature-gap | GID-102 / TID-377 |
-| [BID-033](backlog/BID-033--no-session-scoped-equipment-inventory.md) | No session-scoped equipment inventory — chest equipment drops can't be roll-granted under need/greed | design-gap | GID-102 / TID-381 |
-| [BID-036](backlog/BID-036--spectator-wager-house-banked-payout.md) | Spectator wager settlement is house-banked (can mint coins); walkover forfeits refund instead of paying | design-gap | GID-104 / TID-387 |
-| [BID-037](backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunds no antes; client ante affordability never pre-checked | design-gap | GID-104 / TID-386 |
-| [BID-038](backlog/BID-038--spectator-result-host-perspective.md) | Spectators see duel results from the host's perspective ("Victory!" when the host wins) | code-smell | GID-104 / TID-367-legacy |
-| [BID-053](backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job is `continue-on-error` — 638 pre-existing problems (357 are `class-definitions-order`); two `.gdlintrc` rules that contradicted CLAUDE.md were fixed, cutting the count from >1000 | code-smell | GID-123 / TID-466 |
-| [BID-057](backlog/BID-057--duplicate-tid-352.md) | TID-352 is used by two different completed tasks (GID-096 and GID-097); pre-dates this branch, filed rather than renumbered | doc-gap | GID-124 merge audit |
-| [BID-058](backlog/BID-058--enemy-npc-engage-cooldown-missing.md) | `EnemyNPC.engage_cooldown` documented in 3 agent docs (GID-069 flee/respawn cooldown) but does not exist anywhere in `EnemyNPC.gd` — likely dropped by the TID-427 `engage()` rewrite without a doc update | code-smell / doc-gap | GID-113 / TID-420 |
-| [BID-059](backlog/BID-059--map-scrolls-shrines-music-lost-in-3-maps.md) | `madrian.tres`/`maykalene.tres`/`blancogov.tres` have their `scrolls`/`shrines`/`music_track` fields mis-placed in the `.tres` text format, silently dropped on load — every lore scroll and puzzle shrine in those 3 maps has never spawned; 2 sibling maps fixed by GID-021/TID-071 | content-bug | GID-021 / TID-071 |
-| [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` is 9154 lines / 401 functions — 13% of all GDScript in one file, 9x the project's own `max-file-lines`; it refilled after GID-072 because nothing enforces the decomposition | code-smell | GID-123 research |
+| [BID-053](backlog/BID-053--gdlint-debt-advisory-only.md) | CI `gdlint` job is `continue-on-error` — `duplicated-load`/`unused-argument`/`mixed-tabs-and-spaces` fixed (-35 net), `max-line-length` investigated and left, `class-definitions-order` (~430, largest item) still needs its own dedicated pass | code-smell | GID-123 / TID-466 |
+| [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
 
 ## Resolved Backlog
 
 | ID | Summary | Category | Discovered During |
 |----|---------|----------|-------------------|
+| [BID-057](archive/backlog/BID-057--duplicate-tid-352.md) | TID-352 used by two completed tasks (GID-096, GID-097) | doc-gap | Resolved: cross-reference notes added + `test_task_id_uniqueness.gd` guardrail |
+| [BID-059](archive/backlog/BID-059--map-scrolls-shrines-music-lost-in-3-maps.md) | `madrian.tres`/`maykalene.tres`/`blancogov.tres` had `scrolls`/`shrines`/`music_track` mis-placed in the `.tres` text format, silently dropped on load | content-bug | Resolved: fixed all 3, added `test_named_map_scrolls_shrines.gd` regression coverage |
 | [BID-001](archive/backlog/BID-001--tutorial-onboarding.md) | Tutorial / Onboarding for New Players | spec-gap | ad-hoc review → promoted to GID-012 |
 | [BID-002](archive/backlog/BID-002--voice-acting-spec-conflict.md) | "Voice acting" out-of-scope conflicts with narration scroll audio | spec-gap | Promoted to GID-087 / TID-311 |
 | [BID-003](archive/backlog/BID-003--maykalene-concatenated-door-scroll.md) | maykalene.txt DOOR+SCROLL lines were concatenated; scroll_martarquas_first_war was never spawned | code-smell | GID-017 / TID-047 |
@@ -204,6 +194,16 @@ files in `tasks/archive/backlog/`.
 | [BID-051](archive/backlog/BID-051--character-walk-frames-not-wired.md) | Walk-animation frames shipped by TID-445 were on disk but not wired | enhancement | Resolved: MaitelnFollower wired (only entity that visibly moves; enemies/NPCs confirmed fully static, frames left unwired for them) |
 | [BID-052](archive/backlog/BID-052--auction-mailbox-test-failures-godot47.md) | 7 pre-existing auction/mailbox test failures, suspected Godot 4.7 engine drift | code-smell | Resolved: not engine drift — 2 test-authoring bugs (wrong helper / wrong card index), root-caused by reading the implementation and fixed directly |
 | [BID-054](archive/backlog/BID-054--test-runner-preexisting-suite-failures.md) | test runner preexisting suite failures | — | — |
+| [BID-058](archive/backlog/BID-058--enemy-npc-engage-cooldown-missing.md) | `EnemyNPC.engage_cooldown` documented in 3 agent docs (GID-069 flee/respawn cooldown) but does not exist anywhere in `EnemyNPC.gd` — confirmed dead in both directions (no field, and `SceneManager`'s flee/respawn paths never reference it); docs corrected to describe the real global `_proximity_engage_blocked` mechanism instead of restoring unused code | code-smell / doc-gap | GID-113 / TID-420 |
+| [BID-032](archive/backlog/BID-032--ghost-duels-host-only-entry-point.md) | Ghost duels are host-only — a client has no local SessionState to pick a ghost opponent from | feature-gap | Resolved: `request_ghost_roster`/`recv_ghost_roster` + `request_ghost_snapshot`/`recv_ghost_snapshot` RPCs let a client round-trip through the host |
+| [BID-033](archive/backlog/BID-033--no-session-scoped-equipment-inventory.md) | No session-scoped equipment inventory — chest equipment drops can't be roll-granted under need/greed | design-gap | Resolved: `SessionState` v14 adds `owned_weapons`/`owned_armor`/`equipped_weapon`/`equipped_armor` per character record; `_grant_chest_loot_to_token` now rolls equipment into the pool |
+| [BID-025](archive/backlog/BID-025--opponent-champion-stats-host-only.md) | Opponent PvP champion stats (wins/losses/streak) recorded host-only; non-host members show 0 in the leaderboard | design-inconsistency | Resolved: `CoopPvP._apply_champion_result` now applied to both combatants |
+| [BID-027](archive/backlog/BID-027--coop-pve-boss-ai-turn-hardcoded-index.md) | Co-op PvE boss AI turn execution hardcodes player index 1 (board-diff/emergence/weather bookkeeping only) | code-smell | Resolved: `_execute_ai_actions` now derives the AI's index via `_opp_idx()` |
+| [BID-031](archive/backlog/BID-031--coop-clear-value-lacks-boss-tier-and-timing.md) | Co-op boss clear leaderboard value has no boss-tier or timing signal, using party size as a low-signal proxy | design-gap | Resolved: `GameBus.coop_pve_battle_ended` now carries `{boss_tier, clear_seconds}` |
+| [BID-029](archive/backlog/BID-029--wager-challenge-button-missing.md) | `_request_wager_challenge` had zero callers — no UI existed to *initiate* a custom-ante wager, only to accept one | code-smell | Resolved: added a "Wager Duel" HUD action + ante picker in `CoopPvP.gd` |
+| [BID-036](archive/backlog/BID-036--spectator-wager-house-banked-payout.md) | Spectator wager settlement was house-banked (could mint coins); walkover forfeits refund instead of paying | design-gap | Resolved: `WagerSync.settle()` rewritten to a parimutuel pool-based payout; grace-expiry refund-all kept as an intentional anti-grief measure |
+| [BID-037](archive/backlog/BID-037--tournament-no-ante-refund-or-client-precheck.md) | Tournament abort refunded no antes; client ante affordability never pre-checked | design-gap | Resolved: `TournamentSync.refund_payouts` + abort-refund wiring, plus a pre-start `request_tournament_ante_check`/`respond_tournament_ante_check` handshake |
+| [BID-038](archive/backlog/BID-038--spectator-result-host-perspective.md) | Spectators saw duel results from the host's perspective ("Victory!" when the host won) | code-smell | Resolved: `BattleResultUI.show_pvp_result` gained a neutral `spectating` variant ("Bottom/Top Player Wins!") |
 
 ## Archive
 

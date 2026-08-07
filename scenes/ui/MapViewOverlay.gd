@@ -291,7 +291,7 @@ func _world_to_panel(wx: float, wz: float) -> Vector2:
 	return Vector2(px, pz)
 
 
-func _build_fast_travel_panel(vp: Vector2, vh: float) -> void:
+func _build_fast_travel_panel(_vp: Vector2, vh: float) -> void:
 	var panel_w: float = vh * 0.22
 	var panel_h: float = _panel_size
 	var px: float = _panel_pos.x + _panel_size + vh * 0.02

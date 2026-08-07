@@ -430,7 +430,7 @@ Regular (non-spire, non-siege) battle losses no longer route to `GameOverScene`.
 
 **Button behaviours:**
 - **Retry Battle** (`_on_defeat_retry()`): frees the overlay, calls `_start_battle(_defeat_pending_enemy_data)` — starts a fresh battle against the same enemy.
-- **Respawn** (`_on_defeat_respawn()`): frees the overlay, calls `save_manager.clear_pending_battle()`, sets a 3 s `engage_cooldown` on the nearest EnemyNPC to prevent instant re-engagement.
+- **Respawn** (`_on_defeat_respawn()`): frees the overlay, calls `save_manager.clear_pending_battle()`, and sets `_proximity_engage_blocked = true` for 2 s (the same global post-battle immunity window `_restore_world()` uses — see `docs/agent/enemies-and-npcs.md`) to prevent instant re-engagement. There is no per-enemy `engage_cooldown` field on `EnemyNPC` (corrected BID-058); the window is global, not targeted at the specific enemy respawned near.
 - **Return to Menu** (`_on_defeat_menu()`): frees the overlay, calls `clear_pending_battle()`, then `go_to_menu()`.
 
 **SceneManager fields:**

@@ -1261,4 +1261,4 @@ A "Flee Battle" button is added to the pause overlay alongside Resume / Settings
 3. Frees `_battle_overlay`.
 4. Calls `_restore_world()` — returns the world scene without any rewards or enemy defeat mark.
 
-The fled enemy survives and will attempt to re-engage; `EnemyNPC.engage_cooldown` (set by SceneManager or TID-250 respawn path) prevents immediate re-engagement.
+The fled enemy survives and will attempt to re-engage. There is no per-enemy `EnemyNPC.engage_cooldown` field (corrected BID-058) — `_restore_world()`'s global 2 s `_proximity_engage_blocked` window (see `docs/agent/enemies-and-npcs.md` "Post-battle immunity") is what prevents immediate re-engagement, for every nearby enemy at once, not just the one fled from.

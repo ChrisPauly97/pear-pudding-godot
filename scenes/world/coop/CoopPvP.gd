@@ -67,7 +67,11 @@ var _tournament_match_countdown: float = 0.0  # host-only: seconds until the nex
 var _tournament_panel: VBoxContainer = null   # inner row container
 var _tournament_panel_outer: Control = null   # outer panel Control, nil when never built
 var _tournament_pending_result: Dictionary = {}  # host-only: {} or {"winner_participant_idx": int}
+var _tournament_pending_start: Dictionary = {}  # host-only (BID-037): {} or {peer_ids, tokens, names, decks, ante, awaiting: {peer_id: true}, armed_at}
 var _tournament_tokens: Array[String] = []    # host-only: participant idx -> identity token
+var _wager_ante_amount: int = 25         # BID-029: ante picked by the local stepper, before sending
+var _wager_btn: Button = null            # BID-029: "Wager Duel" secondary action next to Challenge
+var _wager_picker_panel: Node = null     # BID-029: CanvasLayer for the ante-amount picker, nil when closed
 
 func _ensure_challenge_button() -> void:
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
@@ -93,6 +97,14 @@ func _ensure_challenge_button() -> void:
 	else:
 		_world._hud.add_child(_ranked_toggle_btn)
 	UiFx.attach(_ranked_toggle_btn)
+	# BID-029: secondary action next to "Challenge to Battle" — the only way to
+	# *initiate* a wagered duel with a chosen ante (the responder side already
+	# worked via _on_battle_wager_requested / the accept panel). Stacks below the
+	# ranked toggle in the shared contextual zone; a real touch target per the
+	# mobile/desktop parity rule, not a long-press gesture.
+	_wager_btn = _world._world_hud.register_action("wager_challenge", "Wager Duel",
+		WorldHUD.ZONE_CONTEXT, _open_wager_picker, Callable(), Vector2(vp.y * 0.34, vp.y * 0.06))
+	_wager_btn.hide()
 
 ## Shows/hides the challenge button based on proximity to a remote player. Called
 ## each frame from _process while co-op is active. GID-107 / TID-396 priority rule:
@@ -100,24 +112,27 @@ func _ensure_challenge_button() -> void:
 ## contextual slot over a social action — interacting with the world is the more
 ## frequent, lower-friction action.
 
+## Hides the whole challenge cluster (challenge / ranked toggle / wager) —
+## used by every early-out below so the three always stay in sync.
+func _hide_challenge_cluster() -> void:
+	_challenge_btn.hide()
+	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
+		_ranked_toggle_btn.hide()
+	if _wager_btn != null and is_instance_valid(_wager_btn):
+		_wager_btn.hide()
+
 func _update_challenge_proximity() -> void:
 	if _challenge_btn == null or not is_instance_valid(_challenge_btn):
 		return
 	if _world._world_hud != null and _world._world_hud.is_interact_visible():
-		_challenge_btn.hide()
-		if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
-			_ranked_toggle_btn.hide()
+		_hide_challenge_cluster()
 		return
 	# Suppress while a challenge is pending or we're not in the world.
 	if _world._pending_challenge_from != -1 or SceneManager._state != SceneManager.State.WORLD:
-		_challenge_btn.hide()
-		if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
-			_ranked_toggle_btn.hide()
+		_hide_challenge_cluster()
 		return
 	if _world._player == null:
-		_challenge_btn.hide()
-		if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
-			_ranked_toggle_btn.hide()
+		_hide_challenge_cluster()
 		return
 	var range_world: float = _world._CHALLENGE_RANGE * IsoConst.TILE_SIZE
 	var nearest_pid: int = -1
@@ -135,6 +150,10 @@ func _update_challenge_proximity() -> void:
 	_challenge_btn.visible = nearest_pid != -1
 	if _ranked_toggle_btn != null and is_instance_valid(_ranked_toggle_btn):
 		_ranked_toggle_btn.visible = nearest_pid != -1
+	if _wager_btn != null and is_instance_valid(_wager_btn):
+		_wager_btn.visible = nearest_pid != -1
+		if nearest_pid == -1:
+			_dismiss_wager_picker()
 
 ## Local deck as a plain Array of Dictionaries for RPC transmission.
 
@@ -153,6 +172,71 @@ func _request_challenge() -> void:
 	else:
 		_world._net_sync.rpc_id(_challenge_target_peer, "request_battle", my_deck, _ranked_toggle_on)
 	_world._show_tip("Ranked challenge sent…" if _ranked_toggle_on else "Challenge sent…")
+
+## BID-029: opens a small ante-amount picker next to "Challenge to Battle" — the
+## missing initiator-side UI for `request_battle_wager` (the responder side, via
+## `_on_battle_wager_requested` / `_show_wager_accept_panel`, already worked).
+## Real touch target (stepper buttons + a Send button), not a long-press gesture,
+## per the mobile/desktop parity rule.
+func _open_wager_picker() -> void:
+	if _challenge_target_peer == -1:
+		return
+	_dismiss_wager_picker()
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var vh: float = vp.y
+	var prompt: Dictionary = _world._build_prompt(184, 0.02)
+	var layer: CanvasLayer = prompt["layer"]
+	_wager_picker_panel = layer
+	var vbox: VBoxContainer = prompt["vbox"]
+	var amount_lbl := _UiUtil.make_label("Ante: %d coins" % _wager_ante_amount,
+		int(vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var stepper_row := _UiUtil.make_hbox(int(vh * 0.02), vbox)
+	stepper_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var refresh_label := func() -> void:
+		amount_lbl.text = "Ante: %d coins" % _wager_ante_amount
+	_UiUtil.make_button("-10", Vector2(vh * 0.1, vh * 0.06), int(vh * 0.024), func() -> void:
+		_wager_ante_amount = max(5, _wager_ante_amount - 10)
+		refresh_label.call(), stepper_row)
+	_UiUtil.make_button("+10", Vector2(vh * 0.1, vh * 0.06), int(vh * 0.024), func() -> void:
+		_wager_ante_amount += 10
+		refresh_label.call(), stepper_row)
+	var action_row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
+	action_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_UiUtil.make_button("Send Wager", Vector2(vh * 0.26, vh * 0.07), int(vh * 0.024),
+		_send_wager_challenge, action_row)
+	_UiUtil.make_button("Cancel", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.024),
+		_dismiss_wager_picker, action_row)
+
+func _dismiss_wager_picker() -> void:
+	if _wager_picker_panel != null and is_instance_valid(_wager_picker_panel):
+		_wager_picker_panel.queue_free()
+	_wager_picker_panel = null
+
+func _send_wager_challenge() -> void:
+	var ante: int = _wager_ante_amount
+	_dismiss_wager_picker()
+	_request_wager_challenge(ante)
+
+## Initiator side of a wagered duel — the counterpart to the responder path
+## (`_on_battle_wager_requested` / `_accept_wager_challenge`). Sends
+## `request_battle_wager` with the local deck and the chosen ante; the actual
+## coin deduction happens on acceptance in `_enter_pvp_wagered`, same as the
+## existing accept-side flow, so nothing is charged if the peer declines.
+func _request_wager_challenge(ante_coins: int) -> void:
+	if _challenge_target_peer == -1 or _world._net_sync == null:
+		return
+	if ante_coins <= 0:
+		_world._show_tip("Choose an ante above 0 coins.")
+		return
+	if SceneManager.save_manager.coins < ante_coins:
+		_world._show_tip("Not enough coins for that ante.")
+		return
+	var my_deck: Array = _world._local_deck_for_net()
+	if my_deck.size() < IsoConst.DECK_MIN:
+		_world._show_tip("Your deck is too small to duel — add at least %d cards." % IsoConst.DECK_MIN)
+		return
+	_world._net_sync.rpc_id(_challenge_target_peer, "request_battle_wager", my_deck, ante_coins)
+	_world._show_tip("Wagered challenge sent — ante %d coins…" % ante_coins)
 
 # ── Team PvP duels (GID-102 / TID-371) ────────────────────────────────────────
 # GID-107 (TID-395): Team Duel is now a Party-panel action (see _open_party_panel's
@@ -389,6 +473,11 @@ func _check_challenge_timeouts() -> void:
 		_abort_draft_duel("No response to your draft duel challenge.")
 	if _ChallengeTimeout.has_expired(_pvp_relay_challenger_armed_at, now):
 		_on_relay_pvp_response(_pvp_relay_target_id, _pvp_relay_challenger_id, false, [])
+	# BID-037: an entrant never answered the pre-start ante-affordability check.
+	if not _tournament_pending_start.is_empty() \
+			and _ChallengeTimeout.has_expired(int(_tournament_pending_start.get("armed_at", -1)), now):
+		_world._show_tip("Ante check timed out — tournament cancelled.")
+		_tournament_pending_start = {}
 
 ## Both peers route into SceneManager. The co-op host is always the battle
 ## authority (canonical player 0); the client is player 1.
@@ -553,31 +642,25 @@ func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 		if did_win:
 			SceneManager.save_manager.add_coins(_pvp_ante_coins * 2)
 		_pvp_ante_coins = 0
-	# Champion record (TID-368): update pvp stats in session record (host only).
+	# Champion record (TID-368; both sides fixed by BID-025): update pvp stats in
+	# session record (host only — the host is the authority for both records).
 	if NetworkManager.is_host() and SessionStore.is_open():
 		var token: String = MpProfile.get_token()
 		var st = SessionStore.get_state()
 		if st != null:
-			var rec: Dictionary = st.get_member(token)
-			if not rec.is_empty():
-				var wins: int = int(rec.get("pvp_wins", 0))
-				var losses: int = int(rec.get("pvp_losses", 0))
-				var streak: int = int(rec.get("pvp_streak", 0))
-				var best: int = int(rec.get("pvp_best_streak", 0))
-				if did_win:
-					wins += 1
-					streak += 1
-					if streak > best:
-						best = streak
-				else:
-					losses += 1
-					streak = 0
-				rec["pvp_wins"] = wins
-				rec["pvp_losses"] = losses
-				rec["pvp_streak"] = streak
-				rec["pvp_best_streak"] = best
-				st.update_member(token, rec)
-				SessionStore.mark_dirty()
+			_apply_champion_result(st, token, did_win)
+			# BID-025: the opponent (client combatant) gets the symmetric result —
+			# without this only the host's own win/loss/streak ever moved, so every
+			# non-host member's champion record (and the leaderboard's win/loss
+			# columns, derived from it) stayed frozen at 0 no matter how many duels
+			# they played. Same opponent-peer resolution _update_pvp_ratings already
+			# uses below for rating, just unconditional (not gated on ranked).
+			var opp_peer: int = _world._pvp_ante_peer1
+			if opp_peer > 0:
+				var opp_token: String = str(_world._session_token_by_peer.get(opp_peer, ""))
+				if opp_token != "" and opp_token != token:
+					_apply_champion_result(st, opp_token, not did_win)
+			SessionStore.mark_dirty()
 			# Ranked rating (TID-370) — gated on the duel's ranked opt-in (GID-102 / TID-373):
 			# the authority owns both records, so it computes both combatants' ELO deltas and
 			# writes both. The host is one combatant; the opponent is the duel peer captured
@@ -589,6 +672,34 @@ func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 	_pvp_ranked = false
 	# Signal spectators to return to world when WorldScene re-enters the tree.
 	_world._pvp_ended_pending_broadcast = true
+
+
+## Applies one duel's win/loss/streak result to `token`'s champion record in place
+## (BID-025). A no-op if `token` has no record yet (e.g. a stale/unknown opponent
+## token). Caller is responsible for `st.update_member`/`SessionStore.mark_dirty()`
+## — kept out of this helper so `_on_pvp_battle_ended_coop` can apply it to both
+## combatants and persist once, not twice.
+func _apply_champion_result(st, token: String, won: bool) -> void:
+	var rec: Dictionary = st.get_member(token)
+	if rec.is_empty():
+		return
+	var wins: int = int(rec.get("pvp_wins", 0))
+	var losses: int = int(rec.get("pvp_losses", 0))
+	var streak: int = int(rec.get("pvp_streak", 0))
+	var best: int = int(rec.get("pvp_best_streak", 0))
+	if won:
+		wins += 1
+		streak += 1
+		if streak > best:
+			best = streak
+	else:
+		losses += 1
+		streak = 0
+	rec["pvp_wins"] = wins
+	rec["pvp_losses"] = losses
+	rec["pvp_streak"] = streak
+	rec["pvp_best_streak"] = best
+	st.update_member(token, rec)
 
 
 ## Host-authority ranked rating update for a finished duel (GID-102 / TID-370).
@@ -1053,13 +1164,18 @@ func _abort_draft_duel(reason: String = "") -> void:
 # _tournament_active / NetworkManager.is_active() so single-player and normal
 # co-op PvP are untouched.
 
-## Host: builds the bracket from every connected peer (host + all clients),
-## deducts the flat ante from every participant (host locally; clients via
-## notify_tournament_start doing the same on their side — the existing
-## ante-wager precedent), broadcasts the bracket, and schedules match 1.
+## Host: gathers every connected peer (host + all clients), checks decks and
+## its own ante affordability, then — BID-037 — sends every client entrant a
+## pre-start affordability check and waits for all of them to confirm before
+## committing to anything. Only once every client has confirmed does
+## _commit_tournament_start() actually deduct coins, build the bracket, and
+## broadcast notify_tournament_start.
 
 func _start_tournament() -> void:
 	if not NetworkManager.is_host() or _world._net_sync == null or _world._tournament_active:
+		return
+	if not _tournament_pending_start.is_empty():
+		_world._show_tip("Already waiting on ante confirmations…")
 		return
 	var clients: Array = multiplayer.get_peers()
 	if clients.size() < 2:
@@ -1089,22 +1205,101 @@ func _start_tournament() -> void:
 	if SceneManager.save_manager.coins < _world.TOURNAMENT_ANTE_COINS:
 		_world._show_tip("Not enough coins for the ante (%d)." % _world.TOURNAMENT_ANTE_COINS)
 		return
-	var bracket: Dictionary = _TournamentSync.new_bracket(tokens, names, _world.TOURNAMENT_ANTE_COINS)
+	var awaiting: Dictionary = {}
+	for pid in peer_ids:
+		if pid != host_id:
+			awaiting[pid] = true
+	if awaiting.is_empty():
+		# Solo host — no clients to confirm, nothing to wait on (shouldn't
+		# actually happen given the clients.size() < 2 guard above, but keep
+		# the commit path single-entry regardless).
+		_tournament_pending_start = {
+			"peer_ids": peer_ids, "tokens": tokens, "names": names, "decks": decks,
+			"ante": _world.TOURNAMENT_ANTE_COINS, "awaiting": {}, "armed_at": -1,
+		}
+		_commit_tournament_start()
+		return
+	_tournament_pending_start = {
+		"peer_ids": peer_ids, "tokens": tokens, "names": names, "decks": decks,
+		"ante": _world.TOURNAMENT_ANTE_COINS, "awaiting": awaiting,
+		"armed_at": Time.get_ticks_msec(),
+	}
+	for pid in peer_ids:
+		if pid != host_id:
+			_world._net_sync.rpc_id(pid, "request_tournament_ante_check", _world.TOURNAMENT_ANTE_COINS)
+	_world._show_tip("Checking everyone can cover the ante…")
+
+
+## Client: the host wants to know if we can afford the proposed ante before it
+## commits to starting. No coins are touched here — this is a pure query.
+
+func _on_tournament_ante_check_requested(sender: int, ante_coins: int) -> void:
+	if _world._net_sync == null:
+		return
+	var can_afford: bool = SceneManager.save_manager.coins >= ante_coins
+	_world._net_sync.rpc_id(sender, "respond_tournament_ante_check", can_afford)
+
+
+## Host: one entrant's affordability answer. Any single "no" cancels the whole
+## pending start (a 3-4 player bracket can't just drop a member and keep going
+## without rebuilding indices/decks/pairings, so this rejects the attempt
+## outright rather than silently kicking someone) — once every entrant has
+## confirmed "yes", the start is actually committed.
+
+func _on_tournament_ante_check_responded(sender: int, can_afford: bool) -> void:
+	if not NetworkManager.is_host() or _tournament_pending_start.is_empty():
+		return
+	var awaiting: Dictionary = _tournament_pending_start.get("awaiting", {})
+	if not awaiting.has(sender):
+		return
+	if not can_afford:
+		var names: Array = _tournament_pending_start.get("names", [])
+		var peer_ids: Array = _tournament_pending_start.get("peer_ids", [])
+		var idx: int = peer_ids.find(sender)
+		var pname: String = str(names[idx]) if idx >= 0 and idx < names.size() else "A player"
+		_world._show_tip("%s can't afford the ante — tournament cancelled." % pname)
+		_tournament_pending_start = {}
+		return
+	awaiting.erase(sender)
+	_tournament_pending_start["awaiting"] = awaiting
+	if awaiting.is_empty():
+		_commit_tournament_start()
+
+
+## Host: every entrant confirmed (or there were none to confirm) — actually
+## deducts the ante from every participant (host locally; clients via
+## notify_tournament_start doing the same on their side — the existing
+## ante-wager precedent), broadcasts the bracket, and schedules match 1.
+
+func _commit_tournament_start() -> void:
+	var pending: Dictionary = _tournament_pending_start
+	_tournament_pending_start = {}
+	if pending.is_empty() or not NetworkManager.is_host() or _world._net_sync == null \
+			or _world._tournament_active:
+		return
+	var peer_ids: Array[int] = []
+	peer_ids.assign(pending.get("peer_ids", []))
+	var tokens: Array = pending.get("tokens", [])
+	var names: Array = pending.get("names", [])
+	var decks: Array = pending.get("decks", [])
+	var ante: int = int(pending.get("ante", 0))
+	var host_id: int = multiplayer.get_unique_id()
+	var bracket: Dictionary = _TournamentSync.new_bracket(tokens, names, ante)
 	if bracket.is_empty():
 		_world._show_tip("Tournaments support 3-4 players.")
 		return
-	SceneManager.save_manager.add_coins(-_world.TOURNAMENT_ANTE_COINS)
+	SceneManager.save_manager.add_coins(-ante)
 	_world._tournament_active = true
 	_world._tournament_bracket = bracket
 	_world._tournament_peer_ids = peer_ids
 	_tournament_tokens.assign(tokens)
 	_tournament_decks = decks
-	_tournament_ante = _world.TOURNAMENT_ANTE_COINS
+	_tournament_ante = ante
 	_tournament_pending_result = {}
 	for pid in peer_ids:
 		if pid != host_id:
 			_world._net_sync.rpc_id(pid, "notify_tournament_start",
-				_TournamentSync.encode_bracket(bracket), _world.TOURNAMENT_ANTE_COINS)
+				_TournamentSync.encode_bracket(bracket), ante)
 	_build_tournament_panel()
 	GameBus.hud_message_requested.emit("Tournament started — %d matches. Pot: %d coins." % [
 		(bracket.get("matches", []) as Array).size(), int(bracket.get("pot", 0))])
@@ -1263,12 +1458,50 @@ func _finish_tournament() -> void:
 	_refresh_tournament_panel()
 
 
+## BID-037: refunds every participant's ante when the bracket is aborted before
+## it could finish (a participant disconnected mid-bracket, or the session
+## itself is tearing down). Payout math comes from the pure
+## TournamentSync.refund_payouts(); applying it uses the same direct-write
+## pattern as _finish_tournament's payout (host credited locally; each other
+## participant credited straight into its SessionStore member record — the
+## _grant_chest_loot_to_token / party-bounty precedent) — just crediting the
+## ante back instead of the pot. Host-only and a no-op if no ante was ever
+## actually collected.
+
+func _refund_tournament_antes() -> void:
+	if not NetworkManager.is_host():
+		return
+	var payouts: Dictionary = _TournamentSync.refund_payouts(_tournament_tokens, _tournament_ante)
+	if payouts.is_empty():
+		return
+	var host_token: String = MpProfile.get_token()
+	var st = SessionStore.get_state() if SessionStore.is_open() else null
+	var refunded_any: bool = false
+	for token: String in payouts.keys():
+		var amount: int = int(payouts[token])
+		if token == host_token:
+			SceneManager.save_manager.add_coins(amount)
+			refunded_any = true
+			continue
+		if st == null:
+			continue
+		var rec: Dictionary = st.get_member(token)
+		if rec.is_empty():
+			continue
+		rec["coins"] = int(rec.get("coins", 0)) + amount
+		st.update_member(token, rec)
+		refunded_any = true
+	if refunded_any and st != null:
+		SessionStore.mark_dirty()
+
+
 ## Clears every host-side orchestration field. Keeps _tournament_bracket so the
 ## final standings stay on the panel — callers that need a blank panel (abort,
 ## session end) clear the bracket themselves.
 
 func _reset_tournament_state() -> void:
 	_world._tournament_active = false
+	_tournament_pending_start = {}
 	_world._tournament_peer_ids = []
 	_tournament_tokens = []
 	_tournament_decks = []

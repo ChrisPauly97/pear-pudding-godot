@@ -20,6 +20,7 @@ const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
 const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
 const _EnemySync         = preload("res://game_logic/net/EnemySync.gd")
 const _EnvSync           = preload("res://game_logic/net/EnvSync.gd")
+const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 const _NetSyncScript     = preload("res://scenes/world/NetSync.gd")
 const _PartyPanel        = preload("res://scenes/ui/PartyPanel.gd")
 const _PlayerIdentity    = preload("res://game_logic/net/PlayerIdentity.gd")
@@ -173,15 +174,32 @@ func _on_coop_peer_disconnected(pid: int) -> void:
 	if NetworkManager.is_host():
 		SessionStore.flush_now()
 	# GID-104 (TID-386): a tournament participant disconnecting mid-bracket has no
-	# resume/refund path in v1 (documented gap) — abort cleanly rather than leave
-	# the bracket stuck forever waiting for a match that can never finish.
+	# resume path in v1 (documented gap) — abort cleanly rather than leave the
+	# bracket stuck forever waiting for a match that can never finish.
+	# BID-037: every participant's ante is refunded on abort (harsh otherwise for
+	# a 6-match bracket) — refund BEFORE _reset_tournament_state() clears the
+	# ante/token bookkeeping it needs.
 	if _world._tournament_active and NetworkManager.is_host() and _world._tournament_peer_ids.has(pid):
+		var refunded_ante: int = _world.coop_pvp._tournament_ante
+		_world.coop_pvp._refund_tournament_antes()
 		_world.coop_pvp._reset_tournament_state()
 		_world._tournament_bracket = {}
 		if _world._net_sync != null:
 			_world._net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket({}))
 		_world.coop_pvp._refresh_tournament_panel()
-		GameBus.hud_message_requested.emit("Tournament aborted — a player disconnected.")
+		if refunded_ante > 0:
+			GameBus.hud_message_requested.emit(
+				"Tournament aborted — a player disconnected. Antes refunded (%d coins each)." % refunded_ante)
+		else:
+			GameBus.hud_message_requested.emit("Tournament aborted — a player disconnected.")
+	# BID-037: a peer we're mid-handshake with (the pre-start ante-affordability
+	# check, before the tournament is even marked active) disconnected before
+	# confirming — cancel the pending start instead of waiting on it forever.
+	if NetworkManager.is_host() and not _world.coop_pvp._tournament_pending_start.is_empty():
+		var pending_peers: Array = _world.coop_pvp._tournament_pending_start.get("peer_ids", [])
+		if pending_peers.has(pid):
+			_world.coop_pvp._tournament_pending_start = {}
+			GameBus.hud_message_requested.emit("Tournament start cancelled — a player disconnected.")
 	_refresh_coop_roster()
 
 func _on_coop_session_ended() -> void:
@@ -211,7 +229,11 @@ func _on_coop_session_ended() -> void:
 	# Draft duel (GID-104 / TID-385): session gone — abort any draft in flight.
 	_world.coop_pvp._abort_draft_duel()
 	# Session tournaments (GID-104 / TID-386) are session-scoped: a bracket cannot
-	# outlive the session that scheduled it. No refunds in v1 (documented gap).
+	# outlive the session that scheduled it. BID-037: refund antes here too (same
+	# reasoning as the single-participant-disconnect abort path) before the
+	# ante/token bookkeeping needed to do so is cleared.
+	if _world._tournament_active:
+		_world.coop_pvp._refund_tournament_antes()
 	_world.coop_pvp._reset_tournament_state()
 	_world._tournament_bracket = {}
 	_world.coop_pvp._refresh_tournament_panel()
@@ -562,9 +584,12 @@ func _open_party_panel() -> void:
 	# so it belongs here the same way.
 	panel.show_auction = true
 	panel.on_auction = _world.coop_social._toggle_auction_overlay
-	# Ghost Duels: host-only, gated on SessionStore.is_open() (see _ensure_ghost_duel_button's
-	# old comment — a client never opens SessionStore locally).
-	panel.show_ghost_duels = SessionStore.is_open()
+	# Ghost Duels: available to host and client alike while a session is active
+	# (BID-032 fix) — a client has no local SessionStore (see
+	# WorldScene._setup_session), so it resolves the roster/snapshot over the wire
+	# via CoopSocial's request_ghost_roster / request_ghost_snapshot round-trips
+	# instead of reading SessionStore directly the way the host does.
+	panel.show_ghost_duels = NetworkManager.is_active()
 	panel.on_ghost_duels = _world.coop_social._toggle_ghost_duel_overlay
 	# Team Duel: host-only, needs 3 connected clients (4 total) — mirrors the old
 	# _update_team_duel_button_visibility() condition exactly.
@@ -835,7 +860,7 @@ func _on_world_event_received(_sender: int, payload: Array) -> void:
 		_WorldObjectSync.EV_CHEST_OPENED:
 			_coop_mark_chest_opened_node(id)
 		_WorldObjectSync.EV_SCROLL_COLLECTED:
-			_world._coop_apply_scroll_collected(id)
+			_coop_apply_scroll_collected(id)
 
 ## NetSync → authority: apply a client's world-event intent (host only).
 
@@ -866,8 +891,8 @@ func _on_world_event_submitted(sender: int, payload: Array) -> void:
 					_world._net_sync.rpc_id(int(pid), "recv_world_event",
 						_WorldObjectSync.encode_event(_WorldObjectSync.EV_CHEST_OPENED, id))
 		_WorldObjectSync.EV_SCROLL_COLLECTED:
-			_world._coop_record_scroll_collected(id)
-			_world._coop_apply_scroll_collected(id)
+			_coop_record_scroll_collected(id)
+			_coop_apply_scroll_collected(id)
 			for pid in multiplayer.get_peers():
 				if int(pid) != sender:
 					_world._net_sync.rpc_id(int(pid), "recv_world_event",
@@ -891,6 +916,43 @@ func _on_world_snapshot_received(payload: Array) -> void:
 	_coop_apply_world_progress(
 		snap.get("removed_enemies", []), snap.get("opened_objects", []),
 		snap.get("collected_scrolls", []))
+
+## Co-op (GID-108 / TID-408, design rule 5): mirror the GID-096 shared-chest model —
+## a scroll pickup is granted to every session member. Called from
+## WorldScene._on_scroll_collected via the local player's own pickup.
+
+func _broadcast_scroll_collected_coop(scroll_id: String) -> void:
+	if not _world._coop_active or _world._net_sync == null or not NetworkManager.is_active():
+		return
+	if NetworkManager.is_host():
+		_coop_record_scroll_collected(scroll_id)
+		_world._net_sync.rpc("recv_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_SCROLL_COLLECTED, scroll_id))
+	else:
+		_world._net_sync.rpc_id(1, "submit_world_event", _WorldObjectSync.encode_event(
+			_WorldObjectSync.EV_SCROLL_COLLECTED, scroll_id))
+
+## Host-only: persist a collected scroll into the session file.
+
+func _coop_record_scroll_collected(scroll_id: String) -> void:
+	_world._coop_collected_scrolls[scroll_id] = true
+	var st = SessionStore.get_state()
+	if st != null and not st.collected_scrolls.has(scroll_id):
+		st.collected_scrolls.append(scroll_id)
+		SessionStore.mark_dirty()
+
+## Apply a scroll pickup that originated elsewhere (a teammate, or a snapshot
+## replay) to this peer's own SaveManager, re-running the same tip/flag/
+## completion logic in WorldScene._on_scroll_collected as a real local pickup would.
+
+func _coop_apply_scroll_collected(scroll_id: String) -> void:
+	_world._coop_collected_scrolls[scroll_id] = true
+	if SceneManager.save_manager.collected_scrolls.has(scroll_id):
+		return
+	_world._coop_scroll_syncing = true
+	SceneManager.save_manager.mark_scroll_collected(scroll_id)
+	GameBus.story_scroll_collected.emit(scroll_id)
+	_world._coop_scroll_syncing = false
 
 # ── Synced world clock & weather (GID-103 / TID-382) ──────────────────────────
 # The authority (host) is the single source of truth for time_of_day/days_elapsed/
@@ -1049,7 +1111,7 @@ func _on_story_flag_received(key: String, value: bool) -> void:
 
 ## Authority: a client wants to set a flag — arbitrate (idempotent) and broadcast.
 
-func _on_story_flag_submitted(sender: int, key: String, value: bool) -> void:
+func _on_story_flag_submitted(_sender: int, key: String, value: bool) -> void:
 	if not _coop_world_authority() or _world._net_sync == null:
 		return
 	# Idempotency: if the flag is already this value, skip side-effects.
@@ -1077,7 +1139,7 @@ func _coop_apply_world_progress(removed_enemies: Array, opened_objects: Array, c
 	for cid in opened_objects:
 		_coop_mark_chest_opened_node(str(cid))
 	for sid in collected_scrolls:
-		_world._coop_apply_scroll_collected(str(sid))
+		_coop_apply_scroll_collected(str(sid))
 
 ## Host: broadcast positions for any live shared enemy at a low Hz (inert while all
 ## enemies are static, as on every current co-op map). Called from _process.
@@ -1400,6 +1462,112 @@ func _start_guildhall() -> void:
 	_world._coop_map_transitioning = true
 	_world._net_sync.rpc("recv_map_transition", "guildhall", "")
 	SceneManager.enter_map("guildhall", "")
+
+## Host: a client asked for a fresh guildhall garden snapshot (entering the map).
+
+func _on_guildhall_garden_request_submitted(sender: int) -> void:
+	_broadcast_guildhall_garden(sender)
+
+## Host-only: push the current guildhall garden state to one peer (0 = all).
+
+func _broadcast_guildhall_garden(target_peer: int = 0) -> void:
+	if not NetworkManager.is_host() or _world._net_sync == null or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var payload: Dictionary = {
+		"plots": (gh.get("garden_plots", []) as Array).duplicate(true),
+		"plants": (gh.get("plants", {}) as Dictionary).duplicate(true),
+	}
+	_world._guildhall_garden_cache = payload
+	if target_peer == 0:
+		_world._net_sync.rpc("recv_guildhall_garden_update", payload)
+	else:
+		_world._net_sync.rpc_id(target_peer, "recv_guildhall_garden_update", payload)
+	_world._refresh_guildhall_garden_visuals()
+
+## Any peer: receive a guildhall garden snapshot and refresh plot visuals.
+
+func _on_guildhall_garden_update_received(payload: Dictionary) -> void:
+	_world._guildhall_garden_cache = payload
+	_world._refresh_guildhall_garden_visuals()
+
+## Local player (any peer) picked a seed for an empty plot.
+
+func _submit_session_plant(plot_idx: int, seed_id: String) -> void:
+	if NetworkManager.is_host():
+		_on_session_plant_submitted(multiplayer.get_unique_id(), plot_idx, seed_id)
+	elif _world._net_sync != null:
+		_world._net_sync.rpc_id(1, "submit_session_plant", plot_idx, seed_id)
+
+## Host: plant a seed in the shared guildhall garden (free — no session seed
+## economy is modeled, TID-393 Plan Notes) and broadcast the result.
+
+func _on_session_plant_submitted(_sender: int, plot_idx: int, seed_id: String) -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	if not GardenDefs.SEEDS.has(seed_id):
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var plots: Array = gh.get("garden_plots", [])
+	if plot_idx < 0 or plot_idx >= plots.size():
+		return
+	if not (plots[plot_idx] as Dictionary).is_empty():
+		return  # already planted — ignore a stale/duplicate submit
+	plots[plot_idx] = {"seed_id": seed_id, "planted_day": _coop_current_days_elapsed()}
+	gh["garden_plots"] = plots
+	st.guildhall_state = gh
+	SessionStore.mark_dirty()
+	_broadcast_guildhall_garden()
+
+## Local player (any peer) harvested a mature plot.
+
+func _submit_session_harvest(plot_idx: int) -> void:
+	if NetworkManager.is_host():
+		_on_session_harvest_submitted(multiplayer.get_unique_id(), plot_idx)
+	elif _world._net_sync != null:
+		_world._net_sync.rpc_id(1, "submit_session_harvest", plot_idx)
+
+## Host: harvest a mature shared guildhall plot into the session's dedicated
+## `plants` pool (not the party stash — see TID-393 Plan Notes) and broadcast.
+
+func _on_session_harvest_submitted(_sender: int, plot_idx: int) -> void:
+	if not NetworkManager.is_host() or not SessionStore.is_open():
+		return
+	var st = SessionStore.get_state()
+	if st == null:
+		return
+	var gh: Dictionary = st.guildhall_state
+	var plots: Array = gh.get("garden_plots", [])
+	if plot_idx < 0 or plot_idx >= plots.size():
+		return
+	var plot_data: Dictionary = plots[plot_idx]
+	if plot_data.is_empty():
+		return
+	var seed_id: String = str(plot_data.get("seed_id", ""))
+	var sdata: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
+	if sdata.is_empty():
+		return
+	var growth_days: int = int(sdata.get("growth_days", 2))
+	var planted_day: int = int(plot_data.get("planted_day", 0))
+	var stage: int = GardenDefs.growth_stage(planted_day, growth_days, _coop_current_days_elapsed())
+	if stage < 3:
+		return  # not mature yet — ignore a stale/duplicate submit
+	var plant_id: String = str(sdata.get("plant_id", ""))
+	var yield_count: int = int(sdata.get("yield", 1))
+	var plants: Dictionary = gh.get("plants", {})
+	plants[plant_id] = int(plants.get(plant_id, 0)) + yield_count
+	gh["plants"] = plants
+	plots[plot_idx] = {}
+	gh["garden_plots"] = plots
+	st.guildhall_state = gh
+	SessionStore.mark_dirty()
+	_broadcast_guildhall_garden()
 
 # ── Co-op Endless Spire (GID-106 / TID-390) ──────────────────────────────────
 #

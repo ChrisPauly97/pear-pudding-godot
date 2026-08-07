@@ -2071,13 +2071,21 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 		return
 	AudioManager.play_sfx("attack")
 	var snap_ai := _fx.snapshot()
-	var ai_board_before: Array[CardInstance] = _state.players[1].board.get_cards().duplicate()
+	# BID-027: the AI's own index — 1 for solo/2-player battles, but the boss's
+	# actual index (players.size() - 1, always >= 2) for co-op PvE. `_run_ai_turn`
+	# only ever runs on the host authority with `_local_player_idx == 0`, so
+	# `_opp_idx()` ("the local player's opponent") already resolves to exactly
+	# this: 1 in solo/2-player, the boss slot in co-op PvE. Reuses the same
+	# accessor BID-026 established for `_execute_attack`/`_apply_remote_intent`
+	# rather than re-deriving the co-op/solo branch locally.
+	var ai_idx: int = _opp_idx()
+	var ai_board_before: Array[CardInstance] = _state.players[ai_idx].board.get_cards().duplicate()
 	actions[idx].call()
-	_resolver.flush_auto_spells(1)
-	for c: CardInstance in _state.players[1].board.get_cards():
+	_resolver.flush_auto_spells(ai_idx)
+	for c: CardInstance in _state.players[ai_idx].board.get_cards():
 		if not ai_board_before.has(c):
-			_resolver.resolve_emergence(c, 1)
-			_apply_weather_to_summoned(c, 1)
+			_resolver.resolve_emergence(c, ai_idx)
+			_apply_weather_to_summoned(c, ai_idx)
 	_fx.trigger_fx(snap_ai)
 	await _animate_deaths_from_snapshot(snap_ai)
 	_refresh_all()

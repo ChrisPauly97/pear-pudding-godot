@@ -5,6 +5,7 @@ const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _CardInstanceUtil = preload("res://game_logic/CardInstanceUtil.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
+const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 
 signal coins_changed(new_amount: int)
 
@@ -545,8 +546,8 @@ func ensure_coop_deck() -> void:
 
 ## Load a multiplayer **session character** (GID-095 / TID-346) into the in-memory
 ## state that co-op and PvP already read (deck, collection, coins, level, skills,
-## magic). The record comes from the authority's `SessionState` member roster — its
-## own save, scoped to the session and entirely separate from single-player.
+## magic, equipment). The record comes from the authority's `SessionState` member
+## roster — its own save, scoped to the session and entirely separate from single-player.
 ##
 ## **Isolation invariant:** this deliberately forces `_loaded = false`, so `save()`
 ## and the 2 s `_flush_if_dirty` stay no-ops for the whole session — the session
@@ -583,6 +584,27 @@ func adopt_session_character(record: Dictionary) -> void:
 	magic_type = str(record.get("magic_type", ""))
 	corruption_points = int(record.get("corruption_points", 0))
 	redemption_points = int(record.get("redemption_points", 0))
+	# Session-scoped equipment inventory (BID-033). owned_weapons in the session
+	# record is a plain Array[String] of ids (no per-instance upgrade_level — session
+	# equipment upgrades aren't modeled), converted here into SaveManager's own
+	# {weapon_id, upgrade_level: 0} instance shape so the rest of the equipment code
+	# (get_owned_by_slot, add_weapon, etc.) needs no session-aware branching.
+	equipped_weapon = str(record.get("equipped_weapon", ""))
+	owned_weapons.clear()
+	var raw_weapons: Variant = record.get("owned_weapons", [])
+	if raw_weapons is Array:
+		for wid: Variant in (raw_weapons as Array):
+			var wid_str: String = str(wid)
+			if wid_str != "" and not _has_weapon_id(wid_str):
+				owned_weapons.append({"weapon_id": wid_str, "upgrade_level": 0})
+	equipped_armor = str(record.get("equipped_armor", ""))
+	owned_armor.clear()
+	var raw_armor: Variant = record.get("owned_armor", [])
+	if raw_armor is Array:
+		for aid: Variant in (raw_armor as Array):
+			var aid_str: String = str(aid)
+			if aid_str != "" and not owned_armor.has(aid_str):
+				owned_armor.append(aid_str)
 	# Hard isolation: a session character must never persist to the single-player save.
 	_loaded = false
 	_dirty = false
@@ -593,6 +615,10 @@ func adopt_session_character(record: Dictionary) -> void:
 ## (GID-095 / TID-346). The caller attaches token / display_name / position before
 ## sending it to the authority for persist-back. Shape matches
 ## `SessionState.make_starter_character` (minus the caller-owned fields).
+##
+## `owned_weapons` is flattened to a plain Array[String] of ids via
+## `get_owned_by_slot("weapon")` — the mirror image of `adopt_session_character`'s
+## conversion back into `{weapon_id, upgrade_level: 0}` instances (BID-033).
 func export_session_character() -> Dictionary:
 	return {
 		"owned_cards": owned_cards.duplicate(true),
@@ -607,6 +633,10 @@ func export_session_character() -> Dictionary:
 		"magic_type": magic_type,
 		"corruption_points": corruption_points,
 		"redemption_points": redemption_points,
+		"owned_weapons": get_owned_by_slot("weapon"),
+		"owned_armor": owned_armor.duplicate(),
+		"equipped_weapon": equipped_weapon,
+		"equipped_armor": equipped_armor,
 	}
 
 const CURRENT_SAVE_VERSION: int = 41
@@ -625,14 +655,13 @@ static func _apply_migrations(data: Dictionary) -> void:
 		d["version"] = 1
 
 	var _m10: Callable = func(d: Dictionary) -> void:
-		const CardReg = preload("res://autoloads/CardRegistry.gd")
 		var old_owned: Array = d.get("owned_cards", [])
 		var old_deck: Array = d.get("player_deck", [])
 		var new_instances: Array = []
 		var counter: int = 0
 		for item in old_owned:
 			var tid: String = str(item)
-			var tmpl: Dictionary = CardReg.get_template(tid)
+			var tmpl: Dictionary = CardRegistry.get_template(tid)
 			var uid: String = "%s_v10_%d" % [tid, counter]
 			counter += 1
 			new_instances.append({"uid": uid, "template_id": tid, "rarity": "common",
@@ -1398,7 +1427,6 @@ func get_owned_weapon_by_id(weapon_id: String) -> Dictionary:
 ## Upgrades the first matching weapon instance by one level.
 ## Deducts coins and essence; returns false if already at max or insufficient funds.
 func upgrade_weapon(weapon_id: String) -> bool:
-	const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 	for i: int in range(owned_weapons.size()):
 		if str(owned_weapons[i].get("weapon_id", "")) != weapon_id:
 			continue
@@ -1419,7 +1447,6 @@ func upgrade_weapon(weapon_id: String) -> bool:
 ## Salvages the first unequipped instance of weapon_id.
 ## Returns {coins, essence} earned, or {} if refused (equipped or not found).
 func salvage_weapon(weapon_id: String) -> Dictionary:
-	const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 	if equipped_weapon == weapon_id or equipped_armor == weapon_id \
 			or equipped_ring == weapon_id or equipped_trinket == weapon_id:
 		return {}
