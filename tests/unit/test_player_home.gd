@@ -141,11 +141,11 @@ func test_trophy_registry_get_unknown_returns_empty() -> void:
 # ---------------------------------------------------------------------------
 
 func test_champion_not_earned_with_empty_duelists() -> void:
-	_sm.defeated_duelists = []
+	_sm.defeated_duelists.assign([])
 	assert_false(TrophyRegistry.is_earned("champion", _sm))
 
 func test_champion_earned_with_one_defeated_duelist() -> void:
-	_sm.defeated_duelists = ["npc_duelist_1"]
+	_sm.defeated_duelists.assign(["npc_duelist_1"])
 	assert_true(TrophyRegistry.is_earned("champion", _sm))
 
 # ---------------------------------------------------------------------------
@@ -173,11 +173,11 @@ func test_spire_7_earned_when_best_floor_ten() -> void:
 # ---------------------------------------------------------------------------
 
 func test_first_boss_not_earned_with_empty_defeated_enemies() -> void:
-	_sm.defeated_enemies = []
+	_sm.defeated_enemies.assign([])
 	assert_false(TrophyRegistry.is_earned("first_boss", _sm))
 
 func test_first_boss_graceful_fallback_when_enemy_type_unknown() -> void:
-	_sm.defeated_enemies = ["enemy_cx0_cz0_0"]
+	_sm.defeated_enemies.assign(["enemy_cx0_cz0_0"])
 	# World enemy IDs are not boss type IDs — is_earned returns false gracefully.
 	var result: bool = TrophyRegistry.is_earned("first_boss", _sm)
 	assert_false(result, "Unknown enemy id must not be treated as boss")

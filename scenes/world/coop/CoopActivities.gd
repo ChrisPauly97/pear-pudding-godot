@@ -77,9 +77,9 @@ func _coop_spawn_night_hunt(days: int) -> void:
 			"id": eid,
 			"enemy_type": str(entry.get("enemy_type", "spectre_wisp")),
 			"tracking": true,
+			"nocturnal": true,
 		})
 		node.position = Vector3(wx, wy, wz)
-		node.modulate = Color(0.7, 0.85, 1.0, 0.85)
 		_world._entity_root.add_child(node)
 		_world._enemy_nodes[eid] = node
 		_coop_night_hunt_nodes[eid] = node

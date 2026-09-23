@@ -53,24 +53,24 @@ func test_can_buy_false_when_both_level_and_coins_fail() -> void:
 func test_purchase_deducts_coins() -> void:
 	_sm.coins = 1000
 	_sm.level = 10
-	_sm.owned_mounts = []
+	_sm.owned_mounts.assign([])
 	_sm.coins -= MOUNT_PRICE
 	assert_eq(_sm.coins, 250)
 
 func test_purchase_adds_to_owned_mounts() -> void:
-	_sm.owned_mounts = []
+	_sm.owned_mounts.assign([])
 	_sm.owned_mounts.append("stable_horse")
 	assert_true(_sm.owned_mounts.has("stable_horse"))
 
 func test_purchase_sets_active_mount_via_summon() -> void:
-	_sm.owned_mounts = []
+	_sm.owned_mounts.assign([])
 	_sm.owned_mounts.append("stable_horse")
 	_sm.summon_mount("stable_horse")
 	assert_eq(_sm.active_mount, "stable_horse")
 	assert_true(_sm.is_mounted)
 
 func test_already_owns_guard_blocks_repurchase() -> void:
-	_sm.owned_mounts = []
+	_sm.owned_mounts.assign([])
 	_sm.owned_mounts.append("stable_horse")
 	var already_owned: bool = _sm.owned_mounts.has("stable_horse")
 	assert_true(already_owned, "re-purchase must be blocked when already owned")
@@ -148,7 +148,7 @@ func test_toggle_noop_when_not_in_main() -> void:
 	assert_eq(_sm.is_mounted, before)
 
 func test_toggle_noop_when_no_mounts_owned() -> void:
-	_sm.owned_mounts = []
+	_sm.owned_mounts.assign([])
 	_sm.current_map = "main"
 	var before: bool = _sm.is_mounted
 	if _sm.current_map == "main" and _sm.owned_mounts.size() > 0:

@@ -1825,4 +1825,3 @@ func enter_coop_map_no_stack(target_map: String, target_door_id: String = "") ->
 ## Clients never mutate _coop_spire_run directly.
 func set_coop_spire_run_mirror(run: Dictionary) -> void:
 	_coop_spire_run = run.duplicate(true)
-	save_manager.sync_stacks(map_stack, door_stack)

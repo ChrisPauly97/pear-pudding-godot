@@ -27,7 +27,6 @@ const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
-const CantripManager = preload("res://game_logic/world/CantripManager.gd")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 
@@ -59,6 +58,8 @@ const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 # Team Duel, Dungeon Crawl) that used to each be an individually-positioned button.
 
 # Co-op multiplayer (GID-090)
+const _Cantrips = preload("res://scenes/world/modules/Cantrips.gd")
+const _NocturnalSpawner = preload("res://scenes/world/modules/NocturnalSpawner.gd")
 const _CoopSocial = preload("res://scenes/world/coop/CoopSocial.gd")
 const _CoopPvP = preload("res://scenes/world/coop/CoopPvP.gd")
 const _CoopActivities = preload("res://scenes/world/coop/CoopActivities.gd")
@@ -251,8 +252,6 @@ var _burial_mound_nodes: Dictionary = {} # mound_id -> Node3D
 var _blight_heart_nodes: Dictionary = {} # heart_id -> Node3D
 var _active_landmark_data: Dictionary = {} # landmark_id -> Dictionary
 var _mana_well_nodes: Dictionary = {}    # well_id -> Node3D
-var _ghost_phase_active: bool = false    # true while ghost-phase tween runs
-var _ghost_tween: Tween = null
 var _current_biome: int = -1
 
 const _BIOME_MUSIC: Array = [
@@ -277,12 +276,10 @@ var _roaming_boss_timer: float = 0.0
 var _traveling_merchant_timer: float = 0.0
 var _card_shower_items: Array[Node3D] = []
 
-# Nocturnal spawn system (GID-055 Night Hunts)
-var _nocturnal_enemies: Dictionary = {}        # spawn_id -> {"node": Node3D, "chunk": Vector2i}
-var _nocturnal_spawn_timer: float = 0.0
+# Nocturnal spawn system (GID-055 Night Hunts) — see modules/NocturnalSpawner.gd
+var nocturnal: Node = null
+var cantrips: Node = null   # modules/Cantrips.gd (GID-065)
 var _night_cue_played: bool = false
-var _night_hunt_tutorial_shown_session: bool = false
-var _nocturnal_id_counter: int = 0
 
 # Day/night cycle — delegated to DayNightCycle component
 var _world_env: WorldEnvironment
@@ -428,6 +425,7 @@ func _setup_vignette() -> void:
 func _ready() -> void:
 	# Before anything else wires signals to them (the GameBus connections below
 	# target module methods directly).
+	_ensure_world_modules()
 	_ensure_coop_modules()
 	_setup_environment()
 	_sun.shadow_opacity = 0.2
@@ -522,7 +520,7 @@ func _ready() -> void:
 				AudioManager.play_sfx("nightfall_ambient")
 		)
 		_dnc.dawn_arrived.connect(func() -> void:
-			_despawn_nocturnal_enemies(true)
+			nocturnal.despawn_all(true)
 			_night_cue_played = false
 		)
 
@@ -801,6 +799,21 @@ func enter_downed_state() -> void:
 	if coop_session != null:
 		coop_session.enter_downed_state()
 
+## Creates the single-player feature modules split out of this scene. Same
+## shape as the co-op modules: a child Node with a `_world` back-reference.
+func _ensure_world_modules() -> void:
+	nocturnal = _ensure_world_module(nocturnal, _NocturnalSpawner, "NocturnalSpawner")
+	cantrips = _ensure_world_module(cantrips, _Cantrips, "Cantrips")
+
+func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
+	if existing != null and is_instance_valid(existing):
+		return existing
+	var mod: Node = script.new()
+	mod.name = node_name
+	mod.set("_world", self)
+	add_child(mod)
+	return mod
+
 ## Creates the co-op feature modules and, once NetSync exists, registers them as
 ## its RPC handler targets. Called from _ready (so _ready's own GameBus wiring
 ## has something to connect to) and again from _setup_coop. Idempotent: a PvP
@@ -1046,7 +1059,7 @@ func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: RefCounted) -> void:
 		if is_instance_valid(wnode):
 			wnode.queue_free()
 		_mana_well_nodes.erase(wid)
-	_evict_nocturnal_enemies_in_chunk(chunk_key)
+	nocturnal.evict_chunk(chunk_key)
 
 # ── ChunkRenderer registration callbacks (called via duck typing) ──────────────
 
@@ -1090,156 +1103,6 @@ func _tick_card_shower() -> void:
 	if wem != null:
 		wem.call("end_event", "card_shower")
 	_card_shower_items.clear()
-
-# ── Nocturnal spawn system (GID-055 Night Hunts) ──────────────────────────────
-
-func _update_nocturnal_spawns(delta: float) -> void:
-	if not _is_infinite or _player == null:
-		return
-	var currently_night: bool = _dnc != null and _dnc.is_night_now()
-	if not currently_night:
-		_nocturnal_spawn_timer = 0.0
-		return
-
-	_nocturnal_spawn_timer -= delta
-	if _nocturnal_spawn_timer > 0.0:
-		return
-	_nocturnal_spawn_timer = randf_range(30.0, 60.0)
-
-	# Cap total nocturnal enemies globally to 12
-	var alive_count: int = 0
-	for sid: String in _nocturnal_enemies.keys():
-		var entry: Dictionary = _nocturnal_enemies[sid]
-		var n: Node3D = _valid_node3d(entry.get("node"))
-		if not is_instance_valid(n):
-			_nocturnal_enemies.erase(sid)
-		else:
-			alive_count += 1
-	if alive_count >= 12:
-		return
-
-	# Find a walkable grass tile 6–12 world units from the player
-	var spawn_pos: Vector3 = _find_nocturnal_spawn_pos()
-	if spawn_pos == Vector3.ZERO:
-		return
-
-	# Pick spectre tier based on world distance from origin
-	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var dist: int = int(Vector2(_player.position.x, _player.position.z).length() / chunk_world)
-	var enemy_type: String = "spectre_wisp"
-	if dist >= 8:
-		enemy_type = "spectre_dread"
-	elif dist >= 3:
-		enemy_type = "spectre_haunt"
-
-	var node: Node3D = _EnemyScene.instantiate() as Node3D
-	if node == null:
-		return
-	_nocturnal_id_counter += 1
-	var spawn_id: String = "nocturnal_%d" % _nocturnal_id_counter
-	var data: Dictionary = {
-		"id": spawn_id,
-		"enemy_type": enemy_type,
-		"tracking": true,
-		"nocturnal": true,
-	}
-	node.set_meta("is_nocturnal", true)
-	node.call("init_from_data", data)
-	node.position = spawn_pos
-	_entity_root.add_child(node)
-	# Tint the Sprite3D child (Node3D has no modulate; Sprite3D does)
-	var sprite: Sprite3D = node.get_node_or_null("Sprite3D") as Sprite3D
-	if sprite == null:
-		for ch in node.get_children():
-			if ch is Sprite3D:
-				sprite = ch
-				break
-	if sprite != null:
-		sprite.modulate = Color(0.7, 0.85, 1.0, 0.85)
-
-	var pcx: int = int(floor(spawn_pos.x / chunk_world))
-	var pcz: int = int(floor(spawn_pos.z / chunk_world))
-	_nocturnal_enemies[spawn_id] = {"node": node, "chunk": Vector2i(pcx, pcz)}
-	_enemy_nodes[spawn_id] = node
-
-	# Tutorial popup — once per session on first night spawn
-	if not _night_hunt_tutorial_shown_session:
-		_night_hunt_tutorial_shown_session = true
-		if not SceneManager.save_manager.get_story_flag("seen_tutorial_night_hunts"):
-			SceneManager.save_manager.set_story_flag("seen_tutorial_night_hunts")
-			GameBus.tutorial_popup_requested.emit("night_hunts")
-
-func _find_nocturnal_spawn_pos() -> Vector3:
-	if _player == null:
-		return Vector3.ZERO
-	var min_dist: float = 6.0
-	var max_dist: float = 14.0
-	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
-	rng.randomize()
-	for _try: int in range(20):
-		var angle: float = rng.randf() * TAU
-		var dist: float = rng.randf_range(min_dist, max_dist)
-		var tx: float = _player.position.x + cos(angle) * dist
-		var tz: float = _player.position.z + sin(angle) * dist
-		var cx: int = int(floor(tx / chunk_world))
-		var cz: int = int(floor(tz / chunk_world))
-		var key := Vector2i(cx, cz)
-		if not _csm.has_chunk_data(key):
-			continue
-		var chunk: RefCounted = _csm.get_chunk_data(key)
-		var tile_x: int = int(tx / IsoConst.TILE_SIZE) - cx * IsoConst.CHUNK_SIZE
-		var tile_z: int = int(tz / IsoConst.TILE_SIZE) - cz * IsoConst.CHUNK_SIZE
-		tile_x = clampi(tile_x, 0, IsoConst.CHUNK_SIZE - 1)
-		tile_z = clampi(tile_z, 0, IsoConst.CHUNK_SIZE - 1)
-		var li: int = tile_z * IsoConst.CHUNK_SIZE + tile_x
-		if li < 0 or li >= chunk.tiles.size():
-			continue
-		var tile_type: int = chunk.tiles[li]
-		if tile_type != IsoConst.TILE_GRASS:
-			continue
-		var world_y: float = get_terrain_height(tx, tz) + 0.5
-		return Vector3(tx, world_y, tz)
-	return Vector3.ZERO
-
-func _despawn_nocturnal_enemies(fade: bool) -> void:
-	for sid: String in _nocturnal_enemies.keys():
-		var entry: Dictionary = _nocturnal_enemies[sid]
-		var n: Node3D = _valid_node3d(entry.get("node"))
-		if not is_instance_valid(n):
-			_enemy_nodes.erase(sid)
-			continue
-		_enemy_nodes.erase(sid)
-		if fade:
-			# Node3D has no modulate; fade the Sprite3D child instead.
-			var sprite: Sprite3D = n.get_node_or_null("Sprite3D") as Sprite3D
-			if sprite == null:
-				for ch in n.get_children():
-					if ch is Sprite3D:
-						sprite = ch
-						break
-			if sprite != null:
-				var tw: Tween = create_tween()
-				tw.tween_property(sprite, "modulate:a", 0.0, 1.0)
-				tw.tween_callback(n.queue_free)
-			else:
-				n.queue_free()
-		else:
-			n.queue_free()
-	_nocturnal_enemies.clear()
-
-func _evict_nocturnal_enemies_in_chunk(chunk_key: Vector2i) -> void:
-	var to_erase: Array[String] = []
-	for sid: String in _nocturnal_enemies.keys():
-		var entry: Dictionary = _nocturnal_enemies[sid]
-		if entry.get("chunk") == chunk_key:
-			var n: Node3D = _valid_node3d(entry.get("node"))
-			if is_instance_valid(n):
-				n.queue_free()
-			_enemy_nodes.erase(sid)
-			to_erase.append(sid)
-	for sid: String in to_erase:
-		_nocturnal_enemies.erase(sid)
 
 # Called by ChunkRenderer after spawning a chest
 func register_chest(cid: String, node: Node3D, c_data: Dictionary) -> void:
@@ -1731,7 +1594,7 @@ func _discover_landmark(lid: String, l_data: Dictionary) -> void:
 	sm.mark_landmark_discovered(lid)
 	var cx: int = int(l_data.get("cx", 0))
 	var cz: int = int(l_data.get("cz", 0))
-	var display_name: String = LandmarkNames.get_name(cx, cz, WORLD_SEED)
+	var display_name: String = LandmarkNames.landmark_name(cx, cz, WORLD_SEED)
 	GameBus.landmark_discovered.emit(lid, display_name)
 	SceneManager.show_toast("Discovery!", display_name)
 	# One-time reward: coins + random card
@@ -2061,7 +1924,7 @@ func _process(delta: float) -> void:
 		_tick_roaming_boss(delta)
 		_tick_traveling_merchant(delta)
 		_tick_card_shower()
-		_update_nocturnal_spawns(delta)
+		nocturnal.tick(delta)
 		_csm.process_streaming(_player.position, _player.velocity, _camera.get_frustum())
 
 	# Only update save position when player moves > 1 unit (not every frame)
@@ -2232,82 +2095,7 @@ func _open_pause() -> void:
 	_pause_overlay.quit_to_menu.connect(func() -> void: _pause_overlay = null)
 	add_child(_pause_overlay)
 
-# ── Cantrip activation (GID-065) ───────────────────────────────────────────
-
-func _activate_ghost_phase() -> void:
-	if _player == null or _ghost_phase_active:
-		return
-	var sm := SceneManager.save_manager
-	var template_ids: Array[String] = sm.get_deck_template_ids()
-	if not CantripManager.is_available("ghost_phase", template_ids):
-		GameBus.hud_message_requested.emit("Ghost Phase requires 4+ Ghost-family cards in your deck.")
-		return
-	var current_time: float = Time.get_unix_time_from_system()
-	if CantripManager.is_on_cooldown("ghost_phase", sm.cantrip_cooldowns, current_time):
-		var remaining: int = CantripManager.cooldown_remaining("ghost_phase", sm.cantrip_cooldowns, current_time)
-		GameBus.hud_message_requested.emit("Ghost Phase on cooldown (%ds)." % remaining)
-		return
-	if not _do_ghost_phase():
-		GameBus.hud_message_requested.emit("No wall to phase through in this direction.")
-		return
-	sm.cantrip_cooldowns["ghost_phase"] = current_time + CantripManager.get_cooldown("ghost_phase")
-	sm.mark_dirty()
-	GameBus.cantrip_used.emit("ghost_phase")
-
-func _do_ghost_phase() -> bool:
-	var px: float = _player.position.x
-	var pz: float = _player.position.z
-	var tile_size: float = IsoConst.TILE_SIZE
-	var wtx: int = int(floor(px / tile_size))
-	var wtz: int = int(floor(pz / tile_size))
-
-	# Build ordered list of directions to try: facing first, then all 4 cardinals
-	var dirs: Array[Vector2i] = []
-	var _last_move_dir: Vector2 = _csm.get_last_move_dir() if _csm != null else Vector2.ZERO
-	if _last_move_dir.length_squared() > 0.01:
-		var primary: Vector2i
-		if abs(_last_move_dir.x) >= abs(_last_move_dir.y):
-			primary = Vector2i(1 if _last_move_dir.x > 0 else -1, 0)
-		else:
-			primary = Vector2i(0, 1 if _last_move_dir.y > 0 else -1)
-		dirs.append(primary)
-	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-		if not dirs.has(d):
-			dirs.append(d)
-
-	for d: Vector2i in dirs:
-		var wall_tx: int = wtx + d.x
-		var wall_tz: int = wtz + d.y
-		var beyond_tx: int = wtx + d.x * 2
-		var beyond_tz: int = wtz + d.y * 2
-		if get_tile_global(wall_tx, wall_tz) != IsoConst.TILE_WALL:
-			continue
-		if get_tile_global(beyond_tx, beyond_tz) == IsoConst.TILE_WALL:
-			continue  # two walls — too thick to phase through
-		var target_x: float = float(beyond_tx) * tile_size + tile_size * 0.5
-		var target_z: float = float(beyond_tz) * tile_size + tile_size * 0.5
-		var target_y: float = get_terrain_height(target_x, target_z) + 0.5
-		_start_ghost_phase_tween(Vector3(target_x, target_y, target_z))
-		return true
-	return false
-
-func _start_ghost_phase_tween(target: Vector3) -> void:
-	_ghost_phase_active = true
-	_player.collision_layer = 0
-	_player.collision_mask = 0
-	_set_player_alpha(0.5)
-	if _ghost_tween != null and _ghost_tween.is_valid():
-		_ghost_tween.kill()
-	_ghost_tween = create_tween()
-	_ghost_tween.tween_property(_player, "position", target, 0.3)
-	_ghost_tween.tween_callback(_on_ghost_phase_done)
-
-func _on_ghost_phase_done() -> void:
-	_player.collision_layer = 1
-	_player.collision_mask = 2 | 4
-	_set_player_alpha(1.0)
-	_ghost_phase_active = false
-
+## Fades every Sprite3D on the player (ghost phase, downed state).
 func _set_player_alpha(alpha: float) -> void:
 	if _player == null:
 		return
@@ -2318,18 +2106,6 @@ func _set_player_alpha(alpha: float) -> void:
 			var c: Color = sp.modulate
 			c.a = alpha
 			sp.modulate = c
-
-func _activate_skeleton_dig() -> void:
-	if _player == null:
-		return
-	var px: float = _player.position.x
-	var pz: float = _player.position.z
-	var mound := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
-	if mound == null:
-		GameBus.hud_message_requested.emit("No burial mound nearby to dig.")
-		return
-	if mound.has_method("interact"):
-		mound.interact()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):
@@ -2357,12 +2133,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		_clear_dest_marker()
 		GameBus.skill_tree_requested.emit()
 		get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_G:
-		_activate_ghost_phase()
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_G:
+		cantrips.activate_ghost_phase()
 		get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_D:
-		_activate_skeleton_dig()
-		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_D:
+		# D is also move_right: dig only when a mound is in reach, and never
+		# consume the event, so walking right stays silent.
+		cantrips.activate_skeleton_dig(true)
 	elif event is InputEventKey and event.pressed \
 			and (event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER) \
 			and _coop_active and _chat_input != null and is_instance_valid(_chat_input) \

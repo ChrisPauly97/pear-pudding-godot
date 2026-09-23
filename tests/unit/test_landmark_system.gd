@@ -182,8 +182,8 @@ func test_landmark_name_deterministic() -> void:
 			var d: Dictionary = InfiniteWorldGen.landmark_for_chunk(cx, cz, world_seed)
 			if d.is_empty():
 				continue
-			var name1: String = LandmarkNames.get_name(cx, cz, world_seed)
-			var name2: String = LandmarkNames.get_name(cx, cz, world_seed)
+			var name1: String = LandmarkNames.landmark_name(cx, cz, world_seed)
+			var name2: String = LandmarkNames.landmark_name(cx, cz, world_seed)
 			assert_eq(name1, name2, "landmark name must be deterministic")
 			assert_ne(name1, "", "landmark name must not be empty")
 			return
@@ -196,7 +196,7 @@ func test_landmark_name_starts_with_the() -> void:
 			var d: Dictionary = InfiniteWorldGen.landmark_for_chunk(cx, cz, world_seed)
 			if d.is_empty():
 				continue
-			var name: String = LandmarkNames.get_name(cx, cz, world_seed)
+			var name: String = LandmarkNames.landmark_name(cx, cz, world_seed)
 			assert_true(name.begins_with("The "),
 				"name should start with 'The ': got '%s'" % name)
 			return
@@ -210,7 +210,7 @@ func test_name_from_id_parses_correctly() -> void:
 			if d.is_empty():
 				continue
 			var lid: String = str(d.get("id", ""))
-			var via_name: String = LandmarkNames.get_name(cx, cz, world_seed)
+			var via_name: String = LandmarkNames.landmark_name(cx, cz, world_seed)
 			var via_id: String = LandmarkNames.name_from_id(lid, world_seed)
 			assert_eq(via_id, via_name,
 				"name_from_id must match get_name for id '%s'" % lid)
@@ -230,7 +230,7 @@ func test_different_positions_different_names() -> void:
 			var d: Dictionary = InfiniteWorldGen.landmark_for_chunk(cx, cz, world_seed)
 			if d.is_empty():
 				continue
-			names.append(LandmarkNames.get_name(cx, cz, world_seed))
+			names.append(LandmarkNames.landmark_name(cx, cz, world_seed))
 			found += 1
 			if found >= 5:
 				break
