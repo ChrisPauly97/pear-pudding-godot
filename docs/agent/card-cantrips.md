@@ -4,13 +4,13 @@
 
 - **Ghost Phase**: player phases through one TILE_WALL tile in the facing direction when the deck contains ≥4 Ghost-family cards. 15-second cooldown.
 - **Skeleton Dig**: player digs buried mounds spawned in ~10% of open-world chunks. Requires ≥4 Skeleton-family cards in deck. 10-second cooldown. Rewards: 10–30 coins + 60% card / 40% essence.
-- HUD buttons `[G] Phase` and `[D] Dig` (left side of screen), plus keyboard keys G and D.
+- HUD buttons `[G] Phase` and `[D] Dig` (left side of screen), plus keyboard keys G and D. D doubles as `move_right`, so the D key digs only when a mound is in reach and never shows the "No burial mound nearby" toast (the button still does). Key repeats are ignored.
 - Both keys also work on desktop; the HUD buttons are the mobile touch targets.
 - Buttons are **always visible** (TID-463 / BID-050), even when locked: a
   locked button is dimmed and shows a family-card progress count
   (`"[G] Phase (3/4)"`); it stays clickable so a curious tap still surfaces
   the "requires N+ family cards" HUD message via the existing
-  `_activate_ghost_phase()` / `_activate_skeleton_dig()` guard.
+  `cantrips.activate_ghost_phase()` / `cantrips.activate_skeleton_dig()` guard.
 - Cooldowns persist in `SaveManager.cantrip_cooldowns` (Dictionary: cantrip_id → Unix expiry float).
 - Dug mounds persist in `SaveManager.dug_mounds` (Array[String] of mound IDs).
 
@@ -60,8 +60,8 @@ Card families:
 ### Ghost Phase Flow
 
 1. Player presses G or taps `[G] Phase` button.
-2. `WorldScene._activate_ghost_phase()` checks availability and cooldown.
-3. `_do_ghost_phase()` scans cardinal directions (facing direction first) for a sequence: walkable → TILE_WALL → non-wall.
+2. `Cantrips.activate_ghost_phase()` (`scenes/world/modules/Cantrips.gd`) checks availability and cooldown.
+3. `Cantrips._phase_target()` scans cardinal directions (facing direction first) for a sequence: walkable → TILE_WALL → non-wall.
 4. On match, `_start_ghost_phase_tween()` disables player collision, fades sprite alpha to 0.5, tweens position over 0.3s.
 5. `_on_ghost_phase_done()` restores collision and alpha.
 6. Cooldown expiry stored in `SaveManager.cantrip_cooldowns["ghost_phase"]`.

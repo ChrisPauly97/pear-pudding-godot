@@ -301,6 +301,19 @@ BattleScene's PvP/co-op surface in `scenes/battle/net/BattleNet.gd`:
 
 | `net/BattleNet.gd` | PvP duels, spectating, spectator wagers, co-op PvE joint battle, team duels (back-reference `_battle`) |
 
+Single-player feature clusters use the same shape under `scenes/world/modules/`,
+created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
+
+| Module | Owns |
+|---|---|
+| `NocturnalSpawner.gd` (`nocturnal`) | Night Hunts spectre spawns, dawn fade-out, chunk eviction |
+| `Cantrips.gd` (`cantrips`) | Ghost Phase / Skeleton Dig activation (HUD buttons + G/D keys) |
+| `HomeGarden.gd` (`home_garden`) | Home garden plot spawn + plant/grow/harvest panel (solo and guildhall) |
+| `StoryCast.gd` (`story_cast`) | Maiteln presence, wilderness camp, scout ambush, war-camp boss, rival encounters |
+
+Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
+`test_interact_priority` reads the interaction chains by those names.
+
 Rules:
 - Each module is a `Node` with a `_world` (or `_battle`) back-reference, created in
   `WorldScene._ready()` via `_ensure_coop_modules()` and registered with
@@ -453,6 +466,9 @@ The 2 s dirty flush ran stringify + HMAC + backup copy + write on the main threa
 
 ### Compass pointed 90° off, N and S swapped (claude/objective-marker-compass-7yarde)
 Two independent errors made every bearing on the ribbon a lie. (1) The ribbon centre was bearing −45°, which is the camera's **screen-right** axis `(+1, 0, −1)`; the direction the player actually looks is `−basis.z` horizontally = `(−1, 0, −1)` = **−135°**. Screen-up is the camera's forward, never its right vector. (2) The cardinal table labelled `+Z` as North, but `−Z` is North everywhere else in the project (minimap top = world NW, `Player`'s WASD table). Fixes: `FACING_BEARING_DEG = −135`, cardinals `N = −90 / E = 0 / S = +90 / W = ±180`, and `wrapf` instead of `clamp` (the old formula collapsed every bearing past +135° onto the right edge and never used the leftmost eighth). A screen-space mapping derived from a baked camera transform must be **re-derived from that transform in a test** — `test_compass_bearing` parses `WorldScene.tscn` and asserts the two agree, because nothing else fails when they drift.
+
+### Tests that passed while testing nothing (claude/codebase-refinement-gml1gg)
+GDScript has no exceptions: a runtime error aborts the test function before its asserts, and the runner still counts a pass. 15 `SCRIPT ERROR`s hid in a green run — assigning an untyped `[]` to an `Array[String]` property (use `.assign()`), a key that `to_dict()` never wrote, and two real game bugs: `LandmarkNames.get_name(cx, cz, seed)` resolved to `Resource.get_name()` (so landmark discovery errored before its reward — **never name a static after an inherited `Object`/`Resource` method**) and a stray `sync_stacks` line. CI now fails if the test log contains any `SCRIPT ERROR`; check for it locally too.
 
 ---
 

@@ -28,9 +28,11 @@ extends "res://tests/framework/test_case.gd"
 
 const _WORLD_SCENE_PATH := "res://scenes/world/WorldScene.gd"
 
-## Post-slice-1 size is 3786 lines; this leaves a little slack for small
-## incidental changes without inviting a slow climb back toward the old 9154.
-const _CEILING := 3850
+## Post-slice-1 size was 3786 lines. The single-player module split
+## (scenes/world/modules/: NocturnalSpawner, Cantrips, HomeGarden, StoryCast)
+## brought it to ~3255; this leaves a little slack for small incidental
+## changes without inviting a slow climb back toward the old 9154.
+const _CEILING := 3300
 
 
 func test_worldscene_stays_under_line_ceiling() -> void:

@@ -88,11 +88,11 @@ SaveManager.get_plot_growth_stage(plot_idx) -> int      # 0 = empty, 1–3 = gro
 
 ### WorldScene Interaction (`scenes/world/WorldScene.gd`)
 
-`_spawn_player_home_garden()` is called in the `player_home` map branch (after `_spawn_player_home_trophies()`). It creates three GardenPlot nodes and appends them to `_garden_plot_nodes: Array[Node3D]`.
+`HomeGarden.spawn_home_plots()` (`scenes/world/modules/HomeGarden.gd`) is called in the `player_home` map branch (after `_spawn_player_home_trophies()`). It creates three GardenPlot nodes and appends them to `_garden_plot_nodes: Array[Node3D]`.
 
 `_check_interactions()` and `_handle_interact()` detect the nearest plot within `IsoConst.INTERACT_RANGE` via `_find_nearby_garden_plot()`.
 
-`_show_garden_plot_panel(plot)` presents stage-appropriate UI (all sized viewport-relative per CLAUDE.md):
+`HomeGarden.show_panel(plot)` presents stage-appropriate UI (all sized viewport-relative per CLAUDE.md):
 - **Stage 0 (empty):** seed picker listing owned seeds with counts; "Plant" button calls `SaveManager.set_plot` + `remove_seeds`, emits `GameBus.plant_harvested(plot_idx, 0)` for a toast.
 - **Stage 1–2 (growing):** info panel "Growing — come back later."
 - **Stage 3 (mature):** "Harvest" button calls `SaveManager.add_plants(plant_id, yield)`, `clear_plot`, emits `GameBus.plant_harvested(plot_idx, yield)` for a toast.

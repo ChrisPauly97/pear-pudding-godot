@@ -2919,7 +2919,7 @@ for that API):**
   `submit_spire_draft_choice`'s precedent). The authority validates (plot
   actually empty / actually mature — a stale or duplicate submit is silently
   ignored) before mutating `guildhall_state` and broadcasting.
-- `_show_garden_plot_panel` (still on WorldScene) branches on
+- `HomeGarden.show_panel` (`scenes/world/modules/HomeGarden.gd`) branches on
   `plot.session_mode`: no "(owned: N)" seed count, Plant is never disabled,
   and the plant/harvest buttons call
   `coop_session._submit_session_plant`/`coop_session._submit_session_harvest`
@@ -2970,7 +2970,7 @@ against the co-op contracts GID-098 already established. Per-rule findings:
 - **War-camp dungeon boss** (Chapter 2 beat 6, `dungeon_731906`, fixed seed):
   the war-camp door is an ordinary door, and `_handle_interact()`'s door
   branch already broadcasts `recv_map_transition` for *any* door in co-op —
-  no boss-specific plumbing needed. `_inject_warcamp_boss()` runs
+  no boss-specific plumbing needed. `StoryCast.inject_warcamp_boss()` runs
   unconditionally in every peer's `WorldScene._ready()` (not host-gated), so
   every peer's deterministic dungeon regen gets the identical boss entry.
   Combat then rides the already map-agnostic GID-096 enemy engage-lock

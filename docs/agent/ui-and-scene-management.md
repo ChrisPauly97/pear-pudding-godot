@@ -466,8 +466,8 @@ HUD elements are constructed by `WorldHUD.gd` (owned and set up by WorldScene). 
 - **Mount button** — right side below Menu button, hidden until the player owns a mount on the main map. Calls `_toggle_mount()`.
 
 **Action cluster (TID-298):**
-- **[G] Phase** cantrip button — left side at `vh*0.17`. Calls `_activate_ghost_phase()`. Always visible (TID-463 / BID-050); dimmed with a "(count/threshold)" progress label when `CantripManager.is_available("ghost_phase", deck_ids)` is false, full brightness and plain label when true. Refreshed on `GameBus.inventory_changed`.
-- **[D] Dig** cantrip button — left side below Phase. Calls `_activate_skeleton_dig()`. Same always-visible dimmed/progress-labeled pattern, gated on `CantripManager.is_available("skeleton_dig", deck_ids)`.
+- **[G] Phase** cantrip button — left side at `vh*0.17`. Calls `cantrips.activate_ghost_phase()`. Always visible (TID-463 / BID-050); dimmed with a "(count/threshold)" progress label when `CantripManager.is_available("ghost_phase", deck_ids)` is false, full brightness and plain label when true. Refreshed on `GameBus.inventory_changed`.
+- **[D] Dig** cantrip button — left side below Phase. Calls `cantrips.activate_skeleton_dig()`. Same always-visible dimmed/progress-labeled pattern, gated on `CantripManager.is_available("skeleton_dig", deck_ids)`.
 - `WorldHUD.refresh_action_cluster()` rechecks availability and updates visibility; connected to `GameBus.inventory_changed`.
 
 **Informational elements (unchanged):**

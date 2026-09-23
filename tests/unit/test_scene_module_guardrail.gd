@@ -20,6 +20,7 @@ extends "res://tests/framework/test_case.gd"
 
 const _MODULE_DIRS: Array[String] = [
 	"res://scenes/world/coop",
+	"res://scenes/world/modules",
 	"res://scenes/battle/net",
 ]
 

@@ -4,7 +4,7 @@ extends Node3D
 ## on story-mode named maps and at the TID-402 wilderness camp. Distinct from
 ## the battle companion system (data/companions/maiteln.tres) — this is purely
 ## a visual/narrative presence. WorldScene owns all spawn/despawn gating
-## (see _maiteln_should_be_present()); this script only moves and answers taps.
+## (see StoryCast.maiteln_should_be_present()); this script only moves and answers taps.
 
 const TextureGen = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")

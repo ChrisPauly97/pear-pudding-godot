@@ -26,7 +26,6 @@ const TrophyRegistry     = preload("res://game_logic/TrophyRegistry.gd")
 const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
-const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 
@@ -43,21 +42,19 @@ const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
 const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
 const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
-const _WildernessCampScene = preload("res://scenes/world/entities/WildernessCamp.tscn")
-const _ScoutAmbushScene = preload("res://scenes/world/entities/ScoutAmbush.tscn")
-const _MaitelnFollowerScene = preload("res://scenes/world/entities/MaitelnFollower.tscn")
 const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
 const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _MailboxScene      = preload("res://scenes/world/entities/MailboxNPC.tscn")
 const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const _ObjectiveBeacon   = preload("res://scenes/world/entities/ObjectiveBeacon.gd")
 const _ObjectiveTracker  = preload("res://game_logic/ObjectiveTracker.gd")
-const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 # Party panel (GID-107 / TID-395): consolidated entry point for the always-on
 # co-op HUD affordances (Roster, Loot Mode, Stash, Leaderboard, Ghost Duels,
 # Team Duel, Dungeon Crawl) that used to each be an individually-positioned button.
 
 # Co-op multiplayer (GID-090)
+const _StoryCast = preload("res://scenes/world/modules/StoryCast.gd")
+const _HomeGarden = preload("res://scenes/world/modules/HomeGarden.gd")
 const _Cantrips = preload("res://scenes/world/modules/Cantrips.gd")
 const _NocturnalSpawner = preload("res://scenes/world/modules/NocturnalSpawner.gd")
 const _CoopSocial = preload("res://scenes/world/coop/CoopSocial.gd")
@@ -279,6 +276,8 @@ var _card_shower_items: Array[Node3D] = []
 # Nocturnal spawn system (GID-055 Night Hunts) — see modules/NocturnalSpawner.gd
 var nocturnal: Node = null
 var cantrips: Node = null   # modules/Cantrips.gd (GID-065)
+var home_garden: Node = null   # modules/HomeGarden.gd (GID-059)
+var story_cast: Node = null    # modules/StoryCast.gd (GID-108)
 var _night_cue_played: bool = false
 
 # Day/night cycle — delegated to DayNightCycle component
@@ -543,7 +542,7 @@ func _ready() -> void:
 	_wire_gamebus_signals()
 
 	if not NetworkManager.is_dedicated_server():
-		_refresh_maiteln_presence()
+		story_cast.refresh_maiteln_presence()
 		_refresh_objective_beacon()
 
 	coop_session._setup_coop()
@@ -588,9 +587,9 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 		var _inf_ref: Vector3 = _player.position if _player != null else server_ref_pos
 		_csm.build_initial_infinite(_inf_ref)
 		if not NetworkManager.is_dedicated_server():
-			_spawn_open_world_rival_enc2()
-			_spawn_wilderness_camp()
-			_spawn_scout_ambush()
+			story_cast.spawn_open_world_rival()
+			story_cast.spawn_wilderness_camp()
+			story_cast.spawn_scout_ambush()
 			if map_name == "main":
 				_spawn_return_portal()
 	else:
@@ -603,10 +602,10 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 		_spawn_named_map_shrines()
 		_spawn_named_map_waystones()
 		_spawn_named_map_mailboxes()
-		_spawn_named_map_rivals()
+		story_cast.spawn_named_map_rivals()
 		if map_name == "player_home":
 			_spawn_player_home_trophies()
-			_spawn_player_home_garden()
+			home_garden.spawn_home_plots()
 		_check_story_siege_trigger(map_name)
 		_check_siege_spawn(map_name)
 		# Set chapter1_reached_blancogov when the player enters blancogov
@@ -673,7 +672,7 @@ func _load_named_map() -> void:
 		# Chapter 2 beat 6 (GID-108 / TID-407): the war-camp dungeon door
 		# (assets/maps/marsax_hold.tres) always targets this fixed seed.
 		if map_name == "dungeon_731906":
-			_inject_warcamp_boss(world_map)
+			story_cast.inject_warcamp_boss(world_map)
 	elif map_name.begins_with("spire_floor_"):
 		var parts: PackedStringArray = map_name.split("_")
 		var sp_floor: int = int(parts[2]) if parts.size() > 2 else 1
@@ -804,6 +803,8 @@ func enter_downed_state() -> void:
 func _ensure_world_modules() -> void:
 	nocturnal = _ensure_world_module(nocturnal, _NocturnalSpawner, "NocturnalSpawner")
 	cantrips = _ensure_world_module(cantrips, _Cantrips, "Cantrips")
+	home_garden = _ensure_world_module(home_garden, _HomeGarden, "HomeGarden")
+	story_cast = _ensure_world_module(story_cast, _StoryCast, "StoryCast")
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1174,139 +1175,29 @@ func _first_node_in_range(nodes, px: float, pz: float, range_dist: float,
 ## The first entry of an id -> {"x", "z", ...} table within `range_dist` of
 ## (px, pz), or {} when nothing is close enough.
 func _first_data_in_range(table: Dictionary, px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
 	for key in table:
 		var d: Dictionary = table[key]
-		var ddx: float = float(d.get("x", 0.0)) - px
-		var ddz: float = float(d.get("z", 0.0)) - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
+		if _data_in_range(d, px, pz, range_dist):
 			return d
 	return {}
+
+## True when a {"x", "z", ...} entry lies within `range_dist` of (px, pz).
+func _data_in_range(d: Dictionary, px: float, pz: float, range_dist: float) -> bool:
+	var ddx: float = float(d.get("x", 0.0)) - px
+	var ddz: float = float(d.get("z", 0.0)) - pz
+	return ddx * ddx + ddz * ddz <= range_dist * range_dist
+
+func _find_nearby_garden_plot(px: float, pz: float, range_dist: float) -> Node3D:
+	return _first_node_in_range(_garden_plot_nodes, px, pz, range_dist)
 
 func _find_nearby_scroll(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_scroll_nodes, px, pz, range_dist)
 
-## First-night wilderness camp (GID-108 / TID-402) — spawns near the player once
-## per open-world load, exactly the same "no fixed position, respawn each fresh
-## load" pattern as _spawn_open_world_rival_enc2(). Gone for good once
-## chapter1_learned_fire is set (the entity frees itself on that transition).
-func _spawn_wilderness_camp() -> void:
-	var sm := SceneManager.save_manager
-	if not sm.get_story_flag("chapter1_left_madrian"):
-		return
-	if sm.get_story_flag("chapter1_learned_fire"):
-		return
-	if _wilderness_camp_node != null and is_instance_valid(_wilderness_camp_node):
-		return
-	var wx: float = _player.position.x + 3.0 * IsoConst.TILE_SIZE
-	var wz: float = _player.position.z - 4.0 * IsoConst.TILE_SIZE
-	var wy: float = get_terrain_height(wx, wz)
-	var node := _WildernessCampScene.instantiate() as Node3D
-	_entity_root.add_child(node)
-	node.position = Vector3(wx, wy, wz)
-	_wilderness_camp_node = node
-
 func _find_nearby_wilderness_camp(px: float, pz: float, range_dist: float) -> Node3D:
 	return _node_in_range(_wilderness_camp_node, px, pz, range_dist)
 
-## Chapter 2 beat 3 scripted ambush (GID-108 / TID-407) — spawns near the player
-## once per open-world load, same "no fixed position" pattern as
-## _spawn_wilderness_camp(). Gone for good once chapter2_ambush_survived is set
-## (the entity is one-shot: interacting with it immediately starts the battle,
-## and ScriptedBattleRegistry/SceneManager set the completion flag on victory).
-func _spawn_scout_ambush() -> void:
-	var sm := SceneManager.save_manager
-	if not sm.get_story_flag("chapter2_found_letter"):
-		return
-	if sm.get_story_flag("chapter2_ambush_survived"):
-		return
-	if _scout_ambush_node != null and is_instance_valid(_scout_ambush_node):
-		return
-	var wx: float = _player.position.x - 3.0 * IsoConst.TILE_SIZE
-	var wz: float = _player.position.z + 4.0 * IsoConst.TILE_SIZE
-	var wy: float = get_terrain_height(wx, wz)
-	var node := _ScoutAmbushScene.instantiate() as Node3D
-	_entity_root.add_child(node)
-	node.position = Vector3(wx, wy, wz)
-	_scout_ambush_node = node
-
 func _find_nearby_scout_ambush(px: float, pz: float, range_dist: float) -> Node3D:
 	return _node_in_range(_scout_ambush_node, px, pz, range_dist)
-
-## Chapter 2 beat 6 (GID-108 / TID-407) — DungeonGen has no boss-room concept
-## at all (grepped, confirmed), so the war-camp's boss is injected directly
-## into the freshly loaded WorldMap's enemies list before chunk distribution.
-## Safe to call on every visit (fresh-gen or loaded-from-save): the enemy-spawn
-## pipeline (ChunkRenderer.is_enemy_defeated) already skips already-defeated
-## enemies by id, so re-injecting the same dict each time is harmless once
-## he's dead — his defeated state lives in SaveManager.defeated_enemies, never
-## written back into the dungeon's saved .tres.
-## Placement heuristic (not a hard guarantee): DungeonGen (DW=80, DH=60) lays
-## rooms left-to-right in ROOM_COUNT columns with z centred on DH/2 ± jitter
-## (see DungeonGen._gen_sequential_rooms) — tile (70, 30) sits in the rightmost
-## column (the "final room", deepest from the start-room spawn) at the
-## statistical z-centre every room jitters around. It is not guaranteed to
-## land on carved floor for every seed, but it's a far better bet than a blind
-## coordinate, and this dungeon's seed is fixed (731906) so it's the same
-## outcome every time — verify visually once Godot is available.
-func _inject_warcamp_boss(wm: WorldMap) -> void:
-	if wm == null:
-		return
-	var bx: float = 70.0 * IsoConst.TILE_SIZE
-	var bz: float = 30.0 * IsoConst.TILE_SIZE
-	wm.enemies.append({
-		"id": "martarquas_warleader_boss",
-		"x": bx,
-		"z": bz,
-		"alive": true,
-		"tracking": false,
-		"enemy_type": "martarquas_warleader",
-		"enemy_deck": EnemyRegistry.get_deck("martarquas_warleader"),
-	})
-
-## Maiteln's travelling presence (GID-108 / TID-403). Named story maps always
-## qualify; the open world only qualifies during the TID-402 camp-beat window
-## (not general sandbox presence).
-const _MAITELN_NAMED_MAPS: Array[String] = [
-	"madrian", "maykalene", "farsyth_mansion", "blancogov", "blancogov_temple",
-]
-
-func _maiteln_should_be_present() -> bool:
-	var sm := SceneManager.save_manager
-	if not sm.get_story_flag("story_intro_complete"):
-		return false
-	if sm.get_story_flag("chapter1_complete"):
-		return false
-	if _MAITELN_NAMED_MAPS.has(map_name):
-		return true
-	if map_name == "main":
-		return sm.get_story_flag("chapter1_left_madrian") and not sm.get_story_flag("chapter1_learned_fire")
-	return false
-
-## Spawns/frees the Maiteln follower to match _maiteln_should_be_present().
-## Call on map load and whenever a relevant story flag changes mid-session.
-func _refresh_maiteln_presence() -> void:
-	var should_be_present: bool = _maiteln_should_be_present()
-	if is_instance_valid(_maiteln_node):
-		if not should_be_present:
-			_maiteln_node.queue_free()
-			_maiteln_node = null
-		return
-	_maiteln_node = null
-	if should_be_present and _player != null:
-		var node := _MaitelnFollowerScene.instantiate() as Node3D
-		_entity_root.add_child(node)
-		if node.has_method("setup"):
-			node.setup(_player, self)
-		# Co-op (GID-108 / TID-408, design rule 4): exactly one Maiteln, position
-		# owned by the authority. A non-authority client's copy is a networked
-		# puppet — hidden until the first same-map packet arrives (mirrors the
-		# RemotePlayer cross-map-ghost fix, TID-352) instead of independently
-		# following its own local player.
-		if _coop_active and not coop_session._coop_world_authority() and node.has_method("set_networked"):
-			node.set_networked(true)
-			node.visible = false
-		_maiteln_node = node
 
 func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
 	return _node_in_range(_maiteln_node, px, pz, range_dist)
@@ -1316,7 +1207,7 @@ func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
 ## post when theirs is set. Both have to react on the flag, not just on the next
 ## map load — the player is standing right there when it flips.
 func _on_story_flag_set_for_cast(_key: String) -> void:
-	_refresh_maiteln_presence()
+	story_cast.refresh_maiteln_presence()
 	_despawn_flag_hidden_npcs()
 	_refresh_objective_beacon()
 
@@ -1524,7 +1415,7 @@ func _spawn_siege_raiders(p_map_name: String, stage: int) -> void:
 		# EnemyNPC has no such property, only enemy_data (set via init_from_data),
 		# so every raider always fell back to "undead_basic" regardless of stage
 		# or town. init_from_data with a proper edata dict (mirrors
-		# _spawn_rival_at's exact pattern) is what actually wires the enemy type.
+		# StoryCast._spawn_rival_at's exact pattern) is what actually wires the enemy type.
 		var edata: Dictionary = {
 			"id": raider_id,
 			"x": gate_pos.x + off.x,
@@ -1699,105 +1590,35 @@ func _open_fast_travel_panel() -> void:
 			layer.queue_free()
 	)
 
-# ── Rival Encounter Spawning ───────────────────────────────────────────────────
-
-func _spawn_named_map_rivals() -> void:
-	if world_map == null:
-		return
-	var sm := SceneManager.save_manager
-	if map_name == "maykalene" and sm.get_story_flag("chapter1_left_madrian") and sm.rival_encounters_won == 0:
-		_spawn_rival("rival_enc1", 50, 40, "rival_isfig_1",
-			"You again? Let's see if you're worth the effort, wee warrior.")
-	elif map_name == "blancogov_temple" and sm.get_story_flag("chapter1_temple_council") \
-			and sm.rival_encounters_won >= 2 and not sm.rival_defeated:
-		_spawn_rival("rival_enc3", 50, 80, "rival_isfig_3",
-			"Maiteln warned me you'd come far. Perhaps it's time I stood beside him, not against.")
-
-func _spawn_open_world_rival_enc2() -> void:
-	var sm := SceneManager.save_manager
-	if not sm.get_story_flag("chapter1_warned_farsyth"):
-		return
-	if sm.get_story_flag("chapter1_received_letter"):
-		return
-	if sm.rival_encounters_won >= 2:
-		return
-	var rival_type: String = RivalSystem.get_rival_type(sm.rival_encounters_won, sm.level)
-	var wx: float = _player.position.x + 3.0 * IsoConst.TILE_SIZE
-	var wz: float = _player.position.z + 5.0 * IsoConst.TILE_SIZE
-	_spawn_rival_at("rival_enc2", wx, wz, rival_type,
-		"Maiteln's sent word of the Martarquas. I aim to warn him you're no mere apprentice.")
-
-func _spawn_rival(rival_id: String, tile_x: int, tile_z: int, enemy_type: String, pre_battle_dialogue: String) -> void:
-	var wx: float = float(tile_x) * IsoConst.TILE_SIZE
-	var wz: float = float(tile_z) * IsoConst.TILE_SIZE
-	_spawn_rival_at(rival_id, wx, wz, enemy_type, pre_battle_dialogue)
-
-func _spawn_rival_at(rival_id: String, wx: float, wz: float, enemy_type: String, pre_battle_dialogue: String) -> void:
-	if _enemy_nodes.has(rival_id):
-		return
-	var wy: float = get_terrain_height(wx, wz) + 0.5
-	var edata: Dictionary = {
-		"id": rival_id,
-		"x": wx,
-		"z": wz,
-		"alive": true,
-		"tracking": false,
-		"enemy_type": enemy_type,
-		"enemy_deck": EnemyRegistry.get_deck(enemy_type),
-		"pre_battle_dialogue": pre_battle_dialogue,
-	}
-	var node := _EnemyScene.instantiate() as Node3D
-	_entity_root.add_child(node)
-	node.position = Vector3(wx, wy, wz)
-	if node.has_method("init_from_data"):
-		node.init_from_data(edata)
-	_enemy_nodes[rival_id] = node
-
-
-# Find nearest entities — checks the player's chunk + 8 neighbours for enemies/chests;
-# scans active data dicts for doors and NPCs.
-func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
+## Chunk data for the loaded chunks in the 3×3 block around (px, pz). Enemies
+## and chests are indexed per chunk, so their finders only scan these.
+func _neighbour_chunks(px: float, pz: float) -> Array[RefCounted]:
 	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 	var pcx: int = int(floor(px / chunk_world))
 	var pcz: int = int(floor(pz / chunk_world))
-	for dz in range(-1, 2):
-		for dx in range(-1, 2):
+	var out: Array[RefCounted] = []
+	for dz: int in range(-1, 2):
+		for dx: int in range(-1, 2):
 			var key := Vector2i(pcx + dx, pcz + dz)
-			if not _csm.has_chunk_data(key):
-				continue
-			var chunk: RefCounted = _csm.get_chunk_data(key)
-			for e_data in chunk.enemies:
-				var eid: String = str(e_data.get("id", ""))
-				var node: Node3D = _valid_node3d(_enemy_nodes.get(eid))
-				if not is_instance_valid(node):
-					continue
-				var ddx: float = node.global_position.x - px
-				var ddz: float = node.global_position.z - pz
-				if ddx * ddx + ddz * ddz <= range_sq:
-					return node
+			if _csm.has_chunk_data(key):
+				out.append(_csm.get_chunk_data(key))
+	return out
+
+func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
+	for chunk: RefCounted in _neighbour_chunks(px, pz):
+		for e_data: Dictionary in chunk.enemies:
+			var node: Node3D = _node_in_range(_enemy_nodes.get(str(e_data.get("id", ""))), px, pz, range_dist)
+			if node != null:
+				return node
 	return null
 
+## The first unopened chest within range, as its live `_active_chest_data` entry.
 func _find_nearby_chest(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var pcx: int = int(floor(px / chunk_world))
-	var pcz: int = int(floor(pz / chunk_world))
-	for dz in range(-1, 2):
-		for dx in range(-1, 2):
-			var key := Vector2i(pcx + dx, pcz + dz)
-			if not _csm.has_chunk_data(key):
-				continue
-			var chunk: RefCounted = _csm.get_chunk_data(key)
-			for c_data in chunk.chests:
-				var cid: String = str(c_data.get("id", ""))
-				var d: Dictionary = _active_chest_data.get(cid, {})
-				if d.is_empty() or d.get("opened", false):
-					continue
-				var ddx: float = float(d.get("x", 0.0)) - px
-				var ddz: float = float(d.get("z", 0.0)) - pz
-				if ddx * ddx + ddz * ddz <= range_sq:
-					return d
+	for chunk: RefCounted in _neighbour_chunks(px, pz):
+		for c_data: Dictionary in chunk.chests:
+			var d: Dictionary = _active_chest_data.get(str(c_data.get("id", "")), {})
+			if not d.is_empty() and not d.get("opened", false) and _data_in_range(d, px, pz, range_dist):
+				return d
 	return {}
 
 func _find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
@@ -2320,9 +2141,9 @@ func _handle_interact() -> void:
 		GameBus.mailbox_requested.emit()
 		return
 
-	var garden_plot := _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
+	var garden_plot: Node3D = _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
 	if garden_plot != null:
-		_show_garden_plot_panel(garden_plot)
+		home_garden.show_panel(garden_plot)
 
 # ── Spire entrance ─────────────────────────────────────────────────────────
 
@@ -2731,133 +2552,6 @@ func _show_trophy_info(npc: Dictionary) -> void:
 	var dlg: String = str(npc.get("dialogue", "A mysterious trophy."))
 	_show_dialogue(dlg)
 
-# ── Garden plots ────────────────────────────────────────────────────────────
-
-func _spawn_player_home_garden() -> void:
-	_garden_plot_nodes.clear()
-	var tile_positions: Array[Vector2i] = [
-		Vector2i(52, 54),
-		Vector2i(55, 54),
-		Vector2i(58, 54),
-	]
-	for i: int in range(tile_positions.size()):
-		var tp: Vector2i = tile_positions[i]
-		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
-		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
-		var terrain_y: float = get_terrain_height(wx, wz)
-		var plot: Node3D = _GardenPlotScript.new()
-		plot.init_from_data({"plot_idx": i})
-		plot.position = Vector3(wx, terrain_y, wz)
-		_entity_root.add_child(plot)
-		_garden_plot_nodes.append(plot)
-
-func _find_nearby_garden_plot(px: float, pz: float, range_dist: float) -> Node3D:
-	return _first_node_in_range(_garden_plot_nodes, px, pz, range_dist)
-
-func _show_garden_plot_panel(plot: Node3D) -> void:
-	var sm := SceneManager.save_manager
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var vw: float = get_viewport().get_visible_rect().size.x
-	var font_size: int = int(vh * 0.03)
-	var btn_h: float = vh * 0.07
-
-	var panel := PanelContainer.new()
-	panel.position = Vector2(vw * 0.15, vh * 0.2)
-	panel.custom_minimum_size = Vector2(vw * 0.7, vh * 0.5)
-	_hud.add_child(panel)
-
-	var vbox := _UiUtil.make_vbox(int(vh * 0.012), panel)
-
-	var title := _UiUtil.make_label("Garden Plot %d" % (int(plot.plot_idx) + 1), int(vh * 0.045), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	var session_mode: bool = bool(plot.session_mode)
-	var plot_data: Dictionary = plot.get_plot_data()
-	var stage: int = plot.get_growth_stage() if not plot_data.is_empty() else 0
-
-	if plot_data.is_empty():
-		# Empty plot — seed picker
-		var info := _UiUtil.make_label("Choose a seed to plant:", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-		var has_any_seed: bool = false
-		for seed_id in GardenDefs.SEEDS:
-			var seed_count: int = int(sm.seeds.get(seed_id, 0))
-			var sdata: Dictionary = GardenDefs.SEEDS[seed_id]
-			var sname: String = str(sdata.get("display_name", seed_id))
-			var days: int = int(sdata.get("growth_days", 2))
-			var row := _UiUtil.make_hbox(0, vbox)
-			var lbl := Label.new()
-			# The co-op guildhall garden is free to plant (no session seed
-			# economy is modeled, TID-393) — the owned-count only applies solo.
-			lbl.text = ("%s — %d days" % [sname, days]) if session_mode \
-				else "%s — %d days  (owned: %d)" % [sname, days, seed_count]
-			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			lbl.add_theme_font_size_override("font_size", font_size)
-			row.add_child(lbl)
-			var plant_btn := _UiUtil.make_button("Plant", Vector2(vh * 0.14, btn_h), int(font_size))
-			plant_btn.disabled = false if session_mode else seed_count <= 0
-			var captured_seed_id: String = seed_id
-			var captured_sname: String = sname
-			if session_mode:
-				plant_btn.pressed.connect(func() -> void:
-					coop_session._submit_session_plant(int(plot.plot_idx), captured_seed_id)
-					SceneManager.show_toast("Planted!", captured_sname + " planted.")
-					panel.queue_free()
-				)
-			else:
-				plant_btn.pressed.connect(func() -> void:
-					if sm.remove_seeds(captured_seed_id, 1):
-						sm.set_plot(plot.plot_idx, captured_seed_id, sm.days_elapsed)
-						plot.refresh_visual()
-						SceneManager.show_toast("Planted!", captured_sname + " planted.")
-						panel.queue_free()
-				)
-			row.add_child(plant_btn)
-			if session_mode or seed_count > 0:
-				has_any_seed = true
-
-		if not has_any_seed:
-			var hint := _UiUtil.make_label("No seeds — buy some from a merchant.", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	elif stage < 3:
-		# Growing — show info
-		var seed_id: String = str(plot_data.get("seed_id", ""))
-		var sdata: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
-		var sname: String = str(sdata.get("display_name", seed_id))
-		var growth_days: int = int(sdata.get("growth_days", 2))
-		var planted_day: int = int(plot_data.get("planted_day", 0))
-		var current_days: int = coop_session._coop_current_days_elapsed() if session_mode else sm.days_elapsed
-		var days_left: int = max(0, planted_day + growth_days - current_days)
-		var info := _UiUtil.make_label("%s growing — ready in %d day(s)" % [sname, days_left], int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
-	else:
-		# Mature — show harvest button
-		var seed_id: String = str(plot_data.get("seed_id", ""))
-		var sdata: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
-		var sname: String = str(sdata.get("display_name", seed_id))
-		var plant_id: String = str(sdata.get("plant_id", ""))
-		var yield_count: int = int(sdata.get("yield", 1))
-		var info := _UiUtil.make_label("%s is ready to harvest!" % sname, int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-		var harvest_btn := _UiUtil.make_button("Harvest (%d× %s)" % [yield_count, sname], Vector2(0, btn_h), int(font_size))
-		if session_mode:
-			harvest_btn.pressed.connect(func() -> void:
-				coop_session._submit_session_harvest(int(plot.plot_idx))
-				SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
-				panel.queue_free()
-			)
-		else:
-			harvest_btn.pressed.connect(func() -> void:
-				sm.add_plants(plant_id, yield_count)
-				sm.clear_plot(plot.plot_idx)
-				GameBus.plant_harvested.emit(plot.plot_idx, yield_count)
-				SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
-				panel.queue_free()
-			)
-		vbox.add_child(harvest_btn)
-
-	var cancel_btn := _UiUtil.make_button("Close", Vector2(0, btn_h), int(font_size), func() -> void: panel.queue_free(), vbox)
-
 # ── Party Guildhall furnishings (GID-106 / TID-393) ──────────────────────────
 # Trophies, garden, and a stash chest, furnishing the otherwise-empty guildhall
 # (TID-392). All spawned only when map_name == "guildhall" and
@@ -3020,7 +2714,7 @@ func _handle_king_eldar_interaction(npc: Dictionary) -> void:
 ## Sets chapter1_complete and shows the three-page ending narration overlay.
 ## No scene transition — the player is already in the world (blancogov_temple);
 ## "return to the world as a playable epilogue" just means closing the overlay.
-## Setting the flag fires _refresh_maiteln_presence() for free via the existing
+## Setting the flag fires story_cast.refresh_maiteln_presence() for free via the existing
 ## _on_local_story_flag_set hook (TID-403), hiding the follower with no new code.
 func _trigger_chapter1_ending() -> void:
 	SceneManager.save_manager.set_story_flag("chapter1_complete")

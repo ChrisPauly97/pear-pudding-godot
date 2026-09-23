@@ -69,8 +69,19 @@ refill, exactly as it did after GID-072.
 
 ## Progress
 
-**Status: open — slice 1 of 3 done.** Do not archive; slices 2 and 3 below are
-still outstanding.
+**Status: open — slice 1 of 3 done, slice 2 partly done.** Do not archive;
+the rest of slice 2 and slice 3 below are still outstanding.
+
+### Slice 2 (partial) — single-player modules (claude/codebase-refinement-gml1gg)
+
+WorldScene.gd 3786 → ~3255 lines. New `scenes/world/modules/` holds
+`NocturnalSpawner`, `Cantrips`, `HomeGarden` and `StoryCast` (Maiteln, camp,
+ambush, war-camp boss, rivals), created by `_ensure_world_modules()`. Spawned
+nodes and `_find_nearby_*` finders stay on WorldScene (shared with the
+interaction chains, `test_interact_priority`, and CoopSession).
+`test_scene_module_guardrail` now scans the new directory; the line ceiling is
+ratcheted to 3300. Remaining candidates: tap-to-move, dialogue, siege, player
+home, the other `_spawn_named_map_*` entity spawns.
 
 ### The census in this file was stale before slice 1 even started
 
