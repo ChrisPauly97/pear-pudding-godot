@@ -12,13 +12,13 @@ const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const CARD_PRICE: int = 15
 const SEED_PRICE: int = 30
 
+# Town gratitude discount: set by SceneManager from current_map before add_child().
+var town_name: String = ""
+
 # Traveling merchant mode — set before add_child() via .set() in SceneManager.
 var _custom_stock: Array[String] = []   # if non-empty, only show these cards
 var _custom_price: int = 0              # 0 = use CARD_PRICE
 var _custom_title: String = ""          # "" = use default title
-
-# Town gratitude discount: set by SceneManager from current_map before add_child().
-var town_name: String = ""
 
 # Rarity selected for the cards section (session state).
 var _shop_card_rarity: String = "common"

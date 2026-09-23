@@ -5,12 +5,12 @@ const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 ## Idol sprite target height — shoulder-high stone shrine.
 const _SHRINE_HEIGHT: float = 1.3
 
+static var _shrine_mat: StandardMaterial3D
+static var _shrine_mesh: PrismMesh
+
 var _puzzle_id: String = ""
 var _player: Node3D = null
 var _sprite: Sprite3D = null    # non-null when SpriteRegistry art is available
-
-static var _shrine_mat: StandardMaterial3D
-static var _shrine_mesh: PrismMesh
 
 static func _ensure_shared_resources() -> void:
 	if _shrine_mat != null:

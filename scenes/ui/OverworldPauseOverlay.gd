@@ -1,11 +1,11 @@
 extends CanvasLayer
 
+signal resumed
+signal quit_to_menu
+
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
-
-signal resumed
-signal quit_to_menu
 
 var _vh: float = 0.0
 

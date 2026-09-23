@@ -2,14 +2,21 @@ extends Node
 
 const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
 
-
-static var _enemies: Dictionary = {}
-static var _loaded: bool = false
-
 const _FALLBACK_DECK: Array[String] = [
 	"ghost", "ghost", "skeleton", "skeleton",
 	"zombie", "zombie", "ghoul", "ghoul",
 ]
+
+## The 8 core enemy types that count toward bestiary completion.
+## Story/siege/special enemies (martarquas, rival, mimic, spectre) are excluded.
+const _BESTIARY_ELIGIBLE: Array[String] = [
+	"undead_basic", "undead_horde", "undead_elite", "ghoul_pack",
+	"duelist_novice", "duelist_adept", "duelist_champion", "roaming_terror",
+]
+
+
+static var _enemies: Dictionary = {}
+static var _loaded: bool = false
 
 static func _ensure_loaded() -> void:
 	if _loaded:
@@ -485,13 +492,6 @@ static func get_all_enemy_ids() -> Array[String]:
 		return a < b
 	)
 	return result
-
-## The 8 core enemy types that count toward bestiary completion.
-## Story/siege/special enemies (martarquas, rival, mimic, spectre) are excluded.
-const _BESTIARY_ELIGIBLE: Array[String] = [
-	"undead_basic", "undead_horde", "undead_elite", "ghoul_pack",
-	"duelist_novice", "duelist_adept", "duelist_champion", "roaming_terror",
-]
 
 ## Returns the IDs of the enemy types that count toward bestiary completion.
 static func get_bestiary_enemy_ids() -> Array[String]:

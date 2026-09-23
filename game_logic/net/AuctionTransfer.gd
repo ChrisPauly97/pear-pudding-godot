@@ -19,6 +19,12 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _AuctionSync = preload("res://game_logic/net/AuctionSync.gd")
 const _StashTransfer = preload("res://game_logic/net/StashTransfer.gd")
 
+
+## Cap of completed (sold/cancelled/expired) listings kept around for the "My
+## Listings" history view, oldest-first trimmed — bounds the persisted session
+## file's growth over a long-running party, mirrors PVE_LEADERBOARD_CAP.
+const _COMPLETED_CAP: int = 30
+
 ## Highest-bidder settlement (buyout or expiry) never fails on a coin edge case
 ## silently — the bid is only ever "record-only" (never escrowed from the
 ## bidder up front), so settlement re-validates the bidder can still afford it.
@@ -261,12 +267,6 @@ static func _next_id(auctions: Array) -> String:
 				if n > max_n:
 					max_n = n
 	return "auc_%d" % (max_n + 1)
-
-
-## Cap of completed (sold/cancelled/expired) listings kept around for the "My
-## Listings" history view, oldest-first trimmed — bounds the persisted session
-## file's growth over a long-running party, mirrors PVE_LEADERBOARD_CAP.
-const _COMPLETED_CAP: int = 30
 
 static func _prune_completed(auctions: Array) -> Array:
 	var active: Array = []

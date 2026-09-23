@@ -1,7 +1,6 @@
 extends "res://scenes/world/entities/WorldEntityBase.gd"
-const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
-var mailbox_data: Dictionary = {}
+const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 static var _post_mat: StandardMaterial3D
 static var _box_mat: StandardMaterial3D
@@ -9,6 +8,8 @@ static var _flag_mat: StandardMaterial3D
 static var _post_mesh: BoxMesh
 static var _box_mesh: BoxMesh
 static var _flag_mesh: BoxMesh
+
+var mailbox_data: Dictionary = {}
 
 static func _ensure_shared_resources() -> void:
 	if _post_mat != null:

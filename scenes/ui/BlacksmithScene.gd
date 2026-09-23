@@ -1,7 +1,8 @@
 extends Control
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal closed
+
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")

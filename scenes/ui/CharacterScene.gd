@@ -7,6 +7,22 @@ const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 
+const _SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket"]
+const _SLOT_LABELS: Dictionary = {
+	"weapon":  "Weapon",
+	"armor":   "Armor",
+	"ring":    "Ring",
+	"trinket": "Trinket",
+}
+
+const _COMPANION_LOCKED_TEXT: Dictionary = {
+	"maiteln": "Travel with Maiteln in the story to unlock.",
+}
+
+const _COMPANION_FIRST_EQUIP_TOAST: Dictionary = {
+	"maiteln": "Maiteln chuckles. 'Try to keep up, boy.'",
+}
+
 var hub_mode: bool = false
 
 var _selected_slot: String = ""
@@ -20,14 +36,6 @@ var _picker_panel: Control
 var _compare_popup: PopupPanel = null
 var _hovered_compare_item: String = ""
 var _hovered_compare_row: Control = null
-
-const _SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket"]
-const _SLOT_LABELS: Dictionary = {
-	"weapon":  "Weapon",
-	"armor":   "Armor",
-	"ring":    "Ring",
-	"trinket": "Trinket",
-}
 
 func _ready() -> void:
 	super._ready()
@@ -251,10 +259,6 @@ func _make_companion_row(c: CompanionData, is_active: bool) -> HBoxContainer:
 
 	return row
 
-const _COMPANION_LOCKED_TEXT: Dictionary = {
-	"maiteln": "Travel with Maiteln in the story to unlock.",
-}
-
 func _companion_locked_text(c: CompanionData) -> String:
 	if _COMPANION_LOCKED_TEXT.has(c.companion_id):
 		return str(_COMPANION_LOCKED_TEXT[c.companion_id])
@@ -341,10 +345,6 @@ func _on_equip_companion(companion_id: String) -> void:
 		_show_companion_toast(companion_id)
 	_refresh_slot_buttons()
 	_refresh_picker()
-
-const _COMPANION_FIRST_EQUIP_TOAST: Dictionary = {
-	"maiteln": "Maiteln chuckles. 'Try to keep up, boy.'",
-}
 
 func _show_companion_toast(companion_id: String) -> void:
 	var c: CompanionData = CompanionRegistry.get_companion(companion_id)

@@ -7,6 +7,8 @@ extends "res://tests/framework/test_case.gd"
 
 const DraftDuelGen = preload("res://game_logic/net/DraftDuelGen.gd")
 
+var _POOL_TEMPLATES: Dictionary = {}
+
 func _minion(cost: int) -> Dictionary:
 	return {"card_class": "minion", "cost": cost, "attack": 1, "health": 1}
 
@@ -15,8 +17,6 @@ func _spell(cost: int) -> Dictionary:
 
 func _legendary() -> Dictionary:
 	return {"card_class": "legendary", "cost": 6, "attack": 4, "health": 4}
-
-var _POOL_TEMPLATES: Dictionary = {}
 
 func before_all() -> void:
 	_POOL_TEMPLATES = {

@@ -19,6 +19,10 @@ const _Harness = preload("res://tests/net_harness.gd")
 const _PORT: int = 24576
 
 
+var _server_stub: _ServerStub = null
+var _client_stub: _ClientStub = null
+
+
 # Server-side stand-in for WorldScene — records inbound refresh requests.
 class _ServerStub:
 	extends Node
@@ -33,10 +37,6 @@ class _ClientStub:
 	var rows: Array = []
 	func _on_leaderboard_received(received_rows: Array) -> void:
 		rows = received_rows
-
-
-var _server_stub: _ServerStub = null
-var _client_stub: _ClientStub = null
 
 
 func _initialize() -> void:

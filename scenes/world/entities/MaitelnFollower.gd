@@ -37,8 +37,9 @@ const _LINES_BY_OBJECTIVE: Dictionary = {
 }
 const _FALLBACK_LINE: String = "Keep your wits about ye — the road's long yet."
 
-var _player_ref: Node3D = null
 var world_scene: Node3D = null  # set via setup(); mirrors RemotePlayer.world_scene
+
+var _player_ref: Node3D = null
 
 var _sprite: AnimatedSprite3D = null   # non-null when SpriteRegistry art + walk frames are available
 var _static_sprite: Sprite3D = null    # fallback when the registry/walk frames are missing

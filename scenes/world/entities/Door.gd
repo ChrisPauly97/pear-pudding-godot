@@ -3,13 +3,14 @@ extends Node3D
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
+static var _door_mat: StandardMaterial3D
+static var _door_mesh: BoxMesh
+
 var door_data: Dictionary = {}
+
 var _ring: MeshInstance3D = null
 var _sprite: Sprite3D = null   # non-null when SpriteRegistry art is available
 var _is_spire: bool = false    # set by init_from_data(), which runs before _ready()
-
-static var _door_mat: StandardMaterial3D
-static var _door_mesh: BoxMesh
 
 static func _ensure_shared_resources() -> void:
 	if _door_mat != null:

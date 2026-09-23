@@ -16,6 +16,8 @@ extends "res://scenes/ui/BaseOverlay.gd"
 
 const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
+const _COIN_STEP: int = 50
+
 ## Set by WorldScene right after instantiation so button presses can call back.
 var world_scene: Node = null
 
@@ -24,8 +26,6 @@ var _stash_cards_vbox: VBoxContainer = null
 var _coins_label: Label = null
 var _my_cards_cache: Array = []
 var _stash_cache: Dictionary = {"cards": [], "coins": 0}
-
-const _COIN_STEP: int = 50
 
 
 func _ready() -> void:

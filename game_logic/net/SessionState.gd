@@ -14,6 +14,7 @@
 ##
 ## Callers: preload("res://game_logic/net/SessionState.gd"). No scene dependencies.
 class_name SessionState
+
 extends RefCounted
 
 const _CardInstanceUtil = preload("res://game_logic/CardInstanceUtil.gd")
@@ -64,6 +65,20 @@ const _STARTER_DECK: Array[String] = [
 	"ghost", "skeleton", "zombie", "ghoul",
 ]
 const _STARTER_COINS: int = 200
+
+
+# ---------------------------------------------------------------------------
+# PvE leaderboards — Endless Spire runs + co-op boss clears (GID-102 / TID-379)
+# ---------------------------------------------------------------------------
+# Distinct from the PvP `get_leaderboard()` ranked-rating board above (TID-370):
+# these boards track PvE *achievement* (best Spire floor, best co-op clear value)
+# and are never touched by rating math. Kept as plain per-board Arrays (not derived
+# from `members`, unlike the ranked board) because a player's best PvE result should
+# survive even if their character record's fields don't carry it (mirrors how the
+# task asks for a standalone {token, name, value, day} entry shape).
+
+## Valid board names for `record_pve_score` / `get_pve_leaderboard`.
+const _PVE_BOARDS: Array[String] = ["spire", "coop_clears", "night_hunts", "coop_spire"]
 
 # --- Identity ---------------------------------------------------------------
 var session_id: String = ""
@@ -544,20 +559,6 @@ func get_leaderboard(limit: int = 10) -> Array:
 	if limit > 0 and rows.size() > limit:
 		rows.resize(limit)
 	return rows
-
-
-# ---------------------------------------------------------------------------
-# PvE leaderboards — Endless Spire runs + co-op boss clears (GID-102 / TID-379)
-# ---------------------------------------------------------------------------
-# Distinct from the PvP `get_leaderboard()` ranked-rating board above (TID-370):
-# these boards track PvE *achievement* (best Spire floor, best co-op clear value)
-# and are never touched by rating math. Kept as plain per-board Arrays (not derived
-# from `members`, unlike the ranked board) because a player's best PvE result should
-# survive even if their character record's fields don't carry it (mirrors how the
-# task asks for a standalone {token, name, value, day} entry shape).
-
-## Valid board names for `record_pve_score` / `get_pve_leaderboard`.
-const _PVE_BOARDS: Array[String] = ["spire", "coop_clears", "night_hunts", "coop_spire"]
 
 ## Insert-or-update `token`'s best score on `board`, then re-sort (desc by value,
 ## ties broken by earliest `day` so an established record isn't bumped by a later

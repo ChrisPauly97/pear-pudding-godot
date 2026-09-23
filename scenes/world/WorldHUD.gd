@@ -11,6 +11,18 @@ const CantripManager   = preload("res://game_logic/world/CantripManager.gd")
 const UiFx             = preload("res://scenes/ui/UiFx.gd")
 const _UiUtil          = preload("res://scenes/ui/UiUtil.gd")
 
+# ── HUD Action Registry (GID-107) ───────────────────────────────────────────
+# Zones are real Container nodes that auto-stack their (visible) children, so
+# two actions registered into the same zone cannot overlap by construction.
+# See docs/agent/ui-and-scene-management.md "HUD Action Registry" section.
+const ZONE_SYSTEM  := "system"    # top-left: pause / system-level controls
+const ZONE_NAV     := "nav"       # top-right, under the minimap: Menu/Bag, Mount, Party
+const ZONE_ABILITY := "ability"   # left column: cantrip abilities
+const ZONE_CONTEXT := "context"   # bottom-center: one proximity-gated action at a time
+const ZONE_SOCIAL  := "social"    # bottom-right: Chat / Emote / Ping cluster
+const DIALOGUE_DURATION: float = 4.0
+const TIP_DURATION: float = 5.0
+
 var _hud: CanvasLayer
 var _world_scene: Node3D
 var _is_infinite: bool
@@ -22,16 +34,6 @@ var _vw: float = 0.0
 var _ins: Dictionary = {}
 # "text_scale" setting multiplier (GID-120 / TID-456), set in setup().
 var _ts: float = 1.0
-
-# ── HUD Action Registry (GID-107) ───────────────────────────────────────────
-# Zones are real Container nodes that auto-stack their (visible) children, so
-# two actions registered into the same zone cannot overlap by construction.
-# See docs/agent/ui-and-scene-management.md "HUD Action Registry" section.
-const ZONE_SYSTEM  := "system"    # top-left: pause / system-level controls
-const ZONE_NAV     := "nav"       # top-right, under the minimap: Menu/Bag, Mount, Party
-const ZONE_ABILITY := "ability"   # left column: cantrip abilities
-const ZONE_CONTEXT := "context"   # bottom-center: one proximity-gated action at a time
-const ZONE_SOCIAL  := "social"    # bottom-right: Chat / Emote / Ping cluster
 
 var _zones: Dictionary = {}    # zone id (String) -> Container
 var _actions: Dictionary = {}  # action id (String) -> {button, callback, visible_when}
@@ -52,10 +54,13 @@ var _interact_btn: Button = null   # Android-only tap button
 var _compass: Node = null
 
 var _dialogue_id: int = 0
-const DIALOGUE_DURATION: float = 4.0
 
 var _tip_id: int = 0
-const TIP_DURATION: float = 5.0
+
+# ── Social zone collapse (GID-120 / TID-457) ────────────────────────────────
+
+var _social_expanded: bool = false
+var _social_toggle: Button = null
 
 # ── Setup ──────────────────────────────────────────────────────────────────
 
@@ -254,11 +259,6 @@ func register_action(id: String, label: String, zone: String, callback: Callable
 		btn.visible = _social_expanded
 	UiFx.attach(btn)
 	return btn
-
-# ── Social zone collapse (GID-120 / TID-457) ────────────────────────────────
-
-var _social_expanded: bool = false
-var _social_toggle: Button = null
 
 func _ensure_social_toggle() -> void:
 	if _social_toggle != null and is_instance_valid(_social_toggle):

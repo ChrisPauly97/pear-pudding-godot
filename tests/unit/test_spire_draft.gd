@@ -8,6 +8,13 @@ const SpireDraftScript = preload("res://game_logic/spire/SpireDraft.gd")
 
 var _draft: RefCounted
 
+# Pool covering all four tiers:
+#   tier0: ghost(minion,1), skeleton(minion,2)
+#   tier1: zombie(minion,3), ghoul(minion,4), mend(spell,1), restore(spell,2)
+#   tier2: scorch(spell,3), shadow_bolt(spell,4), soul_harvest(spell,5)
+#   tier3: ancient_guardian(legendary)
+var _POOL_TEMPLATES: Dictionary = {}
+
 # Minimal template helpers
 func _minion(cost: int) -> Dictionary:
 	return {"card_class": "minion", "cost": cost, "attack": 1, "health": 1}
@@ -17,13 +24,6 @@ func _spell(cost: int) -> Dictionary:
 
 func _legendary() -> Dictionary:
 	return {"card_class": "legendary", "cost": 6, "attack": 4, "health": 4}
-
-# Pool covering all four tiers:
-#   tier0: ghost(minion,1), skeleton(minion,2)
-#   tier1: zombie(minion,3), ghoul(minion,4), mend(spell,1), restore(spell,2)
-#   tier2: scorch(spell,3), shadow_bolt(spell,4), soul_harvest(spell,5)
-#   tier3: ancient_guardian(legendary)
-var _POOL_TEMPLATES: Dictionary = {}
 
 func before_all() -> void:
 	_POOL_TEMPLATES = {

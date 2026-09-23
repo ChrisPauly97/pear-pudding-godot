@@ -2,12 +2,12 @@
 extends "res://tests/framework/test_case.gd"
 
 const SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
-
-# Baseline: all conditions satisfied.
-var _flags_ok: Dictionary = {"chapter1_warned_farsyth": true}
 const _SEED: int = 42
 const _DAYS: int = 10    # days_elapsed = 10
 const _LAST: int = 0     # last_siege_day = 0  → cooldown = 10 >= 4 ✓
+
+# Baseline: all conditions satisfied.
+var _flags_ok: Dictionary = {"chapter1_warned_farsyth": true}
 
 # ---------------------------------------------------------------------------
 # Gating flag

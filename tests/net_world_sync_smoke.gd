@@ -26,6 +26,10 @@ const _PORT: int = 24573
 const _SESSION_ID: String = "smoke_worldsync_pptcg"
 
 
+var _store: Node = null
+var _client_stub: _ClientStub = null
+
+
 # Client-side stand-in for WorldScene's world-sync receivers — records what arrives.
 class _ClientStub:
 	extends Node
@@ -38,10 +42,6 @@ class _ClientStub:
 		snapshot = _WorldObjectSync.decode_snapshot(payload)
 	func _on_enemy_positions_received(payload: Array) -> void:
 		positions = _EnemySync.decode_batch(payload)
-
-
-var _store: Node = null
-var _client_stub: _ClientStub = null
 
 
 func _initialize() -> void:

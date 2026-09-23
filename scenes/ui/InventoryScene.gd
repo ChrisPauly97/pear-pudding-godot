@@ -9,6 +9,26 @@ const VeterancyUtil     = preload("res://game_logic/VeterancyUtil.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
 
+# -------------------------------------------------------------------------
+# Drag and drop between the collection and the deck
+#
+# Tapping a card still moves it — that is the fast path and the only one that
+# works with a single touch. Dragging exists because tapping gives no sense of
+# where the card went, which reads as the card vanishing.
+#
+# Sideways drags start a card drag; up/down drags stay a list scroll. That split
+# is deliberate: the collection sits left of the deck, so "move this card over
+# there" is naturally horizontal, and TID-454 made tile-started vertical drags
+# scroll the grid on touch. Starting a card drag on any movement would take that
+# back and leave the grid un-scrollable from a tile.
+# -------------------------------------------------------------------------
+
+const _DRAG_KIND := "inv_card"
+
+# Set to true by MenuHubScene before add_child() so the scene skips its own
+# backdrop/panel and builds content directly into the hub's content area.
+var hub_mode: bool = false
+
 var _working_deck: Array[String] = []
 
 var _collection_list: VBoxContainer
@@ -41,9 +61,15 @@ var _rename_btn: Button
 var _dup_btn: Button
 var _del_btn: Button
 
-# Set to true by MenuHubScene before add_child() so the scene skips its own
-# backdrop/panel and builds content directly into the hub's content area.
-var hub_mode: bool = false
+## Where each in-flight press began, so _get_drag_data can tell a sideways drag
+## from a scroll. Keyed by the control being pressed.
+var _press_origin: Dictionary = {}
+
+# -------------------------------------------------------------------------
+# Instance detail popup (hover / tap-and-hold)
+# -------------------------------------------------------------------------
+
+var _detail_popup: PopupPanel = null
 
 func _ready() -> void:
 	super._ready()
@@ -432,7 +458,6 @@ func _on_auto_fill() -> void:
 # -------------------------------------------------------------------------
 
 
-
 # Diablo-3-style cube: one tile per owned instance. Hover (desktop) or
 # tap-and-hold (mobile) opens the detail popup with rolled stats + actions.
 # A plain tap adds the card to the working deck.
@@ -499,26 +524,6 @@ func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 
 	return cube
 
-# -------------------------------------------------------------------------
-# Drag and drop between the collection and the deck
-#
-# Tapping a card still moves it — that is the fast path and the only one that
-# works with a single touch. Dragging exists because tapping gives no sense of
-# where the card went, which reads as the card vanishing.
-#
-# Sideways drags start a card drag; up/down drags stay a list scroll. That split
-# is deliberate: the collection sits left of the deck, so "move this card over
-# there" is naturally horizontal, and TID-454 made tile-started vertical drags
-# scroll the grid on touch. Starting a card drag on any movement would take that
-# back and leave the grid un-scrollable from a tile.
-# -------------------------------------------------------------------------
-
-const _DRAG_KIND := "inv_card"
-
-## Where each in-flight press began, so _get_drag_data can tell a sideways drag
-## from a scroll. Keyed by the control being pressed.
-var _press_origin: Dictionary = {}
-
 func _make_card_draggable(ctrl: Control, uid: String, in_deck: bool, tint: Color) -> void:
 	ctrl.button_down.connect(func() -> void:
 		_press_origin[ctrl] = ctrl.get_local_mouse_position())
@@ -563,12 +568,6 @@ func _can_drop_into_collection(_at: Vector2, data: Variant) -> bool:
 
 func _drop_into_collection(_at: Vector2, data: Variant) -> void:
 	_on_remove_by_uid(str((data as Dictionary).get("uid", "")))
-
-# -------------------------------------------------------------------------
-# Instance detail popup (hover / tap-and-hold)
-# -------------------------------------------------------------------------
-
-var _detail_popup: PopupPanel = null
 
 func _hide_instance_detail() -> void:
 	if _detail_popup != null and is_instance_valid(_detail_popup):

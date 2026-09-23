@@ -29,6 +29,15 @@ const OPTIONS_PER_ROUND: int = 3
 
 
 # ---------------------------------------------------------------------------
+# Transient card-instance builder — NEVER persisted. Drafted cards must never
+# reach owned_cards / SaveManager / SessionState — only the in-memory GameState
+# for the duration of the one duel.
+# ---------------------------------------------------------------------------
+
+const _RARITY_BY_TIER: Array[String] = ["common", "rare", "epic", "legendary"]
+
+
+# ---------------------------------------------------------------------------
 # Sealed-pool round generation
 # ---------------------------------------------------------------------------
 
@@ -82,15 +91,6 @@ static func decode_seed(payload: Variant) -> Dictionary:
 	if not d.has("seed"):
 		return {"valid": false, "seed": 0, "rounds": NUM_ROUNDS}
 	return {"valid": true, "seed": int(d.get("seed", 0)), "rounds": int(d.get("rounds", NUM_ROUNDS))}
-
-
-# ---------------------------------------------------------------------------
-# Transient card-instance builder — NEVER persisted. Drafted cards must never
-# reach owned_cards / SaveManager / SessionState — only the in-memory GameState
-# for the duration of the one duel.
-# ---------------------------------------------------------------------------
-
-const _RARITY_BY_TIER: Array[String] = ["common", "rare", "epic", "legendary"]
 
 ## Builds a transient owned-card-shaped instance dict for one drafted pick, using
 ## the template's own base stats — no rarity roll. Every duelist drafts from

@@ -1,7 +1,14 @@
 extends Node3D
+
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 const GardenDefs = preload("res://game_logic/GardenDefs.gd")
+
+static var _soil_mat: StandardMaterial3D
+static var _stage1_mat: StandardMaterial3D
+static var _stage2_mat: StandardMaterial3D
+static var _stage3_mat: StandardMaterial3D
+static var _flower_mat: StandardMaterial3D
 
 var plot_idx: int = 0
 
@@ -12,6 +19,7 @@ var plot_idx: int = 0
 ## set_session_state() whenever it changes (mirrors the _pve_leaderboards
 ## cache pattern) rather than this node pulling on its own.
 var session_mode: bool = false
+
 var _session_plot_data: Dictionary = {}
 var _session_days_elapsed: int = 0
 
@@ -19,12 +27,6 @@ var _soil: MeshInstance3D
 var _plant: MeshInstance3D
 var _label: Label3D
 var _last_stage: int = -1
-
-static var _soil_mat: StandardMaterial3D
-static var _stage1_mat: StandardMaterial3D
-static var _stage2_mat: StandardMaterial3D
-static var _stage3_mat: StandardMaterial3D
-static var _flower_mat: StandardMaterial3D
 
 static func _ensure_mats() -> void:
 	if _soil_mat != null:

@@ -1,10 +1,5 @@
 extends Node3D
 
-const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
-const ChunkRenderer    = preload("res://scenes/world/ChunkRenderer.gd")
-const GrassBlades      = preload("res://scenes/world/GrassBlades.gd")
-const TerrainMath      = preload("res://game_logic/TerrainMath.gd")
-
 ## Emitted when the player enters a new chunk; world scene updates music/ambience/save.
 signal player_chunk_changed(chunk: Vector2i, biome_id: int)
 ## Emitted after a chunk is committed (visual + entities live). World scene registers
@@ -13,6 +8,11 @@ signal chunk_committed(key: Vector2i, chunk_data: RefCounted)
 ## Emitted just before a chunk renderer is torn down. World scene cleans up entity
 ## nodes and active-data dictionaries.
 signal chunk_unloading(key: Vector2i, chunk_data: RefCounted)
+
+const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const ChunkRenderer    = preload("res://scenes/world/ChunkRenderer.gd")
+const GrassBlades      = preload("res://scenes/world/GrassBlades.gd")
+const TerrainMath      = preload("res://game_logic/TerrainMath.gd")
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 const LOAD_RADIUS:        int = 6
@@ -65,6 +65,9 @@ var _is_infinite: bool = false
 var _world_map: RefCounted = null     # WorldMap; null for infinite worlds
 var _terrain_mat: ShaderMaterial = null
 var _world_scene: Node3D = null       # WorldScene; passed to ChunkRenderer.build_visual
+
+# Track last-seen biome to detect changes inside _update_chunks.
+var _last_biome: int = -1
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
@@ -416,9 +419,6 @@ func _update_chunks(player_pos: Vector3, camera_frustum: Array[Plane], look_dir:
 	_last_player_chunk = player_chunk
 	if _is_infinite and _hq_center != player_chunk:
 		_refresh_height_query_grid()
-
-# Track last-seen biome to detect changes inside _update_chunks.
-var _last_biome: int = -1
 
 func _chunk_prepare_task(key: Vector2i, chunk_data: RefCounted,
 		tile_grid: PackedInt32Array, height_grid: PackedInt32Array,

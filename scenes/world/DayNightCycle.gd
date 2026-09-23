@@ -8,6 +8,7 @@ signal night_started
 signal dawn_arrived
 
 const _GrassBlades = preload("res://scenes/world/GrassBlades.gd")
+const INTERVAL: float = 0.5  # update lighting at 2 Hz
 
 var _sun: DirectionalLight3D
 var _moon: DirectionalLight3D
@@ -17,7 +18,6 @@ var _day_duration: float = 600.0
 
 var _time_of_day: float = 0.4
 var _timer: float = 0.0
-const INTERVAL: float = 0.5  # update lighting at 2 Hz
 
 # Cached values — skip GPU writes when unchanged
 var _cached_sun_energy: float = -1.0

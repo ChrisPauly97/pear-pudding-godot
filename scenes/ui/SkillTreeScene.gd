@@ -4,14 +4,14 @@ const SkillRegistry = preload("res://autoloads/SkillRegistry.gd")
 const SkillData = preload("res://data/SkillData.gd")
 const MagicTypes = preload("res://game_logic/MagicTypes.gd")
 
+const _ROWS: int = 3
+
+var hub_mode: bool = false
+
 var _points_label: Label
 var _skill_container: Control
 var _active_tab: int = 0
 var _tab_buttons: Array[Button] = []
-
-const _ROWS: int = 3
-
-var hub_mode: bool = false
 
 func _ready() -> void:
 	super._ready()

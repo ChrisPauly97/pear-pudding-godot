@@ -3,13 +3,13 @@
 # Shows the 100×100 tile grid as a color-coded image with entity dots on top.
 extends CanvasLayer
 
-const _BaseOverlay = preload("res://scenes/ui/BaseOverlay.gd")
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
-
 signal closed
 ## Emitted when the player taps a "Rally To" entry (GID-105 / TID-388). WorldScene
 ## connects this and performs the actual teleport/transition.
 signal rally_requested(peer_id: int)
+
+const _BaseOverlay = preload("res://scenes/ui/BaseOverlay.gd")
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 # Tile color palette
 const _COL_GRASS := Color(0.28, 0.55, 0.22)
@@ -30,6 +30,12 @@ const _DOT_EVENT    := Color(0.95, 0.60, 0.15)   # amber: event room
 const _DOT_DIGSITE  := Color(1.00, 0.65, 0.15)   # gold: active treasure dig site
 const _DOT_WAYSTONE  := Color(0.40, 0.90, 1.00)   # cyan: waystone (dormant or active)
 const _DOT_WAYPOINT  := Color(0.20, 0.80, 1.00)   # bright cyan: custom player waypoint
+const _LP_THRESHOLD: float = 0.5
+const _LP_SLOP_PX: float = 12.0
+
+
+const _Transforms = preload("res://scenes/ui/MapViewTransforms.gd")
+const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 
 var _player: CharacterBody3D
 var _npc_nodes: Dictionary
@@ -52,12 +58,6 @@ var _rally_targets: Array[Dictionary] = []
 var _lp_active: bool = false
 var _lp_pos: Vector2 = Vector2.ZERO
 var _lp_elapsed: float = 0.0
-const _LP_THRESHOLD: float = 0.5
-const _LP_SLOP_PX: float = 12.0
-
-
-const _Transforms = preload("res://scenes/ui/MapViewTransforms.gd")
-const _ObjectiveTracker = preload("res://game_logic/ObjectiveTracker.gd")
 
 # ── Inner dot-drawing layer ───────────────────────────────────────────────────
 class _DotLayer extends Control:

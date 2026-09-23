@@ -1,4 +1,5 @@
 extends Control
+
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
@@ -19,8 +20,6 @@ const _TAGLINES: Array[String] = [
 	"Towering peaks,\nbitter cold.",
 ]
 
-var _head_start_check: CheckButton = null
-
 const _CARD_BG: Array[Color] = [
 	Color(0.10, 0.28, 0.05),   # Grasslands
 	Color(0.05, 0.15, 0.04),   # Forest
@@ -28,6 +27,8 @@ const _CARD_BG: Array[Color] = [
 	Color(0.22, 0.04, 0.01),   # Scorched
 	Color(0.15, 0.22, 0.35),   # Mountains
 ]
+
+var _head_start_check: CheckButton = null
 
 func _ready() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size

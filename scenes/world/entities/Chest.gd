@@ -2,12 +2,6 @@ extends Node3D
 
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
-
-var chest_data: Dictionary = {}
-var _opened: bool = false
-var _ring: MeshInstance3D = null
-var _sprite: Sprite3D = null    # non-null when SpriteRegistry art is available
-var _lid_hinge: Node3D = null   # fallback-only: procedural hinge-swing lid
 const _LID_OPEN_ANGLE: float = -70.0
 
 # Shared across all fallback chest instances — created once
@@ -19,6 +13,13 @@ static var _lock_mesh: BoxMesh
 # Shared by every open ceremony (not fallback-only) — building a fresh
 # ParticleProcessMaterial per open contributed to the chest-open hitch.
 static var _burst_mat: ParticleProcessMaterial
+
+var chest_data: Dictionary = {}
+
+var _opened: bool = false
+var _ring: MeshInstance3D = null
+var _sprite: Sprite3D = null    # non-null when SpriteRegistry art is available
+var _lid_hinge: Node3D = null   # fallback-only: procedural hinge-swing lid
 
 static func _ensure_shared_resources() -> void:
 	if _wood_mat != null:

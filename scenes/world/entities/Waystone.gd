@@ -7,13 +7,14 @@ const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 ## the 1.4-unit player but well below boss scale.
 const _OBELISK_HEIGHT: float = 1.9
 
-var waystone_data: Dictionary = {}
-var _ring: MeshInstance3D = null
-var _sprite: Sprite3D = null    # non-null when SpriteRegistry art is available
-
 static var _dormant_mat: StandardMaterial3D
 static var _active_mat: StandardMaterial3D
 static var _pillar_mesh: BoxMesh
+
+var waystone_data: Dictionary = {}
+
+var _ring: MeshInstance3D = null
+var _sprite: Sprite3D = null    # non-null when SpriteRegistry art is available
 
 static func _ensure_shared_resources() -> void:
 	if _dormant_mat != null:

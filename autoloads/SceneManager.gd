@@ -57,9 +57,27 @@ const REBINDABLE_ACTIONS: Array[String] = [
 const GHOST_DUEL_COIN_REWARD: int = 25
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
+# Ephemeral session statistics — reset on new/continue game, not persisted.
+## Per-run tally shown on the run-summary screen. `_reset_session_stats()` is
+## the only writer of the whole dict; individual counters go through
+## `_bump_session_stat()`.
+const _SESSION_STAT_KEYS: PackedStringArray = [
+	"battles_won", "battles_lost", "enemies_defeated",
+	"cards_earned", "coins_earned", "chests_opened",
+]
+
+# Fixed world seeds — one per biome, giving each a distinct world layout.
+const _BIOME_SEEDS: Array[int] = [42, 73856135, 100033, 19349705, 294967337]
+
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
 var current_map: String = ""
+var session_stats: Dictionary = _fresh_session_stats(0)
+
+## Points at the SaveManager autoload so all systems share one instance.
+## The autoload is registered before SceneManager in project.godot.
+var save_manager: Node
+
 var _world_scene_packed := preload("res://scenes/world/WorldScene.tscn")
 var _battle_scene_packed := preload("res://scenes/battle/BattleScene.tscn")
 var _menu_scene_packed := preload("res://scenes/ui/MenuScene.tscn")
@@ -79,16 +97,6 @@ var _spire_draft_overlay: Node = null
 var _pack_open_overlay: Node = null
 var _saved_world_scene: Node = null
 
-# Ephemeral session statistics — reset on new/continue game, not persisted.
-## Per-run tally shown on the run-summary screen. `_reset_session_stats()` is
-## the only writer of the whole dict; individual counters go through
-## `_bump_session_stat()`.
-const _SESSION_STAT_KEYS: PackedStringArray = [
-	"battles_won", "battles_lost", "enemies_defeated",
-	"cards_earned", "coins_earned", "chests_opened",
-]
-var session_stats: Dictionary = _fresh_session_stats(0)
-
 var _toast: CanvasLayer = null
 var _menu_hub_layer: CanvasLayer = null
 var _defeat_overlay: Node = null
@@ -97,10 +105,6 @@ var _defeat_pending_enemy_data: Dictionary = {}
 # Blocks proximity engagement for 2 s after returning from battle so the
 # player isn't immediately chain-engaged by a nearby enemy on world re-entry.
 var _proximity_engage_blocked: bool = false
-
-## Returns true if tracking enemies may auto-engage the player on proximity.
-func can_proximity_engage() -> bool:
-	return _state == State.WORLD and not _proximity_engage_blocked
 
 # Tracks which enemy triggered the current battle (for defeat marking)
 var _current_battle_enemy_id: String = ""
@@ -120,9 +124,19 @@ var _coop_pve_enemy_type: String = ""
 # are only meaningful on the host — clients never read them.
 var _coop_spire_run: Dictionary = {"active": false}
 
-## Points at the SaveManager autoload so all systems share one instance.
-## The autoload is registered before SceneManager in project.godot.
-var save_manager: Node
+# ── Android back gesture (GID-120 / TID-453) ────────────────────────────────
+# quit_on_go_back is disabled in project.godot, so the OS back request lands
+# here. Everywhere except the main menu it synthesizes an Escape press —
+# `pause` and `ui_cancel` are both Escape-bound, so WorldScene pause,
+# BattleScene pause, BaseOverlay._close(), and MenuHub close all just work.
+# At the main menu, quit only on a second back press within 2 seconds.
+
+var _back_quit_deadline_ms: int = 0
+var _back_quit_toast: CanvasLayer = null
+
+## Returns true if tracking enemies may auto-engage the player on proximity.
+func can_proximity_engage() -> bool:
+	return _state == State.WORLD and not _proximity_engage_blocked
 
 func _ready() -> void:
 	save_manager = SaveManager
@@ -181,16 +195,6 @@ func _exit_tree() -> void:
 			and not _saved_world_scene.is_inside_tree():
 		_saved_world_scene.free()
 	_saved_world_scene = null
-
-# ── Android back gesture (GID-120 / TID-453) ────────────────────────────────
-# quit_on_go_back is disabled in project.godot, so the OS back request lands
-# here. Everywhere except the main menu it synthesizes an Escape press —
-# `pause` and `ui_cancel` are both Escape-bound, so WorldScene pause,
-# BattleScene pause, BaseOverlay._close(), and MenuHub close all just work.
-# At the main menu, quit only on a second back press within 2 seconds.
-
-var _back_quit_deadline_ms: int = 0
-var _back_quit_toast: CanvasLayer = null
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
@@ -331,9 +335,6 @@ func _on_achievements_closed() -> void:
 		_achievements_overlay.queue_free()
 		_achievements_overlay = null
 	_state = State.MENU
-
-# Fixed world seeds — one per biome, giving each a distinct world layout.
-const _BIOME_SEEDS: Array[int] = [42, 73856135, 100033, 19349705, 294967337]
 
 func start_new_game() -> void:
 	start_new_game_with_biome(0)   # default: Grasslands

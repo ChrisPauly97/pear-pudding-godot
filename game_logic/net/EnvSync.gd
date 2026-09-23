@@ -8,19 +8,6 @@
 ## Callers: preload("res://game_logic/net/EnvSync.gd")
 extends RefCounted
 
-## Payload layout: [time_of_day: float, days_elapsed: int, weather_id: String]
-static func encode(time_of_day: float, days_elapsed: int, weather_id: String) -> Array:
-	return [time_of_day, days_elapsed, weather_id]
-
-
-## Unpack a received payload. Tolerant of a short/garbage array — missing fields
-## fall back to safe defaults so a corrupt packet can never crash a receiver.
-static func decode(payload: Array) -> Dictionary:
-	var time_of_day: float = float(payload[0]) if payload.size() > 0 else 0.4
-	var days_elapsed: int = int(payload[1]) if payload.size() > 1 else 0
-	var weather_id: String = str(payload[2]) if payload.size() > 2 else ""
-	return {"time_of_day": time_of_day, "days_elapsed": days_elapsed, "weather_id": weather_id}
-
 
 # ---------------------------------------------------------------------------
 # Co-op weather roll (host-only) — a small independent table for the co-op
@@ -41,6 +28,19 @@ const _DURATIONS: Dictionary = {
 	"rain":       [ 60.0, 180.0],
 	"heavy_rain": [ 60.0, 180.0],
 }
+
+## Payload layout: [time_of_day: float, days_elapsed: int, weather_id: String]
+static func encode(time_of_day: float, days_elapsed: int, weather_id: String) -> Array:
+	return [time_of_day, days_elapsed, weather_id]
+
+
+## Unpack a received payload. Tolerant of a short/garbage array — missing fields
+## fall back to safe defaults so a corrupt packet can never crash a receiver.
+static func decode(payload: Array) -> Dictionary:
+	var time_of_day: float = float(payload[0]) if payload.size() > 0 else 0.4
+	var days_elapsed: int = int(payload[1]) if payload.size() > 1 else 0
+	var weather_id: String = str(payload[2]) if payload.size() > 2 else ""
+	return {"time_of_day": time_of_day, "days_elapsed": days_elapsed, "weather_id": weather_id}
 
 
 ## Weighted-random weather pick using the caller-owned RNG.

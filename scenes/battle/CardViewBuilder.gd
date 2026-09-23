@@ -34,6 +34,11 @@ var _hand_drag_card: CardInstance = null
 var _slot_targeting_spell: CardInstance = null
 var _slot_select_card: CardInstance = null
 
+## Single source of truth for battle card / board slot size (GID-119 / TID-449).
+## ~13.5% vh wide ≈ a real thumb target on a landscape phone. Co-op/team modes
+## set a <1 scale because their top status bar eats a row of vertical space.
+var _card_scale: float = 1.0
+
 func setup(
 	vh: float,
 	fx: BattleFx,
@@ -149,11 +154,6 @@ func refresh_board_zone(zone_node: Node, zone_state: ZoneState, zone_id: String)
 				_setup_empty_slot_panel(panel as PanelContainer, i, zone_id)
 			else:
 				_apply_empty_slot_style(panel as PanelContainer, i, zone_id, enh)
-
-## Single source of truth for battle card / board slot size (GID-119 / TID-449).
-## ~13.5% vh wide ≈ a real thumb target on a landscape phone. Co-op/team modes
-## set a <1 scale because their top status bar eats a row of vertical space.
-var _card_scale: float = 1.0
 
 func set_card_scale(s: float) -> void:
 	_card_scale = s

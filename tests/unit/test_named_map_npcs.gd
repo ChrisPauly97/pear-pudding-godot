@@ -7,6 +7,13 @@ extends "res://tests/framework/test_case.gd"
 const WorldMapScript = preload("res://game_logic/world/WorldMap.gd")
 const ChunkDataScript = preload("res://game_logic/world/ChunkData.gd")
 
+
+# ---------------------------------------------------------------------------
+# Cast changes driven by story flags, and injected-entity placement
+# ---------------------------------------------------------------------------
+
+const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
+
 # ---------------------------------------------------------------------------
 # madrian map — 2 NPCs defined in file
 # ---------------------------------------------------------------------------
@@ -273,13 +280,6 @@ func test_marsax_hold_has_war_camp_dungeon_door() -> void:
 			assert_true(target.substr(8).is_valid_int(),
 				"dungeon door target_map suffix must be a valid integer seed")
 	assert_true(found, "marsax_hold should have a door into the war-camp dungeon")
-
-
-# ---------------------------------------------------------------------------
-# Cast changes driven by story flags, and injected-entity placement
-# ---------------------------------------------------------------------------
-
-const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 
 
 ## Maiteln joins the party the moment story_intro_complete is set, so the

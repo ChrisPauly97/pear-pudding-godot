@@ -1,5 +1,11 @@
 extends Control
 
+## Emitted only in coop mode when the player presses "Continue" (there is no
+## "Return to Menu" for a co-op run — leaving the world entirely isn't the right
+## action while the shared session is still live). The caller (WorldScene) does
+## the actual shared map transition back to madrian.
+signal continue_pressed
+
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
@@ -11,12 +17,6 @@ var spire_stats: Dictionary = {}
 # when this scene is instantiated as a WorldScene child overlay rather than via
 # change_scene_to_node — the co-op session stays alive underneath.
 var coop_stats: Dictionary = {}
-
-## Emitted only in coop mode when the player presses "Continue" (there is no
-## "Return to Menu" for a co-op run — leaving the world entirely isn't the right
-## action while the shared session is still live). The caller (WorldScene) does
-## the actual shared map transition back to madrian.
-signal continue_pressed
 
 var _vh: float = 0.0
 var _vw: float = 0.0

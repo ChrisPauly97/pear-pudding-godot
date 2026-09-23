@@ -1,9 +1,29 @@
 extends Node3D
+
 const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
+# ── Shared visual resources ─────────────────────────────────────────────────
+# A chest spill spawns up to ~8 items at once; building fresh materials,
+# meshes, and gradient textures for each contributed to the chest-open hitch.
+# Everything below is identical per rarity (or globally), so build once and
+# share across all WorldItem instances. Shared materials are never mutated
+# per-instance.
+
+static var _card_mesh: BoxMesh
+static var _halo_mesh: QuadMesh
+static var _beam_mesh: QuadMesh
+static var _coin_mesh: CylinderMesh
+static var _coin_halo_mesh: QuadMesh
+static var _coin_mat: StandardMaterial3D
+static var _coin_halo_mat: StandardMaterial3D
+static var _halo_mats: Dictionary = {}   # rarity -> StandardMaterial3D
+static var _beam_mats: Dictionary = {}   # rarity -> StandardMaterial3D
+static var _body_mats: Dictionary = {}   # "html_color|rarity" -> StandardMaterial3D
+
 var card_id: String = ""
+
 var _rarity: String = "common"
 var _rolled_attack: int = -1
 var _rolled_health: int = -1
@@ -51,24 +71,6 @@ static func _glow_color_for(rarity: String) -> Color:
 			return Color(1.0, 0.80, 0.0)
 		_:
 			return Color(0.85, 0.85, 0.85)
-
-# ── Shared visual resources ─────────────────────────────────────────────────
-# A chest spill spawns up to ~8 items at once; building fresh materials,
-# meshes, and gradient textures for each contributed to the chest-open hitch.
-# Everything below is identical per rarity (or globally), so build once and
-# share across all WorldItem instances. Shared materials are never mutated
-# per-instance.
-
-static var _card_mesh: BoxMesh
-static var _halo_mesh: QuadMesh
-static var _beam_mesh: QuadMesh
-static var _coin_mesh: CylinderMesh
-static var _coin_halo_mesh: QuadMesh
-static var _coin_mat: StandardMaterial3D
-static var _coin_halo_mat: StandardMaterial3D
-static var _halo_mats: Dictionary = {}   # rarity -> StandardMaterial3D
-static var _beam_mats: Dictionary = {}   # rarity -> StandardMaterial3D
-static var _body_mats: Dictionary = {}   # "html_color|rarity" -> StandardMaterial3D
 
 static func _ensure_card_meshes() -> void:
 	if _card_mesh != null:

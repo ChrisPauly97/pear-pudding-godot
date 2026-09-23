@@ -1,7 +1,8 @@
 extends Control
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal closed
+
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 

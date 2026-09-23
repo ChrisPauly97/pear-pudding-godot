@@ -15,6 +15,11 @@
 ## on NOTIFICATION_RESIZED.
 extends "res://scenes/ui/BaseOverlay.gd"
 
+## Called with a token when "Ghost Duel" is pressed; WorldScene wires this to
+## resolve the snapshot (SessionState.get_ghost_snapshot) and call
+## SceneManager.enter_ghost_duel.
+var on_duel_requested: Callable = Callable()
+
 
 ## rows: Array of {token, name, rating}. The host's caller (CoopSocial) builds this
 ## from SessionStore.get_state().members, excluding its own token; a client's caller
@@ -22,10 +27,6 @@ extends "res://scenes/ui/BaseOverlay.gd"
 ## Kept as plain data (not a SessionState reference) so this overlay stays decoupled
 ## from the session-storage layer.
 var _rows: Array = []
-## Called with a token when "Ghost Duel" is pressed; WorldScene wires this to
-## resolve the snapshot (SessionState.get_ghost_snapshot) and call
-## SceneManager.enter_ghost_duel.
-var on_duel_requested: Callable = Callable()
 
 var _rows_vbox: VBoxContainer = null
 

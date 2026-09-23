@@ -9,11 +9,6 @@ var _paint_mode: int = 0  # 0=grass, 1=wall, 2=hill, 3=enemy, 4=chest, 5=door, 6
 var _paint_height: int = 1
 var _last_painted_tile: Vector2i = Vector2i(-1, -1)
 
-@onready var _camera: Camera3D = $Camera3D
-@onready var _hud: CanvasLayer = $HUD
-@onready var _mode_label: Label = $HUD/ModeLabel
-@onready var _map_name_label: Label = $HUD/MapNameLabel
-
 # Two MultiMeshInstance3D nodes replace 10,000 individual MeshInstance3D nodes.
 # _flat_mm: all grass + hill tiles (per-instance color distinguishes them)
 # _wall_mm: all wall tiles (per-instance transform encodes height via Y scale)
@@ -52,6 +47,11 @@ var _mode_colors: Array[Color] = [
 	Color(0.04, 0.55, 0.75), # spawn
 	Color(0.5, 0.06, 0.06),  # erase
 ]
+
+@onready var _camera: Camera3D = $Camera3D
+@onready var _hud: CanvasLayer = $HUD
+@onready var _mode_label: Label = $HUD/ModeLabel
+@onready var _map_name_label: Label = $HUD/MapNameLabel
 
 func _ready() -> void:
 	# --- Flat MultiMesh (grass + hill tiles) ---

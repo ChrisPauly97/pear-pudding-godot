@@ -1,7 +1,8 @@
 extends Control
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal closed
+
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 var _vh: float = 0.0
 var _vw: float = 0.0

@@ -24,6 +24,12 @@ const _SESSION_ID: String = "smoke_session_pptcg"
 const _TOKEN_A: String = "smoke_token_aaaa"
 
 
+# Stash so _run can read the stub built inside _socket_handshake.
+var _last_client_stub: _ClientStub = null
+# The SessionStore autoload node, fetched in _run and reused by the host stub.
+var _store: Node = null
+
+
 # Host-side stand-in for WorldScene's authority handlers. On a client's identity it
 # resolves (or creates) that token's character via the real SessionStore and sends it.
 # `store` is the SessionStore autoload node (fetched dynamically — autoload globals
@@ -150,12 +156,6 @@ func _run() -> bool:
 		return false
 	print("  [PASS] save_slot_*.json untouched by session persistence")
 	return true
-
-
-# Stash so _run can read the stub built inside _socket_handshake.
-var _last_client_stub: _ClientStub = null
-# The SessionStore autoload node, fetched in _run and reused by the host stub.
-var _store: Node = null
 
 
 ## Stand up a real ENet host+client, have the client send its identity (token A) to

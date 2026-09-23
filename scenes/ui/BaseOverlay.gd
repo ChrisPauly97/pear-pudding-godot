@@ -1,10 +1,12 @@
-extends Control
 class_name BaseOverlay
+
+extends Control
+
+signal closed
+
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const UiFx = preload("res://scenes/ui/UiFx.gd")
-
-signal closed
 
 var _vh: float = 0.0
 var _vw: float = 0.0

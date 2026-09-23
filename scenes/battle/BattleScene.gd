@@ -35,11 +35,28 @@ const BattleResultUI = preload("res://scenes/battle/BattleResultUI.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
 const BattleBackdrop = preload("res://scenes/battle/BattleBackdrop.gd")
 
-var _fx: BattleFx
-var _view: CardViewBuilder
-var _resolver: SpellEffectResolver
-var _pause_ui: BattlePauseUI
-var _result_ui: BattleResultUI
+# ── Spectator wagers (GID-104 / TID-387) ─────────────────────────────────────
+# Spectators may bet coins on side a (players[0]) or b (players[1]) before the
+# WagerSync.CUTOFF_TURN. The AUTHORITY holds escrow: the stake is deducted from
+# the bettor's SessionState member record the moment the bet is accepted, and
+# settlement credits payouts back on battle end (same direct-SessionStore-write
+# pattern as WorldScene._grant_chest_loot_to_token). Refunds on spectator
+# disconnect, draw, or abandoned match. Only coins are ever at risk — never cards.
+# All inert unless NetworkManager.is_active(); single-player never touches this.
+# Spectator-side UI + local mirror of the accepted bet.
+const _WAGER_STEP: int = 5
+const _PVP_RECONNECT_GRACE_SECONDS: float = 45.0
+const _BATTLEFIELD_BANNER_DURATION: float = 3.0
+const TUTORIAL_DURATION: float = 8.0
+
+## World-encounter ambush handicaps (GID-113 / TID-421, TID-422). Mirrors
+## `wounded_pride`'s shape: sets both `health` and `max_health` so the
+## handicap survives the whole match instead of being healed away by the
+## first heal card. `player_ambush`/`enemy_ambush` are mutually exclusive by
+## construction (EnemyNPC.engage() derives them from different alert-state
+## values) so only one branch below ever fires.
+const _AMBUSH_HP_PCT: float = 0.2
+const _AMBUSH_HP_MIN: int = 10
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
@@ -49,6 +66,43 @@ var puzzle_data: Resource = null  # PuzzleData set by SceneManager before _ready
 # Fixed-deck tutorial battles (rabbit hunt, Ch2 ambush). All inert unless
 # SceneManager sets scripted_data = a ScriptedBattleData resource before _ready.
 var scripted_data: Resource = null
+## Networked-battle module (PvP, spectating, wagers, co-op PvE, team duels).
+## A child node created in _ready and registered with BattleNetSync as an RPC
+## handler target; inert in a solo battle. See scenes/battle/net/BattleNet.gd.
+var battle_net: Node = null
+# Listen-server: client deck relayed in challenge handshake (host builds players[1]).
+var pvp_opponent_deck: Array = []
+# Dedicated-server referee (GID-097 / TID-353): both player decks come from clients.
+var pvp_player0_deck: Array = []
+var pvp_player1_deck: Array = []
+
+# ── PvP reconnect (GID-102 / TID-372) ────────────────────────────────────────
+# Listen-server host: the opponent's identity token, so a reconnect can be verified.
+# Set by SceneManager.enter_pvp_battle (sourced from WorldScene's
+# _session_token_by_peer). Empty when unknown — verification then falls back to
+# accepting any reconnect (same-LAN trust model, see _on_reconnect_announced).
+var pvp_opponent_token: String = ""
+
+# Wager (GID-101 / TID-368): ante_coins for the current PvP duel; 0 = unwagered.
+# The host reads this to include wager info in the pvp_ended payload.
+var pvp_ante_coins: int = 0
+
+# Ranked opt-in (GID-102 / TID-373): set by SceneManager.enter_pvp_battle before
+# _ready. When true, _state.ranked is set so WorldScene knows to run the TID-370
+# ELO rating update on battle end (gated in WorldScene, not here).
+var pvp_ranked: bool = false
+
+# Draft duel (GID-104 / TID-385): when non-empty, the listen-server host builds
+# its own players[0] deck from these TRANSIENT drafted-instance dicts instead of
+# SaveManager.get_deck_instances() — a drafted deck must never read (or write)
+# the persisted collection. Set by SceneManager.enter_pvp_battle before _ready.
+var pvp_local_deck_override: Array = []
+
+var _fx: BattleFx
+var _view: CardViewBuilder
+var _resolver: SpellEffectResolver
+var _pause_ui: BattlePauseUI
+var _result_ui: BattleResultUI
 var _scripted_data_ref: Resource = null  # retained for turn-keyed tutorial popups
 var _scripted_tutorial_turns_shown: Dictionary = {}  # int turn_number -> true, dedupe
 
@@ -69,18 +123,9 @@ var _ghost_duel_reward: int = 0
 var _pvp: bool = false
 var _local_player_idx: int = 0       # 0 = host/challenger, 1 = client, -1 = server referee
 var _net: Node = null                # BattleNetSync relay, added under this scene
-## Networked-battle module (PvP, spectating, wagers, co-op PvE, team duels).
-## A child node created in _ready and registered with BattleNetSync as an RPC
-## handler target; inert in a solo battle. See scenes/battle/net/BattleNet.gd.
-var battle_net: Node = null
 var _last_applied_seq: int = -1      # client: last mirror seq applied
 var _pvp_pending: bool = false       # client: waiting on host ack of last action
 var _pvp_ended: bool = false         # guard so the result fires once
-# Listen-server: client deck relayed in challenge handshake (host builds players[1]).
-var pvp_opponent_deck: Array = []
-# Dedicated-server referee (GID-097 / TID-353): both player decks come from clients.
-var pvp_player0_deck: Array = []
-var pvp_player1_deck: Array = []
 var _pvp_peer_to_idx: Dictionary = {}  # peer_id (int) → player_idx (int), referee only
 
 # ── Duel spectating (GID-101 / TID-367) ──────────────────────────────────────
@@ -88,46 +133,12 @@ var _pvp_peer_to_idx: Dictionary = {}  # peer_id (int) → player_idx (int), ref
 # mirrors from the host but never send any intents. Input is fully blocked.
 # The host tracks spectator peer_ids in _spectators and fans sync_state to them.
 var _pvp_spectating: bool = false
-
-# ── Spectator wagers (GID-104 / TID-387) ─────────────────────────────────────
-# Spectators may bet coins on side a (players[0]) or b (players[1]) before the
-# WagerSync.CUTOFF_TURN. The AUTHORITY holds escrow: the stake is deducted from
-# the bettor's SessionState member record the moment the bet is accepted, and
-# settlement credits payouts back on battle end (same direct-SessionStore-write
-# pattern as WorldScene._grant_chest_loot_to_token). Refunds on spectator
-# disconnect, draw, or abandoned match. Only coins are ever at risk — never cards.
-# All inert unless NetworkManager.is_active(); single-player never touches this.
-# Spectator-side UI + local mirror of the accepted bet.
-const _WAGER_STEP: int = 5
-
-# ── PvP reconnect (GID-102 / TID-372) ────────────────────────────────────────
-# Listen-server host: the opponent's identity token, so a reconnect can be verified.
-# Set by SceneManager.enter_pvp_battle (sourced from WorldScene's
-# _session_token_by_peer). Empty when unknown — verification then falls back to
-# accepting any reconnect (same-LAN trust model, see _on_reconnect_announced).
-var pvp_opponent_token: String = ""
 # Dedicated-server referee: idx (0/1) -> identity token, for the same verification.
 var _pvp_idx_to_token: Dictionary = {}
 # Host/referee: idx of the combatant currently mid-grace-window after a disconnect,
 # or -1 if no reconnect is pending. Set by _on_pvp_peer_disconnected, cleared by a
 # successful _on_reconnect_announced or the grace timer's timeout (forfeit).
 var _pvp_reconnect_idx: int = -1
-const _PVP_RECONNECT_GRACE_SECONDS: float = 45.0
-
-# Wager (GID-101 / TID-368): ante_coins for the current PvP duel; 0 = unwagered.
-# The host reads this to include wager info in the pvp_ended payload.
-var pvp_ante_coins: int = 0
-
-# Ranked opt-in (GID-102 / TID-373): set by SceneManager.enter_pvp_battle before
-# _ready. When true, _state.ranked is set so WorldScene knows to run the TID-370
-# ELO rating update on battle end (gated in WorldScene, not here).
-var pvp_ranked: bool = false
-
-# Draft duel (GID-104 / TID-385): when non-empty, the listen-server host builds
-# its own players[0] deck from these TRANSIENT drafted-instance dicts instead of
-# SaveManager.get_deck_instances() — a drafted deck must never read (or write)
-# the persisted collection. Set by SceneManager.enter_pvp_battle before _ready.
-var pvp_local_deck_override: Array = []
 
 # ── Co-op PvE joint battle (GID-099) ─────────────────────────────────────────
 # All inert unless SceneManager sets _coop_pve = true before _ready.
@@ -175,7 +186,6 @@ var _gambit_badge: Control = null
 
 # Battlefield Resonance UI (GID-059)
 var _battlefield_banner: Control = null
-const _BATTLEFIELD_BANNER_DURATION: float = 3.0
 var _battlefield_info_label: Label = null  # persistent day/night + biome label in SidePanel
 var _slot_highlight_panels: Array[Control] = []  # overlay panels on affected slots
 
@@ -225,7 +235,6 @@ var _capture_tracker: CaptureTracker = null
 
 # First-battle tutorial overlay
 var _tutorial_overlay: Node = null
-const TUTORIAL_DURATION: float = 8.0
 
 # Dual-face flip tracking (GID-062): instance_ids already flipped this battle.
 var _flipped_dual_ids: Dictionary = {}
@@ -1182,15 +1191,6 @@ func _add_potion_button() -> void:
 		return
 	_potion_btn = _UiUtil.make_button("Potion", Vector2(_vh * 0.16, _vh * 0.05), int(_font(0.02)), _on_potion_button_pressed)
 	$SidePanel.add_child(_potion_btn)
-
-## World-encounter ambush handicaps (GID-113 / TID-421, TID-422). Mirrors
-## `wounded_pride`'s shape: sets both `health` and `max_health` so the
-## handicap survives the whole match instead of being healed away by the
-## first heal card. `player_ambush`/`enemy_ambush` are mutually exclusive by
-## construction (EnemyNPC.engage() derives them from different alert-state
-## values) so only one branch below ever fires.
-const _AMBUSH_HP_PCT: float = 0.2
-const _AMBUSH_HP_MIN: int = 10
 
 func _apply_ambush_modifiers(edata: Dictionary) -> void:
 	if bool(edata.get("player_ambush", false)):

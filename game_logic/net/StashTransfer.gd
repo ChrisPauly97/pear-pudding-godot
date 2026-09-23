@@ -18,6 +18,8 @@
 ## Callers: preload("res://game_logic/net/StashTransfer.gd").
 extends RefCounted
 
+const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
+
 ## Index of the instance carrying `card_uid` inside an owned-cards array, or -1.
 ## Instances arrive as plain dicts inside a Variant Array (they come off the
 ## wire), so the `is Dictionary` check is load-bearing.
@@ -27,8 +29,6 @@ static func find_owned_index(owned: Array, card_uid: String) -> int:
 		if c is Dictionary and str((c as Dictionary).get("uid", "")) == card_uid:
 			return i
 	return -1
-
-const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
 
 ## Move a card instance from a member's owned_cards (+ deck, if present) into the

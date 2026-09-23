@@ -67,15 +67,104 @@ const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
 # Shared world life (GID-103): synced clock/weather, party night hunts, co-op siege
 const _ENV_BROADCAST_INTERVAL: float = 3.0  # host: low-Hz clock/weather broadcast
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _SESSION_SNAPSHOT_INTERVAL: float = 5.0
+const _LOOT_ROLL_TIMEOUT: float = 15.0
+const _COOP_SPIRE_DRAFT_TIMEOUT: float = 30.0
+# Rally waystones (GID-105 / TID-388) — guarded by NetworkManager.is_active().
+const _RALLY_COOLDOWN: float = 3.0
+const _CHALLENGE_RANGE: float = 3.0      # tiles; proximity to show the prompt
+const TOURNAMENT_ANTE_COINS: int = 25  # flat per-player entry fee; pot = ante * players
+# GID-102 / TID-376: Shared party stash
+# GID-102 / TID-378: Async card auction house
+const _ChapterEndingOverlay = preload("res://scenes/ui/ChapterEndingOverlay.gd")
+
+const _BIOME_MUSIC: Array = [
+	"res://assets/audio/music/grasslands.ogg",
+	"res://assets/audio/music/forest.ogg",
+	"res://assets/audio/music/desert.ogg",
+	"res://assets/audio/music/scorched.ogg",
+	"res://assets/audio/music/mountains.ogg",
+]
+
+# BID-048: dungeon.ogg used to play for every non-infinite named map, including
+# peaceful towns (madrian, maykalene, ...). Procedurally generated dungeons/
+# spire floors never set MapData.music_track, so they still fall through to
+# _DUNGEON_MUSIC below; every hand-authored town/story map instead falls back
+# to _TOWN_MUSIC_DEFAULT unless it sets its own `music_track` override.
+const _DUNGEON_MUSIC: String = "res://assets/audio/music/dungeon.ogg"
+const _TOWN_MUSIC_DEFAULT: String = "res://assets/audio/music/grasslands.ogg"
+const _WEATHER_TINT_SPEED: float = 2.0  # tint blends in 0.5s
+const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
+
+## The single interaction priority order, highest first. Both the HUD prompt
+## (_interact_prompt_label) and the button action (_handle_interact, plus the
+## _try_simple_interaction table it delegates to) probe in exactly this order and
+## stop at the first hit; test_interact_priority asserts both still do.
+##
+## Hostile entities sit at the bottom: with anything peaceful in reach the player
+## gets that instead, so you can take a door, open a chest or read a scroll with
+## an enemy standing next to you rather than being forced into the fight. A
+## downed teammate outranks everything — the rescue window is short.
+const INTERACT_PRIORITY: PackedStringArray = [
+	"downed_peer",
+	"door", "chest", "npc", "scroll", "wilderness_camp", "maiteln", "shrine",
+	"digspot", "burial_mound", "mana_well", "waystone", "mailbox", "garden_plot",
+	"blight_heart", "scout_ambush", "enemy",
+]
+
+## HUD prompt verb per NPC type; anything unlisted falls back to "TALK".
+const _NPC_PROMPT_LABELS: Dictionary = {
+	"merchant": "SHOP", "traveling_merchant": "SHOP",
+	"blacksmith": "FORGE", "bounty_board": "BOARD", "stable": "STABLE",
+	"duelist": "DUEL", "rest_site": "REST", "bed": "REST",
+	"stash_chest": "STASH",
+}
+
+const LANDMARK_DISCOVERY_RANGE: float = 9.0
+
+## Menu actions that cancel any tap-to-move walk before opening.
+const _MENU_ACTIONS: Array[String] = ["inventory", "journal", "character", "skill_tree"]
 
 @export var map_name: String = "main"
 @export var target_door_id: String = ""
-
-# Computed in _ready from map_name; true for "main" and "infinite", false for named dungeon maps
-var _is_infinite: bool = false
+@export var day_duration: float = 600.0   # seconds per full day
 
 # Named-map path
 var world_map: WorldMap
+# TID-377: Ghost duels — host-only Party-panel action + overlay (SessionStore is
+# only ever open on the authority; a client has no local SessionState to list
+# opponents from).
+# GID-104 (TID-385): Draft duels — sealed-deck PvP. Both peers derive identical
+# 1-of-3 pick rounds from one shared seed (DraftDuelGen); only the two finished
+# TRANSIENT decks cross the wire. Drafted cards never touch owned_cards /
+# SaveManager / SessionState. All state below is inert in single-player.
+# Co-op feature modules (child nodes, created in _setup_coop). Each holds a
+# `_world` back-reference to this scene and is registered with NetSync as an RPC
+# handler target, so the `_on_*` entry points resolve exactly as they did when
+# they lived here. See CLAUDE.md "WorldScene co-op modules".
+var coop_social: Node = null
+var coop_pvp: Node = null
+var coop_activities: Node = null
+var coop_session: Node = null
+
+# Nocturnal spawn system (GID-055 Night Hunts) — see modules/NocturnalSpawner.gd
+var nocturnal: Node = null
+var cantrips: Node = null   # modules/Cantrips.gd (GID-065)
+var home_garden: Node = null   # modules/HomeGarden.gd (GID-059)
+var story_cast: Node = null    # modules/StoryCast.gd (GID-108)
+
+var WORLD_SEED: int = 42  # overwritten in _ready() for infinite worlds
+
+var tap_move: Node = null   # modules/TapToMove.gd
+var mounts: Node = null     # modules/Mounts.gd (GID-048)
+var player_home: Node = null   # modules/PlayerHome.gd
+var npc_interactions: Node = null   # modules/NpcInteractions.gd
+var town_siege: Node = null   # modules/TownSiege.gd (GID-054)
+var named_props: Node = null   # modules/NamedMapProps.gd
+var chest_loot: Node = null    # modules/ChestLoot.gd
+
+# Computed in _ready from map_name; true for "main" and "infinite", false for named dungeon maps
+var _is_infinite: bool = false
 
 # Common
 var _player: CharacterBody3D
@@ -92,7 +181,6 @@ var _coop_active: bool = false
 # Persistent session (GID-095 / TID-346) — character adopted from the authority's
 # SessionState; persist-back snapshots batched at _SESSION_SNAPSHOT_INTERVAL.
 var _session_token_by_peer: Dictionary = {}  # host: peer_id -> identity token
-const _SESSION_SNAPSHOT_INTERVAL: float = 5.0
 # Co-op world-object sync (GID-096) — guarded by _coop_active; inert single-player.
 var _coop_removed_enemies: Dictionary = {}  # enemy id -> true (engaged/defeated this session)
 # Shared story scrolls (GID-108 / TID-408) — mirrors _coop_opened_objects exactly.
@@ -102,7 +190,6 @@ var _coop_scroll_syncing: bool = false        # reentry guard, mirrors _coop_sto
 # Authority only: roll_id -> {chest_id, item, tier, participants: Array[String],
 # choices: {token: "need"|"greed"|"pass"}, timer: float}. Empty on clients and when unused.
 var _loot_rolls_active: Dictionary = {}
-const _LOOT_ROLL_TIMEOUT: float = 15.0
 # Client (or host's own local UI): the currently-shown roll prompt, or {} when none.
 var _pending_loot_roll: Dictionary = {}
 var _loot_roll_panel: Node = null   # transient Need/Greed/Pass panel (CanvasLayer), nil when closed
@@ -111,7 +198,6 @@ var _loot_roll_panel: Node = null   # transient Need/Greed/Pass panel (CanvasLay
 # this task's scope; a full floor-by-floor loop is TID-391's job). Shape:
 # {floor, options: Array[String], active_picker_token, active_picker_name, timer}.
 var _coop_spire_draft_active: Dictionary = {}
-const _COOP_SPIRE_DRAFT_TIMEOUT: float = 30.0
 var _coop_spire_draft_overlay: Node = null  # transient SpireDraftScene instance, nil when closed
 # Any peer (including the authority's own local UI): the currently-shown draft
 # prompt's decoded payload, or {} when none. Needed separately from
@@ -130,8 +216,6 @@ var _coop_spire_summary_overlay: Node = null
 # Co-op story mode (GID-098): true once a map transition is in flight on this
 # WorldScene instance so duplicate recv_map_transition packets are ignored.
 var _coop_map_transitioning: bool = false
-# Rally waystones (GID-105 / TID-388) — guarded by NetworkManager.is_active().
-const _RALLY_COOLDOWN: float = 3.0
 # Downed & rescue in shared dungeons (GID-105 / TID-389) — guarded by _coop_active
 # and current_map.begins_with("dungeon_"); inert everywhere else.
 var _coop_downed: bool = false                # true while the LOCAL player is downed
@@ -144,7 +228,6 @@ var _initial_ready_done: bool = false  # so _enter_tree re-setup only runs on re
 # PvP challenges (GID-091)
 # Shared dungeon crawl (GID-102 / TID-380) — host-only trigger, now a Party-panel action.
 var _pending_challenge_from: int = -1    # incoming challenge awaiting our response
-const _CHALLENGE_RANGE: float = 3.0      # tiles; proximity to show the prompt
 # Dedicated-server PvP routing (GID-097 / TID-353) — server tracks pending challenge
 var _session_dedicated: bool = false      # client: true when connected to a dedicated server
 # Team PvP duels (GID-102 / TID-371): host-only trigger, visible at 4 players (host
@@ -159,7 +242,6 @@ var _session_dedicated: bool = false      # client: true when connected to a ded
 var _tournament_active: bool = false          # true while a bracket is in progress (both host+clients)
 var _tournament_bracket: Dictionary = {}      # TournamentSync bracket dict; kept after finish for the panel
 var _tournament_peer_ids: Array[int] = []     # host-only: participant idx -> peer id
-const TOURNAMENT_ANTE_COINS: int = 25  # flat per-player entry fee; pot = ante * players
 # GID-101 — Social & Rewards ──────────────────────────────────────────────────
 # TID-365: Emotes & pings
 var _ping_mode_active: bool = false      # true while player has ping mode toggled on
@@ -172,9 +254,6 @@ var _pvp_ante_peer1: int = -1           # client peer in the active wager
 # TID-369: Shared party bounties
 # TID-374: Party chat
 var _chat_input: LineEdit = null           # free-text input (desktop always-visible; mobile behind toggle)
-# GID-102 / TID-376: Shared party stash
-# GID-102 / TID-378: Async card auction house
-const _ChapterEndingOverlay = preload("res://scenes/ui/ChapterEndingOverlay.gd")
 var _pvp_ended_pending_broadcast: bool = false  # set in pvp_battle_ended; cleared on _enter_tree
 # GID-102 (TID-373): Ranked UI & leaderboard
 var _leaderboard_rows: Array = []        # cached SessionState.get_leaderboard() rows
@@ -192,21 +271,6 @@ var _coop_night_hunt_kills: int = 0          # resets at dawn
 var _coop_siege_active: bool = false
 var _coop_siege_wave: int = -1               # -1 = not started; >= WAVE_COUNT = boss phase
 var _coop_siege_wave_nodes: Dictionary = {}  # id -> Node3D (current wave only)
-# TID-377: Ghost duels — host-only Party-panel action + overlay (SessionStore is
-# only ever open on the authority; a client has no local SessionState to list
-# opponents from).
-# GID-104 (TID-385): Draft duels — sealed-deck PvP. Both peers derive identical
-# 1-of-3 pick rounds from one shared seed (DraftDuelGen); only the two finished
-# TRANSIENT decks cross the wire. Drafted cards never touch owned_cards /
-# SaveManager / SessionState. All state below is inert in single-player.
-# Co-op feature modules (child nodes, created in _setup_coop). Each holds a
-# `_world` back-reference to this scene and is registered with NetSync as an RPC
-# handler target, so the `_on_*` entry points resolve exactly as they did when
-# they lived here. See CLAUDE.md "WorldScene co-op modules".
-var coop_social: Node = null
-var coop_pvp: Node = null
-var coop_activities: Node = null
-var coop_session: Node = null
 var _door_nodes: Dictionary = {}    # id -> Node3D
 var _npc_nodes: Dictionary = {}     # id -> Node3D
 var _scroll_nodes: Array[Node3D] = []
@@ -239,39 +303,16 @@ var _blight_heart_nodes: Dictionary = {} # heart_id -> Node3D
 var _active_landmark_data: Dictionary = {} # landmark_id -> Dictionary
 var _mana_well_nodes: Dictionary = {}    # well_id -> Node3D
 var _current_biome: int = -1
-
-const _BIOME_MUSIC: Array = [
-	"res://assets/audio/music/grasslands.ogg",
-	"res://assets/audio/music/forest.ogg",
-	"res://assets/audio/music/desert.ogg",
-	"res://assets/audio/music/scorched.ogg",
-	"res://assets/audio/music/mountains.ogg",
-]
-
-# BID-048: dungeon.ogg used to play for every non-infinite named map, including
-# peaceful towns (madrian, maykalene, ...). Procedurally generated dungeons/
-# spire floors never set MapData.music_track, so they still fall through to
-# _DUNGEON_MUSIC below; every hand-authored town/story map instead falls back
-# to _TOWN_MUSIC_DEFAULT unless it sets its own `music_track` override.
-const _DUNGEON_MUSIC: String = "res://assets/audio/music/dungeon.ogg"
-const _TOWN_MUSIC_DEFAULT: String = "res://assets/audio/music/grasslands.ogg"
 var _terrain_mat: ShaderMaterial
 var _last_save_pos: Vector2 = Vector2(-9999, -9999)
 var _interact_timer: float = 0.0
 var _roaming_boss_timer: float = 0.0
 var _traveling_merchant_timer: float = 0.0
 var _card_shower_items: Array[Node3D] = []
-
-# Nocturnal spawn system (GID-055 Night Hunts) — see modules/NocturnalSpawner.gd
-var nocturnal: Node = null
-var cantrips: Node = null   # modules/Cantrips.gd (GID-065)
-var home_garden: Node = null   # modules/HomeGarden.gd (GID-059)
-var story_cast: Node = null    # modules/StoryCast.gd (GID-108)
 var _night_cue_played: bool = false
 
 # Day/night cycle — delegated to DayNightCycle component
 var _world_env: WorldEnvironment
-@export var day_duration: float = 600.0   # seconds per full day
 var _dnc: DayNightCycle = null
 
 # Weather visuals
@@ -279,46 +320,10 @@ var _active_weather_particles: Node3D = null
 var _weather_tint: Color = Color(1.0, 1.0, 1.0)
 var _weather_tint_target: Color = Color(1.0, 1.0, 1.0)
 var _weather_tint_lerp_t: float = 1.0
-const _WEATHER_TINT_SPEED: float = 2.0  # tint blends in 0.5s
 
 # Camera smoothing: lerped toward player each _process frame to eliminate
 # micro-stutter on high-refresh displays (camera runs at render rate, physics at ~60 Hz).
 var _smooth_camera_target: Vector3 = Vector3.ZERO
-
-var WORLD_SEED: int = 42  # overwritten in _ready() for infinite worlds
-const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
-
-## The single interaction priority order, highest first. Both the HUD prompt
-## (_interact_prompt_label) and the button action (_handle_interact, plus the
-## _try_simple_interaction table it delegates to) probe in exactly this order and
-## stop at the first hit; test_interact_priority asserts both still do.
-##
-## Hostile entities sit at the bottom: with anything peaceful in reach the player
-## gets that instead, so you can take a door, open a chest or read a scroll with
-## an enemy standing next to you rather than being forced into the fight. A
-## downed teammate outranks everything — the rescue window is short.
-const INTERACT_PRIORITY: PackedStringArray = [
-	"downed_peer",
-	"door", "chest", "npc", "scroll", "wilderness_camp", "maiteln", "shrine",
-	"digspot", "burial_mound", "mana_well", "waystone", "mailbox", "garden_plot",
-	"blight_heart", "scout_ambush", "enemy",
-]
-
-## HUD prompt verb per NPC type; anything unlisted falls back to "TALK".
-const _NPC_PROMPT_LABELS: Dictionary = {
-	"merchant": "SHOP", "traveling_merchant": "SHOP",
-	"blacksmith": "FORGE", "bounty_board": "BOARD", "stable": "STABLE",
-	"duelist": "DUEL", "rest_site": "REST", "bed": "REST",
-	"stash_chest": "STASH",
-}
-
-@onready var _camera: Camera3D = $Camera3D
-@onready var _hud: CanvasLayer = $HUD
-@onready var _interact_label: Label = $HUD/InteractPrompt
-@onready var _map_label: Label = $HUD/MapLabel
-@onready var _coin_label: Label = $HUD/CoinLabel
-@onready var _sun: DirectionalLight3D = $DirectionalLight3D
-@onready var _moon: DirectionalLight3D = $MoonLight
 var _fill_light: DirectionalLight3D
 
 var _pause_overlay: Node = null
@@ -331,13 +336,13 @@ var _map_overlay: Node = null
 # _refresh_objective_beacon).
 var _objective_beacon: Node3D = null
 
-var tap_move: Node = null   # modules/TapToMove.gd
-var mounts: Node = null     # modules/Mounts.gd (GID-048)
-var player_home: Node = null   # modules/PlayerHome.gd
-var npc_interactions: Node = null   # modules/NpcInteractions.gd
-var town_siege: Node = null   # modules/TownSiege.gd (GID-054)
-var named_props: Node = null   # modules/NamedMapProps.gd
-var chest_loot: Node = null    # modules/ChestLoot.gd
+@onready var _camera: Camera3D = $Camera3D
+@onready var _hud: CanvasLayer = $HUD
+@onready var _interact_label: Label = $HUD/InteractPrompt
+@onready var _map_label: Label = $HUD/MapLabel
+@onready var _coin_label: Label = $HUD/CoinLabel
+@onready var _sun: DirectionalLight3D = $DirectionalLight3D
+@onready var _moon: DirectionalLight3D = $MoonLight
 
 # Terrain height constants — named-map path uses a wider ramp than chunks
 
@@ -1248,8 +1253,6 @@ func _find_nearby_mana_well(px: float, pz: float, range_dist: float) -> Node3D:
 func _find_nearby_blight_heart(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_blight_heart_nodes, px, pz, range_dist)
 
-const LANDMARK_DISCOVERY_RANGE: float = 9.0
-
 func _check_nearby_landmark(px: float, pz: float) -> void:
 	if not _is_infinite:
 		return
@@ -1621,9 +1624,6 @@ func _set_player_alpha(alpha: float) -> void:
 			c.a = alpha
 			sp.modulate = c
 
-## Menu actions that cancel any tap-to-move walk before opening.
-const _MENU_ACTIONS: Array[String] = ["inventory", "journal", "character", "skill_tree"]
-
 func _pressed_menu_action(event: InputEvent) -> String:
 	for action: String in _MENU_ACTIONS:
 		if event.is_action_pressed(action):
@@ -1793,7 +1793,6 @@ func _handle_interact() -> void:
 		home_garden.show_panel(garden_plot)
 
 # ── Spire entrance ─────────────────────────────────────────────────────────
-
 
 
 	# Hostile entities are probed last, so anything peaceful in reach wins: you can

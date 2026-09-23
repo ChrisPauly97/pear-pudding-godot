@@ -13,9 +13,37 @@ const BIOME_NOISE_FREQ: float = 0.015
 # Chunks within this Manhattan distance of origin are always Grasslands
 const SAFE_ZONE_DIST: int = 5
 
+# ── Landmark placement ─────────────────────────────────────────────────────
+# ~1 in LANDMARK_RARITY chunks hosts a mega-landmark (colossus, spire, etc.)
+const LANDMARK_RARITY: int = 50
+# Skip landmark placement within this Manhattan radius of origin (safe zone)
+const LANDMARK_SAFE_DIST: int = 3
+# Footprint half-size (tiles): landmark reserves a (2*FP+1) × (2*FP+1) area
+const LANDMARK_FP: int = 2
+
+# Biome → variant name (one per biome; deterministic from biome id)
+const LANDMARK_VARIANTS: Array[String] = [
+	"obelisk_ring",       # GRASSLANDS
+	"stone_head",         # FOREST
+	"kneeling_colossus",  # DESERT
+	"shattered_spire",    # SCORCHED
+	"broken_arch",        # MOUNTAINS
+]
+
+# Approximately 1 in SCROLL_CHUNK_RARITY chunks gets an infinite-world scroll.
+const SCROLL_CHUNK_RARITY: int = 200
+
 # ── Terrain noise (cached per seed) ────────────────────────────────────────
 static var _cached_noise: FastNoiseLite
 static var _cached_noise_seed: int = -1
+
+# ── Biome noise (cached per seed, separate from terrain noise) ─────────────
+static var _biome_noise: FastNoiseLite
+static var _biome_noise_seed: int = -1
+
+# When >= 0, overrides the safe-zone biome so the player starts in the chosen biome.
+# Set by WorldScene._ready() from SaveManager.starting_biome before any chunks are generated.
+static var forced_start_biome: int = -1
 
 static func _get_noise(world_seed: int) -> FastNoiseLite:
 	if _cached_noise != null and _cached_noise_seed == world_seed:
@@ -26,14 +54,6 @@ static func _get_noise(world_seed: int) -> FastNoiseLite:
 	_cached_noise.frequency = NOISE_FREQ
 	_cached_noise_seed = world_seed
 	return _cached_noise
-
-# ── Biome noise (cached per seed, separate from terrain noise) ─────────────
-static var _biome_noise: FastNoiseLite
-static var _biome_noise_seed: int = -1
-
-# When >= 0, overrides the safe-zone biome so the player starts in the chosen biome.
-# Set by WorldScene._ready() from SaveManager.starting_biome before any chunks are generated.
-static var forced_start_biome: int = -1
 
 static func _get_biome_noise(world_seed: int) -> FastNoiseLite:
 	if _biome_noise != null and _biome_noise_seed == world_seed:
@@ -57,23 +77,6 @@ static func biome_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> int:
 
 static func _chunk_seed(p_cx: int, p_cz: int, world_seed: int) -> int:
 	return (p_cx * 73856093) ^ (p_cz * 19349663) ^ world_seed
-
-# ── Landmark placement ─────────────────────────────────────────────────────
-# ~1 in LANDMARK_RARITY chunks hosts a mega-landmark (colossus, spire, etc.)
-const LANDMARK_RARITY: int = 50
-# Skip landmark placement within this Manhattan radius of origin (safe zone)
-const LANDMARK_SAFE_DIST: int = 3
-# Footprint half-size (tiles): landmark reserves a (2*FP+1) × (2*FP+1) area
-const LANDMARK_FP: int = 2
-
-# Biome → variant name (one per biome; deterministic from biome id)
-const LANDMARK_VARIANTS: Array[String] = [
-	"obelisk_ring",       # GRASSLANDS
-	"stone_head",         # FOREST
-	"kneeling_colossus",  # DESERT
-	"shattered_spire",    # SCORCHED
-	"broken_arch",        # MOUNTAINS
-]
 
 # Returns the landmark data dict for this chunk, or {} if none.
 # Pure function — identical inputs always produce identical output.
@@ -128,9 +131,6 @@ static func _gen_landmarks(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: 
 			chunk.set_tile(ltx, ltz, IsoConst.TILE_GRASS)
 			chunk.set_height(ltx, ltz, 0)
 	chunk.landmarks.append(data)
-
-# Approximately 1 in SCROLL_CHUNK_RARITY chunks gets an infinite-world scroll.
-const SCROLL_CHUNK_RARITY: int = 200
 
 # Returns the scroll_id to place in this chunk, or "" if none.
 # Deterministic: same cx/cz/world_seed always produces the same result.
