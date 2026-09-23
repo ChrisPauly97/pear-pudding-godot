@@ -210,7 +210,7 @@ entirely. His interaction needs four states that don't fit the 2-state `MapNpc` 
 2. `chapter1_temple_council` not yet set → sets it (first meeting, "the council is assembling"),
    shows his static `dialogue`.
 3. `chapter1_temple_council` set AND both `chapter1_spoke_queen` and `chapter1_spoke_scargroth`
-   set → `WorldScene._trigger_chapter1_ending()`.
+   set → `NpcInteractions._trigger_chapter1_ending()`.
 4. Otherwise (council met, Queen/Scargroth not both spoken to yet) → an interim "council has
    heard the prophecy" line.
 
@@ -222,7 +222,7 @@ epilogue line, shown as soon as they've been spoken to once rather than only aft
 `chapter1_complete` — the 2-state schema can't express three states, and the intended flow
 (Queen → Scargroth → King Eldar, all in one visit) makes the gap narratively negligible.
 
-`_trigger_chapter1_ending()` sets `chapter1_complete` (which fires `StoryCast.refresh_maiteln_presence()`
+`NpcInteractions._trigger_chapter1_ending()` sets `chapter1_complete` (which fires `StoryCast.refresh_maiteln_presence()`
 for free via the TID-403 `_on_story_flag_set_for_cast` hook — the follower disappears with no new
 code) and shows `scenes/ui/ChapterEndingOverlay.gd`, a new `BaseOverlay`-derived paged narration
 overlay (`extends "res://scenes/ui/BaseOverlay.gd"`, path-string per the CLAUDE.md class_name
@@ -257,7 +257,7 @@ King Eldar", the entry point into beat 1).
 
 Every beat reuses an existing mechanism rather than building a parallel one:
 
-1. **The council's charge** — a 5th state added to `WorldScene._handle_king_eldar_interaction()`
+1. **The council's charge** — a 5th state added to `WorldScene.NpcInteractions._king_eldar()`
    (see Chapter 1 Ending above): the first time King Eldar is spoken to after `chapter1_complete`,
    sets `chapter2_charged` and shows a one-off line, then falls through to the epilogue line.
 2. **Return to Larik** — `chapter2_reached_larik` sets on first entry to `map_name == "larik"`
@@ -274,13 +274,13 @@ Every beat reuses an existing mechanism rather than building a parallel one:
    `ScriptedBattleData.completion_flag`, same as the rabbit hunt.
 4. **Marsax hold besieged** — reuses the GID-054 siege gauntlet wholesale instead of a parallel
    story-siege system. `"marsax_hold"` added to `SiegeDefs.TOWN_GATES`;
-   `WorldScene._check_story_siege_trigger()` calls `save_manager.start_siege("marsax_hold")` once
+   `TownSiege._check_story_trigger()` calls `save_manager.start_siege("marsax_hold")` once
    on map entry (`chapter2_ambush_survived` set, `chapter2_siege_won` not, no siege already
-   active), right before the existing `_check_siege_spawn()`. `SceneManager._on_battle_won`'s
+   active), right before the existing `TownSiege.on_map_entered()`. `SceneManager._on_battle_won`'s
    final-stage-victory branch sets `chapter2_siege_won` when the winning siege's town is
    `"marsax_hold"`.
    - **BID-041 fixed opportunistically** (found while wiring this beat, affects the pre-existing
-     random single-player siege too, not just this one): `_spawn_siege_raiders()` called
+     random single-player siege too, not just this one): `TownSiege._spawn_raiders()` called
      `node.set("enemy_type", enemy_type)` — `EnemyNPC` has no such property, so every raider
      silently fell back to `"undead_basic"` regardless of stage or town. Replaced with a proper
      `init_from_data(edata)` call (mirrors `StoryCast._spawn_rival_at`'s exact pattern).

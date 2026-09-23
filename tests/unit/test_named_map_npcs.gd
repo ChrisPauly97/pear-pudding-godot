@@ -174,8 +174,8 @@ func test_blancogov_city_dweller_flag_gated_on_temple_council() -> void:
 # ---------------------------------------------------------------------------
 
 func test_blancogov_temple_king_eldar_uses_custom_npc_type() -> void:
-	# King Eldar's dialogue is entirely custom-driven (WorldScene
-	# _handle_king_eldar_interaction) since his 4 narrative states don't fit
+	# King Eldar's dialogue is entirely custom-driven (NpcInteractions
+	# _king_eldar) since his 4 narrative states don't fit
 	# the 2-state MapNpc flag_key/after_dialogue schema — flag_key must be
 	# empty so the generic auto-set-on-interact path never fires for him.
 	var wm: RefCounted = WorldMapScript.new("blancogov_temple")

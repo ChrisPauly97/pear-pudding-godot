@@ -310,9 +310,16 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `Cantrips.gd` (`cantrips`) | Ghost Phase / Skeleton Dig activation (HUD buttons + G/D keys) |
 | `HomeGarden.gd` (`home_garden`) | Home garden plot spawn + plant/grow/harvest panel (solo and guildhall) |
 | `StoryCast.gd` (`story_cast`) | Maiteln presence, wilderness camp, scout ambush, war-camp boss, rival encounters |
+| `TapToMove.gd` (`tap_move`) | Tap/click/drag pathing input, destination + reject markers, auto-interact on arrival |
+| `NpcInteractions.gd` (`npc_interactions`) | NPC-type dispatch, King Eldar / Chapter 1 ending, duel offer panel |
+| `PlayerHome.gd` (`player_home`) | House purchase door, bed respawn, trophy pedestals (`make_trophy_pedestal` shared with guildhall) |
+| `Mounts.gd` (`mounts`) | Stable purchase panel, mount toggle, battle auto-dismount (price from `MountRegistry`) |
+| `TownSiege.gd` (`town_siege`) | Single-player siege raiders + banner, Chapter 2 marsax_hold trigger |
 
 Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
-`test_interact_priority` reads the interaction chains by those names.
+`test_interact_priority` reads the interaction chains by those names. Likewise
+keep literal `GameBus.<signal>.emit()` calls (no signal tables) —
+`test_gamebus_signal_coverage` greps for them.
 
 Rules:
 - Each module is a `Node` with a `_world` (or `_battle`) back-reference, created in

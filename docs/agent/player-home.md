@@ -11,7 +11,7 @@
 
 ### Door Gating (WorldScene)
 
-When the player interacts with a door whose `entity_id` is `"house_door"` (placed at madrian tile 40,50), `_show_house_door_panel()` is called instead of the normal door flow:
+When the player interacts with a door whose `entity_id` is `"house_door"` (placed at madrian tile 40,50), `PlayerHome.show_house_door_panel()` is called instead of the normal door flow:
 
 - If `save_manager.home_owned == true`: play door SFX and call `SceneManager.enter_map("player_home", "exit_door")`.
 - If `home_owned == false`: show an inline CanvasLayer panel with the price (500 coins), a Buy button (disabled if insufficient), and Cancel. On confirm, `add_coins(-500)`, set `home_owned = true`, mark dirty, then enter the map.
@@ -44,16 +44,16 @@ Current trophies:
 
 ### Trophy Pedestal Spawning (WorldScene)
 
-After loading the player_home map, `_spawn_player_home_trophies()` is called:
+After loading the player_home map, `PlayerHome.spawn_trophies()` is called:
 - Iterates `["champion", "spire_7", "first_boss"]` with tile positions `(44,49)`, `(47,49)`, `(50,49)`.
 - Calls `TrophyRegistry.is_earned()` for each.
-- Builds a `Node3D` via `_make_trophy_pedestal(earned, display_name)`: BoxMesh base + top pillar, `MeshInstance3D` colored gold (earned) or gray (not earned), `Label3D` showing the display name or `"???"`.
+- Builds a `Node3D` via `PlayerHome.make_trophy_pedestal()`: BoxMesh base + top pillar, `MeshInstance3D` colored gold (earned) or gray (not earned), `Label3D` showing the display name or `"???"`.
 - Registers each pedestal as an NPC via `register_npc()` with `npc_type = "trophy_pedestal"`.
 - Interact dispatch in `_handle_interact()` → `_show_trophy_info(npc)` → `_show_dialogue()`.
 
 ### Bed Rest (WorldScene)
 
-`_handle_bed_interaction()`:
+`PlayerHome.use_bed()`:
 1. Calls `save_manager.set_respawn_point("player_home", 100.0, 106.0)` (tile 50,53 × TILE_SIZE 2.0).
 2. Sets `save_manager.time_of_day = 0.25` (sunrise).
 3. Shows dialogue: "You rest peacefully at home. Respawn point set!"

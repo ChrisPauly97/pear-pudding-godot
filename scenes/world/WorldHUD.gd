@@ -118,7 +118,7 @@ func _create_nav_buttons(_vh: float, _vw_unused: float, font_size: int,
 	hub_btn.add_theme_font_size_override("font_size", font_size)
 
 	_mount_btn = register_action("mount", "Mount", ZONE_NAV,
-		func() -> void: _world_scene.call("_toggle_mount"),
+		func() -> void: _world_scene.mounts.toggle(),
 		Callable(), Vector2(btn_w * 1.3, btn_h))
 	_mount_btn.add_theme_font_size_override("font_size", font_size)
 	_mount_btn.flat = true

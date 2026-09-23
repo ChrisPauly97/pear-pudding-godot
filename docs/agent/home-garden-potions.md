@@ -88,7 +88,7 @@ SaveManager.get_plot_growth_stage(plot_idx) -> int      # 0 = empty, 1–3 = gro
 
 ### WorldScene Interaction (`scenes/world/WorldScene.gd`)
 
-`HomeGarden.spawn_home_plots()` (`scenes/world/modules/HomeGarden.gd`) is called in the `player_home` map branch (after `_spawn_player_home_trophies()`). It creates three GardenPlot nodes and appends them to `_garden_plot_nodes: Array[Node3D]`.
+`HomeGarden.spawn_home_plots()` (`scenes/world/modules/HomeGarden.gd`) is called in the `player_home` map branch (after `PlayerHome.spawn_trophies()`). It creates three GardenPlot nodes and appends them to `_garden_plot_nodes: Array[Node3D]`.
 
 `_check_interactions()` and `_handle_interact()` detect the nearest plot within `IsoConst.INTERACT_RANGE` via `_find_nearby_garden_plot()`.
 

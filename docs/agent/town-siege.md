@@ -35,10 +35,10 @@ Migration from v30 adds all three fields with their defaults.
 ### Siege Lifecycle
 
 ```
-WorldScene._check_siege_spawn(map_name)
+TownSiege.on_map_entered(map_name)   (scenes/world/modules/TownSiege.gd)
   └─ SiegeDefs.should_trigger() → start_siege(town) if no active siege
-  └─ _spawn_siege_raiders(stage) — 3 EnemyNPC nodes near TOWN_GATES[map_name]
-  └─ _setup_siege_banner(map_name) — red label in HUD
+  └─ _spawn_raiders(map, stage) — 3 EnemyNPC nodes near TOWN_GATES[map_name]
+  └─ _setup_banner(map_name) — red label in HUD
 
 Player interacts with raider NPC
   └─ GameBus.enemy_engaged.emit(raider_dict)

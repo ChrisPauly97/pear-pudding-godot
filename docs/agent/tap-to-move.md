@@ -56,17 +56,17 @@ Tap-to-move uses `_unhandled_input()` so HUD buttons (which call `accept_event()
 
 Touch guard:
 1. On `InputEventScreenTouch` press — record `_tap_start_screen`, `_tap_touch_index`, and reset `_drag_last_tile`.
-2. On `InputEventScreenTouch` release — if release position is within `_TAP_DRAG_THRESHOLD` (30 px) of press, treat as a tap and call `_handle_tap_to_move()`.
+2. On `InputEventScreenTouch` release — if release position is within `TapToMove.DRAG_THRESHOLD` (30 px) of press, treat as a tap and call `TapToMove.handle_tap()`.
 3. Call `VirtualJoystick.is_touch_in_control_area(pos)` — returns `true` if the tap landed on the joystick base, jump button, or interact button (radius × 1.5 for slop). Abort if true.
-4. Mouse: `InputEventMouseButton` left-click `is_pressed()` triggers `_handle_tap_to_move()` directly and resets `_drag_last_tile`.
+4. Mouse: `InputEventMouseButton` left-click `is_pressed()` triggers `TapToMove.handle_tap()` directly and resets `_drag_last_tile`.
 
 **Drag steering (TID-340):** Once the drag threshold is crossed, the move target updates continuously:
 
-- **Touch drag (`InputEventScreenDrag`):** if the dragging finger is still tracked and the drag has exceeded `_TAP_DRAG_THRESHOLD`, the joystick area is checked first — if the drag moves into the joystick, steering stops and the tap is abandoned. Otherwise `_handle_tap_to_move()` is called whenever the drag crosses into a new tile (throttled by `_drag_last_tile`).
-- **Mouse drag (`InputEventMouseMotion`):** while the left button is held, any tile-change triggers `_handle_tap_to_move()` on the new tile.
+- **Touch drag (`InputEventScreenDrag`):** if the dragging finger is still tracked and the drag has exceeded `TapToMove.DRAG_THRESHOLD`, the joystick area is checked first — if the drag moves into the joystick, steering stops and the tap is abandoned. Otherwise `TapToMove.handle_tap()` is called whenever the drag crosses into a new tile (throttled by `_drag_last_tile`).
+- **Mouse drag (`InputEventMouseMotion`):** while the left button is held, any tile-change triggers `TapToMove.handle_tap()` on the new tile.
 - The player follows the finger/cursor in real time; releasing lands at the final position.
 
-### Screen-to-Tile Conversion (`_screen_to_tile`)
+### Screen-to-Tile Conversion (`TapToMove.screen_to_tile`)
 
 Analytic ray-plane intersection against the y = 0 tile plane:
 
@@ -82,20 +82,20 @@ Works for both named maps and the infinite world because tiles are always on the
 
 ### Destination Marker
 
-`_make_dest_marker()` creates an `MeshInstance3D` with:
+`TapToMove._make_marker()` creates an `MeshInstance3D` with:
 - `TorusMesh` (inner_radius = 0.50, outer_radius = 0.72, section height = 0.12).
 - `StandardMaterial3D`: shading_mode UNSHADED, albedo/emission `Color(0.2, 1.0, 0.4)`.
 - Placed at `Vector3((tx + 0.5) * TILE_SIZE, 0.12, (tz + 0.5) * TILE_SIZE)`.
 
-`_place_dest_marker()` attaches a looping `Tween` that pulses scale between 0.85 and 1.2 over 0.45 s.
+`TapToMove._place_dest_marker()` attaches a looping `Tween` that pulses scale between 0.85 and 1.2 over 0.45 s.
 
-Marker is freed by `_clear_dest_marker()`, called on: new tap, `cancel_path()` from Player, battle start, or map change. `_process()` polls `player._has_active_path` each frame; when it becomes false, `_clear_dest_marker()` is called automatically.
+Marker is freed by `tap_move.clear()`, called on: new tap, `cancel_path()` from Player, battle start, or map change. `_process()` polls `player._has_active_path` each frame; when it becomes false, `tap_move.clear()` is called automatically.
 
 ### Reject Marker (TID-462)
 
 A tap that resolves to a wall tile or an unreachable tile calls
-`_show_reject_marker(tile)` in addition to the existing `_show_tip(...)` text
-tip. `_make_reject_marker()` builds the same `TorusMesh` shape as the
+`TapToMove._show_reject_marker(pos)` in addition to the existing `_show_tip(...)` text
+tip. `TapToMove._make_marker()` builds the same `TorusMesh` shape as the
 destination marker but red/orange (`Color(1.0, 0.25, 0.2)`, unshaded,
 emissive) and transient: it scales up to 1.4 while fading to alpha 0 over
 ~0.4s via a one-shot `Tween`, then `queue_free()`s itself. It is independent
@@ -111,12 +111,12 @@ blight heart, mana well, enemy, wilderness camp, scout ambush, Maiteln)
 walks the player there and then automatically fires the same interaction
 E/USE would — no second tap needed.
 
-**Detection:** `_tile_has_interactable(wx, wz)` mirrors
-`_check_interactions()`'s `has_entity` boolean check, but against the
-*tapped tile's* world center instead of the live player position, reusing
-the same `_find_nearby_*` finder battery (door at `INTERACT_RANGE * 2.0`,
-everything else at `INTERACT_RANGE`). `_handle_tap_to_move()` sets
-`_pending_tap_interact` from this check once a valid path is found, before
+**Detection:** `WorldScene._interact_prompt_label(wx, wz) != ""` evaluated at
+the *tapped tile's* world center instead of the live player position — the
+same priority chain the HUD prompt uses (door at `INTERACT_RANGE * 2.0`,
+everything else at `INTERACT_RANGE`), so there is no second copy of the
+finder list to drift. `TapToMove.handle_tap()` sets
+`TapToMove._pending_interact` from this check once a valid path is found, before
 placing the marker.
 
 **Arrival:** `Player.gd` emits a `path_arrived` signal — separate from
@@ -129,13 +129,13 @@ ambushed mid-route never auto-fires a stale queued interaction.
 (`_player.connect("path_arrived", ...)` — `_player` is statically typed
 `CharacterBody3D`, so this uses the same dynamic-dispatch pattern as the
 rest of the Player-specific API in this file) to
-`_on_player_path_arrived()`, which calls the existing `_handle_interact()`
-exactly once when `_pending_tap_interact` is set and neither an overlay is
+`TapToMove.on_path_arrived()`, which calls the existing `_handle_interact()`
+exactly once when `TapToMove._pending_interact` is set and neither an overlay is
 open nor the player is downed (co-op). `_handle_interact()`'s own
 priority-ordered dispatch (door → enemy → chest → npc → …) is untouched —
 this only automates pressing the button, never re-implements what it does.
 
-`_pending_tap_interact` is also cleared by `_clear_dest_marker()`, so
+`TapToMove._pending_interact` is also cleared by `tap_move.clear()`, so
 battle-start, map-transition, and new-tap cancellations can't leave a stale
 queued interaction around.
 
@@ -167,7 +167,7 @@ Cancellation wiring:
 - `GameBus.enemy_engaged` → `cancel_path()` (connected in `_ready()`).
 - Manual input (WASD / joystick) → `cancel_path()` each frame.
 - New tap → `cancel_path()` + `set_destination_path(new_path)`.
-- Map transition → `_clear_dest_marker()` in WorldScene removes the visual; player state resolves on next move.
+- Map transition → `tap_move.clear()` in WorldScene removes the visual; player state resolves on next move.
 
 ## Integrations with Other Features
 

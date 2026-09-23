@@ -7,8 +7,12 @@ extends "res://tests/framework/test_case.gd"
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const MountRegistry     = preload("res://game_logic/MountRegistry.gd")
 
-const MOUNT_PRICE: int = 750
-const MOUNT_LEVEL_REQ: int = 10
+const _Mounts = preload("res://scenes/world/modules/Mounts.gd")
+
+## The stable panel reads both from here, so the tests exercise the real values.
+const MOUNT_LEVEL_REQ: int = _Mounts.LEVEL_REQ
+
+var _mount_price: int = _Mounts.price()
 
 var _sm: Node
 
@@ -23,7 +27,7 @@ func after_each() -> void:
 # ---------------------------------------------------------------------------
 
 func _can_buy(level: int, coins: int) -> bool:
-	return level >= MOUNT_LEVEL_REQ and coins >= MOUNT_PRICE
+	return level >= MOUNT_LEVEL_REQ and coins >= _mount_price
 
 func test_can_buy_true_when_level_and_coins_sufficient() -> void:
 	assert_true(_can_buy(10, 750))
@@ -54,7 +58,7 @@ func test_purchase_deducts_coins() -> void:
 	_sm.coins = 1000
 	_sm.level = 10
 	_sm.owned_mounts.assign([])
-	_sm.coins -= MOUNT_PRICE
+	_sm.coins -= _mount_price
 	assert_eq(_sm.coins, 250)
 
 func test_purchase_adds_to_owned_mounts() -> void:
@@ -163,9 +167,8 @@ func test_stable_horse_registry_display_name_not_empty() -> void:
 	var m: Dictionary = MountRegistry.get_mount("stable_horse")
 	assert_false(str(m.get("display_name", "")).is_empty())
 
-func test_stable_horse_price_matches_panel_const() -> void:
-	var m: Dictionary = MountRegistry.get_mount("stable_horse")
-	assert_eq(int(m.get("price", 0)), MOUNT_PRICE)
+func test_stable_horse_price_is_750() -> void:
+	assert_eq(_mount_price, 750)
 
 func test_stable_horse_level_req_is_ten() -> void:
 	assert_eq(MOUNT_LEVEL_REQ, 10)

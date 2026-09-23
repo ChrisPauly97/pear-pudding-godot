@@ -2864,7 +2864,7 @@ already a continuously-current cache on every peer (broadcast on every
 `record_pve_score` write and sent at late-join, TID-379). `_spawn_guildhall_trophies()`
 just reads `_pve_leaderboards["coop_clears"]` (up to 3 rows, already
 best-first) and spawns a pedestal per row via the existing
-`_make_trophy_pedestal`/`register_npc("trophy_pedestal", ...)` machinery
+`PlayerHome.make_trophy_pedestal`/`register_npc("trophy_pedestal", ...)` machinery
 (GID-046) — the generic `trophy_pedestal` npc_type dispatch in
 `_handle_interact()` needed zero changes. A `coop_clears` row is
 `{token, name, value, day}` (party size at win time, not a boss/floor
@@ -3041,7 +3041,7 @@ against the co-op contracts GID-098 already established. Per-rule findings:
   walked into marsax_hold with the right flags would start their own private
   local siege. GID-103 only wired a *synced* siege engine (`CoopSiege.gd`) for
   madrian, not marsax_hold, so this task applies the design's own sanctioned
-  fallback: `_check_story_siege_trigger()` now only starts the siege when
+  fallback: `TownSiege._check_story_trigger()` now only starts the siege when
   `_coop_world_authority()` (or solo play) — the host runs it, and
   `chapter2_siege_won` still reaches the whole party via the shared-flag
   sync. A true synced marsax_hold siege reusing `CoopSiege` is future work,
