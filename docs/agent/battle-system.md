@@ -851,7 +851,7 @@ Static constructor that seeds a battle state from PuzzleData:
 
 `game_logic/world/resources/MapPuzzleShrine.gd` — tile-positioned resource entity with `puzzle_id`.
 `scenes/world/entities/PuzzleShrine.gd/.tscn` — glowing blue prism mesh with point light; dims when puzzle already solved.
-`WorldScene._spawn_named_map_shrines()` — mirrors `_spawn_named_map_scrolls()`; interact via `_handle_interact()`.
+`NamedMapProps._spawn_shrines()` — mirrors `NamedMapProps._spawn_scrolls()`; interact via `_handle_interact()`.
 `MapData.shrines: Array[Resource]` — serialized alongside scrolls, enemies, etc.
 `WorldMap.shrines: Array[Dictionary]` — runtime list of `{id, x, z, puzzle_id}` dicts.
 

@@ -7,6 +7,8 @@ const _EnemyAlertState = preload("res://game_logic/world/EnemyAlertState.gd")
 
 const _ALERT_REACTION_TIME: float = 0.4
 const _GIVEUP_HOLD_TIME: float = 2.0
+## Blue ghostly wash on night-hunt spectres (`"nocturnal": true` in the data).
+const SPECTRAL_TINT := Color(0.7, 0.85, 1.0, 0.85)
 
 var enemy_data: Dictionary = {}
 var _alive: bool = true
@@ -21,11 +23,15 @@ var _alert_state: int = _EnemyAlertState.State.IDLE
 var _alert_timer: float = 0.0
 var _giveup_timer: float = 0.0
 var _player_ref: CharacterBody3D = null
+var _sprite: Sprite3D = null
 
 func _ready() -> void:
 	var etype: String = str(enemy_data.get("enemy_type", ""))
 	var sprite: Sprite3D = _SpriteRegistry.make_billboard(_SpriteRegistry.enemy_texture(etype, _is_roaming_boss, _is_boss), TextureGen.enemy(_is_roaming_boss, _is_boss), _SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss))
 	add_child(sprite)
+	_sprite = sprite
+	if bool(enemy_data.get("nocturnal", false)):
+		sprite.modulate = SPECTRAL_TINT
 	if _is_roaming_boss:
 		scale = Vector3(1.5, 1.5, 1.5)
 	elif _is_boss:
@@ -97,6 +103,16 @@ func _update_giveup(delta: float, dist: float) -> bool:
 		_show_giveup()
 		return true
 	return false
+
+## Fades the billboard out over `duration` seconds, then frees the enemy.
+## (Node3D has no `modulate` — the fade has to target the Sprite3D child.)
+func fade_out_and_free(duration: float = 1.0) -> void:
+	if not is_instance_valid(_sprite) or not is_inside_tree():
+		queue_free()
+		return
+	var tw: Tween = create_tween()
+	tw.tween_property(_sprite, "modulate:a", 0.0, duration)
+	tw.tween_callback(queue_free)
 
 func init_from_data(data: Dictionary) -> void:
 	enemy_data = data

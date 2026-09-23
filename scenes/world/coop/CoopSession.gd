@@ -20,6 +20,10 @@ const _CoopSiege         = preload("res://game_logic/CoopSiege.gd")
 const _DownedSync        = preload("res://game_logic/net/DownedSync.gd")
 const _EnemySync         = preload("res://game_logic/net/EnemySync.gd")
 const _EnvSync           = preload("res://game_logic/net/EnvSync.gd")
+const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
+const _PlayerHome        = preload("res://scenes/world/modules/PlayerHome.gd")
+const _SpriteRegistry    = preload("res://game_logic/SpriteRegistry.gd")
+const _WorldEntityBase   = preload("res://scenes/world/entities/WorldEntityBase.gd")
 const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 const _NetSyncScript     = preload("res://scenes/world/NetSync.gd")
 const _PartyPanel        = preload("res://scenes/ui/PartyPanel.gd")
@@ -41,6 +45,9 @@ var _coop_story_flag_syncing: bool = false
 var _coop_weather_rng: RandomNumberGenerator = null
 var _coop_weather_timer: float = 0.0
 var _enemy_pos_accum: float = 0.0
+## Last-known guildhall garden snapshot {"plots", "plants"}. The host fills it
+## from SessionStore; a client can't read SessionStore, so it requests one.
+var _guildhall_garden_cache: Dictionary = {"plots": [{}, {}, {}], "plants": {}}
 var _last_rally_time: float = -999.0
 var _maiteln_broadcast_accum: float = 0.0
 var _net_broadcast_accum: float = 0.0
@@ -1481,18 +1488,18 @@ func _broadcast_guildhall_garden(target_peer: int = 0) -> void:
 		"plots": (gh.get("garden_plots", []) as Array).duplicate(true),
 		"plants": (gh.get("plants", {}) as Dictionary).duplicate(true),
 	}
-	_world._guildhall_garden_cache = payload
+	_guildhall_garden_cache = payload
 	if target_peer == 0:
 		_world._net_sync.rpc("recv_guildhall_garden_update", payload)
 	else:
 		_world._net_sync.rpc_id(target_peer, "recv_guildhall_garden_update", payload)
-	_world._refresh_guildhall_garden_visuals()
+	_refresh_guildhall_garden_visuals()
 
 ## Any peer: receive a guildhall garden snapshot and refresh plot visuals.
 
 func _on_guildhall_garden_update_received(payload: Dictionary) -> void:
-	_world._guildhall_garden_cache = payload
-	_world._refresh_guildhall_garden_visuals()
+	_guildhall_garden_cache = payload
+	_refresh_guildhall_garden_visuals()
 
 ## Local player (any peer) picked a seed for an empty plot.
 
@@ -1568,6 +1575,99 @@ func _on_session_harvest_submitted(_sender: int, plot_idx: int) -> void:
 	st.guildhall_state = gh
 	SessionStore.mark_dirty()
 	_broadcast_guildhall_garden()
+
+# ── Party Guildhall furnishings (GID-106 / TID-393) ──────────────────────────
+# Trophies, garden and a stash chest furnishing the otherwise-empty guildhall
+# (TID-392). Spawned by WorldScene on guildhall entry, after _setup_coop() (a
+# client's garden snapshot request needs _net_sync).
+
+const _GUILDHALL_TROPHY_TILES: Array[Vector2i] = [Vector2i(44, 50), Vector2i(50, 50), Vector2i(56, 50)]
+const _GUILDHALL_PLOT_TILES: Array[Vector2i] = [Vector2i(46, 54), Vector2i(50, 54), Vector2i(54, 54)]
+const _GUILDHALL_STASH_TILE := Vector2i(50, 48)
+
+func spawn_guildhall_furnishings() -> void:
+	_spawn_guildhall_trophies()
+	_spawn_guildhall_garden()
+	_spawn_guildhall_stash_chest()
+
+func _tile_to_ground(tile: Vector2i) -> Vector3:
+	var wx: float = float(tile.x) * IsoConst.TILE_SIZE
+	var wz: float = float(tile.y) * IsoConst.TILE_SIZE
+	return Vector3(wx, _world.get_terrain_height(wx, wz), wz)
+
+## Up to 3 pedestals from the already-synced coop_clears leaderboard cache
+## (TID-391) — no new RPC. Dynamic top-N: a slot with no entry is skipped.
+func _spawn_guildhall_trophies() -> void:
+	var rows: Array = _world._pve_leaderboards.get("coop_clears", [])
+	for i: int in range(mini(rows.size(), _GUILDHALL_TROPHY_TILES.size())):
+		var row: Dictionary = rows[i]
+		var display_name: String = "%s's Clear — Party of %d" % [str(row.get("name", "A party")), int(row.get("value", 0))]
+		var pos: Vector3 = _tile_to_ground(_GUILDHALL_TROPHY_TILES[i])
+		var pedestal: Node3D = _PlayerHome.make_trophy_pedestal(true, display_name)
+		pedestal.position = pos
+		_world._entity_root.add_child(pedestal)
+		var npc_id: String = "guildhall_trophy_%d" % i
+		_world.register_npc(npc_id, pedestal, {
+			"id": npc_id,
+			"x": pos.x, "z": pos.z,
+			"npc_type": "trophy_pedestal",
+			"dialogue": "%s (Day %d)" % [display_name, int(row.get("day", 0))],
+			"flag_key": "",
+		})
+
+## 3 session-scoped plots (session_mode). The host seeds the cache from
+## SessionStore; a client asks the host for a snapshot.
+func _spawn_guildhall_garden() -> void:
+	_world._garden_plot_nodes.clear()
+	for i: int in range(_GUILDHALL_PLOT_TILES.size()):
+		var plot: Node3D = _GardenPlotScript.new()
+		plot.init_from_data({"plot_idx": i})
+		plot.session_mode = true
+		plot.position = _tile_to_ground(_GUILDHALL_PLOT_TILES[i])
+		_world._entity_root.add_child(plot)
+		_world._garden_plot_nodes.append(plot)
+	if not NetworkManager.is_host():
+		if _world._net_sync != null:
+			_world._net_sync.rpc_id(1, "submit_guildhall_garden_request")
+		return
+	var st = SessionStore.get_state() if SessionStore.is_open() else null
+	if st != null:
+		var gh: Dictionary = st.guildhall_state
+		_guildhall_garden_cache = {
+			"plots": (gh.get("garden_plots", []) as Array).duplicate(true),
+			"plants": (gh.get("plants", {}) as Dictionary).duplicate(true),
+		}
+	_refresh_guildhall_garden_visuals()
+
+## A physical anchor for the party stash (TID-376), which is always reachable
+## from the HUD too. Opening it is a local UI action — no RPC.
+func _spawn_guildhall_stash_chest() -> void:
+	var mat: StandardMaterial3D = _WorldEntityBase.unshaded_material(Color(0.55, 0.38, 0.15))
+	var root := Node3D.new()
+	root.add_child(_PlayerHome.make_box(Vector3(0.9, 0.55, 0.6), 0.275, mat))
+	root.add_child(_PlayerHome.make_box(Vector3(0.95, 0.2, 0.65), 0.65, mat))
+	root.add_child(_SpriteRegistry.make_name_label("Guild Stash", Color(0.95, 0.85, 0.5), 1.1, 26, 0.020))
+	root.position = _tile_to_ground(_GUILDHALL_STASH_TILE)
+	_world._entity_root.add_child(root)
+	_world.register_npc("guildhall_stash_chest", root, {
+		"id": "guildhall_stash_chest",
+		"x": root.position.x, "z": root.position.z,
+		"npc_type": "stash_chest",
+		"dialogue": "",
+		"flag_key": "",
+	})
+
+## Pushes the current cache into every spawned session_mode plot.
+func _refresh_guildhall_garden_visuals() -> void:
+	var plots: Array = _guildhall_garden_cache.get("plots", [])
+	var days: int = _coop_current_days_elapsed()
+	var nodes: Array[Node3D] = _world._garden_plot_nodes
+	for i: int in range(nodes.size()):
+		var plot: Node3D = _world._valid_node3d(nodes[i])
+		if plot == null or not plot.has_method("set_session_state"):
+			continue
+		var data: Dictionary = plots[i] if i < plots.size() and plots[i] is Dictionary else {}
+		plot.set_session_state(data, days)
 
 # ── Co-op Endless Spire (GID-106 / TID-390) ──────────────────────────────────
 #

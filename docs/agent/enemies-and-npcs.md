@@ -193,7 +193,7 @@ Tracking enemies also get a second, larger `Area3D` (radius = `IsoConst.ENEMY_AW
 - Caught at `ALERTED` (mid-reaction, hasn't started chasing yet) is neutral — neither flag is set, an ordinary fight.
 - The two flags are mutually exclusive by construction (different `_alert_state` values at the moment of contact) — `classify_ambush` never returns both `true`.
 - `_apply_ambush_modifiers()` is called in `BattleScene._setup_solo_battle()` right after `_apply_gambit_handicaps()`, the same fresh-battle-only call site, so — like gambit handicaps — the HP delta needs no special mid-battle save/resume handling; it's baked into `GameState` the moment it's set.
-- Applies to rivals too (`enemy_type` starting `rival_` are regular `EnemyNPC`s using the same `engage()`), but never to duel-offer-panel wagers (`WorldScene._show_duel_offer_panel`), which never call `EnemyNPC.engage()` at all — a separate, consensual `duel_requested` signal path.
+- Applies to rivals too (`enemy_type` starting `rival_` are regular `EnemyNPC`s using the same `engage()`), but never to duel-offer-panel wagers (`NpcInteractions.show_duel_offer_panel`), which never call `EnemyNPC.engage()` at all — a separate, consensual `duel_requested` signal path.
 
 **Tracking split (per enemy type):**
 `EnemyRegistry.is_tracking(type_id)` encodes the aggressiveness split:
@@ -237,7 +237,7 @@ Duelists are regular TownspersonNPCs that have `npc_type = "duelist"` in their `
 - `required_duelist_ids: PackedStringArray` — `entity_id`s that must appear in `SaveManager.defeated_duelists` before this NPC will accept a duel (champion gate)
 - `champion_reward_card: String` — card ID awarded once on first defeat (leave empty for regular duelists)
 
-**Interact flow (`WorldScene._show_duel_offer_panel`):**
+**Interact flow (`NpcInteractions.show_duel_offer_panel`):**
 1. **Champion gate**: if `required_duelist_ids` is non-empty and any listed ID is not in `defeated_duelists` → shows "I only duel proven players. Beat the others in town first. (N more to go.)" — only Decline button shown.
 2. If the player has fewer coins than the wager → shows "Come back when you can cover the wager."
 3. If the NPC's `entity_id` is in `SaveManager.defeated_duelists` → rematch: wager is halved, prompt changes to "A rematch?".

@@ -30,7 +30,7 @@ Done:
 Still open:
 - [ ] **SceneManager as formal state machine** — see the item above
 - [x] **Oversized functions** — `_on_battle_won` 225→143, `WorldScene._ready` 290→152, `_handle_interact` 250→113, `_process` 118→94, `BattleScene._ready` 222→125, `_check_game_over` 123→50
-- [ ] **`WorldScene.gd` is still ~3.8k lines** — the remaining bulk is nocturnal spawns, cantrips, dialogue, home/garden and tap-to-move; each is a candidate for the same module treatment
+- [x] **`WorldScene.gd` ~3.8k → ~2.1k lines** — eleven single-player clusters moved to `scenes/world/modules/`, guildhall furnishings to CoopSession (BID-055 slice 2); what's left is scene setup, streaming callbacks, interaction chains and shared UI builders
 - [x] **Interaction priority** — both chains now follow one `WorldScene.INTERACT_PRIORITY` constant, with hostile entities (`enemy`, `scout_ambush`, `blight_heart`) probed last so anything peaceful in reach wins
 - [ ] **Cross-module reaches** — a handful of `_world.coop_pvp.X` references remain (spectate button, leaderboard overlay). Where two modules genuinely share state it belongs on WorldScene or in a small shared object
 - [ ] **`EnemyRegistry` is still a GDScript literal** — `CardRegistry` is `.tres`-driven and `EnemyRegistry` is not. Migrating means moving the current dictionary's values (drop pools, capture/signature data) into resources; the old `.tres` files were stale, so they were deleted rather than adopted silently
@@ -55,3 +55,16 @@ Deliberately left duplicated (extracting would cost more than it saves):
 - **`ChunkStreamingManager.get_tile_global` / `get_height_global`** — the shared part is the chunk-cache lookup, and both are passed as `Callable`s into the pathfinder and the 49-sample height scan. Any extraction returning a chunk-plus-local-coords pair allocates per call, in exactly the path GID-121 optimised
 - **`TextureGen._gen_prop_*`** — hand-tuned pixel art. The common shape needs ~11 positional arguments, so a shared helper would make the art harder to tune, not easier
 - **Seed-cached noise getters** (`TerrainMath._get_ley_noise_a/_b`, `InfiniteWorldGen._get_biome_noise`) — the bulk is the per-cache static guard, which cannot be shared without coupling the two modules for about nine lines
+
+### Third pass (claude/codebase-refinement-gml1gg)
+
+Done:
+- [x] **Single-player world modules** — `scenes/world/modules/{NocturnalSpawner,Cantrips,HomeGarden,StoryCast,TapToMove,NpcInteractions,PlayerHome,Mounts,TownSiege}.gd`
+- [x] **Tap auto-interact detection** — `_tile_has_interactable` (a hand-copied 17-finder chain) replaced by `_interact_prompt_label(wx, wz) != ""`
+- [x] **Mount price** — read from `MountRegistry`, not a second `MOUNT_PRICE` constant; dead `_siege_raider_nodes` / `_guildhall_stash_chest_node` removed
+- [x] **Equipment drop** — four per-slot loops collapsed; chances shared with `LootRoll.EQUIPMENT_CHANCE_*`
+- [x] **Fast travel Esc** — the "[Esc]" close never fired (key events don't reach an unfocused backdrop) and Esc opened pause on top; pause now closes the panel first
+- [x] **Chunk-neighbour scans** — `_find_nearby_enemy` / `_find_nearby_chest` share `_neighbour_chunks()` and the `_node_in_range` / `_data_in_range` predicates instead of two hand-rolled 3×3 loops
+- [x] **Spectral tint** — `EnemyNPC` applies it from `"nocturnal": true` and owns `fade_out_and_free()`; the co-op night hunt was setting `modulate` on a `Node3D` (runtime error)
+- [x] **Silent runtime errors** — 15 `SCRIPT ERROR`s in a green test run fixed (12 vacuous tests, landmark discovery, spire mirror); CI now fails on any
+- [x] **Garden panel** — built on `_build_modal` (backdrop blocks tap-to-move through the panel) and split per stage

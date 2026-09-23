@@ -16,7 +16,7 @@ const HUNT_SIZE: int = 4
 
 ## Fixed candidate offsets (world units) from the map's town-gate anchor
 ## (SiegeDefs.TOWN_GATES) — mirrors the fixed-offset pattern already used by
-## WorldScene._spawn_siege_raiders for the same reason: named maps have no
+## WorldScene.TownSiege._spawn_raiders for the same reason: named maps have no
 ## runtime walkability query available to pure logic, so offsets are hand-picked
 ## clear ground near the gate.
 const _CANDIDATE_OFFSETS: Array[Vector2] = [

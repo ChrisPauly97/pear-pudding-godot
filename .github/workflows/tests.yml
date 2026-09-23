@@ -66,8 +66,19 @@ jobs:
           fi
           echo "Import clean — no parse or compile errors."
 
+      # GDScript has no exceptions: a runtime error aborts the test function
+      # before its asserts run, and the runner still counts it as a pass. Any
+      # SCRIPT ERROR in the log is therefore a test that silently tested nothing.
       - name: Run test suite
-        run: godot --headless --path . -s tests/runner.gd
+        run: |
+          set -o pipefail
+          godot --headless --path . -s tests/runner.gd 2>&1 | tee /tmp/tests.log
+          ERRORS=$(grep -A2 "SCRIPT ERROR" /tmp/tests.log || true)
+          if [ -n "$ERRORS" ]; then
+            echo "::error::Test run logged runtime script errors:"
+            echo "$ERRORS"
+            exit 1
+          fi
 
       # The unit runner is synchronous, so it can never call _ready() on a
       # mounted node or let a layout settle. These two stand up the real scenes

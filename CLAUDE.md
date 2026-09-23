@@ -294,12 +294,34 @@ BattleScene's PvP/co-op surface in `scenes/battle/net/BattleNet.gd`:
 
 | Module | Owns |
 |---|---|
-| `CoopSession.gd` | join/leave, identity + character handshakes, roster, world-object sync, synced clock/weather, story flags, map transitions, rally, downed & rescue, dungeon crawl, guildhall |
+| `CoopSession.gd` | join/leave, identity + character handshakes, roster, world-object sync, synced clock/weather, story flags, map transitions, rally, downed & rescue, dungeon crawl, guildhall (incl. furnishings: trophies, garden, stash chest) |
 | `CoopActivities.gd` | night hunts, loot rolls, co-op Spire, town siege, PvE leaderboards, party bounties |
 | `CoopPvP.gd` | challenge handshake + timeouts, team duels, referee routing, spectating, wagers, ranked/leaderboard, draft duels, tournaments |
 | `CoopSocial.gd` | emotes, pings, chat, trading/gifting, party stash, auction house |
 
 | `net/BattleNet.gd` | PvP duels, spectating, spectator wagers, co-op PvE joint battle, team duels (back-reference `_battle`) |
+
+Single-player feature clusters use the same shape under `scenes/world/modules/`,
+created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
+
+| Module | Owns |
+|---|---|
+| `NocturnalSpawner.gd` (`nocturnal`) | Night Hunts spectre spawns, dawn fade-out, chunk eviction |
+| `Cantrips.gd` (`cantrips`) | Ghost Phase / Skeleton Dig activation (HUD buttons + G/D keys) |
+| `HomeGarden.gd` (`home_garden`) | Home garden plot spawn + plant/grow/harvest panel (solo and guildhall) |
+| `StoryCast.gd` (`story_cast`) | Maiteln presence, wilderness camp, scout ambush, war-camp boss, rival encounters |
+| `TapToMove.gd` (`tap_move`) | Tap/click/drag pathing input, destination + reject markers, auto-interact on arrival |
+| `NpcInteractions.gd` (`npc_interactions`) | NPC-type dispatch, King Eldar / Chapter 1 ending, duel offer panel |
+| `PlayerHome.gd` (`player_home`) | House purchase door, bed respawn, trophy pedestals (`make_trophy_pedestal` shared with guildhall) |
+| `Mounts.gd` (`mounts`) | Stable purchase panel, mount toggle, battle auto-dismount (price from `MountRegistry`) |
+| `TownSiege.gd` (`town_siege`) | Single-player siege raiders + banner, Chapter 2 marsax_hold trigger |
+| `NamedMapProps.gd` (`named_props`) | Named-map scrolls, shrines, waystones (incl. injected town waystone), injected mailbox, fast-travel panel |
+| `ChestLoot.gd` (`chest_loot`) | Chest open (mimic, co-op sync, need/greed hand-off), card/coin scatter, equipment drop |
+
+Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
+`test_interact_priority` reads the interaction chains by those names. Likewise
+keep literal `GameBus.<signal>.emit()` calls (no signal tables) —
+`test_gamebus_signal_coverage` greps for them.
 
 Rules:
 - Each module is a `Node` with a `_world` (or `_battle`) back-reference, created in
@@ -453,6 +475,9 @@ The 2 s dirty flush ran stringify + HMAC + backup copy + write on the main threa
 
 ### Compass pointed 90° off, N and S swapped (claude/objective-marker-compass-7yarde)
 Two independent errors made every bearing on the ribbon a lie. (1) The ribbon centre was bearing −45°, which is the camera's **screen-right** axis `(+1, 0, −1)`; the direction the player actually looks is `−basis.z` horizontally = `(−1, 0, −1)` = **−135°**. Screen-up is the camera's forward, never its right vector. (2) The cardinal table labelled `+Z` as North, but `−Z` is North everywhere else in the project (minimap top = world NW, `Player`'s WASD table). Fixes: `FACING_BEARING_DEG = −135`, cardinals `N = −90 / E = 0 / S = +90 / W = ±180`, and `wrapf` instead of `clamp` (the old formula collapsed every bearing past +135° onto the right edge and never used the leftmost eighth). A screen-space mapping derived from a baked camera transform must be **re-derived from that transform in a test** — `test_compass_bearing` parses `WorldScene.tscn` and asserts the two agree, because nothing else fails when they drift.
+
+### Tests that passed while testing nothing (claude/codebase-refinement-gml1gg)
+GDScript has no exceptions: a runtime error aborts the test function before its asserts, and the runner still counts a pass. 15 `SCRIPT ERROR`s hid in a green run — assigning an untyped `[]` to an `Array[String]` property (use `.assign()`), a key that `to_dict()` never wrote, and two real game bugs: `LandmarkNames.get_name(cx, cz, seed)` resolved to `Resource.get_name()` (so landmark discovery errored before its reward — **never name a static after an inherited `Object`/`Resource` method**) and a stray `sync_stacks` line. CI now fails if the test log contains any `SCRIPT ERROR`; check for it locally too.
 
 ---
 

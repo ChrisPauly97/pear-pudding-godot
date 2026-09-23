@@ -194,9 +194,15 @@ func test_to_dict_contains_correct_attack() -> void:
 	assert_eq(c.to_dict()["attack"], 3)
 
 
-func test_to_dict_can_attack_reflects_state() -> void:
+## can_attack is derived (summoning_sickness, attack_count, …), so it isn't a
+## dict key — assert the state that drives it survives the round trip.
+func test_to_dict_round_trip_preserves_can_attack() -> void:
 	var c = _card()
 	c.summoning_sick = false
-	assert_true(c.to_dict()["can_attack"])
+	c.attack_count = 1
+	var copy := CardInstance.new()
+	copy.from_dict(c.to_dict())
+	assert_true(copy.can_attack())
 	c.attack_count = 0
-	assert_false(c.to_dict()["can_attack"])
+	copy.from_dict(c.to_dict())
+	assert_false(copy.can_attack())

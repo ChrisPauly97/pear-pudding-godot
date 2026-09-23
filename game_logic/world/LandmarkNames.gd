@@ -27,7 +27,7 @@ const _PLACES_BY_BIOME: Dictionary = {
 }
 
 # Returns the procedural display name for a landmark.
-static func get_name(cx: int, cz: int, world_seed: int) -> String:
+static func landmark_name(cx: int, cz: int, world_seed: int) -> String:
 	var data: Dictionary = InfiniteWorldGen.landmark_for_chunk(cx, cz, world_seed)
 	if data.is_empty():
 		return ""
@@ -50,4 +50,4 @@ static func name_from_id(landmark_id: String, world_seed: int) -> String:
 		return landmark_id
 	var cx: int = int(parts[1])
 	var cz: int = int(parts[2])
-	return get_name(cx, cz, world_seed)
+	return landmark_name(cx, cz, world_seed)

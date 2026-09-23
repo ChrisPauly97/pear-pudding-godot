@@ -56,13 +56,13 @@ Version 21 migration adds `activated_waystones = []` for old saves.
 
 ### Named Maps
 
-The named-map `.tres` files (`assets/maps/*.tres`) are large binary-text blobs that cannot be reliably edited outside the Godot editor. Instead, `WorldScene._spawn_named_map_waystones()` injects one waystone per named map:
+The named-map `.tres` files (`assets/maps/*.tres`) are large binary-text blobs that cannot be reliably edited outside the Godot editor. Instead, `NamedMapProps._spawn_waystones()` injects one waystone per named map:
 
 1. If `world_map.waystones` is non-empty (i.e., the .tres had waystone data authored via editor), use those.
-2. Otherwise, look up the map name in the static `_NAMED_MAP_WAYSTONE_LABELS` dict and place one waystone near the player spawn point.
+2. Otherwise, look up the map name in the static `NamedMapProps.NAMED_MAP_WAYSTONE_LABELS` dict and place one waystone near the player spawn point.
 
 ```gdscript
-const _NAMED_MAP_WAYSTONE_LABELS: Dictionary = {
+const NamedMapProps.NAMED_MAP_WAYSTONE_LABELS: Dictionary = {
     "main": "Main Outpost",
     "madrian": "Madrian",
     "maykalene": "Maykalene",
@@ -110,11 +110,11 @@ if waystone_rng.randi_range(0, 39) == 0 and grass_tiles.size() > 0:
 - `_waystone_nodes: Dictionary` — maps `waystone_id → Waystone Node3D`.
 - `_active_waystone_data: Dictionary` — maps `waystone_id → data dict` for all tracked waystones.
 - `register_waystone(wid, node, data)` — called by `ChunkRenderer` during entity spawn.
-- `_spawn_named_map_waystones()` — called in `_ready()` for named maps; creates Waystone instances near spawn.
+- `NamedMapProps._spawn_waystones()` — called in `_ready()` for named maps; creates Waystone instances near spawn.
 - `_find_nearby_waystone(px, pz, range_dist)` — returns the first dormant waystone within range.
 - `_check_interactions()` — shows interact button when near a dormant waystone.
 - `_handle_interact()` — calls `waystone.mark_activated()` for the nearby waystone.
-- `_on_waystone_activated(waystone_id)` — connected to `GameBus.waystone_activated`; shows toast with the waystone's label via `SceneManager.show_toast()`.
+- `NamedMapProps.on_waystone_activated(waystone_id)` — connected to `GameBus.waystone_activated`; shows toast with the waystone's label via `SceneManager.show_toast()`.
 - `_open_map_view()` — passes `_waystone_nodes` as the 9th argument to `MapViewOverlay.setup()`.
 
 ---

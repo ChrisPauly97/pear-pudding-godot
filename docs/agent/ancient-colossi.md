@@ -77,7 +77,7 @@ When `_spawn_entities()` processes `_chunk_data.landmarks`, it creates `Node3D >
 ### Name generation (`LandmarkNames.gd`)
 
 ```gdscript
-LandmarkNames.get_name(cx, cz, world_seed) -> String
+LandmarkNames.landmark_name(cx, cz, world_seed) -> String
 LandmarkNames.name_from_id("landmark_cx_cz", world_seed) -> String
 ```
 

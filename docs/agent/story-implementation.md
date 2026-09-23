@@ -112,7 +112,7 @@ The beacon is rebuilt on map entry and on every `GameBus.story_flag_set`; the co
 
 The first-night camp (`docs/human/story.md` Chapter 1 beat 2) is a two-stage interactable
 entity, `scenes/world/entities/WildernessCamp.gd` (+ `.tscn`), spawned by
-`WorldScene._spawn_wilderness_camp()` right alongside `_spawn_open_world_rival_enc2()` — same
+`StoryCast.spawn_wilderness_camp()` right alongside `StoryCast.spawn_open_world_rival()` — same
 "no fixed position, spawns near the player once per open-world load" pattern, gated on
 `chapter1_left_madrian` being set and `chapter1_learned_fire` not yet set. Procedural visuals
 (unshaded log + emissive flame meshes — see `scenes/world/entities/WorldItem.gd`'s note that
@@ -141,12 +141,12 @@ directly from `ScriptedBattleData.enemy_deck_order`, so an `EnemyRegistry` entry
 
 `scenes/world/entities/MaitelnFollower.gd` (+ `.tscn`) is a visual/narrative companion avatar,
 distinct from the battle-companion system (`data/companions/maiteln.tres`). `WorldScene` owns
-all spawn/despawn gating via `_maiteln_should_be_present()`: present whenever
+all spawn/despawn gating via `StoryCast.maiteln_should_be_present()`: present whenever
 `story_intro_complete` is set and `chapter1_complete` is not, AND either the current map is one
 of `madrian` / `maykalene` / `farsyth_mansion` / `blancogov` / `blancogov_temple`, or the map is
 `main` during the TID-402 camp-beat window (`chapter1_left_madrian` set,
 `chapter1_learned_fire` not yet set) — never general open-world sandbox presence.
-`_refresh_maiteln_presence()` (spawn-or-free to match the gate) runs once at the tail of
+`StoryCast.refresh_maiteln_presence()` (spawn-or-free to match the gate) runs once at the tail of
 `_ready()` and again from `WorldScene._on_story_flag_set_for_cast()`, so he appears/disappears
 immediately when a relevant flag flips mid-session, not just on the next map load.
 
@@ -210,7 +210,7 @@ entirely. His interaction needs four states that don't fit the 2-state `MapNpc` 
 2. `chapter1_temple_council` not yet set → sets it (first meeting, "the council is assembling"),
    shows his static `dialogue`.
 3. `chapter1_temple_council` set AND both `chapter1_spoke_queen` and `chapter1_spoke_scargroth`
-   set → `WorldScene._trigger_chapter1_ending()`.
+   set → `NpcInteractions._trigger_chapter1_ending()`.
 4. Otherwise (council met, Queen/Scargroth not both spoken to yet) → an interim "council has
    heard the prophecy" line.
 
@@ -222,7 +222,7 @@ epilogue line, shown as soon as they've been spoken to once rather than only aft
 `chapter1_complete` — the 2-state schema can't express three states, and the intended flow
 (Queen → Scargroth → King Eldar, all in one visit) makes the gap narratively negligible.
 
-`_trigger_chapter1_ending()` sets `chapter1_complete` (which fires `_refresh_maiteln_presence()`
+`NpcInteractions._trigger_chapter1_ending()` sets `chapter1_complete` (which fires `StoryCast.refresh_maiteln_presence()`
 for free via the TID-403 `_on_story_flag_set_for_cast` hook — the follower disappears with no new
 code) and shows `scenes/ui/ChapterEndingOverlay.gd`, a new `BaseOverlay`-derived paged narration
 overlay (`extends "res://scenes/ui/BaseOverlay.gd"`, path-string per the CLAUDE.md class_name
@@ -257,7 +257,7 @@ King Eldar", the entry point into beat 1).
 
 Every beat reuses an existing mechanism rather than building a parallel one:
 
-1. **The council's charge** — a 5th state added to `WorldScene._handle_king_eldar_interaction()`
+1. **The council's charge** — a 5th state added to `WorldScene.NpcInteractions._king_eldar()`
    (see Chapter 1 Ending above): the first time King Eldar is spoken to after `chapter1_complete`,
    sets `chapter2_charged` and shows a one-off line, then falls through to the epilogue line.
 2. **Return to Larik** — `chapter2_reached_larik` sets on first entry to `map_name == "larik"`
@@ -269,21 +269,21 @@ Every beat reuses an existing mechanism rather than building a parallel one:
    introducing 2 low-cost GID-076 spell cards (`ember_cinder`, `dawn_soothing_touch`) among
    minions. `scenes/world/entities/ScoutAmbush.gd` (+ `.tscn`) is the same
    tap-then-trigger-a-scripted-battle shape as `WildernessCamp` (TID-402), spawned by
-   `WorldScene._spawn_scout_ambush()` when `chapter2_found_letter` is set and
+   `StoryCast.spawn_scout_ambush()` when `chapter2_found_letter` is set and
    `chapter2_ambush_survived` isn't. Completion flag set via
    `ScriptedBattleData.completion_flag`, same as the rabbit hunt.
 4. **Marsax hold besieged** — reuses the GID-054 siege gauntlet wholesale instead of a parallel
    story-siege system. `"marsax_hold"` added to `SiegeDefs.TOWN_GATES`;
-   `WorldScene._check_story_siege_trigger()` calls `save_manager.start_siege("marsax_hold")` once
+   `TownSiege._check_story_trigger()` calls `save_manager.start_siege("marsax_hold")` once
    on map entry (`chapter2_ambush_survived` set, `chapter2_siege_won` not, no siege already
-   active), right before the existing `_check_siege_spawn()`. `SceneManager._on_battle_won`'s
+   active), right before the existing `TownSiege.on_map_entered()`. `SceneManager._on_battle_won`'s
    final-stage-victory branch sets `chapter2_siege_won` when the winning siege's town is
    `"marsax_hold"`.
    - **BID-041 fixed opportunistically** (found while wiring this beat, affects the pre-existing
-     random single-player siege too, not just this one): `_spawn_siege_raiders()` called
+     random single-player siege too, not just this one): `TownSiege._spawn_raiders()` called
      `node.set("enemy_type", enemy_type)` — `EnemyNPC` has no such property, so every raider
      silently fell back to `"undead_basic"` regardless of stage or town. Replaced with a proper
-     `init_from_data(edata)` call (mirrors `_spawn_rival_at`'s exact pattern).
+     `init_from_data(edata)` call (mirrors `StoryCast._spawn_rival_at`'s exact pattern).
 5. **The traitor's seal** — collecting `scroll_traitor_seal` (placed by TID-406 in
    `marsax_hold.tres`) sets `chapter2_traitor_seal`, same special case as the letter. Collectible
    immediately rather than gated behind `chapter2_siege_won` — `MapScroll.flag_key` exists on the
@@ -299,7 +299,7 @@ Every beat reuses an existing mechanism rather than building a parallel one:
    rest. Safe to re-inject on every visit: `ChunkRenderer.is_enemy_defeated()` already skips
    already-defeated enemies by id, and defeat state lives in `SaveManager.defeated_enemies`, never
    the dungeon's saved `.tres`. **Placement is a documented heuristic, not a hard guarantee** —
-   see the code comment on `_inject_warcamp_boss()` for the room-layout reasoning (tile (70, 30),
+   see the code comment on `StoryCast.inject_warcamp_boss()` for the room-layout reasoning (tile (70, 30),
    the statistical z-centre of `DungeonGen`'s rightmost/deepest room column). The dungeon door
    itself (`assets/maps/marsax_hold.tres`) is gated behind `chapter2_traitor_seal` via the
    already-enforced `MapDoor.flag_key` mechanism (confirmed in `WorldScene._find_nearby_door`).

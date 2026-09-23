@@ -1,5 +1,4 @@
 extends Node3D
-const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 const WorldEvents     = preload("res://game_logic/WorldEvents.gd")
 const WorldMap        = preload("res://game_logic/world/WorldMap.gd")
@@ -18,18 +17,9 @@ const BiomeDef        = preload("res://game_logic/world/BiomeDef.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const Minimap         = preload("res://scenes/world/Minimap.gd")
 const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
-const WeaponRegistry  = preload("res://autoloads/WeaponRegistry.gd")
-const EnemyRegistry   = preload("res://autoloads/EnemyRegistry.gd")
-const WeaponData      = preload("res://data/WeaponData.gd")
-const MountRegistry      = preload("res://game_logic/MountRegistry.gd")
-const TrophyRegistry     = preload("res://game_logic/TrophyRegistry.gd")
 const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
-const Pathfinder  = preload("res://game_logic/Pathfinder.gd")
-const RivalSystem = preload("res://game_logic/RivalSystem.gd")
-const CantripManager = preload("res://game_logic/world/CantripManager.gd")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
-const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
 const _TexHillSide:  Texture2D = preload("res://assets/textures/pixel_art/hill_side_pixel.png")
@@ -41,24 +31,24 @@ const _TexPath:      Texture2D = preload("res://assets/textures/pixel_art/path_p
 # Preload entity scenes — avoids filesystem hits during spawning
 const _OverworldPauseOverlay = preload("res://scenes/ui/OverworldPauseOverlay.gd")
 const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
-const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
-const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
-const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
-const _WildernessCampScene = preload("res://scenes/world/entities/WildernessCamp.tscn")
-const _ScoutAmbushScene = preload("res://scenes/world/entities/ScoutAmbush.tscn")
-const _MaitelnFollowerScene = preload("res://scenes/world/entities/MaitelnFollower.tscn")
-const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
-const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
-const _MailboxScene      = preload("res://scenes/world/entities/MailboxNPC.tscn")
-const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const _ObjectiveBeacon   = preload("res://scenes/world/entities/ObjectiveBeacon.gd")
 const _ObjectiveTracker  = preload("res://game_logic/ObjectiveTracker.gd")
-const GardenDefs         = preload("res://game_logic/GardenDefs.gd")
 # Party panel (GID-107 / TID-395): consolidated entry point for the always-on
 # co-op HUD affordances (Roster, Loot Mode, Stash, Leaderboard, Ghost Duels,
 # Team Duel, Dungeon Crawl) that used to each be an individually-positioned button.
 
 # Co-op multiplayer (GID-090)
+const _Mounts = preload("res://scenes/world/modules/Mounts.gd")
+const _NpcInteractions = preload("res://scenes/world/modules/NpcInteractions.gd")
+const _PlayerHome = preload("res://scenes/world/modules/PlayerHome.gd")
+const _ChestLoot = preload("res://scenes/world/modules/ChestLoot.gd")
+const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
+const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
+const _TapToMove = preload("res://scenes/world/modules/TapToMove.gd")
+const _StoryCast = preload("res://scenes/world/modules/StoryCast.gd")
+const _HomeGarden = preload("res://scenes/world/modules/HomeGarden.gd")
+const _Cantrips = preload("res://scenes/world/modules/Cantrips.gd")
+const _NocturnalSpawner = preload("res://scenes/world/modules/NocturnalSpawner.gd")
 const _CoopSocial = preload("res://scenes/world/coop/CoopSocial.gd")
 const _CoopPvP = preload("res://scenes/world/coop/CoopPvP.gd")
 const _CoopActivities = preload("res://scenes/world/coop/CoopActivities.gd")
@@ -224,7 +214,6 @@ var _wilderness_camp_node: Node3D = null
 var _scout_ambush_node: Node3D = null
 var _maiteln_node: Node3D = null
 var _shrine_nodes: Array[Node3D] = []
-var _siege_raider_nodes: Array[Node3D] = []
 var _siege_banner: Label = null
 var _waystone_nodes: Dictionary = {}    # id -> Node3D
 var _active_waystone_data: Dictionary = {}  # id -> Dictionary
@@ -234,8 +223,6 @@ var _garden_plot_nodes: Array[Node3D] = []  # ordered by plot_idx
 # Guildhall garden (GID-106 / TID-393): SessionStore is authority-only, so this
 # cache mirrors _pve_leaderboards' pattern — kept current via request/broadcast
 # RPCs, then pushed into each spawned GardenPlot (session_mode = true) node.
-var _guildhall_garden_cache: Dictionary = {"plots": [{}, {}, {}], "plants": {}}
-var _guildhall_stash_chest_node: Node3D = null
 var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
@@ -251,8 +238,6 @@ var _burial_mound_nodes: Dictionary = {} # mound_id -> Node3D
 var _blight_heart_nodes: Dictionary = {} # heart_id -> Node3D
 var _active_landmark_data: Dictionary = {} # landmark_id -> Dictionary
 var _mana_well_nodes: Dictionary = {}    # well_id -> Node3D
-var _ghost_phase_active: bool = false    # true while ghost-phase tween runs
-var _ghost_tween: Tween = null
 var _current_biome: int = -1
 
 const _BIOME_MUSIC: Array = [
@@ -277,12 +262,12 @@ var _roaming_boss_timer: float = 0.0
 var _traveling_merchant_timer: float = 0.0
 var _card_shower_items: Array[Node3D] = []
 
-# Nocturnal spawn system (GID-055 Night Hunts)
-var _nocturnal_enemies: Dictionary = {}        # spawn_id -> {"node": Node3D, "chunk": Vector2i}
-var _nocturnal_spawn_timer: float = 0.0
+# Nocturnal spawn system (GID-055 Night Hunts) — see modules/NocturnalSpawner.gd
+var nocturnal: Node = null
+var cantrips: Node = null   # modules/Cantrips.gd (GID-065)
+var home_garden: Node = null   # modules/HomeGarden.gd (GID-059)
+var story_cast: Node = null    # modules/StoryCast.gd (GID-108)
 var _night_cue_played: bool = false
-var _night_hunt_tutorial_shown_session: bool = false
-var _nocturnal_id_counter: int = 0
 
 # Day/night cycle — delegated to DayNightCycle component
 var _world_env: WorldEnvironment
@@ -341,23 +326,18 @@ var _world_hud: WorldHUD = null
 var _dungeon_session_ui: DungeonSessionUI = null
 var _minimap: Node
 var _map_overlay: Node = null
-var _fast_travel_layer: CanvasLayer = null
 
 # Story objective beacon (one at most, on the objective's tile — see
 # _refresh_objective_beacon).
 var _objective_beacon: Node3D = null
 
-# Tap-to-move
-var _dest_marker: Node3D = null
-var _dest_tween: Tween = null
-# Set when a tap resolves near an interactable (TID-461); consumed by
-# _on_player_path_arrived() to auto-fire _handle_interact() on arrival.
-var _pending_tap_interact: bool = false
-var _joystick_ref: Node = null
-var _tap_start_screen: Vector2 = Vector2.ZERO
-var _tap_touch_index: int = -2  # -2 = no tracked tap; -1 reserved for mouse
-const _TAP_DRAG_THRESHOLD: float = 30.0  # screen pixels; beyond this is a drag, not a tap
-var _drag_last_tile: Vector2i = Vector2i(-9999, -9999)  # throttle drag-steer re-pathing
+var tap_move: Node = null   # modules/TapToMove.gd
+var mounts: Node = null     # modules/Mounts.gd (GID-048)
+var player_home: Node = null   # modules/PlayerHome.gd
+var npc_interactions: Node = null   # modules/NpcInteractions.gd
+var town_siege: Node = null   # modules/TownSiege.gd (GID-054)
+var named_props: Node = null   # modules/NamedMapProps.gd
+var chest_loot: Node = null    # modules/ChestLoot.gd
 
 # Terrain height constants — named-map path uses a wider ramp than chunks
 
@@ -428,6 +408,7 @@ func _setup_vignette() -> void:
 func _ready() -> void:
 	# Before anything else wires signals to them (the GameBus connections below
 	# target module methods directly).
+	_ensure_world_modules()
 	_ensure_coop_modules()
 	_setup_environment()
 	_sun.shadow_opacity = 0.2
@@ -522,7 +503,7 @@ func _ready() -> void:
 				AudioManager.play_sfx("nightfall_ambient")
 		)
 		_dnc.dawn_arrived.connect(func() -> void:
-			_despawn_nocturnal_enemies(true)
+			nocturnal.despawn_all(true)
 			_night_cue_played = false
 		)
 
@@ -545,7 +526,7 @@ func _ready() -> void:
 	_wire_gamebus_signals()
 
 	if not NetworkManager.is_dedicated_server():
-		_refresh_maiteln_presence()
+		story_cast.refresh_maiteln_presence()
 		_refresh_objective_beacon()
 
 	coop_session._setup_coop()
@@ -554,9 +535,7 @@ func _ready() -> void:
 	# itself is only ever entered from an active co-op session (TID-392), so
 	# NetworkManager.is_active() here is a defensive guard, not a live gate.
 	if map_name == "guildhall" and NetworkManager.is_active():
-		_spawn_guildhall_trophies()
-		_spawn_guildhall_garden()
-		_spawn_guildhall_stash_chest()
+		coop_session.spawn_guildhall_furnishings()
 	_initial_ready_done = true
 
 # Re-establish co-op when the world is re-attached after a PvP battle detached it
@@ -590,9 +569,9 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 		var _inf_ref: Vector3 = _player.position if _player != null else server_ref_pos
 		_csm.build_initial_infinite(_inf_ref)
 		if not NetworkManager.is_dedicated_server():
-			_spawn_open_world_rival_enc2()
-			_spawn_wilderness_camp()
-			_spawn_scout_ambush()
+			story_cast.spawn_open_world_rival()
+			story_cast.spawn_wilderness_camp()
+			story_cast.spawn_scout_ambush()
 			if map_name == "main":
 				_spawn_return_portal()
 	else:
@@ -601,16 +580,12 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 		var max_cz: int = (WorldMap.MAP_HEIGHT + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
 		var _named_ref: Vector3 = _player.position if _player != null else server_ref_pos
 		_csm.build_all_named_map(max_cx, max_cz, _named_ref)
-		_spawn_named_map_scrolls()
-		_spawn_named_map_shrines()
-		_spawn_named_map_waystones()
-		_spawn_named_map_mailboxes()
-		_spawn_named_map_rivals()
+		named_props.spawn_all()
+		story_cast.spawn_named_map_rivals()
 		if map_name == "player_home":
-			_spawn_player_home_trophies()
-			_spawn_player_home_garden()
-		_check_story_siege_trigger(map_name)
-		_check_siege_spawn(map_name)
+			player_home.spawn_trophies()
+			home_garden.spawn_home_plots()
+		town_siege.on_map_entered(map_name)
 		# Set chapter1_reached_blancogov when the player enters blancogov
 		if map_name == "blancogov" or map_name == "blancogov_temple":
 			SceneManager.save_manager.set_story_flag("chapter1_reached_blancogov")
@@ -627,7 +602,7 @@ func _build_player_hud() -> void:
 
 	var joystick := VirtualJoystickScript.new()
 	_hud.add_child(joystick)
-	_joystick_ref = joystick
+	tap_move.joystick = joystick
 
 	var vh: float = get_viewport().get_visible_rect().size.y
 	_map_label.add_theme_font_size_override("font_size", int(vh * 0.032))
@@ -654,13 +629,13 @@ func _build_player_hud() -> void:
 	add_child(_minimap)
 	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
 	if _is_infinite:
-		_minimap.tapped.connect(_open_fast_travel_panel)
+		_minimap.tapped.connect(named_props.open_fast_travel_panel)
 	else:
 		_minimap.tapped.connect(_open_map_view)
 
 	GameBus.hud_message_requested.connect(func(text: String) -> void: _world_hud.show_dialogue(text))
 	GameBus.story_scroll_collected.connect(_on_scroll_collected)
-	GameBus.waystone_activated.connect(_on_waystone_activated)
+	GameBus.waystone_activated.connect(named_props.on_waystone_activated)
 	GameBus.narration_overlay_requested.connect(_on_narration_overlay_requested)
 
 func _load_named_map() -> void:
@@ -675,7 +650,7 @@ func _load_named_map() -> void:
 		# Chapter 2 beat 6 (GID-108 / TID-407): the war-camp dungeon door
 		# (assets/maps/marsax_hold.tres) always targets this fixed seed.
 		if map_name == "dungeon_731906":
-			_inject_warcamp_boss(world_map)
+			story_cast.inject_warcamp_boss(world_map)
 	elif map_name.begins_with("spire_floor_"):
 		var parts: PackedStringArray = map_name.split("_")
 		var sp_floor: int = int(parts[2]) if parts.size() > 2 else 1
@@ -697,7 +672,7 @@ func _load_named_map() -> void:
 
 func _wire_gamebus_signals() -> void:
 	GameBus.battle_won.connect(_on_battle_won)
-	GameBus.enemy_engaged.connect(_on_enemy_engaged_for_mount)
+	GameBus.enemy_engaged.connect(mounts.on_enemy_engaged)
 	GameBus.blight_changed.connect(_refresh_blight_tints)
 	# Story-driven cast changes (Maiteln joining/leaving, NPCs who leave their
 	# post) have to land while this same map instance stays loaded. Wired here,
@@ -717,9 +692,9 @@ func _wire_gamebus_signals() -> void:
 	GameBus.enemy_engaged.connect(coop_session._on_enemy_engaged_coop)
 
 	# Cancel tap-to-move path when battle or menu interrupts movement.
-	GameBus.enemy_engaged.connect(func(_enemy_data: Dictionary) -> void: _clear_dest_marker())
-	GameBus.inventory_requested.connect(_clear_dest_marker)
-	GameBus.journal_requested.connect(_clear_dest_marker)
+	GameBus.enemy_engaged.connect(func(_enemy_data: Dictionary) -> void: tap_move.clear())
+	GameBus.inventory_requested.connect(tap_move.clear)
+	GameBus.journal_requested.connect(tap_move.clear)
 
 	# GID-101 (TID-368): champion record + wager payout when PvP ends. Connected
 	# permanently (not in _setup_coop) because WorldScene is detached during battle.
@@ -800,6 +775,30 @@ func _exit_tree() -> void:
 func enter_downed_state() -> void:
 	if coop_session != null:
 		coop_session.enter_downed_state()
+
+## Creates the single-player feature modules split out of this scene. Same
+## shape as the co-op modules: a child Node with a `_world` back-reference.
+func _ensure_world_modules() -> void:
+	nocturnal = _ensure_world_module(nocturnal, _NocturnalSpawner, "NocturnalSpawner")
+	cantrips = _ensure_world_module(cantrips, _Cantrips, "Cantrips")
+	home_garden = _ensure_world_module(home_garden, _HomeGarden, "HomeGarden")
+	story_cast = _ensure_world_module(story_cast, _StoryCast, "StoryCast")
+	tap_move = _ensure_world_module(tap_move, _TapToMove, "TapToMove")
+	mounts = _ensure_world_module(mounts, _Mounts, "Mounts")
+	player_home = _ensure_world_module(player_home, _PlayerHome, "PlayerHome")
+	npc_interactions = _ensure_world_module(npc_interactions, _NpcInteractions, "NpcInteractions")
+	town_siege = _ensure_world_module(town_siege, _TownSiege, "TownSiege")
+	named_props = _ensure_world_module(named_props, _NamedMapProps, "NamedMapProps")
+	chest_loot = _ensure_world_module(chest_loot, _ChestLoot, "ChestLoot")
+
+func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
+	if existing != null and is_instance_valid(existing):
+		return existing
+	var mod: Node = script.new()
+	mod.name = node_name
+	mod.set("_world", self)
+	add_child(mod)
+	return mod
 
 ## Creates the co-op feature modules and, once NetSync exists, registers them as
 ## its RPC handler targets. Called from _ready (so _ready's own GameBus wiring
@@ -939,8 +938,8 @@ func _spawn_player() -> void:
 	# Dynamic connect (TID-461): _player is statically typed CharacterBody3D,
 	# matching the existing has_method()/call() pattern this file uses for
 	# the rest of the Player-specific API.
-	if _player.has_signal("path_arrived") and not _player.is_connected("path_arrived", _on_player_path_arrived):
-		_player.connect("path_arrived", _on_player_path_arrived)
+	if _player.has_signal("path_arrived") and not _player.is_connected("path_arrived", tap_move.on_path_arrived):
+		_player.connect("path_arrived", tap_move.on_path_arrived)
 	_entity_root.add_child(_player)
 	_smooth_camera_target = _player.position + Vector3(20, 20, 20)
 	_camera.position = _smooth_camera_target
@@ -1046,7 +1045,7 @@ func _on_chunk_unloading(chunk_key: Vector2i, chunk_data: RefCounted) -> void:
 		if is_instance_valid(wnode):
 			wnode.queue_free()
 		_mana_well_nodes.erase(wid)
-	_evict_nocturnal_enemies_in_chunk(chunk_key)
+	nocturnal.evict_chunk(chunk_key)
 
 # ── ChunkRenderer registration callbacks (called via duck typing) ──────────────
 
@@ -1091,156 +1090,6 @@ func _tick_card_shower() -> void:
 		wem.call("end_event", "card_shower")
 	_card_shower_items.clear()
 
-# ── Nocturnal spawn system (GID-055 Night Hunts) ──────────────────────────────
-
-func _update_nocturnal_spawns(delta: float) -> void:
-	if not _is_infinite or _player == null:
-		return
-	var currently_night: bool = _dnc != null and _dnc.is_night_now()
-	if not currently_night:
-		_nocturnal_spawn_timer = 0.0
-		return
-
-	_nocturnal_spawn_timer -= delta
-	if _nocturnal_spawn_timer > 0.0:
-		return
-	_nocturnal_spawn_timer = randf_range(30.0, 60.0)
-
-	# Cap total nocturnal enemies globally to 12
-	var alive_count: int = 0
-	for sid: String in _nocturnal_enemies.keys():
-		var entry: Dictionary = _nocturnal_enemies[sid]
-		var n: Node3D = _valid_node3d(entry.get("node"))
-		if not is_instance_valid(n):
-			_nocturnal_enemies.erase(sid)
-		else:
-			alive_count += 1
-	if alive_count >= 12:
-		return
-
-	# Find a walkable grass tile 6–12 world units from the player
-	var spawn_pos: Vector3 = _find_nocturnal_spawn_pos()
-	if spawn_pos == Vector3.ZERO:
-		return
-
-	# Pick spectre tier based on world distance from origin
-	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var dist: int = int(Vector2(_player.position.x, _player.position.z).length() / chunk_world)
-	var enemy_type: String = "spectre_wisp"
-	if dist >= 8:
-		enemy_type = "spectre_dread"
-	elif dist >= 3:
-		enemy_type = "spectre_haunt"
-
-	var node: Node3D = _EnemyScene.instantiate() as Node3D
-	if node == null:
-		return
-	_nocturnal_id_counter += 1
-	var spawn_id: String = "nocturnal_%d" % _nocturnal_id_counter
-	var data: Dictionary = {
-		"id": spawn_id,
-		"enemy_type": enemy_type,
-		"tracking": true,
-		"nocturnal": true,
-	}
-	node.set_meta("is_nocturnal", true)
-	node.call("init_from_data", data)
-	node.position = spawn_pos
-	_entity_root.add_child(node)
-	# Tint the Sprite3D child (Node3D has no modulate; Sprite3D does)
-	var sprite: Sprite3D = node.get_node_or_null("Sprite3D") as Sprite3D
-	if sprite == null:
-		for ch in node.get_children():
-			if ch is Sprite3D:
-				sprite = ch
-				break
-	if sprite != null:
-		sprite.modulate = Color(0.7, 0.85, 1.0, 0.85)
-
-	var pcx: int = int(floor(spawn_pos.x / chunk_world))
-	var pcz: int = int(floor(spawn_pos.z / chunk_world))
-	_nocturnal_enemies[spawn_id] = {"node": node, "chunk": Vector2i(pcx, pcz)}
-	_enemy_nodes[spawn_id] = node
-
-	# Tutorial popup — once per session on first night spawn
-	if not _night_hunt_tutorial_shown_session:
-		_night_hunt_tutorial_shown_session = true
-		if not SceneManager.save_manager.get_story_flag("seen_tutorial_night_hunts"):
-			SceneManager.save_manager.set_story_flag("seen_tutorial_night_hunts")
-			GameBus.tutorial_popup_requested.emit("night_hunts")
-
-func _find_nocturnal_spawn_pos() -> Vector3:
-	if _player == null:
-		return Vector3.ZERO
-	var min_dist: float = 6.0
-	var max_dist: float = 14.0
-	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
-	rng.randomize()
-	for _try: int in range(20):
-		var angle: float = rng.randf() * TAU
-		var dist: float = rng.randf_range(min_dist, max_dist)
-		var tx: float = _player.position.x + cos(angle) * dist
-		var tz: float = _player.position.z + sin(angle) * dist
-		var cx: int = int(floor(tx / chunk_world))
-		var cz: int = int(floor(tz / chunk_world))
-		var key := Vector2i(cx, cz)
-		if not _csm.has_chunk_data(key):
-			continue
-		var chunk: RefCounted = _csm.get_chunk_data(key)
-		var tile_x: int = int(tx / IsoConst.TILE_SIZE) - cx * IsoConst.CHUNK_SIZE
-		var tile_z: int = int(tz / IsoConst.TILE_SIZE) - cz * IsoConst.CHUNK_SIZE
-		tile_x = clampi(tile_x, 0, IsoConst.CHUNK_SIZE - 1)
-		tile_z = clampi(tile_z, 0, IsoConst.CHUNK_SIZE - 1)
-		var li: int = tile_z * IsoConst.CHUNK_SIZE + tile_x
-		if li < 0 or li >= chunk.tiles.size():
-			continue
-		var tile_type: int = chunk.tiles[li]
-		if tile_type != IsoConst.TILE_GRASS:
-			continue
-		var world_y: float = get_terrain_height(tx, tz) + 0.5
-		return Vector3(tx, world_y, tz)
-	return Vector3.ZERO
-
-func _despawn_nocturnal_enemies(fade: bool) -> void:
-	for sid: String in _nocturnal_enemies.keys():
-		var entry: Dictionary = _nocturnal_enemies[sid]
-		var n: Node3D = _valid_node3d(entry.get("node"))
-		if not is_instance_valid(n):
-			_enemy_nodes.erase(sid)
-			continue
-		_enemy_nodes.erase(sid)
-		if fade:
-			# Node3D has no modulate; fade the Sprite3D child instead.
-			var sprite: Sprite3D = n.get_node_or_null("Sprite3D") as Sprite3D
-			if sprite == null:
-				for ch in n.get_children():
-					if ch is Sprite3D:
-						sprite = ch
-						break
-			if sprite != null:
-				var tw: Tween = create_tween()
-				tw.tween_property(sprite, "modulate:a", 0.0, 1.0)
-				tw.tween_callback(n.queue_free)
-			else:
-				n.queue_free()
-		else:
-			n.queue_free()
-	_nocturnal_enemies.clear()
-
-func _evict_nocturnal_enemies_in_chunk(chunk_key: Vector2i) -> void:
-	var to_erase: Array[String] = []
-	for sid: String in _nocturnal_enemies.keys():
-		var entry: Dictionary = _nocturnal_enemies[sid]
-		if entry.get("chunk") == chunk_key:
-			var n: Node3D = _valid_node3d(entry.get("node"))
-			if is_instance_valid(n):
-				n.queue_free()
-			_enemy_nodes.erase(sid)
-			to_erase.append(sid)
-	for sid: String in to_erase:
-		_nocturnal_enemies.erase(sid)
-
 # Called by ChunkRenderer after spawning a chest
 func register_chest(cid: String, node: Node3D, c_data: Dictionary) -> void:
 	_chest_nodes[cid] = node
@@ -1264,21 +1113,6 @@ func register_digspot(node: Node3D) -> void:
 
 func register_scroll(node: Node3D) -> void:
 	_scroll_nodes.append(node)
-
-func _spawn_named_map_scrolls() -> void:
-	if world_map == null:
-		return
-	for entry in world_map.scrolls:
-		var wx: float = float(entry["x"])
-		var wz: float = float(entry["z"])
-		var wy: float = get_terrain_height(wx, wz) + 0.1
-		var node := _StoryScrollScene.instantiate() as Node3D
-		_entity_root.add_child(node)
-		node.position = Vector3(wx, wy, wz)
-		if node.has_method("setup"):
-			node.setup(str(entry["scroll_id"]), _player)
-		if is_instance_valid(node):
-			_scroll_nodes.append(node)
 
 ## `v` when it is a live Node3D within `range_dist` of (px, pz), else null.
 ## The proximity family below all measure on the XZ plane — vertical distance
@@ -1311,139 +1145,29 @@ func _first_node_in_range(nodes, px: float, pz: float, range_dist: float,
 ## The first entry of an id -> {"x", "z", ...} table within `range_dist` of
 ## (px, pz), or {} when nothing is close enough.
 func _first_data_in_range(table: Dictionary, px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
 	for key in table:
 		var d: Dictionary = table[key]
-		var ddx: float = float(d.get("x", 0.0)) - px
-		var ddz: float = float(d.get("z", 0.0)) - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
+		if _data_in_range(d, px, pz, range_dist):
 			return d
 	return {}
+
+## True when a {"x", "z", ...} entry lies within `range_dist` of (px, pz).
+func _data_in_range(d: Dictionary, px: float, pz: float, range_dist: float) -> bool:
+	var ddx: float = float(d.get("x", 0.0)) - px
+	var ddz: float = float(d.get("z", 0.0)) - pz
+	return ddx * ddx + ddz * ddz <= range_dist * range_dist
+
+func _find_nearby_garden_plot(px: float, pz: float, range_dist: float) -> Node3D:
+	return _first_node_in_range(_garden_plot_nodes, px, pz, range_dist)
 
 func _find_nearby_scroll(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_scroll_nodes, px, pz, range_dist)
 
-## First-night wilderness camp (GID-108 / TID-402) — spawns near the player once
-## per open-world load, exactly the same "no fixed position, respawn each fresh
-## load" pattern as _spawn_open_world_rival_enc2(). Gone for good once
-## chapter1_learned_fire is set (the entity frees itself on that transition).
-func _spawn_wilderness_camp() -> void:
-	var sm := SceneManager.save_manager
-	if not sm.get_story_flag("chapter1_left_madrian"):
-		return
-	if sm.get_story_flag("chapter1_learned_fire"):
-		return
-	if _wilderness_camp_node != null and is_instance_valid(_wilderness_camp_node):
-		return
-	var wx: float = _player.position.x + 3.0 * IsoConst.TILE_SIZE
-	var wz: float = _player.position.z - 4.0 * IsoConst.TILE_SIZE
-	var wy: float = get_terrain_height(wx, wz)
-	var node := _WildernessCampScene.instantiate() as Node3D
-	_entity_root.add_child(node)
-	node.position = Vector3(wx, wy, wz)
-	_wilderness_camp_node = node
-
 func _find_nearby_wilderness_camp(px: float, pz: float, range_dist: float) -> Node3D:
 	return _node_in_range(_wilderness_camp_node, px, pz, range_dist)
 
-## Chapter 2 beat 3 scripted ambush (GID-108 / TID-407) — spawns near the player
-## once per open-world load, same "no fixed position" pattern as
-## _spawn_wilderness_camp(). Gone for good once chapter2_ambush_survived is set
-## (the entity is one-shot: interacting with it immediately starts the battle,
-## and ScriptedBattleRegistry/SceneManager set the completion flag on victory).
-func _spawn_scout_ambush() -> void:
-	var sm := SceneManager.save_manager
-	if not sm.get_story_flag("chapter2_found_letter"):
-		return
-	if sm.get_story_flag("chapter2_ambush_survived"):
-		return
-	if _scout_ambush_node != null and is_instance_valid(_scout_ambush_node):
-		return
-	var wx: float = _player.position.x - 3.0 * IsoConst.TILE_SIZE
-	var wz: float = _player.position.z + 4.0 * IsoConst.TILE_SIZE
-	var wy: float = get_terrain_height(wx, wz)
-	var node := _ScoutAmbushScene.instantiate() as Node3D
-	_entity_root.add_child(node)
-	node.position = Vector3(wx, wy, wz)
-	_scout_ambush_node = node
-
 func _find_nearby_scout_ambush(px: float, pz: float, range_dist: float) -> Node3D:
 	return _node_in_range(_scout_ambush_node, px, pz, range_dist)
-
-## Chapter 2 beat 6 (GID-108 / TID-407) — DungeonGen has no boss-room concept
-## at all (grepped, confirmed), so the war-camp's boss is injected directly
-## into the freshly loaded WorldMap's enemies list before chunk distribution.
-## Safe to call on every visit (fresh-gen or loaded-from-save): the enemy-spawn
-## pipeline (ChunkRenderer.is_enemy_defeated) already skips already-defeated
-## enemies by id, so re-injecting the same dict each time is harmless once
-## he's dead — his defeated state lives in SaveManager.defeated_enemies, never
-## written back into the dungeon's saved .tres.
-## Placement heuristic (not a hard guarantee): DungeonGen (DW=80, DH=60) lays
-## rooms left-to-right in ROOM_COUNT columns with z centred on DH/2 ± jitter
-## (see DungeonGen._gen_sequential_rooms) — tile (70, 30) sits in the rightmost
-## column (the "final room", deepest from the start-room spawn) at the
-## statistical z-centre every room jitters around. It is not guaranteed to
-## land on carved floor for every seed, but it's a far better bet than a blind
-## coordinate, and this dungeon's seed is fixed (731906) so it's the same
-## outcome every time — verify visually once Godot is available.
-func _inject_warcamp_boss(wm: WorldMap) -> void:
-	if wm == null:
-		return
-	var bx: float = 70.0 * IsoConst.TILE_SIZE
-	var bz: float = 30.0 * IsoConst.TILE_SIZE
-	wm.enemies.append({
-		"id": "martarquas_warleader_boss",
-		"x": bx,
-		"z": bz,
-		"alive": true,
-		"tracking": false,
-		"enemy_type": "martarquas_warleader",
-		"enemy_deck": EnemyRegistry.get_deck("martarquas_warleader"),
-	})
-
-## Maiteln's travelling presence (GID-108 / TID-403). Named story maps always
-## qualify; the open world only qualifies during the TID-402 camp-beat window
-## (not general sandbox presence).
-const _MAITELN_NAMED_MAPS: Array[String] = [
-	"madrian", "maykalene", "farsyth_mansion", "blancogov", "blancogov_temple",
-]
-
-func _maiteln_should_be_present() -> bool:
-	var sm := SceneManager.save_manager
-	if not sm.get_story_flag("story_intro_complete"):
-		return false
-	if sm.get_story_flag("chapter1_complete"):
-		return false
-	if _MAITELN_NAMED_MAPS.has(map_name):
-		return true
-	if map_name == "main":
-		return sm.get_story_flag("chapter1_left_madrian") and not sm.get_story_flag("chapter1_learned_fire")
-	return false
-
-## Spawns/frees the Maiteln follower to match _maiteln_should_be_present().
-## Call on map load and whenever a relevant story flag changes mid-session.
-func _refresh_maiteln_presence() -> void:
-	var should_be_present: bool = _maiteln_should_be_present()
-	if is_instance_valid(_maiteln_node):
-		if not should_be_present:
-			_maiteln_node.queue_free()
-			_maiteln_node = null
-		return
-	_maiteln_node = null
-	if should_be_present and _player != null:
-		var node := _MaitelnFollowerScene.instantiate() as Node3D
-		_entity_root.add_child(node)
-		if node.has_method("setup"):
-			node.setup(_player, self)
-		# Co-op (GID-108 / TID-408, design rule 4): exactly one Maiteln, position
-		# owned by the authority. A non-authority client's copy is a networked
-		# puppet — hidden until the first same-map packet arrives (mirrors the
-		# RemotePlayer cross-map-ghost fix, TID-352) instead of independently
-		# following its own local player.
-		if _coop_active and not coop_session._coop_world_authority() and node.has_method("set_networked"):
-			node.set_networked(true)
-			node.visible = false
-		_maiteln_node = node
 
 func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
 	return _node_in_range(_maiteln_node, px, pz, range_dist)
@@ -1453,7 +1177,7 @@ func _find_nearby_maiteln(px: float, pz: float, range_dist: float) -> Node3D:
 ## post when theirs is set. Both have to react on the flag, not just on the next
 ## map load — the player is standing right there when it flips.
 func _on_story_flag_set_for_cast(_key: String) -> void:
-	_refresh_maiteln_presence()
+	story_cast.refresh_maiteln_presence()
 	_despawn_flag_hidden_npcs()
 	_refresh_objective_beacon()
 
@@ -1496,197 +1220,11 @@ func _despawn_flag_hidden_npcs() -> void:
 		_npc_nodes.erase(nid)
 		_active_npc_data.erase(nid)
 
-func _spawn_named_map_shrines() -> void:
-	if world_map == null:
-		return
-	for entry in world_map.shrines:
-		var wx: float = float(entry["x"])
-		var wz: float = float(entry["z"])
-		var wy: float = get_terrain_height(wx, wz) + 0.1
-		var node := _PuzzleShrineScene.instantiate() as Node3D
-		_entity_root.add_child(node)
-		node.position = Vector3(wx, wy, wz)
-		if node.has_method("setup"):
-			node.setup(str(entry["puzzle_id"]), _player)
-		if is_instance_valid(node):
-			_shrine_nodes.append(node)
-
 func _find_nearby_shrine(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_shrine_nodes, px, pz, range_dist)
 
-# Named-map waystone positions (near spawn, one per town map).
-# Used when the map's .tres data has no waystones array populated.
-const _NAMED_MAP_WAYSTONE_LABELS: Dictionary = {
-	"main": "Main Outpost",
-	"madrian": "Madrian",
-	"maykalene": "Maykalene",
-	"blancogov": "Blancogov",
-	"farsyth_mansion": "Farsyth Mansion",
-	"blancogov_temple": "Temple of Blancogov",
-}
-
-func _spawn_named_map_waystones() -> void:
-	if world_map == null:
-		return
-	var source_list: Array[Dictionary] = []
-	if not world_map.waystones.is_empty():
-		source_list = world_map.waystones
-	elif _NAMED_MAP_WAYSTONE_LABELS.has(map_name):
-		# Inject a waystone near the map spawn when none defined in .tres
-		var tx: int = world_map.player_spawn_x + 3 if world_map.has_player_spawn() else 8
-		var tz: int = world_map.player_spawn_z if world_map.has_player_spawn() else 8
-		tx = clamp(tx, 1, WorldMap.MAP_WIDTH - 2)
-		tz = clamp(tz, 1, WorldMap.MAP_HEIGHT - 2)
-		var w_id: String = "map:%s" % map_name
-		var label: String = str(_NAMED_MAP_WAYSTONE_LABELS[map_name])
-		source_list = [{
-			"id": w_id,
-			"x": float(tx) * WorldMap.TILE_SIZE,
-			"z": float(tz) * WorldMap.TILE_SIZE,
-			"label": label,
-			"active": SceneManager.save_manager.is_waystone_activated(w_id),
-		}]
-	for entry in source_list:
-		var wx: float = float(entry["x"])
-		var wz: float = float(entry["z"])
-		var wy: float = get_terrain_height(wx, wz) + 0.75
-		var wid: String = str(entry.get("id", "map:%s" % map_name))
-		var is_active: bool = SceneManager.save_manager.is_waystone_activated(wid)
-		var w_dict: Dictionary = entry.duplicate()
-		w_dict["active"] = is_active
-		var node := _WaystoneScene.instantiate() as Node3D
-		_entity_root.add_child(node)
-		node.position = Vector3(wx, wy, wz)
-		if node.has_method("init_from_data"):
-			node.init_from_data(w_dict)
-		_waystone_nodes[wid] = node
-		_active_waystone_data[wid] = w_dict
-
-# Named-map mailbox locations (near spawn, one per town/home map). Injected — there
-# is no MailboxData resource type on the .tres maps, unlike waystones.
-const _NAMED_MAP_MAILBOX_LOCATIONS: Array[String] = ["madrian", "maykalene", "blancogov", "player_home"]
-
-## Tile offsets from the map spawn, tried in order, when placing the injected
-## mailbox. The first walkable one clear of everything the map already placed
-## wins. A fixed spawn+(5, 0) used to be the only candidate, which stood the
-## Madrian mailbox on Maiteln's exact NPC tile (45, 36).
-const _MAILBOX_TILE_OFFSETS: Array[Vector2i] = [
-	Vector2i(5, 0), Vector2i(5, -3), Vector2i(5, 3), Vector2i(2, -4),
-	Vector2i(2, 4), Vector2i(-3, -3), Vector2i(-3, 3), Vector2i(-5, 0),
-]
-## How far the injected mailbox stays clear of an authored entity, in tiles.
-const _MAILBOX_CLEARANCE_TILES: float = 2.0
-
-func _spawn_named_map_mailboxes() -> void:
-	if world_map == null:
-		return
-	if not _NAMED_MAP_MAILBOX_LOCATIONS.has(map_name):
-		return
-	if map_name == "player_home" and not SceneManager.save_manager.home_owned:
-		return
-	# Waystones come from _active_waystone_data rather than world_map.waystones:
-	# town maps get theirs injected too, and _spawn_named_map_waystones() has
-	# already run by here, so the table is the complete picture.
-	var tile: Vector2i = world_map.pick_free_tile_near_spawn(
-		_MAILBOX_TILE_OFFSETS, _MAILBOX_CLEARANCE_TILES, _active_waystone_data.values())
-	var tx: int = tile.x
-	var tz: int = tile.y
-	var mid: String = "map:%s" % map_name
-	var mx: float = float(tx) * WorldMap.TILE_SIZE
-	var mz: float = float(tz) * WorldMap.TILE_SIZE
-	var my: float = get_terrain_height(mx, mz) + 0.55
-	var m_dict: Dictionary = {"id": mid, "x": mx, "z": mz}
-	var node := _MailboxScene.instantiate() as Node3D
-	_entity_root.add_child(node)
-	node.position = Vector3(mx, my, mz)
-	if node.has_method("init_from_data"):
-		node.init_from_data(m_dict)
-	_mailbox_nodes[mid] = node
-	_active_mailbox_data[mid] = m_dict
-
 func _find_nearby_mailbox(px: float, pz: float, range_dist: float) -> Dictionary:
 	return _first_data_in_range(_active_mailbox_data, px, pz, range_dist)
-
-## Checks if a siege is active for this named map and spawns raiders + siege banner if so.
-## Chapter 2 beat 4 (GID-108 / TID-407) — deterministically starts the same
-## GID-054 siege gauntlet the random daily-chance mechanic uses, the first time
-## the player enters marsax_hold with the story flags in the right state.
-## Reuses 100% of the existing raider/wave/victory machinery; the only new
-## pieces are this trigger and the chapter2_siege_won hook in
-## SceneManager._on_battle_won's siege-victory branch.
-func _check_story_siege_trigger(p_map_name: String) -> void:
-	if p_map_name != "marsax_hold":
-		return
-	# Co-op (GID-108 / TID-408, design rule 6): the synced siege engine (GID-103's
-	# CoopSiege) only wired up madrian. Until a marsax_hold variant exists, this
-	# story siege is host-resolved — only the authority starts it, so 4 peers
-	# walking in don't each spawn their own private local siege. The victory flag
-	# still reaches everyone via the existing shared-flag arbitration (rule 1).
-	if _coop_active and not coop_session._coop_world_authority():
-		return
-	var sm := SceneManager.save_manager
-	if not sm.get_story_flag("chapter2_ambush_survived"):
-		return
-	if sm.get_story_flag("chapter2_siege_won"):
-		return
-	if not sm.get_active_siege().is_empty():
-		return
-	sm.start_siege("marsax_hold")
-
-func _check_siege_spawn(p_map_name: String) -> void:
-	if not _SiegeDefs.is_siege_town(p_map_name):
-		return
-	var active_siege: Dictionary = SceneManager.save_manager.get_active_siege()
-	if active_siege.is_empty() or str(active_siege.get("town", "")) != p_map_name:
-		return
-	var siege_stage: int = int(active_siege.get("stage", 0))
-	_spawn_siege_raiders(p_map_name, siege_stage)
-	_setup_siege_banner(p_map_name)
-
-## Instantiates 3 raider EnemyNPC nodes near the town gate.
-func _spawn_siege_raiders(p_map_name: String, stage: int) -> void:
-	if not _SiegeDefs.TOWN_GATES.has(p_map_name):
-		return
-	var gate_pos: Vector3 = _SiegeDefs.TOWN_GATES[p_map_name]
-	var enemy_type: String = "martarquas_raider_%d" % (stage + 1)
-	var offsets: Array[Vector2] = [Vector2(0.0, 0.0), Vector2(2.0, 1.0), Vector2(-2.0, 1.0)]
-	for i: int in range(offsets.size()):
-		var off: Vector2 = offsets[i]
-		var node: Node3D = _EnemyScene.instantiate() as Node3D
-		if node == null:
-			continue
-		var world_y: float = get_terrain_height(gate_pos.x + off.x, gate_pos.z + off.y) + 0.5
-		var raider_id: String = "siege_raider_%d_%d" % [stage, i]
-		# BID-041 fix: node.set("enemy_type", enemy_type) was a silent no-op —
-		# EnemyNPC has no such property, only enemy_data (set via init_from_data),
-		# so every raider always fell back to "undead_basic" regardless of stage
-		# or town. init_from_data with a proper edata dict (mirrors
-		# _spawn_rival_at's exact pattern) is what actually wires the enemy type.
-		var edata: Dictionary = {
-			"id": raider_id,
-			"x": gate_pos.x + off.x,
-			"z": gate_pos.z + off.y,
-			"alive": true,
-			"tracking": false,
-			"enemy_type": enemy_type,
-			"enemy_deck": EnemyRegistry.get_deck(enemy_type),
-		}
-		node.position = Vector3(gate_pos.x + off.x, world_y, gate_pos.z + off.y)
-		if node.has_method("init_from_data"):
-			node.init_from_data(edata)
-		_entity_root.add_child(node)
-		_enemy_nodes[raider_id] = node
-		_siege_raider_nodes.append(node)
-
-## Creates the siege banner label in the HUD (visible while siege is active).
-func _setup_siege_banner(p_map_name: String) -> void:
-	if _hud == null:
-		return
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var vw: float = get_viewport().get_visible_rect().size.x
-	_siege_banner = _UiUtil.make_label("%s Under Attack!" % p_map_name.capitalize().replace("_", " "), int(vh * 0.03), Color(1.0, 0.3, 0.1), HORIZONTAL_ALIGNMENT_CENTER, _hud)
-	_siege_banner.position = Vector2((vw - vh * 0.6) * 0.5, vh * 0.005)
-	_siege_banner.custom_minimum_size = Vector2(vh * 0.6, int(vh * 0.04))
 
 func register_waystone(wid: String, node: Node3D, w_data: Dictionary) -> void:
 	_waystone_nodes[wid] = node
@@ -1715,15 +1253,10 @@ const LANDMARK_DISCOVERY_RANGE: float = 9.0
 func _check_nearby_landmark(px: float, pz: float) -> void:
 	if not _is_infinite:
 		return
-	var range_sq: float = LANDMARK_DISCOVERY_RANGE * LANDMARK_DISCOVERY_RANGE
 	var sm := SceneManager.save_manager
 	for lid: String in _active_landmark_data:
-		if sm.is_landmark_discovered(lid):
-			continue
 		var l: Dictionary = _active_landmark_data[lid]
-		var ddx: float = float(l.get("x", 0.0)) - px
-		var ddz: float = float(l.get("z", 0.0)) - pz
-		if ddx * ddx + ddz * ddz <= range_sq:
+		if not sm.is_landmark_discovered(lid) and _data_in_range(l, px, pz, LANDMARK_DISCOVERY_RANGE):
 			_discover_landmark(lid, l)
 
 func _discover_landmark(lid: String, l_data: Dictionary) -> void:
@@ -1731,7 +1264,7 @@ func _discover_landmark(lid: String, l_data: Dictionary) -> void:
 	sm.mark_landmark_discovered(lid)
 	var cx: int = int(l_data.get("cx", 0))
 	var cz: int = int(l_data.get("cz", 0))
-	var display_name: String = LandmarkNames.get_name(cx, cz, WORLD_SEED)
+	var display_name: String = LandmarkNames.landmark_name(cx, cz, WORLD_SEED)
 	GameBus.landmark_discovered.emit(lid, display_name)
 	SceneManager.show_toast("Discovery!", display_name)
 	# One-time reward: coins + random card
@@ -1758,183 +1291,35 @@ func _find_nearby_burial_mound(px: float, pz: float, range_dist: float) -> Node3
 func _find_nearby_waystone(px: float, pz: float, range_dist: float) -> Dictionary:
 	return _first_data_in_range(_active_waystone_data, px, pz, range_dist)
 
-func _on_waystone_activated(waystone_id: String) -> void:
-	var w_data: Dictionary = _active_waystone_data.get(waystone_id, {})
-	var label: String = str(w_data.get("label", "Unknown"))
-	SceneManager.show_toast("Waystone Activated", label)
-
-func _waystone_friendly_label(wid: String) -> String:
-	if wid.begins_with("map:"):
-		return wid.substr(4).capitalize().replace("_", " ")
-	elif wid.begins_with("world:"):
-		var parts: PackedStringArray = wid.split(":")
-		if parts.size() >= 3:
-			return "Waystone (%s, %s)" % [parts[1], parts[2]]
-	return wid
-
-func _open_fast_travel_panel() -> void:
-	if _fast_travel_layer != null:
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-
-	var panel_h: float = vh * 0.62
-	var modal: Dictionary = _build_modal(0.55, 0.62, Color(0.05, 0.05, 0.10, 0.96), 0.018)
-	var layer: CanvasLayer = modal["layer"]
-	var backdrop: ColorRect = modal["backdrop"]
-	var vbox: VBoxContainer = modal["vbox"]
-	_fast_travel_layer = layer
-
-	var title := _UiUtil.make_label("Fast Travel", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	title.add_theme_color_override("font_color", Color(0.40, 0.90, 1.00))
-	vbox.add_child(title)
-
-	var is_blocked: bool = SceneManager.current_map.begins_with("dungeon_")
-	var activated: Array[String] = SceneManager.save_manager.activated_waystones
-	if activated.is_empty():
-		var empty_lbl := _UiUtil.make_label("No waystones activated yet.\nFind and interact with a waystone pillar to unlock fast travel.", int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		vbox.add_child(empty_lbl)
-	elif is_blocked:
-		var block_lbl := _UiUtil.make_label("Fast travel is unavailable inside dungeons.", int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-		block_lbl.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
-		block_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		vbox.add_child(block_lbl)
-	else:
-		var scroll := ScrollContainer.new()
-		scroll.custom_minimum_size = Vector2(0, panel_h * 0.62)
-		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		vbox.add_child(scroll)
-
-		var btn_vbox := _UiUtil.make_vbox(int(vh * 0.010), scroll)
-		btn_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-		var btn_h: float = vh * 0.060
-		for wid: String in activated:
-			var btn := _UiUtil.make_button(_waystone_friendly_label(wid), Vector2(0, btn_h), int(vh * 0.024))
-			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			var captured_id: String = wid
-			btn.pressed.connect(func() -> void:
-				_fast_travel_layer = null
-				layer.queue_free()
-				SceneManager.teleport_to_waystone(captured_id)
-			)
-			btn_vbox.add_child(btn)
-
-	var close_btn := _UiUtil.make_button("Close  [Esc]" if not OS.has_feature("android") else "Close", Vector2(vh * 0.20, vh * 0.06), int(vh * 0.024))
-	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	close_btn.pressed.connect(func() -> void:
-		_fast_travel_layer = null
-		layer.queue_free()
-	)
-	vbox.add_child(close_btn)
-
-	backdrop.gui_input.connect(func(event: InputEvent) -> void:
-		if event is InputEventKey and (event as InputEventKey).keycode == KEY_ESCAPE and event.pressed:
-			_fast_travel_layer = null
-			layer.queue_free()
-	)
-
-# ── Rival Encounter Spawning ───────────────────────────────────────────────────
-
-func _spawn_named_map_rivals() -> void:
-	if world_map == null:
-		return
-	var sm := SceneManager.save_manager
-	if map_name == "maykalene" and sm.get_story_flag("chapter1_left_madrian") and sm.rival_encounters_won == 0:
-		_spawn_rival("rival_enc1", 50, 40, "rival_isfig_1",
-			"You again? Let's see if you're worth the effort, wee warrior.")
-	elif map_name == "blancogov_temple" and sm.get_story_flag("chapter1_temple_council") \
-			and sm.rival_encounters_won >= 2 and not sm.rival_defeated:
-		_spawn_rival("rival_enc3", 50, 80, "rival_isfig_3",
-			"Maiteln warned me you'd come far. Perhaps it's time I stood beside him, not against.")
-
-func _spawn_open_world_rival_enc2() -> void:
-	var sm := SceneManager.save_manager
-	if not sm.get_story_flag("chapter1_warned_farsyth"):
-		return
-	if sm.get_story_flag("chapter1_received_letter"):
-		return
-	if sm.rival_encounters_won >= 2:
-		return
-	var rival_type: String = RivalSystem.get_rival_type(sm.rival_encounters_won, sm.level)
-	var wx: float = _player.position.x + 3.0 * IsoConst.TILE_SIZE
-	var wz: float = _player.position.z + 5.0 * IsoConst.TILE_SIZE
-	_spawn_rival_at("rival_enc2", wx, wz, rival_type,
-		"Maiteln's sent word of the Martarquas. I aim to warn him you're no mere apprentice.")
-
-func _spawn_rival(rival_id: String, tile_x: int, tile_z: int, enemy_type: String, pre_battle_dialogue: String) -> void:
-	var wx: float = float(tile_x) * IsoConst.TILE_SIZE
-	var wz: float = float(tile_z) * IsoConst.TILE_SIZE
-	_spawn_rival_at(rival_id, wx, wz, enemy_type, pre_battle_dialogue)
-
-func _spawn_rival_at(rival_id: String, wx: float, wz: float, enemy_type: String, pre_battle_dialogue: String) -> void:
-	if _enemy_nodes.has(rival_id):
-		return
-	var wy: float = get_terrain_height(wx, wz) + 0.5
-	var edata: Dictionary = {
-		"id": rival_id,
-		"x": wx,
-		"z": wz,
-		"alive": true,
-		"tracking": false,
-		"enemy_type": enemy_type,
-		"enemy_deck": EnemyRegistry.get_deck(enemy_type),
-		"pre_battle_dialogue": pre_battle_dialogue,
-	}
-	var node := _EnemyScene.instantiate() as Node3D
-	_entity_root.add_child(node)
-	node.position = Vector3(wx, wy, wz)
-	if node.has_method("init_from_data"):
-		node.init_from_data(edata)
-	_enemy_nodes[rival_id] = node
-
-
-# Find nearest entities — checks the player's chunk + 8 neighbours for enemies/chests;
-# scans active data dicts for doors and NPCs.
-func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
-	var range_sq: float = range_dist * range_dist
+## Chunk data for the loaded chunks in the 3×3 block around (px, pz). Enemies
+## and chests are indexed per chunk, so their finders only scan these.
+func _neighbour_chunks(px: float, pz: float) -> Array[RefCounted]:
 	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
 	var pcx: int = int(floor(px / chunk_world))
 	var pcz: int = int(floor(pz / chunk_world))
-	for dz in range(-1, 2):
-		for dx in range(-1, 2):
+	var out: Array[RefCounted] = []
+	for dz: int in range(-1, 2):
+		for dx: int in range(-1, 2):
 			var key := Vector2i(pcx + dx, pcz + dz)
-			if not _csm.has_chunk_data(key):
-				continue
-			var chunk: RefCounted = _csm.get_chunk_data(key)
-			for e_data in chunk.enemies:
-				var eid: String = str(e_data.get("id", ""))
-				var node: Node3D = _valid_node3d(_enemy_nodes.get(eid))
-				if not is_instance_valid(node):
-					continue
-				var ddx: float = node.global_position.x - px
-				var ddz: float = node.global_position.z - pz
-				if ddx * ddx + ddz * ddz <= range_sq:
-					return node
+			if _csm.has_chunk_data(key):
+				out.append(_csm.get_chunk_data(key))
+	return out
+
+func _find_nearby_enemy(px: float, pz: float, range_dist: float) -> Node3D:
+	for chunk: RefCounted in _neighbour_chunks(px, pz):
+		for e_data: Dictionary in chunk.enemies:
+			var node: Node3D = _node_in_range(_enemy_nodes.get(str(e_data.get("id", ""))), px, pz, range_dist)
+			if node != null:
+				return node
 	return null
 
+## The first unopened chest within range, as its live `_active_chest_data` entry.
 func _find_nearby_chest(px: float, pz: float, range_dist: float) -> Dictionary:
-	var range_sq: float = range_dist * range_dist
-	var chunk_world: float = float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE
-	var pcx: int = int(floor(px / chunk_world))
-	var pcz: int = int(floor(pz / chunk_world))
-	for dz in range(-1, 2):
-		for dx in range(-1, 2):
-			var key := Vector2i(pcx + dx, pcz + dz)
-			if not _csm.has_chunk_data(key):
-				continue
-			var chunk: RefCounted = _csm.get_chunk_data(key)
-			for c_data in chunk.chests:
-				var cid: String = str(c_data.get("id", ""))
-				var d: Dictionary = _active_chest_data.get(cid, {})
-				if d.is_empty() or d.get("opened", false):
-					continue
-				var ddx: float = float(d.get("x", 0.0)) - px
-				var ddz: float = float(d.get("z", 0.0)) - pz
-				if ddx * ddx + ddz * ddz <= range_sq:
-					return d
+	for chunk: RefCounted in _neighbour_chunks(px, pz):
+		for c_data: Dictionary in chunk.chests:
+			var d: Dictionary = _active_chest_data.get(str(c_data.get("id", "")), {})
+			if not d.is_empty() and not d.get("opened", false) and _data_in_range(d, px, pz, range_dist):
+				return d
 	return {}
 
 func _find_nearby_door(px: float, pz: float, range_dist: float) -> Dictionary:
@@ -2061,7 +1446,7 @@ func _process(delta: float) -> void:
 		_tick_roaming_boss(delta)
 		_tick_traveling_merchant(delta)
 		_tick_card_shower()
-		_update_nocturnal_spawns(delta)
+		nocturnal.tick(delta)
 		_csm.process_streaming(_player.position, _player.velocity, _camera.get_frustum())
 
 	# Only update save position when player moves > 1 unit (not every frame)
@@ -2078,21 +1463,13 @@ func _process(delta: float) -> void:
 		_interact_timer = 0.0
 		_check_interactions()
 
-	# Hide dest marker once the player's path is complete.
-	if _dest_marker != null and _dest_marker.visible:
-		if _player != null and _player.has_method("cancel_path"):
-			var active: bool = _player.get("_has_active_path")
-			if not active:
-				if _dest_tween != null and _dest_tween.is_valid():
-					_dest_tween.kill()
-				_dest_tween = null
-				_dest_marker.hide()
+	tap_move.tick()
 
 	if Input.is_action_just_pressed("interact"):
 		_handle_interact()
 
 	if Input.is_action_just_pressed("mount"):
-		_toggle_mount()
+		mounts.toggle()
 
 ## The HUD prompt label for whatever the player can reach, or "" when nothing
 ## is in range. Probes run in _handle_interact's priority order and stop at the
@@ -2232,82 +1609,7 @@ func _open_pause() -> void:
 	_pause_overlay.quit_to_menu.connect(func() -> void: _pause_overlay = null)
 	add_child(_pause_overlay)
 
-# ── Cantrip activation (GID-065) ───────────────────────────────────────────
-
-func _activate_ghost_phase() -> void:
-	if _player == null or _ghost_phase_active:
-		return
-	var sm := SceneManager.save_manager
-	var template_ids: Array[String] = sm.get_deck_template_ids()
-	if not CantripManager.is_available("ghost_phase", template_ids):
-		GameBus.hud_message_requested.emit("Ghost Phase requires 4+ Ghost-family cards in your deck.")
-		return
-	var current_time: float = Time.get_unix_time_from_system()
-	if CantripManager.is_on_cooldown("ghost_phase", sm.cantrip_cooldowns, current_time):
-		var remaining: int = CantripManager.cooldown_remaining("ghost_phase", sm.cantrip_cooldowns, current_time)
-		GameBus.hud_message_requested.emit("Ghost Phase on cooldown (%ds)." % remaining)
-		return
-	if not _do_ghost_phase():
-		GameBus.hud_message_requested.emit("No wall to phase through in this direction.")
-		return
-	sm.cantrip_cooldowns["ghost_phase"] = current_time + CantripManager.get_cooldown("ghost_phase")
-	sm.mark_dirty()
-	GameBus.cantrip_used.emit("ghost_phase")
-
-func _do_ghost_phase() -> bool:
-	var px: float = _player.position.x
-	var pz: float = _player.position.z
-	var tile_size: float = IsoConst.TILE_SIZE
-	var wtx: int = int(floor(px / tile_size))
-	var wtz: int = int(floor(pz / tile_size))
-
-	# Build ordered list of directions to try: facing first, then all 4 cardinals
-	var dirs: Array[Vector2i] = []
-	var _last_move_dir: Vector2 = _csm.get_last_move_dir() if _csm != null else Vector2.ZERO
-	if _last_move_dir.length_squared() > 0.01:
-		var primary: Vector2i
-		if abs(_last_move_dir.x) >= abs(_last_move_dir.y):
-			primary = Vector2i(1 if _last_move_dir.x > 0 else -1, 0)
-		else:
-			primary = Vector2i(0, 1 if _last_move_dir.y > 0 else -1)
-		dirs.append(primary)
-	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-		if not dirs.has(d):
-			dirs.append(d)
-
-	for d: Vector2i in dirs:
-		var wall_tx: int = wtx + d.x
-		var wall_tz: int = wtz + d.y
-		var beyond_tx: int = wtx + d.x * 2
-		var beyond_tz: int = wtz + d.y * 2
-		if get_tile_global(wall_tx, wall_tz) != IsoConst.TILE_WALL:
-			continue
-		if get_tile_global(beyond_tx, beyond_tz) == IsoConst.TILE_WALL:
-			continue  # two walls — too thick to phase through
-		var target_x: float = float(beyond_tx) * tile_size + tile_size * 0.5
-		var target_z: float = float(beyond_tz) * tile_size + tile_size * 0.5
-		var target_y: float = get_terrain_height(target_x, target_z) + 0.5
-		_start_ghost_phase_tween(Vector3(target_x, target_y, target_z))
-		return true
-	return false
-
-func _start_ghost_phase_tween(target: Vector3) -> void:
-	_ghost_phase_active = true
-	_player.collision_layer = 0
-	_player.collision_mask = 0
-	_set_player_alpha(0.5)
-	if _ghost_tween != null and _ghost_tween.is_valid():
-		_ghost_tween.kill()
-	_ghost_tween = create_tween()
-	_ghost_tween.tween_property(_player, "position", target, 0.3)
-	_ghost_tween.tween_callback(_on_ghost_phase_done)
-
-func _on_ghost_phase_done() -> void:
-	_player.collision_layer = 1
-	_player.collision_mask = 2 | 4
-	_set_player_alpha(1.0)
-	_ghost_phase_active = false
-
+## Fades every Sprite3D on the player (ghost phase, downed state).
 func _set_player_alpha(alpha: float) -> void:
 	if _player == null:
 		return
@@ -2319,50 +1621,44 @@ func _set_player_alpha(alpha: float) -> void:
 			c.a = alpha
 			sp.modulate = c
 
-func _activate_skeleton_dig() -> void:
-	if _player == null:
-		return
-	var px: float = _player.position.x
-	var pz: float = _player.position.z
-	var mound := _find_nearby_burial_mound(px, pz, IsoConst.INTERACT_RANGE)
-	if mound == null:
-		GameBus.hud_message_requested.emit("No burial mound nearby to dig.")
-		return
-	if mound.has_method("interact"):
-		mound.interact()
+## Menu actions that cancel any tap-to-move walk before opening.
+const _MENU_ACTIONS: Array[String] = ["inventory", "journal", "character", "skill_tree"]
+
+func _pressed_menu_action(event: InputEvent) -> String:
+	for action: String in _MENU_ACTIONS:
+		if event.is_action_pressed(action):
+			return action
+	return ""
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):
-		if _pause_overlay == null:
+		# Esc closes an open fast-travel panel rather than pausing over it.
+		if not named_props.close_fast_travel() and _pause_overlay == null:
 			_open_pause()
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("map_view"):
-		_clear_dest_marker()
+		tap_move.clear()
 		_open_map_view()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("inventory"):
-		_clear_dest_marker()
-		GameBus.inventory_requested.emit()
+		return
+	var menu: String = _pressed_menu_action(event)
+	if menu != "":
+		tap_move.clear()
+		match menu:
+			"inventory": GameBus.inventory_requested.emit()
+			"journal": GameBus.journal_requested.emit()
+			"character": GameBus.character_requested.emit()
+			"skill_tree": GameBus.skill_tree_requested.emit()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("journal"):
-		_clear_dest_marker()
-		GameBus.journal_requested.emit()
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_G:
+		cantrips.activate_ghost_phase()
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("character"):
-		_clear_dest_marker()
-		GameBus.character_requested.emit()
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("skill_tree"):
-		_clear_dest_marker()
-		GameBus.skill_tree_requested.emit()
-		get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_G:
-		_activate_ghost_phase()
-		get_viewport().set_input_as_handled()
-	elif event is InputEventKey and event.pressed and event.keycode == KEY_D:
-		_activate_skeleton_dig()
-		get_viewport().set_input_as_handled()
+	elif event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_D:
+		# D is also move_right: dig only when a mound is in reach, and never
+		# consume the event, so walking right stays silent.
+		cantrips.activate_skeleton_dig(true)
 	elif event is InputEventKey and event.pressed \
 			and (event.keycode == KEY_ENTER or event.keycode == KEY_KP_ENTER) \
 			and _coop_active and _chat_input != null and is_instance_valid(_chat_input) \
@@ -2371,59 +1667,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		# HUD button (_chat_toggle_btn), which also reveals/focuses the input.
 		_chat_input.grab_focus()
 		get_viewport().set_input_as_handled()
-	elif event is InputEventScreenTouch:
-		_on_screen_touch(event as InputEventScreenTouch)
-	elif event is InputEventScreenDrag:
-		var drag: InputEventScreenDrag = event as InputEventScreenDrag
-		if drag.index == _tap_touch_index:
-			# Joystick guard: if the drag moves over the joystick, let joystick win.
-			if _joystick_ref != null and _joystick_ref.has_method("is_touch_in_control_area"):
-				if _joystick_ref.call("is_touch_in_control_area", drag.position):
-					_tap_touch_index = -2
-					return
-			# Steer the move target continuously once the drag threshold is crossed.
-			if drag.position.distance_to(_tap_start_screen) >= _TAP_DRAG_THRESHOLD:
-				if _camera != null:
-					var drag_tile: Vector2i = _screen_to_tile(drag.position)
-					if drag_tile != _drag_last_tile:
-						_drag_last_tile = drag_tile
-						_handle_tap_to_move(drag.position)
-	elif event is InputEventMouseButton:
-		var mb: InputEventMouseButton = event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			_drag_last_tile = Vector2i(-9999, -9999)
-			_handle_tap_to_move(mb.position)
-			get_viewport().set_input_as_handled()
-	elif event is InputEventMouseMotion:
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and _camera != null:
-			var mt: Vector2i = _screen_to_tile((event as InputEventMouseMotion).position)
-			if mt != _drag_last_tile:
-				_drag_last_tile = mt
-				_handle_tap_to_move((event as InputEventMouseMotion).position)
-				get_viewport().set_input_as_handled()
-
-func _on_screen_touch(touch: InputEventScreenTouch) -> void:
-	if touch.pressed:
-		if _tap_touch_index != -2:
-			return  # already tracking another finger
-		# Reject taps in the virtual joystick interactive areas.
-		if _joystick_ref != null and _joystick_ref.has_method("is_touch_in_control_area"):
-			if _joystick_ref.call("is_touch_in_control_area", touch.position):
-				return
-		# Reject taps on any visible HUD button (USE, Mount, Ghost Phase, etc.).
-		if _world_hud != null and _world_hud.is_touch_on_hud_button(touch.position):
-			return
-		_tap_start_screen = touch.position
-		_tap_touch_index = touch.index
-		_drag_last_tile = Vector2i(-9999, -9999)
-	else:
-		if touch.index != _tap_touch_index:
-			return
-		var drag_dist: float = touch.position.distance_to(_tap_start_screen)
-		_tap_touch_index = -2
-		if drag_dist < _TAP_DRAG_THRESHOLD:
-			_handle_tap_to_move(touch.position)
-			get_viewport().set_input_as_handled()
+	elif tap_move.handle_input(event):
+		get_viewport().set_input_as_handled()
 
 ## Entities whose interaction is simply "call one method on the node". Probed in
 ## this order and stopping at the first hit, exactly as the eight open-coded
@@ -2469,7 +1714,7 @@ func _handle_interact() -> void:
 	if not door.is_empty():
 		var door_id: String = str(door.get("id", ""))
 		if door_id == "house_door":
-			_show_house_door_panel()
+			player_home.show_house_door_panel()
 			return
 		var target_map: String = door.get("target_map", "")
 		var tdoor: String = door.get("target_door_id", "")
@@ -2497,7 +1742,7 @@ func _handle_interact() -> void:
 
 	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
 	if not chest.is_empty() and not chest.get("opened", false):
-		_open_chest(chest, px, pz)
+		chest_loot.open(chest, px, pz)
 		return
 
 	if not _is_infinite and world_map != null:
@@ -2508,7 +1753,7 @@ func _handle_interact() -> void:
 
 	var npc := _find_nearby_npc(px, pz, IsoConst.INTERACT_RANGE)
 	if not npc.is_empty():
-		_interact_with_npc(npc)
+		npc_interactions.interact(npc)
 		return
 
 	if _try_simple_interaction(px, pz):
@@ -2531,7 +1776,7 @@ func _handle_interact() -> void:
 	if not waystone.is_empty():
 		var wid: String = str(waystone.get("id", ""))
 		if bool(waystone.get("active", false)):
-			_open_fast_travel_panel()
+			named_props.open_fast_travel_panel()
 		else:
 			var wnode := _valid_node3d(_waystone_nodes.get(wid))
 			if wnode != null and wnode.has_method("mark_activated"):
@@ -2543,16 +1788,13 @@ func _handle_interact() -> void:
 		GameBus.mailbox_requested.emit()
 		return
 
-	var garden_plot := _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
+	var garden_plot: Node3D = _find_nearby_garden_plot(px, pz, IsoConst.INTERACT_RANGE)
 	if garden_plot != null:
-		_show_garden_plot_panel(garden_plot)
+		home_garden.show_panel(garden_plot)
 
 # ── Spire entrance ─────────────────────────────────────────────────────────
 
 
-## Opens a chest the player is standing at: springs the mimic ambush, or marks
-## it open, syncs that to the party, and spawns its loot — or starts a
-## need/greed roll instead when the session is in that mode.
 
 	# Hostile entities are probed last, so anything peaceful in reach wins: you can
 	# take a door, open a chest or read a scroll with an enemy standing next to you
@@ -2577,119 +1819,6 @@ func _handle_interact() -> void:
 					_show_dialogue(dlg)
 		enemy.engage()
 		return
-
-func _open_chest(chest: Dictionary, px: float, pz: float) -> void:
-	if chest.get("is_mimic", false):
-		AudioManager.play_sfx("enemy_alert")
-		SceneManager.show_toast("It's a Mimic!", "Prepare for battle!")
-		var mimic_deck: Array[String] = []
-		mimic_deck.assign(EnemyRegistry.get_deck("mimic"))
-		var mimic_data: Dictionary = {
-			"id": str(chest.get("id", "mimic_0")),
-			"x": chest.get("x", px),
-			"z": chest.get("z", pz),
-			"alive": true, "tracking": false,
-			"enemy_type": "mimic",
-			"enemy_deck": mimic_deck,
-		}
-		GameBus.enemy_engaged.emit(mimic_data)
-		return
-	chest["opened"] = true
-	AudioManager.play_sfx("chest_open")
-	if OS.has_feature("mobile") and bool(SceneManager.save_manager.get_setting("haptics", true)):
-		Input.vibrate_handheld(40)
-	var cid: String = str(chest.get("id", ""))
-	SceneManager.save_manager.mark_chest_opened(cid)
-	SceneManager.save_manager.increment_bounty_progress("open_chests", {})
-	SceneManager.session_stats["chests_opened"] = int(SceneManager.session_stats.get("chests_opened", 0)) + 1
-	var node := _valid_node3d(_chest_nodes.get(cid))
-	if node and node.has_method("mark_opened"):
-		node.mark_opened()
-	# Co-op (GID-096): reflect + persist the open for all players (this opener
-	# keeps the loot below; peers only see the chest flip open). Inert solo.
-	coop_session._on_chest_opened_coop(cid)
-	var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
-	var chest_card_ids: Array[String] = []
-	chest_card_ids.assign(chest.get("card_ids", []))
-	# Tier: treasure rooms (dtr_) = 3, dungeon chests (dc_) = 2, world chests = 1
-	var chest_tier: int = 1
-	if cid.begins_with("dtr_"):
-		chest_tier = 3
-	elif cid.begins_with("dc_"):
-		chest_tier = 2
-	# Party loot rolls (GID-102 / TID-381): when need/greed mode is on for this
-	# co-op session, the opener does NOT keep the loot below — the authority
-	# opens a roll among present session members and grants it to the winner
-	# instead. Default (first-opener-takes) and single-player are unchanged.
-	if _coop_active and coop_activities._coop_loot_mode_is_need_greed():
-		coop_activities._start_loot_roll(cid, chest_tier)
-		return
-	# 20% chance to drop a map fragment instead of normal loot (only if no active map)
-	var sm := SceneManager.save_manager
-	if _is_infinite and sm.active_treasure.is_empty() and randf() < 0.20:
-		sm.collect_treasure_fragment()
-	else:
-		_spawn_card_items(chest_card_ids, chest_pos, chest_tier)
-		_spawn_coin_piles(chest_pos)
-		# Treasure rooms (dtr_ prefix) have a 40% weapon drop chance vs standard 15%
-		var weapon_chance: float = 0.40 if cid.begins_with("dtr_") else 0.15
-		_maybe_drop_equipment_from_chest(weapon_chance)
-	return
-
-## Runs the interaction for whichever NPC type the player is standing at.
-func _interact_with_npc(npc: Dictionary) -> void:
-	if str(npc.get("npc_type", "")) == "traveling_merchant":
-		var stock: Array[String] = []
-		var raw: Variant = npc.get("merchant_stock", [])
-		if raw is Array:
-			stock.assign(raw as Array)
-		GameBus.traveling_shop_requested.emit(stock, 30)
-		return
-	if str(npc.get("npc_type", "")) == "merchant":
-		GameBus.shop_requested.emit()
-		return
-	if str(npc.get("npc_type", "")) == "blacksmith":
-		GameBus.blacksmith_requested.emit()
-		return
-	if str(npc.get("npc_type", "")) == "bounty_board":
-		GameBus.bounty_board_requested.emit()
-		return
-	if str(npc.get("npc_type", "")) == "stable":
-		_show_stable_panel()
-		return
-	if str(npc.get("npc_type", "")) == "duelist":
-		_show_duel_offer_panel(npc)
-		return
-	if str(npc.get("npc_type", "")) == "rest_site":
-		_dungeon_session_ui.show_rest_site_panel(npc)
-		return
-	if str(npc.get("npc_type", "")) == "event_room":
-		_dungeon_session_ui.show_event_panel(npc)
-		return
-	if str(npc.get("npc_type", "")) == "bed":
-		_handle_bed_interaction()
-		return
-	if str(npc.get("npc_type", "")) == "trophy_pedestal":
-		_show_trophy_info(npc)
-		return
-	if str(npc.get("npc_type", "")) == "chapter1_king_eldar":
-		_handle_king_eldar_interaction(npc)
-		return
-	if str(npc.get("npc_type", "")) == "stash_chest":
-		coop_social._toggle_stash_overlay()
-		return
-	var nid: String = str(npc.get("id", ""))
-	var nnode := _valid_node3d(_npc_nodes.get(nid))
-	var dlg: String
-	if nnode != null and nnode.has_method("get_dialogue"):
-		dlg = nnode.get_dialogue()
-		var fk: String = str(npc.get("flag_key", ""))
-		if fk != "":
-			SceneManager.save_manager.set_story_flag(fk)
-	else:
-		dlg = str(npc.get("dialogue", "..."))
-	_show_dialogue(dlg)
-	return
 
 func _show_spire_entrance_panel() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
@@ -2732,63 +1861,6 @@ func _show_spire_entrance_panel() -> void:
 
 # ── Player Home ────────────────────────────────────────────────────────────
 
-const _HOUSE_PRICE: int = 500
-
-func _show_house_door_panel() -> void:
-	var sm := SceneManager.save_manager
-	if sm.home_owned:
-		AudioManager.play_sfx("door_enter")
-		SceneManager.enter_map("player_home", "exit_door")
-		return
-
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-
-	var modal: Dictionary = _build_modal(0.60, 0.32, Color(0.06, 0.04, 0.14, 0.96), 0.015, 0.02)
-	var layer: CanvasLayer = modal["layer"]
-	var vbox: VBoxContainer = modal["vbox"]
-
-	var title := _UiUtil.make_label("House For Sale", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	var desc := _UiUtil.make_label("Purchase this cozy home for %d coins.\nCurrent balance: %d coins." % [_HOUSE_PRICE, sm.coins], int(vh * 0.027), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
-	var hbox := _UiUtil.make_hbox(int(vh * 0.02), vbox)
-	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var buy_btn := _UiUtil.make_button("Buy (%d coins)" % _HOUSE_PRICE, Vector2(vh * 0.26, vh * 0.065), int(vh * 0.027), Callable(), hbox)
-	buy_btn.disabled = sm.coins < _HOUSE_PRICE
-
-	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(vh * 0.16, vh * 0.065), int(vh * 0.027), Callable(), hbox)
-
-	cancel_btn.pressed.connect(func() -> void: layer.queue_free())
-	buy_btn.pressed.connect(func() -> void:
-		sm.add_coins(-_HOUSE_PRICE)
-		sm.home_owned = true
-		sm.mark_dirty()
-		layer.queue_free()
-		AudioManager.play_sfx("door_enter")
-		SceneManager.enter_map("player_home", "exit_door")
-	)
-
-const MOUNT_PRICE: int = 750
-const MOUNT_LEVEL_REQ: int = 10
-
-func _toggle_mount() -> void:
-	var sm := SceneManager.save_manager
-	if sm.current_map != "main":
-		return
-	if sm.owned_mounts.size() == 0:
-		return
-	if sm.is_mounted:
-		sm.dismiss_mount()
-	else:
-		sm.summon_mount(str(sm.owned_mounts[0]))
-
-func _on_enemy_engaged_for_mount(_enemy_data: Dictionary) -> void:
-	if SceneManager.save_manager.is_mounted:
-		SceneManager.save_manager.auto_dismiss_mount()
-
 ## Music track for the current non-infinite (named) map (BID-048). Data-driven:
 ## prefers the map's own MapData.music_track override (threaded through
 ## WorldMap.load_from_resource()); falls back to dungeon.ogg only for actual
@@ -2826,433 +1898,8 @@ func _on_xp_changed(_xp: int, _level: int) -> void:
 	_world_hud.refresh_xp_bar()
 	_world_hud.update_xp_label()
 
-func _show_stable_panel() -> void:
-	var sm := SceneManager.save_manager
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-
-	if sm.owned_mounts.has("stable_horse"):
-		_show_dialogue("You already own a Stable Horse!")
-		return
-
-	var modal: Dictionary = _build_modal(0.60, 0.36, Color(0.06, 0.04, 0.14, 0.96), 0.015, 0.02)
-	var layer: CanvasLayer = modal["layer"]
-	var vbox: VBoxContainer = modal["vbox"]
-
-	var title := _UiUtil.make_label("Madrian Stables", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	var mount: Dictionary = MountRegistry.get_mount("stable_horse")
-	var desc := Label.new()
-	desc.text = "%s\n  Speed: ×%.1f   Price: %d coins" % [
-		str(mount.get("display_name", "Stable Horse")),
-		float(mount.get("speed_multiplier", 2.0)),
-		MOUNT_PRICE,
-	]
-	desc.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	desc.add_theme_font_size_override("font_size", int(vh * 0.027))
-	vbox.add_child(desc)
-
-	var level_lbl := Label.new()
-	var level_ok: bool = sm.level >= MOUNT_LEVEL_REQ
-	var coins_ok: bool = sm.coins >= MOUNT_PRICE
-	if not level_ok:
-		level_lbl.text = "Requires level %d (you are level %d)" % [MOUNT_LEVEL_REQ, sm.level]
-		level_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
-	elif not coins_ok:
-		level_lbl.text = "Insufficient coins (need %d, have %d)" % [MOUNT_PRICE, sm.coins]
-		level_lbl.add_theme_color_override("font_color", Color(0.9, 0.3, 0.3))
-	else:
-		level_lbl.text = "Balance: %d coins" % sm.coins
-	level_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	level_lbl.add_theme_font_size_override("font_size", int(vh * 0.025))
-	vbox.add_child(level_lbl)
-
-	var hbox := _UiUtil.make_hbox(int(vh * 0.02), vbox)
-	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var buy_btn := _UiUtil.make_button("Buy (%d coins)" % MOUNT_PRICE, Vector2(vh * 0.28, vh * 0.065), int(vh * 0.027), Callable(), hbox)
-	buy_btn.disabled = not level_ok or not coins_ok
-
-	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(vh * 0.16, vh * 0.065), int(vh * 0.027), Callable(), hbox)
-
-	cancel_btn.pressed.connect(func() -> void: layer.queue_free())
-	buy_btn.pressed.connect(func() -> void:
-		sm.add_coins(-MOUNT_PRICE)
-		sm.owned_mounts.append("stable_horse")
-		sm.summon_mount("stable_horse")
-		layer.queue_free()
-		_world_hud.update_mount_btn()
-		_show_dialogue("You purchased a Stable Horse! Press T or tap Mount to ride.")
-	)
-
-func _handle_bed_interaction() -> void:
-	var sm := SceneManager.save_manager
-	sm.set_respawn_point("player_home", float(50) * IsoConst.TILE_SIZE, float(53) * IsoConst.TILE_SIZE)
-	sm.time_of_day = 0.25
-	_show_dialogue("You rest peacefully at home. Respawn point set!")
-
-func _spawn_player_home_trophies() -> void:
-	var sm := SceneManager.save_manager
-	var trophy_ids: Array[String] = ["champion", "spire_7", "first_boss"]
-	var tile_positions: Array[Vector2i] = [
-		Vector2i(44, 49),
-		Vector2i(47, 49),
-		Vector2i(50, 49),
-	]
-	for i: int in range(trophy_ids.size()):
-		var tid: String = trophy_ids[i]
-		var trophy: Dictionary = TrophyRegistry.get_trophy(tid)
-		if trophy.is_empty():
-			continue
-		var earned: bool = TrophyRegistry.is_earned(tid, sm)
-		var tp: Vector2i = tile_positions[i]
-		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
-		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
-		var terrain_y: float = get_terrain_height(wx, wz)
-		var npc_data: Dictionary = {
-			"id": "trophy_" + tid,
-			"x": wx,
-			"z": wz,
-			"npc_type": "trophy_pedestal",
-			"trophy_id": tid,
-			"trophy_earned": earned,
-			"dialogue": trophy.get("display_name", tid) + (": " + trophy.get("description", "") if earned else " (not yet earned)"),
-			"flag_key": "",
-		}
-		var pedestal := _make_trophy_pedestal(earned, trophy.get("display_name", tid))
-		pedestal.position = Vector3(wx, terrain_y, wz)
-		_entity_root.add_child(pedestal)
-		register_npc("trophy_" + tid, pedestal, npc_data)
-
-func _make_trophy_pedestal(earned: bool, display_name: String) -> Node3D:
-	var root := Node3D.new()
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(0.8, 0.65, 0.2) if earned else Color(0.4, 0.4, 0.4)
-
-	var base_mesh := BoxMesh.new()
-	base_mesh.size = Vector3(0.9, 0.5, 0.9)
-	var base := MeshInstance3D.new()
-	base.mesh = base_mesh
-	base.material_override = mat
-	base.position = Vector3(0.0, 0.25, 0.0)
-	root.add_child(base)
-
-	var top_mesh := BoxMesh.new()
-	top_mesh.size = Vector3(0.5, 0.5, 0.5)
-	var top := MeshInstance3D.new()
-	top.mesh = top_mesh
-	top.material_override = mat
-	top.position = Vector3(0.0, 0.75, 0.0)
-	root.add_child(top)
-
-	root.add_child(_SpriteRegistry.make_name_label(display_name if earned else "???", Color(1.0, 0.9, 0.3) if earned else Color(0.5, 0.5, 0.5), 1.4, 28, 0.022))
-
-	return root
-
-func _show_trophy_info(npc: Dictionary) -> void:
-	var dlg: String = str(npc.get("dialogue", "A mysterious trophy."))
-	_show_dialogue(dlg)
-
-# ── Garden plots ────────────────────────────────────────────────────────────
-
-func _spawn_player_home_garden() -> void:
-	_garden_plot_nodes.clear()
-	var tile_positions: Array[Vector2i] = [
-		Vector2i(52, 54),
-		Vector2i(55, 54),
-		Vector2i(58, 54),
-	]
-	for i: int in range(tile_positions.size()):
-		var tp: Vector2i = tile_positions[i]
-		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
-		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
-		var terrain_y: float = get_terrain_height(wx, wz)
-		var plot: Node3D = _GardenPlotScript.new()
-		plot.init_from_data({"plot_idx": i})
-		plot.position = Vector3(wx, terrain_y, wz)
-		_entity_root.add_child(plot)
-		_garden_plot_nodes.append(plot)
-
-func _find_nearby_garden_plot(px: float, pz: float, range_dist: float) -> Node3D:
-	return _first_node_in_range(_garden_plot_nodes, px, pz, range_dist)
-
-func _show_garden_plot_panel(plot: Node3D) -> void:
-	var sm := SceneManager.save_manager
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var vw: float = get_viewport().get_visible_rect().size.x
-	var font_size: int = int(vh * 0.03)
-	var btn_h: float = vh * 0.07
-
-	var panel := PanelContainer.new()
-	panel.position = Vector2(vw * 0.15, vh * 0.2)
-	panel.custom_minimum_size = Vector2(vw * 0.7, vh * 0.5)
-	_hud.add_child(panel)
-
-	var vbox := _UiUtil.make_vbox(int(vh * 0.012), panel)
-
-	var title := _UiUtil.make_label("Garden Plot %d" % (int(plot.plot_idx) + 1), int(vh * 0.045), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	var session_mode: bool = bool(plot.session_mode)
-	var plot_data: Dictionary = plot.get_plot_data()
-	var stage: int = plot.get_growth_stage() if not plot_data.is_empty() else 0
-
-	if plot_data.is_empty():
-		# Empty plot — seed picker
-		var info := _UiUtil.make_label("Choose a seed to plant:", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-		var has_any_seed: bool = false
-		for seed_id in GardenDefs.SEEDS:
-			var seed_count: int = int(sm.seeds.get(seed_id, 0))
-			var sdata: Dictionary = GardenDefs.SEEDS[seed_id]
-			var sname: String = str(sdata.get("display_name", seed_id))
-			var days: int = int(sdata.get("growth_days", 2))
-			var row := _UiUtil.make_hbox(0, vbox)
-			var lbl := Label.new()
-			# The co-op guildhall garden is free to plant (no session seed
-			# economy is modeled, TID-393) — the owned-count only applies solo.
-			lbl.text = ("%s — %d days" % [sname, days]) if session_mode \
-				else "%s — %d days  (owned: %d)" % [sname, days, seed_count]
-			lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			lbl.add_theme_font_size_override("font_size", font_size)
-			row.add_child(lbl)
-			var plant_btn := _UiUtil.make_button("Plant", Vector2(vh * 0.14, btn_h), int(font_size))
-			plant_btn.disabled = false if session_mode else seed_count <= 0
-			var captured_seed_id: String = seed_id
-			var captured_sname: String = sname
-			if session_mode:
-				plant_btn.pressed.connect(func() -> void:
-					coop_session._submit_session_plant(int(plot.plot_idx), captured_seed_id)
-					SceneManager.show_toast("Planted!", captured_sname + " planted.")
-					panel.queue_free()
-				)
-			else:
-				plant_btn.pressed.connect(func() -> void:
-					if sm.remove_seeds(captured_seed_id, 1):
-						sm.set_plot(plot.plot_idx, captured_seed_id, sm.days_elapsed)
-						plot.refresh_visual()
-						SceneManager.show_toast("Planted!", captured_sname + " planted.")
-						panel.queue_free()
-				)
-			row.add_child(plant_btn)
-			if session_mode or seed_count > 0:
-				has_any_seed = true
-
-		if not has_any_seed:
-			var hint := _UiUtil.make_label("No seeds — buy some from a merchant.", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	elif stage < 3:
-		# Growing — show info
-		var seed_id: String = str(plot_data.get("seed_id", ""))
-		var sdata: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
-		var sname: String = str(sdata.get("display_name", seed_id))
-		var growth_days: int = int(sdata.get("growth_days", 2))
-		var planted_day: int = int(plot_data.get("planted_day", 0))
-		var current_days: int = coop_session._coop_current_days_elapsed() if session_mode else sm.days_elapsed
-		var days_left: int = max(0, planted_day + growth_days - current_days)
-		var info := _UiUtil.make_label("%s growing — ready in %d day(s)" % [sname, days_left], int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
-	else:
-		# Mature — show harvest button
-		var seed_id: String = str(plot_data.get("seed_id", ""))
-		var sdata: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
-		var sname: String = str(sdata.get("display_name", seed_id))
-		var plant_id: String = str(sdata.get("plant_id", ""))
-		var yield_count: int = int(sdata.get("yield", 1))
-		var info := _UiUtil.make_label("%s is ready to harvest!" % sname, int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-		var harvest_btn := _UiUtil.make_button("Harvest (%d× %s)" % [yield_count, sname], Vector2(0, btn_h), int(font_size))
-		if session_mode:
-			harvest_btn.pressed.connect(func() -> void:
-				coop_session._submit_session_harvest(int(plot.plot_idx))
-				SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
-				panel.queue_free()
-			)
-		else:
-			harvest_btn.pressed.connect(func() -> void:
-				sm.add_plants(plant_id, yield_count)
-				sm.clear_plot(plot.plot_idx)
-				GameBus.plant_harvested.emit(plot.plot_idx, yield_count)
-				SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
-				panel.queue_free()
-			)
-		vbox.add_child(harvest_btn)
-
-	var cancel_btn := _UiUtil.make_button("Close", Vector2(0, btn_h), int(font_size), func() -> void: panel.queue_free(), vbox)
-
-# ── Party Guildhall furnishings (GID-106 / TID-393) ──────────────────────────
-# Trophies, garden, and a stash chest, furnishing the otherwise-empty guildhall
-# (TID-392). All spawned only when map_name == "guildhall" and
-# NetworkManager.is_active() (see _ready()'s named-map branch).
-
-## Up to 3 pedestals from the already-synced _pve_leaderboards["coop_clears"]
-## cache (party-size clears leaderboard, TID-391) — no new RPC needed. A slot
-## with no entry is skipped entirely (dynamic top-N, not a fixed earned/unearned
-## predicate list like the player-home trophies).
-func _spawn_guildhall_trophies() -> void:
-	var rows: Array = _pve_leaderboards.get("coop_clears", [])
-	var tile_positions: Array[Vector2i] = [
-		Vector2i(44, 50),
-		Vector2i(50, 50),
-		Vector2i(56, 50),
-	]
-	for i: int in range(mini(rows.size(), tile_positions.size())):
-		var row: Dictionary = rows[i]
-		var name_str: String = str(row.get("name", "A party"))
-		var value: int = int(row.get("value", 0))
-		var day: int = int(row.get("day", 0))
-		var display_name: String = "%s's Clear — Party of %d" % [name_str, value]
-		var tp: Vector2i = tile_positions[i]
-		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
-		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
-		var terrain_y: float = get_terrain_height(wx, wz)
-		var npc_data: Dictionary = {
-			"id": "guildhall_trophy_%d" % i,
-			"x": wx, "z": wz,
-			"npc_type": "trophy_pedestal",
-			"dialogue": "%s (Day %d)" % [display_name, day],
-			"flag_key": "",
-		}
-		var pedestal := _make_trophy_pedestal(true, display_name)
-		pedestal.position = Vector3(wx, terrain_y, wz)
-		_entity_root.add_child(pedestal)
-		register_npc("guildhall_trophy_%d" % i, pedestal, npc_data)
-
-## 3 session-scoped garden plots (session_mode = true). The host builds its
-## cache directly from SessionStore; a client requests a fresh snapshot since
-## SessionStore can't be read locally (see class doc comment on
-## _guildhall_garden_cache).
-func _spawn_guildhall_garden() -> void:
-	_garden_plot_nodes.clear()
-	var tile_positions: Array[Vector2i] = [
-		Vector2i(46, 54),
-		Vector2i(50, 54),
-		Vector2i(54, 54),
-	]
-	for i: int in range(tile_positions.size()):
-		var tp: Vector2i = tile_positions[i]
-		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
-		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
-		var terrain_y: float = get_terrain_height(wx, wz)
-		var plot: Node3D = _GardenPlotScript.new()
-		plot.init_from_data({"plot_idx": i})
-		plot.session_mode = true
-		plot.position = Vector3(wx, terrain_y, wz)
-		_entity_root.add_child(plot)
-		_garden_plot_nodes.append(plot)
-	if NetworkManager.is_host():
-		if SessionStore.is_open():
-			var st = SessionStore.get_state()
-			if st != null:
-				var gh: Dictionary = st.guildhall_state
-				_guildhall_garden_cache = {
-					"plots": (gh.get("garden_plots", []) as Array).duplicate(true),
-					"plants": (gh.get("plants", {}) as Dictionary).duplicate(true),
-				}
-		_refresh_guildhall_garden_visuals()
-	elif _net_sync != null:
-		_net_sync.rpc_id(1, "submit_guildhall_garden_request")
-
-## A procedural chest entity that routes to the existing party stash overlay
-## (TID-376) — a physical anchor for a resource that's already always
-## reachable via the HUD, reinforcing that it's shared. No new RPC: opening
-## the overlay is a pure local UI action.
-func _spawn_guildhall_stash_chest() -> void:
-	var tx: int = 50
-	var tz: int = 48
-	var wx: float = float(tx) * IsoConst.TILE_SIZE
-	var wz: float = float(tz) * IsoConst.TILE_SIZE
-	var terrain_y: float = get_terrain_height(wx, wz)
-
-	var root := Node3D.new()
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(0.55, 0.38, 0.15)
-
-	var base_mesh := BoxMesh.new()
-	base_mesh.size = Vector3(0.9, 0.55, 0.6)
-	var base := MeshInstance3D.new()
-	base.mesh = base_mesh
-	base.material_override = mat
-	base.position = Vector3(0.0, 0.275, 0.0)
-	root.add_child(base)
-
-	var lid_mesh := BoxMesh.new()
-	lid_mesh.size = Vector3(0.95, 0.2, 0.65)
-	var lid := MeshInstance3D.new()
-	lid.mesh = lid_mesh
-	lid.material_override = mat
-	lid.position = Vector3(0.0, 0.65, 0.0)
-	root.add_child(lid)
-
-	root.add_child(_SpriteRegistry.make_name_label("Guild Stash", Color(0.95, 0.85, 0.5), 1.1, 26, 0.020))
-
-	root.position = Vector3(wx, terrain_y, wz)
-	_entity_root.add_child(root)
-	_guildhall_stash_chest_node = root
-	register_npc("guildhall_stash_chest", root, {
-		"id": "guildhall_stash_chest",
-		"x": wx, "z": wz,
-		"npc_type": "stash_chest",
-		"dialogue": "",
-		"flag_key": "",
-	})
-
-## Pushes the current cache into every spawned plot (session_mode) node.
-func _refresh_guildhall_garden_visuals() -> void:
-	var plots: Array = _guildhall_garden_cache.get("plots", [])
-	var days: int = coop_session._coop_current_days_elapsed()
-	for i in range(_garden_plot_nodes.size()):
-		var plot: Node3D = _garden_plot_nodes[i]
-		if not is_instance_valid(plot) or not plot.has_method("set_session_state"):
-			continue
-		var data: Dictionary = plots[i] if i < plots.size() and plots[i] is Dictionary else {}
-		plot.set_session_state(data, days)
-
-# ── Dialogue ───────────────────────────────────────────────────────────────
-
 func _show_dialogue(text: String) -> void:
 	_world_hud.show_dialogue(text)
-
-## Chapter 1 ending trigger (GID-108 / TID-405). King Eldar's dialogue is entirely
-## custom (npc_type "chapter1_king_eldar" bypasses the generic MapNpc flag_key
-## auto-set path — see WorldScene._handle_interact()) because it needs four
-## states the 2-state MapNpc schema can't express: first meeting / council in
-## session / ending trigger / post-ending epilogue.
-func _handle_king_eldar_interaction(npc: Dictionary) -> void:
-	var sm := SceneManager.save_manager
-	if sm.get_story_flag("chapter1_complete"):
-		# Chapter 2 beat 1 — the council's charge (GID-108 / TID-407): fires once,
-		# the first time King Eldar is spoken to after the Chapter 1 ending.
-		if not sm.get_story_flag("chapter2_charged"):
-			sm.set_story_flag("chapter2_charged")
-			_show_dialogue("Maiteln, Saimtar — you two ride west. Past Larik, to Lord Marsax. Ride swift, and ride true.")
-			return
-		_show_dialogue("The realm owes its warning to a servant boy from Larik. Remember that, all of you.")
-		return
-	if not sm.get_story_flag("chapter1_temple_council"):
-		sm.set_story_flag("chapter1_temple_council")
-		_show_dialogue(str(npc.get("dialogue", "...")))
-		return
-	if sm.get_story_flag("chapter1_spoke_queen") and sm.get_story_flag("chapter1_spoke_scargroth"):
-		_trigger_chapter1_ending()
-		return
-	_show_dialogue("The council has heard the prophecy. We act at dawn.")
-
-## Sets chapter1_complete and shows the three-page ending narration overlay.
-## No scene transition — the player is already in the world (blancogov_temple);
-## "return to the world as a playable epilogue" just means closing the overlay.
-## Setting the flag fires _refresh_maiteln_presence() for free via the existing
-## _on_local_story_flag_set hook (TID-403), hiding the follower with no new code.
-func _trigger_chapter1_ending() -> void:
-	SceneManager.save_manager.set_story_flag("chapter1_complete")
-	var pages: Array[String] = [
-		"The council resolves — the old alliance is re-sworn, riders will carry the warning to every lord.",
-		"Maiteln, quietly proud, tells Saimtar he has earned his place at his side.",
-		"Scargroth pulls Saimtar aside: \"There is a name from Larik in the old registers you should see.\"",
-	]
-	GameBus.narration_overlay_requested.emit(pages, "", "")
 
 ## Co-op (GID-108 / TID-408, design rule 3): the sole handler for narration
 ## overlays. Shows the overlay locally for every peer and, only for the peer
@@ -3288,67 +1935,6 @@ func _show_narration_overlay(pages: Array, title: String, completion_flag: Strin
 		layer.queue_free()
 		if not completion_flag.is_empty():
 			SceneManager.save_manager.set_story_flag(completion_flag))
-
-func _show_duel_offer_panel(npc: Dictionary) -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var npc_id: String = str(npc.get("id", ""))
-	var enemy_id: String = str(npc.get("duelist_enemy_id", "duelist_novice"))
-	var wager: int = int(npc.get("wager_coins", 10))
-	var is_rematch: bool = SceneManager.save_manager.defeated_duelists.has(npc_id)
-	var player_coins: int = SceneManager.save_manager.coins
-	var champion_reward: String = str(npc.get("champion_reward_card", ""))
-	if is_rematch:
-		wager = max(1, wager / 2)
-
-	# Champion gate: count required duelists not yet beaten.
-	var req_ids: Variant = npc.get("required_duelist_ids")
-	var gate_remaining: int = 0
-	if req_ids is PackedStringArray:
-		var defeated: Array[String] = SceneManager.save_manager.defeated_duelists
-		for rid: String in (req_ids as PackedStringArray):
-			if not defeated.has(rid):
-				gate_remaining += 1
-
-	var modal: Dictionary = _build_modal(0.6, 0.38, Color(0.08, 0.08, 0.18, 0.96), 0.022, 0.03, 0.5)
-	var layer: CanvasLayer = modal["layer"]
-	var vbox: VBoxContainer = modal["vbox"]
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var offer_lbl := Label.new()
-	if gate_remaining > 0:
-		offer_lbl.text = "I only duel proven players. Beat the others in town first. (%d more to go.)" % gate_remaining
-	elif player_coins < wager:
-		offer_lbl.text = "Come back when you can cover the wager."
-	elif is_rematch:
-		offer_lbl.text = "A rematch? Wager: %d coins." % wager
-	else:
-		offer_lbl.text = "Care for a friendly duel?\nWager: %d coins." % wager
-	offer_lbl.add_theme_font_size_override("font_size", int(vh * 0.028))
-	offer_lbl.add_theme_color_override("font_color", Color.WHITE)
-	offer_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	offer_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(offer_lbl)
-
-	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	if gate_remaining == 0 and player_coins >= wager:
-		var duel_btn := _UiUtil.make_button("Duel!", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.028))
-		duel_btn.pressed.connect(func() -> void:
-			layer.queue_free()
-			var enemy_deck: Array[String] = EnemyRegistry.get_deck(enemy_id)
-			var enemy_data_dict: Dictionary = {
-				"enemy_type": enemy_id,
-				"enemy_deck": enemy_deck,
-				"duel_npc_id": npc_id,
-				"champion_reward_card": champion_reward,
-			}
-			GameBus.duel_requested.emit(enemy_data_dict, wager)
-		)
-		row.add_child(duel_btn)
-
-	var decline_btn := _UiUtil.make_button("Decline", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.028), func() -> void: layer.queue_free(), row)
 
 ## The lightweight accept/decline prompt the co-op request panels use: a
 ## CanvasLayer at `layer_index` on this scene, a dimming backdrop, and a
@@ -3432,75 +2018,6 @@ func _on_scroll_collected(scroll_id: String) -> void:
 	if not _coop_scroll_syncing:
 		coop_session._broadcast_scroll_collected_coop(scroll_id)
 
-# ── Card item spawning ──────────────────────────────────────────────────────
-
-func _spawn_card_items(card_ids: Array[String], origin: Vector3, chest_tier: int = 1) -> void:
-	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
-	var rng := RandomNumberGenerator.new()
-	for i: int in range(card_ids.size()):
-		var cid: String = str(card_ids[i])
-		var rarity: String = CardDropUtil.effective_rarity(cid, CardDropUtil.roll_rarity(chest_tier))
-		var stats: Dictionary = CardDropUtil.roll_stats(cid, rarity)
-		var angle: float = (float(i) / float(max(card_ids.size(), 1))) * TAU + rng.randf_range(-0.4, 0.4)
-		var dist: float = rng.randf_range(1.0, 1.8)
-		var land_pos := origin + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
-		var item: Node3D = _WorldItemScene.instantiate()
-		_entity_root.add_child(item)
-		if item.has_method("setup"):
-			item.setup(cid, origin, land_pos, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
-
-func _spawn_coin_piles(origin: Vector3) -> void:
-	var rng := RandomNumberGenerator.new()
-	var pile_count: int = rng.randi_range(3, 5)
-	for i: int in range(pile_count):
-		var angle: float = (float(i) / float(pile_count)) * TAU + rng.randf_range(-0.5, 0.5)
-		var dist: float = rng.randf_range(0.8, 2.0)
-		var land_pos := origin + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
-		var amount: int = rng.randi_range(5, 20)
-		var item: Node3D = _WorldItemScene.instantiate()
-		_entity_root.add_child(item)
-		if item.has_method("setup_coin"):
-			item.setup_coin(amount, origin, land_pos)
-
-func _maybe_drop_equipment_from_chest(chance: float = 0.15) -> void:
-	if randf() >= chance:
-		return
-	var sm := SceneManager.save_manager
-	var candidates: Array[String] = []
-
-	var owned_w: Array[String] = sm.get_owned_by_slot("weapon")
-	for wid: String in WeaponRegistry.get_by_slot("weapon"):
-		if wid != "rusty_dagger" and not owned_w.has(wid):
-			candidates.append(wid)
-
-	var owned_a: Array[String] = sm.owned_armor
-	for eid: String in WeaponRegistry.get_by_slot("armor"):
-		if not owned_a.has(eid):
-			candidates.append(eid)
-
-	var owned_r: Array[String] = sm.owned_rings
-	for eid: String in WeaponRegistry.get_by_slot("ring"):
-		if not owned_r.has(eid):
-			candidates.append(eid)
-
-	var owned_t: Array[String] = sm.owned_trinkets
-	for eid: String in WeaponRegistry.get_by_slot("trinket"):
-		if not owned_t.has(eid):
-			candidates.append(eid)
-
-	if candidates.is_empty():
-		return
-	var picked: String = candidates[randi() % candidates.size()]
-	var weapon: WeaponData = WeaponRegistry.get_weapon(picked)
-	if weapon == null:
-		return
-	if weapon.slot == "weapon":
-		sm.add_weapon(picked)
-	else:
-		sm.add_equipment(picked, weapon.slot)
-	GameBus.hud_message_requested.emit("Found: %s!" % weapon.display_name)
-	GameBus.equipment_dropped.emit(picked)
-
 # ── Weather visuals ────────────────────────────────────────────────────────
 
 func _on_weather_changed(weather_id: String, _duration: float) -> void:
@@ -3527,174 +2044,6 @@ func _on_weather_changed(weather_id: String, _duration: float) -> void:
 		if grass_node != null:
 			grass_node.set_wind_direction(WeatherParticles.get_wind_direction(weather_id))
 
-# ── Tap-to-move ────────────────────────────────────────────────────────────
-
-# Entry point called by both touch and mouse input after basic validation.
-func _handle_tap_to_move(screen_pos: Vector2) -> void:
-	if _player == null or _camera == null:
-		return
-	# GID-101 (TID-365): ping mode intercepts taps and creates a world-space ping.
-	if _ping_mode_active and _coop_active:
-		coop_social._handle_ping_tap(screen_pos)
-		return
-	var tile: Vector2i = _screen_to_tile(screen_pos)
-	var tile_type: int = get_tile_global(tile.x, tile.y)
-	var is_walkable: bool = (tile_type == IsoConst.TILE_GRASS
-		or tile_type == IsoConst.TILE_HILL
-		or tile_type == IsoConst.TILE_PATH)
-	if not is_walkable:
-		_show_tip("Can't go there")
-		_show_reject_marker(tile)
-		return
-	var player_tile: Vector2i = IsoConst.world_to_tile(_player.position.x, _player.position.z)
-	var path: Array[Vector2i] = Pathfinder.find_path(
-		Callable(self, "get_tile_global"), player_tile, tile, 64)
-	if path.is_empty():
-		_show_tip("Can't reach that tile")
-		_show_reject_marker(tile)
-		return
-	# TID-461: if the tapped tile is itself near an interactable, queue an
-	# auto-interact for when the path completes (natural arrival only —
-	# see Player.path_arrived / _on_player_path_arrived()).
-	var wx: float = (float(tile.x) + 0.5) * IsoConst.TILE_SIZE
-	var wz: float = (float(tile.y) + 0.5) * IsoConst.TILE_SIZE
-	_pending_tap_interact = _tile_has_interactable(wx, wz)
-	_place_dest_marker(tile)
-	if _player.has_method("set_destination_path"):
-		_player.call("set_destination_path", path)
-
-## Mirrors _check_interactions()'s "has_entity" check but against an
-## arbitrary world point instead of the live player position, so a tap can be
-## classified as "aimed at an interactable" before the player ever walks
-## there. Deliberately does not replicate any of _handle_interact()'s
-## per-type dispatch — that stays the single source of truth.
-func _tile_has_interactable(wx: float, wz: float) -> bool:
-	if not _find_nearby_door(wx, wz, IsoConst.INTERACT_RANGE * 2.0).is_empty():
-		return true
-	if _find_nearby_enemy(wx, wz, IsoConst.INTERACT_RANGE) != null:
-		return true
-	if not _find_nearby_chest(wx, wz, IsoConst.INTERACT_RANGE).is_empty():
-		return true
-	if not _find_nearby_npc(wx, wz, IsoConst.INTERACT_RANGE).is_empty():
-		return true
-	if _find_nearby_scroll(wx, wz, IsoConst.INTERACT_RANGE) != null:
-		return true
-	if _find_nearby_wilderness_camp(wx, wz, IsoConst.INTERACT_RANGE) != null:
-		return true
-	if _find_nearby_scout_ambush(wx, wz, IsoConst.INTERACT_RANGE) != null:
-		return true
-	if _find_nearby_maiteln(wx, wz, IsoConst.INTERACT_RANGE) != null:
-		return true
-	if _find_nearby_shrine(wx, wz, IsoConst.INTERACT_RANGE) != null:
-		return true
-	if _find_nearby_digspot(wx, wz, IsoConst.INTERACT_RANGE) != null:
-		return true
-	if not _find_nearby_waystone(wx, wz, IsoConst.INTERACT_RANGE).is_empty():
-		return true
-	if not _find_nearby_mailbox(wx, wz, IsoConst.INTERACT_RANGE).is_empty():
-		return true
-	if _find_nearby_garden_plot(wx, wz, IsoConst.INTERACT_RANGE) != null:
-		return true
-	if _find_nearby_burial_mound(wx, wz, IsoConst.INTERACT_RANGE) != null:
-		return true
-	if _find_nearby_blight_heart(wx, wz, IsoConst.INTERACT_RANGE) != null:
-		return true
-	if _find_nearby_mana_well(wx, wz, IsoConst.INTERACT_RANGE) != null:
-		return true
-	return false
-
-## Connected to Player.path_arrived (TID-461). Fires the normal interact
-## dispatch once, exactly as if the player had pressed E/USE on arrival —
-## only when the tap that started this path was aimed at an interactable and
-## nothing (overlay, downed state) blocks interaction right now.
-func _on_player_path_arrived() -> void:
-	var should_interact: bool = _pending_tap_interact and not _coop_downed \
-		and not SceneManager.has_open_overlay()
-	_pending_tap_interact = false
-	if should_interact:
-		_handle_interact()
-
-# Convert a screen position to the nearest tile coordinate via analytic
-# ray–plane intersection with the y=0 tile plane.
-func _screen_to_tile(screen_pos: Vector2) -> Vector2i:
-	var ray_origin: Vector3 = _camera.project_ray_origin(screen_pos)
-	var ray_dir: Vector3 = _camera.project_ray_normal(screen_pos)
-	# Solve: ray_origin.y + t * ray_dir.y = 0 → t = -ray_origin.y / ray_dir.y
-	if abs(ray_dir.y) < 0.0001:
-		return IsoConst.world_to_tile(_player.position.x, _player.position.z)
-	var t: float = -ray_origin.y / ray_dir.y
-	var world_pos: Vector3 = ray_origin + t * ray_dir
-	return IsoConst.world_to_tile(world_pos.x, world_pos.z)
-
-# Place or move the destination marker to the centre of the given tile.
-func _place_dest_marker(tile: Vector2i) -> void:
-	var wx: float = (float(tile.x) + 0.5) * IsoConst.TILE_SIZE
-	var wz: float = (float(tile.y) + 0.5) * IsoConst.TILE_SIZE
-	var wy: float = 0.08  # just above the tile surface
-
-	if _dest_marker == null or not is_instance_valid(_dest_marker):
-		_dest_marker = _make_tap_marker("DestMarker", Color(0.25, 1.0, 0.55))
-		add_child(_dest_marker)
-
-	_dest_marker.position = Vector3(wx, wy, wz)
-	_dest_marker.show()
-
-	if _dest_tween != null and _dest_tween.is_valid():
-		_dest_tween.kill()
-	_dest_tween = create_tween().set_loops()
-	_dest_tween.tween_property(_dest_marker, "scale",
-		Vector3(1.2, 1.0, 1.2), 0.45).set_trans(Tween.TRANS_SINE)
-	_dest_tween.tween_property(_dest_marker, "scale",
-		Vector3(0.85, 1.0, 0.85), 0.45).set_trans(Tween.TRANS_SINE)
-
-## The glowing ring dropped on a tapped tile: green for the destination the
-## player is walking to, red for a tap that resolved to a wall.
-##
-## The material is deliberately built per call rather than shared — the reject
-## flash fades this exact StandardMaterial3D's albedo alpha, and a shared one
-## would fade every marker on screen (and stay faded for the next).
-func _make_tap_marker(node_name: String, tint: Color) -> Node3D:
-	var root := Node3D.new()
-	root.name = node_name
-	var mesh_inst := MeshInstance3D.new()
-	var torus := TorusMesh.new()
-	torus.inner_radius = 0.50
-	torus.outer_radius = 0.72
-	torus.rings = 12
-	torus.ring_segments = 16
-	mesh_inst.mesh = torus
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(tint.r, tint.g, tint.b, 0.90)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat.emission_enabled = true
-	mat.emission = tint
-	mat.emission_energy_multiplier = 1.8
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-	mesh_inst.material_override = mat
-	root.add_child(mesh_inst)
-	return root
-
-## TID-462: brief red/orange flash at a tapped tile that resolved to a wall
-## or an unreachable destination. Independent of _dest_marker/_dest_tween —
-## a rejected tap must never cancel or interfere with an in-progress path.
-## CAUTION (CLAUDE.md): Node3D has no modulate — fade via the material's
-## albedo_color alpha instead, not a "modulate:a" tween on the root/mesh.
-func _show_reject_marker(tile: Vector2i) -> void:
-	var wx: float = (float(tile.x) + 0.5) * IsoConst.TILE_SIZE
-	var wz: float = (float(tile.y) + 0.5) * IsoConst.TILE_SIZE
-	var marker: Node3D = _make_tap_marker("RejectMarker", Color(1.0, 0.25, 0.2))
-	marker.position = Vector3(wx, 0.08, wz)
-	add_child(marker)
-	var mesh_inst: MeshInstance3D = marker.get_child(0) as MeshInstance3D
-	var mat: StandardMaterial3D = mesh_inst.material_override as StandardMaterial3D
-	var tw: Tween = marker.create_tween()
-	tw.set_parallel(true)
-	tw.tween_property(marker, "scale", Vector3(1.4, 1.0, 1.4), 0.4).set_trans(Tween.TRANS_SINE)
-	tw.tween_property(mat, "albedo_color:a", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
-	tw.set_parallel(false)
-	tw.tween_callback(marker.queue_free)
-
 ## Safely coerce a tracking-dict value to Node3D. `as Node3D` on a Variant
 ## holding a freed object throws "Trying to cast a freed object" immediately,
 ## before is_instance_valid() can be checked — this checks validity first.
@@ -3708,16 +2057,6 @@ func _valid_node(v) -> Node:
 	if is_instance_valid(v):
 		return v
 	return null
-
-func _clear_dest_marker() -> void:
-	if _dest_tween != null and _dest_tween.is_valid():
-		_dest_tween.kill()
-	_dest_tween = null
-	if _dest_marker != null and is_instance_valid(_dest_marker):
-		_dest_marker.hide()
-	if _player != null and _player.has_method("cancel_path"):
-		_player.call("cancel_path")
-	_pending_tap_interact = false
 
 # ── Return portal (TID-339) ───────────────────────────────────────────────
 # Spawns a visible "Return to Town" portal in the main overworld near the

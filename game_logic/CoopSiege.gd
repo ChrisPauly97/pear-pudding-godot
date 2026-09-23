@@ -16,7 +16,7 @@ const WAVE_COUNT: int = 3
 
 ## Fixed candidate offsets (world units) from the map's town-gate anchor
 ## (SiegeDefs.TOWN_GATES) — same fixed-offset-near-gate technique as
-## WorldScene._spawn_siege_raiders (single-player) and CoopNightHunts.
+## WorldScene.TownSiege._spawn_raiders (single-player) and CoopNightHunts.
 const _CANDIDATE_OFFSETS: Array[Vector2] = [
 	Vector2(0.0, 0.0), Vector2(2.0, 1.0), Vector2(-2.0, 1.0), Vector2(2.0, -1.0),
 	Vector2(-2.0, -1.0), Vector2(4.0, 0.0), Vector2(-4.0, 0.0), Vector2(0.0, 3.0),

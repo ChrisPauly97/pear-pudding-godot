@@ -24,22 +24,22 @@ Night spans roughly `time_of_day < 0.25` (midnight→pre-dawn) and `time_of_day 
 
 ### Spawning
 
-`WorldScene._update_nocturnal_spawns(delta)` runs every frame in the infinite world during night.
+`NocturnalSpawner.tick(delta)` (`scenes/world/modules/NocturnalSpawner.gd`, ticked from `WorldScene._process`) runs every frame in the infinite world during night.
 
 - Timer-driven: randomised interval 30–60 seconds, reset after each spawn event.
 - Global cap of 12 alive nocturnal enemies; if the cap is reached, the timer resets but no enemy is spawned.
-- Spawn position: `_find_nocturnal_spawn_pos()` samples tiles 5–12 world units from the player in the 4 cardinal directions, picking the first walkable grass tile found.
+- Spawn position: `NocturnalSpawner._find_spawn_pos()` samples random angles 6–14 world units from the player, picking the first walkable grass tile found.
 - Spectre type is selected by the player's chunk Manhattan distance from the world origin:
   - ≤3 chunks → `spectre_wisp`
   - ≤7 chunks → `spectre_haunt`
   - >7 chunks → `spectre_dread`
 - Each spawned node receives `set_meta("is_nocturnal", true)` so the Minimap and post-battle logic can identify it.
-- Spectral enemies are tracked in `_nocturnal_enemies: Dictionary` (spawn_id → {node, chunk}) separate from `_enemy_nodes`. They do **not** enter `SaveManager.defeated_enemies`.
+- Spectral enemies are tracked in `NocturnalSpawner._enemies: Dictionary` (spawn_id → {node, chunk}) separate from `_enemy_nodes`. They do **not** enter `SaveManager.defeated_enemies`.
 
 ### Despawning
 
-- **Dawn transition**: `_despawn_nocturnal_enemies(fade: true)` runs when `_is_night` flips from `true` to `false`. Applies a 1-second modulate-alpha tween on each node, then `queue_free()`.
-- **Chunk eviction**: `_evict_nocturnal_enemies_in_chunk(chunk_key)` is called from `_update_chunks()` when a chunk is unloaded; spectres in that chunk are freed immediately (no fade).
+- **Dawn transition**: `NocturnalSpawner.despawn_all(fade: true)` runs when `_is_night` flips from `true` to `false`. Applies a 1-second modulate-alpha tween on each node, then `queue_free()`.
+- **Chunk eviction**: `NocturnalSpawner.evict_chunk(chunk_key)` is called from `_update_chunks()` when a chunk is unloaded; spectres in that chunk are freed immediately (no fade).
 
 ### Enemy Data
 
@@ -108,6 +108,6 @@ Spectral enemies are transient. Detected by `enemy_type.begins_with("spectre_")`
 A separate, parallel system — **Party Night Hunts** — brings this to the shared
 co-op map (madrian) at synced night, spawning deterministic spectral enemies
 the whole party can hunt via the existing GID-096 engage-lock sync. It does not
-reuse this file's infinite-world spawn loop (`_update_nocturnal_spawns`, gated
+reuse this file's infinite-world spawn loop (`NocturnalSpawner.tick`, gated
 to `_is_infinite`); see `game_logic/CoopNightHunts.gd` and the "Party Night
 Hunts" section of `docs/agent/multiplayer-coop.md` for the full design.

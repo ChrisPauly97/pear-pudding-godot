@@ -5,7 +5,7 @@
 - **MountRegistry** — static dictionary registry in `game_logic/MountRegistry.gd`; `stable_horse` is the only mount in v1 (2× speed, 750 coins).
 - **SaveManager persistence** — `owned_mounts: Array[String]`, `active_mount: String`, `is_mounted: bool` are saved/migrated (version 24).
 - **Speed multiplier** — `Player._get_move_speed()` multiplies `SPEED` by the mount's `speed_multiplier` when `is_mounted and current_map == "main"`.
-- **Stable NPC** — `npc_type = "stable"` in `assets/maps/madrian.tres` at tile (75, 42). Routed by `WorldScene._handle_interact()` to `_show_stable_panel()`. Level 10 gate + 750-coin check; on purchase summons the mount immediately.
+- **Stable NPC** — `npc_type = "stable"` in `assets/maps/madrian.tres` at tile (75, 42). Routed by `WorldScene._handle_interact()` to `Mounts.show_stable_panel()`. Level 10 gate + 750-coin check; on purchase summons the mount immediately.
 - **HUD button** — flat `Button` below Skills in `WorldScene._build_hud()`, text toggles "Mount"/"Dismount", hidden when no mounts owned or not in main map. T key (action `"mount"`) is the keyboard equivalent.
 - **Auto-dismount / remount** — see below.
 - **Mounted visuals** — mount sprite and dust particles in `Player.gd`.
@@ -14,7 +14,7 @@
 
 ### Purchase Flow
 
-`WorldScene._show_stable_panel()` shows an inline panel overlay (CanvasLayer → PanelContainer). Checks `sm.level >= 10` and `sm.coins >= 750`. On buy: `sm.add_coins(-750)`, `sm.owned_mounts.append("stable_horse")`, `sm.summon_mount("stable_horse")`.
+`Mounts.show_stable_panel()` (`scenes/world/modules/Mounts.gd`) shows an inline panel overlay (CanvasLayer → PanelContainer). Checks `sm.level >= 10` and `sm.coins >= 750`. On buy: `sm.add_coins(-750)`, `sm.owned_mounts.append("stable_horse")`, `sm.summon_mount("stable_horse")`.
 
 ### Summon / Dismiss API
 

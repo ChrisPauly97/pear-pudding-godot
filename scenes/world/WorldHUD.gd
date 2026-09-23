@@ -118,7 +118,7 @@ func _create_nav_buttons(_vh: float, _vw_unused: float, font_size: int,
 	hub_btn.add_theme_font_size_override("font_size", font_size)
 
 	_mount_btn = register_action("mount", "Mount", ZONE_NAV,
-		func() -> void: _world_scene.call("_toggle_mount"),
+		func() -> void: _world_scene.mounts.toggle(),
 		Callable(), Vector2(btn_w * 1.3, btn_h))
 	_mount_btn.add_theme_font_size_override("font_size", font_size)
 	_mount_btn.flat = true
@@ -134,13 +134,13 @@ func _create_cantrip_buttons(vh: float, _font_size: int) -> void:
 	# visible_when toggle); _update_cantrip_button_state() dims them and adds
 	# a progress readout instead of hiding them.
 	_ghost_btn = register_action("cantrip_ghost_phase", "[G] Phase", ZONE_ABILITY,
-		func() -> void: _world_scene.call("_activate_ghost_phase"),
+		func() -> void: _world_scene.cantrips.activate_ghost_phase(),
 		Callable(), Vector2(cantrip_btn_w, cantrip_btn_h))
 	_ghost_btn.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
 	_ghost_btn.visible = true
 
 	_dig_btn = register_action("cantrip_skeleton_dig", "[D] Dig", ZONE_ABILITY,
-		func() -> void: _world_scene.call("_activate_skeleton_dig"),
+		func() -> void: _world_scene.cantrips.activate_skeleton_dig(),
 		Callable(), Vector2(cantrip_btn_w, cantrip_btn_h))
 	_dig_btn.add_theme_font_size_override("font_size", int(vh * 0.025 * _ts))
 	_dig_btn.visible = true
@@ -153,7 +153,7 @@ func _current_deck_ids() -> Array[String]:
 
 ## BID-050: drives the dimmed/progress-labeled "locked" look vs. the full
 ## active look. The button stays enabled either way — a tap on a locked
-## cantrip still routes to _activate_ghost_phase()/_activate_skeleton_dig(),
+## cantrip still routes to cantrips.activate_ghost_phase()/activate_skeleton_dig(),
 ## which already surface a "requires N+ family cards" HUD message, so a
 ## curious tap on a locked button still teaches the mechanic.
 func _update_cantrip_button_state(btn: Button, cantrip_id: String, base_label: String) -> void:
