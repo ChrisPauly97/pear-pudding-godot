@@ -27,7 +27,7 @@ const _ROLL_MIN: int = 1
 const _ROLL_MAX: int = 100
 
 ## Equipment drop chance (BID-033) — matches the existing single-player /
-## first-opener chest-drop table (WorldScene._open_chest / _maybe_drop_equipment_from_chest):
+## first-opener chest-drop table (ChestLoot.open / _maybe_drop_equipment):
 ## treasure-room chests (tier 3, `dtr_` ids) roll higher than the default.
 const EQUIPMENT_CHANCE_TREASURE_ROOM: float = 0.40
 const EQUIPMENT_CHANCE_DEFAULT: float = 0.15
@@ -171,7 +171,7 @@ static func resolve_winner(choices: Dictionary, rng: RandomNumberGenerator) -> D
 # ---------------------------------------------------------------------------
 
 ## Rolls whether a chest's resolved loot-roll pool includes one equipment piece, and
-## if so, picks which one — mirroring `WorldScene._maybe_drop_equipment_from_chest`'s
+## if so, picks which one — mirroring `ChestLoot._maybe_drop_equipment`'s
 ## own chance/candidate logic exactly, but pure and injectable (weapon/armor id
 ## catalogs, the recipient's current ownership, and the RNG are all passed in) so it
 ## needs neither a live SaveManager nor a live SessionStore to test or call.

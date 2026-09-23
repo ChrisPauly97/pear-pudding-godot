@@ -30,7 +30,7 @@ Done:
 Still open:
 - [ ] **SceneManager as formal state machine** — see the item above
 - [x] **Oversized functions** — `_on_battle_won` 225→143, `WorldScene._ready` 290→152, `_handle_interact` 250→113, `_process` 118→94, `BattleScene._ready` 222→125, `_check_game_over` 123→50
-- [ ] **`WorldScene.gd` is still ~2.6k lines** — nine single-player clusters moved to `scenes/world/modules/` (BID-055 slice 2, partial); the named-map entity spawns (scrolls, shrines, waystones, mailboxes) and chest/spire interactions remain candidates
+- [x] **`WorldScene.gd` ~3.8k → ~2.1k lines** — eleven single-player clusters moved to `scenes/world/modules/`, guildhall furnishings to CoopSession (BID-055 slice 2); what's left is scene setup, streaming callbacks, interaction chains and shared UI builders
 - [x] **Interaction priority** — both chains now follow one `WorldScene.INTERACT_PRIORITY` constant, with hostile entities (`enemy`, `scout_ambush`, `blight_heart`) probed last so anything peaceful in reach wins
 - [ ] **Cross-module reaches** — a handful of `_world.coop_pvp.X` references remain (spectate button, leaderboard overlay). Where two modules genuinely share state it belongs on WorldScene or in a small shared object
 - [ ] **`EnemyRegistry` is still a GDScript literal** — `CardRegistry` is `.tres`-driven and `EnemyRegistry` is not. Migrating means moving the current dictionary's values (drop pools, capture/signature data) into resources; the old `.tres` files were stale, so they were deleted rather than adopted silently
@@ -61,7 +61,9 @@ Deliberately left duplicated (extracting would cost more than it saves):
 Done:
 - [x] **Single-player world modules** — `scenes/world/modules/{NocturnalSpawner,Cantrips,HomeGarden,StoryCast,TapToMove,NpcInteractions,PlayerHome,Mounts,TownSiege}.gd`
 - [x] **Tap auto-interact detection** — `_tile_has_interactable` (a hand-copied 17-finder chain) replaced by `_interact_prompt_label(wx, wz) != ""`
-- [x] **Mount price** — read from `MountRegistry`, not a second `MOUNT_PRICE` constant; dead `_siege_raider_nodes` removed
+- [x] **Mount price** — read from `MountRegistry`, not a second `MOUNT_PRICE` constant; dead `_siege_raider_nodes` / `_guildhall_stash_chest_node` removed
+- [x] **Equipment drop** — four per-slot loops collapsed; chances shared with `LootRoll.EQUIPMENT_CHANCE_*`
+- [x] **Fast travel Esc** — the "[Esc]" close never fired (key events don't reach an unfocused backdrop) and Esc opened pause on top; pause now closes the panel first
 - [x] **Chunk-neighbour scans** — `_find_nearby_enemy` / `_find_nearby_chest` share `_neighbour_chunks()` and the `_node_in_range` / `_data_in_range` predicates instead of two hand-rolled 3×3 loops
 - [x] **Spectral tint** — `EnemyNPC` applies it from `"nocturnal": true` and owns `fade_out_and_free()`; the co-op night hunt was setting `modulate` on a `Node3D` (runtime error)
 - [x] **Silent runtime errors** — 15 `SCRIPT ERROR`s in a green test run fixed (12 vacuous tests, landmark discovery, spire mirror); CI now fails on any

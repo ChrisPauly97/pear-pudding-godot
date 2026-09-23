@@ -89,13 +89,14 @@ static func make_trophy_pedestal(earned: bool, display_name: String) -> Node3D:
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.albedo_color = Color(0.8, 0.65, 0.2) if earned else Color(0.4, 0.4, 0.4)
-	root.add_child(_box(Vector3(0.9, 0.5, 0.9), 0.25, mat))
-	root.add_child(_box(Vector3(0.5, 0.5, 0.5), 0.75, mat))
+	root.add_child(make_box(Vector3(0.9, 0.5, 0.9), 0.25, mat))
+	root.add_child(make_box(Vector3(0.5, 0.5, 0.5), 0.75, mat))
 	root.add_child(_SpriteRegistry.make_name_label(display_name if earned else "???",
 		Color(1.0, 0.9, 0.3) if earned else Color(0.5, 0.5, 0.5), 1.4, 28, 0.022))
 	return root
 
-static func _box(size: Vector3, y: float, mat: StandardMaterial3D) -> MeshInstance3D:
+## An unshaded box of `size` whose centre sits `y` above the node origin.
+static func make_box(size: Vector3, y: float, mat: StandardMaterial3D) -> MeshInstance3D:
 	var mesh := BoxMesh.new()
 	mesh.size = size
 	var mi := MeshInstance3D.new()

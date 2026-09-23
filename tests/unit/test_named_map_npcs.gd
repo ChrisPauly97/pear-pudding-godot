@@ -279,7 +279,7 @@ func test_marsax_hold_has_war_camp_dungeon_door() -> void:
 # Cast changes driven by story flags, and injected-entity placement
 # ---------------------------------------------------------------------------
 
-const _WorldSceneScript = preload("res://scenes/world/WorldScene.gd")
+const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 
 
 ## Maiteln joins the party the moment story_intro_complete is set, so the
@@ -305,8 +305,8 @@ func test_injected_mailbox_tile_is_clear_of_authored_entities() -> void:
 	for map in ["madrian", "maykalene", "blancogov"]:
 		var wm: RefCounted = WorldMapScript.new(map)
 		var tile: Vector2i = wm.pick_free_tile_near_spawn(
-			_WorldSceneScript._MAILBOX_TILE_OFFSETS,
-			_WorldSceneScript._MAILBOX_CLEARANCE_TILES)
+			_NamedMapProps.MAILBOX_TILE_OFFSETS,
+			_NamedMapProps.MAILBOX_CLEARANCE_TILES)
 		var wx: float = float(tile.x) * WorldMapScript.TILE_SIZE
 		var wz: float = float(tile.y) * WorldMapScript.TILE_SIZE
 		for n in wm.npcs:
@@ -319,8 +319,8 @@ func test_injected_mailbox_tile_is_clear_of_authored_entities() -> void:
 func test_injected_mailbox_tile_is_walkable() -> void:
 	var wm: RefCounted = WorldMapScript.new("madrian")
 	var tile: Vector2i = wm.pick_free_tile_near_spawn(
-		_WorldSceneScript._MAILBOX_TILE_OFFSETS,
-		_WorldSceneScript._MAILBOX_CLEARANCE_TILES)
+		_NamedMapProps.MAILBOX_TILE_OFFSETS,
+		_NamedMapProps.MAILBOX_CLEARANCE_TILES)
 	var t: int = wm.get_tile(tile.x, tile.y)
 	assert_true(t != WorldMapScript.TILE_WALL and t != WorldMapScript.TILE_CRACKED,
 		"mailbox tile %s must not be a wall" % tile)
@@ -331,13 +331,13 @@ func test_injected_mailbox_tile_is_walkable() -> void:
 func test_pick_free_tile_avoids_extra_occupied() -> void:
 	var wm: RefCounted = WorldMapScript.new("madrian")
 	var plain: Vector2i = wm.pick_free_tile_near_spawn(
-		_WorldSceneScript._MAILBOX_TILE_OFFSETS,
-		_WorldSceneScript._MAILBOX_CLEARANCE_TILES)
+		_NamedMapProps.MAILBOX_TILE_OFFSETS,
+		_NamedMapProps.MAILBOX_CLEARANCE_TILES)
 	var blocker: Array = [{
 		"x": float(plain.x) * WorldMapScript.TILE_SIZE,
 		"z": float(plain.y) * WorldMapScript.TILE_SIZE,
 	}]
 	var moved: Vector2i = wm.pick_free_tile_near_spawn(
-		_WorldSceneScript._MAILBOX_TILE_OFFSETS,
-		_WorldSceneScript._MAILBOX_CLEARANCE_TILES, blocker)
+		_NamedMapProps.MAILBOX_TILE_OFFSETS,
+		_NamedMapProps.MAILBOX_CLEARANCE_TILES, blocker)
 	assert_ne(moved, plain, "an occupied candidate must be skipped")

@@ -1522,7 +1522,7 @@ When the mode is on, the chest branch of `_handle_interact` (immediately after t
 existing `_on_chest_opened_coop(cid)` call, which still flips the chest for everyone and
 persists the open exactly as before) **skips the opener's local grant** and calls
 `WorldScene._start_loot_roll(cid, chest_tier)` instead of `_spawn_card_items` /
-`_spawn_coin_piles` / `_maybe_drop_equipment_from_chest`. The chest's card ids / position
+`_spawn_coin_piles` / `ChestLoot._maybe_drop_equipment`. The chest's card ids / position
 are **never sent over the wire for the roll** — the authority re-derives them from its own
 `_active_chest_data[cid]`, which is deterministic and identical across peers (the same
 GID-096 invariant that makes discrete-event-only sync sufficient). A client opener instead
@@ -1588,7 +1588,7 @@ can never leak into `save_slot_*.json`).
 **Roll logic — `game_logic/net/LootRoll.gd`'s `roll_equipment_drop(tier, weapon_ids,
 armor_ids, owned_weapon_ids, owned_armor_ids, rng)`** (pure, unit-tested, RNG-injected
 like `resolve_winner`): rolls the *same* `weapon_chance` table the single-player/
-first-opener path uses (`WorldScene._maybe_drop_equipment_from_chest` — 40% for a tier-3
+first-opener path uses (`ChestLoot._maybe_drop_equipment` — 40% for a tier-3
 `dtr_` treasure-room chest, 15% otherwise — now named `EQUIPMENT_CHANCE_TREASURE_ROOM`/
 `EQUIPMENT_CHANCE_DEFAULT` on `LootRoll`), then picks one id from the caller-supplied
 weapon/armor catalogs, excluding the starter `rusty_dagger` and anything the recipient
@@ -2861,7 +2861,7 @@ the other named-map spawns, so `_net_sync` already exists — see below).
 
 **Trophies need no new sync at all.** `WorldScene._pve_leaderboards` is
 already a continuously-current cache on every peer (broadcast on every
-`record_pve_score` write and sent at late-join, TID-379). `_spawn_guildhall_trophies()`
+`record_pve_score` write and sent at late-join, TID-379). `CoopSession._spawn_guildhall_trophies()`
 just reads `_pve_leaderboards["coop_clears"]` (up to 3 rows, already
 best-first) and spawns a pedestal per row via the existing
 `PlayerHome.make_trophy_pedestal`/`register_npc("trophy_pedestal", ...)` machinery
@@ -2882,7 +2882,7 @@ synced via the exact `_pve_leaderboards` request/broadcast pattern:
 → `recv_guildhall_garden_update` (host → one/all, `_broadcast_guildhall_garden`,
 mirrors `_broadcast_pve_leaderboards`). `GardenPlot` gained `session_mode: bool`
 and `set_session_state(plot_data, days_elapsed)` — WorldScene *pushes* the
-cache into each spawned plot (`_refresh_guildhall_garden_visuals`) rather than
+cache into each spawned plot (`CoopSession._refresh_guildhall_garden_visuals`) rather than
 the plot pulling from `SessionStore` itself; `get_plot_data()`/`get_growth_stage()`
 branch on `session_mode` to use the pushed data (`GardenDefs.growth_stage`,
 a pure function) instead of `SceneManager.save_manager`. Current day comes
@@ -2897,7 +2897,7 @@ plumbing needed).
 WorldScene into `CoopSession.gd`'s "Party Guildhall" section, reached as
 `coop_session.<fn>` — see the Scene Modules table in CLAUDE.md. `WorldScene`
 still owns the `_guildhall_garden_cache` var itself and the
-`_refresh_guildhall_garden_visuals()` UI-push, which the module reaches via
+`CoopSession._refresh_guildhall_garden_visuals()` UI-push, which the module reaches via
 `_world.<name>`, following the star-topology rule.)*
 
 **Deliberate simplifications (deviating from the task's Research Notes, which

@@ -294,7 +294,7 @@ BattleScene's PvP/co-op surface in `scenes/battle/net/BattleNet.gd`:
 
 | Module | Owns |
 |---|---|
-| `CoopSession.gd` | join/leave, identity + character handshakes, roster, world-object sync, synced clock/weather, story flags, map transitions, rally, downed & rescue, dungeon crawl, guildhall |
+| `CoopSession.gd` | join/leave, identity + character handshakes, roster, world-object sync, synced clock/weather, story flags, map transitions, rally, downed & rescue, dungeon crawl, guildhall (incl. furnishings: trophies, garden, stash chest) |
 | `CoopActivities.gd` | night hunts, loot rolls, co-op Spire, town siege, PvE leaderboards, party bounties |
 | `CoopPvP.gd` | challenge handshake + timeouts, team duels, referee routing, spectating, wagers, ranked/leaderboard, draft duels, tournaments |
 | `CoopSocial.gd` | emotes, pings, chat, trading/gifting, party stash, auction house |
@@ -315,6 +315,8 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `PlayerHome.gd` (`player_home`) | House purchase door, bed respawn, trophy pedestals (`make_trophy_pedestal` shared with guildhall) |
 | `Mounts.gd` (`mounts`) | Stable purchase panel, mount toggle, battle auto-dismount (price from `MountRegistry`) |
 | `TownSiege.gd` (`town_siege`) | Single-player siege raiders + banner, Chapter 2 marsax_hold trigger |
+| `NamedMapProps.gd` (`named_props`) | Named-map scrolls, shrines, waystones (incl. injected town waystone), injected mailbox, fast-travel panel |
+| `ChestLoot.gd` (`chest_loot`) | Chest open (mimic, co-op sync, need/greed hand-off), card/coin scatter, equipment drop |
 
 Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
 `test_interact_priority` reads the interaction chains by those names. Likewise

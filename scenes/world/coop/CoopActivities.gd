@@ -302,7 +302,7 @@ func _grant_chest_loot_to_token(token: String, card_ids: Array[String], tier: in
 ## ownership (rec's owned_weapons/owned_armor — BID-033) and, on a hit, appends the
 ## picked id into whichever of those two arrays matches its WeaponData.slot. Mutates
 ## `rec` in place; a no-op (nothing appended) on a chance-miss or an already-fully-owned
-## pool, exactly mirroring WorldScene._maybe_drop_equipment_from_chest's own silent-miss
+## pool, exactly mirroring ChestLoot._maybe_drop_equipment's own silent-miss
 ## behavior for the single-player/first-opener path.
 
 func _roll_equipment_into_loot_grant(rec: Dictionary, tier: int) -> void:

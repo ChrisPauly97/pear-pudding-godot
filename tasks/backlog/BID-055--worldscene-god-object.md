@@ -74,16 +74,17 @@ the rest of slice 2 and slice 3 below are still outstanding.
 
 ### Slice 2 (partial) — single-player modules (claude/codebase-refinement-gml1gg)
 
-WorldScene.gd 3786 → ~2595 lines. New `scenes/world/modules/` holds
+WorldScene.gd 3786 → ~2125 lines. New `scenes/world/modules/` holds
 `NocturnalSpawner`, `Cantrips`, `HomeGarden`, `StoryCast` (Maiteln, camp,
 ambush, war-camp boss, rivals), `TapToMove`, `NpcInteractions`, `PlayerHome`,
-`Mounts` and `TownSiege`, created by `_ensure_world_modules()`. Spawned
+`Mounts`, `TownSiege`, `NamedMapProps` and `ChestLoot`, created by
+`_ensure_world_modules()`; guildhall furnishings moved into CoopSession. Spawned
 nodes and `_find_nearby_*` finders stay on WorldScene (shared with the
 interaction chains, `test_interact_priority`, and CoopSession).
 `test_scene_module_guardrail` now scans the new directory; the line ceiling is
-ratcheted to 2650. Remaining candidates: the other `_spawn_named_map_*`
-entity spawns (scrolls, shrines, waystones, mailboxes), the spire entrance and
-chest/mimic interaction, and the co-op forwarders.
+ratcheted to 2180. What remains is mostly WorldScene's own job: setup and
+map loading, chunk-streaming callbacks, the interaction chains and finders,
+per-frame update, and the modal/prompt builders the modules share.
 
 ### The census in this file was stale before slice 1 even started
 

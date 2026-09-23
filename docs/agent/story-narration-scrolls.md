@@ -64,7 +64,7 @@ A `Node3D` that:
 | `scroll_blancogov_founding` | blancogov | (58, 50) |
 | `scroll_king_eldar_coronation` | blancogov_temple | (45, 50) |
 
-`WorldMap.load_from_string()` parses `SCROLL` directives into `world_map.scrolls: Array[Dictionary]`. `WorldScene._spawn_named_map_scrolls()` iterates this array and instantiates `StoryScroll` nodes after the named-map chunks are built.
+`WorldMap.load_from_string()` parses `SCROLL` directives into `world_map.scrolls: Array[Dictionary]`. `NamedMapProps._spawn_scrolls()` iterates this array and instantiates `StoryScroll` nodes after the named-map chunks are built.
 
 #### Infinite world placement
 

@@ -1,5 +1,4 @@
 extends Node3D
-const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 
 const WorldEvents     = preload("res://game_logic/WorldEvents.gd")
 const WorldMap        = preload("res://game_logic/world/WorldMap.gd")
@@ -18,9 +17,6 @@ const BiomeDef        = preload("res://game_logic/world/BiomeDef.gd")
 const TerrainMath     = preload("res://game_logic/TerrainMath.gd")
 const Minimap         = preload("res://scenes/world/Minimap.gd")
 const MapViewOverlay  = preload("res://scenes/ui/MapViewOverlay.gd")
-const WeaponRegistry  = preload("res://autoloads/WeaponRegistry.gd")
-const EnemyRegistry   = preload("res://autoloads/EnemyRegistry.gd")
-const WeaponData      = preload("res://data/WeaponData.gd")
 const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
@@ -35,12 +31,6 @@ const _TexPath:      Texture2D = preload("res://assets/textures/pixel_art/path_p
 # Preload entity scenes — avoids filesystem hits during spawning
 const _OverworldPauseOverlay = preload("res://scenes/ui/OverworldPauseOverlay.gd")
 const _PlayerScene       = preload("res://scenes/world/entities/Player.tscn")
-const _WorldItemScene    = preload("res://scenes/world/entities/WorldItem.tscn")
-const _StoryScrollScene  = preload("res://scenes/world/entities/StoryScroll.tscn")
-const _PuzzleShrineScene = preload("res://scenes/world/entities/PuzzleShrine.tscn")
-const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
-const _MailboxScene      = preload("res://scenes/world/entities/MailboxNPC.tscn")
-const _GardenPlotScript  = preload("res://scenes/world/entities/GardenPlot.gd")
 const _ObjectiveBeacon   = preload("res://scenes/world/entities/ObjectiveBeacon.gd")
 const _ObjectiveTracker  = preload("res://game_logic/ObjectiveTracker.gd")
 # Party panel (GID-107 / TID-395): consolidated entry point for the always-on
@@ -51,6 +41,8 @@ const _ObjectiveTracker  = preload("res://game_logic/ObjectiveTracker.gd")
 const _Mounts = preload("res://scenes/world/modules/Mounts.gd")
 const _NpcInteractions = preload("res://scenes/world/modules/NpcInteractions.gd")
 const _PlayerHome = preload("res://scenes/world/modules/PlayerHome.gd")
+const _ChestLoot = preload("res://scenes/world/modules/ChestLoot.gd")
+const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _TapToMove = preload("res://scenes/world/modules/TapToMove.gd")
 const _StoryCast = preload("res://scenes/world/modules/StoryCast.gd")
@@ -231,8 +223,6 @@ var _garden_plot_nodes: Array[Node3D] = []  # ordered by plot_idx
 # Guildhall garden (GID-106 / TID-393): SessionStore is authority-only, so this
 # cache mirrors _pve_leaderboards' pattern — kept current via request/broadcast
 # RPCs, then pushed into each spawned GardenPlot (session_mode = true) node.
-var _guildhall_garden_cache: Dictionary = {"plots": [{}, {}, {}], "plants": {}}
-var _guildhall_stash_chest_node: Node3D = null
 var _tile_meshes: Node3D
 var _wall_meshes: Node3D
 var _entity_root: Node3D
@@ -336,7 +326,6 @@ var _world_hud: WorldHUD = null
 var _dungeon_session_ui: DungeonSessionUI = null
 var _minimap: Node
 var _map_overlay: Node = null
-var _fast_travel_layer: CanvasLayer = null
 
 # Story objective beacon (one at most, on the objective's tile — see
 # _refresh_objective_beacon).
@@ -347,6 +336,8 @@ var mounts: Node = null     # modules/Mounts.gd (GID-048)
 var player_home: Node = null   # modules/PlayerHome.gd
 var npc_interactions: Node = null   # modules/NpcInteractions.gd
 var town_siege: Node = null   # modules/TownSiege.gd (GID-054)
+var named_props: Node = null   # modules/NamedMapProps.gd
+var chest_loot: Node = null    # modules/ChestLoot.gd
 
 # Terrain height constants — named-map path uses a wider ramp than chunks
 
@@ -544,9 +535,7 @@ func _ready() -> void:
 	# itself is only ever entered from an active co-op session (TID-392), so
 	# NetworkManager.is_active() here is a defensive guard, not a live gate.
 	if map_name == "guildhall" and NetworkManager.is_active():
-		_spawn_guildhall_trophies()
-		_spawn_guildhall_garden()
-		_spawn_guildhall_stash_chest()
+		coop_session.spawn_guildhall_furnishings()
 	_initial_ready_done = true
 
 # Re-establish co-op when the world is re-attached after a PvP battle detached it
@@ -591,10 +580,7 @@ func _populate_world(server_ref_pos: Vector3) -> void:
 		var max_cz: int = (WorldMap.MAP_HEIGHT + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
 		var _named_ref: Vector3 = _player.position if _player != null else server_ref_pos
 		_csm.build_all_named_map(max_cx, max_cz, _named_ref)
-		_spawn_named_map_scrolls()
-		_spawn_named_map_shrines()
-		_spawn_named_map_waystones()
-		_spawn_named_map_mailboxes()
+		named_props.spawn_all()
 		story_cast.spawn_named_map_rivals()
 		if map_name == "player_home":
 			player_home.spawn_trophies()
@@ -643,13 +629,13 @@ func _build_player_hud() -> void:
 	add_child(_minimap)
 	_minimap.setup(self, _hud, _player, _enemy_nodes, _chest_nodes, _door_nodes, _npc_nodes)
 	if _is_infinite:
-		_minimap.tapped.connect(_open_fast_travel_panel)
+		_minimap.tapped.connect(named_props.open_fast_travel_panel)
 	else:
 		_minimap.tapped.connect(_open_map_view)
 
 	GameBus.hud_message_requested.connect(func(text: String) -> void: _world_hud.show_dialogue(text))
 	GameBus.story_scroll_collected.connect(_on_scroll_collected)
-	GameBus.waystone_activated.connect(_on_waystone_activated)
+	GameBus.waystone_activated.connect(named_props.on_waystone_activated)
 	GameBus.narration_overlay_requested.connect(_on_narration_overlay_requested)
 
 func _load_named_map() -> void:
@@ -802,6 +788,8 @@ func _ensure_world_modules() -> void:
 	player_home = _ensure_world_module(player_home, _PlayerHome, "PlayerHome")
 	npc_interactions = _ensure_world_module(npc_interactions, _NpcInteractions, "NpcInteractions")
 	town_siege = _ensure_world_module(town_siege, _TownSiege, "TownSiege")
+	named_props = _ensure_world_module(named_props, _NamedMapProps, "NamedMapProps")
+	chest_loot = _ensure_world_module(chest_loot, _ChestLoot, "ChestLoot")
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1126,21 +1114,6 @@ func register_digspot(node: Node3D) -> void:
 func register_scroll(node: Node3D) -> void:
 	_scroll_nodes.append(node)
 
-func _spawn_named_map_scrolls() -> void:
-	if world_map == null:
-		return
-	for entry in world_map.scrolls:
-		var wx: float = float(entry["x"])
-		var wz: float = float(entry["z"])
-		var wy: float = get_terrain_height(wx, wz) + 0.1
-		var node := _StoryScrollScene.instantiate() as Node3D
-		_entity_root.add_child(node)
-		node.position = Vector3(wx, wy, wz)
-		if node.has_method("setup"):
-			node.setup(str(entry["scroll_id"]), _player)
-		if is_instance_valid(node):
-			_scroll_nodes.append(node)
-
 ## `v` when it is a live Node3D within `range_dist` of (px, pz), else null.
 ## The proximity family below all measure on the XZ plane — vertical distance
 ## never gates an interaction.
@@ -1247,113 +1220,8 @@ func _despawn_flag_hidden_npcs() -> void:
 		_npc_nodes.erase(nid)
 		_active_npc_data.erase(nid)
 
-func _spawn_named_map_shrines() -> void:
-	if world_map == null:
-		return
-	for entry in world_map.shrines:
-		var wx: float = float(entry["x"])
-		var wz: float = float(entry["z"])
-		var wy: float = get_terrain_height(wx, wz) + 0.1
-		var node := _PuzzleShrineScene.instantiate() as Node3D
-		_entity_root.add_child(node)
-		node.position = Vector3(wx, wy, wz)
-		if node.has_method("setup"):
-			node.setup(str(entry["puzzle_id"]), _player)
-		if is_instance_valid(node):
-			_shrine_nodes.append(node)
-
 func _find_nearby_shrine(px: float, pz: float, range_dist: float) -> Node3D:
 	return _first_node_in_range(_shrine_nodes, px, pz, range_dist)
-
-# Named-map waystone positions (near spawn, one per town map).
-# Used when the map's .tres data has no waystones array populated.
-const _NAMED_MAP_WAYSTONE_LABELS: Dictionary = {
-	"main": "Main Outpost",
-	"madrian": "Madrian",
-	"maykalene": "Maykalene",
-	"blancogov": "Blancogov",
-	"farsyth_mansion": "Farsyth Mansion",
-	"blancogov_temple": "Temple of Blancogov",
-}
-
-func _spawn_named_map_waystones() -> void:
-	if world_map == null:
-		return
-	var source_list: Array[Dictionary] = []
-	if not world_map.waystones.is_empty():
-		source_list = world_map.waystones
-	elif _NAMED_MAP_WAYSTONE_LABELS.has(map_name):
-		# Inject a waystone near the map spawn when none defined in .tres
-		var tx: int = world_map.player_spawn_x + 3 if world_map.has_player_spawn() else 8
-		var tz: int = world_map.player_spawn_z if world_map.has_player_spawn() else 8
-		tx = clamp(tx, 1, WorldMap.MAP_WIDTH - 2)
-		tz = clamp(tz, 1, WorldMap.MAP_HEIGHT - 2)
-		var w_id: String = "map:%s" % map_name
-		var label: String = str(_NAMED_MAP_WAYSTONE_LABELS[map_name])
-		source_list = [{
-			"id": w_id,
-			"x": float(tx) * WorldMap.TILE_SIZE,
-			"z": float(tz) * WorldMap.TILE_SIZE,
-			"label": label,
-			"active": SceneManager.save_manager.is_waystone_activated(w_id),
-		}]
-	for entry in source_list:
-		var wx: float = float(entry["x"])
-		var wz: float = float(entry["z"])
-		var wy: float = get_terrain_height(wx, wz) + 0.75
-		var wid: String = str(entry.get("id", "map:%s" % map_name))
-		var is_active: bool = SceneManager.save_manager.is_waystone_activated(wid)
-		var w_dict: Dictionary = entry.duplicate()
-		w_dict["active"] = is_active
-		var node := _WaystoneScene.instantiate() as Node3D
-		_entity_root.add_child(node)
-		node.position = Vector3(wx, wy, wz)
-		if node.has_method("init_from_data"):
-			node.init_from_data(w_dict)
-		_waystone_nodes[wid] = node
-		_active_waystone_data[wid] = w_dict
-
-# Named-map mailbox locations (near spawn, one per town/home map). Injected — there
-# is no MailboxData resource type on the .tres maps, unlike waystones.
-const _NAMED_MAP_MAILBOX_LOCATIONS: Array[String] = ["madrian", "maykalene", "blancogov", "player_home"]
-
-## Tile offsets from the map spawn, tried in order, when placing the injected
-## mailbox. The first walkable one clear of everything the map already placed
-## wins. A fixed spawn+(5, 0) used to be the only candidate, which stood the
-## Madrian mailbox on Maiteln's exact NPC tile (45, 36).
-const _MAILBOX_TILE_OFFSETS: Array[Vector2i] = [
-	Vector2i(5, 0), Vector2i(5, -3), Vector2i(5, 3), Vector2i(2, -4),
-	Vector2i(2, 4), Vector2i(-3, -3), Vector2i(-3, 3), Vector2i(-5, 0),
-]
-## How far the injected mailbox stays clear of an authored entity, in tiles.
-const _MAILBOX_CLEARANCE_TILES: float = 2.0
-
-func _spawn_named_map_mailboxes() -> void:
-	if world_map == null:
-		return
-	if not _NAMED_MAP_MAILBOX_LOCATIONS.has(map_name):
-		return
-	if map_name == "player_home" and not SceneManager.save_manager.home_owned:
-		return
-	# Waystones come from _active_waystone_data rather than world_map.waystones:
-	# town maps get theirs injected too, and _spawn_named_map_waystones() has
-	# already run by here, so the table is the complete picture.
-	var tile: Vector2i = world_map.pick_free_tile_near_spawn(
-		_MAILBOX_TILE_OFFSETS, _MAILBOX_CLEARANCE_TILES, _active_waystone_data.values())
-	var tx: int = tile.x
-	var tz: int = tile.y
-	var mid: String = "map:%s" % map_name
-	var mx: float = float(tx) * WorldMap.TILE_SIZE
-	var mz: float = float(tz) * WorldMap.TILE_SIZE
-	var my: float = get_terrain_height(mx, mz) + 0.55
-	var m_dict: Dictionary = {"id": mid, "x": mx, "z": mz}
-	var node := _MailboxScene.instantiate() as Node3D
-	_entity_root.add_child(node)
-	node.position = Vector3(mx, my, mz)
-	if node.has_method("init_from_data"):
-		node.init_from_data(m_dict)
-	_mailbox_nodes[mid] = node
-	_active_mailbox_data[mid] = m_dict
 
 func _find_nearby_mailbox(px: float, pz: float, range_dist: float) -> Dictionary:
 	return _first_data_in_range(_active_mailbox_data, px, pz, range_dist)
@@ -1422,84 +1290,6 @@ func _find_nearby_burial_mound(px: float, pz: float, range_dist: float) -> Node3
 
 func _find_nearby_waystone(px: float, pz: float, range_dist: float) -> Dictionary:
 	return _first_data_in_range(_active_waystone_data, px, pz, range_dist)
-
-func _on_waystone_activated(waystone_id: String) -> void:
-	var w_data: Dictionary = _active_waystone_data.get(waystone_id, {})
-	var label: String = str(w_data.get("label", "Unknown"))
-	SceneManager.show_toast("Waystone Activated", label)
-
-func _waystone_friendly_label(wid: String) -> String:
-	if wid.begins_with("map:"):
-		return wid.substr(4).capitalize().replace("_", " ")
-	elif wid.begins_with("world:"):
-		var parts: PackedStringArray = wid.split(":")
-		if parts.size() >= 3:
-			return "Waystone (%s, %s)" % [parts[1], parts[2]]
-	return wid
-
-func _open_fast_travel_panel() -> void:
-	if _fast_travel_layer != null:
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-
-	var panel_h: float = vh * 0.62
-	var modal: Dictionary = _build_modal(0.55, 0.62, Color(0.05, 0.05, 0.10, 0.96), 0.018)
-	var layer: CanvasLayer = modal["layer"]
-	var backdrop: ColorRect = modal["backdrop"]
-	var vbox: VBoxContainer = modal["vbox"]
-	_fast_travel_layer = layer
-
-	var title := _UiUtil.make_label("Fast Travel", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	title.add_theme_color_override("font_color", Color(0.40, 0.90, 1.00))
-	vbox.add_child(title)
-
-	var is_blocked: bool = SceneManager.current_map.begins_with("dungeon_")
-	var activated: Array[String] = SceneManager.save_manager.activated_waystones
-	if activated.is_empty():
-		var empty_lbl := _UiUtil.make_label("No waystones activated yet.\nFind and interact with a waystone pillar to unlock fast travel.", int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-		empty_lbl.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
-		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		vbox.add_child(empty_lbl)
-	elif is_blocked:
-		var block_lbl := _UiUtil.make_label("Fast travel is unavailable inside dungeons.", int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-		block_lbl.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
-		block_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		vbox.add_child(block_lbl)
-	else:
-		var scroll := ScrollContainer.new()
-		scroll.custom_minimum_size = Vector2(0, panel_h * 0.62)
-		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		vbox.add_child(scroll)
-
-		var btn_vbox := _UiUtil.make_vbox(int(vh * 0.010), scroll)
-		btn_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-		var btn_h: float = vh * 0.060
-		for wid: String in activated:
-			var btn := _UiUtil.make_button(_waystone_friendly_label(wid), Vector2(0, btn_h), int(vh * 0.024))
-			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			var captured_id: String = wid
-			btn.pressed.connect(func() -> void:
-				_fast_travel_layer = null
-				layer.queue_free()
-				SceneManager.teleport_to_waystone(captured_id)
-			)
-			btn_vbox.add_child(btn)
-
-	var close_btn := _UiUtil.make_button("Close  [Esc]" if not OS.has_feature("android") else "Close", Vector2(vh * 0.20, vh * 0.06), int(vh * 0.024))
-	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	close_btn.pressed.connect(func() -> void:
-		_fast_travel_layer = null
-		layer.queue_free()
-	)
-	vbox.add_child(close_btn)
-
-	backdrop.gui_input.connect(func(event: InputEvent) -> void:
-		if event is InputEventKey and (event as InputEventKey).keycode == KEY_ESCAPE and event.pressed:
-			_fast_travel_layer = null
-			layer.queue_free()
-	)
 
 ## Chunk data for the loaded chunks in the 3×3 block around (px, pz). Enemies
 ## and chests are indexed per chunk, so their finders only scan these.
@@ -1842,7 +1632,8 @@ func _pressed_menu_action(event: InputEvent) -> String:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("pause"):
-		if _pause_overlay == null:
+		# Esc closes an open fast-travel panel rather than pausing over it.
+		if not named_props.close_fast_travel() and _pause_overlay == null:
 			_open_pause()
 		get_viewport().set_input_as_handled()
 		return
@@ -1951,7 +1742,7 @@ func _handle_interact() -> void:
 
 	var chest := _find_nearby_chest(px, pz, IsoConst.INTERACT_RANGE)
 	if not chest.is_empty() and not chest.get("opened", false):
-		_open_chest(chest, px, pz)
+		chest_loot.open(chest, px, pz)
 		return
 
 	if not _is_infinite and world_map != null:
@@ -1985,7 +1776,7 @@ func _handle_interact() -> void:
 	if not waystone.is_empty():
 		var wid: String = str(waystone.get("id", ""))
 		if bool(waystone.get("active", false)):
-			_open_fast_travel_panel()
+			named_props.open_fast_travel_panel()
 		else:
 			var wnode := _valid_node3d(_waystone_nodes.get(wid))
 			if wnode != null and wnode.has_method("mark_activated"):
@@ -2004,9 +1795,6 @@ func _handle_interact() -> void:
 # ── Spire entrance ─────────────────────────────────────────────────────────
 
 
-## Opens a chest the player is standing at: springs the mimic ambush, or marks
-## it open, syncs that to the party, and spawns its loot — or starts a
-## need/greed roll instead when the session is in that mode.
 
 	# Hostile entities are probed last, so anything peaceful in reach wins: you can
 	# take a door, open a chest or read a scroll with an enemy standing next to you
@@ -2031,64 +1819,6 @@ func _handle_interact() -> void:
 					_show_dialogue(dlg)
 		enemy.engage()
 		return
-
-func _open_chest(chest: Dictionary, px: float, pz: float) -> void:
-	if chest.get("is_mimic", false):
-		AudioManager.play_sfx("enemy_alert")
-		SceneManager.show_toast("It's a Mimic!", "Prepare for battle!")
-		var mimic_deck: Array[String] = []
-		mimic_deck.assign(EnemyRegistry.get_deck("mimic"))
-		var mimic_data: Dictionary = {
-			"id": str(chest.get("id", "mimic_0")),
-			"x": chest.get("x", px),
-			"z": chest.get("z", pz),
-			"alive": true, "tracking": false,
-			"enemy_type": "mimic",
-			"enemy_deck": mimic_deck,
-		}
-		GameBus.enemy_engaged.emit(mimic_data)
-		return
-	chest["opened"] = true
-	AudioManager.play_sfx("chest_open")
-	if OS.has_feature("mobile") and bool(SceneManager.save_manager.get_setting("haptics", true)):
-		Input.vibrate_handheld(40)
-	var cid: String = str(chest.get("id", ""))
-	SceneManager.save_manager.mark_chest_opened(cid)
-	SceneManager.save_manager.increment_bounty_progress("open_chests", {})
-	SceneManager.session_stats["chests_opened"] = int(SceneManager.session_stats.get("chests_opened", 0)) + 1
-	var node := _valid_node3d(_chest_nodes.get(cid))
-	if node and node.has_method("mark_opened"):
-		node.mark_opened()
-	# Co-op (GID-096): reflect + persist the open for all players (this opener
-	# keeps the loot below; peers only see the chest flip open). Inert solo.
-	coop_session._on_chest_opened_coop(cid)
-	var chest_pos := Vector3(float(chest.get("x", px)), get_terrain_height(float(chest.get("x", px)), float(chest.get("z", pz))) + 0.25, float(chest.get("z", pz)))
-	var chest_card_ids: Array[String] = []
-	chest_card_ids.assign(chest.get("card_ids", []))
-	# Tier: treasure rooms (dtr_) = 3, dungeon chests (dc_) = 2, world chests = 1
-	var chest_tier: int = 1
-	if cid.begins_with("dtr_"):
-		chest_tier = 3
-	elif cid.begins_with("dc_"):
-		chest_tier = 2
-	# Party loot rolls (GID-102 / TID-381): when need/greed mode is on for this
-	# co-op session, the opener does NOT keep the loot below — the authority
-	# opens a roll among present session members and grants it to the winner
-	# instead. Default (first-opener-takes) and single-player are unchanged.
-	if _coop_active and coop_activities._coop_loot_mode_is_need_greed():
-		coop_activities._start_loot_roll(cid, chest_tier)
-		return
-	# 20% chance to drop a map fragment instead of normal loot (only if no active map)
-	var sm := SceneManager.save_manager
-	if _is_infinite and sm.active_treasure.is_empty() and randf() < 0.20:
-		sm.collect_treasure_fragment()
-	else:
-		_spawn_card_items(chest_card_ids, chest_pos, chest_tier)
-		_spawn_coin_piles(chest_pos)
-		# Treasure rooms (dtr_ prefix) have a 40% weapon drop chance vs standard 15%
-		var weapon_chance: float = 0.40 if cid.begins_with("dtr_") else 0.15
-		_maybe_drop_equipment_from_chest(weapon_chance)
-	return
 
 func _show_spire_entrance_panel() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
@@ -2167,137 +1897,6 @@ func _on_coins_changed(n: int) -> void:
 func _on_xp_changed(_xp: int, _level: int) -> void:
 	_world_hud.refresh_xp_bar()
 	_world_hud.update_xp_label()
-
-# ── Party Guildhall furnishings (GID-106 / TID-393) ──────────────────────────
-# Trophies, garden, and a stash chest, furnishing the otherwise-empty guildhall
-# (TID-392). All spawned only when map_name == "guildhall" and
-# NetworkManager.is_active() (see _ready()'s named-map branch).
-
-## Up to 3 pedestals from the already-synced _pve_leaderboards["coop_clears"]
-## cache (party-size clears leaderboard, TID-391) — no new RPC needed. A slot
-## with no entry is skipped entirely (dynamic top-N, not a fixed earned/unearned
-## predicate list like the player-home trophies).
-func _spawn_guildhall_trophies() -> void:
-	var rows: Array = _pve_leaderboards.get("coop_clears", [])
-	var tile_positions: Array[Vector2i] = [
-		Vector2i(44, 50),
-		Vector2i(50, 50),
-		Vector2i(56, 50),
-	]
-	for i: int in range(mini(rows.size(), tile_positions.size())):
-		var row: Dictionary = rows[i]
-		var name_str: String = str(row.get("name", "A party"))
-		var value: int = int(row.get("value", 0))
-		var day: int = int(row.get("day", 0))
-		var display_name: String = "%s's Clear — Party of %d" % [name_str, value]
-		var tp: Vector2i = tile_positions[i]
-		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
-		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
-		var terrain_y: float = get_terrain_height(wx, wz)
-		var npc_data: Dictionary = {
-			"id": "guildhall_trophy_%d" % i,
-			"x": wx, "z": wz,
-			"npc_type": "trophy_pedestal",
-			"dialogue": "%s (Day %d)" % [display_name, day],
-			"flag_key": "",
-		}
-		var pedestal := _PlayerHome.make_trophy_pedestal(true, display_name)
-		pedestal.position = Vector3(wx, terrain_y, wz)
-		_entity_root.add_child(pedestal)
-		register_npc("guildhall_trophy_%d" % i, pedestal, npc_data)
-
-## 3 session-scoped garden plots (session_mode = true). The host builds its
-## cache directly from SessionStore; a client requests a fresh snapshot since
-## SessionStore can't be read locally (see class doc comment on
-## _guildhall_garden_cache).
-func _spawn_guildhall_garden() -> void:
-	_garden_plot_nodes.clear()
-	var tile_positions: Array[Vector2i] = [
-		Vector2i(46, 54),
-		Vector2i(50, 54),
-		Vector2i(54, 54),
-	]
-	for i: int in range(tile_positions.size()):
-		var tp: Vector2i = tile_positions[i]
-		var wx: float = float(tp.x) * IsoConst.TILE_SIZE
-		var wz: float = float(tp.y) * IsoConst.TILE_SIZE
-		var terrain_y: float = get_terrain_height(wx, wz)
-		var plot: Node3D = _GardenPlotScript.new()
-		plot.init_from_data({"plot_idx": i})
-		plot.session_mode = true
-		plot.position = Vector3(wx, terrain_y, wz)
-		_entity_root.add_child(plot)
-		_garden_plot_nodes.append(plot)
-	if NetworkManager.is_host():
-		if SessionStore.is_open():
-			var st = SessionStore.get_state()
-			if st != null:
-				var gh: Dictionary = st.guildhall_state
-				_guildhall_garden_cache = {
-					"plots": (gh.get("garden_plots", []) as Array).duplicate(true),
-					"plants": (gh.get("plants", {}) as Dictionary).duplicate(true),
-				}
-		_refresh_guildhall_garden_visuals()
-	elif _net_sync != null:
-		_net_sync.rpc_id(1, "submit_guildhall_garden_request")
-
-## A procedural chest entity that routes to the existing party stash overlay
-## (TID-376) — a physical anchor for a resource that's already always
-## reachable via the HUD, reinforcing that it's shared. No new RPC: opening
-## the overlay is a pure local UI action.
-func _spawn_guildhall_stash_chest() -> void:
-	var tx: int = 50
-	var tz: int = 48
-	var wx: float = float(tx) * IsoConst.TILE_SIZE
-	var wz: float = float(tz) * IsoConst.TILE_SIZE
-	var terrain_y: float = get_terrain_height(wx, wz)
-
-	var root := Node3D.new()
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(0.55, 0.38, 0.15)
-
-	var base_mesh := BoxMesh.new()
-	base_mesh.size = Vector3(0.9, 0.55, 0.6)
-	var base := MeshInstance3D.new()
-	base.mesh = base_mesh
-	base.material_override = mat
-	base.position = Vector3(0.0, 0.275, 0.0)
-	root.add_child(base)
-
-	var lid_mesh := BoxMesh.new()
-	lid_mesh.size = Vector3(0.95, 0.2, 0.65)
-	var lid := MeshInstance3D.new()
-	lid.mesh = lid_mesh
-	lid.material_override = mat
-	lid.position = Vector3(0.0, 0.65, 0.0)
-	root.add_child(lid)
-
-	root.add_child(_SpriteRegistry.make_name_label("Guild Stash", Color(0.95, 0.85, 0.5), 1.1, 26, 0.020))
-
-	root.position = Vector3(wx, terrain_y, wz)
-	_entity_root.add_child(root)
-	_guildhall_stash_chest_node = root
-	register_npc("guildhall_stash_chest", root, {
-		"id": "guildhall_stash_chest",
-		"x": wx, "z": wz,
-		"npc_type": "stash_chest",
-		"dialogue": "",
-		"flag_key": "",
-	})
-
-## Pushes the current cache into every spawned plot (session_mode) node.
-func _refresh_guildhall_garden_visuals() -> void:
-	var plots: Array = _guildhall_garden_cache.get("plots", [])
-	var days: int = coop_session._coop_current_days_elapsed()
-	for i in range(_garden_plot_nodes.size()):
-		var plot: Node3D = _garden_plot_nodes[i]
-		if not is_instance_valid(plot) or not plot.has_method("set_session_state"):
-			continue
-		var data: Dictionary = plots[i] if i < plots.size() and plots[i] is Dictionary else {}
-		plot.set_session_state(data, days)
-
-# ── Dialogue ───────────────────────────────────────────────────────────────
 
 func _show_dialogue(text: String) -> void:
 	_world_hud.show_dialogue(text)
@@ -2418,75 +2017,6 @@ func _on_scroll_collected(scroll_id: String) -> void:
 	# applying a co-op-received pickup, to avoid re-broadcasting a broadcast.
 	if not _coop_scroll_syncing:
 		coop_session._broadcast_scroll_collected_coop(scroll_id)
-
-# ── Card item spawning ──────────────────────────────────────────────────────
-
-func _spawn_card_items(card_ids: Array[String], origin: Vector3, chest_tier: int = 1) -> void:
-	const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
-	var rng := RandomNumberGenerator.new()
-	for i: int in range(card_ids.size()):
-		var cid: String = str(card_ids[i])
-		var rarity: String = CardDropUtil.effective_rarity(cid, CardDropUtil.roll_rarity(chest_tier))
-		var stats: Dictionary = CardDropUtil.roll_stats(cid, rarity)
-		var angle: float = (float(i) / float(max(card_ids.size(), 1))) * TAU + rng.randf_range(-0.4, 0.4)
-		var dist: float = rng.randf_range(1.0, 1.8)
-		var land_pos := origin + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
-		var item: Node3D = _WorldItemScene.instantiate()
-		_entity_root.add_child(item)
-		if item.has_method("setup"):
-			item.setup(cid, origin, land_pos, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
-
-func _spawn_coin_piles(origin: Vector3) -> void:
-	var rng := RandomNumberGenerator.new()
-	var pile_count: int = rng.randi_range(3, 5)
-	for i: int in range(pile_count):
-		var angle: float = (float(i) / float(pile_count)) * TAU + rng.randf_range(-0.5, 0.5)
-		var dist: float = rng.randf_range(0.8, 2.0)
-		var land_pos := origin + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
-		var amount: int = rng.randi_range(5, 20)
-		var item: Node3D = _WorldItemScene.instantiate()
-		_entity_root.add_child(item)
-		if item.has_method("setup_coin"):
-			item.setup_coin(amount, origin, land_pos)
-
-func _maybe_drop_equipment_from_chest(chance: float = 0.15) -> void:
-	if randf() >= chance:
-		return
-	var sm := SceneManager.save_manager
-	var candidates: Array[String] = []
-
-	var owned_w: Array[String] = sm.get_owned_by_slot("weapon")
-	for wid: String in WeaponRegistry.get_by_slot("weapon"):
-		if wid != "rusty_dagger" and not owned_w.has(wid):
-			candidates.append(wid)
-
-	var owned_a: Array[String] = sm.owned_armor
-	for eid: String in WeaponRegistry.get_by_slot("armor"):
-		if not owned_a.has(eid):
-			candidates.append(eid)
-
-	var owned_r: Array[String] = sm.owned_rings
-	for eid: String in WeaponRegistry.get_by_slot("ring"):
-		if not owned_r.has(eid):
-			candidates.append(eid)
-
-	var owned_t: Array[String] = sm.owned_trinkets
-	for eid: String in WeaponRegistry.get_by_slot("trinket"):
-		if not owned_t.has(eid):
-			candidates.append(eid)
-
-	if candidates.is_empty():
-		return
-	var picked: String = candidates[randi() % candidates.size()]
-	var weapon: WeaponData = WeaponRegistry.get_weapon(picked)
-	if weapon == null:
-		return
-	if weapon.slot == "weapon":
-		sm.add_weapon(picked)
-	else:
-		sm.add_equipment(picked, weapon.slot)
-	GameBus.hud_message_requested.emit("Found: %s!" % weapon.display_name)
-	GameBus.equipment_dropped.emit(picked)
 
 # ── Weather visuals ────────────────────────────────────────────────────────
 
