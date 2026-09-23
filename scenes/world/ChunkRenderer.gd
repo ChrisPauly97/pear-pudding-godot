@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node3D
 
 const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
@@ -223,8 +225,8 @@ func build_visual(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node
 	_build_props(biome, terrain_res.get("props", {}) as Dictionary)
 	_spawn_entities(world_scene)
 	# Apply initial blight tint for this chunk based on current world state.
-	if world_scene.get("WORLD_SEED") != null:
-		var ws: int = int(world_scene.get("WORLD_SEED"))
+	if world_scene.get("world_seed") != null:
+		var ws: int = int(world_scene.get("world_seed"))
 		var sm := SceneManager.save_manager
 		var intensity: float = BlightField.blight_intensity(
 			_chunk_key.x, _chunk_key.y, ws, sm.days_elapsed, sm.blight_cleansed_hearts)
@@ -508,8 +510,8 @@ func _spawn_entities(world_scene: Node3D) -> void:
 	var cx: int = _chunk_key.x
 	var cz: int = _chunk_key.y
 	var world_seed: int = 42
-	if world_scene.get("WORLD_SEED") != null:
-		world_seed = int(world_scene.get("WORLD_SEED"))
+	if world_scene.get("world_seed") != null:
+		world_seed = int(world_scene.get("world_seed"))
 	var scroll_id: String = InfiniteWorldGen.get_chunk_scroll_id(cx, cz, world_seed)
 	if scroll_id != "" and not SceneManager.save_manager.is_scroll_collected(scroll_id):
 		var h: int = (cx * 73856093) ^ (cz * 19349663) ^ world_seed

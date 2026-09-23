@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines, max-public-methods
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node
 
 signal coins_changed(new_amount: int)
@@ -903,6 +905,7 @@ func _read_save_json(path: String):
 		if not inner is Dictionary:
 			return null
 		return inner
+	# gdlint:ignore = max-returns
 	return outer
 
 ## Restores one PERSISTED_FIELDS entry, coercing to the default's type. Const

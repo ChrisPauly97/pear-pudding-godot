@@ -95,6 +95,7 @@ func _run() -> bool:
 		print("  [FAIL] relayed identity decoded wrong: %s" % str(got))
 		return false
 	print("  [PASS] client->client identity relayed and decoded correctly")
+	# gdlint:ignore = max-returns
 	return true
 
 

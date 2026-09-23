@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines, max-public-methods
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node
 
 enum State {
@@ -1245,18 +1247,17 @@ func _siege_battle_won(result: Dictionary) -> bool:
 		_restore_world()
 		_show_siege_interstitial(_siege_stage + 1, _siege_hero_hp)
 		return true
-	else:
-		var _siege_town: String = str(_siege.get("town", ""))
-		_apply_siege_victory_rewards(_siege_town)
-		# Chapter 2 beat 4 (GID-108 / TID-407): the story siege at marsax_hold
-		# reuses this exact victory path — only the completion flag is new.
-		if _siege_town == "marsax_hold":
-			save_manager.set_story_flag("chapter2_siege_won")
-		save_manager.end_siege_victory()
-		save_manager.save()
-		_dismiss_battle_overlay()
-		_restore_world()
-		return true
+	var _siege_town: String = str(_siege.get("town", ""))
+	_apply_siege_victory_rewards(_siege_town)
+	# Chapter 2 beat 4 (GID-108 / TID-407): the story siege at marsax_hold
+	# reuses this exact victory path — only the completion flag is new.
+	if _siege_town == "marsax_hold":
+		save_manager.set_story_flag("chapter2_siege_won")
+	save_manager.end_siege_victory()
+	save_manager.save()
+	_dismiss_battle_overlay()
+	_restore_world()
+	return true
 
 ## Mimic chest victory: open the chest, grant its loot straight to the bag.
 func _mimic_battle_won(enemy_type: String, captured_enemy_id: String) -> bool:

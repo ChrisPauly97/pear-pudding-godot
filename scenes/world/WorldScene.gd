@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node3D
 
 const WorldEvents     = preload("res://game_logic/WorldEvents.gd")
@@ -153,7 +155,7 @@ var cantrips: Node = null   # modules/Cantrips.gd (GID-065)
 var home_garden: Node = null   # modules/HomeGarden.gd (GID-059)
 var story_cast: Node = null    # modules/StoryCast.gd (GID-108)
 
-var WORLD_SEED: int = 42  # overwritten in _ready() for infinite worlds
+var world_seed: int = 42  # overwritten in _ready() for infinite worlds
 
 var tap_move: Node = null   # modules/TapToMove.gd
 var mounts: Node = null     # modules/Mounts.gd (GID-048)
@@ -436,9 +438,9 @@ func _ready() -> void:
 
 	_is_infinite = (map_name == "infinite" or map_name == "main")
 	if _is_infinite:
-		WORLD_SEED = SceneManager.save_manager.world_seed
+		world_seed = SceneManager.save_manager.world_seed
 		InfiniteWorldGen.forced_start_biome = SceneManager.save_manager.starting_biome
-	_terrain_mat = _make_terrain_material(WORLD_SEED)
+	_terrain_mat = _make_terrain_material(world_seed)
 	_build_grass_blades_node()
 
 	if not _is_infinite:
@@ -449,7 +451,7 @@ func _ready() -> void:
 	_csm = ChunkStreamingManager.new()
 	_csm.name = "ChunkStreamingManager"
 	add_child(_csm)
-	_csm.setup(WORLD_SEED, _is_infinite, world_map, _terrain_mat, self)
+	_csm.setup(world_seed, _is_infinite, world_map, _terrain_mat, self)
 	_csm.player_chunk_changed.connect(_on_player_chunk_changed)
 	_csm.chunk_committed.connect(_on_chunk_committed)
 	_csm.chunk_unloading.connect(_on_chunk_unloading)
@@ -873,8 +875,8 @@ func get_battlefield_context() -> Dictionary:
 	var cx: int = int(floor(px / (float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE)))
 	var cz: int = int(floor(pz / (float(IsoConst.CHUNK_SIZE) * IsoConst.TILE_SIZE)))
 	var blighted: bool = _is_infinite and BlightField.is_blighted(
-		cx, cz, WORLD_SEED, sm.days_elapsed, sm.blight_cleansed_hearts)
-	var attuned: bool = _is_infinite and TerrainMath.is_on_ley_line(px, pz, WORLD_SEED)
+		cx, cz, world_seed, sm.days_elapsed, sm.blight_cleansed_hearts)
+	var attuned: bool = _is_infinite and TerrainMath.is_on_ley_line(px, pz, world_seed)
 	return {
 		"biome": _current_biome if _is_infinite else -1,
 		"is_night": _dnc != null and _dnc.is_night_now(),
@@ -1269,14 +1271,14 @@ func _discover_landmark(lid: String, l_data: Dictionary) -> void:
 	sm.mark_landmark_discovered(lid)
 	var cx: int = int(l_data.get("cx", 0))
 	var cz: int = int(l_data.get("cz", 0))
-	var display_name: String = LandmarkNames.landmark_name(cx, cz, WORLD_SEED)
+	var display_name: String = LandmarkNames.landmark_name(cx, cz, world_seed)
 	GameBus.landmark_discovered.emit(lid, display_name)
 	SceneManager.show_toast("Discovery!", display_name)
 	# One-time reward: coins + random card
 	sm.add_coins(50)
 	var card_ids: Array[String] = ["ghost", "skeleton", "zombie", "ghoul"]
 	var rng := RandomNumberGenerator.new()
-	rng.seed = (cx * 73856093) ^ (cz * 19349663) ^ WORLD_SEED
+	rng.seed = (cx * 73856093) ^ (cz * 19349663) ^ world_seed
 	rng.seed = rng.seed & 0x7FFFFFFF
 	var card_id: String = card_ids[rng.randi_range(0, card_ids.size() - 1)]
 	sm.grant_card_reward(card_id, "rare")
@@ -1286,7 +1288,7 @@ func _refresh_blight_tints() -> void:
 	var sm := SceneManager.save_manager
 	_csm.for_each_renderer(func(key: Vector2i, cr: ChunkRenderer) -> void:
 		var intensity: float = BlightField.blight_intensity(
-			key.x, key.y, WORLD_SEED, sm.days_elapsed, sm.blight_cleansed_hearts)
+			key.x, key.y, world_seed, sm.days_elapsed, sm.blight_cleansed_hearts)
 		cr.set_blight_amount(intensity)
 	)
 
@@ -1447,7 +1449,7 @@ func _process(delta: float) -> void:
 	if _is_infinite:
 		if _world_hud != null:
 			_world_hud.set_ley_indicator_visible(TerrainMath.is_on_ley_line(
-				_player.position.x, _player.position.z, WORLD_SEED))
+				_player.position.x, _player.position.z, world_seed))
 		_tick_roaming_boss(delta)
 		_tick_traveling_merchant(delta)
 		_tick_card_shower()
@@ -1555,6 +1557,7 @@ func _interact_prompt_label(px: float, pz: float) -> String:
 		return "ATTACK"
 	if _find_nearby_enemy(px, pz, r) != null:
 		return "ATTACK"
+	# gdlint:ignore = max-returns
 	return ""
 
 ## One-time "press E to …" hints. Each probe runs only while its flag is still
@@ -1819,6 +1822,7 @@ func _handle_interact() -> void:
 				if dlg != "":
 					_show_dialogue(dlg)
 		enemy.engage()
+		# gdlint:ignore = max-returns
 		return
 
 func _show_spire_entrance_panel() -> void:

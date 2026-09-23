@@ -128,6 +128,7 @@ func _run() -> bool:
 		print("  [FAIL] submit_leaderboard_request did not reach the authority")
 		return false
 	print("  [PASS] submit_leaderboard_request reached the authority")
+	# gdlint:ignore = max-returns
 	return true
 
 

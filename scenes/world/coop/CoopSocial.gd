@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 ## Session social & economy surface: emotes, world pings, party chat, card
 ## trading and gifting, the shared party stash, and the async auction house.
 ##

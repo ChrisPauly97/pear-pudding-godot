@@ -103,6 +103,7 @@ func _run() -> bool:
 		return true
 	print("  [FAIL] mirror did not reflect the applied end_turn (seq=%d, idx %d->%d)" % [int(decoded["seq"]),
 			before_idx, after_idx])
+	# gdlint:ignore = max-returns
 	return false
 
 

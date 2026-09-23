@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for the Soulbind capture system (GID-061 TID-218/219/220).
 ##
 ## Covers: CaptureTracker all condition keys (satisfied + violated), AI actions

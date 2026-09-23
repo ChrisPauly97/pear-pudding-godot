@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends RefCounted
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -162,6 +164,7 @@ func _build_result_overlay(bg: Color, sep_frac: float = 0.03,
 	overlay.add_child(vbox)
 	return {"overlay": overlay, "vbox": vbox}
 
+# gdlint:ignore = function-arguments-number
 func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 		sig_card_id: String = "", condition_text_arg: String = "", condition_met: bool = false,
 		reward_rarity: String = "", reward_stats: Dictionary = {},

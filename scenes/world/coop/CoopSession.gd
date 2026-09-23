@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 ## Session lifecycle and world-state replication: joining and leaving a co-op
 ## session, the identity and persistent-character handshakes, the in-world
 ## roster, world-object sync, the synced clock and weather, shared story flags,

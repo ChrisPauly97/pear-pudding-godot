@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for GardenDefs and SaveManager garden fields (GID-056 TID-203).
 ##
 ## Covers: growth_stage boundaries for all seed types, SaveManager new_game defaults,

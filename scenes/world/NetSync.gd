@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines, max-public-methods
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 ## RPC relay node for co-op avatar sync.
 ##
 ## Lives as a fixed-name child "NetSync" of WorldScene so the RPC path

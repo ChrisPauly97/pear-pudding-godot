@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for co-op joint battle state model (GID-099).
 ##
 ## Tests: N-player setup, turn rotation including boss turn, win/loss conditions,

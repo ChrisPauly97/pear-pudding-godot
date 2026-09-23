@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 ## Competitive play against other session members: the challenge handshake and
 ## its timeouts, team duels, dedicated-server referee routing, spectating,
 ## wagered duels and the champion record, ranked ratings and the leaderboard,
@@ -1231,6 +1233,7 @@ func _start_tournament() -> void:
 			"ante": _world.TOURNAMENT_ANTE_COINS, "awaiting": {}, "armed_at": -1,
 		}
 		_commit_tournament_start()
+		# gdlint:ignore = max-returns
 		return
 	_tournament_pending_start = {
 		"peer_ids": peer_ids, "tokens": tokens, "names": names, "decks": decks,

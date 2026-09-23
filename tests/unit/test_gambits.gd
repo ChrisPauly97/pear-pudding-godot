@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for GID-063 Gambits: catalogue integrity, handicap effects,
 ## serialization round-trips, reward math, and no-gambit defaults.
 extends "res://tests/framework/test_case.gd"

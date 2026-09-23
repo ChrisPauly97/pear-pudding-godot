@@ -84,7 +84,7 @@ static func _fill_from(result: Array[String], candidates: Array[Dictionary], tar
 static func _cost_bucket(cost: int) -> String:
 	if cost <= 2:
 		return "low"
-	elif cost <= 5:
+	if cost <= 5:
 		return "mid"
 	return "high"
 

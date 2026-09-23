@@ -102,7 +102,7 @@ func _build_ui() -> void:
 func _scale_to_index(scale: float) -> int:
 	if scale < 0.95:
 		return 0
-	elif scale > 1.1:
+	if scale > 1.1:
 		return 2
 	return 1
 

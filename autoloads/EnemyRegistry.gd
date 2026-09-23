@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node
 
 const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
@@ -516,7 +518,7 @@ static func type_for_depth(depth: int, max_depth: int) -> String:
 	var pct: float = float(depth) / float(max(max_depth, 1))
 	if pct < 0.33:
 		return "undead_basic"
-	elif pct < 0.66:
+	if pct < 0.66:
 		return "undead_horde"
 	return "ghoul_pack"
 
@@ -540,9 +542,9 @@ static func get_difficulty_tier(type_id: String) -> int:
 static func type_for_chunk_dist(dist: int) -> String:
 	if dist <= 3:
 		return "undead_basic"
-	elif dist <= 8:
+	if dist <= 8:
 		return "undead_horde"
-	elif dist <= 14:
+	if dist <= 14:
 		return "ghoul_pack"
 	return "undead_elite"
 

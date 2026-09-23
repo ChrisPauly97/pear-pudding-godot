@@ -155,6 +155,7 @@ func _run() -> bool:
 		print("  [FAIL] session persistence touched save_slot_1.json (isolation broken)")
 		return false
 	print("  [PASS] save_slot_*.json untouched by session persistence")
+	# gdlint:ignore = max-returns
 	return true
 
 

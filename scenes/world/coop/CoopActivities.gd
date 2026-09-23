@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 ## Shared party content: night hunts, need/greed loot rolls, the co-op Endless
 ## Spire run and its drafts, the town siege gauntlet, the PvE leaderboards and
 ## the shared party bounty board.
@@ -1067,7 +1069,7 @@ func _setup_party_bounties() -> void:
 	const _BountyGen = preload("res://game_logic/BountyGen.gd")
 	if (st.party_bounties as Array).is_empty():
 		var day_idx: int = SceneManager.save_manager.days_elapsed
-		var raw: Array[Dictionary] = _BountyGen.generate_daily(_world.WORLD_SEED, day_idx)
+		var raw: Array[Dictionary] = _BountyGen.generate_daily(_world.world_seed, day_idx)
 		var bounties: Array = []
 		for b: Dictionary in raw:
 			var pb: Dictionary = b.duplicate(true)

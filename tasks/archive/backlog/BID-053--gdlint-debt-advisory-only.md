@@ -232,3 +232,22 @@ adopt a higher limit specifically for `autoloads/ScrollRegistry.gd` /
 - Per-file/per-rule diff of the full gdlint report before vs. after confirms
   no rule regressed anywhere except the explained `class-definitions-order`
   +1 in `CoopActivities.gd`.
+
+## Resolution (claude/refactor-targets-lint-x7yd5a)
+
+gdlint (gdtoolkit 4.5.0, now pinned in CI): **959 → 0**. `continue-on-error`
+removed — the lint job gates.
+
+| Rule | Count | Fix |
+|------|------:|-----|
+| `class-definitions-order` | 436 | Scripted, content-preserving reorder of top-level declarations (verified per file: identical line multiset; no var initializer now references a later var) |
+| `max-line-length` | 413 | Arg lists wrapped at top-level commas onto double-indented continuations; long prose strings split into parenthesised `+` concatenations (constant-folded, so `const` tables still work); a few conditions/ternaries parenthesised by hand. `gdformat` was tried and rejected — its output (`( node . call(`) is worse than the lint |
+| `max-file-lines` / `max-public-methods` | 44 | File-level `# gdlint: disable=` pragma on the 20 oversized scripts (tracked debt: shrink, don't grow) and on test suites (one public method per test case) |
+| `max-returns` / `function-arguments-number` | 23 | Per-function `# gdlint:ignore` — guard-clause style is intentional here |
+| `sub-class-name` | 16 | `.gdlintrc` allows private `_Inner` classes |
+| `no-elif-return` / `no-else-return` | 13 | Fixed |
+| naming (`constant-name`, `class-variable-name`, `function-variable-name`) | 14 | Renamed (incl. `WorldScene.WORLD_SEED` → `world_seed`) |
+
+The pragmas are the remaining real debt: `SaveManager`, `SceneManager`,
+`BattleScene`, `WorldScene`, the co-op modules etc. are still oversized. Removing
+a pragma after a split is how that debt gets paid down.

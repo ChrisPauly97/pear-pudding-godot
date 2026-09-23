@@ -14,7 +14,7 @@
 ##   updated state; both clients receive a mirror that reflects the turn flip.
 extends SceneTree
 
-const _BattlePacked := "res://scenes/battle/BattleScene.tscn"
+const _BATTLE_SCENE_PATH := "res://scenes/battle/BattleScene.tscn"
 const _Proto = preload("res://game_logic/net/BattleNetProtocol.gd")
 const _Harness = preload("res://tests/net_harness.gd")
 
@@ -169,12 +169,13 @@ func _run() -> bool:
 	print("  [PASS] both clients received updated mirror (A seq=%d, B seq=%d)" % [final_a_seq, final_b_seq])
 
 	_Harness.teardown([peer_a, peer_b, server_peer], [])
+	# gdlint:ignore = max-returns
 	return true
 
 
 func _make_battle(local_idx: int, opponent_deck: Array, peer_to_idx: Dictionary,
 		p0_deck: Array, p1_deck: Array) -> Node:
-	var packed: PackedScene = load(_BattlePacked)
+	var packed: PackedScene = load(_BATTLE_SCENE_PATH)
 	var b: Node = packed.instantiate()
 	b.name = "BattleScene"
 	b.set("_pvp", true)

@@ -103,6 +103,7 @@ func _run() -> bool:
 		print("  [FAIL] world-sync persistence touched save_slot_1.json (isolation broken)")
 		return false
 	print("  [PASS] save_slot_*.json untouched by session persistence")
+	# gdlint:ignore = max-returns
 	return true
 
 
@@ -174,6 +175,7 @@ func _socket_phase() -> bool:
 		print("  [FAIL] enemy position batch wrong: %s" % str(_client_stub.positions))
 		return false
 	print("  [PASS] enemy position batch reflected on the client")
+	# gdlint:ignore = max-returns
 	return true
 
 

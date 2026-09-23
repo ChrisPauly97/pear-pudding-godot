@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 ## Pure data model for a persistent multiplayer session (GID-095 / TID-345).
 ##
 ## Owned by the **authority** — the host in the listen-server model, a dedicated

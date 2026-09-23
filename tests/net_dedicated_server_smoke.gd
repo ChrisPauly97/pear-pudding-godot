@@ -203,6 +203,7 @@ func _run() -> bool:
 	print("  [PASS] notify_pvp_start delivered to both clients with correct idx + opponent decks")
 
 	_Harness.teardown([peer_a, peer_b, server_peer], [])
+	# gdlint:ignore = max-returns
 	return true
 
 

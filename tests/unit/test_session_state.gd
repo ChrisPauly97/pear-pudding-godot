@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines, max-public-methods
+# Test suite: every test_* case is a public method; file size tracked as BID-053 lint debt.
 ## Unit tests for SessionState (GID-095 / TID-345) — the pure persistent-session
 ## model: to_dict/from_dict round-trip, member lookup/create by token, the migration
 ## scaffold, and starter-character seeding. Mirrors test_player_identity.gd.

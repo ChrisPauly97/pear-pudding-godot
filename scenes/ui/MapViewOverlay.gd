@@ -397,7 +397,7 @@ func _friendly_label(waystone_id: String) -> String:
 	if waystone_id.begins_with("map:"):
 		var map_name_part: String = waystone_id.substr(4)
 		return map_name_part.capitalize().replace("_", " ")
-	elif waystone_id.begins_with("world:"):
+	if waystone_id.begins_with("world:"):
 		var parts: PackedStringArray = waystone_id.split(":")
 		if parts.size() >= 3:
 			return "Waystone (%s, %s)" % [parts[1], parts[2]]

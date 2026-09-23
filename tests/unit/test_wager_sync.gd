@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for WagerSync (GID-104 / TID-387) — spectator-wager pure logic:
 ## betting cutoff, bet-size caps, bet validation (including replace-bet headroom),
 ## payout/settlement math (win/loss/draw/abandoned), and encode/decode round-trips

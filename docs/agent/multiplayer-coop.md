@@ -994,7 +994,7 @@ Party bounties are co-op goals the whole party works toward together.
   `{id, type, target, count, progress, contributors: [tokens], completed}`.
 - **Generation**: host calls `_setup_party_bounties()` in `_setup_coop()` if
   `party_bounties` is empty — generates 3 daily bounties via
-  `BountyGen.generate_daily(WORLD_SEED, day_index)` so all peers compute the same list.
+  `BountyGen.generate_daily(world_seed, day_index)` so all peers compute the same list.
 - **Progress flow** (authority-records-then-broadcasts): any subsystem calls
   `WorldScene.submit_party_bounty_progress(bounty_type, match_data)` — on the host this
   increments the matching bounty directly; on a client it sends

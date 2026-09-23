@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node
 
 # Owns all dynamically-created HUD elements: buttons, labels, XP bar, bounty

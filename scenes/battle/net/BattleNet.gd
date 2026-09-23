@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 ## The networked-battle surface of BattleScene: PvP duels (client intents,
 ## host authority, state mirroring, reconnect), duel spectating and spectator
 ## wagers, the co-op PvE joint battle, and team duels.
@@ -413,6 +415,7 @@ func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 		BattleNetProtocol.INTENT_END_TURN:
 			_battle._state.end_turn()
 			return true
+	# gdlint:ignore = max-returns
 	return false
 
 ## Translates a wire target dict ({hero}/{hero,pidx}/{side,slot}/{pidx}) into a resolver
@@ -771,6 +774,7 @@ func _on_wager_bet_submitted(sender: int, payload: Dictionary) -> void:
 	if not WagerSync.is_valid_bet(side, amount, coins, existing):
 		var cap: int = WagerSync.max_bet(coins + existing)
 		_battle._net.rpc_id(sender, "recv_wager_ack", false, "Invalid bet (max %d)." % cap, "", 0, coins)
+		# gdlint:ignore = max-returns
 		return
 	# Escrow: credit back any prior stake, deduct the new one, persist.
 	rec["coins"] = coins + existing - amount

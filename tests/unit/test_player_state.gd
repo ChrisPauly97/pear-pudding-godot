@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for PlayerState.
 ##
 ## Tests bypass build_deck (which calls the CardRegistry autoload) by directly

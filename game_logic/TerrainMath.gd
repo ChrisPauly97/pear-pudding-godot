@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 class_name TerrainMath
 extends RefCounted
 
@@ -261,12 +263,12 @@ static func build_terrain_mesh(
 	for iz in range(nvz):
 		for ix in range(nvx):
 			var i: int = iz * nvx + ix
-			var hL: float = hfield[iz * nvx + max(ix - 1, 0)]
-			var hR: float = hfield[iz * nvx + min(ix + 1, nvx - 1)]
-			var hD: float = hfield[max(iz - 1, 0) * nvx + ix]
-			var hU: float = hfield[min(iz + 1, nvz - 1) * nvx + ix]
-			var dx: float = (hR - hL) / (2.0 * step)
-			var dz: float = (hU - hD) / (2.0 * step)
+			var h_l: float = hfield[iz * nvx + max(ix - 1, 0)]
+			var h_r: float = hfield[iz * nvx + min(ix + 1, nvx - 1)]
+			var h_d: float = hfield[max(iz - 1, 0) * nvx + ix]
+			var h_u: float = hfield[min(iz + 1, nvz - 1) * nvx + ix]
+			var dx: float = (h_r - h_l) / (2.0 * step)
+			var dz: float = (h_u - h_d) / (2.0 * step)
 			normals[i] = Vector3(-dx, 1.0, -dz).normalized()
 
 	var idx: int = 0

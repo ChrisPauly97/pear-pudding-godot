@@ -55,6 +55,7 @@ func is_satisfied(state: Object) -> bool:
 				return false
 			return int(state.turn_number) <= _param
 		_:
+			# gdlint:ignore = max-returns
 			return false
 
 ## Returns a human-readable description of the condition for the UI.

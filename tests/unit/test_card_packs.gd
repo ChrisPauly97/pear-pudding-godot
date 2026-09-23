@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for GID-050: Card Packs & Pack Opening (TID-185, TID-186, TID-187).
 ##
 ## Covers: pack definitions, roll_pack counts/templates, guaranteed_min_rarity,
