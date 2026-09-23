@@ -97,14 +97,16 @@ func _build_coins_row(parent: VBoxContainer) -> void:
 	_coins_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	row.add_child(_coins_label)
 
-	var deposit_btn := _UiUtil.make_button("Deposit %d" % _COIN_STEP, Vector2(_vh * 0.16, _vh * 0.055), int(_vh * 0.020))
+	var deposit_btn := _UiUtil.make_button("Deposit %d" % _COIN_STEP, Vector2(_vh * 0.16, _vh * 0.055),
+			int(_vh * 0.020))
 	deposit_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_stash_deposit_coins"):
 			world_scene.request_stash_deposit_coins(_COIN_STEP)
 	)
 	row.add_child(deposit_btn)
 
-	var withdraw_btn := _UiUtil.make_button("Withdraw %d" % _COIN_STEP, Vector2(_vh * 0.18, _vh * 0.055), int(_vh * 0.020))
+	var withdraw_btn := _UiUtil.make_button("Withdraw %d" % _COIN_STEP, Vector2(_vh * 0.18, _vh * 0.055),
+			int(_vh * 0.020))
 	withdraw_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_stash_withdraw_coins"):
 			world_scene.request_stash_withdraw_coins(_COIN_STEP)
@@ -166,7 +168,8 @@ func _add_card_row(parent: VBoxContainer, inst: Dictionary, is_mine: bool) -> vo
 	hb.add_child(name_lbl)
 
 	var uid: String = str(inst.get("uid", ""))
-	var action_btn := _UiUtil.make_button("Deposit" if is_mine else "Withdraw", Vector2(_vh * 0.16, _vh * 0.05), int(_vh * 0.018))
+	var action_btn := _UiUtil.make_button("Deposit" if is_mine else "Withdraw", Vector2(_vh * 0.16, _vh * 0.05),
+			int(_vh * 0.018))
 	if is_mine:
 		action_btn.pressed.connect(func() -> void:
 			if world_scene != null and world_scene.has_method("request_stash_deposit_card"):

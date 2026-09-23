@@ -25,7 +25,8 @@ static func _on_button_down(btn: BaseButton) -> void:
 	btn.pivot_offset = btn.size * 0.5
 	AudioManager.play_sfx("ui_click")
 	var tw: Tween = btn.create_tween()
-	tw.tween_property(btn, "scale", Vector2(_PRESS_SCALE, _PRESS_SCALE), _PRESS_DUR).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(btn, "scale", Vector2(_PRESS_SCALE, _PRESS_SCALE),
+			_PRESS_DUR).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
 static func _on_button_up(btn: BaseButton) -> void:
 	if not is_instance_valid(btn):

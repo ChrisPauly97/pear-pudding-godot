@@ -42,10 +42,12 @@ func _build_ui() -> void:
 	tab_row.custom_minimum_size = Vector2(0.0, _ref * 0.072)
 
 	# Close button on the LEFT so it never collides with the minimap (top-right).
-	var close_btn := _UiUtil.make_button("Close", Vector2(_ref * 0.15, _ref * 0.065), int(_ref * 0.022), _close, tab_row)
+	var close_btn := _UiUtil.make_button("Close", Vector2(_ref * 0.15, _ref * 0.065), int(_ref * 0.022), _close,
+			tab_row)
 
 	for tab_id: String in _TABS:
-		var btn := _UiUtil.make_button(_TAB_LABELS[tab_id], Vector2(_ref * 0.20, _ref * 0.065), int(_ref * 0.022), show_tab.bind(tab_id), tab_row)
+		var btn := _UiUtil.make_button(_TAB_LABELS[tab_id], Vector2(_ref * 0.20, _ref * 0.065), int(_ref * 0.022),
+				show_tab.bind(tab_id), tab_row)
 		_tab_buttons[tab_id] = btn
 
 	# ---- Content area ----

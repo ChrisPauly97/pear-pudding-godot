@@ -106,7 +106,8 @@ func _build_ui() -> void:
 	content.add_child(_UiUtil.make_separator())
 
 	# ── Actions ──
-	var actions_title := _UiUtil.make_label("Actions", int(_vh * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, content)
+	var actions_title := _UiUtil.make_label("Actions", int(_vh * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT,
+			content)
 
 	var grid := GridContainer.new()
 	grid.columns = 2
@@ -160,7 +161,8 @@ func _render_roster() -> void:
 	for c in _roster_vbox.get_children():
 		c.queue_free()
 	if roster_rows.is_empty():
-		var empty_lbl := _UiUtil.make_label("Just you so far.", int(_vh * 0.02), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, _roster_vbox)
+		var empty_lbl := _UiUtil.make_label("Just you so far.", int(_vh * 0.02), Color(0.7, 0.7, 0.7),
+				HORIZONTAL_ALIGNMENT_LEFT, _roster_vbox)
 		return
 	for row: Variant in roster_rows:
 		if row is Dictionary:
@@ -176,7 +178,8 @@ func _add_roster_row(row: Dictionary) -> void:
 	swatch.custom_minimum_size = Vector2(_vh * 0.022, _vh * 0.022)
 	hb.add_child(swatch)
 
-	var lbl := _UiUtil.make_label(str(row.get("text", "")), int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
+	var lbl := _UiUtil.make_label(str(row.get("text", "")), int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT,
+			hb)
 
 	var token: String = str(row.get("token", ""))
 	if token != "":

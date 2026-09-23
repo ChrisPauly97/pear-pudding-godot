@@ -111,7 +111,8 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 	var hbox := _UiUtil.make_hbox(int(_ref * 0.01))
 
 	# Description label
-	var desc := _UiUtil.make_label(_format_bounty_desc(btype, target, count), int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hbox)
+	var desc := _UiUtil.make_label(_format_bounty_desc(btype, target, count), int(_ref * 0.022), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT, hbox)
 	desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
@@ -119,7 +120,8 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 	var mid_vbox := VBoxContainer.new()
 	mid_vbox.custom_minimum_size = Vector2(_ref * 0.10, 0.0)
 
-	var reward_lbl := _UiUtil.make_label("+%d coins" % reward, int(_ref * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, mid_vbox)
+	var reward_lbl := _UiUtil.make_label("+%d coins" % reward, int(_ref * 0.020), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER, mid_vbox)
 
 	hbox.add_child(mid_vbox)
 
@@ -140,7 +142,8 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 			hbox.add_child(btn)
 		"in_progress":
 			var progress: int = int(active_entry.get("progress", 0))
-			var prog_lbl := _UiUtil.make_label("In Progress\n%d / %d" % [progress, count], int(_ref * 0.018), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_CENTER, hbox)
+			var prog_lbl := _UiUtil.make_label("In Progress\n%d / %d" % [progress, count], int(_ref * 0.018),
+					Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_CENTER, hbox)
 			prog_lbl.custom_minimum_size = btn_size
 		"complete_unclaimed":
 			var btn := _UiUtil.make_button("Claim", btn_size)
@@ -149,7 +152,8 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 			btn.pressed.connect(func() -> void: _on_claim_pressed(_bid_cap, _reward_cap))
 			hbox.add_child(btn)
 		"claimed":
-			var done_lbl := _UiUtil.make_label("Claimed", int(_ref * 0.018), Color(0.5, 0.5, 0.5), HORIZONTAL_ALIGNMENT_CENTER, hbox)
+			var done_lbl := _UiUtil.make_label("Claimed", int(_ref * 0.018), Color(0.5, 0.5, 0.5),
+					HORIZONTAL_ALIGNMENT_CENTER, hbox)
 			done_lbl.custom_minimum_size = btn_size
 
 	return hbox

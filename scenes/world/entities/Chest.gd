@@ -40,7 +40,8 @@ func _ready() -> void:
 	# = false, save-restored = true) by the time the visual is built below.
 	if _SpriteRegistry.chest_closed_texture() != null:
 		_sprite = Sprite3D.new()
-		_SpriteRegistry.setup_sprite(_sprite, _SpriteRegistry.chest_open_texture() if _opened else _SpriteRegistry.chest_closed_texture())
+		_SpriteRegistry.setup_sprite(_sprite,
+				_SpriteRegistry.chest_open_texture() if _opened else _SpriteRegistry.chest_closed_texture())
 		_SpriteRegistry.apply_billboard_flags(_sprite)
 		add_child(_sprite)
 		return
@@ -104,13 +105,15 @@ func _animate_open() -> void:
 	if _sprite != null:
 		_sprite.texture = _SpriteRegistry.chest_open_texture()
 		var tw: Tween = _sprite.create_tween()
-		tw.tween_property(_sprite, "scale", Vector3(1.15, 0.85, 1.0), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(_sprite, "scale", Vector3(1.15, 0.85, 1.0),
+				0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		tw.tween_property(_sprite, "scale", Vector3.ONE, 0.18)
 		_spawn_gold_burst()
 		return
 	if _lid_hinge != null:
 		var hinge_tw: Tween = _lid_hinge.create_tween()
-		hinge_tw.tween_property(_lid_hinge, "rotation:x", deg_to_rad(_LID_OPEN_ANGLE), 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		hinge_tw.tween_property(_lid_hinge, "rotation:x", deg_to_rad(_LID_OPEN_ANGLE),
+				0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_spawn_gold_burst()
 	# Material only — NOT _show_opened(), which would also set the lid's
 	# rotation instantly and stomp the tween started above (a Tween reads its

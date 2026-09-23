@@ -57,9 +57,12 @@ func _build_round_ui() -> void:
 	_content_root = panel["outer"]
 	var root_vbox: VBoxContainer = panel["vbox"]
 
-	_UiUtil.make_label("Draft Duel — Pick %d of %d" % [_round_idx + 1, _rounds.size()], int(_ref * 0.038), Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+	_UiUtil.make_label("Draft Duel — Pick %d of %d" % [_round_idx + 1, _rounds.size()], int(_ref * 0.038),
+			Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
-	var subtitle := _UiUtil.make_label("Both players draft from the same sealed pool. Drafted cards last for this duel only.", int(_ref * 0.018), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+	var subtitle := _UiUtil.make_label(
+			"Both players draft from the same sealed pool. Drafted cards last for this duel only.", int(_ref * 0.018),
+			Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	root_vbox.add_child(HSeparator.new())
@@ -112,6 +115,7 @@ func _show_waiting() -> void:
 	panel.position = Vector2((_vw - panel_w) * 0.5, (_vh - panel_h) * 0.5)
 	add_child(panel)
 	_content_root = panel
-	var lbl := _UiUtil.make_label("Deck drafted! Waiting for your opponent to finish…", int(_ref * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, panel)
+	var lbl := _UiUtil.make_label("Deck drafted! Waiting for your opponent to finish…", int(_ref * 0.026), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER, panel)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

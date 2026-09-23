@@ -51,7 +51,8 @@ func _build_ui() -> void:
 
 	var title := _UiUtil.make_label("Pack Opening", int(_ref * 0.04), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, root)
 
-	var sub := _UiUtil.make_label("Tap each card to reveal", int(_ref * 0.022), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_CENTER, root)
+	var sub := _UiUtil.make_label("Tap each card to reveal", int(_ref * 0.022), Color(0.7, 0.7, 0.7),
+			HORIZONTAL_ALIGNMENT_CENTER, root)
 
 	var cards_row := _UiUtil.make_hbox(int(_vw * 0.03), root)
 	cards_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -66,7 +67,8 @@ func _build_ui() -> void:
 	var btn_row := _UiUtil.make_hbox(int(_vw * 0.03), root)
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	_reveal_all_btn = _UiUtil.make_button("Reveal All", Vector2(_vw * 0.18, _ref * 0.065), int(_ref * 0.022), _on_reveal_all, btn_row)
+	_reveal_all_btn = _UiUtil.make_button("Reveal All", Vector2(_vw * 0.18, _ref * 0.065), int(_ref * 0.022),
+			_on_reveal_all, btn_row)
 
 	_done_btn = _UiUtil.make_button("Done", Vector2(_vw * 0.18, _ref * 0.065), int(_ref * 0.022), _on_done, btn_row)
 	_done_btn.visible = false
@@ -176,9 +178,11 @@ func _populate_face(idx: int) -> void:
 	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, face)
 	name_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var cost_lbl := _UiUtil.make_label("Cost: %d" % cost, int(_ref * 0.018), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, face)
+	var cost_lbl := _UiUtil.make_label("Cost: %d" % cost, int(_ref * 0.018), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+			face)
 
-	var stats_lbl := _UiUtil.make_label("%d / %d" % [atk, hp], int(_ref * 0.025), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, face)
+	var stats_lbl := _UiUtil.make_label("%d / %d" % [atk, hp], int(_ref * 0.025), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER, face)
 
 func _rarity_color(rarity: String) -> Color:
 	match rarity:

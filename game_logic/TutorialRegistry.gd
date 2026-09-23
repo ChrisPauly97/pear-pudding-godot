@@ -3,51 +3,67 @@ extends RefCounted
 const _DATA: Dictionary = {
 	"skill_tree": {
 		"title": "Skill Tree",
-		"body": "Spend Skill Points to unlock passive and active abilities. Skill Points are earned by leveling up — check the XP bar at the bottom of the screen. Skills unlock from top to bottom; each row requires the row above it to be unlocked first.",
+		"body": ("Spend Skill Points to unlock passive and active abilities. Skill Points are earned by leveling up — "
+				+ "check the XP bar at the bottom of the screen. Skills unlock from top to bottom; each row requires "
+				+ "the row above it to be unlocked first."),
 	},
 	"coins": {
 		"title": "Coins",
-		"body": "Coins are the main currency. Earn them by winning battles and finding chests. Spend them at Merchant NPCs to buy new cards for your collection.",
+		"body": ("Coins are the main currency. Earn them by winning battles and finding chests. Spend them at Merchant "
+				+ "NPCs to buy new cards for your collection."),
 	},
 	"essence": {
 		"title": "Essence",
-		"body": "Essence is a crafting resource earned by scrapping cards you don't need. Use it in the Inventory to craft specific cards directly — so you're never stuck waiting for a lucky drop.",
+		"body": ("Essence is a crafting resource earned by scrapping cards you don't need. Use it in the Inventory to "
+				+ "craft specific cards directly — so you're never stuck waiting for a lucky drop."),
 	},
 	"mana": {
 		"title": "Mana",
-		"body": "Mana is your battle resource. You start each game with 1 mana and gain 1 more each turn, up to a maximum of 10. Play cards whose cost fits within your available mana each turn.",
+		"body": ("Mana is your battle resource. You start each game with 1 mana and gain 1 more each turn, up to a "
+				+ "maximum of 10. Play cards whose cost fits within your available mana each turn."),
 	},
 	"card_rarity": {
 		"title": "Card Rarity",
-		"body": "Cards come in four rarities: Common (grey), Uncommon (green), Rare (blue), and Legendary (gold). Rarer cards have stronger effects and are harder to obtain — but you can craft any card using Essence in the Inventory.",
+		"body": ("Cards come in four rarities: Common (grey), Uncommon (green), Rare (blue), and Legendary (gold). "
+				+ "Rarer cards have stronger effects and are harder to obtain — but you can craft any card using "
+				+ "Essence in the Inventory."),
 	},
 	"tap_and_hold": {
 		"title": "Inspect Cards",
-		"body": "Hold any card for half a second to see its full details — stats, description, and abilities.\n\nWorks in battle, your inventory, and the shop.",
+		"body": ("Hold any card for half a second to see its full details — stats, description, and "
+				+ "abilities.\n\nWorks in battle, your inventory, and the shop."),
 	},
 	"tap_to_cast": {
 		"title": "Casting Spells",
-		"body": "Tap a spell card to cast it — targeted spells ask you to tap a marked target, others show a Cast button.\n\nTap ✕ Cancel at the top of the screen to back out of a spell or an attack.",
+		"body": ("Tap a spell card to cast it — targeted spells ask you to tap a marked target, others show a Cast "
+				+ "button.\n\nTap ✕ Cancel at the top of the screen to back out of a spell or an attack."),
 	},
 	"spire_intro": {
 		"title": "The Endless Spire",
-		"body": "Each floor holds one enemy. Defeat it and choose one of three cards to add to your run deck — your permanent collection stays untouched.\n\nHigher floors offer rarer cards. How far can you climb?",
+		"body": ("Each floor holds one enemy. Defeat it and choose one of three cards to add to your run deck — your "
+				+ "permanent collection stays untouched.\n\nHigher floors offer rarer cards. How far can you climb?"),
 	},
 	"night_hunts": {
 		"title": "Night Hunts",
-		"body": "Spectral enemies roam the world after sunset. They drop better loot — but are far more dangerous. Fight them for rare cards, or retreat to town before dawn.",
+		"body": ("Spectral enemies roam the world after sunset. They drop better loot — but are far more dangerous. "
+				+ "Fight them for rare cards, or retreat to town before dawn."),
 	},
 	"party_panel": {
 		"title": "Party",
-		"body": "The Party button gathers everything you share with your co-op session in one place: the roster, loot rules, the shared stash, the leaderboard, Ghost Duels, Team Duel, and Dungeon Crawl.",
+		"body": ("The Party button gathers everything you share with your co-op session in one place: the roster, loot "
+				+ "rules, the shared stash, the leaderboard, Ghost Duels, Team Duel, and Dungeon Crawl."),
 	},
 	"soulbinding": {
 		"title": "Soulbinding",
-		"body": "Every enemy type guards a signature card you can't buy or craft — you can only capture it by winning in a special way.\n\nThe Soulbind line on the victory screen shows this enemy's capture condition. Win while meeting it and the signature card joins your collection forever.",
+		"body": ("Every enemy type guards a signature card you can't buy or craft — you can only capture it by winning "
+				+ "in a special way.\n\nThe Soulbind line on the victory screen shows this enemy's capture "
+				+ "condition. Win while meeting it and the signature card joins your collection forever."),
 	},
 	"cantrips": {
 		"title": "Deck Abilities",
-		"body": "Your deck shapes the world. Carry 4 or more cards of a family and you unlock an overworld ability — its button appears on the left of the screen.\n\n4+ Skeleton-family cards let you Dig buried mounds for loot. 4+ Ghost-family cards let you Phase through walls.",
+		"body": ("Your deck shapes the world. Carry 4 or more cards of a family and you unlock an overworld ability — "
+				+ "its button appears on the left of the screen.\n\n4+ Skeleton-family cards let you Dig buried "
+				+ "mounds for loot. 4+ Ghost-family cards let you Phase through walls."),
 	},
 }
 

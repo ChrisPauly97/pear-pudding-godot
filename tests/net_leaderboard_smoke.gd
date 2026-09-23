@@ -51,7 +51,8 @@ func _go() -> void:
 
 
 func _run() -> bool:
-	var srv: Dictionary = _Harness.start_server(self, _PORT, 4, "ServerRoot", "  [FAIL] create_server failed (loopback blocked?)")
+	var srv: Dictionary = _Harness.start_server(self, _PORT, 4, "ServerRoot",
+			"  [FAIL] create_server failed (loopback blocked?)")
 	if srv.is_empty():
 		return false
 	var server_peer: ENetMultiplayerPeer = srv["peer"]
@@ -120,7 +121,8 @@ func _run() -> bool:
 
 	# Client requests a refresh; authority should see it.
 	client_netsync.rpc_id(1, "submit_leaderboard_request")
-	var req_ok: bool = _Harness.pump([mp_server, mp_client], 300, 10, func() -> bool: return _server_stub.requests.size() >= 1)
+	var req_ok: bool = _Harness.pump([mp_server, mp_client], 300, 10,
+			func() -> bool: return _server_stub.requests.size() >= 1)
 	_teardown(server_root, client_root, server_peer, client_peer)
 	if not req_ok:
 		print("  [FAIL] submit_leaderboard_request did not reach the authority")
@@ -153,5 +155,6 @@ func _build_world(parent: Node, is_client: bool) -> Node:
 	return netsync
 
 
-func _teardown(server_root: Node, client_root: Node, server_peer: MultiplayerPeer, client_peer: MultiplayerPeer) -> void:
+func _teardown(server_root: Node, client_root: Node, server_peer: MultiplayerPeer,
+		client_peer: MultiplayerPeer) -> void:
 	_Harness.teardown([client_peer, server_peer], [client_root, server_root])

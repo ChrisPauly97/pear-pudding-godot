@@ -47,4 +47,6 @@ func test_worldscene_stays_under_line_ceiling() -> void:
 
 	var line_count: int = text.split("\n").size()
 	assert_true(line_count <= _CEILING,
-		"WorldScene.gd is %d lines, over the %d-line guardrail ceiling (BID-055). If this growth is intentional and reviewed, extract another coherent cluster into a coop/ module (or elsewhere) rather than raising the ceiling — see tasks/backlog/BID-055--worldscene-god-object.md." % [line_count, _CEILING])
+		("WorldScene.gd is %d lines, over the %d-line guardrail ceiling (BID-055). If this growth is intentional and "
+			+ "reviewed, extract another coherent cluster into a coop/ module (or elsewhere) rather than raising the "
+			+ "ceiling — see tasks/backlog/BID-055--worldscene-god-object.md.") % [line_count, _CEILING])

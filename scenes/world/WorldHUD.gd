@@ -266,7 +266,8 @@ func _ensure_social_toggle() -> void:
 	var zone_box: Container = _zones.get(ZONE_SOCIAL) as Container
 	if zone_box == null:
 		return
-	_social_toggle = _UiUtil.make_button("💬", Vector2(_vh * 0.06, _vh * 0.06), int(_vh * 0.028 * _ts), _toggle_social_zone, zone_box)
+	_social_toggle = _UiUtil.make_button("💬", Vector2(_vh * 0.06, _vh * 0.06), int(_vh * 0.028 * _ts),
+			_toggle_social_zone, zone_box)
 	_social_toggle.tooltip_text = "Social (chat, emotes)"
 	UiFx.attach(_social_toggle)
 

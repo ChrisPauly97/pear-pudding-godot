@@ -142,14 +142,16 @@ func test_build_deck_battle_kills_initialised_zero() -> void:
 
 func test_build_deck_skips_empty_template_id() -> void:
 	var p: PlayerState = _player()
-	var bad: Dictionary = {"uid": "u1", "template_id": "", "attack": 1, "health": 1, "cost": 1, "kills": 0, "battles_survived": 0}
+	var bad: Dictionary = {"uid": "u1", "template_id": "", "attack": 1, "health": 1, "cost": 1, "kills": 0,
+			"battles_survived": 0}
 	var insts: Array[Dictionary] = [bad]
 	p.build_deck_from_instances(insts)
 	assert_eq(p.draw_deck.size(), 0)
 
 func test_build_deck_skips_unknown_template_id() -> void:
 	var p: PlayerState = _player()
-	var bad: Dictionary = {"uid": "u2", "template_id": "no_such_card", "attack": 1, "health": 1, "cost": 1, "kills": 0, "battles_survived": 0}
+	var bad: Dictionary = {"uid": "u2", "template_id": "no_such_card", "attack": 1, "health": 1, "cost": 1, "kills": 0,
+			"battles_survived": 0}
 	var insts: Array[Dictionary] = [bad]
 	p.build_deck_from_instances(insts)
 	assert_eq(p.draw_deck.size(), 0)
@@ -164,7 +166,8 @@ func test_build_deck_creates_correct_card_count() -> void:
 
 func test_build_deck_clears_previous_deck() -> void:
 	var p: PlayerState = _player()
-	p.draw_deck.append(CardInstance.new({"id":"g","name":"G","cost":1,"attack":1,"health":1,"card_class":"minion","description":""}))
+	p.draw_deck.append(CardInstance.new({"id":"g", "name":"G", "cost":1, "attack":1, "health":1, "card_class":"minion",
+			"description":""}))
 	var insts: Array[Dictionary] = [_ghost_inst("u1")]
 	p.build_deck_from_instances(insts)
 	assert_eq(p.draw_deck.size(), 1)

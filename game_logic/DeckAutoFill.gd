@@ -58,7 +58,8 @@ static func _sort_candidates(candidates: Array[Dictionary]) -> void:
 		return str(a.get("template_id", "")) < str(b.get("template_id", ""))
 	)
 
-static func _fill_from(result: Array[String], candidates: Array[Dictionary], target_size: int, available: Array[Dictionary]) -> Array[String]:
+static func _fill_from(result: Array[String], candidates: Array[Dictionary], target_size: int,
+		available: Array[Dictionary]) -> Array[String]:
 	while result.size() < target_size and not candidates.is_empty():
 		var bucket_counts: Dictionary = {"low": 0, "mid": 0, "high": 0}
 		for uid: String in result:

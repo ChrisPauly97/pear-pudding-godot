@@ -37,7 +37,8 @@ func setup(weather_id: String) -> void:
 	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_panel)
 
-	_label = _UiUtil.make_label(str(_MODIFIER_TEXTS.get(weather_id, weather_id)), int(vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	_label = _UiUtil.make_label(str(_MODIFIER_TEXTS.get(weather_id, weather_id)), int(vh * 0.022), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER)
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_label.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0))
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE

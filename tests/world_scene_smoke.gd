@@ -269,7 +269,8 @@ func _check_external_entry_points(ws: Node) -> bool:
 		if not ws.has_method(name):
 			missing.append("%s (probed by %s)" % [name, probes[name]])
 	return _check(missing.is_empty(),
-		"every world-scene method probed by has_method() outside scenes/world/ resolves on WorldScene (missing: %s)" % [missing])
+		"every world-scene method probed by has_method() outside scenes/world/ resolves on WorldScene (missing: %s)"
+				% [missing])
 
 
 ## Builds one synthesized dummy argument per parameter `handler` declares on

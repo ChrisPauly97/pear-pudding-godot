@@ -41,7 +41,8 @@ func show_rest_site_panel(npc_data: Dictionary) -> void:
 
 	var title := _UiUtil.make_label("Rest Site", int(vh * 0.05), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var hp_label := _UiUtil.make_label("Hero HP: %d / 30" % _dungeon_hero_hp, int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var hp_label := _UiUtil.make_label("Hero HP: %d / 30" % _dungeon_hero_hp, int(font_size), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var rest_btn := _UiUtil.make_button("Rest — Recover 8 HP", Vector2(0, btn_h), int(font_size))
 	rest_btn.disabled = _dungeon_hero_hp >= 30
@@ -49,7 +50,8 @@ func show_rest_site_panel(npc_data: Dictionary) -> void:
 		rest_btn.tooltip_text = "Already at full health"
 	vbox.add_child(rest_btn)
 
-	var cull_btn := _UiUtil.make_button("Cull — Remove a card from deck", Vector2(0, btn_h), int(font_size), Callable(), vbox)
+	var cull_btn := _UiUtil.make_button("Cull — Remove a card from deck", Vector2(0, btn_h), int(font_size), Callable(),
+			vbox)
 	cull_btn.disabled = SceneManager.save_manager.player_deck.size() < 2
 
 	var leave_btn := _UiUtil.make_button("Leave", Vector2(0, btn_h), int(font_size), Callable(), vbox)
@@ -82,7 +84,8 @@ func show_cull_panel() -> void:
 
 	var vbox := _UiUtil.make_vbox(int(vh * 0.01), panel)
 
-	var title := _UiUtil.make_label("Choose a card to remove from your deck:", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title := _UiUtil.make_label("Choose a card to remove from your deck:", int(font_size), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	var scroll := ScrollContainer.new()
@@ -98,7 +101,8 @@ func show_cull_panel() -> void:
 	for ci in range(deck_copy.size()):
 		var cid: String = deck_copy[ci]
 		var inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(cid)
-		var display_name: String = str(inst.get("template_id", cid)).capitalize().replace("_", " ") if not inst.is_empty() else cid.capitalize().replace("_", " ")
+		var display_name: String = str(inst.get("template_id", cid)).capitalize().replace("_",
+				" ") if not inst.is_empty() else cid.capitalize().replace("_", " ")
 		var btn := _UiUtil.make_button(display_name, Vector2(0, btn_h), int(font_size), Callable(), card_list)
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.pressed.connect(func() -> void:
@@ -156,7 +160,8 @@ func show_event_panel(npc_data: Dictionary) -> void:
 
 	var vbox := _UiUtil.make_vbox(int(vh * 0.015), panel)
 
-	var event_text := _UiUtil.make_label(str(event.get("text", "Something happens.")), int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	var event_text := _UiUtil.make_label(str(event.get("text", "Something happens.")), int(font_size), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	event_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	var choices: Array = event.get("choices", [])
@@ -165,7 +170,8 @@ func show_event_panel(npc_data: Dictionary) -> void:
 		if not (choice is Dictionary):
 			continue
 		var captured: Dictionary = choice
-		var btn := _UiUtil.make_button(str(captured.get("label", "Choose")), Vector2(0, btn_h), int(font_size), Callable(), vbox)
+		var btn := _UiUtil.make_button(str(captured.get("label", "Choose")), Vector2(0, btn_h), int(font_size),
+				Callable(), vbox)
 		btn.pressed.connect(func() -> void:
 			panel.queue_free()
 			SceneManager.save_manager.mark_dungeon_room_used(room_key)
@@ -194,7 +200,8 @@ func apply_event_outcome(choice: Dictionary) -> void:
 			if not SceneManager.save_manager.player_deck.is_empty():
 				var removed_uid: String = SceneManager.save_manager.player_deck[-1]
 				var removed_inst: Dictionary = SceneManager.save_manager.get_instance_by_uid(removed_uid)
-				var removed_name: String = str(removed_inst.get("template_id", removed_uid)).capitalize().replace("_", " ") if not removed_inst.is_empty() else removed_uid
+				var removed_name: String = str(removed_inst.get("template_id",
+						removed_uid)).capitalize().replace("_", " ") if not removed_inst.is_empty() else removed_uid
 				var trimmed: Array[String] = []
 				trimmed.assign(SceneManager.save_manager.player_deck)
 				trimmed.pop_back()

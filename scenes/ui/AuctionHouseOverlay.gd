@@ -150,7 +150,9 @@ func _add_sell_row(inst: Dictionary) -> void:
 	var uid: String = str(inst.get("uid", ""))
 	var hb := _UiUtil.make_hbox(int(_ref * 0.015), _rows_vbox)
 
-	var name_lbl := _UiUtil.make_label("%s (%s)" % [str(inst.get("template_id", "?")), str(inst.get("rarity", "common"))], int(_vh * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
+	var name_lbl := _UiUtil.make_label(
+			"%s (%s)" % [str(inst.get("template_id", "?")), str(inst.get("rarity", "common"))], int(_vh * 0.020),
+			Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	if not _list_prices.has(uid):
@@ -211,10 +213,13 @@ func _add_browse_row(listing: Dictionary) -> void:
 
 	var hb := _UiUtil.make_hbox(int(_ref * 0.015), _rows_vbox)
 
-	var name_lbl := _UiUtil.make_label("%s — %s" % [str(card.get("template_id", "?")), str(listing.get("seller_name", "Player"))], int(_vh * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
+	var name_lbl := _UiUtil.make_label(
+			"%s — %s" % [str(card.get("template_id", "?")), str(listing.get("seller_name", "Player"))],
+			int(_vh * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var bid_lbl := _UiUtil.make_label("Bid: %d" % bid if bid > 0 else "No bids", int(_vh * 0.018), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
+	var bid_lbl := _UiUtil.make_label("Bid: %d" % bid if bid > 0 else "No bids", int(_vh * 0.018), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT, hb)
 	bid_lbl.custom_minimum_size = Vector2(_vh * 0.14, 0)
 
 	var bid_btn := _UiUtil.make_button("Bid %d" % (bid + _BID_STEP), Vector2(_vh * 0.14, _vh * 0.05), int(_vh * 0.018))
@@ -267,7 +272,8 @@ func _add_mine_row(listing: Dictionary) -> void:
 		name_lbl.modulate = Color(0.7, 0.7, 0.7)
 	hb.add_child(name_lbl)
 
-	var price_lbl := _UiUtil.make_label("Buyout %d, bid %d" % [buyout, bid], int(_vh * 0.018), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
+	var price_lbl := _UiUtil.make_label("Buyout %d, bid %d" % [buyout, bid], int(_vh * 0.018), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT, hb)
 	price_lbl.custom_minimum_size = Vector2(_vh * 0.22, 0)
 
 	if is_active:

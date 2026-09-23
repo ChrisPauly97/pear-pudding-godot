@@ -33,14 +33,16 @@ func _build_ui() -> void:
 	var title_lbl := _UiUtil.make_label("Mailbox", int(_ref * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header)
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var close_btn := _UiUtil.make_button("Close  [C]" if not OS.has_feature("android") else "Close", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _close, header)
+	var close_btn := _UiUtil.make_button("Close  [C]" if not OS.has_feature("android") else "Close",
+			Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _close, header)
 
 	_count_label = Label.new()
 	_count_label.add_theme_font_size_override("font_size", int(_ref * 0.020))
 	_count_label.modulate = Color(0.8, 0.8, 0.8)
 	wrapper.add_child(_count_label)
 
-	_claim_all_btn = _UiUtil.make_button("Claim All", Vector2(_ref * 0.18, _ref * 0.06), int(_ref * 0.020), _on_claim_all, wrapper)
+	_claim_all_btn = _UiUtil.make_button("Claim All", Vector2(_ref * 0.18, _ref * 0.06), int(_ref * 0.020),
+			_on_claim_all, wrapper)
 
 	_grid_scroll = ScrollContainer.new()
 	_grid_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -62,7 +64,8 @@ func _refresh() -> void:
 	_claim_all_btn.disabled = instances.is_empty()
 
 	if instances.is_empty():
-		var empty_lbl := _UiUtil.make_label("Mailbox is empty", int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _grid)
+		var empty_lbl := _UiUtil.make_label("Mailbox is empty", int(_ref * 0.022), Color(0.6, 0.6, 0.6),
+				HORIZONTAL_ALIGNMENT_CENTER, _grid)
 		return
 
 	var sorted: Array[Dictionary] = instances.duplicate()
@@ -95,7 +98,8 @@ func _make_card_tile(inst: Dictionary) -> Control:
 	cube.custom_minimum_size = Vector2(tile_size, tile_size)
 	cube.focus_mode = Control.FOCUS_NONE
 
-	var sb := _UiUtil.make_style(card_color, int(_ref * 0.012), _UiUtil.rarity_color(rarity), int(maxi(2, int(_ref * 0.006))))
+	var sb := _UiUtil.make_style(card_color, int(_ref * 0.012), _UiUtil.rarity_color(rarity),
+			int(maxi(2, int(_ref * 0.006))))
 	cube.add_theme_stylebox_override("normal", sb)
 	cube.add_theme_stylebox_override("hover", sb)
 	cube.add_theme_stylebox_override("pressed", sb)
@@ -140,9 +144,12 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, title_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity), HORIZONTAL_ALIGNMENT_LEFT, title_row)
+	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity),
+			HORIZONTAL_ALIGNMENT_LEFT, title_row)
 
-	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp], int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55), HORIZONTAL_ALIGNMENT_LEFT, vb)
+	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp],
+			int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55),
+			HORIZONTAL_ALIGNMENT_LEFT, vb)
 
 	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
 	var sell_gold: int  = int(cfg.get("sell_gold", 0))

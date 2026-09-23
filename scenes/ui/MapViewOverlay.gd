@@ -147,7 +147,8 @@ func setup(world_map, map_name: String, player: CharacterBody3D,
 	add_child(title)
 
 	# ── Close hint ────────────────────────────────────────────────────────────
-	var hint := _UiUtil.make_label("Tap minimap to close" if OS.has_feature("android") else "[M] or [Esc] to close", int(vh * 0.020))
+	var hint := _UiUtil.make_label("Tap minimap to close" if OS.has_feature("android") else "[M] or [Esc] to close",
+			int(vh * 0.020))
 	hint.add_theme_color_override("font_color", Color(0.75, 0.75, 0.75))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.size = Vector2(_panel_size, int(vh * 0.030))
@@ -354,7 +355,8 @@ func _build_fast_travel_panel(_vp: Vector2, vh: float) -> void:
 			vbox.add_child(btn)
 
 	if is_blocked:
-		var block_lbl := _UiUtil.make_label("Waystone travel unavailable\nduring battles\nor in dungeons.", int(vh * 0.019))
+		var block_lbl := _UiUtil.make_label("Waystone travel unavailable\nduring battles\nor in dungeons.",
+				int(vh * 0.019))
 		block_lbl.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 		block_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		block_lbl.position = Vector2(px, py + panel_h - vh * 0.09)

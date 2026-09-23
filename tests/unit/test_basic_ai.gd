@@ -18,7 +18,8 @@ const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 # Helpers
 # ---------------------------------------------------------------------------
 
-func _tmpl(id: String = "ghost", cost: int = 1, attack: int = 1, health: int = 2, card_class: String = "minion") -> Dictionary:
+func _tmpl(id: String = "ghost", cost: int = 1, attack: int = 1, health: int = 2,
+		card_class: String = "minion") -> Dictionary:
 	return {
 		"id": id, "name": id.capitalize(), "cost": cost,
 		"attack": attack, "health": health,

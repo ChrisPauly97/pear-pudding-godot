@@ -413,17 +413,20 @@ func _paint_tile(tx: int, tz: int) -> void:
 		3:  # Enemy — no tile geometry change
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			_world_map.enemies.append({"id": "enemy_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "alive": true, "tracking": true})
+			_world_map.enemies.append({"id": "enemy_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "alive": true,
+					"tracking": true})
 			_refresh_entity_markers()
 		4:  # Chest — no tile geometry change
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			_world_map.chests.append({"id": "chest_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "card_ids": ["ghost"], "opened": false})
+			_world_map.chests.append({"id": "chest_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "card_ids": ["ghost"],
+					"opened": false})
 			_refresh_entity_markers()
 		5:  # Door — no tile geometry change
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			_world_map.doors.append({"id": "door_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "target_map": "", "target_door_id": ""})
+			_world_map.doors.append({"id": "door_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "target_map": "",
+					"target_door_id": ""})
 			_refresh_entity_markers()
 		6:  # Spawn — no tile geometry change
 			_world_map.player_spawn_x = tx

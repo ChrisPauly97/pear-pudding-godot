@@ -162,7 +162,8 @@ func _run() -> bool:
 ## the host, and pump frames until the client receives its character record. Returns
 ## false on any socket/timeout failure. Tears the peers down before returning.
 func _socket_handshake(_is_reconnect: bool) -> bool:
-	var srv: Dictionary = _Harness.start_server(self, _PORT, 4, "ServerRoot", "  [FAIL] create_server failed (loopback blocked?)")
+	var srv: Dictionary = _Harness.start_server(self, _PORT, 4, "ServerRoot",
+			"  [FAIL] create_server failed (loopback blocked?)")
 	if srv.is_empty():
 		return false
 	var server_peer: ENetMultiplayerPeer = srv["peer"]
@@ -207,7 +208,8 @@ func _socket_handshake(_is_reconnect: bool) -> bool:
 
 	# Client → host identity (token A); host replies with the character record.
 	client_netsync.rpc_id(1, "recv_identity", [_TOKEN_A, "Saimtar", "ffffff"], false)
-	var got: bool = _Harness.pump([mp_server, mp_client], 300, 10, func() -> bool: return not client_stub.got_record.is_empty())
+	var got: bool = _Harness.pump([mp_server, mp_client], 300, 10,
+			func() -> bool: return not client_stub.got_record.is_empty())
 	_teardown(server_root, client_root, server_peer, client_peer)
 	if not got:
 		print("  [FAIL] character record did not arrive over the socket")
@@ -215,7 +217,8 @@ func _socket_handshake(_is_reconnect: bool) -> bool:
 	return true
 
 
-func _teardown(server_root: Node, client_root: Node, server_peer: MultiplayerPeer, client_peer: MultiplayerPeer) -> void:
+func _teardown(server_root: Node, client_root: Node, server_peer: MultiplayerPeer,
+		client_peer: MultiplayerPeer) -> void:
 	_Harness.teardown([client_peer, server_peer], [client_root, server_root])
 
 

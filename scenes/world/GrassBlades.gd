@@ -71,7 +71,8 @@ static func _hash_pos(px: float, pz: float) -> float:
 	h = (h ^ (h >> 13)) * 1274126177
 	return float(abs(h) % 100000) / 100000.0
 
-static func _ensure_global_param(name: String, type: RenderingServer.GlobalShaderParameterType, default_value: Variant) -> void:
+static func _ensure_global_param(name: String, type: RenderingServer.GlobalShaderParameterType,
+		default_value: Variant) -> void:
 	if not _registered_global_params.has(name):
 		RenderingServer.global_shader_parameter_add(name, type, default_value)
 		_registered_global_params[name] = true

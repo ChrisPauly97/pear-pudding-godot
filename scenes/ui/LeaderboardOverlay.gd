@@ -149,7 +149,8 @@ func _render_rows() -> void:
 		c.queue_free()
 	var rows: Array = _current_rows()
 	if rows.is_empty():
-		var empty_lbl := _UiUtil.make_label(_empty_message_for_tab(), int(_vh * 0.022), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, _rows_vbox)
+		var empty_lbl := _UiUtil.make_label(_empty_message_for_tab(), int(_vh * 0.022), Color(0.7, 0.7, 0.7),
+				HORIZONTAL_ALIGNMENT_LEFT, _rows_vbox)
 		return
 	for i in range(rows.size()):
 		var row: Variant = rows[i]
@@ -165,20 +166,25 @@ func _add_row(rank: int, row: Dictionary) -> void:
 		rank_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.2))
 	hb.add_child(rank_lbl)
 
-	var name_lbl := _UiUtil.make_label(str(row.get("name", "Player")), int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
+	var name_lbl := _UiUtil.make_label(str(row.get("name", "Player")), int(_vh * 0.022), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.custom_minimum_size = Vector2(_vw * 0.40, 0)
 
 	if _active_tab == TAB_RANKED:
-		var rating_lbl := _UiUtil.make_label(str(int(row.get("rating", 1000))), int(_vh * 0.022), Color(0.6, 1.0, 0.6), HORIZONTAL_ALIGNMENT_LEFT, hb)
+		var rating_lbl := _UiUtil.make_label(str(int(row.get("rating", 1000))), int(_vh * 0.022), Color(0.6, 1.0, 0.6),
+				HORIZONTAL_ALIGNMENT_LEFT, hb)
 		rating_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
 
-		var wl_lbl := _UiUtil.make_label("%d-%d" % [int(row.get("wins", 0)), int(row.get("losses", 0))], int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
+		var wl_lbl := _UiUtil.make_label("%d-%d" % [int(row.get("wins", 0)), int(row.get("losses", 0))],
+				int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
 		wl_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
 	else:
-		var value_lbl := _UiUtil.make_label(str(int(row.get("value", 0))), int(_vh * 0.022), Color(0.6, 1.0, 0.6), HORIZONTAL_ALIGNMENT_LEFT, hb)
+		var value_lbl := _UiUtil.make_label(str(int(row.get("value", 0))), int(_vh * 0.022), Color(0.6, 1.0, 0.6),
+				HORIZONTAL_ALIGNMENT_LEFT, hb)
 		value_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
 
-		var day_lbl := _UiUtil.make_label(str(int(row.get("day", 0))), int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
+		var day_lbl := _UiUtil.make_label(str(int(row.get("day", 0))), int(_vh * 0.022), Color.WHITE,
+				HORIZONTAL_ALIGNMENT_LEFT, hb)
 		day_lbl.custom_minimum_size = Vector2(_vw * 0.22, 0)
 
 func _notification(what: int) -> void:

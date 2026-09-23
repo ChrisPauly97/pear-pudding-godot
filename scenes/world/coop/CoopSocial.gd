@@ -445,7 +445,8 @@ func _ensure_chat_ui() -> void:
 		_world._chat_input.text_submitted.connect(func(_t: String) -> void: _submit_chat_input())
 		_world._hud.add_child(_world._chat_input)
 	if _chat_send_btn == null or not is_instance_valid(_chat_send_btn):
-		_chat_send_btn = _UiUtil.make_button("Send", Vector2(vh * 0.10, vh * 0.05), int(vh * 0.020), _submit_chat_input, _world._hud)
+		_chat_send_btn = _UiUtil.make_button("Send", Vector2(vh * 0.10, vh * 0.05), int(vh * 0.020), _submit_chat_input,
+				_world._hud)
 		_chat_send_btn.position = Vector2(vp.x * 0.32, vh * 0.93)
 		UiFx.attach(_chat_send_btn)
 
@@ -534,7 +535,8 @@ func _append_chat_line(sender_name: String, color: Color, text: String) -> void:
 	if _chat_log_vbox == null or not is_instance_valid(_chat_log_vbox):
 		return
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var lbl := _UiUtil.make_label("[%s] %s: %s" % [Time.get_time_string_from_system().substr(0, 5), sender_name, text], int(vh * 0.016))
+	var lbl := _UiUtil.make_label("[%s] %s: %s" % [Time.get_time_string_from_system().substr(0, 5), sender_name, text],
+			int(vh * 0.016))
 	lbl.add_theme_color_override("font_color", color)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_chat_log_vbox.add_child(lbl)

@@ -68,8 +68,10 @@ func _init(p_name: String = "main", p_skip_load: bool = false) -> void:
 			var data: Resource = _mr.call("get_map", map_name) as Resource
 			if data != null:
 				load_from_resource(data)
-				print("[WorldMap] Loaded '%s' from MapRegistry — %d NPCs, %d enemies, %d chests, %d doors, %d scrolls, %d shrines, %d waystones" % [
-					map_name, npcs.size(), enemies.size(), chests.size(), doors.size(), scrolls.size(), shrines.size(), waystones.size()])
+				print(("[WorldMap] Loaded '%s' from MapRegistry — %d NPCs, %d enemies, %d chests, %d doors, %d "
+						+ "scrolls, %d shrines, %d waystones") % [
+					map_name, npcs.size(), enemies.size(), chests.size(), doors.size(), scrolls.size(), shrines.size(),
+					waystones.size()])
 				return
 
 	push_warning("[WorldMap] Map '%s' not found in MapRegistry — using default map" % map_name)

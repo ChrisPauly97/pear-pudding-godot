@@ -100,7 +100,8 @@ func _build_animated_sprite(idle_tex: Texture2D, walk_frames: Array[Texture2D]) 
 	anim.sprite_frames = sf
 	anim.pixel_size = _SpriteRegistry.CHAR_PIXEL_SIZE
 	_SpriteRegistry.apply_billboard_flags(anim)
-	anim.position = Vector3(0.0, float(idle_tex.get_height()) * _SpriteRegistry.CHAR_PIXEL_SIZE * 0.5 + _SpriteRegistry.FEET_MARGIN, 0.0)
+	anim.position = Vector3(0.0,
+			float(idle_tex.get_height()) * _SpriteRegistry.CHAR_PIXEL_SIZE * 0.5 + _SpriteRegistry.FEET_MARGIN, 0.0)
 	anim.play("idle")
 	return anim
 

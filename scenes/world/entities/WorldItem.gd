@@ -40,7 +40,8 @@ var _pickup_area: Area3D = null
 
 # ── Public setup ────────────────────────────────────────────────────────────
 
-func setup(cid: String, start_pos: Vector3, land_pos: Vector3, p_rarity: String = "common", p_attack: int = -1, p_health: int = -1, p_cost: int = -1) -> void:
+func setup(cid: String, start_pos: Vector3, land_pos: Vector3, p_rarity: String = "common", p_attack: int = -1,
+		p_health: int = -1, p_cost: int = -1) -> void:
 	card_id = cid
 	_rarity = p_rarity
 	_rolled_attack = p_attack

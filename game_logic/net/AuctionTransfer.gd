@@ -128,10 +128,12 @@ static func buyout(
 	if str(listing.get("status", "")) != _AuctionSync.STATUS_ACTIVE:
 		return {"ok": false, "reason": "not_active", "auctions": auctions_out, "buyer": buyer_out, "seller": seller_out}
 	if str(listing.get("seller_token", "")) == buyer_token:
-		return {"ok": false, "reason": "own_listing", "auctions": auctions_out, "buyer": buyer_out, "seller": seller_out}
+		return {"ok": false, "reason": "own_listing", "auctions": auctions_out, "buyer": buyer_out,
+				"seller": seller_out}
 	var price: int = int(listing.get("buyout", 0))
 	if int(buyer_out.get("coins", 0)) < price:
-		return {"ok": false, "reason": "insufficient_funds", "auctions": auctions_out, "buyer": buyer_out, "seller": seller_out}
+		return {"ok": false, "reason": "insufficient_funds", "auctions": auctions_out, "buyer": buyer_out,
+				"seller": seller_out}
 
 	buyer_out["coins"] = int(buyer_out.get("coins", 0)) - price
 	seller_out["coins"] = int(seller_out.get("coins", 0)) + price
@@ -147,7 +149,8 @@ static func buyout(
 	listing["card_instance"] = {}
 	auctions_out[idx] = listing
 
-	return {"ok": true, "reason": "", "auctions": _prune_completed(auctions_out), "buyer": buyer_out, "seller": seller_out}
+	return {"ok": true, "reason": "", "auctions": _prune_completed(auctions_out), "buyer": buyer_out,
+			"seller": seller_out}
 
 
 ## Cancel your own active listing, returning the escrowed card to you. A no-op

@@ -744,7 +744,8 @@ func resume_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: 
 ## both decks come from the clients, and _pvp_peer_to_idx maps peer_id → player_idx.
 ## token_a/token_b (GID-102 / TID-372) are the combatants' identity tokens, used to
 ## verify a later reconnect; empty strings fall back to accepting any reconnect.
-func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: int, token_a: String = "", token_b: String = "") -> void:
+func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: int, token_a: String = "",
+		token_b: String = "") -> void:
 	if _state != State.WORLD:
 		return
 	TransitionManager.transition(func() -> void:
@@ -1101,7 +1102,8 @@ func _on_battle_won(result: Dictionary) -> void:
 		else:
 			rarity = CardDropUtil.effective_rarity(reward, CardDropUtil.roll_rarity(drop_tier))
 			stats = CardDropUtil.roll_stats(reward, rarity)
-		save_manager.grant_card_reward(reward, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+		save_manager.grant_card_reward(reward, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)),
+				int(stats.get("cost", -1)))
 		_bump_session_stat("cards_earned", 1)
 	var weapon_reward: String = str(result.get("weapon_reward", ""))
 	if weapon_reward != "":
@@ -1110,7 +1112,8 @@ func _on_battle_won(result: Dictionary) -> void:
 	var sig_capture: String = str(result.get("signature_capture", ""))
 	if sig_capture != "":
 		var sig_stats: Dictionary = CardDropUtil.roll_stats(sig_capture, "rare")
-		save_manager.grant_card_reward(sig_capture, "rare", int(sig_stats.get("attack", -1)), int(sig_stats.get("health", -1)), int(sig_stats.get("cost", -1)))
+		save_manager.grant_card_reward(sig_capture, "rare", int(sig_stats.get("attack", -1)),
+				int(sig_stats.get("health", -1)), int(sig_stats.get("cost", -1)))
 		save_manager.mark_signature_captured(sig_capture)
 		_bump_session_stat("cards_earned", 1)
 	# Boss battles emit card_rewards (list of all drop_pool cards)
@@ -1128,7 +1131,8 @@ func _on_battle_won(result: Dictionary) -> void:
 			else:
 				r_rarity = CardDropUtil.effective_rarity(rs, CardDropUtil.roll_rarity(drop_tier))
 				r_stats = CardDropUtil.roll_stats(rs, r_rarity)
-			save_manager.grant_card_reward(rs, r_rarity, int(r_stats.get("attack", -1)), int(r_stats.get("health", -1)), int(r_stats.get("cost", -1)))
+			save_manager.grant_card_reward(rs, r_rarity, int(r_stats.get("attack", -1)), int(r_stats.get("health", -1)),
+					int(r_stats.get("cost", -1)))
 			_bump_session_stat("cards_earned", 1)
 	# Award coins based on enemy type, multiplied by active gambit reward factor.
 	if enemy_type != "":
@@ -1269,14 +1273,16 @@ func _mimic_battle_won(enemy_type: String, captured_enemy_id: String) -> bool:
 			for card_id: String in chest_cards:
 				var rarity: String = CardDropUtil.effective_rarity(card_id, CardDropUtil.roll_rarity(3))
 				var stats: Dictionary = CardDropUtil.roll_stats(card_id, rarity)
-				save_manager.grant_card_reward(card_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+				save_manager.grant_card_reward(card_id, rarity, int(stats.get("attack", -1)),
+						int(stats.get("health", -1)), int(stats.get("cost", -1)))
 				_bump_session_stat("cards_earned", 1)
 	var mimic_drop_pool: Array[String] = EnemyRegistry.get_drop_pool("mimic")
 	if not mimic_drop_pool.is_empty():
 		var bonus_card: String = mimic_drop_pool[randi() % mimic_drop_pool.size()]
 		var b_rarity: String = CardDropUtil.effective_rarity(bonus_card, CardDropUtil.roll_rarity(2))
 		var b_stats: Dictionary = CardDropUtil.roll_stats(bonus_card, b_rarity)
-		save_manager.grant_card_reward(bonus_card, b_rarity, int(b_stats.get("attack", -1)), int(b_stats.get("health", -1)), int(b_stats.get("cost", -1)))
+		save_manager.grant_card_reward(bonus_card, b_rarity, int(b_stats.get("attack", -1)),
+				int(b_stats.get("health", -1)), int(b_stats.get("cost", -1)))
 		_bump_session_stat("cards_earned", 1)
 	var mimic_coins: int = EnemyRegistry.get_coin_reward("mimic")
 	save_manager.add_coins(mimic_coins)
@@ -1295,9 +1301,12 @@ func _mimic_battle_won(enemy_type: String, captured_enemy_id: String) -> bool:
 	return true
 func _show_chapter2_cliffhanger() -> void:
 	var pages: Array[String] = [
-		"By firelight, Maiteln reads the stolen muster plans: the tribe will not strike Blancogov. They march on the lords, one by one, before the alliance can gather.",
-		"Maiteln, grim: every route, every garrison, every weakness — written in a steady court hand. The traitor knows the alliance's every move.",
-		"And beneath the last page, in a script Saimtar knew like his own name — a list of the taken. His parents' names were not struck through.",
+		"By firelight, Maiteln reads the stolen muster plans: the tribe will not strike Blancogov. They march on the "
+			+ "lords, one by one, before the alliance can gather.",
+		"Maiteln, grim: every route, every garrison, every weakness — written in a steady court hand. The traitor "
+			+ "knows the alliance's every move.",
+		"And beneath the last page, in a script Saimtar knew like his own name — a list of the taken. His parents' "
+			+ "names were not struck through.",
 	]
 	GameBus.narration_overlay_requested.emit(pages, "Chapter 2 Complete", "chapter2_complete")
 
@@ -1395,11 +1404,14 @@ func _show_defeat_overlay() -> void:
 
 	var has_retry: bool = not _defeat_pending_enemy_data.is_empty()
 	if has_retry:
-		var retry_btn := _UiUtil.make_button("Retry Battle", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_retry, vbox)
+		var retry_btn := _UiUtil.make_button("Retry Battle", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03),
+				_on_defeat_retry, vbox)
 
-	var respawn_btn := _UiUtil.make_button("Respawn in World", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_respawn, vbox)
+	var respawn_btn := _UiUtil.make_button("Respawn in World", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03),
+			_on_defeat_respawn, vbox)
 
-	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_menu, vbox)
+	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03),
+			_on_defeat_menu, vbox)
 
 func _on_defeat_retry() -> void:
 	if _defeat_overlay != null:
@@ -1539,7 +1551,8 @@ func _apply_siege_victory_rewards(town: String) -> void:
 		var reward_id: String = all_ids[randi() % all_ids.size()]
 		var rarity: String = CardDropUtil.roll_rarity(3)   # tier 3 = rare-or-better weighted
 		var stats: Dictionary = CardDropUtil.roll_stats(reward_id, rarity)
-		save_manager.grant_card_reward(reward_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+		save_manager.grant_card_reward(reward_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)),
+				int(stats.get("cost", -1)))
 		_bump_session_stat("cards_earned", 1)
 	GameBus.siege_victory.emit()
 	show_toast("Siege Defeated!", "%s thanks you! +%d coins + rare card" % [town.capitalize(), SIEGE_VICTORY_COINS])
@@ -1557,9 +1570,11 @@ func _show_siege_interstitial(next_stage: int, hero_hp: int) -> void:
 	var vbox := _UiUtil.make_vbox(12, panel)
 
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var title_lbl := _UiUtil.make_label(_SiegeDefs.get_stage_name(next_stage), int(vh * 0.04), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label(_SiegeDefs.get_stage_name(next_stage), int(vh * 0.04), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var hp_lbl := _UiUtil.make_label("Hero HP: %d / 30" % hero_hp, int(vh * 0.03), Color(0.9, 0.3, 0.3) if hero_hp <= 10 else Color(1.0, 1.0, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var hp_lbl := _UiUtil.make_label("Hero HP: %d / 30" % hero_hp, int(vh * 0.03),
+			Color(0.9, 0.3, 0.3) if hero_hp <= 10 else Color(1.0, 1.0, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	# Dismiss automatically and chain the next raider battle.
 	get_tree().create_timer(2.0, false).timeout.connect(func() -> void:
@@ -1589,7 +1604,8 @@ func _on_achievement_unlocked(achievement_id: String) -> void:
 func _on_level_up(new_level: int) -> void:
 	var pts: int = save_manager.skill_points
 	_toast.show_text("Level Up!", "Level %d — %d skill point%s to spend!" % [new_level, pts, "s" if pts != 1 else ""])
-	GameBus.hud_message_requested.emit("Level %d! Open the Skill Tree to spend %d skill point%s." % [new_level, pts, "s" if pts != 1 else ""])
+	GameBus.hud_message_requested.emit("Level %d! Open the Skill Tree to spend %d skill point%s." % [new_level, pts,
+			"s" if pts != 1 else ""])
 
 func _on_fragment_collected() -> void:
 	_toast.show_text("Fragment Found!", "You have %d/3 fragments" % save_manager.treasure_fragments)

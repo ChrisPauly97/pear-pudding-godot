@@ -344,7 +344,8 @@ func _create_peer(transport: Transport) -> MultiplayerPeer:
 		Transport.ENET:
 			return ENetMultiplayerPeer.new()
 		Transport.STEAM:
-			push_warning("NetworkManager: Steam transport not yet implemented. Install GodotSteam and return SteamMultiplayerPeer.new() here.")
+			push_warning("NetworkManager: Steam transport not yet implemented. Install GodotSteam and return "
+					+ "SteamMultiplayerPeer.new() here.")
 			return null
 	return null
 

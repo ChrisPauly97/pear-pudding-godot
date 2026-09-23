@@ -107,7 +107,8 @@ func _run() -> bool:
 
 
 func _socket_phase() -> bool:
-	var srv: Dictionary = _Harness.start_server(self, _PORT, 4, "ServerRoot", "  [FAIL] create_server failed (loopback blocked?)")
+	var srv: Dictionary = _Harness.start_server(self, _PORT, 4, "ServerRoot",
+			"  [FAIL] create_server failed (loopback blocked?)")
 	if srv.is_empty():
 		return false
 	var server_peer: ENetMultiplayerPeer = srv["peer"]
@@ -194,7 +195,8 @@ func _build_world(parent: Node, is_client: bool) -> Node:
 	return netsync
 
 
-func _teardown(server_root: Node, client_root: Node, server_peer: MultiplayerPeer, client_peer: MultiplayerPeer) -> void:
+func _teardown(server_root: Node, client_root: Node, server_peer: MultiplayerPeer,
+		client_peer: MultiplayerPeer) -> void:
 	_Harness.teardown([client_peer, server_peer], [client_root, server_root])
 
 

@@ -881,7 +881,8 @@ static func _migrate_v33_to_v34(data: Dictionary) -> void:
 
 static func _sign(payload: String) -> String:
 	var crypto := Crypto.new()
-	return crypto.hmac_digest(HashingContext.HASH_SHA256, _HMAC_SECRET.to_utf8_buffer(), payload.to_utf8_buffer()).hex_encode()
+	return crypto.hmac_digest(HashingContext.HASH_SHA256, _HMAC_SECRET.to_utf8_buffer(),
+			payload.to_utf8_buffer()).hex_encode()
 
 func _read_save_json(path: String):
 	if not FileAccess.file_exists(path):
@@ -1085,7 +1086,8 @@ func is_bag_full() -> bool:
 ## Creates a new card instance with the given stats and appends it to owned_cards.
 ## Returns the generated UID, or "" if the bag is full (emits GameBus.bag_full).
 ## attack/health/cost default to the card template's base stats.
-func add_card_instance(template_id: String, rarity: String, attack: int = -1, health: int = -1, cost: int = -1) -> String:
+func add_card_instance(template_id: String, rarity: String, attack: int = -1, health: int = -1,
+		cost: int = -1) -> String:
 	if is_bag_full():
 		GameBus.bag_full.emit()
 		return ""
@@ -1110,7 +1112,8 @@ func add_card_instance(template_id: String, rarity: String, attack: int = -1, he
 ## returns the generated uid — the card exists either way, just not always in the bag yet.
 ## Player-initiated spends (shop, craft, combine) should keep calling add_card_instance,
 ## which still blocks on a full bag.
-func grant_card_reward(template_id: String, rarity: String, attack: int = -1, health: int = -1, cost: int = -1) -> String:
+func grant_card_reward(template_id: String, rarity: String, attack: int = -1, health: int = -1,
+		cost: int = -1) -> String:
 	var tmpl: Dictionary = CardRegistry.get_template(template_id)
 	var atk: int = attack if attack >= 0 else int(tmpl.get("attack", 0))
 	var hp: int  = health if health >= 0 else int(tmpl.get("health", 0))
@@ -1261,7 +1264,8 @@ func combine_cards(template_id: String, rarity: String) -> Dictionary:
 		return {}
 	var next_rarity: String = IsoConst.RARITY_ORDER[src_idx + 1]
 	var stats: Dictionary = CardDropUtil.roll_stats(template_id, next_rarity)
-	var new_uid: String = add_card_instance(template_id, next_rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+	var new_uid: String = add_card_instance(template_id, next_rarity, int(stats.get("attack", -1)),
+			int(stats.get("health", -1)), int(stats.get("cost", -1)))
 	return get_instance_by_uid(new_uid)
 
 ## Returns all owned card instances (the full collection array).

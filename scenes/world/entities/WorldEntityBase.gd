@@ -23,7 +23,9 @@ static func _make_mi(mesh: Mesh, mat: StandardMaterial3D) -> MeshInstance3D:
 
 static func build_highlight_ring(parent: Node3D, radius: float) -> MeshInstance3D:
 	var sh := Shader.new()
-	sh.code = "shader_type spatial;\nrender_mode unshaded, cull_disabled, depth_draw_never;\nvoid fragment() { float p = sin(TIME * 4.0) * 0.5 + 0.5; ALBEDO = vec3(1.0, 0.85, 0.1); EMISSION = vec3(1.0, 0.85, 0.1) * (0.6 + p * 0.8); ALPHA = 0.7 + p * 0.3; }"
+	sh.code = ("shader_type spatial;\nrender_mode unshaded, cull_disabled, depth_draw_never;\nvoid fragment() { float "
+			+ "p = sin(TIME * 4.0) * 0.5 + 0.5; ALBEDO = vec3(1.0, 0.85, 0.1); EMISSION = vec3(1.0, 0.85, 0.1) * "
+			+ "(0.6 + p * 0.8); ALPHA = 0.7 + p * 0.3; }")
 	var mat := ShaderMaterial.new()
 	mat.shader = sh
 	var mesh := CylinderMesh.new()

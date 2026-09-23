@@ -27,7 +27,10 @@ var _sprite: Sprite3D = null
 
 func _ready() -> void:
 	var etype: String = str(enemy_data.get("enemy_type", ""))
-	var sprite: Sprite3D = _SpriteRegistry.make_billboard(_SpriteRegistry.enemy_texture(etype, _is_roaming_boss, _is_boss), TextureGen.enemy(_is_roaming_boss, _is_boss), _SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss))
+	var sprite: Sprite3D = _SpriteRegistry.make_billboard(
+			_SpriteRegistry.enemy_texture(etype, _is_roaming_boss, _is_boss),
+			TextureGen.enemy(_is_roaming_boss, _is_boss),
+			_SpriteRegistry.enemy_world_height(etype, _is_roaming_boss, _is_boss))
 	add_child(sprite)
 	_sprite = sprite
 	if bool(enemy_data.get("nocturnal", false)):

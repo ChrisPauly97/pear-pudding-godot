@@ -53,7 +53,8 @@ func _ready() -> void:
 	root.add_child(top_pad)
 
 	# Title
-	var title := _UiUtil.make_label("Choose Your World", int(ref * 0.062), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, root)
+	var title := _UiUtil.make_label("Choose Your World", int(ref * 0.062), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+			root)
 	title.custom_minimum_size = Vector2(0, int(ref * 0.12))
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 
@@ -79,7 +80,8 @@ func _ready() -> void:
 	left_pad.custom_minimum_size = Vector2(int(ref * 0.03), 0)
 	bottom_bar.add_child(left_pad)
 
-	var back_btn := _UiUtil.make_button("Back", Vector2(int(ref * 0.16), int(ref * 0.07)), int(ref * 0.028), _on_back, bottom_bar)
+	var back_btn := _UiUtil.make_button("Back", Vector2(int(ref * 0.16), int(ref * 0.07)), int(ref * 0.028), _on_back,
+			bottom_bar)
 
 	# Head Start toggle (BID-049 / GID-117): opt-in boosted start — level 15,
 	# 14 skill points, 5000 coins. Off by default for a true level-1 fresh start.

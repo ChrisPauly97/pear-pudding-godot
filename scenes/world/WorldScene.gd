@@ -403,7 +403,9 @@ func _setup_vignette() -> void:
 	cr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vshader := Shader.new()
-	vshader.code = "shader_type canvas_item;\nvoid fragment() {\n\tvec2 uv = UV - vec2(0.5);\n\tfloat d = length(uv * vec2(1.0, 1.2));\n\tfloat vig = smoothstep(0.35, 0.75, d) * 0.45;\n\tCOLOR = vec4(0.0, 0.0, 0.0, vig);\n}"
+	vshader.code = ("shader_type canvas_item;\nvoid fragment() {\n\tvec2 uv = UV - vec2(0.5);\n\tfloat d = length(uv * "
+			+ "vec2(1.0, 1.2));\n\tfloat vig = smoothstep(0.35, 0.75, d) * 0.45;\n\tCOLOR = vec4(0.0, 0.0, 0.0, "
+			+ "vig);\n}")
 	var vmat := ShaderMaterial.new()
 	vmat.shader = vshader
 	cr.material = vmat
@@ -1832,7 +1834,8 @@ func _show_spire_entrance_panel() -> void:
 	var vbox: VBoxContainer = modal["vbox"]
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var title := _UiUtil.make_label("The Endless Spire", int(vh * 0.038), Color(0.85, 0.50, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title := _UiUtil.make_label("The Endless Spire", int(vh * 0.038), Color(0.85, 0.50, 1.0),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var desc := Label.new()
 	if is_active:
@@ -1848,7 +1851,8 @@ func _show_spire_entrance_panel() -> void:
 	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var enter_btn := _UiUtil.make_button("Resume (Floor %d)" % curr_floor if is_active else "Enter", Vector2(vh * 0.20, vh * 0.07), int(vh * 0.028))
+	var enter_btn := _UiUtil.make_button("Resume (Floor %d)" % curr_floor if is_active else "Enter",
+			Vector2(vh * 0.20, vh * 0.07), int(vh * 0.028))
 	enter_btn.modulate = Color(0.85, 0.50, 1.0)
 	enter_btn.pressed.connect(func() -> void:
 		layer.queue_free()
@@ -1856,7 +1860,8 @@ func _show_spire_entrance_panel() -> void:
 	)
 	row.add_child(enter_btn)
 
-	var leave_btn := _UiUtil.make_button("Leave", Vector2(vh * 0.16, vh * 0.07), int(vh * 0.028), func() -> void: layer.queue_free(), row)
+	var leave_btn := _UiUtil.make_button("Leave", Vector2(vh * 0.16, vh * 0.07), int(vh * 0.028),
+			func() -> void: layer.queue_free(), row)
 
 # ── Player Home ────────────────────────────────────────────────────────────
 

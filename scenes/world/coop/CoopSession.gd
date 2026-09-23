@@ -706,7 +706,8 @@ func _broadcast_maiteln_state(delta: float) -> void:
 	if _maiteln_broadcast_accum < _world._NET_BROADCAST_INTERVAL:
 		return
 	_maiteln_broadcast_accum = 0.0
-	_world._net_sync.rpc("recv_maiteln_state", [_world._maiteln_node.position.x, _world._maiteln_node.position.z, _world.map_name])
+	_world._net_sync.rpc("recv_maiteln_state",
+			[_world._maiteln_node.position.x, _world._maiteln_node.position.z, _world.map_name])
 
 ## Client: apply the authority's Maiteln position, filtered to our own map (the
 ## same invariant AvatarSync enforces for RemotePlayer avatars — see CLAUDE.md
@@ -1601,7 +1602,8 @@ func _spawn_guildhall_trophies() -> void:
 	var rows: Array = _world._pve_leaderboards.get("coop_clears", [])
 	for i: int in range(mini(rows.size(), _GUILDHALL_TROPHY_TILES.size())):
 		var row: Dictionary = rows[i]
-		var display_name: String = "%s's Clear — Party of %d" % [str(row.get("name", "A party")), int(row.get("value", 0))]
+		var display_name: String = "%s's Clear — Party of %d" % [str(row.get("name", "A party")),
+				int(row.get("value", 0))]
 		var pos: Vector3 = _tile_to_ground(_GUILDHALL_TROPHY_TILES[i])
 		var pedestal: Node3D = _PlayerHome.make_trophy_pedestal(true, display_name)
 		pedestal.position = pos

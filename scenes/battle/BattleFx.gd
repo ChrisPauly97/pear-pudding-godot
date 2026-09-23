@@ -305,7 +305,8 @@ func flash_from_snapshot(snap: Array[Dictionary]) -> void:
 ## an optional hit-stop pause at the apex for big/lethal hits. All durations
 ## are scaled by `speed_scale` (battle fast-mode). Safe if the panel is freed
 ## mid-tween (board rebuild, battle end).
-func animate_attack(attacker_panel: Control, target_pos: Vector2, speed_scale: float = 1.0, hit_stop: float = 0.0) -> void:
+func animate_attack(attacker_panel: Control, target_pos: Vector2, speed_scale: float = 1.0,
+		hit_stop: float = 0.0) -> void:
 	if attacker_panel == null or not is_instance_valid(attacker_panel):
 		return
 	var origin: Vector2 = attacker_panel.global_position
@@ -314,7 +315,8 @@ func animate_attack(attacker_panel: Control, target_pos: Vector2, speed_scale: f
 	var prev_z: int = attacker_panel.z_index
 	attacker_panel.z_index = 10
 	var tw_in: Tween = attacker_panel.create_tween()
-	tw_in.tween_property(attacker_panel, "global_position", lunge_pos, scaled_duration(0.12, speed_scale)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw_in.tween_property(attacker_panel, "global_position", lunge_pos,
+			scaled_duration(0.12, speed_scale)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	await tw_in.finished
 	if not is_instance_valid(attacker_panel):
 		return
@@ -323,7 +325,8 @@ func animate_attack(attacker_panel: Control, target_pos: Vector2, speed_scale: f
 	if not is_instance_valid(attacker_panel):
 		return
 	var tw_out: Tween = attacker_panel.create_tween()
-	tw_out.tween_property(attacker_panel, "global_position", origin, scaled_duration(0.15, speed_scale)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw_out.tween_property(attacker_panel, "global_position", origin,
+			scaled_duration(0.15, speed_scale)).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	await tw_out.finished
 	if is_instance_valid(attacker_panel):
 		attacker_panel.z_index = prev_z

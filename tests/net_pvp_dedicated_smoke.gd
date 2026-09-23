@@ -151,7 +151,8 @@ func _run() -> bool:
 	var final_a_seq: int = int(battle_a.get("_last_applied_seq"))
 	var final_b_seq: int = int(battle_b.get("_last_applied_seq"))
 	if not intent_done:
-		print("  [FAIL] clients did not receive updated mirror after end_turn (a=%d, b=%d)" % [final_a_seq, final_b_seq])
+		print("  [FAIL] clients did not receive updated mirror after end_turn (a=%d, b=%d)" % [final_a_seq,
+				final_b_seq])
 		return false
 
 	# Confirm the turn actually flipped in the referee's canonical state.

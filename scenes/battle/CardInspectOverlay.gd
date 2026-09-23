@@ -66,7 +66,8 @@ func _build_dual_face_ui() -> void:
 	panel.add_theme_stylebox_override("panel", _make_dark_glass_style())
 
 	var outer_vbox := _UiUtil.make_vbox(int(_vh * 0.012))
-	var outer_margin := _UiUtil.make_margin(int(_vh * 0.018), int(_vh * 0.018), int(_vh * 0.018), int(_vh * 0.018), panel)
+	var outer_margin := _UiUtil.make_margin(int(_vh * 0.018), int(_vh * 0.018), int(_vh * 0.018), int(_vh * 0.018),
+			panel)
 	outer_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	outer_margin.add_child(outer_vbox)
 
@@ -93,7 +94,8 @@ func _build_dual_face_ui() -> void:
 	btn_row.add_child(close_btn)
 	outer_vbox.add_child(btn_row)
 
-func _build_face_panel(parent: HBoxContainer, tmpl: Dictionary, card: CardInstance, is_active: bool, face_label: String) -> void:
+func _build_face_panel(parent: HBoxContainer, tmpl: Dictionary, card: CardInstance, is_active: bool,
+		face_label: String) -> void:
 	var face_panel := PanelContainer.new()
 	face_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	face_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -104,7 +106,8 @@ func _build_face_panel(parent: HBoxContainer, tmpl: Dictionary, card: CardInstan
 	face_panel.add_theme_stylebox_override("panel", fs)
 	parent.add_child(face_panel)
 
-	var margin := _UiUtil.make_margin(int(_vh * 0.012), int(_vh * 0.012), int(_vh * 0.012), int(_vh * 0.012), face_panel)
+	var margin := _UiUtil.make_margin(int(_vh * 0.012), int(_vh * 0.012), int(_vh * 0.012), int(_vh * 0.012),
+			face_panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 
 	var vbox := _UiUtil.make_vbox(int(_vh * 0.006), margin)
@@ -139,13 +142,16 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 		container.add_child(art)
 
 	# Name
-	var name_lbl := _UiUtil.make_label(str(tmpl.get("name", "?")) if not tmpl.is_empty() else (card.name if card != null else "?"), int(_font(0.030)))
+	var name_lbl := _UiUtil.make_label(
+			str(tmpl.get("name", "?")) if not tmpl.is_empty() else (card.name if card != null else "?"),
+			int(_font(0.030)))
 	name_lbl.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	container.add_child(name_lbl)
 
 	# Class / type row
-	var cc: String = str(tmpl.get("card_class", "")) if not tmpl.is_empty() else (card.card_class if card != null else "")
+	var cc: String = str(tmpl.get("card_class",
+			"")) if not tmpl.is_empty() else (card.card_class if card != null else "")
 	var mt: String = str(tmpl.get("magic_type", "")) if not tmpl.is_empty() else ""
 	var mb_val: String = str(tmpl.get("magic_branch", "")) if not tmpl.is_empty() else ""
 	var class_text: String = cc.capitalize()
@@ -177,7 +183,8 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 	container.add_child(sep)
 
 	# Description
-	var desc: String = str(tmpl.get("description", "")) if not tmpl.is_empty() else (card.description if card != null else "")
+	var desc: String = str(tmpl.get("description",
+			"")) if not tmpl.is_empty() else (card.description if card != null else "")
 	var desc_lbl := _UiUtil.make_label(desc, int(_font(0.019)))
 	desc_lbl.add_theme_color_override("font_color", Color(0.9, 0.9, 0.9))
 	desc_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -185,7 +192,8 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 	container.add_child(desc_lbl)
 
 	# Spell effect
-	var se: String = str(tmpl.get("spell_effect", "")) if not tmpl.is_empty() else (card.spell_effect if card != null else "")
+	var se: String = str(tmpl.get("spell_effect",
+			"")) if not tmpl.is_empty() else (card.spell_effect if card != null else "")
 	var sp: int = int(tmpl.get("spell_power", 0)) if not tmpl.is_empty() else (card.spell_power if card != null else 0)
 	if cc == "spell" and se != "":
 		var effect_lbl := Label.new()
@@ -219,8 +227,10 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 			container.add_child(kw_lbl)
 
 	# Emergence
-	var ee: String = str(tmpl.get("emergence_effect", "")) if not tmpl.is_empty() else (card.emergence_effect if card != null else "")
-	var ep: int = int(tmpl.get("emergence_power", 0)) if not tmpl.is_empty() else (card.emergence_power if card != null else 0)
+	var ee: String = str(tmpl.get("emergence_effect",
+			"")) if not tmpl.is_empty() else (card.emergence_effect if card != null else "")
+	var ep: int = int(tmpl.get("emergence_power",
+			0)) if not tmpl.is_empty() else (card.emergence_power if card != null else 0)
 	if ee != "":
 		var em_sep := HSeparator.new()
 		container.add_child(em_sep)
@@ -240,7 +250,8 @@ func _build_face_body(container: VBoxContainer, tmpl: Dictionary, card: CardInst
 		for i in range(effects.size()):
 			if not card.has_status(effects[i]):
 				continue
-			var st_lbl := _UiUtil.make_label("%s: %d" % [labels[i], card.get_status_value(effects[i])], int(_font(0.019)))
+			var st_lbl := _UiUtil.make_label("%s: %d" % [labels[i], card.get_status_value(effects[i])],
+					int(_font(0.019)))
 			st_lbl.add_theme_color_override("font_color", colors[i])
 			st_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			container.add_child(st_lbl)

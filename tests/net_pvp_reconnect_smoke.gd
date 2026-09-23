@@ -103,7 +103,8 @@ func _run() -> bool:
 	client_peer.close()
 
 	# --- a NEW connection reconnects ---
-	var recon: Dictionary = _Harness.start_client(self, _PORT, "ReconnectRoot", "  [FAIL] reconnect create_client returned %d")
+	var recon: Dictionary = _Harness.start_client(self, _PORT, "ReconnectRoot",
+			"  [FAIL] reconnect create_client returned %d")
 	if recon.is_empty():
 		return false
 	var mp_reconnect: SceneMultiplayer = recon["mp"]

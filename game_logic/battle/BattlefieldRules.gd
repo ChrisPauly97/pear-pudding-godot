@@ -129,7 +129,8 @@ static func branch_affinity_text(card_branch: String) -> String:
 ## Computes the effective mana cost of a card, applying biome and time-of-day rules.
 ## Stacking order: branch affinity discount first, then Grasslands first-card discount.
 ## Floor is 0.
-static func effective_cost(card_cost: int, card_branch: String, biome_id: int, is_night: bool, grasslands_card_played: bool) -> int:
+static func effective_cost(card_cost: int, card_branch: String, biome_id: int, is_night: bool,
+		grasslands_card_played: bool) -> int:
 	var cost: int = card_cost
 	if branch_affinity_active(card_branch, biome_id, is_night):
 		cost -= 1

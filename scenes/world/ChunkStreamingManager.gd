@@ -517,7 +517,8 @@ func _build_chunk_sync(key: Vector2i) -> void:
 		else:
 			_chunk_data_cache[key] = _world_map.get_chunk_data(key.x, key.y)
 	var chunk: RefCounted = _chunk_data_cache[key]
-	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3], snap[4], _world_seed)
+	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3], snap[4],
+			_world_seed)
 	var renderer: ChunkRenderer = ChunkRenderer.new()
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
 	add_child(renderer)

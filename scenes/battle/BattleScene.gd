@@ -342,7 +342,8 @@ func _ready() -> void:
 
 	if _state.puzzle_mode:
 		_end_turn_btn.text = "Check"
-		_give_up_btn = _UiUtil.make_button("Give Up", Vector2(_vh * 0.16, _vh * 0.07), int(_font(0.025)), _on_puzzle_give_up)
+		_give_up_btn = _UiUtil.make_button("Give Up", Vector2(_vh * 0.16, _vh * 0.07), int(_font(0.025)),
+				_on_puzzle_give_up)
 		$SidePanel.add_child(_give_up_btn)
 	_state.turn_ended.connect(_on_turn_ended)
 	GameBus.fatigue_damage.connect(_on_fatigue_damage)
@@ -624,10 +625,12 @@ func _add_companion_hud() -> void:
 		placeholder.custom_minimum_size = Vector2(_vh * 0.045, _vh * 0.045)
 		portrait_row.add_child(placeholder)
 
-	var name_lbl := _UiUtil.make_label(companion.display_name, int(_font(0.02)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, portrait_row)
+	var name_lbl := _UiUtil.make_label(companion.display_name, int(_font(0.02)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT,
+			portrait_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var passive_lbl := _UiUtil.make_label(companion.description, int(_font(0.017)), Color(0.85, 1.0, 0.85), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	var passive_lbl := _UiUtil.make_label(companion.description, int(_font(0.017)), Color(0.85, 1.0, 0.85),
+			HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	passive_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 ## Apply init-time weather modifiers (ash_fall poison) and reset snow discount tracking.
@@ -745,18 +748,23 @@ func _show_battle_tutorial() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := _UiUtil.make_margin(int(panel_w * 0.06), int(panel_h * 0.08), int(panel_w * 0.06), int(panel_h * 0.08), panel)
+	var margin := _UiUtil.make_margin(int(panel_w * 0.06), int(panel_h * 0.08), int(panel_w * 0.06),
+			int(panel_h * 0.08), panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 
 	var vbox := _UiUtil.make_vbox(int(_vh * 0.02), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var label := _UiUtil.make_label("Tap a card, then tap a green slot to play it.\nTap your minion, then tap an enemy to attack.\nHold any card to see its details. (Dragging works too.)", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var label := _UiUtil.make_label(
+			"Tap a card, then tap a green slot to play it.\nTap your minion, then tap an enemy to attack.\nHold any "
+				+ "card to see its details. (Dragging works too.)",
+			int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_color_override("font_color", Color.WHITE)
 	vbox.add_child(label)
 
-	var btn := _UiUtil.make_button("Got it", Vector2(_vh * 0.14, _vh * 0.06), int(font_size), _dismiss_battle_tutorial, vbox)
+	var btn := _UiUtil.make_button("Got it", Vector2(_vh * 0.14, _vh * 0.06), int(font_size), _dismiss_battle_tutorial,
+			vbox)
 
 	_tutorial_overlay = layer
 	get_tree().create_timer(TUTORIAL_DURATION, false).timeout.connect(_dismiss_battle_tutorial)
@@ -865,14 +873,17 @@ func _board_drop(local_pos: Vector2, data: Variant) -> void:
 		_enter_slot_targeting_mode(played_card)
 		return
 
-	if played_card.card_class == "spell" and is_ally_targeted and _coop_pve and _state.players[_my_idx()].can_play(played_card):
+	if (played_card.card_class == "spell" and is_ally_targeted and _coop_pve
+			and _state.players[_my_idx()].can_play(played_card)):
 		_enter_ally_targeting_mode(played_card)
 		return
 
-	if played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted) and _state.players[_my_idx()].can_play(played_card):
+	if (played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted)
+			and _state.players[_my_idx()].can_play(played_card)):
 		if is_friendly_targeted and _state.players[_my_idx()].board.get_cards().is_empty():
 			return
-		elif is_enemy_targeted and played_card.spell_effect != "deal_damage_single" and _state.players[_opp_idx()].board.get_cards().is_empty():
+		elif (is_enemy_targeted and played_card.spell_effect != "deal_damage_single"
+				and _state.players[_opp_idx()].board.get_cards().is_empty()):
 			return
 		else:
 			_enter_targeting_mode(played_card, is_friendly_targeted)
@@ -1013,7 +1024,9 @@ func _build_coop_arena_layout() -> void:
 		if pidx == boss_idx:
 			continue
 		var ps: PlayerState = _state.players[pidx]
-		var btn := _UiUtil.make_button("P%d  HP:%d/%d  Mana:%d" % [pidx + 1, ps.hero.health, ps.hero.max_health, ps.hero.mana], Vector2(_vh * 0.20, _vh * 0.06))
+		var btn := _UiUtil.make_button(
+				"P%d  HP:%d/%d  Mana:%d" % [pidx + 1, ps.hero.health, ps.hero.max_health, ps.hero.mana],
+				Vector2(_vh * 0.20, _vh * 0.06))
 		if _ally_targeting_active:
 			var cap_pidx: int = pidx  # capture for lambda
 			btn.pressed.connect(func() -> void:
@@ -1176,7 +1189,8 @@ func _add_hero_power_button() -> void:
 	var active_skill: SkillData = _get_active_skill()
 	if active_skill == null:
 		return
-	_hero_power_btn = _UiUtil.make_button(active_skill.display_name, Vector2(_vh * 0.18, _vh * 0.05), int(_font(0.02)), _use_hero_power)
+	_hero_power_btn = _UiUtil.make_button(active_skill.display_name, Vector2(_vh * 0.18, _vh * 0.05), int(_font(0.02)),
+			_use_hero_power)
 	$SidePanel.add_child(_hero_power_btn)
 
 func _add_potion_button() -> void:
@@ -1189,7 +1203,8 @@ func _add_potion_button() -> void:
 			break
 	if not has_any:
 		return
-	_potion_btn = _UiUtil.make_button("Potion", Vector2(_vh * 0.16, _vh * 0.05), int(_font(0.02)), _on_potion_button_pressed)
+	_potion_btn = _UiUtil.make_button("Potion", Vector2(_vh * 0.16, _vh * 0.05), int(_font(0.02)),
+			_on_potion_button_pressed)
 	$SidePanel.add_child(_potion_btn)
 
 func _apply_ambush_modifiers(edata: Dictionary) -> void:
@@ -1274,7 +1289,8 @@ func _show_potion_picker() -> void:
 
 	var vbox := _UiUtil.make_vbox(int(_vh * 0.015), margin)
 
-	var title_lbl := _UiUtil.make_label("Use a Potion", int(_font(0.026)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label("Use a Potion", int(_font(0.026)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+			vbox)
 
 	var sm := SceneManager.save_manager
 	for potion_id: String in GardenDefs.POTIONS:
@@ -1284,7 +1300,8 @@ func _show_potion_picker() -> void:
 		var potion_data: Dictionary = GardenDefs.POTIONS[potion_id]
 		var display_name: String = str(potion_data.get("display_name", potion_id))
 		var row := _UiUtil.make_hbox(int(_vh * 0.012))
-		var lbl := _UiUtil.make_label("%s  ×%d" % [display_name, count], int(_font(0.022)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
+		var lbl := _UiUtil.make_label("%s  ×%d" % [display_name, count], int(_font(0.022)), Color.WHITE,
+				HORIZONTAL_ALIGNMENT_LEFT, row)
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var use_btn := _UiUtil.make_button("Use", Vector2(_vh * 0.1, _vh * 0.055), int(_font(0.022)))
 		var pid: String = potion_id
@@ -1295,7 +1312,8 @@ func _show_potion_picker() -> void:
 		row.add_child(use_btn)
 		vbox.add_child(row)
 
-	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(panel_w * 0.5, _vh * 0.055), int(_font(0.022)), layer.queue_free)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(panel_w * 0.5, _vh * 0.055), int(_font(0.022)),
+			layer.queue_free)
 	var center := CenterContainer.new()
 	center.add_child(cancel_btn)
 	vbox.add_child(center)
@@ -1514,7 +1532,8 @@ func _animate_card_travel(card: CardInstance, from_rect: Rect2, to_pos: Vector2)
 	var dur: float = BattleFx.scaled_duration(0.2, _speed_scale)
 	var tw: Tween = ghost.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(ghost, "position", to_pos - from_rect.size * 0.5, dur).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ghost, "position", to_pos - from_rect.size * 0.5,
+			dur).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_property(ghost, "scale", Vector2(1.0, 1.0), dur)
 	await tw.finished
 	if is_instance_valid(ghost):
@@ -1749,18 +1768,21 @@ func _show_cast_confirm(card: CardInstance) -> void:
 
 	var name_lbl := _UiUtil.make_label(card.name, int(_font(0.028)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var ability_lbl := _UiUtil.make_label(_view.get_card_ability_text(card), int(_font(0.022)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var ability_lbl := _UiUtil.make_label(_view.get_card_ability_text(card), int(_font(0.022)), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER)
 	ability_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ability_lbl.add_theme_color_override("font_color", _view.get_card_ability_color(card))
 	vbox.add_child(ability_lbl)
 
-	var cast_btn := _UiUtil.make_button("Cast (%d mana)" % _state.players[_my_idx()].effective_cost(card), Vector2(_vh * 0.22, _vh * 0.08), int(_font(0.030)))
+	var cast_btn := _UiUtil.make_button("Cast (%d mana)" % _state.players[_my_idx()].effective_cost(card),
+			Vector2(_vh * 0.22, _vh * 0.08), int(_font(0.030)))
 	cast_btn.pressed.connect(func() -> void:
 		_hide_cast_confirm()
 		_cast_confirmed_spell(card))
 	vbox.add_child(cast_btn)
 
-	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_vh * 0.22, _vh * 0.06), int(_font(0.024)), _hide_cast_confirm, vbox)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_vh * 0.22, _vh * 0.06), int(_font(0.024)),
+			_hide_cast_confirm, vbox)
 
 func _hide_cast_confirm() -> void:
 	if _cast_confirm_layer != null and is_instance_valid(_cast_confirm_layer):
@@ -1865,7 +1887,8 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 	var snap := _fx.snapshot()
 	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome)
 	var target_panel_pre: Control = _fx.get_card_panel(target, true) if target != null else null
-	var target_pos: Vector2 = target_panel_pre.get_global_rect().get_center() if target_panel_pre != null else _fx.pos_of_hero(true)
+	var target_pos: Vector2 = (target_panel_pre.get_global_rect().get_center() if target_panel_pre != null
+			else _fx.pos_of_hero(true))
 	var is_big_hit: bool = attacker_dmg >= 5 or (target != null and attacker_dmg >= target.health)
 	await _fx.animate_attack(attacker_panel, target_pos, _speed_scale, 0.06 if is_big_hit else 0.0)
 	if target != null:
@@ -2207,7 +2230,8 @@ func _show_standard_victory() -> void:
 			var br: String = CardDropUtil.effective_rarity(cid, CardDropUtil.roll_rarity(drop_tier_win))
 			boss_rarities.append(br)
 			boss_stats_list.append(CardDropUtil.roll_stats(cid, br))
-		_result_ui.show_victory_boss(pool, weapon_reward_id, boss_rarities, boss_stats_list, coins_win, xp_win, hero_hp_win, currency_win)
+		_result_ui.show_victory_boss(pool, weapon_reward_id, boss_rarities, boss_stats_list, coins_win, xp_win,
+				hero_hp_win, currency_win)
 	else:
 		var reward_card_id: String = ""
 		if pool.size() > 0:
@@ -2223,12 +2247,15 @@ func _show_standard_victory() -> void:
 		var _ct_captured: bool = SceneManager.save_manager.is_signature_captured(_ct_sig)
 		var _ct_met: bool = _capture_tracker != null and not _ct_sig.is_empty() and _capture_tracker.is_satisfied(_state)
 		if not _ct_sig.is_empty() and not _ct_captured and _ct_met:
-			_result_ui.show_soulbind(reward_card_id, _ct_sig, _capture_tracker.condition_text(), hero_hp_win, currency_win, rolled_rarity, rolled_stats)
+			_result_ui.show_soulbind(reward_card_id, _ct_sig, _capture_tracker.condition_text(), hero_hp_win,
+					currency_win, rolled_rarity, rolled_stats)
 		elif not _ct_sig.is_empty() and not _ct_captured:
 			var _ct_text: String = _capture_tracker.condition_text() if _capture_tracker != null else ""
-			_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win, currency_win)
+			_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats,
+					coins_win, xp_win, hero_hp_win, currency_win)
 		else:
-			_result_ui.show_victory(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win, currency_win)
+			_result_ui.show_victory(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win,
+					hero_hp_win, currency_win)
 		# First-session soulbinding teaser (GID-117): explain the hunt line the
 		# first time an uncaptured signature surfaces on a victory screen.
 		if not _ct_sig.is_empty() and not _ct_captured:

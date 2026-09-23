@@ -43,9 +43,12 @@ func _build_magic_choice() -> void:
 		vbox = _build_margin_vbox(outer, 0.04, 0.025)
 		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var title := _UiUtil.make_label("Choose Your Path", int(_ref * 0.042), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title := _UiUtil.make_label("Choose Your Path", int(_ref * 0.042), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+			vbox)
 
-	var sub := _UiUtil.make_label("This choice is permanent. Your skill trees will be drawn from the magic type you select.", int(_ref * 0.020), Color(0.72, 0.72, 0.72), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var sub := _UiUtil.make_label(
+			"This choice is permanent. Your skill trees will be drawn from the magic type you select.",
+			int(_ref * 0.020), Color(0.72, 0.72, 0.72), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	# Two columns rather than one row: four types would each be ~14% vw wide in a
@@ -64,9 +67,11 @@ func _make_choice_column(magic_type: String) -> VBoxContainer:
 	var col := _UiUtil.make_vbox(int(_ref * 0.010))
 	var header_color: Color = MagicTypes.type_color(magic_type)
 
-	var lbl := _UiUtil.make_label(MagicTypes.display_name(magic_type), int(_ref * 0.030), header_color, HORIZONTAL_ALIGNMENT_CENTER, col)
+	var lbl := _UiUtil.make_label(MagicTypes.display_name(magic_type), int(_ref * 0.030), header_color,
+			HORIZONTAL_ALIGNMENT_CENTER, col)
 
-	var desc_lbl := _UiUtil.make_label(MagicTypes.branch_summary(magic_type), int(_ref * 0.019), Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, col)
+	var desc_lbl := _UiUtil.make_label(MagicTypes.branch_summary(magic_type), int(_ref * 0.019), Color(0.8, 0.8, 0.8),
+			HORIZONTAL_ALIGNMENT_CENTER, col)
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_lbl.custom_minimum_size = Vector2(_vw * 0.24, 0)
 
@@ -151,7 +156,8 @@ func _build_ui() -> void:
 	var title_stack := _UiUtil.make_vbox(int(_ref * 0.004), header)
 	title_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var title_lbl := _UiUtil.make_label("Skill Tree", int(_ref * 0.032), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, title_stack)
+	var title_lbl := _UiUtil.make_label("Skill Tree", int(_ref * 0.032), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT,
+			title_stack)
 
 	_points_label = Label.new()
 	_points_label.add_theme_font_size_override("font_size", int(_ref * 0.018))
@@ -173,7 +179,8 @@ func _build_ui() -> void:
 	_tab_buttons.clear()
 	var tab_w: float = (_vw * 0.90 - _vw * 0.015 * 2) / 3.0
 	for i in 3:
-		var tb := _UiUtil.make_button(_tab_label(i), Vector2(tab_w, _ref * 0.055), int(_ref * 0.021), _set_tab.bind(i), tab_bar)
+		var tb := _UiUtil.make_button(_tab_label(i), Vector2(tab_w, _ref * 0.055), int(_ref * 0.021), _set_tab.bind(i),
+				tab_bar)
 		tb.modulate = _tab_color(i) if i == _active_tab else Color(0.5, 0.5, 0.5)
 		_tab_buttons.append(tb)
 
@@ -303,14 +310,19 @@ func _make_skill_node(sk: SkillData, w: float, h: float, is_cross: bool = false)
 	var type_text: String = sk.skill_type.capitalize()
 	if is_cross:
 		type_text = "%s · %s" % [sk.magic_branch.capitalize(), type_text]
-	var type_lbl := _UiUtil.make_label(type_text, int(_ref * 0.016), MagicTypes.branch_color(sk.magic_branch) if is_cross else (Color(0.7, 0.85, 1.0) if sk.skill_type == "active" else Color(0.85, 1.0, 0.7)), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	var type_lbl := _UiUtil.make_label(type_text, int(_ref * 0.016),
+			MagicTypes.branch_color(sk.magic_branch) if is_cross else (Color(0.7, 0.85,
+					1.0) if sk.skill_type == "active" else Color(0.85, 1.0, 0.7)),
+			HORIZONTAL_ALIGNMENT_LEFT, vbox)
 
-	var desc_lbl := _UiUtil.make_label(sk.description, int(_ref * 0.016), Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	var desc_lbl := _UiUtil.make_label(sk.description, int(_ref * 0.016), Color(0.8, 0.8, 0.8),
+			HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	desc_lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
 	if is_unlocked:
-		var check_lbl := _UiUtil.make_label("Unlocked", int(_ref * 0.018), Color(0.3, 0.95, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+		var check_lbl := _UiUtil.make_label("Unlocked", int(_ref * 0.018), Color(0.3, 0.95, 0.4),
+				HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	else:
 		var unlock_btn := Button.new()
 		unlock_btn.custom_minimum_size = Vector2(0, _ref * 0.045)

@@ -74,7 +74,8 @@ func _render_rows() -> void:
 	for c in _rows_vbox.get_children():
 		c.queue_free()
 	if _rows.is_empty():
-		var empty_lbl := _UiUtil.make_label("No other party members in this session yet.", int(_vh * 0.022), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, _rows_vbox)
+		var empty_lbl := _UiUtil.make_label("No other party members in this session yet.", int(_vh * 0.022),
+				Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_LEFT, _rows_vbox)
 		return
 	for row: Variant in _rows:
 		if row is Dictionary:
@@ -84,10 +85,12 @@ func _render_rows() -> void:
 func _add_row(row: Dictionary) -> void:
 	var hb := _UiUtil.make_hbox(int(_ref * 0.02), _rows_vbox)
 
-	var name_lbl := _UiUtil.make_label(str(row.get("name", "Player")), int(_vh * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, hb)
+	var name_lbl := _UiUtil.make_label(str(row.get("name", "Player")), int(_vh * 0.024), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT, hb)
 	name_lbl.custom_minimum_size = Vector2(_vw * 0.28, 0)
 
-	var rating_lbl := _UiUtil.make_label("Rating: %d" % int(row.get("rating", 1000)), int(_vh * 0.022), Color(0.7, 0.85, 1.0), HORIZONTAL_ALIGNMENT_LEFT, hb)
+	var rating_lbl := _UiUtil.make_label("Rating: %d" % int(row.get("rating", 1000)), int(_vh * 0.022),
+			Color(0.7, 0.85, 1.0), HORIZONTAL_ALIGNMENT_LEFT, hb)
 	rating_lbl.custom_minimum_size = Vector2(_vw * 0.18, 0)
 
 	var token: String = str(row.get("token", ""))

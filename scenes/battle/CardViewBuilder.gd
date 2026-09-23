@@ -198,7 +198,8 @@ func _setup_empty_slot_panel(panel: PanelContainer, slot_idx: int, zone_id: Stri
 	style.set_corner_radius_all(4)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.set_meta("card_style", style)
-	var lbl := _UiUtil.make_label(str(slot_idx + 1), int(_font(0.030)), Color(0.45, 0.45, 0.55, 0.8) if is_enemy else Color(0.5, 0.5, 0.6), HORIZONTAL_ALIGNMENT_CENTER, panel)
+	var lbl := _UiUtil.make_label(str(slot_idx + 1), int(_font(0.030)),
+			Color(0.45, 0.45, 0.55, 0.8) if is_enemy else Color(0.5, 0.5, 0.6), HORIZONTAL_ALIGNMENT_CENTER, panel)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -335,7 +336,8 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 		art.custom_minimum_size = Vector2(0.0, _vh * 0.07)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		vbox.add_child(art)
-	var stats_lbl := _UiUtil.make_label(format_card_stats(card, card.cost), int(_font(0.022)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var stats_lbl := _UiUtil.make_label(format_card_stats(card, card.cost), int(_font(0.022)), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER)
 	stats_lbl.name = "StatsLabel"
 	var desc_lbl := Label.new()
 	desc_lbl.name = "DescLabel"

@@ -73,7 +73,8 @@ static func deposit_card(stash: Dictionary, member_rec: Dictionary, card_uid: St
 ## uid into the member's namespace so it can never collide with another member's
 ## instance salted the same way (mirrors the trading gift-uid convention). Returns the
 ## same {ok, reason, stash, member} shape as deposit_card.
-static func withdraw_card(stash: Dictionary, member_rec: Dictionary, stash_uid: String, member_token: String) -> Dictionary:
+static func withdraw_card(stash: Dictionary, member_rec: Dictionary, stash_uid: String,
+		member_token: String) -> Dictionary:
 	var stash_out: Dictionary = _normalized_stash(stash)
 	var member_out: Dictionary = member_rec.duplicate(true)
 	if stash_uid == "":

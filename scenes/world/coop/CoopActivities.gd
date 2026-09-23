@@ -362,13 +362,18 @@ func _show_loot_roll_panel(start: Dictionary) -> void:
 	var layer: CanvasLayer = prompt["layer"]
 	_world._loot_roll_panel = layer
 	var vbox: VBoxContainer = prompt["vbox"]
-	var lbl := _UiUtil.make_label("Loot roll! Tier %d chest — %d card(s).\nNeed, Greed, or Pass?" % [tier, card_ids.size()], int(vh * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var lbl := _UiUtil.make_label(
+			"Loot roll! Tier %d chest — %d card(s).\nNeed, Greed, or Pass?" % [tier, card_ids.size()], int(vh * 0.026),
+			Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var row := _UiUtil.make_hbox(int(vh * 0.025), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var need_btn := _UiUtil.make_button("Need", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024), _submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_NEED), row)
-	var greed_btn := _UiUtil.make_button("Greed", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024), _submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_GREED), row)
-	var pass_btn := _UiUtil.make_button("Pass", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024), _submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_PASS), row)
+	var need_btn := _UiUtil.make_button("Need", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024),
+			_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_NEED), row)
+	var greed_btn := _UiUtil.make_button("Greed", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024),
+			_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_GREED), row)
+	var pass_btn := _UiUtil.make_button("Pass", Vector2(vh * 0.16, vh * 0.06), int(vh * 0.024),
+			_submit_loot_roll_choice.bind(roll_id, _LootRoll.CHOICE_PASS), row)
 
 # ── Co-op story mode — shared story flags (GID-098 / TID-356) ────────────────
 

@@ -79,14 +79,16 @@ func _make_slot_row(slot: int, ref: float, vp: Vector2) -> Control:
 	btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
 	if has:
-		var load_btn := _UiUtil.make_button("Continue", Vector2(ref * 0.18, ref * 0.048), int(ref * 0.022), func() -> void: _on_load_slot(slot), btn_vbox)
+		var load_btn := _UiUtil.make_button("Continue", Vector2(ref * 0.18, ref * 0.048), int(ref * 0.022),
+				func() -> void: _on_load_slot(slot), btn_vbox)
 
 		var del_btn := _UiUtil.make_button("Delete", Vector2(ref * 0.18, ref * 0.048), int(ref * 0.022))
 		del_btn.add_theme_color_override("font_color", Color(1.0, 0.4, 0.4))
 		del_btn.pressed.connect(func() -> void: _confirm_delete(slot))
 		btn_vbox.add_child(del_btn)
 	else:
-		var new_btn := _UiUtil.make_button("New Game", Vector2(ref * 0.18, ref * 0.048), int(ref * 0.022), func() -> void: _on_new_game_slot(slot), btn_vbox)
+		var new_btn := _UiUtil.make_button("New Game", Vector2(ref * 0.18, ref * 0.048), int(ref * 0.022),
+				func() -> void: _on_new_game_slot(slot), btn_vbox)
 
 	return panel
 
@@ -131,7 +133,8 @@ func _confirm_delete(slot: int) -> void:
 	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	dialog.add_child(vbox)
 
-	var lbl := _UiUtil.make_label("Delete Slot %d?\nThis cannot be undone." % slot, int(ref * 0.028), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var lbl := _UiUtil.make_label("Delete Slot %d?\nThis cannot be undone." % slot, int(ref * 0.028), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var row := _UiUtil.make_hbox(int(ref * 0.02), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -145,7 +148,8 @@ func _confirm_delete(slot: int) -> void:
 	)
 	row.add_child(yes_btn)
 
-	var no_btn := _UiUtil.make_button("Cancel", Vector2(ref * 0.18, ref * 0.055), int(ref * 0.026), func() -> void: layer.queue_free(), row)
+	var no_btn := _UiUtil.make_button("Cancel", Vector2(ref * 0.18, ref * 0.055), int(ref * 0.026),
+			func() -> void: layer.queue_free(), row)
 
 func _refresh() -> void:
 	# Reload the scene to reflect slot changes

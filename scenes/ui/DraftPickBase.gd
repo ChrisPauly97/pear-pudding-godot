@@ -70,7 +70,8 @@ func _make_card_panel(card_id: String) -> Control:
 	outer_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	outer_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 
-	var margin := _UiUtil.make_margin(int(_vw * 0.012), int(_ref * 0.012), int(_vw * 0.012), int(_ref * 0.012), outer_panel)
+	var margin := _UiUtil.make_margin(int(_vw * 0.012), int(_ref * 0.012), int(_vw * 0.012), int(_ref * 0.012),
+			outer_panel)
 	var vbox := _UiUtil.make_vbox(int(_ref * 0.008), margin)
 
 	var name_row := _UiUtil.make_hbox(int(_vw * 0.008), vbox)
@@ -78,7 +79,8 @@ func _make_card_panel(card_id: String) -> Control:
 	swatch.color = tmpl.get("color", Color(0.3, 0.3, 0.4))
 	swatch.custom_minimum_size = Vector2(_ref * 0.035, _ref * 0.035)
 	name_row.add_child(swatch)
-	var name_lbl := _UiUtil.make_label(str(tmpl.get("name", card_id)), int(_ref * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, name_row)
+	var name_lbl := _UiUtil.make_label(str(tmpl.get("name", card_id)), int(_ref * 0.026), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT, name_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	_UiUtil.make_label(_tier_label(tier), int(_ref * 0.02), tier_color, HORIZONTAL_ALIGNMENT_LEFT, vbox)
@@ -93,7 +95,8 @@ func _make_card_panel(card_id: String) -> Control:
 	# The description doubles as the flex spacer that keeps the Pick button
 	# pinned to the bottom; cards without one need a bare spacer instead.
 	if desc != "":
-		var desc_lbl := _UiUtil.make_label(desc, int(_ref * 0.018), Color(0.70, 0.70, 0.70), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+		var desc_lbl := _UiUtil.make_label(desc, int(_ref * 0.018), Color(0.70, 0.70, 0.70), HORIZONTAL_ALIGNMENT_LEFT,
+				vbox)
 		desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		desc_lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	else:
@@ -101,7 +104,8 @@ func _make_card_panel(card_id: String) -> Control:
 		spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		vbox.add_child(spacer)
 
-	var pick_btn := _UiUtil.make_button("Pick", Vector2(0.0, _ref * 0.055), int(_ref * 0.023), _on_pick.bind(card_id), vbox)
+	var pick_btn := _UiUtil.make_button("Pick", Vector2(0.0, _ref * 0.055), int(_ref * 0.023), _on_pick.bind(card_id),
+			vbox)
 	pick_btn.modulate = tier_color
 	pick_btn.disabled = _pick_disabled()
 	return outer_panel
