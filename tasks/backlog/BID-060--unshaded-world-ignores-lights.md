@@ -17,3 +17,11 @@ The terrain shader is lit, but the grass shaders, ChunkRenderer prop MultiMeshes
 ## Suggested Resolution
 
 Evaluate making grass lit (diffuse only, receive shadows) at Medium/High and keep unshaded on Low, measuring the mobile cost. Alternatively sample the shadow/light in a cheap way (for example a light-pool mask texture) for the unshaded shaders. Decide as part of TID-485/489.
+
+## Progress
+
+- **Point lights — worked around (GID-129 / TID-489):** night light pools are depth-reconstructing additive volumes
+  (`assets/shaders/night_light_pool.gdshader`, `scenes/world/modules/NightLights.gd`), so they light the unshaded
+  grass, props, landmarks, WorldItem and sprites without changing their materials. No real OmniLight3D is needed.
+- **Still open — sun shadows:** grass, props, landmarks and WorldItem still never receive sun shadows, and
+  DayNightCycle's grass brightness approximation remains. The WorldItem.gd:92 comment is still accurate for real lights.

@@ -343,6 +343,7 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `TownSiege.gd` (`town_siege`) | Single-player siege raiders + banner, Chapter 2 marsax_hold trigger |
 | `NamedMapProps.gd` (`named_props`) | Named-map scrolls, shrines, waystones (incl. injected town waystone), injected mailbox, fast-travel panel |
 | `ChestLoot.gd` (`chest_loot`) | Chest open (mimic, co-op sync, need/greed hand-off), card/coin scatter, equipment drop |
+| `NightLights.gd` (`night_lights`) | Night light rigs: lantern/waystone/mana-well/campfire glow dots + depth-based light pools, flicker, tier caps |
 
 BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
 `BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference typed as

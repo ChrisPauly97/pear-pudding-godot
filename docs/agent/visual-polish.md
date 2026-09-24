@@ -13,6 +13,7 @@
 - **Battle backdrop**: the card board's background is a per-biome, day/night patch of ground seen from overhead, painted by one full-screen shader out of the world's own terrain tiles and prop sprites, instead of the flat `Color(0.1, 0.1, 0.15)` rect it was through GID-125.
 - **Chest & door sprites**: `Chest.gd` and `Door.gd` render as billboard `Sprite3D`s (0x72 pack chest/door art, GID-118) instead of flat-colored `BoxMesh` geometry, falling back to the original procedural boxes if the sprites are missing. See `docs/agent/inventory-and-deck.md` (chest open ceremony) and `docs/agent/named-maps-and-dungeons.md` (door rendering).
 
+- **Night lights** (GID-129/TID-489): door lanterns, waystones, mana wells and the wilderness camp fire glow from dusk to dawn with per-style flicker. Warm light pools (Medium 4 / High 8) light terrain, grass, props and sprites alike through a depth-reconstructing additive volume; Low keeps just the glowing lamp dots.
 - **Sun rays** (GID-129/TID-488): warm light shafts at dawn and dusk that fade out before midday and under heavy weather. Medium draws cheap screen-space shafts (10 taps, hidden when off); High adds Forward+ volumetric fog lit only by the shadowed sun.
 - **Rain wetness & storm lightning** (GID-129/TID-487): rain darkens and glosses the terrain (puddle patches, soaks in ~20 s, dries over ~90 s); heavy rain and volcanic weather flash (blue-white / red) every 8–25 s with delayed, distance-pitched thunder; a Reduce Flashing setting keeps the thunder but drops the flash.
 - **Weather drives the atmosphere** (GID-129/TID-486): each weather id reshapes fog density/colour, sky overcast, sun/moon energy, shadow opacity, ambient tint and grass wind (strength + steady lean) through one `WeatherLook` table, blended over 4 s by `DayNightCycle`.
@@ -46,8 +47,8 @@ The single source of truth for which atmosphere effects run. All-static module (
 | `particle_scale` | 0.5 | 0.75 | 1.0 | `scaled_amount()` — weather particles now; TID-493 ambient particles |
 | `ambient_particles` | off | on | on | TID-493 |
 | `sun_rays` | OFF | SCREEN | VOLUMETRIC | `SunRaysFx.set_mode` (TID-488, `SUN_RAYS_*`) |
-| `max_night_lights` | 0 | 4 | 8 | TID-489 (Mobile per-mesh limit is 8) |
-| `night_light_shadows` | off | off | off | TID-489 |
+| `max_night_lights` | 0 | 4 | 8 | `NightLights` module: rigs that draw a light pool (TID-489) |
+| `night_light_shadows` | off | off | off | `NightLights`: adds a shadowed `OmniLight3D` per pool rig (reserved, off everywhere) |
 
 - **Renderer clamp:** `clamp_to_renderer(knobs, method)` turns every `FORWARD_PLUS_ONLY` key (`ssao`, `volumetric_fog`) off and downgrades `sun_rays` VOLUMETRIC → SCREEN unless the method is `"forward_plus"`. `knobs_for(tier, method)` returns a clamped **copy**; `current_knobs(setting)` uses the platform and `RenderingServer.get_current_rendering_method()`.
 - **Apply:** `apply(knobs, env, sun, viewport, moon = null)` writes glow/SSAO/volumetric fog to the Environment, shadow enable/mode/distance/split/blend/bias to the sun, shadow enable + an orthogonal low-res map to the moon, MSAA to the viewport and the shadow atlas size + soft-filter quality to the RenderingServer (global). Any argument may be null.
@@ -87,6 +88,14 @@ The single source of truth for which atmosphere effects run. All-static module (
 - **Wiring:** `WorldScene._on_weather_changed(id)` swaps particles, calls `_dnc.set_weather(id)` and sets the grass direction. Co-op clients already route the host-synced weather id there (`CoopSession`), so there is no extra RPC. Globals `grass_wind_scale`/`grass_wind_lean` are registered by both `GrassBlades._init_material()` and `DayNightCycle.setup()`.
 - **Tiers:** only Environment/light params and two global floats — works identically on every tier and renderer.
 - **Extending:** add the key with its neutral value to `CLEAR`, add per-weather values to `OVERRIDES`, read `look["key"]` in the consumer (`DayNightCycle` or `dnc.weather_look()`). The blend and the key-set test pick it up automatically.
+
+### Night Lights (`game_logic/NightLightMath.gd`, `scenes/world/modules/NightLights.gd`, `night_light_pool.gdshader`) — TID-489
+
+- **Why a fake light:** grass, props, landmarks, WorldItem and most billboards are `unshaded` (BID-060), so a real `OmniLight3D` would only touch the terrain, and Mobile caps real lights at 8 per mesh. A flat ground quad clips on hills and never touches sprites. Instead each pool is an ellipsoid (`SphereMesh`, 12×6, scaled to `radius × 1.08` wide, `radius / 0.75 × 1.08` tall) with `night_light_pool.gdshader`: `unshaded, blend_add, depth_draw_never, depth_test_disabled, cull_front`. The fragment reads `hint_depth_texture`, rebuilds the world position of the opaque surface behind the pixel (`INV_PROJECTION_MATRIX` / `INV_VIEW_MATRIX`, with a `CURRENT_RENDERER == RENDERER_COMPATIBILITY` branch for the −1..1 NDC depth) and adds `light_color × energy × t²`, `t = 1 − |d| / radius` with `d.y × vertical_squash` (0.75, so sprites standing in the pool light up the whole way). Every covered pixel runs exactly once (front faces culled, no depth test). Works on Forward+, Mobile and Compatibility (verified rendering under xvfb/Compatibility); costs one depth copy plus the pools' small screen footprint, and only while a pool is visible.
+- **Rules (`NightLightMath`, pure/static):** `STYLES` — `lantern` (warm, r 4.5, e 0.55, flicker 0.14), `campfire` (orange, r 6, e 0.8, flicker 0.32, fast), `waystone` (teal, r 4, e 0.45, slow 0.06 pulse), `mana_well` (blue, r 4, e 0.45, 0.1); each also has `speed` and the glow-dot `height`. `night_factor(sun_h) = 1 − smoothstep(−0.05, 0.15, sun_h)` — lights warm up while the sun is still just above the horizon and are full once it sets. `flicker(t, phase, amount, speed)` — three incommensurate sines, result in `[1 − amount, 1]`. `phase_for(pos)` keeps a light's rhythm stable when it changes rig. `nearest(sources, origin, count, max_dist)` — ground-plane distance, nearest first, input untouched.
+- **Manager (`NightLights` module, `WorldScene.night_lights`):** every 0.5 s `refresh()` reads the night factor (from `DayNightCycle.sun_direction(time).y`) and the `max_night_lights` / `night_light_shadows` knobs from `WorldScene.graphics_knobs()` (so a Settings tier change lands within 0.5 s, no signal needed), gathers sources from WorldScene's live dicts via `_valid_node3d` (`_door_nodes` → lantern, `_waystone_nodes`, `_mana_well_nodes`, `_wilderness_camp_node` → campfire; hidden or out-of-tree nodes skipped) and assigns the nearest 8 within 30 units to pooled rigs. Rig = additive billboarded glow dot (radial `GradientTexture2D`, on every tier, nudged 0.4 units along the iso view axis so it draws in front of its own sprite) + pool (first `max_night_lights` rigs) + optional shadowed `OmniLight3D`. `_process` writes each active rig's flicker (pool `energy`, dot alpha, omni energy) — at most 8 uniform writes per frame. In daylight (`night_factor < 0.01`) or with no player every rig is hidden and nothing is gathered. Rigs are parented with `_world.add_child`, so they go away with the scene.
+- **Co-op / battles:** purely local (time is already synced). The detached WorldScene isn't in the tree during battles, so nothing runs then.
+- **Tests:** `tests/unit/test_night_lights.gd` (night factor, flicker band, style shape, nearest cap/order/range, phase stability, tier caps).
 
 ### Sun Rays (`game_logic/SunRayMath.gd`, `scenes/world/SunRaysFx.gd`, `sun_rays.gdshader`) — TID-488
 
@@ -275,9 +284,12 @@ fallback for any key/branch the registry doesn't recognize.
 - `BattleBackdrop.DIVIDER_Y` is tied to `BattleScene.tscn`'s `Divider` anchor, and `ARENA_CENTER`/`ARENA_HALF` to the card area's extent (which ends at x = 0.86, where the side panel starts); `test_battle_backdrop` fails if either drifts.
 
 - `GraphicsQuality` is read by `WorldScene` (environment, sun, weather particles) and written by `SettingsScene` (option row + `GameBus.graphics_quality_changed`). Later GID-129 effects (shadows, sun rays, night lights, ambient particles) read their knobs from `WorldScene.graphics_knobs()`.
+- `NightLights` (world module) reads time of day from `DayNightCycle`, knobs from `WorldScene.graphics_knobs()` and light sources from WorldScene's door / waystone / mana-well dicts and the wilderness camp node; it writes only its own rig nodes.
 - `SunRaysFx` reads time of day and the blended `WeatherLook` from `DayNightCycle`, the sun colour from `DayNightCycle.sun_color_for`, and its mode from `GraphicsQuality`; it writes only its own CanvasLayer and the Environment's volumetric fog.
 
 ## Asset Requirements
+
+Night lights (GID-129/TID-489) add `assets/shaders/night_light_pool.gdshader` and its `.uid` sidecar; the glow dot uses a code-built radial `GradientTexture2D`, no image files.
 
 Sun rays (GID-129/TID-488) add `assets/shaders/sun_rays.gdshader` and its `.uid` sidecar; no textures (the shafts are procedural noise over the screen texture).
 
