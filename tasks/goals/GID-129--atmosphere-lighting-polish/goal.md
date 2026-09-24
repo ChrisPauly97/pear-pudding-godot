@@ -17,7 +17,7 @@ Findings: desktop runs Forward+, Android runs Mobile (no volumetric fog/SSAO/GI)
 | TID-484 | Graphics Quality Tiers | agent | done | — |
 | TID-485 | Sun Shadows & Golden-Hour Sun | agent | done | TID-484 |
 | TID-486 | Weather Drives Fog, Sun & Grass Wind | agent | done | — |
-| TID-487 | Rain Wetness & Lightning | agent | pending | TID-486 |
+| TID-487 | Rain Wetness & Lightning | agent | done | TID-486 |
 | TID-488 | Sun Rays (Volumetric on High, Post-Process Fallback) | agent | pending | TID-484 |
 | TID-489 | Night Point Lights with Flicker | agent | pending | TID-484 |
 | TID-490 | Weather & Time-of-Day Ambience Layers, Music Ducking | agent | done | — |
@@ -29,7 +29,7 @@ Findings: desktop runs Forward+, Android runs Mobile (no volumetric fog/SSAO/GI)
 
 - [x] Graphics Quality setting (Low/Medium/High) with platform defaults; Forward+-only effects never enabled on Mobile renderer
 - [ ] Softer, better-resolved sun shadows and angled, warm dawn/dusk light
-- [ ] Each weather type changes fog, sun and grass wind; rain wets terrain; storms flash with thunder
+- [x] Each weather type changes fog, sun and grass wind; rain wets terrain; storms flash with thunder
 - [ ] Visible sun rays on Medium and High
 - [ ] Night light sources glow and flicker
 - [ ] Weather and day/night ambience layers, terrain footsteps, music ducking under dialogue/narration

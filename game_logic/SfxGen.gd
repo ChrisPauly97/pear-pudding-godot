@@ -12,6 +12,7 @@ const _KEYS: Array[String] = [
 	"card_draw", "card_play", "spell_resolve", "attack", "battle_win", "battle_lose",
 	"enemy_engage", "enemy_alert", "chest_open", "scroll_pickup", "door_enter",
 	"footstep", "nightfall_ambient", "ui_click", "land", "dig_success", "waystone_travel",
+	"thunder",
 ]
 
 static var _cache: Dictionary = {}
@@ -73,6 +74,8 @@ static func _build(key: String) -> AudioStreamWAV:
 			return _gen_dig_success()
 		"waystone_travel":
 			return _gen_waystone_travel()
+		"thunder":
+			return _gen_thunder()
 		_:
 			return _gen_ui_click()
 
@@ -387,6 +390,25 @@ static func _gen_waystone_travel() -> AudioStreamWAV:
 	var shimmer: PackedFloat32Array = _sine(1800.0, 0.2, 0.15)
 	_apply_env_ad(shimmer, 0.05, 8.0)
 	return _to_wav(_mix_at(sweep, shimmer, int(0.1 * MIX_RATE)))
+
+## Storm thunder (TID-487): a bright noise crack, then a low rolling rumble
+## whose loudness swells and wanes a few times as it dies away.
+static func _gen_thunder() -> AudioStreamWAV:
+	var dur: float = 2.8
+	var crack: PackedFloat32Array = _highpass(_noise(0.25, 0.7, 4201), 0.6)
+	_apply_env_ad(crack, 0.002, 14.0)
+	var rumble: PackedFloat32Array = _lowpass(_lowpass(_noise(dur, 1.0, 4202), 0.03), 0.08)
+	var peak: float = 0.0001
+	for i in rumble.size():
+		var t: float = float(i) / float(MIX_RATE)
+		var roll: float = 0.65 + 0.35 * sin(_TAU * 1.3 * t + sin(_TAU * 0.4 * t) * 2.0)
+		var env: float = minf(1.0, t / 0.12) * exp(-1.2 * t)
+		rumble[i] = rumble[i] * roll * env
+		peak = maxf(peak, absf(rumble[i]))
+	# Heavy low-passing leaves the rumble very quiet; normalise it.
+	for i in rumble.size():
+		rumble[i] *= 0.8 / peak
+	return _to_wav(_mix(rumble, crack))
 
 # ── Biome ambience recipes (looping) ──────────────────────────────────────
 

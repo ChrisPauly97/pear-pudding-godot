@@ -30,6 +30,7 @@ AudioManager.play_sfx("footstep")    # no-op if footstep.wav is missing
 | `footstep` | `assets/audio/sfx/footstep.wav` (generic; fallback for unknown keys in `play_sfx_varied`) |
 | `footstep_grass` / `_sand` / `_stone` / `_snow` / `_wood` / `_water` | `assets/audio/sfx/footstep_<surface>.wav` |
 | `footstep_hoof` | `assets/audio/sfx/footstep_hoof.wav` |
+| `thunder` | `assets/audio/sfx/thunder.wav` (optional; `SfxGen._gen_thunder` synth fallback — crack + rolling rumble, 2.8 s). Played by WorldScene via `play_sfx_varied("thunder", pitch)` when `DayNightCycle.thunder_rumbled` fires (GID-129 / TID-487); pitch 1.05 close → 0.75 distant |
 
 ### Adding a New SFX
 

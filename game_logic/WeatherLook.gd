@@ -35,6 +35,13 @@ const CLEAR: Dictionary = {
 	"wind_direction": Vector2(0.94385835, 0.33035042),
 	"wind_scale": 1.0,
 	"wind_lean": 0.0,
+	# TID-487: ground wetness target (0 dry .. 1 soaked). DayNightCycle eases the
+	# terrain toward it on its own clock — quick to wet, slow to dry.
+	"wetness": 0.0,
+	# TID-487: storm strength (0 = no lightning). Scales strike frequency.
+	"lightning": 0.0,
+	# Colour the flash pulls ambient light and sky toward.
+	"lightning_color": Color(0.80, 0.86, 1.00),
 }
 
 const OVERRIDES: Dictionary = {
@@ -43,12 +50,14 @@ const OVERRIDES: Dictionary = {
 		"fog_density_mult": 1.6, "fog_color": Color(0.55, 0.58, 0.66), "fog_color_weight": 0.55,
 		"sky_overcast": 0.5, "sun_energy_mult": 0.6, "shadow_opacity_mult": 0.5,
 		"wind_direction": Vector2(0.37139068, 0.92847669), "wind_scale": 1.6, "wind_lean": 0.04,
+		"wetness": 0.6,
 	},
 	"heavy_rain": {
 		"tint": Color(0.70, 0.70, 0.85),
 		"fog_density_mult": 2.2, "fog_color": Color(0.42, 0.45, 0.53), "fog_color_weight": 0.8,
 		"sky_overcast": 0.8, "sun_energy_mult": 0.35, "shadow_opacity_mult": 0.2,
 		"wind_direction": Vector2(0.49613894, 0.86824314), "wind_scale": 2.6, "wind_lean": 0.10,
+		"wetness": 1.0, "lightning": 1.0,
 	},
 	"sandstorm": {
 		"tint": Color(0.95, 0.85, 0.70),
@@ -73,6 +82,8 @@ const OVERRIDES: Dictionary = {
 		"fog_density_mult": 2.4, "fog_color": Color(0.50, 0.30, 0.22), "fog_color_weight": 0.75,
 		"sky_overcast": 0.75, "sun_energy_mult": 0.45, "shadow_opacity_mult": 0.35,
 		"wind_direction": Vector2(0.39391929, 0.91914503), "wind_scale": 1.2, "wind_lean": 0.02,
+		# Dry lightning in the ash cloud, red-tinted by the lava glow.
+		"lightning": 0.7, "lightning_color": Color(1.00, 0.55, 0.35),
 	},
 	"snow": {
 		"tint": Color(0.95, 0.95, 1.00),

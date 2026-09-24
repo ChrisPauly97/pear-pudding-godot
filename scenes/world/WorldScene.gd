@@ -527,6 +527,10 @@ func _ready() -> void:
 			nocturnal.despawn_all(true)
 			_night_cue_played = false
 		)
+		# Storm lightning (TID-487): thunder after the flash; reduce-flashing read live.
+		_dnc.thunder_rumbled.connect(func(pitch: float) -> void: AudioManager.play_sfx_varied("thunder", pitch, 0.05))
+		_dnc.flashing_allowed = func() -> bool: return not bool(
+			SceneManager.save_manager.get_setting("reduce_flashing", false))
 
 	if _is_infinite:
 		WorldEvents.register_all(self)

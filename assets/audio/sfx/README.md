@@ -33,6 +33,7 @@ change needed.
 | `land` | Player lands after a jump |
 | `dig_success` | Treasure dig succeeds |
 | `waystone_travel` | Waystone fast-travel teleport |
+| `thunder` | Storm lightning thunder (heavy rain, volcanic), 0.5–3.5 s after the flash; played pitch-shifted for distance, so a single close, full-bodied crack-and-roll (2–4 s) works best |
 
 Replace any file with a real audio asset when available. The Godot editor will
 auto-generate `.import` sidecars on first scan.

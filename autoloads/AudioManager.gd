@@ -53,6 +53,8 @@ const SFX_PATHS: Dictionary = {
 	"land":         "res://assets/audio/sfx/land.wav",
 	"dig_success":  "res://assets/audio/sfx/dig_success.wav",
 	"waystone_travel": "res://assets/audio/sfx/waystone_travel.wav",
+	# Storm lightning (GID-129 / TID-487), played after the flash by WorldScene.
+	"thunder":      "res://assets/audio/sfx/thunder.wav",
 }
 const _POOL_SIZE: int = 8
 

@@ -13,6 +13,7 @@
 - **Battle backdrop**: the card board's background is a per-biome, day/night patch of ground seen from overhead, painted by one full-screen shader out of the world's own terrain tiles and prop sprites, instead of the flat `Color(0.1, 0.1, 0.15)` rect it was through GID-125.
 - **Chest & door sprites**: `Chest.gd` and `Door.gd` render as billboard `Sprite3D`s (0x72 pack chest/door art, GID-118) instead of flat-colored `BoxMesh` geometry, falling back to the original procedural boxes if the sprites are missing. See `docs/agent/inventory-and-deck.md` (chest open ceremony) and `docs/agent/named-maps-and-dungeons.md` (door rendering).
 
+- **Rain wetness & storm lightning** (GID-129/TID-487): rain darkens and glosses the terrain (puddle patches, soaks in ~20 s, dries over ~90 s); heavy rain and volcanic weather flash (blue-white / red) every 8–25 s with delayed, distance-pitched thunder; a Reduce Flashing setting keeps the thunder but drops the flash.
 - **Weather drives the atmosphere** (GID-129/TID-486): each weather id reshapes fog density/colour, sky overcast, sun/moon energy, shadow opacity, ambient tint and grass wind (strength + steady lean) through one `WeatherLook` table, blended over 4 s by `DayNightCycle`.
 - **Sun arc & golden hour** (GID-129/TID-485): tilted sun arc (NE rise, noon leaning away from the camera, SW set) so shadows read diagonally all day; three-stop golden-hour sun colour; PSSM 2-split sun shadows on High with tuned bias, low-res moon shadows on High.
 - **Graphics Quality tiers** (GID-129/TID-484): one Low / Medium / High setting decides which atmosphere effects run; Medium is the phone default, High the desktop default. Forward+-only effects are forced off on the Mobile/Compatibility renderers regardless of tier.
@@ -76,12 +77,30 @@ The single source of truth for which atmosphere effects run. All-static module (
 | `wind_direction` | (0.94, 0.33) | grass `wind_direction` uniform via `GrassBlades.set_wind_direction` (WorldScene, on change). Clear used to be `Vector2.ZERO`, which `normalize()`d to NaN in the grass shaders after rain ended |
 | `wind_scale` | 1.0 | global shader param `grass_wind_scale` (× per-material `wind_strength`) |
 | `wind_lean` | 0.0 | global shader param `grass_wind_lean` — steady downwind bend at the blade tip, so storms push grass over instead of only swaying faster |
+| `wetness` | 0.0 | ground wetness **target** (rain 0.6, heavy_rain 1.0) — not blended over 4 s; see "Rain Wetness" below |
+| `lightning` | 0.0 | storm strength (heavy_rain 1.0, volcanic 0.7); > 0 runs the strike scheduler — see "Storm Lightning" |
+| `lightning_color` | blue-white | colour the flash pulls ambient and sky toward (volcanic: red-orange) |
 
   Heavy variants (heavy_rain, sandstorm, volcanic, blizzard) are foggier, darker and at least as windy as their light pair; `test_weather_look` pins that, key-set consistency, ranges and the fog cap.
 - **Blend:** `DayNightCycle.set_weather(id, instant = false)` starts a `WEATHER_BLEND_SECONDS` (4 s) smoothstep blend from the currently applied look (`WeatherLook.blend(a, b, t)` lerps float / Color / Vector2 keys; anything else snaps at t = 0.5). `tick(delta)` (the old `weather_tint` argument is gone) advances the blend **per frame** and re-applies lighting immediately while blending; the 2 Hz time-of-day update continues as before. Every write is behind a write-on-change cache (`_cached_fog_density`, `_cached_fog_color`, `_cached_shadow_opacity`, `_cached_wind_scale/_lean`, …). `weather_look()` exposes the applied look to later tasks.
 - **Wiring:** `WorldScene._on_weather_changed(id)` swaps particles, calls `_dnc.set_weather(id)` and sets the grass direction. Co-op clients already route the host-synced weather id there (`CoopSession`), so there is no extra RPC. Globals `grass_wind_scale`/`grass_wind_lean` are registered by both `GrassBlades._init_material()` and `DayNightCycle.setup()`.
 - **Tiers:** only Environment/light params and two global floats — works identically on every tier and renderer.
-- **Extending (TID-487 wetness, lightning, …):** add the key with its neutral value to `CLEAR`, add per-weather values to `OVERRIDES`, read `look["key"]` in the consumer (`DayNightCycle` or `dnc.weather_look()`). The blend and the key-set test pick it up automatically.
+- **Extending:** add the key with its neutral value to `CLEAR`, add per-weather values to `OVERRIDES`, read `look["key"]` in the consumer (`DayNightCycle` or `dnc.weather_look()`). The blend and the key-set test pick it up automatically.
+
+### Rain Wetness (`DayNightCycle`, `terrain.gdshader`) — TID-487
+
+- **State:** `DayNightCycle._wetness` eases toward the *target* look's `wetness` every frame via `Lightning.step_wetness` — full soak in `WET_SECONDS` (20 s), full dry in `DRY_SECONDS` (90 s), so puddles outlast the rain. The first weather id after `setup()` (world entry, co-op join) snaps wetness to its target, so re-entering mid-rain starts wet; `setup()` also writes 0, because the global outlives scenes (a named map entered from a rainy world would otherwise be wet). `set_weather(id, true)` snaps too. `wetness()` getter.
+- **Shader param:** global `terrain_wetness`, declared in `project.godot` `[shader_globals]` (so it exists before any shader compiles — do **not** also `global_shader_parameter_add` it at runtime). Written by `DayNightCycle._write_wetness()` quantised to 1/128 steps, only on change.
+- **Terrain shader:** when `terrain_wetness > 0.001` (uniform branch; dry weather pays nothing): wetness weighted by how upward-facing the ground is (`smoothstep(0.55, 0.95, normal.y)`, vertical wall faces get 25 %) darkens albedo up to 35 %, drops roughness 0.9 → 0.35 and raises specular 0.1 → 0.45; `fbm` noise patches (only once wetness passes ~0.35) become puddles — another 10 % darker, roughness 0.08. Emission floor uses the darkened colour. Plain PBR params: works on Forward+, Mobile and Compatibility at every tier.
+
+### Storm Lightning (`game_logic/Lightning.gd`, `DayNightCycle`) — TID-487
+
+- **Rules (`Lightning.gd`, pure/static):** `next_interval(rng, strength)` 8 s … 8 + 17/strength s; `flash_envelope(t)` over `FLASH_SECONDS` 0.5 — sharp main flash, dip, weaker re-strike, fade; `thunder_delay(rng)` 0.5–3.5 s (the strike's distance); `thunder_pitch(delay)` 1.05 close → 0.75 distant; `step_wetness`.
+- **Scheduler (`DayNightCycle._tick_lightning`, per frame from `tick`):** while the *target* look's `lightning > 0`, counts down a local-random interval, then `strike_lightning()`: starts the flash (unless `flashing_allowed` returns false) and queues thunder. Every `set_weather` resets the countdown; a storm ending stops new strikes but queued thunder still rolls. `thunder_rumbled(pitch)` fires after the delay.
+- **Flash:** `_apply_lighting()` runs every frame while a flash is live and adds `flash × FLASH_AMBIENT_BOOST` (1.6) to ambient energy and pulls ambient colour and sky (hence fog colour and the unshaded grass tint) toward `lightning_color` by `flash × 0.7`. The sun is untouched, so flashes read at night too. `flash_level()` getter.
+- **Wiring (WorldScene `_ready`, infinite world only):** `_dnc.thunder_rumbled` → `AudioManager.play_sfx_varied("thunder", pitch, 0.05)`; `_dnc.flashing_allowed` reads the `reduce_flashing` setting live (Settings → Accessibility & Comfort → Reduce Flashing): with it on, strikes keep their thunder and never flash.
+- **Co-op:** peers share only the weather id (already synced); strike timing is local-random per client — no RPC.
+- **Battles:** the detached WorldScene isn't in the tree, so no strikes or thunder play during a battle.
 
 ### Sky & Fog (`WorldScene._setup_environment`, `DayNightCycle`)
 

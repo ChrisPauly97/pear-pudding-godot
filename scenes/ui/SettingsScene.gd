@@ -77,6 +77,12 @@ func _build_ui() -> void:
 		SceneManager.save_manager.set_setting("screen_shake", v)
 	)
 
+	# Storm lightning keeps its thunder but skips the screen flash (TID-487).
+	var calm_flash: bool = bool(SceneManager.save_manager.get_setting("reduce_flashing", false))
+	_add_toggle_row(vbox, "Reduce Flashing", calm_flash, func(v: bool) -> void:
+		SceneManager.save_manager.set_setting("reduce_flashing", v)
+	)
+
 	var text_scale: float = float(SceneManager.save_manager.get_setting("text_scale", 1.0))
 	_add_option_row(vbox, "Text Size", ["Small (85%)", "Normal (100%)", "Large (125%)"],
 		_scale_to_index(text_scale), func(idx: int) -> void:

@@ -6,9 +6,12 @@ extends Node
 signal day_passed
 signal night_started
 signal dawn_arrived
+## A lightning strike's thunder arrives (TID-487); `pitch` is lower for distant strikes.
+signal thunder_rumbled(pitch: float)
 
 const _GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 const _WeatherLook = preload("res://game_logic/WeatherLook.gd")
+const _Lightning = preload("res://game_logic/Lightning.gd")
 const INTERVAL: float = 0.5  # update lighting at 2 Hz
 
 # Sun arc (TID-485). The old sun swung about the X axis alone: it rose due
@@ -30,6 +33,18 @@ const GOLDEN_BAND: float = 0.45  # sun height (sin of arc angle) below which it 
 # Weather look (TID-486): seconds a weather change takes to blend fog, sun,
 # sky, shadows and grass wind from the current look to the new one.
 const WEATHER_BLEND_SECONDS: float = 4.0
+# Rain wetness (TID-487): global shader param read by terrain.gdshader
+# (declared in project.godot [shader_globals]); written in 1/WETNESS_STEPS steps.
+const WETNESS_PARAM: String = "terrain_wetness"
+const WETNESS_STEPS: float = 128.0
+# Lightning flash: ambient-energy boost and how far ambient/sky pull toward
+# the look's lightning colour at the flash peak.
+const FLASH_AMBIENT_BOOST: float = 1.6
+const FLASH_COLOR_PULL: float = 0.7
+
+## Returns false to suppress the flash (the reduce-flashing setting); thunder
+## still plays. WorldScene wires it to the save setting so toggles apply live.
+var flashing_allowed: Callable = Callable()
 
 var _sun: DirectionalLight3D
 var _moon: DirectionalLight3D
@@ -63,6 +78,19 @@ var _look_t: float = 1.0
 # Clear-weather values the look multiplies, captured at setup.
 var _base_fog_density: float = 0.004
 var _base_shadow_opacity: float = 1.0
+
+# Rain wetness: eased toward the target look's `wetness` (quick to wet, slow to dry).
+var _wetness: float = 0.0
+var _cached_wetness: float = -1.0
+var _weather_seen: bool = false
+# Lightning: countdown to the next strike, current flash time (-1 = none) and
+# pending thunder delay (-1 = none). Local-random; co-op peers only share the id.
+var _rng := RandomNumberGenerator.new()
+var _strike_in: float = -1.0
+var _flash_t: float = -1.0
+var _flash: float = 0.0
+var _thunder_in: float = -1.0
+var _thunder_pitch: float = 1.0
 
 var _prev_was_night: bool = false
 var _sky_mat: ProceduralSkyMaterial = null
@@ -115,6 +143,10 @@ func setup(sun: DirectionalLight3D, moon: DirectionalLight3D,
 	_day_duration = day_duration
 	_time_of_day = initial_time
 	_prev_was_night = is_night(_time_of_day)
+	_rng.randomize()
+	# The wetness global outlives scenes: reset it so a named map entered from
+	# a rainy world starts dry (its first weather id re-soaks the world).
+	_write_wetness()
 	# Register before the first _apply_lighting write — grass chunks may not
 	# have initialised the shared grass globals yet at this point.
 	_GrassBlades._ensure_global_param(
@@ -141,6 +173,13 @@ func set_weather(weather_id: String, instant: bool = false) -> void:
 	_look_from = _look
 	_look_to = _WeatherLook.look_for(weather_id)
 	_look_t = 0.0
+	# The first id after setup (world entry, co-op join) is weather already in
+	# progress: start the ground at its wetness instead of soaking from dry.
+	if instant or not _weather_seen:
+		_wetness = float(_look_to["wetness"])
+		_write_wetness()
+	_weather_seen = true
+	_strike_in = -1.0
 	if instant:
 		_look_t = 1.0
 		_look = _look_to
@@ -150,6 +189,23 @@ func set_weather(weather_id: String, instant: bool = false) -> void:
 func weather_look() -> Dictionary:
 	return _look
 
+## Current ground wetness (0 dry .. 1 soaked).
+func wetness() -> float:
+	return _wetness
+
+## Current lightning flash brightness (0 = none).
+func flash_level() -> float:
+	return _flash
+
+## Starts a lightning strike now: flash (unless flashing is suppressed) and
+## thunder after a random distance delay. Called by the storm scheduler.
+func strike_lightning() -> void:
+	if not flashing_allowed.is_valid() or bool(flashing_allowed.call()):
+		_flash_t = 0.0
+	var delay: float = _Lightning.thunder_delay(_rng)
+	_thunder_in = delay
+	_thunder_pitch = _Lightning.thunder_pitch(delay)
+
 func tick(delta: float) -> void:
 	# Weather blends per frame (called from WorldScene._process); the caches
 	# keep unchanged values from being rewritten.
@@ -157,11 +213,48 @@ func tick(delta: float) -> void:
 		_look_t = minf(_look_t + delta / WEATHER_BLEND_SECONDS, 1.0)
 		_look = _WeatherLook.blend(_look_from, _look_to, smoothstep(0.0, 1.0, _look_t))
 		_apply_lighting()
+	_tick_wetness(delta)
+	_tick_lightning(delta)
 	_timer += delta
 	if _timer < INTERVAL:
 		return
 	_advance(_timer)
 	_timer = 0.0
+
+func _tick_wetness(delta: float) -> void:
+	var target: float = float(_look_to["wetness"])
+	if _wetness != target:
+		_wetness = _Lightning.step_wetness(_wetness, target, delta)
+		_write_wetness()
+
+func _write_wetness() -> void:
+	var q: float = roundf(_wetness * WETNESS_STEPS) / WETNESS_STEPS
+	if q != _cached_wetness:
+		_cached_wetness = q
+		RenderingServer.global_shader_parameter_set(WETNESS_PARAM, q)
+
+func _tick_lightning(delta: float) -> void:
+	var strength: float = float(_look_to["lightning"])
+	if strength <= 0.0:
+		_strike_in = -1.0
+	elif _strike_in < 0.0:
+		_strike_in = _Lightning.next_interval(_rng, strength)
+	else:
+		_strike_in -= delta
+		if _strike_in <= 0.0:
+			_strike_in = _Lightning.next_interval(_rng, strength)
+			strike_lightning()
+	if _flash_t >= 0.0:
+		_flash_t += delta
+		_flash = _Lightning.flash_envelope(_flash_t)
+		if _flash_t >= _Lightning.FLASH_SECONDS:
+			_flash_t = -1.0
+			_flash = 0.0
+		_apply_lighting()
+	if _thunder_in >= 0.0:
+		_thunder_in -= delta
+		if _thunder_in < 0.0:
+			thunder_rumbled.emit(_thunder_pitch)
 
 func _advance(elapsed: float) -> void:
 	var prev_time: float = _time_of_day
@@ -230,6 +323,9 @@ func _apply_lighting() -> void:
 	var overcast_col: Color = weather_fog * lerpf(0.15, 1.0, t_day)
 	overcast_col.a = 1.0
 	sky = sky.lerp(overcast_col, float(_look["sky_overcast"]))
+	var flash_col: Color = _look["lightning_color"] as Color
+	if _flash > 0.0:
+		sky = sky.lerp(flash_col, _flash * FLASH_COLOR_PULL)
 	if not sky.is_equal_approx(_cached_sky_color):
 		_cached_sky_color = sky
 		var sm: ProceduralSkyMaterial = _get_sky_mat()
@@ -254,6 +350,9 @@ func _apply_lighting() -> void:
 		base_ambient.g * weather_tint.g,
 		base_ambient.b * weather_tint.b)
 	var ambient_energy: float = lerpf(0.35, 0.7, t_day)
+	if _flash > 0.0:
+		ambient_color = ambient_color.lerp(flash_col, _flash * FLASH_COLOR_PULL)
+		ambient_energy += _flash * FLASH_AMBIENT_BOOST
 	if not ambient_color.is_equal_approx(_cached_ambient_color):
 		env.ambient_light_color = ambient_color
 		_cached_ambient_color = ambient_color
