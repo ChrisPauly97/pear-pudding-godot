@@ -11,6 +11,9 @@ uniform vec4  color_mid  : source_color = vec4(0.36, 0.52, 0.18, 1.0);
 uniform vec4  color_tip  : source_color = vec4(0.46, 0.64, 0.24, 1.0);
 uniform float wind_strength  : hint_range(0.0, 1.0) = 0.28;
 uniform vec2  wind_direction                         = vec2(1.0, 0.35);
+// Weather wind (TID-486): see grass_blade.gdshader.
+global uniform float grass_wind_scale;
+global uniform float grass_wind_lean;
 
 // Sun+ambient approximation so unshaded clusters still follow day/night.
 global uniform vec3 grass_day_tint;
@@ -46,7 +49,7 @@ void vertex() {
 	vec2 wdir = normalize(vec2(
 		wind_direction.x * cd - wind_direction.y * sd,
 		wind_direction.x * sd + wind_direction.y * cd));
-	VERTEX += right * wdir.x * wind_strength * sway * bend * 0.35;
+	VERTEX += right * wdir.x * (wind_strength * grass_wind_scale * sway + grass_wind_lean) * bend * 0.35;
 }
 
 // Returns 1.0 inside a tapered blade shape, 0.0 outside.

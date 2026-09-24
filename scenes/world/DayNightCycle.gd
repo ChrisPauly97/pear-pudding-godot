@@ -8,6 +8,7 @@ signal night_started
 signal dawn_arrived
 
 const _GrassBlades = preload("res://scenes/world/GrassBlades.gd")
+const _WeatherLook = preload("res://game_logic/WeatherLook.gd")
 const INTERVAL: float = 0.5  # update lighting at 2 Hz
 
 # Sun arc (TID-485). The old sun swung about the X axis alone: it rose due
@@ -25,6 +26,10 @@ const SUN_DAY_COLOR := Color(1.0, 0.95, 0.85)
 const SUN_GOLDEN_COLOR := Color(1.0, 0.74, 0.42)
 const SUN_HORIZON_COLOR := Color(0.95, 0.40, 0.14)
 const GOLDEN_BAND: float = 0.45  # sun height (sin of arc angle) below which it warms
+
+# Weather look (TID-486): seconds a weather change takes to blend fog, sun,
+# sky, shadows and grass wind from the current look to the new one.
+const WEATHER_BLEND_SECONDS: float = 4.0
 
 var _sun: DirectionalLight3D
 var _moon: DirectionalLight3D
@@ -44,6 +49,20 @@ var _cached_ambient_color: Color = Color.BLACK
 var _cached_ambient_energy: float = -1.0
 var _cached_grass_tint: Color = Color.BLACK
 var _cached_sun_dir: Vector3 = Vector3.ZERO
+var _cached_fog_color: Color = Color.BLACK
+var _cached_fog_density: float = -1.0
+var _cached_shadow_opacity: float = -1.0
+var _cached_wind_scale: float = -1.0
+var _cached_wind_lean: float = -1.0
+
+# Weather look blend: `_look` is what is applied, blending `_look_from` → `_look_to`.
+var _look: Dictionary = _WeatherLook.look_for("")
+var _look_from: Dictionary = _look
+var _look_to: Dictionary = _look
+var _look_t: float = 1.0
+# Clear-weather values the look multiplies, captured at setup.
+var _base_fog_density: float = 0.004
+var _base_shadow_opacity: float = 1.0
 
 var _prev_was_night: bool = false
 var _sky_mat: ProceduralSkyMaterial = null
@@ -100,6 +119,12 @@ func setup(sun: DirectionalLight3D, moon: DirectionalLight3D,
 	# have initialised the shared grass globals yet at this point.
 	_GrassBlades._ensure_global_param(
 		"grass_day_tint", RenderingServer.GLOBAL_VAR_TYPE_VEC3, Vector3.ONE)
+	_GrassBlades._ensure_global_param("grass_wind_scale", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 1.0)
+	_GrassBlades._ensure_global_param("grass_wind_lean", RenderingServer.GLOBAL_VAR_TYPE_FLOAT, 0.0)
+	if _world_env != null and _world_env.environment != null:
+		_base_fog_density = _world_env.environment.fog_density
+	if _sun != null:
+		_base_shadow_opacity = _sun.shadow_opacity
 
 func get_time_of_day() -> float:
 	return _time_of_day
@@ -110,17 +135,35 @@ func set_time_of_day(v: float) -> void:
 func is_night_now() -> bool:
 	return is_night(_time_of_day)
 
-func invalidate_ambient_cache() -> void:
-	_cached_ambient_color = Color.BLACK
+## Starts blending toward `weather_id`'s WeatherLook ("" = clear). Co-op
+## clients reach this through the host-synced weather id, so no extra sync.
+func set_weather(weather_id: String, instant: bool = false) -> void:
+	_look_from = _look
+	_look_to = _WeatherLook.look_for(weather_id)
+	_look_t = 0.0
+	if instant:
+		_look_t = 1.0
+		_look = _look_to
+		_apply_lighting()
 
-func tick(delta: float, weather_tint: Color) -> void:
+## The weather look currently applied (mid-blend while a change is in progress).
+func weather_look() -> Dictionary:
+	return _look
+
+func tick(delta: float) -> void:
+	# Weather blends per frame (called from WorldScene._process); the caches
+	# keep unchanged values from being rewritten.
+	if _look_t < 1.0:
+		_look_t = minf(_look_t + delta / WEATHER_BLEND_SECONDS, 1.0)
+		_look = _WeatherLook.blend(_look_from, _look_to, smoothstep(0.0, 1.0, _look_t))
+		_apply_lighting()
 	_timer += delta
 	if _timer < INTERVAL:
 		return
-	_advance(_timer, weather_tint)
+	_advance(_timer)
 	_timer = 0.0
 
-func _advance(elapsed: float, weather_tint: Color) -> void:
+func _advance(elapsed: float) -> void:
 	var prev_time: float = _time_of_day
 	_time_of_day = fmod(_time_of_day + elapsed / _day_duration, 1.0)
 	if _time_of_day < prev_time:
@@ -134,9 +177,12 @@ func _advance(elapsed: float, weather_tint: Color) -> void:
 			dawn_arrived.emit()
 		_prev_was_night = now_night
 
-	_apply_lighting(weather_tint)
+	_apply_lighting()
 
-func _apply_lighting(weather_tint: Color) -> void:
+func _apply_lighting() -> void:
+	var weather_tint: Color = _look["tint"] as Color
+	var light_mult: float = float(_look["sun_energy_mult"])
+	var env: Environment = _world_env.environment
 	var sun_angle: float = (_time_of_day - 0.25) * TAU
 	var sun_dir: Vector3 = sun_direction(_time_of_day)
 	if not sun_dir.is_equal_approx(_cached_sun_dir):
@@ -150,7 +196,7 @@ func _apply_lighting(weather_tint: Color) -> void:
 
 	# Cap below 1.5: sun + ambient + fill light stack multiplicatively on albedo;
 	# 1.5 pushed midday terrain past 2.5x albedo and over the glow threshold.
-	var sun_energy: float = clampf(sun_h * 1.5, 0.0, 1.1)
+	var sun_energy: float = clampf(sun_h * 1.5, 0.0, 1.1) * light_mult
 	var sun_color: Color = sun_color_for(sun_h)
 
 	if not is_equal_approx(sun_energy, _cached_sun_energy):
@@ -161,9 +207,13 @@ func _apply_lighting(weather_tint: Color) -> void:
 	if not sun_color.is_equal_approx(_cached_sun_color):
 		_sun.light_color = sun_color
 		_cached_sun_color = sun_color
+	var shadow_opacity: float = _base_shadow_opacity * float(_look["shadow_opacity_mult"])
+	if not is_equal_approx(shadow_opacity, _cached_shadow_opacity):
+		_sun.shadow_opacity = shadow_opacity
+		_cached_shadow_opacity = shadow_opacity
 
 	var moon_h: float = -sun_h
-	var moon_energy: float = clampf(moon_h * 0.35, 0.0, 0.35)
+	var moon_energy: float = clampf(moon_h * 0.35, 0.0, 0.35) * light_mult
 	if not is_equal_approx(moon_energy, _cached_moon_energy):
 		_moon.light_energy = moon_energy
 		_moon.visible = moon_energy > 0.001
@@ -174,6 +224,12 @@ func _apply_lighting(weather_tint: Color) -> void:
 		sky = Color(0.7, 0.3, 0.1).lerp(Color(0.25, 0.5, 0.85), clampf(sun_h * 3.0, 0.0, 1.0))
 	else:
 		sky = Color(0.02, 0.02, 0.08).lerp(Color(0.7, 0.3, 0.1), clampf((sun_h + 0.3) * 5.0, 0.0, 1.0))
+	# Overcast greys the sky toward the weather's fog colour, dimmed by the day curve
+	# so a stormy night stays dark.
+	var weather_fog: Color = _look["fog_color"] as Color
+	var overcast_col: Color = weather_fog * lerpf(0.15, 1.0, t_day)
+	overcast_col.a = 1.0
+	sky = sky.lerp(overcast_col, float(_look["sky_overcast"]))
 	if not sky.is_equal_approx(_cached_sky_color):
 		_cached_sky_color = sky
 		var sm: ProceduralSkyMaterial = _get_sky_mat()
@@ -181,8 +237,16 @@ func _apply_lighting(weather_tint: Color) -> void:
 			sm.sky_top_color         = sky.darkened(0.55)
 			sm.sky_horizon_color     = sky
 			sm.ground_horizon_color  = sky.darkened(0.25)
-		if _world_env.environment.fog_enabled:
-			_world_env.environment.fog_light_color = sky.lerp(Color(0.20, 0.20, 0.22), 0.25)
+	var fog_col: Color = sky.lerp(Color(0.20, 0.20, 0.22), 0.25).lerp(
+		overcast_col, float(_look["fog_color_weight"]))
+	if env.fog_enabled and not fog_col.is_equal_approx(_cached_fog_color):
+		env.fog_light_color = fog_col
+		_cached_fog_color = fog_col
+	var fog_mult: float = minf(float(_look["fog_density_mult"]), _WeatherLook.MAX_FOG_DENSITY_MULT)
+	var fog_density: float = _base_fog_density * fog_mult
+	if not is_equal_approx(fog_density, _cached_fog_density):
+		env.fog_density = fog_density
+		_cached_fog_density = fog_density
 
 	var base_ambient: Color = Color(0.10, 0.10, 0.15).lerp(Color(0.65, 0.63, 0.60), t_day)
 	var ambient_color: Color = Color(
@@ -191,10 +255,10 @@ func _apply_lighting(weather_tint: Color) -> void:
 		base_ambient.b * weather_tint.b)
 	var ambient_energy: float = lerpf(0.35, 0.7, t_day)
 	if not ambient_color.is_equal_approx(_cached_ambient_color):
-		_world_env.environment.ambient_light_color = ambient_color
+		env.ambient_light_color = ambient_color
 		_cached_ambient_color = ambient_color
 	if not is_equal_approx(ambient_energy, _cached_ambient_energy):
-		_world_env.environment.ambient_light_energy = ambient_energy
+		env.ambient_light_energy = ambient_energy
 		_cached_ambient_energy = ambient_energy
 
 	# Approximate the lit-grass brightness for the unshaded grass shaders:
@@ -209,3 +273,12 @@ func _apply_lighting(weather_tint: Color) -> void:
 		_cached_grass_tint = grass_tint
 		RenderingServer.global_shader_parameter_set(
 			"grass_day_tint", Vector3(grass_tint.r, grass_tint.g, grass_tint.b))
+
+	var wind_scale: float = float(_look["wind_scale"])
+	if not is_equal_approx(wind_scale, _cached_wind_scale):
+		_cached_wind_scale = wind_scale
+		RenderingServer.global_shader_parameter_set("grass_wind_scale", wind_scale)
+	var wind_lean: float = float(_look["wind_lean"])
+	if not is_equal_approx(wind_lean, _cached_wind_lean):
+		_cached_wind_lean = wind_lean
+		RenderingServer.global_shader_parameter_set("grass_wind_lean", wind_lean)

@@ -13,6 +13,7 @@
 - **Battle backdrop**: the card board's background is a per-biome, day/night patch of ground seen from overhead, painted by one full-screen shader out of the world's own terrain tiles and prop sprites, instead of the flat `Color(0.1, 0.1, 0.15)` rect it was through GID-125.
 - **Chest & door sprites**: `Chest.gd` and `Door.gd` render as billboard `Sprite3D`s (0x72 pack chest/door art, GID-118) instead of flat-colored `BoxMesh` geometry, falling back to the original procedural boxes if the sprites are missing. See `docs/agent/inventory-and-deck.md` (chest open ceremony) and `docs/agent/named-maps-and-dungeons.md` (door rendering).
 
+- **Weather drives the atmosphere** (GID-129/TID-486): each weather id reshapes fog density/colour, sky overcast, sun/moon energy, shadow opacity, ambient tint and grass wind (strength + steady lean) through one `WeatherLook` table, blended over 4 s by `DayNightCycle`.
 - **Sun arc & golden hour** (GID-129/TID-485): tilted sun arc (NE rise, noon leaning away from the camera, SW set) so shadows read diagonally all day; three-stop golden-hour sun colour; PSSM 2-split sun shadows on High with tuned bias, low-res moon shadows on High.
 - **Graphics Quality tiers** (GID-129/TID-484): one Low / Medium / High setting decides which atmosphere effects run; Medium is the phone default, High the desktop default. Forward+-only effects are forced off on the Mobile/Compatibility renderers regardless of tier.
 
@@ -59,6 +60,28 @@ The single source of truth for which atmosphere effects run. All-static module (
 - **Shadow casters:** terrain chunks and entity `MeshInstance3D`s cast; Player/Avatar/mount sprites, grass, props and beacons opt out (`SHADOW_CASTING_SETTING_OFF`). Unshaded meshes don't receive shadows (BID-060).
 - **Tests:** `tests/unit/test_day_night_sun.gd` pins the arc against the iso camera (unit length, horizon ↔ `is_night`, noon not overhead and leaning away from camera, dawn along screen-right, sunrise/sunset opposite, basis −Z = travel, ramp monotonic). `test_graphics_quality` covers the shadow knobs and moon apply.
 - **Visual check:** a Compatibility-renderer (llvmpipe/xvfb) capture ran clean but is not representative — it over-saturates versus Forward+ and the spawn meadow has no shadow casters — so tune by eye on a real GPU.
+
+### Weather Look (`game_logic/WeatherLook.gd`, `DayNightCycle`) — TID-486
+
+- **Table:** `WeatherLook.CLEAR` holds every key at its neutral value; `OVERRIDES[weather_id]` lists only what that weather changes. `look_for(id)` returns a fresh CLEAR-merged copy (unknown / `""` = clear). Keys:
+
+| Key | Clear | Applied by `DayNightCycle._apply_lighting()` as |
+|---|---|---|
+| `tint` | white | multiplies the day/night ambient colour (was `WeatherParticles.get_screen_tint`, now a delegate) |
+| `fog_density_mult` | 1.0 | × the env's setup-time fog density (0.004); clamped to `MAX_FOG_DENSITY_MULT` 3.0 so the player stays readable |
+| `fog_color`, `fog_color_weight` | grey, 0 | fog light colour = sky-derived colour lerped toward `fog_color` (dimmed at night) |
+| `sky_overcast` | 0 | sky top/horizon colours grey toward `fog_color` (dimmed by the day curve so stormy nights stay dark) |
+| `sun_energy_mult` | 1.0 | × sun **and** moon energy (also darkens `grass_day_tint`) |
+| `shadow_opacity_mult` | 1.0 | × the sun's base `shadow_opacity` (0.2, set in `WorldScene._ready` before DNC setup) — overcast light, softer shadows |
+| `wind_direction` | (0.94, 0.33) | grass `wind_direction` uniform via `GrassBlades.set_wind_direction` (WorldScene, on change). Clear used to be `Vector2.ZERO`, which `normalize()`d to NaN in the grass shaders after rain ended |
+| `wind_scale` | 1.0 | global shader param `grass_wind_scale` (× per-material `wind_strength`) |
+| `wind_lean` | 0.0 | global shader param `grass_wind_lean` — steady downwind bend at the blade tip, so storms push grass over instead of only swaying faster |
+
+  Heavy variants (heavy_rain, sandstorm, volcanic, blizzard) are foggier, darker and at least as windy as their light pair; `test_weather_look` pins that, key-set consistency, ranges and the fog cap.
+- **Blend:** `DayNightCycle.set_weather(id, instant = false)` starts a `WEATHER_BLEND_SECONDS` (4 s) smoothstep blend from the currently applied look (`WeatherLook.blend(a, b, t)` lerps float / Color / Vector2 keys; anything else snaps at t = 0.5). `tick(delta)` (the old `weather_tint` argument is gone) advances the blend **per frame** and re-applies lighting immediately while blending; the 2 Hz time-of-day update continues as before. Every write is behind a write-on-change cache (`_cached_fog_density`, `_cached_fog_color`, `_cached_shadow_opacity`, `_cached_wind_scale/_lean`, …). `weather_look()` exposes the applied look to later tasks.
+- **Wiring:** `WorldScene._on_weather_changed(id)` swaps particles, calls `_dnc.set_weather(id)` and sets the grass direction. Co-op clients already route the host-synced weather id there (`CoopSession`), so there is no extra RPC. Globals `grass_wind_scale`/`grass_wind_lean` are registered by both `GrassBlades._init_material()` and `DayNightCycle.setup()`.
+- **Tiers:** only Environment/light params and two global floats — works identically on every tier and renderer.
+- **Extending (TID-487 wetness, lightning, …):** add the key with its neutral value to `CLEAR`, add per-weather values to `OVERRIDES`, read `look["key"]` in the consumer (`DayNightCycle` or `dnc.weather_look()`). The blend and the key-set test pick it up automatically.
 
 ### Sky & Fog (`WorldScene._setup_environment`, `DayNightCycle`)
 
@@ -213,7 +236,7 @@ fallback for any key/branch the registry doesn't recognize.
 
 ## Integrations with Other Features
 
-- `DayNightCycle` drives both sky material colors and fog light color every half-second.
+- `DayNightCycle` drives both sky material colors and fog light color every half-second, and applies the current `WeatherLook` (fog density/colour, overcast, sun/moon energy, shadow opacity, grass wind globals) — per frame while a weather change blends in.
 - `ChunkRenderer.prepare_terrain()` is a static worker-thread function — `_compute_prop_positions()` is also static, accesses only `BiomeDef` const arrays and the passed tile lookup callable.
 - `WorldEntityBase` is the shared base for all interactable NPCs; direct `Node3D` entities preload it for the static `build_highlight_ring` helper.
 - `CardRegistry` runs `_ensure_loaded()` lazily on first access; illustration assignment happens once per session at that point, cached by `TextureGen._cached()`.

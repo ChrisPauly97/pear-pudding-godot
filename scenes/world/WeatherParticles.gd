@@ -3,6 +3,8 @@
 ## The caller is responsible for parenting and positioning the node.
 extends Node3D
 
+const _WeatherLook = preload("res://game_logic/WeatherLook.gd")
+
 static func make(weather_id: String) -> GPUParticles3D:
 	var node := GPUParticles3D.new()
 	node.emitting = true
@@ -131,28 +133,11 @@ static func make(weather_id: String) -> GPUParticles3D:
 	node.position = Vector3(0.0, 12.0, 0.0)
 	return node
 
-# Wind direction per weather type (Vector2: X and Z bias)
+# Wind direction per weather type (Vector2: X and Z bias). The per-weather look
+# table (tint, wind, fog, sun) lives in WeatherLook; these are thin delegates.
 static func get_wind_direction(weather_id: String) -> Vector2:
-	match weather_id:
-		"rain":       return Vector2(0.2, 0.5).normalized()
-		"heavy_rain": return Vector2(0.4, 0.7).normalized()
-		"sandstorm":  return Vector2(1.0, 0.2).normalized()
-		"dust_devil": return Vector2(0.6, 0.6).normalized()
-		"ash_fall":   return Vector2(0.1, 0.3).normalized()
-		"volcanic":   return Vector2(0.15, 0.35).normalized()
-		"snow":       return Vector2(0.1, 0.25).normalized()
-		"blizzard":   return Vector2(0.7, 0.3).normalized()
-	return Vector2.ZERO
+	return _WeatherLook.wind_direction(weather_id)
 
 # Screen tint color per weather type (multiply over day/night ambient)
 static func get_screen_tint(weather_id: String) -> Color:
-	match weather_id:
-		"rain":       return Color(0.85, 0.85, 0.95)
-		"heavy_rain": return Color(0.70, 0.70, 0.85)
-		"sandstorm":  return Color(0.95, 0.85, 0.70)
-		"dust_devil": return Color(0.92, 0.84, 0.68)
-		"ash_fall":   return Color(0.70, 0.65, 0.65)
-		"volcanic":   return Color(0.60, 0.55, 0.55)
-		"snow":       return Color(0.95, 0.95, 1.00)
-		"blizzard":   return Color(0.80, 0.80, 0.95)
-	return Color(1.0, 1.0, 1.0)
+	return _WeatherLook.screen_tint(weather_id)

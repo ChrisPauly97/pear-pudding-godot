@@ -14,6 +14,10 @@ uniform vec4  color_tip        : source_color = vec4(0.46, 0.64, 0.24, 1.0);
 // --- Wind ---
 uniform float wind_strength    : hint_range(0.0, 1.0) = 0.28;
 uniform vec2  wind_direction                          = vec2(1.0, 0.35);
+// Weather wind (TID-486, written by DayNightCycle from WeatherLook): scale
+// multiplies wind_strength, lean is a steady downwind bend at the tip.
+global uniform float grass_wind_scale;
+global uniform float grass_wind_lean;
 
 // Player position for immediate blade push (only applied while moving).
 // Global so any system can update them once and all chunks see the new value.
@@ -53,7 +57,7 @@ void vertex() {
 	// field moves as one. Two overlapping sines give gentle variation
 	// without per-blade randomness. Direction drifts slowly (~±20°).
 	float sway     = sin(TIME * 1.4) * 0.65 + sin(TIME * 0.38) * 0.35;
-	float wind_amt = wind_strength * sway * bend;
+	float wind_amt = (wind_strength * grass_wind_scale * sway + grass_wind_lean) * bend;
 	float drift    = sin(TIME * 0.07) * 0.35;
 	float cd = cos(drift); float sd = sin(drift);
 	vec2  wdir = normalize(vec2(

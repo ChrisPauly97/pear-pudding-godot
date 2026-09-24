@@ -65,9 +65,10 @@ func test_make_unknown_weather_returns_null() -> void:
 # WeatherParticles.get_wind_direction
 # ---------------------------------------------------------------------------
 
-func test_wind_direction_zero_for_clear() -> void:
+func test_wind_direction_is_calm_breeze_for_clear() -> void:
+	# Clear keeps the grass shaders' default breeze; a zero direction normalizes to NaN there.
 	var d: Vector2 = WeatherParticles.get_wind_direction("")
-	assert_eq(d, Vector2.ZERO)
+	assert_almost_eq(d.length(), 1.0, 0.001)
 
 func test_wind_direction_nonzero_for_rain() -> void:
 	var d: Vector2 = WeatherParticles.get_wind_direction("rain")

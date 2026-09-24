@@ -95,6 +95,8 @@ func _init_material() -> void:
 	_ensure_global_param("player_move_dir",  RenderingServer.GLOBAL_VAR_TYPE_VEC2,    Vector2.ZERO)
 	# Day/night brightness for the unshaded grass shaders — written by DayNightCycle.
 	_ensure_global_param("grass_day_tint",   RenderingServer.GLOBAL_VAR_TYPE_VEC3,    Vector3.ONE)
+	_ensure_global_param("grass_wind_scale", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,   1.0)
+	_ensure_global_param("grass_wind_lean",  RenderingServer.GLOBAL_VAR_TYPE_FLOAT,   0.0)
 	_ensure_global_param("trample_origin_x", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,   0.0)
 	_ensure_global_param("trample_origin_z", RenderingServer.GLOBAL_VAR_TYPE_FLOAT,   0.0)
 	_ensure_global_param("trample_map",      RenderingServer.GLOBAL_VAR_TYPE_SAMPLER2D, null)

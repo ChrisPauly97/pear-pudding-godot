@@ -99,7 +99,6 @@ const _BIOME_MUSIC: Array = [
 # to _TOWN_MUSIC_DEFAULT unless it sets its own `music_track` override.
 const _DUNGEON_MUSIC: String = "res://assets/audio/music/dungeon.ogg"
 const _TOWN_MUSIC_DEFAULT: String = "res://assets/audio/music/grasslands.ogg"
-const _WEATHER_TINT_SPEED: float = 2.0  # tint blends in 0.5s
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
 ## The single interaction priority order, highest first. Both the HUD prompt
@@ -323,9 +322,6 @@ var _dnc: DayNightCycle = null
 
 # Weather visuals
 var _active_weather_particles: Node3D = null
-var _weather_tint: Color = Color(1.0, 1.0, 1.0)
-var _weather_tint_target: Color = Color(1.0, 1.0, 1.0)
-var _weather_tint_lerp_t: float = 1.0
 
 # Camera smoothing: lerped toward player each _process frame to eliminate
 # micro-stutter on high-refresh displays (camera runs at render rate, physics at ~60 Hz).
@@ -1439,7 +1435,7 @@ func _process(delta: float) -> void:
 	if _coop_active:
 		_tick_coop(delta)
 	if _dnc:
-		_dnc.tick(delta, _weather_tint)
+		_dnc.tick(delta)
 
 	if _player == null:
 		return
@@ -1466,13 +1462,6 @@ func _process(delta: float) -> void:
 		_world_hud.update_coords(tx, tz)
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
-
-	# Lerp weather tint toward target and invalidate ambient cache to force GPU write
-	if _weather_tint_lerp_t < 1.0:
-		_weather_tint_lerp_t = minf(_weather_tint_lerp_t + delta * _WEATHER_TINT_SPEED, 1.0)
-		_weather_tint = _weather_tint.lerp(_weather_tint_target, delta * _WEATHER_TINT_SPEED)
-		if _dnc:
-			_dnc.invalidate_ambient_cache()
 
 	# Keep particle rig centred on the player
 	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
@@ -2078,9 +2067,10 @@ func _on_weather_changed(weather_id: String, _duration: float) -> void:
 				particles.position = _player.position + Vector3(0.0, 12.0, 0.0)
 			_active_weather_particles = particles
 
-	# Begin tint transition
-	_weather_tint_target = WeatherParticles.get_screen_tint(weather_id)
-	_weather_tint_lerp_t = 0.0
+	# Fog, sky, sun, shadows, ambient tint and grass wind blend in via
+	# DayNightCycle from the WeatherLook table (TID-486).
+	if _dnc != null:
+		_dnc.set_weather(weather_id)
 
 	# Update grass wind direction
 	if _grass != null:
