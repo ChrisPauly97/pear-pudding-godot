@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 ## Competitive play against other session members: the challenge handshake and
 ## its timeouts, team duels, dedicated-server referee routing, spectating,
 ## wagered duels and the champion record, ranked ratings and the leaderboard,
@@ -8,11 +10,6 @@
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
 
-## The WorldScene that owns this module. Everything the module needs from
-## the world itself — the player node, the HUD, the entity tables — is
-## reached through it. Sibling modules are reached as _world.<accessor>.
-var _world: Node = null
-
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 const WorldHUD          = preload("res://scenes/world/WorldHUD.gd")
 const _ChallengeTimeout = preload("res://game_logic/net/ChallengeTimeout.gd")
@@ -22,6 +19,11 @@ const _LeaderboardOverlay = preload("res://scenes/ui/LeaderboardOverlay.gd")
 const _RatingMath        = preload("res://game_logic/net/RatingMath.gd")
 const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+
+## The WorldScene that owns this module. Everything the module needs from
+## the world itself — the player node, the HUD, the entity tables — is
+## reached through it. Sibling modules are reached as _world.<accessor>.
+var _world: Node = null
 
 var _active_team_duel_peer_ids: Array[int] = []
 var _active_team_duel_teams: Array = []
@@ -63,11 +65,13 @@ var _tournament_ante: int = 0                 # host-only: ante used to build th
 var _tournament_canonical_to_participant: Dictionary = {}  # host-only: {0: participant_idx, 1: participant_idx}
 var _tournament_current_is_host_match: bool = false  # host-only: is the in-flight match one the host is playing?
 var _tournament_decks: Array = []             # host-only: participant idx -> deck instances
-var _tournament_match_countdown: float = 0.0  # host-only: seconds until the next match starts (lets peers return to world + read the bracket)
+# host-only: seconds until the next match starts (lets peers return to world + read the bracket)
+var _tournament_match_countdown: float = 0.0
 var _tournament_panel: VBoxContainer = null   # inner row container
 var _tournament_panel_outer: Control = null   # outer panel Control, nil when never built
 var _tournament_pending_result: Dictionary = {}  # host-only: {} or {"winner_participant_idx": int}
-var _tournament_pending_start: Dictionary = {}  # host-only (BID-037): {} or {peer_ids, tokens, names, decks, ante, awaiting: {peer_id: true}, armed_at}
+# host-only (BID-037): {} or {peer_ids, tokens, names, decks, ante, awaiting: {peer_id: true}, armed_at}
+var _tournament_pending_start: Dictionary = {}
 var _tournament_tokens: Array[String] = []    # host-only: participant idx -> identity token
 var _wager_ante_amount: int = 25         # BID-029: ante picked by the local stepper, before sending
 var _wager_btn: Button = null            # BID-029: "Wager Duel" secondary action next to Challenge
@@ -398,9 +402,11 @@ func _show_challenge_accept_panel(from_id: int, ranked: bool = false) -> void:
 	var row := _UiUtil.make_hbox(int(vp.y * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var accept_btn := _UiUtil.make_button("Accept", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026), _accept_challenge.bind(from_id), row)
+	var accept_btn := _UiUtil.make_button("Accept", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026),
+			_accept_challenge.bind(from_id), row)
 
-	var decline_btn := _UiUtil.make_button("Decline", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026), _decline_challenge.bind(from_id), row)
+	var decline_btn := _UiUtil.make_button("Decline", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026),
+			_decline_challenge.bind(from_id), row)
 
 func _dismiss_challenge_panel() -> void:
 	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
@@ -561,12 +567,15 @@ func _show_wager_accept_panel(from_id: int, ante_coins: int) -> void:
 	var layer: CanvasLayer = prompt["layer"]
 	_challenge_accept_panel = layer
 	var vbox: VBoxContainer = prompt["vbox"]
-	var lbl := _UiUtil.make_label("Wagered duel challenge!\nAnte: %d coins each. Accept?" % ante_coins, int(vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var lbl := _UiUtil.make_label("Wagered duel challenge!\nAnte: %d coins each. Accept?" % ante_coins, int(vh * 0.03),
+			Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var row := _UiUtil.make_hbox(int(vh * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var accept_btn := _UiUtil.make_button("Accept (%d coins)" % ante_coins, Vector2(vh * 0.26, vh * 0.07), int(vh * 0.024), _accept_wager_challenge.bind(from_id, ante_coins), row)
-	var decline_btn := _UiUtil.make_button("Decline", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.024), _decline_wager_challenge.bind(from_id), row)
+	var accept_btn := _UiUtil.make_button("Accept (%d coins)" % ante_coins, Vector2(vh * 0.26, vh * 0.07),
+			int(vh * 0.024), _accept_wager_challenge.bind(from_id, ante_coins), row)
+	var decline_btn := _UiUtil.make_button("Decline", Vector2(vh * 0.18, vh * 0.07), int(vh * 0.024),
+			_decline_wager_challenge.bind(from_id), row)
 
 
 ## Drops the queued wager offer. Every path out of the wager prompt — accepted,
@@ -935,7 +944,8 @@ func _ensure_draft_duel_button() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	_draft_duel_btn = _world._world_hud.register_action("draft_duel", "Draft Duel",
 		WorldHUD.ZONE_CONTEXT, _request_draft_duel, Callable(), Vector2(vp.y * 0.20, vp.y * 0.05))
-	_draft_duel_btn.tooltip_text = "Sealed-deck duel: both players draft %d cards from identical seeded packs. No collection advantage; drafted cards last one duel." % _DraftDuelGen.NUM_ROUNDS
+	_draft_duel_btn.tooltip_text = ("Sealed-deck duel: both players draft %d cards from identical seeded packs. No "
+			+ "collection advantage; drafted cards last one duel.") % _DraftDuelGen.NUM_ROUNDS
 	_draft_duel_btn.hide()
 
 ## Shows/hides the draft-duel button. Piggybacks on the proximity result
@@ -1009,14 +1019,19 @@ func _show_draft_accept_panel(from_id: int) -> void:
 	_draft_accept_panel = layer
 	var vbox: VBoxContainer = prompt["vbox"]
 
-	var lbl := _UiUtil.make_label("A player challenges you to a DRAFT DUEL!\nBoth of you draft %d cards from identical sealed packs." % _DraftDuelGen.NUM_ROUNDS, int(vp.y * 0.026), Color(0.6, 0.9, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var lbl := _UiUtil.make_label(
+			"A player challenges you to a DRAFT DUEL!\nBoth of you draft %d cards from identical sealed packs."
+					% _DraftDuelGen.NUM_ROUNDS,
+			int(vp.y * 0.026), Color(0.6, 0.9, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var row := _UiUtil.make_hbox(int(vp.y * 0.03), vbox)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var accept_btn := _UiUtil.make_button("Accept", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026), _accept_draft_duel.bind(from_id), row)
+	var accept_btn := _UiUtil.make_button("Accept", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026),
+			_accept_draft_duel.bind(from_id), row)
 
-	var decline_btn := _UiUtil.make_button("Decline", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026), _decline_draft_duel.bind(from_id), row)
+	var decline_btn := _UiUtil.make_button("Decline", Vector2(vp.y * 0.2, vp.y * 0.07), int(vp.y * 0.026),
+			_decline_draft_duel.bind(from_id), row)
 
 func _dismiss_draft_panel() -> void:
 	if _draft_accept_panel != null and is_instance_valid(_draft_accept_panel):
@@ -1218,6 +1233,7 @@ func _start_tournament() -> void:
 			"ante": _world.TOURNAMENT_ANTE_COINS, "awaiting": {}, "armed_at": -1,
 		}
 		_commit_tournament_start()
+		# gdlint:ignore = max-returns
 		return
 	_tournament_pending_start = {
 		"peer_ids": peer_ids, "tokens": tokens, "names": names, "decks": decks,
@@ -1414,7 +1430,8 @@ func _tick_tournament(delta: float) -> void:
 		if w >= 0:
 			_world._tournament_bracket = _TournamentSync.record_match_result(_world._tournament_bracket, w)
 			if _world._net_sync != null:
-				_world._net_sync.rpc("recv_tournament_update", _TournamentSync.encode_bracket(_world._tournament_bracket))
+				_world._net_sync.rpc("recv_tournament_update",
+						_TournamentSync.encode_bracket(_world._tournament_bracket))
 			_refresh_tournament_panel()
 			if _TournamentSync.is_finished(_world._tournament_bracket):
 				_finish_tournament()
@@ -1596,7 +1613,8 @@ func _refresh_tournament_panel() -> void:
 	for c in _tournament_panel.get_children():
 		c.queue_free()
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var title := _UiUtil.make_label("Tournament — Pot: %d" % int(_world._tournament_bracket.get("pot", 0)), int(vh * 0.020))
+	var title := _UiUtil.make_label("Tournament — Pot: %d" % int(_world._tournament_bracket.get("pot", 0)),
+			int(vh * 0.020))
 	title.add_theme_color_override("font_color", Color(0.85, 0.75, 0.35))
 	_tournament_panel.add_child(title)
 	var names: Array = _world._tournament_bracket.get("names", [])

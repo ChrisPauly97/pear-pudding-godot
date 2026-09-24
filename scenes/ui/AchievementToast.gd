@@ -38,7 +38,8 @@ func _build_panel() -> void:
 	var header_row := _UiUtil.make_hbox(int(_vw * 0.006), vbox)
 
 	var ts: float = _UiUtil.text_scale()
-	var icon_lbl := _UiUtil.make_label("Achievement!", int(_vh * 0.020 * ts), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_LEFT, header_row)
+	var icon_lbl := _UiUtil.make_label("Achievement!", int(_vh * 0.020 * ts), Color(1.0, 0.85, 0.2),
+			HORIZONTAL_ALIGNMENT_LEFT, header_row)
 
 	_label_title = _UiUtil.make_label("", int(_vh * 0.022 * ts), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	_label_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL

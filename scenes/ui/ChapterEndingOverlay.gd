@@ -28,7 +28,8 @@ func _ready() -> void:
 
 	var vbox := _build_margin_vbox(panel, 0.03, 0.025)
 
-	var title_lbl := _UiUtil.make_label(_title, int(_ref * 0.04), Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label(_title, int(_ref * 0.04), Color(1.0, 0.85, 0.4), HORIZONTAL_ALIGNMENT_CENTER,
+			vbox)
 
 	var sep := HSeparator.new()
 	vbox.add_child(sep)

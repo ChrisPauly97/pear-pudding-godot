@@ -22,7 +22,7 @@ extends SceneTree
 const _Harness = preload("res://tests/net_harness.gd")
 
 const _PORT: int = 24571
-const _BattlePacked := "res://scenes/battle/BattleScene.tscn"
+const _BATTLE_SCENE_PATH := "res://scenes/battle/BattleScene.tscn"
 
 
 func _initialize() -> void:
@@ -103,7 +103,8 @@ func _run() -> bool:
 	client_peer.close()
 
 	# --- a NEW connection reconnects ---
-	var recon: Dictionary = _Harness.start_client(self, _PORT, "ReconnectRoot", "  [FAIL] reconnect create_client returned %d")
+	var recon: Dictionary = _Harness.start_client(self, _PORT, "ReconnectRoot",
+			"  [FAIL] reconnect create_client returned %d")
 	if recon.is_empty():
 		return false
 	var mp_reconnect: SceneMultiplayer = recon["mp"]
@@ -146,11 +147,12 @@ func _run() -> bool:
 		return false
 	print("  [PASS] host resumed (grace window cancelled, no forfeit), reconnecting client synced (seq=%d)" \
 		% int(reconnect_battle.get("_last_applied_seq")))
+	# gdlint:ignore = max-returns
 	return true
 
 
 func _make_battle(local_idx: int) -> Node:
-	var packed: PackedScene = load(_BattlePacked)
+	var packed: PackedScene = load(_BATTLE_SCENE_PATH)
 	var b: Node = packed.instantiate()
 	b.name = "BattleScene"  # fixed RPC path: <subroot>/BattleScene/BattleNetSync
 	b.set("_pvp", true)

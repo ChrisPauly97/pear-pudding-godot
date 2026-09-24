@@ -26,6 +26,10 @@ const _PORT: int = 24573
 const _SESSION_ID: String = "smoke_worldsync_pptcg"
 
 
+var _store: Node = null
+var _client_stub: _ClientStub = null
+
+
 # Client-side stand-in for WorldScene's world-sync receivers — records what arrives.
 class _ClientStub:
 	extends Node
@@ -38,10 +42,6 @@ class _ClientStub:
 		snapshot = _WorldObjectSync.decode_snapshot(payload)
 	func _on_enemy_positions_received(payload: Array) -> void:
 		positions = _EnemySync.decode_batch(payload)
-
-
-var _store: Node = null
-var _client_stub: _ClientStub = null
 
 
 func _initialize() -> void:
@@ -103,11 +103,13 @@ func _run() -> bool:
 		print("  [FAIL] world-sync persistence touched save_slot_1.json (isolation broken)")
 		return false
 	print("  [PASS] save_slot_*.json untouched by session persistence")
+	# gdlint:ignore = max-returns
 	return true
 
 
 func _socket_phase() -> bool:
-	var srv: Dictionary = _Harness.start_server(self, _PORT, 4, "ServerRoot", "  [FAIL] create_server failed (loopback blocked?)")
+	var srv: Dictionary = _Harness.start_server(self, _PORT, 4, "ServerRoot",
+			"  [FAIL] create_server failed (loopback blocked?)")
 	if srv.is_empty():
 		return false
 	var server_peer: ENetMultiplayerPeer = srv["peer"]
@@ -173,6 +175,7 @@ func _socket_phase() -> bool:
 		print("  [FAIL] enemy position batch wrong: %s" % str(_client_stub.positions))
 		return false
 	print("  [PASS] enemy position batch reflected on the client")
+	# gdlint:ignore = max-returns
 	return true
 
 
@@ -194,7 +197,8 @@ func _build_world(parent: Node, is_client: bool) -> Node:
 	return netsync
 
 
-func _teardown(server_root: Node, client_root: Node, server_peer: MultiplayerPeer, client_peer: MultiplayerPeer) -> void:
+func _teardown(server_root: Node, client_root: Node, server_peer: MultiplayerPeer,
+		client_peer: MultiplayerPeer) -> void:
 	_Harness.teardown([client_peer, server_peer], [client_root, server_root])
 
 

@@ -37,8 +37,9 @@ const _LINES_BY_OBJECTIVE: Dictionary = {
 }
 const _FALLBACK_LINE: String = "Keep your wits about ye — the road's long yet."
 
-var _player_ref: Node3D = null
 var world_scene: Node3D = null  # set via setup(); mirrors RemotePlayer.world_scene
+
+var _player_ref: Node3D = null
 
 var _sprite: AnimatedSprite3D = null   # non-null when SpriteRegistry art + walk frames are available
 var _static_sprite: Sprite3D = null    # fallback when the registry/walk frames are missing
@@ -99,7 +100,8 @@ func _build_animated_sprite(idle_tex: Texture2D, walk_frames: Array[Texture2D]) 
 	anim.sprite_frames = sf
 	anim.pixel_size = _SpriteRegistry.CHAR_PIXEL_SIZE
 	_SpriteRegistry.apply_billboard_flags(anim)
-	anim.position = Vector3(0.0, float(idle_tex.get_height()) * _SpriteRegistry.CHAR_PIXEL_SIZE * 0.5 + _SpriteRegistry.FEET_MARGIN, 0.0)
+	anim.position = Vector3(0.0,
+			float(idle_tex.get_height()) * _SpriteRegistry.CHAR_PIXEL_SIZE * 0.5 + _SpriteRegistry.FEET_MARGIN, 0.0)
 	anim.play("idle")
 	return anim
 

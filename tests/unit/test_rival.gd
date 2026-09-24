@@ -9,6 +9,12 @@ const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const EnemyRegistryScript = preload("res://autoloads/EnemyRegistry.gd")
 
 # ---------------------------------------------------------------------------
+# SaveManager rival fields
+# ---------------------------------------------------------------------------
+
+var _sm: Node
+
+# ---------------------------------------------------------------------------
 # RivalSystem.get_rival_type
 # ---------------------------------------------------------------------------
 
@@ -36,12 +42,6 @@ func test_encounter_2_max_level_stays_tier3() -> void:
 func test_encounters_won_clamped_below_zero() -> void:
 	# Negative values behave as 0
 	assert_eq(RivalSystem.get_rival_type(-1, 1), "rival_isfig_1")
-
-# ---------------------------------------------------------------------------
-# SaveManager rival fields
-# ---------------------------------------------------------------------------
-
-var _sm: Node
 
 func before_each() -> void:
 	_sm = SaveManagerScript.new()

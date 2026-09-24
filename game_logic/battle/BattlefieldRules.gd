@@ -60,6 +60,22 @@ const RULES: Dictionary = {
 	},
 }
 
+## Each magic type's signature branch gets −1 mana under one battlefield condition.
+##
+## Light and Dark key off time of day; Verdant and Rift key off biome, so the two
+## axes never stack on a single card. The other four branches (ember, ash, thorn,
+## flux) have no affinity — one affinity branch per type, which is what Light and
+## Dark already did before this table existed.
+##
+##  kind "time"  → value is `true` for night, `false` for day
+##  kind "biome" → value is a BIOME_* id
+const BRANCH_AFFINITY: Dictionary = {
+	"dawn":     {"kind": "time",  "value": false,           "text": "Costs 1 less during the day."},
+	"dusk":     {"kind": "time",  "value": true,            "text": "Costs 1 less at night."},
+	"bloom":    {"kind": "biome", "value": BIOME_FOREST,    "text": "Costs 1 less in Forest."},
+	"fracture": {"kind": "biome", "value": BIOME_SCORCHED,  "text": "Costs 1 less in Scorched."},
+}
+
 ## Returns the biome display name.
 static func get_biome_name(biome_id: int) -> String:
 	var entry: Dictionary = RULES.get(biome_id, RULES[BIOME_NONE]) as Dictionary
@@ -92,22 +108,6 @@ static func modify_damage(base_dmg: int, biome_id: int) -> int:
 		return base_dmg + 1
 	return base_dmg
 
-## Each magic type's signature branch gets −1 mana under one battlefield condition.
-##
-## Light and Dark key off time of day; Verdant and Rift key off biome, so the two
-## axes never stack on a single card. The other four branches (ember, ash, thorn,
-## flux) have no affinity — one affinity branch per type, which is what Light and
-## Dark already did before this table existed.
-##
-##  kind "time"  → value is `true` for night, `false` for day
-##  kind "biome" → value is a BIOME_* id
-const BRANCH_AFFINITY: Dictionary = {
-	"dawn":     {"kind": "time",  "value": false,           "text": "Costs 1 less during the day."},
-	"dusk":     {"kind": "time",  "value": true,            "text": "Costs 1 less at night."},
-	"bloom":    {"kind": "biome", "value": BIOME_FOREST,    "text": "Costs 1 less in Forest."},
-	"fracture": {"kind": "biome", "value": BIOME_SCORCHED,  "text": "Costs 1 less in Scorched."},
-}
-
 ## True when `card_branch`'s affinity condition is met on this battlefield.
 static func branch_affinity_active(card_branch: String, biome_id: int, is_night: bool) -> bool:
 	if not BRANCH_AFFINITY.has(card_branch):
@@ -129,7 +129,8 @@ static func branch_affinity_text(card_branch: String) -> String:
 ## Computes the effective mana cost of a card, applying biome and time-of-day rules.
 ## Stacking order: branch affinity discount first, then Grasslands first-card discount.
 ## Floor is 0.
-static func effective_cost(card_cost: int, card_branch: String, biome_id: int, is_night: bool, grasslands_card_played: bool) -> int:
+static func effective_cost(card_cost: int, card_branch: String, biome_id: int, is_night: bool,
+		grasslands_card_played: bool) -> int:
 	var cost: int = card_cost
 	if branch_affinity_active(card_branch, biome_id, is_night):
 		cost -= 1

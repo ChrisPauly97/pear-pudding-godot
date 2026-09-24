@@ -52,7 +52,7 @@ if (v_ley > 0.01 && !is_wall) {
 ```
 This guarantees visual/gameplay agreement (same noise, same seed, no GLSL re-implementation needed).
 
-`world_seed` is passed from `WorldScene.WORLD_SEED` to `prepare_terrain` as an explicit parameter — never accessed via `Engine.get_main_loop()` from the worker thread.
+`world_seed` is passed from `WorldScene.world_seed` to `prepare_terrain` as an explicit parameter — never accessed via `Engine.get_main_loop()` from the worker thread.
 
 ### Speed Boost (`scenes/world/entities/Player.gd`)
 

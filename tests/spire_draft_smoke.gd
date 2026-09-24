@@ -16,11 +16,11 @@ extends SceneTree
 
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
 
-var _pass_count: int = 0
-var _fail_count: int = 0
-
 # Long enough for TransitionManager's fade-out + callback + fade-in (0.2 s each).
 const _TRANSITION_WAIT: float = 1.0
+
+var _pass_count: int = 0
+var _fail_count: int = 0
 
 
 func _initialize() -> void:

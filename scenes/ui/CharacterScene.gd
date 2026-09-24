@@ -7,6 +7,22 @@ const CompanionData = preload("res://data/CompanionData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 
+const _SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket"]
+const _SLOT_LABELS: Dictionary = {
+	"weapon":  "Weapon",
+	"armor":   "Armor",
+	"ring":    "Ring",
+	"trinket": "Trinket",
+}
+
+const _COMPANION_LOCKED_TEXT: Dictionary = {
+	"maiteln": "Travel with Maiteln in the story to unlock.",
+}
+
+const _COMPANION_FIRST_EQUIP_TOAST: Dictionary = {
+	"maiteln": "Maiteln chuckles. 'Try to keep up, boy.'",
+}
+
 var hub_mode: bool = false
 
 var _selected_slot: String = ""
@@ -20,14 +36,6 @@ var _picker_panel: Control
 var _compare_popup: PopupPanel = null
 var _hovered_compare_item: String = ""
 var _hovered_compare_row: Control = null
-
-const _SLOTS: Array[String] = ["weapon", "armor", "ring", "trinket"]
-const _SLOT_LABELS: Dictionary = {
-	"weapon":  "Weapon",
-	"armor":   "Armor",
-	"ring":    "Ring",
-	"trinket": "Trinket",
-}
 
 func _ready() -> void:
 	super._ready()
@@ -58,7 +66,8 @@ func _build_ui() -> void:
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	if not hub_mode:
-		var close_btn := _UiUtil.make_button("Close  [C]" if not OS.has_feature("android") else "Close", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_close, header)
+		var close_btn := _UiUtil.make_button("Close  [C]" if not OS.has_feature("android") else "Close",
+				Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_close, header)
 
 	# ---- Main content --------------------------------------------------------
 	var content: BoxContainer
@@ -85,9 +94,11 @@ func _build_ui() -> void:
 	avatar_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	left_vbox.add_child(avatar_rect)
 
-	var avatar_lbl := _UiUtil.make_label("Saimtar", int(_ref * 0.022), Color(0.8, 0.8, 0.8), HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
+	var avatar_lbl := _UiUtil.make_label("Saimtar", int(_ref * 0.022), Color(0.8, 0.8, 0.8),
+			HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
 
-	var equip_hdr := _UiUtil.make_label("Equipment", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
+	var equip_hdr := _UiUtil.make_label("Equipment", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+			left_vbox)
 
 	for slot in _SLOTS:
 		var btn := Button.new()
@@ -98,7 +109,8 @@ func _build_ui() -> void:
 		left_vbox.add_child(btn)
 		_slot_btns[slot] = btn
 
-	var companion_hdr := _UiUtil.make_label("Companion", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
+	var companion_hdr := _UiUtil.make_label("Companion", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+			left_vbox)
 
 	_companion_btn = Button.new()
 	_companion_btn.custom_minimum_size = Vector2(0, _ref * 0.065)
@@ -116,7 +128,8 @@ func _build_ui() -> void:
 	right_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_picker_panel = right_vbox
 
-	_picker_title = _UiUtil.make_label("← Select a slot", int(_ref * 0.024), Color(0.7, 0.7, 0.7), HORIZONTAL_ALIGNMENT_CENTER, right_vbox)
+	_picker_title = _UiUtil.make_label("← Select a slot", int(_ref * 0.024), Color(0.7, 0.7, 0.7),
+			HORIZONTAL_ALIGNMENT_CENTER, right_vbox)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -126,7 +139,8 @@ func _build_ui() -> void:
 	_picker_list = _UiUtil.make_vbox(int(_ref * 0.007), scroll)
 	_picker_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	_unequip_btn = _UiUtil.make_button("Unequip", Vector2(_ref * 0.16, _ref * 0.065), int(_ref * 0.022), _on_unequip, right_vbox)
+	_unequip_btn = _UiUtil.make_button("Unequip", Vector2(_ref * 0.16, _ref * 0.065), int(_ref * 0.022), _on_unequip,
+			right_vbox)
 	_unequip_btn.disabled = true
 
 # -------------------------------------------------------------------------
@@ -191,7 +205,8 @@ func _refresh_picker() -> void:
 	_unequip_btn.disabled = equipped_id == ""
 
 	if owned.is_empty():
-		var none_lbl := _UiUtil.make_label("No %s items owned yet." % label_name.to_lower(), int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _picker_list)
+		var none_lbl := _UiUtil.make_label("No %s items owned yet." % label_name.to_lower(), int(_ref * 0.022),
+				Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _picker_list)
 		return
 
 	for item_id in owned:
@@ -208,7 +223,8 @@ func _refresh_companion_picker() -> void:
 	_unequip_btn.disabled = active_id == ""
 	var all_ids: Array[String] = CompanionRegistry.all_ids()
 	if all_ids.is_empty():
-		var none_lbl := _UiUtil.make_label("No companions available yet.", int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _picker_list)
+		var none_lbl := _UiUtil.make_label("No companions available yet.", int(_ref * 0.022), Color(0.6, 0.6, 0.6),
+				HORIZONTAL_ALIGNMENT_CENTER, _picker_list)
 		return
 	for cid in all_ids:
 		var c: CompanionData = CompanionRegistry.get_companion(cid)
@@ -233,7 +249,8 @@ func _make_companion_row(c: CompanionData, is_active: bool) -> HBoxContainer:
 	name_row.add_child(name_lbl)
 
 	if is_active:
-		var eq_lbl := _UiUtil.make_label("[A]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT, name_row)
+		var eq_lbl := _UiUtil.make_label("[A]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT,
+				name_row)
 
 	var desc_lbl := Label.new()
 	if unlocked:
@@ -246,14 +263,11 @@ func _make_companion_row(c: CompanionData, is_active: bool) -> HBoxContainer:
 	desc_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info_vbox.add_child(desc_lbl)
 
-	var equip_btn := _UiUtil.make_button("Active" if is_active else "Equip", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_equip_companion.bind(c.companion_id), row)
+	var equip_btn := _UiUtil.make_button("Active" if is_active else "Equip", Vector2(_ref * 0.14, _ref * 0.065),
+			int(_ref * 0.022), _on_equip_companion.bind(c.companion_id), row)
 	equip_btn.disabled = is_active or not unlocked
 
 	return row
-
-const _COMPANION_LOCKED_TEXT: Dictionary = {
-	"maiteln": "Travel with Maiteln in the story to unlock.",
-}
 
 func _companion_locked_text(c: CompanionData) -> String:
 	if _COMPANION_LOCKED_TEXT.has(c.companion_id):
@@ -281,7 +295,8 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 	name_row.add_child(name_lbl)
 
 	if is_equipped:
-		var eq_lbl := _UiUtil.make_label("[E]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT, name_row)
+		var eq_lbl := _UiUtil.make_label("[E]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT,
+				name_row)
 
 	var effect_lbl := Label.new()
 	var sm := SceneManager.save_manager
@@ -294,7 +309,8 @@ func _make_picker_row(item_id: String, w: WeaponData, is_equipped: bool) -> HBox
 	effect_lbl.modulate = Color(0.9, 1.0, 0.7)
 	info_vbox.add_child(effect_lbl)
 
-	var equip_btn := _UiUtil.make_button("Equipped" if is_equipped else "Equip", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_equip.bind(item_id), row)
+	var equip_btn := _UiUtil.make_button("Equipped" if is_equipped else "Equip", Vector2(_ref * 0.14, _ref * 0.065),
+			int(_ref * 0.022), _on_equip.bind(item_id), row)
 	equip_btn.disabled = is_equipped
 
 	# Compare against the currently equipped item in this slot: hold Shift while
@@ -341,10 +357,6 @@ func _on_equip_companion(companion_id: String) -> void:
 		_show_companion_toast(companion_id)
 	_refresh_slot_buttons()
 	_refresh_picker()
-
-const _COMPANION_FIRST_EQUIP_TOAST: Dictionary = {
-	"maiteln": "Maiteln chuckles. 'Try to keep up, boy.'",
-}
 
 func _show_companion_toast(companion_id: String) -> void:
 	var c: CompanionData = CompanionRegistry.get_companion(companion_id)
@@ -395,7 +407,8 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	var vb := _UiUtil.make_vbox(int(_ref * 0.008), popup)
 	vb.custom_minimum_size = Vector2(_ref * 0.34, 0)
 
-	var title_lbl := _UiUtil.make_label("Compare — %s" % _SLOT_LABELS.get(candidate.slot, candidate.slot.capitalize()), int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
+	var title_lbl := _UiUtil.make_label("Compare — %s" % _SLOT_LABELS.get(candidate.slot, candidate.slot.capitalize()),
+			int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
 
 	var equipped_lbl := Label.new()
 	equipped_lbl.text = "Equipped: %s\n%s" % [
@@ -422,7 +435,8 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	if equipped != null and equipped.battle_effect_type == candidate.battle_effect_type:
 		var delta: int = candidate.battle_effect_value - equipped.battle_effect_value
 		if delta != 0:
-			var delta_lbl := _UiUtil.make_label("%+d vs equipped" % delta, int(_ref * 0.020), Color(0.4, 1.0, 0.5) if delta > 0 else Color(1.0, 0.45, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vb)
+			var delta_lbl := _UiUtil.make_label("%+d vs equipped" % delta, int(_ref * 0.020),
+					Color(0.4, 1.0, 0.5) if delta > 0 else Color(1.0, 0.45, 0.4), HORIZONTAL_ALIGNMENT_LEFT, vb)
 
 	popup.popup(Rect2i(anchor.get_screen_transform().origin as Vector2i, Vector2i(int(_ref * 0.34), 0)))
 

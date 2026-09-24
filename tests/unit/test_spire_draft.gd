@@ -8,6 +8,13 @@ const SpireDraftScript = preload("res://game_logic/spire/SpireDraft.gd")
 
 var _draft: RefCounted
 
+# Pool covering all four tiers:
+#   tier0: ghost(minion,1), skeleton(minion,2)
+#   tier1: zombie(minion,3), ghoul(minion,4), mend(spell,1), restore(spell,2)
+#   tier2: scorch(spell,3), shadow_bolt(spell,4), soul_harvest(spell,5)
+#   tier3: ancient_guardian(legendary)
+var _pool_templates: Dictionary = {}
+
 # Minimal template helpers
 func _minion(cost: int) -> Dictionary:
 	return {"card_class": "minion", "cost": cost, "attack": 1, "health": 1}
@@ -18,15 +25,8 @@ func _spell(cost: int) -> Dictionary:
 func _legendary() -> Dictionary:
 	return {"card_class": "legendary", "cost": 6, "attack": 4, "health": 4}
 
-# Pool covering all four tiers:
-#   tier0: ghost(minion,1), skeleton(minion,2)
-#   tier1: zombie(minion,3), ghoul(minion,4), mend(spell,1), restore(spell,2)
-#   tier2: scorch(spell,3), shadow_bolt(spell,4), soul_harvest(spell,5)
-#   tier3: ancient_guardian(legendary)
-var _POOL_TEMPLATES: Dictionary = {}
-
 func before_all() -> void:
-	_POOL_TEMPLATES = {
+	_pool_templates = {
 		"ghost":           _minion(1),
 		"skeleton":        _minion(2),
 		"zombie":          _minion(3),
@@ -55,7 +55,7 @@ func _rng(seed_val: int) -> RandomNumberGenerator:
 	return rng
 
 func _picks(floor: int, seed_val: int) -> Array[String]:
-	return _draft.generate_picks(floor, _rng(seed_val), _POOL_TEMPLATES)
+	return _draft.generate_picks(floor, _rng(seed_val), _pool_templates)
 
 # ---------------------------------------------------------------------------
 # generate_picks — basic shape
@@ -70,7 +70,7 @@ func test_generate_picks_all_ids_are_non_empty() -> void:
 
 func test_generate_picks_all_ids_are_in_pool() -> void:
 	for p: String in _picks(1, 7):
-		assert_true(_POOL_TEMPLATES.has(p), "pick '%s' not in test pool" % p)
+		assert_true(_pool_templates.has(p), "pick '%s' not in test pool" % p)
 
 func test_generate_picks_no_duplicates_floor1() -> void:
 	var picks := _picks(1, 999)
@@ -195,7 +195,7 @@ func test_floor10_includes_upper_tier_cards_eventually() -> void:
 	var found_upper := false
 	for s in range(20):
 		for p: String in _picks(10, s * 17 + 1):
-			if _draft.card_tier_from_template(_POOL_TEMPLATES.get(p, {})) >= 2:
+			if _draft.card_tier_from_template(_pool_templates.get(p, {})) >= 2:
 				found_upper = true
 				break
 		if found_upper:
@@ -207,7 +207,7 @@ func test_floor1_mostly_tier0_cards() -> void:
 	var total_count: int = 0
 	for s in range(10):
 		for p: String in _picks(1, s * 13 + 3):
-			if _draft.card_tier_from_template(_POOL_TEMPLATES.get(p, {})) == 0:
+			if _draft.card_tier_from_template(_pool_templates.get(p, {})) == 0:
 				tier0_count += 1
 			total_count += 1
 	# Expect at least 40% tier 0 (well under the 60% weight)

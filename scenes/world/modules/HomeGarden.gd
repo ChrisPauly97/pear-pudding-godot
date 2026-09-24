@@ -82,7 +82,8 @@ func _build_seed_picker(plot: Node3D, layer: CanvasLayer, vbox: VBoxContainer,
 		btn.disabled = not session_mode and seed_count <= 0
 		has_any_seed = has_any_seed or not btn.disabled
 	if not has_any_seed:
-		_UiUtil.make_label("No seeds — buy some from a merchant.", font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		_UiUtil.make_label("No seeds — buy some from a merchant.", font_size, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+				vbox)
 
 func _build_growing_info(plot: Node3D, plot_data: Dictionary, vbox: VBoxContainer, font_size: int) -> void:
 	var sdata: Dictionary = GardenDefs.SEEDS.get(str(plot_data.get("seed_id", "")), {})

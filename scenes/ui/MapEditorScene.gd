@@ -9,11 +9,6 @@ var _paint_mode: int = 0  # 0=grass, 1=wall, 2=hill, 3=enemy, 4=chest, 5=door, 6
 var _paint_height: int = 1
 var _last_painted_tile: Vector2i = Vector2i(-1, -1)
 
-@onready var _camera: Camera3D = $Camera3D
-@onready var _hud: CanvasLayer = $HUD
-@onready var _mode_label: Label = $HUD/ModeLabel
-@onready var _map_name_label: Label = $HUD/MapNameLabel
-
 # Two MultiMeshInstance3D nodes replace 10,000 individual MeshInstance3D nodes.
 # _flat_mm: all grass + hill tiles (per-instance color distinguishes them)
 # _wall_mm: all wall tiles (per-instance transform encodes height via Y scale)
@@ -52,6 +47,11 @@ var _mode_colors: Array[Color] = [
 	Color(0.04, 0.55, 0.75), # spawn
 	Color(0.5, 0.06, 0.06),  # erase
 ]
+
+@onready var _camera: Camera3D = $Camera3D
+@onready var _hud: CanvasLayer = $HUD
+@onready var _mode_label: Label = $HUD/ModeLabel
+@onready var _map_name_label: Label = $HUD/MapNameLabel
 
 func _ready() -> void:
 	# --- Flat MultiMesh (grass + hill tiles) ---
@@ -413,17 +413,20 @@ func _paint_tile(tx: int, tz: int) -> void:
 		3:  # Enemy — no tile geometry change
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			_world_map.enemies.append({"id": "enemy_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "alive": true, "tracking": true})
+			_world_map.enemies.append({"id": "enemy_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "alive": true,
+					"tracking": true})
 			_refresh_entity_markers()
 		4:  # Chest — no tile geometry change
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			_world_map.chests.append({"id": "chest_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "card_ids": ["ghost"], "opened": false})
+			_world_map.chests.append({"id": "chest_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "card_ids": ["ghost"],
+					"opened": false})
 			_refresh_entity_markers()
 		5:  # Door — no tile geometry change
 			var wx := tx * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz := tz * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
-			_world_map.doors.append({"id": "door_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "target_map": "", "target_door_id": ""})
+			_world_map.doors.append({"id": "door_%d" % Time.get_ticks_msec(), "x": wx, "z": wz, "target_map": "",
+					"target_door_id": ""})
 			_refresh_entity_markers()
 		6:  # Spawn — no tile geometry change
 			_world_map.player_spawn_x = tx

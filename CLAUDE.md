@@ -404,6 +404,13 @@ godot --headless --editor --quit
 CI (`.github/workflows/tests.yml`) does the import, gates on parse errors, then
 runs the suite on every push.
 
+### gdlint is gating
+
+CI runs `gdlint $(git ls-files '*.gd')` (gdtoolkit 4.5.0) and fails on any problem.
+Run it locally after editing `.gd` files. Lines max 120 chars (wrap arg lists at
+commas; split long strings as `("..." + "...")`). Files over 500 lines carry a
+`# gdlint: disable=max-file-lines` pragma as tracked debt; never add one to a new file.
+
 ---
 
 ## Named Map Player Spawn vs. Saved Position

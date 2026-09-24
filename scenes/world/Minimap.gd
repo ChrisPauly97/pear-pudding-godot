@@ -17,6 +17,20 @@ const SUPERSAMPLE: int = 2
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 const _GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 
+
+# ── Circle-clip shader: cuts the rectangular texture into a disc ───────────────
+const _CLIP_SHADER_SRC := """
+shader_type canvas_item;
+void fragment() {
+	vec2 c = UV - vec2(0.5, 0.5);
+	COLOR = texture(TEXTURE, UV);
+	COLOR.a *= 1.0 - smoothstep(0.955, 0.985, length(c) * 2.0);
+}
+"""
+
+
+const _MINIMAP_UPDATE_EVERY: int = 4   # render every 4th frame (~15 Hz at 60 fps)
+
 var _mini_cam: Camera3D
 var _mini_viewport: SubViewport
 var _dot_layer: _DotLayer
@@ -27,6 +41,7 @@ var _door_nodes: Dictionary
 var _npc_nodes: Dictionary
 var _half: float   # half the minimap pixel dimension
 var _scale: float  # pixels per world unit
+var _minimap_frame_counter: int = 0
 
 
 # ── Inner: draws entity dots each frame ───────────────────────────────────────
@@ -55,17 +70,6 @@ class _RingBorder extends Control:
 		draw_arc(center, r - 1.5, 0.0, TAU, 64, Color(0.72, 0.60, 0.22, 1.0), 4.0, true)
 		# Inner dark bevel for depth
 		draw_arc(center, r - 5.5, 0.0, TAU, 64, Color(0.12, 0.10, 0.04, 0.75), 1.5, true)
-
-
-# ── Circle-clip shader: cuts the rectangular texture into a disc ───────────────
-const _CLIP_SHADER_SRC := """
-shader_type canvas_item;
-void fragment() {
-	vec2 c = UV - vec2(0.5, 0.5);
-	COLOR = texture(TEXTURE, UV);
-	COLOR.a *= 1.0 - smoothstep(0.955, 0.985, length(c) * 2.0);
-}
-"""
 
 
 # Call once from WorldScene._ready() after the player is spawned.
@@ -176,10 +180,6 @@ func setup(world: Node3D, hud: CanvasLayer, player: CharacterBody3D,
 
 	# "N" label removed — after the 45° rotation the top of the minimap is
 	# isometric screen-up (world NW), not geographic north.
-
-
-const _MINIMAP_UPDATE_EVERY: int = 4   # render every 4th frame (~15 Hz at 60 fps)
-var _minimap_frame_counter: int = 0
 
 # Call every frame from WorldScene._process().
 func update() -> void:

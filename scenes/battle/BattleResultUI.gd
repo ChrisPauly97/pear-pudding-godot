@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends RefCounted
 
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -162,6 +164,7 @@ func _build_result_overlay(bg: Color, sep_frac: float = 0.03,
 	overlay.add_child(vbox)
 	return {"overlay": overlay, "vbox": vbox}
 
+# gdlint:ignore = function-arguments-number
 func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 		sig_card_id: String = "", condition_text_arg: String = "", condition_met: bool = false,
 		reward_rarity: String = "", reward_stats: Dictionary = {},
@@ -171,7 +174,8 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
 
-	var title_lbl := _UiUtil.make_label("Victory!", int(_vh * 0.06), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label("Victory!", int(_vh * 0.06), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_CENTER,
+			vbox)
 
 	var reward_lbl := Label.new()
 	if reward_card_id != "":
@@ -214,10 +218,13 @@ func show_victory(reward_card_id: String, weapon_reward_id: String = "",
 		vbox.add_child(weapon_lbl)
 
 	if sig_card_id != "" and condition_text_arg != "":
-		var hunt_lbl := _UiUtil.make_label("Soulbind: %s — %s" % [condition_text_arg, "MET" if condition_met else "not met"], int(_vh * 0.022), Color(0.7, 0.5, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		var hunt_lbl := _UiUtil.make_label(
+				"Soulbind: %s — %s" % [condition_text_arg, "MET" if condition_met else "not met"], int(_vh * 0.022),
+				Color(0.7, 0.5, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 		hunt_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
-	var btn := _UiUtil.make_button("Collect" if (reward_card_id != "" or weapon_reward_id != "") else "Continue", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))
+	var btn := _UiUtil.make_button("Collect" if (reward_card_id != "" or weapon_reward_id != "") else "Continue",
+			Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))
 	var final_card: String = reward_card_id
 	var final_weapon: String = weapon_reward_id
 	var final_rarity: String = reward_rarity
@@ -250,19 +257,24 @@ func show_soulbind(reward_card_id: String, sig_card_id: String, condition_text_a
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
 
-	var title_lbl := _UiUtil.make_label("Victory!", int(_vh * 0.06), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label("Victory!", int(_vh * 0.06), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_CENTER,
+			vbox)
 
-	var soul_lbl := _UiUtil.make_label("Soulbind Achieved!", int(_vh * 0.04), Color(0.8, 0.4, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var soul_lbl := _UiUtil.make_label("Soulbind Achieved!", int(_vh * 0.04), Color(0.8, 0.4, 1.0),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var cond_lbl := _UiUtil.make_label(condition_text_arg, int(_vh * 0.022), Color(0.75, 0.6, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var cond_lbl := _UiUtil.make_label(condition_text_arg, int(_vh * 0.022), Color(0.75, 0.6, 1.0),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	cond_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	if reward_card_id != "":
 		var rtmpl: Dictionary = CardRegistry.get_template(reward_card_id)
-		var reward_lbl := _UiUtil.make_label("You earned: " + str(rtmpl.get("name", reward_card_id)), int(_vh * 0.028), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		var reward_lbl := _UiUtil.make_label("You earned: " + str(rtmpl.get("name", reward_card_id)), int(_vh * 0.028),
+				Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var stmpl: Dictionary = CardRegistry.get_template(sig_card_id)
-	var sig_lbl := _UiUtil.make_label("Signature captured: " + str(stmpl.get("name", sig_card_id)), int(_vh * 0.032), Color(0.9, 0.5, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var sig_lbl := _UiUtil.make_label("Signature captured: " + str(stmpl.get("name", sig_card_id)), int(_vh * 0.032),
+			Color(0.9, 0.5, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var btn := _UiUtil.make_button("Collect All", Vector2(_vh * 0.22, _vh * 0.065), int(_vh * 0.028))
 	var fc: String = reward_card_id
@@ -299,10 +311,12 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
 
-	var title_lbl := _UiUtil.make_label("Boss Defeated!", int(_vh * 0.06), Color(1.0, 0.75, 0.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label("Boss Defeated!", int(_vh * 0.06), Color(1.0, 0.75, 0.0),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	if reward_cards.is_empty():
-		var no_drop_lbl := _UiUtil.make_label("No cards dropped.", int(_vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		var no_drop_lbl := _UiUtil.make_label("No cards dropped.", int(_vh * 0.03), Color.WHITE,
+				HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	else:
 		for ri in range(reward_cards.size()):
 			var cid: String = reward_cards[ri]
@@ -343,7 +357,8 @@ func show_victory_boss(reward_cards: Array[String], weapon_reward_id: String = "
 		weapon_lbl.modulate = Color(0.8, 1.0, 0.5)
 		vbox.add_child(weapon_lbl)
 
-	var btn := _UiUtil.make_button("Collect" if (not reward_cards.is_empty() or weapon_reward_id != "") else "Continue", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))
+	var btn := _UiUtil.make_button("Collect" if (not reward_cards.is_empty() or weapon_reward_id != "") else "Continue",
+			Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))
 	var final_rewards: Array[String] = []
 	final_rewards.assign(reward_cards)
 	var final_weapon: String = weapon_reward_id
@@ -376,9 +391,11 @@ func show_duel_victory(wager: int) -> void:
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
 
-	var title_lbl := _UiUtil.make_label("Duel Won!", int(_vh * 0.06), Color(0.4, 1.0, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label("Duel Won!", int(_vh * 0.06), Color(0.4, 1.0, 0.4), HORIZONTAL_ALIGNMENT_CENTER,
+			vbox)
 
-	var coins_lbl := _UiUtil.make_label("+%d coins" % wager if wager > 0 else "Wager was free!", int(_vh * 0.03), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var coins_lbl := _UiUtil.make_label("+%d coins" % wager if wager > 0 else "Wager was free!", int(_vh * 0.03),
+			Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var btn := _UiUtil.make_button("Collect", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))
 	btn.pressed.connect(func() -> void:
@@ -397,9 +414,11 @@ func show_duel_loss(wager: int) -> void:
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
 
-	var title_lbl := _UiUtil.make_label("Duel Lost", int(_vh * 0.06), Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label("Duel Lost", int(_vh * 0.06), Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER,
+			vbox)
 
-	var coins_lbl := _UiUtil.make_label("-%d coins" % wager if wager > 0 else "No wager.", int(_vh * 0.03), Color(1.0, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var coins_lbl := _UiUtil.make_label("-%d coins" % wager if wager > 0 else "No wager.", int(_vh * 0.03),
+			Color(1.0, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var btn := _UiUtil.make_button("Continue", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))
 	btn.pressed.connect(func() -> void:
@@ -423,16 +442,20 @@ func show_duel_loss(wager: int) -> void:
 ## so mashing Continue can't double-award). The Continue button emits
 ## ghost_duel_ended; SceneManager restores the world exactly like an NPC duel.
 func show_ghost_duel_result(did_win: bool, coin_reward: int) -> void:
-	var result: Dictionary = _build_result_overlay(Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92))
+	var result: Dictionary = _build_result_overlay(Color(0.05, 0.1, 0.05,
+			0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92))
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
 
-	var title_lbl := _UiUtil.make_label("Ghost Duel Won!" if did_win else "Ghost Duel Lost", int(_vh * 0.06), Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label("Ghost Duel Won!" if did_win else "Ghost Duel Lost", int(_vh * 0.06),
+			Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var sub_lbl := _UiUtil.make_label("You bested their stored deck." if did_win else "Their stored deck bested you.", int(_vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var sub_lbl := _UiUtil.make_label("You bested their stored deck." if did_win else "Their stored deck bested you.",
+			int(_vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	if did_win and coin_reward > 0:
-		var coins_lbl := _UiUtil.make_label("+%d coins" % coin_reward, int(_vh * 0.03), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		var coins_lbl := _UiUtil.make_label("+%d coins" % coin_reward, int(_vh * 0.03), Color(1.0, 0.85, 0.2),
+				HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var btn := _UiUtil.make_button("Continue", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))
 	btn.pressed.connect(func() -> void:
@@ -449,11 +472,13 @@ func show_ghost_duel_result(did_win: bool, coin_reward: int) -> void:
 ## SceneManager can look up the completion flag / reward without BattleResultUI
 ## needing to know about ScriptedBattleData.
 func show_scripted_result(did_win: bool, battle_id: String) -> void:
-	var result: Dictionary = _build_result_overlay(Color(0.05, 0.1, 0.05, 0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92))
+	var result: Dictionary = _build_result_overlay(Color(0.05, 0.1, 0.05,
+			0.92) if did_win else Color(0.1, 0.05, 0.05, 0.92))
 	var overlay: PanelContainer = result["overlay"]
 	var vbox: VBoxContainer = result["vbox"]
 
-	var title_lbl := _UiUtil.make_label("Victory!" if did_win else "Defeated", int(_vh * 0.06), Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label("Victory!" if did_win else "Defeated", int(_vh * 0.06),
+			Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var btn := _UiUtil.make_button("Continue", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))
 	btn.pressed.connect(func() -> void:
@@ -490,11 +515,15 @@ func show_pvp_result(did_win: bool, coins_delta: int = 0, wager_note: String = "
 
 	if spectating:
 		var winner_name: String = "Bottom Player" if did_win else "Top Player"
-		var title_lbl := _UiUtil.make_label("%s Wins!" % winner_name, int(_vh * 0.06), Color(0.9, 0.85, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
-		var sub_lbl := _UiUtil.make_label("The duel has ended.", int(_vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		var title_lbl := _UiUtil.make_label("%s Wins!" % winner_name, int(_vh * 0.06), Color(0.9, 0.85, 0.4),
+				HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		var sub_lbl := _UiUtil.make_label("The duel has ended.", int(_vh * 0.03), Color.WHITE,
+				HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	else:
-		var title_lbl := _UiUtil.make_label("Victory!" if did_win else "Defeated", int(_vh * 0.06), Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
-		var sub_lbl := _UiUtil.make_label("You bested your rival!" if did_win else "Your rival prevailed.", int(_vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		var title_lbl := _UiUtil.make_label("Victory!" if did_win else "Defeated", int(_vh * 0.06),
+				Color(0.4, 1.0, 0.4) if did_win else Color(1.0, 0.4, 0.4), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		var sub_lbl := _UiUtil.make_label("You bested your rival!" if did_win else "Your rival prevailed.",
+				int(_vh * 0.03), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	# Show wager result if a coin ante was staked (TID-368).
 	if coins_delta != 0:
@@ -511,7 +540,9 @@ func show_pvp_result(did_win: bool, coins_delta: int = 0, wager_note: String = "
 
 	# Spectator bet settlement (GID-104 / TID-387) — gold for a win/refund, red for a loss.
 	if wager_note != "":
-		var note_lbl := _UiUtil.make_label(wager_note, int(_vh * 0.028), Color(1.0, 0.5, 0.5) if wager_note.begins_with("Bet lost") else Color(1.0, 0.85, 0.3), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+		var note_lbl := _UiUtil.make_label(wager_note, int(_vh * 0.028),
+				Color(1.0, 0.5, 0.5) if wager_note.begins_with("Bet lost") else Color(1.0, 0.85, 0.3),
+				HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var btn := _UiUtil.make_button("Continue", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))
 	btn.pressed.connect(func() -> void:
@@ -529,13 +560,16 @@ func show_puzzle_fail_overlay(hint_text: String) -> void:
 	overlay.name = "PuzzleFailOverlay"
 	var vbox: VBoxContainer = result["vbox"]
 
-	var lbl := _UiUtil.make_label("Not quite — try again!", int(_vh * 0.05), Color(1.0, 0.5, 0.3), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var lbl := _UiUtil.make_label("Not quite — try again!", int(_vh * 0.05), Color(1.0, 0.5, 0.3),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var hint_lbl := _UiUtil.make_label(hint_text, int(_vh * 0.028), Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var hint_lbl := _UiUtil.make_label(hint_text, int(_vh * 0.028), Color(0.85, 0.85, 0.85),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	hint_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint_lbl.custom_minimum_size = Vector2(_vh * 0.5, 0)
 
-	var btn := _UiUtil.make_button("Try Again", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025), func() -> void: overlay.queue_free(), vbox)
+	var btn := _UiUtil.make_button("Try Again", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025),
+			func() -> void: overlay.queue_free(), vbox)
 	UiFx.attach(btn)
 
 	_parent.add_child(overlay)
@@ -546,9 +580,11 @@ func show_puzzle_victory_overlay() -> void:
 	overlay.name = "PuzzleVictoryOverlay"
 	var vbox: VBoxContainer = result["vbox"]
 
-	var title_lbl := _UiUtil.make_label("Puzzle Solved!", int(_vh * 0.06), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label("Puzzle Solved!", int(_vh * 0.06), Color(0.4, 1.0, 0.5),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var sub_lbl := _UiUtil.make_label("Reward delivered to your collection.", int(_vh * 0.028), Color(0.8, 1.0, 0.8), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var sub_lbl := _UiUtil.make_label("Reward delivered to your collection.", int(_vh * 0.028), Color(0.8, 1.0, 0.8),
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	var btn := _UiUtil.make_button("Continue", Vector2(_vh * 0.18, _vh * 0.06), int(_vh * 0.025))
 	btn.pressed.connect(func() -> void:

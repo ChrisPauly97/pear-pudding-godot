@@ -16,6 +16,8 @@ extends "res://scenes/ui/BaseOverlay.gd"
 
 const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 
+const _COIN_STEP: int = 50
+
 ## Set by WorldScene right after instantiation so button presses can call back.
 var world_scene: Node = null
 
@@ -24,8 +26,6 @@ var _stash_cards_vbox: VBoxContainer = null
 var _coins_label: Label = null
 var _my_cards_cache: Array = []
 var _stash_cache: Dictionary = {"cards": [], "coins": 0}
-
-const _COIN_STEP: int = 50
 
 
 func _ready() -> void:
@@ -97,14 +97,16 @@ func _build_coins_row(parent: VBoxContainer) -> void:
 	_coins_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
 	row.add_child(_coins_label)
 
-	var deposit_btn := _UiUtil.make_button("Deposit %d" % _COIN_STEP, Vector2(_vh * 0.16, _vh * 0.055), int(_vh * 0.020))
+	var deposit_btn := _UiUtil.make_button("Deposit %d" % _COIN_STEP, Vector2(_vh * 0.16, _vh * 0.055),
+			int(_vh * 0.020))
 	deposit_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_stash_deposit_coins"):
 			world_scene.request_stash_deposit_coins(_COIN_STEP)
 	)
 	row.add_child(deposit_btn)
 
-	var withdraw_btn := _UiUtil.make_button("Withdraw %d" % _COIN_STEP, Vector2(_vh * 0.18, _vh * 0.055), int(_vh * 0.020))
+	var withdraw_btn := _UiUtil.make_button("Withdraw %d" % _COIN_STEP, Vector2(_vh * 0.18, _vh * 0.055),
+			int(_vh * 0.020))
 	withdraw_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_stash_withdraw_coins"):
 			world_scene.request_stash_withdraw_coins(_COIN_STEP)
@@ -166,7 +168,8 @@ func _add_card_row(parent: VBoxContainer, inst: Dictionary, is_mine: bool) -> vo
 	hb.add_child(name_lbl)
 
 	var uid: String = str(inst.get("uid", ""))
-	var action_btn := _UiUtil.make_button("Deposit" if is_mine else "Withdraw", Vector2(_vh * 0.16, _vh * 0.05), int(_vh * 0.018))
+	var action_btn := _UiUtil.make_button("Deposit" if is_mine else "Withdraw", Vector2(_vh * 0.16, _vh * 0.05),
+			int(_vh * 0.018))
 	if is_mine:
 		action_btn.pressed.connect(func() -> void:
 			if world_scene != null and world_scene.has_method("request_stash_deposit_card"):

@@ -51,20 +51,24 @@ func _build_ui() -> void:
 	header_row.add_child(_header_label)
 
 	if not hub_mode:
-		var close_btn := _UiUtil.make_button("X", Vector2(_vh * 0.055, _vh * 0.055), int(_vh * 0.028), _close, header_row)
+		var close_btn := _UiUtil.make_button("X", Vector2(_vh * 0.055, _vh * 0.055), int(_vh * 0.028), _close,
+				header_row)
 
 	# ── Tab bar ───────────────────────────────────────────────────────────────
 	var tab_bar := _UiUtil.make_hbox(0, root_vbox)
 
-	_tab_scrolls_btn = _UiUtil.make_button("Scrolls", Vector2(0, _vh * 0.05), int(_vh * 0.022), _on_tab_selected.bind("scrolls"), tab_bar)
+	_tab_scrolls_btn = _UiUtil.make_button("Scrolls", Vector2(0, _vh * 0.05), int(_vh * 0.022),
+			_on_tab_selected.bind("scrolls"), tab_bar)
 	_tab_scrolls_btn.flat = true
 	_tab_scrolls_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	_tab_bestiary_btn = _UiUtil.make_button("Bestiary", Vector2(0, _vh * 0.05), int(_vh * 0.022), _on_tab_selected.bind("bestiary"), tab_bar)
+	_tab_bestiary_btn = _UiUtil.make_button("Bestiary", Vector2(0, _vh * 0.05), int(_vh * 0.022),
+			_on_tab_selected.bind("bestiary"), tab_bar)
 	_tab_bestiary_btn.flat = true
 	_tab_bestiary_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	_tab_discoveries_btn = _UiUtil.make_button("Discoveries", Vector2(0, _vh * 0.05), int(_vh * 0.022), _on_tab_selected.bind("discoveries"), tab_bar)
+	_tab_discoveries_btn = _UiUtil.make_button("Discoveries", Vector2(0, _vh * 0.05), int(_vh * 0.022),
+			_on_tab_selected.bind("discoveries"), tab_bar)
 	_tab_discoveries_btn.flat = true
 	_tab_discoveries_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
@@ -106,7 +110,8 @@ func _build_ui() -> void:
 	right_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	panels_box.add_child(right_panel)
 
-	var right_margin := _UiUtil.make_margin(int(_vw * 0.015), int(_vh * 0.015), int(_vw * 0.015), int(_vh * 0.015), right_panel)
+	var right_margin := _UiUtil.make_margin(int(_vw * 0.015), int(_vh * 0.015), int(_vw * 0.015), int(_vh * 0.015),
+			right_panel)
 
 	var detail_vbox := _UiUtil.make_vbox(int(_vh * 0.012), right_margin)
 
@@ -123,7 +128,8 @@ func _build_ui() -> void:
 	_lore_label.add_theme_font_size_override("normal_font_size", int(_vh * 0.022))
 	detail_vbox.add_child(_lore_label)
 
-	_replay_btn = _UiUtil.make_button("Replay Narration", Vector2(_vw * 0.18, _vh * 0.06), int(_vh * 0.025), _on_replay_pressed)
+	_replay_btn = _UiUtil.make_button("Replay Narration", Vector2(_vw * 0.18, _vh * 0.06), int(_vh * 0.025),
+			_on_replay_pressed)
 	_replay_btn.hide()
 	detail_vbox.add_child(_replay_btn)
 
@@ -137,7 +143,8 @@ func _refresh_treasure_panel() -> void:
 	if not at.is_empty() and bool(at.get("completed", false)):
 		_treasure_label.text = "Treasure: Excavated!"
 	elif not at.is_empty():
-		_treasure_label.text = "Treasure: Active dig site at (%d, %d)" % [int(at.get("site_x", 0)), int(at.get("site_z", 0))]
+		_treasure_label.text = "Treasure: Active dig site at (%d, %d)" % [int(at.get("site_x", 0)),
+				int(at.get("site_z", 0))]
 	elif sm.treasure_fragments > 0:
 		_treasure_label.text = "Map Fragments: %d / 3" % sm.treasure_fragments
 	else:
@@ -170,11 +177,13 @@ func _populate_scroll_list() -> void:
 		if not SaveManager.is_scroll_collected(sid):
 			continue
 		any_found = true
-		var btn := _UiUtil.make_button(scroll["title"], Vector2(_vw * 0.22, _vh * 0.06), int(_vh * 0.022), _on_scroll_selected.bind(sid), _scroll_list)
+		var btn := _UiUtil.make_button(scroll["title"], Vector2(_vw * 0.22, _vh * 0.06), int(_vh * 0.022),
+				_on_scroll_selected.bind(sid), _scroll_list)
 		btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	if not any_found:
-		var empty_lbl := _UiUtil.make_label("No lore scrolls found yet.", int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, _scroll_list)
+		var empty_lbl := _UiUtil.make_label("No lore scrolls found yet.", int(_vh * 0.022), Color.WHITE,
+				HORIZONTAL_ALIGNMENT_LEFT, _scroll_list)
 		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 func _on_scroll_selected(scroll_id: String) -> void:
@@ -207,7 +216,9 @@ func _populate_discoveries_list() -> void:
 		child.queue_free()
 	var discovered: Array[String] = SaveManager.discovered_landmarks
 	if discovered.is_empty():
-		var empty_lbl := _UiUtil.make_label("No landmarks discovered yet.\nExplore the world to find ancient colossi and ruins.", int(_vh * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, _scroll_list)
+		var empty_lbl := _UiUtil.make_label(
+				"No landmarks discovered yet.\nExplore the world to find ancient colossi and ruins.", int(_vh * 0.022),
+				Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, _scroll_list)
 		empty_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		return
 	var world_seed: int = SaveManager.world_seed
@@ -236,7 +247,8 @@ func _on_discovery_selected(landmark_id: String) -> void:
 		biome_name = biome_names[biome % biome_names.size()]
 	_title_label.text = display_name
 	_title_label.modulate = Color(1.0, 0.85, 0.4)
-	_lore_label.text = "[color=gray]Biome:[/color] %s\n\n[i]A great ruin of an ancient age, standing witness to the passage of time.[/i]" % biome_name
+	_lore_label.text = ("[color=gray]Biome:[/color] %s\n\n[i]A great ruin of an ancient age, standing witness to the "
+			+ "passage of time.[/i]") % biome_name
 	_replay_btn.hide()
 
 func _get_bestiary_tier(type_id: String) -> int:
@@ -305,7 +317,8 @@ func _show_bestiary_detail(type_id: String) -> void:
 			var diff: int = _EnemyRegistry.get_difficulty_tier(type_id)
 			var coins: int = _EnemyRegistry.get_coin_reward(type_id)
 			var remaining: int = max(0, 3 - defeated)
-			_lore_label.text = "Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n[Defeat %d more time(s) to reveal lore]" % [deck.size(), diff, coins, remaining]
+			_lore_label.text = ("Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n[Defeat %d more time(s) "
+					+ "to reveal lore]") % [deck.size(), diff, coins, remaining]
 		2:
 			_title_label.text = _EnemyRegistry.get_display_name(type_id)
 			_title_label.modulate = Color(1, 1, 1)
@@ -313,7 +326,8 @@ func _show_bestiary_detail(type_id: String) -> void:
 			var diff2: int = _EnemyRegistry.get_difficulty_tier(type_id)
 			var coins2: int = _EnemyRegistry.get_coin_reward(type_id)
 			var lore: String = _EnemyRegistry.get_lore_text(type_id)
-			_lore_label.text = "Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n%s" % [deck2.size(), diff2, coins2, lore]
+			_lore_label.text = "Deck size: %d cards\nDifficulty: %d / 4\nReward: %d coins\n\n%s" % [deck2.size(), diff2,
+					coins2, lore]
 
 func _input(event: InputEvent) -> void:
 	if hub_mode:

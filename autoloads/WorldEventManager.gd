@@ -1,5 +1,17 @@
 extends Node
 
+const _InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+
+var _events: Dictionary = {}           # String -> _EventReg
+var _active_event_id: String = ""     # "" = none active
+var _event_positions: Dictionary = {} # String -> Vector3
+var _in_battle: bool = false
+var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+
+# Cached node references, set in _ready().
+var _game_bus: Node = null
+var _scene_mgr: Node = null
+
 ## Scheduler for living-world events (roaming boss, traveling merchant, card shower).
 ##
 ## Concrete events register themselves via register_event() — typically from a
@@ -19,18 +31,6 @@ class _EventReg extends RefCounted:
 	var elapsed: float = 0.0
 	var next_interval: float = 60.0
 	var active: bool = false
-
-const _InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
-
-var _events: Dictionary = {}           # String -> _EventReg
-var _active_event_id: String = ""     # "" = none active
-var _event_positions: Dictionary = {} # String -> Vector3
-var _in_battle: bool = false
-var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
-
-# Cached node references, set in _ready().
-var _game_bus: Node = null
-var _scene_mgr: Node = null
 
 func _ready() -> void:
 	_rng.randomize()

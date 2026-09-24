@@ -33,9 +33,9 @@ const SFX_PATHS: Dictionary = {
 	"dig_success":  "res://assets/audio/sfx/dig_success.wav",
 	"waystone_travel": "res://assets/audio/sfx/waystone_travel.wav",
 }
+const _POOL_SIZE: int = 8
 
 var _players: Array[AudioStreamPlayer] = []
-const _POOL_SIZE: int = 8
 var _sfx_cache: Dictionary = {}
 
 var _narration_player: AudioStreamPlayer

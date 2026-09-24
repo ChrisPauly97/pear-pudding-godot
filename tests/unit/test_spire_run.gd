@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for the Endless Spire run state in SaveManager.
 ##
 ## Tests cover the v15→v16 migration and the start/advance/draft/end lifecycle.

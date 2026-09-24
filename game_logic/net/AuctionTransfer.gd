@@ -19,6 +19,12 @@ const _CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _AuctionSync = preload("res://game_logic/net/AuctionSync.gd")
 const _StashTransfer = preload("res://game_logic/net/StashTransfer.gd")
 
+
+## Cap of completed (sold/cancelled/expired) listings kept around for the "My
+## Listings" history view, oldest-first trimmed — bounds the persisted session
+## file's growth over a long-running party, mirrors PVE_LEADERBOARD_CAP.
+const _COMPLETED_CAP: int = 30
+
 ## Highest-bidder settlement (buyout or expiry) never fails on a coin edge case
 ## silently — the bid is only ever "record-only" (never escrowed from the
 ## bidder up front), so settlement re-validates the bidder can still afford it.
@@ -122,10 +128,12 @@ static func buyout(
 	if str(listing.get("status", "")) != _AuctionSync.STATUS_ACTIVE:
 		return {"ok": false, "reason": "not_active", "auctions": auctions_out, "buyer": buyer_out, "seller": seller_out}
 	if str(listing.get("seller_token", "")) == buyer_token:
-		return {"ok": false, "reason": "own_listing", "auctions": auctions_out, "buyer": buyer_out, "seller": seller_out}
+		return {"ok": false, "reason": "own_listing", "auctions": auctions_out, "buyer": buyer_out,
+				"seller": seller_out}
 	var price: int = int(listing.get("buyout", 0))
 	if int(buyer_out.get("coins", 0)) < price:
-		return {"ok": false, "reason": "insufficient_funds", "auctions": auctions_out, "buyer": buyer_out, "seller": seller_out}
+		return {"ok": false, "reason": "insufficient_funds", "auctions": auctions_out, "buyer": buyer_out,
+				"seller": seller_out}
 
 	buyer_out["coins"] = int(buyer_out.get("coins", 0)) - price
 	seller_out["coins"] = int(seller_out.get("coins", 0)) + price
@@ -141,7 +149,8 @@ static func buyout(
 	listing["card_instance"] = {}
 	auctions_out[idx] = listing
 
-	return {"ok": true, "reason": "", "auctions": _prune_completed(auctions_out), "buyer": buyer_out, "seller": seller_out}
+	return {"ok": true, "reason": "", "auctions": _prune_completed(auctions_out), "buyer": buyer_out,
+			"seller": seller_out}
 
 
 ## Cancel your own active listing, returning the escrowed card to you. A no-op
@@ -261,12 +270,6 @@ static func _next_id(auctions: Array) -> String:
 				if n > max_n:
 					max_n = n
 	return "auc_%d" % (max_n + 1)
-
-
-## Cap of completed (sold/cancelled/expired) listings kept around for the "My
-## Listings" history view, oldest-first trimmed — bounds the persisted session
-## file's growth over a long-running party, mirrors PVE_LEADERBOARD_CAP.
-const _COMPLETED_CAP: int = 30
 
 static func _prune_completed(auctions: Array) -> Array:
 	var active: Array = []

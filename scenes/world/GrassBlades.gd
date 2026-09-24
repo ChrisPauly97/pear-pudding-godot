@@ -4,15 +4,6 @@ const _GrassShader   = preload("res://assets/shaders/grass_blade.gdshader")
 const _ClusterShader = preload("res://assets/shaders/grass_cluster.gdshader")
 const WorldMap       = preload("res://game_logic/world/WorldMap.gd")
 
-var _mat: ShaderMaterial
-var _blade_mesh: ArrayMesh  # cached — identical for every chunk
-
-var _cluster_mat:  ShaderMaterial
-var _cluster_mesh: ArrayMesh  # unit quad, billboard-rotated per instance
-
-var _prev_pos:      Vector3 = Vector3(-9999, 0, -9999)
-var _last_move_dir: Vector2 = Vector2.ZERO
-
 # Sliding trample window: 64x64 pixel image, player-centred, shifts when
 # the player moves more than TRAMPLE_SHIFT_TILES tiles from the window centre.
 const TRAMPLE_RES         := 64   # pixels (tiles)
@@ -21,14 +12,6 @@ const TRAMPLE_RADIUS      := 0    # pixel radius of player stamp (0 = single til
 const TRAMPLE_DECAY       := 0.02 # per-second decay rate
 const TRAMPLE_FLOOR       := 0.3  # trampled grass never recovers past this
 const TRAMPLE_RAMP        := 1.5  # per-second ramp-up rate
-
-var _trample_img:      Image
-var _trample_tex:      ImageTexture
-var _trample_buf:      PackedFloat32Array  # CPU-side float buffer (avoids get/set_pixel)
-var _trample_bytes:    PackedByteArray     # reusable byte buffer — avoids alloc per flush
-var _trample_origin_x: float = 0.0  # world-space X of pixel (0,0) in trample map
-var _trample_origin_z: float = 0.0  # world-space Z of pixel (0,0) in trample map
-var _trample_timer:    float = 0.0  # throttle trample updates
 const TRAMPLE_UPDATE_INTERVAL: float = 0.2  # ~5 Hz — was 15 Hz, barely visible difference
 
 # Mobile-budget densities: real blade geometry is the single biggest GPU cost
@@ -56,6 +39,30 @@ const RENDER_LAYER: int = 1 << 1
 const TALL_PATCH_CELL:    float = 6.0   # world units per patch cell (≈3 tiles)
 const TALL_PATCH_DENSITY: float = 0.12  # fraction of cells that become tall patches
 
+static var _registered_global_params: Dictionary = {}
+
+var _mat: ShaderMaterial
+var _blade_mesh: ArrayMesh  # cached — identical for every chunk
+
+var _cluster_mat:  ShaderMaterial
+var _cluster_mesh: ArrayMesh  # unit quad, billboard-rotated per instance
+
+var _prev_pos:      Vector3 = Vector3(-9999, 0, -9999)
+var _last_move_dir: Vector2 = Vector2.ZERO
+
+var _trample_img:      Image
+var _trample_tex:      ImageTexture
+var _trample_buf:      PackedFloat32Array  # CPU-side float buffer (avoids get/set_pixel)
+var _trample_bytes:    PackedByteArray     # reusable byte buffer — avoids alloc per flush
+var _trample_origin_x: float = 0.0  # world-space X of pixel (0,0) in trample map
+var _trample_origin_z: float = 0.0  # world-space Z of pixel (0,0) in trample map
+var _trample_timer:    float = 0.0  # throttle trample updates
+
+
+# Per-chunk MultiMeshInstance3D nodes — keyed by Vector2i(cx, cz)
+var _chunk_mmis:   Dictionary = {}
+var _cluster_mmis: Dictionary = {}
+
 # Integer hash mapped to [0,1) — used for deterministic patch classification.
 static func _hash_pos(px: float, pz: float) -> float:
 	var ix: int = int(px)
@@ -64,14 +71,8 @@ static func _hash_pos(px: float, pz: float) -> float:
 	h = (h ^ (h >> 13)) * 1274126177
 	return float(abs(h) % 100000) / 100000.0
 
-
-# Per-chunk MultiMeshInstance3D nodes — keyed by Vector2i(cx, cz)
-var _chunk_mmis:   Dictionary = {}
-var _cluster_mmis: Dictionary = {}
-
-static var _registered_global_params: Dictionary = {}
-
-static func _ensure_global_param(name: String, type: RenderingServer.GlobalShaderParameterType, default_value: Variant) -> void:
+static func _ensure_global_param(name: String, type: RenderingServer.GlobalShaderParameterType,
+		default_value: Variant) -> void:
 	if not _registered_global_params.has(name):
 		RenderingServer.global_shader_parameter_add(name, type, default_value)
 		_registered_global_params[name] = true

@@ -1,7 +1,8 @@
 extends Control
-const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 signal closed
+
+const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
@@ -44,7 +45,8 @@ func _build_ui() -> void:
 	var title_lbl := _UiUtil.make_label("Blacksmith", int(_ref * 0.032), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, header)
 	title_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var close_btn := _UiUtil.make_button("Close  [C]" if not OS.has_feature("android") else "Close", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_close, header)
+	var close_btn := _UiUtil.make_button("Close  [C]" if not OS.has_feature("android") else "Close",
+			Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_close, header)
 
 	# Currency display
 	var currency_row := _UiUtil.make_hbox(int(_vw * 0.03), root_vbox)
@@ -80,7 +82,8 @@ func _refresh() -> void:
 
 	var owned: Array[Dictionary] = sm.owned_weapons
 	if owned.is_empty():
-		var none_lbl := _UiUtil.make_label("You own no weapons yet.", int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _weapon_list)
+		var none_lbl := _UiUtil.make_label("You own no weapons yet.", int(_ref * 0.022), Color(0.6, 0.6, 0.6),
+				HORIZONTAL_ALIGNMENT_CENTER, _weapon_list)
 		if _weapon_scroll and saved_scroll > 0:
 			_weapon_scroll.scroll_vertical = saved_scroll
 		return
@@ -115,10 +118,12 @@ func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: Node) -> 
 
 	var equipped_id: String = sm.equipped_weapon
 	if equipped_id == wid:
-		var eq_lbl := _UiUtil.make_label("[E]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT, name_row)
+		var eq_lbl := _UiUtil.make_label("[E]", int(_ref * 0.022), Color(0.4, 1.0, 0.5), HORIZONTAL_ALIGNMENT_LEFT,
+				name_row)
 
 	# Current stats
-	var cur_lbl := _UiUtil.make_label("  Current: %s" % UpgradeDefs.get_display_string(weapon, level), int(_ref * 0.020), Color(0.9, 1.0, 0.7), HORIZONTAL_ALIGNMENT_LEFT, outer)
+	var cur_lbl := _UiUtil.make_label("  Current: %s" % UpgradeDefs.get_display_string(weapon, level),
+			int(_ref * 0.020), Color(0.9, 1.0, 0.7), HORIZONTAL_ALIGNMENT_LEFT, outer)
 
 	# Next-level preview or max label
 	if level < UpgradeDefs.MAX_LEVEL:
@@ -133,7 +138,8 @@ func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: Node) -> 
 		next_lbl.modulate = Color(0.7, 0.85, 1.0)
 		outer.add_child(next_lbl)
 	else:
-		var max_lbl := _UiUtil.make_label("  MAX LEVEL", int(_ref * 0.020), Color(1.0, 0.85, 0.1), HORIZONTAL_ALIGNMENT_LEFT, outer)
+		var max_lbl := _UiUtil.make_label("  MAX LEVEL", int(_ref * 0.020), Color(1.0, 0.85, 0.1),
+				HORIZONTAL_ALIGNMENT_LEFT, outer)
 
 	# Action buttons row
 	var btn_row := _UiUtil.make_hbox(int(_vw * 0.010), outer)

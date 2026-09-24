@@ -11,7 +11,8 @@ const EV_ENEMY_ENGAGED: String = "enemy_engaged"     # client → authority: I e
 const EV_ENEMY_REMOVED: String = "enemy_removed"     # authority → peers: drop enemy id
 const EV_ENEMY_DEFEATED: String = "enemy_defeated"   # → authority: persist enemy id as defeated
 const EV_CHEST_OPENED: String = "chest_opened"       # opener/authority: chest id is now open
-const EV_SCROLL_COLLECTED: String = "scroll_collected"  # collector/authority: story scroll id collected (GID-108 / TID-408)
+# collector/authority: story scroll id collected (GID-108 / TID-408)
+const EV_SCROLL_COLLECTED: String = "scroll_collected"
 
 
 ## Pack a discrete world event into [kind, id].

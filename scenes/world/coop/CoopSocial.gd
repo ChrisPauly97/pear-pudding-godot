@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 ## Session social & economy surface: emotes, world pings, party chat, card
 ## trading and gifting, the shared party stash, and the async auction house.
 ##
@@ -5,11 +7,6 @@
 ## so the `_on_*` entry points below are reached exactly as they were when they
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
-
-## The WorldScene that owns this module. Everything the module needs from
-## the world itself — the player node, the HUD, the entity tables — is
-## reached through it. Sibling modules are reached as _world.<accessor>.
-var _world: Node = null
 
 const UiFx = preload("res://scenes/ui/UiFx.gd")
 const WorldHUD          = preload("res://scenes/world/WorldHUD.gd")
@@ -23,6 +20,11 @@ const _SocialSync = preload("res://game_logic/net/SocialSync.gd")
 const _StashTransfer = preload("res://game_logic/net/StashTransfer.gd")
 const _TradeSync = preload("res://game_logic/net/TradeSync.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+
+## The WorldScene that owns this module. Everything the module needs from
+## the world itself — the player node, the HUD, the entity tables — is
+## reached through it. Sibling modules are reached as _world.<accessor>.
+var _world: Node = null
 
 var _auction_cache: Array = []            # last-known listings snapshot
 var _auction_overlay: Node = null         # AuctionHouseOverlay instance, nil when closed
@@ -445,7 +447,8 @@ func _ensure_chat_ui() -> void:
 		_world._chat_input.text_submitted.connect(func(_t: String) -> void: _submit_chat_input())
 		_world._hud.add_child(_world._chat_input)
 	if _chat_send_btn == null or not is_instance_valid(_chat_send_btn):
-		_chat_send_btn = _UiUtil.make_button("Send", Vector2(vh * 0.10, vh * 0.05), int(vh * 0.020), _submit_chat_input, _world._hud)
+		_chat_send_btn = _UiUtil.make_button("Send", Vector2(vh * 0.10, vh * 0.05), int(vh * 0.020), _submit_chat_input,
+				_world._hud)
 		_chat_send_btn.position = Vector2(vp.x * 0.32, vh * 0.93)
 		UiFx.attach(_chat_send_btn)
 
@@ -534,7 +537,8 @@ func _append_chat_line(sender_name: String, color: Color, text: String) -> void:
 	if _chat_log_vbox == null or not is_instance_valid(_chat_log_vbox):
 		return
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var lbl := _UiUtil.make_label("[%s] %s: %s" % [Time.get_time_string_from_system().substr(0, 5), sender_name, text], int(vh * 0.016))
+	var lbl := _UiUtil.make_label("[%s] %s: %s" % [Time.get_time_string_from_system().substr(0, 5), sender_name, text],
+			int(vh * 0.016))
 	lbl.add_theme_color_override("font_color", color)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_chat_log_vbox.add_child(lbl)

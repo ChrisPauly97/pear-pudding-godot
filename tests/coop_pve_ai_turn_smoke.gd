@@ -31,8 +31,8 @@ extends SceneTree
 # Loaded at runtime (not top-level preload) — BattleScene.gd references autoload
 # singletons (SceneManager, etc.) at parse time, which aren't registered as global
 # identifiers yet while this script itself is still being compiled. Mirrors
-# world_scene_smoke.gd's `load(_WorldScenePath)` inside `_run()` for the same reason.
-const _BattleScenePath: String = "res://scenes/battle/BattleScene.tscn"
+# world_scene_smoke.gd's `load(_WORLD_SCENE_PATH)` inside `_run()` for the same reason.
+const _BATTLE_SCENE_PATH: String = "res://scenes/battle/BattleScene.tscn"
 
 const _ALLY_DECK: Array[String] = ["ghost", "skeleton", "zombie", "ghoul",
 	"ghost", "skeleton", "zombie", "ghoul", "ghost", "skeleton", "zombie", "ghoul"]
@@ -70,7 +70,7 @@ func _run() -> bool:
 		return false
 	save_manager.call("set_setting", "battle_speed", "fast")
 
-	var packed: PackedScene = load(_BattleScenePath)
+	var packed: PackedScene = load(_BATTLE_SCENE_PATH)
 	var battle: Node = packed.instantiate()
 	battle.name = "BattleScene"
 	battle.set("_coop_pve", true)
@@ -162,4 +162,5 @@ func _run() -> bool:
 			"board-diff bookkeeping is reading/writing the wrong player index")
 		return false
 	print("  [PASS] boss's own emergence_draw effect resolved against its own hand/board")
+	# gdlint:ignore = max-returns
 	return true

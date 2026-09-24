@@ -1,5 +1,11 @@
 extends Control
 
+## Emitted only in coop mode when the player presses "Continue" (there is no
+## "Return to Menu" for a co-op run — leaving the world entirely isn't the right
+## action while the shared session is still live). The caller (WorldScene) does
+## the actual shared map transition back to madrian.
+signal continue_pressed
+
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
@@ -11,12 +17,6 @@ var spire_stats: Dictionary = {}
 # when this scene is instantiated as a WorldScene child overlay rather than via
 # change_scene_to_node — the co-op session stays alive underneath.
 var coop_stats: Dictionary = {}
-
-## Emitted only in coop mode when the player presses "Continue" (there is no
-## "Return to Menu" for a co-op run — leaving the world entirely isn't the right
-## action while the shared session is still live). The caller (WorldScene) does
-## the actual shared map transition back to madrian.
-signal continue_pressed
 
 var _vh: float = 0.0
 var _vw: float = 0.0
@@ -49,7 +49,8 @@ func _build_ui() -> void:
 	var root_vbox := _UiUtil.make_vbox(int(_ref * 0.018), margin)
 
 	# Title
-	var title := _UiUtil.make_label("Session Summary", int(_ref * 0.045), Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+	var title := _UiUtil.make_label("Session Summary", int(_ref * 0.045), Color(1.0, 0.88, 0.4),
+			HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	# Separator
 	var sep := HSeparator.new()
@@ -79,7 +80,8 @@ func _build_ui() -> void:
 	root_vbox.add_child(grid)
 
 	for row: Array in stat_rows:
-		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, grid)
+		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75),
+				HORIZONTAL_ALIGNMENT_LEFT, grid)
 
 		var val_lbl := _UiUtil.make_label(str(row[1]), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, grid)
 
@@ -96,7 +98,8 @@ func _build_ui() -> void:
 	var btn_wrap := CenterContainer.new()
 	root_vbox.add_child(btn_wrap)
 
-	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(_ref * 0.32, _ref * 0.07), int(_ref * 0.028), _on_menu, btn_wrap)
+	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(_ref * 0.32, _ref * 0.07), int(_ref * 0.028),
+			_on_menu, btn_wrap)
 
 func _on_menu() -> void:
 	SceneManager.go_to_menu_direct()
@@ -119,13 +122,17 @@ func _build_spire_ui() -> void:
 	var floors_cleared: int = int(spire_stats.get("floors_cleared", 0))
 
 	# Title
-	var title := _UiUtil.make_label("Endless Spire", int(_ref * 0.048), Color(0.75, 0.5, 1.0), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+	var title := _UiUtil.make_label("Endless Spire", int(_ref * 0.048), Color(0.75, 0.5, 1.0),
+			HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
-	var subtitle := _UiUtil.make_label("Floor %d" % floors_cleared if floors_cleared > 0 else "Fallen before the first floor", int(_ref * 0.028), Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+	var subtitle := _UiUtil.make_label(
+			"Floor %d" % floors_cleared if floors_cleared > 0 else "Fallen before the first floor", int(_ref * 0.028),
+			Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	# New record badge
 	if bool(spire_stats.get("is_new_record", false)) and floors_cleared > 0:
-		var record_lbl := _UiUtil.make_label("New Record!", int(_ref * 0.026), Color(1.0, 0.85, 0.2), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+		var record_lbl := _UiUtil.make_label("New Record!", int(_ref * 0.026), Color(1.0, 0.85, 0.2),
+				HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	root_vbox.add_child(HSeparator.new())
 
@@ -146,7 +153,8 @@ func _build_spire_ui() -> void:
 	root_vbox.add_child(grid)
 
 	for row: Array in stat_rows:
-		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, grid)
+		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75),
+				HORIZONTAL_ALIGNMENT_LEFT, grid)
 
 		var val_lbl := _UiUtil.make_label(str(row[1]), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, grid)
 
@@ -154,7 +162,8 @@ func _build_spire_ui() -> void:
 	var draft_ids: Array = spire_stats.get("draft_deck_ids", [])
 	if draft_ids.size() > 0:
 		root_vbox.add_child(HSeparator.new())
-		var deck_header := _UiUtil.make_label("Cards Drafted", int(_ref * 0.022), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, root_vbox)
+		var deck_header := _UiUtil.make_label("Cards Drafted", int(_ref * 0.022), Color(0.75, 0.75, 0.75),
+				HORIZONTAL_ALIGNMENT_LEFT, root_vbox)
 
 		var names_vbox := _UiUtil.make_vbox(int(_ref * 0.006), root_vbox)
 
@@ -163,9 +172,11 @@ func _build_spire_ui() -> void:
 			var cid: String = str(draft_ids[i])
 			var tmpl: Dictionary = CardRegistry.get_template(cid)
 			var card_name: String = str(tmpl.get("name", cid)) if not tmpl.is_empty() else cid
-			var card_lbl := _UiUtil.make_label("  • %s" % card_name, int(_ref * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, names_vbox)
+			var card_lbl := _UiUtil.make_label("  • %s" % card_name, int(_ref * 0.020), Color.WHITE,
+					HORIZONTAL_ALIGNMENT_LEFT, names_vbox)
 		if draft_ids.size() > 8:
-			var more_lbl := _UiUtil.make_label("  + %d more" % (draft_ids.size() - 8), int(_ref * 0.020), Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_LEFT, names_vbox)
+			var more_lbl := _UiUtil.make_label("  + %d more" % (draft_ids.size() - 8), int(_ref * 0.020),
+					Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_LEFT, names_vbox)
 
 	root_vbox.add_child(HSeparator.new())
 
@@ -176,7 +187,8 @@ func _build_spire_ui() -> void:
 	var btn_wrap := CenterContainer.new()
 	root_vbox.add_child(btn_wrap)
 
-	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(_ref * 0.32, _ref * 0.07), int(_ref * 0.028), _on_menu, btn_wrap)
+	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(_ref * 0.32, _ref * 0.07), int(_ref * 0.028),
+			_on_menu, btn_wrap)
 
 ## Co-op Endless Spire run summary (GID-106 / TID-391). Shown as a WorldScene
 ## child overlay (never change_scene_to_node — that would exit the whole co-op
@@ -199,9 +211,12 @@ func _build_coop_spire_ui() -> void:
 
 	var floors_cleared: int = int(coop_stats.get("floors_cleared", 0))
 
-	var title := _UiUtil.make_label("Party Endless Spire", int(_ref * 0.048), Color(0.75, 0.5, 1.0), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+	var title := _UiUtil.make_label("Party Endless Spire", int(_ref * 0.048), Color(0.75, 0.5, 1.0),
+			HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
-	var subtitle := _UiUtil.make_label("Floor %d" % floors_cleared if floors_cleared > 0 else "The party fell before the first floor", int(_ref * 0.028), Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+	var subtitle := _UiUtil.make_label(
+			"Floor %d" % floors_cleared if floors_cleared > 0 else "The party fell before the first floor",
+			int(_ref * 0.028), Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	root_vbox.add_child(HSeparator.new())
 
@@ -215,18 +230,21 @@ func _build_coop_spire_ui() -> void:
 	grid.add_theme_constant_override("v_separation", int(_ref * 0.012))
 	root_vbox.add_child(grid)
 	for row: Array in stat_rows:
-		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, grid)
+		var key_lbl := _UiUtil.make_label(str(row[0]), int(_ref * 0.024), Color(0.75, 0.75, 0.75),
+				HORIZONTAL_ALIGNMENT_LEFT, grid)
 
 		var val_lbl := _UiUtil.make_label(str(row[1]), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT, grid)
 
 	var roster: Array = coop_stats.get("roster", [])
 	if roster.size() > 0:
 		root_vbox.add_child(HSeparator.new())
-		var roster_header := _UiUtil.make_label("The Party", int(_ref * 0.022), Color(0.75, 0.75, 0.75), HORIZONTAL_ALIGNMENT_LEFT, root_vbox)
+		var roster_header := _UiUtil.make_label("The Party", int(_ref * 0.022), Color(0.75, 0.75, 0.75),
+				HORIZONTAL_ALIGNMENT_LEFT, root_vbox)
 
 		var names_vbox2 := _UiUtil.make_vbox(int(_ref * 0.006), root_vbox)
 		for member_name in roster:
-			var name_lbl := _UiUtil.make_label("  • %s" % str(member_name), int(_ref * 0.020), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, names_vbox2)
+			var name_lbl := _UiUtil.make_label("  • %s" % str(member_name), int(_ref * 0.020), Color.WHITE,
+					HORIZONTAL_ALIGNMENT_LEFT, names_vbox2)
 
 	root_vbox.add_child(HSeparator.new())
 
@@ -237,4 +255,5 @@ func _build_coop_spire_ui() -> void:
 	var btn_wrap2 := CenterContainer.new()
 	root_vbox.add_child(btn_wrap2)
 
-	var continue_btn := _UiUtil.make_button("Continue", Vector2(_ref * 0.32, _ref * 0.07), int(_ref * 0.028), func() -> void: continue_pressed.emit(), btn_wrap2)
+	var continue_btn := _UiUtil.make_button("Continue", Vector2(_ref * 0.32, _ref * 0.07), int(_ref * 0.028),
+			func() -> void: continue_pressed.emit(), btn_wrap2)

@@ -41,10 +41,9 @@ func card_tier(card_id: String) -> int:
 func tier_weights(floor: int) -> Array[int]:
 	if floor <= 3:
 		return [60, 30, 10, 0]
-	elif floor <= 6:
+	if floor <= 6:
 		return [35, 40, 20, 5]
-	else:
-		return [15, 35, 35, 15]
+	return [15, 35, 35, 15]
 
 ## Returns 3 distinct card IDs sampled with floor-depth rarity weighting.
 ## pool_templates: Dictionary {card_id: template_dict} — build from CardRegistry in the caller.

@@ -28,7 +28,8 @@ func show_house_door_panel() -> void:
 	var vh: float = _world.get_viewport().get_visible_rect().size.y
 	var body_font: int = int(vh * 0.027)
 	_UiUtil.make_label("House For Sale", int(vh * 0.035), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-	var desc_text: String = "Purchase this cozy home for %d coins.\nCurrent balance: %d coins." % [HOUSE_PRICE, sm.coins]
+	var desc_text: String = "Purchase this cozy home for %d coins.\nCurrent balance: %d coins." % [HOUSE_PRICE,
+			sm.coins]
 	var desc := _UiUtil.make_label(desc_text, body_font, Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var hbox := _UiUtil.make_hbox(int(vh * 0.02), vbox)
@@ -68,7 +69,8 @@ func spawn_trophies() -> void:
 		var display_name: String = str(trophy.get("display_name", tid))
 		var wx: float = float(TROPHY_TILES[i].x) * IsoConst.TILE_SIZE
 		var wz: float = float(TROPHY_TILES[i].y) * IsoConst.TILE_SIZE
-		var dialogue: String = display_name + (": " + str(trophy.get("description", "")) if earned else " (not yet earned)")
+		var dialogue: String = display_name + (": " + str(trophy.get("description",
+				"")) if earned else " (not yet earned)")
 		var pedestal: Node3D = make_trophy_pedestal(earned, display_name)
 		pedestal.position = Vector3(wx, _world.get_terrain_height(wx, wz), wz)
 		_world._entity_root.add_child(pedestal)

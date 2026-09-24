@@ -43,6 +43,7 @@ const _DURATIONS: Dictionary = {
 	"snow":       [100.0, 220.0],
 	"blizzard":   [100.0, 220.0],
 }
+const _SAVE_INTERVAL: float = 5.0
 
 var current_weather: String = ""
 var current_duration: float = 0.0
@@ -51,7 +52,6 @@ var _current_biome: int = -1
 var _biome_rngs: Dictionary = {}  # biome_id (int) -> RandomNumberGenerator
 var _initialized: bool = false
 var _save_timer: float = 0.0
-const _SAVE_INTERVAL: float = 5.0
 
 # Called by WorldScene._ready() after save data is available.
 func on_world_entered() -> void:

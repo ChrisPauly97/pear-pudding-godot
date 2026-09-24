@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 ## Session lifecycle and world-state replication: joining and leaving a co-op
 ## session, the identity and persistent-character handshakes, the in-world
 ## roster, world-object sync, the synced clock and weather, shared story flags,
@@ -8,11 +10,6 @@
 ## so the `_on_*` entry points below are reached exactly as they were when they
 ## lived in WorldScene itself. Everything world-side is reached via `_world`.
 extends Node
-
-## The WorldScene that owns this module. Everything the module needs from
-## the world itself — the player node, the HUD, the entity tables — is
-## reached through it. Sibling modules are reached as _world.<accessor>.
-var _world: Node = null
 
 const WorldHUD          = preload("res://scenes/world/WorldHUD.gd")
 const _AvatarSync        = preload("res://game_logic/net/AvatarSync.gd")
@@ -33,6 +30,20 @@ const _SessionState      = preload("res://game_logic/net/SessionState.gd")
 const _SpireFloorGen     = preload("res://game_logic/spire/SpireFloorGen.gd")
 const _TournamentSync    = preload("res://game_logic/net/TournamentSync.gd")
 const _WorldObjectSync   = preload("res://game_logic/net/WorldObjectSync.gd")
+
+# ── Party Guildhall furnishings (GID-106 / TID-393) ──────────────────────────
+# Trophies, garden and a stash chest furnishing the otherwise-empty guildhall
+# (TID-392). Spawned by WorldScene on guildhall entry, after _setup_coop() (a
+# client's garden snapshot request needs _net_sync).
+
+const _GUILDHALL_TROPHY_TILES: Array[Vector2i] = [Vector2i(44, 50), Vector2i(50, 50), Vector2i(56, 50)]
+const _GUILDHALL_PLOT_TILES: Array[Vector2i] = [Vector2i(46, 54), Vector2i(50, 54), Vector2i(54, 54)]
+const _GUILDHALL_STASH_TILE := Vector2i(50, 48)
+
+## The WorldScene that owns this module. Everything the module needs from
+## the world itself — the player node, the HUD, the entity tables — is
+## reached through it. Sibling modules are reached as _world.<accessor>.
+var _world: Node = null
 
 var _coop_downed_peers: Dictionary = {}       # peer_id -> bool, mirrored via the avatar stream
 var _coop_enemy_targets: Dictionary = {}    # enemy id -> Vector2(x,z) interp target (clients)
@@ -697,7 +708,8 @@ func _broadcast_maiteln_state(delta: float) -> void:
 	if _maiteln_broadcast_accum < _world._NET_BROADCAST_INTERVAL:
 		return
 	_maiteln_broadcast_accum = 0.0
-	_world._net_sync.rpc("recv_maiteln_state", [_world._maiteln_node.position.x, _world._maiteln_node.position.z, _world.map_name])
+	_world._net_sync.rpc("recv_maiteln_state",
+			[_world._maiteln_node.position.x, _world._maiteln_node.position.z, _world.map_name])
 
 ## Client: apply the authority's Maiteln position, filtered to our own map (the
 ## same invariant AvatarSync enforces for RemotePlayer avatars — see CLAUDE.md
@@ -1576,15 +1588,6 @@ func _on_session_harvest_submitted(_sender: int, plot_idx: int) -> void:
 	SessionStore.mark_dirty()
 	_broadcast_guildhall_garden()
 
-# ── Party Guildhall furnishings (GID-106 / TID-393) ──────────────────────────
-# Trophies, garden and a stash chest furnishing the otherwise-empty guildhall
-# (TID-392). Spawned by WorldScene on guildhall entry, after _setup_coop() (a
-# client's garden snapshot request needs _net_sync).
-
-const _GUILDHALL_TROPHY_TILES: Array[Vector2i] = [Vector2i(44, 50), Vector2i(50, 50), Vector2i(56, 50)]
-const _GUILDHALL_PLOT_TILES: Array[Vector2i] = [Vector2i(46, 54), Vector2i(50, 54), Vector2i(54, 54)]
-const _GUILDHALL_STASH_TILE := Vector2i(50, 48)
-
 func spawn_guildhall_furnishings() -> void:
 	_spawn_guildhall_trophies()
 	_spawn_guildhall_garden()
@@ -1601,7 +1604,8 @@ func _spawn_guildhall_trophies() -> void:
 	var rows: Array = _world._pve_leaderboards.get("coop_clears", [])
 	for i: int in range(mini(rows.size(), _GUILDHALL_TROPHY_TILES.size())):
 		var row: Dictionary = rows[i]
-		var display_name: String = "%s's Clear — Party of %d" % [str(row.get("name", "A party")), int(row.get("value", 0))]
+		var display_name: String = "%s's Clear — Party of %d" % [str(row.get("name", "A party")),
+				int(row.get("value", 0))]
 		var pos: Vector3 = _tile_to_ground(_GUILDHALL_TROPHY_TILES[i])
 		var pedestal: Node3D = _PlayerHome.make_trophy_pedestal(true, display_name)
 		pedestal.position = pos

@@ -106,10 +106,11 @@ jobs:
           python-version: '3.11'
 
       - name: Install gdtoolkit
-        run: pip install gdtoolkit
+        # Pinned: an unpinned install drifted the rule set between runs (BID-053).
+        run: pip install gdtoolkit==4.5.0
 
-      # Advisory only for now: the existing tree has pre-existing lint debt.
-      # Flip continue-on-error off once the backlog is clear.
+      # Gating (BID-053). Oversized files carry a file-level
+      # `# gdlint: disable=max-file-lines` pragma as tracked debt; new files
+      # are held to the limits in .gdlintrc.
       - name: Run gdlint
-        continue-on-error: true
         run: gdlint $(git ls-files '*.gd')

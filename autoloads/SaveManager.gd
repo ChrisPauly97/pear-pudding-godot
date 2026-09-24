@@ -1,4 +1,8 @@
+# gdlint: disable=max-file-lines, max-public-methods
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node
+
+signal coins_changed(new_amount: int)
 
 const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
 const CardRegistry = preload("res://autoloads/CardRegistry.gd")
@@ -7,22 +11,72 @@ const _CardInstanceUtil = preload("res://game_logic/CardInstanceUtil.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 
-signal coins_changed(new_amount: int)
-
 const LEGACY_SAVE_PATH := "user://save.json"
 const NUM_SAVE_SLOTS: int = 3
 const _HMAC_SECRET: String = "7e3f91c4b8d20a5e6f19c7b3d4e8f201"
 
+# Named deck loadouts (up to MAX_LOADOUTS). Each entry: {name: String, cards: Array[String]}.
+const MAX_LOADOUTS: int = 5
+
+## Every persisted field, mapped to the value a missing or malformed entry falls
+## back to. `save()` and `load_save()` both walk this one table, so a field can
+## no longer be written without being restored (or the reverse). The default's
+## type drives the coercion on load: Arrays are filled with `assign()` so the
+## member's element type survives JSON's untyped Arrays, Dictionaries are taken
+## by reference from the parsed save, everything else goes through
+## `type_convert`. Fields needing derivation (`level`), clamping
+## (`skill_points`, `active_loadout`) or normalisation (`loadouts`,
+## `player_deck`) are fixed up after the pass — see `_restore_derived_fields`.
+## `test_save_manager` asserts every key here is a real property.
+const PERSISTED_FIELDS: Dictionary = {
+	"owned_cards": [], "mailbox_cards": [], "player_deck": [], "loadouts": [],
+	"active_loadout": 0, "essence": 0, "coins": 0,
+	"current_map": "main", "player_x": 0.0, "player_z": 0.0,
+	"map_stack": [], "door_stack": [],
+	"defeated_enemies": [], "opened_chests": [], "defeated_duelists": [],
+	"pending_battle_enemy_data": {}, "in_battle_enemy_id": "", "pending_battle_state": {},
+	"time_of_day": 0.4, "world_seed": 42, "starting_biome": 0,
+	"story_flags": {}, "days_elapsed": 0, "last_respawn_day": 0,
+	"equipped_weapon": "", "owned_weapons": [],
+	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "",
+	"owned_armor": [], "owned_rings": [], "owned_trinkets": [],
+	"collected_scrolls": [], "settings": {},
+	"achievement_progress": {}, "unlocked_achievements": [],
+	"visited_biomes": [], "visited_dungeon_rooms": [],
+	"xp": 0, "skill_points": 0, "unlocked_skills": [],
+	"magic_type": "", "corruption_points": 0, "redemption_points": 0,
+	"spire_run": {"active": false}, "spire_best_floor": 0, "solved_puzzles": [],
+	"world_events": {}, "weather": {"id": "", "duration": 0.0, "biome_id": 0},
+	"treasure_fragments": 0, "active_treasure": {}, "treasures_completed": 0,
+	"activated_waystones": [], "bestiary": {}, "bestiary_complete_rewarded": false,
+	"home_owned": false, "respawn_map": "", "respawn_x": 0.0, "respawn_z": 0.0,
+	"owned_mounts": [], "active_mount": "", "is_mounted": false,
+	"packs_since_legendary": 0, "active_companion": "", "waypoint": {},
+	"bounty_day": 0, "offered_bounties": [], "active_bounties": [],
+	# 0 means "absent" — _restore_derived_fields substitutes IsoConst's default,
+	# which can't be referenced from a const expression (IsoConst is an autoload).
+	"bag_size": 0,
+	"siege": {}, "last_siege_day": 0, "town_discounts": {},
+	"rival_encounters_won": 0, "rival_defeated": false,
+	"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {},
+	"captured_signatures": [], "cantrip_cooldowns": {}, "dug_mounds": [],
+	"blight_cleansed_hearts": [], "discovered_landmarks": [],
+	"collected_mana_wells": [], "last_saved": "",
+}
+const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
+
+const CURRENT_SAVE_VERSION: int = 41
+
+const REDEMPTION_FLAG_AWARDS: Dictionary = {
+	"chapter1_left_madrian": 5,
+	"chapter1_reached_blancogov": 10,
+	"chapter1_received_letter": 10,
+	"chapter1_temple_council": 10,
+	"champion_blancogov_defeated": 15,
+	"bestiary_complete": 10,
+}
+
 var active_slot: int = 1
-
-func _get_slot_path(slot: int) -> String:
-	return "user://save_slot_%d.json" % slot
-
-func _get_slot_tmp_path(slot: int) -> String:
-	return "user://save_slot_%d.json.tmp" % slot
-
-func _get_slot_bak_path(slot: int) -> String:
-	return "user://save_slot_%d.json.bak" % slot
 
 # Currency
 var coins: int = 0
@@ -31,7 +85,6 @@ var coins: int = 0
 # { "uid": String, "template_id": String, "rarity": String, "attack": int, "health": int, "cost": int,
 #   "kills": int, "battles_survived": int, "custom_name": String }
 var owned_cards: Array[Dictionary] = []
-var _uid_index: Dictionary = {}  # uid -> Dictionary reference for O(1) lookups
 
 # Overflow queue for card rewards that couldn't fit in the bag when granted.
 # Never counts against bag_size; not indexed in _uid_index until claimed.
@@ -40,9 +93,6 @@ var mailbox_cards: Array[Dictionary] = []
 # Cards currently in the active battle deck — list of UIDs from owned_cards.
 # This mirrors loadouts[active_loadout].cards and is kept in sync at all times.
 var player_deck: Array[String] = []
-
-# Named deck loadouts (up to MAX_LOADOUTS). Each entry: {name: String, cards: Array[String]}.
-const MAX_LOADOUTS: int = 5
 var loadouts: Array[Dictionary] = []
 var active_loadout: int = 0
 
@@ -221,56 +271,11 @@ var potions: Dictionary = {}  # potion_id -> count
 
 var last_saved: String = ""
 
-## Every persisted field, mapped to the value a missing or malformed entry falls
-## back to. `save()` and `load_save()` both walk this one table, so a field can
-## no longer be written without being restored (or the reverse). The default's
-## type drives the coercion on load: Arrays are filled with `assign()` so the
-## member's element type survives JSON's untyped Arrays, Dictionaries are taken
-## by reference from the parsed save, everything else goes through
-## `type_convert`. Fields needing derivation (`level`), clamping
-## (`skill_points`, `active_loadout`) or normalisation (`loadouts`,
-## `player_deck`) are fixed up after the pass — see `_restore_derived_fields`.
-## `test_save_manager` asserts every key here is a real property.
-const PERSISTED_FIELDS: Dictionary = {
-	"owned_cards": [], "mailbox_cards": [], "player_deck": [], "loadouts": [],
-	"active_loadout": 0, "essence": 0, "coins": 0,
-	"current_map": "main", "player_x": 0.0, "player_z": 0.0,
-	"map_stack": [], "door_stack": [],
-	"defeated_enemies": [], "opened_chests": [], "defeated_duelists": [],
-	"pending_battle_enemy_data": {}, "in_battle_enemy_id": "", "pending_battle_state": {},
-	"time_of_day": 0.4, "world_seed": 42, "starting_biome": 0,
-	"story_flags": {}, "days_elapsed": 0, "last_respawn_day": 0,
-	"equipped_weapon": "", "owned_weapons": [],
-	"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "",
-	"owned_armor": [], "owned_rings": [], "owned_trinkets": [],
-	"collected_scrolls": [], "settings": {},
-	"achievement_progress": {}, "unlocked_achievements": [],
-	"visited_biomes": [], "visited_dungeon_rooms": [],
-	"xp": 0, "skill_points": 0, "unlocked_skills": [],
-	"magic_type": "", "corruption_points": 0, "redemption_points": 0,
-	"spire_run": {"active": false}, "spire_best_floor": 0, "solved_puzzles": [],
-	"world_events": {}, "weather": {"id": "", "duration": 0.0, "biome_id": 0},
-	"treasure_fragments": 0, "active_treasure": {}, "treasures_completed": 0,
-	"activated_waystones": [], "bestiary": {}, "bestiary_complete_rewarded": false,
-	"home_owned": false, "respawn_map": "", "respawn_x": 0.0, "respawn_z": 0.0,
-	"owned_mounts": [], "active_mount": "", "is_mounted": false,
-	"packs_since_legendary": 0, "active_companion": "", "waypoint": {},
-	"bounty_day": 0, "offered_bounties": [], "active_bounties": [],
-	# 0 means "absent" — _restore_derived_fields substitutes IsoConst's default,
-	# which can't be referenced from a const expression (IsoConst is an autoload).
-	"bag_size": 0,
-	"siege": {}, "last_siege_day": 0, "town_discounts": {},
-	"rival_encounters_won": 0, "rival_defeated": false,
-	"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {},
-	"captured_signatures": [], "cantrip_cooldowns": {}, "dug_mounds": [],
-	"blight_cleansed_hearts": [], "discovered_landmarks": [],
-	"collected_mana_wells": [], "last_saved": "",
-}
+var _uid_index: Dictionary = {}  # uid -> Dictionary reference for O(1) lookups
 
 var _loaded: bool = false
 var _dirty: bool = false
 var _uid_counter: int = 0
-const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
 
 # In-flight WorkerThreadPool task id for the background save flush, or -1.
 # The 2s batched flush serialises/signs/writes off the main thread — a mature
@@ -283,6 +288,15 @@ var _async_save_task: int = -1
 # cleared by adopt_session_character so co-op sessions can still persist achievements).
 var _achievement_slot: int = -1
 var _achievement_dirty: bool = false
+
+func _get_slot_path(slot: int) -> String:
+	return "user://save_slot_%d.json" % slot
+
+func _get_slot_tmp_path(slot: int) -> String:
+	return "user://save_slot_%d.json.tmp" % slot
+
+func _get_slot_bak_path(slot: int) -> String:
+	return "user://save_slot_%d.json.bak" % slot
 
 func _ready() -> void:
 	var timer := Timer.new()
@@ -639,8 +653,6 @@ func export_session_character() -> Dictionary:
 		"equipped_armor": equipped_armor,
 	}
 
-const CURRENT_SAVE_VERSION: int = 41
-
 # Each entry is [target_version, payload] where payload is either:
 #   Dictionary — {field: default} backfill applied when ver < target
 #   Callable   — func(data: Dictionary) for non-trivial format changes (must bump data["version"])
@@ -871,7 +883,8 @@ static func _migrate_v33_to_v34(data: Dictionary) -> void:
 
 static func _sign(payload: String) -> String:
 	var crypto := Crypto.new()
-	return crypto.hmac_digest(HashingContext.HASH_SHA256, _HMAC_SECRET.to_utf8_buffer(), payload.to_utf8_buffer()).hex_encode()
+	return crypto.hmac_digest(HashingContext.HASH_SHA256, _HMAC_SECRET.to_utf8_buffer(),
+			payload.to_utf8_buffer()).hex_encode()
 
 func _read_save_json(path: String):
 	if not FileAccess.file_exists(path):
@@ -892,6 +905,7 @@ func _read_save_json(path: String):
 		if not inner is Dictionary:
 			return null
 		return inner
+	# gdlint:ignore = max-returns
 	return outer
 
 ## Restores one PERSISTED_FIELDS entry, coercing to the default's type. Const
@@ -1075,7 +1089,8 @@ func is_bag_full() -> bool:
 ## Creates a new card instance with the given stats and appends it to owned_cards.
 ## Returns the generated UID, or "" if the bag is full (emits GameBus.bag_full).
 ## attack/health/cost default to the card template's base stats.
-func add_card_instance(template_id: String, rarity: String, attack: int = -1, health: int = -1, cost: int = -1) -> String:
+func add_card_instance(template_id: String, rarity: String, attack: int = -1, health: int = -1,
+		cost: int = -1) -> String:
 	if is_bag_full():
 		GameBus.bag_full.emit()
 		return ""
@@ -1100,7 +1115,8 @@ func add_card_instance(template_id: String, rarity: String, attack: int = -1, he
 ## returns the generated uid — the card exists either way, just not always in the bag yet.
 ## Player-initiated spends (shop, craft, combine) should keep calling add_card_instance,
 ## which still blocks on a full bag.
-func grant_card_reward(template_id: String, rarity: String, attack: int = -1, health: int = -1, cost: int = -1) -> String:
+func grant_card_reward(template_id: String, rarity: String, attack: int = -1, health: int = -1,
+		cost: int = -1) -> String:
 	var tmpl: Dictionary = CardRegistry.get_template(template_id)
 	var atk: int = attack if attack >= 0 else int(tmpl.get("attack", 0))
 	var hp: int  = health if health >= 0 else int(tmpl.get("health", 0))
@@ -1251,7 +1267,8 @@ func combine_cards(template_id: String, rarity: String) -> Dictionary:
 		return {}
 	var next_rarity: String = IsoConst.RARITY_ORDER[src_idx + 1]
 	var stats: Dictionary = CardDropUtil.roll_stats(template_id, next_rarity)
-	var new_uid: String = add_card_instance(template_id, next_rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+	var new_uid: String = add_card_instance(template_id, next_rarity, int(stats.get("attack", -1)),
+			int(stats.get("health", -1)), int(stats.get("cost", -1)))
 	return get_instance_by_uid(new_uid)
 
 ## Returns all owned card instances (the full collection array).
@@ -1322,15 +1339,6 @@ func set_pending_battle_state(state_dict: Dictionary) -> void:
 func clear_pending_battle_state() -> void:
 	pending_battle_state = {}
 	_dirty = true
-
-const REDEMPTION_FLAG_AWARDS: Dictionary = {
-	"chapter1_left_madrian": 5,
-	"chapter1_reached_blancogov": 10,
-	"chapter1_received_letter": 10,
-	"chapter1_temple_council": 10,
-	"champion_blancogov_defeated": 15,
-	"bestiary_complete": 10,
-}
 
 func set_story_flag(key: String, value: bool = true) -> void:
 	var was_unset: bool = not story_flags.get(key, false)

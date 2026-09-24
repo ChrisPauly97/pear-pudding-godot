@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for the deck loadout model (GID-058 TID-210).
 ##
 ## Covers: migration v33→v34, prune-all-loadouts on remove_card_instance,

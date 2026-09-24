@@ -155,5 +155,6 @@ func confirm_return_to_menu() -> void:
 	)
 	row.add_child(yes_btn)
 
-	var no_btn := _UiUtil.make_button("Cancel", Vector2(_vh * 0.18, _vh * 0.065), int(_vh * 0.026), dialog.queue_free, row)
+	var no_btn := _UiUtil.make_button("Cancel", Vector2(_vh * 0.18, _vh * 0.065), int(_vh * 0.026), dialog.queue_free,
+			row)
 	no_btn.process_mode = Node.PROCESS_MODE_ALWAYS

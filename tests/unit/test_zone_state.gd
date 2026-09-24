@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for ZoneState.
 ##
 ## Covers board slot management (add, remove, full/empty detection, first-empty

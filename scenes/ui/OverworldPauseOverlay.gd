@@ -1,11 +1,11 @@
 extends CanvasLayer
 
+signal resumed
+signal quit_to_menu
+
 const SettingsScene = preload("res://scenes/ui/SettingsScene.gd")
 const DiagnosticsScene = preload("res://scenes/ui/DiagnosticsScene.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
-
-signal resumed
-signal quit_to_menu
 
 var _vh: float = 0.0
 
@@ -50,13 +50,16 @@ func _build_ui() -> void:
 	resume_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	resume_btn.grab_focus()
 
-	var settings_btn := _UiUtil.make_button("Settings", Vector2(_vh * 0.3, _vh * 0.07), int(_vh * 0.03), _on_settings, vbox)
+	var settings_btn := _UiUtil.make_button("Settings", Vector2(_vh * 0.3, _vh * 0.07), int(_vh * 0.03), _on_settings,
+			vbox)
 	settings_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 
-	var diag_btn := _UiUtil.make_button("Diagnostics", Vector2(_vh * 0.3, _vh * 0.07), int(_vh * 0.03), _on_diagnostics, vbox)
+	var diag_btn := _UiUtil.make_button("Diagnostics", Vector2(_vh * 0.3, _vh * 0.07), int(_vh * 0.03), _on_diagnostics,
+			vbox)
 	diag_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 
-	var save_quit_btn := _UiUtil.make_button("Save & Quit", Vector2(_vh * 0.3, _vh * 0.07), int(_vh * 0.03), _on_save_quit, vbox)
+	var save_quit_btn := _UiUtil.make_button("Save & Quit", Vector2(_vh * 0.3, _vh * 0.07), int(_vh * 0.03),
+			_on_save_quit, vbox)
 	save_quit_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 
 func _on_resume() -> void:

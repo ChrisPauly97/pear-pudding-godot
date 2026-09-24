@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends RefCounted
 
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
@@ -33,6 +35,11 @@ var _dragged_card: Dictionary = {}
 var _hand_drag_card: CardInstance = null
 var _slot_targeting_spell: CardInstance = null
 var _slot_select_card: CardInstance = null
+
+## Single source of truth for battle card / board slot size (GID-119 / TID-449).
+## ~13.5% vh wide ≈ a real thumb target on a landscape phone. Co-op/team modes
+## set a <1 scale because their top status bar eats a row of vertical space.
+var _card_scale: float = 1.0
 
 func setup(
 	vh: float,
@@ -150,11 +157,6 @@ func refresh_board_zone(zone_node: Node, zone_state: ZoneState, zone_id: String)
 			else:
 				_apply_empty_slot_style(panel as PanelContainer, i, zone_id, enh)
 
-## Single source of truth for battle card / board slot size (GID-119 / TID-449).
-## ~13.5% vh wide ≈ a real thumb target on a landscape phone. Co-op/team modes
-## set a <1 scale because their top status bar eats a row of vertical space.
-var _card_scale: float = 1.0
-
 func set_card_scale(s: float) -> void:
 	_card_scale = s
 
@@ -198,7 +200,8 @@ func _setup_empty_slot_panel(panel: PanelContainer, slot_idx: int, zone_id: Stri
 	style.set_corner_radius_all(4)
 	panel.add_theme_stylebox_override("panel", style)
 	panel.set_meta("card_style", style)
-	var lbl := _UiUtil.make_label(str(slot_idx + 1), int(_font(0.030)), Color(0.45, 0.45, 0.55, 0.8) if is_enemy else Color(0.5, 0.5, 0.6), HORIZONTAL_ALIGNMENT_CENTER, panel)
+	var lbl := _UiUtil.make_label(str(slot_idx + 1), int(_font(0.030)),
+			Color(0.45, 0.45, 0.55, 0.8) if is_enemy else Color(0.5, 0.5, 0.6), HORIZONTAL_ALIGNMENT_CENTER, panel)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -335,7 +338,8 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 		art.custom_minimum_size = Vector2(0.0, _vh * 0.07)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		vbox.add_child(art)
-	var stats_lbl := _UiUtil.make_label(format_card_stats(card, card.cost), int(_font(0.022)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var stats_lbl := _UiUtil.make_label(format_card_stats(card, card.cost), int(_font(0.022)), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER)
 	stats_lbl.name = "StatsLabel"
 	var desc_lbl := Label.new()
 	desc_lbl.name = "DescLabel"

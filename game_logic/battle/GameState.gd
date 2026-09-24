@@ -230,6 +230,7 @@ func winner() -> int:
 	for p in players:
 		if not p.hero.is_alive():
 			return 1 - p.player_id
+	# gdlint:ignore = max-returns
 	return -1
 
 ## Builds a GameState seeded from a PuzzleData resource.

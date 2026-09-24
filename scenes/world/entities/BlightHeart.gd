@@ -14,6 +14,9 @@ static var _heart_mesh: SphereMesh
 static var _glow_mat: StandardMaterial3D
 static var _glow_mesh: SphereMesh
 
+var _heart_id: String = ""
+var _pulse_tween: Tween = null
+
 static func _ensure_shared_resources() -> void:
 	if _heart_mesh != null:
 		return
@@ -37,9 +40,6 @@ static func _ensure_shared_resources() -> void:
 	_glow_mat.flags_transparent = true
 	_glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_glow_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-
-var _heart_id: String = ""
-var _pulse_tween: Tween = null
 
 func _ready() -> void:
 	_ensure_shared_resources()

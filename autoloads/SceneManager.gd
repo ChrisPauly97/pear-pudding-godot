@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines, max-public-methods
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node
 
 enum State {
@@ -57,9 +59,27 @@ const REBINDABLE_ACTIONS: Array[String] = [
 const GHOST_DUEL_COIN_REWARD: int = 25
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
+# Ephemeral session statistics — reset on new/continue game, not persisted.
+## Per-run tally shown on the run-summary screen. `_reset_session_stats()` is
+## the only writer of the whole dict; individual counters go through
+## `_bump_session_stat()`.
+const _SESSION_STAT_KEYS: PackedStringArray = [
+	"battles_won", "battles_lost", "enemies_defeated",
+	"cards_earned", "coins_earned", "chests_opened",
+]
+
+# Fixed world seeds — one per biome, giving each a distinct world layout.
+const _BIOME_SEEDS: Array[int] = [42, 73856135, 100033, 19349705, 294967337]
+
 var map_stack: Array[String] = []
 var door_stack: Array[String] = []
 var current_map: String = ""
+var session_stats: Dictionary = _fresh_session_stats(0)
+
+## Points at the SaveManager autoload so all systems share one instance.
+## The autoload is registered before SceneManager in project.godot.
+var save_manager: Node
+
 var _world_scene_packed := preload("res://scenes/world/WorldScene.tscn")
 var _battle_scene_packed := preload("res://scenes/battle/BattleScene.tscn")
 var _menu_scene_packed := preload("res://scenes/ui/MenuScene.tscn")
@@ -79,16 +99,6 @@ var _spire_draft_overlay: Node = null
 var _pack_open_overlay: Node = null
 var _saved_world_scene: Node = null
 
-# Ephemeral session statistics — reset on new/continue game, not persisted.
-## Per-run tally shown on the run-summary screen. `_reset_session_stats()` is
-## the only writer of the whole dict; individual counters go through
-## `_bump_session_stat()`.
-const _SESSION_STAT_KEYS: PackedStringArray = [
-	"battles_won", "battles_lost", "enemies_defeated",
-	"cards_earned", "coins_earned", "chests_opened",
-]
-var session_stats: Dictionary = _fresh_session_stats(0)
-
 var _toast: CanvasLayer = null
 var _menu_hub_layer: CanvasLayer = null
 var _defeat_overlay: Node = null
@@ -97,10 +107,6 @@ var _defeat_pending_enemy_data: Dictionary = {}
 # Blocks proximity engagement for 2 s after returning from battle so the
 # player isn't immediately chain-engaged by a nearby enemy on world re-entry.
 var _proximity_engage_blocked: bool = false
-
-## Returns true if tracking enemies may auto-engage the player on proximity.
-func can_proximity_engage() -> bool:
-	return _state == State.WORLD and not _proximity_engage_blocked
 
 # Tracks which enemy triggered the current battle (for defeat marking)
 var _current_battle_enemy_id: String = ""
@@ -120,9 +126,19 @@ var _coop_pve_enemy_type: String = ""
 # are only meaningful on the host — clients never read them.
 var _coop_spire_run: Dictionary = {"active": false}
 
-## Points at the SaveManager autoload so all systems share one instance.
-## The autoload is registered before SceneManager in project.godot.
-var save_manager: Node
+# ── Android back gesture (GID-120 / TID-453) ────────────────────────────────
+# quit_on_go_back is disabled in project.godot, so the OS back request lands
+# here. Everywhere except the main menu it synthesizes an Escape press —
+# `pause` and `ui_cancel` are both Escape-bound, so WorldScene pause,
+# BattleScene pause, BaseOverlay._close(), and MenuHub close all just work.
+# At the main menu, quit only on a second back press within 2 seconds.
+
+var _back_quit_deadline_ms: int = 0
+var _back_quit_toast: CanvasLayer = null
+
+## Returns true if tracking enemies may auto-engage the player on proximity.
+func can_proximity_engage() -> bool:
+	return _state == State.WORLD and not _proximity_engage_blocked
 
 func _ready() -> void:
 	save_manager = SaveManager
@@ -181,16 +197,6 @@ func _exit_tree() -> void:
 			and not _saved_world_scene.is_inside_tree():
 		_saved_world_scene.free()
 	_saved_world_scene = null
-
-# ── Android back gesture (GID-120 / TID-453) ────────────────────────────────
-# quit_on_go_back is disabled in project.godot, so the OS back request lands
-# here. Everywhere except the main menu it synthesizes an Escape press —
-# `pause` and `ui_cancel` are both Escape-bound, so WorldScene pause,
-# BattleScene pause, BaseOverlay._close(), and MenuHub close all just work.
-# At the main menu, quit only on a second back press within 2 seconds.
-
-var _back_quit_deadline_ms: int = 0
-var _back_quit_toast: CanvasLayer = null
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
@@ -331,9 +337,6 @@ func _on_achievements_closed() -> void:
 		_achievements_overlay.queue_free()
 		_achievements_overlay = null
 	_state = State.MENU
-
-# Fixed world seeds — one per biome, giving each a distinct world layout.
-const _BIOME_SEEDS: Array[int] = [42, 73856135, 100033, 19349705, 294967337]
 
 func start_new_game() -> void:
 	start_new_game_with_biome(0)   # default: Grasslands
@@ -743,7 +746,8 @@ func resume_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: 
 ## both decks come from the clients, and _pvp_peer_to_idx maps peer_id → player_idx.
 ## token_a/token_b (GID-102 / TID-372) are the combatants' identity tokens, used to
 ## verify a later reconnect; empty strings fall back to accepting any reconnect.
-func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: int, token_a: String = "", token_b: String = "") -> void:
+func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: int, token_a: String = "",
+		token_b: String = "") -> void:
 	if _state != State.WORLD:
 		return
 	TransitionManager.transition(func() -> void:
@@ -1100,7 +1104,8 @@ func _on_battle_won(result: Dictionary) -> void:
 		else:
 			rarity = CardDropUtil.effective_rarity(reward, CardDropUtil.roll_rarity(drop_tier))
 			stats = CardDropUtil.roll_stats(reward, rarity)
-		save_manager.grant_card_reward(reward, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+		save_manager.grant_card_reward(reward, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)),
+				int(stats.get("cost", -1)))
 		_bump_session_stat("cards_earned", 1)
 	var weapon_reward: String = str(result.get("weapon_reward", ""))
 	if weapon_reward != "":
@@ -1109,7 +1114,8 @@ func _on_battle_won(result: Dictionary) -> void:
 	var sig_capture: String = str(result.get("signature_capture", ""))
 	if sig_capture != "":
 		var sig_stats: Dictionary = CardDropUtil.roll_stats(sig_capture, "rare")
-		save_manager.grant_card_reward(sig_capture, "rare", int(sig_stats.get("attack", -1)), int(sig_stats.get("health", -1)), int(sig_stats.get("cost", -1)))
+		save_manager.grant_card_reward(sig_capture, "rare", int(sig_stats.get("attack", -1)),
+				int(sig_stats.get("health", -1)), int(sig_stats.get("cost", -1)))
 		save_manager.mark_signature_captured(sig_capture)
 		_bump_session_stat("cards_earned", 1)
 	# Boss battles emit card_rewards (list of all drop_pool cards)
@@ -1127,7 +1133,8 @@ func _on_battle_won(result: Dictionary) -> void:
 			else:
 				r_rarity = CardDropUtil.effective_rarity(rs, CardDropUtil.roll_rarity(drop_tier))
 				r_stats = CardDropUtil.roll_stats(rs, r_rarity)
-			save_manager.grant_card_reward(rs, r_rarity, int(r_stats.get("attack", -1)), int(r_stats.get("health", -1)), int(r_stats.get("cost", -1)))
+			save_manager.grant_card_reward(rs, r_rarity, int(r_stats.get("attack", -1)), int(r_stats.get("health", -1)),
+					int(r_stats.get("cost", -1)))
 			_bump_session_stat("cards_earned", 1)
 	# Award coins based on enemy type, multiplied by active gambit reward factor.
 	if enemy_type != "":
@@ -1240,18 +1247,17 @@ func _siege_battle_won(result: Dictionary) -> bool:
 		_restore_world()
 		_show_siege_interstitial(_siege_stage + 1, _siege_hero_hp)
 		return true
-	else:
-		var _siege_town: String = str(_siege.get("town", ""))
-		_apply_siege_victory_rewards(_siege_town)
-		# Chapter 2 beat 4 (GID-108 / TID-407): the story siege at marsax_hold
-		# reuses this exact victory path — only the completion flag is new.
-		if _siege_town == "marsax_hold":
-			save_manager.set_story_flag("chapter2_siege_won")
-		save_manager.end_siege_victory()
-		save_manager.save()
-		_dismiss_battle_overlay()
-		_restore_world()
-		return true
+	var _siege_town: String = str(_siege.get("town", ""))
+	_apply_siege_victory_rewards(_siege_town)
+	# Chapter 2 beat 4 (GID-108 / TID-407): the story siege at marsax_hold
+	# reuses this exact victory path — only the completion flag is new.
+	if _siege_town == "marsax_hold":
+		save_manager.set_story_flag("chapter2_siege_won")
+	save_manager.end_siege_victory()
+	save_manager.save()
+	_dismiss_battle_overlay()
+	_restore_world()
+	return true
 
 ## Mimic chest victory: open the chest, grant its loot straight to the bag.
 func _mimic_battle_won(enemy_type: String, captured_enemy_id: String) -> bool:
@@ -1268,14 +1274,16 @@ func _mimic_battle_won(enemy_type: String, captured_enemy_id: String) -> bool:
 			for card_id: String in chest_cards:
 				var rarity: String = CardDropUtil.effective_rarity(card_id, CardDropUtil.roll_rarity(3))
 				var stats: Dictionary = CardDropUtil.roll_stats(card_id, rarity)
-				save_manager.grant_card_reward(card_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+				save_manager.grant_card_reward(card_id, rarity, int(stats.get("attack", -1)),
+						int(stats.get("health", -1)), int(stats.get("cost", -1)))
 				_bump_session_stat("cards_earned", 1)
 	var mimic_drop_pool: Array[String] = EnemyRegistry.get_drop_pool("mimic")
 	if not mimic_drop_pool.is_empty():
 		var bonus_card: String = mimic_drop_pool[randi() % mimic_drop_pool.size()]
 		var b_rarity: String = CardDropUtil.effective_rarity(bonus_card, CardDropUtil.roll_rarity(2))
 		var b_stats: Dictionary = CardDropUtil.roll_stats(bonus_card, b_rarity)
-		save_manager.grant_card_reward(bonus_card, b_rarity, int(b_stats.get("attack", -1)), int(b_stats.get("health", -1)), int(b_stats.get("cost", -1)))
+		save_manager.grant_card_reward(bonus_card, b_rarity, int(b_stats.get("attack", -1)),
+				int(b_stats.get("health", -1)), int(b_stats.get("cost", -1)))
 		_bump_session_stat("cards_earned", 1)
 	var mimic_coins: int = EnemyRegistry.get_coin_reward("mimic")
 	save_manager.add_coins(mimic_coins)
@@ -1294,9 +1302,12 @@ func _mimic_battle_won(enemy_type: String, captured_enemy_id: String) -> bool:
 	return true
 func _show_chapter2_cliffhanger() -> void:
 	var pages: Array[String] = [
-		"By firelight, Maiteln reads the stolen muster plans: the tribe will not strike Blancogov. They march on the lords, one by one, before the alliance can gather.",
-		"Maiteln, grim: every route, every garrison, every weakness — written in a steady court hand. The traitor knows the alliance's every move.",
-		"And beneath the last page, in a script Saimtar knew like his own name — a list of the taken. His parents' names were not struck through.",
+		"By firelight, Maiteln reads the stolen muster plans: the tribe will not strike Blancogov. They march on the "
+			+ "lords, one by one, before the alliance can gather.",
+		"Maiteln, grim: every route, every garrison, every weakness — written in a steady court hand. The traitor "
+			+ "knows the alliance's every move.",
+		"And beneath the last page, in a script Saimtar knew like his own name — a list of the taken. His parents' "
+			+ "names were not struck through.",
 	]
 	GameBus.narration_overlay_requested.emit(pages, "Chapter 2 Complete", "chapter2_complete")
 
@@ -1394,11 +1405,14 @@ func _show_defeat_overlay() -> void:
 
 	var has_retry: bool = not _defeat_pending_enemy_data.is_empty()
 	if has_retry:
-		var retry_btn := _UiUtil.make_button("Retry Battle", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_retry, vbox)
+		var retry_btn := _UiUtil.make_button("Retry Battle", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03),
+				_on_defeat_retry, vbox)
 
-	var respawn_btn := _UiUtil.make_button("Respawn in World", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_respawn, vbox)
+	var respawn_btn := _UiUtil.make_button("Respawn in World", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03),
+			_on_defeat_respawn, vbox)
 
-	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03), _on_defeat_menu, vbox)
+	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03),
+			_on_defeat_menu, vbox)
 
 func _on_defeat_retry() -> void:
 	if _defeat_overlay != null:
@@ -1538,7 +1552,8 @@ func _apply_siege_victory_rewards(town: String) -> void:
 		var reward_id: String = all_ids[randi() % all_ids.size()]
 		var rarity: String = CardDropUtil.roll_rarity(3)   # tier 3 = rare-or-better weighted
 		var stats: Dictionary = CardDropUtil.roll_stats(reward_id, rarity)
-		save_manager.grant_card_reward(reward_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)), int(stats.get("cost", -1)))
+		save_manager.grant_card_reward(reward_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)),
+				int(stats.get("cost", -1)))
 		_bump_session_stat("cards_earned", 1)
 	GameBus.siege_victory.emit()
 	show_toast("Siege Defeated!", "%s thanks you! +%d coins + rare card" % [town.capitalize(), SIEGE_VICTORY_COINS])
@@ -1556,9 +1571,11 @@ func _show_siege_interstitial(next_stage: int, hero_hp: int) -> void:
 	var vbox := _UiUtil.make_vbox(12, panel)
 
 	var vh: float = get_viewport().get_visible_rect().size.y
-	var title_lbl := _UiUtil.make_label(_SiegeDefs.get_stage_name(next_stage), int(vh * 0.04), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label(_SiegeDefs.get_stage_name(next_stage), int(vh * 0.04), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var hp_lbl := _UiUtil.make_label("Hero HP: %d / 30" % hero_hp, int(vh * 0.03), Color(0.9, 0.3, 0.3) if hero_hp <= 10 else Color(1.0, 1.0, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var hp_lbl := _UiUtil.make_label("Hero HP: %d / 30" % hero_hp, int(vh * 0.03),
+			Color(0.9, 0.3, 0.3) if hero_hp <= 10 else Color(1.0, 1.0, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
 	# Dismiss automatically and chain the next raider battle.
 	get_tree().create_timer(2.0, false).timeout.connect(func() -> void:
@@ -1588,7 +1605,8 @@ func _on_achievement_unlocked(achievement_id: String) -> void:
 func _on_level_up(new_level: int) -> void:
 	var pts: int = save_manager.skill_points
 	_toast.show_text("Level Up!", "Level %d — %d skill point%s to spend!" % [new_level, pts, "s" if pts != 1 else ""])
-	GameBus.hud_message_requested.emit("Level %d! Open the Skill Tree to spend %d skill point%s." % [new_level, pts, "s" if pts != 1 else ""])
+	GameBus.hud_message_requested.emit("Level %d! Open the Skill Tree to spend %d skill point%s." % [new_level, pts,
+			"s" if pts != 1 else ""])
 
 func _on_fragment_collected() -> void:
 	_toast.show_text("Fragment Found!", "You have %d/3 fragments" % save_manager.treasure_fragments)

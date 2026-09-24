@@ -12,13 +12,13 @@ const _CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
 const CARD_PRICE: int = 15
 const SEED_PRICE: int = 30
 
+# Town gratitude discount: set by SceneManager from current_map before add_child().
+var town_name: String = ""
+
 # Traveling merchant mode — set before add_child() via .set() in SceneManager.
 var _custom_stock: Array[String] = []   # if non-empty, only show these cards
 var _custom_price: int = 0              # 0 = use CARD_PRICE
 var _custom_title: String = ""          # "" = use default title
-
-# Town gratitude discount: set by SceneManager from current_map before add_child().
-var town_name: String = ""
 
 # Rarity selected for the cards section (session state).
 var _shop_card_rarity: String = "common"
@@ -41,7 +41,8 @@ func _build_ui() -> void:
 	var root_vbox := _build_margin_vbox(outer, 0.015, 0.012)
 
 	# Title
-	_title_lbl = _UiUtil.make_label(_custom_title if _custom_title != "" else "Merchant's Wares", int(_ref * 0.032), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+	_title_lbl = _UiUtil.make_label(_custom_title if _custom_title != "" else "Merchant's Wares", int(_ref * 0.032),
+			Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	# Coin display
 	_coin_label = Label.new()
@@ -143,7 +144,8 @@ func _refresh() -> void:
 		any_weapon = true
 
 	if not any_weapon:
-		var none_lbl := _UiUtil.make_label("No weapons available.", int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _shop_list)
+		var none_lbl := _UiUtil.make_label("No weapons available.", int(_ref * 0.022), Color(0.6, 0.6, 0.6),
+				HORIZONTAL_ALIGNMENT_CENTER, _shop_list)
 
 	# ---- Armor section ---------------------------------------------------
 	_shop_list.add_child(_make_section_header("— Armor —"))
@@ -182,15 +184,21 @@ func _add_equipment_section(slot: String, owned: Array[String], coins: int, disc
 		_shop_list.add_child(row)
 		any_item = true
 	if not any_item:
-		var none_lbl := _UiUtil.make_label("No %s available." % slot, int(_ref * 0.022), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _shop_list)
+		var none_lbl := _UiUtil.make_label("No %s available." % slot, int(_ref * 0.022), Color(0.6, 0.6, 0.6),
+				HORIZONTAL_ALIGNMENT_CENTER, _shop_list)
 
 func _make_equipment_row(eid: String, weapon: WeaponData, price: int, coins: int) -> HBoxContainer:
 	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
-	var info_lbl := _UiUtil.make_label("%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
+	var info_lbl := _UiUtil.make_label(
+			"%s  —  %s" % [weapon.display_name,
+					_UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value,
+							weapon.injected_card_count, weapon.injected_card_id)],
+			int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022), Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
+	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022),
+			Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
 
 	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022))
 	buy_btn.disabled = coins < price
@@ -208,7 +216,8 @@ func _make_card_rarity_selector() -> HBoxContainer:
 		var ess: int = int(cfg.get("craft_essence", 10))
 		var base: int = CARD_PRICE
 		var rarity_price: int = maxi(base, int(base * ess / 10))
-		var btn := _UiUtil.make_button("%s  %dg" % [_UiUtil.rarity_badge(rarity), rarity_price], Vector2(_ref * 0.16, _ref * 0.058), int(_ref * 0.020))
+		var btn := _UiUtil.make_button("%s  %dg" % [_UiUtil.rarity_badge(rarity), rarity_price],
+				Vector2(_ref * 0.16, _ref * 0.058), int(_ref * 0.020))
 		if rarity == _shop_card_rarity:
 			btn.modulate = _UiUtil.rarity_color(rarity)
 		else:
@@ -251,7 +260,8 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 	var cost: int = tmpl.get("cost", 0)
 	var atk: int  = tmpl.get("attack", 0)
 	var hp: int   = tmpl.get("health", 0)
-	var info_lbl := _UiUtil.make_label("%s   cost %d  %d/%d" % [name_str, cost, atk, hp], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
+	var info_lbl := _UiUtil.make_label("%s   cost %d  %d/%d" % [name_str, cost, atk, hp], int(_ref * 0.022),
+			Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# Owned count
@@ -259,10 +269,12 @@ func _make_card_row(id: String, tmpl: Dictionary, coins: int,
 	for inst: Dictionary in SceneManager.save_manager.owned_cards:
 		if str(inst.get("template_id", "")) == id:
 			owned_count += 1
-	var own_lbl := _UiUtil.make_label("own: %d" % owned_count, int(_ref * 0.020), Color(0.65, 0.65, 0.65), HORIZONTAL_ALIGNMENT_LEFT, row)
+	var own_lbl := _UiUtil.make_label("own: %d" % owned_count, int(_ref * 0.020), Color(0.65, 0.65, 0.65),
+			HORIZONTAL_ALIGNMENT_LEFT, row)
 
 	# Price label
-	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022), Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
+	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022),
+			Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
 
 	# Buy button
 	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022))
@@ -281,14 +293,20 @@ func _make_weapon_row(wid: String, weapon: WeaponData, price: int, coins: int) -
 	var row := _UiUtil.make_hbox(int(_vw * 0.008))
 
 	# Name + effect
-	var info_lbl := _UiUtil.make_label("%s  —  %s" % [weapon.display_name, _UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value, weapon.injected_card_count, weapon.injected_card_id)], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
+	var info_lbl := _UiUtil.make_label(
+			"%s  —  %s" % [weapon.display_name,
+					_UiUtil.effect_summary(weapon.battle_effect_type, weapon.battle_effect_value,
+							weapon.injected_card_count, weapon.injected_card_id)],
+			int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	# Price label
-	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022), Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
+	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022),
+			Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
 
 	# Buy button
-	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022), _on_buy_weapon.bind(wid, price), row)
+	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022),
+			_on_buy_weapon.bind(wid, price), row)
 	buy_btn.disabled = coins < price
 
 	return row
@@ -329,12 +347,15 @@ func _make_pack_row(pack_id: String, pack_def: Dictionary, coins: int) -> VBoxCo
 	var pack_name: String = str(pack_def.get("name", pack_id))
 	var price: int = int(pack_def.get("price", 0))
 
-	var info_lbl := _UiUtil.make_label("%s  — 3 cards" % pack_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
+	var info_lbl := _UiUtil.make_label("%s  — 3 cards" % pack_name, int(_ref * 0.022), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022), Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
+	var price_lbl := _UiUtil.make_label("%d coins" % price, int(_ref * 0.022),
+			Color(1.0, 0.85, 0.1) if coins >= price else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
 
-	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022), _on_buy_pack.bind(pack_id, price), row)
+	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022),
+			_on_buy_pack.bind(pack_id, price), row)
 	buy_btn.disabled = coins < price
 
 	outer.add_child(row)
@@ -372,12 +393,15 @@ func _make_seed_row(seed_id: String, seed_data: Dictionary, coins: int) -> HBoxC
 	var sm := SceneManager.save_manager
 	var owned_count: int = int(sm.seeds.get(seed_id, 0))
 
-	var info_lbl := _UiUtil.make_label("%s  —  own: %d" % [str(seed_data.get("display_name", seed_id)), owned_count], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
+	var info_lbl := _UiUtil.make_label("%s  —  own: %d" % [str(seed_data.get("display_name", seed_id)), owned_count],
+			int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var price_lbl := _UiUtil.make_label("%d coins" % SEED_PRICE, int(_ref * 0.022), Color(1.0, 0.85, 0.1) if coins >= SEED_PRICE else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
+	var price_lbl := _UiUtil.make_label("%d coins" % SEED_PRICE, int(_ref * 0.022),
+			Color(1.0, 0.85, 0.1) if coins >= SEED_PRICE else Color(0.9, 0.3, 0.3), HORIZONTAL_ALIGNMENT_LEFT, row)
 
-	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022), _on_buy_seed.bind(seed_id), row)
+	var buy_btn := _UiUtil.make_button("Buy", Vector2(_vw * 0.08, _ref * 0.065), int(_ref * 0.022),
+			_on_buy_seed.bind(seed_id), row)
 	buy_btn.disabled = coins < SEED_PRICE
 
 	return row

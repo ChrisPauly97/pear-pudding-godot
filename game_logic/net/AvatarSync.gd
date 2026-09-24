@@ -5,6 +5,10 @@
 extends RefCounted
 
 
+## Number of distinct ring slots a remote avatar's initial spawn can land on.
+const SPAWN_RING_SLOTS: int = 12
+
+
 ## Pack local avatar state into a small array for RPC transmission.
 ## Payload layout: [x: float, z: float, flip_h: bool, moving: bool, map: String, downed: bool]
 ## y is intentionally omitted — receivers recompute it from terrain height. `map` is
@@ -41,10 +45,6 @@ static func decode(payload: Variant) -> Dictionary:
 static func interp(current: Vector3, target: Vector3, delta: float, rate: float) -> Vector3:
 	var t: float = clamp(delta * rate, 0.0, 1.0)
 	return current.lerp(target, t)
-
-
-## Number of distinct ring slots a remote avatar's initial spawn can land on.
-const SPAWN_RING_SLOTS: int = 12
 
 ## Deterministic XZ fan-out offset for a remote avatar's initial spawn, keyed by
 ## `peer_id`. With up to 4 players sharing one SPAWN marker the seeded positions

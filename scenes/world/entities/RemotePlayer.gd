@@ -8,14 +8,15 @@ extends Node3D
 const _AvatarSync = preload("res://game_logic/net/AvatarSync.gd")
 const _AvatarSprite = preload("res://scenes/world/entities/AvatarSprite.gd")
 
+const _INTERP_RATE: float = 12.0
+const _DOWNED_TINT: Color = Color(0.35, 0.38, 0.45, 0.75)
+
 ## The peer's unique network ID. Set by init_from_data().
 var peer_id: int = 0
 
 ## Reference to WorldScene, set by WorldScene after spawning so we can query
 ## get_terrain_height(x, z) each frame. May be null before set.
 var world_scene: Node3D = null
-
-const _INTERP_RATE: float = 12.0
 
 var _sprite: AnimatedSprite3D
 var _label: Label3D
@@ -36,7 +37,6 @@ var _emote_timer: float = 0.0
 ## Downed/rescue (GID-105 / TID-389): true while this peer is downed in a shared
 ## dungeon. Purely visual here — WorldScene owns the authoritative bookkeeping.
 var _is_downed: bool = false
-const _DOWNED_TINT: Color = Color(0.35, 0.38, 0.45, 0.75)
 
 
 ## Called by WorldScene after instantiation. Expected keys: peer_id, x, z.

@@ -102,7 +102,7 @@ func _build_ui() -> void:
 func _scale_to_index(scale: float) -> int:
 	if scale < 0.95:
 		return 0
-	elif scale > 1.1:
+	if scale > 1.1:
 		return 2
 	return 1
 
@@ -148,7 +148,8 @@ func _add_toggle_row(parent: VBoxContainer, label_text: String, initial: bool, o
 	chk.toggled.connect(func(v: bool) -> void: on_change.call(v))
 	row.add_child(chk)
 
-func _add_option_row(parent: VBoxContainer, label_text: String, options: Array, initial_idx: int, on_change: Callable) -> void:
+func _add_option_row(parent: VBoxContainer, label_text: String, options: Array, initial_idx: int,
+		on_change: Callable) -> void:
 	var row := _UiUtil.make_hbox(int(_vh * 0.02), parent)
 
 	var lbl := _UiUtil.make_label(label_text, int(_vh * 0.028))
@@ -182,7 +183,8 @@ func _build_keybindings_section(parent: VBoxContainer) -> void:
 	var reset_row := _UiUtil.make_hbox(0, parent)
 	reset_row.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var reset_btn := _UiUtil.make_button("Reset to Defaults", Vector2(_vh * 0.28, _vh * 0.05), int(_vh * 0.026), _on_reset_keybindings, reset_row)
+	var reset_btn := _UiUtil.make_button("Reset to Defaults", Vector2(_vh * 0.28, _vh * 0.05), int(_vh * 0.026),
+			_on_reset_keybindings, reset_row)
 
 ## Returns a human-readable name for a physical keycode.
 func _key_label(physical_keycode: int) -> String:
@@ -235,7 +237,8 @@ func _rebuild_keybinding_rows() -> void:
 		row.add_child(key_lbl)
 
 		# Change button
-		var change_btn := _UiUtil.make_button("Change", Vector2(_vh * 0.15, _vh * 0.05), int(_vh * 0.024), _start_capture.bind(action, key_lbl), row)
+		var change_btn := _UiUtil.make_button("Change", Vector2(_vh * 0.15, _vh * 0.05), int(_vh * 0.024),
+				_start_capture.bind(action, key_lbl), row)
 
 func _start_capture(action: String, key_lbl: Label) -> void:
 	_capture_action = action
@@ -255,7 +258,8 @@ func _show_capture_overlay(action: String) -> void:
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
 	_capture_overlay.add_child(vbox)
 
-	var prompt := _UiUtil.make_label("Press any key for «%s»…\n(Esc to cancel)" % _action_display_name(action), int(_vh * 0.03))
+	var prompt := _UiUtil.make_label("Press any key for «%s»…\n(Esc to cancel)" % _action_display_name(action),
+			int(_vh * 0.03))
 	prompt.add_theme_color_override("font_color", Color(1.0, 1.0, 0.8))
 	prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	prompt.autowrap_mode = TextServer.AUTOWRAP_WORD

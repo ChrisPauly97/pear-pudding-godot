@@ -130,4 +130,7 @@ func test_no_unreviewed_direct_hud_button_children() -> void:
 			offenders.append(ident)
 
 	assert_true(offenders.is_empty(),
-		"New unreviewed _hud.add_child(<Button>) call(s): %s — route new HUD buttons through WorldHUD.register_action() (see docs/agent/ui-and-scene-management.md 'HUD Action Registry & Party Panel'), or add a reviewed entry to _ALLOWED_DIRECT_HUD_CHILDREN in this test if it's a legitimate exception." % [offenders])
+		("New unreviewed _hud.add_child(<Button>) call(s): %s — route new HUD buttons through "
+			+ "WorldHUD.register_action() (see docs/agent/ui-and-scene-management.md 'HUD Action Registry & Party "
+			+ "Panel'), or add a reviewed entry to _ALLOWED_DIRECT_HUD_CHILDREN in this test if it's a legitimate "
+			+ "exception.") % [offenders])

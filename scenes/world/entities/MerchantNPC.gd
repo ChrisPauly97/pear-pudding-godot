@@ -9,7 +9,8 @@ var _is_traveling: bool = false
 func _ready() -> void:
 	add_to_group("interactable")
 	_ring = build_highlight_ring(self, 0.55)
-	var sprite: Sprite3D = _SpriteRegistry.make_billboard(_SpriteRegistry.merchant_texture(_is_traveling), TextureGen.npc_merchant(_is_traveling), _SpriteRegistry.HEIGHT_MERCHANT)
+	var sprite: Sprite3D = _SpriteRegistry.make_billboard(_SpriteRegistry.merchant_texture(_is_traveling),
+			TextureGen.npc_merchant(_is_traveling), _SpriteRegistry.HEIGHT_MERCHANT)
 	add_child(sprite)
 	_add_name_label()
 
@@ -18,7 +19,8 @@ func init_from_data(data: Dictionary) -> void:
 	_is_traveling = bool(data.get("is_traveling", false))
 
 func _add_name_label() -> void:
-	add_child(_SpriteRegistry.make_name_label("Traveling Merchant" if _is_traveling else "Merchant", Color(0.85, 0.6, 1.0) if _is_traveling else Color(1.0, 0.85, 0.1)))
+	add_child(_SpriteRegistry.make_name_label("Traveling Merchant" if _is_traveling else "Merchant",
+			Color(0.85, 0.6, 1.0) if _is_traveling else Color(1.0, 0.85, 0.1)))
 
 func get_dialogue() -> String:
 	if _is_traveling:

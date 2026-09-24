@@ -61,8 +61,8 @@ func get_map(map_name: String) -> Resource:
 	#    Use load() (not preload) to avoid a circular compile-time dependency.
 	var txt_path := "user://maps/%s.txt" % map_name
 	if FileAccess.file_exists(txt_path):
-		var _WorldMap: GDScript = load("res://game_logic/world/WorldMap.gd") as GDScript
-		var wm: Object = _WorldMap.new(map_name, true)
+		var world_map_script: GDScript = load("res://game_logic/world/WorldMap.gd") as GDScript
+		var wm: Object = world_map_script.new(map_name, true)
 		wm.call("load_from_file", txt_path)
 		return wm.call("to_map_data", map_name) as Resource
 

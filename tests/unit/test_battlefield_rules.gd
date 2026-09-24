@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for Battlefield Resonance (GID-059).
 ##
 ## Covers: rules table integrity, all five biome rules, both time-of-day cost modifiers,

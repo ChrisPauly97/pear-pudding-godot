@@ -98,9 +98,12 @@ func _run() -> bool:
 	var mirror_state: Dictionary = decoded["state"]
 	var after_idx: int = int(mirror_state.get("current_player_idx", before_idx))
 	if int(decoded["seq"]) >= 1 and after_idx == 1 - before_idx:
-		print("  [PASS] intent applied on host, mirror reflects turn flip (seq=%d, idx %d->%d)" % [int(decoded["seq"]), before_idx, after_idx])
+		print("  [PASS] intent applied on host, mirror reflects turn flip (seq=%d, idx %d->%d)" % [int(decoded["seq"]),
+				before_idx, after_idx])
 		return true
-	print("  [FAIL] mirror did not reflect the applied end_turn (seq=%d, idx %d->%d)" % [int(decoded["seq"]), before_idx, after_idx])
+	print("  [FAIL] mirror did not reflect the applied end_turn (seq=%d, idx %d->%d)" % [int(decoded["seq"]),
+			before_idx, after_idx])
+	# gdlint:ignore = max-returns
 	return false
 
 

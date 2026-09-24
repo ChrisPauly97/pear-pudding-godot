@@ -9,6 +9,19 @@
 ## Everything else — signals, host/join API, WorldScene hooks — stays the same.
 extends Node
 
+# Re-broadcast of native multiplayer signals.
+# Rest of the game only connects to these — never to `multiplayer` directly.
+signal server_started
+signal connection_succeeded
+signal connection_failed
+signal peer_connected(id: int)
+signal peer_disconnected(id: int)
+signal session_ended
+
+## Emitted ~1.2 s after start_discovery(); payload is an Array of host dicts
+## {name, ip, game_port, map, players}.
+signal hosts_discovered(hosts: Array)
+
 enum Transport { ENET, STEAM }
 
 const DEFAULT_PORT: int = 24565
@@ -24,19 +37,6 @@ const _DISCOVERY_QUERY: String = "PPTCG_DISCOVER"
 const _DISCOVERY_REPLY_TAG: String = "PPTCG_HOST"
 const _DISCOVERY_SCAN_SECONDS: float = 1.2
 
-# Re-broadcast of native multiplayer signals.
-# Rest of the game only connects to these — never to `multiplayer` directly.
-signal server_started
-signal connection_succeeded
-signal connection_failed
-signal peer_connected(id: int)
-signal peer_disconnected(id: int)
-signal session_ended
-
-## Emitted ~1.2 s after start_discovery(); payload is an Array of host dicts
-## {name, ip, game_port, map, players}.
-signal hosts_discovered(hosts: Array)
-
 ## Shown to other players in their found-games list.
 var host_label: String = "Pear Pudding Host"
 
@@ -44,15 +44,29 @@ var host_label: String = "Pear Pudding Host"
 ## hosts always read false; only the headless dedicated-server process reads true.
 var _server_mode: bool = false
 
-## Returns true only when this process was launched as a dedicated headless server.
-func is_dedicated_server() -> bool:
-	return _server_mode
-
 var _host_listener: PacketPeerUDP = null  # host: answers discovery queries
 var _scan_socket: PacketPeerUDP = null    # client: broadcasts query, collects replies
 var _scan_time_left: float = 0.0
 var _last_host_port: int = DEFAULT_PORT
 var _discovered: Dictionary = {}          # ip -> host dict (dedupe)
+
+
+# ---------------------------------------------------------------------------
+# PvP duel reconnect (GID-102 / TID-372)
+# ---------------------------------------------------------------------------
+# A small in-memory (never persisted to disk) record of "I was a PvP combatant when
+# I lost connection." Set by BattleScene at duel setup (client side only — only a
+# disconnected CLIENT reconnects in this slice, not a dropped host/referee), read by
+# MultiplayerLobbyScene._on_connection_succeeded to route straight back into the duel
+# instead of the normal shared-world landing. Survives _reset_session() (called by
+# join()/host() to tear down a stale peer before reconnecting) — only an explicit
+# leave() clears it, so the record outlives the very disconnect it exists to recover
+# from. Cleared explicitly by BattleScene at every genuine end-of-duel path.
+var _pvp_resume: Dictionary = {}
+
+## Returns true only when this process was launched as a dedicated headless server.
+func is_dedicated_server() -> bool:
+	return _server_mode
 
 
 func _ready() -> void:
@@ -149,20 +163,6 @@ static func is_session_peer(peer: MultiplayerPeer) -> bool:
 func is_host() -> bool:
 	return is_active() and multiplayer.is_server()
 
-
-# ---------------------------------------------------------------------------
-# PvP duel reconnect (GID-102 / TID-372)
-# ---------------------------------------------------------------------------
-# A small in-memory (never persisted to disk) record of "I was a PvP combatant when
-# I lost connection." Set by BattleScene at duel setup (client side only — only a
-# disconnected CLIENT reconnects in this slice, not a dropped host/referee), read by
-# MultiplayerLobbyScene._on_connection_succeeded to route straight back into the duel
-# instead of the normal shared-world landing. Survives _reset_session() (called by
-# join()/host() to tear down a stale peer before reconnecting) — only an explicit
-# leave() clears it, so the record outlives the very disconnect it exists to recover
-# from. Cleared explicitly by BattleScene at every genuine end-of-duel path.
-var _pvp_resume: Dictionary = {}
-
 ## Record enough to re-enter the same duel: local_idx (0 host-side convention is
 ## never used here — only client idx 1 calls this), the opponent's deck snapshot, and
 ## any active wager so a resumed duel keeps its stakes. local_deck_override (GID-115 /
@@ -212,7 +212,6 @@ func get_lan_ip() -> String:
 		if fallback == "":
 			fallback = a
 	return fallback
-
 
 
 # ---------------------------------------------------------------------------
@@ -345,7 +344,8 @@ func _create_peer(transport: Transport) -> MultiplayerPeer:
 		Transport.ENET:
 			return ENetMultiplayerPeer.new()
 		Transport.STEAM:
-			push_warning("NetworkManager: Steam transport not yet implemented. Install GodotSteam and return SteamMultiplayerPeer.new() here.")
+			push_warning("NetworkManager: Steam transport not yet implemented. Install GodotSteam and return "
+					+ "SteamMultiplayerPeer.new() here.")
 			return null
 	return null
 

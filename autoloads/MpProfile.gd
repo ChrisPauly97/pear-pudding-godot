@@ -25,6 +25,9 @@ const _PALETTE: Array[Color] = [
 	Color(0.97, 0.67, 0.40),
 ]
 
+const _MAX_RECENT_SERVERS: int = 6
+const _MAX_FRIENDS: int = 50
+
 var _token: String = ""
 var _name: String = DEFAULT_NAME
 var _color: Color = Color.WHITE
@@ -40,9 +43,6 @@ var _recent_servers: Array = []
 ## {token, name, color_hex, last_seen}.
 var _friends: Array = []
 var _loaded: bool = false
-
-const _MAX_RECENT_SERVERS: int = 6
-const _MAX_FRIENDS: int = 50
 
 
 func _ready() -> void:

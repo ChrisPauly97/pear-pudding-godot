@@ -11,6 +11,35 @@
 ## as the player travels relative to each target.
 extends Control
 
+## Bearing (atan2 degrees, 0 = +X = East) the camera looks along: its horizontal
+## forward, (−1, 0, −1) → −135°. `test_compass_bearing` re-derives this straight
+## from the baked Camera3D transform in WorldScene.tscn, so the ribbon and the
+## camera cannot drift apart.
+const FACING_BEARING_DEG: float = -135.0
+
+## Degrees of bearing spanned by the full ribbon width. A full turn keeps every
+## target on the ribbon: a marker at either edge is directly behind the camera.
+const SPAN_DEG: float = 360.0
+
+# ---------------------------------------------------------------------------
+# Update & draw
+# ---------------------------------------------------------------------------
+
+## Cardinal / intercardinal marks, in atan2 degrees (0 = East/+X, −90 = North/−Z).
+## Entry: [bearing_deg, label, is_major].
+const _CARDINAL_TICKS: Array = [
+	[-90.0,  "N",  true],
+	[-45.0,  "NE", false],
+	[0.0,    "E",  true],
+	[45.0,   "SE", false],
+	[90.0,   "S",  true],
+	[135.0,  "SW", false],
+	[180.0,  "W",  true],
+	[-135.0, "NW", false],
+]
+
+const _CAPTION_MAX_CHARS: int = 34
+
 # Marker registry: id -> {color: Color, get_pos: Callable, get_label: Callable,
 #                        primary: bool}
 # get_pos() must return Vector3 (world pos) or null (hidden).
@@ -21,16 +50,6 @@ var _player: Node3D = null
 var _current_map: String = "main"
 var _time: float = 0.0
 var _band_h: float = 0.0
-
-## Bearing (atan2 degrees, 0 = +X = East) the camera looks along: its horizontal
-## forward, (−1, 0, −1) → −135°. `test_compass_bearing` re-derives this straight
-## from the baked Camera3D transform in WorldScene.tscn, so the ribbon and the
-## camera cannot drift apart.
-const FACING_BEARING_DEG: float = -135.0
-
-## Degrees of bearing spanned by the full ribbon width. A full turn keeps every
-## target on the ribbon: a marker at either edge is directly behind the camera.
-const SPAN_DEG: float = 360.0
 
 # ---------------------------------------------------------------------------
 # Static / pure functions — testable without a scene tree
@@ -100,23 +119,6 @@ func remove_marker(id: String) -> void:
 
 func set_current_map(map_name: String) -> void:
 	_current_map = map_name
-
-# ---------------------------------------------------------------------------
-# Update & draw
-# ---------------------------------------------------------------------------
-
-## Cardinal / intercardinal marks, in atan2 degrees (0 = East/+X, −90 = North/−Z).
-## Entry: [bearing_deg, label, is_major].
-const _CARDINAL_TICKS: Array = [
-	[-90.0,  "N",  true],
-	[-45.0,  "NE", false],
-	[0.0,    "E",  true],
-	[45.0,   "SE", false],
-	[90.0,   "S",  true],
-	[135.0,  "SW", false],
-	[180.0,  "W",  true],
-	[-135.0, "NW", false],
-]
 
 func _process(delta: float) -> void:
 	if _player == null or not is_instance_valid(_player):
@@ -233,8 +235,6 @@ func _draw_centered(text: String, cx: float, y: float, font_size: int, col: Colo
 	draw_string_outline(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, 3,
 		Color(0.0, 0.0, 0.0, 0.85))
 	draw_string(font, pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, col)
-
-const _CAPTION_MAX_CHARS: int = 34
 
 static func _shorten(text: String) -> String:
 	if text.length() <= _CAPTION_MAX_CHARS:

@@ -62,7 +62,8 @@ func interact() -> void:
 	var sm := SceneManager.save_manager
 	if not sm.get_story_flag("chapter1_camp_night"):
 		GameBus.hud_message_requested.emit(
-			"Rain patters on the leaves overhead. Saimtar creeps toward a rustle in the brush — a rabbit. No fire tonight; it'll have to be eaten raw.")
+			"Rain patters on the leaves overhead. Saimtar creeps toward a rustle in the brush — a rabbit. No fire "
+				+ "tonight; it'll have to be eaten raw.")
 		GameBus.scripted_battle_requested.emit("rabbit_hunt")
 		return
 	if not sm.get_story_flag("chapter1_learned_fire"):

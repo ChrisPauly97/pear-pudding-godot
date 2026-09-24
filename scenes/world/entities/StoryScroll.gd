@@ -1,12 +1,13 @@
 extends Node3D
-const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
-var _scroll_id: String = ""
-var _player: Node3D = null
+const _WEB = preload("res://scenes/world/entities/WorldEntityBase.gd")
 
 # Shared resources — created once across all instances
 static var _scroll_mat: StandardMaterial3D
 static var _scroll_mesh: CylinderMesh
+
+var _scroll_id: String = ""
+var _player: Node3D = null
 
 static func _ensure_shared_resources() -> void:
 	if _scroll_mat != null:

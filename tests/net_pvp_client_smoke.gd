@@ -15,7 +15,7 @@ extends SceneTree
 const _Harness = preload("res://tests/net_harness.gd")
 
 const _PORT: int = 24570
-const _BattlePacked := "res://scenes/battle/BattleScene.tscn"
+const _BATTLE_SCENE_PATH := "res://scenes/battle/BattleScene.tscn"
 
 
 func _initialize() -> void:
@@ -83,7 +83,7 @@ func _run() -> bool:
 
 
 func _make_battle(local_idx: int) -> Node:
-	var packed: PackedScene = load(_BattlePacked)
+	var packed: PackedScene = load(_BATTLE_SCENE_PATH)
 	var b: Node = packed.instantiate()
 	b.name = "BattleScene"  # fixed RPC path: <subroot>/BattleScene/BattleNetSync
 	b.set("_pvp", true)

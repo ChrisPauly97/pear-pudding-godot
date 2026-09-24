@@ -7,6 +7,13 @@ extends "res://tests/framework/test_case.gd"
 
 const TerrainMath = preload("res://game_logic/TerrainMath.gd")
 
+
+# ---------------------------------------------------------------------------
+# Packed-grid fast paths (GID-121) — must match the Callable variants exactly
+# ---------------------------------------------------------------------------
+
+const _PG_W: int = 12  # packed test grid is _PG_W × _PG_W, origin tile (0,0)
+
 # ---------------------------------------------------------------------------
 # Tile-lookup helpers (Callable-compatible free functions)
 # ---------------------------------------------------------------------------
@@ -225,13 +232,6 @@ func test_build_terrain_mesh_hmap_data_matches_input() -> void:
 		0.0, 0.0, nvx, nvz, IsoConst.TILE_SIZE, 2.0)
 	var hmap: HeightMapShape3D = result["hmap"] as HeightMapShape3D
 	assert_almost_eq(hmap.map_data[4], 1.5, 0.001)
-
-
-# ---------------------------------------------------------------------------
-# Packed-grid fast paths (GID-121) — must match the Callable variants exactly
-# ---------------------------------------------------------------------------
-
-const _PG_W: int = 12  # packed test grid is _PG_W × _PG_W, origin tile (0,0)
 
 # Mixed terrain: hill at (5,5) h=3, wall at (2,8), cracked wall at (9,3) h=2.
 func _make_packed_grids() -> Array:

@@ -7,6 +7,8 @@ extends "res://tests/framework/test_case.gd"
 
 const DraftDuelGen = preload("res://game_logic/net/DraftDuelGen.gd")
 
+var _pool_templates: Dictionary = {}
+
 func _minion(cost: int) -> Dictionary:
 	return {"card_class": "minion", "cost": cost, "attack": 1, "health": 1}
 
@@ -16,10 +18,8 @@ func _spell(cost: int) -> Dictionary:
 func _legendary() -> Dictionary:
 	return {"card_class": "legendary", "cost": 6, "attack": 4, "health": 4}
 
-var _POOL_TEMPLATES: Dictionary = {}
-
 func before_all() -> void:
-	_POOL_TEMPLATES = {
+	_pool_templates = {
 		"ghost":            _minion(1),
 		"skeleton":         _minion(2),
 		"zombie":           _minion(3),
@@ -37,26 +37,26 @@ func before_all() -> void:
 # ---------------------------------------------------------------------------
 
 func test_generate_rounds_returns_num_rounds_entries() -> void:
-	var rounds: Array = DraftDuelGen.generate_rounds(1234, _POOL_TEMPLATES)
+	var rounds: Array = DraftDuelGen.generate_rounds(1234, _pool_templates)
 	assert_eq(rounds.size(), DraftDuelGen.NUM_ROUNDS)
 
 func test_generate_rounds_each_round_has_options_per_round_picks() -> void:
-	var rounds: Array = DraftDuelGen.generate_rounds(42, _POOL_TEMPLATES)
+	var rounds: Array = DraftDuelGen.generate_rounds(42, _pool_templates)
 	for round_picks in rounds:
 		assert_eq((round_picks as Array).size(), DraftDuelGen.OPTIONS_PER_ROUND)
 
 func test_generate_rounds_all_ids_are_in_pool() -> void:
-	var rounds: Array = DraftDuelGen.generate_rounds(7, _POOL_TEMPLATES)
+	var rounds: Array = DraftDuelGen.generate_rounds(7, _pool_templates)
 	for round_picks in rounds:
 		for pick: String in (round_picks as Array):
-			assert_true(_POOL_TEMPLATES.has(pick), "pick '%s' not in test pool" % pick)
+			assert_true(_pool_templates.has(pick), "pick '%s' not in test pool" % pick)
 
 func test_generate_rounds_empty_pool_returns_empty() -> void:
 	var rounds: Array = DraftDuelGen.generate_rounds(1, {})
 	assert_eq(rounds.size(), 0)
 
 func test_generate_rounds_no_duplicate_options_within_a_round() -> void:
-	var rounds: Array = DraftDuelGen.generate_rounds(999, _POOL_TEMPLATES)
+	var rounds: Array = DraftDuelGen.generate_rounds(999, _pool_templates)
 	for round_picks in rounds:
 		var picks: Array = round_picks
 		assert_ne(picks[0], picks[1])
@@ -68,8 +68,8 @@ func test_generate_rounds_no_duplicate_options_within_a_round() -> void:
 # ---------------------------------------------------------------------------
 
 func test_determinism_same_seed_same_rounds() -> void:
-	var a: Array = DraftDuelGen.generate_rounds(55555, _POOL_TEMPLATES)
-	var b: Array = DraftDuelGen.generate_rounds(55555, _POOL_TEMPLATES)
+	var a: Array = DraftDuelGen.generate_rounds(55555, _pool_templates)
+	var b: Array = DraftDuelGen.generate_rounds(55555, _pool_templates)
 	assert_eq(a.size(), b.size())
 	for i in range(a.size()):
 		var pa: Array = a[i]
@@ -81,8 +81,8 @@ func test_determinism_same_seed_same_rounds() -> void:
 func test_different_seeds_produce_different_rounds_eventually() -> void:
 	var any_diff := false
 	for s in range(5):
-		var a: Array = DraftDuelGen.generate_rounds(s * 31 + 1, _POOL_TEMPLATES)
-		var b: Array = DraftDuelGen.generate_rounds(s * 31 + 999, _POOL_TEMPLATES)
+		var a: Array = DraftDuelGen.generate_rounds(s * 31 + 1, _pool_templates)
+		var b: Array = DraftDuelGen.generate_rounds(s * 31 + 999, _pool_templates)
 		for i in range(a.size()):
 			var pa: Array = a[i]
 			var pb: Array = b[i]
@@ -96,10 +96,10 @@ func test_different_seeds_produce_different_rounds_eventually() -> void:
 func test_later_rounds_can_offer_higher_tier_cards() -> void:
 	var found_upper := false
 	for s in range(20):
-		var rounds: Array = DraftDuelGen.generate_rounds(s * 17 + 3, _POOL_TEMPLATES)
+		var rounds: Array = DraftDuelGen.generate_rounds(s * 17 + 3, _pool_templates)
 		var last_round: Array = rounds[rounds.size() - 1]
 		for pick: String in last_round:
-			if DraftDuelGen.tier_for_template(_POOL_TEMPLATES.get(pick, {})) >= 2:
+			if DraftDuelGen.tier_for_template(_pool_templates.get(pick, {})) >= 2:
 				found_upper = true
 				break
 		if found_upper:

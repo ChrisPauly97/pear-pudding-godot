@@ -49,9 +49,9 @@ static func pick_enemy_type(floor: int) -> String:
 		return "undead_elite"
 	if floor <= 3:
 		return "undead_basic"
-	elif floor <= 6:
+	if floor <= 6:
 		return "undead_horde"
-	elif floor <= 9:
+	if floor <= 9:
 		return "ghoul_pack"
 	return "undead_elite"
 

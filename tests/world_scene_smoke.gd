@@ -40,8 +40,8 @@
 ## crashed."
 extends SceneTree
 
-const _NetSyncScriptPath: String = "res://scenes/world/NetSync.gd"
-const _WorldScenePath: String = "res://scenes/world/WorldScene.tscn"
+const _NET_SYNC_SCRIPT_PATH: String = "res://scenes/world/NetSync.gd"
+const _WORLD_SCENE_PATH: String = "res://scenes/world/WorldScene.tscn"
 const _NetSyncScript = preload("res://scenes/world/NetSync.gd")
 
 ## Files outside scenes/world/ that reach the WorldScene node by name. The
@@ -95,7 +95,7 @@ func _run() -> bool:
 		return false
 	save_manager.call("new_game", 1)
 
-	var packed: PackedScene = load(_WorldScenePath)
+	var packed: PackedScene = load(_WORLD_SCENE_PATH)
 	var ws: Node = packed.instantiate()
 	ws.set("map_name", "main")
 	root.add_child(ws)
@@ -206,7 +206,7 @@ func _run() -> bool:
 ## not hardcoded — this list grows automatically as NetSync grows, which is the
 ## whole point of this test.
 func _parse_netsync_handlers() -> Array:
-	var f: FileAccess = FileAccess.open(_NetSyncScriptPath, FileAccess.READ)
+	var f: FileAccess = FileAccess.open(_NET_SYNC_SCRIPT_PATH, FileAccess.READ)
 	if f == null:
 		return []
 	var src: String = f.get_as_text()
@@ -269,7 +269,8 @@ func _check_external_entry_points(ws: Node) -> bool:
 		if not ws.has_method(name):
 			missing.append("%s (probed by %s)" % [name, probes[name]])
 	return _check(missing.is_empty(),
-		"every world-scene method probed by has_method() outside scenes/world/ resolves on WorldScene (missing: %s)" % [missing])
+		"every world-scene method probed by has_method() outside scenes/world/ resolves on WorldScene (missing: %s)"
+				% [missing])
 
 
 ## Builds one synthesized dummy argument per parameter `handler` declares on
@@ -301,4 +302,5 @@ func _dummy_for_type(t: int) -> Variant:
 		TYPE_DICTIONARY:
 			return {}
 		_:
+			# gdlint:ignore = max-returns
 			return null

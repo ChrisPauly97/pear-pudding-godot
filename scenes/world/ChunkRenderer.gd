@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node3D
 
 const GrassBlades   = preload("res://scenes/world/GrassBlades.gd")
@@ -27,6 +29,23 @@ const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
 # Must match what WorldScene._snapshot_tile_grid_for() uses.
 const TILE_CHECK: int = 3  # ceil(IsoConst.HILL_CURVE_R / IsoConst.TILE_SIZE) + 1 = ceil(3.5/2)+1 = 3
 
+# Cache one ShaderMaterial per biome so we never duplicate the template more
+# than 5 times total (5 biomes × 2 mesh instances = 10 unique materials in flight
+# instead of 120+). The cache is keyed by biome int.
+static var _biome_mat_cache: Dictionary = {}
+
+# ── Props ──────────────────────────────────────────────────
+
+# Shared per prop type across all chunks — the textures were already cached,
+# but every chunk commit also built a fresh material + quad mesh per type,
+# adding avoidable main-thread work to each chunk landing.
+static var _prop_visual_cache: Dictionary = {}  # prop key -> {"mat": ..., "mesh": ...}
+
+
+# Landmark meshes/materials are deterministic per (variant, biome) — share them.
+static var _landmark_mesh_cache: Dictionary = {}  # "variant|biome" -> ArrayMesh
+static var _landmark_mat_cache: Dictionary = {}   # biome -> StandardMaterial3D
+
 var _chunk_data: RefCounted   # ChunkData
 var _chunk_key:  Vector2i
 var _terrain_mat: ShaderMaterial
@@ -36,11 +55,6 @@ var _physics_built: bool = false      # guard against double-build
 # Terrain MeshInstance3D refs for per-chunk blight tinting via instance uniforms.
 var _terrain_mi: MeshInstance3D = null
 var _wall_face_mi: MeshInstance3D = null
-
-# Cache one ShaderMaterial per biome so we never duplicate the template more
-# than 5 times total (5 biomes × 2 mesh instances = 10 unique materials in flight
-# instead of 120+). The cache is keyed by biome int.
-static var _biome_mat_cache: Dictionary = {}
 
 static func _get_biome_mat(template: ShaderMaterial, biome: int) -> ShaderMaterial:
 	var key: Array = [template.get_rid(), biome]
@@ -211,8 +225,8 @@ func build_visual(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node
 	_build_props(biome, terrain_res.get("props", {}) as Dictionary)
 	_spawn_entities(world_scene)
 	# Apply initial blight tint for this chunk based on current world state.
-	if world_scene.get("WORLD_SEED") != null:
-		var ws: int = int(world_scene.get("WORLD_SEED"))
+	if world_scene.get("world_seed") != null:
+		var ws: int = int(world_scene.get("world_seed"))
 		var sm := SceneManager.save_manager
 		var intensity: float = BlightField.blight_intensity(
 			_chunk_key.x, _chunk_key.y, ws, sm.days_elapsed, sm.blight_cleansed_hearts)
@@ -337,13 +351,6 @@ func _build_grass(world_scene: Node3D, grass_data: Dictionary) -> void:
 		return
 	# Buffers were pre-built on the worker thread; just commit them to the scene tree.
 	grass.commit_grass_buffers(grass_data, _chunk_key)
-
-# ── Props ──────────────────────────────────────────────────
-
-# Shared per prop type across all chunks — the textures were already cached,
-# but every chunk commit also built a fresh material + quad mesh per type,
-# adding avoidable main-thread work to each chunk landing.
-static var _prop_visual_cache: Dictionary = {}  # prop key -> {"mat": ..., "mesh": ...}
 
 static func _get_prop_visual(key_str: String) -> Dictionary:
 	var cached: Dictionary = _prop_visual_cache.get(key_str, {})
@@ -503,8 +510,8 @@ func _spawn_entities(world_scene: Node3D) -> void:
 	var cx: int = _chunk_key.x
 	var cz: int = _chunk_key.y
 	var world_seed: int = 42
-	if world_scene.get("WORLD_SEED") != null:
-		world_seed = int(world_scene.get("WORLD_SEED"))
+	if world_scene.get("world_seed") != null:
+		world_seed = int(world_scene.get("world_seed"))
 	var scroll_id: String = InfiniteWorldGen.get_chunk_scroll_id(cx, cz, world_seed)
 	if scroll_id != "" and not SceneManager.save_manager.is_scroll_collected(scroll_id):
 		var h: int = (cx * 73856093) ^ (cz * 19349663) ^ world_seed
@@ -577,11 +584,6 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 		if world_scene.has_method("register_landmark"):
 			world_scene.register_landmark(lid, l_data)
-
-
-# Landmark meshes/materials are deterministic per (variant, biome) — share them.
-static var _landmark_mesh_cache: Dictionary = {}  # "variant|biome" -> ArrayMesh
-static var _landmark_mat_cache: Dictionary = {}   # biome -> StandardMaterial3D
 
 static func _get_landmark_mesh(variant: String, biome: int) -> ArrayMesh:
 	var key: String = variant + "|" + str(biome)

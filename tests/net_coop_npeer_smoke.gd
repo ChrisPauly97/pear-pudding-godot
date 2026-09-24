@@ -20,6 +20,9 @@ const _Harness = preload("res://tests/net_harness.gd")
 const _PORT: int = 24568
 
 
+var _peers: Array = []  # [{mp, root, netsync, stub}]
+
+
 # Minimal stand-in for WorldScene: records decoded avatar + identity packets.
 class _StubWorld:
 	extends Node
@@ -29,9 +32,6 @@ class _StubWorld:
 		avatars.append(_AvatarSync.decode(payload))
 	func _on_identity_received(sender: int, payload: Array, _is_reply: bool) -> void:
 		identities[sender] = _PlayerIdentity.decode(payload)
-
-
-var _peers: Array = []  # [{mp, root, netsync, stub}]
 
 
 func _initialize() -> void:
@@ -95,6 +95,7 @@ func _run() -> bool:
 		print("  [FAIL] relayed identity decoded wrong: %s" % str(got))
 		return false
 	print("  [PASS] client->client identity relayed and decoded correctly")
+	# gdlint:ignore = max-returns
 	return true
 
 

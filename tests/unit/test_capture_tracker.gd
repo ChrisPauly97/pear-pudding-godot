@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for the Soulbind capture system (GID-061 TID-218/219/220).
 ##
 ## Covers: CaptureTracker all condition keys (satisfied + violated), AI actions
@@ -13,6 +15,12 @@ const EnemyRegistryScript = preload("res://autoloads/EnemyRegistry.gd")
 const CardRegistryScript = preload("res://autoloads/CardRegistry.gd")
 const CardDataScript = preload("res://data/CardData.gd")
 const GameState = preload("res://game_logic/battle/GameState.gd")
+
+# ---------------------------------------------------------------------------
+# SaveManager captured_signatures
+# ---------------------------------------------------------------------------
+
+var _sm: Node
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -148,12 +156,6 @@ func test_condition_text_win_by_turn_contains_param() -> void:
 func test_condition_text_empty_for_unknown() -> void:
 	var t := CaptureTracker.new("unknown", 0)
 	assert_eq(t.condition_text(), "")
-
-# ---------------------------------------------------------------------------
-# SaveManager captured_signatures
-# ---------------------------------------------------------------------------
-
-var _sm: Node
 
 func before_each() -> void:
 	_sm = SaveManagerScript.new()

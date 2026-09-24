@@ -55,6 +55,9 @@ const _RIDE_LIFT: float = 0.6
 ## sprite right so the saddle, not the neck, sits under the rider. Mirrored with
 ## the sprite when facing left.
 const _SADDLE_OFFSET_PX: float = 3.0
+const _SCAN_INTERVAL: float = 1.0 / 7.0
+const _INTERACT_RADIUS: float = 3.0
+const _WP_ARRIVE_DIST_SQ: float = 0.3 * 0.3  # arrive when within 0.3 world units
 
 var _velocity_y: float = 0.0
 var _sprite: AnimatedSprite3D
@@ -71,14 +74,11 @@ var _jump_buffer_timer: float = 0.0
 
 var _highlight_timer: float = 0.0
 var _highlighted_node: Node3D = null
-const _SCAN_INTERVAL: float = 1.0 / 7.0
-const _INTERACT_RADIUS: float = 3.0
 
 # Path-following state (tap-to-move)
 var _path_waypoints: Array[Vector2i] = []
 var _path_wp_index: int = 0
 var _has_active_path: bool = false
-const _WP_ARRIVE_DIST_SQ: float = 0.3 * 0.3  # arrive when within 0.3 world units
 
 func _ready() -> void:
 	collision_layer = 1       # player layer

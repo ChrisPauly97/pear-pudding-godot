@@ -421,7 +421,9 @@ func _arm_join_timeout() -> void:
 		if not is_instance_valid(self) or not is_inside_tree():
 			return  # already connected & transitioned away
 		if not NetworkManager.is_active():
-			_set_status("Couldn't reach the host. Check: both on the SAME Wi-Fi (or, over the internet, the host forwarded UDP 24565 and you used their public IP), the host tapped Host Game first, and the router allows device-to-device (some networks block this).")
+			_set_status("Couldn't reach the host. Check: both on the SAME Wi-Fi (or, over the internet, the host "
+					+ "forwarded UDP 24565 and you used their public IP), the host tapped Host Game first, and the "
+					+ "router allows device-to-device (some networks block this).")
 			if _retry_row != null:
 				_retry_row.visible = true
 	)

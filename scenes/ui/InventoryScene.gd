@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends "res://scenes/ui/CardBrowserOverlay.gd"
 
 const CardRegistry      = preload("res://autoloads/CardRegistry.gd")
@@ -8,6 +10,26 @@ const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const VeterancyUtil     = preload("res://game_logic/VeterancyUtil.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
+
+# -------------------------------------------------------------------------
+# Drag and drop between the collection and the deck
+#
+# Tapping a card still moves it — that is the fast path and the only one that
+# works with a single touch. Dragging exists because tapping gives no sense of
+# where the card went, which reads as the card vanishing.
+#
+# Sideways drags start a card drag; up/down drags stay a list scroll. That split
+# is deliberate: the collection sits left of the deck, so "move this card over
+# there" is naturally horizontal, and TID-454 made tile-started vertical drags
+# scroll the grid on touch. Starting a card drag on any movement would take that
+# back and leave the grid un-scrollable from a tile.
+# -------------------------------------------------------------------------
+
+const _DRAG_KIND := "inv_card"
+
+# Set to true by MenuHubScene before add_child() so the scene skips its own
+# backdrop/panel and builds content directly into the hub's content area.
+var hub_mode: bool = false
 
 var _working_deck: Array[String] = []
 
@@ -41,9 +63,15 @@ var _rename_btn: Button
 var _dup_btn: Button
 var _del_btn: Button
 
-# Set to true by MenuHubScene before add_child() so the scene skips its own
-# backdrop/panel and builds content directly into the hub's content area.
-var hub_mode: bool = false
+## Where each in-flight press began, so _get_drag_data can tell a sideways drag
+## from a scroll. Keyed by the control being pressed.
+var _press_origin: Dictionary = {}
+
+# -------------------------------------------------------------------------
+# Instance detail popup (hover / tap-and-hold)
+# -------------------------------------------------------------------------
+
+var _detail_popup: PopupPanel = null
 
 func _ready() -> void:
 	super._ready()
@@ -71,9 +99,11 @@ func _build_ui() -> void:
 	# ---- Tab bar ----
 	var tab_bar := _UiUtil.make_hbox(int(_vw * 0.008), wrapper)
 
-	_tab_cards_btn = _UiUtil.make_button("Cards", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_tab_cards, tab_bar)
+	_tab_cards_btn = _UiUtil.make_button("Cards", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_tab_cards,
+			tab_bar)
 
-	_tab_craft_btn = _UiUtil.make_button("Craft", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_tab_craft, tab_bar)
+	_tab_craft_btn = _UiUtil.make_button("Craft", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), _on_tab_craft,
+			tab_bar)
 
 	var scroll_min_h: float = _ref * 0.25 if is_portrait else 0.0
 
@@ -99,7 +129,8 @@ func _build_ui() -> void:
 		left_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_box.add_child(left_vbox)
 
-	var col_title := _UiUtil.make_label("Collection", int(_ref * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, left_vbox)
+	var col_title := _UiUtil.make_label("Collection", int(_ref * 0.026), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+			left_vbox)
 
 	_slot_label = Label.new()
 	_slot_label.add_theme_font_size_override("font_size", int(_ref * 0.020))
@@ -152,11 +183,14 @@ func _build_ui() -> void:
 	# ---- Loadout action row (Rename / Copy / Delete) ----
 	_loadout_action_row = _UiUtil.make_hbox(int(_ref * 0.006), right_vbox)
 
-	_rename_btn = _UiUtil.make_button("Rename", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020), _on_rename_loadout, _loadout_action_row)
+	_rename_btn = _UiUtil.make_button("Rename", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020),
+			_on_rename_loadout, _loadout_action_row)
 
-	_dup_btn = _UiUtil.make_button("Copy", Vector2(_ref * 0.10, _ref * 0.055), int(_ref * 0.020), _on_dup_loadout, _loadout_action_row)
+	_dup_btn = _UiUtil.make_button("Copy", Vector2(_ref * 0.10, _ref * 0.055), int(_ref * 0.020), _on_dup_loadout,
+			_loadout_action_row)
 
-	_del_btn = _UiUtil.make_button("Delete", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020), _on_del_loadout, _loadout_action_row)
+	_del_btn = _UiUtil.make_button("Delete", Vector2(_ref * 0.12, _ref * 0.055), int(_ref * 0.020), _on_del_loadout,
+			_loadout_action_row)
 	_del_btn.modulate = Color(1.0, 0.4, 0.4)
 
 	_deck_count_label = Label.new()
@@ -164,7 +198,8 @@ func _build_ui() -> void:
 	_deck_count_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	right_vbox.add_child(_deck_count_label)
 
-	var autofill_btn := _UiUtil.make_button("Auto-Fill", Vector2(_ref * 0.18, _ref * 0.055), int(_ref * 0.020), _on_auto_fill, right_vbox)
+	var autofill_btn := _UiUtil.make_button("Auto-Fill", Vector2(_ref * 0.18, _ref * 0.055), int(_ref * 0.020),
+			_on_auto_fill, right_vbox)
 
 	_deck_scroll = ScrollContainer.new()
 	var right_scroll: ScrollContainer = _deck_scroll
@@ -183,18 +218,22 @@ func _build_ui() -> void:
 		var btn_hbox := _UiUtil.make_hbox(int(_vw * 0.04), root_box)
 		btn_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
-		var save_btn := _UiUtil.make_button("Save Deck", Vector2(_vw * 0.35, _ref * 0.065), int(_ref * 0.022), _on_save, btn_hbox)
+		var save_btn := _UiUtil.make_button("Save Deck", Vector2(_vw * 0.35, _ref * 0.065), int(_ref * 0.022), _on_save,
+				btn_hbox)
 
 		if not hub_mode:
-			var close_btn := _UiUtil.make_button("Close", Vector2(_vw * 0.35, _ref * 0.065), int(_ref * 0.022), _on_close, btn_hbox)
+			var close_btn := _UiUtil.make_button("Close", Vector2(_vw * 0.35, _ref * 0.065), int(_ref * 0.022),
+					_on_close, btn_hbox)
 	else:
 		var btn_vbox := _UiUtil.make_vbox(int(_ref * 0.012), root_box)
 		btn_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
-		var save_btn := _UiUtil.make_button("Save Deck", Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_save, btn_vbox)
+		var save_btn := _UiUtil.make_button("Save Deck", Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_save,
+				btn_vbox)
 
 		if not hub_mode:
-			var close_btn := _UiUtil.make_button("Close  [I]" if not OS.has_feature("android") else "Close", Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_close, btn_vbox)
+			var close_btn := _UiUtil.make_button("Close  [I]" if not OS.has_feature("android") else "Close",
+					Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_close, btn_vbox)
 
 	# ====================================================================
 	# CRAFT PANEL
@@ -223,7 +262,8 @@ func _build_ui() -> void:
 	_craft_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	if not hub_mode:
-		var craft_close_btn := _UiUtil.make_button("Close  [I]" if not OS.has_feature("android") else "Close", Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_close, craft_box)
+		var craft_close_btn := _UiUtil.make_button("Close  [I]" if not OS.has_feature("android") else "Close",
+				Vector2(_vw * 0.1, _ref * 0.065), int(_ref * 0.022), _on_close, craft_box)
 
 # -------------------------------------------------------------------------
 # Refresh
@@ -258,7 +298,8 @@ func _rebuild_loadout_bar() -> void:
 		tab_btn.pressed.connect(_on_loadout_tab.bind(i))
 		_loadout_tab_row.add_child(tab_btn)
 
-	var new_btn := _UiUtil.make_button("+", Vector2(_ref * 0.055, _ref * 0.055), int(_ref * 0.025), _on_new_loadout, _loadout_tab_row)
+	var new_btn := _UiUtil.make_button("+", Vector2(_ref * 0.055, _ref * 0.055), int(_ref * 0.025), _on_new_loadout,
+			_loadout_tab_row)
 	new_btn.disabled = at_cap
 
 	_del_btn.disabled = names.size() <= 1
@@ -324,7 +365,8 @@ func _refresh_cards() -> void:
 		for inst: Dictionary in avail:
 			grid.add_child(_make_card_tile(inst, false))
 	else:
-		var empty_lbl := _UiUtil.make_label("No spare cards", int(_ref * 0.020), Color(0.6, 0.6, 0.6), HORIZONTAL_ALIGNMENT_CENTER, _collection_list)
+		var empty_lbl := _UiUtil.make_label("No spare cards", int(_ref * 0.020), Color(0.6, 0.6, 0.6),
+				HORIZONTAL_ALIGNMENT_CENTER, _collection_list)
 
 	# ---- Deck list ----
 	if not deck_insts.is_empty():
@@ -432,7 +474,6 @@ func _on_auto_fill() -> void:
 # -------------------------------------------------------------------------
 
 
-
 # Diablo-3-style cube: one tile per owned instance. Hover (desktop) or
 # tap-and-hold (mobile) opens the detail popup with rolled stats + actions.
 # A plain tap adds the card to the working deck.
@@ -453,7 +494,8 @@ func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 	cube.custom_minimum_size = Vector2(tile_size, tile_size)
 	cube.focus_mode = Control.FOCUS_NONE
 
-	var sb := _UiUtil.make_style(card_color, int(_ref * 0.012), _UiUtil.rarity_color(rarity), int(maxi(2, int(_ref * 0.006))))
+	var sb := _UiUtil.make_style(card_color, int(_ref * 0.012), _UiUtil.rarity_color(rarity),
+			int(maxi(2, int(_ref * 0.006))))
 	cube.add_theme_stylebox_override("normal", sb)
 	cube.add_theme_stylebox_override("hover", sb)
 	cube.add_theme_stylebox_override("pressed", sb)
@@ -498,26 +540,6 @@ func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 			cube.accept_event())
 
 	return cube
-
-# -------------------------------------------------------------------------
-# Drag and drop between the collection and the deck
-#
-# Tapping a card still moves it — that is the fast path and the only one that
-# works with a single touch. Dragging exists because tapping gives no sense of
-# where the card went, which reads as the card vanishing.
-#
-# Sideways drags start a card drag; up/down drags stay a list scroll. That split
-# is deliberate: the collection sits left of the deck, so "move this card over
-# there" is naturally horizontal, and TID-454 made tile-started vertical drags
-# scroll the grid on touch. Starting a card drag on any movement would take that
-# back and leave the grid un-scrollable from a tile.
-# -------------------------------------------------------------------------
-
-const _DRAG_KIND := "inv_card"
-
-## Where each in-flight press began, so _get_drag_data can tell a sideways drag
-## from a scroll. Keyed by the control being pressed.
-var _press_origin: Dictionary = {}
 
 func _make_card_draggable(ctrl: Control, uid: String, in_deck: bool, tint: Color) -> void:
 	ctrl.button_down.connect(func() -> void:
@@ -564,12 +586,6 @@ func _can_drop_into_collection(_at: Vector2, data: Variant) -> bool:
 func _drop_into_collection(_at: Vector2, data: Variant) -> void:
 	_on_remove_by_uid(str((data as Dictionary).get("uid", "")))
 
-# -------------------------------------------------------------------------
-# Instance detail popup (hover / tap-and-hold)
-# -------------------------------------------------------------------------
-
-var _detail_popup: PopupPanel = null
-
 func _hide_instance_detail() -> void:
 	if _detail_popup != null and is_instance_valid(_detail_popup):
 		_detail_popup.queue_free()
@@ -609,12 +625,16 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 
 	var title_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
 
-	var name_lbl := _UiUtil.make_label(disp_name + (" ◑" if is_dual else ""), int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, title_row)
+	var name_lbl := _UiUtil.make_label(disp_name + (" ◑" if is_dual else ""), int(_ref * 0.024), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT, title_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity), HORIZONTAL_ALIGNMENT_LEFT, title_row)
+	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity),
+			HORIZONTAL_ALIGNMENT_LEFT, title_row)
 
-	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp], int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55), HORIZONTAL_ALIGNMENT_LEFT, vb)
+	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp],
+			int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.85, 0.85, 0.85), 0.55),
+			HORIZONTAL_ALIGNMENT_LEFT, vb)
 
 	var is_unique: bool = bool(tmpl.get("is_unique", false))
 	if not is_unique:
@@ -624,7 +644,8 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 
 		var action_row := _UiUtil.make_hbox(int(_ref * 0.006), vb)
 
-		var sell_btn := _UiUtil.make_button("Sell +%dg" % sell_gold, Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020))
+		var sell_btn := _UiUtil.make_button("Sell +%dg" % sell_gold, Vector2(_ref * 0.14, _ref * 0.06),
+				int(_ref * 0.020))
 		sell_btn.modulate = Color(1.0, 0.9, 0.3)
 		sell_btn.pressed.connect(func() -> void:
 			SceneManager.save_manager.sell_card_instance(uid)
@@ -632,7 +653,8 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 			_refresh_cards())
 		action_row.add_child(sell_btn)
 
-		var scrap_btn := _UiUtil.make_button("Scrap +%de" % scrap_ess, Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020))
+		var scrap_btn := _UiUtil.make_button("Scrap +%de" % scrap_ess, Vector2(_ref * 0.14, _ref * 0.06),
+				int(_ref * 0.020))
 		scrap_btn.modulate = Color(0.5, 0.85, 1.0)
 		scrap_btn.pressed.connect(func() -> void:
 			SceneManager.save_manager.scrap_card_instance(uid)
@@ -650,7 +672,8 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 			var next_idx: int = IsoConst.RARITY_ORDER.find("common") + 1
 			if next_idx < IsoConst.RARITY_ORDER.size():
 				var next_rarity: String = IsoConst.RARITY_ORDER[next_idx]
-				var combine_btn := _UiUtil.make_button("Combine 3× → %s" % _UiUtil.rarity_badge(next_rarity), Vector2(_ref * 0.22, _ref * 0.06), int(_ref * 0.020))
+				var combine_btn := _UiUtil.make_button("Combine 3× → %s" % _UiUtil.rarity_badge(next_rarity),
+						Vector2(_ref * 0.22, _ref * 0.06), int(_ref * 0.020))
 				combine_btn.modulate = _UiUtil.rarity_color(next_rarity)
 				combine_btn.disabled = avail_count < 3
 				combine_btn.pressed.connect(func() -> void:
@@ -734,14 +757,16 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	if rank > 0:
-		var chev_lbl := _UiUtil.make_label(VeterancyUtil.rank_chevrons(rank), int(_ref * 0.018), Color(1.0, 0.82, 0.2), HORIZONTAL_ALIGNMENT_LEFT, top_row)
+		var chev_lbl := _UiUtil.make_label(VeterancyUtil.rank_chevrons(rank), int(_ref * 0.018), Color(1.0, 0.82, 0.2),
+				HORIZONTAL_ALIGNMENT_LEFT, top_row)
 	if is_dual:
 		var dual_badge := _UiUtil.make_label("◑", int(_ref * 0.022))
 		dual_badge.add_theme_color_override("font_color", Color(0.6, 0.85, 1.0))
 		dual_badge.tooltip_text = "Dual-faced card"
 		top_row.add_child(dual_badge)
 
-	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity), HORIZONTAL_ALIGNMENT_LEFT, top_row)
+	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity),
+			HORIZONTAL_ALIGNMENT_LEFT, top_row)
 
 	var rm_btn := _UiUtil.make_button("−", Vector2(_ref * 0.065, _ref * 0.065), int(_ref * 0.022))
 	if _working_deck.size() <= IsoConst.DECK_MIN:
@@ -756,7 +781,9 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 		rm_btn.pressed.connect(_on_remove_by_uid.bind(uid))
 	top_row.add_child(rm_btn)
 
-	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp], int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	var stats_lbl := _UiUtil.make_label("Cost %d  ATK %d  HP %d" % [rolled_cost, rolled_atk, rolled_hp],
+			int(_ref * 0.022), _UiUtil.rarity_color(rarity).lerp(Color(0.75, 0.75, 0.75), 0.55),
+			HORIZONTAL_ALIGNMENT_LEFT, vbox)
 
 	# The row is a plain VBox, not a Button, so it has no button_down to record a
 	# press origin — drag it from the swatch, which is the card's colour chip and
@@ -791,12 +818,15 @@ func _make_craft_row(recipe: Object, player_essence: int) -> HBoxContainer:
 	var name_lbl := _UiUtil.make_label(card_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity), HORIZONTAL_ALIGNMENT_LEFT, row)
+	var badge_lbl := _UiUtil.make_label(_UiUtil.rarity_badge(rarity), int(_ref * 0.022), _UiUtil.rarity_color(rarity),
+			HORIZONTAL_ALIGNMENT_LEFT, row)
 
-	var cost_lbl := _UiUtil.make_label("%de" % cost, int(_ref * 0.022), Color(0.5, 0.85, 1.0), HORIZONTAL_ALIGNMENT_RIGHT, row)
+	var cost_lbl := _UiUtil.make_label("%de" % cost, int(_ref * 0.022), Color(0.5, 0.85, 1.0),
+			HORIZONTAL_ALIGNMENT_RIGHT, row)
 	cost_lbl.custom_minimum_size = Vector2(_ref * 0.06, 0)
 
-	var craft_btn := _UiUtil.make_button("Craft", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022), _do_craft.bind(tid, rarity, cost), row)
+	var craft_btn := _UiUtil.make_button("Craft", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022),
+			_do_craft.bind(tid, rarity, cost), row)
 	craft_btn.disabled = player_essence < cost
 
 	return row
@@ -829,14 +859,17 @@ func _make_potion_craft_row(potion_id: String, recipe_data: Dictionary, player_e
 		if owned < required:
 			can_afford_ingredients = false
 
-	var info_lbl := _UiUtil.make_label("%s  (%s)" % [display_name, ", ".join(parts)], int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
+	var info_lbl := _UiUtil.make_label("%s  (%s)" % [display_name, ", ".join(parts)], int(_ref * 0.022), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_LEFT, row)
 	info_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var cost_lbl := _UiUtil.make_label("%de" % essence_cost, int(_ref * 0.022), Color(0.5, 0.85, 1.0), HORIZONTAL_ALIGNMENT_RIGHT, row)
+	var cost_lbl := _UiUtil.make_label("%de" % essence_cost, int(_ref * 0.022), Color(0.5, 0.85, 1.0),
+			HORIZONTAL_ALIGNMENT_RIGHT, row)
 	cost_lbl.custom_minimum_size = Vector2(_ref * 0.06, 0)
 
 	var can_craft: bool = can_afford_ingredients and player_essence >= essence_cost
-	var craft_btn := _UiUtil.make_button("Craft", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022), _do_craft_potion.bind(potion_id, essence_cost, ingredients), row)
+	var craft_btn := _UiUtil.make_button("Craft", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022),
+			_do_craft_potion.bind(potion_id, essence_cost, ingredients), row)
 	craft_btn.disabled = not can_craft
 
 	return row
@@ -903,7 +936,8 @@ func _refresh_craft() -> void:
 	for rarity: String in IsoConst.RARITY_ORDER:
 		var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
 		var ess_cost: int = int(cfg.get("craft_essence", 0))
-		var sel_btn := _UiUtil.make_button("%s %de" % [_UiUtil.rarity_badge(rarity), ess_cost], Vector2(_ref * 0.17, _ref * 0.058), int(_ref * 0.020))
+		var sel_btn := _UiUtil.make_button("%s %de" % [_UiUtil.rarity_badge(rarity), ess_cost],
+				Vector2(_ref * 0.17, _ref * 0.058), int(_ref * 0.020))
 		if rarity == _craft_rarity:
 			sel_btn.modulate = _UiUtil.rarity_color(rarity)
 		else:
@@ -930,7 +964,8 @@ func _refresh_craft() -> void:
 		_craft_list.add_child(_make_craft_row(recipe, player_essence))
 
 	# Potions section
-	var potion_header := _UiUtil.make_label("— Potions —", int(_ref * 0.022), Color(0.75, 0.85, 1.0), HORIZONTAL_ALIGNMENT_CENTER, _craft_list)
+	var potion_header := _UiUtil.make_label("— Potions —", int(_ref * 0.022), Color(0.75, 0.85, 1.0),
+			HORIZONTAL_ALIGNMENT_CENTER, _craft_list)
 
 	var potion_recipes: Dictionary = GardenDefs.POTION_RECIPES
 	for potion_id: String in potion_recipes:
@@ -978,7 +1013,8 @@ func _on_rename_loadout() -> void:
 	var vb := _UiUtil.make_vbox(int(_ref * 0.012), popup)
 	vb.custom_minimum_size = Vector2(_ref * 0.5, 0)
 
-	var title_lbl := _UiUtil.make_label("Rename Loadout", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
+	var title_lbl := _UiUtil.make_label("Rename Loadout", int(_ref * 0.024), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+			vb)
 
 	var edit := LineEdit.new()
 	edit.text = current_name
@@ -999,7 +1035,8 @@ func _on_rename_loadout() -> void:
 		popup.queue_free())
 	btn_row.add_child(ok_btn)
 
-	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022), func() -> void: popup.queue_free(), btn_row)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_ref * 0.12, _ref * 0.065), int(_ref * 0.022),
+			func() -> void: popup.queue_free(), btn_row)
 
 	popup.popup_centered()
 	# Shift to top half so the Android keyboard doesn't cover the input field.
@@ -1029,7 +1066,8 @@ func _on_del_loadout() -> void:
 	var vb := _UiUtil.make_vbox(int(_ref * 0.012), popup)
 	vb.custom_minimum_size = Vector2(_ref * 0.5, 0)
 
-	var lbl := _UiUtil.make_label("Delete '%s'?\nThis cannot be undone." % loadout_name, int(_ref * 0.022), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vb)
+	var lbl := _UiUtil.make_label("Delete '%s'?\nThis cannot be undone." % loadout_name, int(_ref * 0.022), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER, vb)
 	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 	var btn_row := _UiUtil.make_hbox(int(_ref * 0.012), vb)
@@ -1044,7 +1082,8 @@ func _on_del_loadout() -> void:
 		_refresh_cards())
 	btn_row.add_child(yes_btn)
 
-	var no_btn := _UiUtil.make_button("Cancel", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022), func() -> void: popup.queue_free(), btn_row)
+	var no_btn := _UiUtil.make_button("Cancel", Vector2(_ref * 0.14, _ref * 0.065), int(_ref * 0.022),
+			func() -> void: popup.queue_free(), btn_row)
 
 	popup.popup_centered()
 

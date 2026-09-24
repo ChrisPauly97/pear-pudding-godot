@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for TournamentSync (GID-104 / TID-386) — the pure round-robin
 ## bracket scheduling/advancement/payout math + encode/decode round trip.
 ## Mirrors test_rating_math.gd (pure, scene-free).

@@ -1,9 +1,6 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node3D
-
-const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
-const ChunkRenderer    = preload("res://scenes/world/ChunkRenderer.gd")
-const GrassBlades      = preload("res://scenes/world/GrassBlades.gd")
-const TerrainMath      = preload("res://game_logic/TerrainMath.gd")
 
 ## Emitted when the player enters a new chunk; world scene updates music/ambience/save.
 signal player_chunk_changed(chunk: Vector2i, biome_id: int)
@@ -13,6 +10,11 @@ signal chunk_committed(key: Vector2i, chunk_data: RefCounted)
 ## Emitted just before a chunk renderer is torn down. World scene cleans up entity
 ## nodes and active-data dictionaries.
 signal chunk_unloading(key: Vector2i, chunk_data: RefCounted)
+
+const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const ChunkRenderer    = preload("res://scenes/world/ChunkRenderer.gd")
+const GrassBlades      = preload("res://scenes/world/GrassBlades.gd")
+const TerrainMath      = preload("res://game_logic/TerrainMath.gd")
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 const LOAD_RADIUS:        int = 6
@@ -65,6 +67,9 @@ var _is_infinite: bool = false
 var _world_map: RefCounted = null     # WorldMap; null for infinite worlds
 var _terrain_mat: ShaderMaterial = null
 var _world_scene: Node3D = null       # WorldScene; passed to ChunkRenderer.build_visual
+
+# Track last-seen biome to detect changes inside _update_chunks.
+var _last_biome: int = -1
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
@@ -417,9 +422,6 @@ func _update_chunks(player_pos: Vector3, camera_frustum: Array[Plane], look_dir:
 	if _is_infinite and _hq_center != player_chunk:
 		_refresh_height_query_grid()
 
-# Track last-seen biome to detect changes inside _update_chunks.
-var _last_biome: int = -1
-
 func _chunk_prepare_task(key: Vector2i, chunk_data: RefCounted,
 		tile_grid: PackedInt32Array, height_grid: PackedInt32Array,
 		grid_min_x: int, grid_min_z: int, grid_w: int, p_world_seed: int) -> void:
@@ -517,7 +519,8 @@ func _build_chunk_sync(key: Vector2i) -> void:
 		else:
 			_chunk_data_cache[key] = _world_map.get_chunk_data(key.x, key.y)
 	var chunk: RefCounted = _chunk_data_cache[key]
-	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3], snap[4], _world_seed)
+	var terrain_res: Dictionary = ChunkRenderer.prepare_terrain(chunk, snap[0], snap[1], snap[2], snap[3], snap[4],
+			_world_seed)
 	var renderer: ChunkRenderer = ChunkRenderer.new()
 	renderer.name = "Chunk_%d_%d" % [key.x, key.y]
 	add_child(renderer)

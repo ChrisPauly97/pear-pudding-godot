@@ -1,15 +1,24 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node
 
 const BiomeDef = preload("res://game_logic/world/BiomeDef.gd")
-
-
-static var _enemies: Dictionary = {}
-static var _loaded: bool = false
 
 const _FALLBACK_DECK: Array[String] = [
 	"ghost", "ghost", "skeleton", "skeleton",
 	"zombie", "zombie", "ghoul", "ghoul",
 ]
+
+## The 8 core enemy types that count toward bestiary completion.
+## Story/siege/special enemies (martarquas, rival, mimic, spectre) are excluded.
+const _BESTIARY_ELIGIBLE: Array[String] = [
+	"undead_basic", "undead_horde", "undead_elite", "ghoul_pack",
+	"duelist_novice", "duelist_adept", "duelist_champion", "roaming_terror",
+]
+
+
+static var _enemies: Dictionary = {}
+static var _loaded: bool = false
 
 static func _ensure_loaded() -> void:
 	if _loaded:
@@ -18,7 +27,8 @@ static func _ensure_loaded() -> void:
 	_enemies = {
 		"undead_basic": {
 			"display_name": "Undead Wanderer",
-			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul"],
+			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie",
+					"ghoul"],
 			"drop_pool": ["ghost", "skeleton", "mend", "wither", "surge_spirit", "ember_imp"],
 			"coin_reward": 5,
 			"is_boss": false,
@@ -26,29 +36,34 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 1,
 			"ai_persona": "basic",
-			"lore_text": "Drawn forth by ancient dark rites, these shambling dead roam the wilds seeking the warmth of the living. They are slow but relentless, overwhelming lone travelers with sheer numbers.",
+			"lore_text": ("Drawn forth by ancient dark rites, these shambling dead roam the wilds seeking the warmth "
+					+ "of the living. They are slow but relentless, overwhelming lone travelers with sheer numbers."),
 			"signature_card": "sig_wanderer",
 			"capture_condition": "win_by_turn",
 			"capture_param": 9,
 		},
 		"undead_horde": {
 			"display_name": "Horde Shambler",
-			"deck": ["ghost", "ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul"],
-			"drop_pool": ["skeleton", "zombie", "dawn_acolyte", "dusk_wraith", "shrouded_wraith", "dusk_seer", "void_creeper"],
+			"deck": ["ghost", "ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie",
+					"ghoul", "ghoul"],
+			"drop_pool": ["skeleton", "zombie", "dawn_acolyte", "dusk_wraith", "shrouded_wraith", "dusk_seer",
+					"void_creeper"],
 			"coin_reward": 8,
 			"is_boss": false,
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 2,
 			"ai_persona": "aggro",
-			"lore_text": "Where one undead wanders, a horde is never far behind. These pack hunters press forward in relentless waves, making up in numbers what they lack in cunning.",
+			"lore_text": ("Where one undead wanders, a horde is never far behind. These pack hunters press forward in "
+					+ "relentless waves, making up in numbers what they lack in cunning."),
 			"signature_card": "sig_shambler",
 			"capture_condition": "spell_final_blow",
 			"capture_param": 0,
 		},
 		"undead_elite": {
 			"display_name": "Undead Warlord",
-			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton", "skeleton"],
+			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton",
+					"skeleton", "skeleton"],
 			"drop_pool": ["ghoul", "restore", "drain", "blitz_ghoul", "veiled_paladin", "ash_warden"],
 			"coin_reward": 20,
 			"is_boss": false,
@@ -56,29 +71,35 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 4,
 			"ai_persona": "control",
-			"lore_text": "A champion re-risen by Martarquas sorcery, the Undead Warlord retains fragments of its battle tactics. It fights with brutal efficiency — a grim echo of the soldier it once was.",
+			"lore_text": ("A champion re-risen by Martarquas sorcery, the Undead Warlord retains fragments of its "
+					+ "battle tactics. It fights with brutal efficiency — a grim echo of the soldier it once was."),
 			"signature_card": "sig_warlord",
 			"capture_condition": "hero_hp_at_most",
 			"capture_param": 10,
 		},
 		"ghoul_pack": {
 			"display_name": "Ghoul Pack Leader",
-			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton", "skeleton", "skeleton"],
-			"drop_pool": ["zombie", "ghoul", "dawn_paladin", "dusk_vampire", "iron_revenant", "dawn_guardian", "dawn_healer"],
+			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "zombie", "skeleton", "skeleton",
+					"skeleton", "skeleton"],
+			"drop_pool": ["zombie", "ghoul", "dawn_paladin", "dusk_vampire", "iron_revenant", "dawn_guardian",
+					"dawn_healer"],
 			"coin_reward": 12,
 			"is_boss": false,
 			"boss_hp": 0,
 			"phase2_deck": [],
 			"difficulty_tier": 3,
 			"ai_persona": "aggro",
-			"lore_text": "Once a fierce warrior in life, the Ghoul Pack Leader still commands through primal instinct, driving its kin with savage coordination. Its bite carries a rot that weakens even the stoutest heart.",
+			"lore_text": ("Once a fierce warrior in life, the Ghoul Pack Leader still commands through primal "
+					+ "instinct, driving its kin with savage coordination. Its bite carries a rot that weakens even "
+					+ "the stoutest heart."),
 			"signature_card": "sig_pack_leader",
 			"capture_condition": "no_minion_hero_attacks",
 			"capture_param": 0,
 		},
 		"wraith": {
 			"display_name": "Wraith",
-			"deck": ["ghost", "ghost", "ghost", "ghost", "ghost", "ghost", "skeleton", "skeleton", "ember_imp", "ember_imp"],
+			"deck": ["ghost", "ghost", "ghost", "ghost", "ghost", "ghost", "skeleton", "skeleton", "ember_imp",
+					"ember_imp"],
 			"drop_pool": ["ghost", "ember_imp", "spark", "surge_spirit"],
 			"coin_reward": 8,
 			"is_boss": false,
@@ -86,11 +107,14 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 1,
 			"ai_persona": "basic",
-			"lore_text": "A thin, flickering echo of the dead, the Wraith darts across the grasslands faster than the eye can track. It has little substance and less patience — it strikes fast and often, hoping to overwhelm before it is unmade.",
+			"lore_text": ("A thin, flickering echo of the dead, the Wraith darts across the grasslands faster than the "
+					+ "eye can track. It has little substance and less patience — it strikes fast and often, hoping "
+					+ "to overwhelm before it is unmade."),
 		},
 		"forest_shade": {
 			"display_name": "Forest Shade",
-			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "dusk_wraith", "dusk_wraith", "insight", "insight", "dusk_seer"],
+			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "dusk_wraith", "dusk_wraith", "insight",
+					"insight", "dusk_seer"],
 			"drop_pool": ["skeleton", "dusk_wraith", "insight", "dusk_seer", "shrouded_wraith"],
 			"coin_reward": 10,
 			"is_boss": false,
@@ -98,11 +122,14 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 2,
 			"ai_persona": "control",
-			"lore_text": "Something moves between the trees that isn't quite there. The Forest Shade lingers at the edge of sight, reading the battle before it commits — an unsettling patience for a creature of the wild.",
+			"lore_text": ("Something moves between the trees that isn't quite there. The Forest Shade lingers at the "
+					+ "edge of sight, reading the battle before it commits — an unsettling patience for a creature "
+					+ "of the wild."),
 		},
 		"sand_stalker": {
 			"display_name": "Sand Stalker",
-			"deck": ["skeleton", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul", "ghoul", "dagger_throw"],
+			"deck": ["skeleton", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul", "ghoul",
+					"dagger_throw"],
 			"drop_pool": ["zombie", "ghoul", "dagger_throw", "blitz_ghoul"],
 			"coin_reward": 9,
 			"is_boss": false,
@@ -110,11 +137,13 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 2,
 			"ai_persona": "aggro",
-			"lore_text": "Buried beneath the dunes until footsteps wake it, the Sand Stalker erupts in a burst of grit and old bone. It presses the attack immediately, giving no quarter and no time to think.",
+			"lore_text": ("Buried beneath the dunes until footsteps wake it, the Sand Stalker erupts in a burst of "
+					+ "grit and old bone. It presses the attack immediately, giving no quarter and no time to think."),
 		},
 		"scorched_revenant": {
 			"display_name": "Scorched Revenant",
-			"deck": ["zombie", "zombie", "zombie", "ghoul", "ghoul", "scorch", "scorch", "char", "char", "alight", "alight", "ember"],
+			"deck": ["zombie", "zombie", "zombie", "ghoul", "ghoul", "scorch", "scorch", "char", "char", "alight",
+					"alight", "ember"],
 			"drop_pool": ["ghoul", "scorch", "char", "ember_imp", "ash_warden"],
 			"coin_reward": 12,
 			"is_boss": false,
@@ -122,11 +151,13 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 3,
 			"ai_persona": "aggro",
-			"lore_text": "Charred to the bone by the scorched wastes yet still standing, the Revenant carries embers of old fires in its ribs. It burns the field it fights on, indifferent to the cost.",
+			"lore_text": ("Charred to the bone by the scorched wastes yet still standing, the Revenant carries embers "
+					+ "of old fires in its ribs. It burns the field it fights on, indifferent to the cost."),
 		},
 		"mountain_troll": {
 			"display_name": "Mountain Troll",
-			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "restore", "restore", "wither"],
+			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "restore",
+					"restore", "wither"],
 			"drop_pool": ["ghoul", "restore", "wither", "iron_revenant", "veiled_paladin"],
 			"coin_reward": 15,
 			"is_boss": false,
@@ -134,47 +165,62 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 3,
 			"ai_persona": "control",
-			"lore_text": "Slow, immense, and nearly impossible to put down for good, the Mountain Troll grinds down anything foolish enough to challenge it on its own peaks. It does not need to be fast when it can simply outlast you.",
+			"lore_text": ("Slow, immense, and nearly impossible to put down for good, the Mountain Troll grinds down "
+					+ "anything foolish enough to challenge it on its own peaks. It does not need to be fast when it "
+					+ "can simply outlast you."),
 		},
 		"stone_golem": {
 			"display_name": "Stone Golem",
-			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie", "ash_bone_wall", "ash_bone_wall", "ash_arbiter"],
+			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "zombie",
+					"ash_bone_wall", "ash_bone_wall", "ash_arbiter"],
 			"drop_pool": ["ghoul", "ash_arbiter", "ash_defile", "iron_revenant", "ancient_guardian"],
 			"coin_reward": 18,
 			"is_boss": true,
 			"boss_hp": 40,
-			"phase2_deck": ["ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "ash_defile", "ash_defile", "ash_annihilate", "ash_annihilate", "ash_arbiter", "ash_arbiter"],
+			"phase2_deck": ["ghoul", "ghoul", "ghoul", "ghoul", "zombie", "zombie", "ash_defile", "ash_defile",
+					"ash_annihilate", "ash_annihilate", "ash_arbiter", "ash_arbiter"],
 			"difficulty_tier": 4,
 			"ai_persona": "control",
-			"lore_text": "Ancient stone given grim purpose by forgotten mountain rites, the Golem is less a creature than a fortress that walks. Wounding it only seems to focus its fury — the deeper into the fight, the harder it hits back.",
+			"lore_text": ("Ancient stone given grim purpose by forgotten mountain rites, the Golem is less a creature "
+					+ "than a fortress that walks. Wounding it only seems to focus its fury — the deeper into the "
+					+ "fight, the harder it hits back."),
 		},
 		"hollow_steward": {
 			"display_name": "The Hollow Steward",
-			"deck": ["skeleton", "skeleton", "skeleton", "skeleton", "dusk_wraith", "dusk_wraith", "dusk_wraith", "dusk_seer", "dusk_seer", "wither", "wither", "drain"],
+			"deck": ["skeleton", "skeleton", "skeleton", "skeleton", "dusk_wraith", "dusk_wraith", "dusk_wraith",
+					"dusk_seer", "dusk_seer", "wither", "wither", "drain"],
 			"drop_pool": ["dusk_wraith", "shrouded_wraith", "dark_pact", "dusk_seer", "void_creeper"],
 			"coin_reward": 25,
 			"is_boss": true,
 			"boss_hp": 35,
-			"phase2_deck": ["shrouded_wraith", "shrouded_wraith", "dusk_wraith", "dusk_wraith", "dusk_wraith", "drain", "drain", "wither", "wither", "dark_pact", "dark_pact", "skeleton"],
+			"phase2_deck": ["shrouded_wraith", "shrouded_wraith", "dusk_wraith", "dusk_wraith", "dusk_wraith", "drain",
+					"drain", "wither", "wither", "dark_pact", "dark_pact", "skeleton"],
 			"difficulty_tier": 4,
 			"ai_persona": "control",
-			"lore_text": "Once the trusted steward of Farsyth Mansion, now a hollow thing bound to old, dark bargains. It keeps the household running out of habit alone, and turns on any who threaten to expose what it has become.",
+			"lore_text": ("Once the trusted steward of Farsyth Mansion, now a hollow thing bound to old, dark "
+					+ "bargains. It keeps the household running out of habit alone, and turns on any who threaten to "
+					+ "expose what it has become."),
 		},
 		"martarquas_vanguard": {
 			"display_name": "Martarquas Vanguard",
-			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul", "ghoul", "ghoul", "ember_imp", "ember_imp", "ember"],
+			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghoul", "ghoul", "ghoul",
+					"ember_imp", "ember_imp", "ember"],
 			"drop_pool": ["ghoul", "blitz_ghoul", "ember_imp", "iron_revenant", "duel_crown"],
 			"coin_reward": 30,
 			"is_boss": true,
 			"boss_hp": 40,
-			"phase2_deck": ["ghoul", "ghoul", "ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "ember", "ember", "scorch", "scorch", "ember_imp", "ember_imp"],
+			"phase2_deck": ["ghoul", "ghoul", "ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "ember", "ember",
+					"scorch", "scorch", "ember_imp", "ember_imp"],
 			"difficulty_tier": 4,
 			"ai_persona": "control",
-			"lore_text": "Sent ahead of the tribe's main force to probe the temple's defenses, the Vanguard is disciplined where the raiders are reckless. It fights a measured, armored battle — testing exactly how ready the alliance really is.",
+			"lore_text": ("Sent ahead of the tribe's main force to probe the temple's defenses, the Vanguard is "
+					+ "disciplined where the raiders are reckless. It fights a measured, armored battle — testing "
+					+ "exactly how ready the alliance really is."),
 		},
 		"duelist_novice": {
 			"display_name": "Novice Duelist",
-			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "mend"],
+			"deck": ["ghost", "ghost", "ghost", "skeleton", "skeleton", "skeleton", "zombie", "zombie", "ghoul",
+					"mend"],
 			"drop_pool": [],
 			"coin_reward": 0,
 			"is_boss": false,
@@ -182,11 +228,13 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 1,
 			"ai_persona": "basic",
-			"lore_text": "A young card duelist eager to prove themselves on the Blancogov tournament circuit. Their deck is simple, but they fight with an enthusiasm that belies their rank.",
+			"lore_text": ("A young card duelist eager to prove themselves on the Blancogov tournament circuit. Their "
+					+ "deck is simple, but they fight with an enthusiasm that belies their rank."),
 		},
 		"duelist_adept": {
 			"display_name": "Adept Duelist",
-			"deck": ["ghost", "ghost", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul", "mend", "wither", "surge_spirit", "ember_imp"],
+			"deck": ["ghost", "ghost", "skeleton", "skeleton", "zombie", "zombie", "ghoul", "ghoul", "mend", "wither",
+					"surge_spirit", "ember_imp"],
 			"drop_pool": [],
 			"coin_reward": 0,
 			"is_boss": false,
@@ -194,11 +242,13 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 2,
 			"ai_persona": "aggro",
-			"lore_text": "A seasoned competitor with dozens of tournament wins behind them. They read the board well and know how to manage resources to outlast less patient opponents.",
+			"lore_text": ("A seasoned competitor with dozens of tournament wins behind them. They read the board well "
+					+ "and know how to manage resources to outlast less patient opponents."),
 		},
 		"duelist_champion": {
 			"display_name": "Champion of Blancogov",
-			"deck": ["ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "shrouded_wraith", "void_wyrm", "wither", "wither", "soul_rend", "dark_pact"],
+			"deck": ["ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "shrouded_wraith", "void_wyrm", "wither", "wither",
+					"soul_rend", "dark_pact"],
 			"drop_pool": [],
 			"coin_reward": 0,
 			"is_boss": false,
@@ -206,19 +256,27 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 3,
 			"ai_persona": "control",
-			"lore_text": "The undefeated champion of the Blancogov card tournament. Years of dedicated study and thousands of matches have honed their deck to a razor's edge — they have not lost in three seasons.",
+			"lore_text": ("The undefeated champion of the Blancogov card tournament. Years of dedicated study and "
+					+ "thousands of matches have honed their deck to a razor's edge — they have not lost in three "
+					+ "seasons."),
 		},
 		"roaming_terror": {
 			"display_name": "Roaming Terror",
-			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "soul_harvest", "soul_harvest", "drain", "drain", "void_creeper", "void_creeper", "dusk_wraith", "dusk_wraith", "wither", "wither"],
-			"drop_pool": ["blitz_ghoul", "soul_harvest", "void_wyrm", "dusk_vampire", "dark_pact", "shrouded_wraith", "iron_revenant"],
+			"deck": ["ghoul", "ghoul", "ghoul", "ghoul", "blitz_ghoul", "blitz_ghoul", "soul_harvest", "soul_harvest",
+					"drain", "drain", "void_creeper", "void_creeper", "dusk_wraith", "dusk_wraith", "wither", "wither"],
+			"drop_pool": ["blitz_ghoul", "soul_harvest", "void_wyrm", "dusk_vampire", "dark_pact", "shrouded_wraith",
+					"iron_revenant"],
 			"coin_reward": 40,
 			"is_boss": true,
 			"boss_hp": 50,
-			"phase2_deck": ["void_wyrm", "void_wyrm", "soul_rend", "soul_rend", "dusk_vampire", "dusk_vampire", "drain", "wither", "dark_pact", "blitz_ghoul", "blitz_ghoul", "ghoul", "ghoul", "ghoul", "void_creeper", "void_creeper"],
+			"phase2_deck": ["void_wyrm", "void_wyrm", "soul_rend", "soul_rend", "dusk_vampire", "dusk_vampire", "drain",
+					"wither", "dark_pact", "blitz_ghoul", "blitz_ghoul", "ghoul", "ghoul", "ghoul", "void_creeper",
+					"void_creeper"],
 			"difficulty_tier": 4,
 			"ai_persona": "control",
-			"lore_text": "An ancient horror that drifts the borderlands, drawn by conflict and chaos. When the Martarquas surge, this creature follows in their wake — and grows more dangerous as it is wounded.",
+			"lore_text": ("An ancient horror that drifts the borderlands, drawn by conflict and chaos. When the "
+					+ "Martarquas surge, this creature follows in their wake — and grows more dangerous as it is "
+					+ "wounded."),
 		},
 		"martarquas_raider_1": {
 			"display_name": "Martarquas Raider",
@@ -230,7 +288,8 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 1,
 			"ai_persona": "aggro",
-			"lore_text": "A Martarquas footsoldier, freshly blooded on raids through the border villages. Their early confidence hides a lack of experience — overcome them and the tribe's advance falters.",
+			"lore_text": ("A Martarquas footsoldier, freshly blooded on raids through the border villages. Their early "
+					+ "confidence hides a lack of experience — overcome them and the tribe's advance falters."),
 		},
 		"martarquas_raider_2": {
 			"display_name": "Martarquas Veteran",
@@ -242,7 +301,8 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 2,
 			"ai_persona": "aggro",
-			"lore_text": "A veteran of many raids, this Martarquas warrior fights with practiced brutality. The town guard has already fallen back — it falls to you to hold the gate.",
+			"lore_text": ("A veteran of many raids, this Martarquas warrior fights with practiced brutality. The town "
+					+ "guard has already fallen back — it falls to you to hold the gate."),
 		},
 		"martarquas_raider_3": {
 			"display_name": "Martarquas Warlord",
@@ -254,7 +314,8 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 3,
 			"ai_persona": "aggro",
-			"lore_text": "The siege commander — where lesser raiders hesitated, this one drove them forward. Defeat the Warlord and the siege collapses. The town will owe you a debt it cannot easily repay.",
+			"lore_text": ("The siege commander — where lesser raiders hesitated, this one drove them forward. Defeat "
+					+ "the Warlord and the siege collapses. The town will owe you a debt it cannot easily repay."),
 		},
 		"martarquas_warleader": {
 			"display_name": "Martarquas War-Leader",
@@ -266,7 +327,8 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": ["skeleton", "zombie", "zombie", "ghoul", "ghoul", "ghoul"],
 			"difficulty_tier": 4,
 			"ai_persona": "control",
-			"lore_text": "The war-leader who drove the muster on Marsax hold. Steal his plans and the tribe's whole campaign unravels — but he does not give ground easily.",
+			"lore_text": ("The war-leader who drove the muster on Marsax hold. Steal his plans and the tribe's whole "
+					+ "campaign unravels — but he does not give ground easily."),
 		},
 		"rival_isfig_1": {
 			"display_name": "Isfig",
@@ -278,11 +340,13 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 1,
 			"ai_persona": "control",
-			"lore_text": "A sharp-eyed young man who seems to know more about Saimtar's journey than he lets on. He smiles as he challenges you to a duel — not out of malice, but to measure you.",
+			"lore_text": ("A sharp-eyed young man who seems to know more about Saimtar's journey than he lets on. He "
+					+ "smiles as he challenges you to a duel — not out of malice, but to measure you."),
 		},
 		"rival_isfig_2": {
 			"display_name": "Isfig the Pursuing",
-			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghost", "mend", "wither", "surge_spirit"],
+			"deck": ["skeleton", "skeleton", "skeleton", "zombie", "zombie", "zombie", "ghost", "mend", "wither",
+					"surge_spirit"],
 			"drop_pool": [],
 			"coin_reward": 15,
 			"is_boss": false,
@@ -290,11 +354,14 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 2,
 			"ai_persona": "control",
-			"lore_text": "He has followed you across the wilds, watching and adapting. The easy smile is gone; this time he means to stop you — or find out once and for all what you carry that Scargroth's letter warned him about.",
+			"lore_text": ("He has followed you across the wilds, watching and adapting. The easy smile is gone; this "
+					+ "time he means to stop you — or find out once and for all what you carry that Scargroth's "
+					+ "letter warned him about."),
 		},
 		"rival_isfig_3": {
 			"display_name": "Isfig, Maiteln's Shadow",
-			"deck": ["zombie", "zombie", "zombie", "ghoul", "ghoul", "blitz_ghoul", "drain", "wither", "soul_rend", "dusk_wraith"],
+			"deck": ["zombie", "zombie", "zombie", "ghoul", "ghoul", "blitz_ghoul", "drain", "wither", "soul_rend",
+					"dusk_wraith"],
 			"drop_pool": [],
 			"coin_reward": 25,
 			"is_boss": false,
@@ -302,11 +369,14 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 3,
 			"ai_persona": "control",
-			"lore_text": "Standing in the shadow of the temple, Isfig speaks Maiteln's name with a cold familiarity that turns your blood to ice. Whatever he once was, he has chosen his side — and it is not yours.",
+			"lore_text": ("Standing in the shadow of the temple, Isfig speaks Maiteln's name with a cold familiarity "
+					+ "that turns your blood to ice. Whatever he once was, he has chosen his side — and it is not "
+					+ "yours."),
 		},
 		"spectre_wisp": {
 			"display_name": "Wisp",
-			"deck": ["ghost", "ghost", "ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "wither", "surge_spirit", "void_creeper"],
+			"deck": ["ghost", "ghost", "ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "wither",
+					"surge_spirit", "void_creeper"],
 			"drop_pool": ["ghost", "shadow_bolt", "soul_rend", "wither", "dusk_wraith", "void_creeper"],
 			"coin_reward": 8,
 			"is_boss": false,
@@ -315,11 +385,13 @@ static func _ensure_loaded() -> void:
 			"difficulty_tier": 1,
 			"ai_persona": "basic",
 			"night_drop_boost": true,
-			"lore_text": "A lost soul drawn out by darkness, trailing cold light through the night mist. Where one wisp drifts, the veil between worlds has grown thin.",
+			"lore_text": ("A lost soul drawn out by darkness, trailing cold light through the night mist. Where one "
+					+ "wisp drifts, the veil between worlds has grown thin."),
 		},
 		"spectre_haunt": {
 			"display_name": "Phantom",
-			"deck": ["ghost", "ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "soul_rend", "wither", "wither", "dusk_wraith", "void_creeper", "void_creeper"],
+			"deck": ["ghost", "ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "soul_rend", "wither",
+					"wither", "dusk_wraith", "void_creeper", "void_creeper"],
 			"drop_pool": ["shadow_bolt", "soul_rend", "dusk_wraith", "shrouded_wraith", "void_creeper", "dark_pact"],
 			"coin_reward": 12,
 			"is_boss": false,
@@ -328,12 +400,16 @@ static func _ensure_loaded() -> void:
 			"difficulty_tier": 2,
 			"ai_persona": "aggro",
 			"night_drop_boost": true,
-			"lore_text": "A vengeful spirit anchored to the mortal world by unfinished purpose, the Phantom strikes with cold malice and retreats into shadow before the blow can be answered.",
+			"lore_text": ("A vengeful spirit anchored to the mortal world by unfinished purpose, the Phantom strikes "
+					+ "with cold malice and retreats into shadow before the blow can be answered."),
 		},
 		"spectre_dread": {
 			"display_name": "Wraith",
-			"deck": ["ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "soul_rend", "soul_harvest", "soul_harvest", "dusk_wraith", "dusk_wraith", "void_creeper", "void_creeper", "dark_pact", "wither"],
-			"drop_pool": ["soul_rend", "soul_harvest", "dusk_wraith", "shrouded_wraith", "void_wyrm", "dark_pact", "dusk_vampire"],
+			"deck": ["ghost", "ghost", "shadow_bolt", "shadow_bolt", "soul_rend", "soul_rend", "soul_harvest",
+					"soul_harvest", "dusk_wraith", "dusk_wraith", "void_creeper", "void_creeper", "dark_pact",
+					"wither"],
+			"drop_pool": ["soul_rend", "soul_harvest", "dusk_wraith", "shrouded_wraith", "void_wyrm", "dark_pact",
+					"dusk_vampire"],
 			"coin_reward": 18,
 			"is_boss": false,
 			"boss_hp": 0,
@@ -341,7 +417,9 @@ static func _ensure_loaded() -> void:
 			"difficulty_tier": 3,
 			"ai_persona": "control",
 			"night_drop_boost": true,
-			"lore_text": "A Wraith of apex terror, born when sorrow and power collapse into a single point. It hunts not for sustenance but for the sheer extinguishing of light — it is drawn to those who carry hope.",
+			"lore_text": ("A Wraith of apex terror, born when sorrow and power collapse into a single point. It hunts "
+					+ "not for sustenance but for the sheer extinguishing of light — it is drawn to those who carry "
+					+ "hope."),
 		},
 		"mimic": {
 			"display_name": "Mimic",
@@ -353,11 +431,14 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 2,
 			"ai_persona": "basic",
-			"lore_text": "Not every treasure chest holds gold. Some hold teeth. The Mimic waits in perfect stillness, indistinguishable from its surroundings — until you reach inside.",
+			"lore_text": ("Not every treasure chest holds gold. Some hold teeth. The Mimic waits in perfect stillness, "
+					+ "indistinguishable from its surroundings — until you reach inside."),
 		},
 		"blight_heart": {
 			"display_name": "The Blight Heart",
-			"deck": ["void_creeper", "void_creeper", "void_creeper", "soul_harvest", "soul_harvest", "soul_harvest", "dusk_wraith", "dusk_wraith", "wither", "wither", "dark_pact", "dark_pact", "drain", "drain", "void_wyrm", "void_wyrm"],
+			"deck": ["void_creeper", "void_creeper", "void_creeper", "soul_harvest", "soul_harvest", "soul_harvest",
+					"dusk_wraith", "dusk_wraith", "wither", "wither", "dark_pact", "dark_pact", "drain", "drain",
+					"void_wyrm", "void_wyrm"],
 			"drop_pool": ["void_creeper", "soul_harvest", "dark_pact", "void_wyrm", "dusk_vampire"],
 			"coin_reward": 30,
 			"is_boss": true,
@@ -365,7 +446,9 @@ static func _ensure_loaded() -> void:
 			"phase2_deck": [],
 			"difficulty_tier": 4,
 			"ai_persona": "control",
-			"lore_text": "A pulsing node of corrupted essence, the Blight Heart anchors the spreading darkness to this land. Destroy it and the corruption will slowly recede — but it will not yield without a fierce fight.",
+			"lore_text": ("A pulsing node of corrupted essence, the Blight Heart anchors the spreading darkness to "
+					+ "this land. Destroy it and the corruption will slowly recede — but it will not yield without a "
+					+ "fierce fight."),
 		},
 	}
 
@@ -435,7 +518,7 @@ static func type_for_depth(depth: int, max_depth: int) -> String:
 	var pct: float = float(depth) / float(max(max_depth, 1))
 	if pct < 0.33:
 		return "undead_basic"
-	elif pct < 0.66:
+	if pct < 0.66:
 		return "undead_horde"
 	return "ghoul_pack"
 
@@ -459,9 +542,9 @@ static func get_difficulty_tier(type_id: String) -> int:
 static func type_for_chunk_dist(dist: int) -> String:
 	if dist <= 3:
 		return "undead_basic"
-	elif dist <= 8:
+	if dist <= 8:
 		return "undead_horde"
-	elif dist <= 14:
+	if dist <= 14:
 		return "ghoul_pack"
 	return "undead_elite"
 
@@ -485,13 +568,6 @@ static func get_all_enemy_ids() -> Array[String]:
 		return a < b
 	)
 	return result
-
-## The 8 core enemy types that count toward bestiary completion.
-## Story/siege/special enemies (martarquas, rival, mimic, spectre) are excluded.
-const _BESTIARY_ELIGIBLE: Array[String] = [
-	"undead_basic", "undead_horde", "undead_elite", "ghoul_pack",
-	"duelist_novice", "duelist_adept", "duelist_champion", "roaming_terror",
-]
 
 ## Returns the IDs of the enemy types that count toward bestiary completion.
 static func get_bestiary_enemy_ids() -> Array[String]:

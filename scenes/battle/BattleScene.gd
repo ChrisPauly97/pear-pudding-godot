@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Control
 
 const GameState = preload("res://game_logic/battle/GameState.gd")
@@ -35,11 +37,28 @@ const BattleResultUI = preload("res://scenes/battle/BattleResultUI.gd")
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
 const BattleBackdrop = preload("res://scenes/battle/BattleBackdrop.gd")
 
-var _fx: BattleFx
-var _view: CardViewBuilder
-var _resolver: SpellEffectResolver
-var _pause_ui: BattlePauseUI
-var _result_ui: BattleResultUI
+# ── Spectator wagers (GID-104 / TID-387) ─────────────────────────────────────
+# Spectators may bet coins on side a (players[0]) or b (players[1]) before the
+# WagerSync.CUTOFF_TURN. The AUTHORITY holds escrow: the stake is deducted from
+# the bettor's SessionState member record the moment the bet is accepted, and
+# settlement credits payouts back on battle end (same direct-SessionStore-write
+# pattern as WorldScene._grant_chest_loot_to_token). Refunds on spectator
+# disconnect, draw, or abandoned match. Only coins are ever at risk — never cards.
+# All inert unless NetworkManager.is_active(); single-player never touches this.
+# Spectator-side UI + local mirror of the accepted bet.
+const _WAGER_STEP: int = 5
+const _PVP_RECONNECT_GRACE_SECONDS: float = 45.0
+const _BATTLEFIELD_BANNER_DURATION: float = 3.0
+const TUTORIAL_DURATION: float = 8.0
+
+## World-encounter ambush handicaps (GID-113 / TID-421, TID-422). Mirrors
+## `wounded_pride`'s shape: sets both `health` and `max_health` so the
+## handicap survives the whole match instead of being healed away by the
+## first heal card. `player_ambush`/`enemy_ambush` are mutually exclusive by
+## construction (EnemyNPC.engage() derives them from different alert-state
+## values) so only one branch below ever fires.
+const _AMBUSH_HP_PCT: float = 0.2
+const _AMBUSH_HP_MIN: int = 10
 
 var enemy_data: Dictionary = {}
 var duel_wager: int = 0
@@ -49,6 +68,43 @@ var puzzle_data: Resource = null  # PuzzleData set by SceneManager before _ready
 # Fixed-deck tutorial battles (rabbit hunt, Ch2 ambush). All inert unless
 # SceneManager sets scripted_data = a ScriptedBattleData resource before _ready.
 var scripted_data: Resource = null
+## Networked-battle module (PvP, spectating, wagers, co-op PvE, team duels).
+## A child node created in _ready and registered with BattleNetSync as an RPC
+## handler target; inert in a solo battle. See scenes/battle/net/BattleNet.gd.
+var battle_net: Node = null
+# Listen-server: client deck relayed in challenge handshake (host builds players[1]).
+var pvp_opponent_deck: Array = []
+# Dedicated-server referee (GID-097 / TID-353): both player decks come from clients.
+var pvp_player0_deck: Array = []
+var pvp_player1_deck: Array = []
+
+# ── PvP reconnect (GID-102 / TID-372) ────────────────────────────────────────
+# Listen-server host: the opponent's identity token, so a reconnect can be verified.
+# Set by SceneManager.enter_pvp_battle (sourced from WorldScene's
+# _session_token_by_peer). Empty when unknown — verification then falls back to
+# accepting any reconnect (same-LAN trust model, see _on_reconnect_announced).
+var pvp_opponent_token: String = ""
+
+# Wager (GID-101 / TID-368): ante_coins for the current PvP duel; 0 = unwagered.
+# The host reads this to include wager info in the pvp_ended payload.
+var pvp_ante_coins: int = 0
+
+# Ranked opt-in (GID-102 / TID-373): set by SceneManager.enter_pvp_battle before
+# _ready. When true, _state.ranked is set so WorldScene knows to run the TID-370
+# ELO rating update on battle end (gated in WorldScene, not here).
+var pvp_ranked: bool = false
+
+# Draft duel (GID-104 / TID-385): when non-empty, the listen-server host builds
+# its own players[0] deck from these TRANSIENT drafted-instance dicts instead of
+# SaveManager.get_deck_instances() — a drafted deck must never read (or write)
+# the persisted collection. Set by SceneManager.enter_pvp_battle before _ready.
+var pvp_local_deck_override: Array = []
+
+var _fx: BattleFx
+var _view: CardViewBuilder
+var _resolver: SpellEffectResolver
+var _pause_ui: BattlePauseUI
+var _result_ui: BattleResultUI
 var _scripted_data_ref: Resource = null  # retained for turn-keyed tutorial popups
 var _scripted_tutorial_turns_shown: Dictionary = {}  # int turn_number -> true, dedupe
 
@@ -69,18 +125,9 @@ var _ghost_duel_reward: int = 0
 var _pvp: bool = false
 var _local_player_idx: int = 0       # 0 = host/challenger, 1 = client, -1 = server referee
 var _net: Node = null                # BattleNetSync relay, added under this scene
-## Networked-battle module (PvP, spectating, wagers, co-op PvE, team duels).
-## A child node created in _ready and registered with BattleNetSync as an RPC
-## handler target; inert in a solo battle. See scenes/battle/net/BattleNet.gd.
-var battle_net: Node = null
 var _last_applied_seq: int = -1      # client: last mirror seq applied
 var _pvp_pending: bool = false       # client: waiting on host ack of last action
 var _pvp_ended: bool = false         # guard so the result fires once
-# Listen-server: client deck relayed in challenge handshake (host builds players[1]).
-var pvp_opponent_deck: Array = []
-# Dedicated-server referee (GID-097 / TID-353): both player decks come from clients.
-var pvp_player0_deck: Array = []
-var pvp_player1_deck: Array = []
 var _pvp_peer_to_idx: Dictionary = {}  # peer_id (int) → player_idx (int), referee only
 
 # ── Duel spectating (GID-101 / TID-367) ──────────────────────────────────────
@@ -88,46 +135,12 @@ var _pvp_peer_to_idx: Dictionary = {}  # peer_id (int) → player_idx (int), ref
 # mirrors from the host but never send any intents. Input is fully blocked.
 # The host tracks spectator peer_ids in _spectators and fans sync_state to them.
 var _pvp_spectating: bool = false
-
-# ── Spectator wagers (GID-104 / TID-387) ─────────────────────────────────────
-# Spectators may bet coins on side a (players[0]) or b (players[1]) before the
-# WagerSync.CUTOFF_TURN. The AUTHORITY holds escrow: the stake is deducted from
-# the bettor's SessionState member record the moment the bet is accepted, and
-# settlement credits payouts back on battle end (same direct-SessionStore-write
-# pattern as WorldScene._grant_chest_loot_to_token). Refunds on spectator
-# disconnect, draw, or abandoned match. Only coins are ever at risk — never cards.
-# All inert unless NetworkManager.is_active(); single-player never touches this.
-# Spectator-side UI + local mirror of the accepted bet.
-const _WAGER_STEP: int = 5
-
-# ── PvP reconnect (GID-102 / TID-372) ────────────────────────────────────────
-# Listen-server host: the opponent's identity token, so a reconnect can be verified.
-# Set by SceneManager.enter_pvp_battle (sourced from WorldScene's
-# _session_token_by_peer). Empty when unknown — verification then falls back to
-# accepting any reconnect (same-LAN trust model, see _on_reconnect_announced).
-var pvp_opponent_token: String = ""
 # Dedicated-server referee: idx (0/1) -> identity token, for the same verification.
 var _pvp_idx_to_token: Dictionary = {}
 # Host/referee: idx of the combatant currently mid-grace-window after a disconnect,
 # or -1 if no reconnect is pending. Set by _on_pvp_peer_disconnected, cleared by a
 # successful _on_reconnect_announced or the grace timer's timeout (forfeit).
 var _pvp_reconnect_idx: int = -1
-const _PVP_RECONNECT_GRACE_SECONDS: float = 45.0
-
-# Wager (GID-101 / TID-368): ante_coins for the current PvP duel; 0 = unwagered.
-# The host reads this to include wager info in the pvp_ended payload.
-var pvp_ante_coins: int = 0
-
-# Ranked opt-in (GID-102 / TID-373): set by SceneManager.enter_pvp_battle before
-# _ready. When true, _state.ranked is set so WorldScene knows to run the TID-370
-# ELO rating update on battle end (gated in WorldScene, not here).
-var pvp_ranked: bool = false
-
-# Draft duel (GID-104 / TID-385): when non-empty, the listen-server host builds
-# its own players[0] deck from these TRANSIENT drafted-instance dicts instead of
-# SaveManager.get_deck_instances() — a drafted deck must never read (or write)
-# the persisted collection. Set by SceneManager.enter_pvp_battle before _ready.
-var pvp_local_deck_override: Array = []
 
 # ── Co-op PvE joint battle (GID-099) ─────────────────────────────────────────
 # All inert unless SceneManager sets _coop_pve = true before _ready.
@@ -175,7 +188,6 @@ var _gambit_badge: Control = null
 
 # Battlefield Resonance UI (GID-059)
 var _battlefield_banner: Control = null
-const _BATTLEFIELD_BANNER_DURATION: float = 3.0
 var _battlefield_info_label: Label = null  # persistent day/night + biome label in SidePanel
 var _slot_highlight_panels: Array[Control] = []  # overlay panels on affected slots
 
@@ -225,7 +237,6 @@ var _capture_tracker: CaptureTracker = null
 
 # First-battle tutorial overlay
 var _tutorial_overlay: Node = null
-const TUTORIAL_DURATION: float = 8.0
 
 # Dual-face flip tracking (GID-062): instance_ids already flipped this battle.
 var _flipped_dual_ids: Dictionary = {}
@@ -333,7 +344,8 @@ func _ready() -> void:
 
 	if _state.puzzle_mode:
 		_end_turn_btn.text = "Check"
-		_give_up_btn = _UiUtil.make_button("Give Up", Vector2(_vh * 0.16, _vh * 0.07), int(_font(0.025)), _on_puzzle_give_up)
+		_give_up_btn = _UiUtil.make_button("Give Up", Vector2(_vh * 0.16, _vh * 0.07), int(_font(0.025)),
+				_on_puzzle_give_up)
 		$SidePanel.add_child(_give_up_btn)
 	_state.turn_ended.connect(_on_turn_ended)
 	GameBus.fatigue_damage.connect(_on_fatigue_damage)
@@ -615,10 +627,12 @@ func _add_companion_hud() -> void:
 		placeholder.custom_minimum_size = Vector2(_vh * 0.045, _vh * 0.045)
 		portrait_row.add_child(placeholder)
 
-	var name_lbl := _UiUtil.make_label(companion.display_name, int(_font(0.02)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, portrait_row)
+	var name_lbl := _UiUtil.make_label(companion.display_name, int(_font(0.02)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT,
+			portrait_row)
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	var passive_lbl := _UiUtil.make_label(companion.description, int(_font(0.017)), Color(0.85, 1.0, 0.85), HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	var passive_lbl := _UiUtil.make_label(companion.description, int(_font(0.017)), Color(0.85, 1.0, 0.85),
+			HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	passive_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
 ## Apply init-time weather modifiers (ash_fall poison) and reset snow discount tracking.
@@ -736,18 +750,23 @@ func _show_battle_tutorial() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	layer.add_child(panel)
 
-	var margin := _UiUtil.make_margin(int(panel_w * 0.06), int(panel_h * 0.08), int(panel_w * 0.06), int(panel_h * 0.08), panel)
+	var margin := _UiUtil.make_margin(int(panel_w * 0.06), int(panel_h * 0.08), int(panel_w * 0.06),
+			int(panel_h * 0.08), panel)
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 
 	var vbox := _UiUtil.make_vbox(int(_vh * 0.02), margin)
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 
-	var label := _UiUtil.make_label("Tap a card, then tap a green slot to play it.\nTap your minion, then tap an enemy to attack.\nHold any card to see its details. (Dragging works too.)", int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var label := _UiUtil.make_label(
+			"Tap a card, then tap a green slot to play it.\nTap your minion, then tap an enemy to attack.\nHold any "
+				+ "card to see its details. (Dragging works too.)",
+			int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_color_override("font_color", Color.WHITE)
 	vbox.add_child(label)
 
-	var btn := _UiUtil.make_button("Got it", Vector2(_vh * 0.14, _vh * 0.06), int(font_size), _dismiss_battle_tutorial, vbox)
+	var btn := _UiUtil.make_button("Got it", Vector2(_vh * 0.14, _vh * 0.06), int(font_size), _dismiss_battle_tutorial,
+			vbox)
 
 	_tutorial_overlay = layer
 	get_tree().create_timer(TUTORIAL_DURATION, false).timeout.connect(_dismiss_battle_tutorial)
@@ -856,18 +875,20 @@ func _board_drop(local_pos: Vector2, data: Variant) -> void:
 		_enter_slot_targeting_mode(played_card)
 		return
 
-	if played_card.card_class == "spell" and is_ally_targeted and _coop_pve and _state.players[_my_idx()].can_play(played_card):
+	if (played_card.card_class == "spell" and is_ally_targeted and _coop_pve
+			and _state.players[_my_idx()].can_play(played_card)):
 		_enter_ally_targeting_mode(played_card)
 		return
 
-	if played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted) and _state.players[_my_idx()].can_play(played_card):
+	if (played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted)
+			and _state.players[_my_idx()].can_play(played_card)):
 		if is_friendly_targeted and _state.players[_my_idx()].board.get_cards().is_empty():
 			return
-		elif is_enemy_targeted and played_card.spell_effect != "deal_damage_single" and _state.players[_opp_idx()].board.get_cards().is_empty():
+		if (is_enemy_targeted and played_card.spell_effect != "deal_damage_single"
+				and _state.players[_opp_idx()].board.get_cards().is_empty()):
 			return
-		else:
-			_enter_targeting_mode(played_card, is_friendly_targeted)
-			return
+		_enter_targeting_mode(played_card, is_friendly_targeted)
+		return
 
 	if played_card.card_class != "spell":
 		var target_slot_idx: int = _slot_idx_at_point(global_pos, _player_board_view)
@@ -880,6 +901,7 @@ func _board_drop(local_pos: Vector2, data: Variant) -> void:
 				_fx.haptic(20)
 				_send_intent(BattleNetProtocol.encode_play_card_at_slot(hi, target_slot_idx))
 				_dismiss_battle_tutorial()
+			# gdlint:ignore = max-returns
 			return
 		var from_panel: Control = _hand_panel_node(played_card)
 		var from_rect: Rect2 = from_panel.get_global_rect() if from_panel != null else Rect2()
@@ -1004,7 +1026,9 @@ func _build_coop_arena_layout() -> void:
 		if pidx == boss_idx:
 			continue
 		var ps: PlayerState = _state.players[pidx]
-		var btn := _UiUtil.make_button("P%d  HP:%d/%d  Mana:%d" % [pidx + 1, ps.hero.health, ps.hero.max_health, ps.hero.mana], Vector2(_vh * 0.20, _vh * 0.06))
+		var btn := _UiUtil.make_button(
+				"P%d  HP:%d/%d  Mana:%d" % [pidx + 1, ps.hero.health, ps.hero.max_health, ps.hero.mana],
+				Vector2(_vh * 0.20, _vh * 0.06))
 		if _ally_targeting_active:
 			var cap_pidx: int = pidx  # capture for lambda
 			btn.pressed.connect(func() -> void:
@@ -1167,7 +1191,8 @@ func _add_hero_power_button() -> void:
 	var active_skill: SkillData = _get_active_skill()
 	if active_skill == null:
 		return
-	_hero_power_btn = _UiUtil.make_button(active_skill.display_name, Vector2(_vh * 0.18, _vh * 0.05), int(_font(0.02)), _use_hero_power)
+	_hero_power_btn = _UiUtil.make_button(active_skill.display_name, Vector2(_vh * 0.18, _vh * 0.05), int(_font(0.02)),
+			_use_hero_power)
 	$SidePanel.add_child(_hero_power_btn)
 
 func _add_potion_button() -> void:
@@ -1180,17 +1205,9 @@ func _add_potion_button() -> void:
 			break
 	if not has_any:
 		return
-	_potion_btn = _UiUtil.make_button("Potion", Vector2(_vh * 0.16, _vh * 0.05), int(_font(0.02)), _on_potion_button_pressed)
+	_potion_btn = _UiUtil.make_button("Potion", Vector2(_vh * 0.16, _vh * 0.05), int(_font(0.02)),
+			_on_potion_button_pressed)
 	$SidePanel.add_child(_potion_btn)
-
-## World-encounter ambush handicaps (GID-113 / TID-421, TID-422). Mirrors
-## `wounded_pride`'s shape: sets both `health` and `max_health` so the
-## handicap survives the whole match instead of being healed away by the
-## first heal card. `player_ambush`/`enemy_ambush` are mutually exclusive by
-## construction (EnemyNPC.engage() derives them from different alert-state
-## values) so only one branch below ever fires.
-const _AMBUSH_HP_PCT: float = 0.2
-const _AMBUSH_HP_MIN: int = 10
 
 func _apply_ambush_modifiers(edata: Dictionary) -> void:
 	if bool(edata.get("player_ambush", false)):
@@ -1274,7 +1291,8 @@ func _show_potion_picker() -> void:
 
 	var vbox := _UiUtil.make_vbox(int(_vh * 0.015), margin)
 
-	var title_lbl := _UiUtil.make_label("Use a Potion", int(_font(0.026)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
+	var title_lbl := _UiUtil.make_label("Use a Potion", int(_font(0.026)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
+			vbox)
 
 	var sm := SceneManager.save_manager
 	for potion_id: String in GardenDefs.POTIONS:
@@ -1284,7 +1302,8 @@ func _show_potion_picker() -> void:
 		var potion_data: Dictionary = GardenDefs.POTIONS[potion_id]
 		var display_name: String = str(potion_data.get("display_name", potion_id))
 		var row := _UiUtil.make_hbox(int(_vh * 0.012))
-		var lbl := _UiUtil.make_label("%s  ×%d" % [display_name, count], int(_font(0.022)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, row)
+		var lbl := _UiUtil.make_label("%s  ×%d" % [display_name, count], int(_font(0.022)), Color.WHITE,
+				HORIZONTAL_ALIGNMENT_LEFT, row)
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var use_btn := _UiUtil.make_button("Use", Vector2(_vh * 0.1, _vh * 0.055), int(_font(0.022)))
 		var pid: String = potion_id
@@ -1295,7 +1314,8 @@ func _show_potion_picker() -> void:
 		row.add_child(use_btn)
 		vbox.add_child(row)
 
-	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(panel_w * 0.5, _vh * 0.055), int(_font(0.022)), layer.queue_free)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(panel_w * 0.5, _vh * 0.055), int(_font(0.022)),
+			layer.queue_free)
 	var center := CenterContainer.new()
 	center.add_child(cancel_btn)
 	vbox.add_child(center)
@@ -1514,7 +1534,8 @@ func _animate_card_travel(card: CardInstance, from_rect: Rect2, to_pos: Vector2)
 	var dur: float = BattleFx.scaled_duration(0.2, _speed_scale)
 	var tw: Tween = ghost.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(ghost, "position", to_pos - from_rect.size * 0.5, dur).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ghost, "position", to_pos - from_rect.size * 0.5,
+			dur).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_property(ghost, "scale", Vector2(1.0, 1.0), dur)
 	await tw.finished
 	if is_instance_valid(ghost):
@@ -1709,6 +1730,7 @@ func _on_hand_card_tap(card: CardInstance) -> void:
 			_enter_targeting_mode(card, is_friendly_targeted)
 			return
 		_show_cast_confirm(card)
+		# gdlint:ignore = max-returns
 		return
 	_show_card_inspect(card)
 
@@ -1749,18 +1771,21 @@ func _show_cast_confirm(card: CardInstance) -> void:
 
 	var name_lbl := _UiUtil.make_label(card.name, int(_font(0.028)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
 
-	var ability_lbl := _UiUtil.make_label(_view.get_card_ability_text(card), int(_font(0.022)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
+	var ability_lbl := _UiUtil.make_label(_view.get_card_ability_text(card), int(_font(0.022)), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER)
 	ability_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	ability_lbl.add_theme_color_override("font_color", _view.get_card_ability_color(card))
 	vbox.add_child(ability_lbl)
 
-	var cast_btn := _UiUtil.make_button("Cast (%d mana)" % _state.players[_my_idx()].effective_cost(card), Vector2(_vh * 0.22, _vh * 0.08), int(_font(0.030)))
+	var cast_btn := _UiUtil.make_button("Cast (%d mana)" % _state.players[_my_idx()].effective_cost(card),
+			Vector2(_vh * 0.22, _vh * 0.08), int(_font(0.030)))
 	cast_btn.pressed.connect(func() -> void:
 		_hide_cast_confirm()
 		_cast_confirmed_spell(card))
 	vbox.add_child(cast_btn)
 
-	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_vh * 0.22, _vh * 0.06), int(_font(0.024)), _hide_cast_confirm, vbox)
+	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_vh * 0.22, _vh * 0.06), int(_font(0.024)),
+			_hide_cast_confirm, vbox)
 
 func _hide_cast_confirm() -> void:
 	if _cast_confirm_layer != null and is_instance_valid(_cast_confirm_layer):
@@ -1865,7 +1890,8 @@ func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
 	var snap := _fx.snapshot()
 	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome)
 	var target_panel_pre: Control = _fx.get_card_panel(target, true) if target != null else null
-	var target_pos: Vector2 = target_panel_pre.get_global_rect().get_center() if target_panel_pre != null else _fx.pos_of_hero(true)
+	var target_pos: Vector2 = (target_panel_pre.get_global_rect().get_center() if target_panel_pre != null
+			else _fx.pos_of_hero(true))
 	var is_big_hit: bool = attacker_dmg >= 5 or (target != null and attacker_dmg >= target.health)
 	await _fx.animate_attack(attacker_panel, target_pos, _speed_scale, 0.06 if is_big_hit else 0.0)
 	if target != null:
@@ -2159,6 +2185,7 @@ func _check_game_over() -> void:
 			else:
 				_play_outcome_feedback(false)
 				_result_ui.show_duel_loss(_state.wager_coins)
+			# gdlint:ignore = max-returns
 			return
 		if w == 0:
 			_play_outcome_feedback(true)
@@ -2207,7 +2234,8 @@ func _show_standard_victory() -> void:
 			var br: String = CardDropUtil.effective_rarity(cid, CardDropUtil.roll_rarity(drop_tier_win))
 			boss_rarities.append(br)
 			boss_stats_list.append(CardDropUtil.roll_stats(cid, br))
-		_result_ui.show_victory_boss(pool, weapon_reward_id, boss_rarities, boss_stats_list, coins_win, xp_win, hero_hp_win, currency_win)
+		_result_ui.show_victory_boss(pool, weapon_reward_id, boss_rarities, boss_stats_list, coins_win, xp_win,
+				hero_hp_win, currency_win)
 	else:
 		var reward_card_id: String = ""
 		if pool.size() > 0:
@@ -2223,12 +2251,15 @@ func _show_standard_victory() -> void:
 		var _ct_captured: bool = SceneManager.save_manager.is_signature_captured(_ct_sig)
 		var _ct_met: bool = _capture_tracker != null and not _ct_sig.is_empty() and _capture_tracker.is_satisfied(_state)
 		if not _ct_sig.is_empty() and not _ct_captured and _ct_met:
-			_result_ui.show_soulbind(reward_card_id, _ct_sig, _capture_tracker.condition_text(), hero_hp_win, currency_win, rolled_rarity, rolled_stats)
+			_result_ui.show_soulbind(reward_card_id, _ct_sig, _capture_tracker.condition_text(), hero_hp_win,
+					currency_win, rolled_rarity, rolled_stats)
 		elif not _ct_sig.is_empty() and not _ct_captured:
 			var _ct_text: String = _capture_tracker.condition_text() if _capture_tracker != null else ""
-			_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win, currency_win)
+			_result_ui.show_victory(reward_card_id, "", _ct_sig, _ct_text, false, rolled_rarity, rolled_stats,
+					coins_win, xp_win, hero_hp_win, currency_win)
 		else:
-			_result_ui.show_victory(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win, hero_hp_win, currency_win)
+			_result_ui.show_victory(reward_card_id, "", "", "", false, rolled_rarity, rolled_stats, coins_win, xp_win,
+					hero_hp_win, currency_win)
 		# First-session soulbinding teaser (GID-117): explain the hunt line the
 		# first time an uncaptured signature surfaces on a victory screen.
 		if not _ct_sig.is_empty() and not _ct_captured:

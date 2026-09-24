@@ -1,3 +1,5 @@
+# gdlint: disable=max-file-lines
+# BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 ## The networked-battle surface of BattleScene: PvP duels (client intents,
 ## host authority, state mirroring, reconnect), duel spectating and spectator
 ## wagers, the co-op PvE joint battle, and team duels.
@@ -7,11 +9,6 @@
 ## when they lived in BattleScene itself. Everything battle-side is reached via
 ## `_battle`. See CLAUDE.md "WorldScene co-op modules" — same arrangement.
 extends Node
-
-## The BattleScene that owns this module. The game state, the card view builder,
-## the FX layer and the battle configuration all live there and are reached
-## through this back-reference; only the networked surface lives here.
-var _battle: Node = null
 
 const BattleNetProtocol = preload("res://game_logic/net/BattleNetProtocol.gd")
 const BattlefieldRules = preload("res://game_logic/battle/BattlefieldRules.gd")
@@ -28,6 +25,11 @@ const _BattleNetSyncScript = preload("res://scenes/battle/BattleNetSync.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 const _CoopBattleScaling = preload("res://game_logic/battle/CoopBattleScaling.gd")
+
+## The BattleScene that owns this module. The game state, the card view builder,
+## the FX layer and the battle configuration all live there and are reached
+## through this back-reference; only the networked surface lives here.
+var _battle: Node = null
 
 var _coop_ended: bool = false  # guard so the result fires once
 var _coop_peer_to_idx: Dictionary = {}
@@ -393,7 +395,8 @@ func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 				if target == null:
 					return false
 				# Ward gating: if any enemy minion has Ward, only Ward minions are valid.
-				var valid: Array[CardInstance] = _battle._view.get_ward_valid_targets(_battle._state.players[opp_idx].board.get_cards())
+				var opp_cards: Array[CardInstance] = _battle._state.players[opp_idx].board.get_cards()
+				var valid: Array[CardInstance] = _battle._view.get_ward_valid_targets(opp_cards)
 				if not valid.has(target):
 					return false
 			else:
@@ -412,6 +415,7 @@ func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 		BattleNetProtocol.INTENT_END_TURN:
 			_battle._state.end_turn()
 			return true
+	# gdlint:ignore = max-returns
 	return false
 
 ## Translates a wire target dict ({hero}/{hero,pidx}/{side,slot}/{pidx}) into a resolver
@@ -569,9 +573,12 @@ func _pvp_surrender() -> void:
 		# Host surrender is a clean win for the other side — bets pay out normally.
 		_settle_spectator_wagers(WagerSync.SIDE_A if _battle._local_player_idx == 1 else WagerSync.SIDE_B)
 		if _battle._net != null:
-			_battle._net.rpc("pvp_ended", {"winner_idx": 1 - _battle._local_player_idx, "forfeit": true, "ante_coins": _battle.pvp_ante_coins})
+			_battle._net.rpc("pvp_ended",
+					{"winner_idx": 1 - _battle._local_player_idx, "forfeit": true,
+							"ante_coins": _battle.pvp_ante_coins})
 			for spec_id in _spectators:
-				_battle._net.rpc_id(spec_id, "pvp_ended", {"winner_idx": 1 - _battle._local_player_idx, "forfeit": true, "ante_coins": 0})
+				_battle._net.rpc_id(spec_id, "pvp_ended",
+						{"winner_idx": 1 - _battle._local_player_idx, "forfeit": true, "ante_coins": 0})
 		_finish_pvp(false)
 	else:
 		_battle._send_intent(BattleNetProtocol.encode_surrender())
@@ -636,7 +643,8 @@ func _on_reconnect_announced(sender: int, token: String) -> void:
 	if _battle._pvp_reconnect_idx < 0:
 		return
 	var idx: int = _battle._pvp_reconnect_idx
-	var expected_token: String = str(_battle._pvp_idx_to_token.get(idx, "")) if _battle._local_player_idx < 0 else _battle.pvp_opponent_token
+	var expected_token: String = str(_battle._pvp_idx_to_token.get(idx,
+			"")) if _battle._local_player_idx < 0 else _battle.pvp_opponent_token
 	# Same-LAN trust model: a missing recorded token (legacy/edge case) doesn't block
 	# resume — refusing a reconnect is worse than a same-LAN false accept.
 	if expected_token != "" and token != "" and expected_token != token:
@@ -766,6 +774,7 @@ func _on_wager_bet_submitted(sender: int, payload: Dictionary) -> void:
 	if not WagerSync.is_valid_bet(side, amount, coins, existing):
 		var cap: int = WagerSync.max_bet(coins + existing)
 		_battle._net.rpc_id(sender, "recv_wager_ack", false, "Invalid bet (max %d)." % cap, "", 0, coins)
+		# gdlint:ignore = max-returns
 		return
 	# Escrow: credit back any prior stake, deduct the new one, persist.
 	rec["coins"] = coins + existing - amount
@@ -903,7 +912,8 @@ func _build_wager_panel() -> void:
 	_wager_panel = panel
 	var vbox := _UiUtil.make_vbox(int(_battle._vh * 0.012), panel)
 
-	var title := _UiUtil.make_label("Spectator Bet", int(_battle._font(0.024)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	var title := _UiUtil.make_label("Spectator Bet", int(_battle._font(0.024)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT,
+			vbox)
 
 	var side_row := _UiUtil.make_hbox(int(_battle._vh * 0.01), vbox)
 	var group := ButtonGroup.new()
@@ -916,14 +926,19 @@ func _build_wager_panel() -> void:
 	side_row.add_child(_wager_side_b_btn)
 
 	var amount_row := _UiUtil.make_hbox(int(_battle._vh * 0.01), vbox)
-	_wager_minus_btn = _UiUtil.make_button("-", Vector2(_battle._vh * 0.055, _battle._vh * 0.055), int(_battle._font(0.025)), func() -> void: _adjust_wager_amount(-_battle._WAGER_STEP), amount_row)
-	_wager_amount_label = _UiUtil.make_label(str(_wager_amount), int(_battle._font(0.025)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, amount_row)
+	_wager_minus_btn = _UiUtil.make_button("-", Vector2(_battle._vh * 0.055, _battle._vh * 0.055),
+			int(_battle._font(0.025)), func() -> void: _adjust_wager_amount(-_battle._WAGER_STEP), amount_row)
+	_wager_amount_label = _UiUtil.make_label(str(_wager_amount), int(_battle._font(0.025)), Color.WHITE,
+			HORIZONTAL_ALIGNMENT_CENTER, amount_row)
 	_wager_amount_label.custom_minimum_size = Vector2(_battle._vh * 0.07, 0)
-	_wager_plus_btn = _UiUtil.make_button("+", Vector2(_battle._vh * 0.055, _battle._vh * 0.055), int(_battle._font(0.025)), func() -> void: _adjust_wager_amount(_battle._WAGER_STEP), amount_row)
+	_wager_plus_btn = _UiUtil.make_button("+", Vector2(_battle._vh * 0.055, _battle._vh * 0.055),
+			int(_battle._font(0.025)), func() -> void: _adjust_wager_amount(_battle._WAGER_STEP), amount_row)
 
-	_wager_place_btn = _UiUtil.make_button("Place Bet", Vector2(_battle._vh * 0.16, _battle._vh * 0.055), int(_battle._font(0.022)), _on_wager_place_pressed, vbox)
+	_wager_place_btn = _UiUtil.make_button("Place Bet", Vector2(_battle._vh * 0.16, _battle._vh * 0.055),
+			int(_battle._font(0.022)), _on_wager_place_pressed, vbox)
 
-	_wager_status_label = _UiUtil.make_label("Bets close after turn %d." % WagerSync.CUTOFF_TURN, int(_battle._font(0.018)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
+	_wager_status_label = _UiUtil.make_label("Bets close after turn %d." % WagerSync.CUTOFF_TURN,
+			int(_battle._font(0.018)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT, vbox)
 	_clamp_wager_amount()
 	_update_wager_panel()
 
@@ -1368,7 +1383,8 @@ func _on_team_battle_ended(payload: Dictionary) -> void:
 
 func _finish_team_battle(winning_team: int, _payload: Dictionary) -> void:
 	_disconnect_pvp_net_signals()
-	var my_team: int = int(_battle._state.player_teams[_battle._my_idx()]) if _battle._my_idx() < _battle._state.player_teams.size() else 0
+	var my_team: int = (int(_battle._state.player_teams[_battle._my_idx()])
+			if _battle._my_idx() < _battle._state.player_teams.size() else 0)
 	var did_win: bool = winning_team == my_team
 	if did_win:
 		AudioManager.play_sfx("battle_win")
@@ -1411,7 +1427,8 @@ func _build_team_arena_layout() -> void:
 	_battle.add_child(bar)
 	_team_panels.append(bar)
 
-	var my_team: int = int(_battle._state.player_teams[_battle._my_idx()]) if _battle._my_idx() < _battle._state.player_teams.size() else 0
+	var my_team: int = (int(_battle._state.player_teams[_battle._my_idx()])
+			if _battle._my_idx() < _battle._state.player_teams.size() else 0)
 	var order: Array[int] = []
 	for i in range(_battle._state.players.size()):
 		if i < _battle._state.player_teams.size() and _battle._state.player_teams[i] == my_team:

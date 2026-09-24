@@ -1,3 +1,5 @@
+# gdlint: disable=max-public-methods
+# Test suite: every test_* case is a public method, so max-public-methods doesn't apply.
 ## Unit tests for weapon upgrade system (TID-191/GID-052).
 ## Covers: UpgradeDefs stat scaling, cost curve, can_afford_upgrade,
 ## save migration v29->v30, upgrade_weapon flow, save/load round-trip.

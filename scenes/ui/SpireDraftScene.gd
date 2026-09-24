@@ -55,12 +55,15 @@ func setup_coop(floor: int, options: Array[String], is_my_turn: bool, picker_nam
 func _build_ui(picks: Array[String]) -> void:
 	var root_vbox: VBoxContainer = _build_draft_panel()["vbox"]
 
-	_UiUtil.make_label("Floor %d — Choose a Card" % _floor_number, int(_ref * 0.038), Color(1.0, 0.88, 0.4), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+	_UiUtil.make_label("Floor %d — Choose a Card" % _floor_number, int(_ref * 0.038), Color(1.0, 0.88, 0.4),
+			HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	# Co-op turn banner: "Your turn!" or "Waiting for <name>…" — every peer sees the
 	# same 3 cards, but only the active picker's buttons are interactive.
 	if _is_coop:
-		_UiUtil.make_label("Your turn!" if _coop_is_my_turn else "Waiting for %s…" % _coop_picker_name, int(_ref * 0.026), Color(0.6, 1.0, 0.6) if _coop_is_my_turn else Color(0.85, 0.85, 0.85), HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
+		_UiUtil.make_label("Your turn!" if _coop_is_my_turn else "Waiting for %s…" % _coop_picker_name,
+				int(_ref * 0.026), Color(0.6, 1.0, 0.6) if _coop_is_my_turn else Color(0.85, 0.85, 0.85),
+				HORIZONTAL_ALIGNMENT_CENTER, root_vbox)
 
 	root_vbox.add_child(HSeparator.new())
 
