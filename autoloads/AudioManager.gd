@@ -4,6 +4,7 @@ const _SfxGen = preload("res://game_logic/SfxGen.gd")
 const _AmbienceGen = preload("res://game_logic/AmbienceGen.gd")
 const _AmbienceLayers = preload("res://game_logic/AmbienceLayers.gd")
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
+const _FootstepSurface = preload("res://game_logic/FootstepSurface.gd")
 
 # Ambient sound paths per biome (index matches IsoConst biome IDs / InfiniteWorldGen biomes).
 # Placeholder paths: gracefully skipped if the file doesn't exist.
@@ -39,6 +40,14 @@ const SFX_PATHS: Dictionary = {
 	"scroll_pickup": "res://assets/audio/sfx/scroll_pickup.wav",
 	"door_enter":   "res://assets/audio/sfx/door_enter.wav",
 	"footstep":       "res://assets/audio/sfx/footstep.wav",
+	# Terrain-aware steps (GID-129 / TID-491); see FootstepSurface.
+	"footstep_grass": "res://assets/audio/sfx/footstep_grass.wav",
+	"footstep_sand":  "res://assets/audio/sfx/footstep_sand.wav",
+	"footstep_stone": "res://assets/audio/sfx/footstep_stone.wav",
+	"footstep_snow":  "res://assets/audio/sfx/footstep_snow.wav",
+	"footstep_wood":  "res://assets/audio/sfx/footstep_wood.wav",
+	"footstep_water": "res://assets/audio/sfx/footstep_water.wav",
+	"footstep_hoof":  "res://assets/audio/sfx/footstep_hoof.wav",
 	"nightfall_ambient": "res://assets/audio/sfx/nightfall.wav",
 	"ui_click":     "res://assets/audio/sfx/ui_click.wav",
 	"land":         "res://assets/audio/sfx/land.wav",
@@ -49,6 +58,8 @@ const _POOL_SIZE: int = 8
 
 var _players: Array[AudioStreamPlayer] = []
 var _sfx_cache: Dictionary = {}
+var _sfx_db: float = 0.0   # SFX setting; per-play jitter never writes it back
+var _jitter_rng := RandomNumberGenerator.new()
 
 var _narration_player: AudioStreamPlayer
 var _narration_suppressed: bool = false
@@ -95,6 +106,10 @@ func _ready() -> void:
 	for key: String in _SfxGen.all_keys():
 		if not _sfx_cache.has(key):
 			_sfx_cache[key] = _SfxGen.get_sfx(key)
+	for key: String in _FootstepSurface.all_keys():
+		if not _sfx_cache.has(key):
+			_sfx_cache[key] = _FootstepSurface.get_sfx(key)
+	_jitter_rng.randomize()
 	for i in _POOL_SIZE:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -217,29 +232,43 @@ func _apply_music_volume() -> void:
 # ── SFX ───────────────────────────────────────────────────────────────────
 
 func set_sfx_volume(linear: float) -> void:
-	var db: float = linear_to_db(maxf(linear, 0.0001))
+	_sfx_db = linear_to_db(maxf(linear, 0.0001))
 	for p: AudioStreamPlayer in _players:
-		p.volume_db = db
+		p.volume_db = _sfx_db
 	# Ambience layers follow the SFX setting.
 	for layer: AmbLayer in _all_layers():
 		_retarget_layer(layer)
 
 func get_sfx_volume() -> float:
-	if _players.is_empty():
-		return 1.0
-	return db_to_linear(_players[0].volume_db)
+	return db_to_linear(_sfx_db)
 
 func play_sfx(sfx_name: String) -> void:
+	_play_pooled(sfx_name, 1.0, _sfx_db)
+
+## play_sfx with a random pitch (± pitch_jitter, around `pitch`) and volume
+## (± vol_jitter_db) per call, so repeated sounds like footsteps don't loop
+## robotically. Falls back to plain "footstep" if the key has no stream.
+func play_sfx_varied(sfx_name: String, pitch: float = 1.0,
+		pitch_jitter: float = 0.08, vol_jitter_db: float = 1.5) -> void:
+	var p_scale: float = pitch * (1.0 + _jitter_rng.randf_range(-pitch_jitter, pitch_jitter))
+	var db: float = _sfx_db + _jitter_rng.randf_range(-vol_jitter_db, vol_jitter_db)
+	if not _sfx_cache.has(sfx_name):
+		sfx_name = "footstep"
+	_play_pooled(sfx_name, p_scale, db)
+
+func _play_pooled(sfx_name: String, pitch_scale: float, volume_db: float) -> void:
 	var stream: AudioStream = _sfx_cache.get(sfx_name, null) as AudioStream
-	if stream == null:
+	if stream == null or _players.is_empty():
 		return
+	var target: AudioStreamPlayer = _players[0]
 	for p in _players:
 		if not p.playing:
-			p.stream = stream
-			p.play()
-			return
-	_players[0].stream = stream
-	_players[0].play()
+			target = p
+			break
+	target.stream = stream
+	target.pitch_scale = maxf(pitch_scale, 0.01)
+	target.volume_db = volume_db
+	target.play()
 
 func _process(_delta: float) -> void:
 	# Loop each layer's active player when it finishes (real .ogg files may

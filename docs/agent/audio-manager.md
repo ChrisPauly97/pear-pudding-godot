@@ -27,13 +27,47 @@ AudioManager.play_sfx("footstep")    # no-op if footstep.wav is missing
 | `enemy_engage` | `assets/audio/sfx/enemy_engage.wav` |
 | `chest_open` | `assets/audio/sfx/chest_open.wav` |
 | `door_enter` | `assets/audio/sfx/door_enter.wav` |
-| `footstep` | `assets/audio/sfx/footstep.wav` |
+| `footstep` | `assets/audio/sfx/footstep.wav` (generic; fallback for unknown keys in `play_sfx_varied`) |
+| `footstep_grass` / `_sand` / `_stone` / `_snow` / `_wood` / `_water` | `assets/audio/sfx/footstep_<surface>.wav` |
+| `footstep_hoof` | `assets/audio/sfx/footstep_hoof.wav` |
 
 ### Adding a New SFX
 
 1. Add an entry to `SFX_PATHS` in `AudioManager.gd`.
 2. Place the `.wav` file at the declared path.
 3. Open the project in the Godot editor once so it generates the `.import` sidecar.
+
+### Varied playback and terrain footsteps (GID-129 / TID-491)
+
+```gdscript
+AudioManager.play_sfx_varied(name, pitch := 1.0, pitch_jitter := 0.08, vol_jitter_db := 1.5)
+```
+
+Random pitch (`pitch × (1 ± pitch_jitter)`) and volume (`± vol_jitter_db`) per
+call. The SFX setting lives in `_sfx_db`; every pooled play writes its own
+`pitch_scale` / `volume_db` (plain `play_sfx` resets both to 1.0 / setting), so
+jitter never leaks into `get_sfx_volume()`.
+
+`game_logic/FootstepSurface.gd` picks the step:
+
+- `surface_for(tile, biome, map_name, weather)`: IsoConst has no sand or water tile,
+  so biome and weather carry them. Overworld flat ground: grasslands/forest `grass`,
+  desert `sand`, scorched `stone`, mountains `snow` (hills `stone`). Path/wall/cracked
+  tiles are `stone` (desert paths stay `sand`). Heavy rain turns every non-sand step
+  into `water`; light rain only pools on paths. Named maps: `player_home`,
+  `farsyth_mansion`, `guildhall` → `wood`; `blancogov_temple`, `dungeon_*`,
+  `spire_floor_*` → `stone`; towns → path `stone`, else `grass`; no weather.
+- `sfx_for(surface, mounted)` → `{key, pitch}`: on foot `footstep_<surface>`;
+  mounted → `footstep_hoof` on stone/wood, the surface step at pitch 0.75 on soft ground.
+- `get_sfx(key)`: synthesized fallbacks for all seven keys (registered in
+  `AudioManager._ready` after SfxGen's).
+
+`Player._play_step()` runs on walk contact frames (0 and 2) on foot, and on a
+0.26 s hoofbeat timer while mounted, moving and on the floor (the rider sprite
+idles, so there are no frame events). The tile comes from
+`WorldScene.get_tile_global` via a typed `current_scene` cast; the biome from
+`InfiniteWorldGen.biome_for_chunk`; weather from `WeatherManager.current_weather`
+(main only). Remote co-op avatars stay silent.
 
 ### Music Channel
 
@@ -145,7 +179,7 @@ Narration audio files: `assets/audio/narration/<scroll_id>.ogg` — all are opti
 | EnemyNPC | `play_sfx("enemy_engage")` | Enemy engages player |
 | Chest entity | `play_sfx("chest_open")` | Chest opened |
 | Door entity | `play_sfx("door_enter")` | Door entered |
-| WorldScene (player move) | `play_sfx("footstep")` | Throttled footstep |
+| Player | `play_sfx_varied("footstep_<surface>" / "footstep_hoof", pitch)` | Walk contact frames; hoofbeat timer when mounted |
 | StoryScroll entity | `play_sfx("scroll_pickup")` | Scroll collected |
 | StoryScroll entity | `play_narration(scroll_id)` | After scroll collected |
 | JournalScene | `play_narration(scroll_id)` | Replay button pressed |
@@ -163,6 +197,7 @@ TID-010 wires battle SFX; TID-011 wires world exploration SFX.
 | `AmbienceLayers.gd` | `game_logic/AmbienceLayers.gd` | Pure layer-selection rules + `LAYER_PATHS` |
 | `AmbienceGen.gd` | `game_logic/AmbienceGen.gd` | Procedural weather/wildlife loop fallbacks |
 | Weather/time loops | `assets/audio/ambience/{rain,heavy_rain,wind,sandstorm,crackle,birds,crickets,owls}.ogg` | Optional — synthesized fallback when absent (TID-492 sources real ones) |
-| SFX wav files | `assets/audio/sfx/*.wav` | Optional — missing files are silent no-ops |
+| SFX wav files | `assets/audio/sfx/*.wav` | Optional — missing files fall back to SfxGen / FootstepSurface synthesis |
+| `FootstepSurface.gd` | `game_logic/FootstepSurface.gd` | Surface table + footstep synth fallbacks |
 | Music ogg files | `assets/audio/music/*.ogg` | **Present** (7 tracks, GID-116). 4 are CC-BY — attribution in `CREDITS.md` is a licence condition |
 | Narration ogg files | `assets/audio/narration/<scroll_id>.ogg` | Optional — missing files are silent no-ops |

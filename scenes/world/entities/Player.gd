@@ -10,6 +10,9 @@ const MountRegistry = preload("res://game_logic/MountRegistry.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
+const _FootstepSurface = preload("res://game_logic/FootstepSurface.gd")
+const _InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 
 const SPEED: float = 6.0
 const JUMP_VELOCITY: float = 8.0
@@ -58,6 +61,8 @@ const _SADDLE_OFFSET_PX: float = 3.0
 const _SCAN_INTERVAL: float = 1.0 / 7.0
 const _INTERACT_RADIUS: float = 3.0
 const _WP_ARRIVE_DIST_SQ: float = 0.3 * 0.3  # arrive when within 0.3 world units
+## Mounted hoofbeat cadence (the rider sprite idles, so no frame events).
+const _HOOF_INTERVAL: float = 0.26
 
 var _velocity_y: float = 0.0
 var _sprite: AnimatedSprite3D
@@ -79,6 +84,7 @@ var _highlighted_node: Node3D = null
 var _path_waypoints: Array[Vector2i] = []
 var _path_wp_index: int = 0
 var _has_active_path: bool = false
+var _hoof_timer: float = 0.0
 
 func _ready() -> void:
 	collision_layer = 1       # player layer
@@ -320,6 +326,7 @@ func _physics_process(delta: float) -> void:
 	# swapped by _update_mount_visuals — mounted kicks more dust).
 	if _dust_particles != null:
 		_dust_particles.emitting = _is_moving and is_on_floor()
+	_tick_hoofbeats(delta)
 
 	_highlight_timer -= delta
 	if _highlight_timer <= 0.0:
@@ -349,7 +356,38 @@ func _on_sprite_frame_changed() -> void:
 	if _sprite.animation != &"walk":
 		return
 	if _sprite.frame == 0 or _sprite.frame == 2:
-		AudioManager.play_sfx("footstep")
+		_play_step()
+
+func _tick_hoofbeats(delta: float) -> void:
+	if not (SaveManager.is_mounted and _is_moving and is_on_floor()):
+		_hoof_timer = 0.0
+		return
+	_hoof_timer -= delta
+	if _hoof_timer <= 0.0:
+		_hoof_timer = _HOOF_INTERVAL
+		_play_step()
+
+## One step sound for the surface underfoot (TID-491), with per-step pitch and
+## volume jitter from AudioManager.play_sfx_varied.
+func _play_step() -> void:
+	var sfx: Dictionary = _FootstepSurface.sfx_for(_surface_underfoot(), SaveManager.is_mounted)
+	AudioManager.play_sfx_varied(str(sfx["key"]), float(sfx["pitch"]))
+
+func _surface_underfoot() -> String:
+	var tx: int = floori(position.x / IsoConst.TILE_SIZE)
+	var tz: int = floori(position.z / IsoConst.TILE_SIZE)
+	var tile: int = IsoConst.TILE_GRASS
+	var world := get_tree().current_scene as _WorldScene if is_inside_tree() else null
+	if world != null:
+		tile = world.get_tile_global(tx, tz)
+	var map_name: String = SaveManager.current_map
+	var biome: int = -1
+	var weather: String = ""
+	if map_name == "main":
+		biome = _InfiniteWorldGen.biome_for_chunk(floori(float(tx) / IsoConst.CHUNK_SIZE),
+				floori(float(tz) / IsoConst.CHUNK_SIZE), SaveManager.world_seed)
+		weather = WeatherManager.current_weather
+	return _FootstepSurface.surface_for(tile, biome, map_name, weather)
 
 func _update_mount_visuals(mounted: bool) -> void:
 	if _mount_sprite != null:
