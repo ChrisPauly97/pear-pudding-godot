@@ -23,6 +23,7 @@ const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
 const _ChunkData     = preload("res://game_logic/world/ChunkData.gd")
+const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
 const _WorldEventManager = preload("res://autoloads/WorldEventManager.gd")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
@@ -330,6 +331,8 @@ var _weather_tint_lerp_t: float = 1.0
 # micro-stutter on high-refresh displays (camera runs at render rate, physics at ~60 Hz).
 var _smooth_camera_target: Vector3 = Vector3.ZERO
 var _fill_light: DirectionalLight3D
+# Active GraphicsQuality knobs (TID-484). Atmosphere effects read these, never the platform.
+var _graphics_knobs: Dictionary = {}
 
 var _pause_overlay: _OverworldPauseOverlay = null
 var _world_hud: WorldHUD = null
@@ -401,6 +404,18 @@ func _setup_environment() -> void:
 	add_child(_fill_light)
 	_setup_vignette()
 
+## Re-reads the Graphics Quality setting and applies it (TID-484). Also runs
+## live from Settings via GameBus.graphics_quality_changed.
+func apply_graphics_quality(_tier: int = -1) -> void:
+	var setting: Variant = SceneManager.save_manager.get_setting(_GraphicsQuality.SETTING_KEY, null)
+	_graphics_knobs = _GraphicsQuality.current_knobs(setting)
+	var env: Environment = _world_env.environment if _world_env != null else null
+	_GraphicsQuality.apply(_graphics_knobs, env, _sun, get_viewport())
+
+## The active GraphicsQuality knobs — atmosphere effects read these, never the platform.
+func graphics_knobs() -> Dictionary:
+	return _graphics_knobs
+
 func _setup_vignette() -> void:
 	var cl := CanvasLayer.new()
 	cl.layer = 127
@@ -424,11 +439,9 @@ func _ready() -> void:
 	_ensure_coop_modules()
 	_setup_environment()
 	_sun.shadow_opacity = 0.2
-	# At 0.2 opacity the sun shadow is barely perceptible, but it still costs a
-	# full extra scene render into the shadow map plus per-pixel shadow taps on
-	# every shaded material — too expensive for phone GPUs.
-	if OS.has_feature("mobile"):
-		_sun.shadow_enabled = false
+	# Sun shadows, SSAO, glow and MSAA follow the Graphics Quality tier (Medium,
+	# the phone default, keeps sun shadows off — too expensive for phone GPUs).
+	apply_graphics_quality()
 	_tile_meshes = Node3D.new()
 	_tile_meshes.name = "TileGrid"
 	add_child(_tile_meshes)
@@ -686,6 +699,7 @@ func _wire_gamebus_signals() -> void:
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(mounts.on_enemy_engaged)
 	GameBus.blight_changed.connect(_refresh_blight_tints)
+	GameBus.graphics_quality_changed.connect(apply_graphics_quality)
 	# Story-driven cast changes (Maiteln joining/leaving, NPCs who leave their
 	# post) have to land while this same map instance stays loaded. Wired here,
 	# not in CoopSession._setup_coop — that returns early outside a session, so
@@ -2058,6 +2072,7 @@ func _on_weather_changed(weather_id: String, _duration: float) -> void:
 	if weather_id != "":
 		var particles: GPUParticles3D = WeatherParticles.make(weather_id) as GPUParticles3D
 		if particles != null:
+			particles.amount = _GraphicsQuality.scaled_amount(particles.amount, _graphics_knobs)
 			_entity_root.add_child(particles)
 			if _player != null:
 				particles.position = _player.position + Vector3(0.0, 12.0, 0.0)

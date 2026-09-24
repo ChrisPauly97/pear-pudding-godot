@@ -14,7 +14,7 @@ Findings: desktop runs Forward+, Android runs Mobile (no volumetric fog/SSAO/GI)
 
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
-| TID-484 | Graphics Quality Tiers | agent | pending | — |
+| TID-484 | Graphics Quality Tiers | agent | done | — |
 | TID-485 | Sun Shadows & Golden-Hour Sun | agent | pending | TID-484 |
 | TID-486 | Weather Drives Fog, Sun & Grass Wind | agent | pending | — |
 | TID-487 | Rain Wetness & Lightning | agent | pending | TID-486 |
@@ -27,7 +27,7 @@ Findings: desktop runs Forward+, Android runs Mobile (no volumetric fog/SSAO/GI)
 
 ## Acceptance Criteria
 
-- [ ] Graphics Quality setting (Low/Medium/High) with platform defaults; Forward+-only effects never enabled on Mobile renderer
+- [x] Graphics Quality setting (Low/Medium/High) with platform defaults; Forward+-only effects never enabled on Mobile renderer
 - [ ] Softer, better-resolved sun shadows and angled, warm dawn/dusk light
 - [ ] Each weather type changes fog, sun and grass wind; rain wets terrain; storms flash with thunder
 - [ ] Visible sun rays on Medium and High

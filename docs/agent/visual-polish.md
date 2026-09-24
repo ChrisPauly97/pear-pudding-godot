@@ -13,7 +13,38 @@
 - **Battle backdrop**: the card board's background is a per-biome, day/night patch of ground seen from overhead, painted by one full-screen shader out of the world's own terrain tiles and prop sprites, instead of the flat `Color(0.1, 0.1, 0.15)` rect it was through GID-125.
 - **Chest & door sprites**: `Chest.gd` and `Door.gd` render as billboard `Sprite3D`s (0x72 pack chest/door art, GID-118) instead of flat-colored `BoxMesh` geometry, falling back to the original procedural boxes if the sprites are missing. See `docs/agent/inventory-and-deck.md` (chest open ceremony) and `docs/agent/named-maps-and-dungeons.md` (door rendering).
 
+- **Graphics Quality tiers** (GID-129/TID-484): one Low / Medium / High setting decides which atmosphere effects run; Medium is the phone default, High the desktop default. Forward+-only effects are forced off on the Mobile/Compatibility renderers regardless of tier.
+
 ## How It Works
+
+### Graphics Quality Tiers (`game_logic/GraphicsQuality.gd`) — TID-484
+
+The single source of truth for which atmosphere effects run. All-static module (preload it, no `class_name`).
+
+- **Setting:** `save_manager.settings["graphics_quality"]` (`GraphicsQuality.SETTING_KEY`), int 0 Low / 1 Medium / 2 High. Missing, non-numeric or out-of-range values fall back to `default_tier(is_mobile)`: **Medium on mobile/android, High elsewhere** (`tier_from_setting`; floats from JSON are accepted).
+- **Table:** `TIERS[tier]` — every tier has the same keys (`test_graphics_quality` asserts it and that no cost knob drops as the tier rises):
+
+| Knob | Low | Medium | High | Read by |
+|---|---|---|---|---|
+| `sun_shadows` | off | off | on | `apply()` (TID-485 tunes) |
+| `shadow_mode` | ORTHOGONAL | ORTHOGONAL | ORTHOGONAL | `apply()` (TID-485 may switch to PSSM) |
+| `shadow_atlas_size` | 1024 | 2048 | 4096 | `apply()` → `RenderingServer.directional_shadow_atlas_set_size` |
+| `soft_shadow_quality` | HARD | SOFT_VERY_LOW | SOFT_LOW | `apply()` → `directional_soft_shadow_filter_set_quality` |
+| `shadow_max_distance` | 40 | 50 | 60 | `apply()` |
+| `ssao` *(Forward+ only)* | off | off | on (intensity 1.0, radius 1.0) | `apply()` |
+| `volumetric_fog` *(Forward+ only)* | off | off | off | `apply()` — TID-488 turns High on once tuned against the glow threshold |
+| `glow` | off | on | on | `apply()` |
+| `msaa_3d` | disabled | 4x | 4x | `apply()` → viewport (4x = project.godot default) |
+| `particle_scale` | 0.5 | 0.75 | 1.0 | `scaled_amount()` — weather particles now; TID-493 ambient particles |
+| `ambient_particles` | off | on | on | TID-493 |
+| `sun_rays` | OFF | SCREEN | VOLUMETRIC | TID-488 (`SUN_RAYS_*`) |
+| `max_night_lights` | 0 | 4 | 8 | TID-489 (Mobile per-mesh limit is 8) |
+| `night_light_shadows` | off | off | off | TID-489 |
+
+- **Renderer clamp:** `clamp_to_renderer(knobs, method)` turns every `FORWARD_PLUS_ONLY` key (`ssao`, `volumetric_fog`) off and downgrades `sun_rays` VOLUMETRIC → SCREEN unless the method is `"forward_plus"`. `knobs_for(tier, method)` returns a clamped **copy**; `current_knobs(setting)` uses the platform and `RenderingServer.get_current_rendering_method()`.
+- **Apply:** `apply(knobs, env, sun, viewport)` writes glow/SSAO/volumetric fog to the Environment, shadow enable/mode/distance to the sun, MSAA to the viewport and the shadow atlas size + soft-filter quality to the RenderingServer (global). Any argument may be null.
+- **WorldScene wiring:** `apply_graphics_quality()` runs in `_ready()` right after `_setup_environment()` (it replaced the old `OS.has_feature("mobile")` sun-shadow switch — Medium keeps that exact behaviour) and again on `GameBus.graphics_quality_changed(tier)`, emitted by the Settings "Graphics Quality" option row, so a change applies live. The resolved knobs are cached; effects read them via `WorldScene.graphics_knobs()` — **never check the platform or renderer per effect**. `_on_weather_changed` scales the weather `GPUParticles3D.amount` by `particle_scale` before adding it.
+- **Adding a knob:** add the key to all three tier dicts (the test fails otherwise); if it needs Forward+, add it to `FORWARD_PLUS_ONLY`.
 
 ### Sky & Fog (`WorldScene._setup_environment`, `DayNightCycle`)
 
@@ -174,6 +205,8 @@ fallback for any key/branch the registry doesn't recognize.
 - `CardRegistry` runs `_ensure_loaded()` lazily on first access; illustration assignment happens once per session at that point, cached by `TextureGen._cached()`.
 - `BattleBackdrop` consumes Battlefield Resonance's context (`GameState.battlefield_biome` / `is_night`, GID-059) and `BiomeDef`'s terrain tints and prop sets. It writes nothing back and holds no state — `apply()` is a pure function of (rect, biome, night).
 - `BattleBackdrop.DIVIDER_Y` is tied to `BattleScene.tscn`'s `Divider` anchor, and `ARENA_CENTER`/`ARENA_HALF` to the card area's extent (which ends at x = 0.86, where the side panel starts); `test_battle_backdrop` fails if either drifts.
+
+- `GraphicsQuality` is read by `WorldScene` (environment, sun, weather particles) and written by `SettingsScene` (option row + `GameBus.graphics_quality_changed`). Later GID-129 effects (shadows, sun rays, night lights, ambient particles) read their knobs from `WorldScene.graphics_knobs()`.
 
 ## Asset Requirements
 

@@ -98,6 +98,8 @@ signal traveling_shop_requested(stock: Array[String], price: int)
 
 # Weather signals
 signal weather_changed(weather_id: String, duration: float)
+# Settings changed the Graphics Quality tier (GraphicsQuality.LOW/MEDIUM/HIGH).
+signal graphics_quality_changed(tier: int)
 
 # Treasure map signals
 signal fragment_collected()

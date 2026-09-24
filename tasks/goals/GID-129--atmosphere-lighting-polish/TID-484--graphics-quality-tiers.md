@@ -2,7 +2,7 @@
 
 **Goal:** GID-129
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -34,12 +34,43 @@ Shared facts (GID-129 research, 2026-09-24):
 
 ## Plan
 
-_Written during Plan phase._
+1. New pure-ish module `game_logic/GraphicsQuality.gd` (no class_name, all static):
+   - `LOW/MEDIUM/HIGH`, `SETTING_KEY = "graphics_quality"`, `LABELS`.
+   - `TIERS` table, one Dictionary per tier with every knob later GID-129 tasks read:
+     `sun_shadows`, `shadow_mode`, `shadow_atlas_size`, `soft_shadow_quality`, `shadow_max_distance`,
+     `ssao`, `volumetric_fog`, `glow`, `msaa_3d`, `particle_scale`, `ambient_particles`,
+     `sun_rays` (off / screen-space / volumetric), `max_night_lights`, `night_light_shadows`.
+   - `FORWARD_PLUS_ONLY` flag list; `clamp_to_renderer(knobs, method)` turns them off (and
+     downgrades volumetric sun rays to screen-space) unless the method is `forward_plus`.
+   - `default_tier(is_mobile)` (Medium on mobile, High elsewhere), `tier_from_setting(v, is_mobile)`
+     (clamps junk), `knobs_for(tier, method)`, `current_knobs(save_manager)` convenience.
+   - `apply(knobs, env, sun, viewport)` writes the env/sun/viewport/RenderingServer knobs; later
+     tasks' knobs (sun rays, night lights, ambient particles) are only read, not applied.
+   - `scaled_amount(amount, knobs)` for particle systems.
+2. Medium keeps today's mobile look (sun shadows off, MSAA 4x as project.godot), High keeps
+   today's desktop look plus SSAO (Forward+ only). Volumetric fog stays off on every tier until
+   TID-488 tunes it (the knob and the Forward+ clamp exist now).
+3. WorldScene: replace the ad-hoc `OS.has_feature("mobile")` shadow switch in `_ready` with
+   `_apply_graphics_quality()` (stores `graphics_knobs` for later tasks); scale weather particle
+   `amount` by `particle_scale`; connect new `GameBus.graphics_quality_changed(tier)`.
+4. SettingsScene: "Graphics Quality" option row (Low/Medium/High) under a Graphics header; writes
+   the setting and emits `GameBus.graphics_quality_changed`.
+5. Unit test `tests/unit/test_graphics_quality.gd`: table has 3 tiers with identical key sets,
+   monotonic costs, defaults, setting clamp, Forward+-only flags off for mobile/compatibility, apply
+   writes env/sun.
+6. Docs: visual-polish.md section; task/goal/index status.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/GraphicsQuality.gd` (new): tier constants, `TIERS` knob table (shadows, SSAO, volumetric fog, glow, MSAA, particle scale, ambient particles, sun-ray mode, night-light cap/shadows), `FORWARD_PLUS_ONLY` + `clamp_to_renderer`, `default_tier`/`tier_from_setting`/`knobs_for`/`current_knobs`, `scaled_amount`, `apply(knobs, env, sun, viewport)`.
+- `autoloads/GameBus.gd`: `graphics_quality_changed(tier: int)` signal (emitted by SettingsScene).
+- `scenes/world/WorldScene.gd`: `apply_graphics_quality()` replaces the `OS.has_feature("mobile")` sun-shadow switch in `_ready`, reconnected live via GameBus; `graphics_knobs()` accessor for later tasks; weather particle `amount` scaled by `particle_scale`.
+- `scenes/ui/SettingsScene.gd`: new "Graphics" section with a Low/Medium/High option row (default from platform).
+- `tests/unit/test_graphics_quality.gd` (new): table shape, monotonic costs, defaults, setting clamp, Forward+-only flags off on mobile/compatibility, `knobs_for` copies, `scaled_amount`, `apply`.
+- Behaviour: Medium reproduces the old mobile look, High the old desktop look plus SSAO (Forward+ only). Low drops glow, MSAA and halves particles. Volumetric fog stays off on every tier until TID-488 tunes it.
+- Validation: headless import clean, `unsafe-hits.sh` clean, gdlint clean, test suite PASS with no `SCRIPT ERROR`, `world_scene_smoke` / `menu_hub_smoke` clean.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/visual-polish.md`: Key Features bullet, new "Graphics Quality Tiers" How-It-Works section with the full knob table and which task reads each knob, Integrations bullet.
+- `docs/agent/signals-and-constants.md`: `graphics_quality_changed` row.

@@ -132,7 +132,7 @@
 | [GID-126](goals/GID-126--battle-board-backdrop/goal.md) | Battle Board Backdrop | done | 2 / 2 |
 | [GID-127](goals/GID-127--verdant-rift-magic-types/goal.md) | Verdant & Rift Magic Types | done | 5 / 5 |
 | [GID-128](goals/GID-128--magic-cosmology/goal.md) | Magic Cosmology — Tying the Orphan Systems Together | done | 2 / 2 |
-| [GID-129](goals/GID-129--atmosphere-lighting-polish/goal.md) | Atmosphere & Lighting Polish | pending | 0 / 10 |
+| [GID-129](goals/GID-129--atmosphere-lighting-polish/goal.md) | Atmosphere & Lighting Polish | in-progress | 1 / 10 |
 
 ## Backlog
 

@@ -1,5 +1,7 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
+const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
+
 
 # Keybindings capture state
 var _capture_action: String = ""
@@ -45,6 +47,22 @@ func _build_ui() -> void:
 	_add_slider_row(vbox, "SFX Volume", sfx_vol, func(v: float) -> void:
 		SceneManager.save_manager.set_setting("sfx_volume", v)
 		AudioManager.set_sfx_volume(v)
+	)
+
+	vbox.add_child(_UiUtil.make_separator())
+
+	# — Graphics —
+	var gfx_lbl := _UiUtil.make_label("Graphics", int(_vh * 0.03))
+	gfx_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+	vbox.add_child(gfx_lbl)
+
+	var gfx_tier: int = _GraphicsQuality.tier_from_setting(
+		SceneManager.save_manager.get_setting(_GraphicsQuality.SETTING_KEY, null),
+		_GraphicsQuality.is_mobile_platform())
+	_add_option_row(vbox, "Graphics Quality", _GraphicsQuality.LABELS, gfx_tier,
+		func(idx: int) -> void:
+			SceneManager.save_manager.set_setting(_GraphicsQuality.SETTING_KEY, idx)
+			GameBus.graphics_quality_changed.emit(idx)
 	)
 
 	vbox.add_child(_UiUtil.make_separator())
