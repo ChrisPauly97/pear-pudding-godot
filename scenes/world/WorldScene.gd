@@ -49,6 +49,7 @@ const _NpcInteractions = preload("res://scenes/world/modules/NpcInteractions.gd"
 const _PlayerHome = preload("res://scenes/world/modules/PlayerHome.gd")
 const _ChestLoot = preload("res://scenes/world/modules/ChestLoot.gd")
 const _NightLights = preload("res://scenes/world/modules/NightLights.gd")
+const _AmbientTouches = preload("res://scenes/world/modules/AmbientTouches.gd")
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
 const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
@@ -170,6 +171,7 @@ var town_siege: _TownSiege = null   # modules/TownSiege.gd (GID-054)
 var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
 var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
+var ambient: _AmbientTouches = null  # modules/AmbientTouches.gd (TID-493)
 
 # Computed in _ready from map_name; true for "main" and "infinite", false for named dungeon maps
 var _is_infinite: bool = false
@@ -829,6 +831,7 @@ func _ensure_world_modules() -> void:
 	named_props = _ensure_world_module(named_props, _NamedMapProps, "NamedMapProps") as _NamedMapProps
 	chest_loot = _ensure_world_module(chest_loot, _ChestLoot, "ChestLoot") as _ChestLoot
 	night_lights = _ensure_world_module(night_lights, _NightLights, "NightLights") as _NightLights
+	ambient = _ensure_world_module(ambient, _AmbientTouches, "AmbientTouches") as _AmbientTouches
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):

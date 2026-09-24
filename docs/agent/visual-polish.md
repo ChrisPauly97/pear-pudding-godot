@@ -13,6 +13,7 @@
 - **Battle backdrop**: the card board's background is a per-biome, day/night patch of ground seen from overhead, painted by one full-screen shader out of the world's own terrain tiles and prop sprites, instead of the flat `Color(0.1, 0.1, 0.15)` rect it was through GID-125.
 - **Chest & door sprites**: `Chest.gd` and `Door.gd` render as billboard `Sprite3D`s (0x72 pack chest/door art, GID-118) instead of flat-colored `BoxMesh` geometry, falling back to the original procedural boxes if the sprites are missing. See `docs/agent/inventory-and-deck.md` (chest open ceremony) and `docs/agent/named-maps-and-dungeons.md` (door rendering).
 
+- **Ambient touches** (GID-129/TID-493): fireflies blink around the player on grassland/forest nights (still air only, blooming past the glow threshold); forest leaves tumble down the current weather wind; the player kicks a dust puff on moving off and trails soft dust (which never rendered before — no draw pass). Scaled by `particle_scale`, ambient parts off on Low.
 - **Night lights** (GID-129/TID-489): door lanterns, waystones, mana wells and the wilderness camp fire glow from dusk to dawn with per-style flicker. Warm light pools (Medium 4 / High 8) light terrain, grass, props and sprites alike through a depth-reconstructing additive volume; Low keeps just the glowing lamp dots.
 - **Sun rays** (GID-129/TID-488): warm light shafts at dawn and dusk that fade out before midday and under heavy weather. Medium draws cheap screen-space shafts (10 taps, hidden when off); High adds Forward+ volumetric fog lit only by the shadowed sun.
 - **Rain wetness & storm lightning** (GID-129/TID-487): rain darkens and glosses the terrain (puddle patches, soaks in ~20 s, dries over ~90 s); heavy rain and volcanic weather flash (blue-white / red) every 8–25 s with delayed, distance-pitched thunder; a Reduce Flashing setting keeps the thunder but drops the flash.
@@ -44,8 +45,8 @@ The single source of truth for which atmosphere effects run. All-static module (
 | `volumetric_fog` *(Forward+ only)* | off | off | on | `apply()` enables it; `SunRaysFx` (TID-488) then drives density and switches it off whenever the rays are off |
 | `glow` | off | on | on | `apply()` |
 | `msaa_3d` | disabled | 4x | 4x | `apply()` → viewport (4x = project.godot default) |
-| `particle_scale` | 0.5 | 0.75 | 1.0 | `scaled_amount()` — weather particles now; TID-493 ambient particles |
-| `ambient_particles` | off | on | on | TID-493 |
+| `particle_scale` | 0.5 | 0.75 | 1.0 | `scaled_amount()` — weather particles, fireflies, leaves, player dust (TID-493) |
+| `ambient_particles` | off | on | on | `AmbientTouches` fireflies/leaves; player foot trail + move-start puff (TID-493) |
 | `sun_rays` | OFF | SCREEN | VOLUMETRIC | `SunRaysFx.set_mode` (TID-488, `SUN_RAYS_*`) |
 | `max_night_lights` | 0 | 4 | 8 | `NightLights` module: rigs that draw a light pool (TID-489) |
 | `night_light_shadows` | off | off | off | `NightLights`: adds a shadowed `OmniLight3D` per pool rig (reserved, off everywhere) |
@@ -88,6 +89,15 @@ The single source of truth for which atmosphere effects run. All-static module (
 - **Wiring:** `WorldScene._on_weather_changed(id)` swaps particles, calls `_dnc.set_weather(id)` and sets the grass direction. Co-op clients already route the host-synced weather id there (`CoopSession`), so there is no extra RPC. Globals `grass_wind_scale`/`grass_wind_lean` are registered by both `GrassBlades._init_material()` and `DayNightCycle.setup()`.
 - **Tiers:** only Environment/light params and two global floats — works identically on every tier and renderer.
 - **Extending:** add the key with its neutral value to `CLEAR`, add per-weather values to `OVERRIDES`, read `look["key"]` in the consumer (`DayNightCycle` or `dnc.weather_look()`). The blend and the key-set test pick it up automatically.
+
+### Ambient Touches (`game_logic/AmbientParticles.gd`, `scenes/world/modules/AmbientTouches.gd`, `Player`) — TID-493
+
+- **Factories (`AmbientParticles`, static, `WeatherParticles.make()` shape):** `make_fireflies()` (36, 5 s, world-space box 22×1.6×22 around the player, turbulence drift, blink `color_ramp` with two pulses, additive unshaded billboard with albedo ×3 so `FIREFLY_COLOR` peaks well above the 1.2 glow threshold), `make_leaves()` (28, 6 s, box 28×1×28 at +7, random angle + spin, turbulence flutter, `color_initial_ramp` green→amber→rust), `make_dust_puff(amount)` (one-shot, explosive). Draw meshes (dust 1×1, firefly 0.22, leaf 0.16×0.10) with their materials (`BILLBOARD_PARTICLES`, `vertex_color_use_as_albedo`, radial soft-dot texture) and ramp textures are built once in `_ensure_shared()` and shared by every emitter. `dust_mesh()` + `style_dust(pm)` (alpha fade-in/out ramp, swell curve) are what `Player` uses. `apply_wind(pm, dir, scale)` points leaf drift along the WeatherLook grass-wind direction, speed and sideways gravity scaling with `wind_scale` (0.5–3); a zero vector falls back to +X, never NaN.
+- **Rules:** `firefly_level(night, biome, weather)` — grassland (0) / forest (1) only, 0 in any precipitation or blowing weather, `clamp((night − 0.4) / 0.5)` so they arrive after the lamps (night from `NightLightMath.night_factor`). `leaf_level(biome, weather, wind_scale)` — forest only, `0.45 + 0.25 × wind_scale` capped at 1, none in snow/blizzard.
+- **Module (`AmbientTouches`, `WorldScene.ambient`):** every 0.5 s `refresh()` reads `graphics_knobs()`, `_current_biome` (infinite world only; named maps get nothing), `WeatherManager.current_weather`, the night factor and the blended `_dnc.weather_look()` wind. Emitters are created lazily on first need, parented to `_world._entity_root`, and never freed (reused). Density fades via `amount_ratio`; `amount` is only rewritten when the knobs change (writing it restarts the system). `emitting`/`visible` go off at level 0, so Low, deserts and daytime cost nothing. `_process` keeps both emitters on the player. When the knob dictionary's hash changes it calls `Player.apply_particle_knobs(knobs)`.
+- **Player dust:** foot/mount/landing dust now has the shared draw pass (it had none, so it was invisible), fades and swells, and sits 0.2 above the feet so puffs don't clip into the ground. New `_start_dust` puff (8) fires when the player starts moving on the floor. `apply_particle_knobs` scales foot 10 / mount 20 / landing 14 / start 8 by `particle_scale`; the foot trail and start puff are ambient and go off with `ambient_particles`, landing and mount dust stay as movement feedback.
+- **Also fixed:** `WeatherParticles.make()` built its tinted billboard `StandardMaterial3D` but never assigned it; the mesh now carries it.
+- **Tests:** `tests/unit/test_ambient_particles.gd` (firefly/leaf gates, wind mapping incl. zero wind, every factory has draw pass + material + process material, shared mesh reuse, firefly HDR above the glow threshold, tier knobs).
 
 ### Night Lights (`game_logic/NightLightMath.gd`, `scenes/world/modules/NightLights.gd`, `night_light_pool.gdshader`) — TID-489
 
@@ -285,9 +295,12 @@ fallback for any key/branch the registry doesn't recognize.
 
 - `GraphicsQuality` is read by `WorldScene` (environment, sun, weather particles) and written by `SettingsScene` (option row + `GameBus.graphics_quality_changed`). Later GID-129 effects (shadows, sun rays, night lights, ambient particles) read their knobs from `WorldScene.graphics_knobs()`.
 - `NightLights` (world module) reads time of day from `DayNightCycle`, knobs from `WorldScene.graphics_knobs()` and light sources from WorldScene's door / waystone / mana-well dicts and the wilderness camp node; it writes only its own rig nodes.
+- `AmbientTouches` (world module) reads knobs, biome, night factor and weather wind; it writes only its own two emitters and pushes knobs into `Player.apply_particle_knobs`.
 - `SunRaysFx` reads time of day and the blended `WeatherLook` from `DayNightCycle`, the sun colour from `DayNightCycle.sun_color_for`, and its mode from `GraphicsQuality`; it writes only its own CanvasLayer and the Environment's volumetric fog.
 
 ## Asset Requirements
+
+Ambient touches (GID-129/TID-493) add no files: all textures (soft dot, ramps) are code-built.
 
 Night lights (GID-129/TID-489) add `assets/shaders/night_light_pool.gdshader` and its `.uid` sidecar; the glow dot uses a code-built radial `GradientTexture2D`, no image files.
 

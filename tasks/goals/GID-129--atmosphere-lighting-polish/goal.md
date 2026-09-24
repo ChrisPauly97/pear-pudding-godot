@@ -23,7 +23,7 @@ Findings: desktop runs Forward+, Android runs Mobile (no volumetric fog/SSAO/GI)
 | TID-490 | Weather & Time-of-Day Ambience Layers, Music Ducking | agent | done | — |
 | TID-491 | Terrain-Aware Footsteps | agent | done | — |
 | TID-492 | Source Real CC0 Audio Files | human-action | pending | — |
-| TID-493 | Small Ambient Touches (Dust, Fireflies, Leaves) | agent | pending | TID-484 |
+| TID-493 | Small Ambient Touches (Dust, Fireflies, Leaves) | agent | done | TID-484 |
 
 ## Acceptance Criteria
 

@@ -74,7 +74,7 @@ The second trigger fires whenever a fresh WorldScene is created for "main" (e.g.
     when the player turns left, keeping horse and rider facing the same way.
   - While mounted the rider holds the `idle` animation — the horse does the
     travelling, so a walk cycle in the saddle read as running on the spot.
-- **Dust particles** (`_dust_particles: GPUParticles3D`): 20 particles, 0.6 s lifetime, brownish colour, sphere emission radius 0.4. `emitting` toggled every physics frame: `is_mounted and _is_moving`.
+- **Dust particles** (`_dust_particles: GPUParticles3D`): 20 particles mounted / 10 on foot (× `particle_scale`), 0.6 s lifetime, brownish colour, sphere emission radius 0.4, 0.2 above the feet. Draw pass is the shared soft puff `AmbientParticles.dust_mesh()` (before TID-493 it had none and never rendered). `emitting` toggled every physics frame: moving on the floor, and mounted or `ambient_particles` on (the on-foot trail is off on Low; mount dust always shows).
 
 ### TextureGen.mount_horse()
 

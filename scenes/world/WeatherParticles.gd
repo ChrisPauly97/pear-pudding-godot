@@ -128,6 +128,7 @@ static func make(weather_id: String) -> GPUParticles3D:
 	std_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	std_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 
+	mesh.material = std_mat  # TID-493: was built but never assigned
 	node.process_material = mat
 	node.draw_pass_1 = mesh
 	node.position = Vector3(0.0, 12.0, 0.0)
