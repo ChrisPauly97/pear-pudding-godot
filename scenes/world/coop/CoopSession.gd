@@ -612,7 +612,7 @@ func _open_party_panel() -> void:
 	# Team Duel: host-only, needs 3 connected clients (4 total) — mirrors the old
 	# _update_team_duel_button_visibility() condition exactly.
 	panel.show_team_duel = NetworkManager.is_host() and not NetworkManager.is_dedicated_server() \
-		and SceneManager._state == SceneManager.State.WORLD \
+		and SceneManager.is_in_world() \
 		and multiplayer.get_peers().size() >= 3 and _world._pending_challenge_from == -1
 	panel.on_team_duel = _world.coop_pvp._start_team_duel
 	# Dungeon Crawl: host-only trigger — mirrors the old _ensure_dungeon_button() gate.
@@ -636,7 +636,7 @@ func _open_party_panel() -> void:
 	# connected clients (3-4 total) — mirrors the old
 	# _update_tournament_button_visibility() condition exactly.
 	panel.show_tournament = NetworkManager.is_host() and not NetworkManager.is_dedicated_server() \
-		and SceneManager._state == SceneManager.State.WORLD and not _world._tournament_active \
+		and SceneManager.is_in_world() and not _world._tournament_active \
 		and multiplayer.get_peers().size() >= 2 and _world._pending_challenge_from == -1
 	panel.on_tournament = _world.coop_pvp._start_tournament
 	_world._hud.add_child(panel)

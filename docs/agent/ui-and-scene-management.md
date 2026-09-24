@@ -161,7 +161,7 @@ All four pages are migrated (TID-296/297): `InventoryScene`, `CharacterScene`, `
 
 Tab cycling (`[`/`]`) is handled in MenuHubScene's `_input()` which also re-declares `ui_cancel` → `_close()` to prevent page nodes from consuming it first.
 
-**State:** `SceneManager.State.MENU_HUB`. The four old states (INVENTORY, CHARACTER, SKILL_TREE, JOURNAL) are retained in the enum for backwards-compatibility but are no longer used by routing.
+**State:** `SceneManager.State.MENU_HUB`. The four old states (INVENTORY, CHARACTER, SKILL_TREE, JOURNAL) have been removed from the enum.
 
 ---
 
@@ -269,21 +269,28 @@ Emote, Ping, and Chat trigger buttons, left-to-right in that registration order.
 
 The central scene router. It is an autoload and the only node that calls `get_tree().change_scene_to_*()` or manually adds/removes scenes.
 
-**State machine:**
+**State machine** (`game_logic/SceneFlow.gd`):
+
+`SceneFlow` is pure data with no Node dependencies. It defines the `State` enum, which SceneManager aliases as `const State`, so `SceneManager.State.WORLD` still works. It also holds the `TRANSITIONS` table (from → allowed targets) and the static predicates `can_transition`, `is_world_overlay` and `is_world_hosted`.
+
 ```
-MENU → WORLD (new game or continue)
-WORLD → [GAMBIT PICKER] → BATTLE (enemy_engaged signal; picker skipped on resume or auto-skip)
-BATTLE → WORLD (battle_won signal)
-BATTLE → GAME_OVER (battle_lost signal)
-GAME_OVER → MENU (return to menu button)
-WORLD ← → WORLD (map transition via map_stack)
-WORLD ← → MENU_HUB (overlay, world stays in tree; one state replaces INVENTORY/CHARACTER/SKILL_TREE/JOURNAL)
-WORLD ← → SHOP (overlay, world stays in tree)
-WORLD → SPIRE_FLOOR (SceneManager.enter_spire via entrance panel in WorldScene)
-SPIRE_FLOOR → SPIRE_FLOOR (SceneManager.exit_map detects spire_ prefix → _advance_spire_floor)
+MENU → WORLD (new game / continue / co-op join) | ACHIEVEMENTS
+WORLD → WORLD (map change) | BATTLE | RUN_SUMMARY | SHOP | BOUNTY_BOARD | MAILBOX | BLACKSMITH | MENU_HUB
+BATTLE → WORLD | BATTLE | GAME_OVER | RUN_SUMMARY
+SHOP → WORLD | PACK_OPEN
+GAME_OVER, RUN_SUMMARY, every other overlay → WORLD
+any state → MENU (always legal)
 ```
 
-`open_menu_hub(tab)` is the single entry point for all four player screens. If state is already MENU_HUB, it calls `show_tab(tab)` on the live hub instead of stacking a second overlay. The old INVENTORY/CHARACTER/SKILL_TREE/JOURNAL state enum values are kept for backwards-compatibility but are no longer routed to.
+Rules:
+- **All writes go through `SceneManager._transition_to(to)`.** It checks the edge against `TRANSITIONS`, applies it, then emits `state_changed(from, to)`. An undeclared edge still gets applied, because refusing it would strand a half-swapped scene, but it raises a `push_warning` so the new route shows up in logs. `test_scene_flow` fails on any bare `_state =` in SceneManager.
+- **Outside SceneManager, read the state through `current_state()` / `is_in_world()`**, never `SceneManager._state`. `test_scene_flow` greps `scenes/`, `autoloads/` and `game_logic/` for it.
+- **BATTLE has one enter transition:** `_enter_battle(configure, networked)`. It detaches the live WorldScene into `_saved_world_scene`, runs `configure` on a fresh BattleScene and promotes it, then transitions. `networked` pins the node name to `BattleScene` for the RPC path. `_enter_pvp_battle(configure)` adds the `_pvp` flag and the inert `PVP_ENEMY_DATA`. Solo, duel, ghost duel, puzzle, scripted, PvP, referee, spectator, co-op PvE and team battles all go through it. **BATTLE's exit** is `_restore_world(after)`.
+- Adding a state means adding one enum value and one `TRANSITIONS` row, plus its edges in the rows that lead to it.
+
+Spire floors are WORLD → WORLD map changes: `enter_spire` goes through `enter_map`, and `exit_map` detects the `spire_` prefix and calls `_advance_spire_floor`.
+
+`open_menu_hub(tab)` is the single entry point for all four player screens. If the state is already MENU_HUB, it calls `show_tab(tab)` on the live hub instead of stacking a second overlay. The legacy INVENTORY/CHARACTER/SKILL_TREE/JOURNAL enum values have been removed.
 
 **Gambit picker flow (GID-063):**
 

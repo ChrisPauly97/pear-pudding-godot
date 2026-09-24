@@ -59,8 +59,8 @@ func test_can_proximity_engage_false_in_battle_state() -> void:
 	SceneManager._proximity_engage_blocked = false
 	assert_false(SceneManager.can_proximity_engage())
 
-func test_can_proximity_engage_false_in_inventory_state() -> void:
-	SceneManager._state = SceneManager.State.INVENTORY
+func test_can_proximity_engage_false_in_shop_state() -> void:
+	SceneManager._state = SceneManager.State.SHOP
 	SceneManager._proximity_engage_blocked = false
 	assert_false(SceneManager.can_proximity_engage())
 

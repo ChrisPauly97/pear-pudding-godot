@@ -350,6 +350,17 @@ Rules:
 
 ---
 
+## SceneManager: State Machine
+
+States and legal edges live in `game_logic/SceneFlow.gd` (`State`, `TRANSITIONS`).
+Change state only via `SceneManager._transition_to(to)`, which checks the edge and
+emits `state_changed`. Read it via `SceneManager.current_state()` /
+`is_in_world()`, never `SceneManager._state`. A new battle kind goes through
+`_enter_battle(configure, networked)` (or `_enter_pvp_battle`). Don't hand-copy
+the world-detach block. `test_scene_flow` enforces all three.
+
+---
+
 ## WorldScene: Proximity Scans
 
 Never write a fresh `dx*dx + dz*dz <= r*r` loop. Use `_node_in_range(node, …)`,
