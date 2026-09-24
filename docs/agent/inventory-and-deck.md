@@ -159,7 +159,7 @@ Extends `BaseOverlay.gd`. Renders `SaveManager.mailbox.get_mailbox_instances()` 
 
 ### Overview
 
-The player can equip items across four slots: **weapon**, **armor**, **ring**, and **trinket**. Each slot holds one item ID (empty string = nothing equipped). At battle start `BattleScene._apply_equipment_effects()` loops over all four slots, resolves each item via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn. All four slot types use the same `WeaponData` resource and registry — the `slot` field distinguishes them.
+The player can equip items across four slots: **weapon**, **armor**, **ring**, and **trinket**. Each slot holds one item ID (empty string = nothing equipped). At battle start `BattleScene.modifiers._apply_equipment_effects()` loops over all four slots, resolves each item via `WeaponRegistry`, and applies its effect to `PlayerState[0]` before the opening hand is drawn. All four slot types use the same `WeaponData` resource and registry — the `slot` field distinguishes them.
 
 Mana cap invariant: max_mana never permanently exceeds 10. The `starting_mana` effect grants a one-time turn-1 burst; `PlayerState.gain_mana_for_turn(turn)` resets `max_mana = min(10, turn)` on every subsequent turn, naturally undoing the boost.
 
@@ -257,7 +257,7 @@ The `dagger_throw` card has `cost = 0` and `auto_resolve = true`. It is defined 
 | **SaveManager** | Read + Write | Source of truth for `owned_cards`, `player_deck`, all four `equipped_*` and `owned_*` equipment arrays; InventoryScene reads and writes card arrays; CharacterScene reads and writes equipment |
 | **CardRegistry** | Data source | `CardRegistry.get_card(id)` resolves name/cost/stats for display in the UI |
 | **BattleScene** | Consumer | Reads `SaveManager.player_deck` at battle start; calls `_apply_equipment_effects()` to apply all four slot bonuses before opening hand |
-| **WeaponRegistry** | Data source | Resolves `WeaponData` by id from `data/weapons/`; used by `BattleScene._apply_equipment_effects()`; `get_by_slot()` filters by slot for CharacterScene pickers |
+| **WeaponRegistry** | Data source | Resolves `WeaponData` by id from `data/weapons/`; used by `BattleScene.modifiers._apply_equipment_effects()`; `get_by_slot()` filters by slot for CharacterScene pickers |
 | **Chest entity** | Card source | `Chest.gd` calls `SaveManager.add_card()` on open; marks chest ID in `SaveManager.opened_chests` |
 | **GameBus** | Signal | `inventory_requested` opens the overlay; `chest_opened(card_id)` delivers card drops |
 | **SceneManager** | Overlay router | Instantiates and removes `InventoryScene` in response to `GameBus.inventory_requested` |

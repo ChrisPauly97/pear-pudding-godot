@@ -131,7 +131,7 @@ A "— Seeds —" section is appended after Trinkets in `_refresh()`. `_make_see
 | `plant_harvested(plot_idx, plants_count)` | WorldScene on harvest; plot_idx set, count 0 on plant | GardenPlot auto-refresh; toast |
 | `inventory_changed` | SaveManager.garden.add_seeds | General inventory toast hook |
 | `potion_crafted(potion_id)` | InventoryScene._do_craft_potion | Toast notification |
-| `potion_used(potion_id)` | BattleScene._apply_potion_effect | Battle log / toast |
+| `potion_used(potion_id)` | BattleScene.consumables._apply_potion_effect | Battle log / toast |
 
 ## Asset Requirements
 

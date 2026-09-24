@@ -22,6 +22,7 @@ const _MODULE_DIRS: Array[String] = [
 	"res://scenes/world/coop",
 	"res://scenes/world/modules",
 	"res://scenes/battle/net",
+	"res://scenes/battle/modules",
 	"res://autoloads/scene_manager",
 ]
 

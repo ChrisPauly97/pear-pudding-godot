@@ -69,7 +69,7 @@ static func decide_turn(state: GameState, persona: String = PERSONA_BASIC) -> Ar
 				state.opponent().hero.take_damage(BattlefieldRules.modify_damage(mc.attack, state.battlefield_biome))
 				mc.take_damage(BattlefieldRules.modify_damage(state.opponent().hero.attack, state.battlefield_biome))
 				mc.attack_count -= 1
-				# Mirrors BattleScene._execute_attack()/_resolve_remote_attack(),
+				# Mirrors BattleScene.card_input._execute_attack()/_resolve_remote_attack(),
 				# which emit card_attacked for player-initiated attacks (BID-006) —
 				# the AI opponent's attacks need the same signal.
 				GameBus.card_attacked.emit(mc.template_id, "hero")

@@ -325,6 +325,19 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `NamedMapProps.gd` (`named_props`) | Named-map scrolls, shrines, waystones (incl. injected town waystone), injected mailbox, fast-travel panel |
 | `ChestLoot.gd` (`chest_loot`) | Chest open (mimic, co-op sync, need/greed hand-off), card/coin scatter, equipment drop |
 
+BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
+`BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference **typed as
+the BattleScene script**, so member typos fail at compile time, not at runtime:
+
+| Module | Owns |
+|---|---|
+| `BattleModifiers.gd` (`modifiers`) | Equipment, passive skills, companions, weather, ambush, gambit handicaps, desert scorch |
+| `BattleConsumables.gd` (`consumables`) | Hero power + potion buttons, potion picker, their effects |
+| `BattleTutorials.gd` (`tutorials`) | First-battle tutorial card, scripted-battle tutorial steps |
+| `BattleArena.gd` (`arena`) | Backdrop, battlefield label/banner, slot highlights, co-op ally panels |
+| `BattleTargeting.gd` (`targeting`) | Board drop zone, spell/ally/slot targeting modes, resolving chosen targets |
+| `BattleInput.gd` (`card_input`) | Hand/board/enemy taps, cast confirm, attacks |
+
 Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
 `test_interact_priority` reads the interaction chains by those names. Likewise
 keep literal `GameBus.<signal>.emit()` calls (no signal tables) —

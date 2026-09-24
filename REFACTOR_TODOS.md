@@ -83,3 +83,9 @@ Done:
 - [x] **`SaveManager.gd` 2.2k → 1.5k lines**
 - [ ] **Remaining clusters** — card instances / equipment / weapons (~350 lines, the most callers), `new_game` (~110), co-op session character adoption (~110)
 
+### BattleScene split (claude/refactor-targets-lint-ivoueg)
+
+- [x] **`BattleScene.gd` 2.5k → 1.3k lines** — six single-player modules under `scenes/battle/modules/` (modifiers, consumables, tutorials, arena, targeting, card input), each with a `_battle` back-reference typed as the BattleScene script so member access is compile-checked; added to `test_scene_module_guardrail`
+- [ ] **Remaining** — `_ready` / `_setup_solo_battle` (~240 lines of mode setup), turn flow + AI turn (`_on_turn_ended`, `_run_ai_turn`, `_execute_ai_actions`, ~200), game-over / victory (`_check_game_over`, `_show_standard_victory`, ~120)
+- [ ] **Type the other module back-references** — SceneManager / SaveManager / WorldScene modules still use an untyped `Node`, so a wrong `_sm.X` / `_world.X` only fails at runtime
+

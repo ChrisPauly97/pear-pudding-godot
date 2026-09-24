@@ -1096,7 +1096,7 @@ opponent) scored 1.0/0.0 for their team's win/loss — the "team-average expecte
 approach. A no-op for every non-host peer and once the formation has been consumed.
 
 **Bugs found and fixed while generalizing the opponent-index plumbing (BID-026):**
-`BattleScene._execute_attack` (the host's own local attack resolution) hardcoded
+`BattleScene.card_input._execute_attack` (the host's own local attack resolution) hardcoded
 `_state.players[1]`/`[0]` instead of `_opp_idx()`/`_my_idx()` — dormant for solo/2-player
 PvP but a real bug in co-op PvE (the boss is never at index 1 for any valid battle; a
 host's attack on the boss damaged the wrong ally). `_apply_remote_intent`'s `opp_idx`
@@ -2119,7 +2119,7 @@ The bar is built lazily on the first `_refresh_all()` after `_state` is ready, u
 Five new effect names — `ally_heal_hero`, `ally_grant_ward_board`, `ally_buff_minion_all`,
 `ally_grant_mana`, `ally_revive` — are listed in
 `SpellEffectResolver.ALLY_TARGETED_EFFECTS`. When a card with one of these effects is
-dragged to the board in co-op PvE mode, `BattleScene._board_drop()` calls
+dragged to the board in co-op PvE mode, `BattleScene.targeting._board_drop()` calls
 `_enter_ally_targeting_mode(card)` instead of the normal targeting path.
 
 In ally-targeting mode the ally bar buttons become tappable targets: tapping `P{n}`

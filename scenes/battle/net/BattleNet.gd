@@ -263,7 +263,7 @@ func _adopt_mirrored_state(state_dict: Dictionary) -> void:
 	_battle._fx.set_game_state(_battle._state)
 	_battle._view.set_battle_state(_battle._state, _battle.enemy_data)
 	_battle._refresh_all()
-	_battle._refresh_potion_button()
+	_battle.consumables._refresh_potion_button()
 
 ## Authority: validate + apply a client intent, then re-render (broadcast happens
 ## in _check_game_over). In referee mode both players send intents; in
@@ -349,12 +349,12 @@ func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 				return false
 			if slot_idx < 0 or slot_idx >= 5 or p1.board.slots[slot_idx] != null:
 				return false
-			if not _battle._do_play_card_at_slot(card, player_idx, slot_idx):
+			if not _battle.targeting._do_play_card_at_slot(card, player_idx, slot_idx):
 				return false
 			if card.emergence_effect != "":
 				_battle._resolver.resolve_emergence(card, player_idx)
 			else:
-				_battle._apply_weather_to_summoned(card, player_idx)
+				_battle.modifiers._apply_weather_to_summoned(card, player_idx)
 			return true
 		BattleNetProtocol.INTENT_PLAY_SPELL:
 			var hi2: int = int(intent["hand_index"])
@@ -407,7 +407,7 @@ func _apply_remote_intent(intent: Dictionary, player_idx: int) -> bool:
 			_resolve_remote_attack(attacker, target, player_idx, opp_idx)
 			return true
 		BattleNetProtocol.INTENT_HERO_POWER:
-			_battle._apply_hero_power_effect(player_idx, str(intent["effect_type"]), int(intent["effect_value"]))
+			_battle.consumables._apply_hero_power_effect(player_idx, str(intent["effect_type"]), int(intent["effect_value"]))
 			return true
 		BattleNetProtocol.INTENT_POTION:
 			_apply_potion_state_effect(player_idx, str(intent["potion_id"]))

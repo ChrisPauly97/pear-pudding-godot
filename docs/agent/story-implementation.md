@@ -234,7 +234,7 @@ key off `chapter1_complete` across the other named maps.
 **Bug fix carried from TID-401** (found while reviewing `BaseOverlay` for this task):
 `BaseOverlay._close()` only emits the `closed` signal — it does not free the node. The caller
 must connect `closed` to free the wrapping `CanvasLayer` (`SceneManager._on_tutorial_popup_requested`
-already did this correctly). `BattleScene._maybe_show_scripted_tutorial_step` (TID-401) did not,
+already did this correctly). `BattleScene.tutorials._maybe_show_scripted_tutorial_step` (TID-401) did not,
 so the scripted-battle tutorial popup's "Got it" button was dead — fixed alongside this task's
 own overlay wiring.
 

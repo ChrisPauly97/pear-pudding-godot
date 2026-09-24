@@ -204,7 +204,7 @@ func test_desert_daytime_damages_leftmost_minion() -> void:
 	var gs := _state_with_context(BiomeDef.DESERT, false)  # daytime
 	var card := _card(1, 1, 5)  # 5 HP
 	gs.players[0].board.slots[0] = card
-	# Simulate desert scorch (normally called from BattleScene._apply_desert_scorch).
+	# Simulate desert scorch (normally called from BattleScene.modifiers._apply_desert_scorch).
 	# Here we call the logic directly on the board.
 	var before_hp: int = card.health
 	card.take_damage(1)  # desert tick
