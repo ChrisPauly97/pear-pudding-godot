@@ -134,11 +134,11 @@ Before GID-110, `add_card_instance()` returned `""` and **silently dropped** any
 
 ```gdscript
 SaveManager.grant_card_reward(template_id, rarity, attack=-1, health=-1, cost=-1) -> String
-SaveManager.get_mailbox_instances() -> Array[Dictionary]
-SaveManager.claim_mailbox_card(uid: String) -> bool        # false if uid missing or bag still full
-SaveManager.claim_all_mailbox_cards() -> int               # claims until full or empty; returns count claimed
-SaveManager.sell_mailbox_card(uid: String) -> void          # gold via IsoConst.RARITY_CONFIG, same as sell_card_instance
-SaveManager.scrap_mailbox_card(uid: String) -> void         # essence, same as scrap_card_instance
+SaveManager.mailbox.get_mailbox_instances() -> Array[Dictionary]
+SaveManager.mailbox.claim_mailbox_card(uid: String) -> bool        # false if uid missing or bag still full
+SaveManager.mailbox.claim_all_mailbox_cards() -> int               # claims until full or empty; returns count claimed
+SaveManager.mailbox.sell_mailbox_card(uid: String) -> void          # gold via IsoConst.RARITY_CONFIG, same as sell_card_instance
+SaveManager.mailbox.scrap_mailbox_card(uid: String) -> void         # essence, same as scrap_card_instance
 ```
 
 `mailbox_cards` persists in `save.json` (save version 41; migration `[41, {"mailbox_cards": []}]` backfills old saves) and round-trips through `export_session_character()`/`adopt_session_character()` for co-op session characters.
@@ -151,7 +151,7 @@ The Mailbox is a physical interactable, not a menu tab — structurally mirrors 
 
 ### Overlay UI (`scenes/ui/MailboxScene.gd`)
 
-Extends `BaseOverlay.gd`. Renders `SaveManager.get_mailbox_instances()` as the same Diablo-3-style cube-tile grid used by `InventoryScene`'s backpack (tile/detail-popup code is duplicated, not shared, since the two scenes' action sets diverge — Claim/Sell/Scrap here vs. Add-to-deck/Combine/Rename there). Tapping a tile opens a non-modal detail popup with rolled stats and Claim / Sell / Scrap buttons; a header-level **Claim All** button drains the queue until the bag fills or it's empty. Claim is a no-op with a "Bag is full" toast when `SaveManager.is_bag_full()`.
+Extends `BaseOverlay.gd`. Renders `SaveManager.mailbox.get_mailbox_instances()` as the same Diablo-3-style cube-tile grid used by `InventoryScene`'s backpack (tile/detail-popup code is duplicated, not shared, since the two scenes' action sets diverge — Claim/Sell/Scrap here vs. Add-to-deck/Combine/Rename there). Tapping a tile opens a non-modal detail popup with rolled stats and Claim / Sell / Scrap buttons; a header-level **Claim All** button drains the queue until the bag fills or it's empty. Claim is a no-op with a "Bag is full" toast when `SaveManager.is_bag_full()`.
 
 ---
 
@@ -271,7 +271,7 @@ During an Endless Spire run the player's battle deck is separate from their pers
 ### How it works
 
 - `SaveManager.spire_run.draft_deck` is a plain `Array` of card IDs accumulated via `add_drafted_card(id)`.
-- `BattleScene._ready()` checks `SaveManager.is_spire_active()` first:
+- `BattleScene._ready()` checks `SaveManager.spire.is_spire_active()` first:
   - If active and `draft_deck` is non-empty → build deck from `draft_deck`.
   - If active and `draft_deck` is empty (floor 1, before first draft) → use an 8-card starter (`ghost×2, skeleton×2, zombie×2, ghoul×2`).
   - If not active → fall through to the normal `player_deck` path.
@@ -345,13 +345,13 @@ Version 33 → 34: `_migrate_v33_to_v34()` wraps the existing `player_deck` into
 ### Loadout CRUD API
 
 ```gdscript
-SaveManager.set_active_loadout(index: int) -> bool    # switches and syncs player_deck
-SaveManager.add_loadout(name: String) -> int          # returns new index, or -1 if at cap
-SaveManager.rename_loadout(index: int, new_name: String) -> void
-SaveManager.duplicate_loadout(index: int) -> int      # returns new index, or -1 if at cap
-SaveManager.delete_loadout(index: int) -> bool        # false if last loadout
-SaveManager.get_loadout_names() -> Array[String]
-SaveManager.is_loadout_valid(index: int) -> bool
+SaveManager.decks.set_active_loadout(index: int) -> bool    # switches and syncs player_deck
+SaveManager.decks.add_loadout(name: String) -> int          # returns new index, or -1 if at cap
+SaveManager.decks.rename_loadout(index: int, new_name: String) -> void
+SaveManager.decks.duplicate_loadout(index: int) -> int      # returns new index, or -1 if at cap
+SaveManager.decks.delete_loadout(index: int) -> bool        # false if last loadout
+SaveManager.decks.get_loadout_names() -> Array[String]
+SaveManager.decks.is_loadout_valid(index: int) -> bool
 ```
 
 ### Loadout UI (`InventoryScene.gd`)

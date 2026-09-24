@@ -43,7 +43,7 @@ TownSiege.on_map_entered(map_name)   (scenes/world/modules/TownSiege.gd)
 Player interacts with raider NPC
   └─ GameBus.enemy_engaged.emit(raider_dict)
   └─ SceneManager._on_enemy_engaged → BattleScene launched
-       └─ BattleScene._ready(): siege HP injection from save_manager.get_active_siege()
+       └─ BattleScene._ready(): siege HP injection from save_manager.town_siege.get_active_siege()
 
 [Battle won]
 SceneManager._on_battle_won()
@@ -63,7 +63,7 @@ SaveManager.increment_day()
 
 ### Hero HP Carry-Over
 
-`BattleScene._ready()` checks `save_manager.get_active_siege()`. If a siege is active, the player's hero HP is set to `siege["hero_hp"]` instead of the default 30. After each stage victory, `set_siege_hero_hp(result.hero_hp)` preserves current HP for the next stage.
+`BattleScene._ready()` checks `save_manager.town_siege.get_active_siege()`. If a siege is active, the player's hero HP is set to `siege["hero_hp"]` instead of the default 30. After each stage victory, `set_siege_hero_hp(result.hero_hp)` preserves current HP for the next stage.
 
 ### Raider Entities (TID-198)
 
@@ -93,9 +93,9 @@ After 2 seconds it auto-dismisses and calls `GameBus.enemy_engaged` with the nex
 
 ### Town Gratitude Discount (TID-199)
 
-`SaveManager.end_siege_victory()` calls `apply_town_discount(town)`, which sets `town_discounts[town] = days_elapsed + 3`.
+`SaveManager.town_siege.end_siege_victory()` calls `apply_town_discount(town)`, which sets `town_discounts[town] = days_elapsed + 3`.
 
-`ShopScene._refresh()` checks `save_manager.is_town_discounted(town_name)` (where `town_name` is set by `SceneManager._on_shop_requested()` from `current_map`). If discounted:
+`ShopScene._refresh()` checks `save_manager.town_siege.is_town_discounted(town_name)` (where `town_name` is set by `SceneManager._on_shop_requested()` from `current_map`). If discounted:
 - Card price: `int(CARD_PRICE * 0.8)` = 12 coins
 - Weapon/equipment prices: `int(price * 0.8)` each
 - Section headers show `"(20% off — Town Discount)"`

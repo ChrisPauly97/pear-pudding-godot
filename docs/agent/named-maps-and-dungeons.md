@@ -249,7 +249,7 @@ Each floor's enemy id comes from `SpireFloorGen.enemy_id_for(floor, run_seed)` â
 
 Use `SpireFloorGen.is_spire_enemy_id(eid)` rather than an equality check anywhere that routes or prunes by id â€” saves and `user://maps/` floors written before this change still carry the bare literal.
 
-`SaveManager.prepare_spire_floor(floor, run_seed)` runs from `WorldScene._load_named_map`'s spire branch, before the map is distributed into chunks: if the floor's cleared flag is unset the player still owes that fight, so every Spire kill is dropped from `defeated_enemies` to guarantee the spawn. This is also the repair path for saves already stuck on an empty floor. A cleared floor is left alone so standing on one you already beat doesn't resurrect it. `_clear_spire_enemy_defeats()` additionally runs at each run boundary (`start_spire_run`, `advance_spire_floor`, `end_spire_run`) so per-run ids never accumulate in the permanent list.
+`SaveManager.spire.prepare_spire_floor(floor, run_seed)` runs from `WorldScene._load_named_map`'s spire branch, before the map is distributed into chunks: if the floor's cleared flag is unset the player still owes that fight, so every Spire kill is dropped from `defeated_enemies` to guarantee the spawn. This is also the repair path for saves already stuck on an empty floor. A cleared floor is left alone so standing on one you already beat doesn't resurrect it. `_clear_spire_enemy_defeats()` additionally runs at each run boundary (`start_spire_run`, `advance_spire_floor`, `end_spire_run`) so per-run ids never accumulate in the permanent list.
 
 ### Exit door flow
 
@@ -267,7 +267,7 @@ Between defeating the enemy and walking to the exit door, `SceneManager._show_sp
 
 ### Hero HP carry-over
 
-`BattleScene._ready()` reads `spire_run.hero_hp` and applies it as the player hero's starting HP (clamped to max_health). After each battle `SceneManager._on_battle_won()` writes the final `hero_hp` back to `spire_run` via `save_manager.set_spire_hero_hp()`.
+`BattleScene._ready()` reads `spire_run.hero_hp` and applies it as the player hero's starting HP (clamped to max_health). After each battle `SceneManager._on_battle_won()` writes the final `hero_hp` back to `spire_run` via `save_manager.spire.set_spire_hero_hp()`.
 
 ---
 

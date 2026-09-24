@@ -59,7 +59,7 @@ func _refresh() -> void:
 	for child in _grid.get_children():
 		child.queue_free()
 	var sm := SceneManager.save_manager
-	var instances: Array[Dictionary] = sm.get_mailbox_instances()
+	var instances: Array[Dictionary] = sm.mailbox.get_mailbox_instances()
 	_count_label.text = "%d card%s waiting" % [instances.size(), "" if instances.size() == 1 else "s"]
 	_claim_all_btn.disabled = instances.is_empty()
 
@@ -163,7 +163,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 		if SceneManager.save_manager.is_bag_full():
 			GameBus.hud_message_requested.emit("Bag is full — sell or scrap cards to make room.")
 			return
-		SceneManager.save_manager.claim_mailbox_card(uid)
+		SceneManager.save_manager.mailbox.claim_mailbox_card(uid)
 		_hide_detail()
 		_refresh())
 	action_row.add_child(claim_btn)
@@ -171,7 +171,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	var sell_btn := _UiUtil.make_button("Sell +%dg" % sell_gold, Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020))
 	sell_btn.modulate = Color(1.0, 0.9, 0.3)
 	sell_btn.pressed.connect(func() -> void:
-		SceneManager.save_manager.sell_mailbox_card(uid)
+		SceneManager.save_manager.mailbox.sell_mailbox_card(uid)
 		_hide_detail()
 		_refresh())
 	action_row.add_child(sell_btn)
@@ -179,7 +179,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	var scrap_btn := _UiUtil.make_button("Scrap +%de" % scrap_ess, Vector2(_ref * 0.14, _ref * 0.06), int(_ref * 0.020))
 	scrap_btn.modulate = Color(0.5, 0.85, 1.0)
 	scrap_btn.pressed.connect(func() -> void:
-		SceneManager.save_manager.scrap_mailbox_card(uid)
+		SceneManager.save_manager.mailbox.scrap_mailbox_card(uid)
 		_hide_detail()
 		_refresh())
 	action_row.add_child(scrap_btn)
@@ -187,7 +187,7 @@ func _show_instance_detail(inst: Dictionary, anchor: Control) -> void:
 	popup.popup(Rect2i(anchor.get_screen_transform().origin as Vector2i, Vector2i(int(_ref * 0.32), 0)))
 
 func _on_claim_all() -> void:
-	var claimed: int = SceneManager.save_manager.claim_all_mailbox_cards()
-	if claimed == 0 and not SceneManager.save_manager.get_mailbox_instances().is_empty():
+	var claimed: int = SceneManager.save_manager.mailbox.claim_all_mailbox_cards()
+	if claimed == 0 and not SceneManager.save_manager.mailbox.get_mailbox_instances().is_empty():
 		GameBus.hud_message_requested.emit("Bag is full — sell or scrap cards to make room.")
 	_refresh()

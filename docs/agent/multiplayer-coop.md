@@ -2631,7 +2631,7 @@ responds or a 30s timeout auto-picks the first option.
   cards, never regenerating locally) and adds a turn banner: "Your turn!" with
   all 3 Pick buttons enabled, or a disabled "Waiting for `<name>`…" state for
   everyone else. `_on_pick` branches on co-op mode: the single-player
-  persistence side effects (`SaveManager.add_drafted_card`,
+  persistence side effects (`SaveManager.spire.add_drafted_card`,
   `GameBus.spire_card_drafted`) never fire in co-op — the co-op grant path is
   `SceneManager.add_coop_drafted_card`, applied by `WorldScene` only after the
   authority resolves the pick (never by the picker's own client directly, so
@@ -2704,7 +2704,7 @@ the solo path for both under a single `NetworkManager.is_active()` gate.
 
 **Automatic floor-to-floor advancement — no reliance on the arena's authored
 exit door.** Solo Spire's exit door is single-player-only machinery
-(`SceneManager.exit_map()` special-cases it via `save_manager.is_spire_active()`,
+(`SceneManager.exit_map()` special-cases it via `save_manager.spire.is_spire_active()`,
 always false in co-op). Instead, `WorldScene._resolve_coop_spire_draft`
 (TID-390's existing draft-resolution function) now also calls
 `SceneManager.advance_coop_spire_floor()` and broadcasts+performs the next
@@ -3037,7 +3037,7 @@ against the co-op contracts GID-098 already established. Per-rule findings:
   `_coop_active`/`_coop_scroll_syncing`/`_coop_collected_scrolls` remain
   WorldScene-owned state, reached from the module as `_world.<name>`.)*
 - **Story siege at marsax_hold** (Chapter 2 beat 4) called the single-player
-  `SaveManager.start_siege()` path with zero co-op awareness — every peer who
+  `SaveManager.town_siege.start_siege()` path with zero co-op awareness — every peer who
   walked into marsax_hold with the right flags would start their own private
   local siege. GID-103 only wired a *synced* siege engine (`CoopSiege.gd`) for
   madrian, not marsax_hold, so this task applies the design's own sanctioned

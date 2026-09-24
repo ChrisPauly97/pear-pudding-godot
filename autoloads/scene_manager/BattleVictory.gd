@@ -63,7 +63,7 @@ func _on_battle_won(result: Dictionary) -> void:
 		_sm._current_battle_enemy_id = ""
 	if enemy_type != "" and not is_rival and not is_nocturnal:
 		_sm.save_manager.record_enemy_defeated(enemy_type)
-		_sm.save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": enemy_type})
+		_sm.save_manager.bounties.increment_bounty_progress("defeat_enemy_type", {"enemy_type": enemy_type})
 	_sm.save_manager.increment_progress("battles_won", 1)
 	_sm.save_manager.check_deck_achievements(_sm.save_manager.player_deck)
 	_sm._bump_session_stat("battles_won", 1)
@@ -171,11 +171,11 @@ func _on_battle_won(result: Dictionary) -> void:
 
 ## Spire floor cleared: no card/coin rewards, save hero HP, show the draft.
 func _spire_battle_won(result: Dictionary) -> bool:
-	if not _sm.save_manager.is_spire_active():
+	if not _sm.save_manager.spire.is_spire_active():
 		return false
 	var hero_hp: int = int(result.get("hero_hp", 30))
-	_sm.save_manager.set_spire_hero_hp(hero_hp)
-	var spire_run: Dictionary = _sm.save_manager.get_spire_run()
+	_sm.save_manager.spire.set_spire_hero_hp(hero_hp)
+	var spire_run: Dictionary = _sm.save_manager.spire.get_spire_run()
 	var curr_floor: int = int(spire_run.get("floor", 1))
 	var run_seed: int = int(spire_run.get("seed", 0))
 	_sm.save_manager.set_story_flag("spire_floor_%d_%d_cleared" % [curr_floor, run_seed])
@@ -187,7 +187,7 @@ func _spire_battle_won(result: Dictionary) -> bool:
 		_sm._current_battle_enemy_id = ""
 	if spire_enemy_type != "":
 		_sm.save_manager.record_enemy_defeated(spire_enemy_type)
-		_sm.save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": spire_enemy_type})
+		_sm.save_manager.bounties.increment_bounty_progress("defeat_enemy_type", {"enemy_type": spire_enemy_type})
 	_sm.save_manager.increment_progress("battles_won", 1)
 	_sm._bump_session_stat("battles_won", 1)
 	_sm._finish_battle()
@@ -198,11 +198,11 @@ func _spire_battle_won(result: Dictionary) -> bool:
 
 ## Siege gauntlet stage cleared: chain to the next stage or apply the victory.
 func _siege_battle_won(result: Dictionary) -> bool:
-	var _siege: Dictionary = _sm.save_manager.get_active_siege()
+	var _siege: Dictionary = _sm.save_manager.town_siege.get_active_siege()
 	if _siege.is_empty():
 		return false
 	var _siege_hero_hp: int = int(result.get("hero_hp", 30))
-	_sm.save_manager.set_siege_hero_hp(_siege_hero_hp)
+	_sm.save_manager.town_siege.set_siege_hero_hp(_siege_hero_hp)
 	var _siege_stage: int = int(_siege.get("stage", 0))
 	_sm.save_manager.increment_progress("battles_won", 1)
 	_sm._bump_session_stat("battles_won", 1)
@@ -210,7 +210,7 @@ func _siege_battle_won(result: Dictionary) -> bool:
 	_sm.save_manager.clear_pending_battle()
 	_sm.save_manager.clear_pending_battle_state()
 	if _siege_stage < 2:
-		_sm.save_manager.advance_siege_stage()
+		_sm.save_manager.town_siege.advance_siege_stage()
 		_sm.save_manager.save()
 		_sm._dismiss_battle_overlay()
 		_sm._restore_world()
@@ -222,7 +222,7 @@ func _siege_battle_won(result: Dictionary) -> bool:
 	# reuses this exact victory path — only the completion flag is new.
 	if _siege_town == "marsax_hold":
 		_sm.save_manager.set_story_flag("chapter2_siege_won")
-	_sm.save_manager.end_siege_victory()
+	_sm.save_manager.town_siege.end_siege_victory()
 	_sm.save_manager.save()
 	_sm._dismiss_battle_overlay()
 	_sm._restore_world()
@@ -259,7 +259,7 @@ func _mimic_battle_won(enemy_type: String, captured_enemy_id: String) -> bool:
 	_sm._bump_session_stat("coins_earned", mimic_coins)
 	_sm.save_manager.mark_chest_opened(mimic_chest_id)
 	_sm.save_manager.record_enemy_defeated("mimic")
-	_sm.save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": "mimic"})
+	_sm.save_manager.bounties.increment_bounty_progress("defeat_enemy_type", {"enemy_type": "mimic"})
 	_sm.save_manager.increment_progress("enemies_defeated", 1)
 	_sm._bump_session_stat("enemies_defeated", 1)
 	_sm.save_manager.increment_progress("battles_won", 1)

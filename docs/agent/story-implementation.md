@@ -274,7 +274,7 @@ Every beat reuses an existing mechanism rather than building a parallel one:
    `ScriptedBattleData.completion_flag`, same as the rabbit hunt.
 4. **Marsax hold besieged** — reuses the GID-054 siege gauntlet wholesale instead of a parallel
    story-siege system. `"marsax_hold"` added to `SiegeDefs.TOWN_GATES`;
-   `TownSiege._check_story_trigger()` calls `save_manager.start_siege("marsax_hold")` once
+   `TownSiege._check_story_trigger()` calls `save_manager.town_siege.start_siege("marsax_hold")` once
    on map entry (`chapter2_ambush_survived` set, `chapter2_siege_won` not, no siege already
    active), right before the existing `TownSiege.on_map_entered()`. `SceneManager._on_battle_won`'s
    final-stage-victory branch sets `chapter2_siege_won` when the winning siege's town is

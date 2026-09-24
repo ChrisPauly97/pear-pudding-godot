@@ -279,6 +279,13 @@ value falls back to) plus the `var` declaration. `load_save()` and
 being restored. `test_save_manager` asserts every key is a real property and
 that a save → JSON → restore round-trip preserves values.
 
+Feature APIs over those fields live in `autoloads/save_manager/` as RefCounted
+modules built in `SaveManager._init`: `garden`, `bounties`, `decks` (loadouts),
+`spire`, `town_siege`, `mailbox`. Call `save_manager.spire.start_spire_run(...)`.
+The fields themselves stay on SaveManager, because the table walks its properties.
+Schema migrations live in `game_logic/save/SaveMigrations.gd` (bump `CURRENT_VERSION` +
+append one table row). The signed on-disk format is in `game_logic/save/SaveFile.gd`.
+
 Only genuinely derived fields get bespoke handling, in `_restore_derived_fields`
 (`loadouts`, `player_deck`, `level`, `skill_points`, `bag_size`). Enemy battle
 data lives **only** in `EnemyRegistry._ensure_loaded()` — there are no

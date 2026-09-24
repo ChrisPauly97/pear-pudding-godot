@@ -35,13 +35,13 @@ func _check_story_trigger(p_map_name: String) -> void:
 	var sm: Node = SceneManager.save_manager
 	if not sm.get_story_flag("chapter2_ambush_survived") or sm.get_story_flag("chapter2_siege_won"):
 		return
-	if sm.get_active_siege().is_empty():
-		sm.start_siege("marsax_hold")
+	if sm.town_siege.get_active_siege().is_empty():
+		sm.town_siege.start_siege("marsax_hold")
 
 func _spawn_if_active(p_map_name: String) -> void:
 	if not _SiegeDefs.is_siege_town(p_map_name):
 		return
-	var active_siege: Dictionary = SceneManager.save_manager.get_active_siege()
+	var active_siege: Dictionary = SceneManager.save_manager.town_siege.get_active_siege()
 	if active_siege.is_empty() or str(active_siege.get("town", "")) != p_map_name:
 		return
 	_spawn_raiders(p_map_name, int(active_siege.get("stage", 0)))

@@ -57,10 +57,10 @@ func test_apply_migrations_reaches_current_from_v15() -> void:
 # ---------------------------------------------------------------------------
 
 func test_spire_inactive_by_default() -> void:
-	assert_false(_sm.is_spire_active())
+	assert_false(_sm.spire.is_spire_active())
 
 func test_get_spire_run_returns_inactive_dict_by_default() -> void:
-	var run: Dictionary = _sm.get_spire_run()
+	var run: Dictionary = _sm.spire.get_spire_run()
 	assert_false(bool(run.get("active", true)))
 
 # ---------------------------------------------------------------------------
@@ -68,131 +68,131 @@ func test_get_spire_run_returns_inactive_dict_by_default() -> void:
 # ---------------------------------------------------------------------------
 
 func test_start_spire_run_marks_active() -> void:
-	_sm.start_spire_run(1234)
-	assert_true(_sm.is_spire_active())
+	_sm.spire.start_spire_run(1234)
+	assert_true(_sm.spire.is_spire_active())
 
 func test_start_spire_run_sets_floor_to_one() -> void:
-	_sm.start_spire_run(1234)
-	assert_eq(int(_sm.get_spire_run().get("floor", 0)), 1)
+	_sm.spire.start_spire_run(1234)
+	assert_eq(int(_sm.spire.get_spire_run().get("floor", 0)), 1)
 
 func test_start_spire_run_stores_seed() -> void:
-	_sm.start_spire_run(9999)
-	assert_eq(int(_sm.get_spire_run().get("seed", 0)), 9999)
+	_sm.spire.start_spire_run(9999)
+	assert_eq(int(_sm.spire.get_spire_run().get("seed", 0)), 9999)
 
 func test_start_spire_run_hero_hp_is_30() -> void:
-	_sm.start_spire_run(1)
-	assert_eq(int(_sm.get_spire_run().get("hero_hp", 0)), 30)
+	_sm.spire.start_spire_run(1)
+	assert_eq(int(_sm.spire.get_spire_run().get("hero_hp", 0)), 30)
 
 func test_start_spire_run_draft_deck_is_empty() -> void:
-	_sm.start_spire_run(1)
-	assert_eq((_sm.get_spire_run().get("draft_deck", []) as Array).size(), 0)
+	_sm.spire.start_spire_run(1)
+	assert_eq((_sm.spire.get_spire_run().get("draft_deck", []) as Array).size(), 0)
 
 func test_start_spire_run_enemies_defeated_zero() -> void:
-	_sm.start_spire_run(1)
-	assert_eq(int(_sm.get_spire_run().get("enemies_defeated", -1)), 0)
+	_sm.spire.start_spire_run(1)
+	assert_eq(int(_sm.spire.get_spire_run().get("enemies_defeated", -1)), 0)
 
 func test_start_spire_run_cards_drafted_zero() -> void:
-	_sm.start_spire_run(1)
-	assert_eq(int(_sm.get_spire_run().get("cards_drafted", -1)), 0)
+	_sm.spire.start_spire_run(1)
+	assert_eq(int(_sm.spire.get_spire_run().get("cards_drafted", -1)), 0)
 
 # ---------------------------------------------------------------------------
 # advance_spire_floor
 # ---------------------------------------------------------------------------
 
 func test_advance_floor_increments_floor() -> void:
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()
-	assert_eq(int(_sm.get_spire_run().get("floor", 0)), 2)
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()
+	assert_eq(int(_sm.spire.get_spire_run().get("floor", 0)), 2)
 
 func test_advance_floor_increments_enemies_defeated() -> void:
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()
-	assert_eq(int(_sm.get_spire_run().get("enemies_defeated", 0)), 1)
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()
+	assert_eq(int(_sm.spire.get_spire_run().get("enemies_defeated", 0)), 1)
 
 func test_advance_floor_twice_gives_floor_three() -> void:
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()
-	_sm.advance_spire_floor()
-	assert_eq(int(_sm.get_spire_run().get("floor", 0)), 3)
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()
+	_sm.spire.advance_spire_floor()
+	assert_eq(int(_sm.spire.get_spire_run().get("floor", 0)), 3)
 
 func test_advance_floor_noop_when_inactive() -> void:
-	_sm.advance_spire_floor()
-	assert_false(_sm.is_spire_active())
+	_sm.spire.advance_spire_floor()
+	assert_false(_sm.spire.is_spire_active())
 
 # ---------------------------------------------------------------------------
 # add_drafted_card
 # ---------------------------------------------------------------------------
 
 func test_add_drafted_card_appends_to_deck() -> void:
-	_sm.start_spire_run(1)
-	_sm.add_drafted_card("ghost")
-	assert_eq((_sm.get_spire_run().get("draft_deck", []) as Array).size(), 1)
+	_sm.spire.start_spire_run(1)
+	_sm.spire.add_drafted_card("ghost")
+	assert_eq((_sm.spire.get_spire_run().get("draft_deck", []) as Array).size(), 1)
 
 func test_add_drafted_card_increments_cards_drafted() -> void:
-	_sm.start_spire_run(1)
-	_sm.add_drafted_card("ghost")
-	assert_eq(int(_sm.get_spire_run().get("cards_drafted", 0)), 1)
+	_sm.spire.start_spire_run(1)
+	_sm.spire.add_drafted_card("ghost")
+	assert_eq(int(_sm.spire.get_spire_run().get("cards_drafted", 0)), 1)
 
 func test_add_drafted_card_stores_correct_id() -> void:
-	_sm.start_spire_run(1)
-	_sm.add_drafted_card("skeleton")
-	var deck: Array = _sm.get_spire_run().get("draft_deck", [])
+	_sm.spire.start_spire_run(1)
+	_sm.spire.add_drafted_card("skeleton")
+	var deck: Array = _sm.spire.get_spire_run().get("draft_deck", [])
 	assert_eq(str(deck[0]), "skeleton")
 
 func test_add_drafted_card_noop_when_inactive() -> void:
-	_sm.add_drafted_card("ghost")
-	assert_false(_sm.is_spire_active())
+	_sm.spire.add_drafted_card("ghost")
+	assert_false(_sm.spire.is_spire_active())
 
 # ---------------------------------------------------------------------------
 # set_spire_hero_hp
 # ---------------------------------------------------------------------------
 
 func test_set_spire_hero_hp_updates_value() -> void:
-	_sm.start_spire_run(1)
-	_sm.set_spire_hero_hp(15)
-	assert_eq(int(_sm.get_spire_run().get("hero_hp", -1)), 15)
+	_sm.spire.start_spire_run(1)
+	_sm.spire.set_spire_hero_hp(15)
+	assert_eq(int(_sm.spire.get_spire_run().get("hero_hp", -1)), 15)
 
 func test_set_spire_hero_hp_noop_when_inactive() -> void:
-	_sm.set_spire_hero_hp(15)
-	assert_false(_sm.is_spire_active())
+	_sm.spire.set_spire_hero_hp(15)
+	assert_false(_sm.spire.is_spire_active())
 
 # ---------------------------------------------------------------------------
 # end_spire_run
 # ---------------------------------------------------------------------------
 
 func test_end_spire_run_returns_floors_cleared() -> void:
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()
-	_sm.advance_spire_floor()
-	var stats: Dictionary = _sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()
+	_sm.spire.advance_spire_floor()
+	var stats: Dictionary = _sm.spire.end_spire_run()
 	assert_eq(int(stats.get("floors_cleared", -1)), 2)
 
 func test_end_spire_run_returns_enemies_defeated() -> void:
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()
-	var stats: Dictionary = _sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()
+	var stats: Dictionary = _sm.spire.end_spire_run()
 	assert_eq(int(stats.get("enemies_defeated", -1)), 1)
 
 func test_end_spire_run_returns_cards_drafted() -> void:
-	_sm.start_spire_run(1)
-	_sm.add_drafted_card("ghost")
-	_sm.add_drafted_card("skeleton")
-	var stats: Dictionary = _sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.add_drafted_card("ghost")
+	_sm.spire.add_drafted_card("skeleton")
+	var stats: Dictionary = _sm.spire.end_spire_run()
 	assert_eq(int(stats.get("cards_drafted", -1)), 2)
 
 func test_end_spire_run_returns_seed() -> void:
-	_sm.start_spire_run(5555)
-	var stats: Dictionary = _sm.end_spire_run()
+	_sm.spire.start_spire_run(5555)
+	var stats: Dictionary = _sm.spire.end_spire_run()
 	assert_eq(int(stats.get("seed", 0)), 5555)
 
 func test_end_spire_run_clears_active_flag() -> void:
-	_sm.start_spire_run(1)
-	_sm.end_spire_run()
-	assert_false(_sm.is_spire_active())
+	_sm.spire.start_spire_run(1)
+	_sm.spire.end_spire_run()
+	assert_false(_sm.spire.is_spire_active())
 
 func test_end_fresh_run_floors_cleared_zero() -> void:
-	_sm.start_spire_run(1)
-	var stats: Dictionary = _sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	var stats: Dictionary = _sm.spire.end_spire_run()
 	assert_eq(int(stats.get("floors_cleared", -1)), 0)
 
 # ---------------------------------------------------------------------------
@@ -225,21 +225,21 @@ func test_apply_migrations_reaches_current_from_v16() -> void:
 # ---------------------------------------------------------------------------
 
 func test_end_awards_coins_per_floor_cleared() -> void:
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()
-	_sm.advance_spire_floor()  # 2 floors cleared
-	_sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()
+	_sm.spire.advance_spire_floor()  # 2 floors cleared
+	_sm.spire.end_spire_run()
 	assert_eq(_sm.coins, 10)  # 2 * 5
 
 func test_end_returns_coins_earned_in_stats() -> void:
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()  # 1 floor cleared
-	var stats: Dictionary = _sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()  # 1 floor cleared
+	var stats: Dictionary = _sm.spire.end_spire_run()
 	assert_eq(int(stats.get("coins_earned", -1)), 5)
 
 func test_end_awards_zero_coins_for_no_floors_cleared() -> void:
-	_sm.start_spire_run(1)
-	_sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.end_spire_run()
 	assert_eq(_sm.coins, 0)
 
 # ---------------------------------------------------------------------------
@@ -247,48 +247,48 @@ func test_end_awards_zero_coins_for_no_floors_cleared() -> void:
 # ---------------------------------------------------------------------------
 
 func test_end_updates_spire_best_floor_on_new_record() -> void:
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()
-	_sm.advance_spire_floor()
-	_sm.advance_spire_floor()  # 3 floors cleared
-	_sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()
+	_sm.spire.advance_spire_floor()
+	_sm.spire.advance_spire_floor()  # 3 floors cleared
+	_sm.spire.end_spire_run()
 	assert_eq(_sm.spire_best_floor, 3)
 
 func test_end_does_not_lower_spire_best_floor() -> void:
 	_sm.spire_best_floor = 10
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()  # only 1 cleared
-	_sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()  # only 1 cleared
+	_sm.spire.end_spire_run()
 	assert_eq(_sm.spire_best_floor, 10)
 
 func test_end_is_new_record_true_when_best_beaten() -> void:
 	_sm.spire_best_floor = 1
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()
-	_sm.advance_spire_floor()  # 2 > 1
-	var stats: Dictionary = _sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()
+	_sm.spire.advance_spire_floor()  # 2 > 1
+	var stats: Dictionary = _sm.spire.end_spire_run()
 	assert_true(bool(stats.get("is_new_record", false)))
 
 func test_end_is_new_record_false_when_not_beaten() -> void:
 	_sm.spire_best_floor = 5
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()  # 1 < 5
-	var stats: Dictionary = _sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()  # 1 < 5
+	var stats: Dictionary = _sm.spire.end_spire_run()
 	assert_false(bool(stats.get("is_new_record", true)))
 
 func test_end_stats_include_best_floor_field() -> void:
 	_sm.spire_best_floor = 0
-	_sm.start_spire_run(1)
-	_sm.advance_spire_floor()
-	_sm.advance_spire_floor()  # 2 cleared → new best = 2
-	var stats: Dictionary = _sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.advance_spire_floor()
+	_sm.spire.advance_spire_floor()  # 2 cleared → new best = 2
+	var stats: Dictionary = _sm.spire.end_spire_run()
 	assert_eq(int(stats.get("best_floor", -1)), 2)
 
 func test_end_returns_draft_deck_ids_in_stats() -> void:
-	_sm.start_spire_run(1)
-	_sm.add_drafted_card("ghost")
-	_sm.add_drafted_card("zombie")
-	var stats: Dictionary = _sm.end_spire_run()
+	_sm.spire.start_spire_run(1)
+	_sm.spire.add_drafted_card("ghost")
+	_sm.spire.add_drafted_card("zombie")
+	var stats: Dictionary = _sm.spire.end_spire_run()
 	var ids: Array = stats.get("draft_deck_ids", [])
 	assert_eq(ids.size(), 2)
 	assert_has(ids, "ghost")
@@ -299,29 +299,29 @@ func test_end_returns_draft_deck_ids_in_stats() -> void:
 # ---------------------------------------------------------------------------
 
 func test_end_sets_spire_floor5_flag_at_threshold() -> void:
-	_sm.start_spire_run(1)
+	_sm.spire.start_spire_run(1)
 	for _i: int in range(5):
-		_sm.advance_spire_floor()  # 5 floors cleared
-	_sm.end_spire_run()
+		_sm.spire.advance_spire_floor()  # 5 floors cleared
+	_sm.spire.end_spire_run()
 	assert_true(_sm.get_story_flag("spire_reached_floor_5"))
 
 func test_end_does_not_set_spire_floor5_flag_below_threshold() -> void:
-	_sm.start_spire_run(1)
+	_sm.spire.start_spire_run(1)
 	for _i: int in range(4):
-		_sm.advance_spire_floor()  # 4 floors cleared
-	_sm.end_spire_run()
+		_sm.spire.advance_spire_floor()  # 4 floors cleared
+	_sm.spire.end_spire_run()
 	assert_false(_sm.get_story_flag("spire_reached_floor_5"))
 
 func test_end_sets_spire_floor10_flag_at_threshold() -> void:
-	_sm.start_spire_run(1)
+	_sm.spire.start_spire_run(1)
 	for _i: int in range(10):
-		_sm.advance_spire_floor()  # 10 floors cleared
-	_sm.end_spire_run()
+		_sm.spire.advance_spire_floor()  # 10 floors cleared
+	_sm.spire.end_spire_run()
 	assert_true(_sm.get_story_flag("spire_reached_floor_10"))
 
 func test_end_does_not_set_spire_floor10_flag_below_threshold() -> void:
-	_sm.start_spire_run(1)
+	_sm.spire.start_spire_run(1)
 	for _i: int in range(9):
-		_sm.advance_spire_floor()  # 9 floors cleared
-	_sm.end_spire_run()
+		_sm.spire.advance_spire_floor()  # 9 floors cleared
+	_sm.spire.end_spire_run()
 	assert_false(_sm.get_story_flag("spire_reached_floor_10"))

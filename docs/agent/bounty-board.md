@@ -44,7 +44,7 @@ Public constants:
 
 ### Refresh / Rollover
 
-`SaveManager._refresh_bounties()` is called from:
+`SaveManager.bounties._refresh_bounties()` is called from:
 - `increment_day()` — triggers at midnight when the day increments
 - `get_offered_bounties()` — called by the board entity (TID-189) to ensure data is current
 
@@ -53,11 +53,11 @@ Rollover logic: if `days_elapsed != bounty_day` or `offered_bounties` is empty, 
 ### Public API
 
 ```gdscript
-SaveManager.get_offered_bounties() -> Array[Dictionary]  # auto-refreshes if stale
-SaveManager.get_active_bounties() -> Array[Dictionary]
-SaveManager.accept_bounty(id: String) -> bool            # moves offered→active, max-3 cap
-SaveManager.claim_bounty(id: String) -> int              # pays coins, returns reward (0 on fail)
-SaveManager.increment_bounty_progress(bounty_type: String, match_data: Dictionary) -> void
+SaveManager.bounties.get_offered_bounties() -> Array[Dictionary]  # auto-refreshes if stale
+SaveManager.bounties.get_active_bounties() -> Array[Dictionary]
+SaveManager.bounties.accept_bounty(id: String) -> bool            # moves offered→active, max-3 cap
+SaveManager.bounties.claim_bounty(id: String) -> int              # pays coins, returns reward (0 on fail)
+SaveManager.bounties.increment_bounty_progress(bounty_type: String, match_data: Dictionary) -> void
 ```
 
 `increment_bounty_progress` is called from three sites:

@@ -542,7 +542,7 @@ func refresh_bounty_tracker() -> void:
 		child.queue_free()
 	var vh: float = _hud.get_viewport().get_visible_rect().size.y
 	var font_size: int = int(vh * 0.02)
-	var active: Array[Dictionary] = SceneManager.save_manager.get_active_bounties()
+	var active: Array[Dictionary] = SceneManager.save_manager.bounties.get_active_bounties()
 	for b: Dictionary in active:
 		if bool(b.get("claimed", false)):
 			continue

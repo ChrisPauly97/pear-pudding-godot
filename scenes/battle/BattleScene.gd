@@ -406,8 +406,8 @@ func _setup_solo_battle() -> void:
 	# Player deck: spire run uses its run-local draft deck; otherwise use the
 	# persistent player deck. Floor 1 starter gives 8 basics before any pick.
 	var player_deck: Array[String] = []
-	if SceneManager.save_manager.is_spire_active():
-		var draft: Array = SceneManager.save_manager.get_spire_run().get("draft_deck", [])
+	if SceneManager.save_manager.spire.is_spire_active():
+		var draft: Array = SceneManager.save_manager.spire.get_spire_run().get("draft_deck", [])
 		if draft.size() > 0:
 			player_deck.assign(draft)
 		else:
@@ -427,12 +427,12 @@ func _setup_solo_battle() -> void:
 	_apply_passive_skills(_state.players[0])
 	_state.players[0].draw_opening_hand(4)
 	# Spire run: hero HP persists across floors (damage carries over).
-	if SceneManager.save_manager.is_spire_active():
-		var _spire_hp: int = int(SceneManager.save_manager.get_spire_run().get("hero_hp", 30))
+	if SceneManager.save_manager.spire.is_spire_active():
+		var _spire_hp: int = int(SceneManager.save_manager.spire.get_spire_run().get("hero_hp", 30))
 		if _spire_hp > 0:
 			_state.players[0].hero.health = mini(_spire_hp, _state.players[0].hero.max_health)
 	# Siege gauntlet: hero HP carries over from the previous stage.
-	var _siege_state: Dictionary = SceneManager.save_manager.get_active_siege()
+	var _siege_state: Dictionary = SceneManager.save_manager.town_siege.get_active_siege()
 	if not _siege_state.is_empty():
 		var _siege_hp: int = int(_siege_state.get("hero_hp", 30))
 		if _siege_hp > 0:
@@ -1322,7 +1322,7 @@ func _show_potion_picker() -> void:
 
 func _apply_potion_effect(potion_id: String) -> void:
 	var sm := SceneManager.save_manager
-	if not sm.remove_potions(potion_id, 1):
+	if not sm.garden.remove_potions(potion_id, 1):
 		return
 	_used_potion_this_battle = true
 	if _is_pvp_client():

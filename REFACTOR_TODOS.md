@@ -74,3 +74,12 @@ Done:
 - [x] **State machine** — `SceneFlow` transition table, `_transition_to`, `_enter_battle` (see top of file)
 - [x] **`SceneManager.gd` 1.8k → 1.1k lines** — battle victory, battle defeat and networked battles moved to `autoloads/scene_manager/{BattleVictory,BattleDefeat,NetBattles}.gd`; external callers use `SceneManager.net_battles.*`
 - [ ] **Co-op Spire run** — the `_coop_spire_run` dict and its eight accessors could become a pure `game_logic/` object; left on SceneManager because the unit tests poke the dict directly
+
+### SaveManager split (claude/refactor-targets-lint-ivoueg)
+
+- [x] **Migrations** — `game_logic/save/SaveMigrations.gd` owns the table + `CURRENT_VERSION`; 13 dead `_migrate_vN_to_vM` copies (tested, never run by `load_save`) deleted, tests now exercise the real table via `apply(data, up_to)`
+- [x] **On-disk format** — `game_logic/save/SaveFile.gd` (paths, HMAC envelope, `write_slot`); the tmp → .bak → rename sequence existed twice
+- [x] **Feature APIs** — `autoloads/save_manager/{SaveGarden,SaveBounties,SaveLoadouts,SaveSpire,SaveSiege,SaveMailbox}.gd`, reached as `save_manager.<garden|bounties|decks|spire|town_siege|mailbox>`
+- [x] **`SaveManager.gd` 2.2k → 1.5k lines**
+- [ ] **Remaining clusters** — card instances / equipment / weapons (~350 lines, the most callers), `new_game` (~110), co-op session character adoption (~110)
+

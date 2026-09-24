@@ -52,16 +52,16 @@ func _on_battle_lost() -> void:
 		_sm._transition_to(State.WORLD)
 		return
 	# Siege defeat: apply coin penalty, end siege, then show standard game over.
-	var _siege_on_lost: Dictionary = _sm.save_manager.get_active_siege()
+	var _siege_on_lost: Dictionary = _sm.save_manager.town_siege.get_active_siege()
 	if not _siege_on_lost.is_empty():
 		var _loss_coins: int = int(_sm.save_manager.coins * 0.10)
 		if _loss_coins > 0:
 			_sm.save_manager.add_coins(-_loss_coins)
-		_sm.save_manager.end_siege_defeat()
+		_sm.save_manager.town_siege.end_siege_defeat()
 		GameBus.siege_defeated.emit(_loss_coins)
-	if _sm.save_manager.is_spire_active():
+	if _sm.save_manager.spire.is_spire_active():
 		_sm._restore_spire_entry_point()
-		var stats: Dictionary = _sm.save_manager.end_spire_run()
+		var stats: Dictionary = _sm.save_manager.spire.end_spire_run()
 		GameBus.spire_run_ended.emit(stats)
 		_sm._finish_battle()
 		if _sm._saved_world_scene != null:

@@ -76,7 +76,7 @@ func _refresh() -> void:
 	var coins: int = SceneManager.save_manager.coins
 	_coin_label.text = "Your coins: %d" % coins
 
-	var discounted: bool = town_name != "" and SceneManager.save_manager.is_town_discounted(town_name)
+	var discounted: bool = town_name != "" and SceneManager.save_manager.town_siege.is_town_discounted(town_name)
 
 	# Traveling merchant: show only custom stock at premium price, no weapons.
 	if not _custom_stock.is_empty():
@@ -411,7 +411,7 @@ func _on_buy_seed(seed_id: String) -> void:
 	if sm.coins < SEED_PRICE:
 		return
 	sm.add_coins(-SEED_PRICE)
-	sm.add_seeds(seed_id, 1)
+	sm.garden.add_seeds(seed_id, 1)
 	_refresh()
 
 func _on_close() -> void:

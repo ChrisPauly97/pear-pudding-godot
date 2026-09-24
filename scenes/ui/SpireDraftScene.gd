@@ -33,7 +33,7 @@ func setup(floor: int) -> void:
 	_floor_number = floor
 	_draft_logic = SpireDraft.new()
 	var rng := RandomNumberGenerator.new()
-	rng.seed = int(SceneManager.save_manager.get_spire_run().get("seed", 0)) + floor
+	rng.seed = int(SceneManager.save_manager.spire.get_spire_run().get("seed", 0)) + floor
 	var pool_templates: Dictionary = {}
 	for id: String in CardRegistry.get_all_ids():
 		pool_templates[id] = CardRegistry.get_template(id)
@@ -93,7 +93,7 @@ func _on_pick(card_id: String) -> void:
 		picked.emit(card_id)
 		queue_free()
 		return
-	SceneManager.save_manager.add_drafted_card(card_id)
+	SceneManager.save_manager.spire.add_drafted_card(card_id)
 	GameBus.spire_card_drafted.emit(card_id)
 	picked.emit(card_id)
 	queue_free()

@@ -300,9 +300,9 @@ func go_to_menu() -> void:
 	if scene and scene.has_method("flush_time_of_day"):
 		scene.flush_time_of_day()
 	# Spire retreat: restore entry point, end run, show Spire summary.
-	if _state == State.WORLD and save_manager.is_spire_active():
+	if _state == State.WORLD and save_manager.spire.is_spire_active():
 		_restore_spire_entry_point()
-		var stats: Dictionary = save_manager.end_spire_run()
+		var stats: Dictionary = save_manager.spire.end_spire_run()
 		GameBus.spire_run_ended.emit(stats)
 		save_manager.save()
 		_exit_world_cleanup()
@@ -451,7 +451,7 @@ func enter_map_coop(map_name: String) -> void:
 func exit_map() -> void:
 	_flush_position_save()
 	# Spire: exiting a floor loads the next floor rather than popping the map stack.
-	if save_manager.is_spire_active() and current_map.begins_with("spire_floor_"):
+	if save_manager.spire.is_spire_active() and current_map.begins_with("spire_floor_"):
 		# The draft overlay doesn't pause world input, so the player can reach the
 		# exit door with a pick still owed. Advancing would rebuild the scene and
 		# take the unclaimed card with it, so hold the door until they pick.
@@ -916,14 +916,14 @@ func _on_tutorial_popup_requested(popup_id: String) -> void:
 
 ## Starts or resumes an Endless Spire run from the entrance door in a town map.
 func enter_spire() -> void:
-	if save_manager.is_spire_active():
-		var run: Dictionary = save_manager.get_spire_run()
+	if save_manager.spire.is_spire_active():
+		var run: Dictionary = save_manager.spire.get_spire_run()
 		var floor: int = int(run.get("floor", 1))
 		var run_seed: int = int(run.get("seed", 0))
 		enter_map("spire_floor_%d_%d" % [floor, run_seed], "")
 	else:
 		var seed: int = randi()
-		save_manager.start_spire_run(seed)
+		save_manager.spire.start_spire_run(seed)
 		GameBus.tutorial_popup_requested.emit("spire_intro")
 		enter_map("spire_floor_1_%d" % seed, "")
 
@@ -972,8 +972,8 @@ func _on_pack_open_closed() -> void:
 	_transition_to(State.WORLD)
 
 func _advance_spire_floor() -> void:
-	save_manager.advance_spire_floor()
-	var run: Dictionary = save_manager.get_spire_run()
+	save_manager.spire.advance_spire_floor()
+	var run: Dictionary = save_manager.spire.get_spire_run()
 	var next_floor: int = int(run.get("floor", 1))
 	var run_seed: int = int(run.get("seed", 0))
 	var next_map: String = "spire_floor_%d_%d" % [next_floor, run_seed]

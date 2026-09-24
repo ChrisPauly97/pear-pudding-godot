@@ -61,7 +61,7 @@ The batched flush is **asynchronous** — a full save is a multi-hundred-KB pret
 - `save()` (public, synchronous): used by explicit save points — scene transitions, battle end, pause menu. Waits for any in-flight background write (`_await_async_save()`), then writes inline. Never two writers on the same slot's tmp file.
 - `_flush_now()` (shutdown path): `NOTIFICATION_WM_CLOSE_REQUEST` / `EXIT_TREE` / `APPLICATION_PAUSED` / `FOCUS_OUT` flush fully inline, because the process may die before a background task or deferred call ever runs.
 - `_collect_save_data()` assembles the save Dictionary from live state (references, not copies) — main thread only.
-- `_write_save_payload(data, slot)` is thread-safe: it touches only its arguments, pure path helpers, and the filesystem, and reports completion via `call_deferred`.
+- `_write_save_payload(data, slot)` is thread-safe: it calls `SaveFile.write_slot`, which touches only its arguments and the filesystem, and reports completion via `call_deferred`. `_flush_achievements` (co-op sessions) uses the same `write_slot`.
 - `delete_save_slot()` also waits for an in-flight write so a background flush can't resurrect a just-deleted file.
 
 ### Field Descriptions
@@ -115,20 +115,43 @@ The batched flush is **asynchronous** — a full save is a multi-hundred-KB pret
 
 ### Migration
 
-On `load()`, after parsing the JSON, `SaveManager._migrate(data)` checks for missing keys and inserts defaults:
+`load_save()` parses the slot (falling back to `.bak`), then calls
+`SaveMigrations.apply(data)` (`game_logic/save/SaveMigrations.gd`) before restoring
+fields. `apply` walks one table of `[target_version, payload]` rows in ascending
+order, reading the file's `version` once so a very old save runs every later row in
+one pass:
 
-```gdscript
-func _migrate(data: Dictionary) -> void:
-    if not data.has("coins"):
-        data["coins"] = 0
-    if not data.has("time_of_day"):
-        data["time_of_day"] = 0.0
-    if not data.has("starting_biome"):
-        data["starting_biome"] = "grasslands"
-    # …add new fields here for future versions
-```
+- **Dictionary payload**: `{field: default}` backfill. It never overwrites a key the save already has.
+- **Callable payload**: a real format change (v1, v10, v30, v34, v35). It must set `d["version"]` itself.
 
-This means any old save file continues to work after a game update.
+`apply(data, up_to)` stops after the `up_to` row. The feature suites use it to check
+their row of the real table in isolation. (Before this split they called 13
+standalone `_migrate_vN_to_vM` copies that `load_save` never ran.) `test_save_migrations`
+checks that rows are ascending, that the last row equals `CURRENT_VERSION`
+(`SaveManager.CURRENT_SAVE_VERSION` aliases it), and that every Callable row bumps the version.
+
+Adding a version: bump `CURRENT_VERSION`, append one row, and add the field to
+`SaveManager.PERSISTED_FIELDS`.
+
+### Code Layout
+
+| File | Owns |
+|---|---|
+| `autoloads/SaveManager.gd` | Persisted fields + `PERSISTED_FIELDS`, slot API, load/save/flush, core mutators (cards, equipment, story flags, XP, settings, progress) |
+| `game_logic/save/SaveMigrations.gd` | Migration table, `CURRENT_VERSION` |
+| `game_logic/save/SaveFile.gd` | Slot paths, HMAC envelope (`hmac`, `read_json`), atomic `write_slot` (tmp → `.bak` → rename). Static and thread-safe |
+| `autoloads/save_manager/SaveGarden.gd` (`garden`) | Garden plots, seeds / plants / potions |
+| `autoloads/save_manager/SaveBounties.gd` (`bounties`) | Daily bounty refresh, accept, progress, claim |
+| `autoloads/save_manager/SaveLoadouts.gd` (`decks`) | Named deck loadouts |
+| `autoloads/save_manager/SaveSpire.gd` (`spire`) | Endless Spire run state |
+| `autoloads/save_manager/SaveSiege.gd` (`town_siege`) | Siege gauntlet + town discounts |
+| `autoloads/save_manager/SaveMailbox.gd` (`mailbox`) | Mailbox overflow cards |
+
+The feature modules are RefCounted objects built in `SaveManager._init()`, not
+`_ready`, because tests create `SaveManagerScript.new()` without adding it to the
+tree. They read and write the fields through a `_save` back-reference. The fields
+stay on SaveManager because `PERSISTED_FIELDS` walks its properties. Call them as
+`save_manager.spire.start_spire_run(seed)`.
 
 ### New Game
 

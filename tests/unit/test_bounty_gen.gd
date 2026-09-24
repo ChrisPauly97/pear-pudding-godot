@@ -198,28 +198,28 @@ func test_active_bounties_starts_empty() -> void:
 	assert_true(_sm.active_bounties.is_empty())
 
 func test_get_offered_bounties_populates_on_first_call() -> void:
-	var offered: Array[Dictionary] = _sm.get_offered_bounties()
+	var offered: Array[Dictionary] = _sm.bounties.get_offered_bounties()
 	assert_eq(offered.size(), 3, "first call must generate 3 offered bounties")
 
 func test_get_offered_bounties_sets_bounty_day() -> void:
 	_sm.days_elapsed = 7
-	_sm.get_offered_bounties()
+	_sm.bounties.get_offered_bounties()
 	assert_eq(_sm.bounty_day, 7)
 
 func test_get_offered_bounties_adds_offered_at_day_field() -> void:
 	_sm.days_elapsed = 3
-	var offered: Array[Dictionary] = _sm.get_offered_bounties()
+	var offered: Array[Dictionary] = _sm.bounties.get_offered_bounties()
 	for b: Dictionary in offered:
 		assert_true(b.has("offered_at_day"), "each bounty must have offered_at_day")
 		assert_eq(int(b["offered_at_day"]), 3)
 
 func test_rollover_clears_offered_bounties() -> void:
 	_sm.days_elapsed = 0
-	_sm.get_offered_bounties()
+	_sm.bounties.get_offered_bounties()
 	var first_target: String = str(_sm.offered_bounties[0].get("target", ""))
 
 	_sm.days_elapsed = 1
-	_sm.get_offered_bounties()
+	_sm.bounties.get_offered_bounties()
 	# bounty_day should now match days_elapsed
 	assert_eq(_sm.bounty_day, 1)
 	# and offered_bounties regenerated (may differ from day 0)
@@ -227,25 +227,25 @@ func test_rollover_clears_offered_bounties() -> void:
 
 func test_rollover_preserves_active_bounties() -> void:
 	_sm.days_elapsed = 0
-	_sm.get_offered_bounties()
+	_sm.bounties.get_offered_bounties()
 	_sm.active_bounties.append({"id": "test_bounty", "progress": 1, "claimed": false})
 
 	_sm.days_elapsed = 1
-	_sm.get_offered_bounties()
+	_sm.bounties.get_offered_bounties()
 	assert_eq(_sm.active_bounties.size(), 1, "active bounties must persist across day rollover")
 
 func test_no_double_refresh_same_day() -> void:
 	_sm.days_elapsed = 5
-	_sm.get_offered_bounties()
+	_sm.bounties.get_offered_bounties()
 	var first_id: String = str(_sm.offered_bounties[0].get("id", ""))
 	_sm.offered_bounties[0]["_marker"] = "touched"
 
-	_sm.get_offered_bounties()
+	_sm.bounties.get_offered_bounties()
 	assert_true(_sm.offered_bounties[0].has("_marker"), "should not regenerate on same day")
 
 func test_increment_day_triggers_rollover() -> void:
 	_sm.days_elapsed = 0
-	_sm.get_offered_bounties()
+	_sm.bounties.get_offered_bounties()
 	_sm.increment_day()
 	assert_eq(_sm.bounty_day, 1, "bounty_day must update after increment_day")
 	assert_eq(_sm.offered_bounties.size(), 3)

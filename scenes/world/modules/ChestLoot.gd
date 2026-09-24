@@ -39,7 +39,7 @@ func open(chest: Dictionary, px: float, pz: float) -> void:
 	if OS.has_feature("mobile") and bool(sm.get_setting("haptics", true)):
 		Input.vibrate_handheld(40)
 	sm.mark_chest_opened(cid)
-	sm.increment_bounty_progress("open_chests", {})
+	sm.bounties.increment_bounty_progress("open_chests", {})
 	SceneManager.session_stats["chests_opened"] = int(SceneManager.session_stats.get("chests_opened", 0)) + 1
 	var node: Node3D = _world._valid_node3d(_world._chest_nodes.get(cid))
 	if node != null and node.has_method("mark_opened"):

@@ -76,24 +76,24 @@ func test_ember_tonic_does_not_change_max_mana() -> void:
 # ---------------------------------------------------------------------------
 
 func test_remove_potions_decrements_count() -> void:
-	_sm.add_potions("healing_draught", 2)
-	_sm.remove_potions("healing_draught", 1)
+	_sm.garden.add_potions("healing_draught", 2)
+	_sm.garden.remove_potions("healing_draught", 1)
 	assert_eq(int(_sm.potions.get("healing_draught", 0)), 1)
 
 func test_remove_potions_returns_true_when_sufficient() -> void:
-	_sm.add_potions("clarity_brew", 1)
-	assert_true(_sm.remove_potions("clarity_brew", 1))
+	_sm.garden.add_potions("clarity_brew", 1)
+	assert_true(_sm.garden.remove_potions("clarity_brew", 1))
 
 func test_remove_potions_returns_false_when_zero() -> void:
-	_sm.add_potions("clarity_brew", 0)
-	assert_false(_sm.remove_potions("clarity_brew", 1))
+	_sm.garden.add_potions("clarity_brew", 0)
+	assert_false(_sm.garden.remove_potions("clarity_brew", 1))
 
 func test_remove_potions_returns_false_when_absent() -> void:
-	assert_false(_sm.remove_potions("ember_tonic", 1))
+	assert_false(_sm.garden.remove_potions("ember_tonic", 1))
 
 func test_remove_potions_does_not_deduct_when_insufficient() -> void:
-	_sm.add_potions("ember_tonic", 1)
-	_sm.remove_potions("ember_tonic", 2)
+	_sm.garden.add_potions("ember_tonic", 1)
+	_sm.garden.remove_potions("ember_tonic", 2)
 	assert_eq(int(_sm.potions.get("ember_tonic", 0)), 1)
 
 # ---------------------------------------------------------------------------
@@ -102,14 +102,14 @@ func test_remove_potions_does_not_deduct_when_insufficient() -> void:
 
 func test_one_per_battle_flag_blocks_second_use() -> void:
 	var used: bool = false
-	_sm.add_potions("healing_draught", 3)
+	_sm.garden.add_potions("healing_draught", 3)
 	# First use
-	var first: bool = (not used) and _sm.remove_potions("healing_draught", 1)
+	var first: bool = (not used) and _sm.garden.remove_potions("healing_draught", 1)
 	if first:
 		used = true
 	assert_true(first)
 	# Second use blocked by flag
-	var second: bool = (not used) and _sm.remove_potions("healing_draught", 1)
+	var second: bool = (not used) and _sm.garden.remove_potions("healing_draught", 1)
 	assert_false(second)
 	# Count only decremented once
 	assert_eq(int(_sm.potions.get("healing_draught", 0)), 2)
