@@ -72,8 +72,8 @@ func _populate_rows() -> void:
 		child.queue_free()
 	_row_nodes.clear()
 
-	var offered: Array[Dictionary] = SceneManager.save_manager.get_offered_bounties()
-	var active: Array[Dictionary] = SceneManager.save_manager.get_active_bounties()
+	var offered: Array[Dictionary] = SceneManager.save_manager.bounties.get_offered_bounties()
+	var active: Array[Dictionary] = SceneManager.save_manager.bounties.get_active_bounties()
 
 	# Build a lookup: bounty_id -> active entry
 	var active_map: Dictionary = {}
@@ -132,7 +132,7 @@ func _build_row(bounty: Dictionary, active_entry: Dictionary) -> Control:
 	match state:
 		"not_accepted":
 			var btn := _UiUtil.make_button("Accept", btn_size)
-			if SceneManager.save_manager.get_active_bounties().size() >= 3:
+			if SceneManager.save_manager.bounties.get_active_bounties().size() >= 3:
 				btn.disabled = true
 				btn.tooltip_text = "Max 3 active bounties"
 			else:
@@ -181,7 +181,7 @@ func _format_bounty_desc(btype: String, target: String, count: int) -> String:
 	return "Complete this contract"
 
 func _on_accept_pressed(bounty_id: String, bounty: Dictionary) -> void:
-	var ok: bool = SceneManager.save_manager.accept_bounty(bounty_id)
+	var ok: bool = SceneManager.save_manager.bounties.accept_bounty(bounty_id)
 	if ok:
 		var desc: String = _format_bounty_desc(str(bounty.get("type", "")),
 			str(bounty.get("target", "")), int(bounty.get("count", 1)))
@@ -189,7 +189,7 @@ func _on_accept_pressed(bounty_id: String, bounty: Dictionary) -> void:
 	_populate_rows()
 
 func _on_claim_pressed(bounty_id: String, _reward: int) -> void:
-	var paid: int = SceneManager.save_manager.claim_bounty(bounty_id)
+	var paid: int = SceneManager.save_manager.bounties.claim_bounty(bounty_id)
 	if paid > 0:
 		SceneManager.show_toast("Bounty Complete!", "+%d coins" % paid)
 	_populate_rows()

@@ -159,7 +159,7 @@ func _request_ghost_duel(token: String) -> void:
 		if snapshot.is_empty():
 			GameBus.hud_message_requested.emit("That ghost's deck couldn't be resolved.")
 			return
-		SceneManager.enter_ghost_duel(snapshot)
+		SceneManager.net_battles.enter_ghost_duel(snapshot)
 	elif _world._net_sync != null:
 		_world._net_sync.rpc_id(1, "request_ghost_snapshot", token)
 
@@ -202,7 +202,7 @@ func _on_ghost_snapshot_received(snapshot: Dictionary) -> void:
 	if snapshot.is_empty():
 		GameBus.hud_message_requested.emit("That ghost's deck couldn't be resolved.")
 		return
-	SceneManager.enter_ghost_duel(snapshot)
+	SceneManager.net_battles.enter_ghost_duel(snapshot)
 
 
 ## GID-107 / TID-396 priority rule: the world-interact prompt always wins the shared

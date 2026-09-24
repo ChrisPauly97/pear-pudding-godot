@@ -1,6 +1,8 @@
 ## Unit tests for GID-067 Ancient Colossi — landmark placement, names, and discovery.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const LandmarkNames    = preload("res://game_logic/world/LandmarkNames.gd")
 const LandmarkMesh     = preload("res://game_logic/world/LandmarkMesh.gd")
@@ -290,7 +292,7 @@ func test_all_variants_have_positive_collision_size() -> void:
 
 func test_save_migration_backfills_discovered_landmarks() -> void:
 	var data: Dictionary = {"version": 38}
-	SaveManager._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_true(data.has("discovered_landmarks"),
 		"migration must add discovered_landmarks field")
 	assert_eq(data["discovered_landmarks"], [],

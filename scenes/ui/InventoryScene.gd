@@ -279,7 +279,7 @@ func _rebuild_loadout_bar() -> void:
 	for child in _loadout_tab_row.get_children():
 		child.queue_free()
 
-	var names: Array[String] = sm.get_loadout_names()
+	var names: Array[String] = sm.decks.get_loadout_names()
 	var active_idx: int = sm.active_loadout
 	var at_cap: bool = names.size() >= sm.MAX_LOADOUTS
 
@@ -290,7 +290,7 @@ func _rebuild_loadout_bar() -> void:
 		if i == active_idx:
 			is_valid = _working_deck.size() >= IsoConst.DECK_MIN and _working_deck.size() <= IsoConst.DECK_MAX
 		else:
-			is_valid = sm.is_loadout_valid(i)
+			is_valid = sm.decks.is_loadout_valid(i)
 		if i == active_idx:
 			tab_btn.modulate = Color.WHITE if is_valid else Color(1.0, 0.35, 0.35)
 		else:
@@ -878,13 +878,13 @@ func _do_craft_potion(potion_id: String, essence_cost: int, ingredients: Diction
 	var sm := SceneManager.save_manager
 	for ingredient_id: String in ingredients:
 		var required: int = int(ingredients[ingredient_id])
-		if not sm.remove_plants(ingredient_id, required):
+		if not sm.garden.remove_plants(ingredient_id, required):
 			return
 	if not sm.spend_essence(essence_cost):
 		for ingredient_id: String in ingredients:
-			sm.add_plants(ingredient_id, int(ingredients[ingredient_id]))
+			sm.garden.add_plants(ingredient_id, int(ingredients[ingredient_id]))
 		return
-	sm.add_potions(potion_id, 1)
+	sm.garden.add_potions(potion_id, 1)
 	GameBus.potion_crafted.emit(potion_id)
 	_refresh_craft()
 
@@ -987,17 +987,17 @@ func _on_close() -> void:
 func _on_loadout_tab(index: int) -> void:
 	var sm := SceneManager.save_manager
 	sm.set_active_deck(_working_deck)
-	sm.set_active_loadout(index)
+	sm.decks.set_active_loadout(index)
 	_working_deck.assign(sm.player_deck)
 	_refresh_cards()
 
 func _on_new_loadout() -> void:
 	var sm := SceneManager.save_manager
 	sm.set_active_deck(_working_deck)
-	var new_idx: int = sm.add_loadout("Deck %d" % (sm.loadouts.size() + 1))
+	var new_idx: int = sm.decks.add_loadout("Deck %d" % (sm.loadouts.size() + 1))
 	if new_idx < 0:
 		return
-	sm.set_active_loadout(new_idx)
+	sm.decks.set_active_loadout(new_idx)
 	_working_deck.assign(sm.player_deck)
 	_refresh_cards()
 
@@ -1030,7 +1030,7 @@ func _on_rename_loadout() -> void:
 	ok_btn.pressed.connect(func() -> void:
 		var new_name: String = edit.text.strip_edges()
 		if new_name.length() > 0:
-			sm.rename_loadout(sm.active_loadout, new_name)
+			sm.decks.rename_loadout(sm.active_loadout, new_name)
 			_refresh_cards()
 		popup.queue_free())
 	btn_row.add_child(ok_btn)
@@ -1047,10 +1047,10 @@ func _on_rename_loadout() -> void:
 func _on_dup_loadout() -> void:
 	var sm := SceneManager.save_manager
 	sm.set_active_deck(_working_deck)
-	var new_idx: int = sm.duplicate_loadout(sm.active_loadout)
+	var new_idx: int = sm.decks.duplicate_loadout(sm.active_loadout)
 	if new_idx < 0:
 		return
-	sm.set_active_loadout(new_idx)
+	sm.decks.set_active_loadout(new_idx)
 	_working_deck.assign(sm.player_deck)
 	_refresh_cards()
 
@@ -1077,7 +1077,7 @@ func _on_del_loadout() -> void:
 	yes_btn.modulate = Color(1.0, 0.4, 0.4)
 	yes_btn.pressed.connect(func() -> void:
 		popup.queue_free()
-		sm.delete_loadout(sm.active_loadout)
+		sm.decks.delete_loadout(sm.active_loadout)
 		_working_deck.assign(sm.player_deck)
 		_refresh_cards())
 	btn_row.add_child(yes_btn)

@@ -292,6 +292,16 @@ Spire floors are WORLD → WORLD map changes: `enter_spire` goes through `enter_
 
 `open_menu_hub(tab)` is the single entry point for all four player screens. If the state is already MENU_HUB, it calls `show_tab(tab)` on the live hub instead of stacking a second overlay. The legacy INVENTORY/CHARACTER/SKILL_TREE/JOURNAL enum values have been removed.
 
+**Child modules** (`autoloads/scene_manager/`): SceneManager hands its battle outcomes and networked battles to three child Nodes. `_ensure_modules()` creates them in `_ready`, and each holds a `_sm` back-reference (the same shape as the WorldScene modules):
+
+| Module (`SceneManager.<field>`) | Owns |
+|---|---|
+| `BattleVictory.gd` (`victory`) | `_on_battle_won` dispatch, the standard reward flow, the Spire / siege / mimic handlers, `_apply_siege_victory_rewards`, `_show_siege_interstitial`, `_show_chapter2_cliffhanger` |
+| `BattleDefeat.gd` (`defeat`) | `_on_battle_lost` (co-op dungeon downing, siege and Spire losses), the defeat card and its Retry / Respawn / Menu, `_defeat_overlay` / `_defeat_pending_enemy_data`, `clear()` for world exit |
+| `NetBattles.gd` (`net_battles`) | ghost duels, `enter_pvp_battle` / `resume_pvp_battle` / `enter_pvp_referee` / `enter_pvp_spectator`, `enter_coop_pve_battle`, `enter_team_battle`, their `_on_*_ended` handlers, `session_token_for_peer`, `_enter_pvp_battle`, `PVP_ENEMY_DATA` |
+
+External callers use `SceneManager.net_battles.enter_pvp_battle(...)` and so on, and GameBus signals connect straight to the module methods. Scene routing, `_enter_battle` / `_restore_world`, overlays, the map stack, the Spire and the co-op Spire run all stay on SceneManager. The modules are covered by `test_scene_module_guardrail` (no bare `add_child` / `self`) and by `world_scene_smoke`'s `has_method` probe check.
+
 **Gambit picker flow (GID-063):**
 
 `SceneManager._on_enemy_engaged()` is split into two phases:
@@ -306,16 +316,16 @@ Spire floors are WORLD → WORLD map changes: `enter_spire` goes through `enter_
 **Spire routing:**
 
 `enter_spire()` — called from the Spire entrance panel in madrian (door `target_map = "spire"`):
-- If `save_manager.is_spire_active()` → resumes at `spire_floor_<floor>_<seed>` via `enter_map()`.
+- If `save_manager.spire.is_spire_active()` → resumes at `spire_floor_<floor>_<seed>` via `enter_map()`.
 - Else → `start_spire_run(randi())`, pushes `spire_floor_1_<seed>` via `enter_map()`.
 
 `exit_map()` — if `current_map.begins_with("spire_floor_")` and spire is active → calls `_advance_spire_floor()` (increments floor counter, loads next floor) instead of popping the map stack. Held with a HUD nudge while `is_spire_draft_open()`, so an unclaimed draft can't be walked away from.
 
-`_on_battle_won()` — Spire branch: saves `hero_hp`, sets cleared flag for the exit door, shows `SpireDraftScene` overlay via `_restore_world(_show_spire_draft.bind(floor))`, skips standard card/coin rewards.
+`victory._spire_battle_won()` — Spire branch: saves `hero_hp`, sets cleared flag for the exit door, shows `SpireDraftScene` overlay via `_restore_world(_show_spire_draft.bind(floor))`, skips standard card/coin rewards.
 
 `_restore_world(after: Callable = Callable())` — re-attaches `_saved_world_scene` behind a `TransitionManager` fade and, once `current_scene` is the world again, runs `after`. **Anything that parents an overlay to `current_scene` after a battle must go through `after`**: the swap is deferred by the 0.2 s fade, so the next line still sees the `queue_free()`d battle overlay and the new child dies with it. Overlays that attach to `get_tree().root` instead (e.g. `WorldScene._show_narration_overlay`) are unaffected.
 
-`_on_battle_lost()` — Spire branch: calls `_restore_spire_entry_point()` then `save_manager.end_spire_run()`, emits `GameBus.spire_run_ended`, shows `RunSummaryScene` with `spire_stats` set. Does NOT route to `GameOverScene`.
+`defeat._on_battle_lost()` — Spire branch: calls `_restore_spire_entry_point()` then `save_manager.spire.end_spire_run()`, emits `GameBus.spire_run_ended`, shows `RunSummaryScene` with `spire_stats` set. Does NOT route to `GameOverScene`.
 
 `go_to_menu()` — Spire retreat branch: same flow as death when `is_spire_active()` and state is WORLD. Player retreats voluntarily, run ends, Spire summary shown.
 
@@ -432,7 +442,7 @@ Values apply immediately on change and persist across sessions. Dismissed by Clo
 
 Regular (non-spire, non-siege) battle losses no longer route to `GameOverScene`. Instead:
 
-1. `SceneManager._on_battle_lost()` copies the enemy data into `_defeat_pending_enemy_data`, calls `clear_pending_battle_state()`, frees `_battle_overlay`, and re-adds the world scene via `TransitionManager.transition()`.
+1. `SceneManager.defeat._on_battle_lost()` (`autoloads/scene_manager/BattleDefeat.gd`) copies the enemy data into `_defeat_pending_enemy_data`, calls `clear_pending_battle_state()`, frees `_battle_overlay`, and re-adds the world scene via `TransitionManager.transition()`.
 2. `_show_defeat_overlay()` adds a `CanvasLayer` (layer 200) on top of the restored world with three buttons: **Retry Battle**, **Respawn**, **Return to Menu**.
 
 **Button behaviours:**
@@ -444,7 +454,7 @@ Regular (non-spire, non-siege) battle losses no longer route to `GameOverScene`.
 - `_defeat_overlay: Node` — reference to the overlay CanvasLayer (freed on any choice).
 - `_defeat_pending_enemy_data: Dictionary` — enemy data saved at loss time; cleared after Retry or Menu.
 
-**`_exit_world_cleanup()`** frees `_defeat_overlay` if it exists when the player exits the world (e.g. go_to_menu from inside the overlay).
+**`_exit_world_cleanup()`** calls `defeat.clear()`, which frees `_defeat_overlay` if it exists when the player exits the world (e.g. go_to_menu from inside the overlay).
 
 ### Day/Night Cycle
 

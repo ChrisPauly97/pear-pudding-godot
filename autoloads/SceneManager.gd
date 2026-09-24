@@ -6,19 +6,12 @@ extends Node
 signal state_changed(from: State, to: State)
 
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
+const _BattleVictory = preload("res://autoloads/scene_manager/BattleVictory.gd")
+const _BattleDefeat = preload("res://autoloads/scene_manager/BattleDefeat.gd")
+const _NetBattles = preload("res://autoloads/scene_manager/NetBattles.gd")
 # gdlint:ignore = constant-name
 const State = _SceneFlow.State  # enum alias: keeps `SceneManager.State.X` working
 
-## enemy_data for a player-vs-player battle: BattleScene builds both sides from
-## the PvP decks, so every drop/reward field stays inert. Duplicated per launch
-## because BattleScene writes into the dict it is handed.
-const PVP_ENEMY_DATA: Dictionary = {
-	"display_name": "Player",
-	"enemy_type": "",
-	"is_boss": false,
-	"drop_pool": [],
-	"coin_reward": 0,
-}
 
 const _PackOpenSceneScript = preload("res://scenes/ui/PackOpenScene.gd")
 const CardDropUtil = preload("res://game_logic/CardDropUtil.gd")
@@ -42,9 +35,6 @@ const REBINDABLE_ACTIONS: Array[String] = [
 	"inventory", "map_view", "character", "skill_tree", "journal", "mount", "pause",
 ]
 
-# Ghost duels (GID-102 / TID-377): flat, modest, clearly-async coin reward on win.
-# No rating change ever (see enter_ghost_duel doc comment) — coins only.
-const GHOST_DUEL_COIN_REWARD: int = 25
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
 # Ephemeral session statistics — reset on new/continue game, not persisted.
@@ -67,6 +57,10 @@ var session_stats: Dictionary = _fresh_session_stats(0)
 ## Points at the SaveManager autoload so all systems share one instance.
 ## The autoload is registered before SceneManager in project.godot.
 var save_manager: Node
+## Child modules (see autoloads/scene_manager/), created by `_ensure_modules()`.
+var victory: _BattleVictory
+var defeat: _BattleDefeat
+var net_battles: _NetBattles
 
 var _world_scene_packed := preload("res://scenes/world/WorldScene.tscn")
 var _battle_scene_packed := preload("res://scenes/battle/BattleScene.tscn")
@@ -89,8 +83,6 @@ var _saved_world_scene: Node = null
 
 var _toast: CanvasLayer = null
 var _menu_hub_layer: CanvasLayer = null
-var _defeat_overlay: Node = null
-var _defeat_pending_enemy_data: Dictionary = {}
 
 # Blocks proximity engagement for 2 s after returning from battle so the
 # player isn't immediately chain-engaged by a nearby enemy on world re-entry.
@@ -102,8 +94,6 @@ var _current_battle_enemy_id: String = ""
 var _current_duel_npc_id: String = ""
 # Legendary card to award on first champion duel win ("" = none)
 var _current_champion_reward: String = ""
-# Enemy type for the current co-op PvE battle (for achievement tracking)
-var _coop_pve_enemy_type: String = ""
 
 # Co-op Endless Spire run (GID-106 / TID-390). Transient, in-memory only — never
 # persisted to save.json or the session file (mirrors SaveManager.spire_run's shape
@@ -150,20 +140,21 @@ func _transition_to(to: State) -> void:
 
 func _ready() -> void:
 	save_manager = SaveManager
+	_ensure_modules()
 	apply_keybindings()
 	_toast = _AchievementToastScript.new()
 	add_child(_toast)
 	GameBus.enemy_engaged.connect(_on_enemy_engaged)
 	GameBus.duel_requested.connect(_on_duel_requested)
-	GameBus.battle_won.connect(_on_battle_won)
-	GameBus.battle_lost.connect(_on_battle_lost)
+	GameBus.battle_won.connect(victory._on_battle_won)
+	GameBus.battle_lost.connect(defeat._on_battle_lost)
 	GameBus.battle_fled.connect(_on_battle_fled)
-	GameBus.pvp_battle_ended.connect(_on_pvp_battle_ended)
-	GameBus.coop_pve_battle_ended.connect(_on_coop_pve_battle_ended)
-	GameBus.team_battle_ended.connect(_on_team_battle_ended)
+	GameBus.pvp_battle_ended.connect(net_battles._on_pvp_battle_ended)
+	GameBus.coop_pve_battle_ended.connect(net_battles._on_coop_pve_battle_ended)
+	GameBus.team_battle_ended.connect(net_battles._on_team_battle_ended)
 	GameBus.duel_won.connect(_on_duel_won)
 	GameBus.duel_lost.connect(_on_duel_lost)
-	GameBus.ghost_duel_ended.connect(_on_ghost_duel_ended)
+	GameBus.ghost_duel_ended.connect(net_battles._on_ghost_duel_ended)
 	GameBus.inventory_requested.connect(_on_inventory_requested)
 	GameBus.shop_requested.connect(_on_shop_requested)
 	GameBus.bounty_board_requested.connect(_on_bounty_board_requested)
@@ -192,6 +183,21 @@ func _ready() -> void:
 	GameBus.siege_defeated.connect(func(coins_lost: int) -> void:
 		show_toast("Siege Lost", "The town fell. Lost %d coins." % coins_lost))
 	_maybe_boot_dedicated_server()
+
+## Builds the battle-outcome and networked-battle modules. Idempotent, so a test
+## that instantiates SceneManager cold can call it before `_ready`.
+func _ensure_modules() -> void:
+	if victory != null:
+		return
+	victory = _BattleVictory.new(self)
+	victory.name = "BattleVictory"
+	add_child(victory)
+	defeat = _BattleDefeat.new(self)
+	defeat.name = "BattleDefeat"
+	add_child(defeat)
+	net_battles = _NetBattles.new(self)
+	net_battles.name = "NetBattles"
+	add_child(net_battles)
 
 ## Shutdown cleanup. During battles/puzzles the WorldScene is detached from the
 ## tree and held only by _saved_world_scene (see _start_battle and friends).
@@ -294,9 +300,9 @@ func go_to_menu() -> void:
 	if scene and scene.has_method("flush_time_of_day"):
 		scene.flush_time_of_day()
 	# Spire retreat: restore entry point, end run, show Spire summary.
-	if _state == State.WORLD and save_manager.is_spire_active():
+	if _state == State.WORLD and save_manager.spire.is_spire_active():
 		_restore_spire_entry_point()
-		var stats: Dictionary = save_manager.end_spire_run()
+		var stats: Dictionary = save_manager.spire.end_spire_run()
 		GameBus.spire_run_ended.emit(stats)
 		save_manager.save()
 		_exit_world_cleanup()
@@ -445,7 +451,7 @@ func enter_map_coop(map_name: String) -> void:
 func exit_map() -> void:
 	_flush_position_save()
 	# Spire: exiting a floor loads the next floor rather than popping the map stack.
-	if save_manager.is_spire_active() and current_map.begins_with("spire_floor_"):
+	if save_manager.spire.is_spire_active() and current_map.begins_with("spire_floor_"):
 		# The draft overlay doesn't pause world input, so the player can reach the
 		# exit door with a pick still owed. Advancing would rebuild the scene and
 		# take the unclaimed card with it, so hold the door until they pick.
@@ -492,10 +498,7 @@ func _exit_world_cleanup() -> void:
 	if _menu_hub_layer != null and is_instance_valid(_menu_hub_layer):
 		_menu_hub_layer.queue_free()
 		_menu_hub_layer = null
-	if _defeat_overlay != null:
-		_defeat_overlay.queue_free()
-		_defeat_overlay = null
-	_defeat_pending_enemy_data = {}
+	defeat.clear()
 	if _saved_world_scene != null:
 		_saved_world_scene.queue_free()
 		_saved_world_scene = null
@@ -618,254 +621,9 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 
 # ── Ghost duels (GID-102 / TID-377) ───────────────────────────────────────────
 
-## Enters a local, single-player battle against an AI-piloted snapshot of another
-## (possibly offline) session member's deck — async competition with ZERO live
-## networking. Reuses the exact same solo-battle setup path as an NPC tavern duel
-## (`_on_duel_requested`): no `_pvp`/`_coop_pve` flags are set, so BattleScene's
-## plain `else` branch builds `_state.players[1]` from `enemy_data["enemy_deck"]`
-## and BasicAI drives it, unchanged.
-##
-## `opponent_snapshot` is the dict from `SessionState.get_ghost_snapshot(token)`
-## (`{token, name, deck, rating}`); an empty/invalid snapshot is rejected here so a
-## bad caller can never launch a battle with an empty deck.
-##
-## Decision (documented, not silently chosen either way): a ghost duel NEVER moves
-## PvP rating — win or lose. The opponent is AI-piloted, not the real remote
-## player, so rating movement here would let a player farm free ELO against their
-## own cached snapshot (or a stale/offline friend's) with no real matched risk.
-## Only a flat, modest coin reward is granted, and only on a win — see
-## `_on_ghost_duel_ended`.
-func enter_ghost_duel(opponent_snapshot: Dictionary) -> void:
-	if _state != State.WORLD:
-		return
-	var deck: Array = opponent_snapshot.get("deck", [])
-	if deck.is_empty():
-		GameBus.hud_message_requested.emit("That ghost has no deck to duel.")
-		return
-	if save_manager.player_deck.size() < IsoConst.DECK_MIN:
-		GameBus.hud_message_requested.emit("Deck too small — add at least %d cards first." % IsoConst.DECK_MIN)
-		return
-	var opponent_name: String = str(opponent_snapshot.get("name", "Ghost"))
-	var captured_enemy_data: Dictionary = {
-		"display_name": "%s (Ghost)" % opponent_name,
-		"enemy_type": "",
-		"is_boss": false,
-		"drop_pool": [],
-		"coin_reward": 0,
-		"enemy_deck": deck,
-	}
-	_enter_battle(func(b: Node) -> void:
-		b.enemy_data = captured_enemy_data
-		b.set("_ghost_duel", true)
-		b.set("_ghost_duel_reward", GHOST_DUEL_COIN_REWARD))
-
-## Applies the (win-only) ghost-duel coin reward exactly once, then restores the
-## world — mirrors `_on_duel_won`/`_on_duel_lost` structurally. No card drops, no
-## enemy-defeat bookkeeping, no rating change (see `enter_ghost_duel` doc comment).
-func _on_ghost_duel_ended(did_win: bool) -> void:
-	if _state != State.BATTLE:
-		return
-	if did_win:
-		save_manager.add_coins(GHOST_DUEL_COIN_REWARD)
-		_bump_session_stat("coins_earned", GHOST_DUEL_COIN_REWARD)
-	_finish_battle(false)
-	_restore_world()
 
 # ── PvP card battles (GID-091) ────────────────────────────────────────────────
 
-## Enters a networked PvP battle from the shared co-op world. The WorldScene is
-## detached but kept alive (like a normal battle) so both peers return to the SAME
-## madrian session afterwards; the NetworkManager co-op session is NOT torn down.
-## local_player_idx: 0 on the host (authority), 1 on the client. opponent_token
-## (GID-102 / TID-372) lets the host verify a later reconnect actually claims to be
-## this same opponent — empty when unknown (e.g. an already-resumed duel re-entering
-## via resume_pvp_battle, which doesn't have a token to pass; verification then
-## falls back to accepting any reconnect, the documented same-LAN trust model).
-## ranked (GID-102 / TID-373): when true, the duel's outcome moves both combatants'
-## persistent ELO rating (TID-370) — both peers must pass the same value (set from the
-## challenge handshake, mirroring how ante_coins is agreed before either side calls this).
-## local_deck_override (GID-104 / TID-385, draft duels): when non-empty, the
-## listen-server host builds its own players[0] deck from these transient instance
-## dicts instead of SaveManager.get_deck_instances() — a drafted deck must never
-## read (or write) the persisted collection. Empty = normal collection deck.
-func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int = 0,
-		opponent_token: String = "", ranked: bool = false,
-		local_deck_override: Array = []) -> void:
-	if _state != State.WORLD:
-		return
-	var captured_idx: int = local_player_idx
-	var captured_deck: Array = opponent_deck
-	var captured_ante: int = ante_coins
-	var captured_token: String = opponent_token
-	var captured_ranked: bool = ranked
-	var captured_local_deck: Array = local_deck_override
-	_enter_pvp_battle(func(b: Node) -> void:
-		b.set("_local_player_idx", captured_idx)
-		b.set("pvp_opponent_deck", captured_deck)
-		b.set("pvp_ante_coins", captured_ante)
-		b.set("pvp_opponent_token", captured_token)
-		b.set("pvp_ranked", captured_ranked)
-		b.set("pvp_local_deck_override", captured_local_deck))
-
-## Resumes a PvP duel after a reconnect (GID-102 / TID-372). Called from
-## MultiplayerLobbyScene._on_connection_succeeded when NetworkManager.has_pvp_resume()
-## instead of the normal enter_map_coop landing. Unlike enter_pvp_battle, this is
-## reachable with no current WorldScene (the reconnecting client is coming cold from
-## the lobby/menu, not from an active shared world) — so it first lands in the shared
-## map (giving enter_pvp_battle a real "_saved_world_scene" to detach/restore later)
-## and waits for that transition to actually finish before stacking the battle
-## transition on top (TransitionManager.transition() is fire-and-forget async).
-## local_deck_override (GID-115 / TID-434, fixes BID-035): threaded straight through to
-## enter_pvp_battle so a resumed draft duel never silently falls back to the persisted
-## collection — see NetworkManager.set_pvp_resume's doc comment for why this is
-## currently inert (only client idx 1 ever resumes, and only the duel-host side
-## consumes the override) but kept symmetric for correctness.
-func resume_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: int,
-		local_deck_override: Array = []) -> void:
-	enter_map_coop("madrian")
-	while _state != State.WORLD:
-		await get_tree().process_frame
-	enter_pvp_battle(local_player_idx, opponent_deck, ante_coins, "", false, local_deck_override)
-
-## Dedicated-server variant of enter_pvp_battle (GID-097 / TID-353).
-## The server is the headless referee: _local_player_idx = -1 (no local player),
-## both decks come from the clients, and _pvp_peer_to_idx maps peer_id → player_idx.
-## token_a/token_b (GID-102 / TID-372) are the combatants' identity tokens, used to
-## verify a later reconnect; empty strings fall back to accepting any reconnect.
-func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: int, token_a: String = "",
-		token_b: String = "") -> void:
-	if _state != State.WORLD:
-		return
-	_enter_pvp_battle(func(b: Node) -> void:
-		b.set("_local_player_idx", -1)       # no local player
-		b.set("pvp_player0_deck", deck_a)
-		b.set("pvp_player1_deck", deck_b)
-		b.set("_pvp_peer_to_idx", {peer_a_id: 0, peer_b_id: 1})
-		b.set("_pvp_idx_to_token", {0: token_a, 1: token_b}))
-
-## Enters a PvP battle as a read-only spectator (GID-101 / TID-367). The spectator
-## renders the board (from a neutral perspective, local_player_idx = -1) but sends
-## no intents. The BattleScene's _pvp_spectating flag blocks all input gates.
-func enter_pvp_spectator() -> void:
-	if _state != State.WORLD:
-		return
-	_enter_pvp_battle(func(b: Node) -> void:
-		b.set("_local_player_idx", 0)   # neutral — same as host perspective
-		b.set("_pvp_spectating", true))
-
-
-## Resolve a connected peer's GID-095 session token, whether WorldScene is currently
-## live in the tree or detached during an active PvP battle (GID-104 / TID-387:
-## spectator-wager escrow/settlement runs from BattleScene, which is exactly when
-## WorldScene is detached — see enter_pvp_battle/enter_pvp_spectator above). Looks at
-## the live scene first, falling back to the saved detached instance. Returns "" if
-## unknown (e.g. a peer whose identity handshake hasn't completed yet).
-func session_token_for_peer(peer_id: int) -> String:
-	var ws: Node = get_tree().current_scene if _state == State.WORLD else _saved_world_scene
-	if ws == null or not ws.has_method("get_session_token_for_peer"):
-		return ""
-	return str(ws.get_session_token_for_peer(peer_id))
-
-
-## Enters a co-op PvE battle from the shared world (GID-099).
-## All N allies fight a single shared boss together. The authority (host or dedicated
-## server) owns the canonical GameState; each client sends intents and renders the
-## mirror. local_ally_idx is 0 for the host, 1..N-1 for each additional ally client.
-## all_ally_decks is an Array of N per-ally deck Arrays, indexed by ally_idx; only
-## the authority uses all N. Each inner Array is either owned card instances
-## (Array[Dictionary], e.g. siege's per-peer decks) or plain card-id Strings (e.g.
-## the co-op Endless Spire's shared draft deck, TID-391 — BattleScene's
-## _build_coop_pve_state branches on element type).
-## enemy_data is the boss enemy_data dict (same shape as NPC-battle enemy_data).
-func enter_coop_pve_battle(local_ally_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
-	if _state != State.WORLD:
-		return
-	_coop_pve_enemy_type = str(enemy_data.get("enemy_type", ""))
-	var captured_idx: int = local_ally_idx
-	var captured_decks: Array = all_ally_decks
-	var captured_edata: Dictionary = enemy_data
-	var setup := func(b: Node) -> void:
-		b.set("_coop_pve", true)
-		b.set("_local_player_idx", captured_idx)
-		b.set("_coop_ally_decks", captured_decks)
-		b.enemy_data = captured_edata
-	_enter_battle(setup, true)
-
-## Enters a 2v2 team PvP duel from the shared world (GID-102 / TID-371). The host is
-## always players[0]/team 0 in the canonical GameState; local_player_idx is the local
-## participant's absolute index (0..3). team_assignments[i] is the team (0/1) for
-## absolute index i. all_decks is an Array of 4 Arrays[Dictionary] (deck instances per
-## absolute index); only the authority uses all 4, set by the host from the connected
-## peers' relayed decks (see WorldScene's "Team Duel" trigger).
-func enter_team_battle(local_player_idx: int, team_assignments: Array, all_decks: Array) -> void:
-	if _state != State.WORLD:
-		return
-	var captured_idx: int = local_player_idx
-	var captured_teams: Array = team_assignments
-	var captured_decks: Array = all_decks
-	var setup := func(b: Node) -> void:
-		b.set("_team_pvp", true)
-		b.set("_local_player_idx", captured_idx)
-		b.set("_team_assignments", captured_teams)
-		b.set("_team_decks", captured_decks)
-		b.enemy_data = PVP_ENEMY_DATA.duplicate(true)
-	_enter_battle(setup, true)
-
-## Team PvP duel finished (2v2). Restore the shared world (duel-style: no card/coin
-## rewards in v1, like unwagered 2-player PvP). Mirrors _on_coop_pve_battle_ended.
-func _on_team_battle_ended(_did_win: bool) -> void:
-	if _state != State.BATTLE:
-		return
-	_dismiss_battle_overlay()
-	if _saved_world_scene != null and NetworkManager.is_active():
-		_restore_world()
-	else:
-		if _saved_world_scene != null:
-			_saved_world_scene.queue_free()
-			_saved_world_scene = null
-		go_to_menu_direct()
-
-## Co-op PvE battle finished (all allies vs shared boss). Restore the shared world.
-## Mirrors _on_pvp_battle_ended but emitted by GameBus.coop_pve_battle_ended.
-func _on_coop_pve_battle_ended(did_win: bool) -> void:
-	if _state != State.BATTLE:
-		return
-	if did_win:
-		if not _coop_pve_enemy_type.is_empty():
-			save_manager.increment_progress("enemies_defeated", 1)
-		save_manager.increment_progress("battles_won", 1)
-		save_manager.check_deck_achievements(save_manager.player_deck)
-	_coop_pve_enemy_type = ""
-	_dismiss_battle_overlay()
-	if _saved_world_scene != null and NetworkManager.is_active():
-		_restore_world()
-	else:
-		if _saved_world_scene != null:
-			_saved_world_scene.queue_free()
-			_saved_world_scene = null
-		go_to_menu_direct()
-
-## PvP battle finished (duel-style: no cards/coins/defeat tracking). Restore the
-## shared co-op world. If the session ended (host vanished for a client), the
-## world can't be restored → go to the menu cleanly.
-func _on_pvp_battle_ended(_did_win: bool) -> void:
-	if _state != State.BATTLE:
-		return
-	_dismiss_battle_overlay()
-	if _saved_world_scene != null and NetworkManager.is_active():
-		_restore_world()
-	elif NetworkManager.is_dedicated_server():
-		# Server restores its world scene — no menu to fall back to.
-		if _saved_world_scene != null:
-			get_tree().root.add_child(_saved_world_scene)
-			get_tree().current_scene = _saved_world_scene
-			_transition_to(State.WORLD)
-	else:
-		# No co-op session / world to return to.
-		if _saved_world_scene != null:
-			_saved_world_scene.queue_free()
-			_saved_world_scene = null
-		go_to_menu_direct()
 
 func _on_duel_won() -> void:
 	if _state != State.BATTLE:
@@ -914,14 +672,6 @@ func _enter_battle(configure: Callable, networked: bool = false) -> void:
 		get_tree().current_scene = _battle_overlay)
 	_transition_to(State.BATTLE)
 
-## A PvP-flavoured `_enter_battle`: marks the scene `_pvp` and hands it the inert
-## PVP_ENEMY_DATA after `configure` runs.
-func _enter_pvp_battle(configure: Callable) -> void:
-	var setup := func(b: Node) -> void:
-		b.set("_pvp", true)
-		configure.call(b)
-		b.enemy_data = PVP_ENEMY_DATA.duplicate(true)
-	_enter_battle(setup, true)
 
 ## Frees the battle overlay if one is up. Every battle exit path ends here.
 func _dismiss_battle_overlay() -> void:
@@ -1020,397 +770,6 @@ func _on_scripted_battle_ended(battle_id: String, did_win: bool) -> void:
 	_dismiss_battle_overlay()
 	_restore_world()
 
-## Victory dispatch. The spire run, the siege gauntlet and a mimic chest each
-## replace the standard reward flow wholesale rather than adding to it, so
-## each gets its own handler and reports whether it consumed the result.
-func _on_battle_won(result: Dictionary) -> void:
-	if _state != State.BATTLE:
-		return
-	if _spire_battle_won(result):
-		return
-	if _siege_battle_won(result):
-		return
-	# Read enemy context before clearing pending_battle.
-	var enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
-	var is_boss: bool = bool(save_manager.pending_battle_enemy_data.get("is_boss", false))
-	var gambit_id: String = str(save_manager.pending_battle_enemy_data.get("gambit_id", ""))
-	var is_rival: bool = enemy_type.begins_with("rival_")
-	var captured_enemy_id: String = _current_battle_enemy_id
-	if _mimic_battle_won(enemy_type, captured_enemy_id):
-		return
-	var drop_tier: int = EnemyRegistry.get_difficulty_tier(enemy_type) if enemy_type != "" else 1
-	if is_boss:
-		drop_tier = 4
-	elif EnemyRegistry.get_night_drop_boost(enemy_type):
-		drop_tier = mini(drop_tier + 1, 4)
-	drop_tier = mini(drop_tier + Gambits.get_rarity_tier_bonus(gambit_id), 4)
-	var is_nocturnal: bool = enemy_type.begins_with("spectre_")
-	# GID-103 (TID-383): party night hunts — a bigger co-op party earns a further
-	# rarity bump on a spectral kill, on top of the existing single-player boost.
-	if is_nocturnal and NetworkManager.is_active():
-		var party_size: int = multiplayer.get_peers().size() + 1
-		drop_tier = mini(drop_tier + _CoopNightHunts.party_drop_tier_bonus(party_size), 4)
-	if not _current_battle_enemy_id.is_empty():
-		if not is_rival and not is_nocturnal:
-			save_manager.mark_enemy_defeated(_current_battle_enemy_id)
-		save_manager.increment_progress("enemies_defeated", 1)
-		_bump_session_stat("enemies_defeated", 1)
-		_current_battle_enemy_id = ""
-	if enemy_type != "" and not is_rival and not is_nocturnal:
-		save_manager.record_enemy_defeated(enemy_type)
-		save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": enemy_type})
-	save_manager.increment_progress("battles_won", 1)
-	save_manager.check_deck_achievements(save_manager.player_deck)
-	_bump_session_stat("battles_won", 1)
-	var reward: String = str(result.get("card_reward", ""))
-	if reward != "":
-		# Use pre-rolled rarity/stats from BattleScene if present; otherwise roll now.
-		var rarity: String
-		var stats: Dictionary
-		if result.has("reward_rarity"):
-			rarity = str(result["reward_rarity"])
-			stats = result.get("reward_stats", {})
-		else:
-			rarity = CardDropUtil.effective_rarity(reward, CardDropUtil.roll_rarity(drop_tier))
-			stats = CardDropUtil.roll_stats(reward, rarity)
-		save_manager.grant_card_reward(reward, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)),
-				int(stats.get("cost", -1)))
-		_bump_session_stat("cards_earned", 1)
-	var weapon_reward: String = str(result.get("weapon_reward", ""))
-	if weapon_reward != "":
-		save_manager.add_weapon(weapon_reward)
-	# Soulbind signature capture (GID-061): grant signature card + persist capture.
-	var sig_capture: String = str(result.get("signature_capture", ""))
-	if sig_capture != "":
-		var sig_stats: Dictionary = CardDropUtil.roll_stats(sig_capture, "rare")
-		save_manager.grant_card_reward(sig_capture, "rare", int(sig_stats.get("attack", -1)),
-				int(sig_stats.get("health", -1)), int(sig_stats.get("cost", -1)))
-		save_manager.mark_signature_captured(sig_capture)
-		_bump_session_stat("cards_earned", 1)
-	# Boss battles emit card_rewards (list of all drop_pool cards)
-	var rewards: Array = result.get("card_rewards", [])
-	var pre_rolled: Array = result.get("reward_rarities", [])
-	var pre_stats: Array = result.get("reward_stats_list", [])
-	for ri in range(rewards.size()):
-		var rs: String = str(rewards[ri])
-		if rs != "":
-			var r_rarity: String
-			var r_stats: Dictionary
-			if ri < pre_rolled.size():
-				r_rarity = str(pre_rolled[ri])
-				r_stats = pre_stats[ri] if ri < pre_stats.size() else {}
-			else:
-				r_rarity = CardDropUtil.effective_rarity(rs, CardDropUtil.roll_rarity(drop_tier))
-				r_stats = CardDropUtil.roll_stats(rs, r_rarity)
-			save_manager.grant_card_reward(rs, r_rarity, int(r_stats.get("attack", -1)), int(r_stats.get("health", -1)),
-					int(r_stats.get("cost", -1)))
-			_bump_session_stat("cards_earned", 1)
-	# Award coins based on enemy type, multiplied by active gambit reward factor.
-	if enemy_type != "":
-		var coins: int = Gambits.apply_reward_multiplier(EnemyRegistry.get_coin_reward(enemy_type), gambit_id)
-		save_manager.add_coins(coins)
-		_bump_session_stat("coins_earned", coins)
-	# Award XP based on enemy type (table lives in EnemyRegistry).
-	var xp_amount: int = EnemyRegistry.get_xp_reward(enemy_type, is_boss)
-	save_manager.add_xp(xp_amount)
-	_bump_session_stat("xp_earned", xp_amount)
-	# Rival encounter win: don't count as standard kill; update rival progress instead.
-	if is_rival:
-		if enemy_type == "rival_isfig_3":
-			if not save_manager.rival_defeated:
-				save_manager.set_rival_defeated()
-				save_manager.grant_card_reward("isfig_shadow_echo", "legendary")
-				save_manager.mark_scroll_collected("scroll_isfig_shadow")
-				GameBus.story_scroll_collected.emit("scroll_isfig_shadow")
-		else:
-			save_manager.record_rival_win()
-			if captured_enemy_id == "rival_enc2":
-				save_manager.set_story_flag("chapter1_received_letter")
-		GameBus.rival_encounter_won.emit(save_manager.rival_encounters_won)
-	# Apply veterancy: attribute kills/survival to collection instances (GID-060).
-	var veterancy: Dictionary = result.get("veterancy", {})
-	for vet_uid: String in veterancy.keys():
-		var vdata: Dictionary = veterancy[vet_uid]
-		save_manager.record_veterancy(vet_uid, int(vdata.get("kills", 0)), bool(vdata.get("survived", true)))
-	# Cross-magic currency accrual (GID-086, generalized by GID-127): playing a
-	# magic type's signature-branch cards earns the currency that type spends.
-	# PlayerState.cross_currency_earned() applies the per-card rate; this only
-	# banks the totals.
-	var corruption_earned: int = int(result.get("corruption_earned", 0))
-	var redemption_earned: int = int(result.get("redemption_earned", 0))
-	if corruption_earned > 0:
-		save_manager.add_corruption_points(corruption_earned)
-	if redemption_earned > 0:
-		save_manager.add_redemption_points(redemption_earned)
-	# Blight Heart cleansing (GID-066): mark the heart purified and award corruption points.
-	var blight_heart_id: String = str(save_manager.pending_battle_enemy_data.get("blight_heart_id", ""))
-	if blight_heart_id != "":
-		save_manager.mark_heart_cleansed(blight_heart_id)
-		save_manager.add_corruption_points(5)
-		GameBus.blight_changed.emit()
-		GameBus.hud_message_requested.emit("The blight recedes… +5 Corruption Points.")
-	_finish_battle()
-	# End the roaming boss world event if the defeated enemy was the roaming terror.
-	if enemy_type == "roaming_terror":
-		var wem: Node = get_node_or_null("/root/WorldEventManager")
-		if wem != null:
-			wem.end_event("roaming_boss")
-	_restore_world()
-	# Chapter 2 beats 6 → 7 (GID-108 / TID-407): defeating the war-camp boss sets
-	# chapter2_warcamp_cleared and immediately shows the cliffhanger narration
-	# (reuses TID-405's ChapterEndingOverlay verbatim); closing it sets
-	# chapter2_complete.
-	if enemy_type == "martarquas_warleader":
-		save_manager.set_story_flag("chapter2_warcamp_cleared")
-		_show_chapter2_cliffhanger()
-
-## Co-op (GID-108 / TID-408, design rule 3): routed through GameBus so WorldScene
-## (the sole listener) both shows it locally and broadcasts it to the rest of the
-## party in a co-op session, instead of building the overlay directly here where
-## no _net_sync reference exists.
-
-## Spire floor cleared: no card/coin rewards, save hero HP, show the draft.
-func _spire_battle_won(result: Dictionary) -> bool:
-	if not save_manager.is_spire_active():
-		return false
-	var hero_hp: int = int(result.get("hero_hp", 30))
-	save_manager.set_spire_hero_hp(hero_hp)
-	var spire_run: Dictionary = save_manager.get_spire_run()
-	var curr_floor: int = int(spire_run.get("floor", 1))
-	var run_seed: int = int(spire_run.get("seed", 0))
-	save_manager.set_story_flag("spire_floor_%d_%d_cleared" % [curr_floor, run_seed])
-	var spire_enemy_type: String = str(save_manager.pending_battle_enemy_data.get("enemy_type", ""))
-	if not _current_battle_enemy_id.is_empty():
-		save_manager.mark_enemy_defeated(_current_battle_enemy_id)
-		save_manager.increment_progress("enemies_defeated", 1)
-		_bump_session_stat("enemies_defeated", 1)
-		_current_battle_enemy_id = ""
-	if spire_enemy_type != "":
-		save_manager.record_enemy_defeated(spire_enemy_type)
-		save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": spire_enemy_type})
-	save_manager.increment_progress("battles_won", 1)
-	_bump_session_stat("battles_won", 1)
-	_finish_battle()
-	# The draft is deferred into _restore_world's post-swap callback so it parents
-	# to the live WorldScene rather than the dying battle overlay.
-	_restore_world(_show_spire_draft.bind(curr_floor))
-	return true
-
-## Siege gauntlet stage cleared: chain to the next stage or apply the victory.
-func _siege_battle_won(result: Dictionary) -> bool:
-	var _siege: Dictionary = save_manager.get_active_siege()
-	if _siege.is_empty():
-		return false
-	var _siege_hero_hp: int = int(result.get("hero_hp", 30))
-	save_manager.set_siege_hero_hp(_siege_hero_hp)
-	var _siege_stage: int = int(_siege.get("stage", 0))
-	save_manager.increment_progress("battles_won", 1)
-	_bump_session_stat("battles_won", 1)
-	_current_battle_enemy_id = ""
-	save_manager.clear_pending_battle()
-	save_manager.clear_pending_battle_state()
-	if _siege_stage < 2:
-		save_manager.advance_siege_stage()
-		save_manager.save()
-		_dismiss_battle_overlay()
-		_restore_world()
-		_show_siege_interstitial(_siege_stage + 1, _siege_hero_hp)
-		return true
-	var _siege_town: String = str(_siege.get("town", ""))
-	_apply_siege_victory_rewards(_siege_town)
-	# Chapter 2 beat 4 (GID-108 / TID-407): the story siege at marsax_hold
-	# reuses this exact victory path — only the completion flag is new.
-	if _siege_town == "marsax_hold":
-		save_manager.set_story_flag("chapter2_siege_won")
-	save_manager.end_siege_victory()
-	save_manager.save()
-	_dismiss_battle_overlay()
-	_restore_world()
-	return true
-
-## Mimic chest victory: open the chest, grant its loot straight to the bag.
-func _mimic_battle_won(enemy_type: String, captured_enemy_id: String) -> bool:
-	if enemy_type != "mimic" or captured_enemy_id.is_empty():
-		return false
-	var mimic_chest_id: String = captured_enemy_id
-	var wmap_node: Variant = _saved_world_scene.get("world_map") if _saved_world_scene != null else null
-	if wmap_node != null:
-		var mimic_chest: Dictionary = wmap_node.find_chest_by_id(mimic_chest_id)
-		if not mimic_chest.is_empty():
-			mimic_chest["opened"] = true
-			var chest_cards: Array[String] = []
-			chest_cards.assign(mimic_chest.get("card_ids", []))
-			for card_id: String in chest_cards:
-				var rarity: String = CardDropUtil.effective_rarity(card_id, CardDropUtil.roll_rarity(3))
-				var stats: Dictionary = CardDropUtil.roll_stats(card_id, rarity)
-				save_manager.grant_card_reward(card_id, rarity, int(stats.get("attack", -1)),
-						int(stats.get("health", -1)), int(stats.get("cost", -1)))
-				_bump_session_stat("cards_earned", 1)
-	var mimic_drop_pool: Array[String] = EnemyRegistry.get_drop_pool("mimic")
-	if not mimic_drop_pool.is_empty():
-		var bonus_card: String = mimic_drop_pool[randi() % mimic_drop_pool.size()]
-		var b_rarity: String = CardDropUtil.effective_rarity(bonus_card, CardDropUtil.roll_rarity(2))
-		var b_stats: Dictionary = CardDropUtil.roll_stats(bonus_card, b_rarity)
-		save_manager.grant_card_reward(bonus_card, b_rarity, int(b_stats.get("attack", -1)),
-				int(b_stats.get("health", -1)), int(b_stats.get("cost", -1)))
-		_bump_session_stat("cards_earned", 1)
-	var mimic_coins: int = EnemyRegistry.get_coin_reward("mimic")
-	save_manager.add_coins(mimic_coins)
-	_bump_session_stat("coins_earned", mimic_coins)
-	save_manager.mark_chest_opened(mimic_chest_id)
-	save_manager.record_enemy_defeated("mimic")
-	save_manager.increment_bounty_progress("defeat_enemy_type", {"enemy_type": "mimic"})
-	save_manager.increment_progress("enemies_defeated", 1)
-	_bump_session_stat("enemies_defeated", 1)
-	save_manager.increment_progress("battles_won", 1)
-	_bump_session_stat("battles_won", 1)
-	_current_battle_enemy_id = ""
-	_finish_battle()
-	_restore_world()
-	return true
-	return true
-func _show_chapter2_cliffhanger() -> void:
-	var pages: Array[String] = [
-		"By firelight, Maiteln reads the stolen muster plans: the tribe will not strike Blancogov. They march on the "
-			+ "lords, one by one, before the alliance can gather.",
-		"Maiteln, grim: every route, every garrison, every weakness — written in a steady court hand. The traitor "
-			+ "knows the alliance's every move.",
-		"And beneath the last page, in a script Saimtar knew like his own name — a list of the taken. His parents' "
-			+ "names were not struck through.",
-	]
-	GameBus.narration_overlay_requested.emit(pages, "Chapter 2 Complete", "chapter2_complete")
-
-func _on_battle_lost() -> void:
-	if _state != State.BATTLE:
-		return
-	_current_battle_enemy_id = ""
-	_bump_session_stat("battles_lost", 1)
-	# Downed & rescue in shared co-op dungeons (GID-105 / TID-389): a PvE loss inside
-	# a shared dungeon crawl leaves the player downed/revivable instead of routing to
-	# the single-player defeat screen below. Checked first — siege/spire are solo
-	# SaveManager-driven systems that never overlap with an active co-op dungeon crawl.
-	if NetworkManager.is_active() and current_map.begins_with("dungeon_"):
-		save_manager.clear_pending_battle()
-		save_manager.clear_pending_battle_state()
-		_dismiss_battle_overlay()
-		TransitionManager.transition(func() -> void:
-			if _saved_world_scene != null:
-				get_tree().root.add_child(_saved_world_scene)
-				get_tree().current_scene = _saved_world_scene
-				if _saved_world_scene.has_method("enter_downed_state"):
-					_saved_world_scene.call("enter_downed_state")
-				_saved_world_scene = null)
-		_transition_to(State.WORLD)
-		return
-	# Siege defeat: apply coin penalty, end siege, then show standard game over.
-	var _siege_on_lost: Dictionary = save_manager.get_active_siege()
-	if not _siege_on_lost.is_empty():
-		var _loss_coins: int = int(save_manager.coins * 0.10)
-		if _loss_coins > 0:
-			save_manager.add_coins(-_loss_coins)
-		save_manager.end_siege_defeat()
-		GameBus.siege_defeated.emit(_loss_coins)
-	if save_manager.is_spire_active():
-		_restore_spire_entry_point()
-		var stats: Dictionary = save_manager.end_spire_run()
-		GameBus.spire_run_ended.emit(stats)
-		_finish_battle()
-		if _saved_world_scene != null:
-			_saved_world_scene.queue_free()
-			_saved_world_scene = null
-		_exit_world_cleanup()
-		var summary: Node = _run_summary_scene_packed.instantiate()
-		summary.set("spire_stats", stats)
-		get_tree().change_scene_to_node(summary)
-		_transition_to(State.RUN_SUMMARY)
-		return
-	# Regular battle loss: keep world alive and show defeat overlay with Retry/Respawn/Menu.
-	_defeat_pending_enemy_data = save_manager.pending_battle_enemy_data.duplicate()
-	save_manager.clear_pending_battle_state()
-	_dismiss_battle_overlay()
-	# Restore world to tree without clearing pending_battle (needed for Retry).
-	TransitionManager.transition(func() -> void:
-		if _saved_world_scene != null:
-			get_tree().root.add_child(_saved_world_scene)
-			get_tree().current_scene = _saved_world_scene
-			_saved_world_scene = null
-		_show_defeat_overlay())
-	_transition_to(State.GAME_OVER)
-
-func _show_defeat_overlay() -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var layer := CanvasLayer.new()
-	layer.layer = 190
-	get_tree().root.add_child(layer)
-	_defeat_overlay = layer
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.72)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = vp.x * 0.58
-	var panel_h: float = vh * 0.50
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.08, 0.04, 0.04, 0.97), 12)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := _UiUtil.make_margin(int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), int(vh * 0.03), panel)
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-
-	var vbox := _UiUtil.make_vbox(int(vh * 0.028), margin)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var title := _UiUtil.make_label("Defeated", int(vh * 0.055))
-	title.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
-
-	var has_retry: bool = not _defeat_pending_enemy_data.is_empty()
-	if has_retry:
-		var retry_btn := _UiUtil.make_button("Retry Battle", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03),
-				_on_defeat_retry, vbox)
-
-	var respawn_btn := _UiUtil.make_button("Respawn in World", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03),
-			_on_defeat_respawn, vbox)
-
-	var menu_btn := _UiUtil.make_button("Return to Menu", Vector2(vh * 0.32, vh * 0.07), int(vh * 0.03),
-			_on_defeat_menu, vbox)
-
-func _on_defeat_retry() -> void:
-	if _defeat_overlay != null:
-		_defeat_overlay.queue_free()
-		_defeat_overlay = null
-	var enemy_data: Dictionary = _defeat_pending_enemy_data.duplicate()
-	_defeat_pending_enemy_data = {}
-	_transition_to(State.WORLD)
-	_start_battle(enemy_data)
-
-func _on_defeat_respawn() -> void:
-	if _defeat_overlay != null:
-		_defeat_overlay.queue_free()
-		_defeat_overlay = null
-	_defeat_pending_enemy_data = {}
-	save_manager.clear_pending_battle()
-	save_manager.save()
-	_proximity_engage_blocked = true
-	get_tree().create_timer(2.0, false).timeout.connect(
-		func() -> void: _proximity_engage_blocked = false)
-	_transition_to(State.WORLD)
-
-func _on_defeat_menu() -> void:
-	if _defeat_overlay != null:
-		_defeat_overlay.queue_free()
-		_defeat_overlay = null
-	_defeat_pending_enemy_data = {}
-	save_manager.clear_pending_battle()
-	go_to_menu()
 
 func _on_battle_fled() -> void:
 	if _state != State.BATTLE:
@@ -1511,56 +870,6 @@ func _on_skill_tree_requested() -> void:
 	GameBus.tutorial_popup_requested.emit("skill_tree")
 	open_menu_hub("skills")
 
-## Applies siege victory rewards: 150 coins + a rare-or-better card.
-func _apply_siege_victory_rewards(town: String) -> void:
-	const SIEGE_VICTORY_COINS: int = 150
-	save_manager.add_coins(SIEGE_VICTORY_COINS)
-	_bump_session_stat("coins_earned", SIEGE_VICTORY_COINS)
-	var all_ids: Array[String] = CardRegistry.get_all_ids()
-	if not all_ids.is_empty():
-		var reward_id: String = all_ids[randi() % all_ids.size()]
-		var rarity: String = CardDropUtil.roll_rarity(3)   # tier 3 = rare-or-better weighted
-		var stats: Dictionary = CardDropUtil.roll_stats(reward_id, rarity)
-		save_manager.grant_card_reward(reward_id, rarity, int(stats.get("attack", -1)), int(stats.get("health", -1)),
-				int(stats.get("cost", -1)))
-		_bump_session_stat("cards_earned", 1)
-	GameBus.siege_victory.emit()
-	show_toast("Siege Defeated!", "%s thanks you! +%d coins + rare card" % [town.capitalize(), SIEGE_VICTORY_COINS])
-
-## Shows a brief overlay between gauntlet stages, then chains the next battle after 2 s.
-func _show_siege_interstitial(next_stage: int, hero_hp: int) -> void:
-	var layer := CanvasLayer.new()
-	layer.layer = 200
-	get_tree().root.add_child(layer)
-
-	var panel := PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	layer.add_child(panel)
-
-	var vbox := _UiUtil.make_vbox(12, panel)
-
-	var vh: float = get_viewport().get_visible_rect().size.y
-	var title_lbl := _UiUtil.make_label(_SiegeDefs.get_stage_name(next_stage), int(vh * 0.04), Color.WHITE,
-			HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	var hp_lbl := _UiUtil.make_label("Hero HP: %d / 30" % hero_hp, int(vh * 0.03),
-			Color(0.9, 0.3, 0.3) if hero_hp <= 10 else Color(1.0, 1.0, 1.0), HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	# Dismiss automatically and chain the next raider battle.
-	get_tree().create_timer(2.0, false).timeout.connect(func() -> void:
-		layer.queue_free()
-		var next_type: String = "martarquas_raider_%d" % (next_stage + 1)
-		var deck_ids: Array[String] = _SiegeDefs.get_raider_deck_ids(next_stage)
-		var enemy_dict: Dictionary = {
-			"enemy_type": next_type,
-			"enemy_deck": deck_ids,
-			"display_name": EnemyRegistry.get_display_name(next_type),
-			"is_boss": false,
-			"boss_hp": 0,
-			"drop_pool": [],
-			"coin_reward": 0,
-		}
-		GameBus.enemy_engaged.emit(enemy_dict))
 
 func _on_achievement_unlocked(achievement_id: String) -> void:
 	const AchievementRegistry = preload("res://game_logic/AchievementRegistry.gd")
@@ -1607,14 +916,14 @@ func _on_tutorial_popup_requested(popup_id: String) -> void:
 
 ## Starts or resumes an Endless Spire run from the entrance door in a town map.
 func enter_spire() -> void:
-	if save_manager.is_spire_active():
-		var run: Dictionary = save_manager.get_spire_run()
+	if save_manager.spire.is_spire_active():
+		var run: Dictionary = save_manager.spire.get_spire_run()
 		var floor: int = int(run.get("floor", 1))
 		var run_seed: int = int(run.get("seed", 0))
 		enter_map("spire_floor_%d_%d" % [floor, run_seed], "")
 	else:
 		var seed: int = randi()
-		save_manager.start_spire_run(seed)
+		save_manager.spire.start_spire_run(seed)
 		GameBus.tutorial_popup_requested.emit("spire_intro")
 		enter_map("spire_floor_1_%d" % seed, "")
 
@@ -1663,8 +972,8 @@ func _on_pack_open_closed() -> void:
 	_transition_to(State.WORLD)
 
 func _advance_spire_floor() -> void:
-	save_manager.advance_spire_floor()
-	var run: Dictionary = save_manager.get_spire_run()
+	save_manager.spire.advance_spire_floor()
+	var run: Dictionary = save_manager.spire.get_spire_run()
 	var next_floor: int = int(run.get("floor", 1))
 	var run_seed: int = int(run.get("seed", 0))
 	var next_map: String = "spire_floor_%d_%d" % [next_floor, run_seed]

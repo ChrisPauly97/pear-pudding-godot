@@ -234,7 +234,7 @@ key off `chapter1_complete` across the other named maps.
 **Bug fix carried from TID-401** (found while reviewing `BaseOverlay` for this task):
 `BaseOverlay._close()` only emits the `closed` signal — it does not free the node. The caller
 must connect `closed` to free the wrapping `CanvasLayer` (`SceneManager._on_tutorial_popup_requested`
-already did this correctly). `BattleScene._maybe_show_scripted_tutorial_step` (TID-401) did not,
+already did this correctly). `BattleScene.tutorials._maybe_show_scripted_tutorial_step` (TID-401) did not,
 so the scripted-battle tutorial popup's "Got it" button was dead — fixed alongside this task's
 own overlay wiring.
 
@@ -274,7 +274,7 @@ Every beat reuses an existing mechanism rather than building a parallel one:
    `ScriptedBattleData.completion_flag`, same as the rabbit hunt.
 4. **Marsax hold besieged** — reuses the GID-054 siege gauntlet wholesale instead of a parallel
    story-siege system. `"marsax_hold"` added to `SiegeDefs.TOWN_GATES`;
-   `TownSiege._check_story_trigger()` calls `save_manager.start_siege("marsax_hold")` once
+   `TownSiege._check_story_trigger()` calls `save_manager.town_siege.start_siege("marsax_hold")` once
    on map entry (`chapter2_ambush_survived` set, `chapter2_siege_won` not, no siege already
    active), right before the existing `TownSiege.on_map_entered()`. `SceneManager._on_battle_won`'s
    final-stage-victory branch sets `chapter2_siege_won` when the winning siege's town is

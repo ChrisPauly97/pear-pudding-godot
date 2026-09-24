@@ -50,7 +50,7 @@ All 6 interactable entities call `add_to_group("interactable")` in `_ready()` an
 
 ### Battle Backdrop (`BattleBackdrop`, `battle_backdrop.gdshader`) — GID-126
 
-`BattleScene._setup_backdrop()` runs in `_ready()` and hands `$Background` (the
+`BattleScene.arena._setup_backdrop()` runs in `_ready()` and hands `$Background` (the
 `ColorRect` that used to *be* the background) to
 `BattleBackdrop.apply(rect, biome, is_night)`, which installs a `ShaderMaterial`
 running `assets/shaders/battle_backdrop.gdshader`. The rect keeps its flat

@@ -7,6 +7,8 @@
 ## get_plot_growth_stage integration, and save/load round-trip.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
@@ -145,7 +147,7 @@ func test_new_game_potions_is_empty() -> void:
 
 func test_migration_adds_garden_fields() -> void:
 	var data: Dictionary = {"version": 32}
-	SaveManagerScript._migrate_v32_to_v33(data)
+	_SaveMigrations.apply(data, 33)
 	assert_true(data.has("garden_plots"), "garden_plots must be added")
 	assert_true(data.has("seeds"),        "seeds must be added")
 	assert_true(data.has("plants"),       "plants must be added")
@@ -153,22 +155,22 @@ func test_migration_adds_garden_fields() -> void:
 
 func test_migration_garden_plots_default_has_three_entries() -> void:
 	var data: Dictionary = {"version": 32}
-	SaveManagerScript._migrate_v32_to_v33(data)
+	_SaveMigrations.apply(data, 33)
 	assert_eq((data["garden_plots"] as Array).size(), 3)
 
 func test_migration_bumps_version_to_33() -> void:
 	var data: Dictionary = {"version": 32}
-	SaveManagerScript._migrate_v32_to_v33(data)
+	_SaveMigrations.apply(data, 33)
 	assert_eq(data["version"], 33)
 
 func test_migration_does_not_overwrite_existing_seeds() -> void:
 	var data: Dictionary = {"version": 32, "seeds": {"sunpetal": 2}}
-	SaveManagerScript._migrate_v32_to_v33(data)
+	_SaveMigrations.apply(data, 33)
 	assert_eq(int(data["seeds"]["sunpetal"]), 2)
 
 func test_apply_migrations_reaches_v33_from_v32() -> void:
 	var data: Dictionary = {"version": 32}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(data.get("version", 0), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("garden_plots"))
 
@@ -177,71 +179,71 @@ func test_apply_migrations_reaches_v33_from_v32() -> void:
 # ---------------------------------------------------------------------------
 
 func test_set_plot_stores_seed_and_day() -> void:
-	_sm.set_plot(0, "sunpetal", 5)
+	_sm.garden.set_plot(0, "sunpetal", 5)
 	var plot: Dictionary = _sm.garden_plots[0]
 	assert_eq(str(plot.get("seed_id", "")), "sunpetal")
 	assert_eq(int(plot.get("planted_day", -1)), 5)
 
 func test_clear_plot_empties_dict() -> void:
-	_sm.set_plot(1, "moonroot", 2)
-	_sm.clear_plot(1)
+	_sm.garden.set_plot(1, "moonroot", 2)
+	_sm.garden.clear_plot(1)
 	assert_true((_sm.garden_plots[1] as Dictionary).is_empty())
 
 func test_set_plot_out_of_range_is_noop() -> void:
-	_sm.set_plot(99, "sunpetal", 0)  # should not crash
+	_sm.garden.set_plot(99, "sunpetal", 0)  # should not crash
 
 # ---------------------------------------------------------------------------
 # SaveManager — seed/plant/potion count helpers
 # ---------------------------------------------------------------------------
 
 func test_add_seeds_increments_count() -> void:
-	_sm.add_seeds("sunpetal", 3)
+	_sm.garden.add_seeds("sunpetal", 3)
 	assert_eq(int(_sm.seeds.get("sunpetal", 0)), 3)
 
 func test_add_seeds_accumulates() -> void:
-	_sm.add_seeds("moonroot", 1)
-	_sm.add_seeds("moonroot", 2)
+	_sm.garden.add_seeds("moonroot", 1)
+	_sm.garden.add_seeds("moonroot", 2)
 	assert_eq(int(_sm.seeds.get("moonroot", 0)), 3)
 
 func test_remove_seeds_succeeds_when_sufficient() -> void:
-	_sm.add_seeds("sunpetal", 3)
-	var ok: bool = _sm.remove_seeds("sunpetal", 2)
+	_sm.garden.add_seeds("sunpetal", 3)
+	var ok: bool = _sm.garden.remove_seeds("sunpetal", 2)
 	assert_true(ok)
 	assert_eq(int(_sm.seeds.get("sunpetal", 0)), 1)
 
 func test_remove_seeds_fails_when_insufficient() -> void:
-	_sm.add_seeds("sunpetal", 1)
-	var ok: bool = _sm.remove_seeds("sunpetal", 2)
+	_sm.garden.add_seeds("sunpetal", 1)
+	var ok: bool = _sm.garden.remove_seeds("sunpetal", 2)
 	assert_false(ok)
 	assert_eq(int(_sm.seeds.get("sunpetal", 0)), 1)
 
 func test_add_plants_increments_count() -> void:
-	_sm.add_plants("sunpetal_plant", 2)
+	_sm.garden.add_plants("sunpetal_plant", 2)
 	assert_eq(int(_sm.plants.get("sunpetal_plant", 0)), 2)
 
 func test_remove_plants_succeeds() -> void:
-	_sm.add_plants("moonroot_plant", 4)
-	var ok: bool = _sm.remove_plants("moonroot_plant", 2)
+	_sm.garden.add_plants("moonroot_plant", 4)
+	var ok: bool = _sm.garden.remove_plants("moonroot_plant", 2)
 	assert_true(ok)
 	assert_eq(int(_sm.plants.get("moonroot_plant", 0)), 2)
 
 func test_remove_plants_fails_when_insufficient() -> void:
-	_sm.add_plants("embercap_plant", 1)
-	var ok: bool = _sm.remove_plants("embercap_plant", 3)
+	_sm.garden.add_plants("embercap_plant", 1)
+	var ok: bool = _sm.garden.remove_plants("embercap_plant", 3)
 	assert_false(ok)
 
 func test_add_potions_increments_count() -> void:
-	_sm.add_potions("healing_draught", 1)
+	_sm.garden.add_potions("healing_draught", 1)
 	assert_eq(int(_sm.potions.get("healing_draught", 0)), 1)
 
 func test_remove_potions_succeeds() -> void:
-	_sm.add_potions("clarity_brew", 2)
-	var ok: bool = _sm.remove_potions("clarity_brew", 1)
+	_sm.garden.add_potions("clarity_brew", 2)
+	var ok: bool = _sm.garden.remove_potions("clarity_brew", 1)
 	assert_true(ok)
 	assert_eq(int(_sm.potions.get("clarity_brew", 0)), 1)
 
 func test_remove_potions_fails_when_insufficient() -> void:
-	var ok: bool = _sm.remove_potions("ember_tonic", 1)
+	var ok: bool = _sm.garden.remove_potions("ember_tonic", 1)
 	assert_false(ok)
 
 # ---------------------------------------------------------------------------
@@ -249,22 +251,22 @@ func test_remove_potions_fails_when_insufficient() -> void:
 # ---------------------------------------------------------------------------
 
 func test_empty_plot_returns_stage_0() -> void:
-	assert_eq(_sm.get_plot_growth_stage(0), 0, "empty plot must return stage 0")
+	assert_eq(_sm.garden.get_plot_growth_stage(0), 0, "empty plot must return stage 0")
 
 func test_planted_plot_returns_stage_1_on_same_day() -> void:
 	_sm.days_elapsed = 5
-	_sm.set_plot(0, "sunpetal", 5)
-	assert_eq(_sm.get_plot_growth_stage(0), 1)
+	_sm.garden.set_plot(0, "sunpetal", 5)
+	assert_eq(_sm.garden.get_plot_growth_stage(0), 1)
 
 func test_planted_sunpetal_matures_after_2_days() -> void:
 	_sm.days_elapsed = 7
-	_sm.set_plot(0, "sunpetal", 5)
-	assert_eq(_sm.get_plot_growth_stage(0), 3)
+	_sm.garden.set_plot(0, "sunpetal", 5)
+	assert_eq(_sm.garden.get_plot_growth_stage(0), 3)
 
 func test_planted_moonroot_intermediate_stage() -> void:
 	_sm.days_elapsed = 7
-	_sm.set_plot(1, "moonroot", 5)  # age = 2, growth_days = 3 → stage 2
-	assert_eq(_sm.get_plot_growth_stage(1), 2)
+	_sm.garden.set_plot(1, "moonroot", 5)  # age = 2, growth_days = 3 → stage 2
+	assert_eq(_sm.garden.get_plot_growth_stage(1), 2)
 
 func test_out_of_range_plot_returns_0() -> void:
-	assert_eq(_sm.get_plot_growth_stage(99), 0)
+	assert_eq(_sm.garden.get_plot_growth_stage(99), 0)

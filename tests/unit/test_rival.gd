@@ -4,6 +4,8 @@
 ## migration round-trip, and EnemyRegistry registration of the three rival decks.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const EnemyRegistryScript = preload("res://autoloads/EnemyRegistry.gd")
@@ -73,7 +75,7 @@ func test_set_rival_defeated() -> void:
 
 func test_migration_backfills_rival_fields() -> void:
 	var data: Dictionary = {"version": 31, "bag_size": 20}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(int(data.get("rival_encounters_won", -1)), 0)
 	assert_false(bool(data.get("rival_defeated", true)))
 	assert_eq(int(data.get("version", 0)), SaveManagerScript.CURRENT_SAVE_VERSION)

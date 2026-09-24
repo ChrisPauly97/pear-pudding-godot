@@ -7,6 +7,8 @@
 ## add/rename/duplicate/delete loadout guards, and set_active_deck sync.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
 var _sm: Node
@@ -37,7 +39,7 @@ func after_each() -> void:
 
 func test_migration_wraps_player_deck_into_loadouts() -> void:
 	var data: Dictionary = {"version": 33, "player_deck": ["x", "y", "z"]}
-	SaveManagerScript._migrate_v33_to_v34(data)
+	_SaveMigrations.apply(data, 34)
 	assert_true(data.has("loadouts"), "loadouts key must be added")
 	var loadouts: Array = data["loadouts"]
 	assert_eq(loadouts.size(), 1, "exactly one loadout after migration")
@@ -46,18 +48,18 @@ func test_migration_wraps_player_deck_into_loadouts() -> void:
 
 func test_migration_names_first_loadout_deck_1() -> void:
 	var data: Dictionary = {"version": 33, "player_deck": ["x"]}
-	SaveManagerScript._migrate_v33_to_v34(data)
+	_SaveMigrations.apply(data, 34)
 	var name: String = str(data["loadouts"][0]["name"])
 	assert_eq(name, "Deck 1")
 
 func test_migration_sets_active_loadout_0() -> void:
 	var data: Dictionary = {"version": 33, "player_deck": []}
-	SaveManagerScript._migrate_v33_to_v34(data)
+	_SaveMigrations.apply(data, 34)
 	assert_eq(int(data["active_loadout"]), 0)
 
 func test_migration_bumps_version_to_34() -> void:
 	var data: Dictionary = {"version": 33, "player_deck": []}
-	SaveManagerScript._migrate_v33_to_v34(data)
+	_SaveMigrations.apply(data, 34)
 	assert_eq(int(data["version"]), 34)
 
 func test_migration_does_not_overwrite_existing_loadouts() -> void:
@@ -66,13 +68,13 @@ func test_migration_does_not_overwrite_existing_loadouts() -> void:
 		"player_deck": ["a"],
 		"loadouts": [{"name": "Custom", "cards": ["b"]}]
 	}
-	SaveManagerScript._migrate_v33_to_v34(data)
+	_SaveMigrations.apply(data, 34)
 	assert_eq(data["loadouts"].size(), 1)
 	assert_eq(str(data["loadouts"][0]["name"]), "Custom")
 
 func test_apply_migrations_reaches_v34_from_v33() -> void:
 	var data: Dictionary = {"version": 33, "player_deck": ["uid_q"]}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(int(data["version"]), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("loadouts"))
 
@@ -131,19 +133,19 @@ func test_set_active_loadout_syncs_player_deck() -> void:
 	])
 	_sm.active_loadout = 0
 	_sm.player_deck.assign(["uid_1", "uid_2"])
-	var ok: bool = _sm.set_active_loadout(1)
+	var ok: bool = _sm.decks.set_active_loadout(1)
 	assert_true(ok)
 	assert_eq(_sm.player_deck.size(), 3, "player_deck must reflect loadout B")
 	assert_true(_sm.player_deck.has("uid_3"))
 
 func test_set_active_loadout_out_of_range_returns_false() -> void:
 	_set_loadouts([{"name": "A", "cards": []}])
-	var ok: bool = _sm.set_active_loadout(5)
+	var ok: bool = _sm.decks.set_active_loadout(5)
 	assert_false(ok)
 
 func test_set_active_loadout_negative_returns_false() -> void:
 	_set_loadouts([{"name": "A", "cards": []}])
-	var ok: bool = _sm.set_active_loadout(-1)
+	var ok: bool = _sm.decks.set_active_loadout(-1)
 	assert_false(ok)
 
 # ---------------------------------------------------------------------------
@@ -169,31 +171,31 @@ func test_is_loadout_valid_returns_false_below_min() -> void:
 	for i: int in range(3):
 		small_cards.append("uid_%d" % i)
 	_set_loadouts([{"name": "Small", "cards": small_cards}])
-	assert_false(_sm.is_loadout_valid(0))
+	assert_false(_sm.decks.is_loadout_valid(0))
 
 func test_is_loadout_valid_returns_true_at_min() -> void:
 	var cards: Array[String] = []
 	for i: int in range(8):
 		cards.append("uid_%d" % i)
 	_set_loadouts([{"name": "Min", "cards": cards}])
-	assert_true(_sm.is_loadout_valid(0))
+	assert_true(_sm.decks.is_loadout_valid(0))
 
 func test_is_loadout_valid_returns_true_at_max() -> void:
 	var cards: Array[String] = []
 	for i: int in range(20):
 		cards.append("uid_%d" % i)
 	_set_loadouts([{"name": "Max", "cards": cards}])
-	assert_true(_sm.is_loadout_valid(0))
+	assert_true(_sm.decks.is_loadout_valid(0))
 
 func test_is_loadout_valid_returns_false_above_max() -> void:
 	var cards: Array[String] = []
 	for i: int in range(25):
 		cards.append("uid_%d" % i)
 	_set_loadouts([{"name": "Over", "cards": cards}])
-	assert_false(_sm.is_loadout_valid(0))
+	assert_false(_sm.decks.is_loadout_valid(0))
 
 func test_is_loadout_valid_returns_false_for_bad_index() -> void:
-	assert_false(_sm.is_loadout_valid(99))
+	assert_false(_sm.decks.is_loadout_valid(99))
 
 # ---------------------------------------------------------------------------
 # add_loadout
@@ -201,7 +203,7 @@ func test_is_loadout_valid_returns_false_for_bad_index() -> void:
 
 func test_add_loadout_appends_new_entry() -> void:
 	_sm.loadouts.clear()
-	var idx: int = _sm.add_loadout("Test")
+	var idx: int = _sm.decks.add_loadout("Test")
 	assert_eq(idx, 0)
 	assert_eq(_sm.loadouts.size(), 1)
 	assert_eq(str(_sm.loadouts[0]["name"]), "Test")
@@ -209,14 +211,14 @@ func test_add_loadout_appends_new_entry() -> void:
 func test_add_loadout_returns_minus_one_when_full() -> void:
 	_sm.loadouts.clear()
 	for i: int in range(SaveManagerScript.MAX_LOADOUTS):
-		_sm.add_loadout("Deck %d" % i)
-	var idx: int = _sm.add_loadout("One Too Many")
+		_sm.decks.add_loadout("Deck %d" % i)
+	var idx: int = _sm.decks.add_loadout("One Too Many")
 	assert_eq(idx, -1)
 	assert_eq(_sm.loadouts.size(), SaveManagerScript.MAX_LOADOUTS)
 
 func test_add_loadout_starts_with_empty_cards() -> void:
 	_sm.loadouts.clear()
-	_sm.add_loadout("Empty")
+	_sm.decks.add_loadout("Empty")
 	var cards: Array = _sm.loadouts[0]["cards"]
 	assert_eq(cards.size(), 0)
 
@@ -226,12 +228,12 @@ func test_add_loadout_starts_with_empty_cards() -> void:
 
 func test_rename_loadout_changes_name() -> void:
 	_set_loadouts([{"name": "Old", "cards": []}])
-	_sm.rename_loadout(0, "New")
+	_sm.decks.rename_loadout(0, "New")
 	assert_eq(str(_sm.loadouts[0]["name"]), "New")
 
 func test_rename_loadout_out_of_range_is_noop() -> void:
 	_set_loadouts([{"name": "Keep", "cards": []}])
-	_sm.rename_loadout(5, "Should Not Appear")
+	_sm.decks.rename_loadout(5, "Should Not Appear")
 	assert_eq(str(_sm.loadouts[0]["name"]), "Keep")
 
 # ---------------------------------------------------------------------------
@@ -240,7 +242,7 @@ func test_rename_loadout_out_of_range_is_noop() -> void:
 
 func test_duplicate_loadout_creates_copy() -> void:
 	_set_loadouts([{"name": "Original", "cards": ["uid_a", "uid_b"]}])
-	var new_idx: int = _sm.duplicate_loadout(0)
+	var new_idx: int = _sm.decks.duplicate_loadout(0)
 	assert_eq(new_idx, 1)
 	assert_eq(_sm.loadouts.size(), 2)
 	var copy_cards: Array = _sm.loadouts[1]["cards"]
@@ -251,7 +253,7 @@ func test_duplicate_loadout_returns_minus_one_when_full() -> void:
 	_sm.loadouts.clear()
 	for i: int in range(SaveManagerScript.MAX_LOADOUTS):
 		_sm.loadouts.append({"name": "D%d" % i, "cards": []})
-	var idx: int = _sm.duplicate_loadout(0)
+	var idx: int = _sm.decks.duplicate_loadout(0)
 	assert_eq(idx, -1)
 
 # ---------------------------------------------------------------------------
@@ -265,14 +267,14 @@ func test_delete_loadout_removes_entry() -> void:
 	])
 	_sm.active_loadout = 0
 	_sm.player_deck.assign([])
-	var ok: bool = _sm.delete_loadout(1)
+	var ok: bool = _sm.decks.delete_loadout(1)
 	assert_true(ok)
 	assert_eq(_sm.loadouts.size(), 1)
 	assert_eq(str(_sm.loadouts[0]["name"]), "A")
 
 func test_delete_loadout_refuses_last() -> void:
 	_set_loadouts([{"name": "Solo", "cards": []}])
-	var ok: bool = _sm.delete_loadout(0)
+	var ok: bool = _sm.decks.delete_loadout(0)
 	assert_false(ok)
 	assert_eq(_sm.loadouts.size(), 1)
 
@@ -283,7 +285,7 @@ func test_delete_loadout_adjusts_active_when_deleting_last_index() -> void:
 	])
 	_sm.active_loadout = 1
 	_sm.player_deck.assign(["uid_b"])
-	_sm.delete_loadout(1)
+	_sm.decks.delete_loadout(1)
 	assert_eq(_sm.active_loadout, 0, "active_loadout must clamp to valid range")
 
 func test_delete_loadout_syncs_player_deck_to_new_active() -> void:
@@ -293,7 +295,7 @@ func test_delete_loadout_syncs_player_deck_to_new_active() -> void:
 	])
 	_sm.active_loadout = 1
 	_sm.player_deck.assign(["uid_gone"])
-	_sm.delete_loadout(1)
+	_sm.decks.delete_loadout(1)
 	assert_true(_sm.player_deck.has("uid_remaining"),
 		"player_deck must reflect new active loadout after delete")
 
@@ -307,7 +309,7 @@ func test_get_loadout_names_returns_all_names() -> void:
 		{"name": "Beta",  "cards": []},
 		{"name": "Gamma", "cards": []},
 	])
-	var names: Array[String] = _sm.get_loadout_names()
+	var names: Array[String] = _sm.decks.get_loadout_names()
 	assert_eq(names.size(), 3)
 	assert_eq(names[0], "Alpha")
 	assert_eq(names[1], "Beta")

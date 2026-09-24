@@ -68,3 +68,24 @@ Done:
 - [x] **Spectral tint** — `EnemyNPC` applies it from `"nocturnal": true` and owns `fade_out_and_free()`; the co-op night hunt was setting `modulate` on a `Node3D` (runtime error)
 - [x] **Silent runtime errors** — 15 `SCRIPT ERROR`s in a green test run fixed (12 vacuous tests, landmark discovery, spire mirror); CI now fails on any
 - [x] **Garden panel** — built on `_build_modal` (backdrop blocks tap-to-move through the panel) and split per stage
+
+### SceneManager split (claude/refactor-targets-lint-ivoueg)
+
+- [x] **State machine** — `SceneFlow` transition table, `_transition_to`, `_enter_battle` (see top of file)
+- [x] **`SceneManager.gd` 1.8k → 1.1k lines** — battle victory, battle defeat and networked battles moved to `autoloads/scene_manager/{BattleVictory,BattleDefeat,NetBattles}.gd`; external callers use `SceneManager.net_battles.*`
+- [ ] **Co-op Spire run** — the `_coop_spire_run` dict and its eight accessors could become a pure `game_logic/` object; left on SceneManager because the unit tests poke the dict directly
+
+### SaveManager split (claude/refactor-targets-lint-ivoueg)
+
+- [x] **Migrations** — `game_logic/save/SaveMigrations.gd` owns the table + `CURRENT_VERSION`; 13 dead `_migrate_vN_to_vM` copies (tested, never run by `load_save`) deleted, tests now exercise the real table via `apply(data, up_to)`
+- [x] **On-disk format** — `game_logic/save/SaveFile.gd` (paths, HMAC envelope, `write_slot`); the tmp → .bak → rename sequence existed twice
+- [x] **Feature APIs** — `autoloads/save_manager/{SaveGarden,SaveBounties,SaveLoadouts,SaveSpire,SaveSiege,SaveMailbox}.gd`, reached as `save_manager.<garden|bounties|decks|spire|town_siege|mailbox>`
+- [x] **`SaveManager.gd` 2.2k → 1.5k lines**
+- [ ] **Remaining clusters** — card instances / equipment / weapons (~350 lines, the most callers), `new_game` (~110), co-op session character adoption (~110)
+
+### BattleScene split (claude/refactor-targets-lint-ivoueg)
+
+- [x] **`BattleScene.gd` 2.5k → 1.3k lines** — six single-player modules under `scenes/battle/modules/` (modifiers, consumables, tutorials, arena, targeting, card input), each with a `_battle` back-reference typed as the BattleScene script so member access is compile-checked; added to `test_scene_module_guardrail`
+- [ ] **Remaining** — `_ready` / `_setup_solo_battle` (~240 lines of mode setup), turn flow + AI turn (`_on_turn_ended`, `_run_ai_turn`, `_execute_ai_actions`, ~200), game-over / victory (`_check_game_over`, `_show_standard_victory`, ~120)
+- [ ] **Type the other module back-references** — SceneManager / SaveManager / WorldScene modules still use an untyped `Node`, so a wrong `_sm.X` / `_world.X` only fails at runtime
+

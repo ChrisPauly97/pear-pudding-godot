@@ -9,6 +9,8 @@
 ## and signature card registration in CardRegistry.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const CaptureTracker = preload("res://game_logic/battle/CaptureTracker.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const EnemyRegistryScript = preload("res://autoloads/EnemyRegistry.gd")
@@ -188,13 +190,13 @@ func test_mark_signature_captured_empty_id_no_entry() -> void:
 
 func test_captured_signatures_migration_v34_to_v35() -> void:
 	var data: Dictionary = {"version": 34, "loadouts": [], "active_loadout": 0}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_true(data.has("captured_signatures"))
 	assert_eq(int(data["version"]), SaveManagerScript.CURRENT_SAVE_VERSION)
 
 func test_captured_signatures_present_v35_unchanged() -> void:
 	var data: Dictionary = {"version": 35, "captured_signatures": ["sig_warlord"]}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(data["captured_signatures"].size(), 1)
 
 # ---------------------------------------------------------------------------

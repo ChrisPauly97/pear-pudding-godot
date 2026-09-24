@@ -615,7 +615,7 @@ func _coop_start_spire_boss_battle(edata: Dictionary) -> void:
 		var pid: int = abs_peer_ids[i]
 		if pid != multiplayer.get_unique_id():
 			_world._net_sync.rpc_id(pid, "notify_coop_pve_start", i, all_decks, edata)
-	SceneManager.enter_coop_pve_battle(0, all_decks, edata)
+	SceneManager.net_battles.enter_coop_pve_battle(0, all_decks, edata)
 
 
 ## Any peer: the joint Spire floor battle ended. No-op unless a co-op Spire run is
@@ -872,12 +872,12 @@ func _coop_start_siege_boss_battle(edata: Dictionary) -> void:
 		var pid: int = abs_peer_ids[i]
 		if pid != multiplayer.get_unique_id():
 			_world._net_sync.rpc_id(pid, "notify_coop_pve_start", i, all_decks, edata)
-	SceneManager.enter_coop_pve_battle(0, all_decks, edata)
+	SceneManager.net_battles.enter_coop_pve_battle(0, all_decks, edata)
 
 ## Client: the host started the joint siege-boss battle — enter with our index.
 
 func _on_notify_coop_pve_start(my_idx: int, all_ally_decks: Array, enemy_data: Dictionary) -> void:
-	SceneManager.enter_coop_pve_battle(my_idx, all_ally_decks, enemy_data)
+	SceneManager.net_battles.enter_coop_pve_battle(my_idx, all_ally_decks, enemy_data)
 
 ## Any peer: the joint siege-boss battle ended — reset siege UI/state; the host
 ## additionally distributes victory rewards to the whole party. A no-op unless a

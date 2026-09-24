@@ -49,6 +49,9 @@ const _NetSyncScript = preload("res://scenes/world/NetSync.gd")
 ## they are deliberately not listed — only callers that hold the real scene are.
 const _EXTERNAL_CALLER_FILES: Array[String] = [
 	"res://autoloads/SceneManager.gd",
+	"res://autoloads/scene_manager/BattleDefeat.gd",
+	"res://autoloads/scene_manager/BattleVictory.gd",
+	"res://autoloads/scene_manager/NetBattles.gd",
 ]
 
 ## Handlers known to be unsafe to invoke cold, with the concrete reason — found by

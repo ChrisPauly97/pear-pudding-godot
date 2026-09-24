@@ -10,10 +10,17 @@ const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _CardInstanceUtil = preload("res://game_logic/CardInstanceUtil.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+const _SaveFile = preload("res://game_logic/save/SaveFile.gd")
+const _SaveGarden = preload("res://autoloads/save_manager/SaveGarden.gd")
+const _SaveBounties = preload("res://autoloads/save_manager/SaveBounties.gd")
+const _SaveLoadouts = preload("res://autoloads/save_manager/SaveLoadouts.gd")
+const _SaveSpire = preload("res://autoloads/save_manager/SaveSpire.gd")
+const _SaveSiege = preload("res://autoloads/save_manager/SaveSiege.gd")
+const _SaveMailbox = preload("res://autoloads/save_manager/SaveMailbox.gd")
 
 const LEGACY_SAVE_PATH := "user://save.json"
 const NUM_SAVE_SLOTS: int = 3
-const _HMAC_SECRET: String = "7e3f91c4b8d20a5e6f19c7b3d4e8f201"
 
 # Named deck loadouts (up to MAX_LOADOUTS). Each entry: {name: String, cards: Array[String]}.
 const MAX_LOADOUTS: int = 5
@@ -65,7 +72,7 @@ const PERSISTED_FIELDS: Dictionary = {
 }
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
 
-const CURRENT_SAVE_VERSION: int = 41
+const CURRENT_SAVE_VERSION: int = _SaveMigrations.CURRENT_VERSION
 
 const REDEMPTION_FLAG_AWARDS: Dictionary = {
 	"chapter1_left_madrian": 5,
@@ -75,6 +82,14 @@ const REDEMPTION_FLAG_AWARDS: Dictionary = {
 	"champion_blancogov_defeated": 15,
 	"bestiary_complete": 10,
 }
+
+## Feature APIs over the persisted fields (autoloads/save_manager/), built in `_init`.
+var garden: _SaveGarden
+var bounties: _SaveBounties
+var decks: _SaveLoadouts
+var spire: _SaveSpire
+var town_siege: _SaveSiege
+var mailbox: _SaveMailbox
 
 var active_slot: int = 1
 
@@ -289,14 +304,15 @@ var _async_save_task: int = -1
 var _achievement_slot: int = -1
 var _achievement_dirty: bool = false
 
-func _get_slot_path(slot: int) -> String:
-	return "user://save_slot_%d.json" % slot
-
-func _get_slot_tmp_path(slot: int) -> String:
-	return "user://save_slot_%d.json.tmp" % slot
-
-func _get_slot_bak_path(slot: int) -> String:
-	return "user://save_slot_%d.json.bak" % slot
+## Builds the feature modules in `_init`, not `_ready`, because tests call
+## `SaveManagerScript.new()` without ever adding it to the tree.
+func _init() -> void:
+	garden = _SaveGarden.new(self)
+	bounties = _SaveBounties.new(self)
+	decks = _SaveLoadouts.new(self)
+	spire = _SaveSpire.new(self)
+	town_siege = _SaveSiege.new(self)
+	mailbox = _SaveMailbox.new(self)
 
 func _ready() -> void:
 	var timer := Timer.new()
@@ -308,11 +324,11 @@ func _ready() -> void:
 	if FileAccess.file_exists(LEGACY_SAVE_PATH):
 		var any_exists: bool = false
 		for s: int in range(1, NUM_SAVE_SLOTS + 1):
-			if FileAccess.file_exists(_get_slot_path(s)):
+			if FileAccess.file_exists(_SaveFile.slot_path(s)):
 				any_exists = true
 				break
 		if not any_exists:
-			DirAccess.copy_absolute(LEGACY_SAVE_PATH, _get_slot_path(1))
+			DirAccess.copy_absolute(LEGACY_SAVE_PATH, _SaveFile.slot_path(1))
 
 # -------------------------------------------------------------------------
 # Save slot API
@@ -322,10 +338,10 @@ func set_active_slot(slot: int) -> void:
 	active_slot = clamp(slot, 1, NUM_SAVE_SLOTS)
 
 func has_save_slot(slot: int) -> bool:
-	return FileAccess.file_exists(_get_slot_path(slot))
+	return FileAccess.file_exists(_SaveFile.slot_path(slot))
 
 func get_slot_metadata(slot: int) -> Dictionary:
-	var parsed = _read_save_json(_get_slot_path(slot))
+	var parsed = _SaveFile.read_json(_SaveFile.slot_path(slot))
 	if not parsed is Dictionary:
 		return {}
 	var data: Dictionary = parsed
@@ -338,10 +354,10 @@ func get_slot_metadata(slot: int) -> Dictionary:
 
 func delete_save_slot(slot: int) -> void:
 	_await_async_save()  # don't let a background flush resurrect the file
-	var path: String = _get_slot_path(slot)
+	var path: String = _SaveFile.slot_path(slot)
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
-	var bak: String = _get_slot_bak_path(slot)
+	var bak: String = _SaveFile.slot_bak_path(slot)
 	if FileAccess.file_exists(bak):
 		DirAccess.remove_absolute(bak)
 
@@ -385,24 +401,14 @@ func _await_async_save() -> void:
 ## Write only achievement fields into the on-disk save for the given slot.
 ## Used during co-op sessions where _loaded = false blocks the normal save() path.
 func _flush_achievements(slot: int) -> void:
-	var path: String = _get_slot_path(slot)
-	var parsed = _read_save_json(path)
+	var path: String = _SaveFile.slot_path(slot)
+	var parsed = _SaveFile.read_json(path)
 	if not parsed is Dictionary:
 		return
 	var data: Dictionary = parsed
 	data["achievement_progress"] = achievement_progress
 	data["unlocked_achievements"] = unlocked_achievements
-	var tmp_path: String = _get_slot_tmp_path(slot)
-	var bak_path: String = _get_slot_bak_path(slot)
-	var inner_json: String = JSON.stringify(data, "\t")
-	var tmp_file := FileAccess.open(tmp_path, FileAccess.WRITE)
-	if not tmp_file:
-		return
-	tmp_file.store_string(JSON.stringify({"hmac": _sign(inner_json), "payload": inner_json}))
-	tmp_file = null
-	if FileAccess.file_exists(path):
-		DirAccess.copy_absolute(path, bak_path)
-	DirAccess.rename_absolute(tmp_path, path)
+	_SaveFile.write_slot(data, slot)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST \
@@ -653,261 +659,6 @@ func export_session_character() -> Dictionary:
 		"equipped_armor": equipped_armor,
 	}
 
-# Each entry is [target_version, payload] where payload is either:
-#   Dictionary — {field: default} backfill applied when ver < target
-#   Callable   — func(data: Dictionary) for non-trivial format changes (must bump data["version"])
-# Entries are in ascending version order; ver is read once so all needed migrations
-# run in a single pass even when multiple versions are skipped.
-static func _apply_migrations(data: Dictionary) -> void:
-	var ver: int = int(data.get("version", 0))
-
-	var _m1: Callable = func(d: Dictionary) -> void:
-		if not d.has("owned_cards"):
-			d["owned_cards"] = d.get("player_deck", [])
-		d["version"] = 1
-
-	var _m10: Callable = func(d: Dictionary) -> void:
-		var old_owned: Array = d.get("owned_cards", [])
-		var old_deck: Array = d.get("player_deck", [])
-		var new_instances: Array = []
-		var counter: int = 0
-		for item in old_owned:
-			var tid: String = str(item)
-			var tmpl: Dictionary = CardRegistry.get_template(tid)
-			var uid: String = "%s_v10_%d" % [tid, counter]
-			counter += 1
-			new_instances.append({"uid": uid, "template_id": tid, "rarity": "common",
-				"attack": int(tmpl.get("attack", 1)), "health": int(tmpl.get("health", 1)),
-				"cost": int(tmpl.get("cost", 1))})
-		var used_uids: Dictionary = {}
-		var new_deck: Array = []
-		for deck_item in old_deck:
-			var deck_tid: String = str(deck_item)
-			for inst: Dictionary in new_instances:
-				var iuid: String = str(inst.get("uid", ""))
-				if str(inst.get("template_id", "")) == deck_tid and not used_uids.has(iuid):
-					new_deck.append(iuid)
-					used_uids[iuid] = true
-					break
-		d["owned_cards"] = new_instances
-		d["player_deck"] = new_deck
-		d["essence"] = 0
-		d["version"] = 10
-
-	var _m30: Callable = func(d: Dictionary) -> void:
-		if d.has("owned_weapons"):
-			var old_weapons: Array = d["owned_weapons"]
-			var new_weapons: Array = []
-			for item in old_weapons:
-				if item is Dictionary:
-					new_weapons.append(item)
-				else:
-					new_weapons.append({"weapon_id": str(item), "upgrade_level": 0})
-			d["owned_weapons"] = new_weapons
-		d["version"] = 30
-
-	var _m34: Callable = func(d: Dictionary) -> void:
-		if not d.has("loadouts"):
-			var existing_deck: Array = d.get("player_deck", [])
-			d["loadouts"] = [{"name": "Deck 1", "cards": existing_deck.duplicate()}]
-			d["active_loadout"] = 0
-		d["version"] = 34
-
-	var _m35: Callable = func(d: Dictionary) -> void:
-		var cards: Array = d.get("owned_cards", [])
-		for i: int in range(cards.size()):
-			if not cards[i] is Dictionary:
-				continue
-			var card: Dictionary = cards[i]
-			if not card.has("kills"):            card["kills"] = 0
-			if not card.has("battles_survived"): card["battles_survived"] = 0
-			if not card.has("custom_name"):      card["custom_name"] = ""
-		if not d.has("captured_signatures"):
-			d["captured_signatures"] = []
-		d["version"] = 35
-
-	var table: Array = [
-		[1,  _m1],
-		[2,  {"world_seed": 42, "starting_biome": 0}],
-		[3,  {"story_flags": {}}],
-		[4,  {"days_elapsed": 0, "last_respawn_day": 0}],
-		[5,  {"equipped_weapon": ""}],
-		[6,  {"collected_scrolls": []}],
-		[7,  {"owned_weapons": []}],
-		[8,  {"settings": {}, "achievement_progress": {}, "unlocked_achievements": [], "visited_biomes": []}],
-		[9,  {"visited_dungeon_rooms": []}],
-		[10, _m10],
-		[11, {"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "",
-			  "owned_armor": [], "owned_rings": [], "owned_trinkets": []}],
-		[12, {"xp": 0, "level": 1, "skill_points": 0, "unlocked_skills": []}],
-		[13, {"magic_type": "", "corruption_points": 0, "redemption_points": 0}],
-		[14, {"pending_battle_state": {}}],
-		[15, {"defeated_duelists": []}],
-		[16, {"spire_run": {"active": false}}],
-		[17, {"spire_best_floor": 0}],
-		[18, {"solved_puzzles": [], "world_events": {}}],
-		[19, {"weather": {"id": "", "duration": 0.0, "biome_id": 0}}],
-		[20, {"treasure_fragments": 0, "active_treasure": {}, "treasures_completed": 0}],
-		[21, {"activated_waystones": []}],
-		[22, {"bestiary": {}, "bestiary_complete_rewarded": false, "home_owned": false}],
-		[23, {"respawn_map": "", "respawn_x": 0.0, "respawn_z": 0.0}],
-		[24, {"owned_mounts": [], "active_mount": "", "is_mounted": false}],
-		[25, {"packs_since_legendary": 0}],
-		[26, {"active_companion": ""}],
-		[27, {"waypoint": {}}],
-		[28, {"bounty_day": 0, "offered_bounties": [], "active_bounties": []}],
-		[29, {"bag_size": IsoConst.BAG_SIZE_DEFAULT}],
-		[30, _m30],
-		[31, {"siege": {}, "last_siege_day": 0, "town_discounts": {}}],
-		[32, {"rival_encounters_won": 0, "rival_defeated": false}],
-		[33, {"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {}}],
-		[34, _m34],
-		[35, _m35],
-		[36, {"cantrip_cooldowns": {}}],
-		[37, {"dug_mounds": []}],
-		[38, {"blight_cleansed_hearts": []}],
-		[39, {"discovered_landmarks": []}],
-		[40, {"collected_mana_wells": []}],
-		[41, {"mailbox_cards": []}],
-	]
-	for entry: Array in table:
-		var target: int = entry[0]
-		var payload: Variant = entry[1]
-		if ver < target:
-			if payload is Dictionary:
-				for k: String in (payload as Dictionary).keys():
-					if not data.has(k):
-						data[k] = (payload as Dictionary)[k]
-				data["version"] = target
-			elif payload is Callable:
-				(payload as Callable).call(data)
-
-static func _migrate_v15_to_v16(data: Dictionary) -> void:
-	if not data.has("spire_run"):
-		data["spire_run"] = {"active": false}
-	data["version"] = 16
-
-static func _migrate_v16_to_v17(data: Dictionary) -> void:
-	if not data.has("spire_best_floor"):
-		data["spire_best_floor"] = 0
-	data["version"] = 17
-
-static func _migrate_v19_to_v20(data: Dictionary) -> void:
-	if not data.has("treasure_fragments"):
-		data["treasure_fragments"] = 0
-	if not data.has("active_treasure"):
-		data["active_treasure"] = {}
-	if not data.has("treasures_completed"):
-		data["treasures_completed"] = 0
-	data["version"] = 20
-
-static func _migrate_v21_to_v22(data: Dictionary) -> void:
-	if not data.has("bestiary"):
-		data["bestiary"] = {}
-	if not data.has("bestiary_complete_rewarded"):
-		data["bestiary_complete_rewarded"] = false
-	if not data.has("home_owned"):
-		data["home_owned"] = false
-	data["version"] = 22
-
-static func _migrate_v22_to_v23(data: Dictionary) -> void:
-	if not data.has("respawn_map"):
-		data["respawn_map"] = ""
-	if not data.has("respawn_x"):
-		data["respawn_x"] = 0.0
-	if not data.has("respawn_z"):
-		data["respawn_z"] = 0.0
-	data["version"] = 23
-
-static func _migrate_v23_to_v24(data: Dictionary) -> void:
-	if not data.has("owned_mounts"):
-		data["owned_mounts"] = []
-	if not data.has("active_mount"):
-		data["active_mount"] = ""
-	if not data.has("is_mounted"):
-		data["is_mounted"] = false
-	data["version"] = 24
-
-static func _migrate_v24_to_v25(data: Dictionary) -> void:
-	if not data.has("packs_since_legendary"):
-		data["packs_since_legendary"] = 0
-	data["version"] = 25
-
-static func _migrate_v27_to_v28(data: Dictionary) -> void:
-	if not data.has("bounty_day"):
-		data["bounty_day"] = 0
-	if not data.has("offered_bounties"):
-		data["offered_bounties"] = []
-	if not data.has("active_bounties"):
-		data["active_bounties"] = []
-	data["version"] = 28
-
-static func _migrate_v29_to_v30(data: Dictionary) -> void:
-	if data.has("owned_weapons"):
-		var old_weapons: Array = data["owned_weapons"]
-		var new_weapons: Array = []
-		for item: Variant in old_weapons:
-			if item is Dictionary:
-				new_weapons.append(item)
-			else:
-				new_weapons.append({"weapon_id": str(item), "upgrade_level": 0})
-		data["owned_weapons"] = new_weapons
-	data["version"] = 30
-
-static func _migrate_v30_to_v31(data: Dictionary) -> void:
-	if not data.has("siege"):
-		data["siege"] = {}
-	if not data.has("last_siege_day"):
-		data["last_siege_day"] = 0
-	if not data.has("town_discounts"):
-		data["town_discounts"] = {}
-	data["version"] = 31
-
-static func _migrate_v32_to_v33(data: Dictionary) -> void:
-	if not data.has("garden_plots"):
-		data["garden_plots"] = [{}, {}, {}]
-	if not data.has("seeds"):
-		data["seeds"] = {}
-	if not data.has("plants"):
-		data["plants"] = {}
-	if not data.has("potions"):
-		data["potions"] = {}
-	data["version"] = 33
-
-static func _migrate_v33_to_v34(data: Dictionary) -> void:
-	if not data.has("loadouts"):
-		var existing_deck: Array = data.get("player_deck", [])
-		data["loadouts"] = [{"name": "Deck 1", "cards": existing_deck.duplicate()}]
-		data["active_loadout"] = 0
-	data["version"] = 34
-
-static func _sign(payload: String) -> String:
-	var crypto := Crypto.new()
-	return crypto.hmac_digest(HashingContext.HASH_SHA256, _HMAC_SECRET.to_utf8_buffer(),
-			payload.to_utf8_buffer()).hex_encode()
-
-func _read_save_json(path: String):
-	if not FileAccess.file_exists(path):
-		return null
-	var file := FileAccess.open(path, FileAccess.READ)
-	if not file:
-		return null
-	var outer = JSON.parse_string(file.get_as_text())
-	if not outer is Dictionary:
-		return null
-	if outer.has("payload"):
-		var stored_hmac: String = str(outer.get("hmac", ""))
-		var payload: String = str(outer.get("payload", ""))
-		if stored_hmac != _sign(payload):
-			push_warning("SaveManager: integrity check failed for %s" % path)
-			return null
-		var inner = JSON.parse_string(payload)
-		if not inner is Dictionary:
-			return null
-		return inner
-	# gdlint:ignore = max-returns
-	return outer
-
 ## Restores one PERSISTED_FIELDS entry, coercing to the default's type. Const
 ## defaults are deep-copied before use — a const collection is read-only, and
 ## assigning one to a member would make that member read-only too.
@@ -952,13 +703,13 @@ func _restore_derived_fields(data: Dictionary) -> void:
 		bag_size = IsoConst.BAG_SIZE_DEFAULT
 
 func load_save() -> bool:
-	var parsed = _read_save_json(_get_slot_path(active_slot))
+	var parsed = _SaveFile.read_json(_SaveFile.slot_path(active_slot))
 	if parsed == null:
-		parsed = _read_save_json(_get_slot_bak_path(active_slot))
+		parsed = _SaveFile.read_json(_SaveFile.slot_bak_path(active_slot))
 	if parsed == null:
 		return false
 	var data: Dictionary = parsed
-	_apply_migrations(data)
+	_SaveMigrations.apply(data)
 	for key: String in PERSISTED_FIELDS:
 		_restore_field(data, key, PERSISTED_FIELDS[key])
 	_restore_derived_fields(data)
@@ -997,19 +748,7 @@ func _collect_save_data() -> Dictionary:
 ## filesystem. Single-flight is guaranteed by _async_save_task + save()'s
 ## _await_async_save(), so two writers never race on the same tmp file.
 func _write_save_payload(data: Dictionary, slot: int) -> void:
-	var save_path: String = _get_slot_path(slot)
-	var tmp_path: String = _get_slot_tmp_path(slot)
-	var bak_path: String = _get_slot_bak_path(slot)
-	var tmp := FileAccess.open(tmp_path, FileAccess.WRITE)
-	if not tmp:
-		call_deferred("_on_async_save_done")
-		return
-	var inner_json: String = JSON.stringify(data, "\t")
-	tmp.store_string(JSON.stringify({"hmac": _sign(inner_json), "payload": inner_json}))
-	tmp = null  # flush + close before rename
-	if FileAccess.file_exists(save_path):
-		DirAccess.copy_absolute(save_path, bak_path)
-	DirAccess.rename_absolute(tmp_path, save_path)
+	_SaveFile.write_slot(data, slot)
 	call_deferred("_on_async_save_done")
 
 # -------------------------------------------------------------------------
@@ -1135,66 +874,6 @@ func grant_card_reward(template_id: String, rarity: String, attack: int = -1, he
 	_dirty = true
 	return uid
 
-## Returns all card instances currently held in the mailbox overflow queue.
-func get_mailbox_instances() -> Array[Dictionary]:
-	return mailbox_cards
-
-## Position of `uid` in the mailbox, or -1 when it isn't there.
-func _mailbox_index(uid: String) -> int:
-	for i in range(mailbox_cards.size()):
-		if str(mailbox_cards[i].get("uid", "")) == uid:
-			return i
-	return -1
-
-## Moves a mailbox card into the bag. Returns false (no-op) if the uid isn't in the
-## mailbox or the bag is still full.
-func claim_mailbox_card(uid: String) -> bool:
-	if is_bag_full():
-		return false
-	var idx: int = _mailbox_index(uid)
-	if idx < 0:
-		return false
-	var inst: Dictionary = mailbox_cards[idx]
-	mailbox_cards.remove_at(idx)
-	owned_cards.append(inst)
-	_uid_index[uid] = inst
-	_dirty = true
-	return true
-
-## Claims as many mailbox cards as fit in the bag. Returns the number claimed.
-func claim_all_mailbox_cards() -> int:
-	var claimed: int = 0
-	while not mailbox_cards.is_empty():
-		var uid: String = str(mailbox_cards[0].get("uid", ""))
-		if not claim_mailbox_card(uid):
-			break
-		claimed += 1
-	return claimed
-
-## Sells a mailbox card for gold. No-op if uid not found.
-func sell_mailbox_card(uid: String) -> void:
-	var idx: int = _mailbox_index(uid)
-	if idx < 0:
-		return
-	var rarity: String = str(mailbox_cards[idx].get("rarity", "common"))
-	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
-	add_coins(int(cfg.get("sell_gold", 0)))
-	mailbox_cards.remove_at(idx)
-	_dirty = true
-
-## Scraps a mailbox card for essence. No-op if uid not found.
-func scrap_mailbox_card(uid: String) -> void:
-	var idx: int = _mailbox_index(uid)
-	if idx < 0:
-		return
-	var rarity: String = str(mailbox_cards[idx].get("rarity", "common"))
-	var cfg: Dictionary = IsoConst.RARITY_CONFIG.get(rarity, {})
-	if essence == 0:
-		GameBus.tutorial_popup_requested.emit("essence")
-	essence += int(cfg.get("scrap_essence", 0))
-	GameBus.essence_changed.emit(essence)
-	mailbox_cards.remove_at(idx)
-	_dirty = true
 
 ## Removes a card instance by UID from owned_cards, player_deck, and all loadouts.
 func remove_card_instance(uid: String) -> void:
@@ -1662,121 +1341,6 @@ func is_dungeon_room_used(room_key: String) -> bool:
 # Endless Spire run helpers
 # -------------------------------------------------------------------------
 
-func is_spire_active() -> bool:
-	return bool(spire_run.get("active", false))
-
-func get_spire_run() -> Dictionary:
-	return spire_run
-
-## Drops every Spire floor enemy from the permanent defeated_enemies list.
-##
-## Floor arenas are per-run scenery, not persistent world state, so their kills
-## have no business outliving the floor. Called at each run boundary (start,
-## floor advance, run end). It is also the repair path for saves written before
-## SpireFloorGen.enemy_id_for(): those carry a single shared "spire_enemy" entry
-## that suppressed the enemy on every later floor, leaving an empty arena with a
-## locked exit door and no way to progress.
-func _clear_spire_enemy_defeats() -> void:
-	var kept: Array[String] = []
-	for eid: String in defeated_enemies:
-		if not _SpireFloorGen.is_spire_enemy_id(eid):
-			kept.append(eid)
-	if kept.size() == defeated_enemies.size():
-		return
-	defeated_enemies.assign(kept)
-	_dirty = true
-
-## Called as a Spire floor map loads, before it is distributed into chunks.
-##
-## A floor whose cleared flag is unset is a fight the player still owes, so its
-## enemy must exist — clear any Spire kill that would suppress the spawn.
-## Without this a floor can come up empty with its exit door still locked
-## (flag_key never set), which is unwinnable and unleavable: the door is the only
-## exit and it only opens on the kill. A cleared floor is left alone so standing
-## on one you already beat doesn't resurrect it.
-func prepare_spire_floor(floor: int, run_seed: int) -> void:
-	if get_story_flag(_SpireFloorGen.cleared_flag_for(floor, run_seed)):
-		return
-	_clear_spire_enemy_defeats()
-
-func start_spire_run(seed: int) -> void:
-	_clear_spire_enemy_defeats()
-	spire_run = {
-		"active": true,
-		"floor": 1,
-		"draft_deck": [],
-		"hero_hp": 30,
-		"seed": seed,
-		"enemies_defeated": 0,
-		"cards_drafted": 0,
-	}
-	_dirty = true
-
-func advance_spire_floor() -> void:
-	if not is_spire_active():
-		return
-	# The floor we're leaving is gone for good — drop its kill (and any stale
-	# shared-id entry from an older save) so the next arena spawns its enemy.
-	_clear_spire_enemy_defeats()
-	spire_run["floor"] = int(spire_run.get("floor", 1)) + 1
-	spire_run["enemies_defeated"] = int(spire_run.get("enemies_defeated", 0)) + 1
-	_dirty = true
-
-func add_drafted_card(card_id: String) -> void:
-	if not is_spire_active():
-		return
-	var deck: Array = spire_run.get("draft_deck", [])
-	deck.append(card_id)
-	spire_run["draft_deck"] = deck
-	spire_run["cards_drafted"] = int(spire_run.get("cards_drafted", 0)) + 1
-	_dirty = true
-
-## Ends the current spire run and returns the final stats dictionary.
-## Awards floor*5 coins, updates spire_best_floor, sets achievement flags.
-## Returned dict: floors_cleared, enemies_defeated, cards_drafted, seed,
-##                coins_earned, is_new_record, best_floor, draft_deck_ids.
-func end_spire_run() -> Dictionary:
-	_clear_spire_enemy_defeats()
-	var floors_cleared: int = int(spire_run.get("floor", 1)) - 1
-	var enemies_defeated: int = int(spire_run.get("enemies_defeated", 0))
-	var cards_drafted: int = int(spire_run.get("cards_drafted", 0))
-	var run_seed: int = int(spire_run.get("seed", 0))
-	var draft_deck_ids: Array = spire_run.get("draft_deck", [])
-
-	var coin_reward: int = floors_cleared * 5
-	coins += coin_reward
-	coins_changed.emit(coins)
-
-	var is_record: bool = floors_cleared > spire_best_floor
-	if is_record:
-		spire_best_floor = floors_cleared
-
-	var stats: Dictionary = {
-		"floors_cleared": floors_cleared,
-		"enemies_defeated": enemies_defeated,
-		"cards_drafted": cards_drafted,
-		"seed": run_seed,
-		"coins_earned": coin_reward,
-		"is_new_record": is_record,
-		"best_floor": spire_best_floor,
-		"draft_deck_ids": draft_deck_ids.duplicate(),
-	}
-
-	spire_run = {"active": false}
-	_dirty = true
-
-	if floors_cleared >= 5 and not story_flags.get("spire_reached_floor_5", false):
-		set_story_flag("spire_reached_floor_5")
-	if floors_cleared >= 10 and not story_flags.get("spire_reached_floor_10", false):
-		set_story_flag("spire_reached_floor_10")
-
-	return stats
-
-func set_spire_hero_hp(hp: int) -> void:
-	if not is_spire_active():
-		return
-	spire_run["hero_hp"] = hp
-	_dirty = true
 
 func mark_puzzle_solved(puzzle_id: String) -> void:
 	if not solved_puzzles.has(puzzle_id):
@@ -1870,52 +1434,6 @@ func unequip_companion() -> void:
 	active_companion = ""
 	_dirty = true
 
-## Starts a new siege for the given town. Initialises stage 0, hero_hp 30.
-func start_siege(town: String) -> void:
-	siege = {"town": town, "stage": 0, "hero_hp": 30, "day_started": days_elapsed}
-	_dirty = true
-
-## Returns the active siege dict, or {} when no siege is in progress.
-func get_active_siege() -> Dictionary:
-	return siege
-
-## Advances the siege stage by 1 (0 → 1 → 2). No-op if siege is empty.
-func advance_siege_stage() -> void:
-	if siege.is_empty():
-		return
-	siege["stage"] = int(siege.get("stage", 0)) + 1
-	_dirty = true
-
-## Stores the player's hero HP so it carries over to the next gauntlet stage.
-func set_siege_hero_hp(hp: int) -> void:
-	if siege.is_empty():
-		return
-	siege["hero_hp"] = hp
-	_dirty = true
-
-## Records a siege win: updates last_siege_day, applies town discount, clears active siege.
-func end_siege_victory() -> void:
-	var town: String = str(siege.get("town", ""))
-	last_siege_day = days_elapsed
-	if town != "":
-		apply_town_discount(town)
-	siege = {}
-	_dirty = true
-
-## Records a siege loss: updates last_siege_day, clears active siege (no discount).
-func end_siege_defeat() -> void:
-	last_siege_day = days_elapsed
-	siege = {}
-	_dirty = true
-
-## Applies a 3-day gratitude discount to the named town.
-func apply_town_discount(town: String) -> void:
-	town_discounts[town] = days_elapsed + 3
-	_dirty = true
-
-## Returns true if the named town currently has an active gratitude discount.
-func is_town_discounted(town: String) -> bool:
-	return int(town_discounts.get(town, -1)) >= days_elapsed
 
 func record_rival_win() -> void:
 	rival_encounters_won = mini(rival_encounters_won + 1, 2)
@@ -1929,69 +1447,6 @@ func set_rival_defeated() -> void:
 # Garden helpers (GID-056)
 # -------------------------------------------------------------------------
 
-func set_plot(plot_idx: int, seed_id: String, planted_day: int) -> void:
-	if plot_idx < 0 or plot_idx >= garden_plots.size():
-		return
-	garden_plots[plot_idx] = {"seed_id": seed_id, "planted_day": planted_day}
-	_dirty = true
-
-func clear_plot(plot_idx: int) -> void:
-	if plot_idx < 0 or plot_idx >= garden_plots.size():
-		return
-	garden_plots[plot_idx] = {}
-	_dirty = true
-
-func add_seeds(seed_id: String, count: int) -> void:
-	seeds[seed_id] = int(seeds.get(seed_id, 0)) + count
-	_dirty = true
-	GameBus.inventory_changed.emit()
-
-func remove_seeds(seed_id: String, count: int) -> bool:
-	var current: int = int(seeds.get(seed_id, 0))
-	if current < count:
-		return false
-	seeds[seed_id] = current - count
-	_dirty = true
-	return true
-
-func add_plants(plant_id: String, count: int) -> void:
-	plants[plant_id] = int(plants.get(plant_id, 0)) + count
-	_dirty = true
-
-func remove_plants(plant_id: String, count: int) -> bool:
-	var current: int = int(plants.get(plant_id, 0))
-	if current < count:
-		return false
-	plants[plant_id] = current - count
-	_dirty = true
-	return true
-
-func add_potions(potion_id: String, count: int) -> void:
-	potions[potion_id] = int(potions.get(potion_id, 0)) + count
-	_dirty = true
-
-func remove_potions(potion_id: String, count: int) -> bool:
-	var current: int = int(potions.get(potion_id, 0))
-	if current < count:
-		return false
-	potions[potion_id] = current - count
-	_dirty = true
-	return true
-
-func get_plot_growth_stage(plot_idx: int) -> int:
-	if plot_idx < 0 or plot_idx >= garden_plots.size():
-		return 0
-	var plot: Dictionary = garden_plots[plot_idx]
-	if plot.is_empty() or not plot.has("seed_id"):
-		return 0
-	const GardenDefs = preload("res://game_logic/GardenDefs.gd")
-	var seed_id: String = str(plot.get("seed_id", ""))
-	var seed_def: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
-	if seed_def.is_empty():
-		return 0
-	var growth_days: int = int(seed_def.get("growth_days", 1))
-	var planted_day: int = int(plot.get("planted_day", 0))
-	return GardenDefs.growth_stage(planted_day, growth_days, days_elapsed)
 
 func increment_day() -> void:
 	days_elapsed += 1
@@ -2006,7 +1461,7 @@ func increment_day() -> void:
 	if not siege.is_empty():
 		var age: int = days_elapsed - int(siege.get("day_started", 0))
 		if age >= 1:
-			end_siege_defeat()   # town held out; no coin penalty
+			town_siege.end_siege_defeat()   # town held out; no coin penalty
 	# Clean up expired town discounts.
 	var expired_towns: Array[String] = []
 	for town_key: String in town_discounts.keys():
@@ -2014,180 +1469,12 @@ func increment_day() -> void:
 			expired_towns.append(town_key)
 	for town_key: String in expired_towns:
 		town_discounts.erase(town_key)
-	_refresh_bounties()
+	bounties._refresh_bounties()
 	_dirty = true
-
-func _refresh_bounties() -> void:
-	if days_elapsed == bounty_day and not offered_bounties.is_empty():
-		return
-	if days_elapsed < bounty_day:
-		return
-	const BountyGen = preload("res://game_logic/BountyGen.gd")
-	offered_bounties.clear()
-	var daily: Array[Dictionary] = BountyGen.generate_daily(world_seed, days_elapsed)
-	for b: Dictionary in daily:
-		var entry: Dictionary = b.duplicate()
-		entry["offered_at_day"] = days_elapsed
-		offered_bounties.append(entry)
-	bounty_day = days_elapsed
-	_dirty = true
-
-## Returns today's offered bounties, refreshing if the day has rolled over.
-func get_offered_bounties() -> Array[Dictionary]:
-	_refresh_bounties()
-	return offered_bounties
-
-## Returns active (accepted, in-progress) bounties.
-func get_active_bounties() -> Array[Dictionary]:
-	return active_bounties
-
-## Accepts a bounty by id. Moves it from offered_bounties to active_bounties.
-## Returns false if bounty not found in offered or 3 bounties are already active.
-func accept_bounty(bounty_id: String) -> bool:
-	if active_bounties.size() >= 3:
-		return false
-	var found_idx: int = -1
-	for i: int in range(offered_bounties.size()):
-		if str(offered_bounties[i].get("id", "")) == bounty_id:
-			found_idx = i
-			break
-	if found_idx < 0:
-		return false
-	var entry: Dictionary = offered_bounties[found_idx].duplicate()
-	entry["accepted_at_day"] = days_elapsed
-	entry["progress"] = 0
-	entry["claimed"] = false
-	active_bounties.append(entry)
-	offered_bounties.remove_at(found_idx)
-	_dirty = true
-	return true
-
-## Claims a completed bounty by id. Pays out coins and marks it as claimed.
-## Returns the coin reward if successful, or 0 if not found / not yet complete / already claimed.
-## Increments progress for all active bounties that match the given type and data.
-## bounty_type: "defeat_enemy_type" | "defeat_in_biome" | "open_chests"
-## match_data: {"enemy_type": String} | {"biome_name": String} | {}
-func increment_bounty_progress(bounty_type: String, match_data: Dictionary) -> void:
-	var changed: bool = false
-	for i: int in range(active_bounties.size()):
-		var b: Dictionary = active_bounties[i]
-		if bool(b.get("claimed", false)) or bool(b.get("completed", false)):
-			continue
-		if str(b.get("type", "")) != bounty_type:
-			continue
-		var matches: bool = false
-		match bounty_type:
-			"defeat_enemy_type":
-				matches = str(b.get("target", "")) == str(match_data.get("enemy_type", ""))
-			"defeat_in_biome":
-				matches = str(b.get("target", "")) == str(match_data.get("biome_name", ""))
-			"open_chests":
-				matches = true
-		if not matches:
-			continue
-		active_bounties[i]["progress"] = int(b.get("progress", 0)) + 1
-		var new_progress: int = int(active_bounties[i]["progress"])
-		var needed: int = int(b.get("count", 1))
-		var bid: String = str(b.get("id", ""))
-		if new_progress >= needed:
-			active_bounties[i]["completed"] = true
-			GameBus.bounty_completed.emit(bid)
-		GameBus.bounty_progress_changed.emit(bid, new_progress, needed)
-		changed = true
-	if changed:
-		_dirty = true
-
-func claim_bounty(bounty_id: String) -> int:
-	for i: int in range(active_bounties.size()):
-		var b: Dictionary = active_bounties[i]
-		if str(b.get("id", "")) != bounty_id:
-			continue
-		if bool(b.get("claimed", false)):
-			return 0
-		var needed: int = int(b.get("count", 0))
-		var done: int = int(b.get("progress", 0))
-		if done < needed:
-			return 0
-		active_bounties[i]["claimed"] = true
-		var reward: int = int(b.get("reward", 0))
-		add_coins(reward)
-		_dirty = true
-		return reward
-	return 0
 
 # -------------------------------------------------------------------------
 # Loadout helpers (GID-058)
 # -------------------------------------------------------------------------
-
-## Returns true if the loadout at index has a card count within [DECK_MIN, DECK_MAX].
-func is_loadout_valid(index: int) -> bool:
-	if index < 0 or index >= loadouts.size():
-		return false
-	var cards: Array = loadouts[index].get("cards", [])
-	return cards.size() >= IsoConst.DECK_MIN and cards.size() <= IsoConst.DECK_MAX
-
-## Returns the list of loadout names in order.
-func get_loadout_names() -> Array[String]:
-	var names: Array[String] = []
-	for lo: Dictionary in loadouts:
-		names.append(str(lo.get("name", "Deck")))
-	return names
-
-## Switches the active loadout; syncs player_deck to the new loadout's cards.
-## Returns false if the index is out of range.
-func set_active_loadout(index: int) -> bool:
-	if index < 0 or index >= loadouts.size():
-		return false
-	active_loadout = index
-	player_deck.assign(loadouts[active_loadout].get("cards", []))
-	_dirty = true
-	return true
-
-## Creates a new empty loadout with the given name (max MAX_LOADOUTS).
-## Returns the new index, or -1 if the limit is reached.
-func add_loadout(name: String) -> int:
-	if loadouts.size() >= MAX_LOADOUTS:
-		return -1
-	loadouts.append({"name": name, "cards": []})
-	_dirty = true
-	return loadouts.size() - 1
-
-## Renames the loadout at index. No-op if out of range.
-func rename_loadout(index: int, new_name: String) -> void:
-	if index < 0 or index >= loadouts.size():
-		return
-	loadouts[index]["name"] = new_name
-	_dirty = true
-
-## Duplicates the loadout at index and appends it (max MAX_LOADOUTS).
-## Returns the new index, or -1 if the limit is reached.
-func duplicate_loadout(index: int) -> int:
-	if index < 0 or index >= loadouts.size():
-		return -1
-	if loadouts.size() >= MAX_LOADOUTS:
-		return -1
-	var src: Dictionary = loadouts[index]
-	var copy_cards: Array[String] = []
-	copy_cards.assign(src.get("cards", []))
-	var copy_name: String = str(src.get("name", "Deck")) + " (Copy)"
-	loadouts.append({"name": copy_name, "cards": copy_cards})
-	_dirty = true
-	return loadouts.size() - 1
-
-## Deletes the loadout at index. The last remaining loadout cannot be deleted.
-## If deleting the active loadout, switches to the nearest valid index.
-## Returns false if refused (last loadout or out of range).
-func delete_loadout(index: int) -> bool:
-	if loadouts.size() <= 1:
-		return false
-	if index < 0 or index >= loadouts.size():
-		return false
-	loadouts.remove_at(index)
-	if active_loadout >= loadouts.size():
-		active_loadout = loadouts.size() - 1
-	player_deck.assign(loadouts[active_loadout].get("cards", []))
-	_dirty = true
-	return true
 
 # -------------------------------------------------------------------------
 # Blight system (GID-066)

@@ -667,7 +667,7 @@ func _load_named_map() -> void:
 		# An uncleared floor must have its enemy — see prepare_spire_floor. Runs
 		# before the map is distributed into chunks, since ChunkRenderer consults
 		# defeated_enemies as it spawns.
-		SceneManager.save_manager.prepare_spire_floor(sp_floor, sp_seed)
+		SceneManager.save_manager.spire.prepare_spire_floor(sp_floor, sp_seed)
 		if MapRegistry.get_map(map_name) != null:
 			world_map = WorldMap.new(map_name)
 		else:
@@ -1828,10 +1828,10 @@ func _handle_interact() -> void:
 func _show_spire_entrance_panel() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var vh: float = vp.y
-	var is_active: bool = SceneManager.save_manager.is_spire_active()
+	var is_active: bool = SceneManager.save_manager.spire.is_spire_active()
 	var curr_floor: int = 1
 	if is_active:
-		curr_floor = int(SceneManager.save_manager.get_spire_run().get("floor", 1))
+		curr_floor = int(SceneManager.save_manager.spire.get_spire_run().get("floor", 1))
 
 	var modal: Dictionary = _build_modal(0.64, 0.40, Color(0.06, 0.04, 0.14, 0.96), 0.022)
 	var layer: CanvasLayer = modal["layer"]
@@ -1892,7 +1892,7 @@ func _on_battle_won(_result: Dictionary) -> void:
 		const BountyGen_cls = preload("res://game_logic/BountyGen.gd")
 		if _current_biome < BountyGen_cls.BIOME_NAMES.size():
 			var biome_name: String = BountyGen_cls.BIOME_NAMES[_current_biome]
-			SceneManager.save_manager.increment_bounty_progress("defeat_in_biome", {"biome_name": biome_name})
+			SceneManager.save_manager.bounties.increment_bounty_progress("defeat_in_biome", {"biome_name": biome_name})
 	else:
 		AudioManager.play_music(_named_map_music_track())
 	var sm := SceneManager.save_manager

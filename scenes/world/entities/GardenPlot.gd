@@ -89,7 +89,7 @@ func get_growth_stage() -> int:
 		var planted_day: int = int(_session_plot_data.get("planted_day", 0))
 		return GardenDefs.growth_stage(planted_day, growth_days, _session_days_elapsed)
 	var sm: Node = SceneManager.save_manager
-	return sm.get_plot_growth_stage(plot_idx)
+	return sm.garden.get_plot_growth_stage(plot_idx)
 
 func get_plot_data() -> Dictionary:
 	if session_mode:

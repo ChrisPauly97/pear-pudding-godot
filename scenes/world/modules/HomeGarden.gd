@@ -71,8 +71,8 @@ func _build_seed_picker(plot: Node3D, layer: CanvasLayer, vbox: VBoxContainer,
 		var plant := func() -> void:
 			if session_mode:
 				_world.coop_session._submit_session_plant(plot_idx, seed_id)
-			elif sm.remove_seeds(seed_id, 1):
-				sm.set_plot(plot_idx, seed_id, sm.days_elapsed)
+			elif sm.garden.remove_seeds(seed_id, 1):
+				sm.garden.set_plot(plot_idx, seed_id, sm.days_elapsed)
 				plot.refresh_visual()
 			else:
 				return
@@ -109,8 +109,8 @@ func _build_harvest(plot: Node3D, plot_data: Dictionary, layer: CanvasLayer,
 			_world.coop_session._submit_session_harvest(plot_idx)
 		else:
 			var sm: Node = SceneManager.save_manager
-			sm.add_plants(plant_id, yield_count)
-			sm.clear_plot(plot_idx)
+			sm.garden.add_plants(plant_id, yield_count)
+			sm.garden.clear_plot(plot_idx)
 			GameBus.plant_harvested.emit(plot_idx, yield_count)
 		SceneManager.show_toast("Harvested!", "%d× %s" % [yield_count, sname])
 		layer.queue_free()

@@ -279,6 +279,13 @@ value falls back to) plus the `var` declaration. `load_save()` and
 being restored. `test_save_manager` asserts every key is a real property and
 that a save → JSON → restore round-trip preserves values.
 
+Feature APIs over those fields live in `autoloads/save_manager/` as RefCounted
+modules built in `SaveManager._init`: `garden`, `bounties`, `decks` (loadouts),
+`spire`, `town_siege`, `mailbox`. Call `save_manager.spire.start_spire_run(...)`.
+The fields themselves stay on SaveManager, because the table walks its properties.
+Schema migrations live in `game_logic/save/SaveMigrations.gd` (bump `CURRENT_VERSION` +
+append one table row). The signed on-disk format is in `game_logic/save/SaveFile.gd`.
+
 Only genuinely derived fields get bespoke handling, in `_restore_derived_fields`
 (`loadouts`, `player_deck`, `level`, `skill_points`, `bag_size`). Enemy battle
 data lives **only** in `EnemyRegistry._ensure_loaded()` — there are no
@@ -317,6 +324,19 @@ created by `WorldScene._ensure_world_modules()` (not registered with NetSync):
 | `TownSiege.gd` (`town_siege`) | Single-player siege raiders + banner, Chapter 2 marsax_hold trigger |
 | `NamedMapProps.gd` (`named_props`) | Named-map scrolls, shrines, waystones (incl. injected town waystone), injected mailbox, fast-travel panel |
 | `ChestLoot.gd` (`chest_loot`) | Chest open (mimic, co-op sync, need/greed hand-off), card/coin scatter, equipment drop |
+
+BattleScene's single-player clusters live under `scenes/battle/modules/`, created by
+`BattleScene._ensure_battle_modules()`. Each has a `_battle` back-reference **typed as
+the BattleScene script**, so member typos fail at compile time, not at runtime:
+
+| Module | Owns |
+|---|---|
+| `BattleModifiers.gd` (`modifiers`) | Equipment, passive skills, companions, weather, ambush, gambit handicaps, desert scorch |
+| `BattleConsumables.gd` (`consumables`) | Hero power + potion buttons, potion picker, their effects |
+| `BattleTutorials.gd` (`tutorials`) | First-battle tutorial card, scripted-battle tutorial steps |
+| `BattleArena.gd` (`arena`) | Backdrop, battlefield label/banner, slot highlights, co-op ally panels |
+| `BattleTargeting.gd` (`targeting`) | Board drop zone, spell/ally/slot targeting modes, resolving chosen targets |
+| `BattleInput.gd` (`card_input`) | Hand/board/enemy taps, cast confirm, attacks |
 
 Keep `_find_nearby_*` finders on WorldScene even when the spawn moves —
 `test_interact_priority` reads the interaction chains by those names. Likewise
@@ -358,6 +378,12 @@ emits `state_changed`. Read it via `SceneManager.current_state()` /
 `is_in_world()`, never `SceneManager._state`. A new battle kind goes through
 `_enter_battle(configure, networked)` (or `_enter_pvp_battle`). Don't hand-copy
 the world-detach block. `test_scene_flow` enforces all three.
+
+Battle outcomes and networked battles live in child modules under
+`autoloads/scene_manager/`: `BattleVictory` (`SceneManager.victory`),
+`BattleDefeat` (`.defeat`) and `NetBattles` (`.net_battles`, so call
+`SceneManager.net_battles.enter_pvp_battle(...)`). The WorldScene module rules
+apply: reach SceneManager as `_sm.<name>`, no bare `add_child` / `self`.
 
 ---
 

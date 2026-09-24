@@ -4,6 +4,12 @@ extends Control
 
 const GameState = preload("res://game_logic/battle/GameState.gd")
 const _BattleNet = preload("res://scenes/battle/net/BattleNet.gd")
+const _BattleModifiers = preload("res://scenes/battle/modules/BattleModifiers.gd")
+const _BattleConsumables = preload("res://scenes/battle/modules/BattleConsumables.gd")
+const _BattleTutorials = preload("res://scenes/battle/modules/BattleTutorials.gd")
+const _BattleArena = preload("res://scenes/battle/modules/BattleArena.gd")
+const _BattleTargeting = preload("res://scenes/battle/modules/BattleTargeting.gd")
+const _BattleInput = preload("res://scenes/battle/modules/BattleInput.gd")
 const ScriptedBattleData = preload("res://game_logic/battle/ScriptedBattleData.gd")
 const BasicAI = preload("res://ai/BasicAI.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
@@ -72,6 +78,13 @@ var scripted_data: Resource = null
 ## A child node created in _ready and registered with BattleNetSync as an RPC
 ## handler target; inert in a solo battle. See scenes/battle/net/BattleNet.gd.
 var battle_net: Node = null
+## Single-player clusters (scenes/battle/modules/), built by `_ensure_battle_modules()`.
+var modifiers: _BattleModifiers
+var consumables: _BattleConsumables
+var tutorials: _BattleTutorials
+var arena: _BattleArena
+var targeting: _BattleTargeting
+var card_input: _BattleInput
 # Listen-server: client deck relayed in challenge handshake (host builds players[1]).
 var pvp_opponent_deck: Array = []
 # Dedicated-server referee (GID-097 / TID-353): both player decks come from clients.
@@ -264,11 +277,36 @@ func _ensure_battle_net() -> void:
 	if _net != null and _net.has_method("register_handler"):
 		_net.call("register_handler", battle_net)
 
+## Creates the single-player modules. Idempotent. Called first in `_ready`, since
+## setup dispatches to them straight away.
+func _ensure_battle_modules() -> void:
+	if modifiers != null:
+		return
+	modifiers = _BattleModifiers.new(self)
+	modifiers.name = "BattleModifiers"
+	add_child(modifiers)
+	consumables = _BattleConsumables.new(self)
+	consumables.name = "BattleConsumables"
+	add_child(consumables)
+	tutorials = _BattleTutorials.new(self)
+	tutorials.name = "BattleTutorials"
+	add_child(tutorials)
+	arena = _BattleArena.new(self)
+	arena.name = "BattleArena"
+	add_child(arena)
+	targeting = _BattleTargeting.new(self)
+	targeting.name = "BattleTargeting"
+	add_child(targeting)
+	card_input = _BattleInput.new(self)
+	card_input.name = "BattleInput"
+	add_child(card_input)
+
 func _process(delta: float) -> void:
 	if battle_net != null:
 		battle_net.tick(delta)
 
 func _ready() -> void:
+	_ensure_battle_modules()
 	_ensure_battle_net()
 	_float_layer = CanvasLayer.new()
 	_float_layer.layer = 128
@@ -281,7 +319,7 @@ func _ready() -> void:
 		_enemy_board_view, _player_board_view,
 		self, _text_scale)
 	_view = CardViewBuilder.new()
-	_view.setup(_vh, _fx, _bind_card_input, _on_empty_slot_input, _make_card_view, _text_scale)
+	_view.setup(_vh, _fx, card_input._bind_card_input, card_input._on_empty_slot_input, _make_card_view, _text_scale)
 	var _bs: String = str(SceneManager.save_manager.get_setting("battle_speed", "normal"))
 	_speed_scale = 0.45 if _bs == "fast" else 1.0
 	_apply_ui_sizes()
@@ -334,13 +372,13 @@ func _ready() -> void:
 	_menu_btn.pressed.connect(_pause_ui.confirm_return_to_menu)
 	UiFx.attach(_end_turn_btn)
 	UiFx.attach(_menu_btn)
-	_enemy_hero_view.gui_input.connect(_on_enemy_hero_input)
-	_setup_board_drop_zone()
+	_enemy_hero_view.gui_input.connect(card_input._on_enemy_hero_input)
+	targeting._setup_board_drop_zone()
 	_pause_ui.add_pause_button($SidePanel)
-	_add_hero_power_button()
-	_add_companion_hud()
-	_add_potion_button()
-	_add_gambit_badge()
+	consumables._add_hero_power_button()
+	modifiers._add_companion_hud()
+	consumables._add_potion_button()
+	modifiers._add_gambit_badge()
 
 	if _state.puzzle_mode:
 		_end_turn_btn.text = "Check"
@@ -351,7 +389,7 @@ func _ready() -> void:
 	GameBus.fatigue_damage.connect(_on_fatigue_damage)
 
 	_refresh_all()
-	_refresh_potion_button()
+	consumables._refresh_potion_button()
 
 	# Catch any hero deaths that occurred during setup (e.g., fatigue on very small
 	# Spire decks, or auto-resolve spells dealing damage before game-over was wired).
@@ -370,19 +408,19 @@ func _ready() -> void:
 
 	# Battlefield backdrop (GID-126) — unconditional: puzzle, scripted and PvP
 	# battles carry no world biome and get the neutral roofed-vault look.
-	_setup_backdrop()
+	arena._setup_backdrop()
 
 	# Battlefield Resonance UI (GID-059)
 	if not _state.puzzle_mode and not _state.scripted_battle:
-		_add_battlefield_info_label()
-		_add_slot_highlights()
-		_show_battlefield_banner.call_deferred()
+		arena._add_battlefield_info_label()
+		arena._add_slot_highlights()
+		arena._show_battlefield_banner.call_deferred()
 
 	AudioManager.play_music("res://assets/audio/music/battle.ogg")
 
 	if not _state.scripted_battle:
 		if not SceneManager.save_manager.get_story_flag("tutorial_battle_tip"):
-			_show_battle_tutorial()
+			tutorials._show_battle_tutorial()
 		# One popup per battle entry: tap_and_hold on the first, tap_to_cast on
 		# the next (GID-119 / TID-452) — both are one-shot via seen flags.
 		if SceneManager.save_manager.get_story_flag("seen_tutorial_tap_and_hold"):
@@ -390,7 +428,7 @@ func _ready() -> void:
 		else:
 			GameBus.tutorial_popup_requested.emit("tap_and_hold")
 	else:
-		_maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
+		tutorials._maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
 
 
 ## Builds an ordinary single-player battle: the player deck (spire draft, saved
@@ -406,8 +444,8 @@ func _setup_solo_battle() -> void:
 	# Player deck: spire run uses its run-local draft deck; otherwise use the
 	# persistent player deck. Floor 1 starter gives 8 basics before any pick.
 	var player_deck: Array[String] = []
-	if SceneManager.save_manager.is_spire_active():
-		var draft: Array = SceneManager.save_manager.get_spire_run().get("draft_deck", [])
+	if SceneManager.save_manager.spire.is_spire_active():
+		var draft: Array = SceneManager.save_manager.spire.get_spire_run().get("draft_deck", [])
 		if draft.size() > 0:
 			player_deck.assign(draft)
 		else:
@@ -423,16 +461,16 @@ func _setup_solo_battle() -> void:
 	if not player_deck.is_empty():
 		var _dark_aligned: bool = CardRegistry.is_dark_aligned()
 		_state.players[0].build_deck(player_deck, 0, _dark_aligned)
-	_apply_equipment_effects(_state.players[0])
-	_apply_passive_skills(_state.players[0])
+	modifiers._apply_equipment_effects(_state.players[0])
+	modifiers._apply_passive_skills(_state.players[0])
 	_state.players[0].draw_opening_hand(4)
 	# Spire run: hero HP persists across floors (damage carries over).
-	if SceneManager.save_manager.is_spire_active():
-		var _spire_hp: int = int(SceneManager.save_manager.get_spire_run().get("hero_hp", 30))
+	if SceneManager.save_manager.spire.is_spire_active():
+		var _spire_hp: int = int(SceneManager.save_manager.spire.get_spire_run().get("hero_hp", 30))
 		if _spire_hp > 0:
 			_state.players[0].hero.health = mini(_spire_hp, _state.players[0].hero.max_health)
 	# Siege gauntlet: hero HP carries over from the previous stage.
-	var _siege_state: Dictionary = SceneManager.save_manager.get_active_siege()
+	var _siege_state: Dictionary = SceneManager.save_manager.town_siege.get_active_siege()
 	if not _siege_state.is_empty():
 		var _siege_hp: int = int(_siege_state.get("hero_hp", 30))
 		if _siege_hp > 0:
@@ -470,9 +508,9 @@ func _setup_solo_battle() -> void:
 		GameBus.hud_message_requested.emit("The blight empowers your foe…")
 
 	# Apply remaining gambit handicaps now that all decks and HP are set.
-	_apply_gambit_handicaps(_gambit_id)
+	modifiers._apply_gambit_handicaps(_gambit_id)
 	# World-encounter ambush modifiers (GID-113 / TID-421, TID-422).
-	_apply_ambush_modifiers(enemy_data)
+	modifiers._apply_ambush_modifiers(enemy_data)
 
 	# start_turn draws 1 card + bonus_draw (from passive_draw skills/equipment).
 	# bonus_mana (from passive_mana skills) was set above, so gain_mana_for_turn
@@ -488,7 +526,7 @@ func _setup_solo_battle() -> void:
 
 	# Apply weather modifiers (only in infinite world)
 	_battle_weather = WeatherManager.current_weather if SceneManager.save_manager.current_map == "main" else ""
-	_apply_weather_battle_init()
+	modifiers._apply_weather_battle_init()
 
 	# Battlefield Resonance context (GID-059): stamp biome + is_night into GameState.
 	var _bf_biome: int = int(enemy_data.get("battlefield_biome", -1))
@@ -497,8 +535,8 @@ func _setup_solo_battle() -> void:
 
 	# Companion passive: battle-start effects (extra_mana, hero_armor) and
 	# first turn-start draw (draw_card). Excluded in puzzle and duel modes.
-	_apply_companion_battle_start(_state.players[0])
-	_apply_companion_turn_start()
+	modifiers._apply_companion_battle_start(_state.players[0])
+	modifiers._apply_companion_turn_start()
 	# Flush auto-resolve spells collected from opening hand + turn-1 draw.
 	# Must run after enemy deck is built so spells target the real enemy.
 	_resolver.flush_auto_spells(0)
@@ -510,152 +548,6 @@ func _wire_gamebus_emitter() -> void:
 	_state.inject_gamebus_emitter(func(pid: int, dmg: int) -> void:
 		GameBus.fatigue_damage.emit(pid, dmg))
 
-func _apply_equipment_effects(player: PlayerState) -> void:
-	var sm := SceneManager.save_manager
-	var slot_ids: Array[String] = [
-		sm.equipped_weapon,
-		sm.equipped_armor,
-		sm.equipped_ring,
-		sm.equipped_trinket,
-	]
-	var injected_any: bool = false
-	for item_id in slot_ids:
-		if item_id == "":
-			continue
-		var weapon: WeaponData = WeaponRegistry.get_weapon(item_id)
-		if weapon == null:
-			continue
-		var level: int = 0
-		if weapon.slot == "weapon":
-			var inst: Dictionary = sm.get_owned_weapon_by_id(item_id)
-			level = int(inst.get("upgrade_level", 0))
-		match weapon.battle_effect_type:
-			"deck_inject":
-				var count: int = UpgradeDefs.effective_inject_count(weapon, level)
-				for i in count:
-					var tmpl: Dictionary = CardRegistry.get_template(weapon.injected_card_id)
-					if tmpl.is_empty():
-						continue
-					player.draw_deck.append(CardInstance.new(tmpl))
-				injected_any = true
-			"starting_mana":
-				player.hero.bonus_mana += UpgradeDefs.effective_stat(weapon, level)
-			"starting_hp":
-				var hp_bonus: int = UpgradeDefs.effective_stat(weapon, level)
-				player.hero.health += hp_bonus
-				player.hero.max_health += hp_bonus
-			"passive_atk":
-				player.hero.attack += UpgradeDefs.effective_stat(weapon, level)
-	if injected_any:
-		player.draw_deck.shuffle()
-
-func _apply_passive_skills(player: PlayerState) -> void:
-	for skill_id: String in SceneManager.save_manager.unlocked_skills:
-		var skill: SkillData = SkillRegistry.get_skill(skill_id)
-		if skill == null or skill.skill_type != "passive":
-			continue
-		match skill.effect_type:
-			"passive_hp":
-				player.hero.health += skill.effect_value
-				player.hero.max_health += skill.effect_value
-			"passive_mana":
-				player.hero.bonus_mana += skill.effect_value
-			"passive_atk":
-				player.hero.attack += skill.effect_value
-			"passive_draw":
-				player.bonus_draw += skill.effect_value
-
-## Apply once-per-battle companion passives (extra_mana, hero_armor).
-## Call after start_turn(1) so the base mana is already established.
-## Excluded in puzzle_mode and friendly_duel.
-func _apply_companion_battle_start(player: PlayerState) -> void:
-	if _state.puzzle_mode or _state.friendly_duel:
-		return
-	var companion_id: String = SceneManager.save_manager.active_companion
-	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
-		return
-	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
-	if companion == null:
-		return
-	match companion.passive_type:
-		"extra_mana":
-			player.hero.mana = mini(player.hero.mana + companion.passive_value, 10)
-		"hero_armor":
-			player.hero.apply_status("armor", companion.passive_value)
-
-## Draw extra card(s) from the companion's draw_card passive.
-## Called at the start of every player turn (initial setup + each subsequent player turn).
-## No-op in puzzle_mode, friendly_duel, scripted_battle, or when no draw_card companion is active.
-func _apply_companion_turn_start() -> void:
-	if _state.puzzle_mode or _state.friendly_duel or _state.scripted_battle:
-		return
-	var companion_id: String = SceneManager.save_manager.active_companion
-	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
-		return
-	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
-	if companion == null or companion.passive_type != "draw_card":
-		return
-	for _i in range(companion.passive_value):
-		_state.players[0].draw_card()
-
-## Add a compact companion display to SidePanel (name + passive description).
-## No-op if no companion is equipped or the companion is not unlocked.
-func _add_companion_hud() -> void:
-	if _state.puzzle_mode or _state.scripted_battle:
-		return
-	var companion_id: String = SceneManager.save_manager.active_companion
-	if companion_id == "" or not CompanionRegistry.is_unlocked(companion_id):
-		return
-	var companion: CompanionData = CompanionRegistry.get_companion(companion_id)
-	if companion == null:
-		return
-	var vbox := _UiUtil.make_vbox(int(_vh * 0.003))
-	$SidePanel.add_child(vbox)
-	_companion_hud = vbox
-
-	var portrait_row := _UiUtil.make_hbox(int(_vh * 0.005), vbox)
-
-	if companion.portrait != null:
-		var tex := TextureRect.new()
-		tex.texture = companion.portrait
-		tex.custom_minimum_size = Vector2(_vh * 0.045, _vh * 0.045)
-		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		portrait_row.add_child(tex)
-	else:
-		var placeholder := ColorRect.new()
-		placeholder.color = Color(0.4, 0.6, 0.8)
-		placeholder.custom_minimum_size = Vector2(_vh * 0.045, _vh * 0.045)
-		portrait_row.add_child(placeholder)
-
-	var name_lbl := _UiUtil.make_label(companion.display_name, int(_font(0.02)), Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT,
-			portrait_row)
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-
-	var passive_lbl := _UiUtil.make_label(companion.description, int(_font(0.017)), Color(0.85, 1.0, 0.85),
-			HORIZONTAL_ALIGNMENT_LEFT, vbox)
-	passive_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
-## Apply init-time weather modifiers (ash_fall poison) and reset snow discount tracking.
-func _apply_weather_battle_init() -> void:
-	_snow_discount_used = [false, false]
-	match _battle_weather:
-		"ash_fall", "volcanic":
-			_state.players[1].hero.apply_status("poison", 2)
-
-## Apply weather modifier to a newly summoned card (rain ghost bonus, sandstorm debuff).
-func _apply_weather_to_summoned(card: CardInstance, _player_idx: int) -> void:
-	match _battle_weather:
-		"rain":
-			if card.template_id == "ghost":
-				card.health += 1
-				card.max_health += 1
-		"heavy_rain":
-			if card.template_id == "ghost":
-				card.health += 2
-				card.max_health += 2
-		"sandstorm", "dust_devil":
-			if _state.turn_number <= 2:
-				card.attack = maxi(0, card.attack - 1)
 
 ## Wraps player.play_card() with snow first-card cost discount.
 ## Returns true if the card was played.
@@ -725,91 +617,6 @@ func _apply_ui_sizes() -> void:
 # First-battle tutorial overlay
 # -------------------------------------------------------------------------
 
-func _show_battle_tutorial() -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var font_size: int = _font(0.025)
-	var panel_w: float = vp.x * 0.65
-	var panel_h: float = _vh * 0.32
-
-	var layer := CanvasLayer.new()
-	layer.layer = 150
-	add_child(layer)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.55)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.95), 10)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, panel_h)
-	panel.size = Vector2(panel_w, panel_h)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, (vp.y - panel_h) * 0.5)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := _UiUtil.make_margin(int(panel_w * 0.06), int(panel_h * 0.08), int(panel_w * 0.06),
-			int(panel_h * 0.08), panel)
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-
-	var vbox := _UiUtil.make_vbox(int(_vh * 0.02), margin)
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-
-	var label := _UiUtil.make_label(
-			"Tap a card, then tap a green slot to play it.\nTap your minion, then tap an enemy to attack.\nHold any "
-				+ "card to see its details. (Dragging works too.)",
-			int(font_size), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_color_override("font_color", Color.WHITE)
-	vbox.add_child(label)
-
-	var btn := _UiUtil.make_button("Got it", Vector2(_vh * 0.14, _vh * 0.06), int(font_size), _dismiss_battle_tutorial,
-			vbox)
-
-	_tutorial_overlay = layer
-	get_tree().create_timer(TUTORIAL_DURATION, false).timeout.connect(_dismiss_battle_tutorial)
-
-func _dismiss_battle_tutorial() -> void:
-	if _tutorial_overlay != null and is_instance_valid(_tutorial_overlay):
-		_tutorial_overlay.queue_free()
-		_tutorial_overlay = null
-	SceneManager.save_manager.set_story_flag("tutorial_battle_tip")
-
-## Scripted story battles (GID-108): shows the Maiteln guidance line authored for
-## the player's Nth turn, if any. Direct TutorialPopup instantiation — deliberately
-## NOT routed through GameBus.tutorial_popup_requested / TutorialRegistry, which
-## gate on a global "seen once ever" flag keyed to static tutorial ids and are the
-## wrong fit for one-off, per-battle scripted content. Dedupes per turn number so
-## a re-entrant call (e.g. _ready() and _on_turn_ended both covering turn 1) never
-## shows the same step twice.
-func _maybe_show_scripted_tutorial_step(player_turn_number: int) -> void:
-	if _scripted_data_ref == null:
-		return
-	if _scripted_tutorial_turns_shown.has(player_turn_number):
-		return
-	var sdata: ScriptedBattleData = _scripted_data_ref as ScriptedBattleData
-	if sdata == null:
-		return
-	for step: String in sdata.tutorial_steps:
-		var parts: PackedStringArray = step.split(":", true, 1)
-		if parts.size() != 2 or not parts[0].is_valid_int():
-			continue
-		if int(parts[0]) != player_turn_number:
-			continue
-		_scripted_tutorial_turns_shown[player_turn_number] = true
-		var popup := _TutorialPopupScript.new()
-		popup.setup(sdata.title, parts[1])
-		popup.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var layer := CanvasLayer.new()
-		layer.layer = 999
-		layer.add_child(popup)
-		add_child(layer)
-		# BaseOverlay._close() only emits `closed` — the caller must free the
-		# wrapper (see SceneManager._on_tutorial_popup_requested for the precedent).
-		popup.closed.connect(func() -> void: layer.queue_free())
-		return
 
 # -------------------------------------------------------------------------
 # Drag/Drop — native Godot drag-and-drop API (mouse + touch transparent)
@@ -823,354 +630,11 @@ func _input(event: InputEvent) -> void:
 			_pause_ui.toggle()
 			get_viewport().set_input_as_handled()
 
-## Wire _player_board_view as the native drop target for hand-card drags.
-## Called once from _ready() after the board node is ready.
-func _setup_board_drop_zone() -> void:
-	# MOUSE_FILTER_STOP is required so the HBoxContainer (which defaults to
-	# MOUSE_FILTER_IGNORE) actually receives drop events from hand-card drags.
-	_player_board_view.mouse_filter = Control.MOUSE_FILTER_STOP
-	_player_board_view.set_drag_forwarding(
-		func(_pos: Vector2) -> Variant: return null,
-		func(pos: Vector2, data: Variant) -> bool: return _board_can_drop(pos, data),
-		func(pos: Vector2, data: Variant) -> void: _board_drop(pos, data)
-	)
-	# Wire the enemy hero as a drop target for attack drags ({"attacker": card}).
-	_enemy_hero_view.set_drag_forwarding(
-		func(_pos: Vector2) -> Variant: return null,
-		func(_pos: Vector2, data: Variant) -> bool:
-			if not (data is Dictionary) or not data.has("attacker"):
-				return false
-			var attacker: CardInstance = data["attacker"] as CardInstance
-			if attacker == null or not attacker.can_attack():
-				return false
-			for ec: CardInstance in _state.players[_opp_idx()].board.get_cards():
-				if ec.keywords.has(Keywords.WARD):
-					return false
-			return true,
-		func(_pos: Vector2, data: Variant) -> void:
-			if not (data is Dictionary) or not data.has("attacker"):
-				return
-			var attacker: CardInstance = data["attacker"] as CardInstance
-			if attacker != null:
-				_attempt_attack(attacker, null)
-	)
-
-## Called by Godot when the dragged card is released over _player_board_view.
-func _board_drop(local_pos: Vector2, data: Variant) -> void:
-	if not data is Dictionary or not data.has("card"):
-		return
-	var played_card: CardInstance = data["card"] as CardInstance
-	if played_card == null:
-		return
-	_hand_drag_card = null
-	_refresh_player_board()
-
-	var global_pos: Vector2 = _player_board_view.global_position + local_pos
-	var is_enemy_targeted: bool = SpellEffectResolver.ENEMY_TARGETED_EFFECTS.has(played_card.spell_effect)
-	var is_friendly_targeted: bool = SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS.has(played_card.spell_effect)
-	var is_slot_targeted: bool = SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(played_card.spell_effect)
-	var is_ally_targeted: bool = SpellEffectResolver.ALLY_TARGETED_EFFECTS.has(played_card.spell_effect)
-
-	if played_card.card_class == "spell" and is_slot_targeted and _state.players[_my_idx()].can_play(played_card):
-		_enter_slot_targeting_mode(played_card)
-		return
-
-	if (played_card.card_class == "spell" and is_ally_targeted and _coop_pve
-			and _state.players[_my_idx()].can_play(played_card)):
-		_enter_ally_targeting_mode(played_card)
-		return
-
-	if (played_card.card_class == "spell" and (is_enemy_targeted or is_friendly_targeted)
-			and _state.players[_my_idx()].can_play(played_card)):
-		if is_friendly_targeted and _state.players[_my_idx()].board.get_cards().is_empty():
-			return
-		if (is_enemy_targeted and played_card.spell_effect != "deal_damage_single"
-				and _state.players[_opp_idx()].board.get_cards().is_empty()):
-			return
-		_enter_targeting_mode(played_card, is_friendly_targeted)
-		return
-
-	if played_card.card_class != "spell":
-		var target_slot_idx: int = _slot_idx_at_point(global_pos, _player_board_view)
-		if target_slot_idx == -1 or _state.players[_my_idx()].board.slots[target_slot_idx] != null:
-			return
-		if _is_pvp_client():
-			var hi: int = _state.players[_my_idx()].hand.find(played_card)
-			if hi != -1 and _state.players[_my_idx()].can_play(played_card):
-				AudioManager.play_sfx("card_play")
-				_fx.haptic(20)
-				_send_intent(BattleNetProtocol.encode_play_card_at_slot(hi, target_slot_idx))
-				_dismiss_battle_tutorial()
-			# gdlint:ignore = max-returns
-			return
-		var from_panel: Control = _hand_panel_node(played_card)
-		var from_rect: Rect2 = from_panel.get_global_rect() if from_panel != null else Rect2()
-		var to_pos: Vector2 = _slot_panel_center(_player_board_view, target_slot_idx)
-		if _do_play_card_at_slot(played_card, _my_idx(), target_slot_idx):
-			AudioManager.play_sfx("card_play")
-			_fx.haptic(20)
-			_hide_hand_panel(from_panel)
-			if played_card.emergence_effect != "":
-				var snap_em := _fx.snapshot()
-				_resolver.resolve_emergence(played_card, _my_idx())
-				_fx.trigger_fx(snap_em)
-			else:
-				_apply_weather_to_summoned(played_card, _my_idx())
-			await _animate_card_travel(played_card, from_rect, to_pos)
-			_refresh_all()
-			_check_game_over()
-			_dismiss_battle_tutorial()
-	else:
-		# Non-targeted spell: slot doesn't matter. Drag is a deliberate gesture,
-		# so no confirm step here (the tap path confirms via _show_cast_confirm).
-		_cast_confirmed_spell(played_card)
-
-## Returns true so Godot highlights the board zone when a hand-card drag is over it.
-func _board_can_drop(_pos: Vector2, data: Variant) -> bool:
-	if not data is Dictionary or not data.has("card"):
-		return false
-	var card: CardInstance = data["card"] as CardInstance
-	return card != null and _can_local_act() and _state.players[_my_idx()].can_play(card)
-
-func _show_cancel_btn(label: String = "✕ Cancel", callback: Callable = Callable()) -> void:
-	if _cancel_btn != null:
-		return
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var vh: float = vp.y
-	var vw: float = vp.x
-	_cancel_btn = Button.new()
-	_cancel_btn.text = label
-	# Big thumb target — it is the only way out of targeting mode on touch.
-	_cancel_btn.custom_minimum_size = Vector2(vh * 0.20, vh * 0.07)
-	_cancel_btn.add_theme_font_size_override("font_size", _font(0.030))
-	_cancel_btn.position = Vector2((vw - vh * 0.20) * 0.5, vh * 0.02)
-	var cb: Callable = callback if callback.is_valid() else _hide_cancel_btn
-	_cancel_btn.pressed.connect(cb)
-	add_child(_cancel_btn)
-
-func _hide_cancel_btn() -> void:
-	if _cancel_btn != null:
-		_cancel_btn.queue_free()
-		_cancel_btn = null
-
-func _enter_targeting_mode(card: CardInstance, friendly: bool = false) -> void:
-	_targeting_spell = card
-	_targeting_active = true
-	_targeting_friendly = friendly
-	_show_cancel_btn("✕ Cancel Spell", _cancel_targeting)
-	_refresh_all()
-
-func _cancel_targeting() -> void:
-	_targeting_active = false
-	_targeting_friendly = false
-	_targeting_spell = null
-	_hide_cancel_btn()
-	_refresh_all()
 
 # ── Co-op ally targeting (GID-100) ───────────────────────────────────────────
 # Ally-targeted spells (ally_heal_hero, ally_revive, etc.) need the local player
 # to tap one of the compact ally panels to choose which ally to benefit.
 
-func _enter_ally_targeting_mode(card: CardInstance) -> void:
-	_ally_targeting_spell = card
-	_ally_targeting_active = true
-	_show_cancel_btn("✕ Cancel Spell", _cancel_ally_targeting)
-	_build_coop_arena_layout()
-
-func _cancel_ally_targeting() -> void:
-	_ally_targeting_active = false
-	_ally_targeting_spell = null
-	_hide_cancel_btn()
-
-func _resolve_ally_spell(spell: CardInstance, target_pidx: int) -> void:
-	_ally_targeting_active = false
-	_ally_targeting_spell = null
-	_hide_cancel_btn()
-	var tgt: Dictionary = {"pidx": target_pidx}
-	if _is_pvp_client():
-		var hi: int = _state.players[_my_idx()].hand.find(spell)
-		if hi != -1 and _state.players[_my_idx()].can_play(spell):
-			AudioManager.play_sfx("card_play")
-			_fx.haptic(20)
-			_send_intent(BattleNetProtocol.encode_play_spell(hi, tgt))
-		return
-	if _do_play_card(spell, _my_idx()):
-		AudioManager.play_sfx("card_play")
-		_fx.haptic(20)
-		var snap := _fx.snapshot()
-		_resolver.resolve_spell(spell, _my_idx(), tgt)
-		_fx.trigger_fx(snap)
-	_refresh_all()
-	_check_game_over()
-
-# Builds (or rebuilds) the top ally bar showing compact hero panels for each
-# non-boss player. Tapping a panel during ally targeting resolves the spell.
-func _build_coop_arena_layout() -> void:
-	if not _coop_pve or _state == null:
-		return
-	# Remove stale panels
-	for p in _coop_ally_panels:
-		if is_instance_valid(p):
-			p.queue_free()
-	_coop_ally_panels.clear()
-
-	var boss_idx: int = _state.players.size() - 1
-	var bar := HBoxContainer.new()
-	bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	bar.offset_bottom = _vh * 0.08
-	add_child(bar)
-	_coop_ally_panels.append(bar)
-
-	for pidx in range(_state.players.size()):
-		if pidx == boss_idx:
-			continue
-		var ps: PlayerState = _state.players[pidx]
-		var btn := _UiUtil.make_button(
-				"P%d  HP:%d/%d  Mana:%d" % [pidx + 1, ps.hero.health, ps.hero.max_health, ps.hero.mana],
-				Vector2(_vh * 0.20, _vh * 0.06))
-		if _ally_targeting_active:
-			var cap_pidx: int = pidx  # capture for lambda
-			btn.pressed.connect(func() -> void:
-				if _ally_targeting_spell != null:
-					_resolve_ally_spell(_ally_targeting_spell, cap_pidx)
-			)
-		bar.add_child(btn)
-	_coop_arena_built = true
-
-func _refresh_coop_ally_panels() -> void:
-	if not _coop_pve or _state == null:
-		return
-	if not _coop_arena_built:
-		_build_coop_arena_layout()
-		return
-	var boss_idx: int = _state.players.size() - 1
-	var btn_idx: int = 0
-	# bar is the first (and only) element in _coop_ally_panels
-	if _coop_ally_panels.is_empty():
-		return
-	var bar: HBoxContainer = _coop_ally_panels[0] as HBoxContainer
-	if bar == null or not is_instance_valid(bar):
-		return
-	for pidx in range(_state.players.size()):
-		if pidx == boss_idx:
-			continue
-		var ps: PlayerState = _state.players[pidx]
-		var btn: Button = bar.get_child(btn_idx) as Button
-		if btn != null:
-			btn.text = "P%d  HP:%d/%d  Mana:%d" % [pidx + 1, ps.hero.health, ps.hero.max_health, ps.hero.mana]
-		btn_idx += 1
-
-func _slot_idx_at_point(point: Vector2, board_view: Node) -> int:
-	for child in board_view.get_children():
-		if child is Control:
-			var ctrl := child as Control
-			if ctrl.get_global_rect().has_point(point):
-				var idx: int = int(ctrl.get_meta("slot_idx", -1))
-				if idx >= 0:
-					return idx
-	return -1
-
-func _do_play_card_at_slot(card: CardInstance, player_idx: int, slot_idx: int) -> bool:
-	var apply_discount: bool = (
-		(_battle_weather == "snow" or _battle_weather == "blizzard") and
-		not _snow_discount_used[player_idx]
-	)
-	var ok: bool
-	if apply_discount:
-		var saved_cost: int = card.cost
-		card.cost = maxi(0, card.cost - 1)
-		ok = _state.players[player_idx].play_card_at_slot(card, slot_idx)
-		card.cost = saved_cost
-		if ok:
-			_snow_discount_used[player_idx] = true
-	else:
-		ok = _state.players[player_idx].play_card_at_slot(card, slot_idx)
-	if ok:
-		GameBus.card_played.emit(card.template_id, "board", slot_idx)
-	return ok
-
-func _enter_slot_select_mode(card: CardInstance) -> void:
-	_slot_select_card = card
-	_show_cancel_btn("✕ Cancel", _exit_slot_select_mode)
-	_refresh_player_board()
-
-func _exit_slot_select_mode() -> void:
-	_slot_select_card = null
-	_hide_cancel_btn()
-	_refresh_player_board()
-
-func _on_empty_slot_input(event: InputEvent, slot_idx: int) -> void:
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			if _slot_targeting_spell != null:
-				var spell := _slot_targeting_spell
-				_exit_slot_targeting_mode()
-				_resolve_slot_spell(spell, slot_idx)
-				return
-			if _slot_select_card != null:
-				var card := _slot_select_card
-				_exit_slot_select_mode()
-				if _is_pvp_client():
-					var hi: int = _state.players[_my_idx()].hand.find(card)
-					if hi != -1 and _state.players[_my_idx()].can_play(card):
-						AudioManager.play_sfx("card_play")
-						_fx.haptic(20)
-						_send_intent(BattleNetProtocol.encode_play_card_at_slot(hi, slot_idx))
-						_dismiss_battle_tutorial()
-					return
-				var from_panel: Control = _hand_panel_node(card)
-				var from_rect: Rect2 = from_panel.get_global_rect() if from_panel != null else Rect2()
-				var to_pos: Vector2 = _slot_panel_center(_player_board_view, slot_idx)
-				if _do_play_card_at_slot(card, _my_idx(), slot_idx):
-					AudioManager.play_sfx("card_play")
-					_fx.haptic(20)
-					_hide_hand_panel(from_panel)
-					if card.emergence_effect != "":
-						var snap_se := _fx.snapshot()
-						_resolver.resolve_emergence(card, _my_idx())
-						_fx.trigger_fx(snap_se)
-					else:
-						_apply_weather_to_summoned(card, _my_idx())
-					await _animate_card_travel(card, from_rect, to_pos)
-					_refresh_all()
-					_check_game_over()
-					_dismiss_battle_tutorial()
-				return
-
-func _enter_slot_targeting_mode(spell: CardInstance) -> void:
-	_slot_targeting_spell = spell
-	_targeting_active = true
-	_show_cancel_btn("✕ Cancel Spell", _exit_slot_targeting_mode)
-	_refresh_player_board()
-
-func _exit_slot_targeting_mode() -> void:
-	_slot_targeting_spell = null
-	_targeting_active = false
-	_hide_cancel_btn()
-	_refresh_player_board()
-
-func _resolve_slot_spell(spell: CardInstance, slot_idx: int) -> void:
-	if not _state.players[_my_idx()].can_play(spell):
-		return
-	if _is_pvp_client():
-		var hi: int = _state.players[_my_idx()].hand.find(spell)
-		if hi != -1:
-			AudioManager.play_sfx("spell_resolve")
-			_fx.haptic(20)
-			_send_intent(BattleNetProtocol.encode_play_spell(hi, {"slot": slot_idx}))
-		return
-	_do_play_card(spell, _my_idx())
-	AudioManager.play_sfx("spell_resolve")
-	_fx.haptic(20)
-	match spell.spell_effect:
-		"bless_slot":
-			_state.players[_my_idx()].board.enhance_slot(slot_idx, "atk_bonus", spell.spell_power)
-		"ward_slot":
-			_state.players[_my_idx()].board.enhance_slot(slot_idx, "shroud", 1)
-	_refresh_all()
-	_check_game_over()
 
 # -------------------------------------------------------------------------
 # Card inspect overlay (TID-086)
@@ -1187,195 +651,6 @@ func _show_card_inspect(card: CardInstance) -> void:
 # Battle pause (TID-088)
 # -------------------------------------------------------------------------
 
-func _add_hero_power_button() -> void:
-	var active_skill: SkillData = _get_active_skill()
-	if active_skill == null:
-		return
-	_hero_power_btn = _UiUtil.make_button(active_skill.display_name, Vector2(_vh * 0.18, _vh * 0.05), int(_font(0.02)),
-			_use_hero_power)
-	$SidePanel.add_child(_hero_power_btn)
-
-func _add_potion_button() -> void:
-	if _state.puzzle_mode or _state.scripted_battle:
-		return
-	var has_any: bool = false
-	for potion_id: String in SceneManager.save_manager.potions:
-		if int(SceneManager.save_manager.potions[potion_id]) > 0:
-			has_any = true
-			break
-	if not has_any:
-		return
-	_potion_btn = _UiUtil.make_button("Potion", Vector2(_vh * 0.16, _vh * 0.05), int(_font(0.02)),
-			_on_potion_button_pressed)
-	$SidePanel.add_child(_potion_btn)
-
-func _apply_ambush_modifiers(edata: Dictionary) -> void:
-	if bool(edata.get("player_ambush", false)):
-		var enemy_hero: HeroState = _state.players[1].hero
-		var new_hp: int = maxi(_AMBUSH_HP_MIN, int(round(enemy_hero.max_health * (1.0 - _AMBUSH_HP_PCT))))
-		enemy_hero.health = new_hp
-		enemy_hero.max_health = new_hp
-		_result_ui.show_ambush_banner(true)
-	elif bool(edata.get("enemy_ambush", false)):
-		var player_hero: HeroState = _state.players[0].hero
-		var new_hp: int = maxi(_AMBUSH_HP_MIN, int(round(player_hero.max_health * (1.0 - _AMBUSH_HP_PCT))))
-		player_hero.health = new_hp
-		player_hero.max_health = new_hp
-		_result_ui.show_ambush_banner(false)
-
-func _apply_gambit_handicaps(gambit_id: String) -> void:
-	if gambit_id.is_empty():
-		return
-	match gambit_id:
-		"wounded_pride":
-			_state.players[0].hero.health = 25
-			_state.players[0].hero.max_health = 25
-		"slow_start":
-			_state.players[0].skip_next_draw = true
-		"iron_veil":
-			_state.players[1].hero.apply_status("armor", 5)
-		# "emboldened_foe" is handled before build_deck via minion_attack_bonus.
-
-func _add_gambit_badge() -> void:
-	var gambit_id: String = str(enemy_data.get("gambit_id", ""))
-	if gambit_id.is_empty():
-		return
-	var gdata: Dictionary = Gambits.get_gambit(gambit_id)
-	if gdata.is_empty():
-		return
-	_gambit_badge = PanelContainer.new()
-	var badge_lbl := _UiUtil.make_label("Gambit: %s" % str(gdata.get("name", gambit_id)), int(_font(0.018)))
-	badge_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
-	_gambit_badge.add_child(badge_lbl)
-	$SidePanel.add_child(_gambit_badge)
-
-func _refresh_potion_button() -> void:
-	if _potion_btn == null:
-		return
-	var has_potions: bool = false
-	for potion_id: String in SceneManager.save_manager.potions:
-		if int(SceneManager.save_manager.potions[potion_id]) > 0:
-			has_potions = true
-			break
-	_potion_btn.disabled = _used_potion_this_battle or not has_potions or _state.current_player_idx != _my_idx()
-	_potion_btn.visible = has_potions
-
-func _on_potion_button_pressed() -> void:
-	if _used_potion_this_battle or _state.current_player_idx != _my_idx():
-		return
-	_show_potion_picker()
-
-func _show_potion_picker() -> void:
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var layer := CanvasLayer.new()
-	layer.layer = 160
-	add_child(layer)
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.6)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(backdrop)
-
-	var panel_w: float = minf(vp.x * 0.7, _vh * 0.55)
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.18, 0.97), 10)
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(panel_w, 0)
-	panel.position = Vector2((vp.x - panel_w) * 0.5, vp.y * 0.3)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	layer.add_child(panel)
-
-	var margin := _UiUtil.make_margin(int(_vh * 0.025), int(_vh * 0.025), int(_vh * 0.025), int(_vh * 0.025), panel)
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-
-	var vbox := _UiUtil.make_vbox(int(_vh * 0.015), margin)
-
-	var title_lbl := _UiUtil.make_label("Use a Potion", int(_font(0.026)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER,
-			vbox)
-
-	var sm := SceneManager.save_manager
-	for potion_id: String in GardenDefs.POTIONS:
-		var count: int = int(sm.potions.get(potion_id, 0))
-		if count <= 0:
-			continue
-		var potion_data: Dictionary = GardenDefs.POTIONS[potion_id]
-		var display_name: String = str(potion_data.get("display_name", potion_id))
-		var row := _UiUtil.make_hbox(int(_vh * 0.012))
-		var lbl := _UiUtil.make_label("%s  ×%d" % [display_name, count], int(_font(0.022)), Color.WHITE,
-				HORIZONTAL_ALIGNMENT_LEFT, row)
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var use_btn := _UiUtil.make_button("Use", Vector2(_vh * 0.1, _vh * 0.055), int(_font(0.022)))
-		var pid: String = potion_id
-		use_btn.pressed.connect(func() -> void:
-			layer.queue_free()
-			_apply_potion_effect(pid)
-		)
-		row.add_child(use_btn)
-		vbox.add_child(row)
-
-	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(panel_w * 0.5, _vh * 0.055), int(_font(0.022)),
-			layer.queue_free)
-	var center := CenterContainer.new()
-	center.add_child(cancel_btn)
-	vbox.add_child(center)
-
-func _apply_potion_effect(potion_id: String) -> void:
-	var sm := SceneManager.save_manager
-	if not sm.remove_potions(potion_id, 1):
-		return
-	_used_potion_this_battle = true
-	if _is_pvp_client():
-		# Inventory consumed locally; the host applies the state effect to players[1].
-		_send_intent(BattleNetProtocol.encode_potion(potion_id))
-		GameBus.potion_used.emit(potion_id)
-		_refresh_potion_button()
-		return
-	var player: PlayerState = _state.players[_my_idx()]
-	var snap_pot := _fx.snapshot()
-	match potion_id:
-		"healing_draught":
-			player.hero.health = mini(player.hero.health + 8, player.hero.max_health)
-			_fx.spawn_float_labels(snap_pot)
-			_fx.spawn_float_label(_fx.pos_of_hero(false), "+8 HP", Color(0.267, 1.0, 0.533))
-		"clarity_brew":
-			player.draw_card()
-			player.draw_card()
-		"ember_tonic":
-			player.hero.mana = mini(player.hero.mana + 1, player.hero.max_mana)
-			_fx.spawn_float_label(_fx.pos_of_hero(false), "+1 Mana", Color(0.4, 0.8, 1.0))
-	GameBus.potion_used.emit(potion_id)
-	_refresh_all()
-	_refresh_potion_button()
-	if _pvp:
-		_check_game_over()
-
-func _get_active_skill() -> SkillData:
-	var result: SkillData = null
-	for skill_id: String in SceneManager.save_manager.unlocked_skills:
-		var sk: SkillData = SkillRegistry.get_skill(skill_id)
-		if sk != null and sk.skill_type == "active":
-			result = sk
-	return result
-
-func _use_hero_power() -> void:
-	if _hero_power_used:
-		return
-	if _pvp and not _can_local_act():
-		return
-	var active_skill: SkillData = _get_active_skill()
-	if active_skill == null:
-		return
-	_hero_power_used = true
-	if _hero_power_btn != null:
-		_hero_power_btn.disabled = true
-	if _is_pvp_client():
-		# Host doesn't know the client's skill — relay the effect itself.
-		_send_intent(BattleNetProtocol.encode_hero_power({}, active_skill.effect_type, active_skill.effect_value))
-		return
-	_apply_hero_power_effect(_my_idx(), active_skill.effect_type, active_skill.effect_value)
-	_refresh_all()
-	_check_game_over()
 
 func _make_battle_save() -> Dictionary:
 	var d: Dictionary = _state.to_dict()
@@ -1435,55 +710,6 @@ func _notification(what: int) -> void:
 			_hand_drag_card = null
 			_refresh_player_board()
 
-func _on_target_chosen_card(target: CardInstance) -> void:
-	var spell := _targeting_spell
-	_targeting_active = false
-	_targeting_friendly = false
-	_targeting_spell = null
-	_hide_cancel_btn()
-	if _is_pvp_client():
-		var hi: int = _state.players[_my_idx()].hand.find(spell)
-		if hi != -1 and _state.players[_my_idx()].can_play(spell):
-			AudioManager.play_sfx("card_play")
-			_fx.haptic(20)
-			_send_intent(BattleNetProtocol.encode_play_spell(hi, battle_net._pvp_target_dict_for_card(target)))
-			_dismiss_battle_tutorial()
-		return
-	if _do_play_card(spell, _my_idx()):
-		AudioManager.play_sfx("card_play")
-		_fx.haptic(20)
-		var snap_otc := _fx.snapshot()
-		_resolver.resolve_spell(spell, _my_idx(), {"type": "minion", "card": target})
-		_fx.trigger_fx(snap_otc)
-	_refresh_all()
-	_check_game_over()
-	_dismiss_battle_tutorial()
-
-func _on_target_chosen_hero() -> void:
-	var spell := _targeting_spell
-	_targeting_active = false
-	_targeting_friendly = false
-	_targeting_spell = null
-	_hide_cancel_btn()
-	var hero_tgt: Dictionary = {"hero": true, "pidx": _opp_idx()} if _team_pvp else {"hero": true}
-	if _is_pvp_client():
-		var hi: int = _state.players[_my_idx()].hand.find(spell)
-		if hi != -1 and _state.players[_my_idx()].can_play(spell):
-			AudioManager.play_sfx("card_play")
-			_fx.haptic(20)
-			_send_intent(BattleNetProtocol.encode_play_spell(hi, hero_tgt))
-			_dismiss_battle_tutorial()
-		return
-	if _do_play_card(spell, _my_idx()):
-		AudioManager.play_sfx("card_play")
-		_fx.haptic(20)
-		var snap_oth := _fx.snapshot()
-		var resolver_hero_tgt: Dictionary = {"type": "hero", "pidx": _opp_idx()} if _team_pvp else {"type": "hero"}
-		_resolver.resolve_spell(spell, _my_idx(), resolver_hero_tgt)
-		_fx.trigger_fx(snap_oth)
-	_refresh_all()
-	_check_game_over()
-	_dismiss_battle_tutorial()
 
 func _make_card_ghost(card: CardInstance) -> PanelContainer:
 	var panel := _make_card_view(card, "ghost")
@@ -1561,7 +787,7 @@ func _refresh_all() -> void:
 	_view.refresh_hero(_player_hero_view, _state.players[_my_idx()].hero, false)
 	_update_status()
 	if _coop_pve:
-		_refresh_coop_ally_panels()
+		arena._refresh_coop_ally_panels()
 	if _team_pvp:
 		battle_net._refresh_team_panels()
 
@@ -1575,82 +801,6 @@ func _refresh_player_board() -> void:
 	)
 	_view.refresh_board_zone(_player_board_view, _state.players[_my_idx()].board, "board")
 
-func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String) -> void:
-	for conn in panel.gui_input.get_connections():
-		panel.gui_input.disconnect(conn["callable"])
-	if zone_id == "hand" and _state.current_player_idx == _my_idx():
-		# Tap/click handler fires on release; it only fires when no native drag was started.
-		panel.gui_input.connect(func(event: InputEvent) -> void: _on_hand_card_input(event, card))
-		# Native drag forwarding: drag threshold handled by Godot (mouse + touch transparent).
-		# LongPressDetector remains independent; it cancels itself if movement > SLOP_PX,
-		# which happens before the drag threshold is reached, so inspect and drag don't conflict.
-		panel.set_drag_forwarding(
-			func(_pos: Vector2) -> Variant:
-				if not _can_local_act():
-					return null
-				if _inspect_overlay != null and is_instance_valid(_inspect_overlay):
-					return null
-				if not _state.players[_my_idx()].can_play(card):
-					return null
-				_hand_drag_card = card
-				var ghost: PanelContainer = _make_card_ghost(card)
-				ghost.scale = Vector2(1.05, 1.05)
-				panel.set_drag_preview(ghost)
-				panel.modulate.a = 0.45
-				_refresh_player_board()
-				return {"card": card},
-			func(_pos: Vector2, _data: Variant) -> bool: return false,
-			func(_pos: Vector2, _data: Variant) -> void: pass
-		)
-	elif zone_id == "board" and _state.current_player_idx == _my_idx():
-		panel.gui_input.connect(func(event: InputEvent) -> void: _on_board_card_input(event, card))
-		# Drag-to-attack: dragging a board card returns {"attacker": card} so it can
-		# be dropped onto an enemy card panel or the enemy hero view.
-		panel.set_drag_forwarding(
-			func(_pos: Vector2) -> Variant:
-				if not _can_local_act() or not card.can_attack():
-					return null
-				return {"attacker": card},
-			func(_pos: Vector2, _data: Variant) -> bool: return false,
-			func(_pos: Vector2, _data: Variant) -> void: pass
-		)
-	elif zone_id == "enemy_board":
-		panel.gui_input.connect(func(event: InputEvent) -> void: _on_enemy_card_input(event, card))
-		# Accept attack drags ({"attacker": card}) dropped onto enemy minions.
-		panel.set_drag_forwarding(
-			func(_pos: Vector2) -> Variant: return null,
-			func(_pos: Vector2, data: Variant) -> bool:
-				if not (data is Dictionary) or not data.has("attacker"):
-					return false
-				var attacker: CardInstance = data["attacker"] as CardInstance
-				if attacker == null or not attacker.can_attack():
-					return false
-				var valid: Array[CardInstance] = _view.get_ward_valid_targets(
-					_state.players[_opp_idx()].board.get_cards())
-				return valid.has(card),
-			func(_pos: Vector2, data: Variant) -> void:
-				if not (data is Dictionary) or not data.has("attacker"):
-					return
-				var attacker: CardInstance = data["attacker"] as CardInstance
-				if attacker != null:
-					_attempt_attack(attacker, card)
-		)
-	# Right-click inspect — not on enemy hand (hidden information)
-	if zone_id != "enemy_hand":
-		panel.gui_input.connect(func(event: InputEvent) -> void:
-			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-				_show_card_inspect(card)
-		)
-		# Long-press inspect (mobile) — reuse existing detector to avoid node churn
-		var lpd: LongPressDetector = panel.get_node_or_null("_lpd") as LongPressDetector
-		if lpd == null:
-			lpd = LongPressDetector.new()
-			lpd.name = "_lpd"
-			panel.add_child(lpd)
-		else:
-			for conn in lpd.long_pressed.get_connections():
-				lpd.long_pressed.disconnect(conn["callable"])
-		lpd.long_pressed.connect(func() -> void: _show_card_inspect(card))
 
 func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	var panel := PanelContainer.new()
@@ -1666,7 +816,7 @@ func _make_card_view(card: CardInstance, zone_id: String) -> PanelContainer:
 	panel.add_child(_view.build_card_vbox(card, is_board_zone))
 	var style: StyleBoxFlat = CardViewBuilder.attach_card_style(panel)
 	_view.apply_card_style(panel, card, zone_id)
-	_bind_card_input(panel, card, zone_id)
+	card_input._bind_card_input(panel, card, zone_id)
 	if zone_id == "hand" and card.dual_card_id != "" and not _flipped_dual_ids.has(card.instance_id):
 		_flipped_dual_ids[card.instance_id] = true
 		_trigger_dual_face_flip(panel)
@@ -1690,242 +840,6 @@ func _update_status() -> void:
 # Input handlers
 # -------------------------------------------------------------------------
 
-## Handles tap (press+release without drag). Fires only when native drag was NOT started,
-## because Godot consumes the release event when a drag is in progress.
-func _on_hand_card_input(event: InputEvent, card: CardInstance) -> void:
-	if event is InputEventMouseButton:
-		var mb := event as InputEventMouseButton
-		if mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed:
-			if not _can_local_act():
-				return
-			_on_hand_card_tap(card)
-
-func _on_hand_card_tap(card: CardInstance) -> void:
-	if not _can_local_act():
-		return
-	var can_play: bool = _state.players[_my_idx()].can_play(card)
-	if card.card_class != "spell" and can_play:
-		_enter_slot_select_mode(card)
-		return
-	if card.card_class == "spell" and can_play:
-		# Tap-first casting (GID-119 / TID-450): mirror _board_drop's routing so
-		# every spell class is playable without a drag. Unplayable cards and
-		# no-valid-target situations keep falling through to inspect.
-		if SpellEffectResolver.SLOT_TARGETED_EFFECTS.has(card.spell_effect):
-			_enter_slot_targeting_mode(card)
-			return
-		if SpellEffectResolver.ALLY_TARGETED_EFFECTS.has(card.spell_effect) and _coop_pve:
-			_enter_ally_targeting_mode(card)
-			return
-		var is_enemy_targeted: bool = SpellEffectResolver.ENEMY_TARGETED_EFFECTS.has(card.spell_effect)
-		var is_friendly_targeted: bool = SpellEffectResolver.FRIENDLY_TARGETED_EFFECTS.has(card.spell_effect)
-		if is_enemy_targeted or is_friendly_targeted:
-			if is_friendly_targeted and _state.players[_my_idx()].board.get_cards().is_empty():
-				_show_card_inspect(card)
-				return
-			if is_enemy_targeted and card.spell_effect != "deal_damage_single" \
-					and _state.players[_opp_idx()].board.get_cards().is_empty():
-				_show_card_inspect(card)
-				return
-			_enter_targeting_mode(card, is_friendly_targeted)
-			return
-		_show_cast_confirm(card)
-		# gdlint:ignore = max-returns
-		return
-	_show_card_inspect(card)
-
-## Confirm step for untargeted spells played by tap — they resolve instantly, so
-## a bare tap (easy to fat-finger on a fanned hand) must not cast unprompted.
-func _show_cast_confirm(card: CardInstance) -> void:
-	if _cast_confirm_layer != null and is_instance_valid(_cast_confirm_layer):
-		return
-	var layer := CanvasLayer.new()
-	layer.layer = 150
-	add_child(layer)
-	_cast_confirm_layer = layer
-
-	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.0, 0.0, 0.0, 0.45)
-	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_STOP
-	backdrop.gui_input.connect(func(ev: InputEvent) -> void:
-		if ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed:
-			_hide_cast_confirm())
-	layer.add_child(backdrop)
-
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(center)
-
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.10, 0.10, 0.20, 0.97), 10)
-	panel.add_theme_stylebox_override("panel", style)
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	panel.custom_minimum_size = Vector2(minf(vp.x * 0.5, _vh * 0.75), 0)
-	center.add_child(panel)
-
-	var margin := _UiUtil.make_margin(int(_vh * 0.025), int(_vh * 0.02), int(_vh * 0.025), int(_vh * 0.02), panel)
-
-	var vbox := _UiUtil.make_vbox(int(_vh * 0.015), margin)
-
-	var name_lbl := _UiUtil.make_label(card.name, int(_font(0.028)), Color.WHITE, HORIZONTAL_ALIGNMENT_CENTER, vbox)
-
-	var ability_lbl := _UiUtil.make_label(_view.get_card_ability_text(card), int(_font(0.022)), Color.WHITE,
-			HORIZONTAL_ALIGNMENT_CENTER)
-	ability_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	ability_lbl.add_theme_color_override("font_color", _view.get_card_ability_color(card))
-	vbox.add_child(ability_lbl)
-
-	var cast_btn := _UiUtil.make_button("Cast (%d mana)" % _state.players[_my_idx()].effective_cost(card),
-			Vector2(_vh * 0.22, _vh * 0.08), int(_font(0.030)))
-	cast_btn.pressed.connect(func() -> void:
-		_hide_cast_confirm()
-		_cast_confirmed_spell(card))
-	vbox.add_child(cast_btn)
-
-	var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_vh * 0.22, _vh * 0.06), int(_font(0.024)),
-			_hide_cast_confirm, vbox)
-
-func _hide_cast_confirm() -> void:
-	if _cast_confirm_layer != null and is_instance_valid(_cast_confirm_layer):
-		_cast_confirm_layer.queue_free()
-	_cast_confirm_layer = null
-
-## Shared untargeted-spell cast path — used by the drag drop (_board_drop) and
-## the tap confirm. Handles the PvP-client intent relay.
-func _cast_confirmed_spell(card: CardInstance) -> void:
-	if not _can_local_act() or not _state.players[_my_idx()].can_play(card):
-		return
-	if _is_pvp_client():
-		var hi: int = _state.players[_my_idx()].hand.find(card)
-		if hi != -1:
-			AudioManager.play_sfx("card_play")
-			_fx.haptic(20)
-			_send_intent(BattleNetProtocol.encode_play_spell(hi, {}))
-			_dismiss_battle_tutorial()
-		return
-	if _do_play_card(card, _my_idx()):
-		AudioManager.play_sfx("card_play")
-		_fx.haptic(20)
-		var snap: Array[Dictionary] = _fx.snapshot()
-		_resolver.resolve_spell(card, _my_idx())
-		_fx.trigger_fx(snap)
-		_refresh_all()
-		_check_game_over()
-		_dismiss_battle_tutorial()
-
-func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if _targeting_active and _targeting_friendly:
-			_on_target_chosen_card(my_card)
-			return
-		if not my_card.can_attack():
-			return
-		# Always enter selection mode — player clicks a target (minion or hero)
-		_dragged_card = {"card": my_card}
-		_refresh_all()
-
-func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if _targeting_active and not _targeting_friendly:
-			_on_target_chosen_card(target)
-			return
-		if _dragged_card.is_empty():
-			return
-		var attacker: CardInstance = _dragged_card["card"]
-		if not attacker.can_attack():
-			_dragged_card.clear()
-			return
-		# Ward: if any enemy minion has Ward, only those are valid targets
-		var valid_targets: Array[CardInstance] = _view.get_ward_valid_targets(_state.players[_opp_idx()].board.get_cards())
-		if not valid_targets.has(target):
-			return  # keep attacker selected; player must click a Ward minion
-		_attempt_attack(attacker, target)
-
-func _on_enemy_hero_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		if _targeting_active and not _targeting_friendly:
-			_on_target_chosen_hero()
-			return
-		if not _can_local_act():
-			return
-		if _dragged_card.is_empty():
-			return
-		var attacker: CardInstance = _dragged_card["card"]
-		if not attacker.can_attack():
-			_dragged_card.clear()
-			_refresh_all()
-			return
-		# Ward: cannot attack hero while any Ward minion is alive on enemy board
-		for ec: CardInstance in _state.players[_opp_idx()].board.get_cards():
-			if ec.keywords.has(Keywords.WARD):
-				return  # keep attacker selected; player must target the Ward minion
-		_attempt_attack(attacker, null)
-
-## Routes a chosen attack: client sends an intent; host/single-player resolves
-## locally via _execute_attack (which broadcasts through _check_game_over).
-func _attempt_attack(attacker: CardInstance, target: CardInstance) -> void:
-	if _is_pvp_client():
-		var a_slot: int = _state.players[_my_idx()].board.slots.find(attacker)
-		var t_slot: int = BattleNetProtocol.TARGET_HERO
-		if target != null:
-			t_slot = _state.players[_opp_idx()].board.slots.find(target)
-		_dragged_card.clear()
-		if a_slot != -1 and (target == null or t_slot != -1):
-			var target_pidx: int = _opp_idx() if _team_pvp else -1
-			_send_intent(BattleNetProtocol.encode_attack(a_slot, t_slot, target_pidx))
-		_refresh_all()
-		return
-	await _execute_attack(attacker, target)
-
-## Resolves a player minion attack against target (CardInstance) or the enemy hero (null).
-## Handles damage, counterattack, death removal, FX, and the card_attacked signal.
-## Async: lunges the attacker into the target before mutating state, with a
-## brief hit-stop on big/lethal hits, then animates any resulting death(s)
-## before the board rebuilds (TID-426). All durations respect `_speed_scale`.
-func _execute_attack(attacker: CardInstance, target: CardInstance) -> void:
-	AudioManager.play_sfx("attack")
-	var attacker_panel := _fx.get_card_panel(attacker, false)
-	var snap := _fx.snapshot()
-	var attacker_dmg: int = BattlefieldRules.modify_damage(attacker.attack, _state.battlefield_biome)
-	var target_panel_pre: Control = _fx.get_card_panel(target, true) if target != null else null
-	var target_pos: Vector2 = (target_panel_pre.get_global_rect().get_center() if target_panel_pre != null
-			else _fx.pos_of_hero(true))
-	var is_big_hit: bool = attacker_dmg >= 5 or (target != null and attacker_dmg >= target.health)
-	await _fx.animate_attack(attacker_panel, target_pos, _speed_scale, 0.06 if is_big_hit else 0.0)
-	if target != null:
-		var target_dmg: int = BattlefieldRules.modify_damage(target.attack, _state.battlefield_biome)
-		target.take_damage(attacker_dmg)
-		attacker.take_damage(target_dmg)
-		attacker.attack_count -= 1
-		var target_panel := _fx.get_card_panel(target, true)
-		_fx.flash_node(target_panel, Color(1.0, 0.3, 0.3, 1.0))
-		_fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
-		if not target.is_alive():
-			attacker.battle_kills += 1
-			_state.players[_opp_idx()].board.remove_card(target)
-			_state.players[_opp_idx()].discard.append(target)
-		GameBus.card_attacked.emit(attacker.template_id, target.template_id)
-	else:
-		if _capture_tracker != null:
-			_capture_tracker.note_minion_attacked_hero(0)
-		var hero := _state.players[_opp_idx()].hero
-		hero.take_damage(attacker_dmg)
-		attacker.take_damage(BattlefieldRules.modify_damage(hero.attack, _state.battlefield_biome))
-		attacker.attack_count -= 1
-		_fx.flash_node(_enemy_hero_view, Color(1.0, 0.3, 0.3, 1.0))
-		_fx.flash_node(attacker_panel, Color(1.0, 0.3, 0.3, 1.0))
-		GameBus.card_attacked.emit(attacker.template_id, "hero")
-	if not attacker.is_alive():
-		_state.players[_my_idx()].board.remove_card(attacker)
-		_state.players[_my_idx()].discard.append(attacker)
-	await _animate_deaths_from_snapshot(snap)
-	_fx.spawn_float_labels(snap)
-	_fx.check_shake(snap)
-	_dragged_card.clear()
-	_refresh_all()
-	_check_game_over()
 
 ## Diff-based death animation: any non-hero id present in `snap` but no
 ## longer among the currently-alive board cards gets a death beat before the
@@ -1976,7 +890,7 @@ func _on_turn_ended(player_idx: int) -> void:
 	_fx.process_start_of_turn_statuses(player_idx)
 	# Desert biome rule: leftmost minion on each board takes 1 damage at turn start (daytime only).
 	if _state.battlefield_biome == BattlefieldRules.BIOME_DESERT and not _state.is_night:
-		_apply_desert_scorch()
+		modifiers._apply_desert_scorch()
 	# Grow snow-discount tracking array to match player count.
 	while _snow_discount_used.size() <= player_idx:
 		_snow_discount_used.append(false)
@@ -1992,11 +906,11 @@ func _on_turn_ended(player_idx: int) -> void:
 		var boss_idx: int = _state.players.size() - 1
 		if player_idx == _my_idx():
 			# Local ally's turn just ended — buttons already disabled by end_turn().
-			_refresh_potion_button()
+			consumables._refresh_potion_button()
 			_check_game_over()
 			if not _state.is_game_over():
 				AudioManager.play_sfx("card_draw")
-				_apply_companion_turn_start()
+				modifiers._apply_companion_turn_start()
 				var snap_coop := _fx.snapshot()
 				_resolver.flush_auto_spells(player_idx)
 				_fx.trigger_fx(snap_coop)
@@ -2014,18 +928,18 @@ func _on_turn_ended(player_idx: int) -> void:
 		return
 
 	if player_idx == 0:
-		_refresh_potion_button()
+		consumables._refresh_potion_button()
 		_check_game_over()
 		if not _state.is_game_over():
 			AudioManager.play_sfx("card_draw")
-			_apply_companion_turn_start()
+			modifiers._apply_companion_turn_start()
 			var snap_as := _fx.snapshot()
 			_resolver.flush_auto_spells(0)
 			_fx.trigger_fx(snap_as)
 			_refresh_all()
 			_check_game_over()
 			if _state.scripted_battle:
-				_maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
+				tutorials._maybe_show_scripted_tutorial_step(_state.player_turn_numbers[0])
 	elif player_idx == 1:
 		if _potion_btn != null:
 			_potion_btn.disabled = true
@@ -2111,7 +1025,7 @@ func _execute_ai_actions(actions: Array[Callable], idx: int) -> void:
 	for c: CardInstance in _state.players[ai_idx].board.get_cards():
 		if not ai_board_before.has(c):
 			_resolver.resolve_emergence(c, ai_idx)
-			_apply_weather_to_summoned(c, ai_idx)
+			modifiers._apply_weather_to_summoned(c, ai_idx)
 	_fx.trigger_fx(snap_ai)
 	await _animate_deaths_from_snapshot(snap_ai)
 	_refresh_all()
@@ -2311,102 +1225,6 @@ func _on_puzzle_give_up() -> void:
 # Battlefield Resonance (GID-059)
 # -------------------------------------------------------------------------
 
-## Desert biome rule: damage the leftmost minion on each board at turn start.
-## Does NOT use the Scorched modifier — this is a separate status tick.
-func _apply_desert_scorch() -> void:
-	for pid in range(2):
-		for si in range(5):
-			var c: CardInstance = _state.players[pid].board.slots[si]
-			if c != null:
-				c.take_damage(1)
-				if not c.is_alive():
-					_state.players[pid].board.remove_card(c)
-					_state.players[pid].discard.append(c)
-				break
-
-## Paints the Background rect with the biome-aware battle backdrop (GID-126).
-## Reads the same biome + day/night pair Battlefield Resonance stamped into
-## GameState, so the scenery always matches the ground the encounter began on.
-## The rect keeps its flat colour underneath as the fallback, so a missing
-## shader degrades to the pre-GID-126 look rather than to nothing.
-func _setup_backdrop() -> void:
-	var bg := get_node_or_null("Background") as ColorRect
-	if bg == null:
-		return
-	var biome: int = _state.battlefield_biome if _state != null else BattleBackdrop.NEUTRAL
-	var night: bool = _state.is_night if _state != null else false
-	BattleBackdrop.apply(bg, biome, night)
-
-
-## Adds a persistent compact label in SidePanel showing biome name and day/night indicator.
-func _add_battlefield_info_label() -> void:
-	var biome: int = _state.battlefield_biome
-	if biome == -1:
-		return
-	var night: bool = _state.is_night
-	var sun_moon: String = "☽" if night else "☀"
-	var info_lbl := _UiUtil.make_label("%s %s" % [BattlefieldRules.get_biome_name(biome), sun_moon], int(_font(0.02)))
-	info_lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.6))
-	info_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	$SidePanel.add_child(info_lbl)
-	_battlefield_info_label = info_lbl
-
-## Adds coloured overlay panels on affected board slots (Forest 0/4, Mountains 2).
-func _add_slot_highlights() -> void:
-	var highlights: Array[int] = BattlefieldRules.get_slot_highlights(_state.battlefield_biome)
-	if highlights.is_empty():
-		return
-	var tint: Color = Color(0.4, 0.9, 1.0, 0.18)  # distinct from cyan spell-target and yellow attack
-	for board_view in [_player_board_view, _enemy_board_view]:
-		for si in highlights:
-			var overlay := ColorRect.new()
-			overlay.color = tint
-			overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var slot_lbl := _UiUtil.make_label("★", int(_font(0.018)))
-			slot_lbl.add_theme_color_override("font_color", Color(0.4, 0.9, 1.0, 0.7))
-			slot_lbl.set_meta("bf_slot_idx", si)
-			board_view.add_child(overlay)
-			board_view.add_child(slot_lbl)
-			_slot_highlight_panels.append(overlay)
-			_slot_highlight_panels.append(slot_lbl)
-
-## Shows a transient banner at battle start with the biome rule text.
-## Deferred so the scene is fully set up before showing.
-func _show_battlefield_banner() -> void:
-	var biome: int = _state.battlefield_biome
-	if biome == -1:
-		return
-	var night: bool = _state.is_night
-	var vp: Vector2 = get_viewport().get_visible_rect().size
-	var panel := PanelContainer.new()
-	var style := _UiUtil.make_style(Color(0.08, 0.08, 0.16, 0.88), 8, Color(0.4, 0.9, 1.0, 0.6), 2)
-	panel.add_theme_stylebox_override("panel", style)
-	var vbox := VBoxContainer.new()
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	var title_lbl := Label.new()
-	var time_str: String = "Night" if night else "Day"
-	title_lbl.text = "%s — %s" % [BattlefieldRules.get_biome_name(biome), time_str]
-	title_lbl.add_theme_font_size_override("font_size", _font(0.028))
-	title_lbl.add_theme_color_override("font_color", Color(0.9, 0.85, 0.6))
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	var rule_lbl := _UiUtil.make_label(BattlefieldRules.get_rule_text(biome), int(_font(0.021)))
-	rule_lbl.add_theme_color_override("font_color", Color(0.75, 0.92, 1.0))
-	rule_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	rule_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	vbox.add_child(title_lbl)
-	vbox.add_child(rule_lbl)
-	panel.add_child(vbox)
-	panel.custom_minimum_size = Vector2(vp.x * 0.55, _vh * 0.12)
-	panel.position = Vector2((vp.x - panel.custom_minimum_size.x) * 0.5, _vh * 0.3)
-	if _float_layer != null:
-		_float_layer.add_child(panel)
-	else:
-		add_child(panel)
-	_battlefield_banner = panel
-	var tw: Tween = panel.create_tween()
-	tw.tween_interval(_BATTLEFIELD_BANNER_DURATION)
-	tw.tween_callback(panel.queue_free)
-	tw.tween_callback(func() -> void: _battlefield_banner = null)
 
 # -------------------------------------------------------------------------
 # PvP Card Battles (GID-091)
@@ -2485,30 +1303,6 @@ func _send_intent(payload: Dictionary) -> void:
 			rpc_name = "send_team_intent"
 		_net.rpc_id(1, rpc_name, payload)
 
-## Host → client: broadcast the full canonical state with a fresh seq.
-## Also fans to any registered spectators (TID-367).
-func _apply_hero_power_effect(player_idx: int, effect_type: String, value: int) -> void:
-	var player: PlayerState = _state.players[player_idx]
-	# Hero power only fires on the acting player's own turn (current_player_idx ==
-	# player_idx, enforced by every caller), so opponent() resolves correctly for
-	# 2-player PvP, co-op-PvE (boss), and team PvP (auto lowest-HP enemy-team member —
-	# hero powers don't carry a manual target_pidx, consistent with other AOE effects).
-	var enemy: PlayerState = _state.opponent()
-	match effect_type:
-		"active_damage_all":
-			for card: CardInstance in enemy.board.get_cards().duplicate():
-				card.take_damage(value)
-				if not card.is_alive():
-					enemy.board.remove_card(card)
-					enemy.discard.append(card)
-		"active_heal":
-			player.hero.health = mini(player.hero.health + value, player.hero.max_health)
-		"active_draw":
-			for _i in value:
-				player.draw_card()
-			_resolver.flush_auto_spells(player_idx)
-		"active_mana":
-			player.hero.mana = mini(player.hero.mana + value, player.hero.max_mana)
 
 ## Applies the game-state portion of a potion to player_idx (no inventory I/O —
 ## the acting peer already consumed it from its own SaveManager).

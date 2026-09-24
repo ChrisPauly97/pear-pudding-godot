@@ -20,7 +20,7 @@ Static registry defining all 12 achievements as plain Dictionaries with fields:
 
 `condition_type` values: `battles_won`, `enemies_defeated`, `cards_earned`, `biomes_visited`, `chests_opened`, `specific_flag`, `dawn_battle_won`, `dusk_battle_won`
 
-Spire achievements use `specific_flag` condition type with flag keys set by `SaveManager.end_spire_run()`:
+Spire achievements use `specific_flag` condition type with flag keys set by `SaveManager.spire.end_spire_run()`:
 - `spire_floor_5` ("Spire Ascendant") — flag `spire_reached_floor_5`, no card reward
 - `spire_floor_10` ("Spire Master") — flag `spire_reached_floor_10`, no card reward
 
@@ -70,7 +70,7 @@ When `SceneManager.go_to_menu()` is called from world state, it routes to `RunSu
 **Spire Run Summary Flow:**
 When `go_to_menu()` is called from a Spire floor, or when the player dies in a Spire battle:
 1. `SceneManager._restore_spire_entry_point()` — pops the pre-Spire map (e.g. madrian) from the stack and sets `save_manager.current_map`. Ensures continue-after-death loads the entrance town, not a floor.
-2. `save_manager.end_spire_run()` — awards `floors_cleared × 5` coins, updates `spire_best_floor`, sets `spire_reached_floor_5` / `spire_reached_floor_10` flags, returns stats dict.
+2. `save_manager.spire.end_spire_run()` — awards `floors_cleared × 5` coins, updates `spire_best_floor`, sets `spire_reached_floor_5` / `spire_reached_floor_10` flags, returns stats dict.
 3. `GameBus.spire_run_ended.emit(stats)` — emitted for other systems to observe.
 4. `RunSummaryScene` is instantiated with `spire_stats` set before it enters the tree; `_ready()` detects this and calls `_build_spire_ui()` instead of the session stats layout.
 

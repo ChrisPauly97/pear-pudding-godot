@@ -20,8 +20,8 @@ var _fx: BattleFx
 # Multiplier from the "text_scale" setting (GID-119 / TID-451).
 var _text_scale: float = 1.0
 # Callables back into BattleScene (avoid circular dependency at parse time)
-var _bind_card_input_fn: Callable   # BattleScene._bind_card_input(panel, card, zone_id)
-var _on_empty_slot_fn: Callable     # BattleScene._on_empty_slot_input(event, slot_idx)
+var _bind_card_input_fn: Callable   # BattleScene.card_input._bind_card_input(panel, card, zone_id)
+var _on_empty_slot_fn: Callable     # BattleScene.card_input._on_empty_slot_input(event, slot_idx)
 var _make_card_view_fn: Callable    # BattleScene._make_card_view(card, zone_id) -> PanelContainer
 
 # Set once when the GameState is built

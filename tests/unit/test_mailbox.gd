@@ -47,7 +47,7 @@ func test_claim_mailbox_card_succeeds_once_space_frees_up() -> void:
 	# Free a slot (must scrap a non-deck card — see _first_non_deck_uid).
 	var freed_uid: String = _first_non_deck_uid(sm)
 	sm.scrap_card_instance(freed_uid)
-	var claimed: bool = sm.claim_mailbox_card(uid)
+	var claimed: bool = sm.mailbox.claim_mailbox_card(uid)
 	assert_true(claimed)
 	assert_eq(sm.mailbox_cards.size(), 0)
 	assert_true(sm.get_instance_by_uid(uid).size() > 0)
@@ -57,7 +57,7 @@ func test_claim_fails_when_bag_still_full() -> void:
 	sm.new_game()
 	_fill_bag(sm)
 	var uid: String = sm.grant_card_reward("bat", "common")
-	var claimed: bool = sm.claim_mailbox_card(uid)
+	var claimed: bool = sm.mailbox.claim_mailbox_card(uid)
 	assert_false(claimed)
 	assert_eq(sm.mailbox_cards.size(), 1)
 
@@ -72,7 +72,7 @@ func test_claim_all_stops_at_capacity() -> void:
 	# Free exactly 2 slots (must scrap non-deck cards — see _first_non_deck_uid).
 	sm.scrap_card_instance(_first_non_deck_uid(sm))
 	sm.scrap_card_instance(_first_non_deck_uid(sm))
-	var claimed: int = sm.claim_all_mailbox_cards()
+	var claimed: int = sm.mailbox.claim_all_mailbox_cards()
 	assert_eq(claimed, 2)
 	assert_eq(sm.mailbox_cards.size(), 1)
 
@@ -82,7 +82,7 @@ func test_sell_mailbox_card_awards_gold_and_removes_entry() -> void:
 	_fill_bag(sm)
 	var uid: String = sm.grant_card_reward("bat", "common")
 	var coins_before: int = sm.coins
-	sm.sell_mailbox_card(uid)
+	sm.mailbox.sell_mailbox_card(uid)
 	assert_eq(sm.mailbox_cards.size(), 0)
 	assert_true(sm.coins > coins_before)
 
@@ -92,7 +92,7 @@ func test_scrap_mailbox_card_awards_essence_and_removes_entry() -> void:
 	_fill_bag(sm)
 	var uid: String = sm.grant_card_reward("bat", "common")
 	var essence_before: int = sm.essence
-	sm.scrap_mailbox_card(uid)
+	sm.mailbox.scrap_mailbox_card(uid)
 	assert_eq(sm.mailbox_cards.size(), 0)
 	assert_true(sm.essence > essence_before)
 

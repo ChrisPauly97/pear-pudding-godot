@@ -5,6 +5,8 @@
 ## SaveManager is instantiated directly — no scene tree needed.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const EnemyRegistry     = preload("res://autoloads/EnemyRegistry.gd")
 
@@ -84,38 +86,38 @@ func test_get_bestiary_entry_reflects_both_counters() -> void:
 
 func test_migration_adds_bestiary_field() -> void:
 	var data: Dictionary = {"version": 21}
-	SaveManagerScript._migrate_v21_to_v22(data)
+	_SaveMigrations.apply(data, 22)
 	assert_true(data.has("bestiary"), "bestiary key must be added by migration")
 
 func test_migration_default_bestiary_is_empty_dict() -> void:
 	var data: Dictionary = {"version": 21}
-	SaveManagerScript._migrate_v21_to_v22(data)
+	_SaveMigrations.apply(data, 22)
 	assert_true(data["bestiary"].is_empty(), "default bestiary must be an empty dict")
 
 func test_migration_adds_bestiary_complete_rewarded() -> void:
 	var data: Dictionary = {"version": 21}
-	SaveManagerScript._migrate_v21_to_v22(data)
+	_SaveMigrations.apply(data, 22)
 	assert_true(data.has("bestiary_complete_rewarded"), "bestiary_complete_rewarded key must be added")
 
 func test_migration_default_rewarded_is_false() -> void:
 	var data: Dictionary = {"version": 21}
-	SaveManagerScript._migrate_v21_to_v22(data)
+	_SaveMigrations.apply(data, 22)
 	assert_false(bool(data["bestiary_complete_rewarded"]), "default bestiary_complete_rewarded must be false")
 
 func test_migration_bumps_version_to_22() -> void:
 	var data: Dictionary = {"version": 21}
-	SaveManagerScript._migrate_v21_to_v22(data)
+	_SaveMigrations.apply(data, 22)
 	assert_eq(int(data["version"]), 22)
 
 func test_migration_does_not_overwrite_existing_bestiary() -> void:
 	var existing: Dictionary = {"undead_basic": {"seen": 5, "defeated": 3}}
 	var data: Dictionary = {"version": 21, "bestiary": existing}
-	SaveManagerScript._migrate_v21_to_v22(data)
+	_SaveMigrations.apply(data, 22)
 	assert_eq(int(data["bestiary"]["undead_basic"]["defeated"]), 3, "existing bestiary data must be preserved")
 
 func test_apply_migrations_reaches_v22_from_v21() -> void:
 	var data: Dictionary = {"version": 21}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(int(data.get("version", 0)), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("bestiary"))
 	assert_true(data.has("bestiary_complete_rewarded"))

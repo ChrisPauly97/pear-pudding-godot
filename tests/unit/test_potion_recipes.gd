@@ -82,21 +82,21 @@ func test_all_recipes_have_display_name() -> void:
 # ---------------------------------------------------------------------------
 
 func test_remove_plants_reduces_count() -> void:
-	_sm.add_plants("sunpetal_plant", 3)
-	_sm.remove_plants("sunpetal_plant", 2)
+	_sm.garden.add_plants("sunpetal_plant", 3)
+	_sm.garden.remove_plants("sunpetal_plant", 2)
 	assert_eq(int(_sm.plants.get("sunpetal_plant", 0)), 1)
 
 func test_remove_plants_returns_true_when_sufficient() -> void:
-	_sm.add_plants("moonroot_plant", 2)
-	assert_true(_sm.remove_plants("moonroot_plant", 2))
+	_sm.garden.add_plants("moonroot_plant", 2)
+	assert_true(_sm.garden.remove_plants("moonroot_plant", 2))
 
 func test_remove_plants_returns_false_when_insufficient() -> void:
-	_sm.add_plants("embercap_plant", 1)
-	assert_false(_sm.remove_plants("embercap_plant", 2))
+	_sm.garden.add_plants("embercap_plant", 1)
+	assert_false(_sm.garden.remove_plants("embercap_plant", 2))
 
 func test_remove_plants_does_not_deduct_when_insufficient() -> void:
-	_sm.add_plants("sunpetal_plant", 1)
-	_sm.remove_plants("sunpetal_plant", 2)
+	_sm.garden.add_plants("sunpetal_plant", 1)
+	_sm.garden.remove_plants("sunpetal_plant", 2)
 	assert_eq(int(_sm.plants.get("sunpetal_plant", 0)), 1)
 
 # ---------------------------------------------------------------------------
@@ -126,26 +126,26 @@ func test_spend_essence_does_not_deduct_when_insufficient() -> void:
 # ---------------------------------------------------------------------------
 
 func test_add_potions_increments_count() -> void:
-	_sm.add_potions("healing_draught", 1)
+	_sm.garden.add_potions("healing_draught", 1)
 	assert_eq(int(_sm.potions.get("healing_draught", 0)), 1)
 
 func test_add_potions_accumulates() -> void:
-	_sm.add_potions("clarity_brew", 1)
-	_sm.add_potions("clarity_brew", 1)
+	_sm.garden.add_potions("clarity_brew", 1)
+	_sm.garden.add_potions("clarity_brew", 1)
 	assert_eq(int(_sm.potions.get("clarity_brew", 0)), 2)
 
 func test_remove_potions_deducts() -> void:
-	_sm.add_potions("ember_tonic", 2)
-	_sm.remove_potions("ember_tonic", 1)
+	_sm.garden.add_potions("ember_tonic", 2)
+	_sm.garden.remove_potions("ember_tonic", 1)
 	assert_eq(int(_sm.potions.get("ember_tonic", 0)), 1)
 
 func test_remove_potions_returns_false_when_insufficient() -> void:
-	_sm.add_potions("healing_draught", 1)
-	assert_false(_sm.remove_potions("healing_draught", 2))
+	_sm.garden.add_potions("healing_draught", 1)
+	assert_false(_sm.garden.remove_potions("healing_draught", 2))
 
 func test_remove_potions_does_not_deduct_when_insufficient() -> void:
-	_sm.add_potions("clarity_brew", 1)
-	_sm.remove_potions("clarity_brew", 2)
+	_sm.garden.add_potions("clarity_brew", 1)
+	_sm.garden.remove_potions("clarity_brew", 2)
 	assert_eq(int(_sm.potions.get("clarity_brew", 0)), 1)
 
 # ---------------------------------------------------------------------------

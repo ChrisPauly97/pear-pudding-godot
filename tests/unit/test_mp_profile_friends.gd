@@ -210,7 +210,7 @@ func test_get_friends_returns_defensive_copy() -> void:
 
 # ---------------------------------------------------------------------------
 # Persistence round-trip (JSON shape), via a temp file — mirrors how
-# SaveManager's _read_save_json tests exercise real file I/O without touching
+# SaveFile.read_json tests exercise real file I/O without touching
 # the live user://mp_profile.json path.
 # ---------------------------------------------------------------------------
 

@@ -256,6 +256,8 @@ pairs: the same board driven by two personas must produce different outcomes.
 
 **Serialisation:** `PlayerState.to_dict()` includes `"board_enhancements": board.enhancements_to_dict()` as a parallel key alongside `"board"`. Old saves that lack this key receive empty enhancements on load.
 
+**BattleScene layout:** `scenes/battle/BattleScene.gd` owns battle state, setup, turn flow and game-over. Single-player clusters live in `scenes/battle/modules/` (`modifiers`, `consumables`, `tutorials`, `arena`, `targeting`, `card_input`; see CLAUDE.md "Scene Modules"). The networked surface lives in `scenes/battle/net/BattleNet.gd`. Slot targeting below is in `BattleTargeting.gd`.
+
 **Slot-targeting UI mode (BattleScene):**
 - `SpellEffectResolver.SLOT_TARGETED_EFFECTS: Array[String] = ["bless_slot", "ward_slot"]`
 - Dragging a `bless_slot` / `ward_slot` spell to the board enters `_enter_slot_targeting_mode()`: highlights empty player slots with cyan border; player taps a slot to call `_resolve_slot_spell()`.
@@ -543,7 +545,7 @@ The active `gambit_id` is stored as `enemy_data["gambit_id"]` and passed through
 | `emboldened_foe` | Before enemy `build_deck()` | `players[1].minion_attack_bonus = 1` (applied inside `build_deck()` to all minions; persists for boss phase-2 rebuild) |
 | `iron_veil` | After enemy deck + opening hand | `players[1].hero.apply_status("armor", 5)` |
 
-`BattleScene._apply_gambit_handicaps(gambit_id)` is called in `_ready()` after all deck and HP setup, just before `start_turn(1)`. Emboldened Foe is set earlier (before enemy `build_deck`) via the inline `_gambit_id` read in the fresh-battle branch.
+`BattleScene.modifiers._apply_gambit_handicaps(gambit_id)` is called in `_ready()` after all deck and HP setup, just before `start_turn(1)`. Emboldened Foe is set earlier (before enemy `build_deck`) via the inline `_gambit_id` read in the fresh-battle branch.
 
 ### New PlayerState Fields
 
@@ -556,7 +558,7 @@ Both fields survive `to_dict()` / `from_dict()` round-trips.
 
 ### In-Battle Badge
 
-`BattleScene._add_gambit_badge()` — called after `_add_potion_button()` in `_ready()`. Adds a `PanelContainer` with a yellow `Label` to `$SidePanel` showing `"Gambit: <name>"`. No-op when no gambit is active.
+`BattleScene.modifiers._add_gambit_badge()` — called after `_add_potion_button()` in `_ready()`. Adds a `PanelContainer` with a yellow `Label` to `$SidePanel` showing `"Gambit: <name>"`. No-op when no gambit is active.
 
 ### Reward Application (SceneManager._on_battle_won)
 
@@ -575,7 +577,7 @@ XP is NOT multiplied by gambits. `session_stats["coins_earned"]` records the pos
 
 27 tests covering: catalogue integrity, each handicap's effect on PlayerState/HeroState, serialization round-trips for `skip_next_draw` and `minion_attack_bonus`, reward math (multiplier, rarity bonus, `roll_rarity` high-tier clamp safety), and no-gambit defaults.
 
-**Sibling mechanism — world-encounter ambush (GID-113):** `BattleScene._apply_ambush_modifiers()` is a self-contained handicap applied at the exact same call site as `_apply_gambit_handicaps()` (right after it in `_setup_solo_battle()`), but it isn't player-picked — it's derived automatically from how the player approached the enemy in the world (sneak-up vs. getting caught mid-chase). See `docs/agent/enemies-and-npcs.md` "Ambush bonus/penalty" for the full mechanism; it does not touch the Gambit catalogue or reward multipliers.
+**Sibling mechanism — world-encounter ambush (GID-113):** `BattleScene.modifiers._apply_ambush_modifiers()` is a self-contained handicap applied at the exact same call site as `_apply_gambit_handicaps()` (right after it in `_setup_solo_battle()`), but it isn't player-picked — it's derived automatically from how the player approached the enemy in the world (sneak-up vs. getting caught mid-chase). See `docs/agent/enemies-and-npcs.md` "Ambush bonus/penalty" for the full mechanism; it does not touch the Gambit catalogue or reward multipliers.
 
 ### Card Illustration Art (TID-319)
 
@@ -596,7 +598,7 @@ XP is NOT multiplied by gambits. `session_stats["coins_earned"]` records the pos
 | **EnemyRegistry** | Drop pool | `EnemyRegistry.get_drop_pool(enemy_type)` returns cards that may drop; BattleScene picks one at random and shows the victory overlay |
 | **Inventory / Deck** | Deck source | Player's active battle deck is built from `SaveManager.player_deck` (managed in InventoryScene) |
 | **Gambits** | Pre-battle | `Gambits.gd` catalogue + `GambitPickerOverlay.gd` picker shown before each battle (GID-063); gambit_id stored in `enemy_data` |
-| **GameBus signals** | Both | `card_played(card_id, type, slot_idx)` — emitted by `BattleScene._do_play_card()` (type="spell") and `_do_play_card_at_slot()` (type="board") on successful player/PvP-relayed plays, and by `BasicAI.decide_turn()`'s play Callables for the single-player AI opponent's own plays. `card_attacked(attacker_id, target_id_or_"hero")` — emitted by `BattleScene._execute_attack()` (local player) and `_resolve_remote_attack()` (PvP/co-op relayed) on every attack, and by `BasicAI.decide_turn()`'s attack Callables for the AI opponent. `battle_ended(winner_id)` — emitted by `BattleScene._check_game_over()` when a hero dies in a standard single-player battle (PvP/co-op/team/puzzle/scripted battles use their own dedicated `*_battle_ended` signals instead). `turn_ended(player_id)` — `GameState` emits its own `turn_ended` signal; `BattleScene._on_turn_ended()` relays it to `GameBus.turn_ended` for external subscribers. `status_applied`, `status_ticked` — available for future subscribers. No current subscribers to `card_played`/`card_attacked`/`battle_ended` — wired for future consumers (capture tracking, veterancy attribution, achievements, diagnostics). |
+| **GameBus signals** | Both | `card_played(card_id, type, slot_idx)` — emitted by `BattleScene._do_play_card()` (type="spell") and `_do_play_card_at_slot()` (type="board") on successful player/PvP-relayed plays, and by `BasicAI.decide_turn()`'s play Callables for the single-player AI opponent's own plays. `card_attacked(attacker_id, target_id_or_"hero")` — emitted by `BattleScene.card_input._execute_attack()` (local player) and `_resolve_remote_attack()` (PvP/co-op relayed) on every attack, and by `BasicAI.decide_turn()`'s attack Callables for the AI opponent. `battle_ended(winner_id)` — emitted by `BattleScene._check_game_over()` when a hero dies in a standard single-player battle (PvP/co-op/team/puzzle/scripted battles use their own dedicated `*_battle_ended` signals instead). `turn_ended(player_id)` — `GameState` emits its own `turn_ended` signal; `BattleScene._on_turn_ended()` relays it to `GameBus.turn_ended` for external subscribers. `status_applied`, `status_ticked` — available for future subscribers. No current subscribers to `card_played`/`card_attacked`/`battle_ended` — wired for future consumers (capture tracking, veterancy attribution, achievements, diagnostics). |
 | **Veterancy (GID-060)** | Post-battle | `battle_won` result carries `"veterancy"` dict; SceneManager applies it via `SaveManager.record_veterancy`; see Veterancy Kill Attribution section above |
 | **PvP (GID-091)** | Networked battle | When `_pvp` is true the same engine runs host-authoritative: `_local_player_idx` selects perspective (0=host, 1=client), `BasicAI` is disabled, the host applies its own + the client's relayed intents to the canonical `GameState` and broadcasts `to_dict()`, the client renders the mirror. Single-player paths are unchanged. See PvP subsection below + `docs/agent/multiplayer-coop.md`. |
 
@@ -927,7 +929,7 @@ authored.
 - The generic first-battle tutorial overlay and the `"tap_and_hold"` tutorial
   popup are skipped for scripted battles (the scripted battle teaches via its
   own turn-keyed popups instead).
-- **Turn-keyed tutorial popups:** `BattleScene._maybe_show_scripted_tutorial_step(player_turn_number)`
+- **Turn-keyed tutorial popups:** `BattleScene.tutorials._maybe_show_scripted_tutorial_step(player_turn_number)`
   matches `tutorial_steps` entries against `_state.player_turn_numbers[0]` and
   shows a direct `TutorialPopup` instantiation (title = `ScriptedBattleData.title`,
   body = the step's text). Deliberately **not** routed through
@@ -1001,7 +1003,7 @@ One equipped companion grants a single passive battle effect. Excluded from puzz
 
 ### HUD
 
-`BattleScene._add_companion_hud()` — adds a VBox to SidePanel showing companion portrait (or blue placeholder) + name + passive description. Called after `_add_hero_power_button()`. No-op if no companion is equipped or companion is not unlocked.
+`BattleScene.modifiers._add_companion_hud()` — adds a VBox to SidePanel showing companion portrait (or blue placeholder) + name + passive description. Called after `_add_hero_power_button()`. No-op if no companion is equipped or companion is not unlocked.
 
 ### CharacterScene Slot
 
@@ -1140,7 +1142,7 @@ Does NOT apply to: poison ticks, freeze, Desert scorch tick, fatigue.
 
 ### Desert Scorch Timing
 
-Applied in `BattleScene._apply_desert_scorch()` called from `_on_turn_ended()` if `battlefield_biome == BIOME_DESERT and not is_night`. Damages the lowest non-null slot index on each board by 1 (not affected by Scorched modifier).
+Applied in `BattleScene.modifiers._apply_desert_scorch()` called from `_on_turn_ended()` if `battlefield_biome == BIOME_DESERT and not is_night`. Damages the lowest non-null slot index on each board by 1 (not affected by Scorched modifier).
 
 ### BattleScene UI
 
@@ -1153,7 +1155,7 @@ Applied in `BattleScene._apply_desert_scorch()` called from `_on_turn_ended()` i
 
 The same `battlefield_biome` + `is_night` pair also paints the battle's
 background, so the board is laid out on the ground the encounter started on
-rather than on a flat colour. `BattleScene._setup_backdrop()` runs
+rather than on a flat colour. `BattleScene.arena._setup_backdrop()` runs
 unconditionally in `_ready()` (unlike the Resonance *UI* above, which skips
 puzzle and scripted battles) and hands `$Background` to
 `BattleBackdrop.apply()`. Full description in `docs/agent/visual-polish.md`;

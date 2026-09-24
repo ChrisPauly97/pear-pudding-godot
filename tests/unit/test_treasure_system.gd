@@ -5,6 +5,8 @@
 ## SaveManager is instantiated directly — no scene tree needed.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const TreasureGen       = preload("res://game_logic/world/TreasureGen.gd")
 
@@ -23,34 +25,34 @@ func after_each() -> void:
 
 func test_migration_adds_treasure_fields() -> void:
 	var data: Dictionary = {"version": 19}
-	SaveManagerScript._migrate_v19_to_v20(data)
+	_SaveMigrations.apply(data, 20)
 	assert_true(data.has("treasure_fragments"), "treasure_fragments key must be added")
 	assert_true(data.has("active_treasure"), "active_treasure key must be added")
 	assert_true(data.has("treasures_completed"), "treasures_completed key must be added")
 
 func test_migration_default_fragment_count_is_zero() -> void:
 	var data: Dictionary = {"version": 19}
-	SaveManagerScript._migrate_v19_to_v20(data)
+	_SaveMigrations.apply(data, 20)
 	assert_eq(data["treasure_fragments"], 0)
 
 func test_migration_default_active_treasure_is_empty() -> void:
 	var data: Dictionary = {"version": 19}
-	SaveManagerScript._migrate_v19_to_v20(data)
+	_SaveMigrations.apply(data, 20)
 	assert_true(data["active_treasure"].is_empty())
 
 func test_migration_bumps_version_to_20() -> void:
 	var data: Dictionary = {"version": 19}
-	SaveManagerScript._migrate_v19_to_v20(data)
+	_SaveMigrations.apply(data, 20)
 	assert_eq(data["version"], 20)
 
 func test_migration_does_not_overwrite_existing_fragments() -> void:
 	var data: Dictionary = {"version": 19, "treasure_fragments": 2}
-	SaveManagerScript._migrate_v19_to_v20(data)
+	_SaveMigrations.apply(data, 20)
 	assert_eq(data["treasure_fragments"], 2)
 
 func test_apply_migrations_reaches_current_from_v19() -> void:
 	var data: Dictionary = {"version": 19}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(data.get("version", 0), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("treasure_fragments"))
 	assert_true(data.has("active_treasure"))

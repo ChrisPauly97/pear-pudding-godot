@@ -4,6 +4,8 @@
 ## MountRegistry data, and the apply_migrations round-trip.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const MountRegistry     = preload("res://game_logic/MountRegistry.gd")
 
@@ -49,34 +51,34 @@ func test_mount_registry_get_all_has_one_entry() -> void:
 
 func test_migration_v23_v24_adds_owned_mounts() -> void:
 	var data: Dictionary = {"version": 23}
-	SaveManagerScript._migrate_v23_to_v24(data)
+	_SaveMigrations.apply(data, 24)
 	assert_true(data.has("owned_mounts"), "owned_mounts must exist after migration")
 
 func test_migration_v23_v24_owned_mounts_default_empty() -> void:
 	var data: Dictionary = {"version": 23}
-	SaveManagerScript._migrate_v23_to_v24(data)
+	_SaveMigrations.apply(data, 24)
 	assert_eq(int((data["owned_mounts"] as Array).size()), 0)
 
 func test_migration_v23_v24_adds_active_mount() -> void:
 	var data: Dictionary = {"version": 23}
-	SaveManagerScript._migrate_v23_to_v24(data)
+	_SaveMigrations.apply(data, 24)
 	assert_true(data.has("active_mount"))
 	assert_eq(str(data["active_mount"]), "")
 
 func test_migration_v23_v24_adds_is_mounted() -> void:
 	var data: Dictionary = {"version": 23}
-	SaveManagerScript._migrate_v23_to_v24(data)
+	_SaveMigrations.apply(data, 24)
 	assert_true(data.has("is_mounted"))
 	assert_false(bool(data["is_mounted"]))
 
 func test_migration_v23_v24_bumps_version() -> void:
 	var data: Dictionary = {"version": 23}
-	SaveManagerScript._migrate_v23_to_v24(data)
+	_SaveMigrations.apply(data, 24)
 	assert_eq(int(data["version"]), 24)
 
 func test_migration_v23_v24_preserves_existing_owned_mounts() -> void:
 	var data: Dictionary = {"version": 23, "owned_mounts": ["stable_horse"]}
-	SaveManagerScript._migrate_v23_to_v24(data)
+	_SaveMigrations.apply(data, 24)
 	assert_eq(int((data["owned_mounts"] as Array).size()), 1)
 
 # ---------------------------------------------------------------------------
@@ -85,7 +87,7 @@ func test_migration_v23_v24_preserves_existing_owned_mounts() -> void:
 
 func test_apply_migrations_reaches_v24_from_v23() -> void:
 	var data: Dictionary = {"version": 23}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(int(data.get("version", 0)), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("owned_mounts"))
 	assert_true(data.has("active_mount"))
