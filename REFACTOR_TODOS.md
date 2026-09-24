@@ -68,3 +68,9 @@ Done:
 - [x] **Spectral tint** — `EnemyNPC` applies it from `"nocturnal": true` and owns `fade_out_and_free()`; the co-op night hunt was setting `modulate` on a `Node3D` (runtime error)
 - [x] **Silent runtime errors** — 15 `SCRIPT ERROR`s in a green test run fixed (12 vacuous tests, landmark discovery, spire mirror); CI now fails on any
 - [x] **Garden panel** — built on `_build_modal` (backdrop blocks tap-to-move through the panel) and split per stage
+
+### SceneManager split (claude/refactor-targets-lint-ivoueg)
+
+- [x] **State machine** — `SceneFlow` transition table, `_transition_to`, `_enter_battle` (see top of file)
+- [x] **`SceneManager.gd` 1.8k → 1.1k lines** — battle victory, battle defeat and networked battles moved to `autoloads/scene_manager/{BattleVictory,BattleDefeat,NetBattles}.gd`; external callers use `SceneManager.net_battles.*`
+- [ ] **Co-op Spire run** — the `_coop_spire_run` dict and its eight accessors could become a pure `game_logic/` object; left on SceneManager because the unit tests poke the dict directly

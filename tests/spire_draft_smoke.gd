@@ -85,7 +85,7 @@ func _run() -> bool:
 	# reproduce — the check would pass for the wrong reason.
 	sm.set("_current_battle_enemy_id", _SpireFloorGen.enemy_id_for(1, RUN_SEED))
 
-	sm._on_battle_won({"hero_hp": 21})
+	sm.victory._on_battle_won({"hero_hp": 21})
 	await create_timer(_TRANSITION_WAIT).timeout
 
 	var ok: bool = _check(save.call("get_story_flag", "spire_floor_1_%d_cleared" % RUN_SEED),

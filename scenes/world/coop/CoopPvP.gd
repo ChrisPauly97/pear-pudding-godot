@@ -301,14 +301,14 @@ func _start_team_duel() -> void:
 		_challenge_btn.hide()
 	_active_team_duel_peer_ids = abs_peer_ids
 	_active_team_duel_teams = team_assignments
-	SceneManager.enter_team_battle(0, team_assignments, all_decks)
+	SceneManager.net_battles.enter_team_battle(0, team_assignments, all_decks)
 
 ## Client: the host started a team duel — enter it with the assigned absolute index.
 
 func _on_notify_team_duel_start(my_idx: int, team_assignments: Array, all_decks: Array) -> void:
 	if _challenge_btn != null and is_instance_valid(_challenge_btn):
 		_challenge_btn.hide()
-	SceneManager.enter_team_battle(my_idx, team_assignments, all_decks)
+	SceneManager.net_battles.enter_team_battle(my_idx, team_assignments, all_decks)
 
 ## Incoming challenge — show an Accept/Decline prompt.
 
@@ -372,14 +372,14 @@ func _on_relay_pvp_response(sender_id: int, challenger_id: int, accepted: bool, 
 	# the referee verify a later reconnect from either combatant.
 	var token_a: String = str(_world._session_token_by_peer.get(challenger, ""))
 	var token_b: String = str(_world._session_token_by_peer.get(target, ""))
-	SceneManager.enter_pvp_referee(deck_a, responder_deck, challenger, target, token_a, token_b)
+	SceneManager.net_battles.enter_pvp_referee(deck_a, responder_deck, challenger, target, token_a, token_b)
 
 ## Client handler: server assigned us a player index; start the PvP battle.
 
 func _on_notify_pvp_start(my_player_idx: int, opponent_deck: Array) -> void:
 	if NetworkManager.is_dedicated_server():
 		return
-	SceneManager.enter_pvp_battle(my_player_idx, opponent_deck)
+	SceneManager.net_battles.enter_pvp_battle(my_player_idx, opponent_deck)
 
 func _show_challenge_accept_panel(from_id: int, ranked: bool = false) -> void:
 	if _challenge_accept_panel != null and is_instance_valid(_challenge_accept_panel):
@@ -510,7 +510,7 @@ func _enter_pvp(opponent_deck: Array, ranked: bool = false) -> void:
 	# reconnect. Only meaningful on the host's own call (_session_token_by_peer is
 	# host-side only); harmless empty string on the client's own call.
 	var opp_token: String = str(_world._session_token_by_peer.get(_challenge_target_peer, ""))
-	SceneManager.enter_pvp_battle(local_idx, opponent_deck, 0, opp_token, ranked)
+	SceneManager.net_battles.enter_pvp_battle(local_idx, opponent_deck, 0, opp_token, ranked)
 
 ## Returns the biome and time context at the moment of engagement (GID-059).
 ## Called by SceneManager._on_enemy_engaged() to stamp context into enemy_data.
@@ -544,7 +544,7 @@ func _on_spectate_pvp_requested(sender: int) -> void:
 		_world._net_sync.rpc_id(sender, "recv_spectate_approved")
 
 func _on_spectate_approved() -> void:
-	SceneManager.enter_pvp_spectator()
+	SceneManager.net_battles.enter_pvp_spectator()
 
 
 # ── TID-368: Wagered duels & champion record ──────────────────────────────────
@@ -635,7 +635,7 @@ func _enter_pvp_wagered(ante: int, opp_deck: Array) -> void:
 			if p != _challenge_target_peer:
 				_world._net_sync.rpc_id(p, "recv_pvp_active", true, my_id, _challenge_target_peer)
 	var opp_token: String = str(_world._session_token_by_peer.get(_challenge_target_peer, ""))
-	SceneManager.enter_pvp_battle(local_idx, opp_deck, ante, opp_token)
+	SceneManager.net_battles.enter_pvp_battle(local_idx, opp_deck, ante, opp_token)
 
 func _on_pvp_battle_ended_coop(did_win: bool) -> void:
 	if not _world._coop_active:
@@ -1135,7 +1135,7 @@ func _maybe_enter_draft_duel() -> void:
 	var opp_deck: Array = _draft_opp_deck
 	var my_deck: Array = _draft_local_deck
 	_reset_draft_state()
-	SceneManager.enter_pvp_battle(local_idx, opp_deck, 0, opp_token, false, my_deck)
+	SceneManager.net_battles.enter_pvp_battle(local_idx, opp_deck, 0, opp_token, false, my_deck)
 
 func _reset_draft_state() -> void:
 	_draft_peer = -1
@@ -1371,7 +1371,7 @@ func _start_current_tournament_match() -> void:
 		_tournament_canonical_to_participant = {0: host_participant, 1: opp_participant}
 		_world._net_sync.rpc_id(opp_peer, "notify_pvp_start", 1, host_deck)
 		var opp_token: String = str(_world._session_token_by_peer.get(opp_peer, ""))
-		SceneManager.enter_pvp_battle(0, opp_deck, 0, opp_token, false)
+		SceneManager.net_battles.enter_pvp_battle(0, opp_deck, 0, opp_token, false)
 	else:
 		# Two clients play; the listen-server host referees (GID-097 path,
 		# _local_player_idx = -1) — the winner arrives via pvp_referee_match_ended.
@@ -1379,7 +1379,7 @@ func _start_current_tournament_match() -> void:
 		_tournament_canonical_to_participant = {0: pa, 1: pb}
 		_world._net_sync.rpc_id(peer_a, "notify_pvp_start", 0, deck_b)
 		_world._net_sync.rpc_id(peer_b, "notify_pvp_start", 1, deck_a)
-		SceneManager.enter_pvp_referee(deck_a, deck_b, peer_a, peer_b,
+		SceneManager.net_battles.enter_pvp_referee(deck_a, deck_b, peer_a, peer_b,
 			str(_world._session_token_by_peer.get(peer_a, "")),
 			str(_world._session_token_by_peer.get(peer_b, "")))
 
@@ -1579,7 +1579,7 @@ func _on_tournament_update_received(payload: Dictionary) -> void:
 func _on_tournament_spectate_notified() -> void:
 	if not _world._tournament_active or NetworkManager.is_dedicated_server():
 		return
-	SceneManager.enter_pvp_spectator()
+	SceneManager.net_battles.enter_pvp_spectator()
 
 
 ## Bracket HUD panel (all peers) — mirrors _build_party_bounty_panel

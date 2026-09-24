@@ -378,7 +378,7 @@ func request_spectate_pvp() -> void:
 
 
 ## Host → requesting spectator: "you may enter the battle scene as a spectator."
-## Reliable. The receiver calls SceneManager.enter_pvp_spectator().
+## Reliable. The receiver calls SceneManager.net_battles.enter_pvp_spectator().
 @rpc("any_peer", "reliable", "call_remote")
 func recv_spectate_approved() -> void:
 	_route("_on_spectate_approved", [])

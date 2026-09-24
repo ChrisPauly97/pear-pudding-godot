@@ -22,6 +22,7 @@ const _MODULE_DIRS: Array[String] = [
 	"res://scenes/world/coop",
 	"res://scenes/world/modules",
 	"res://scenes/battle/net",
+	"res://autoloads/scene_manager",
 ]
 
 ## `self` handed to something that genuinely wants the module, not the scene.

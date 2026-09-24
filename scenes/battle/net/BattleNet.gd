@@ -759,7 +759,7 @@ func _on_wager_bet_submitted(sender: int, payload: Dictionary) -> void:
 	var bet: Dictionary = WagerSync.decode_bet(payload)
 	var side: String = str(bet.get("side", ""))
 	var amount: int = int(bet.get("amount", 0))
-	var token: String = SceneManager.session_token_for_peer(sender)
+	var token: String = SceneManager.net_battles.session_token_for_peer(sender)
 	var st = SessionStore.get_state()
 	var rec: Dictionary = {}
 	if st != null and token != "":

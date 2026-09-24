@@ -439,7 +439,7 @@ func _on_connection_succeeded() -> void:
 	if NetworkManager.has_pvp_resume():
 		var resume: Dictionary = NetworkManager.get_pvp_resume()
 		_set_status("Connected — resuming duel…")
-		SceneManager.resume_pvp_battle(
+		SceneManager.net_battles.resume_pvp_battle(
 			int(resume.get("local_idx", 1)),
 			resume.get("opponent_deck", []),
 			int(resume.get("ante_coins", 0)),

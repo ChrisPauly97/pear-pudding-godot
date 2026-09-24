@@ -359,6 +359,12 @@ emits `state_changed`. Read it via `SceneManager.current_state()` /
 `_enter_battle(configure, networked)` (or `_enter_pvp_battle`). Don't hand-copy
 the world-detach block. `test_scene_flow` enforces all three.
 
+Battle outcomes and networked battles live in child modules under
+`autoloads/scene_manager/`: `BattleVictory` (`SceneManager.victory`),
+`BattleDefeat` (`.defeat`) and `NetBattles` (`.net_battles`, so call
+`SceneManager.net_battles.enter_pvp_battle(...)`). The WorldScene module rules
+apply: reach SceneManager as `_sm.<name>`, no bare `add_child` / `self`.
+
 ---
 
 ## WorldScene: Proximity Scans
