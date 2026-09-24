@@ -10,7 +10,7 @@ Items are roughly ordered by priority — foundational / bug-preventing work fir
 - [x] **Data-driven cards and enemies** — replace `CardRegistry` and `EnemyRegistry` GDScript dictionaries with `CardData.tres` / `EnemyData.tres` Resource subclasses; content additions require no GDScript changes
 - [x] **Unified chunk render path** — collapse named-map (`WorldScene`) and infinite-chunk (`ChunkRenderer`) into one pipeline where named maps are statically-defined chunk sets; removes the dual-path complexity that required TerrainMath as a patch
 - [x] **Reduce autoloads** — remove `CardRegistry`, `EnemyRegistry`, `SaveManager` from global autoloads and inject them explicitly into scenes that need them; only `GameBus` and `IsoConst` justify global scope
-- [ ] **SceneManager as formal state machine** — replace the map-stack + overlay approach with defined states (`WorldState`, `BattleState`, `MenuState`) and explicit enter/exit transitions
+- [x] **SceneManager as formal state machine** — `game_logic/SceneFlow.gd` owns the `State` enum and `TRANSITIONS` table; every write goes through `SceneManager._transition_to` (edge check + `state_changed` signal); BATTLE has one enter (`_enter_battle`, replacing 8 hand-copied world-detach blocks) and one exit (`_restore_world`); `test_scene_flow` guards the table and bans bare `_state =` / external `SceneManager._state` reads
 - [x] **Test world generation** — make `InfiniteWorldGen`, `TerrainMath`, and `ChunkData` have zero `Node` dependencies and add unit test coverage on par with the battle system
 - [x] **Single grass shader uniform source** — replace per-instance `set_shader_parameter` calls in `GrassBlades.gd` with Godot global shader parameters so all chunks react to world state without per-chunk updates
 
@@ -28,7 +28,7 @@ Done:
 - [x] **Dead data** — removed `data/enemies/*.tres` + `data/EnemyData.gd` (never read; had drifted from `EnemyRegistry`)
 
 Still open:
-- [ ] **SceneManager as formal state machine** — see the item above
+- [x] **SceneManager as formal state machine** — see the item above
 - [x] **Oversized functions** — `_on_battle_won` 225→143, `WorldScene._ready` 290→152, `_handle_interact` 250→113, `_process` 118→94, `BattleScene._ready` 222→125, `_check_game_over` 123→50
 - [x] **`WorldScene.gd` ~3.8k → ~2.1k lines** — eleven single-player clusters moved to `scenes/world/modules/`, guildhall furnishings to CoopSession (BID-055 slice 2); what's left is scene setup, streaming callbacks, interaction chains and shared UI builders
 - [x] **Interaction priority** — both chains now follow one `WorldScene.INTERACT_PRIORITY` constant, with hostile entities (`enemy`, `scout_ambush`, `blight_heart`) probed last so anything peaceful in reach wins

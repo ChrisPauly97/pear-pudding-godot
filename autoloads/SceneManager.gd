@@ -2,24 +2,12 @@
 # BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends Node
 
-enum State {
-	MENU,
-	WORLD,
-	BATTLE,
-	INVENTORY,    # kept for backwards-compat; no longer used by routing
-	SHOP,
-	GAME_OVER,
-	JOURNAL,      # kept for backwards-compat; no longer used by routing
-	ACHIEVEMENTS,
-	RUN_SUMMARY,
-	CHARACTER,    # kept for backwards-compat; no longer used by routing
-	SKILL_TREE,   # kept for backwards-compat; no longer used by routing
-	PACK_OPEN,
-	BOUNTY_BOARD,
-	MAILBOX,
-	BLACKSMITH,
-	MENU_HUB,
-}
+## Every state change, after it is applied. `from == to` for a map reload.
+signal state_changed(from: State, to: State)
+
+const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
+# gdlint:ignore = constant-name
+const State = _SceneFlow.State  # enum alias: keeps `SceneManager.State.X` working
 
 ## enemy_data for a player-vs-player battle: BattleScene builds both sides from
 ## the PvP decks, so every drop/reward field stays inert. Duplicated per launch
@@ -139,6 +127,26 @@ var _back_quit_toast: CanvasLayer = null
 ## Returns true if tracking enemies may auto-engage the player on proximity.
 func can_proximity_engage() -> bool:
 	return _state == State.WORLD and not _proximity_engage_blocked
+
+## The state machine's current state. Read-only outside SceneManager: every
+## change goes through `_transition_to`.
+func current_state() -> State:
+	return _state
+
+func is_in_world() -> bool:
+	return _state == State.WORLD
+
+## The single write path for `_state`. Undeclared edges (see
+## SceneFlow.TRANSITIONS) are still applied, since refusing one would strand the
+## player on a half-swapped scene, but they warn so a new route shows up in the
+## test log instead of drifting silently.
+func _transition_to(to: State) -> void:
+	var from: State = _state
+	if not _SceneFlow.can_transition(from, to):
+		push_warning("SceneManager: undeclared transition %s -> %s"
+			% [_SceneFlow.state_name(from), _SceneFlow.state_name(to)])
+	_state = to
+	state_changed.emit(from, to)
 
 func _ready() -> void:
 	save_manager = SaveManager
@@ -296,7 +304,7 @@ func go_to_menu() -> void:
 		spire_summary.set("spire_stats", stats)
 		TransitionManager.transition(func() -> void:
 			get_tree().change_scene_to_node(spire_summary))
-		_state = State.RUN_SUMMARY
+		_transition_to(State.RUN_SUMMARY)
 		return
 	save_manager.save()
 	# Show session run summary only when leaving the world.
@@ -305,12 +313,12 @@ func go_to_menu() -> void:
 		var summary: Node = _run_summary_scene_packed.instantiate()
 		TransitionManager.transition(func() -> void:
 			get_tree().change_scene_to_node(summary))
-		_state = State.RUN_SUMMARY
+		_transition_to(State.RUN_SUMMARY)
 		return
 	_exit_world_cleanup()
 	TransitionManager.transition(func() -> void:
 		get_tree().change_scene_to_packed(_menu_scene_packed))
-	_state = State.MENU
+	_transition_to(State.MENU)
 
 func go_to_menu_direct() -> void:
 	# See go_to_menu(): returning to the main menu must always end any active
@@ -320,7 +328,7 @@ func go_to_menu_direct() -> void:
 	_exit_world_cleanup()
 	TransitionManager.transition(func() -> void:
 		get_tree().change_scene_to_packed(_menu_scene_packed))
-	_state = State.MENU
+	_transition_to(State.MENU)
 
 func go_to_achievements() -> void:
 	if _state != State.MENU:
@@ -328,7 +336,7 @@ func go_to_achievements() -> void:
 	_achievements_overlay = _achievements_scene_packed.instantiate()
 	get_tree().current_scene.add_child(_achievements_overlay)
 	_achievements_overlay.closed.connect(_on_achievements_closed)
-	_state = State.ACHIEVEMENTS
+	_transition_to(State.ACHIEVEMENTS)
 
 func _on_achievements_closed() -> void:
 	if _state != State.ACHIEVEMENTS:
@@ -336,7 +344,7 @@ func _on_achievements_closed() -> void:
 	if _achievements_overlay != null:
 		_achievements_overlay.queue_free()
 		_achievements_overlay = null
-	_state = State.MENU
+	_transition_to(State.MENU)
 
 func start_new_game() -> void:
 	start_new_game_with_biome(0)   # default: Grasslands
@@ -470,7 +478,7 @@ func go_to_slot_select() -> void:
 	_exit_world_cleanup()
 	TransitionManager.transition(func() -> void:
 		get_tree().change_scene_to_file("res://scenes/ui/SlotSelectScene.tscn"))
-	_state = State.MENU
+	_transition_to(State.MENU)
 
 func _load_world(map_name: String, target_door_id: String) -> void:
 	var world: Node = _world_scene_packed.instantiate()
@@ -478,7 +486,7 @@ func _load_world(map_name: String, target_door_id: String) -> void:
 	world.set("target_door_id", target_door_id)
 	TransitionManager.transition(func() -> void:
 		get_tree().change_scene_to_node(world)
-		_state = State.WORLD)
+		_transition_to(State.WORLD))
 
 func _exit_world_cleanup() -> void:
 	if _menu_hub_layer != null and is_instance_valid(_menu_hub_layer):
@@ -591,16 +599,8 @@ func _start_battle(enemy_data: Dictionary) -> void:
 	save_manager.set_pending_battle(enemy_data)
 	save_manager.save()
 	var captured_enemy_data: Dictionary = enemy_data
-	TransitionManager.transition(func() -> void:
-		# Detach world scene from tree so it stops rendering/processing
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-		# Promote battle to the active scene
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.enemy_data = captured_enemy_data
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
-	_state = State.BATTLE
+	_enter_battle(func(b: Node) -> void:
+		b.enemy_data = captured_enemy_data)
 
 func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 	if _state != State.WORLD:
@@ -612,15 +612,9 @@ func _on_duel_requested(enemy_data: Dictionary, wager: int) -> void:
 	_current_champion_reward = str(enemy_data.get("champion_reward_card", ""))
 	var captured_duel_data: Dictionary = enemy_data
 	var captured_wager: int = wager
-	TransitionManager.transition(func() -> void:
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.enemy_data = captured_duel_data
-		_battle_overlay.duel_wager = captured_wager
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
-	_state = State.BATTLE
+	_enter_battle(func(b: Node) -> void:
+		b.enemy_data = captured_duel_data
+		b.duel_wager = captured_wager)
 
 # ── Ghost duels (GID-102 / TID-377) ───────────────────────────────────────────
 
@@ -660,16 +654,10 @@ func enter_ghost_duel(opponent_snapshot: Dictionary) -> void:
 		"coin_reward": 0,
 		"enemy_deck": deck,
 	}
-	TransitionManager.transition(func() -> void:
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.enemy_data = captured_enemy_data
-		_battle_overlay.set("_ghost_duel", true)
-		_battle_overlay.set("_ghost_duel_reward", GHOST_DUEL_COIN_REWARD)
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
-	_state = State.BATTLE
+	_enter_battle(func(b: Node) -> void:
+		b.enemy_data = captured_enemy_data
+		b.set("_ghost_duel", true)
+		b.set("_ghost_duel_reward", GHOST_DUEL_COIN_REWARD))
 
 ## Applies the (win-only) ghost-duel coin reward exactly once, then restores the
 ## world — mirrors `_on_duel_won`/`_on_duel_lost` structurally. No card drops, no
@@ -711,15 +699,13 @@ func enter_pvp_battle(local_player_idx: int, opponent_deck: Array, ante_coins: i
 	var captured_token: String = opponent_token
 	var captured_ranked: bool = ranked
 	var captured_local_deck: Array = local_deck_override
-	TransitionManager.transition(func() -> void:
-		_swap_world_for_pvp_battle(func(b: Node) -> void:
-			b.set("_local_player_idx", captured_idx)
-			b.set("pvp_opponent_deck", captured_deck)
-			b.set("pvp_ante_coins", captured_ante)
-			b.set("pvp_opponent_token", captured_token)
-			b.set("pvp_ranked", captured_ranked)
-			b.set("pvp_local_deck_override", captured_local_deck)))
-	_state = State.BATTLE
+	_enter_pvp_battle(func(b: Node) -> void:
+		b.set("_local_player_idx", captured_idx)
+		b.set("pvp_opponent_deck", captured_deck)
+		b.set("pvp_ante_coins", captured_ante)
+		b.set("pvp_opponent_token", captured_token)
+		b.set("pvp_ranked", captured_ranked)
+		b.set("pvp_local_deck_override", captured_local_deck))
 
 ## Resumes a PvP duel after a reconnect (GID-102 / TID-372). Called from
 ## MultiplayerLobbyScene._on_connection_succeeded when NetworkManager.has_pvp_resume()
@@ -750,14 +736,12 @@ func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: 
 		token_b: String = "") -> void:
 	if _state != State.WORLD:
 		return
-	TransitionManager.transition(func() -> void:
-		_swap_world_for_pvp_battle(func(b: Node) -> void:
-			b.set("_local_player_idx", -1)       # no local player
-			b.set("pvp_player0_deck", deck_a)
-			b.set("pvp_player1_deck", deck_b)
-			b.set("_pvp_peer_to_idx", {peer_a_id: 0, peer_b_id: 1})
-			b.set("_pvp_idx_to_token", {0: token_a, 1: token_b})))
-	_state = State.BATTLE
+	_enter_pvp_battle(func(b: Node) -> void:
+		b.set("_local_player_idx", -1)       # no local player
+		b.set("pvp_player0_deck", deck_a)
+		b.set("pvp_player1_deck", deck_b)
+		b.set("_pvp_peer_to_idx", {peer_a_id: 0, peer_b_id: 1})
+		b.set("_pvp_idx_to_token", {0: token_a, 1: token_b}))
 
 ## Enters a PvP battle as a read-only spectator (GID-101 / TID-367). The spectator
 ## renders the board (from a neutral perspective, local_player_idx = -1) but sends
@@ -765,11 +749,9 @@ func enter_pvp_referee(deck_a: Array, deck_b: Array, peer_a_id: int, peer_b_id: 
 func enter_pvp_spectator() -> void:
 	if _state != State.WORLD:
 		return
-	TransitionManager.transition(func() -> void:
-		_swap_world_for_pvp_battle(func(b: Node) -> void:
-			b.set("_local_player_idx", 0)   # neutral — same as host perspective
-			b.set("_pvp_spectating", true)))
-	_state = State.BATTLE
+	_enter_pvp_battle(func(b: Node) -> void:
+		b.set("_local_player_idx", 0)   # neutral — same as host perspective
+		b.set("_pvp_spectating", true))
 
 
 ## Resolve a connected peer's GID-095 session token, whether WorldScene is currently
@@ -802,18 +784,12 @@ func enter_coop_pve_battle(local_ally_idx: int, all_ally_decks: Array, enemy_dat
 	var captured_idx: int = local_ally_idx
 	var captured_decks: Array = all_ally_decks
 	var captured_edata: Dictionary = enemy_data
-	TransitionManager.transition(func() -> void:
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
-		_battle_overlay.set("_coop_pve", true)
-		_battle_overlay.set("_local_player_idx", captured_idx)
-		_battle_overlay.set("_coop_ally_decks", captured_decks)
-		_battle_overlay.enemy_data = captured_edata
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
-	_state = State.BATTLE
+	var setup := func(b: Node) -> void:
+		b.set("_coop_pve", true)
+		b.set("_local_player_idx", captured_idx)
+		b.set("_coop_ally_decks", captured_decks)
+		b.enemy_data = captured_edata
+	_enter_battle(setup, true)
 
 ## Enters a 2v2 team PvP duel from the shared world (GID-102 / TID-371). The host is
 ## always players[0]/team 0 in the canonical GameState; local_player_idx is the local
@@ -827,19 +803,13 @@ func enter_team_battle(local_player_idx: int, team_assignments: Array, all_decks
 	var captured_idx: int = local_player_idx
 	var captured_teams: Array = team_assignments
 	var captured_decks: Array = all_decks
-	TransitionManager.transition(func() -> void:
-		_saved_world_scene = get_tree().current_scene
-		get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.name = "BattleScene"  # fixed RPC path /root/BattleScene/BattleNetSync
-		_battle_overlay.set("_team_pvp", true)
-		_battle_overlay.set("_local_player_idx", captured_idx)
-		_battle_overlay.set("_team_assignments", captured_teams)
-		_battle_overlay.set("_team_decks", captured_decks)
-		_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
-	_state = State.BATTLE
+	var setup := func(b: Node) -> void:
+		b.set("_team_pvp", true)
+		b.set("_local_player_idx", captured_idx)
+		b.set("_team_assignments", captured_teams)
+		b.set("_team_decks", captured_decks)
+		b.enemy_data = PVP_ENEMY_DATA.duplicate(true)
+	_enter_battle(setup, true)
 
 ## Team PvP duel finished (2v2). Restore the shared world (duel-style: no card/coin
 ## rewards in v1, like unwagered 2-player PvP). Mirrors _on_coop_pve_battle_ended.
@@ -889,7 +859,7 @@ func _on_pvp_battle_ended(_did_win: bool) -> void:
 		if _saved_world_scene != null:
 			get_tree().root.add_child(_saved_world_scene)
 			get_tree().current_scene = _saved_world_scene
-			_state = State.WORLD
+			_transition_to(State.WORLD)
 	else:
 		# No co-op session / world to return to.
 		if _saved_world_scene != null:
@@ -925,22 +895,35 @@ func _on_duel_lost() -> void:
 	_finish_battle(false)
 	_restore_world()
 
-## Frees the battle overlay if one is up. Every battle exit path ends here.
-## Detaches the world scene and promotes a fresh networked BattleScene, running
-## `configure` on it in between. The node name is fixed because BattleNetSync's
-## RPC path is /root/BattleScene/BattleNetSync on every peer. Callers wrap this
-## in a TransitionManager.transition and set State.BATTLE themselves.
-func _swap_world_for_pvp_battle(configure: Callable) -> void:
-	_saved_world_scene = get_tree().current_scene
-	get_tree().root.remove_child(_saved_world_scene)
-	_battle_overlay = _battle_scene_packed.instantiate()
-	_battle_overlay.name = "BattleScene"
-	_battle_overlay.set("_pvp", true)
-	configure.call(_battle_overlay)
-	_battle_overlay.enemy_data = PVP_ENEMY_DATA.duplicate(true)
-	get_tree().root.add_child(_battle_overlay)
-	get_tree().current_scene = _battle_overlay
+## BATTLE's enter transition, shared by every battle kind. Inside the fade it
+## detaches the live WorldScene (kept in `_saved_world_scene` for
+## `_restore_world`, BATTLE's exit), runs `configure` on a fresh BattleScene and
+## promotes it to `current_scene`. `networked` fixes the node name, because
+## BattleNetSync's RPC path is /root/BattleScene/BattleNetSync on every peer.
+func _enter_battle(configure: Callable, networked: bool = false) -> void:
+	TransitionManager.transition(func() -> void:
+		var world: Node = get_tree().current_scene
+		if world != null:
+			_saved_world_scene = world
+			get_tree().root.remove_child(world)
+		_battle_overlay = _battle_scene_packed.instantiate()
+		if networked:
+			_battle_overlay.name = "BattleScene"
+		configure.call(_battle_overlay)
+		get_tree().root.add_child(_battle_overlay)
+		get_tree().current_scene = _battle_overlay)
+	_transition_to(State.BATTLE)
 
+## A PvP-flavoured `_enter_battle`: marks the scene `_pvp` and hands it the inert
+## PVP_ENEMY_DATA after `configure` runs.
+func _enter_pvp_battle(configure: Callable) -> void:
+	var setup := func(b: Node) -> void:
+		b.set("_pvp", true)
+		configure.call(b)
+		b.enemy_data = PVP_ENEMY_DATA.duplicate(true)
+	_enter_battle(setup, true)
+
+## Frees the battle overlay if one is up. Every battle exit path ends here.
 func _dismiss_battle_overlay() -> void:
 	if _battle_overlay != null:
 		_battle_overlay.queue_free()
@@ -975,7 +958,7 @@ func _restore_world(after: Callable = Callable()) -> void:
 			get_tree().root.add_child(_saved_world_scene)
 			get_tree().current_scene = _saved_world_scene
 			_saved_world_scene = null
-		_state = State.WORLD
+		_transition_to(State.WORLD)
 		if after.is_valid():
 			after.call())
 
@@ -987,15 +970,8 @@ func _on_puzzle_requested(puzzle_id: String) -> void:
 		return
 	_flush_position_save()
 	var captured_pdata: Resource = pdata
-	TransitionManager.transition(func() -> void:
-		if get_tree().current_scene != null:
-			_saved_world_scene = get_tree().current_scene
-			get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.puzzle_data = captured_pdata
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
-	_state = State.BATTLE
+	_enter_battle(func(b: Node) -> void:
+		b.puzzle_data = captured_pdata)
 
 func _on_puzzle_solved(puzzle_id: String) -> void:
 	if _state != State.BATTLE:
@@ -1025,15 +1001,8 @@ func _on_scripted_battle_requested(battle_id: String) -> void:
 		return
 	_flush_position_save()
 	var captured_sdata: Resource = sdata
-	TransitionManager.transition(func() -> void:
-		if get_tree().current_scene != null:
-			_saved_world_scene = get_tree().current_scene
-			get_tree().root.remove_child(_saved_world_scene)
-		_battle_overlay = _battle_scene_packed.instantiate()
-		_battle_overlay.scripted_data = captured_sdata
-		get_tree().root.add_child(_battle_overlay)
-		get_tree().current_scene = _battle_overlay)
-	_state = State.BATTLE
+	_enter_battle(func(b: Node) -> void:
+		b.scripted_data = captured_sdata)
 
 func _on_scripted_battle_ended(battle_id: String, did_win: bool) -> void:
 	if _state != State.BATTLE:
@@ -1331,7 +1300,7 @@ func _on_battle_lost() -> void:
 				if _saved_world_scene.has_method("enter_downed_state"):
 					_saved_world_scene.call("enter_downed_state")
 				_saved_world_scene = null)
-		_state = State.WORLD
+		_transition_to(State.WORLD)
 		return
 	# Siege defeat: apply coin penalty, end siege, then show standard game over.
 	var _siege_on_lost: Dictionary = save_manager.get_active_siege()
@@ -1353,7 +1322,7 @@ func _on_battle_lost() -> void:
 		var summary: Node = _run_summary_scene_packed.instantiate()
 		summary.set("spire_stats", stats)
 		get_tree().change_scene_to_node(summary)
-		_state = State.RUN_SUMMARY
+		_transition_to(State.RUN_SUMMARY)
 		return
 	# Regular battle loss: keep world alive and show defeat overlay with Retry/Respawn/Menu.
 	_defeat_pending_enemy_data = save_manager.pending_battle_enemy_data.duplicate()
@@ -1366,7 +1335,7 @@ func _on_battle_lost() -> void:
 			get_tree().current_scene = _saved_world_scene
 			_saved_world_scene = null
 		_show_defeat_overlay())
-	_state = State.GAME_OVER
+	_transition_to(State.GAME_OVER)
 
 func _show_defeat_overlay() -> void:
 	var vp: Vector2 = get_viewport().get_visible_rect().size
@@ -1420,7 +1389,7 @@ func _on_defeat_retry() -> void:
 		_defeat_overlay = null
 	var enemy_data: Dictionary = _defeat_pending_enemy_data.duplicate()
 	_defeat_pending_enemy_data = {}
-	_state = State.WORLD
+	_transition_to(State.WORLD)
 	_start_battle(enemy_data)
 
 func _on_defeat_respawn() -> void:
@@ -1433,7 +1402,7 @@ func _on_defeat_respawn() -> void:
 	_proximity_engage_blocked = true
 	get_tree().create_timer(2.0, false).timeout.connect(
 		func() -> void: _proximity_engage_blocked = false)
-	_state = State.WORLD
+	_transition_to(State.WORLD)
 
 func _on_defeat_menu() -> void:
 	if _defeat_overlay != null:
@@ -1466,7 +1435,7 @@ func _open_overlay(packed_scene: PackedScene, overlay_state: State, setup: Calla
 	get_tree().current_scene.add_child(overlay)
 	overlay.closed.connect(_close_overlay.bind(overlay_state))
 	_overlays[overlay_state] = overlay
-	_state = overlay_state
+	_transition_to(overlay_state)
 
 func _close_overlay(overlay_state: State) -> void:
 	if _state != overlay_state:
@@ -1475,7 +1444,7 @@ func _close_overlay(overlay_state: State) -> void:
 	if overlay != null:
 		overlay.queue_free()
 		_overlays.erase(overlay_state)
-	_state = State.WORLD
+	_transition_to(State.WORLD)
 
 ## Opens the unified Menu Hub overlay on the specified tab.
 ## Replaces the four separate INVENTORY / CHARACTER / SKILL_TREE / JOURNAL overlays.
@@ -1499,7 +1468,7 @@ func open_menu_hub(tab: String = "deck") -> void:
 	hub.show_tab(tab)
 	hub.closed.connect(_on_menu_hub_closed)
 	_overlays[State.MENU_HUB] = hub
-	_state = State.MENU_HUB
+	_transition_to(State.MENU_HUB)
 
 func _on_menu_hub_closed() -> void:
 	var hub: Node = _overlays.get(State.MENU_HUB, null)
@@ -1508,7 +1477,7 @@ func _on_menu_hub_closed() -> void:
 	if _menu_hub_layer != null and is_instance_valid(_menu_hub_layer):
 		_menu_hub_layer.queue_free()
 		_menu_hub_layer = null
-	_state = State.WORLD
+	_transition_to(State.WORLD)
 
 func _on_inventory_requested() -> void:
 	open_menu_hub("deck")
@@ -1685,13 +1654,13 @@ func _on_pack_purchased(_pack_id: String, rolled_cards: Array[Dictionary]) -> vo
 	_pack_open_overlay.set("_rolled_cards", rolled_cards)
 	_pack_open_overlay.closed.connect(_on_pack_open_closed)
 	get_tree().current_scene.add_child(_pack_open_overlay)
-	_state = State.PACK_OPEN
+	_transition_to(State.PACK_OPEN)
 
 func _on_pack_open_closed() -> void:
 	if _pack_open_overlay != null:
 		_pack_open_overlay.queue_free()
 		_pack_open_overlay = null
-	_state = State.WORLD
+	_transition_to(State.WORLD)
 
 func _advance_spire_floor() -> void:
 	save_manager.advance_spire_floor()

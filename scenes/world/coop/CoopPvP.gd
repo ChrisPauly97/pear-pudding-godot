@@ -132,7 +132,7 @@ func _update_challenge_proximity() -> void:
 		_hide_challenge_cluster()
 		return
 	# Suppress while a challenge is pending or we're not in the world.
-	if _world._pending_challenge_from != -1 or SceneManager._state != SceneManager.State.WORLD:
+	if _world._pending_challenge_from != -1 or not SceneManager.is_in_world():
 		_hide_challenge_cluster()
 		return
 	if _world._player == null:
@@ -957,7 +957,7 @@ func _update_draft_duel_proximity() -> void:
 	if _draft_duel_btn == null or not is_instance_valid(_draft_duel_btn):
 		return
 	if _draft_peer != -1 or _pending_draft_from != -1 or _world._pending_challenge_from != -1 \
-			or _world._session_dedicated or SceneManager._state != SceneManager.State.WORLD:
+			or _world._session_dedicated or not SceneManager.is_in_world():
 		_draft_duel_btn.hide()
 		return
 	_draft_duel_btn.visible = _challenge_target_peer != -1

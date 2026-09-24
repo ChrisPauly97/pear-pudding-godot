@@ -313,7 +313,7 @@ func _build_fast_travel_panel(_vp: Vector2, vh: float) -> void:
 	title_lbl.position = Vector2(px, py + vh * 0.01)
 	add_child(title_lbl)
 
-	var is_blocked: bool = SceneManager._state != SceneManager.State.WORLD or \
+	var is_blocked: bool = not SceneManager.is_in_world() or \
 		SceneManager.current_map.begins_with("dungeon_")
 	# Rally (BID-040 / GID-105 follow-up): unlike waystone fast travel, rally is
 	# useful precisely when the local player is already inside a shared dungeon
@@ -322,7 +322,7 @@ func _build_fast_travel_panel(_vp: Vector2, vh: float) -> void:
 	# same recv_map_transition + SceneManager.enter_map path as the Dungeon Crawl
 	# button, which already handles map-stack/save bookkeeping correctly when
 	# leaving a dungeon map.
-	var is_rally_blocked: bool = SceneManager._state != SceneManager.State.WORLD
+	var is_rally_blocked: bool = not SceneManager.is_in_world()
 
 	_travel_panel = ScrollContainer.new()
 	_travel_panel.size = Vector2(panel_w - vh * 0.02, panel_h - vh * 0.055)
