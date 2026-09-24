@@ -50,6 +50,7 @@ const _PlayerHome = preload("res://scenes/world/modules/PlayerHome.gd")
 const _ChestLoot = preload("res://scenes/world/modules/ChestLoot.gd")
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
+const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
 const _TapToMove = preload("res://scenes/world/modules/TapToMove.gd")
 const _StoryCast = preload("res://scenes/world/modules/StoryCast.gd")
 const _HomeGarden = preload("res://scenes/world/modules/HomeGarden.gd")
@@ -319,6 +320,7 @@ var _night_cue_played: bool = false
 # Day/night cycle — delegated to DayNightCycle component
 var _world_env: WorldEnvironment
 var _dnc: DayNightCycle = null
+var _sun_rays: _SunRaysFx = null  # TID-488 dawn/dusk light shafts
 
 # Weather visuals
 var _active_weather_particles: Node3D = null
@@ -396,6 +398,7 @@ func _setup_environment() -> void:
 	_fill_light.light_color = Color(0.78, 0.77, 0.80)
 	_fill_light.light_energy = 0.35
 	_fill_light.shadow_enabled = false
+	_fill_light.light_volumetric_fog_energy = 0.0  # unshadowed: would only haze the sun-ray fog
 	_fill_light.rotation_degrees = Vector3(60.0, 45.0, 0.0)
 	add_child(_fill_light)
 	_setup_vignette()
@@ -407,6 +410,8 @@ func apply_graphics_quality(_tier: int = -1) -> void:
 	_graphics_knobs = _GraphicsQuality.current_knobs(setting)
 	var env: Environment = _world_env.environment if _world_env != null else null
 	_GraphicsQuality.apply(_graphics_knobs, env, _sun, get_viewport(), _moon)
+	if _sun_rays != null:
+		_sun_rays.set_mode(int(_graphics_knobs.get("sun_rays", 0)))
 
 ## The active GraphicsQuality knobs — atmosphere effects read these, never the platform.
 func graphics_knobs() -> Dictionary:
@@ -505,6 +510,11 @@ func _ready() -> void:
 	add_child(_dnc)
 	_dnc.setup(_sun, _moon, _world_env, _is_infinite, day_duration,
 		SceneManager.save_manager.time_of_day)
+	_sun_rays = _SunRaysFx.new()
+	_sun_rays.name = "SunRays"
+	add_child(_sun_rays)
+	_sun_rays.setup(_camera, _sun, _moon, _world_env.environment, _dnc)
+	_sun_rays.set_mode(int(_graphics_knobs.get("sun_rays", 0)))
 	_dnc.day_passed.connect(func() -> void:
 		SceneManager.save_manager.increment_day()
 		GameBus.blight_changed.emit()

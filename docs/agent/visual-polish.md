@@ -13,6 +13,7 @@
 - **Battle backdrop**: the card board's background is a per-biome, day/night patch of ground seen from overhead, painted by one full-screen shader out of the world's own terrain tiles and prop sprites, instead of the flat `Color(0.1, 0.1, 0.15)` rect it was through GID-125.
 - **Chest & door sprites**: `Chest.gd` and `Door.gd` render as billboard `Sprite3D`s (0x72 pack chest/door art, GID-118) instead of flat-colored `BoxMesh` geometry, falling back to the original procedural boxes if the sprites are missing. See `docs/agent/inventory-and-deck.md` (chest open ceremony) and `docs/agent/named-maps-and-dungeons.md` (door rendering).
 
+- **Sun rays** (GID-129/TID-488): warm light shafts at dawn and dusk that fade out before midday and under heavy weather. Medium draws cheap screen-space shafts (10 taps, hidden when off); High adds Forward+ volumetric fog lit only by the shadowed sun.
 - **Rain wetness & storm lightning** (GID-129/TID-487): rain darkens and glosses the terrain (puddle patches, soaks in ~20 s, dries over ~90 s); heavy rain and volcanic weather flash (blue-white / red) every 8–25 s with delayed, distance-pitched thunder; a Reduce Flashing setting keeps the thunder but drops the flash.
 - **Weather drives the atmosphere** (GID-129/TID-486): each weather id reshapes fog density/colour, sky overcast, sun/moon energy, shadow opacity, ambient tint and grass wind (strength + steady lean) through one `WeatherLook` table, blended over 4 s by `DayNightCycle`.
 - **Sun arc & golden hour** (GID-129/TID-485): tilted sun arc (NE rise, noon leaning away from the camera, SW set) so shadows read diagonally all day; three-stop golden-hour sun colour; PSSM 2-split sun shadows on High with tuned bias, low-res moon shadows on High.
@@ -39,12 +40,12 @@ The single source of truth for which atmosphere effects run. All-static module (
 | `shadow_bias` / `shadow_normal_bias` | 0.15 / 1.6 | 0.1 / 1.3 | 0.08 / 1.0 | `apply()` — coarser atlas, more bias (terrain acne) |
 | `moon_shadows` | off | off | on | `apply(..., moon)` — orthogonal, bias ×1.5, opacity 0.5 |
 | `ssao` *(Forward+ only)* | off | off | on (intensity 1.0, radius 1.0) | `apply()` |
-| `volumetric_fog` *(Forward+ only)* | off | off | off | `apply()` — TID-488 turns High on once tuned against the glow threshold |
+| `volumetric_fog` *(Forward+ only)* | off | off | on | `apply()` enables it; `SunRaysFx` (TID-488) then drives density and switches it off whenever the rays are off |
 | `glow` | off | on | on | `apply()` |
 | `msaa_3d` | disabled | 4x | 4x | `apply()` → viewport (4x = project.godot default) |
 | `particle_scale` | 0.5 | 0.75 | 1.0 | `scaled_amount()` — weather particles now; TID-493 ambient particles |
 | `ambient_particles` | off | on | on | TID-493 |
-| `sun_rays` | OFF | SCREEN | VOLUMETRIC | TID-488 (`SUN_RAYS_*`) |
+| `sun_rays` | OFF | SCREEN | VOLUMETRIC | `SunRaysFx.set_mode` (TID-488, `SUN_RAYS_*`) |
 | `max_night_lights` | 0 | 4 | 8 | TID-489 (Mobile per-mesh limit is 8) |
 | `night_light_shadows` | off | off | off | TID-489 |
 
@@ -86,6 +87,17 @@ The single source of truth for which atmosphere effects run. All-static module (
 - **Wiring:** `WorldScene._on_weather_changed(id)` swaps particles, calls `_dnc.set_weather(id)` and sets the grass direction. Co-op clients already route the host-synced weather id there (`CoopSession`), so there is no extra RPC. Globals `grass_wind_scale`/`grass_wind_lean` are registered by both `GrassBlades._init_material()` and `DayNightCycle.setup()`.
 - **Tiers:** only Environment/light params and two global floats — works identically on every tier and renderer.
 - **Extending:** add the key with its neutral value to `CLEAR`, add per-weather values to `OVERRIDES`, read `look["key"]` in the consumer (`DayNightCycle` or `dnc.weather_look()`). The blend and the key-set test pick it up automatically.
+
+### Sun Rays (`game_logic/SunRayMath.gd`, `scenes/world/SunRaysFx.gd`, `sun_rays.gdshader`) — TID-488
+
+- **Strength (`SunRayMath.strength(sun_h, weather_mult)`):** `smoothstep(0, 0.06, sun_h) × (1 − smoothstep(0.2, 0.6, sun_h)) × weather`. `sun_h` is DayNightCycle's `sin((t − 0.25)·TAU)`: zero at night and below the horizon, near full through the golden hour (t ≈ 0.25–0.30 and 0.70–0.75), gone by sun height 0.6 (t ≈ 0.35 / 0.65) so **midday never hazes** (the glow threshold notes in `_setup_environment` stay untouched: the screen pass is added after tonemapping, the fog is off at midday).
+- **Weather:** WeatherLook key `sun_rays` (CLEAR 1.0; rain 0.4, snow 0.5, dust_devil 0.7, ash_fall 0.35, sandstorm 0.2, volcanic 0.1, heavy_rain / blizzard 0.0). Read from `DayNightCycle.weather_look()`, so rays fade with the 4 s weather blend.
+- **Orthographic camera:** the sun is never on screen (a point far along the sun direction projects arbitrarily far off-screen). `screen_direction(sun_dir, cam_basis)` projects the sun direction onto the camera plane (x right, y down, plus a fade when it lies along the view axis); `source_uv(dir, aspect)` puts a virtual source 1.2× past the screen edge that direction leaves through. With the TID-485 arc, dawn (NE) shafts stream in from screen-right, dusk (SW) from screen-left, a higher sun from the top.
+- **Screen pass (`assets/shaders/sun_rays.gdshader`, Medium + High):** `CanvasLayer` layer 0 (under the HUD at 1, so HUD pixels neither feed nor receive rays; the vignette at 127 still darkens them) with a full-rect `ColorRect`, `blend_add`. Per pixel: angular value-noise shafts around the source (two drifting octaves + a 0.25 soft floor), `exp(−1.6·dist)` falloff, and a 10-tap occlusion march toward the source over 35 % of the distance on `hint_screen_texture` (dark pixels — canopies, cliffs, shade — break the shaft). Peak added brightness `intensity` 0.32 × strength. On High the pass runs at `VOLUMETRIC_SCREEN_WEIGHT` 0.6.
+- **Volumetric (High, Forward+ only):** `set_mode(VOLUMETRIC)` configures the Environment once — albedo warm white, anisotropy 0.7 (forward scattering), length 96 (past the iso view's ~45-unit far ground), emission black and ambient/GI/sky injection 0, so **only the sun lights the fog** and shafts form where sun shadows (on at High) cut it. Sun `light_volumetric_fog_energy` 1.5, moon 0, the WorldScene fill light 0 (unshadowed, it would only haze). Density = `0.018 × strength`; below `MIN_STRENGTH` 0.01 the fog is switched off entirely.
+- **Cost:** `SunRaysFx` updates at 10 Hz. When the screen strength is below `MIN_STRENGTH` the `CanvasLayer` is hidden, so midday, night and storms cost neither the screen copy nor the taps. Low (`SUN_RAYS_OFF`) never builds the layer.
+- **Wiring:** WorldScene creates `SunRaysFx` (node `SunRays`) right after the DayNightCycle, `setup(camera, sun, moon, env, dnc)` + `set_mode(knobs.sun_rays)`; `apply_graphics_quality()` re-calls `set_mode`, so Settings changes apply live. `GraphicsQuality.apply()` writes `volumetric_fog_enabled = knob` first; `set_mode` → `refresh()` corrects it in the same call. Co-op: purely local (time and weather id are already synced).
+- **Tests:** `tests/unit/test_sun_rays.gd` (strength curve, weather dampening, screen direction vs the real camera basis, off-screen source, fog density, SunRaysFx screen/volumetric modes).
 
 ### Rain Wetness (`DayNightCycle`, `terrain.gdshader`) — TID-487
 
@@ -263,8 +275,11 @@ fallback for any key/branch the registry doesn't recognize.
 - `BattleBackdrop.DIVIDER_Y` is tied to `BattleScene.tscn`'s `Divider` anchor, and `ARENA_CENTER`/`ARENA_HALF` to the card area's extent (which ends at x = 0.86, where the side panel starts); `test_battle_backdrop` fails if either drifts.
 
 - `GraphicsQuality` is read by `WorldScene` (environment, sun, weather particles) and written by `SettingsScene` (option row + `GameBus.graphics_quality_changed`). Later GID-129 effects (shadows, sun rays, night lights, ambient particles) read their knobs from `WorldScene.graphics_knobs()`.
+- `SunRaysFx` reads time of day and the blended `WeatherLook` from `DayNightCycle`, the sun colour from `DayNightCycle.sun_color_for`, and its mode from `GraphicsQuality`; it writes only its own CanvasLayer and the Environment's volumetric fog.
 
 ## Asset Requirements
+
+Sun rays (GID-129/TID-488) add `assets/shaders/sun_rays.gdshader` and its `.uid` sidecar; no textures (the shafts are procedural noise over the screen texture).
 
 The battle backdrop (GID-126) adds `assets/shaders/battle_backdrop.gdshader`
 and its `.uid` sidecar, and no image files at all — it reuses

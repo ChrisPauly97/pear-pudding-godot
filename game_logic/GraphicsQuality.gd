@@ -11,8 +11,8 @@
 ##   sun_shadows, shadow_mode, shadow_atlas_size, soft_shadow_quality,
 ##   shadow_max_distance, shadow_split_1, shadow_blend_splits,
 ##   shadow_bias, shadow_normal_bias, moon_shadows — `apply()` (tuned in TID-485)
-##   ssao, volumetric_fog, glow, msaa_3d — `apply()` (TID-488 enables volumetric fog)
-##   sun_rays                   — SUN_RAYS_* mode, read by the sun-ray effect (TID-488)
+##   ssao, volumetric_fog, glow, msaa_3d — `apply()` (volumetric fog then driven by SunRaysFx, TID-488)
+##   sun_rays                   — SUN_RAYS_* mode, read by scenes/world/SunRaysFx.gd (TID-488)
 ##   max_night_lights, night_light_shadows — night point lights (TID-489)
 ##   particle_scale             — multiplier for every GPUParticles3D amount (`scaled_amount`)
 ##   ambient_particles          — dust / fireflies / leaves on or off (TID-493)
@@ -95,9 +95,9 @@ const TIERS: Array[Dictionary] = [
 		"shadow_normal_bias": 1.0,
 		"moon_shadows": true,
 		"ssao": true,
-		# Off until TID-488 tunes density against the glow threshold — enabled
-		# with engine defaults it hazes the whole midday screen.
-		"volumetric_fog": false,
+		# Tuned by TID-488 (SunRaysFx): sun-only injection, density scaled by the
+		# low-sun ray strength and switched off entirely by midday, so it never hazes.
+		"volumetric_fog": true,
 		"glow": true,
 		"msaa_3d": Viewport.MSAA_4X,
 		"particle_scale": 1.0,
