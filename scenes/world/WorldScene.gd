@@ -1426,6 +1426,7 @@ func _process(delta: float) -> void:
 		_tick_coop(delta)
 	if _dnc:
 		_dnc.tick(delta, _weather_tint)
+		AudioManager.set_time_of_day(_dnc.get_time_of_day())  # day/night ambience layer
 
 	if _player == null:
 		return
