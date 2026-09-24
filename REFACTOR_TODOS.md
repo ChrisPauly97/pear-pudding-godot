@@ -87,7 +87,7 @@ Done:
 
 - [x] **`BattleScene.gd` 2.5k → 1.3k lines** — six single-player modules under `scenes/battle/modules/` (modifiers, consumables, tutorials, arena, targeting, card input), each with a `_battle` back-reference typed as the BattleScene script so member access is compile-checked; added to `test_scene_module_guardrail`
 - [ ] **Remaining** — `_ready` / `_setup_solo_battle` (~240 lines of mode setup), turn flow + AI turn (`_on_turn_ended`, `_run_ai_turn`, `_execute_ai_actions`, ~200), game-over / victory (`_check_game_over`, `_show_standard_victory`, ~120)
-- [x] **Type the other module back-references** — done, and enforced by `scripts/check-typed-access.sh` in CI (typing alone never failed the build: GDScript only warns, opt-in). Was: SceneManager / SaveManager / WorldScene modules still use an untyped `Node`, so a wrong `_sm.X` / `_world.X` only fails at runtime
+- [x] **Type the other module back-references** — done, and enforced by unsafe access being an error project-wide (see below). Was: SceneManager / SaveManager / WorldScene modules still use an untyped `Node`, so a wrong `_sm.X` / `_world.X` only fails at runtime
 - [x] **Unsafe access on project-wide** — `project.godot` makes `unsafe_method_access` / `unsafe_property_access` errors; ~2.8k hits fixed (tests ~2.2k, game ~460); CI runs `scripts/unsafe-hits.sh`
 - [ ] **`BlightHeart` `flags_transparent`** — not a Godot 4 `StandardMaterial3D` property (Godot 3 name), so it has always been a no-op; kept as `.set(...)` to preserve behaviour. Decide whether the heart was meant to use `transparency`
 
