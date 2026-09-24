@@ -410,7 +410,7 @@ func apply_graphics_quality(_tier: int = -1) -> void:
 	var setting: Variant = SceneManager.save_manager.get_setting(_GraphicsQuality.SETTING_KEY, null)
 	_graphics_knobs = _GraphicsQuality.current_knobs(setting)
 	var env: Environment = _world_env.environment if _world_env != null else null
-	_GraphicsQuality.apply(_graphics_knobs, env, _sun, get_viewport())
+	_GraphicsQuality.apply(_graphics_knobs, env, _sun, get_viewport(), _moon)
 
 ## The active GraphicsQuality knobs — atmosphere effects read these, never the platform.
 func graphics_knobs() -> Dictionary:

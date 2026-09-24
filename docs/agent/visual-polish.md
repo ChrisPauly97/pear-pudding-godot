@@ -13,6 +13,7 @@
 - **Battle backdrop**: the card board's background is a per-biome, day/night patch of ground seen from overhead, painted by one full-screen shader out of the world's own terrain tiles and prop sprites, instead of the flat `Color(0.1, 0.1, 0.15)` rect it was through GID-125.
 - **Chest & door sprites**: `Chest.gd` and `Door.gd` render as billboard `Sprite3D`s (0x72 pack chest/door art, GID-118) instead of flat-colored `BoxMesh` geometry, falling back to the original procedural boxes if the sprites are missing. See `docs/agent/inventory-and-deck.md` (chest open ceremony) and `docs/agent/named-maps-and-dungeons.md` (door rendering).
 
+- **Sun arc & golden hour** (GID-129/TID-485): tilted sun arc (NE rise, noon leaning away from the camera, SW set) so shadows read diagonally all day; three-stop golden-hour sun colour; PSSM 2-split sun shadows on High with tuned bias, low-res moon shadows on High.
 - **Graphics Quality tiers** (GID-129/TID-484): one Low / Medium / High setting decides which atmosphere effects run; Medium is the phone default, High the desktop default. Forward+-only effects are forced off on the Mobile/Compatibility renderers regardless of tier.
 
 ## How It Works
@@ -26,11 +27,15 @@ The single source of truth for which atmosphere effects run. All-static module (
 
 | Knob | Low | Medium | High | Read by |
 |---|---|---|---|---|
-| `sun_shadows` | off | off | on | `apply()` (TID-485 tunes) |
-| `shadow_mode` | ORTHOGONAL | ORTHOGONAL | ORTHOGONAL | `apply()` (TID-485 may switch to PSSM) |
+| `sun_shadows` | off | off | on | `apply()` |
+| `shadow_mode` | ORTHOGONAL | PSSM_2_SPLITS | PSSM_2_SPLITS | `apply()` |
 | `shadow_atlas_size` | 1024 | 2048 | 4096 | `apply()` → `RenderingServer.directional_shadow_atlas_set_size` |
 | `soft_shadow_quality` | HARD | SOFT_VERY_LOW | SOFT_LOW | `apply()` → `directional_soft_shadow_filter_set_quality` |
-| `shadow_max_distance` | 40 | 50 | 60 | `apply()` |
+| `shadow_max_distance` | 45 | 50 | 55 | `apply()` — iso ground sits ~24–45 units deep (ortho size 15, camera 34.6 from player) |
+| `shadow_split_1` | 0.7 | 0.7 | 0.7 | `apply()` — near cascade ends just past the player's depth |
+| `shadow_blend_splits` | off | off | on | `apply()` |
+| `shadow_bias` / `shadow_normal_bias` | 0.15 / 1.6 | 0.1 / 1.3 | 0.08 / 1.0 | `apply()` — coarser atlas, more bias (terrain acne) |
+| `moon_shadows` | off | off | on | `apply(..., moon)` — orthogonal, bias ×1.5, opacity 0.5 |
 | `ssao` *(Forward+ only)* | off | off | on (intensity 1.0, radius 1.0) | `apply()` |
 | `volumetric_fog` *(Forward+ only)* | off | off | off | `apply()` — TID-488 turns High on once tuned against the glow threshold |
 | `glow` | off | on | on | `apply()` |
@@ -42,9 +47,18 @@ The single source of truth for which atmosphere effects run. All-static module (
 | `night_light_shadows` | off | off | off | TID-489 |
 
 - **Renderer clamp:** `clamp_to_renderer(knobs, method)` turns every `FORWARD_PLUS_ONLY` key (`ssao`, `volumetric_fog`) off and downgrades `sun_rays` VOLUMETRIC → SCREEN unless the method is `"forward_plus"`. `knobs_for(tier, method)` returns a clamped **copy**; `current_knobs(setting)` uses the platform and `RenderingServer.get_current_rendering_method()`.
-- **Apply:** `apply(knobs, env, sun, viewport)` writes glow/SSAO/volumetric fog to the Environment, shadow enable/mode/distance to the sun, MSAA to the viewport and the shadow atlas size + soft-filter quality to the RenderingServer (global). Any argument may be null.
+- **Apply:** `apply(knobs, env, sun, viewport, moon = null)` writes glow/SSAO/volumetric fog to the Environment, shadow enable/mode/distance/split/blend/bias to the sun, shadow enable + an orthogonal low-res map to the moon, MSAA to the viewport and the shadow atlas size + soft-filter quality to the RenderingServer (global). Any argument may be null.
 - **WorldScene wiring:** `apply_graphics_quality()` runs in `_ready()` right after `_setup_environment()` (it replaced the old `OS.has_feature("mobile")` sun-shadow switch — Medium keeps that exact behaviour) and again on `GameBus.graphics_quality_changed(tier)`, emitted by the Settings "Graphics Quality" option row, so a change applies live. The resolved knobs are cached; effects read them via `WorldScene.graphics_knobs()` — **never check the platform or renderer per effect**. `_on_weather_changed` scales the weather `GPUParticles3D.amount` by `particle_scale` before adding it.
 - **Adding a knob:** add the key to all three tier dicts (the test fails otherwise); if it needs Forward+, add it to `FORWARD_PLUS_ONLY`.
+
+### Sun Arc & Golden Hour (`DayNightCycle`) — TID-485
+
+- **Tilted arc:** `DayNightCycle.sun_direction(time_of_day)` (static, unit vector toward the sun) replaces the old single-X-axis rotation, which rose due south, went straight overhead at noon (shadows hidden under objects) and cast dawn shadows along the iso camera's depth axis. The sun now rises along `SUN_RISE_DIR` (NE, −Z is north), sets opposite (SW), and at noon leans `NOON_TILT` = 30° toward `SUN_NOON_LEAN` (NW = the camera's horizontal forward), so dawn/dusk shadows stretch sideways across the screen and midday shadows fall toward the viewer. Its height has the sign of `sin((t − 0.25)·TAU)`, so it crosses the horizon exactly when `is_night()` flips; energy still uses that sine (cap 1.1, glow-threshold note unchanged).
+- **Light bases:** `light_basis(travel)` = `Basis.looking_at(travel, UP)` (falls back to FORWARD as up when near-vertical). Sun gets `light_basis(-sun_dir)`, the moon `light_basis(sun_dir)` (opposite the sun). Written only when the direction changes (`_cached_sun_dir`), like the other cached writes. Never `look_at` on these nodes.
+- **Golden ramp:** `sun_color_for(sun_h)` — three stops `SUN_HORIZON_COLOR` (0.95, 0.40, 0.14) → `SUN_GOLDEN_COLOR` (1.0, 0.74, 0.42) → `SUN_DAY_COLOR` (1.0, 0.95, 0.85) over `sun_h < GOLDEN_BAND` (0.45), smoothstepped; the old ramp only warmed below `sun_h` 0.2. The sun colour also feeds `grass_day_tint`, so the unshaded grass warms with it.
+- **Shadow casters:** terrain chunks and entity `MeshInstance3D`s cast; Player/Avatar/mount sprites, grass, props and beacons opt out (`SHADOW_CASTING_SETTING_OFF`). Unshaded meshes don't receive shadows (BID-060).
+- **Tests:** `tests/unit/test_day_night_sun.gd` pins the arc against the iso camera (unit length, horizon ↔ `is_night`, noon not overhead and leaning away from camera, dawn along screen-right, sunrise/sunset opposite, basis −Z = travel, ramp monotonic). `test_graphics_quality` covers the shadow knobs and moon apply.
+- **Visual check:** a Compatibility-renderer (llvmpipe/xvfb) capture ran clean but is not representative — it over-saturates versus Forward+ and the spawn meadow has no shadow casters — so tune by eye on a real GPU.
 
 ### Sky & Fog (`WorldScene._setup_environment`, `DayNightCycle`)
 

@@ -15,7 +15,7 @@ Findings: desktop runs Forward+, Android runs Mobile (no volumetric fog/SSAO/GI)
 | ID | Name | Type | Status | Depends On |
 |----|------|------|--------|------------|
 | TID-484 | Graphics Quality Tiers | agent | done | — |
-| TID-485 | Sun Shadows & Golden-Hour Sun | agent | pending | TID-484 |
+| TID-485 | Sun Shadows & Golden-Hour Sun | agent | done | TID-484 |
 | TID-486 | Weather Drives Fog, Sun & Grass Wind | agent | pending | — |
 | TID-487 | Rain Wetness & Lightning | agent | pending | TID-486 |
 | TID-488 | Sun Rays (Volumetric on High, Post-Process Fallback) | agent | pending | TID-484 |

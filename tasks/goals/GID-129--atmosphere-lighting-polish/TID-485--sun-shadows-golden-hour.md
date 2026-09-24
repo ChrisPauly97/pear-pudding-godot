@@ -2,7 +2,7 @@
 
 **Goal:** GID-129
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** TID-484
 
 ## Lock
@@ -33,12 +33,37 @@ Shared facts (GID-129 research, 2026-09-24):
 
 ## Plan
 
-_Written during Plan phase._
+1. `GraphicsQuality.TIERS` — retune shadow knobs and add new ones (all three tiers):
+   - `shadow_mode`: Low ORTHOGONAL, Medium/High PSSM_2_SPLITS (Medium keeps `sun_shadows` off, as TID-484 decided).
+   - `shadow_max_distance` tuned to the iso view (ortho size 15, camera 34.6 units from the player, so
+     on-screen ground sits ~24–45 units deep): Low 45 / Medium 50 / High 55.
+   - New: `shadow_split_1` (0.7 — near cascade ends just past the player's depth, far cascade covers the
+     top half of the screen), `shadow_blend_splits` (High only), `shadow_bias` / `shadow_normal_bias`
+     (larger on coarser atlases to stop terrain acne), `moon_shadows` (High only, orthogonal, low-res).
+   - `apply()` writes them; gains an optional trailing `moon` argument.
+2. `DayNightCycle`: replace the single-X-axis sun rotation with a tilted arc — static
+   `sun_direction(time_of_day)` rises in the NE (dawn shadows fall screen-left/right across the iso
+   view), leans 30° away from the camera at noon (shadows fall toward the camera, never straight
+   down), sets in the SW. Sun and moon bases from `Basis.looking_at`, cached like the other writes.
+   Static `sun_color_for(sun_h)`: three-stop day → golden → deep-orange horizon ramp over a wider
+   band (sun_h < 0.45) instead of the old `sun_h < 0.2` snap. Energy curve and 1.1 cap unchanged.
+3. WorldScene passes `_moon` to `GraphicsQuality.apply`.
+4. Billboards: Player/Avatar sprites already opt out of shadows; leave entity sprites as-is and check
+   visually if a rendering screenshot is feasible.
+5. Tests: extend `test_graphics_quality` (new keys, moon apply, bias/split writes) and add
+   `tests/unit/test_day_night_sun.gd` (sun direction unit length, above horizon by day, never straight
+   overhead, dawn/dusk opposite, golden ramp warmth monotonic).
+6. Docs: visual-polish.md knob table + new "Sun arc & golden hour" section; task/goal/index status.
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/GraphicsQuality.gd`: shadow knobs retuned — `shadow_mode` Medium/High PSSM_2_SPLITS (Low orthogonal), `shadow_max_distance` 45/50/55 to fit the iso view; new knobs `shadow_split_1` (0.7), `shadow_blend_splits` (High), `shadow_bias`/`shadow_normal_bias` (0.15/1.6, 0.1/1.3, 0.08/1.0), `moon_shadows` (High). `apply()` writes them and takes an optional `moon` (orthogonal, bias ×1.5, opacity 0.5).
+- `scenes/world/DayNightCycle.gd`: static `sun_direction()` tilted arc (NE rise, noon 30° toward NW/camera-forward, SW set), `light_basis()`, `sun_color_for()` three-stop golden ramp over sun_h < 0.45; sun/moon bases cached. Energy curve and 1.1 cap unchanged.
+- `scenes/world/WorldScene.gd`: passes `_moon` to `GraphicsQuality.apply`.
+- Tests: new `tests/unit/test_day_night_sun.gd`; `test_graphics_quality` gains `test_shadow_tuning_applied_to_sun_and_moon` and monotonic checks for `moon_shadows`/`shadow_blend_splits`.
+- Billboards: left as-is (Player/Avatar/mount sprites already opt out of shadows).
+- Validation: headless import clean, `unsafe-hits.sh` clean, gdlint clean, suite PASS with 0 `SCRIPT ERROR`, `world_scene_smoke` exit 0. A Compatibility/llvmpipe xvfb capture ran but isn't representative (over-saturated vs Forward+, no casters in the spawn meadow), so shadows weren't judged from it.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/visual-polish.md`: Key Features bullet; knob table updated with the new shadow knobs and values; `apply()` signature; new "Sun Arc & Golden Hour" How-It-Works section.

@@ -10,6 +10,22 @@ signal dawn_arrived
 const _GrassBlades = preload("res://scenes/world/GrassBlades.gd")
 const INTERVAL: float = 0.5  # update lighting at 2 Hz
 
+# Sun arc (TID-485). The old sun swung about the X axis alone: it rose due
+# south, passed straight overhead (no visible shadows at noon) and its dawn
+# shadows ran along the iso camera's depth axis, where objects hide them.
+# The arc now rises in the NE and sets in the SW, so dawn/dusk shadows stretch
+# sideways across the screen, and the noon sun leans NOON_TILT away from the
+# camera (toward NW, screen-up) so midday shadows fall toward the viewer.
+const SUN_RISE_DIR := Vector3(0.70710678, 0.0, -0.70710678)   # NE (−Z is north)
+const SUN_NOON_LEAN := Vector3(-0.70710678, 0.0, -0.70710678)  # NW, the camera's forward
+const NOON_TILT: float = 0.52359878  # 30°
+
+# Golden-hour ramp: warm day white → gold → deep low-energy orange at the horizon.
+const SUN_DAY_COLOR := Color(1.0, 0.95, 0.85)
+const SUN_GOLDEN_COLOR := Color(1.0, 0.74, 0.42)
+const SUN_HORIZON_COLOR := Color(0.95, 0.40, 0.14)
+const GOLDEN_BAND: float = 0.45  # sun height (sin of arc angle) below which it warms
+
 var _sun: DirectionalLight3D
 var _moon: DirectionalLight3D
 var _world_env: WorldEnvironment
@@ -27,6 +43,7 @@ var _cached_sky_color: Color = Color.BLACK
 var _cached_ambient_color: Color = Color.BLACK
 var _cached_ambient_energy: float = -1.0
 var _cached_grass_tint: Color = Color.BLACK
+var _cached_sun_dir: Vector3 = Vector3.ZERO
 
 var _prev_was_night: bool = false
 var _sky_mat: ProceduralSkyMaterial = null
@@ -47,6 +64,27 @@ func _get_sky_mat() -> ProceduralSkyMaterial:
 
 static func is_night(time_of_day: float) -> bool:
 	return sin((time_of_day - 0.25) * TAU) < 0.0
+
+## Unit vector from the world toward the sun. Its height has the sign of
+## `sin(arc angle)`, so it crosses the horizon exactly when `is_night` switches.
+static func sun_direction(time_of_day: float) -> Vector3:
+	var a: float = (time_of_day - 0.25) * TAU
+	var up_axis: Vector3 = Vector3.UP * cos(NOON_TILT) + SUN_NOON_LEAN * sin(NOON_TILT)
+	return (SUN_RISE_DIR * cos(a) + up_axis * sin(a)).normalized()
+
+## A light basis whose −Z points along `travel` (the direction light travels).
+static func light_basis(travel: Vector3) -> Basis:
+	var up: Vector3 = Vector3.UP if absf(travel.normalized().y) < 0.999 else Vector3.FORWARD
+	return Basis.looking_at(travel, up)
+
+## Sun colour for a sun height `sun_h` (sin of the arc angle). Three stops so
+## the warm light lingers through a golden hour instead of snapping to orange
+## only in the last moments before the horizon.
+static func sun_color_for(sun_h: float) -> Color:
+	var t: float = clampf(sun_h / GOLDEN_BAND, 0.0, 1.0)
+	if t < 0.4:
+		return SUN_HORIZON_COLOR.lerp(SUN_GOLDEN_COLOR, smoothstep(0.0, 0.4, t))
+	return SUN_GOLDEN_COLOR.lerp(SUN_DAY_COLOR, smoothstep(0.4, 1.0, t))
 
 func setup(sun: DirectionalLight3D, moon: DirectionalLight3D,
 		world_env: WorldEnvironment, is_infinite: bool,
@@ -100,17 +138,20 @@ func _advance(elapsed: float, weather_tint: Color) -> void:
 
 func _apply_lighting(weather_tint: Color) -> void:
 	var sun_angle: float = (_time_of_day - 0.25) * TAU
-	_sun.rotation = Vector3(-sun_angle, 0.0, 0.0)
-	_moon.rotation = Vector3(-(sun_angle + PI), 0.0, 0.0)
+	var sun_dir: Vector3 = sun_direction(_time_of_day)
+	if not sun_dir.is_equal_approx(_cached_sun_dir):
+		_sun.basis = light_basis(-sun_dir)
+		# The moon sits opposite the sun, so at night its light travels along sun_dir.
+		_moon.basis = light_basis(sun_dir)
+		_cached_sun_dir = sun_dir
 
 	var sun_h: float = sin(sun_angle)
 	var t_day: float = clampf(sun_h * 2.0 + 0.1, 0.0, 1.0)
-	var t_horizon: float = clampf(1.0 - abs(sun_h) * 5.0, 0.0, 1.0)
 
 	# Cap below 1.5: sun + ambient + fill light stack multiplicatively on albedo;
 	# 1.5 pushed midday terrain past 2.5x albedo and over the glow threshold.
 	var sun_energy: float = clampf(sun_h * 1.5, 0.0, 1.1)
-	var sun_color: Color = Color(1.0, 0.95, 0.85).lerp(Color(1.0, 0.45, 0.1), t_horizon)
+	var sun_color: Color = sun_color_for(sun_h)
 
 	if not is_equal_approx(sun_energy, _cached_sun_energy):
 		_sun.light_energy = sun_energy

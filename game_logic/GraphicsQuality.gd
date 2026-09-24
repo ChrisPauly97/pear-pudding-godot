@@ -9,7 +9,8 @@
 ##
 ## Knob reference (who reads what):
 ##   sun_shadows, shadow_mode, shadow_atlas_size, soft_shadow_quality,
-##   shadow_max_distance        — `apply()` (TID-485 tunes the values)
+##   shadow_max_distance, shadow_split_1, shadow_blend_splits,
+##   shadow_bias, shadow_normal_bias, moon_shadows — `apply()` (tuned in TID-485)
 ##   ssao, volumetric_fog, glow, msaa_3d — `apply()` (TID-488 enables volumetric fog)
 ##   sun_rays                   — SUN_RAYS_* mode, read by the sun-ray effect (TID-488)
 ##   max_night_lights, night_light_shadows — night point lights (TID-489)
@@ -33,13 +34,24 @@ const RENDERER_FORWARD_PLUS := "forward_plus"
 ## Boolean knobs that need the Forward+ renderer. `clamp_to_renderer` turns them off elsewhere.
 const FORWARD_PLUS_ONLY: Array[String] = ["ssao", "volumetric_fog"]
 
+## Shadow tuning (TID-485). The iso camera is orthographic (size 15) and sits
+## 34.6 units from the player, so on-screen ground lies ~24–45 units deep:
+## `shadow_max_distance` just covers it, and `shadow_split_1` (a fraction of
+## that distance) ends the near PSSM cascade just past the player's depth so it
+## holds the player's surroundings while the far one covers the top of the
+## screen. Coarser atlases need more bias to keep terrain free of acne.
 const TIERS: Array[Dictionary] = [
 	{ # LOW — cheapest look: no shadows, no glow, no MSAA, half particles.
 		"sun_shadows": false,
 		"shadow_mode": DirectionalLight3D.SHADOW_ORTHOGONAL,
 		"shadow_atlas_size": 1024,
 		"soft_shadow_quality": RenderingServer.SHADOW_QUALITY_HARD,
-		"shadow_max_distance": 40.0,
+		"shadow_max_distance": 45.0,
+		"shadow_split_1": 0.7,
+		"shadow_blend_splits": false,
+		"shadow_bias": 0.15,
+		"shadow_normal_bias": 1.6,
+		"moon_shadows": false,
 		"ssao": false,
 		"volumetric_fog": false,
 		"glow": false,
@@ -52,10 +64,15 @@ const TIERS: Array[Dictionary] = [
 	},
 	{ # MEDIUM — the pre-GID-129 mobile look (sun shadows were already off on phones).
 		"sun_shadows": false,
-		"shadow_mode": DirectionalLight3D.SHADOW_ORTHOGONAL,
+		"shadow_mode": DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS,
 		"shadow_atlas_size": 2048,
 		"soft_shadow_quality": RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW,
 		"shadow_max_distance": 50.0,
+		"shadow_split_1": 0.7,
+		"shadow_blend_splits": false,
+		"shadow_bias": 0.1,
+		"shadow_normal_bias": 1.3,
+		"moon_shadows": false,
 		"ssao": false,
 		"volumetric_fog": false,
 		"glow": true,
@@ -68,10 +85,15 @@ const TIERS: Array[Dictionary] = [
 	},
 	{ # HIGH — the pre-GID-129 desktop look plus the Forward+ extras.
 		"sun_shadows": true,
-		"shadow_mode": DirectionalLight3D.SHADOW_ORTHOGONAL,
+		"shadow_mode": DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS,
 		"shadow_atlas_size": 4096,
 		"soft_shadow_quality": RenderingServer.SHADOW_QUALITY_SOFT_LOW,
-		"shadow_max_distance": 60.0,
+		"shadow_max_distance": 55.0,
+		"shadow_split_1": 0.7,
+		"shadow_blend_splits": true,
+		"shadow_bias": 0.08,
+		"shadow_normal_bias": 1.0,
+		"moon_shadows": true,
 		"ssao": true,
 		# Off until TID-488 tunes density against the glow threshold — enabled
 		# with engine defaults it hazes the whole midday screen.
@@ -137,7 +159,8 @@ static func scaled_amount(amount: int, knobs: Dictionary) -> int:
 
 ## Writes the knobs this module owns to the world's Environment, sun and
 ## viewport. Any argument may be null (e.g. a headless test without a viewport).
-static func apply(knobs: Dictionary, env: Environment, sun: DirectionalLight3D, viewport: Viewport) -> void:
+static func apply(knobs: Dictionary, env: Environment, sun: DirectionalLight3D, viewport: Viewport,
+		moon: DirectionalLight3D = null) -> void:
 	if env != null:
 		env.glow_enabled = bool(knobs.get("glow", true))
 		env.ssao_enabled = bool(knobs.get("ssao", false))
@@ -151,6 +174,20 @@ static func apply(knobs: Dictionary, env: Environment, sun: DirectionalLight3D, 
 		var mode: int = int(knobs.get("shadow_mode", DirectionalLight3D.SHADOW_ORTHOGONAL))
 		sun.directional_shadow_mode = mode as DirectionalLight3D.ShadowMode
 		sun.directional_shadow_max_distance = float(knobs.get("shadow_max_distance", 60.0))
+		sun.directional_shadow_split_1 = float(knobs.get("shadow_split_1", 0.1))
+		sun.directional_shadow_blend_splits = bool(knobs.get("shadow_blend_splits", false))
+		sun.shadow_bias = float(knobs.get("shadow_bias", 0.1))
+		sun.shadow_normal_bias = float(knobs.get("shadow_normal_bias", 1.0))
+	if moon != null:
+		# The moon is dim, so a single low-res orthogonal map is plenty. It
+		# shares the directional atlas with the sun, but the two are never
+		# visible at the same time (DayNightCycle hides a zero-energy light).
+		moon.shadow_enabled = bool(knobs.get("moon_shadows", false))
+		moon.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+		moon.directional_shadow_max_distance = float(knobs.get("shadow_max_distance", 60.0))
+		moon.shadow_bias = float(knobs.get("shadow_bias", 0.1)) * 1.5
+		moon.shadow_normal_bias = float(knobs.get("shadow_normal_bias", 1.0)) * 1.5
+		moon.shadow_opacity = 0.5
 	if viewport != null:
 		var msaa: int = int(knobs.get("msaa_3d", Viewport.MSAA_DISABLED))
 		viewport.msaa_3d = msaa as Viewport.MSAA

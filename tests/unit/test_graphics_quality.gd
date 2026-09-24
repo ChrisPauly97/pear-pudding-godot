@@ -31,7 +31,8 @@ func test_cost_never_drops_as_tier_rises() -> void:
 		for key: String in ["shadow_atlas_size", "shadow_max_distance", "particle_scale",
 				"max_night_lights", "msaa_3d", "sun_rays", "soft_shadow_quality"]:
 			assert_gte(hi[key], lo[key], "%s drops from tier %d to %d" % [key, i - 1, i])
-		for key: String in ["sun_shadows", "ssao", "glow", "ambient_particles"]:
+		for key: String in ["sun_shadows", "ssao", "glow", "ambient_particles", "moon_shadows",
+				"shadow_blend_splits"]:
 			assert_true(bool(hi[key]) or not bool(lo[key]), "%s turns off at tier %d" % [key, i])
 
 func test_low_is_cheap_and_high_is_full() -> void:
@@ -108,4 +109,28 @@ func test_apply_writes_env_and_sun() -> void:
 	assert_false(env.volumetric_fog_enabled)
 	sun.free()
 	# Leave the global shadow atlas at the desktop default for later suites.
+	GQ.apply(GQ.knobs_for(GQ.HIGH, "forward_plus"), null, null, null)
+
+func test_shadow_tuning_applied_to_sun_and_moon() -> void:
+	var sun := DirectionalLight3D.new()
+	var moon := DirectionalLight3D.new()
+	var high: Dictionary = GQ.knobs_for(GQ.HIGH, "forward_plus")
+	GQ.apply(high, null, sun, null, moon)
+	assert_eq(sun.directional_shadow_mode, DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS)
+	assert_almost_eq(sun.directional_shadow_max_distance, float(high["shadow_max_distance"]))
+	assert_almost_eq(sun.directional_shadow_split_1, float(high["shadow_split_1"]))
+	assert_almost_eq(sun.shadow_bias, float(high["shadow_bias"]))
+	assert_almost_eq(sun.shadow_normal_bias, float(high["shadow_normal_bias"]))
+	assert_true(sun.directional_shadow_blend_splits)
+	assert_true(moon.shadow_enabled, "High should give the moon shadows")
+	assert_eq(moon.directional_shadow_mode, DirectionalLight3D.SHADOW_ORTHOGONAL)
+	GQ.apply(GQ.knobs_for(GQ.MEDIUM, "mobile"), null, sun, null, moon)
+	assert_false(moon.shadow_enabled)
+	assert_false(sun.shadow_enabled)
+	# The iso view's ground spans ~24-45 units of depth; every tier must cover it.
+	for tier: Dictionary in GQ.TIERS:
+		assert_between(float(tier["shadow_max_distance"]), 45.0, 60.0)
+		assert_between(float(tier["shadow_split_1"]), 0.1, 0.9)
+	sun.free()
+	moon.free()
 	GQ.apply(GQ.knobs_for(GQ.HIGH, "forward_plus"), null, null, null)
