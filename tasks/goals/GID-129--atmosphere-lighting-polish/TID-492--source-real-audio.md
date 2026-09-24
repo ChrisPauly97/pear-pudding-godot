@@ -31,6 +31,14 @@ Shared facts (GID-129 research, 2026-09-24):
 - Settings: `SceneManager.save_manager.get_setting(key, default)` / `set_setting`; UI in `scenes/ui/SettingsScene.gd` with `_add_slider_row/_add_toggle_row/_add_option_row`.
 - Rules: preload never class_name; explicit types for Variant; `.uid` sidecar for any new `.gdshader`/`.tres`; run headless import + `scripts/unsafe-hits.sh` + gdlint + tests after edits. Every new visual must degrade gracefully on Mobile.
 
+## File List (from TID-487/490/491)
+
+All optional — a synthesized stand-in plays until the file exists.
+
+- Loops (`.ogg`, seamless) in `assets/audio/ambience/`: `rain`, `heavy_rain`, `wind`, `sandstorm`, `crackle`, `birds`, `crickets`, `owls`
+- One-shots (`.wav`) in `assets/audio/sfx/`: `footstep_grass`, `footstep_sand`, `footstep_stone`, `footstep_snow`, `footstep_wood`, `footstep_water`, `footstep_hoof`, `thunder`
+- Plus the pre-existing keys in `AudioManager.SFX_PATHS` / `AMBIENCE_PATHS` (biome ambience, card/battle SFX, music).
+
 ## Plan
 
 _Written during Plan phase._

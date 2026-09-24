@@ -28,9 +28,9 @@ Findings: desktop runs Forward+, Android runs Mobile (no volumetric fog/SSAO/GI)
 ## Acceptance Criteria
 
 - [x] Graphics Quality setting (Low/Medium/High) with platform defaults; Forward+-only effects never enabled on Mobile renderer
-- [ ] Softer, better-resolved sun shadows and angled, warm dawn/dusk light
+- [x] Softer, better-resolved sun shadows and angled, warm dawn/dusk light
 - [x] Each weather type changes fog, sun and grass wind; rain wets terrain; storms flash with thunder
 - [x] Visible sun rays on Medium and High
 - [x] Night light sources glow and flicker
-- [ ] Weather and day/night ambience layers, terrain footsteps, music ducking under dialogue/narration
+- [x] Weather and day/night ambience layers, terrain footsteps, music ducking under dialogue/narration
 - [ ] No frame-rate regression on Medium vs. before the goal; all tests, gdlint and unsafe-hits clean
