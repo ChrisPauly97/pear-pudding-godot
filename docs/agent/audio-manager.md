@@ -27,13 +27,48 @@ AudioManager.play_sfx("footstep")    # no-op if footstep.wav is missing
 | `enemy_engage` | `assets/audio/sfx/enemy_engage.wav` |
 | `chest_open` | `assets/audio/sfx/chest_open.wav` |
 | `door_enter` | `assets/audio/sfx/door_enter.wav` |
-| `footstep` | `assets/audio/sfx/footstep.wav` |
+| `footstep` | `assets/audio/sfx/footstep.wav` (generic; fallback for unknown keys in `play_sfx_varied`) |
+| `footstep_grass` / `_sand` / `_stone` / `_snow` / `_wood` / `_water` | `assets/audio/sfx/footstep_<surface>.wav` |
+| `footstep_hoof` | `assets/audio/sfx/footstep_hoof.wav` |
+| `thunder` | `assets/audio/sfx/thunder.wav` (optional; `SfxGen._gen_thunder` synth fallback — crack + rolling rumble, 2.8 s). Played by WorldScene via `play_sfx_varied("thunder", pitch)` when `DayNightCycle.thunder_rumbled` fires (GID-129 / TID-487); pitch 1.05 close → 0.75 distant |
 
 ### Adding a New SFX
 
 1. Add an entry to `SFX_PATHS` in `AudioManager.gd`.
 2. Place the `.wav` file at the declared path.
 3. Open the project in the Godot editor once so it generates the `.import` sidecar.
+
+### Varied playback and terrain footsteps (GID-129 / TID-491)
+
+```gdscript
+AudioManager.play_sfx_varied(name, pitch := 1.0, pitch_jitter := 0.08, vol_jitter_db := 1.5)
+```
+
+Random pitch (`pitch × (1 ± pitch_jitter)`) and volume (`± vol_jitter_db`) per
+call. The SFX setting lives in `_sfx_db`; every pooled play writes its own
+`pitch_scale` / `volume_db` (plain `play_sfx` resets both to 1.0 / setting), so
+jitter never leaks into `get_sfx_volume()`.
+
+`game_logic/FootstepSurface.gd` picks the step:
+
+- `surface_for(tile, biome, map_name, weather)`: IsoConst has no sand or water tile,
+  so biome and weather carry them. Overworld flat ground: grasslands/forest `grass`,
+  desert `sand`, scorched `stone`, mountains `snow` (hills `stone`). Path/wall/cracked
+  tiles are `stone` (desert paths stay `sand`). Heavy rain turns every non-sand step
+  into `water`; light rain only pools on paths. Named maps: `player_home`,
+  `farsyth_mansion`, `guildhall` → `wood`; `blancogov_temple`, `dungeon_*`,
+  `spire_floor_*` → `stone`; towns → path `stone`, else `grass`; no weather.
+- `sfx_for(surface, mounted)` → `{key, pitch}`: on foot `footstep_<surface>`;
+  mounted → `footstep_hoof` on stone/wood, the surface step at pitch 0.75 on soft ground.
+- `get_sfx(key)`: synthesized fallbacks for all seven keys (registered in
+  `AudioManager._ready` after SfxGen's).
+
+`Player._play_step()` runs on walk contact frames (0 and 2) on foot, and on a
+0.26 s hoofbeat timer while mounted, moving and on the floor (the rider sprite
+idles, so there are no frame events). The tile comes from
+`WorldScene.get_tile_global` via a typed `current_scene` cast; the biome from
+`InfiniteWorldGen.biome_for_chunk`; weather from `WeatherManager.current_weather`
+(main only). Remote co-op avatars stay silent.
 
 ### Music Channel
 
@@ -70,6 +105,55 @@ wins if set, else `dungeon.ogg` for `dungeon_*` / `spire_floor_*`, else the
 peaceful default. Giving a town its own track is a one-line `.tres` change —
 add the file, set `music_track`, and add its row to `CREDITS.md`.
 
+### Layered Ambience (GID-129 / TID-490)
+
+Three looping layers play at once, each a crossfading `AudioStreamPlayer` pair
+(`AmbLayer`: key, gain, per-player volume tween; `AMBIENCE_CROSSFADE` 2 s).
+Every layer's volume is `SFX volume × layer gain`, and `set_sfx_volume()`
+retargets all three live.
+
+| Layer | Gain | Driven by | Keys |
+|---|---|---|---|
+| Biome | `BIOME_LAYER_GAIN` 0.4 | `set_ambience(biome_id)` (WorldScene) | `AMBIENCE_PATHS[biome]` / `SfxGen.get_ambience` |
+| Weather | `WEATHER_LAYER_GAIN` 0.5 × per-weather gain | `GameBus.weather_changed`; resumed from `WeatherManager.current_weather` whenever biome ambience starts | `rain`, `heavy_rain`, `wind`, `sandstorm`, `crackle` |
+| Time of day | `TIME_LAYER_GAIN` 0.3 | `AudioManager.set_time_of_day(t)`, one hook line in `WorldScene._process` after `_dnc.tick` | `birds`, `crickets`, `owls` |
+
+All choices are pure functions in `game_logic/AmbienceLayers.gd` (unit-tested
+in `test_ambience_layers`):
+
+- `weather_layer(id)` / `weather_gain(id)`: rain→`rain` 0.8, heavy_rain→`heavy_rain`,
+  sandstorm→`sandstorm`, dust_devil→`wind` 0.7, snow→`wind` 0.45, blizzard→`wind` 1.0,
+  ash_fall→`crackle` 0.6, volcanic→`crackle` 1.0. Snow → blizzard keeps the same loop and
+  only retargets the volume.
+- `next_is_day(t, was_day)`: sun height `sin((t − 0.25)·TAU)` with a ±0.08 hysteresis
+  band, so dusk/dawn never flap.
+- `time_layer(biome, is_day, weather_key)`: grasslands birds/crickets, forest and
+  mountains birds/owls, desert silent/crickets, scorched silent. Birds hush while any
+  weather layer plays.
+- `named_map_is_outdoors(map)`: dungeons (`dungeon_*`), spire floors and the interiors
+  (`blancogov_temple`, `farsyth_mansion`, `guildhall`, `player_home`) are indoors.
+  Named maps always mute the weather layer (WeatherManager only runs on `main`);
+  outdoor towns keep the grassland day/night layer (`NAMED_MAP_TIME_BIOME`), indoors
+  mutes it. AudioManager learns the map from `GameBus.entered_named_map`.
+
+Layer changes are applied from `_process` via a dirty flag, and **held while
+`SceneManager.current_state()` is `BATTLE`**: a weather roll during a fight
+lands when the player is back in the world. Only the music changes in battle.
+
+Missing files fall back to procedural loops in `game_logic/AmbienceGen.gd`
+(`get_layer(key)`, cached; built from SfxGen primitives with an in-place,
+wrap-around overlay mixer so transients near the loop point stay seamless).
+Real files go at `AmbienceLayers.LAYER_PATHS` (`assets/audio/ambience/<key>.ogg`).
+
+### Music Ducking (GID-129 / TID-490)
+
+The music player's volume is `_music_linear × _duck`. `_update_duck()` tweens
+`_duck` to `AmbienceLayers.music_duck(dialogue_active, narration_playing)`
+(dialogue 0.35, narration 0.4, else 1.0) — down in 0.4 s, up in 1.0 s. It runs on
+`GameBus.dialogue_state_changed`, `play_narration`, `stop_narration` and the
+narration player's `finished`. `get_music_volume()` returns the user setting,
+never the ducked value, so the Settings slider and save are unaffected.
+
 ### Narration Channel
 
 A dedicated `_narration_player: AudioStreamPlayer` (volume −3 dB) plays long-form scroll narration without competing with the SFX pool:
@@ -96,10 +180,13 @@ Narration audio files: `assets/audio/narration/<scroll_id>.ogg` — all are opti
 | EnemyNPC | `play_sfx("enemy_engage")` | Enemy engages player |
 | Chest entity | `play_sfx("chest_open")` | Chest opened |
 | Door entity | `play_sfx("door_enter")` | Door entered |
-| WorldScene (player move) | `play_sfx("footstep")` | Throttled footstep |
+| Player | `play_sfx_varied("footstep_<surface>" / "footstep_hoof", pitch)` | Walk contact frames; hoofbeat timer when mounted |
 | StoryScroll entity | `play_sfx("scroll_pickup")` | Scroll collected |
 | StoryScroll entity | `play_narration(scroll_id)` | After scroll collected |
 | JournalScene | `play_narration(scroll_id)` | Replay button pressed |
+| WeatherManager | `GameBus.weather_changed` → weather layer | Weather roll |
+| WorldScene `_process` | `set_time_of_day(t)` | Every frame (cheap; hysteresis-filtered) |
+| WorldScene | `GameBus.entered_named_map` → indoor/outdoor time layer | Named-map entry |
 
 TID-010 wires battle SFX; TID-011 wires world exploration SFX.
 
@@ -108,6 +195,10 @@ TID-010 wires battle SFX; TID-011 wires world exploration SFX.
 | Asset | Path | Notes |
 |---|---|---|
 | `AudioManager.gd` | `autoloads/AudioManager.gd` | Autoload; registered in `project.godot` |
-| SFX wav files | `assets/audio/sfx/*.wav` | Optional — missing files are silent no-ops |
+| `AmbienceLayers.gd` | `game_logic/AmbienceLayers.gd` | Pure layer-selection rules + `LAYER_PATHS` |
+| `AmbienceGen.gd` | `game_logic/AmbienceGen.gd` | Procedural weather/wildlife loop fallbacks |
+| Weather/time loops | `assets/audio/ambience/{rain,heavy_rain,wind,sandstorm,crackle,birds,crickets,owls}.ogg` | Optional — synthesized fallback when absent (TID-492 sources real ones) |
+| SFX wav files | `assets/audio/sfx/*.wav` | Optional — missing files fall back to SfxGen / FootstepSurface synthesis |
+| `FootstepSurface.gd` | `game_logic/FootstepSurface.gd` | Surface table + footstep synth fallbacks |
 | Music ogg files | `assets/audio/music/*.ogg` | **Present** (7 tracks, GID-116). 4 are CC-BY — attribution in `CREDITS.md` is a licence condition |
 | Narration ogg files | `assets/audio/narration/<scroll_id>.ogg` | Optional — missing files are silent no-ops |

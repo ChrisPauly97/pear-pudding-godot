@@ -10,6 +10,11 @@ const MountRegistry = preload("res://game_logic/MountRegistry.gd")
 const TextureGen    = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const TerrainMath   = preload("res://game_logic/TerrainMath.gd")
+const _FootstepSurface = preload("res://game_logic/FootstepSurface.gd")
+const _InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const _WorldScene = preload("res://scenes/world/WorldScene.gd")
+const _AmbientParticles = preload("res://game_logic/AmbientParticles.gd")
+const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
 
 const SPEED: float = 6.0
 const JUMP_VELOCITY: float = 8.0
@@ -58,6 +63,8 @@ const _SADDLE_OFFSET_PX: float = 3.0
 const _SCAN_INTERVAL: float = 1.0 / 7.0
 const _INTERACT_RADIUS: float = 3.0
 const _WP_ARRIVE_DIST_SQ: float = 0.3 * 0.3  # arrive when within 0.3 world units
+## Mounted hoofbeat cadence (the rider sprite idles, so no frame events).
+const _HOOF_INTERVAL: float = 0.26
 
 var _velocity_y: float = 0.0
 var _sprite: AnimatedSprite3D
@@ -67,6 +74,8 @@ var _dust_particles: GPUParticles3D
 var _dust_mat_mount: ParticleProcessMaterial
 var _dust_mat_foot: ParticleProcessMaterial
 var _landing_dust: GPUParticles3D
+var _start_dust: GPUParticles3D       # move-start puff (TID-493)
+var _particle_knobs: Dictionary = {}  # GraphicsQuality knobs, pushed by AmbientTouches
 var _is_moving: bool = false
 var _was_on_floor: bool = true
 var _coyote_timer: float = 0.0
@@ -79,6 +88,7 @@ var _highlighted_node: Node3D = null
 var _path_waypoints: Array[Vector2i] = []
 var _path_wp_index: int = 0
 var _has_active_path: bool = false
+var _hoof_timer: float = 0.0
 
 func _ready() -> void:
 	collision_layer = 1       # player layer
@@ -177,7 +187,6 @@ func _build_sprite() -> void:
 	_dust_particles.lifetime = 0.6
 	_dust_particles.one_shot = false
 	_dust_particles.emitting = false
-	_dust_particles.position = Vector3(0.0, 0.05, 0.0)
 	_dust_mat_mount = ParticleProcessMaterial.new()
 	_dust_mat_mount.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
 	_dust_mat_mount.emission_sphere_radius = 0.4
@@ -186,8 +195,8 @@ func _build_sprite() -> void:
 	_dust_mat_mount.initial_velocity_min = 0.5
 	_dust_mat_mount.initial_velocity_max = 1.5
 	_dust_mat_mount.gravity = Vector3(0.0, -3.0, 0.0)
-	_dust_mat_mount.scale_min = 0.04
-	_dust_mat_mount.scale_max = 0.10
+	_dust_mat_mount.scale_min = 0.30
+	_dust_mat_mount.scale_max = 0.55
 	_dust_mat_mount.color = Color(0.72, 0.60, 0.42, 0.75)
 	_dust_mat_foot = ParticleProcessMaterial.new()
 	_dust_mat_foot.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
@@ -197,10 +206,14 @@ func _build_sprite() -> void:
 	_dust_mat_foot.initial_velocity_min = 0.3
 	_dust_mat_foot.initial_velocity_max = 0.8
 	_dust_mat_foot.gravity = Vector3(0.0, -3.0, 0.0)
-	_dust_mat_foot.scale_min = 0.03
-	_dust_mat_foot.scale_max = 0.06
+	_dust_mat_foot.scale_min = 0.18
+	_dust_mat_foot.scale_max = 0.32
 	_dust_mat_foot.color = Color(0.72, 0.60, 0.42, 0.45)
+	_AmbientParticles.style_dust(_dust_mat_mount)
+	_AmbientParticles.style_dust(_dust_mat_foot)
 	_dust_particles.process_material = _dust_mat_foot
+	_dust_particles.draw_pass_1 = _AmbientParticles.dust_mesh()   # TID-493: it never had one
+	_dust_particles.position = Vector3(0.0, 0.2, 0.0)
 	add_child(_dust_particles)
 
 	# One-shot burst for landing feedback (separate from the continuous foot/mount dust).
@@ -209,7 +222,6 @@ func _build_sprite() -> void:
 	_landing_dust.lifetime = 0.5
 	_landing_dust.one_shot = true
 	_landing_dust.emitting = false
-	_landing_dust.position = Vector3(0.0, 0.05, 0.0)
 	var pm_land := ParticleProcessMaterial.new()
 	pm_land.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
 	pm_land.emission_sphere_radius = 0.5
@@ -218,11 +230,16 @@ func _build_sprite() -> void:
 	pm_land.initial_velocity_min = 1.0
 	pm_land.initial_velocity_max = 2.2
 	pm_land.gravity = Vector3(0.0, -4.0, 0.0)
-	pm_land.scale_min = 0.05
-	pm_land.scale_max = 0.12
+	pm_land.scale_min = 0.30
+	pm_land.scale_max = 0.60
 	pm_land.color = Color(0.72, 0.60, 0.42, 0.8)
+	_AmbientParticles.style_dust(pm_land)
 	_landing_dust.process_material = pm_land
+	_landing_dust.draw_pass_1 = _AmbientParticles.dust_mesh()
+	_landing_dust.position = Vector3(0.0, 0.2, 0.0)
 	add_child(_landing_dust)
+	_start_dust = _AmbientParticles.make_dust_puff(8)
+	add_child(_start_dust)
 
 func _physics_process(delta: float) -> void:
 	var dir := Vector3.ZERO
@@ -302,7 +319,10 @@ func _physics_process(delta: float) -> void:
 	# --- Sprite animation (AnimatedSprite3D drives frame timing natively) ---
 	# Keyed off steering intent (dir), not residual velocity, so idle doesn't
 	# lag behind the actual stop while decel is still ramping down.
+	var was_moving: bool = _is_moving
 	_is_moving = dir.length_squared() > 0.0
+	if _is_moving and not was_moving and is_on_floor() and _ambient_dust_on() and _start_dust != null:
+		_start_dust.restart()
 
 	if _is_moving:
 		# Flip based on screen-space direction (camera looks from +X,+Y,+Z)
@@ -319,7 +339,9 @@ func _physics_process(delta: float) -> void:
 	# Dust particles: emit while moving on foot or mounted (material/amount
 	# swapped by _update_mount_visuals — mounted kicks more dust).
 	if _dust_particles != null:
-		_dust_particles.emitting = _is_moving and is_on_floor()
+		_dust_particles.emitting = (_is_moving and is_on_floor()
+				and (SaveManager.is_mounted or _ambient_dust_on()))
+	_tick_hoofbeats(delta)
 
 	_highlight_timer -= delta
 	if _highlight_timer <= 0.0:
@@ -349,7 +371,38 @@ func _on_sprite_frame_changed() -> void:
 	if _sprite.animation != &"walk":
 		return
 	if _sprite.frame == 0 or _sprite.frame == 2:
-		AudioManager.play_sfx("footstep")
+		_play_step()
+
+func _tick_hoofbeats(delta: float) -> void:
+	if not (SaveManager.is_mounted and _is_moving and is_on_floor()):
+		_hoof_timer = 0.0
+		return
+	_hoof_timer -= delta
+	if _hoof_timer <= 0.0:
+		_hoof_timer = _HOOF_INTERVAL
+		_play_step()
+
+## One step sound for the surface underfoot (TID-491), with per-step pitch and
+## volume jitter from AudioManager.play_sfx_varied.
+func _play_step() -> void:
+	var sfx: Dictionary = _FootstepSurface.sfx_for(_surface_underfoot(), SaveManager.is_mounted)
+	AudioManager.play_sfx_varied(str(sfx["key"]), float(sfx["pitch"]))
+
+func _surface_underfoot() -> String:
+	var tx: int = floori(position.x / IsoConst.TILE_SIZE)
+	var tz: int = floori(position.z / IsoConst.TILE_SIZE)
+	var tile: int = IsoConst.TILE_GRASS
+	var world := get_tree().current_scene as _WorldScene if is_inside_tree() else null
+	if world != null:
+		tile = world.get_tile_global(tx, tz)
+	var map_name: String = SaveManager.current_map
+	var biome: int = -1
+	var weather: String = ""
+	if map_name == "main":
+		biome = _InfiniteWorldGen.biome_for_chunk(floori(float(tx) / IsoConst.CHUNK_SIZE),
+				floori(float(tz) / IsoConst.CHUNK_SIZE), SaveManager.world_seed)
+		weather = WeatherManager.current_weather
+	return _FootstepSurface.surface_for(tile, biome, map_name, weather)
 
 func _update_mount_visuals(mounted: bool) -> void:
 	if _mount_sprite != null:
@@ -363,7 +416,22 @@ func _update_mount_visuals(mounted: bool) -> void:
 			_sprite.position = _sprite_base_pos
 	if _dust_particles != null:
 		_dust_particles.process_material = _dust_mat_mount if mounted else _dust_mat_foot
-		_dust_particles.amount = 20 if mounted else 10
+		_dust_particles.amount = _GraphicsQuality.scaled_amount(20 if mounted else 10, _particle_knobs)
+
+## Applies the GraphicsQuality particle knobs to the player's dust (TID-493):
+## amounts scale with `particle_scale`; the on-foot trail and move-start puff
+## are ambient touches and go off with `ambient_particles` (Low). Landing and
+## mount dust stay as movement feedback.
+func apply_particle_knobs(knobs: Dictionary) -> void:
+	_particle_knobs = knobs
+	if _landing_dust != null:
+		_landing_dust.amount = _GraphicsQuality.scaled_amount(14, knobs)
+	if _start_dust != null:
+		_start_dust.amount = _GraphicsQuality.scaled_amount(8, knobs)
+	_update_mount_visuals(SaveManager.is_mounted)
+
+func _ambient_dust_on() -> bool:
+	return bool(_particle_knobs.get("ambient_particles", true))
 
 ## Zeroes only the vertical fall — horizontal velocity is preserved so a
 ## terrain rescue (WorldScene software floor) doesn't stop the player dead

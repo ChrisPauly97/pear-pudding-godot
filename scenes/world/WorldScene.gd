@@ -23,6 +23,7 @@ const WeatherParticles   = preload("res://scenes/world/WeatherParticles.gd")
 const _TerrainShader: Shader = preload("res://assets/shaders/terrain.gdshader")
 const LandmarkNames  = preload("res://game_logic/world/LandmarkNames.gd")
 const _ChunkData     = preload("res://game_logic/world/ChunkData.gd")
+const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
 const _WorldEventManager = preload("res://autoloads/WorldEventManager.gd")
 
 const _TexGrass:     Texture2D = preload("res://assets/textures/pixel_art/grass_pixel.png")
@@ -47,8 +48,11 @@ const _Mounts = preload("res://scenes/world/modules/Mounts.gd")
 const _NpcInteractions = preload("res://scenes/world/modules/NpcInteractions.gd")
 const _PlayerHome = preload("res://scenes/world/modules/PlayerHome.gd")
 const _ChestLoot = preload("res://scenes/world/modules/ChestLoot.gd")
+const _NightLights = preload("res://scenes/world/modules/NightLights.gd")
+const _AmbientTouches = preload("res://scenes/world/modules/AmbientTouches.gd")
 const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 const _TownSiege = preload("res://scenes/world/modules/TownSiege.gd")
+const _SunRaysFx = preload("res://scenes/world/SunRaysFx.gd")
 const _TapToMove = preload("res://scenes/world/modules/TapToMove.gd")
 const _StoryCast = preload("res://scenes/world/modules/StoryCast.gd")
 const _HomeGarden = preload("res://scenes/world/modules/HomeGarden.gd")
@@ -98,7 +102,6 @@ const _BIOME_MUSIC: Array = [
 # to _TOWN_MUSIC_DEFAULT unless it sets its own `music_track` override.
 const _DUNGEON_MUSIC: String = "res://assets/audio/music/dungeon.ogg"
 const _TOWN_MUSIC_DEFAULT: String = "res://assets/audio/music/grasslands.ogg"
-const _WEATHER_TINT_SPEED: float = 2.0  # tint blends in 0.5s
 const INTERACT_INTERVAL: float = 0.15  # check interactions at ~7 Hz, not 60
 
 ## The single interaction priority order, highest first. Both the HUD prompt
@@ -167,6 +170,8 @@ var npc_interactions: _NpcInteractions = null   # modules/NpcInteractions.gd
 var town_siege: _TownSiege = null   # modules/TownSiege.gd (GID-054)
 var named_props: _NamedMapProps = null   # modules/NamedMapProps.gd
 var chest_loot: _ChestLoot = null    # modules/ChestLoot.gd
+var night_lights: _NightLights = null  # modules/NightLights.gd (TID-489)
+var ambient: _AmbientTouches = null  # modules/AmbientTouches.gd (TID-493)
 
 # Computed in _ready from map_name; true for "main" and "infinite", false for named dungeon maps
 var _is_infinite: bool = false
@@ -319,17 +324,17 @@ var _night_cue_played: bool = false
 # Day/night cycle — delegated to DayNightCycle component
 var _world_env: WorldEnvironment
 var _dnc: DayNightCycle = null
+var _sun_rays: _SunRaysFx = null  # TID-488 dawn/dusk light shafts
 
 # Weather visuals
 var _active_weather_particles: Node3D = null
-var _weather_tint: Color = Color(1.0, 1.0, 1.0)
-var _weather_tint_target: Color = Color(1.0, 1.0, 1.0)
-var _weather_tint_lerp_t: float = 1.0
 
 # Camera smoothing: lerped toward player each _process frame to eliminate
 # micro-stutter on high-refresh displays (camera runs at render rate, physics at ~60 Hz).
 var _smooth_camera_target: Vector3 = Vector3.ZERO
 var _fill_light: DirectionalLight3D
+# Active GraphicsQuality knobs (TID-484). Atmosphere effects read these, never the platform.
+var _graphics_knobs: Dictionary = {}
 
 var _pause_overlay: _OverworldPauseOverlay = null
 var _world_hud: WorldHUD = null
@@ -397,9 +402,24 @@ func _setup_environment() -> void:
 	_fill_light.light_color = Color(0.78, 0.77, 0.80)
 	_fill_light.light_energy = 0.35
 	_fill_light.shadow_enabled = false
+	_fill_light.light_volumetric_fog_energy = 0.0  # unshadowed: would only haze the sun-ray fog
 	_fill_light.rotation_degrees = Vector3(60.0, 45.0, 0.0)
 	add_child(_fill_light)
 	_setup_vignette()
+
+## Re-reads the Graphics Quality setting and applies it (TID-484). Also runs
+## live from Settings via GameBus.graphics_quality_changed.
+func apply_graphics_quality(_tier: int = -1) -> void:
+	var setting: Variant = SceneManager.save_manager.get_setting(_GraphicsQuality.SETTING_KEY, null)
+	_graphics_knobs = _GraphicsQuality.current_knobs(setting)
+	var env: Environment = _world_env.environment if _world_env != null else null
+	_GraphicsQuality.apply(_graphics_knobs, env, _sun, get_viewport(), _moon)
+	if _sun_rays != null:
+		_sun_rays.set_mode(int(_graphics_knobs.get("sun_rays", 0)))
+
+## The active GraphicsQuality knobs — atmosphere effects read these, never the platform.
+func graphics_knobs() -> Dictionary:
+	return _graphics_knobs
 
 func _setup_vignette() -> void:
 	var cl := CanvasLayer.new()
@@ -424,11 +444,9 @@ func _ready() -> void:
 	_ensure_coop_modules()
 	_setup_environment()
 	_sun.shadow_opacity = 0.2
-	# At 0.2 opacity the sun shadow is barely perceptible, but it still costs a
-	# full extra scene render into the shadow map plus per-pixel shadow taps on
-	# every shaded material — too expensive for phone GPUs.
-	if OS.has_feature("mobile"):
-		_sun.shadow_enabled = false
+	# Sun shadows, SSAO, glow and MSAA follow the Graphics Quality tier (Medium,
+	# the phone default, keeps sun shadows off — too expensive for phone GPUs).
+	apply_graphics_quality()
 	_tile_meshes = Node3D.new()
 	_tile_meshes.name = "TileGrid"
 	add_child(_tile_meshes)
@@ -496,6 +514,11 @@ func _ready() -> void:
 	add_child(_dnc)
 	_dnc.setup(_sun, _moon, _world_env, _is_infinite, day_duration,
 		SceneManager.save_manager.time_of_day)
+	_sun_rays = _SunRaysFx.new()
+	_sun_rays.name = "SunRays"
+	add_child(_sun_rays)
+	_sun_rays.setup(_camera, _sun, _moon, _world_env.environment, _dnc)
+	_sun_rays.set_mode(int(_graphics_knobs.get("sun_rays", 0)))
 	_dnc.day_passed.connect(func() -> void:
 		SceneManager.save_manager.increment_day()
 		GameBus.blight_changed.emit()
@@ -518,6 +541,10 @@ func _ready() -> void:
 			nocturnal.despawn_all(true)
 			_night_cue_played = false
 		)
+		# Storm lightning (TID-487): thunder after the flash; reduce-flashing read live.
+		_dnc.thunder_rumbled.connect(func(pitch: float) -> void: AudioManager.play_sfx_varied("thunder", pitch, 0.05))
+		_dnc.flashing_allowed = func() -> bool: return not bool(
+			SceneManager.save_manager.get_setting("reduce_flashing", false))
 
 	if _is_infinite:
 		WorldEvents.register_all(self)
@@ -686,6 +713,7 @@ func _wire_gamebus_signals() -> void:
 	GameBus.battle_won.connect(_on_battle_won)
 	GameBus.enemy_engaged.connect(mounts.on_enemy_engaged)
 	GameBus.blight_changed.connect(_refresh_blight_tints)
+	GameBus.graphics_quality_changed.connect(apply_graphics_quality)
 	# Story-driven cast changes (Maiteln joining/leaving, NPCs who leave their
 	# post) have to land while this same map instance stays loaded. Wired here,
 	# not in CoopSession._setup_coop — that returns early outside a session, so
@@ -802,6 +830,8 @@ func _ensure_world_modules() -> void:
 	town_siege = _ensure_world_module(town_siege, _TownSiege, "TownSiege") as _TownSiege
 	named_props = _ensure_world_module(named_props, _NamedMapProps, "NamedMapProps") as _NamedMapProps
 	chest_loot = _ensure_world_module(chest_loot, _ChestLoot, "ChestLoot") as _ChestLoot
+	night_lights = _ensure_world_module(night_lights, _NightLights, "NightLights") as _NightLights
+	ambient = _ensure_world_module(ambient, _AmbientTouches, "AmbientTouches") as _AmbientTouches
 
 func _ensure_world_module(existing: Node, script: GDScript, node_name: String) -> Node:
 	if existing != null and is_instance_valid(existing):
@@ -1425,7 +1455,8 @@ func _process(delta: float) -> void:
 	if _coop_active:
 		_tick_coop(delta)
 	if _dnc:
-		_dnc.tick(delta, _weather_tint)
+		_dnc.tick(delta)
+		AudioManager.set_time_of_day(_dnc.get_time_of_day())  # day/night ambience layer
 
 	if _player == null:
 		return
@@ -1452,13 +1483,6 @@ func _process(delta: float) -> void:
 		_world_hud.update_coords(tx, tz)
 	if _grass:
 		_grass.update_player(_player.position, delta, _player.is_on_floor())
-
-	# Lerp weather tint toward target and invalidate ambient cache to force GPU write
-	if _weather_tint_lerp_t < 1.0:
-		_weather_tint_lerp_t = minf(_weather_tint_lerp_t + delta * _WEATHER_TINT_SPEED, 1.0)
-		_weather_tint = _weather_tint.lerp(_weather_tint_target, delta * _WEATHER_TINT_SPEED)
-		if _dnc:
-			_dnc.invalidate_ambient_cache()
 
 	# Keep particle rig centred on the player
 	if _active_weather_particles != null and is_instance_valid(_active_weather_particles):
@@ -2058,14 +2082,16 @@ func _on_weather_changed(weather_id: String, _duration: float) -> void:
 	if weather_id != "":
 		var particles: GPUParticles3D = WeatherParticles.make(weather_id) as GPUParticles3D
 		if particles != null:
+			particles.amount = _GraphicsQuality.scaled_amount(particles.amount, _graphics_knobs)
 			_entity_root.add_child(particles)
 			if _player != null:
 				particles.position = _player.position + Vector3(0.0, 12.0, 0.0)
 			_active_weather_particles = particles
 
-	# Begin tint transition
-	_weather_tint_target = WeatherParticles.get_screen_tint(weather_id)
-	_weather_tint_lerp_t = 0.0
+	# Fog, sky, sun, shadows, ambient tint and grass wind blend in via
+	# DayNightCycle from the WeatherLook table (TID-486).
+	if _dnc != null:
+		_dnc.set_weather(weather_id)
 
 	# Update grass wind direction
 	if _grass != null:

@@ -30,6 +30,10 @@ uniform vec3 wall_tint  = vec3(1.0, 1.0, 1.0);
 // Set via MeshInstance3D.set_instance_shader_parameter() — no material duplication needed.
 instance uniform float blight_amount : hint_range(0.0, 1.0) = 0.0;
 
+// Rain wetness [0=dry, 1=soaked] (GID-129 / TID-487). Declared in project.godot
+// [shader_globals]; DayNightCycle eases it in with rain and dries it slowly.
+global uniform float terrain_wetness;
+
 varying float v_blend;      // height ratio [0=flat ground .. 1=hill plateau]
 varying float v_wall;       // 1.0 if this vertex sits on a wall tile
 varying float v_path;       // 1.0 if this vertex sits on a path tile
@@ -175,6 +179,23 @@ void fragment() {
 		tinted_col = mix(tinted_col, blight_col, blight_amount * 0.75);
 	}
 
+	// Wet ground: darker albedo, low roughness and more specular so the sun,
+	// sky and lightning glint off it. Upward-facing ground holds the water (wall
+	// faces barely darken); noise patches pool into glossier puddles. Uniform
+	// branch — dry weather skips it entirely.
+	float wet_rough = 0.9;
+	float wet_spec = 0.1;
+	if (terrain_wetness > 0.001) {
+		float up = smoothstep(0.55, 0.95, v_normal_world.y);
+		float wet = terrain_wetness * mix(0.25, 1.0, up);
+		float puddle = smoothstep(0.52, 0.68, fbm(v_world_xz * 0.18)) * up
+			* smoothstep(0.35, 1.0, terrain_wetness);
+		tinted_col *= 1.0 - 0.35 * wet - 0.1 * puddle;
+		wet_rough = mix(0.9, 0.35, wet);
+		wet_rough = mix(wet_rough, 0.08, puddle);
+		wet_spec = mix(0.1, 0.45, max(wet, puddle));
+	}
+
 	ALBEDO = tinted_col;
 
 	// Soft emission floor keeps cast shadows from going pitch-black.
@@ -186,7 +207,7 @@ void fragment() {
 		base_emission += v_ley * pulse * 0.45 * vec3(0.05, 0.85, 0.90);
 	}
 	EMISSION = base_emission;
-	ROUGHNESS = 0.9;
+	ROUGHNESS = wet_rough;
 	METALLIC = 0.0;
-	SPECULAR = 0.1;
+	SPECULAR = wet_spec;
 }

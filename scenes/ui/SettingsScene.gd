@@ -1,5 +1,7 @@
 extends "res://scenes/ui/BaseOverlay.gd"
 
+const _GraphicsQuality = preload("res://game_logic/GraphicsQuality.gd")
+
 
 # Keybindings capture state
 var _capture_action: String = ""
@@ -49,6 +51,22 @@ func _build_ui() -> void:
 
 	vbox.add_child(_UiUtil.make_separator())
 
+	# — Graphics —
+	var gfx_lbl := _UiUtil.make_label("Graphics", int(_vh * 0.03))
+	gfx_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
+	vbox.add_child(gfx_lbl)
+
+	var gfx_tier: int = _GraphicsQuality.tier_from_setting(
+		SceneManager.save_manager.get_setting(_GraphicsQuality.SETTING_KEY, null),
+		_GraphicsQuality.is_mobile_platform())
+	_add_option_row(vbox, "Graphics Quality", _GraphicsQuality.LABELS, gfx_tier,
+		func(idx: int) -> void:
+			SceneManager.save_manager.set_setting(_GraphicsQuality.SETTING_KEY, idx)
+			GameBus.graphics_quality_changed.emit(idx)
+	)
+
+	vbox.add_child(_UiUtil.make_separator())
+
 	# — Accessibility & Comfort —
 	var access_lbl := _UiUtil.make_label("Accessibility & Comfort", int(_vh * 0.03))
 	access_lbl.add_theme_color_override("font_color", Color(0.75, 0.85, 1.0))
@@ -57,6 +75,12 @@ func _build_ui() -> void:
 	var shake_on: bool = bool(SceneManager.save_manager.get_setting("screen_shake", true))
 	_add_toggle_row(vbox, "Screen Shake", shake_on, func(v: bool) -> void:
 		SceneManager.save_manager.set_setting("screen_shake", v)
+	)
+
+	# Storm lightning keeps its thunder but skips the screen flash (TID-487).
+	var calm_flash: bool = bool(SceneManager.save_manager.get_setting("reduce_flashing", false))
+	_add_toggle_row(vbox, "Reduce Flashing", calm_flash, func(v: bool) -> void:
+		SceneManager.save_manager.set_setting("reduce_flashing", v)
 	)
 
 	var text_scale: float = float(SceneManager.save_manager.get_setting("text_scale", 1.0))
