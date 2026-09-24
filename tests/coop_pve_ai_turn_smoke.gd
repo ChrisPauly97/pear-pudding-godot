@@ -42,7 +42,10 @@ const _BOSS_DECK: Array[String] = ["dusk_seer", "dusk_seer", "dusk_seer", "dusk_
 	"dusk_seer", "dusk_seer"]
 
 const _MAX_ROTATIONS: int = 4
-const _MAX_WAIT_FRAMES: int = 600
+## Wall-clock budget per boss turn. The AI paces itself with real-time timers and
+## card animations, so a frame count is the wrong unit: headless frames are
+## uncapped, and a frame budget only held while broken FX code errored out early.
+const _MAX_WAIT_MS: int = 20000
 
 
 func _initialize() -> void:
@@ -125,11 +128,13 @@ func _run() -> bool:
 		var boss_board_before: int = state.players[boss_idx].board.get_cards().size()
 
 		var settled := false
-		for _i in range(_MAX_WAIT_FRAMES):
+		var turn_start_ms: int = Time.get_ticks_msec()
+		while Time.get_ticks_msec() - turn_start_ms < _MAX_WAIT_MS:
 			await process_frame
 			if state.current_player_idx != boss_idx or state.is_game_over():
 				settled = true
 				break
+		print("  [INFO] boss turn took %d ms" % (Time.get_ticks_msec() - turn_start_ms))
 		if not settled:
 			print("  [FAIL] boss AI turn never completed (timed out)")
 			return false

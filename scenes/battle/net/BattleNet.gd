@@ -259,9 +259,7 @@ func _adopt_mirrored_state(state_dict: Dictionary) -> void:
 	_battle._bump_card_next_id(_battle._state)
 	if not _battle._state.turn_ended.is_connected(_battle._on_turn_ended):
 		_battle._state.turn_ended.connect(_battle._on_turn_ended)
-	_battle._resolver.setup(_battle._state)
-	_battle._fx.set_game_state(_battle._state)
-	_battle._view.set_battle_state(_battle._state, _battle.enemy_data)
+	_battle._bind_state()
 	_battle._refresh_all()
 	_battle.consumables._refresh_potion_button()
 

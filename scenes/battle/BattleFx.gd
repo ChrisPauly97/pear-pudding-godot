@@ -19,6 +19,7 @@ var _intent_panel: Control = null
 var _is_shaking: bool = false
 # Multiplier from the "text_scale" setting (GID-119 / TID-451).
 var _text_scale: float = 1.0
+var _seat_idx_fn: Callable = Callable()
 
 func setup(
 	p_vh: float,
@@ -42,8 +43,16 @@ func setup(
 func _font(pct: float) -> int:
 	return int(_vh * pct * _text_scale)
 
-func set_game_state(state: GameState) -> void:
+## `seat_idx_fn(seat) -> int` maps a view seat (0 = the local side, 1 = the
+## opponent shown on the enemy side) to its index in `state.players`. Omitted
+## (tests, plain solo), seat and index coincide.
+func set_game_state(state: GameState, seat_idx_fn: Callable = Callable()) -> void:
 	_state = state
+	_seat_idx_fn = seat_idx_fn
+
+func _seat_player(seat: int) -> PlayerState:
+	var idx: int = int(_seat_idx_fn.call(seat)) if _seat_idx_fn.is_valid() else seat
+	return _state.players[idx]
 
 # -------------------------------------------------------------------------
 # Intent banner
@@ -148,13 +157,13 @@ func pos_of_hero(is_enemy: bool) -> Vector2:
 func snapshot() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for i in range(2):
-		var hero: HeroState = _state.players[i].hero
+		var hero: HeroState = _seat_player(i).hero
 		result.append({"id": "hero_%d" % i, "hp": hero.health, "pos": pos_of_hero(i == 1)})
 		var zv: Node = _enemy_board_view if i == 1 else _player_board_view
 		var zone_name: String = "enemy_board" if i == 1 else "board"
 		var fallback: Vector2 = _scene_root.get_viewport().get_visible_rect().size * 0.5
 		for si in range(ZoneState.SLOT_COUNT):
-			var card: CardInstance = _state.players[i].board.slots[si]
+			var card: CardInstance = _seat_player(i).board.slots[si]
 			if card == null:
 				continue
 			var panel_pos: Vector2 = fallback
@@ -204,8 +213,8 @@ static func scaled_duration(base: float, speed_scale: float) -> float:
 func spawn_float_labels(snap: Array[Dictionary]) -> void:
 	var cur_hp: Dictionary = {}
 	for i in range(2):
-		cur_hp["hero_%d" % i] = _state.players[i].hero.health
-		for c: CardInstance in _state.players[i].board.get_cards():
+		cur_hp["hero_%d" % i] = _seat_player(i).hero.health
+		for c: CardInstance in _seat_player(i).board.get_cards():
 			cur_hp[c.instance_id] = c.health
 	for entry: Dictionary in snap:
 		var eid: String = str(entry["id"])
@@ -242,7 +251,7 @@ func spawn_float_label(pos: Vector2, text: String, color: Color) -> void:
 # -------------------------------------------------------------------------
 
 func get_card_panel(card: CardInstance, is_enemy: bool) -> Control:
-	var player: PlayerState = _state.players[1] if is_enemy else _state.players[0]
+	var player: PlayerState = _seat_player(1 if is_enemy else 0)
 	var zv: Node = _enemy_board_view if is_enemy else _player_board_view
 	var slot_idx: int = player.board.slots.find(card)
 	if slot_idx == -1:
@@ -266,8 +275,8 @@ func flash_node(node: Control, flash_color: Color) -> void:
 func flash_from_snapshot(snap: Array[Dictionary]) -> void:
 	var cur_hp: Dictionary = {}
 	for i in range(2):
-		cur_hp["hero_%d" % i] = _state.players[i].hero.health
-		for c: CardInstance in _state.players[i].board.get_cards():
+		cur_hp["hero_%d" % i] = _seat_player(i).hero.health
+		for c: CardInstance in _seat_player(i).board.get_cards():
 			cur_hp[c.instance_id] = c.health
 	for entry: Dictionary in snap:
 		var eid: String = str(entry["id"])
@@ -288,7 +297,7 @@ func flash_from_snapshot(snap: Array[Dictionary]) -> void:
 					break
 				var zv: Node = _enemy_board_view if pi == 1 else _player_board_view
 				for si in range(ZoneState.SLOT_COUNT):
-					var card: CardInstance = _state.players[pi].board.slots[si]
+					var card: CardInstance = _seat_player(pi).board.slots[si]
 					if card != null and card.instance_id == eid:
 						for child in zv.get_children():
 							if child is Control and int(child.get_meta("slot_idx", -1)) == si:
@@ -390,8 +399,8 @@ func trigger_shake(magnitude: float, duration: float) -> void:
 func check_shake(snap: Array[Dictionary]) -> void:
 	var cur_hp: Dictionary = {}
 	for i in range(2):
-		cur_hp["hero_%d" % i] = _state.players[i].hero.health
-		for c: CardInstance in _state.players[i].board.get_cards():
+		cur_hp["hero_%d" % i] = _seat_player(i).hero.health
+		for c: CardInstance in _seat_player(i).board.get_cards():
 			cur_hp[c.instance_id] = c.health
 	var hero_died: bool = false
 	var max_dmg: int = 0
