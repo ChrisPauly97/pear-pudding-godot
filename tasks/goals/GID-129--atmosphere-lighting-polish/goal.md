@@ -20,8 +20,8 @@ Findings: desktop runs Forward+, Android runs Mobile (no volumetric fog/SSAO/GI)
 | TID-487 | Rain Wetness & Lightning | agent | pending | TID-486 |
 | TID-488 | Sun Rays (Volumetric on High, Post-Process Fallback) | agent | pending | TID-484 |
 | TID-489 | Night Point Lights with Flicker | agent | pending | TID-484 |
-| TID-490 | Weather & Time-of-Day Ambience Layers, Music Ducking | agent | pending | — |
-| TID-491 | Terrain-Aware Footsteps | agent | pending | — |
+| TID-490 | Weather & Time-of-Day Ambience Layers, Music Ducking | agent | done | — |
+| TID-491 | Terrain-Aware Footsteps | agent | done | — |
 | TID-492 | Source Real CC0 Audio Files | human-action | pending | — |
 | TID-493 | Small Ambient Touches (Dust, Fireflies, Leaves) | agent | pending | TID-484 |
 

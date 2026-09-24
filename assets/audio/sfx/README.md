@@ -20,7 +20,14 @@ change needed.
 | `chest_open` | Player opens a chest |
 | `scroll_pickup` | Player picks up a lore scroll |
 | `door_enter` | Player enters a door/dungeon |
-| `footstep` | Player footstep (synced to walk animation) |
+| `footstep` | Generic footstep (fallback) |
+| `footstep_grass` | Step on grass (grasslands, forest, town lawns) |
+| `footstep_sand` | Step on sand (desert) |
+| `footstep_stone` | Step on stone/paths, scorched rock, mountain slopes, dungeons, temple |
+| `footstep_snow` | Step on mountain snowfields |
+| `footstep_wood` | Step on wooden floors (home, mansion, guildhall) |
+| `footstep_water` | Step through puddles (rain) |
+| `footstep_hoof` | Mount hoofbeat on hard ground |
 | `nightfall_ambient` | Night falls |
 | `ui_click` | Button press feedback |
 | `land` | Player lands after a jump |

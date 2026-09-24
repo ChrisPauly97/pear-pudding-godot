@@ -2,7 +2,7 @@
 
 **Goal:** GID-129
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -33,12 +33,44 @@ Shared facts (GID-129 research, 2026-09-24):
 
 ## Plan
 
-_Written during Plan phase._
+IsoConst has no water or sand tile (grass, wall, hill, path, cracked), so the surface is a pure
+function of tile + biome + map + weather:
+
+1. New pure module `game_logic/FootstepSurface.gd`:
+   - `surface_for(tile, biome_id, map_name, weather_id)` → `grass` / `sand` / `stone` / `snow` /
+     `wood` / `water`. Overworld: biome base (grasslands/forest grass, desert sand, scorched stone,
+     mountains snow flats + stone hills), path/wall/cracked → stone (desert path stays sand); heavy rain
+     puddles every non-sand step, light rain puddles paths. Named maps: home/mansion/guildhall → wood,
+     temple/dungeons/spire floors → stone, towns → path stone else grass.
+   - `sfx_for(surface, mounted)` → `{key, pitch}`: `footstep_<surface>`; mounted → `footstep_hoof` on
+     hard ground, the surface step pitched down (0.75) on soft ground.
+   - `get_sfx(key)` synth fallbacks for the seven `footstep_*` keys (SfxGen primitives).
+2. `AudioManager`: `footstep_*` in `SFX_PATHS`, fallbacks from FootstepSurface; new
+   `play_sfx_varied(name, pitch=1.0, pitch_jitter=0.08, vol_jitter_db=1.5)`; the SFX setting kept in
+   `_sfx_db` so per-step jitter never leaks into `get_sfx_volume()`; `play_sfx` resets pitch/volume.
+3. `Player.gd`: footstep resolves the tile under the player via `WorldScene.get_tile_global` (typed
+   `current_scene` cast; no WorldScene edit) and biome via `InfiniteWorldGen.biome_for_chunk`; mounted
+   gets a hoof cadence timer (on floor + moving) since the rider sprite doesn't animate.
+4. Remote avatars: skipped (optional; would need per-avatar players for positional audio).
+5. Tests: `tests/unit/test_footstep_surface.gd` (surface table, mounted variants, synth keys).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/FootstepSurface.gd` (new): `surface_for(tile, biome, map, weather)`, `sfx_for(surface, mounted)`,
+  `all_keys()`, and synthesized fallbacks for `footstep_{grass,sand,stone,snow,wood,water,hoof}`.
+- `autoloads/AudioManager.gd`: seven `footstep_*` entries in `SFX_PATHS` with FootstepSurface fallbacks;
+  new `play_sfx_varied(name, pitch, pitch_jitter, vol_jitter_db)`; SFX setting held in `_sfx_db` and every
+  pooled play sets its own pitch/volume (`_play_pooled`), so jitter never leaks into `get_sfx_volume()`.
+- `scenes/world/entities/Player.gd`: `_play_step()` picks the surface underfoot (tile via
+  `WorldScene.get_tile_global` through a typed `current_scene` cast, biome via
+  `InfiniteWorldGen.biome_for_chunk`, weather on main) and plays it varied; mounted players get a 0.26 s
+  hoofbeat cadence (previously silent). No WorldScene edit.
+- `tests/unit/test_footstep_surface.gd` (new): biome ground, paths, rain puddles, named-map floors,
+  mounted variants, every key registered + synthesized.
+- `assets/audio/sfx/README.md`: new keys listed.
+- Remote co-op avatars: not done (optional; would need positional per-avatar players).
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/audio-manager.md`: new "Varied playback and terrain footsteps" section, SFX table rows,
+  Player integration row, FootstepSurface asset row.

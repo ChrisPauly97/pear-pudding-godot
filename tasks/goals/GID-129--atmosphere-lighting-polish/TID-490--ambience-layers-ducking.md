@@ -2,7 +2,7 @@
 
 **Goal:** GID-129
 **Type:** agent
-**Status:** pending
+**Status:** done
 **Depends On:** —
 
 ## Lock
@@ -35,12 +35,46 @@ Shared facts (GID-129 research, 2026-09-24):
 
 ## Plan
 
-_Written during Plan phase._
+1. New pure module `game_logic/AmbienceLayers.gd`: `weather_layer(weather_id)` → loop key
+   (`rain`, `heavy_rain`, `wind`, `sandstorm`, `crackle`, or `""`), `weather_gain(weather_id)`,
+   `time_layer(biome_id, is_day, weather_key)` → `birds` / `crickets` / `owls` / `""` (birds hush
+   under active weather), `next_is_day(time_of_day, was_day)` with a sun-height hysteresis band,
+   `named_map_is_outdoors(map_name)` (dungeons, spire floors, interiors → false), and
+   `LAYER_PATHS` (key → `res://assets/audio/ambience/<key>.ogg`).
+2. New synth fallbacks `game_logic/AmbienceGen.gd` (`get_layer(key)`): seamless loops for each
+   key, built from SfxGen primitives with an in-place overlay mixer (no per-transient realloc).
+3. `AudioManager`: generalise the biome crossfade pair into three layers (biome / weather / time),
+   each a crossfading player pair with its own key + gain; all follow the SFX volume and are
+   retargeted by `set_sfx_volume`. Weather layer from `GameBus.weather_changed` (restored from
+   `WeatherManager.current_weather` when biome ambience resumes); muted on named maps. Time layer
+   from `set_time_of_day(t)` (hysteresis); kept in outdoor towns via `GameBus.entered_named_map`,
+   muted indoors. Battle changes nothing but music.
+4. Music ducking: a duck factor multiplied into the music player volume, tweened down while NPC
+   dialogue is open (`dialogue_state_changed`) or narration is playing, back up afterwards.
+5. WorldScene: one hook line after `_dnc.tick` → `AudioManager.set_time_of_day(...)`.
+6. Tests: `tests/unit/test_ambience_layers.gd` (weather→key table, hysteresis, time layer, indoor
+   check, synth loops valid).
 
 ## Changes Made
 
-_Filled after Build phase._
+- `game_logic/AmbienceLayers.gd` (new): pure rules — weather id → layer key + gain, day/night
+  hysteresis (`next_is_day`, ±0.08 sun height), wildlife per biome with birds hushed under weather,
+  `named_map_is_outdoors`, `music_duck`, `LAYER_PATHS`.
+- `game_logic/AmbienceGen.gd` (new): synthesized seamless loops for `rain`, `heavy_rain`, `wind`,
+  `sandstorm`, `crackle`, `birds`, `crickets`, `owls` (in-place wrap-around overlay mixer).
+- `autoloads/AudioManager.gd`: biome crossfade generalised into three `AmbLayer`s (biome, weather,
+  time) with per-player volume tweens; layers follow and are retargeted by `set_sfx_volume`;
+  weather from `GameBus.weather_changed` (resumed from `WeatherManager.current_weather` on biome
+  entry, muted on named maps); time layer from new `set_time_of_day()`; indoor/outdoor from
+  `GameBus.entered_named_map`; layer changes deferred while in `BATTLE`. Music ducking under dialogue
+  and narration via a tweened duck multiplier; `get_music_volume()` now returns the user setting.
+  New `get_ambience_keys()`, `get_music_duck()`.
+- `scenes/world/WorldScene.gd`: one hook line after `_dnc.tick` → `AudioManager.set_time_of_day`.
+- `tests/unit/test_ambience_layers.gd` (new): mapping, every WeatherManager id mapped, hysteresis,
+  wildlife table, indoor maps, synth loops, duck levels.
+- `assets/audio/ambience/README.md`: new layer files listed.
 
 ## Documentation Updates
 
-_What was updated in agent docs._
+- `docs/agent/audio-manager.md`: new "Layered Ambience" and "Music Ducking" sections, integration rows,
+  asset rows for the eight new optional loops.
