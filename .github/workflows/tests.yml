@@ -84,12 +84,23 @@ jobs:
       # mounted node or let a layout settle. These two stand up the real scenes
       # and drive frames, which is the only way layout and RPC-dispatch bugs
       # surface — both classes look like clean passes to the suite above.
+      # coop_pve_ai_turn_smoke stands up a real co-op BattleScene without peers.
       # The net_*_smoke tests are deliberately not here: they need ENet loopback.
+      # Same SCRIPT ERROR gate as the suite: a smoke test can exit 0 while its
+      # scene logs runtime errors (the battle view once rendered against a null
+      # GameState in every networked and resumed battle, and no one noticed).
       - name: Run scene smoke tests
         run: |
-          godot --headless --path . -s tests/world_scene_smoke.gd
-          godot --headless --path . -s tests/menu_hub_smoke.gd
-          godot --headless --path . -s tests/spire_draft_smoke.gd
+          set -o pipefail
+          for t in world_scene_smoke menu_hub_smoke spire_draft_smoke coop_pve_ai_turn_smoke; do
+            godot --headless --path . -s tests/$t.gd 2>&1 | tee /tmp/$t.log
+            ERRORS=$(grep -A2 "SCRIPT ERROR" /tmp/$t.log || true)
+            if [ -n "$ERRORS" ]; then
+              echo "::error::$t logged runtime script errors:"
+              echo "$ERRORS"
+              exit 1
+            fi
+          done
 
   lint:
     name: gdlint

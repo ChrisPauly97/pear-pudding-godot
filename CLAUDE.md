@@ -523,6 +523,9 @@ Two independent errors made every bearing on the ribbon a lie. (1) The ribbon ce
 ### Tests that passed while testing nothing (claude/codebase-refinement-gml1gg)
 GDScript has no exceptions: a runtime error aborts the test function before its asserts, and the runner still counts a pass. 15 `SCRIPT ERROR`s hid in a green run — assigning an untyped `[]` to an `Array[String]` property (use `.assign()`), a key that `to_dict()` never wrote, and two real game bugs: `LandmarkNames.get_name(cx, cz, seed)` resolved to `Resource.get_name()` (so landmark discovery errored before its reward — **never name a static after an inherited `Object`/`Resource` method**) and a stray `sync_stacks` line. CI now fails if the test log contains any `SCRIPT ERROR`; check for it locally too.
 
+### Battle view rendered against a null GameState (claude/refactor-targets-lint-ivoueg)
+`BattleFx` and `CardViewBuilder` cache the `GameState`, but only the solo setup and the net mirror refreshed it. Every other entry path (resumed save, puzzle, scripted, and the initial render of PvP / co-op / team battles) rendered against `null`: hand cards lost affordability styling and damage FX silently aborted. Both also hard-coded `players[0]`/`players[1]` as local/enemy, wrong for a PvP client (local idx 1) and for co-op (boss at the last index). Fix: `BattleScene._bind_state()` runs once after the setup chain and wherever `_state` is replaced, and the helpers map view seats through `_seat_idx()`. The smoke tests exited 0 through all of it (hundreds of `SCRIPT ERROR`s), so CI's scene-smoke step now fails on any. Also: `get_meta(key, null)` is **not** a default. Godot treats a `null` default as "none" and logs an error, so use `has_meta` first.
+
 ---
 
 ## Documentation: docs/agent/ Directory

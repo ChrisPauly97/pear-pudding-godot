@@ -2,6 +2,7 @@
 # BID-053 lint debt: oversized script. Shrink it by extraction; don't add to it.
 extends RefCounted
 
+const PlayerState = preload("res://game_logic/battle/PlayerState.gd")
 const CardInstance = preload("res://game_logic/battle/CardInstance.gd")
 const SpellEffectLabels = preload("res://game_logic/battle/SpellEffectLabels.gd")
 const HeroState = preload("res://game_logic/battle/HeroState.gd")
@@ -26,6 +27,7 @@ var _make_card_view_fn: Callable    # BattleScene._make_card_view(card, zone_id)
 
 # Set once when the GameState is built
 var _state: GameState
+var _seat_idx_fn: Callable = Callable()
 var _enemy_data: Dictionary
 
 # Refreshed by BattleScene before each _refresh_all() call
@@ -59,9 +61,16 @@ func setup(
 func _font(pct: float) -> int:
 	return int(_vh * pct * _text_scale)
 
-func set_battle_state(state: GameState, enemy_data: Dictionary) -> void:
+## `seat_idx_fn` maps seat 0 (local) / 1 (shown opponent) to a `state.players`
+## index. See BattleFx.set_game_state.
+func set_battle_state(state: GameState, enemy_data: Dictionary, seat_idx_fn: Callable = Callable()) -> void:
 	_state = state
 	_enemy_data = enemy_data
+	_seat_idx_fn = seat_idx_fn
+
+func _seat_player(seat: int) -> PlayerState:
+	var idx: int = int(_seat_idx_fn.call(seat)) if _seat_idx_fn.is_valid() else seat
+	return _state.players[idx]
 
 func update_context(
 	targeting_active: bool,
@@ -212,7 +221,7 @@ func _setup_empty_slot_panel(panel: PanelContainer, slot_idx: int, zone_id: Stri
 		panel.gui_input.connect(func(ev: InputEvent) -> void: _on_empty_slot_fn.call(ev, idx))
 
 func _apply_empty_slot_style(panel: PanelContainer, _slot_idx: int, zone_id: String, enh: Dictionary) -> void:
-	var style: StyleBoxFlat = panel.get_meta("card_style", null) as StyleBoxFlat
+	var style: StyleBoxFlat = (panel.get_meta("card_style") if panel.has_meta("card_style") else null) as StyleBoxFlat
 	if style == null:
 		return
 	var is_enemy: bool = (zone_id == "enemy_board")
@@ -226,7 +235,7 @@ func _apply_empty_slot_style(panel: PanelContainer, _slot_idx: int, zone_id: Str
 	elif _slot_targeting_spell != null and not is_enemy:
 		style.border_color = Color.CYAN
 		style.set_border_width_all(4)
-	elif _hand_drag_card != null and not is_enemy and _state.players[0].can_play(_hand_drag_card):
+	elif _hand_drag_card != null and not is_enemy and _seat_player(0).can_play(_hand_drag_card):
 		style.border_color = Color(0.3, 1.0, 0.5, 1.0)
 		style.set_border_width_all(3)
 	elif _slot_select_card != null and not is_enemy:
@@ -236,7 +245,7 @@ func _apply_empty_slot_style(panel: PanelContainer, _slot_idx: int, zone_id: Str
 		style.border_color = Color(0.35, 0.35, 0.42, 0.7) if is_enemy else Color(0.4, 0.4, 0.5, 0.8)
 
 func _apply_slot_enhancement_border(panel: Control, enh: Dictionary) -> void:
-	var style: StyleBoxFlat = panel.get_meta("card_style", null) as StyleBoxFlat
+	var style: StyleBoxFlat = (panel.get_meta("card_style") if panel.has_meta("card_style") else null) as StyleBoxFlat
 	if style == null:
 		return
 	if style.border_width_top > 0:
@@ -280,7 +289,7 @@ func update_card_view(panel: PanelContainer, card: CardInstance, zone_id: String
 		name_lbl.text = card.name
 		var stats_lbl: Label = vbox.get_node_or_null("StatsLabel") as Label
 		if stats_lbl:
-			var eff_cost: int = _state.players[0].effective_cost(card) if zone_id == "hand" else card.cost
+			var eff_cost: int = _seat_player(0).effective_cost(card) if zone_id == "hand" else card.cost
 			stats_lbl.text = format_card_stats(card, eff_cost)
 			if zone_id == "hand" and eff_cost < card.cost:
 				stats_lbl.add_theme_color_override("font_color", Color(0.3, 1.0, 0.5))
@@ -374,7 +383,7 @@ func build_card_vbox(card: CardInstance, with_status_row: bool = false) -> VBoxC
 ## border. Kept in the panel's "card_style" meta so recolouring a card mutates
 ## the live box instead of allocating a new one every refresh.
 static func attach_card_style(panel: PanelContainer) -> StyleBoxFlat:
-	var style: StyleBoxFlat = panel.get_meta("card_style", null) as StyleBoxFlat
+	var style: StyleBoxFlat = (panel.get_meta("card_style") if panel.has_meta("card_style") else null) as StyleBoxFlat
 	if style == null:
 		style = StyleBoxFlat.new()   # bg_color left at the engine default until apply_card_style runs
 		style.set_corner_radius_all(4)
@@ -390,9 +399,9 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 	style.border_width_right = 0
 	var tmpl: Dictionary = CardRegistry.get_template_for_face(card.template_id, card.active_face)
 	style.bg_color = tmpl.get("color", Color(0.3, 0.3, 0.3)) if not tmpl.is_empty() else Color(0.3, 0.3, 0.3)
-	if zone_id == "hand" and not _state.players[0].can_play(card):
+	if zone_id == "hand" and not _seat_player(0).can_play(card):
 		style.bg_color = style.bg_color.darkened(0.5)
-	elif zone_id == "hand" and _state.players[0].effective_cost(card) < card.cost:
+	elif zone_id == "hand" and _seat_player(0).effective_cost(card) < card.cost:
 		style.border_color = Color(0.3, 1.0, 0.5, 0.8)
 		style.border_width_top = 2
 		style.border_width_bottom = 2
@@ -411,7 +420,7 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 		style.border_width_left = 4
 		style.border_width_right = 4
 	elif zone_id == "enemy_board" and not _dragged_card.is_empty():
-		var valid_targets: Array[CardInstance] = get_ward_valid_targets(_state.players[1].board.get_cards())
+		var valid_targets: Array[CardInstance] = get_ward_valid_targets(_seat_player(1).board.get_cards())
 		if not valid_targets.has(card):
 			style.bg_color = style.bg_color.darkened(0.45)
 	elif zone_id == "board" and not _dragged_card.is_empty() and _dragged_card.get("card") == card:
@@ -428,7 +437,7 @@ func apply_card_style(panel: PanelContainer, card: CardInstance, zone_id: String
 	elif zone_id == "board" and _targeting_active and _targeting_friendly:
 		show_mark = true
 	elif zone_id == "enemy_board" and not _dragged_card.is_empty():
-		var mark_targets: Array[CardInstance] = get_ward_valid_targets(_state.players[1].board.get_cards())
+		var mark_targets: Array[CardInstance] = get_ward_valid_targets(_seat_player(1).board.get_cards())
 		show_mark = mark_targets.has(card)
 	_target_mark(panel, _font(0.018)).visible = show_mark
 
@@ -548,7 +557,7 @@ func refresh_hero(hero_node: Node, hero: HeroState, is_enemy: bool, hand_count: 
 	style.corner_radius_bottom_right = 6
 	var ward_blocks_hero: bool = false
 	if is_enemy and not _dragged_card.is_empty():
-		for ec: CardInstance in _state.players[1].board.get_cards():
+		for ec: CardInstance in _seat_player(1).board.get_cards():
 			if ec.keywords.has(Keywords.WARD):
 				ward_blocks_hero = true
 				break

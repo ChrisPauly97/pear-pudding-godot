@@ -359,6 +359,10 @@ func _ready() -> void:
 		SceneManager.save_manager.clear_pending_battle_state()
 	else:
 		_setup_solo_battle()
+	# Every entry path above builds its own `_state`; re-point the helpers that
+	# cache it here, once, rather than in each branch (puzzle, scripted, resume and
+	# the networked setups used to skip it and render against a null state).
+	_bind_state()
 
 	# Initialise capture tracker for the current enemy (no-op for puzzles/duels/PvP/ghost duels).
 	if not _state.puzzle_mode and not _state.friendly_duel and not _pvp and not _ghost_duel and not _state.scripted_battle:
@@ -541,8 +545,23 @@ func _setup_solo_battle() -> void:
 	# Must run after enemy deck is built so spells target the real enemy.
 	_resolver.flush_auto_spells(0)
 
-	_fx.set_game_state(_state)
-	_view.set_battle_state(_state, enemy_data)
+	_bind_state()
+
+## Points every helper that caches the GameState at the current `_state`. Call it
+## whenever `_state` is replaced (GID-040 pattern): the resolver applies effects to
+## it, and BattleFx / CardViewBuilder render from it by view seat.
+func _bind_state() -> void:
+	_resolver.setup(_state)
+	_fx.set_game_state(_state, _seat_idx)
+	_view.set_battle_state(_state, enemy_data, _seat_idx)
+
+## View seat → `_state.players` index: seat 0 is the local player, seat 1 the
+## opponent shown on the enemy side (`_opp_idx`, which follows co-op boss and
+## team-duel focus).
+func _seat_idx(seat: int) -> int:
+	if _my_idx() < 0:
+		return seat  # headless referee has no local side: keep canonical order
+	return _my_idx() if seat == 0 else _opp_idx()
 
 func _wire_gamebus_emitter() -> void:
 	_state.inject_gamebus_emitter(func(pid: int, dmg: int) -> void:
@@ -1204,9 +1223,8 @@ func _collect_veterancy_data() -> Dictionary:
 func _show_puzzle_fail() -> void:
 	_state = GameState.new()
 	_state.load_puzzle(_puzzle_data_ref)
-	_resolver.setup(_state)
+	_bind_state()
 	_wire_gamebus_emitter()
-	_view.set_battle_state(_state, enemy_data)
 	_refresh_all()
 	var pd: Resource = _puzzle_data_ref
 	var hint_text: String = pd.get("hint_text") if pd != null else ""
