@@ -132,6 +132,7 @@
 | [GID-126](goals/GID-126--battle-board-backdrop/goal.md) | Battle Board Backdrop | done | 2 / 2 |
 | [GID-127](goals/GID-127--verdant-rift-magic-types/goal.md) | Verdant & Rift Magic Types | done | 5 / 5 |
 | [GID-128](goals/GID-128--magic-cosmology/goal.md) | Magic Cosmology — Tying the Orphan Systems Together | done | 2 / 2 |
+| [GID-129](goals/GID-129--atmosphere-lighting-polish/goal.md) | Atmosphere & Lighting Polish | pending | 0 / 10 |
 
 ## Backlog
 
@@ -143,6 +144,7 @@ files in `tasks/archive/backlog/`.
 | [BID-015](backlog/BID-015--no-localization-infrastructure.md) | No localization / translation infrastructure; all UI strings hardcoded — **out of scope for v1** | spec-gap | GID-070 research |
 | [BID-024](backlog/BID-024--coop-map-has-no-enemies-chests.md) | Co-op map (madrian) has no enemies/chests, so GID-096 world sync is dormant in practice (system verified by smoke test) — **being addressed by GID-098** (multi-map co-op story) and **GID-102 / TID-380** (shared procedural dungeon crawl with real enemies/chests) | content-gap | GID-096 |
 | [BID-055](backlog/BID-055--worldscene-god-object.md) | `WorldScene.gd` god-object decomposition, slice 1/3 done (co-op/net cluster folded into `CoopSession.gd`, line-ceiling guardrail added); original 9154/401 census was stale — see file's Progress section for real numbers and slices 2-3 (`_spawn_*`, `_start_*`) | code-smell | GID-123 research |
+| [BID-060](backlog/BID-060--unshaded-world-ignores-lights.md) | Grass, props, landmarks and WorldItem are unshaded, so they ignore sun shadows and point lights | design-inconsistency | GID-129 research |
 
 ## Resolved Backlog
 
