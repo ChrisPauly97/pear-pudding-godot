@@ -7,6 +7,8 @@
 ## timer is needed — only the pure data-manipulation helpers are exercised.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
 var _sm: Node
@@ -23,29 +25,29 @@ func after_each() -> void:
 
 func test_migration_adds_spire_run_to_old_save() -> void:
 	var data: Dictionary = {"version": 15}
-	SaveManagerScript._migrate_v15_to_v16(data)
+	_SaveMigrations.apply(data, 16)
 	assert_true(data.has("spire_run"), "spire_run key must be present after migration")
 
 func test_migration_default_spire_run_is_inactive() -> void:
 	var data: Dictionary = {"version": 15}
-	SaveManagerScript._migrate_v15_to_v16(data)
+	_SaveMigrations.apply(data, 16)
 	assert_false(bool(data["spire_run"].get("active", true)), "default spire_run.active must be false")
 
 func test_migration_bumps_version_to_16() -> void:
 	var data: Dictionary = {"version": 15}
-	SaveManagerScript._migrate_v15_to_v16(data)
+	_SaveMigrations.apply(data, 16)
 	assert_eq(data["version"], 16)
 
 func test_migration_does_not_overwrite_existing_spire_run() -> void:
 	var existing: Dictionary = {"active": true, "floor": 3}
 	var data: Dictionary = {"version": 15, "spire_run": existing}
-	SaveManagerScript._migrate_v15_to_v16(data)
+	_SaveMigrations.apply(data, 16)
 	assert_true(bool(data["spire_run"].get("active", false)), "existing active run must be preserved")
 	assert_eq(data["spire_run"].get("floor", 0), 3)
 
 func test_apply_migrations_reaches_current_from_v15() -> void:
 	var data: Dictionary = {"version": 15}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(data.get("version", 0), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("spire_run"))
 	assert_true(data.has("spire_best_floor"))
@@ -199,22 +201,22 @@ func test_end_fresh_run_floors_cleared_zero() -> void:
 
 func test_migration_v16_v17_adds_spire_best_floor() -> void:
 	var data: Dictionary = {"version": 16, "spire_run": {"active": false}}
-	SaveManagerScript._migrate_v16_to_v17(data)
+	_SaveMigrations.apply(data, 17)
 	assert_true(data.has("spire_best_floor"))
 
 func test_migration_v16_v17_default_best_floor_is_zero() -> void:
 	var data: Dictionary = {"version": 16, "spire_run": {"active": false}}
-	SaveManagerScript._migrate_v16_to_v17(data)
+	_SaveMigrations.apply(data, 17)
 	assert_eq(int(data.get("spire_best_floor", -1)), 0)
 
 func test_migration_v16_v17_bumps_version() -> void:
 	var data: Dictionary = {"version": 16}
-	SaveManagerScript._migrate_v16_to_v17(data)
+	_SaveMigrations.apply(data, 17)
 	assert_eq(data["version"], 17)
 
 func test_apply_migrations_reaches_current_from_v16() -> void:
 	var data: Dictionary = {"version": 16, "spire_run": {"active": false}}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(int(data.get("version", 0)), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("spire_best_floor"))
 

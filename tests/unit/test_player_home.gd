@@ -6,6 +6,8 @@
 ## TrophyRegistry predicate evaluation, and respawn helper methods.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const TrophyRegistry    = preload("res://game_logic/TrophyRegistry.gd")
 
@@ -23,22 +25,22 @@ func after_each() -> void:
 
 func test_migration_v21_v22_adds_home_owned() -> void:
 	var data: Dictionary = {"version": 21}
-	SaveManagerScript._migrate_v21_to_v22(data)
+	_SaveMigrations.apply(data, 22)
 	assert_true(data.has("home_owned"), "home_owned key must exist after v22 migration")
 
 func test_migration_v21_v22_defaults_home_owned_false() -> void:
 	var data: Dictionary = {"version": 21}
-	SaveManagerScript._migrate_v21_to_v22(data)
+	_SaveMigrations.apply(data, 22)
 	assert_false(bool(data["home_owned"]), "home_owned default must be false")
 
 func test_migration_v21_v22_bumps_version() -> void:
 	var data: Dictionary = {"version": 21}
-	SaveManagerScript._migrate_v21_to_v22(data)
+	_SaveMigrations.apply(data, 22)
 	assert_eq(data["version"], 22)
 
 func test_migration_v21_v22_preserves_existing_home_owned_true() -> void:
 	var data: Dictionary = {"version": 21, "home_owned": true}
-	SaveManagerScript._migrate_v21_to_v22(data)
+	_SaveMigrations.apply(data, 22)
 	assert_true(bool(data["home_owned"]), "existing home_owned = true must be preserved")
 
 # ---------------------------------------------------------------------------
@@ -47,34 +49,34 @@ func test_migration_v21_v22_preserves_existing_home_owned_true() -> void:
 
 func test_migration_v22_v23_adds_respawn_map() -> void:
 	var data: Dictionary = {"version": 22}
-	SaveManagerScript._migrate_v22_to_v23(data)
+	_SaveMigrations.apply(data, 23)
 	assert_true(data.has("respawn_map"), "respawn_map must exist after v23 migration")
 
 func test_migration_v22_v23_defaults_respawn_map_empty() -> void:
 	var data: Dictionary = {"version": 22}
-	SaveManagerScript._migrate_v22_to_v23(data)
+	_SaveMigrations.apply(data, 23)
 	assert_eq(str(data["respawn_map"]), "")
 
 func test_migration_v22_v23_adds_respawn_x_and_z() -> void:
 	var data: Dictionary = {"version": 22}
-	SaveManagerScript._migrate_v22_to_v23(data)
+	_SaveMigrations.apply(data, 23)
 	assert_true(data.has("respawn_x"), "respawn_x must exist")
 	assert_true(data.has("respawn_z"), "respawn_z must exist")
 
 func test_migration_v22_v23_defaults_respawn_coords_zero() -> void:
 	var data: Dictionary = {"version": 22}
-	SaveManagerScript._migrate_v22_to_v23(data)
+	_SaveMigrations.apply(data, 23)
 	assert_eq(float(data["respawn_x"]), 0.0)
 	assert_eq(float(data["respawn_z"]), 0.0)
 
 func test_migration_v22_v23_bumps_version() -> void:
 	var data: Dictionary = {"version": 22}
-	SaveManagerScript._migrate_v22_to_v23(data)
+	_SaveMigrations.apply(data, 23)
 	assert_eq(data["version"], 23)
 
 func test_apply_migrations_reaches_v23_from_v21() -> void:
 	var data: Dictionary = {"version": 21}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(int(data.get("version", 0)), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("home_owned"))
 	assert_true(data.has("respawn_map"))

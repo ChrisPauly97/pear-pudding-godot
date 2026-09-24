@@ -1,6 +1,8 @@
 ## Unit tests for SaveManager siege state management and v30→v31 migration.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
 var _sm: Node
@@ -18,34 +20,34 @@ func after_each() -> void:
 
 func test_migration_adds_siege_field() -> void:
 	var data: Dictionary = {"version": 30}
-	SaveManagerScript._migrate_v30_to_v31(data)
+	_SaveMigrations.apply(data, 31)
 	assert_true(data.has("siege"))
 
 func test_migration_siege_default_is_empty_dict() -> void:
 	var data: Dictionary = {"version": 30}
-	SaveManagerScript._migrate_v30_to_v31(data)
+	_SaveMigrations.apply(data, 31)
 	assert_eq(data["siege"], {})
 
 func test_migration_adds_last_siege_day() -> void:
 	var data: Dictionary = {"version": 30}
-	SaveManagerScript._migrate_v30_to_v31(data)
+	_SaveMigrations.apply(data, 31)
 	assert_true(data.has("last_siege_day"))
 	assert_eq(data["last_siege_day"], 0)
 
 func test_migration_adds_town_discounts() -> void:
 	var data: Dictionary = {"version": 30}
-	SaveManagerScript._migrate_v30_to_v31(data)
+	_SaveMigrations.apply(data, 31)
 	assert_true(data.has("town_discounts"))
 	assert_eq(data["town_discounts"], {})
 
 func test_migration_bumps_version_to_31() -> void:
 	var data: Dictionary = {"version": 30}
-	SaveManagerScript._migrate_v30_to_v31(data)
+	_SaveMigrations.apply(data, 31)
 	assert_eq(data["version"], 31)
 
 func test_apply_migrations_reaches_31_from_v30() -> void:
 	var data: Dictionary = {"version": 30}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(data.get("version", 0), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("siege"))
 	assert_true(data.has("last_siege_day"))

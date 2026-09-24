@@ -6,6 +6,8 @@
 ## pity counter logic, save migration, SaveManager pity helpers.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const PackDefs        = preload("res://game_logic/PackDefs.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const CardRegistry    = preload("res://autoloads/CardRegistry.gd")
@@ -210,32 +212,32 @@ func test_reset_pity_on_zero_is_noop() -> void:
 
 func test_migration_v24_to_v25_adds_field() -> void:
 	var data: Dictionary = {"version": 24}
-	SaveManagerScript._migrate_v24_to_v25(data)
+	_SaveMigrations.apply(data, 25)
 	assert_true(data.has("packs_since_legendary"), "migration must add packs_since_legendary")
 
 func test_migration_v24_to_v25_defaults_to_zero() -> void:
 	var data: Dictionary = {"version": 24}
-	SaveManagerScript._migrate_v24_to_v25(data)
+	_SaveMigrations.apply(data, 25)
 	assert_eq(data["packs_since_legendary"], 0)
 
 func test_migration_v24_to_v25_bumps_version() -> void:
 	var data: Dictionary = {"version": 24}
-	SaveManagerScript._migrate_v24_to_v25(data)
+	_SaveMigrations.apply(data, 25)
 	assert_eq(data["version"], 25)
 
 func test_migration_v24_to_v25_preserves_existing_value() -> void:
 	var data: Dictionary = {"version": 24, "packs_since_legendary": 12}
-	SaveManagerScript._migrate_v24_to_v25(data)
+	_SaveMigrations.apply(data, 25)
 	assert_eq(data["packs_since_legendary"], 12, "existing value must not be overwritten")
 
 func test_apply_migrations_reaches_v25_from_v24() -> void:
 	var data: Dictionary = {"version": 24}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(data.get("version", 0), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("packs_since_legendary"))
 
 func test_apply_migrations_reaches_v25_from_zero() -> void:
 	var data: Dictionary = {"version": 0}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(data.get("version", 0), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("packs_since_legendary"))

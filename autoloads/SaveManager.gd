@@ -10,10 +10,11 @@ const _EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _CardInstanceUtil = preload("res://game_logic/CardInstanceUtil.gd")
 const _SpireFloorGen = preload("res://game_logic/spire/SpireFloorGen.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+const _SaveFile = preload("res://game_logic/save/SaveFile.gd")
 
 const LEGACY_SAVE_PATH := "user://save.json"
 const NUM_SAVE_SLOTS: int = 3
-const _HMAC_SECRET: String = "7e3f91c4b8d20a5e6f19c7b3d4e8f201"
 
 # Named deck loadouts (up to MAX_LOADOUTS). Each entry: {name: String, cards: Array[String]}.
 const MAX_LOADOUTS: int = 5
@@ -65,7 +66,7 @@ const PERSISTED_FIELDS: Dictionary = {
 }
 const SAVE_INTERVAL: float = 2.0  # batch disk writes at most every 2 seconds
 
-const CURRENT_SAVE_VERSION: int = 41
+const CURRENT_SAVE_VERSION: int = _SaveMigrations.CURRENT_VERSION
 
 const REDEMPTION_FLAG_AWARDS: Dictionary = {
 	"chapter1_left_madrian": 5,
@@ -289,15 +290,6 @@ var _async_save_task: int = -1
 var _achievement_slot: int = -1
 var _achievement_dirty: bool = false
 
-func _get_slot_path(slot: int) -> String:
-	return "user://save_slot_%d.json" % slot
-
-func _get_slot_tmp_path(slot: int) -> String:
-	return "user://save_slot_%d.json.tmp" % slot
-
-func _get_slot_bak_path(slot: int) -> String:
-	return "user://save_slot_%d.json.bak" % slot
-
 func _ready() -> void:
 	var timer := Timer.new()
 	timer.wait_time = SAVE_INTERVAL
@@ -308,11 +300,11 @@ func _ready() -> void:
 	if FileAccess.file_exists(LEGACY_SAVE_PATH):
 		var any_exists: bool = false
 		for s: int in range(1, NUM_SAVE_SLOTS + 1):
-			if FileAccess.file_exists(_get_slot_path(s)):
+			if FileAccess.file_exists(_SaveFile.slot_path(s)):
 				any_exists = true
 				break
 		if not any_exists:
-			DirAccess.copy_absolute(LEGACY_SAVE_PATH, _get_slot_path(1))
+			DirAccess.copy_absolute(LEGACY_SAVE_PATH, _SaveFile.slot_path(1))
 
 # -------------------------------------------------------------------------
 # Save slot API
@@ -322,10 +314,10 @@ func set_active_slot(slot: int) -> void:
 	active_slot = clamp(slot, 1, NUM_SAVE_SLOTS)
 
 func has_save_slot(slot: int) -> bool:
-	return FileAccess.file_exists(_get_slot_path(slot))
+	return FileAccess.file_exists(_SaveFile.slot_path(slot))
 
 func get_slot_metadata(slot: int) -> Dictionary:
-	var parsed = _read_save_json(_get_slot_path(slot))
+	var parsed = _SaveFile.read_json(_SaveFile.slot_path(slot))
 	if not parsed is Dictionary:
 		return {}
 	var data: Dictionary = parsed
@@ -338,10 +330,10 @@ func get_slot_metadata(slot: int) -> Dictionary:
 
 func delete_save_slot(slot: int) -> void:
 	_await_async_save()  # don't let a background flush resurrect the file
-	var path: String = _get_slot_path(slot)
+	var path: String = _SaveFile.slot_path(slot)
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
-	var bak: String = _get_slot_bak_path(slot)
+	var bak: String = _SaveFile.slot_bak_path(slot)
 	if FileAccess.file_exists(bak):
 		DirAccess.remove_absolute(bak)
 
@@ -385,24 +377,14 @@ func _await_async_save() -> void:
 ## Write only achievement fields into the on-disk save for the given slot.
 ## Used during co-op sessions where _loaded = false blocks the normal save() path.
 func _flush_achievements(slot: int) -> void:
-	var path: String = _get_slot_path(slot)
-	var parsed = _read_save_json(path)
+	var path: String = _SaveFile.slot_path(slot)
+	var parsed = _SaveFile.read_json(path)
 	if not parsed is Dictionary:
 		return
 	var data: Dictionary = parsed
 	data["achievement_progress"] = achievement_progress
 	data["unlocked_achievements"] = unlocked_achievements
-	var tmp_path: String = _get_slot_tmp_path(slot)
-	var bak_path: String = _get_slot_bak_path(slot)
-	var inner_json: String = JSON.stringify(data, "\t")
-	var tmp_file := FileAccess.open(tmp_path, FileAccess.WRITE)
-	if not tmp_file:
-		return
-	tmp_file.store_string(JSON.stringify({"hmac": _sign(inner_json), "payload": inner_json}))
-	tmp_file = null
-	if FileAccess.file_exists(path):
-		DirAccess.copy_absolute(path, bak_path)
-	DirAccess.rename_absolute(tmp_path, path)
+	_SaveFile.write_slot(data, slot)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST \
@@ -653,261 +635,6 @@ func export_session_character() -> Dictionary:
 		"equipped_armor": equipped_armor,
 	}
 
-# Each entry is [target_version, payload] where payload is either:
-#   Dictionary — {field: default} backfill applied when ver < target
-#   Callable   — func(data: Dictionary) for non-trivial format changes (must bump data["version"])
-# Entries are in ascending version order; ver is read once so all needed migrations
-# run in a single pass even when multiple versions are skipped.
-static func _apply_migrations(data: Dictionary) -> void:
-	var ver: int = int(data.get("version", 0))
-
-	var _m1: Callable = func(d: Dictionary) -> void:
-		if not d.has("owned_cards"):
-			d["owned_cards"] = d.get("player_deck", [])
-		d["version"] = 1
-
-	var _m10: Callable = func(d: Dictionary) -> void:
-		var old_owned: Array = d.get("owned_cards", [])
-		var old_deck: Array = d.get("player_deck", [])
-		var new_instances: Array = []
-		var counter: int = 0
-		for item in old_owned:
-			var tid: String = str(item)
-			var tmpl: Dictionary = CardRegistry.get_template(tid)
-			var uid: String = "%s_v10_%d" % [tid, counter]
-			counter += 1
-			new_instances.append({"uid": uid, "template_id": tid, "rarity": "common",
-				"attack": int(tmpl.get("attack", 1)), "health": int(tmpl.get("health", 1)),
-				"cost": int(tmpl.get("cost", 1))})
-		var used_uids: Dictionary = {}
-		var new_deck: Array = []
-		for deck_item in old_deck:
-			var deck_tid: String = str(deck_item)
-			for inst: Dictionary in new_instances:
-				var iuid: String = str(inst.get("uid", ""))
-				if str(inst.get("template_id", "")) == deck_tid and not used_uids.has(iuid):
-					new_deck.append(iuid)
-					used_uids[iuid] = true
-					break
-		d["owned_cards"] = new_instances
-		d["player_deck"] = new_deck
-		d["essence"] = 0
-		d["version"] = 10
-
-	var _m30: Callable = func(d: Dictionary) -> void:
-		if d.has("owned_weapons"):
-			var old_weapons: Array = d["owned_weapons"]
-			var new_weapons: Array = []
-			for item in old_weapons:
-				if item is Dictionary:
-					new_weapons.append(item)
-				else:
-					new_weapons.append({"weapon_id": str(item), "upgrade_level": 0})
-			d["owned_weapons"] = new_weapons
-		d["version"] = 30
-
-	var _m34: Callable = func(d: Dictionary) -> void:
-		if not d.has("loadouts"):
-			var existing_deck: Array = d.get("player_deck", [])
-			d["loadouts"] = [{"name": "Deck 1", "cards": existing_deck.duplicate()}]
-			d["active_loadout"] = 0
-		d["version"] = 34
-
-	var _m35: Callable = func(d: Dictionary) -> void:
-		var cards: Array = d.get("owned_cards", [])
-		for i: int in range(cards.size()):
-			if not cards[i] is Dictionary:
-				continue
-			var card: Dictionary = cards[i]
-			if not card.has("kills"):            card["kills"] = 0
-			if not card.has("battles_survived"): card["battles_survived"] = 0
-			if not card.has("custom_name"):      card["custom_name"] = ""
-		if not d.has("captured_signatures"):
-			d["captured_signatures"] = []
-		d["version"] = 35
-
-	var table: Array = [
-		[1,  _m1],
-		[2,  {"world_seed": 42, "starting_biome": 0}],
-		[3,  {"story_flags": {}}],
-		[4,  {"days_elapsed": 0, "last_respawn_day": 0}],
-		[5,  {"equipped_weapon": ""}],
-		[6,  {"collected_scrolls": []}],
-		[7,  {"owned_weapons": []}],
-		[8,  {"settings": {}, "achievement_progress": {}, "unlocked_achievements": [], "visited_biomes": []}],
-		[9,  {"visited_dungeon_rooms": []}],
-		[10, _m10],
-		[11, {"equipped_armor": "", "equipped_ring": "", "equipped_trinket": "",
-			  "owned_armor": [], "owned_rings": [], "owned_trinkets": []}],
-		[12, {"xp": 0, "level": 1, "skill_points": 0, "unlocked_skills": []}],
-		[13, {"magic_type": "", "corruption_points": 0, "redemption_points": 0}],
-		[14, {"pending_battle_state": {}}],
-		[15, {"defeated_duelists": []}],
-		[16, {"spire_run": {"active": false}}],
-		[17, {"spire_best_floor": 0}],
-		[18, {"solved_puzzles": [], "world_events": {}}],
-		[19, {"weather": {"id": "", "duration": 0.0, "biome_id": 0}}],
-		[20, {"treasure_fragments": 0, "active_treasure": {}, "treasures_completed": 0}],
-		[21, {"activated_waystones": []}],
-		[22, {"bestiary": {}, "bestiary_complete_rewarded": false, "home_owned": false}],
-		[23, {"respawn_map": "", "respawn_x": 0.0, "respawn_z": 0.0}],
-		[24, {"owned_mounts": [], "active_mount": "", "is_mounted": false}],
-		[25, {"packs_since_legendary": 0}],
-		[26, {"active_companion": ""}],
-		[27, {"waypoint": {}}],
-		[28, {"bounty_day": 0, "offered_bounties": [], "active_bounties": []}],
-		[29, {"bag_size": IsoConst.BAG_SIZE_DEFAULT}],
-		[30, _m30],
-		[31, {"siege": {}, "last_siege_day": 0, "town_discounts": {}}],
-		[32, {"rival_encounters_won": 0, "rival_defeated": false}],
-		[33, {"garden_plots": [{}, {}, {}], "seeds": {}, "plants": {}, "potions": {}}],
-		[34, _m34],
-		[35, _m35],
-		[36, {"cantrip_cooldowns": {}}],
-		[37, {"dug_mounds": []}],
-		[38, {"blight_cleansed_hearts": []}],
-		[39, {"discovered_landmarks": []}],
-		[40, {"collected_mana_wells": []}],
-		[41, {"mailbox_cards": []}],
-	]
-	for entry: Array in table:
-		var target: int = entry[0]
-		var payload: Variant = entry[1]
-		if ver < target:
-			if payload is Dictionary:
-				for k: String in (payload as Dictionary).keys():
-					if not data.has(k):
-						data[k] = (payload as Dictionary)[k]
-				data["version"] = target
-			elif payload is Callable:
-				(payload as Callable).call(data)
-
-static func _migrate_v15_to_v16(data: Dictionary) -> void:
-	if not data.has("spire_run"):
-		data["spire_run"] = {"active": false}
-	data["version"] = 16
-
-static func _migrate_v16_to_v17(data: Dictionary) -> void:
-	if not data.has("spire_best_floor"):
-		data["spire_best_floor"] = 0
-	data["version"] = 17
-
-static func _migrate_v19_to_v20(data: Dictionary) -> void:
-	if not data.has("treasure_fragments"):
-		data["treasure_fragments"] = 0
-	if not data.has("active_treasure"):
-		data["active_treasure"] = {}
-	if not data.has("treasures_completed"):
-		data["treasures_completed"] = 0
-	data["version"] = 20
-
-static func _migrate_v21_to_v22(data: Dictionary) -> void:
-	if not data.has("bestiary"):
-		data["bestiary"] = {}
-	if not data.has("bestiary_complete_rewarded"):
-		data["bestiary_complete_rewarded"] = false
-	if not data.has("home_owned"):
-		data["home_owned"] = false
-	data["version"] = 22
-
-static func _migrate_v22_to_v23(data: Dictionary) -> void:
-	if not data.has("respawn_map"):
-		data["respawn_map"] = ""
-	if not data.has("respawn_x"):
-		data["respawn_x"] = 0.0
-	if not data.has("respawn_z"):
-		data["respawn_z"] = 0.0
-	data["version"] = 23
-
-static func _migrate_v23_to_v24(data: Dictionary) -> void:
-	if not data.has("owned_mounts"):
-		data["owned_mounts"] = []
-	if not data.has("active_mount"):
-		data["active_mount"] = ""
-	if not data.has("is_mounted"):
-		data["is_mounted"] = false
-	data["version"] = 24
-
-static func _migrate_v24_to_v25(data: Dictionary) -> void:
-	if not data.has("packs_since_legendary"):
-		data["packs_since_legendary"] = 0
-	data["version"] = 25
-
-static func _migrate_v27_to_v28(data: Dictionary) -> void:
-	if not data.has("bounty_day"):
-		data["bounty_day"] = 0
-	if not data.has("offered_bounties"):
-		data["offered_bounties"] = []
-	if not data.has("active_bounties"):
-		data["active_bounties"] = []
-	data["version"] = 28
-
-static func _migrate_v29_to_v30(data: Dictionary) -> void:
-	if data.has("owned_weapons"):
-		var old_weapons: Array = data["owned_weapons"]
-		var new_weapons: Array = []
-		for item: Variant in old_weapons:
-			if item is Dictionary:
-				new_weapons.append(item)
-			else:
-				new_weapons.append({"weapon_id": str(item), "upgrade_level": 0})
-		data["owned_weapons"] = new_weapons
-	data["version"] = 30
-
-static func _migrate_v30_to_v31(data: Dictionary) -> void:
-	if not data.has("siege"):
-		data["siege"] = {}
-	if not data.has("last_siege_day"):
-		data["last_siege_day"] = 0
-	if not data.has("town_discounts"):
-		data["town_discounts"] = {}
-	data["version"] = 31
-
-static func _migrate_v32_to_v33(data: Dictionary) -> void:
-	if not data.has("garden_plots"):
-		data["garden_plots"] = [{}, {}, {}]
-	if not data.has("seeds"):
-		data["seeds"] = {}
-	if not data.has("plants"):
-		data["plants"] = {}
-	if not data.has("potions"):
-		data["potions"] = {}
-	data["version"] = 33
-
-static func _migrate_v33_to_v34(data: Dictionary) -> void:
-	if not data.has("loadouts"):
-		var existing_deck: Array = data.get("player_deck", [])
-		data["loadouts"] = [{"name": "Deck 1", "cards": existing_deck.duplicate()}]
-		data["active_loadout"] = 0
-	data["version"] = 34
-
-static func _sign(payload: String) -> String:
-	var crypto := Crypto.new()
-	return crypto.hmac_digest(HashingContext.HASH_SHA256, _HMAC_SECRET.to_utf8_buffer(),
-			payload.to_utf8_buffer()).hex_encode()
-
-func _read_save_json(path: String):
-	if not FileAccess.file_exists(path):
-		return null
-	var file := FileAccess.open(path, FileAccess.READ)
-	if not file:
-		return null
-	var outer = JSON.parse_string(file.get_as_text())
-	if not outer is Dictionary:
-		return null
-	if outer.has("payload"):
-		var stored_hmac: String = str(outer.get("hmac", ""))
-		var payload: String = str(outer.get("payload", ""))
-		if stored_hmac != _sign(payload):
-			push_warning("SaveManager: integrity check failed for %s" % path)
-			return null
-		var inner = JSON.parse_string(payload)
-		if not inner is Dictionary:
-			return null
-		return inner
-	# gdlint:ignore = max-returns
-	return outer
-
 ## Restores one PERSISTED_FIELDS entry, coercing to the default's type. Const
 ## defaults are deep-copied before use — a const collection is read-only, and
 ## assigning one to a member would make that member read-only too.
@@ -952,13 +679,13 @@ func _restore_derived_fields(data: Dictionary) -> void:
 		bag_size = IsoConst.BAG_SIZE_DEFAULT
 
 func load_save() -> bool:
-	var parsed = _read_save_json(_get_slot_path(active_slot))
+	var parsed = _SaveFile.read_json(_SaveFile.slot_path(active_slot))
 	if parsed == null:
-		parsed = _read_save_json(_get_slot_bak_path(active_slot))
+		parsed = _SaveFile.read_json(_SaveFile.slot_bak_path(active_slot))
 	if parsed == null:
 		return false
 	var data: Dictionary = parsed
-	_apply_migrations(data)
+	_SaveMigrations.apply(data)
 	for key: String in PERSISTED_FIELDS:
 		_restore_field(data, key, PERSISTED_FIELDS[key])
 	_restore_derived_fields(data)
@@ -997,19 +724,7 @@ func _collect_save_data() -> Dictionary:
 ## filesystem. Single-flight is guaranteed by _async_save_task + save()'s
 ## _await_async_save(), so two writers never race on the same tmp file.
 func _write_save_payload(data: Dictionary, slot: int) -> void:
-	var save_path: String = _get_slot_path(slot)
-	var tmp_path: String = _get_slot_tmp_path(slot)
-	var bak_path: String = _get_slot_bak_path(slot)
-	var tmp := FileAccess.open(tmp_path, FileAccess.WRITE)
-	if not tmp:
-		call_deferred("_on_async_save_done")
-		return
-	var inner_json: String = JSON.stringify(data, "\t")
-	tmp.store_string(JSON.stringify({"hmac": _sign(inner_json), "payload": inner_json}))
-	tmp = null  # flush + close before rename
-	if FileAccess.file_exists(save_path):
-		DirAccess.copy_absolute(save_path, bak_path)
-	DirAccess.rename_absolute(tmp_path, save_path)
+	_SaveFile.write_slot(data, slot)
 	call_deferred("_on_async_save_done")
 
 # -------------------------------------------------------------------------

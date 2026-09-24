@@ -6,6 +6,8 @@
 ## valid types and targets, reward ranges, SaveManager migration v27→v28, rollover logic.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const BountyGen         = preload("res://game_logic/BountyGen.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
@@ -144,39 +146,39 @@ func test_bounty_id_contains_day_index() -> void:
 
 func test_migration_adds_bounty_fields() -> void:
 	var data: Dictionary = {"version": 27}
-	SaveManagerScript._migrate_v27_to_v28(data)
+	_SaveMigrations.apply(data, 28)
 	assert_true(data.has("bounty_day"),       "bounty_day must be added")
 	assert_true(data.has("offered_bounties"), "offered_bounties must be added")
 	assert_true(data.has("active_bounties"),  "active_bounties must be added")
 
 func test_migration_default_bounty_day_is_zero() -> void:
 	var data: Dictionary = {"version": 27}
-	SaveManagerScript._migrate_v27_to_v28(data)
+	_SaveMigrations.apply(data, 28)
 	assert_eq(data["bounty_day"], 0)
 
 func test_migration_default_offered_bounties_is_empty() -> void:
 	var data: Dictionary = {"version": 27}
-	SaveManagerScript._migrate_v27_to_v28(data)
+	_SaveMigrations.apply(data, 28)
 	assert_true((data["offered_bounties"] as Array).is_empty())
 
 func test_migration_default_active_bounties_is_empty() -> void:
 	var data: Dictionary = {"version": 27}
-	SaveManagerScript._migrate_v27_to_v28(data)
+	_SaveMigrations.apply(data, 28)
 	assert_true((data["active_bounties"] as Array).is_empty())
 
 func test_migration_bumps_version_to_28() -> void:
 	var data: Dictionary = {"version": 27}
-	SaveManagerScript._migrate_v27_to_v28(data)
+	_SaveMigrations.apply(data, 28)
 	assert_eq(data["version"], 28)
 
 func test_migration_does_not_overwrite_existing_bounty_day() -> void:
 	var data: Dictionary = {"version": 27, "bounty_day": 5}
-	SaveManagerScript._migrate_v27_to_v28(data)
+	_SaveMigrations.apply(data, 28)
 	assert_eq(data["bounty_day"], 5)
 
 func test_apply_migrations_reaches_current_from_v27() -> void:
 	var data: Dictionary = {"version": 27}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(data.get("version", 0), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("bounty_day"))
 	assert_true(data.has("offered_bounties"))

@@ -7,6 +7,8 @@
 ## add/rename/duplicate/delete loadout guards, and set_active_deck sync.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
 var _sm: Node
@@ -37,7 +39,7 @@ func after_each() -> void:
 
 func test_migration_wraps_player_deck_into_loadouts() -> void:
 	var data: Dictionary = {"version": 33, "player_deck": ["x", "y", "z"]}
-	SaveManagerScript._migrate_v33_to_v34(data)
+	_SaveMigrations.apply(data, 34)
 	assert_true(data.has("loadouts"), "loadouts key must be added")
 	var loadouts: Array = data["loadouts"]
 	assert_eq(loadouts.size(), 1, "exactly one loadout after migration")
@@ -46,18 +48,18 @@ func test_migration_wraps_player_deck_into_loadouts() -> void:
 
 func test_migration_names_first_loadout_deck_1() -> void:
 	var data: Dictionary = {"version": 33, "player_deck": ["x"]}
-	SaveManagerScript._migrate_v33_to_v34(data)
+	_SaveMigrations.apply(data, 34)
 	var name: String = str(data["loadouts"][0]["name"])
 	assert_eq(name, "Deck 1")
 
 func test_migration_sets_active_loadout_0() -> void:
 	var data: Dictionary = {"version": 33, "player_deck": []}
-	SaveManagerScript._migrate_v33_to_v34(data)
+	_SaveMigrations.apply(data, 34)
 	assert_eq(int(data["active_loadout"]), 0)
 
 func test_migration_bumps_version_to_34() -> void:
 	var data: Dictionary = {"version": 33, "player_deck": []}
-	SaveManagerScript._migrate_v33_to_v34(data)
+	_SaveMigrations.apply(data, 34)
 	assert_eq(int(data["version"]), 34)
 
 func test_migration_does_not_overwrite_existing_loadouts() -> void:
@@ -66,13 +68,13 @@ func test_migration_does_not_overwrite_existing_loadouts() -> void:
 		"player_deck": ["a"],
 		"loadouts": [{"name": "Custom", "cards": ["b"]}]
 	}
-	SaveManagerScript._migrate_v33_to_v34(data)
+	_SaveMigrations.apply(data, 34)
 	assert_eq(data["loadouts"].size(), 1)
 	assert_eq(str(data["loadouts"][0]["name"]), "Custom")
 
 func test_apply_migrations_reaches_v34_from_v33() -> void:
 	var data: Dictionary = {"version": 33, "player_deck": ["uid_q"]}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(int(data["version"]), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("loadouts"))
 

@@ -7,6 +7,8 @@
 ## get_plot_growth_stage integration, and save/load round-trip.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
@@ -145,7 +147,7 @@ func test_new_game_potions_is_empty() -> void:
 
 func test_migration_adds_garden_fields() -> void:
 	var data: Dictionary = {"version": 32}
-	SaveManagerScript._migrate_v32_to_v33(data)
+	_SaveMigrations.apply(data, 33)
 	assert_true(data.has("garden_plots"), "garden_plots must be added")
 	assert_true(data.has("seeds"),        "seeds must be added")
 	assert_true(data.has("plants"),       "plants must be added")
@@ -153,22 +155,22 @@ func test_migration_adds_garden_fields() -> void:
 
 func test_migration_garden_plots_default_has_three_entries() -> void:
 	var data: Dictionary = {"version": 32}
-	SaveManagerScript._migrate_v32_to_v33(data)
+	_SaveMigrations.apply(data, 33)
 	assert_eq((data["garden_plots"] as Array).size(), 3)
 
 func test_migration_bumps_version_to_33() -> void:
 	var data: Dictionary = {"version": 32}
-	SaveManagerScript._migrate_v32_to_v33(data)
+	_SaveMigrations.apply(data, 33)
 	assert_eq(data["version"], 33)
 
 func test_migration_does_not_overwrite_existing_seeds() -> void:
 	var data: Dictionary = {"version": 32, "seeds": {"sunpetal": 2}}
-	SaveManagerScript._migrate_v32_to_v33(data)
+	_SaveMigrations.apply(data, 33)
 	assert_eq(int(data["seeds"]["sunpetal"]), 2)
 
 func test_apply_migrations_reaches_v33_from_v32() -> void:
 	var data: Dictionary = {"version": 32}
-	SaveManagerScript._apply_migrations(data)
+	_SaveMigrations.apply(data)
 	assert_eq(data.get("version", 0), SaveManagerScript.CURRENT_SAVE_VERSION)
 	assert_true(data.has("garden_plots"))
 

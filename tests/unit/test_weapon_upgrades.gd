@@ -5,6 +5,8 @@
 ## save migration v29->v30, upgrade_weapon flow, save/load round-trip.
 extends "res://tests/framework/test_case.gd"
 
+const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
+
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
@@ -113,7 +115,7 @@ func test_migration_converts_string_array_to_dict() -> void:
 		"version": 29,
 		"owned_weapons": ["rusty_dagger", "iron_sword"],
 	}
-	SaveManagerScript._migrate_v29_to_v30(data)
+	_SaveMigrations.apply(data, 30)
 	assert_eq(data["version"], 30)
 	var weapons: Array = data["owned_weapons"]
 	assert_eq(weapons.size(), 2)
@@ -126,18 +128,18 @@ func test_migration_preserves_existing_dicts() -> void:
 		"version": 29,
 		"owned_weapons": [{"weapon_id": "rusty_dagger", "upgrade_level": 3}],
 	}
-	SaveManagerScript._migrate_v29_to_v30(data)
+	_SaveMigrations.apply(data, 30)
 	var weapons: Array = data["owned_weapons"]
 	assert_eq(int(weapons[0].get("upgrade_level", 0)), 3)
 
 func test_migration_empty_array_ok() -> void:
 	var data: Dictionary = {"version": 29, "owned_weapons": []}
-	SaveManagerScript._migrate_v29_to_v30(data)
+	_SaveMigrations.apply(data, 30)
 	assert_eq(int(data["owned_weapons"].size()), 0)
 
 func test_migration_missing_key_ok() -> void:
 	var data: Dictionary = {"version": 29}
-	SaveManagerScript._migrate_v29_to_v30(data)
+	_SaveMigrations.apply(data, 30)
 	assert_eq(data["version"], 30)
 
 # ---------------------------------------------------------------------------

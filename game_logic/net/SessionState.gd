@@ -281,7 +281,7 @@ static func _sanitized_leaderboards(raw: Dictionary) -> Dictionary:
 
 
 ## Forward-migration scaffold. Entries run in ascending order; each backfills the
-## fields a new version added. Mirrors SaveManager._apply_migrations so future
+## fields a new version added. Mirrors SaveMigrations.apply so future
 ## session-format changes never break existing files.
 static func _apply_migrations(data: Dictionary) -> void:
 	var ver: int = int(data.get("version", 0))
