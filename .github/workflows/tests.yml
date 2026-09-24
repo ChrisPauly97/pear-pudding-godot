@@ -66,12 +66,11 @@ jobs:
           fi
           echo "Import clean — no parse or compile errors."
 
-      # Module back-references (`_world`, `_battle`, `_sm`, `_save`) are typed
-      # as their owner script, so a misspelt member is knowable statically, but
-      # GDScript only reports it as an opt-in warning. This raises that warning
-      # to an error for the run and fails on any hit against a project script.
-      - name: Check typed member access
-        run: bash scripts/check-typed-access.sh
+      # project.godot makes unsafe_method_access / unsafe_property_access errors,
+      # so a member the analyzer can't prove exists is a parse error. The editor
+      # import above doesn't compile every script, so load them all explicitly.
+      - name: Check unsafe member access
+        run: scripts/unsafe-hits.sh
 
       # GDScript has no exceptions: a runtime error aborts the test function
       # before its asserts run, and the runner still counts it as a pass. Any

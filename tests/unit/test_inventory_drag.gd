@@ -17,7 +17,7 @@ const _InventoryScene = preload("res://scenes/ui/InventoryScene.gd")
 const _FROM_COLLECTION := {"kind": "inv_card", "uid": "u1", "from_deck": false}
 const _FROM_DECK := {"kind": "inv_card", "uid": "u2", "from_deck": true}
 
-var _inv: Object = null
+var _inv: _InventoryScene = null
 
 
 func before_each() -> void:

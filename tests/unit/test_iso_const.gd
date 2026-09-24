@@ -7,7 +7,7 @@ extends "res://tests/framework/test_case.gd"
 
 const IsoConstScript = preload("res://autoloads/IsoConst.gd")
 
-var _iso: Node
+var _iso: IsoConstScript
 
 func before_all() -> void:
 	_iso = IsoConstScript.new()

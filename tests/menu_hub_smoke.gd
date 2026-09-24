@@ -152,7 +152,8 @@ func _check_card_detail_panel(hub: Node) -> bool:
 	var sm: Node = root.get_node_or_null("SceneManager")
 	var deck: Array = inv.get("_working_deck")
 	var target: Dictionary = {}
-	for inst: Dictionary in sm.get("save_manager").call("get_owned_instances"):
+	var save_manager: Object = sm.get("save_manager")
+	for inst: Dictionary in save_manager.call("get_owned_instances"):
 		if not deck.has(str(inst.get("uid", ""))):
 			target = inst
 			break

@@ -441,9 +441,10 @@ func _show_compare_tooltip(item_id: String, candidate: WeaponData, anchor: Contr
 	popup.popup(Rect2i(anchor.get_screen_transform().origin as Vector2i, Vector2i(int(_ref * 0.34), 0)))
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.keycode == KEY_SHIFT:
-		if _hovered_compare_item != "" and _hovered_compare_row != null:
-			if event.pressed:
+	if event is InputEventKey:
+		var key_ev: InputEventKey = event
+		if key_ev.keycode == KEY_SHIFT and _hovered_compare_item != "" and _hovered_compare_row != null:
+			if key_ev.pressed:
 				var w: WeaponData = WeaponRegistry.get_weapon(_hovered_compare_item)
 				if w != null:
 					_show_compare_tooltip(_hovered_compare_item, w, _hovered_compare_row)

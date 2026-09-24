@@ -135,7 +135,7 @@ func _process(delta: float) -> void:
 
 	# Recompute Y locally from terrain — y is never transmitted over the network.
 	if world_scene != null and world_scene.has_method("get_terrain_height"):
-		new_pos.y = world_scene.get_terrain_height(new_pos.x, new_pos.z)
+		new_pos.y = world_scene.call("get_terrain_height", new_pos.x, new_pos.z)
 
 	position = new_pos
 

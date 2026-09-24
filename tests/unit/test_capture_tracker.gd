@@ -22,7 +22,7 @@ const GameState = preload("res://game_logic/battle/GameState.gd")
 # SaveManager captured_signatures
 # ---------------------------------------------------------------------------
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -197,7 +197,8 @@ func test_captured_signatures_migration_v34_to_v35() -> void:
 func test_captured_signatures_present_v35_unchanged() -> void:
 	var data: Dictionary = {"version": 35, "captured_signatures": ["sig_warlord"]}
 	_SaveMigrations.apply(data)
-	assert_eq(data["captured_signatures"].size(), 1)
+	var captured_signatures: Array = data["captured_signatures"]
+	assert_eq(captured_signatures.size(), 1)
 
 # ---------------------------------------------------------------------------
 # CardData.to_template_dict exposes is_unique and can_craft

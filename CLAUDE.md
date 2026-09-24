@@ -47,6 +47,25 @@ deck.assign(enemy_data["enemy_deck"])       # dict values are plain Array
 
 ---
 
+## GDScript: Unsafe Access Is an Error
+
+Every member access must resolve on a static type. Fixes, in order of preference:
+
+| Receiver | Fix |
+|---|---|
+| Var holding a project script | Type it: `const _Foo = preload(...)`, `var x: _Foo` (cyclic preloads are fine) |
+| `var x: Node = SaveManager` | `var x := SaveManager` (autoload names are typed) |
+| Dictionary / Array element | Typed local: `var d: Dictionary = data.get("k", {})` |
+| `event is InputEventKey and event.x` | `is` doesn't narrow: `var k := event as InputEventKey` |
+| Genuinely one-of-several unrelated types | `obj.call("m", ...)` / `obj.get("p")` behind the existing `has_method` guard |
+
+Never `@warning_ignore` it. Retyping a field makes a wrong-typed assignment a
+runtime error: a test that stubs a typed field with `Node.new()` must use the
+real script (`_Foo.new()`). `-s` smoke tests run before autoloads register, so
+they can't preload a script that names an autoload. Use `.get()`/`.call()` there.
+
+---
+
 ## GDScript: Freed Node Dictionary Crash
 
 Casting a freed object ref crashes **at the cast**, before any validity check. Dicts tracking nodes by id can hold stale refs after `queue_free()`.
@@ -368,13 +387,14 @@ Rules:
   So are the owners' module fields (`coop_pvp: _CoopPvP`, …) and
   `SceneManager.save_manager`. Keep new ones typed. A plain `Node` makes a
   wrong member invisible until that line runs.
-- **Typing alone does not fail the build.** GDScript reports a missing member
-  on a typed receiver only as the opt-in `unsafe_*_access` warning.
-  `bash scripts/check-typed-access.sh` (run in CI) raises it to an error for
-  one run and fails on any hit against a project-script type. Run it after
-  touching module code. `tests/world_scene_smoke.gd` still drives all 77
-  handlers through the real `_route`. Run it, plus the PvP smoke tests, after
-  touching any of this: `godot --headless --path . -s tests/world_scene_smoke.gd`
+- **Unsafe member access is an error** (`project.godot`:
+  `unsafe_method_access` / `unsafe_property_access` = 2). A member the analyzer
+  can't prove exists won't parse, so a typo on a typed back-reference fails
+  instead of silently no-oping. The editor import doesn't compile every script,
+  so CI (and you, after editing `.gd` files) run `scripts/unsafe-hits.sh`, which
+  loads them all and prints `path:line: message`. `tests/world_scene_smoke.gd`
+  still drives all 77 handlers through the real `_route`. Run it plus the PvP
+  smoke tests after touching module code.
 
 ---
 
@@ -533,6 +553,9 @@ GDScript has no exceptions: a runtime error aborts the test function before its 
 
 ### Battle view rendered against a null GameState (claude/refactor-targets-lint-ivoueg)
 `BattleFx` and `CardViewBuilder` cache the `GameState`, but only the solo setup and the net mirror refreshed it. Every other entry path (resumed save, puzzle, scripted, and the initial render of PvP / co-op / team battles) rendered against `null`: hand cards lost affordability styling and damage FX silently aborted. Both also hard-coded `players[0]`/`players[1]` as local/enemy, wrong for a PvP client (local idx 1) and for co-op (boss at the last index). Fix: `BattleScene._bind_state()` runs once after the setup chain and wherever `_state` is replaced, and the helpers map view seats through `_seat_idx()`. The smoke tests exited 0 through all of it (hundreds of `SCRIPT ERROR`s), so CI's scene-smoke step now fails on any. Also: `get_meta(key, null)` is **not** a default. Godot treats a `null` default as "none" and logs an error, so use `has_meta` first.
+
+### Menu exit dropped position and time of day (claude/refactor-targets-lint-ivoueg)
+SceneManager's `has_method("flush_save_position")` / `("flush_time_of_day")` guards had never been true: neither method existed on WorldScene, so leaving the world lost the last sub-unit of movement and all time spent standing still. Turning unsafe access on surfaced it. `world_scene_smoke`'s probe check only matched receivers named `world_scene`/`ws`, so it now also matches `scene`.
 
 ---
 

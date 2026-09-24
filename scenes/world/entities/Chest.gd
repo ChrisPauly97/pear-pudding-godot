@@ -151,8 +151,8 @@ func _set_opened_material() -> void:
 	if not _opened_mat:
 		_opened_mat = StandardMaterial3D.new()
 		_opened_mat.albedo_color = Color(0.4, 0.3, 0.0)
-	var mi := find_child("MeshInstance3D", true, false)
-	if mi is MeshInstance3D:
+	var mi: MeshInstance3D = find_child("MeshInstance3D", true, false) as MeshInstance3D
+	if mi != null:
 		mi.material_override = _opened_mat
 
 ## Instant "already opened" visual — no tween, no particles. Used by

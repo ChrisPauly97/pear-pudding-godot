@@ -14,7 +14,7 @@ const EnemyRegistryScript = preload("res://autoloads/EnemyRegistry.gd")
 # SaveManager rival fields
 # ---------------------------------------------------------------------------
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 # ---------------------------------------------------------------------------
 # RivalSystem.get_rival_type

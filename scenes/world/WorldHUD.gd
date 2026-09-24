@@ -12,6 +12,7 @@ const SaveManager      = preload("res://autoloads/SaveManager.gd")
 const CantripManager   = preload("res://game_logic/world/CantripManager.gd")
 const UiFx             = preload("res://scenes/ui/UiFx.gd")
 const _UiUtil          = preload("res://scenes/ui/UiUtil.gd")
+const _WorldScene      = preload("res://scenes/world/WorldScene.gd")
 
 # ── HUD Action Registry (GID-107) ───────────────────────────────────────────
 # Zones are real Container nodes that auto-stack their (visible) children, so
@@ -26,7 +27,7 @@ const DIALOGUE_DURATION: float = 4.0
 const TIP_DURATION: float = 5.0
 
 var _hud: CanvasLayer
-var _world_scene: Node3D
+var _world_scene: _WorldScene
 var _is_infinite: bool
 var _map_name: String
 var _interact_label: Label  # the @onready tscn node passed in from WorldScene
@@ -67,7 +68,7 @@ var _social_toggle: Button = null
 # ── Setup ──────────────────────────────────────────────────────────────────
 
 func setup(hud: CanvasLayer, is_infinite: bool, map_name: String,
-		interact_label: Label, world_scene: Node3D) -> void:
+		interact_label: Label, world_scene: _WorldScene) -> void:
 	_hud = hud
 	_is_infinite = is_infinite
 	_map_name = map_name

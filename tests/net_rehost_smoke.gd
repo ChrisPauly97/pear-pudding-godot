@@ -11,6 +11,7 @@
 extends SceneTree
 
 const _PORT: int = 24571
+const _NetworkManager = preload("res://autoloads/NetworkManager.gd")
 
 
 func _initialize() -> void:
@@ -24,7 +25,7 @@ func _go() -> void:
 
 
 func _run() -> bool:
-	var nm: Node = root.get_node_or_null("/root/NetworkManager")
+	var nm: _NetworkManager = root.get_node_or_null("/root/NetworkManager")
 	if nm == null:
 		print("  [FAIL] NetworkManager autoload not found")
 		return false

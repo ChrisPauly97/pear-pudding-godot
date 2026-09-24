@@ -121,7 +121,8 @@ func _apply_stage(stage: int, plot: Dictionary) -> void:
 			_plant.material_override = _stage1_mat
 			_plant.position = Vector3(0.0, 0.225, 0.0)
 			var seed_id: String = str(plot.get("seed_id", ""))
-			var sname: String = str(GardenDefs.SEEDS.get(seed_id, {}).get("display_name", seed_id))
+			var seed_def: Dictionary = GardenDefs.SEEDS.get(seed_id, {})
+			var sname: String = str(seed_def.get("display_name", seed_id))
 			_label.text = sname + " (early)"
 			_label.modulate = Color(0.6, 0.9, 0.4)
 		2:
@@ -132,7 +133,8 @@ func _apply_stage(stage: int, plot: Dictionary) -> void:
 			_plant.material_override = _stage2_mat
 			_plant.position = Vector3(0.0, 0.325, 0.0)
 			var seed_id2: String = str(plot.get("seed_id", ""))
-			var sname2: String = str(GardenDefs.SEEDS.get(seed_id2, {}).get("display_name", seed_id2))
+			var seed_def2: Dictionary = GardenDefs.SEEDS.get(seed_id2, {})
+			var sname2: String = str(seed_def2.get("display_name", seed_id2))
 			_label.text = sname2 + " (growing)"
 			_label.modulate = Color(0.4, 0.9, 0.3)
 		3:
@@ -152,6 +154,7 @@ func _apply_stage(stage: int, plot: Dictionary) -> void:
 			add_child(flower)
 
 			var seed_id3: String = str(plot.get("seed_id", ""))
-			var sname3: String = str(GardenDefs.SEEDS.get(seed_id3, {}).get("display_name", seed_id3))
+			var seed_def3: Dictionary = GardenDefs.SEEDS.get(seed_id3, {})
+			var sname3: String = str(seed_def3.get("display_name", seed_id3))
 			_label.text = sname3 + " (ready!)"
 			_label.modulate = Color(0.9, 0.95, 0.2)

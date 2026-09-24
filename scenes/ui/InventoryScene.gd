@@ -10,6 +10,7 @@ const LongPressDetector = preload("res://scenes/ui/LongPressDetector.gd")
 const VeterancyUtil     = preload("res://game_logic/VeterancyUtil.gd")
 
 const DeckAutoFill = preload("res://game_logic/DeckAutoFill.gd")
+const _CraftingRecipe = preload("res://data/CraftingRecipe.gd")
 
 # -------------------------------------------------------------------------
 # Drag and drop between the collection and the deck
@@ -534,14 +535,15 @@ func _make_card_tile(inst: Dictionary, in_deck: bool) -> Control:
 	# opened over the tile, so moving the pointer towards a button left the tile
 	# and destroyed the panel under the cursor.
 	cube.gui_input.connect(func(ev: InputEvent) -> void:
-		if ev is InputEventMouseButton and ev.pressed \
-				and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_RIGHT:
-			_show_instance_detail(inst, cube)
-			cube.accept_event())
+		if ev is InputEventMouseButton:
+			var mb: InputEventMouseButton = ev
+			if mb.pressed and mb.button_index == MOUSE_BUTTON_RIGHT:
+				_show_instance_detail(inst, cube)
+				cube.accept_event())
 
 	return cube
 
-func _make_card_draggable(ctrl: Control, uid: String, in_deck: bool, tint: Color) -> void:
+func _make_card_draggable(ctrl: Button, uid: String, in_deck: bool, tint: Color) -> void:
 	ctrl.button_down.connect(func() -> void:
 		_press_origin[ctrl] = ctrl.get_local_mouse_position())
 	ctrl.set_drag_forwarding(
@@ -800,7 +802,7 @@ func _make_deck_row_instance(uid: String, inst: Dictionary) -> VBoxContainer:
 # Craft panel
 # -------------------------------------------------------------------------
 
-func _make_craft_row(recipe: Object, player_essence: int) -> HBoxContainer:
+func _make_craft_row(recipe: _CraftingRecipe, player_essence: int) -> HBoxContainer:
 	var tid: String    = str(recipe.template_id)
 	var rarity: String = str(recipe.rarity)
 	var cost: int      = int(recipe.essence_cost)
@@ -854,7 +856,8 @@ func _make_potion_craft_row(potion_id: String, recipe_data: Dictionary, player_e
 	for ingredient_id: String in ingredients:
 		var required: int = int(ingredients[ingredient_id])
 		var owned: int = int(sm.plants.get(ingredient_id, 0))
-		var plant_name: String = str(GardenDefs.PLANTS.get(ingredient_id, {}).get("display_name", ingredient_id))
+		var plant_info: Dictionary = GardenDefs.PLANTS.get(ingredient_id, {})
+		var plant_name: String = str(plant_info.get("display_name", ingredient_id))
 		parts.append("%d× %s" % [required, plant_name])
 		if owned < required:
 			can_afford_ingredients = false
@@ -949,18 +952,18 @@ func _refresh_craft() -> void:
 
 	# Show only recipes for the selected rarity, sorted by card name.
 	var recipes: Array = CraftingRegistry.get_all_recipes()
-	var filtered: Array = []
-	for recipe in recipes:
+	var filtered: Array[_CraftingRecipe] = []
+	for recipe: _CraftingRecipe in recipes:
 		if str(recipe.rarity) == _craft_rarity:
 			filtered.append(recipe)
-	filtered.sort_custom(func(a: Object, b: Object) -> bool:
+	filtered.sort_custom(func(a: _CraftingRecipe, b: _CraftingRecipe) -> bool:
 		var na: String = str(CardRegistry.get_template(str(a.template_id)).get("name", str(a.template_id)))
 		var nb: String = str(CardRegistry.get_template(str(b.template_id)).get("name", str(b.template_id)))
 		return na < nb
 	)
 
 	var player_essence: int = SceneManager.save_manager.essence
-	for recipe in filtered:
+	for recipe: _CraftingRecipe in filtered:
 		_craft_list.add_child(_make_craft_row(recipe, player_essence))
 
 	# Potions section

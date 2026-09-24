@@ -9,7 +9,7 @@ extends "res://tests/framework/test_case.gd"
 
 const CardRegistryScript = preload("res://autoloads/CardRegistry.gd")
 
-var _registry: Node
+var _registry: CardRegistryScript
 
 func before_all() -> void:
 	_registry = CardRegistryScript.new()

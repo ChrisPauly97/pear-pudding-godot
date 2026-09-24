@@ -8,7 +8,8 @@ extends "res://tests/framework/test_case.gd"
 var _saved_keybindings: Dictionary = {}
 
 func before_each() -> void:
-	_saved_keybindings = SaveManager.get_setting("keybindings", {}).duplicate()
+	var kb: Dictionary = SaveManager.get_setting("keybindings", {})
+	_saved_keybindings = kb.duplicate()
 
 func after_each() -> void:
 	SaveManager.set_setting("keybindings", _saved_keybindings)

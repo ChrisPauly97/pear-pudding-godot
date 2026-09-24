@@ -11,7 +11,7 @@ const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func before_each() -> void:
 	_sm = SaveManagerScript.new()
@@ -31,7 +31,8 @@ func test_migration_adds_spire_run_to_old_save() -> void:
 func test_migration_default_spire_run_is_inactive() -> void:
 	var data: Dictionary = {"version": 15}
 	_SaveMigrations.apply(data, 16)
-	assert_false(bool(data["spire_run"].get("active", true)), "default spire_run.active must be false")
+	var spire_run: Dictionary = data["spire_run"]
+	assert_false(bool(spire_run.get("active", true)), "default spire_run.active must be false")
 
 func test_migration_bumps_version_to_16() -> void:
 	var data: Dictionary = {"version": 15}
@@ -42,8 +43,9 @@ func test_migration_does_not_overwrite_existing_spire_run() -> void:
 	var existing: Dictionary = {"active": true, "floor": 3}
 	var data: Dictionary = {"version": 15, "spire_run": existing}
 	_SaveMigrations.apply(data, 16)
-	assert_true(bool(data["spire_run"].get("active", false)), "existing active run must be preserved")
-	assert_eq(data["spire_run"].get("floor", 0), 3)
+	var spire_run: Dictionary = data["spire_run"]
+	assert_true(bool(spire_run.get("active", false)), "existing active run must be preserved")
+	assert_eq(spire_run.get("floor", 0), 3)
 
 func test_apply_migrations_reaches_current_from_v15() -> void:
 	var data: Dictionary = {"version": 15}

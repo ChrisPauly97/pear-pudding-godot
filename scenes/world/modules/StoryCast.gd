@@ -12,6 +12,8 @@ const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const RivalSystem = preload("res://game_logic/RivalSystem.gd")
 const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
+const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
+const WorldMap = preload("res://game_logic/world/WorldMap.gd")
 const _MaitelnFollowerScene = preload("res://scenes/world/entities/MaitelnFollower.tscn")
 const _ScoutAmbushScene = preload("res://scenes/world/entities/ScoutAmbush.tscn")
 const _WildernessCampScene = preload("res://scenes/world/entities/WildernessCamp.tscn")
@@ -52,7 +54,7 @@ func refresh_maiteln_presence() -> void:
 	var node := _MaitelnFollowerScene.instantiate() as Node3D
 	_world._entity_root.add_child(node)
 	if node.has_method("setup"):
-		node.setup(_world._player, _world)
+		node.call("setup", _world._player, _world)
 	# Co-op (GID-108 / TID-408, design rule 4): exactly one Maiteln, position
 	# owned by the authority. A non-authority client's copy is a networked
 	# puppet — hidden until the first same-map packet arrives (mirrors the
@@ -60,7 +62,7 @@ func refresh_maiteln_presence() -> void:
 	# following its own local player.
 	if _world._coop_active and not _world.coop_session._coop_world_authority() \
 			and node.has_method("set_networked"):
-		node.set_networked(true)
+		node.call("set_networked", true)
 		node.visible = false
 	_world._maiteln_node = node
 
@@ -107,7 +109,7 @@ func _spawn_near_player(scene: PackedScene, tile_offset: Vector2) -> Node3D:
 ## z centred on DH/2 ± jitter (DungeonGen._gen_sequential_rooms), so tile
 ## (70, 30) sits in the rightmost, deepest room. Not guaranteed carved floor for
 ## every seed, but this dungeon's seed is fixed (731906).
-func inject_warcamp_boss(wm: RefCounted) -> void:
+func inject_warcamp_boss(wm: WorldMap) -> void:
 	if wm == null:
 		return
 	wm.enemies.append({
@@ -156,7 +158,7 @@ func _spawn_rival_on_tile(rival_id: String, tile: Vector2i, enemy_type: String, 
 func _spawn_rival_at(rival_id: String, wx: float, wz: float, enemy_type: String, dialogue: String) -> void:
 	if _world._enemy_nodes.has(rival_id):
 		return
-	var node := _EnemyScene.instantiate() as Node3D
+	var node := _EnemyScene.instantiate() as _EnemyNPC
 	_world._entity_root.add_child(node)
 	node.position = Vector3(wx, _world.get_terrain_height(wx, wz) + 0.5, wz)
 	node.init_from_data({

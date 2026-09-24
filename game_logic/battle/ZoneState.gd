@@ -110,6 +110,7 @@ func enhancements_from_dict(arr: Array) -> void:
 	for i in range(mini(arr.size(), SLOT_COUNT)):
 		var entry = arr[i]
 		if entry is Dictionary:
-			slot_enhancements[i] = entry.duplicate()
+			var entry_dict: Dictionary = entry
+			slot_enhancements[i] = entry_dict.duplicate()
 		else:
 			slot_enhancements[i] = {}

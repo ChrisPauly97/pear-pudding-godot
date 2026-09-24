@@ -42,6 +42,11 @@ MpProfile="*res://autoloads/MpProfile.gd"
 SessionStore="*res://autoloads/SessionStore.gd"
 AutomationBridge="*res://autoloads/AutomationBridge.gd"
 
+[debug]
+
+gdscript/warnings/unsafe_property_access=2
+gdscript/warnings/unsafe_method_access=2
+
 [display]
 
 window/size/viewport_width=1920

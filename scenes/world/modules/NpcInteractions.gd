@@ -52,7 +52,7 @@ func _speak(npc: Dictionary) -> void:
 	if node == null or not node.has_method("get_dialogue"):
 		_world._show_dialogue(str(npc.get("dialogue", "...")))
 		return
-	var line: String = node.get_dialogue()
+	var line: String = str(node.call("get_dialogue"))
 	var fk: String = str(npc.get("flag_key", ""))
 	if fk != "":
 		SceneManager.save_manager.set_story_flag(fk)

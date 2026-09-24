@@ -106,26 +106,28 @@ func _input(event: InputEvent) -> void:
 		_close()
 		get_viewport().set_input_as_handled()
 		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		match event.physical_keycode:
-			KEY_B:
-				show_tab("deck")
-				get_viewport().set_input_as_handled()
-			KEY_C:
-				show_tab("character")
-				get_viewport().set_input_as_handled()
-			KEY_K:
-				show_tab("skills")
-				get_viewport().set_input_as_handled()
-			KEY_J:
-				show_tab("journal")
-				get_viewport().set_input_as_handled()
-			KEY_BRACKETLEFT:
-				_cycle_tab(-1)
-				get_viewport().set_input_as_handled()
-			KEY_BRACKETRIGHT:
-				_cycle_tab(1)
-				get_viewport().set_input_as_handled()
+	if event is InputEventKey:
+		var key_ev: InputEventKey = event
+		if key_ev.pressed and not key_ev.echo:
+			match key_ev.physical_keycode:
+				KEY_B:
+					show_tab("deck")
+					get_viewport().set_input_as_handled()
+				KEY_C:
+					show_tab("character")
+					get_viewport().set_input_as_handled()
+				KEY_K:
+					show_tab("skills")
+					get_viewport().set_input_as_handled()
+				KEY_J:
+					show_tab("journal")
+					get_viewport().set_input_as_handled()
+				KEY_BRACKETLEFT:
+					_cycle_tab(-1)
+					get_viewport().set_input_as_handled()
+				KEY_BRACKETRIGHT:
+					_cycle_tab(1)
+					get_viewport().set_input_as_handled()
 
 func _cycle_tab(direction: int) -> void:
 	var idx: int = _TABS.find(_current_tab)

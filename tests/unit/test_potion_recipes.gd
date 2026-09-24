@@ -9,7 +9,7 @@ const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const CraftingRegistry  = preload("res://autoloads/CraftingRegistry.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func get_suite_name() -> String:
 	return "PotionRecipes"
@@ -42,7 +42,8 @@ func test_potion_recipes_has_ember_tonic() -> void:
 func test_healing_draught_ingredient_is_sunpetal() -> void:
 	var recipe: Dictionary = GardenDefs.POTION_RECIPES["healing_draught"]
 	assert_true(recipe.has("ingredients"))
-	assert_true(recipe["ingredients"].has("sunpetal_plant"))
+	var ingredients: Dictionary = recipe["ingredients"]
+	assert_true(ingredients.has("sunpetal_plant"))
 
 func test_healing_draught_requires_2_sunpetal() -> void:
 	var recipe: Dictionary = GardenDefs.POTION_RECIPES["healing_draught"]
@@ -50,7 +51,8 @@ func test_healing_draught_requires_2_sunpetal() -> void:
 
 func test_clarity_brew_ingredient_is_moonroot() -> void:
 	var recipe: Dictionary = GardenDefs.POTION_RECIPES["clarity_brew"]
-	assert_true(recipe["ingredients"].has("moonroot_plant"))
+	var ingredients: Dictionary = recipe["ingredients"]
+	assert_true(ingredients.has("moonroot_plant"))
 
 func test_clarity_brew_requires_2_moonroot() -> void:
 	var recipe: Dictionary = GardenDefs.POTION_RECIPES["clarity_brew"]
@@ -58,7 +60,8 @@ func test_clarity_brew_requires_2_moonroot() -> void:
 
 func test_ember_tonic_ingredient_is_embercap() -> void:
 	var recipe: Dictionary = GardenDefs.POTION_RECIPES["ember_tonic"]
-	assert_true(recipe["ingredients"].has("embercap_plant"))
+	var ingredients: Dictionary = recipe["ingredients"]
+	assert_true(ingredients.has("embercap_plant"))
 
 func test_ember_tonic_requires_2_embercap() -> void:
 	var recipe: Dictionary = GardenDefs.POTION_RECIPES["ember_tonic"]
@@ -66,7 +69,8 @@ func test_ember_tonic_requires_2_embercap() -> void:
 
 func test_all_recipes_have_essence_cost() -> void:
 	for potion_id: String in GardenDefs.POTION_RECIPES:
-		assert_true(GardenDefs.POTION_RECIPES[potion_id].has("essence_cost"), "missing essence_cost for %s" % potion_id)
+		var recipe: Dictionary = GardenDefs.POTION_RECIPES[potion_id]
+		assert_true(recipe.has("essence_cost"), "missing essence_cost for %s" % potion_id)
 
 func test_all_recipes_essence_cost_is_5() -> void:
 	for potion_id: String in GardenDefs.POTION_RECIPES:
@@ -74,7 +78,8 @@ func test_all_recipes_essence_cost_is_5() -> void:
 
 func test_all_recipes_have_display_name() -> void:
 	for potion_id: String in GardenDefs.POTION_RECIPES:
-		var name_val: String = str(GardenDefs.POTION_RECIPES[potion_id].get("display_name", ""))
+		var recipe: Dictionary = GardenDefs.POTION_RECIPES[potion_id]
+		var name_val: String = str(recipe.get("display_name", ""))
 		assert_true(name_val.length() > 0, "missing display_name for %s" % potion_id)
 
 # ---------------------------------------------------------------------------

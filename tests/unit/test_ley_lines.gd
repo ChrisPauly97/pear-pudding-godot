@@ -3,6 +3,7 @@ extends "res://tests/framework/test_case.gd"
 
 const TerrainMath = preload("res://game_logic/TerrainMath.gd")
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
+const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 
 
 # ---------------------------------------------------------------------------
@@ -77,8 +78,8 @@ func test_intersection_strength_is_subset_of_intensity() -> void:
 
 func test_mana_well_placement_deterministic() -> void:
 	var ws: int = 54321
-	var chunk_a: RefCounted = InfiniteWorldGen.generate_chunk(3, 7, ws)
-	var chunk_b: RefCounted = InfiniteWorldGen.generate_chunk(3, 7, ws)
+	var chunk_a: ChunkData = InfiniteWorldGen.generate_chunk(3, 7, ws)
+	var chunk_b: ChunkData = InfiniteWorldGen.generate_chunk(3, 7, ws)
 	assert_eq(chunk_a.mana_wells.size(), chunk_b.mana_wells.size(),
 		"mana well count must be deterministic")
 	if chunk_a.mana_wells.size() > 0:
@@ -94,7 +95,7 @@ func test_mana_well_at_most_one_per_chunk() -> void:
 	var ws: int = 99
 	for cx in range(5):
 		for cz in range(5):
-			var chunk: RefCounted = InfiniteWorldGen.generate_chunk(cx, cz, ws)
+			var chunk: ChunkData = InfiniteWorldGen.generate_chunk(cx, cz, ws)
 			assert_true(chunk.mana_wells.size() <= 1,
 				"at most one mana well per chunk")
 

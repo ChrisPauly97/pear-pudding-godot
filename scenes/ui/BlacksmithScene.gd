@@ -8,6 +8,7 @@ const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const _BaseOverlay = preload("res://scenes/ui/BaseOverlay.gd")
+const _SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
 var _vh: float = 0.0
 var _vw: float = 0.0
@@ -100,7 +101,7 @@ func _refresh() -> void:
 	if _weapon_scroll and saved_scroll > 0:
 		_weapon_scroll.scroll_vertical = saved_scroll
 
-func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: Node) -> VBoxContainer:
+func _make_weapon_row(wid: String, weapon: WeaponData, level: int, sm: _SaveManagerScript) -> VBoxContainer:
 	var outer := _UiUtil.make_vbox(int(_ref * 0.004))
 
 	var sep := HSeparator.new()

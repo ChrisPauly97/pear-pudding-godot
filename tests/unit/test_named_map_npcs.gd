@@ -21,25 +21,25 @@ const _NamedMapProps = preload("res://scenes/world/modules/NamedMapProps.gd")
 # ---------------------------------------------------------------------------
 
 func test_madrian_loads_twelve_npcs() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	assert_eq(wm.npcs.size(), 12, "madrian should define 12 NPCs (inc. bounty board + blacksmith)")
 
 
 func test_madrian_npc_ids_are_unique() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	if wm.npcs.size() >= 2:
 		assert_ne(wm.npcs[0]["id"], wm.npcs[1]["id"], "NPC ids should be unique")
 
 
 func test_madrian_npc_has_dialogue() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	for n in wm.npcs:
 		var dlg: String = str(n.get("dialogue", ""))
 		assert_true(dlg.length() > 3, "NPC %s should have meaningful dialogue" % n["id"])
 
 
 func test_madrian_npc_world_positions_are_valid() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	var max_world: float = float(WorldMapScript.MAP_WIDTH) * IsoConst.TILE_SIZE
 	for n in wm.npcs:
 		var wx: float = n["x"]
@@ -49,26 +49,26 @@ func test_madrian_npc_world_positions_are_valid() -> void:
 
 
 func test_madrian_npcs_distributed_to_chunks() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	var max_cx: int = (WorldMapScript.MAP_WIDTH + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
 	var max_cz: int = (WorldMapScript.MAP_HEIGHT + IsoConst.CHUNK_SIZE - 1) / IsoConst.CHUNK_SIZE
 	var total: int = 0
 	for cz in range(max_cz):
 		for cx in range(max_cx):
-			var cd: RefCounted = wm.get_chunk_data(cx, cz)
+			var cd: ChunkDataScript = wm.get_chunk_data(cx, cz)
 			total += cd.npcs.size()
 	assert_eq(total, wm.npcs.size(), "all NPCs should appear in exactly one chunk")
 
 
 func test_chunk_data_has_entities_flag_set() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
-	var cd: RefCounted = wm.get_chunk_data(0, 0)
+	var wm := WorldMapScript.new("madrian")
+	var cd: ChunkDataScript = wm.get_chunk_data(0, 0)
 	assert_true(cd.has_entities, "chunk data from named map should have has_entities=true")
 
 
 func test_chunk_data_is_generated_flag_set() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
-	var cd: RefCounted = wm.get_chunk_data(0, 0)
+	var wm := WorldMapScript.new("madrian")
+	var cd: ChunkDataScript = wm.get_chunk_data(0, 0)
 	assert_true(cd.is_generated, "chunk data from named map should have is_generated=true")
 
 
@@ -81,7 +81,7 @@ func test_all_named_maps_load_npcs() -> void:
 	for mname in map_names:
 		if mname == "main" or mname == "infinite" or mname == "test":
 			continue
-		var wm: RefCounted = WorldMapScript.new(mname)
+		var wm := WorldMapScript.new(mname)
 		# Every story map should have at least one NPC
 		if wm.npcs.size() > 0:
 			# Verify NPCs survive chunk distribution
@@ -90,25 +90,26 @@ func test_all_named_maps_load_npcs() -> void:
 			var total: int = 0
 			for cz in range(max_cz):
 				for cx in range(max_cx):
-					total += wm.get_chunk_data(cx, cz).npcs.size()
+					var cd: ChunkDataScript = wm.get_chunk_data(cx, cz)
+					total += cd.npcs.size()
 			assert_eq(total, wm.npcs.size(),
 				"map '%s': chunk NPC count should match world NPC count" % mname)
 
 
 func test_madrian_is_not_fallback() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	assert_false(wm.is_fallback, "madrian should load from file, not fallback")
 
 
 func test_nonexistent_map_is_fallback() -> void:
-	var wm: RefCounted = WorldMapScript.new("nonexistent_map_12345")
+	var wm := WorldMapScript.new("nonexistent_map_12345")
 	assert_true(wm.is_fallback, "nonexistent map should use fallback")
 
 
 func test_fallback_map_generates_all_entity_types() -> void:
 	# _build_default_map calls _generate_entities which should create enemies,
 	# chests, AND NPCs so the fallback world isn't empty of any entity type.
-	var wm: RefCounted = WorldMapScript.new("nonexistent_map_12345")
+	var wm := WorldMapScript.new("nonexistent_map_12345")
 	assert_true(wm.enemies.size() > 0,
 		"default map should have procedural enemies")
 	assert_true(wm.chests.size() > 0,
@@ -121,7 +122,7 @@ func test_fallback_map_generates_all_entity_types() -> void:
 # Flag-gated dialogue content pass (GID-108 / TID-404)
 # ---------------------------------------------------------------------------
 
-func _npc_by_id(wm: RefCounted, id: String) -> Dictionary:
+func _npc_by_id(wm: WorldMapScript, id: String) -> Dictionary:
 	for n in wm.npcs:
 		if str(n.get("id", "")) == id:
 			return n
@@ -129,7 +130,7 @@ func _npc_by_id(wm: RefCounted, id: String) -> Dictionary:
 
 
 func test_madrian_maiteln_flag_gated_after_recruitment() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	var n: Dictionary = _npc_by_id(wm, "npc_1")
 	assert_eq(str(n.get("flag_key", "")), "story_intro_complete")
 	assert_eq(str(n.get("after_dialogue", "")),
@@ -137,7 +138,7 @@ func test_madrian_maiteln_flag_gated_after_recruitment() -> void:
 
 
 func test_madrian_master_flag_gated_after_recruitment() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	var n: Dictionary = _npc_by_id(wm, "npc_2")
 	assert_eq(str(n.get("flag_key", "")), "story_intro_complete")
 	assert_eq(str(n.get("after_dialogue", "")),
@@ -145,7 +146,7 @@ func test_madrian_master_flag_gated_after_recruitment() -> void:
 
 
 func test_maykalene_townsperson_innkeeper_guard_flag_gated_on_warned_farsyth() -> void:
-	var wm: RefCounted = WorldMapScript.new("maykalene")
+	var wm := WorldMapScript.new("maykalene")
 	for id in ["npc_1", "npc_2", "npc_3"]:
 		var n: Dictionary = _npc_by_id(wm, id)
 		assert_eq(str(n.get("flag_key", "")), "chapter1_warned_farsyth",
@@ -155,7 +156,7 @@ func test_maykalene_townsperson_innkeeper_guard_flag_gated_on_warned_farsyth() -
 
 
 func test_farsyth_mansion_lord_farsyth_after_dialogue_matches_story() -> void:
-	var wm: RefCounted = WorldMapScript.new("farsyth_mansion")
+	var wm := WorldMapScript.new("farsyth_mansion")
 	var n: Dictionary = _npc_by_id(wm, "npc_2")
 	assert_eq(str(n.get("flag_key", "")), "chapter1_warned_farsyth")
 	assert_eq(str(n.get("after_dialogue", "")),
@@ -163,7 +164,7 @@ func test_farsyth_mansion_lord_farsyth_after_dialogue_matches_story() -> void:
 
 
 func test_blancogov_gate_guard_flag_gated_on_received_letter() -> void:
-	var wm: RefCounted = WorldMapScript.new("blancogov")
+	var wm := WorldMapScript.new("blancogov")
 	var n: Dictionary = _npc_by_id(wm, "npc_1")
 	assert_eq(str(n.get("flag_key", "")), "chapter1_received_letter")
 	assert_eq(str(n.get("dialogue", "")),
@@ -171,7 +172,7 @@ func test_blancogov_gate_guard_flag_gated_on_received_letter() -> void:
 
 
 func test_blancogov_city_dweller_flag_gated_on_temple_council() -> void:
-	var wm: RefCounted = WorldMapScript.new("blancogov")
+	var wm := WorldMapScript.new("blancogov")
 	var n: Dictionary = _npc_by_id(wm, "npc_2")
 	assert_eq(str(n.get("flag_key", "")), "chapter1_temple_council")
 	assert_eq(str(n.get("after_dialogue", "")),
@@ -187,14 +188,14 @@ func test_blancogov_temple_king_eldar_uses_custom_npc_type() -> void:
 	# _king_eldar) since his 4 narrative states don't fit
 	# the 2-state MapNpc flag_key/after_dialogue schema — flag_key must be
 	# empty so the generic auto-set-on-interact path never fires for him.
-	var wm: RefCounted = WorldMapScript.new("blancogov_temple")
+	var wm := WorldMapScript.new("blancogov_temple")
 	var n: Dictionary = _npc_by_id(wm, "npc_1")
 	assert_eq(str(n.get("npc_type", "")), "chapter1_king_eldar")
 	assert_eq(str(n.get("flag_key", "")), "")
 
 
 func test_blancogov_temple_queen_flag_gated_on_spoke_queen() -> void:
-	var wm: RefCounted = WorldMapScript.new("blancogov_temple")
+	var wm := WorldMapScript.new("blancogov_temple")
 	var n: Dictionary = _npc_by_id(wm, "npc_2")
 	assert_eq(str(n.get("flag_key", "")), "chapter1_spoke_queen")
 	assert_eq(str(n.get("after_dialogue", "")),
@@ -202,7 +203,7 @@ func test_blancogov_temple_queen_flag_gated_on_spoke_queen() -> void:
 
 
 func test_blancogov_temple_scargroth_flag_gated_on_spoke_scargroth() -> void:
-	var wm: RefCounted = WorldMapScript.new("blancogov_temple")
+	var wm := WorldMapScript.new("blancogov_temple")
 	var n: Dictionary = _npc_by_id(wm, "npc_3")
 	assert_eq(str(n.get("flag_key", "")), "chapter1_spoke_scargroth")
 	assert_eq(str(n.get("after_dialogue", "")),
@@ -214,31 +215,31 @@ func test_blancogov_temple_scargroth_flag_gated_on_spoke_scargroth() -> void:
 # ---------------------------------------------------------------------------
 
 func test_larik_loads_from_file_not_fallback() -> void:
-	var wm: RefCounted = WorldMapScript.new("larik")
+	var wm := WorldMapScript.new("larik")
 	assert_false(wm.is_fallback, "larik should load from its .tres, not fallback")
 
 
 func test_larik_has_player_spawn() -> void:
-	var wm: RefCounted = WorldMapScript.new("larik")
+	var wm := WorldMapScript.new("larik")
 	assert_true(wm.has_player_spawn())
 	assert_eq(wm.player_spawn_x, 50)
 	assert_eq(wm.player_spawn_z, 90)
 
 
 func test_larik_has_two_npcs_one_scroll_two_doors() -> void:
-	var wm: RefCounted = WorldMapScript.new("larik")
+	var wm := WorldMapScript.new("larik")
 	assert_eq(wm.npcs.size(), 2)
 	assert_eq(wm.scrolls.size(), 1)
 	assert_eq(wm.doors.size(), 2)
 
 
 func test_larik_scroll_is_the_letter() -> void:
-	var wm: RefCounted = WorldMapScript.new("larik")
+	var wm := WorldMapScript.new("larik")
 	assert_eq(str(wm.scrolls[0].get("scroll_id", "")), "scroll_larik_letter")
 
 
 func test_larik_has_door_to_marsax_hold() -> void:
-	var wm: RefCounted = WorldMapScript.new("larik")
+	var wm := WorldMapScript.new("larik")
 	var found: bool = false
 	for d in wm.doors:
 		if str(d.get("target_map", "")) == "marsax_hold":
@@ -247,33 +248,33 @@ func test_larik_has_door_to_marsax_hold() -> void:
 
 
 func test_marsax_hold_loads_from_file_not_fallback() -> void:
-	var wm: RefCounted = WorldMapScript.new("marsax_hold")
+	var wm := WorldMapScript.new("marsax_hold")
 	assert_false(wm.is_fallback, "marsax_hold should load from its .tres, not fallback")
 
 
 func test_marsax_hold_has_player_spawn() -> void:
-	var wm: RefCounted = WorldMapScript.new("marsax_hold")
+	var wm := WorldMapScript.new("marsax_hold")
 	assert_true(wm.has_player_spawn())
 	assert_eq(wm.player_spawn_x, 50)
 	assert_eq(wm.player_spawn_z, 90)
 
 
 func test_marsax_hold_has_two_npcs_one_scroll_two_doors() -> void:
-	var wm: RefCounted = WorldMapScript.new("marsax_hold")
+	var wm := WorldMapScript.new("marsax_hold")
 	assert_eq(wm.npcs.size(), 2)
 	assert_eq(wm.scrolls.size(), 1)
 	assert_eq(wm.doors.size(), 2)
 
 
 func test_marsax_hold_scroll_is_the_traitor_seal() -> void:
-	var wm: RefCounted = WorldMapScript.new("marsax_hold")
+	var wm := WorldMapScript.new("marsax_hold")
 	assert_eq(str(wm.scrolls[0].get("scroll_id", "")), "scroll_traitor_seal")
 
 
 func test_marsax_hold_has_war_camp_dungeon_door() -> void:
 	# target_map must be "dungeon_<integer>" — WorldScene._ready() parses
 	# everything after "dungeon_" (8 chars) as an int seed via map_name.substr(8).
-	var wm: RefCounted = WorldMapScript.new("marsax_hold")
+	var wm := WorldMapScript.new("marsax_hold")
 	var found: bool = false
 	for d in wm.doors:
 		var target: String = str(d.get("target_map", ""))
@@ -287,13 +288,13 @@ func test_marsax_hold_has_war_camp_dungeon_door() -> void:
 ## Maiteln joins the party the moment story_intro_complete is set, so the
 ## villager standing on his Madrian tile has to leave with him.
 func test_madrian_maiteln_npc_hidden_once_recruited() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	var n: Dictionary = _npc_by_id(wm, "npc_1")
 	assert_eq(str(n.get("hide_flag_key", "")), "story_intro_complete")
 
 
 func test_other_madrian_npcs_have_no_hide_flag() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	for n in wm.npcs:
 		if str(n.get("id", "")) == "npc_1":
 			continue
@@ -305,7 +306,7 @@ func test_other_madrian_npcs_have_no_hide_flag() -> void:
 ## landing on top of an NPC — it used to sit exactly on Maiteln's tile (45, 36).
 func test_injected_mailbox_tile_is_clear_of_authored_entities() -> void:
 	for map in ["madrian", "maykalene", "blancogov"]:
-		var wm: RefCounted = WorldMapScript.new(map)
+		var wm := WorldMapScript.new(map)
 		var tile: Vector2i = wm.pick_free_tile_near_spawn(
 			_NamedMapProps.MAILBOX_TILE_OFFSETS,
 			_NamedMapProps.MAILBOX_CLEARANCE_TILES)
@@ -319,7 +320,7 @@ func test_injected_mailbox_tile_is_clear_of_authored_entities() -> void:
 
 
 func test_injected_mailbox_tile_is_walkable() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	var tile: Vector2i = wm.pick_free_tile_near_spawn(
 		_NamedMapProps.MAILBOX_TILE_OFFSETS,
 		_NamedMapProps.MAILBOX_CLEARANCE_TILES)
@@ -331,7 +332,7 @@ func test_injected_mailbox_tile_is_walkable() -> void:
 ## extra_occupied stands in for entities injected at runtime (the waystone), which
 ## are absent from the map's own arrays.
 func test_pick_free_tile_avoids_extra_occupied() -> void:
-	var wm: RefCounted = WorldMapScript.new("madrian")
+	var wm := WorldMapScript.new("madrian")
 	var plain: Vector2i = wm.pick_free_tile_near_spawn(
 		_NamedMapProps.MAILBOX_TILE_OFFSETS,
 		_NamedMapProps.MAILBOX_CLEARANCE_TILES)

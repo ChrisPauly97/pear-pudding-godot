@@ -53,7 +53,8 @@ func _add_slot_highlights() -> void:
 	if highlights.is_empty():
 		return
 	var tint: Color = Color(0.4, 0.9, 1.0, 0.18)  # distinct from cyan spell-target and yellow attack
-	for board_view in [_battle._player_board_view, _battle._enemy_board_view]:
+	var board_views: Array[HBoxContainer] = [_battle._player_board_view, _battle._enemy_board_view]
+	for board_view: HBoxContainer in board_views:
 		for si in highlights:
 			var overlay := ColorRect.new()
 			overlay.color = tint

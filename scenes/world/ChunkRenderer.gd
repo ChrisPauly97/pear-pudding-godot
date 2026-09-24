@@ -9,6 +9,8 @@ const TextureGen    = preload("res://game_logic/TextureGen.gd")
 const _SpriteRegistry = preload("res://game_logic/SpriteRegistry.gd")
 const BlightField   = preload("res://game_logic/world/BlightField.gd")
 const LandmarkMesh  = preload("res://game_logic/world/LandmarkMesh.gd")
+const _ChunkData    = preload("res://game_logic/world/ChunkData.gd")
+const _WorldScene   = preload("res://scenes/world/WorldScene.gd")
 
 # Preload entity scenes once, not per-spawn
 const _EnemyScene        = preload("res://scenes/world/entities/EnemyNPC.tscn")
@@ -23,6 +25,9 @@ const _WaystoneScene     = preload("res://scenes/world/entities/Waystone.tscn")
 const _BurialMoundScene  = preload("res://scenes/world/entities/BurialMound.tscn")
 const _BlightHeartScene  = preload("res://scenes/world/entities/BlightHeart.tscn")
 const _ManaWellScene     = preload("res://scenes/world/entities/ManaWell.tscn")
+const _DigSpot           = preload("res://scenes/world/entities/DigSpot.gd")
+const _StoryScroll       = preload("res://scenes/world/entities/StoryScroll.gd")
+const _BlightHeart       = preload("res://scenes/world/entities/BlightHeart.gd")
 const InfiniteWorldGen   = preload("res://game_logic/world/InfiniteWorldGen.gd")
 
 # Tile neighbourhood radius used when building the tile_grid snapshot.
@@ -46,7 +51,7 @@ static var _prop_visual_cache: Dictionary = {}  # prop key -> {"mat": ..., "mesh
 static var _landmark_mesh_cache: Dictionary = {}  # "variant|biome" -> ArrayMesh
 static var _landmark_mat_cache: Dictionary = {}   # biome -> StandardMaterial3D
 
-var _chunk_data: RefCounted   # ChunkData
+var _chunk_data: _ChunkData   # ChunkData
 var _chunk_key:  Vector2i
 var _terrain_mat: ShaderMaterial
 var _terrain_hmap: HeightMapShape3D   # stored for deferred physics
@@ -78,7 +83,7 @@ static func _get_biome_mat(template: ShaderMaterial, biome: int) -> ShaderMateri
 # never touches the scene tree or WorldScene state.
 # Returns a Dictionary consumed by build() to create the actual nodes.
 static func prepare_terrain(
-		chunk_data: RefCounted,
+		chunk_data: _ChunkData,
 		tile_grid: PackedInt32Array,
 		height_grid: PackedInt32Array,
 		grid_min_x: int, grid_min_z: int, grid_w: int,
@@ -157,7 +162,7 @@ static func prepare_terrain(
 
 # Returns Dictionary of prop_type -> Array[Vector3] of world positions.
 static func _compute_prop_positions(
-		chunk_data: RefCounted,
+		chunk_data: _ChunkData,
 		grid_tile_lookup: Callable,
 		hfield: PackedFloat32Array,
 		chunk_origin: Vector3,
@@ -209,7 +214,7 @@ static func _compute_prop_positions(
 
 # ── Main entry point (main thread only) ───────────────────────────────────
 # Phase 1: visual mesh + entities only — no physics bodies — call from _commit_chunk_results.
-func build_visual(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node3D,
+func build_visual(chunk_data: _ChunkData, chunk_key: Vector2i, world_scene: _WorldScene,
 		terrain_mat: ShaderMaterial, terrain_res: Dictionary) -> void:
 	_chunk_data          = chunk_data
 	_chunk_key           = chunk_key
@@ -241,7 +246,7 @@ func build_physics() -> void:
 	_build_walls_physics()
 
 # Convenience wrapper for synchronous builds (startup path only).
-func build(chunk_data: RefCounted, chunk_key: Vector2i, world_scene: Node3D,
+func build(chunk_data: _ChunkData, chunk_key: Vector2i, world_scene: _WorldScene,
 		terrain_mat: ShaderMaterial, terrain_res: Dictionary) -> void:
 	build_visual(chunk_data, chunk_key, world_scene, terrain_mat, terrain_res)
 	build_physics()
@@ -345,7 +350,7 @@ func _build_walls_physics() -> void:
 
 # ── Grass ──────────────────────────────────────────────────────────────────
 
-func _build_grass(world_scene: Node3D, grass_data: Dictionary) -> void:
+func _build_grass(world_scene: _WorldScene, grass_data: Dictionary) -> void:
 	var grass: GrassBlades = world_scene.get_node_or_null("GrassBlades") as GrassBlades
 	if not grass:
 		return
@@ -405,7 +410,7 @@ func _build_props(_biome: int, prop_positions: Dictionary) -> void:
 
 # ── Entities ───────────────────────────────────────────────────────────────
 
-func _spawn_entities(world_scene: Node3D) -> void:
+func _spawn_entities(world_scene: _WorldScene) -> void:
 	var entity_root: Node3D = world_scene.get_node_or_null("Entities") as Node3D
 	if not entity_root:
 		return
@@ -493,7 +498,7 @@ func _spawn_entities(world_scene: Node3D) -> void:
 		var dig_cx: int = int(floor(float(site_tx) / float(IsoConst.CHUNK_SIZE)))
 		var dig_cz: int = int(floor(float(site_tz) / float(IsoConst.CHUNK_SIZE)))
 		if _chunk_key.x == dig_cx and _chunk_key.y == dig_cz:
-			var dig_node: Node3D = _DigSpotScene.instantiate() as Node3D
+			var dig_node: _DigSpot = _DigSpotScene.instantiate() as _DigSpot
 			entity_root.add_child(dig_node)
 			if dig_node.has_method("init_from_data"):
 				dig_node.init_from_data(sm.active_treasure)
@@ -523,7 +528,7 @@ func _spawn_entities(world_scene: Node3D) -> void:
 			var wx: float = origin.x + float(lx) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wz: float = origin.z + float(lz) * IsoConst.TILE_SIZE + IsoConst.TILE_SIZE * 0.5
 			var wy: float = world_scene.get_terrain_height(wx, wz) + 0.1
-			var scroll_node: Node3D = _StoryScrollScene.instantiate() as Node3D
+			var scroll_node: _StoryScroll = _StoryScrollScene.instantiate() as _StoryScroll
 			entity_root.add_child(scroll_node)
 			scroll_node.position = Vector3(wx, wy, wz)
 			var player: Node3D = null
@@ -539,7 +544,7 @@ func _spawn_entities(world_scene: Node3D) -> void:
 	if not heart_data.is_empty():
 		var hid: String = str(heart_data.get("id", ""))
 		if not SceneManager.save_manager.is_heart_cleansed(hid):
-			var heart_node: Node3D = _BlightHeartScene.instantiate() as Node3D
+			var heart_node: _BlightHeart = _BlightHeartScene.instantiate() as _BlightHeart
 			entity_root.add_child(heart_node)
 			if heart_node.has_method("init_from_data"):
 				heart_node.init_from_data(heart_data)

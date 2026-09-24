@@ -180,7 +180,7 @@ func _add_sell_row(inst: Dictionary) -> void:
 	var list_btn := _UiUtil.make_button("List", Vector2(_vh * 0.12, _vh * 0.05), int(_vh * 0.018))
 	list_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_auction_list"):
-			world_scene.request_auction_list(uid, int(_list_prices[uid]))
+			world_scene.call("request_auction_list", uid, int(_list_prices[uid]))
 	)
 	hb.add_child(list_btn)
 
@@ -225,14 +225,14 @@ func _add_browse_row(listing: Dictionary) -> void:
 	var bid_btn := _UiUtil.make_button("Bid %d" % (bid + _BID_STEP), Vector2(_vh * 0.14, _vh * 0.05), int(_vh * 0.018))
 	bid_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_auction_bid"):
-			world_scene.request_auction_bid(id, bid + _BID_STEP)
+			world_scene.call("request_auction_bid", id, bid + _BID_STEP)
 	)
 	hb.add_child(bid_btn)
 
 	var buyout_btn := _UiUtil.make_button("Buyout %d" % buyout, Vector2(_vh * 0.16, _vh * 0.05), int(_vh * 0.018))
 	buyout_btn.pressed.connect(func() -> void:
 		if world_scene != null and world_scene.has_method("request_auction_buyout"):
-			world_scene.request_auction_buyout(id)
+			world_scene.call("request_auction_buyout", id)
 	)
 	hb.add_child(buyout_btn)
 
@@ -280,7 +280,7 @@ func _add_mine_row(listing: Dictionary) -> void:
 		var cancel_btn := _UiUtil.make_button("Cancel", Vector2(_vh * 0.14, _vh * 0.05), int(_vh * 0.018))
 		cancel_btn.pressed.connect(func() -> void:
 			if world_scene != null and world_scene.has_method("request_auction_cancel"):
-				world_scene.request_auction_cancel(id)
+				world_scene.call("request_auction_cancel", id)
 		)
 		hb.add_child(cancel_btn)
 

@@ -18,6 +18,8 @@ const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 const _CoopNightHunts = preload("res://game_logic/CoopNightHunts.gd")
 const Gambits = preload("res://game_logic/battle/Gambits.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _WorldEventManager = preload("res://autoloads/WorldEventManager.gd")
+const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
 
 var _sm: _SceneManager
 
@@ -158,7 +160,7 @@ func _on_battle_won(result: Dictionary) -> void:
 	_sm._finish_battle()
 	# End the roaming boss world event if the defeated enemy was the roaming terror.
 	if enemy_type == "roaming_terror":
-		var wem: Node = get_node_or_null("/root/WorldEventManager")
+		var wem: _WorldEventManager = get_node_or_null("/root/WorldEventManager") as _WorldEventManager
 		if wem != null:
 			wem.end_event("roaming_boss")
 	_sm._restore_world()
@@ -234,7 +236,8 @@ func _mimic_battle_won(enemy_type: String, captured_enemy_id: String) -> bool:
 	if enemy_type != "mimic" or captured_enemy_id.is_empty():
 		return false
 	var mimic_chest_id: String = captured_enemy_id
-	var wmap_node: Variant = _sm._saved_world_scene.get("world_map") if _sm._saved_world_scene != null else null
+	var wmap_node: _WorldMap = (
+			_sm._saved_world_scene.get("world_map") if _sm._saved_world_scene != null else null)
 	if wmap_node != null:
 		var mimic_chest: Dictionary = wmap_node.find_chest_by_id(mimic_chest_id)
 		if not mimic_chest.is_empty():

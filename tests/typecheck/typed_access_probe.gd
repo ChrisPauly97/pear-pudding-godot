@@ -1,7 +1,7 @@
-## Loads every project script once so GDScript's analyzer runs over all of them.
-## Only meaningful under tests/typecheck/override.cfg (scripts/check-typed-access.sh
-## installs it), which raises the unsafe-access warnings to errors. The check then
-## fails on any access to a member that does not exist on a known project-script type.
+## Loads project scripts so GDScript's analyzer runs over them. With no user args
+## it walks all of res://; with `-- res://a.gd res://b.gd` it loads only those.
+## Unsafe member access is an error project-wide (project.godot), so every hit
+## prints as a "Parse Error" with its file and line.
 extends SceneTree
 
 
@@ -16,5 +16,10 @@ func _walk(dir_path: String) -> void:
 
 func _initialize() -> void:
 	await process_frame  # autoloads must be registered before scripts that name them compile
-	_walk("res://")
+	var files: PackedStringArray = OS.get_cmdline_user_args()
+	if files.is_empty():
+		_walk("res://")
+	else:
+		for f: String in files:
+			load(f)
 	quit()

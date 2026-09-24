@@ -14,6 +14,8 @@
 ##   var ok := tracker.is_satisfied(state)  # call at game-over
 extends RefCounted
 
+const _GameState = preload("res://game_logic/battle/GameState.gd")
+
 var _condition: String = ""
 var _param: int = 0
 
@@ -39,7 +41,7 @@ func note_spell_resolved(caster_pid: int, enemy_board_count_before: int, enemy_b
 
 ## Returns true if the capture condition is satisfied given the final game state.
 ## Call this only when the player has won (winner == 0).
-func is_satisfied(state: Object) -> bool:
+func is_satisfied(state: _GameState) -> bool:
 	match _condition:
 		"spell_final_blow":
 			return _spell_killed_last_minion

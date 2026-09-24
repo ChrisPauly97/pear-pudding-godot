@@ -2,6 +2,7 @@ extends RefCounted
 
 const InfiniteWorldGen = preload("res://game_logic/world/InfiniteWorldGen.gd")
 const IsoConst = preload("res://autoloads/IsoConst.gd")
+const ChunkData = preload("res://game_logic/world/ChunkData.gd")
 
 # Ring distances in tiles from world origin where dig sites are placed.
 const DIG_SITE_MIN_RADIUS: int = 100
@@ -30,7 +31,7 @@ static func _nudge_to_grass(tx: int, tz: int, world_seed: int) -> Vector2i:
 					continue
 				var cx: int = int(floor(float(tx + dx) / float(IsoConst.CHUNK_SIZE)))
 				var cz_chunk: int = int(floor(float(tz + dz) / float(IsoConst.CHUNK_SIZE)))
-				var chunk: RefCounted = InfiniteWorldGen.generate_chunk_data_only(cx, cz_chunk, world_seed)
+				var chunk: ChunkData = InfiniteWorldGen.generate_chunk_data_only(cx, cz_chunk, world_seed)
 				var lx: int = (tx + dx) - cx * IsoConst.CHUNK_SIZE
 				var lz: int = (tz + dz) - cz_chunk * IsoConst.CHUNK_SIZE
 				if chunk.get_tile(lx, lz) == IsoConst.TILE_GRASS:

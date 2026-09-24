@@ -10,6 +10,8 @@ signal rally_requested(peer_id: int)
 
 const _BaseOverlay = preload("res://scenes/ui/BaseOverlay.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
+const _WorldMap = preload("res://game_logic/world/WorldMap.gd")
+const _MapViewOverlay = preload("res://scenes/ui/MapViewOverlay.gd")
 
 # Tile color palette
 const _COL_GRASS := Color(0.28, 0.55, 0.22)
@@ -61,7 +63,7 @@ var _lp_elapsed: float = 0.0
 
 # ── Inner dot-drawing layer ───────────────────────────────────────────────────
 class _DotLayer extends Control:
-	var overlay  # untyped — inner class cannot reference outer by name
+	var overlay: _MapViewOverlay
 
 	func _ready() -> void:
 		mouse_filter = MOUSE_FILTER_IGNORE
@@ -80,7 +82,7 @@ func _is_in_panel(pos: Vector2) -> bool:
 	return Rect2(_panel_pos, Vector2(_panel_size, _panel_size)).has_point(pos)
 
 
-func setup(world_map, map_name: String, player: CharacterBody3D,
+func setup(world_map: _WorldMap, map_name: String, player: CharacterBody3D,
 		npc_nodes: Dictionary, npc_data: Dictionary,
 		enemy_nodes: Dictionary, chest_nodes: Dictionary,
 		door_nodes: Dictionary, waystone_nodes: Dictionary = {},
@@ -181,7 +183,7 @@ func setup(world_map, map_name: String, player: CharacterBody3D,
 	_build_fast_travel_panel(vp, vh)
 
 
-func _build_map_texture(world_map) -> ImageTexture:
+func _build_map_texture(world_map: _WorldMap) -> ImageTexture:
 	var img := Image.create(100, 100, false, Image.FORMAT_RGB8)
 	for tz in range(100):
 		for tx in range(100):

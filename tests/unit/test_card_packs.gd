@@ -12,7 +12,7 @@ const PackDefs        = preload("res://game_logic/PackDefs.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const CardRegistry    = preload("res://autoloads/CardRegistry.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 # CardRegistry can't load .tres files in headless; skip roll tests if empty.
 var _registry_ok: bool = false
 

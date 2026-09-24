@@ -8,7 +8,7 @@ extends "res://tests/framework/test_case.gd"
 
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func get_suite_name() -> String:
 	return "BattlePotions"

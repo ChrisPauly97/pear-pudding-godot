@@ -11,6 +11,7 @@ const WeaponData = preload("res://data/WeaponData.gd")
 const WeaponRegistry = preload("res://autoloads/WeaponRegistry.gd")
 const _LootRoll = preload("res://game_logic/net/LootRoll.gd")
 const _WorldItemScene = preload("res://scenes/world/entities/WorldItem.tscn")
+const _WorldItem = preload("res://scenes/world/entities/WorldItem.gd")
 
 ## Chance an infinite-world chest yields a treasure-map fragment instead of loot
 ## (only while no treasure hunt is active).
@@ -44,7 +45,7 @@ func open(chest: Dictionary, px: float, pz: float) -> void:
 	SceneManager.session_stats["chests_opened"] = int(SceneManager.session_stats.get("chests_opened", 0)) + 1
 	var node: Node3D = _world._valid_node3d(_world._chest_nodes.get(cid))
 	if node != null and node.has_method("mark_opened"):
-		node.mark_opened()
+		node.call("mark_opened")
 	# Co-op (GID-096): reflect + persist the open for all players (this opener
 	# keeps the loot below; peers only see the chest flip open). Inert solo.
 	_world.coop_session._on_chest_opened_coop(cid)
@@ -107,8 +108,8 @@ func spawn_coin_piles(origin: Vector3) -> void:
 static func _ring_point(origin: Vector3, angle: float, dist: float) -> Vector3:
 	return origin + Vector3(cos(angle) * dist, 0.0, sin(angle) * dist)
 
-func _spawn_item() -> Node3D:
-	var item: Node3D = _WorldItemScene.instantiate()
+func _spawn_item() -> _WorldItem:
+	var item: _WorldItem = _WorldItemScene.instantiate()
 	_world._entity_root.add_child(item)
 	return item
 

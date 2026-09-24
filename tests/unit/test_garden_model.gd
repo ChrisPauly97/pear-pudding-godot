@@ -12,7 +12,7 @@ const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 const GardenDefs        = preload("res://game_logic/GardenDefs.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func before_each() -> void:
 	_sm = SaveManagerScript.new()

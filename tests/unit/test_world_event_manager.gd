@@ -15,7 +15,7 @@ extends "res://tests/framework/test_case.gd"
 
 const WorldEventManager = preload("res://autoloads/WorldEventManager.gd")
 
-var _mgr: Node
+var _mgr: WorldEventManager
 
 func before_each() -> void:
 	_mgr = WorldEventManager.new()

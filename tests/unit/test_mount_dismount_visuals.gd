@@ -8,7 +8,7 @@ const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const MountRegistry     = preload("res://game_logic/MountRegistry.gd")
 const TextureGen        = preload("res://game_logic/TextureGen.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func get_suite_name() -> String:
 	return "MountDismountVisuals"

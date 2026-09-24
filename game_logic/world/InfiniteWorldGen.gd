@@ -117,7 +117,7 @@ static func landmark_for_chunk(p_cx: int, p_cz: int, world_seed: int) -> Diction
 		"cz": p_cz,
 	}
 
-static func _gen_landmarks(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: int) -> void:
+static func _gen_landmarks(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: int) -> void:
 	var data: Dictionary = landmark_for_chunk(p_cx, p_cz, world_seed)
 	if data.is_empty():
 		return
@@ -143,7 +143,7 @@ static func get_chunk_scroll_id(p_cx: int, p_cz: int, world_seed: int) -> String
 	return eligible[h % eligible.size()]
 
 # Generate full chunk with entities
-static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
+static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
 	var chunk := _gen_tile_data(p_cx, p_cz, world_seed)
 	_gen_ruins(chunk, p_cx, p_cz, world_seed)
 	_gen_landmarks(chunk, p_cx, p_cz, world_seed)
@@ -153,14 +153,14 @@ static func generate_chunk(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 	return chunk
 
 # Generate tile/height data only (no entities) — used for border ring
-static func generate_chunk_data_only(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
+static func generate_chunk_data_only(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
 	var chunk := _gen_tile_data(p_cx, p_cz, world_seed)
 	_gen_ruins(chunk, p_cx, p_cz, world_seed)
 	_gen_landmarks(chunk, p_cx, p_cz, world_seed)
 	chunk.is_generated = true
 	return chunk
 
-static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
+static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> ChunkData:
 	var chunk: ChunkData = ChunkData.new(p_cx, p_cz)
 
 	var biome: int = biome_for_chunk(p_cx, p_cz, world_seed)
@@ -192,7 +192,7 @@ static func _gen_tile_data(p_cx: int, p_cz: int, world_seed: int) -> RefCounted:
 
 	return chunk
 
-static func _gen_ruins(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: int) -> void:
+static func _gen_ruins(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: int) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _chunk_seed(p_cx, p_cz, world_seed) + 2
 
@@ -283,7 +283,7 @@ static func _gen_ruins(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: int)
 					chunk.set_tile(tx, tz, IsoConst.TILE_GRASS)
 					chunk.set_height(tx, tz, 0)
 
-static func _gen_entities(chunk: RefCounted, p_cx: int, p_cz: int, world_seed: int) -> void:
+static func _gen_entities(chunk: ChunkData, p_cx: int, p_cz: int, world_seed: int) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = _chunk_seed(p_cx, p_cz, world_seed) + 1
 

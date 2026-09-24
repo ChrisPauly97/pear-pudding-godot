@@ -10,7 +10,7 @@ const _SaveMigrations = preload("res://game_logic/save/SaveMigrations.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const EnemyRegistry     = preload("res://autoloads/EnemyRegistry.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func before_each() -> void:
 	_sm = SaveManagerScript.new()
@@ -92,7 +92,8 @@ func test_migration_adds_bestiary_field() -> void:
 func test_migration_default_bestiary_is_empty_dict() -> void:
 	var data: Dictionary = {"version": 21}
 	_SaveMigrations.apply(data, 22)
-	assert_true(data["bestiary"].is_empty(), "default bestiary must be an empty dict")
+	var bestiary: Dictionary = data["bestiary"]
+	assert_true(bestiary.is_empty(), "default bestiary must be an empty dict")
 
 func test_migration_adds_bestiary_complete_rewarded() -> void:
 	var data: Dictionary = {"version": 21}

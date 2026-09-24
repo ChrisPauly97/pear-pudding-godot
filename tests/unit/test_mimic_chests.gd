@@ -9,7 +9,7 @@ const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const WorldMapScript = preload("res://game_logic/world/WorldMap.gd")
 
 
-func _gen(seed_val: int) -> RefCounted:
+func _gen(seed_val: int) -> WorldMapScript:
 	return DungeonGen.generate("test_mimic_%d" % seed_val, seed_val)
 
 
@@ -49,7 +49,7 @@ func test_some_dungeon_chests_are_mimics() -> void:
 	# Run several seeds; at 15% chance at least one should produce a mimic
 	var found_mimic: bool = false
 	for seed_val in range(0, 50):
-		var map: RefCounted = _gen(seed_val)
+		var map: WorldMapScript = _gen(seed_val)
 		for chest in map.chests:
 			if bool(chest.get("is_mimic", false)):
 				found_mimic = true
@@ -61,7 +61,7 @@ func test_some_dungeon_chests_are_mimics() -> void:
 
 func test_mimic_chests_not_opened_initially() -> void:
 	for seed_val in range(0, 20):
-		var map: RefCounted = _gen(seed_val)
+		var map: WorldMapScript = _gen(seed_val)
 		for chest in map.chests:
 			if bool(chest.get("is_mimic", false)):
 				assert_false(bool(chest.get("opened", false)),
@@ -70,17 +70,18 @@ func test_mimic_chests_not_opened_initially() -> void:
 
 func test_mimic_chests_have_card_ids() -> void:
 	for seed_val in range(0, 30):
-		var map: RefCounted = _gen(seed_val)
+		var map: WorldMapScript = _gen(seed_val)
 		for chest in map.chests:
 			if bool(chest.get("is_mimic", false)):
-				assert_true(chest.get("card_ids", []).size() >= 1,
+				var card_ids: Array = chest.get("card_ids", [])
+				assert_true(card_ids.size() >= 1,
 					"mimic chest should contain card_ids")
 				return
 
 
 func test_dungeon_mimic_determinism() -> void:
-	var map1: RefCounted = _gen(42)
-	var map2: RefCounted = _gen(42)
+	var map1: WorldMapScript = _gen(42)
+	var map2: WorldMapScript = _gen(42)
 	assert_eq(map1.chests.size(), map2.chests.size(),
 		"same seed should produce same chest count")
 	for i in range(map1.chests.size()):
@@ -95,7 +96,7 @@ func test_dungeon_mimic_determinism() -> void:
 # ---------------------------------------------------------------------------
 
 func test_find_chest_by_id_returns_correct_chest() -> void:
-	var map: RefCounted = _gen(12345)
+	var map: WorldMapScript = _gen(12345)
 	if map.chests.is_empty():
 		return
 	var first_id: String = str(map.chests[0].get("id", ""))
@@ -105,13 +106,13 @@ func test_find_chest_by_id_returns_correct_chest() -> void:
 
 
 func test_find_chest_by_id_returns_empty_for_missing() -> void:
-	var map: RefCounted = _gen(12345)
+	var map: WorldMapScript = _gen(12345)
 	var found: Dictionary = map.find_chest_by_id("nonexistent_chest_id_xyz")
 	assert_true(found.is_empty(), "find_chest_by_id should return empty for unknown id")
 
 
 func test_find_chest_by_id_reflects_mutation() -> void:
-	var map: RefCounted = _gen(12345)
+	var map: WorldMapScript = _gen(12345)
 	if map.chests.is_empty():
 		return
 	var cid: String = str(map.chests[0].get("id", ""))

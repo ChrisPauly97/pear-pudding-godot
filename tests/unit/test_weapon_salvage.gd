@@ -6,7 +6,7 @@ const UpgradeDefs = preload("res://game_logic/UpgradeDefs.gd")
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const WeaponData = preload("res://data/WeaponData.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func _make_weapon(effect_type: String, base_value: int) -> WeaponData:
 	var w: WeaponData = WeaponData.new()

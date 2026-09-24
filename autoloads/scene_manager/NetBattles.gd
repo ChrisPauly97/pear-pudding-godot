@@ -10,6 +10,7 @@ const _SceneManager = preload("res://autoloads/SceneManager.gd")
 const _SceneFlow = preload("res://game_logic/SceneFlow.gd")
 # gdlint:ignore = constant-name
 const State = _SceneFlow.State
+const _BattleScene = preload("res://scenes/battle/BattleScene.gd")
 
 # Ghost duels (GID-102 / TID-377): flat, modest, clearly-async coin reward on win.
 # No rating change ever (see enter_ghost_duel doc comment) — coins only.
@@ -72,7 +73,7 @@ func enter_ghost_duel(opponent_snapshot: Dictionary) -> void:
 		"coin_reward": 0,
 		"enemy_deck": deck,
 	}
-	_sm._enter_battle(func(b: Node) -> void:
+	_sm._enter_battle(func(b: _BattleScene) -> void:
 		b.enemy_data = captured_enemy_data
 		b.set("_ghost_duel", true)
 		b.set("_ghost_duel_reward", GHOST_DUEL_COIN_REWARD))
@@ -179,7 +180,7 @@ func session_token_for_peer(peer_id: int) -> String:
 	var ws: Node = get_tree().current_scene if _sm.current_state() == State.WORLD else _sm._saved_world_scene
 	if ws == null or not ws.has_method("get_session_token_for_peer"):
 		return ""
-	return str(ws.get_session_token_for_peer(peer_id))
+	return str(ws.call("get_session_token_for_peer", peer_id))
 
 ## Enters a co-op PvE battle from the shared world (GID-099).
 ## All N allies fight a single shared boss together. The authority (host or dedicated
@@ -198,7 +199,7 @@ func enter_coop_pve_battle(local_ally_idx: int, all_ally_decks: Array, enemy_dat
 	var captured_idx: int = local_ally_idx
 	var captured_decks: Array = all_ally_decks
 	var captured_edata: Dictionary = enemy_data
-	var setup := func(b: Node) -> void:
+	var setup := func(b: _BattleScene) -> void:
 		b.set("_coop_pve", true)
 		b.set("_local_player_idx", captured_idx)
 		b.set("_coop_ally_decks", captured_decks)
@@ -217,7 +218,7 @@ func enter_team_battle(local_player_idx: int, team_assignments: Array, all_decks
 	var captured_idx: int = local_player_idx
 	var captured_teams: Array = team_assignments
 	var captured_decks: Array = all_decks
-	var setup := func(b: Node) -> void:
+	var setup := func(b: _BattleScene) -> void:
 		b.set("_team_pvp", true)
 		b.set("_local_player_idx", captured_idx)
 		b.set("_team_assignments", captured_teams)
@@ -284,7 +285,7 @@ func _on_pvp_battle_ended(_did_win: bool) -> void:
 ## A PvP-flavoured `_enter_battle`: marks the scene `_pvp` and hands it the inert
 ## PVP_ENEMY_DATA after `configure` runs.
 func _enter_pvp_battle(configure: Callable) -> void:
-	var setup := func(b: Node) -> void:
+	var setup := func(b: _BattleScene) -> void:
 		b.set("_pvp", true)
 		configure.call(b)
 		b.enemy_data = PVP_ENEMY_DATA.duplicate(true)

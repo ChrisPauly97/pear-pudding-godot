@@ -8,7 +8,7 @@ extends "res://tests/framework/test_case.gd"
 const SaveManagerScript = preload("res://autoloads/SaveManager.gd")
 const LootRoll = preload("res://game_logic/net/LootRoll.gd")
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 
 func before_each() -> void:
@@ -120,7 +120,7 @@ func test_export_adopt_export_round_trip_is_stable() -> void:
 	_sm.equip_weapon("berserker_axe")
 	var exported: Dictionary = _sm.export_session_character()
 
-	var sm2: Node = SaveManagerScript.new()
+	var sm2 := SaveManagerScript.new()
 	sm2.adopt_session_character(exported)
 	var reexported: Dictionary = sm2.export_session_character()
 	sm2.free()

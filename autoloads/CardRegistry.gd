@@ -246,7 +246,8 @@ static func get_all_ids() -> Array[String]:
 static func is_craftable(id: String) -> bool:
 	_ensure_loaded()
 	if _cards.has(id):
-		var val = _cards[id].get("can_craft")
+		var res: Resource = _cards[id] as Resource
+		var val = res.get("can_craft")
 		return val == null or bool(val)
 	return false
 
@@ -257,7 +258,8 @@ static func is_unlocked(card_id: String, unlocked_achievements: Array[String]) -
 	_ensure_loaded()
 	if not _cards.has(card_id):
 		return false
-	var card_class_raw = _cards[card_id].get("card_class")
+	var card_res: Resource = _cards[card_id] as Resource
+	var card_class_raw = card_res.get("card_class")
 	var card_class_val: String = str(card_class_raw) if card_class_raw != null else ""
 	if card_class_val != "legendary":
 		return true

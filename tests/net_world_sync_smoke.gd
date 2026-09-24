@@ -21,12 +21,14 @@ const _NetSync = preload("res://scenes/world/NetSync.gd")
 const _WorldObjectSync = preload("res://game_logic/net/WorldObjectSync.gd")
 const _EnemySync = preload("res://game_logic/net/EnemySync.gd")
 const _Harness = preload("res://tests/net_harness.gd")
+const _SessionStore = preload("res://autoloads/SessionStore.gd")
+const _SessionState = preload("res://game_logic/net/SessionState.gd")
 
 const _PORT: int = 24573
 const _SESSION_ID: String = "smoke_worldsync_pptcg"
 
 
-var _store: Node = null
+var _store: _SessionStore = null
 var _client_stub: _ClientStub = null
 
 
@@ -74,7 +76,7 @@ func _run() -> bool:
 	if not _store.is_open():
 		print("  [FAIL] SessionStore did not open")
 		return false
-	var st = _store.get_state()
+	var st: _SessionState = _store.get_state()
 	st.current_map = "madrian"
 	# Simulate the authority recording a defeat + an open chest.
 	st.defeated_enemies.append("orc_7")
@@ -87,7 +89,7 @@ func _run() -> bool:
 		return false
 
 	_store.open(_SESSION_ID, "Smoke World")
-	var st2 = _store.get_state()
+	var st2: _SessionState = _store.get_state()
 	if not st2.defeated_enemies.has("orc_7"):
 		print("  [FAIL] reopened session lost the defeated enemy")
 		return false
@@ -185,7 +187,7 @@ func _build_world(parent: Node, is_client: bool) -> Node:
 	var world := Node.new()
 	world.name = "WorldScene"
 	parent.add_child(world)
-	var netsync: Node = _NetSync.new()
+	var netsync := _NetSync.new()
 	netsync.name = "NetSync"
 	world.add_child(netsync)
 	if is_client:

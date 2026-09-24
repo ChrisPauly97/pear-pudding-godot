@@ -23,7 +23,7 @@ const _PORT: int = 24568
 class _HostStub:
 	extends Node
 	var net: Node = null
-	var state = null  # GameState
+	var state: _GameState = null
 	var seq: int = 0
 	func _on_pvp_intent(_sender: int, payload: Dictionary) -> void:
 		var intent: Dictionary = _Proto.decode_intent(payload)
@@ -113,7 +113,7 @@ func _build_battle(parent: Node, stub: Node) -> Node:
 	var battle := Node.new()
 	battle.name = "BattleScene"
 	parent.add_child(battle)
-	var net: Node = _BattleNetSync.new()
+	var net := _BattleNetSync.new()
 	net.name = "BattleNetSync"
 	battle.add_child(net)
 	net.set("battle_scene", stub)

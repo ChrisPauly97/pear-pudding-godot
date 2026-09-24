@@ -67,26 +67,34 @@ func _bind_card_input(panel: PanelContainer, card: CardInstance, zone_id: String
 		panel.set_drag_forwarding(
 			func(_pos: Vector2) -> Variant: return null,
 			func(_pos: Vector2, data: Variant) -> bool:
-				if not (data is Dictionary) or not data.has("attacker"):
+				if not (data is Dictionary):
 					return false
-				var attacker: CardInstance = data["attacker"] as CardInstance
+				var drag_data: Dictionary = data as Dictionary
+				if not drag_data.has("attacker"):
+					return false
+				var attacker: CardInstance = drag_data["attacker"] as CardInstance
 				if attacker == null or not attacker.can_attack():
 					return false
 				var valid: Array[CardInstance] = _battle._view.get_ward_valid_targets(
 					_battle._state.players[_battle._opp_idx()].board.get_cards())
 				return valid.has(card),
 			func(_pos: Vector2, data: Variant) -> void:
-				if not (data is Dictionary) or not data.has("attacker"):
+				if not (data is Dictionary):
 					return
-				var attacker: CardInstance = data["attacker"] as CardInstance
+				var drag_data: Dictionary = data as Dictionary
+				if not drag_data.has("attacker"):
+					return
+				var attacker: CardInstance = drag_data["attacker"] as CardInstance
 				if attacker != null:
 					_attempt_attack(attacker, card)
 		)
 	# Right-click inspect — not on enemy hand (hidden information)
 	if zone_id != "enemy_hand":
 		panel.gui_input.connect(func(event: InputEvent) -> void:
-			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-				_battle._show_card_inspect(card)
+			if event is InputEventMouseButton:
+				var mb := event as InputEventMouseButton
+				if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+					_battle._show_card_inspect(card)
 		)
 		# Long-press inspect (mobile) — reuse existing detector to avoid node churn
 		var lpd: LongPressDetector = panel.get_node_or_null("_lpd") as LongPressDetector
@@ -229,7 +237,10 @@ func _cast_confirmed_spell(card: CardInstance) -> void:
 		_battle.tutorials._dismiss_battle_tutorial()
 
 func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 		if _battle._targeting_active and _battle._targeting_friendly:
 			_battle.targeting._on_target_chosen_card(my_card)
 			return
@@ -240,7 +251,10 @@ func _on_board_card_input(event: InputEvent, my_card: CardInstance) -> void:
 		_battle._refresh_all()
 
 func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 		if _battle._targeting_active and not _battle._targeting_friendly:
 			_battle.targeting._on_target_chosen_card(target)
 			return
@@ -258,7 +272,10 @@ func _on_enemy_card_input(event: InputEvent, target: CardInstance) -> void:
 		_attempt_attack(attacker, target)
 
 func _on_enemy_hero_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
 		if _battle._targeting_active and not _battle._targeting_friendly:
 			_battle.targeting._on_target_chosen_hero()
 			return

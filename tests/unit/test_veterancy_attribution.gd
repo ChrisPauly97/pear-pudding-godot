@@ -32,8 +32,8 @@ func _ghost_inst(uid: String, atk: int = 1, hp: int = 2, cost: int = 1,
 func _player() -> PlayerState:
 	return PlayerState.new(0, false)
 
-func _sm_with_inst(uid: String, inst: Dictionary) -> Node:
-	var sm: Node = SaveManagerScript.new()
+func _sm_with_inst(uid: String, inst: Dictionary) -> SaveManagerScript:
+	var sm := SaveManagerScript.new()
 	sm.owned_cards.append(inst)
 	sm._uid_index[uid] = inst
 	return sm
@@ -178,14 +178,14 @@ func test_build_deck_clears_previous_deck() -> void:
 
 func test_record_veterancy_accumulates_kills() -> void:
 	var inst: Dictionary = _ghost_inst("v-uid", 1, 2, 1, 3, 0)
-	var sm: Node = _sm_with_inst("v-uid", inst)
+	var sm: SaveManagerScript = _sm_with_inst("v-uid", inst)
 	sm.record_veterancy("v-uid", 5, false)
 	assert_eq(int(inst.get("kills", 0)), 8)
 	sm.free()
 
 func test_record_veterancy_accumulates_kills_twice() -> void:
 	var inst: Dictionary = _ghost_inst("v-uid2", 1, 2, 1, 0, 0)
-	var sm: Node = _sm_with_inst("v-uid2", inst)
+	var sm: SaveManagerScript = _sm_with_inst("v-uid2", inst)
 	sm.record_veterancy("v-uid2", 3, false)
 	sm.record_veterancy("v-uid2", 7, false)
 	assert_eq(int(inst.get("kills", 0)), 10)
@@ -197,14 +197,14 @@ func test_record_veterancy_accumulates_kills_twice() -> void:
 
 func test_record_veterancy_increments_survived_when_true() -> void:
 	var inst: Dictionary = _ghost_inst("s-uid", 1, 2, 1, 0, 2)
-	var sm: Node = _sm_with_inst("s-uid", inst)
+	var sm: SaveManagerScript = _sm_with_inst("s-uid", inst)
 	sm.record_veterancy("s-uid", 0, true)
 	assert_eq(int(inst.get("battles_survived", 0)), 3)
 	sm.free()
 
 func test_record_veterancy_does_not_increment_survived_when_false() -> void:
 	var inst: Dictionary = _ghost_inst("s-uid2", 1, 2, 1, 0, 5)
-	var sm: Node = _sm_with_inst("s-uid2", inst)
+	var sm: SaveManagerScript = _sm_with_inst("s-uid2", inst)
 	sm.record_veterancy("s-uid2", 0, false)
 	assert_eq(int(inst.get("battles_survived", 0)), 5)
 	sm.free()
@@ -214,14 +214,14 @@ func test_record_veterancy_does_not_increment_survived_when_false() -> void:
 # ---------------------------------------------------------------------------
 
 func test_record_veterancy_noop_for_unknown_uid() -> void:
-	var sm: Node = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.record_veterancy("does-not-exist", 10, true)
 	assert_eq(sm.owned_cards.size(), 0)
 	sm.free()
 
 func test_record_veterancy_marks_dirty_on_hit() -> void:
 	var inst: Dictionary = _ghost_inst("d-uid")
-	var sm: Node = _sm_with_inst("d-uid", inst)
+	var sm: SaveManagerScript = _sm_with_inst("d-uid", inst)
 	sm.record_veterancy("d-uid", 1, true)
 	assert_true(sm._dirty)
 	sm.free()
@@ -232,21 +232,21 @@ func test_record_veterancy_marks_dirty_on_hit() -> void:
 
 func test_set_card_custom_name_stores_name() -> void:
 	var inst: Dictionary = _ghost_inst("cn-uid")
-	var sm: Node = _sm_with_inst("cn-uid", inst)
+	var sm: SaveManagerScript = _sm_with_inst("cn-uid", inst)
 	sm.set_card_custom_name("cn-uid", "Sir Bones")
 	assert_eq(str(inst.get("custom_name", "")), "Sir Bones")
 	sm.free()
 
 func test_set_card_custom_name_trims_whitespace() -> void:
 	var inst: Dictionary = _ghost_inst("cn-uid2")
-	var sm: Node = _sm_with_inst("cn-uid2", inst)
+	var sm: SaveManagerScript = _sm_with_inst("cn-uid2", inst)
 	sm.set_card_custom_name("cn-uid2", "  Spooky  ")
 	assert_eq(str(inst.get("custom_name", "")), "Spooky")
 	sm.free()
 
 func test_set_card_custom_name_truncates_at_24() -> void:
 	var inst: Dictionary = _ghost_inst("cn-uid3")
-	var sm: Node = _sm_with_inst("cn-uid3", inst)
+	var sm: SaveManagerScript = _sm_with_inst("cn-uid3", inst)
 	sm.set_card_custom_name("cn-uid3", "ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 	assert_eq(str(inst.get("custom_name", "")).length(), 24)
 	sm.free()
@@ -254,20 +254,20 @@ func test_set_card_custom_name_truncates_at_24() -> void:
 func test_set_card_custom_name_empty_clears() -> void:
 	var inst: Dictionary = _ghost_inst("cn-uid4")
 	inst["custom_name"] = "Old Name"
-	var sm: Node = _sm_with_inst("cn-uid4", inst)
+	var sm: SaveManagerScript = _sm_with_inst("cn-uid4", inst)
 	sm.set_card_custom_name("cn-uid4", "")
 	assert_eq(str(inst.get("custom_name", "")), "")
 	sm.free()
 
 func test_set_card_custom_name_noop_for_unknown_uid() -> void:
-	var sm: Node = SaveManagerScript.new()
+	var sm := SaveManagerScript.new()
 	sm.set_card_custom_name("nope", "Ghost")
 	assert_eq(sm.owned_cards.size(), 0)
 	sm.free()
 
 func test_set_card_custom_name_marks_dirty() -> void:
 	var inst: Dictionary = _ghost_inst("cn-uid5")
-	var sm: Node = _sm_with_inst("cn-uid5", inst)
+	var sm: SaveManagerScript = _sm_with_inst("cn-uid5", inst)
 	sm.set_card_custom_name("cn-uid5", "Named")
 	assert_true(sm._dirty)
 	sm.free()

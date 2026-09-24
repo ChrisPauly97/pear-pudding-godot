@@ -12,17 +12,17 @@ const WorldMapScript = preload("res://game_logic/world/WorldMap.gd")
 const SEED_WITH_SECRET: int = 12345
 
 
-func _gen(seed_val: int) -> RefCounted:
+func _gen(seed_val: int) -> WorldMapScript:
 	return DungeonGen.generate("test_dungeon_%d" % seed_val, seed_val)
 
 
 func test_generate_returns_world_map() -> void:
-	var map: RefCounted = _gen(SEED_WITH_SECRET)
+	var map: WorldMapScript = _gen(SEED_WITH_SECRET)
 	assert_true(map != null, "generate() should return a WorldMap")
 
 
 func test_dungeon_has_five_rooms_worth_of_tiles() -> void:
-	var map: RefCounted = _gen(SEED_WITH_SECRET)
+	var map: WorldMapScript = _gen(SEED_WITH_SECRET)
 	# At least one TILE_GRASS tile should exist (rooms are carved)
 	var grass_count: int = 0
 	for tz in range(DungeonGen.DH):
@@ -36,7 +36,7 @@ func test_secret_room_uses_tile_cracked() -> void:
 	# Run many seeds to find one that produces a secret room
 	var found_cracked: bool = false
 	for seed_val in [12345, 100, 200, 300, 400, 500, 9999, 77777]:
-		var map: RefCounted = _gen(seed_val)
+		var map: WorldMapScript = _gen(seed_val)
 		for tz in range(DungeonGen.DH):
 			for tx in range(DungeonGen.DW):
 				if map.get_tile(tx, tz) == IsoConst.TILE_CRACKED:
@@ -51,7 +51,7 @@ func test_secret_room_uses_tile_cracked() -> void:
 
 func test_cracked_tile_is_adjacent_to_grass() -> void:
 	for seed_val in [12345, 100, 200, 300, 400, 500, 9999, 77777]:
-		var map: RefCounted = _gen(seed_val)
+		var map: WorldMapScript = _gen(seed_val)
 		for tz in range(1, DungeonGen.DH - 1):
 			for tx in range(1, DungeonGen.DW - 1):
 				if map.get_tile(tx, tz) == IsoConst.TILE_CRACKED:
@@ -68,18 +68,19 @@ func test_cracked_tile_is_adjacent_to_grass() -> void:
 
 func test_secret_room_chest_has_dsr_prefix() -> void:
 	for seed_val in [12345, 100, 200, 300, 400, 500, 9999, 77777]:
-		var map: RefCounted = _gen(seed_val)
+		var map: WorldMapScript = _gen(seed_val)
 		for chest in map.chests:
 			var cid: String = str(chest.get("id", ""))
 			if cid.begins_with("dsr_"):
-				assert_true(chest.get("card_ids", []).size() >= 1,
+				var card_ids: Array = chest.get("card_ids", [])
+				assert_true(card_ids.size() >= 1,
 					"secret room chest should have at least 1 card")
 				return
 
 
 func test_secret_room_chest_not_opened_initially() -> void:
 	for seed_val in [12345, 100, 200, 300, 400, 500, 9999, 77777]:
-		var map: RefCounted = _gen(seed_val)
+		var map: WorldMapScript = _gen(seed_val)
 		for chest in map.chests:
 			if str(chest.get("id", "")).begins_with("dsr_"):
 				assert_false(bool(chest.get("opened", false)),
@@ -88,8 +89,8 @@ func test_secret_room_chest_not_opened_initially() -> void:
 
 
 func test_dungeon_determinism_same_seed() -> void:
-	var map1: RefCounted = _gen(SEED_WITH_SECRET)
-	var map2: RefCounted = _gen(SEED_WITH_SECRET)
+	var map1: WorldMapScript = _gen(SEED_WITH_SECRET)
+	var map2: WorldMapScript = _gen(SEED_WITH_SECRET)
 	# Both maps should have identical tile at center
 	var cx: int = DungeonGen.DW / 2
 	var cz: int = DungeonGen.DH / 2
@@ -106,8 +107,8 @@ func test_dungeon_determinism_same_seed() -> void:
 ## purely on those string ids. This asserts the full property, not just a sample.
 func test_dungeon_determinism_full_grid_and_entity_ids() -> void:
 	var seed_val: int = 54321
-	var map1: RefCounted = DungeonGen.generate("det_test_a_%d" % seed_val, seed_val)
-	var map2: RefCounted = DungeonGen.generate("det_test_b_%d" % seed_val, seed_val)
+	var map1: WorldMapScript = DungeonGen.generate("det_test_a_%d" % seed_val, seed_val)
+	var map2: WorldMapScript = DungeonGen.generate("det_test_b_%d" % seed_val, seed_val)
 
 	# Full tile grid equality (every tile, not just the center sample).
 	for tz in range(DungeonGen.DH):
@@ -158,8 +159,8 @@ func test_dungeon_determinism_full_grid_and_entity_ids() -> void:
 
 
 func test_dungeon_different_seeds_differ() -> void:
-	var map1: RefCounted = _gen(11111)
-	var map2: RefCounted = _gen(99999)
+	var map1: WorldMapScript = _gen(11111)
+	var map2: WorldMapScript = _gen(99999)
 	# It's extremely unlikely two different seeds produce identical chest counts AND
 	# identical player spawn coordinates, so check at least one differs.
 	var same_spawn: bool = (map1.player_spawn_x == map2.player_spawn_x and
@@ -171,7 +172,7 @@ func test_dungeon_different_seeds_differ() -> void:
 
 func test_end_room_always_has_exit_door() -> void:
 	for seed_val in [12345, 11111, 22222, 99999]:
-		var map: RefCounted = _gen(seed_val)
+		var map: WorldMapScript = _gen(seed_val)
 		var has_exit: bool = false
 		for door in map.doors:
 			if str(door.get("id", "")) == "exit":
@@ -182,7 +183,7 @@ func test_end_room_always_has_exit_door() -> void:
 
 func test_player_spawn_within_dungeon_bounds() -> void:
 	for seed_val in [12345, 11111, 22222]:
-		var map: RefCounted = _gen(seed_val)
+		var map: WorldMapScript = _gen(seed_val)
 		var max_world: float = float(DungeonGen.DW) * IsoConst.TILE_SIZE
 		assert_true(map.player_spawn_x >= 0.0 and map.player_spawn_x < max_world,
 			"player spawn X should be within dungeon bounds")

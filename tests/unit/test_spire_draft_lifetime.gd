@@ -14,6 +14,9 @@
 ## predicate both the fix and the exit-door guard hang off.
 extends "res://tests/framework/test_case.gd"
 
+# The field is typed as the draft scene, so a plain Node stand-in is rejected.
+const _SpireDraftScene = preload("res://scenes/ui/SpireDraftScene.gd")
+
 var _saved_draft_overlay: Variant = null
 
 func before_each() -> void:
@@ -27,7 +30,7 @@ func test_draft_open_is_false_when_no_overlay() -> void:
 	assert_false(SceneManager.is_spire_draft_open())
 
 func test_draft_open_is_true_for_a_live_overlay() -> void:
-	var overlay := Node.new()
+	var overlay := _SpireDraftScene.new()
 	SceneManager._spire_draft_overlay = overlay
 	assert_true(SceneManager.is_spire_draft_open())
 	SceneManager._spire_draft_overlay = null
@@ -36,7 +39,7 @@ func test_draft_open_is_true_for_a_live_overlay() -> void:
 func test_draft_open_is_false_for_a_freed_overlay() -> void:
 	# A plain `!= null` check reports true for a freed instance and then errors on
 	# the next method call — this must go through is_instance_valid.
-	var stale := Node.new()
+	var stale := _SpireDraftScene.new()
 	SceneManager._spire_draft_overlay = stale
 	stale.free()
 	assert_false(SceneManager.is_spire_draft_open(), "a freed overlay must not count as open")

@@ -130,7 +130,7 @@ func update_status_icons_card(hbox: HBoxContainer, card: CardInstance) -> void:
 func update_status_icons_hero(hbox: HBoxContainer, hero: HeroState) -> void:
 	_update_status_icons_impl(hbox, hero)
 
-func _update_status_icons_impl(hbox: HBoxContainer, entity) -> void:
+func _update_status_icons_impl(hbox: HBoxContainer, entity: Object) -> void:
 	for child in hbox.get_children():
 		child.queue_free()
 	var effects: Array[String] = ["poison", "armor", "freeze", "stun"]
@@ -138,10 +138,11 @@ func _update_status_icons_impl(hbox: HBoxContainer, entity) -> void:
 	var abbrevs: Array[String] = ["P", "A", "F", "S"]
 	var icon_sz: int = _font(0.022)
 	for i in range(effects.size()):
-		if not entity.has_status(effects[i]):
+		if not entity.call("has_status", effects[i]):
 			continue
 		var lbl := Label.new()
-		lbl.text = "%s%d" % [abbrevs[i], entity.get_status_value(effects[i])]
+		var status_value: int = entity.call("get_status_value", effects[i])
+		lbl.text = "%s%d" % [abbrevs[i], status_value]
 		lbl.add_theme_color_override("font_color", colors[i])
 		lbl.add_theme_font_size_override("font_size", icon_sz)
 		hbox.add_child(lbl)

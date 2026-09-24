@@ -8,6 +8,7 @@ extends Node
 const _WorldScene = preload("res://scenes/world/WorldScene.gd")
 const EnemyRegistry = preload("res://autoloads/EnemyRegistry.gd")
 const _EnemyScene = preload("res://scenes/world/entities/EnemyNPC.tscn")
+const _EnemyNPC = preload("res://scenes/world/entities/EnemyNPC.gd")
 const _SiegeDefs = preload("res://game_logic/SiegeDefs.gd")
 const _UiUtil = preload("res://scenes/ui/UiUtil.gd")
 
@@ -57,7 +58,7 @@ func _spawn_raiders(p_map_name: String, stage: int) -> void:
 		var wx: float = gate.x + RAIDER_OFFSETS[i].x
 		var wz: float = gate.z + RAIDER_OFFSETS[i].y
 		var raider_id: String = "siege_raider_%d_%d" % [stage, i]
-		var node: Node3D = _EnemyScene.instantiate() as Node3D
+		var node: _EnemyNPC = _EnemyScene.instantiate() as _EnemyNPC
 		node.position = Vector3(wx, _world.get_terrain_height(wx, wz) + 0.5, wz)
 		# BID-041: the enemy type must go through init_from_data — EnemyNPC has
 		# no `enemy_type` property, so setting one silently spawned undead_basic.

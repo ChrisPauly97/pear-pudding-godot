@@ -14,6 +14,8 @@
 ## register new files here. Add a test file and it runs automatically.
 extends SceneTree
 
+const _TestCase = preload("res://tests/framework/test_case.gd")
+
 
 func _initialize() -> void:
 	var total_pass := 0
@@ -41,7 +43,7 @@ func _initialize() -> void:
 			print("  [SKIP] %s (compile error or missing dependency)" % fname)
 			total_fail += 1
 			continue
-		var suite = suite_script.new()
+		var suite: _TestCase = suite_script.new()
 		var suite_name: String = suite.get_suite_name()
 		print("  Suite: %s" % suite_name)
 		suite.run_all()

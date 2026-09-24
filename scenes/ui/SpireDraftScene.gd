@@ -18,7 +18,7 @@ signal picked(card_id: String)
 const SpireDraft = preload("res://game_logic/spire/SpireDraft.gd")
 
 var _floor_number: int = 1
-var _draft_logic: RefCounted = null
+var _draft_logic: SpireDraft = null
 
 # Co-op alternating draft (GID-106 / TID-390). _is_coop gates the single-player
 # persistence side effects in _on_pick (the co-op grant path is

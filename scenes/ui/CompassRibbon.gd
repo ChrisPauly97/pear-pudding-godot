@@ -128,7 +128,8 @@ func _process(delta: float) -> void:
 	_marker_positions.clear()
 	for id: String in _markers:
 		var entry: Dictionary = _markers[id]
-		var raw: Variant = entry["get_pos"].call()
+		var get_pos: Callable = entry["get_pos"]
+		var raw: Variant = get_pos.call()
 		if raw == null:
 			continue
 		var target: Vector3 = raw as Vector3

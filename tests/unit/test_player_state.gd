@@ -32,7 +32,7 @@ func _player(pid: int = 0, ai: bool = false) -> PlayerState:
 
 
 func _player_with_deck(size: int = 6, card_cost: int = 1) -> PlayerState:
-	var p = _player()
+	var p: PlayerState = _player()
 	for _i in range(size):
 		p.draw_deck.append(_card(card_cost))
 	return p
@@ -76,39 +76,39 @@ func test_new_player_board_is_empty() -> void:
 # ---------------------------------------------------------------------------
 
 func test_draw_card_moves_card_to_hand() -> void:
-	var p = _player_with_deck(3)
+	var p: PlayerState = _player_with_deck(3)
 	p.draw_card()
 	assert_eq(p.hand.size(), 1)
 
 
 func test_draw_card_reduces_deck_size() -> void:
-	var p = _player_with_deck(3)
+	var p: PlayerState = _player_with_deck(3)
 	p.draw_card()
 	assert_eq(p.draw_deck.size(), 2)
 
 
 func test_draw_card_returns_the_drawn_card() -> void:
-	var p = _player_with_deck(1)
+	var p: PlayerState = _player_with_deck(1)
 	var c = p.draw_card()
 	assert_not_null(c)
 	assert_has(p.hand, c)
 
 
 func test_draw_card_returns_null_when_no_cards() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	var c = p.draw_card()
 	assert_null(c)
 
 
 func test_draw_card_on_empty_deck_deals_fatigue_damage() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.draw_card()  # fatigue_counter becomes 1, hero takes 1 damage
 	assert_eq(p.hero.health, 29, "first fatigue draw should deal 1 damage")
 	assert_eq(p.fatigue_counter, 1)
 
 
 func test_draw_card_multiple_times_empties_deck_into_hand() -> void:
-	var p = _player_with_deck(4)
+	var p: PlayerState = _player_with_deck(4)
 	for _i in range(4):
 		p.draw_card()
 	assert_eq(p.hand.size(), 4)
@@ -120,19 +120,19 @@ func test_draw_card_multiple_times_empties_deck_into_hand() -> void:
 # ---------------------------------------------------------------------------
 
 func test_draw_opening_hand_draws_four_cards_by_default() -> void:
-	var p = _player_with_deck(8)
+	var p: PlayerState = _player_with_deck(8)
 	p.draw_opening_hand()
 	assert_eq(p.hand.size(), 4)
 
 
 func test_draw_opening_hand_accepts_custom_count() -> void:
-	var p = _player_with_deck(8)
+	var p: PlayerState = _player_with_deck(8)
 	p.draw_opening_hand(3)
 	assert_eq(p.hand.size(), 3)
 
 
 func test_draw_opening_hand_reduces_deck_accordingly() -> void:
-	var p = _player_with_deck(8)
+	var p: PlayerState = _player_with_deck(8)
 	p.draw_opening_hand(4)
 	assert_eq(p.draw_deck.size(), 4)
 
@@ -142,7 +142,7 @@ func test_draw_opening_hand_reduces_deck_accordingly() -> void:
 # ---------------------------------------------------------------------------
 
 func test_can_play_when_mana_equals_cost() -> void:
-	var p = _player_with_deck(1, 1)
+	var p: PlayerState = _player_with_deck(1, 1)
 	p.hero.gain_mana_for_turn(3)
 	var c = _card(3)
 	p.hand.append(c)
@@ -150,7 +150,7 @@ func test_can_play_when_mana_equals_cost() -> void:
 
 
 func test_cannot_play_when_insufficient_mana() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(1)
 	var c = _card(5)
 	p.hand.append(c)
@@ -158,7 +158,7 @@ func test_cannot_play_when_insufficient_mana() -> void:
 
 
 func test_cannot_play_when_board_is_full() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(10)
 	# Fill the board
 	for i in range(ZoneState.SLOT_COUNT):
@@ -173,7 +173,7 @@ func test_cannot_play_when_board_is_full() -> void:
 # ---------------------------------------------------------------------------
 
 func test_play_card_removes_from_hand() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(5)
 	var c = _card(1)
 	p.hand.append(c)
@@ -182,7 +182,7 @@ func test_play_card_removes_from_hand() -> void:
 
 
 func test_play_card_adds_to_board() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(5)
 	var c = _card(1)
 	p.hand.append(c)
@@ -191,7 +191,7 @@ func test_play_card_adds_to_board() -> void:
 
 
 func test_play_card_spends_mana() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(5)
 	var c = _card(3)
 	p.hand.append(c)
@@ -200,7 +200,7 @@ func test_play_card_spends_mana() -> void:
 
 
 func test_play_card_returns_true_on_success() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(5)
 	var c = _card(1)
 	p.hand.append(c)
@@ -208,7 +208,7 @@ func test_play_card_returns_true_on_success() -> void:
 
 
 func test_play_card_returns_false_when_cannot_play() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(1)
 	var c = _card(5)
 	p.hand.append(c)
@@ -216,7 +216,7 @@ func test_play_card_returns_false_when_cannot_play() -> void:
 
 
 func test_play_card_does_not_modify_hand_on_failure() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(1)
 	var c = _card(5)
 	p.hand.append(c)
@@ -229,7 +229,7 @@ func test_play_card_does_not_modify_hand_on_failure() -> void:
 # ---------------------------------------------------------------------------
 
 func test_start_turn_refills_mana() -> void:
-	var p = _player_with_deck(2)
+	var p: PlayerState = _player_with_deck(2)
 	p.hero.gain_mana_for_turn(5)
 	p.hero.mana = 0
 	p.start_turn(5)
@@ -237,14 +237,14 @@ func test_start_turn_refills_mana() -> void:
 
 
 func test_start_turn_draws_one_card() -> void:
-	var p = _player_with_deck(4)
+	var p: PlayerState = _player_with_deck(4)
 	var hand_before: int = p.hand.size()
 	p.start_turn(1)
 	assert_eq(p.hand.size(), hand_before + 1)
 
 
 func test_start_turn_clears_summoning_sickness_on_board() -> void:
-	var p = _player_with_deck(2)
+	var p: PlayerState = _player_with_deck(2)
 	var c = _card()
 	p.board.add_card(c)
 	p.start_turn(1)
@@ -256,7 +256,7 @@ func test_start_turn_clears_summoning_sickness_on_board() -> void:
 # ---------------------------------------------------------------------------
 
 func test_play_card_at_slot_places_card_in_target_slot() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(5)
 	var c = _card(1)
 	p.hand.append(c)
@@ -265,7 +265,7 @@ func test_play_card_at_slot_places_card_in_target_slot() -> void:
 
 
 func test_play_card_at_slot_removes_from_hand() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(5)
 	var c = _card(1)
 	p.hand.append(c)
@@ -274,7 +274,7 @@ func test_play_card_at_slot_removes_from_hand() -> void:
 
 
 func test_play_card_at_slot_returns_false_when_occupied() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(5)
 	var c1 = _card(1)
 	var c2 = _card(1)
@@ -285,7 +285,7 @@ func test_play_card_at_slot_returns_false_when_occupied() -> void:
 
 
 func test_play_card_at_slot_consumes_enhancement_atk_bonus() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(5)
 	p.board.enhance_slot(1, "atk_bonus", 3)
 	var c = _card(1, 2, 3)
@@ -295,7 +295,7 @@ func test_play_card_at_slot_consumes_enhancement_atk_bonus() -> void:
 
 
 func test_play_card_at_slot_consumes_enhancement_shroud() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(5)
 	p.board.enhance_slot(0, "shroud", 1)
 	var c = _card(1)
@@ -305,7 +305,7 @@ func test_play_card_at_slot_consumes_enhancement_shroud() -> void:
 
 
 func test_play_card_at_slot_clears_enhancement_after_use() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(5)
 	p.board.enhance_slot(2, "atk_bonus", 2)
 	var c = _card(1)
@@ -319,11 +319,11 @@ func test_play_card_at_slot_clears_enhancement_after_use() -> void:
 # ---------------------------------------------------------------------------
 
 func test_board_enhancements_survive_round_trip() -> void:
-	var p = _player()
+	var p: PlayerState = _player()
 	p.hero.gain_mana_for_turn(5)
 	p.board.enhance_slot(1, "atk_bonus", 2)
 	var d: Dictionary = p.to_dict()
-	var p2 = _player()
+	var p2: PlayerState = _player()
 	p2.from_dict(d)
 	var enh: Dictionary = p2.board.get_slot_enhancement(1)
 	assert_eq(str(enh.get("type", "")), "atk_bonus")

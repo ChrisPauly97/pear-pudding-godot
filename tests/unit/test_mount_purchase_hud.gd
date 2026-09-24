@@ -14,7 +14,7 @@ const MOUNT_LEVEL_REQ: int = _Mounts.LEVEL_REQ
 
 var _mount_price: int = _Mounts.price()
 
-var _sm: Node
+var _sm: SaveManagerScript
 
 func before_each() -> void:
 	_sm = SaveManagerScript.new()
